@@ -401,6 +401,32 @@ def test_an_unchanged_new_version_inherits_the_hold_and_a_changed_one_supersedes
     assert _open_cards(db, sig) == []
 
 
+def test_not_a_defect_releases_a_carried_hold_but_not_another_incidents_hold():
+    a, _b = _cirs()
+    db = _db(a)
+    for n in range(3):
+        _case(db, a, n)
+    _triage(db, "c1")
+    sig = defects.signature(a.slug, a.version, ROW)
+    _add_version(db, a, "9.0.0", certified=True)            # identical CIR: hold carried
+    _triage(db, "c2")
+    assert W.reasons(db, a.slug, "9.0.0")["blocks_publish"] is True
+    # Buyers of 9.0.0 report the same row: its own incident, same hold key.
+    for n in range(30, 33):
+        _case(db, a, n, version="9.0.0")
+    _triage(db, "c3")
+    sig9 = defects.signature(a.slug, "9.0.0", ROW)
+    assert sig9 in [i[0] for i in _open(db)], _incidents(db)
+    defects.record_owner_decision(db, _incident_id(db, sig), "not_a_defect",
+                                  "the original reports were a misread stitch key")
+    assert W.reasons(db, a.slug, a.version)["withheld"] is False
+    # 9.0.0 stays held: its own incident is still open on the same row.
+    assert W.reasons(db, a.slug, "9.0.0")["blocks_publish"] is True
+    defects.record_owner_decision(db, _incident_id(db, sig9), "not_a_defect",
+                                  "the same misread; the pattern is correct")
+    assert W.reasons(db, a.slug, "9.0.0")["withheld"] is False   # carried hold released
+
+
 def test_a_lower_version_certified_later_does_not_supersede():
     a, _b = _cirs()
     db = _db(a)

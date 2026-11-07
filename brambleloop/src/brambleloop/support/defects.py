@@ -206,30 +206,43 @@ def on_reverified(db, slug: str, version: str, check: str, ok: bool | None) -> l
 
 
 def release_resolved(db) -> list[str]:
-    """A support-defect incident resolved by anyone (the owner) releases its hold too."""
+    """A support-defect incident resolved by a decision releases its hold on every version it
+    holds: its own and any it was carried to (`carried_to`). Never on a `keep_hold` incident
+    (confirmed, or superseded), and never on a version another OPEN support-defect incident
+    still holds under the same check (the hold key is per row, shared across incidents)."""
     from sqlalchemy import select
 
     from ..core.models import Incident, PatternVersion
     from ..publish import withholding
+
+    def held_versions(d: dict) -> list[str]:
+        return [v for v in [d.get("version"), *(d.get("carried_to") or [])] if v]
 
     released = []
     with db.session() as s:
         rows = [(i.signature, dict(i.detail or {})) for i in s.scalars(select(Incident).where(
             Incident.signature.like(f"{SIGNATURE}%"), Incident.resolved == True))  # noqa: E712
             if i.signature.startswith(SIGNATURE)]
-        open_sigs = {i.signature for i in s.scalars(select(Incident).where(
-            Incident.signature.like(f"{SIGNATURE}%"), Incident.resolved == False))}  # noqa: E712
+        open_rows = [(i.signature, dict(i.detail or {})) for i in s.scalars(select(Incident).where(
+            Incident.signature.like(f"{SIGNATURE}%"), Incident.resolved == False))]  # noqa: E712
+    open_sigs = {sig for sig, _d in open_rows}
+    still_held = {(d.get("slug"), v, d.get("withholding_check"))
+                  for _sig, d in open_rows for v in held_versions(d)}
     for sig, d in rows:
-        slug, version, hold = d.get("slug"), d.get("version"), d.get("withholding_check")
-        if not (slug and version and hold) or sig in open_sigs or d.get("keep_hold"):
+        slug, hold = d.get("slug"), d.get("withholding_check")
+        if not (slug and hold) or sig in open_sigs or d.get("keep_hold"):
             continue
-        with db.session() as s:
-            pv = withholding._release(s, slug, version)
-            failed = dict((pv.certificate or {}).get(withholding.REVERIFY_FAILED) or {}) \
-                if isinstance(pv, PatternVersion) else {}
-        if hold in failed:
-            withholding.record_reverification(db, slug, version, check=hold, problem=None)
-            released.append(sig)
+        for version in held_versions(d):
+            if (slug, version, hold) in still_held:
+                continue
+            with db.session() as s:
+                pv = withholding._release(s, slug, version)
+                failed = dict((pv.certificate or {}).get(withholding.REVERIFY_FAILED) or {}) \
+                    if isinstance(pv, PatternVersion) else {}
+            if hold in failed:
+                withholding.record_reverification(db, slug, version, check=hold, problem=None)
+                if sig not in released:
+                    released.append(sig)
     return released
 
 
