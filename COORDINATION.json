@@ -1318,12 +1318,6 @@
         "note": "awaiting opus2 green regression + REVIEW-REQUEST"
       },
       {
-        "id": "PORTFOLIO-D1-QUEUED",
-        "subject": "opus2/p0-portfolio-act ad351e46 (delta from f3bea437)",
-        "started": null,
-        "requested_by": "#28 6703009305"
-      },
-      {
         "id": "V4-QUEUED",
         "subject": "opus2/v4-scene-references 86cf2a36",
         "started": null,
@@ -1340,6 +1334,19 @@
         "subject": "c3a7b93a + codex/a1-waist-drawcord-unknown 4800b597 + codex/a1-whole-toy-fit 2af2a48e merged on w6-INTEG1",
         "report": "scratchpad/INDEPENDENT_REVIEW_A1_FULL.md",
         "started": "2026-11-07T07:50:39Z"
+      },
+      {
+        "id": "PORTFOLIO-FO-QUEUED",
+        "subject": "opus2/p0-portfolio-act-fo d564a059 (on fix-only 9e8665c3)",
+        "started": null,
+        "note": "after fix-only 9e8665c3 verdict",
+        "requested_by": "#28 6704258374"
+      },
+      {
+        "id": "STOREFRONT-FO-QUEUED",
+        "subject": "opus2/p0-storefront-asset-fix-fo (rebasing onto 9e8665c3)",
+        "started": null,
+        "requested_by": "#28 6703959737"
       }
     ]
   },
