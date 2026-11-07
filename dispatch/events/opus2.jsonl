@@ -68,3 +68,4 @@
 {"at": "2026-11-07T05:50:02Z", "worker": "opus2", "assignment": "V4", "event": "review_requested", "sha": "86cf2a36", "note": "#28 review request; regression green"}
 {"at": "2026-11-07T05:50:05Z", "worker": "opus2", "assignment": "V5", "event": "review_requested", "sha": "295474c6", "note": "#28 review request; regression green"}
 {"at": "2026-11-07T07:10:33Z", "worker": "opus2", "assignment": "P0-PHYSICAL-TEST-REQUEST", "event": "review_requested", "sha": "d697d093", "note": "44 suites (owner_queue_race load timeout; passes clean); 6/6 focused, 9 mutants killed"}
+{"at": "2026-11-07T07:18:42Z", "worker": "opus2", "assignment": "V2", "event": "review_requested", "sha": "25a41a7c", "note": "fixes 1688b97f F1-F7,F10; 10 mutants killed; 13/13"}
