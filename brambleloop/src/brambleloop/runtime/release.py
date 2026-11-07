@@ -2108,7 +2108,7 @@ def without_fix_only(inputs: dict | None) -> dict:
 
 
 def _fix_only_candidate(ctx: JobContext, slug: str, version: str, *, copy, choice, props,
-                        attributes, blocking: list | None = None) -> dict | None:
+                        attributes, blocking: list) -> dict | None:
     """W6 FIX-ONLY (review 6cbc08e6 F2-F4): a remediation changes only an existing DRAFT.
 
     When the release's listing row is live, or exists in any state other than `draft` (for
@@ -2131,29 +2131,59 @@ def _fix_only_candidate(ctx: JobContext, slug: str, version: str, *, copy, choic
                  "taxonomy": choice.to_dict() if hasattr(choice, "to_dict") else choice,
                  "properties": list((props or {}).get("payload") or []),
                  "attributes": attributes}
-    rejected = [str(b) for b in (blocking or [])]
+    if blocking is None:
+        raise TypeError("_fix_only_candidate needs the gate's blocking list (review a5781649 R2)")
+    import hashlib
+    import json as _json
+
+    rejected = [str(b) for b in blocking]
+    # Review a5781649 R1: the owner card names one exact candidate, never "the newest audit",
+    # so a later run's refused candidate can never be mistaken for the one the card offers.
+    candidate_sha = hashlib.sha256(_json.dumps(candidate, sort_keys=True, default=str)
+                                   .encode()).hexdigest()[:16]
     ctx.audit("listing.fix_candidate", artifact=f"{slug}@{version}", detail={
         "live": live, "state": state, "etsy_listing_id": etsy, "applied": False,
-        "candidate": candidate, "rejected": rejected[:20]})
+        "candidate": candidate, "candidate_sha": candidate_sha, "rejected": rejected[:20]})
+    key = f"listing.live_update:{slug}@{version}"[:200]
     if rejected:
-        # Review 9e8665c3 N2: a candidate the gates refuse is never put to the owner.
+        # Review 9e8665c3 N2: a candidate the gates refuse is never put to the owner. Review
+        # a5781649 R1: an open card from an earlier run is WITHDRAWN, not left standing. The
+        # refused copy may be byte-identical to the one the card offers (the gates, not the
+        # copy, changed), so no earlier candidate is offered once a newer run is refused; the
+        # next passing run raises a fresh card naming its own candidate.
+        from sqlalchemy import select as _select
+
+        from ..core.models import OwnerAction
+        from ..ops import owner_queue
+
+        with ctx.db.session() as s:
+            for card in s.scalars(_select(OwnerAction).where(
+                    OwnerAction.requirement_key == key,
+                    OwnerAction.done == False)):  # noqa: E712
+                owner_queue.close(card, owner_queue.WITHDRAWN,
+                                  f"a newer fix-only candidate {candidate_sha} was refused by "
+                                  f"the listing gates ({'; '.join(rejected[:3])[:300]}); no "
+                                  f"candidate is offered until one passes")
         ctx.audit("chain.fix_only_stopped", artifact=f"{slug}@{version}",
                   detail={"stopped_before": "listing persistence", "live": live,
-                          "state": state, "rejected": rejected[:5]})
+                          "state": state, "candidate_sha": candidate_sha,
+                          "rejected": rejected[:5]})
         return {"slug": slug, "version": version, "ok": False, "candidate_only": True,
-                "live": live, "state": state, "blocking": rejected}
+                "live": live, "state": state, "blocking": rejected,
+                "candidate_sha": candidate_sha}
     if live:
         from ..ops import owner_queue
 
         with ctx.db.session() as s:
             owner_queue.ensure(
-                s, f"listing.live_update:{slug}@{version}"[:200],
+                s, key,
                 action=(f"Compare the rebuilt listing copy for {slug}@{version} with the live "
                         f"Etsy listing {etsy or '(manual)'}: the full candidate (title, tags, "
-                        f"description, taxonomy, properties) is in the newest audit "
-                        f"'listing.fix_candidate' for {slug}@{version} in the Command Center. "
-                        f"If it is better, apply it in Shop Manager; the system never edits a "
-                        f"live listing."),
+                        f"description, taxonomy, properties) is the audit "
+                        f"'listing.fix_candidate' for {slug}@{version} with candidate_sha "
+                        f"{candidate_sha} in the Command Center (only that one; it passed the "
+                        f"listing gates). If it is better, apply it in Shop Manager; the system "
+                        f"never edits a live listing."),
                 reason=("a remediation found this live listing's search copy weak and rebuilt "
                         "a candidate; live listings are never changed autonomously"),
                 max_cost_cad=0.0, minutes=10,
@@ -2161,7 +2191,8 @@ def _fix_only_candidate(ctx: JobContext, slug: str, version: str, *, copy, choic
     ctx.audit("chain.fix_only_stopped", artifact=f"{slug}@{version}",
               detail={"stopped_before": "listing persistence", "live": live, "state": state})
     return {"slug": slug, "version": version, "ok": True, "candidate_only": True,
-            "live": live, "state": state, "stopped_before": "launch.plan"}
+            "live": live, "state": state, "stopped_before": "launch.plan",
+            "candidate_sha": candidate_sha}
 
 
 def _is_live(row) -> bool:

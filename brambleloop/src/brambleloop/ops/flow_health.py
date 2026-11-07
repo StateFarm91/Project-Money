@@ -59,7 +59,10 @@ HANDOFFS: dict[str, tuple] = {
     "pricing.position": (lambda o: bool(o.get("price_cad")) and not o.get("refused")
                          and not o.get("stopped"),
                          ("listing.seo",), inv_mod.LISTING_COMPLETED),
-    "listing.seo": (lambda o: o.get("ok") is True, ("launch.plan",), inv_mod.LISTING_COMPLETED),
+    # Review a5781649 / 9e8665c3 N5: a W6 FIX-ONLY remediation stops on purpose before
+    # launch.plan; that is not a stall.
+    "listing.seo": (lambda o: o.get("ok") is True and not o.get("stopped_before"),
+                    ("launch.plan",), inv_mod.LISTING_COMPLETED),
     "launch.plan": (lambda o: not o.get("held") and not o.get("withheld"), ("store.publish",),
                     inv_mod.PUBLISHED),
 }
