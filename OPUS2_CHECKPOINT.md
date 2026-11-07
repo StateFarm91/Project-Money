@@ -1,8 +1,15 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-07T13:15Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-07T15:30Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
+
+## State at 2026-11-07T15:30Z (read first)
+- STOREFRONT review a1331372 (DO NOT SHIP: H1, M1, M2) is fixed at 06a00c91; REVIEW-REQUESTED. A live
+  gallery is never rebuilt (LIVE_WHY). Candidate-set store offered as follow-up after Main's A3 F2.
+- PORTFOLIO review ee5dbeee (DO NOT SHIP: N1) is fixed at fdd077f6; REVIEW-REQUESTED.
+- VISUAL d6b642dd, V6 80765387 and PHYSICAL e8b458b5 are in Main's queue. #7 M-5 is at 49a27769.
+Stop reason: everything is review-requested; waiting on Main.
 
 ## State at 2026-11-07T13:15Z (read first)
 - VISUAL: review 8427e777 was DO NOT SHIP (N1-N5). Fixed on opus2/visual-on-integ1 @ d6b642dd (worktree
