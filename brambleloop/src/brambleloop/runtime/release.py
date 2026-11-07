@@ -604,6 +604,8 @@ def handle_assets_build(ctx: JobContext) -> dict:
     release = ctx.job.inputs.get("release", "")
     token = ctx.job.inputs.get("rebuild", "")
     payload = {"slug": slug, "version": version, "release": release, "rebuild": token,
+               # W6 FIX-ONLY: a remediation rebuild is bounded (see FIX_ONLY below).
+               **({"fix_only": True} if ctx.job.inputs.get("fix_only") else {}),
                "pages": doc.pages,
                "size_label": doc.size_label(),
                "finished_size_cm": list(doc.finished_size_cm) if doc.finished_size_cm else None,
@@ -799,7 +801,8 @@ def handle_pricing_position(ctx: JobContext) -> dict:
     # so a rebuild cannot manufacture a flat history.
     from ..commerce import elasticity
 
-    price_point = elasticity.record_price_set(
+    price_point = {"skipped": "fix_only: no price is applied, so none is recorded"} \
+        if i.get("fix_only") else elasticity.record_price_set(
         ctx.db, product_slug=slug, category=category, price_cad=decision.price_cad,
         season=(seed.season or "evergreen") if seed else "unassigned")
 
@@ -870,7 +873,8 @@ def _price_launch0(ctx: JobContext, i: dict, slug: str, record: dict,
     price = float(launch["price_cad"])
     _vet_promotion(ctx, i, slug, price)
     pricing_mod.check_no_fake_discount(price, None, ever_charged=False)
-    price_point = elasticity.record_price_set(
+    price_point = {"skipped": "fix_only: no price is applied, so none is recorded"} \
+        if i.get("fix_only") else elasticity.record_price_set(
         ctx.db, product_slug=slug, category=record["category"], price_cad=price,
         season="evergreen")
     detail = {"price_cad": price, "net_cad": launch["net_cad_after_fees"],
@@ -1358,7 +1362,8 @@ def handle_listing_seo(ctx: JobContext) -> dict:
               "search_certificate": {k: certificate[k] for k in
                                      ("verdict", "failed", "pending")},
               "classification": classification.to_dict() if classification else None})
-    _persist_listing(ctx, slug, version, copy, coverage.share, i.get("release", ""))
+    _persist_listing(ctx, slug, version, copy, coverage.share, i.get("release", ""),
+                     fix_only=bool(i.get("fix_only")))
     # F-004: the hero is the one search dimension the draft cannot judge. Now that the copy
     # the listing-set certificate checks (the disclosure, the dimensions) is on file, the
     # certified image set is judged and the completed certificate written back with its
@@ -1419,11 +1424,19 @@ def handle_listing_seo(ctx: JobContext) -> dict:
         "catalogue": {k: catalogue.get(k) for k in ("measurable", "listings",
                                                     "concentrated_on", "competing_pairs",
                                                     "stuffing", "required_facets_missing")}})
-    ctx.enqueue("growth", "launch.plan", i,
-                idempotency_key=chain_key("launch", slug, version, i.get("release", ""),
-                                          i.get("rebuild", "")
-                                          + (":evergreen" if evergreen else "")))
+    if i.get("fix_only"):
+        # W6 FIX-ONLY: a remediation rebuild ends at the listing. It never reaches
+        # launch.plan, marketing.schedule or store.publish (FMBATCH1 F-1; reviews PORTFOLIO
+        # f3bea437 F2, STOREFRONT d8b2754b F2).
+        ctx.audit("chain.fix_only_stopped", artifact=f"{slug}@{version}",
+                  detail={"stopped_before": "launch.plan", "rebuild": i.get("rebuild", "")})
+    else:
+        ctx.enqueue("growth", "launch.plan", i,
+                    idempotency_key=chain_key("launch", slug, version, i.get("release", ""),
+                                              i.get("rebuild", "")
+                                              + (":evergreen" if evergreen else "")))
     return {"slug": slug, "version": version, "ok": True, "listing": copy.to_dict(),
+            **({"stopped_before": "launch.plan"} if i.get("fix_only") else {}),
             "attributes": attributes, "search_coverage": coverage.to_dict(),
             "disclosures": disclosure, "query_portfolio": portfolio_reading,
             "search_hero": hero_reading,
@@ -2076,9 +2089,22 @@ def _content_hash(*parts: str) -> str:
     return hashlib.sha256("\x1f".join(p or "" for p in parts).encode()).hexdigest()
 
 
+LIVE_STATES = ("published", "published_manually", "active")
+
+
+def _is_live(row) -> bool:
+    return bool(getattr(row, "etsy_listing_id", "")) or str(row.state or "") in LIVE_STATES
+
+
 def _persist_listing(ctx: JobContext, slug: str, version: str, copy, share: float,
-                     release: str = "") -> None:
-    """Drafted, never published. Shadow mode holds the whole shop ready rather than open."""
+                     release: str = "", *, fix_only: bool = False) -> None:
+    """Drafted, never published. Shadow mode holds the whole shop ready rather than open.
+
+    W6 FIX-ONLY (reviews PORTFOLIO f3bea437 F1/F3, STOREFRONT d8b2754b F1): a remediation
+    rebuild never changes a LIVE listing's local row -- its state, price or copy -- because
+    nothing would carry the change to Etsy and the local row would then misdescribe what
+    buyers see. It records the candidate copy and asks the owner to apply it. On a draft it
+    refreshes the copy but keeps the existing price (no stale-input revert)."""
     from sqlalchemy import select
 
     from ..core.models import Listing
@@ -2087,13 +2113,32 @@ def _persist_listing(ctx: JobContext, slug: str, version: str, copy, share: floa
     with ctx.db.session() as s:
         row = s.scalar(select(Listing).where(Listing.product_slug == slug,
                                              Listing.version == version))
+        if fix_only and row is not None and _is_live(row):
+            ctx.audit("listing.fix_candidate", artifact=f"{slug}@{version}", detail={
+                "live": True, "etsy_listing_id": row.etsy_listing_id, "state": row.state,
+                "candidate": {"title": copy.title, "tags": list(copy.tags),
+                              "description_chars": len(copy.description or "")},
+                "applied": False})
+            from ..ops import owner_queue
+
+            owner_queue.ensure(
+                s, f"listing.live_update:{slug}@{version}"[:200],
+                action=(f"Review the rebuilt listing copy for {slug}@{version} (audit "
+                        f"listing.fix_candidate) and, if it is better, update the live Etsy "
+                        f"listing by hand; the system does not edit live listings."),
+                reason=("a remediation found this live listing's search copy weak and "
+                        "rebuilt a candidate; live listings are never changed autonomously"),
+                max_cost_cad=0.0, minutes=10,
+                consequence_of_delay="the live listing keeps its current copy")
+            return
+        keep_price = row.price_cad if (fix_only and row is not None) else None
         if row is None:
             row = Listing(product_slug=slug, version=version)
             s.add(row)
         row.title = copy.title
         row.description = copy.description
         row.tags = list(copy.tags)
-        row.price_cad = copy.price_cad
+        row.price_cad = copy.price_cad if keep_price is None else keep_price
         row.seo_score = share
         row.state = "draft"
         row.chain_version = CHAIN_VERSION
@@ -2128,6 +2173,11 @@ def _persist_listing(ctx: JobContext, slug: str, version: str, copy, share: floa
 def handle_launch_plan(ctx: JobContext) -> dict:
     i = dict(ctx.job.inputs)
     slug = i["slug"]
+    if i.get("fix_only"):
+        # Backstop: a fix-only chain is never launched or published, whoever enqueued it.
+        ctx.audit("launch.fix_only_refused", artifact=f"{slug}@{i.get('version')}",
+                  detail={"rebuild": i.get("rebuild", "")})
+        return {"slug": slug, "refused": True, "why": "fix_only chains are never launched"}
     seed = _seed_for(slug, ctx.db)
     today = (date.fromisoformat(i["as_of"]) if i.get("as_of") else date.today())
 
