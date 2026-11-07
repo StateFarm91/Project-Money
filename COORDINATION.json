@@ -1205,6 +1205,12 @@
         "subject": "claude/w6-secret-leak-followup 17f63074 (cumulative from 1c4c9211)",
         "report": "scratchpad/INDEPENDENT_REVIEW_W6_SECRET_17f63074.md",
         "started": "2026-11-07T04:30:59Z"
+      },
+      {
+        "id": "W6-SUPPORT-D4",
+        "subject": "claude/w6-support-defect-incident c5cad183 (delta from 785849c0; reviewer started on 1d22cdca, retargeted)",
+        "report": "scratchpad/INDEPENDENT_REVIEW_W6_SUPPORT_1d22cdca.md",
+        "started": "2026-11-07T04:43:49Z"
       }
     ]
   },
