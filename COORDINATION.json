@@ -979,6 +979,21 @@
         "backup_readiness": "volume 4.6G, 1.3G free at 2026-11-02T03:28Z; one ~0.5G dump fits; pruning still owed"
       },
       "status": "awaiting owner exact-SHA approval"
+    },
+    "batch6": {
+      "branch": "claude/w6-INTEG1",
+      "created": "2026-11-07T03:22:00Z",
+      "base": "claude/w5-INTEG1 7c42e706",
+      "head": "1c4c9211",
+      "integrated": [
+        {
+          "item": "P0-SECRET-LEAK-ESCALATE",
+          "sha": "1c4c9211",
+          "review": "SHIP (W6 2026-11-07)",
+          "how": "fast-forward"
+        }
+      ],
+      "ladder": "P0-SECRET-LEAK-ESCALATE: BUILT, REVIEWED, INTEGRATED; not certified"
     }
   },
   "owner_directives": [
@@ -1132,6 +1147,13 @@
         "started": "2026-11-02T22:49:44Z",
         "requested_by": "#28 6590109328",
         "status": "KILLED: reviewer hit the 5h usage limit, then the worker restarted 2026-11-03..07; no report. Relaunch needed (A9 against the current Codex continuation head, not 6ee81c19)."
+      },
+      {
+        "id": "W6-SUPPORT-DELTA",
+        "subject": "claude/w6-support-defect-incident 05961fd0 (delta from 26bac0e9)",
+        "report": "scratchpad/INDEPENDENT_REVIEW_W6_SUPPORT_05961fd0.md",
+        "started": "2026-11-07T03:22:00Z",
+        "requested_by": "Main fix of W6 review HIGH x2 MED x2"
       }
     ]
   },
@@ -2159,6 +2181,13 @@
       "window": "2026-11-02T03:31Z..2026-11-03T03:31Z",
       "verdict": "FAIL",
       "evidence": "every sample in the window 12/13: no_unexpected_dead_letters_in_24h failed; evidence_checks false throughout: publishing_halt_clear, stale_artefacts_rebuilding, no_repeated_paid_call_in_24h, weekly_jobs_completing. Last in-window sample 2026-11-02T22:29Z (final 5h unsampled: Main worker outage). Build unchanged, worker alive, SHADOW held, nothing published, spend within ceilings. 2026-11-07 read is 13/13 only because the dead letters aged out of the 24h window; no fix is deployed. Dead-letter cause and evidence-check causes UNKNOWN without PROD_DIAG_READONLY.sql or the readback token."
+    },
+    {
+      "id": "PF-UNPINNED-STARLETTE",
+      "recorded": "2026-11-07T03:22:00Z",
+      "severity": "MED",
+      "finding": "requirements.txt has fastapi>=0.115 unpinned; a fresh install pulls starlette 1.10.0, whose TestClient requires httpx2 (absent), so TestClient suites (e.g. test_fb4_ops owner-intake route) fail in a fresh container while passing under starlette 1.6.0 (venv-integ4). Certification runs and Railway builds are not reproducible. Fix: pin fastapi/starlette (and httpx) to the certified versions in Batch 6.",
+      "owner": "main"
     }
   ]
 }
