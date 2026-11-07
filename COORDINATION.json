@@ -1089,6 +1089,15 @@
       "verdicts": {
         "opus2/p0-portfolio-act-fo ee5dbeee": "DO NOT SHIP: N1 MED identical SEO candidate re-offered weekly after owner declines (F5 regression via listing.live_update); N2/N3 LOW test gaps (M04, M14, M15 survive); N4-N6 LOW optional. Safety properties hold; F1-F4, F8 fixed."
       }
+    },
+    {
+      "subject": "A6 U3 learning-to-design",
+      "sha": "9f8f336e",
+      "recorded": "2026-11-07T14:02:00Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_A6_U3_9f8f336e.md",
+      "verdicts": {
+        "codex/a6-learning-consumer 9f8f336e": "DO NOT SHIP (no shippable subset): branch handoff itself says do not integrate; F1 HIGH has_pins trusts job-supplied CIR (revise/certify not bound to stored release hash); F2 HIGH retire-vs-certify/publish check-then-act not atomic; test_w5_a6_learning_to_design 2/6 FAIL; A6-1 closed only by disabling the lever (M15 survives, hook hard-coded 5.0mm); F5 MED implementation_digest invalidates every pin on any compiler edit (outage risk); mutants M3/M8/M9/M14/M15 survive. Assigned CODEX."
+      }
     }
   ],
   "integration": {
