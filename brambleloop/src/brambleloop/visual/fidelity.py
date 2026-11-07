@@ -1065,14 +1065,32 @@ def _verdict(checks: list[dict], *, data: bytes, exp: Expectation | None, kind: 
             "reads_generator_claims": False}
 
 
-def verify_anchor(data: bytes, cir, *, judge=None) -> dict:
-    """The product-only, unfolded flat lay against the certified CIR."""
+def verify_anchor(data: bytes, cir, *, judge=None, side: bytes | None = None) -> dict:
+    """The product-only, unfolded flat lay against the certified CIR.
+
+    V2 / P0-c: a vessel cannot be laid flat. Its anchor is a pair: `data` is the top-down
+    view and `side` the side view, both of it standing (`visual.vessel`). Without the side
+    view the vessel's side count, wall stripes and rim cannot be read, so the verdict is
+    UNKNOWN by name rather than the round-piece check, which passes a round or octagonal
+    basket as a hexagon."""
     try:
         exp = expectation(cir)
     except Exception as exc:  # noqa: BLE001 - no expectation, nothing can pass
         return _verdict([_check("expectation", UNKNOWN, f"the CIR cannot be modelled: "
                                                         f"{type(exc).__name__}: {exc}"[:300])],
                         data=data, exp=None, kind="anchor")
+    from . import vessel as _vessel
+
+    if _vessel.is_vessel(cir):
+        if not side:
+            return _verdict([_check(
+                "vessel_views", UNKNOWN,
+                "a vessel is verified from a top-down and a side view of it standing "
+                "(visual.vessel); one image cannot show its side count, wall stripes and rim",
+                code=FC.UNVERIFIABLE_COUNT)], data=data, exp=exp, kind="vessel_anchor")
+        v = _vessel.verify(data, side, cir)
+        checks = list(v["checks"]) + [craft_texture(data, exp, judge)]
+        return _verdict(checks, data=data, exp=exp, kind="vessel_anchor")
     try:
         rgb = _load(data)
     except Exception as exc:  # noqa: BLE001
