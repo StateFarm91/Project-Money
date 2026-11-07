@@ -447,15 +447,23 @@ class ModelGateway:
             # F-307: an answer the job already paid for, replayed after a reclaim or retry.
             # Nothing was sent, so nothing is billed -- and it is not "unknown usage" either.
             return 0, 0, None, "replayed_not_billed"
+        def valid_usage(input_tokens, output_tokens):
+            # Tokens are non-negative integral counts. Missing, fractional, or
+            # negative provider usage is unknown, not a discount or a credit.
+            return (type(input_tokens) is int and type(output_tokens) is int
+                    and input_tokens >= 0 and output_tokens >= 0
+                    and input_tokens + output_tokens > 0)
         if response is not None:
-            in_tok = int(getattr(response, "input_tokens", 0) or 0)
-            out_tok = int(getattr(response, "output_tokens", 0) or 0)
-            if in_tok or out_tok:
+            in_tok = getattr(response, "input_tokens", None)
+            out_tok = getattr(response, "output_tokens", None)
+            if valid_usage(in_tok, out_tok):
                 return in_tok, out_tok, None, "response_usage"
             return 0, 0, estimate, "unknown_usage_counted_at_estimate"
         usage = getattr(exc, "billed_usage", None)
         if usage:
-            return int(usage[0] or 0), int(usage[1] or 0), None, "exception_usage"
+            if isinstance(usage, (list, tuple)) and len(usage) >= 2 and valid_usage(usage[0], usage[1]):
+                return usage[0], usage[1], None, "exception_usage"
+            return 0, 0, estimate, "unknown_usage_counted_at_estimate"
         if isinstance(exc, TimeoutError) or not isinstance(
                 exc, (TransientError, PermanentError, BudgetExceeded)):
             return 0, 0, estimate, "unknown_counted_at_estimate"

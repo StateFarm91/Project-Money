@@ -33,6 +33,7 @@ import os
 import threading
 import time
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -152,6 +153,15 @@ class ProviderUnusable(PermanentError):
     """The key authenticates and the account cannot serve a request."""
 
 
+class VisionGateRefused(ProviderUnusable):
+    """Refused by the owner activation gate (`paid_provider_gate`) before any network I/O.
+    `.code` names the reason (`not_activated_by_owner`, `no_budget_reservation`, ...)."""
+
+    def __init__(self, message: str, code: str = ""):
+        super().__init__(message)
+        self.code = code
+
+
 def provider_for(task_key: str, **kw) -> "AnthropicProvider":
     """A provider on the tier the declared task routes to.
 
@@ -210,7 +220,13 @@ def spent_this_month_cad(db, *, now: datetime | None = None) -> float:
     for row in rows:
         at = row.at if row.at.tzinfo else row.at.replace(tzinfo=timezone.utc)
         if (at.year, at.month) == (now.year, now.month):
-            total += row.amount_cad or 0.0
+            try:
+                amount = float(row.amount_cad)
+            except (TypeError, ValueError, OverflowError):
+                raise BudgetExceeded("company cost ledger has an invalid amount; reconciliation required") from None
+            if not math.isfinite(amount) or amount < 0:
+                raise BudgetExceeded("company cost ledger has an invalid or negative amount; reconciliation required")
+            total += amount
     return round(total, 6)
 
 
@@ -440,9 +456,12 @@ def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str =
     if reserve:
         # F-307: the next paid call in this job scope was allowed on this estimate; if its
         # worker dies mid-call, that is what the orphan is counted at (never zero).
-        from . import paid_calls
+        from . import paid_calls, paid_provider_gate
 
         paid_calls.note_reservation(decided)
+        # P0-PAID-PROVIDER-OWNER-GATE: the accounting evidence a paid vision call in this
+        # context is allowed on (`AnthropicProvider.see` consumes it at the gate).
+        paid_provider_gate.note_budget(db, decided)
     return decided
 
 
@@ -454,6 +473,12 @@ def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str =
 # ceiling is the defect this exists to close.
 BUDGET_LOCK_KEY = 734543611
 _PROCESS_BUDGET_LOCK = threading.RLock()
+_BUDGET_LOCK_ACTIVE: ContextVar[bool] = ContextVar("budget_lock_active", default=False)
+
+
+def budget_lock_held() -> bool:
+    """Whether this execution context already owns a budget transaction."""
+    return _BUDGET_LOCK_ACTIVE.get()
 
 
 def _sqlite_in_memory(engine) -> bool:
@@ -466,22 +491,28 @@ def budget_lock(db):
     """Hold the spend ceiling's lock for one check-and-reserve. Yields the locked session."""
     from sqlalchemy import text
 
+    if budget_lock_held():
+        raise BudgetExceeded("nested budget transaction refused; retry outside the existing lock")
     with _PROCESS_BUDGET_LOCK:
-        with db.session() as session:
-            engine = session.get_bind()
-            dialect = engine.dialect.name
-            if dialect == "postgresql":
-                session.execute(text("SELECT pg_advisory_xact_lock(:key)"),
-                                {"key": BUDGET_LOCK_KEY})
-            elif dialect == "sqlite":
-                if not _sqlite_in_memory(engine):
-                    session.execute(text("BEGIN IMMEDIATE"))
-            else:
-                raise BudgetExceeded(
-                    f"the spend ceiling has no lock for the {dialect!r} dialect, so a check "
-                    f"and its reservation cannot be made atomic. Refused rather than checked "
-                    f"without one")
-            yield session
+        token = _BUDGET_LOCK_ACTIVE.set(True)
+        try:
+            with db.session() as session:
+                engine = session.get_bind()
+                dialect = engine.dialect.name
+                if dialect == "postgresql":
+                    session.execute(text("SELECT pg_advisory_xact_lock(:key)"),
+                                    {"key": BUDGET_LOCK_KEY})
+                elif dialect == "sqlite":
+                    if not _sqlite_in_memory(engine):
+                        session.execute(text("BEGIN IMMEDIATE"))
+                else:
+                    raise BudgetExceeded(
+                        f"the spend ceiling has no lock for the {dialect!r} dialect, so a check "
+                        f"and its reservation cannot be made atomic. Refused rather than checked "
+                        f"without one")
+                yield session
+        finally:
+            _BUDGET_LOCK_ACTIVE.reset(token)
 
 
 def _decide_and_reserve(db, locked_session, *, me: str, estimate_cad, agent: str,
@@ -506,7 +537,12 @@ def _decide_and_reserve(db, locked_session, *, me: str, estimate_cad, agent: str
     own_open = float(held.get("own_holder_cad") or 0.0)
     mine = round(max(0.0, float(uncommitted_cad or 0.0)) + own_open, 6)
     others = held
-    committed = round(spent + mine + others["cad"], 6)
+    # A crashed, released or expired image/vision attempt may still be billable.
+    # Until it can be reconciled to the ledger, retain its uncovered estimate even
+    # when that conservatively counts a booked call twice.
+    from .paid_provider_gate import uncovered_company_exposure
+    orphan_exposure = uncovered_company_exposure(locked_session, now=now)
+    committed = round(spent + mine + others["cad"] + orphan_exposure, 6)
     ceiling = monthly_ceiling_cad()
 
     def _refusal(exc_type, which: str, message: str, *, estimate: float, **extra) -> dict:
@@ -515,7 +551,7 @@ def _decide_and_reserve(db, locked_session, *, me: str, estimate_cad, agent: str
                   "committed_cad": extra.pop("committed", committed),
                   "which": which, "why": message, "purpose": purpose,
                   "detail": {"model": model, "provider": provider, "job_id": job_id,
-                             **extra}}
+                             "uncovered_paid_exposure_cad": orphan_exposure, **extra}}
         return {"_refusal": (exc_type, record)}
 
     try:
@@ -557,7 +593,8 @@ def _decide_and_reserve(db, locked_session, *, me: str, estimate_cad, agent: str
             f"CA${mine:.4f} spent or reserved by this caller and not yet billed "
             f"(CA${own_open:.4f} of it in this holder's own open reservations), "
             f"CA${others['cad']:.4f} reserved right now by {others['count']} other "
-            f"caller(s)) and a ceiling of CA${ceiling:.2f}. Refused before the call rather "
+            f"caller(s), and CA${orphan_exposure:.4f} in uncovered paid attempts; "
+            f"some of these may also be booked) and a ceiling of CA${ceiling:.2f}. Refused before the call rather "
             f"than found on the invoice. The way past this is the owner raising the ceiling "
             f"with measured usage attached, not a cheaper model", estimate=estimate)
 
@@ -770,6 +807,13 @@ class AnthropicProvider:
         the observation is stored and the picture is not, which is also what keeps this on
         the right side of "never copy a competitor's expression".
         """
+        from . import paid_provider_gate as owner_gate
+        if owner_gate.current_call_scope(owner_gate.VISION) == owner_gate.PROBE and (
+                system or prompt != VISION_PROBE_PROMPT or len(image_urls) != 1
+                or self.model != VISION_PROBE_MODEL or json_schema is not None
+                or max_tokens != VISION_PROBE_MAX_TOKENS):
+            raise VisionGateRefused("probe activation covers only the fixed diagnostic request",
+                                    "probe_scope_mismatch")
         key = self.key()
         if not key:
             raise ProviderUnusable("no ANTHROPIC_API_KEY in this environment")
@@ -797,10 +841,73 @@ class AnthropicProvider:
             "messages": [{"role": "user", "content": content}],
         }).encode()
         return self._guarded(payload, key, "anthropic.vision",
-                             timeout=max(self.timeout_seconds, VISION_TIMEOUT_SECONDS))
+                             timeout=max(self.timeout_seconds, VISION_TIMEOUT_SECONDS),
+                             gate=self._vision_gate(image_urls, max_tokens,
+                                                    prompt=prompt, system=system))
+
+    def _vision_gate(self, image_urls: list[str], max_tokens: int, *, prompt: str = "",
+                     system: str = ""):
+        """P0-PAID-PROVIDER-OWNER-GATE: every paid vision request passes
+        `paid_provider_gate.enforce` immediately before it is sent. The budget evidence is the
+        reservation `check_budget_cad` noted in this context (consumed here: one reservation,
+        one call); with none, the call is refused for want of accounting evidence."""
+        from . import paid_calls, paid_provider_gate as gate
+
+        db, held = gate.take_budget()
+        if db is None:
+            db = paid_calls.current_db()
+        held = held or {}
+        # Review U7 F1: this request's own worst case, computed here, never only the noted
+        # reservation's estimate (which may belong to an unrelated, smaller call). The gate
+        # then refuses a reservation smaller than the call (`reservation_underfunded`).
+        import math as _math
+
+        own = estimate_cad(
+            self.model,
+            # The same costing every production caller reserves with
+            # (`len(prompt) // 4 + IMAGE_TOKENS_ESTIMATE` per image, visual/inspect.py etc.).
+            input_tokens=(IMAGE_TOKENS_ESTIMATE * max(1, len(image_urls))
+                          + len(prompt or "") // 4),
+            output_tokens=max_tokens)
+        try:
+            noted = float(held.get("estimate_cad") or 0.0)
+        except (TypeError, ValueError):
+            noted = 0.0
+        estimate = max(own, noted) if _math.isfinite(noted) else own
+        scope = gate.current_call_scope(gate.VISION)
+        if scope == gate.PROBE:
+            try:
+                known = _a_known_image(db) if db is not None else ""
+            except Exception:  # noqa: BLE001 - an unreadable source is not authorized
+                known = ""
+            if not known or image_urls != [known]:
+                raise VisionGateRefused("probe requires the current audited diagnostic image",
+                                        "probe_scope_mismatch")
+        provider = self
+
+        def wrap(send, fp):
+            def gated():
+                def actual(r: ModelResponse) -> float:
+                    return round(r.input_tokens * provider.cost_per_1k_input_cad / 1000
+                                 + r.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+
+                def classify(exc: BaseException) -> str:
+                    # The HTTP transport may have sent work before a wrapped error.
+                    # No exception here proves the provider did not charge.
+                    return gate.UNCERTAIN
+                try:
+                    return gate.enforce(db, provider=gate.ANTHROPIC_VISION, scope=scope,
+                                        estimate_cad=estimate, fingerprint=fp,
+                                        reservation_id=held.get("reservation_id"), call=send,
+                                        classify=classify, actual=actual,
+                                        purpose="anthropic.vision")
+                except gate.PaidCallRefused as exc:
+                    raise VisionGateRefused(str(exc), exc.code) from None
+            return gated
+        return wrap
 
     def _guarded(self, payload: bytes, key: str, effect: str, *,
-                 timeout: float | None = None) -> ModelResponse:
+                 timeout: float | None = None, gate=None) -> ModelResponse:
         """The one place a paid model request leaves the process (F-307/F-339).
 
         Inside a job, `paid_calls.guarded` keys the request by job + request bytes +
@@ -808,10 +915,11 @@ class AnthropicProvider:
         instead of paying again; outside a job it is a plain call."""
         from . import paid_calls, routing
 
+        fp = paid_calls.fingerprint(effect, payload.decode("utf-8", "replace"))
+        send = ((lambda: self._send(payload, key)) if timeout is None
+                else (lambda: self._send(payload, key, timeout=timeout)))
         return paid_calls.guarded(
-            effect, paid_calls.fingerprint(effect, payload.decode("utf-8", "replace")),
-            ((lambda: self._send(payload, key)) if timeout is None
-             else (lambda: self._send(payload, key, timeout=timeout))),
+            effect, fp, gate(send, fp) if gate is not None else send,
             encode=_encode_response, decode=_decode_response, classify=_classify_failure,
             cost_kind=routing.COST_KIND, provider=self.name, model=self.model)
 
@@ -851,11 +959,19 @@ class AnthropicProvider:
     def _read(self, body: dict, started: float) -> ModelResponse:
         text = "".join(block.get("text", "") for block in body.get("content", [])
                        if block.get("type") == "text")
-        usage = body.get("usage", {})
+        usage = body.get("usage")
+        if (not isinstance(usage, dict)
+                or type(usage.get("input_tokens")) is not int
+                or type(usage.get("output_tokens")) is not int
+                or usage["input_tokens"] < 0 or usage["output_tokens"] < 0
+                or usage["input_tokens"] + usage["output_tokens"] <= 0):
+            # The response arrived after transmission, but its cost is unknown.
+            # Do not coerce booleans, floats or strings into understated usage.
+            raise ValueError("anthropic response has invalid or missing usage")
         return ModelResponse(
             text=text, provider=self.name, model=body.get("model", self.model),
-            input_tokens=int(usage.get("input_tokens", 0)),
-            output_tokens=int(usage.get("output_tokens", 0)),
+            input_tokens=usage["input_tokens"],
+            output_tokens=usage["output_tokens"],
             latency_ms=round((time.time() - started) * 1000, 2),
             stop_reason=str(body.get("stop_reason") or ""))
 
@@ -1077,8 +1193,16 @@ def vision_probe(db, *, image_url: str = "", provider: AnthropicProvider | None 
                     "model": provider.model, "ok": False, "reason": "",
                     "image_url": image_url}
 
+    # P0-PAID-PROVIDER-OWNER-GATE: no paid vision probe without the owner's activation of
+    # vision; a key is not one. Recorded as a named state, nothing sent.
+    from . import paid_provider_gate as gate
+
+    activation = gate.activation_state(db, gate.ANTHROPIC_VISION, gate.PROBE, now=now)
     if not provider.key():
         record["reason"] = "no ANTHROPIC_API_KEY in this environment"
+    elif not activation["active"]:
+        record.update(state=activation["reason"],
+                      reason=f"{activation['reason']}: {gate.KEY_IS_NOT_ACTIVATION}")
     elif not image_url:
         record["reason"] = (
             "no image to look at. Nothing has been observed that carries a gallery URL, so "
@@ -1086,18 +1210,22 @@ def vision_probe(db, *, image_url: str = "", provider: AnthropicProvider | None 
             "vision probe with no image is the thing it exists to refuse")
     else:
         budget: dict = {}
+        record["activation_id"] = activation["activation"]["id"]
         try:
             budget = check_budget(
                 db, model=provider.model,
                 input_tokens=len(VISION_PROBE_PROMPT) // 4 + IMAGE_TOKENS_ESTIMATE,
                 max_tokens=VISION_PROBE_MAX_TOKENS, now=now,
                 agent="gateway", purpose=VISION_PROBE_ACTION, job_id=job_id)
-            response = provider.see("", VISION_PROBE_PROMPT, [image_url],
-                                    max_tokens=VISION_PROBE_MAX_TOKENS)
+            with gate.call_scope(gate.PROBE):
+                response = provider.see("", VISION_PROBE_PROMPT, [image_url],
+                                        max_tokens=VISION_PROBE_MAX_TOKENS)
         except BudgetExceeded as exc:
             record["reason"] = f"budget: {exc}"
         except (ProviderUnusable, TransientError) as exc:
             record["reason"] = str(exc)[:400]
+            if getattr(exc, "code", ""):
+                record["state"] = exc.code
         else:
             answer = (response.text or "").strip().lower().strip(".")
             cost = round(
@@ -1185,9 +1313,16 @@ def last_vision_probe(db) -> dict | None:
 
 
 def vision_usable(db) -> bool:
-    """Whether a real image has actually been looked at. The `image_vision` gate's condition."""
-    state = last_vision_probe(db)
-    return bool(state and state.get("ok"))
+    """The `image_vision` gate's condition: the owner has activated paid vision AND the latest
+    vision probe succeeded under an activation still in force (P0-PAID-PROVIDER-OWNER-GATE).
+    A key, or an old successful probe row, alone never opens it."""
+    from . import paid_provider_gate as gate
+
+    try:
+        state = last_vision_probe(db)
+    except Exception:  # noqa: BLE001 - unreadable evidence is a closed gate
+        return False
+    return gate.probe_activation_open(db, state, gate.ANTHROPIC_VISION, gate.VISION)
 
 
 def last_probe(db) -> dict | None:

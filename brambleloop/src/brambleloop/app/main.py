@@ -1444,7 +1444,8 @@ async def api_owner_decision(request: Request,
     records only; promotion still happens in the loop's own next cycle, under its checks.
     Authenticated with the operator credential because it writes.
 
-    Body: {kind: "improvement" | "challenger", id: int, why: str (a sentence)}.
+    Body: {kind: "improvement" | "challenger" | "support_defect", id: int, why: str (a sentence),
+          decision: "not_a_defect" | "confirmed" (support_defect only)}.
     """
     try:
         opsauth.check(authorization)
@@ -1454,6 +1455,7 @@ async def api_owner_decision(request: Request,
         return JSONResponse({"error": "operator credential required"}, status_code=401)
 
     from ..improve import cells, league
+    from ..support import defects as support_defects
 
     try:
         body = await request.json()
@@ -1469,10 +1471,14 @@ async def api_owner_decision(request: Request,
             out = cells.record_owner_approval(db, ident, approved_by="owner", why=why)
         elif kind == "challenger":
             out = league.record_owner_decision(db, ident, approved_by="owner", why=why)
+        elif kind == "support_defect":
+            out = support_defects.record_owner_decision(
+                db, ident, str(body.get("decision") or ""), why)
         else:
-            return JSONResponse({"error": "kind must be improvement or challenger"},
-                                status_code=400)
-    except (cells.ImprovementRefused, league.LeagueRefused) as e:
+            return JSONResponse({"error": "kind must be improvement, challenger or "
+                                          "support_defect"}, status_code=400)
+    except (cells.ImprovementRefused, league.LeagueRefused,
+            support_defects.DecisionRefused) as e:
         return JSONResponse({"error": str(e)}, status_code=400)
     return JSONResponse({"recorded": True, "kind": kind, "id": ident, "result": out})
 
@@ -4102,7 +4108,10 @@ def api_governor(days: int = 30) -> dict:
 
     out = governor.state()
     with db.session() as session:
-        out["report"] = governor.report(session, days=days)
+        try:
+            out["report"] = governor.report(session, days=days)
+        except governor.GovernorRefused as exc:
+            out["report"] = {"available": False, "reason": str(exc)}
     return out
 
 

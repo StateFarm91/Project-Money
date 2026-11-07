@@ -228,6 +228,16 @@ def sweep(db, *, now: datetime | None = None,
     cutoff = now - timedelta(hours=max(1, int(keep_released_hours)))
     abandoned, abandoned_cad, pruned = 0, 0.0, 0
     with db.session() as s:
+        # A paid-provider attempt keeps its reservation identity as evidence. SQLite
+        # can reuse an integer primary key after deletion; keeping referenced rows
+        # prevents an unrelated future reservation inheriting an old attempt's ID.
+        from sqlalchemy import inspect
+        from ..gateway.paid_provider_gate import PaidProviderCall
+
+        protected = set()
+        if inspect(s.get_bind()).has_table(PaidProviderCall.__tablename__):
+            protected = {value for value in s.scalars(select(PaidProviderCall.reservation_id))
+                         if value is not None}
         for row in s.scalars(select(SpendReservation)):
             released = _aware(row.released_at)
             expires = _aware(row.expires_at)
@@ -241,7 +251,7 @@ def sweep(db, *, now: datetime | None = None,
                 abandoned += 1
                 abandoned_cad += float(row.amount_cad or 0.0)
                 continue
-            if released is not None and released < cutoff:
+            if released is not None and released < cutoff and row.id not in protected:
                 s.delete(row)
                 pruned += 1
     return {

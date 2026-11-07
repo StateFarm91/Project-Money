@@ -13,9 +13,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tests"))
 
 from sqlalchemy import select  # noqa: E402
 
+import _paid_activation as _paid  # noqa: E402
 from brambleloop.core.db import Database  # noqa: E402
 from brambleloop.core.models import (AuditLog, BenchmarkListing, Incident, Job,  # noqa: E402
                                      JobStatus, Product)
@@ -234,10 +236,11 @@ def test_a_paid_unusable_observation_gives_the_image_up_at_once():
 
 # --- 2b: a fresh successful image probe is reused, a failed or old one re-probes -------------
 
-def _probe_row(db, *, ok, at):
+def _probe_row(db, *, ok, at, activation_id=None):
     with db.session() as s:
         s.add(AuditLog(actor="t", action=images.PROBE_ACTION,
-                       detail={"ok": ok, "at": at.isoformat(), "provider": "p"}))
+                       detail={"ok": ok, "at": at.isoformat(), "provider": "p",
+                               "activation_id": activation_id}))
 
 
 def test_a_fresh_successful_image_probe_is_reused_and_nothing_is_rendered():
@@ -246,7 +249,9 @@ def test_a_fresh_successful_image_probe_is_reused_and_nothing_is_rendered():
     real = images.probe
     images.probe = lambda db, **kw: calls.append(kw) or {"ok": True}
     try:
-        _probe_row(db, ok=True, at=NOW - timedelta(hours=5))
+        # V0: a success is reused only while the activation it was made under is in force
+        act = _paid.activate(db, "flux-2-pro", "probe")[0]
+        _probe_row(db, ok=True, at=NOW - timedelta(hours=5), activation_id=act["id"])
         out = images.probe_if_due(db, now=NOW)
         assert out["reused"] is True and calls == []
         images.probe_if_due(db, now=NOW + timedelta(hours=20))

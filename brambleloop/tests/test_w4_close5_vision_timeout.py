@@ -33,7 +33,9 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "tests"))
+sys.path.insert(0, str(ROOT / "tests"))
 
+import _paid_activation as _paid  # noqa: E402
 from brambleloop.gateway import anthropic as gw  # noqa: E402
 from brambleloop.intel import vision  # noqa: E402
 
@@ -78,9 +80,10 @@ class _Opener:
 def test_a_vision_call_waits_longer_than_a_text_call_on_the_real_transport():
     assert gw.VISION_TIMEOUT_SECONDS > gw.AnthropicProvider.timeout_seconds == 60.0
     p = _provider()
-    seen = _urlopen_timeouts(lambda: p.see(
-        "sys", "prompt", ["https://fixture.invalid/a.jpg"], max_tokens=50,
-        json_schema=vision.observation_schema()))
+    with _paid.scoped_store("anthropic-vision"):    # V0: the owner switched vision on
+        seen = _urlopen_timeouts(lambda: p.see(
+            "sys", "prompt", ["https://fixture.invalid/a.jpg"], max_tokens=50,
+            json_schema=vision.observation_schema()))
     assert seen == [gw.VISION_TIMEOUT_SECONDS], seen
     seen = _urlopen_timeouts(lambda: p.complete("sys", "hi", max_tokens=5))
     assert seen == [60.0], "text calls keep their own timeout"
@@ -88,8 +91,9 @@ def test_a_vision_call_waits_longer_than_a_text_call_on_the_real_transport():
     assert 60 < gw.VISION_TIMEOUT_SECONDS <= 300
     slow = _provider()
     slow.timeout_seconds = 400.0
-    assert _urlopen_timeouts(lambda: slow.see(
-        "s", "p", ["https://fixture.invalid/a.jpg"], max_tokens=5)) == [400.0]
+    with _paid.scoped_store("anthropic-vision"):
+        assert _urlopen_timeouts(lambda: slow.see(
+            "s", "p", ["https://fixture.invalid/a.jpg"], max_tokens=5)) == [400.0]
 
 
 def test_a_timeout_is_still_uncertain_and_never_resent():
@@ -103,7 +107,8 @@ def test_a_timeout_is_still_uncertain_and_never_resent():
     def times_out(request, timeout=None):
         raise TimeoutError("The read operation timed out")
 
-    with patch("urllib.request.urlopen", times_out), \
+    with _paid.scoped_store("anthropic-vision"), \
+            patch("urllib.request.urlopen", times_out), \
             patch("brambleloop.gateway.venice.no_redirect_opener",
                   lambda: _Opener(times_out)):
         try:

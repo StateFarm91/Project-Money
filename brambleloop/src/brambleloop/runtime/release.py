@@ -2727,10 +2727,19 @@ def handle_support_triage(ctx: JobContext) -> dict:
                                        "case_window_known": bool(
                                            triaged["case_window"].get("known")),
                                        "sent": 0})
+    # W6 P0-SUPPORT-DEFECT-INCIDENT: a hotspot at the threshold acts -- one correlated
+    # incident, one deterministic re-verification (cir.twin + cir.reverse) and a withholding
+    # of that release's publication, once per release+row (support.defects). The audit row
+    # stays as the receipt.
+    from ..support import defects as support_defects
+
+    out["defects"] = []
     for hotspot in out["row_hotspots"]:
-        if hotspot["mentions"] >= 3:
+        if hotspot["mentions"] >= support_defects.THRESHOLD:
             ctx.audit("support.defect_candidate", artifact=hotspot["product"],
                       detail=hotspot)
+            out["defects"].append(support_defects.escalate(ctx, hotspot))
+    out["defect_holds"] = support_defects.reconcile_holds(ctx.db)
     return out
 
 
