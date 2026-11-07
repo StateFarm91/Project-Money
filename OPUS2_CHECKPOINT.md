@@ -1,8 +1,20 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-07T01:45Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-07T05:20Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
+
+## State at 2026-11-07T05:20Z -- Main ASSIGN 6701113204 / 6701702761, items 2-5 (read first)
+Every item is branched from claude/w6-INTEG1 @ f5c3976d. Worktrees are /home/user/opus2-{ptr,pact,sfa,v2}.
+| Item | Branch | Head | State |
+|---|---|---|---|
+| 2 P0-PHYSICAL-TEST-REQUEST | opus2/p0-physical-test-request | d697d093 pushed | focused 6/6, 9 mutants killed; 44-suite regression running (/tmp/claude-0/ptr_results.txt) -> REVIEW-REQUEST when green |
+| 3 P0-PORTFOLIO-ACT | opus2/p0-portfolio-act | f3bea437 pushed | REVIEW-REQUESTED (#28 6702476082); regression 14/14 |
+| 4 P0-STOREFRONT-ASSET-FIX | opus2/p0-storefront-asset-fix | d8b2754b pushed | REVIEW-REQUESTED (#28 6702476082); regression 11/11 |
+| 5 V2 P0-c vessel verifier | opus2/v2-vessel-fidelity | e30b5fa0 pushed | REVIEW-REQUESTED (#28 6702674398) |
+| 5 V2 P1-d + P2-a | opus2/v2-vessel-fidelity | 22940594 pushed | focused 4/4 + 3/3, mutants all killed; 13-suite regression running (v2r_results.txt) -> REVIEW-REQUEST |
+Open decision for Main: whether unjudged frames should block P1-d. Merge note: items 3 and 4 both regenerate autonomy_map.json; regenerate it on the merged tree.
+Next: V3-V6. Fixtures only, per Main's constraints. V3 needs a funded vision model (V0), so build only its fixture or decision layer.
 
 ## State at 2026-11-07T01:45Z (read this before the older sections below)
 Stop reason: no unduplicated assigned work remains. Waiting on Main for a new assignment.
