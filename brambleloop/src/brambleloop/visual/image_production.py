@@ -2031,6 +2031,8 @@ def readiness(db, listing: str, *, run_key_: str | None = None, plan: dict | Non
     sameness = naturalism.sameness_only(chosen) if chosen else {"status": "PASS",
                                                                 "findings": []}
     blockers |= set(naturalism.publication_blockers(sameness))
+    if consistency.get("blocker"):
+        blockers.add(consistency["blocker"])      # I-V2-UNJUDGED-PAIRS
     return {"listing": listing, "category": plan["category"], "roles": roles,
             "image_count": plan["image_count"],
             "set_check": {"ok": set_check["ok"], "problems": set_check["problems"]},
@@ -2040,7 +2042,7 @@ def readiness(db, listing: str, *, run_key_: str | None = None, plan: dict | Non
             "publication_blockers": sorted(blockers),
             "gallery_ready": all(e["status"].startswith(("disclosed", "publishable"))
                                  for e in roles) and bool(set_check["ok"])
-                             and consistency["status"] != CG.FAIL and not ambiguous,
+                             and consistency["status"] in (CG.PASS, CG.NA) and not ambiguous,
             "basis": "visual.shot_plans.campaign_plan + candidate_gates + eligibility.check_set"}
 
 

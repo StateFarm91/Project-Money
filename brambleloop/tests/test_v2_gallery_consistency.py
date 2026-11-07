@@ -47,12 +47,23 @@ def test_frames_that_disagree_on_colour_count_or_edging_fail():
     assert out["status"] == "FAIL" and "edging" in out["why"], out
 
 
-def test_an_unclear_reading_is_not_a_disagreement_and_unjudged_frames_are_named():
+def test_an_unjudged_or_unclear_pair_is_unknown_never_pass():
+    """I-V2-UNJUDGED-PAIRS: a pair nobody could judge blocks readiness as UNKNOWN."""
     a = {"distinct_yarn_colours": 2, "border_or_edging_visible": "no"}
     unclear = {"distinct_yarn_colours": "unclear", "border_or_edging_visible": "unclear"}
     out = CG.campaign_consistency([_row(1, a), _row(2, unclear), _row(3, None)])
-    assert out["status"] == "PASS", out
-    assert out["pairwise"]["not_judged"] == ["3"] and "1 frame(s) not judged" in out["why"]
+    assert out["status"] == "UNKNOWN", out
+    assert out["pairwise"]["unjudged"] == 3 and out["pairwise"]["not_judged"] == ["3"], out
+    assert out["blocker"] == "campaign_consistency_unjudged: 3 pairs", out
+    # No frame read at all (vision off): still UNKNOWN, never PASS.
+    out = CG.campaign_consistency([_row(1, None), _row(2, None)])
+    assert out["status"] == "UNKNOWN" and out["blocker"].endswith("1 pairs"), out
+    # A disagreement beside an unjudged pair is still a FAIL, with its reason.
+    out = CG.campaign_consistency([_row(1, a), _row(2, {**a, "distinct_yarn_colours": 4}),
+                                   _row(3, None)])
+    assert out["status"] == "FAIL" and "colour count" in out["why"], out
+    # A single image has no pair to judge.
+    assert CG.campaign_consistency([_row(1, None)])["status"] == "PASS"
     # The metadata checks still bind on top.
     assert CG.campaign_consistency([_row(1, a), {**_row(2, a), "version": "1.1"}])[
         "status"] == "FAIL"

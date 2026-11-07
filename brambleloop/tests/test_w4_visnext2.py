@@ -143,7 +143,8 @@ def test_stage_a_anchor_is_judged_then_reused_after_the_canonical_three_and_stag
     others = [h for h in gen.handed if h["role"] in ("size", "colour_context")]
     assert others and all(("prior_candidate", "edit_base", lif["sha256"]) in h["labels"]
                           for h in others)
-    assert run["card"]["campaign_consistency"]["status"] == "PASS"
+    # I-V2-UNJUDGED-PAIRS (V2 P1-d): no pairwise item readings in this stub run: UNKNOWN.
+    assert run["card"]["campaign_consistency"]["status"] == "UNKNOWN"
     card = IP.gallery_card(db, key)
     assert card["identity_anchor"]["technical_status"] == "PASS"
 
