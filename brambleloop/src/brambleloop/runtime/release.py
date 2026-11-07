@@ -3099,6 +3099,10 @@ def handle_physical_record(ctx: JobContext) -> dict:
               detail={"row": row_id, "content_hash": content_hash,
                       "evidence_class": evidence_class,
                       "release_certified": certified, **assessment.to_dict()})
+    # P0-PHYSICAL-TEST-REQUEST: the recorded make answers this release's sample request.
+    from ..quality import physical_sample
+
+    physical_sample.close_on_record(ctx, slug, version, content_hash, row_id)
 
     review = None
     if assessment.outcome == PARTIAL and not owner_made:
