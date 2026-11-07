@@ -402,6 +402,17 @@ def test_a_fix_only_rebuild_never_rewrites_a_live_listings_gallery_rows():
     assert _gallery(db, slug, version) == before
     cand = _audits(db, "listing.fix_frame_candidate")
     assert cand and cand[-1]["live"] is True and cand[-1]["frames"], cand
+    # Review afd98e88 B-LOW-3: a live candidate writes no disclosed render record, and its
+    # build is marked candidate_only -- which an ordinary re-drive never inherits.
+    built = _audits(db, "assets.listing_images_built")
+    assert built and built[-1].get("disclosed_render") is None, built[-1]
+    from brambleloop.runtime import release as R
+
+    with db.session() as s:
+        build = s.scalars(select(Job).where(Job.job_type == "assets.build")
+                          .order_by(Job.id.desc())).first()
+        assert (build.outputs or {}).get("candidate_only") is True
+        assert "candidate_only" not in R.without_fix_only(build.outputs)
 
 
 def test_no_rebuild_ever_replaces_a_physical_photograph_slot():
@@ -423,6 +434,76 @@ def test_no_rebuild_ever_replaces_a_physical_photograph_slot():
     assert _gallery(db, slug, version)[0] == (1, "PHYSICAL_PRODUCT_PHOTO", "f" * 64, True)
     kept = _audits(db, "listing.frame_photo_kept")
     assert kept and 1 in kept[-1]["positions"], kept
+    from brambleloop.core.models import ArtefactProvenance
+    from brambleloop.ops import artefacts as provenance
+
+    with db.session() as s:
+        photo_id = s.scalar(select(ListingAsset.id).where(
+            ListingAsset.product_slug == slug, ListingAsset.version == version,
+            ListingAsset.position == 1))
+        build = s.scalars(select(Job).where(Job.job_type == "assets.build")
+                          .order_by(Job.id.desc())).first()
+        # Review 494066fa LOW-3: this rebuild wrote no render lineage for the photo's slot.
+        rows = list(s.scalars(select(ArtefactProvenance).where(
+            ArtefactProvenance.artefact_key == provenance.visual_key(slug, version, photo_id))))
+        assert not [r for r in rows if r.job_id == build.id or r.sha256 == "f" * 64], \
+            [(r.job_id, r.sha256) for r in rows]
+        # MED-1 / B-MED-1/2: the kept photo's slot is left out of what the chain hands on --
+        # no render claimed at position 1, and the photo's sha never enters a build output.
+        frames = (build.outputs or {}).get("frames") or []
+        assert frames and 1 not in [f["position"] for f in frames], frames
+        assert "f" * 64 not in [f["sha256"] for f in frames], frames
+
+
+def test_a_blocked_rebuild_leaves_a_kept_photos_approval_alone():
+    """Review 494066fa LOW-4."""
+    st = chain()
+    db, slug, version = st["db"], st["slug"], st["version"]
+    _set_listing(db, slug, version, state="draft", etsy_listing_id="")
+    from brambleloop.core.models import ListingAsset
+
+    with db.session() as s:
+        a = s.scalar(select(ListingAsset).where(ListingAsset.product_slug == slug,
+                                                ListingAsset.version == version,
+                                                ListingAsset.position == 1))
+        a.asset_class, a.sha256, a.approved, a.blocked_reasons = (
+            "PHYSICAL_PRODUCT_PHOTO", "d" * 64, True, [])
+    from brambleloop.intel import mission_runtime as MR
+
+    saved = MR.active_veto
+    MR.active_veto = lambda db, slug: {"vetoed": True, "why": "test veto"}
+    try:
+        JobQueue(db).enqueue("publishing", "assets.build",
+                             {**st["inputs"], "rebuild": "fr-blk-1"}, priority=0,
+                             idempotency_key="fo-fr-blk-1")
+        _drain(db, name="fo-fr-blk")
+    finally:
+        MR.active_veto = saved
+    with db.session() as s:
+        a = s.scalar(select(ListingAsset).where(ListingAsset.product_slug == slug,
+                                                ListingAsset.version == version,
+                                                ListingAsset.position == 1))
+        assert (a.asset_class, a.sha256, a.approved, list(a.blocked_reasons or [])) == (
+            "PHYSICAL_PRODUCT_PHOTO", "d" * 64, True, [])
+        others = list(s.scalars(select(ListingAsset).where(
+            ListingAsset.product_slug == slug, ListingAsset.version == version,
+            ListingAsset.position > 1)))
+        assert others and all(not o.approved for o in others)   # the veto reached the rest
+
+
+def test_a_fix_only_rebuild_of_a_draft_still_refreshes_its_frames():
+    """Review 494066fa LOW-5: only a LIVE listing's gallery is left alone."""
+    st = chain()
+    db, slug, version = st["db"], st["slug"], st["version"]
+    _set_listing(db, slug, version, state="draft", etsy_listing_id="")
+    from brambleloop.core.models import ListingAsset
+
+    with db.session() as s:
+        for a in s.scalars(select(ListingAsset).where(ListingAsset.product_slug == slug,
+                                                      ListingAsset.version == version)):
+            a.asset_class, a.sha256 = "DIGITAL_TWIN_RENDER", "c" * 64
+    _fix(db, st["inputs"], "fr-draft-1")
+    assert all(sha != "c" * 64 for _p, _c, sha, _a in _gallery(db, slug, version))
 
 
 def test_launch_plan_refuses_a_fix_only_input_whoever_enqueued_it():
