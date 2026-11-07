@@ -234,6 +234,9 @@ class Flux3Generator:
                 from ..visual import laura_home
 
                 home = laura_home.scene_for(slug, role=role)
+                from ..visual import room_references
+
+                room_ref = (room_references.scene_supplement(home["room"]) or [(None, None)])[0][1]
                 laura_home.check(brief or "")   # review OPUS2A F2.2: the brief too
                 scene = {"environment": home["environment"], "pose": brief or "",
                          "framing": ""}
@@ -247,18 +250,23 @@ class Flux3Generator:
                     cand = S.variant(rel, base_cand, VARIANT_OF_ROLE.get(role, "styled_scene"),
                                      (brief or "")[:S.MAX_EDIT_CHARS], outfit=spec,
                                      scene=scene, laura_refs=laura, size=self.size,
-                                     identity_anchor=ident, **kw)
+                                     identity_anchor=ident, scene_reference=room_ref, **kw)
                 else:
                     cand = S.lifestyle(
                         rel, anchor["candidate"], laura, spec,
                         fidelity=anchor["verdict"], role=role, size=self.size,
-                        scene=scene, identity_anchor=ident, **kw)
+                        scene=scene, identity_anchor=ident, scene_reference=room_ref, **kw)
             else:
                 # A product-only styled scene is in the same house: a short room cue leads the
                 # edit instruction, inside the stage's character cap.
                 from ..visual import laura_home
 
-                room_cue = laura_home.scene_for(slug)["cue"]
+                styled = laura_home.scene_for(slug)
+                room_cue = styled["cue"]
+                from ..visual import room_references
+
+                room_ref = (room_references.scene_supplement(styled["room"])
+                            or [(None, None)])[0][1]
                 laura_home.check(brief or "")
                 edit = f"{room_cue}. {brief or ''}".strip()
                 if len(edit) > S.MAX_EDIT_CHARS:
@@ -267,7 +275,7 @@ class Flux3Generator:
                         f"room cue + brief is {len(edit)} characters; the edit instruction "
                         f"allows {S.MAX_EDIT_CHARS}")
                 cand = S.variant(rel, anchor["candidate"], "styled_scene", edit,
-                                 size=self.size, **kw)
+                                 size=self.size, scene_reference=room_ref, **kw)
         r = cand.receipt
         return {"data": Path(cand.path).read_bytes(), "provider": r.get("provider"),
                 "model": r.get("model"), "prompt": r.get("prompt_ref"),
