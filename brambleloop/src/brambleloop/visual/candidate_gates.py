@@ -625,37 +625,57 @@ def campaign_consistency(rows: list[dict]) -> dict:
     problems += pairs["problems"]
     if problems:
         return _c(FAIL, "; ".join(problems), pairwise=pairs)
-    note = (f"; {len(pairs['not_judged'])} frame(s) not judged pairwise"
-            if pairs["not_judged"] else "")
+    if pairs["unjudged"]:
+        # I-V2-UNJUDGED-PAIRS (Main 6702728170): a pair nobody judged is a capability gap,
+        # not a defect. UNKNOWN, never PASS: the gallery is not ready, and no repair is routed.
+        return _c(UNKNOWN, f"{len(rows)} image(s): one version, release, CIR and outfit; "
+                           f"{pairs['unjudged']} frame pair(s) not judged against each other",
+                  pairwise=pairs, blocker=f"{UNJUDGED_BLOCKER}: {pairs['unjudged']} pairs")
     return _c(PASS, f"{len(rows)} image(s): one version, release, CIR and outfit; "
-                    f"{pairs['compared']} frame pair(s) agree on the item{note}",
+                    f"{pairs['compared']} frame pair(s) agree on the item",
               pairwise=pairs)
+
+
+UNJUDGED_BLOCKER = "campaign_consistency_unjudged"
 
 
 def cross_frame_product(rows: list[dict]) -> dict:
     """V2 / P1-d: the frames of one gallery must show the same item to each other.
 
     Each frame's blind item description (`item_reading`, the vision judge's reading of that
-    frame) is compared with every other frame's: two frames that both state a yarn-colour
-    count and disagree, or both read the edging and disagree, are the gallery showing two
-    different products. A frame never judged is listed as `not_judged`; it neither passes
-    nor fails a pair (vision is an owner-funded capability, V0)."""
+    frame) is compared with every other frame's on the yarn-colour count and the edging. Two
+    frames that both state a value and differ are the gallery showing two different products
+    (`problems`, a FAIL). A pair where either frame has no reading, or either value is
+    unclear on either side, is `unjudged`: it is never counted as agreeing (Main decision
+    I-V2-UNJUDGED-PAIRS; vision is owner-funded, V0)."""
     from .vision_judges import _int, _tri
 
-    read = [(i, r, r.get("item_reading")) for i, r in enumerate(rows)]
-    judged = [(i, r, x) for i, r, x in read if isinstance(x, dict)]
-    not_judged = [str(r.get("candidate_id") or i) for i, r, x in read if not isinstance(x, dict)]
-    problems, compared = [], 0
-    for a in range(len(judged)):
-        for b in range(a + 1, len(judged)):
-            (ia, ra, xa), (ib, rb, xb) = judged[a], judged[b]
-            compared += 1
-            na, nb = _int(xa.get("distinct_yarn_colours")), _int(xb.get("distinct_yarn_colours"))
+    readings = [(i, r, r.get("item_reading")) for i, r in enumerate(rows)]
+    problems, compared, unjudged = [], 0, 0
+    for a in range(len(readings)):
+        for b in range(a + 1, len(readings)):
+            (ia, ra, xa), (ib, rb, xb) = readings[a], readings[b]
             name = f"frames {ra.get('candidate_id') or ia} and {rb.get('candidate_id') or ib}"
-            if na is not None and nb is not None and na != nb:
-                problems.append(f"{name} disagree on the colour count ({na} vs {nb})")
+            if not isinstance(xa, dict) or not isinstance(xb, dict):
+                unjudged += 1
+                continue
+            na, nb = _int(xa.get("distinct_yarn_colours")), _int(xb.get("distinct_yarn_colours"))
             ea, eb = _tri(xa.get("border_or_edging_visible")), _tri(xb.get(
                 "border_or_edging_visible"))
+            disagree = False
+            if na is not None and nb is not None and na != nb:
+                problems.append(f"{name} disagree on the colour count ({na} vs {nb})")
+                disagree = True
             if ea is not None and eb is not None and ea != eb:
                 problems.append(f"{name} disagree on the edging ({ea} vs {eb})")
-    return {"compared": compared, "problems": problems, "not_judged": not_judged}
+                disagree = True
+            if disagree:
+                compared += 1
+            elif None in (na, nb, ea, eb):
+                unjudged += 1
+            else:
+                compared += 1
+    not_judged = [str(r.get("candidate_id") or i) for i, r, x in readings
+                  if not isinstance(x, dict)]
+    return {"compared": compared, "unjudged": unjudged, "problems": problems,
+            "not_judged": not_judged}

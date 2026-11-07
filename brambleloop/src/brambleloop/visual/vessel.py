@@ -41,6 +41,12 @@ SEP_DE = 12.0               # product pixel: at least this far (dE76) from the f
 PEAK_WINDOW_DEG = 18        # a corner is a radius maximum over +- this many degrees
 PEAK_PROMINENCE = 0.035     # ... standing this far (fraction of the mean radius) above the
                             # lowest radius within +- 30 degrees
+# Why no test can separate the prominence floor from the window (Main 6702728170 asked): for
+# a hexagon, a bump at a flat's midpoint is only the maximum of its own +-18 deg window if it
+# rises above the edge 12 deg from the corner (~0.93 of the corner radius against 0.866 for
+# the flat). A bump that high already stands ~7 % above the dip beside it, past this 3.5 %
+# floor, so it is a corner either way. The floor is kept as defence in depth for
+# non-polygonal noise; test_a_jagged_flat_is_not_a_corner pins the behaviour it protects.
 SMOOTH_DEG = 7
 MIN_PRODUCT_FRAC = 0.03     # of the image area
 MIN_BAND_PX = 3             # a colour run shorter than this is merged into its neighbour

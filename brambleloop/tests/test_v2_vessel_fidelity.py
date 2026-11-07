@@ -66,7 +66,7 @@ def _perturb(im, *, rotate=0.0, blur=0.0, gradient=0.0, jpeg=None):
     return buf.getvalue()
 
 
-def top_view(sides=None, *, size=1600, **pert):
+def top_view(sides=None, *, size=1600, bump=0.0, **pert):
     """The basket standing on its base, from directly above: the outline is the twin's
     polygon (`sides`), the rim is the top wall row's colour, the inside a shade darker."""
     sides = MODEL.sides if sides is None else sides
@@ -81,6 +81,16 @@ def top_view(sides=None, *, size=1600, **pert):
     else:
         pts = [(c + r * math.cos(math.radians(90 + 360 * k / sides)),
                 c + r * math.sin(math.radians(90 + 360 * k / sides))) for k in range(sides)]
+        if bump:
+            # A jagged flat: a small outward point at each side's midpoint (a slubby or
+            # uneven stitch), well inside the corner's prominence floor.
+            jag = []
+            for k in range(sides):
+                jag.append(pts[k])
+                a = math.radians(90 + 360 * (k + 0.5) / sides)
+                rr = r * math.cos(math.pi / sides) * (1 + bump)
+                jag.append((c + rr * math.cos(a), c + rr * math.sin(a)))
+            pts = jag
         inner = [(c + (x - c) * .85, c + (y - c) * .85) for x, y in pts]
         d.polygon(pts, fill=rim)
         d.polygon(inner, fill=tuple(int(v * .82) for v in rim))
@@ -215,6 +225,15 @@ def test_a_side_view_too_small_to_read_its_rows_is_unknown():
     v = V.verify(top_view(), tiny, CIR)
     side = [c for c in v["checks"] if c["check"].endswith("wall_bands")]
     assert side and side[0]["status"] == "UNKNOWN", side
+
+
+def test_a_jagged_flat_is_not_a_corner():
+    """A small bump mid-side is a radius maximum within its own +-18 deg window (the corners
+    are 30 deg away); only the prominence floor keeps it from being counted as a corner."""
+    for p in ({}, {"blur": 1.5, "jpeg": 75}):
+        v = V.verify(top_view(bump=0.02, **p), side_view(**p), CIR)
+        sides = next(c for c in v["checks"] if c["check"].endswith(":sides"))
+        assert sides["status"] == "PASS" and sides["counted"] == 6, (p, sides)
 
 
 if __name__ == "__main__":
