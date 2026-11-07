@@ -2346,15 +2346,6 @@
       "blocks": "generated frames reaching a publishable gallery; does not block V1/V2 or any other work"
     },
     {
-      "id": "OA-PAID-KEYS",
-      "at": "2026-11-02T19:05Z",
-      "action": "Decide immediate containment until V0 deploys: remove BRAMBLELOOP_IMAGE_KEY_BFL, _GOOGLE and _OPENAI from the brambleloop-os Railway variables (keep copies in your password manager), then let them take effect on the next deploy; or accept the small automatic probe spend until V0 ships",
-      "why": "keys currently allow automatic paid FLUX probes and, after a successful probe, paid generation, without owner activation",
-      "max_cost": "CA$0",
-      "minutes": "3",
-      "consequence_of_waiting": "automatic BFL probe calls continue (observed about every 6 h); amount UNKNOWN"
-    },
-    {
       "id": "OA-BENCH-LIBRARY-VOLUME",
       "at": "2026-11-02T21:39:14Z",
       "action": "later, at Learning deployment: provision a private Railway volume for BRAMBLELOOP_BENCHMARK_LIBRARY holding the licensed benchmark files",
@@ -2381,6 +2372,11 @@
         "no threshold relaxation",
         "no fixture evidence represented as real identity certification"
       ]
+    },
+    {
+      "id": "OA-PAID-KEYS",
+      "status": "owner chose 'leave for now' (2026-11-07): accept the small automatic BFL probe spend until V0 ships",
+      "decided": "2026-11-07T07:37:47Z"
     }
   ],
   "production_findings": [
@@ -2421,6 +2417,34 @@
       "recorded": "2026-11-07T07:31:12Z",
       "fact": "Railway deploy logs for brambleloop-os contain only uvicorn access lines; job failures/dead letters are not logged to stdout, so the Batch 4 dead-letter cause cannot be read from logs. /api/verify publishes check names only. Exact missing access: a read-only query against the production Postgres jobs table (status=DEAD, updated_at in 2026-11-02T03:31Z..2026-11-03T03:31Z: job_type, last_error) or the operator-credential readback (ops/readback.py) which reads the same.",
       "needed": "either a read-only DATABASE_URL role, or running PROD_DIAG_READONLY.sql via the Railway Postgres console (owner), or the BRAMBLELOOP_OPS_TOKEN for ops/readback.py"
+    },
+    {
+      "id": "PF-BATCH5-DEPLOYED",
+      "recorded": "2026-11-07T07:37:47Z",
+      "sha": "705725a3f0b2aa9910153d99b9d4389405199152",
+      "approved_by": "owner, Main channel 2026-11-07 (exact SHA)",
+      "preconditions": {
+        "sha_unchanged": true,
+        "deploy_guard": "ALLOW (full suite 20261102T164117Z-1487 on tree 5ba84bf7, 10384 tests, 0 failing suites)",
+        "rollback_rehearsal": "ALLOW to 0967c3ee",
+        "backup": "brambleloop_prod_20261107T072926Z.dump 543628327 bytes sha256 b4ec213b1efdf056a699d66ab9fa8e6090ce142deac8c9f27e0d0709bf0be46d restore_ok, 147 tables 319915 rows, BK RESULT OK",
+        "shadow": "phase_is_shadow and nothing_published pass before and after"
+      },
+      "readback": "13/13 checks; smoke PASS; NEEDS_OPERATOR x6 (operator-gated endpoints, unchanged from Batch 4); rollback_decision FIX_FORWARD",
+      "acceptance": {
+        "start": "2026-11-07T07:37:47Z",
+        "end": "+24h",
+        "rollback_triggers": [
+          "boot guard or build commit != 705725a3",
+          "worker not alive",
+          "any red /api/verify check",
+          "a new unexpected dead letter",
+          "SHADOW not held / anything published",
+          "paid spend beyond the known probe cadence"
+        ],
+        "known_preexisting": "4 false evidence checks (publishing_halt_clear, stale_artefacts_rebuilding, no_repeated_paid_call_in_24h = BFL probe, weekly_jobs_completing) carried from Batch 4; Batch 4 acceptance FAIL (dead letters) documented in PF-BATCH4-24H-ACCEPTANCE"
+      },
+      "backup_volume": "795M free of 4.6G after this backup: about one more backup fits; pruning needs retention/restore verification first (owner order item 8)"
     }
   ]
 }
