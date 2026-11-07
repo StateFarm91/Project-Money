@@ -1098,6 +1098,15 @@
       "verdicts": {
         "codex/a6-learning-consumer 9f8f336e": "DO NOT SHIP (no shippable subset): branch handoff itself says do not integrate; F1 HIGH has_pins trusts job-supplied CIR (revise/certify not bound to stored release hash); F2 HIGH retire-vs-certify/publish check-then-act not atomic; test_w5_a6_learning_to_design 2/6 FAIL; A6-1 closed only by disabling the lever (M15 survives, hook hard-coded 5.0mm); F5 MED implementation_digest invalidates every pin on any compiler edit (outage risk); mutants M3/M8/M9/M14/M15 survive. Assigned CODEX."
       }
+    },
+    {
+      "subject": "A3 U5 gallery gap recovery",
+      "sha": "84085fa8",
+      "recorded": "2026-11-07T14:16:00Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_A3_U5_84085fa8.md",
+      "verdicts": {
+        "codex/a3-gallery-gap-recovery 84085fa8": "DO NOT SHIP (all fail closed): F1 MED test_w4_launchfix 30/32 (fixture lacks photo ListingAsset); F2 MED _persist_frames overwrites approved photo frame (pre-existing on w6-INTEG1, reachable from fix-only/targeted rebuild); F3 MED release_gates.recheck strands photo-led gallery; F4 MED #126 direct-writer gap confirmed on PG16; F5 MED certificate invalidation untested (M9); F6-F9 LOW; F10 inherited: committed autonomy_map.json stale on w6-INTEG1. Assigned CODEX (F1,F3,F4,F5-F9); MAIN takes F2 and F10 on w6-INTEG1."
+      }
     }
   ],
   "integration": {
@@ -2585,6 +2594,14 @@
       "recorded": "2026-11-07T10:00:00Z",
       "severity": "LOW (latent)",
       "finding": "runtime/release.chain_key truncates the rebuild token to 12 chars; two rebuild tokens sharing a 12-char prefix collide and the second rebuild silently skips stages (found by Main while testing fix-only). Fix: hash the full token.",
+      "owner": "MAIN",
+      "status": "OPEN"
+    },
+    {
+      "id": "PF-W6-PERSIST-FRAMES-PHOTO",
+      "recorded": "2026-11-07T14:16:00Z",
+      "severity": "MED",
+      "finding": "runtime/release._persist_frames upserts by position without asset_class/lock/certificate invalidation; an assets.build (targeted or fix-only rebuild) can replace an approved certified photo frame with a RENDER and orphan the photo (upgrade_queued). Present on w6-INTEG1.",
       "owner": "MAIN",
       "status": "OPEN"
     }
