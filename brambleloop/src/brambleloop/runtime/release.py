@@ -574,11 +574,14 @@ def handle_assets_build(ctx: JobContext) -> dict:
                              f"{ctx.job.inputs.get('release', '') or '-'} chain "
                              f"{CHAIN_VERSION}; hero sha256 "
                              f"{stored_frames[0]['sha256'] if stored_frames else '-'}"))
-    _persist_frames(ctx, slug, version, frames, stored_frames, blocking)
+    placed = _persist_frames(ctx, slug, version, frames, stored_frames, blocking)
     # D-FB-7: the product's customer imagery when no qualified photograph exists -- the
     # disclosed deterministic render set, drawn from this certified CIR, verified from its
     # pixels and filed where the parity and eligibility readers find it.
-    disclosed = _disclosed_render_set(ctx, cir, slug, version, store, lineage)
+    # Review 494066fa LOW-2: a fix-only candidate for a LIVE listing writes no disclosed
+    # record either -- local readers would otherwise certify images Etsy does not show.
+    disclosed = (None if placed["live_candidate"]
+                 else _disclosed_render_set(ctx, cir, slug, version, store, lineage))
 
     ctx.audit("assets.listing_images_built" if not blocking else "assets.listing_images_blocked",
               artifact=f"{slug}@{version}",
@@ -615,7 +618,12 @@ def handle_assets_build(ctx: JobContext) -> dict:
                # one of the two this release certified rather than only the US one.
                "pdf_sha256_by_terminology": {t: stored.sha256
                                              for t, stored in sorted(pdfs.items())},
-               "frames": stored_frames}
+               # Review 494066fa MED-1: the frames handed on are the gallery as persisted --
+               # a kept photograph in its slot -- never a render set that does not exist.
+               "frames": (_stored_frames(ctx.db, slug, version) if placed["kept"]
+                          else stored_frames)}
+    if placed["live_candidate"]:
+        payload["candidate_only"] = True
     # W6 FIX-ONLY: the bound is passed to the next stage only, never stored in this job's
     # outputs, which ordinary re-prices and targeted rebuilds copy (review 6cbc08e6 F1).
     ctx.enqueue("pricing", "pricing.position",
@@ -2814,7 +2822,7 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
             ctx.audit("listing.fix_frame_candidate", artifact=f"{slug}@{version}", detail={
                 "live": True, "applied": False, "frames": candidate,
                 "rejected": reasons[:10]})
-            return
+            return {"kept": [], "live_candidate": True}
     kept: set[int] = set()
     with ctx.db.session() as s:
         for frame, meta in zip(frames, stored):
@@ -2866,6 +2874,7 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
         ctx.audit("listing.frame_photo_kept", artifact=f"{slug}@{version}", detail={
             "positions": sorted(kept), "not_placed": [c for c in candidate
                                                       if c["position"] in kept]})
+    return {"kept": sorted(kept), "live_candidate": False}
 
 
 def _motifs_for(slug: str) -> list[str]:
