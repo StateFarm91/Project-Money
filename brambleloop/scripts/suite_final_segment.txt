@@ -234,3 +234,4 @@ tests/test_opus2_culture_sweep_timeout.py
 tests/test_w5_concept_intake.py
 tests/test_w5_inventory.py
 tests/test_w6_secret_leak_escalate.py
+tests/test_w5_a7_supply_stall.py
