@@ -401,6 +401,22 @@ def test_an_unchanged_new_version_inherits_the_hold_and_a_changed_one_supersedes
     assert _open_cards(db, sig) == []
 
 
+def test_not_a_defect_releases_the_hold_it_carried_to_a_newer_identical_version():
+    a, _b = _cirs()
+    db = _db(a)
+    for n in range(3):
+        _case(db, a, n)
+    _triage(db, "k1")
+    sig = defects.signature(a.slug, a.version, ROW)
+    _add_version(db, a, "9.0.0", certified=True)            # identical CIR: hold carried
+    _triage(db, "k2")
+    assert W.reasons(db, a.slug, "9.0.0")["blocks_publish"] is True
+    defects.record_owner_decision(db, _incident_id(db, sig), "not_a_defect",
+                                  "buyers misread the stitch key; the count is right")
+    assert W.reasons(db, a.slug, "9.0.0")["withheld"] is False
+    assert W.reasons(db, a.slug, a.version)["withheld"] is False
+
+
 def test_not_a_defect_releases_a_carried_hold_but_not_another_incidents_hold():
     a, _b = _cirs()
     db = _db(a)
