@@ -1300,6 +1300,15 @@
     {
       "observed": "2026-11-02T04:30Z",
       "what": "Acceptance sampler (every 2 min since 03:37Z) on 0967c3ee: worker_is_alive FALSE at 03:45:40Z and 03:47:44Z (also 03:31Z cold start and the 03:36Z blip); runner.worker_alive is false when the worker has not ticked for 120 s, i.e. one job held the worker about 4 min. From 03:53:57Z onward no_unexpected_dead_letters_in_24h is FALSE (/api/verify 503, ok=False) and weekly_jobs_completing turned false. The dead job is not identifiable without operator access (application logs carry only access lines; jobs table needs SQL or the readback token). Severity per ops/rollback_decision.py: dead letters P1 (fix forward); worker alive is P0 but has read true continuously since 03:49:49Z, so no rollback. Production is NOT healthy; the 24 h acceptance is currently failing. Owner action: BRAMBLELOOP_READBACK_TOKEN, or run read-only: SELECT id, job_type, attempts, left(last_error,300), finished_at FROM jobs WHERE status='DEAD' AND finished_at > now() - interval '24 hours';"
+    },
+    {
+      "id": "PO-705725A3-DEADLETTER-0839",
+      "observed": "2026-11-07T08:39:34Z",
+      "build": "705725a3",
+      "finding": "/api/verify checks 12/13: no_unexpected_dead_letters_in_24h turned false ~1h after the Batch 5 deploy (13/13 at 07:37Z). /api/verify now returns 503. evidence_checks false: publishing_halt_clear, stale_artefacts_rebuilding, no_repeated_paid_call_in_24h, weekly_jobs_completing (unchanged since deploy).",
+      "diagnosis_blocker": "Public projection drops evidence; deploy logs are access-lines only. Job type/error class requires GET /api/readback/evidence with BRAMBLELOOP_READBACK_TOKEN (secret; Main reads Railway variables by name only) or an owner-run read-only query of jobs status=DEAD finished_at>=2026-11-07T07:37Z.",
+      "acceptance_impact": "Batch 5 24h acceptance cannot be PASS while this check is false; UNKNOWN cause is not PASS.",
+      "status": "OPEN"
     }
   ],
   "reviews_in_flight": {
