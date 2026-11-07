@@ -374,6 +374,57 @@ def test_flow_health_does_not_read_a_fix_only_stop_as_a_stall():
                        "stopped_before": "launch.plan"}) is False
 
 
+def _gallery(db, slug, version):
+    from brambleloop.core.models import ListingAsset
+
+    with db.session() as s:
+        return [(a.position, a.asset_class, a.sha256, a.approved) for a in s.scalars(
+            select(ListingAsset).where(ListingAsset.product_slug == slug,
+                                       ListingAsset.version == version)
+            .order_by(ListingAsset.position))]
+
+
+def test_a_fix_only_rebuild_never_rewrites_a_live_listings_gallery_rows():
+    """Review STOREFRONT a1331372 M2: Etsy still shows the old images; so must the rows."""
+    st = chain()
+    db, slug, version = st["db"], st["slug"], st["version"]
+    _set_listing(db, slug, version, state="published", etsy_listing_id="5550004")
+    from brambleloop.core.models import ListingAsset
+
+    with db.session() as s:                       # the gallery buyers see, marked distinctly
+        for a in s.scalars(select(ListingAsset).where(ListingAsset.product_slug == slug,
+                                                      ListingAsset.version == version)):
+            a.sha256 = "e" * 64
+    before = _gallery(db, slug, version)
+    assert before, "the chain persisted no gallery"
+    _fix(db, st["inputs"], "fr-live-1")
+    assert "assets.build" in [t for t, _s in _jobs(db, "fr-live-1")]
+    assert _gallery(db, slug, version) == before
+    cand = _audits(db, "listing.fix_frame_candidate")
+    assert cand and cand[-1]["live"] is True and cand[-1]["frames"], cand
+
+
+def test_no_rebuild_ever_replaces_a_physical_photograph_slot():
+    """Review A3 U5 84085fa8 F2: an ordinary rebuild's render never overwrites a photo."""
+    st = chain()
+    db, slug, version = st["db"], st["slug"], st["version"]
+    _set_listing(db, slug, version, state="draft", etsy_listing_id="")
+    from brambleloop.core.models import ListingAsset
+
+    with db.session() as s:
+        a = s.scalar(select(ListingAsset).where(ListingAsset.product_slug == slug,
+                                                ListingAsset.version == version,
+                                                ListingAsset.position == 1))
+        a.asset_class, a.sha256, a.approved = "PHYSICAL_PRODUCT_PHOTO", "f" * 64, True
+    JobQueue(db).enqueue("publishing", "assets.build", {**st["inputs"], "rebuild": "fr-ph-1"},
+                         priority=0, idempotency_key="fo-fr-ph-1")
+    _drain(db, name="fo-fr-ph")
+    assert "assets.build" in [t for t, _s in _jobs(db, "fr-ph-1")]
+    assert _gallery(db, slug, version)[0] == (1, "PHYSICAL_PRODUCT_PHOTO", "f" * 64, True)
+    kept = _audits(db, "listing.frame_photo_kept")
+    assert kept and 1 in kept[-1]["positions"], kept
+
+
 def test_launch_plan_refuses_a_fix_only_input_whoever_enqueued_it():
     st = chain()
     db, slug, version = st["db"], st["slug"], st["version"]

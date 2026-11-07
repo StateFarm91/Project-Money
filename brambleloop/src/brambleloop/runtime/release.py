@@ -2802,11 +2802,37 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
     veto = active_veto(ctx.db, slug)
     if veto["vetoed"]:
         reasons.append(f"owner veto (#228): {veto['why']}")
+    candidate = [{"position": f.position, "asset_class": f.asset_class.value, "role": f.role,
+                  "sha256": m["sha256"]} for f, m in zip(frames, stored)]
+    if ctx.job.inputs.get("fix_only"):
+        # W6 FIX-ONLY (review STOREFRONT a1331372 M2): a remediation never rewrites a LIVE
+        # listing's gallery rows -- nothing carries them to Etsy, and a local row that claims
+        # the new images would clear the finding while buyers still see the old ones. The
+        # candidate frames are recorded; the owner applies them by hand.
+        from ..core.models import Listing
+
+        with ctx.db.session() as s:
+            listing = s.scalar(select(Listing).where(Listing.product_slug == slug,
+                                                     Listing.version == version))
+            live = listing is not None and _is_live(listing)
+        if live:
+            ctx.audit("listing.fix_frame_candidate", artifact=f"{slug}@{version}", detail={
+                "live": True, "applied": False, "frames": candidate,
+                "rejected": reasons[:10]})
+            return
+    kept: set[int] = set()
     with ctx.db.session() as s:
         for frame, meta in zip(frames, stored):
             row = s.scalar(select(ListingAsset).where(
                 ListingAsset.product_slug == slug, ListingAsset.version == version,
                 ListingAsset.position == frame.position))
+            if row is not None and row.asset_class == "PHYSICAL_PRODUCT_PHOTO" \
+                    and frame.asset_class.value != "PHYSICAL_PRODUCT_PHOTO":
+                # Review A3 U5 84085fa8 F2: a rebuild's render never replaces a physical
+                # photograph's slot. The photo, its approval and its certificate stand; the
+                # render is recorded as not placed.
+                kept.add(frame.position)
+                continue
             if row is None:
                 row = ListingAsset(product_slug=slug, version=version,
                                    position=frame.position)
@@ -2831,6 +2857,8 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
         lineage = _lineage(ctx, validation_status="blocked" if reasons else "passed")
         certificate_ref = f"certificate:{provenance.release_key(slug, version)}"
         for frame in frames:
+            if frame.position in kept:
+                continue
             row = s.scalar(select(ListingAsset).where(
                 ListingAsset.product_slug == slug, ListingAsset.version == version,
                 ListingAsset.position == frame.position))
@@ -2839,6 +2867,10 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
                 artefact_key=provenance.visual_key(slug, version, row.id),
                 product_slug=slug, inputs=design, chain_version=CHAIN_VERSION,
                 lineage=lineage.for_file(row.sha256).under(certificate_ref))
+    if kept:
+        ctx.audit("listing.frame_photo_kept", artifact=f"{slug}@{version}", detail={
+            "positions": sorted(kept), "not_placed": [c for c in candidate
+                                                      if c["position"] in kept]})
 
 
 def _motifs_for(slug: str) -> list[str]:
