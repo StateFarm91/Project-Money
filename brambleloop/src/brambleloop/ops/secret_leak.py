@@ -124,8 +124,13 @@ def escalate(session, *, summary: dict | None = None, env: dict | None = None) -
     from . import incident_lifecycle, owner_queue
 
     summary = guard.summary() if summary is None else summary
-    if summary.get("status") != "CAUGHT":
-        return {"status": "CLEAN", "records_scanned": summary.get("records_scanned", 0),
+    status = summary.get("status")
+    if status != "CAUGHT":
+        # Only an explicit CLEAN reads as clean; anything else (missing, malformed, a status
+        # this module does not know) is UNKNOWN, never CLEAN (review W6 2026-11-07, LOW).
+        return {"status": "CLEAN" if status == "CLEAN" else "UNKNOWN",
+                "guard_status": status if isinstance(status, str) else repr(type(status)),
+                "records_scanned": summary.get("records_scanned", 0),
                 "opened": [], "restated": [], "owner_actions": []}
     env = dict(os.environ) if env is None else env
     opened, restated, actions = [], [], []
@@ -166,3 +171,28 @@ def escalate(session, *, summary: dict | None = None, env: dict | None = None) -
     session.flush()
     return {"status": "CAUGHT", "records_scanned": summary.get("records_scanned", 0),
             "opened": opened, "restated": restated, "owner_actions": actions}
+
+
+ESCALATION_FAILED = SIGNATURE + "escalation_failed"
+
+
+def escalation_failed(session, error: str) -> dict:
+    """Fail-closed fallback when `escalate` raised while the guard holds a caught secret:
+    one P1 incident naming only the error type (no variable, fingerprint or value), so a
+    caught secret never reduces to an UNKNOWN reading with nothing to act on."""
+    from . import incident_lifecycle
+
+    _row, new = incident_lifecycle.open_or_restate(
+        session, signature=ESCALATION_FAILED, severity="P1",
+        summary=(f"A secret was caught in the service log but its escalation failed "
+                 f"({error}), so no per-credential rotation card exists yet. Read the "
+                 f"ops.health job output (secret_leak) and the service log for the guard's "
+                 f"pattern/fingerprint lines, rotate those credentials in Railway, and fix "
+                 f"the error, then resolve this incident (it never closes by itself: a later "
+                 f"clean sweep in a new process cannot prove the caught value was rotated)"),
+        detail={"source": "ops.secret_leak", "error": error, "value_stored": False})
+    session.flush()
+    return {"status": "CAUGHT", "escalation": "FAILED", "error": error,
+            "opened": [ESCALATION_FAILED] if new else [],
+            "restated": [] if new else [ESCALATION_FAILED]}
+

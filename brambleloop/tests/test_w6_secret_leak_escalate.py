@@ -160,6 +160,89 @@ def test_a_secret_no_variable_holds_is_keyed_on_pattern_and_fingerprint():
     _assert_absent(FAKE_GH, path)
 
 
+def test_a_resolved_catch_reopens_while_the_process_holds_it_and_not_after_a_restart():
+    """No acknowledgement rule (two delta reviews showed every one can hide a real exposure).
+    A catch the owner resolved re-opens while this process still remembers it -- loud, never
+    silent -- and a new process (the rotation's redeploy) starts with nothing caught."""
+    from brambleloop.ops import incident_lifecycle
+
+    G.GUARD.caught.clear()
+    logging.getLogger("brambleloop.ci").error("token in a response: %s", FAKE_GH)
+    db, path = _db()
+    _sweep(db, "r-1")
+    with db.session() as s:
+        incident_lifecycle.resolve_signatures(
+            s, [i[0] for i in _leaks(db)[0]], resolution="owner: rotated")
+    _sweep(db, "r-2")
+    assert [i[2] for i in _leaks(db)[0]].count(False) == 1, _leaks(db)[0]   # loud
+    with db.session() as s:
+        incident_lifecycle.resolve_signatures(
+            s, [i[0] for i in _leaks(db)[0] if not i[2]], resolution="owner: rotated")
+    G.GUARD.caught.clear()                                   # the redeploy: a fresh process
+    _sweep(db, "r-3")
+    assert [i[2] for i in _leaks(db)[0]].count(False) == 0, _leaks(db)[0]
+    _assert_absent(FAKE_GH, path)
+
+
+def test_only_an_explicit_clean_status_reads_clean():
+    db, _path = _db()
+    with db.session() as s:
+        assert secret_leak.escalate(s, summary={"status": "CLEAN"})["status"] == "CLEAN"
+        assert secret_leak.escalate(s, summary={})["status"] == "UNKNOWN"
+        assert secret_leak.escalate(s, summary={"status": "caught"})["status"] == "UNKNOWN"
+
+
+def test_a_failed_escalation_of_a_caught_secret_still_opens_an_incident():
+    G.GUARD.caught.clear()
+    logging.getLogger("brambleloop.ci").error("token in a response: %s", FAKE_GH)
+    db, path = _db()
+    real = secret_leak.escalate
+
+    def boom(*a, **k):
+        raise RuntimeError("escalation broke")
+
+    secret_leak.escalate = boom
+    try:
+        out = _sweep(db, "fail-1")
+        _sweep(db, "fail-2")
+    finally:
+        secret_leak.escalate = real
+    assert out["secret_leak"]["escalation"] == "FAILED", out["secret_leak"]
+    inc, _act = _leaks(db)
+    assert [(i[0], i[1], i[2]) for i in inc] == [(secret_leak.ESCALATION_FAILED, "P1", False)], inc
+    _assert_absent(FAKE_GH, path)
+    assert inc[0][3]["error"] == "RuntimeError", inc[0][3]          # type only, never str(exc)
+    assert "escalation broke" not in repr(inc[0][3]), inc[0][3]
+    # It never closes by itself: neither a later successful sweep nor a clean new process.
+    _sweep(db, "fail-3")
+    G.GUARD.caught.clear()
+    _sweep(db, "fail-4")
+    inc = {i[0]: i[2] for i in _leaks(db)[0]}
+    assert inc[secret_leak.ESCALATION_FAILED] is False, inc
+    from brambleloop.ops import incident_lifecycle
+
+    with db.session() as s:                    # the fallback names its owner path (REMEDIATION)
+        snap = incident_lifecycle.snapshot(s)
+    assert secret_leak.ESCALATION_FAILED not in snap["needs_owner_path"], snap["needs_owner_path"]
+
+
+def test_a_failed_escalation_with_a_clean_guard_opens_nothing():
+    G.GUARD.caught.clear()
+    db, _path = _db()
+    real = secret_leak.escalate
+
+    def boom(*a, **k):
+        raise RuntimeError("escalation broke")
+
+    secret_leak.escalate = boom
+    try:
+        out = _sweep(db, "cleanfail-1")
+    finally:
+        secret_leak.escalate = real
+    assert out["secret_leak"]["status"] == "UNKNOWN", out["secret_leak"]
+    assert _leaks(db)[0] == []
+
+
 def test_the_escalation_rides_an_existing_cadence_and_is_reached():
     assert any(c[2] == "ops.health" for c in CADENCES)
     reachability.reachable.cache_clear()

@@ -186,6 +186,11 @@ REMEDIATION: dict[str, tuple[str, str]] = {
     "authority_chain_tamper": ("owner", "inspect the sealed authority chain; publication "
                                         "stays refused until it verifies"),
     "spend-anomaly": ("finance.reconcile", "explained or reversed by the finance close"),
+    # W6 P0-SECRET-LEAK-ESCALATE: a secret caught in the service log (or its failed escalation).
+    "secret_leak": ("owner", "rotate the named credential in Railway (the rotation card names "
+                             "the exact steps), confirm one real call with the new value, then "
+                             "resolve the incident; it re-opens while the running process still "
+                             "holds the catch, which the rotation's redeploy clears"),
     "support.first_response": ("support.response_watch", "a recorded response closes it"),
     "release.unproven_build": ("deploy guard", "deploy a build with a committed release "
                                                "record (ops/deploy_guard.py record)"),
