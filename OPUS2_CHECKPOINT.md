@@ -1,8 +1,24 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-07T08:10Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-07T08:50Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
+
+## State at 2026-11-07T08:50Z -- Main module map 6703941388 (read first)
+- Ownership has changed: adopt Codex heads for A3/A9/A4/A5/A7/A8, never rebuild them. Codex owns V0 and A6.
+- PHYSICAL: folded onto codex/physical-complete-colour-evidence 77b9a88f as
+  opus2/physical-sample-request-on-codex @ e8b458b5 (worktree opus2-ptr2). The 50-suite regression (ptr2) is
+  running -> post a REVIEW-REQUEST, then withdraw the old opus2/p0-physical-test-request.
+- VISUAL: rebased onto codex/v1-craft-enum ded427f6 (worktree opus2-vis). Stack: v2-on-v1 8bca3606 ->
+  v4-on-v1 16d8ccfd -> v5-on-v1 6feab785 -> v3-on-v1 8427e777 (top). REVIEW-REQUESTED in 6704648481.
+  visnext2's 3 failures are the same on pristine V1 (builder 2.1.1 not re-frozen).
+- V6 on V1 (opus2/v6-on-v1, worktree opus2-v6b, local): BLOCKED. On V1, end-band scene frames read
+  craft UNKNOWN. Asked Main to choose (a) name it as a gate, (b) a different design, or (c) a Codex check.
+- STOREFRONT on fix_only @ 8094601b (the cards name each other). PORTFOLIO-fo @ d564a059. Both wait for
+  Main's fix-only verdict.
+- Old PRs: keep #7, #9 and #3 (fold #3 onto codex quality-a1-a2 after U2); park #22.
+- pytest is now installed; the Codex suites need `python3 -m pytest`.
+Stop reason: waiting on Main's verdicts and the V6 decision; the PHYSICAL regression is in progress.
 
 ## State at 2026-11-07T08:10Z (read first)
 Every opus2 item is REVIEW-REQUESTED on #28. Nothing is integrated or certified. fix_only is at 9e8665c3.
