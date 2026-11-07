@@ -2996,7 +2996,8 @@ def handle_physical_record(ctx: JobContext) -> dict:
     wrong, and no amount of yarn arithmetic fixes a basket that is not the size we said.
     """
     from ..quality.physical import (
-        PARTIAL, BallBand, SampleReport, assess, calibration_from_db, parts_made, record,
+        PARTIAL, PASS, BallBand, SampleReport, assess, calibration_from_db, parts_made,
+        record,
     )
 
     i = ctx.job.inputs
@@ -3118,7 +3119,9 @@ def handle_physical_record(ctx: JobContext) -> dict:
     # P0-PHYSICAL-TEST-REQUEST: the recorded make answers this release's sample request.
     from ..quality import physical_sample
 
-    physical_sample.close_on_record(ctx, slug, version, content_hash, row_id)
+    physical_sample.close_on_record(ctx, slug, version, content_hash, row_id,
+                                    passed=(assessment.outcome == PASS) and not owner_made,
+                                    evidence_class=evidence_class, owner_made=owner_made)
 
     review = None
     if assessment.outcome == PARTIAL and not owner_made:

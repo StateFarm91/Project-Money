@@ -151,8 +151,12 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     # closing record is checked against the content hash this audit names, so pruning it
     # would leave the request unclosable.
     "physical.sample_requested": ("lifetime_total",
-                                  "quality.physical_sample.close_on_record reads the newest "
-                                  "request for slug@version to bind the closing record"),
+                                  "quality.physical_sample.state reads every work item for "
+                                  "slug@version to bind the closing record to its content"),
+    # ... and the closing record that satisfies (or does not satisfy) it, read the same way.
+    "physical.sample_closed": ("lifetime_total",
+                               "quality.physical_sample.state reads whether a work item for "
+                               "this content was satisfied"),
     # W4-FMBATCH1: readers added on that branch without an entry (caught by
     # test_cost_governance_wave2; F-549 scorecard, F-099 trigger, F-661 executive block), and
     # F-723's learning-value report, which reads the newest 200 rows.

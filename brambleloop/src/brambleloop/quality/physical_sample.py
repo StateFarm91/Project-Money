@@ -1,42 +1,43 @@
-"""P0-PHYSICAL-TEST-REQUEST: one owner action per class-C release that has no bound full make.
+"""P0-PHYSICAL-TEST-REQUEST: one tester work item per class-C release with no bound full make.
 
 `gate.certify` refuses a release whose effective risk class is C until a passed full physical
-make of exactly that content is bound (`PHYSICAL_TEST_REQUIRED`). Before this module the only
-owner request was `_request_physical_retest`, which fires when *earlier* evidence went stale.
-A product that never had a sample raised nothing, and the one prepared kit
-(`quality.tester_kit`) is fixed to `BUILD_KEY = "basket_small"`. So every new class-C design
-waited silently.
+make of exactly that content is bound (`PHYSICAL_TEST_REQUIRED`). Before this module nothing
+said *what* to make for a product that never had a sample: the one prepared kit
+(`quality.tester_kit`) is fixed to `BUILD_KEY = "basket_small"`.
 
-This raises the request for that product:
+**This is tester work, not an owner card (DECISION_LOG B-532; review PHYSICAL e8b458b5
+MED-3).** The owner has withdrawn the physical sample from the owner queue; the route is an
+independent pattern tester (`tester_roster`), and the one owner card for that route is the
+existing `tester_outreach` decision. So this module writes no OwnerAction. It records a work
+item, `physical.sample_requested`, that `quality.testers.plan` attaches to the release's
+testing demand, so whoever tests the product is handed the exact kit.
 
-* **Keyed** `physical.sample:<slug>@<version>`. One request per release, however many times
-  certification re-runs. The key states the version, not the content: a material change
-  under the same version is refused by PT-03, never re-requested here.
-* **A sample kit built from the CIR itself.** Yarn, hook, gauge and the size the twin
-  predicts come from the pattern, never from the basket kit. `kit_hash` is the SHA-256 of
-  the canonical kit and binds to the certificate's `content_hash`, so the tester makes
-  exactly what was examined (F-078).
-* **The cost, minutes and consequence** come from `risk_matrix.owner_action_spec`. That is
-  the one costing rule the retest path uses, so the two requests never disagree.
-* **Closed only by evidence.** A `physical.record` intake for this slug@version, bound to the
-  same content hash, closes the action as `satisfied`. A decision the owner has already made
-  (any closed row for the key) is never reopened.
+* **Bound to the content hash** (review MED-1). One open item per slug@version@content: a
+  re-certify of the same content writes nothing new; changed content under the same version
+  opens a new item.
+* **The kit comes from the CIR and its twin** (MED-2): yarn, hook, gauge (UNKNOWN when the
+  pattern states none), the pieces, the predicted size, and the predicted metres of every
+  yarn colour, keyed as the physical validator keys them (the twin's `yarn_metres_by_color`),
+  with the +-20% calibration tolerance stated.
+* **Satisfied only by evidence that would clear the gate** (HIGH-1): a stored
+  `physical.record` that is a passed, non-owner-made full physical make bound to the same
+  content hash. Any other record (swatch, component, owner-made, failed, a colour
+  unmeasured, other content) leaves the item open and says why.
+* **Says only what is true** (HIGH-2): a record that leaves a sampled colour unmeasured is
+  stored as not passed (`SAMPLE_COLOUR_UNMEASURED` is an assessment finding, not a refusal),
+  so it does not satisfy the item.
 
-What this never does: create, infer or assume physical evidence; spend; contact a tester.
-The action asks the owner to approve commissioning an independent tester (F-071).
+What this never does: create, infer or assume physical evidence; spend; contact a tester;
+raise an owner card.
 """
 from __future__ import annotations
 
 import hashlib
 import json
 
-KEY_PREFIX = "physical.sample:"
 REQUESTED = "physical.sample_requested"
 CLOSED = "physical.sample_closed"
-
-
-def requirement_key(slug: str, version: str) -> str:
-    return f"{KEY_PREFIX}{slug}@{version}"
+TOLERANCE = 0.20                 # the uncalibrated yardage estimate (B-532: +-20%)
 
 
 def _canonical(obj) -> str:
@@ -60,12 +61,32 @@ def needs_request(cert) -> bool:
     return bool(cert.content_hash)
 
 
+def _metres_by_colour(cir, cert) -> dict:
+    """The twin's predicted metres per colour id: the keys the physical validator reads."""
+    twin = cert.twin_summary or {}
+    got = twin.get("yarn_metres_by_color") or {}
+    if not got:
+        try:
+            from ..cir.compiler import compile_cir
+            from ..cir.twin import build_twin
+
+            got = dict(build_twin(cir, compile_cir(cir)).yarn_metres_by_color or {})
+        except Exception:  # noqa: BLE001 - no twin: the colours stay UNKNOWN by name
+            got = {}
+    return {str(k): round(float(v), 1) for k, v in sorted(got.items()) if v is not None}
+
+
 def sample_kit(cir, cert) -> dict:
     """The exact sample a tester makes, from the CIR (never the fixed basket kit)."""
     g = cir.gauge
     twin = cert.twin_summary or {}
     size = {k: twin[k] for k in ("width_cm", "height_cm", "across_flats_cm", "shape")
             if twin.get(k) is not None}
+    gauge = "UNKNOWN (the pattern states no gauge)"
+    if g is not None and (g.stitches_per_10cm or g.rows_per_10cm):
+        gauge = {"stitches_per_10cm": g.stitches_per_10cm, "rows_per_10cm": g.rows_per_10cm,
+                 "stitch": g.stitch_type}
+    metres = _metres_by_colour(cir, cert)
     return {
         "slug": cir.slug, "version": cir.version, "title": cir.title,
         "content_hash": cert.content_hash,
@@ -76,104 +97,105 @@ def sample_kit(cir, cert) -> dict:
                  for m in cir.materials],
         "yarn_weight": getattr(g, "yarn_weight", None),
         "hook_mm": getattr(g, "hook_mm", None),
-        "gauge": None if g is None else {"stitches_per_10cm": g.stitches_per_10cm,
-                                         "rows_per_10cm": g.rows_per_10cm,
-                                         "stitch": g.stitch_type},
+        "gauge": gauge,
         "finished_size_note": cir.finished_size_note,
         "predicted_size": size,
-        "yarn_metres_predicted": twin.get("yarn_metres") or {},
+        "colours_to_weigh": sorted(metres),
+        "yarn_metres_predicted": metres,
+        "yarn_tolerance": TOLERANCE,
         "pieces": [c.name for c in cir.components],
     }
 
 
-def request(ctx, cir, cert) -> dict | None:
-    """Raise (or restate) the per-product sample request. Returns what was done, or None."""
-    if not needs_request(cert):
-        return None
-    from sqlalchemy import select
-
-    from ..core.models import OwnerAction
-    from ..gates import risk_matrix
-    from ..ops import owner_queue
-
-    status = ((cert.risk_matrix or {}).get("requirement") or {})
-    required = status.get("required") or risk_matrix.FULL_PHYSICAL_MAKE
-    twin = cert.twin_summary or {}
-    try:
-        from ..cir.compiler import compile_cir
-        from ..seasonal.leadtime import estimate_for
-
-        hours = estimate_for(cir, compile_cir(cir)).hours
-    except Exception:  # noqa: BLE001 - no estimate: the spec's stated fallback hours apply
-        hours = None
-    spec = risk_matrix.owner_action_spec(
-        slug=cir.slug, version=cir.version, content_hash=cert.content_hash,
-        required=required, effective_class=(cert.risk_matrix or {}).get("effective", "C"),
-        make_hours=hours, yarn_metres=sum((twin.get("yarn_metres") or {}).values()) or None)
-    kit = sample_kit(cir, cert)
-    digest = kit_hash(kit)
-    key = requirement_key(cir.slug, cir.version)
+def brief(kit: dict) -> str:
+    """What the tester is told to make and to record, from the kit alone."""
     yarn = ", ".join(m["name"] for m in kit["yarn"]) or "the pattern's stated yarn"
     hook = f"{kit['hook_mm']} mm" if kit["hook_mm"] else "hook UNKNOWN (pattern states none)"
-    colours = sorted({y["color_id"] for y in kit["yarn"] if y.get("color_id")})
-    action = (f"{spec['action']} Sample spec (kit {digest[:12]}): {yarn}; {hook}; "
-              f"gauge {kit['gauge']}; pieces {kit['pieces']}. When recording it, give the "
-              f"finished measurements and the grams used of every yarn colour "
-              f"({', '.join(colours) or 'each colour'}): a record missing a colour is refused "
-              f"(SAMPLE_COLOUR_UNMEASURED).")
-    with ctx.db.session() as s:
-        prior = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == key)
-                         .order_by(OwnerAction.id.desc()))
-        if prior is not None and prior.done:
-            state = "already_decided"
-            row_id = prior.id
-        else:
-            row = owner_queue.ensure(
-                s, key, action=action, reason=spec["reason"],
-                max_cost_cad=spec["max_cost_cad"], minutes=spec["minutes"],
-                consequence_of_delay=(f"{spec['consequence_of_delay']} The release stays "
-                                      f"withheld until a passed full make is recorded."),
-                blocks=spec["blocks"])
-            state = "restated" if prior is not None else "queued"
-            row_id = row.id
+    colours = "; ".join(f"{c}: about {m} m (+-{int(kit['yarn_tolerance'] * 100)}%)"
+                        for c, m in kit["yarn_metres_predicted"].items()) or (
+        "UNKNOWN (no per-colour prediction)")
+    return (f"Make the whole {kit['title']} ({kit['slug']}@{kit['version']}), as written: "
+            f"{yarn}; {hook}; gauge {kit['gauge']}; pieces {kit['pieces']}. Record the "
+            f"finished measurements and the grams used of every colour ({colours}). A record "
+            f"that leaves a colour unweighed is stored as not passed "
+            f"(SAMPLE_COLOUR_UNMEASURED) and does not satisfy this request.")
+
+
+def _rows(db, artifact: str | None = None) -> list[tuple]:
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    q = select(AuditLog).where(AuditLog.action.in_((REQUESTED, CLOSED)))
+    if artifact is not None:
+        q = q.where(AuditLog.artifact == artifact)
+    with db.session() as s:
+        return [(r.action, r.artifact, dict(r.detail or {}))
+                for r in s.scalars(q.order_by(AuditLog.id))]
+
+
+def state(db, slug: str, version: str, content_hash: str | None) -> dict:
+    """The work item for this exact content: none, open, or satisfied (by which record)."""
+    rows = _rows(db, f"{slug}@{version}")
+    asked = [d for a, _x, d in rows if a == REQUESTED and d.get("content_hash") == content_hash]
+    done = [d for a, _x, d in rows if a == CLOSED and d.get("satisfied")
+            and d.get("content_hash") == content_hash]
+    if done:
+        return {"state": "satisfied", "physical_test": done[-1].get("physical_test")}
+    if asked:
+        return {"state": "open", "kit_hash": asked[-1].get("kit_hash")}
+    return {"state": "none"}
+
+
+def request(ctx, cir, cert) -> dict | None:
+    """Open the tester work item for this release's content, once. Returns what was done."""
+    if not needs_request(cert):
+        return None
+    now = state(ctx.db, cir.slug, cir.version, cert.content_hash)
+    if now["state"] != "none":
+        return {"state": "already_" + now["state"], "content_hash": cert.content_hash,
+                "kit_hash": now.get("kit_hash")}
+    kit = sample_kit(cir, cert)
+    digest = kit_hash(kit)
     ctx.audit(REQUESTED, artifact=f"{cir.slug}@{cir.version}",
-              detail={"owner_action": state, "owner_action_id": row_id,
-                      "requirement_key": key, "kit": kit, "kit_hash": digest,
-                      "content_hash": cert.content_hash, "required": required,
-                      "max_cost_cad": spec["max_cost_cad"], "cost_basis": spec["cost_basis"]})
-    return {"state": state, "requirement_key": key, "kit_hash": digest,
-            "owner_action_id": row_id}
+              detail={"route": "tester_roster", "owner_card": None, "kit": kit,
+                      "kit_hash": digest, "content_hash": cert.content_hash,
+                      "brief": brief(kit)})
+    return {"state": "requested", "content_hash": cert.content_hash, "kit_hash": digest}
+
+
+def open_requests(db) -> dict:
+    """slug -> its newest open work item (kit hash, content hash, brief), for testing demand."""
+    rows = _rows(db)
+    satisfied = {(art, d.get("content_hash")) for a, art, d in rows
+                 if a == CLOSED and d.get("satisfied")}
+    latest: dict = {}
+    for a, art, d in rows:
+        if a == REQUESTED and (art, d.get("content_hash")) not in satisfied:
+            latest[art.split("@", 1)[0]] = {"artifact": art, "kit_hash": d.get("kit_hash"),
+                                            "content_hash": d.get("content_hash"),
+                                            "brief": d.get("brief")}
+    return latest
 
 
 def close_on_record(ctx, slug: str, version: str, content_hash: str | None,
-                    row_id: int | None) -> dict | None:
-    """A `physical.record` intake for this release closes its open sample request.
+                    row_id: int | None, *, passed: bool, evidence_class: str | None,
+                    owner_made: bool) -> dict | None:
+    """A stored `physical.record` satisfies the open work item only when it is the evidence
+    the gate accepts: a passed, non-owner-made full physical make of the same content."""
+    from ..gates.risk_matrix import FULL_PHYSICAL_MAKE
 
-    Only a record bound to the content the request named closes it (`kit.content_hash`), and
-    only an open row. Whether the sample *passed* is the certificate's question, asked by the
-    next `gate.certify`; a recorded make answers this request either way."""
-    from sqlalchemy import select
-
-    from ..core.models import AuditLog, OwnerAction
-    from ..ops import owner_queue
-
-    key = requirement_key(slug, version)
-    with ctx.db.session() as s:
-        row = s.scalar(select(OwnerAction).where(
-            OwnerAction.requirement_key == key, OwnerAction.done == False)  # noqa: E712
-            .order_by(OwnerAction.id))
-        if row is None:
-            return None
-        asked = s.scalar(select(AuditLog).where(
-            AuditLog.action == REQUESTED, AuditLog.artifact == f"{slug}@{version}")
-            .order_by(AuditLog.id.desc()))
-        wanted = ((asked.detail or {}).get("content_hash") if asked is not None else None)
-        if not content_hash or wanted != content_hash:
-            outcome = {"closed": False, "why": "record bound to other content",
-                       "requirement_key": key, "wanted": wanted, "got": content_hash}
-        else:
-            owner_queue.close(row, owner_queue.SATISFIED,
-                              f"physical.record row {row_id} bound to {content_hash[:12]}")
-            outcome = {"closed": True, "requirement_key": key, "physical_test": row_id}
+    if state(ctx.db, slug, version, content_hash)["state"] != "open":
+        return None
+    why = []
+    if not passed:
+        why.append("the make did not pass (a failed check, a deviation or a colour "
+                   "unmeasured)")
+    if evidence_class != FULL_PHYSICAL_MAKE:
+        why.append(f"it is {evidence_class or 'unclassified'}, not a full physical make")
+    if owner_made:
+        why.append("it is owner-made; the route is an independent tester (B-532)")
+    outcome = {"satisfied": not why, "content_hash": content_hash, "physical_test": row_id,
+               "why": "; ".join(why) or "a passed full make of this content is bound"}
     ctx.audit(CLOSED, artifact=f"{slug}@{version}", detail=outcome)
     return outcome

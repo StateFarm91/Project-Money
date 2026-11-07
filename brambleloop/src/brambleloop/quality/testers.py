@@ -266,6 +266,14 @@ def plan(db, products: list[dict], *, today: date | None = None) -> dict:
     fc = forecast(demands, today=today)
     cap = capacity(testers, demands, today=today)
 
+    # P0-PHYSICAL-TEST-REQUEST: each release's open sample work item (the exact kit and brief,
+    # bound to its content hash) travels with its testing demand (B-532: tester work, no card).
+    try:
+        from . import physical_sample
+
+        kits = physical_sample.open_requests(db)
+    except Exception:  # noqa: BLE001 - an unreadable request list adds nothing, hides nothing
+        kits = {}
     load: dict[str, int] = {t.ref: 0 for t in testers}
     by_slug = {d.product_slug: d for d in demands}
     assignments, unassigned = [], []
@@ -283,6 +291,8 @@ def plan(db, products: list[dict], *, today: date | None = None) -> dict:
             except TesterRefused as exc:
                 refusals.append(str(exc))
         if placed:
+            if demand.product_slug in kits:
+                placed = {**placed, "sample_request": kits[demand.product_slug]}
             assignments.append(placed)
         else:
             unassigned.append({"product_slug": demand.product_slug,
@@ -292,7 +302,8 @@ def plan(db, products: list[dict], *, today: date | None = None) -> dict:
                                "why": (refusals or [
                                    f"no recorded tester has tested {demand.specialty!r}; "
                                    f"an out-of-specialty assignment is a slow way to "
-                                   f"discover that"])})
+                                   f"discover that"]),
+                               "sample_request": kits.get(demand.product_slug)})
     return {"forecast": fc, "capacity": cap, "testers": [t.to_dict() for t in testers],
             "assignments": assignments, "unassigned": unassigned,
             "sampled": sorted(sampled),
