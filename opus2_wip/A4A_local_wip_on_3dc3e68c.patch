@@ -1,0 +1,311 @@
+diff --git a/brambleloop/src/brambleloop/gates/asset_truth.py b/brambleloop/src/brambleloop/gates/asset_truth.py
+index 13ca8bee..2446f4d7 100644
+--- a/brambleloop/src/brambleloop/gates/asset_truth.py
++++ b/brambleloop/src/brambleloop/gates/asset_truth.py
+@@ -471,6 +471,51 @@ def rows_working_more_than_one_colour(twin: TwinModel) -> int:
+     return sum(1 for colours in by_row.values() if len(colours) > 1)
+ 
+ 
++# A4A-1: the finished size an object noun promises, deterministic and measured on the twin.
++# A name that says "dishcloth" over a 38 x 11 cm strip promises an object the pattern does not
++# make. (min_cm, max_cm) on BOTH sides, plus the most a "square" object may be out of square.
++# Sources: the house's own engineered dishcloths/washcloths are 22 cm square
++# (products.pipeline_board PROPOSALS); common published potholder/hot-pad sizes sit at
++# 18-23 cm. A band, not a point, so a maker's gauge drift is not a refusal.
++OBJECT_SIZE_BANDS: tuple[tuple[str, tuple[float, float], float], ...] = (
++    (r"\b(?:dish|wash|face)\s*-?\s*cloths?\b", (18.0, 28.0), 1.25),
++    (r"\b(?:hot\s*pads?|pot\s*-?\s*holders?|trivets?)\b", (15.0, 25.0), 1.25),
++)
++
++
++def check_object_size_claims(text: str, cir: CIR, twin: TwinModel,
++                             where: str = "product.title") -> list[Finding]:
++    """A4A-1: does the finished piece have the size the object noun promises?"""
++    import re as _re
++    import unicodedata
++
++    try:                     # the one shared fold (A1-R); this base predates it
++        from ..products.text_fold import fold
++    except ImportError:
++        def fold(t):
++            return unicodedata.normalize("NFKC", str(t or "")).lower()
++    low = " ".join(fold(text).split())
++    out: list[Finding] = []
++    w = getattr(twin, "width_cm", None)
++    h = getattr(twin, "height_cm", None)
++    for pattern, (lo, hi), max_ratio in OBJECT_SIZE_BANDS:
++        m = _re.search(pattern, low)
++        if not m:
++            continue
++        if not w or not h:
++            out.append(Finding(ERROR, "OBJECT_SIZE_UNKNOWN",
++                               f"{where} names {m.group(0)!r} but the twin has no finished "
++                               f"width and height to measure it against"))
++            continue
++        ratio = max(w, h) / min(w, h)
++        if not (lo <= w <= hi and lo <= h <= hi) or ratio > max_ratio:
++            out.append(Finding(ERROR, "OBJECT_SIZE_OUT_OF_BAND",
++                               f"{where} names {m.group(0)!r}, which is {lo:g}-{hi:g} cm "
++                               f"each side and about square; the pattern makes "
++                               f"{w:.1f} x {h:.1f} cm"))
++    return out
++
++
+ def check_technique_claims(text: str, cir: CIR, twin: TwinModel,
+                            where: str = "product.title") -> list[Finding]:
+     """Does the fabric do what the name says it does?"""
+diff --git a/brambleloop/src/brambleloop/gates/certificate.py b/brambleloop/src/brambleloop/gates/certificate.py
+index 3d423769..73ca7f51 100644
+--- a/brambleloop/src/brambleloop/gates/certificate.py
++++ b/brambleloop/src/brambleloop/gates/certificate.py
+@@ -24,7 +24,8 @@ from ..cir.reverse import compare as reverse_compare
+ from ..cir.twin import TwinModel, build_twin, size_statement
+ from ..cir.writer import write_pattern
+ from .asset_truth import (
+-    Asset, check_assets, check_shape_claims, check_technique_claims,
++    Asset, check_assets, check_object_size_claims, check_shape_claims,
++    check_technique_claims,
+ )
+ from .confidence import assess
+ from . import originality as _originality
+@@ -283,6 +284,8 @@ def certify(
+     # different product from the one the buyer would be paying for.
+     findings.extend(check_shape_claims(cir.title, cir, twin, "cir.title"))
+     findings.extend(check_technique_claims(cir.title, cir, twin, "cir.title"))
++    # A4A-1: an object noun's finished size, measured on the twin (deterministic).
++    findings.extend(check_object_size_claims(cir.title, cir, twin, "cir.title"))
+     findings.extend(check_text(cir.designer_notes or "", "cir.designer_notes"))
+     # The designer notes go through the technique check too.
+     #
+diff --git a/brambleloop/src/brambleloop/radar/ideation.py b/brambleloop/src/brambleloop/radar/ideation.py
+index b66d3949..fabae46c 100644
+--- a/brambleloop/src/brambleloop/radar/ideation.py
++++ b/brambleloop/src/brambleloop/radar/ideation.py
+@@ -71,6 +71,9 @@ NAMED_ENDS = (OUT_INSUFFICIENT, OUT_NO_OBJECT, OUT_TITLE)
+ # How many gaps are ideated at once. One: the next gap opens when this one has an outcome,
+ # so the queue advances product by product instead of opening every gap on day one.
+ MAX_IN_FLIGHT = 1
++# A4A-3: an ended gap (named outcome, or stalled) is re-opened only when the recorded evidence
++# for its pod has changed since it ended, and at most this many times: liveness without a loop.
++MAX_REOPENS = 2
+ # A brief with no outcome after this long no longer holds the slot (it is recorded stalled).
+ STALL_DAYS = 14
+ 
+@@ -105,10 +108,10 @@ POD_OBJECTS: dict[str, tuple[PodObject, ...]] = {
+     "kitchen_bath": (
+         PodObject("dishcloth", ("dishcloth", "dish cloth", "washcloth", "wash cloth",
+                                 "facecloth", "face cloth"),
+-                  "Dishcloth", "placemat", "flat_panel", "a square dishcloth",
++                  "Dishcloth", "dishcloth", "flat_panel", "a square dishcloth",
+                   "wipes dishes and counters at the sink", (1.0, 2.5), 3.0),
+         PodObject("hot_pad", ("potholder", "pot holder", "hot pad", "trivet"),
+-                  "Hot Pad", "placemat", "flat_panel", "a flat hot pad",
++                  "Hot Pad", "hot_pad", "flat_panel", "a square hot pad",
+                   "rests a hot pot on the table without marking it", (1.5, 3.0), 3.0),
+     ),
+ }
+@@ -225,6 +228,22 @@ def status(db, rec: dict, *, now: datetime | None = None) -> tuple[str, str]:
+     return ("done", "stalled") if stalled else ("in_flight", "awaiting radar.score")
+ 
+ 
++def _reopen_number(db, rec: dict, pod: str, *, today: date, now: datetime) -> int:
++    """A4A-3: the reopen number (1..MAX_REOPENS) when this ended gap's recorded evidence has
++    changed since it ended, else 0. A gap in flight, a proposal that went on to intake, or a
++    gap that has used its reopens is never re-opened."""
++    st, outcome = status(db, rec, now=now)
++    if st != "done" or not (outcome in NAMED_ENDS or outcome == "stalled"):
++        return 0
++    used = int(rec.get("reopens") or 0)
++    if used >= MAX_REOPENS:
++        return 0
++    current = observe(db, pod, today=today)["fingerprint"]
++    if current == rec.get("evidence"):
++        return 0
++    return used + 1
++
++
+ def open_briefs(ctx, unanswered: list[dict], *, today: date) -> dict:
+     """The unanswered branch of the coverage handoff. Idempotent per gap: a gap that already
+     has a brief is never given a second one; at most MAX_IN_FLIGHT are in flight."""
+@@ -247,7 +266,11 @@ def open_briefs(ctx, unanswered: list[dict], *, today: date) -> dict:
+         if st == "in_flight":
+             in_flight.append(gid)
+         elif st == "done" and rec.get("completed") != outcome:
+-            _record(db, gid, completed=outcome)
++            # A4A-3: the evidence an ended gap ended on, so only NEW evidence re-opens it
++            pod_ = (rec.get("brief") or {}).get("pod") or ""
++            _record(db, gid, completed=outcome,
++                    **({} if rec.get("evidence") else
++                       {"evidence": observe(db, pod_, today=today)["fingerprint"]}))
+             ctx.audit(COMPLETED, artifact=f"coverage_gap:{gid}",
+                       detail={"gap": gid, "outcome": outcome, "slug": rec.get("slug"),
+                               "task": rec.get("task")})
+@@ -255,9 +278,12 @@ def open_briefs(ctx, unanswered: list[dict], *, today: date) -> dict:
+     opened, already, waiting = [], [], []
+     for gap in unanswered:
+         rec = (_gap_record(db, gap["gap"]) or {}).get("ideation") or {}
++        reopen = 0
+         if rec.get("task"):
+-            already.append(gap["gap"])
+-            continue
++            reopen = _reopen_number(db, rec, gap["pod"], today=today, now=now)
++            if not reopen:
++                already.append(gap["gap"])
++                continue
+         if len(in_flight) >= MAX_IN_FLIGHT:
+             waiting.append(gap["gap"])
+             continue
+@@ -267,7 +293,8 @@ def open_briefs(ctx, unanswered: list[dict], *, today: date) -> dict:
+                 db, question=(f"What does the observed market sell in the {gap['pod']} arena "
+                               f"(gap {gap['gap']}), at what prices, and which object could "
+                               f"Brambleloop make for it?"),
+-                trigger=f"{TRIGGER_PREFIX}{gap['gap']}",
++                trigger=(f"{TRIGGER_PREFIX}{gap['gap']}" if not reopen
++                         else f"{TRIGGER_PREFIX}{gap['gap']}:r{reopen}"),
+                 decision_ref=f"{DECISION_PREFIX}{gap['gap']}", domain=DOMAIN,
+                 query_terms=[gap["pod"]],
+                 evidence_needed=("dated benchmark listing counts, shops and prices in this "
+@@ -291,7 +318,9 @@ def open_briefs(ctx, unanswered: list[dict], *, today: date) -> dict:
+             row.detail = d
+             flag_modified(row, "detail")
+         _record(db, gap["gap"], task=tid, opened_at=now.isoformat(), brief=brief,
+-                outcome=None, slug=None)
++                outcome=None, slug=None, completed=None,
++                reopens=reopen or int(rec.get("reopens") or 0),
++                **({"reopened_from": rec.get("task")} if reopen else {}))
+         ctx.enqueue("research_agent", "research.investigate", {"task_id": tid},
+                     idempotency_key=f"ideation:investigate:{tid}")
+         ctx.audit(BRIEF_OPENED, artifact=f"research_task:{tid}",
+@@ -322,9 +351,10 @@ def observe(db, pod: str, *, today: date) -> dict:
+         rows = [(r.benchmark_key, r.listing_ref, r.title or "", r.pod or "",
+                  float(r.price_cad or 0.0), _aware(r.last_seen) or _aware(r.first_seen))
+                 for r in s.scalars(select(BenchmarkListing))]
++    until = datetime(today.year, today.month, today.day, 23, 59, 59, tzinfo=timezone.utc)
+     listings = [r for r in rows
+                 if (r[3] == pod or (not r[3] and pods.route(r[2]) == pod))
+-                and r[5] is not None and r[5] >= since]
++                and r[5] is not None and since <= r[5] <= until]   # A4A: never future-dated
+     objects = POD_OBJECTS.get(pod, ())
+     counts = []
+     for obj in objects:
+@@ -350,6 +380,10 @@ def observe(db, pod: str, *, today: date) -> dict:
+         reasons.append("no observed listing carries a price")
+     if objects and listings and obj is None:
+         reasons.append("no observed title names an object a flat rows panel is")
++    if obj is not None and len(mine) < MIN_LISTINGS:
++        # A4A (LOW): the floor holds for the object proposed, not only for the whole pod
++        reasons.append(f"{len(mine)} observed listing(s) name a {obj.noun.lower()}, below "
++                       f"{MIN_LISTINGS}")
+     confidence = ("high" if len(listings) >= HIGH_LISTINGS and len(shops) >= HIGH_SHOPS
+                   else "medium")
+     return {"ok": not reasons, "reasons": reasons, "pod": pod, "listings": len(listings),
+@@ -360,7 +394,17 @@ def observe(db, pod: str, *, today: date) -> dict:
+             "oldest": dates[0].isoformat() if dates else None,
+             "newest": dates[-1].isoformat() if dates else None,
+             "confidence": confidence if not reasons else "none",
+-            "no_object": not objects}
++            "no_object": not objects,
++            "fingerprint": _evidence_fp(len(listings), len(shops), obj, priced, dates)}
++
++
++def _evidence_fp(listings, shops, obj, priced, dates) -> str:
++    """A4A-3: what the recorded evidence for a pod is, so new evidence is recognisable."""
++    import hashlib
++
++    key = (listings, shops, getattr(obj, "key", None), tuple(priced),
++           tuple(d.isoformat() for d in dates))
++    return hashlib.sha256(repr(key).encode()).hexdigest()[:16]
+ 
+ 
+ def observed_titles(db) -> list[tuple[str, str]]:
+@@ -482,7 +526,8 @@ def investigate(ctx, task_id: int, *, today: date | None = None) -> dict:
+     if not obs["ok"] and not (t["state"] == research.ANSWERED and refs):
+         outcome = OUT_NO_OBJECT if obs["no_object"] else OUT_INSUFFICIENT
+         action = NO_OBJECT if obs["no_object"] else INSUFFICIENT
+-        _record(db, gap_id, outcome=outcome, why=obs["reasons"][:5], slug=None)
++        _record(db, gap_id, outcome=outcome, why=obs["reasons"][:5], slug=None,
++                evidence=obs["fingerprint"])
+         ctx.audit(action, artifact=f"research_task:{task_id}", detail={
+             "gap": gap_id, "pod": obs["pod"], "reasons": obs["reasons"][:5],
+             "listings": obs["listings"], "shops": obs["shops"]})
+@@ -526,14 +571,21 @@ def investigate(ctx, task_id: int, *, today: date | None = None) -> dict:
+                 f"{obs['shops']} >= {MIN_SHOPS} shops"],
+                 "unresolved": [], "next_test": {},
+                 "applicability": {"pod": obs["pod"], "gap": gap_id}})
+-    if obs["object"] is None:
+-        # Answered earlier and the observations have since gone: nothing to propose today.
+-        _record(db, gap_id, outcome=OUT_INSUFFICIENT, why=obs["reasons"][:5], slug=None)
++    if obs["object"] is None or not obs["ok"]:
++        # A4A-2: the evidence floor is re-checked at ATTACH time. A task answered earlier
++        # whose observations have since fallen below the floor (or lost every price) gets a
++        # named outcome and no proposal -- never one built from today's thinner evidence.
++        _record(db, gap_id, outcome=OUT_INSUFFICIENT, why=obs["reasons"][:5], slug=None,
++                evidence=obs["fingerprint"])
++        ctx.audit(INSUFFICIENT, artifact=f"research_task:{task_id}", detail={
++            "gap": gap_id, "pod": obs["pod"], "reasons": obs["reasons"][:5],
++            "at": "attach", "listings": obs["listings"], "shops": obs["shops"]})
+         return {"task": task_id, "ran": True, "proposed": False, "outcome": OUT_INSUFFICIENT,
+                 "reasons": obs["reasons"], "work_done": 1}
+     proposal = build_proposal(db, gap_id, obs, finding=refs["finding"], source=refs["source"])
+     if "refused" in proposal:
+-        _record(db, gap_id, outcome=OUT_TITLE, why=proposal["refused"][:5], slug=None)
++        _record(db, gap_id, outcome=OUT_TITLE, why=proposal["refused"][:5], slug=None,
++                evidence=obs["fingerprint"])
+         ctx.audit(TITLE_REFUSED, artifact=f"research_task:{task_id}",
+                   detail={"gap": gap_id, "reasons": proposal["refused"][:6]})
+         return {"task": task_id, "ran": True, "proposed": False, "outcome": OUT_TITLE,
+diff --git a/brambleloop/src/brambleloop/radar/intake.py b/brambleloop/src/brambleloop/radar/intake.py
+index 039b424c..207d6f0c 100644
+--- a/brambleloop/src/brambleloop/radar/intake.py
++++ b/brambleloop/src/brambleloop/radar/intake.py
+@@ -99,6 +99,9 @@ SUPPORTED_FORMS: dict[str, tuple[str, ...]] = {
+     "baby": ("rectangle_throw",),
+     "runner": ("runner",),
+     "placemat": ("flat_panel",),
++    # A4A-1: square kitchen cloths, each with its own geometry and size band
++    "dishcloth": ("flat_panel",),
++    "hot_pad": ("flat_panel",),
+     "coaster": ("coaster", "flat_panel"),
+     "pillow": ("pillow",),
+     "wall_decor": ("wall_hanging",),
+@@ -144,6 +147,7 @@ CONSTRUCTION_WHY: dict[str, str] = {
+ _NOUN: dict[str, str] = {
+     "blanket": "Throw", "baby": "Baby Blanket", "runner": "Table Runner",
+     "placemat": "Placemat Pair", "coaster": "Coaster Set", "pillow": "Cushion Cover",
++    "dishcloth": "Dishcloth", "hot_pad": "Hot Pad",
+     "wall_decor": "Wall Hanging", "pet": "Pet Mat", "scarf": "Scarf",
+ }
+ _FUNCTION: dict[str, str] = {
+@@ -151,6 +155,8 @@ _FUNCTION: dict[str, str] = {
+     "baby": "wraps a new baby in the family's pattern",
+     "runner": "dresses the table to match the set",
+     "placemat": "lays a matching place at the table",
++    "dishcloth": "wipes dishes and counters at the sink",
++    "hot_pad": "rests a hot pot on the table without marking it",
+     "coaster": "protects a table under mugs in the matching pattern",
+     "pillow": "fronts a cushion that matches the set",
+     "wall_decor": "hangs the family's motif on a wall",
+@@ -160,6 +166,7 @@ _FUNCTION: dict[str, str] = {
+ _WHAT: dict[str, str] = {
+     "blanket": "a sofa throw", "baby": "a pram-sized blanket", "runner": "a table runner",
+     "placemat": "a pair of placemats", "coaster": "a set of coasters",
++    "dishcloth": "a square dishcloth", "hot_pad": "a square hot pad",
+     "pillow": "a cushion front", "wall_decor": "a hung panel", "pet": "a pet mat",
+     "scarf": "a wrapped scarf",
+ }
+diff --git a/brambleloop/src/brambleloop/runtime/pipeline.py b/brambleloop/src/brambleloop/runtime/pipeline.py
+index a48399f3..387eb24c 100644
+--- a/brambleloop/src/brambleloop/runtime/pipeline.py
++++ b/brambleloop/src/brambleloop/runtime/pipeline.py
+@@ -145,6 +145,11 @@ _GEOMETRY: dict[str, dict] = {
+     "seasonal_decor": {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 40,  "rows": 12},
+     "runner":         {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 60,  "rows": 16},
+     "placemat":       {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 48,  "rows": 14},
++    # A4A-1: a dishcloth and a hot pad are squares, not placemats. At the worsted gauge the
++    # drafter derives (12.5 sts / 13.8 rows per 10 cm) these are about 22 cm and 19 cm square;
++    # gates.asset_truth.OBJECT_SIZE_BANDS refuses one drafted outside its object's band.
++    "dishcloth":      {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 28,  "rows": 30},
++    "hot_pad":        {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 24,  "rows": 26},
+     "coaster":        {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 24,  "rows": 8},
+     "basket":         {"stitch_repeat": [["sc", 4]],            "width": 48,  "rows": 14},
+     "pillow":         {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 72,  "rows": 20},

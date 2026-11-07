@@ -1,8 +1,31 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-02T23:31Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-07T01:45Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
+
+## State at 2026-11-07T01:45Z (read this before the older sections below)
+Stop reason: no unduplicated assigned work remains. Waiting on Main for a new assignment.
+- Issue #28: no [MAIN] message since my 2026-11-03T01:30Z REVIEW-REQUEST (V0 76fc0f3d). Newest
+  comment is the Codex continuity checkpoint of 2026-11-04T08:14Z.
+- Regressions finished green after the container restart:
+  - A1R c3a7b93a: 73/73 suites exit 0.
+  - A2F 52f83cf7: 84/84 suites exit 0.
+- Codex has continued every opus2 handoff. Do not rework these lines:
+  - Codex's cumulative review-only preview PR #130 (ac57b78) contains 11 of the 13 opus2 heads
+    (A1R, A2F, A3, A4a, A4b, A5, A7, A8, A9, V1). It passes 169/169 on SQLite and is marked
+    DO NOT INTEGRATE.
+  - V0 76fc0f3d continues on codex/v0-provider-authority (PR #40). Codex found financial
+    defects there: reservation release race, ID reuse, negative/zero billing, probe scope.
+  - A6 594d5e38 is an ancestor of every codex/a6-* branch. Those branches already carry the
+    rehearsal fixture corrections and the rendered-output assertion.
+- A4A local fixes were not pushed. Codex PR #33 (040fdf4) covers dishcloth size and Product
+  Truth. Codex also showed that a stop/reopen without a per-gap ownership transaction races,
+  and my A4A-3 reopen has that flaw.
+  - Diff saved as opus2_wip/A4A_local_wip_on_3dc3e68c.patch, and as git stash@{0} in
+    /home/user/opus2-a4a.
+  - Reuse only the OBJECT_SIZE_BANDS / check_object_size_claims idea, and only if Codex asks.
+- Next action: wait for a [MAIN] ASSIGN on #28. Do not start new work on handed-off lines.
 
 ## How a wake resumes
 1. `git fetch origin`; read this file at `origin/opus2/checkpoint`.
