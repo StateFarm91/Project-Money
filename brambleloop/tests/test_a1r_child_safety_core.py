@@ -471,6 +471,139 @@ def test_handle_cir_draft_drafts_a_cushion_that_is_then_held_until_decided():
     assert _refused(cir) and "closed stuffed form" in _refused(cir)
 
 
+
+# ---- A1N (review F3 HIGH, F5 MED): infant product nouns, age sizes, and the two UNKNOWNs ----
+
+# Each title is read by exactly one new entry (word, phrase or size), so removing any one
+# entry from launch0 fails here (mutant "infant word list removed").
+INFANT_TITLES = {
+    "Pacifier Clip": "pacifier", "Pacifiers Clip": "pacifiers", "Paci Clip": "paci",
+    "Pacis Holder": "pacis", "Binky Leash": "binky", "Binkies Leash": "binkies",
+    "Soother Holder": "soother", "Soothers Holder": "soothers", "Teether": "teether",
+    "Teethers Set": "teethers", "Teething Ring": "teething", "Teething-Rings": "teething",
+    "Rattle": "rattle", "Rattles Set": "rattles", "Bib": "bib", "Bibs Set": "bibs",
+    "Bassinet Cover": "bassinet", "Bassinets Cover": "bassinets",
+    "Bassinette Cover": "bassinette", "Bassinettes Cover": "bassinettes",
+    "Stroller Blanket": "stroller", "Strollers Blanket": "strollers", "Pram Blanket": "pram",
+    "Prams Blanket": "prams", "Pushchair Blanket": "pushchair",
+    "Pushchairs Blanket": "pushchairs", "Babyshower Gift": "babyshower",
+    "Babyshowers Gift": "babyshowers", "Lovie": "lovie", "Lovies Set": "lovies",
+    "Loveys Set": "loveys", "Littleone Blanket": "littleone",
+    "Littleones Blanket": "littleones", "Toy": "toy", "Toys Set": "toys",
+    "Toy Storage Basket": "toy", "Doll": "doll", "Dolls Set": "dolls", "Plushie": "plushie",
+    "Plushies Set": "plushies", "Plushy Pal": "plushy", "Infants Blanket": "infants",
+    "Newborns Blanket": "newborns", "Toddlers Blanket": "toddlers", "Preemie Hat": "preemie",
+    "Preemies Hat": "preemies", "Little One Blanket": "little one",
+    "Little-Ones Blanket": "little ones", "Lil One Blanket": "lil one",
+    "Lil Ones Blanket": "lil ones", "Hat 12M": "12m", "0-3M Cardigan": "0-3m",
+    "Sweater 6 mo": "6mo", "Cardigan 18mos": "18mos", "Cardigan 24 mth": "24mth",
+    "Cardigan 9mths": "9mths", "Hat 1 month": "1month", "Hat 3-6 months": "3-6months",
+    "Hat 0–3 M": "0-3m", "Dress Size 2T": "2t", "Ｂlanket １２M": "12m",
+}
+
+
+def _plain_basket(slug="a1n-probe-basket", title="Market Basket"):
+    """review p7: a NON-stuffed basket (no seam, yarn only) under a new slug -- no candidate
+    decides it, so the title words are the only layer that can hold it."""
+    basket = inventory._engineered("market-basket-small")
+    cir = dataclasses.replace(basket, slug=slug, title=title)
+    assert not L.closed_stuffed_form(cir), L.stuffed_form_reasons(cir)
+    assert L.childrens_decision_for(cir)[0] == L.UNDECIDED
+    return cir
+
+
+def test_a1n_infant_product_nouns_and_age_sizes_are_child_audience_words():
+    assert len(INFANT_TITLES) >= 60
+    assert _refused(_plain_basket()) is None, "control: a plain basket title renders"
+    for title, word in INFANT_TITLES.items():
+        assert word in L.child_words_in(title), (title, L.child_words_in(title))
+        assert word in L.child_words_in("Market Basket", title.lower().replace(" ", "-")), \
+            ("slug", title)
+        why = _refused(_plain_basket(title=title))
+        assert why and "reads as a children's product" in why and word in why, (title, why)
+    # "Baby Shower Gift" reads through the existing "baby"
+    assert L.child_words_in("Baby Shower Gift") == ("baby",)
+    # not child sizes: millimetres, centimetres and metres-with-unit words stay plain
+    for title in ("Market Basket 5mm", "Basket 12 mm Hook", "Storage Basket 30 cm",
+                  "Mosaic Throw", "Hexagon Coaster Set", "Tomato Basket", "Stormy Basket",
+                  "Dollar Store Basket", "Bibliophile Tote", "Toyota Seat Cover"):
+        assert L.child_words_in(title) == (), (title, L.child_words_in(title))
+    # the survey still has no unassigned children's title in the shipped catalogue
+    assert L.childrens_titles_without_an_assignment() == []
+
+
+def test_a1n_review_p7_infant_titles_are_held_through_the_worker_with_no_pdf():
+    """review p7, through the real Worker: a non-stuffed basket under a new slug, retitled
+    to each infant product name, is a named children's-decision hold with no document."""
+    names = ("Pacifier Clip", "Teething Ring", "Teether", "Rattle", "Soother Holder",
+             "Binky Leash", "Bib", "Bassinet Cover", "Stroller Blanket",
+             "Little One Blanket", "Lovie", "Toy", "Doll", "Plushie", "Babyshower Gift",
+             "Baby Shower Gift", "12M")
+    db = path = None
+    for i, title in enumerate(names):
+        cir = _plain_basket(slug=f"a1n-p7-{i:02d}", title=title)
+        out = _assets_build_full(cir, db=db, path=path)
+        db, path = out["db"], out["path"]
+        assert _held(out), (title, out["status"], out["outputs"], out["error"])
+        assert not any("pdf" in str(k).lower() or str(v).lower().endswith(".pdf")
+                       for k, v in out["outputs"].items()), (title, out["outputs"])
+        assert any("children's product" in str(h) or "childrens" in str(h).lower()
+                   for h in out["holds"]), (title, out["holds"])
+    # control: the same basket, plainly titled, in the same store, renders
+    assert _rendered(_assets_build_full(_plain_basket(slug="a1n-p7-control"),
+                                        db=db, path=path))
+
+
+class _Unreadable:
+    """An assembly list that cannot be read (review p8)."""
+
+    def __iter__(self):
+        raise RuntimeError("unreadable assembly")
+
+    def __bool__(self):
+        return True
+
+
+def test_a1n_n6_an_unreadable_construction_is_unknown_and_held():
+    """review F5 / N6: stuffed_form_reasons on an unreadable construction is UNKNOWN, and the
+    renderer holds it (undecided) even with a plain title."""
+    cir = _plain_basket(slug="a1n-n6-unreadable")
+    object.__setattr__(cir, "assembly", _Unreadable())
+    reasons = L.stuffed_form_reasons(cir)
+    assert reasons and "UNKNOWN" in reasons[0] and "unreadable" in reasons[0], reasons
+    assert L.closed_stuffed_form(cir)
+    try:
+        pdf._refuse_an_undecided_childrens_title(cir, None)
+    except pdf.ChildrensDecisionRequired as exc:
+        assert exc.reason == "undecided", exc.reason
+    else:
+        raise AssertionError("an unreadable construction rendered")
+
+
+def test_a1n_n10_an_exception_measuring_pieces_is_unknown_and_holds_an_assignment():
+    """review F5 / N10: an exception from separable_pieces is UNKNOWN in small_parts.blocking
+    and holds an assigned product (small_parts) -- never an empty, passing list."""
+    cir = _plain_basket(slug="a1n-n10-unmeasurable")
+    saved = SP.separable_pieces
+
+    def boom(_cir):
+        raise RuntimeError("unmeasurable")
+
+    SP.separable_pieces = boom
+    try:
+        blocks = SP.blocking(cir)
+        assert blocks and SP.UNKNOWN in blocks[0] and "unmeasurable" in blocks[0], blocks
+        try:
+            pdf._refuse_an_undecided_childrens_title(cir, ("toys", "fixture assignment"))
+        except pdf.ChildrensDecisionRequired as exc:
+            assert exc.reason == "small_parts", exc.reason
+        else:
+            raise AssertionError("an assigned product with unmeasurable pieces rendered")
+    finally:
+        SP.separable_pieces = saved
+    assert SP.blocking(cir) == [], "control: the plain basket has no sewn-on piece"
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in sorted(globals().items()):

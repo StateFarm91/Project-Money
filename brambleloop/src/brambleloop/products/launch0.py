@@ -1554,8 +1554,18 @@ def child_words_in(*texts: str) -> tuple[str, ...]:
     from .text_fold import fold
 
     # A1-R: one fold (NFKC, invisible characters, look-alike letters) for every reader.
-    words = set(re.findall(r"[a-z]+", fold(" ".join(t or "" for t in texts))))
-    return tuple(w for w in CHILD_AUDIENCE_WORDS if w in words)
+    folded = fold(" ".join(t or "" for t in texts))
+    tokens = re.findall(r"[a-z]+", folded)
+    words = set(tokens)
+    hits = [w for w in CHILD_AUDIENCE_WORDS if w in words]
+    # A1N (review F3): two-word phrases, read across any run of spaces, hyphens or other
+    # separators ("little one", "little-one", "Little  Ones").
+    pairs = {" ".join(p) for p in zip(tokens, tokens[1:])}
+    hits += [p for p in CHILD_AUDIENCE_PHRASES if p in pairs]
+    # A1N (review F3): a baby or toddler garment size in the title ("12M", "0-3M", "6 mo",
+    # "3T") is a child-audience signal like any word.
+    hits += [_age_size(m) for m in CHILD_AGE_SIZE.finditer(folded)]
+    return tuple(dict.fromkeys(hits))
 
 
 def childrens_assignment(cir_slug: str) -> tuple[str, str] | None:
@@ -1573,13 +1583,47 @@ def childrens_assignment(cir_slug: str) -> tuple[str, str] | None:
     return _cir_audience_map().get(cir_slug)
 
 
-# Words in a product's own title that say it is for a child. Used by
-# `childrens_titles_without_an_assignment`, and kept narrow: these are words a merchandiser
-# chose, not a classifier's guess at a fabric.
+# Words in a product's own title (or slug) that say it is for a child. Read by
+# `child_words_in`, so by the renderer's undecided-title hold and by
+# `childrens_titles_without_an_assignment`. These are words a merchandiser chose, not a
+# classifier's guess at a fabric; a hit holds for an explicit decision, it does not decide.
 CHILD_AUDIENCE_WORDS: tuple[str, ...] = (
     "baby", "babies", "infant", "newborn", "nursery", "toddler", "child", "children",
     "kids", "crib", "cot", "lovey", "amigurumi",
+    # A1N (review F3 HIGH): products that are for an infant or a child by definition -- the
+    # corded and flat ones (pacifier clips, teethers, rattles, bibs) that the construction
+    # layer cannot see, with strangulation and choking hazards. Whole words, singular and
+    # plural; a hyphen or space splits a word, so "teething-ring" and "teething ring" both
+    # read "teething". Kept wide on purpose (fail closed): "toy" holds "Toy Storage Basket"
+    # exactly as "nursery" already holds "Nursery Basket" and "cot" holds "Cot Blanket" --
+    # held for an explicit decision (NOT_MERCHANDISED_TO_A_CHILD), never silently passed.
+    "infants", "newborns", "toddlers", "preemie", "preemies",
+    "pacifier", "pacifiers", "paci", "pacis", "binky", "binkies", "soother", "soothers",
+    "teether", "teethers", "teething", "rattle", "rattles", "bib", "bibs",
+    "bassinet", "bassinets", "bassinette", "bassinettes", "stroller", "strollers",
+    "pram", "prams", "pushchair", "pushchairs", "babyshower", "babyshowers",
+    "lovie", "lovies", "loveys", "littleone", "littleones",
+    "toy", "toys", "doll", "dolls", "plushie", "plushies", "plushy",
 )
+# A1N (review F3): two-word child-audience phrases, matched as consecutive whole words.
+# ("baby shower" needs no entry: "baby" already reads.)
+CHILD_AUDIENCE_PHRASES: tuple[str, ...] = (
+    "little one", "little ones", "lil one", "lil ones",
+)
+# A1N (review F3): a baby or toddler size -- a month size or month range ("0-3M", "6M",
+# "12 M", "18mo", "3-6 months", "0–3 mo") or a toddler T size ("2T", "4T"). Read on the
+# folded text, so full-width digits and look-alike letters read too. Not a pass when
+# ambiguous: "3m" for three metres also holds, for an explicit decision (fail closed);
+# millimetres ("5mm") do not match.
+CHILD_AGE_SIZE = re.compile(
+    r"(?<![a-z0-9.])(?P<a>\d{1,2})(?:[\s_]*(?:[-\u2010-\u2015~/]|to)[\s_]*(?P<b>\d{1,2}))?"
+    r"[\s_-]*(?P<unit>months|month|mths|mth|mos|mo|m|t)(?![a-z0-9])")
+
+
+def _age_size(m) -> str:
+    """One spelling for a matched size: "0–3 M", "0-3m" and "0-3-m" all read "0-3m"."""
+    a, b, unit = m.group("a"), m.group("b"), m.group("unit")
+    return f"{a}-{b}{unit}" if b else f"{a}{unit}"
 
 
 def childrens_titles_without_an_assignment() -> list[dict]:
