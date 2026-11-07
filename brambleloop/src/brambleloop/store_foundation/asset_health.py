@@ -92,3 +92,74 @@ def check(db) -> dict:
             "held_brand_assets": held_summary,
             "routes": sorted({f["route_to"] for f in out}),
             "fix_count": sum(1 for f in out if f["severity"] == "fix"), "writes": 0}
+
+
+# ---- P0-STOREFRONT-ASSET-FIX: findings become work --------------------------------------
+
+# Listing-image findings a re-render of the certified release can fix. ASSET_BLOCKED is not
+# here: a frame a gate blocked is blocked by what it shows, and rendering it again from the
+# same release shows the same thing; its own gate's finding says what to change.
+REBUILD_CODES = ("HERO_MISSING", "ASSETS_STALE", "ASSET_LOW_RESOLUTION")
+# Findings with no API: the owner does them in Shop Manager (icon) or the brand mark needs a
+# designer's correction. One open card per finding.
+OWNER_CODES = ("ICON_MISSING",)
+ROUTED = "storefront.asset_fix_routed"
+
+
+def route(ctx, health: dict) -> dict:
+    """Turn asset-health findings into keyed work. Returns what was queued and what was not.
+
+    * Each certified product with a rebuildable listing-image finding gets ONE `assets.build`
+      for its current release, keyed `asset-fix:<slug>:<release hash>`. A rerun against the
+      same release queues nothing; a new release can be rebuilt again.
+    * A missing shop icon, or a held brand-mark finding routed to the storefront director,
+      becomes one owner card (`storefront.asset:<code>:<subject>`). Nothing is written to Etsy.
+    * Every other finding is reported `not_routed`, with why; none is dropped silently.
+    """
+    from ..ops import owner_queue
+    from ..runtime.quality_ops import certified_releases
+
+    findings = list(health.get("findings") or [])
+    current = {r["slug"]: r for r in certified_releases(ctx.db)}
+    rebuilds: dict[str, list[str]] = {}
+    cards, not_routed = [], []
+    for f in findings:
+        code, subject = f.get("code"), f.get("subject")
+        if code in REBUILD_CODES and subject in current:
+            rebuilds.setdefault(subject, []).append(code)
+        elif code in OWNER_CODES or (f.get("route_to") == "storefront_director"
+                                     and f.get("severity") == "fix"):
+            cards.append(f)
+        else:
+            not_routed.append({"code": code, "subject": subject,
+                               "why": ("not a re-render fix" if code not in REBUILD_CODES
+                                       else "no certified release to rebuild")})
+    queued, already = [], []
+    for slug, codes in sorted(rebuilds.items()):
+        rel = current[slug]
+        token = (rel["release_hash"] or rel["version"])[:16]
+        job = ctx.enqueue("publishing", "assets.build",
+                          {"slug": slug, "version": rel["version"],
+                           "release": rel["release_hash"],
+                           "rebuild": f"asset-health:{token}"},
+                          idempotency_key=f"asset-fix:{slug}:{token}")
+        (queued if job is not None else already).append(
+            {"slug": slug, "version": rel["version"], "codes": sorted(set(codes)),
+             "job": getattr(job, "id", None)})
+    raised = []
+    for f in cards:
+        key = f"storefront.asset:{f['code']}:{f['subject']}"
+        with ctx.db.session() as s:
+            row = owner_queue.ensure(
+                s, key,
+                action=f"Fix the storefront asset {f['subject']}: {f['why']}",
+                reason=("brand asset health (F-527) found it; there is no API for this "
+                        "change, so it is an owner step or a designer's correction"),
+                max_cost_cad=0.0, minutes=10,
+                consequence_of_delay="the shop keeps showing the asset as it is",
+                blocks=f"storefront asset {f['subject']}")
+            raised.append({"key": key, "id": row.id})
+    report = {"queued": queued, "already_queued": already, "owner_cards": raised,
+              "not_routed": not_routed}
+    ctx.audit(ROUTED, detail=report)
+    return report
