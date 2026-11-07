@@ -354,6 +354,15 @@ def _scan_date(ctx: JobContext) -> date:
     return date.fromisoformat(raw) if raw else date.today()
 
 
+def _scan_date_utc(ctx: JobContext) -> date:
+    """`_scan_date` on the UTC calendar. Portfolio work is keyed by ISO week, and a host-local
+    date would move a week boundary by the host's offset (review PORTFOLIO ee5dbeee N6)."""
+    from datetime import datetime, timezone
+
+    raw = ctx.job.inputs.get("as_of")
+    return date.fromisoformat(raw) if raw else datetime.now(timezone.utc).date()
+
+
 _OPEN_GAP_STATES = ("uncovered", "concepting")
 
 
@@ -3097,7 +3106,7 @@ def handle_portfolio_review(ctx: JobContext) -> dict:
     from ..core.models import Incident, PortfolioReview, SupportCase
     from ..growth.portfolio import SkuMetrics, review_portfolio
 
-    today = _scan_date(ctx)
+    today = _scan_date_utc(ctx)
     portfolio = select_portfolio(today=today)
     should_exist = {c.slug for c in portfolio.selected}
 
@@ -3212,7 +3221,16 @@ def handle_portfolio_review(ctx: JobContext) -> dict:
     # P0-PORTFOLIO-ACT: the final labels (after the offer guard) become bounded, keyed work.
     from ..growth import portfolio_act
 
-    acted = portfolio_act.act(ctx, verdict.classifications, today=today, review_id=review_id)
+    # Review ee5dbeee N5: the review row is already committed, so a failure while acting must
+    # not fail (and on retry duplicate) the classification. It is audited and reported.
+    try:
+        acted = portfolio_act.act(ctx, verdict.classifications, today=today,
+                                  review_id=review_id)
+    except Exception as exc:  # noqa: BLE001
+        acted = {"week": portfolio_act.week_of(today), "review_id": review_id, "acted": [],
+                 "skipped": [], "capped": [],
+                 "error": f"{type(exc).__name__}: {exc}"[:500]}
+        ctx.audit(portfolio_act.ACT_FAILED, detail=acted)
 
     ctx.audit("portfolio.reviewed", detail={
         "as_of": today.isoformat(),
@@ -3239,7 +3257,8 @@ def handle_portfolio_review(ctx: JobContext) -> dict:
             "classifications": verdict.summary(),
             "evidence_available": verdict.evidence_available,
             "actions": verdict.actions, "offer_guard": offer_guard,
-            "acted": {k: acted[k] for k in ("week", "acted", "skipped", "capped")}}
+            "acted": {k: acted[k] for k in ("week", "acted", "skipped", "capped", "error")
+                      if k in acted}}
 
 
 @handlers.register("finance.reconcile")

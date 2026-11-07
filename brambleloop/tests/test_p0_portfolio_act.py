@@ -78,8 +78,9 @@ def _outcome(db, slug, impressions, visits):
                              source="fixture"))
 
 
-def _review(db) -> Job:
-    job = JobQueue(db).enqueue("orchestrator", "portfolio.review", {},
+def _review(db, as_of=None) -> Job:
+    job = JobQueue(db).enqueue("orchestrator", "portfolio.review",
+                               {"as_of": as_of.isoformat()} if as_of else {},
                                idempotency_key=f"t:review:{time.time_ns()}")
     assert Worker(db, "t", job_types=["portfolio.review"]).run_once()
     with db.session() as s:
@@ -138,15 +139,28 @@ def test_quality_reverifies_and_seo_queues_one_bounded_fix_only_rebuild():
     assert [(j.job_type, j.idempotency_key) for j in seo] == [
         ("listing.seo", f"seo-fix:coaster-seo:{week}")], seo
     i = seo[0].inputs
-    assert i["fix_only"] is True and i["rebuild"] == f"portfolio:{week}", i
+    # Review ee5dbeee token: chain_key keeps 12 characters of a token, so the token is
+    # `pf2026W45`, not `portfolio:2026-W45` (which truncated to `portfolio:20` every week).
+    assert i["fix_only"] is True and i["rebuild"] == PA.rebuild_token(week), i
+    assert i["rebuild"] == "pf" + week.replace("-", "") and len(i["rebuild"]) <= 12, i
+    from brambleloop.runtime.release import chain_key
+
+    nxt = PA.week_of(TODAY + timedelta(days=7))
+    assert (chain_key("launch", "x", "1", "r", PA.rebuild_token(week))
+            != chain_key("launch", "x", "1", "r", PA.rebuild_token(nxt)))
     assert i["version"] == "1.0.0" and i["release"], i
     # No portfolio card for SEO any more: the fix_only handler owns the live-listing card.
     assert _cards(db) == []
 
 
-def test_the_fix_only_seo_rebuild_never_touches_a_live_listing_or_reaches_publish():
-    """End to end on a real certified chain (Main's fix_only fixture): portfolio.review on a
-    live, repriced listing with SEO_PROBLEM exposure, then the queue drained."""
+_E2E: dict = {}
+
+
+def _e2e() -> dict:
+    """One real certified chain (Main's fix_only fixture), shared by the two e2e tests: a
+    live, repriced listing with SEO_PROBLEM exposure, portfolio.review, the queue drained."""
+    if _E2E:
+        return _E2E
     import test_w6_fix_only_rebuild as FO
 
     st = FO.chain()
@@ -160,9 +174,17 @@ def test_the_fix_only_seo_rebuild_never_touches_a_live_listing_or_reaches_publis
                              impressions=4000, visits=4, favourites=0, source="fixture"))
     before = FO._listing(db, slug, version)
     out = _review(db).outputs["acted"]
-    assert any(a["slug"] == slug and a["kind"] == "seo" for a in out["acted"]), out
     FO._drain(db, name="pact-e2e")
-    token = f"portfolio:{PA.week_of(TODAY)}"
+    _E2E.update(FO=FO, db=db, slug=slug, version=version, before=before, out=out)
+    return _E2E
+
+
+def test_the_fix_only_seo_rebuild_never_touches_a_live_listing_or_reaches_publish():
+    e = _e2e()
+    FO, db, slug, version, before, out = (e[k] for k in ("FO", "db", "slug", "version",
+                                                         "before", "out"))
+    assert any(a["slug"] == slug and a["kind"] == "seo" for a in out["acted"]), out
+    token = PA.rebuild_token(PA.week_of(TODAY))
     ran = FO._jobs(db, token)
     assert ("listing.seo", JobStatus.DONE) in ran, ran
     assert not [t for t, _s in ran if t in FO.DOWNSTREAM], ran
@@ -171,6 +193,82 @@ def test_the_fix_only_seo_rebuild_never_touches_a_live_listing_or_reaches_publis
         card = s.scalar(select(OwnerAction).where(
             OwnerAction.requirement_key == f"listing.live_update:{slug}@{version}"))
     assert card is not None and not card.done, "the owner was not asked to apply the copy"
+
+
+def test_a_declined_live_update_card_is_not_rebuilt_and_re_asked_the_next_week():
+    """Review ee5dbeee N1 on the real chain: the owner declines the `listing.live_update`
+    card, and the next ISO week's review queues no new seo-fix and raises no new card."""
+    from brambleloop.ops import owner_queue
+
+    e = _e2e()
+    FO, db, slug, version = e["FO"], e["db"], e["slug"], e["version"]
+    key = PA.live_update_key(slug, version)
+    with db.session() as s:
+        card = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == key,
+                                                  OwnerAction.done == False))  # noqa: E712
+        assert card is not None, "the first review raised no live_update card"
+        owner_queue.close(card, owner_queue.WITHDRAWN, "keep the current copy")
+    nxt = TODAY + timedelta(days=7)
+    week2 = PA.week_of(nxt)
+    out = _review(db, as_of=nxt).outputs["acted"]
+    assert out["week"] == week2 and not [a for a in out["acted"] if a["slug"] == slug], out
+    why = [k["why"] for k in out["skipped"] if k["slug"] == slug and k["kind"] == "seo"]
+    assert len(why) == 1 and "listing.live_update" in why[0] and "decided" in why[0], out
+    assert _jobs(db, f"seo-fix:{slug}:{week2}") == []
+    FO._drain(db, name="pact-e2e-w2")
+    assert FO._jobs(db, PA.rebuild_token(week2)) == []
+    with db.session() as s:
+        cards = [r.done for r in s.scalars(select(OwnerAction).where(
+            OwnerAction.requirement_key == key))]
+    assert cards == [True], cards                                # no new card
+
+
+def test_an_open_live_update_card_is_not_rebuilt_over():
+    from brambleloop.growth.portfolio import SEO_PROBLEM
+
+    db = _db()
+    _release(db, "coaster-seo")
+    with db.session() as s:
+        s.add(OwnerAction(requirement_key=PA.live_update_key("coaster-seo", "1.0.0"),
+                          action="compare and apply", max_cost_cad=0.0, minutes=10))
+    nxt = TODAY + timedelta(days=7)
+    out = PA.act(_ctx(db), [Classification("coaster-seo", SEO_PROBLEM, "shown")],
+                 today=nxt, review_id=None)
+    assert out["acted"] == [] and "is open" in out["skipped"][0]["why"], out
+    assert _jobs(db, "seo-fix:%") == []
+    # Past the quiet period a decided card no longer holds the SKU back.
+    with db.session() as s:
+        row = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == PA.live_update_key("coaster-seo", "1.0.0")))
+        row.state, row.done = "withdrawn", True
+        row.state_at = NOW - timedelta(days=PA.DECIDED_QUIET_DAYS + 1)
+    later = PA.act(_ctx(db), [Classification("coaster-seo", SEO_PROBLEM, "shown")],
+                   today=TODAY, review_id=None)
+    assert [a["slug"] for a in later["acted"]] == ["coaster-seo"], later
+
+
+def test_seo_without_an_earlier_listing_seo_is_skipped_and_never_invented():
+    from brambleloop.growth.portfolio import SEO_PROBLEM
+
+    db = _db()
+    _release(db, "no-history", seo_history=False)
+    out = PA.act(_ctx(db), [Classification("no-history", SEO_PROBLEM, "shown")],
+                 today=TODAY, review_id=None)
+    assert out["acted"] == [], out
+    assert [(k["slug"], k["kind"]) for k in out["skipped"]] == [("no-history", "seo")], out
+    assert "no earlier listing.seo for no-history@1.0.0" in out["skipped"][0]["why"], out
+    assert _jobs(db, "seo-fix:%") == []
+
+
+def test_seo_without_a_certified_release_is_skipped_by_name():
+    from brambleloop.growth.portfolio import SEO_PROBLEM
+
+    db = _db()
+    out = PA.act(_ctx(db), [Classification("ghost", SEO_PROBLEM, "shown")],
+                 today=TODAY, review_id=None)
+    assert out["acted"] == [] and out["skipped"] == [
+        {"slug": "ghost", "kind": "seo", "why": "no certified current release to rebuild"}], out
+    assert _jobs(db, "seo-fix:%") == []
 
 
 def test_a_rerun_in_the_same_week_rebuilds_and_re_verifies_nothing_twice():
@@ -201,6 +299,19 @@ def test_cards_are_per_sku_not_per_week_and_a_decision_is_not_re_asked_for_90_da
         PA.act(_ctx(db), labels, today=TODAY + timedelta(days=7 * week), review_id=None)
     assert _cards(db) == [("portfolio.retire:old-throw", False),
                           ("portfolio.rework:tired-hat", False)]
+    with db.session() as s:          # review ee5dbeee N3: every card states its terms
+        for r in s.scalars(select(OwnerAction).where(
+                OwnerAction.requirement_key.like("portfolio.%"))):
+            assert r.max_cost_cad == 0.0 and r.minutes == 10, (r.max_cost_cad, r.minutes)
+            assert "stays as it is" in (r.consequence_of_delay or ""), r.consequence_of_delay
+            assert "Close this card as withdrawn" in r.action and "@1.0.0" in r.action, r.action
+            assert (r.blocks or "").endswith(r.requirement_key.split(":", 1)[1]), r.blocks
+    # The stored 0.0 could be the column default, so the card itself must state its ceiling.
+    for kind, c in ((PA.RETIRE_CARD, labels[0]), (PA.REWORK_CARD, labels[1])):
+        f = PA._card(kind, c, {"version": "1.0.0"}, TODAY)
+        assert set(f) == {"action", "reason", "max_cost_cad", "minutes",
+                          "consequence_of_delay", "blocks"}, f
+        assert f["max_cost_cad"] == 0.0 and f["minutes"] == 10, f
     with db.session() as s:
         row = s.scalar(select(OwnerAction).where(
             OwnerAction.requirement_key == "portfolio.retire:old-throw"))
@@ -258,6 +369,77 @@ def test_the_cap_bounds_fix_only_seo_rebuilds_and_the_capped_go_first_next_week(
     assert len(_jobs(db, "seo-fix:%")) == PA.WEEKLY_CAP
     w2 = PA.act(_ctx(db), labels, today=TODAY + timedelta(days=7), review_id=None)
     assert [a["slug"] for a in w2["acted"]][:2] == sorted(c["slug"] for c in w1["capped"]), w2
+
+
+def test_the_cap_counts_earlier_runs_in_the_same_week():
+    """Review ee5dbeee N4: a second review in the same ISO week with other SKUs never takes
+    the week past WEEKLY_CAP, for jobs and for cards."""
+    from brambleloop.growth.portfolio import SEO_PROBLEM
+
+    db = _db()
+    seo = [f"seo-{i:02d}" for i in range(PA.WEEKLY_CAP + 2)]
+    ret = [f"ret-{i:02d}" for i in range(PA.WEEKLY_CAP + 2)]
+    for slug in seo + ret:
+        _release(db, slug)
+    first = [Classification(s, SEO_PROBLEM, "shown") for s in seo[:3]] + [
+        Classification(s, RETIRE, "no sales") for s in ret[:3]]
+    second = [Classification(s, SEO_PROBLEM, "shown") for s in seo[3:]] + [
+        Classification(s, RETIRE, "no sales") for s in ret[3:]]
+    w1 = PA.act(_ctx(db), first, today=TODAY, review_id=None)
+    assert len(w1["acted"]) == 6, w1
+    w2 = PA.act(_ctx(db), second, today=TODAY, review_id=None)
+    assert sorted((a["kind"], a["slug"]) for a in w2["acted"]) == [
+        ("retire", "ret-03"), ("retire", "ret-04"), ("seo", "seo-03"), ("seo", "seo-04")], w2
+    assert len(w2["capped"]) == 4, w2
+    assert len(_jobs(db, f"seo-fix:%:{PA.week_of(TODAY)}")) == PA.WEEKLY_CAP
+    assert len(_cards(db)) == PA.WEEKLY_CAP
+
+
+def test_a_failure_while_acting_never_fails_the_committed_review():
+    """Review ee5dbeee N5: the PortfolioReview row is committed before act(); an exception in
+    act() is audited and reported, and the review job still succeeds."""
+    from brambleloop.core.models import PortfolioReview
+
+    db = _seeded()
+    real = PA.act
+
+    def boom(*_a, **_k):
+        raise RuntimeError("fixture failure")
+
+    PA.act = boom
+    try:
+        out = _review(db).outputs
+    finally:
+        PA.act = real
+    assert "RuntimeError: fixture failure" in out["acted"]["error"], out["acted"]
+    with db.session() as s:
+        assert len(list(s.scalars(select(PortfolioReview)))) == 1
+        failed = [a.detail for a in s.scalars(select(AuditLog).where(
+            AuditLog.action == PA.ACT_FAILED))]
+        assert len(failed) == 1 and "fixture failure" in failed[0]["error"], failed
+        assert s.scalar(select(AuditLog).where(AuditLog.action == "portfolio.reviewed"))
+
+
+def test_the_review_date_is_the_utc_date():
+    """Review ee5dbeee N6: week keys come from the UTC calendar, not the host's. The host
+    zone is moved to one whose date differs from UTC's right now (UTC+14 from 10:00 UTC,
+    UTC-11 before 11:00 UTC), so a host-local date fails on any host."""
+    import os
+
+    db = _db()
+    zone = "Pacific/Kiritimati" if datetime.now(timezone.utc).hour >= 10 else "Pacific/Pago_Pago"
+    old = os.environ.get("TZ")
+    os.environ["TZ"] = zone
+    time.tzset()
+    try:
+        out = _review(db).outputs
+    finally:
+        if old is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = old
+        time.tzset()
+    assert out["as_of"] == datetime.now(timezone.utc).date().isoformat(), out["as_of"]
 
 
 def test_a_discard_the_offer_guard_withheld_is_never_acted_on():

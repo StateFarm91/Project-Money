@@ -28,7 +28,10 @@ handlers bound the rebuild instead:
 - the chain stops before `launch.plan`, and `launch.plan` refuses a fix-only input.
 
 The rebuild uses the inputs of the last `listing.seo` for the CURRENT certified version only.
-A SKU with none is skipped by name and never invented.
+A SKU with none is skipped by name and never invented. A SKU whose
+`listing.live_update:<slug>@<version>` card is open, or was decided within
+`DECIDED_QUIET_DAYS`, is skipped by name too: the rebuild is deterministic, so re-running it
+on unchanged inputs would only put the same candidate to the owner again (review ee5dbeee N1).
 
 **Owner cards** are keyed per SKU, not per week, which gives three rules:
 - An open card is restated in place, never duplicated.
@@ -56,6 +59,7 @@ JOB_KINDS = (QUALITY, SEO)
 WEEKLY_CAP = 5
 DECIDED_QUIET_DAYS = 90
 ACTION = "portfolio.acted"
+ACT_FAILED = "portfolio.act_failed"
 QUALITY_CHECKS = (("validator", "cir.twin"), ("validator", "cir.reverse"),
                   ("asset_truth", "gate.asset_truth"), ("policy", "gate.policy"))
 
@@ -95,7 +99,7 @@ def _history(session, kind: str, slugs: list[str], week: str, today: date) -> di
     """Per slug: when it was last acted on for `kind`, whether this week, and card state."""
     from sqlalchemy import select
 
-    from ..core.models import Job, OwnerAction
+    from ..core.models import Job
 
     out: dict[str, dict] = {s: {"last": None, "this_week": False, "open": None,
                                 "decided_at": None} for s in slugs}
@@ -113,20 +117,43 @@ def _history(session, kind: str, slugs: list[str], week: str, today: date) -> di
                 h["this_week"] = h["this_week"] or key.endswith(f":{week}")
         return out
     for slug in slugs:
-        rows = list(session.scalars(select(OwnerAction).where(
-            OwnerAction.requirement_key == card_key(kind, slug)).order_by(OwnerAction.id)))
-        h = out[slug]
-        for r in rows:
-            at = _aware(r.at)
-            h["last"] = max(filter(None, (h["last"], at)), default=None)
-            if at and at >= start:
-                h["this_week"] = True
-            if not r.done:
-                h["open"] = r.id
-            else:
-                h["decided_at"] = max(filter(None, (h["decided_at"],
-                                                    _aware(r.state_at) or at)), default=None)
+        out[slug] = _card_state(session, card_key(kind, slug), start)
     return out
+
+
+def _card_state(session, key: str, start: datetime | None = None) -> dict:
+    """One owner card key's state: last raised, raised since `start`, open id, decided_at.
+
+    Shared by the RETIRE/REWORK cards and the SEO path's `listing.live_update` card, so both
+    follow the same open / `DECIDED_QUIET_DAYS` rules (review PORTFOLIO ee5dbeee N1)."""
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    h = {"last": None, "this_week": False, "open": None, "decided_at": None}
+    for r in session.scalars(select(OwnerAction).where(
+            OwnerAction.requirement_key == key).order_by(OwnerAction.id)):
+        at = _aware(r.at)
+        h["last"] = max(filter(None, (h["last"], at)), default=None)
+        if start is not None and at and at >= start:
+            h["this_week"] = True
+        if not r.done:
+            h["open"] = r.id
+        else:
+            h["decided_at"] = max(filter(None, (h["decided_at"],
+                                                _aware(r.state_at) or at)), default=None)
+    return h
+
+
+def live_update_key(slug: str, version: str) -> str:
+    """The card the fix-only primitive raises for a live listing (`runtime/release.py`)."""
+    return f"listing.live_update:{slug}@{version}"[:200]
+
+
+def rebuild_token(week: str) -> str:
+    """The `rebuild` token: `pf2026W45`. `chain_key` keeps only 12 characters of a token, and
+    `portfolio:2026-W45` would truncate to `portfolio:20` for every week (review F6)."""
+    return f"pf{week.replace('-', '')}"
 
 
 def _card(kind: str, c, rel: dict | None, today: date) -> dict:
@@ -214,6 +241,24 @@ def act(ctx, classifications, *, today: date, review_id: int | None) -> dict:
                     skipped.append({"slug": c.slug, "kind": kind,
                                     "why": "no certified current release to rebuild"})
                     continue
+                # Review ee5dbeee N1: a deterministic rebuild on unchanged inputs offers the
+                # same copy again, so the primitive's own owner card governs the SKU. While it
+                # is open the owner already has the candidate; once decided, it is not asked
+                # again for DECIDED_QUIET_DAYS -- the same rules as the RETIRE/REWORK cards.
+                with ctx.db.session() as s:
+                    lu = _card_state(s, live_update_key(rel["slug"], rel["version"]))
+                if lu["open"] is not None:
+                    skipped.append({"slug": c.slug, "kind": kind, "why": (
+                        f"listing.live_update card {lu['open']} for {rel['slug']}@"
+                        f"{rel['version']} is open; the owner already has a candidate")})
+                    continue
+                if lu["decided_at"] and now - lu["decided_at"] < timedelta(
+                        days=DECIDED_QUIET_DAYS):
+                    skipped.append({"slug": c.slug, "kind": kind, "why": (
+                        f"the owner decided the listing.live_update card for {rel['slug']}@"
+                        f"{rel['version']} on {lu['decided_at'].date().isoformat()}; rebuilt "
+                        f"again after {DECIDED_QUIET_DAYS} days if the verdict still stands")})
+                    continue
                 from ..integrations.taxonomy_drift import _last_seo_inputs
 
                 with ctx.db.session() as s:
@@ -230,7 +275,7 @@ def act(ctx, classifications, *, today: date, review_id: int | None) -> dict:
                 job = ctx.enqueue("listing", "listing.seo",
                                   {**inputs, "version": rel["version"],
                                    "release": rel["release_hash"],
-                                   "rebuild": f"portfolio:{week}", "fix_only": True,
+                                   "rebuild": rebuild_token(week), "fix_only": True,
                                    "portfolio_review": review_id},
                                   idempotency_key=f"seo-fix:{c.slug}:{week}")
                 budget -= 1
