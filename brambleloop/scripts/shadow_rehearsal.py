@@ -65,6 +65,7 @@ LAUNCH0_DEFAULT = "cloudline-baby-blanket"
 # A fixture credential for the ops-token HMAC that seals the simulated owner grant. It is not a
 # secret: it exists only inside this rehearsal's process and its throwaway database.
 REHEARSAL_OPS_TOKEN = "rehearsal-fixture-owner-credential-not-a-secret-0001"
+RUN_JOB_PATIENCE_S = 60.0   # how long an in-process step job may stay unclaimed (see _run_job)
 CHAIN = ("cir.compile", "gate.certify", "listing.draft", "assets.build", "pricing.position",
          "listing.seo", "launch.plan", "store.publish")
 
@@ -1063,12 +1064,33 @@ def _run_job(db, agent, job_type, inputs, phase):
                                idempotency_key=f"rehearsal:{job_type}:{time.time_ns()}")
     w = Worker(db, f"rehearsal-{job_type}", phase=phase, job_types=[job_type],
                lease_seconds=900)
-    for _ in range(10):
-        if not w.run_once():
-            break
-    with db.session() as s:
-        j = s.get(Job, job.id)
-        return {"id": j.id, "status": j.status.value, "last_error": (j.last_error or "")[:600]}
+    deadline = time.time() + RUN_JOB_PATIENCE_S
+    while True:
+        for _ in range(10):
+            if not w.run_once():
+                break
+        with db.session() as s:
+            j = s.get(Job, job.id)
+            out = {"id": j.id, "status": j.status.value,
+                   "last_error": (j.last_error or "")[:600]}
+            if j.status.value != "pending" or time.time() >= deadline:
+                break
+        # Production mode only: after the booted server has shared the database file, a
+        # fresh job has intermittently been left unclaimed by an in-process worker
+        # (e532a4d under load, 9958d72, 44f1b36). Retry briefly instead of recording an
+        # untried step; if it is still pending, the evidence carries why (below).
+        time.sleep(2.0)
+    if out["status"] == "pending":
+        from datetime import datetime, timezone
+
+        with db.session() as s:
+            j = s.get(Job, job.id)
+            out["unclaimed"] = {
+                "run_after": str(j.run_after), "now": datetime.now(timezone.utc).isoformat(),
+                "attempts": j.attempts, "lease_expires_at": str(j.lease_expires_at),
+                "leased_by": getattr(j, "leased_by", None),
+                "waited_s": RUN_JOB_PATIENCE_S}
+    return out
 
 
 def run_commerce(rec: Recorder, db, state: dict, draft_id) -> None:
