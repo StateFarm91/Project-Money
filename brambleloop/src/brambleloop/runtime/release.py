@@ -3813,9 +3813,12 @@ def handle_physical_upgrade(ctx: JobContext) -> dict:
     """
     from ..publish import physical_upgrade
 
+    # P0-PHYSICAL-UPGRADE-PROVENANCE: the frame's visual_truth lineage is this job's; it is
+    # unapproved (blocked) until asset truth and the listing-set certificate re-run.
     out = physical_upgrade.plan_upgrade(ctx.db, int(ctx.job.inputs["photo_id"]),
                                         today=_mjs_today(ctx),
-                                        role=str(ctx.job.inputs.get("role") or "proof"))
+                                        role=str(ctx.job.inputs.get("role") or "proof"),
+                                        lineage=_lineage(ctx, validation_status="blocked"))
     ctx.audit("physical.upgrade_planned", artifact=out.get("slug"), detail=out)
     return out
 

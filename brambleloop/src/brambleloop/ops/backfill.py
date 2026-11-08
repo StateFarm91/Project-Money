@@ -62,6 +62,10 @@ _UNPROVEN = {
     "no_audit_row": "no audit row names this artefact, so the job that made it is unknown",
     "no_sha256": "the frame carries no sha256 to match against any build output",
     "no_build_output": "no completed assets.build job's outputs carry this hash",
+    "no_physical_photo": "the camera frame names no physical photo whose recorded hash is its "
+                         "own, so nothing proves where the photograph came from",
+    "no_upgrade_job": "no assets.physical_upgrade job for the frame's photo exists, so no job "
+                      "can be shown to have written the frame",
     "outside_job_window": "created outside every completed marketing.schedule job window for "
                           "its slug, so no job can be shown to have written it",
 }
@@ -152,6 +156,22 @@ def _lineage(db, *, created_by: str, job_id: int | None, audit_id: int | None,
                      evidence=evidence)
 
 
+def _physical_photo_of(db, asset):
+    """The intake row a camera frame names, only when its recorded hash is the frame's own."""
+    from ..core.models import PhysicalPhoto
+
+    try:
+        pid = int((asset.claims or {}).get("physical_photo_id"))
+    except (TypeError, ValueError):
+        return None
+    photo = db.get(PhysicalPhoto, pid)
+    if photo is None or not photo.sha256 or photo.sha256 != asset.sha256:
+        return None
+    if photo.product_slug != asset.product_slug:
+        return None
+    return photo
+
+
 def _latest_audit(db, action: str, artifact: str):
     from sqlalchemy import select
 
@@ -186,7 +206,7 @@ def run(db, *, dry_run: bool = False) -> dict:
     """Backfill every derivable row, once, and account for every one that is not."""
     from sqlalchemy import select
 
-    from ..core.models import ArtefactProvenance, ContentPiece, Listing, ListingAsset
+    from ..core.models import ArtefactProvenance, ContentPiece, Job, Listing, ListingAsset
 
     report = _Report(dry_run)
     have = {(r.artefact_class, r.artefact_key)
@@ -341,6 +361,31 @@ def run(db, *, dry_run: bool = False) -> dict:
             report.unproven("visual_truth", key, _UNPROVEN["no_sha256"])
             continue
         job = frame_index.get((slug, version, asset.sha256))
+        if job is None and asset.asset_class == "PHYSICAL_PRODUCT_PHOTO":
+            # P0-PHYSICAL-UPGRADE-PROVENANCE: a camera photograph is never an assets.build
+            # output. Its evidence is the intake row the frame names, matched by hash: a
+            # frame a refused upgrade left behind is proven here rather than holding
+            # provenance enforcement off for the whole estate.
+            photo = _physical_photo_of(db, asset)
+            if photo is None:
+                report.unproven("visual_truth", key, _UNPROVEN["no_physical_photo"])
+                continue
+            upgrade = db.scalar(select(Job).where(
+                Job.job_type == "assets.physical_upgrade",
+                Job.idempotency_key == f"physical_upgrade:{photo.id}"))
+            if upgrade is None:
+                report.unproven("visual_truth", key, _UNPROVEN["no_upgrade_job"])
+                continue
+            write("visual_truth", key, slug,
+                  {f"asset:physical_photo_{photo.id}": photo.sha256}, _lineage(
+                      db, created_by=upgrade.agent, job_id=upgrade.id, audit_id=None,
+                      matched_on=("ListingAsset.claims.physical_photo_id -> physical_photos"
+                                  ".sha256 == ListingAsset.sha256; Job(assets.physical_"
+                                  "upgrade).idempotency_key == physical_upgrade:<photo id>"),
+                      sha256=asset.sha256, validation_status="passed" if asset.approved
+                      else "blocked", physical_photo_id=photo.id,
+                      upgrade_job_status=upgrade.status.value))
+            continue
         if job is None:
             report.unproven("visual_truth", key, _UNPROVEN["no_build_output"])
             continue
