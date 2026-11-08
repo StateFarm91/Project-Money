@@ -10240,3 +10240,8 @@ etsy_api/benchmark_observation read CLOSED today; /api/verify reads 11/12. Repor
   - `test_w4_smoke`, `test_w4_close6_readback`, `test_vacuity`, `test_secret_scan`.
 
 **Owner action (not done).** Set `BRAMBLELOOP_READBACK_TOKEN` in Railway (32 characters or more, different from the ops token). Until then the endpoint answers 503, and every evidence item reads UNKNOWN.
+
+
+## 2026-11-08T07:41:52Z — Batch 5 (705725a3) 24h production acceptance: FAIL
+
+Batch 5 24h production acceptance (705725a3, deployed 2026-11-07T07:37Z, window ended ~07:37Z 2026-11-08): FAIL. readback.py: build commit unchanged, boot guard ok, worker alive now, SHADOW held, nothing published, publication refusals recorded, cost ceilings present, smoke PASS. RED: no_unexpected_dead_letters_in_24h (red from 08:39Z on 11-07 to now, 20 of 21 samples). Worker stall 00:15Z on 11-08 (worker_is_alive false once; self-recovered; PO-705725A3-WORKER-STALL-0015). UNKNOWN (NEEDS_OPERATOR, no readback credential): department health, swarm runtime, funding packets, off-site archive, continuity proof, Etsy credential, spend vs ceilings, BFL probe DNS cadence. Evidence checks false are the same four as at acceptance start (publishing_halt_clear, stale_artefacts_rebuilding, no_repeated_paid_call_in_24h, weekly_jobs_completing): unchanged, not newly red. No rollback trigger: nothing published, SHADOW held, no spend breach observed; 705725a3 stays deployed. Dead-letter diagnosis remains blocked on OWNER ACTION BRAMBLELOOP_READBACK_TOKEN (read-only).
