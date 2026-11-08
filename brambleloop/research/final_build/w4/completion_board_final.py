@@ -442,9 +442,13 @@ def _rows_fm(commit):
         g = r.get("gate") or {}
         kind = g.get("kind") if g.get("kind") in ("owner", "data", "external") else None
         key = g.get("key") if kind else None
-        # evidence produced on/against the deployed 0417f35 (production GETs, or audits run on
-        # a clean worktree of that exact commit)
-        prod_ev = any("evidence_FMGATE_0417f35/" in str(e) for e in r.get("evidence") or [])
+        # evidence produced on/against the DEPLOYED commit (production GETs, or audits run on a
+        # clean worktree of that exact commit). W6 review F1: this was the literal 0417f35,
+        # which kept counting 0417f35-era evidence as "production" after production moved on,
+        # so a row closed today by an override read as production-verified. It is bound to the
+        # commit production actually runs (the one this board reads) instead.
+        tag = f"_{str(commit or '')[:7]}/"
+        prod_ev = bool(commit) and any(tag in str(e) for e in r.get("evidence") or [])
         if st == "done" and not lc:
             done_dep = v_old.get(r["uid"]) == "done"
         else:
