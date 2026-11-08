@@ -132,10 +132,20 @@ DECLARABLE_ROLES = ("proof", "lifestyle")
 
 
 def plan_upgrade(db, photo_id: int, *, today: date | None = None,
-                 role: str = "proof") -> dict:
+                 role: str = "proof", lineage=None) -> dict:
     """Add the photograph as a frame in its declared role (default PROOF), name what it can
     replace, and record the baseline. The frame is unapproved until asset truth and the
-    listing-set certificate re-run, whatever the role."""
+    listing-set certificate re-run, whatever the role.
+
+    P0-PHYSICAL-UPGRADE-PROVENANCE: the frame's `visual_truth` provenance is recorded in the
+    SAME session as the frame, the way every other frame writer records it
+    (runtime/release.py, visual/gallery_persist.py, publish/disclosed_listing.py). The frame,
+    its provenance and the photo's `upgrade_queued` state commit together or not at all: a
+    refused lineage leaves no half-written frame and the photo stays retryable. `lineage` is
+    the job's (`assets.physical_upgrade` passes it). A recorded lineage must name the job that
+    made the artefact (`ops.artefacts._check_lineage`), so a direct call outside any job
+    records none rather than inventing one; the daily backfill proves such a frame from its
+    upgrade job and the photo's hash (`ops.backfill`)."""
     if role not in DECLARABLE_ROLES:
         raise UpgradeRefused(f"{role!r} is not a role a photograph may be declared for: "
                              f"{DECLARABLE_ROLES}")
@@ -180,6 +190,14 @@ def plan_upgrade(db, photo_id: int, *, today: date | None = None,
         ordered = [new_frame] + ordered if leads else ordered + [new_frame]
         _renumber(s, ordered)
         position = new_frame.position
+        if lineage is not None:
+            from ..ops import artefacts as provenance
+
+            provenance.record_lineage(
+                s, artefact_class="visual_truth",
+                artefact_key=provenance.visual_key(slug, version, new_frame.id),
+                product_slug=slug, inputs={f"asset:physical_photo_{photo.id}": photo.sha256},
+                lineage=lineage.for_file(photo.sha256))
         replaceable = [{"position": f.position, "role": f.role, "asset_class": f.asset_class}
                        for f in frames if f.asset_class != "PHYSICAL_PRODUCT_PHOTO"
                        and f.role in PROOF_ROLES]

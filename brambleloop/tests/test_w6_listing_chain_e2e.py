@@ -408,28 +408,40 @@ def test_d_a_fixture_sample_through_the_real_intake_moves_the_package_to_its_nex
             OwnerAction.requirement_key.like(f"{LP.ACTION_PREFIX}%"))))
 
 
-def test_d_known_defect_the_real_upgrade_job_is_dead_lettered_by_the_provenance_gate():
-    """CHAIN DEFECT, pinned and NOT fixed (reported to the integrator).
+def test_d_the_real_upgrade_job_completes_with_the_frame_provenance_recorded():
+    """L0 P0-PHYSICAL-UPGRADE-PROVENANCE (was the pinned CHAIN DEFECT): `assets.physical_upgrade`
+    records the PHYSICAL_PRODUCT_PHOTO frame's `visual_truth` lineage with the frame, so on a
+    database the chain built itself the job is DONE, its provenance row names this job, and
+    the provenance backlog stays closed (enforcement is not switched off by the frame)."""
+    from brambleloop.core.models import ArtefactProvenance, ListingAsset
+    from brambleloop.ops import artefacts as P
 
-    `assets.physical_upgrade` (runtime/release.py -> publish/physical_upgrade.plan_upgrade)
-    writes the PHYSICAL_PRODUCT_PHOTO ListingAsset frame but records no `visual_truth`
-    provenance row for it. On a database the chain built itself, the provenance backlog is
-    closed, so the worker's provenance backstop refuses the job (DEAD, `provenance refused`)
-    after plan_upgrade has already committed the frame and set the photo `upgrade_queued`.
-    The photo path therefore never completes as a job in production. When this is fixed, this
-    test fails: replace it with an assertion that the job is DONE.
-    """
     d = _with_sample()
     up = [j for j in d["jobs"] if j["type"] == "assets.physical_upgrade"]
     assert len(up) == 1, [(j["id"], j["type"]) for j in d["jobs"]]
     assert d["links"][up[0]["id"]] == d["record"]       # enqueued by physical.record itself
-    assert up[0]["status"] is JobStatus.DEAD, up[0]["status"]
-    assert "provenance refused" in up[0]["error"] and "visual_truth" in up[0]["error"], (
-        up[0]["error"][:400])
+    assert up[0]["status"] is JobStatus.DONE, (up[0]["status"], up[0]["error"][:400])
     with _world()["db"].session() as s:
         photo = s.get(PhysicalPhoto, d["photo_id"])
-        assert photo.state == "upgrade_queued"   # the side effect committed despite DEAD
-
+        assert photo.state == "upgrade_queued"
+        frame = s.scalar(select(ListingAsset).where(
+            ListingAsset.asset_class == "PHYSICAL_PRODUCT_PHOTO",
+            ListingAsset.sha256 == photo.sha256))
+        assert frame is not None
+        row = s.scalar(select(ArtefactProvenance).where(
+            ArtefactProvenance.artefact_class == "visual_truth",
+            ArtefactProvenance.artefact_key == P.visual_key(frame.product_slug, frame.version,
+                                                             frame.id)))
+        assert row is not None and row.job_id == up[0]["id"] and row.source == "recorded"
+        assert P.lineage_gaps(row, job_id=up[0]["id"]) == []
+        assert P.may_enforce_unproven(s)["may_enforce_unproven"] is True
+        # Review L0 HIGH-1: the sentinel reads the frame FRESH on the chain-built DB and
+        # raises no publication-halting stale-artefact incident for it.
+        key = P.visual_key(frame.product_slug, frame.version, frame.id)
+        verdict = next(v for v in P.check(s, current=P.current_from_db(s))
+                       if v.artefact_class == "visual_truth" and v.artefact_key == key)
+        assert verdict.state == P.FRESH, (verdict.state, verdict.why)
+        assert frame.approved is False
 
 if __name__ == "__main__":
     fails = 0
