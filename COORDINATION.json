@@ -1498,6 +1498,14 @@
       "diagnosis_blocker": "Public projection drops evidence; deploy logs are access-lines only. Job type/error class requires GET /api/readback/evidence with BRAMBLELOOP_READBACK_TOKEN (secret; Main reads Railway variables by name only) or an owner-run read-only query of jobs status=DEAD finished_at>=2026-11-07T07:37Z.",
       "acceptance_impact": "Batch 5 24h acceptance cannot be PASS while this check is false; UNKNOWN cause is not PASS.",
       "status": "OPEN"
+    },
+    {
+      "id": "PO-705725A3-WORKER-STALL-0015",
+      "observed": "2026-11-08T00:15:04Z",
+      "build": "705725a3",
+      "finding": "worker_is_alive false from <=00:15:04Z to 00:20:24Z (>5 min; liveness = last tick < 120 s); self-recovered without restart. Coincides with the midnight daily cadence; likely a single long job holding the one embedded worker thread. Cause not visible publicly (/api/status runner detail is token-gated). Possibly related to PO-705725A3-DEADLETTER-0839.",
+      "acceptance_impact": "Batch 5 24h acceptance (to ~07:40Z) records a >5 min worker-dead window; with the open dead-letter check the acceptance cannot read PASS.",
+      "status": "OPEN (self-recovered)"
     }
   ],
   "reviews_in_flight": {
