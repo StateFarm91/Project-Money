@@ -1003,7 +1003,16 @@ def current_from_db(db) -> dict[str, str]:
     except ImportError:  # pragma: no cover - the visual stack is part of every build
         ImageCandidate = None
     if ImageCandidate is not None:
-        for cand_id, sha in db.execute(select(ImageCandidate.id, ImageCandidate.sha256)):
+        from sqlalchemy.exc import OperationalError, ProgrammingError
+
+        try:
+            # review L0 (optional): a database whose image_candidates table was never created
+            # has no generated frames to fingerprint; that is "none", not a failed read.
+            with db.begin_nested():
+                rows = list(db.execute(select(ImageCandidate.id, ImageCandidate.sha256)))
+        except (OperationalError, ProgrammingError):
+            rows = []
+        for cand_id, sha in rows:
             if sha:
                 current[f"asset:image_candidate_{int(cand_id)}"] = sha
     return current

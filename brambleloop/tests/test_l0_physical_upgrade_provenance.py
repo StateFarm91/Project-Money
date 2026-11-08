@@ -303,6 +303,18 @@ def test_generated_frames_have_a_current_fingerprint_too():
         assert P.current_from_db(s)[f"asset:image_candidate_{cid}"] == "a" * 64
 
 
+def test_current_fingerprints_tolerate_a_database_without_image_candidates():
+    """Review L0 (optional): a database whose image_candidates table does not exist reads no
+    generated-frame fingerprints instead of failing every sentinel."""
+    db, cir, photo_id, sha = _ready()
+    with db.session() as s:
+        s.execute(__import__("sqlalchemy").text("DROP TABLE image_candidates"))
+    with db.session() as s:
+        current = P.current_from_db(s)
+    assert current[f"asset:physical_photo_{photo_id}"] == sha
+    assert not any(k.startswith("asset:image_candidate_") for k in current)
+
+
 def test_backfill_credits_only_an_upgrade_job_that_wrote_the_frame():
     """Review L0 LOW-3: DONE, or DEAD by the provenance backstop alone (the pre-fix orphan);
     any other job state proves nothing. An approved frame is backfilled `passed`."""
@@ -310,12 +322,17 @@ def test_backfill_credits_only_an_upgrade_job_that_wrote_the_frame():
 
     cases = (
         (JobStatus.DEAD, "provenance refused: visual_truth x has no lineage", True),
+        (JobStatus.DEAD, "provenance refused: listing_copy x has no lineage", False),
         (JobStatus.DEAD, "ValueError: something else", False),
         (JobStatus.FAILED, "provenance refused: visual_truth x", False),
         (JobStatus.PENDING, "", False),
         (JobStatus.RUNNING, "", False),
     )
-    for status, err, proven in cases:
+    cases = tuple((st, e, p, True) for st, e, p in cases) + (
+        (JobStatus.DONE, "", True, True),
+        (JobStatus.DONE, "", False, False),     # DONE but nothing was upgraded
+    )
+    for status, err, proven, upgraded in cases:
         db, cir, photo_id, _sha = _ready()
         saved = pu.plan_upgrade
         pu.plan_upgrade = lambda db_, pid, **kw: saved(db_, pid, **{**kw, "lineage": None})
@@ -326,6 +343,8 @@ def test_backfill_credits_only_an_upgrade_job_that_wrote_the_frame():
         with db.session() as s:
             row = s.get(Job, job.id)
             row.status, row.last_error = status, err
+            if status is JobStatus.DONE:
+                row.outputs = {**(row.outputs or {}), "upgraded": upgraded}
         [(fid, _pos, _s)] = _photo_frames(db, cir)
         with db.session() as s:
             backfill.run(s)
