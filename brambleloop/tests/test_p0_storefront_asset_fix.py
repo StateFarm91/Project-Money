@@ -552,6 +552,13 @@ def test_a_recovered_blocked_build_no_longer_holds_the_release():
     db = _seeded()
     q = JobQueue(db)
     rel = {"slug": "no-hero", "version": "1.0.0", "release": "no-hero1.0.0"}
+    # B-N1 (mutant SN2_no_id_order): an ordinary SUCCESS of the same build for the same
+    # release that ran BEFORE the blocked build is history, not a recovery.
+    early = q.enqueue("publishing", "assets.build", {**rel, "rebuild": "earlier"},
+                      idempotency_key="earlier-ordinary-success")
+    with db.session() as s:
+        row = s.get(Job, early.id)
+        row.status, row.outputs = JobStatus.DONE, {"ok": True, "pdf_sha256": "0" * 64}
     for stage, jt in (("listing", "listing.draft"), ("assets", "assets.build")):
         j = q.enqueue("publishing", jt, dict(rel),
                       idempotency_key=chain_key(stage, "no-hero", "1.0.0", "no-hero1.0.0"))
@@ -569,13 +576,16 @@ def test_a_recovered_blocked_build_no_longer_holds_the_release():
     why = {(n["subject"], n["code"]): n["why"] for n in _routed(db)["not_routed"]}
     assert "was blocked" in why[("no-hero", "HERO_MISSING")], why       # fix-only: no
     # A-N1: none of these is a recovery of THIS release's build -- an ordinary re-drive that
-    # itself failed (ok False), and successes for another version, release or slug.
-    for n, (inputs, outputs) in enumerate((
-            (dict(rel), {"ok": False}),
-            ({**rel, "version": "2.0.0"}, {"ok": True, "pdf_sha256": "c" * 64}),
-            ({**rel, "release": "no-hero-other"}, {"ok": True, "pdf_sha256": "d" * 64}),
-            ({**rel, "slug": "other-slug"}, {"ok": True, "pdf_sha256": "e" * 64}))):
-        other = q.enqueue("publishing", "assets.build", {**inputs, "rebuild": f"x{n}"},
+    # itself failed (ok False), and successes for another version, release or slug; B-N2
+    # (mutant SN2_no_jobtype): nor a later success of another STAGE (listing.draft).
+    for n, (jt, inputs, outputs) in enumerate((
+            ("assets.build", dict(rel), {"ok": False}),
+            ("assets.build", {**rel, "version": "2.0.0"}, {"ok": True, "pdf_sha256": "c" * 64}),
+            ("assets.build", {**rel, "release": "no-hero-other"},
+             {"ok": True, "pdf_sha256": "d" * 64}),
+            ("assets.build", {**rel, "slug": "other-slug"}, {"ok": True, "pdf_sha256": "e" * 64}),
+            ("listing.draft", dict(rel), {"ok": True}))):
+        other = q.enqueue("publishing", jt, {**inputs, "rebuild": f"x{n}"},
                           idempotency_key=f"not-a-recovery-{n}")
         with db.session() as s:
             row = s.get(Job, other.id)

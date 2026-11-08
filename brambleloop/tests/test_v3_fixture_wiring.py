@@ -117,6 +117,33 @@ def test_the_anchor_review_card_names_the_fixture_identity_reading():
     assert best and "identity" not in best["unknown"], best and best["unknown"]
 
 
+
+def test_reverify_history_names_the_fixture_identity_reading():
+    """B-N3 (mutant AN3_reverify_raw): reverify records the previous verdict's UNKNOWNs
+    through gate_status, so a fixture identity PASS it replaces is named in the history."""
+    from brambleloop.core.artifacts import ArtifactStore
+    from brambleloop.visual.image_records import ImageCandidate
+
+    db = O.make_db()
+    sha = ArtifactStore().put("test", b"fixture identity anchor bytes", "image/png",
+                              db=db).sha256
+    c = {**_laura_cand(db), "role": IP.IDENTITY_ANCHOR_ROLE, "sha256": sha}
+    bind = {"status": "PASS", "why": "fixture binding"}
+    cid = IP.record_candidate(db, dict(c), IP.identity_anchor_verdict(db, c, _Judges(True),
+                                                                      bind),
+                              method="autonomous")["candidate_id"]
+    saved = IP._binding
+    IP._binding = lambda *_a, **_k: dict(bind)
+    try:
+        out = IP.reverify(db, cid, judges=_Judges(False))
+    finally:
+        IP._binding = saved
+    assert out.get("reverified"), out
+    with db.session() as s:
+        hist = s.get(ImageCandidate, cid).checks["_reverified"]["history"]
+    assert "identity" in hist[-1]["previous_unknown"], hist
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in list(globals().items()):
