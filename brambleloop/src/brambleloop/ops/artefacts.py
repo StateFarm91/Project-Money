@@ -987,6 +987,25 @@ def current_from_db(db) -> dict[str, str]:
         current[f"cir:{product.slug}"] = fingerprint(latest.cir_json)
         if latest.release_hash:
             current[f"release:{product.slug}"] = latest.release_hash[:16]
+    # L0 review HIGH-1: gallery frames are recorded from the stored image they show
+    # (`asset:physical_photo_<id>` for a camera photograph, publish.physical_upgrade;
+    # `asset:image_candidate_<id>` for a generated frame, visual.gallery_persist). Their
+    # current fingerprint is that stored row's SHA-256, so an unchanged image reads FRESH and
+    # a re-hashed or removed one reads STALE / unprovable, rather than every such frame
+    # reading "no current fingerprint" and halting its product.
+    from ..core.models import PhysicalPhoto
+
+    for photo_id, sha in db.execute(select(PhysicalPhoto.id, PhysicalPhoto.sha256)):
+        if sha:
+            current[f"asset:physical_photo_{photo_id}"] = sha
+    try:
+        from ..visual.image_records import ImageCandidate
+    except ImportError:  # pragma: no cover - the visual stack is part of every build
+        ImageCandidate = None
+    if ImageCandidate is not None:
+        for cand_id, sha in db.execute(select(ImageCandidate.id, ImageCandidate.sha256)):
+            if sha:
+                current[f"asset:image_candidate_{int(cand_id)}"] = sha
     return current
 
 

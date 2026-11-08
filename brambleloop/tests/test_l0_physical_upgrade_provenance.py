@@ -103,6 +103,7 @@ def test_the_photo_frame_is_recorded_with_its_visual_truth_lineage():
     assert (row.inputs or {}) == {f"asset:physical_photo_{photo_id}": sha}, row.inputs
     assert row.created_by == "publishing" and row.job_id == 4242 and row.source == "recorded"
     assert row.validation_status == "blocked"       # unapproved until asset truth re-runs
+    _assert_unapproved(db, fid)
 
 
 def test_a_direct_call_outside_a_job_invents_no_lineage():
@@ -235,6 +236,115 @@ def test_the_real_upgrade_job_records_the_lineage_under_its_own_job_id():
     assert row is not None and row.job_id == job.id and row.sha256 == sha, row
     assert row.created_by == job.agent and row.validation_status == "blocked"
     assert P.lineage_gaps(row, job_id=job.id) == [], P.lineage_gaps(row, job_id=job.id)
+    _assert_unapproved(db, fid)
+
+
+def _assert_unapproved(db, fid):
+    """Review L0 MED-2: the frame is never approved by planning the upgrade."""
+    with db.session() as s:
+        frame = s.get(ListingAsset, fid)
+        assert frame.approved is False, "planning the upgrade approved the frame"
+        assert frame.blocked_reasons == [
+            "awaiting asset-truth review and listing-set re-certification"], (
+            frame.blocked_reasons)
+
+
+def _verdict(db, cir, fid):
+    with db.session() as s:
+        current = P.current_from_db(s)
+        key = P.visual_key(cir.slug, cir.version, fid)
+        return next(v for v in P.check(s, current=current)
+                    if v.artefact_class == "visual_truth" and v.artefact_key == key)
+
+
+def test_the_sentinel_reads_the_recorded_frame_fresh_and_raises_no_halt():
+    """Review L0 HIGH-1: the frame's `asset:physical_photo_<id>` input has a current
+    fingerprint (the stored photo's hash), so the sentinel reads it FRESH and opens no
+    publication-halting stale-artefact incident; a changed photo hash reads STALE."""
+    from brambleloop.core.models import Incident
+
+    db, cir, photo_id, sha = _ready()
+    job = _run_upgrade(db, photo_id)
+    assert job.status is JobStatus.DONE, job.last_error
+    [(fid, _pos, _s)] = _photo_frames(db, cir)
+    with db.session() as s:
+        current = P.current_from_db(s)
+        assert current[f"asset:physical_photo_{photo_id}"] == sha
+    v = _verdict(db, cir, fid)
+    assert v.state == P.FRESH, (v.state, v.why)
+    with db.session() as s:
+        P.sweep(s, current=P.current_from_db(s))
+    with db.session() as s:
+        key = P.visual_key(cir.slug, cir.version, fid)
+        halts = [i for i in s.scalars(select(Incident).where(Incident.resolved.is_(False)))
+                 if key in (i.signature or "") or key in (i.summary or "")]
+        assert halts == [], [(i.signature, i.summary) for i in halts]
+    # honesty: if the stored photo's hash were to change, the frame is no longer fresh
+    with db.session() as s:
+        s.get(PhysicalPhoto, photo_id).sha256 = "0" * 64
+    assert _verdict(db, cir, fid).state == P.STALE
+
+
+def test_generated_frames_have_a_current_fingerprint_too():
+    """Review L0 HIGH-1 (latent twin): `asset:image_candidate_<id>` (visual.gallery_persist)
+    is published from the stored candidate's hash."""
+    from brambleloop.visual.image_records import ImageCandidate
+
+    db, cir, _photo_id, _sha = _ready()
+    with db.session() as s:
+        c = ImageCandidate(sha256="a" * 64, run_key="r", method="autonomous",
+                           provenance_kind="ai_generated_autonomous", slug=cir.slug,
+                           version=cir.version, release="r" * 64, listing="l",
+                           role="lifestyle", technical_status="PASS")
+        s.add(c)
+        s.flush()
+        cid = c.id
+    with db.session() as s:
+        assert P.current_from_db(s)[f"asset:image_candidate_{cid}"] == "a" * 64
+
+
+def test_backfill_credits_only_an_upgrade_job_that_wrote_the_frame():
+    """Review L0 LOW-3: DONE, or DEAD by the provenance backstop alone (the pre-fix orphan);
+    any other job state proves nothing. An approved frame is backfilled `passed`."""
+    from brambleloop.core.models import Job
+
+    cases = (
+        (JobStatus.DEAD, "provenance refused: visual_truth x has no lineage", True),
+        (JobStatus.DEAD, "ValueError: something else", False),
+        (JobStatus.FAILED, "provenance refused: visual_truth x", False),
+        (JobStatus.PENDING, "", False),
+        (JobStatus.RUNNING, "", False),
+    )
+    for status, err, proven in cases:
+        db, cir, photo_id, _sha = _ready()
+        saved = pu.plan_upgrade
+        pu.plan_upgrade = lambda db_, pid, **kw: saved(db_, pid, **{**kw, "lineage": None})
+        try:
+            job = _run_upgrade(db, photo_id)
+        finally:
+            pu.plan_upgrade = saved
+        with db.session() as s:
+            row = s.get(Job, job.id)
+            row.status, row.last_error = status, err
+        [(fid, _pos, _s)] = _photo_frames(db, cir)
+        with db.session() as s:
+            backfill.run(s)
+        got = _visual_row(db, cir, fid)
+        assert (got is not None) == proven, (status, err, got)
+    # an approved frame (A3 approved it) is backfilled as passed
+    db, cir, photo_id, _sha = _ready()
+    saved = pu.plan_upgrade
+    pu.plan_upgrade = lambda db_, pid, **kw: saved(db_, pid, **{**kw, "lineage": None})
+    try:
+        _run_upgrade(db, photo_id)
+    finally:
+        pu.plan_upgrade = saved
+    [(fid, _pos, _s)] = _photo_frames(db, cir)
+    with db.session() as s:
+        s.get(ListingAsset, fid).approved = True
+    with db.session() as s:
+        backfill.run(s)
+    assert _visual_row(db, cir, fid).validation_status == "passed"
 
 
 if __name__ == "__main__":

@@ -22,7 +22,10 @@ each rule names the record it matched on, and a miss is counted by reason rather
   superseded chain version reads STALE afterwards, which is the honest reading; a collection
   listing derives from its members and stays unproven here.
 - visual_truth: only when the frame's sha256 appears among the frames in a completed
-  `assets.build` job's outputs.
+  `assets.build` job's outputs; or, for a camera photograph (PHYSICAL_PRODUCT_PHOTO, never a
+  build output), only when the physical photo its claims name has the frame's own recorded
+  hash and product, and that photo's `assets.physical_upgrade` job is DONE or was dead-
+  lettered solely by the provenance backstop (the pre-fix orphan it wrote).
 - pdf / chart: from the hashes in a completed `assets.build` job's outputs.
 - marketing_asset: only when the content piece was created inside the window of a completed
   `marketing.schedule` job for its slug.
@@ -154,6 +157,21 @@ def _lineage(db, *, created_by: str, job_id: int | None, audit_id: int | None,
                      validation_status=validation_status,
                      publication_authority=phase or "shadow", source="backfilled",
                      evidence=evidence)
+
+
+def _upgrade_wrote_the_frame(job) -> bool:
+    """Review L0 LOW-3: only an upgrade job known to have written the frame is evidence.
+
+    DONE, or DEAD with the worker's provenance refusal as its recorded error: the pre-fix
+    planner committed the frame and the job was then refused only for the missing
+    `visual_truth` row, which is exactly the orphan this backfill exists to prove. A job that
+    is pending, running, cancelled, or failed for any other reason proves nothing."""
+    from ..core.models import JobStatus
+
+    if job.status == JobStatus.DONE:
+        return True
+    err = (job.last_error or "").lower()
+    return job.status == JobStatus.DEAD and "provenance refused" in err and "visual_truth" in err
 
 
 def _physical_photo_of(db, asset):
@@ -373,6 +391,8 @@ def run(db, *, dry_run: bool = False) -> dict:
             upgrade = db.scalar(select(Job).where(
                 Job.job_type == "assets.physical_upgrade",
                 Job.idempotency_key == f"physical_upgrade:{photo.id}"))
+            if upgrade is not None and not _upgrade_wrote_the_frame(upgrade):
+                upgrade = None
             if upgrade is None:
                 report.unproven("visual_truth", key, _UNPROVEN["no_upgrade_job"])
                 continue
@@ -487,7 +507,10 @@ def state() -> dict:
                                         "a superseded chain version reads STALE; a "
                                         "collection stays unproven",
             "visual_truth": "ListingAsset.sha256 appears in a completed assets.build "
-                            "job's output frames",
+                            "job's output frames; a camera frame (PHYSICAL_PRODUCT_PHOTO): "
+                            "the physical photo its claims name has the frame's hash and "
+                            "product, and that photo's assets.physical_upgrade job is DONE "
+                            "or was dead-lettered only by the provenance backstop",
             "pdf/chart": "hashes in a completed assets.build job's outputs",
             "marketing_asset": "ContentPiece.created_at inside a completed "
                                "marketing.schedule job window for its slug",

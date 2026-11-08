@@ -435,6 +435,13 @@ def test_d_the_real_upgrade_job_completes_with_the_frame_provenance_recorded():
         assert row is not None and row.job_id == up[0]["id"] and row.source == "recorded"
         assert P.lineage_gaps(row, job_id=up[0]["id"]) == []
         assert P.may_enforce_unproven(s)["may_enforce_unproven"] is True
+        # Review L0 HIGH-1: the sentinel reads the frame FRESH on the chain-built DB and
+        # raises no publication-halting stale-artefact incident for it.
+        key = P.visual_key(frame.product_slug, frame.version, frame.id)
+        verdict = next(v for v in P.check(s, current=P.current_from_db(s))
+                       if v.artefact_class == "visual_truth" and v.artefact_key == key)
+        assert verdict.state == P.FRESH, (verdict.state, verdict.why)
+        assert frame.approved is False
 
 if __name__ == "__main__":
     fails = 0
