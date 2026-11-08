@@ -2724,5 +2724,12 @@
       "owner": "MAIN",
       "status": "OPEN"
     }
+  ],
+  "main_log": [
+    {
+      "at": "2026-11-08T04:35:06Z",
+      "by": "MAIN",
+      "event": "w6-INTEG1 head 16a80177 = fabe1b29 + codex-v1-runners f4c37c2e (b41234bc sys.path header, _minipytest _tmp.install; review SHIP). Targeted 11 suites 210 passing / 0 failing. Prior cert run 20261108T024842Z-26526 on fabe1b29 stopped at 403/895 (only codex_v1 'No module named brambleloop'). Fresh plain cert run 20261108T043424Z-16431 started on 16a80177 in wt-cert3."
+    }
   ]
 }
