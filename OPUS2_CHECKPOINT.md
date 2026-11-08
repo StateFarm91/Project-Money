@@ -1,8 +1,21 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-07T23:40Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-08T01:05Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
+
+## State at 2026-11-08T01:05Z (read first)
+- Main 6715006286: wraptest e831dc6a SHIP (it is in the Batch 6 certification head).
+  Visual b3dcb121 was DO NOT SHIP with three surviving mutants.
+- REVIEW-REQUESTED:
+  - Visual 695f416d (opus2/visual-an1-an3, worktree opus2-a1v): B-N1 SN2_no_id_order,
+    B-N2 SN2_no_jobtype, B-N3 AN3_reverify_raw are killed (tests only). 6715351641.
+  - Wraptest LOWs cc1216bd (opus2/wraptest-lows, worktree opus2-wrap): A-L2 moved to
+    visual.experiment.anchor_lookup; A-L1 binding pinned (3/3 mutants); INFO renames. 6715400340.
+  - A1 nouns 0e2d5f36: ships with the A1 unit (Codex).
+  - PHYSICAL 1a818679: its base waits on Codex.
+- Lesson: list EVERY mutant Main names; claiming "N/N" while leaving one out cost a round.
+Stop reason: everything is review-requested; waiting on Main.
 
 ## State at 2026-11-07T23:40Z (read first)
 - Main 6713597156: 7eeeac92 SHIP (integrating). fc26887b DO NOT SHIP standalone (ships with the A1 unit).
