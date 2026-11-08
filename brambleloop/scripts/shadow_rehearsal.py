@@ -531,6 +531,11 @@ def record_listing_package(rec: Recorder, db, state: dict) -> dict | None:
     real Worker on the rehearsal's own database and reads back the durable package
     (`publish.listing_package.latest`, an OperatingReading) for exactly this release.
 
+    Review L3 MED: this runs after the settled chain, so after the in-chain
+    `store.publish[shadow]` refusal; store.publish does not read the package. The package is
+    the owner-review artefact the settled chain yields, recorded beside the refusal, not a
+    precondition of it.
+
     PASS means the package exists, is bound to the certified release hash, publishes nothing,
     and is honest about its state: ready_for_owner_review, or blocked with every blocker named
     (source and why). The package's own state is recorded as observed, never upgraded: a
@@ -550,12 +555,21 @@ def record_listing_package(rec: Recorder, db, state: dict) -> dict | None:
                  proof={"state": {k: state.get(k) for k in ("slug", "version", "release")}})
         return None
     job = _run_job(db, "listing", listing_package_ops.JOB_TYPE, {}, Phase.SHADOW)
-    pkg = LP.latest(db, slug, version)
-    named = bool(pkg) and all(b.get("source") and str(b.get("why") or "").strip()
-                              for b in pkg.get("blockers") or [])
+    # Review L3 LOW: the verdict is THIS job's. Its own audit must name this release's
+    # package, in the same state as the stored record; a package another sweep wrote proves
+    # nothing about this run.
+    mine = [a for a in _audits(db, "listing.package") if a.get("job_id") == job["id"]]
+    key = f"{slug}@{version}"
+    named = [r for a in mine for r in (a["detail"].get("results") or [])
+             if r.get("key") == key]
+    pkg = LP.latest(db, slug, version) if named else None
+    if pkg is not None and named[-1].get("state") != pkg.get("state"):
+        pkg = None
+    every_named = bool(pkg) and all(b.get("source") and str(b.get("why") or "").strip()
+                                    for b in pkg.get("blockers") or [])
     honest = bool(pkg) and (
         (pkg.get("state") == LP.READY and not pkg.get("blockers"))
-        or (pkg.get("state") == LP.BLOCKED and bool(pkg.get("blockers")) and named))
+        or (pkg.get("state") == LP.BLOCKED and bool(pkg.get("blockers")) and every_named))
     ok = (job["status"] == "done" and bool(pkg) and pkg.get("release_hash") == release
           and pkg.get("publishes") is False and honest)
     rec.step("listing.package", PASS if ok else (BLOCKED if job["status"] == "dead" else FAILED),
@@ -573,13 +587,158 @@ def record_listing_package(rec: Recorder, db, state: dict) -> dict | None:
                                  or {}),
                  "blockers": [{"source": b.get("source"), "why": _trim(b.get("why"), 300)}
                               for b in pkg.get("blockers") or []]},
-                 "listing.package audits": [_trim(a["detail"], 600)
-                                            for a in _audits(db, "listing.package")]})
+                 "listing.package audits (this job)": [_trim(a["detail"], 600)
+                                                       for a in mine]})
     if pkg:
         state["listing_package"] = {"state": pkg.get("state"),
                                     "blockers": [b.get("source") for b in
                                                  pkg.get("blockers") or []]}
     return pkg
+
+def seed_catalogue(rec: Recorder, db, primary_slug: str, *, max_steps: int = 4000) -> dict:
+    """F-848 next_action (review L3 item 1): readiness judged on a PRODUCTION-SHAPED state.
+
+    A fresh database holding one product can never pass catalogue depth, the storefront
+    preview or the economics, whatever the owner does. Production's own data (its live
+    `launch.assessed`, a continuity export) is not read here: that needs the operator
+    credential and production access. Instead every other Launch-0 release is driven through
+    the SAME real chain handlers (compile, certify, assets, pricing, SEO, launch plan, the
+    store.publish refusal) in-process, in SHADOW, on the rehearsal's own database, so the
+    readiness verdict the owner phase transition cites is read from a real catalogue the
+    company built, not from a stub. Nothing is assumed: products that do not certify or list
+    are counted as such, and readiness reports whatever it reads."""
+    from sqlalchemy import select
+
+    from brambleloop.core.models import Listing, PatternVersion, Phase, Product
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import pipeline  # noqa: F401 - registers every handler
+    from brambleloop.runtime.release_recovery import launch0_releases
+    from brambleloop.runtime.worker import Worker
+
+    others = [c for c in launch0_releases() if c.slug != primary_slug]
+    log: list = []
+    restore = _guard_narrowed(None, log)
+    steps = 0
+    try:
+        for cir in others:
+            JobQueue(db).enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
+                                 priority=0,
+                                 idempotency_key=f"rehearsal:catalogue:{cir.slug}:{cir.version}")
+        w = Worker(db, "rehearsal-catalogue", phase=Phase.SHADOW, lease_seconds=900)
+        while steps < max_steps and w.run_once():
+            steps += 1
+    finally:
+        restore()
+    with db.session() as s:
+        certified = sorted({f"{p.slug}@{v.version}" for p, v in s.execute(
+            select(Product, PatternVersion).join(
+                PatternVersion, PatternVersion.product_id == Product.id).where(
+                PatternVersion.certified == True))})  # noqa: E712
+        listed = sorted({f"{l.product_slug}@{l.version}" for l in s.scalars(select(Listing))})
+    wanted = sorted(f"{c.slug}@{c.version}" for c in others)
+    settled = steps < max_steps
+    rec.step("catalogue[production-shaped]", PASS if settled else FAILED,
+             expected=("every other Launch-0 release driven through the real chain handlers "
+                       "in SHADOW on this database, so readiness reads a real catalogue"),
+             observed={"releases": len(wanted), "worker_steps": steps, "settled": settled,
+                       "certified": len(certified), "listed": len(listed),
+                       "network_refused_attempts": len(log)},
+             proof={"wanted": wanted, "pattern_versions.certified": certified,
+                    "listings": listed,
+                    "simulation": "in-process Worker over the real handlers; production data "
+                                  "is not read (it needs the operator credential)"})
+    return {"certified": certified, "listed": listed}
+
+
+def simulated_taxonomy():
+    """The SIMULATED Etsy seller taxonomy the past-shadow fake serves (review L3 item 2).
+
+    Etsy's own NAMES as production's 2026-10-21 refresh recorded them
+    (research/final_build/w4/evidence_FMBATCH1/prod_api_audit_taxonomy_refreshed_*.json;
+    LAUNCHFIX.md section 4): crochet is never a pattern node; the pattern node is
+    "Patterns & How To > Patterns & Blueprints", and crochet can only be confirmed by a
+    "Crochet" value in that node's property schema. The ids are ILLUSTRATIVE (production
+    recorded names only), and the "Crochet" value is an ASSUMPTION: whether Etsy's schema
+    offers it is UNKNOWN until production's refresh records `category_choices`
+    (LAUNCHFIX section 4). The evidence states both; nothing here is Etsy's data."""
+    sys.path.insert(0, str(ROOT / "tests"))
+    import fixtures_etsy_taxonomy as FX
+
+    N = FX._node
+    kids = ["Books & Magazines", "Craft Machine Files", "Critiques & Shop Tutorials", "Kits",
+            "Patterns & Blueprints", "Recipes", "Tutorials"]
+    tree = (
+        N(1, "Art & Collectibles", 0, None, [N(2, "Fiber Arts", 1, 1, [N(3, "Crochet", 2, 2)])]),
+        N(10, "Craft Supplies & Tools", 0, None, [
+            N(11, "Patterns & How To", 1, 10, [N(20 + i, k, 2, 11) for i, k in enumerate(kids)]),
+            N(40, "Tools & Equipment", 1, 10, [N(41, "Tools", 2, 40, [
+                N(42, "Hooking", 3, 41, [N(43, "Crochet Hooks", 4, 42)])])])]))
+    craft = FX.prop(9001, "Craft type", ("Crochet", "Knitting"))
+    return tree, craft
+
+
+SIMULATED_TAXONOMY_LABEL = (
+    "SIMULATED taxonomy: Etsy's own node names from production's 2026-10-21 refresh, "
+    "ILLUSTRATIVE ids, and an ASSUMED 'Crochet' value in the Patterns & Blueprints schema "
+    "(UNKNOWN in production until its refresh records category_choices; LAUNCHFIX section 4)")
+
+def record_simulated_taxonomy(rec: Recorder, db, state: dict, *, fake_base: str) -> None:
+    """Review L3 item 2: approval -> simulated publish needs a category. In production the
+    taxonomy is read by `listing.taxonomy_refresh` behind the owner's etsy_api gate. Here the
+    REAL refresh job reads tests/fake_etsy.py's seller-taxonomy tree (the simulated Etsy the
+    past-shadow phase already uses), then the release's own `listing.seo` re-runs so category
+    selection reads that snapshot. Labelled SIMULATED in the evidence; nothing leaves the
+    rehearsal's database. Whatever the gate or the selector says is recorded as it is."""
+    from sqlalchemy import select
+
+    from brambleloop.commerce import category
+    from brambleloop.core.models import Job, Phase
+
+    from brambleloop.integrations import etsy_taxonomy
+
+    slug, version = state["slug"], state["version"]
+    # The API-key taxonomy client carries its own base URL (etsy_taxonomy.ApiKeyTaxonomyClient);
+    # like EtsyClient.BASE in this phase, it is pointed at the local fake only for this call.
+    saved_base = etsy_taxonomy.ApiKeyTaxonomyClient.BASE
+    etsy_taxonomy.ApiKeyTaxonomyClient.BASE = fake_base
+    try:
+        refresh = _run_job(db, "listing", "listing.taxonomy_refresh", {},
+                           Phase.LIMITED_PRODUCTION)
+    finally:
+        etsy_taxonomy.ApiKeyTaxonomyClient.BASE = saved_base
+    seo_inputs = None
+    with db.session() as s:
+        for j in s.scalars(select(Job).where(Job.job_type == "listing.seo")
+                           .order_by(Job.id.desc())):
+            if (j.inputs or {}).get("slug") == slug and \
+                    (j.inputs or {}).get("version") == version:
+                seo_inputs = dict(j.inputs)
+                break
+    seo = (_run_job(db, "listing", "listing.seo", seo_inputs, Phase.LIMITED_PRODUCTION)
+           if seo_inputs is not None else None)
+    try:
+        chosen = category.publish_inputs(db, slug=slug, version=version)
+    except Exception as e:  # noqa: BLE001 - recorded as it is
+        chosen = {"status": "ERROR", "why": f"{type(e).__name__}: {e}"[:300]}
+    refreshed = [a for a in _audits(db, "etsy.taxonomy_refreshed")
+                 if a.get("job_id") == refresh["id"]]
+    unmeasured = [a for a in _audits(db, "etsy.taxonomy_unmeasured")
+                  if a.get("job_id") == refresh["id"]]
+    ok = (refresh["status"] == "done" and bool(refreshed)
+          and chosen.get("status") == category.CHOSEN and bool(chosen.get("taxonomy_id")))
+    rec.step("taxonomy[simulated]", PASS if ok else BLOCKED,
+             expected=("the real listing.taxonomy_refresh reads the SIMULATED Etsy taxonomy "
+                       "(tests/fake_etsy.py) and the release's listing.seo selects a category "
+                       "from that snapshot"),
+             observed={"refresh_job": refresh, "seo_job": seo,
+                       "category": {k: chosen.get(k) for k in
+                                    ("status", "taxonomy_id", "certified", "why")}},
+             proof={"etsy.taxonomy_refreshed": [_trim(a["detail"], 600) for a in refreshed],
+                    "etsy.taxonomy_unmeasured": [_trim(a["detail"], 600) for a in unmeasured],
+                    "simulation": SIMULATED_TAXONOMY_LABEL})
+    if not ok:
+        rec.defect("simulated_taxonomy_not_chosen", "commerce/category.publish_inputs",
+                   json.dumps({"refresh": refresh, "category": chosen}, default=str)[:600])
 
 def record_edges(db, slug: str, version: str) -> dict:
     """F-834 (W4-CLOSE6): the evidence edges producer -> durable state -> consumer -> decision ->
@@ -784,7 +943,8 @@ def run_past_shadow(rec: Recorder, db, state: dict) -> dict:
                                    "ETSY_REFRESH_TOKEN"]}
     saved_base = etsy_mod.EtsyClient.BASE
     log: list = []
-    with FakeEtsy() as fake:
+    sim_tree, sim_craft = simulated_taxonomy()
+    with FakeEtsy(taxonomy_nodes=sim_tree, required_property=sim_craft) as fake:
         restore = _guard_narrowed(fake.port, log)
         try:
             os.environ.update(env_keys)
@@ -795,6 +955,8 @@ def run_past_shadow(rec: Recorder, db, state: dict) -> dict:
                                "ETSY_SHARED_SECRET": fake.shared_secret})
             # The production client is pointed at the local fake for this simulated phase only.
             etsy_mod.EtsyClient.BASE = fake.base
+            # Review L3 item 2: the category the grant needs, read from the simulated Etsy.
+            record_simulated_taxonomy(rec, db, state, fake_base=fake.base)
             # W4-FMEND: the owner's recorded phase, through record_transition (never forced).
             record_owner_phase(rec, db)
             grant = None
@@ -1101,6 +1263,7 @@ def _rehearse(tmp: Path, product: str, *, fast: bool, out: Path | None) -> dict:
         ctx = run_shadow_chain(rec, db, url, tmp, artifacts, cir, fast=fast)
         state = record_chain(rec, db, cir, ctx)
         record_listing_package(rec, db, state)
+        seed_catalogue(rec, db, cir.slug)
         edges = record_edges(db, cir.slug, cir.version)
         if state.get("search_profile") and state["search_profile"].get("verdict") != "PASS":
             rec.defect("search_certificate_not_pass", "listing_search_profiles.verdict",
@@ -1115,7 +1278,8 @@ def _rehearse(tmp: Path, product: str, *, fast: bool, out: Path | None) -> dict:
                  proof={"traceback": traceback.format_exc()[-3000:]})
     finished = _utc()
     required = ["opportunity", "design", "boot", "cir.compile", "gate.certify", "assets.build", "listing.seo",
-                "listing.package", "store.publish[shadow]", "owner_phase_transition", "owner_publication_grant",
+                "listing.package", "catalogue[production-shaped]", "store.publish[shadow]",
+                "taxonomy[simulated]", "owner_phase_transition", "owner_publication_grant",
                 "store.publish[past-shadow]", "orders.ingest", "support.case", "ledger"]
     by = {s["step"]: s["outcome"] for s in rec.steps}
     evidence = {
@@ -1134,12 +1298,17 @@ def _rehearse(tmp: Path, product: str, *, fast: bool, out: Path | None) -> dict:
             "core.phase.record_transition under a fixture ops credential, citing the real "
             "launch.readiness evidence and the live readiness verdict (refused = BLOCKED)",
             "owner publication grant recorded through approve() under a fixture ops credential",
+            SIMULATED_TAXONOMY_LABEL + "; read by the real listing.taxonomy_refresh from "
+            "tests/fake_etsy.py on loopback",
+            "catalogue: every other Launch-0 release driven through the real chain handlers "
+            "in-process in SHADOW on the rehearsal database (production data is not read)",
             "receipt feed is a fixture via commerce.orders_ingest.reader_factory; receipts gate "
             "rows (etsy.probe ok, transactions_r scope) seeded as a simulated owner grant",
             "support case taken in through CustomerExperience.intake (no messaging integration "
             "exists)"],
         "steps": rec.steps,
         "chain_edges": edges,
+        "required": required,
         "outcomes": by,
         "blocking_defects": rec.defects,
         "complete": all(by.get(k) in GOOD for k in required),

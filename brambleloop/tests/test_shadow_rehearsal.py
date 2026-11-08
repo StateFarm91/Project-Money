@@ -26,7 +26,8 @@ sys.path.insert(0, str(ROOT))
 
 OUTCOMES = {"PASS", "REFUSED_AS_EXPECTED", "BLOCKED", "FAILED", "SKIPPED"}
 REQUIRED = ["opportunity", "design", "boot", "cir.compile", "gate.certify", "assets.build", "listing.seo",
-            "listing.package", "store.publish[shadow]", "owner_phase_transition", "owner_publication_grant",
+            "listing.package", "catalogue[production-shaped]", "store.publish[shadow]",
+            "taxonomy[simulated]", "owner_phase_transition", "owner_publication_grant",
             "store.publish[past-shadow]",
             "orders.ingest", "support.case", "ledger"]
 _EV: dict = {}
@@ -66,6 +67,8 @@ def test_every_required_step_has_an_outcome_and_db_proof():
     head = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True,
                           text=True).stdout.strip()
     assert ev["head"] == head and ev["mode"] == "fast" and ev["requirement"] == "F-848"
+    # review L3 LOW (M10): the rehearsal's own required list is the one pinned here
+    assert ev["required"] == REQUIRED, (ev["required"], REQUIRED)
 
 
 def test_the_shadow_chain_certifies_builds_and_is_refused_at_publish():
@@ -94,10 +97,48 @@ def test_the_certified_release_reaches_an_honest_listing_package():
     else:
         assert proof["state"] == "blocked" and proof["blockers"], proof
         assert all(b["source"] and b["why"] for b in proof["blockers"]), proof["blockers"]
-    assert pkg["db_proof"]["listing.package audits"], "the job ran and audited its sweep"
-    # the package precedes the publish refusal in the same run
-    names = [s["step"] for s in evidence()["steps"]]
-    assert names.index("listing.package") < names.index("store.publish[past-shadow]")
+    assert pkg["db_proof"]["listing.package audits (this job)"], "this job audited its sweep"
+
+
+def test_readiness_is_judged_on_a_production_shaped_catalogue():
+    """F-848 next_action (review L3 item 1): every Launch-0 release is driven through the real
+    chain in the rehearsal's database, so the owner phase transition cites readiness on a
+    real catalogue. The fresh-database blockers (catalogue depth, storefront preview) are
+    gone; whatever still fails is reported as it reads, never forced."""
+    from brambleloop.runtime.release_recovery import launch0_releases
+
+    cat = _step("catalogue[production-shaped]")
+    assert cat["outcome"] == "PASS", cat
+    assert cat["observed"]["settled"] is True
+    assert cat["observed"]["releases"] == len(launch0_releases()) - 1
+    assert cat["observed"]["certified"] >= 8 and cat["observed"]["listed"] >= 8, cat
+    assert "production data is not read" in cat["db_proof"]["simulation"]
+    phase = _step("owner_phase_transition")
+    if phase["outcome"] != "PASS":
+        why = str(phase["observed"])
+        for fresh_db_only in ("findable:catalogue_depth", "clickable:storefront_preview"):
+            assert fresh_db_only not in why, (fresh_db_only, why[:600])
+
+
+def test_approval_reaches_the_simulated_publish_with_every_simulation_labelled():
+    """Review L3 item 2: the real taxonomy refresh reads the SIMULATED taxonomy (Etsy's own
+    names, illustrative ids, an assumed Crochet value), a category is chosen on Patterns &
+    Blueprints only through that property, and the owner grant is recorded by approve()."""
+    ev = evidence()
+    tax = _step("taxonomy[simulated]")
+    assert "SIMULATED" in tax["db_proof"]["simulation"]
+    assert "ASSUMED" in tax["db_proof"]["simulation"]
+    assert any("SIMULATED taxonomy" in x for x in ev["simulations"])
+    # deterministic inside the rehearsal (the fake serves it), so it must pass here
+    assert tax["outcome"] == "PASS", tax
+    assert tax["observed"]["refresh_job"]["status"] == "done"
+    assert tax["observed"]["category"]["status"] == "CHOSEN"
+    assert tax["observed"]["category"]["taxonomy_id"] == 24         # Patterns & Blueprints
+    grant = _step("owner_publication_grant")
+    assert grant["outcome"] == "PASS", grant
+    pub = _step("store.publish[past-shadow]")
+    if pub["outcome"] != "PASS":           # honest either way: blocked only by a named gate
+        assert ev["blocking_defects"] and ev["complete"] is False
 
 
 def test_the_listing_package_step_never_passes_a_dishonest_package():
@@ -121,17 +162,37 @@ def test_the_listing_package_step_never_passes_a_dishonest_package():
         (good_blocked, "dead", "BLOCKED"),                                  # the job died
     ]
     saved = (m._run_job, LP.latest, m._audits)
+
+    def audits_for(pkg, job_id=1):
+        if pkg is None:
+            return []
+        return [{"job_id": job_id, "detail": {"results": [
+            {"key": "s@1.0.0", "state": pkg.get("state")}]}}]
     try:
         for pkg, status, want in cases:
             m._run_job = lambda *_a, _s=status, **_k: {"id": 1, "status": _s, "last_error": ""}
             LP.latest = lambda *_a, _p=pkg, **_k: None if _p is None else dict(_p)
-            m._audits = lambda *_a, **_k: []
+            m._audits = lambda *_a, _p=pkg, **_k: audits_for(_p)
             rec = m.Recorder()
             m.record_listing_package(rec, None, dict(state))
             assert rec.steps[-1]["outcome"] == want, (pkg, status, rec.steps[-1])
         rec = m.Recorder()
         m.record_listing_package(rec, None, {**state, "release": None})
         assert rec.steps[-1]["outcome"] == "SKIPPED"
+        # job-bound: a package this job's audit does not name, or names in another state,
+        # never passes (another sweep's package proves nothing about this run)
+        m._run_job = lambda *_a, **_k: {"id": 1, "status": "done", "last_error": ""}
+        LP.latest = lambda *_a, **_k: dict(good_blocked)
+        for audits in ([], [{"job_id": 2, "detail": {"results": [
+                {"key": "s@1.0.0", "state": LP.BLOCKED}]}}],
+                [{"job_id": 1, "detail": {"results": [
+                    {"key": "s@1.0.0", "state": LP.READY}]}}],
+                [{"job_id": 1, "detail": {"results": [
+                    {"key": "other@1.0.0", "state": LP.BLOCKED}]}}]):
+            m._audits = lambda *_a, _x=audits, **_k: _x
+            rec = m.Recorder()
+            m.record_listing_package(rec, None, dict(state))
+            assert rec.steps[-1]["outcome"] == "FAILED", (audits, rec.steps[-1])
     finally:
         m._run_job, LP.latest, m._audits = saved
 
