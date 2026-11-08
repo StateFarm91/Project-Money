@@ -169,7 +169,9 @@ def _upgrade_wrote_the_frame(job) -> bool:
     from ..core.models import JobStatus
 
     if job.status == JobStatus.DONE:
-        return True
+        # review L0 (optional): a DONE upgrade that did not upgrade ("already upgraded",
+        # no rights basis, bytes missing) wrote no frame, so it proves none.
+        return (job.outputs or {}).get("upgraded") is True
     err = (job.last_error or "").lower()
     return job.status == JobStatus.DEAD and "provenance refused" in err and "visual_truth" in err
 
