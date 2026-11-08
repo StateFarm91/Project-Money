@@ -2740,6 +2740,11 @@
       "at": "2026-11-08T08:09:40Z",
       "by": "MAIN",
       "event": "Cert run 20261108T043424Z-16431 on 16a80177 FAILED (10797 passing, 6 suites). Root causes: 4 real (postgres skip-only; F-226 stub outdated by Codex 5b4209ac; pytest/monkeypatch in visnext/visnext2; Cloudline definition drift from Codex 7d8d28e6 + dry run now blocked by V1 anchor rule) fixed on claude/w6-cert-regfix 1eb0c9fa + 5590c519 (review DO NOT SHIP -> fixed -> SHIP); 2 launch-environment (SIGINT ignored by `( ... &)` launch; reproduced) fixed by launching with SIGINT default. Cloudline definition re-pinned to v3 (no authorization; owner must authorize afresh). Merged: w6-INTEG1 4ea4c1cb (tree == reviewed 5590c519). Fresh plain cert run 20261108T080858Z-11912 started in wt-cert4. Follow-up LOW (Codex/any): postgres helper pg_ctl stop TimeoutExpired skips rmtree. Also: local pack-1b22b660 I/O error, quarantined; all 2213 objects verified on origin; alternates -> fresh mirror."
+    },
+    {
+      "at": "2026-11-08T14:36:25Z",
+      "by": "MAIN",
+      "event": "Batch 6 CERTIFIED: full plain run 20261108T121311Z-32051 on claude/w6-INTEG1 ea5873aa: 10812 passing, 0 failing suites, 0 no-pass, TMP leak 0, release_eligible true (8481 s). Release branch claude/w6-release-ea5873aa: release record 1a43d83f + merge of deployed 705725a3 (bookkeeping only; DEPLOYED_HISTORY union) = b7921052. deploy_guard check b7921052 vs 705725a3: ALLOW (tree 1d7c345a... == certified). rehearse-rollback ALLOW (not pushed). DRY_RUN deploy.sh ALLOW. Awaiting owner exact-SHA approval for b792105273421099ce6937abc3b581dc7e6c51f5. Earlier runs today stopped: 16a80177 (4 real + 2 launch-env), 4ea4c1cb (disk 2% free -> capacity suite), ea5873aa #1 (CPU oversubscription from concurrent reviews)."
     }
   ]
 }
