@@ -120,15 +120,26 @@ def test_f226_a_gallery_of_two_laura_frames_that_are_one_photo_cannot_be_publish
     plan = {"category": "c", "image_count": 2,
             "roles": [dict(role, position=1, role="lifestyle"),
                       dict(role, position=2, role="fit")]}
-    db = _db()
+    # Stored candidates, not a stub of IP._best: since 5b4209ac the dashboard draws a role's
+    # candidate only under one resolved production identity (slug, version, release), so the
+    # real lookup is what this exercises. Both frames carry Laura and one release.
+    from brambleloop.visual.image_records import ImageCandidate, ensure_tables
+
+    release = "ab" * 32
     for pair, bad in (((s1, s3), False), ((s1, s2), True)):
-        picks = {"lifestyle": dict(row, sha256=pair[0]), "fit": dict(row, sha256=pair[1])}
-        saved = IP._best
-        IP._best = lambda _db, *, listing, role, run=None: picks[role]
-        try:
-            view = IP.readiness(db, "L", plan=plan)
-        finally:
-            IP._best = saved
+        db = _db()
+        ensure_tables(db)
+        with db.session() as s:
+            for role_name, sha in zip(("lifestyle", "fit"), pair):
+                s.add(ImageCandidate(
+                    sha256=sha, run_key=IP.run_key("s", "1", release), method="autonomous",
+                    provenance_kind="ai", slug="s", version="1", release=release, listing="L",
+                    role=role_name, laura_present=True, outfit_id="o1", technical_status="PASS",
+                    binding={"cir_fingerprint": "f"}))
+        view = IP.readiness(db, "L", plan=plan)
+        # both frames were really drawn: a PASS over no frames would prove nothing
+        drawn = {r["role"]: (r.get("candidate") or {}).get("sha256") for r in view["roles"]}
+        assert drawn == {"lifestyle": pair[0], "fit": pair[1]}, drawn
         blocked = [b for b in view["publication_blockers"] if b.startswith("F-226")]
         assert bool(blocked) is bad, view["publication_blockers"]
         assert view["naturalism"]["status"] == ("FAIL" if bad else "PASS")

@@ -169,7 +169,10 @@ def test_one_bounded_proportion_correction_then_block():
 
 
 def test_identity_correction_stage_retry_does_not_repeat_generated_images(monkeypatch):
-    import pytest
+    try:
+        import pytest
+    except ImportError:  # the runner has no pytest (W6 N9)
+        import _minipytest as pytest
     from brambleloop.visual import image_production as IP
 
     db, gen, judges = O.make_db(), StagedGen(), Judges(body=("FAIL", "PASS"))
@@ -327,22 +330,64 @@ def test_cloudline_acceptance_dry_run_end_to_end_through_the_experiment_command(
     s = H.run(live=False, out=out)
     assert [t["step"] for t in s["timeline"]] == [1, 2, 3, 4, 5, 6, 7]
     assert s["timeline"][0]["granted"] is True and set(s["pdf_sha256"]) == {"US", "UK"}
-    assert s["orchestrator"]["state"] == "ready_for_owner_review", s["orchestrator"]
+    # W6 certification (as e831dc6a did for the WRAPTEST dry run): since V1 (503d03c3) a
+    # lifestyle frame is generated only from a W-FIDELITY-verified product-only anchor
+    # (`candidate_gates._anchor_of`). The dry run's stub judges call the anchor PASS without
+    # measuring it, so there is no verified anchor and lifestyle is refused BY NAME; the paid
+    # call it had reserved is then held for review (V1 d55dd147), never silently released.
+    # Forging a fidelity record in the harness would be fabricated evidence.
+    assert s["orchestrator"]["state"] == "blocked", s["orchestrator"]
+    assert "unresolved cost; review required" in s["orchestrator"]["status"], s["orchestrator"]
     assert "identity_anchor" in s["orchestrator"]["stages"]
     assert s["card_title_banner"] == C.CERTIFIED_LABEL                 # certified: truthful
     assert s["publication"]["state"] == "not_available"
     assert s["shared_cap_group"] == ["exp-2026-10-20-wrap-7ref",
                                      "exp-2026-10-21-cloudline-acceptance"]
     imgs = s["experiment_images"]
-    assert len(imgs) == s["orchestrator"]["generation_calls"] >= 3
+    # three calls reserved (anchor, identity anchor, lifestyle); the refused one made no image
+    assert s["orchestrator"]["generation_calls"] == 3 and len(imgs) == 2, (s["orchestrator"],
+                                                                            imgs)
     db = Database(f"sqlite:///{out / 'scratch_shadow.db'}", scratch=True)
     assert all(XP.is_experiment_image(db, h) for h in imgs)
+    from sqlalchemy import select
+    from brambleloop.visual.image_records import ImageCandidate
+
+    with db.session() as ss:
+        cands = [c for c in ss.scalars(select(ImageCandidate).where(
+            ImageCandidate.run_key == s["orchestrator"]["run_key"]))]
+    refused = [c for c in cands if c.stage == "lifestyle_generation"]
+    assert len(refused) == 1 and not refused[0].sha256 and \
+        refused[0].outcome == "provider_error" and \
+        "no product-only flat lay for this release" in str(
+            (refused[0].checks or {}).get("provider", {}).get("why")), refused
+    anchors = [c for c in cands if c.role == IP.ANCHOR_ROLE]
+    assert anchors and all(not (((c.checks or {}).get("product_truth") or {}).get(
+        "fidelity") or {}).get("checker") for c in anchors), anchors   # stub: not verified
     key = s["orchestrator"]["run_key"]
     try:
-        IP.approve(db, key, decided_by="owner:test")
-        raise AssertionError("an experiment gallery was approved for publication")
+        # a blocked run has no card to approve: refused as not ready (nothing is recorded)
+        got = IP.approve(db, key, decided_by="owner:test")
+        assert got["approved"] is False and "not ready_for_owner_review" in got["why"], got
     except XP.ExperimentRefused:
         pass
+    run_after = IP.get_run(db, key)
+    assert run_after["status"] != "approved_for_publication", run_after["status"]
+    assert not (run_after.get("owner_decision") or {}).get("publication_requested"), run_after
+    # The blocked run never reaches approve()'s experiment-run guard, and for a CERTIFIED
+    # product that guard is the only one (refuse_if_experiment is silent for Cloudline). So it
+    # is exercised directly, as WRAPTEST does: an experiment card of this certified release,
+    # in its own namespace, at ready_for_owner_review is refused by name and stays unapproved.
+    ready = IP._ensure_run(db, CLOUD, "1.2.0", run_after["release"], ns="exp-approve-guard")
+    IP._update(db, ready, stage="owner_card", status="ready_for_owner_review",
+               card={"experiment": True, "label": C.CERTIFIED_LABEL})
+    try:
+        IP.approve(db, ready, decided_by="owner:test")
+        raise AssertionError("an experiment run of a certified product was approved")
+    except XP.ExperimentRefused as exc:
+        assert "never approved for publication" in str(exc), exc
+    guarded = IP.get_run(db, ready)
+    assert guarded["state"] != "approved_for_publication", guarded["state"]
+    assert not (guarded.get("owner_decision") or {}).get("publication_requested"), guarded
     try:
         GP.write_frames(db, CLOUD, "1.2.0", [{"position": 2, "role": "lifestyle",
                                               "candidate_id": 1, "sha256": imgs[-1]}],
@@ -395,6 +440,7 @@ def test_pipeline_definition_drift_and_foreign_runs_are_refused_before_spend():
     j = json.loads(f.read_text())
     j["pipeline"]["pattern_references"][0]["sha256"] = "0" * 64
     j["pipeline"]["prompt_sections"]["image.flux3.identity@2"] = "1" * 64
+    j["pipeline"]["prompt_builder"] = "flux3-prompt-builder/0.0.0-drifted"
     f.write_text(json.dumps(j))
     try:
         C.DEFINITIONS_DIR = d
@@ -402,6 +448,7 @@ def test_pipeline_definition_drift_and_foreign_runs_are_refused_before_spend():
     finally:
         C.DEFINITIONS_DIR = saved
     assert any("pattern references" in x for x in p) and any("identity@2" in x for x in p)
+    assert any("prompt builder" in x and "0.0.0-drifted" in x for x in p), p
     try:
         C.require_pipeline_run(db, 999, ns="exp999", slug=CLOUD, version="1.2.0",
                                release=O.RELEASE)
@@ -431,8 +478,17 @@ if __name__ == "__main__":
     fails = passes = 0
     for name, fn in list(globals().items()):
         if name.startswith("test_") and callable(fn) and fn.__module__ == __name__:
+            mp = None
             try:
-                fn()
+                import inspect
+
+                if "monkeypatch" in inspect.signature(fn).parameters:
+                    import _minipytest
+
+                    mp = _minipytest.MonkeyPatch()
+                    fn(mp)
+                else:
+                    fn()
                 passes += 1
                 print("OK  ", name)
             except BaseException as e:  # noqa: BLE001 - Refused is a SystemExit
@@ -441,5 +497,8 @@ if __name__ == "__main__":
                 traceback.print_exc()
                 fails += 1
                 print("FAIL", name, repr(e))
+            finally:
+                if mp is not None:
+                    mp.undo()
     print(f"\n{passes} passed, {fails} failed")
     sys.exit(1 if fails else 0)

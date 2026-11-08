@@ -537,7 +537,10 @@ def test_restart_refuses_spent_failures_budget_stops_and_running_runs():
 
 def test_restart_rolls_back_run_and_job_when_enqueue_interrupted():
     from sqlalchemy import select
-    import pytest
+    try:
+        import pytest
+    except ImportError:  # the runner has no pytest (W6 N9)
+        import _minipytest as pytest
     from brambleloop.core.models import Job
     from brambleloop.queue.durable import DuplicateJob, JobQueue
     from brambleloop.visual import candidate_gates as CG
