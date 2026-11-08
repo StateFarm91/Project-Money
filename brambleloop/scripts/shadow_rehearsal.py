@@ -277,12 +277,19 @@ def _publish_settled(db, slug) -> bool:
 
 
 def _chain_terminal(db, slug) -> bool:
-    """The chain reached store.publish and it settled, or it stopped before it."""
+    """The chain reached store.publish and it settled, or it stopped before it -- and in
+    either case NO chain job of this product is still waiting, running or retrying.
+
+    A settled store.publish alone is not the end: the chain can re-enqueue a stage after it
+    (a late `listing.seo` re-run after a re-price), and stopping the wait then recorded that
+    still-pending job as the stage's FAILED outcome (the production-mode `listing.seo`
+    FAILED seen on 4ea4c1cb and 9958d72 with nothing wrong in the chain)."""
+    rows = _jobs(db, CHAIN, slug)
+    if any(r["status"] in ("pending", "running", "failed") for r in rows):
+        return False
     if _publish_settled(db, slug):
         return True
-    rows = _jobs(db, CHAIN, slug)
-    return bool(rows) and all(r["status"] in ("done", "dead", "cancelled") for r in rows) \
-        and not any(r["status"] in ("pending", "running", "failed") for r in rows)
+    return bool(rows) and all(r["status"] in ("done", "dead", "cancelled") for r in rows)
 
 
 STALL_SECONDS = 300      # no progress anywhere in the queue for this long = stalled

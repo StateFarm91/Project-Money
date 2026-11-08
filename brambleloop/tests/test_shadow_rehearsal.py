@@ -141,6 +141,29 @@ def test_approval_reaches_the_simulated_publish_with_every_simulation_labelled()
         assert ev["blocking_defects"] and ev["complete"] is False
 
 
+def test_the_chain_is_not_settled_while_a_stage_after_the_publish_is_still_waiting():
+    """A settled store.publish with a later re-enqueued stage (listing.seo) still pending is
+    not the end of the chain: the wait goes on, so the stage is not recorded FAILED."""
+    m = _rehearsal()
+    rows = {"now": []}
+    saved = m._jobs
+    m._jobs = lambda _db, types=None, slug=None: [
+        r for r in rows["now"] if types is None or r["job_type"] in types]
+    try:
+        rows["now"] = [{"id": 1, "job_type": "listing.seo", "status": "done"},
+                       {"id": 2, "job_type": "store.publish", "status": "dead"},
+                       {"id": 3, "job_type": "listing.seo", "status": "pending"}]
+        assert m._chain_terminal(None, "s") is False
+        rows["now"][2]["status"] = "running"
+        assert m._chain_terminal(None, "s") is False
+        rows["now"][2]["status"] = "done"
+        assert m._chain_terminal(None, "s") is True
+        rows["now"] = [{"id": 1, "job_type": "cir.compile", "status": "dead"}]
+        assert m._chain_terminal(None, "s") is True      # stopped before store.publish
+    finally:
+        m._jobs = saved
+
+
 def test_the_listing_package_step_never_passes_a_dishonest_package():
     """The step's own verdict: PASS only for a package bound to this release, publishing
     nothing, READY with no blocker or BLOCKED with every blocker named."""
