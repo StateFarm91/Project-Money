@@ -1,8 +1,32 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-08T01:05Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-08T18:30Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
+
+## State at 2026-11-08T18:30Z (read first)
+Owner goal 6719266602 (listing agents done, tested and autonomous): L0-L4 are all built and
+review-requested.
+- L0 P0-PHYSICAL-UPGRADE-PROVENANCE (opus2/l0-physical-upgrade-provenance, worktree opus2-l0):
+  f3258d75 -> delta e0f903b3 (HIGH-1 asset fingerprints, no STALE halt) -> hardening 3d956a89.
+  Preliminary SHIP by Main.
+- L1/L2 (F-834/F-846): no code. The accepted TESTED overrides were never promoted to
+  overrides.json; a dry run makes both COMPLETE. QUESTION 6719302210 is unanswered.
+- L3 F-848 (opus2/l3-shadow-rehearsal-package, worktree opus2-l3) @ 35d6a9ab, RR 6725345928:
+  - the rehearsal now covers the listing package, an 8-product production-shaped catalogue,
+    a simulated taxonomy (with an assumed Crochet property) and the owner grant;
+  - it is blocked only by the owner phase transition;
+  - production-mode evidence for eb72853 is committed.
+- L4 P0-NEXT-PRODUCT (opus2/l4-next-product, worktree opus2-l4) @ 9f46d341, RR 6724065439:
+  the WIP gate, parked jobs, in-flight skip, and the exhausted incident.
+- Engineering unknown on the critical path: Etsy's real taxonomy has no crochet node. The
+  category needs a "Crochet" value in the Patterns & Blueprints schema, which needs a
+  production refresh read (LAUNCHFIX section 4).
+- Lessons:
+  - The production-mode rehearsal had a premature-settle race, now fixed. There is also an
+    intermittent unclaimed in-process job; retried and diagnosed, root cause unknown.
+  - Run production-mode rehearsals alone.
+Stop reason: everything is review-requested; waiting on Main.
 
 ## State at 2026-11-08T01:05Z (read first)
 - Main 6715006286: wraptest e831dc6a SHIP (it is in the Batch 6 certification head).
