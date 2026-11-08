@@ -144,3 +144,9 @@ def test_edit_base_never_uses_failed_or_vetoed_image(tmp_path, monkeypatch):
             checks={"product_truth": {"status": "PASS"}},
         ))
     assert select_base() is None
+
+
+if __name__ == "__main__":
+    import _minipytest
+
+    _minipytest.run_module(globals())

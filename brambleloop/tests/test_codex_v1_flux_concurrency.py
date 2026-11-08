@@ -233,3 +233,9 @@ def test_nested_generate_refused_without_changing_outer_key(monkeypatch):
     monkeypatch.setattr(gen, "_generate", nested)
     gen.generate(stage="test", role="outer", brief="", references=[], outfit=None, attempt=1)
     assert gen.current_run_key is None
+
+
+if __name__ == "__main__":
+    import _minipytest
+
+    _minipytest.run_module(globals())

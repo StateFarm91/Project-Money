@@ -296,3 +296,9 @@ def test_lifestyle_handler_does_not_bind_a_different_full_release():
     )
     anchor = next(check for check in result["checks"] if check["check"] == "anchor")
     assert anchor["status"] == "UNKNOWN"
+
+
+if __name__ == "__main__":
+    import _minipytest
+
+    _minipytest.run_module(globals())

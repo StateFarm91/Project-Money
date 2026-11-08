@@ -16,3 +16,9 @@ def test_obscured_contradictory_craft_reading_is_held_not_a_definite_failure():
     assert fidelity.compare_craft(reading, exp)["status"] == "FAIL"
     # The vision uncertainty must not suppress a separate deterministic image failure.
     assert fidelity.verify_anchor(b"not an image", cir)["status"] == "FAIL"
+
+
+if __name__ == "__main__":
+    import _minipytest
+
+    _minipytest.run_module(globals())
