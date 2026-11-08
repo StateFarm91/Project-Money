@@ -124,10 +124,15 @@ def test_postgres_one_reservation_cannot_authorize_two_calls():
 @contextlib.contextmanager
 def _disposable_cluster():
     """W6 certification: when no database is supplied but a local PostgreSQL toolchain is
-    installed, make a brand-new throwaway cluster for this run only -- loopback, trust auth on
-    127.0.0.1 alone, a free port, one fresh empty `codex_v0_budget_test` database -- and
-    destroy it afterwards. A supplied CODEX_V0_TEST_DATABASE_URL is always used as is. With no
-    toolchain nothing is created and the test SKIPs (which the runner counts as no passes)."""
+    installed, make a brand-new throwaway cluster for this run only -- TCP on 127.0.0.1 only,
+    a free port, one fresh empty `codex_v0_budget_test` database -- and destroy it afterwards.
+    `initdb -A trust` trusts every local connection (loopback TCP and its own Unix socket
+    directory), so while the test runs any local user of this container could connect: fine in
+    a single-tenant test container, never on a shared host. The directory is under /tmp, not
+    the runner's TMPDIR (the `postgres` user must traverse it), so a SIGKILLed run's leftover
+    `codex-v0-pg-*` is not in the runner's TMP LEAKED census. A supplied
+    CODEX_V0_TEST_DATABASE_URL is always used as is. With no toolchain nothing is created and
+    the test SKIPs (which the runner counts as no passes)."""
     import glob
     import shutil
     import socket
@@ -167,10 +172,10 @@ def _disposable_cluster():
         run = lambda *a: subprocess.run(as_pg + list(a), check=True, capture_output=True,  # noqa: E731
                                         timeout=120)
         run(f"{bindir}/initdb", "-D", data, "-A", "trust", "-U", "postgres")
+        started = True   # before start: a start that times out may still leave a postmaster
         run(f"{bindir}/pg_ctl", "-D", data, "-w", "-l", os.path.join(base, "log"), "-o",
             f"-c listen_addresses=127.0.0.1 -c port={port} -c unix_socket_directories={base}",
             "start")
-        started = True
         run(f"{bindir}/createdb", "-h", "127.0.0.1", "-p", str(port), "-U", "postgres",
             "codex_v0_budget_test")
         os.environ["CODEX_V0_TEST_DATABASE_URL"] = (

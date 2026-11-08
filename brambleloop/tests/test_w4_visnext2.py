@@ -373,6 +373,21 @@ def test_cloudline_acceptance_dry_run_end_to_end_through_the_experiment_command(
     run_after = IP.get_run(db, key)
     assert run_after["status"] != "approved_for_publication", run_after["status"]
     assert not (run_after.get("owner_decision") or {}).get("publication_requested"), run_after
+    # The blocked run never reaches approve()'s experiment-run guard, and for a CERTIFIED
+    # product that guard is the only one (refuse_if_experiment is silent for Cloudline). So it
+    # is exercised directly, as WRAPTEST does: an experiment card of this certified release,
+    # in its own namespace, at ready_for_owner_review is refused by name and stays unapproved.
+    ready = IP._ensure_run(db, CLOUD, "1.2.0", run_after["release"], ns="exp-approve-guard")
+    IP._update(db, ready, stage="owner_card", status="ready_for_owner_review",
+               card={"experiment": True, "label": C.CERTIFIED_LABEL})
+    try:
+        IP.approve(db, ready, decided_by="owner:test")
+        raise AssertionError("an experiment run of a certified product was approved")
+    except XP.ExperimentRefused as exc:
+        assert "never approved for publication" in str(exc), exc
+    guarded = IP.get_run(db, ready)
+    assert guarded["state"] != "approved_for_publication", guarded["state"]
+    assert not (guarded.get("owner_decision") or {}).get("publication_requested"), guarded
     try:
         GP.write_frames(db, CLOUD, "1.2.0", [{"position": 2, "role": "lifestyle",
                                               "candidate_id": 1, "sha256": imgs[-1]}],
@@ -425,6 +440,7 @@ def test_pipeline_definition_drift_and_foreign_runs_are_refused_before_spend():
     j = json.loads(f.read_text())
     j["pipeline"]["pattern_references"][0]["sha256"] = "0" * 64
     j["pipeline"]["prompt_sections"]["image.flux3.identity@2"] = "1" * 64
+    j["pipeline"]["prompt_builder"] = "flux3-prompt-builder/0.0.0-drifted"
     f.write_text(json.dumps(j))
     try:
         C.DEFINITIONS_DIR = d
@@ -432,6 +448,7 @@ def test_pipeline_definition_drift_and_foreign_runs_are_refused_before_spend():
     finally:
         C.DEFINITIONS_DIR = saved
     assert any("pattern references" in x for x in p) and any("identity@2" in x for x in p)
+    assert any("prompt builder" in x and "0.0.0-drifted" in x for x in p), p
     try:
         C.require_pipeline_run(db, 999, ns="exp999", slug=CLOUD, version="1.2.0",
                                release=O.RELEASE)
