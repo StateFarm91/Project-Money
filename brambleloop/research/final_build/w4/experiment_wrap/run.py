@@ -386,33 +386,6 @@ class BudgetedRenderer:
         return out
 
 
-def _experiment_anchor_lookup(db):
-    """V1's anchor lookup for an EXPERIMENT run: identical to the production lookup
-    (`flux3_generator._default_anchor_lookup`: candidate_gates._anchor_of with its W-FIDELITY
-    record, CIR fingerprint, owner-veto and byte-hash checks), except that the release binding
-    is the experiment's content-identity binding (`experiment.binding`) -- the same binding
-    the anchor itself was verified under -- rather than a certification the experiment by
-    definition does not have. Nothing is relaxed: an unverified anchor is still never reused."""
-    def lookup(slug: str, version: str, release: str, run_key: str | None = None):
-        from brambleloop.visual import candidate_gates as CG
-        from brambleloop.visual import experiment as XP
-        from brambleloop.visual import fidelity, outfits
-
-        bind = XP.binding(db, slug, version, release)
-        if (not bind or bind.get("status") != CG.PASS
-                or not fidelity.same_release(bind.get("release_hash"), release)):
-            return None
-        anchor, data = CG._anchor_of(
-            db, {"slug": slug, "version": version, "listing": outfits.listing_of(slug),
-                 "run_key": run_key}, release,
-            expected_cir_fingerprint=bind.get("cir_fingerprint"))
-        if not anchor or not data:
-            return None
-        return {"data": data, "sha256": anchor["sha256"], "status": anchor["status"],
-                "checker": fidelity.CHECKER}
-    return lookup
-
-
 def generator_factory(*, renderer, live: bool, work_root: str):
     from brambleloop.creative.flux3_generator import Flux3Generator
     from brambleloop.visual import experiment as XP
@@ -423,7 +396,7 @@ def generator_factory(*, renderer, live: bool, work_root: str):
         def __init__(self, db):
             super().__init__(db, renderer=renderer, cir_loader=XP.cir_loader(db),
                              work_root=work_root, size=LIVE_SIZE,
-                             anchor_lookup=_experiment_anchor_lookup(db))
+                             anchor_lookup=XP.anchor_lookup(db))
             self.paid = bool(live)
 
         def generate(self, *, stage, role, brief, references, outfit, attempt, repair=None):

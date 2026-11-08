@@ -353,7 +353,7 @@ def test_outfit_is_automatic_and_distinct():
 
 # ---- the whole run ------------------------------------------------------------------------
 
-def test_dry_run_reaches_the_approval_card_unattended():
+def test_dry_run_reaches_the_card_blocked_on_the_unverified_anchor():
     out = Path(tempfile.mkdtemp(prefix="wraptest-dry-")) / "run"
     s = H.run(live=False, out=out)
     check("dry_no_orchestrator_errors", s["orchestrator_errors"] == [], s["orchestrator_errors"])
@@ -547,11 +547,12 @@ class FakeNetwork:
 
         def scratch_db(out_):
             db_ = self._scratch(out_)
+            self.db = db_
             from brambleloop.gateway import paid_provider_gate as G
 
-            _owner_activates_generation(db_, "flux-3-image")
+            _owner_activates_provider(db_, "flux-3-image")
             # ... and the vision judge the live path reads with (anthropic-vision), likewise.
-            _owner_activates_generation(db_, G.ANTHROPIC_VISION, G.VISION)
+            _owner_activates_provider(db_, G.ANTHROPIC_VISION, G.VISION)
             return db_
         H.scratch_db = scratch_db
         self._env = {k: os.environ.get(k) for k in H.KEY_VARS}
@@ -576,8 +577,9 @@ class FakeNetwork:
         return False
 
 
-def _owner_activates_generation(db, provider: str, scope: str | None = None) -> None:
-    """V0: a paid provider runs only after the owner activates it (step-up, ceilings)."""
+def _owner_activates_provider(db, provider: str, scope: str | None = None) -> None:
+    """V0: a paid provider (generation or vision) runs only after the owner activates it
+    (step-up, ceilings)."""
     import secrets
     from datetime import datetime, timedelta, timezone
 
@@ -650,6 +652,30 @@ def test_live_path_rehearsed_offline():
         "basis") or "") for c in ev["candidates"] if c["sha256"]))
     check("live_refusals", all(v.startswith("refused:") for v in s["refusals"].values()),
           s["refusals"])
+    # A-L1: the experiment anchor lookup the generator used finds the verified anchor only
+    # for this exact registered experiment release; another release, another version or an
+    # unregistered slug gives None (the binding check, not just _anchor_of, refuses it).
+    from brambleloop.visual.image_records import ImageCandidate
+    from sqlalchemy import select
+
+    with net.db.session() as ss:
+        a = ss.scalar(select(ImageCandidate).where(ImageCandidate.role == "product_anchor"))
+        slug, ver, rel, run, sha = a.slug, a.version, a.release, a.run_key, a.sha256
+    look = XP.anchor_lookup(net.db)
+    got = look(slug, ver, rel, run)
+    check("live_experiment_lookup_finds_the_verified_anchor", got and got["sha256"] == sha,
+          got and got.get("sha256"))
+    other = rel[:-1] + ("0" if rel[-1] != "0" else "1")
+    check("live_experiment_lookup_refuses_other_bindings",
+          look(slug, ver, other, run) is None and look(slug, "9.9.9", rel, run) is None
+          and look("not-an-experiment", ver, rel, run) is None)
+    saved = XP.binding
+    XP.binding = lambda *_a, **_k: {**saved(net.db, slug, ver, rel), "release_hash": other}
+    try:
+        check("live_experiment_lookup_checks_the_binding_release",
+              look(slug, ver, rel, run) is None)
+    finally:
+        XP.binding = saved
     print("   live rehearsal:", s["run_status"][:300], _per_role(ev), s["spent_cad"])
 
 
@@ -815,7 +841,7 @@ if __name__ == "__main__":
     test_budget_reserves_before_every_call_and_caps_attempts()
     test_outfit_is_automatic_and_distinct()
     test_live_refuses_without_keys()
-    test_dry_run_reaches_the_approval_card_unattended()
+    test_dry_run_reaches_the_card_blocked_on_the_unverified_anchor()
     test_live_path_rehearsed_offline()
     test_live_stops_early_on_a_hard_flat_lay_failure()
     test_measured_fidelity_codes_are_shared_routed_and_accepted()

@@ -245,6 +245,33 @@ def binding(db, slug: str, version: str, release: str) -> dict | None:
             "cir_fingerprint": reg.get("cir_fingerprint"), "pieces": pieces}
 
 
+def anchor_lookup(db):
+    """V1's anchor lookup for an EXPERIMENT run, for `Flux3Generator(anchor_lookup=...)`.
+
+    Identical to the production lookup (`flux3_generator._default_anchor_lookup`:
+    candidate_gates._anchor_of with its W-FIDELITY record, CIR fingerprint, owner-veto and
+    byte-hash checks), except that the release binding is this module's content-identity
+    `binding` -- the binding the anchor itself was verified under -- rather than a
+    certification an experiment by definition does not have. Nothing is relaxed: an
+    unregistered experiment, another release or an unverified anchor gives None."""
+    def lookup(slug: str, version: str, release: str, run_key: str | None = None):
+        from . import candidate_gates as CG
+        from . import fidelity, outfits
+
+        bind = binding(db, slug, version, release)
+        if (not bind or bind.get("status") != CG.PASS
+                or not fidelity.same_release(bind.get("release_hash"), release)):
+            return None
+        anchor, data = CG._anchor_of(
+            db, {"slug": slug, "version": version, "listing": outfits.listing_of(slug),
+                 "run_key": run_key}, release,
+            expected_cir_fingerprint=bind.get("cir_fingerprint"))
+        if not anchor or not data:
+            return None
+        return {"data": data, "sha256": anchor["sha256"], "status": anchor["status"],
+                "checker": fidelity.CHECKER}
+    return lookup
+
 def publication_blockers(bind: dict) -> list[str]:
     if not (bind or {}).get("experiment"):
         return []
