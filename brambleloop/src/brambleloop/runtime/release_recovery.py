@@ -209,17 +209,61 @@ def seed_key(slug: str, version: str, fingerprint: str, doc_version) -> str:
 # hours rather than queued as one burst on the shared worker.
 SEED_PER_RUN = 1
 
+# P0-NEXT-PRODUCT (owner goal L4): the chain feeds itself only when it has IDLE CAPACITY. A
+# product's chain is "in flight" while any of its chain-stage jobs is waiting, running or
+# scheduled for a retry; a finished, dead-lettered or cancelled job holds nothing (a held or
+# dead-ended product therefore never blocks the next one). Seeding starts a new product only
+# into a free slot, so an hourly rebuild never piles drafts onto a busy shared worker.
+CHAIN_STAGE_JOBS = ("cir.draft", "cir.compile", "gate.certify", "listing.draft",
+                    "assets.build", "pricing.position", "listing.seo", "launch.plan")
+WIP_LIMIT = 2
 
-def seed_launch0(ctx, *, limit: int = SEED_PER_RUN) -> dict:
+
+def _job_slug(inputs: dict) -> str | None:
+    inputs = inputs or {}
+    return inputs.get("slug") or (inputs.get("cir") or {}).get("slug")
+
+
+def idle_capacity(db, *, limit: int = WIP_LIMIT) -> dict:
+    """How many product chains are in flight now, and how many slots are free.
+
+    Deterministic: a pure read of the durable queue. `in_flight` names each product with a
+    chain-stage job PENDING, RUNNING or FAILED (retry scheduled); `slots` is what is left of
+    `limit`. A chain job with no readable slug counts as one unnamed product, never as zero."""
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus
+
+    live = (JobStatus.PENDING, JobStatus.RUNNING, JobStatus.FAILED)
+    busy: dict[str, list] = {}
+    with db.session() as s:
+        for j in s.scalars(select(Job).where(Job.job_type.in_(CHAIN_STAGE_JOBS),
+                                             Job.status.in_(live)).order_by(Job.id)):
+            key = _job_slug(j.inputs) or f"(unnamed job {j.id})"
+            busy.setdefault(key, []).append(f"{j.job_type}#{j.id}:{j.status.value}")
+    slots = max(0, limit - len(busy))
+    return {"limit": limit, "in_flight": sorted(busy), "jobs": busy, "slots": slots,
+            "idle": slots > 0}
+
+
+def seed_launch0(ctx, *, limit: int = SEED_PER_RUN, wip_limit: int = WIP_LIMIT) -> dict:
     """R5: draft the next Launch-0 release whose code version is not certified, once per design.
 
     In listing order; a release already seeded under this design is skipped (its key is taken),
-    so the next run seeds the next one. `pending` names what is left."""
+    so the next run seeds the next one. `pending` names what is left.
+
+    P0-NEXT-PRODUCT: only into idle capacity (`idle_capacity`). With no free slot nothing is
+    seeded and `held_for_capacity` names the products in flight; the next run after a chain
+    finishes (or dead-letters) seeds the next eligible release. `exhausted` is True when no
+    Launch-0 release is left to seed or waiting: the chain cannot feed itself further from the
+    release registry, and adopting a new product into it is a code change (integrator)."""
     from sqlalchemy import select
 
-    from ..core.models import PatternVersion, Product
+    from ..core.models import Job, PatternVersion, Product
     from ..gates.certificate import DOC_VERSION
 
+    capacity = idle_capacity(ctx.db, limit=wip_limit)
+    limit = min(limit, capacity["slots"])
     with ctx.db.session() as s:
         certified = {(slug, version) for slug, version in s.execute(
             select(Product.slug, PatternVersion.version)
@@ -234,15 +278,32 @@ def seed_launch0(ctx, *, limit: int = SEED_PER_RUN) -> dict:
         if newer_certified(ctx.db, cir.slug, cir.version):
             present.append(f"{rel} (a newer release is certified; not seeded)")
             continue
+        key = seed_key(cir.slug, cir.version, cir.fingerprint, DOC_VERSION)
+        with ctx.db.session() as s:
+            taken = s.scalar(select(Job.id).where(Job.idempotency_key == key)) is not None
+        if taken:                         # seeded before, whatever the capacity is now
+            already.append(rel)
+            continue
         if len(seeded) >= limit:
             pending.append(rel)
             continue
         job = ctx.enqueue("crochet_engineer", "cir.draft", {"slug": cir.slug},
-                          idempotency_key=seed_key(cir.slug, cir.version, cir.fingerprint,
-                                                   DOC_VERSION))
+                          idempotency_key=key)
         (seeded if job is not None else already).append(rel)
+    held = None if capacity["idle"] or not pending else {
+        "in_flight": capacity["in_flight"], "limit": capacity["limit"],
+        "why": (f"{len(capacity['in_flight'])} product chain(s) in flight, at the work-in-"
+                f"progress limit {capacity['limit']}: the next release is seeded once one "
+                f"finishes")}
     return {"seeded": seeded, "certified": present, "already_seeded": already,
-            "pending": pending}
+            "pending": pending, "capacity": {k: capacity[k] for k in
+                                             ("limit", "in_flight", "slots", "idle")},
+            "held_for_capacity": held,
+            "exhausted": not seeded and not pending,
+            "exhausted_why": None if (seeded or pending) else (
+                "every Launch-0 release is certified, superseded or already seeded; a further "
+                "product enters the chain only once it is adopted into the release registry "
+                "(builder.CATALOGUE / RELEASE_VERSIONS), an integrator code change")}
 
 
 def duplicate_certification(db, job, cir) -> str:

@@ -36,7 +36,7 @@ from sqlalchemy import select  # noqa: E402
 from brambleloop.agents.registry import Registry  # noqa: E402
 from brambleloop.core.db import Database  # noqa: E402
 from brambleloop.core.models import (  # noqa: E402
-    AuditLog, Incident, Job, PatternVersion, Phase, Product,
+    AuditLog, Incident, Job, JobStatus, PatternVersion, Phase, Product,
 )
 from brambleloop.gates.incidents import DefectReport, IncidentTracker  # noqa: E402
 from brambleloop.ops import artefacts as P  # noqa: E402
@@ -400,6 +400,14 @@ def test_a_retry_that_is_halted_again_opens_a_new_episode():
 
 # ---- R5: Launch-0 releases the chain never drafted ------------------------------------------
 
+def _finish_seeded_drafts(db):
+    """Mark every waiting seeded draft done, as the worker would once it ran it."""
+    with db.session() as s:
+        for j in s.scalars(select(Job).where(Job.job_type == "cir.draft",
+                                             Job.status == JobStatus.PENDING)):
+            j.status = JobStatus.DONE
+
+
 def test_every_uncertified_launch0_release_is_drafted_once_through_the_normal_job():
     db = _db()
     cir = _launch0_cir("cloudline-baby-blanket")
@@ -414,6 +422,7 @@ def test_every_uncertified_launch0_release_is_drafted_once_through_the_normal_jo
         assert len(out["seeded"]) == 1 and out["seeded"][0] not in seeded
         assert len(out["already_seeded"]) == run and len(out["pending"]) == 6 - run
         seeded += out["seeded"]
+        _finish_seeded_drafts(db)              # P0-NEXT-PRODUCT: the chain frees its slot
     # RC2: the code versions Batch 5 releases -- the small basket 1.3.0 (owner decision
     # D-W4-OWNER-BASKET-1.3.0, PDF1) and the coaster 1.2.1 (PDF1 text-only release).
     for rel in ("market-basket-small@1.3.0", "hexagon-coaster-set@1.2.1",
@@ -434,6 +443,95 @@ def test_every_uncertified_launch0_release_is_drafted_once_through_the_normal_jo
     assert got["drafted"] is True and got["artifact"] == "market-basket-small@1.3.0"
     with db.session() as s:
         assert s.scalar(select(Job).where(Job.job_type == "cir.compile")) is not None
+
+
+# ---- P0-NEXT-PRODUCT (owner goal L4): idle capacity, then the next eligible release ---------
+
+def _chain_job(db, job_type, slug, status, key):
+    j = JobQueue(db).enqueue("listing", job_type, {"slug": slug}, idempotency_key=key)
+    with db.session() as s:
+        s.get(Job, j.id).status = status
+    return j.id
+
+
+def test_idle_capacity_counts_products_with_live_chain_work_only():
+    db = _db()
+    assert RR.idle_capacity(db) == {"limit": RR.WIP_LIMIT, "in_flight": [], "jobs": {},
+                                    "slots": RR.WIP_LIMIT, "idle": True}
+    _chain_job(db, "gate.certify", "a", JobStatus.PENDING, "c1")
+    _chain_job(db, "assets.build", "a", JobStatus.RUNNING, "c2")        # same product: one
+    _chain_job(db, "listing.seo", "b", JobStatus.FAILED, "c3")          # retry scheduled
+    for i, st in enumerate((JobStatus.DONE, JobStatus.DEAD, JobStatus.CANCELLED)):
+        _chain_job(db, "cir.compile", f"z{i}", st, f"c-done{i}")        # hold nothing
+    _chain_job(db, "store.publish", "p", JobStatus.PENDING, "c-pub")    # not a chain stage
+    cap = RR.idle_capacity(db, limit=2)
+    assert cap["in_flight"] == ["a", "b"] and cap["slots"] == 0 and cap["idle"] is False, cap
+    assert RR.idle_capacity(db, limit=3)["slots"] == 1
+    # a chain job with no readable slug still takes a slot (never counted as zero)
+    JobQueue(db).enqueue("listing", "cir.compile", {}, idempotency_key="c-noslug")
+    assert len(RR.idle_capacity(db, limit=5)["in_flight"]) == 3
+
+
+def test_the_chain_feeds_itself_only_into_idle_capacity_on_a_durable_db():
+    """No free slot: nothing is seeded and the hold names what is in flight. A finished or
+    dead-lettered chain frees its slot and the next run seeds the next eligible release, in
+    listing order, each exactly once; at the end the registry is reported exhausted."""
+    db = _db()
+    holder = _ctx(db, JobQueue(db).enqueue("listing", "chain.rebuild", {}, idempotency_key="z"))
+    a = _chain_job(db, "gate.certify", "busy-one", JobStatus.RUNNING, "w1")
+    b = _chain_job(db, "assets.build", "busy-two", JobStatus.PENDING, "w2")
+    out = RR.seed_launch0(holder)
+    assert out["seeded"] == [] and out["capacity"]["slots"] == 0, out
+    assert out["held_for_capacity"]["in_flight"] == ["busy-one", "busy-two"], out
+    assert "work-in-progress limit" in out["held_for_capacity"]["why"]
+    total = len(out["pending"])
+    assert out["exhausted"] is False and total == len(RR.launch0_releases()) >= 7, out
+    with db.session() as s:
+        assert s.scalar(select(Job).where(Job.job_type == "cir.draft")) is None
+    # one chain dead-letters (a held product): its slot frees, the first release is seeded
+    with db.session() as s:
+        s.get(Job, a).status = JobStatus.DEAD
+    out = RR.seed_launch0(holder)
+    assert out["seeded"] == ["market-basket-small@1.3.0"] and out["held_for_capacity"] is None
+    # now the seeded draft plus busy-two fill both slots again: the next run holds
+    out = RR.seed_launch0(holder)
+    assert out["seeded"] == [] and out["already_seeded"] == ["market-basket-small@1.3.0"]
+    assert sorted(out["held_for_capacity"]["in_flight"]) == ["busy-two",
+                                                             "market-basket-small"], out
+    with db.session() as s:
+        s.get(Job, b).status = JobStatus.DONE
+    seeded = ["market-basket-small@1.3.0"]
+    for _ in range(total - 1):
+        _finish_seeded_drafts(db)
+        out = RR.seed_launch0(holder)
+        assert len(out["seeded"]) == 1 and out["seeded"][0] not in seeded, out
+        seeded += out["seeded"]
+    _finish_seeded_drafts(db)
+    out = RR.seed_launch0(holder)
+    assert out["seeded"] == [] and out["pending"] == [] and out["exhausted"] is True, out
+    assert "integrator" in out["exhausted_why"] and len(out["already_seeded"]) == total
+    with db.session() as s:
+        drafts = [j.inputs["slug"] for j in s.scalars(
+            select(Job).where(Job.job_type == "cir.draft").order_by(Job.id))]
+    assert len(drafts) == len(set(drafts)) == total, drafts      # each release exactly once
+
+
+def test_chain_rebuild_seeds_through_the_capacity_gate_and_records_why():
+    """The real hourly chain.rebuild job carries the gate: a busy chain is recorded, not
+    silently skipped."""
+    db = _db()
+    for i in range(RR.WIP_LIMIT):
+        _chain_job(db, "gate.certify", f"busy{i}", JobStatus.RUNNING, f"rb{i}")
+    j = JobQueue(db).enqueue("listing", "chain.rebuild", {}, idempotency_key="rb")
+    from brambleloop.runtime import release as REL
+
+    out = REL.handle_chain_rebuild(_ctx(db, j))
+    seed = out["recovery"]["launch0_seed"]
+    assert seed["seeded"] == [] and seed["held_for_capacity"]["in_flight"], seed
+    with db.session() as s:
+        rebuilt = s.scalar(select(AuditLog).where(AuditLog.action == "chain.rebuilt")
+                           .order_by(AuditLog.id.desc()))
+        assert rebuilt.detail["recovery"]["launch0_seed"]["held_for_capacity"], rebuilt.detail
 
 
 # ---- the production situation, end to end ---------------------------------------------------
