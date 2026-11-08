@@ -121,11 +121,80 @@ def test_postgres_one_reservation_cannot_authorize_two_calls():
         assert row.estimate_cad == 0.7
 
 
+@contextlib.contextmanager
+def _disposable_cluster():
+    """W6 certification: when no database is supplied but a local PostgreSQL toolchain is
+    installed, make a brand-new throwaway cluster for this run only -- loopback, trust auth on
+    127.0.0.1 alone, a free port, one fresh empty `codex_v0_budget_test` database -- and
+    destroy it afterwards. A supplied CODEX_V0_TEST_DATABASE_URL is always used as is. With no
+    toolchain nothing is created and the test SKIPs (which the runner counts as no passes)."""
+    import glob
+    import shutil
+    import socket
+    import subprocess
+    import tempfile
+
+    if os.environ.get("CODEX_V0_TEST_DATABASE_URL"):
+        yield
+        return
+    bins = sorted(glob.glob("/usr/lib/postgresql/*/bin/initdb"))
+    if not bins:
+        yield
+        return
+    bindir = os.path.dirname(bins[-1])
+    as_pg = []
+    if os.geteuid() == 0:                       # initdb refuses root: run as `postgres`
+        import pwd
+
+        try:
+            pwd.getpwnam("postgres")
+        except KeyError:
+            yield
+            return
+        as_pg = ["runuser", "-u", "postgres", "--"]
+    base = tempfile.mkdtemp(prefix="codex-v0-pg-", dir="/tmp")  # postgres must reach it
+    os.chmod(base, 0o755)
+    if as_pg:
+        shutil.chown(base, user="postgres")
+    data = os.path.join(base, "data")
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    started = False
+    saved = {k: os.environ.get(k) for k in ("CODEX_V0_TEST_DATABASE_URL",
+                                            "CODEX_V0_DISPOSABLE_DATABASE")}
+    try:
+        run = lambda *a: subprocess.run(as_pg + list(a), check=True, capture_output=True,  # noqa: E731
+                                        timeout=120)
+        run(f"{bindir}/initdb", "-D", data, "-A", "trust", "-U", "postgres")
+        run(f"{bindir}/pg_ctl", "-D", data, "-w", "-l", os.path.join(base, "log"), "-o",
+            f"-c listen_addresses=127.0.0.1 -c port={port} -c unix_socket_directories={base}",
+            "start")
+        started = True
+        run(f"{bindir}/createdb", "-h", "127.0.0.1", "-p", str(port), "-U", "postgres",
+            "codex_v0_budget_test")
+        os.environ["CODEX_V0_TEST_DATABASE_URL"] = (
+            f"postgresql://postgres@127.0.0.1:{port}/codex_v0_budget_test")
+        os.environ["CODEX_V0_DISPOSABLE_DATABASE"] = "yes"
+        yield
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        if started:
+            subprocess.run(as_pg + [f"{bindir}/pg_ctl", "-D", data, "-m", "immediate", "-w",
+                                    "stop"], capture_output=True, timeout=120)
+        shutil.rmtree(base, ignore_errors=True)
+
+
 if __name__ == "__main__":
     # Repo convention (review U7 F2): no pytest. SKIP exits 0 when no disposable local
-    # PostgreSQL database is supplied; anything else is a failure.
+    # PostgreSQL database is supplied or can be made; anything else is a failure.
     try:
-        test_postgres_one_reservation_cannot_authorize_two_calls()
+        with _disposable_cluster():
+            test_postgres_one_reservation_cannot_authorize_two_calls()
         print("OK   test_postgres_one_reservation_cannot_authorize_two_calls")
         print("0 failure(s)")
         sys.exit(0)
