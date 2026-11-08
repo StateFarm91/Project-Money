@@ -106,21 +106,21 @@
    "NOT_STARTED": 1
   },
   "completion": {
-   "COMPLETE": 380,
+   "COMPLETE": 382,
    "GATED": 106,
    "POST-LAUNCH": 420,
    "NOT-APPLICABLE": 7,
-   "OPEN": 4
+   "OPEN": 2
   },
   "launch_critical_completion": {
-   "COMPLETE": 380,
+   "COMPLETE": 382,
    "GATED": 106,
-   "OPEN": 4
+   "OPEN": 2
   },
-  "launch_critical_open": 4,
+  "launch_critical_open": 2,
   "launch_critical_open_reasons": {
    "coverage PARTIAL": 2,
-   "maturity TESTED": 3
+   "maturity TESTED": 1
   },
   "protected_action_applicability": {
    "protected": 586,
@@ -156,10 +156,12 @@
    "F-348",
    "F-349",
    "F-350",
+   "F-834",
    "F-836",
    "F-837",
    "F-843",
    "F-845",
+   "F-846",
    "F-847"
   ]
  },
@@ -37887,7 +37889,16 @@
    "searched": "w4-FM2 close | w4-RELEVIDENCE 7421ef6 evidence | w4-FMGATE 0417f35 | w4-CLOSE5 on deployed b931d17",
    "slice": "s9",
    "maturity_claimed": "TESTED",
-   "adjudication": [],
+   "completion_target": "TESTED",
+   "acceptance_rationale": "consumer receipts are emitted from a recorded run and final_proof refuses rows without them; script + offline adjudicator, so TESTED is the ceiling (as F-846); per-row review stays the reviewer's.",
+   "applied_by": "integrator (Main) 2026-11-08 at W6-INTEG1 (accepted 2026-10-20 for INTEG5, never applied)",
+   "completion_target_basis": "producer is operator tooling / offline adjudicator: scripts/shadow_rehearsal.py, scripts/emit_runtime_packets.py, src/brambleloop/build2/final_proof.py",
+   "adjudication": [
+    "override completion_target: None -> 'TESTED' (Its producer is scripts/shadow_rehearsal.py::record_edges -> scripts/emit_runtime_packets.py::consumer_chain and the offline adjudicator build2/final_proof.py (aggregate.OFFLINE_ADJUDICATORS); no runtime root can import them, so INTEGRATED is unreachable by construction (aggregate.structural_producer), as for F-846. The mechanism is complete: a recorded run carries a receipt per chain stage bound to the row's own consumer, and final_proof refuses any row without them; on research/final_build/w4/evidence_CLOSE6/final_proof_8e4efd3.json the chain errors are gone for F-048 and F-477 and every row stays BLOCKED on independent review, which is per-row certification, not this requirement.; accepted by coordinator (operator session) 2026-10-20)",
+    "override acceptance_rationale: None -> \"consumer receipts are emitted from a recorded run and final_proof refuses rows without them; script + offline adjudicator, so TESTED is the ceiling (as F-846); per-row review stays the reviewer's.\" (Its producer is scripts/shadow_rehearsal.py::record_edges -> scripts/emit_runtime_packets.py::consumer_chain and the offline adjudicator build2/final_proof.py (aggregate.OFFLINE_ADJUDICATORS); no runtime root can import them, so INTEGRATED is unreachable by construction (aggregate.structural_producer), as for F-846. The mechanism is complete: a recorded run carries a receipt per chain stage bound to the row's own consumer, and final_proof refuses any row without them; on research/final_build/w4/evidence_CLOSE6/final_proof_8e4efd3.json the chain errors are gone for F-048 and F-477 and every row stays BLOCKED on independent review, which is per-row certification, not this requirement.; accepted by coordinator (operator session) 2026-10-20)",
+    "override applied_by: None -> 'integrator (Main) 2026-11-08 at W6-INTEG1 (accepted 2026-10-20 for INTEG5, never applied)' (Its producer is scripts/shadow_rehearsal.py::record_edges -> scripts/emit_runtime_packets.py::consumer_chain and the offline adjudicator build2/final_proof.py (aggregate.OFFLINE_ADJUDICATORS); no runtime root can import them, so INTEGRATED is unreachable by construction (aggregate.structural_producer), as for F-846. The mechanism is complete: a recorded run carries a receipt per chain stage bound to the row's own consumer, and final_proof refuses any row without them; on research/final_build/w4/evidence_CLOSE6/final_proof_8e4efd3.json the chain errors are gone for F-048 and F-477 and every row stays BLOCKED on independent review, which is per-row certification, not this requirement.; accepted by coordinator (operator session) 2026-10-20)",
+    "override completion_target_basis: None -> 'producer is operator tooling / offline adjudicator: scripts/shadow_rehearsal.py, scripts/emit_runtime_packets.py, src/brambleloop/build2/final_proof.py' (Its producer is scripts/shadow_rehearsal.py::record_edges -> scripts/emit_runtime_packets.py::consumer_chain and the offline adjudicator build2/final_proof.py (aggregate.OFFLINE_ADJUDICATORS); no runtime root can import them, so INTEGRATED is unreachable by construction (aggregate.structural_producer), as for F-846. The mechanism is complete: a recorded run carries a receipt per chain stage bound to the row's own consumer, and final_proof refuses any row without them; on research/final_build/w4/evidence_CLOSE6/final_proof_8e4efd3.json the chain errors are gone for F-048 and F-477 and every row stays BLOCKED on independent review, which is per-row certification, not this requirement.; accepted by coordinator (operator session) 2026-10-20)"
+   ],
    "id": "F-834",
    "title": "Consumption Required",
    "version": "v1.0",
@@ -37895,10 +37906,8 @@
    "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "unprotected",
    "protected_action_basis": "no protected_effect and no protected action named",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "maturity TESTED below target INTEGRATED"
-   ]
+   "completion": "COMPLETE",
+   "completion_reasons": []
   },
   {
    "uid": "F-835",
@@ -38461,7 +38470,26 @@
    "searched": " | w4-FMGATE 0417f35",
    "slice": "s9",
    "maturity_claimed": "TESTED",
-   "adjudication": [],
+   "completion_target": "TESTED",
+   "evidence_paths": {
+    "INDEPENDENT_REAUDIT_7421ef6.md": {
+     "path": "research/final_build/w4/INDEPENDENT_REAUDIT_7421ef6.md (repository root)",
+     "source": "byte-identical copy of commit d33c43cc0d3ba5849e032839f51c72733e8b7124 on origin/claude/w4-REAUDIT (git blob 573fe8ef44933b85116f250e330da307a34eca0d), brought into the tree by W4-CLOSE6 2026-10-20"
+    },
+    "INDEPENDENT_SECREVIEW_2c6d775.md": {
+     "path": "research/final_build/w4/INDEPENDENT_SECREVIEW_2c6d775.md (repository root)"
+    }
+   },
+   "acceptance_rationale": "the audit-repair loop ran end to end (freeze 7421ef6 -> independent re-audit -> repairs with regression tests -> full suite 7877/0 on 5dfd1ac -> independent re-review 2c6d775 -> deploy 0417f35 -> next loop opened); producer is operator tooling, so TESTED is its ceiling; accepted on the condition, now met, that both audit reports are in the tree at the cited paths",
+   "applied_by": "integrator (Main) 2026-11-08 at W6-INTEG1 (accepted 2026-10-20 for INTEG5, never applied)",
+   "completion_target_basis": "producer is operator tooling / offline adjudicator: scripts/freeze_candidate.py",
+   "adjudication": [
+    "override completion_target: None -> 'TESTED' (The audit-repair loop has run end to end once and is open again on the deployed SHA: freeze 7421ef6 (CANDIDATE_7421ef6.json, DEFECT_LEDGER_7421ef6.json) -> independent re-audit INDEPENDENT_REAUDIT_7421ef6.md (repository root: research/final_build/w4/, not brambleloop/research/) (D-1, L-1, L-2, L-3) -> repairs with regression tests (w4-AUDITFIX e0fe1da; tests/test_w4_auditfix_cc_auth.py, test_w4_auditfix_ceiling.py, test_w4_auditfix_migrate.py) -> full suite on the successor (release/RELEASE_5dfd1ac...json: 7877 passing, 0 failing suites, clean tree) -> independent re-audit INDEPENDENT_SECREVIEW_2c6d775.md (repository root: research/final_build/w4/, not brambleloop/research/) (all four fixed, NO BLOCKER; 2c6d775 has the same deployable tree as 5dfd1ac/0417f35) -> deployed 0417f35. The next loop is opened on the deployed SHA: CANDIDATE_0417f35.json (freeze_candidate.check 0 refusals) and DEFECT_LEDGER_0417f35.json (5 shadow-rehearsal blockers that carry owner/external gates; 3 production-readback defects, 2 repaired on claude/w4-FMGATE with regression tests). The producer is operator tooling (scripts/freeze_candidate.py), so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer), the same basis as F-843, F-845 and F-847.; accepted by coordinator (operator session) 2026-10-20)",
+    "override evidence_paths: None -> {'INDEPENDENT_REAUDIT_7421ef6.md': {'path': 'research/final_build/w4/INDEPENDENT_REAUDIT_7421ef6.md (repository root)', 'source': 'byte-identical copy of commit d33c43cc0d3ba5849e032839f51c72733e8b7124 on origin/claude/w4-REAUDIT (git blob 573fe8ef44933b85116f250e330da307a34eca0d), brought into the tree by W4-CLOSE6 2026-10-20'}, 'INDEPENDENT_SECREVIEW_2c6d775.md': {'path': 'research/final_build/w4/INDEPENDENT_SECREVIEW_2c6d775.md (repository root)'}} (The audit-repair loop has run end to end once and is open again on the deployed SHA: freeze 7421ef6 (CANDIDATE_7421ef6.json, DEFECT_LEDGER_7421ef6.json) -> independent re-audit INDEPENDENT_REAUDIT_7421ef6.md (repository root: research/final_build/w4/, not brambleloop/research/) (D-1, L-1, L-2, L-3) -> repairs with regression tests (w4-AUDITFIX e0fe1da; tests/test_w4_auditfix_cc_auth.py, test_w4_auditfix_ceiling.py, test_w4_auditfix_migrate.py) -> full suite on the successor (release/RELEASE_5dfd1ac...json: 7877 passing, 0 failing suites, clean tree) -> independent re-audit INDEPENDENT_SECREVIEW_2c6d775.md (repository root: research/final_build/w4/, not brambleloop/research/) (all four fixed, NO BLOCKER; 2c6d775 has the same deployable tree as 5dfd1ac/0417f35) -> deployed 0417f35. The next loop is opened on the deployed SHA: CANDIDATE_0417f35.json (freeze_candidate.check 0 refusals) and DEFECT_LEDGER_0417f35.json (5 shadow-rehearsal blockers that carry owner/external gates; 3 production-readback defects, 2 repaired on claude/w4-FMGATE with regression tests). The producer is operator tooling (scripts/freeze_candidate.py), so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer), the same basis as F-843, F-845 and F-847.; accepted by coordinator (operator session) 2026-10-20)",
+    "override acceptance_rationale: None -> 'the audit-repair loop ran end to end (freeze 7421ef6 -> independent re-audit -> repairs with regression tests -> full suite 7877/0 on 5dfd1ac -> independent re-review 2c6d775 -> deploy 0417f35 -> next loop opened); producer is operator tooling, so TESTED is its ceiling; accepted on the condition, now met, that both audit reports are in the tree at the cited paths' (The audit-repair loop has run end to end once and is open again on the deployed SHA: freeze 7421ef6 (CANDIDATE_7421ef6.json, DEFECT_LEDGER_7421ef6.json) -> independent re-audit INDEPENDENT_REAUDIT_7421ef6.md (repository root: research/final_build/w4/, not brambleloop/research/) (D-1, L-1, L-2, L-3) -> repairs with regression tests (w4-AUDITFIX e0fe1da; tests/test_w4_auditfix_cc_auth.py, test_w4_auditfix_ceiling.py, test_w4_auditfix_migrate.py) -> full suite on the successor (release/RELEASE_5dfd1ac...json: 7877 passing, 0 failing suites, clean tree) -> independent re-audit INDEPENDENT_SECREVIEW_2c6d775.md (repository root: research/final_build/w4/, not brambleloop/research/) (all four fixed, NO BLOCKER; 2c6d775 has the same deployable tree as 5dfd1ac/0417f35) -> deployed 0417f35. The next loop is opened on the deployed SHA: CANDIDATE_0417f35.json (freeze_candidate.check 0 refusals) and DEFECT_LEDGER_0417f35.json (5 shadow-rehearsal blockers that carry owner/external gates; 3 production-readback defects, 2 repaired on claude/w4-FMGATE with regression tests). The producer is operator tooling (scripts/freeze_candidate.py), so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer), the same basis as F-843, F-845 and F-847.; accepted by coordinator (operator session) 2026-10-20)",
+    "override applied_by: None -> 'integrator (Main) 2026-11-08 at W6-INTEG1 (accepted 2026-10-20 for INTEG5, never applied)' (The audit-repair loop has run end to end once and is open again on the deployed SHA: freeze 7421ef6 (CANDIDATE_7421ef6.json, DEFECT_LEDGER_7421ef6.json) -> independent re-audit INDEPENDENT_REAUDIT_7421ef6.md (repository root: research/final_build/w4/, not brambleloop/research/) (D-1, L-1, L-2, L-3) -> repairs with regression tests (w4-AUDITFIX e0fe1da; tests/test_w4_auditfix_cc_auth.py, test_w4_auditfix_ceiling.py, test_w4_auditfix_migrate.py) -> full suite on the successor (release/RELEASE_5dfd1ac...json: 7877 passing, 0 failing suites, clean tree) -> independent re-audit INDEPENDENT_SECREVIEW_2c6d775.md (repository root: research/final_build/w4/, not brambleloop/research/) (all four fixed, NO BLOCKER; 2c6d775 has the same deployable tree as 5dfd1ac/0417f35) -> deployed 0417f35. The next loop is opened on the deployed SHA: CANDIDATE_0417f35.json (freeze_candidate.check 0 refusals) and DEFECT_LEDGER_0417f35.json (5 shadow-rehearsal blockers that carry owner/external gates; 3 production-readback defects, 2 repaired on claude/w4-FMGATE with regression tests). The producer is operator tooling (scripts/freeze_candidate.py), so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer), the same basis as F-843, F-845 and F-847.; accepted by coordinator (operator session) 2026-10-20)",
+    "override completion_target_basis: None -> 'producer is operator tooling / offline adjudicator: scripts/freeze_candidate.py' (The audit-repair loop has run end to end once and is open again on the deployed SHA: freeze 7421ef6 (CANDIDATE_7421ef6.json, DEFECT_LEDGER_7421ef6.json) -> independent re-audit INDEPENDENT_REAUDIT_7421ef6.md (repository root: research/final_build/w4/, not brambleloop/research/) (D-1, L-1, L-2, L-3) -> repairs with regression tests (w4-AUDITFIX e0fe1da; tests/test_w4_auditfix_cc_auth.py, test_w4_auditfix_ceiling.py, test_w4_auditfix_migrate.py) -> full suite on the successor (release/RELEASE_5dfd1ac...json: 7877 passing, 0 failing suites, clean tree) -> independent re-audit INDEPENDENT_SECREVIEW_2c6d775.md (repository root: research/final_build/w4/, not brambleloop/research/) (all four fixed, NO BLOCKER; 2c6d775 has the same deployable tree as 5dfd1ac/0417f35) -> deployed 0417f35. The next loop is opened on the deployed SHA: CANDIDATE_0417f35.json (freeze_candidate.check 0 refusals) and DEFECT_LEDGER_0417f35.json (5 shadow-rehearsal blockers that carry owner/external gates; 3 production-readback defects, 2 repaired on claude/w4-FMGATE with regression tests). The producer is operator tooling (scripts/freeze_candidate.py), so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer), the same basis as F-843, F-845 and F-847.; accepted by coordinator (operator session) 2026-10-20)"
+   ],
    "id": "F-846",
    "title": "Audit-Repair Loop",
    "version": "v1.0",
@@ -38469,10 +38497,8 @@
    "mapped_on": "0417f3516f30bb7c52926187fc475a0f46536e86",
    "protected_action_applicability": "protected",
    "protected_action_basis": "title/producer/consumer names 'deploy'",
-   "completion": "OPEN",
-   "completion_reasons": [
-    "maturity TESTED below target INTEGRATED"
-   ]
+   "completion": "COMPLETE",
+   "completion_reasons": []
   },
   {
    "uid": "F-847",
