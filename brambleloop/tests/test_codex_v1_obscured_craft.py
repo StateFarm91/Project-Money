@@ -1,4 +1,10 @@
 """An obscured image cannot establish a definite blind-vision craft defect."""
+import _tmp; _tmp.install()  # noqa: E702
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "src"))  # the runner sets no PYTHONPATH
+
 from brambleloop.products.vessels import build_basket
 from brambleloop.visual import fidelity
 

@@ -1,4 +1,10 @@
 """Offline, persistent tests for release-specific visual anchor selection."""
+import _tmp; _tmp.install()  # noqa: E702
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "src"))  # the runner sets no PYTHONPATH
+
 from brambleloop.core.db import Database
 from brambleloop.core.artifacts import ArtifactStore
 from brambleloop.visual import candidate_gates, fidelity, image_production

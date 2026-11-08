@@ -1,4 +1,10 @@
 """Offline blind comparisons cannot pass without both images' observations."""
+import _tmp; _tmp.install()  # noqa: E702
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "src"))  # the runner sets no PYTHONPATH
+
 import copy
 import json
 from pathlib import Path
