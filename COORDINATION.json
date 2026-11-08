@@ -2735,6 +2735,11 @@
       "at": "2026-11-08T07:41:52Z",
       "by": "MAIN",
       "event": "Batch 5 24h production acceptance (705725a3, deployed 2026-11-07T07:37Z, window ended ~07:37Z 2026-11-08): FAIL. readback.py: build commit unchanged, boot guard ok, worker alive now, SHADOW held, nothing published, publication refusals recorded, cost ceilings present, smoke PASS. RED: no_unexpected_dead_letters_in_24h (red from 08:39Z on 11-07 to now, 20 of 21 samples). Worker stall 00:15Z on 11-08 (worker_is_alive false once; self-recovered; PO-705725A3-WORKER-STALL-0015). UNKNOWN (NEEDS_OPERATOR, no readback credential): department health, swarm runtime, funding packets, off-site archive, continuity proof, Etsy credential, spend vs ceilings, BFL probe DNS cadence. Evidence checks false are the same four as at acceptance start (publishing_halt_clear, stale_artefacts_rebuilding, no_repeated_paid_call_in_24h, weekly_jobs_completing): unchanged, not newly red. No rollback trigger: nothing published, SHADOW held, no spend breach observed; 705725a3 stays deployed. Dead-letter diagnosis remains blocked on OWNER ACTION BRAMBLELOOP_READBACK_TOKEN (read-only)."
+    },
+    {
+      "at": "2026-11-08T08:09:40Z",
+      "by": "MAIN",
+      "event": "Cert run 20261108T043424Z-16431 on 16a80177 FAILED (10797 passing, 6 suites). Root causes: 4 real (postgres skip-only; F-226 stub outdated by Codex 5b4209ac; pytest/monkeypatch in visnext/visnext2; Cloudline definition drift from Codex 7d8d28e6 + dry run now blocked by V1 anchor rule) fixed on claude/w6-cert-regfix 1eb0c9fa + 5590c519 (review DO NOT SHIP -> fixed -> SHIP); 2 launch-environment (SIGINT ignored by `( ... &)` launch; reproduced) fixed by launching with SIGINT default. Cloudline definition re-pinned to v3 (no authorization; owner must authorize afresh). Merged: w6-INTEG1 4ea4c1cb (tree == reviewed 5590c519). Fresh plain cert run 20261108T080858Z-11912 started in wt-cert4. Follow-up LOW (Codex/any): postgres helper pg_ctl stop TimeoutExpired skips rmtree. Also: local pack-1b22b660 I/O error, quarantined; all 2213 objects verified on origin; alternates -> fresh mirror."
     }
   ]
 }
