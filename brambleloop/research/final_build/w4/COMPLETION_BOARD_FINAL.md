@@ -1,12 +1,12 @@
 # Completion board (final): Build 2 + Final Master
 
-Generated 2026-11-08T08:34:48Z by `research/final_build/w4/completion_board_final.py` on branch head 4ea4c1cb1. Production runs `b931d17a738d` (read 20261020T0540Z; /api/verify ok=False, failing ['no_unexpected_dead_letters_in_24h']). Rule: verified_complete = the ledger's own acceptance evidence, already complete in the ledger committed at the deployed commit (or closed on committed evidence taken from it), with every named runtime module in the deployed tree; no row is closed by this board.
+Generated 2026-11-08T08:54:09Z by `research/final_build/w4/completion_board_final.py` on branch head df0041922. Production runs `b931d17a738d` (read 20261020T0540Z; /api/verify ok=False, failing ['no_unexpected_dead_letters_in_24h']). Rule: verified_complete = the ledger's own acceptance evidence, already complete in the ledger committed at the deployed commit (or closed on committed evidence taken from it), with every named runtime module in the deployed tree; no row is closed by this board.
 
 | scope | total | verified complete | implemented, unverified | in progress | blocked: engineering | blocked: owner | blocked: external | n/a |
 |---|---|---|---|---|---|---|---|---|
 | Build 2 | 320 | 55 | 174 | 0 | 3 | 36 | 49 | 3 |
-| Final Master launch-critical | 490 | 167 | 215 | 0 | 32 | 44 | 32 | 0 |
-| Final Master total | 917 | 182 | 263 | 0 | 243 | 129 | 93 | 7 |
+| Final Master launch-critical | 490 | 166 | 216 | 0 | 32 | 44 | 32 | 0 |
+| Final Master total | 917 | 181 | 264 | 0 | 243 | 129 | 93 | 7 |
 | Tracked requirements | 1 | 0 | 0 | 0 | 0 | 1 | 0 | 0 |
 
 ## Recount (nine categories, after the spot audit)
@@ -14,8 +14,8 @@ Generated 2026-11-08T08:34:48Z by `research/final_build/w4/completion_board_fina
 | scope | production_verified | dev_proven_not_deployed | implemented_unverified | in_progress | engineering_blocked | owner_blocked | external_blocked | live_customer_C | not_applicable | executable engineering | post-launch empirical | owner/external (non-empirical) |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Build 2 | 55 | 166 | 0 | 0 | 2 | 29 | 39 | 26 | 3 | 168 | 57 | 37 |
-| Final Master launch-critical | 167 | 212 | 0 | 0 | 32 | 42 | 31 | 6 | 0 | 244 | 11 | 68 |
-| Final Master total | 182 | 260 | 0 | 0 | 239 | 123 | 84 | 22 | 7 | 499 | 70 | 159 |
+| Final Master launch-critical | 166 | 213 | 0 | 0 | 32 | 42 | 31 | 6 | 0 | 245 | 11 | 68 |
+| Final Master total | 181 | 261 | 0 | 0 | 239 | 123 | 84 | 22 | 7 | 500 | 70 | 159 |
 
 Rule: production_verified = verified_complete after the spot audit (BOARD_AUDIT.json); dev_proven_not_deployed = proven on the branch only; live_customer_C = the criterion's own words demand live customers / post-launch history (prelaunch_scope C_PATTERNS, quoted); post_launch_empirical = live_customer_C plus rows parked on real customers / data accrual; executable_engineering = the rest of the unfinished rows the company itself can move.
 
@@ -26,7 +26,7 @@ Ledger-native counts: Build 2 {'PROVEN': 229, 'OWNER-GATED': 39, 'DATA-GATED': 4
 ## Critical path
 
 1. **Release not deployed (successor + 24h window)** (engineering): unblocks 15 rows (12 FM launch-critical, 1 Build 2). Estimate: release cycle + 24h -- suite 4693 s (RELEASE_5dfd1ac run 20261011T083839Z-21062); record 09:56Z -> deployed worker 13:59Z = ~4 h observed; then off_device_proof window_hours 24
-2. **Proven only on the integration branch (release + production evidence needed)** (engineering): unblocks 437 rows (215 FM launch-critical, 174 Build 2). Estimate: one release cycle -- same release evidence: ~78 min suite + ~4 h observed record-to-deploy
+2. **Proven only on the integration branch (release + production evidence needed)** (engineering): unblocks 438 rows (216 FM launch-critical, 174 Build 2). Estimate: one release cycle -- same release evidence: ~78 min suite + ~4 h observed record-to-deploy
 3. **Gate now OPEN in production: unparked, re-verify** (engineering): unblocks 25 rows (19 FM launch-critical, 0 Build 2). Estimate: one engineering pass over the unparked rows -- gates read OPEN at the board's production GET; each row's own tests/evidence decide
 4. **Launch-0 catalogue cap (CAP-1)** (owner): unblocks 1 rows (1 FM launch-critical, 0 Build 2). Estimate: owner ~5 min, then the gate's own reading -- minutes stated per action in OWNER_ACTIONS.json / PRODUCT_FIX.md; no date is promised
 5. **No live listings (go-live not authorised)** (owner): unblocks 38 rows (12 FM launch-critical, 9 Build 2). Estimate: owner go-live sitting (OWNER_ACTIONS go_live minutes_total)
@@ -36,7 +36,7 @@ Ledger-native counts: Build 2 {'PROVEN': 229, 'OWNER-GATED': 39, 'DATA-GATED': 4
 
 | root cause | rows | B2 | FM LC | FM post-launch | classes | owner action |
 |---|---|---|---|---|---|---|
-| Proven only on the integration branch (release + production evidence needed) | 437 | 174 | 215 | 48 | {'implemented_unverified': 437} |  |
+| Proven only on the integration branch (release + production evidence needed) | 438 | 174 | 216 | 48 | {'implemented_unverified': 438} |  |
 | No real customers / market outcomes yet | 95 | 38 | 6 | 51 | {'blocked_external': 95} |  |
 | No live listings (go-live not authorised) | 38 | 9 | 12 | 17 | {'blocked_owner': 38} | Authorise graduation from shadow to staging, then limited production, one step at a time, once the steps above |
 | Image/vision provider capability | 24 | 6 | 15 | 3 | {'blocked_external': 24} |  |
@@ -609,6 +609,7 @@ Ledger-native counts: Build 2 {'PROVEN': 229, 'OWNER-GATED': 39, 'DATA-GATED': 4
 | F-821 | implemented_unverified | engineering: release + deploy | True | False |  |
 | F-822 | implemented_unverified | engineering: release + deploy | True | False |  |
 | F-826 | implemented_unverified | engineering: release + deploy | True | False |  |
+| F-834 | implemented_unverified | engineering: release + deploy | True | True |  |
 | F-835 | implemented_unverified | engineering: release + deploy | True | False |  |
 | F-841 | implemented_unverified | engineering: release + deploy | True | False |  |
 | F-846 | implemented_unverified | engineering: release + deploy | None | None |  |

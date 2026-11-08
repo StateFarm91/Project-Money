@@ -2,8 +2,8 @@
  "kind": "brambleloop.completion_board_final",
  "schema": 1,
  "generated_by": "research/final_build/w4/completion_board_final.py (do not edit by hand)",
- "generated_at": "2026-11-08T08:34:48Z",
- "branch_head": "4ea4c1cb1",
+ "generated_at": "2026-11-08T08:54:09Z",
+ "branch_head": "df0041922",
  "production": {
   "commit": "b931d17a738d6a5bcd96580f620069b669ca5f57",
   "known": true,
@@ -107,8 +107,8 @@
   },
   "final_master_launch_critical": {
    "total": 490,
-   "verified_complete": 167,
-   "implemented_unverified": 215,
+   "verified_complete": 166,
+   "implemented_unverified": 216,
    "in_progress": 0,
    "blocked_engineering": 32,
    "blocked_owner": 44,
@@ -117,8 +117,8 @@
   },
   "final_master_total": {
    "total": 917,
-   "verified_complete": 182,
-   "implemented_unverified": 263,
+   "verified_complete": 181,
+   "implemented_unverified": 264,
    "in_progress": 0,
    "blocked_engineering": 243,
    "blocked_owner": 129,
@@ -153,8 +153,8 @@
     "owner_or_external_non_empirical": 37
    },
    "final_master_total": {
-    "production_verified": 182,
-    "dev_proven_not_deployed": 260,
+    "production_verified": 181,
+    "dev_proven_not_deployed": 261,
     "implemented_unverified": 0,
     "in_progress": 0,
     "engineering_blocked": 239,
@@ -163,14 +163,14 @@
     "live_customer_C": 22,
     "not_applicable": 7,
     "total": 917,
-    "unfinished": 728,
+    "unfinished": 729,
     "post_launch_empirical": 70,
-    "executable_engineering": 499,
+    "executable_engineering": 500,
     "owner_or_external_non_empirical": 159
    },
    "final_master_launch_critical": {
-    "production_verified": 167,
-    "dev_proven_not_deployed": 212,
+    "production_verified": 166,
+    "dev_proven_not_deployed": 213,
     "implemented_unverified": 0,
     "in_progress": 0,
     "engineering_blocked": 32,
@@ -179,9 +179,9 @@
     "live_customer_C": 6,
     "not_applicable": 0,
     "total": 490,
-    "unfinished": 323,
+    "unfinished": 324,
     "post_launch_empirical": 11,
-    "executable_engineering": 244,
+    "executable_engineering": 245,
     "owner_or_external_non_empirical": 68
    },
    "categories": [
@@ -253,13 +253,13 @@
   {
    "root": "release_undeployed_code",
    "title": "Proven only on the integration branch (release + production evidence needed)",
-   "rows": 437,
+   "rows": 438,
    "build2": 174,
-   "fm_launch_critical": 215,
+   "fm_launch_critical": 216,
    "fm_post_launch": 48,
    "tracked": 0,
    "classes": {
-    "implemented_unverified": 437
+    "implemented_unverified": 438
    },
    "owner_actions": [],
    "ids": [
@@ -667,6 +667,7 @@
     "F-821",
     "F-822",
     "F-826",
+    "F-834",
     "F-835",
     "F-841",
     "F-846",
@@ -1912,8 +1913,8 @@
    "step": 2,
    "root": "release_undeployed_code",
    "title": "Proven only on the integration branch (release + production evidence needed)",
-   "unblocks_rows": 437,
-   "unblocks_fm_launch_critical": 215,
+   "unblocks_rows": 438,
+   "unblocks_fm_launch_critical": 216,
    "unblocks_build2": 174,
    "who": "engineering",
    "estimate": {
@@ -26724,10 +26725,13 @@
     ],
     "code_exists": true,
     "deployed": true,
-    "cls": "verified_complete",
-    "root": null,
-    "evidence": "ledger COMPLETE, and already so in the ledger committed at the deployed b931d17 (or closed on committed production evidence of it); named module(s) in the deployed tree; production build.commit b931d17 known=True",
-    "recount": "production_verified",
+    "cls": "implemented_unverified",
+    "root": "release_undeployed_code",
+    "missing_evidence": "proven only on the integration branch: not complete in the ledger at the deployed commit, or a named module is absent from production",
+    "blocked_by": "engineering: release + deploy",
+    "responsible": "integrator (release)",
+    "verifiability": "A",
+    "recount": "dev_proven_not_deployed",
     "empirical": false
    },
    {
