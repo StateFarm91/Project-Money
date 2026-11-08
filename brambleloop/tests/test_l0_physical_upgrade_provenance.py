@@ -195,6 +195,27 @@ def test_a_camera_frame_whose_photo_hash_differs_stays_unproven():
     assert _visual_row(db, cir, fid) is None
 
 
+def test_a_frame_of_another_product_naming_the_photo_stays_unproven():
+    """The photo is proof only for the product it was taken of."""
+    db, cir, photo_id, sha = _ready()
+    _run_upgrade(db, photo_id)
+    with db.session() as s:
+        s.add(ListingAsset(product_slug="some-other-product", version=cir.version,
+                           position=1, asset_class="PHYSICAL_PRODUCT_PHOTO", role="proof",
+                           sha256=sha, claims={"physical_photo_id": photo_id},
+                           approved=False, blocked_reasons=["x"]))
+    with db.session() as s:
+        backfill.run(s)
+        fid = s.scalar(select(ListingAsset.id).where(
+            ListingAsset.product_slug == "some-other-product"))
+    with db.session() as s:
+        row = s.scalar(select(ArtefactProvenance).where(
+            ArtefactProvenance.artefact_class == "visual_truth",
+            ArtefactProvenance.artefact_key == P.visual_key("some-other-product",
+                                                             cir.version, fid)))
+        assert row is None, "a photo of one product proved another product's frame"
+
+
 def test_an_orphan_frame_with_no_upgrade_job_stays_unproven():
     """Backfill needs the job that made the frame: a hash-matched photo alone is not enough."""
     db, cir, photo_id, _sha = _ready()
