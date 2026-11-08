@@ -457,13 +457,19 @@ def _chain_job(db, job_type, slug, status, key):
 def test_idle_capacity_counts_products_with_live_chain_work_only():
     db = _db()
     assert RR.idle_capacity(db) == {"limit": RR.WIP_LIMIT, "in_flight": [], "jobs": {},
-                                    "slots": RR.WIP_LIMIT, "idle": True}
+                                    "slots": RR.WIP_LIMIT, "idle": True, "parked": []}
     _chain_job(db, "gate.certify", "a", JobStatus.PENDING, "c1")
     _chain_job(db, "assets.build", "a", JobStatus.RUNNING, "c2")        # same product: one
     _chain_job(db, "listing.seo", "b", JobStatus.FAILED, "c3")          # retry scheduled
     for i, st in enumerate((JobStatus.DONE, JobStatus.DEAD, JobStatus.CANCELLED)):
         _chain_job(db, "cir.compile", f"z{i}", st, f"c-done{i}")        # hold nothing
     _chain_job(db, "store.publish", "p", JobStatus.PENDING, "c-pub")    # not a chain stage
+    assert RR.idle_capacity(db, limit=2)["in_flight"] == ["a", "b"]
+    for i, stage in enumerate(("cir.revise", "cir.reengineer", "assets.physical_upgrade",
+                               "visual.image_production")):              # review L4 L1
+        probe = _db()
+        _chain_job(probe, stage, f"s{i}", JobStatus.PENDING, f"st{i}")
+        assert RR.idle_capacity(probe)["in_flight"] == [f"s{i}"], stage
     cap = RR.idle_capacity(db, limit=2)
     assert cap["in_flight"] == ["a", "b"] and cap["slots"] == 0 and cap["idle"] is False, cap
     assert RR.idle_capacity(db, limit=3)["slots"] == 1
@@ -532,6 +538,108 @@ def test_chain_rebuild_seeds_through_the_capacity_gate_and_records_why():
         rebuilt = s.scalar(select(AuditLog).where(AuditLog.action == "chain.rebuilt")
                            .order_by(AuditLog.id.desc()))
         assert rebuilt.detail["recovery"]["launch0_seed"]["held_for_capacity"], rebuilt.detail
+
+
+def test_a_job_parked_far_ahead_holds_no_slot():
+    """Review L4 H1: a seasonal re-plan parked until after its occasion (run_after months
+    ahead) is waiting on the calendar, not using the worker: it holds no WIP slot, so two held
+    seasonal products never freeze next-product selection. Due-soon work still counts."""
+    from datetime import datetime, timedelta, timezone
+
+    db = _db()
+    now = datetime.now(timezone.utc)
+    for i, slug in enumerate(("seasonal-a", "seasonal-b")):
+        j = JobQueue(db).enqueue("growth", "launch.plan", {"slug": slug},
+                                 idempotency_key=f"park{i}",
+                                 run_after=now + timedelta(days=200))
+    cap = RR.idle_capacity(db, now=now)
+    assert cap["in_flight"] == [] and cap["slots"] == RR.WIP_LIMIT, cap
+    assert len(cap["parked"]) == 2 and all("launch.plan" in p for p in cap["parked"]), cap
+    JobQueue(db).enqueue("growth", "launch.plan", {"slug": "due-soon"}, idempotency_key="soon",
+                         run_after=now + timedelta(hours=1))
+    assert RR.idle_capacity(db, now=now)["in_flight"] == ["due-soon"]
+    holder = _ctx(db, JobQueue(db).enqueue("listing", "chain.rebuild", {}, idempotency_key="z"))
+    assert len(RR.seed_launch0(holder)["seeded"]) == 1      # the parked pair blocks nothing
+
+
+def test_a_product_already_in_flight_is_not_seeded_a_second_time():
+    """Review L4 M2: a live radar draft / redraft of a Launch-0 slug is not given a second
+    cir.draft (it would take a second slot for the same product); cir-shaped inputs count."""
+    db = _db()
+    first = RR.launch0_releases()[0]
+    JobQueue(db).enqueue("validator", "cir.compile", {"cir": first.to_dict()},
+                         idempotency_key="radar-compile")             # cir-shaped inputs
+    assert first.slug in RR.idle_capacity(db)["in_flight"]
+    holder = _ctx(db, JobQueue(db).enqueue("listing", "chain.rebuild", {}, idempotency_key="z"))
+    out = RR.seed_launch0(holder)
+    assert f"{first.slug}@{first.version}" in out["in_flight_already"], out
+    assert all(not r.startswith(first.slug + "@") for r in out["seeded"]), out
+    with db.session() as s:
+        drafts = [j.inputs["slug"] for j in s.scalars(select(Job).where(
+            Job.job_type == "cir.draft"))]
+    assert first.slug not in drafts, drafts
+    # every remaining release in flight: nothing seeded, nothing pending, and NOT exhausted
+    db2 = _db()
+    for i, cir in enumerate(RR.launch0_releases()):
+        JobQueue(db2).enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
+                              idempotency_key=f"busy-{i}")
+    h2 = _ctx(db2, JobQueue(db2).enqueue("listing", "chain.rebuild", {}, idempotency_key="z"))
+    out = RR.seed_launch0(h2, wip_limit=99)
+    assert out["seeded"] == [] and out["pending"] == [], out
+    assert len(out["in_flight_already"]) == len(RR.launch0_releases())
+    assert out["exhausted"] is False, out
+
+
+def test_a_concurrent_duplicate_stops_the_run_and_the_fitted_key_is_compared():
+    """Review L4 L2 / L3."""
+    db = _db()
+    holder = _ctx(db, JobQueue(db).enqueue("listing", "chain.rebuild", {}, idempotency_key="z"))
+    saved = holder.enqueue
+    holder.enqueue = lambda *a, **k: None          # another process took the key meanwhile
+    try:
+        out = RR.seed_launch0(holder, limit=5, wip_limit=9)
+    finally:
+        holder.enqueue = saved
+    assert out["seeded"] == [] and len(out["already_seeded"]) == 1, out
+    assert out["exhausted"] is False and out["pending"], out        # stopped, not exhausted
+    # L3: a key longer than the column is stored fitted; a later run must still see it taken
+    long_key = RR.seed_key
+    RR.seed_key = lambda *a: "launch0-seed:" + "x" * 300 + ":".join(str(x) for x in a)
+    try:
+        db2 = _db()
+        h2 = _ctx(db2, JobQueue(db2).enqueue("listing", "chain.rebuild", {},
+                                             idempotency_key="z"))
+        first = RR.seed_launch0(h2)
+        _finish_seeded_drafts(db2)
+        again = RR.seed_launch0(h2)
+        assert again["already_seeded"] == first["seeded"], (first, again)
+        # the taken key was recognised (not mistaken for a concurrent duplicate), so the
+        # run went on to seed the next release
+        assert len(again["seeded"]) == 1 and again["seeded"] != first["seeded"], again
+    finally:
+        RR.seed_key = long_key
+
+
+def test_exhausted_is_false_on_the_final_seeding_run_and_signals_once_after():
+    """Review L4 L4/L5: the run that seeds the last release is not exhausted; the run after
+    it is, and raises ONE open, non-halting, owner-visible incident (restated, not
+    duplicated)."""
+    db = _db()
+    holder = _ctx(db, JobQueue(db).enqueue("listing", "chain.rebuild", {}, idempotency_key="z"))
+    total = len(RR.launch0_releases())
+    for i in range(total):
+        out = RR.seed_launch0(holder)
+        assert len(out["seeded"]) == 1 and out["exhausted"] is False, (i, out)
+        _finish_seeded_drafts(db)
+    for _ in range(2):
+        out = RR.seed_launch0(holder)
+        assert out["exhausted"] is True, out
+    with db.session() as s:
+        rows = list(s.scalars(select(Incident).where(
+            Incident.signature == RR.EXHAUSTED_SIGNATURE)))
+        assert len(rows) == 1 and rows[0].resolved is False, rows
+        assert rows[0].halts_publication is False and rows[0].report_count == 2
+        assert "integrator" in rows[0].summary
 
 
 # ---- the production situation, end to end ---------------------------------------------------

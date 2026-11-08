@@ -209,14 +209,24 @@ def seed_key(slug: str, version: str, fingerprint: str, doc_version) -> str:
 # hours rather than queued as one burst on the shared worker.
 SEED_PER_RUN = 1
 
-# P0-NEXT-PRODUCT (owner goal L4): the chain feeds itself only when it has IDLE CAPACITY. A
-# product's chain is "in flight" while any of its chain-stage jobs is waiting, running or
-# scheduled for a retry; a finished, dead-lettered or cancelled job holds nothing (a held or
-# dead-ended product therefore never blocks the next one). Seeding starts a new product only
-# into a free slot, so an hourly rebuild never piles drafts onto a busy shared worker.
-CHAIN_STAGE_JOBS = ("cir.draft", "cir.compile", "gate.certify", "listing.draft",
-                    "assets.build", "pricing.position", "listing.seo", "launch.plan")
+# P0-NEXT-PRODUCT (owner goal L4): Launch-0 seeding starts a new product only while fewer than
+# WIP_LIMIT product chains are in flight (a fixed work-in-progress count, review L4 L4). A
+# product's chain is "in flight" while one of its chain-stage jobs is RUNNING, or is PENDING /
+# FAILED (retry) and due within IN_FLIGHT_HORIZON. A job parked further ahead -- a seasonal
+# re-plan `chain_successors.launch_held` schedules for the day after a missed occasion, up to a
+# year away (review L4 H1) -- is waiting on the calendar, not occupying the worker, so it holds
+# no slot. Finished, dead-lettered and cancelled jobs hold nothing: a held or dead-ended
+# product never blocks the next one.
+#
+# Scope (review L4 M1): the limit governs this autonomous Launch-0 seeding only. Drafts other
+# producers enqueue (radar.score's `draft:<slug>`, redrafts) are not gated here; they are
+# COUNTED as in flight, so seeding never adds to a worker they already fill.
+CHAIN_STAGE_JOBS = ("cir.draft", "cir.compile", "cir.revise", "cir.reengineer",
+                    "gate.certify", "listing.draft", "assets.build", "assets.physical_upgrade",
+                    "visual.image_production", "pricing.position", "listing.seo",
+                    "launch.plan")
 WIP_LIMIT = 2
+IN_FLIGHT_HORIZON_HOURS = 6
 
 
 def _job_slug(inputs: dict) -> str | None:
@@ -224,26 +234,72 @@ def _job_slug(inputs: dict) -> str | None:
     return inputs.get("slug") or (inputs.get("cir") or {}).get("slug")
 
 
-def idle_capacity(db, *, limit: int = WIP_LIMIT) -> dict:
-    """How many product chains are in flight now, and how many slots are free.
+def _aware(value):
+    from datetime import timezone
+
+    if value is None:
+        return None
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+
+def idle_capacity(db, *, limit: int = WIP_LIMIT, now=None) -> dict:
+    """How many product chains are in flight now, and how many WIP slots are free.
 
     Deterministic: a pure read of the durable queue. `in_flight` names each product with a
-    chain-stage job PENDING, RUNNING or FAILED (retry scheduled); `slots` is what is left of
-    `limit`. A chain job with no readable slug counts as one unnamed product, never as zero."""
+    chain-stage job RUNNING, or PENDING / FAILED (retry) due within IN_FLIGHT_HORIZON_HOURS;
+    `parked` names jobs scheduled further ahead, which hold no slot. `slots` is what is left
+    of `limit`. A chain job with no readable slug counts as one unnamed product, never zero."""
+    from datetime import datetime, timedelta, timezone
+
     from sqlalchemy import select
 
     from ..core.models import Job, JobStatus
 
+    now = _aware(now) or datetime.now(timezone.utc)
+    horizon = now + timedelta(hours=IN_FLIGHT_HORIZON_HOURS)
     live = (JobStatus.PENDING, JobStatus.RUNNING, JobStatus.FAILED)
     busy: dict[str, list] = {}
+    parked: list[str] = []
     with db.session() as s:
         for j in s.scalars(select(Job).where(Job.job_type.in_(CHAIN_STAGE_JOBS),
                                              Job.status.in_(live)).order_by(Job.id)):
             key = _job_slug(j.inputs) or f"(unnamed job {j.id})"
+            due = _aware(j.run_after)
+            if j.status != JobStatus.RUNNING and due is not None and due > horizon:
+                parked.append(f"{key}:{j.job_type}#{j.id}@{due.date().isoformat()}")
+                continue
             busy.setdefault(key, []).append(f"{j.job_type}#{j.id}:{j.status.value}")
     slots = max(0, limit - len(busy))
     return {"limit": limit, "in_flight": sorted(busy), "jobs": busy, "slots": slots,
-            "idle": slots > 0}
+            "idle": slots > 0, "parked": parked}
+
+
+EXHAUSTED_SIGNATURE = "catalogue-exhausted:launch0"
+
+
+def _signal_exhausted(ctx, *, already: list, certified: list) -> None:
+    """Review L4 L4: an owner-VISIBLE signal (an open, non-halting incident on the Command
+    Center) that the release registry has nothing left to feed the chain. Not an owner card:
+    adopting a new product into the registry is an integrator code change, not an owner
+    action. One open row, restated, never duplicated."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+
+    summary = (f"Launch-0 seeding is exhausted: {len(certified)} release(s) certified and "
+               f"{len(already)} seeded; the chain has no further eligible product until a new "
+               f"one is adopted into the release registry (builder.CATALOGUE / "
+               f"RELEASE_VERSIONS), an integrator code change")
+    with ctx.db.session() as s:
+        row = s.scalar(select(Incident).where(Incident.signature == EXHAUSTED_SIGNATURE,
+                                              Incident.resolved.is_(False)))
+        if row is None:
+            s.add(Incident(severity="P3", product_slug=None, signature=EXHAUSTED_SIGNATURE,
+                           summary=summary, halts_publication=False,
+                           detail={"certified": certified[:20], "seeded": already[:20]}))
+        else:
+            row.summary = summary
+            row.report_count = (row.report_count or 1) + 1
 
 
 def seed_launch0(ctx, *, limit: int = SEED_PER_RUN, wip_limit: int = WIP_LIMIT) -> dict:
@@ -262,8 +318,12 @@ def seed_launch0(ctx, *, limit: int = SEED_PER_RUN, wip_limit: int = WIP_LIMIT) 
     from ..core.models import Job, PatternVersion, Product
     from ..gates.certificate import DOC_VERSION
 
+    from ..queue.durable import fit_idempotency_key
+
     capacity = idle_capacity(ctx.db, limit=wip_limit)
     limit = min(limit, capacity["slots"])
+    in_flight_here: list[str] = []
+    stopped = False
     with ctx.db.session() as s:
         certified = {(slug, version) for slug, version in s.execute(
             select(Product.slug, PatternVersion.version)
@@ -279,28 +339,44 @@ def seed_launch0(ctx, *, limit: int = SEED_PER_RUN, wip_limit: int = WIP_LIMIT) 
             present.append(f"{rel} (a newer release is certified; not seeded)")
             continue
         key = seed_key(cir.slug, cir.version, cir.fingerprint, DOC_VERSION)
-        with ctx.db.session() as s:
-            taken = s.scalar(select(Job.id).where(Job.idempotency_key == key)) is not None
+        with ctx.db.session() as s:          # review L4 L3: the key as the queue stores it
+            taken = s.scalar(select(Job.id).where(
+                Job.idempotency_key == fit_idempotency_key(key))) is not None
         if taken:                         # seeded before, whatever the capacity is now
             already.append(rel)
             continue
-        if len(seeded) >= limit:
+        if cir.slug in capacity["in_flight"]:
+            # review L4 M2: this product's chain is already running (a radar draft, a
+            # redraft): a second cir.draft would take a second slot for the same product.
+            in_flight_here.append(rel)
+            continue
+        if len(seeded) >= limit or stopped:
             pending.append(rel)
             continue
         job = ctx.enqueue("crochet_engineer", "cir.draft", {"slug": cir.slug},
                           idempotency_key=key)
-        (seeded if job is not None else already).append(rel)
+        if job is None:
+            # review L4 L2: a concurrent duplicate took the key between the read and the
+            # enqueue. Stop seeding this run rather than spend the slot on the next release.
+            already.append(rel)
+            stopped = True
+            continue
+        seeded.append(rel)
+    exhausted = not seeded and not pending and not in_flight_here
+    if exhausted:
+        _signal_exhausted(ctx, already=already, certified=present)
     held = None if capacity["idle"] or not pending else {
         "in_flight": capacity["in_flight"], "limit": capacity["limit"],
         "why": (f"{len(capacity['in_flight'])} product chain(s) in flight, at the work-in-"
                 f"progress limit {capacity['limit']}: the next release is seeded once one "
                 f"finishes")}
     return {"seeded": seeded, "certified": present, "already_seeded": already,
-            "pending": pending, "capacity": {k: capacity[k] for k in
-                                             ("limit", "in_flight", "slots", "idle")},
+            "pending": pending, "in_flight_already": in_flight_here,
+            "capacity": {k: capacity[k] for k in
+                         ("limit", "in_flight", "slots", "idle", "parked")},
             "held_for_capacity": held,
-            "exhausted": not seeded and not pending,
-            "exhausted_why": None if (seeded or pending) else (
+            "exhausted": exhausted,
+            "exhausted_why": None if not exhausted else (
                 "every Launch-0 release is certified, superseded or already seeded; a further "
                 "product enters the chain only once it is adopted into the release registry "
                 "(builder.CATALOGUE / RELEASE_VERSIONS), an integrator code change")}
