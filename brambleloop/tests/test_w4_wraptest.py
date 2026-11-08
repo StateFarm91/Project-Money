@@ -361,23 +361,41 @@ def test_dry_run_reaches_the_approval_card_unattended():
           s["outfit"] and not any(w in s["outfit"] for w in (
               "brown fitted", "brown top", "beige", "ivory", "cream", "tan leather",
               "gold pendant", "gold chain")), s["outfit"])
-    check("dry_ready_for_owner_review", s["run_state"] == "ready_for_owner_review", s)
+    # Main 6712715069 (b): since V1 (fbddf746) a lifestyle or angle frame is generated only
+    # from a W-FIDELITY-verified product-only anchor (`candidate_gates._anchor_of`). The dry
+    # run's anchor is a stub placeholder its stub judges call PASS without measuring it, so
+    # there is no verified anchor and the next roles are refused BY NAME. That block is
+    # correct: forging a fidelity record in the harness would be fabricated evidence.
+    check("dry_blocks_on_the_unverified_stub_anchor", s["run_state"] == "blocked" and all(
+        r in (s["run_status"] or "") for r in ("lifestyle", "angle")), s)
     check("dry_card_through_command_center", XP.LABEL in (s.get("card_title") or ""), s)
     check("dry_no_spend", s["spent_cad"] == 0.0 and s["vision_calls"] == 0)
-    check("dry_three_flux_roles_one_call_each", s["flux_calls"] == 3, s["flux_calls"])
+    check("dry_one_flux_call_the_anchor", s["flux_calls"] == 1, s["flux_calls"])
+    by_name = {g["name"]: g for g in s["gallery"]}
     check("dry_gallery_seven_in_order", [g["position"] for g in s["gallery"]] ==
-          [1, 2, 3, 4, 5, 6, 7] and all(g["sha256"] for g in s["gallery"]), s["gallery"])
+          [1, 2, 3, 4, 5, 6, 7] and by_name["product_flat_lay"]["sha256"]
+          and not by_name["hero"]["sha256"] and not by_name["laura_back_drape"]["sha256"]
+          and all(g["sha256"] for g in s["gallery"] if g["source"] != "flux"), s["gallery"])
     check("dry_every_publication_path_refused",
           all(v.startswith("refused:") for v in s["refusals"].values()), s["refusals"])
     check("dry_owner_does_nothing", s["owner_actions_between_start_and_card"] == 0)
     ev = json.loads((Path(s["package"]).parent / "evidence.json").read_text())
     cands = ev["candidates"]
-    check("dry_stub_images_are_labelled", all(c["provider"] == "stub" for c in cands)
+    made = [c for c in cands if c.get("sha256")]
+    refused = [c for c in cands if not c.get("sha256")]
+    check("dry_refused_roles_name_the_missing_verified_anchor", sorted(
+        c["role"] for c in refused) == ["angle", "lifestyle"] and all(
+        "no product-only flat lay for this release" in str(
+            (c["checks"].get("provider") or {}).get("why", "")) for c in refused), refused)
+    check("dry_stub_anchor_is_not_a_fidelity_anchor", made and all(
+        not ((c["checks"].get("product_truth") or {}).get("fidelity") or {}).get("checker")
+        for c in made), made)
+    check("dry_stub_images_are_labelled", made and all(c["provider"] == "stub" for c in made)
           and all(f.endswith("_STUB.png") for f in os.listdir(Path(s["package"]).parent /
                                                                "images") if "0" in f and (
               "hero" in f or "flat_lay" in f or "back_drape" in f)), cands)
-    check("dry_stub_judges_say_so", all(
-        "STUB" in (c["checks"].get("product_truth") or {}).get("why", "") for c in cands))
+    check("dry_stub_judges_say_so", made and all(
+        "STUB" in (c["checks"].get("product_truth") or {}).get("why", "") for c in made))
     html = Path(s["package"]).read_text()
     check("dry_package_stamped_and_separated", XP.LABEL in html and "STUB" in html and
           "Visual approval" in html and "Technical certification" in html and
@@ -426,8 +444,13 @@ class FakeNetwork:
 
         self.posts, self.vision = [], []
         self.png = image
+        # The rehearsal serves test_w4_fidelity's synthetic flat lay of the wrap, which shows
+        # its declared plain end bands and every edge unobscured. V1 asks the judge where any
+        # visible edge treatment sits (`edge_placement`, `all_edges_visible`); this is the
+        # answer that image gives, as V1's own PASSING_BANDS_JUDGE fixture records it.
         self.craft = craft or {"craft": "crochet", "ribbing_visible": "false",
-                               "border_or_edging_visible": "false",
+                               "border_or_edging_visible": "true",
+                               "edge_placement": "ends_only", "all_edges_visible": "true",
                                "cable_style": "crochet_post_stitch_crossings",
                                "fabric_visible_clearly": "true"}
         self.same = same
@@ -437,6 +460,22 @@ class FakeNetwork:
         h, w = arr.shape[:2]
         self.box = [round(xs.min() / w + 0.01, 4), round(ys.min() / h + 0.01, 4),
                     round(xs.max() / w - 0.01, 4), round(ys.max() / h - 0.01, 4)]
+
+    def delivery(self) -> bytes:
+        """Each FLUX delivery is its own file: the same pixels, a distinct PNG text chunk.
+
+        A real provider never returns byte-identical files for different frames, and V1 holds
+        any image whose bytes match a rejected record (`_image_has_negative_decision`). Serving
+        one file for every call would let a rejected lifestyle frame hold the accepted product
+        anchor through that duplicate-bytes rule, which is not what the rehearsal tests."""
+        from PIL.PngImagePlugin import PngInfo
+
+        self.downloads = getattr(self, "downloads", 0) + 1
+        info = PngInfo()
+        info.add_text("rehearsal-delivery", str(self.downloads))
+        buf = io.BytesIO()
+        Image.open(io.BytesIO(self.png)).save(buf, format="PNG", pnginfo=info)
+        return buf.getvalue()
 
     def reading_for(self, text: str) -> dict:
         if "craft: one of" in text:
@@ -486,7 +525,7 @@ class FakeNetwork:
 
                 def __exit__(self, *a):
                     return False
-            return _R(net.png)
+            return _R(net.delivery())
 
         def send(self_, payload, key, **_kw):  # CLOSE5: `_send` takes timeout=
             body = json.loads(payload)
@@ -500,6 +539,21 @@ class FakeNetwork:
                        A.AnthropicProvider._send)
         I._post, I._get, urllib.request.urlopen, I.BFL_POLL_SECONDS = post, get, urlopen, 0.0
         A.AnthropicProvider._send = send
+        # Main 6712715069 item 2 (V0): the live path's first FLUX call needs the owner's
+        # activation of flux-3-image for generation. The rehearsal activates it in the
+        # harness's own scratch DB the way the owner would (step-up session, finite
+        # ceilings), as test_w3_k12_model_photography does; the transports stay fakes.
+        self._scratch = H.scratch_db
+
+        def scratch_db(out_):
+            db_ = self._scratch(out_)
+            from brambleloop.gateway import paid_provider_gate as G
+
+            _owner_activates_generation(db_, "flux-3-image")
+            # ... and the vision judge the live path reads with (anthropic-vision), likewise.
+            _owner_activates_generation(db_, G.ANTHROPIC_VISION, G.VISION)
+            return db_
+        H.scratch_db = scratch_db
         self._env = {k: os.environ.get(k) for k in H.KEY_VARS}
         for k in H.KEY_VARS:
             os.environ[k] = "stand-in-not-a-key"
@@ -513,12 +567,32 @@ class FakeNetwork:
 
         (I._post, I._get, urllib.request.urlopen, I.BFL_POLL_SECONDS,
          A.AnthropicProvider._send) = self._saved
+        H.scratch_db = self._scratch
         for k, v in self._env.items():
             if v is None:
                 os.environ.pop(k, None)
             else:
                 os.environ[k] = v
         return False
+
+
+def _owner_activates_generation(db, provider: str, scope: str | None = None) -> None:
+    """V0: a paid provider runs only after the owner activates it (step-up, ceilings)."""
+    import secrets
+    from datetime import datetime, timedelta, timezone
+
+    from brambleloop.app.command_center.models import OwnerSession
+    from brambleloop.gateway import paid_provider_gate as G
+
+    now = datetime.now(timezone.utc)
+    pid = "s_" + secrets.token_hex(8)
+    with db.session() as s:
+        s.add(OwnerSession(public_id=pid, token_hash=secrets.token_hex(32), created_at=now,
+                           last_seen_at=now, expires_at=now + timedelta(days=1),
+                           stepup_until=now + timedelta(minutes=5)))
+    G.activate(db, provider=provider, scope=scope or G.GENERATION, by="owner:test",
+               session_public_id=pid, daily_ceiling_cad=5.0, monthly_ceiling_cad=20.0,
+               per_gallery_cad=5.0)
 
 
 def _flat(cir) -> bytes:
@@ -542,8 +616,9 @@ def test_live_path_rehearsed_offline():
     anchor = [c for c in ev["candidates"] if c["role"] == "product_anchor"]
     check("live_anchor_verified_by_w_fidelity_pass", anchor and anchor[0][
         "technical_status"] == "PASS" and anchor[0]["checks"]["product_truth"]["fidelity"][
-        "checker"], [(c["role"], c["technical_status"], c["checks"]["product_truth"].get("why"))
-                     for c in ev["candidates"]])
+        "checker"], [(c["role"], c["technical_status"],
+                      (c["checks"].get("product_truth") or c["checks"].get("provider")
+                       or {}).get("why")) for c in ev["candidates"]])
     check("live_card_through_command_center", XP.LABEL in (s["card_title"] or ""), s)
     check("live_flux_posts_at_2k", net.posts and all(
         p.get("resolution") == "2k" for p in net.posts), [p.get("resolution")
