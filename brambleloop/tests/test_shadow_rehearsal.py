@@ -26,7 +26,7 @@ sys.path.insert(0, str(ROOT))
 
 OUTCOMES = {"PASS", "REFUSED_AS_EXPECTED", "BLOCKED", "FAILED", "SKIPPED"}
 REQUIRED = ["opportunity", "design", "boot", "cir.compile", "gate.certify", "assets.build", "listing.seo",
-            "store.publish[shadow]", "owner_phase_transition", "owner_publication_grant",
+            "listing.package", "store.publish[shadow]", "owner_phase_transition", "owner_publication_grant",
             "store.publish[past-shadow]",
             "orders.ingest", "support.case", "ledger"]
 _EV: dict = {}
@@ -76,6 +76,64 @@ def test_the_shadow_chain_certifies_builds_and_is_refused_at_publish():
     assert pub["db_proof"]["store.published"] == 0
     assert pub["db_proof"]["store.publish_refused"]
     assert _step("network[shadow]")["observed"]["guard_installed"] is True
+
+
+def test_the_certified_release_reaches_an_honest_listing_package():
+    """Owner goal L3 (F-848): the rehearsal drives the certified product to a listing package
+    through the real listing.package job, bound to its release; its state is reported as it
+    is (READY, or BLOCKED naming every blocker), never upgraded, and nothing is published."""
+    pkg = _step("listing.package")
+    assert pkg["outcome"] == "PASS", pkg
+    proof = pkg["db_proof"]["operating_readings.listing_package"]
+    assert proof and proof["publishes"] is False
+    assert proof["release_hash"] == _step("gate.certify")["db_proof"]["pattern_versions"][
+        "release_hash"], proof
+    assert pkg["observed"]["package_state"] == proof["state"]
+    if proof["state"] == "ready_for_owner_review":
+        assert proof["blockers"] == []
+    else:
+        assert proof["state"] == "blocked" and proof["blockers"], proof
+        assert all(b["source"] and b["why"] for b in proof["blockers"]), proof["blockers"]
+    assert pkg["db_proof"]["listing.package audits"], "the job ran and audited its sweep"
+    # the package precedes the publish refusal in the same run
+    names = [s["step"] for s in evidence()["steps"]]
+    assert names.index("listing.package") < names.index("store.publish[past-shadow]")
+
+
+def test_the_listing_package_step_never_passes_a_dishonest_package():
+    """The step's own verdict: PASS only for a package bound to this release, publishing
+    nothing, READY with no blocker or BLOCKED with every blocker named."""
+    m = _rehearsal()
+    from brambleloop.publish import listing_package as LP
+
+    state = {"slug": "s", "version": "1.0.0", "release": "r" * 64}
+    good_blocked = {"state": LP.BLOCKED, "release_hash": "r" * 64, "publishes": False,
+                    "blockers": [{"source": "release_gates.for_publish", "why": "x"}]}
+    cases = [
+        (good_blocked, "done", "PASS"),
+        ({**good_blocked, "state": LP.READY, "blockers": []}, "done", "PASS"),
+        ({**good_blocked, "release_hash": "o" * 64}, "done", "FAILED"),      # other release
+        ({**good_blocked, "publishes": True}, "done", "FAILED"),            # would publish
+        ({**good_blocked, "blockers": [{"source": "x", "why": " "}]}, "done", "FAILED"),
+        ({**good_blocked, "blockers": []}, "done", "FAILED"),               # blocked, unnamed
+        ({**good_blocked, "state": LP.READY}, "done", "FAILED"),            # ready + blockers
+        (None, "done", "FAILED"),                                           # nothing recorded
+        (good_blocked, "dead", "BLOCKED"),                                  # the job died
+    ]
+    saved = (m._run_job, LP.latest, m._audits)
+    try:
+        for pkg, status, want in cases:
+            m._run_job = lambda *_a, _s=status, **_k: {"id": 1, "status": _s, "last_error": ""}
+            LP.latest = lambda *_a, _p=pkg, **_k: None if _p is None else dict(_p)
+            m._audits = lambda *_a, **_k: []
+            rec = m.Recorder()
+            m.record_listing_package(rec, None, dict(state))
+            assert rec.steps[-1]["outcome"] == want, (pkg, status, rec.steps[-1])
+        rec = m.Recorder()
+        m.record_listing_package(rec, None, {**state, "release": None})
+        assert rec.steps[-1]["outcome"] == "SKIPPED"
+    finally:
+        m._run_job, LP.latest, m._audits = saved
 
 
 def test_the_past_shadow_outcome_is_honest_either_way():

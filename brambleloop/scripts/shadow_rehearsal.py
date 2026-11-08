@@ -523,6 +523,64 @@ def record_chain(rec: Recorder, db, cir, ctx: dict) -> dict:
     return state
 
 
+def record_listing_package(rec: Recorder, db, state: dict) -> dict | None:
+    """F-848 (owner goal L3): the certified release reaches a LISTING PACKAGE in the rehearsal.
+
+    `listing.package` is a six-hourly cadence sweep (runtime.worker CADENCES), so a rehearsal
+    that only waits for the release chain never reaches it. This runs the real job through the
+    real Worker on the rehearsal's own database and reads back the durable package
+    (`publish.listing_package.latest`, an OperatingReading) for exactly this release.
+
+    PASS means the package exists, is bound to the certified release hash, publishes nothing,
+    and is honest about its state: ready_for_owner_review, or blocked with every blocker named
+    (source and why). The package's own state is recorded as observed, never upgraded: a
+    package blocked by a real gate (e.g. no attested sample photo) is the true state of the
+    product, and the evidence says so."""
+    from brambleloop.core.models import Phase
+    from brambleloop.publish import listing_package as LP
+    from brambleloop.runtime import listing_package_ops  # noqa: F401 - registers the handler
+
+    slug, version, release = state.get("slug"), state.get("version"), state.get("release")
+    expected = ("the real listing.package job records this certified release's package, bound "
+                "to its release hash: ready_for_owner_review, or blocked with every blocker "
+                "named; nothing published")
+    if not release:
+        rec.step("listing.package", SKIPPED, expected=expected,
+                 observed="no certified release: the chain stopped before certification",
+                 proof={"state": {k: state.get(k) for k in ("slug", "version", "release")}})
+        return None
+    job = _run_job(db, "listing", listing_package_ops.JOB_TYPE, {}, Phase.SHADOW)
+    pkg = LP.latest(db, slug, version)
+    named = bool(pkg) and all(b.get("source") and str(b.get("why") or "").strip()
+                              for b in pkg.get("blockers") or [])
+    honest = bool(pkg) and (
+        (pkg.get("state") == LP.READY and not pkg.get("blockers"))
+        or (pkg.get("state") == LP.BLOCKED and bool(pkg.get("blockers")) and named))
+    ok = (job["status"] == "done" and bool(pkg) and pkg.get("release_hash") == release
+          and pkg.get("publishes") is False and honest)
+    rec.step("listing.package", PASS if ok else (BLOCKED if job["status"] == "dead" else FAILED),
+             expected=expected,
+             observed={"job": job, "package_state": (pkg or {}).get("state"),
+                       "blockers": len((pkg or {}).get("blockers") or []),
+                       "bound_to_release": bool(pkg) and pkg.get("release_hash") == release},
+             proof={"operating_readings.listing_package": None if not pkg else {
+                 "key": f"{slug}@{version}", "state": pkg.get("state"),
+                 "release_hash": pkg.get("release_hash"),
+                 "fingerprint": pkg.get("fingerprint"),
+                 "publishes": pkg.get("publishes"),
+                 "gallery": len(pkg.get("gallery") or []),
+                 "files": sorted((pkg.get("files") or {}).get("pdf_sha256_by_terminology")
+                                 or {}),
+                 "blockers": [{"source": b.get("source"), "why": _trim(b.get("why"), 300)}
+                              for b in pkg.get("blockers") or []]},
+                 "listing.package audits": [_trim(a["detail"], 600)
+                                            for a in _audits(db, "listing.package")]})
+    if pkg:
+        state["listing_package"] = {"state": pkg.get("state"),
+                                    "blockers": [b.get("source") for b in
+                                                 pkg.get("blockers") or []]}
+    return pkg
+
 def record_edges(db, slug: str, version: str) -> dict:
     """F-834 (W4-CLOSE6): the evidence edges producer -> durable state -> consumer -> decision ->
     effect -> result, read from the rows this run wrote, so a packet can carry a receipt for
@@ -1042,6 +1100,7 @@ def _rehearse(tmp: Path, product: str, *, fast: bool, out: Path | None) -> dict:
         record_upstream(rec, cand, cir)
         ctx = run_shadow_chain(rec, db, url, tmp, artifacts, cir, fast=fast)
         state = record_chain(rec, db, cir, ctx)
+        record_listing_package(rec, db, state)
         edges = record_edges(db, cir.slug, cir.version)
         if state.get("search_profile") and state["search_profile"].get("verdict") != "PASS":
             rec.defect("search_certificate_not_pass", "listing_search_profiles.verdict",
@@ -1056,7 +1115,7 @@ def _rehearse(tmp: Path, product: str, *, fast: bool, out: Path | None) -> dict:
                  proof={"traceback": traceback.format_exc()[-3000:]})
     finished = _utc()
     required = ["opportunity", "design", "boot", "cir.compile", "gate.certify", "assets.build", "listing.seo",
-                "store.publish[shadow]", "owner_phase_transition", "owner_publication_grant",
+                "listing.package", "store.publish[shadow]", "owner_phase_transition", "owner_publication_grant",
                 "store.publish[past-shadow]", "orders.ingest", "support.case", "ledger"]
     by = {s["step"]: s["outcome"] for s in rec.steps}
     evidence = {
