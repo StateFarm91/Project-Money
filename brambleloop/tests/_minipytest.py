@@ -13,6 +13,8 @@ test that silently does not run must never read as passed.
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # noqa: E702  -- tmp_path below lives in the sandbox
+
 import importlib
 import inspect
 import os
