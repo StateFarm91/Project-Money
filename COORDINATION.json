@@ -1185,6 +1185,20 @@
         "claude/w6-deadend-fixonly b0676969": "SHIP; open LOW A-LOW-3 pricing owner-close on legacy paths unpinned (A_M3/A_M3b/A_M6 survive); INFO SATISFIED vs WITHDRAWN label.",
         "claude/w6-persist-frames-followup 219aee61": "SHIP; INFO B-INFO-1 all-photo gallery falls back to _stored_frames (harden with \"frames\" in i)."
       }
+    },
+    {
+      "subject": "Regression fixes, visual A-1..A-4, A1 nouns, wraptest, visual LOWs",
+      "sha": "da9110df+0a5521c0, 2063a2e7, 7eeeac92, fc26887b, e831dc6a, b3dcb121",
+      "recorded": "2026-11-08T00:31:00Z",
+      "report": "scratchpad rv-regfix/, rv-va1/, rv-wrap/",
+      "verdicts": {
+        "claude/w6-v0-test-activation 0a5521c0": "SHIP (A-HIGH-1 fixed); integrated.",
+        "claude/w6-regression-fixes 2063a2e7": "SHIP; integrated.",
+        "opus2/visual-a1-a4 7eeeac92": "SHIP; integrated e48800c3 (closes owner V3 fixture-identity condition on stage-A anchor).",
+        "opus2/a1-infant-nouns fc26887b": "DO NOT SHIP standalone (blocked on A1 unit; B-N1 HIGH vocabulary gaps). 0e2d5f36 pending review.",
+        "opus2/wraptest-fix e831dc6a": "SHIP; integrated 95b35baa (last certification blocker).",
+        "opus2/visual-an1-an3 b3dcb121": "DO NOT SHIP as-is: B-N1/B-N2/B-N3 test gaps (mutants survive); next batch."
+      }
     }
   ],
   "integration": {
@@ -1317,8 +1331,8 @@
       "map": "research/final_build/w5/INTEGRATION_MAP_20261107.md (15 review units)"
     },
     "claude/w6-INTEG1": {
-      "head": "812ec9a6",
-      "updated": "2026-11-07T18:51:00Z",
+      "head": "95b35baa",
+      "updated": "2026-11-08T00:31:00Z",
       "contains": [
         "secret-leak",
         "A7",
@@ -1336,8 +1350,17 @@
         "storefront ff573af8",
         "portfolio 77bf3e19",
         "dead-end follow-ups b0676969",
-        "persist-frames follow-ups 219aee61"
-      ]
+        "persist-frames follow-ups 219aee61",
+        "regression test fixes 2063a2e7, 0a5521c0",
+        "visual A-1..A-4 7eeeac92",
+        "wraptest e831dc6a"
+      ],
+      "certification": {
+        "run_id": "20261108T003121Z-24805",
+        "sha": "95b35baa",
+        "started": "2026-11-08T00:31:21Z",
+        "status": "running"
+      }
     }
   },
   "owner_directives": [
