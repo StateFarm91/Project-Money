@@ -1,5 +1,8 @@
 """Offline craft readings must not turn unsupported labels into observed defects."""
-import pytest
+try:
+    import pytest
+except ImportError:  # pytest is not installed in the runner (W6 N9)
+    import _minipytest as pytest
 
 from brambleloop.products.vessels import build_basket
 from brambleloop.visual import fidelity
@@ -50,3 +53,9 @@ def test_invalid_ribbing_fact_does_not_hide_observed_craft_mismatch():
     reading = {"fabric_visible_clearly": "true", "craft": "knitting", "cable_style": "none",
                "ribbing_visible": "false", "border_or_edging_visible": "false"}
     assert fidelity.compare_craft(reading, exp)["status"] == "FAIL"
+
+
+if __name__ == "__main__":
+    import _minipytest
+
+    _minipytest.run_module(globals())

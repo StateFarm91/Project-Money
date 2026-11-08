@@ -1,5 +1,8 @@
 """Offline visual spend checks, including the real generation entry point."""
-import pytest
+try:
+    import pytest
+except ImportError:  # pytest is not installed in the runner (W6 N9)
+    import _minipytest as pytest
 
 from brambleloop.visual import spend_plan as SP
 
@@ -716,3 +719,9 @@ def test_registered_handler_refuses_invalid_duplicate_child(monkeypatch, problem
         with pytest.raises(RuntimeError, match="continuation is missing, mismatched or terminal"):
             runtime_release.handle_image_production(Context())
     assert gen.calls == 1
+
+
+if __name__ == "__main__":
+    import _minipytest
+
+    _minipytest.run_module(globals())

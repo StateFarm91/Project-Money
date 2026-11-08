@@ -94,3 +94,9 @@ def test_gallery_with_failed_set_check_is_not_reported_ready(tmp_path):
     view = IP.readiness(db, listing, plan=plan)
     assert not view["set_check"]["ok"]
     assert not view["gallery_ready"]
+
+
+if __name__ == "__main__":
+    import _minipytest
+
+    _minipytest.run_module(globals())

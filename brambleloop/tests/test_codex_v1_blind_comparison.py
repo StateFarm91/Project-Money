@@ -3,7 +3,10 @@ import copy
 import json
 from pathlib import Path
 
-import pytest
+try:
+    import pytest
+except ImportError:  # pytest is not installed in the runner (W6 N9)
+    import _minipytest as pytest
 
 from brambleloop.visual import fidelity, vision_judges
 from test_w4_fidelity import CLOUD, _cir
@@ -310,3 +313,9 @@ def test_malformed_pattern_edging_fact_does_not_pass(edging):
                     raised_cables_visible="no", distinct_yarn_colours=1)
     result = vision_judges.blind_consistency(Judge(reading), b"a", b"b", exp)
     assert result["status"] == "UNKNOWN" and result["blocks_variant_input"] is True
+
+
+if __name__ == "__main__":
+    import _minipytest
+
+    _minipytest.run_module(globals())
