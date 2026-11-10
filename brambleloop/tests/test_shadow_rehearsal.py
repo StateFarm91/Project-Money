@@ -118,6 +118,15 @@ def test_readiness_is_judged_on_a_production_shaped_catalogue():
         why = str(phase["observed"])
         for fresh_db_only in ("findable:catalogue_depth", "clickable:storefront_preview"):
             assert fresh_db_only not in why, (fresh_db_only, why[:600])
+        # review 6773190553 #4 (L3 F2): a refused transition explains every outstanding
+        # requirement -- who can clear it and why -- instead of only naming it
+        explained = phase["db_proof"]["readiness_explained"]
+        assert isinstance(explained, list) and explained, explained
+        for item in explained:
+            assert item["key"] and item["cleared_by"] and "evidence" in item, item
+        if "sustainable_economics" in why:
+            econ = next(e for e in explained if e["key"] == "sustainable_economics")
+            assert econ["why"], econ
 
 
 def test_approval_reaches_the_simulated_publish_with_every_simulation_labelled():

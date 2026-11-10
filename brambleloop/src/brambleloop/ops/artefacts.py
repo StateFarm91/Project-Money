@@ -1003,14 +1003,15 @@ def current_from_db(db) -> dict[str, str]:
     except ImportError:  # pragma: no cover - the visual stack is part of every build
         ImageCandidate = None
     if ImageCandidate is not None:
-        from sqlalchemy.exc import OperationalError, ProgrammingError
+        from sqlalchemy import inspect
 
-        try:
-            # review L0 (optional): a database whose image_candidates table was never created
-            # has no generated frames to fingerprint; that is "none", not a failed read.
-            with db.begin_nested():
-                rows = list(db.execute(select(ImageCandidate.id, ImageCandidate.sha256)))
-        except (OperationalError, ProgrammingError):
+        # review L0 (optional) + 6773190553 #6: a database whose image_candidates table was
+        # never created has no generated frames to fingerprint; that is "none", not a failed
+        # read. Only the MISSING table reads as none: any other error (a locked database, a
+        # schema drift, a lost connection) propagates, so it is never mistaken for "no frames".
+        if inspect(db.connection()).has_table(ImageCandidate.__tablename__):
+            rows = list(db.execute(select(ImageCandidate.id, ImageCandidate.sha256)))
+        else:
             rows = []
         for cand_id, sha in rows:
             if sha:

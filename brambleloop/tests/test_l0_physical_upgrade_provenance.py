@@ -315,6 +315,26 @@ def test_current_fingerprints_tolerate_a_database_without_image_candidates():
     assert not any(k.startswith("asset:image_candidate_") for k in current)
 
 
+def test_current_fingerprints_propagate_an_image_candidates_error_other_than_a_missing_table():
+    """Review 6773190553 #6: only a missing table reads as "no generated frames". A table that
+    exists but cannot be read (here: schema drift, no sha256 column) is a real failure and
+    propagates, so the sentinel is never told a broken read means nothing changed."""
+    from sqlalchemy import text
+    from sqlalchemy.exc import OperationalError
+
+    db, _cir, _photo_id, _sha = _ready()
+    with db.session() as s:
+        s.execute(text("DROP TABLE image_candidates"))
+        s.execute(text("CREATE TABLE image_candidates (id INTEGER PRIMARY KEY)"))
+    try:
+        with db.session() as s:
+            P.current_from_db(s)
+    except OperationalError as exc:
+        assert "sha256" in str(exc), exc
+    else:
+        raise AssertionError("a non-missing-table error was swallowed as 'no frames'")
+
+
 def test_backfill_credits_only_an_upgrade_job_that_wrote_the_frame():
     """Review L0 LOW-3: DONE, or DEAD by the provenance backstop alone (the pre-fix orphan);
     any other job state proves nothing. An approved frame is backfilled `passed`."""
@@ -324,6 +344,9 @@ def test_backfill_credits_only_an_upgrade_job_that_wrote_the_frame():
         (JobStatus.DEAD, "provenance refused: visual_truth x has no lineage", True),
         (JobStatus.DEAD, "provenance refused: listing_copy x has no lineage", False),
         (JobStatus.DEAD, "ValueError: something else", False),
+        # review 6773190553 #6 (M10): naming visual_truth is not enough; only the worker's
+        # provenance refusal proves the frame was committed before the job died
+        (JobStatus.DEAD, "ValueError: visual_truth write failed", False),
         (JobStatus.FAILED, "provenance refused: visual_truth x", False),
         (JobStatus.PENDING, "", False),
         (JobStatus.RUNNING, "", False),

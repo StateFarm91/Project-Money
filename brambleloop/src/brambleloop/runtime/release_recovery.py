@@ -302,6 +302,26 @@ def _signal_exhausted(ctx, *, already: list, certified: list) -> None:
             row.report_count = (row.report_count or 1) + 1
 
 
+def _resolve_exhausted(ctx, *, seeded: list, pending: list) -> None:
+    """Review 6773190553 #1: the registry is no longer exhausted (a release was seeded or is
+    waiting for capacity), so an open `catalogue-exhausted:launch0` incident is resolved, with
+    the reason, rather than left open on the Command Center."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident, utcnow
+
+    with ctx.db.session() as s:
+        for row in s.scalars(select(Incident).where(Incident.signature == EXHAUSTED_SIGNATURE,
+                                                    Incident.resolved.is_(False))):
+            row.resolved = True
+            detail = dict(row.detail or {})
+            detail.update(resolved_at=utcnow().isoformat(),
+                          resolution=(f"Launch-0 seeding resumed: {len(seeded)} release(s) "
+                                      f"seeded and {len(pending)} waiting for capacity"),
+                          seeded_on_resolve=seeded[:20], pending_on_resolve=pending[:20])
+            row.detail = detail
+
+
 def seed_launch0(ctx, *, limit: int = SEED_PER_RUN, wip_limit: int = WIP_LIMIT) -> dict:
     """R5: draft the next Launch-0 release whose code version is not certified, once per design.
 
@@ -365,6 +385,8 @@ def seed_launch0(ctx, *, limit: int = SEED_PER_RUN, wip_limit: int = WIP_LIMIT) 
     exhausted = not seeded and not pending and not in_flight_here
     if exhausted:
         _signal_exhausted(ctx, already=already, certified=present)
+    elif seeded or pending:
+        _resolve_exhausted(ctx, seeded=seeded, pending=pending)
     held = None if capacity["idle"] or not pending else {
         "in_flight": capacity["in_flight"], "limit": capacity["limit"],
         "why": (f"{len(capacity['in_flight'])} product chain(s) in flight, at the work-in-"

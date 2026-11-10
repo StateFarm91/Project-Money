@@ -843,6 +843,38 @@ def record_edges(db, slug: str, version: str) -> dict:
 PAST_SHADOW_PATH = ("staging", "limited_production")
 
 
+# Review 6773190553 #4 (L3 F2): who can clear each failing readiness requirement, by the
+# requirement's own `blocked_by`. A requirement with blocked_by "build" is ours, and is the one
+# kind a rehearsal must explain rather than merely list.
+_CLEARED_BY = {"owner": "owner gate", "integration": "integration (a key or paid service)",
+               "tester": "physical evidence (a sample make / tester)", "build": "ours (build)"}
+
+
+def _digest(value, limit: int = 400):
+    import json as _json
+
+    text = _json.dumps(value, default=str, sort_keys=True)
+    return value if len(text) <= limit else text[:limit] + "..."
+
+
+def explain_readiness(db, *, to: str) -> list[dict]:
+    """Every requirement the launch assessment at `to` finds outstanding, with who can clear
+    it (its own `blocked_by`) and the evidence it gave, so a BLOCKED transition says WHY each
+    item fails instead of only naming it. Read-only; unreadable evidence is reported as such."""
+    from brambleloop.launch import readiness as R
+
+    a = R.launch_assessment(db, phase=to)
+    out = []
+    for r in a.readiness.outstanding:
+        ev = r.evidence or {}
+        out.append({"key": r.key, "blocked_by": r.blocked_by,
+                    "cleared_by": _CLEARED_BY.get(r.blocked_by or "", "unclassified"),
+                    "why": _digest(ev.get("why") or ev.get("problems") or ev.get("open")
+                                   or ev.get("status")),
+                    "evidence": _digest(ev, 1200)})
+    return out
+
+
 def record_owner_phase(rec: Recorder, db, *, authorization: str = REHEARSAL_OPS_TOKEN,
                        readiness_verdict=None) -> dict:
     """W4-FMEND: record the owner's phase transition shadow -> staging -> limited_production
@@ -902,6 +934,11 @@ def record_owner_phase(rec: Recorder, db, *, authorization: str = REHEARSAL_OPS_
         why = f"{type(e).__name__}: {str(e)[:700]}"
         proof["transitions_recorded"] = recorded
         proof["phase_effective"] = phase_mod.effective(db, record_incident=False)
+        try:
+            proof["readiness_explained"] = explain_readiness(
+                db, to=PAST_SHADOW_PATH[len(recorded)])
+        except Exception as exc:  # noqa: BLE001 - the explanation never changes the verdict
+            proof["readiness_explained"] = {"unreadable": f"{type(exc).__name__}: {exc}"[:300]}
         rec.step("owner_phase_transition", BLOCKED, expected=expected,
                  observed={"refused_at": PAST_SHADOW_PATH[len(recorded)], "why": why,
                            "recorded": recorded}, proof=proof)

@@ -473,6 +473,10 @@ def test_idle_capacity_counts_products_with_live_chain_work_only():
     cap = RR.idle_capacity(db, limit=2)
     assert cap["in_flight"] == ["a", "b"] and cap["slots"] == 0 and cap["idle"] is False, cap
     assert RR.idle_capacity(db, limit=3)["slots"] == 1
+    # review 6773190553 #2 (mutant M-c): more products in flight than the limit (the limit
+    # lowered under live work) leaves no slot, never a negative count
+    over = RR.idle_capacity(db, limit=1)
+    assert over["slots"] == 0 and over["idle"] is False and len(over["in_flight"]) == 2, over
     # a chain job with no readable slug still takes a slot (never counted as zero)
     JobQueue(db).enqueue("listing", "cir.compile", {}, idempotency_key="c-noslug")
     assert len(RR.idle_capacity(db, limit=5)["in_flight"]) == 3
@@ -640,6 +644,66 @@ def test_exhausted_is_false_on_the_final_seeding_run_and_signals_once_after():
         assert len(rows) == 1 and rows[0].resolved is False, rows
         assert rows[0].halts_publication is False and rows[0].report_count == 2
         assert "integrator" in rows[0].summary
+
+
+
+def test_exhausted_incident_resolves_once_a_newly_adopted_release_is_seeded():
+    """Review 6773190553 #1: the `catalogue-exhausted:launch0` incident is not left open once
+    the registry can feed the chain again. Adopting a release into the registry (here: the
+    last one, held back until the registry was exhausted) seeds it and resolves the row."""
+    db = _db()
+    holder = _ctx(db, JobQueue(db).enqueue("listing", "chain.rebuild", {}, idempotency_key="z"))
+    full = RR.launch0_releases
+    every = list(full())
+    try:
+        RR.launch0_releases = lambda: every[:-1]
+        for _ in range(len(every) - 1):
+            assert len(RR.seed_launch0(holder)["seeded"]) == 1
+            _finish_seeded_drafts(db)
+        assert RR.seed_launch0(holder)["exhausted"] is True
+        with db.session() as s:
+            open_rows = list(s.scalars(select(Incident).where(
+                Incident.signature == RR.EXHAUSTED_SIGNATURE, Incident.resolved.is_(False))))
+            assert len(open_rows) == 1, open_rows
+        RR.launch0_releases = lambda: every            # the last release is adopted
+        out = RR.seed_launch0(holder)
+        assert out["exhausted"] is False and len(out["seeded"]) == 1, out
+        with db.session() as s:
+            rows = list(s.scalars(select(Incident).where(
+                Incident.signature == RR.EXHAUSTED_SIGNATURE)))
+            assert len(rows) == 1 and rows[0].resolved is True, rows
+            assert "resumed" in rows[0].detail["resolution"], rows[0].detail
+            assert rows[0].detail["seeded_on_resolve"] == out["seeded"], rows[0].detail
+        _finish_seeded_drafts(db)
+        again = RR.seed_launch0(holder)               # exhausted again: a NEW open row
+        assert again["exhausted"] is True, again
+        with db.session() as s:
+            rows = list(s.scalars(select(Incident).where(
+                Incident.signature == RR.EXHAUSTED_SIGNATURE).order_by(Incident.id)))
+            assert [r.resolved for r in rows] == [True, False], rows
+    finally:
+        RR.launch0_releases = full
+
+
+def test_exhausted_incident_resolves_when_releases_wait_only_for_capacity():
+    """The other half of #1: a release pending behind the WIP limit is also not exhaustion."""
+    db = _db()
+    holder = _ctx(db, JobQueue(db).enqueue("listing", "chain.rebuild", {}, idempotency_key="z"))
+    full = RR.launch0_releases
+    every = list(full())
+    try:
+        RR.launch0_releases = lambda: []
+        assert RR.seed_launch0(holder)["exhausted"] is True
+        _chain_job(db, "gate.certify", "busy-a", JobStatus.PENDING, "busy-a")
+        _chain_job(db, "gate.certify", "busy-b", JobStatus.PENDING, "busy-b")
+        RR.launch0_releases = lambda: every
+        out = RR.seed_launch0(holder)
+        assert out["seeded"] == [] and out["pending"] and out["exhausted"] is False, out
+        with db.session() as s:
+            row = s.scalar(select(Incident).where(Incident.signature == RR.EXHAUSTED_SIGNATURE))
+            assert row.resolved is True and row.detail["pending_on_resolve"], row.detail
+    finally:
+        RR.launch0_releases = full
 
 
 # ---- the production situation, end to end ---------------------------------------------------
