@@ -655,6 +655,7 @@ def test_exhausted_incident_resolves_once_a_newly_adopted_release_is_seeded():
     holder = _ctx(db, JobQueue(db).enqueue("listing", "chain.rebuild", {}, idempotency_key="z"))
     full = RR.launch0_releases
     every = list(full())
+    assert len(every) >= 2, every                      # one held back, at least one seeded
     try:
         RR.launch0_releases = lambda: every[:-1]
         for _ in range(len(every) - 1):
@@ -702,6 +703,32 @@ def test_exhausted_incident_resolves_when_releases_wait_only_for_capacity():
         with db.session() as s:
             row = s.scalar(select(Incident).where(Incident.signature == RR.EXHAUSTED_SIGNATURE))
             assert row.resolved is True and row.detail["pending_on_resolve"], row.detail
+    finally:
+        RR.launch0_releases = full
+
+
+
+def test_exhausted_incident_resolves_when_the_only_release_left_is_already_in_flight():
+    """Review 6776323331 LOW: nothing seeded or pending, but the remaining release's product
+    already has a chain in flight -- not exhaustion, so the open row is resolved."""
+    db = _db()
+    holder = _ctx(db, JobQueue(db).enqueue("listing", "chain.rebuild", {}, idempotency_key="z"))
+    full = RR.launch0_releases
+    every = list(full())
+    assert every, every
+    try:
+        RR.launch0_releases = lambda: []
+        assert RR.seed_launch0(holder)["exhausted"] is True
+        last = every[-1]
+        _chain_job(db, "gate.certify", last.slug, JobStatus.PENDING, "live-chain")
+        RR.launch0_releases = lambda: [last]
+        out = RR.seed_launch0(holder)
+        assert out["seeded"] == [] and out["pending"] == [], out
+        assert out["in_flight_already"] and out["exhausted"] is False, out
+        with db.session() as s:
+            row = s.scalar(select(Incident).where(Incident.signature == RR.EXHAUSTED_SIGNATURE))
+            assert row.resolved is True, row.detail
+            assert row.detail["pending_on_resolve"] == out["in_flight_already"], row.detail
     finally:
         RR.launch0_releases = full
 

@@ -303,8 +303,8 @@ def _signal_exhausted(ctx, *, already: list, certified: list) -> None:
 
 
 def _resolve_exhausted(ctx, *, seeded: list, pending: list) -> None:
-    """Review 6773190553 #1: the registry is no longer exhausted (a release was seeded or is
-    waiting for capacity), so an open `catalogue-exhausted:launch0` incident is resolved, with
+    """Review 6773190553 #1: the registry is no longer exhausted (a release was seeded, is
+    waiting for capacity, or its product is already in flight), so an open `catalogue-exhausted:launch0` incident is resolved, with
     the reason, rather than left open on the Command Center."""
     from sqlalchemy import select
 
@@ -317,7 +317,8 @@ def _resolve_exhausted(ctx, *, seeded: list, pending: list) -> None:
             detail = dict(row.detail or {})
             detail.update(resolved_at=utcnow().isoformat(),
                           resolution=(f"Launch-0 seeding resumed: {len(seeded)} release(s) "
-                                      f"seeded and {len(pending)} waiting for capacity"),
+                                      f"seeded and {len(pending)} waiting (for capacity or "
+                                      f"an in-flight chain)"),
                           seeded_on_resolve=seeded[:20], pending_on_resolve=pending[:20])
             row.detail = detail
 
@@ -385,8 +386,10 @@ def seed_launch0(ctx, *, limit: int = SEED_PER_RUN, wip_limit: int = WIP_LIMIT) 
     exhausted = not seeded and not pending and not in_flight_here
     if exhausted:
         _signal_exhausted(ctx, already=already, certified=present)
-    elif seeded or pending:
-        _resolve_exhausted(ctx, seeded=seeded, pending=pending)
+    elif seeded or pending or in_flight_here:
+        # review 6776323331 LOW: a release whose product is already in flight is not
+        # exhaustion either; the registry still has that release to finish.
+        _resolve_exhausted(ctx, seeded=seeded, pending=pending + in_flight_here)
     held = None if capacity["idle"] or not pending else {
         "in_flight": capacity["in_flight"], "limit": capacity["limit"],
         "why": (f"{len(capacity['in_flight'])} product chain(s) in flight, at the work-in-"

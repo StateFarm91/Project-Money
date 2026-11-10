@@ -124,9 +124,10 @@ def test_readiness_is_judged_on_a_production_shaped_catalogue():
         assert isinstance(explained, list) and explained, explained
         for item in explained:
             assert item["key"] and item["cleared_by"] and "evidence" in item, item
-        if "sustainable_economics" in why:
-            econ = next(e for e in explained if e["key"] == "sustainable_economics")
-            assert econ["why"], econ
+        for item in explained:              # review 6776323331 MED-2: never an empty why
+            assert isinstance(item["why"], str) and item["why"].strip(), item
+        econ = next(e for e in explained if e["key"] == "sustainable_economics")
+        assert "AI/API" in econ["why"] or "forecast" in econ["why"], econ
 
 
 def test_approval_reaches_the_simulated_publish_with_every_simulation_labelled():
@@ -148,6 +149,7 @@ def test_approval_reaches_the_simulated_publish_with_every_simulation_labelled()
     pub = _step("store.publish[past-shadow]")
     if pub["outcome"] != "PASS":           # honest either way: blocked only by a named gate
         assert ev["blocking_defects"] and ev["complete"] is False
+    _assert_publish_ran_to_a_named_end(pub)
 
 
 def test_the_chain_is_not_settled_while_a_stage_after_the_publish_is_still_waiting():
@@ -229,9 +231,41 @@ def test_the_listing_package_step_never_passes_a_dishonest_package():
         m._run_job, LP.latest, m._audits = saved
 
 
+TERMINAL = ("done", "dead", "cancelled")
+
+
+def test_no_stale_search_defect_after_the_simulated_taxonomy_re_certifies():
+    """Review 6775786220 F3: once the simulated taxonomy's listing.seo re-run stores a PASS
+    search certificate, `search_certificate_not_pass` is not among the blocking defects."""
+    ev = evidence()
+    tax = _step("taxonomy[simulated]")
+    keys = [d["key"] for d in ev["blocking_defects"]]
+    if tax["outcome"] == "PASS" and tax["observed"]["category"].get("certified") == "PASS":
+        assert "search_certificate_not_pass" not in keys, keys
+
+
+def _assert_publish_ran_to_a_named_end(pub):
+    """Review 6775786220 F1: a non-PASS past-shadow publish is honest only if the job actually
+    ran to a terminal state, and -- while the owner's phase is still shadow -- if what stopped
+    it is the SHADOW capability refusal. A publish enqueued under a job type nobody claims
+    (status pending, zero requests) used to pass every assertion."""
+    if pub["outcome"] in ("PASS", "SKIPPED"):
+        return
+    obs = pub["observed"]
+    assert isinstance(obs, dict) and obs.get("status") in TERMINAL, obs
+    if _step("owner_phase_transition")["outcome"] != "PASS":
+        assert pub["outcome"] == "BLOCKED" and obs["status"] == "dead", obs
+        assert "SHADOW" in obs["last_error"], obs["last_error"]
+        refusals = pub["db_proof"]["store.publish_refused"]
+        assert refusals and all("shadow" in str(r.get("reason", "")).lower()
+                                for r in refusals), refusals
+        assert obs["create_requests"] == 0, obs
+
+
 def test_the_past_shadow_outcome_is_honest_either_way():
     ev = evidence()
     pub = _step("store.publish[past-shadow]")
+    _assert_publish_ran_to_a_named_end(pub)
     if pub["outcome"] == "PASS":
         assert pub["db_proof"]["listings.etsy_listing_id"]
         assert len(pub["observed"]["fake_listings"]) == 1

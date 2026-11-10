@@ -15,9 +15,14 @@ reachable only through `GET /api/continuity/export`, which requires the operator
      face (`readiness.transition_verdict`) and explains every outstanding requirement
      (`shadow_rehearsal.explain_readiness`): who can clear it and the evidence it gave.
 
-Nothing is written anywhere but the temporary database, which is deleted on exit. Production
-is not contacted. The output names requirements, owners and evidence digests; review it before
-sharing, since evidence can quote shop data.
+The restored copy lives only in a temporary directory that is deleted on exit, also when the
+verdict raises; nothing is written beside the export. The only other write is the report itself,
+and only when `--out` is given. Production is not contacted.
+
+Two requirements read the machine this runs on, not production: `etsy_integration`
+(`credentials_present`) and `phase` reflect the local operator's environment. Read them from
+production's own /api/launch instead. The output names requirements, owners and evidence
+digests; review it before sharing, since evidence can quote shop data.
 
     cd brambleloop && .venv/bin/python scripts/readiness_from_export.py EXPORT.jsonl
         [--to staging] [--out PATH]

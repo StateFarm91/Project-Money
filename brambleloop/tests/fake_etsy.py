@@ -72,6 +72,7 @@ class FakeEtsy:
                  tags_are_repeated_keys: bool = False,
                  taxonomy_nodes: tuple[dict[str, Any], ...] | None = None,
                  required_property: dict[str, Any] | None = None,
+                 create_refuses_required_property: bool = True,
                  remap_taxonomy_to: int | None = None,
                  image_failure: tuple[int, str] | None = None,
                  delete_failure: tuple[int, str] | None = None,
@@ -100,6 +101,12 @@ class FakeEtsy:
             ]},
         )
         self.required_property = required_property
+        # Two readings of a node with a required property. True (the default): every create
+        # against it is refused, the failure entry `etsy_probe.TAXONOMY` classifies. False: the
+        # schema still names the property as required, the draft is created, and the property
+        # is written afterwards through updateListingProperty -- the flow the production
+        # publish handler implements (pipeline.handle_store_publish -> set_listing_property).
+        self.create_refuses_required_property = create_refuses_required_property
         self.remap_taxonomy_to = remap_taxonomy_to
         self.image_failure = image_failure
         self.delete_failure = delete_failure
@@ -533,7 +540,7 @@ class _Handler(BaseHTTPRequestHandler):
             for key, allowed in ENUMS.items():
                 if key in fields and fields[key] not in allowed:
                     return self._send(400, {"error": f"{key} must be one of {list(allowed)}"})
-            if fake.required_property is not None:
+            if fake.required_property is not None and fake.create_refuses_required_property:
                 # What a taxonomy node with a required listing property does to every single
                 # create against it. The message names the property id, which is the only
                 # thing that makes the failure actionable.

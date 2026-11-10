@@ -51,7 +51,9 @@ def test_explain_readiness_names_who_clears_each_item_and_why():
     inc = keys["no_open_incidents"]
     assert inc["blocked_by"] == "build" and inc["cleared_by"] == "ours (build)", inc
     assert "P1" in inc["why"], inc            # readiness's own evidence: every open severity
+    assert explained, explained
     for e in explained:
+        assert isinstance(e["why"], str) and e["why"].strip(), e     # MED-2: never empty
         assert e["cleared_by"] != "unclassified" or e["blocked_by"] is None, e
         assert e["key"] and "evidence" in e, e
     owner = [e["key"] for e in explained if e["blocked_by"] == "owner"]
@@ -68,13 +70,50 @@ def test_readiness_from_export_restores_and_judges_read_only():
         export = tmp / "export.jsonl"
         continuity.export(db, export)
         before = export.read_bytes()
+        beside = sorted(p.name for p in tmp.iterdir())
+        temp_root = Path(tempfile.gettempdir())
+        temp_before = {p.name for p in temp_root.iterdir()}
         report = script.readiness_from_export(export, to="staging")
         assert export.read_bytes() == before                # the export is only read
+        # review 6776323331 MED-1: the restored copy of production data does not survive --
+        # nothing new beside the export, and nothing left in the temp root
+        assert sorted(p.name for p in tmp.iterdir()) == beside, list(tmp.iterdir())
+        left = {p.name for p in temp_root.iterdir()} - temp_before
+        assert not left, left
     assert report["restored_rows"] >= 2 and report["ready"] is False, report
     assert "shop_trustworthy:no_open_incidents" in report["failing"], report["failing"]
     explained = {e["key"]: e for e in report["explained"]}
     assert "P1" in explained["no_open_incidents"]["why"], explained["no_open_incidents"]
     assert "no_open_incidents" in report["by_clearer"]["ours (build)"], report["by_clearer"]
+
+
+def test_the_restored_copy_is_deleted_even_when_the_verdict_raises():
+    """MED-1: a failure after the restore must not leave the copy on disk."""
+    from brambleloop.core import continuity
+    from brambleloop.launch import readiness as R
+
+    script = _load("readiness_from_export")
+    with tempfile.TemporaryDirectory() as t:
+        tmp = Path(t)
+        export = tmp / "export.jsonl"
+        continuity.export(_db_with_open_p1(tmp), export)
+        temp_root = Path(tempfile.gettempdir())
+        temp_before = {p.name for p in temp_root.iterdir()}
+        saved = R.transition_verdict
+
+        def boom(*a, **k):
+            raise RuntimeError("verdict failed")
+        R.transition_verdict = boom
+        try:
+            script.readiness_from_export(export)
+        except RuntimeError:
+            pass
+        else:
+            raise AssertionError("the failure was swallowed")
+        finally:
+            R.transition_verdict = saved
+        left = {p.name for p in temp_root.iterdir()} - temp_before
+        assert not left, left
 
 
 def test_a_truncated_export_is_refused_not_judged():
