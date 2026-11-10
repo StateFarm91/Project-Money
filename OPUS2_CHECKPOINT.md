@@ -1,10 +1,26 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-10T18:45Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-10T21:00Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-10T18:45Z (read first)
+## State at 2026-11-10T21:00Z (read first)
+- opus2/l-followups (worktree opus2-lf) @ 8e9ac195, RR 6778725878. This fixes Main's
+  DO NOT SHIP 6776323331 on d1eb85db and the L3 F1/F3 details (6775786220):
+  - test_vacuity is green again (it is now in every regression set);
+  - the restored-copy deletion is proven (c2 and c3 killed);
+  - why_unmet derives why from each requirement's own evidence;
+  - the LOWs are done.
+  - F1: the past-shadow PASS path is tested. It found my L3 defect: fake_etsy's
+    required_property refused every create. The new knob is
+    create_refuses_required_property, default True.
+  - F3: the stale search defect is re-judged after the taxonomy re-run.
+  - 7/7 mutants killed; 17 suites green.
+- Main will run scripts/readiness_from_export.py on a fresh production export once this
+  branch merges (item 5).
+Stop reason: everything is review-requested; waiting on Main's verdict on 8e9ac195.
+
+## State at 2026-11-10T18:45Z (superseded)
 Batch 6 (b7921052) was deployed 2026-11-10T15:22Z. Main verdict 6773190553: L0 3d956a89,
 L3 35d6a9ab and L4 9f46d341 are all SHIP and merged into claude/w6-INTEG1 (be4d1490). L1/L2
 are closed via the integrated F-834/F-846 overrides (e5c702f9). F-848 stays OPEN/PARTIAL.
