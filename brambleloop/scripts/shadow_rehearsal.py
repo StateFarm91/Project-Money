@@ -748,6 +748,18 @@ def record_simulated_taxonomy(rec: Recorder, db, state: dict, *, fake_base: str)
         rec.defect("simulated_taxonomy_not_chosen", "commerce/category.publish_inputs",
                    json.dumps({"refresh": refresh, "category": chosen}, default=str)[:600])
 
+def _stored_search_verdict(db, slug: str, version: str):
+    """The search certificate verdict as stored now, or None when no profile exists."""
+    from sqlalchemy import select
+
+    from brambleloop.core.models import ListingSearchProfile
+
+    with db.session() as s:
+        row = s.scalar(select(ListingSearchProfile).where(
+            ListingSearchProfile.product_slug == slug, ListingSearchProfile.version == version))
+        return row.verdict if row else None
+
+
 def record_edges(db, slug: str, version: str) -> dict:
     """F-834 (W4-CLOSE6): the evidence edges producer -> durable state -> consumer -> decision ->
     effect -> result, read from the rows this run wrote, so a packet can carry a receipt for
@@ -843,6 +855,68 @@ def record_edges(db, slug: str, version: str) -> dict:
 PAST_SHADOW_PATH = ("staging", "limited_production")
 
 
+# Review 6773190553 #4 (L3 F2): who can clear each failing readiness requirement, by the
+# requirement's own `blocked_by`. A requirement with blocked_by "build" is ours, and is the one
+# kind a rehearsal must explain rather than merely list.
+_CLEARED_BY = {"owner": "owner gate", "integration": "integration (a key or paid service)",
+               "tester": "physical evidence (a sample make / tester)", "build": "ours (build)"}
+
+
+def _digest(value, limit: int = 400):
+    import json as _json
+
+    text = _json.dumps(value, default=str, sort_keys=True)
+    return value if len(text) <= limit else text[:limit] + "..."
+
+
+def explain_readiness(db, *, to: str) -> list[dict]:
+    """Every requirement the launch assessment at `to` finds outstanding, with who can clear
+    it (its own `blocked_by`) and the evidence it gave, so a BLOCKED transition says WHY each
+    item fails instead of only naming it. Read-only; unreadable evidence is reported as such."""
+    from brambleloop.launch import readiness as R
+
+    a = R.launch_assessment(db, phase=to)
+    out = []
+    for r in a.readiness.outstanding:
+        ev = r.evidence or {}
+        out.append({"key": r.key, "blocked_by": r.blocked_by,
+                    "cleared_by": _CLEARED_BY.get(r.blocked_by or "", "unclassified"),
+                    "why": why_unmet(r.description, ev),
+                    "evidence": _digest(ev, 1200)})
+    return out
+
+
+# Review 6776323331 MED-2: the evidence keys a requirement uses to say what is wrong. Explicit
+# reasons first, then the keys that NAME a shortfall (`unpriced`, `without`, `not_checked`,
+# `listings_short_of_frames`, ...), by the naming convention readiness evidence follows.
+_REASON_KEYS = ("why", "reason", "problems", "missing", "unmet", "blocked", "open",
+                "knockout_problems", "method_blocked_on", "last_probe_reason", "owner_decision",
+                "undetermined", "coverage_gaps", "launch_critical_open", "status", "note")
+_SHORTFALL_MARKS = ("un", "not_", "without", "missing", "with_no", "with_only", "blocked",
+                    "failing", "short", "rehearsal_failed", "releases_without")
+
+
+def _present(value) -> bool:
+    return value not in (None, "", [], {}, ())
+
+
+def why_unmet(description: str, evidence: dict) -> str:
+    """Why one outstanding requirement is unmet, read from its own evidence; never empty.
+
+    The first present explicit reason key; else every present key whose name marks a
+    shortfall; else the requirement's description with a digest of its evidence."""
+    for key in _REASON_KEYS:
+        if _present(evidence.get(key)):
+            return f"{key}: {_digest(evidence[key], 300)}"
+    shortfalls = {k: v for k, v in evidence.items()
+                  if any(k.startswith(m) or f"_{m}" in k for m in _SHORTFALL_MARKS)
+                  and _present(v)}
+    if shortfalls:
+        return "; ".join(f"{k}: {_digest(v, 160)}" for k, v in sorted(shortfalls.items()))[:500]
+    facts = _digest(evidence, 300) if evidence else "no evidence recorded"
+    return f"not met: {description[:200]} (evidence: {facts})"
+
+
 def record_owner_phase(rec: Recorder, db, *, authorization: str = REHEARSAL_OPS_TOKEN,
                        readiness_verdict=None) -> dict:
     """W4-FMEND: record the owner's phase transition shadow -> staging -> limited_production
@@ -902,6 +976,11 @@ def record_owner_phase(rec: Recorder, db, *, authorization: str = REHEARSAL_OPS_
         why = f"{type(e).__name__}: {str(e)[:700]}"
         proof["transitions_recorded"] = recorded
         proof["phase_effective"] = phase_mod.effective(db, record_incident=False)
+        try:
+            proof["readiness_explained"] = explain_readiness(
+                db, to=PAST_SHADOW_PATH[len(recorded)])
+        except Exception as exc:  # noqa: BLE001 - the explanation never changes the verdict
+            proof["readiness_explained"] = {"unreadable": f"{type(exc).__name__}: {exc}"[:300]}
         rec.step("owner_phase_transition", BLOCKED, expected=expected,
                  observed={"refused_at": PAST_SHADOW_PATH[len(recorded)], "why": why,
                            "recorded": recorded}, proof=proof)
@@ -952,7 +1031,12 @@ def run_past_shadow(rec: Recorder, db, state: dict) -> dict:
     saved_base = etsy_mod.EtsyClient.BASE
     log: list = []
     sim_tree, sim_craft = simulated_taxonomy()
-    with FakeEtsy(taxonomy_nodes=sim_tree, required_property=sim_craft) as fake:
+    # Review 6775786220 F1: the simulated schema names "Craft type" as a required property,
+    # and the draft is created first with the property written afterwards -- the flow the
+    # production publish handler implements. The fake's default reading (every create
+    # refused) would make this PASS branch unreachable by construction, whatever the release.
+    with FakeEtsy(taxonomy_nodes=sim_tree, required_property=sim_craft,
+                  create_refuses_required_property=False) as fake:
         restore = _guard_narrowed(fake.port, log)
         try:
             os.environ.update(env_keys)
@@ -1294,12 +1378,18 @@ def _rehearse(tmp: Path, product: str, *, fast: bool, out: Path | None) -> dict:
         record_listing_package(rec, db, state)
         seed_catalogue(rec, db, cir.slug)
         edges = record_edges(db, cir.slug, cir.version)
-        if state.get("search_profile") and state["search_profile"].get("verdict") != "PASS":
-            rec.defect("search_certificate_not_pass", "listing_search_profiles.verdict",
-                       f"stored search verdict after listing.seo is "
-                       f"{state['search_profile'].get('verdict')!r}; store.publish's "
-                       f"search_certificate gate requires PASS")
         pub = run_past_shadow(rec, db, state)
+        # Review 6775786220 F3: judged on the STORED verdict after the last listing.seo (the
+        # simulated taxonomy re-runs it), not on the one read before that re-run -- a stale
+        # REFUSED would misstate to freeze_candidate what blocks.
+        if state.get("search_profile"):
+            final = _stored_search_verdict(db, cir.slug, cir.version)
+            if final != "PASS":
+                rec.defect("search_certificate_not_pass", "listing_search_profiles.verdict",
+                           f"stored search verdict after the last listing.seo is {final!r} "
+                           f"(after the shadow chain it was "
+                           f"{state['search_profile'].get('verdict')!r}); store.publish's "
+                           f"search_certificate gate requires PASS")
         run_commerce(rec, db, state, pub.get("draft_listing_id"))
     except Exception as e:  # noqa: BLE001 - the rehearsal records its own breakage
         rec.step("rehearsal", FAILED, expected="every step runs to an outcome",
