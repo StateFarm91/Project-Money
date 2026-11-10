@@ -1,10 +1,29 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-08T18:30Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-10T18:45Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-08T18:30Z (read first)
+## State at 2026-11-10T18:45Z (read first)
+Batch 6 (b7921052) was deployed 2026-11-10T15:22Z. Main verdict 6773190553: L0 3d956a89,
+L3 35d6a9ab and L4 9f46d341 are all SHIP and merged into claude/w6-INTEG1 (be4d1490). L1/L2
+are closed via the integrated F-834/F-846 overrides (e5c702f9). F-848 stays OPEN/PARTIAL.
+- Follow-ups 6773190553 are on opus2/l-followups (worktree opus2-lf, cut from be4d1490) @
+  d1eb85db, RR 6775471763:
+  - #1: the exhausted incident resolves;
+  - #2: slots floor test (M-c);
+  - #4: readiness_explained on a refused transition (sustainable_economics =
+    INSUFFICIENT_DATA on a fresh DB; no_open_incidents passes in fast mode);
+  - #5: scripts/readiness_from_export.py (operator-gated export, judged read-only);
+  - #6: L0 M10 and a narrow has_table catch.
+  - Mutants 9/9; 15 suites green.
+- OPEN: #3, L3 F1 (a surviving mutant). Its details are in reviewer notes I cannot see;
+  QUESTION asked in 6775471763.
+- Next production-mode rehearsal (run alone) will name the incident behind
+  no_open_incidents.
+Stop reason: everything is review-requested; waiting on Main (F1 details + verdict on d1eb85db).
+
+## State at 2026-11-08T18:30Z (superseded)
 Owner goal 6719266602 (listing agents done, tested and autonomous): L0-L4 are all built and
 review-requested.
 - L0 P0-PHYSICAL-UPGRADE-PROVENANCE (opus2/l0-physical-upgrade-provenance, worktree opus2-l0):
