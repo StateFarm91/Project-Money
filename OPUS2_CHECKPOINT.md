@@ -1,10 +1,27 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-10T21:00Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-11T00:00Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-10T21:00Z (read first)
+## State at 2026-11-11T00:00Z (read first)
+- 8e9ac195 was SHIPped and merged into claude/w6-INTEG1 as 074d6f43 (6781897314).
+- The LOWs from that review are on opus2/l-followups-2 (worktree opus2-lf2) @ 18d9ab28,
+  RR 6782981520:
+  - whole-token shortfall keys;
+  - the search judgement runs outside the try;
+  - dispose() is in a finally;
+  - the docstring is rewrapped.
+  - 4/4 mutants killed; 5 suites green.
+- OWNER-GATED, not ours (Main 6781897314):
+  - Running readiness_from_export.py on a real production export needs the operator
+    credential. Neither Main nor opus2 holds it. So F-848 stays OPEN/PARTIAL until the
+    owner runs it or provides a read-only credential.
+  - Etsy's real behaviour for required properties at create time is verified only by
+    the live round trip.
+Stop reason: everything is review-requested; waiting on Main's verdict on 18d9ab28.
+
+## State at 2026-11-10T21:00Z (superseded)
 - opus2/l-followups (worktree opus2-lf) @ 8e9ac195, RR 6778725878. This fixes Main's
   DO NOT SHIP 6776323331 on d1eb85db and the L3 F1/F3 details (6775786220):
   - test_vacuity is green again (it is now in every regression set);
