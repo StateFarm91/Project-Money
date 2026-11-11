@@ -77,6 +77,19 @@ The migration evidence is synthetic (one row per table) and was not run against 
 the real production database. A pre-deploy rehearsal against such a snapshot remains an owner
 gate.
 
+## Rolling back across the cadence spread (midnight-herd follow-up, 2026-11-11)
+
+From the spread build on, every cadence with a period of at least a day opens its window at a
+stable per-cadence offset and is keyed `cadence:<name>:s<window>`. A build before it keys the
+same cadence `cadence:<name>:<window>` and opens every daily window at 00:00Z. The two key
+spaces do not see each other, so **a rollback to a pre-spread build runs that day's daily (and
+that week's weekly) cadences once more** at the next 00:00Z, even when the spread run already
+happened. The cost is one extra run of each, a busy stretch for worker 0 (the `handler_long`
+signal may fire), and -- for any cadence that calls a paid provider -- one more call, still
+inside that agent's own spend ceiling. Publishing stays behind its own gates either way.
+Rolling forward again is guarded (`Scheduler.transition_skipped`): no spread run within
+min(period/2, 12 h) of the last legacy run.
+
 ## A push that did not deploy (RELENG, 2026-10-11)
 
 `ops/deploy.sh` now waits after pushing (`ops/verify_deploy.py`, default 900 s) for production

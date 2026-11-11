@@ -106,44 +106,100 @@ def test_each_daily_cadence_runs_once_per_window_over_three_days():
         unwake()
 
 
-def test_the_deploy_transition_never_runs_a_daily_cadence_twice():
-    """The pre-spread run happened at 00:00Z; the deploy lands at 15:21Z. Whatever the
-    cadence's offset, it runs once in that period and next at its first full spread window."""
-    db, restore, unwake = _db(), _only(DAILY[:8]), _no_wake()
+WEEKLY = [c for c in W.CADENCES if c[3] == 7 * DAY]
+
+
+def _transition(cadences, period, deploy_after, step, horizon_periods=3):
+    """Legacy-keyed run L of each cadence at its legacy window start; the deploy lands
+    `deploy_after` seconds later; the real Scheduler ticks every `step` s from then. Returns
+    {name: [run times]} with each spread run timed at max(window open, deploy)."""
+    db, restore, unwake = _db(), _only(cadences), _no_wake()
     try:
-        midnight = datetime(2026, 11, 11, 0, 0, tzinfo=timezone.utc)
+        base = datetime(2026, 11, 12, 0, 0, tzinfo=timezone.utc)
+        L = datetime.fromtimestamp(int(base.timestamp() // period) * period, timezone.utc)
         q = JobQueue(db)
-        for name, agent, job_type, period in DAILY[:8]:
-            legacy = f"cadence:{name}:{int(midnight.timestamp() // period)}"
-            q.enqueue(agent, job_type, {"cadence": name}, idempotency_key=legacy)
+        for name, agent, job_type, p in cadences:
+            q.enqueue(agent, job_type, {"cadence": name},
+                      idempotency_key=f"cadence:{name}:{int(L.timestamp() // p)}")
         with db.session() as s:
             for j in s.query(Job):
-                j.created_at = midnight
-        deploy = midnight + timedelta(hours=15, minutes=21)
+                j.created_at = L
+        deploy = L + timedelta(seconds=deploy_after)
         sched = W.Scheduler(db)
-        for m in range(0, 36 * 6):                       # 36 h of ticks after the deploy
-            now = deploy + timedelta(minutes=10 * m)
-            sched.tick(now=now)
-        for name, _a, _j, period in DAILY[:8]:
+        t = deploy
+        while t < deploy + timedelta(seconds=horizon_periods * period):
+            sched.tick(now=t)
+            t += timedelta(seconds=step)
+        runs = {}
+        for name, _a, _j, p in cadences:
             rows = _jobs(db, name)
-            spread = [(k, t) for k, t in rows if k.startswith(f"cadence:{name}:s")]
-            assert len(rows) - len(spread) == 1, rows        # the one legacy run
-            assert spread, (name, rows)                       # and it does run again
-            # when each run's window opened (created_at is the wall clock, not the simulated
-            # tick): the legacy run at midnight, each spread run at its own window's start
-            offset = W.cadence_offset(name, period)
-            opened = [midnight.timestamp()] + sorted(
-                int(k.rsplit(":s", 1)[1]) * period + offset for k, _t in spread)
-            # the first spread run opens no earlier than one period after the legacy run's
-            # window began... never a second run within the same day's period
-            gaps = [b - a for a, b in zip(opened, opened[1:])]
-            assert all(g >= period * 0.5 for g in gaps), (name, gaps)
-            first_spread = opened[1]
-            assert first_spread >= deploy.timestamp() - 1e-6 or \
-                first_spread - midnight.timestamp() >= period * 0.5, (name, gaps)
+            def spread(k):
+                return k.rsplit(":", 1)[1].startswith(W.SPREAD_KEY_MARK)
+            assert len([k for k, _t in rows if not spread(k)]) == 1, rows   # one legacy run
+            off = W.cadence_offset(name, p)
+            opened = sorted(max(int(k.rsplit(":", 1)[1][1:]) * p + off, deploy.timestamp())
+                            for k, _t in rows if spread(k))
+            runs[name] = (L.timestamp(), opened)
+        return runs
     finally:
         restore()
         unwake()
+
+
+def _assert_bounded(runs, period, step):
+    """Review 6801029119 MEDIUM-1: never closer than the transition gap to the legacy run,
+    and the first spread run less than period + that gap after it (+ one tick of slack)."""
+    gap_min = W.transition_min_gap(period)
+    for name, (legacy, opened) in runs.items():
+        assert opened, (name, "never ran after the deploy")
+        first = opened[0] - legacy
+        assert first >= gap_min - step, (name, first / 3600)
+        assert first < period + gap_min + step, (name, first / 3600)
+        later = [b - a for a, b in zip(opened, opened[1:])]
+        # the run at the deploy (mid-window) to the next window opening is <= one period --
+        # any boot mid-window behaves so; every window after that is exactly one period
+        assert not later or 0 < later[0] <= period + step, (name, later)
+        assert all(abs(g - period) <= step for g in later[1:]), (name, later)
+
+
+def test_the_deploy_transition_is_bounded_both_ways_for_daily_cadences():
+    """Whatever each cadence's offset (before or after the deploy time), the first spread
+    run is >= 12 h and < 36 h after the day's legacy run; then exactly one per day."""
+    step = 10 * 60
+    for deploy_after in (5 * 60, 6 * 3600, 12 * 3600, DAY - 5 * 60):
+        _assert_bounded(_transition(DAILY[:12], DAY, deploy_after, step), DAY, step)
+
+
+def test_the_deploy_transition_is_bounded_for_weekly_cadences_inside_the_weekly_grace():
+    """Weekly: >= 12 h and < 7.5 days after the legacy run -- inside WEEKLY_GRACE (8 d)."""
+    assert WEEKLY, "no weekly cadence to check"
+    step = 60 * 60
+    for deploy_after in (5 * 60, 3 * DAY + 12 * 3600, 7 * DAY - 3600):
+        runs = _transition(WEEKLY[:6], 7 * DAY, deploy_after, step, horizon_periods=2)
+        _assert_bounded(runs, 7 * DAY, step)
+        assert runs, runs
+        for name, (legacy, opened) in runs.items():
+            assert opened[0] - legacy < 8 * DAY, (name, (opened[0] - legacy) / DAY)
+
+
+def test_next_wake_surfaces_read_the_spread_offset():
+    """LOW-2: the "next" times shown read cadence_next_at, not floor(now/period)+1."""
+    from brambleloop.ops import flow_health
+
+    now = datetime(2026, 11, 11, 15, 21, tzinfo=timezone.utc)
+    nxt = W.cadence_next_at
+    for name, _a, _j, period in DAILY[:5]:
+        at = nxt(name, period, now)
+        assert now.timestamp() < at <= now.timestamp() + period, name
+        assert (at - W.cadence_offset(name, period)) % period == 0, name
+    shown = {c["cadence"]: c["next_at"] for c in flow_health.next_cadences(_db(), now=now)}
+    for name, _a, _j, period in DAILY[:5]:
+        assert shown[name] == datetime.fromtimestamp(nxt(name, period, now),
+                                                     timezone.utc).isoformat(), name
+    src = ROOT / "src" / "brambleloop"
+    for rel in ("autonomy/status.py", "app/command_center/company.py", "ops/flow_health.py"):
+        text = (src / rel).read_text()
+        assert "cadence_next_at" in text and "// period) + 1) * period" not in text, rel
 
 
 def test_without_a_legacy_run_the_first_tick_still_enqueues_at_once():

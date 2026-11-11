@@ -264,8 +264,10 @@ def next_cadences(db, *, now: datetime | None = None) -> list[dict]:
     except Exception:  # noqa: BLE001
         suspended = {}
     out = []
+    from ..runtime.worker import cadence_next_at
+
     for name, agent, job_type, period in CADENCES:
-        nxt = (int(now.timestamp() // period) + 1) * period
+        nxt = cadence_next_at(name, period, now)
         out.append({"cadence": name, "agent": agent, "job_type": job_type,
                     "period_s": int(period), "suspended": job_type in suspended,
                     "next_at": datetime.fromtimestamp(nxt, timezone.utc).isoformat()})

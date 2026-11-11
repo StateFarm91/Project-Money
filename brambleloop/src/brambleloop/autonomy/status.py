@@ -75,12 +75,12 @@ def _unknown(reason: str, **extra) -> dict:
 
 
 def _next_wake(job_types: set[str], now: datetime) -> str | None:
-    from ..runtime.worker import CADENCES
+    from ..runtime.worker import CADENCES, cadence_next_at
 
     best = None
-    for _n, _a, jt, period in CADENCES:
+    for name, _a, jt, period in CADENCES:
         if jt in job_types:
-            nxt = (int(now.timestamp() // period) + 1) * period
+            nxt = cadence_next_at(name, period, now)
             best = nxt if best is None else min(best, nxt)
     # The orchestrator wakes every department at least every fifteen minutes.
     orch = (int(now.timestamp() // 900) + 1) * 900
@@ -363,8 +363,10 @@ def _agents(db, *, now: datetime) -> dict:
         last_any = mine[0] if mine else None
         cadences = [(n, jt, p) for n, ag, jt, p in CADENCES if ag == name]
         nxt = None
-        for _n, _jt, p in cadences:
-            t = (int(now.timestamp() // p) + 1) * p
+        from ..runtime.worker import cadence_next_at
+
+        for cname, _jt, p in cadences:
+            t = cadence_next_at(cname, p, now)
             nxt = t if nxt is None else min(nxt, t)
         next_wake = datetime.fromtimestamp(nxt, tz=timezone.utc) if nxt else None
         if pending:

@@ -1224,17 +1224,34 @@ def cadence_key(name: str, period: int, now) -> str:
     return f"cadence:{name}:{SPREAD_KEY_MARK}{window}"
 
 
-# One check per (database, cadence, window) per process: did this cadence already run within
-# the last period under the LEGACY key (before the spread)? Only that one-time transition can
-# double-run a cadence, so only that is guarded; spread windows are deduplicated by their key.
+def cadence_next_at(name: str, period: int, now) -> int:
+    """Epoch seconds at which this cadence's NEXT window opens (offset included). Review
+    6801029119 LOW-2: every "next wake" surface reads this, never floor(now/period)+1."""
+    offset = cadence_offset(name, period)
+    return offset + (int((now.timestamp() - offset) // period) + 1) * period
+
+
+# The deploy that introduces the spread is the only moment a cadence could run twice: its
+# pre-spread (legacy-keyed) run L has happened, and a spread window opens soon after.
+# Review 6801029119 MEDIUM-1: a window is skipped only while it would run within
+# TRANSITION_MIN_GAP of L -- min(period / 2, 12 h) -- and never otherwise. That bounds the
+# transition on both sides: no run closer than that gap to L, and the first spread run less
+# than period + that gap after L (daily < 36 h; weekly < 7.5 d, inside the 8-day weekly
+# grace). One check per (database, cadence, window) per process; spread windows are
+# deduplicated by their own key.
+TRANSITION_MAX_GAP_S = 12 * 60 * 60
 _LEGACY_RAN: dict[tuple, bool] = {}
+
+
+def transition_min_gap(period: int) -> float:
+    return min(period / 2.0, TRANSITION_MAX_GAP_S)
 
 
 def _legacy_ran_recently(db, name: str, period: int, now, key: str) -> bool:
     cache_key = (str(db.engine.url), name, key)
     if cache_key in _LEGACY_RAN:
         return _LEGACY_RAN[cache_key]
-    since = now - timedelta(seconds=period)
+    since = now - timedelta(seconds=transition_min_gap(period))
     legacy = [f"cadence:{name}:{d}%" for d in "-0123456789"]
     with db.session() as s:
         latest = s.scalar(select(Job.created_at).where(

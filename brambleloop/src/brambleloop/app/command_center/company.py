@@ -300,12 +300,12 @@ def departments(db, auto: dict | None = None) -> dict:
 
 def _next_wake_by_agent(now: datetime) -> dict:
     try:
-        from ...runtime.worker import CADENCES
+        from ...runtime.worker import CADENCES, cadence_next_at
     except Exception:  # noqa: BLE001
         return {}
     out: dict[str, int] = {}
-    for _n, agent, _jt, period in CADENCES:
-        nxt = (int(now.timestamp() // period) + 1) * period
+    for name, agent, _jt, period in CADENCES:
+        nxt = cadence_next_at(name, period, now)
         out[agent] = min(out.get(agent, nxt), nxt)
     return {a: datetime.fromtimestamp(t, tz=timezone.utc).isoformat() for a, t in out.items()}
 
