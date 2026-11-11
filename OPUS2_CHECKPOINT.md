@@ -1,10 +1,26 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-11T01:45Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-11T05:00Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-11T01:45Z (read first)
+## State at 2026-11-11T05:00Z (read first)
+- P1 nightly stall: Main's changes-requested 6785727146 on 23d5649c is addressed by
+  b4b6c01d on opus2/p1-worker-nightly-stall (worktree opus2-ws), RR 6787274305.
+  - handler_long is a degraded basis after 15 min, with a P2 incident raised and resolved
+    by the scheduler loop and an advisory /api/verify check.
+  - ops/readback has a WARN verdict, and a warn-only row never goes above WARN.
+    rollback_decision does not contain on WARN.
+  - The env clamp and the F3 tests are in.
+  - 15/15 mutants killed; 20 suites green.
+- opus2/l-followups-2 @ 18d9ab28 is RR 6782981520, awaiting a verdict.
+- Next follow-up, after the P1 merges: the midnight herd (a per-cadence hash offset plus a
+  duplicate-run guard).
+- OWNER-GATED: readiness_from_export on a production export; Etsy's required property at
+  create time.
+Stop reason: everything is review-requested; waiting on Main's verdicts on b4b6c01d and 18d9ab28.
+
+## State at 2026-11-11T01:45Z (superseded)
 - P1 6783107211, the nightly worker_alive false at ~00:14-00:20Z.
   - Fixed on opus2/p1-worker-nightly-stall (worktree opus2-ws) @ 23d5649c, RR on #28;
     ACK 6783315420 has the root cause.
