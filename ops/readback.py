@@ -48,6 +48,10 @@ PRODUCTION_URL = os.environ.get("BRAMBLELOOP_PRODUCTION_URL",
 _SHA = re.compile(r"^[0-9a-f]{40}$")
 PASS, FAIL, UNKNOWN = "PASS", "FAIL", "UNKNOWN"
 NEEDS_OPERATOR = "NEEDS_OPERATOR"
+# A degraded signal (review 6785727146 F1): not a pass, not a failure. A manifest row marked
+# `WARN_ONLY` reads WARN where it would otherwise read FAIL.
+WARN = "WARN"
+WARN_ONLY = "warn"
 
 
 def _dig(body, path: str):
@@ -75,6 +79,10 @@ MANIFEST = (
      and v.get("ok") is True),
     ("embedded worker alive", ["F-371", "F-880"], "/health", "runner.worker_alive",
      "true", lambda v, _s: v is True),
+    ("worker 0 not held by a long handler", ["F-371"], "/api/verify",
+     "checks[check=worker_handler_within_expected_time].ok",
+     "true (false: a handler past 15 min -- alive but possibly hung)",
+     lambda v, _s: v is True, WARN_ONLY),
     ("shadow phase holds", ["F-172"], "/api/verify", "checks[check=phase_is_shadow].ok",
      "true", lambda v, _s: v is True),
     ("nothing published in shadow", ["F-172"], "/api/verify",
@@ -197,7 +205,9 @@ def run(sha: str, *, url: str = PRODUCTION_URL, fetch=None, token: str | None = 
     items = []
     reachable = False
     base = url.rstrip("/")
-    for feature, rows, endpoint, field, expected, pred in MANIFEST:
+    for row in MANIFEST:
+        feature, rows, endpoint, field, expected, pred = row[:6]
+        bad = WARN if len(row) > 6 and row[6] == WARN_ONLY else FAIL
         operator = endpoint in OPERATOR_ENDPOINTS
         if operator and not token and not readback_token:
             items.append({"feature": feature, "rows": rows, "endpoint": endpoint,
@@ -223,10 +233,11 @@ def run(sha: str, *, url: str = PRODUCTION_URL, fetch=None, token: str | None = 
                 verdict, value = UNKNOWN, None
             else:
                 value = code if field == "@status" else _dig(body, field)
-                verdict = UNKNOWN if value is None and field != "@status" else None
+                verdict = ((bad if bad == WARN else UNKNOWN)
+                           if value is None and field != "@status" else None)
                 if verdict is None:
                     try:
-                        verdict = PASS if pred(value, sha) else FAIL
+                        verdict = PASS if pred(value, sha) else bad
                     except Exception:  # noqa: BLE001
                         verdict = UNKNOWN
             items.append({"feature": feature, "rows": rows, "endpoint": endpoint,
@@ -250,10 +261,12 @@ def run(sha: str, *, url: str = PRODUCTION_URL, fetch=None, token: str | None = 
         else:
             value = code if field == "@status" else _dig(body, field)
             if value is None and field != "@status":
-                verdict = UNKNOWN
+                # a warn-only row never escalates past WARN: an advisory a build does not
+                # report yet is degraded evidence, not an unknown that forces containment
+                verdict = WARN if bad == WARN else UNKNOWN
             else:
                 try:
-                    verdict = PASS if pred(value, sha) else FAIL
+                    verdict = PASS if pred(value, sha) else bad
                 except Exception:  # noqa: BLE001
                     verdict = UNKNOWN
         items.append({"feature": feature, "rows": rows, "endpoint": endpoint, "field": field,
@@ -263,7 +276,8 @@ def run(sha: str, *, url: str = PRODUCTION_URL, fetch=None, token: str | None = 
     verdicts = {i["verdict"] for i in items}
     overall = (UNKNOWN if not reachable else FAIL if FAIL in verdicts else
                UNKNOWN if UNKNOWN in verdicts else
-               NEEDS_OPERATOR if NEEDS_OPERATOR in verdicts else PASS)
+               NEEDS_OPERATOR if NEEDS_OPERATOR in verdicts else
+               WARN if WARN in verdicts else PASS)
     import datetime as _dt
 
     return {"sha": sha, "url": url, "verdict": overall, "reachable": reachable,
