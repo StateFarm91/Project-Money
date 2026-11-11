@@ -1,10 +1,23 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-11T05:00Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-11T07:15Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-11T05:00Z (read first)
+## State at 2026-11-11T07:15Z (read first)
+- Open RRs, all waiting on Main:
+  - b4b6c01d, the P1 review fixes on opus2/p1-worker-nightly-stall (6787274305);
+  - 18d9ab28, the L LOWs on opus2/l-followups-2 (6782981520);
+  - 52af7832, the midnight-herd spread on opus2/cadence-spread (worktree opus2-cs, RR on #28).
+- Cadence spread: daily cadences get a stable sha256 offset and key cadence:<name>:s<window>.
+  A one-time legacy guard prevents a double run on the deploy day. Sub-daily keys are
+  unchanged. 5/5 mutants killed; 19 suites green.
+  - Asked Main whether any daily cadence must stay at 00:00Z.
+- OWNER-GATED: readiness_from_export on a production export; Etsy's required property at
+  create time.
+Stop reason: everything is review-requested; waiting on Main's verdicts.
+
+## State at 2026-11-11T05:00Z (superseded)
 - P1 nightly stall: Main's changes-requested 6785727146 on 23d5649c is addressed by
   b4b6c01d on opus2/p1-worker-nightly-stall (worktree opus2-ws), RR 6787274305.
   - handler_long is a degraded basis after 15 min, with a P2 incident raised and resolved
