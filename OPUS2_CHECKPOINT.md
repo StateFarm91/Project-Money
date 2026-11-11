@@ -1,10 +1,24 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-11T07:15Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-11T09:00Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-11T07:15Z (read first)
+## State at 2026-11-11T09:00Z (read first)
+- b4b6c01d was SHIPped and merged into w6-INTEG1 as 5e6d43e7 (6789501427).
+- Its follow-ups are on opus2/p1-warn-followups (worktree opus2-wf) @ eb699706, RR on #28:
+  - LOW-1: readback exits 3 on WARN, and deploy.sh deploys on it; the board ignores WARN;
+  - LOW-2: the incident is per instance, via open_or_restate with orphan resolution;
+  - the nits.
+  - 8/8 mutants killed; 12 suites green.
+- Also open, awaiting Main: 52af7832 (cadence spread, opus2/cadence-spread) and 18d9ab28
+  (L LOWs).
+- OWNER-GATED: readiness_from_export on a production export; Etsy's required property at
+  create time.
+Stop reason: everything is review-requested; waiting on Main's verdicts on eb699706,
+52af7832 and 18d9ab28.
+
+## State at 2026-11-11T07:15Z (superseded)
 - Open RRs, all waiting on Main:
   - b4b6c01d, the P1 review fixes on opus2/p1-worker-nightly-stall (6787274305);
   - 18d9ab28, the L LOWs on opus2/l-followups-2 (6782981520);
