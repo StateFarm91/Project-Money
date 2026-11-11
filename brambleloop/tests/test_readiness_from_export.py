@@ -116,6 +116,55 @@ def test_the_restored_copy_is_deleted_even_when_the_verdict_raises():
         assert not left, left
 
 
+def test_shortfall_keys_match_whole_tokens_only():
+    """Review 6781897314 LOW: `units` / `total_units` are not shortfalls; `unpriced` is."""
+    rehearsal = _load("shadow_rehearsal")
+    plain = rehearsal.why_unmet("every listing has a price", {"total_units": 3, "units": 1})
+    assert plain.startswith("not met: every listing has a price"), plain
+    named = rehearsal.why_unmet("every listing has a price", {"unpriced": ["a@1"], "units": 2})
+    assert named.startswith("unpriced:") and "units" not in named, named
+    for key in ("listings_short_of_frames", "releases_without_search_baseline", "not_checked",
+                "with_only_unusable_assets", "rehearsal_failed"):
+        assert rehearsal._names_a_shortfall(key), key
+    for key in ("units", "total_units", "unique_tags", "funnel", "underlay"):
+        assert not rehearsal._names_a_shortfall(key), key
+
+
+def test_the_engine_is_disposed_on_success_and_on_failure():
+    """Review 6781897314 LOW: the restored database's engine is closed before its directory
+    is removed, whether or not the verdict raises."""
+    from brambleloop.core import continuity
+    from brambleloop.core import db as db_mod
+    from brambleloop.launch import readiness as R
+
+    script = _load("readiness_from_export")
+    disposed = []
+    real_init = db_mod.Database.__init__
+
+    def tracking_init(self, *a, **k):
+        real_init(self, *a, **k)
+        real_dispose = self.engine.dispose
+        self.engine.dispose = lambda *x, **y: (disposed.append(True), real_dispose(*x, **y))
+    with tempfile.TemporaryDirectory() as t:
+        tmp = Path(t)
+        export = tmp / "export.jsonl"
+        continuity.export(_db_with_open_p1(tmp), export)
+        db_mod.Database.__init__ = tracking_init
+        saved = R.transition_verdict
+        try:
+            script.readiness_from_export(export)
+            assert disposed == [True], disposed
+            R.transition_verdict = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("x"))
+            try:
+                script.readiness_from_export(export)
+            except RuntimeError:
+                pass
+            assert disposed == [True, True], disposed
+        finally:
+            db_mod.Database.__init__ = real_init
+            R.transition_verdict = saved
+
+
 def test_a_truncated_export_is_refused_not_judged():
     from brambleloop.core import continuity
 

@@ -234,6 +234,32 @@ def test_the_listing_package_step_never_passes_a_dishonest_package():
 TERMINAL = ("done", "dead", "cancelled")
 
 
+def test_the_search_judgement_reads_the_stored_verdict_and_survives_a_raise():
+    """Review 6781897314 LOW: `_judge_search_certificate` runs outside the try, reads the
+    verdict stored now (not the earlier one), and an unreadable verdict is not a PASS."""
+    m = _rehearsal()
+    src = (ROOT / "scripts" / "shadow_rehearsal.py").read_text()
+    body = src[src.index("def _rehearse("):]
+    assert body.index("except Exception as e:") < body.index("_judge_search_certificate(rec"), \
+        "the search judgement must not be skipped when a step raises"
+
+    class Cir:
+        slug, version = "s", "1.0.0"
+    saved = m._stored_search_verdict
+    try:
+        for stored, defect in (("PASS", False), ("REFUSED", True), (None, True)):
+            m._stored_search_verdict = lambda *_a, _v=stored: _v
+            rec = m.Recorder()
+            m._judge_search_certificate(rec, None, Cir, {"search_profile": {"verdict": "REFUSED"}})
+            assert bool(rec.defects) is defect, (stored, rec.defects)
+        m._stored_search_verdict = lambda *_a: (_ for _ in ()).throw(RuntimeError("db gone"))
+        rec = m.Recorder()
+        m._judge_search_certificate(rec, None, Cir, {"search_profile": {"verdict": "PASS"}})
+        assert rec.defects and "UNREADABLE" in rec.defects[0]["detail"], rec.defects
+    finally:
+        m._stored_search_verdict = saved
+
+
 def test_no_stale_search_defect_after_the_simulated_taxonomy_re_certifies():
     """Review 6775786220 F3: once the simulated taxonomy's listing.seo re-run stores a PASS
     search certificate, `search_certificate_not_pass` is not among the blocking defects."""

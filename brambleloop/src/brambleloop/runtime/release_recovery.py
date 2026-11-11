@@ -304,8 +304,9 @@ def _signal_exhausted(ctx, *, already: list, certified: list) -> None:
 
 def _resolve_exhausted(ctx, *, seeded: list, pending: list) -> None:
     """Review 6773190553 #1: the registry is no longer exhausted (a release was seeded, is
-    waiting for capacity, or its product is already in flight), so an open `catalogue-exhausted:launch0` incident is resolved, with
-    the reason, rather than left open on the Command Center."""
+    waiting for capacity, or its product is already in flight), so an open
+    `catalogue-exhausted:launch0` incident is resolved, with the reason, rather than left
+    open on the Command Center."""
     from sqlalchemy import select
 
     from ..core.models import Incident, utcnow

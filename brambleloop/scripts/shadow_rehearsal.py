@@ -748,6 +748,21 @@ def record_simulated_taxonomy(rec: Recorder, db, state: dict, *, fake_base: str)
         rec.defect("simulated_taxonomy_not_chosen", "commerce/category.publish_inputs",
                    json.dumps({"refresh": refresh, "category": chosen}, default=str)[:600])
 
+def _judge_search_certificate(rec: Recorder, db, cir, state: dict) -> None:
+    if not state.get("search_profile"):
+        return
+    try:
+        final = _stored_search_verdict(db, cir.slug, cir.version)
+    except Exception as e:  # noqa: BLE001 - an unreadable verdict is not a PASS
+        final = f"UNREADABLE ({type(e).__name__})"
+    if final != "PASS":
+        rec.defect("search_certificate_not_pass", "listing_search_profiles.verdict",
+                   f"stored search verdict after the last listing.seo is {final!r} "
+                   f"(after the shadow chain it was "
+                   f"{state['search_profile'].get('verdict')!r}); store.publish's "
+                   f"search_certificate gate requires PASS")
+
+
 def _stored_search_verdict(db, slug: str, version: str):
     """The search certificate verdict as stored now, or None when no profile exists."""
     from sqlalchemy import select
@@ -892,8 +907,16 @@ def explain_readiness(db, *, to: str) -> list[dict]:
 _REASON_KEYS = ("why", "reason", "problems", "missing", "unmet", "blocked", "open",
                 "knockout_problems", "method_blocked_on", "last_probe_reason", "owner_decision",
                 "undetermined", "coverage_gaps", "launch_critical_open", "status", "note")
-_SHORTFALL_MARKS = ("un", "not_", "without", "missing", "with_no", "with_only", "blocked",
-                    "failing", "short", "rehearsal_failed", "releases_without")
+# Whole underscore-separated tokens (review 6781897314 LOW: a bare "un" prefix matched
+# `units` / `total_units`).
+_SHORTFALL_TOKENS = frozenset({
+    "not", "no", "without", "missing", "blocked", "failing", "failed", "short", "only",
+    "unmet", "unpriced", "uncalendared", "unplanned", "unrehearsed", "undetermined",
+    "unchecked", "unusable", "unverified", "unmapped", "unknown", "unresolved"})
+
+
+def _names_a_shortfall(key: str) -> bool:
+    return any(tok in _SHORTFALL_TOKENS for tok in key.lower().split("_"))
 
 
 def _present(value) -> bool:
@@ -909,8 +932,7 @@ def why_unmet(description: str, evidence: dict) -> str:
         if _present(evidence.get(key)):
             return f"{key}: {_digest(evidence[key], 300)}"
     shortfalls = {k: v for k, v in evidence.items()
-                  if any(k.startswith(m) or f"_{m}" in k for m in _SHORTFALL_MARKS)
-                  and _present(v)}
+                  if _names_a_shortfall(k) and _present(v)}
     if shortfalls:
         return "; ".join(f"{k}: {_digest(v, 160)}" for k, v in sorted(shortfalls.items()))[:500]
     facts = _digest(evidence, 300) if evidence else "no evidence recorded"
@@ -1379,22 +1401,16 @@ def _rehearse(tmp: Path, product: str, *, fast: bool, out: Path | None) -> dict:
         seed_catalogue(rec, db, cir.slug)
         edges = record_edges(db, cir.slug, cir.version)
         pub = run_past_shadow(rec, db, state)
-        # Review 6775786220 F3: judged on the STORED verdict after the last listing.seo (the
-        # simulated taxonomy re-runs it), not on the one read before that re-run -- a stale
-        # REFUSED would misstate to freeze_candidate what blocks.
-        if state.get("search_profile"):
-            final = _stored_search_verdict(db, cir.slug, cir.version)
-            if final != "PASS":
-                rec.defect("search_certificate_not_pass", "listing_search_profiles.verdict",
-                           f"stored search verdict after the last listing.seo is {final!r} "
-                           f"(after the shadow chain it was "
-                           f"{state['search_profile'].get('verdict')!r}); store.publish's "
-                           f"search_certificate gate requires PASS")
         run_commerce(rec, db, state, pub.get("draft_listing_id"))
     except Exception as e:  # noqa: BLE001 - the rehearsal records its own breakage
         rec.step("rehearsal", FAILED, expected="every step runs to an outcome",
                  observed=f"{type(e).__name__}: {e}",
                  proof={"traceback": traceback.format_exc()[-3000:]})
+    # Review 6775786220 F3: judged on the STORED verdict after the last listing.seo (the
+    # simulated taxonomy re-runs it), not on the one read before that re-run -- a stale
+    # REFUSED would misstate to freeze_candidate what blocks. Outside the try (review
+    # 6781897314 LOW): a later step that raises does not skip this judgement.
+    _judge_search_certificate(rec, db, cir, state)
     finished = _utc()
     required = ["opportunity", "design", "boot", "cir.compile", "gate.certify", "assets.build", "listing.seo",
                 "listing.package", "catalogue[production-shaped]", "store.publish[shadow]",

@@ -51,10 +51,12 @@ def readiness_from_export(export_path: str | Path, *, to: str = "staging") -> di
 
     with tempfile.TemporaryDirectory(prefix="bl-readiness-") as tmp:
         db = Database(f"sqlite:///{tmp}/restored.sqlite")
-        counts = continuity.restore(export_path, db)
-        verdict = R.transition_verdict(db, to=to)
-        explained = explain_readiness(db, to=to)
-        db.engine.dispose()
+        try:
+            counts = continuity.restore(export_path, db)
+            verdict = R.transition_verdict(db, to=to)
+            explained = explain_readiness(db, to=to)
+        finally:
+            db.engine.dispose()   # review 6781897314 LOW: closed before the directory goes
     return {"source": "continuity export (restored into a temporary database)",
             "restored_rows": sum(counts.values()), "tables": len(counts),
             "to": to, "ready": verdict["ready"], "failing": verdict["failing"],
