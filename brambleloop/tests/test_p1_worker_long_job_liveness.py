@@ -55,14 +55,17 @@ def _db():
 class _Harness:
     """The real `_worker_loop` in a thread, with scaled thresholds and one slow handler."""
 
-    def __init__(self, handler_seconds: float, *, stale_s=1.0, budget_s=3.0):
+    def __init__(self, handler_seconds: float, *, stale_s=1.0, budget_s=3.0, long_s=None,
+                 raises: bool = False):
         self.handler_seconds = handler_seconds
+        self.raises = raises
         self.release = threading.Event()
         self.entered = threading.Event()
         self.saved = (runner.WORKER_TICK_STALE_S, runner.handler_budget_seconds,
                       runner._START_DELAY, runner._IDLE_SLEEP, runner.STATE,
-                      W.handlers.get(JOB_TYPE), W.CADENCES)
+                      W.handlers.get(JOB_TYPE), W.CADENCES, runner.HANDLER_LONG_S)
         runner.WORKER_TICK_STALE_S = stale_s
+        runner.HANDLER_LONG_S = budget_s * 0.6 if long_s is None else long_s
         runner.handler_budget_seconds = lambda: budget_s
         runner._START_DELAY, runner._IDLE_SLEEP = 0.0, 0.05
         runner.STATE = runner.RunnerState(enabled=True)
@@ -70,6 +73,8 @@ class _Harness:
         def slow(ctx):
             self.entered.set()
             self.release.wait(self.handler_seconds)
+            if self.raises:
+                raise RuntimeError("handler failed (review 6785727146 M9)")
             return {"artifact": "slow plan.cycle"}
         W.handlers.register(JOB_TYPE)(slow)
         W.CADENCES = [c for c in W.CADENCES if c[2] == JOB_TYPE]
@@ -98,7 +103,8 @@ class _Harness:
         self.stop.set()
         self.thread.join(timeout=10)
         (runner.WORKER_TICK_STALE_S, runner.handler_budget_seconds, runner._START_DELAY,
-         runner._IDLE_SLEEP, runner.STATE, handler, W.CADENCES) = self.saved
+         runner._IDLE_SLEEP, runner.STATE, handler, W.CADENCES,
+         runner.HANDLER_LONG_S) = self.saved
         if handler is not None:
             W.handlers.register(JOB_TYPE)(handler)
         orch, wake, refill = self.saved_wake
@@ -126,7 +132,7 @@ def test_midnight_windows_all_open_together_whatever_the_boot_time():
 
 
 def test_a_long_nightly_handler_reads_busy_not_dead():
-    h = _Harness(handler_seconds=2.5).start()
+    h = _Harness(handler_seconds=2.5, long_s=2.2).start()
     try:
         assert "daily_review" in h.midnight()
         assert h.entered.wait(10), "the cadence's handler never started"
@@ -152,7 +158,7 @@ def test_a_long_nightly_handler_reads_busy_not_dead():
 
 
 def test_a_handler_past_its_budget_reads_dead():
-    h = _Harness(handler_seconds=30.0, stale_s=0.5, budget_s=1.5).start()
+    h = _Harness(handler_seconds=30.0, stale_s=0.5, budget_s=1.5, long_s=0.8).start()
     try:
         h.midnight()
         assert h.entered.wait(10)
@@ -207,12 +213,141 @@ def test_the_pure_liveness_rules():
     assert st.liveness(now) == (False, "tick_stale")
     w.current = {"job_id": 7, "job_type": JOB_TYPE, "started_at": now - timedelta(seconds=420)}
     assert st.liveness(now) == (True, "handler_running")       # the nightly 7-minute job
+    w.current["started_at"] = now - timedelta(seconds=runner.HANDLER_LONG_S + 1)
+    assert st.liveness(now) == (True, "handler_long")           # alive, degraded
+    assert runner.HANDLER_LONG_S == 15 * 60 < runner.handler_budget_seconds()
     w.current["started_at"] = now - timedelta(seconds=runner.handler_budget_seconds() + 1)
     assert st.liveness(now) == (False, "handler_over_budget")
     w.current = None
     st.worker_last_tick = now
     assert st.liveness(now) == (True, "tick")
     assert runner.RunnerState(enabled=True).liveness(now) == (False, "no_tick")
+
+
+def test_a_handler_past_the_long_threshold_is_handler_long_then_dead_at_the_budget():
+    """Review 6785727146 F1: under the threshold handler_running; past it handler_long
+    (alive, degraded); past the budget dead."""
+    h = _Harness(handler_seconds=30.0, stale_s=0.3, budget_s=2.4, long_s=1.0).start()
+    try:
+        h.midnight()
+        assert h.entered.wait(10)
+        seen = []
+        assert _wait(lambda: (seen.append(runner.STATE.liveness()[1]) or
+                              seen[-1] == "handler_over_budget"), 8), seen
+        order = [b for i, b in enumerate(seen) if i == 0 or seen[i - 1] != b]
+        assert order[-3:] == ["handler_running", "handler_long", "handler_over_budget"], order
+    finally:
+        h.close()
+
+
+def test_the_long_handler_incident_is_raised_once_and_resolved_when_it_finishes():
+    """F1: one open, non-halting P2 incident while the handler is long (restated, never
+    duplicated), resolved -- with the reason -- once the handler is no longer running."""
+    from brambleloop.core.models import Incident
+
+    db = _db()
+
+    class _Wk:
+        current = None
+    wk = _Wk()
+    now = datetime.now(timezone.utc)
+    st = runner.RunnerState(enabled=True, worker_last_tick=now - timedelta(seconds=3000),
+                            worker_ref=wk)
+
+    def rows():
+        with db.session() as s:
+            return [(r.severity, r.resolved, r.halts_publication, (r.detail or {}).get("job_id"),
+                     r.report_count) for r in s.query(Incident).filter(
+                Incident.signature == runner.LONG_HANDLER_SIGNATURE).order_by(Incident.id)]
+    wk.current = {"job_id": 1, "job_type": JOB_TYPE, "started_at": now - timedelta(seconds=60)}
+    assert runner.watch_long_handler(db, st, now) == "none" and rows() == []
+    wk.current["started_at"] = now - timedelta(seconds=runner.HANDLER_LONG_S + 30)
+    assert runner.watch_long_handler(db, st, now) == "raised"
+    assert runner.watch_long_handler(db, st, now) == "kept"
+    assert rows() == [("P2", False, False, 1, 2)], rows()
+    wk.current["started_at"] = now - timedelta(seconds=runner.handler_budget_seconds() + 5)
+    assert runner.watch_long_handler(db, st, now) == "kept"      # over budget: still open
+    wk.current = {"job_id": 2, "job_type": JOB_TYPE,             # a different long job
+                  "started_at": now - timedelta(seconds=runner.HANDLER_LONG_S + 30)}
+    assert runner.watch_long_handler(db, st, now) == "raised"
+    assert [r[1] for r in rows()] == [True, False] and rows()[1][3] == 2, rows()
+    wk.current = None                                            # finished
+    assert runner.watch_long_handler(db, st, now) == "resolved"
+    assert all(r[1] for r in rows()), rows()
+    with db.session() as s:
+        last = s.query(Incident).order_by(Incident.id.desc()).first()
+        assert "no longer running" in last.detail["resolution"], last.detail
+    # the scheduler loop is what calls it (it ticks while the worker is held)
+    src = (ROOT / "src" / "brambleloop" / "app" / "runner.py").read_text()
+    loop = src[src.index("def _scheduler_loop"):src.index("# v1.1 lane I W-3")]
+    assert "watch_long_handler(db)" in loop
+
+
+def test_a_handler_that_raises_clears_current():
+    """Review 6785727146 F3 (M9): the finally clears `current` on a raise too."""
+    h = _Harness(handler_seconds=0.3, raises=True).start()
+    try:
+        h.midnight()
+        assert h.entered.wait(10)
+
+        def failed():
+            with h.db.session() as s:
+                j = s.query(Job).filter(Job.job_type == JOB_TYPE).one()
+                return j.status in (JobStatus.FAILED, JobStatus.DEAD, JobStatus.PENDING) \
+                    and j.attempts >= 1
+        assert _wait(failed), "the raising job never failed"
+        assert _wait(lambda: runner.STATE.busy() is None), runner.STATE.busy()
+        assert getattr(runner.STATE.worker_ref, "current", "missing") is None
+    finally:
+        h.close()
+
+
+def test_in_a_pool_worker_ref_is_worker_zero():
+    """F3 (M4): with more than one pool worker, liveness reads worker 0, never another."""
+    h = _Harness(handler_seconds=0.0)
+
+    class _T:
+        def get(self):
+            return 2
+    stops = [threading.Event(), threading.Event()]
+    try:
+        t1 = threading.Thread(target=runner._worker_loop,
+                              args=(h.db, "worker-p1-1", Phase.SHADOW, stops[1], 1, _T()),
+                              daemon=True)
+        t1.start()
+        time.sleep(0.4)
+        assert runner.STATE.worker_ref is None, runner.STATE.worker_ref
+        t0 = threading.Thread(target=runner._worker_loop,
+                              args=(h.db, "worker-p1-0", Phase.SHADOW, stops[0], 0, _T()),
+                              daemon=True)
+        t0.start()
+        assert _wait(lambda: runner.STATE.worker_ref is not None)
+        assert runner.STATE.worker_ref.name == "worker-p1-0", runner.STATE.worker_ref.name
+        time.sleep(0.3)
+        assert runner.STATE.worker_ref.name == "worker-p1-0"
+    finally:
+        for e in stops:
+            e.set()
+        h.stop.set()
+        h.thread = t0
+        h.close()
+        t1.join(timeout=10)
+
+
+def test_the_tick_threshold_can_only_be_tightened_by_the_environment():
+    """Review 6785727146 F2: BRAMBLELOOP_WORKER_TICK_STALE_S cannot loosen 120 s."""
+    import importlib
+    import subprocess
+
+    code = ("import os;os.environ['BRAMBLELOOP_WORKER_TICK_STALE_S']='{v}';"
+            "from brambleloop.app import runner;print(runner.WORKER_TICK_STALE_S)")
+    for value, expect in (("9999", 120.0), ("30", 30.0)):
+        out = subprocess.run([sys.executable, "-c", code.format(v=value)], capture_output=True,
+                             text=True, env={**os.environ, "PYTHONPATH": str(ROOT / "src")},
+                             timeout=120)
+        assert float(out.stdout.strip().splitlines()[-1]) == expect, (value, out.stdout,
+                                                                      out.stderr[-400:])
+    importlib.invalidate_caches()
 
 
 if __name__ == "__main__":

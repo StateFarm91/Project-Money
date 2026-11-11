@@ -103,8 +103,14 @@ class RunnerState:
                 (now - self.worker_last_tick).total_seconds() < WORKER_TICK_STALE_S:
             return True, "tick"
         b = self.busy(now)
-        if b is not None and b["seconds"] < handler_budget_seconds():
+        if b is not None and b["seconds"] < HANDLER_LONG_S:
             return True, "handler_running"
+        if b is not None and b["seconds"] < handler_budget_seconds():
+            # review 6785727146 F1: still alive, but degraded -- a handler this long may be
+            # hung (a deadlock, a call with no timeout), and nothing else would say so within
+            # the hour. Surfaced: /health basis, an advisory /api/verify check, a P2 incident
+            # raised once by the scheduler loop (watch_long_handler), a readback WARN.
+            return True, "handler_long"
         if b is not None:
             return False, "handler_over_budget"
         return False, "no_tick" if self.worker_last_tick is None else "tick_stale"
@@ -161,8 +167,64 @@ class RunnerState:
         return age < startup_grace_seconds()
 
 
-# A tick older than this, with no handler running, is a dead worker.
-WORKER_TICK_STALE_S = float(os.environ.get("BRAMBLELOOP_WORKER_TICK_STALE_S", "120"))
+# A tick older than this, with no handler running, is a dead worker. Review 6785727146 F2:
+# the environment may only tighten it, never loosen it past 120 s.
+_TICK_STALE_CEILING_S = 120.0
+WORKER_TICK_STALE_S = min(_TICK_STALE_CEILING_S, float(
+    os.environ.get("BRAMBLELOOP_WORKER_TICK_STALE_S", str(_TICK_STALE_CEILING_S))))
+
+# A handler running longer than this is `handler_long`: alive, degraded, and signalled.
+HANDLER_LONG_S = 15 * 60.0
+LONG_HANDLER_SIGNATURE = "worker0-handler-long"
+
+
+def watch_long_handler(db: Database, state: "RunnerState | None" = None, now=None) -> str:
+    """Review 6785727146 F1: raise ONE open, non-halting P2 incident while worker 0's handler
+    is `handler_long` or past its budget, and resolve it once that handler is no longer
+    running. Called from the scheduler loop, which ticks while the worker is held. Returns
+    what it did ("raised", "kept", "resolved", "none"); never raises."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident, utcnow
+
+    st = state or STATE
+    try:
+        alive, basis = st.liveness(now)
+        b = st.busy(now)
+        long_job = b if basis in ("handler_long", "handler_over_budget") and b else None
+        with db.session() as s:
+            open_rows = list(s.scalars(select(Incident).where(
+                Incident.signature == LONG_HANDLER_SIGNATURE, Incident.resolved.is_(False))))
+            done = "none"
+            for row in open_rows:
+                if long_job is None or (row.detail or {}).get("job_id") != long_job["job_id"]:
+                    row.resolved = True
+                    row.detail = {**(row.detail or {}), "resolved_at": utcnow().isoformat(),
+                                  "resolution": "the handler is no longer running"}
+                    done = "resolved"
+            still = [r for r in open_rows if not r.resolved]
+            if long_job is not None and not still:
+                s.add(Incident(severity="P2", product_slug=None,
+                               signature=LONG_HANDLER_SIGNATURE, halts_publication=False,
+                               summary=(f"worker 0 has run {long_job['job_type']} (job "
+                                        f"{long_job['job_id']}) for {long_job['seconds']:.0f} s, "
+                                        f"past {HANDLER_LONG_S:.0f} s: possibly hung; it reads "
+                                        f"dead at {handler_budget_seconds():.0f} s"),
+                               detail={"job_id": long_job["job_id"],
+                                       "job_type": long_job["job_type"],
+                                       "started_at": long_job["started_at"],
+                                       "basis": basis}))
+                done = "raised"
+            elif still:
+                for r in still:
+                    r.report_count = (r.report_count or 1) + 1
+                    r.detail = {**(r.detail or {}), "seconds": long_job["seconds"],
+                                "basis": basis}
+                done = "kept"
+        return done
+    except Exception:  # noqa: BLE001 - the watch must never stop the scheduler
+        log.exception("long-handler watch failed")
+        return "none"
 
 
 def handler_budget_seconds() -> float:
@@ -342,6 +404,7 @@ def _scheduler_loop(db: Database, stop: threading.Event) -> None:
             STATE.scheduler_last_tick = _now()
             STATE.scheduler_last_enqueued = list(enqueued)
             _scheduler_heartbeat(db, list(enqueued))
+            watch_long_handler(db)
             if enqueued:
                 log.info("enqueued cadences: %s", ", ".join(enqueued))
         except Exception as e:  # noqa: BLE001

@@ -112,7 +112,9 @@ def test_stale_cadences_and_a_stopped_queue_fail():
 def _prod_bodies(sha=SHA, **over):
     verify = {"ok": True, "checks": [{"check": n, "ok": True} for n in (
         "phase_is_shadow", "nothing_published", "publication_was_actually_attempted_and_refused",
-        "no_unexpected_dead_letters_in_24h", "every_agent_has_a_cost_ceiling")]}
+        "no_unexpected_dead_letters_in_24h", "every_agent_has_a_cost_ceiling",
+        # P1 6783107211: the advisory long-handler check (readback WARN when false)
+        "worker_handler_within_expected_time")]}
     bodies = {
         "/health": (200, {"build": {"commit": sha, "known": True},
                           "runner": {"worker_alive": True}}),
