@@ -1187,6 +1187,55 @@ def boot_deferred_run_after(job_type: str, now, *, started_at=None):
     return until if now < until else None
 
 
+# P1 6783107211 follow-up (the midnight herd): every cadence used to key its window as
+# floor(epoch / period), so all ~50 daily windows opened at 00:00:00Z together and the single
+# embedded worker drained them back to back. A cadence whose period is a day or more now
+# opens its window at a stable per-cadence offset inside the period, so the burst is spread
+# across the day. Sub-daily cadences are unchanged.
+SPREAD_MIN_PERIOD = 24 * 60 * 60
+SPREAD_KEY_MARK = "s"
+
+
+def cadence_offset(name: str, period: int) -> int:
+    """Seconds into the period at which this cadence's window opens: stable across processes
+    and deploys (a hash of the name), 0 for sub-daily cadences."""
+    if period < SPREAD_MIN_PERIOD:
+        return 0
+    import hashlib
+
+    return int(hashlib.sha256(name.encode()).hexdigest(), 16) % period
+
+
+def cadence_key(name: str, period: int, now) -> str:
+    """The idempotency key of this cadence's current window."""
+    offset = cadence_offset(name, period)
+    window = int((now.timestamp() - offset) // period)
+    if period < SPREAD_MIN_PERIOD:
+        return f"cadence:{name}:{window}"
+    return f"cadence:{name}:{SPREAD_KEY_MARK}{window}"
+
+
+# One check per (database, cadence, window) per process: did this cadence already run within
+# the last period under the LEGACY key (before the spread)? Only that one-time transition can
+# double-run a cadence, so only that is guarded; spread windows are deduplicated by their key.
+_LEGACY_RAN: dict[tuple, bool] = {}
+
+
+def _legacy_ran_recently(db, name: str, period: int, now, key: str) -> bool:
+    cache_key = (str(db.engine.url), name, key)
+    if cache_key in _LEGACY_RAN:
+        return _LEGACY_RAN[cache_key]
+    since = now - timedelta(seconds=period)
+    legacy = [f"cadence:{name}:{d}%" for d in "-0123456789"]
+    with db.session() as s:
+        latest = s.scalar(select(Job.created_at).where(
+            or_(*[Job.idempotency_key.like(p) for p in legacy]),
+            Job.created_at >= since).order_by(Job.created_at.desc()).limit(1))
+    ran = latest is not None
+    _LEGACY_RAN[cache_key] = ran
+    return ran
+
+
 class Scheduler:
     def __init__(self, db: Database):
         self.db = db
@@ -1254,6 +1303,7 @@ class Scheduler:
         enqueued: list[str] = []
         self.failures: dict[str, str] = {}
         self.blocked_skipped: dict[str, str] = {}
+        self.transition_skipped: dict[str, str] = {}
         # #34: a loop the thrash breaker suspended, or a poll it backed off, is not re-enqueued
         # by the next cadence window.
         try:
@@ -1280,8 +1330,14 @@ class Scheduler:
                 continue
             attempted += 1
             try:
-                window = int(now.timestamp() // period)
-                key = f"cadence:{name}:{window}"
+                key = cadence_key(name, period, now)
+                if period >= SPREAD_MIN_PERIOD and \
+                        _legacy_ran_recently(self.db, name, period, now, key):
+                    # the transition window: this cadence already ran this period under the
+                    # pre-spread key, so this first spread window is not a second run
+                    self.transition_skipped[name] = key
+                    ok += 1
+                    continue
                 # The job type's band (#187), not how often it happens to be scheduled.
                 self.queue.enqueue(agent, job_type, {"cadence": name}, idempotency_key=key,
                                    priority=priority_for(job_type),
