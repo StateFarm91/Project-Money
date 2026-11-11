@@ -328,6 +328,24 @@ def test_two_replicas_never_resolve_each_others_long_handler_incident():
         assert "stopped restating" in orphan.detail["resolution"], orphan.detail
 
 
+def test_a_legacy_bare_signature_row_is_resolved_as_superseded():
+    """Review 6791709875 nit 1: the bare `worker0-handler-long` row the pre-instance builds
+    wrote (left by a rollback) is resolved, never kept open forever."""
+    from brambleloop.core.models import Incident
+
+    db = _db()
+    with db.session() as s:
+        s.add(Incident(severity="P2", signature=runner.LONG_HANDLER_SIGNATURE, summary="old",
+                       halts_publication=False, detail={"job_id": 1}))
+    st = runner.RunnerState(enabled=True, worker_name="web-9",
+                            worker_last_tick=datetime.now(timezone.utc))
+    assert runner.watch_long_handler(db, st) == "resolved"
+    with db.session() as s:
+        row = s.query(Incident).filter(
+            Incident.signature == runner.LONG_HANDLER_SIGNATURE).one()
+        assert row.resolved is True and "superseded" in row.detail["resolution"], row.detail
+
+
 def test_a_handler_that_raises_clears_current():
     """Review 6785727146 F3 (M9): the finally clears `current` on a raise too."""
     h = _Harness(handler_seconds=0.3, raises=True).start()

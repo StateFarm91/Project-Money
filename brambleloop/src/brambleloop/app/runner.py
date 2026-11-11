@@ -204,7 +204,7 @@ def watch_long_handler(db: Database, state: "RunnerState | None" = None, now=Non
     "kept", "resolved", "none"); never raises."""
     from datetime import datetime as _dt, timezone as _tz
 
-    from sqlalchemy import select
+    from sqlalchemy import or_, select
 
     from ..core.models import Incident, utcnow
     from ..ops.incident_lifecycle import open_or_restate
@@ -219,7 +219,8 @@ def watch_long_handler(db: Database, state: "RunnerState | None" = None, now=Non
         done = "none"
         with db.session() as s:
             rows = list(s.scalars(select(Incident).where(
-                Incident.signature.like(f"{LONG_HANDLER_SIGNATURE}:%"),
+                or_(Incident.signature.like(f"{LONG_HANDLER_SIGNATURE}:%"),
+                    Incident.signature == LONG_HANDLER_SIGNATURE),
                 Incident.resolved.is_(False))))
 
             def resolve(row, why):
@@ -228,6 +229,12 @@ def watch_long_handler(db: Database, state: "RunnerState | None" = None, now=Non
                               "resolution": why}
 
             for row in rows:
+                if row.signature == LONG_HANDLER_SIGNATURE:
+                    # review 6791709875 nit 1: the bare, pre-instance signature (23d5649c ..
+                    # 5e6d43e7) can only be left over from a rollback to one of those builds
+                    resolve(row, "superseded: the long-handler incident is now per instance")
+                    done = "resolved"
+                    continue
                 if row.signature == mine:
                     if long_job is None or (row.detail or {}).get("job_id") != long_job["job_id"]:
                         resolve(row, "the handler is no longer running")

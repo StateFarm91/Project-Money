@@ -16,7 +16,7 @@ the environment variable BRAMBLELOOP_READBACK_TOKEN (never printed, never an arg
 prints the evidence and judges each item PASS / FAIL / UNKNOWN; UNKNOWN (no token, an
 unreadable section, a missing field) is never a pass.
 
-Exit codes: 0 every feature PASS; 3 every feature read back but some only WARN (degraded, a
+Exit codes: 0 every feature PASS; 10 every feature read back but some only WARN (degraded, a
 success: ops/deploy.sh deploys on it); 5 any FAIL or UNKNOWN (UNKNOWN is never a pass); 4 production
 unreachable; 2 usage. Read-only GETs; never deploys, never POSTs, never calls Railway.
 A status-code readback (e.g. a gated route answers 401) proves the route exists and is gated
@@ -53,7 +53,10 @@ NEEDS_OPERATOR = "NEEDS_OPERATOR"
 # `WARN_ONLY` reads WARN where it would otherwise read FAIL.
 WARN = "WARN"
 WARN_ONLY = "warn"
-WARN_EXIT = 3       # every feature read back, some WARN only: a success (ops/deploy.sh)
+# every feature read back, some WARN only: a success (ops/deploy.sh). Review 6791709875 nit 3:
+# distinct from every code this script and ops/deploy.sh already use (deploy.sh's own 3 is
+# "NO DEPLOY"; readback's 4 unreachable, 5 not done).
+WARN_EXIT = 10
 
 
 def _dig(body, path: str):

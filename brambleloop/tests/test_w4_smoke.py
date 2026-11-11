@@ -8,6 +8,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import threading
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -220,13 +221,14 @@ def _git(repo, *args):
                           capture_output=True, text=True, check=True)
 
 
-def _deploy_with_readback(make_bodies):
+def _deploy_with_readback(make_bodies, extra_env=None, after_start=None):
     base = Path(tempfile.mkdtemp(prefix="smoke-deploy-"))
     origin, repo = base / "origin.git", base / "repo"
     subprocess.run(["git", "init", "-q", "--bare", str(origin)], check=True)
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
     (repo / "ops").mkdir()
-    for name in ("deploy.sh", "verify_deploy.py", "readback.py"):
+    # rollback_decision.py: deploy.sh's F-381 containment decision and its re-read path
+    for name in ("deploy.sh", "verify_deploy.py", "readback.py", "rollback_decision.py"):
         (repo / "ops" / name).write_bytes((OPS / name).read_bytes())
     (repo / "ops" / "deploy_guard.py").write_text("import sys; sys.exit(0)\n")
     (repo / "ops" / "deployed_sha.py").write_text("print('0' * 40)\n")
@@ -235,11 +237,14 @@ def _deploy_with_readback(make_bodies):
     _git(repo, "commit", "-q", "-m", "init")
     _git(repo, "remote", "add", "origin", str(origin))
     head = _git(repo, "rev-parse", "HEAD").stdout.strip()
-    srv = _serve(make_bodies(head))
+    bodies = make_bodies(head)
+    srv = _serve(bodies)
+    if after_start is not None:
+        after_start(head, bodies)
     try:
         env = dict(os.environ, BRAMBLELOOP_PRODUCTION_URL=f"http://127.0.0.1:{srv.server_port}",
                    BRAMBLELOOP_OPS_TOKEN=OPS_TOKEN,
-                   DEPLOY_VERIFY_TIMEOUT="2", DEPLOY_VERIFY_INTERVAL="0.2")
+                   DEPLOY_VERIFY_TIMEOUT="2", DEPLOY_VERIFY_INTERVAL="0.2", **(extra_env or {}))
         return head, subprocess.run(["sh", "ops/deploy.sh"], cwd=repo, env=env,
                                     capture_output=True, text=True, timeout=120)
     finally:
@@ -270,6 +275,44 @@ def test_deploy_sh_deploys_on_a_warn_only_readback():
     assert warn.returncode == 0, (warn.stdout, warn.stderr)
     assert f"DEPLOYED {head} (readback WARN" in warn.stdout, warn.stdout
     assert "did not pass" not in warn.stderr, warn.stderr
+
+
+def test_deploy_sh_re_read_after_a_p0_first_read_deploys_on_warn():
+    """Review 6791709875 nit 2: the first read shows a P0 (the worker reads dead: a cold
+    start), so deploy.sh re-reads after READBACK_RETRY_S; the re-read is WARN only -- a
+    successful deploy on the re-read path, never a rollback."""
+    rb_json = Path(tempfile.mkdtemp(prefix="smoke-reread-")) / "rb.json"
+
+    def first(h):
+        b = _prod_bodies(sha=h)
+        health = dict(b["/health"][1])
+        health["runner"] = {"worker_alive": False}            # P0: embedded worker alive
+        return {**b, "/health": (200, health)}
+
+    def warn_bodies(h):
+        b = _prod_bodies(sha=h)
+        code, verify = b["/api/verify"]
+        checks = [{**c, "ok": False} if c["check"] == "worker_handler_within_expected_time"
+                  else c for c in verify["checks"]]
+        return {**b, "/api/verify": (code, {**verify, "checks": checks})}
+
+    def swap_after_first_read(head, bodies):
+        def run():
+            end = time.time() + 60
+            while time.time() < end and not rb_json.exists():
+                time.sleep(0.05)
+            bodies.update(warn_bodies(head))                  # production warms up
+        threading.Thread(target=run, daemon=True).start()
+
+    head, out = _deploy_with_readback(first, extra_env={"READBACK_JSON": str(rb_json),
+                                                        "READBACK_RETRY_S": "2"},
+                                      after_start=swap_after_first_read)
+    assert out.returncode == 0, (out.stdout, out.stderr)
+    assert f"DEPLOYED {head} (readback WARN on re-read" in out.stdout, (out.stdout, out.stderr)
+    # the first read's P0 decided ROLLBACK, which is what triggers the re-read; the re-read
+    # being WARN, nothing is rolled back and no rollback command is issued
+    assert "rollback_decision: ROLLBACK" in out.stderr, out.stderr
+    assert "rolling back to" not in out.stderr and "roll back with" not in out.stderr, out.stderr
 
 
 def test_the_smoke_route_is_public_read_only_and_never_200_unless_pass():

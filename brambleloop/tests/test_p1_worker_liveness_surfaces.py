@@ -151,7 +151,8 @@ def test_readback_reads_a_false_advisory_as_warn_and_rollback_does_not_contain_o
 
 def test_a_warn_only_readback_is_not_undone_and_exits_with_its_own_success_code():
     """Review 6789501427 LOW-1: WARN rows are listed as warnings, not `not_done`; the CLI
-    exits WARN_EXIT (3), which ops/deploy.sh deploys on."""
+    exits WARN_EXIT (10, distinct from deploy.sh's own "NO DEPLOY" 3), which ops/deploy.sh
+    deploys on."""
     import test_w4_smoke as smoke_t
 
     def healthy(advisory_ok):
@@ -172,13 +173,13 @@ def test_a_warn_only_readback_is_not_undone_and_exits_with_its_own_success_code(
     saved = readback.run
     readback.run = lambda *a, **k: out
     try:
-        assert readback.main(["--sha", "a" * 40]) == readback.WARN_EXIT == 3
+        assert readback.main(["--sha", "a" * 40]) == readback.WARN_EXIT == 10
         readback.run = lambda *a, **k: clean
         assert readback.main(["--sha", "a" * 40]) == 0
     finally:
         readback.run = saved
     sh = (ROOT.parent / "ops" / "deploy.sh").read_text()
-    assert sh.count('[ "$rb" -eq 3 ]') == 2, "deploy.sh must accept WARN on both reads"
+    assert sh.count('[ "$rb" -eq 10 ]') == 2, "deploy.sh must accept WARN on both reads"
 
 
 def test_etsy_exercise_counts_an_advisory_as_a_warning_not_a_failure():
