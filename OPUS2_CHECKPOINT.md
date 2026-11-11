@@ -1,10 +1,26 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-11T10:45Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-11T11:40Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-11T10:45Z (read first)
+## State at 2026-11-11T11:40Z (read first)
+- Main's certification of 64547be5 FAILED on stale tests. Two were my P1 misses:
+  - the verify check-list pin in test_etsy_oauth_callback;
+  - suite_final_segment declarations for the clock-sensitive p1 suites.
+  Main fixed them in 93eb5106, which is on INTEG1; a fresh certification follows.
+  Run nothing on Main's machine during it.
+- LESSON, standing rule: a change that adds a /api/verify check, or a test file using sleep,
+  timeout= or now(), also runs test_etsy_oauth_callback.py and test_w4_resume_runner.py
+  before its RR.
+- opus2/cadence-spread @ b23d92a1 (93eb5106 merged in): resume_runner, oauth_callback and
+  cadence_spread are green. RR 6793458835 is queued behind certification.
+- 18d9ab28 (L LOWs) is still RR 6782981520.
+- OWNER-GATED: readiness_from_export on a production export; Etsy's required property at
+  create time.
+Stop reason: everything is review-requested; waiting on Main's verdicts after certification.
+
+## State at 2026-11-11T10:45Z (superseded)
 - eb699706 was SHIPped and merged into w6-INTEG1 as 64547be5 (6791709875). Main is running
   full certification on 64547be5; don't ask for reviews that run suites on its machine.
 - opus2/cadence-spread (worktree opus2-cs) @ 90f90220, RR on #28, holds three commits:
