@@ -1,66 +1,71 @@
 {
- "kind": "brambleloop.deployed_history",
- "note": "Commits that have run in production, oldest first. A sanctioned rollback (ops/deploy_guard.py rollback-commit, ops/ROLLBACK_RUNBOOK.md) may only target a SHA listed here. Append an entry after every verified deploy (production /api/status build.commit). Tracked so it is reviewed; never edited to make a rollback pass.",
- "deployed": [
-  {
-   "sha": "fcb982d57e291c88d9f78eaa091e90904b6c2cc9",
-   "observed": "2026-10-06",
-   "evidence": "brambleloop/research/final_build/CANDIDATE_3be3096.json matrix.basis.production; research/final_build/POSTGRES_MIGRATION_EVIDENCE.md (production fcb982d schema)"
-  },
-  {
-   "sha": "0417f3516f30bb7c52926187fc475a0f46536e86",
-   "observed": "2026-10-11T14:39:50Z",
-   "evidence": "production GET /health build.commit 0417f3516f30 known:true, branch claude/repository-setup-nc9x6o; /api/status boot_guard enforced:true ok:true record RELEASE_5dfd1ac56ba4a5e64c3cd29fd92212d9cdfadd8c.json tree_sha256 30a4dc93; runner worker_started_at 2026-10-11T13:59:48Z (brambleloop/research/final_build/w4/evidence_FMGATE_0417f35/prod_health_20261011T1439Z.json)"
-  },
-  {
-   "sha": "c498888e30829812794484f8a63653e93f0b616e",
-   "observed": "2026-10-12",
-   "evidence": "owner-approved deploy 2026-10-12, Railway deployment dba8a65f; production /health build.commit c498888e30829812794484f8a63653e93f0b616e known=true at 14:33:21Z"
-  },
-  {
-   "sha": "7bbbe72e205bd922297c398e0cce7e714479eeed",
-   "observed": "2026-10-12",
-   "evidence": "owner-approved hotfix deploy 2026-10-12 (Laura briefing truncation fix + Etsy shop binding), Railway deployment b02e9241; fresh backup brambleloop_prod_20261012T173525Z.dump restore_ok before deploy; production /health build.commit 7bbbe72e205bd922297c398e0cce7e714479eeed known=true at ~17:42Z"
-  },
-  {
-   "sha": "1b21e81c6d1b228a93f72be44cfdf8193740b61b",
-   "observed": "2026-10-19",
-   "evidence": "owner-approved release of tested candidate a25a3774 (+record commit); pre-deploy backup brambleloop_prod_20261019T123853Z.dump restore_ok; /health build.commit 1b21e81 known=true 12:43Z; worker alive, SHADOW, nothing published"
-  },
-  {
-   "sha": "b931d17a738d6a5bcd96580f620069b669ca5f57",
-   "observed": "2026-10-20T03:49Z",
-   "evidence": "owner-approved deploy 2026-10-20 ('approve b931d17'); pre-deploy backup brambleloop_prod_20261020T034535Z.dump 400678877 B sha256 73532964 restore_ok 133 tables 142931 rows; ops/deploy.sh pushed 1b21e81..b931d17; production /health build.commit b931d17a738d known:true; /api/status boot_guard enforced ok record RELEASE_324927f1003808dd07a14b0cb0bce29e5c7d7cbc.json; worker_started_at 2026-10-20T03:48:42Z alive restarts 0; readback 10/12 PASS, the 2 FAILs were worker still starting (alive at 03:49) and 5 creative.reference_reading dead letters from the previous build (last 00:10:59Z, before deploy)"
-  },
-  {
-   "sha": "15800536290bce6b3c85dbfcf460ff0b63a4329a",
-   "observed": "2026-10-21T04:43Z",
-   "evidence": "owner-approved deploy 2026-10-21 ('Approve deployment of 15800536...' plus explicit approval of running sh ops/deploy.sh); source tree b997efd, suite 20261021T002000Z-11418 674 suites 9025 passing 0 failing; independent review 84deb4b NO BLOCKER; pre-deploy backup brambleloop_prod_20261021T043521Z.dump 408769615 B sha256 3a0adfe3 restore_ok 135 tables 152469 rows (volume resized to 5000 MB, Hobby max, 843M free, 11 dumps kept); ops/deploy.sh pushed b931d17..15800536; production /health build.commit 15800536 known:true; boot_guard enforced ok record RELEASE_b997efda...json; readback 10/12 PASS at first poll, the 2 FAILs were worker still starting (alive at 04:43:33Z, restarts 0, scheduler ticked 04:45:01Z) and pre-existing gallery_analysis dead letters from 2026-10-20T08:06Z (age out 2026-10-21T08:06Z); phase shadow, nothing published, spend CA$65.10/100; experiment run and credentials routes 401 unauthenticated; /api/departments 200 (was 500). [Reconciled by INTEG5/Batch 2 with INTEG4's record 1eaf0f44, so the entry is not duplicated.]"
-  },
-  {
-   "sha": "051dbee286077fa760858701e32e385af34c8bd9",
-   "observed": "2026-10-26T13:59Z",
-   "evidence": "owner-approved deploy 2026-10-26 of the listings release (suite SHA 09acd425, full suite 20261026T084131Z-7491: 9112 passing, 0 failing; release record RELEASE_09acd425...json). Pre-deploy backup brambleloop_prod_20261026T135254Z.dump, 445278944 B, sha256 4681d3f5, restore_ok, 140 tables, 199417 rows, 419 MB free afterwards. Pre-deploy deploy_guard ALLOW and rollback rehearsal ALLOW. ops/deploy.sh pushed 15800536..051dbee2. Production /health build.commit 051dbee2; worker up 13:59:11Z, alive 14:00:06Z; readback.py PASS 12/12; /api/verify ok 13/13 (as reported by the operator session). W-INTEG5 re-read build.commit 051dbee286077fa760858701e32e385af34c8bd9 at 2026-10-26T16:2xZ."
-  },
-  {
-   "sha": "b2e49455ca0e93006752ced16cfe3af0cae86860",
-   "observed": "2026-10-26T21:50Z",
-   "evidence": "owner-approved deploy of SECPATCH (suite SHA 4ff953da, full suite 20261026T172357Z-3395: 9125 passing, 0 failing; independent review: ship yes). Readback 11/12; the one FAIL is the pre-existing improve.weekly dead letter, which PRODFIX2 fixes. The anonymous-exposure check is clean (as reported by the operator session). W-INTEG5 re-read the production build.commit with ops/deployed_sha.py."
-  },
-  {
-   "sha": "ee35a493dfd817bd105455091af601a3aa86eb9c",
-   "observed": "2026-10-27T16:06Z",
-   "evidence": "owner-approved deploy of the combined release (suite SHA 2aeb177f, full suite 20261027T104727Z-259: 9673 passing, 0 failing; independent review 46ed8b47 SHIP). Pre-deploy backup 20261027T160323Z restore_ok, 142 tables. Guard ALLOW, rehearsal ALLOW. Railway deployment 5e04aa22 SUCCESS. Readback 11/12; no_unexpected_dead_letters_in_24h is false, cause not publicly readable (as reported by the coordinator)."
-  },
-  {
-   "sha": "0967c3eee287d06cad0d8034a99e39076c0ab6d5",
-   "observed": "2026-11-02T03:31Z",
-   "evidence": "owner-approved deploy of Batch 4 (\"APPROVE DEPLOY 0967c3eee287d06cad0d8034a99e39076c0ab6d5\", 2026-11-02; suite SHA d230e8fd, full suite 20261101T080736Z-18171: 10122 passing, 0 failing; release record fa139a78). Pre-release backup brambleloop_prod_20261102T032745Z.dump, 497732160 B, sha256 9d94e242, BK restore_ok, 144 tables, 262123 rows. ops/deploy.sh --deployed ee35a493: guard ALLOW, rollback rehearsal ALLOW; pushed ee35a493..0967c3ee; /health build.commit 0967c3ee after 63.6 s. Readback evidence research/final_build/w4/evidence_BOARD/prod_readback_0967c3eee287_20261102T0331Z.json (decision FIX_FORWARD, P1 only). Recorded late (2026-11-02, Batch 5 release preparation): the entry was missing, which made the Batch 5 rollback rehearsal refuse; production /health still reports build.commit 0967c3ee at 2026-11-02T20:29Z."
-  },
-  {
-   "sha": "705725a3f0b2aa9910153d99b9d4389405199152",
-   "observed": "2026-11-07T07:37Z",
-   "evidence": "owner exact-SHA approval 2026-11-07 (Main channel). Batch 5 release record over suite tree 5ba84bf7 (full suite 20261102T164117Z-1487: 10384 passing, 0 suites failing). Pre-deploy backup brambleloop_prod_20261107T072926Z.dump restore_ok, 147 tables, 319915 rows, BK RESULT OK. Guard ALLOW, rollback rehearsal to 0967c3ee ALLOW. /health build 705725a3, worker alive; /api/verify 13/13; readback smoke PASS, 6 NEEDS_OPERATOR (operator-gated endpoints), rollback_decision FIX_FORWARD."
-  }
- ]
+  "kind": "brambleloop.deployed_history",
+  "note": "Commits that have run in production, oldest first. A sanctioned rollback (ops/deploy_guard.py rollback-commit, ops/ROLLBACK_RUNBOOK.md) may only target a SHA listed here. Append an entry after every verified deploy (production /api/status build.commit). Tracked so it is reviewed; never edited to make a rollback pass.",
+  "deployed": [
+    {
+      "sha": "fcb982d57e291c88d9f78eaa091e90904b6c2cc9",
+      "observed": "2026-10-06",
+      "evidence": "brambleloop/research/final_build/CANDIDATE_3be3096.json matrix.basis.production; research/final_build/POSTGRES_MIGRATION_EVIDENCE.md (production fcb982d schema)"
+    },
+    {
+      "sha": "0417f3516f30bb7c52926187fc475a0f46536e86",
+      "observed": "2026-10-11T14:39:50Z",
+      "evidence": "production GET /health build.commit 0417f3516f30 known:true, branch claude/repository-setup-nc9x6o; /api/status boot_guard enforced:true ok:true record RELEASE_5dfd1ac56ba4a5e64c3cd29fd92212d9cdfadd8c.json tree_sha256 30a4dc93; runner worker_started_at 2026-10-11T13:59:48Z (brambleloop/research/final_build/w4/evidence_FMGATE_0417f35/prod_health_20261011T1439Z.json)"
+    },
+    {
+      "sha": "c498888e30829812794484f8a63653e93f0b616e",
+      "observed": "2026-10-12",
+      "evidence": "owner-approved deploy 2026-10-12, Railway deployment dba8a65f; production /health build.commit c498888e30829812794484f8a63653e93f0b616e known=true at 14:33:21Z"
+    },
+    {
+      "sha": "7bbbe72e205bd922297c398e0cce7e714479eeed",
+      "observed": "2026-10-12",
+      "evidence": "owner-approved hotfix deploy 2026-10-12 (Laura briefing truncation fix + Etsy shop binding), Railway deployment b02e9241; fresh backup brambleloop_prod_20261012T173525Z.dump restore_ok before deploy; production /health build.commit 7bbbe72e205bd922297c398e0cce7e714479eeed known=true at ~17:42Z"
+    },
+    {
+      "sha": "1b21e81c6d1b228a93f72be44cfdf8193740b61b",
+      "observed": "2026-10-19",
+      "evidence": "owner-approved release of tested candidate a25a3774 (+record commit); pre-deploy backup brambleloop_prod_20261019T123853Z.dump restore_ok; /health build.commit 1b21e81 known=true 12:43Z; worker alive, SHADOW, nothing published"
+    },
+    {
+      "sha": "b931d17a738d6a5bcd96580f620069b669ca5f57",
+      "observed": "2026-10-20T03:49Z",
+      "evidence": "owner-approved deploy 2026-10-20 ('approve b931d17'); pre-deploy backup brambleloop_prod_20261020T034535Z.dump 400678877 B sha256 73532964 restore_ok 133 tables 142931 rows; ops/deploy.sh pushed 1b21e81..b931d17; production /health build.commit b931d17a738d known:true; /api/status boot_guard enforced ok record RELEASE_324927f1003808dd07a14b0cb0bce29e5c7d7cbc.json; worker_started_at 2026-10-20T03:48:42Z alive restarts 0; readback 10/12 PASS, the 2 FAILs were worker still starting (alive at 03:49) and 5 creative.reference_reading dead letters from the previous build (last 00:10:59Z, before deploy)"
+    },
+    {
+      "sha": "15800536290bce6b3c85dbfcf460ff0b63a4329a",
+      "observed": "2026-10-21T04:43Z",
+      "evidence": "owner-approved deploy 2026-10-21 ('Approve deployment of 15800536...' plus explicit approval of running sh ops/deploy.sh); source tree b997efd, suite 20261021T002000Z-11418 674 suites 9025 passing 0 failing; independent review 84deb4b NO BLOCKER; pre-deploy backup brambleloop_prod_20261021T043521Z.dump 408769615 B sha256 3a0adfe3 restore_ok 135 tables 152469 rows (volume resized to 5000 MB, Hobby max, 843M free, 11 dumps kept); ops/deploy.sh pushed b931d17..15800536; production /health build.commit 15800536 known:true; boot_guard enforced ok record RELEASE_b997efda...json; readback 10/12 PASS at first poll, the 2 FAILs were worker still starting (alive at 04:43:33Z, restarts 0, scheduler ticked 04:45:01Z) and pre-existing gallery_analysis dead letters from 2026-10-20T08:06Z (age out 2026-10-21T08:06Z); phase shadow, nothing published, spend CA$65.10/100; experiment run and credentials routes 401 unauthenticated; /api/departments 200 (was 500). [Reconciled by INTEG5/Batch 2 with INTEG4's record 1eaf0f44, so the entry is not duplicated.]"
+    },
+    {
+      "sha": "051dbee286077fa760858701e32e385af34c8bd9",
+      "observed": "2026-10-26T13:59Z",
+      "evidence": "owner-approved deploy 2026-10-26 of the listings release (suite SHA 09acd425, full suite 20261026T084131Z-7491: 9112 passing, 0 failing; release record RELEASE_09acd425...json). Pre-deploy backup brambleloop_prod_20261026T135254Z.dump, 445278944 B, sha256 4681d3f5, restore_ok, 140 tables, 199417 rows, 419 MB free afterwards. Pre-deploy deploy_guard ALLOW and rollback rehearsal ALLOW. ops/deploy.sh pushed 15800536..051dbee2. Production /health build.commit 051dbee2; worker up 13:59:11Z, alive 14:00:06Z; readback.py PASS 12/12; /api/verify ok 13/13 (as reported by the operator session). W-INTEG5 re-read build.commit 051dbee286077fa760858701e32e385af34c8bd9 at 2026-10-26T16:2xZ."
+    },
+    {
+      "sha": "b2e49455ca0e93006752ced16cfe3af0cae86860",
+      "observed": "2026-10-26T21:50Z",
+      "evidence": "owner-approved deploy of SECPATCH (suite SHA 4ff953da, full suite 20261026T172357Z-3395: 9125 passing, 0 failing; independent review: ship yes). Readback 11/12; the one FAIL is the pre-existing improve.weekly dead letter, which PRODFIX2 fixes. The anonymous-exposure check is clean (as reported by the operator session). W-INTEG5 re-read the production build.commit with ops/deployed_sha.py."
+    },
+    {
+      "sha": "ee35a493dfd817bd105455091af601a3aa86eb9c",
+      "observed": "2026-10-27T16:06Z",
+      "evidence": "owner-approved deploy of the combined release (suite SHA 2aeb177f, full suite 20261027T104727Z-259: 9673 passing, 0 failing; independent review 46ed8b47 SHIP). Pre-deploy backup 20261027T160323Z restore_ok, 142 tables. Guard ALLOW, rehearsal ALLOW. Railway deployment 5e04aa22 SUCCESS. Readback 11/12; no_unexpected_dead_letters_in_24h is false, cause not publicly readable (as reported by the coordinator)."
+    },
+    {
+      "sha": "0967c3eee287d06cad0d8034a99e39076c0ab6d5",
+      "observed": "2026-11-02T03:31Z",
+      "evidence": "owner-approved deploy of Batch 4 (\"APPROVE DEPLOY 0967c3eee287d06cad0d8034a99e39076c0ab6d5\", 2026-11-02; suite SHA d230e8fd, full suite 20261101T080736Z-18171: 10122 passing, 0 failing; release record fa139a78). Pre-release backup brambleloop_prod_20261102T032745Z.dump, 497732160 B, sha256 9d94e242, BK restore_ok, 144 tables, 262123 rows. ops/deploy.sh --deployed ee35a493: guard ALLOW, rollback rehearsal ALLOW; pushed ee35a493..0967c3ee; /health build.commit 0967c3ee after 63.6 s. Readback evidence research/final_build/w4/evidence_BOARD/prod_readback_0967c3eee287_20261102T0331Z.json (decision FIX_FORWARD, P1 only). Recorded late (2026-11-02, Batch 5 release preparation): the entry was missing, which made the Batch 5 rollback rehearsal refuse; production /health still reports build.commit 0967c3ee at 2026-11-02T20:29Z."
+    },
+    {
+      "sha": "705725a3f0b2aa9910153d99b9d4389405199152",
+      "observed": "2026-11-07T07:37Z",
+      "evidence": "owner exact-SHA approval 2026-11-07 (Main channel). Batch 5 release record over suite tree 5ba84bf7 (full suite 20261102T164117Z-1487: 10384 passing, 0 suites failing). Pre-deploy backup brambleloop_prod_20261107T072926Z.dump restore_ok, 147 tables, 319915 rows, BK RESULT OK. Guard ALLOW, rollback rehearsal to 0967c3ee ALLOW. /health build 705725a3, worker alive; /api/verify 13/13; readback smoke PASS, 6 NEEDS_OPERATOR (operator-gated endpoints), rollback_decision FIX_FORWARD."
+    },
+    {
+      "sha": "b792105273421099ce6937abc3b581dc7e6c51f5",
+      "observed": "2026-11-10T15:22Z",
+      "evidence": "owner exact-SHA approval 2026-11-08 ('Deploy b7921052 now') and 2026-11-10 ('deploy b7921052 with backup first'). Batch 6 release record over suite tree ea5873aa (full suite 20261108T121311Z-32051: 10812 passing, 0 suites failing, clean, release-eligible). Pre-deploy backup brambleloop_prod_20261110T151751Z.dump 568458453 B sha256 b823e86f restore_ok, 148 tables, 351097 rows, BK RESULT OK (drift: ops_runtime_samples only). ops/deploy.sh --deployed 705725a3: guard ALLOW, rollback rehearsal ALLOW; pushed 705725a3..b7921052; verify_deploy DEPLOYED. Readback: first pass FAIL worker_alive just after boot (decision ROLLBACK recorded, AUTO_ROLLBACK off, nothing pushed); second pass worker alive, decision FIX_FORWARD, 6 NEEDS_OPERATOR (operator-gated endpoints). /health build b7921052 worker_alive true; /api/verify 13/13."
+    }
+  ]
 }

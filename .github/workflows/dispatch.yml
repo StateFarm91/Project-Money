@@ -1,0 +1,41 @@
+# Engineering dispatch board, MAIN <-> SECONDARY (issue #28).
+# The board itself is read-only: it never assigns, reassigns, merges or deploys anything, uses
+# no paid API, and its only write is one board comment on issue #28, edited in place.
+# It runs only from the default branch. There is no `push` trigger, because GitHub runs push
+# workflows from the PUSHED ref, which would activate any copy outside review (review F8).
+# GitHub may delay scheduled runs; 5 minutes is the minimum interval, not a guarantee.
+name: dispatch-board
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  issue_comment:
+    types: [created]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: dispatch-board
+  cancel-in-progress: true
+jobs:
+  board:
+    if: >-
+      github.ref_name == github.event.repository.default_branch &&
+      (github.event_name != 'issue_comment' ||
+       (github.event.issue.number == 28 && !contains(github.event.comment.body, '<!-- dispatch-board -->')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+          ref: claude/w4-INTEG8-next
+          sparse-checkout: |
+            COORDINATION.json
+            dispatch
+            ops/assignments.py
+            ops/dispatch_board.py
+          sparse-checkout-cone-mode: false
+      - run: python3 ops/dispatch_board.py --repo "${{ github.repository }}" --issue 28 --post
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
