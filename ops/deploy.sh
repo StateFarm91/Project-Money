@@ -115,6 +115,13 @@ mkdir -p "$(dirname "$rb_json")"
 python3 "$top/ops/readback.py" --sha "$sha" --json "$rb_json" || rb=$?
 echo "deploy.sh: readback evidence $rb_json"
 rb_out="$rb_json"   # the F-381 rollback decision below reads the same evidence
+# Review 6789501427 LOW-1: readback exit 3 is WARN only -- every feature read back and some
+# row is degraded (a long worker-0 handler; a rollback target predating an advisory check).
+# A successful deploy, said as such; never a containment decision.
+if [ "$rb" -eq 3 ]; then
+  echo "deploy.sh: DEPLOYED $sha (readback WARN: degraded, not a regression; see $rb_json)"
+  exit 0
+fi
 if [ "$rb" -ne 0 ]; then
   echo "deploy.sh: DEPLOYED $sha but the production readback did not pass (readback exit $rb)" >&2
   # W4-FMBATCH1 (F-381): the failure's severity decides containment. A P0 regression (safety,
@@ -131,7 +138,10 @@ if [ "$rb" -ne 0 ]; then
     rb=0
     python3 "$top/ops/readback.py" --sha "$sha" --json "$rb_out" || rb=$?
     dec=0
-    if [ "$rb" -ne 0 ]; then
+    if [ "$rb" -eq 3 ]; then
+      echo "deploy.sh: DEPLOYED $sha (readback WARN on re-read: degraded, not a regression)"
+      exit 0
+    elif [ "$rb" -ne 0 ]; then
       python3 "$top/ops/rollback_decision.py" --readback "$rb_out" --previous "$deployed" || dec=$?
     else
       echo "deploy.sh: DEPLOYED $sha (readback PASS on re-read)"

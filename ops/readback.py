@@ -16,7 +16,8 @@ the environment variable BRAMBLELOOP_READBACK_TOKEN (never printed, never an arg
 prints the evidence and judges each item PASS / FAIL / UNKNOWN; UNKNOWN (no token, an
 unreadable section, a missing field) is never a pass.
 
-Exit codes: 0 every feature PASS; 5 any FAIL or UNKNOWN (UNKNOWN is never a pass); 4 production
+Exit codes: 0 every feature PASS; 3 every feature read back but some only WARN (degraded, a
+success: ops/deploy.sh deploys on it); 5 any FAIL or UNKNOWN (UNKNOWN is never a pass); 4 production
 unreachable; 2 usage. Read-only GETs; never deploys, never POSTs, never calls Railway.
 A status-code readback (e.g. a gated route answers 401) proves the route exists and is gated
 without needing the credential; an unknown path under the same prefix answers 404.
@@ -52,6 +53,7 @@ NEEDS_OPERATOR = "NEEDS_OPERATOR"
 # `WARN_ONLY` reads WARN where it would otherwise read FAIL.
 WARN = "WARN"
 WARN_ONLY = "warn"
+WARN_EXIT = 3       # every feature read back, some WARN only: a success (ops/deploy.sh)
 
 
 def _dig(body, path: str):
@@ -283,7 +285,9 @@ def run(sha: str, *, url: str = PRODUCTION_URL, fetch=None, token: str | None = 
     return {"sha": sha, "url": url, "verdict": overall, "reachable": reachable,
             "read_at": _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "features": items,
-            "not_done": [i["feature"] for i in items if i["verdict"] != PASS]}
+            # review 6789501427 LOW-1: a WARN row is degraded, not undone
+            "not_done": [i["feature"] for i in items if i["verdict"] not in (PASS, WARN)],
+            "warnings": [i["feature"] for i in items if i["verdict"] == WARN]}
 
 
 # ---- W4-READBACK: the production evidence surface -----------------------------------------
@@ -469,6 +473,13 @@ def main(argv: list[str] | None = None) -> int:
     if not out["reachable"]:
         print("readback: production unreachable; nothing verified", file=sys.stderr)
         return 4
+    if out["verdict"] == WARN:
+        # review 6789501427 LOW-1: every feature read back; some rows are degraded (a long
+        # worker-0 handler, or a build that predates an advisory check). A success, with its
+        # own code so a caller can still tell it apart from a clean PASS.
+        print(f"readback: WARN ({len(out['features'])} features read back on {a.sha[:12]}; "
+              f"degraded, not a failure: {out['warnings']})")
+        return WARN_EXIT
     if out["verdict"] != PASS:
         print(f"readback: {out['verdict']}: not done in production: {out['not_done']}",
               file=sys.stderr)

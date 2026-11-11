@@ -103,6 +103,20 @@ def test_a_row_is_not_complete_unless_its_deployed_readback_passed():
     assert rows[0]["root"] == "deployed_readback_failed"
     assert "department health served" in rows[0]["missing_evidence"]
     assert rows[1]["cls"] == "verified_complete", "a passing feature keeps its row"
+    # review 6789501427 LOW-1: a WARN row (degraded, e.g. a long worker-0 handler) does
+    # not fail the readback, so its row keeps its class; a FAIL beside it still does
+    warn_row = "worker 0 not held by a long handler"
+    assert warn_row in readback.rows_by_feature(), readback.rows_by_feature()
+    warn_id = readback.rows_by_feature()[warn_row][0]
+    _write(ev, SHA, {**all_pass, warn_row: "WARN"})
+    rows = _rows(warn_id)
+    cbf.apply_readback(rows, prod)
+    assert rows[0]["cls"] == "verified_complete", rows
+    assert rows[0]["readback"]["warnings"] == [warn_row], rows[0]["readback"]
+    _write(ev, SHA, {**all_pass, warn_row: "FAIL"})
+    rows = _rows(warn_id)
+    cbf.apply_readback(rows, prod)
+    assert rows[0]["cls"] == "implemented_unverified", rows
     # downgrade only, never upgrade
     rows = [{"source": "final_master", "id": "F-487", "cls": "blocked_owner", "root": "x"}]
     _write(ev, SHA, all_pass)

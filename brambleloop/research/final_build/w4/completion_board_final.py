@@ -594,10 +594,12 @@ def apply_readback(rows: list[dict], prod: dict) -> dict:
     for x in rows:
         if x["source"] != "final_master" or x["id"] not in named:
             continue
-        failing = [f for f in named[x["id"]] if verdict.get(f) != "PASS"]
+        # review 6789501427 LOW-1: WARN is degraded, not a failed readback
+        failing = [f for f in named[x["id"]] if verdict.get(f) not in ("PASS", "WARN")]
         x["readback"] = {"features": named[x["id"]],
                          "file": rel(files[-1]) if files else None,
-                         "not_passing": failing}
+                         "not_passing": failing,
+                         "warnings": [f for f in named[x["id"]] if verdict.get(f) == "WARN"]}
         if failing and x["cls"] == "verified_complete":
             x.update(cls="implemented_unverified",
                      root=("deployed_readback_failed" if reading else

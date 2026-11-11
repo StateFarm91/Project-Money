@@ -258,7 +258,7 @@ def test_the_long_handler_incident_is_raised_once_and_resolved_when_it_finishes(
         with db.session() as s:
             return [(r.severity, r.resolved, r.halts_publication, (r.detail or {}).get("job_id"),
                      r.report_count) for r in s.query(Incident).filter(
-                Incident.signature == runner.LONG_HANDLER_SIGNATURE).order_by(Incident.id)]
+                Incident.signature.like(runner.LONG_HANDLER_SIGNATURE + ":%")).order_by(Incident.id)]
     wk.current = {"job_id": 1, "job_type": JOB_TYPE, "started_at": now - timedelta(seconds=60)}
     assert runner.watch_long_handler(db, st, now) == "none" and rows() == []
     wk.current["started_at"] = now - timedelta(seconds=runner.HANDLER_LONG_S + 30)
@@ -281,6 +281,51 @@ def test_the_long_handler_incident_is_raised_once_and_resolved_when_it_finishes(
     src = (ROOT / "src" / "brambleloop" / "app" / "runner.py").read_text()
     loop = src[src.index("def _scheduler_loop"):src.index("# v1.1 lane I W-3")]
     assert "watch_long_handler(db)" in loop
+
+
+def test_two_replicas_never_resolve_each_others_long_handler_incident():
+    """Review 6789501427 LOW-2: during a deploy overlap two instances each run a long
+    handler; each owns its own row (open_or_restate: last_seen moves), and neither resolves
+    the other's. A row its instance stopped restating is resolved once it is orphaned."""
+    from brambleloop.core.models import Incident
+
+    db = _db()
+    now = datetime.now(timezone.utc)
+
+    def replica(name, job_id):
+        class _Wk:
+            current = {"job_id": job_id, "job_type": JOB_TYPE,
+                       "started_at": now - timedelta(seconds=runner.HANDLER_LONG_S + 30)}
+        return runner.RunnerState(enabled=True, worker_name=name, worker_ref=_Wk(),
+                                  worker_last_tick=now - timedelta(seconds=3000))
+    a, b = replica("web-1", 11), replica("web-2", 22)
+
+    def open_rows():
+        with db.session() as s:
+            return sorted((r.signature.rsplit(":", 1)[1], (r.detail or {}).get("job_id"))
+                          for r in s.query(Incident).filter(
+                              Incident.signature.like(runner.LONG_HANDLER_SIGNATURE + ":%"),
+                              Incident.resolved.is_(False)))
+    for tick in range(3):                                  # interleaved ticks, both replicas
+        t = now + timedelta(seconds=60 * tick)
+        assert runner.watch_long_handler(db, a, t) in ("raised", "kept")
+        assert runner.watch_long_handler(db, b, t) in ("raised", "kept")
+        assert [j for _i, j in open_rows()] == [11, 22], open_rows()
+    with db.session() as s:
+        row = s.query(Incident).filter(Incident.signature.like("%web-1@%")).one()
+        assert row.detail["last_seen"] and row.detail["first_seen"], row.detail
+        assert row.report_count == 3, row.report_count
+    # replica a's handler finishes: only its own row resolves
+    a.worker_ref.current = None
+    assert runner.watch_long_handler(db, a, now + timedelta(seconds=240)) == "resolved"
+    assert [j for _i, j in open_rows()] == [22], open_rows()
+    # replica b disappears (stops restating); a, still running, resolves the orphan
+    later = now + timedelta(seconds=240 + runner.LONG_HANDLER_ORPHAN_S + 60)
+    assert runner.watch_long_handler(db, a, later) == "resolved"
+    assert open_rows() == [], open_rows()
+    with db.session() as s:
+        orphan = s.query(Incident).filter(Incident.signature.like("%web-2@%")).one()
+        assert "stopped restating" in orphan.detail["resolution"], orphan.detail
 
 
 def test_a_handler_that_raises_clears_current():

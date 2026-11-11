@@ -745,7 +745,11 @@ def run(db, *, env: dict[str, str] | None = None, transport: Any = None,
                 "ok": bool(snapshot.get("ok")),
                 "passed": sum(1 for c in checks if c.get("ok")),
                 "total": len(checks),
-                "failed": [c.get("check") for c in checks if not c.get("ok")]}
+                "failed": [c.get("check") for c in checks
+                           if not c.get("ok") and not c.get("advisory")],
+                # review 6789501427: an advisory is degraded, never a failure
+                "warnings": [c.get("check") for c in checks
+                             if not c.get("ok") and c.get("advisory")]}
         else:
             report["after"]["verify"] = {
                 "measured": False,

@@ -149,6 +149,49 @@ def test_readback_reads_a_false_advisory_as_warn_and_rollback_does_not_contain_o
         rollback_decision.ROLLBACK
 
 
+def test_a_warn_only_readback_is_not_undone_and_exits_with_its_own_success_code():
+    """Review 6789501427 LOW-1: WARN rows are listed as warnings, not `not_done`; the CLI
+    exits WARN_EXIT (3), which ops/deploy.sh deploys on."""
+    import test_w4_smoke as smoke_t
+
+    def healthy(advisory_ok):
+        b = smoke_t._prod_bodies(sha="a" * 40)
+        code, verify = b["/api/verify"]
+        checks = [{**c, "ok": advisory_ok}
+                  if c["check"] == "worker_handler_within_expected_time" else c
+                  for c in verify["checks"]]
+        b = {**b, "/api/verify": (code, {**verify, "checks": checks})}
+        return readback.run("a" * 40, url="https://prod.invalid",
+                            fetch=smoke_t._fetcher(b), token=smoke_t.OPS_TOKEN)
+    out = healthy(False)
+    row = "worker 0 not held by a long handler"
+    assert row in out["warnings"] and row not in out["not_done"], out
+    assert out["verdict"] == readback.WARN, out["verdict"]
+    clean = healthy(True)
+    assert clean["verdict"] == readback.PASS, (clean["verdict"], clean["not_done"])
+    saved = readback.run
+    readback.run = lambda *a, **k: out
+    try:
+        assert readback.main(["--sha", "a" * 40]) == readback.WARN_EXIT == 3
+        readback.run = lambda *a, **k: clean
+        assert readback.main(["--sha", "a" * 40]) == 0
+    finally:
+        readback.run = saved
+    sh = (ROOT.parent / "ops" / "deploy.sh").read_text()
+    assert sh.count('[ "$rb" -eq 3 ]') == 2, "deploy.sh must accept WARN on both reads"
+
+
+def test_etsy_exercise_counts_an_advisory_as_a_warning_not_a_failure():
+    src = (ROOT / "src" / "brambleloop" / "integrations" / "etsy_exercise.py").read_text()
+    assert 'if not c.get("ok") and not c.get("advisory")]' in src
+    assert '"warnings": [c.get("check") for c in checks' in src
+
+
+def test_the_dashboard_says_busy_long_for_a_long_handler():
+    _b, _p, page = _verify(_state(runner.HANDLER_LONG_S + 60))
+    assert "busy (long)" in page, page[:600]
+
+
 def test_overall_readback_ranks_warn_below_every_other_non_pass():
     v = readback
     order = [v.FAIL, v.UNKNOWN, v.NEEDS_OPERATOR, v.WARN, v.PASS]
