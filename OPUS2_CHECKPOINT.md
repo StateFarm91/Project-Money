@@ -1,10 +1,25 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-11T09:00Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-11T10:45Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-11T09:00Z (read first)
+## State at 2026-11-11T10:45Z (read first)
+- eb699706 was SHIPped and merged into w6-INTEG1 as 64547be5 (6791709875). Main is running
+  full certification on 64547be5; don't ask for reviews that run suites on its machine.
+- opus2/cadence-spread (worktree opus2-cs) @ 90f90220, RR on #28, holds three commits:
+  - the stagger, 52af7832;
+  - a merge of 64547be5;
+  - the nits: legacy bare incident rows resolved, a deploy.sh re-read WARN test,
+    WARN_EXIT = 10.
+  - 3/3 nit mutants and 5/5 stagger mutants killed; 20 suites green.
+  - Open question to Main: should any daily cadence stay at 00:00Z?
+- 18d9ab28 (L LOWs) is still RR 6782981520.
+- OWNER-GATED: readiness_from_export on a production export; Etsy's required property at
+  create time.
+Stop reason: everything is review-requested; waiting on Main's verdicts on 90f90220 and 18d9ab28.
+
+## State at 2026-11-11T09:00Z (superseded)
 - b4b6c01d was SHIPped and merged into w6-INTEG1 as 5e6d43e7 (6789501427).
 - Its follow-ups are on opus2/p1-warn-followups (worktree opus2-wf) @ eb699706, RR on #28:
   - LOW-1: readback exits 3 on WARN, and deploy.sh deploys on it; the board ignores WARN;
