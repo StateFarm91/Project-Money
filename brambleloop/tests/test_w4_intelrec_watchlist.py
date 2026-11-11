@@ -632,7 +632,12 @@ def test_a_waiting_gate_and_a_repeated_measurement_are_not_attempts():
         assert g.state == coverage.UNCOVERED and len(g.evidence["failed_attempts"]) == 1
         assert s.scalar(select(Lesson).where(
             Lesson.evidence_ref == f"watchlist_gap:{gid}")) is None
-    assert gid not in watchlist.summary(db)["waiting"]            # parked, not re-asked
+    # Judged on the same day as the decision: parking lasts REDECIDE_AFTER, so reading the
+    # summary on the wall clock made this test go red once 2026-11-10 passed.
+    as_of = datetime(day.year, day.month, day.day, 12, tzinfo=timezone.utc)
+    assert gid not in watchlist.summary(db, now=as_of)["waiting"]  # parked, not re-asked
+    assert gid in watchlist.summary(                               # and re-asked after it
+        db, now=as_of + watchlist.REDECIDE_AFTER)["waiting"]
 
 
 def test_unknown_never_hides_a_known_degradation():
