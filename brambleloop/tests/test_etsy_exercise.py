@@ -582,7 +582,8 @@ def test_the_report_carries_the_credential_and_the_verify_verdict_after_cleanup(
     after = report["after"]
     assert after["oauth"]["openable"] is True
     assert after["oauth"]["stored"] is True
-    assert after["verify"] == {"ok": True, "passed": 12, "total": 12, "failed": []}
+    assert after["verify"] == {"ok": True, "passed": 12, "total": 12, "failed": [],
+                               "warnings": []}
 
 
 def test_the_real_api_verify_handler_is_what_the_endpoint_passes_in():
@@ -603,7 +604,7 @@ def test_a_run_whose_verify_is_red_is_not_reported_as_ok():
     with FakeEtsy() as fake:
         report = run_full(fake, verify=red)
     assert report["after"]["verify"] == {"ok": False, "passed": 0, "total": 1,
-                                         "failed": ["phase_is_shadow"]}
+                                         "failed": ["phase_is_shadow"], "warnings": []}
     assert report["ok"] is False
 
 

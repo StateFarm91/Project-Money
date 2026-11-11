@@ -6154,7 +6154,9 @@ def dashboard_mobile() -> str:
         st = api_status()
         q = st.get("queue") or {}
         r = st.get("runner") or {}
-        worker = ("busy" if r.get("worker_alive") and r.get("worker_busy") else
+        worker = ("busy (long)" if r.get("worker_alive")
+                  and r.get("worker_alive_basis") == "handler_long" else
+                  "busy" if r.get("worker_alive") and r.get("worker_busy") else
                   "live" if r.get("worker_alive") else
                   "off" if not r.get("enabled") else "stalled")
         cards = [("worker", worker), ("pending", q.get(JobStatus.PENDING.value, "UNKNOWN")),

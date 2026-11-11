@@ -256,6 +256,22 @@ def test_deploy_sh_exits_5_when_a_feature_does_not_read_back_and_0_when_all_do()
     assert "readback did not pass" in bad.stderr and "smoke" in bad.stderr
 
 
+def test_deploy_sh_deploys_on_a_warn_only_readback():
+    """Review 6789501427 LOW-1: every feature read back and only the advisory long-handler
+    row is WARN (a handler past 15 min, or a rollback target predating the check): a
+    successful deploy (exit 0), said as WARN, never 'did not pass'."""
+    def bodies(h):
+        b = _prod_bodies(sha=h)
+        code, verify = b["/api/verify"]
+        checks = [{**c, "ok": False} if c["check"] == "worker_handler_within_expected_time"
+                  else c for c in verify["checks"]]
+        return {**b, "/api/verify": (code, {**verify, "checks": checks})}
+    head, warn = _deploy_with_readback(bodies)
+    assert warn.returncode == 0, (warn.stdout, warn.stderr)
+    assert f"DEPLOYED {head} (readback WARN" in warn.stdout, warn.stdout
+    assert "did not pass" not in warn.stderr, warn.stderr
+
+
 def test_the_smoke_route_is_public_read_only_and_never_200_unless_pass():
     from brambleloop.app import security
 

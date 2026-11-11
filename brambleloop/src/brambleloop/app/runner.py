@@ -178,49 +178,85 @@ HANDLER_LONG_S = 15 * 60.0
 LONG_HANDLER_SIGNATURE = "worker0-handler-long"
 
 
+# Review 6789501427 LOW-2: one row per worker instance, so two replicas overlapping during a
+# deploy never resolve each other's incident. A row nobody has restated for this long belongs
+# to an instance that stopped (each instance restates its own row every scheduler tick).
+LONG_HANDLER_ORPHAN_S = 10 * 60.0
+
+
+def long_handler_instance(state: "RunnerState | None" = None) -> str:
+    """This process's identity for its long-handler incident: worker name @ host."""
+    import socket
+
+    st = state or STATE
+    return f"{st.worker_name or 'worker'}@{socket.gethostname()}"[:120]
+
+
 def watch_long_handler(db: Database, state: "RunnerState | None" = None, now=None) -> str:
     """Review 6785727146 F1: raise ONE open, non-halting P2 incident while worker 0's handler
     is `handler_long` or past its budget, and resolve it once that handler is no longer
-    running. Called from the scheduler loop, which ticks while the worker is held. Returns
-    what it did ("raised", "kept", "resolved", "none"); never raises."""
+    running. Called from the scheduler loop, which ticks while the worker is held.
+
+    Review 6789501427: the row is this instance's (`worker0-handler-long:<instance>`), raised
+    and restated through `ops.incident_lifecycle.open_or_restate` (so `last_seen` moves every
+    tick). An instance resolves only its own row -- or another instance's row nobody has
+    restated for `LONG_HANDLER_ORPHAN_S` (its owner stopped). Returns what it did ("raised",
+    "kept", "resolved", "none"); never raises."""
+    from datetime import datetime as _dt, timezone as _tz
+
     from sqlalchemy import select
 
     from ..core.models import Incident, utcnow
+    from ..ops.incident_lifecycle import open_or_restate
 
     st = state or STATE
     try:
-        alive, basis = st.liveness(now)
-        b = st.busy(now)
+        now_ = now or _dt.now(_tz.utc)
+        alive, basis = st.liveness(now_)
+        b = st.busy(now_)
         long_job = b if basis in ("handler_long", "handler_over_budget") and b else None
+        mine = f"{LONG_HANDLER_SIGNATURE}:{long_handler_instance(st)}"[:200]
+        done = "none"
         with db.session() as s:
-            open_rows = list(s.scalars(select(Incident).where(
-                Incident.signature == LONG_HANDLER_SIGNATURE, Incident.resolved.is_(False))))
-            done = "none"
-            for row in open_rows:
-                if long_job is None or (row.detail or {}).get("job_id") != long_job["job_id"]:
-                    row.resolved = True
-                    row.detail = {**(row.detail or {}), "resolved_at": utcnow().isoformat(),
-                                  "resolution": "the handler is no longer running"}
+            rows = list(s.scalars(select(Incident).where(
+                Incident.signature.like(f"{LONG_HANDLER_SIGNATURE}:%"),
+                Incident.resolved.is_(False))))
+
+            def resolve(row, why):
+                row.resolved = True
+                row.detail = {**(row.detail or {}), "resolved_at": utcnow().isoformat(),
+                              "resolution": why}
+
+            for row in rows:
+                if row.signature == mine:
+                    if long_job is None or (row.detail or {}).get("job_id") != long_job["job_id"]:
+                        resolve(row, "the handler is no longer running")
+                        done = "resolved"
+                    continue
+                seen = (row.detail or {}).get("last_seen")
+                try:
+                    seen_at = _dt.fromisoformat(seen) if seen else None
+                except ValueError:
+                    seen_at = None
+                if seen_at is not None and seen_at.tzinfo is None:
+                    seen_at = seen_at.replace(tzinfo=_tz.utc)
+                if seen_at is None or (now_ - seen_at).total_seconds() > LONG_HANDLER_ORPHAN_S:
+                    resolve(row, f"its instance stopped restating it for over "
+                                 f"{LONG_HANDLER_ORPHAN_S:.0f} s")
                     done = "resolved"
-            still = [r for r in open_rows if not r.resolved]
-            if long_job is not None and not still:
-                s.add(Incident(severity="P2", product_slug=None,
-                               signature=LONG_HANDLER_SIGNATURE, halts_publication=False,
-                               summary=(f"worker 0 has run {long_job['job_type']} (job "
-                                        f"{long_job['job_id']}) for {long_job['seconds']:.0f} s, "
-                                        f"past {HANDLER_LONG_S:.0f} s: possibly hung; it reads "
-                                        f"dead at {handler_budget_seconds():.0f} s"),
-                               detail={"job_id": long_job["job_id"],
-                                       "job_type": long_job["job_type"],
-                                       "started_at": long_job["started_at"],
-                                       "basis": basis}))
-                done = "raised"
-            elif still:
-                for r in still:
-                    r.report_count = (r.report_count or 1) + 1
-                    r.detail = {**(r.detail or {}), "seconds": long_job["seconds"],
-                                "basis": basis}
-                done = "kept"
+            s.flush()
+            if long_job is not None:
+                _row, opened = open_or_restate(
+                    s, signature=mine, severity="P2", halts_publication=False, now=now_,
+                    summary=(f"worker 0 has run {long_job['job_type']} (job "
+                             f"{long_job['job_id']}) for {long_job['seconds']:.0f} s, past "
+                             f"{HANDLER_LONG_S:.0f} s: possibly hung; it reads dead at "
+                             f"{handler_budget_seconds():.0f} s"),
+                    detail={"job_id": long_job["job_id"], "job_type": long_job["job_type"],
+                            "started_at": long_job["started_at"],
+                            "seconds": long_job["seconds"], "basis": basis,
+                            "instance": long_handler_instance(st)})
+                done = "raised" if opened else "kept"
         return done
     except Exception:  # noqa: BLE001 - the watch must never stop the scheduler
         log.exception("long-handler watch failed")
