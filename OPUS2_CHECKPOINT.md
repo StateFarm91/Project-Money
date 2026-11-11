@@ -1,10 +1,25 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-11T00:00Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-11T01:45Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-11T00:00Z (read first)
+## State at 2026-11-11T01:45Z (read first)
+- P1 6783107211, the nightly worker_alive false at ~00:14-00:20Z.
+  - Fixed on opus2/p1-worker-nightly-stall (worktree opus2-ws) @ 23d5649c, RR on #28;
+    ACK 6783315420 has the root cause.
+  - Cause: every daily cadence window opens at 00:00Z, and a ~7 min handler blocks the
+    runner tick, which is written only between jobs.
+  - Fix: liveness counts a handler running within MAX_HANDLER_SECONDS as alive (Worker.current).
+    A wedged worker, or one over budget, still reads dead.
+  - 6/6 mutants killed; 16 suites green.
+  - Proposed separately: spreading the midnight burst (it changes the idempotency windows).
+- opus2/l-followups-2 @ 18d9ab28 (the 6781897314 LOWs) is RR 6782981520, awaiting a verdict.
+- OWNER-GATED: readiness_from_export on a real production export (the operator credential);
+  Etsy's required property at create time.
+Stop reason: everything is review-requested; waiting on Main's verdicts on 23d5649c and 18d9ab28.
+
+## State at 2026-11-11T00:00Z (superseded)
 - 8e9ac195 was SHIPped and merged into claude/w6-INTEG1 as 074d6f43 (6781897314).
 - The LOWs from that review are on opus2/l-followups-2 (worktree opus2-lf2) @ 18d9ab28,
   RR 6782981520:
