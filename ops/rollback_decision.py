@@ -39,6 +39,9 @@ import json
 import sys
 
 PASS, FAIL, UNKNOWN = "PASS", "FAIL", "UNKNOWN"
+# readback's degraded verdict (review 6785727146 F1): a runtime condition such as a long
+# worker-0 handler, not a release regression. Named in `warnings`, never a containment trigger.
+WARN = "WARN"
 NONE, FIX_FORWARD, ROLLBACK = "NONE", "FIX_FORWARD", "ROLLBACK"
 EXIT = {NONE: 0, FIX_FORWARD: 5, ROLLBACK: 6}
 
@@ -67,14 +70,19 @@ def decide(readback: dict, *, previous: str | None = None) -> dict:
                        "never a pass", "rollback_to": previous}
     failed = [{"feature": f.get("feature"), "verdict": f.get("verdict"),
                "severity": severity(str(f.get("feature")))}
-              for f in readback.get("features") or [] if f.get("verdict") != PASS]
+              for f in readback.get("features") or [] if f.get("verdict") not in (PASS, WARN)]
+    warnings = [f.get("feature") for f in readback.get("features") or []
+                if f.get("verdict") == WARN]
     if not readback.get("reachable"):
         return {"decision": ROLLBACK, "severity": "P0", "failed": failed,
                 "why": "production did not answer the readback after the deploy",
                 "rollback_to": previous}
-    if not failed and readback.get("verdict") == PASS:
-        return {"decision": NONE, "severity": None, "failed": [],
-                "why": "every feature read back", "rollback_to": None}
+    if not failed and readback.get("verdict") in (PASS, WARN):
+        return {"decision": NONE, "severity": None, "failed": [], "warnings": warnings,
+                "why": ("every feature read back" if not warnings else
+                        "every feature read back; degraded (not a regression): "
+                        + ", ".join(map(str, warnings))),
+                "rollback_to": None}
     if not failed:
         # A non-PASS verdict with no failing feature is not a pass either.
         return {"decision": ROLLBACK, "severity": "P0", "failed": [],

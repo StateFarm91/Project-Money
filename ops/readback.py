@@ -16,7 +16,8 @@ the environment variable BRAMBLELOOP_READBACK_TOKEN (never printed, never an arg
 prints the evidence and judges each item PASS / FAIL / UNKNOWN; UNKNOWN (no token, an
 unreadable section, a missing field) is never a pass.
 
-Exit codes: 0 every feature PASS; 5 any FAIL or UNKNOWN (UNKNOWN is never a pass); 4 production
+Exit codes: 0 every feature PASS; 3 every feature read back but some only WARN (degraded, a
+success: ops/deploy.sh deploys on it); 5 any FAIL or UNKNOWN (UNKNOWN is never a pass); 4 production
 unreachable; 2 usage. Read-only GETs; never deploys, never POSTs, never calls Railway.
 A status-code readback (e.g. a gated route answers 401) proves the route exists and is gated
 without needing the credential; an unknown path under the same prefix answers 404.
@@ -48,6 +49,11 @@ PRODUCTION_URL = os.environ.get("BRAMBLELOOP_PRODUCTION_URL",
 _SHA = re.compile(r"^[0-9a-f]{40}$")
 PASS, FAIL, UNKNOWN = "PASS", "FAIL", "UNKNOWN"
 NEEDS_OPERATOR = "NEEDS_OPERATOR"
+# A degraded signal (review 6785727146 F1): not a pass, not a failure. A manifest row marked
+# `WARN_ONLY` reads WARN where it would otherwise read FAIL.
+WARN = "WARN"
+WARN_ONLY = "warn"
+WARN_EXIT = 3       # every feature read back, some WARN only: a success (ops/deploy.sh)
 
 
 def _dig(body, path: str):
@@ -75,6 +81,10 @@ MANIFEST = (
      and v.get("ok") is True),
     ("embedded worker alive", ["F-371", "F-880"], "/health", "runner.worker_alive",
      "true", lambda v, _s: v is True),
+    ("worker 0 not held by a long handler", ["F-371"], "/api/verify",
+     "checks[check=worker_handler_within_expected_time].ok",
+     "true (false: a handler past 15 min -- alive but possibly hung)",
+     lambda v, _s: v is True, WARN_ONLY),
     ("shadow phase holds", ["F-172"], "/api/verify", "checks[check=phase_is_shadow].ok",
      "true", lambda v, _s: v is True),
     ("nothing published in shadow", ["F-172"], "/api/verify",
@@ -197,7 +207,9 @@ def run(sha: str, *, url: str = PRODUCTION_URL, fetch=None, token: str | None = 
     items = []
     reachable = False
     base = url.rstrip("/")
-    for feature, rows, endpoint, field, expected, pred in MANIFEST:
+    for row in MANIFEST:
+        feature, rows, endpoint, field, expected, pred = row[:6]
+        bad = WARN if len(row) > 6 and row[6] == WARN_ONLY else FAIL
         operator = endpoint in OPERATOR_ENDPOINTS
         if operator and not token and not readback_token:
             items.append({"feature": feature, "rows": rows, "endpoint": endpoint,
@@ -223,10 +235,11 @@ def run(sha: str, *, url: str = PRODUCTION_URL, fetch=None, token: str | None = 
                 verdict, value = UNKNOWN, None
             else:
                 value = code if field == "@status" else _dig(body, field)
-                verdict = UNKNOWN if value is None and field != "@status" else None
+                verdict = ((bad if bad == WARN else UNKNOWN)
+                           if value is None and field != "@status" else None)
                 if verdict is None:
                     try:
-                        verdict = PASS if pred(value, sha) else FAIL
+                        verdict = PASS if pred(value, sha) else bad
                     except Exception:  # noqa: BLE001
                         verdict = UNKNOWN
             items.append({"feature": feature, "rows": rows, "endpoint": endpoint,
@@ -250,10 +263,12 @@ def run(sha: str, *, url: str = PRODUCTION_URL, fetch=None, token: str | None = 
         else:
             value = code if field == "@status" else _dig(body, field)
             if value is None and field != "@status":
-                verdict = UNKNOWN
+                # a warn-only row never escalates past WARN: an advisory a build does not
+                # report yet is degraded evidence, not an unknown that forces containment
+                verdict = WARN if bad == WARN else UNKNOWN
             else:
                 try:
-                    verdict = PASS if pred(value, sha) else FAIL
+                    verdict = PASS if pred(value, sha) else bad
                 except Exception:  # noqa: BLE001
                     verdict = UNKNOWN
         items.append({"feature": feature, "rows": rows, "endpoint": endpoint, "field": field,
@@ -263,13 +278,16 @@ def run(sha: str, *, url: str = PRODUCTION_URL, fetch=None, token: str | None = 
     verdicts = {i["verdict"] for i in items}
     overall = (UNKNOWN if not reachable else FAIL if FAIL in verdicts else
                UNKNOWN if UNKNOWN in verdicts else
-               NEEDS_OPERATOR if NEEDS_OPERATOR in verdicts else PASS)
+               NEEDS_OPERATOR if NEEDS_OPERATOR in verdicts else
+               WARN if WARN in verdicts else PASS)
     import datetime as _dt
 
     return {"sha": sha, "url": url, "verdict": overall, "reachable": reachable,
             "read_at": _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "features": items,
-            "not_done": [i["feature"] for i in items if i["verdict"] != PASS]}
+            # review 6789501427 LOW-1: a WARN row is degraded, not undone
+            "not_done": [i["feature"] for i in items if i["verdict"] not in (PASS, WARN)],
+            "warnings": [i["feature"] for i in items if i["verdict"] == WARN]}
 
 
 # ---- W4-READBACK: the production evidence surface -----------------------------------------
@@ -455,6 +473,13 @@ def main(argv: list[str] | None = None) -> int:
     if not out["reachable"]:
         print("readback: production unreachable; nothing verified", file=sys.stderr)
         return 4
+    if out["verdict"] == WARN:
+        # review 6789501427 LOW-1: every feature read back; some rows are degraded (a long
+        # worker-0 handler, or a build that predates an advisory check). A success, with its
+        # own code so a caller can still tell it apart from a clean PASS.
+        print(f"readback: WARN ({len(out['features'])} features read back on {a.sha[:12]}; "
+              f"degraded, not a failure: {out['warnings']})")
+        return WARN_EXIT
     if out["verdict"] != PASS:
         print(f"readback: {out['verdict']}: not done in production: {out['not_done']}",
               file=sys.stderr)

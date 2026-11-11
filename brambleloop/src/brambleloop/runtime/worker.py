@@ -360,6 +360,7 @@ class Worker:
         self.handlers = registry or handlers
         self.stats = WorkerStats()
         self._stopping = False
+        self.current: dict | None = None      # the handler running now (P1 6783107211)
 
     def _resolve_phase(self) -> Phase:
         from ..core.phase import effective_phase
@@ -444,7 +445,15 @@ class Worker:
             # Spend inside the handler is attributed to the product the job works for
             # (F-321/F-324): the slug lives in the job, the bill is written five calls deeper.
             with _spend.attributed_to(_spend.job_product(self.db, job)):
-                outputs = handler(ctx) or {}
+                # P1 6783107211: what this worker is running, for the runner's liveness (a
+                # handler longer than the tick threshold is busy, not dead). Set only while
+                # the handler itself runs: a worker stuck in a claim or a lock is not busy.
+                self.current = {"job_id": job.id, "job_type": job.job_type,
+                                "started_at": utcnow()}
+                try:
+                    outputs = handler(ctx) or {}
+                finally:
+                    self.current = None
             renewal.stop()
             # Provenance backstop (#171). The write path records lineage as it writes; this
             # is the check that it did, after the handler and before the job is marked done.

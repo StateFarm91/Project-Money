@@ -5407,6 +5407,12 @@ def api_funding_packets() -> dict:
     return packets(db)
 
 
+def verify_passed(checks: list[dict]) -> bool:
+    """/api/verify's verdict: every check passes, advisory checks aside (review 6785727146 F1:
+    an advisory is a degraded signal, reported and read as WARN, never a failure)."""
+    return all(c["ok"] for c in checks if not c.get("advisory"))
+
+
 @app.get("/api/verify")
 def api_verify() -> JSONResponse:
     """Standing safety assertions, evaluated against live state.
@@ -5418,8 +5424,13 @@ def api_verify() -> JSONResponse:
     """
     checks: list[dict] = []
 
-    def check(name: str, ok: bool, evidence) -> None:
-        checks.append({"check": name, "ok": bool(ok), "evidence": evidence})
+    def check(name: str, ok: bool, evidence, *, advisory: bool = False) -> None:
+        row = {"check": name, "ok": bool(ok), "evidence": evidence}
+        if advisory:
+            # A degraded signal, not a failure: reported (and WARN in ops/readback), but it
+            # never turns the verify verdict or its HTTP status.
+            row["advisory"] = True
+        checks.append(row)
 
     # A3-10: phase-aware -- the effective phase (env AND the sealed record), and in a live
     # phase the publication checks assert "everything published is certified, granted and
@@ -5532,9 +5543,17 @@ def api_verify() -> JSONResponse:
         boots = container_starts(s)
     check("worker_is_alive", bool(r["worker_alive"]) or starting,
           {"last_tick": r["worker_last_tick"],
+           "alive_basis": r.get("worker_alive_basis"),
+           "busy": r.get("worker_busy"),
            "restarts_in_this_process": r["worker_restarts"],
            "container_starts_24h": boots,
            "starting": starting, "started_at": r["worker_started_at"]})
+    # review 6785727146 F1: alive but degraded -- worker 0's handler has run past
+    # runner.HANDLER_LONG_S. Advisory: /health stays alive; readback reads it as WARN.
+    check("worker_handler_within_expected_time",
+          r.get("worker_alive_basis") != "handler_long",
+          {"alive_basis": r.get("worker_alive_basis"), "busy": r.get("worker_busy")},
+          advisory=True)
     check("scheduler_has_ticked", r["scheduler_last_tick"] is not None or starting,
           {"last_tick": r["scheduler_last_tick"], "starting": starting})
 
@@ -5610,12 +5629,14 @@ def api_verify() -> JSONResponse:
            "withheld_because_satisfied": inbox["satisfied_but_open"],
            "source": inbox["source"]})
 
-    passed = all(c["ok"] for c in checks)
+    passed = verify_passed(checks)
     # F-202: the outcome is persisted so the dashboard header can show when production last
     # verified clean. Best effort: a verification that cannot record itself still answers.
     try:
         Registry(db).audit("orchestrator", VERIFY_AUDIT_ACTION, detail={
-            "ok": passed, "failing": [c["check"] for c in checks if not c["ok"]],
+            "ok": passed, "failing": [c["check"] for c in checks
+                                      if not c["ok"] and not c.get("advisory")],
+            "warnings": [c["check"] for c in checks if not c["ok"] and c.get("advisory")],
             "commit": build_identity()["commit"]})
     except Exception:  # noqa: BLE001
         pass
@@ -6133,7 +6154,10 @@ def dashboard_mobile() -> str:
         st = api_status()
         q = st.get("queue") or {}
         r = st.get("runner") or {}
-        worker = ("live" if r.get("worker_alive") else
+        worker = ("busy (long)" if r.get("worker_alive")
+                  and r.get("worker_alive_basis") == "handler_long" else
+                  "busy" if r.get("worker_alive") and r.get("worker_busy") else
+                  "live" if r.get("worker_alive") else
                   "off" if not r.get("enabled") else "stalled")
         cards = [("worker", worker), ("pending", q.get(JobStatus.PENDING.value, "UNKNOWN")),
                  ("dead letters", q.get(JobStatus.DEAD.value, "UNKNOWN"))]
