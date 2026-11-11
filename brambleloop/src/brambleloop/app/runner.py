@@ -72,19 +72,54 @@ class RunnerState:
     # to work. Process-local, like every field here; reset on restart.
     busy_seconds: float = 0.0
     idle_seconds: float = 0.0
+    # P1 6783107211: worker 0 itself, so liveness can see the handler it is running.
+    worker_ref: object = None
+
+    def busy(self, now: datetime | None = None) -> dict | None:
+        """The handler worker 0 is running now, with how long it has run; None when idle."""
+        cur = getattr(self.worker_ref, "current", None)
+        if not cur or not cur.get("started_at"):
+            return None
+        now = now or datetime.now(timezone.utc)
+        started = cur["started_at"]
+        started = started if started.tzinfo else started.replace(tzinfo=timezone.utc)
+        return {"job_id": cur.get("job_id"), "job_type": cur.get("job_type"),
+                "started_at": started.isoformat(),
+                "seconds": round((now - started).total_seconds(), 1)}
+
+    def liveness(self, now: datetime | None = None) -> tuple[bool, str]:
+        """Is worker 0 alive, and on what evidence.
+
+        P1 6783107211: the tick is written between jobs, so a handler longer than
+        `WORKER_TICK_STALE_S` (every night at 00:00Z all ~50 daily cadence windows open at
+        once, and one of them runs ~7 min) read as a dead worker. A worker is alive when it
+        ticked recently, OR while a handler it is running is within `MAX_HANDLER_SECONDS` --
+        the same budget after which the lease system treats a handler as hung and lets it be
+        reclaimed. Not weaker than before for a wedged worker: one stuck outside a handler
+        (claim, lock, the loop itself) still reads dead after the tick threshold, and a
+        handler past its budget reads dead too."""
+        now = now or datetime.now(timezone.utc)
+        if self.worker_last_tick is not None and \
+                (now - self.worker_last_tick).total_seconds() < WORKER_TICK_STALE_S:
+            return True, "tick"
+        b = self.busy(now)
+        if b is not None and b["seconds"] < handler_budget_seconds():
+            return True, "handler_running"
+        if b is not None:
+            return False, "handler_over_budget"
+        return False, "no_tick" if self.worker_last_tick is None else "tick_stale"
 
     def to_dict(self) -> dict:
         def iso(d: datetime | None) -> str | None:
             return d.isoformat() if d else None
 
-        alive = False
-        if self.worker_last_tick is not None:
-            age = (datetime.now(timezone.utc) - self.worker_last_tick).total_seconds()
-            alive = age < 120
+        alive, basis = self.liveness()
         return {
             "enabled": self.enabled,
             "worker": self.worker_name,
             "worker_alive": alive,
+            "worker_alive_basis": basis,
+            "worker_busy": self.busy(),
             "worker_starting": self.starting,
             "worker_started_at": iso(self.worker_started_at),
             "worker_last_tick": iso(self.worker_last_tick),
@@ -124,6 +159,18 @@ class RunnerState:
             return False
         age = (datetime.now(timezone.utc) - self.worker_started_at).total_seconds()
         return age < startup_grace_seconds()
+
+
+# A tick older than this, with no handler running, is a dead worker.
+WORKER_TICK_STALE_S = float(os.environ.get("BRAMBLELOOP_WORKER_TICK_STALE_S", "120"))
+
+
+def handler_budget_seconds() -> float:
+    """How long a running handler keeps the worker alive: the lease-renewal cap, past which
+    the queue treats the handler as hung (runtime.worker.MAX_HANDLER_SECONDS)."""
+    from ..runtime.worker import MAX_HANDLER_SECONDS
+
+    return float(MAX_HANDLER_SECONDS)
 
 
 def startup_grace_seconds() -> float:
@@ -202,6 +249,8 @@ def _worker_loop(db: Database, name: str, phase: Phase, stop: threading.Event,
         try:
             # rc1-AUTH A1: re-resolve the effective phase per job, not once at boot.
             worker = Worker(db, name, phase=phase, live_phase=True, refill_on_idle=True)
+            if index == 0:
+                STATE.worker_ref = worker
             while not stop.is_set():
                 if index > 0 and target is not None and index >= target.get():
                     stop.wait(_IDLE_SLEEP * 5)      # dormant: the allocation does not need it

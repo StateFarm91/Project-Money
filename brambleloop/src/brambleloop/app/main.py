@@ -5532,6 +5532,8 @@ def api_verify() -> JSONResponse:
         boots = container_starts(s)
     check("worker_is_alive", bool(r["worker_alive"]) or starting,
           {"last_tick": r["worker_last_tick"],
+           "alive_basis": r.get("worker_alive_basis"),
+           "busy": r.get("worker_busy"),
            "restarts_in_this_process": r["worker_restarts"],
            "container_starts_24h": boots,
            "starting": starting, "started_at": r["worker_started_at"]})
@@ -6133,7 +6135,8 @@ def dashboard_mobile() -> str:
         st = api_status()
         q = st.get("queue") or {}
         r = st.get("runner") or {}
-        worker = ("live" if r.get("worker_alive") else
+        worker = ("busy" if r.get("worker_alive") and r.get("worker_busy") else
+                  "live" if r.get("worker_alive") else
                   "off" if not r.get("enabled") else "stalled")
         cards = [("worker", worker), ("pending", q.get(JobStatus.PENDING.value, "UNKNOWN")),
                  ("dead letters", q.get(JobStatus.DEAD.value, "UNKNOWN"))]
