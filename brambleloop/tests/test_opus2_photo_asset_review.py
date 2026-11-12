@@ -990,6 +990,32 @@ def test_review_u5_f9_one_frame_raising_does_not_stop_the_sweep():
     assert out["reviewed"] == 2 and out["approved"] == 1, out
     assert any("UNKNOWN: review raised ValueError" in r["failed"][0] for r in out["refused"]), out
 
+def test_review_u5_f3_a_policy_recheck_sends_a_photo_frame_back_to_review_never_strands_it():
+    """Review U5 F3: `release_gates.recheck` on a policy bump revokes the photo-led set, puts
+    the photo frame back to AWAITING (reviewable), and the sweep re-approves it so the set
+    certifies again. It used to be stamped LISTING_SET_INVALIDATED and never recover."""
+    db, cir, release, _ = _setup()
+    fid = _photo_frame(db, cir)
+    assert par.sweep(db)["approved"] == 1
+    _, cert = _certify_without_touching_approval(db, cir, release)
+    assert cert["valid"] and cert["issued"], cert
+    out = release_gates.recheck(db, slug=cir.slug, version=cir.version,
+                                geometry={"width_cm": 16.0, "height_cm": 8.7},
+                                claims={"title": cir.title}, policy_version="policy-bumped-9")
+    assert out and not out[0]["valid"], out
+    _assert_no_valid_certificate(db, cir, cert)
+    with db.session() as s:
+        frame = s.get(ListingAsset, fid)
+        assert not frame.approved and frame.blocked_reasons[0] == par.AWAITING, \
+            frame.blocked_reasons
+        assert not any("LISTING_SET_INVALIDATED" in str(r) for r in frame.blocked_reasons)
+    assert fid in par.awaiting_frames(db)
+    assert par.sweep(db)["approved"] == 1
+    with db.session() as s:
+        assert s.get(ListingAsset, fid).approved is True
+    _, again = _certify_without_touching_approval(db, cir, release)
+    assert again["valid"] and again["issued"], again
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in sorted(globals().items()):

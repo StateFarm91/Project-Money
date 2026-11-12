@@ -1144,8 +1144,20 @@ def recheck(db, *, slug: str, version: str, geometry: dict, claims: dict,
 
     from ..core.models import ListingAsset, ListingSetCertificateRecord
 
+    from .photo_asset_review import AWAITING, PHOTO_CLASS
+
     results = []
+    # Review A3 U5 F3: a release whose gallery holds a photo frame is rechecked under the
+    # photo review's write lock, so no review or issuance interleaves with the revocation.
     with db.session() as s:
+        photo_led = s.scalar(select(ListingAsset.id).where(
+            ListingAsset.product_slug == slug, ListingAsset.version == version,
+            ListingAsset.asset_class == PHOTO_CLASS).limit(1)) is not None
+    with db.session() as s:
+        if photo_led:
+            from .photo_asset_review import _lock
+
+            _lock(s, db)
         for rec in s.scalars(select(ListingSetCertificateRecord).where(
                 ListingSetCertificateRecord.product_slug == slug,
                 ListingSetCertificateRecord.version == version,
@@ -1164,7 +1176,15 @@ def recheck(db, *, slug: str, version: str, geometry: dict, claims: dict,
                     row = s.scalar(select(ListingAsset).where(
                         ListingAsset.product_slug == slug, ListingAsset.version == version,
                         ListingAsset.position == pos)) if pos else None
-                    if row is not None:
+                    if row is not None and row.asset_class == PHOTO_CLASS:
+                        # Review A3 U5 F3: a photo frame is not rebuilt -- a rebuild never
+                        # replaces it -- so a LISTING_SET_INVALIDATED mark would strand it
+                        # for good. It goes back to the asset-truth review instead, which
+                        # re-checks it and re-issues the set.
+                        row.approved = False
+                        row.blocked_reasons = [AWAITING] + [
+                            r for r in (row.blocked_reasons or []) if r != AWAITING][:9]
+                    elif row is not None:
                         row.approved = False
                         row.blocked_reasons = [
                             f"LISTING_SET_INVALIDATED: certificate {rec.id} invalidated by "

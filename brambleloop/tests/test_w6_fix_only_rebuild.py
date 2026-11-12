@@ -427,9 +427,24 @@ def test_no_rebuild_ever_replaces_a_physical_photograph_slot():
                                                 ListingAsset.version == version,
                                                 ListingAsset.position == 1))
         a.asset_class, a.sha256, a.approved = "PHYSICAL_PRODUCT_PHOTO", "f" * 64, True
+        # Review A3 U5 F2 (second half): a photo-led certificate stands over this gallery.
+        from brambleloop.core.models import ListingSetCertificateRecord
+
+        cert = ListingSetCertificateRecord(product_slug=slug, version=version,
+                                           release_hash="r" * 64, state="valid",
+                                           certificate={"frames": []})
+        s.add(cert)
+        s.flush()
+        cert_id = cert.id
     JobQueue(db).enqueue("publishing", "assets.build", {**st["inputs"], "rebuild": "fr-ph-1"},
                          priority=0, idempotency_key="fo-fr-ph-1")
     _drain(db, name="fo-fr-ph")
+    with db.session() as s:
+        # The rebuild rewrote the renders around the photo: the old photo-led certificate is
+        # invalidated in the same transaction, never left "valid" over different frames.
+        rec = s.get(ListingSetCertificateRecord, cert_id)
+        assert rec.state == "invalidated" and rec.invalidated_by == [
+            "gallery_rebuilt_around_photo"], (rec.state, rec.invalidated_by)
     assert "assets.build" in [t for t, _s in _jobs(db, "fr-ph-1")]
     assert _gallery(db, slug, version)[0] == (1, "PHYSICAL_PRODUCT_PHOTO", "f" * 64, True)
     kept = _audits(db, "listing.frame_photo_kept")

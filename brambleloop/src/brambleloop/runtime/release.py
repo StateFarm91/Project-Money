@@ -2834,7 +2834,22 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
                 "rejected": reasons[:10]})
             return {"kept": [], "live_candidate": True}
     kept: set[int] = set()
+    # Review A3 U5 F2 (second half): a gallery that holds a physical photograph is fenced by
+    # the photo review's write lock, and a rebuild that rewrites its renders invalidates the
+    # photo-led certificate in the same transaction -- the certified set no longer matches
+    # what is stored, and readers that trust `state == "valid"` (storefront preview, ads
+    # readiness, first customer, image review, search evidence) must not see it as current.
+    # The chain re-certifies after this build. A gallery with no photo is unchanged.
     with ctx.db.session() as s:
+        photo_led = s.scalar(select(ListingAsset.id).where(
+            ListingAsset.product_slug == slug, ListingAsset.version == version,
+            ListingAsset.asset_class == "PHYSICAL_PRODUCT_PHOTO").limit(1)) is not None
+    with ctx.db.session() as s:
+        if photo_led:
+            from ..publish.photo_asset_review import _lock as _photo_lock
+
+            _photo_lock(s, ctx.db)
+        rewritten = False
         for frame, meta in zip(frames, stored):
             row = s.scalar(select(ListingAsset).where(
                 ListingAsset.product_slug == slug, ListingAsset.version == version,
@@ -2850,6 +2865,9 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
                 row = ListingAsset(product_slug=slug, version=version,
                                    position=frame.position)
                 s.add(row)
+            if (row.sha256, row.asset_class, bool(row.approved)) != (
+                    meta["sha256"], frame.asset_class.value, not reasons):
+                rewritten = True
             row.asset_class = frame.asset_class.value
             row.role = frame.role
             row.sha256 = meta["sha256"]
@@ -2860,6 +2878,10 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
             row.approved = not reasons
             row.blocked_reasons = reasons[:10]
         s.flush()
+        if photo_led and rewritten:
+            from ..publish.photo_asset_review import _invalidate_photo_certificates
+
+            _invalidate_photo_certificates(s, slug, version, "gallery_rebuilt_around_photo")
 
         # One visual-truth row per frame, keyed by the frame's own row id and carrying the
         # rendered file's hash, so a frame that outlives its design is found by the same
