@@ -4,7 +4,24 @@ Updated: 2026-11-12T13:10Z. The engineering loop rewrites this file at the end o
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-12T21:57Z (read first)
+## State at 2026-11-12T22:29Z (read first)
+- No Main message since 11:46Z.
+- E6 is HELD on a Main decision. The draft intent key never reaches Etsy, so there is
+  nothing to match on. QUESTION posted on #28 with options:
+  - A: put the key on the draft at create;
+  - B: match on content and never adopt on ambiguity (recommended);
+  - C: escalate only.
+- Open RRs:
+  - A9, A3, E2, E3, E7, E4, E5 (213396b3)
+  - WS4 increments 2-6 and 8-11
+  - WS2 R3-R7
+- Next: the A4a fixes (task list: A4A-1 HIGH per-object geometry + size band at certify;
+  -2 floor at attach + missing price; -3 bounded reopen). Find the review text on #28 or
+  in the transcript first. Then A4b.
+- Stop reason (22:28Z tick): E6 needs Main's decision. A4a starts at the next tick with
+  its review read fresh.
+
+## State at 2026-11-12T21:57Z (superseded)
 - No Main message since 11:46Z.
 - New: WS5 E5 213396b3, stacked on E4 949b052e.
 - radar.scan ordering now uses the lesson nudge; flagged for Main.
