@@ -4,7 +4,25 @@ Updated: 2026-11-12T13:10Z. The engineering loop rewrites this file at the end o
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-12T19:53Z (read first)
+## State at 2026-11-12T21:57Z (read first)
+- No Main message since 11:46Z.
+- New: WS5 E5 213396b3, stacked on E4 949b052e.
+- radar.scan ordering now uses the lesson nudge; flagged for Main.
+- Open RRs:
+  - A9, A3, E2, E3, E7, E4, E5
+  - WS4 increments 2-6 and 8-11
+  - WS2 R3-R7
+- Left in WS5: E6 (draft-intent resolver; publish/draft_intent.py:43). After it come A4a/A4b.
+- Test notes:
+  - test_acceptance_gates, test_chaos and test_shadow exceed 20-25 min per suite here.
+  - test_cert_lanes_capacity fails on the base too (the disk is near full).
+  - Run at most 5 suites in parallel.
+  - A background run is killed at 1 h unless its timeout is raised (max 2 h).
+- Worktree opus2-ws43 is on ws5-e5.
+- Stop reason (21:28Z tick): E5 shipped after a long regression run. E6 starts at the next
+  tick.
+
+## State at 2026-11-12T19:53Z (superseded)
 - No Main message since 11:46Z.
 - New this tick: WS5 E4 949b052e, stacked on E7 9143772d.
 - Open RRs:
