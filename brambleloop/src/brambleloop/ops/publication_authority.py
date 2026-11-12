@@ -39,7 +39,8 @@ from ..core.models import AuditLog, Listing, PatternVersion, Product
 APPROVED = "owner.publication.approved"
 REVOKED = "owner.publication.revoked"
 REBASED = "owner.publication.rebased"
-PRINCIPAL = "owner:ops-token"
+# WS4-0 (Main 6816519111): newly signed rows name the real path, the Command Center.
+PRINCIPAL = "owner:command-center"
 ACTION = "store.publish"
 KILL_SWITCH_VAR = "BRAMBLELOOP_PUBLISH_AUTHORISED"
 GRANT_HOURS = 24
@@ -54,11 +55,23 @@ def _json(value):
                       default=str)
 
 
+# WS4-0a (F-A): grant rows are Ed25519-signed in the web process only and verified with the
+# public key, which is all a dedicated worker holds (`core.owner_grant_keys`). The ops-token
+# HMAC that let any verifying process mint a grant is retired; a row sealed under it no longer
+# verifies, and the owner re-anchors the chain once with a rebase (design ddde00cc §8).
+DOMAIN = "brambleloop/owner-grant/publication/v1"
+
+
 def _seal(detail):
-    if not opsauth.configured():
-        raise ValueError("owner credential unavailable")
-    return hmac.new(os.environ[opsauth.TOKEN_VAR].strip().encode(),
-                    _json(detail).encode(), hashlib.sha256).hexdigest()
+    from ..core import owner_grant_keys
+
+    return owner_grant_keys.sign(DOMAIN, detail)
+
+
+def _verify(detail, seal) -> bool:
+    from ..core import owner_grant_keys
+
+    return owner_grant_keys.verify(DOMAIN, detail, seal)
 
 
 def digest(value):
@@ -71,6 +84,15 @@ def kill_switch_refusal() -> str | None:
         return (f"global publication kill-switch is off ({KILL_SWITCH_VAR} is not '1'); "
                 f"no grant can override it")
     return None
+
+
+def _shop_id(db) -> str:
+    shop = (os.environ.get("ETSY_SHOP_ID") or "").strip()
+    if shop:
+        return shop
+    from ..integrations.etsy_shop_binding import bound_shop_id
+
+    return bound_shop_id(db)
 
 
 def snapshot(db, slug, version, release):
@@ -94,6 +116,11 @@ def snapshot(db, slug, version, release):
             raise ValueError("already on Etsy; publication grants cover draft creation only")
         cir = pv.cir_json
     return {"action": ACTION, "slug": slug, "version": version, "release": release,
+            # WS4-0c (design T11): the grant binds the Etsy shop it may create in -- resolved
+            # exactly as the client resolves it (ETSY_SHOP_ID, else the owner-bound shop). A
+            # grant approved for one shop is voided by a digest mismatch if the credentials
+            # later name another.
+            "shop_id": _shop_id(db),
             "cir_digest": digest(cir),
             "payload": etsy_ops.sent_fields(etsy_ops.certified_payload(db, slug, version)),
             # F-704: the owner approves on evidence, and the evidence is part of what the
@@ -448,8 +475,18 @@ def _check_one(db, ident, *, slug, version, release, current):
     if chained is not None:
         return f"owner publication grant refused: {chained}"
     seal = detail.pop("seal", "")
-    if not hmac.compare_digest(str(seal), _seal(detail)):
-        return "owner publication grant invalid or credential rotated"
+    from ..core import owner_grant_keys
+
+    if detail.get("event") != APPROVED:      # review 6817118202 F2: signed event == row
+        return "owner publication grant row's signed event is not an approval"
+    if owner_grant_keys.legacy_hmac_seal(seal):
+        return ("owner publication grant was sealed under the retired ops-token HMAC "
+                "(pre-WS4-0); the owner records a new grant")
+    try:
+        if not _verify(detail, seal):
+            return "owner publication grant invalid or signing key rotated"
+    except ValueError as exc:
+        return f"owner publication grant cannot be verified: {exc}"
     now = _now()
     if not (datetime.fromisoformat(detail["approved_at"]) <= now
             < datetime.fromisoformat(detail["expires_at"])):
@@ -466,7 +503,7 @@ def _make_ledger():
     from ..core.sealed_chain import GrantLedger
 
     return GrantLedger(approved=APPROVED, revoked=REVOKED, rebased=REBASED, principal=PRINCIPAL,
-                       seal=_seal, signature=f"authority_chain_tamper:{ACTION}",
+                       seal=_seal, verify=_verify, signature=f"authority_chain_tamper:{ACTION}",
                        label="owner publication grant")
 
 

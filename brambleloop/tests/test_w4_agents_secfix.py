@@ -321,8 +321,16 @@ def test_m2r_minting_needs_the_owner_request_context_set_only_by_the_cc_route():
     hits = [p for p in (ROOT / "src/brambleloop").rglob("*.py")
             if re.search(r"(?<![\w.])(?:_?sfa|storefront_authority)\.owner_request\(|"
                          r"^def owner_request\(", p.read_text(), re.M)]
+    # WS4-0a: the owner-grant family (publication/activation) has its own owner_request in
+    # core/owner_grant_keys.py, held to the same rule below.
     assert sorted(str(p.relative_to(ROOT / "src/brambleloop")) for p in hits) == [
-        "app/command_center/api.py", "ops/storefront_authority.py"], hits
+        "app/command_center/api.py", "core/owner_grant_keys.py",
+        "ops/storefront_authority.py"], hits
+    entered = [p for p in (ROOT / "src/brambleloop").rglob("*.py")
+               if re.search(r"(?<![\w.])(?:_?ogk|owner_grant_keys)\.owner_request\(",
+                            p.read_text())]
+    assert [str(p.relative_to(ROOT / "src/brambleloop")) for p in entered] == [
+        "app/command_center/api.py"], entered
 
 
 # ---- L-2 -----------------------------------------------------------------------------------

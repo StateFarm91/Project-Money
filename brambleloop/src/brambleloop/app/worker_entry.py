@@ -35,6 +35,12 @@ def main() -> int:
     if _sfa.mark_job_process():
         log.warning("removed the storefront signing key from the worker environment: "
                     "a job process never signs storefront grants")
+    # WS4-0a: nor an owner publication or activation grant.
+    from ..core import owner_grant_keys as _ogk
+
+    if _ogk.mark_job_process():
+        log.warning("removed the owner-grant signing key from the worker environment: "
+                    "a job process never signs owner grants")
     # A3-05: same runtime boot guard as the web service. On the hosting platform an unproven
     # build runs as SHADOW (the phase env is forced before the effective phase is read below).
     from ..ops import release_record

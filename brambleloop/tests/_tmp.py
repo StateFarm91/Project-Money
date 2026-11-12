@@ -84,12 +84,38 @@ def install() -> str:
     os.environ["TMPDIR"] = root
     tempfile.tempdir = root
     atexit.register(cleanup)
+    _owner_grant_test_keys()
     try:
         if signal.getsignal(signal.SIGTERM) in (signal.SIG_DFL, None):
             signal.signal(signal.SIGTERM, _on_term)
     except (ValueError, OSError):  # not the main thread: atexit still covers normal exit
         pass
     return root
+
+
+def _owner_grant_test_keys() -> None:
+    """WS4-0a: owner publication/activation grants are Ed25519 (`core.owner_grant_keys`). Every
+    test process gets its OWN freshly generated pair in its environment -- as production has
+    its pair set by the operator -- unless the test set one. Never written anywhere, never
+    committed; generated here with `cryptography` directly because this module is imported
+    before `src` is on the path."""
+    sign_var, verify_var = ("BRAMBLELOOP_OWNER_GRANT_SIGNING_KEY",
+                            "BRAMBLELOOP_OWNER_GRANT_VERIFY_KEY")
+    if os.environ.get(sign_var) or os.environ.get(verify_var):
+        return
+    try:
+        import base64
+
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    except ImportError:  # a lane without cryptography signs no grant anyway
+        return
+    key = Ed25519PrivateKey.generate()
+    os.environ[sign_var] = base64.b64encode(key.private_bytes(
+        serialization.Encoding.Raw, serialization.PrivateFormat.Raw,
+        serialization.NoEncryption())).decode()
+    os.environ[verify_var] = base64.b64encode(key.public_key().public_bytes(
+        serialization.Encoding.Raw, serialization.PublicFormat.Raw)).decode()
 
 
 def root() -> str | None:

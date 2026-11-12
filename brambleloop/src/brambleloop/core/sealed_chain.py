@@ -33,6 +33,8 @@ from __future__ import annotations
 from typing import Any, Callable, Iterable
 
 CHAIN_KEYS = ("seq", "prev_id", "prev_seal")
+# Set by `load` on a row whose signed `event` is not its AuditLog action (never signed).
+EVENT_MISMATCH = "_row_action_mismatch"
 
 
 def _int(value) -> int | None:
@@ -127,8 +129,16 @@ def load(session, actions: Iterable[str]) -> list[tuple[int, dict]]:
     from .models import AuditLog
 
     acts = tuple(actions)
-    return [(r.id, dict(r.detail or {})) for r in session.scalars(
-        select(AuditLog).where(AuditLog.action.in_(acts)).order_by(AuditLog.id))]
+    out = []
+    for r in session.scalars(select(AuditLog).where(AuditLog.action.in_(acts))
+                             .order_by(AuditLog.id)):
+        d = dict(r.detail or {})
+        # Review 6817118202 F2: a row whose SIGNED event is not its own action (a revocation
+        # body inserted as an approval) is marked; the family's verifier refuses it.
+        if "event" in d and d.get("event") != r.action:
+            d[EVENT_MISMATCH] = r.action
+        out.append((r.id, d))
+    return out
 
 
 def tamper_incident(db, *, signature: str, chain: dict, summary: str) -> None:
@@ -186,8 +196,18 @@ class GrantLedger:
         import hmac
 
         d = dict(detail or {})
+        if d.pop(EVENT_MISMATCH, None) is not None:
+            return (f"{self.label} row's signed event is not its recorded action (a body "
+                    f"signed as one event and filed as another)")
         seal = d.pop("seal", "")
         if self._verify is not None:
+            from .owner_grant_keys import legacy_hmac_seal
+
+            if legacy_hmac_seal(seal):
+                # WS4-0a: a row sealed under the retired ops-token HMAC no longer verifies;
+                # the owner re-anchors the chain once (a signed rebase) before a new grant.
+                return (f"{self.label} row was sealed under the retired ops-token HMAC "
+                        f"(pre-WS4-0); the owner re-anchors the chain once with a rebase")
             try:
                 ok = bool(self._verify(d, str(seal)))
             except ValueError:
@@ -292,6 +312,9 @@ class GrantLedger:
             revocations = [dict(d or {}) for d in s.scalars(
                 select(AuditLog.detail).where(AuditLog.action == self.revoked,
                                               AuditLog.artifact == str(int(ident))))]
+            for d in revocations:      # F2: a non-revocation body filed as a revocation
+                if "event" in d and d.get("event") != self.revoked:
+                    d[EVENT_MISMATCH] = self.revoked
         c = self.chain(db)
         if revocations:
             if any(self.verify_row(d) is not None for d in revocations):

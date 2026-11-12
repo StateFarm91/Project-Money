@@ -39,6 +39,7 @@ from PIL import Image  # noqa: E402
 from brambleloop.agents.registry import Registry  # noqa: E402
 from brambleloop.core.db import Database  # noqa: E402
 from brambleloop.visual import experiment as XP  # noqa: E402
+import _owner_grant; _owner_grant.scoped_owner_approvals()  # noqa: E402,E702  (WS4-0a)
 
 FAILED: list[str] = []
 HARNESS = ROOT / "research" / "final_build" / "w4" / "experiment_wrap" / "run.py"

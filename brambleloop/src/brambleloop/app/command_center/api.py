@@ -923,6 +923,9 @@ def make_router(db) -> APIRouter:
 
     # ---- owner actions ---------------------------------------------------------------
 
+    OWNER_GRANT_SIGNING_ACTIONS = ("publication.approve", "publication.rebase",
+                                   "activation.approve", "activation.rebase")
+
     @router.post("/actions/{action}")
     async def run_action(action: str, request: Request):
         if action not in approvals.ACTIONS:
@@ -938,6 +941,15 @@ def make_router(db) -> APIRouter:
                 from ...ops import storefront_authority as _sfa
 
                 with _sfa.owner_request(auth.current_public_id(request) or "owner"):
+                    out = await run_in_threadpool(approvals.execute, db, action, body,
+                                                  actor=actor(request))
+            elif action in OWNER_GRANT_SIGNING_ACTIONS:
+                # WS4-0a: an owner publication/activation grant (or rebase) is signed only
+                # inside this request context, set here after session, CSRF/nonce and step-up.
+                # Review 6817118202 F6: ONLY the approve and rebase actions enter it.
+                from ...core import owner_grant_keys as _ogk
+
+                with _ogk.owner_request(auth.current_public_id(request) or "owner"):
                     out = await run_in_threadpool(approvals.execute, db, action, body,
                                                   actor=actor(request))
             else:

@@ -10,6 +10,7 @@ from brambleloop.core.models import CostEntry,LedgerEntry
 from brambleloop.finance import listing_costs as lc,reconcile
 from brambleloop.finance.books import Books,ProfitAndLoss
 from sqlalchemy import select
+import _owner_grant; _owner_grant.scoped_owner_approvals()  # noqa: E402,E702  (WS4-0a)
 
 def dbnew():
     db=Database('sqlite:///'+str(Path(tempfile.mkdtemp())/'cost.db'));db.create_all();return db
