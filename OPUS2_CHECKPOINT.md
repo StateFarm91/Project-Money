@@ -4,7 +4,25 @@ Updated: 2026-11-12T13:10Z. The engineering loop rewrites this file at the end o
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-12T22:29Z (read first)
+## State at 2026-11-12T23:41Z (read first)
+- No Main message since 11:46Z.
+- E6 HELD on QUESTION 6837687907 (recommendation: B).
+- New: A4a fixes `opus2/a4a-fixes` bd6cb6fc (A4A-1/2/3).
+  - Decision flagged for Main: "Hot Pad" was removed.
+- Open RRs:
+  - A9, A3, E2, E3, E7, E4, E5, A4a-fixes
+  - WS4 increments 2-6 and 8-11
+  - WS2 R3-R7
+- Next:
+  - A4a LOWs: title-variant folding, the future-dated listing filter, the per-object floor,
+    pinning the surviving mutants.
+  - A4b fixes (verdict 6590867872): A4B-2 HIGH production re-draft producer; A4B-3 MED
+    enrichment payload validation. Read the full verdict first.
+- The worktree opus2-ws43 is on a4a-fixes. The A4a base predates `_minipytest`, so its tests
+  use a plain runner.
+- Stop reason (23:28Z tick): A4a fixes shipped. A4b starts at the next tick.
+
+## State at 2026-11-12T22:29Z (superseded)
 - No Main message since 11:46Z.
 - E6 is HELD on a Main decision. The draft intent key never reaches Etsy, so there is
   nothing to match on. QUESTION posted on #28 with options:
