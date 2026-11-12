@@ -145,6 +145,10 @@ _GEOMETRY: dict[str, dict] = {
     "seasonal_decor": {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 40,  "rows": 12},
     "runner":         {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 60,  "rows": 16},
     "placemat":       {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 48,  "rows": 14},
+    # A4A-1: a dishcloth is its own object, not a placemat: a square of about 22 x 22 cm at
+    # the certified worsted gauge (28 sts x 27 rows), inside the size band certification
+    # enforces (`gates.certificate.OBJECT_SIZE_BANDS`).
+    "dishcloth":      {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 28,  "rows": 27},
     "coaster":        {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 24,  "rows": 8},
     "basket":         {"stitch_repeat": [["sc", 4]],            "width": 48,  "rows": 14},
     "pillow":         {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 72,  "rows": 20},

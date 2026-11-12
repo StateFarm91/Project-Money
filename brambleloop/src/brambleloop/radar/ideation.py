@@ -67,6 +67,11 @@ OUT_INSUFFICIENT = "insufficient_evidence"
 OUT_NO_OBJECT = "no_supported_object"
 OUT_TITLE = "title_overlaps_competitor"
 NAMED_ENDS = (OUT_INSUFFICIENT, OUT_NO_OBJECT, OUT_TITLE)
+# A4A-3: an ended gap is reopened when its evidence changes -- once per new evidence
+# fingerprint, at most MAX_REOPENS times -- instead of never.
+REOPENABLE = NAMED_ENDS + ("stalled",)
+MAX_REOPENS = 3
+REOPENED = "ideation.reopened"
 
 # How many gaps are ideated at once. One: the next gap opens when this one has an outcome,
 # so the queue advances product by product instead of opening every gap on day one.
@@ -103,13 +108,15 @@ class PodObject:
 # the coaster category (it needs a disc worked in rounds).
 POD_OBJECTS: dict[str, tuple[PodObject, ...]] = {
     "kitchen_bath": (
+        # A4A-1: drafted by its own "dishcloth" template (a ~22 cm square), never the
+        # placemat's 38 x 11 cm panel; certification enforces the dishcloth size band.
         PodObject("dishcloth", ("dishcloth", "dish cloth", "washcloth", "wash cloth",
                                 "facecloth", "face cloth"),
-                  "Dishcloth", "placemat", "flat_panel", "a square dishcloth",
+                  "Dishcloth", "dishcloth", "flat_panel", "a square dishcloth",
                   "wipes dishes and counters at the sink", (1.0, 2.5), 3.0),
-        PodObject("hot_pad", ("potholder", "pot holder", "hot pad", "trivet"),
-                  "Hot Pad", "placemat", "flat_panel", "a flat hot pad",
-                  "rests a hot pot on the table without marking it", (1.5, 3.0), 3.0),
+        # A4A-1: no hot pad. A potholder or hot pad is a heat-protection object: one layer
+        # of flat rows is not one, and the flat-rows path cannot make the doubled fabric it
+        # needs. Proposing it would be a product claim the pattern does not make.
     ),
 }
 
@@ -168,6 +175,19 @@ def _record(db, gap_id: int, **fields) -> dict:
         row.evidence = ev
         flag_modified(row, "evidence")
         return rec
+
+
+def evidence_fingerprint(db, pod: str, *, today: date) -> str:
+    """A4A-3: what the recorded observations of a pod say now (counts, shops, the newest
+    observation date, prices): changes when a scan adds evidence. Never content."""
+    import hashlib
+    import json
+
+    obs = observe(db, pod, today=today)
+    key = {k: obs.get(k) for k in ("listings", "shops", "object_listings", "newest",
+                                    "price_median_cad")}
+    key["object"] = getattr(obs.get("object"), "key", None)
+    return hashlib.sha256(json.dumps(key, sort_keys=True, default=str).encode()).hexdigest()
 
 
 def brief_of(db, task_id: int) -> dict | None:
@@ -240,6 +260,8 @@ def open_briefs(ctx, unanswered: list[dict], *, today: date) -> dict:
         rows = [(g.id, dict((g.evidence or {}).get("ideation") or {}))
                 for g in s.scalars(select(CoverageGap).order_by(CoverageGap.id))]
     in_flight, completed = [], []
+    reopen: set[int] = set()
+    pods = {g["gap"]: g["pod"] for g in unanswered}
     for gid, rec in rows:
         if not rec.get("task"):
             continue
@@ -252,22 +274,39 @@ def open_briefs(ctx, unanswered: list[dict], *, today: date) -> dict:
                       detail={"gap": gid, "outcome": outcome, "slug": rec.get("slug"),
                               "task": rec.get("task")})
             completed.append({"gap": gid, "outcome": outcome})
+        # A4A-3: an ended gap that is still unanswered remembers the evidence it ended on,
+        # and is reopened (bounded) once that evidence changes.
+        if st == "done" and outcome in REOPENABLE and gid in pods:
+            fp = evidence_fingerprint(db, pods[gid], today=today)
+            if not rec.get("ended_fingerprint"):
+                _record(db, gid, ended_fingerprint=fp)
+            elif (fp != rec["ended_fingerprint"]
+                  and int(rec.get("reopens") or 0) < MAX_REOPENS):
+                reopen.add(gid)
     opened, already, waiting = [], [], []
     for gap in unanswered:
         rec = (_gap_record(db, gap["gap"]) or {}).get("ideation") or {}
-        if rec.get("task"):
+        reopening = gap["gap"] in reopen
+        if rec.get("task") and not reopening:
             already.append(gap["gap"])
             continue
         if len(in_flight) >= MAX_IN_FLIGHT:
             waiting.append(gap["gap"])
             continue
+        n_reopen = int(rec.get("reopens") or 0) + (1 if reopening else 0)
         brief = {"gap": gap["gap"], "pod": gap["pod"], "arena": gap["arena"]}
         try:
             got = research.open_question(
                 db, question=(f"What does the observed market sell in the {gap['pod']} arena "
                               f"(gap {gap['gap']}), at what prices, and which object could "
-                              f"Brambleloop make for it?"),
-                trigger=f"{TRIGGER_PREFIX}{gap['gap']}",
+                              f"Brambleloop make for it?"
+                              # A4A-3: a reopen asks again on new evidence; research dedupes
+                              # on the question, so the reopen names itself.
+                              + (f" (reopened {n_reopen}: the observations changed)"
+                                 if n_reopen else "")),
+                # A4A-3: a reopen is a new question (research dedupes on the trigger).
+                trigger=(f"{TRIGGER_PREFIX}{gap['gap']}" if not n_reopen
+                         else f"{TRIGGER_PREFIX}{gap['gap']}:reopen{n_reopen}"),
                 decision_ref=f"{DECISION_PREFIX}{gap['gap']}", domain=DOMAIN,
                 query_terms=[gap["pod"]],
                 evidence_needed=("dated benchmark listing counts, shops and prices in this "
@@ -290,6 +329,15 @@ def open_briefs(ctx, unanswered: list[dict], *, today: date) -> dict:
             d["ideation_brief"] = brief
             row.detail = d
             flag_modified(row, "detail")
+        if reopening:
+            history = list(rec.get("history") or []) + [{
+                "task": rec.get("task"), "outcome": rec.get("completed") or rec.get("outcome"),
+                "ended_fingerprint": rec.get("ended_fingerprint")}]
+            _record(db, gap["gap"], history=history[-MAX_REOPENS:], reopens=n_reopen,
+                    ended_fingerprint=None, completed=None)
+            ctx.audit(REOPENED, artifact=f"coverage_gap:{gap['gap']}",
+                      detail={"gap": gap["gap"], "reopens": n_reopen,
+                              "previous_task": rec.get("task")})
         _record(db, gap["gap"], task=tid, opened_at=now.isoformat(), brief=brief,
                 outcome=None, slug=None)
         ctx.enqueue("research_agent", "research.investigate", {"task_id": tid},
@@ -424,6 +472,9 @@ def build_proposal(db, gap_id: int, obs: dict, *, finding: str, source: str) -> 
         break
     if pick is None:
         return {"refused": refusals}
+    # A4A-2: no observed price is no price evidence; never a TypeError, never a guess.
+    if obs.get("price_median_cad") is None:
+        return {"refused": ["no observed listing carries a price"]}
     (descriptor, motif, palette, feeling), title, slug = pick
     price = round(min(float(obs["price_median_cad"]), PREMIUM_PRICE_CEILING_CAD * 1.5), 2)
     return {
@@ -479,9 +530,14 @@ def investigate(ctx, task_id: int, *, today: date | None = None) -> dict:
     if t["state"] not in (research.OPEN, research.ANSWERED):
         return {"task": task_id, "ran": False, "why": f"task is {t['state']}", "work_done": 0}
     obs = observe(db, str(brief.get("pod") or ""), today=today)
-    if not obs["ok"] and not (t["state"] == research.ANSWERED and refs):
+    # A4A-2: the evidence floor is re-checked at attach time, every time. A task answered
+    # before a crash used to be proposed from TODAY's observations even below the floor (the
+    # probe: one listing from one shop), and a listing with no price raised a TypeError.
+    if not obs["ok"]:
         outcome = OUT_NO_OBJECT if obs["no_object"] else OUT_INSUFFICIENT
         action = NO_OBJECT if obs["no_object"] else INSUFFICIENT
+        if t["state"] == research.ANSWERED:
+            obs = {**obs, "reasons": [f"at attach: {r}" for r in obs["reasons"]]}
         _record(db, gap_id, outcome=outcome, why=obs["reasons"][:5], slug=None)
         ctx.audit(action, artifact=f"research_task:{task_id}", detail={
             "gap": gap_id, "pod": obs["pod"], "reasons": obs["reasons"][:5],
