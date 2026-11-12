@@ -1,6 +1,6 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-12T05:30Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-12T06:40Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
@@ -17,6 +17,9 @@ worktrees, not this file.
 - A9: QUESTION in 6815195280. It depends on parked A1. I recommended (a) merging whole. If
   there's no answer, do R1/R2 next. A worktree name is free: use /home/user/opus2-a9u6. The
   branch opus2/a9-listing-package-fence already exists (an older one): use a new name.
+- WS2 R1+R2: REVIEW-REQUEST 147248dd (6815997206) on opus2/ws2-r1-r2-scan-readback
+  (worktree /home/user/opus2-ws2), all suites green. Next: E1 (learning reads transactions_r
+  receipts), E2, E3.
 - Local PG 16: /var/tmp/opus2pg (see below).
 
 ## State at 2026-11-12T04:30Z (superseded)
