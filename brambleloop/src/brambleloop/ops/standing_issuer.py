@@ -601,3 +601,120 @@ def shadow_run(db, *, now: datetime | None = None) -> dict:
     return {"policy": content["policy_id"], "approval_id": policy["approval_id"],
             "evaluated": evaluated, "recorded": recorded, "would_issue": would,
             "signed": 0, "issued": 0}
+
+
+# ---------------------------------------------------------------------------------------------
+# Holds become owner cards (design §4.2; M6 item 9)
+# ---------------------------------------------------------------------------------------------
+
+HELD = "standing_policy.held"
+HOLD_KEY_PREFIX = "standing_policy.hold:"
+
+
+def hold_key(slug: str, version: str, release: str) -> str:
+    return f"{HOLD_KEY_PREFIX}{slug}@{version}:{str(release)[:12]}"
+
+
+def record_hold(db, *, slug: str, version: str, release: str, reasons: list[str],
+                content: dict, approval_id: int | None = None,
+                now: datetime | None = None) -> dict:
+    """A live HOLD: one `standing_policy.held` row and one deduplicated owner card that leads
+    to today's per-product approval (`publication.preview` -> `publication.approve`).
+
+    The card's key binds the release, so a re-held release restates its one card, and a new
+    release closes the older release's card as superseded. A hold never turns into an issue
+    by itself: the owner decides per product, exactly as without a policy."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog, OwnerAction
+    from . import owner_queue
+
+    now = _now(now)
+    key = hold_key(slug, version, release)
+    reasons = [str(r)[:300] for r in (reasons or ["held (no reason recorded)"])]
+    digest = (content or {}).get("owner_statement_digest")
+    with db.session() as s:
+        s.add(AuditLog(actor=ACTOR, action=HELD, artifact=f"{slug}@{version}", detail={
+            "scope": "standing_policy", "slug": slug, "version": version,
+            "release": release, "reasons": reasons[:20],
+            "policy_id": (content or {}).get("policy_id"),
+            "policy_version": (content or {}).get("version"),
+            "owner_statement_digest": digest, "approval_id": approval_id,
+            "held_at": now.isoformat()}))
+        superseded = []
+        prefix = f"{HOLD_KEY_PREFIX}{slug}@{version}:"
+        for row in s.scalars(select(OwnerAction).where(
+                OwnerAction.requirement_key.like(f"{prefix}%"),
+                OwnerAction.done == False)):  # noqa: E712
+            if row.requirement_key.startswith(prefix) and row.requirement_key != key:
+                owner_queue.close(row, owner_queue.SUPERSEDED,
+                                  f"release {str(release)[:12]} replaces this one", now=now)
+                superseded.append(row.requirement_key)
+        card = owner_queue.ensure(
+            s, key,
+            action=(f"{slug}@{version} is outside the standing publication policy, so it was "
+                    f"not drafted automatically. Decide it per product as today: "
+                    f"`publication.preview` shows the exact content and evidence, then "
+                    f"`publication.approve` (step-up) grants it, or leave it unpublished."),
+            reason=("held by the standing policy (statement digest "
+                    f"{str(digest)[:12]}): " + "; ".join(reasons[:6]))[:2000],
+            max_cost_cad=0.0, minutes=10,
+            consequence_of_delay="the release stays an unpublished draft",
+            why_software_cannot=("the standing policy covers only releases inside its "
+                                 "owner-signed boundary; this one is outside it"))
+        card_id = card.id
+    return {"key": key, "card_id": card_id, "superseded": superseded}
+
+
+def close_settled_holds(db, *, now: datetime | None = None) -> dict:
+    """Close hold cards on evidence: the release is on Etsy (the owner published it), or it
+    is no longer a candidate release (a newer release replaced it)."""
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+    from . import owner_queue
+
+    now = _now(now)
+    current = {f"{slug}@{version}": release for slug, version, release in candidates(db)}
+    closed = []
+    with db.session() as s:
+        for row in s.scalars(select(OwnerAction).where(
+                OwnerAction.requirement_key.like(f"{HOLD_KEY_PREFIX}%"),
+                OwnerAction.done == False)):  # noqa: E712
+            rest = row.requirement_key[len(HOLD_KEY_PREFIX):]
+            ident, _, rel = rest.rpartition(":")
+            slug, _, version = ident.partition("@")
+            listing = _listing(db, slug, version)
+            if listing is not None and listing.etsy_listing_id:
+                owner_queue.close(row, owner_queue.SATISFIED,
+                                  f"{ident} is on Etsy as {listing.etsy_listing_id}", now=now)
+                closed.append(row.requirement_key)
+            elif str(current.get(ident) or "")[:12] != rel:
+                owner_queue.close(row, owner_queue.SUPERSEDED,
+                                  f"{ident} release {rel} is no longer the candidate", now=now)
+                closed.append(row.requirement_key)
+    return {"closed": closed}
+
+
+def decide(db, slug: str, version: str, release: str, *,
+           now: datetime | None = None) -> dict:
+    """The live decision for one release against the EFFECTIVE policy (Mode T only).
+
+    No effective policy (always, until Mode T exists) -> nothing is decided and no card is
+    opened: today's per-product approval is the only path, as before. A HOLD becomes an owner
+    card (`record_hold`). An ISSUE is refused here: the grant store and the issuer key are the
+    Mode T increment, so this function can never sign or issue."""
+    now = _now(now)
+    eff = SP.effective(db, now=now)
+    if eff.get("state") != SP.EFFECTIVE:
+        return {"decision": None, "why": eff.get("why"), "card": None}
+    content = eff["content"]
+    out = evaluate(db, slug, version, release, content, shadow=False)
+    if out["decision"] == "HOLD":
+        card = record_hold(db, slug=slug, version=version, release=release,
+                           reasons=out["reasons"], content=content,
+                           approval_id=eff.get("approval_id"), now=now)
+        return {"decision": "HOLD", "reasons": out["reasons"], "card": card}
+    return {"decision": "ISSUE_REFUSED", "card": None,
+            "why": "in policy, but no standing grant can be issued: the grant store and "
+                   "issuer process do not exist (Mode T increment)"}

@@ -19,8 +19,10 @@ def handle_issuer_shadow(ctx: JobContext) -> dict:
     from ..ops import standing_issuer
 
     out = standing_issuer.shadow_run(ctx.db)
+    # WS4 §4.2: hold cards close on evidence (published, or a newer release replaced it).
+    out["hold_cards_closed"] = len(standing_issuer.close_settled_holds(ctx.db)["closed"])
     ctx.audit(JOB_TYPE, detail=out)
-    return {**out, "ran": True, "work_done": out["recorded"]}
+    return {**out, "ran": True, "work_done": out["recorded"] + out["hold_cards_closed"]}
 
 
 STOP_WATCH = "policy.stop_watch"
