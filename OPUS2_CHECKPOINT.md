@@ -4,7 +4,32 @@ Updated: 2026-11-12T13:10Z. The engineering loop rewrites this file at the end o
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-12T16:37Z (read first)
+## State at 2026-11-12T16:43Z (read first)
+- No Main message since 11:46Z. Open RRs, all awaiting Main:
+  - A9 56f92eb9
+  - A3 3928ba00
+  - E2 56694ebf
+  - E3 34eb66aa
+  - WS4 increment 2 0b36ef3b
+  - increment 3 407af821
+  - increment 4 ddc59be1
+  - increment 5 86322a9f (6826373626)
+  - increment 6 f06926fa (6827019805)
+  - increment 8 stop watch 879dfb00 (6828197537)
+  - increment 9 check 11 6f25004e (6829661696)
+  - increment 10 hold cards eaff96f0 (6829802237)
+- Design choices flagged for Main:
+  - increment 8: before activation the stop watch records would_suspend only;
+  - increment 9: older reviews read UNKNOWN until re-filed;
+  - increment 10: shadow opens no cards.
+- WS4 branches stack in worktree opus2-ws43 (currently on ws4-10).
+- Next: Stage D acceptance, the G-SHADOW reading (would-issue vs the owner's per-product
+  decisions, zero mismatches, 7 days of stop-watch readings without a silence over 30 min).
+  Use-time re-checks and Stage A wait on the SEG store (owner's Mode T spend decision).
+- Stop reason: 16:28Z tick in progress; increment 10 pushed. Continue with G-SHADOW if
+  capacity remains, otherwise next tick.
+
+## State at 2026-11-12T16:37Z (superseded)
 - No Main message since 11:46Z. Open RRs, all awaiting Main:
   - A9 56f92eb9
   - A3 3928ba00
