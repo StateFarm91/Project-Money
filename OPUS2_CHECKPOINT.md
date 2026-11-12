@@ -1,10 +1,25 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-12T04:30Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-12T05:30Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-12T04:30Z (read first)
+## State at 2026-11-12T05:30Z (read first)
+- FINAL P0 SCOPE (6813280400). Secondary's queue, in order: A3 -> WS4-0 -> A9 -> R1, R2 ->
+  E1, E2, E3 -> WS4-1.. (M6 order) -> R3-R7, E4-E7 -> A4a/A4b. Gap lists: WS2 6813423278,
+  WS5/6 6813416727, WS4 design 6813405609 (claude/w6-p0-design). Live Etsy is unavailable
+  until the owner pays the subscription (2026-11-13; 6814167293): build against fakes, and
+  report a refusal as credential_refused/UNKNOWN.
+- A3: REVIEW-REQUEST bf9e383a (6814957552), all suites green.
+- WS4-0: REVIEW-REQUEST 317281d2 (6815195280) on opus2/ws4-0-ed25519-grants (worktree
+  /home/user/opus2-ws4). 0a + 0c done; 0b held (it would re-key the production phase chain).
+  Q1-Q3 (6814628444) are unanswered, so my defaults are built.
+- A9: QUESTION in 6815195280. It depends on parked A1. I recommended (a) merging whole. If
+  there's no answer, do R1/R2 next. A worktree name is free: use /home/user/opus2-a9u6. The
+  branch opus2/a9-listing-package-fence already exists (an older one): use a new name.
+- Local PG 16: /var/tmp/opus2pg (see below).
+
+## State at 2026-11-12T04:30Z (superseded)
 - Cadence spread 5f4a175e: SHIP, on INTEG1 (6812727701). Cert run 20261112T023644Z-20723 on
   5f4a175e was started by Main; run nothing on Main's machine. Batch 7 88d1ce5e is in production.
 - NEW OWNERSHIP (6812691594 + correction 6812867876): opus2 owns all of Codex's open work.
