@@ -70,6 +70,7 @@ from brambleloop.queue.durable import JobQueue  # noqa: E402
 from brambleloop.runtime import etsy_ops, pipeline, release  # noqa: E402,F401
 from brambleloop.runtime.worker import Worker  # noqa: E402
 from tests.fake_etsy import FakeEtsy  # noqa: E402
+import _owner_grant; _owner_grant.as_owner()  # noqa: E402,E702  (WS4-0a)
 
 SLUG = "cloudline-baby-blanket"
 OWNER_TOKEN = "fixture-owner-publication-credential-32+"

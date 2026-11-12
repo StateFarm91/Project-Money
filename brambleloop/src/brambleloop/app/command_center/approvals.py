@@ -31,6 +31,10 @@ ACTIONS: dict[str, tuple[bool, str]] = {
     "activation.preview": (False, "read the exact content an activation grant would bind"),
     "activation.approve": (True, "record a sealed 24 h owner activation grant"),
     "activation.revoke": (False, "revoke an activation grant (tightens)"),
+    # WS4-0a: grant chains are Ed25519-signed in this request context only; a chain holding
+    # rows sealed under the retired ops-token HMAC is re-anchored here once by the owner.
+    "publication.rebase": (True, "re-anchor the publication grant chain (voids earlier grants)"),
+    "activation.rebase": (True, "re-anchor the activation grant chain (voids earlier grants)"),
     "improvement.approve": (True, "record the owner's approval of a gate-tier improvement"),
     "challenger.approve": (True, "record the owner's decision to promote a challenger"),
     "incident.acknowledge": (False, "acknowledge an incident (does not resolve it)"),
@@ -611,6 +615,11 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
                           version=body.get("version"), release=body.get("release", ""),
                           expected_digest=body.get("expected_digest"), reason=tagged)
             result = mod.approve(db, **kwargs)
+        elif action in ("publication.rebase", "activation.rebase"):
+            mod = pub if action.startswith("publication") else act
+            if not reason:
+                raise ActionRefused("owner decision reason required")
+            result = mod.rebase(db, authorization=_ops_token(), reason=tagged)
         elif action in ("publication.revoke", "activation.revoke"):
             mod = pub if action.startswith("publication") else act
             ident = _int(body, "approval_id")

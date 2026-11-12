@@ -188,6 +188,13 @@ class GrantLedger:
         d = dict(detail or {})
         seal = d.pop("seal", "")
         if self._verify is not None:
+            from .owner_grant_keys import legacy_hmac_seal
+
+            if legacy_hmac_seal(seal):
+                # WS4-0a: a row sealed under the retired ops-token HMAC no longer verifies;
+                # the owner re-anchors the chain once (a signed rebase) before a new grant.
+                return (f"{self.label} row was sealed under the retired ops-token HMAC "
+                        f"(pre-WS4-0); the owner re-anchors the chain once with a rebase")
             try:
                 ok = bool(self._verify(d, str(seal)))
             except ValueError:

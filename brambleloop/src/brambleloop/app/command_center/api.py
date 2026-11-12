@@ -940,6 +940,14 @@ def make_router(db) -> APIRouter:
                 with _sfa.owner_request(auth.current_public_id(request) or "owner"):
                     out = await run_in_threadpool(approvals.execute, db, action, body,
                                                   actor=actor(request))
+            elif action.startswith(("publication.", "activation.")):
+                # WS4-0a: an owner publication/activation grant (or rebase) is signed only
+                # inside this request context, set here after session, CSRF/nonce and step-up.
+                from ...core import owner_grant_keys as _ogk
+
+                with _ogk.owner_request(auth.current_public_id(request) or "owner"):
+                    out = await run_in_threadpool(approvals.execute, db, action, body,
+                                                  actor=actor(request))
             else:
                 out = await run_in_threadpool(approvals.execute, db, action, body,
                                               actor=actor(request))

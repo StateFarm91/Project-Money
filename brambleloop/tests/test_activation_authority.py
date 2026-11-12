@@ -24,22 +24,30 @@ def test_authority_lifecycle_and_adversarial_mutations():
         body = {'slug': 'throw', 'version': '1', 'release': 'release-1', 'expected_digest': a.digest(CONTENT), 'reason': 'owner reviewed'}
         assert client.post('/api/owner/activation/approve', json=body).status_code == 403
         r = client.post('/api/owner/activation/approve', json=body, headers={'Authorization': f'Bearer {TOKEN}'})
-        assert r.status_code == 200, r.text
+        # WS4-0a: the bearer route never signs an owner grant; the owner approves in the
+        # Command Center request (session, CSRF/nonce, step-up), entered here directly.
+        assert r.status_code == 409 and 'Command Center request' in r.text, r.text
+        from brambleloop.core import owner_grant_keys as ogk
+        with ogk.owner_request('test-owner'):
+            ident = a.approve(db, authorization=TOKEN, **body)['approval_id']
         # Durable grant remains valid after reconstructing the database accessor.
         db = Database(str(db.engine.url))
-        ident = r.json()['approval_id']; assert validate(ident) is None
+        assert validate(ident) is None
         assert validate('L0-owner'); assert validate(999999)
         with patch.object(a, '_now', return_value=a._now() + timedelta(days=2)):
             assert 'expired' in validate(ident)
         for change in ({'action': 'other'}, {'listing_id': '999'}, {'release': 'other'}, {'frames': [{'sha256': 'changed'}]}):
             with patch.object(a, 'snapshot', return_value={**CONTENT, **change}):
                 assert validate(ident)
-        with patch.dict(os.environ, {'BRAMBLELOOP_OPS_TOKEN': TOKEN + 'rotated'}):
+        # WS4-0a: rotating the owner-grant key pair (not the ops token) voids every grant.
+        fresh = ogk.generate_keypair()
+        with patch.dict(os.environ, {ogk.VERIFY_KEY_VAR: fresh[ogk.VERIFY_KEY_VAR]}):
             assert validate(ident)
         assert client.post(f'/api/owner/activation/{ident}/revoke').status_code == 403
         assert client.post(f'/api/owner/activation/{ident}/revoke', headers={'Authorization': TOKEN}).status_code == 200
         assert 'revoked' in validate(ident)
-        ident = client.post('/api/owner/activation/approve', json=body, headers={'Authorization': TOKEN}).json()['approval_id']
+        with ogk.owner_request('test-owner'):
+            ident = a.approve(db, authorization=TOKEN, **body)['approval_id']
         with db.session() as s:
             row = s.get(AuditLog, ident); detail = dict(row.detail); detail['reason'] = 'tampered'; row.detail = detail
         assert validate(ident)

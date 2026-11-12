@@ -38,6 +38,7 @@ from brambleloop.products import launch0 as l0  # noqa: E402
 from brambleloop.queue.durable import JobQueue  # noqa: E402
 from brambleloop.runtime import etsy_ops, pipeline  # noqa: E402
 from brambleloop.runtime.worker import JobContext  # noqa: E402
+import _owner_grant; _owner_grant.as_owner()  # noqa: E402,E702  (WS4-0a)
 
 TOKEN = "fb4-launch-synthetic-operator-token-0123456789"
 AUTH = {"Authorization": f"Bearer {TOKEN}"}

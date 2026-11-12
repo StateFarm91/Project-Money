@@ -46,6 +46,7 @@ from brambleloop.integrations.http import UrllibTransport  # noqa: E402
 from brambleloop.queue.durable import JobQueue  # noqa: E402
 from brambleloop.runtime import etsy_ops, pipeline  # noqa: E402
 from brambleloop.runtime.worker import CADENCES, JobContext, Worker  # noqa: E402
+import _owner_grant; _owner_grant.as_owner()  # noqa: E402,E702  (WS4-0a)
 from tests.fake_etsy import FakeEtsy  # noqa: E402
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"frame-bytes-"

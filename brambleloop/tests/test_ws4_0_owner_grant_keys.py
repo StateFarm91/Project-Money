@@ -1,0 +1,256 @@
+"""WS4-0a (design ddde00cc §2.2, F-A): owner publication and activation grants are Ed25519.
+
+The weakness closed here: grant rows were HMAC-SHA256 under the ops token, and verification
+recomputed the HMAC, so any process able to VERIFY a grant (the worker) could MINT one. Now:
+
+* a grant row verifies only under the owner-grant public key;
+* a row "sealed" with the ops token (what a compromised worker could produce) is refused;
+* approving or rebasing is signed only inside the Command Center owner request; a bearer call
+  (the operator route) refuses; a revocation (tightening) does not need the owner request;
+* a dedicated worker scrubs the signing key and refuses to sign; a process holding only the
+  verify key cannot sign;
+* each family signs under its own domain: a publication row never verifies as activation;
+* a chain still holding rows sealed under the retired HMAC names that cause, and one owner
+  rebase (signed, in the owner request) re-anchors it.
+
+Run: cd brambleloop && PYTHONPATH=src:tests python3 tests/test_ws4_0_owner_grant_keys.py
+"""
+from __future__ import annotations
+
+import _tmp; _tmp.install()  # noqa: E702  (also gives this process its own grant key pair)
+import hashlib
+import hmac
+import json
+import os
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "tests"))
+
+from brambleloop.core import owner_grant_keys as K  # noqa: E402
+from brambleloop.core.db import Database  # noqa: E402
+from brambleloop.core.models import AuditLog  # noqa: E402
+from brambleloop.ops import activation_authority as act  # noqa: E402
+from brambleloop.ops import publication_authority as pub  # noqa: E402
+
+OPS_TOKEN = "ws4-0-test-operator-token-" + "q" * 20
+
+
+def _db() -> Database:
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/g.sqlite", scratch=True)
+    db.create_all()
+    return db
+
+
+def _grant_body(slug="p", version="1") -> dict:
+    return {"principal": pub.PRINCIPAL, "action": pub.ACTION, "scope": f"{slug}@{version}",
+            "release": "r" * 64, "content": {"x": 1}, "digest": "d" * 64, "reason": "test",
+            "approved_at": "2026-11-12T00:00:00+00:00",
+            "expires_at": "2026-11-13T00:00:00+00:00"}
+
+
+def _owner():
+    return K.owner_request("test-owner-session")
+
+
+def test_an_owner_signed_row_verifies_and_an_edited_one_does_not():
+    db = _db()
+    with _owner():
+        gid = pub.LEDGER.append(db, action=pub.APPROVED, artifact="p@1", detail=_grant_body())
+    with db.session() as s:
+        detail = dict(s.get(AuditLog, gid).detail)
+    assert len(detail["seal"]) == 128                     # an Ed25519 signature, not an HMAC
+    assert pub.LEDGER.verify_row(detail) is None
+    assert pub.LEDGER.refusal(db, gid) is None
+    edited = {**detail, "digest": "e" * 64}
+    assert pub.LEDGER.verify_row(edited) is not None
+
+
+def test_a_row_sealed_with_the_ops_token_is_refused_F_A():
+    """What a compromised worker could forge before WS4-0: an HMAC under the ops token."""
+    os.environ["BRAMBLELOOP_OPS_TOKEN"] = OPS_TOKEN
+    body = {**_grant_body(), "event": pub.APPROVED, "seq": 1, "prev_id": None, "prev_seal": ""}
+    forged = hmac.new(OPS_TOKEN.encode(), json.dumps(body, sort_keys=True,
+                      separators=(",", ":"), ensure_ascii=True, default=str).encode(),
+                      hashlib.sha256).hexdigest()
+    why = pub.LEDGER.verify_row({**body, "seal": forged})
+    assert why and "retired ops-token HMAC" in why, why
+    db = _db()
+    with db.session() as s:
+        s.add(AuditLog(actor=pub.PRINCIPAL, action=pub.APPROVED, artifact="p@1",
+                       detail={**body, "seal": forged}))
+    chain = pub.LEDGER.chain(db, record_incident=False)
+    assert chain["valid"] is False and "retired ops-token HMAC" in chain["why"], chain
+
+
+def test_approve_and_rebase_refuse_outside_the_owner_request_and_revoke_does_not():
+    db = _db()
+    for action in (pub.APPROVED, pub.REBASED):
+        try:
+            pub.LEDGER.append(db, action=action, artifact="p@1", detail=_grant_body())
+        except ValueError as exc:
+            assert "Command Center request" in str(exc), exc
+        else:
+            raise AssertionError(f"{action} was signed outside the owner request")
+    try:
+        pub.LEDGER.rebase(db, "no owner request")
+    except ValueError as exc:
+        assert "Command Center request" in str(exc), exc
+    else:
+        raise AssertionError("a rebase was signed outside the owner request")
+    with _owner():
+        gid = pub.LEDGER.append(db, action=pub.APPROVED, artifact="p@1", detail=_grant_body())
+    rid = pub.LEDGER.revoke(db, gid)                      # tightening: no owner request needed
+    assert rid and pub.LEDGER.refusal(db, gid) == "owner publication grant revoked"
+
+
+def test_the_bearer_route_approve_refuses_with_the_reason():
+    """`publication_authority.approve` / `activation_authority.approve` called the way the
+    operator bearer route calls them (a valid ops token, no owner request) never sign."""
+    os.environ["BRAMBLELOOP_OPS_TOKEN"] = OPS_TOKEN
+    db = _db()
+    from unittest.mock import patch
+
+    for mod in (pub, act):
+        with patch.object(mod, "snapshot", return_value={"x": 1}), \
+                patch("brambleloop.visual.experiment.refuse_if_experiment", lambda *a, **k: None):
+            try:
+                mod.approve(db, authorization=f"Bearer {OPS_TOKEN}", slug="p", version="1",
+                            release="r" * 64, expected_digest=mod.digest({"x": 1}),
+                            reason="operator")
+            except ValueError as exc:
+                assert "Command Center request" in str(exc), (mod.__name__, exc)
+            else:
+                raise AssertionError(f"{mod.__name__}.approve signed on the bearer route")
+
+
+def test_a_job_process_never_signs_and_its_key_is_scrubbed():
+    saved = dict(os.environ)
+    try:
+        assert os.environ.get(K.SIGNING_KEY_VAR)
+        assert K.mark_job_process() is True
+        assert K.SIGNING_KEY_VAR not in os.environ
+        assert K.signing_refusal() == "this process runs jobs, so it may never sign an owner grant"
+        with _owner():
+            try:
+                K.sign(pub.DOMAIN, {"event": pub.APPROVED})
+            except ValueError as exc:
+                assert "runs jobs" in str(exc), exc
+            else:
+                raise AssertionError("a job process signed an owner grant")
+    finally:
+        K._JOB_PROCESS["is"] = False
+        os.environ.clear()
+        os.environ.update(saved)
+
+
+def test_a_process_with_only_the_verify_key_cannot_sign_but_can_verify():
+    db = _db()
+    with _owner():
+        gid = pub.LEDGER.append(db, action=pub.APPROVED, artifact="p@1", detail=_grant_body())
+    signing = os.environ.pop(K.SIGNING_KEY_VAR)
+    try:
+        assert pub.LEDGER.refusal(db, gid) is None            # verifies with the public key
+        with _owner():
+            try:
+                K.sign(pub.DOMAIN, {"event": pub.APPROVED})
+            except ValueError as exc:
+                assert "signing key unavailable" in str(exc), exc
+            else:
+                raise AssertionError("signed without the signing key")
+    finally:
+        os.environ[K.SIGNING_KEY_VAR] = signing
+
+
+def test_each_family_signs_under_its_own_domain():
+    body = {**_grant_body(), "event": pub.APPROVED}
+    with _owner():
+        sig = K.sign(pub.DOMAIN, body)
+    assert K.verify(pub.DOMAIN, body, sig) is True
+    assert K.verify(act.DOMAIN, body, sig) is False
+    assert pub.DOMAIN != act.DOMAIN
+
+
+def test_a_missing_verify_key_refuses_every_grant():
+    db = _db()
+    with _owner():
+        gid = pub.LEDGER.append(db, action=pub.APPROVED, artifact="p@1", detail=_grant_body())
+    verify = os.environ.pop(K.VERIFY_KEY_VAR)
+    try:
+        why = pub.LEDGER.refusal(db, gid)
+        assert why and "does not verify" in why, why
+    finally:
+        os.environ[K.VERIFY_KEY_VAR] = verify
+
+
+def test_a_legacy_hmac_chain_is_re_anchored_by_one_owner_rebase():
+    """Deploy path: the family still holds pre-WS4-0 HMAC rows. The chain names the cause; the
+    owner records one signed rebase in the Command Center; a new grant then works."""
+    os.environ["BRAMBLELOOP_OPS_TOKEN"] = OPS_TOKEN
+    db = _db()
+    body = {**_grant_body(), "event": pub.APPROVED, "seq": 1, "prev_id": None, "prev_seal": ""}
+    legacy = hmac.new(OPS_TOKEN.encode(), json.dumps(body, sort_keys=True,
+                      separators=(",", ":"), ensure_ascii=True, default=str).encode(),
+                      hashlib.sha256).hexdigest()
+    with db.session() as s:
+        row = AuditLog(actor=pub.PRINCIPAL, action=pub.APPROVED, artifact="p@1",
+                       detail={**body, "seal": legacy})
+        s.add(row)
+        s.flush()
+        legacy_id = row.id
+    try:
+        with _owner():
+            pub.LEDGER.append(db, action=pub.APPROVED, artifact="p@1", detail=_grant_body())
+    except ValueError as exc:
+        assert "rebase" in str(exc), exc
+    else:
+        raise AssertionError("a grant was appended to a chain that does not verify")
+    with _owner():
+        pub.LEDGER.rebase(db, "WS4-0a: re-anchor after the Ed25519 migration")
+        gid = pub.LEDGER.append(db, action=pub.APPROVED, artifact="p@1", detail=_grant_body())
+    assert pub.LEDGER.chain(db, record_incident=False)["valid"] is True
+    assert pub.LEDGER.refusal(db, gid) is None
+    assert "predates" in (pub.LEDGER.refusal(db, legacy_id) or ""), pub.LEDGER.refusal(
+        db, legacy_id)
+
+
+def test_the_activation_family_is_asymmetric_too():
+    db = _db()
+    body = {"principal": act.PRINCIPAL, "action": "store.activate", "content": {"x": 1},
+            "digest": "d" * 64, "reason": "t", "approved_at": "2026-11-12T00:00:00+00:00",
+            "expires_at": "2026-11-13T00:00:00+00:00"}
+    with _owner():
+        gid = act.LEDGER.append(db, action=act.APPROVED, artifact="p@1", detail=body)
+    assert act.LEDGER.refusal(db, gid) is None
+    with db.session() as s:
+        detail = dict(s.get(AuditLog, gid).detail)
+    assert len(detail["seal"]) == 128
+    assert act.LEDGER.verify_row({**detail, "content": {"x": 2}}) is not None
+
+
+def test_every_worker_entry_scrubs_the_owner_grant_key():
+    src = ROOT / "src" / "brambleloop" / "app"
+    for name in ("worker_entry.py", "hq_worker.py"):
+        text = (src / name).read_text()
+        assert "owner_grant_keys" in text and "mark_job_process()" in text, name
+    api = (src / "command_center" / "api.py").read_text()
+    assert '_ogk.owner_request(auth.current_public_id(request) or "owner")' in api
+
+
+if __name__ == "__main__":
+    fails = 0
+    for name, fn in sorted(globals().items()):
+        if name.startswith("test_") and callable(fn):
+            try:
+                fn()
+                print("OK  ", name)
+            except Exception as e:  # noqa: BLE001
+                fails += 1
+                import traceback
+                traceback.print_exc()
+                print("FAIL", name, repr(e))
+    print(f"PASS: {fails} failing" if not fails else f"FAILED: {fails} failing")
+    sys.exit(1 if fails else 0)

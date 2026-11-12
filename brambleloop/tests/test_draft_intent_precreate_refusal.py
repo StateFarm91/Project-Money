@@ -28,6 +28,7 @@ from brambleloop.integrations.etsy import EtsyClient  # noqa: E402
 from brambleloop.publish import draft_intent  # noqa: E402
 from brambleloop.ops import publication_authority as pa  # noqa: E402
 from brambleloop.runtime import etsy_ops, pipeline  # noqa: E402
+import _owner_grant; _owner_grant.as_owner()  # noqa: E402,E702  (WS4-0a)
 
 OWNER_TOKEN = "synthetic-owner-ops-credential-not-a-secret"
 
@@ -137,7 +138,9 @@ class PreCreateRefusal(unittest.TestCase):
                                    "reason": "forged", "approved_at": now.isoformat(),
                                    "expires_at": (now + timedelta(hours=1)).isoformat(),
                                    "seal": "0" * 64}))
-        self.assert_refused_before_any_request("invalid")
+        # WS4-0a: a 64-hex seal is HMAC-shaped -- what the ops token could forge -- and is
+        # refused as the retired scheme; the chain no longer verifies, so every grant refuses.
+        self.assert_refused_before_any_request("does not verify")
         # rc1-AUTH D2: the forged row broke the sealed grant chain, so no new grant can be
         # recorded on top of it until the owner rebases (which voids every earlier grant).
         with self.assertRaises(ValueError):
@@ -152,11 +155,16 @@ class PreCreateRefusal(unittest.TestCase):
             row.detail = d
         self.assert_refused_before_any_request("invalid")
         pa.rebase(self.db, authorization=OWNER_TOKEN, reason="edited row found")
-        # A grant sealed under a credential that has since rotated.
+        # A grant signed under a key pair that has since rotated (WS4-0a: the owner-grant
+        # Ed25519 pair, not the ops token, is what a grant is bound to).
         self.grant()
-        os.environ["BRAMBLELOOP_OPS_TOKEN"] = OWNER_TOKEN + "-rotated"
-        self.assert_refused_before_any_request("invalid")
-        os.environ["BRAMBLELOOP_OPS_TOKEN"] = OWNER_TOKEN
+        from brambleloop.core import owner_grant_keys as ogk
+        saved = os.environ[ogk.VERIFY_KEY_VAR]
+        os.environ[ogk.VERIFY_KEY_VAR] = ogk.generate_keypair()[ogk.VERIFY_KEY_VAR]
+        try:
+            self.assert_refused_before_any_request("does not verify")
+        finally:
+            os.environ[ogk.VERIFY_KEY_VAR] = saved
         # A grant presented by an id that is not an owner publication approval at all.
         with self.db.session() as s:
             other = AuditLog(actor="synthetic", action="owner.activation.approved",

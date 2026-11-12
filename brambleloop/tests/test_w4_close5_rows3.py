@@ -31,6 +31,7 @@ sys.path.insert(0, str(ROOT / "tests"))
 sys.path.insert(0, str(ROOT))
 
 from tests import test_etsy_readback_observe as rb  # noqa: E402  (its fake Etsy and fixtures)
+import _owner_grant; _owner_grant.as_owner()  # noqa: E402,E702  (WS4-0a)
 
 # Every EtsyClient method that writes to Etsy.
 MUTATIONS = {"publish", "create_draft", "set_listing_property", "attach_file", "upload_image",

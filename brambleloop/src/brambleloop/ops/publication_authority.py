@@ -54,11 +54,23 @@ def _json(value):
                       default=str)
 
 
+# WS4-0a (F-A): grant rows are Ed25519-signed in the web process only and verified with the
+# public key, which is all a dedicated worker holds (`core.owner_grant_keys`). The ops-token
+# HMAC that let any verifying process mint a grant is retired; a row sealed under it no longer
+# verifies, and the owner re-anchors the chain once with a rebase (design ddde00cc §8).
+DOMAIN = "brambleloop/owner-grant/publication/v1"
+
+
 def _seal(detail):
-    if not opsauth.configured():
-        raise ValueError("owner credential unavailable")
-    return hmac.new(os.environ[opsauth.TOKEN_VAR].strip().encode(),
-                    _json(detail).encode(), hashlib.sha256).hexdigest()
+    from ..core import owner_grant_keys
+
+    return owner_grant_keys.sign(DOMAIN, detail)
+
+
+def _verify(detail, seal) -> bool:
+    from ..core import owner_grant_keys
+
+    return owner_grant_keys.verify(DOMAIN, detail, seal)
 
 
 def digest(value):
@@ -448,8 +460,16 @@ def _check_one(db, ident, *, slug, version, release, current):
     if chained is not None:
         return f"owner publication grant refused: {chained}"
     seal = detail.pop("seal", "")
-    if not hmac.compare_digest(str(seal), _seal(detail)):
-        return "owner publication grant invalid or credential rotated"
+    from ..core import owner_grant_keys
+
+    if owner_grant_keys.legacy_hmac_seal(seal):
+        return ("owner publication grant was sealed under the retired ops-token HMAC "
+                "(pre-WS4-0); the owner records a new grant")
+    try:
+        if not _verify(detail, seal):
+            return "owner publication grant invalid or signing key rotated"
+    except ValueError as exc:
+        return f"owner publication grant cannot be verified: {exc}"
     now = _now()
     if not (datetime.fromisoformat(detail["approved_at"]) <= now
             < datetime.fromisoformat(detail["expires_at"])):
@@ -466,7 +486,7 @@ def _make_ledger():
     from ..core.sealed_chain import GrantLedger
 
     return GrantLedger(approved=APPROVED, revoked=REVOKED, rebased=REBASED, principal=PRINCIPAL,
-                       seal=_seal, signature=f"authority_chain_tamper:{ACTION}",
+                       seal=_seal, verify=_verify, signature=f"authority_chain_tamper:{ACTION}",
                        label="owner publication grant")
 
 
