@@ -1,10 +1,26 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-12T09:00Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-12T10:30Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-12T09:00Z (read first)
+## State at 2026-11-12T10:30Z (read first)
+- INTEG1 is `claude/w6-INTEG1`, not w4-INTEG8-next. The 09:00Z note below was wrong.
+- A9 (option a): branch opus2/a9-u6-sweep-isolation in worktree /home/user/opus2-a9u6.
+  - cd13a90f merges codex 3ee6881f on INTEG1 5f4a175e.
+  - 56f92eb9 fixes H1, H2, M1, L2/R7 and A1 F3/N6/N10. The review is commit 1698fd3f (research/final_build/w5/INDEPENDENT_REVIEW_A9_U6_3ee6881f.md).
+  - Mutants killed: RX R1 R2 R3 R6 R7 F3 N6 N10.
+  - The PG defer test is green on local PG16: URL postgresql://postgres:opus2local@127.0.0.1:54329/a9_defer_test, with BRAMBLELOOP_CONFIRM_DISPOSABLE_POSTGRES=1.
+  - Pushed. The regression batch is in scratchpad/a9u6/reg. Post the RR once it is green.
+  - Open, not fixed: M2 (non-ORM writers; record re-verifies), M4 (poison-release sweep) and D1/F7 LOWs.
+- WS4 M6 increment 2: branch opus2/ws4-1-ledger-extra-actions in worktree /home/user/opus2-ws41, stacked on WS4-0 5060fcc7.
+  - 9434d000 WS4-1: GrantLedger extra_actions, 10 tests, 5 mutants.
+  - 52a8e0af WS4-2: ops/standing_policy.py, test_ws4_policy_object with 24 tests and 35 mutants.
+  - Not pushed yet. Regression batch: scratchpad/ws41reg.
+  - Next: run vacuity, resume_runner and the new suites, push, then post one RR for increment 2.
+- Then M6 increment 3: the owner signing flow (WS4-3, Command Center actions).
+
+## State at 2026-11-12T09:00Z (superseded)
 - Main 6816519111 answered: Q1-Q3 are accepted. PRINCIPAL is now owner:command-center. WS4-0b is deferred
   until after P0. A9 is option (a). 5f4a175e did not certify; Batch 8 will be recertified.
 - RRs awaiting a verdict:
