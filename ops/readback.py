@@ -53,6 +53,10 @@ NEEDS_OPERATOR = "NEEDS_OPERATOR"
 # `WARN_ONLY` reads WARN where it would otherwise read FAIL.
 WARN = "WARN"
 WARN_ONLY = "warn"
+# Review 6818959626 (E3 MED): WARN only when the route answered 200 AND carried the field
+# with a false value. A crashing route (500), a refused one (401) or a missing field stays
+# UNKNOWN -- a broken endpoint must never read as a merely degraded credential.
+WARN_IF_READ = "warn_if_read"
 # every feature read back, some WARN only: a success (ops/deploy.sh). Review 6791709875 nit 3:
 # distinct from every code this script and ops/deploy.sh already use (deploy.sh's own 3 is
 # "NO DEPLOY"; readback's 4 unreachable, 5 not done).
@@ -126,7 +130,7 @@ MANIFEST = (
     # reported honestly -- never PASS -- without blocking a code deploy (Main 6814167293).
     ("Etsy credential usable", ["F-437"], "/api/etsy", "credential.usable",
      "true (recent real read, OAuth grant openable, no scope missing)",
-     lambda v, _s: v is True, WARN_ONLY),
+     lambda v, _s: v is True, WARN_IF_READ),
 )
 
 # SECPATCH made these GETs operator-only; their rows need the operator credential (above).
@@ -223,7 +227,8 @@ def run(sha: str, *, url: str = PRODUCTION_URL, fetch=None, token: str | None = 
     base = url.rstrip("/")
     for row in MANIFEST:
         feature, rows, endpoint, field, expected, pred = row[:6]
-        bad = WARN if len(row) > 6 and row[6] == WARN_ONLY else FAIL
+        bad = WARN if len(row) > 6 and row[6] in (WARN_ONLY, WARN_IF_READ) else FAIL
+        strict = len(row) > 6 and row[6] == WARN_IF_READ
         operator = endpoint in OPERATOR_ENDPOINTS
         if operator and not token and not readback_token:
             items.append({"feature": feature, "rows": rows, "endpoint": endpoint,
@@ -249,8 +254,10 @@ def run(sha: str, *, url: str = PRODUCTION_URL, fetch=None, token: str | None = 
                 verdict, value = UNKNOWN, None
             else:
                 value = code if field == "@status" else _dig(body, field)
-                verdict = ((bad if bad == WARN else UNKNOWN)
+                verdict = ((bad if bad == WARN and not strict else UNKNOWN)
                            if value is None and field != "@status" else None)
+                if verdict is None and strict and code != 200:
+                    verdict = UNKNOWN
                 if verdict is None:
                     try:
                         verdict = PASS if pred(value, sha) else bad
@@ -278,8 +285,11 @@ def run(sha: str, *, url: str = PRODUCTION_URL, fetch=None, token: str | None = 
             value = code if field == "@status" else _dig(body, field)
             if value is None and field != "@status":
                 # a warn-only row never escalates past WARN: an advisory a build does not
-                # report yet is degraded evidence, not an unknown that forces containment
-                verdict = WARN if bad == WARN else UNKNOWN
+                # report yet is degraded evidence, not an unknown that forces containment.
+                # A WARN_IF_READ row is the exception: a missing field is UNKNOWN.
+                verdict = WARN if bad == WARN and not strict else UNKNOWN
+            elif strict and code != 200:
+                verdict = UNKNOWN
             else:
                 try:
                     verdict = PASS if pred(value, sha) else bad
@@ -375,9 +385,17 @@ def _judge_section(name: str, section, judged) -> tuple[str, str]:
                      + (f"/{r.get('failure_class')}" if r.get("failure_class") else "")
                      for r in shops if r.get("state") != "scanned"]
         # Review 6816970157 M2: a scanned shop whose newest success is stale is not current.
+        # Review 6819096414 LOW-1: recomputed from the age and the limit as well as the
+        # flag, and an unreadable age or limit is stale -- never trusted as current.
+        def _stale(r):
+            age, limit = r.get("success_age_hours"), r.get("stale_after_hours")
+            numeric = all(isinstance(v, (int, float)) and not isinstance(v, bool)
+                          for v in (age, limit))
+            return bool(r.get("stale")) or not numeric or age > limit
+
         unscanned += [f"{r.get('alias')}:stale({r.get('success_age_hours')}h>"
                       f"{r.get('stale_after_hours')}h)"
-                      for r in shops if r.get("state") == "scanned" and r.get("stale")]
+                      for r in shops if r.get("state") == "scanned" and _stale(r)]
         if credential != "usable":
             return WARN, (f"Etsy read credential {credential}; {len(shops) - len(unscanned)}/"
                           f"{len(shops)} scanned")

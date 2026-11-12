@@ -598,19 +598,52 @@ def _probe_age_hours(state: dict | None, now=None) -> float | None:
     return round(((now or datetime.now(timezone.utc)) - at).total_seconds() / 3600.0, 2)
 
 
+AUTH_READ_FRESH_HOURS = 26     # the authenticated read is daily; 2 h for cadence jitter
+
+
+def last_authenticated_read(db) -> dict | None:
+    """The newest `etsy.credential_health` reading: an OAuth-authenticated `getMe` with the
+    stored grant (refreshing it), not the app-key `ping` that `etsy.probe` makes."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        row = s.scalars(select(AuditLog).where(AuditLog.action == "etsy.credential_health")
+                        .order_by(desc(AuditLog.id)).limit(1)).first()
+    return dict(row.detail or {}) if row is not None else None
+
+
 def credential_usable(db, state: dict | None = None, env: dict[str, str] | None = None,
                       now=None) -> dict:
-    """WS5 E3: whether the Etsy credential is USABLE for this company's operations, not merely
-    configured. All of: a successful real read (`etsy.probe`) within PROBE_FRESH_HOURS; a
-    stored OAuth grant that this deployment can open; and every scope the company needs
-    (`etsy_oauth.SCOPES_WANTED`, `transactions_r` included) granted. UNKNOWN parts are false."""
+    """WS5 E3 (review 6818959626): whether the Etsy credential is USABLE for this company's
+    operations, not merely configured. All of:
+
+    * an OAuth-AUTHENTICATED read with the stored grant succeeded within
+      AUTH_READ_FRESH_HOURS -- the newest `etsy.credential_health` reading is HEALTHY with
+      `live.ok` true (an authenticated `getMe`). `etsy.probe` is an app-key ping and proves
+      only that Etsy answers; it is reported, never relied on;
+    * the stored grant can be opened (decrypted) by this deployment;
+    * every scope the company needs (`etsy_oauth.SCOPES_WANTED`, `transactions_r` included) is
+      among the scopes recorded when the grant was made.
+
+    A future-dated or unreadable reading is not recent. UNKNOWN parts are false."""
+    import time as _time
+
     from ..core import oauth_store
     from ..integrations import etsy_oauth
 
     state = last_probe(db) if state is None else state
-    age = _probe_age_hours(state, now)
-    recent = bool(state and state.get("ok") and age is not None
-                  and 0 <= age <= PROBE_FRESH_HOURS)
+    auth_read = last_authenticated_read(db)
+    try:
+        observed = float((auth_read or {}).get("observed_at"))
+    except (TypeError, ValueError):
+        observed = None
+    now_epoch = (now.timestamp() if now is not None else _time.time())
+    auth_age = (round((now_epoch - observed) / 3600.0, 2) if observed is not None else None)
+    recent = bool(auth_read and auth_read.get("status") == "HEALTHY"
+                  and (auth_read.get("live") or {}).get("ok") is True
+                  and auth_age is not None and 0 <= auth_age <= AUTH_READ_FRESH_HOURS)
     try:
         oauth = oauth_store.credential_health(db, env=env)
         openable = bool(oauth.get("openable"))
@@ -619,11 +652,13 @@ def credential_usable(db, state: dict | None = None, env: dict[str, str] | None 
         openable, granted = False, set()
     missing = [sc for sc in etsy_oauth.SCOPES_WANTED if sc not in granted]
     why = [w for w, bad in (
-        ("no successful Etsy read in the last "
-         f"{PROBE_FRESH_HOURS} h (etsy.probe)", not recent),
-        ("no openable OAuth grant is stored", not openable),
-        (f"scopes not granted: {missing}", bool(missing))) if bad]
-    return {"usable": not why, "demonstrated_recently": recent, "probe_age_hours": age,
+        ("no successful OAuth-authenticated Etsy read (etsy.credential_health getMe) in the "
+         f"last {AUTH_READ_FRESH_HOURS} h", not recent),
+        ("no stored OAuth grant this deployment can open", not openable),
+        (f"scopes not recorded as granted: {missing}", bool(missing))) if bad]
+    return {"usable": not why, "demonstrated_recently": recent,
+            "authenticated_read_age_hours": auth_age,
+            "probe_age_hours": _probe_age_hours(state, now),
             "refused": auth_refused(state), "oauth_openable": openable,
             "scopes_not_granted": missing, "why": "; ".join(why)}
 

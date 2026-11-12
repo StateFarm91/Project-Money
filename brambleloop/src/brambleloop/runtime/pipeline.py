@@ -2256,6 +2256,27 @@ def _revalidate_publish_effect(ctx, *, slug, version, release, payload, docs, li
                       "content_digest": reserved_digest})
 
 
+def real_draft_credential_refusal(db, client) -> str | None:
+    """Why a real Etsy draft may not be created with this credential now, or None.
+
+    Only a client whose requests go to Etsy is a real draft (`etsy_probe.against_etsy`). For
+    one, `intel.etsy_public.credential_usable` must be True; an unreadable judgement refuses."""
+    from ..integrations import etsy_probe
+
+    if not etsy_probe.against_etsy(client):
+        return None
+    try:
+        from ..intel import etsy_public
+
+        judged = etsy_public.credential_usable(db)
+    except Exception as exc:  # noqa: BLE001 - unreadable is not usable
+        return f"Etsy credential usability is UNKNOWN ({type(exc).__name__}); no real draft"
+    if judged.get("usable") is not True:
+        return ("Etsy credential is not usable for a real draft: "
+                + (judged.get("why") or "UNKNOWN"))
+    return None
+
+
 def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
                            release: str, payload, docs: dict, hash_check: dict, stored,
                            stored_by_terminology: dict, listing_images: dict) -> dict:
@@ -2296,6 +2317,17 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
     # stays RECONCILE_REQUIRED below.
     known_order = getattr(type(client), "publish", None) is _STOCK_PUBLISH
     draft_intent.refuse_if_existing(ctx.db, slug, version)
+    # Review 6818959626 (E3 HIGH): a REAL draft (a client whose requests go to Etsy) needs a
+    # credential that is usable now -- a recent successful read, an openable OAuth grant and
+    # every needed scope -- not merely configured. Checked before the intent is claimed, so a
+    # refusal provably sent nothing. A client pointed anywhere else (the local fake) is not a
+    # real draft and is unaffected; its own gates still apply.
+    credential_refusal = real_draft_credential_refusal(ctx.db, client)
+    if credential_refusal:
+        ctx.audit("store.execution_refused", artifact=f"{slug}@{version}",
+                  detail={"release": release, "stage": "credential",
+                          "reason": credential_refusal[:500]})
+        raise PermanentError("PUBLISH_EXECUTION_REFUSED: " + credential_refusal)
     if known_order:
         _revalidate_publish_effect(ctx, slug=slug, version=version, release=release,
                                    payload=payload, docs=docs, listing_images=listing_images,

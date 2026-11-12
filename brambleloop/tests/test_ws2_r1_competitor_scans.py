@@ -163,8 +163,86 @@ def test_review_m2_a_stale_success_is_not_a_current_scan_and_warns():
                      "shops": [{**anchor}] + [{**anchor, "stale": False} for _ in range(7)]}
     verdict, why = readback._judge_section("competitor_scans", every_scanned, None)
     assert verdict == readback.WARN and "stale" in why, why
-    fresh = {**every_scanned, "shops": [{**anchor, "stale": False}] * 8}
+    current = {**anchor, "stale": False, "success_age_hours": 1.0, "stale_after_hours": 12.0}
+    fresh = {**every_scanned, "shops": [current] * 8}
     assert readback._judge_section("competitor_scans", fresh, None)[0] == readback.PASS
+    # Review 6819096414 LOW-1: the flag alone is not trusted -- an age past the limit, or an
+    # age or limit that cannot be read, is stale even when the flag says otherwise.
+    for bad in ({"success_age_hours": 13.0}, {"success_age_hours": None},
+                {"stale_after_hours": None}, {"success_age_hours": "1"}):
+        shops = [{**current, **bad}] + [current] * 7
+        verdict, why = readback._judge_section("competitor_scans",
+                                               {**fresh, "shops": shops}, None)
+        assert verdict == readback.WARN and "stale" in why, (bad, why)
+
+
+def test_review_low1_a_scanned_shop_with_an_unreadable_success_time_is_stale():
+    db = _db()
+    with db.session() as s:
+        s.add(Job(agent="market_radar", job_type="mjs.scan", status=JobStatus.DONE, inputs={},
+                  outputs={"new": 1}, finished_at=NOW - timedelta(hours=1)))
+        s.add(Benchmark(key=benchmarks.MJS_KEY, shop_name=benchmarks.MJS_SHOP,
+                        canonical_url="https://example.invalid/anchor",
+                        last_scan_at=NOW - timedelta(hours=1)))
+    from unittest.mock import patch
+
+    with patch.object(PE, "_age_h", return_value=None):
+        sec = PE.competitor_scans(db, now=NOW)
+    anchor = next(r for r in sec["shops"] if r["alias"] == benchmark_alias(benchmarks.MJS_KEY))
+    assert anchor["state"] == SE.SCANNED and anchor["stale"] is True, anchor
+
+
+def test_review_low4_the_stale_limit_follows_the_adaptive_interval():
+    assert PE.stale_limit_hours(6, 20) == 40          # the slower adaptive interval counts
+    assert PE.stale_limit_hours(20, 6) == 40
+    assert PE.stale_limit_hours(6, None) == 12
+    assert PE.stale_limit_hours(None, None) == PE.STALE_CAP_HOURS
+    assert PE.stale_limit_hours(6, 30) == PE.STALE_CAP_HOURS   # capped at 48 h
+    assert PE.stale_limit_hours(True, None) == PE.STALE_CAP_HOURS
+
+
+def test_review_low2_evidence_warn_exits_ten():
+    """Behavioural: `readback --evidence` returns WARN_EXIT on a WARN, not just in source."""
+    sys.path.insert(0, str(ROOT.parent / "ops"))
+    import argparse
+
+    import readback
+    from unittest.mock import patch
+
+    out = {"reachable": True, "verdict": readback.WARN, "evidence": {},
+           "items": [{"item": "competitor_scans", "verdict": readback.WARN, "detail": "x"}]}
+    with patch.object(readback, "run_evidence", return_value=out):
+        assert readback.main_evidence(argparse.Namespace(url="u", json="")) == 10
+        assert readback.main(["--evidence", "--url", "https://x.invalid"]) == \
+            readback.WARN_EXIT == 10
+    for verdict, code in ((readback.PASS, 0), (readback.FAIL, 5), (readback.UNKNOWN, 5)):
+        with patch.object(readback, "run_evidence", return_value={**out, "verdict": verdict}):
+            assert readback.main(["--evidence"]) == code, verdict
+    with patch.object(readback, "run_evidence", return_value={**out, "reachable": False}):
+        assert readback.main(["--evidence"]) == 4
+
+
+def test_review_low3_the_refusal_class_matches_case_insensitively_on_word_boundaries():
+    """The shop's own failure reads credential_refused for 401/403/Forbidden in any case, and
+    not for a number that merely contains 403 (L3 regex)."""
+    from brambleloop.intel import scan_evidence as _SE
+    import re as _re
+
+    for text in ("HTTP 403", "http 401 unauthorized", "Forbidden by Etsy", "REFUSED"):
+        assert _re.search(_SE._REFUSED_TEXT, text, _re.I), text
+    for text in ("HTTP 500 upstream", "listing 14030 missing", "id 4013"):
+        assert not _re.search(_SE._REFUSED_TEXT, text, _re.I), text
+    # Behavioural: a shop whose own newest failure says "Forbidden" (no HTTP 40x code) is
+    # classed credential_refused by the section itself, not merely by the pattern.
+    for reason in ("ReadFailed: Forbidden by Etsy", "ReadFailed: http 401 Unauthorized"):
+        db = _db()
+        with db.session() as s:
+            s.add(Job(agent="market_radar", job_type="mjs.scan", status=JobStatus.DONE,
+                      inputs={}, outputs={"ran": False, "reason": reason},
+                      finished_at=NOW - timedelta(hours=1)))
+        anchor = next(r for r in PE.competitor_scans(db, now=NOW)["shops"]
+                      if r["alias"] == benchmark_alias(benchmarks.MJS_KEY))
+        assert anchor["failure_class"] == "credential_refused", (reason, anchor)
 
 
 def test_review_l2_next_due_comes_from_the_adaptive_interval():
@@ -248,7 +326,8 @@ def test_the_deploy_readback_row_is_advisory_pass_only_when_all_eight_are_scanne
     assert ("competitor shops scanned (eight-shop research network)", "competitor_scans",
             None) in readback.EVIDENCE_ITEMS
     j = readback._judge_section
-    shop = {"alias": "bm-x", "state": "scanned", "failure_class": None}
+    shop = {"alias": "bm-x", "state": "scanned", "failure_class": None, "stale": False,
+            "success_age_hours": 2.0, "stale_after_hours": 12.0}
     all_ok = {"readable": True, "credential": "usable", "shops": [shop] * 8}
     assert j("competitor_scans", all_ok, None)[0] == readback.PASS
     one_bad = {**all_ok, "shops": [shop] * 7 + [{"alias": "bm-y", "state": "not_accessible",

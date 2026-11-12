@@ -173,7 +173,8 @@ def test_operator_rows_without_the_credential_need_an_operator_and_never_pass():
     wrong = readback.run(SHA, url="https://prod.invalid", fetch=_fetcher(_prod_bodies()),
                          token="not-the-token")
     # WS5 E3: a WARN_ONLY row (the Etsy credential) reads WARN, never PASS, on a refusal.
-    warn_only = {r[2] for r in readback.MANIFEST if len(r) > 6 and r[6] == readback.WARN_ONLY}
+    warn_only = {r[2] for r in readback.MANIFEST if len(r) > 6
+                 and r[6] in (readback.WARN_ONLY, readback.WARN_IF_READ)}
     assert all(i["verdict"] in ((readback.UNKNOWN, readback.FAIL, readback.WARN)
                                 if i["endpoint"] in warn_only else
                                 (readback.UNKNOWN, readback.FAIL))
