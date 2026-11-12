@@ -4484,6 +4484,9 @@ def handle_mjs_scan(ctx: JobContext) -> dict:
         return {"ran": False, "reason": outcome["reason"][:200],
                 # W4-PRODDIAG: an Etsy credential refusal is named, not left to a dead letter.
                 "credential_refused": bool(outcome.get("credential_refused")),
+                # WS2 R2: an adaptive-interval deferral (#313) is not an attempt; the scan
+                # evidence reads it as such only if the flag survives into the job output.
+                "deferred": bool(outcome.get("deferred")),
                 "mission": {k: mission[k] for k in ("pending", "processed", "tournaments")},
                 "findings": mission.get("findings")}
 
