@@ -1,10 +1,31 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-12T02:30Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-12T04:30Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-12T00:00Z (read first)
+## State at 2026-11-12T04:30Z (read first)
+- Cadence spread 5f4a175e: SHIP, on INTEG1 (6812727701). Cert run 20261112T023644Z-20723 on
+  5f4a175e was started by Main; run nothing on Main's machine. Batch 7 88d1ce5e is in production.
+- NEW OWNERSHIP (6812691594 + correction 6812867876): opus2 owns all of Codex's open work.
+  Method: branch from INTEG1, `git merge --no-ff origin/codex/<head>`, resolve records files
+  (COORDINATION: INTEG1's; suite_final_segment: union; autonomy_map: regenerate with
+  `python -m brambleloop.autonomy.map --write ...`), fix commits on top, one RR per unit.
+  Order: A3 (U5) -> A9 (U6, codex/a9-sweep-isolation 3ee6881f) -> A4a (U8,
+  codex/research-pipeline-integration-candidate 6a86e9e8; keep INTEG1's now= pin in
+  test_w4_intelrec_watchlist) -> A4b (codex/a4b-answer-fence e5cbb86c). Parked: A1/A2, A6,
+  A5, U14. Ignore the September codex/final-* refs.
+- A3: opus2/a3-photo-asset-review (worktree /home/user/opus2-a3) @ b9587384:
+  39f97eef merge; dfb76964 F1/F5/F6/F7; c7d8dd48 F8/F9; 5b14769e F2/F3; ea6361ff F4
+  (publish/photo_fence.py, a shared advisory lock on every fenced ORM flush, PG only);
+  d662d4db M10 cadence LOW; b9587384 comment fix. CHECKPOINT 6814114013 posted.
+  Regression batch running (logs in scratchpad/a3reg). Then post the REVIEW-REQUEST.
+- Local PG 16 for the fence tests: /var/tmp/opus2pg (port 54329, db codex_photo_test),
+  started as the postgres user. Restart with
+  `su postgres -c "/usr/lib/postgresql/16/bin/pg_ctl -D /var/tmp/opus2pg/data -o '-p 54329 -k /var/tmp/opus2pg' -l /var/tmp/opus2pg/log start"`.
+- 18d9ab28 (L LOWs) still has no verdict (RR 6782981520).
+
+## State at 2026-11-12T00:00Z (superseded)
 - 93eb5106 is certified (10867/0). 88d1ce5e (Batch 7) was DEPLOYED at 2026-11-12T02:18Z; verify 13/14, with
   a dead letter from about 00:1xZ (the pre-spread midnight window).
 - The cadence-spread review 6810462823 was DO NOT SHIP over test strength: the oracle read
