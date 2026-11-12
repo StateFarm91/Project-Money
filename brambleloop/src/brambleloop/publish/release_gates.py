@@ -220,10 +220,14 @@ def _frames(db, slug: str, version: str) -> list:
             s.expunge(r)
     # I-A3-NONQUALIFYING-PHOTO (opus2): a photo frame the asset-truth review holds as not
     # qualifying is out of the listing set; it never blocks the set it was appended to.
-    from .photo_asset_review import NOT_QUALIFYING
+    # Review U5 F8: only a PHOTO frame drops out this way (as photo_snapshot_current and
+    # photo_certificate_current read it); any other frame carrying that reason still blocks.
+    from .photo_asset_review import NOT_QUALIFYING, PHOTO_CLASS
 
     return [r for r in rows
-            if not any(str(x).startswith(NOT_QUALIFYING) for x in (r.blocked_reasons or []))]
+            if not (r.asset_class == PHOTO_CLASS
+                    and any(str(x).startswith(NOT_QUALIFYING)
+                            for x in (r.blocked_reasons or [])))]
 
 
 def _listing(db, slug: str, version: str):

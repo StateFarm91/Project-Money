@@ -946,6 +946,50 @@ def test_photo_led_certificate_can_bind_leader_without_including_supplement():
         assert par.photo_certificate_current(session, db, cir.slug, cir.version, proposed)
 
 
+def test_review_u5_f8_only_a_photo_frame_leaves_the_set_as_not_qualifying():
+    """Review U5 F8: the NOT_QUALIFYING exclusion in `release_gates._frames` drops a PHOTO
+    frame only; a render carrying the same reason stays in the set (and blocks it)."""
+    db, cir, _release, _ = _setup()
+    with db.session() as s:
+        render = s.scalar(select(ListingAsset).where(
+            ListingAsset.product_slug == cir.slug, ListingAsset.version == cir.version,
+            ListingAsset.asset_class != par.PHOTO_CLASS))
+        render.blocked_reasons = [f"{par.NOT_QUALIFYING} forged on a render"]
+        render.approved = False
+        rid = render.id
+        photo = s.scalar(select(ListingAsset).where(
+            ListingAsset.product_slug == cir.slug, ListingAsset.version == cir.version,
+            ListingAsset.asset_class == par.PHOTO_CLASS))
+        photo.blocked_reasons = [f"{par.NOT_QUALIFYING} test"]
+        pid = photo.id
+    kept = {f.id for f in release_gates._frames(db, cir.slug, cir.version)}
+    assert rid in kept and pid not in kept, (rid, pid, kept)
+
+
+def test_review_u5_f9_one_frame_raising_does_not_stop_the_sweep():
+    """Review U5 F9: an unexpected error reviewing one frame is that frame's refusal; the
+    sweep still reviews the rest and reports it."""
+    from unittest.mock import patch
+
+    db, cir, _release, _ = _setup()
+    db2, cir2, _r2, _ = _setup()
+    real = par.review_frame
+    calls = []
+
+    def flaky(db_, fid, **kw):
+        calls.append(fid)
+        if len(calls) == 1:
+            raise ValueError("renumber collided")
+        return real(db_, fid, **kw)
+
+    awaiting = par.awaiting_frames(db)
+    assert awaiting, "fixture has an awaiting photo frame"
+    with patch.object(par, "review_frame", side_effect=flaky), \
+            patch.object(par, "awaiting_frames", return_value=awaiting + awaiting):
+        out = par.sweep(db)
+    assert out["reviewed"] == 2 and out["approved"] == 1, out
+    assert any("UNKNOWN: review raised ValueError" in r["failed"][0] for r in out["refused"]), out
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in sorted(globals().items()):
@@ -960,3 +1004,4 @@ if __name__ == "__main__":
                 traceback.print_exc()
     print(f"{failed} failed")
     sys.exit(1 if failed else 0)
+

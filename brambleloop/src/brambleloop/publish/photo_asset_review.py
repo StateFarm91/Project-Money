@@ -520,7 +520,15 @@ def sweep(db) -> dict:
             _promote_if_leaderless(db, fid)
         except Exception:  # noqa: BLE001 - not promoted: the review below still names why
             pass
-        results.append(review_frame(db, fid))
+        # Review U5 F9: one frame's unexpected error (an IntegrityError from a renumber, a
+        # lock refused on PostgreSQL) is that frame's refusal, never the end of the sweep for
+        # every other release. Its transaction rolled back, so it stays awaiting and is
+        # reviewed again next sweep.
+        try:
+            results.append(review_frame(db, fid))
+        except Exception as exc:  # noqa: BLE001
+            results.append({"frame_id": fid, "frame_approved": False,
+                            "failed": [f"UNKNOWN: review raised {type(exc).__name__}"]})
     for fid in _excluded_leader_recoveries(db):
         try:
             from .physical_upgrade import lead_with_if_qualifying
