@@ -768,6 +768,7 @@ JOB_BANDS: dict[str, str] = {
     "chain.successors": "proven_winner",          # advances a release to its next stage
     "listing.package": "proven_winner",           # owner-review listing package (listing.draft's chain)
     "intel.scan_evidence": "benchmark_change",    # competitor evidence, like intel.benchmark_*
+    "policy.issuer_shadow": "proven_winner",      # WS4-5: shadow decisions on the publish chain
     "improve.commercial_lessons": "exploration",  # learning, like improve.*
     "learning.knowledge_gaps": "exploration",     # learning gaps -> capped owner recommendations
     "physical.photo": "truth_defect",
