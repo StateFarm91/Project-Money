@@ -255,6 +255,30 @@ def test_an_old_legacy_run_does_not_hold_the_first_window_back():
         unwake()
 
 
+def test_the_department_next_wake_reads_the_spread_offset():
+    """Review 6812727701 LOW (mutant M10): `status._next_wake`, the department-level next wake,
+    is the cadence's offset window opening, not the floor of the period. `now` is pinned one
+    minute before a daily cadence's window opens, inside one orchestrator slot, so the
+    orchestrator's fifteen-minute tick does not mask the cadence."""
+    from brambleloop.autonomy import status
+
+    base = datetime(2026, 11, 13, tzinfo=timezone.utc).timestamp()
+    picked = [(n, jt, p) for n, _a, jt, p in W.CADENCES
+              if p == DAY and W.cadence_offset(n, p) % 900 > 120]
+    assert picked, "a daily cadence whose window opens inside an orchestrator slot"
+    checked = 0
+    for name, jt, period in picked[:5]:
+        opens = base + W.cadence_offset(name, period)
+        now = datetime.fromtimestamp(opens - 60, tz=timezone.utc)
+        if any(jt == j and n != name and W.cadence_next_at(n, q, now) < opens
+               for n, _a, j, q in W.CADENCES):
+            continue                     # another cadence of this job type wakes it sooner
+        expected = datetime.fromtimestamp(opens, tz=timezone.utc).isoformat()
+        assert W.cadence_next_at(name, period, now) == opens
+        assert status._next_wake({jt}, now) == expected, (name, status._next_wake({jt}, now))
+        checked += 1
+    assert checked >= 1, picked[:5]
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
