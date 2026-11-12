@@ -1,10 +1,29 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-12T06:40Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-12T09:00Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-12T05:30Z (read first)
+## State at 2026-11-12T09:00Z (read first)
+- Main 6816519111 answered: Q1-Q3 are accepted. PRINCIPAL is now owner:command-center. WS4-0b is deferred
+  until after P0. A9 is option (a). 5f4a175e did not certify; Batch 8 will be recertified.
+- RRs awaiting a verdict:
+  - A3 bf9e383a (6814957552);
+  - E1 76fe0dd3 (6816690178), worktree /home/user/opus2-e1;
+  - E2 af11d562 (6817402344), /home/user/opus2-e2;
+  - E3 9fce7dce (6817647552), /home/user/opus2-e3;
+  - the R1/R2 delta 5c937122 (6818120958);
+  - the WS4-0 delta 5060fcc7 (6818225379), which fixes F1/F2/F4/F5/F6 from 6817118202. The
+    process-wide test owner context was replaced by tests/_owner_grant.scoped_owner_approvals().
+- Post-P0 follow-ups: WS4-0 F3 (rebase without step-up / revocation re-anchor) and WS4-0b.
+- NOW: A9, option (a).
+  - Use a new branch opus2/a9-u6-sweep-isolation in worktree /home/user/opus2-a9u6, from
+    INTEG1 (claude/w4-INTEG8-next), then `git merge --no-ff origin/codex/a9-sweep-isolation`.
+  - Fix U6 H1, H2 and M1, plus the parts of F3/N6/N10 that A9 needs. The review is
+    INDEPENDENT_REVIEW_A9_U6_3ee6881f.md on INTEG1. Don't widen into A1/A2.
+- After A9: WS4-1.. (M6 order), R3-R7, E4-E7, A4a/A4b.
+
+## State at 2026-11-12T05:30Z (superseded)
 - FINAL P0 SCOPE (6813280400). Secondary's queue, in order: A3 -> WS4-0 -> A9 -> R1, R2 ->
   E1, E2, E3 -> WS4-1.. (M6 order) -> R3-R7, E4-E7 -> A4a/A4b. Gap lists: WS2 6813423278,
   WS5/6 6813416727, WS4 design 6813405609 (claude/w6-p0-design). Live Etsy is unavailable
