@@ -240,6 +240,29 @@ def test_every_worker_entry_scrubs_the_owner_grant_key():
     assert '_ogk.owner_request(auth.current_public_id(request) or "owner")' in api
 
 
+def test_ws4_0c_the_publication_snapshot_binds_the_shop():
+    """WS4-0c: the content a publication grant binds names the Etsy shop; another shop is
+    another digest, so a grant approved for one shop never creates in another."""
+    from unittest.mock import patch
+
+    db = _db()
+    saved = os.environ.get("ETSY_SHOP_ID")
+    try:
+        os.environ["ETSY_SHOP_ID"] = "1111"
+        assert pub._shop_id(db) == "1111"
+        os.environ.pop("ETSY_SHOP_ID")
+        with patch("brambleloop.integrations.etsy_shop_binding.bound_shop_id",
+                   return_value="2222"):
+            assert pub._shop_id(db) == "2222"
+    finally:
+        if saved is None:
+            os.environ.pop("ETSY_SHOP_ID", None)
+        else:
+            os.environ["ETSY_SHOP_ID"] = saved
+    src = (ROOT / "src/brambleloop/ops/publication_authority.py").read_text()
+    snap = src[src.index("def snapshot("):src.index("# ---- F-704")]
+    assert '"shop_id": _shop_id(db)' in snap
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

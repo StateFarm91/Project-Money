@@ -85,6 +85,15 @@ def kill_switch_refusal() -> str | None:
     return None
 
 
+def _shop_id(db) -> str:
+    shop = (os.environ.get("ETSY_SHOP_ID") or "").strip()
+    if shop:
+        return shop
+    from ..integrations.etsy_shop_binding import bound_shop_id
+
+    return bound_shop_id(db)
+
+
 def snapshot(db, slug, version, release):
     """What a grant is bound to: the certified release and the exact fields to be sent."""
     from ..runtime import etsy_ops
@@ -106,6 +115,11 @@ def snapshot(db, slug, version, release):
             raise ValueError("already on Etsy; publication grants cover draft creation only")
         cir = pv.cir_json
     return {"action": ACTION, "slug": slug, "version": version, "release": release,
+            # WS4-0c (design T11): the grant binds the Etsy shop it may create in -- resolved
+            # exactly as the client resolves it (ETSY_SHOP_ID, else the owner-bound shop). A
+            # grant approved for one shop is voided by a digest mismatch if the credentials
+            # later name another.
+            "shop_id": _shop_id(db),
             "cir_digest": digest(cir),
             "payload": etsy_ops.sent_fields(etsy_ops.certified_payload(db, slug, version)),
             # F-704: the owner approves on evidence, and the evidence is part of what the
