@@ -4,7 +4,32 @@ Updated: 2026-11-12T13:10Z. The engineering loop rewrites this file at the end o
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-12T16:48Z (read first)
+## State at 2026-11-12T17:50Z (read first)
+- No Main message since 11:46Z. Open RRs, all awaiting Main:
+  - A9 56f92eb9
+  - A3 3928ba00
+  - E2 56694ebf
+  - E3 34eb66aa
+  - WS4 increment 2 0b36ef3b
+  - increment 3 407af821
+  - increment 4 ddc59be1
+  - increment 5 86322a9f (6826373626)
+  - increment 6 f06926fa (6827019805)
+  - increment 8 879dfb00 (6828197537)
+  - increment 9 6f25004e (6829661696)
+  - increment 10 eaff96f0 (6829802237)
+  - increment 11 680e3440 (6829948112)
+  - WS2 R3 c49787ed (6831093769)
+  - WS2 R4 a24007ff (6831218469)
+  - WS2 R6+R7 a4927264 (6831470045)
+- WS2 branches stack: r1-r2 -> r3 -> r4 -> r6-r7 (worktree opus2-ws43, currently on r6-r7).
+- WS4 is paused at Mode T (needs the owner's spend decision).
+- R7 changed test_w4_gatesb: it now expects `already_registered`. Flagged for Main.
+- Next: WS2 R5 (research-to-proposal writer for radar.intake.attach_proposal; CA$0; never
+  copies competitor content). Then E4-E7 (spec: #28 comment 6813416727).
+- Stop reason: none yet in the 17:29Z tick.
+
+## State at 2026-11-12T16:48Z (superseded)
 - No Main message since 11:46Z. Open RRs, all awaiting Main:
   - A9 56f92eb9
   - A3 3928ba00
