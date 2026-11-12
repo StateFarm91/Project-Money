@@ -1,18 +1,18 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-11T18:00Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-12T00:00Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-11T18:00Z (read first)
-- 93eb5106 is certified (10867/0). Release candidate 88d1ce5e is owner-approved for deploy;
-  Main is waiting on space on the backup volume.
-- The stagger review 6801029119 was DO NOT SHIP over MEDIUM-1, the guard skipping >= 1 period.
-  Fixed in 86e0054d on opus2/cadence-spread, RR on #28:
-  - the guard is bounded both ways by min(period/2, 12 h);
-  - cadence_next_at is used by the next-wake surfaces;
-  - the runbook note is added.
-  - 5/5 mutants killed; 25 suites green, including resume_runner and oauth_callback.
+## State at 2026-11-12T00:00Z (read first)
+- 93eb5106 is certified (10867/0). Release candidate 88d1ce5e is owner-approved for deploy.
+- The cadence-spread review 6810462823 was DO NOT SHIP over test strength: the oracle read
+  the code under test, and the next-wake checks were grep-only. Fixed in 5f4a175e on
+  opus2/cadence-spread (delta on 86e0054d). RR 6811526498 is on #28.
+  - The oracle is a fixed 12 h; company and status next_wake are checked by value.
+  - Main's 4 survivors are killed; 12 suites green, including resume_runner, oauth_callback
+    and vacuity.
+  - Next: wait for Main's verdict, then act on it.
 - 18d9ab28 (L LOWs) is still RR 6782981520.
 - Standing lesson: a new verify check or a sleep/timeout/now() test also runs
   test_etsy_oauth_callback and test_w4_resume_runner. Run test_vacuity on every change.
