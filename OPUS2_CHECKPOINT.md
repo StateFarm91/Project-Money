@@ -4,7 +4,25 @@ Updated: 2026-11-12T13:10Z. The engineering loop rewrites this file at the end o
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-12T19:02Z (read first)
+## State at 2026-11-12T19:53Z (read first)
+- No Main message since 11:46Z.
+- New this tick: WS5 E4 949b052e, stacked on E7 9143772d.
+- Open RRs:
+  - A9, A3, E2, E3, E7, E4
+  - WS4 increments 2-6 and 8-11
+  - WS2 R3, R4, R5, R6+R7
+- E4 decisions flagged for Main: no backfill of existing rows; learner fixtures are
+  marked `real` explicitly.
+- Left: E5 (separate internal/buyer caps in improve/consume.py, decay over cycles, paid
+  traffic excluded, a chain test from a real-provenance receipt to a bounded rank change
+  to a different next concept, where a synthetic row changes nothing) and E6 (draft-intent
+  resolver). Spec: #28 comment 6813416727.
+- Disk: about 577 MB free. Run at most 5 suites in parallel.
+- Worktree opus2-ws43 is on ws5-e4.
+- Stop reason (19:28Z tick): E4 shipped and RR'd. E5 is a larger chain change, so it
+  starts at the next tick.
+
+## State at 2026-11-12T19:02Z (superseded)
 - No Main message since 11:46Z. New RRs this tick:
   - WS2 R5 fd960ee5 (6832476189)
   - WS5 E7 9143772d (posted after R5)
