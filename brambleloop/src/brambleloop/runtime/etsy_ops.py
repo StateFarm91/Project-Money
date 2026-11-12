@@ -72,9 +72,12 @@ OPENAPI_REVIEW_KEY = "store:etsy.openapi_review"
 #: How long one re-verification of the surface classifications stands (F-514).
 OPENAPI_REVERIFY_DAYS = 7
 
-#: The scopes the publish, read-back and census paths use. A stored credential missing any
-#: of them is scope drift (F-540/F-541): the next write or read would be refused.
-REQUIRED_SCOPES = ("listings_r", "listings_w", "listings_d", "shops_r", "shops_w")
+#: The scopes the publish, read-back, census and order-ingest paths use. A stored credential
+#: missing any of them is scope drift (F-540/F-541): the next write or read would be refused.
+#: WS5 E7: `transactions_r` too -- `commerce.orders_ingest` reads receipts with it, so a
+#: credential without it cannot see a single order, and that is drift, not "no orders".
+REQUIRED_SCOPES = ("listings_r", "listings_w", "listings_d", "shops_r", "shops_w",
+                   "transactions_r")
 
 #: Etsy's getListingsByShop `state` filter values. Every one is read so a listing moved to
 #: any of them is observed rather than inferred from its absence.

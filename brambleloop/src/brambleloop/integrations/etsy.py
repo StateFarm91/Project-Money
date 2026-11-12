@@ -1095,8 +1095,8 @@ class EtsyClient:
             return False, ""
         return True, str(response.body.get("state") or "")
 
-    def get_shop_listings(self, *, state: str = "draft",
-                          limit: int = 100) -> list[dict[str, Any]]:
+    def get_shop_listings(self, *, state: str = "draft", limit: int = 100,
+                          max_pages: int = 50) -> list[dict[str, Any]]:
         """The shop's listings in one state. The read that makes a run idempotent.
 
         A run that failed before its cleanup left a draft in a real shop. Without this, the
@@ -1108,11 +1108,24 @@ class EtsyClient:
         sweep never sees an active listing and cannot act on one.
         """
         creds = self._require(Authority.READ)
-        body = self._call("GET", f"/shops/{creds.shop_id}/listings",
-                          operation="getListingsByShop", authority=Authority.READ,
-                          query={"state": state, "limit": limit}).body
-        results = body.get("results")
-        return list(results) if isinstance(results, list) else []
+        # WS5 E7: paged. Etsy returns at most `limit` (<= 100) per call, so a shop with more
+        # listings in this state was silently truncated at 100 -- the census, the outcome
+        # snapshot and the stale-draft sweep each saw only the first page.
+        out: list[dict[str, Any]] = []
+        offset = 0
+        for _ in range(max(1, int(max_pages))):
+            body = self._call("GET", f"/shops/{creds.shop_id}/listings",
+                              operation="getListingsByShop", authority=Authority.READ,
+                              query={"state": state, "limit": limit,
+                                     "offset": offset}).body
+            results = body.get("results")
+            page = list(results) if isinstance(results, list) else []
+            out.extend(page)
+            offset += len(page)
+            count = body.get("count")
+            if len(page) < limit or (isinstance(count, int) and offset >= count):
+                break
+        return out
 
     def get_shop_receipts(self, *, min_created: int | None = None, limit: int = 100,
                           offset: int = 0,

@@ -178,6 +178,17 @@ def credential_shape(env: dict[str, str] | None = None) -> dict:
     }
 
 
+ALT_KEYSTRING_VAR = "ETSY_KEYSTRING"
+
+
+def _keystring(e) -> str:
+    """WS5 E7: the keystring under either name the integrations accept (`integrations.etsy`
+    and `etsy_taxonomy` read `ETSY_KEYSTRING` too). `ETSY_API_KEY` wins when both are set;
+    `credential_shape` reports a disagreement between them."""
+    return ((e.get(KEYSTRING_VAR) or "").strip()
+            or (e.get(ALT_KEYSTRING_VAR) or "").strip())
+
+
 class Transport(Protocol):
     def request(self, method: str, url: str, *, headers: dict[str, str],
                 body: bytes | None = None, timeout: float = 20.0) -> Any: ...
@@ -193,7 +204,7 @@ class ReadCredential:
     @staticmethod
     def from_env(env: dict[str, str] | None = None) -> "ReadCredential | None":
         e = env if env is not None else os.environ
-        keystring = (e.get(KEYSTRING_VAR) or "").strip()
+        keystring = _keystring(e)
         secret = (e.get(SECRET_VAR) or "").strip()
         if not keystring:
             return None
@@ -219,7 +230,7 @@ class ReadCredential:
 def health(env: dict[str, str] | None = None) -> dict:
     """Whether the mission can read, without revealing anything about the credential."""
     e = env if env is not None else os.environ
-    keystring = (e.get(KEYSTRING_VAR) or "").strip()
+    keystring = _keystring(e)
     secret = (e.get(SECRET_VAR) or "").strip()
     return {
         "keystring_set": bool(keystring),
