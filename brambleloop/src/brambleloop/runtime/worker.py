@@ -995,6 +995,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # WS4-5: the standing-policy issuer in SHADOW -- records what it would do against the
     # owner's approved policy; signs and issues nothing. CA$0.
     ("standing_policy_shadow", "publishing", "policy.issuer_shadow", 6 * 60 * 60),
+    # WS4 stop watch (design §5.1): reads every stop condition of each watched standing
+    # policy; suspends an activated one (deny-direction, sticky). CA$0.
+    ("standing_policy_stop_watch", "publishing", "policy.stop_watch", 5 * 60),
     # W4-AGENTS C2 (F-744): every model experiment kept as a durable normalised record. CA$0.
     ("model_ledger", "publishing", "visual.model_ledger", 24 * 60 * 60),
     # W4-AGENTS C3: F-113 legacy salvage re-gate (weekly; recommends only) and the F-775

@@ -1,4 +1,5 @@
-"""`policy.issuer_shadow` (publishing): the standing-policy issuer in SHADOW (WS4-5).
+"""`policy.issuer_shadow` (publishing): the standing-policy issuer in SHADOW (WS4-5), and
+`policy.stop_watch`: the standing policy's automatic stops (design §5.1).
 
 Every 6 h. Evaluates each certified release with no Etsy listing against the owner's newest
 approved standing policy and records what the issuer WOULD do (`standing_policy.shadow_decision`).
@@ -20,3 +21,18 @@ def handle_issuer_shadow(ctx: JobContext) -> dict:
     out = standing_issuer.shadow_run(ctx.db)
     ctx.audit(JOB_TYPE, detail=out)
     return {**out, "ran": True, "work_done": out["recorded"]}
+
+
+STOP_WATCH = "policy.stop_watch"
+
+
+@handlers.register(STOP_WATCH)
+def handle_stop_watch(ctx: JobContext) -> dict:
+    """`policy.stop_watch` (publishing, OBSERVE, every 5 min; design §5.1): reads every stop
+    condition for each watched standing policy, records one reading per policy, and suspends
+    an ACTIVATED policy on any holding condition (sticky, deny-direction only). It signs
+    nothing and can only take authority away."""
+    from ..ops import standing_stop
+
+    out = standing_stop.run(ctx.db)
+    return {**out, "ran": True, "work_done": out["policies"]}

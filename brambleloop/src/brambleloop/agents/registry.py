@@ -238,7 +238,9 @@ DEFAULT_AGENTS: list[dict] = [
                             # W4-AGENTS C2 (F-744): the durable model evidence ledger.
                             "visual.model_ledger",
                             # WS4-5: the standing-policy issuer in shadow (signs nothing).
-                            "policy.issuer_shadow"],
+                            "policy.issuer_shadow",
+                            # WS4: the standing policy's stop watch (deny-direction only).
+                            "policy.stop_watch"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
     dict(name="growth", description="Launch timing and marketing cadence. Cannot author patterns.",

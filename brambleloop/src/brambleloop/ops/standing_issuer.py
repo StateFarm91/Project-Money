@@ -35,8 +35,6 @@ ASSUMED_IN_SHADOW = ("kill_switch", "policy_enabled", "mode_t", "phase_may_publi
 # they read UNKNOWN and every decision holds.
 NOT_BUILT_YET = {
     "independent_vision_review": "reviewer-vs-generator model identity per frame (later)",
-    "stop_conditions_clear": "the stop watch (WS4 stop-watch increment)",
-    "stop_watch_fresh": "the stop watch's last reading (WS4 stop-watch increment)",
 }
 DEDUPE_HOURS = 24
 
@@ -118,6 +116,14 @@ def read_facts(db, slug: str, version: str, release: str, content: dict, *,
                        if shadow else _fact(SB.UNKNOWN, None, "issue-time reader not built"))
     for name, why in NOT_BUILT_YET.items():
         facts[name] = _fact(SB.UNKNOWN, None, f"not built yet: {why}")
+    # Design §5.1: the stop conditions are read inline at issue, and the stop watch's newest
+    # reading must be younger than the policy's silence limit. Read for real in shadow too
+    # (only the publishing-phase condition is assumed there, as for the issue-time facts).
+    stops = _guard(lambda: _fact(SB.PASS, _stop_facts(db, content, shadow)))
+    if stops["state"] == SB.PASS:
+        facts.update(stops["value"])
+    else:
+        facts["stop_conditions_clear"] = facts["stop_watch_fresh"] = stops
 
     facts["slug"] = _fact(SB.PASS, slug)
     facts["category"] = _guard(lambda: _category(db, slug))
@@ -162,6 +168,12 @@ def read_facts(db, slug: str, version: str, release: str, content: dict, *,
     facts["minutes_since_last"] = _fact(SB.PASS, None, "no earlier standing grant")
     facts["ads_jobs_queued"] = _fact(SB.PASS, 0, "no job carries a standing-policy lineage")
     return facts
+
+
+def _stop_facts(db, content, shadow):
+    from . import standing_stop
+
+    return standing_stop.issue_facts(db, content, activated=not shadow)
 
 
 def _category(db, slug):
@@ -219,16 +231,25 @@ def _not_on_etsy(db, slug, version):
 
 
 def _no_publish_incomplete(db, slug, version):
+    """Check 16: no incomplete publish of this release -- neither the publish job's own
+    `store.publish_incomplete` row nor the read-back incident
+    (`etsy_ops.open_publish_incomplete`, signature `store.publish_incomplete:{slug}@{version}`),
+    resolved or not: an incomplete draft is never re-published by a standing grant."""
     from sqlalchemy import select
 
-    from ..core.models import AuditLog
+    from ..core.models import AuditLog, Incident
+    from ..runtime import etsy_ops
 
     with db.session() as s:
         hit = s.scalar(select(AuditLog.id).where(
             AuditLog.action == "store.publish_incomplete",
             AuditLog.artifact == f"{slug}@{version}").limit(1))
-    return (_fact(SB.PASS, True) if hit is None
-            else _fact(SB.FAIL, False, "a publish of this release is incomplete"))
+        incident = s.scalar(select(Incident.id).where(
+            Incident.signature == f"{etsy_ops.PUBLISH_INCOMPLETE}{slug}@{version}").limit(1))
+    if hit is None and incident is None:
+        return _fact(SB.PASS, True)
+    return _fact(SB.FAIL, False, "a publish of this release is incomplete"
+                 + (" (read-back incident)" if incident is not None else ""))
 
 
 def _not_experiment(db, slug, version):

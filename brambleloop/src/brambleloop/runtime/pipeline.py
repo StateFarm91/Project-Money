@@ -2791,6 +2791,8 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "intel.scan_evidence": ("work_done",),
     # WS4-5: shadow decisions recorded (none when no policy is approved).
     "policy.issuer_shadow": ("work_done",),
+    # WS4 stop watch: one reading per watched standing policy.
+    "policy.stop_watch": ("work_done",),
     # OPUS2-P0: lessons published or withdrawn from measured listing performance.
     "improve.commercial_lessons": ("work_done",),
     # OPUS2-P0 (P0-LEARNING-GAPS): gaps recorded or reference purchases recommended.

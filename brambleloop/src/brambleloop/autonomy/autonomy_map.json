@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-12T14:11:23.824936+00:00",
+ "generated_at": "2026-11-12T15:36:19.609035+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 138,
-  "handlers": 170,
+  "cadences": 139,
+  "handlers": 171,
   "agents": 34,
   "follow_on_edges": 91
  },
@@ -1372,6 +1372,12 @@
       "period_seconds": 21600
      },
      {
+      "name": "standing_policy_stop_watch",
+      "agent": "publishing",
+      "job_type": "policy.stop_watch",
+      "period_seconds": 300
+     },
+     {
       "name": "cross_sell_graph",
       "agent": "listing",
       "job_type": "listing.cross_sell_graph",
@@ -1442,6 +1448,7 @@
     ]
    },
    "cadence": [
+    300,
     3600,
     21600,
     86400,
@@ -1504,6 +1511,7 @@
      "listing.taxonomy_refresh",
      "listing.window_captures",
      "policy.issuer_shadow",
+     "policy.stop_watch",
      "pricing.position",
      "seasonal.remerchandising",
      "seo.cycle",

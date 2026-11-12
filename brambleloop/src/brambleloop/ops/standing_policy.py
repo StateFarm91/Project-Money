@@ -3,8 +3,9 @@
 Design: research/final_build/w6/WS4_standing_policy_design.md §1, §2.2, §2.4, §5.2, with
 Main's binding amendments in §9 (M1-M6). This module is increment 2 of M6: the policy object
 and its chain. It ISSUES NOTHING. The issuer (WS4-6/7), the per-product grant (SEG, WS4-7/8),
-the boundary classifier (WS4-4) and the stop watch (WS4-5) are later increments. Until they
-exist, `effective()` can report a policy as effective only in a deployment that
+the boundary classifier (`ops/standing_boundary.py`) and the stop watch
+(`ops/standing_stop.py`, the default reader of `resume`) are separate modules. Until the
+issuer process exists, `effective()` can report a policy as effective only in a deployment that
 `deployment_mode()` reports as Mode T, and Mode T cannot be reported today. So no policy can
 be activated, and nothing here can authorise a listing.
 
@@ -875,11 +876,15 @@ def suspend(db, policy_id: str, *, reason: str, by: str, now: datetime | None = 
 
 def resume(db, policy_id: str, *, stepped_up: bool, owner_session: str, actor: str,
            stop_conditions_holding=None, now: datetime | None = None) -> int:
-    """Owner + step-up, and only while no stop condition holds. The stop watch is WS4-5;
-    until it exists the conditions are UNKNOWN, and UNKNOWN refuses."""
+    """Owner + step-up, and only while no stop condition holds. The default reader is the
+    stop watch (`standing_stop.holding`): every §5.1 condition plus the stop watch's silence;
+    a source it cannot read is UNKNOWN, and UNKNOWN refuses."""
     _require_owner(stepped_up, "resuming a standing policy")
-    holding = (stop_conditions_holding(db, policy_id) if stop_conditions_holding else
-               ["stop watch not built yet (WS4-5): stop conditions are UNKNOWN"])
+    if stop_conditions_holding is None:
+        from . import standing_stop
+
+        stop_conditions_holding = standing_stop.holding
+    holding = stop_conditions_holding(db, policy_id)
     if holding:
         raise ValueError("resume refused while stop conditions hold: " + "; ".join(holding))
     return LEDGER.append(db, action=RESUMED, artifact=str(policy_id), detail={
