@@ -259,7 +259,9 @@ def _sealed_publication_grant(db, pa, scope="s@1"):
               "content": {}, "digest": pa.digest({}), "reason": "x",
               "approved_at": now.isoformat(),
               "expires_at": (now + timedelta(hours=pa.GRANT_HOURS)).isoformat()}
-    return pa.LEDGER.append(db, action=pa.APPROVED, artifact=scope, detail=detail)
+    from brambleloop.core import owner_grant_keys    # WS4-0a: an owner act, scoped
+    with owner_grant_keys.owner_request("test-owner"):
+        return pa.LEDGER.append(db, action=pa.APPROVED, artifact=scope, detail=detail)
 
 
 def test_D2_deleting_a_revocation_does_not_revive_the_grant_and_opens_an_incident():
