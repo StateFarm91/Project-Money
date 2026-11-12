@@ -40,7 +40,7 @@ from sqlalchemy import event, text
 from sqlalchemy.orm import Session
 
 # Every table `photo_asset_review._checks`, `photo_snapshot_current`,
-# `photo_certificate_current`, `sample_photo.qualifying_photos` or the certificate itself reads.
+# `photo_certificate_current`, the qualifying-photo predicate or the certificate itself reads.
 FENCED = frozenset({"ListingAsset", "PhysicalPhoto", "PhysicalTest", "PatternVersion",
                     "ArtefactProvenance", "ListingSetCertificateRecord"})
 DISCLOSED_ACTION = "assets.disclosed_render"       # publish.disclosed_listing.ACTION
