@@ -4,7 +4,29 @@ Updated: 2026-11-12T13:10Z. The engineering loop rewrites this file at the end o
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-12T16:45Z (read first)
+## State at 2026-11-12T16:37Z (read first)
+- No Main message since 11:46Z. Open RRs, all awaiting Main:
+  - A9 56f92eb9
+  - A3 3928ba00
+  - E2 56694ebf
+  - E3 34eb66aa
+  - WS4 increment 2 0b36ef3b
+  - increment 3 407af821
+  - increment 4 ddc59be1
+  - increment 5 86322a9f (6826373626)
+  - increment 6 f06926fa (6827019805)
+  - increment 8 stop watch 879dfb00 (6828197537)
+  - increment 9 check-11 vision reviewer identity 6f25004e (6829661696)
+- Increment 9 adds `reviewer` to the frame-review audit entries. Existing reviews read
+  UNKNOWN on check 11 until they are re-filed; this is flagged for Main.
+- WS4 branches stack in worktree opus2-ws43 (currently on ws4-9). The issuer has no unbuilt
+  readers left.
+- Next: holds turned into owner cards (M6 item 9). Use-time re-checks wait on the SEG store
+  (Mode T, gated on the owner's spend decision).
+- Stop reason: none yet this tick. Answer Main's verdicts first.
+- Correction: the previous state was stamped 16:45Z by mistake; it was written about 15:41Z.
+
+## State at 2026-11-12T15:41Z (superseded; was mis-stamped 16:45Z)
 - Open RRs, all awaiting Main (no Main message since 11:46Z):
   - A9 56f92eb9
   - A3 3928ba00
