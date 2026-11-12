@@ -4,7 +4,23 @@ Updated: 2026-11-12T13:10Z. The engineering loop rewrites this file at the end o
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-12T12:40Z (read first)
+## State at 2026-11-12T15:30Z (read first)
+- Open RRs, all awaiting Main:
+  - A9 56f92eb9
+  - A3 3928ba00
+  - E2 56694ebf
+  - E3 34eb66aa
+  - WS4 increment 2 0b36ef3b
+  - increment 3 407af821
+  - increment 4 ddc59be1
+  - increment 5 86322a9f (6826373626)
+  - increment 6 f06926fa (6827019805)
+- WS4 branches stack in worktree opus2-ws43 (currently on ws4-6).
+- Next in M6 order: the stop watch (design §5; WS4 stop-watch increment). After it comes
+  the reviewer-vs-generator identity reader, then holds turned into owner cards.
+- Stop reason: none. Answer Main's verdicts first.
+
+## State at 2026-11-12T12:40Z (superseded)
 - Main 6822725758: the Batch 8 cert was restarted on 9e91b75b (the shadow_rehearsal script
   needed owner_request after WS4-0). ETA about 14:00Z. Run nothing on Main's container.
   - Lesson: when narrowing who can sign or act, grep scripts/ as well as src/.
