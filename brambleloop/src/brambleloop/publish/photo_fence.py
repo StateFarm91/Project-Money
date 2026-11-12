@@ -57,6 +57,9 @@ def touches_photo_evidence(session: Session) -> bool:
     return False
 
 
+LOCK_TIMEOUT_SECONDS = 15
+
+
 @event.listens_for(Session, "before_flush")
 def _fence_photo_evidence(session: Session, _flush_context, _instances) -> None:
     try:
@@ -67,6 +70,19 @@ def _fence_photo_evidence(session: Session, _flush_context, _instances) -> None:
         return
     from .photo_asset_review import _LOCK_KEY
 
-    session.connection().execute(text("SELECT pg_advisory_xact_lock_shared(:k)"),
-                                 {"k": _LOCK_KEY})
+    conn = session.connection()
+    # Review 6817652112 L2: a bounded wait. A mistake that nests a fenced write inside the
+    # review's own exclusive lock (another session in the same thread) errors after
+    # LOCK_TIMEOUT instead of hanging the worker forever; the job's retry recovers an
+    # ordinary long wait. The previous setting is restored for the rest of the transaction.
+    # It only tightens: a stricter timeout already set on the session is left alone.
+    previous = str(conn.execute(text("SELECT current_setting('lock_timeout')")).scalar())
+    unbounded = previous.strip() in ("0", "0ms", "0s", "")
+    if unbounded:
+        conn.execute(text("SELECT set_config('lock_timeout', :t, true)"),
+                     {"t": f"{LOCK_TIMEOUT_SECONDS}s"})
+    # On a timeout the transaction is aborted and the error propagates; nothing to restore.
+    conn.execute(text("SELECT pg_advisory_xact_lock_shared(:k)"), {"k": _LOCK_KEY})
+    if unbounded:
+        conn.execute(text("SELECT set_config('lock_timeout', :t, true)"), {"t": previous})
     STATS["fenced_flushes"] += 1

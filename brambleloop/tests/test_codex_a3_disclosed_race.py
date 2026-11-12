@@ -51,6 +51,7 @@ def test_consumer_refuses_revoked_attestation_before_next_sweep():
 
 
 if __name__ == "__main__":
-    test_disclosed_certificate_refuses_revocation_before_record()
-    test_consumer_refuses_revoked_attestation_before_next_sweep()
-    print("PASS disclosed photo-led revocation during certificate recording")
+    # Review 6817652112 N1: one `OK name` line per test so the suite harness counts it.
+    import _minipytest
+
+    _minipytest.run_module(globals())

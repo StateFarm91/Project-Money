@@ -22,6 +22,12 @@ from brambleloop.quality import tester_programme as tp
 
 def main():
     url = os.environ.get("A3_TEST_POSTGRES_URL", "")
+    if not url:
+        # Review 6817652112 N1: without a disposable PostgreSQL the suite reports SKIP and
+        # exits 0 (UNKNOWN, never PASS); a URL that is set but not disposable still fails.
+        print("SKIP test_a3_postgres_photo_fence: A3_TEST_POSTGRES_URL is not set "
+              "(needs a local disposable codex_photo_test database)")
+        return
     parsed = urlparse(url)
     if parsed.scheme not in ("postgresql", "postgresql+psycopg2") or parsed.hostname not in ("localhost", "127.0.0.1") or parsed.path != "/codex_photo_test":
         raise RuntimeError("A3_TEST_POSTGRES_URL must point to local disposable codex_photo_test")
@@ -95,8 +101,9 @@ def main():
         assert not par.photo_snapshot_current(locked, db, cir.slug, cir.version, frames)
     from brambleloop.runtime import etsy_ops
     assert etsy_ops.certified_frames(db, cir.slug, cir.version, release=release)["problems"]
-    print("PASS PostgreSQL photo and physical-test writers blocked; revoked make refused")
+    print("OK   test_postgresql_photo_and_physical_test_writers_blocked_revoked_make_refused")
     every_evidence_writer_waits_for_the_review(db, url, cir, plan, test_id)
+    a_nested_fenced_write_errors_instead_of_hanging(db, plan)
 
 
 def every_evidence_writer_waits_for_the_review(db, url, cir, plan, test_id):
@@ -183,8 +190,42 @@ def every_evidence_writer_waits_for_the_review(db, url, cir, plan, test_id):
         with timed.session() as b:
             provenance(b)
             b.flush()
-    print("PASS F4: six evidence sources and plan_upgrade wait for the review; "
-          "unrelated and concurrent writers do not")
+    print("OK   test_f4_six_evidence_sources_and_plan_upgrade_wait_for_the_review_"
+          "unrelated_and_concurrent_writers_do_not")
+
+def a_nested_fenced_write_errors_instead_of_hanging(db, plan):
+    """Review 6817652112 L2: on a session with no lock_timeout, a fenced write nested inside
+    the review's own exclusive lock (another session, same thread) raises after the fence's
+    bounded wait instead of hanging forever; an uncontended fenced write leaves the session's
+    lock_timeout as it was."""
+    import time as _time
+
+    from brambleloop.publish import photo_fence
+
+    saved = photo_fence.LOCK_TIMEOUT_SECONDS
+    photo_fence.LOCK_TIMEOUT_SECONDS = 1
+    try:
+        with db.session() as review:
+            par._lock(review, db)
+            started = _time.monotonic()
+            try:
+                with db.session() as nested:
+                    nested.get(PhysicalPhoto, plan["photo_id"]).taken_by = "nested-writer"
+                    nested.flush()
+            except OperationalError as exc:
+                assert "lock" in str(exc).lower(), exc
+            else:
+                raise AssertionError("a nested fenced write did not error")
+            assert _time.monotonic() - started < 10
+        with db.session() as s:
+            s.get(PhysicalPhoto, plan["photo_id"]).taken_by = "tester-1"
+            s.flush()
+            assert s.execute(text("SELECT current_setting('lock_timeout')")).scalar() in (
+                "0", "0ms", "0s")
+    finally:
+        photo_fence.LOCK_TIMEOUT_SECONDS = saved
+    print("OK   test_l2_a_nested_fenced_write_errors_instead_of_hanging")
+
 
 if __name__ == "__main__":
     main()

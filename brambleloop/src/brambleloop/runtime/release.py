@@ -628,7 +628,11 @@ def handle_assets_build(ctx: JobContext) -> dict:
                # the renders this build actually placed. A kept photograph's slot is left
                # OUT: its sha never enters a render build's outputs (the provenance backfill
                # indexes them as renders), and classification never reads a photo as one.
-               "frames": [f for f in stored_frames if f["position"] not in placed["kept"]]}
+               # Review 6817652112 N2: at the positions they were actually placed (after
+               # any photograph), so later stages compare like with like.
+               "frames": [{**f, "position": placed["positions"].get(f["position"],
+                                                                    f["position"])}
+                          for f in stored_frames if f["position"] not in placed["kept"]]}
     if placed["live_candidate"]:
         payload["candidate_only"] = True
     # W6 FIX-ONLY: the bound is passed to the next stage only, never stored in this job's
@@ -2832,7 +2836,7 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
             ctx.audit("listing.fix_frame_candidate", artifact=f"{slug}@{version}", detail={
                 "live": True, "applied": False, "frames": candidate,
                 "rejected": reasons[:10]})
-            return {"kept": [], "live_candidate": True}
+            return {"kept": [], "live_candidate": True, "positions": {}}
     kept: set[int] = set()
     # Review A3 U5 F2 (second half): a gallery that holds a physical photograph is fenced by
     # the photo review's write lock, and a rebuild that rewrites its renders invalidates the
@@ -2841,9 +2845,21 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
     # readiness, first customer, image review, search evidence) must not see it as current.
     # The chain re-certifies after this build. A gallery with no photo is unchanged.
     with ctx.db.session() as s:
-        photo_led = s.scalar(select(ListingAsset.id).where(
+        photo_positions = set(s.scalars(select(ListingAsset.position).where(
             ListingAsset.product_slug == slug, ListingAsset.version == version,
-            ListingAsset.asset_class == "PHYSICAL_PRODUCT_PHOTO").limit(1)) is not None
+            ListingAsset.asset_class == "PHYSICAL_PRODUCT_PHOTO")))
+    photo_led = bool(photo_positions)
+    # Review 6817652112 N2: `plan_upgrade` puts the photograph first and shifts the renders
+    # after it, so a rebuild must place its renders in the slots AFTER the photo frames, not at
+    # the builder's 1..N (which reported the hero as "not placed" and left the old tail row
+    # approved). Each render goes to the next slot no photograph holds, in builder order.
+    target: dict[int, int] = {}
+    free = (p for p in range(1, 10_000) if p not in photo_positions)
+    for frame in sorted(frames, key=lambda f: f.position):
+        target[frame.position] = (frame.position
+                                  if not photo_led
+                                  or frame.asset_class.value == "PHYSICAL_PRODUCT_PHOTO"
+                                  else next(free))
     with ctx.db.session() as s:
         if photo_led:
             from ..publish.photo_asset_review import _lock as _photo_lock
@@ -2853,7 +2869,7 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
         for frame, meta in zip(frames, stored):
             row = s.scalar(select(ListingAsset).where(
                 ListingAsset.product_slug == slug, ListingAsset.version == version,
-                ListingAsset.position == frame.position))
+                ListingAsset.position == target[frame.position]))
             if row is not None and row.asset_class == "PHYSICAL_PRODUCT_PHOTO" \
                     and frame.asset_class.value != "PHYSICAL_PRODUCT_PHOTO":
                 # Review A3 U5 84085fa8 F2: a rebuild's render never replaces a physical
@@ -2863,7 +2879,7 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
                 continue
             if row is None:
                 row = ListingAsset(product_slug=slug, version=version,
-                                   position=frame.position)
+                                   position=target[frame.position])
                 s.add(row)
             if (row.sha256, row.asset_class, bool(row.approved)) != (
                     meta["sha256"], frame.asset_class.value, not reasons):
@@ -2877,6 +2893,25 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
                           "colors": list(frame.claims.colors)}
             row.approved = not reasons
             row.blocked_reasons = reasons[:10]
+        # Review 6817652112 N2: a render row beyond the rebuilt set (the old tail after a
+        # shift, or a longer earlier gallery) is not part of this build. It is dropped -- the
+        # gallery is exactly what this build placed plus the photographs -- so a remediated
+        # image cannot survive there and be re-certified. What was dropped is audited.
+        # Only rows of the classes this build itself produces: a photograph, or an image a
+        # different writer filed (`visual.gallery_persist`'s generated concepts), is never
+        # this build's to drop.
+        placed_at = {target[f.position] for f in frames if f.position not in kept}
+        own_classes = {f.asset_class.value for f in frames} - {"PHYSICAL_PRODUCT_PHOTO",
+                                                               "AI_LIFESTYLE_CONCEPT"}
+        dropped = []
+        for stale in list(s.scalars(select(ListingAsset).where(
+                ListingAsset.product_slug == slug, ListingAsset.version == version,
+                ListingAsset.asset_class.in_(sorted(own_classes))))):
+            if stale.position not in placed_at:
+                dropped.append({"position": stale.position, "sha256": stale.sha256,
+                                "approved": bool(stale.approved)})
+                rewritten = True
+                s.delete(stale)
         s.flush()
         if photo_led and rewritten:
             from ..publish.photo_asset_review import _invalidate_photo_certificates
@@ -2896,17 +2931,21 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
                 continue
             row = s.scalar(select(ListingAsset).where(
                 ListingAsset.product_slug == slug, ListingAsset.version == version,
-                ListingAsset.position == frame.position))
+                ListingAsset.position == target[frame.position]))
             provenance.record_lineage(
                 s, artefact_class="visual_truth",
                 artefact_key=provenance.visual_key(slug, version, row.id),
                 product_slug=slug, inputs=design, chain_version=CHAIN_VERSION,
                 lineage=lineage.for_file(row.sha256).under(certificate_ref))
+    if dropped:
+        ctx.audit("listing.frames_beyond_rebuild_dropped", artifact=f"{slug}@{version}",
+                  detail={"dropped": dropped[:50]})
     if kept:
         ctx.audit("listing.frame_photo_kept", artifact=f"{slug}@{version}", detail={
             "positions": sorted(kept), "not_placed": [c for c in candidate
                                                       if c["position"] in kept]})
-    return {"kept": sorted(kept), "live_candidate": False}
+    return {"kept": sorted(kept), "live_candidate": False,
+            "positions": {p: target[p] for p in target if p not in kept}}
 
 
 def _motifs_for(slug: str) -> list[str]:
