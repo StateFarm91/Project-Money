@@ -137,8 +137,108 @@ def test_the_section_ships_on_the_readback_route_and_an_empty_database_is_honest
 
 def test_the_research_jobs_are_counted_in_the_loop():
     stages = dict(PE.LOOP_STAGES)
-    assert {"intel.scan_evidence", "intel.panel_discovery"} <= set(stages["market_observation"])
+    assert "intel.panel_discovery" in stages["market_observation"]
     assert "radar.concept_intake" in stages["opportunity_validation"]
+    # Review 6816970157 M1: the daily join always reports eight shops as work, so it must not
+    # satisfy market_observation on a day nothing was scanned.
+    assert all("intel.scan_evidence" not in jts for _stage, jts in PE.LOOP_STAGES)
+
+
+def test_review_m2_a_stale_success_is_not_a_current_scan_and_warns():
+    sys.path.insert(0, str(ROOT.parent / "ops"))
+    import readback
+
+    db = _db()
+    with db.session() as s:
+        s.add(Job(agent="market_radar", job_type="mjs.scan", status=JobStatus.DONE, inputs={},
+                  outputs={"new": 1}, finished_at=NOW - timedelta(days=60)))
+        s.add(Benchmark(key=benchmarks.MJS_KEY, shop_name=benchmarks.MJS_SHOP,
+                        canonical_url="https://example.invalid/anchor",
+                        last_scan_at=NOW - timedelta(days=60)))
+    sec = PE.competitor_scans(db, now=NOW)
+    anchor = next(r for r in sec["shops"] if r["alias"] == benchmark_alias(benchmarks.MJS_KEY))
+    assert anchor["state"] == SE.SCANNED and anchor["stale"] is True, anchor
+    assert anchor["stale_after_hours"] <= PE.STALE_CAP_HOURS
+    every_scanned = {**sec, "credential": "usable",
+                     "shops": [{**anchor}] + [{**anchor, "stale": False} for _ in range(7)]}
+    verdict, why = readback._judge_section("competitor_scans", every_scanned, None)
+    assert verdict == readback.WARN and "stale" in why, why
+    fresh = {**every_scanned, "shops": [{**anchor, "stale": False}] * 8}
+    assert readback._judge_section("competitor_scans", fresh, None)[0] == readback.PASS
+
+
+def test_review_l2_next_due_comes_from_the_adaptive_interval():
+    from brambleloop.core.models import BenchmarkObservation
+    from brambleloop.intel import observe
+
+    db, _ok, _refused = _fixture()
+    with db.session() as s:
+        for h in (30, 20, 10, 3):
+            s.add(BenchmarkObservation(at=NOW - timedelta(hours=h),
+                                       benchmark_key=benchmarks.MJS_KEY, kind="official_api_read"))
+    sec = PE.competitor_scans(db, now=NOW)
+    anchor = next(r for r in sec["shops"] if r["alias"] == benchmark_alias(benchmarks.MJS_KEY))
+    due = observe.scan_due(db, benchmark_key=benchmarks.MJS_KEY, now=NOW)
+    last = due["cadence"]["last_scan_at"]
+    expected = (datetime.fromisoformat(last) + timedelta(
+        seconds=due["cadence"]["interval_seconds"] * observe.DUE_TOLERANCE)).isoformat()
+    assert anchor["next_due"] == PE._iso(expected), (anchor["next_due"], expected)
+
+
+def test_review_l2_backoff_only_for_a_failing_watch_state():
+    db = _db()
+    member = [m for m in watchlist.WATCHLIST if m.key != benchmarks.MJS_KEY][0]
+    _watch(db, member, {"state": "not_configured", "consecutive_failures": 3,
+                        "last_attempt_at": (NOW - timedelta(hours=1)).isoformat()})
+    row = next(r for r in PE.competitor_scans(db, now=NOW)["shops"]
+               if r["alias"] == benchmark_alias(member.key))
+    assert row["backoff_until"] is None, row          # not_configured is not backed off
+    _watch(db, member, {"state": "source_outage", "consecutive_failures": 3,
+                        "last_attempt_at": (NOW - timedelta(hours=1)).isoformat()})
+    row = next(r for r in PE.competitor_scans(db, now=NOW)["shops"]
+               if r["alias"] == benchmark_alias(member.key))
+    assert row["backoff_until"] is not None, row
+
+
+def test_review_l1_l3_evidence_warns_with_its_code_and_classes_are_the_shops_own():
+    sys.path.insert(0, str(ROOT.parent / "ops"))
+    import readback
+
+    def fetch(url, token=None):
+        if url.endswith("/api/verify"):
+            return 200, {"ok": True, "evidence_checks": [
+                {"check": c, "ok": True} for c in readback.EVIDENCE_CHECKS]}
+        return 200, {"competitor_scans": {"readable": True, "credential": "refused",
+                                          "shops": [{"alias": "bm-x", "state": "scanned"}] * 8},
+                     "server_judgement": {}}
+    from unittest.mock import patch
+
+    real = readback._judge_section
+
+    def judge(name, section, judged):     # every other row PASS: the WARN row decides
+        return real(name, section, judged) if name == "competitor_scans" else (
+            readback.PASS, "")
+    with patch.object(readback, "_judge_section", side_effect=judge):
+        rep = readback.run_evidence(url="https://x.invalid", fetch=fetch,
+                                    env={readback.READBACK_TOKEN_VAR: "t" * 40})
+    assert rep["verdict"] == readback.WARN, [(i["item"], i["verdict"]) for i in rep["items"]]
+    src = (ROOT.parent / "ops" / "readback.py").read_text()
+    body = src[src.index("def main_evidence"):src.index("def main(")]
+    assert "return WARN_EXIT" in body
+    # L3: the global refusal is not painted onto a shop that failed for another reason
+    db = _db()
+    with db.session() as s:
+        s.add(Job(agent="market_radar", job_type="mjs.scan", status=JobStatus.DONE, inputs={},
+                  outputs={"ran": False, "reason": "ReadFailed: HTTP 500 upstream"},
+                  finished_at=NOW - timedelta(hours=1)))
+    from brambleloop.core.models import AuditLog
+
+    with db.session() as s:
+        s.add(AuditLog(actor="system", action="etsy.probe", artifact="etsy",
+                       detail={"ok": False, "status": 403, "reason": "HTTP 403"}))
+    anchor = next(r for r in PE.competitor_scans(db, now=NOW)["shops"]
+                  if r["alias"] == benchmark_alias(benchmarks.MJS_KEY))
+    assert anchor["failure_class"] != "credential_refused", anchor
 
 
 def test_the_deploy_readback_row_is_advisory_pass_only_when_all_eight_are_scanned():

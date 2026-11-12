@@ -363,6 +363,10 @@ def _judge_section(name: str, section, judged) -> tuple[str, str]:
         unscanned = [f"{r.get('alias')}:{r.get('state')}"
                      + (f"/{r.get('failure_class')}" if r.get("failure_class") else "")
                      for r in shops if r.get("state") != "scanned"]
+        # Review 6816970157 M2: a scanned shop whose newest success is stale is not current.
+        unscanned += [f"{r.get('alias')}:stale({r.get('success_age_hours')}h>"
+                      f"{r.get('stale_after_hours')}h)"
+                      for r in shops if r.get("state") == "scanned" and r.get("stale")]
         if credential != "usable":
             return WARN, (f"Etsy read credential {credential}; {len(shops) - len(unscanned)}/"
                           f"{len(shops)} scanned")
@@ -427,8 +431,9 @@ def run_evidence(*, url: str = PRODUCTION_URL, fetch=None, env=None) -> dict:
                                              judged.get(key) if key else None)
         items.append({"item": item, "section": section, "verdict": verdict, "detail": detail})
     verdicts = {i["verdict"] for i in items}
+    # Review 6816970157 L1: as `run`, a WARN row reads WARN overall (still not a failure).
     overall = (UNKNOWN if not reachable else FAIL if FAIL in verdicts else
-               UNKNOWN if UNKNOWN in verdicts else PASS)
+               UNKNOWN if UNKNOWN in verdicts else WARN if WARN in verdicts else PASS)
     import datetime as _dt
 
     out = {"url": url, "verdict": overall, "reachable": reachable,
@@ -464,6 +469,11 @@ def main_evidence(a) -> int:
     if not out["reachable"]:
         print("readback --evidence: production unreachable; nothing verified", file=sys.stderr)
         return 4
+    if out["verdict"] == WARN:
+        warned = [i["item"] for i in out["items"] if i["verdict"] == WARN]
+        print(f"readback --evidence: WARN ({len(out['items'])} items; degraded, not a "
+              f"failure: {warned})", file=sys.stderr)
+        return WARN_EXIT
     if out["verdict"] != PASS:
         n = {v: sum(1 for i in out["items"] if i["verdict"] == v) for v in (PASS, FAIL, UNKNOWN)}
         print(f"readback --evidence: {out['verdict']} (PASS {n[PASS]}, FAIL {n[FAIL]}, "
