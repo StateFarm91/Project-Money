@@ -260,10 +260,12 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     # Pruning one can only refuse an activation (fail closed), never allow one.
     "standing_policy.shadow_decision": ("lifetime_total",
                                         "ops.standing_policy.activation_refusals requires one"),
-    # The stop watch's newest reading is the silence fact (design §5.1); only the latest is
-    # read. Pruning older readings cannot clear a stop: no reading at all reads as silence.
-    "standing_policy.stop_watch_reading": ("latest",
-                                           "ops.standing_stop.last_reading (silence)"),
+    # The stop watch's newest reading is the silence fact (design §5.1), and G-SHADOW reads
+    # the last 7 days for continuity -- far inside the horizon. Pruning older readings cannot
+    # clear a stop: no reading at all reads as silence, and a short history fails G-SHADOW.
+    "standing_policy.stop_watch_reading": ("windowed",
+                                           "ops.standing_stop.last_reading (silence); "
+                                           "ops.standing_shadow_gate 7-day continuity"),
     "owner.storefront.approved": ("lifetime_total",
                                   "ops.storefront_authority grant chain (sealed_chain)"),
     "owner.storefront.revoked": ("lifetime_total",
