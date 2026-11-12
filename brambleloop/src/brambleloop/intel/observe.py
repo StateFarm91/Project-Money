@@ -62,6 +62,9 @@ class ScanResult:
     # WS2 R3: Etsy's own clock. The newest `last_modified_timestamp` among the listings this
     # scan read (ISO 8601 UTC), or None when the payload carried none -- never our clock.
     newest_source_modified_at: str | None = None
+    # WS2 R4: Etsy's own count of the shop's active listings, from the shop record this scan
+    # resolved (None when the record did not carry it).
+    shop_active_listing_count: int | None = None
 
     def to_report(self) -> dict:
         """The shape #319 demands, and `mission.check_report` enforces."""
@@ -92,6 +95,7 @@ class ScanResult:
             "problems": list(self.problems),
             "source_timestamp": {"newest_listing_modified_at": self.newest_source_modified_at,
                                  "basis": "Etsy last_modified_timestamp"},
+            "shop": {"listing_active_count": self.shop_active_listing_count},
         }
 
 
@@ -152,6 +156,10 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
 
     shop = reader.resolve_shop(shop_name)
     shop_id = shop.get("shop_id")
+    count = shop.get("listing_active_count")
+    result.shop_active_listing_count = (count if isinstance(count, int)
+                                        and not isinstance(count, bool) and count >= 0
+                                        else None)
     listings = reader.catalogue(shop_id)
     result.listings_seen = len(listings)
     stamps = [t for t in (source_modified_at(x) for x in listings) if t]

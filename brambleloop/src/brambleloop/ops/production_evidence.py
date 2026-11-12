@@ -619,6 +619,60 @@ def _shop_next_due(db, key, st: dict, now) -> tuple[str | None, str | None, floa
     return due_at, backoff_until, interval_h
 
 
+ERRORS_WINDOW_DAYS = 7
+_CLASS_TOKEN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,59}$")
+
+
+def _class_token(value) -> str:
+    """An error class fit to leave on the readback route: an identifier, else "other"."""
+    return value if isinstance(value, str) and _CLASS_TOKEN.match(value) else "other"
+
+
+def _errors_7d(db, key: str | None, st: dict, now: datetime) -> dict | None:
+    """WS2 R4: failed attempts in the last 7 days, counted by class (never error text).
+
+    A watched shop keeps its own `error_history` (intel.watchlist); the anchor's failures are
+    its failed `mjs.scan` jobs (deferrals are not attempts, review R2)."""
+    from ..intel import benchmarks
+    from ..intel import scan_evidence as SE
+
+    if not key:
+        return None
+    since = now - timedelta(days=ERRORS_WINDOW_DAYS)
+    classes: list[str] = []
+    if key == benchmarks.MJS_KEY:
+        for j in SE._jobs(db, "mjs.scan", limit=500):
+            at = _aware(j.get("finished_at") or j.get("created_at"))
+            out = j.get("outputs") or {}
+            if at is None or at < since or out.get("deferred"):
+                continue
+            if j.get("status") in ("dead", "failed") or out.get("ran") is False:
+                classes.append("credential_refused" if out.get("credential_refused")
+                               else error_class(j.get("error") or str(out.get("reason") or "")))
+    else:
+        for e in st.get("error_history") or []:
+            at = _aware((e or {}).get("at")) if isinstance(e, dict) else None
+            if at is not None and since <= at <= now:
+                classes.append(e.get("class"))
+    by_class: dict[str, int] = {}
+    for c in classes:
+        t = _class_token(c)
+        by_class[t] = by_class.get(t, 0) + 1
+    return {"count": len(classes), "by_class": dict(sorted(by_class.items())),
+            "window_days": ERRORS_WINDOW_DAYS}
+
+
+def _anchor_active_count(db) -> int | None:
+    """WS2 R4: Etsy's active-listing count from the anchor's newest successful scan."""
+    from ..intel import scan_evidence as SE
+
+    for j in SE._jobs(db, "mjs.scan", limit=200):
+        out = j.get("outputs") or {}
+        if j.get("status") == "done" and out.get("ran") is True:
+            return _int(out.get("etsy_active_listing_count"))
+    return None
+
+
 def competitor_scans(db, *, now: datetime) -> dict:
     """Per-shop scan state, in the owner's order (`intel.scan_evidence.OWNER_SHOPS`), from the
     same read-only join `intel.scan_evidence` makes daily -- plus the facts it computes but did
@@ -627,6 +681,7 @@ def competitor_scans(db, *, now: datetime) -> dict:
     from sqlalchemy import func, select
 
     from ..core.models import BenchmarkListing, CoverageGap, MjsMissionEvent
+    from ..intel import benchmarks
     from ..intel import scan_evidence as SE
     from ..intel import watchlist
     from ..runtime.intel_ops import benchmark_alias
@@ -693,8 +748,11 @@ def competitor_scans(db, *, now: datetime) -> dict:
                 "failure_class": failure_class,
                 "listings_live": _int(live),
                 "listings_seen_last_scan": _int(r.get("listings_seen_last_scan")),
-                "etsy_active_listing_count": _int((st.get("shop") or {}).get(
-                    "listing_active_count")),
+                "etsy_active_listing_count": (
+                    _anchor_active_count(db) if key == benchmarks.MJS_KEY else
+                    _int((st.get("shop") or {}).get("listing_active_count"))),
+                # WS2 R4: failed attempts in the last 7 days, by class.
+                "errors_7d": _errors_7d(db, key, st, now),
                 "downstream": {"mission_events": _int(mission_events),
                                "coverage_gaps": _int(gaps)},
             })

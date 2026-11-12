@@ -172,6 +172,20 @@ def _state(db, key: str) -> dict:
     return dict((rec or {}).get("body") or {})
 
 
+ERROR_HISTORY_DAYS = 30
+ERROR_HISTORY_MAX = 200
+
+
+def _note_error(st: dict, error_class: str, *, now: datetime) -> None:
+    """WS2 R4: keep each failed attempt's time and CLASS (never its text), for 30 days, so the
+    readback can count errors by class over a window instead of seeing only the last one."""
+    keep_from = (now - timedelta(days=ERROR_HISTORY_DAYS)).isoformat()
+    history = [e for e in (st.get("error_history") or [])
+               if isinstance(e, dict) and str(e.get("at") or "") >= keep_from]
+    history.append({"at": now.isoformat(), "class": str(error_class)[:60]})
+    st["error_history"] = history[-ERROR_HISTORY_MAX:]
+
+
 def _save_state(db, key: str, body: dict, *, now: datetime) -> None:
     from ..autonomy import memory
 
@@ -250,12 +264,14 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
         if not exc.credential_refused and _not_found(exc):
             return _record_not_accessible(db, member, st, str(exc), now=now)
         kind = "credential_refused" if exc.credential_refused else "source_outage"
+        _note_error(st, kind, now=now)
         st.update(state=kind, last_error=str(exc)[:300], last_attempt_at=now.isoformat(),
                   consecutive_failures=int(st.get("consecutive_failures") or 0) + 1)
         _save_state(db, member.key, st, now=now)
         return {"key": member.key, "ran": False, "state": kind,
                 "consecutive_failures": st["consecutive_failures"]}
     except Exception as exc:  # noqa: BLE001 - one shop's fault never stops the others
+        _note_error(st, type(exc).__name__, now=now)
         st.update(state="source_outage", last_error=f"{type(exc).__name__}: {exc}"[:300],
                   last_attempt_at=now.isoformat(),
                   consecutive_failures=int(st.get("consecutive_failures") or 0) + 1)
@@ -320,6 +336,7 @@ def _record_not_accessible(db, member: Member, st: dict, reason: str, *,
     Do not pretend an inaccessible shop was scanned." Nothing scan-shaped is written: no
     last_ok_at, no listings_seen, no shop counters, no mission."""
     limitation = f"not accessible: {reason}"[:300]
+    _note_error(st, NOT_ACCESSIBLE, now=now)
     st.update(state=NOT_ACCESSIBLE, limitation=limitation, limitation_on=now.date().isoformat(),
               last_error=limitation, last_attempt_at=now.isoformat(),
               consecutive_failures=int(st.get("consecutive_failures") or 0) + 1,

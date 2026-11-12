@@ -4517,6 +4517,8 @@ def handle_mjs_scan(ctx: JobContext) -> dict:
     return {"ran": True,
             # WS2 R3: Etsy's newest listing modification time this scan read.
             "source_timestamp": report["source_timestamp"]["newest_listing_modified_at"],
+            # WS2 R4: Etsy's active-listing count for the anchor, kept per scan.
+            "etsy_active_listing_count": report["shop"]["listing_active_count"],
             "listings_known": report["catalogue_coverage"]["listings_known"],
             "new": len(report["changes"]),
             "reclassified": routing["moved"],
