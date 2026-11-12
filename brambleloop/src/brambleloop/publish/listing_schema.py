@@ -545,6 +545,26 @@ _MATRIX: tuple[dict, ...] = (
               "Every published rule: integrations.etsy_constraints"),
      "graduates_by": ("probe step 3 accepting the generated pixel; a refusal is a finding "
                       "about the fixture, not about the transport")},
+    # WS5 E2: what the minimal real-Etsy operation must also prove before a first listing.
+    {"claim": "multipart_file_upload",
+     "state": LOCALLY_TESTED, "blocks_launch": True,
+     "what": ("Etsy reads the digital download from a multipart part named `file` "
+              "(uploadListingFile) and holds it on the listing"),
+     "graduates_by": ("probe step 3b (upload_file) accepted AND getAllListingFiles reading "
+                      "back a file with the name sent. A pattern listing without its file is "
+                      "a sale nobody can fulfil")},
+    {"claim": "listing_property_write",
+     "state": IMPLEMENTED, "blocks_launch": True,
+     "what": ("updateListingProperty sets the chosen node's craft property (value 'Crochet') "
+              "and Etsy holds it"),
+     "graduates_by": ("probe step 4c (set_property) accepted AND getListingProperties "
+                      "reading back the property id with the value ids sent")},
+    {"claim": "chosen_taxonomy_create",
+     "state": IMPLEMENTED, "blocks_launch": True,
+     "what": ("a draft created in the category matcher's chosen node is held in that node "
+              "(not the default 66, not remapped)"),
+     "graduates_by": ("probe step 6b (chosen_taxonomy) reading the listing's taxonomy_id "
+                      "back equal to the chosen node")},
     {"claim": "array_encoding_tags",
      "state": LOCALLY_TESTED, "blocks_launch": True,
      "what": ("tags are comma-joined (`tags=a,b`) rather than repeated keys. Genuinely "

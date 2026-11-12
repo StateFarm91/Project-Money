@@ -290,6 +290,82 @@ TAXONOMY: tuple[Signature, ...] = (
         change="none. The OAuth path and the token endpoint host are now facts",
         match=lambda ctx: _status(ctx) in (200, 0) and bool(ctx.get("ok"))),
 
+    # -- WS5 E2: step 3b the digital file, step 4c the property, step 6b the chosen node --
+    _network_sig("multipart_file_upload", "upload_file"),
+    _scope_sig("multipart_file_upload", "upload_file"),
+    _auth_sig("multipart_file_upload", "upload_file"),
+    Signature(
+        claim="multipart_file_upload", step="upload_file", outcome="file_refused",
+        we_send="a marked test PDF in a multipart part named `file` (uploadListingFile)",
+        signal="HTTP 400/413/415/422 on uploadListingFile",
+        means=("Etsy reached the request and would not take the file as sent: the part name, "
+               "the media type or the file itself is not what Etsy reads"),
+        cause=OUR_BUG,
+        change=("compare `http.multipart_body`'s bytes with the uploadListingFile request body "
+                "in the OpenAPI document and fix the part or its Content-Type; re-run"),
+        match=lambda ctx: _status(ctx) in (400, 413, 415, 422)),
+    Signature(
+        claim="multipart_file_upload", step="upload_file", outcome="file_not_held",
+        we_send="uploadListingFile, then getAllListingFiles",
+        signal="the upload was accepted but the listing's files do not include it",
+        means=("Etsy said yes and holds nothing: the buyer would download nothing. The one "
+               "failure a 201 hides"),
+        cause=OUR_BUG,
+        change=("read the upload response's listing_file_id and the files list side by side; "
+                "fix the listing id or rank the upload used"),
+        match=lambda ctx: bool(ctx.get("accepted")) and not ctx.get("ok")),
+    Signature(
+        claim="multipart_file_upload", step="upload_file", outcome="file_held",
+        we_send="uploadListingFile, then getAllListingFiles",
+        signal="the listing's files include the file name sent",
+        means="the digital download path works end to end",
+        cause=CONFIRMED, change="none",
+        match=lambda ctx: bool(ctx.get("ok"))),
+    _network_sig("listing_property_write", "set_property"),
+    _scope_sig("listing_property_write", "set_property"),
+    _auth_sig("listing_property_write", "set_property"),
+    Signature(
+        claim="listing_property_write", step="set_property", outcome="property_refused",
+        we_send="PUT .../listings/{id}/properties/{property_id} with value_ids, form-encoded",
+        signal="HTTP 400/404/422 naming the property or a value",
+        means=("the property id or value id the taxonomy refresh recorded is not one Etsy "
+               "accepts for this node: the stored schema is stale or the node is wrong"),
+        cause=ETSY_CONTRACT_DRIFT,
+        change=("refresh the taxonomy (etsy.taxonomy_refresh) and re-run; if it persists the "
+                "category matcher's chosen node is wrong for this property"),
+        match=lambda ctx: _status(ctx) in (400, 404, 422)),
+    Signature(
+        claim="listing_property_write", step="set_property", outcome="property_not_held",
+        we_send="updateListingProperty, then getListingProperties",
+        signal="the write was accepted but the property is not read back with the values sent",
+        means="Etsy accepted the write and kept something else (or nothing)",
+        cause=OUR_BUG,
+        change="compare the encoded value_ids with what getListingProperties returns",
+        match=lambda ctx: bool(ctx.get("accepted")) and not ctx.get("ok")),
+    Signature(
+        claim="listing_property_write", step="set_property", outcome="property_held",
+        we_send="updateListingProperty, then getListingProperties",
+        signal="the property id is read back with the value ids sent",
+        means="the craft property a crochet pattern listing needs can be written",
+        cause=CONFIRMED, change="none",
+        match=lambda ctx: bool(ctx.get("ok"))),
+    Signature(
+        claim="chosen_taxonomy_create", step="chosen_taxonomy", outcome="chosen_node_remapped",
+        we_send="createDraftListing with the category matcher's chosen taxonomy_id",
+        signal="the listing read back carries another taxonomy_id",
+        means="Etsy filed the listing somewhere other than the node the matcher chose",
+        cause=ETSY_CONTRACT_DRIFT,
+        change=("read the node on Etsy (getSellerTaxonomyNodes) and correct the matcher's "
+                "node terms; refresh the taxonomy"),
+        match=lambda ctx: ctx.get("ok") is False and ctx.get("read") is True),
+    Signature(
+        claim="chosen_taxonomy_create", step="chosen_taxonomy", outcome="chosen_node_held",
+        we_send="createDraftListing with the category matcher's chosen taxonomy_id",
+        signal="the listing read back carries the chosen taxonomy_id",
+        means="a listing can be created in the node the matcher chose",
+        cause=CONFIRMED, change="none",
+        match=lambda ctx: bool(ctx.get("ok"))),
+
     # -- step 2: create the draft ------------------------------------------
     _network_sig("form_encoded_create", "create_draft"),
     _scope_sig("form_encoded_create", "create_draft"),
@@ -778,7 +854,31 @@ def one_pixel_png() -> bytes:
     return png(1, 1)
 
 
-def test_payload(marker: str):
+def transport_test_pdf(marker: str = "") -> bytes:
+    """WS5 E2: a tiny, valid, unmistakably-not-a-product PDF for the digital file step."""
+    text = f"Brambleloop transport test. Not a product. Not for sale. {marker}".encode()
+    stream = b"BT /F1 12 Tf 36 96 Td (" + text.replace(b"(", b"").replace(b")", b"") + b") Tj ET"
+    objs = [b"<< /Type /Catalog /Pages 2 0 R >>",
+            b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 144] /Contents 4 0 R "
+            b"/Resources << /Font << /F1 5 0 R >> >> >>",
+            b"<< /Length " + str(len(stream)).encode() + b" >>\nstream\n" + stream
+            + b"\nendstream",
+            b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"]
+    out, offsets = bytearray(b"%PDF-1.4\n"), []
+    for i, body in enumerate(objs, start=1):
+        offsets.append(len(out))
+        out += f"{i} 0 obj\n".encode() + body + b"\nendobj\n"
+    xref = len(out)
+    out += f"xref\n0 {len(objs) + 1}\n0000000000 65535 f \n".encode()
+    for off in offsets:
+        out += f"{off:010d} 00000 n \n".encode()
+    out += (f"trailer\n<< /Size {len(objs) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n"
+            .encode())
+    return bytes(out)
+
+
+def test_payload(marker: str, taxonomy_id: int | None = None):
     """The draft this run creates: a real listing shape, unmistakably not a product.
 
     It goes through `build_payload`, which means it is checked against Etsy's character sets
@@ -800,7 +900,14 @@ def test_payload(marker: str):
         price_cad=9.99,
         tags=["do not buy", "test draft"],
         materials=["test"],
-    )
+    ) if taxonomy_id is None else _in_node(test_payload(marker), taxonomy_id)
+
+
+def _in_node(payload, taxonomy_id: int):
+    """WS5 E2: the same test draft, filed in the category matcher's chosen node."""
+    from dataclasses import replace
+
+    return replace(payload, taxonomy_id=int(taxonomy_id))
 
 
 # ---------------------------------------------------------------------------
@@ -911,7 +1018,9 @@ def run_exercise(client: EtsyClient, *, image: bytes | None = None,
                  pattern: bytes | None = None,
                  cleanup: bool = True,
                  ping_reachable: bool = True,
-                 sweep_first: bool = True) -> dict[str, Any]:
+                 sweep_first: bool = True,
+                 taxonomy_id: int | None = None,
+                 listing_property: dict | None = None) -> dict[str, Any]:
     """Run the eight steps against whatever `client` points at, and report what happened.
 
     Returns a record rather than raising, at every step, because a partial run is the
@@ -928,7 +1037,8 @@ def run_exercise(client: EtsyClient, *, image: bytes | None = None,
         "base_url": client.BASE,
         "phase": client.phase,
         "array_encoding": ARRAY_ENCODING,
-        "taxonomy_id_sent": TAXONOMY_PATTERNS,
+        # WS5 E2: the matcher's chosen node when the caller names one, else the default.
+        "taxonomy_id_sent": int(taxonomy_id) if taxonomy_id else TAXONOMY_PATTERNS,
         "authority": {
             "read": client.refusal_for(Authority.READ) or "permitted",
             "draft_write": client.refusal_for(Authority.DRAFT_WRITE) or "permitted",
@@ -1005,7 +1115,7 @@ def run_exercise(client: EtsyClient, *, image: bytes | None = None,
                      "that Etsy accepts a form-encoded createDraftListing and returns an id")
     sent: dict[str, Any] = {}
     try:
-        payload = test_payload(marker)
+        payload = test_payload(marker, taxonomy_id)
         sent = payload.to_dict()
         sent.pop("state", None)
         listing_id = client.create_draft(payload)
@@ -1056,14 +1166,23 @@ def run_exercise(client: EtsyClient, *, image: bytes | None = None,
     # PDF is a release artefact and this run must not need one to happen.
     if pattern:
         entry = run.step("upload_file",
-                         "that a multipart part named `file` attaches the digital download")
+                         "that a multipart part named `file` attaches the digital download, "
+                         "and that Etsy then holds it (getAllListingFiles)")
+        file_name = f"transport-test-{marker}.pdf"
         try:
-            entry["ok"] = client.attach_file(listing_id,
-                                             filename=f"transport-test-{marker}.pdf",
-                                             data=pattern)
+            accepted = bool(client.attach_file(listing_id, filename=file_name, data=pattern))
+            files = client.get_listing_files(listing_id) if accepted else []
+            held = [f for f in files if str(f.get("filename") or "") == file_name]
+            entry["ok"] = bool(held)
+            entry["observed"] = {"accepted": accepted, "files_on_etsy": len(files),
+                                 "held": bool(held), "file_bytes": len(pattern)}
+            run.classify(entry, "upload_file", {"ok": bool(held), "accepted": accepted,
+                                                "status": 200})
         except (PermanentError, TransientError) as e:
             entry["ok"] = False
             entry["error"] = str(e)
+            run.classify(entry, "upload_file",
+                         _failure_context(client, e, ping_reachable=ping_reachable))
 
     # -- 4. Update permitted draft fields. ----------------------------------
     entry = run.step("update_listing",
@@ -1082,6 +1201,29 @@ def run_exercise(client: EtsyClient, *, image: bytes | None = None,
         run.classify(entry, "update_listing",
                      _failure_context(client, e, ping_reachable=ping_reachable))
         update = {}
+
+    # 4c. WS5 E2: the chosen node's craft property, written and read back.
+    if listing_property:
+        entry = run.step("set_property",
+                         "that updateListingProperty sets the chosen node's craft property "
+                         "and Etsy holds it (getListingProperties)")
+        want = [int(v) for v in (listing_property.get("value_ids") or [])]
+        pid = int(listing_property["property_id"])
+        try:
+            client.set_listing_property(listing_id, {"property_id": pid, "value_ids": want})
+            held = [p for p in client.get_listing_properties(listing_id)
+                    if int(p.get("property_id") or -1) == pid]
+            got = sorted(int(v) for v in ((held[0].get("value_ids") or []) if held else []))
+            ok = bool(held) and got == sorted(want)
+            entry["ok"] = ok
+            entry["observed"] = {"property_id": pid, "value_ids_sent": want,
+                                 "value_ids_on_etsy": got}
+            run.classify(entry, "set_property", {"ok": ok, "accepted": True, "status": 200})
+        except (PermanentError, TransientError) as e:
+            entry["ok"] = False
+            entry["error"] = str(e)
+            run.classify(entry, "set_property",
+                         _failure_context(client, e, ping_reachable=ping_reachable))
 
     # 4b. Prove the refusals are refusals, not documentation. Free: nothing is sent.
     entry = run.step("refusals_hold",
@@ -1120,6 +1262,18 @@ def run_exercise(client: EtsyClient, *, image: bytes | None = None,
         entry["ok"] = False
         entry["error"] = str(e)
 
+    # -- 6b. WS5 E2: the listing is held in the chosen node. ---------------
+    if taxonomy_id:
+        entry = run.step("chosen_taxonomy",
+                         "that the draft created in the category matcher's chosen node is "
+                         "held in that node")
+        held_in = remote.get("taxonomy_id") if remote else None
+        ok = held_in is not None and str(held_in) == str(int(taxonomy_id))
+        entry["ok"] = ok
+        entry["observed"] = {"chosen": int(taxonomy_id), "on_etsy": held_in}
+        run.classify(entry, "chosen_taxonomy", {"ok": ok, "read": bool(remote),
+                                                "status": 200})
+
     # -- 6. Verify taxonomy, properties, encoding and remote values. --------
     # Nothing above this line is evidence about content. A 201 says Etsy accepted a request;
     # this step is where what Etsy actually holds is compared with what we meant.
@@ -1138,7 +1292,8 @@ def run_exercise(client: EtsyClient, *, image: bytes | None = None,
             "taxonomy_unreadable": bool(diagnosis.get("node_error")
                                         or diagnosis.get("properties_error")),
             "taxonomy_remapped": (remote_taxonomy is not None
-                                  and str(remote_taxonomy) != str(TAXONOMY_PATTERNS)),
+                                  and str(remote_taxonomy) != str(
+                                      report["taxonomy_id_sent"])),
             "required_properties": bool(diagnosis.get("required_properties")),
             # The silent failure: two tags sent, one tag held, and that one tag is the two
             # joined by a comma. No status code anywhere in the run says so.

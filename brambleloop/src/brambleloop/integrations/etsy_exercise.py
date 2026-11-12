@@ -663,6 +663,43 @@ def shop_read_back(client: EtsyClient) -> dict:
                             "title marker, not by anything the run recorded about itself")}
 
 
+def chosen_test_node(db) -> dict:
+    """WS5 E2: the node and craft property the exercise's test draft is filed under.
+
+    From the newest `etsy.taxonomy_refreshed` row (the category matcher's choices against
+    Etsy's real tree): the first CHOSEN category's node and, from the stored schema, its
+    property that offers "Crochet". Nothing recorded, nothing chosen, or no stored schema:
+    UNKNOWN, and the run files under the default node and skips the property step -- so the
+    two claims stay unsettled rather than reading as proven."""
+    from sqlalchemy import select
+
+    from ..commerce import category as cat
+    from ..core.models import AuditLog, EtsyTaxonomySnapshot
+    from .etsy_taxonomy import REFRESHED_ACTION
+
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == REFRESHED_ACTION)
+                       .order_by(AuditLog.id.desc()).limit(1))
+        detail = dict(row.detail or {}) if row is not None else {}
+        sid = detail.get("snapshot_id")
+        snap = s.get(EtsyTaxonomySnapshot, sid) if isinstance(sid, int) else None
+        properties = dict(snap.properties or {}) if snap is not None else {}
+    for category, choice in sorted((detail.get("category_choices") or {}).items()):
+        if not isinstance(choice, dict) or choice.get("status") != cat.CHOSEN:
+            continue
+        node = choice.get("taxonomy_id")
+        if not isinstance(node, int):
+            continue
+        prop = cat.crochet_property({"properties": properties}, node) if properties else None
+        return {"status": "CHOSEN", "category": str(category)[:40], "taxonomy_id": node,
+                "property": ({"property_id": prop["property_id"],
+                              "value_ids": [prop["value_id"]]} if prop else None),
+                "why": "" if prop else "no stored schema offers 'Crochet' for this node"}
+    return {"status": "UNKNOWN", "taxonomy_id": None, "property": None,
+            "why": ("no etsy.taxonomy_refreshed row with a CHOSEN category; the test draft is "
+                    "filed under the default node and the property step is skipped")}
+
+
 def run(db, *, env: dict[str, str] | None = None, transport: Any = None,
         mode: str = "full", verify: Callable[[], dict] | None = None) -> dict:
     """The whole operator-triggered run. Returns a report; raises only for a refusal.
@@ -711,9 +748,16 @@ def run(db, *, env: dict[str, str] | None = None, transport: Any = None,
         reachable = bool(report["ping"].get("reachable"))
 
         if mode == "full":
+            # WS5 E2: the minimal operation also proves the digital file, the category
+            # matcher's chosen node and its craft property -- each written and read back.
+            chosen = chosen_test_node(db)
+            report["chosen_node"] = chosen
             report["exercise"] = etsy_probe.run_exercise(
                 client, cleanup=True, sweep_first=True,
-                ping_reachable=reachable)
+                ping_reachable=reachable,
+                pattern=etsy_probe.transport_test_pdf("brambleloop-exercise"),
+                taxonomy_id=chosen.get("taxonomy_id"),
+                listing_property=chosen.get("property"))
             report["against_etsy"] = report["exercise"].get("against_etsy")
             report["shop_read_back"] = shop_read_back(client)
             report["breadcrumbs"] = reconcile(client, db)
