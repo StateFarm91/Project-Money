@@ -1021,6 +1021,7 @@ def test_ws5_e2_cleanup_runs_whatever_steps_3_to_6_raise():
                                                  lambda self, lid: [{"property_id": "x"}])),
         ("attach RuntimeError", patch.object(EtsyClient, "attach_file", bad_attach)),
     )
+    assert len(probes) == 3
     for label, probe in probes:
         reset()
         with _chosen_node_recorded(), FakeEtsy() as fake, probe:
