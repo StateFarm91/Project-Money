@@ -231,6 +231,16 @@ def handle_radar_scan(ctx: JobContext) -> dict:
     # scored by the same `score_concept`. With no approved row this is exactly POOL.
     steered, steering = arbitrage.steer_concepts(
         ctx.db, score_pool(intake.pool_with_intake(ctx.db), today=today))
+    # WS5 E5: the same bounded lesson nudge `radar.score` applies (internal and buyer lessons
+    # capped separately, decayed with age) also orders the candidates, so a measured buyer
+    # signal can change which concept comes next. Read-only here: no lesson is marked acted.
+    from dataclasses import replace as _replace
+
+    from ..improve import consume as _consume
+
+    nudges = _consume.rank_adjustments(ctx.db, [x.seed for x in steered])
+    steered = [_replace(x, score=round(x.score + nudges.get(x.seed.slug, 0.0), 4))
+               if nudges.get(x.seed.slug) else x for x in steered]
     portfolio = select_portfolio(steered, target=target, today=today)
 
     ctx.audit("radar.scanned", detail={
@@ -482,9 +492,7 @@ def handle_radar_score(ctx: JobContext) -> dict:
     # through `bus.acted_on`, so compounding is counted from decisions that changed.
     from ..improve import consume
 
-    concept_text = " ".join(str(x) for x in (
-        seed.slug.replace("-", " "), seed.title, seed.category, seed.season or "",
-        seed.rationale, c.get("premise") or "", c.get("motif") or ""))
+    concept_text = consume.concept_text(seed, c)
     radar_lessons = [l for l in consume.matching(ctx.db, "market_radar", concept_text)
                      if l["direction"]]
     lesson_adjustment = consume.score_adjustment(radar_lessons)

@@ -117,7 +117,79 @@ def act(db, cell: str, lessons: list[dict], *, how: str) -> list[int]:
     return acted
 
 
-def score_adjustment(lessons: list[dict], *, step: float = 0.02, cap: float = 0.06) -> float:
-    """A bounded nudge from the lessons that apply: favoured up, disfavoured down."""
-    total = sum(step * lesson["direction"] for lesson in lessons)
-    return round(max(-cap, min(cap, total)), 4)
+# WS5 E5: two kinds of lesson, each with its own cap. A buyer lesson rests on what buyers did
+# (real-provenance outcome rows, `commerce.evidence_provenance`); an internal lesson rests on
+# the company's own judgement (the jury, defects, research). One shared cap let a run of
+# internal opinions use up the room a buyer signal needs, and the reverse.
+BUYER_SUBJECTS: frozenset[str] = frozenset({"commercial_demand",
+                                            "commercial_underperformance"})
+INTERNAL_CAP = 0.06
+BUYER_CAP = 0.06
+STEP = 0.02
+# A lesson's weight halves every HALF_LIFE_DAYS: what buyers did last season counts, less
+# than what they did this month, and an old opinion fades unless it is re-learned.
+HALF_LIFE_DAYS = 60.0
+
+
+def kind_of(lesson: dict) -> str:
+    return "buyer" if lesson.get("subject") in BUYER_SUBJECTS else "internal"
+
+
+def decay(lesson: dict, now=None) -> float:
+    """1.0 for a lesson learned now, halving every HALF_LIFE_DAYS; 1.0 if its age is unknown."""
+    from datetime import datetime, timezone
+
+    at = lesson.get("at")
+    if not at:
+        return 1.0
+    try:
+        when = datetime.fromisoformat(str(at))
+    except ValueError:
+        return 1.0
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    now = now or datetime.now(timezone.utc)
+    days = max(0.0, (now - when).total_seconds() / 86400.0)
+    return 0.5 ** (days / HALF_LIFE_DAYS)
+
+
+def adjustment_parts(lessons: list[dict], *, step: float = STEP, now=None) -> dict:
+    """The nudge split by kind, each decayed and capped on its own."""
+    sums = {"internal": 0.0, "buyer": 0.0}
+    for lesson in lessons:
+        sums[kind_of(lesson)] += step * lesson["direction"] * decay(lesson, now)
+    internal = max(-INTERNAL_CAP, min(INTERNAL_CAP, sums["internal"]))
+    buyer = max(-BUYER_CAP, min(BUYER_CAP, sums["buyer"]))
+    return {"internal": round(internal, 4), "buyer": round(buyer, 4),
+            "total": round(internal + buyer, 4)}
+
+
+def score_adjustment(lessons: list[dict], *, step: float = STEP, cap: float | None = None,
+                     now=None) -> float:
+    """A bounded nudge from the lessons that apply: favoured up, disfavoured down.
+
+    WS5 E5: internal and buyer lessons are capped separately (each +-0.06), and every
+    lesson's weight decays with age. `cap`, when given, bounds the combined nudge too."""
+    total = adjustment_parts(lessons, step=step, now=now)["total"]
+    if cap is not None:
+        total = max(-cap, min(cap, total))
+    return round(total, 4)
+
+
+def concept_text(seed, concept: dict | None = None) -> str:
+    """The words a radar concept is matched on (the same text `radar.score` uses)."""
+    c = concept or {}
+    return " ".join(str(x) for x in (
+        seed.slug.replace("-", " "), seed.title, seed.category, seed.season or "",
+        seed.rationale, c.get("premise") or "", c.get("motif") or ""))
+
+
+def rank_adjustments(db, seeds, *, now=None) -> dict[str, float]:
+    """WS5 E5: the bounded lesson nudge for each concept, read-only (nothing is recorded as
+    acted on: `radar.score` records that when it decides). Used to rank the next concepts."""
+    out = {}
+    for seed in seeds:
+        lessons = [l for l in matching(db, "market_radar", concept_text(seed))
+                   if l["direction"]]
+        out[seed.slug] = score_adjustment(lessons, now=now) if lessons else 0.0
+    return out

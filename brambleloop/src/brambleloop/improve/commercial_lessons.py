@@ -137,7 +137,10 @@ def measured_groups(db) -> dict[str, Group]:
         rows = [r for r in s.scalars(select(ListingOutcome)
                                      .where(ListingOutcome.source.like(f"{EXPORT_SOURCE}%"))
                                      .order_by(ListingOutcome.id))
-                if ep.learnable(r.detail)]
+                if ep.learnable(r.detail)
+                # WS5 E5: a period bought with ads measures the ad, not the product's own
+                # demand; paid-traffic rows never move a buyer lesson.
+                and not (r.detail or {}).get("paid")]
         for r in _non_overlapping(rows):
             if r.orders is None or r.visits is None:
                 continue          # a row without its orders measures nothing about conversion
