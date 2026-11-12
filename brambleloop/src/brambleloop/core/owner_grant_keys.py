@@ -40,6 +40,7 @@ from __future__ import annotations
 import contextvars
 import json
 import os
+import re
 from contextlib import contextmanager
 
 SIGNING_KEY_VAR = "BRAMBLELOOP_OWNER_GRANT_SIGNING_KEY"
@@ -115,10 +116,16 @@ def in_owner_request() -> bool:
     return bool(_OWNER_REQUEST.get())
 
 
+# Review 5060fcc7 INFO-4: the event is matched exactly (a whole `owner.<family>.revoked`
+# name), not by suffix, so "...approved\n.revoked" is not a revocation either.
+_REVOCATION_EVENT = re.compile(r"owner\.[a-z_]+\.revoked")
+
+
 def _is_revocation(detail: dict) -> bool:
     d = detail or {}
     keys = set(d)
-    return (str(d.get("event") or "").endswith(".revoked")
+    event = d.get("event")
+    return (isinstance(event, str) and _REVOCATION_EVENT.fullmatch(event) is not None
             and _REVOCATION_KEYS <= keys <= (_REVOCATION_KEYS | _REVOCATION_OPTIONAL))
 
 

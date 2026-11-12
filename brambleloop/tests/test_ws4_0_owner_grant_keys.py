@@ -107,6 +107,34 @@ def test_approve_and_rebase_refuse_outside_the_owner_request_and_revoke_does_not
     assert rid and pub.LEDGER.refusal(db, gid) == "owner publication grant revoked"
 
 
+def test_f2f_only_an_exact_revocation_body_signs_outside_the_owner_request():
+    """Review 5060fcc7 F2f / INFO-4: outside the owner request a body signs only if it has
+    EXACTLY the revocation keys (plus the optional rebase link) and an exact
+    `owner.<family>.revoked` event -- an extra key, a missing key, or a suffix-only event is
+    refused."""
+    base = {"principal": pub.PRINCIPAL, "approval_id": 1, "grant_seal": "s" * 128,
+            "revoked_at": "2026-11-12T09:00:00+00:00", "event": pub.REVOKED, "seq": 2,
+            "prev_id": 1, "prev_seal": "p" * 128}
+    assert K.is_signature(K.sign("brambleloop/test-domain/v1", base))
+    assert K.is_signature(K.sign("brambleloop/test-domain/v1", {**base, "rebase": True}))
+    bad = [
+        {**base, "content": {"slug": "p"}},                       # an extra key
+        {**base, "expires_at": "2099-01-01T00:00:00+00:00"},      # another extra key
+        {k: v for k, v in base.items() if k != "grant_seal"},     # a missing key
+        {**base, "event": "owner.publication.approved\n.revoked"},  # suffix only
+        {**base, "event": "x.revoked"},
+        {**base, "event": pub.APPROVED},
+    ]
+    assert len(bad) == 6
+    for body in bad:
+        try:
+            K.sign("brambleloop/test-domain/v1", body)
+        except ValueError as exc:
+            assert "Command Center request" in str(exc), (body, exc)
+        else:
+            raise AssertionError(f"signed outside the owner request: {sorted(body)}")
+
+
 def test_the_bearer_route_approve_refuses_with_the_reason():
     """`publication_authority.approve` / `activation_authority.approve` called the way the
     operator bearer route calls them (a valid ops token, no owner request) never sign."""
