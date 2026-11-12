@@ -169,6 +169,45 @@ def close(row, state: str, reason: str, *, now: datetime | None = None) -> None:
     row.done = True
 
 
+def ensure(session, requirement_key: str, *, action: str, **fields):
+    """The persistent open owner action for `requirement_key`: inserted, or restated if open.
+
+    OPUS2 (review OPUS2EF2 EF2-7). `ops.owner_queue_guard` merges a second `OwnerAction` for an
+    open key onto the open row, and the second object is then detached: a caller that writes
+    `row.done = True` on it afterwards changes nothing stored. This returns the stored row
+    itself, so later edits land. The restatement follows the guard's rules (text restated when
+    given; the cost ceiling merged by `owner_queue_guard._merge_cost`, never lowered silently).
+    Keyless requirements are refused: the key is the action's identity.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+    from . import owner_queue_guard as guard
+
+    key = (requirement_key or "").strip()
+    if not key:
+        raise ValueError("an owner action needs a requirement_key to be ensured")
+    guard._lock(session)
+    with session.no_autoflush:
+        row = session.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == key, OwnerAction.done == False)  # noqa: E712
+            .order_by(OwnerAction.id))
+    if row is None:
+        row = OwnerAction(requirement_key=key, action=action, **fields)
+        session.add(row)
+        session.flush()
+        return row
+    restated = OwnerAction(requirement_key=key, action=action, **fields)
+    row.action = action
+    for name in guard._RESTATED:
+        value = getattr(restated, name, None)
+        if value not in (None, ""):
+            setattr(row, name, value)
+    guard._merge_cost(row, restated)
+    session.flush()
+    return row
+
+
 def sweep(db, *, now: datetime | None = None) -> dict:
     """Expire open/parked rows whose own `expires_at` has passed. Idempotent."""
     from sqlalchemy import select
