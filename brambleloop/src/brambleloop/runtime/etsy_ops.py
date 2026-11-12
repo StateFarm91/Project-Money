@@ -559,6 +559,8 @@ def certified_frames(db, slug: str, version: str, *, release: str = "") -> dict:
     from ..core.models import ListingSetCertificateRecord
 
     with db.session() as s:
+        from ..publish.photo_asset_review import _lock, photo_certificate_current
+        _lock(s, db)
         rec = s.scalar(select(ListingSetCertificateRecord).where(
             ListingSetCertificateRecord.product_slug == slug,
             ListingSetCertificateRecord.version == version,
@@ -570,6 +572,17 @@ def certified_frames(db, slug: str, version: str, *, release: str = "") -> dict:
                                  f"there are no certified images to upload"]}
         frames = sorted((rec.certificate or {}).get("frames") or [],
                         key=lambda f: int(f.get("position") or 0))
+        # A certificate is not evidence that current photo rights and attestation
+        # still hold. Refuse bytes before upload if that evidence is stale/unknown.
+        from ..publish.release_gates import _certificate_from_record
+        try:
+            current = photo_certificate_current(s, db, slug, version,
+                                                _certificate_from_record(rec).frames)
+        except Exception:  # noqa: BLE001 - malformed or unavailable evidence is a hold
+            current = False
+        if not current:
+            return {"frames": [], "record_id": rec.id,
+                    "problems": ["photo frame or evidence no longer matches the certificate"]}
         problems = []
         # PT-13: an empty hash on either side used to skip the binding. A caller that names
         # no release is bound to the release on file for slug@version; a certificate bound to

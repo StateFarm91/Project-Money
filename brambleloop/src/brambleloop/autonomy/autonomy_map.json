@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-07T17:34:41.067424+00:00",
+ "generated_at": "2026-11-12T03:29:54.258264+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,10 +10,10 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 137,
-  "handlers": 169,
+  "cadences": 138,
+  "handlers": 170,
   "agents": 34,
-  "follow_on_edges": 91
+  "follow_on_edges": 92
  },
  "departments": [
   {
@@ -1036,6 +1036,7 @@
    "name": "Visual",
    "mission": "Produce truthful, disclosed imagery for certified releases and watch the canonical model's identity for drift.",
    "agents": [
+    "asset_truth",
     "creative_director",
     "publishing",
     "quality_director"
@@ -1102,6 +1103,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "photo_review",
+      "agent": "asset_truth",
+      "job_type": "assets.photo_review",
+      "period_seconds": 3600
+     },
+     {
       "name": "identity_drift",
       "agent": "quality_director",
       "job_type": "visual.identity_drift",
@@ -1130,6 +1137,7 @@
     "follow_on_from": [
      "assets.build",
      "assets.launch_review",
+     "assets.physical_upgrade",
      "creative.image_benchmark",
      "listing.draft",
      "owner/API route _startup",
@@ -1174,6 +1182,7 @@
    "execution": {
     "handler_modules": [
      "brambleloop.autonomy.visual_rnd_job",
+     "brambleloop.runtime.photo_review_ops",
      "brambleloop.runtime.quality_ops",
      "brambleloop.runtime.release"
     ],
@@ -1182,6 +1191,7 @@
      "assets.launch_review",
      "assets.model_photography",
      "assets.owned_photography",
+     "assets.photo_review",
      "assets.physical_upgrade",
      "creative.image_benchmark",
      "creative.model_freeze",

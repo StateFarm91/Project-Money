@@ -3820,6 +3820,12 @@ def handle_physical_upgrade(ctx: JobContext) -> dict:
                                         role=str(ctx.job.inputs.get("role") or "proof"),
                                         lineage=_lineage(ctx, validation_status="blocked"))
     ctx.audit("physical.upgrade_planned", artifact=out.get("slug"), detail=out)
+    if out.get("upgraded") and out.get("frame_position") == 1:
+        # OPUS2 (P0-PHOTO-ASSET-REVIEW): the photo leads the gallery; review it now rather
+        # than at the next hourly sweep.
+        ctx.enqueue("asset_truth", "assets.photo_review", {},
+                    idempotency_key=f"photo_review:{out.get('slug')}:{out.get('version')}:"
+                                    f"{ctx.job.inputs.get('photo_id')}")
     return out
 
 

@@ -2883,6 +2883,8 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "learn.scan": ("queued", "generated", "published"),
     "listing.draft": ("drafted",),
     "listing.outcomes": ("exports_processed", "recorded_listings"),  # W3 K3 via D (WIRE4)
+    # OPUS2 (P0-PHOTO-ASSET-REVIEW): a photo frame approved by the deterministic review.
+    "assets.photo_review": ("work_done",),
     "listing.seo": ("listing",),
     "marketing.ads_readiness": ("rechecked", "campaign_activated"),
     "marketing.schedule": ("pieces",),
@@ -3447,6 +3449,7 @@ from . import storefront_ops  # noqa: E402,F401  (W4-AGENTS: Storefront Director
 from . import quality_ops  # noqa: E402,F401  (W4-AGENTS: Quality & Compliance re-verification)
 from . import engineering_ops  # noqa: E402,F401  (W4-AGENTS: cir.revise)
 from . import intel_ops  # noqa: E402,F401  (W4-AGENTS: radar.competitor_snapshot)
+from . import photo_review_ops  # noqa: E402,F401  (OPUS2: assets.photo_review)
 from . import listing_package_ops  # noqa: E402,F401  (OPUS2: listing.package)
 from . import c12_ops  # noqa: E402,F401  (W4-C12 wiring: SV aging, window captures, harvest)
 from . import commercial_ops  # noqa: E402,F401  (OPUS2-P0: improve.commercial_lessons)

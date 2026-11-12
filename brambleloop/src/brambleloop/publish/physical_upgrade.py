@@ -188,6 +188,8 @@ def plan_upgrade(db, photo_id: int, *, today: date | None = None,
         # labelled by the certificate). Any other photograph is appended last, as before.
         ordered = sorted(frames, key=lambda f: f.position)
         ordered = [new_frame] + ordered if leads else ordered + [new_frame]
+        if leads:
+            _demote_leaders(ordered[1:])
         _renumber(s, ordered)
         position = new_frame.position
         if lineage is not None:
@@ -253,6 +255,15 @@ def _leads_gallery(db, photo_id: int) -> bool:
     except Exception:  # noqa: BLE001 - an unreadable gate never puts a photo first
         return False
     return any(p.get("photo_id") == photo_id for p in q.get("qualifying") or [])
+
+
+def _demote_leaders(frames) -> None:
+    """OPUS2S-3 (opus2, shared W-PHYSFIX code): a photo frame moved behind a new leading photo
+    no longer claims to lead the gallery, so exactly one frame leads and the asset-truth
+    review can approve the moved one as a supplement instead of refusing both for good."""
+    for f in frames:
+        if (f.claims or {}).get("leads_gallery") is True:
+            f.claims = {**(f.claims or {}), "leads_gallery": False}
 
 
 def _renumber(s, ordered) -> None:
@@ -398,7 +409,13 @@ def lead_with_if_qualifying(db, photo_id: int) -> bool:
 
     if not _leads_gallery(db, photo_id):
         return False
+    from .photo_asset_review import _lock
+
     with db.session() as s:
+        # A3D-2: take the photo review's write lock before reading the frames, so this write is
+        # never computed from a copy read while a review held the lock (a stale approved=True
+        # beside an awaiting reason).
+        _lock(s, db)
         photo = s.get(PhysicalPhoto, photo_id)
         slug, version = _photo_release(s, photo)
         frames = sorted(s.scalars(select(ListingAsset).where(
@@ -406,11 +423,32 @@ def lead_with_if_qualifying(db, photo_id: int) -> bool:
             key=lambda f: f.position)
         mine = [f for f in frames if f.asset_class == "PHYSICAL_PRODUCT_PHOTO"
                 and f.sha256 == photo.sha256]
-        if not mine or frames[0] is mine[0]:
-            return bool(mine)
+        if not mine:
+            return False
         frame = mine[0]
-        _renumber(s, [frame] + [f for f in frames if f is not frame])
+        from .photo_asset_review import (AWAITING, NOT_QUALIFYING, _reviewable,
+                                         _invalidate_photo_certificates)
+
+        # An unapproved frame with no review state is explicitly withdrawn.
+        # Attestation or reordering must never turn that state into approval.
+        if not frame.approved and not _reviewable(list(frame.blocked_reasons or [])):
+            return False
+        if frames[0] is frame and (frame.claims or {}).get("leads_gallery") is True:
+            return True
+
+        # Keep terminally excluded photos after every effective frame so the
+        # listing-set positions remain contiguous after those photos are filtered.
+        others = [f for f in frames if f is not frame]
+        excluded = [f for f in others if any(str(r).startswith(NOT_QUALIFYING)
+                                              for r in (f.blocked_reasons or []))]
+        included = [f for f in others if f not in excluded]
+        _invalidate_photo_certificates(s, slug, version, "photo_frame_order_changed")
+        _renumber(s, [frame] + included + excluded)
+        _demote_leaders(others)
         frame.claims = {**(frame.claims or {}), "leads_gallery": True}
         frame.approved = False
-        frame.blocked_reasons = ["awaiting asset-truth review and listing-set re-certification"]
+        # Never discard independent holds (such as an owner veto).
+        reasons = [r for r in (frame.blocked_reasons or []) if r != AWAITING
+                   and not str(r).startswith(NOT_QUALIFYING)]
+        frame.blocked_reasons = [AWAITING] + reasons
     return True
