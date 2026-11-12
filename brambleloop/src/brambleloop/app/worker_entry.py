@@ -41,6 +41,12 @@ def main() -> int:
     if _ogk.mark_job_process():
         log.warning("removed the owner-grant signing key from the worker environment: "
                     "a job process never signs owner grants")
+    # WS4-3: nor a standing publication policy row.
+    from ..ops import standing_policy as _sp
+
+    if _sp.mark_job_process():
+        log.warning("removed the standing-policy signing key from the worker environment: "
+                    "a job process never signs a standing policy")
     # A3-05: same runtime boot guard as the web service. On the hosting platform an unproven
     # build runs as SHADOW (the phase env is forced before the effective phase is read below).
     from ..ops import release_record

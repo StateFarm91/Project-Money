@@ -49,6 +49,16 @@ ACTIONS: dict[str, tuple[bool, str]] = {
     "storefront.approve": (True, "record a signed 24 h owner storefront grant"),
     "storefront.revoke": (False, "revoke a storefront grant (tightens)"),
     "storefront.rebase": (True, "re-anchor the storefront grant chain (voids earlier grants)"),
+    # WS4-3 (design §1.7): the standing publication policy. Preview reads (an agent may only
+    # pre-fill it). Approve, activate, resume and rebase are owner acts under a fresh step-up,
+    # signed inside the owner request. Revoke and suspend only tighten.
+    "standing_policy.preview": (False, "read the exact standing policy statement and digest"),
+    "standing_policy.approve": (True, "sign a standing publication policy version"),
+    "standing_policy.activate": (True, "activate an approved standing policy (separate day)"),
+    "standing_policy.revoke": (False, "revoke a standing policy version (tightens)"),
+    "standing_policy.suspend": (False, "suspend the standing policy (tightens)"),
+    "standing_policy.resume": (True, "resume a suspended standing policy"),
+    "standing_policy.rebase": (True, "re-anchor the standing policy chain (voids earlier rows)"),
 
     # W4-PRODFIX: `platform_policy.unreviewed_changes` blocks publishing (and the marketing
     # rebuild) until a material Etsy policy change is reviewed and re-tested, and nothing in
@@ -325,6 +335,70 @@ def _publication_cards(db, limit: int = 20) -> list[dict]:
     return out
 
 
+def _standing_policy_cards(db) -> list[dict]:
+    """WS4-3: one card while any standing policy row exists. It states what the policy is
+    allowed to do right now (`effective()`), shows the owner statement, and names the next
+    owner act. Nothing on it widens authority by itself: every act goes through `execute`."""
+    from ...ops import standing_policy as sp
+
+    with db.session() as s:
+        latest = s.scalar(select(AuditLog).where(AuditLog.action == sp.APPROVED,
+                                                 AuditLog.actor == sp.PRINCIPAL)
+                          .order_by(AuditLog.id.desc()))
+        if latest is None:
+            return []
+        latest_id, latest_detail = latest.id, dict(latest.detail or {})
+    eff = sp.effective(db)
+    content = eff.get("content") or latest_detail.get("content") or {}
+    policy_id = content.get("policy_id")
+    try:
+        statement = sp.render_statement(content) if not sp.ceiling_refusals(content) else None
+    except Exception:  # noqa: BLE001
+        statement = None
+    state = eff["state"]
+    actions: list[dict] = []
+    not_executable = None
+    if state == sp.BROKEN:
+        actions = [{"action": "standing_policy.rebase", "requires_step_up": True,
+                    "params": {"reason": "<why the chain is re-anchored>"}}]
+    elif state == sp.SUSPENDED_STATE:
+        actions = [{"action": "standing_policy.resume", "requires_step_up": True,
+                    "params": {"policy_id": policy_id}},
+                   {"action": "standing_policy.revoke", "requires_step_up": False,
+                    "params": {"approval_id": eff["approval_id"]}}]
+    elif state in (sp.EFFECTIVE, sp.ISSUE_PAUSED, sp.NOT_YET):
+        actions = [{"action": "standing_policy.suspend", "requires_step_up": False,
+                    "params": {"policy_id": policy_id, "reason": "<why>"}},
+                   {"action": "standing_policy.revoke", "requires_step_up": False,
+                    "params": {"approval_id": eff["approval_id"]}}]
+    else:
+        why = sp.activation_refusals(db, latest_id)
+        not_executable = "; ".join(why) if why else None
+        if not why:
+            actions = [{"action": "standing_policy.activate", "requires_step_up": True,
+                        "params": {"approval_id": latest_id}}]
+        actions.append({"action": "standing_policy.revoke", "requires_step_up": False,
+                        "params": {"approval_id": latest_id}})
+    return [{
+        "card_id": f"standing_policy:{policy_id}", "kind": "STANDING_POLICY",
+        "title": (f"Standing publication policy {policy_id} v{content.get('version')}: "
+                  f"{state}"),
+        "what": eff.get("why") or "effective: Etsy drafts within this policy need no "
+                                  "per-product approval",
+        "statement": statement,
+        "digest": sp.statement_digest(content) if statement else None,
+        "deployment_mode": sp.deployment_mode(),
+        "key_health": sp.key_health(),
+        "proposed_action": "review the policy's state and act on it",
+        "downside": "a standing policy can create Etsy drafts without asking per product",
+        "reversibility": "suspend or revoke at any time; either takes effect at the next check",
+        "max_spend_cad": 0.0,
+        "executable": bool(actions) and not_executable is None,
+        "not_executable_reason": not_executable,
+        "actions": actions,
+        "sources": [f"audit_log:{latest_id}", "ops.standing_policy.effective"]}]
+
+
 def inbox(db) -> dict:
     from . import readers
 
@@ -343,6 +417,13 @@ def inbox(db) -> dict:
             f"publication candidates unreadable: {type(exc).__name__}")
         status = "DEGRADED" if status == "OK" else status
     cards = cards + pub
+    # WS4-3: the standing publication policy card (state, statement, and the next owner act).
+    try:
+        cards = cards + _standing_policy_cards(db)
+    except Exception as exc:  # noqa: BLE001
+        reason = (reason + "; " if reason else "") + (
+            f"standing policy unreadable: {type(exc).__name__}")
+        status = "DEGRADED" if status == "OK" else status
     # W4-PRODFIX: each unreviewed material policy change is a card (it blocks publishing).
     try:
         from ...gates import platform_policy
@@ -657,6 +738,11 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
                 if not reason:
                     raise ActionRefused("owner decision reason required")
                 result = sfa.rebase(db, actor=actor, reason=reason, stepped_up=True)
+        elif action.startswith("standing_policy."):
+            out = _standing_policy(db, action, body, tagged, actor=actor)
+            if action == "standing_policy.preview":
+                return {"result": out, "audit_id": None}  # a read: nothing to audit
+            result = out
         elif action == "improvement.approve":
             from ...improve import cells
 
@@ -804,6 +890,77 @@ def _archive_statement(db, body: dict, *, actor: str) -> dict:
                               totals=body.get("totals") if isinstance(body.get("totals"), dict)
                               else {}, recorded_by=f"owner:{actor}"[:64])
 
+
+
+def _standing_policy(db, action: str, body: dict, reason: str, *, actor: str) -> dict:
+    """WS4-3: the standing policy's owner acts (design §1.7). The route has already checked
+    the session, CSRF/nonce and, for approve/activate/resume/rebase, a fresh step-up, and
+    entered the owner request for exactly those four."""
+    from ...ops import standing_policy as sp
+
+    content = body.get("content")
+    try:
+        if action == "standing_policy.preview":
+            if not isinstance(content, dict):
+                raise ActionRefused("content must be the policy fields to preview")
+            prev = sp.preview(db, content)
+            return {**prev, "deployment_mode": sp.deployment_mode(),
+                    "key_health": sp.key_health()}
+        if action == "standing_policy.approve":
+            if not reason:
+                raise ActionRefused("owner decision reason required")
+            if not isinstance(content, dict):
+                raise ActionRefused("content must be the policy fields shown in the preview")
+            ident = sp.approve(db, content, digest=str(body.get("expected_digest") or ""),
+                               typed_confirmation=str(body.get("confirmation") or ""),
+                               stepped_up=True, owner_session=actor, actor=actor,
+                               reason=reason)
+            return {"approval_id": ident, "digest": sp.statement_digest(content),
+                    "version": content.get("version")}
+        if action == "standing_policy.activate":
+            ident = _sp_approval(db, sp, _int(body, "approval_id"))
+            return {"approval_id": ident,
+                    "audit_id": sp.activate(db, ident, stepped_up=True, owner_session=actor,
+                                            actor=actor)}
+        if action == "standing_policy.revoke":
+            ident = _sp_approval(db, sp, _int(body, "approval_id"))
+            return {"approval_id": ident, "revoked": sp.revoke(db, ident)}
+        if action == "standing_policy.suspend":
+            if not reason:
+                raise ActionRefused("a suspension names its reason")
+            policy_id = _sp_policy_id(db, sp, body)
+            return {"audit_id": sp.suspend(db, policy_id, reason=reason, by=actor)}
+        if action == "standing_policy.resume":
+            policy_id = _sp_policy_id(db, sp, body)
+            return {"audit_id": sp.resume(db, policy_id, stepped_up=True,
+                                          owner_session=actor, actor=actor)}
+        if action == "standing_policy.rebase":
+            if not reason:
+                raise ActionRefused("owner decision reason required")
+            return {"audit_id": sp.rebase(db, reason, stepped_up=True)}
+    except ActionRefused:       # ActionNotFound included: keep its own status
+        raise
+    except ValueError as exc:
+        raise ActionRefused(str(exc)[:500]) from None
+    raise ActionRefused(action)  # pragma: no cover - the ACTIONS keys are exhaustive
+
+
+def _sp_approval(db, sp, ident: int) -> int:
+    with db.session() as s:
+        row = s.get(AuditLog, ident)
+        if row is None or row.action != sp.APPROVED or row.actor != sp.PRINCIPAL:
+            raise ActionNotFound(f"no standing policy approval {ident}")
+    return ident
+
+
+def _sp_policy_id(db, sp, body: dict) -> str:
+    policy_id = str(body.get("policy_id") or "")
+    with db.session() as s:
+        known = s.scalar(select(AuditLog.id).where(AuditLog.action == sp.APPROVED,
+                                                   AuditLog.artifact == policy_id))
+    if known is None:
+        raise ActionNotFound(f"no standing policy {policy_id!r}")
+    return policy_id
 
 
 def _adopt_manual(db, body: dict, reason: str, *, actor: str) -> dict:
