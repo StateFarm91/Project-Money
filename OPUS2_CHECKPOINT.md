@@ -1,10 +1,21 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-12T12:30Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-12T13:10Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-12T12:30Z (read first)
+## State at 2026-11-12T13:10Z (read first)
+- No new Main verdicts since WS4-0 SHIP (6819385594). Seven RRs are open (see 12:30Z).
+- WS4 increment 5 (the shadow issuer) is 63f63688 on opus2/ws4-5-issuer-shadow (local,
+  worktree opus2-ws43, stacked on ddc59be1). 9 tests, 7 mutants killed.
+  - Its 84-suite regression runs untracked: output in scratchpad/ws45reg/out, list in
+    scratchpad/ws45list.
+  - When green: push, then RR.
+- After increment 5: increment 6 (issue-time checks: build the NOT_BUILT_YET readers in
+  ops/standing_issuer.py), then the stop watch, and so on in M6 order. R3-R7 and E4-E7 come
+  after the WS4 increments.
+
+## State at 2026-11-12T12:30Z (superseded)
 - RRs posted, all awaiting Main:
   - A9 56f92eb9 (6819765359)
   - WS4 increment 2 0b36ef3b (6819968131)
