@@ -4,7 +4,28 @@ Updated: 2026-11-12T13:10Z. The engineering loop rewrites this file at the end o
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-12T15:30Z (read first)
+## State at 2026-11-12T16:45Z (read first)
+- Open RRs, all awaiting Main (no Main message since 11:46Z):
+  - A9 56f92eb9
+  - A3 3928ba00
+  - E2 56694ebf
+  - E3 34eb66aa
+  - WS4 increment 2 0b36ef3b
+  - increment 3 407af821
+  - increment 4 ddc59be1
+  - increment 5 86322a9f (6826373626)
+  - increment 6 f06926fa (6827019805)
+  - increment 8, stop watch: opus2/ws4-8-stop-watch 879dfb00 (6828197537)
+- Increment 8 also fixes the issuer's check 16 (read-back publish_incomplete incident). It
+  makes before-activation readings record would_suspend only; Main should review that choice.
+- WS4 branches stack in worktree opus2-ws43 (currently on ws4-8).
+- Next: the reviewer-vs-generator identity reader (independent_vision_review, the last
+  NOT_BUILT_YET), then holds turned into owner cards. Use-time re-checks need the SEG store
+  (Mode T, gated on the owner's spend decision).
+- Stop reason: increment 8 is pushed and review-requested. Answer Main's verdicts first
+  next tick.
+
+## State at 2026-11-12T15:30Z (superseded)
 - Open RRs, all awaiting Main:
   - A9 56f92eb9
   - A3 3928ba00
