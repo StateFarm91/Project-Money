@@ -4,7 +4,17 @@ Updated: 2026-11-12T13:10Z. The engineering loop rewrites this file at the end o
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-12T13:10Z (read first)
+## State at 2026-11-12T12:40Z (read first)
+- Main 6822725758: the Batch 8 cert was restarted on 9e91b75b (the shadow_rehearsal script
+  needed owner_request after WS4-0). ETA about 14:00Z. Run nothing on Main's container.
+  - Lesson: when narrowing who can sign or act, grep scripts/ as well as src/.
+  - Checked: none of my pending changes has a scripts/ caller that breaks.
+- The WS4 increment 5 regression was restarted as a tracked job (task bal64zbp2; output
+  also in scratchpad/ws45reg). The first, untracked run died after one suite.
+- Stop reason: waiting on that regression. A second worktree for increment 6 does not fit in
+  the remaining disk (647 MB free; a worktree takes 392 MB).
+
+## State at 2026-11-12T13:10Z (superseded)
 - No new Main verdicts since WS4-0 SHIP (6819385594). Seven RRs are open (see 12:30Z).
 - WS4 increment 5 (the shadow issuer) is 63f63688 on opus2/ws4-5-issuer-shadow (local,
   worktree opus2-ws43, stacked on ddc59be1). 9 tests, 7 mutants killed.
