@@ -34,7 +34,7 @@ from brambleloop.laura.core import identity
 from brambleloop.laura.private import _testkit as kit
 from brambleloop.laura.private.firewall import PrivateInputRefused
 from brambleloop.laura.private.values import PrivateValue
-import _owner_grant; _owner_grant.as_owner()  # noqa: E402,E702  (WS4-0a)
+import _owner_grant; _owner_grant.scoped_owner_approvals()  # noqa: E402,E702  (WS4-0a)
 
 S = kit.SENTINELS
 kit.set_key(kit.new_key())

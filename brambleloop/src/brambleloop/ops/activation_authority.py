@@ -23,7 +23,8 @@ from ..core.models import AuditLog, Listing, PatternVersion, Product
 APPROVED = "owner.activation.approved"
 REVOKED = "owner.activation.revoked"
 REBASED = "owner.activation.rebased"
-PRINCIPAL = "owner:ops-token"
+# WS4-0 (Main 6816519111): newly signed rows name the real path, the Command Center.
+PRINCIPAL = "owner:command-center"
 
 
 def _now():
@@ -140,6 +141,8 @@ def validate(db, approval_id, *, slug, version, listing_id, release=""):
         seal = detail.pop("seal", "")
         from ..core import owner_grant_keys
 
+        if detail.get("event") != APPROVED:  # review 6817118202 F2: signed event == row
+            return "owner activation approval row's signed event is not an approval"
         if owner_grant_keys.legacy_hmac_seal(seal):
             return ("owner activation approval was sealed under the retired ops-token HMAC "
                     "(pre-WS4-0); the owner records a new approval")

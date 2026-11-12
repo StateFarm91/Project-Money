@@ -39,7 +39,8 @@ from ..core.models import AuditLog, Listing, PatternVersion, Product
 APPROVED = "owner.publication.approved"
 REVOKED = "owner.publication.revoked"
 REBASED = "owner.publication.rebased"
-PRINCIPAL = "owner:ops-token"
+# WS4-0 (Main 6816519111): newly signed rows name the real path, the Command Center.
+PRINCIPAL = "owner:command-center"
 ACTION = "store.publish"
 KILL_SWITCH_VAR = "BRAMBLELOOP_PUBLISH_AUTHORISED"
 GRANT_HOURS = 24
@@ -476,6 +477,8 @@ def _check_one(db, ident, *, slug, version, release, current):
     seal = detail.pop("seal", "")
     from ..core import owner_grant_keys
 
+    if detail.get("event") != APPROVED:      # review 6817118202 F2: signed event == row
+        return "owner publication grant row's signed event is not an approval"
     if owner_grant_keys.legacy_hmac_seal(seal):
         return ("owner publication grant was sealed under the retired ops-token HMAC "
                 "(pre-WS4-0); the owner records a new grant")

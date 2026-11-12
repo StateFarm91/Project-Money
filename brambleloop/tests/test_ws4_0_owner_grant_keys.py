@@ -235,9 +235,25 @@ def test_every_worker_entry_scrubs_the_owner_grant_key():
     src = ROOT / "src" / "brambleloop" / "app"
     for name in ("worker_entry.py", "hq_worker.py"):
         text = (src / name).read_text()
-        assert "owner_grant_keys" in text and "mark_job_process()" in text, name
+        # review 6817118202 F6 (R9): the OWNER-GRANT scrub specifically, not any
+        # mark_job_process() (the storefront's satisfies a substring check)
+        assert "_ogk.mark_job_process()" in text, name
     api = (src / "command_center" / "api.py").read_text()
     assert '_ogk.owner_request(auth.current_public_id(request) or "owner")' in api
+    # F6 (R8): the route enters the owner request ONLY for the approve and rebase actions.
+    from brambleloop.app.command_center import api as cc_api
+
+    src_api = (src / "command_center" / "api.py").read_text()
+    seg = src_api[src_api.index("OWNER_GRANT_SIGNING_ACTIONS = ("):]
+    declared = seg[:seg.index(")") + 1]
+    for action in ("publication.approve", "publication.rebase", "activation.approve",
+                   "activation.rebase"):
+        assert f'"{action}"' in declared, action
+    for action in ("publication.preview", "publication.revoke", "activation.preview",
+                   "activation.revoke"):
+        assert f'"{action}"' not in declared, action
+    assert "elif action in OWNER_GRANT_SIGNING_ACTIONS:" in src_api
+    assert cc_api is not None
 
 
 def test_ws4_0c_the_publication_snapshot_binds_the_shop():
@@ -262,6 +278,79 @@ def test_ws4_0c_the_publication_snapshot_binds_the_shop():
     src = (ROOT / "src/brambleloop/ops/publication_authority.py").read_text()
     snap = src[src.index("def snapshot("):src.index("# ---- F-704")]
     assert '"shop_id": _shop_id(db)' in snap
+
+def test_review_f2_a_revocation_label_cannot_carry_a_grant_body():
+    """Review 6817118202 F2 (exploit E3): outside the owner request, a full grant body labelled
+    `event: owner.publication.revoked` is not signable; and a row whose signed event differs
+    from its recorded action is refused by the chain and by the grant check."""
+    body = {**_grant_body(), "event": pub.REVOKED, "seq": 1, "prev_id": None, "prev_seal": ""}
+    try:
+        K.sign(pub.DOMAIN, body)
+    except ValueError as exc:
+        assert "Command Center request" in str(exc), exc
+    else:
+        raise AssertionError("a grant body relabelled 'revoked' was signed outside the owner "
+                             "request")
+    # Even a correctly signed revocation-labelled body, filed as an approval, is refused.
+    db = _db()
+    with _owner():
+        sig = K.sign(pub.DOMAIN, body)
+    with db.session() as s:
+        row = AuditLog(actor=pub.PRINCIPAL, action=pub.APPROVED, artifact="p@1",
+                       detail={**body, "seal": sig})
+        s.add(row)
+        s.flush()
+        rid = row.id
+    chain = pub.LEDGER.chain(db, record_incident=False)
+    assert chain["valid"] is False and "signed event" in chain["why"], chain
+    assert pub.LEDGER.refusal(db, rid) is not None
+    # an exact revocation body is still signable outside the request (it only tightens)
+    exact = {"principal": pub.PRINCIPAL, "approval_id": 1, "grant_seal": "x",
+             "revoked_at": "2026-11-12T00:00:00+00:00", "event": pub.REVOKED, "seq": 2,
+             "prev_id": 1, "prev_seal": "y"}
+    assert K.is_signature(K.sign(pub.DOMAIN, exact))
+
+
+def test_review_f1_the_completion_verifier_verifies_outside_the_owner_request():
+    """Review 6817118202 F1: `store.publish.complete`'s grant check runs in the WORKER, outside
+    any owner request, and must verify with the public key -- never re-sign."""
+    from types import SimpleNamespace
+
+    from brambleloop.integrations.etsy import _completion_grant_row_refusal
+
+    db = _db()
+    body = _grant_body()
+    body["approved_at"] = "2020-01-01T00:00:00+00:00"
+    body["expires_at"] = "2999-01-01T00:00:00+00:00"
+    with _owner():
+        gid = pub.LEDGER.append(db, action=pub.APPROVED, artifact="p@1", detail=body)
+    assert not K.in_owner_request()
+    grant = SimpleNamespace(db=db, slug="p", version="1", release="r" * 64)
+    assert _completion_grant_row_refusal(grant, pub, gid) is None
+    signing = os.environ.pop(K.SIGNING_KEY_VAR)          # a worker holds only the verify key
+    try:
+        assert _completion_grant_row_refusal(grant, pub, gid) is None
+    finally:
+        os.environ[K.SIGNING_KEY_VAR] = signing
+    src = (ROOT / "src/brambleloop/integrations/etsy.py").read_text()
+    fn = src[src.index("def _completion_grant_row_refusal"):]
+    fn = fn[:fn.index("\ndef ")]
+    assert "pa._seal(" not in fn and "pa._verify(detail, seal)" in fn
+
+
+def test_review_f5_a_signature_is_exactly_128_lowercase_hex():
+    body = {**_grant_body(), "event": pub.APPROVED}
+    with _owner():
+        sig = K.sign(pub.DOMAIN, body)
+    assert K.is_signature(sig) and K.verify(pub.DOMAIN, body, sig)
+    for bad in (sig.upper(), sig + "0", sig[:-1], " " + sig[1:], ""):
+        assert not K.is_signature(bad) and K.verify(pub.DOMAIN, body, bad) is False, bad
+
+
+def test_new_rows_name_the_command_center():
+    assert pub.PRINCIPAL == act.PRINCIPAL == "owner:command-center"
+    assert "never on the worker" in K.deployment_note() or "never SET on the worker" in (
+        K.deployment_note())
 
 if __name__ == "__main__":
     fails = 0

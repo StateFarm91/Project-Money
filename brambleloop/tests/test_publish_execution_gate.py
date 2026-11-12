@@ -13,7 +13,7 @@ from brambleloop.core.models import Product,PatternVersion,AuditLog,Job
 from brambleloop.publish import draft_intent
 from brambleloop.core.resilience import PermanentError
 from brambleloop.ops import publication_authority
-import _owner_grant; _owner_grant.as_owner()  # noqa: E402,E702  (WS4-0a)
+import _owner_grant; _owner_grant.scoped_owner_approvals()  # noqa: E402,E702  (WS4-0a)
 
 OWNER_TOKEN="synthetic-owner-ops-credential-not-a-secret"
 

@@ -8,7 +8,7 @@ from tests import test_etsy_readback_observe as f
 from brambleloop.core.models import ListingSearchProfile
 from brambleloop.runtime import etsy_ops
 from brambleloop.ops import activation_authority as authority
-import _owner_grant; _owner_grant.as_owner()  # noqa: E402,E702  (WS4-0a)
+import _owner_grant; _owner_grant.scoped_owner_approvals()  # noqa: E402,E702  (WS4-0a)
 
 def test_chosen_category_and_properties_reach_write_readback_and_approval():
     db=f._db();p=f._product(db)

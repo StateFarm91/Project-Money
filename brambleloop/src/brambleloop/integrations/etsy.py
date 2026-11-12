@@ -242,7 +242,6 @@ def _completion_refusal(self, listing_id: str) -> str | None:
 
 def _completion_grant_row_refusal(self, pa, ident: int) -> str | None:
     """`publication_authority._check_one` without the pre-creation content digest."""
-    import hmac
     from datetime import datetime
 
     from ..core.models import AuditLog
@@ -258,8 +257,21 @@ def _completion_grant_row_refusal(self, pa, ident: int) -> str | None:
     if chained is not None:
         return f"owner publication grant refused: {chained}"
     seal = detail.pop("seal", "")
-    if not hmac.compare_digest(str(seal), pa._seal(detail)):
-        return "owner publication grant invalid or credential rotated"
+    # Review 6817118202 F1: VERIFY with the public key -- never re-sign (the worker holds no
+    # signing key, and re-signing is what let a verifier mint). F2: the signed event must be
+    # the row's own action.
+    from ..core import owner_grant_keys
+
+    if detail.get("event") != pa.APPROVED:
+        return "owner publication grant row's signed event is not an approval"
+    if owner_grant_keys.legacy_hmac_seal(seal):
+        return ("owner publication grant was sealed under the retired ops-token HMAC "
+                "(pre-WS4-0); the owner records a new grant")
+    try:
+        if not pa._verify(detail, seal):
+            return "owner publication grant invalid or signing key rotated"
+    except ValueError as exc:
+        return f"owner publication grant cannot be verified: {exc}"
     now = pa._now()
     try:
         if not (datetime.fromisoformat(detail["approved_at"]) <= now

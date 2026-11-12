@@ -46,8 +46,12 @@ SIGNING_KEY_VAR = "BRAMBLELOOP_OWNER_GRANT_SIGNING_KEY"
 VERIFY_KEY_VAR = "BRAMBLELOOP_OWNER_GRANT_VERIFY_KEY"
 EMBEDDED_VAR = "BRAMBLELOOP_EMBEDDED_WORKER"
 ALG = "ed25519"
-# The events whose rows grant or re-anchor authority: these need the owner's request context.
-_GRANTING_SUFFIXES = (".approved", ".rebased")
+# Review 6817118202 F2: the ONLY body signed outside the owner request is a revocation, and it
+# must be exactly a revocation (GrantLedger.revoke's keys plus the chain link): an approval
+# body cannot be relabelled "revoked" to dodge the gate.
+_REVOCATION_KEYS = frozenset({"principal", "approval_id", "grant_seal", "revoked_at", "event",
+                              "seq", "prev_id", "prev_seal"})
+_REVOCATION_OPTIONAL = frozenset({"rebase"})
 
 _JOB_PROCESS = {"is": False}
 _OWNER_REQUEST: contextvars.ContextVar = contextvars.ContextVar("owner_grant_request",
@@ -89,9 +93,12 @@ def deployment_note() -> str:
     if os.environ.get(EMBEDDED_VAR, "1") == "1":
         return ("Mode S: job handlers share the web process, so the owner-grant signing key is "
                 "not separated from job code (as the ops token is not). Separation needs the "
-                "worker as its own service (Mode T, an owner decision).")
+                "worker as its own service (Mode T, an owner decision), with the signing key "
+                "set on the web service only, never on the worker.")
     return ("Mode T: the worker holds only the verify key; no job process can sign an owner "
-            "grant.")
+            "grant. The signing key must never be SET on the worker service at all: the "
+            "start-up scrub is hygiene, not a boundary (/proc/self/environ keeps the original "
+            "environment).")
 
 
 @contextmanager
@@ -108,9 +115,16 @@ def in_owner_request() -> bool:
     return bool(_OWNER_REQUEST.get())
 
 
+def _is_revocation(detail: dict) -> bool:
+    d = detail or {}
+    keys = set(d)
+    return (str(d.get("event") or "").endswith(".revoked")
+            and _REVOCATION_KEYS <= keys <= (_REVOCATION_KEYS | _REVOCATION_OPTIONAL))
+
+
 def _granting(detail: dict) -> bool:
-    event = str((detail or {}).get("event") or "")
-    return event.endswith(_GRANTING_SUFFIXES) or not event
+    """Everything but an exact revocation body needs the owner's request context."""
+    return not _is_revocation(detail)
 
 
 def sign(domain: str, detail: dict) -> str:
@@ -141,11 +155,22 @@ def verify(domain: str, detail: dict, seal: str) -> bool:
         pub = Ed25519PublicKey.from_public_bytes(_b64key(VERIFY_KEY_VAR))
     except Exception as exc:  # noqa: BLE001
         raise ValueError(f"owner grant verify key unavailable: {exc}") from None
+    if not is_signature(seal):
+        return False
     try:
         pub.verify(bytes.fromhex(str(seal)), f"{domain}\n{_json(detail)}".encode())
         return True
     except (InvalidSignature, ValueError):
         return False
+
+
+_SIG_HEX = frozenset("0123456789abcdef")
+
+
+def is_signature(seal) -> bool:
+    """Review 6817118202 F5: an Ed25519 signature is exactly 128 lowercase hex characters."""
+    s = str(seal or "")
+    return len(s) == 128 and set(s) <= _SIG_HEX
 
 
 def legacy_hmac_seal(seal) -> bool:

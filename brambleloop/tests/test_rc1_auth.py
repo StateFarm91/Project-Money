@@ -35,7 +35,7 @@ from brambleloop.core.db import Database  # noqa: E402
 from brambleloop.core.models import AuditLog, Incident, Phase  # noqa: E402
 from phase_fixture import (record_phase_path, synthetic_evidence,  # noqa: E402
                            synthetic_readiness)
-import _owner_grant; _owner_grant.as_owner()  # noqa: E402,E702  (WS4-0a)
+import _owner_grant; _owner_grant.scoped_owner_approvals()  # noqa: E402,E702  (WS4-0a)
 
 TOKEN = "rc1-auth-synthetic-owner-credential-not-a-secret"
 

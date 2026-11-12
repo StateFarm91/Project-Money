@@ -28,7 +28,7 @@ from brambleloop.integrations.etsy import EtsyClient  # noqa: E402
 from brambleloop.publish import draft_intent  # noqa: E402
 from brambleloop.ops import publication_authority as pa  # noqa: E402
 from brambleloop.runtime import etsy_ops, pipeline  # noqa: E402
-import _owner_grant; _owner_grant.as_owner()  # noqa: E402,E702  (WS4-0a)
+import _owner_grant; _owner_grant.scoped_owner_approvals()  # noqa: E402,E702  (WS4-0a)
 
 OWNER_TOKEN = "synthetic-owner-ops-credential-not-a-secret"
 
