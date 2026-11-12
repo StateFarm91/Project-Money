@@ -221,7 +221,8 @@ class _OnceReader:
 
 
 def scan_member(db, member: Member, reader, *, now: datetime | None = None,
-                enqueue=None, force: bool = False) -> dict:
+                enqueue=None, force: bool = False,
+                env: dict[str, str] | None = None) -> dict:
     """One shop: due check, public shop counters, catalogue scan, mission, weekly reviews."""
     from . import mission, mission_runtime, observe
     from .etsy_public import ReadFailed
@@ -246,8 +247,11 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
     try:
         shop = reader.resolve_shop(member.shop_name)
         facts = {f: shop.get(f) for f in SHOP_FIELDS}
+        # WS2 R6: the real environment (None = the process's), so an official API read is
+        # graded as the observation it is. `env={}` hid the credential and graded every
+        # watchlist observation `supporting`.
         result = observe.scan(db, reader, benchmark_key=member.key,
-                              shop_name=member.shop_name, env={})
+                              shop_name=member.shop_name, env=env)
         report = result.to_report()
         mission.check_report(report, shop_name=member.shop_name)
         reviews = None
@@ -380,7 +384,8 @@ def scan_all(db, *, enqueue=None, env=None, now: datetime | None = None,
     for m in members:
         # N-1: one shop's unexpected fault never stops the others or fails the job.
         try:
-            shops.append(scan_member(db, m, reader, now=now, enqueue=enqueue, force=force))
+            shops.append(scan_member(db, m, reader, now=now, enqueue=enqueue, force=force,
+                                     env=env))
         except Exception as exc:  # noqa: BLE001
             st = _state(db, m.key)
             st.update(state="source_outage", last_attempt_at=now.isoformat(),

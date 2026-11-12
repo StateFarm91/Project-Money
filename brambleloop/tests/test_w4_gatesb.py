@@ -268,8 +268,11 @@ def test_second_market_selection_is_verified_before_it_counts():
     reader = _Reader({1: {"shop_name": "LakesideLoops", "shop_location_country_iso": "CA"},
                       2: {"shop_name": "HanJanCrochet", "shop_location_country_iso": "GB"}})
     out = second_market.ensure_selected(db, reader)
-    assert [o["state"] for o in out] == ["joined", "joined"], out
+    # WS2 R7: HanJanCrochet is already a seed shop (`benchmarks.seed`), so its verified market
+    # is recorded on that registration instead of joining it a second time.
+    assert [o["state"] for o in out] == ["joined", "already_registered"], out
     assert [o["market"] for o in out] == ["CA", "other"]
+    assert out[1]["key"] == benchmarks.HANJAN.key
     assert second_market.ensure_selected(db, reader)[0]["state"] == "already_joined"
     # Registered is not observed: the gate stays closed until listings are read.
     assert executor._second_market_observed(db, {}) is False

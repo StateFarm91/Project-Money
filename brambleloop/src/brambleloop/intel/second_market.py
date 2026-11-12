@@ -58,7 +58,7 @@ ALTERNATES: tuple[dict, ...] = (
 
 def ensure_selected(db, reader, *, now: datetime | None = None) -> list[dict]:
     """Verify and join the chosen shops to the panel; idempotent. Returns one record each."""
-    from sqlalchemy import select
+    from sqlalchemy import func, select
 
     from ..core.models import Benchmark
     from . import benchmarks, panel_discovery
@@ -92,6 +92,19 @@ def ensure_selected(db, reader, *, now: datetime | None = None) -> list[dict]:
                                 f"{sorted(covered)} -- the record wins over the snippet")})
             continue
         with db.session() as s:
+            # WS2 R7: the same shop under another key (HanJanCrochet is a seed shop, key
+            # `hanjan_crochet`) is the same shop. A second row would scan and count it twice,
+            # so the verified market is recorded on the existing registration instead.
+            existing = s.scalar(select(Benchmark).where(
+                func.lower(Benchmark.shop_name) == name.lower()))
+            if existing is not None:
+                if not existing.market:
+                    existing.market = market
+                out.append({"shop_name": name, "key": existing.key,
+                            "state": "already_registered", "market": existing.market,
+                            "why": f"already registered as {existing.key}; its verified "
+                                   f"market is recorded there, not joined twice"})
+                continue
             s.add(Benchmark(
                 key=key, shop_name=name, platform="etsy",
                 canonical_url=f"https://www.etsy.com/shop/{name}", mandatory=False,
