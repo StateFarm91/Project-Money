@@ -34,15 +34,7 @@ ASSUMED_IN_SHADOW = ("kill_switch", "policy_enabled", "mode_t", "phase_may_publi
 # Readers the next increment (issue-time checks, design §3.3 6/9/10/11/12) builds; until then
 # they read UNKNOWN and every decision holds.
 NOT_BUILT_YET = {
-    "taxonomy_agrees": "category/taxonomy agreement reader (issue-time checks increment)",
-    "deterministic_reverify": "independent recompile of the stored release (issue-time checks)",
-    "owner_attested_physical": "owner-attested physical binding reader (issue-time checks)",
-    "independent_vision_review": "independent reviewer identity per frame (issue-time checks)",
-    "no_fake_discount": "pricing.check_no_fake_discount reader (issue-time checks)",
-    "physical_held": "first_customer.physical_binding evidence classes (issue-time checks)",
-    "sizes": "size count from the CIR (issue-time checks)",
-    "colourwork": "colourwork flag from the CIR (issue-time checks)",
-    "wearable": "wearable flag from the risk matrix features (issue-time checks)",
+    "independent_vision_review": "reviewer-vs-generator model identity per frame (later)",
     "stop_conditions_clear": "the stop watch (WS4 stop-watch increment)",
     "stop_watch_fresh": "the stop watch's last reading (WS4 stop-watch increment)",
 }
@@ -142,6 +134,23 @@ def read_facts(db, slug: str, version: str, release: str, content: dict, *,
     facts["publication_evidence"] = _guard(
         lambda: _publication_evidence(db, slug, version, release))
     facts["release_gates"] = _guard(lambda: _release_gates(db, slug, version))
+    # WS4-6 (design §3.3 checks 6, 9, 10, 12): the issue-time readers.
+    cir = _guard(lambda: _stored_cir(db, slug, version))
+    if cir.get("state") == SB.PASS:
+        c = cir["value"]
+        facts["deterministic_reverify"] = _guard(lambda: _reverify(c, release))
+        physical = _guard(lambda: _physical(db, c))
+        facts["physical_held"] = physical.pop("held", physical)
+        facts["owner_attested_physical"] = physical
+        facts["sizes"] = _guard(lambda: _sizes(c))
+        facts["colourwork"] = _guard(lambda: _fact(SB.PASS, len(c.colors or {}) > 1))
+        facts["wearable"] = _guard(lambda: _wearable(c))
+    else:
+        for name in ("deterministic_reverify", "physical_held", "owner_attested_physical",
+                     "sizes", "colourwork", "wearable"):
+            facts[name] = cir
+    facts["taxonomy_agrees"] = _guard(lambda: _taxonomy_agrees(db, slug, version))
+    facts["no_fake_discount"] = _guard(lambda: _no_fake_discount(db, slug, version))
     facts["shop_id"] = _guard(lambda: _shop_id(db))
     facts["shop_name"] = _guard(_shop_name)
     # No standing grant has ever been issued (there is no grant store until the Mode T
@@ -251,6 +260,129 @@ def _release_gates(db, slug, version):
         return _fact(SB.PASS, True)
     return _fact(SB.FAIL, False, "; ".join(str(r) for r in (verdict.get("reasons")
                                                              or ["blocks"]))[:300])
+
+
+def _stored_cir(db, slug, version):
+    from sqlalchemy import select
+
+    from ..cir.model import CIR
+    from ..core.models import PatternVersion, Product
+
+    with db.session() as s:
+        pv = s.scalar(select(PatternVersion).join(Product).where(
+            Product.slug == slug, PatternVersion.version == version))
+        cir_json = dict(pv.cir_json or {}) if pv is not None else None
+    if not cir_json:
+        return _fact(SB.UNKNOWN, None, "no stored CIR")
+    return _fact(SB.PASS, CIR.from_dict(cir_json))
+
+
+def _reverify(cir, release):
+    """Check 9: recompile the stored CIR, re-render the US text and recompute the release
+    hash with the certificate's own function. A stored `certified=True` that this code cannot
+    reproduce is refused ("deterministic validation wins")."""
+    from ..cir.compiler import compile_cir
+    from ..cir.writer import write_pattern
+    from ..gates.certificate import _release_hash
+
+    result = compile_cir(cir)
+    if getattr(result, "errors", None):
+        return _fact(SB.FAIL, False, f"the stored CIR no longer compiles: "
+                                     f"{str(result.errors[0])[:120]}")
+    recomputed = _release_hash(cir, write_pattern(cir, result, "US"))
+    if recomputed != release:
+        return _fact(SB.FAIL, False, f"recompiled release hash {recomputed[:12]} is not the "
+                                     f"stored {str(release)[:12]}")
+    return _fact(SB.PASS, True)
+
+
+def _physical(db, cir):
+    """Check 10: the physical samples bound to exactly this content
+    (`first_customer.physical_binding`), and an owner attestation on every bound test's
+    photograph -- an operator-token intake alone is not enough. Returns the attestation fact
+    with the held classes attached under "held"."""
+    from sqlalchemy import select
+
+    from ..core.models import PhysicalPhoto
+    from ..gates import first_customer
+
+    binding = first_customer.physical_binding(db, cir)
+    # `bound_classes` maps each bound test id to its evidence class (gates.certificate).
+    raw = binding.get("bound_classes") or {}
+    classes = sorted(set(raw.values() if isinstance(raw, dict) else raw))
+    held = _fact(SB.PASS, classes)
+    bound = [int(b.get("id")) if isinstance(b, dict) else int(b)
+             for b in (binding.get("bound") or [])
+             if (b.get("id") if isinstance(b, dict) else b) is not None]
+    if not bound:
+        return {**_fact(SB.PASS, True, "no physical sample is bound (nothing to attest)"),
+                "held": held}
+    with db.session() as s:
+        # The owner's Command Center attestation (`physical_upgrade.attest_unedited`): by an
+        # owner session, bound to this exact file's sha.
+        attested = set()
+        for p in s.scalars(select(PhysicalPhoto).where(
+                PhysicalPhoto.physical_test_id.in_(bound))):
+            att = (p.detail or {}).get("owner_attestation") or {}
+            if str(att.get("by") or "").startswith("owner:cc:") and att.get("sha256") == p.sha256:
+                attested.add(p.physical_test_id)
+    missing = sorted(set(bound) - attested)
+    if missing:
+        return {**_fact(SB.FAIL, False, f"bound physical tests without an owner attestation: "
+                                        f"{missing}"), "held": held}
+    return {**_fact(SB.PASS, True), "held": held}
+
+
+def _sizes(cir):
+    """Each size of a graded design is its own release; a graded release offers the family."""
+    grading = getattr(cir, "grading", None)
+    sizes = list(getattr(grading, "sizes", None) or []) if grading is not None else []
+    return _fact(SB.PASS, max(1, len(sizes)))
+
+
+def _wearable(cir):
+    from ..gates import risk_matrix
+
+    return _fact(SB.PASS, bool(risk_matrix._is_wearable(cir)))
+
+
+def _taxonomy_agrees(db, slug, version):
+    """Check 6: the node the listing will be filed in is the one the category matcher
+    chooses for this product's own category on the newest taxonomy snapshot, and its
+    search profile is certified PASS."""
+    from ..commerce import category as cat
+    from ..integrations import etsy_taxonomy
+    from ..runtime import release
+
+    selected = cat.publish_inputs(db, slug=slug, version=version)
+    if selected.get("status") != cat.CHOSEN or not selected.get("taxonomy_id"):
+        return _fact(SB.FAIL, False, "the listing's category node is UNKNOWN")
+    if selected.get("certified") != "PASS":
+        return _fact(SB.FAIL, False, f"search profile {selected.get('certified')}")
+    record = release._product_record(slug, db=db)
+    snapshot = etsy_taxonomy.latest(db)
+    if not record or not record.get("category") or snapshot is None:
+        return _fact(SB.UNKNOWN, None, "product category or taxonomy snapshot unavailable")
+    choice = cat.choose(snapshot, str(record["category"]))
+    if getattr(choice, "status", None) != cat.CHOSEN or str(
+            getattr(choice, "taxonomy_id", None)) != str(selected["taxonomy_id"]):
+        return _fact(SB.FAIL, False, f"category {record['category']} chooses node "
+                                     f"{getattr(choice, 'taxonomy_id', None)}, the listing "
+                                     f"is filed in {selected['taxonomy_id']}")
+    return _fact(SB.PASS, True)
+
+
+def _no_fake_discount(db, slug, version):
+    """Check 12: no reference ("was") price is sent. The certified payload carries none
+    (`etsy_ops.certified_payload`); a promotion would, and none may run under the policy."""
+    from ..runtime import etsy_ops
+
+    payload = etsy_ops.certified_payload(db, slug, version)
+    sent = etsy_ops.sent_fields(payload)
+    reference = [k for k in sent if "reference" in k or "was_price" in k or "compare" in k]
+    if reference:
+        return _fact(SB.FAIL, False, f"the payload carries a reference price: {reference}")
+    return _fact(SB.PASS, True)
 
 
 def _shop_id(db):
