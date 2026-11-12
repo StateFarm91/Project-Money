@@ -8,9 +8,10 @@ its window at a stable per-cadence offset (a hash of its name) inside the period
 
 The one way this could run a cadence twice is the deploy that introduces it: the day's
 pre-spread run (`cadence:<name>:<window>`) has already happened, and the first spread window
-opens later the same day. That transition is guarded: a cadence whose latest legacy-keyed run
-is younger than its period skips its first spread window. Steady state needs no guard -- the
-spread key itself is the idempotency key.
+opens later the same day. That transition is guarded: a spread window is skipped only while it
+would run within min(period/2, 12 h) of the latest legacy-keyed run, so the first spread run is
+>= 12 h and < period + 12 h after it. Steady state needs no guard -- the spread key itself is
+the idempotency key.
 
 Run: cd brambleloop && PYTHONPATH=src:tests $PY tests/test_cadence_spread.py
 """
@@ -149,7 +150,10 @@ def _transition(cadences, period, deploy_after, step, horizon_periods=3):
 def _assert_bounded(runs, period, step):
     """Review 6801029119 MEDIUM-1: never closer than the transition gap to the legacy run,
     and the first spread run less than period + that gap after it (+ one tick of slack)."""
-    gap_min = W.transition_min_gap(period)
+    # Review 6810462823: a fixed oracle, never the code under test -- 12 h is
+    # min(period/2, 12 h) for every period of a day or more
+    gap_min = 12 * 3600
+    assert period >= DAY, period
     for name, (legacy, opened) in runs.items():
         assert opened, (name, "never ran after the deploy")
         first = opened[0] - legacy
@@ -196,10 +200,30 @@ def test_next_wake_surfaces_read_the_spread_offset():
     for name, _a, _j, period in DAILY[:5]:
         assert shown[name] == datetime.fromtimestamp(nxt(name, period, now),
                                                      timezone.utc).isoformat(), name
-    src = ROOT / "src" / "brambleloop"
-    for rel in ("autonomy/status.py", "app/command_center/company.py", "ops/flow_health.py"):
-        text = (src / rel).read_text()
-        assert "cadence_next_at" in text and "// period) + 1) * period" not in text, rel
+    # review 6810462823 LOW: the values, per agent, on every surface -- a source grep let a
+    # `// p) + 1) * p` revert and a wrong period through
+    from brambleloop.app.command_center import company
+    from brambleloop.autonomy import status
+
+    expected: dict[str, int] = {}
+    for name, agent, _j, period in W.CADENCES:
+        t = nxt(name, period, now)
+        expected[agent] = min(expected.get(agent, t), t)
+    iso = {a: datetime.fromtimestamp(t, timezone.utc).isoformat() for a, t in expected.items()}
+    assert company._next_wake_by_agent(now) == iso
+    sdb = _db()
+    from brambleloop.core.models import JobStatus
+    done = JobQueue(sdb).enqueue("orchestrator", "plan.cycle", {}, idempotency_key="one-done")
+    with sdb.session() as s:          # status needs one recorded job; a DONE one moves no wake
+        s.get(Job, done.id).status = JobStatus.DONE
+    items = status.agents(sdb, now=now)["items"]
+    checked = 0
+    for item in items:
+        if item["agent"] in iso:
+            assert item["next_wake"] == iso[item["agent"]], (item["agent"], item["next_wake"],
+                                                            iso[item["agent"]])
+            checked += 1
+    assert checked >= 5, (checked, [i["agent"] for i in items])
 
 
 def test_without_a_legacy_run_the_first_tick_still_enqueues_at_once():

@@ -1359,8 +1359,8 @@ class Scheduler:
                 key = cadence_key(name, period, now)
                 if period >= SPREAD_MIN_PERIOD and \
                         _legacy_ran_recently(self.db, name, period, now, key):
-                    # the transition window: this cadence already ran this period under the
-                    # pre-spread key, so this first spread window is not a second run
+                    # the transition: this window would run within transition_min_gap of the
+                    # cadence's latest pre-spread (legacy-keyed) run, so it is not run
                     self.transition_skipped[name] = key
                     ok += 1
                     continue
