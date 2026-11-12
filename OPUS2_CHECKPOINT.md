@@ -4,7 +4,25 @@ Updated: 2026-11-12T13:10Z. The engineering loop rewrites this file at the end o
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-12T17:50Z (read first)
+## State at 2026-11-12T19:02Z (read first)
+- No Main message since 11:46Z. New RRs this tick:
+  - WS2 R5 fd960ee5 (6832476189)
+  - WS5 E7 9143772d (posted after R5)
+- Open RRs from earlier:
+  - A9, A3, E2, E3
+  - WS4 increments 2-6, 8-11
+  - WS2 R3, R4, R6+R7
+- The WS2 gap list R1-R7 is complete.
+- WS5 E-items done: E1 (Main), E2, E3, E7. Left: E4 (provenance flag on evidence rows),
+  E5 (separate internal/buyer caps, decay, paid exclusion, chain test), E6 (draft-intent
+  resolver). The spec is #28 comment 6813416727.
+- Disk: about 578 MB free. Never run more than 5 suites in parallel. A 47-suite parallel
+  run filled the disk. Deleting stale /tmp/bl-test-* dirs was denied by the classifier.
+- Worktree opus2-ws43 is on ws5-e7.
+- Stop reason (18:28Z tick): R5 and E7 shipped and RR'd. E4 starts at the next tick
+  (it is a cross-cutting provenance change across the learners).
+
+## State at 2026-11-12T17:50Z (superseded)
 - No Main message since 11:46Z. Open RRs, all awaiting Main:
   - A9 56f92eb9
   - A3 3928ba00
