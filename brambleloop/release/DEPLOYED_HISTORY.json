@@ -66,6 +66,11 @@
       "sha": "b792105273421099ce6937abc3b581dc7e6c51f5",
       "observed": "2026-11-10T15:22Z",
       "evidence": "owner exact-SHA approval 2026-11-08 ('Deploy b7921052 now') and 2026-11-10 ('deploy b7921052 with backup first'). Batch 6 release record over suite tree ea5873aa (full suite 20261108T121311Z-32051: 10812 passing, 0 suites failing, clean, release-eligible). Pre-deploy backup brambleloop_prod_20261110T151751Z.dump 568458453 B sha256 b823e86f restore_ok, 148 tables, 351097 rows, BK RESULT OK (drift: ops_runtime_samples only). ops/deploy.sh --deployed 705725a3: guard ALLOW, rollback rehearsal ALLOW; pushed 705725a3..b7921052; verify_deploy DEPLOYED. Readback: first pass FAIL worker_alive just after boot (decision ROLLBACK recorded, AUTO_ROLLBACK off, nothing pushed); second pass worker alive, decision FIX_FORWARD, 6 NEEDS_OPERATOR (operator-gated endpoints). /health build b7921052 worker_alive true; /api/verify 13/13."
+    },
+    {
+      "sha": "88d1ce5ee1a429ea6e0619c3c3c98dff27f22b4e",
+      "observed": "2026-11-12T02:18Z",
+      "evidence": "owner exact-SHA approval 2026-11-11 ('Approve 88d1ce5e'); backup room by owner-approved prune of the six Oct 26-27 dumps (2026-11-12, 'Go'). Batch 7 release record over suite tree 93eb5106 (full suite 20261111T112841Z-1006: 10867 passing, 0 suites failing, clean, release-eligible). Pre-deploy backup brambleloop_prod_20261112T013853Z.dump 595476327 B sha256 d681ccaa restore_ok, 150 tables, 363501 rows, BK RESULT OK, 1.9G free. ops/deploy.sh --deployed b7921052: guard ALLOW, rollback rehearsal ALLOW; verify_deploy DEPLOYED. Readback: first pass FAIL worker_alive just after boot (decision ROLLBACK recorded, AUTO_ROLLBACK off, nothing pushed); second pass worker alive, decision FIX_FORWARD, rc=5 on P1 only: no_unexpected_dead_letters (dead letter from 2026-11-12 ~00:1xZ on b7921052, before this deploy) and smoke matrix FAIL (public verdict only; failing check not visible without operator credential), 6 NEEDS_OPERATOR. /health build 88d1ce5e worker_alive true; /api/verify 13/14 (dead letters)."
     }
   ]
 }
