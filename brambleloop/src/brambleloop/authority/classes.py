@@ -99,7 +99,7 @@ JOB_CLASS: dict[str, ActionClass] = {
     "assets.build": _B, "assets.launch_review": _B, "assets.model_photography": _B, "assets.owned_photography": _B,
     "assets.physical_upgrade": _B, "assets.render": _B, "autonomy.orchestrate": _B,
     "build.tick": _B, "chain.rebuild": _B, "cir.draft": _B, "cir.revise": _B, "cir.reengineer": _B,
-    "collection.assemble": _B, "creative.candidates_file": _B, "creative.model_freeze": _B, "growth.steer": _B,
+    "collection.assemble": _B, "listing.package": _B, "creative.candidates_file": _B, "creative.model_freeze": _B, "growth.steer": _B,
     "improve.nightly": _B, "improve.role_work": _B, "improve.weekly": _B,
     "laura.executive_tick": _B, "ops.offsite_archive": _B, "ops.retention": _B,
     "plan.cycle": _B, "seasonal.cycle_proof": _B, "seasonal.engine": _B,
