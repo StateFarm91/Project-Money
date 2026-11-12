@@ -287,6 +287,8 @@ CHARTERS: tuple[Charter, ...] = (
        prefixes=("listing.", "store.", "pricing.", "etsy.credential", "etsy.shop",
                  "etsy.listing", "seo.", "storefront."),
        job_types={"chain.rebuild", "chain.successors", "seasonal.remerchandising", "etsy.credential_health",
+                  # WS4-5: the standing-policy issuer in shadow (decides on this chain's drafts).
+                  "policy.issuer_shadow",
                   "etsy.shop_snapshot", "etsy.listing_census", "etsy.openapi_reverify",
                   "etsy.dashboard_harvest"},
        generatable=("seasonal.remerchandising", "seo.cycle", "storefront.review",

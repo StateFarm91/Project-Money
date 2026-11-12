@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-12T11:32:28.879952+00:00",
+ "generated_at": "2026-11-12T14:11:23.824936+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -1264,6 +1264,7 @@
     "listing",
     "orchestrator",
     "pricing",
+    "publishing",
     "store_operator",
     "storefront_director"
    ],
@@ -1363,6 +1364,12 @@
       "agent": "storefront_director",
       "job_type": "storefront.review",
       "period_seconds": 86400
+     },
+     {
+      "name": "standing_policy_shadow",
+      "agent": "publishing",
+      "job_type": "policy.issuer_shadow",
+      "period_seconds": 21600
      },
      {
       "name": "cross_sell_graph",
@@ -1474,6 +1481,7 @@
      "brambleloop.runtime.listing_package_ops",
      "brambleloop.runtime.pipeline",
      "brambleloop.runtime.release",
+     "brambleloop.runtime.standing_policy_ops",
      "brambleloop.runtime.storefront_ops",
      "brambleloop.runtime.storefront_watch",
      "brambleloop.seo.handler"
@@ -1495,6 +1503,7 @@
      "listing.seo",
      "listing.taxonomy_refresh",
      "listing.window_captures",
+     "policy.issuer_shadow",
      "pricing.position",
      "seasonal.remerchandising",
      "seo.cycle",
