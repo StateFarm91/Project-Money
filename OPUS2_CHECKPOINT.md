@@ -1,10 +1,31 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-12T10:30Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-12T10:40Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-12T10:30Z (read first)
+## State at 2026-11-12T10:40Z (read first)
+- Main's priority (6817652112 / 6818959626): WS4-0 (in review) -> A3 delta -> R1 (SHIP,
+  1edba895) -> E2/E3 deltas -> A9.
+- A9: RR 6819765359 (56f92eb9), 34 suites green.
+- WS4 increment 2: RR 6819968131 (0b36ef3b), pushed, 52 suites green.
+- WS4 increments 3 and 4: local only, in worktree /home/user/opus2-ws43.
+  - opus2/ws4-3-owner-signing-flow 569b4453 and opus2/ws4-4-boundary-classifier 751f7fb7,
+    both rebased on 0b36ef3b.
+  - Still needed: regression (command-center suites for 3, and the classifier), push, and
+    one RR each.
+- A3 delta 3928ba00 on opus2/a3-photo-asset-review (worktree opus2-a3) fixes N1, N2 and L2.
+  - PG green: URL postgresql://postgres:opus2local@127.0.0.1:54329/codex_photo_test.
+  - The N2 mutants are running (scratchpad/a3n2mut.py). Then: regression, push, RR.
+- E2 f85e07f7 (worktree opus2-e2): 8/8 mutants killed; regression running (scratchpad/e2reg).
+- E3 c1f191a2 (worktree opus2-e3, INTEG1 1edba895 merged in) also carries the R1 LOWs.
+  10/10 mutants killed; regression running (scratchpad/e3reg).
+- Disk: about 650 MB free. Bulk removal of old worktrees was denied, so reuse worktrees
+  instead of creating new ones.
+- ops/assignments.py lives on claude/w4-INTEG8-next (detached checkout in opus2-dispatch).
+  Its IDs are A9 and so on; there is no "WS4" ID.
+
+## State at 2026-11-12T10:30Z (superseded)
 - INTEG1 is `claude/w6-INTEG1`, not w4-INTEG8-next. The 09:00Z note below was wrong.
 - A9 (option a): branch opus2/a9-u6-sweep-isolation in worktree /home/user/opus2-a9u6.
   - cd13a90f merges codex 3ee6881f on INTEG1 5f4a175e.
