@@ -1,11 +1,12 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-12T01:30Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-12T02:30Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
 ## State at 2026-11-12T00:00Z (read first)
-- 93eb5106 is certified (10867/0). Release candidate 88d1ce5e is owner-approved for deploy.
+- 93eb5106 is certified (10867/0). 88d1ce5e (Batch 7) was DEPLOYED at 2026-11-12T02:18Z; verify 13/14, with
+  a dead letter from about 00:1xZ (the pre-spread midnight window).
 - The cadence-spread review 6810462823 was DO NOT SHIP over test strength: the oracle read
   the code under test, and the next-wake checks were grep-only. Fixed in 5f4a175e on
   opus2/cadence-spread (delta on 86e0054d). RR 6811526498 is on #28.
@@ -13,7 +14,7 @@ worktrees, not this file.
   - Main's 4 survivors are killed; 12 suites green, including resume_runner, oauth_callback
     and vacuity.
   - Next: wait for Main's verdict, then act on it.
-- 01:30Z wake: there is no new [MAIN] message after 6810462823. COORDINATION has not changed
+- 01:30Z and 02:30Z wakes: there is no new [MAIN] message after 6810462823. COORDINATION has not changed
   since 11-08, and no new review branch has findings on opus2 code.
 - 18d9ab28 (L LOWs) is still RR 6782981520.
 - Standing lesson: a new verify check or a sleep/timeout/now() test also runs
