@@ -247,3 +247,4 @@ tests/test_w6_listing_chain_e2e.py
 tests/test_p1_worker_liveness_surfaces.py
 tests/test_p1_worker_long_job_liveness.py
 tests/test_w4_listready.py
+tests/test_w5_a9_package_event.py

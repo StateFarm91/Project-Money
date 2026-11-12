@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-07T17:34:41.067424+00:00",
+ "generated_at": "2026-11-12T08:08:10.010706+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -13,7 +13,7 @@
   "cadences": 137,
   "handlers": 169,
   "agents": 34,
-  "follow_on_edges": 91
+  "follow_on_edges": 92
  },
  "departments": [
   {
@@ -1429,6 +1429,7 @@
      "owner/API route api_chain_rebuild",
      "pricing.position",
      "runtime/pipeline.py:_publish_and_read_back",
+     "runtime/release.py:_enqueue_listing_package",
      "runtime/release.py:_price_launch0",
      "runtime/release.py:_reprice_on_plan_drift",
      "runtime/release.py:_targeted_rebuild"
