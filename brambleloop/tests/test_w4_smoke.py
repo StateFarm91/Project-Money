@@ -131,7 +131,7 @@ def _prod_bodies(sha=SHA, **over):
         "/api/funding/packets": (200, {"packets": [{"packet": "model_credit"}]}),
         "/api/offsite": (200, {"configured": True}),
         "/api/continuity": (200, {"last_proof_ok": True}),
-        "/api/etsy": (200, {"usable": True}),
+        "/api/etsy": (200, {"usable": True, "credential": {"usable": True}}),  # WS5 E3
     }
     bodies.update(over)
     return bodies
@@ -172,7 +172,12 @@ def test_operator_rows_without_the_credential_need_an_operator_and_never_pass():
     # a wrong credential is refused by the server: never read as a pass
     wrong = readback.run(SHA, url="https://prod.invalid", fetch=_fetcher(_prod_bodies()),
                          token="not-the-token")
-    assert all(i["verdict"] in (readback.UNKNOWN, readback.FAIL) for i in wrong["features"]
+    # WS5 E3: a WARN_ONLY row (the Etsy credential) reads WARN, never PASS, on a refusal.
+    warn_only = {r[2] for r in readback.MANIFEST if len(r) > 6 and r[6] == readback.WARN_ONLY}
+    assert all(i["verdict"] in ((readback.UNKNOWN, readback.FAIL, readback.WARN)
+                                if i["endpoint"] in warn_only else
+                                (readback.UNKNOWN, readback.FAIL))
+               for i in wrong["features"]
                if i["endpoint"] in readback.OPERATOR_ENDPOINTS), wrong
     assert wrong["verdict"] != readback.PASS
 

@@ -193,11 +193,16 @@ def _from_evidence(body, endpoint: str) -> tuple[int | None, object]:
         if isinstance(body, dict) else None
     if not isinstance(row, dict) or not isinstance(row.get("status"), int):
         return None, None
-    fields = {}
+    fields: dict = {}
     for k, v in (row.get("fields") or {}).items():
         if isinstance(v, dict) and isinstance(v.get("list_length"), int):
             v = [None] * v["list_length"]
-        fields[k] = v
+        # WS5 E3: a dotted field ("credential.usable") is rebuilt nested, as `_dig` reads it.
+        *parents, leaf = str(k).split(".")
+        cur = fields
+        for p in parents:
+            cur = cur.setdefault(p, {}) if isinstance(cur.get(p, {}), dict) else {}
+        cur[leaf] = v
     return row["status"], fields
 
 

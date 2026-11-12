@@ -683,7 +683,8 @@ DEPLOY_READBACK: dict[str, str | None] = {
     "/api/funding/packets": "packets",
     "/api/offsite": "configured",
     "/api/continuity": "last_proof_ok",
-    "/api/etsy": "usable",
+    # WS5 E3: the server's usable-for-operations judgement, not "two variables are set".
+    "/api/etsy": "credential.usable",
 }
 
 
@@ -719,7 +720,10 @@ def deploy_readback(handlers: dict) -> dict:
             continue
         fields = {}
         if field is not None:
-            fields[field] = _project_value(body.get(field) if isinstance(body, dict) else None)
+            cur = body
+            for part in field.split("."):          # a dotted field reads a nested value
+                cur = cur.get(part) if isinstance(cur, dict) else None
+            fields[field] = _project_value(cur)
         out[route] = {"status": status, "fields": fields}
     return out
 
