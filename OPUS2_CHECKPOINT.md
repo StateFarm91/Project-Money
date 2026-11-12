@@ -1,6 +1,6 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-12T00:00Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-12T01:30Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
@@ -13,12 +13,14 @@ worktrees, not this file.
   - Main's 4 survivors are killed; 12 suites green, including resume_runner, oauth_callback
     and vacuity.
   - Next: wait for Main's verdict, then act on it.
+- 01:30Z wake: there is no new [MAIN] message after 6810462823. COORDINATION has not changed
+  since 11-08, and no new review branch has findings on opus2 code.
 - 18d9ab28 (L LOWs) is still RR 6782981520.
 - Standing lesson: a new verify check or a sleep/timeout/now() test also runs
   test_etsy_oauth_callback and test_w4_resume_runner. Run test_vacuity on every change.
 - OWNER-GATED: readiness_from_export on a production export; Etsy's required property at
   create time.
-Stop reason: everything is review-requested; waiting on Main's verdicts on 86e0054d and 18d9ab28.
+Stop reason: everything is review-requested; waiting on Main's verdicts on 5f4a175e and 18d9ab28.
 
 ## State at 2026-11-11T11:40Z (superseded)
 - Main's certification of 64547be5 FAILED on stale tests. Two were my P1 misses:
