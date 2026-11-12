@@ -834,7 +834,7 @@ _E2_NODE, _E2_PROP, _E2_VALUE = 1234, 9001, 77
 
 
 @contextlib.contextmanager
-def _chosen_node_recorded():
+def _chosen_node_recorded(status: str = "CHOSEN"):
     """A recorded taxonomy refresh whose 'pattern' choice is node 1234, whose stored schema
     offers 'Crochet' (property 9001, value 77). Removed afterwards (the module DB is shared)."""
     from brambleloop.core.models import EtsyTaxonomySnapshot
@@ -849,7 +849,7 @@ def _chosen_node_recorded():
         s.flush()
         row = AuditLog(actor="market_radar", action=REFRESHED_ACTION, artifact="taxonomy",
                        detail={"snapshot_id": snap.id, "category_choices": {
-                           "pattern": {"status": "CHOSEN", "taxonomy_id": _E2_NODE}}})
+                           "pattern": {"status": status, "taxonomy_id": _E2_NODE}}})
         s.add(row)
         s.flush()
         ids = (snap.id, row.id)
@@ -873,7 +873,8 @@ def test_ws5_e2_the_run_proves_the_file_the_chosen_node_and_its_property():
     assert report["chosen_node"] == {"status": "CHOSEN", "category": "pattern",
                                      "taxonomy_id": _E2_NODE,
                                      "property": {"property_id": _E2_PROP,
-                                                  "value_ids": [_E2_VALUE]},
+                                                  "value_ids": [_E2_VALUE],
+                                                  "values": ["Crochet"]},
                                      "why": ""}, report["chosen_node"]
     steps = {s["step"]: s for s in report["exercise"]["steps"]}
     for name in ("upload_file", "set_property", "chosen_taxonomy"):
@@ -931,6 +932,119 @@ def test_ws5_e2_a_file_etsy_accepts_but_does_not_hold_is_found_not_assumed():
     assert step["ok"] is False and step["observed"]["accepted"] is True, step
     assert step["observed"]["held"] is False
     assert "file_not_held" in _outcomes(report), _outcomes(report)
+
+def _step(report, name):
+    return next(s for s in report["exercise"]["steps"] if s["step"] == name)
+
+
+def test_ws5_e2_a_property_write_without_values_is_refused_as_etsy_would():
+    """Review 6818959626 (HIGH): Etsy requires `values` with `value_ids`; the fake refuses a
+    write that omits either, as Etsy does, and the run's write carries both."""
+    from brambleloop.integrations import etsy_exercise as EX
+
+    reset()
+    with _chosen_node_recorded():
+        node = EX.chosen_test_node(DB)
+    assert node["property"]["values"] == ["Crochet"], node
+    with _chosen_node_recorded(), FakeEtsy() as fake:
+        report = run_full(fake)
+        assert _step(report, "set_property")["ok"] is True
+        listing = next(iter(fake.listings.values()), None)
+    assert listing is None and report["shop_is_clean"] is True
+    from unittest.mock import patch
+
+    real = EtsyClient.set_listing_property
+
+    def without_values(self, listing_id, prop, **kw):
+        return real(self, listing_id, {k: v for k, v in prop.items() if k != "values"}, **kw)
+
+    reset()
+    with _chosen_node_recorded(), FakeEtsy() as fake, patch.object(
+            EtsyClient, "set_listing_property", without_values):
+        report = run_full(fake)
+        assert fake.listings == {}
+    step = _step(report, "set_property")
+    assert step["ok"] is False and "400" in str(step.get("error", "")), step
+
+
+def test_ws5_e2_m2_a_different_value_held_by_etsy_is_found_not_assumed():
+    reset()
+    with _chosen_node_recorded(), FakeEtsy() as fake:
+        fake.property_value_override = [78]          # Etsy keeps "Knitting", not "Crochet"
+        report = run_full(fake)
+    step = _step(report, "set_property")
+    assert step["ok"] is False and step["observed"]["value_ids_on_etsy"] == [78], step
+    assert step["observed"]["value_ids_sent"] == [_E2_VALUE]
+    assert report["shop_is_clean"] is True
+
+
+def test_ws5_e2_m5_only_non_chosen_choices_leave_the_node_unknown():
+    from brambleloop.integrations import etsy_exercise as EX
+
+    reset()
+    for status in ("AMBIGUOUS", "UNMATCHED", "NEEDS_OWNER"):
+        with _chosen_node_recorded(status):
+            node = EX.chosen_test_node(DB)
+        assert node["status"] == "UNKNOWN" and node["property"] is None, (status, node)
+        assert node["taxonomy_id"] is None
+
+
+def test_ws5_e2_m6_a_file_is_ours_only_by_name_and_size():
+    from unittest.mock import patch
+
+    real = EtsyClient.get_listing_files
+    for label, mutate in (
+            ("other name", lambda f: {**f, "filename": "someone-else.pdf"}),
+            ("other size", lambda f: {**f, "size_bytes": int(f.get("size_bytes") or 0) + 1}),
+            ("no size", lambda f: {k: v for k, v in f.items() if k != "size_bytes"})):
+        reset()
+        with FakeEtsy() as fake, patch.object(
+                EtsyClient, "get_listing_files",
+                lambda self, lid, _m=mutate: [_m(dict(f)) for f in real(self, lid)]):
+            report = run_full(fake)
+        step = _step(report, "upload_file")
+        assert step["ok"] is False and step["observed"]["held"] is False, (label, step)
+        assert report["shop_is_clean"] is True, label
+
+
+def test_ws5_e2_cleanup_runs_whatever_steps_3_to_6_raise():
+    """Review 6818959626 (MED): the three reproduced crashes each still delete the draft."""
+    from unittest.mock import patch
+
+    def bad_attach(self, *a, **k):
+        raise RuntimeError("attach blew up")
+
+    probes = (
+        ("non-dict file row", patch.object(EtsyClient, "get_listing_files",
+                                           lambda self, lid: ["not a dict"])),
+        ("non-numeric property id", patch.object(EtsyClient, "get_listing_properties",
+                                                 lambda self, lid: [{"property_id": "x"}])),
+        ("attach RuntimeError", patch.object(EtsyClient, "attach_file", bad_attach)),
+    )
+    for label, probe in probes:
+        reset()
+        with _chosen_node_recorded(), FakeEtsy() as fake, probe:
+            report = run_full(fake)
+            assert fake.listings == {}, (label, "the draft was left in the shop")
+        names = [s["step"] for s in report["exercise"]["steps"]]
+        assert "unexpected_error" in names and "cleanup" in names, (label, names)
+        assert _step(report, "unexpected_error")["ok"] is False
+        assert report["shop_is_clean"] is True and report["exercise"]["left_behind"] == [], \
+            label
+
+
+def test_ws5_e2_the_diagnosis_reads_the_node_that_was_sent():
+    reset()
+    with _chosen_node_recorded(), FakeEtsy() as fake:
+        report = run_full(fake)
+    diag = _step(report, "verify_contract")["observed"]["taxonomy"]
+    assert diag["taxonomy_id_sent"] == _E2_NODE, diag
+    reset()
+    with FakeEtsy() as fake:
+        report = run_full(fake)
+    diag = _step(report, "verify_contract")["observed"]["taxonomy"]
+    assert diag["taxonomy_id_sent"] == etsy_probe.TAXONOMY_PATTERNS, diag
+
 
 if __name__ == "__main__":
     import traceback

@@ -691,10 +691,16 @@ def chosen_test_node(db) -> dict:
         if not isinstance(node, int):
             continue
         prop = cat.crochet_property({"properties": properties}, node) if properties else None
+        # Review 6818959626 (E2 HIGH): updateListingProperty requires `values` as well as
+        # `value_ids` (Etsy's OpenAPI; ETSY_REQUIREMENTS.md); the value's own name is sent.
+        if prop and not (isinstance(prop.get("value"), str) and prop["value"].strip()):
+            prop = None
         return {"status": "CHOSEN", "category": str(category)[:40], "taxonomy_id": node,
                 "property": ({"property_id": prop["property_id"],
-                              "value_ids": [prop["value_id"]]} if prop else None),
-                "why": "" if prop else "no stored schema offers 'Crochet' for this node"}
+                              "value_ids": [prop["value_id"]],
+                              "values": [prop["value"]]} if prop else None),
+                "why": "" if prop else "no stored schema offers 'Crochet' (with its value name) "
+                                       "for this node"}
     return {"status": "UNKNOWN", "taxonomy_id": None, "property": None,
             "why": ("no etsy.taxonomy_refreshed row with a CHOSEN category; the test draft is "
                     "filed under the default node and the property step is skipped")}
