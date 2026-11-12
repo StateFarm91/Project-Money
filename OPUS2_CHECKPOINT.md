@@ -1,10 +1,28 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-12T10:40Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-12T11:00Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-12T10:40Z (read first)
+## State at 2026-11-12T11:00Z (read first)
+- WS4-0 SHIPPED, merged as cef3534d (Main 6819385594). Batch 8 cert run 20261112T090404Z-20841.
+  Run nothing on Main's container.
+- WS4-0 LOW follow-ups (R9a behavioural HQ scrub, F2f exact revocation keys, INFO-4 exact
+  event) are in 407af821 on opus2/ws4-3-owner-signing-flow (local, worktree opus2-ws43).
+  Three mutants killed. WS4-4 is rebased on it as ddc59be1.
+- Waiting on background runs:
+  - the A3 N2 mutants (scratchpad/a3n2mut.py);
+  - the E2 regression (scratchpad/e2reg/out, 20 suites);
+  - the E3 regression (scratchpad/e3reg/out, 61 suites).
+- Then, in order:
+  1. A3 regression, push, and RR.
+  2. Push E2 and E3; post their RRs.
+  3. WS4 increment 3 regression (command-center suites), push, and RR (with the WS4-0 LOWs).
+  4. Increment 4 RR.
+- Stop reason this firing: waiting on CPU-bound regression and mutant runs. No Main decision
+  is pending.
+
+## State at 2026-11-12T10:40Z (superseded)
 - Main's priority (6817652112 / 6818959626): WS4-0 (in review) -> A3 delta -> R1 (SHIP,
   1edba895) -> E2/E3 deltas -> A9.
 - A9: RR 6819765359 (56f92eb9), 34 suites green.
