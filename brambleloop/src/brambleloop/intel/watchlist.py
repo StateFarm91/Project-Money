@@ -267,7 +267,9 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
     st.update(state="ok", last_ok_at=now.isoformat(), last_attempt_at=now.isoformat(),
               consecutive_failures=0, last_error="", shop=facts, shop_history=history,
               listings_seen=report["catalogue_coverage"]["listings_seen_this_scan"],
-              changes=len(report["changes"]))
+              changes=len(report["changes"]),
+              # WS2 R3: Etsy's clock for this scan, not ours.
+              source_timestamp=report["source_timestamp"]["newest_listing_modified_at"])
     if reviews is not None:
         st.update(reviews_at=now.isoformat(), reviews=reviews)
     _save_state(db, member.key, st, now=now)

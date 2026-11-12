@@ -4515,6 +4515,8 @@ def handle_mjs_scan(ctx: JobContext) -> dict:
     # lessons, memory, coverage, arena response, breakthrough tournament).
     mission = _run_mjs_mission(ctx)
     return {"ran": True,
+            # WS2 R3: Etsy's newest listing modification time this scan read.
+            "source_timestamp": report["source_timestamp"]["newest_listing_modified_at"],
             "listings_known": report["catalogue_coverage"]["listings_known"],
             "new": len(report["changes"]),
             "reclassified": routing["moved"],

@@ -682,6 +682,9 @@ def competitor_scans(db, *, now: datetime) -> dict:
                 if isinstance(schedule.get("every_hours"), (int, float)) else None,
                 "last_attempted": _iso(r.get("last_attempted")),
                 "last_successful": _iso(r.get("last_successful")),
+                # WS2 R3: Etsy's newest listing modification time in the last successful
+                # scan; None when it was not recorded (never our own clock).
+                "etsy_source_timestamp": _iso(r.get("source_timestamp")),
                 "success_age_hours": age,
                 "stale": stale, "stale_after_hours": limit,
                 "next_due": due_at,

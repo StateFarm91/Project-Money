@@ -59,6 +59,9 @@ class ScanResult:
     gaps_opened: list[str] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
     baseline: bool = False
+    # WS2 R3: Etsy's own clock. The newest `last_modified_timestamp` among the listings this
+    # scan read (ISO 8601 UTC), or None when the payload carried none -- never our clock.
+    newest_source_modified_at: str | None = None
 
     def to_report(self) -> dict:
         """The shape #319 demands, and `mission.check_report` enforces."""
@@ -87,6 +90,8 @@ class ScanResult:
                         or ["no new arena required a coverage gap this scan"]),
             "baseline": self.baseline,
             "problems": list(self.problems),
+            "source_timestamp": {"newest_listing_modified_at": self.newest_source_modified_at,
+                                 "basis": "Etsy last_modified_timestamp"},
         }
 
 
@@ -115,6 +120,20 @@ def listing_options(listing: dict) -> dict:
     return {k: listing[k] for k in OPTION_FIELDS if listing.get(k) is not None}
 
 
+def source_modified_at(listing: dict) -> str | None:
+    """WS2 R3: Etsy's `last_modified_timestamp` (epoch seconds) as ISO 8601 UTC, or None."""
+    raw = listing.get("last_modified_timestamp")
+    if isinstance(raw, bool) or raw in (None, ""):
+        return None
+    try:
+        seconds = int(raw)
+    except (TypeError, ValueError):
+        return None
+    if seconds <= 0:
+        return None
+    return datetime.fromtimestamp(seconds, tz=timezone.utc).isoformat()
+
+
 def fingerprint_of(listing: dict) -> str:
     return pods.fingerprint({k: listing.get(k) for k in FINGERPRINTED})
 
@@ -135,6 +154,8 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
     shop_id = shop.get("shop_id")
     listings = reader.catalogue(shop_id)
     result.listings_seen = len(listings)
+    stamps = [t for t in (source_modified_at(x) for x in listings) if t]
+    result.newest_source_modified_at = max(stamps) if stamps else None
 
     with db.session() as s:
         known = {row.listing_ref: row for row in s.scalars(
@@ -172,6 +193,9 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
                 # new-or-changed branch covered 25 of 438 listings and had no path to the
                 # rest. Unlike the gallery this costs nothing -- the description arrived with
                 # the catalogue page -- so the whole map closes on the next scan.
+                stamp = source_modified_at(listing)
+                if stamp and (row.detail or {}).get("source_modified_at") != stamp:
+                    row.detail = {**(row.detail or {}), "source_modified_at": stamp}
                 if "options" not in (row.detail or {}) and listing_options(listing):
                     row.detail = {**(row.detail or {}), "options": listing_options(listing)}
                 if "deliverable" not in (row.detail or {}):
@@ -200,7 +224,9 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
                           "materials": listing.get("materials") or [],
                           "num_favorers": listing.get("num_favorers"),
                           "who_made": listing.get("who_made"),
-                          "when_made": listing.get("when_made")}
+                          "when_made": listing.get("when_made"),
+                          # WS2 R3: Etsy's own modification time for this listing.
+                          "source_modified_at": source_modified_at(listing)}
             # #208: options and variants, from the API's own listing fields. Stored only
             # when the payload carries them -- an absent field is unmeasured, not "none".
             options = listing_options(listing)
