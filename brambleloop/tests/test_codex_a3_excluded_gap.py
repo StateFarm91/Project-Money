@@ -1,12 +1,23 @@
-"""A terminally excluded supplement must not leave effective position gaps."""
-from sqlalchemy import select
+"""A terminally excluded supplement must not leave effective position gaps.
 
-from brambleloop.core.db import Database
-from brambleloop.core.models import ListingAsset, PhysicalPhoto
-from brambleloop.publish import photo_asset_review as review
-from brambleloop.publish import release_gates
-import test_opus2_photo_asset_review as fixture
-import test_physfix_photo_first as physical
+Run: cd brambleloop && PYTHONPATH=src:tests python3 tests/test_codex_a3_excluded_gap.py
+"""
+import _tmp; _tmp.install()  # noqa: E702  (W3-HYG: per-process temp sandbox)
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "tests"))
+
+from sqlalchemy import select  # noqa: E402
+
+from brambleloop.core.db import Database  # noqa: E402
+from brambleloop.core.models import ListingAsset, PhysicalPhoto  # noqa: E402
+from brambleloop.publish import photo_asset_review as review  # noqa: E402
+from brambleloop.publish import release_gates  # noqa: E402
+import test_opus2_photo_asset_review as fixture  # noqa: E402
+import test_physfix_photo_first as physical  # noqa: E402
 
 
 def test_nonqualifying_supplement_leaves_contiguous_effective_gallery():
@@ -106,3 +117,19 @@ def test_owner_held_leader_is_not_used_to_reorder_the_gallery():
         after = {row.id: row.position for row in session.scalars(select(ListingAsset).where(
             ListingAsset.product_slug == cir.slug, ListingAsset.version == cir.version))}
     assert after == before
+
+
+if __name__ == "__main__":
+    fails = 0
+    for name, fn in sorted(globals().items()):
+        if name.startswith("test_") and callable(fn):
+            try:
+                fn()
+                print("OK  ", name)
+            except Exception as e:  # noqa: BLE001
+                fails += 1
+                import traceback
+                traceback.print_exc()
+                print("FAIL", name, repr(e))
+    print(f"PASS: {fails} failing" if not fails else f"FAILED: {fails} failing")
+    sys.exit(1 if fails else 0)

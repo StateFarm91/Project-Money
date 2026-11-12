@@ -565,24 +565,35 @@ def test_e4_on_the_real_names_crochet_is_never_a_node_and_needs_etsys_own_proper
 def _photo_fixture(db, *, bind=True, version_of_photo=None, unedited=True, first=True,
                    other_test_release=False, attest=True, medium="PHYSICAL_PRODUCT_PHOTO"):
     """A certified release, a passed full make bound to its content, a photo recorded through
-    the one intake, and a valid listing-set certificate. Returns (slug, version, photo sha)."""
+    the one intake, and a listing-set certificate issued by the real certificate step.
+    Returns (slug, version, photo sha).
+
+    Review U5 F1: the photo frame reaches the gallery only the way production puts it there --
+    intake -> owner attestation -> `physical_upgrade.plan_upgrade` -> the deterministic
+    `photo_asset_review.review_frame` -> `release_gates.certificate_step` -- never as a
+    hand-written certificate row the consumer fence would rightly refuse. `first=False` and a
+    non-photo `medium` leave the photo out of the gallery (no upgrade), so the certificate leads
+    with a render; a photo that does not qualify is refused by the upgrade, the same way."""
     from datetime import datetime, timezone
 
     from brambleloop.cir.compiler import compile_cir
     from brambleloop.cir.writer import write_pattern
     from brambleloop.core.artifacts import ArtifactStore
-    from brambleloop.core.models import (ListingSetCertificateRecord, PatternVersion,
+    from brambleloop.core.models import (ListingAsset, PatternVersion, PhysicalPhoto,
                                          PhysicalTest, Product)
     from brambleloop.gates.certificate import _release_hash
     from brambleloop.gates.risk_matrix import FULL_PHYSICAL_MAKE
     from brambleloop.products import launch0 as l0
+    from brambleloop.publish import eligibility as EL
+    from brambleloop.publish import photo_asset_review as PAR
     from brambleloop.publish import physical_upgrade as PU
+    from brambleloop.publish import release_gates as RG
 
     cir = l0.cir_for(l0.candidate("hexagon-coaster-set").variants[0].build)
     content = _release_hash(cir, write_pattern(cir, compile_cir(cir), "US"))
+    store = ArtifactStore()
     photo_bytes = b"\xff\xd8\xff" + uuid.uuid4().bytes * 64      # a JPEG-headed sample photo
-    sha = ArtifactStore().put(f"photo-{uuid.uuid4().hex}", photo_bytes, "image/jpeg").sha256
-    render_sha = "e" * 64
+    sha = store.put(f"photo-{uuid.uuid4().hex}", photo_bytes, "image/jpeg").sha256
     with db.session() as s:
         prod = Product(slug=cir.slug, title="Hexagon coasters")
         s.add(prod)
@@ -598,24 +609,44 @@ def _photo_fixture(db, *, bind=True, version_of_photo=None, unedited=True, first
         s.add(test)
         s.flush()
         test_id = test.id
-        photo_frame = {"sha256": sha, "medium": medium}
-        render_frame = {"sha256": render_sha, "medium": "DIGITAL_TWIN_RENDER"}
-        frames = [{"position": 1, **photo_frame}, {"position": 2, **render_frame}]
-        if not first:
-            frames = [{"position": 1, **render_frame}, {"position": 2, **photo_frame}]
-        s.add(ListingSetCertificateRecord(product_slug=cir.slug, version=cir.version,
-                                          release_hash=content, state="valid",
-                                          certificate={"frames": frames}))
+        for pos, role in enumerate(("hero", "chart"), start=1):     # the render gallery
+            rsha = store.put(f"r-{uuid.uuid4().hex}.png", f"render {role} {pos}".encode(),
+                             "image/png").sha256
+            s.add(ListingAsset(product_slug=cir.slug, version=cir.version, position=pos,
+                               asset_class="DIGITAL_TWIN_RENDER", role=role, sha256=rsha,
+                               approved=True, claims={}, blocked_reasons=[]))
     PU.intake(db, slug=cir.slug, version=version_of_photo or cir.version, source="tester",
               sha256=sha, rights_basis="tester_agreement", taken_by="tester-1",
               physical_test_id=test_id, unedited=unedited)
+    with db.session() as s:
+        pid = s.scalar(select(PhysicalPhoto.id).where(PhysicalPhoto.sha256 == sha))
     if attest:
-        from brambleloop.core.models import PhysicalPhoto
-
-        with db.session() as s:
-            pid = s.scalar(select(PhysicalPhoto.id).where(PhysicalPhoto.sha256 == sha))
         PU.attest_unedited(db, pid, actor="owner:cc:test-session",
                            confirm=PU.UNEDITED_CONFIRMATION)
+    if first and medium == "PHYSICAL_PRODUCT_PHOTO":
+        try:
+            plan = PU.plan_upgrade(db, pid)
+        except PU.UpgradeRefused:
+            plan = {"upgraded": False}
+        if plan.get("upgraded"):
+            with db.session() as s:
+                fid = s.scalar(select(ListingAsset.id).where(
+                    ListingAsset.product_slug == plan["slug"],
+                    ListingAsset.version == plan["version"],
+                    ListingAsset.asset_class == PAR.PHOTO_CLASS))
+            PAR.review_frame(db, fid, reissue=False)
+    with db.session() as s:
+        frames = sorted(s.scalars(select(ListingAsset).where(
+            ListingAsset.product_slug == cir.slug, ListingAsset.version == cir.version)),
+            key=lambda f: f.position)
+        for f in frames:
+            s.expunge(f)
+    per_frame = [{"position": f.position, "sha256": f.sha256, "role": f.role,
+                  "gates": {g: {"outcome": EL.PASSED} for g in EL.GATES}} for f in frames]
+    RG.certificate_step(db, slug=cir.slug, version=cir.version, release_hash=content,
+                        frames=frames, per_frame=per_frame,
+                        geometry={"width_cm": 10.0, "height_cm": 10.0},
+                        claims={"title": cir.title}, issue=True)
     return cir.slug, cir.version, sha
 
 

@@ -854,8 +854,49 @@ def test_revoked_supplement_invalidates_certificate_even_if_reissue_fails():
         par.sweep(db)
     # Even a crash or unavailable reissue cannot leave the old certificate valid.
     assert etsy_ops.certified_frames(db, cir.slug, cir.version, release=release)["problems"]
+    # Review U5 F5: the record itself says so. Readers that trust `state == "valid"` without
+    # the photo fence (storefront preview, ads readiness, first customer, image review, search
+    # evidence) must never see the revoked set as valid; the consumer refusal alone (above)
+    # would pass even if invalidation were a no-op (mutant M9).
+    _assert_no_valid_certificate(db, cir, cert)
     assert par.sweep(db)["reviewed"] == 0
     assert etsy_ops.certified_frames(db, cir.slug, cir.version, release=release)["problems"]
+
+
+def _assert_no_valid_certificate(db, cir, cert=None):
+    """Review U5 F5: after a photo change, no listing-set certificate for the release is left
+    in state "valid", and the one that was valid reads "invalidated" with its reason."""
+    from brambleloop.core.models import ListingSetCertificateRecord
+
+    with db.session() as s:
+        rows = list(s.scalars(select(ListingSetCertificateRecord).where(
+            ListingSetCertificateRecord.product_slug == cir.slug,
+            ListingSetCertificateRecord.version == cir.version)))
+        assert rows or cert is None, "no certificate was ever recorded"
+        assert not [r.id for r in rows if r.state == "valid"], [(r.id, r.state) for r in rows]
+        if cert is not None and cert.get("record_id"):
+            rec = s.get(ListingSetCertificateRecord, cert["record_id"])
+            assert rec.state == "invalidated" and rec.invalidated_by, (rec.state,
+                                                                       rec.invalidated_by)
+
+
+def test_review_u5_f6_an_exception_in_the_photo_fence_is_a_refusal_never_a_pass():
+    """Review U5 F6 (mutant M14): `certified_frames` reads an exception from
+    `photo_certificate_current` as "not current" and sends no frames."""
+    from unittest.mock import patch
+
+    from brambleloop.runtime import etsy_ops
+
+    db, cir, release, _ = _setup()
+    assert par.sweep(db)["approved"] == 1
+    _, cert = _certify_without_touching_approval(db, cir, release)
+    assert cert["valid"] and cert["issued"], cert
+    ok = etsy_ops.certified_frames(db, cir.slug, cir.version, release=release)
+    assert ok["frames"] and not ok["problems"], ok
+    with patch.object(par, "photo_certificate_current", side_effect=RuntimeError("evidence")):
+        out = etsy_ops.certified_frames(db, cir.slug, cir.version, release=release)
+    assert out["frames"] == [] and out["problems"] == [
+        "photo frame or evidence no longer matches the certificate"], out
 
 
 def test_revocation_during_certificate_issue_cannot_create_stale_valid_set():
@@ -885,6 +926,7 @@ def test_revocation_during_certificate_issue_cannot_create_stale_valid_set():
         _, verdict = _certify_without_touching_approval(db, cir, release)
     assert not verdict["valid"] and not verdict["issued"], verdict
     assert etsy_ops.certified_frames(db, cir.slug, cir.version, release=release)["problems"]
+    _assert_no_valid_certificate(db, cir)       # review U5 F5
 
 
 def test_photo_led_certificate_can_bind_leader_without_including_supplement():
