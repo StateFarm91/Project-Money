@@ -225,14 +225,22 @@ def test_review_opus2f_a3_a_changed_ready_package_supersedes_the_stale_request()
     base = {**_source_checked_fixture(db, cir, LP.assemble(db, cir.slug, cir.version)),
             "state": LP.READY, "blockers": []}
     LP.record(db, {**base, "release_hash": "1" * 64, "fingerprint": "d" * 64})
+    assert len(_requests(db, cir, open_only=True)) == 1
     with db.session() as session:
         pv = session.scalar(select(PatternVersion))
         listing = session.scalar(select(Listing).where(Listing.product_slug == cir.slug))
         pv.release_hash = listing.release_hash = "2" * 64
+    # Review U6 H1: the A9 listing-package fence withdraws the stale request in the same
+    # transaction that changes the release, before any new package is assembled.
+    assert _requests(db, cir, open_only=True) == []
+    stale = [r for r in _requests(db, cir) if r.requirement_key.endswith("d" * 16)]
+    assert len(stale) == 1 and stale[0].state == "superseded", [
+        (r.requirement_key, r.state) for r in _requests(db, cir)]
     updated = _source_checked_fixture(db, cir, LP.assemble(db, cir.slug, cir.version))
     r = LP.record(db, {**updated, "state": LP.READY, "blockers": [],
                        "release_hash": "2" * 64, "fingerprint": "e" * 64})
-    assert r["review_requested"] is True and r["review_withdrawn"] is True
+    # Nothing is left for record() to withdraw: the fence already did it.
+    assert r["review_requested"] is True and r["review_withdrawn"] is False
     open_ = _requests(db, cir, open_only=True)
     assert len(open_) == 1 and "222222222222" in open_[0].reason
     assert open_[0].requirement_key.endswith("e" * 16)
@@ -366,9 +374,23 @@ def test_review_opus2g_l51_an_owner_deferral_survives_a_transient_block():
     LP.record(db, ready)
     rows = _requests(db, cir)
     assert len(rows) == 1 and rows[0].state == "parked", [(r.state, r.done) for r in rows]
-    # New content is a new question: the parked request is superseded and a new one raised.
-    changed = LP.record(db, {**ready, "fingerprint": "4" * 64})
+    # Review U6 H1: a new fingerprint whose rendered owner question is byte-identical is
+    # the same question, so the owner's deferral stands and nothing new is raised.
+    assert LP.render({**ready, "fingerprint": "3" * 64}) == LP.render(ready)
+    same = LP.record(db, {**ready, "fingerprint": "3" * 64})
+    assert same["review_requested"] is False and same["review_withdrawn"] is False, same
+    rows = _requests(db, cir)
+    assert len(rows) == 1 and rows[0].state == "parked", [(r.state, r.done) for r in rows]
+    # New rendered content is a new question: the parked request is superseded and a new
+    # one is raised.
+    new_question = {**ready, "fingerprint": "4" * 64,
+                    "disclosures": [*(ready.get("disclosures") or []),
+                                    "U6 H1 fixture: a disclosure the owner has not seen"]}
+    assert LP.render(new_question) != LP.render(ready)
+    changed = LP.record(db, new_question)
     assert changed["review_requested"] is True and changed["review_withdrawn"] is True
+    open_ = _requests(db, cir, open_only=True)
+    assert len(open_) == 1 and open_[0].requirement_key.endswith("4" * 16)
 
 
 def test_an_uncertified_or_unlisted_release_gets_no_package():

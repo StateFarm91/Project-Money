@@ -291,15 +291,7 @@ def test_worker_rechecks_source_changed_after_assembly():
 
 
 if __name__ == "__main__":
-    test_changed_listing_invalidates_old_owner_request()
-    test_price_or_design_changes_invalidate_old_owner_request()
-    test_changed_certificate_invalidates_old_owner_review()
-    test_revoked_certification_never_raises_a_review()
-    test_storage_failure_closes_review_and_durable_artifact_is_retained()
-    test_worker_rechecks_source_changed_after_assembly()
-    test_owner_request_match_escapes_slug_wildcards()
-    test_long_release_key_is_recorded_and_postgres_widen_is_planned()
-    test_worker_retries_after_durable_review_document_storage_recovers()
-    test_record_failure_is_retried_without_claiming_a_ready_package()
-    test_blocked_package_with_unavailable_copy_is_recorded_without_owner_authority()
-    print("11/11 passed")
+    # Review U6 H2: run under the suite harness (one `OK name` line per test), without pytest.
+    import _minipytest
+
+    _minipytest.run_module(globals())

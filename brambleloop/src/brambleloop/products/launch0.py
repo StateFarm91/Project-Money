@@ -1619,6 +1619,11 @@ def child_words_in(*texts: str) -> tuple[str, ...]:
     text = fold(" ".join(t or "" for t in texts))
     words = set(re.findall(r"[a-z]+", text))
     found = [w for w in CHILD_AUDIENCE_WORDS if w in words]
+    if {"toy", "toys"} & set(found) and not re.search(
+            r"\btoys?\b", _PET_TOY.sub(" ", text)):
+        found = [w for w in found if w not in ("toy", "toys")]
+    if _BABY_MONTH_SIZE.search(text):
+        found.append("baby_month_size")
     # Explicit ages are not an audience decision. Treat an under-18 lower
     # bound as a child claim; this is conservative, not a general NLP classifier.
     ages = (int(m.group(1)) for m in re.finditer(r"\b(?:age|ages|aged)\s*:?\s*(\d{1,3})\b", text))
@@ -1671,6 +1676,23 @@ def childrens_assignment(cir_slug: str) -> tuple[str, str] | None:
     return _cir_audience_map().get(cir_slug)
 
 
+# Review U6 / A1 F3: product nouns for objects made for babies and small children. "toy" and
+# "toys" also name pet products; a pet-qualified toy ("cat toy", "dog toys") is not a child
+# claim (`_PET_TOY`), and every other toy is held for an explicit decision.
+INFANT_PRODUCT_WORDS: tuple[str, ...] = (
+    "pacifier", "pacifiers", "binky", "binkies", "binkie", "soother", "soothers",
+    "teether", "teethers", "teething", "rattle", "rattles", "bib", "bibs",
+    "stroller", "strollers", "pram", "prams", "pushchair", "pushchairs", "bassinet",
+    "bassinets", "layette", "layettes", "onesie", "onesies", "bootie", "booties",
+    "swaddle", "swaddles", "toy", "toys", "plushie", "plushies", "stuffie", "stuffies",
+    "doll", "dolls", "playmat", "playmats",
+)
+_PET_TOY = re.compile(r"\b(?:cat|cats|kitten|kittens|kitty|dog|dogs|puppy|puppies|pet|pets|"
+                      r"catnip|ferret|rabbit|bunny)\s+toys?\b")
+# Review U6 / A1 F3: standard baby garment sizes ("12M Hat", "0-3m", "6-12 m"). Only the
+# month sizes that baby clothing uses, so yarn lengths ("200m") are not read as ages.
+_BABY_MONTH_SIZE = re.compile(r"\b(?:(?:0|3|6|9|12|18)\s*(?:-|–|—|to)\s*)?"
+                              r"(?:0|3|6|9|12|18|24)\s*m\b")
 # Words in a product's own title that say it is for a child. Used by
 # `childrens_titles_without_an_assignment`, and kept narrow: these are words a merchandiser
 # chose, not a classifier's guess at a fabric.
@@ -1680,6 +1702,9 @@ CHILD_AUDIENCE_WORDS: tuple[str, ...] = (
     "cot", "cots", "lovey", "loveys", "amigurumi", "tot", "tots", "preemie", "preemies",
     "preschool", "preschooler", "preschoolers", "kiddo", "kiddos", "tween", "tweens", "youth",
     "boy", "boys", "girl", "girls", "teen", "teens", "teenager", "teenagers",
+    # Review U6 / A1 F3: infant-only product nouns. These name an object made for a baby or
+    # small child even when no audience word appears ("Pacifier Clip", "Teething Ring").
+    *INFANT_PRODUCT_WORDS,
 )
 
 

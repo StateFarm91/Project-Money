@@ -59,5 +59,7 @@ def test_child_assignment_is_bound_to_exact_version_and_content():
 
 
 if __name__ == "__main__":
-    test_child_assignment_is_bound_to_exact_version_and_content()
-    print("PASS exact child assignment binding through actual assets Worker")
+    # Review U6 H2: run under the suite harness (one `OK name` line per test), without pytest.
+    import _minipytest
+
+    _minipytest.run_module(globals())

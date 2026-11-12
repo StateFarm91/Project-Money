@@ -81,6 +81,7 @@ def test_either_seam_endpoint_can_be_a_small_part():
 
 
 if __name__ == "__main__":
-    test_invalid_measurements_and_gauges_are_unknown()
-    test_either_seam_endpoint_can_be_a_small_part()
-    print("PASS invalid child small-parts geometry is UNKNOWN and held")
+    # Review U6 H2: run under the suite harness (one `OK name` line per test), without pytest.
+    import _minipytest
+
+    _minipytest.run_module(globals())

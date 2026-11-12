@@ -238,3 +238,10 @@ def test_malformed_material_snapshot_does_not_supersede_a_parked_decision():
     with db.session() as session:
         old = session.get(OwnerAction, action_id)
         assert not old.done and old.state == owner_queue.PARKED
+
+
+if __name__ == "__main__":
+    # Review U6 H2: run under the suite harness (one `OK name` line per test), without pytest.
+    import _minipytest
+
+    _minipytest.run_module(globals())

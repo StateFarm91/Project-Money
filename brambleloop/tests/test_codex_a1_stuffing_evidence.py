@@ -49,6 +49,7 @@ def test_existing_exemption_does_not_follow_a_slug_to_another_design():
 
 
 if __name__ == "__main__":
-    test_unseamed_opening_and_component_note_hold_in_real_worker()
-    test_existing_exemption_does_not_follow_a_slug_to_another_design()
-    print("PASS explicit stuffing evidence holds through real assets worker")
+    # Review U6 H2: run under the suite harness (one `OK name` line per test), without pytest.
+    import _minipytest
+
+    _minipytest.run_module(globals())

@@ -1,5 +1,5 @@
 """The real owner action handler must not report a closed request as parked."""
-import pytest
+import _minipytest as pytest  # Review U6 H2: pytest is not a dependency; same runner everywhere
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from threading import Event
 from unittest.mock import patch
@@ -104,3 +104,10 @@ def test_defer_rechecks_after_source_writer_releases_owner_queue_lock():
     with db.session() as session:
         row = session.get(OwnerAction, action_id)
         assert row.done and row.state == owner_queue.SUPERSEDED
+
+
+if __name__ == "__main__":
+    # Review U6 H2: run under the suite harness (one `OK name` line per test), without pytest.
+    import _minipytest
+
+    _minipytest.run_module(globals())

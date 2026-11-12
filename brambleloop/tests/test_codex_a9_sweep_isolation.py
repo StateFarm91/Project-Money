@@ -85,7 +85,7 @@ def test_failed_stale_reconciliation_does_not_skip_other_stale_review():
 
 
 def test_sweep_inventory_failure_is_not_treated_as_an_empty_inventory():
-    import pytest
+    import _minipytest as pytest  # Review U6 H2: pytest is not a dependency
     db = fixture()
     with patch.object(lp, "certified_releases", side_effect=RuntimeError("inventory unavailable")), \
             patch.object(lp, "_package_one") as one:
@@ -112,9 +112,16 @@ def test_lost_lease_stops_worker_before_other_releases():
 
 
 def test_reader_does_not_swallow_lost_lease():
-    import pytest
+    import _minipytest as pytest  # Review U6 H2: pytest is not a dependency
     from brambleloop.queue.effects import LeaseLost
     def lost():
         raise LeaseLost("lease lost")
     with pytest.raises(LeaseLost):
         lp._try(lost)
+
+
+if __name__ == "__main__":
+    # Review U6 H2: run under the suite harness (one `OK name` line per test), without pytest.
+    import _minipytest
+
+    _minipytest.run_module(globals())

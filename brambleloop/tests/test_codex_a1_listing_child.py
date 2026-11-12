@@ -144,7 +144,7 @@ def test_listing_copy_race_is_blocked_and_classifies_emitted_copy():
 
 
 if __name__ == "__main__":
-    test_plural_child_audience_words_are_held_in_pdf_worker()
-    test_persistent_listing_package_and_publish_verdict_hold_child_copy()
-    test_listing_copy_race_is_blocked_and_classifies_emitted_copy()
-    print("PASS child-audience listing and plural titles are held through real workers")
+    # Review U6 H2: run under the suite harness (one `OK name` line per test), without pytest.
+    import _minipytest
+
+    _minipytest.run_module(globals())

@@ -1,7 +1,7 @@
 """A malformed per-release event must not turn into a global package sweep."""
 from unittest.mock import patch
 
-import pytest
+import _minipytest as pytest  # Review U6 H2: pytest is not a dependency; same runner everywhere
 from sqlalchemy import select
 
 from brambleloop.core.models import AuditLog, Job, JobStatus, OwnerAction
@@ -67,3 +67,10 @@ def test_complete_event_still_dispatches_only_its_release():
     assert status == JobStatus.DONE and out.get("eligible") is True, (out, error)
     sweep.assert_not_called()
     assert single.call_args.args[1:] == ("test-bound-release", "1.0.0")
+
+
+if __name__ == "__main__":
+    # Review U6 H2: run under the suite harness (one `OK name` line per test), without pytest.
+    import _minipytest
+
+    _minipytest.run_module(globals())

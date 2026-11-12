@@ -73,3 +73,10 @@ def test_source_change_before_record_is_rechecked_before_old_event_retries():
     with db.session() as session:
         assert not list(session.scalars(select(OwnerAction).where(OwnerAction.done.is_(False))))
     assert listing_package.latest(db, first["slug"], first["version"])["state"] == listing_package.BLOCKED
+
+
+if __name__ == "__main__":
+    # Review U6 H2: run under the suite harness (one `OK name` line per test), without pytest.
+    import _minipytest
+
+    _minipytest.run_module(globals())

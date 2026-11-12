@@ -19,5 +19,7 @@ def test_child_title_on_implicitly_exempt_slug_is_held_by_real_worker():
 
 
 if __name__ == "__main__":
-    test_child_title_on_implicitly_exempt_slug_is_held_by_real_worker()
-    print("PASS contradictory child title holds the real assets worker")
+    # Review U6 H2: run under the suite harness (one `OK name` line per test), without pytest.
+    import _minipytest
+
+    _minipytest.run_module(globals())

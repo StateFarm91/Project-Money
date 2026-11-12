@@ -82,3 +82,10 @@ def test_relationship_reassignment_withdraws_original_review():
         pv.product = other
     assert not active(db)
     assert lp.latest(db, old["slug"], old["version"])["state"] == lp.BLOCKED
+
+
+if __name__ == "__main__":
+    # Review U6 H2: run under the suite harness (one `OK name` line per test), without pytest.
+    import _minipytest
+
+    _minipytest.run_module(globals())
