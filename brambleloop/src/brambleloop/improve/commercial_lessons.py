@@ -129,9 +129,15 @@ def measured_groups(db) -> dict[str, Group]:
 
     groups: dict[str, Group] = {}
     with db.session() as s:
-        rows = list(s.scalars(select(ListingOutcome)
-                              .where(ListingOutcome.source.like(f"{EXPORT_SOURCE}%"))
-                              .order_by(ListingOutcome.id)))
+        # WS5 E4: the source prefix alone let a fixture named `owner_export:...` through, and
+        # skipped the intake's round trip. Only rows marked `real` (written by the intake and
+        # read back unchanged) are measurement.
+        from ..commerce import evidence_provenance as ep
+
+        rows = [r for r in s.scalars(select(ListingOutcome)
+                                     .where(ListingOutcome.source.like(f"{EXPORT_SOURCE}%"))
+                                     .order_by(ListingOutcome.id))
+                if ep.learnable(r.detail)]
         for r in _non_overlapping(rows):
             if r.orders is None or r.visits is None:
                 continue          # a row without its orders measures nothing about conversion

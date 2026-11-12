@@ -186,7 +186,7 @@ def record_outcome(db, *, product_slug: str, version: str = "", period_start: st
                    period_end: str, impressions: int, visits: int, source: str,
                    favourites: int | None = None, first_frame_views: int | None = None,
                    first_frame_engagements: int | None = None, orders: int | None = None,
-                   test_key: str = "") -> dict:
+                   test_key: str = "", provenance: str | None = None) -> dict:
     """Write one listing's measured period, tagged with the style it was showing.
 
     Refuses the impossible rather than storing it: more visits than impressions, more
@@ -235,6 +235,12 @@ def record_outcome(db, *, product_slug: str, version: str = "", period_start: st
         row.orders = orders
         row.hero_style, row.styles = hero, styles
         row.test_key, row.source = test_key or "", source
+        # WS5 E4: provenance is set explicitly or not at all. A row without it is never
+        # learned from; the owner-export intake marks `real` only after its round trip.
+        if provenance is not None:
+            from ..commerce import evidence_provenance as ep
+
+            row.detail = ep.mark(row.detail, provenance)
     return {"recorded": True, "product_slug": product_slug, "hero_style": hero or None,
             "styles": styles,
             "untagged": not hero,
@@ -270,7 +276,11 @@ def _rows(db) -> tuple[list[dict], dict[str, str]]:
 
     with db.session() as s:
         rows = []
+        from ..commerce import evidence_provenance as ep
+
         for r in s.scalars(select(ListingOutcome)):
+            if not ep.learnable(r.detail):      # WS5 E4: real-provenance rows only
+                continue
             rows.append({"slug": r.product_slug, "hero": r.hero_style,
                          "styles": list(r.styles or []), "impressions": r.impressions,
                          "visits": r.visits, "ffv": r.first_frame_views,

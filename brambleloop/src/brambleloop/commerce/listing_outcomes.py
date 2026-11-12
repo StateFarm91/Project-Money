@@ -310,6 +310,11 @@ def _record_export(db, key: str, payload: dict) -> dict:
                     "carts": r["carts"]}
             if got != want:
                 mismatches.append({"slug": r["slug"], "wrote": want, "read": got})
+            else:
+                # WS5 E4: `real` only for a row the intake wrote AND read back unchanged.
+                from . import evidence_provenance as ep
+
+                row.detail = ep.mark(row.detail, ep.REAL)
     return {"status": "recorded" if recorded and not refused else
                       ("partial" if recorded else "refused"),
             "recorded": [r["slug"] for r in recorded], "refused": refused,

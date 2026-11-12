@@ -42,11 +42,14 @@ def _db() -> Database:
 
 
 def _outcome(db, slug, visits, orders, *, source=EXPORT_SOURCE + "fixture-1",
-             start="2026-09-01", end="2026-09-30", favourites=10):
+             start="2026-09-01", end="2026-09-30", favourites=10, provenance="real"):
+    """WS5 E4: a fixture standing for intake-measured data is marked `real` explicitly;
+    `provenance="synthetic"` / None are what every learner must refuse."""
     with db.session() as s:
         s.add(ListingOutcome(product_slug=slug, version="1.2.0", period_start=start,
                              period_end=end, impressions=visits * 10, visits=visits,
-                             favourites=favourites, orders=orders, source=source))
+                             favourites=favourites, orders=orders, source=source,
+                             detail={"provenance": provenance} if provenance else {}))
 
 
 def _three_categories(db, basket_visits=400):

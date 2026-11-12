@@ -77,7 +77,11 @@ def outcomes_by_concept(db, concepts: list | None = None) -> list[dict]:
             for c in concepts}
 
     with db.session() as s:
+        from ..commerce import evidence_provenance as ep
+
         for o in s.scalars(select(ListingOutcome)):
+            if not ep.learnable(o.detail):      # WS5 E4: real-provenance rows only
+                continue
             c = _concept_for(o.product_slug, concepts)
             if c is None:
                 continue
