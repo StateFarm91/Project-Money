@@ -582,6 +582,52 @@ def usable(db) -> bool:
     return bool(state and state.get("ok"))
 
 
+# WS5 E3: probes run every six hours; a success older than a day no longer demonstrates it.
+PROBE_FRESH_HOURS = 24
+
+
+def _probe_age_hours(state: dict | None, now=None) -> float | None:
+    from datetime import datetime, timezone
+
+    try:
+        at = datetime.fromisoformat(str((state or {}).get("at") or ""))
+    except ValueError:
+        return None
+    if at.tzinfo is None:
+        at = at.replace(tzinfo=timezone.utc)
+    return round(((now or datetime.now(timezone.utc)) - at).total_seconds() / 3600.0, 2)
+
+
+def credential_usable(db, state: dict | None = None, env: dict[str, str] | None = None,
+                      now=None) -> dict:
+    """WS5 E3: whether the Etsy credential is USABLE for this company's operations, not merely
+    configured. All of: a successful real read (`etsy.probe`) within PROBE_FRESH_HOURS; a
+    stored OAuth grant that this deployment can open; and every scope the company needs
+    (`etsy_oauth.SCOPES_WANTED`, `transactions_r` included) granted. UNKNOWN parts are false."""
+    from ..core import oauth_store
+    from ..integrations import etsy_oauth
+
+    state = last_probe(db) if state is None else state
+    age = _probe_age_hours(state, now)
+    recent = bool(state and state.get("ok") and age is not None
+                  and 0 <= age <= PROBE_FRESH_HOURS)
+    try:
+        oauth = oauth_store.credential_health(db, env=env)
+        openable = bool(oauth.get("openable"))
+        granted = set(oauth_store.stored_scopes(db))
+    except Exception:  # noqa: BLE001 - unreadable is not usable
+        openable, granted = False, set()
+    missing = [sc for sc in etsy_oauth.SCOPES_WANTED if sc not in granted]
+    why = [w for w, bad in (
+        ("no successful Etsy read in the last "
+         f"{PROBE_FRESH_HOURS} h (etsy.probe)", not recent),
+        ("no openable OAuth grant is stored", not openable),
+        (f"scopes not granted: {missing}", bool(missing))) if bad]
+    return {"usable": not why, "demonstrated_recently": recent, "probe_age_hours": age,
+            "refused": auth_refused(state), "oauth_openable": openable,
+            "scopes_not_granted": missing, "why": "; ".join(why)}
+
+
 def capability(db, env: dict[str, str] | None = None) -> dict:
     """What this company can currently read from Etsy, and what that rests on."""
     state = last_probe(db)
@@ -589,6 +635,8 @@ def capability(db, env: dict[str, str] | None = None) -> dict:
         **health(env),
         "last_probe": state,
         "demonstrated": bool(state and state.get("ok")),
+        # WS5 E3: what the readback judges -- usable for operations, not merely configured.
+        "credential": credential_usable(db, state, env),
         "note": ("no probe has been run, so whether these credentials can serve a request is "
                  "unknown -- which is not the same as unavailable"
                  if state is None else

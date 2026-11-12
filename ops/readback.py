@@ -119,8 +119,14 @@ MANIFEST = (
      lambda v, _s: v is True),
     ("continuity proof passing", ["F-628"], "/api/continuity", "last_proof_ok", "true",
      lambda v, _s: v is True),
-    ("Etsy credential usable", ["F-437"], "/api/etsy", "usable", "true",
-     lambda v, _s: v is True),
+    # WS5 E3: "usable" alone was true whenever the two variables were set (it read PASS for the
+    # whole 403 period). The row now reads the server's judgement: a successful Etsy read in
+    # the last 24 h, an openable OAuth grant, and every needed scope granted.
+    # WARN_ONLY: an external credential state (an unpaid subscription, a revoked grant) is
+    # reported honestly -- never PASS -- without blocking a code deploy (Main 6814167293).
+    ("Etsy credential usable", ["F-437"], "/api/etsy", "credential.usable",
+     "true (recent real read, OAuth grant openable, no scope missing)",
+     lambda v, _s: v is True, WARN_ONLY),
 )
 
 # SECPATCH made these GETs operator-only; their rows need the operator credential (above).
