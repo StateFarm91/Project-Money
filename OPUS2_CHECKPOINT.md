@@ -1,10 +1,25 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-12T11:00Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-12T12:30Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-12T11:00Z (read first)
+## State at 2026-11-12T12:30Z (read first)
+- RRs posted, all awaiting Main:
+  - A9 56f92eb9 (6819765359)
+  - WS4 increment 2 0b36ef3b (6819968131)
+  - E2 56694ebf (6821346385)
+  - E3 + R1 LOWs 34eb66aa (6821381195)
+  - A3 3928ba00 (6821710252)
+  - WS4 increments 3 (407af821, with the WS4-0 LOWs) and 4 (ddc59be1) (6822071326)
+- All branches are pushed. Worktrees: opus2-ws41 (inc 2), opus2-ws43 (incs 3 and 4, on the
+  ws4-4 branch), opus2-a3, opus2-e2, opus2-e3, opus2-a9u6.
+- WS4-0 SHIPPED as cef3534d. Batch 8 cert is running on Main.
+- Next: WS4 increment 5, the issuer in shadow mode (design §3.3 readers with guards +
+  shadow_decision rows, OBSERVE cadence). Stack it on ddc59be1 in worktree opus2-ws43.
+- Stop reason: none pending. Answer Main's verdicts first when they arrive.
+
+## State at 2026-11-12T11:00Z (superseded)
 - WS4-0 SHIPPED, merged as cef3534d (Main 6819385594). Batch 8 cert run 20261112T090404Z-20841.
   Run nothing on Main's container.
 - WS4-0 LOW follow-ups (R9a behavioural HQ scrub, F2f exact revocation keys, INFO-4 exact
