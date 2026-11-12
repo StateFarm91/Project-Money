@@ -228,7 +228,9 @@ def test_t_po_2_every_code_ceiling_exceeded_by_one_step_is_refused():
                             "expires_at": "2027-03-20T00:00:00+00:00"}
         edge["owner_statement_digest"] = sp.statement_digest(edge)
         assert sp.ceiling_refusals(edge) == [], sp.ceiling_refusals(edge)
-        for name, mutate in _ceiling_cases():
+        cases = _ceiling_cases()
+        assert len(cases) >= 20
+        for name, mutate in cases:
             c = copy.deepcopy(base)
             mutate(c)
             if "extra" not in c:
@@ -340,6 +342,7 @@ def test_t_po_4_statement_is_deterministic_and_every_field_changes_the_digest():
         "validity.review_by": "2027-01-17T00:00:00+00:00",
         "validity.expires_at": "2027-02-16T00:00:00+00:00",
     }
+    assert len(changes) >= 25
     for name, value in changes.items():
         c = copy.deepcopy(base)
         pc = c["product_classes"][0]
@@ -415,6 +418,7 @@ def test_t_po_6_a_key_shared_with_another_authority_is_not_configured():
             "issuer verify": {sp.ISSUER_VERIFY_KEY_VAR: env[sp.VERIFY_KEY_VAR]},
             "ops token": {"BRAMBLELOOP_OPS_TOKEN": env[sp.SIGNING_KEY_VAR]},
         }
+        assert len(shared_cases) == 6
         for name, extra in shared_cases.items():
             h = sp.key_health({**os.environ, **extra})
             assert h["configured"] is False and h["problems"], (name, h)
@@ -588,6 +592,7 @@ def test_the_suspension_hmac_never_verifies_a_granting_row():
              "suspended_at": NOW.isoformat(), "event": sp.RESUMED, "seq": 2, "prev_id": a,
              "prev_seal": "x"},
         ]
+        assert len(bodies) == 3
         for body in bodies:
             assert sp._verify(body, sp._suspension_hmac(body)) is False, body["event"]
         # On the chain: a worker that forges an activation with the HMAC breaks the chain.
