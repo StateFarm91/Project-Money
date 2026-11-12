@@ -320,11 +320,19 @@ EVIDENCE_ITEMS = (
     ("products progressing through certification", "certification_pipeline", None),
     ("autonomous company loop", "autonomy_loop", None),
     ("Etsy category resolvable (crochet offered by the chosen node)", "etsy_taxonomy", None),
+    # WS2 R1: the eight shops' scan state. Advisory: a WARN never fails the readback or a
+    # deploy -- an Etsy refusal (or one seed shop gone) is reported, not turned into a FAIL.
+    ("competitor shops scanned (eight-shop research network)", "competitor_scans", None),
 )
 
 
 def _judge_section(name: str, section, judged) -> tuple[str, str]:
     """(verdict, short reason). UNKNOWN whenever the evidence is absent or unreadable."""
+    if name == "competitor_scans" and (not isinstance(section, dict)
+                                       or section.get("readable") is not True):
+        # WS2 R1: advisory -- a build without the section, or one that cannot read it, warns.
+        return WARN, ("section missing" if not isinstance(section, dict) else
+                      f"unreadable ({section.get('error_class') or 'no reason given'})")
     if not isinstance(section, dict):
         return UNKNOWN, "section missing"
     if section.get("readable") is not True:
@@ -358,6 +366,24 @@ def _judge_section(name: str, section, judged) -> tuple[str, str]:
         if unk:
             return UNKNOWN, f"no stored schema for {unk}"
         return PASS, f"refreshed {section.get('refreshed_at')}; {len(offers)} categories"
+    if name == "competitor_scans":
+        shops = section.get("shops")
+        if not isinstance(shops, list) or not shops:
+            return WARN, "no shops reported"
+        credential = section.get("credential")
+        unscanned = [f"{r.get('alias')}:{r.get('state')}"
+                     + (f"/{r.get('failure_class')}" if r.get("failure_class") else "")
+                     for r in shops if r.get("state") != "scanned"]
+        # Review 6816970157 M2: a scanned shop whose newest success is stale is not current.
+        unscanned += [f"{r.get('alias')}:stale({r.get('success_age_hours')}h>"
+                      f"{r.get('stale_after_hours')}h)"
+                      for r in shops if r.get("state") == "scanned" and r.get("stale")]
+        if credential != "usable":
+            return WARN, (f"Etsy read credential {credential}; {len(shops) - len(unscanned)}/"
+                          f"{len(shops)} scanned")
+        if unscanned:
+            return WARN, f"{len(shops) - len(unscanned)}/{len(shops)} scanned; {unscanned}"
+        return PASS, f"{len(shops)}/{len(shops)} scanned"
     if not isinstance(judged, bool):
         return UNKNOWN, "no server judgement"
     if name == "dead_letters_24h":
@@ -416,8 +442,9 @@ def run_evidence(*, url: str = PRODUCTION_URL, fetch=None, env=None) -> dict:
                                              judged.get(key) if key else None)
         items.append({"item": item, "section": section, "verdict": verdict, "detail": detail})
     verdicts = {i["verdict"] for i in items}
+    # Review 6816970157 L1: as `run`, a WARN row reads WARN overall (still not a failure).
     overall = (UNKNOWN if not reachable else FAIL if FAIL in verdicts else
-               UNKNOWN if UNKNOWN in verdicts else PASS)
+               UNKNOWN if UNKNOWN in verdicts else WARN if WARN in verdicts else PASS)
     import datetime as _dt
 
     out = {"url": url, "verdict": overall, "reachable": reachable,
@@ -453,6 +480,11 @@ def main_evidence(a) -> int:
     if not out["reachable"]:
         print("readback --evidence: production unreachable; nothing verified", file=sys.stderr)
         return 4
+    if out["verdict"] == WARN:
+        warned = [i["item"] for i in out["items"] if i["verdict"] == WARN]
+        print(f"readback --evidence: WARN ({len(out['items'])} items; degraded, not a "
+              f"failure: {warned})", file=sys.stderr)
+        return WARN_EXIT
     if out["verdict"] != PASS:
         n = {v: sum(1 for i in out["items"] if i["verdict"] == v) for v in (PASS, FAIL, UNKNOWN)}
         print(f"readback --evidence: {out['verdict']} (PASS {n[PASS]}, FAIL {n[FAIL]}, "

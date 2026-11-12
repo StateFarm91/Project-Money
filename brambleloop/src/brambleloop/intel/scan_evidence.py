@@ -164,7 +164,11 @@ def _anchor(db) -> dict:
         bench = None if row is None else {"last_scan_at": _iso(row.last_scan_at),
                                           "last_change_at": _iso(row.last_change_at),
                                           "scan_health": dict(row.scan_health or {})}
-    jobs = _jobs(db, "mjs.scan")
+    # WS2 R2: an adaptive-interval deferral (#313) did not try to read the shop, so it is
+    # neither an attempt nor a failure. `mjs.scan` fires every 2 h while the interval is at
+    # least 6 h, so most of its jobs are deferrals; counting them made the anchor read
+    # `attempted_not_scanned` with "not due" as its failure reason.
+    jobs = [j for j in _jobs(db, "mjs.scan", limit=200) if not j["outputs"].get("deferred")]
     attempted = jobs[0] if jobs else None
     ok = next((j for j in jobs if j["status"] == "done" and j["outputs"].get("ran") is not False),
               None)
