@@ -72,8 +72,13 @@ def test_an_approved_policy_is_shadowed_and_every_decision_holds_today():
         assert row["decision"] == "HOLD" and row["signed"] is False and row["shadow"] is True
         assert row["slug"] == SLUG and row["release"] == "a" * 64 and row["approval_id"] == a
         assert sorted(row["assumed"]) == sorted(SI.ASSUMED_IN_SHADOW)
-        for name in SI.NOT_BUILT_YET:
-            assert any(r.startswith(f"{name}: UNKNOWN") for r in row["reasons"]), name
+        # Every reader is built now; this fixture's release has no reviewed frames, no
+        # stored CIR and no stop-watch reading, so the decision holds on those facts.
+        assert SI.NOT_BUILT_YET == {}
+        for name in ("independent_vision_review", "deterministic_reverify",
+                     "stop_watch_fresh"):
+            assert row["fact_states"][name] != SB.PASS, (name, row["fact_states"])
+            assert any(r.startswith(f"{name}: ") for r in row["reasons"]), name
         # The activation precondition that needs a shadow decision is now satisfied.
         why = sp.activation_refusals(db, a, now=NOW + timedelta(days=30))
         assert not any("shadow decision" in w for w in why), why

@@ -33,9 +33,7 @@ ACTOR = "standing_issuer"
 ASSUMED_IN_SHADOW = ("kill_switch", "policy_enabled", "mode_t", "phase_may_publish")
 # Readers the next increment (issue-time checks, design §3.3 6/9/10/11/12) builds; until then
 # they read UNKNOWN and every decision holds.
-NOT_BUILT_YET = {
-    "independent_vision_review": "reviewer-vs-generator model identity per frame (later)",
-}
+NOT_BUILT_YET: dict[str, str] = {}
 DEDUPE_HOURS = 24
 
 
@@ -157,6 +155,8 @@ def read_facts(db, slug: str, version: str, release: str, content: dict, *,
             facts[name] = cir
     facts["taxonomy_agrees"] = _guard(lambda: _taxonomy_agrees(db, slug, version))
     facts["no_fake_discount"] = _guard(lambda: _no_fake_discount(db, slug, version))
+    facts["independent_vision_review"] = _guard(
+        lambda: _independent_vision_review(db, slug, version))
     facts["shop_id"] = _guard(lambda: _shop_id(db))
     facts["shop_name"] = _guard(_shop_name)
     # No standing grant has ever been issued (there is no grant store until the Mode T
@@ -390,6 +390,123 @@ def _taxonomy_agrees(db, slug, version):
         return _fact(SB.FAIL, False, f"category {record['category']} chooses node "
                                      f"{getattr(choice, 'taxonomy_id', None)}, the listing "
                                      f"is filed in {selected['taxonomy_id']}")
+    return _fact(SB.PASS, True)
+
+
+# Frames no model generated: a camera photograph, and code-rendered images. Any reviewer is
+# independent of these; an AI frame needs its generator's identity from its candidate record.
+DETERMINISTIC_ASSET_CLASSES = frozenset({"PHYSICAL_PRODUCT_PHOTO", "DIGITAL_TWIN_RENDER",
+                                         "INFOGRAPHIC", "PATTERN_PREVIEW"})
+
+
+def model_family(model) -> str | None:
+    """The family of a model id: its first name token, lower-cased ("claude-x-5" -> "claude",
+    "black-forest-labs/flux-pro" -> "flux"). None when there is no id."""
+    import re
+
+    text = str(model or "").strip().lower()
+    if not text:
+        return None
+    text = text.rsplit("/", 1)[-1]
+    token = re.split(r"[-_.:@\s]+", text, maxsplit=1)[0]
+    return token or None
+
+
+def _generators(db, slug, version) -> dict[str, dict]:
+    """position -> {"sha256", "generator": None | {"provider", "model"}, "why"} for every
+    stored frame. None means no model generated it; a missing record is reported in "why"."""
+    from sqlalchemy import select
+
+    from ..core.models import ListingAsset
+
+    out: dict[str, dict] = {}
+    with db.session() as s:
+        rows = list(s.scalars(select(ListingAsset).where(
+            ListingAsset.product_slug == slug, ListingAsset.version == version)))
+        for r in rows:
+            entry = {"sha256": r.sha256, "generator": None, "why": None}
+            if r.asset_class not in DETERMINISTIC_ASSET_CLASSES:
+                from ..visual.gallery_persist import _candidate_facts
+
+                cand = (r.claims or {}).get("candidate_id")
+                facts = _candidate_facts(s, cand) if cand else {}
+                if not facts or facts.get("sha256") != r.sha256 or not facts.get("model"):
+                    entry["why"] = (f"frame {r.position} ({r.asset_class}) has no generator "
+                                    f"record bound to its bytes")
+                else:
+                    entry["generator"] = {"provider": facts.get("provider"),
+                                          "model": facts.get("model")}
+            out[str(r.position)] = entry
+    return out
+
+
+def _independent_vision_review(db, slug, version):
+    """Check 11: the stored frames' independent review and the exported-frame review both
+    hold, and every reviewed frame names its reviewer (provider and model) in the review
+    entry for exactly those bytes, from a provider AND a model family other than the one
+    that generated the frame. A review that names no reviewer is UNKNOWN."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+    from ..runtime.release import FRAME_REVIEW_ACTION, frame_review_state
+    from ..visual import exported_review
+
+    frames_state = frame_review_state(db, slug, version)
+    if not frames_state.get("reviewed"):
+        return _fact(SB.FAIL, False, "frame review: " + str(frames_state.get("why"))[:200])
+    exported = exported_review.review_state(db, slug, version)
+    if not exported.get("reviewed"):
+        return _fact(SB.FAIL, False, "exported-frame review: "
+                     + str(exported.get("why"))[:200])
+    artifact = f"{slug}@{version}"
+    reviews = []
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == FRAME_REVIEW_ACTION,
+                                              AuditLog.artifact == artifact)
+                       .order_by(desc(AuditLog.id)).limit(1))
+        reviews.append((FRAME_REVIEW_ACTION, dict(row.detail or {}) if row is not None else {}))
+        if exported.get("applies"):
+            row = s.scalar(select(AuditLog).where(AuditLog.action == exported_review.ACTION,
+                                                  AuditLog.artifact == artifact)
+                           .order_by(desc(AuditLog.id)).limit(1))
+            reviews.append((exported_review.ACTION,
+                            dict(row.detail or {}) if row is not None else {}))
+    gens = _generators(db, slug, version)
+    unknown, failed = [], []
+    for action, detail in reviews:
+        shas = {str(k): v for k, v in (detail.get("frame_shas") or {}).items()}
+        for pos, entry in sorted((detail.get("frames") or {}).items()):
+            entry = entry or {}
+            where = f"{action} frame {pos}"
+            reviewer = entry.get("reviewer") or {}
+            if not reviewer.get("provider") or not reviewer.get("model"):
+                unknown.append(f"{where}: no reviewer identity recorded")
+                continue
+            if entry.get("sha256") != shas.get(str(pos)) or not entry.get("sha256"):
+                unknown.append(f"{where}: reviewer not bound to the reviewed bytes")
+                continue
+            gen = next((g for g in gens.values() if g["sha256"] == entry["sha256"]), None)
+            if gen is None:
+                unknown.append(f"{where}: the reviewed bytes are not a stored frame")
+                continue
+            if gen["why"]:
+                unknown.append(f"{where}: {gen['why']}")
+                continue
+            g = gen["generator"]
+            if g is None:
+                continue
+            same = []
+            if str(g.get("provider") or "").lower() == str(reviewer["provider"]).lower():
+                same.append(f"provider {reviewer['provider']}")
+            if model_family(g.get("model")) == model_family(reviewer["model"]):
+                same.append(f"model family {model_family(reviewer['model'])}")
+            if same:
+                failed.append(f"{where}: reviewer shares the generator's "
+                              f"{' and '.join(same)}")
+    if failed:
+        return _fact(SB.FAIL, False, "; ".join(failed)[:400])
+    if unknown:
+        return _fact(SB.UNKNOWN, None, "; ".join(unknown)[:400])
     return _fact(SB.PASS, True)
 
 

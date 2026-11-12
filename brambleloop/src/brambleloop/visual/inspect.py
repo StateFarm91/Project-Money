@@ -412,7 +412,7 @@ def inspect_image(image_ref: str, *, db=None, provider=None,
 
     provider = provider or gw.provider_for(TASK)
     out: dict = {"image": image_ref, "described": False, "realism_judged": False,
-                 "model": provider.model}
+                 "model": provider.model, "provider": getattr(provider, "name", None)}
     billed = {"reserved": 0.0, "actual": 0.0, "tokens_in": 0, "tokens_out": 0}
 
     def _call(system, prompt, max_tokens):
@@ -512,7 +512,8 @@ def describe_image(image_ref: str, *, db=None, provider=None, claim: dict | None
 
     provider = provider or gw.provider_for(TASK)
     out: dict = {"image": image_ref, "described": False, "realism_judged": False,
-                 "model": provider.model, "realism_not_applicable": True}
+                 "model": provider.model, "provider": getattr(provider, "name", None),
+                 "realism_not_applicable": True}
     billed = {"reserved": 0.0, "actual": 0.0, "tokens_in": 0, "tokens_out": 0}
 
     def _call(system, prompt, max_tokens):

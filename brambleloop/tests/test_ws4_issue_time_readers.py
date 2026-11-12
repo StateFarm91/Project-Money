@@ -170,7 +170,7 @@ def test_read_facts_now_reads_the_issue_time_facts_for_real():
                  "sizes", "colourwork", "wearable", "taxonomy_agrees", "no_fake_discount"):
         assert "not built yet" not in str(facts[name].get("why") or ""), (name, facts[name])
     assert facts["deterministic_reverify"]["state"] == SB.PASS
-    assert set(SI.NOT_BUILT_YET) == {"independent_vision_review"}
+    assert SI.NOT_BUILT_YET == {}
 
 
 def test_a_missing_cir_makes_every_cir_reader_unknown():
