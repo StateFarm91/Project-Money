@@ -242,6 +242,14 @@ def test_t_po_2_every_code_ceiling_exceeded_by_one_step_is_refused():
         _restore()
 
 
+def test_physical_vocabulary_is_the_risk_matrix_evidence_classes():
+    from brambleloop.gates import risk_matrix
+
+    for level in sp.PHYSICAL_ORDER[1:]:
+        assert level in risk_matrix.CLASS_BY_KEY, level
+    assert sp.PHYSICAL_ORDER[1:] == (risk_matrix.PARTIAL_PHYSICAL, risk_matrix.FULL_PHYSICAL_MAKE)
+
+
 def test_seg_ttl_constant_is_within_its_ceiling():
     """Mutant M3 (TTL part): the SEG TTL constant may not exceed its ceiling."""
     assert 0 < sp.SEG_TTL_MINUTES <= sp.SEG_TTL_CEILING_MINUTES <= 30
@@ -321,7 +329,7 @@ def test_t_po_4_statement_is_deterministic_and_every_field_changes_the_digest():
         "policy_id": f"sp-{uuid.UUID(int=8, version=4)}", "version": 2,
         "supersedes": {"row_id": 1, "seal": "a" * 128}, "etsy.shop_id": "87654321",
         "etsy.shop_name": "Other", "classes.class_id": "x", "classes.categories": ["placemat"],
-        "classes.risk": "B", "classes.physical": "full_physical", "classes.lo": 4.01,
+        "classes.risk": "B", "classes.physical": "full_physical_make", "classes.lo": 4.01,
         "classes.hi": 11.99, "classes.max_sizes": 2, "classes.colourwork": False,
         "classes.wearable": True, "exclusions.slugs": ["s"], "exclusions.categories": [],
         "certs": sorted(sp.REQUIRED_CERTIFICATIONS_FLOOR) + ["extra_check"],

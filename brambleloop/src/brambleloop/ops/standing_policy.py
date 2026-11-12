@@ -91,7 +91,8 @@ MAX_LISTING_FEES_CAD_PER_30D = 0.00          # v1 is draft-only: drafts are free
 MAX_ROLLBACK_REHEARSAL_AGE_DAYS = 14
 MAX_POLICY_READING_AGE_DAYS = 7
 MAX_STOP_WATCH_SILENCE_MINUTES = 30
-PHYSICAL_ORDER = ("none", "partial_physical", "full_physical")
+# The evidence-class keys of `gates.risk_matrix` (so `risk_matrix.satisfies` can compare them).
+PHYSICAL_ORDER = ("none", "partial_physical", "full_physical_make")
 # Every one of these must be required (a policy may add more, never drop one).
 REQUIRED_CERTIFICATIONS_FLOOR = frozenset({
     "certification", "parity", "listing_set", "disclosure", "policy", "search", "rollback",
