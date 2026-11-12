@@ -27,7 +27,21 @@ worktrees, not this file.
 - R7 changed test_w4_gatesb: it now expects `already_registered`. Flagged for Main.
 - Next: WS2 R5 (research-to-proposal writer for radar.intake.attach_proposal; CA$0; never
   copies competitor content). Then E4-E7 (spec: #28 comment 6813416727).
-- Stop reason: none yet in the 17:29Z tick.
+- R5 design notes (read before starting):
+  - Source: CoverageGap rows (benchmark_key = watchlist key, arena `watchlist:<pod>`) whose
+    evidence carries `research_task_id`. The task trigger is `watchlist_gap:<gid>`.
+  - Writer: for an ANSWERED task with a usable confidence and fact-grade findings, call
+    `radar.intake.attach_proposal`. Do it only once per task (skip if `concept_proposals`
+    already exists).
+  - Proposal content: built from our own vocabulary only (`creative.concept` closed
+    vocabulary, `intake._WHAT`, `SUPPORTED_FORMS`/`SUPPORTED_CONSTRUCTIONS` = flat_rows).
+    Cite the task's own F/S refs. Never use a competitor title.
+  - Every judgement stays with `intake.run` (originality, anti-copy, children's policy).
+  - Open question: the pod -> category map, and price/hours defaults per category (find the
+    existing per-category bands in radar.opportunity/market).
+- Stop reason (17:29Z tick): R3, R4 and R6+R7 shipped and RR'd. R5 is a new feature with
+  design choices (vocabulary selection, pod->category, price bands), so it starts at the
+  next tick with fresh context rather than at the tail of this one.
 
 ## State at 2026-11-12T16:48Z (superseded)
 - No Main message since 11:46Z. Open RRs, all awaiting Main:
