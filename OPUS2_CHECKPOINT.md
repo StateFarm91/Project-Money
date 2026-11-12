@@ -4,7 +4,35 @@ Updated: 2026-11-12T13:10Z. The engineering loop rewrites this file at the end o
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-12T16:43Z (read first)
+## State at 2026-11-12T16:48Z (read first)
+- No Main message since 11:46Z. Open RRs, all awaiting Main:
+  - A9 56f92eb9
+  - A3 3928ba00
+  - E2 56694ebf
+  - E3 34eb66aa
+  - WS4 increment 2 0b36ef3b
+  - increment 3 407af821
+  - increment 4 ddc59be1
+  - increment 5 86322a9f (6826373626)
+  - increment 6 f06926fa (6827019805)
+  - increment 8 stop watch 879dfb00 (6828197537)
+  - increment 9 check 11 6f25004e (6829661696)
+  - increment 10 hold cards eaff96f0 (6829802237)
+  - increment 11 G-SHADOW reading 680e3440 (6829948112)
+- M6 items 1-10 are built. Items 7 (use-time checks and consumption) and 11-12 (Stage A)
+  need the SEG store and issuer process. That is Mode T, which the design gates on the
+  owner's spend decision. The WS4 stack is paused here.
+- Design choices flagged for Main:
+  - increment 8: before activation the stop watch records would_suspend only;
+  - increment 9: older reviews read UNKNOWN until re-filed;
+  - increment 10: shadow opens no cards.
+- WS4 worktree opus2-ws43 is on ws4-11.
+- Next: R3-R7, then E4-E7, from Main's queue. Read their specs on #28 first.
+- Stop reason: the 16:28Z tick shipped increments 9, 10 and 11, and WS4 work not gated on
+  Mode T is done. The next items start a new workstream and need their specs read fresh,
+  so they start at the next tick.
+
+## State at 2026-11-12T16:43Z (superseded)
 - No Main message since 11:46Z. Open RRs, all awaiting Main:
   - A9 56f92eb9
   - A3 3928ba00
