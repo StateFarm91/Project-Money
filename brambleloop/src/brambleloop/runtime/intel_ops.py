@@ -351,7 +351,15 @@ def handle_concept_intake(ctx: JobContext) -> dict:
 
     raw = (ctx.job.inputs or {}).get("as_of")
     today = _date.fromisoformat(raw) if raw else None
+    # WS2 R5: validated watchlist gaps whose research is answered become proposals first,
+    # so intake has automatic input; intake still judges every one of them.
+    from ..radar import proposal_writer
+
+    wrote = proposal_writer.write(ctx.db, today=today)
     out = intake.run(ctx.db, audit=ctx.audit, enqueue=ctx.enqueue, today=today)
+    out["proposals_written"] = len(wrote["written"])
+    out["work_done"] = out.get("work_done", 0) + len(wrote["written"])
     ctx.audit("radar.concept_intake", detail={k: out[k] for k in (
-        "candidates", "unchanged", "approved", "refused", "work_done", "as_of")})
+        "candidates", "unchanged", "approved", "refused", "work_done", "as_of",
+        "proposals_written")})
     return out
