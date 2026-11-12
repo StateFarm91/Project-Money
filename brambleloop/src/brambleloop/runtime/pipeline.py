@@ -2259,10 +2259,17 @@ def _revalidate_publish_effect(ctx, *, slug, version, release, payload, docs, li
 def real_draft_credential_refusal(db, client) -> str | None:
     """Why a real Etsy draft may not be created with this credential now, or None.
 
-    Only a client whose requests go to Etsy is a real draft (`etsy_probe.against_etsy`). For
-    one, `intel.etsy_public.credential_usable` must be True; an unreadable judgement refuses."""
+    A real draft is one whose requests can reach Etsy: the client's base is Etsy
+    (`etsy_probe.against_etsy`) AND it sends through the production HTTP transport
+    (`integrations.http.UrllibTransport`, what `etsy_ops.build_client` always uses). An
+    in-memory transport or a local fake server is not a real draft. For a real one,
+    `intel.etsy_public.credential_usable` must be True; an unreadable judgement refuses."""
     from ..integrations import etsy_probe
+    from ..integrations.http import UrllibTransport
 
+    if getattr(client, "BASE", None) is None or not isinstance(
+            getattr(client, "transport", None), UrllibTransport):
+        return None
     if not etsy_probe.against_etsy(client):
         return None
     try:

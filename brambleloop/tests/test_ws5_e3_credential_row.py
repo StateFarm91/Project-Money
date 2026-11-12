@@ -230,8 +230,11 @@ def test_api_etsy_carries_the_judgement():
 
 
 class _Client:
-    def __init__(self, base):
+    def __init__(self, base, transport=None):
+        from brambleloop.integrations.http import UrllibTransport
+
         self.BASE = base
+        self.transport = transport if transport is not None else UrllibTransport()
 
 
 def test_a_real_draft_is_refused_unless_the_credential_is_usable():
@@ -247,6 +250,10 @@ def test_a_real_draft_is_refused_unless_the_credential_is_usable():
         why = pipeline.real_draft_credential_refusal(db, real)
         assert why and "not usable" in why and "OAuth-authenticated" in why, why
         assert pipeline.real_draft_credential_refusal(db, fake) is None   # not a real draft
+        # Etsy's base with an in-memory transport cannot reach Etsy: not a real draft.
+        assert pipeline.real_draft_credential_refusal(
+            db, _Client(EtsyClient.BASE, transport=object())) is None
+        assert pipeline.real_draft_credential_refusal(db, object()) is None  # no BASE at all
     _auth_read(db, hours_ago=1)
     with patch.object(EP, "credential_usable",
                       lambda db_, **_k: {"usable": True, "why": ""}):
