@@ -55,10 +55,12 @@ SLUGS_PER_STAGE = 50
 LOOP_STAGES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("market_observation", ("mjs.scan", "mjs.reviews", "radar.scan", "radar.competitor_snapshot",
                             "intel.serp_capture", "intel.watchlist_scan",
-                            "intel.gallery_analysis", "etsy.listing_census", "culture.sweep")),
+                            "intel.gallery_analysis", "etsy.listing_census", "culture.sweep",
+                            # WS2 R1: the daily join, category-leader discovery
+                            "intel.scan_evidence", "intel.panel_discovery")),
     ("opportunity_validation", ("radar.score", "intel.opportunity_review",
                                 "intel.watchlist_compare", "portfolio.review",
-                                "research.investigate")),
+                                "research.investigate", "radar.concept_intake")),
     ("laura_decision", ("laura.executive_tick",)),
     ("delegation", ("laura.executive_tick",)),
     ("execution", ()),
@@ -578,6 +580,109 @@ def etsy_taxonomy(db, *, now: datetime) -> dict:
             "category_choices": choices, "property_candidates": candidates}
 
 
+# WS2 R1: the competitor-scan state of the owner's eight shops, readable with the readback
+# token. Aliases, fixed-vocabulary states, counts and UTC timestamps only -- never a shop name,
+# a benchmark key (which embeds one), a URL or error text.
+_WATCH_STATES = frozenset({"ok", "source_outage", "credential_refused", "not_accessible",
+                           "not_configured"})
+_FAILING_WATCH_STATES = ("source_outage", "credential_refused", "not_accessible")
+
+
+def _shop_next_due(db, key, st: dict, now) -> tuple[str | None, str | None]:
+    """(next adaptive due time, backoff-until time) for one shop, both computed exactly as the
+    scanners decide (`observe.scan_due`, `watchlist.backoff_for`); never stored."""
+    from ..intel import observe, watchlist
+
+    due_at = backoff_until = None
+    try:
+        due = observe.scan_due(db, benchmark_key=key, now=now)
+        last = (due.get("cadence") or {}).get("last_scan_at")
+        interval = (due.get("cadence") or {}).get("interval_seconds")
+        if last and isinstance(interval, (int, float)):
+            due_at = _iso(_aware(last) + timedelta(seconds=interval * observe.DUE_TOLERANCE))
+    except Exception:  # noqa: BLE001 - an unreadable due time is reported as unknown
+        due_at = None
+    fails = _int(st.get("consecutive_failures")) or 0
+    last_attempt = _aware(st.get("last_attempt_at"))
+    if fails and last_attempt is not None and st.get("state") in _FAILING_WATCH_STATES:
+        backoff_until = _iso(last_attempt + watchlist.backoff_for(fails))
+    return due_at, backoff_until
+
+
+def competitor_scans(db, *, now: datetime) -> dict:
+    """Per-shop scan state, in the owner's order (`intel.scan_evidence.OWNER_SHOPS`), from the
+    same read-only join `intel.scan_evidence` makes daily -- plus the facts it computes but did
+    not project: next due, backoff, Etsy's active-listing count, live (non-withdrawn) listing
+    coverage and the downstream research counts per shop. No network."""
+    from sqlalchemy import func, select
+
+    from ..core.models import BenchmarkListing, CoverageGap, MjsMissionEvent
+    from ..intel import scan_evidence as SE
+    from ..intel import watchlist
+    from ..runtime.intel_ops import benchmark_alias
+
+    rep = SE.report(db, now=now)
+    stored = SE.latest(db) or {}
+    credential = str(rep.get("credential") or "UNKNOWN").split(":")[0].strip()
+    rows = []
+    with db.session() as s:
+        for i, r in enumerate(rep.get("shops") or [], start=1):
+            key = r.get("key")
+            st = watchlist._state(db, key) if key in watchlist.BY_KEY else {}
+            due_at, backoff_until = _shop_next_due(db, key, st, now) if key else (None, None)
+            reason = str(r.get("failure_reason") or "")
+            if r.get("state") == SE.SCANNED:
+                failure_class = None
+            elif st.get("state") in _WATCH_STATES:
+                failure_class = st["state"]
+            elif credential == "refused" or "refused the read credential" in reason:
+                failure_class = "credential_refused"
+            elif r.get("state") == SE.NOT_ACCESSIBLE:
+                failure_class = "not_accessible"
+            elif r.get("state") == SE.NEVER:
+                failure_class = None
+            else:
+                failure_class = error_class(reason)
+            live = mission_events = gaps = None
+            if key:
+                live = s.scalar(select(func.count()).select_from(BenchmarkListing).where(
+                    BenchmarkListing.benchmark_key == key,
+                    BenchmarkListing.audit_state != "withdrawn"))
+                mission_events = s.scalar(select(func.count()).select_from(MjsMissionEvent)
+                                          .where(MjsMissionEvent.benchmark_key == key))
+                gaps = s.scalar(select(func.count()).select_from(CoverageGap)
+                                .where(CoverageGap.benchmark_key == key))
+            schedule = r.get("schedule") or {}
+            rows.append({
+                "owner_order": i,
+                "alias": benchmark_alias(key) if key else None,
+                "role": _name(r.get("owner_role")),
+                "state": _name(r.get("state")),
+                "method": "etsy_open_api_v3",
+                "cadence_job_type": _name(schedule.get("job_type")),
+                "cadence_every_hours": schedule.get("every_hours")
+                if isinstance(schedule.get("every_hours"), (int, float)) else None,
+                "last_attempted": _iso(r.get("last_attempted")),
+                "last_successful": _iso(r.get("last_successful")),
+                "success_age_hours": _age_h(r.get("last_successful"), now),
+                "next_due": due_at,
+                "backoff_until": backoff_until,
+                "consecutive_failures": _int(r.get("consecutive_failures")),
+                "failure_class": failure_class,
+                "listings_live": _int(live),
+                "listings_seen_last_scan": _int(r.get("listings_seen_last_scan")),
+                "etsy_active_listing_count": _int((st.get("shop") or {}).get(
+                    "listing_active_count")),
+                "downstream": {"mission_events": _int(mission_events),
+                               "coverage_gaps": _int(gaps)},
+            })
+    return {"readable": True, "as_of": now.isoformat(), "credential": credential,
+            "reading_day": (str(stored.get("as_of") or "")[:10] or None),
+            "counts": {str(k)[:40]: v for k, v in (rep.get("counts") or {}).items()
+                       if _int(v) is not None},
+            "shops": rows}
+
+
 # ---- the anonymous-safe checks ----------------------------------------------------------
 
 SECTIONS = {
@@ -589,6 +694,7 @@ SECTIONS = {
     "certification_pipeline": certification,
     "autonomy_loop": autonomy_loop,
     "etsy_taxonomy": etsy_taxonomy,
+    "competitor_scans": competitor_scans,
 }
 CHECK_NAMES = ("publishing_halt_clear", "stale_artefacts_rebuilding",
                "no_repeated_paid_call_in_24h", "weekly_jobs_completing")
