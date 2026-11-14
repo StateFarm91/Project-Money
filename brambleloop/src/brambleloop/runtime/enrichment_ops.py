@@ -36,12 +36,19 @@ def _transaction_lease(ctx, session, job_type, inputs):
 
 @handlers.register("research.enrichment_sweep")
 def handle_enrichment_sweep(ctx: JobContext) -> dict:
+    from ..creative import enrichment_producer as producer
     from ..creative import enrichment_requests as er
 
-    return er.sweep(ctx.db, audit=ctx.audit,
-                    audit_transaction=lambda *a, **kw: _transaction_audit(ctx, *a, **kw),
-                    validate_transaction=lambda s: _transaction_lease(
-                        ctx, s, "research.enrichment_sweep", ctx.job.inputs or {}))
+    out = er.sweep(ctx.db, audit=ctx.audit,
+                   audit_transaction=lambda *a, **kw: _transaction_audit(ctx, *a, **kw),
+                   validate_transaction=lambda s: _transaction_lease(
+                       ctx, s, "research.enrichment_sweep", ctx.job.inputs or {}))
+    # A4B-2: the production answer side. It queues an answer only when the authoritative
+    # seed now passes the construction that refused it; the answer job does the rest.
+    produced = producer.produce(ctx.db, enqueue=ctx.enqueue)
+    out["answers"] = produced
+    out["work_done"] = int(out.get("work_done", 0)) + len(produced["answers_queued"])
+    return out
 
 
 @handlers.register("research.enrichment_answer")
