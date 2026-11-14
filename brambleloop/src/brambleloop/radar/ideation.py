@@ -370,9 +370,11 @@ def observe(db, pod: str, *, today: date) -> dict:
         rows = [(r.benchmark_key, r.listing_ref, r.title or "", r.pod or "",
                  float(r.price_cad or 0.0), _aware(r.last_seen) or _aware(r.first_seen))
                 for r in s.scalars(select(BenchmarkListing))]
+    # A4a LOW: a listing dated after today is not an observation; it is never counted.
+    until = since + timedelta(days=OBSERVATION_WINDOW_DAYS + 1)
     listings = [r for r in rows
                 if (r[3] == pod or (not r[3] and pods.route(r[2]) == pod))
-                and r[5] is not None and r[5] >= since]
+                and r[5] is not None and since <= r[5] < until]
     objects = POD_OBJECTS.get(pod, ())
     counts = []
     for obj in objects:
@@ -398,6 +400,14 @@ def observe(db, pod: str, *, today: date) -> dict:
         reasons.append("no observed listing carries a price")
     if objects and listings and obj is None:
         reasons.append("no observed title names an object a flat rows panel is")
+    # A4a LOW: the floor holds for the object chosen, not only for the whole pod.
+    obj_shops = {r[0] for r in mine}
+    if obj is not None and len(mine) < MIN_LISTINGS:
+        reasons.append(f"{len(mine)} observed {obj.noun.lower()} listing(s), below "
+                       f"{MIN_LISTINGS}")
+    if obj is not None and len(obj_shops) < MIN_SHOPS:
+        reasons.append(f"{len(obj_shops)} observed shop(s) sell a {obj.noun.lower()}, below "
+                       f"{MIN_SHOPS}")
     confidence = ("high" if len(listings) >= HIGH_LISTINGS and len(shops) >= HIGH_SHOPS
                   else "medium")
     return {"ok": not reasons, "reasons": reasons, "pod": pod, "listings": len(listings),
@@ -419,18 +429,53 @@ def observed_titles(db) -> list[tuple[str, str]]:
             select(BenchmarkListing.listing_ref, BenchmarkListing.title)).all()]
 
 
+ORIGINALITY_OVERLAP = 0.5
+
+
+def _stem(word: str) -> str:
+    """A plain-English plural folded to its singular: dishcloths, boxes, doilies."""
+    if len(word) > 4 and word.endswith("ies"):
+        return word[:-3] + "y"
+    if len(word) > 4 and word.endswith(("ches", "shes", "xes", "sses")):
+        return word[:-2]
+    if len(word) > 3 and word.endswith("s") and not word.endswith("ss"):
+        return word[:-1]
+    return word
+
+
+def title_words(text: str) -> list[str]:
+    """A title as originality reads it (A4a LOW): the shared title fold (NFKC, so fullwidth
+    letters; every Unicode dash), hyphens as word breaks, then each word stemmed."""
+    from ..creative.concept import GENERIC_TOKENS
+    from ..creative.fallback_constructions import fold_title
+
+    folded = fold_title(text).replace("-", " ")
+    return [w if w in GENERIC_TOKENS else _stem(w) for w in re.findall(r"[a-z0-9']+", folded)]
+
+
+def _specific(words: list[str]) -> set[str]:
+    from ..creative.concept import GENERIC_TOKENS
+
+    return {w for w in words if w not in GENERIC_TOKENS and len(w) > 2}
+
+
 def originality_reasons(title: str, descriptor: str, titles) -> list[str]:
     """Why a title is a competitor's, or [] when it is ours. Equal, overlapping (half or
-    more of its specific words), or carrying our descriptor phrase are all refusals."""
-    from .intake import _jaccard, _norm, _specific_tokens
-
-    t_norm, t_tok, d_norm = _norm(title), _specific_tokens(title), _norm(descriptor)
+    more of its specific words), or carrying our descriptor phrase are all refusals. Both
+    sides are folded and stemmed first, so a plural, a hyphenation or fullwidth letters are
+    the same title."""
+    t_words = title_words(title)
+    t_norm, t_tok = " ".join(t_words), _specific(t_words)
+    d_norm = " ".join(title_words(descriptor))
     out = []
     for ref, other in titles:
-        o_norm = _norm(other)
-        if o_norm == t_norm:
+        o_words = title_words(other)
+        o_norm = " ".join(o_words)
+        overlap = (len(t_tok & _specific(o_words)) / len(t_tok | _specific(o_words))
+                   if t_tok and _specific(o_words) else 0.0)
+        if o_norm == t_norm or o_norm.replace(" ", "") == t_norm.replace(" ", ""):
             out.append(f"title {title!r} equals observed listing {ref}'s title")
-        elif t_tok and _jaccard(t_tok, _specific_tokens(other)) >= 0.5:
+        elif overlap >= ORIGINALITY_OVERLAP:
             out.append(f"title {title!r} overlaps observed listing {ref}'s title")
         elif d_norm and f" {d_norm} " in f" {o_norm} ":
             out.append(f"descriptor {descriptor!r} appears in observed listing {ref}'s title")
