@@ -1,10 +1,34 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-12T13:10Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-14T02:05Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-12T23:41Z (read first)
+## State at 2026-11-14T02:05Z (read first)
+- No Main message since 2026-11-12T11:46Z. 25 hourly firings were queued while the worker
+  restarted; they were consumed as one loop run.
+- New: A4B-2 producer `opus2/a4b-2-producer` 93955611, RR 6869739394.
+  - It is stacked on codex/a4b-answer-fence e5cbb86c, where Codex carries A4B-3..6. I did
+    not modify Codex's branches.
+  - The hourly enrichment sweep now answers an open radar request with the authoritative
+    seed only once the construction recheck passes. No round is spent while it still
+    refuses.
+  - Scope: re-draft when capability catches up. It does not do substantive enrichment;
+    that needs the authority contract.
+  - test_cert_wiring: 16/16 in 1079 s.
+- E6 is HELD on QUESTION 6837687907.
+- Open RRs:
+  - A9, A3, E2, E3, E7, E4, E5, A4a-fixes, A4B-2
+  - WS4 increments 2-6 and 8-11
+  - WS2 R3-R7
+- Next:
+  - The A4a LOWs, on opus2/a4a-fixes: title-variant folding, the future-dated listing
+    filter, the per-object floor, pinning the surviving mutants.
+- The worktree opus2-ws43 is on a4b-2-producer. That base has no _minipytest; Codex's
+  suite runs under pytest (it uses monkeypatch).
+- Stop reason (01:28Z tick): A4B-2 shipped. The A4a LOWs start at the next tick.
+
+## State at 2026-11-12T23:41Z (superseded)
 - No Main message since 11:46Z.
 - E6 HELD on QUESTION 6837687907 (recommendation: B).
 - New: A4a fixes `opus2/a4a-fixes` bd6cb6fc (A4A-1/2/3).
