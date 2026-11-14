@@ -1,10 +1,24 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-14T03:05Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-14T03:35Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-14T03:05Z (read first)
+## State at 2026-11-14T03:35Z (read first)
+- 03:28Z tick:
+  - No Main message since 2026-11-12T11:46Z.
+  - No review-branch activity since 2026-11-12T13:56Z.
+- The older items are re-checked against COORDINATION and dispatch:
+  - V0-V6, A1-R, A6, P0-PORTFOLIO-ACT and P0-STOREFRONT-ASSET-FIX are all
+    review-requested or handoff_pending, and they wait on Main.
+  - No assigned opus2 item is unblocked.
+- Stop reason (03:28Z): no safe assigned work remains. Everything open waits on:
+  - a Main verdict or decision: the E6 QUESTION 6837687907 and about 20 RRs;
+  - the owner: the WS4 Mode-T spend.
+- Next tick: re-read #28 and the review branches. Act on any verdict at once. Post nothing
+  new on #28 while idle, so the channel isn't flooded.
+
+## State at 2026-11-14T03:05Z (superseded)
 - No Main message since 2026-11-12T11:46Z.
 - New: A4a LOWs, `opus2/a4a-fixes` 6dc0cecb (RR 6870280951).
   - Every A4a verdict item is now addressed. A8's re-review waits on Main.
