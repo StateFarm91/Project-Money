@@ -92,3 +92,4 @@
 {"at": "2026-11-07T15:56:20Z", "worker": "opus2", "assignment": "V3", "event": "review_requested", "sha": "256378d6", "note": "on w6-INTEG1 59681a47"}
 {"at": "2026-11-07T18:56:40Z", "worker": "opus2", "assignment": "P0-PHYSICAL-TEST-REQUEST", "event": "review_requested", "sha": "1a818679", "note": "fixes 6710585417; tester_roster work item, no owner card"}
 {"at": "2026-11-12T09:23:25Z", "worker": "opus2", "assignment": "A9", "event": "review_requested", "sha": "56f92eb9"}
+{"at": "2026-11-14T02:05:00Z", "worker": "opus2", "assignment": "A4B", "event": "review_requested", "sha": "93955611", "note": "A4B-2 producer on opus2/a4b-2-producer, stacked on codex/a4b-answer-fence; RR 6869739394"}
