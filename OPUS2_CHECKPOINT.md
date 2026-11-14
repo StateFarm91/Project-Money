@@ -1,10 +1,30 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-14T02:05Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-14T03:05Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-14T02:05Z (read first)
+## State at 2026-11-14T03:05Z (read first)
+- No Main message since 2026-11-12T11:46Z.
+- New: A4a LOWs, `opus2/a4a-fixes` 6dc0cecb (RR 6870280951).
+  - Every A4a verdict item is now addressed. A8's re-review waits on Main.
+- A4B-2 producer: 93955611 (RR 6869739394).
+- E6 is HELD on QUESTION 6837687907.
+- WS4 Mode T is held on the owner's spend decision.
+- Open RRs:
+  - A9, A3, E2, E3, E7, E4, E5, A4a-fixes and LOWs, A4B-2
+  - WS4 increments 2-6 and 8-11
+  - WS2 R3-R7
+- Assigned work that needs no decision is exhausted. Everything left waits on a Main
+  verdict or decision, or on the owner.
+- Next tick, if Main is still silent: re-check the older pending items (V0 paid-provider
+  gate tests, A1R review fixes, V1 re-run, A6 Codex contract) against #28 and COORDINATION
+  to see whether any is still assigned and unblocked.
+- The worktree opus2-ws43 is on a4a-fixes.
+- Stop reason (02:28Z tick): A4a LOWs shipped. No unblocked assigned item remains that
+  doesn't need Main's verdict or decision.
+
+## State at 2026-11-14T02:05Z (superseded)
 - No Main message since 2026-11-12T11:46Z. 25 hourly firings were queued while the worker
   restarted; they were consumed as one loop run.
 - New: A4B-2 producer `opus2/a4b-2-producer` 93955611, RR 6869739394.
