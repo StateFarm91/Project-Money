@@ -4,7 +4,20 @@ Updated: 2026-11-17T09:30Z. The engineering loop rewrites this file at the end o
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-17T16:37Z (read first) -- Main 6953884261 "P0 AUTONOMOUS REVENUE RECOVERY"
+## State at 2026-11-17T16:59Z (read first)
+- S2 REVIEW-REQUESTED: opus2/s2-openai-provider a54f16c3 on w6-INTEG1 9e91b75b (built by git
+  plumbing from scratchpad/s2; 6 files). RR 6954936951. Freeze it; fixes on a -fix head.
+- S1: opus2/s1-product-truth 42ac2ad7 (S1a d0a409a0 + S1b audit fixes) CHECKPOINT 6954936951.
+  test_product_run on 42ac2ad7 running (scratchpad s1_product_run2.log, background); when it
+  ends: post S1 REVIEW-REQUEST with the result (buying-window failure is the known as_of one),
+  record review_requested event.
+- NEXT: S3 (WS4-7/SEG; trusted issuer service boundary with private key only in a separate
+  minimal service + exact Railway memory-priced cost estimate; then bounded public-activation
+  authority as a separate increment, off until owner approves). Then S4 command board.
+- Disk ~440 MB free after cleanup; scratchpad/s2 copy (61 MB) can be deleted once S2 is merged
+  or reviewed.
+
+## State at 2026-11-17T16:37Z (superseded) -- Main 6953884261 "P0 AUTONOMOUS REVENUE RECOVERY"
 - Main is back. Queue: S1 Product Truth -> S2 OpenAI provider in the existing gateway -> S3 WS4
   missing pieces (WS4-7/SEG, issuer service boundary + Railway cost estimate, public-activation
   authority) -> S4 P0 command board. Review findings jump the queue. Base: claude/w6-INTEG1
