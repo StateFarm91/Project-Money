@@ -17,7 +17,8 @@ worktrees, not this file.
   wiring; SIZE AUDIT applies to S1: 70cm blanket floor refuses Launch-0 nordic-forest-mosaic-throw-baby
   57.6x67.8 -> per size-family bands; lovey/pet/tapestry/lumbar/default panel; Launch-0 certify-all test.
 - A3 fix RR POSTED e5575380 on opus2/a3-photo-asset-review-fix (6958245222; L2 proposal asks go).
-- ORDER: research fix 2 (same
+- Research fix 2 RR POSTED 26548a38 (same -fix branch).
+- ORDER: (done) research fix 2 (same
   -fix branch on f95bd617) -> WS4 M-1 -> A4 stack -> S1 fix (opus2/s1-product-truth-fix) -> S2 fix
   (opus2/s2-openai-provider-fix) -> S3 -> S4. E1 34dbf572 awaiting verdict.
 
