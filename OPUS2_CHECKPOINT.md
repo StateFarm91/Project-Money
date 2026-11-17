@@ -4,7 +4,20 @@ Updated: 2026-11-17T09:30Z. The engineering loop rewrites this file at the end o
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-17T19:38Z (read first)
+## State at 2026-11-17T20:02Z (read first)
+- A4 stack RR POSTED (6959382566): opus2/a4a-fixes-fix ac0ca847 (a4a-fixes merged onto INTEG1
+  19e6a8ff, map regen 92 edges) and opus2/a4b-2-producer-fix eb47549e (a4b-2 merged onto
+  ac0ca847; pytest-free runners + disposable PG clusters; enrichment_answer banded + literal
+  wake; map 172 handlers / 94 edges).
+- WS4 M-1 RR db785f92 (6958805633). Awaiting verdicts: E1 34dbf572, A3 e5575380 (+L2 go?),
+  research 26548a38, WS4 db785f92, A4 ac0ca847/eb47549e.
+- NEXT: S1 fix on opus2/s1-product-truth-fix (from 42ac2ad7): per size-family bands from cited
+  standards (baby/lovey/stroller vs throw; ring/lumbar/cushion), certify
+  nordic-forest-mosaic-throw-baby 57.6x67.8, lovey/pet/tapestry/lumbar/default-panel cases,
+  Launch-0 certify-all non-regression test. Then S2 fix -> S3 -> S4; ws5 LOWs N1-N3.
+- Stop reason this tick: two work units complete (WS4 RR, A4 RR); S1 fix starts next tick.
+
+## State at 2026-11-17T19:38Z (superseded)
 - WS4 M-1 fix RR POSTED db785f92 on opus2/ws4-11-g-shadow-reading-fix (6958805633): actor
   filter, approved_at/now/skew/order trust rules, certified candidates, zero would-issue FAIL,
   activation needs fresh MET, dedupe once per run on decided_at. 18/18; 11/11 mutants killed.
