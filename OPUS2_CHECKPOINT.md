@@ -10,7 +10,16 @@ worktrees, not this file.
   opus2/ws5-e6-draft-resolver-fix (6956914209); research M1+M2 f95bd617 on
   opus2/ws2-r5-research-proposal-writer-fix (6957104009).
   WS6-E1 fix 34dbf572 on opus2/ws6-e1-receipt-lessons-fix (6957212029).
-- NEXT in Main's order: A3 fix (3928ba00 -> opus2/a3-photo-asset-review-fix:
+- A3 fix IN PROGRESS in scratchpad/a3 (git archive 3928ba00 + scripts + ops): N1 tests/_pg_disposable.py
+  (parametrised disposable PG cluster; fence test wraps main(); 3 OK on real PG16); L1 release.py takes
+  the photo lock first and reads photo positions under it (test in test_w6_fix_only_rebuild with a
+  concurrent upgrade *job* + lineage; original code killed); L3 audit adds builder_positions + slots
+  (unreachable after L1; my reading of L3). 14-suite regression green except physfix kit-doc tests
+  (copy lacks repo docs). Full fix_only suite rerunning (brxd0ogew). Then plumbing commit on 3928ba00
+  -> opus2/a3-photo-asset-review-fix -> RR with L2 PROPOSAL: frame_review_state binds by class --
+  reviewed render sha set (position-free) == stored non-photo sha set, and every stored photo frame
+  approved by photo_asset_review; Main/owner to decide. suite_final_segment conflict = Main's merge.
+- then: A3 fix (3928ba00 -> opus2/a3-photo-asset-review-fix:
   _disposable_cluster PG fence, L1 lock, L3, L2 proposal, suite_final_segment conflict), then WS4
   M-1 (680e3440 -> opus2/ws4-11-g-shadow-reading-fix), then S3 (web/worker split + trusted
   issuer + Railway cost), S4.
