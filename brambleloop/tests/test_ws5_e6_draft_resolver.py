@@ -190,6 +190,23 @@ def test_an_unread_shop_changes_nothing():
     assert _incident(db).resolved is False
 
 
+def test_a_read_at_the_paging_limit_is_treated_as_incomplete():
+    db = _db()
+    key = _stuck(db)
+
+    class Full:
+        credentials = object()
+
+        def get_shop_listings(self, **kw):
+            assert (kw["limit"], kw["max_pages"]) == (R.PAGE, R.MAX_PAGES)
+            return [_draft(str(10000 + i), title="Other") for i in range(R.PAGE * R.MAX_PAGES)]
+
+    out = R.run(db, audit=_audit(db), client=Full(), now=NOW)
+    assert out["read"] is False and "incomplete" in out["why"], out
+    with db.session() as s:
+        assert not (s.get(DI.DraftIntent, key).detail or {}).get("empty_reads")
+
+
 def test_a_fresh_create_in_flight_is_untouched_and_a_stale_one_is_resolved():
     db = _db()
     _stuck(db, state="CREATING", at=NOW - timedelta(minutes=5))

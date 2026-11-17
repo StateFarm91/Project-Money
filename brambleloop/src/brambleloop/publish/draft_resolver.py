@@ -41,6 +41,8 @@ CREATE_SKEW = timedelta(minutes=10)
 STALE_CREATING = timedelta(hours=2)
 EMPTY_READS = 2
 EMPTY_SPAN = timedelta(minutes=30)
+PAGE = 100
+MAX_PAGES = 50
 
 ADOPTED = "draft_intent.adopted_by_match"
 ESCALATED = "draft_intent.escalated"
@@ -248,7 +250,13 @@ def run(db, *, audit, client=None, now: datetime | None = None) -> dict:
         if client is None or getattr(client, "credentials", None) is None:
             return {"read": False, "why": "no Etsy read credential; nothing was read",
                     "intents": []}
-        drafts = client.get_shop_listings(state="draft")
+        drafts = list(client.get_shop_listings(state="draft", limit=PAGE,
+                                               max_pages=MAX_PAGES) or [])
     except Exception as e:  # noqa: BLE001 - an unread shop is UNKNOWN, never "empty"
         return {"read": False, "why": f"{type(e).__name__}: {e}"[:300], "intents": []}
-    return resolve(db, list(drafts or []), audit=audit, now=now)
+    if len(drafts) >= PAGE * MAX_PAGES:
+        # The reader stops at MAX_PAGES without saying so: a full last page may hide more.
+        return {"read": False, "intents": [],
+                "why": f"{len(drafts)} drafts read, the paging limit; the read may be "
+                       f"incomplete, so nothing was decided"}
+    return resolve(db, drafts, audit=audit, now=now)
