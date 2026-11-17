@@ -535,6 +535,88 @@ def test_a_rebuild_after_plan_upgrade_places_renders_after_the_photo_and_drops_t
             ListingAsset.position == n + 3)))
 
 
+def test_photo_positions_are_read_under_the_lock_a_concurrent_shift_is_seen():
+    """Review 6955484423 L1: a photograph committed by a concurrent `plan_upgrade` just before
+    the build acquires the photo lock is seen by the build -- its renders go after the photo,
+    never into the photo's slot. Read before the lock (as it was), the build missed the photo
+    and its hero render was "not placed"."""
+    st = chain()
+    db, slug, version = st["db"], st["slug"], st["version"]
+    _set_listing(db, slug, version, state="draft", etsy_listing_id="")
+    from brambleloop.core.models import ListingAsset
+    from brambleloop.publish import photo_asset_review as par
+
+    original = par._lock
+    fired = []
+
+    def concurrent_shift_then_lock(session, db_):
+        if not fired:                          # a plan_upgrade commits first, then we lock
+            fired.append(True)
+            from datetime import datetime, timezone
+
+            with db.session() as other:           # the concurrent upgrade is its own job
+                upgrade = Job(agent="publishing", job_type="physical.plan_upgrade",
+                              inputs={"slug": slug}, status=JobStatus.DONE,
+                              idempotency_key="fixture-concurrent-upgrade",
+                              finished_at=datetime.now(timezone.utc))
+                other.add(upgrade)
+                other.flush()
+                upgrade_id = upgrade.id
+            with db.session() as other:
+                rows = sorted(other.scalars(select(ListingAsset).where(
+                    ListingAsset.product_slug == slug, ListingAsset.version == version)),
+                    key=lambda r: -r.position)
+                for r in rows:                   # shift every render up by one
+                    r.position += 1
+                    other.flush()
+                photo = ListingAsset(product_slug=slug, version=version, position=1,
+                                     asset_class="PHYSICAL_PRODUCT_PHOTO", role="hero",
+                                     sha256="d" * 64, approved=True, claims={},
+                                     blocked_reasons=[])
+                other.add(photo)
+                other.flush()
+                # As `plan_upgrade` does, in the same transaction: the photo's lineage.
+                from brambleloop.ops import artefacts as P
+
+                P.record_lineage(
+                    other, artefact_class="visual_truth",
+                    artefact_key=P.visual_key(slug, version, photo.id), product_slug=slug,
+                    inputs={"asset:physical_photo_fixture": "d" * 64},
+                    lineage=P.Lineage(created_by="publishing", job_id=upgrade_id,
+                                      validation_status="blocked").for_file("d" * 64))
+        return original(session, db_)
+
+    kept_before = len(_audits(db, "listing.frame_photo_kept"))
+    par._lock = concurrent_shift_then_lock
+    try:
+        JobQueue(db).enqueue("publishing", "assets.build",
+                             {**st["inputs"], "rebuild": "fr-l1-1"}, priority=0,
+                             idempotency_key="fo-fr-l1-1")
+        _drain(db, name="fo-fr-l1")
+    finally:
+        par._lock = original
+    assert fired, "the build never took the photo lock"
+    assert len(_audits(db, "listing.frame_photo_kept")) == kept_before, \
+        _audits(db, "listing.frame_photo_kept")
+    gallery = {pos: (cls, sha) for pos, cls, sha, _ok in _gallery(db, slug, version)}
+    assert gallery[1] == ("PHYSICAL_PRODUCT_PHOTO", "d" * 64), gallery
+    with db.session() as s:
+        build = s.scalars(select(Job).where(Job.job_type == "assets.build")
+                          .order_by(Job.id.desc())).first()
+    frames = (build.outputs or {}).get("frames") or []
+    assert frames and 1 not in [f["position"] for f in frames], frames
+    with db.session() as s:   # leave the shared chain gallery as the other tests expect it
+        s.delete(s.scalar(select(ListingAsset).where(
+            ListingAsset.product_slug == slug, ListingAsset.version == version,
+            ListingAsset.position == 1)))
+        s.flush()
+        for r in sorted(s.scalars(select(ListingAsset).where(
+                ListingAsset.product_slug == slug, ListingAsset.version == version)),
+                key=lambda r: r.position):
+            r.position -= 1
+            s.flush()
+
+
 def test_a_blocked_rebuild_leaves_a_kept_photos_approval_alone():
     """Review 494066fa LOW-4."""
     st = chain()

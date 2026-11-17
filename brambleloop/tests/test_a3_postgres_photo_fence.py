@@ -1,6 +1,10 @@
 """Real PostgreSQL photo-source row-lock regression (disposable local DB only).
 
-Set A3_TEST_POSTGRES_URL to a fresh localhost database named codex_photo_test.
+A3_TEST_POSTGRES_URL, when set, must be a fresh localhost database named codex_photo_test.
+When it is not set and a local PostgreSQL toolchain is installed, a throwaway cluster is made
+for this run and destroyed afterwards (`_pg_disposable`, review 6955484423 N1), so the suite
+runs and passes in certification instead of reporting SKIP. Only with no toolchain at all does
+it SKIP.
 """
 from __future__ import annotations
 
@@ -228,4 +232,7 @@ def a_nested_fenced_write_errors_instead_of_hanging(db, plan):
 
 
 if __name__ == "__main__":
-    main()
+    from _pg_disposable import disposable_cluster
+
+    with disposable_cluster("A3_TEST_POSTGRES_URL", "codex_photo_test", prefix="a3-pg-"):
+        main()

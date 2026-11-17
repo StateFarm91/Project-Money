@@ -2845,26 +2845,31 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
     # readiness, first customer, image review, search evidence) must not see it as current.
     # The chain re-certifies after this build. A gallery with no photo is unchanged.
     with ctx.db.session() as s:
+        # Review 6955484423 L1: the photo positions are read UNDER the photo write lock, in the
+        # same transaction as the writes. Read before the lock (as it was), a concurrent
+        # `plan_upgrade` / `lead_with_if_qualifying` -- both take this lock -- could shift the
+        # gallery between the read and the write, and the build would place its hero render
+        # into the slot the photograph had just taken. The lock is taken for every build: a
+        # photo can arrive between any unlocked read and the write.
+        from ..publish.photo_asset_review import _lock as _photo_lock
+
+        _photo_lock(s, ctx.db)
         photo_positions = set(s.scalars(select(ListingAsset.position).where(
             ListingAsset.product_slug == slug, ListingAsset.version == version,
             ListingAsset.asset_class == "PHYSICAL_PRODUCT_PHOTO")))
-    photo_led = bool(photo_positions)
-    # Review 6817652112 N2: `plan_upgrade` puts the photograph first and shifts the renders
-    # after it, so a rebuild must place its renders in the slots AFTER the photo frames, not at
-    # the builder's 1..N (which reported the hero as "not placed" and left the old tail row
-    # approved). Each render goes to the next slot no photograph holds, in builder order.
-    target: dict[int, int] = {}
-    free = (p for p in range(1, 10_000) if p not in photo_positions)
-    for frame in sorted(frames, key=lambda f: f.position):
-        target[frame.position] = (frame.position
-                                  if not photo_led
-                                  or frame.asset_class.value == "PHYSICAL_PRODUCT_PHOTO"
-                                  else next(free))
-    with ctx.db.session() as s:
-        if photo_led:
-            from ..publish.photo_asset_review import _lock as _photo_lock
-
-            _photo_lock(s, ctx.db)
+        photo_led = bool(photo_positions)
+        # Review 6817652112 N2: `plan_upgrade` puts the photograph first and shifts the
+        # renders after it, so a rebuild must place its renders in the slots AFTER the photo
+        # frames, not at the builder's 1..N (which reported the hero as "not placed" and left
+        # the old tail row approved). Each render goes to the next slot no photograph holds,
+        # in builder order.
+        target: dict[int, int] = {}
+        free = (p for p in range(1, 10_000) if p not in photo_positions)
+        for frame in sorted(frames, key=lambda f: f.position):
+            target[frame.position] = (frame.position
+                                      if not photo_led
+                                      or frame.asset_class.value == "PHYSICAL_PRODUCT_PHOTO"
+                                      else next(free))
         rewritten = False
         for frame, meta in zip(frames, stored):
             row = s.scalar(select(ListingAsset).where(
@@ -2941,9 +2946,13 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
         ctx.audit("listing.frames_beyond_rebuild_dropped", artifact=f"{slug}@{version}",
                   detail={"dropped": dropped[:50]})
     if kept:
+        # Review 6955484423 L3: `kept` holds builder positions; after a shift the stored rows
+        # sit in other slots. The audit names both, so a reader matching rows by position
+        # finds the slot the photograph actually holds, never the pre-shift number.
         ctx.audit("listing.frame_photo_kept", artifact=f"{slug}@{version}", detail={
-            "positions": sorted(kept), "not_placed": [c for c in candidate
-                                                      if c["position"] in kept]})
+            "positions": sorted(kept), "builder_positions": sorted(kept),
+            "slots": sorted(target[p] for p in kept),
+            "not_placed": [c for c in candidate if c["position"] in kept]})
     return {"kept": sorted(kept), "live_candidate": False,
             "positions": {p: target[p] for p in target if p not in kept}}
 
