@@ -115,3 +115,4 @@
 {"at": "2026-11-17T19:37:31Z", "worker": "opus2", "assignment": "WS4", "event": "review_requested", "sha": "db785f92", "note": "G-SHADOW M-1 fix for 6955504377 on opus2/ws4-11-g-shadow-reading-fix (comment 6958805633)"}
 {"at": "2026-11-17T20:01:35Z", "worker": "opus2", "assignment": "A4", "event": "review_requested", "sha": "eb47549e", "note": "A4 stack fixes for 6957186985: a4a-fixes-fix ac0ca847 + a4b-2-producer-fix eb47549e (comment 6959382566)"}
 {"at": "2026-11-17T22:24:38Z", "worker": "opus2", "assignment": "S1", "event": "review_requested", "sha": "e490fc6f", "note": "S1 fix for 6958883678 on opus2/s1-product-truth-fix (comment 6962763903)"}
+{"at": "2026-11-17T22:44:33Z", "worker": "opus2", "assignment": "S2", "event": "checkpoint", "sha": "9d4abc1b", "note": "S2 fix for 6957356475 on opus2/s2-openai-provider-fix (comment 6963175262); RR after neighbour regression"}

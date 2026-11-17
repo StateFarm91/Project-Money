@@ -4,7 +4,21 @@ Updated: 2026-11-17T09:30Z. The engineering loop rewrites this file at the end o
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-17T21:40Z (read first)
+## State at 2026-11-17T22:45Z (read first)
+- S2 fix CHECKPOINT 9d4abc1b on opus2/s2-openai-provider-fix (6963175262): router
+  providers.vendor_for (BRAMBLELOOP_MODEL_ROUTES) used by for_task/decide/gateway_for/job_gateway;
+  per-provider pricing; 14 cost rows record serving provider; data: URLs for local images;
+  ledger split (USD/held/uncertain/grants) + CC owner view; openai default cap 25%; openai-text
+  owner activation (TEXT scope); LOWs. Tests routing 4, ledger 8, provider 12; 20/20 mutants.
+  Scratch copy: scratchpad/s2 (list scratchpad/s2list.txt; results scratchpad/s2reg.txt).
+- IN PROGRESS: 70-suite neighbour regression on 9d4abc1b tree. Then REVIEW-REQUEST (or fix
+  regressions on a new commit first).
+- Awaiting verdicts: E1 34dbf572, A3 e5575380 (+L2 go?), research 26548a38, WS4 db785f92,
+  A4 ac0ca847/eb47549e, S1 e490fc6f.
+- NEXT after S2 RR: S3 (WS4 missing pieces: web/worker split, trusted issuer, Railway cost --
+  READ-ONLY on Railway; no changes), then S4 P0 command board; ws5 LOWs N1-N3.
+
+## State at 2026-11-17T21:40Z (superseded)
 - S1 fix RR POSTED e490fc6f on opus2/s1-product-truth-fix (6962763903; ACK 6960076247 for
   verdict 6958883678): creative/size_truth.py (classes, stated dims, band-less refusals) wired
   into intake.validate, FC.plan, concept_geometry, certificate (CIR + listing title);
