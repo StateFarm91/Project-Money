@@ -197,6 +197,57 @@ def wallet(db, *, now: datetime | None = None) -> dict:
     }
 
 
+def split(db, provider: str, *, now: datetime | None = None) -> dict:
+    """S2: one provider's ledger split into promotional credit and billable cash, in CAD.
+
+    The same draw order `wallet` assumes (credits first, in grant order, each against usage
+    after its grant date and before its expiry), applied call by call so every ledger row says
+    which it is estimated to have been paid from. ESTIMATED until a provider statement says
+    otherwise; it changes no ceiling -- the monthly cash ceiling still counts every call.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import CostEntry
+
+    ensure_table(db)
+    now = now or datetime.now(timezone.utc)
+    with db.session() as s:
+        grants = [{"id": c.id, "left": _to_cad(c.amount, c.currency),
+                   "from": c.granted_on, "until": c.expires_on or None}
+                  for c in s.scalars(select(ProviderCredit).where(
+                      ProviderCredit.provider == provider).order_by(
+                      ProviderCredit.granted_on, ProviderCredit.id))]
+        rows = [(e.id, (e.at if e.at.tzinfo else e.at.replace(tzinfo=timezone.utc)),
+                 float(e.amount_cad or 0.0))
+                for e in s.scalars(select(CostEntry).where(
+                    CostEntry.provider == provider).order_by(CostEntry.at, CostEntry.id))]
+    calls, promo, cash = [], 0.0, 0.0
+    for row_id, at, cad in rows:
+        day, need, from_credit = at.date().isoformat(), cad, 0.0
+        for g in grants:
+            if need <= 0:
+                break
+            if g["left"] <= 0 or day < g["from"] or (g["until"] and day > g["until"]):
+                continue
+            take = min(g["left"], need)
+            g["left"] -= take
+            need -= take
+            from_credit += take
+        promo += from_credit
+        cash += need
+        calls.append({"cost_entry": row_id, "cad": round(cad, 6),
+                      "promo_credit_cad": round(from_credit, 6),
+                      "billable_cash_cad": round(need, 6),
+                      "source": ("promo_credit" if need <= 1e-12 and cad > 0 else
+                                 "billable_cash" if from_credit <= 1e-12 else "mixed")})
+    return {"provider": provider, "currency": "CAD", "calls": calls,
+            "ledger_cad": round(promo + cash, 6), "promo_credit_cad": round(promo, 6),
+            "billable_cash_cad": round(cash, 6),
+            "credit_left_cad": round(sum(max(g["left"], 0.0) for g in grants
+                                         if not (g["until"] and g["until"] < now.date().isoformat())), 6),
+            "basis": "ESTIMATED", "draw_assumption": DRAW_ASSUMPTION, "ceilings_changed": 0}
+
+
 # ---------------------------------------------------------------------------------------------
 # F-688: Etsy Plus Ads credit, cycle by cycle, separate from owner cash.
 # ---------------------------------------------------------------------------------------------

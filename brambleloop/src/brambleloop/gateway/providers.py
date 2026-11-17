@@ -44,7 +44,14 @@ def _anthropic(task_key: str, **kw):
     return anthropic.provider_for(task_key, **kw)
 
 
-_VENDORS: dict[str, Callable[..., TextProvider]] = {"anthropic": _anthropic}
+def _openai(task_key: str, **kw):
+    from . import openai_chat
+
+    return openai_chat.provider_for(task_key, **kw)
+
+
+_VENDORS: dict[str, Callable[..., TextProvider]] = {"anthropic": _anthropic,
+                                                    "openai": _openai}
 
 
 def register_vendor(name: str, factory: Callable[..., TextProvider]) -> None:
