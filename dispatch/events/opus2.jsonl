@@ -111,3 +111,4 @@
 {"at": "2026-11-17T18:26:51Z", "worker": "opus2", "assignment": "WS2", "event": "review_requested", "sha": "f95bd617", "note": "research M1+M2 fix for 6954809399 on opus2/ws2-r5-research-proposal-writer-fix"}
 {"at": "2026-11-17T18:31:27Z", "worker": "opus2", "assignment": "WS6", "event": "review_requested", "sha": "34dbf572", "note": "WS6-E1 fix for 6954809399 on opus2/ws6-e1-receipt-lessons-fix"}
 {"at": "2026-11-17T19:15:00Z", "worker": "opus2", "assignment": "A3", "event": "review_requested", "sha": "e5575380", "note": "A3 fix for 6955484423 on opus2/a3-photo-asset-review-fix; L2 proposal awaiting decision"}
+{"at": "2026-11-17T19:21:25Z", "worker": "opus2", "assignment": "WS2", "event": "review_requested", "sha": "26548a38", "note": "research fix 2 for 6957516781 on opus2/ws2-r5-research-proposal-writer-fix"}
