@@ -65,8 +65,10 @@ def test_the_blanket_template_drafts_a_throw_inside_the_band():
 def test_the_old_strip_is_refused_whatever_it_is_called():
     for title in ("Linen Ridge Throw", "Linen Ridge Blanket", "Linen Ridge Afghan"):
         bad = C.object_size_findings(_Cir(title), _Twin(128.0, 21.7))
-        assert [f.code for f in bad] == ["OBJECT_SIZE_OUT_OF_BAND"], (title, bad)
-        assert bad[0].severity == C.ERROR
+        # S1 fix (6958883678): a strip is outside the family band, and -- when the title names
+        # a size class ("Throw") -- outside that class too.
+        assert "OBJECT_SIZE_OUT_OF_BAND" in [f.code for f in bad], (title, bad)
+        assert all(f.severity == C.ERROR for f in bad)
     # A square too small to be a blanket, and a runner-shaped one, are both refused.
     assert C.object_size_findings(_Cir("Tiny Blanket"), _Twin(40.0, 40.0))
     assert C.object_size_findings(_Cir("Long Blanket"), _Twin(80.0, 200.0))

@@ -18,7 +18,9 @@ TODAY = date(2026, 10, 7)
 # The only certification errors an engineered candidate may carry: physical evidence a
 # maker supplies (an uncalibrated stitch, or a class C stuffed form needing a full make).
 PHYSICAL = {"reading-nook-cable-wrap": {"UNCALIBRATED_PRIMITIVE"},
-            "heart-row-ring-pillow": {"PHYSICAL_TEST_REQUIRED"},
+            # D-S1-SIZE-FAMILIES (Main 6958883678 M1): 15.9 x 7.4 cm is not the ring bearer's
+            # cushion its name sells, so the ring-cushion band refuses it until it is redesigned.
+            "heart-row-ring-pillow": {"PHYSICAL_TEST_REQUIRED", "OBJECT_SIZE_OUT_OF_BAND"},
             "spring-garden-kneeler": {"PHYSICAL_TEST_REQUIRED"}}
 
 

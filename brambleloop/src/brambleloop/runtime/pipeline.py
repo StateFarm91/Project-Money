@@ -205,18 +205,65 @@ _PALETTES: dict[str, dict[str, str]] = {
 _DEFAULT_PALETTE = {"forest": "#244A3A", "cream": "#FAF6EB"}
 
 
+def _template_size(stitch_repeat: tuple, width: int, rows: int) -> tuple[float, float]:
+    """The finished (width, height) in cm a template makes: its own twin, measured once."""
+    key = (stitch_repeat, width, rows)
+    if key not in _TEMPLATE_SIZE:
+        from ..cir.compiler import compile_cir
+        from ..cir.twin import build_twin
+
+        probe = Concept(slug="size-probe", title="size probe", category="probe",
+                        stitch_repeat=[tuple(x) for x in stitch_repeat], width_stitches=width,
+                        rows=rows, colors=dict(_DEFAULT_PALETTE))
+        cir = concept_to_cir(probe)
+        twin = build_twin(cir, compile_cir(cir))
+        _TEMPLATE_SIZE[key] = (float(twin.width_cm), float(twin.height_cm))
+    return _TEMPLATE_SIZE[key]
+
+
+_TEMPLATE_SIZE: dict[tuple, tuple[float, float]] = {}
+
+
+def _sized(g: dict, width: int, target: tuple[float, float]) -> tuple[int, int]:
+    """Stitches and rows that make `target` (short, long) cm on template `g`, keeping the
+    template's orientation (a runner stays long in rows, a placemat wide in stitches).
+
+    S1 review 6958883678 H2: a title's requested size is drafted, not replaced by the
+    template's. Scaled from the template's own measured twin, so the result is the same
+    deterministic arithmetic the twin will check."""
+    from ..creative import size_truth
+
+    unit = sum(n for _, n in g["stitch_repeat"])
+    w0, h0 = _template_size(tuple(tuple(x) for x in g["stitch_repeat"]), width, g["rows"])
+    short, long_ = target
+    if size_truth._met(short, min(w0, h0)) and size_truth._met(long_, max(w0, h0)):
+        # The template already makes the asked size: its numbers (and every release
+        # fingerprint drafted from them) stay as they are.
+        return width, g["rows"]
+    tw, th = (short, long_) if w0 <= h0 else (long_, short)
+    sts = max(unit, int(round(width * tw / w0 / unit)) * unit)
+    rows = max(2, int(round(g["rows"] * th / h0)))
+    return sts, rows
+
+
 def concept_geometry(seed: ConceptSeed) -> dict:
     """Turn a market concept into the numbers the CIR builder needs."""
+    from ..creative import size_truth
+
     g = _geometry_entry(seed.category, seed.title)
     unit = sum(n for _, n in g["stitch_repeat"])
     width = g["width"]
     if width % unit:
         # Round up to a multiple of the repeat rather than emitting a CIR we know will fail.
         width += unit - (width % unit)
+    rows = g["rows"]
+    req = size_truth.request(seed.category, seed.title)
+    if req["target"] is not None and not req["refused"]:
+        width, rows = _sized(g, width, req["target"])
     return {
         "stitch_repeat": [list(x) for x in g["stitch_repeat"]],
         "width_stitches": width,
-        "rows": g["rows"],
+        "rows": rows,
         "colors": dict(_PALETTES.get(seed.family or "", _DEFAULT_PALETTE)),
     }
 

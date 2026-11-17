@@ -360,6 +360,9 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
                 "why": "a triangle shawl worked flat from the point, increasing at each end"}
     if (category in PANEL_PAIR_CATEGORIES or re.search(_PANEL_PAIR_WORDS, lowered)) \
             and not _shaped_title(re.sub(_PANEL_PAIR_WORDS, "", lowered)):
+        sized = _size_refusal(category, title)
+        if sized:
+            return sized
         return {"family": PANEL_PAIR, "needs": "",
                 "why": "a cushion is a front and a back panel seamed around a pad"}
     word = _shaped_title(title)
@@ -367,7 +370,24 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
         return {"family": REFUSED, "needs": f"the construction a {word} is made in",
                 "why": (f"the title names a {word!r}, which one flat panel does not make; the "
                         f"fallback refuses rather than drafting a panel under that name")}
+    sized = _size_refusal(category, title)
+    if sized:
+        return sized
     return {"family": FLAT_PANEL, "needs": "", "why": "a flat form"}
+
+
+def _size_refusal(category: str, title: str) -> dict | None:
+    """S1 review 6958883678 (H2/M1): a flat object the title names must have a size band and a
+    correct template, and the size the title asks for must be one the family is made in.
+    Otherwise the draft is refused by name -- never the default panel, never a silent resize."""
+    from . import size_truth
+
+    req = size_truth.request(category, title)
+    if req["refused"]:
+        return {"family": REFUSED,
+                "needs": "a size band and a template that make the size the title names",
+                "why": req["refused"]}
+    return None
 
 
 # A cushion or pillow cover: two identical panels of the concept's own repeat, joined on three

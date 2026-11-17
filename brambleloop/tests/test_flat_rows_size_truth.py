@@ -104,7 +104,7 @@ def test_a_baby_blanket_on_the_mixed_baby_category_is_drafted_inside_the_blanket
     cir, twin = _twin_of("baby", "Linen Ridge Baby Blanket")
     assert C.object_size_findings(cir, twin) == [], (twin.width_cm, twin.height_cm)
     bad = C.object_size_findings(_Cir("Linen Ridge Baby Blanket"), _Twin(80.0, 18.1))
-    assert [f.code for f in bad] == ["OBJECT_SIZE_OUT_OF_BAND"]
+    assert "OBJECT_SIZE_OUT_OF_BAND" in [f.code for f in bad], bad
 
 
 def test_a_cowl_and_two_object_titles_are_not_held_to_these_bands():

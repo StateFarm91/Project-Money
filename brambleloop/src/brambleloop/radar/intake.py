@@ -708,6 +708,13 @@ def validate(db, proposal: dict, evidence: dict, *, source_ref: str) -> dict:
     c = p["concept"]
     reasons += construction_verdict(p["category"], str(c.get("form")),
                                     str(c.get("construction")))
+    # S1 review 6958883678 H2: the size the title asks for (a class word or stated dimensions)
+    # is read here; a size the family cannot make is refused now, not resized at draft time.
+    from ..creative import size_truth
+
+    sized = size_truth.request(p["category"], str(p["title"]))
+    if sized["refused"] and size_truth.applies(p["category"], str(p["title"])):
+        reasons.append(f"size: {sized['refused']}")
     if c.get("pod") not in POD_KEYS:
         reasons.append(f"pod {c.get('pod')!r} is not a pod key")
     make_lane = make_lane_for_hours(hours) if hours[1] > 0 else "QUICK"

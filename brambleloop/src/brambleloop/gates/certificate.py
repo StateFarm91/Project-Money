@@ -151,13 +151,15 @@ CONDITIONAL_STAGES: tuple[str, ...] = ("geometry", "asset_truth", "policy")
 OBJECT_SIZE_BANDS: dict[str, dict] = {
     "dishcloth": {"side_cm": (18.0, 28.0), "max_aspect": 1.25,
                   "basis": "a dishcloth is a hand-sized square of about 20-25 cm a side"},
-    # Craft Yarn Council standard blanket sizes, from stroller (76 x 89 cm) to king
-    # (274 x 229 cm): no blanket is narrower than about 70 cm on a side. Applied only when the
-    # title names a blanket and no other object ("Throw Pillow" is a pillow), because a title
-    # that names two objects is the product-type gate's finding, not a size one.
-    "blanket": {"side_cm": (70.0, 280.0), "max_aspect": 1.6, "sole": True,
-                "basis": "a blanket is at least about 70 cm on each side (Craft Yarn Council "
-                         "standard blanket sizes, stroller to king)"},
+    # Craft Yarn Council standard blanket sizes, from preemie (18 x 24 in, 46 x 61 cm) to king
+    # (108 x 100 in, 274 x 254 cm). S1 review 6958883678 H1: the family band spans the whole
+    # table -- a 70 cm floor refused Launch-0's 57.6 x 67.8 cm baby blanket -- and a title that
+    # names a size class (baby, throw, queen...) is held to that class's own band by
+    # `creative.size_truth.findings`. Applied only when the title names a blanket and no other
+    # object ("Throw Pillow" is a pillow): two objects are the product-type gate's finding.
+    "blanket": {"side_cm": (42.0, 290.0), "max_aspect": 1.6, "sole": True,
+                "basis": "a blanket is from about 46 x 61 cm (preemie) to 274 x 254 cm (king) "
+                         "(Craft Yarn Council standard blanket sizes)"},
     # Flat-rows size truth: each object with a common standard size. `side_cm` bounds both
     # sides of a near-square object; `short_cm`/`long_cm` bound an oblong one.
     "coaster": {"side_cm": (8.0, 13.0), "max_aspect": 1.25, "sole": True,
@@ -170,15 +172,29 @@ OBJECT_SIZE_BANDS: dict[str, dict] = {
               "words": ("scarf", "scarves"),
               "basis": "a scarf is about 15-30 cm wide and 120-200 cm long (Craft Yarn "
                        "Council standard scarf sizes); a cowl is a loop, not this band"},
-    "pillow": {"side_cm": (28.0, 66.0), "max_aspect": 2.0, "sole": True,
+    # S1 review 6958883678: the top is the 26 in (66 cm) form plus blocking and one stitch
+    # repeat, so a "26 x 26 inch" cover drafted to the repeat is not refused at the edge.
+    "pillow": {"side_cm": (28.0, 68.0), "max_aspect": 2.0, "sole": True,
                "unless": "ring_cushion",
-               "basis": "a pillow or cushion cover face is about 30-60 cm (12-24 in), from "
-                        "square to lumbar"},
+               "basis": "a pillow or cushion cover face is about 30-66 cm (12-26 in), from "
+                        "square to lumbar (standard pillow-form sizes)"},
     # S1 Product Truth: a ring bearer's cushion is its own small object, read from the phrase
     # (its words are the pillow family's), and held to its own band instead of the pillow's.
     "ring_cushion": {"side_cm": (12.0, 25.0), "max_aspect": 1.25, "family": "pillow",
                      "phrase": r"\bring[- ]?(?:bearer\s+)?(?:cushion|pillow)s?\b",
                      "basis": "a ring bearer's cushion is a small square of about 15-20 cm"},
+    # S1 review 6958883678 M1: the flat objects the fallback drafts have a band each; one with
+    # no band is refused before drafting (`creative.size_truth.request`). No published
+    # standard exists for these three, so each basis says what it rests on.
+    "wall_hanging": {"short_cm": (15.0, 120.0), "long_cm": (20.0, 180.0), "sole": True,
+                     "basis": "a wall hanging is made from about 20 x 30 cm to 100 x 150 cm "
+                              "(ESTIMATED from the sizes patterns are sold in; no standard)"},
+    "pet_mat": {"short_cm": (30.0, 80.0), "long_cm": (40.0, 110.0), "family": "pet_mat",
+                "basis": "a pet mat is about 45 x 50 cm for a cat to 70 x 100 cm for a medium "
+                         "dog (ESTIMATED from crate-mat sizes; no standard)"},
+    "burp_cloth": {"short_cm": (20.0, 30.0), "long_cm": (40.0, 60.0), "family": "burp_cloth",
+                   "basis": "a burp cloth is about 25 x 50 cm (10 x 20 in) (ESTIMATED from the "
+                            "sizes sold; no standard)"},
 }
 
 
@@ -233,6 +249,14 @@ def object_size_findings(cir, twin) -> list[Finding]:
                 f"the title names a {hits[family][0]!r}, and the pattern's finished size "
                 f"{'; '.join(problems)} ({band['basis']}); the name promises a size the "
                 f"pattern does not make")))
+    # S1 review 6958883678 H1/H2: the size the title claims -- a named size class ("Baby",
+    # "Queen Size", "Lumbar") or stated dimensions ("200 x 220 cm") -- is checked against the
+    # twin too, so a request is never silently resized to the template.
+    from ..creative import size_truth
+
+    for why in size_truth.findings(cir.title, float(twin.width_cm or 0),
+                                   float(twin.height_cm or 0)):
+        out.append(Finding(ERROR, "OBJECT_SIZE_NOT_AS_TITLED", why))
     return out
 
 
@@ -409,6 +433,14 @@ def certify(
     findings.extend(stitch_semantics_findings(cir))
     # A4A-1: an object noun in the title is held to that object's size band.
     findings.extend(object_size_findings(cir, twin))
+    # S1 review 6958883678 H2: the listing title is a size claim too ("Queen Size", "26 x 26
+    # inch"); the twin must be the size it states.
+    if listing is not None and twin is not None and getattr(listing, "title", None):
+        from ..creative import size_truth
+
+        for why in size_truth.findings(listing.title, float(twin.width_cm or 0),
+                                       float(twin.height_cm or 0)):
+            findings.append(Finding(ERROR, "LISTING_SIZE_NOT_AS_TITLED", f"listing: {why}"))
 
     # 4. Asset truth.
     asset_findings: list[Finding] = []
