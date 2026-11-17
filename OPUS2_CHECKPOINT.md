@@ -6,8 +6,9 @@ worktrees, not this file.
 
 ## State at 2026-11-17T03:55Z (read first)
 - The owner said "Get to work". Main has been silent since 2026-11-12T11:46Z.
-- New: WS5 E6 draft-intent resolver (option B), `opus2/ws5-e6-draft-resolver` 3f8518f8
-  (RR 6937571437).
+- New: WS5 E6 draft-intent resolver (option B), `opus2/ws5-e6-draft-resolver`.
+  - 3f8518f8: the resolver (RR 6937571437).
+  - 16a269b7: the paging guard (CHECKPOINT 6938391176).
   - It is stacked on E5 213396b3.
   - Built while Main's answer to QUESTION 6837687907 is pending. It narrows to C (or adds
     A) if Main chooses differently.
@@ -16,9 +17,8 @@ worktrees, not this file.
 - Next unblocked candidates, if Main is still silent:
   - Task #27, blanket/throw construction breadth. The granny square needs a motif-join
     decision; a plain-row blanket does not.
-  - An incomplete-read guard on get_shop_listings at max_pages.
 - The worktree opus2-ws43 is on ws5-e6-draft-resolver.
-- Stop reason (03:55Z): E6 shipped. Next tick: re-read #28, then the next unblocked item.
+- Stop reason (04:28Z tick): E6 paging guard shipped. Next tick: re-read #28, then the next unblocked item.
 
 ## State at 2026-11-14T03:35Z (superseded)
 - 03:28Z tick:
