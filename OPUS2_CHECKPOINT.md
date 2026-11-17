@@ -9,9 +9,8 @@ worktrees, not this file.
   S2 a54f16c3 (6954936951); S1 42ac2ad7 (6956573025); ws5 E6/E3 fix 0630d53a on
   opus2/ws5-e6-draft-resolver-fix (6956914209); research M1+M2 f95bd617 on
   opus2/ws2-r5-research-proposal-writer-fix (6957104009).
-- NEXT in Main's order: WS6-E1 fix (76fe0dd3 -> opus2/ws6-e1-receipt-lessons-fix: keep only
-  offsite_attribution(o) is False; LOWs: label ad-bought views, audit official reading,
-  views != visits rename, window edges), then A3 fix (3928ba00 -> opus2/a3-photo-asset-review-fix:
+  WS6-E1 fix 34dbf572 on opus2/ws6-e1-receipt-lessons-fix (6957212029).
+- NEXT in Main's order: A3 fix (3928ba00 -> opus2/a3-photo-asset-review-fix:
   _disposable_cluster PG fence, L1 lock, L3, L2 proposal, suite_final_segment conflict), then WS4
   M-1 (680e3440 -> opus2/ws4-11-g-shadow-reading-fix), then S3 (web/worker split + trusted
   issuer + Railway cost), S4.
