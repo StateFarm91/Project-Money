@@ -63,13 +63,58 @@ def unregister_vendor(name: str) -> None:
         _VENDORS.pop(name, None)
 
 
+# S2 review 6957356475 (HIGH): the vendor is chosen PER TASK, by one router every builder
+# asks (`for_task`, `failover.decide`/`gateway_for`/`job_gateway`). A process-wide switch to a
+# second vendor sent every caller -- vision judges, culture, serp -- to a provider the rest of
+# the gateway could not price or route, so no call happened and every Anthropic path stopped.
+# `BRAMBLELOOP_MODEL_ROUTES` names tasks one by one: "culture_classify=openai,serp_x=openai".
+# A task it does not name stays on the default vendor.
+ROUTES_VAR = "BRAMBLELOOP_MODEL_ROUTES"
+# Vendors that may only be reached through a per-task route, never the process-wide switch.
+ROUTED_ONLY = frozenset({"openai"})
+
+
 def vendor(env=None) -> str:
     e = env if env is not None else os.environ
     return (str(e.get(VENDOR_VAR) or "").strip() or DEFAULT_VENDOR)
 
 
+def routes(env=None) -> dict[str, str]:
+    """The per-task vendor table, parsed strictly: a malformed entry is refused, not skipped."""
+    e = env if env is not None else os.environ
+    raw = str(e.get(ROUTES_VAR) or "").strip()
+    out: dict[str, str] = {}
+    for part in filter(None, (x.strip() for x in raw.split(","))):
+        task, sep, name = part.partition("=")
+        task, name = task.strip(), name.strip()
+        if not sep or not task or not name:
+            raise NoProviderAvailable(f"{ROUTES_VAR} entry {part!r} is not task=vendor; "
+                                      f"refusing rather than guessing a route")
+        out[task] = name
+    return out
+
+
+def vendor_for(task_key: str, env=None) -> str:
+    """The one router: the vendor `task_key` runs on. Raises `NoProviderAvailable` for an
+    unregistered vendor, or a routed-only vendor named by the process-wide switch."""
+    table = routes(env)
+    if task_key in table:
+        name = table[task_key]
+    else:
+        name = vendor(env)
+        if name in ROUTED_ONLY:
+            raise NoProviderAvailable(
+                f"{VENDOR_VAR}={name!r}: {name} is enabled per task through {ROUTES_VAR}, "
+                f"never for the whole process (review 6957356475)")
+    if name not in _VENDORS:
+        raise NoProviderAvailable(
+            f"task {task_key!r} routes to {name!r}, which names no registered model vendor "
+            f"(registered: {sorted(_VENDORS)}); refusing rather than falling back")
+    return name
+
+
 def for_task(task_key: str, *, env=None, **kw) -> TextProvider:
-    name = vendor(env)
+    name = vendor_for(task_key, env)
     factory = _VENDORS.get(name)
     if factory is None:
         raise NoProviderAvailable(

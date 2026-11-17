@@ -289,7 +289,7 @@ def _bill(db, provider, billed: dict, image_ref: str, purpose: str = TASK) -> No
 
         spend_report.record(
             db, agent=AGENT, amount_cad=billed["actual"],
-            estimated_cad=billed["reserved"], purpose=purpose, provider="anthropic",
+            estimated_cad=billed["reserved"], purpose=purpose, provider=getattr(provider, "name", "anthropic"),
             model=provider.model, department="quality",
             tokens_in=billed["tokens_in"], tokens_out=billed["tokens_out"],
             detail={"price_basis": "assumed", "image": image_ref[:120]})
@@ -489,7 +489,7 @@ def inspect_image(image_ref: str, *, db=None, provider=None,
 
         spend_report.record(
             db, agent=AGENT, amount_cad=billed["actual"],
-            estimated_cad=billed["reserved"], purpose=TASK, provider="anthropic",
+            estimated_cad=billed["reserved"], purpose=TASK, provider=getattr(provider, "name", "anthropic"),
             model=provider.model, department="quality",
             tokens_in=billed["tokens_in"], tokens_out=billed["tokens_out"],
             detail={"price_basis": "assumed", "image": image_ref[:120]})

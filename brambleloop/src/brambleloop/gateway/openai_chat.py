@@ -42,6 +42,16 @@ VISION_TIMEOUT_SECONDS = 120.0
 MAX_IMAGES_PER_CALL = 4
 # Tokens one image is reserved at (the same worst-case basis the Anthropic vision path uses).
 IMAGE_TOKENS_ESTIMATE = 1600
+# S2 review 6957356475 (LOW): the -mini snapshots count image patches with a multiplier
+# (OpenAI's image-token rule: up to 1,536 patches x 1.62 for gpt-4.1-mini), so one image can
+# cost about 2,500 tokens there. ESTIMATED worst case per image, read from the published
+# counting rule; reserved high on purpose.
+IMAGE_TOKENS_BY_MODEL: dict[str, int] = {"gpt-4.1-mini-2025-04-14": 2500,
+                                         "gpt-5-mini-2025-08-07": 2500}
+
+
+def image_tokens(model: str) -> int:
+    return IMAGE_TOKENS_BY_MODEL.get(model, IMAGE_TOKENS_ESTIMATE)
 
 # Pinned, dated snapshots only, (input, output) US$ per million tokens.
 PRICES_USD_PER_MTOK: dict[str, tuple[float, float]] = {
@@ -65,6 +75,7 @@ DEFAULT_MODEL = "gpt-4.1-mini-2025-04-14"
 # process's own sends always, so neither a restart nor a second process lifts it.
 RATE_LIMIT_PER_MINUTE = 60
 _RECENT_SENDS: list[float] = []
+_RATE_LOCK = __import__("threading").Lock()     # review 6957356475 (LOW): one window, locked
 
 
 class RateLimited(TransientError):
@@ -77,8 +88,15 @@ def _rate_check(db, *, now: float | None = None, limit: int | None = None) -> No
 
     now = _t.time() if now is None else now
     limit = RATE_LIMIT_PER_MINUTE if limit is None else limit
-    del _RECENT_SENDS[:sum(1 for t in _RECENT_SENDS if t <= now - 60)]
-    counted = len(_RECENT_SENDS)
+    with _RATE_LOCK:
+        # Trim, count and (below) append under one lock: two threads cannot both take the
+        # last slot of the minute.
+        _RECENT_SENDS[:] = [t for t in _RECENT_SENDS if t > now - 60]
+        counted = len(_RECENT_SENDS)
+        if counted >= limit:
+            raise RateLimited(f"{NAME}: {counted} requests in the last minute, at the limit "
+                              f"of {limit}; refused before sending")
+        _RECENT_SENDS.append(now)
     if db is not None:
         from sqlalchemy import func, select
 
@@ -89,9 +107,11 @@ def _rate_check(db, *, now: float | None = None, limit: int | None = None) -> No
             counted = max(counted, int(s.scalar(select(func.count(CostEntry.id)).where(
                 CostEntry.provider == NAME, CostEntry.at >= since)) or 0))
     if counted >= limit:
+        with _RATE_LOCK:
+            if now in _RECENT_SENDS:
+                _RECENT_SENDS.remove(now)       # this request was not sent
         raise RateLimited(f"{NAME}: {counted} requests in the last minute, at the limit of "
                           f"{limit}; refused before sending")
-    _RECENT_SENDS.append(now)
 
 
 # The provider's own words for an account that cannot pay (ops.funding.MARKERS reads them too).
@@ -127,7 +147,7 @@ def classify_http(status: int, text: str) -> PermanentError | TransientError:
     return ProviderUnusable(f"openai {status}: {text[:300]}")
 
 
-def _note_funding(exc: BaseException) -> None:
+def _note_funding(exc: BaseException, db=None) -> None:
     """Exhausted credit becomes an owner action (HOLD), never a silent retry loop."""
     if not getattr(exc, "credit_exhausted", False):
         return
@@ -135,11 +155,26 @@ def _note_funding(exc: BaseException) -> None:
         from . import paid_calls
         from ..ops import funding
 
-        db = paid_calls.current_db()
+        db = db if db is not None else paid_calls.current_db()
         if db is not None:
             funding.note_provider(db, NAME, f"insufficient_quota: {exc}")
     except Exception:  # noqa: BLE001 - recording the hold must never mask the refusal
         pass
+
+
+def image_url(reference: str) -> str:
+    """The `image_url.url` OpenAI reads: an http(s) URL as is, a local file as a data URL.
+
+    The company's own renders are files (`visual.inspect` writes a downscaled copy and passes
+    its path); a path sent as a URL is a request about no picture. The same reader as the
+    Anthropic path (`anthropic._image_block`): the file must exist and its bytes must sniff as
+    png/jpeg/gif/webp, or the call is refused before anything is sent."""
+    if reference.startswith(("http://", "https://", "data:")):
+        return reference
+    from .anthropic import _image_block
+
+    block = _image_block(reference)["source"]
+    return f"data:{block['media_type']};base64,{block['data']}"
 
 
 @dataclass
@@ -180,7 +215,15 @@ class OpenAIProvider:
             raise ProviderUnusable(f"no {KEY_VAR} in this environment")
         messages = ([{"role": "system", "content": system}] if system else []) + [
             {"role": "user", "content": user}]
-        return self._guarded(self._body(messages, max_tokens), key, "openai.chat")
+        own = estimate_cad(self.model, input_tokens=(len(system or "") + len(user or "")) // 4,
+                           output_tokens=max_tokens)
+        from . import paid_provider_gate as gate
+
+        # S2 review 6957356475: text is owner-activated like vision (`openai-text`), with the
+        # activation's own day/month/attempt ceilings, before any request leaves.
+        return self._guarded(self._body(messages, max_tokens), key, "openai.chat",
+                             gate=self._paid_gate(own, gate.OPENAI_TEXT, gate.TEXT,
+                                                  "openai.chat"))
 
     def see(self, system: str, prompt: str, image_urls: list[str], *,
             max_tokens: int) -> ModelResponse:
@@ -196,22 +239,27 @@ class OpenAIProvider:
             raise ProviderUnusable(f"{len(image_urls)} images in one call, against a limit of "
                                    f"{MAX_IMAGES_PER_CALL}")
         content = [{"type": "text", "text": prompt}] + [
-            {"type": "image_url", "image_url": {"url": u}} for u in image_urls]
+            {"type": "image_url", "image_url": {"url": image_url(u)}} for u in image_urls]
         messages = ([{"role": "system", "content": system}] if system else []) + [
             {"role": "user", "content": content}]
         payload = self._body(messages, max_tokens)
         own = estimate_cad(self.model,
-                           input_tokens=IMAGE_TOKENS_ESTIMATE * len(image_urls)
+                           input_tokens=image_tokens(self.model) * len(image_urls)
                            + len(prompt or "") // 4 + len(system or "") // 4,
                            output_tokens=max_tokens)
         return self._guarded(payload, key, "openai.vision", timeout=VISION_TIMEOUT_SECONDS,
                              gate=self._vision_gate(own))
 
+    def _vision_gate(self, own_estimate: float):
+        from . import paid_provider_gate as gate
+
+        return self._paid_gate(own_estimate, gate.OPENAI_VISION, gate.VISION, "openai.vision")
+
     # ---- the paid boundary -----------------------------------------------------------------
 
-    def _vision_gate(self, own_estimate: float):
-        """`paid_provider_gate.enforce` as `openai-vision`, on this request's own worst case or
-        the reservation noted for it, whichever is larger (as `visual.d_judge` does)."""
+    def _paid_gate(self, own_estimate: float, provider: str, scope: str, purpose: str):
+        """`paid_provider_gate.enforce` as `provider`/`scope`, on this request's own worst case
+        or the reservation noted for it, whichever is larger (as `visual.d_judge` does)."""
         from . import paid_calls, paid_provider_gate as gate
 
         def wrap(send, fp):
@@ -224,11 +272,11 @@ class OpenAIProvider:
                 except (TypeError, ValueError):
                     noted = 0.0
                 return gate.enforce(
-                    db, provider=gate.OPENAI_VISION, scope=gate.VISION,
+                    db, provider=provider, scope=scope,
                     estimate_cad=max(own_estimate, noted), fingerprint=fp,
                     reservation_id=held.get("reservation_id"), call=send,
                     classify=lambda exc: _classify_failure(exc),
-                    purpose="openai.vision")
+                    purpose=purpose)
             return gated
         return wrap
 
@@ -238,7 +286,11 @@ class OpenAIProvider:
 
         from ..ops import funding
 
-        db = paid_calls.current_db()
+        # S2 review 6957356475 (LOW): the HOLD is read wherever this call's ledger is -- the
+        # job scope's database, or the one its reservation was noted in -- not only in a job.
+        from . import paid_provider_gate
+
+        db = paid_calls.current_db() or paid_provider_gate.peek_budget_db()
         hold = funding.blocked_provider(db, NAME)
         if hold.get("blocked"):
             # HOLD: the account has no usable credit; nothing is sent until the owner adds it.
@@ -256,8 +308,11 @@ class OpenAIProvider:
                 encode=_encode_response, decode=_decode_response, classify=_classify_failure,
                 cost_kind=routing.COST_KIND, provider=self.name, model=self.model)
         except BaseException as exc:
-            _note_funding(exc)
+            _note_funding(exc, db)
             raise
+        if db is not None and not response.replayed:
+            # A live call succeeded: a HOLD another worker opened meanwhile is closed.
+            funding.cleared_provider(db, NAME)
         return response
 
     def _post(self, body: bytes, headers: dict, timeout: float) -> tuple[int, str]:
@@ -313,12 +368,18 @@ class OpenAIProvider:
             # The answer arrived after transmission, but its cost is unknown: never coerced
             # into understated usage (the gateway counts it at the estimate, UNCERTAIN).
             raise ValueError("openai response has invalid or missing usage")
+        reported = str(body.get("model") or "")
+        if reported != self.model:
+            # S2 review 6957356475 (LOW): the answer must come from the pinned snapshot that
+            # was priced and requested. It was billed, so it counts at its estimate (a
+            # ValueError is UNCERTAIN to the gateway), and it is not used.
+            raise ValueError(f"openai answered as {reported!r}, not the pinned {self.model!r}")
         choice = (body.get("choices") or [{}])[0]
         content = (choice.get("message") or {}).get("content")
         finish = str(choice.get("finish_reason") or "")
         return ModelResponse(
-            text=str(content or ""), provider=self.name,
-            model=str(body.get("model") or self.model),
+            text=str(content or ""), provider=self.name, model=reported,
+            response_id=str(body.get("id") or "")[:120],
             input_tokens=usage["prompt_tokens"], output_tokens=usage["completion_tokens"],
             latency_ms=round((time.time() - started) * 1000, 2),
             stop_reason=("max_tokens" if finish == "length" else finish))

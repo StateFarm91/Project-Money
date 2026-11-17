@@ -30,6 +30,67 @@ from brambleloop.core.resilience import TransientError  # noqa: E402
 AGENT = "orchestrator"
 
 
+def activate_text(db, **ceilings):
+    """The owner's `openai-text` activation (S2 fix 6957356475): a real owner session with a
+    fresh step-up, through `paid_provider_gate.activate`, as the Command Center does it."""
+    import secrets
+    from datetime import datetime, timedelta, timezone
+
+    from brambleloop.app.command_center import auth as cc_auth
+    from brambleloop.app.command_center.models import OwnerSession
+    from brambleloop.gateway import paid_provider_gate as G
+
+    cc_auth.ensure_tables(db)
+    now = datetime.now(timezone.utc)
+    pid = "s_" + secrets.token_hex(8)
+    with db.session() as s:
+        s.add(OwnerSession(public_id=pid, token_hash=secrets.token_hex(32), created_at=now,
+                           last_seen_at=now, expires_at=now + timedelta(days=1),
+                           stepup_until=now + timedelta(minutes=5)))
+    limits = dict(daily_ceiling_cad=5.0, monthly_ceiling_cad=20.0, per_gallery_cad=5.0)
+    limits.update(ceilings)
+    return G.activate(db, provider=G.OPENAI_TEXT, scope=G.TEXT, by="owner:test",
+                      session_public_id=pid, **limits)
+
+
+class activated:
+    """A database with `openai-text` activated, entered as the current paid-call job scope."""
+
+    def __init__(self, prefix="s2-text-", db=None, activate=True):
+        self.prefix, self.db, self.activate = prefix, db, activate
+
+    def __enter__(self):
+        import secrets
+
+        from brambleloop.queue.durable import JobQueue
+
+        self.db = self.db or boot(self.prefix)
+        if self.activate:
+            activate_text(self.db)
+        q = JobQueue(self.db, lease_seconds=60)
+        q.enqueue(AGENT, "ops.queue_check", {"x": secrets.token_hex(4)},
+                  idempotency_key="s2-" + secrets.token_hex(4))
+        self.scope = paid_calls.job_scope(self.db, q.claim("W1"))
+        self.scope.__enter__()
+        # A bare adapter call reserves against the month first, exactly as the gateway does
+        # before every call (`check_budget` notes the reservation the gate then requires).
+        db, real = self.db, O.OpenAIProvider.complete
+        self.real = real
+
+        def reserved(provider, system, user, *, max_tokens):
+            providers.check_budget(db, model=provider.model,
+                                   input_tokens=(len(system) + len(user)) // 4,
+                                   max_tokens=max_tokens, agent=AGENT, purpose="s2.adapter")
+            return real(provider, system, user, max_tokens=max_tokens)
+
+        O.OpenAIProvider.complete = reserved
+        return self.db
+
+    def __exit__(self, *exc):
+        O.OpenAIProvider.complete = self.real
+        return self.scope.__exit__(*exc)
+
+
 class Wire:
     """Replaces `OpenAIProvider._post`; records every request that would have left."""
 
@@ -64,7 +125,7 @@ def ok(text='{"names": ["Fern", "Moss", "Bramble"]}', model="gpt-4.1-mini-2025-0
 
 def test_a_text_call_returns_the_gateways_response_with_provider_identity():
     p = O.OpenAIProvider(model="gpt-4.1-mini-2025-04-14")
-    with Wire(ok(text="hello")) as wire:
+    with activated(), Wire(ok(text="hello")) as wire:
         r = p.complete("be brief", "say hello", max_tokens=50)
     assert (r.text, r.provider, r.model) == ("hello", "openai", "gpt-4.1-mini-2025-04-14")
     assert (r.input_tokens, r.output_tokens, r.replayed) == (120, 40, False)
@@ -74,7 +135,7 @@ def test_a_text_call_returns_the_gateways_response_with_provider_identity():
                                 {"role": "user", "content": "say hello"}]
     assert headers["Authorization"] == "Bearer k"
     # A reasoning snapshot takes `max_completion_tokens`.
-    with Wire(ok(model="gpt-5-2025-08-07")) as wire:
+    with activated(), Wire(ok(model="gpt-5-2025-08-07")) as wire:
         O.OpenAIProvider(model="gpt-5-2025-08-07").complete("", "x", max_tokens=9)
     assert wire.sent[0][0]["max_completion_tokens"] == 9 and "max_tokens" not in wire.sent[0][0]
     assert wire.sent[0][0]["messages"] == [{"role": "user", "content": "x"}]
@@ -113,13 +174,15 @@ def test_no_key_refuses_before_any_request():
 
 def test_failures_are_classified_declined_or_uncertain():
     p = O.OpenAIProvider()
+    db = boot("s2-classify-")
+    activate_text(db)
     cases = [((429, '{"error":{"type":"rate_limit_exceeded"}}'), TransientError, "declined"),
              ((503, "overloaded"), TransientError, "declined"),
              ((400, '{"error":{"message":"bad"}}'), ProviderUnusable, "declined"),
              ((-1, ""), O.OpenAITimeout, "uncertain"),
              ((0, ""), TransientError, "declined")]
     for answer, kind, billing in cases:
-        with Wire(answer):
+        with activated(db=db, activate=False), Wire(answer):
             try:
                 p.complete("", "x", max_tokens=5)
                 raise AssertionError(answer)
@@ -130,7 +193,7 @@ def test_failures_are_classified_declined_or_uncertain():
     for usage in ({}, {"prompt_tokens": 1.5, "completion_tokens": 2},
                   {"prompt_tokens": True, "completion_tokens": 3},
                   {"prompt_tokens": 0, "completion_tokens": 0}):
-        with Wire((200, json.dumps({"choices": [{"message": {"content": "x"}}],
+        with activated(db=db, activate=False), Wire((200, json.dumps({"choices": [{"message": {"content": "x"}}],
                                     "usage": usage}))):
             try:
                 p.complete("", "x", max_tokens=5)
@@ -144,6 +207,7 @@ def test_exhausted_credit_is_permanent_and_puts_the_provider_on_hold():
     from brambleloop.queue.durable import JobQueue
 
     db = boot("s2-hold-")
+    activate_text(db)
     q = JobQueue(db, lease_seconds=60)
     q.enqueue(AGENT, "ops.queue_check", {"x": 1}, idempotency_key="s2-hold")
     job = q.claim("W1")
@@ -151,6 +215,8 @@ def test_exhausted_credit_is_permanent_and_puts_the_provider_on_hold():
                   'current quota"}}')
     with paid_calls.job_scope(db, job), Wire(quota) as wire:
         try:
+            providers.check_budget(db, model=O.DEFAULT_MODEL, input_tokens=1, max_tokens=5,
+                                   agent=AGENT, purpose="s2.hold")
             O.OpenAIProvider().complete("", "x", max_tokens=5)
             raise AssertionError("exhausted credit must refuse")
         except ProviderUnusable as exc:
@@ -172,6 +238,8 @@ def test_exhausted_credit_is_permanent_and_puts_the_provider_on_hold():
     # The owner adds credit and the action is closed: calls go out again.
     assert funding.cleared_provider(db, "openai")["cleared"] is True
     with paid_calls.job_scope(db, job), Wire(ok(text="back")) as wire:
+        providers.check_budget(db, model=O.DEFAULT_MODEL, input_tokens=1, max_tokens=5,
+                               agent=AGENT, purpose="s2.hold")
         assert O.OpenAIProvider().complete("", "z", max_tokens=5).text == "back"
     assert len(wire.sent) == 1
 
@@ -185,14 +253,15 @@ def test_vendor_routing_keeps_anthropic_the_default_and_pins_openai_per_tier():
         by_tier.setdefault(routing.route(key)[1].key, key)
     assert set(by_tier) == set(routing.TIERS), by_tier
     for task in by_tier.values():
-        p = providers.for_task(task, env={providers.VENDOR_VAR: "openai"})
+        p = providers.for_task(task, env={providers.ROUTES_VAR: f"{task}=openai"})
         assert p.name == "openai"
         _task, tier = routing.route(task)
         assert p.model == routing.OPENAI_MODEL_BY_TIER[tier.key]
         assert p.model in O.PRICES_USD_PER_MTOK
     assert set(routing.OPENAI_MODEL_BY_TIER) == set(routing.TIERS)
     try:
-        providers.for_task("not-a-declared-task", env={providers.VENDOR_VAR: "openai"})
+        providers.for_task("not-a-declared-task",
+                           env={providers.ROUTES_VAR: "not-a-declared-task=openai"})
         raise AssertionError("an undeclared task must be refused before any provider exists")
     except routing.TaskRefused:
         pass
@@ -206,6 +275,7 @@ def test_through_the_gateway_an_openai_call_reserves_settles_and_records_provena
     from brambleloop.gateway.model_gateway import ModelGateway
 
     db = boot("s2-gw-")
+    activate_text(db)
     gw = ModelGateway([O.OpenAIProvider(model="gpt-4.1-mini-2025-04-14")],
                       registry=Registry(db))
     with Wire(ok()) as wire:
@@ -279,7 +349,7 @@ def test_the_per_minute_rate_limit_refuses_before_sending_and_reads_the_ledger()
     O.RATE_LIMIT_PER_MINUTE = 2
     try:
         p = O.OpenAIProvider()
-        with Wire(ok(), ok(), ok()) as wire:
+        with activated(), Wire(ok(), ok(), ok()) as wire:
             p.complete("", "a", max_tokens=5)
             p.complete("", "b", max_tokens=5)
             try:

@@ -1032,7 +1032,7 @@ def judge_held(ctx, *, slug: str, board: str, provider=None) -> dict:
     gw.release_reservation(ctx.db, held, actual_cad=cost)
     if cost > 0:
         spend_report.record(ctx.db, agent=ctx.job.agent, amount_cad=cost, purpose=JUDGE_TASK,
-                            provider="anthropic", model=provider.model,
+                            provider=getattr(provider, "name", "anthropic"), model=provider.model,
                             department="creative", product_slug=slug, job_id=ctx.job.id,
                             tokens_in=response.input_tokens, tokens_out=response.output_tokens,
                             detail={"what": "concept board judgement", "price_basis": "assumed"})

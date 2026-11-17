@@ -211,7 +211,9 @@ def note_provider(db, provider: str, text: str) -> dict:
             reason=(f"{label} refused a call because the account has no usable credit. Calls "
                     f"to it are on HOLD until credit is added. This is not the monthly ceiling, "
                     f"which this system enforces on itself and is not breached."),
-            max_cost_cad=25.0, minutes=5,
+            # S2 review 6957356475 (LOW): how much credit to add is the owner's choice; no
+            # figure here is a real ceiling, so it is UNKNOWN (rendered as such), not CA$25.
+            max_cost_cad=0.0, max_cost_basis="UNKNOWN", minutes=5,
             consequence_of_delay=(f"Every task routed to {provider} is held; other providers "
                                   f"are unaffected."),
             blocks=f"model calls routed to {provider}"))
