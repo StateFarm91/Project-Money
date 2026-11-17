@@ -15,7 +15,19 @@ worktrees, not this file.
   transactions_r cause named. Tests: e6 +3, e3 transport test updated + 2 behavioural tests;
   6 mutants killed. Regression of 25 suites running (scratchpad e6_reg/). Then commit via
   plumbing on 16a269b7 -> push opus2/ws5-e6-draft-resolver-fix -> RR (delta).
-- S1 42ac2ad7 test_product_run running (s1_product_run2.log) -> S1 RR.
+- S1 RR POSTED 42ac2ad7 (6956573025): product_run 36/36 (1 disk-full rerun ok); as_of question
+  withdrawn (passes on w6-INTEG1 base). Waiting on Main's audit table for cross-check.
+- E6: e6 copy has scripts/, ops/ and KEY_ROTATION.md; fail-closed rule narrowed to
+  _reaches_network (UrllibTransport or wrapped, depth 3) -- opt-out LOCAL_ONLY broke ~40 test
+  fakes, so rejected. draft_creation_durability, precreate_refusal, publish_execution_gate,
+  e3 15/15, e6 green; credhealth 12/13 (missing EXPERIMENTS.md = copy artefact); shadow
+  rehearsal suites running (bp21fzas3). Then plumbing commit on 16a269b7 -> push
+  opus2/ws5-e6-draft-resolver-fix -> RR. Files: publish/draft_resolver.py, runtime/pipeline.py,
+  runtime/etsy_ops.py, tests/test_ws5_e6_draft_resolver.py, tests/test_ws5_e3_credential_row.py.
+- Research M1 design: proposal_writer state map over intel.coverage.STATES, only UNCOVERED
+  eligible, assert exhaustive; fixture uses real states. M2: producer of fact findings (TODO).
+- DISK: hit 0 MB once (product_run + shadow rehearsal together). Run big suites ALONE and
+  rm their /tmp/bl-test-* sandboxes after.
 - S2 RR a54f16c3 posted (6954936951).
 
 ## State at 2026-11-17T16:59Z (superseded)
