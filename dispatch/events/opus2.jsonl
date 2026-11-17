@@ -98,3 +98,4 @@
 {"at": "2026-11-17T06:20:00Z", "worker": "opus2", "assignment": "A4A", "event": "review_requested", "sha": "3b7dd016", "note": "blanket size truth on opus2/blanket-size-truth (stacked on a4a-fixes); RR 6940053193"}
 {"at": "2026-11-17T08:45:00Z", "worker": "opus2", "assignment": "A4A", "event": "review_requested", "sha": "d9d980d6", "note": "flat-rows size truth (coaster/placemat/runner/scarf/pillow) on opus2/blanket-size-truth; RR 6942861885"}
 {"at": "2026-11-17T09:20:00Z", "worker": "opus2", "assignment": "A4A", "event": "review_requested", "sha": "50942980", "note": "mosaic and graphghan template size truth on opus2/blanket-size-truth; RR 6943059210"}
+{"at": "2026-11-17T10:30:00Z", "worker": "opus2", "assignment": "A4A", "event": "checkpoint", "sha": "7616cd77", "note": "test_product_run 33/36; 2 stale-placemat fixture failures fixed in 7616cd77; buying-window failure is calendar-driven; comment 6943876476"}
