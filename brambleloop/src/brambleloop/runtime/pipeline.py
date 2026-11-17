@@ -139,7 +139,9 @@ def concept_to_cir(c: Concept, version: str = "1.0.0",
 # luck.
 _GEOMETRY: dict[str, dict] = {
     "mosaic_blanket": {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 160, "rows": 24},
-    "blanket":        {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 160, "rows": 24},
+    # Blanket size truth: a throw is about 127 x 152 cm (Craft Yarn Council standard blanket
+    # sizes). 24 rows drafted a 128 x 22 cm strip that certification called a blanket.
+    "blanket":        {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 160, "rows": 168},
     "graphghan":      {"stitch_repeat": [["sc", 4]],            "width": 140, "rows": 24},
     "baby":           {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 100, "rows": 20},
     "seasonal_decor": {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 40,  "rows": 12},

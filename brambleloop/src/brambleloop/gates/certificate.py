@@ -151,6 +151,13 @@ CONDITIONAL_STAGES: tuple[str, ...] = ("geometry", "asset_truth", "policy")
 OBJECT_SIZE_BANDS: dict[str, dict] = {
     "dishcloth": {"side_cm": (18.0, 28.0), "max_aspect": 1.25,
                   "basis": "a dishcloth is a hand-sized square of about 20-25 cm a side"},
+    # Craft Yarn Council standard blanket sizes, from stroller (76 x 89 cm) to king
+    # (274 x 229 cm): no blanket is narrower than about 70 cm on a side. Applied only when the
+    # title names a blanket and no other object ("Throw Pillow" is a pillow), because a title
+    # that names two objects is the product-type gate's finding, not a size one.
+    "blanket": {"side_cm": (70.0, 280.0), "max_aspect": 1.6, "sole": True,
+                "basis": "a blanket is at least about 70 cm on each side (Craft Yarn Council "
+                         "standard blanket sizes, stroller to king)"},
 }
 
 
@@ -164,7 +171,7 @@ def object_size_findings(cir, twin) -> list[Finding]:
         return out
     hits = _family_hits(cir.title or "")
     for family, band in OBJECT_SIZE_BANDS.items():
-        if family not in hits:
+        if family not in hits or (band.get("sole") and set(hits) != {family}):
             continue
         w, h = float(twin.width_cm), float(twin.height_cm)
         lo, hi = band["side_cm"]
