@@ -96,3 +96,4 @@
 {"at": "2026-11-14T03:05:00Z", "worker": "opus2", "assignment": "A4A", "event": "review_requested", "sha": "6dc0cecb", "note": "A4a LOWs on opus2/a4a-fixes; RR 6870280951"}
 {"at": "2026-11-17T03:55:00Z", "worker": "opus2", "assignment": "E6", "event": "review_requested", "sha": "3f8518f8", "note": "draft-intent resolver, option B, built pending QUESTION 6837687907; RR 6937571437"}
 {"at": "2026-11-17T06:20:00Z", "worker": "opus2", "assignment": "A4A", "event": "review_requested", "sha": "3b7dd016", "note": "blanket size truth on opus2/blanket-size-truth (stacked on a4a-fixes); RR 6940053193"}
+{"at": "2026-11-17T08:45:00Z", "worker": "opus2", "assignment": "A4A", "event": "review_requested", "sha": "d9d980d6", "note": "flat-rows size truth (coaster/placemat/runner/scarf/pillow) on opus2/blanket-size-truth; RR 6942861885"}
