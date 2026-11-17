@@ -4,7 +4,18 @@ Updated: 2026-11-17T09:30Z. The engineering loop rewrites this file at the end o
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-17T22:45Z (read first)
+## State at 2026-11-17T23:50Z (read first)
+- S2 fix RR POSTED 9d03acb2 on opus2/s2-openai-provider-fix (6963803447): 9d4abc1b fix +
+  cert_cost default-cap expectation. 74/77 neighbours green as run; cert_cost fixed;
+  spend_governance + canon_manifest environmental (repo-root files). Two decisions offered to
+  Main: default cap figure (25%), gate refusals counting toward DOWN.
+- Awaiting verdicts: E1 34dbf572, A3 e5575380 (+L2 go?), research 26548a38, WS4 db785f92,
+  A4 ac0ca847/eb47549e, S1 e490fc6f, S2 9d03acb2.
+- NEXT: S3 (WS4 missing pieces: web/worker split, trusted issuer service boundary, Railway
+  cost estimate -- Railway READ-ONLY), then S4 P0 command board; ws5 LOWs N1-N3.
+- Stop reason this tick: S2 RR posted; S3 starts next tick (needs scoping from Main's S3 text).
+
+## State at 2026-11-17T22:45Z (superseded)
 - S2 fix CHECKPOINT 9d4abc1b on opus2/s2-openai-provider-fix (6963175262): router
   providers.vendor_for (BRAMBLELOOP_MODEL_ROUTES) used by for_task/decide/gateway_for/job_gateway;
   per-provider pricing; 14 cost rows record serving provider; data: URLs for local images;
