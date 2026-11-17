@@ -12,6 +12,14 @@ G-SHADOW is the gate a standing policy passes before it may leave SHADOW. Its cr
    refused (revoked) or held (never granted). An undecided release is not agreement;
 5. the stop watch read the policy with no silence over 30 minutes for the last 7 days.
 
+Evidence rules (review 6955504377 M-1): a row counts only when it was written by the actor
+that owns it (`standing_issuer` for shadow decisions, `standing_stop_watch` for stop-watch
+readings); its own time is at or after the signed approval's `approved_at`, not in the future,
+within `CLOCK_SKEW` of the database time the row was stored at, and never earlier than the row
+written before it (a backdated insert breaks the order and is dropped); and a candidate counts
+only when it resolves to a certified, non-experiment PatternVersion of that exact release.
+"Now" is the database clock unless a caller passes one.
+
 `g_shadow(db)` reads each criterion from rows as {state, value, why}; the verdict is MET only
 when 2-5 are PASS (and then still owes criterion 1 to the test run). It is a reading: it
 records itself (`standing_policy.g_shadow`) and authorises nothing.
@@ -27,30 +35,88 @@ READING = "standing_policy.g_shadow"
 MIN_CANDIDATES = 10
 STOP_WATCH_DAYS = 7
 EXTERNAL = "EXTERNAL"
+CLOCK_SKEW = timedelta(minutes=10)
 
 
-def _now(now=None) -> datetime:
+def _now(now=None, db=None) -> datetime:
+    """The reading's clock: the caller's, else the DATABASE clock (review 6955504377 LOW), else
+    this process's."""
+    if now is None and db is not None:
+        try:
+            from sqlalchemy import text
+
+            with db.session() as s:
+                raw = s.execute(text("SELECT CURRENT_TIMESTAMP")).scalar()
+            now = raw if isinstance(raw, datetime) else datetime.fromisoformat(str(raw))
+        except Exception:  # noqa: BLE001 - an unreadable DB clock falls back, never raises
+            now = None
     now = now or datetime.now(timezone.utc)
     return now if now.tzinfo else now.replace(tzinfo=timezone.utc)
+
+
+def _trusted(rows: list[tuple], *, time_key: str, since: datetime | None,
+             now: datetime) -> list[dict]:
+    """Rows (id, at, detail) that may count as evidence: own time present, >= `since`, <= now,
+    within CLOCK_SKEW of the stored time, and never earlier than the previous kept row."""
+    out, high = [], None
+    for _rid, at, d in sorted(rows, key=lambda r: r[0]):
+        t = SP._when((d or {}).get(time_key))
+        stored = at if (at is None or at.tzinfo) else at.replace(tzinfo=timezone.utc)
+        if t is None or t > now or (since is not None and t < since):
+            continue
+        if stored is None or abs(t - stored) > CLOCK_SKEW:
+            continue
+        if high is not None and t < high:
+            continue
+        high = t
+        out.append(dict(d))
+    return out
 
 
 def _fact(state, value=None, why=None) -> dict:
     return {"state": state, "value": value, "why": why}
 
 
-def _rows(db, action: str, artifact: str) -> list[dict]:
+def _rows(db, action: str, artifact: str, actor: str) -> list[tuple]:
+    """(id, stored_at, detail) of the rows `actor` wrote; any other writer's rows are not
+    evidence (review 6955504377 M-1)."""
     from sqlalchemy import select
 
     from ..core.models import AuditLog
 
     with db.session() as s:
-        return [dict(d or {}) for d in s.scalars(select(AuditLog.detail).where(
-            AuditLog.action == action, AuditLog.artifact == artifact).order_by(AuditLog.id))]
+        return [(r.id, r.at, dict(r.detail or {})) for r in s.scalars(select(AuditLog).where(
+            AuditLog.action == action, AuditLog.artifact == artifact,
+            AuditLog.actor == actor).order_by(AuditLog.id))]
 
 
-def _shadow_rows(db, policy_id: str, approval_id: int) -> list[dict]:
-    return [d for d in _rows(db, SP.SHADOW_DECISION, policy_id)
-            if d.get("approval_id") == approval_id and d.get("shadow") is True]
+def _certified(db, slug, version, release) -> bool:
+    """The candidate is a certified PatternVersion of exactly this release, not an experiment."""
+    from sqlalchemy import select
+
+    from ..core.models import PatternVersion, Product
+    from . import standing_issuer as SI
+
+    with db.session() as s:
+        pv = s.scalar(select(PatternVersion).join(Product).where(
+            Product.slug == str(slug), PatternVersion.version == str(version)))
+        ok = bool(pv is not None and pv.certified and pv.release_hash
+                  and pv.release_hash == str(release))
+    if not ok:
+        return False
+    try:
+        return SI._not_experiment(db, slug, version).get("state") == SB.PASS
+    except Exception:  # noqa: BLE001 - unreadable is not a candidate
+        return False
+
+
+def _shadow_rows(db, policy_id: str, approval_id: int, *, approved_at, now) -> list[dict]:
+    from . import standing_issuer as SI
+
+    rows = _trusted(_rows(db, SP.SHADOW_DECISION, policy_id, SI.ACTOR),
+                    time_key="decided_at", since=approved_at, now=now)
+    return [d for d in rows if d.get("approval_id") == approval_id and d.get("shadow") is True
+            and _certified(db, d.get("slug"), d.get("version"), d.get("release"))]
 
 
 def _period(policy: dict, rows: list[dict], now: datetime) -> dict:
@@ -104,22 +170,26 @@ def _agreement(db, rows: list[dict]) -> dict:
     undecided = [w for w in would if w not in grants]
     value = {"would_issue": len(would), "owner_approved": len(would) - len(refused)
              - len(undecided), "owner_refused": len(refused), "undecided": len(undecided)}
+    if not would:
+        # Review 6955504377 (LOW): a policy that never said ISSUE has shown no agreement with
+        # the owner at all; zero comparisons is not a pass.
+        return _fact(SB.FAIL, value, "no would-issue decision to compare with the owner's")
     if refused:
         return _fact(SB.FAIL, value, "the policy would have issued releases the owner refused: "
                      + ", ".join(f"{s}@{v}:{str(r)[:12]}" for s, v, r in refused[:5]))
     if undecided:
         return _fact(SB.FAIL, value, "would-issue releases the owner has not decided (held): "
                      + ", ".join(f"{s}@{v}:{str(r)[:12]}" for s, v, r in undecided[:5]))
-    return _fact(SB.PASS, value, None if would else "no would-issue decision to compare")
+    return _fact(SB.PASS, value)
 
 
-def _stop_watch(db, policy_id: str, now: datetime) -> dict:
+def _stop_watch(db, policy_id: str, now: datetime, approved_at=None) -> dict:
     from . import standing_stop
 
     since = now - timedelta(days=STOP_WATCH_DAYS)
-    times = sorted(t for t in (SP._when(d.get("read_at"))
-                               for d in _rows(db, standing_stop.READING, policy_id))
-                   if t is not None and t <= now)
+    times = sorted(t for t in (SP._when(d.get("read_at")) for d in _trusted(
+        _rows(db, standing_stop.READING, policy_id, standing_stop.ACTOR),
+        time_key="read_at", since=approved_at, now=now)) if t is not None)
     if not times or times[0] > since:
         return _fact(SB.FAIL, {"first_reading_at": times[0].isoformat() if times else None},
                      f"the stop watch has not read this policy for {STOP_WATCH_DAYS} days")
@@ -139,7 +209,7 @@ def g_shadow(db, *, now: datetime | None = None, record: bool = True) -> dict:
     """The G-SHADOW reading for the owner's newest approved policy."""
     from . import standing_issuer as SI
 
-    now = _now(now)
+    now = _now(now, db)
     criteria: dict[str, dict] = {
         "tests_and_mutants": _fact(EXTERNAL, None, "measured by the §7 test and mutant run, "
                                                    "not by the running system"),
@@ -152,10 +222,15 @@ def g_shadow(db, *, now: datetime | None = None, record: bool = True) -> dict:
         return _record(db, out, None) if record else out
     pid, aid = policy["content"]["policy_id"], policy["approval_id"]
     criteria["policy_approved"] = _fact(SB.PASS, aid)
-    rows = _shadow_rows(db, pid, aid)
+    approved_at = SP._when(policy.get("approved_at"))
+    if approved_at is None:
+        criteria["policy_approved"] = _fact(SB.FAIL, aid, "the approval carries no signed "
+                                                          "approved_at; no evidence can count")
+    rows = _shadow_rows(db, pid, aid, approved_at=approved_at, now=now) if approved_at else []
     for name, fn in (("shadow_period", lambda: _period(policy, rows, now)),
                      ("owner_agreement", lambda: _agreement(db, rows)),
-                     ("stop_watch_continuity", lambda: _stop_watch(db, pid, now))):
+                     ("stop_watch_continuity",
+                      lambda: _stop_watch(db, pid, now, approved_at))):
         try:
             criteria[name] = fn()
         except Exception as exc:  # noqa: BLE001 - unreadable is not met

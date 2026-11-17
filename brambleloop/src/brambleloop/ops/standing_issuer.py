@@ -77,7 +77,8 @@ def shadow_policy(db, *, now: datetime | None = None) -> dict | None:
         expires = SP._when((content.get("validity") or {}).get("expires_at"))
         if expires is None or now >= expires:
             continue
-        return {"approval_id": rid, "content": content, "seal": d.get("seal")}
+        return {"approval_id": rid, "content": content, "seal": d.get("seal"),
+                "approved_at": d.get("approved_at")}
     return None
 
 
@@ -570,6 +571,14 @@ def shadow_run(db, *, now: datetime | None = None) -> dict:
     content = policy["content"]
     evaluated = recorded = would = 0
     since = now - timedelta(hours=DEDUPE_HOURS)
+    # Review 6955504377 (LOW): the dedupe keys of the last DEDUPE_HOURS are read once per run,
+    # not once per candidate (it scanned every shadow row for every release: O(n^2)). The window
+    # is the decision's own time (`decided_at`, the run's clock), not the stored row time.
+    with db.session() as s:
+        recent = {(d or {}).get("decision_key") for d in s.scalars(
+            select(AuditLog.detail).where(AuditLog.action == SP.SHADOW_DECISION,
+                                          AuditLog.artifact == content["policy_id"]))
+                  if (SP._when((d or {}).get("decided_at")) or since) > since}
     for slug, version, release in candidates(db):
         evaluated += 1
         try:
@@ -581,15 +590,10 @@ def shadow_run(db, *, now: datetime | None = None) -> dict:
         would += out["decision"] == "ISSUE"
         key = _digest({"approval_id": policy["approval_id"], "release": release,
                        "decision": out["decision"], "reasons": out["reasons"]})
+        if key in recent:
+            continue
+        recent.add(key)
         with db.session() as s:
-            # Deduplicated on the decision's own time (`decided_at`), the run's clock.
-            dup = any((d or {}).get("decision_key") == key
-                      and (SP._when((d or {}).get("decided_at")) or since) > since
-                      for d in s.scalars(select(AuditLog.detail).where(
-                          AuditLog.action == SP.SHADOW_DECISION,
-                          AuditLog.artifact == content["policy_id"])))
-            if dup:
-                continue
             s.add(AuditLog(actor=ACTOR, action=SP.SHADOW_DECISION,
                            artifact=content["policy_id"], detail={
                                "decision_key": key, "approval_id": policy["approval_id"],

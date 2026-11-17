@@ -45,16 +45,35 @@ def _restore_all():
     _restore()
 
 
-def _decisions(db, c, approval_id, n=10, *, issue=(), start=NOW):
-    """n shadow decisions on n distinct releases; those indexed in `issue` would-issue."""
+def _certify(db, i, *, certified=True, release=None):
+    """A certified PatternVersion of p<i> 1.0.0 at release <i>: what a real candidate is."""
+    from brambleloop.core.models import PatternVersion, Product
+
     with db.session() as s:
-        for i in range(n):
-            s.add(AuditLog(actor="standing_issuer", action=sp.SHADOW_DECISION,
+        p = s.scalar(select(Product).where(Product.slug == f"p{i}"))
+        if p is None:
+            p = Product(slug=f"p{i}", title=f"fixture {i}")
+            s.add(p)
+            s.flush()
+            s.add(PatternVersion(product_id=p.id, version="1.0.0", cir_json={},
+                                 release_hash=release or f"{i:064d}", certified=certified))
+
+
+def _decisions(db, c, approval_id, n=10, *, issue=(), start=NOW, actor="standing_issuer",
+               certify=True):
+    """n shadow decisions on n distinct certified releases; those in `issue` would-issue.
+    Each row is stored at its own decision time, as the issuer writes it."""
+    for i in range(n):
+        if certify:
+            _certify(db, i)
+        with db.session() as s:
+            when = start + timedelta(hours=i)
+            s.add(AuditLog(actor=actor, action=sp.SHADOW_DECISION, at=when,
                            artifact=c["policy_id"], detail={
                                "approval_id": approval_id, "shadow": True,
                                "slug": f"p{i}", "version": "1.0.0", "release": f"{i:064d}",
                                "decision": "ISSUE" if i in issue else "HOLD",
-                               "decided_at": (start + timedelta(hours=i)).isoformat()}))
+                               "decided_at": when.isoformat()}))
 
 
 def _readings(db, c, *, start, end, every_minutes=5, skip=None):
@@ -63,7 +82,8 @@ def _readings(db, c, *, start, end, every_minutes=5, skip=None):
         while t <= end:
             if not (skip and skip[0] <= t < skip[1]):
                 s.add(AuditLog(actor=ST.ACTOR, action=ST.READING, artifact=c["policy_id"],
-                               detail={"policy_id": c["policy_id"], "read_at": t.isoformat()}))
+                               at=t, detail={"policy_id": c["policy_id"],
+                                             "read_at": t.isoformat()}))
             t += timedelta(minutes=every_minutes)
 
 
@@ -176,11 +196,12 @@ def test_a_grant_chain_that_does_not_verify_is_unknown():
         _restore_all()
 
 
-def test_holding_everything_compares_nothing_and_passes_agreement():
+def test_holding_everything_compares_nothing_and_does_not_pass_agreement():
+    """Review 6955504377 (LOW): zero would-issue decisions show no agreement at all."""
     try:
         db, c, a = _met_db(issue=(), grant=())
         f = G.g_shadow(db, now=LATER, record=False)["criteria"]["owner_agreement"]
-        assert f["state"] == SB.PASS and f["value"]["would_issue"] == 0, f
+        assert f["state"] == SB.FAIL and f["value"]["would_issue"] == 0, f
     finally:
         _restore_all()
 
@@ -224,6 +245,158 @@ def test_the_issuer_job_records_the_reading():
 
     src = inspect.getsource(standing_policy_ops.handle_issuer_shadow)
     assert "standing_shadow_gate.g_shadow(ctx.db)" in src
+
+
+
+# ---- review 6955504377 M-1: G-SHADOW evidence rules ---------------------------------------
+
+def test_main_probe_backdated_foreign_rows_on_nonexistent_releases_never_meet():
+    """10 backdated `some_agent` rows on a nonexistent slug, an hour after approval: NOT MET."""
+    try:
+        db, c = _db(), content()
+        _owner_keys()
+        a = _approve(db, c)
+        _decisions(db, c, a, actor="some_agent", certify=False, issue=(0, 1),
+                   start=NOW - timedelta(days=9))
+        _readings(db, c, start=LATER - timedelta(days=7, minutes=5), end=LATER)
+        out = G.g_shadow(db, now=NOW + timedelta(hours=1), record=False)
+        assert out["verdict"] == "NOT_MET", out
+        assert out["criteria"]["shadow_period"]["value"]["distinct_releases"] == 0
+    finally:
+        _restore_all()
+
+
+def test_only_the_issuers_rows_count():
+    """The same rows the MET case uses, written by any other actor, are not evidence (the MET
+    case itself is test_all_criteria_met_and_the_external_one_is_owed_not_claimed)."""
+    try:
+        db2, c2 = _db(), content()
+        _owner_keys()
+        a2 = _approve(db2, c2)
+        _decisions(db2, c2, a2, issue=(0, 1), actor="some_agent")
+        _readings(db2, c2, start=LATER - timedelta(days=7, minutes=5), end=LATER)
+        for i in (0, 1):
+            _grant(db2, i)
+        out = G.g_shadow(db2, now=LATER, record=False)
+        assert out["verdict"] == "NOT_MET", out
+        assert out["criteria"]["shadow_period"]["value"]["distinct_releases"] == 0, out
+    finally:
+        _restore_all()
+
+
+def test_rows_timed_before_the_signed_approval_do_not_count():
+    try:
+        db, c = _db(), content()
+        _owner_keys()
+        a = _approve(db, c)
+        _decisions(db, c, a, issue=(0, 1), start=NOW - timedelta(days=2))  # 0..9 h, 2 d early
+        _readings(db, c, start=LATER - timedelta(days=7, minutes=5), end=LATER)
+        for i in (0, 1):
+            _grant(db, i)
+        out = G.g_shadow(db, now=LATER, record=False)
+        assert out["criteria"]["shadow_period"]["value"]["distinct_releases"] == 0, out
+    finally:
+        _restore_all()
+
+
+def test_a_backdated_insert_breaks_the_row_order_and_is_dropped():
+    try:
+        db, c, a = _met_db()
+        before = G.g_shadow(db, now=LATER, record=False)["criteria"]["shadow_period"]["value"]
+        _certify(db, 50)
+        with db.session() as s:          # written last, claiming a time before earlier rows
+            when = NOW + timedelta(minutes=30)
+            s.add(AuditLog(actor="standing_issuer", action=sp.SHADOW_DECISION, at=when,
+                           artifact=c["policy_id"], detail={
+                               "approval_id": a, "shadow": True, "slug": "p50",
+                               "version": "1.0.0", "release": f"{50:064d}",
+                               "decision": "HOLD", "decided_at": when.isoformat()}))
+        after = G.g_shadow(db, now=LATER, record=False)["criteria"]["shadow_period"]["value"]
+        assert after["distinct_releases"] == before["distinct_releases"], (before, after)
+    finally:
+        _restore_all()
+
+
+def test_a_row_whose_claimed_time_disagrees_with_its_stored_time_is_dropped():
+    try:
+        db, c, a = _met_db()
+        _certify(db, 60)
+        with db.session() as s:
+            s.add(AuditLog(actor="standing_issuer", action=sp.SHADOW_DECISION, at=LATER,
+                           artifact=c["policy_id"], detail={
+                               "approval_id": a, "shadow": True, "slug": "p60",
+                               "version": "1.0.0", "release": f"{60:064d}",
+                               "decision": "HOLD",
+                               "decided_at": (LATER - timedelta(days=1)).isoformat()}))
+        v = G.g_shadow(db, now=LATER, record=False)["criteria"]["shadow_period"]["value"]
+        assert v["distinct_releases"] == 10, v
+    finally:
+        _restore_all()
+
+
+def test_candidates_must_be_certified_releases_of_real_products():
+    try:
+        db, c = _db(), content()
+        _owner_keys()
+        a = _approve(db, c)
+        _decisions(db, c, a, issue=(0, 1))
+        with db.session() as s:          # one uncertified, one at another release
+            from brambleloop.core.models import PatternVersion, Product
+
+            for i, change in ((2, "uncertified"), (3, "release")):
+                pv = s.scalar(select(PatternVersion).join(Product).where(
+                    Product.slug == f"p{i}"))
+                if change == "uncertified":
+                    pv.certified = False
+                else:
+                    pv.release_hash = "e" * 64
+        v = G.g_shadow(db, now=LATER, record=False)["criteria"]["shadow_period"]["value"]
+        assert v["distinct_releases"] == 8, v
+    finally:
+        _restore_all()
+
+
+def test_a_row_dated_after_the_reading_does_not_count():
+    try:
+        db, c, a = _met_db()
+        _certify(db, 70)
+        when = LATER + timedelta(hours=1)            # stored and claimed in the future
+        with db.session() as s:
+            s.add(AuditLog(actor="standing_issuer", action=sp.SHADOW_DECISION, at=when,
+                           artifact=c["policy_id"], detail={
+                               "approval_id": a, "shadow": True, "slug": "p70",
+                               "version": "1.0.0", "release": f"{70:064d}",
+                               "decision": "HOLD", "decided_at": when.isoformat()}))
+        v = G.g_shadow(db, now=LATER, record=False)["criteria"]["shadow_period"]["value"]
+        assert v["distinct_releases"] == 10, v
+    finally:
+        _restore_all()
+
+
+def test_an_approval_without_a_signed_approved_at_is_not_met():
+    from brambleloop.ops import standing_issuer as SI
+
+    real = SI.shadow_policy
+    try:
+        db, c, a = _met_db()
+        SI.shadow_policy = lambda *a_, **k: {**real(*a_, **k), "approved_at": None}
+        out = G.g_shadow(db, now=LATER, record=False)
+        assert out["verdict"] != "MET", out
+        assert out["criteria"]["policy_approved"]["state"] == SB.FAIL, out
+    finally:
+        SI.shadow_policy = real
+        _restore_all()
+
+
+def test_activation_needs_a_fresh_g_shadow_met_for_this_approval():
+    try:
+        db, c = _db(), content()
+        _owner_keys()
+        a = _approve(db, c)
+        why = sp.activation_refusals(db, a, now=LATER)
+        assert any("G-SHADOW is not MET" in w for w in why), why
+    finally:
+        _restore_all()
 
 
 if __name__ == "__main__":

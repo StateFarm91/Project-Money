@@ -848,6 +848,20 @@ def activation_refusals(db, approval_id: int, *, now: datetime | None = None) ->
     va = content["validity"]
     if now >= _when(va["review_by"]):
         out.append("the policy's review date has passed; approve a new version")
+    # Review 6955504377 (LOW): activation needs a FRESH G-SHADOW MET for this approval, read
+    # now -- not an old reading, and never a reading of another approval.
+    try:
+        from . import standing_shadow_gate as G
+
+        gate = G.g_shadow(db, now=now, record=False)
+        if gate.get("verdict") != "MET" or gate.get("approval_id") != int(approval_id):
+            # Criterion names only; the full reasons are on the gate's own reading.
+            failed = [k for k, c in (gate.get("criteria") or {}).items()
+                      if c.get("state") not in ("PASS", G.EXTERNAL)]
+            out.append("G-SHADOW is not MET for this approval now (failing: "
+                       + (", ".join(failed) or "approval mismatch") + ")")
+    except Exception as exc:  # noqa: BLE001 - an unreadable gate is not MET
+        out.append(f"G-SHADOW is unreadable ({type(exc).__name__}); not MET")
     return out
 
 
