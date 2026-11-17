@@ -23,10 +23,12 @@ worktrees, not this file.
   - Pending: test_product_run result (the 2 h run started 08:00Z; post it on #28).
   - Mosaic/graphghan template size truth: DONE, 50942980 (RR 6943059210). Not tied to charts:
     every catalogue seed in those categories is engineered.
-  - NEXT: post the test_product_run result; then answer Main verdicts; then pending task list
+  - test_product_run: 33/36 on d9d980d6; 2 stale-placemat fixture failures fixed in 7616cd77
+    (re-run OK); buying-window failure is calendar-driven (6943876476), awaiting Main.
+  - NEXT: answer Main verdicts; then pending task list
     (V0 paid-provider gate tests, A1R fixes, V1 re-runs) as unblocked.
 - The worktree opus2-ws43 is on blanket-size-truth.
-- Stop reason (09:20Z tick): colourwork template size truth shipped; product_run result pending. Next tick: re-read #28, then the next unblocked item.
+- Stop reason (10:30Z): product_run result posted; size-truth branch complete, all in review. Next tick: re-read #28, then the next unblocked item.
 
 ## State at 2026-11-14T03:35Z (superseded)
 - 03:28Z tick:
