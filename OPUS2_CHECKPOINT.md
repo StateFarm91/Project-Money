@@ -4,7 +4,21 @@ Updated: 2026-11-17T09:30Z. The engineering loop rewrites this file at the end o
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-17T16:59Z (read first)
+## State at 2026-11-17T17:35Z (read first) -- review findings queue (priority over S3/S4)
+- Main verdicts 17-Nov: E2 56694ebf SHIP (merged into w6-INTEG1 0c62f263). DO NOT SHIP:
+  ws5-e6 16a269b7 (6954619488), ws2-r5 fd960ee5 + ws6-e1 76fe0dd3 (6954809399),
+  a3 3928ba00 (6955484423), ws4-11 680e3440 (6955504377). Order: E6 -> research M1+M2 -> E1
+  -> A3 -> WS4 M-1 -> S3 (web/worker split + trusted issuer + Railway cost) -> S4.
+- E6 fix IN PROGRESS in copy scratchpad/e6 (git archive 16a269b7 + ops/): draft_resolver
+  norm_title (html.unescape+ws), LISTING_STATES read, non-draft match -> near/escalate never
+  release; pipeline.real_draft_credential_refusal fail closed (LOCAL_ONLY opt-out); etsy_ops
+  transactions_r cause named. Tests: e6 +3, e3 transport test updated + 2 behavioural tests;
+  6 mutants killed. Regression of 25 suites running (scratchpad e6_reg/). Then commit via
+  plumbing on 16a269b7 -> push opus2/ws5-e6-draft-resolver-fix -> RR (delta).
+- S1 42ac2ad7 test_product_run running (s1_product_run2.log) -> S1 RR.
+- S2 RR a54f16c3 posted (6954936951).
+
+## State at 2026-11-17T16:59Z (superseded)
 - S2 REVIEW-REQUESTED: opus2/s2-openai-provider a54f16c3 on w6-INTEG1 9e91b75b (built by git
   plumbing from scratchpad/s2; 6 files). RR 6954936951. Freeze it; fixes on a -fix head.
 - S1: opus2/s1-product-truth 42ac2ad7 (S1a d0a409a0 + S1b audit fixes) CHECKPOINT 6954936951.
