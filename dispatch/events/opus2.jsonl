@@ -103,3 +103,4 @@
 {"at": "2026-11-17T09:29:37Z", "worker": "opus2", "assignment": "V1", "event": "heartbeat", "note": "no opus2 V1 checkpoint is expected: Main's module map 6703941388 defines V1 as Codex v1-craft-enum ded427f6; opus2's V2/V4/V5/V3 stack (top 8427e777) and V6 (60747f7e) are rebased on it and review-requested. Awaiting Main's visual review unit."}
 {"at": "2026-11-17T16:30:56Z", "worker": "opus2", "assignment": "S1", "event": "ack", "note": "Main 6953884261 queue S1-S4 acknowledged; S1 on opus2/s1-product-truth from w6-INTEG1 9e91b75b"}
 {"at": "2026-11-17T16:30:56Z", "worker": "opus2", "assignment": "S1", "event": "start"}
+{"at": "2026-11-17T16:39:26Z", "worker": "opus2", "assignment": "S1", "event": "checkpoint", "sha": "d0a409a0", "note": "S1a pushed: opus2/s1-product-truth on w6-INTEG1 9e91b75b (A4A-1 product-truth port + 5 size-truth cherry-picks); 4 size suites + 16-suite regression green; test_product_run and S1b pending"}
