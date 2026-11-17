@@ -101,12 +101,19 @@ def test_ineligible_gaps_are_skipped_with_their_reason():
         _gap(db, pod="garments", task=_task(db, "watchlist_gap:b")): "no category",
         _gap(db, task=None): "no research question",
         _gap(db, task=open_task): "not answered",
-        _gap(db, task=_task(db, "watchlist_gap:c"), state="covered"): "already covered",
+        # Review 6954809399 (M1): the real lifecycle states, not an invented "covered".
+        _gap(db, task=_task(db, "watchlist_gap:c"), state="not_pursuing"): "not to pursue",
+        _gap(db, task=_task(db, "watchlist_gap:d"), state="launched"): "already launched",
+        _gap(db, task=_task(db, "watchlist_gap:e"), state="validated_winner"):
+            "validated winner",
+        _gap(db, task=_task(db, "watchlist_gap:f"), state="concepting"): "being concepted",
+        _gap(db, task=_task(db, "watchlist_gap:g"), state="engineering"): "in engineering",
+        _gap(db, task=_task(db, "watchlist_gap:h"), state="certified"): "certified product",
     }
     out = W.write(db, today=TODAY)
     assert out["written"] == []
     why = {s["gap"]: s["why"] for s in out["skipped"]}
-    assert len(cases) == 5 and len(why) == 5, why
+    assert len(cases) == 10 and len(why) == 10, why
     for gid, needle in cases.items():
         assert needle in why[gid], (gid, why[gid])
 
@@ -161,6 +168,13 @@ def test_every_mapped_pod_is_a_supported_flat_rows_concept_in_the_closed_vocabul
         assert spec["recipient"] in C.RECIPIENTS and spec["occasion"] in C.OCCASIONS
         assert spec["feeling"] in C.FEELINGS
         assert W.bands(spec["category"]) is not None, pod
+
+
+def test_the_state_table_covers_the_whole_lifecycle_and_only_uncovered_is_eligible():
+    from brambleloop.intel import coverage
+
+    assert set(W._GAP_STATE_SKIP) == set(coverage.STATES)
+    assert [k for k, v in W._GAP_STATE_SKIP.items() if v is None] == [coverage.UNCOVERED]
 
 
 if __name__ == "__main__":

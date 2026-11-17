@@ -78,6 +78,51 @@ def bands(category: str) -> dict | None:
             "from_pool": sorted(s.slug for s in seeds)}
 
 
+# Review 6954809399 (M1): which coverage-gap states may receive a proposal, derived from the
+# real lifecycle (`intel.coverage.STATES`) rather than a state that does not exist. Only an
+# uncovered gap is open for a new concept; every other state is in progress, done, or
+# declined, and says so. `_check_states` refuses a lifecycle this table does not cover.
+def _gap_state_skip() -> dict[str, str | None]:
+    from ..intel import coverage as C
+
+    table = {
+        C.UNCOVERED: None,
+        C.CONCEPTING: "the gap is already being concepted",
+        C.ENGINEERING: "the gap is already in engineering",
+        C.CERTIFIED: "the gap already has a certified product",
+        C.LAUNCHED: "the gap is already launched",
+        C.VALIDATED_WINNER: "the gap is already a validated winner",
+        C.NOT_PURSUING: "the owner or system decided not to pursue this gap",
+    }
+    missing = set(C.STATES) - set(table)
+    if missing:
+        raise RuntimeError(f"proposal_writer has no rule for gap state(s) {sorted(missing)}")
+    return table
+
+
+_GAP_STATE_SKIP = _gap_state_skip()
+
+
+def _already_proposed(db, gap_id: int) -> bool:
+    """Whether any research task opened for this gap already carries a proposal. A watchlist
+    answer expires in a day and the question re-opens, so the per-task check alone would
+    propose the same gap again every day."""
+    from sqlalchemy import select
+
+    from ..intel import research
+
+    research._ensure(db)
+    prefix = f"watchlist_gap:{gap_id}"
+    with db.session() as s:
+        for t in s.scalars(select(research.ResearchTask).where(
+                research.ResearchTask.trigger.like(prefix + "%"))):
+            trig = str(t.trigger or "")
+            if (trig == prefix or trig.startswith(prefix + "#")) and \
+                    (t.detail or {}).get("concept_proposals"):
+                return True
+    return False
+
+
 def _task_facts(db, task_id: int, today: date) -> tuple[dict | None, str | None]:
     """The task's citable facts, or why it cannot carry a proposal."""
     from ..intel import research
@@ -166,8 +211,12 @@ def write(db, *, today: date | None = None, now: datetime | None = None) -> dict
         def skip(why):
             skipped.append({"gap": gid, "pod": pod, "task": task_id, "why": why})
 
-        if state == "covered":
-            skip("the arena is already covered")
+        why_not = _GAP_STATE_SKIP.get(state, f"unknown gap state {state!r}")
+        if why_not:
+            skip(why_not)
+            continue
+        if _already_proposed(db, gid):
+            skip("an earlier research answer for this gap already carries a proposal")
             continue
         if not task_id:
             skip("no research question was opened for this gap")

@@ -510,7 +510,7 @@ def record_comparison(db, *, now: datetime | None = None) -> dict:
     rep = compare(db, now=now)
     _assert_no_content(rep)
     store_reading(db, COMPARE_READING, rep, now=now)
-    opened = []
+    opened, answered = [], []
     for a in rep["validated_arenas"]:
         gid = coverage.upsert(db, benchmark_key=WATCHLIST_KEY, arena=f"watchlist:{a['pod']}",
                               pod=a["pod"], evidence=None)
@@ -520,8 +520,30 @@ def record_comparison(db, *, now: datetime | None = None) -> dict:
         task = _research_question(db, gid, a["pod"], now=now)
         if task is not None:
             _merge_gap_evidence(db, gid, {"research_task_id": task})
+            answered.append(_answer_research(db, gid, task, a["pod"], now=now))
         opened.append(gid)
-    return {"report": rep, "gaps": opened}
+    return {"report": rep, "gaps": opened, "research": answered}
+
+
+def _answer_research(db, gap_id: int, task_id: int, pod: str, *, now: datetime) -> dict:
+    """Research M2: answer the gap's open question from the recorded comparisons. Never blocks
+    the comparison; a failure is recorded, not raised."""
+    from ..core.models import AuditLog
+    from . import watchlist_research
+
+    def audit(action, artifact=None, detail=None):
+        with db.session() as s:
+            s.add(AuditLog(actor="intel", action=action, artifact=artifact,
+                           detail=detail or {}))
+
+    try:
+        return watchlist_research.answer(db, gap_id=gap_id, task_id=task_id, pod=pod,
+                                         now=now, audit=audit)
+    except Exception as exc:  # noqa: BLE001 - research never blocks the comparison
+        why = f"{type(exc).__name__}: {str(exc)[:300]}"
+        audit("research.answer_failed", artifact=f"research_task:{task_id}",
+              detail={"gap": gap_id, "pod": pod, "why": why})
+        return {"answered": False, "task": task_id, "why": why}
 
 
 def _research_question(db, gap_id: int, pod: str, *, now: datetime) -> int | None:
