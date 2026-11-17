@@ -104,3 +104,5 @@
 {"at": "2026-11-17T16:30:56Z", "worker": "opus2", "assignment": "S1", "event": "ack", "note": "Main 6953884261 queue S1-S4 acknowledged; S1 on opus2/s1-product-truth from w6-INTEG1 9e91b75b"}
 {"at": "2026-11-17T16:30:56Z", "worker": "opus2", "assignment": "S1", "event": "start"}
 {"at": "2026-11-17T16:39:26Z", "worker": "opus2", "assignment": "S1", "event": "checkpoint", "sha": "d0a409a0", "note": "S1a pushed: opus2/s1-product-truth on w6-INTEG1 9e91b75b (A4A-1 product-truth port + 5 size-truth cherry-picks); 4 size suites + 16-suite regression green; test_product_run and S1b pending"}
+{"at": "2026-11-17T16:59:21Z", "worker": "opus2", "assignment": "S2", "event": "review_requested", "sha": "a54f16c3", "note": "opus2/s2-openai-provider on w6-INTEG1 9e91b75b; 12/12, 9 mutants, 21-suite neighbour regression green"}
+{"at": "2026-11-17T16:59:21Z", "worker": "opus2", "assignment": "S1", "event": "checkpoint", "sha": "42ac2ad7", "note": "S1b audit fixes on opus2/s1-product-truth; test_product_run running; RR to follow"}
