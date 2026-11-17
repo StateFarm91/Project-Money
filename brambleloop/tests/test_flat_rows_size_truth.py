@@ -36,8 +36,10 @@ CASES = {
     "runner": ("Linen Ridge Table Runner", (48.0, 13.0)),
     "scarf": ("Linen Ridge Scarf", (32.0, 18.1)),
     "pillow": ("Linen Ridge Pillow Cover", (57.6, 18.1)),
-    "baby": ("Linen Ridge Baby Blanket", (80.0, 18.1)),
 }
+# "baby" is not one object: the category holds hats (refused by the fallback), blankets
+# (held to the blanket band by their title) and other small items. Its template is not
+# resized here; a "Baby Blanket" title on it is refused by the blanket band.
 
 
 class _Twin:
@@ -94,6 +96,11 @@ def test_square_bands_check_size_and_shape():
     assert C.object_size_findings(_Cir("Coaster"), _Twin(10.0, 13.0))       # 1.3x: not square
     assert C.object_size_findings(_Cir("Lumbar Pillow"), _Twin(30.0, 50.0)) == []
     assert C.object_size_findings(_Cir("Pillow"), _Twin(20.0, 20.0))        # too small
+
+
+def test_a_baby_blanket_on_the_mixed_baby_template_is_refused_by_the_blanket_band():
+    cir, twin = _twin_of("baby", "Linen Ridge Baby Blanket")
+    assert [f.code for f in C.object_size_findings(cir, twin)] == ["OBJECT_SIZE_OUT_OF_BAND"]
 
 
 def test_a_cowl_and_two_object_titles_are_not_held_to_these_bands():
