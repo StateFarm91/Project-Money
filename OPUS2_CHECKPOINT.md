@@ -13,12 +13,15 @@ worktrees, not this file.
   - Built while Main's answer to QUESTION 6837687907 is pending. It narrows to C (or adds
     A) if Main chooses differently.
   - Job store.draft_reconcile: hourly, read-only.
-- Open RRs: as before, plus E6.
+- New: blanket size truth, `opus2/blanket-size-truth` 3b7dd016 (RR 6940053193), stacked on
+  a4a-fixes. The flat-rows blanket template drafted a 128 x 22 cm strip; it is now a
+  128 x 152 cm throw, with a size band at certify.
+- Open RRs: as before, plus E6 and blanket size truth.
 - Next unblocked candidates, if Main is still silent:
-  - Task #27, blanket/throw construction breadth. The granny square needs a motif-join
-    decision; a plain-row blanket does not.
-- The worktree opus2-ws43 is on ws5-e6-draft-resolver.
-- Stop reason (04:28Z tick): E6 paging guard shipped. Next tick: re-read #28, then the next unblocked item.
+  - Audit the other flat-rows templates (placemat, runner, coaster, pillow, scarf) for the
+    same size-truth fault.
+- The worktree opus2-ws43 is on blanket-size-truth.
+- Stop reason (05:28Z tick): blanket size truth shipped. Next tick: re-read #28, then the next unblocked item.
 
 ## State at 2026-11-14T03:35Z (superseded)
 - 03:28Z tick:
