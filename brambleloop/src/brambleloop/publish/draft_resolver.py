@@ -1,0 +1,254 @@
+"""WS5 E6: resolve a draft-creation intent whose remote outcome is unknown (option B).
+
+`draft_intent` refuses every second create once a create may have reached Etsy. The intent
+then sits in RECONCILE_REQUIRED, or stays CREATING if the process died, behind a P1
+incident that halts publication. Until now nothing ever resolved it.
+
+The create request does not carry our intent key to Etsy, so there is no key to match on.
+This resolver matches on content instead, and never adopts on ambiguity. Each run reads the
+shop's drafts (`getListingsByShop`, state=draft; read-only) once, then for each unresolved
+intent:
+
+* A **candidate** is a draft that:
+  - has a title equal to the certified listing's title;
+  - has a price equal to the certified price;
+  - was created no earlier than the intent minus `CREATE_SKEW`;
+  - is not already bound to another local listing or intent.
+* **Exactly one candidate** is adopted. It goes through `draft_intent.checkpoint`, the same
+  path a successful create takes, so the local listing and the intent record the remote id
+  together. The incident resolves with the evidence, and any owner card for it closes.
+* **Two or more candidates**, or a draft with the certified title but a different price,
+  are **escalated**. One owner card names every candidate, the incident's detail lists
+  them, and nothing is adopted. Two identical drafts cannot be told apart, so that case
+  always needs a person.
+* **No candidate** is never read as "not created" from one look. The run records the empty
+  read on the intent. After `EMPTY_READS` complete empty reads spanning at least
+  `EMPTY_SPAN`, the intent is released (deleted, audited) and the incident resolves, so the
+  next publish may create once.
+
+A read that fails or is incomplete changes nothing: it is reported unread.
+
+It never creates, edits or deletes anything on Etsy.
+"""
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+from typing import Any
+
+from sqlalchemy import select
+
+CREATE_SKEW = timedelta(minutes=10)
+STALE_CREATING = timedelta(hours=2)
+EMPTY_READS = 2
+EMPTY_SPAN = timedelta(minutes=30)
+
+ADOPTED = "draft_intent.adopted_by_match"
+ESCALATED = "draft_intent.escalated"
+RELEASED = "draft_intent.released_no_remote"
+CARD_PREFIX = "draft_reconcile:"
+
+
+def _aware(v: datetime | None) -> datetime | None:
+    if v is None:
+        return None
+    return v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+
+
+def _created_at(remote: dict) -> datetime | None:
+    ts = remote.get("original_creation_timestamp") or remote.get("created_timestamp")
+    try:
+        return datetime.fromtimestamp(int(ts), tz=timezone.utc)
+    except (TypeError, ValueError, OverflowError, OSError):
+        return None
+
+
+def _price(remote: dict) -> float | None:
+    from .manual_adoption import _price as price_of
+
+    amount = price_of(remote).get("amount")
+    return None if amount is None else round(float(amount), 2)
+
+
+def unresolved(db, *, now: datetime) -> list:
+    """Intents with no remote id whose outcome is unknown: RECONCILE_REQUIRED, or CREATING
+    older than STALE_CREATING (a process that died mid-create runs no `uncertain`)."""
+    from .draft_intent import DraftIntent
+
+    with db.session() as s:
+        rows = list(s.scalars(select(DraftIntent).where(DraftIntent.remote_id.is_(None))))
+        s.expunge_all()
+    out = []
+    for r in rows:
+        if r.state == "RECONCILE_REQUIRED":
+            out.append(r)
+        elif r.state == "CREATING" and (now - (_aware(r.at) or now)) >= STALE_CREATING:
+            out.append(r)
+    return out
+
+
+def _bound_ids(db) -> set[str]:
+    """Remote ids some local listing or intent already owns."""
+    from ..core.models import Listing
+    from .draft_intent import DraftIntent
+
+    with db.session() as s:
+        ids = {str(x) for x in s.scalars(select(Listing.etsy_listing_id)) if x}
+        ids |= {str(x) for x in s.scalars(select(DraftIntent.remote_id)) if x}
+    return ids
+
+
+def _certified(db, intent) -> dict | None:
+    from ..core.models import Listing
+
+    with db.session() as s:
+        listing = s.scalar(select(Listing).where(Listing.product_slug == intent.slug,
+                                                 Listing.version == intent.version))
+        if listing is None or (listing.release_hash and listing.release_hash != intent.release):
+            return None
+        return {"title": listing.title, "price_cad": round(float(listing.price_cad or 0), 2)}
+
+
+def match(db, intent, drafts: list[dict]) -> dict:
+    """{"candidates": [...], "near": [...], "why": str | None} for one intent. Pure read."""
+    certified = _certified(db, intent)
+    if certified is None:
+        return {"candidates": [], "near": [], "certified": None,
+                "why": "no local listing bound to the intent's certified release"}
+    bound = _bound_ids(db)
+    floor = (_aware(intent.at) or datetime.now(timezone.utc)) - CREATE_SKEW
+    candidates, near = [], []
+    for d in drafts:
+        lid = str(d.get("listing_id") or "")
+        if not lid or lid in bound or d.get("state", "draft") != "draft":
+            continue
+        if d.get("title") != certified["title"]:
+            continue
+        created = _created_at(d)
+        entry = {"listing_id": lid, "price": _price(d),
+                 "created": created.isoformat() if created else None}
+        if created is None or created < floor:
+            near.append({**entry, "why": "created before the intent, or creation time unread"})
+        elif entry["price"] != certified["price_cad"]:
+            near.append({**entry, "why": "certified title but a different price"})
+        else:
+            candidates.append(entry)
+    return {"candidates": candidates, "near": near, "certified": certified, "why": None}
+
+
+def _signature(intent) -> str:
+    from .draft_intent import key_for
+
+    return "draft-create:" + key_for(intent.slug, intent.version)
+
+
+def _adopt(db, intent, found: dict, audit) -> dict:
+    from ..ops import incident_lifecycle as lifecycle
+    from ..ops import owner_queue
+    from ..core.models import OwnerAction
+    from .draft_intent import checkpoint
+
+    lid = found["candidates"][0]["listing_id"]
+    checkpoint(db, intent.key, intent.token, lid)
+    why = (f"exactly one shop draft ({lid}) carries the certified title and price and was "
+           f"created after the intent; adopted through draft_intent.checkpoint")
+    with db.session() as s:
+        lifecycle.resolve_signatures(s, [_signature(intent)], resolution=why)
+        row = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == CARD_PREFIX + intent.key,
+            OwnerAction.done == False))  # noqa: E712
+        if row is not None:
+            owner_queue.close(row, owner_queue.SATISFIED, why)
+    audit(ADOPTED, artifact=f"{intent.slug}@{intent.version}",
+          detail={"listing_id": lid, "evidence": found["candidates"][0], "why": why})
+    return {"slug": intent.slug, "version": intent.version, "outcome": "adopted",
+            "listing_id": lid}
+
+
+def _escalate(db, intent, found: dict, audit) -> dict:
+    from ..core.models import Incident
+    from ..ops import owner_queue
+
+    named = found["candidates"] + found["near"]
+    ids = ", ".join(c["listing_id"] for c in named) or "none"
+    why = found["why"] or (
+        f"{len(found['candidates'])} shop draft(s) match the certified listing and "
+        f"{len(found['near'])} nearly match; the resolver never adopts on ambiguity")
+    with db.session() as s:
+        inc = s.scalar(select(Incident).where(Incident.signature == _signature(intent),
+                                              Incident.resolved == False))  # noqa: E712
+        if inc is not None:
+            inc.detail = {**(inc.detail or {}), "candidates": named, "resolver": why}
+        owner_queue.ensure(
+            s, CARD_PREFIX + intent.key,
+            action=(f"Choose which Etsy draft is {intent.slug} {intent.version} "
+                    f"(candidates: {ids}), or confirm none is"),
+            reason=why, minutes=5, max_cost_cad=0.0,
+            consequence_of_delay="publication of this version stays halted",
+            blocks=f"{intent.slug}@{intent.version}")
+    audit(ESCALATED, artifact=f"{intent.slug}@{intent.version}",
+          detail={"candidates": named, "why": why})
+    return {"slug": intent.slug, "version": intent.version, "outcome": "escalated",
+            "candidates": [c["listing_id"] for c in named]}
+
+
+def _empty(db, intent, now: datetime, audit) -> dict:
+    from ..ops import incident_lifecycle as lifecycle
+    from .draft_intent import DraftIntent
+
+    with db.session() as s:
+        row = s.get(DraftIntent, intent.key)
+        if row is None or row.remote_id:
+            return {"slug": intent.slug, "version": intent.version, "outcome": "changed"}
+        reads = list((row.detail or {}).get("empty_reads") or []) + [now.isoformat()]
+        first = datetime.fromisoformat(reads[0])
+        if len(reads) >= EMPTY_READS and now - _aware(first) >= EMPTY_SPAN:
+            s.delete(row)
+            why = (f"{len(reads)} complete reads of the shop's drafts from {reads[0]} to "
+                   f"{reads[-1]} found no draft with the certified title; the create never "
+                   f"reached Etsy, so the intent is released")
+            lifecycle.resolve_signatures(s, [_signature(intent)], resolution=why)
+            released = True
+        else:
+            row.detail = {**(row.detail or {}), "empty_reads": reads}
+            released = False
+    if released:
+        audit(RELEASED, artifact=f"{intent.slug}@{intent.version}",
+              detail={"empty_reads": reads, "why": why})
+        return {"slug": intent.slug, "version": intent.version, "outcome": "released"}
+    return {"slug": intent.slug, "version": intent.version, "outcome": "awaiting_second_read",
+            "empty_reads": len(reads)}
+
+
+def resolve(db, drafts: list[dict], *, audit, now: datetime | None = None) -> dict:
+    """Act on every unresolved intent from one complete read of the shop's drafts."""
+    now = now or datetime.now(timezone.utc)
+    results = []
+    for intent in unresolved(db, now=now):
+        found = match(db, intent, drafts)
+        if found["why"] is None and len(found["candidates"]) == 1 and not found["near"]:
+            results.append(_adopt(db, intent, found, audit))
+        elif found["why"] is not None or found["candidates"] or found["near"]:
+            results.append(_escalate(db, intent, found, audit))
+        else:
+            results.append(_empty(db, intent, now, audit))
+    return {"read": True, "drafts_seen": len(drafts), "intents": results,
+            "writes_to_etsy": 0}
+
+
+def run(db, *, audit, client=None, now: datetime | None = None) -> dict:
+    """Read the shop's drafts once and resolve. An unread shop changes nothing."""
+    now = now or datetime.now(timezone.utc)
+    if not unresolved(db, now=now):
+        return {"read": False, "why": "no unresolved draft intent", "intents": []}
+    try:
+        if client is None:
+            from .manual_adoption import _client, _transport
+
+            client = _client(db, _transport())
+        if client is None or getattr(client, "credentials", None) is None:
+            return {"read": False, "why": "no Etsy read credential; nothing was read",
+                    "intents": []}
+        drafts = client.get_shop_listings(state="draft")
+    except Exception as e:  # noqa: BLE001 - an unread shop is UNKNOWN, never "empty"
+        return {"read": False, "why": f"{type(e).__name__}: {e}"[:300], "intents": []}
+    return resolve(db, list(drafts or []), audit=audit, now=now)

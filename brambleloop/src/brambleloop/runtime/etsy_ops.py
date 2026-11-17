@@ -1473,6 +1473,22 @@ LIVE_DRIFT_READING = "store.live_drift"
 LIVE_OWNER_FIELD_BLANK = "store.live:owner_field_blank:"
 
 
+@handlers.register("store.draft_reconcile")
+def handle_store_draft_reconcile(ctx: JobContext) -> dict:
+    """WS5 E6: resolve unknown draft-create outcomes from one read-only read of the shop's
+    drafts (`publish.draft_resolver`). Adopts exactly one content match, escalates any
+    ambiguity to one owner card, releases only after repeated complete empty reads. Never
+    writes to Etsy."""
+    from ..publish import draft_resolver
+
+    out = draft_resolver.run(ctx.db, audit=ctx.audit)
+    outcomes = [i.get("outcome") for i in out.get("intents", [])]
+    ctx.audit("store.draft_reconcile", detail={**out, "writes_performed": 0})
+    return {"read": out.get("read"), "why": out.get("why"),
+            "resolved": sum(1 for o in outcomes if o in ("adopted", "released")),
+            "escalated": outcomes.count("escalated"), "intents": out.get("intents", [])}
+
+
 @handlers.register("store.live_drift")
 def handle_store_live_drift(ctx: JobContext) -> dict:
     """Repo draft vs live shop, from stored readings only (getShop snapshot + owner

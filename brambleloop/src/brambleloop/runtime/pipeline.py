@@ -2989,6 +2989,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "etsy.openapi_reverify": ("affected",),
     # W4-STORE: live-vs-canonical drift read-back (stored readings only, writes_performed 0).
     "store.live_drift": ("findings", "proposals", "incidents_opened"),
+    "store.draft_reconcile": ("resolved", "escalated"),
     "improve.replay": ("runs", "challengers_registered", "proposed", "retired"),
     "intel.gallery_analysis": ("judged",),
     "intel.serp_capture": ("captured",),
