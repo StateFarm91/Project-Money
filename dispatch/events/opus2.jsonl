@@ -107,3 +107,4 @@
 {"at": "2026-11-17T16:59:21Z", "worker": "opus2", "assignment": "S2", "event": "review_requested", "sha": "a54f16c3", "note": "opus2/s2-openai-provider on w6-INTEG1 9e91b75b; 12/12, 9 mutants, 21-suite neighbour regression green"}
 {"at": "2026-11-17T16:59:21Z", "worker": "opus2", "assignment": "S1", "event": "checkpoint", "sha": "42ac2ad7", "note": "S1b audit fixes on opus2/s1-product-truth; test_product_run running; RR to follow"}
 {"at": "2026-11-17T18:04:52Z", "worker": "opus2", "assignment": "S1", "event": "review_requested", "sha": "42ac2ad7", "note": "S1 Product Truth on w6-INTEG1; test_product_run 36/36 (1 disk-full rerun green); 16+29 suite regressions green"}
+{"at": "2026-11-17T18:18:56Z", "worker": "opus2", "assignment": "WS5", "event": "review_requested", "sha": "0630d53a", "note": "ws5 E6/E3 fix for 6954619488 on opus2/ws5-e6-draft-resolver-fix"}
