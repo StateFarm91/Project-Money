@@ -18,8 +18,10 @@ worktrees, not this file.
   128 x 152 cm throw, with a size band at certify.
 - Open RRs: as before, plus E6 and blanket size truth.
 - Next unblocked candidates, if Main is still silent:
-  - Audit the other flat-rows templates (placemat, runner, coaster, pillow, scarf) for the
-    same size-truth fault.
+  - NEXT, decided: fix the flat-rows templates on opus2/blanket-size-truth, one sourced
+    geometry and size band per family (STATUS 6940068589). Each drafts a strip today:
+    coaster 19x7, placemat 38x11, runner 48x13, scarf 32x18, pillow 58x18, baby 80x18,
+    mosaic_blanket 128x20, graphghan 112x17 cm.
 - The worktree opus2-ws43 is on blanket-size-truth.
 - Stop reason (05:28Z tick): blanket size truth shipped. Next tick: re-read #28, then the next unblocked item.
 
