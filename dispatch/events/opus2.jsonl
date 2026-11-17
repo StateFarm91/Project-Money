@@ -95,3 +95,4 @@
 {"at": "2026-11-14T02:05:00Z", "worker": "opus2", "assignment": "A4B", "event": "review_requested", "sha": "93955611", "note": "A4B-2 producer on opus2/a4b-2-producer, stacked on codex/a4b-answer-fence; RR 6869739394"}
 {"at": "2026-11-14T03:05:00Z", "worker": "opus2", "assignment": "A4A", "event": "review_requested", "sha": "6dc0cecb", "note": "A4a LOWs on opus2/a4a-fixes; RR 6870280951"}
 {"at": "2026-11-17T03:55:00Z", "worker": "opus2", "assignment": "E6", "event": "review_requested", "sha": "3f8518f8", "note": "draft-intent resolver, option B, built pending QUESTION 6837687907; RR 6937571437"}
+{"at": "2026-11-17T06:20:00Z", "worker": "opus2", "assignment": "A4A", "event": "review_requested", "sha": "3b7dd016", "note": "blanket size truth on opus2/blanket-size-truth (stacked on a4a-fixes); RR 6940053193"}
