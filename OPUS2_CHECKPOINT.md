@@ -4,7 +4,25 @@ Updated: 2026-11-17T09:30Z. The engineering loop rewrites this file at the end o
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-17T03:55Z (read first)
+## State at 2026-11-17T16:37Z (read first) -- Main 6953884261 "P0 AUTONOMOUS REVENUE RECOVERY"
+- Main is back. Queue: S1 Product Truth -> S2 OpenAI provider in the existing gateway -> S3 WS4
+  missing pieces (WS4-7/SEG, issuer service boundary + Railway cost estimate, public-activation
+  authority) -> S4 P0 command board. Review findings jump the queue. Base: claude/w6-INTEG1
+  9e91b75b. Reviewed heads are FROZEN (ws2-r5, ws6-e1, ws5-e6, ws5-e2, a3, ws4-11, a4a-fixes,
+  blanket-size-truth 7616cd77, a4b-2, a9-u6): fixes go on <branch>-fix heads. ACK 6954186084.
+- S1a: opus2/s1-product-truth (worktree opus2-ws43) = A4A-1 product-truth port + cherry-picks
+  of the 5 size-truth commits, all clean; 4 size suites green; 16-suite regression and
+  test_product_run running (scratchpad s1reg/, s1_product_run.log). NOT yet pushed.
+- S1b: edits made in an ISOLATED COPY (scratchpad s1b/, because product_run reads the worktree):
+  title-aware geometry (baby blanket, ring cushion), ring-cushion band, pet mat and wall decor
+  templates, flat-shape/loop refusals (round/oval..., cowl/infinity/snood); new
+  tests/test_s1_product_truth.py (6), flat_rows test updated; 9 mutants killed. Neighbour
+  regression running in the copy (s1b_reg/). Then copy src/tests diffs into the worktree,
+  commit, push, REVIEW-REQUEST.
+- Disk is ~270 MB free: do not create worktrees.
+- as_of question 6944133331 still open.
+
+## State at 2026-11-17T03:55Z (superseded)
 - The owner said "Get to work". Main has been silent since 2026-11-12T11:46Z.
 - New: WS5 E6 draft-intent resolver (option B), `opus2/ws5-e6-draft-resolver`.
   - 3f8518f8: the resolver (RR 6937571437).
