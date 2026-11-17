@@ -40,8 +40,9 @@ worktrees, not this file.
   per-minute RateLimited from ledger+process window, per-provider HOLD); providers.py registers
   "openai"; routing.OPENAI_MODEL_BY_TIER + openai_model_for; ops/funding.py note_provider/
   blocked_provider/cleared_provider (key model_provider_balance:<provider>; shared row unchanged).
-  tests/test_s2_openai_provider.py 11/11. TODO: funding-source split (promo vs billable cash),
-  balance UNKNOWN in gateway/credentials, mutants, neighbour regression (test_gateway,
+  + finance/credits.split (per-call promo credit vs billable cash, CAD, ESTIMATED) +
+  openai_chat.balance() UNKNOWN. tests/test_s2_openai_provider.py 12/12. TODO: mutants,
+  neighbour regression (running: scratchpad s2_reg/) (test_gateway,
   test_v11_reliability_gateway, test_w3_spend_paid_calls, test_w5_v0_paid_provider_gate,
   test_w4_fmbatch1_provider_boundary, test_funding, test_w4_funding, test_spend_policy,
   test_cert_cost, test_w4_c03_routing, test_provider_accounts), then branch opus2/s2-openai-provider
