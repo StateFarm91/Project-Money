@@ -1,6 +1,6 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-17T03:55Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-17T09:30Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
@@ -25,10 +25,14 @@ worktrees, not this file.
     every catalogue seed in those categories is engineered.
   - test_product_run: 33/36 on d9d980d6; 2 stale-placemat fixture failures fixed in 7616cd77
     (re-run OK); buying-window failure is calendar-driven (6943876476), awaiting Main.
-  - NEXT: answer Main verdicts; then pending task list
-    (V0 paid-provider gate tests, A1R fixes, V1 re-runs) as unblocked.
+  - Buying-window failure re-diagnosed (6944133331): as_of is not carried from plan.cycle to
+    launch.plan, so the planner uses the real clock. Asked Main: thread as_of (recommended) or
+    pin the test. Release/launch code is not opus2's; build only on Main's answer.
+  - V0/A6 are Codex's; V1 is Codex v1-craft-enum (module map 6703941388). Dispatch heartbeat
+    recorded; the board's "V1 overdue" is a record gap. A1R is in Main's U2 review.
+  - NEXT: act on any Main verdict or answer. No unblocked assigned item remains.
 - The worktree opus2-ws43 is on blanket-size-truth.
-- Stop reason (10:30Z): product_run result posted; size-truth branch complete, all in review. Next tick: re-read #28, then the next unblocked item.
+- Stop reason (2026-11-17T09:30Z): no safe assigned work remains; all items are review-requested or wait on Main (E6 QUESTION 6837687907, as_of choice 6944133331, ~22 RRs).
 
 ## State at 2026-11-14T03:35Z (superseded)
 - 03:28Z tick:
