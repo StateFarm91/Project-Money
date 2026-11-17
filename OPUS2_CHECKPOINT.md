@@ -4,7 +4,23 @@ Updated: 2026-11-17T09:30Z. The engineering loop rewrites this file at the end o
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-17T18:27Z (read first)
+## State at 2026-11-17T19:12Z (read first) -- verdict queue v2 (ACK 6958182044)
+- Verdicts: ws5 E6 fix 0630d53a SHIP (merged; LOWs N1-N3 later). S2 a54f16c3 DO NOT SHIP
+  (6957356475: HIGH per-task routing in gateway builders, global vendor switch breaks Anthropic;
+  MED ledger USD/uncertain/expiry + Command Center; MED default OpenAI text ceiling + activation;
+  LOWs). Research f95bd617 DO NOT SHIP (6957516781: H1 refused low proposal blocks gap forever via
+  _already_proposed -> propose only past intake floor, re-eligible on evidence digest, multi-day
+  cadence test; H2 facts count stale shops + withdrawn listings -> FRESH shops only, non-withdrawn,
+  distinct observation dates per shop, per-shop timestamps + listing ids, stale majority UNKNOWN;
+  LOWs drive real compare, one open task per gap). A4 stack (6957186985): a4a-fixes regen autonomy
+  map; blanket-size-truth superseded by S1 (said so); a4b-2 pytest->minipytest + enrichment_answer
+  wiring; SIZE AUDIT applies to S1: 70cm blanket floor refuses Launch-0 nordic-forest-mosaic-throw-baby
+  57.6x67.8 -> per size-family bands; lovey/pet/tapestry/lumbar/default panel; Launch-0 certify-all test.
+- ORDER: A3 fix (ready; scratchpad/a3; fix_only suite final run bnautpcms) -> research fix 2 (same
+  -fix branch on f95bd617) -> WS4 M-1 -> A4 stack -> S1 fix (opus2/s1-product-truth-fix) -> S2 fix
+  (opus2/s2-openai-provider-fix) -> S3 -> S4. E1 34dbf572 awaiting verdict.
+
+## State at 2026-11-17T18:27Z (superseded)
 - RRs posted today (all frozen; fixes go on -fix heads):
   S2 a54f16c3 (6954936951); S1 42ac2ad7 (6956573025); ws5 E6/E3 fix 0630d53a on
   opus2/ws5-e6-draft-resolver-fix (6956914209); research M1+M2 f95bd617 on
