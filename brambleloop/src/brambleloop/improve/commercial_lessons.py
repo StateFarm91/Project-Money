@@ -60,6 +60,7 @@ writes lessons. No model, network or spend.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 MIN_VISITS = 200          # growth.loops.MEASURED_SAMPLE
 MIN_ORDERS = 3
@@ -88,6 +89,9 @@ class Group:
     visits: int = 0
     favourites: int = 0
     orders: int = 0
+    # Official basis only: receipt orders in the window whose Offsite Ads attribution is
+    # UNKNOWN (ledger not read). Not counted as organic, and reported.
+    attribution_unknown: int = 0
     first: str = ""
     last: str = ""
 
@@ -182,41 +186,58 @@ def _view_windows(db) -> dict[str, dict]:
     from ..core.models import Listing, OperatingReading
 
     with db.session() as s:
-        snaps = [(r.period_key, dict((r.payload or {}).get("listings") or {}))
+        snaps = [(r.period_key, dict((r.payload or {}).get("listings") or {}), r.at)
                  for r in s.scalars(select(OperatingReading)
                                     .where(OperatingReading.kind == SNAPSHOT_KIND)
                                     .order_by(OperatingReading.period_key))]
         ours = {str(r.etsy_listing_id): r.product_slug
                 for r in s.scalars(select(Listing).where(Listing.etsy_listing_id != ""))}
-    first: dict[str, tuple[str, int]] = {}
-    last: dict[str, tuple[str, int]] = {}
-    for day, listings in snaps:
+    first: dict[str, tuple[str, int, Any]] = {}
+    last: dict[str, tuple[str, int, Any]] = {}
+    for day, listings, at in snaps:
         for lid, rec in listings.items():
             v = (rec or {}).get("views")
             if not isinstance(v, int) or isinstance(v, bool) or v < 0:
                 continue
-            first.setdefault(lid, (day, v))
-            last[lid] = (day, v)
+            first.setdefault(lid, (day, v, at))
+            last[lid] = (day, v, at)
     out: dict[str, dict] = {}
-    for lid, (d0, v0) in first.items():
-        d1, v1 = last[lid]
+    for lid, (d0, v0, at0) in first.items():
+        d1, v1, at1 = last[lid]
         slug = ours.get(lid)
         if not slug or d1 <= d0 or v1 < v0:
             continue
-        w = out.setdefault(slug, {"views": 0, "first": d0, "last": d1})
+        w = out.setdefault(slug, {"views": 0, "first": d0, "last": d1,
+                                  "first_at": _iso(at0, d0), "last_at": _iso(at1, d1)})
         w["views"] += v1 - v0
         w["first"], w["last"] = min(w["first"], d0), max(w["last"], d1)
+        # Review 6954809399 (LOW): the views accrued between the two snapshot TIMES, so
+        # orders count inside those times, not from midnight of the first day to the end of
+        # the last (up to a day loose on each side).
+        w["first_at"] = min(w["first_at"], _iso(at0, d0))
+        w["last_at"] = max(w["last_at"], _iso(at1, d1))
     return out
+
+
+def _iso(at, day: str) -> str:
+    """A snapshot's time as UTC ISO; a row without one is its day's start (never later)."""
+    from datetime import datetime, timezone
+
+    if at is None:
+        return datetime.fromisoformat(day).replace(tzinfo=timezone.utc).isoformat()
+    return (at if at.tzinfo else at.replace(tzinfo=timezone.utc)).astimezone(
+        timezone.utc).isoformat()
 
 
 def official_groups(db) -> dict[str, Group]:
     """WS6 E1: per-category receipt orders over official listing views, inside the views
     window. Offsite-Ads-attributed orders are excluded (paid traffic)."""
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime
 
     from sqlalchemy import select
 
     from ..commerce.orders_ingest import SOURCE, countable_orders
+    from ..commerce.paid_media import offsite_attribution
     from ..core.models import Order
 
     windows = _view_windows(db)
@@ -225,13 +246,16 @@ def official_groups(db) -> dict[str, Group]:
         return groups
     with db.session() as s:
         for slug, w in sorted(windows.items()):
-            start = datetime.fromisoformat(w["first"]).replace(tzinfo=timezone.utc)
-            end = datetime.fromisoformat(w["last"]).replace(tzinfo=timezone.utc) + timedelta(
-                days=1)
-            orders = [o for o in countable_orders(s, select(Order).where(
+            start = datetime.fromisoformat(w["first_at"])
+            end = datetime.fromisoformat(w["last_at"])
+            in_window = [o for o in countable_orders(s, select(Order).where(
                 Order.product_slug == slug, Order.source == SOURCE,
-                Order.external_ref.like("etsy:%"), Order.at >= start, Order.at < end))
-                      if not o.offsite_ad_attributed]
+                Order.external_ref.like("etsy:%"), Order.at > start, Order.at <= end))]
+            # Review 6954809399 (M1): organic means the payment ledger was read and carried no
+            # Offsite Ads fee (`offsite_attribution(o) is False`). `offsite_ad_attributed`
+            # defaults to False, so testing it alone counted every unread order as organic.
+            orders = [o for o in in_window if offsite_attribution(o) is False]
+            unknown = sum(1 for o in in_window if offsite_attribution(o) is None)
             category, family = _category_and_family(slug)
             if not category:
                 continue
@@ -242,6 +266,7 @@ def official_groups(db) -> dict[str, Group]:
                 g.families.add(family)
             g.visits += int(w["views"])        # the denominator here is VIEWS (see module doc)
             g.orders += len(orders)
+            g.attribution_unknown += unknown
             g.first = min(filter(None, (g.first, w["first"])), default=w["first"])
             g.last = max(filter(None, (g.last, w["last"])), default=w["last"])
     return groups
@@ -276,8 +301,14 @@ def verdicts(db, basis: str = EXPORT) -> dict:
            "unknown": ([] if basis == EXPORT else
                        ["impressions", "visits", "carts", "conversion_rate",
                         "traffic_sources"])}
+    if basis != EXPORT:
+        # Review 6954809399 (LOW): official views include views Etsy Ads and Offsite Ads
+        # bought; they are not an organic-only denominator.
+        out["views_include"] = "views bought by Etsy Ads and Offsite Ads (not organic only)"
+        out["attribution_unknown_orders"] = sum(g.attribution_unknown for g in groups.values())
+    unit = out["denominator"]
     for k, g in sorted(groups.items()):
-        out["categories"][k] = {"visits": g.visits, "orders": g.orders,
+        out["categories"][k] = {unit: g.visits, "orders": g.orders,
                                 "favourites": g.favourites, "products": sorted(g.products),
                                 "rate": round(g.rate, 5) if g.rate is not None else None,
                                 "state": MEASURED if k in measured else UNMEASURED,
@@ -292,7 +323,7 @@ def verdicts(db, basis: str = EXPORT) -> dict:
     visits = sum(g.visits for g in measured.values())
     orders = sum(g.orders for g in measured.values())
     shop = orders / visits if visits else 0.0
-    out.update(shop={"visits": visits, "orders": orders, "rate": round(shop, 5)},
+    out.update(shop={out["denominator"]: visits, "orders": orders, "rate": round(shop, 5)},
                measurable=True)
     for k, g in measured.items():
         rec = out["categories"][k]
@@ -313,14 +344,16 @@ def _statement(category: str, rec: dict, shop: dict, concepts: list,
     base = f"{shop['rate'] * 100:.2f}%"
     cat = _words(category)
     unit = ("visits" if basis == EXPORT else
-            "Etsy listing views (official API; visits UNKNOWN)")
-    orders = ("orders" if basis == EXPORT else "receipt orders")
+            "Etsy listing views (official API, including ad-bought views; visits UNKNOWN)")
+    orders = ("orders" if basis == EXPORT else
+              "receipt orders with no Offsite Ads fee on the ledger")
+    n = rec["visits"] if basis == EXPORT else rec["views"]
     if rec["verdict"] == DEMAND:
-        return (f"Measured demand: our own {cat} listings converted {pct} of {rec['visits']} "
+        return (f"Measured demand: our own {cat} listings converted {pct} of {n} "
                 f"{unit} ({rec['orders']} {orders}) against a shop rate of {base}. Pursue "
                 f"original {cat} follow-on concepts first: {named}.")
     return (f"Measured underperformance: our own {cat} listings converted {pct} of "
-            f"{rec['visits']} {unit} ({rec['orders']} {orders}) against a shop rate of "
+            f"{n} {unit} ({rec['orders']} {orders}) against a shop rate of "
             f"{base}. Engineer further {cat} concepts later, after the listing presentation "
             f"is reviewed: {named}.")
 
@@ -355,7 +388,8 @@ def record_lessons(db) -> dict:
                                   set(rec["products"]))
             tag = "" if basis == EXPORT else f"{OFFICIAL}:"
             ref = (f"{EVIDENCE_PREFIX}{tag}{category}:{rec['verdict']}:{rec['window'][0]}"
-                   f"..{rec['window'][1]}:{rec['visits']}:{rec['orders']}")[:200]
+                   f"..{rec['window'][1]}:{rec.get('visits', rec.get('views'))}:"
+                   f"{rec['orders']}")[:200]
             current_refs.add(ref)
             lid = bus.publish(db, origin_cell=ORIGIN_CELL, subject=rec["verdict"],
                               statement=_statement(category, rec, v["shop"], concepts, basis),
@@ -383,8 +417,8 @@ def record_lessons(db) -> dict:
     export = readings[EXPORT]
     return {"measurable": any(v["measurable"] for v in readings.values()),
             "why": export["why"], "shop": export["shop"], "categories": export["categories"],
-            "official": {k: readings[OFFICIAL][k] for k in ("measurable", "why", "shop",
-                                                             "categories", "denominator",
-                                                             "unknown")},
+            "official": {k: readings[OFFICIAL].get(k) for k in (
+                "measurable", "why", "shop", "categories", "denominator", "unknown",
+                "views_include", "attribution_unknown_orders")},
             "published": published, "withdrawn": withdrawn,
             "work_done": len(published) + len(withdrawn)}

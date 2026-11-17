@@ -13,7 +13,7 @@ import _tmp; _tmp.install()  # noqa: E702
 import os
 import sys
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,7 +27,7 @@ from brambleloop.commerce import cohorts  # noqa: E402
 from brambleloop.commerce.listing_outcomes import SNAPSHOT_KIND  # noqa: E402
 from brambleloop.commerce.orders_ingest import SOURCE  # noqa: E402
 from brambleloop.core.db import Database  # noqa: E402
-from brambleloop.core.models import Lesson, Listing, OperatingReading  # noqa: E402
+from brambleloop.core.models import Lesson, Listing, OperatingReading, Order  # noqa: E402
 from brambleloop.improve import commercial_lessons as CL  # noqa: E402
 
 PRODUCTS = {"market-basket-small": "11", "hexagon-coaster-set": "22",
@@ -54,7 +54,9 @@ def _snapshot(db, day: str, views: dict[str, int]):
 
 
 def _order(db, slug, n, *, day="2026-10-10", source=SOURCE, ref_prefix="etsy",
-           offsite=False):
+           offsite=False, ledger_read=True, at=None):
+    """`ledger_read`: the payment ledger was read for the order (fee 0.0, or a fee when
+    offsite); False leaves the fee unread -- attribution UNKNOWN."""
     for i in range(n):
         ref = f"{ref_prefix}:{slug}-{day}-{source}-{int(offsite)}-{i}:{i}"
         cohorts.record_customer(db, f"cust-{ref}", at=datetime.fromisoformat(day).replace(
@@ -63,6 +65,12 @@ def _order(db, slug, n, *, day="2026-10-10", source=SOURCE, ref_prefix="etsy",
                              at=datetime.fromisoformat(day).replace(tzinfo=timezone.utc),
                              price_cad=8.0, revenue_cad=8.0, source=source,
                              offsite_ad_attributed=offsite, detail={"state": "paid"})
+        with db.session() as s:
+            o = s.scalar(select(Order).where(Order.external_ref == ref))
+            if ledger_read:
+                o.offsite_ads_fee_cad = 1.2 if offsite else 0.0
+            if at is not None:
+                o.at = at
 
 
 def _two_week_window(db):
@@ -188,6 +196,76 @@ def test_nothing_official_recorded_measures_nothing():
     v = CL.verdicts(db, CL.OFFICIAL)
     assert v["measurable"] is False and "UNMEASURED" in v["why"], v
     assert CL.record_lessons(db)["published"] == []
+
+
+
+# ---- review 6954809399 -----------------------------------------------------------------------
+
+def test_an_order_whose_offsite_attribution_is_unknown_is_not_organic():
+    """M1: `offsite_ad_attributed` defaults False; only a ledger read with no Offsite Ads fee
+    makes an order organic. Unread orders are excluded and reported, never counted."""
+    db = _db()
+    _two_week_window(db)
+    _order(db, "market-basket-small", 3)                                 # read, no fee
+    _order(db, "market-basket-small", 4, day="2026-10-11", ledger_read=False)  # unknown
+    _order(db, "market-basket-small", 2, day="2026-10-12", offsite=True)       # paid
+    basket = CL._category_and_family("market-basket-small")[0]
+    g = CL.official_groups(db)[basket]
+    assert (g.orders, g.attribution_unknown) == (3, 4), g
+    v = CL.verdicts(db, CL.OFFICIAL)
+    assert v["attribution_unknown_orders"] == 4, v
+
+
+def test_orders_count_only_between_the_two_snapshot_times():
+    """LOW: the views accrued between the snapshot times, so the order window is exactly
+    (first snapshot, last snapshot], not midnight-to-end-of-day."""
+    db = _db()
+    first = datetime(2026, 10, 1, 18, tzinfo=timezone.utc)
+    last = datetime(2026, 10, 15, 6, tzinfo=timezone.utc)
+    for when, views in ((first, 100), (last, 500)):
+        with db.session() as s:
+            s.add(OperatingReading(kind=SNAPSHOT_KIND, period_key=when.date().isoformat(),
+                                   payload={"listings": {PRODUCTS["market-basket-small"]:
+                                                         {"views": views, "favourites": 0}}},
+                                   at=when))
+    _order(db, "market-basket-small", 1, day="2026-10-01", at=first - timedelta(hours=1))
+    _order(db, "market-basket-small", 1, day="2026-10-02", at=first + timedelta(hours=1))
+    _order(db, "market-basket-small", 1, day="2026-10-15", at=last - timedelta(hours=1))
+    _order(db, "market-basket-small", 1, day="2026-10-16", at=last + timedelta(hours=1))
+    basket = CL._category_and_family("market-basket-small")[0]
+    assert CL.official_groups(db)[basket].orders == 2
+
+
+def test_the_official_reading_says_views_and_labels_ad_bought_views():
+    db = _db()
+    _two_week_window(db)
+    _order(db, "market-basket-small", 20)
+    _order(db, "hexagon-coaster-set", 4)
+    _order(db, "cloudline-baby-blanket", 2)
+    v = CL.verdicts(db, CL.OFFICIAL)
+    rec = next(iter(v["categories"].values()))
+    assert "views" in rec and "visits" not in rec, rec
+    assert "views" in v["shop"] and "visits" not in v["shop"], v["shop"]
+    assert "Ads" in v["views_include"]
+    assert CL.verdicts(db, CL.EXPORT)["denominator"] == "visits"
+
+
+def test_the_job_audit_carries_the_official_reading():
+    from types import SimpleNamespace
+
+    from brambleloop.runtime import commercial_ops
+
+    db = _db()
+    _two_week_window(db)
+    _order(db, "market-basket-small", 20)
+    _order(db, "hexagon-coaster-set", 4)
+    _order(db, "cloudline-baby-blanket", 2)
+    seen = []
+    ctx = SimpleNamespace(db=db, audit=lambda action, **kw: seen.append((action, kw)))
+    out = commercial_ops.handle_commercial_lessons(ctx)
+    detail = seen[0][1]["detail"]
+    assert detail["official"]["measurable"] is True and detail["official"]["denominator"] == "views"
+    assert out["official"]["views_include"]
 
 
 if __name__ == "__main__":
