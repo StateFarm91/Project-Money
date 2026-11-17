@@ -34,6 +34,18 @@ worktrees, not this file.
   spend_policy per-provider ceiling; per-provider RPM limit (absent today); funding hold on
   insufficient_quota for openai (worker park is Anthropic-only today); per-call funding source
   (promo credit vs billable cash) tag; credentials balance UNKNOWN; no live calls in tests.
+- S2 progress (copy scratchpad/s2, NOT committed anywhere yet): gateway/openai_chat.py
+  (OpenAIProvider complete/see, pinned priced snapshots, _post fake point, strict usage,
+  DECLINED/UNCERTAIN via the shared classifier, vision via paid_provider_gate openai-vision,
+  per-minute RateLimited from ledger+process window, per-provider HOLD); providers.py registers
+  "openai"; routing.OPENAI_MODEL_BY_TIER + openai_model_for; ops/funding.py note_provider/
+  blocked_provider/cleared_provider (key model_provider_balance:<provider>; shared row unchanged).
+  tests/test_s2_openai_provider.py 11/11. TODO: funding-source split (promo vs billable cash),
+  balance UNKNOWN in gateway/credentials, mutants, neighbour regression (test_gateway,
+  test_v11_reliability_gateway, test_w3_spend_paid_calls, test_w5_v0_paid_provider_gate,
+  test_w4_fmbatch1_provider_boundary, test_funding, test_w4_funding, test_spend_policy,
+  test_cert_cost, test_w4_c03_routing, test_provider_accounts), then branch opus2/s2-openai-provider
+  from 9e91b75b (git checkout in worktree after S1b lands), commit, push, RR.
 - Disk is ~200 MB free: do not create worktrees or more copies.
 - as_of question 6944133331 still open.
 
