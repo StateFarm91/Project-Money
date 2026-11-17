@@ -19,7 +19,22 @@ worktrees, not this file.
   tests/test_s1_product_truth.py (6), flat_rows test updated; 9 mutants killed. Neighbour
   regression running in the copy (s1b_reg/). Then copy src/tests diffs into the worktree,
   commit, push, REVIEW-REQUEST.
-- Disk is ~270 MB free: do not create worktrees.
+- S1a PUSHED: opus2/s1-product-truth d0a409a0 (dispatch checkpoint recorded); 16-suite regression
+  all rc=0. test_product_run on it still running (scratchpad s1_product_run.log).
+- S1b: isolated copy scratchpad/s1b, 29-suite neighbour regression all green (2 disk-full reruns
+  green). TODO when product_run ends: copy s1b/src + s1b/tests changes into the worktree
+  (files: runtime/pipeline.py, gates/certificate.py, creative/fallback_constructions.py,
+  tests/test_s1_product_truth.py, tests/test_flat_rows_size_truth.py), commit, push, RR with
+  audit table (scratchpad audit/s1_audit*.json).
+- S2: gateway map saved at scratchpad/S2_GATEWAY_MAP.md. Source copy from 9e91b75b at
+  scratchpad/s2 (git archive). Design: new gateway/openai_chat.py OpenAIProvider (complete/see,
+  Chat Completions, mirror venice _post/_send/_read + anthropic _guarded/paid_calls, explicit
+  model id + dated snapshot, priced table, strict usage); register_vendor("openai") + per-task
+  vendor routing; check_budget_cad(provider="openai") under the shared CA$100 ceiling;
+  spend_policy per-provider ceiling; per-provider RPM limit (absent today); funding hold on
+  insufficient_quota for openai (worker park is Anthropic-only today); per-call funding source
+  (promo credit vs billable cash) tag; credentials balance UNKNOWN; no live calls in tests.
+- Disk is ~200 MB free: do not create worktrees or more copies.
 - as_of question 6944133331 still open.
 
 ## State at 2026-11-17T03:55Z (superseded)
