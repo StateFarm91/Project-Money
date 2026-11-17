@@ -4,7 +4,24 @@ Updated: 2026-11-17T09:30Z. The engineering loop rewrites this file at the end o
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-17T17:35Z (read first) -- review findings queue (priority over S3/S4)
+## State at 2026-11-17T18:27Z (read first)
+- RRs posted today (all frozen; fixes go on -fix heads):
+  S2 a54f16c3 (6954936951); S1 42ac2ad7 (6956573025); ws5 E6/E3 fix 0630d53a on
+  opus2/ws5-e6-draft-resolver-fix (6956914209); research M1+M2 f95bd617 on
+  opus2/ws2-r5-research-proposal-writer-fix (6957104009).
+- NEXT in Main's order: WS6-E1 fix (76fe0dd3 -> opus2/ws6-e1-receipt-lessons-fix: keep only
+  offsite_attribution(o) is False; LOWs: label ad-bought views, audit official reading,
+  views != visits rename, window edges), then A3 fix (3928ba00 -> opus2/a3-photo-asset-review-fix:
+  _disposable_cluster PG fence, L1 lock, L3, L2 proposal, suite_final_segment conflict), then WS4
+  M-1 (680e3440 -> opus2/ws4-11-g-shadow-reading-fix), then S3 (web/worker split + trusted
+  issuer + Railway cost), S4.
+- Method: git archive <sha> brambleloop/src brambleloop/tests (+ops, scripts as needed) into a
+  scratchpad copy; edit; test; commit with git plumbing (read-tree <sha>, hash-object,
+  update-index, commit-tree, push to refs/heads/<fix>). Delete the copy after. Run big suites
+  alone; disk ~500 MB. The worktree opus2-ws43 holds opus2/s1-product-truth (clean).
+- Maps saved: scratchpad S2_GATEWAY_MAP.md, RESEARCH_MAP.md.
+
+## State at 2026-11-17T17:35Z (superseded) -- review findings queue (priority over S3/S4)
 - Main verdicts 17-Nov: E2 56694ebf SHIP (merged into w6-INTEG1 0c62f263). DO NOT SHIP:
   ws5-e6 16a269b7 (6954619488), ws2-r5 fd960ee5 + ws6-e1 76fe0dd3 (6954809399),
   a3 3928ba00 (6955484423), ws4-11 680e3440 (6955504377). Order: E6 -> research M1+M2 -> E1
