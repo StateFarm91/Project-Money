@@ -290,6 +290,82 @@ TAXONOMY: tuple[Signature, ...] = (
         change="none. The OAuth path and the token endpoint host are now facts",
         match=lambda ctx: _status(ctx) in (200, 0) and bool(ctx.get("ok"))),
 
+    # -- WS5 E2: step 3b the digital file, step 4c the property, step 6b the chosen node --
+    _network_sig("multipart_file_upload", "upload_file"),
+    _scope_sig("multipart_file_upload", "upload_file"),
+    _auth_sig("multipart_file_upload", "upload_file"),
+    Signature(
+        claim="multipart_file_upload", step="upload_file", outcome="file_refused",
+        we_send="a marked test PDF in a multipart part named `file` (uploadListingFile)",
+        signal="HTTP 400/413/415/422 on uploadListingFile",
+        means=("Etsy reached the request and would not take the file as sent: the part name, "
+               "the media type or the file itself is not what Etsy reads"),
+        cause=OUR_BUG,
+        change=("compare `http.multipart_body`'s bytes with the uploadListingFile request body "
+                "in the OpenAPI document and fix the part or its Content-Type; re-run"),
+        match=lambda ctx: _status(ctx) in (400, 413, 415, 422)),
+    Signature(
+        claim="multipart_file_upload", step="upload_file", outcome="file_not_held",
+        we_send="uploadListingFile, then getAllListingFiles",
+        signal="the upload was accepted but the listing's files do not include it",
+        means=("Etsy said yes and holds nothing: the buyer would download nothing. The one "
+               "failure a 201 hides"),
+        cause=OUR_BUG,
+        change=("read the upload response's listing_file_id and the files list side by side; "
+                "fix the listing id or rank the upload used"),
+        match=lambda ctx: bool(ctx.get("accepted")) and not ctx.get("ok")),
+    Signature(
+        claim="multipart_file_upload", step="upload_file", outcome="file_held",
+        we_send="uploadListingFile, then getAllListingFiles",
+        signal="the listing's files include the file name sent",
+        means="the digital download path works end to end",
+        cause=CONFIRMED, change="none",
+        match=lambda ctx: bool(ctx.get("ok"))),
+    _network_sig("listing_property_write", "set_property"),
+    _scope_sig("listing_property_write", "set_property"),
+    _auth_sig("listing_property_write", "set_property"),
+    Signature(
+        claim="listing_property_write", step="set_property", outcome="property_refused",
+        we_send="PUT .../listings/{id}/properties/{property_id} with value_ids, form-encoded",
+        signal="HTTP 400/404/422 naming the property or a value",
+        means=("the property id or value id the taxonomy refresh recorded is not one Etsy "
+               "accepts for this node: the stored schema is stale or the node is wrong"),
+        cause=ETSY_CONTRACT_DRIFT,
+        change=("refresh the taxonomy (etsy.taxonomy_refresh) and re-run; if it persists the "
+                "category matcher's chosen node is wrong for this property"),
+        match=lambda ctx: _status(ctx) in (400, 404, 422)),
+    Signature(
+        claim="listing_property_write", step="set_property", outcome="property_not_held",
+        we_send="updateListingProperty, then getListingProperties",
+        signal="the write was accepted but the property is not read back with the values sent",
+        means="Etsy accepted the write and kept something else (or nothing)",
+        cause=OUR_BUG,
+        change="compare the encoded value_ids with what getListingProperties returns",
+        match=lambda ctx: bool(ctx.get("accepted")) and not ctx.get("ok")),
+    Signature(
+        claim="listing_property_write", step="set_property", outcome="property_held",
+        we_send="updateListingProperty, then getListingProperties",
+        signal="the property id is read back with the value ids sent",
+        means="the craft property a crochet pattern listing needs can be written",
+        cause=CONFIRMED, change="none",
+        match=lambda ctx: bool(ctx.get("ok"))),
+    Signature(
+        claim="chosen_taxonomy_create", step="chosen_taxonomy", outcome="chosen_node_remapped",
+        we_send="createDraftListing with the category matcher's chosen taxonomy_id",
+        signal="the listing read back carries another taxonomy_id",
+        means="Etsy filed the listing somewhere other than the node the matcher chose",
+        cause=ETSY_CONTRACT_DRIFT,
+        change=("read the node on Etsy (getSellerTaxonomyNodes) and correct the matcher's "
+                "node terms; refresh the taxonomy"),
+        match=lambda ctx: ctx.get("ok") is False and ctx.get("read") is True),
+    Signature(
+        claim="chosen_taxonomy_create", step="chosen_taxonomy", outcome="chosen_node_held",
+        we_send="createDraftListing with the category matcher's chosen taxonomy_id",
+        signal="the listing read back carries the chosen taxonomy_id",
+        means="a listing can be created in the node the matcher chose",
+        cause=CONFIRMED, change="none",
+        match=lambda ctx: bool(ctx.get("ok"))),
+
     # -- step 2: create the draft ------------------------------------------
     _network_sig("form_encoded_create", "create_draft"),
     _scope_sig("form_encoded_create", "create_draft"),
@@ -778,7 +854,31 @@ def one_pixel_png() -> bytes:
     return png(1, 1)
 
 
-def test_payload(marker: str):
+def transport_test_pdf(marker: str = "") -> bytes:
+    """WS5 E2: a tiny, valid, unmistakably-not-a-product PDF for the digital file step."""
+    text = f"Brambleloop transport test. Not a product. Not for sale. {marker}".encode()
+    stream = b"BT /F1 12 Tf 36 96 Td (" + text.replace(b"(", b"").replace(b")", b"") + b") Tj ET"
+    objs = [b"<< /Type /Catalog /Pages 2 0 R >>",
+            b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 144] /Contents 4 0 R "
+            b"/Resources << /Font << /F1 5 0 R >> >> >>",
+            b"<< /Length " + str(len(stream)).encode() + b" >>\nstream\n" + stream
+            + b"\nendstream",
+            b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"]
+    out, offsets = bytearray(b"%PDF-1.4\n"), []
+    for i, body in enumerate(objs, start=1):
+        offsets.append(len(out))
+        out += f"{i} 0 obj\n".encode() + body + b"\nendobj\n"
+    xref = len(out)
+    out += f"xref\n0 {len(objs) + 1}\n0000000000 65535 f \n".encode()
+    for off in offsets:
+        out += f"{off:010d} 00000 n \n".encode()
+    out += (f"trailer\n<< /Size {len(objs) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n"
+            .encode())
+    return bytes(out)
+
+
+def test_payload(marker: str, taxonomy_id: int | None = None):
     """The draft this run creates: a real listing shape, unmistakably not a product.
 
     It goes through `build_payload`, which means it is checked against Etsy's character sets
@@ -800,7 +900,14 @@ def test_payload(marker: str):
         price_cad=9.99,
         tags=["do not buy", "test draft"],
         materials=["test"],
-    )
+    ) if taxonomy_id is None else _in_node(test_payload(marker), taxonomy_id)
+
+
+def _in_node(payload, taxonomy_id: int):
+    """WS5 E2: the same test draft, filed in the category matcher's chosen node."""
+    from dataclasses import replace
+
+    return replace(payload, taxonomy_id=int(taxonomy_id))
 
 
 # ---------------------------------------------------------------------------
@@ -911,7 +1018,9 @@ def run_exercise(client: EtsyClient, *, image: bytes | None = None,
                  pattern: bytes | None = None,
                  cleanup: bool = True,
                  ping_reachable: bool = True,
-                 sweep_first: bool = True) -> dict[str, Any]:
+                 sweep_first: bool = True,
+                 taxonomy_id: int | None = None,
+                 listing_property: dict | None = None) -> dict[str, Any]:
     """Run the eight steps against whatever `client` points at, and report what happened.
 
     Returns a record rather than raising, at every step, because a partial run is the
@@ -928,7 +1037,8 @@ def run_exercise(client: EtsyClient, *, image: bytes | None = None,
         "base_url": client.BASE,
         "phase": client.phase,
         "array_encoding": ARRAY_ENCODING,
-        "taxonomy_id_sent": TAXONOMY_PATTERNS,
+        # WS5 E2: the matcher's chosen node when the caller names one, else the default.
+        "taxonomy_id_sent": int(taxonomy_id) if taxonomy_id else TAXONOMY_PATTERNS,
         "authority": {
             "read": client.refusal_for(Authority.READ) or "permitted",
             "draft_write": client.refusal_for(Authority.DRAFT_WRITE) or "permitted",
@@ -1005,7 +1115,7 @@ def run_exercise(client: EtsyClient, *, image: bytes | None = None,
                      "that Etsy accepts a form-encoded createDraftListing and returns an id")
     sent: dict[str, Any] = {}
     try:
-        payload = test_payload(marker)
+        payload = test_payload(marker, taxonomy_id)
         sent = payload.to_dict()
         sent.pop("state", None)
         listing_id = client.create_draft(payload)
@@ -1028,171 +1138,233 @@ def run_exercise(client: EtsyClient, *, image: bytes | None = None,
         # read, and the answer decides whether this is a one-line change or a build task. It
         # would be perverse to make somebody run this again to find out.
         if "propert" in str(e).lower() or "taxonom" in str(e).lower():
-            entry["diagnosis"] = _taxonomy_diagnosis(client)
+            entry["diagnosis"] = _taxonomy_diagnosis(client, report["taxonomy_id_sent"])
         return finish("create_draft")
 
-    # -- 3. Upload the image. -----------------------------------------------
-    entry = run.step("upload_image",
-                     "that a multipart part named `image` reaches Etsy and becomes a listing "
-                     "image -- what a draft needs before it could ever be activated")
-    image_id = None
+    # Review 6818959626 (E2 MED): steps 3-6 run inside one guard, so an unexpected error in
+    # any read-back parse (a malformed row, a non-numeric id, an untyped client error) is
+    # recorded and the run still reaches the cleanup -- the test draft is always deleted.
     try:
-        uploaded = client.upload_image(
-            listing_id, filename=image_filename, data=image, rank=1,
-            alt_text="Automated transport test image. Not a product photograph.")
-        image_id = uploaded.get("listing_image_id")
-        entry["ok"] = True
-        entry["observed"] = {"listing_image_id": image_id,
-                             "encoding_sent": client.calls[-1]["encoding"],
-                             "image_bytes": len(image)}
-        run.classify(entry, "upload_image", {"ok": True, "status": 201})
-    except (PermanentError, TransientError) as e:
-        entry["ok"] = False
-        entry["error"] = str(e)
-        run.classify(entry, "upload_image",
-                     _failure_context(client, e, ping_reachable=ping_reachable))
-
-    # 3b. The digital file, only if the caller supplied bytes. Optional because the pattern
-    # PDF is a release artefact and this run must not need one to happen.
-    if pattern:
-        entry = run.step("upload_file",
-                         "that a multipart part named `file` attaches the digital download")
+        # -- 3. Upload the image. -----------------------------------------------
+        entry = run.step("upload_image",
+                         "that a multipart part named `image` reaches Etsy and becomes a listing "
+                         "image -- what a draft needs before it could ever be activated")
+        image_id = None
         try:
-            entry["ok"] = client.attach_file(listing_id,
-                                             filename=f"transport-test-{marker}.pdf",
-                                             data=pattern)
+            uploaded = client.upload_image(
+                listing_id, filename=image_filename, data=image, rank=1,
+                alt_text="Automated transport test image. Not a product photograph.")
+            image_id = uploaded.get("listing_image_id")
+            entry["ok"] = True
+            entry["observed"] = {"listing_image_id": image_id,
+                                 "encoding_sent": client.calls[-1]["encoding"],
+                                 "image_bytes": len(image)}
+            run.classify(entry, "upload_image", {"ok": True, "status": 201})
+        except (PermanentError, TransientError) as e:
+            entry["ok"] = False
+            entry["error"] = str(e)
+            run.classify(entry, "upload_image",
+                         _failure_context(client, e, ping_reachable=ping_reachable))
+
+        # 3b. The digital file, only if the caller supplied bytes. Optional because the pattern
+        # PDF is a release artefact and this run must not need one to happen.
+        if pattern:
+            entry = run.step("upload_file",
+                             "that a multipart part named `file` attaches the digital download, "
+                             "and that Etsy then holds it (getAllListingFiles)")
+            file_name = f"transport-test-{marker}.pdf"
+            try:
+                accepted = bool(client.attach_file(listing_id, filename=file_name, data=pattern))
+                files = client.get_listing_files(listing_id) if accepted else []
+                # Review 6818959626 (E2 LOW): the name AND the byte size, so a different file
+                # that happens to share the name is not read as ours.
+                held = [f for f in files if str(f.get("filename") or "") == file_name
+                        and f.get("size_bytes") == len(pattern)]
+                entry["ok"] = bool(held)
+                entry["observed"] = {"accepted": accepted, "files_on_etsy": len(files),
+                                     "held": bool(held), "file_bytes": len(pattern)}
+                run.classify(entry, "upload_file", {"ok": bool(held), "accepted": accepted,
+                                                    "status": 200})
+            except (PermanentError, TransientError) as e:
+                entry["ok"] = False
+                entry["error"] = str(e)
+                run.classify(entry, "upload_file",
+                             _failure_context(client, e, ping_reachable=ping_reachable))
+
+        # -- 4. Update permitted draft fields. ----------------------------------
+        entry = run.step("update_listing",
+                         "that a form-encoded PATCH changes the fields it names, and only those")
+        update: dict[str, Any] = {"title": f"{title} updated",
+                                  "tags": ["do not buy", "test draft", "updated"]}
+        try:
+            client.update_listing(listing_id, update)
+            entry["ok"] = True
+            entry["observed"] = {"fields": sorted(update),
+                                 "encoding_sent": client.calls[-1]["encoding"]}
+            run.classify(entry, "update_listing", {"ok": True, "status": 200})
+        except (PermanentError, TransientError) as e:
+            entry["ok"] = False
+            entry["error"] = str(e)
+            run.classify(entry, "update_listing",
+                         _failure_context(client, e, ping_reachable=ping_reachable))
+            update = {}
+
+        # 4c. WS5 E2: the chosen node's craft property, written and read back.
+        if listing_property:
+            entry = run.step("set_property",
+                             "that updateListingProperty sets the chosen node's craft property "
+                             "and Etsy holds it (getListingProperties)")
+            want = [int(v) for v in (listing_property.get("value_ids") or [])]
+            pid = int(listing_property["property_id"])
+            try:
+                # Review 6818959626 (E2 HIGH): `values` is required alongside `value_ids`.
+                client.set_listing_property(listing_id, {
+                    "property_id": pid, "value_ids": want,
+                    "values": [str(v) for v in (listing_property.get("values") or [])]})
+                held = [p for p in client.get_listing_properties(listing_id)
+                        if int(p.get("property_id") or -1) == pid]
+                got = sorted(int(v) for v in ((held[0].get("value_ids") or []) if held else []))
+                ok = bool(held) and got == sorted(want)
+                entry["ok"] = ok
+                entry["observed"] = {"property_id": pid, "value_ids_sent": want,
+                                     "value_ids_on_etsy": got}
+                run.classify(entry, "set_property", {"ok": ok, "accepted": True, "status": 200})
+            except (PermanentError, TransientError) as e:
+                entry["ok"] = False
+                entry["error"] = str(e)
+                run.classify(entry, "set_property",
+                             _failure_context(client, e, ping_reachable=ping_reachable))
+
+        # 4b. Prove the refusals are refusals, not documentation. Free: nothing is sent.
+        entry = run.step("refusals_hold",
+                         "that price cannot be sent to updateListing, that state cannot be set "
+                         "through it, and that activation refuses without a Launch-0 authorisation")
+        observed: dict[str, Any] = {}
+        for label, call in (
+                ("price_refused", lambda: client.update_listing(listing_id, {"price": 1.0})),
+                ("state_refused", lambda: client.update_listing(listing_id, {"state": "active"})),
+                ("activation_refused", lambda: client.activate(listing_id)),
+        ):
+            try:
+                call()
+                observed[label] = "NOT REFUSED -- this is a defect in the gate"
+            except (EtsyRejected, EtsyNotPermitted) as e:
+                observed[label] = str(e)[:140]
+        entry["ok"] = all("NOT REFUSED" not in v for v in observed.values())
+        entry["observed"] = observed
+
+        # -- 5. Read it back from Etsy. A separate request. ---------------------
+        entry = run.step("read_back",
+                         "that the listing Etsy holds matches what we sent, that it is still a "
+                         "draft, and that Etsy has the image")
+        remote: dict[str, Any] = {}
+        result = None
+        try:
+            remote = client.get_listing(listing_id)
+            expected = {**sent, **update}
+            result = verify(expected, remote, listing_id=listing_id, expect_state="draft",
+                            expect_images=1 if image_id else 0)
+            report["verified"] = result.verified
+            report["read_back"] = result.summary()
+            entry["ok"] = result.verified
+            entry["observed"] = result.summary()
         except (PermanentError, TransientError) as e:
             entry["ok"] = False
             entry["error"] = str(e)
 
-    # -- 4. Update permitted draft fields. ----------------------------------
-    entry = run.step("update_listing",
-                     "that a form-encoded PATCH changes the fields it names, and only those")
-    update: dict[str, Any] = {"title": f"{title} updated",
-                              "tags": ["do not buy", "test draft", "updated"]}
-    try:
-        client.update_listing(listing_id, update)
-        entry["ok"] = True
-        entry["observed"] = {"fields": sorted(update),
-                             "encoding_sent": client.calls[-1]["encoding"]}
-        run.classify(entry, "update_listing", {"ok": True, "status": 200})
-    except (PermanentError, TransientError) as e:
-        entry["ok"] = False
-        entry["error"] = str(e)
-        run.classify(entry, "update_listing",
-                     _failure_context(client, e, ping_reachable=ping_reachable))
-        update = {}
+        # -- 6b. WS5 E2: the listing is held in the chosen node. ---------------
+        if taxonomy_id:
+            entry = run.step("chosen_taxonomy",
+                             "that the draft created in the category matcher's chosen node is "
+                             "held in that node")
+            held_in = remote.get("taxonomy_id") if remote else None
+            ok = held_in is not None and str(held_in) == str(int(taxonomy_id))
+            entry["ok"] = ok
+            entry["observed"] = {"chosen": int(taxonomy_id), "on_etsy": held_in}
+            run.classify(entry, "chosen_taxonomy", {"ok": ok, "read": bool(remote),
+                                                    "status": 200})
 
-    # 4b. Prove the refusals are refusals, not documentation. Free: nothing is sent.
-    entry = run.step("refusals_hold",
-                     "that price cannot be sent to updateListing, that state cannot be set "
-                     "through it, and that activation refuses without a Launch-0 authorisation")
-    observed: dict[str, Any] = {}
-    for label, call in (
-            ("price_refused", lambda: client.update_listing(listing_id, {"price": 1.0})),
-            ("state_refused", lambda: client.update_listing(listing_id, {"state": "active"})),
-            ("activation_refused", lambda: client.activate(listing_id)),
-    ):
+        # -- 6. Verify taxonomy, properties, encoding and remote values. --------
+        # Nothing above this line is evidence about content. A 201 says Etsy accepted a request;
+        # this step is where what Etsy actually holds is compared with what we meant.
+        entry = run.step("verify_contract",
+                         "that the taxonomy node is the one we think it is, that it requires no "
+                         "listing property we cannot set, that our array encoding survived the "
+                         "round trip, and that the remote values are the ones we sent")
+        context: dict[str, Any] = {"ping_reachable": ping_reachable}
         try:
-            call()
-            observed[label] = "NOT REFUSED -- this is a defect in the gate"
-        except (EtsyRejected, EtsyNotPermitted) as e:
-            observed[label] = str(e)[:140]
-    entry["ok"] = all("NOT REFUSED" not in v for v in observed.values())
-    entry["observed"] = observed
+            diagnosis = _taxonomy_diagnosis(client, report["taxonomy_id_sent"])
+            sent_tags = list(update.get("tags") or sent.get("tags") or [])
+            remote_tags = remote.get("tags") if isinstance(remote.get("tags"), list) else []
+            remote_taxonomy = remote.get("taxonomy_id")
+            context.update({
+                "taxonomy_wrong": bool(diagnosis.get("node_wrong")),
+                "taxonomy_unreadable": bool(diagnosis.get("node_error")
+                                            or diagnosis.get("properties_error")),
+                "taxonomy_remapped": (remote_taxonomy is not None
+                                      and str(remote_taxonomy) != str(
+                                          report["taxonomy_id_sent"])),
+                "required_properties": bool(diagnosis.get("required_properties")),
+                # The silent failure: two tags sent, one tag held, and that one tag is the two
+                # joined by a comma. No status code anywhere in the run says so.
+                "tags_collapsed": (len(sent_tags) > 1 and len(remote_tags) == 1
+                                   and "," in str(remote_tags[0])),
+                "tags_match": (bool(sent_tags)
+                               and [str(t).strip() for t in remote_tags] ==
+                               [str(t).strip() for t in sent_tags]),
+                "image_missing": bool(image_id) and not (remote.get("images") or []),
+                "not_draft": str(remote.get("state") or "").lower() not in ("", "draft"),
+                "mismatched": bool(result.mismatches) if result is not None else False,
+                "not_returned": bool(result.unverifiable) if result is not None else False,
+                # The whole-listing verdict, and it requires the image. A listing whose fields all
+                # match but which carries no image is a draft Etsy will never activate, so
+                # reporting it as a confirmation of the write path would confirm the exact state
+                # this module was written to make visible.
+                "verified": (bool(result.verified) and bool(image_id)
+                             and bool(remote.get("images")) if result is not None else False),
+            })
+            entry["observed"] = {
+                "taxonomy": diagnosis,
+                "taxonomy_id_on_etsy": remote_taxonomy,
+                "array_encoding_sent": ARRAY_ENCODING,
+                "tags_sent": sent_tags,
+                "tags_on_etsy": remote_tags,
+                "state_on_etsy": remote.get("state"),
+                "images_on_etsy": len(remote.get("images") or []),
+            }
+            entry["ok"] = bool(context["verified"] and not context["taxonomy_wrong"]
+                               and not context["taxonomy_unreadable"]
+                               and not context["taxonomy_remapped"]
+                               and not context["required_properties"])
+            # Every true flag is classified on its own, so a run with three problems reports
+            # three findings and three changes rather than whichever one matched first. The
+            # context handed to each is that flag alone: a classifier given all of them would
+            # return the earliest entry in the table every time.
+            problems = [flag for flag in _CONTRACT_FLAGS if context[flag]]
+            # A run with one problem still confirmed everything else, and those confirmations are
+            # the evidence this whole exercise exists to collect. Reporting only the problems
+            # would throw away a fact about Etsy because something unrelated went wrong.
+            confirmations = [flag for flag in _CONTRACT_CONFIRMATIONS
+                             if context[flag] and not problems_shadowing(flag, problems)]
+            found: list[dict[str, Any]] = []
+            for flag in problems + confirmations:
+                finding = classify("verify_contract", {flag: True,
+                                                       "ping_reachable": ping_reachable})
+                run.findings.append(finding)
+                found.append(finding)
+            entry["classified"] = found
+        except (PermanentError, TransientError) as e:
+            entry["ok"] = False
+            entry["error"] = str(e)
+            run.classify(entry, "verify_contract",
+                         _failure_context(client, e, ping_reachable=ping_reachable))
 
-    # -- 5. Read it back from Etsy. A separate request. ---------------------
-    entry = run.step("read_back",
-                     "that the listing Etsy holds matches what we sent, that it is still a "
-                     "draft, and that Etsy has the image")
-    remote: dict[str, Any] = {}
-    result = None
-    try:
-        remote = client.get_listing(listing_id)
-        expected = {**sent, **update}
-        result = verify(expected, remote, listing_id=listing_id, expect_state="draft",
-                        expect_images=1 if image_id else 0)
-        report["verified"] = result.verified
-        report["read_back"] = result.summary()
-        entry["ok"] = result.verified
-        entry["observed"] = result.summary()
-    except (PermanentError, TransientError) as e:
+    except Exception as exc:  # noqa: BLE001 - recorded; cleanup must still run
+        entry = run.step("unexpected_error",
+                         "that steps 3-6 completed without an unexpected error")
         entry["ok"] = False
-        entry["error"] = str(e)
-
-    # -- 6. Verify taxonomy, properties, encoding and remote values. --------
-    # Nothing above this line is evidence about content. A 201 says Etsy accepted a request;
-    # this step is where what Etsy actually holds is compared with what we meant.
-    entry = run.step("verify_contract",
-                     "that the taxonomy node is the one we think it is, that it requires no "
-                     "listing property we cannot set, that our array encoding survived the "
-                     "round trip, and that the remote values are the ones we sent")
-    context: dict[str, Any] = {"ping_reachable": ping_reachable}
-    try:
-        diagnosis = _taxonomy_diagnosis(client)
-        sent_tags = list(update.get("tags") or sent.get("tags") or [])
-        remote_tags = remote.get("tags") if isinstance(remote.get("tags"), list) else []
-        remote_taxonomy = remote.get("taxonomy_id")
-        context.update({
-            "taxonomy_wrong": bool(diagnosis.get("node_wrong")),
-            "taxonomy_unreadable": bool(diagnosis.get("node_error")
-                                        or diagnosis.get("properties_error")),
-            "taxonomy_remapped": (remote_taxonomy is not None
-                                  and str(remote_taxonomy) != str(TAXONOMY_PATTERNS)),
-            "required_properties": bool(diagnosis.get("required_properties")),
-            # The silent failure: two tags sent, one tag held, and that one tag is the two
-            # joined by a comma. No status code anywhere in the run says so.
-            "tags_collapsed": (len(sent_tags) > 1 and len(remote_tags) == 1
-                               and "," in str(remote_tags[0])),
-            "tags_match": (bool(sent_tags)
-                           and [str(t).strip() for t in remote_tags] ==
-                           [str(t).strip() for t in sent_tags]),
-            "image_missing": bool(image_id) and not (remote.get("images") or []),
-            "not_draft": str(remote.get("state") or "").lower() not in ("", "draft"),
-            "mismatched": bool(result.mismatches) if result is not None else False,
-            "not_returned": bool(result.unverifiable) if result is not None else False,
-            # The whole-listing verdict, and it requires the image. A listing whose fields all
-            # match but which carries no image is a draft Etsy will never activate, so
-            # reporting it as a confirmation of the write path would confirm the exact state
-            # this module was written to make visible.
-            "verified": (bool(result.verified) and bool(image_id)
-                         and bool(remote.get("images")) if result is not None else False),
-        })
-        entry["observed"] = {
-            "taxonomy": diagnosis,
-            "taxonomy_id_on_etsy": remote_taxonomy,
-            "array_encoding_sent": ARRAY_ENCODING,
-            "tags_sent": sent_tags,
-            "tags_on_etsy": remote_tags,
-            "state_on_etsy": remote.get("state"),
-            "images_on_etsy": len(remote.get("images") or []),
-        }
-        entry["ok"] = bool(context["verified"] and not context["taxonomy_wrong"]
-                           and not context["taxonomy_unreadable"]
-                           and not context["taxonomy_remapped"]
-                           and not context["required_properties"])
-        # Every true flag is classified on its own, so a run with three problems reports
-        # three findings and three changes rather than whichever one matched first. The
-        # context handed to each is that flag alone: a classifier given all of them would
-        # return the earliest entry in the table every time.
-        problems = [flag for flag in _CONTRACT_FLAGS if context[flag]]
-        # A run with one problem still confirmed everything else, and those confirmations are
-        # the evidence this whole exercise exists to collect. Reporting only the problems
-        # would throw away a fact about Etsy because something unrelated went wrong.
-        confirmations = [flag for flag in _CONTRACT_CONFIRMATIONS
-                         if context[flag] and not problems_shadowing(flag, problems)]
-        found: list[dict[str, Any]] = []
-        for flag in problems + confirmations:
-            finding = classify("verify_contract", {flag: True,
-                                                   "ping_reachable": ping_reachable})
-            run.findings.append(finding)
-            found.append(finding)
-        entry["classified"] = found
-    except (PermanentError, TransientError) as e:
-        entry["ok"] = False
-        entry["error"] = str(e)
-        run.classify(entry, "verify_contract",
-                     _failure_context(client, e, ping_reachable=ping_reachable))
+        entry["error"] = f"{type(exc).__name__}: {exc}"[:300]
+        report["stopped_at"] = "unexpected_error"
 
     # -- 7. Delete the test draft. ------------------------------------------
     if not cleanup:
@@ -1258,16 +1430,18 @@ def run_exercise(client: EtsyClient, *, image: bytes | None = None,
     return finish()
 
 
-def _taxonomy_diagnosis(client: EtsyClient) -> dict[str, Any]:
+def _taxonomy_diagnosis(client: EtsyClient,
+                        taxonomy_id: int = TAXONOMY_PATTERNS) -> dict[str, Any]:
     """Read Etsy's taxonomy tree and the node's properties. Two reads, CA$0, no writes.
 
     Run at step 6 normally, and immediately on a create failure that mentions a property or a
     taxonomy, because in that case these two reads are the whole answer and making somebody
     start again to get them would waste the credentials this run exists to spend well.
     """
-    out: dict[str, Any] = {"taxonomy_id_sent": TAXONOMY_PATTERNS}
+    # Review 6818959626 (E2 MED): the node that was SENT, not the default.
+    out: dict[str, Any] = {"taxonomy_id_sent": int(taxonomy_id)}
     try:
-        node = client.get_taxonomy_node(TAXONOMY_PATTERNS)
+        node = client.get_taxonomy_node(int(taxonomy_id))
         out["node"] = {"id": node.get("id"), "name": node.get("name"),
                        "level": node.get("level")} if node else None
         name = str(node.get("name") or "").lower() if node else ""
@@ -1276,7 +1450,7 @@ def _taxonomy_diagnosis(client: EtsyClient) -> dict[str, Any]:
     except (PermanentError, TransientError) as e:
         out["node_error"] = _blocked(str(e), "getSellerTaxonomyNodes")
     try:
-        properties = client.get_taxonomy_properties(TAXONOMY_PATTERNS)
+        properties = client.get_taxonomy_properties(int(taxonomy_id))
         out["required_properties"] = [
             {"property_id": p.get("property_id"), "name": p.get("name")}
             for p in properties if p.get("is_required")]
