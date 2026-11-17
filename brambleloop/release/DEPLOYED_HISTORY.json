@@ -71,6 +71,11 @@
       "sha": "88d1ce5ee1a429ea6e0619c3c3c98dff27f22b4e",
       "observed": "2026-11-12T02:18Z",
       "evidence": "owner exact-SHA approval 2026-11-11 ('Approve 88d1ce5e'); backup room by owner-approved prune of the six Oct 26-27 dumps (2026-11-12, 'Go'). Batch 7 release record over suite tree 93eb5106 (full suite 20261111T112841Z-1006: 10867 passing, 0 suites failing, clean, release-eligible). Pre-deploy backup brambleloop_prod_20261112T013853Z.dump 595476327 B sha256 d681ccaa restore_ok, 150 tables, 363501 rows, BK RESULT OK, 1.9G free. ops/deploy.sh --deployed b7921052: guard ALLOW, rollback rehearsal ALLOW; verify_deploy DEPLOYED. Readback: first pass FAIL worker_alive just after boot (decision ROLLBACK recorded, AUTO_ROLLBACK off, nothing pushed); second pass worker alive, decision FIX_FORWARD, rc=5 on P1 only: no_unexpected_dead_letters (dead letter from 2026-11-12 ~00:1xZ on b7921052, before this deploy) and smoke matrix FAIL (public verdict only; failing check not visible without operator credential), 6 NEEDS_OPERATOR. /health build 88d1ce5e worker_alive true; /api/verify 13/14 (dead letters)."
+    },
+    {
+      "sha": "ea3aacc783635d7f67d3e2e1efd5d28e2c854d6c",
+      "observed": "2026-11-17T03:28Z",
+      "evidence": "owner exact-SHA approval 2026-11-17 ('Yes' to ea3aacc7). Batch 8 release record over suite tree 9e91b75b (full suite 20261112T114611Z-23092: 10905 passing, 0 suites failing, clean, release-eligible). Pre-deploy backup brambleloop_prod_20261117T032249Z.dump 639814286 B sha256 0ce5a88e restore_ok, BK RESULT OK, 1.3G free. ops/deploy.sh --deployed 88d1ce5e: guard ALLOW, rollback rehearsal ALLOW; DEPLOYED. Readback: first pass worker_alive FAIL just after boot (ROLLBACK recorded, AUTO_ROLLBACK off, nothing pushed); re-read FIX_FORWARD, rc=5 on P1: smoke matrix FAIL (pre-existing since 88d1ce5e, sub-check not visible without readback token) and 6 NEEDS_OPERATOR. /health build ea3aacc7 worker_alive true; /api/verify 14/14."
     }
   ]
 }
