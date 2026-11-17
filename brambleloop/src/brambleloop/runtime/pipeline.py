@@ -2264,6 +2264,31 @@ def _revalidate_publish_effect(ctx, *, slug, version, release, payload, docs, li
                       "content_digest": reserved_digest})
 
 
+def _reaches_network(transport, depth: int = 3) -> bool:
+    """Whether `transport` is, or wraps, the production HTTP transport (UrllibTransport),
+    looking through instance attributes up to `depth` levels."""
+    from ..integrations.http import UrllibTransport
+
+    seen: set[int] = set()
+
+    def walk(obj, level: int) -> bool:
+        if obj is None or id(obj) in seen:
+            return False
+        seen.add(id(obj))
+        if isinstance(obj, UrllibTransport):
+            return True
+        if level >= depth:
+            return False
+        try:
+            attrs = vars(obj)
+        except TypeError:
+            return False
+        return any(walk(v, level + 1) for v in attrs.values()
+                   if not isinstance(v, (str, bytes, int, float, bool, dict, list, tuple)))
+
+    return walk(transport, 0)
+
+
 def real_draft_credential_refusal(db, client) -> str | None:
     """Why a real Etsy draft may not be created with this credential now, or None.
 
@@ -2273,12 +2298,15 @@ def real_draft_credential_refusal(db, client) -> str | None:
     in-memory transport or a local fake server is not a real draft. For a real one,
     `intel.etsy_public.credential_usable` must be True; an unreadable judgement refuses."""
     from ..integrations import etsy_probe
-    from ..integrations.http import UrllibTransport
 
-    if getattr(client, "BASE", None) is None or not isinstance(
-            getattr(client, "transport", None), UrllibTransport):
+    if getattr(client, "BASE", None) is None or not etsy_probe.against_etsy(client):
         return None
-    if not etsy_probe.against_etsy(client):
+    # Review 6954619488 (LOW): a wrapped production transport is still the production
+    # transport. `isinstance(transport, UrllibTransport)` alone let a wrapper (retry, logging,
+    # pinning) around the real sender skip this check; the real sender is now looked for
+    # inside the transport too. An in-memory transport that holds no real sender is still
+    # not a real draft.
+    if not _reaches_network(getattr(client, "transport", None)):
         return None
     try:
         from ..intel import etsy_public

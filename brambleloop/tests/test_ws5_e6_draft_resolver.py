@@ -47,10 +47,10 @@ def _audit(db):
     return write
 
 
-def _stuck(db, *, state="RECONCILE_REQUIRED", at=NOW - timedelta(minutes=20)):
+def _stuck(db, *, state="RECONCILE_REQUIRED", at=NOW - timedelta(minutes=20), title=TITLE):
     """A certified listing whose create outcome is unknown, with its halting incident."""
     with db.session() as s:
-        s.add(Listing(product_slug=SLUG, version=VERSION, title=TITLE, description="d",
+        s.add(Listing(product_slug=SLUG, version=VERSION, title=title, description="d",
                       tags=[], price_cad=PRICE, release_hash=RELEASE, state="draft"))
     key, token = DI.claim(db, slug=SLUG, version=VERSION, release=RELEASE,
                           content_digest="c" * 64)
@@ -232,6 +232,62 @@ def test_the_job_is_registered_scheduled_and_read_only():
     orch = next(a for a in DEFAULT_AGENTS if a["name"] == "orchestrator")
     assert "store.draft_reconcile" in orch["allowed_job_types"]
     assert classes.JOB_CLASS["store.draft_reconcile"] == classes.JOB_CLASS["store.live_drift"]
+
+
+# ---- review 6954619488 (E6 HIGH + MEDIUM) ------------------------------------------------------
+
+def test_an_html_escaped_title_from_etsy_still_matches_the_certified_title():
+    """Etsy returns titles HTML-escaped; the held draft must still be found, never released."""
+    db = _db()
+    title = "Hat & Scarf Set Crochet Pattern"
+    key = _stuck(db, title=title)
+    for etsy_title in ("Hat &amp; Scarf Set Crochet Pattern",
+                       "Hat &amp;  Scarf Set   Crochet Pattern "):
+        assert R.norm_title(etsy_title) == R.norm_title(title)
+    out = R.resolve(db, [_draft("9101", title="Hat &amp; Scarf Set Crochet Pattern")],
+                    audit=_audit(db), now=NOW)
+    assert [i["outcome"] for i in out["intents"]] == ["adopted"], out
+    with db.session() as s:
+        assert s.get(DI.DraftIntent, key).remote_id == "9101"
+    # A title differing in any letter is still a different title.
+    assert R.norm_title("Hat & Scarf Set") != R.norm_title("Hat & Scarves Set")
+
+
+def test_a_listing_activated_by_hand_is_escalated_and_the_intent_is_never_released():
+    db = _db()
+    key = _stuck(db)
+    active = {**_draft("9201"), "state": "active"}
+    first = R.resolve(db, [active], audit=_audit(db), now=NOW)
+    later = R.resolve(db, [active], audit=_audit(db), now=NOW + R.EMPTY_SPAN + timedelta(minutes=1))
+    assert [i["outcome"] for i in first["intents"] + later["intents"]] == ["escalated",
+                                                                           "escalated"]
+    with db.session() as s:
+        row = s.get(DI.DraftIntent, key)
+        assert row is not None and row.remote_id is None and not (row.detail or {}).get(
+            "empty_reads")
+    assert _incident(db).resolved is False and len(_cards(db)) == 1
+    assert "active" in _incident(db).detail["candidates"][0]["why"]
+    assert not _actions(db, R.RELEASED)
+
+
+def test_run_reads_every_listing_state_before_deciding():
+    db = _db()
+    _stuck(db)
+    asked = []
+
+    class Shop:
+        credentials = object()
+
+        def get_shop_listings(self, *, state, limit, max_pages):
+            asked.append(state)
+            # Etsy's rows carry their state; the resolver must not assume "draft".
+            return [{**_draft("9301"), "state": "inactive"}] if state == "inactive" else []
+
+    out = R.run(db, audit=_audit(db), client=Shop(), now=NOW)
+    assert asked == list(R.LISTING_STATES) == ["draft", "active", "inactive", "expired",
+                                               "sold_out"]
+    assert [i["outcome"] for i in out["intents"]] == ["escalated"], out
+    assert not _actions(db, R.RELEASED)
 
 
 if __name__ == "__main__":

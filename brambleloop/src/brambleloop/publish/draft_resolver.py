@@ -6,7 +6,7 @@ incident that halts publication. Until now nothing ever resolved it.
 
 The create request does not carry our intent key to Etsy, so there is no key to match on.
 This resolver matches on content instead, and never adopts on ambiguity. Each run reads the
-shop's drafts (`getListingsByShop`, state=draft; read-only) once, then for each unresolved
+shop's listings in every state (`getListingsByShop`, LISTING_STATES; read-only) once, then for each unresolved
 intent:
 
 * A **candidate** is a draft that:
@@ -43,6 +43,10 @@ EMPTY_READS = 2
 EMPTY_SPAN = timedelta(minutes=30)
 PAGE = 100
 MAX_PAGES = 50
+# Review 6954619488 (E6 MEDIUM): every state a shop listing can hold. A draft that was created
+# and then activated (or deactivated, expired, sold out) is no longer a draft; reading drafts
+# only made it invisible, so its intent was released and the next publish duplicated it.
+LISTING_STATES = ("draft", "active", "inactive", "expired", "sold_out")
 
 ADOPTED = "draft_intent.adopted_by_match"
 ESCALATED = "draft_intent.escalated"
@@ -110,6 +114,17 @@ def _certified(db, intent) -> dict | None:
         return {"title": listing.title, "price_cad": round(float(listing.price_cad or 0), 2)}
 
 
+def norm_title(title) -> str:
+    """A title as two readers of one listing agree on it (review 6954619488, E6 HIGH): Etsy
+    returns titles HTML-escaped ("Hat &amp; Scarf"), so both sides are unescaped and their
+    whitespace collapsed before they are compared. No other folding: a title that differs in
+    any letter is a different title."""
+    import html
+    import re
+
+    return re.sub(r"\s+", " ", html.unescape(str(title or ""))).strip()
+
+
 def match(db, intent, drafts: list[dict]) -> dict:
     """{"candidates": [...], "near": [...], "why": str | None} for one intent. Pure read."""
     certified = _certified(db, intent)
@@ -121,14 +136,19 @@ def match(db, intent, drafts: list[dict]) -> dict:
     candidates, near = [], []
     for d in drafts:
         lid = str(d.get("listing_id") or "")
-        if not lid or lid in bound or d.get("state", "draft") != "draft":
+        if not lid or lid in bound:
             continue
-        if d.get("title") != certified["title"]:
+        if norm_title(d.get("title")) != norm_title(certified["title"]):
             continue
+        state = str(d.get("state") or "draft")
         created = _created_at(d)
-        entry = {"listing_id": lid, "price": _price(d),
+        entry = {"listing_id": lid, "price": _price(d), "state": state,
                  "created": created.isoformat() if created else None}
-        if created is None or created < floor:
+        if state != "draft":
+            # The create reached Etsy and the listing has since moved on (activated by hand,
+            # deactivated, expired, sold out): never released, never adopted automatically.
+            near.append({**entry, "why": f"certified title on a listing now {state!r}"})
+        elif created is None or created < floor:
             near.append({**entry, "why": "created before the intent, or creation time unread"})
         elif entry["price"] != certified["price_cad"]:
             near.append({**entry, "why": "certified title but a different price"})
@@ -205,8 +225,9 @@ def _empty(db, intent, now: datetime, audit) -> dict:
         first = datetime.fromisoformat(reads[0])
         if len(reads) >= EMPTY_READS and now - _aware(first) >= EMPTY_SPAN:
             s.delete(row)
-            why = (f"{len(reads)} complete reads of the shop's drafts from {reads[0]} to "
-                   f"{reads[-1]} found no draft with the certified title; the create never "
+            why = (f"{len(reads)} complete reads of the shop's listings (every state) from "
+                   f"{reads[0]} to {reads[-1]} found no listing with the certified title; the "
+                   f"create never "
                    f"reached Etsy, so the intent is released")
             lifecycle.resolve_signatures(s, [_signature(intent)], resolution=why)
             released = True
@@ -250,13 +271,17 @@ def run(db, *, audit, client=None, now: datetime | None = None) -> dict:
         if client is None or getattr(client, "credentials", None) is None:
             return {"read": False, "why": "no Etsy read credential; nothing was read",
                     "intents": []}
-        drafts = list(client.get_shop_listings(state="draft", limit=PAGE,
-                                               max_pages=MAX_PAGES) or [])
+        drafts = []
+        for state in LISTING_STATES:
+            got = list(client.get_shop_listings(state=state, limit=PAGE,
+                                                max_pages=MAX_PAGES) or [])
+            if len(got) >= PAGE * MAX_PAGES:
+                # The reader stops at MAX_PAGES without saying so: a full last page may hide
+                # more, so nothing is decided on an incomplete read of any state.
+                return {"read": False, "intents": [],
+                        "why": f"{len(got)} {state} listings read, the paging limit; the read "
+                               f"may be incomplete, so nothing was decided"}
+            drafts.extend({**d, "state": d.get("state") or state} for d in got)
     except Exception as e:  # noqa: BLE001 - an unread shop is UNKNOWN, never "empty"
         return {"read": False, "why": f"{type(e).__name__}: {e}"[:300], "intents": []}
-    if len(drafts) >= PAGE * MAX_PAGES:
-        # The reader stops at MAX_PAGES without saying so: a full last page may hide more.
-        return {"read": False, "intents": [],
-                "why": f"{len(drafts)} drafts read, the paging limit; the read may be "
-                       f"incomplete, so nothing was decided"}
     return resolve(db, drafts, audit=audit, now=now)

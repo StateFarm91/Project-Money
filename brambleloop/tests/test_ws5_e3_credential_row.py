@@ -253,6 +253,17 @@ def test_a_real_draft_is_refused_unless_the_credential_is_usable():
         # Etsy's base with an in-memory transport cannot reach Etsy: not a real draft.
         assert pipeline.real_draft_credential_refusal(
             db, _Client(EtsyClient.BASE, transport=object())) is None
+        # Review 6954619488 (LOW): a wrapper around the real transport is real, however
+        # deep (to three levels) the real sender sits.
+        from brambleloop.integrations.http import UrllibTransport
+
+        class Wrapped:
+            def __init__(self, inner):
+                self.inner = inner
+
+        for t in (Wrapped(UrllibTransport()), Wrapped(Wrapped(UrllibTransport()))):
+            assert "not usable" in pipeline.real_draft_credential_refusal(
+                db, _Client(EtsyClient.BASE, transport=t))
         assert pipeline.real_draft_credential_refusal(db, object()) is None  # no BASE at all
     _auth_read(db, hours_ago=1)
     with patch.object(EP, "credential_usable",
@@ -272,6 +283,73 @@ def test_the_gate_runs_before_the_draft_intent_is_claimed():
     gate = src.index("real_draft_credential_refusal(ctx.db, client)")
     assert gate < src.index("draft_intent.claim(") and gate < src.index("client.publish(")
     assert 'raise PermanentError("PUBLISH_EXECUTION_REFUSED: " + credential_refusal)' in src
+
+
+def test_a_real_draft_with_an_unusable_credential_is_refused_before_the_intent_is_claimed():
+    """Review 6954619488 (E3 MEDIUM): the gate's wiring, driven, not read from the source."""
+    from types import SimpleNamespace
+
+    from sqlalchemy import select
+
+    from brambleloop.core.resilience import PermanentError
+    from brambleloop.integrations.etsy import EtsyClient
+    from brambleloop.publish import draft_intent as DI
+    from brambleloop.runtime import pipeline
+
+    db = _db()
+    audits = []
+
+    class RealClient(_Client):
+        def publish(self, *a, **k):
+            raise AssertionError("no create request may be attempted")
+
+    ctx = SimpleNamespace(db=db, job=SimpleNamespace(id=1, inputs={}),
+                          audit=lambda action, **kw: audits.append((action, kw)))
+    a, b = _oauth()
+    with a, b, patch.object(pipeline, "_publish_content_digest", lambda *a_, **k_: "c" * 64):
+        try:
+            pipeline._publish_and_read_back(
+                ctx, RealClient(EtsyClient.BASE), slug="linen-ridge", version="1.0.0",
+                release="r" * 64, payload=None, docs={"US": object()}, hash_check={},
+                stored=None, stored_by_terminology={}, listing_images={})
+            raise AssertionError("an unusable credential must refuse a real draft")
+        except PermanentError as exc:
+            assert "PUBLISH_EXECUTION_REFUSED" in str(exc) and "not usable" in str(exc)
+    with db.session() as s:
+        assert list(s.scalars(select(DI.DraftIntent))) == [], "the intent was claimed"
+    assert [a_ for a_, _ in audits] == ["store.execution_refused"]
+    assert audits[0][1]["detail"]["stage"] == "credential"
+
+
+def test_a_grant_missing_only_transactions_r_names_the_cause():
+    """Review 6954619488 (LOW): E7 made transactions_r required; the P1 says so."""
+    from types import SimpleNamespace
+
+    from brambleloop.runtime import etsy_ops
+    from brambleloop.core import oauth_store
+
+    db = _db()
+    held = {"stored": True, "openable": True, "rotations": 0, "updated_at": None,
+            "scopes": "listings_r listings_w listings_d shops_r shops_w"}
+    ctx = SimpleNamespace(db=db, phase=SimpleNamespace(value="shadow"),
+                          audit=lambda *a, **k: None)
+    with patch.object(oauth_store, "credential_health", lambda db_: dict(held)), \
+            patch.object(etsy_ops, "build_client",
+                         lambda *a, **k: SimpleNamespace(credentials=None)):
+        out = etsy_ops.handle_credential_health(ctx)
+    assert out["status"] == "UNHEALTHY", out
+    why = " ".join(out["findings"])
+    assert "transactions_r" in why and "WS5 E7" in why and "predates" in why
+    assert "every real Etsy draft is refused" in why
+    # The owner card the finding raises carries the same cause.
+    from sqlalchemy import select
+
+    from brambleloop.core.models import OwnerAction
+
+    with db.session() as s:
+        reasons = [r.reason for r in s.scalars(select(OwnerAction).where(
+            OwnerAction.requirement_key == etsy_ops.AUTH_KEY))]
+    assert reasons and "WS5 E7" in reasons[0], reasons
 
 
 if __name__ == "__main__":

@@ -899,7 +899,15 @@ def handle_credential_health(ctx: JobContext) -> dict:
     findings: list[str] = []
     if health["stored"] and not health["openable"]:
         findings.append("stored credential is not openable under the current sealing key")
-    if missing:
+    if missing == ["transactions_r"]:
+        # Review 6954619488 (LOW): name the cause. WS5 E7 added `transactions_r` to the
+        # required scopes; a grant made before that lacks it, so every real draft is refused
+        # until the owner re-authorises once -- the grant is not broken, it is older than E7.
+        findings.append(
+            "stored credential is missing scopes ['transactions_r']: WS5 E7 made "
+            "transactions_r (order ingest) a required scope, and this grant predates it; "
+            "every real Etsy draft is refused until the owner re-authorises once")
+    elif missing:
         findings.append(f"stored credential is missing scopes {missing}")
     live: dict[str, Any] = {"attempted": False}
     auth: dict | None = None
