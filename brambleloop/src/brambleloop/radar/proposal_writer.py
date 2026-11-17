@@ -103,24 +103,46 @@ def _gap_state_skip() -> dict[str, str | None]:
 _GAP_STATE_SKIP = _gap_state_skip()
 
 
-def _already_proposed(db, gap_id: int) -> bool:
-    """Whether any research task opened for this gap already carries a proposal. A watchlist
-    answer expires in a day and the question re-opens, so the per-task check alone would
-    propose the same gap again every day."""
+def _blocking_proposal(db, gap_id: int, quality: float) -> str | None:
+    """Why this gap may not get another proposal now, or None.
+
+    A watchlist answer expires in a day and the question re-opens, so each new answer could
+    propose the same gap again. An earlier proposal still pending in intake, or approved,
+    blocks it. A refused one blocks only until the evidence grade rises above the quality it
+    was refused at (review 6957516781 H1): a gap whose evidence strengthens is re-eligible,
+    and one whose evidence did not change is not re-proposed every day."""
     from sqlalchemy import select
 
     from ..intel import research
+    from . import intake
 
     research._ensure(db)
+    intake._ensure(db)
     prefix = f"watchlist_gap:{gap_id}"
+    refused_at: list[float] = []
     with db.session() as s:
         for t in s.scalars(select(research.ResearchTask).where(
                 research.ResearchTask.trigger.like(prefix + "%"))):
             trig = str(t.trigger or "")
-            if (trig == prefix or trig.startswith(prefix + "#")) and \
-                    (t.detail or {}).get("concept_proposals"):
-                return True
-    return False
+            if not (trig == prefix or trig.startswith(prefix + "#")):
+                continue
+            if not (t.detail or {}).get("concept_proposals"):
+                continue
+            rows = list(s.scalars(select(intake.RadarConcept).where(
+                intake.RadarConcept.source_ref == f"research_task:{t.id}")))
+            if not rows:
+                return (f"research task {t.id}'s proposal for this gap is still waiting for "
+                        f"concept intake")
+            live = [r for r in rows if r.state in (intake.PROPOSED, intake.APPROVED)]
+            if live:
+                return (f"research task {t.id}'s proposal for this gap is {live[0].state} "
+                        f"in concept intake")
+            refused_at += [float(r.quality or 0.0) for r in rows if r.state == intake.REFUSED]
+    if refused_at and quality <= max(refused_at) + 1e-9:
+        return (f"an earlier proposal for this gap was refused at evidence quality "
+                f"{max(refused_at):.2f}; re-eligible when the evidence grade rises above it "
+                f"(now {quality:.2f})")
+    return None
 
 
 def _task_facts(db, task_id: int, today: date) -> tuple[dict | None, str | None]:
@@ -215,9 +237,6 @@ def write(db, *, today: date | None = None, now: datetime | None = None) -> dict
         if why_not:
             skip(why_not)
             continue
-        if _already_proposed(db, gid):
-            skip("an earlier research answer for this gap already carries a proposal")
-            continue
         if not task_id:
             skip("no research question was opened for this gap")
             continue
@@ -235,6 +254,19 @@ def write(db, *, today: date | None = None, now: datetime | None = None) -> dict
         facts, why = _task_facts(db, int(task_id), today)
         if facts is None:
             skip(why)
+            continue
+        # Review 6957516781 H1: never propose what concept intake will refuse. The answer's
+        # evidence is graded with intake's own function and floor; below it, no proposal is
+        # attached, so nothing marks the gap and the next, stronger answer can still propose.
+        graded = intake.research_evidence(db, int(task_id), facts["refs"], today=today)
+        quality = float(graded.get("quality") or 0.0)
+        if quality < intake.MIN_EVIDENCE_QUALITY:
+            skip(f"evidence quality {quality:.2f} is below concept intake's floor "
+                 f"{intake.MIN_EVIDENCE_QUALITY:.2f}; not proposed until it clears it")
+            continue
+        blocked = _blocking_proposal(db, gid, quality)
+        if blocked:
+            skip(blocked)
             continue
         proposal = proposal_for(gid, pod, int(task_id), corroborated, facts, band)
         intake.attach_proposal(db, int(task_id), proposal)

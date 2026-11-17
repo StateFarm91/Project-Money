@@ -517,6 +517,13 @@ def record_comparison(db, *, now: datetime | None = None) -> dict:
         _merge_gap_evidence(db, gid, {"corroborated_by": a["corroborated_by"],
                                       "validated_at": now.isoformat(),
                                       "source": COMPARE_READING})
+        from ..radar.proposal_writer import _blocking_proposal
+
+        # Review 6957516781 (LOW): one question per gap, not a new one every day -- a gap whose
+        # proposal is pending or approved in concept intake needs no further research.
+        if _blocking_proposal(db, gid, float("inf")):
+            opened.append(gid)
+            continue
         task = _research_question(db, gid, a["pod"], now=now)
         if task is not None:
             _merge_gap_evidence(db, gid, {"research_task_id": task})
