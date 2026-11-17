@@ -725,6 +725,7 @@ JOB_BANDS: dict[str, str] = {
     "ops.queue_check": "truth_defect",
     # W4-STORE: the live shop drifted from what this system believes it published.
     "store.live_drift": "truth_defect",
+    "store.draft_reconcile": "truth_defect",
     "finance.escalation_check": "truth_defect",
     # A spend spike keeps spending until the governor pauses it, so it runs in the same band
     # as the escalation check rather than behind the week's exploration.

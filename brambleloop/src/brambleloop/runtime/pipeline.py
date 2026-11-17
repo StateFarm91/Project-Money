@@ -231,6 +231,16 @@ def handle_radar_scan(ctx: JobContext) -> dict:
     # scored by the same `score_concept`. With no approved row this is exactly POOL.
     steered, steering = arbitrage.steer_concepts(
         ctx.db, score_pool(intake.pool_with_intake(ctx.db), today=today))
+    # WS5 E5: the same bounded lesson nudge `radar.score` applies (internal and buyer lessons
+    # capped separately, decayed with age) also orders the candidates, so a measured buyer
+    # signal can change which concept comes next. Read-only here: no lesson is marked acted.
+    from dataclasses import replace as _replace
+
+    from ..improve import consume as _consume
+
+    nudges = _consume.rank_adjustments(ctx.db, [x.seed for x in steered])
+    steered = [_replace(x, score=round(x.score + nudges.get(x.seed.slug, 0.0), 4))
+               if nudges.get(x.seed.slug) else x for x in steered]
     portfolio = select_portfolio(steered, target=target, today=today)
 
     ctx.audit("radar.scanned", detail={
@@ -482,9 +492,7 @@ def handle_radar_score(ctx: JobContext) -> dict:
     # through `bus.acted_on`, so compounding is counted from decisions that changed.
     from ..improve import consume
 
-    concept_text = " ".join(str(x) for x in (
-        seed.slug.replace("-", " "), seed.title, seed.category, seed.season or "",
-        seed.rationale, c.get("premise") or "", c.get("motif") or ""))
+    concept_text = consume.concept_text(seed, c)
     radar_lessons = [l for l in consume.matching(ctx.db, "market_radar", concept_text)
                      if l["direction"]]
     lesson_adjustment = consume.score_adjustment(radar_lessons)
@@ -2256,6 +2264,62 @@ def _revalidate_publish_effect(ctx, *, slug, version, release, payload, docs, li
                       "content_digest": reserved_digest})
 
 
+def _reaches_network(transport, depth: int = 3) -> bool:
+    """Whether `transport` is, or wraps, the production HTTP transport (UrllibTransport),
+    looking through instance attributes up to `depth` levels."""
+    from ..integrations.http import UrllibTransport
+
+    seen: set[int] = set()
+
+    def walk(obj, level: int) -> bool:
+        if obj is None or id(obj) in seen:
+            return False
+        seen.add(id(obj))
+        if isinstance(obj, UrllibTransport):
+            return True
+        if level >= depth:
+            return False
+        try:
+            attrs = vars(obj)
+        except TypeError:
+            return False
+        return any(walk(v, level + 1) for v in attrs.values()
+                   if not isinstance(v, (str, bytes, int, float, bool, dict, list, tuple)))
+
+    return walk(transport, 0)
+
+
+def real_draft_credential_refusal(db, client) -> str | None:
+    """Why a real Etsy draft may not be created with this credential now, or None.
+
+    A real draft is one whose requests can reach Etsy: the client's base is Etsy
+    (`etsy_probe.against_etsy`) AND it sends through the production HTTP transport
+    (`integrations.http.UrllibTransport`, what `etsy_ops.build_client` always uses). An
+    in-memory transport or a local fake server is not a real draft. For a real one,
+    `intel.etsy_public.credential_usable` must be True; an unreadable judgement refuses."""
+    from ..integrations import etsy_probe
+
+    if getattr(client, "BASE", None) is None or not etsy_probe.against_etsy(client):
+        return None
+    # Review 6954619488 (LOW): a wrapped production transport is still the production
+    # transport. `isinstance(transport, UrllibTransport)` alone let a wrapper (retry, logging,
+    # pinning) around the real sender skip this check; the real sender is now looked for
+    # inside the transport too. An in-memory transport that holds no real sender is still
+    # not a real draft.
+    if not _reaches_network(getattr(client, "transport", None)):
+        return None
+    try:
+        from ..intel import etsy_public
+
+        judged = etsy_public.credential_usable(db)
+    except Exception as exc:  # noqa: BLE001 - unreadable is not usable
+        return f"Etsy credential usability is UNKNOWN ({type(exc).__name__}); no real draft"
+    if judged.get("usable") is not True:
+        return ("Etsy credential is not usable for a real draft: "
+                + (judged.get("why") or "UNKNOWN"))
+    return None
+
+
 def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
                            release: str, payload, docs: dict, hash_check: dict, stored,
                            stored_by_terminology: dict, listing_images: dict) -> dict:
@@ -2296,6 +2360,17 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
     # stays RECONCILE_REQUIRED below.
     known_order = getattr(type(client), "publish", None) is _STOCK_PUBLISH
     draft_intent.refuse_if_existing(ctx.db, slug, version)
+    # Review 6818959626 (E3 HIGH): a REAL draft (a client whose requests go to Etsy) needs a
+    # credential that is usable now -- a recent successful read, an openable OAuth grant and
+    # every needed scope -- not merely configured. Checked before the intent is claimed, so a
+    # refusal provably sent nothing. A client pointed anywhere else (the local fake) is not a
+    # real draft and is unaffected; its own gates still apply.
+    credential_refusal = real_draft_credential_refusal(ctx.db, client)
+    if credential_refusal:
+        ctx.audit("store.execution_refused", artifact=f"{slug}@{version}",
+                  detail={"release": release, "stage": "credential",
+                          "reason": credential_refusal[:500]})
+        raise PermanentError("PUBLISH_EXECUTION_REFUSED: " + credential_refusal)
     if known_order:
         _revalidate_publish_effect(ctx, slug=slug, version=version, release=release,
                                    payload=payload, docs=docs, listing_images=listing_images,
@@ -2942,6 +3017,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "etsy.openapi_reverify": ("affected",),
     # W4-STORE: live-vs-canonical drift read-back (stored readings only, writes_performed 0).
     "store.live_drift": ("findings", "proposals", "incidents_opened"),
+    "store.draft_reconcile": ("resolved", "escalated"),
     "improve.replay": ("runs", "challengers_registered", "proposed", "retired"),
     "intel.gallery_analysis": ("judged",),
     "intel.serp_capture": ("captured",),

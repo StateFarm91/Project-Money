@@ -72,9 +72,12 @@ OPENAPI_REVIEW_KEY = "store:etsy.openapi_review"
 #: How long one re-verification of the surface classifications stands (F-514).
 OPENAPI_REVERIFY_DAYS = 7
 
-#: The scopes the publish, read-back and census paths use. A stored credential missing any
-#: of them is scope drift (F-540/F-541): the next write or read would be refused.
-REQUIRED_SCOPES = ("listings_r", "listings_w", "listings_d", "shops_r", "shops_w")
+#: The scopes the publish, read-back, census and order-ingest paths use. A stored credential
+#: missing any of them is scope drift (F-540/F-541): the next write or read would be refused.
+#: WS5 E7: `transactions_r` too -- `commerce.orders_ingest` reads receipts with it, so a
+#: credential without it cannot see a single order, and that is drift, not "no orders".
+REQUIRED_SCOPES = ("listings_r", "listings_w", "listings_d", "shops_r", "shops_w",
+                   "transactions_r")
 
 #: Etsy's getListingsByShop `state` filter values. Every one is read so a listing moved to
 #: any of them is observed rather than inferred from its absence.
@@ -896,7 +899,15 @@ def handle_credential_health(ctx: JobContext) -> dict:
     findings: list[str] = []
     if health["stored"] and not health["openable"]:
         findings.append("stored credential is not openable under the current sealing key")
-    if missing:
+    if missing == ["transactions_r"]:
+        # Review 6954619488 (LOW): name the cause. WS5 E7 added `transactions_r` to the
+        # required scopes; a grant made before that lacks it, so every real draft is refused
+        # until the owner re-authorises once -- the grant is not broken, it is older than E7.
+        findings.append(
+            "stored credential is missing scopes ['transactions_r']: WS5 E7 made "
+            "transactions_r (order ingest) a required scope, and this grant predates it; "
+            "every real Etsy draft is refused until the owner re-authorises once")
+    elif missing:
         findings.append(f"stored credential is missing scopes {missing}")
     live: dict[str, Any] = {"attempted": False}
     auth: dict | None = None
@@ -1468,6 +1479,22 @@ def handle_listing_census(ctx: JobContext) -> dict:
 
 LIVE_DRIFT_READING = "store.live_drift"
 LIVE_OWNER_FIELD_BLANK = "store.live:owner_field_blank:"
+
+
+@handlers.register("store.draft_reconcile")
+def handle_store_draft_reconcile(ctx: JobContext) -> dict:
+    """WS5 E6: resolve unknown draft-create outcomes from one read-only read of the shop's
+    drafts (`publish.draft_resolver`). Adopts exactly one content match, escalates any
+    ambiguity to one owner card, releases only after repeated complete empty reads. Never
+    writes to Etsy."""
+    from ..publish import draft_resolver
+
+    out = draft_resolver.run(ctx.db, audit=ctx.audit)
+    outcomes = [i.get("outcome") for i in out.get("intents", [])]
+    ctx.audit("store.draft_reconcile", detail={**out, "writes_performed": 0})
+    return {"read": out.get("read"), "why": out.get("why"),
+            "resolved": sum(1 for o in outcomes if o in ("adopted", "released")),
+            "escalated": outcomes.count("escalated"), "intents": out.get("intents", [])}
 
 
 @handlers.register("store.live_drift")

@@ -955,6 +955,8 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # W4-STORE: read the stored live snapshot back against the canonical brand/owner fields;
     # drift becomes incidents and proposals, never an Etsy write.
     ("store_live_drift", "orchestrator", "store.live_drift", 86400),
+    # WS5 E6: unknown draft-create outcomes are resolved from a read of the shop's drafts.
+    ("store_draft_reconcile", "orchestrator", "store.draft_reconcile", 60 * 60),
     # W4-AGENTS: the Storefront Director's daily review (stored readings only, CA$0); gaps it
     # can fix become content.draft proposals, applied only by store.update under the owner's
     # storefront grant -- never in SHADOW.

@@ -62,7 +62,7 @@ JOB_CLASS: dict[str, ActionClass] = {
     "commerce.orders_ingest": _O, "commerce.readings": _O,
     "etsy.credential_health": _O, "etsy.listing_census": _O, "etsy.probe": _O,
     "ops.provider_credentials": _O,
-    "etsy.shop_snapshot": _O, "etsy.openapi_reverify": _O, "store.live_drift": _O,
+    "etsy.shop_snapshot": _O, "etsy.openapi_reverify": _O, "store.live_drift": _O, "store.draft_reconcile": _O,
     "listing.search_visibility_aging": _O, "listing.window_captures": _O,
     "etsy.dashboard_harvest": _O,    # W4-C12 wiring: reads rows, writes readings/owner tasks
     "storefront.review": _O,     # W4-AGENTS: reads stored readings, writes a review row

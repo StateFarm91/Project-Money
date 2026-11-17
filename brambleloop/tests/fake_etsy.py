@@ -445,7 +445,15 @@ class _Handler(BaseHTTPRequestHandler):
             state = params.get("state", "")
             results = [dict(r) for r in fake.listings.values()
                        if not state or r.get("state") == state]
-            return self._send(200, {"count": len(results), "results": results})
+            # Etsy pages this read: at most `limit` (default 25, max 100) from `offset`, with
+            # `count` the total (WS5 E7 -- a caller that reads one page sees only that page).
+            try:
+                limit = max(1, min(100, int(params.get("limit") or 25)))
+                offset = max(0, int(params.get("offset") or 0))
+            except ValueError:
+                return self._send(400, {"error": "limit and offset must be integers"})
+            return self._send(200, {"count": len(results),
+                                    "results": results[offset:offset + limit]})
 
         # GET /v3/application/seller-taxonomy/nodes -- the whole tree, as Etsy returns it.
         if path == "/v3/application/seller-taxonomy/nodes":

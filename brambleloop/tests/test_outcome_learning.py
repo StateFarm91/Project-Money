@@ -47,9 +47,11 @@ def _seed(db, slugs, *, contribution: dict[str, float], orders_each: int = 10):
         s.add(cust)
         s.flush()
         for slug in slugs:
+            # WS5 E4: stands for real measurement, so marked `real` explicitly.
             s.add(ListingOutcome(product_slug=slug, period_start="2027-01-01",
                                  period_end="2027-01-31", impressions=1000, visits=100,
-                                 favourites=5, source="fixture"))
+                                 favourites=5, source="fixture",
+                                 detail={"provenance": "real"}))
             for k in range(orders_each):
                 s.add(Order(customer_id=cust.id, external_ref=f"{slug}-{k}",
                             at=datetime(2027, 1, 15, tzinfo=timezone.utc), product_slug=slug,

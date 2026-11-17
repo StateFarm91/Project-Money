@@ -595,6 +595,15 @@ _FAILING_WATCH_STATES = ("source_outage", "credential_refused", "not_accessible"
 STALE_CAP_HOURS = 48.0
 
 
+def stale_limit_hours(every_hours, interval_hours) -> float:
+    """How old a shop's newest success may be before it is stale: twice the slower of its
+    cadence and its adaptive interval, never more than STALE_CAP_HOURS (review 6816970157
+    M2; 6819096414 LOW-4 pins the adaptive part)."""
+    basis = max([h for h in (every_hours, interval_hours)
+                 if isinstance(h, (int, float)) and not isinstance(h, bool)] or [0])
+    return min(STALE_CAP_HOURS, 2 * basis) if basis else STALE_CAP_HOURS
+
+
 def _shop_next_due(db, key, st: dict, now) -> tuple[str | None, str | None, float | None]:
     """(next adaptive due time, backoff-until time, adaptive interval hours) for one shop, all
     computed exactly as the scanners decide (`observe.scan_due`, `watchlist.backoff_for`);
@@ -701,7 +710,8 @@ def competitor_scans(db, *, now: datetime) -> dict:
                 failure_class = None
             elif st.get("state") in _WATCH_STATES:
                 failure_class = st["state"]
-            elif "refused the read credential" in reason or re.search(r"HTTP 40[13]", reason):
+            elif "refused the read credential" in reason or re.search(
+                    SE._REFUSED_TEXT, reason, re.I):
                 # Review 6816970157 L3: the shop's OWN newest failure, never the global
                 # credential state painted onto a shop that failed for another reason.
                 failure_class = "credential_refused"
@@ -723,9 +733,11 @@ def competitor_scans(db, *, now: datetime) -> dict:
             schedule = r.get("schedule") or {}
             every = schedule.get("every_hours")
             age = _age_h(r.get("last_successful"), now)
-            basis_h = max([h for h in (every, interval_h) if isinstance(h, (int, float))] or [0])
-            limit = min(STALE_CAP_HOURS, 2 * basis_h) if basis_h else STALE_CAP_HOURS
-            stale = age is not None and age > limit
+            limit = stale_limit_hours(every, interval_h)
+            # Review 6819096414 LOW-1: a scanned shop whose success time cannot be read is
+            # stale (fails closed), never current.
+            stale = ((age is None or age > limit) if r.get("state") == SE.SCANNED
+                     else (age is not None and age > limit))
             rows.append({
                 "owner_order": i,
                 "alias": benchmark_alias(key) if key else None,
@@ -869,7 +881,8 @@ DEPLOY_READBACK: dict[str, str | None] = {
     "/api/funding/packets": "packets",
     "/api/offsite": "configured",
     "/api/continuity": "last_proof_ok",
-    "/api/etsy": "usable",
+    # WS5 E3: the server's usable-for-operations judgement, not "two variables are set".
+    "/api/etsy": "credential.usable",
 }
 
 
@@ -905,7 +918,10 @@ def deploy_readback(handlers: dict) -> dict:
             continue
         fields = {}
         if field is not None:
-            fields[field] = _project_value(body.get(field) if isinstance(body, dict) else None)
+            cur = body
+            for part in field.split("."):          # a dotted field reads a nested value
+                cur = cur.get(part) if isinstance(cur, dict) else None
+            fields[field] = _project_value(cur)
         out[route] = {"status": status, "fields": fields}
     return out
 
