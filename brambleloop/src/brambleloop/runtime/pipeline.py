@@ -158,13 +158,44 @@ _GEOMETRY: dict[str, dict] = {
     "coaster":        {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 12,  "rows": 11},
     "basket":         {"stitch_repeat": [["sc", 4]],            "width": 48,  "rows": 14},
     "pillow":         {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 52,  "rows": 46},
-    "wall_decor":     {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 44,  "rows": 16},
+    # S1 Product Truth: a wall hanging is a portrait panel of about 40 x 60 cm (the
+    # prototype's `wall_hanging` form), not the 35 x 14 cm strip this drafted.
+    "wall_decor":     {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 52,  "rows": 66},
     "flower":         {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 24,  "rows": 8},
-    "pet":            {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 60,  "rows": 18},
+    # S1 Product Truth: a flat pet mat is about 50 x 45 cm (a cat or small dog lies on it),
+    # not the 48 x 15 cm strip this drafted. A pet bed is a vessel (fallback_constructions).
+    "pet":            {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 64,  "rows": 50},
     "scarf":          {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 24,  "rows": 168},
     "ornament":       {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 24,  "rows": 8},
 }
 _DEFAULT_GEOMETRY = {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 40, "rows": 12}
+
+# S1 Product Truth (size-family routing): the object a title names decides the size where the
+# category alone cannot. The `baby` category holds hats, blankets and small items, so a "Baby
+# Blanket" on its template was refused by the blanket band; and a ring cushion is a small
+# square, not a pillow or the default strip. First match wins; each entry's size sits inside
+# the band certification holds that object to (`gates.certificate.OBJECT_SIZE_BANDS`).
+_TITLE_GEOMETRY: tuple[tuple[str, frozenset | None, dict], ...] = (
+    # A ring bearer's cushion: about 19 x 19 cm.
+    (r"\bring[- ]?(?:bearer\s+)?(?:cushion|pillow)s?\b", None,
+     {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 24, "rows": 21}),
+    # A baby (stroller) blanket: about 80 x 89 cm (Craft Yarn Council: 76 x 89 cm stroller).
+    (r"\b(?:blanket|afghan|throw|blankie)s?\b", frozenset({"baby"}),
+     {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 100, "rows": 98}),
+)
+
+
+def _geometry_entry(category: str, title: str | None) -> dict:
+    """The template `concept_geometry` uses: a title-named object first, then the category."""
+    import re as _re
+
+    from ..creative.fallback_constructions import fold_title
+
+    folded = fold_title(title)
+    for pattern, categories, entry in _TITLE_GEOMETRY:
+        if (categories is None or category in categories) and _re.search(pattern, folded):
+            return entry
+    return _GEOMETRY.get(category, _DEFAULT_GEOMETRY)
 
 _PALETTES: dict[str, dict[str, str]] = {
     "nordic-forest": {"forest": "#244A3A", "cream": "#FAF6EB"},
@@ -176,7 +207,7 @@ _DEFAULT_PALETTE = {"forest": "#244A3A", "cream": "#FAF6EB"}
 
 def concept_geometry(seed: ConceptSeed) -> dict:
     """Turn a market concept into the numbers the CIR builder needs."""
-    g = _GEOMETRY.get(seed.category, _DEFAULT_GEOMETRY)
+    g = _geometry_entry(seed.category, seed.title)
     unit = sum(n for _, n in g["stitch_repeat"])
     width = g["width"]
     if width % unit:

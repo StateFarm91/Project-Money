@@ -130,7 +130,18 @@ _SHAPED_WORDS = ("amigurumi", "hat", "beanie", "bonnet", "cardigan", "tee", "swe
                  "drawstring", "holder", "backpack", "clutch", "crossbody", "pouch", "sachet",
                  "bean bag", "diaper", "purse", "wallet",
                  # Review OPUS2C N3.2: motif assemblies and shaped beds are not one panel.
-                 "granny", "hexagon", "hexie", "bed")
+                 "granny", "hexagon", "hexie", "bed",
+                 # S1 Product Truth: a cowl, an infinity scarf or a snood is a closed loop,
+                 # not the flat scarf strip the scarf template drafts.
+                 "cowl", "infinity", "snood")
+
+# S1 Product Truth: an outline the title promises that a rectangle of flat rows (or a pair of
+# them) does not have. "Round Placemat" drafted on the placemat template was a 45 x 30 cm
+# rectangle sold as round.
+_FLAT_SHAPE_CLAIM = (r"(?<![-\w])(?:round|circular|oval|heart[- ]shaped|star[- ]shaped|hexagonal|"
+                     r"octagonal)\s+(?:[a-z]+\s+)?(?:placemats?|mats?|rugs?|cushions?|pillows?|"
+                     r"coasters?|tablecloths?|doil(?:y|ies)|toppers?|blankets?|throws?|"
+                     r"dishcloths?|washcloths?)\b")
 
 
 def _shaped_title(title: str) -> str | None:
@@ -332,6 +343,11 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
             return {"family": TOTE, "needs": "",
                     "why": "a tote is a vessel worked in the round with two sewn straps"}
     lowered = (title or "").lower()
+    shape = re.search(_FLAT_SHAPE_CLAIM, fold_title(title))
+    if shape:
+        return {"family": REFUSED, "needs": f"a construction that makes {shape.group(0)!r}",
+                "why": (f"the title promises {shape.group(0)!r}; the fallback drafts rectangles "
+                        f"of flat rows, so it refuses rather than selling that outline")}
     if category in TRIANGLE_CATEGORIES or re.search(_TRIANGLE_WORDS, lowered):
         named = re.search(_STITCH_PATTERN_WORDS, lowered)
         if named:

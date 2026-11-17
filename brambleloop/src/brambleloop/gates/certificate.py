@@ -171,9 +171,22 @@ OBJECT_SIZE_BANDS: dict[str, dict] = {
               "basis": "a scarf is about 15-30 cm wide and 120-200 cm long (Craft Yarn "
                        "Council standard scarf sizes); a cowl is a loop, not this band"},
     "pillow": {"side_cm": (28.0, 66.0), "max_aspect": 2.0, "sole": True,
+               "unless": "ring_cushion",
                "basis": "a pillow or cushion cover face is about 30-60 cm (12-24 in), from "
                         "square to lumbar"},
+    # S1 Product Truth: a ring bearer's cushion is its own small object, read from the phrase
+    # (its words are the pillow family's), and held to its own band instead of the pillow's.
+    "ring_cushion": {"side_cm": (12.0, 25.0), "max_aspect": 1.25, "family": "pillow",
+                     "phrase": r"\bring[- ]?(?:bearer\s+)?(?:cushion|pillow)s?\b",
+                     "basis": "a ring bearer's cushion is a small square of about 15-20 cm"},
 }
+
+
+def _band_phrase(name: str, folded: str) -> bool:
+    import re
+
+    phrase = OBJECT_SIZE_BANDS[name].get("phrase")
+    return bool(phrase and re.search(phrase, folded))
 
 
 def object_size_findings(cir, twin) -> list[Finding]:
@@ -184,9 +197,17 @@ def object_size_findings(cir, twin) -> list[Finding]:
     out: list[Finding] = []
     if twin is None:
         return out
+    from ..creative.fallback_constructions import fold_title
+
     hits = _family_hits(cir.title or "")
-    for family, band in OBJECT_SIZE_BANDS.items():
-        if family not in hits or (band.get("sole") and set(hits) != {family}):
+    folded = fold_title(cir.title)
+    for name, band in OBJECT_SIZE_BANDS.items():
+        family = band.get("family", name)
+        if family not in hits or (band.get("sole", "phrase" in band) and set(hits) != {family}):
+            continue
+        if "phrase" in band and not _band_phrase(name, folded):
+            continue
+        if band.get("unless") and _band_phrase(band["unless"], folded):
             continue
         if band.get("words") and not set(hits[family]) & set(band["words"]):
             continue

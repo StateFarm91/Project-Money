@@ -38,8 +38,8 @@ CASES = {
     "pillow": ("Linen Ridge Pillow Cover", (57.6, 18.1)),
 }
 # "baby" is not one object: the category holds hats (refused by the fallback), blankets
-# (held to the blanket band by their title) and other small items. Its template is not
-# resized here; a "Baby Blanket" title on it is refused by the blanket band.
+# (drafted at a baby blanket size by their title, S1) and other small items. Its template
+# is not resized here.
 
 
 class _Twin:
@@ -98,9 +98,13 @@ def test_square_bands_check_size_and_shape():
     assert C.object_size_findings(_Cir("Pillow"), _Twin(20.0, 20.0))        # too small
 
 
-def test_a_baby_blanket_on_the_mixed_baby_template_is_refused_by_the_blanket_band():
+def test_a_baby_blanket_on_the_mixed_baby_category_is_drafted_inside_the_blanket_band():
+    # S1 Product Truth: the title-named object picks its size (pipeline._TITLE_GEOMETRY), so a
+    # baby blanket is no longer drafted on the mixed template; the old strip is still refused.
     cir, twin = _twin_of("baby", "Linen Ridge Baby Blanket")
-    assert [f.code for f in C.object_size_findings(cir, twin)] == ["OBJECT_SIZE_OUT_OF_BAND"]
+    assert C.object_size_findings(cir, twin) == [], (twin.width_cm, twin.height_cm)
+    bad = C.object_size_findings(_Cir("Linen Ridge Baby Blanket"), _Twin(80.0, 18.1))
+    assert [f.code for f in bad] == ["OBJECT_SIZE_OUT_OF_BAND"]
 
 
 def test_a_cowl_and_two_object_titles_are_not_held_to_these_bands():
