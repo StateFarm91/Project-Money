@@ -21,10 +21,12 @@ worktrees, not this file.
   - Flat-rows size truth: DONE, d9d980d6 (RR 6942861885). Covers coaster, placemat,
     runner, scarf and pillow; baby is kept (mixed category).
   - Pending: test_product_run result (the 2 h run started 08:00Z; post it on #28).
-  - NEXT: measure whether the mosaic_blanket and graphghan row counts are tied to their chart
-    engines, then size them.
+  - Mosaic/graphghan template size truth: DONE, 50942980 (RR 6943059210). Not tied to charts:
+    every catalogue seed in those categories is engineered.
+  - NEXT: post the test_product_run result; then answer Main verdicts; then pending task list
+    (V0 paid-provider gate tests, A1R fixes, V1 re-runs) as unblocked.
 - The worktree opus2-ws43 is on blanket-size-truth.
-- Stop reason (08:28Z tick): flat-rows size truth shipped; product_run result pending. Next tick: re-read #28, then the next unblocked item.
+- Stop reason (09:20Z tick): colourwork template size truth shipped; product_run result pending. Next tick: re-read #28, then the next unblocked item.
 
 ## State at 2026-11-14T03:35Z (superseded)
 - 03:28Z tick:
