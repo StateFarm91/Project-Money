@@ -4,7 +4,23 @@ Updated: 2026-11-17T09:30Z. The engineering loop rewrites this file at the end o
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-17T20:02Z (read first)
+## State at 2026-11-17T21:40Z (read first)
+- S1 fix RR POSTED e490fc6f on opus2/s1-product-truth-fix (6962763903; ACK 6960076247 for
+  verdict 6958883678): creative/size_truth.py (classes, stated dims, band-less refusals) wired
+  into intake.validate, FC.plan, concept_geometry, certificate (CIR + listing title);
+  D-S1-SIZE-FAMILIES (heart-row-ring-pillow stays refused). 14/14, 13 mutants, product_run 36/36.
+  Worktree /home/user/opus2-ws43 is on opus2/s1-product-truth-fix.
+- Awaiting verdicts: E1 34dbf572, A3 e5575380 (+L2 go?), research 26548a38, WS4 db785f92,
+  A4 ac0ca847/eb47549e, S1 e490fc6f.
+- NEXT: S2 fix on opus2/s2-openai-provider-fix from a54f16c3 (verdict 6957356475): per-task
+  routing through one router in gateway_for/job_gateway/provider_for; check_budget priced per
+  provider; provenance real provider; real-caller test (visual judge -> OpenAI, other ->
+  Anthropic in one process); ledger gross USD + uncertain + per-grant expiry + CC budget view;
+  default OpenAI text ceiling + owner activation; LOWs. Map: scratchpad S2_GATEWAY_MAP.md.
+  Then S3 -> S4; ws5 LOWs N1-N3.
+- Stop reason this tick: S1 RR posted; S2 starts next.
+
+## State at 2026-11-17T20:02Z (superseded)
 - A4 stack RR POSTED (6959382566): opus2/a4a-fixes-fix ac0ca847 (a4a-fixes merged onto INTEG1
   19e6a8ff, map regen 92 edges) and opus2/a4b-2-producer-fix eb47549e (a4b-2 merged onto
   ac0ca847; pytest-free runners + disposable PG clusters; enrichment_answer banded + literal

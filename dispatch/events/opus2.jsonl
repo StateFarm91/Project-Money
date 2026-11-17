@@ -1,0 +1,117 @@
+{"at": "2026-11-02T20:29:49Z", "worker": "opus2", "assignment": "A1", "event": "ack"}
+{"at": "2026-11-02T20:29:49Z", "worker": "opus2", "assignment": "A2", "event": "ack"}
+{"at": "2026-11-02T20:29:49Z", "worker": "opus2", "assignment": "A3", "event": "ack"}
+{"at": "2026-11-02T20:29:49Z", "worker": "opus2", "assignment": "A4", "event": "ack"}
+{"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "A5", "event": "ack"}
+{"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "A6", "event": "ack"}
+{"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "A7", "event": "ack"}
+{"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "A8", "event": "ack"}
+{"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "A9", "event": "ack"}
+{"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "A1-R", "event": "ack"}
+{"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "V1", "event": "ack"}
+{"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "V2", "event": "ack"}
+{"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "V0", "event": "ack"}
+{"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "V3", "event": "ack"}
+{"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "V4", "event": "ack"}
+{"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "V5", "event": "ack"}
+{"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "V6", "event": "ack"}
+{"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "P0-PHYSICAL-TEST-REQUEST", "event": "ack"}
+{"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "P0-PORTFOLIO-ACT", "event": "ack"}
+{"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "P0-STOREFRONT-ASSET-FIX", "event": "ack"}
+{"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "A2-FIX", "event": "ack"}
+{"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "A4b", "event": "ack"}
+{"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "A3-FIX", "event": "ack"}
+{"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "A4a", "event": "ack"}
+{"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "A4b", "event": "checkpoint", "sha": "230b7d8d", "note": "PR #27; focused green, 8 mutants killed"}
+{"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "A4b", "event": "review_requested", "sha": "230b7d8d"}
+{"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "A6", "event": "checkpoint", "sha": "ebead3dd", "note": "opus2/a6-learning-to-design; 6/6, 11 mutants; 38-suite regression running"}
+{"at": "2026-11-02T20:29:50Z", "worker": "opus2", "assignment": "A8", "event": "checkpoint", "sha": "87ebdb3e", "note": "opus2/a8-culture-ideation on A4a 993cc0cd; 4/4, 6 mutants; regression queued"}
+{"at": "2026-11-02T20:29:51Z", "worker": "opus2", "assignment": null, "event": "heartbeat", "note": "awake; hourly trigger (platform minimum 1h; */5 rejected)"}
+{"at": "2026-11-02T20:34:08Z", "worker": "opus2", "assignment": "A4a", "event": "checkpoint", "sha": "3dc3e68c", "note": "opus2/a4a-research-to-concept: test extended through compile+certify (granted); 9/9; code unchanged from fee061e5"}
+{"at": "2026-11-02T20:34:08Z", "worker": "opus2", "assignment": "A4a", "event": "review_requested", "sha": "3dc3e68c"}
+{"at": "2026-11-02T20:51:35Z", "worker": "opus2", "assignment": "A3-FIX", "event": "checkpoint", "sha": "c2174947", "note": "PR #23; A3D-1..5; 23/23, 8 mutants; 12 focused suites green"}
+{"at": "2026-11-02T20:51:35Z", "worker": "opus2", "assignment": "A3-FIX", "event": "review_requested", "sha": "c2174947"}
+{"at": "2026-11-02T21:02:32Z", "worker": "opus2", "assignment": "A1-R", "event": "checkpoint", "sha": "1dd257be", "note": "opus2/p0-child-safety-core; 59 suites green incl test_product_run 36/36; 12 mutants"}
+{"at": "2026-11-02T21:02:32Z", "worker": "opus2", "assignment": "A1-R", "event": "review_requested", "sha": "1dd257be"}
+{"at": "2026-11-02T21:03:48Z", "worker": "opus2", "assignment": "A2-FIX", "event": "checkpoint", "sha": "51f87859", "note": "PR #26; 45/45 suites"}
+{"at": "2026-11-02T21:03:48Z", "worker": "opus2", "assignment": "A2-FIX", "event": "review_requested", "sha": "51f87859"}
+{"at": "2026-11-02T21:33:16Z", "worker": "opus2", "assignment": "A5", "event": "checkpoint", "sha": "717c7925", "note": "taken unchanged; own test + 4 unrun suites green (5/5)"}
+{"at": "2026-11-02T21:33:16Z", "worker": "opus2", "assignment": "A5", "event": "review_requested", "sha": "717c7925"}
+{"at": "2026-11-02T21:33:16Z", "worker": "opus2", "assignment": "A4b", "event": "checkpoint", "sha": "e230545c", "note": "retention fix: enrichment state rows lifetime_total"}
+{"at": "2026-11-02T21:33:16Z", "worker": "opus2", "assignment": "A4b", "event": "review_requested", "sha": "e230545c"}
+{"at": "2026-11-02T21:33:16Z", "worker": "opus2", "assignment": "A6", "event": "checkpoint", "sha": "8c131f10", "note": "retention decisions for lesson.design_approved/acted_on"}
+{"at": "2026-11-02T21:33:16Z", "worker": "opus2", "assignment": "A8", "event": "checkpoint", "sha": "4f99bd8f", "note": "retention decisions; cost_governance_wave2 green"}
+{"at": "2026-11-02T21:47:04Z", "worker": "opus2", "assignment": "A8", "event": "review_requested", "sha": "4f99bd8f"}
+{"at": "2026-11-02T21:49:15Z", "worker": "opus2", "assignment": "A6", "event": "review_requested", "sha": "8c131f10"}
+{"at": "2026-11-02T21:52:51Z", "worker": "opus2", "assignment": "V0", "event": "checkpoint", "sha": "1bb6c2ba", "note": "9 failing tests fixed via real owner activation helper; priority suites running"}
+{"at": "2026-11-02T22:28:59Z", "worker": "opus2", "assignment": "A9", "event": "checkpoint", "sha": "6ee81c19", "note": "taken unchanged; own test + 8 handoff suites green"}
+{"at": "2026-11-02T22:28:59Z", "worker": "opus2", "assignment": "A9", "event": "review_requested", "sha": "6ee81c19"}
+{"at": "2026-11-02T22:54:26Z", "worker": "opus2", "assignment": "A7", "event": "checkpoint", "sha": "83fe31d2", "note": "taken unchanged; own test + 6 handoff suites green"}
+{"at": "2026-11-02T22:54:26Z", "worker": "opus2", "assignment": "A7", "event": "review_requested", "sha": "83fe31d2"}
+{"at": "2026-11-02T23:29:29Z", "worker": "opus2", "assignment": "A6", "event": "blocked", "note": "codex-contract adaptation opus2/a6-codex-contract built; end-to-end proof blocked on CODEX2-3 (held-out manifest vs INTEG1)"}
+{"at": "2026-11-03T01:30:10Z", "worker": "opus2", "assignment": "V0", "event": "checkpoint", "sha": "76fc0f3d", "note": "25/25 priority suites green"}
+{"at": "2026-11-03T01:30:10Z", "worker": "opus2", "assignment": "V0", "event": "review_requested", "sha": "76fc0f3d"}
+{"at": "2026-11-07T01:35:42Z", "worker": "opus2", "assignment": "QUEUE", "event": "blocked", "note": "no unduplicated work: Codex continues all opus2 heads (PR #130, V0 PR #40, codex/a6-*); awaiting Main assignment"}
+{"at": "2026-11-07T03:31:10Z", "worker": "opus2", "assignment": "A7", "event": "checkpoint", "sha": "677661ec", "note": "A7-1 verified fixed on Codex 677661ec (in PR #129 b4814be): recovery test fails on 83fe31d2 src, passes 6/6 on 677661ec; all readers route via flow_health.concept_supply_stall"}
+{"at": "2026-11-07T04:30:43Z", "worker": "opus2", "assignment": "P0-PHYSICAL-TEST-REQUEST", "event": "ack", "note": "ACK 6701113204/6701702761; wake interval hourly (cron 28 * * * *, platform min 1h); branching from claude/w6-INTEG1"}
+{"at": "2026-11-07T04:47:56Z", "worker": "opus2", "assignment": "P0-PHYSICAL-TEST-REQUEST", "event": "checkpoint", "sha": "d697d093", "note": "pushed; focused 100% + mutants; regression running"}
+{"at": "2026-11-07T04:47:58Z", "worker": "opus2", "assignment": "P0-PORTFOLIO-ACT", "event": "checkpoint", "sha": "450e2d0d", "note": "pushed; focused 100% + mutants; regression running"}
+{"at": "2026-11-07T04:48:00Z", "worker": "opus2", "assignment": "P0-STOREFRONT-ASSET-FIX", "event": "checkpoint", "sha": "0179a1a1", "note": "pushed; focused 100% + mutants; regression running"}
+{"at": "2026-11-07T04:52:21Z", "worker": "opus2", "assignment": "P0-PORTFOLIO-ACT", "event": "review_requested", "sha": "f3bea437", "note": "#28 6702476082; regression 14/14"}
+{"at": "2026-11-07T04:52:23Z", "worker": "opus2", "assignment": "P0-STOREFRONT-ASSET-FIX", "event": "review_requested", "sha": "d8b2754b", "note": "#28 6702476082; regression 11/11"}
+{"at": "2026-11-07T05:13:04Z", "worker": "opus2", "assignment": "V2", "event": "review_requested", "sha": "e30b5fa0", "note": "P0-c vessel verifier; #28 6702674398; P1-d/P2-a next"}
+{"at": "2026-11-07T05:42:46Z", "worker": "opus2", "assignment": "V2", "event": "review_requested", "sha": "6799f1d4", "note": "#28 6702941320; regression 13/13"}
+{"at": "2026-11-07T05:42:48Z", "worker": "opus2", "assignment": "P0-PORTFOLIO-ACT", "event": "checkpoint", "sha": "ad351e46", "note": "review e1d1adb3 F1-F8 fixed; regression running"}
+{"at": "2026-11-07T05:42:50Z", "worker": "opus2", "assignment": "V4", "event": "checkpoint", "sha": "86cf2a36", "note": "pushed; focused + mutants green"}
+{"at": "2026-11-07T05:42:53Z", "worker": "opus2", "assignment": "V5", "event": "checkpoint", "sha": "295474c6", "note": "pushed; focused + mutants green"}
+{"at": "2026-11-07T05:49:59Z", "worker": "opus2", "assignment": "P0-PORTFOLIO-ACT", "event": "review_requested", "sha": "ad351e46", "note": "#28 review request; regression green"}
+{"at": "2026-11-07T05:50:02Z", "worker": "opus2", "assignment": "V4", "event": "review_requested", "sha": "86cf2a36", "note": "#28 review request; regression green"}
+{"at": "2026-11-07T05:50:05Z", "worker": "opus2", "assignment": "V5", "event": "review_requested", "sha": "295474c6", "note": "#28 review request; regression green"}
+{"at": "2026-11-07T07:10:33Z", "worker": "opus2", "assignment": "P0-PHYSICAL-TEST-REQUEST", "event": "review_requested", "sha": "d697d093", "note": "44 suites (owner_queue_race load timeout; passes clean); 6/6 focused, 9 mutants killed"}
+{"at": "2026-11-07T07:18:42Z", "worker": "opus2", "assignment": "V2", "event": "review_requested", "sha": "25a41a7c", "note": "fixes 1688b97f F1-F7,F10; 10 mutants killed; 13/13"}
+{"at": "2026-11-07T07:18:46Z", "worker": "opus2", "assignment": "V3", "event": "review_requested", "sha": "50931f5b", "note": "fixture-only per OA-V3; production UNKNOWN; 21/21, 33 mutants killed"}
+{"at": "2026-11-07T07:29:20Z", "worker": "opus2", "assignment": "V6", "event": "review_requested", "sha": "c7aba05b", "note": "I-V6-ACCEPTANCE e2e on fixed V2; 10/10; remaining gates named; not a certified gallery"}
+{"at": "2026-11-07T07:32:54Z", "worker": "opus2", "assignment": "P0-STOREFRONT-ASSET-FIX", "event": "review_requested", "sha": "1675bf23", "note": "on fix_only 6cbc08e6; fixes d8b2754b F1-F7; 13/13, 27 mutants killed"}
+{"at": "2026-11-07T08:04:23Z", "worker": "opus2", "assignment": "P0-PORTFOLIO-ACT", "event": "review_requested", "sha": "d564a059", "note": "on fix_only 9e8665c3; SEO -> fix_only listing.seo; 12/12; 16+6 suites"}
+{"at": "2026-11-07T08:14:49Z", "worker": "opus2", "assignment": "P0-STOREFRONT-ASSET-FIX", "event": "review_requested", "sha": "59233ee5", "note": "1675bf23 + fix_only 9e8665c3; re-run green"}
+{"at": "2026-11-07T08:45:08Z", "worker": "opus2", "assignment": "V2", "event": "review_requested", "sha": "8bca3606", "note": "rebased onto V1 ded427f6 (6703941388); stack top 8427e777"}
+{"at": "2026-11-07T08:45:10Z", "worker": "opus2", "assignment": "V3", "event": "review_requested", "sha": "8427e777", "note": "rebased onto V1 ded427f6 (6703941388); stack top 8427e777"}
+{"at": "2026-11-07T08:45:13Z", "worker": "opus2", "assignment": "V4", "event": "review_requested", "sha": "16d8ccfd", "note": "rebased onto V1 ded427f6 (6703941388); stack top 8427e777"}
+{"at": "2026-11-07T08:45:16Z", "worker": "opus2", "assignment": "V5", "event": "review_requested", "sha": "6feab785", "note": "rebased onto V1 ded427f6 (6703941388); stack top 8427e777"}
+{"at": "2026-11-07T08:45:19Z", "worker": "opus2", "assignment": "V6", "event": "blocked", "note": "on V1, end-band scene frames read craft UNKNOWN; asked Main (a)/(b)/(c)"}
+{"at": "2026-11-07T10:33:10Z", "worker": "opus2", "assignment": "V6", "event": "review_requested", "sha": "60747f7e", "note": "on V1 stack 8427e777, option (a): stops at owner_card on V1-SCENE-END-BANDS only; 10/10"}
+{"at": "2026-11-07T10:34:55Z", "worker": "opus2", "assignment": "P0-PHYSICAL-TEST-REQUEST", "event": "review_requested", "sha": "e8b458b5", "note": "folded onto codex physical 77b9a88f; supersedes d697d093 (withdrawn); 50 suites"}
+{"at": "2026-11-07T11:53:33Z", "worker": "opus2", "assignment": "P0-PORTFOLIO-ACT", "event": "review_requested", "sha": "ee5dbeee", "note": "on fix-only 0f2de815; re-run green"}
+{"at": "2026-11-07T11:53:35Z", "worker": "opus2", "assignment": "P0-STOREFRONT-ASSET-FIX", "event": "review_requested", "sha": "a1331372", "note": "on fix-only 0f2de815; re-run green"}
+{"at": "2026-11-07T12:50:15Z", "worker": "opus2", "assignment": "V2", "event": "review_requested", "sha": "d6b642dd", "note": "visual stack on INTEG1 5913931f; fixes N1-N5"}
+{"at": "2026-11-07T12:50:18Z", "worker": "opus2", "assignment": "V6", "event": "review_requested", "sha": "80765387", "note": "visual stack on INTEG1 5913931f; fixes N1-N5"}
+{"at": "2026-11-07T15:02:41Z", "worker": "opus2", "assignment": "P0-STOREFRONT-ASSET-FIX", "event": "review_requested", "sha": "06a00c91", "note": "fixes for reviews a1331372 / ee5dbeee"}
+{"at": "2026-11-07T15:02:44Z", "worker": "opus2", "assignment": "P0-PORTFOLIO-ACT", "event": "review_requested", "sha": "fdd077f6", "note": "fixes for reviews a1331372 / ee5dbeee"}
+{"at": "2026-11-07T15:56:14Z", "worker": "opus2", "assignment": "P0-STOREFRONT-ASSET-FIX", "event": "review_requested", "sha": "ff573af8", "note": "on w6-INTEG1 59681a47"}
+{"at": "2026-11-07T15:56:17Z", "worker": "opus2", "assignment": "P0-PORTFOLIO-ACT", "event": "review_requested", "sha": "77bf3e19", "note": "on w6-INTEG1 59681a47"}
+{"at": "2026-11-07T15:56:20Z", "worker": "opus2", "assignment": "V3", "event": "review_requested", "sha": "256378d6", "note": "on w6-INTEG1 59681a47"}
+{"at": "2026-11-07T18:56:40Z", "worker": "opus2", "assignment": "P0-PHYSICAL-TEST-REQUEST", "event": "review_requested", "sha": "1a818679", "note": "fixes 6710585417; tester_roster work item, no owner card"}
+{"at": "2026-11-12T09:23:25Z", "worker": "opus2", "assignment": "A9", "event": "review_requested", "sha": "56f92eb9"}
+{"at": "2026-11-14T02:05:00Z", "worker": "opus2", "assignment": "A4B", "event": "review_requested", "sha": "93955611", "note": "A4B-2 producer on opus2/a4b-2-producer, stacked on codex/a4b-answer-fence; RR 6869739394"}
+{"at": "2026-11-14T03:05:00Z", "worker": "opus2", "assignment": "A4A", "event": "review_requested", "sha": "6dc0cecb", "note": "A4a LOWs on opus2/a4a-fixes; RR 6870280951"}
+{"at": "2026-11-17T03:55:00Z", "worker": "opus2", "assignment": "E6", "event": "review_requested", "sha": "3f8518f8", "note": "draft-intent resolver, option B, built pending QUESTION 6837687907; RR 6937571437"}
+{"at": "2026-11-17T06:20:00Z", "worker": "opus2", "assignment": "A4A", "event": "review_requested", "sha": "3b7dd016", "note": "blanket size truth on opus2/blanket-size-truth (stacked on a4a-fixes); RR 6940053193"}
+{"at": "2026-11-17T08:45:00Z", "worker": "opus2", "assignment": "A4A", "event": "review_requested", "sha": "d9d980d6", "note": "flat-rows size truth (coaster/placemat/runner/scarf/pillow) on opus2/blanket-size-truth; RR 6942861885"}
+{"at": "2026-11-17T09:20:00Z", "worker": "opus2", "assignment": "A4A", "event": "review_requested", "sha": "50942980", "note": "mosaic and graphghan template size truth on opus2/blanket-size-truth; RR 6943059210"}
+{"at": "2026-11-17T10:30:00Z", "worker": "opus2", "assignment": "A4A", "event": "checkpoint", "sha": "7616cd77", "note": "test_product_run 33/36; 2 stale-placemat fixture failures fixed in 7616cd77; buying-window failure is calendar-driven; comment 6943876476"}
+{"at": "2026-11-17T09:29:37Z", "worker": "opus2", "assignment": "A4A", "event": "heartbeat", "note": "correction: the previous two A4A events carry estimated times; 50942980 review_requested was pushed about 08:40Z and the 7616cd77 checkpoint about 09:18Z, not 09:20Z and 10:30Z"}
+{"at": "2026-11-17T09:29:37Z", "worker": "opus2", "assignment": "V1", "event": "heartbeat", "note": "no opus2 V1 checkpoint is expected: Main's module map 6703941388 defines V1 as Codex v1-craft-enum ded427f6; opus2's V2/V4/V5/V3 stack (top 8427e777) and V6 (60747f7e) are rebased on it and review-requested. Awaiting Main's visual review unit."}
+{"at": "2026-11-17T16:30:56Z", "worker": "opus2", "assignment": "S1", "event": "ack", "note": "Main 6953884261 queue S1-S4 acknowledged; S1 on opus2/s1-product-truth from w6-INTEG1 9e91b75b"}
+{"at": "2026-11-17T16:30:56Z", "worker": "opus2", "assignment": "S1", "event": "start"}
+{"at": "2026-11-17T16:39:26Z", "worker": "opus2", "assignment": "S1", "event": "checkpoint", "sha": "d0a409a0", "note": "S1a pushed: opus2/s1-product-truth on w6-INTEG1 9e91b75b (A4A-1 product-truth port + 5 size-truth cherry-picks); 4 size suites + 16-suite regression green; test_product_run and S1b pending"}
+{"at": "2026-11-17T16:59:21Z", "worker": "opus2", "assignment": "S2", "event": "review_requested", "sha": "a54f16c3", "note": "opus2/s2-openai-provider on w6-INTEG1 9e91b75b; 12/12, 9 mutants, 21-suite neighbour regression green"}
+{"at": "2026-11-17T16:59:21Z", "worker": "opus2", "assignment": "S1", "event": "checkpoint", "sha": "42ac2ad7", "note": "S1b audit fixes on opus2/s1-product-truth; test_product_run running; RR to follow"}
+{"at": "2026-11-17T18:04:52Z", "worker": "opus2", "assignment": "S1", "event": "review_requested", "sha": "42ac2ad7", "note": "S1 Product Truth on w6-INTEG1; test_product_run 36/36 (1 disk-full rerun green); 16+29 suite regressions green"}
+{"at": "2026-11-17T18:18:56Z", "worker": "opus2", "assignment": "WS5", "event": "review_requested", "sha": "0630d53a", "note": "ws5 E6/E3 fix for 6954619488 on opus2/ws5-e6-draft-resolver-fix"}
+{"at": "2026-11-17T18:26:51Z", "worker": "opus2", "assignment": "WS2", "event": "review_requested", "sha": "f95bd617", "note": "research M1+M2 fix for 6954809399 on opus2/ws2-r5-research-proposal-writer-fix"}
+{"at": "2026-11-17T18:31:27Z", "worker": "opus2", "assignment": "WS6", "event": "review_requested", "sha": "34dbf572", "note": "WS6-E1 fix for 6954809399 on opus2/ws6-e1-receipt-lessons-fix"}
+{"at": "2026-11-17T19:15:00Z", "worker": "opus2", "assignment": "A3", "event": "review_requested", "sha": "e5575380", "note": "A3 fix for 6955484423 on opus2/a3-photo-asset-review-fix; L2 proposal awaiting decision"}
+{"at": "2026-11-17T19:21:25Z", "worker": "opus2", "assignment": "WS2", "event": "review_requested", "sha": "26548a38", "note": "research fix 2 for 6957516781 on opus2/ws2-r5-research-proposal-writer-fix"}
+{"at": "2026-11-17T19:37:31Z", "worker": "opus2", "assignment": "WS4", "event": "review_requested", "sha": "db785f92", "note": "G-SHADOW M-1 fix for 6955504377 on opus2/ws4-11-g-shadow-reading-fix (comment 6958805633)"}
+{"at": "2026-11-17T20:01:35Z", "worker": "opus2", "assignment": "A4", "event": "review_requested", "sha": "eb47549e", "note": "A4 stack fixes for 6957186985: a4a-fixes-fix ac0ca847 + a4b-2-producer-fix eb47549e (comment 6959382566)"}
+{"at": "2026-11-17T22:24:38Z", "worker": "opus2", "assignment": "S1", "event": "review_requested", "sha": "e490fc6f", "note": "S1 fix for 6958883678 on opus2/s1-product-truth-fix (comment 6962763903)"}

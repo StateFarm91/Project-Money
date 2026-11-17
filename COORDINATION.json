@@ -179,6 +179,20 @@
       ],
       "state": "unowned",
       "recorded": "2026-11-01T07:05Z"
+    },
+    {
+      "id": "P0-PHOTO-ASSET-REVIEW",
+      "priority": "P0",
+      "recorded": "2026-11-01T10:55Z",
+      "summary": "After physical_upgrade.lead_with_if_qualifying moves an attested sample photo to position 1 it sets approved=False ('awaiting asset-truth review and listing-set re-certification') and no production code path re-approves a PHYSICAL_PRODUCT_PHOTO frame (only gallery_persist approves renders). A photo-led listing set can never certify (fails closed). Needs an audited owner review action or a deterministic asset-truth review job, plus re-certification.",
+      "state": "fix pushed by opus2; in review (OPUS2S / OPUS2T) 2026-11-02T10:32Z"
+    },
+    {
+      "id": "P0-NAME-OBJECT-MISMATCH",
+      "priority": "P0",
+      "recorded": "2026-11-02T07:45Z",
+      "summary": "OPUS2P-13a: category=basket drafts 'Teddy Bear', 'Drawstring Pouch', 'Drawstring Bag' as a plain basket; category=blanket/accessory drafts 'Teddy Bear' as a flat panel; name_truth passes. The title names an object the CIR is not. Assigned to opus2 on PR #3 (07:45Z).",
+      "state": "fix pushed by opus2; in review (OPUS2S / OPUS2T) 2026-11-02T10:32Z"
     }
   ],
   "reviews": [
@@ -595,6 +609,596 @@
       "report_branch": "claude/w5-SECREVIEW-OPUS2EF2",
       "notes": "EF2-6 MEDIUM required (merge drops max_cost_basis); B-5 partial unique index is an integration blocker before production/Postgres (integrator decision); EF2-7/8 follow-up. PR #6 comment posted.",
       "recorded": "2026-11-01T06:50Z"
+    },
+    {
+      "subject": "OPUS2M",
+      "sha": "ba815300",
+      "verdicts": {
+        "6769e696": "CHANGES_REQUIRED (OPUS2M-1 MED, -7 LOW; better than c3074241; 651b1580 faithful)",
+        "e0be7c4d": "SHIP (integrated a8ce0072); -5 LOW, -6 LOW pre-existing",
+        "d4486b8c": "CHANGES_REQUIRED (OPUS2M-2 MED regression, -3 MED, -4/-8 LOW)"
+      },
+      "recorded": "2026-11-02T04:33Z"
+    },
+    {
+      "subject": "OPUS2N",
+      "sha": "4fc6611d",
+      "verdicts": {
+        "940f70e6": "DO NOT SHIP (OPUS2N-1 MED non-ASCII allowlist hole)",
+        "67b67015": "DO NOT SHIP (OPUS2N-1; N-2..N-4, N-6 LOW)"
+      },
+      "recorded": "2026-11-02T05:30Z"
+    },
+    {
+      "subject": "INTEG5B",
+      "sha": "6d402593",
+      "verdicts": {
+        "claude/w5-INTEG1 a8ce0072": "SHIP for certification (provisional on its second regression batch; integrator re-running it 05:29Z); LOW INTEG5B-1..-4 (owner-queue index on rollback, index-creation race, certificate write race)"
+      },
+      "recorded": "2026-11-02T05:30Z"
+    },
+    {
+      "subject": "OPUS2O",
+      "sha": "3f2949cd",
+      "verdicts": {
+        "8cf4a458": "CHANGES_REQUIRED (OPUS2O-1 MED count reader still a list; -2/-3 LOW); 80f4b073 faithful",
+        "5889cc37": "CHANGES_REQUIRED (OPUS2O-4 MED C2C/colour-count classes; -5 LOW)",
+        "09122165": "SHIP",
+        "a859f6fe": "SHIP (LOW -6 contrast cuff palette, -7 pin, -9 stocking size citation UNKNOWN)"
+      },
+      "recorded": "2026-11-02T06:40Z"
+    },
+    {
+      "subject": "OPUS2P",
+      "sha": "f4516fbb",
+      "verdicts": {
+        "71e26e6f (tapestry)": "SHIP, integrated a0c6bfff (+ fold_title de-dup f7466c06)",
+        "a9fac088 (stuffed finishing)": "SHIP (on blocked branch; split requested)",
+        "b4ea6795/c7a8d31e (pouch)": "SHIP (on blocked branch; split requested)",
+        "e80a0be0/3b0a8867 (amigurumi)": "DO NOT SHIP: OPUS2P-1 HIGH child-safety gate keyed on title words; P-2 MED joins UNKNOWN; P-3 MED no small-parts lower bound"
+      },
+      "new_p0": "OPUS2P-13a: basket/blanket categories draft 'Teddy Bear'/'Drawstring Pouch' titles as a plain basket or flat panel and name_truth passes (pre-existing in W5-INTEG1); assigned to opus2",
+      "recorded": "2026-11-02T07:45Z"
+    },
+    {
+      "subject": "INTEG5C",
+      "sha": "c32a88dd",
+      "verdicts": {
+        "a8ce0072..f8bf2782": "SHIP for certification"
+      },
+      "recorded": "2026-11-02T07:45Z"
+    },
+    {
+      "subject": "INTEG5D",
+      "sha": "11272e4b",
+      "verdicts": {
+        "f8bf2782..f7466c06": "SHIP for certification (LOW/INFO only)"
+      },
+      "recorded": "2026-11-02T08:35Z"
+    },
+    {
+      "subject": "OPUS2Q",
+      "sha": "(claude/w5-SECREVIEW-OPUS2Q)",
+      "verdicts": {
+        "b185b528": "CHANGES_REQUIRED (OPUS2Q-1 MED false positives on ordinary words; -6/-7 LOW)",
+        "f4bf34bb": "faithful merge",
+        "2f9c413d": "CHANGES_REQUIRED (OPUS2Q-2 MED regression trailing \\b; -3 LOW confusables)",
+        "d3a485a1": "SHIP (integrated 4af3418f; -4/-5 LOW)"
+      },
+      "recorded": "2026-11-02T08:45Z"
+    },
+    {
+      "subject": "INTEG5E",
+      "sha": "0d0e238d (claude/w5-SECREVIEW-INTEG5E)",
+      "verdicts": {
+        "f7466c06..4af3418f": "SHIP for certification"
+      },
+      "recorded": "2026-11-02T08:52Z"
+    },
+    {
+      "subject": "OPUS2R",
+      "sha": "b95f1540 (claude/w5-SECREVIEW-OPUS2R)",
+      "verdicts": {
+        "83194fb7..21d4ceaf (construction registry)": "DO NOT SHIP: OPUS2R-1 HIGH registry builds bypass FC.plan title allowlists (and name_truth lacks motif_promise); -2 MED brief size vs title size; -3 MED tapestry wall-count jump; LOWs; 12/17 mutants survive"
+      },
+      "recorded": "2026-11-02T09:00Z"
+    },
+    {
+      "subject": "OPUS2T",
+      "sha": "50ac5426 (claude/w5-SECREVIEW-OPUS2T)",
+      "verdicts": {
+        "fed859b7": "DO NOT SHIP as P0 closure (OPUS2T-1 HIGH pillow/wedding/shawl branches run first; -2 HIGH head noun = last word; -3 MED denylist). Safe partial (only refuses more).",
+        "c5671087": "DO NOT SHIP: OPUS2T-4 HIGH child safety (child_words_in reads raw title; fullwidth/math-alnum toy titles render with no children's block); -5 MED small-parts check covers body only. P-2, P-4..P-9 fixed.",
+        "66378ebf": "DO NOT SHIP: OPUS2T-6 HIGH child safety (production keys contain 'toy' so the hold never fires); -7 HIGH OPUS2R-1 still open"
+      },
+      "recorded": "2026-11-02T11:05Z"
+    },
+    {
+      "subject": "OPUS2S",
+      "sha": "d4cd337c (claude/w5-SECREVIEW-OPUS2S)",
+      "verdicts": {
+        "c056028d+5a47cd8e (P0-PHOTO-ASSET-REVIEW)": "DO NOT SHIP: OPUS2S-1 MED approves frames without the awaiting reason; -2 MED check/write race; -3 MED second photo deadlock; LOWs. No HIGH; checks sound and fail-closed."
+      },
+      "integration_finding": "test_swarm_runtime fails on W5-INTEG1 4af3418f (5 opus2 job types unbanded) -> fixed 30b04b35",
+      "recorded": "2026-11-02T11:20Z"
+    },
+    {
+      "subject": "OPUS2U",
+      "sha": "73647d5c (claude/w5-SECREVIEW-OPUS2U)",
+      "verdicts": {
+        "8ed2dd15 (PR #3)": "DO NOT SHIP: OPUS2U-1 MED overcorrection ('Coaster Pack' etc backed); OPUS2T-1/-2/-3 HIGH still open",
+        "493b76cf": "faithful",
+        "e6e6fb94 (PR #9)": "DO NOT SHIP: OPUS2U-3 MED regressions (spaced C2C, thin-space joins words)",
+        "7493c723 (PR #11)": "SHIP (integrated 45977d4c)"
+      },
+      "recorded": "2026-11-02T12:35Z"
+    },
+    {
+      "subject": "OPUS2V",
+      "sha": "5ba94797 (claude/w5-SECREVIEW-OPUS2V)",
+      "verdicts": {
+        "opus2/p0-pouch 1ea3079e": "SHIP (merged 50937469); LOW -8/-9",
+        "registry ffb74996+a7b34050": "DO NOT SHIP: OPUS2V-1 HIGH plan() admits unknown words for vessel/tote (also Batch 5 radar path); -2 MED motif_promise not in publish name_truth (also Batch 5); -3 HIGH child safety (toy on branch); -4 MED hold must read CIR slug/title"
+      },
+      "recorded": "2026-11-02T12:55Z"
+    },
+    {
+      "subject": "INTEG5F",
+      "sha": "41d4fdcd (claude/w5-SECREVIEW-INTEG5F)",
+      "verdicts": {
+        "4af3418f..50937469": "SHIP for certification (INFO only; Launch-0 text byte-identical)"
+      },
+      "recorded": "2026-11-02T12:45Z"
+    },
+    {
+      "subject": "OPUS2W",
+      "sha": "838adbe8 (claude/w5-SECREVIEW-OPUS2W)",
+      "verdicts": {
+        "A3 a14c71d7+d1f65b61": "DO NOT SHIP: OPUS2W-1 MED (no real lock/re-check on SQLite; repro F race approves a moved frame); -2 MED (non-qualifying photo blocks the set forever); LOW -3..-6"
+      },
+      "recorded": "2026-11-02T16:05Z"
+    },
+    {
+      "subject": "INTEG5G",
+      "sha": "claude/w5-SECREVIEW-INTEG5G",
+      "verdicts": {
+        "50937469..5ba84bf7": "SHIP for certification; INTEG5G-1 MED ('two colour' backed by any >=2 colours) fixed after the candidate; -2 LOW (teardown reader hides join-as-you-go phrasing in competitor patterns), -3 LOW (plural/2-Colour/Two-Tone/Bicolour not recognised as colour claims), -4 INFO"
+      },
+      "recorded": "2026-11-02T17:15Z"
+    },
+    {
+      "subject": "CODEX1",
+      "sha": "claude/w5-SECREVIEW-CODEX1",
+      "verdicts": {
+        "codex/p0-learning-reference 623fc26c": "DO NOT SHIP: CODEX1-1 HIGH (library guard refuses the default /app path; uncaught LibraryRefused in image requests and intake), -2 HIGH (teardown.analyse* missing from JOB_CLASS), -3 MED (review rule bypassable via lessons), -4 scope (most of the WO not yet built); IP isolation, idempotency, additive DB tables sound"
+      },
+      "feedback_channel": "brambleloop/research/final_build/w5/CODEX_REVIEW_FEEDBACK.md",
+      "recorded": "2026-11-02T17:45Z"
+    },
+    {
+      "subject": "A1-REVIEW",
+      "sha": "claude/w5-SECREVIEW-A1",
+      "verdicts": {
+        "opus2/p0-amigurumi 98d216b0 (A1 children's refusal)": "DO NOT SHIP: A1-1 HIGH gate keyed on stuffed AND span-placed seam, not closed stuffed form (stuff_before_closing / closed_3d_form); A1-2 MED no confusable/invisible fold in child_words_in; A1-3 MED A1 not splittable (its test needs the toy route; guard mutants survive on INTEG1+A1); A1-4 MED any non-undecided decision accepted; A1-5 MED toy small-parts margins thin (bunny ear worsted 32.0mm vs 31.7mm cylinder = UNKNOWN)",
+        "toy (amigurumi)": "toy delta acceptable, but waits for a fixed A1"
+      },
+      "recorded": "2026-11-02T17:58Z"
+    },
+    {
+      "subject": "A2-REVIEW",
+      "sha": "claude/w5-SECREVIEW-A2",
+      "verdicts": {
+        "opus2/a2-name-object db463142..3be8262f": "DO NOT SHIP: A2-1 HIGH motif_promise reads the raw title (fullwidth/math-bold motif words draft a plain basket); A2-2 HIGH motif check scoped to fallback/registry provenance only, so radar flat-panel and creative.prototype CIRs named for an absent motif pass name_truth; A2-3 HIGH trailing-descriptor strip drops any bracket/clause ('Storage Basket (Teddy Bear)'); A2-4 MED modifier allowlist only for basket/tote; A2-5 MED 'Toy Basket' wrongly refused; A2-6 MED mutants M11/M13/M14/M16/M18 survive; A2-7 LOW registry route unverified. Core repros all refused, catalogue byte-identical, merge with INTEG1 7c42e706 clean, 29 suites green"
+      },
+      "recorded": "2026-11-02T18:20Z"
+    },
+    {
+      "subject": "A3D",
+      "sha": "claude/w5-SECREVIEW-A3D",
+      "verdicts": {
+        "opus2/p0-photo-asset-review 8d98bf4c": "DO NOT SHIP: A3D-1 MED liveness (a photo that qualifies later other than via attest_unedited is re-opened but never promoted or reset, stays excluded with a stale reason, listing activation fails forever); LOW A3D-2 stale approved flag, -3 hourly churn, -4 mutants K7/K9/K12 survive (re-open branch untested), -5 lock outside try. OPUS2W-1 fixed on SQLite (Postgres UNKNOWN), W-2..W-7 fixed; 9 suites green; fast-forwards onto INTEG1 7c42e706"
+      },
+      "recorded": "2026-11-02T19:23Z"
+    },
+    {
+      "subject": "CODEX2",
+      "sha": "claude/w5-SECREVIEW-CODEX2",
+      "recorded": "2026-11-02T21:56:33Z",
+      "verdicts": {
+        "codex/p0-learning-reference 623fc26c..6f0fe7aa": "DO NOT SHIP (not even as partial integration): CODEX2-1 HIGH every pre-existing teardown finding (recorded_by NULL) gets an unclearable 'requires independent review' hold that blocks release gates even when the requirement is met; CODEX2-2 HIGH test_w4_fmbatch1_retention_guard fails (_lesson_roots reads audit_log by computed action name; still at 25c7e802); CODEX2-3 MED frozen eval set hash breaks on merge with INTEG1 (hexagonal-bread-basket CIR changed) and research/ absent in image; CODEX2-4 MED owner can independently 'review' a finding they entered (recorded_by stamped teardown_analyst). Fixed: CODEX1-1, -2, -3, -6, -9. Open: CODEX1-4, -5, -7, -8. IP isolation, held-out isolation, idempotency, additive rollback-safe migration verified."
+      }
+    },
+    {
+      "subject": "A1R",
+      "sha": "claude/w5-SECREVIEW-A1R",
+      "recorded": "2026-11-02T22:28:00Z",
+      "verdicts": {
+        "opus2/p0-child-safety-core 1dd257be": "DO NOT SHIP: A1R-1 HIGH closed_stuffed_form misses one-piece stuffed forms (no seams), stuffing spellings (Fiber-Fill, kapok, polyester filling, toy fill, ...) and notes-only stuffing -- one-piece 'Juniper Friend' ball finishes assets.build DONE through the Worker; A1R-2 MED fold lower-cases before confusable map (Greek capitals, Cherokee, some Cyrillic escape; '\u0392aby Basket' DONE); A1R-3 MED three folds, drafting does not use text_fold; A1R-4 MED hold is a generic ValueError toward dead letter, not a named owner-visible hold; A1R-5 small-parts only for stuffed forms, missing gauge reads clear, mutant M10 survives; A1R-6 decision constants lack audit fields, listing_package reads raw decision; A1R-7 real-path asserts too weak. Launch-0 PDFs byte-identical; no test weakened."
+      }
+    },
+    {
+      "subject": "CODEX3",
+      "sha": "claude/w5-SECREVIEW-CODEX3",
+      "recorded": "2026-11-02T22:49:20Z",
+      "verdicts": {
+        "codex/p0-learning-reference 6f0fe7aa..20e0b3a7": "DO NOT SHIP: CODEX3-1 HIGH legacy (recorded_by/review_state NULL) unmet or unmeasured findings no longer block publication (0967c3ee blocks via release_gates.py:1653; head does not), cannot be reviewed back to binding; test_codex_legacy_findings asserts the relaxation, no DECISION_LOG. MED CODEX3-2 pure writer renders any well-formed learning_rule marker without verification (inert until A6 enforces verify_cir_pins). LOW -3 approved knowledge invalidated by ~23 module/numpy/scipy/volume/licence changes (A6 needs re-evaluation workflow + alert), -4 dead-job re-drive forever and masks no-work, -5 bench2 reference/ad_image/comparison stages always UNKNOWN. Executor security acceptable for the exact pinned source (line-by-line reviewed; same buffer hashed and compiled; not a sandbox; builder-pin changes are security-sensitive). CODEX2-2, CODEX1-5 fixed; CODEX2-3 (manifest drift grown), -4, -5, -6 open. Migration additive and rollback-safe on SQLite; all Codex suites + shadow green."
+      }
+    },
+    {
+      "subject": "A2F",
+      "sha": "claude/w5-SECREVIEW-A2F",
+      "recorded": "2026-11-02T22:50:22Z",
+      "verdicts": {
+        "opus2/a2-name-object 51f87859": "DO NOT SHIP: A2F-1 HIGH motif check exempted by slug (_engineered_designs) incl. 9 slugs with no engineered CIR -> rule-drafted 'Heart Table Runner' under heart-relief-table-runner passes; test pins the loophole; A2F-2 HIGH four title readers, none is text_fold.fold; _motif_fold misses Cyrillic/Greek lookalikes; manual_adoption runs motif_promise on live Etsy text unrouted; fullwidth 'Ribbed Scarf' drafts plain panel; A2F-3 HIGH size word order inverts size ('Small Market Basket' drafts large); A2F-4 MED allowlists admit unmade textures (ribbed, basket weave); A2F-5 MED mutants M14, M11d, M21, M26, M32 survive. Catalogue 40/40 byte-identical; no assertion weakened; Bobble/Ribbed seed refusals correct; 11 suites pass."
+      }
+    },
+    {
+      "subject": "A3F",
+      "sha": "claude/w5-SECREVIEW-A3F",
+      "recorded": "2026-11-02T23:04:02Z",
+      "verdicts": {
+        "opus2/p0-photo-asset-review c2174947": "DO NOT SHIP (1 MED): A3F-1 an excluded non-qualifying leader still counts as 'led by a photograph', so a qualifying photo is never promoted (no_hero, SAMPLE_PHOTO_REQUIRED never clears); A3F-2 LOW photo at position 1 without leads_gallery loops hourly; A3F-3 LOW two other writers (release_gates._recheck_listing_certificates, runtime.release asset writer) still read without the lock. A3D-1..-5 fixed; 12/13 mutants killed; 7 suites pass; test_shadow UNKNOWN (timeout under load)."
+      }
+    },
+    {
+      "subject": "A4A",
+      "sha": "claude/w5-SECREVIEW-A4A",
+      "recorded": "2026-11-02T23:08:59Z",
+      "verdicts": {
+        "opus2/a4a-research-to-concept 3dc3e68c": "DO NOT SHIP: A4A-1 HIGH Product Truth: Dishcloth/Hot Pad drafted on placemat template -> certified twin 38.4x11.4 cm while premise says 'A square dishcloth'; gate.certify grants with no reasons; name_truth/first_customer families have no dishcloth/hot-pad size band; PDF would print 38x11 cm dishcloth. MED A4A-2 crash-after-answer redelivery builds a proposal below the evidence floor (1 listing/1 shop) or TypeError on priceless listings; MED A4A-3 ended gaps never reopen when evidence arrives; LOW title-variant originality misses, future-dated listings, pod-level evidence floor, 6/12 mutants survive. Idempotency, gates, terminations verified; 10 suites pass incl. test_shadow; merges clean with A6/A4b."
+      }
+    },
+    {
+      "subject": "A4B",
+      "sha": "claude/w5-SECREVIEW-A4B",
+      "recorded": "2026-11-02T23:12:34Z",
+      "verdicts": {
+        "opus2/a4b-enrichment 230b7d8d / e230545c": "DO NOT SHIP: A4B-1 HIGH retention RetentionRefused at 230b7d8d fixed in e230545c; A4B-2 HIGH answer()/open_requests() have no production caller -- nothing ever re-drafts (wiring #2 still open); MED A4B-3 any payload counts as enrichment (no evidence, seed fields unpinned: fox amigurumi re-drafted as basket), A4B-4 never-draftable concept ends 'resolved' with no job (should be exhausted), A4B-5 concurrent answers both draft (no per-round key); LOW A4B-6 unbounded request-row churn, A4B-7 mutants M5/M6 (round cap, answered guard) survive. Gates never bypassed; 15 suites pass; test_cert_wiring UNKNOWN (drain timeout under load)."
+      }
+    },
+    {
+      "subject": "A5",
+      "sha": "claude/w5-SECREVIEW-A5",
+      "recorded": "2026-11-02T23:19:17Z",
+      "verdicts": {
+        "A5 correction loop 717c7925": "DO NOT SHIP: A5-1 HIGH GAUGE_FROM_YARN_BAND checks gauge with physically_evidenced=False, so a design certified on a tester's measured gauge has it replaced on any unrelated refusal (PROVENANCE_MISSING enqueues a gauge revision); MED A5-2 correction does not fix the refusing defect (re-verification failed CLAIM_CONSTRUCTION_UNSUPPORTED, loop changed gauge 30->12.5 and certified 1.3.0 as 'correction'; same for COLOR_NOT_IN_PATTERN) and the test asserts it; A5-3 gauge_for replaces hook (3.5->5.0mm), row gauge, chain calibration, audit records only stitch gauge; A5-4 certify refusal of an already-certified version revises without a version bump -> version_immutable, cap spent, no terminal state; LOW per-version cap fresh per minor, stale holds on superseded versions, code regex over-match, re-run audit rows, concurrent revise race. Loop bounded, holds isolated, evidence waits correct, retention protected, all mutants killed, 14 suites pass; conflict with A6 in handle_cir_revise."
+      }
+    },
+    {
+      "subject": "A6",
+      "sha": "8c131f10",
+      "recorded": "2026-11-07T02:36:01Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_A6_8c131f10.md",
+      "verdicts": {
+        "A6 learning-to-design 8c131f10": "DO NOT SHIP: A6-1 HIGH approved yarn-weight lesson certifies a pattern stating the wrong hook size; A6-2 MED lesson.acted_on claims a design change on a byte-identical CIR; 8/12 mutated guards untested incl. approver-role and idempotency. Superseded by codex/a6-* continuations (594d5e38 ancestor), which Codex itself marks DO NOT INTEGRATE."
+      }
+    },
+    {
+      "subject": "A7",
+      "sha": "83fe31d2",
+      "recorded": "2026-11-07T02:36:01Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_A7_83fe31d2.md",
+      "verdicts": {
+        "A7 supply stall 83fe31d2": "DO NOT SHIP as is: A7-1 stall reading never cleared, Command Center/readback show STALLED for up to 48h after supply returns (false stall). ~10-line fix + freshness test => SHIP. Core mechanism deterministic and deduplicated."
+      }
+    },
+    {
+      "subject": "W6 secret-leak + support-defect",
+      "sha": "1c4c9211 / 26bac0e9",
+      "recorded": "2026-11-07T03:12:26Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_W6_SECRET_SUPPORT.md",
+      "verdicts": {
+        "claude/w6-secret-leak-escalate 1c4c9211": "SHIP: no path writes a secret value to DB/logs/events/Command Center (dump-check kills leak mutant). Follow-ups (MED): owner-resolved incident reopens a fresh P1 on next sweep (fails loud, ops/secret_leak.py:144); escalation exception records only UNKNOWN without an incident (runtime/release.py:7295); LOW non-'CAUGHT' status reads CLEAN (ops/secret_leak.py:127). Mutants 5/8 killed (2 equivalent).",
+        "claude/w6-support-defect-incident 26bac0e9": "DO NOT SHIP: HIGH hold self-clears when cir.twin/cir.reverse (already passed at certification) re-pass, then never re-escalates; HIGH incident committed before hold/jobs, a transient failure leaves an open incident with no hold permanently; MED target version is all-time majority; MED one buyer x3 messages triggers P1+hold. No support free text reaches Learning. Main (owner of the line) is fixing."
+      }
+    },
+    {
+      "subject": "A7 delta",
+      "sha": "677661ec",
+      "recorded": "2026-11-07T03:40:57Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_A7_677661ec.md",
+      "verdicts": {
+        "Codex 677661ec on A7 83fe31d2": "SHIP: A7-1 fixed (both readers defer to newest measured healthy scan finished after the reading; unmeasured/failed scans ignored). LOW follow-ups: D-1 finish-time ordering can hide a stall until next scan; D-2 cross-host clock skew; D-3 other-period scan clears (no producer); D-4 10/13 mutants survive incl. finished_at>=at guard and untested 48h freshness."
+      }
+    },
+    {
+      "subject": "W6 support delta",
+      "sha": "05961fd0",
+      "recorded": "2026-11-07T03:40:57Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_W6_SUPPORT_05961fd0.md",
+      "verdicts": {
+        "claude/w6-support-defect-incident 05961fd0": "DO NOT SHIP: N-1 HIGH hold can never clear (no path resolves a support.defect incident; needs_owner_path); N-2 MED buyers counted across versions; N-3 LOW incident on unstored version; N-4 LOW hold timestamp churn per mention. Main fixing (owner decision path + card + REMEDIATION, supersession, per-version buyers)."
+      }
+    },
+    {
+      "subject": "W6 secret-leak follow-up delta",
+      "sha": "340025ca",
+      "recorded": "2026-11-07T04:01:20Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_W6_SECRET_340025ca.md",
+      "verdicts": {
+        "claude/w6-secret-leak-followup 340025ca": "DO NOT SHIP: N-M1 MED acknowledgement permanently hid a real exposure (ignored counts, still-held variable, any resolved row); N-L1 2 surviving mutants; N-L2 UNKNOWN shapes unread/inconsistent; N-L3 escalation_failed row never closed. Fallback sound; scan cost negligible. Fixed in 7727e68b."
+      }
+    },
+    {
+      "subject": "W6 support delta 3",
+      "sha": "785849c0",
+      "recorded": "2026-11-07T04:15:30Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_W6_SUPPORT_785849c0.md",
+      "verdicts": {
+        "claude/w6-support-defect-incident 785849c0": "DO NOT SHIP: N-1..N-4 fixed, route authenticated. F-1 HIGH any other certified version (even identical CIR, even after confirmed) ends the incident; old-version incident opened+superseded in one triage. F-2 MED card reopens after confirmed; confirmed lacks keep_hold. F-3 MED null-version cases counted on the current release. F-4 LOW 6/16 mutants survive, no HTTP test. F-5 LOW unbounded why. Main fixing: release-on-sale only, carry on identical CIR, supersede only on newer+changed CIR, confirmed keeps hold and closes card."
+      }
+    },
+    {
+      "subject": "W6 secret-leak follow-up delta 2",
+      "sha": "7727e68b",
+      "recorded": "2026-11-07T04:30:59Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_W6_SECRET_7727e68b.md",
+      "verdicts": {
+        "claude/w6-secret-leak-followup 7727e68b": "DO NOT SHIP: D-M1 MED after restart a resolved unidentified secret re-leaking stays hidden (cross-process counts incomparable); D-M2 MED fallback P1 auto-closed by a clean sweep in a new process; D-L1 4 surviving mutants. Main's response 17f63074: acknowledgement rule removed entirely (re-open noise bounded by the rotation redeploy), fallback never auto-closes, REMEDIATION owner path."
+      }
+    },
+    {
+      "subject": "W6 secret-leak follow-up delta 3",
+      "sha": "17f63074",
+      "recorded": "2026-11-07T04:47:50Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_W6_SECRET_17f63074.md",
+      "verdicts": {
+        "claude/w6-secret-leak-followup 17f63074": "SHIP: no exposure hidden; fallback type-only, never auto-closes, cannot fail ops.health; 8/10 mutants killed. LOW: L1 re-open noise unbounded without a redeploy (e.g. OAuth re-auth); L2 (base) no-change path never refreshes last_seen -> UNCONFIRMED after 48h; L3 fallback inner except untested; L4 fallback wording points at job output lacking fingerprints."
+      }
+    },
+    {
+      "subject": "W6 support delta 4",
+      "sha": "c5cad183 (and 1d22cdca)",
+      "recorded": "2026-11-07T05:04:49Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_W6_SUPPORT_c5cad183.md",
+      "verdicts": {
+        "claude/w6-support-defect-incident c5cad183": "DO NOT SHIP: F-1 HIGH still_held counts only open incidents, so a confirmed-then-resolved defect loses its hold to an older not_a_defect release (rollback R8S re-sells a confirmed defect unheld); F-2 MED superseded release returning to sale stays held forever with no card; F-3 MED title-only CIR change counts as a correction; F-4 LOW 5 mutants survive. Main response: event-driven carry/supersede/release replaced by one declarative reconcile_holds (active = open or confirmed; instruction_hash allowlist; no automatic supersession)."
+      }
+    },
+    {
+      "subject": "P0-PORTFOLIO-ACT",
+      "sha": "f3bea437",
+      "recorded": "2026-11-07T05:24:41Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_PORTFOLIO_f3bea437.md",
+      "verdicts": {
+        "opus2/p0-portfolio-act f3bea437": "DO NOT SHIP: F1 HIGH SEO fix flips a live listing to local draft (release.py:2098 via portfolio_act.py:110); F2 HIGH the rebuild reaches store.publish without the owner gate (re-opens FMBATCH1 F-1; DEAD in SHADOW, never updates Etsy, pipeline.py:1990); F3 MED stale inputs reused (price 12.34 -> 4.0); F4 MED cap starves late slugs; F5 MED RETIRE/REWORK open a new card each week; F6 LOW downstream key truncates to portfolio:20; F7 LOW date.today() local + as_of bypasses dedup; F8 LOW 2 mutants survive. Nothing edits a pattern or certifies; spend only via image_vision gate ceilings. Corrections to opus2."
+      }
+    },
+    {
+      "subject": "P0-STOREFRONT-ASSET-FIX",
+      "sha": "d8b2754b",
+      "recorded": "2026-11-07T05:46:28Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_STOREFRONT_d8b2754b.md",
+      "verdicts": {
+        "opus2/p0-storefront-asset-fix d8b2754b": "DO NOT SHIP: same root cause as PORTFOLIO-ACT (rebuild token re-drives the whole chain): F1 HIGH live listing to draft + price overwrite; F2 HIGH store.publish with no owner gate; F3 MED-HIGH duplicate chain during fresh certification; F4 MED _persist_frames overwrites an owner photo row; cards never close; 7/10 mutants survive. Laura assets, spend gates, per-release dedup hold."
+      }
+    },
+    {
+      "subject": "W6 support delta 5",
+      "sha": "dd05e389",
+      "recorded": "2026-11-07T05:59:37Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_W6_SUPPORT_dd05e389.md",
+      "verdicts": {
+        "claude/w6-support-defect-incident dd05e389": "SHIP: reconcile_holds fixes c5cad183 F-1..F-3; no HIGH; 17/17. MED follow-ups (Main): F-1 certify/decertify do not reconcile, so a new/rolled-back release with held instructions is unheld until next triage; F-2 instruction hash reads the held version's mutable cir_json (store it at incident open). LOW: confirmed-then-resolved-elsewhere cannot be re-decided; grading/configuration-only fixes stay held; orphan card when undecided incident resolved elsewhere; stale 'supersedes' wording. R2 confirmed equivalent."
+      }
+    },
+    {
+      "subject": "V2 vessel fidelity",
+      "sha": "6799f1d4",
+      "recorded": "2026-11-07T06:16:50Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_V2_6799f1d4.md",
+      "verdicts": {
+        "opus2/v2-vessel-fidelity 6799f1d4": "DO NOT SHIP: HIGH vessel.py:205 no palette-distance limit (yellow/navy passes as cream/wine); HIGH vessel.py:239 sides 0/None -> NA so a square passes as round key_basket; MED-HIGH no minimum top-view size (24-48px pentagon/octagon/circle count 6); MED vessel.py:100 flared top falls back to the old round check; MED prominence-floor mutant reachable (1%-lobed circle passes as hexagon); MED 60% band-share tolerance and gallery_ready blocker unprotected. Sound: gallery_ready, the two test edits, P2-a, Laura untouched, paid generation OFF. Corrections to opus2."
+      }
+    },
+    {
+      "subject": "FIX-ONLY primitive",
+      "sha": "6cbc08e6",
+      "recorded": "2026-11-07T07:31:12Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_FIXONLY_6cbc08e6.md",
+      "verdicts": {
+        "claude/w6-fix-only-rebuild 6cbc08e6": "DO NOT SHIP: F1 HIGH fix_only stored in assets.build outputs leaked into ordinary re-price/targeted rebuild/launch-review (silent no-relaunch); F2 live listing search profile overwritten (false F-294, possible false taxonomy-drift resolve); F3 withdrawn listing revived as draft; F4 card lacked the candidate description. Fixed in 9e8665c3 (in review)."
+      }
+    },
+    {
+      "subject": "U2 A1R core",
+      "sha": "c3a7b93a",
+      "recorded": "2026-11-07T07:50:39Z",
+      "report": "research/final_build/w5/u2probes/ (suites, mutants, probes)",
+      "verdicts": {
+        "opus2/p0-child-safety-core c3a7b93a": "DO NOT SHIP alone: slug reuse (a one-piece stuffed ball under an assigned or exempt slug passes), exempt-product retitle not re-checked, numeric ages (0-12 months, ages 2+) undetected; fail-open mutants N6 (launch0 unreadable construction -> []) and N10 (small_parts exception -> []); N12 dedup untested. 6/6 suites pass; 15/18 mutants killed. Codex continuation c10a6eb9/974a34c0/944bcffe addresses slug reuse, retitle, numeric ages. Next unit: A1 full = c3a7b93a + leaves 4800b597 + 2af2a48e."
+      }
+    },
+    {
+      "subject": "U1 durable/evidence primitives",
+      "sha": "7f986be5,4e39a9cc,ee32f68f",
+      "recorded": "2026-11-07T08:20:00Z",
+      "report": "research/final_build/w5/ (U1 review)",
+      "verdicts": {
+        "7f986be5": "SHIP (doc-only); integrate into claude/w6-INTEG1.",
+        "4e39a9cc": "HOLD: primitive has no caller; integrate only together with its first consumer.",
+        "ee32f68f": "DO NOT SHIP: durable.py logic correct, but four test files use pytest (not installed; run_tests.sh runs scripts) and two mutants survive. Fix: convert to the plain-script convention and add tests killing the surviving mutants. Assigned to CODEX (module owner); Main integrates on re-review."
+      }
+    },
+    {
+      "subject": "FIX-ONLY delta",
+      "sha": "a5781649 (merged ccd45933)",
+      "recorded": "2026-11-07T10:00:00Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_FIXONLY_a5781649.md",
+      "verdicts": {
+        "claude/w6-fix-only-rebuild ccd45933": "DO NOT SHIP: N1 FIXED, N3 FIXED; R1 MED open live_update card pointed at \"the newest audit\" after a later refused candidate; R2 MED call-site blocking= unprotected (mutant M4 survived); R3 LOW N6 source-pin not behavioural; R4 LOW live candidates skip hero/disclosure/terms checks; N4/N5 open. Main fixed R1, R2, N5 in 0f2de815 (re-review pending)."
+      }
+    },
+    {
+      "subject": "Support-defect follow-up",
+      "sha": "a66ae0b0",
+      "recorded": "2026-11-07T10:00:00Z",
+      "report": "review agent hand-back (Main)",
+      "verdicts": {
+        "claude/w6-support-followup a66ae0b0": "SHIP (conditional): no fail-open; F-1/F-2 behave. Integrated into w6-INTEG1 3b831691. Follow-ups (Main): MED pre-existing quality_ops.certified_releases picks last-inserted row while publish allows highest version (hold can miss the publishable version); LOW test gaps M3 (fail-closed on reconcile error) and M6 (reconcile before _release_gates) survived; LOW store.activate does not reconcile; LOW legacy incidents never backfill instruction_hash; LOW stored hash compared only while held row exists."
+      }
+    },
+    {
+      "subject": "A1 full chain",
+      "sha": "c3a7b93a+4800b597+2af2a48e",
+      "recorded": "2026-11-07T10:00:00Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_A1_FULL.md",
+      "verdicts": {
+        "A1 union (local merge d39e14e1, not pushed)": "DO NOT SHIP: HIGH test_childrens 7 failures (present on 2af2a48e alone; whole-toy hold at publish/pdf.py:790 precedes specific hazard check so hazards are hidden behind the sample request); HIGH test_codex_a1_hard_eyes 4 failures (tests expect FAILED/DEAD, 4800b597 made refusals a held DONE) leaving mutants C10/C13/C14 unguarded; HIGH carried: Pacifier Clip/Teether/Rattle/Bib/Toy pass with no hold (launch0.py:1697); MED M10 test vacuous (N8 survives), N6/N10 mutants survive. Slug reuse, retitle, numeric ages FIXED. Assigned: CODEX (leaves 4800b597/2af2a48e owner) reconcile the two leaves and the hazard ordering; SECONDARY the launch0 baby-item vocabulary gap."
+      }
+    },
+    {
+      "subject": "Visual stack V1+V2+V4+V5+V3",
+      "sha": "8427e777 (base 7c42e706)",
+      "recorded": "2026-11-07T11:05:00Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_VISUAL_STACK_8427e777.md",
+      "verdicts": {
+        "V1 ded427f6": "SHIP with caveats (tests pass under a pytest shim; not line-reviewed in full); N9 test files lack runners.",
+        "V2 +8bca3606": "DO NOT SHIP: N1 HIGH stack turns V1 corrupt-anchor FAIL into UNKNOWN (test_codex_v1_obscured_craft red; fidelity.py:1157); N2 MED vessel path raises on undecodable bytes (vessel.py:140); N3 MED 8bca3606 session/duplicate handling untested (3 mutants survive). Prior F1-F7, F9 fixed; F8 open.",
+        "V4": "SHIP (fails closed; not wired).",
+        "V5": "SHIP (not wired; UNKNOWN on unreadable).",
+        "V3": "SHIP as fixture-only, but N4 MED: fixture identity result is literal PASS and fixture_only is dropped by exception_evidence/publication_verdict; must become UNKNOWN before any caller enables fixtures.",
+        "stack": "N5 MED predates V0: conflicts with w6-INTEG1 in flux3_generator.generate, image_production._generate, COORDINATION.json, suite_final_segment.txt; needs a rebase onto w6-INTEG1 and re-review. N6 LOW V3 second judge/embedder bypass V0 structurally (unconfigured today)."
+      }
+    },
+    {
+      "subject": "Fix-only + support follow-up deltas",
+      "sha": "0f2de815, 5494fc71, 34956e07",
+      "recorded": "2026-11-07T12:08:00Z",
+      "report": "review agent hand-backs (Main)",
+      "verdicts": {
+        "claude/w6-fix-only-rebuild 0f2de815": "SHIP: R1/R2/N5 fixed, 6/6 mutants killed. Open LOW: R3 launch_review behavioural test (clock-dependent test_w4_launch_review), R4 card text should say disclosure/terms checks not run, N4 dead live branch in _persist_listing.",
+        "claude/w6-support-followup 5494fc71": "SHIP: hold by instructions; on-sale = highest certified version. LOWs fixed in 34956e07.",
+        "claude/w6-support-followup 34956e07": "SHIP: no fail-open; 4/4 mutants killed. Open LOW: owner card for unorderable versions; quality_ops.certified_releases still last-inserted (daily gate.quality); reconcile loads every PatternVersion (bound to active slugs)."
+      }
+    },
+    {
+      "subject": "STOREFRONT on fix-only",
+      "sha": "a1331372",
+      "recorded": "2026-11-07T13:36:00Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_STOREFRONT_a1331372.md",
+      "verdicts": {
+        "opus2/p0-storefront-asset-fix-fo a1331372": "DO NOT SHIP: H1 HIGH release with blocked own images never launches (asset_health _chain_in_flight + chain_successors fix-only leaks; Main fixes primitive side on claude/w6-deadend-fixonly); M1 MED live-image card raised before/regardless of gates; M2 MED live gallery rows rewritten under fix_only; L1/R4 copy card wording; L2 M16/M18 survive. Prior F1-F6 FIXED."
+      }
+    },
+    {
+      "subject": "PORTFOLIO on fix-only",
+      "sha": "ee5dbeee",
+      "recorded": "2026-11-07T13:51:00Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_PORTFOLIO_ee5dbeee.md",
+      "verdicts": {
+        "opus2/p0-portfolio-act-fo ee5dbeee": "DO NOT SHIP: N1 MED identical SEO candidate re-offered weekly after owner declines (F5 regression via listing.live_update); N2/N3 LOW test gaps (M04, M14, M15 survive); N4-N6 LOW optional. Safety properties hold; F1-F4, F8 fixed."
+      }
+    },
+    {
+      "subject": "A6 U3 learning-to-design",
+      "sha": "9f8f336e",
+      "recorded": "2026-11-07T14:02:00Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_A6_U3_9f8f336e.md",
+      "verdicts": {
+        "codex/a6-learning-consumer 9f8f336e": "DO NOT SHIP (no shippable subset): branch handoff itself says do not integrate; F1 HIGH has_pins trusts job-supplied CIR (revise/certify not bound to stored release hash); F2 HIGH retire-vs-certify/publish check-then-act not atomic; test_w5_a6_learning_to_design 2/6 FAIL; A6-1 closed only by disabling the lever (M15 survives, hook hard-coded 5.0mm); F5 MED implementation_digest invalidates every pin on any compiler edit (outage risk); mutants M3/M8/M9/M14/M15 survive. Assigned CODEX."
+      }
+    },
+    {
+      "subject": "A3 U5 gallery gap recovery",
+      "sha": "84085fa8",
+      "recorded": "2026-11-07T14:16:00Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_A3_U5_84085fa8.md",
+      "verdicts": {
+        "codex/a3-gallery-gap-recovery 84085fa8": "DO NOT SHIP (all fail closed): F1 MED test_w4_launchfix 30/32 (fixture lacks photo ListingAsset); F2 MED _persist_frames overwrites approved photo frame (pre-existing on w6-INTEG1, reachable from fix-only/targeted rebuild); F3 MED release_gates.recheck strands photo-led gallery; F4 MED #126 direct-writer gap confirmed on PG16; F5 MED certificate invalidation untested (M9); F6-F9 LOW; F10 inherited: committed autonomy_map.json stale on w6-INTEG1. Assigned CODEX (F1,F3,F4,F5-F9); MAIN takes F2 and F10 on w6-INTEG1."
+      }
+    },
+    {
+      "subject": "Visual stack on INTEG1 + V6",
+      "sha": "d6b642dd, 80765387",
+      "recorded": "2026-11-07T14:56:00Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_VISUAL_d6b642dd.md",
+      "verdicts": {
+        "opus2/visual-on-integ1 d6b642dd": "SHIP: N1, N2, N3, N5 fixed; merge with V0 correct. Open: D1 MED latent (fixture PASS still PASS in technical_status/unknown list/laura_gate_order; must be UNKNOWN before ANY caller enables fixtures); D2 V1 COORDINATION claims dropped; D3 no V0 test pins Flux3Generator gallery_scope; D4 redrive GATE_REASON pre-V0 text; N6/N9 open.",
+        "opus2/v6-on-integ1 80765387": "SHIP (tests only; V1-SCENE-END-BANDS named)."
+      }
+    },
+    {
+      "subject": "Main dead-end + k12 fixes",
+      "sha": "cdf4cb5e, 1eaeab10",
+      "recorded": "2026-11-07T14:56:00Z",
+      "report": "review agent hand-back",
+      "verdicts": {
+        "claude/w6-deadend-fixonly cdf4cb5e": "SHIP; follow-ups A-M1/A-L2/A-L3 in 4b4e3694 (in review).",
+        "claude/w6-k12-v0-activation 1eaeab10": "SHIP (test-only; gate unchanged)."
+      }
+    },
+    {
+      "subject": "Storefront + portfolio deltas",
+      "sha": "06a00c91, fdd077f6",
+      "recorded": "2026-11-07T17:20:00Z",
+      "report": "scratchpad sfpf2/INDEPENDENT_REVIEW_SFPF_DELTA_06a00c91_fdd077f6.md",
+      "verdicts": {
+        "opus2/p0-storefront-asset-fix-fo 06a00c91": "SHIP on merge condition (take INTEG1 chain_successors.py; branch record() re-drives fix-only dead end forever, S-N1). S-N2/S-N3 LOW open. Merge head ff573af8 under merge-sanity review.",
+        "opus2/p0-portfolio-act-fo fdd077f6": "SHIP (N1-N6, token fixed; 11/11 mutants). Merge head 77bf3e19 under merge-sanity review."
+      }
+    },
+    {
+      "subject": "Visual D1/D2/D4 + #7 M-5",
+      "sha": "256378d6, 49a27769",
+      "recorded": "2026-11-07T17:20:00Z",
+      "report": "scratchpad rv-vd7/",
+      "verdicts": {
+        "opus2/visual-d1-d2-d4 256378d6": "SHIP; integrated 94be61ff. Open MED latent A-1 identity_anchor_verdict bypasses gate_status (fixture PASS -> accepted anchor without owner review) and A-2 evaluate wiring untested: must close before any caller enables fixtures (owner V3 condition).",
+        "opus2/culture-timeout-m5m6-on-integ1 49a27769": "SHIP (test-only); integrated 5f6c4afb."
+      }
+    },
+    {
+      "subject": "PHYSICAL sample request",
+      "sha": "e8b458b5",
+      "recorded": "2026-11-07T17:20:00Z",
+      "report": "scratchpad rv-phys/",
+      "verdicts": {
+        "opus2/physical-sample-request-on-codex e8b458b5": "DO NOT SHIP: base codex/physical-complete-colour-evidence 77b9a88f (#78/#80 DO NOT INTEGRATE, on batch6-safety-preview) unreviewed; HIGH-1 any stored record (swatch/owner-made/incomplete/failed) closes the request SATISFIED forever; HIGH-2 card falsely says incomplete records are refused; MED-1 content change under same uncertified version never re-requested; MED-2 colour ids from materials not twin keys; MED-3 re-raises per-release owner sample cards contrary to DECISION_LOG B-532 (stands; route via tester_roster)."
+      }
+    },
+    {
+      "subject": "A9 U6 package/event",
+      "sha": "3ee6881f",
+      "recorded": "2026-11-07T18:02:00Z",
+      "report": "research/final_build/w5/INDEPENDENT_REVIEW_A9_U6_3ee6881f.md",
+      "verdicts": {
+        "codex/a9-sweep-isolation 3ee6881f": "DO NOT SHIP (no separable subset; A9 calls A1 directly): H1 test_opus2_listing_package 2 stale assertions; H2 9/15 new test files invisible to run_tests (pytest imports, no __main__, PASS not OK); M1 record-time re-verification untested (RX fail-open survives); M2 fence ORM-only (bulk/raw SQL bypass, latent); M3 PG try-lock unverified; M4 one bad release fails every sweep; A1 vocabulary gap and N6/N10 carried. Order: land A1 unit first, then U6 as delta."
+      }
+    },
+    {
+      "subject": "Storefront/portfolio merge heads",
+      "sha": "ff573af8, 77bf3e19",
+      "recorded": "2026-11-07T18:02:00Z",
+      "report": "scratchpad sfpf2/ addendum",
+      "verdicts": {
+        "ff573af8": "SHIP (chain_successors identical to INTEG1; map regenerated); integrated.",
+        "77bf3e19": "SHIP; integrated (map regenerated on INTEG1)."
+      }
+    },
+    {
+      "subject": "Main dead-end + frames follow-ups",
+      "sha": "b0676969, 219aee61",
+      "recorded": "2026-11-07T18:51:00Z",
+      "report": "scratchpad rv-dfu2/",
+      "verdicts": {
+        "claude/w6-deadend-fixonly b0676969": "SHIP; open LOW A-LOW-3 pricing owner-close on legacy paths unpinned (A_M3/A_M3b/A_M6 survive); INFO SATISFIED vs WITHDRAWN label.",
+        "claude/w6-persist-frames-followup 219aee61": "SHIP; INFO B-INFO-1 all-photo gallery falls back to _stored_frames (harden with \"frames\" in i)."
+      }
+    },
+    {
+      "subject": "Regression fixes, visual A-1..A-4, A1 nouns, wraptest, visual LOWs",
+      "sha": "da9110df+0a5521c0, 2063a2e7, 7eeeac92, fc26887b, e831dc6a, b3dcb121",
+      "recorded": "2026-11-08T00:31:00Z",
+      "report": "scratchpad rv-regfix/, rv-va1/, rv-wrap/",
+      "verdicts": {
+        "claude/w6-v0-test-activation 0a5521c0": "SHIP (A-HIGH-1 fixed); integrated.",
+        "claude/w6-regression-fixes 2063a2e7": "SHIP; integrated.",
+        "opus2/visual-a1-a4 7eeeac92": "SHIP; integrated e48800c3 (closes owner V3 fixture-identity condition on stage-A anchor).",
+        "opus2/a1-infant-nouns fc26887b": "DO NOT SHIP standalone (blocked on A1 unit; B-N1 HIGH vocabulary gaps). 0e2d5f36 pending review.",
+        "opus2/wraptest-fix e831dc6a": "SHIP; integrated 95b35baa (last certification blocker).",
+        "opus2/visual-an1-an3 b3dcb121": "DO NOT SHIP as-is: B-N1/B-N2/B-N3 test gaps (mutants survive); next batch."
+      }
     }
   ],
   "integration": {
@@ -612,7 +1216,152 @@
       ],
       "status": "not ready for commissioning approval"
     },
-    "batch5_plan": "Build claude/w5-INTEG1 from the CERTIFIED Batch 4 head. Merge in order: W5-INVENTORY 5e72bce8, W5-CONCEPT 40b2d9d9, opus2 at its review-E-accepted head, W4-PDF1 df5ffc4e, then opus2 listing-package job and owner-queue races if review F accepts. Known conflicts W4-PDF1 vs PHYSFIX: publish/release_gates.py, publish/withholding.py, tests/test_physfix.py, generated tester-kit files (regenerate with tester_kit_coaster.py after merge; apply PDF1 D4 date hook in quality/tester_kit.py), LISTING_PACKAGE/BASKET_KIT docs. PDF1 previously merged the obsolete trial branch claude/w4-INTEG8-trial-adopt; its history is linear with PHYSFIX so the certified Batch 4 base supersedes it. Then touched suites, cc-shell version bump check, retention/decision-index/autonomy-map regeneration (--write), independent review of integration fixes, one uninterrupted full suite."
+    "batch5_plan": "Build claude/w5-INTEG1 from the CERTIFIED Batch 4 head. Merge in order: W5-INVENTORY 5e72bce8, W5-CONCEPT 40b2d9d9, opus2 at its review-E-accepted head, W4-PDF1 df5ffc4e, then opus2 listing-package job and owner-queue races if review F accepts. Known conflicts W4-PDF1 vs PHYSFIX: publish/release_gates.py, publish/withholding.py, tests/test_physfix.py, generated tester-kit files (regenerate with tester_kit_coaster.py after merge; apply PDF1 D4 date hook in quality/tester_kit.py), LISTING_PACKAGE/BASKET_KIT docs. PDF1 previously merged the obsolete trial branch claude/w4-INTEG8-trial-adopt; its history is linear with PHYSFIX so the certified Batch 4 base supersedes it. Then touched suites, cc-shell version bump check, retention/decision-index/autonomy-map regeneration (--write), independent review of integration fixes, one uninterrupted full suite.",
+    "batch5_certification": {
+      "run_id": "20261102T101632Z-4284",
+      "sha": "4af3418f8c666be3900f2a9781b5b81cd50a57f5",
+      "started": "2026-11-02T10:16:32Z",
+      "scope": "full (867 suites)",
+      "tree": "clean",
+      "worktree": "/home/user/bl-runs/wt-b5cert",
+      "basis": "INTEG5B+5C+5D+5E SHIP",
+      "previous_run": "20261102T054208Z-6424 on a8ce0072 DIED ~08:12Z without a terminal record (status still 'running'; no output after 08:12; coincides with the session tool disconnect/reconnect, i.e. container processes killed). Not a result; it can never certify. Its expected test_w4_launchfix failure was already fixed in f8bf2782.",
+      "rule": "uninterrupted; a resumed run never certifies",
+      "known_open_in_candidate": [
+        "P0-NAME-OBJECT-MISMATCH (OPUS2P-13a / OPUS2T-1,-2,-3 / OPUS2V-1): the radar fallback draft path can draft a title naming another object or a feature it does not make ('Teddy Bear' as basket/cushion/shawl; 'Lidded Basket', 'Basket with Handles', 'Sleepy Fox', 'XL Basket' at medium, 'Sunflower Tote') and name_truth passes.",
+        "OPUS2V-2: motif_promise is not part of publish-time name_truth, so 'Diamond/Heart/Snowflake/Pumpkin Basket' drafted as a plain vessel would not be refused at publication.",
+        "Both affect drafts and the publish-time name check only; nothing publishes in SHADOW, and publication requires owner review. MUST be disclosed in the Batch 5 deploy request; fixes assigned to opus2 on a branch from W5-INTEG1.",
+        "Amigurumi child-safety findings are NOT in the candidate (branch not integrated)."
+      ],
+      "expected": "FAIL test_swarm_runtime (5 unbanded opus2 job types; fixed 30b04b35). Run continues to completion for the full failure list; then fix all, one integration delta check, ONE fresh run on the fixed head.",
+      "next": "50937469 is fully integration-reviewed (INTEG5B..5F SHIP). ONE fresh full run on 50937469 starts when run 20261102T101632Z-4284 (4af3418f, expected FAIL test_swarm_runtime) ends.",
+      "result_20261102T101632Z-4284": {
+        "sha": "4af3418f",
+        "status": "FAILED",
+        "finished": "2026-11-02T13:43:54Z",
+        "suites_failing": 13,
+        "tests_failing": 21,
+        "tests_passing": 10340,
+        "environment_failures": 0,
+        "fixed_in_W5": "30b04b35 (swarm bands) + db463142: CIR contract v2 declared; final-segment declarations; provider boundary (culture/classify); adopt guard exception; 'two colour' judged as a colour-count claim (cloudline tag)",
+        "open_root_cause": [
+          "test_cert_publish_gates (8)",
+          "test_cert_orders (2)",
+          "test_w4_visnext2 (2, frozen fingerprint drift)",
+          "test_w4_listready (basket 1.2.0)",
+          "test_w4_launch_review",
+          "test_teardown_proof_run"
+        ],
+        "next": "apply the reviewed root-cause fixes, run a delta integration review, then ONE fresh uninterrupted full run"
+      },
+      "fixed_since": "9e1e1b27: 4 PDF1-merge failures (teardown real regression; listready/launch_review/visnext2 pins; tester kits regenerated). 11 of 13 fixed; cert_publish_gates + cert_orders under root-cause.",
+      "current_run": {
+        "run_id": "20261102T164117Z-1487",
+        "sha": "5ba84bf7c291cc971b899dfac7d8b5b4bce95aa1",
+        "started": "2026-11-02T16:41:17Z",
+        "scope": "full (869 suites)",
+        "tree": "clean",
+        "condition": "INTEG5G SHIP (17:15Z): this run counts toward release if it passes"
+      },
+      "all_13_failures_fixed": "30b04b35, db463142, 9e1e1b27, 5ba84bf7 (root causes in each commit message)",
+      "after_candidate": [
+        "two-colour rule tightened (INTEG5G-1) -- next batch; disclosed in the Batch 5 deploy request"
+      ]
+    },
+    "p0_completion_gate": "After A1-A9: an end-to-end demonstration on real handlers and a durable DB covering the owner's 16 points, then the Batch deploy and a 24 h Railway acceptance. Code that exists is not counted as operational.",
+    "batch5_release": {
+      "at": "2026-11-02T21:01:50Z",
+      "certified_sha": "5ba84bf7c291cc971b899dfac7d8b5b4bce95aa1",
+      "cert_run": "20261102T164117Z-1487 passed: 869 suites, 10384 passing, 0 failing, release_eligible, finished 2026-11-02T20:59:28Z",
+      "release_branch": "claude/w5-INTEG1-release",
+      "release_sha": "705725a3f0b2aa9910153d99b9d4389405199152",
+      "commits_on_top": [
+        "f5aea6f2 release record",
+        "287379e2 .github/workflows/dispatch.yml (reviewed, D-OWNER-GITHUB-DISPATCH)",
+        "705725a3 DEPLOYED_HISTORY entry for 0967c3ee (was missing)"
+      ],
+      "safeguards": {
+        "deploy_guard_check": "ALLOW vs 0967c3ee",
+        "rehearse_rollback": "ALLOW (rehearsal b3023bd9)",
+        "deploy_sh_dry_run": "ALLOW, nothing pushed",
+        "backup_readiness": "volume 4.6G, 1.3G free at 2026-11-02T03:28Z; one ~0.5G dump fits; pruning still owed"
+      },
+      "status": "awaiting owner exact-SHA approval"
+    },
+    "batch6": {
+      "branch": "claude/w6-INTEG1",
+      "created": "2026-11-07T03:22:00Z",
+      "base": "claude/w5-INTEG1 7c42e706",
+      "head": "5c4d94d6",
+      "integrated": [
+        {
+          "item": "P0-SECRET-LEAK-ESCALATE",
+          "sha": "1c4c9211",
+          "review": "SHIP (W6 2026-11-07)",
+          "how": "fast-forward"
+        },
+        {
+          "item": "P0-SUPPLY-STALL (A7, opus2 83fe31d2 + Codex 677661ec)",
+          "sha": "677661ec",
+          "review": "83fe31d2 DO NOT SHIP as is (A7-1) + 677661ec SHIP",
+          "how": "merge f5c3976d (suite list conflict: kept both)",
+          "suites": "test_w5_a7_supply_stall 6/6, test_w6_secret_leak_escalate 4/4, test_w4_readback_evidence 23/23, test_w4_board 11/11 on merged tree"
+        },
+        {
+          "item": "P0-SECRET-LEAK-ESCALATE follow-up",
+          "sha": "17f63074",
+          "review": "SHIP (delta 3)",
+          "how": "merge c83d9516",
+          "suites": "test_w6_secret_leak_escalate 8, test_acceptance 8, test_cert_orchestration 20, test_w5_a7_supply_stall 6, test_w4_owner_incidents 6"
+        },
+        {
+          "item": "P0-SUPPORT-DEFECT-INCIDENT",
+          "sha": "dd05e389",
+          "review": "SHIP (delta 5)",
+          "how": "merge 5c4d94d6 (suite list conflict: kept both)",
+          "suites": "support 17, owner_decision 1, reverify_withhold 6, secret_leak 8, a7 6, ops_truth 16"
+        }
+      ],
+      "ladder": "P0-SECRET-LEAK-ESCALATE (+follow-up), P0-SUPPLY-STALL, P0-SUPPORT-DEFECT-INCIDENT: BUILT, REVIEWED, INTEGRATED; not certified",
+      "open_low": [
+        "SECRET L1-L4 (17f63074 review)",
+        "A7 D-1..D-4 (677661ec review)",
+        "SUPPORT dd05e389 MED F-1/F-2 (Main follow-up) + LOWs"
+      ],
+      "map": "research/final_build/w5/INTEGRATION_MAP_20261107.md (15 review units)"
+    },
+    "claude/w6-INTEG1": {
+      "head": "95b35baa",
+      "updated": "2026-11-08T00:31:00Z",
+      "contains": [
+        "secret-leak",
+        "A7",
+        "support-defect + follow-ups",
+        "V0",
+        "evidence map 7f986be5",
+        "fix-only 0f2de815",
+        "visual V1+V2+V4+V5+V3 d6b642dd",
+        "V6 80765387",
+        "persist-frames guard 494066fa",
+        "dead-end cdf4cb5e",
+        "k12 1eaeab10",
+        "visual D1/D2/D4 256378d6",
+        "#7 M-5 49a27769",
+        "storefront ff573af8",
+        "portfolio 77bf3e19",
+        "dead-end follow-ups b0676969",
+        "persist-frames follow-ups 219aee61",
+        "regression test fixes 2063a2e7, 0a5521c0",
+        "visual A-1..A-4 7eeeac92",
+        "wraptest e831dc6a"
+      ],
+      "certification": {
+        "run_id": "20261108T003121Z-24805",
+        "sha": "95b35baa",
+        "started": "2026-11-08T00:31:21Z",
+        "status": "running"
+      }
+    }
   },
   "owner_directives": [
     {
@@ -645,6 +1394,16 @@
       "date": "2026-10-31",
       "id": "D-W5-OWNER-COMPLETION-METRICS",
       "summary": "Track separately: implemented, independently reviewed, integrated, certified, deployed, production verified, end-to-end operational. Final acceptance needs a meaningful 24-hour production run showing automatic product progression, learning, recovery and next-product selection. No publication with unresolved High-severity visual or technical defects."
+    },
+    {
+      "received": "2026-11-02T03:45Z",
+      "title": "Permanent continuous integration directive + Batch 4 deployment authorization (restated)",
+      "summary": "No completed accepted engineering sits idle without a documented dependency. Maintain an automatic integration queue with verdict, dependencies, merge readiness, target, regression suites, next action and operator for every completed branch; process eligible items at every wake before status reports; split PRs into independent units; never hold unrelated work behind product-specific fixes; never re-review unchanged code; integration is not deployment; reviews, regression, full certification, backup and rollback evidence remain mandatory; once a SHA is approved, deploy it without waiting for a check-in. Queue: brambleloop/research/final_build/w5/OPUS2_INTEGRATION_QUEUE.md. Batch 4 0967c3ee was already deployed at ~03:30Z under the first approval."
+    },
+    {
+      "received": "2026-11-02T13:25Z",
+      "title": "Take command of P0 autonomous workforce delivery (permanent)",
+      "summary": "Main Opus is Secondary's engineering lead: maintain the authoritative P0 backlog, assign the highest-impact unowned engineering with acceptance criteria, reject isolated per-product templates, integrate promptly, verify every pipeline handoff (real handler, automatic trigger, contract, durable state, idempotent retry, holds, next job, runs without Claude), require an end-to-end demonstration of 15 points on real handlers and a durable DB, then sustained Railway acceptance. Priority: HIGH/MED security, child-safety and Product Truth first; then the Research->PD contract; then PD->validation->PDF->imagery->gallery->listing handoffs; then next-product selection and recovery; then construction diversity from demand and Learning; then the remaining P0 work. Codex keeps P0-LEARNING-REFERENCE."
     }
   ],
   "integrator_decisions": [
@@ -658,6 +1417,44 @@
       "recorded": "2026-11-01T08:05Z",
       "decision": "Batch 4 is certified and deployed without the R40-R42 follow-up (claude/w4-PHYSFIX-R40 43021c1e). R40 is Low, fail-open, and unreachable in production until an owner-commissioned independent tester's passing make allows an owner size-halt lift; the fix is not yet tested or reviewed. It goes through tests + independent review into Batch 5 and is disclosed in the Batch 4 deploy-approval request. Not waived.",
       "reason": "Owner directive 2026-11-01 section 3: investigate by severity and release requirements; do not silently waive a fail-open issue. Adding it now would add a review cycle to Batch 4 for no production effect."
+    },
+    {
+      "id": "I-B5-OPUS2-INTEGRATION-QUEUE",
+      "recorded": "2026-11-02T03:35Z",
+      "decision": "Per owner directive 2026-11-02: accepted opus2 heads merge into claude/w5-INTEG1 as soon as an independent review says SHIP; pet bed (PR #10) and stocking (PR #11) do not hold other accepted work, and if not SHIP when the rest is integrated, Batch 5 certifies without them. Queue: brambleloop/research/final_build/w5/OPUS2_INTEGRATION_QUEUE.md. Records from 2026-11-01..02 held during the deploy freeze: brambleloop/research/final_build/w5/INTEGRATOR_HELD_RECORDS_20261101.md."
+    },
+    {
+      "id": "I-B5-SPLIT-PET-STOCKING",
+      "recorded": "2026-11-02T06:40Z",
+      "decision": "PR #10 + #11 integrated into W5-INTEG1 as one split unit 52f9f4b5 = opus2 55450fc3..a859f6fe (product commits d0a7685f 5c7b984a 7d220e01 563c0436 940f70e6 e07157dc 09122165), applied 3-way, without Secondary's PR #3 base resolution f96d7bd2 (W5-INTEG1 resolved it; 13d67502 already in as d3688000). So the pet bed does NOT depend on the PR #3 J-1 chain. Every touched file equals a859f6fe content plus W5-INTEG1's own prior differences. Rides Batch 6 (Batch 5 certification is on a8ce0072)."
+    },
+    {
+      "id": "I-OPUS2-FREEZE-GENERATORS",
+      "recorded": "2026-11-02T13:30Z",
+      "decision": "No new per-product generators, construction routes or title-word patches until A1-A4 are accepted; new construction diversity comes only through the reusable Research->PD contract (A4). Existing PRs only receive fixes for their review findings."
+    },
+    {
+      "id": "I-A3-NONQUALIFYING-PHOTO",
+      "recorded": "2026-11-02T16:05Z",
+      "decision": "A photo frame that does not qualify (not attested to this release, or no passed full make) never holds a listing set hostage: the review gives it a terminal named state (approved=False, reason 'photo not qualifying: <check>', owner-visible audit), the listing-set certificate excludes it, and a later attestation or passed make re-opens it for review."
+    },
+    {
+      "id": "I-V2-UNJUDGED-PAIRS",
+      "at": "2026-11-07T05:18:59Z",
+      "decision": "P1-d campaign consistency: pairs with no recorded reading block gallery readiness as UNKNOWN (named blocker campaign_consistency_unjudged), never FAIL and never PASS; disagreeing recorded readings FAIL with their code. With vision off every gallery is not ready, which is true while paid vision is owner-gated.",
+      "ref": "#28 6702728170"
+    },
+    {
+      "id": "I-FIX-ONLY-REBUILD",
+      "at": "2026-11-07T05:46:28Z",
+      "decision": "Autonomous remediations must not re-drive the release chain. Shared primitive fix_only (Main, claude/w6-fix-only-rebuild 01c81a2a): no live-listing writes (candidate + owner card), no price revert, no price point, stops before launch.plan, launch.plan refuses. PORTFOLIO-ACT and STOREFRONT (opus2) must use it.",
+      "ref": "#28 6702974132"
+    },
+    {
+      "id": "I-V6-ACCEPTANCE",
+      "at": "2026-11-07T05:52:24Z",
+      "decision": "V6 acceptance = one end-to-end run through real handlers with stub judges, every machine gate green, remaining owner gates named (F-852, F-853, OA-PAID-KEYS); no certified-gallery claim, nothing handed to listing.package.",
+      "ref": "#28 6703028200"
     }
   ],
   "production_observations": [
@@ -700,10 +1497,1254 @@
       "fixed_by_batch4": "No. queue/effects.py, gateway/paid_calls.py, gateway/anthropic.py timeout and culture/classify.py are unchanged between production ee35a493 and e43eeafe.",
       "next": "Batch 5 work item P1-CULTURE-SWEEP-TIMEOUT (unowned, below). Production stays NOT fully healthy while the check is red.",
       "owner_action": "No longer needed to identify the job. Optional: in the Command Center incidents view, the P1 'effect.reconcile' / paid-call reconciliation incidents for jobs 34246 and 41979 can be resolved once the provider console shows whether those two calls were billed (at most two cheap-tier calls)."
+    },
+    {
+      "observed": "2026-11-02T03:31Z",
+      "what": "Batch 4 DEPLOYED on owner approval 'APPROVE DEPLOY 0967c3eee287d06cad0d8034a99e39076c0ab6d5' (2026-11-02). Backup first: db-backup deployment d201d4f1, /backup/brambleloop_prod_20261102T032745Z.dump, 497732160 bytes, sha256 9d94e242ad804e7e52f8f541e19723f1d26d3ebf8da4cf0e8e7518d0eb55e814, restore_ok, 144 tables, 262123 rows, drift ops_runtime_samples only (live, +2 rows); volume 1.3G free of 4.6G. ops/deploy.sh --deployed ee35a493: guard ALLOW, rollback rehearsal ALLOW, pushed ee35a493..0967c3ee at ~03:30Z, verify_deploy DEPLOYED in 63.6 s.",
+      "readback": "First read FAIL embedded worker alive (cold start; BRAMBLELOOP_RUNNER_START_DELAY), re-read after 30 s PASS. Six operator rows NEEDS_OPERATOR (BRAMBLELOOP_READBACK_TOKEN not set in Railway: owner action). rollback_decision FIX_FORWARD (P1 only); deploy.sh exit 5. Evidence: brambleloop/research/final_build/w4/evidence_BOARD/prod_readback_0967c3eee287_20261102T0331Z.json",
+      "verify": "/api/verify ok=True, 13/13 checks. NEW evidence_checks (first exposed by this release, absent on ee35a493): publishing_halt_clear FALSE, stale_artefacts_rebuilding FALSE, no_repeated_paid_call_in_24h FALSE, weekly_jobs_completing true. Their evidence is operator/readback-token gated; diagnosis blocked on the readback token. Production is NOT classified fully healthy while these are false.",
+      "acceptance": "24-hour production acceptance started 2026-11-02T03:31Z, ends 2026-11-03T03:31Z."
+    },
+    {
+      "observed": "2026-11-02T03:36Z",
+      "what": "Transient: one /api/verify read returned ok=False with 12/13 checks and weekly_jobs_completing false; the next five reads (03:36-03:37Z) were ok=True, 13/13. The failing check name was not captured. A 2-minute acceptance sampler now records failing check names (integrator scratch log, summarized into the acceptance verdict). Not classified clean."
+    },
+    {
+      "observed": "2026-11-02T04:30Z",
+      "what": "Acceptance sampler (every 2 min since 03:37Z) on 0967c3ee: worker_is_alive FALSE at 03:45:40Z and 03:47:44Z (also 03:31Z cold start and the 03:36Z blip); runner.worker_alive is false when the worker has not ticked for 120 s, i.e. one job held the worker about 4 min. From 03:53:57Z onward no_unexpected_dead_letters_in_24h is FALSE (/api/verify 503, ok=False) and weekly_jobs_completing turned false. The dead job is not identifiable without operator access (application logs carry only access lines; jobs table needs SQL or the readback token). Severity per ops/rollback_decision.py: dead letters P1 (fix forward); worker alive is P0 but has read true continuously since 03:49:49Z, so no rollback. Production is NOT healthy; the 24 h acceptance is currently failing. Owner action: BRAMBLELOOP_READBACK_TOKEN, or run read-only: SELECT id, job_type, attempts, left(last_error,300), finished_at FROM jobs WHERE status='DEAD' AND finished_at > now() - interval '24 hours';"
+    },
+    {
+      "id": "PO-705725A3-DEADLETTER-0839",
+      "observed": "2026-11-07T08:39:34Z",
+      "build": "705725a3",
+      "finding": "/api/verify checks 12/13: no_unexpected_dead_letters_in_24h turned false ~1h after the Batch 5 deploy (13/13 at 07:37Z). /api/verify now returns 503. evidence_checks false: publishing_halt_clear, stale_artefacts_rebuilding, no_repeated_paid_call_in_24h, weekly_jobs_completing (unchanged since deploy).",
+      "diagnosis_blocker": "Public projection drops evidence; deploy logs are access-lines only. Job type/error class requires GET /api/readback/evidence with BRAMBLELOOP_READBACK_TOKEN (secret; Main reads Railway variables by name only) or an owner-run read-only query of jobs status=DEAD finished_at>=2026-11-07T07:37Z.",
+      "acceptance_impact": "Batch 5 24h acceptance cannot be PASS while this check is false; UNKNOWN cause is not PASS.",
+      "status": "OPEN"
+    },
+    {
+      "id": "PO-705725A3-WORKER-STALL-0015",
+      "observed": "2026-11-08T00:15:04Z",
+      "build": "705725a3",
+      "finding": "worker_is_alive false from <=00:15:04Z to 00:20:24Z (>5 min; liveness = last tick < 120 s); self-recovered without restart. Coincides with the midnight daily cadence; likely a single long job holding the one embedded worker thread. Cause not visible publicly (/api/status runner detail is token-gated). Possibly related to PO-705725A3-DEADLETTER-0839.",
+      "acceptance_impact": "Batch 5 24h acceptance (to ~07:40Z) records a >5 min worker-dead window; with the open dead-letter check the acceptance cannot read PASS.",
+      "status": "OPEN (self-recovered)"
     }
   ],
   "reviews_in_flight": {
-    "_protocol": "Stall guard (owner directive 2026-11-01 §2): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
-    "items": []
-  }
+    "_protocol": "Stall guard (owner directive 2026-11-01 \u00a72): every independent review launched is registered here with its expected report path and a fallback check-in; the 2-hourly 'Integrator coordination check-in' and per-launch send_later check-ins read this list and process landed reports. Remove an entry only when its verdict is recorded in `reviews`.",
+    "items": [
+      {
+        "id": "A8-REVIEW-QUEUED",
+        "subject": "opus2/a8-culture-ideation 4f99bd8f (on A4a 993cc0cd)",
+        "report": "scratchpad/INDEPENDENT_REVIEW_A8_4f99bd8f.md",
+        "started": null,
+        "note": "waits for A4a's fix (A8 is built on A4a); review A8 on the fixed A4a base",
+        "requested_by": "#28 6589288273"
+      },
+      {
+        "id": "A9-REVIEW",
+        "subject": "A9 package event 6ee81c19 (full)",
+        "report": "scratchpad/INDEPENDENT_REVIEW_A9_6ee81c19.md",
+        "started": "2026-11-02T22:49:44Z",
+        "requested_by": "#28 6590109328",
+        "status": "KILLED: reviewer hit the 5h usage limit, then the worker restarted 2026-11-03..07; no report. Relaunch needed (A9 against the current Codex continuation head, not 6ee81c19)."
+      },
+      {
+        "id": "PHYSICAL-REQ-PENDING",
+        "subject": "opus2/p0-physical-test-request d697d093",
+        "report": null,
+        "started": null,
+        "note": "awaiting opus2 green regression + REVIEW-REQUEST"
+      },
+      {
+        "id": "V4-QUEUED",
+        "subject": "opus2/v4-scene-references 86cf2a36",
+        "started": null,
+        "requested_by": "#28 6703009305"
+      },
+      {
+        "id": "V5-QUEUED",
+        "subject": "opus2/v5-scale-verification 295474c6",
+        "started": null,
+        "requested_by": "#28 6703009305"
+      },
+      {
+        "id": "A1-FULL",
+        "subject": "c3a7b93a + codex/a1-waist-drawcord-unknown 4800b597 + codex/a1-whole-toy-fit 2af2a48e merged on w6-INTEG1",
+        "report": "scratchpad/INDEPENDENT_REVIEW_A1_FULL.md",
+        "started": "2026-11-07T07:50:39Z"
+      },
+      {
+        "id": "PORTFOLIO-FO-QUEUED",
+        "subject": "opus2/p0-portfolio-act-fo d564a059 (on fix-only 9e8665c3)",
+        "started": null,
+        "note": "after fix-only 9e8665c3 verdict",
+        "requested_by": "#28 6704258374"
+      },
+      {
+        "id": "STOREFRONT-FO-QUEUED",
+        "subject": "opus2/p0-storefront-asset-fix-fo (rebasing onto 9e8665c3)",
+        "started": null,
+        "requested_by": "#28 6703959737"
+      }
+    ]
+  },
+  "assignments": [
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T13:30Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578467189",
+      "id": "A1",
+      "requirement": "P0-SAFETY-CHILDREN",
+      "closes": [
+        "OPUS2T-4",
+        "OPUS2T-6",
+        "OPUS2V-3",
+        "OPUS2V-4"
+      ],
+      "branch_from": "claude/w5-INTEG1 50937469",
+      "acceptance": "via handle_cir_draft and assets.build, on a durable DB: '\uff22ear', '\ud835\udc01ear', 'Cosy \uff32abbit', 'Juniper Friend' (key t3-home_decor-toy-0) and an empty title are each held or PDF-refused without a children's decision; a plain basket is unaffected; every new guard has a mutant a test kills",
+      "state": "superseded",
+      "superseded_by": "A1-R"
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T13:30Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578467189",
+      "id": "A2",
+      "requirement": "P0-NAME-OBJECT",
+      "closes": [
+        "OPUS2T-1",
+        "OPUS2T-2",
+        "OPUS2T-3",
+        "OPUS2V-1",
+        "OPUS2V-2",
+        "OPUS2U-2"
+      ],
+      "branch_from": "claude/w5-INTEG1 50937469",
+      "acceptance": "every OPUS2T/U/V repro is refused in every category; the legitimate titles listed still draft; all 40 catalogue entries are byte-identical; motif_promise is in publish-time name_truth; a generated head x modifier x category test",
+      "state": "superseded",
+      "superseded_by": "A2-FIX"
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T13:30Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578467189",
+      "id": "A3",
+      "requirement": "P0-PHOTO-ASSET-REVIEW",
+      "closes": [
+        "OPUS2S-1",
+        "OPUS2S-2",
+        "OPUS2S-3",
+        "OPUS2S-4",
+        "OPUS2S-5"
+      ],
+      "branch_from": "opus2/p0-photo-asset-review rebased on W5-INTEG1 50937469",
+      "acceptance": "repros A, C, D and E behave correctly; a forced race never approves a moved frame; two photos for one release end in a certified set or a named refusal",
+      "state": "superseded",
+      "superseded_by": "A3-FIX"
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T14:05Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
+      "branch_from": "claude/w5-INTEG1 (newest head)",
+      "test_rule": "real SQLite file, DurableQueue, Worker and registered handlers via worker.tick()/run_once(); no mocks",
+      "id": "A4",
+      "requirement": "P0-RESEARCH-PD-CONTRACT",
+      "gaps": [
+        "wiring #1 research brief -> concept outside the 34",
+        "wiring #2 refused/held draft -> enrichment -> re-draft"
+      ],
+      "acceptance": "(a) a CoverageGap -> research -> concept_intake -> radar.score gives a non-POOL RadarConcept and a cir.draft (radar.intake provenance), idempotent; (b) a refused construction -> enrichment task -> new fingerprint -> new cir.draft reaching compile; (c) at least 5 briefs -> at least 3 materially different constructions, with named holds; (d) A2 title rule enforced",
+      "state": "split",
+      "split": {
+        "at": "2026-11-02T19:02Z",
+        "source": "owner directive 'Prevent P0 autonomy starvation'",
+        "A4a": {
+          "scope": "research brief / coverage gap -> new concept outside the 34 POOL concepts -> automatic cir.draft; durable next-product continuation",
+          "owner": "opus2",
+          "branch": "claude/w5-A4a-research-to-concept",
+          "state": "in_progress"
+        },
+        "A4b": {
+          "scope": "held/refused draft -> enrichment -> re-draft (draft:<slug>:<fingerprint>), cir.draft_refused consumer",
+          "owner": "opus2",
+          "branch": "opus2/a4b-enrichment (push the existing unpushed 823a82dd, b0c66556 rebased on newest claude/w5-INTEG1)",
+          "state": "assigned"
+        }
+      }
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T14:05Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
+      "branch_from": "claude/w5-INTEG1 7c42e706",
+      "test_rule": "real SQLite file, DurableQueue, Worker and registered handlers via worker.tick()/run_once(); no mocks",
+      "id": "A5",
+      "requirement": "P0-CORRECTION-LOOP",
+      "gaps": [
+        "wiring #3"
+      ],
+      "acceptance": "a fixable certify block is revised, recompiled and recertified automatically; an unfixable CIR gets one revision, then a named hold, then no further jobs",
+      "state": "handoff_pending",
+      "reassigned": {
+        "at": "2026-11-02T18:52Z",
+        "from": "opus2",
+        "to": "mainopus-worker",
+        "reason": "I-P0-ABSOLUTE-WORKFORCE parallelism; opus2 had not started it"
+      },
+      "branch": "claude/w5-A5-correction-loop",
+      "dispatch": {
+        "posted_at": "2026-11-02T19:57:34Z",
+        "ack_due_by": "2026-11-02T22:57:34Z",
+        "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      },
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:05:21Z",
+          "from": "mainopus-worker",
+          "to": "opus2",
+          "reason": "owner correction 2026-11-02 'Restore Secondary Opus as the P0 workforce engineering owner': Secondary owns A1-A9 and Visual Production; integrator workers stopped at a clean point; their pushed commits are handed to opus2 (see dispatch/HANDOFF_20261102.md)",
+          "stage_at_transfer": "handoff"
+        }
+      ],
+      "justification": {
+        "capability": "P0-C/D: bounded automatic correction after certify/quality/asset failures",
+        "handoff_or_defect": "no uniform revise->recompile->recertify loop or named hold (wiring #3)",
+        "component": "runtime/engineering_ops cir.revise successors",
+        "upstream": "gate.certify / gate.quality / assets.build failures",
+        "downstream": "cir.compile -> gate.certify; owner queue holds",
+        "acceptance": "fixable block corrected automatically; cap then named hold; others unaffected",
+        "path_to_production": "review -> W6-INTEG"
+      },
+      "handoff": {
+        "branch": "claude/w5-A5-correction-loop",
+        "sha": "717c79258b1f7b8e09d6680c5bd238552ff446f0"
+      },
+      "review_verdict": "DO NOT SHIP (A5)"
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T14:05Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
+      "branch_from": "claude/w5-INTEG1 (newest head)",
+      "test_rule": "real SQLite file, DurableQueue, Worker and registered handlers via worker.tick()/run_once(); no mocks",
+      "id": "A6",
+      "requirement": "P0-LEARNING-INTO-DESIGN (consumer side; Codex owns the store)",
+      "gaps": [
+        "wiring #4"
+      ],
+      "acceptance": "a construction_preference lesson changes the drafted construction against the baseline, and a lesson.acted_on row is recorded",
+      "state": "handoff_pending",
+      "dispatch": {
+        "posted_at": "2026-11-02T20:00:53Z",
+        "ack_due_by": "2026-11-02T23:00:53Z",
+        "checkpoint_due_by": "2026-11-03T04:00:53Z"
+      },
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:00:53Z",
+          "from": "opus2",
+          "to": "mainopus-worker",
+          "reason": "owner directive 2026-11-02 'Main must take full operational control': queued opus2 work not started (opus2 checkpoint 18:27Z lists it after A4); moved to a supervised worker to end the serial bottleneck",
+          "stage_at_transfer": "posted",
+          "checkpoint_sha": null
+        },
+        {
+          "at": "2026-11-02T20:05:21Z",
+          "from": "mainopus-worker",
+          "to": "opus2",
+          "reason": "owner correction 2026-11-02 'Restore Secondary Opus as the P0 workforce engineering owner': Secondary owns A1-A9 and Visual Production; integrator workers stopped at a clean point; their pushed commits are handed to opus2 (see dispatch/HANDOFF_20261102.md)",
+          "stage_at_transfer": "handoff"
+        }
+      ],
+      "branch": "opus2/a6-learning-to-design",
+      "justification": {
+        "capability": "P0-C Learning: approved knowledge changes later designs",
+        "handoff_or_defect": "lessons only nudge scores (wiring #4)",
+        "component": "improve/consume design directives, pipeline draft hook",
+        "upstream": "improve lessons, Codex approved design rules",
+        "downstream": "cir.draft / cir.revise",
+        "acceptance": "approved lesson changes next draft deterministically; unapproved changes nothing; passes gates",
+        "path_to_production": "tests -> review -> W6-INTEG"
+      },
+      "observed": [
+        {
+          "at": "2026-11-02T20:25:08Z",
+          "by": "integrator",
+          "evidence": "opus2 pushed opus2/a6-learning-to-design ebead3dd (2026-11-02T20:21:01Z) on top of handed WIP 7c9306e3; opus2 checkpoint d85103aa (20:21Z): test_w5_a6_learning_to_design 6/6, 11 mutants killed, 38-suite regression running. Not yet an opus2 dispatch event or #28 reply."
+        }
+      ]
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T14:05Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
+      "branch_from": "claude/w5-INTEG1 7c42e706",
+      "test_rule": "real SQLite file, DurableQueue, Worker and registered handlers via worker.tick()/run_once(); no mocks",
+      "id": "A7",
+      "requirement": "P0-SUPPLY-STALL",
+      "gaps": [
+        "wiring #5"
+      ],
+      "acceptance": "with POOL exhausted, a 'no new concept supply' reading is recorded and no duplicate cir.draft is enqueued",
+      "state": "handoff_pending",
+      "reassigned": {
+        "at": "2026-11-02T18:52Z",
+        "from": "opus2",
+        "to": "mainopus-worker",
+        "reason": "I-P0-ABSOLUTE-WORKFORCE parallelism; opus2 had not started it"
+      },
+      "branch": "claude/w5-A7-supply-stall",
+      "dispatch": {
+        "posted_at": "2026-11-02T19:57:34Z",
+        "ack_due_by": "2026-11-02T22:57:34Z",
+        "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      },
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:05:21Z",
+          "from": "mainopus-worker",
+          "to": "opus2",
+          "reason": "owner correction 2026-11-02 'Restore Secondary Opus as the P0 workforce engineering owner': Secondary owns A1-A9 and Visual Production; integrator workers stopped at a clean point; their pushed commits are handed to opus2 (see dispatch/HANDOFF_20261102.md)",
+          "stage_at_transfer": "handoff"
+        }
+      ],
+      "justification": {
+        "capability": "P0-D: supply exhaustion is visible instead of silent",
+        "handoff_or_defect": "POOL exhaustion unread (wiring #5)",
+        "component": "radar.scan supply reading, flow_health",
+        "upstream": "radar.scan / pool_with_intake",
+        "downstream": "Command Center, readback evidence",
+        "acceptance": "one reading per period; no duplicate cir.draft",
+        "path_to_production": "regressions -> review -> W6-INTEG"
+      }
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T14:05Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
+      "branch_from": "claude/w5-INTEG1 (newest head)",
+      "test_rule": "real SQLite file, DurableQueue, Worker and registered handlers via worker.tick()/run_once(); no mocks",
+      "id": "A8",
+      "requirement": "P0-CULTURE-TO-IDEATION",
+      "gaps": [
+        "wiring #6"
+      ],
+      "acceptance": "a rising culture signal opens a research task that reaches concept_intake",
+      "state": "queued",
+      "dispatch": {
+        "posted_at": "2026-11-02T20:00:53Z",
+        "ack_due_by": "2026-11-02T23:00:53Z",
+        "checkpoint_due_by": "2026-11-03T04:00:53Z"
+      },
+      "depends_on": [
+        "A4a"
+      ],
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:00:53Z",
+          "from": "opus2",
+          "to": "mainopus-worker",
+          "reason": "same directive; queued behind A4a (shares the concept-intake path), not started by opus2",
+          "stage_at_transfer": "posted",
+          "checkpoint_sha": null
+        },
+        {
+          "at": "2026-11-02T20:05:21Z",
+          "from": "mainopus-worker",
+          "to": "opus2",
+          "reason": "owner correction 2026-11-02 'Restore Secondary Opus as the P0 workforce engineering owner': Secondary owns A1-A9 and Visual Production; integrator workers stopped at a clean point; their pushed commits are handed to opus2 (see dispatch/HANDOFF_20261102.md)",
+          "stage_at_transfer": "handoff"
+        }
+      ],
+      "branch": "claude/w5-A8-culture-ideation",
+      "justification": {
+        "capability": "P0-B: culture signals become concepts",
+        "handoff_or_defect": "culture findings only write learning notes (wiring #6)",
+        "component": "culture.radar.route_findings -> ideation intake",
+        "upstream": "culture.sweep",
+        "downstream": "radar.concept_intake (A4a path)",
+        "acceptance": "culture finding produces an approved concept through the same gates",
+        "path_to_production": "after A4a -> review"
+      }
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T14:05Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "PR #3 comment 6578603375; evidence brambleloop/research/final_build/w5/P0_WIRING_50937469.md",
+      "branch_from": "claude/w5-INTEG1 7c42e706",
+      "test_rule": "real SQLite file, DurableQueue, Worker and registered handlers via worker.tick()/run_once(); no mocks",
+      "id": "A9",
+      "requirement": "P0-PACKAGE-EVENT",
+      "gaps": [
+        "wiring #7"
+      ],
+      "acceptance": "the owner review request is produced after gate.certify without advancing the clock 6 h",
+      "state": "handoff_pending",
+      "reassigned": {
+        "at": "2026-11-02T18:52Z",
+        "from": "opus2",
+        "to": "mainopus-worker",
+        "reason": "I-P0-ABSOLUTE-WORKFORCE parallelism; opus2 had not started it"
+      },
+      "branch": "claude/w5-A9-package-event",
+      "dispatch": {
+        "posted_at": "2026-11-02T19:57:34Z",
+        "ack_due_by": "2026-11-02T22:57:34Z",
+        "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      },
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:05:21Z",
+          "from": "mainopus-worker",
+          "to": "opus2",
+          "reason": "owner correction 2026-11-02 'Restore Secondary Opus as the P0 workforce engineering owner': Secondary owns A1-A9 and Visual Production; integrator workers stopped at a clean point; their pushed commits are handed to opus2 (see dispatch/HANDOFF_20261102.md)",
+          "stage_at_transfer": "handoff"
+        }
+      ],
+      "justification": {
+        "capability": "P0-C: listing package raised on completion, not every 6 h",
+        "handoff_or_defect": "6-hourly poll only (wiring #7)",
+        "component": "launch.plan successor, listing_package.for_release",
+        "upstream": "launch.plan",
+        "downstream": "listing.package -> owner review request",
+        "acceptance": "package after certify without clock advance; no duplicates with sweep",
+        "path_to_production": "regressions -> review -> W6-INTEG"
+      }
+    },
+    {
+      "owner": "opus2",
+      "assigned": "2026-11-02T18:05Z",
+      "integration_target": "claude/w5-INTEG1",
+      "source": "owner directive 2026-11-02 'A1 child-safety correction'; A1-REVIEW (claude/w5-SECREVIEW-A1); PR #3 comments",
+      "id": "A1-R",
+      "requirement": "P0-SAFETY-CHILDREN (architectural correction)",
+      "closes": [
+        "A1-1",
+        "A1-2",
+        "A1-3",
+        "A1-4",
+        "A1-5",
+        "A1-6",
+        "A1-7"
+      ],
+      "branch": "opus2/p0-child-safety-core (NEW, separate from opus2/p0-amigurumi)",
+      "branch_from": "claude/w5-INTEG1 7c42e706",
+      "acceptance": [
+        "children's-safety assessment is triggered by the construction classification: any closed stuffed form (stuff_before_closing OR risk_matrix.closed_3d_form OR fibrefill/stuffing material with a closed seam), independent of optional seam placement fields and of title wording",
+        "where classification or suitability cannot be established, the product is HELD pending an explicit, audited owner decision; the automatic default 'not for children' is never accepted as a decision for a closed stuffed form; existing Launch-0 cushions/kneelers get explicit reasoned NOT_MERCHANDISED_TO_A_CHILD entries recorded as decisions",
+        "title/text matching is a secondary layer only; it folds NFKC + confusables + zero-width/invisible characters consistently in every place children's words are read (draft, renderer, survey)",
+        "small-parts: a measurement within a stated tolerance of the 31.7 mm cylinder (diameter or depth) is UNKNOWN, never PASS; UNKNOWN blocks any children's assignment until physical evidence is recorded",
+        "self-contained guard tests that do not import or require the amigurumi route: hand-built stuffed CIRs; kill mutants gate-always-false, no-fold, renderer-reads-words-only, default-decision-accepted",
+        "real path tests: handle_cir_draft and assets.build through the real Worker on a durable SQLite file, with a stuffed ball, ears placed by at_round only, a panel_pair cushion, neutral titles ('Juniper Friend'), Cyrillic/fullwidth/math-alphanumeric/zero-width spellings; each held or refused with a named reason; Launch-0 catalogue renders unchanged",
+        "no existing child-safety or Product Truth test is removed or weakened; test_childrens, test_launch0, test_launch0_listing_truth, test_pdf_premium, test_opus2_stuffed_finishing, test_first_customer_gate, test_vacuity pass"
+      ],
+      "ownership_boundary": "shared safety code only (launch0 children's gate, child_words_in/fold, renderer children's block, risk_matrix, small-parts check); the amigurumi toy rebases onto A1-R afterwards and is not part of this branch",
+      "next": "push, then request delta review on PR #3; integrator integrates on SHIP independently of the toy",
+      "priority": 1,
+      "dispatch": {
+        "posted_at": "2026-11-02T19:57:34Z",
+        "ack_due_by": "2026-11-02T22:57:34Z",
+        "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      },
+      "justification": {
+        "capability": "P0-A safety: no closed stuffed form is merchandised to children without an audited decision",
+        "handoff_or_defect": "children's gate keyed on title/optional seam field (A1-1..-5)",
+        "component": "products/launch0 children's gate, child_words_in fold, PDF renderer, risk_matrix",
+        "upstream": "cir.draft (every producer)",
+        "downstream": "assets.build, listing package, publish gates",
+        "acceptance": "real Worker+SQLite: stuffed ball / at_round ears / panel_pair / neutral & disguised titles held; Launch-0 unchanged",
+        "path_to_production": "review -> W6-INTEG -> Batch 6 cert -> deploy"
+      },
+      "review_verdict": "DO NOT SHIP (A1R)"
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "source": "VISUAL_WIRING_AUDIT_5ba84bf7.md (2026-11-02); owner visual direction 2026-11-02",
+      "branch_from": "claude/w5-INTEG1 7c42e706",
+      "test_rule": "real DB + registered visual.image_production handler with a stub renderer; no paid calls",
+      "id": "V1",
+      "owner": "opus2",
+      "assigned": "2026-11-02T19:00Z",
+      "state": "handoff_pending",
+      "branch": "claude/w5-V1-visual-correctness",
+      "priority": 1,
+      "requirement": "P0-VISUAL-CORRECTNESS (CA$0, deterministic)",
+      "closes": [
+        "P0-a wasted paid lifestyle repair loop",
+        "P0-d basket ribbing_declared misfire",
+        "P1-b stripes/corners/rim stated in the FLUX prompt",
+        "P2-b 'approved product photograph' label",
+        "P1-c(brief) SIZE brief names Laura on a product-only frame"
+      ],
+      "dispatch": {
+        "posted_at": "2026-11-02T19:57:34Z",
+        "ack_due_by": "2026-11-02T22:57:34Z",
+        "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      },
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:05:21Z",
+          "from": "mainopus-worker",
+          "to": "opus2",
+          "reason": "owner correction 2026-11-02 'Restore Secondary Opus as the P0 workforce engineering owner': Secondary owns A1-A9 and Visual Production; integrator workers stopped at a clean point; their pushed commits are handed to opus2 (see dispatch/HANDOFF_20261102.md)",
+          "stage_at_transfer": "handoff"
+        }
+      ],
+      "justification": {
+        "capability": "P0-C visual truth: prompts derive from the certified CIR; no wasted paid repairs",
+        "handoff_or_defect": "structural repair loop, ribbing misfire, indirect stripes, photo label",
+        "component": "visual/image_production, creative/pattern_refs, flux_prompt, shot_plans",
+        "upstream": "certified CIR",
+        "downstream": "visual review, gallery",
+        "acceptance": "basket prompt names corners/stripes/rim; 1 call then named block",
+        "path_to_production": "re-run visnext -> review -> W6-INTEG"
+      }
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "source": "VISUAL_WIRING_AUDIT_5ba84bf7.md (2026-11-02); owner visual direction 2026-11-02",
+      "branch_from": "claude/w5-INTEG1 7c42e706",
+      "test_rule": "real DB + registered visual.image_production handler with a stub renderer; no paid calls",
+      "id": "V2",
+      "owner": "opus2",
+      "assigned": "2026-11-02T19:00Z",
+      "state": "queued",
+      "priority": 2,
+      "requirement": "P0-VISUAL-VESSEL-FIDELITY",
+      "closes": [
+        "P0-c vessel verifier (corner count, stripe bands, rim; feasible flat-lay brief for vessels)",
+        "P1-d cross-image product consistency in the gallery certificate",
+        "P2-a capability-only blocked runs re-driven once when the gate opens"
+      ]
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "claude/w5-INTEG1 7c42e706",
+      "id": "V0",
+      "owner": "opus2",
+      "assigned": "2026-11-02T19:05Z",
+      "state": "handoff_pending",
+      "priority": 1,
+      "branch": "claude/w5-V0-paid-provider-gate",
+      "requirement": "P0-PAID-PROVIDER-OWNER-GATE (owner directive 2026-11-02, financial control)",
+      "acceptance": "default-OFF, audited, step-up owner activation per paid image/vision provider; one gateway enforcement point for every paid call incl. probes; independently enforces owner authorization, provider day/month ceilings, per-gallery limit, monthly company budget, paid-call idempotency, retry ceiling; fails closed without approval or accounting evidence; a key or historical probe never opens image_generation/image_vision",
+      "dispatch": {
+        "posted_at": "2026-11-02T19:57:34Z",
+        "ack_due_by": "2026-11-02T22:57:34Z",
+        "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      },
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:05:21Z",
+          "from": "mainopus-worker",
+          "to": "opus2",
+          "reason": "owner correction 2026-11-02 'Restore Secondary Opus as the P0 workforce engineering owner': Secondary owns A1-A9 and Visual Production; integrator workers stopped at a clean point; their pushed commits are handed to opus2 (see dispatch/HANDOFF_20261102.md)",
+          "stage_at_transfer": "handoff"
+        }
+      ],
+      "justification": {
+        "capability": "P0-A financial control: paid image/vision calls need owner activation",
+        "handoff_or_defect": "key or probe opens image_generation automatically (PF-PAID-PROBE-NO-ACTIVATION)",
+        "component": "gateway enforcement point, activation record",
+        "upstream": "capability probes, image_production, vision judges",
+        "downstream": "provider calls",
+        "acceptance": "zero network calls without activation; each ceiling independently refuses",
+        "path_to_production": "review -> W6-INTEG -> cert -> deploy"
+      }
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "claude/w5-INTEG1 7c42e706",
+      "id": "V3",
+      "owner": "opus2",
+      "assigned": "2026-11-02T19:05Z",
+      "state": "queued",
+      "priority": 2,
+      "requirement": "qualified automatic Laura identity verification (qualified face-embedding model) and two independent vision judgments where required; production use needs owner funding via V0 activation",
+      "source": "owner directive 2026-11-02 'Visual autonomy and spending-gate correction'; VISUAL_WIRING_AUDIT_5ba84bf7.md"
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "claude/w5-INTEG1 7c42e706",
+      "id": "V4",
+      "owner": "opus2",
+      "assigned": "2026-11-02T19:05Z",
+      "state": "queued",
+      "priority": 2,
+      "requirement": "consistent home/scene references: owner-approved room reference images recorded with provenance and passed as scene_reference, plus a same-room consistency check",
+      "source": "owner directive 2026-11-02 'Visual autonomy and spending-gate correction'; VISUAL_WIRING_AUDIT_5ba84bf7.md"
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "claude/w5-INTEG1 7c42e706",
+      "id": "V5",
+      "owner": "opus2",
+      "assigned": "2026-11-02T19:05Z",
+      "state": "queued",
+      "priority": 2,
+      "requirement": "product scale verification against the CIR's finished dimensions using known-size scene anchors",
+      "source": "owner directive 2026-11-02 'Visual autonomy and spending-gate correction'; VISUAL_WIRING_AUDIT_5ba84bf7.md"
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "claude/w5-INTEG1 7c42e706",
+      "id": "V6",
+      "owner": "opus2",
+      "assigned": "2026-11-02T19:05Z",
+      "state": "queued",
+      "priority": 2,
+      "requirement": "automatic correction and gallery completion end to end: certified autonomous gallery produced through real handlers and handed to listing.package (demonstration required before Visual Production counts as operational)",
+      "source": "owner directive 2026-11-02 'Visual autonomy and spending-gate correction'; VISUAL_WIRING_AUDIT_5ba84bf7.md"
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "newest claude/w5-INTEG1",
+      "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
+      "state": "queued",
+      "owner": "mainopus",
+      "assigned": "2026-11-02T19:06Z",
+      "id": "P0-SUPPORT-DEFECT-INCIDENT",
+      "priority": 1,
+      "requirement": "support row hotspot -> correlated incident, release re-verification and withholding (runtime/release.py:2608)",
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:17:44Z",
+          "from": "opus2",
+          "to": "mainopus",
+          "reason": "owner directive 2026-11-02 'Tag-team the complete autonomous workforce': Main takes cross-department infrastructure (orchestration, recovery, owner approvals, security, finance, model governance); none of these was started by opus2",
+          "owner_approved": "owner directive 'Tag-team the complete autonomous workforce' 2026-11-02"
+        }
+      ],
+      "dispatch": {
+        "posted_at": "2026-11-02T20:17:44Z",
+        "ack_due_by": "2026-11-02T21:17:44Z",
+        "checkpoint_due_by": "2026-11-03T04:17:44Z"
+      },
+      "justification": {
+        "capability": "P0-A Product Truth: repeated customer defects withhold and re-verify the release",
+        "handoff_or_defect": "3+ cases only write an audit row",
+        "component": "support defect handling, incidents, verification, withholding",
+        "upstream": "support cases",
+        "downstream": "re-verification job, withholding",
+        "acceptance": "3 cases -> incident + re-verify + withhold that release only",
+        "path_to_production": "review -> W6-INTEG"
+      }
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "newest claude/w5-INTEG1",
+      "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
+      "state": "queued",
+      "owner": "mainopus",
+      "assigned": "2026-11-02T19:06Z",
+      "id": "P0-SECRET-LEAK-ESCALATE",
+      "priority": 1,
+      "requirement": "caught secret -> durable incident + rotation owner action (ops/log_secret_guard.py:143)",
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:17:44Z",
+          "from": "opus2",
+          "to": "mainopus",
+          "reason": "owner directive 2026-11-02 'Tag-team the complete autonomous workforce': Main takes cross-department infrastructure (orchestration, recovery, owner approvals, security, finance, model governance); none of these was started by opus2",
+          "owner_approved": "owner directive 'Tag-team the complete autonomous workforce' 2026-11-02"
+        }
+      ],
+      "dispatch": {
+        "posted_at": "2026-11-02T20:17:44Z",
+        "ack_due_by": "2026-11-02T21:17:44Z",
+        "checkpoint_due_by": "2026-11-03T04:17:44Z"
+      },
+      "justification": {
+        "capability": "P0-A security: a leaked secret becomes an incident and a rotation request",
+        "handoff_or_defect": "log_secret_guard.summary has no consumer",
+        "component": "ops/log_secret_guard, incidents, owner_queue",
+        "upstream": "log guard",
+        "downstream": "incident + owner action",
+        "acceptance": "one incident + one rotation action; value absent everywhere",
+        "path_to_production": "review -> W6-INTEG"
+      }
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "newest claude/w5-INTEG1",
+      "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
+      "state": "queued",
+      "owner": "mainopus",
+      "assigned": "2026-11-02T19:06Z",
+      "id": "P0-FLOW-STALL-ACT",
+      "priority": 2,
+      "requirement": "stalled/looping products in flow_health -> incident, re-drive or named hold; visible to Laura/COO",
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:17:44Z",
+          "from": "opus2",
+          "to": "mainopus",
+          "reason": "owner directive 2026-11-02 'Tag-team the complete autonomous workforce': Main takes cross-department infrastructure (orchestration, recovery, owner approvals, security, finance, model governance); none of these was started by opus2",
+          "owner_approved": "owner directive 'Tag-team the complete autonomous workforce' 2026-11-02"
+        }
+      ]
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "newest claude/w5-INTEG1",
+      "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
+      "state": "queued",
+      "owner": "mainopus",
+      "assigned": "2026-11-02T19:06Z",
+      "id": "P0-OWNER-DECISION-DISPATCH",
+      "priority": 2,
+      "requirement": "decided owner cards dispatch back into work; cir.reengineer card decidable (runtime/engineering_ops.py:251-316)",
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:17:44Z",
+          "from": "opus2",
+          "to": "mainopus",
+          "reason": "owner directive 2026-11-02 'Tag-team the complete autonomous workforce': Main takes cross-department infrastructure (orchestration, recovery, owner approvals, security, finance, model governance); none of these was started by opus2",
+          "owner_approved": "owner directive 'Tag-team the complete autonomous workforce' 2026-11-02"
+        }
+      ]
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "newest claude/w5-INTEG1",
+      "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
+      "state": "queued",
+      "owner": "mainopus",
+      "assigned": "2026-11-02T19:06Z",
+      "id": "P0-JOBTYPE-CLOSURE",
+      "priority": 2,
+      "requirement": "resolve UNHANDLED assets.render, pricing.experiment and ORPHAN cir.reengineer, research.flag_architecture; test that every banded type has a handler and a producer or an explicit manual allowlist",
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:17:44Z",
+          "from": "opus2",
+          "to": "mainopus",
+          "reason": "owner directive 2026-11-02 'Tag-team the complete autonomous workforce': Main takes cross-department infrastructure (orchestration, recovery, owner approvals, security, finance, model governance); none of these was started by opus2",
+          "owner_approved": "owner directive 'Tag-team the complete autonomous workforce' 2026-11-02"
+        }
+      ]
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "newest claude/w5-INTEG1",
+      "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
+      "state": "queued",
+      "owner": "mainopus",
+      "assigned": "2026-11-02T19:06Z",
+      "id": "P0-FAILOVER-DRILL",
+      "priority": 2,
+      "requirement": "scheduled, budgeted model failover drill writing contract-eval rows (second provider may need owner approval)",
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:17:44Z",
+          "from": "opus2",
+          "to": "mainopus",
+          "reason": "owner directive 2026-11-02 'Tag-team the complete autonomous workforce': Main takes cross-department infrastructure (orchestration, recovery, owner approvals, security, finance, model governance); none of these was started by opus2",
+          "owner_approved": "owner directive 'Tag-team the complete autonomous workforce' 2026-11-02"
+        }
+      ]
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "newest claude/w5-INTEG1",
+      "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
+      "state": "queued",
+      "owner": "opus2",
+      "assigned": "2026-11-02T19:06Z",
+      "id": "P0-PHYSICAL-TEST-REQUEST",
+      "priority": 2,
+      "requirement": "per-product tester request when a certificate requires a physical test; tester kit not hard-wired to basket_small"
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "newest claude/w5-INTEG1",
+      "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
+      "state": "queued",
+      "owner": "opus2",
+      "assigned": "2026-11-02T19:06Z",
+      "id": "P0-PORTFOLIO-ACT",
+      "priority": 2,
+      "requirement": "portfolio classifications -> bounded jobs"
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "newest claude/w5-INTEG1",
+      "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
+      "state": "queued",
+      "owner": "mainopus",
+      "assigned": "2026-11-02T19:06Z",
+      "id": "P0-FINANCE-CHALLENGE-IDEM",
+      "priority": 5,
+      "requirement": "finance.challenge enqueued without idempotency key (runtime/pipeline.py:3202)",
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:17:44Z",
+          "from": "opus2",
+          "to": "mainopus",
+          "reason": "owner directive 2026-11-02 'Tag-team the complete autonomous workforce': Main takes cross-department infrastructure (orchestration, recovery, owner approvals, security, finance, model governance); none of these was started by opus2",
+          "owner_approved": "owner directive 'Tag-team the complete autonomous workforce' 2026-11-02"
+        }
+      ]
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "newest claude/w5-INTEG1",
+      "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
+      "state": "queued",
+      "owner": "opus2",
+      "assigned": "2026-11-02T19:06Z",
+      "id": "P0-STOREFRONT-ASSET-FIX",
+      "priority": 5,
+      "requirement": "storefront asset-health findings -> jobs"
+    },
+    {
+      "integration_target": "claude/w5-INTEG1",
+      "branch_from": "newest claude/w5-INTEG1",
+      "source": "WORKFORCE_INVENTORY_EXT_5ba84bf7.md (extends P0_WIRING_50937469.md; departments 17-31)",
+      "state": "queued",
+      "owner": "mainopus",
+      "assigned": "2026-11-02T19:06Z",
+      "id": "P0-PROVIDER-BILLING-RECON",
+      "priority": 5,
+      "requirement": "reconcile provider bills to the ledger (needs owner billing keys)",
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:17:44Z",
+          "from": "opus2",
+          "to": "mainopus",
+          "reason": "owner directive 2026-11-02 'Tag-team the complete autonomous workforce': Main takes cross-department infrastructure (orchestration, recovery, owner approvals, security, finance, model governance); none of these was started by opus2",
+          "owner_approved": "owner directive 'Tag-team the complete autonomous workforce' 2026-11-02"
+        }
+      ]
+    },
+    {
+      "id": "A2-FIX",
+      "owner": "opus2",
+      "priority": 1,
+      "branch": "opus2/a2-name-object",
+      "requirement": "A2-1..A2-7 from A2-REVIEW (PR #3 comment 6584854646)",
+      "state": "in_progress",
+      "integration_target": "claude/w5-INTEG1",
+      "assigned": "2026-11-02T19:57:34Z",
+      "dispatch": {
+        "posted_at": "2026-11-02T19:57:34Z",
+        "ack_due_by": "2026-11-02T22:57:34Z",
+        "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      },
+      "justification": {
+        "capability": "P0-A Product Truth: every producer's title names the object it builds",
+        "handoff_or_defect": "raw-title motif gate, provenance-scoped exemption, descriptor strip (A2-1..-6)",
+        "component": "shared title fold + name_truth/motif_promise",
+        "upstream": "concept intake (POOL, research, culture, registry)",
+        "downstream": "cir.draft, listing copy",
+        "acceptance": "Unicode/bracket/radar-seed/prototype repros refused; catalogue byte-identical",
+        "path_to_production": "review -> W6-INTEG -> cert -> deploy"
+      },
+      "observed": [
+        {
+          "at": "2026-11-02T20:25:08Z",
+          "by": "integrator",
+          "evidence": "opus2 checkpoint 20:21Z: A2 v2 local c93f9c53, 45-suite run in progress (not pushed)"
+        }
+      ],
+      "review_verdict": "DO NOT SHIP (A2F)"
+    },
+    {
+      "id": "A4b",
+      "owner": "opus2",
+      "priority": 2,
+      "branch": "opus2/a4b-enrichment",
+      "requirement": "held/refused draft -> enrichment -> re-draft; push existing 823a82dd, b0c66556 rebased on newest claude/w5-INTEG1",
+      "state": "in_progress",
+      "integration_target": "claude/w5-INTEG1",
+      "assigned": "2026-11-02T19:57:34Z",
+      "dispatch": {
+        "posted_at": "2026-11-02T19:57:34Z",
+        "ack_due_by": "2026-11-02T22:57:34Z",
+        "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      },
+      "justification": {
+        "capability": "P0-B: held/refused drafts are enriched and re-drafted",
+        "handoff_or_defect": "draft:<slug> key permanent; refusals consumed by nobody (wiring #2)",
+        "component": "pipeline draft keys, enrichment consumer",
+        "upstream": "cir.draft_refused, knowledge gaps",
+        "downstream": "cir.draft (re-draft)",
+        "acceptance": "refused draft enriched and re-drafted once; idempotent",
+        "path_to_production": "review -> W6-INTEG"
+      },
+      "review_verdict": "DO NOT SHIP (A4B)"
+    },
+    {
+      "id": "A3-FIX",
+      "owner": "opus2",
+      "priority": 2,
+      "branch": "opus2/p0-photo-asset-review",
+      "requirement": "A3D-1 MED (+ LOWs) from A3D (PR #3 comment 6586315764)",
+      "state": "in_progress",
+      "integration_target": "claude/w5-INTEG1",
+      "assigned": "2026-11-02T19:57:34Z",
+      "dispatch": {
+        "posted_at": "2026-11-02T19:57:34Z",
+        "ack_due_by": "2026-11-02T22:57:34Z",
+        "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      },
+      "justification": {
+        "capability": "P0-C gallery: attested photos re-qualify and lead automatically",
+        "handoff_or_defect": "re-opened photo never promoted (A3D-1)",
+        "component": "publish/photo_asset_review, release_gates.listing_set",
+        "upstream": "physical.photo / attestation",
+        "downstream": "listing set certificate, listing package",
+        "acceptance": "re-open-from-terminal path tested; mutants K7/K9/K12 killed",
+        "path_to_production": "review -> W6-INTEG"
+      },
+      "review_verdict": "DO NOT SHIP (A3F)"
+    },
+    {
+      "id": "CODEX1-FIX",
+      "owner": "codex",
+      "priority": 1,
+      "branch": "codex/p0-learning-reference",
+      "requirement": "CODEX1-2 HIGH JOB_CLASS; confirm CODEX1-1; then approved-rule reader for A6 (CODEX_REVIEW_FEEDBACK.md)",
+      "state": "in_progress",
+      "integration_target": "claude/w6-INTEG1",
+      "assigned": "2026-11-02T19:57:34Z",
+      "dispatch": {
+        "posted_at": "2026-11-02T19:57:34Z",
+        "ack_due_by": "2026-11-02T22:57:34Z",
+        "checkpoint_due_by": "2026-11-03T03:57:34Z"
+      },
+      "event_channel": "issue #28 [CODEX] comments, relayed into dispatch/events/codex.jsonl by mainopus"
+    },
+    {
+      "id": "A4a",
+      "owner": "opus2",
+      "priority": 2,
+      "branch": "opus2/a4a-research-to-concept",
+      "requirement": "research brief / coverage gap -> new concept outside the 34 -> cir.draft; durable continuation",
+      "state": "handoff_pending",
+      "integration_target": "claude/w5-INTEG1",
+      "assigned": "2026-11-02T19:02:00Z",
+      "dispatch": {
+        "posted_at": "2026-11-02T19:57:48Z",
+        "ack_due_by": "2026-11-02T22:57:48Z",
+        "checkpoint_due_by": "2026-11-03T03:57:48Z"
+      },
+      "ownership_history": [
+        {
+          "at": "2026-11-02T20:05:21Z",
+          "from": "mainopus-worker",
+          "to": "opus2",
+          "reason": "owner correction 2026-11-02 'Restore Secondary Opus as the P0 workforce engineering owner': Secondary owns A1-A9 and Visual Production; integrator workers stopped at a clean point; their pushed commits are handed to opus2 (see dispatch/HANDOFF_20261102.md)",
+          "stage_at_transfer": "handoff"
+        }
+      ],
+      "justification": {
+        "capability": "P0-B continuous supply: research creates original concepts beyond the 34",
+        "handoff_or_defect": "attach_proposal had no production caller (wiring #1)",
+        "component": "radar/ideation, pipeline coverage handoff, intel_ops research routing",
+        "upstream": "radar.scan coverage gaps, competitor observations",
+        "downstream": "radar.concept_intake -> radar.score -> cir.draft",
+        "acceptance": "new slug drafted automatically; no-evidence/originality refusals; continuation; extend through certify",
+        "path_to_production": "review -> W6-INTEG"
+      },
+      "review_verdict": "DO NOT SHIP (A4A)"
+    },
+    {
+      "id": "E2E-ACCEPTANCE",
+      "owner": "mainopus",
+      "priority": 2,
+      "state": "queued",
+      "assigned": "2026-11-02T20:17:44Z",
+      "integration_target": "claude/w5-INTEG1",
+      "branch": "claude/w6-E2E-acceptance",
+      "requirement": "end-to-end workforce demonstration harness: one durable DB, real handlers via Worker, from radar/culture signal through research -> concept -> CIR -> certify -> PDF/assets -> gallery -> listing package -> owner review request -> outcomes -> learning -> next product; reports each department's verdict; the 16-point demonstration and the basis for the 24 h Railway acceptance",
+      "justification": {
+        "capability": "P0-E: prove every department works together on one durable DB",
+        "handoff_or_defect": "no end-to-end demonstration exists",
+        "component": "acceptance harness over real handlers",
+        "upstream": "all departments",
+        "downstream": "owner evidence; 24 h Railway acceptance",
+        "acceptance": "signal -> concept -> CIR -> certify -> PDF -> images -> gallery -> package -> owner request -> outcomes -> learning -> next product",
+        "path_to_production": "after W6 integration"
+      }
+    }
+  ],
+  "decisions": [
+    {
+      "id": "I-A1R-ARCHITECTURAL",
+      "at": "2026-11-02T18:05Z",
+      "decision": "Children's safety is a construction-classification gate with an audited-decision requirement, not title patches. A1 is split from the toy into opus2/p0-child-safety-core; the toy (opus2/p0-amigurumi) stays out of Batch 5 and rebases onto A1-R. Batch 5 certification of 5ba84bf7 is not delayed (the toy is not in it).",
+      "source": "owner directive 2026-11-02"
+    },
+    {
+      "id": "I-P0-ABSOLUTE-WORKFORCE",
+      "at": "2026-11-02T18:52Z",
+      "source": "owner directive 2026-11-02 'ABSOLUTE OWNER PRIORITY: COMPLETE AUTONOMOUS WORKFORCE' (permanent; binds Main Opus, Secondary Opus, Codex and every worker)",
+      "decision": "Completing and activating the entire autonomous workforce is the company's highest priority. It overrides product enhancements, individual construction generators, visual refinements, dashboard polish and non-critical Build 2 / Final Master work. Priority order: (1) critical safety/correctness defects affecting the workforce; (2) every missing autonomous connection and operational dependency; (3) end-to-end integration, certification and deployment; (4) sustained 24 h production acceptance and recovery verification; (5) remaining Build 2 / Final Master enhancements. Built code, merged PRs or isolated tests are not operational completion. Owner/physical/provider/account holds never stop unrelated eligible work. The authoritative inventory is P0_WIRING_50937469.md (department x criterion matrix) as extended by the integrator; no competing master plan.",
+      "consequences": [
+        "no new construction generator or product template work by any worker until priorities 1-3 are clear (I-OPUS2-FREEZE-GENERATORS stands)",
+        "visual production is one required department, sequenced with the others",
+        "A5, A7, A9 reassigned from opus2 to integrator-supervised workers to run in parallel; opus2 keeps A1-R, A2 fixes, A4, A6, A8",
+        "Codex keeps P0-LEARNING-REFERENCE; its priority inside that scope is the CODEX1 HIGH fixes, then the approved-rule reader that A6 consumes"
+      ]
+    },
+    {
+      "id": "I-VISUAL-NOT-OPERATIONAL-UNTIL-DEMO",
+      "at": "2026-11-02T19:05Z",
+      "decision": "Visual Production is not operational until an accurate, certified, autonomous gallery is produced through real handlers and handed to listing.package. Paid providers stay off until owner activation under V0.",
+      "source": "owner directive 2026-11-02"
+    },
+    {
+      "id": "I-INVENTORY-AUTHORITATIVE",
+      "at": "2026-11-02T19:06Z",
+      "decision": "The authoritative workforce inventory is P0_WIRING_50937469.md (departments 1-16, 25 handoffs) plus WORKFORCE_INVENTORY_EXT_5ba84bf7.md (departments 17-31, all 171 job types). 159 LIVE, 8 MANUAL, 2 ORPHAN, 2 UNHANDLED; production evidence UNKNOWN for every job type until readback. No competing plan.",
+      "source": "owner directive I-P0-ABSOLUTE-WORKFORCE item 1"
+    },
+    {
+      "id": "I-DISPATCH-PROTOCOL",
+      "at": "2026-11-02T19:57:34Z",
+      "source": "owner directive 2026-11-02 'Restore reliable Main <-> Secondary coordination'",
+      "decision": "All engineering assignments are dispatched through COORDINATION.json assignments + dispatch/events/<worker>.jsonl via ops/assignments.py. Workers must record ack on the first wake after an assignment is posted (deadline ack_due_by, 3 h), start/heartbeat/checkpoint(sha)/review_requested(sha)/blocked as they go. Delivery is polling only. The integrator polls every check-in, detects overdue items with `ops/assignments.py stale`, and reassigns only work that is safe to move (no checkpoint under review), recorded in ownership_history; claim-check prevents the former owner from continuing. Posting a PR comment is not evidence of receipt; an ack event is.",
+      "why_not_direct": "The cross-session tools (create_session, send_later, fire_trigger, get_session, update_trigger) stopped being provided to the integrator session at about 2026-11-02T08:12Z; no connector exposes them and they cannot be restored from inside the session. GitHub Actions has no Claude workflow in this repository."
+    },
+    {
+      "id": "I-THREE-OPERATOR-STRUCTURE",
+      "at": "2026-11-02T20:05:21Z",
+      "source": "owner correction 2026-11-02 (supersedes the reassignment parts of I-P0-ABSOLUTE-WORKFORCE, the A4 split owner, and the reassignment rule in I-DISPATCH-PROTOCOL)",
+      "decision": "Three operators. Secondary Opus (opus2) owns all P0 autonomous-workforce engineering: A1-A9, V0-V6 and the remaining safe unowned P0 capabilities (WORKFORCE_INVENTORY_EXT gaps). Codex owns P0-LEARNING-REFERENCE. Main Opus directs priorities through the GitHub dispatch channel, verifies acknowledgement and progress, reviews, integrates, certifies, deploys, verifies production autonomy and continues Build 2 / Final Master. The integrator never reassigns Secondary's work without the owner's authorization: a missed ack or checkpoint is reported to the owner with the specific limitation, not silently transferred. Integrator-supervised workers stopped at a clean point; their pushed commits are handed to opus2 with exact SHAs."
+    },
+    {
+      "id": "D-OWNER-GITHUB-DISPATCH",
+      "at": "2026-11-02T20:12:54Z",
+      "source": "owner 'GitHub dispatch decision' 2026-11-02",
+      "decision": "Issue #28 is the official Main <-> Secondary channel. .github/workflows/dispatch.yml ships in the next approved Batch 5 release after independent review; it must stay read-only/coordination-only (contents: read, issues: write), expose no secrets and run no paid model. The repository default branch is not changed. Batch 5 certification and the production acceptance are not interrupted. Main's 5-minute watcher continues meanwhile. Five-minute two-way communication is not claimed until Secondary operates at that interval. Secondary's mission is not reassigned without owner authorization.",
+      "release_mechanics": "deploy_guard fingerprints only deployable layout paths (source_tree_sha256) and accepts a candidate descending from the certified SHA; .github/ is outside the deployable layout, so adding the workflow to the release commit on top of the certified SHA does not require recertification. To be confirmed by `ops/deploy_guard.py check` on the actual release commit before the owner's exact-SHA approval is requested."
+    },
+    {
+      "id": "D-OWNER-TAG-TEAM",
+      "at": "2026-11-02T20:17:44Z",
+      "source": "owner directive 2026-11-02 'Tag-team the complete autonomous workforce'",
+      "decision": "Main and Secondary build the workforce together, split by module and branch. Secondary (opus2) keeps its full P0 mission: A1-R, A2-FIX, A3-FIX, A4a (handed over), A4b, A5, A6, A7, A8, A9, V0-V6, P0-PHYSICAL-TEST-REQUEST, P0-PORTFOLIO-ACT and P0-STOREFRONT-ASSET-FIX. Main (mainopus) takes cross-department infrastructure: P0-JOBTYPE-CLOSURE, P0-FLOW-STALL-ACT, P0-OWNER-DECISION-DISPATCH, P0-SECRET-LEAK-ESCALATE, P0-SUPPORT-DEFECT-INCIDENT, P0-FAILOVER-DRILL, P0-FINANCE-CHALLENGE-IDEM, P0-PROVIDER-BILLING-RECON and E2E-ACCEPTANCE, plus integration, certification and release. Codex keeps P0-LEARNING-REFERENCE. Main's engineering runs as parallel capacity now, with tests gated on Batch 5 certification finishing, and becomes Main's primary activity once the Batch 5 deployment decision is handled.",
+      "boundaries": "P0-FLOW-STALL-ACT builds on ops/flow_health.py, which A7 (opus2) extends. Main works only the stall/loop act path and rebases on A7 once it is integrated."
+    },
+    {
+      "id": "D-OWNER-EXECUTION-CONTRACT",
+      "at": "2026-11-02T20:20:41Z",
+      "source": "owner 'Final owner execution contract' 2026-11-02 (binding)",
+      "decision": "Priority order P0-A safety/Product Truth, P0-B continuous product supply, P0-C complete autonomous production, P0-D reliable orchestration, P0-E production proof; non-critical enhancements never displace these. Every assignment carries an autonomy justification (assignments[*].justification: capability, handoff_or_defect, component, upstream, downstream, acceptance, path_to_production). Product-specific work only to close shared correctness/safety/readiness defects. Progress is reported only as the delivery ladder BUILT -> REVIEWED -> INTEGRATED -> CERTIFIED -> DEPLOYED -> PRODUCTION-VERIFIED -> E2E-ACCEPTED (`ops/assignments.py status`), never as counts of commits, PRs or tests. Accepted work integrates promptly into the Batch 6 branch, kept separate from the certified Batch 5 candidate.",
+      "integration_branch": "claude/w6-INTEG1 (from claude/w5-INTEG1 7c42e706; created at the first accepted Batch 6 item)"
+    },
+    {
+      "id": "I-A6-FROZEN-KNOWLEDGE-CONTRACT",
+      "at": "2026-11-02T21:13:50Z",
+      "source": "Codex question #28 6588471124",
+      "decision": "Approved design knowledge used by a design is pinned in CIR provenance as {rule_id, rule_version, rule_digest, evaluation_digest}. Codex provides the approved-only reader and a verify_pins(db, pins) function that revalidates pins against the durable approved store (never activates an unapproved, revoked or unevaluated rule). Secondary's A6 carries the pin record in CIR provenance and calls verify_pins in certificate, release and quality paths. The PDF writer renders deterministically from the pinned closed-vocabulary record and REFUSES (fails closed) a CIR that carries a pin which is missing from the store or unverified; CIRs with no pins are unaffected. Any CIR shape change bumps core.contracts 'cir' (v3) in the same commit with the pin tests. Deployed images lacking research/bench2 report benchmark evaluation UNKNOWN; raw reference-derived research material is never shipped in the image."
+    },
+    {
+      "id": "I-SUPPORT-LEARNING-CONSENT",
+      "at": "2026-11-02T21:52:58Z",
+      "source": "Codex question #28 6589370771",
+      "decision": "There is no canonical consent or revocation record for customer support content. Absent consent is NOT permission: private support case text never feeds Learning (lessons, LearnGap evidence, design knowledge). Allowed: aggregate, non-identifying defect counts per release row (as used by P0-SUPPORT-DEFECT-INCIDENT for Product Truth withholding and re-verification), which carry no customer text. Any future use of support text needs an owner-approved consent policy, a consent field at SupportCase intake, and a revocation path that retracts derived evidence; until then Codex and Secondary do not wire support text into Learning.",
+      "owner_item": "OA-SUPPORT-CONSENT-POLICY (later, not blocking): decide whether customer support content may ever inform learning, under what consent wording (CASL/privacy)"
+    },
+    {
+      "id": "I-A6-ONE-AUTHORITY",
+      "at": "2026-11-02T22:32:38Z",
+      "source": "Secondary #28 6590109328",
+      "decision": "A6's lesson.design_approved production route is retired in the Codex-contract delta; Codex's evaluated DesignRule plus a verified pin is the only way learned knowledge changes a draft. The current A6 approval path is treated as superseded by reviewers."
+    },
+    {
+      "id": "D-OWNER-P0-EXECUTION-ORDER-20261107",
+      "at": "2026-11-07T06:30:24Z",
+      "by": "owner",
+      "summary": {
+        "V3": "approved fixture-only (OA-V3 closed)",
+        "codex_secondary": "Codex branches are legitimate engineering candidates; Main reviews exact pushed commits, resolves overlaps, integrates accepted improvements; Secondary owns product-to-listing workforce and adopts better Codex solutions rather than rebuilding; Codex owns Learning plus assigned non-overlapping P0 work; assign by module/branch ownership",
+        "batch5": "prepare immediate deployment: verify SHA unchanged, deploy guard + rollback rehearsal, fresh backup + restore verification, SHADOW preserved, no unapproved paid calls or Etsy writes, Batch 4 failure documented, diagnostics and rollback criteria defined; then bring exact deploy action",
+        "batch6_priority": [
+          "shared evidence and authority fencing",
+          "A6 Learning certification and delivery safety",
+          "A3 photo evidence and gallery approval",
+          "A9 listing-package and owner-review fencing",
+          "V0 paid-provider budget safety",
+          "A4 research-to-product supply and enrichment",
+          "A5 correction and recovery",
+          "V2-V6 visual production",
+          "remaining department handoffs"
+        ],
+        "pr130": "cumulative review candidate only; review exact head and source branches; additive integration where safeguards overlap",
+        "diagnostics": "investigate Batch 4 dead letters and false evidence checks with Railway read-only tools; name exact missing permission if insufficient",
+        "paid_providers": "fail closed until V0 fixed, tested, integrated, deployed; no paid experiments, no test calls with production credentials; determine if keys can stay configured behind a verified disabled gate; CA$100 monthly ceiling unchanged",
+        "secret_leak_severity": "P1 when exposure confirmed or not safely ruled out; targeted hold on affected credentials and dependent operations; no automatic pause of unrelated departments without evidence of shared exposure",
+        "backups_cloudline": "no backup deletion without retention/space/restore verification; no Cloudline reactivation or paid experiment until provider gate certified and separately approved",
+        "completion": "Research -> Concept -> Product Dev -> Validation -> Correction -> Learning -> PDF -> Visual -> Gallery -> Listing Package -> Owner Approval -> Etsy Ops -> Feedback -> Next Product on Railway, with real-handler E2E, PostgreSQL concurrency tests, independent review, full certification, 24h Railway acceptance"
+      }
+    }
+  ],
+  "owner_actions_pending": [
+    {
+      "id": "OA-VISUAL-1",
+      "at": "2026-11-02T19:00Z",
+      "items": [
+        "F-852/F-853 scope for generated LIFESTYLE/SCALE/COLOUR_CONTEXT frames",
+        "Etsy image-policy reading (UNKNOWN)",
+        "fund a second vision judge and a face-embedding model for automatic identity (P0-b)",
+        "approve room reference images for the consistent home (P1-a)",
+        "physical basket sample and photo"
+      ],
+      "blocks": "generated frames reaching a publishable gallery; does not block V1/V2 or any other work"
+    },
+    {
+      "id": "OA-BENCH-LIBRARY-VOLUME",
+      "at": "2026-11-02T21:39:14Z",
+      "action": "later, at Learning deployment: provision a private Railway volume for BRAMBLELOOP_BENCHMARK_LIBRARY holding the licensed benchmark files",
+      "why": "Codex's bench2 evaluator reads licensed, SHA-pinned reference files from a private library; without it evaluation and pin verification fail closed (safe, but no approved knowledge can activate)",
+      "max_cost": "UNKNOWN until sized (small volume)",
+      "blocks": "approved design knowledge in production only; nothing else"
+    },
+    {
+      "id": "OA-V3-LAURA-QUALIFICATION",
+      "raised": "2026-11-07T05:52:24Z",
+      "action": "Decide whether Secondary may build V3 (audit P0-b): a qualified Laura identity embedder plus two independent vision judges, initially fixture-only (stub embedder and judges; production identity stays UNKNOWN until paid vision is owner-funded). Reply 'APPROVE V3 fixture-only' or 'PARK V3'.",
+      "why": "V3 changes how Laura's identity is scored; the owner directive forbids modifying approved identity rules without authorization, so Main cannot approve it.",
+      "max_cost_cad": 0,
+      "minutes": 5,
+      "consequence_of_delay": "Laura identity in generated images stays UNKNOWN (never PASS); galleries with Laura cannot be machine-verified for identity.",
+      "status": "APPROVED (fixture-only)",
+      "decided": "2026-11-07T06:30:24Z",
+      "decided_via": "owner, Main channel 2026-11-07 (confirms the relay in #28 6703286445)",
+      "conditions": [
+        "stand-in models and simulated responses only",
+        "no paid calls or provider activation",
+        "real Laura identity qualification remains UNKNOWN",
+        "preserve the approved canonical identity pack",
+        "no threshold relaxation",
+        "no fixture evidence represented as real identity certification"
+      ]
+    },
+    {
+      "id": "OA-PAID-KEYS",
+      "status": "owner chose 'leave for now' (2026-11-07): accept the small automatic BFL probe spend until V0 ships",
+      "decided": "2026-11-07T07:37:47Z"
+    }
+  ],
+  "production_findings": [
+    {
+      "id": "PF-PAID-PROBE-NO-ACTIVATION",
+      "at": "2026-11-02T19:05Z",
+      "release": "0967c3ee",
+      "fact": "BRAMBLELOOP_IMAGE_KEY_BFL (and _GOOGLE, _OPENAI) are set in production. Railway DNS log shows api.bfl.ai resolved at 2026-11-02T00:01:10Z and 06:01:39Z (no OpenAI or Google image host lookups since 2026-11-01T19:00Z). The capability-probe cadence calls images.probe_if_due, which makes a paid FLUX generation without any owner activation; a successful probe opens the image_generation gate.",
+      "unknown": "whether those calls were billed or succeeded, and whether visual.image_production made paid generations (needs the DB: paid_call_records, audit_log ops.capability_probes); PROD_DIAG_READONLY.sql Q5 covers paid calls",
+      "fix": "V0 (code, Batch 6). Immediate containment is an owner decision (OA-PAID-KEYS)."
+    },
+    {
+      "id": "PF-BATCH4-24H-ACCEPTANCE",
+      "recorded": "2026-11-07T02:36:01Z",
+      "sha": "0967c3eee287d06cad0d8034a99e39076c0ab6d5",
+      "window": "2026-11-02T03:31Z..2026-11-03T03:31Z",
+      "verdict": "FAIL",
+      "evidence": "every sample in the window 12/13: no_unexpected_dead_letters_in_24h failed; evidence_checks false throughout: publishing_halt_clear, stale_artefacts_rebuilding, no_repeated_paid_call_in_24h, weekly_jobs_completing. Last in-window sample 2026-11-02T22:29Z (final 5h unsampled: Main worker outage). Build unchanged, worker alive, SHADOW held, nothing published, spend within ceilings. 2026-11-07 read is 13/13 only because the dead letters aged out of the 24h window; no fix is deployed. Dead-letter cause and evidence-check causes UNKNOWN without PROD_DIAG_READONLY.sql or the readback token."
+    },
+    {
+      "id": "PF-UNPINNED-STARLETTE",
+      "recorded": "2026-11-07T03:22:00Z",
+      "severity": "LOW (environment only)",
+      "finding": "requirements.txt has fastapi>=0.115 unpinned; a fresh install pulls starlette 1.10.0, whose TestClient requires httpx2 (absent), so TestClient suites (e.g. test_fb4_ops owner-intake route) fail in a fresh container while passing under starlette 1.6.0 (venv-integ4). Certification runs and Railway builds are not reproducible. Fix: pin fastapi/starlette (and httpx) to the certified versions in Batch 6.",
+      "owner": "main",
+      "correction": "CORRECTED same day: not a product or certification defect. The Dockerfile installs only requirements.lock with --require-hashes (starlette==1.6.0, fastapi==0.141.1), and certification runs on venv-integ4 (same pins). Only a bare system python in a fresh container (pip install -r requirements.txt) gets starlette 1.10. Action: run suites with venv-integ4 or install requirements.lock; no Batch 6 pin change needed."
+    },
+    {
+      "id": "PF-PAID-PROBE-ONGOING",
+      "recorded": "2026-11-07T07:31:12Z",
+      "severity": "HIGH (owner order item 6)",
+      "fact": "Railway DNS shows api.bfl.ai resolved by brambleloop-os on 2026-11-03T00:01Z, 06:02Z; 11-04 00:00Z, 12:04Z; 11-05 00:00Z, 18:02Z; 11-06 00:00Z, 18:02Z; 11-07 00:01Z (about twice daily). /api/verify evidence check no_repeated_paid_call_in_24h is false. Cause: gateway/images.py probe_if_due on the capability-probe cadence makes a paid FLUX generation whenever a BRAMBLELOOP_IMAGE_KEY_* is set; no env kill switch exists in 0967c3ee or in Batch 5 705725a3 (setting an invalid provider falls back to any available key).",
+      "containment": "owner removes BRAMBLELOOP_IMAGE_KEY_BFL/_GOOGLE/_OPENAI from brambleloop-os variables (keeping copies), or a code gate (V0) ships. Keys cannot stay configured safely behind a verified disabled gate in either deployable SHA.",
+      "unknown": "billing amounts and whether probes succeeded (DB paid_call_records)"
+    },
+    {
+      "id": "PF-DIAG-LOGS",
+      "recorded": "2026-11-07T07:31:12Z",
+      "fact": "Railway deploy logs for brambleloop-os contain only uvicorn access lines; job failures/dead letters are not logged to stdout, so the Batch 4 dead-letter cause cannot be read from logs. /api/verify publishes check names only. Exact missing access: a read-only query against the production Postgres jobs table (status=DEAD, updated_at in 2026-11-02T03:31Z..2026-11-03T03:31Z: job_type, last_error) or the operator-credential readback (ops/readback.py) which reads the same.",
+      "needed": "either a read-only DATABASE_URL role, or running PROD_DIAG_READONLY.sql via the Railway Postgres console (owner), or the BRAMBLELOOP_OPS_TOKEN for ops/readback.py"
+    },
+    {
+      "id": "PF-BATCH5-DEPLOYED",
+      "recorded": "2026-11-07T07:37:47Z",
+      "sha": "705725a3f0b2aa9910153d99b9d4389405199152",
+      "approved_by": "owner, Main channel 2026-11-07 (exact SHA)",
+      "preconditions": {
+        "sha_unchanged": true,
+        "deploy_guard": "ALLOW (full suite 20261102T164117Z-1487 on tree 5ba84bf7, 10384 tests, 0 failing suites)",
+        "rollback_rehearsal": "ALLOW to 0967c3ee",
+        "backup": "brambleloop_prod_20261107T072926Z.dump 543628327 bytes sha256 b4ec213b1efdf056a699d66ab9fa8e6090ce142deac8c9f27e0d0709bf0be46d restore_ok, 147 tables 319915 rows, BK RESULT OK",
+        "shadow": "phase_is_shadow and nothing_published pass before and after"
+      },
+      "readback": "13/13 checks; smoke PASS; NEEDS_OPERATOR x6 (operator-gated endpoints, unchanged from Batch 4); rollback_decision FIX_FORWARD",
+      "acceptance": {
+        "start": "2026-11-07T07:37:47Z",
+        "end": "+24h",
+        "rollback_triggers": [
+          "boot guard or build commit != 705725a3",
+          "worker not alive",
+          "any red /api/verify check",
+          "a new unexpected dead letter",
+          "SHADOW not held / anything published",
+          "paid spend beyond the known probe cadence"
+        ],
+        "known_preexisting": "4 false evidence checks (publishing_halt_clear, stale_artefacts_rebuilding, no_repeated_paid_call_in_24h = BFL probe, weekly_jobs_completing) carried from Batch 4; Batch 4 acceptance FAIL (dead letters) documented in PF-BATCH4-24H-ACCEPTANCE"
+      },
+      "backup_volume": "795M free of 4.6G after this backup: about one more backup fits; pruning needs retention/restore verification first (owner order item 8)"
+    },
+    {
+      "id": "PF-CHAIN-KEY-TOKEN-TRUNCATION",
+      "recorded": "2026-11-07T10:00:00Z",
+      "severity": "LOW (latent)",
+      "finding": "runtime/release.chain_key truncates the rebuild token to 12 chars; two rebuild tokens sharing a 12-char prefix collide and the second rebuild silently skips stages (found by Main while testing fix-only). Fix: hash the full token.",
+      "owner": "MAIN",
+      "status": "OPEN"
+    },
+    {
+      "id": "PF-W6-PERSIST-FRAMES-PHOTO",
+      "recorded": "2026-11-07T14:16:00Z",
+      "severity": "MED",
+      "finding": "runtime/release._persist_frames upserts by position without asset_class/lock/certificate invalidation; an assets.build (targeted or fix-only rebuild) can replace an approved certified photo frame with a RENDER and orphan the photo (upgrade_queued). Present on w6-INTEG1.",
+      "owner": "MAIN",
+      "status": "OPEN"
+    }
+  ],
+  "main_log": [
+    {
+      "at": "2026-11-08T04:35:06Z",
+      "by": "MAIN",
+      "event": "w6-INTEG1 head 16a80177 = fabe1b29 + codex-v1-runners f4c37c2e (b41234bc sys.path header, _minipytest _tmp.install; review SHIP). Targeted 11 suites 210 passing / 0 failing. Prior cert run 20261108T024842Z-26526 on fabe1b29 stopped at 403/895 (only codex_v1 'No module named brambleloop'). Fresh plain cert run 20261108T043424Z-16431 started on 16a80177 in wt-cert3."
+    },
+    {
+      "at": "2026-11-08T07:41:52Z",
+      "by": "MAIN",
+      "event": "Batch 5 24h production acceptance (705725a3, deployed 2026-11-07T07:37Z, window ended ~07:37Z 2026-11-08): FAIL. readback.py: build commit unchanged, boot guard ok, worker alive now, SHADOW held, nothing published, publication refusals recorded, cost ceilings present, smoke PASS. RED: no_unexpected_dead_letters_in_24h (red from 08:39Z on 11-07 to now, 20 of 21 samples). Worker stall 00:15Z on 11-08 (worker_is_alive false once; self-recovered; PO-705725A3-WORKER-STALL-0015). UNKNOWN (NEEDS_OPERATOR, no readback credential): department health, swarm runtime, funding packets, off-site archive, continuity proof, Etsy credential, spend vs ceilings, BFL probe DNS cadence. Evidence checks false are the same four as at acceptance start (publishing_halt_clear, stale_artefacts_rebuilding, no_repeated_paid_call_in_24h, weekly_jobs_completing): unchanged, not newly red. No rollback trigger: nothing published, SHADOW held, no spend breach observed; 705725a3 stays deployed. Dead-letter diagnosis remains blocked on OWNER ACTION BRAMBLELOOP_READBACK_TOKEN (read-only)."
+    },
+    {
+      "at": "2026-11-08T08:09:40Z",
+      "by": "MAIN",
+      "event": "Cert run 20261108T043424Z-16431 on 16a80177 FAILED (10797 passing, 6 suites). Root causes: 4 real (postgres skip-only; F-226 stub outdated by Codex 5b4209ac; pytest/monkeypatch in visnext/visnext2; Cloudline definition drift from Codex 7d8d28e6 + dry run now blocked by V1 anchor rule) fixed on claude/w6-cert-regfix 1eb0c9fa + 5590c519 (review DO NOT SHIP -> fixed -> SHIP); 2 launch-environment (SIGINT ignored by `( ... &)` launch; reproduced) fixed by launching with SIGINT default. Cloudline definition re-pinned to v3 (no authorization; owner must authorize afresh). Merged: w6-INTEG1 4ea4c1cb (tree == reviewed 5590c519). Fresh plain cert run 20261108T080858Z-11912 started in wt-cert4. Follow-up LOW (Codex/any): postgres helper pg_ctl stop TimeoutExpired skips rmtree. Also: local pack-1b22b660 I/O error, quarantined; all 2213 objects verified on origin; alternates -> fresh mirror."
+    },
+    {
+      "at": "2026-11-08T14:36:25Z",
+      "by": "MAIN",
+      "event": "Batch 6 CERTIFIED: full plain run 20261108T121311Z-32051 on claude/w6-INTEG1 ea5873aa: 10812 passing, 0 failing suites, 0 no-pass, TMP leak 0, release_eligible true (8481 s). Release branch claude/w6-release-ea5873aa: release record 1a43d83f + merge of deployed 705725a3 (bookkeeping only; DEPLOYED_HISTORY union) = b7921052. deploy_guard check b7921052 vs 705725a3: ALLOW (tree 1d7c345a... == certified). rehearse-rollback ALLOW (not pushed). DRY_RUN deploy.sh ALLOW. Awaiting owner exact-SHA approval for b792105273421099ce6937abc3b581dc7e6c51f5. Earlier runs today stopped: 16a80177 (4 real + 2 launch-env), 4ea4c1cb (disk 2% free -> capacity suite), ea5873aa #1 (CPU oversubscription from concurrent reviews)."
+    }
+  ]
 }

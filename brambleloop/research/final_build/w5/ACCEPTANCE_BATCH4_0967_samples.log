@@ -1,0 +1,120 @@
+2026-11-02T03:37:20Z BLIP observed 03:36Z: ok=False 12/13 once, weekly_jobs_completing false once; next 5 reads ok
+2026-11-02T03:37:26Z ok=True fail=[] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h']
+2026-11-02T03:39:29Z ok=True fail=[] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h']
+2026-11-02T03:41:33Z ok=True fail=[] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h']
+2026-11-02T03:43:36Z ok=True fail=[] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h']
+2026-11-02T03:45:40Z ok=False fail=['worker_is_alive'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h']
+2026-11-02T03:47:44Z ok=False fail=['worker_is_alive'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h']
+2026-11-02T03:49:49Z ok=True fail=[] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h']
+2026-11-02T03:51:53Z ok=False fail=['worker_is_alive'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h']
+2026-11-02T03:53:57Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T03:56:01Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T03:58:05Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:00:09Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:02:14Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:04:18Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:06:22Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:08:26Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:10:30Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:12:35Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:14:39Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:16:43Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:18:47Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:20:51Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:22:55Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:24:58Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:27:02Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:29:06Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:31:09Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:33:13Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:35:17Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:37:20Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:39:24Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:41:28Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:43:32Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:45:35Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:47:40Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:49:43Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:51:47Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:53:51Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:55:55Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T04:57:59Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T05:00:03Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T05:02:07Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T05:04:11Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T05:06:15Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T05:08:19Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T05:10:23Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T05:12:27Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T05:14:30Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T05:16:34Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T05:18:38Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T05:20:42Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T05:22:46Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T05:24:50Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T05:26:54Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T05:28:58Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T05:31:02Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T05:33:06Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T05:35:10Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T05:37:23Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T05:37:23Z health 0967c3ee worker_alive=True
+2026-11-02T05:42:27Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T05:42:28Z health 0967c3ee worker_alive=True
+2026-11-02T05:47:32Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T05:47:32Z health 0967c3ee worker_alive=True
+2026-11-02T05:52:36Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T05:52:37Z health 0967c3ee worker_alive=True
+2026-11-02T05:57:40Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T05:57:41Z health 0967c3ee worker_alive=True
+2026-11-02T06:02:45Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T06:02:46Z health 0967c3ee worker_alive=True
+2026-11-02T06:07:49Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T06:07:50Z health 0967c3ee worker_alive=True
+2026-11-02T06:12:54Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T06:12:54Z health 0967c3ee worker_alive=True
+2026-11-02T06:17:58Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T06:17:59Z health 0967c3ee worker_alive=True
+2026-11-02T06:23:03Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T06:23:03Z health 0967c3ee worker_alive=True
+2026-11-02T06:28:07Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T06:28:08Z health 0967c3ee worker_alive=True
+2026-11-02T06:33:12Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T06:33:13Z health 0967c3ee worker_alive=True
+2026-11-02T06:38:17Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T06:38:17Z health 0967c3ee worker_alive=True
+2026-11-02T06:43:21Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T06:43:22Z health 0967c3ee worker_alive=True
+2026-11-02T06:48:25Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T06:48:26Z health 0967c3ee worker_alive=True
+2026-11-02T06:53:30Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T06:53:30Z health 0967c3ee worker_alive=True
+2026-11-02T06:58:34Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T06:58:35Z health 0967c3ee worker_alive=True
+2026-11-02T07:03:39Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T07:03:39Z health 0967c3ee worker_alive=True
+2026-11-02T07:08:43Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T07:08:44Z health 0967c3ee worker_alive=True
+2026-11-02T07:13:48Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T07:13:48Z health 0967c3ee worker_alive=True
+2026-11-02T07:18:52Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T07:18:53Z health 0967c3ee worker_alive=True
+2026-11-02T07:23:57Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T07:23:57Z health 0967c3ee worker_alive=True
+2026-11-02T07:29:01Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T07:29:02Z health 0967c3ee worker_alive=True
+2026-11-02T07:34:06Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T07:34:06Z health 0967c3ee worker_alive=True
+2026-11-02T07:37:50Z NOTE continuous sampler stopped at the 2 h background limit (07:3xZ); from here, one read per check-in
+2026-11-02T07:37:54Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T08:32:55Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T08:35:31Z ok=False checks=12/13 fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T10:30:16Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T12:34:43Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T15:12:32Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T16:48:12Z ok=False checks=12/13 fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T17:16:16Z ok=False fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T18:32:15Z build=0967c3ee worker_alive=True ok=False checks=12/13 fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T20:29:35Z build=0967c3ee worker_alive=True ok=False checks=12/13 fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-02T22:29:36Z build=0967c3ee worker_alive=True ok=False checks=12/13 fail=['no_unexpected_dead_letters_in_24h'] ev_false=['publishing_halt_clear', 'stale_artefacts_rebuilding', 'no_repeated_paid_call_in_24h', 'weekly_jobs_completing']
+2026-11-07T02:36:01Z build=0967c3ee worker_alive=True ok=True checks=13/13 ev_false=['publishing_halt_clear','stale_artefacts_rebuilding','no_repeated_paid_call_in_24h','weekly_jobs_completing'] (post-window; dead letters aged out, no fix deployed)

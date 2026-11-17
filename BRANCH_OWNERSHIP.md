@@ -108,3 +108,35 @@ Contact: hand off through your branch and a handoff document. The integrator rev
   - WO-3: held-out before-and-after design evaluation.
 - The map of what already exists is `brambleloop/research/final_build/w5/LEARNING_MAP.md`. The learning system is `improve/` plus `teardown/`, so do not build a competing one.
 - **Unowned:** `P0-DRAFT-CONSTRUCTIONS` (catalogue breadth beyond flat panels) has been offered to the second operator.
+
+## Update 2026-11-02T13:30Z: the integrator is Secondary's engineering lead (owner directive, permanent)
+
+- **Authority:** the owner directive "Take command of P0 autonomous workforce delivery" makes the integrator (Main Opus) the second operator's engineering lead.
+  - Assignments come only from the integrator's latest "ENGINEERING LEAD DIRECTIVE" comment on PR #3 and from `COORDINATION.json` `assignments`.
+  - The second operator implements them on isolated branches. The integrator reviews, integrates, certifies and deploys.
+- **Freeze:** there are no new per-product generators, construction routes or title-word patches until A1–A4 are accepted. New construction diversity comes only through the reusable Research → Product Development contract (A4).
+- **Active assignments (opus2):**
+  - A1 P0-SAFETY-CHILDREN: a children's refusal keyed on the construction.
+  - A2 P0-NAME-OBJECT: one allowlist-based construction-intent rule for both paths, plus motif_promise at publish.
+  - A3 P0-PHOTO-ASSET-REVIEW: the OPUS2S fixes.
+  - A4 P0-RESEARCH-PD-CONTRACT: to be defined after the wiring verification.
+  - A5 onward: pipeline handoff gaps from the wiring verification.
+- **Ownership boundaries:**
+  - opus2 owns `creative/fallback_constructions.py`, `creative/construction_registry.py`, the children's functions in `products/launch0.py`, the children's refusal in `publish/pdf.py`, and `publish/photo_asset_review.py`.
+  - The integrator owns `claude/w5-INTEG1`, the merge resolutions, `swarm/orchestrate.py` JOB_BANDS conflicts, and the records.
+  - Codex keeps P0-LEARNING-REFERENCE; nobody else implements it.
+
+## 2026-11-02T18:52Z: I-P0-ABSOLUTE-WORKFORCE (owner, permanent)
+The complete autonomous workforce is the top priority for every worker. The order is:
+1. safety and correctness defects;
+2. missing autonomous connections;
+3. integration, certification and deployment;
+4. 24-hour production acceptance;
+5. Build 2 and Final Master enhancements.
+
+Ownership now:
+- **opus2:** A1-R (`opus2/p0-child-safety-core`), the A2 fixes (`opus2/a2-name-object`), A4, A6 and A8.
+- **mainopus-worker:** A5 (`claude/w5-A5-correction-loop`), A7 (`claude/w5-A7-supply-stall`) and A9 (`claude/w5-A9-package-event`).
+- **Codex:** P0-LEARNING-REFERENCE. It does the CODEX1 HIGH fixes first, then the approved-rule reader that A6 consumes.
+
+No worker builds new constructions or product templates until priorities 1 to 3 are clear.

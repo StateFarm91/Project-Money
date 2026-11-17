@@ -1,0 +1,6 @@
+c3a test_a1r_child_safety_core rc=1 138s   File "/home/user/bl-runs/venv-integ4/lib/python3
+c3a test_childrens rc=0 0s OK   test_three_to_six_permits_the_part_and_requires_the_statement
+c3a test_risk_matrix rc=0 250s OK   test_the_parked_sample_request_is_a_tester_spend_approval_not_owner_crochet
+c3a test_geometry rc=0 1s OK   test_two_placements_that_would_overlap_are_refused
+c3a test_opus2_stuffed_finishing rc=0 1s 0 failed
+c3a test_launch0 rc=0 42s OK   test_two_sources_cannot_give_one_product_two_audiences
