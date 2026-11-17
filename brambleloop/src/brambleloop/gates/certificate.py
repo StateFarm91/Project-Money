@@ -158,6 +158,21 @@ OBJECT_SIZE_BANDS: dict[str, dict] = {
     "blanket": {"side_cm": (70.0, 280.0), "max_aspect": 1.6, "sole": True,
                 "basis": "a blanket is at least about 70 cm on each side (Craft Yarn Council "
                          "standard blanket sizes, stroller to king)"},
+    # Flat-rows size truth: each object with a common standard size. `side_cm` bounds both
+    # sides of a near-square object; `short_cm`/`long_cm` bound an oblong one.
+    "coaster": {"side_cm": (8.0, 13.0), "max_aspect": 1.25, "sole": True,
+                "basis": "a coaster is a square of about 10 cm (4 in) a side"},
+    "placemat": {"short_cm": (25.0, 40.0), "long_cm": (38.0, 52.0), "sole": True,
+                 "basis": "a placemat is about 30 x 45 cm (12 x 18 in)"},
+    "runner": {"short_cm": (25.0, 50.0), "long_cm": (90.0, 275.0), "sole": True,
+               "basis": "a table runner is about 30-45 cm wide and 90-275 cm long"},
+    "scarf": {"short_cm": (12.0, 35.0), "long_cm": (110.0, 230.0), "sole": True,
+              "words": ("scarf", "scarves"),
+              "basis": "a scarf is about 15-30 cm wide and 120-200 cm long (Craft Yarn "
+                       "Council standard scarf sizes); a cowl is a loop, not this band"},
+    "pillow": {"side_cm": (28.0, 66.0), "max_aspect": 2.0, "sole": True,
+               "basis": "a pillow or cushion cover face is about 30-60 cm (12-24 in), from "
+                        "square to lumbar"},
 }
 
 
@@ -173,15 +188,25 @@ def object_size_findings(cir, twin) -> list[Finding]:
     for family, band in OBJECT_SIZE_BANDS.items():
         if family not in hits or (band.get("sole") and set(hits) != {family}):
             continue
+        if band.get("words") and not set(hits[family]) & set(band["words"]):
+            continue
         w, h = float(twin.width_cm), float(twin.height_cm)
-        lo, hi = band["side_cm"]
-        aspect = max(w, h) / max(min(w, h), 1e-9)
+        short, long_ = min(w, h), max(w, h)
         problems = []
-        if not (lo <= w <= hi and lo <= h <= hi):
-            problems.append(f"{w:.1f} x {h:.1f} cm is outside {lo:g}-{hi:g} cm a side")
-        if aspect > band["max_aspect"]:
-            problems.append(f"its sides differ by {aspect:.2f}x (at most "
-                            f"{band['max_aspect']:g}x for this object)")
+        if "side_cm" in band:
+            lo, hi = band["side_cm"]
+            aspect = long_ / max(short, 1e-9)
+            if not (lo <= w <= hi and lo <= h <= hi):
+                problems.append(f"{w:.1f} x {h:.1f} cm is outside {lo:g}-{hi:g} cm a side")
+            if aspect > band["max_aspect"]:
+                problems.append(f"its sides differ by {aspect:.2f}x (at most "
+                                f"{band['max_aspect']:g}x for this object)")
+        else:
+            (slo, shi), (llo, lhi) = band["short_cm"], band["long_cm"]
+            if not (slo <= short <= shi):
+                problems.append(f"its short side {short:.1f} cm is outside {slo:g}-{shi:g} cm")
+            if not (llo <= long_ <= lhi):
+                problems.append(f"its long side {long_:.1f} cm is outside {llo:g}-{lhi:g} cm")
         if problems:
             out.append(Finding(ERROR, "OBJECT_SIZE_OUT_OF_BAND", (
                 f"the title names a {hits[family][0]!r}, and the pattern's finished size "

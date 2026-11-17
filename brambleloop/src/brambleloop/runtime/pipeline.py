@@ -143,21 +143,21 @@ _GEOMETRY: dict[str, dict] = {
     # sizes). 24 rows drafted a 128 x 22 cm strip that certification called a blanket.
     "blanket":        {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 160, "rows": 168},
     "graphghan":      {"stitch_repeat": [["sc", 4]],            "width": 140, "rows": 24},
-    "baby":           {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 100, "rows": 20},
+    "baby":           {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 100, "rows": 98},
     "seasonal_decor": {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 40,  "rows": 12},
-    "runner":         {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 60,  "rows": 16},
-    "placemat":       {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 48,  "rows": 14},
+    "runner":         {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 40,  "rows": 148},
+    "placemat":       {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 56,  "rows": 37},
     # A4A-1: a dishcloth is its own object, not a placemat: a square of about 22 x 22 cm at
     # the certified worsted gauge (28 sts x 27 rows), inside the size band certification
     # enforces (`gates.certificate.OBJECT_SIZE_BANDS`).
     "dishcloth":      {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 28,  "rows": 27},
-    "coaster":        {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 24,  "rows": 8},
+    "coaster":        {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 12,  "rows": 11},
     "basket":         {"stitch_repeat": [["sc", 4]],            "width": 48,  "rows": 14},
-    "pillow":         {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 72,  "rows": 20},
+    "pillow":         {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 52,  "rows": 46},
     "wall_decor":     {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 44,  "rows": 16},
     "flower":         {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 24,  "rows": 8},
     "pet":            {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 60,  "rows": 18},
-    "scarf":          {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 40,  "rows": 20},
+    "scarf":          {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 24,  "rows": 168},
     "ornament":       {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 24,  "rows": 8},
 }
 _DEFAULT_GEOMETRY = {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 40, "rows": 12}
