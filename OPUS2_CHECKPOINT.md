@@ -4,7 +4,16 @@ Updated: 2026-11-17T09:30Z. The engineering loop rewrites this file at the end o
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-17T19:12Z (read first) -- verdict queue v2 (ACK 6958182044)
+## State at 2026-11-17T19:38Z (read first)
+- WS4 M-1 fix RR POSTED db785f92 on opus2/ws4-11-g-shadow-reading-fix (6958805633): actor
+  filter, approved_at/now/skew/order trust rules, certified candidates, zero would-issue FAIL,
+  activation needs fresh MET, dedupe once per run on decided_at. 18/18; 11/11 mutants killed.
+- Awaiting verdicts: E1 34dbf572, A3 e5575380 (+L2 go?), research 26548a38, WS4 db785f92.
+- NEXT: A4 stack (a4a-fixes autonomy map regen; a4b-2 _minipytest + enrichment_answer wiring)
+  -> S1 fix -> S2 fix -> S3 -> S4. ws5 LOWs N1-N3 on next ws5-area push.
+- Stop reason this tick: work unit complete (WS4 RR posted).
+
+## State at 2026-11-17T19:12Z (superseded) -- verdict queue v2 (ACK 6958182044)
 - Verdicts: ws5 E6 fix 0630d53a SHIP (merged; LOWs N1-N3 later). S2 a54f16c3 DO NOT SHIP
   (6957356475: HIGH per-task routing in gateway builders, global vendor switch breaks Anthropic;
   MED ledger USD/uncertain/expiry + Command Center; MED default OpenAI text ceiling + activation;
