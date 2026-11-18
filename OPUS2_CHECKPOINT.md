@@ -1,10 +1,28 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-18T07:15Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-18T08:40Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-18T07:15Z (read first)
+## State at 2026-11-18T08:40Z (read first)
+- S4 RR POSTED daa31ad9 on opus2/s4-p0-command-board (6973250760), one commit on
+  claude/w6-INTEG1 19e6a8ff: app/command_center/p0_board.py + GET /api/cc/p0-board (owner,
+  read-only, composes existing readers; per-section level from the 7-rung vocabulary, never
+  claiming REVIEWED/INTEGRATED; REAL COMMERCE only from etsy_receipts orders). 9/9 tests,
+  17/17 mutants. 110-suite regression: 98 + 8 green once research/w4, release/, repo ops/
+  were added; remaining environmental (w4_board git/ledgers, DECISION_LOG, research kits).
+- S3 complete as code: fa3a09e9 -> 497a8301 -> 9772f4a4 (all awaiting verdict).
+- Awaiting verdicts: E1 34dbf572, A3 e5575380 (+L2 go?), research 26548a38, WS4 db785f92,
+  A4 ac0ca847/eb47549e, S1 e490fc6f, S2 9d03acb2, S3 fa3a09e9/497a8301/9772f4a4, S4 daa31ad9;
+  sp.activate F-542/F8 scan question (6969301528).
+- NEXT: S4b UI page on daa31ad9 (static/js: routes.js entry, api.js endpoint,
+  views/p0_board.js, sw.js cache list; look at views/completion.js for the pattern), then
+  ws5 LOWs N1-N3.
+- Scratch copy scratchpad/s4 = w6-INTEG1 tree + research/final_build/w4 + release/;
+  scratchpad/ops = repo-root ops/. Disk ~365 MB free.
+- Stop reason this tick: S4 work unit complete (RR posted).
+
+## State at 2026-11-18T07:15Z (superseded)
 - S3 part 3 RR POSTED 9772f4a4 on opus2/ws4-stage-a2-withdrawal (6971474128): Stage A part 2
   (EtsyClient.deactivate, OwnerGrant.WITHDRAW not phase-gated, ops/standing_withdrawal.py:
   lineage + stopped policy + 10/h + active read-back; plan() executes nothing). 6/6 tests,
