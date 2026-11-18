@@ -1847,7 +1847,20 @@ def frame_review_state(db, slug: str, version: str) -> dict:
                 "why": "the frame review on record judged no frames (#61): an empty review "
                        "is not a review"}
     reviewed_shas = {str(k): v for k, v in (detail.get("frame_shas") or {}).items()}
-    stored = {str(f["position"]): f["sha256"] for f in _stored_frames(db, slug, version)}
+    stored_rows = _stored_frames(db, slug, version)
+    photos = [f for f in stored_rows if f["asset_class"] == "PHYSICAL_PRODUCT_PHOTO"]
+    if photos:
+        # Review of 3928ba00 L2: a photo-led gallery. The owner-attested sample photograph is
+        # not a frame this review renders or judges -- its authority is the deterministic
+        # asset-truth review (`publish.photo_asset_review`), which approves the row only
+        # when the attestation, hashes, order and claims all pass. `plan_upgrade` puts it
+        # first and shifts every render one slot, so the review's position-keyed hashes
+        # could never equal the stored map and #61 refused every photo-led listing for good.
+        # Now: each photograph must be approved by its own review (a NOT-QUALIFYING one is
+        # excluded from the uploaded set and is not counted), and the reviewed bytes must be
+        # exactly the stored non-photo frames, in the same order. Tightens nothing else.
+        return _photo_led_review_state(db, slug, version, stored_rows, reviewed_shas, bad)
+    stored = {str(f["position"]): f["sha256"] for f in stored_rows}
     bound = bool(reviewed_shas) and bool(stored) and reviewed_shas == stored
     if not bound:
         why = ("the frame review on record is not bound to the frames now stored for this "
@@ -1859,6 +1872,52 @@ def frame_review_state(db, slug: str, version: str) -> dict:
     return {"reviewed": not bad, "not_clear": bad, "bound_to_stored_frames": True,
             "why": ("every stored frame was independently reviewed and communicates its claim"
                     if not bad else f"frames not independently cleared (#61): {bad}")}
+
+
+def _photo_led_review_state(db, slug, version, stored_rows, reviewed_shas, bad) -> dict:
+    """`frame_review_state` for a gallery holding a physical photograph (review of 3928ba00
+    L2): renders are bound by bytes and order, photographs by their own approval."""
+    from sqlalchemy import select
+
+    from ..core.models import ListingAsset
+    from ..publish.photo_asset_review import NOT_QUALIFYING, PHOTO_CLASS
+
+    with db.session() as s:
+        photo_rows = [(r.position, bool(r.approved), list(r.blocked_reasons or []))
+                      for r in s.scalars(select(ListingAsset).where(
+                          ListingAsset.product_slug == slug, ListingAsset.version == version,
+                          ListingAsset.asset_class == PHOTO_CLASS))]
+    excluded = {p for p, _ok, reasons in photo_rows
+                if any(str(r).startswith(NOT_QUALIFYING) for r in reasons)}
+    pending = sorted(p for p, ok, _r in photo_rows if not ok and p not in excluded)
+    led = [p for p, ok, _r in photo_rows if ok]
+    renders = [f["sha256"] for f in sorted(stored_rows, key=lambda f: f["position"])
+               if f["asset_class"] != PHOTO_CLASS]
+    try:
+        reviewed = [v for _k, v in sorted(reviewed_shas.items(), key=lambda kv: int(kv[0]))]
+    except ValueError:
+        reviewed = None
+    bound = bool(reviewed) and bool(renders) and reviewed == renders
+    base = {"photo_led": True, "photo_frames_approved": sorted(led),
+            "photo_frames_awaiting": pending, "photo_frames_excluded": sorted(excluded)}
+    if not bound:
+        why = ("the frame review on record is not bound to the frames now stored for this "
+               "release (#61): " + ("it recorded no frame hashes" if not reviewed_shas else
+                                    "no rendered frames are stored" if not renders else
+                                    "the stored rendered frames (around the physical "
+                                    "photograph) differ from the ones reviewed"))
+        return {"reviewed": False, "not_clear": bad, "bound_to_stored_frames": False,
+                "why": why, **base}
+    if pending:
+        return {"reviewed": False, "not_clear": bad, "bound_to_stored_frames": True,
+                "why": (f"physical photograph frame(s) at {pending} await the deterministic "
+                        f"asset-truth review (#61): a photo frame is cleared only by its own "
+                        f"approval"), **base}
+    return {"reviewed": not bad, "not_clear": bad, "bound_to_stored_frames": True,
+            "why": ("every rendered frame was independently reviewed and every uploaded "
+                    "physical photograph frame was approved by the asset-truth review"
+                    if not bad
+                    else f"frames not independently cleared (#61): {bad}"), **base}
 
 
 def _stored_frames(db, slug: str, version: str) -> list[dict]:
@@ -2844,34 +2903,47 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
     # what is stored, and readers that trust `state == "valid"` (storefront preview, ads
     # readiness, first customer, image review, search evidence) must not see it as current.
     # The chain re-certifies after this build. A gallery with no photo is unchanged.
-    with ctx.db.session() as s:
-        photo_positions = set(s.scalars(select(ListingAsset.position).where(
-            ListingAsset.product_slug == slug, ListingAsset.version == version,
-            ListingAsset.asset_class == "PHYSICAL_PRODUCT_PHOTO")))
-    photo_led = bool(photo_positions)
-    # Review 6817652112 N2: `plan_upgrade` puts the photograph first and shifts the renders
-    # after it, so a rebuild must place its renders in the slots AFTER the photo frames, not at
-    # the builder's 1..N (which reported the hero as "not placed" and left the old tail row
-    # approved). Each render goes to the next slot no photograph holds, in builder order.
-    target: dict[int, int] = {}
-    free = (p for p in range(1, 10_000) if p not in photo_positions)
-    for frame in sorted(frames, key=lambda f: f.position):
-        target[frame.position] = (frame.position
-                                  if not photo_led
-                                  or frame.asset_class.value == "PHYSICAL_PRODUCT_PHOTO"
-                                  else next(free))
-    with ctx.db.session() as s:
-        if photo_led:
-            from ..publish.photo_asset_review import _lock as _photo_lock
+    # Review of 3928ba00 L1: the gallery's photo positions are read UNDER the photo review's
+    # write lock, in the same transaction as the writes. Read before the lock, a concurrent
+    # `plan_upgrade` / `lead_with_if_qualifying` that shifts the frames between the read and
+    # the lock left this build targeting a slot a photograph now holds -- the shifted hero
+    # render was then recorded "not placed" and silently dropped. The lock is taken for every
+    # gallery (a photo can arrive between any read and the write); it is the same lock every
+    # photo-frame writer takes, so the build simply serialises behind them.
+    from ..publish.photo_asset_review import _lock as _photo_lock
 
-            _photo_lock(s, ctx.db)
+    with ctx.db.session() as s:
+        _photo_lock(s, ctx.db)
+        held = list(s.execute(select(ListingAsset.position, ListingAsset.asset_class).where(
+            ListingAsset.product_slug == slug, ListingAsset.version == version)))
+        photo_positions = {p for p, c in held if c == "PHYSICAL_PRODUCT_PHOTO"}
+        # Review of 3928ba00 L4: a generated concept (`visual.gallery_persist`) is another
+        # writer's image; a render is never written over it. Its slot is skipped like a
+        # photograph's.
+        concept_positions = {p for p, c in held if c == "AI_LIFESTYLE_CONCEPT"}
+        photo_led = bool(photo_positions)
+        reserved = photo_positions | concept_positions
+        # Review 6817652112 N2: `plan_upgrade` puts the photograph first and shifts the
+        # renders after it, so a rebuild must place its renders in the slots AFTER the photo
+        # frames, not at the builder's 1..N (which reported the hero as "not placed" and left
+        # the old tail row approved). Each render goes to the next slot no photograph (or
+        # concept) holds, in builder order. With nothing reserved this is the identity.
+        target: dict[int, int] = {}
+        free = (p for p in range(1, 10_000) if p not in reserved)
+        for frame in sorted(frames, key=lambda f: f.position):
+            target[frame.position] = (frame.position
+                                      if not reserved
+                                      or frame.asset_class.value in ("PHYSICAL_PRODUCT_PHOTO",
+                                                                     "AI_LIFESTYLE_CONCEPT")
+                                      else next(free))
         rewritten = False
         for frame, meta in zip(frames, stored):
             row = s.scalar(select(ListingAsset).where(
                 ListingAsset.product_slug == slug, ListingAsset.version == version,
                 ListingAsset.position == target[frame.position]))
-            if row is not None and row.asset_class == "PHYSICAL_PRODUCT_PHOTO" \
-                    and frame.asset_class.value != "PHYSICAL_PRODUCT_PHOTO":
+            if row is not None and row.asset_class in ("PHYSICAL_PRODUCT_PHOTO",
+                                                       "AI_LIFESTYLE_CONCEPT") \
+                    and frame.asset_class.value != row.asset_class:
                 # Review A3 U5 84085fa8 F2: a rebuild's render never replaces a physical
                 # photograph's slot. The photo, its approval and its certificate stand; the
                 # render is recorded as not placed.
