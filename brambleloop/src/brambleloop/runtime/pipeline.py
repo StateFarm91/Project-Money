@@ -138,27 +138,64 @@ def concept_to_cir(c: Concept, version: str = "1.0.0",
 # the stated width, so the compiler's divisibility check passes for a reason rather than by
 # luck.
 _GEOMETRY: dict[str, dict] = {
-    "mosaic_blanket": {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 160, "rows": 24},
-    "blanket":        {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 160, "rows": 24},
-    "graphghan":      {"stitch_repeat": [["sc", 4]],            "width": 140, "rows": 24},
+    # Mosaic and graphghan size truth: both are throws. At 24 rows they drafted 128 x 20 and
+    # 112 x 17 cm strips, which the blanket band refused. Every catalogue seed in these
+    # categories is engineered (its own chart), so only research and radar concepts use these
+    # plain templates, and their row counts are not tied to a chart.
+    "mosaic_blanket": {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 160, "rows": 188},
+    # Blanket size truth: a throw is about 127 x 152 cm (Craft Yarn Council standard blanket
+    # sizes). 24 rows drafted a 128 x 22 cm strip that certification called a blanket.
+    "blanket":        {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 160, "rows": 168},
+    "graphghan":      {"stitch_repeat": [["sc", 4]],            "width": 140, "rows": 192},
     "baby":           {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 100, "rows": 20},
     "seasonal_decor": {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 40,  "rows": 12},
-    "runner":         {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 60,  "rows": 16},
-    "placemat":       {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 48,  "rows": 14},
+    "runner":         {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 40,  "rows": 148},
+    "placemat":       {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 56,  "rows": 37},
     # A4A-1: a dishcloth is its own object, not a placemat: a square of about 22 x 22 cm at
     # the certified worsted gauge (28 sts x 27 rows), inside the size band certification
     # enforces (`gates.certificate.OBJECT_SIZE_BANDS`).
     "dishcloth":      {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 28,  "rows": 27},
-    "coaster":        {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 24,  "rows": 8},
+    "coaster":        {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 12,  "rows": 11},
     "basket":         {"stitch_repeat": [["sc", 4]],            "width": 48,  "rows": 14},
-    "pillow":         {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 72,  "rows": 20},
-    "wall_decor":     {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 44,  "rows": 16},
+    "pillow":         {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 52,  "rows": 46},
+    # S1 Product Truth: a wall hanging is a portrait panel of about 40 x 60 cm (the
+    # prototype's `wall_hanging` form), not the 35 x 14 cm strip this drafted.
+    "wall_decor":     {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 52,  "rows": 66},
     "flower":         {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 24,  "rows": 8},
-    "pet":            {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 60,  "rows": 18},
-    "scarf":          {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 40,  "rows": 20},
+    # S1 Product Truth: a flat pet mat is about 50 x 45 cm (a cat or small dog lies on it),
+    # not the 48 x 15 cm strip this drafted. A pet bed is a vessel (fallback_constructions).
+    "pet":            {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 64,  "rows": 50},
+    "scarf":          {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 24,  "rows": 168},
     "ornament":       {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 24,  "rows": 8},
 }
 _DEFAULT_GEOMETRY = {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 40, "rows": 12}
+
+# S1 Product Truth (size-family routing): the object a title names decides the size where the
+# category alone cannot. The `baby` category holds hats, blankets and small items, so a "Baby
+# Blanket" on its template was refused by the blanket band; and a ring cushion is a small
+# square, not a pillow or the default strip. First match wins; each entry's size sits inside
+# the band certification holds that object to (`gates.certificate.OBJECT_SIZE_BANDS`).
+_TITLE_GEOMETRY: tuple[tuple[str, frozenset | None, dict], ...] = (
+    # A ring bearer's cushion: about 19 x 19 cm.
+    (r"\bring[- ]?(?:bearer\s+)?(?:cushion|pillow)s?\b", None,
+     {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 24, "rows": 21}),
+    # A baby (stroller) blanket: about 80 x 89 cm (Craft Yarn Council: 76 x 89 cm stroller).
+    (r"\b(?:blanket|afghan|throw|blankie)s?\b", frozenset({"baby"}),
+     {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 100, "rows": 98}),
+)
+
+
+def _geometry_entry(category: str, title: str | None) -> dict:
+    """The template `concept_geometry` uses: a title-named object first, then the category."""
+    import re as _re
+
+    from ..creative.fallback_constructions import fold_title
+
+    folded = fold_title(title)
+    for pattern, categories, entry in _TITLE_GEOMETRY:
+        if (categories is None or category in categories) and _re.search(pattern, folded):
+            return entry
+    return _GEOMETRY.get(category, _DEFAULT_GEOMETRY)
 
 _PALETTES: dict[str, dict[str, str]] = {
     "nordic-forest": {"forest": "#244A3A", "cream": "#FAF6EB"},
@@ -168,18 +205,76 @@ _PALETTES: dict[str, dict[str, str]] = {
 _DEFAULT_PALETTE = {"forest": "#244A3A", "cream": "#FAF6EB"}
 
 
+def _template_size(stitch_repeat: tuple, width: int, rows: int) -> tuple[float, float]:
+    """The finished (width, height) in cm a template makes: its own twin, measured once."""
+    key = (stitch_repeat, width, rows)
+    if key not in _TEMPLATE_SIZE:
+        from ..cir.compiler import compile_cir
+        from ..cir.twin import build_twin
+
+        probe = Concept(slug="size-probe", title="size probe", category="probe",
+                        stitch_repeat=[tuple(x) for x in stitch_repeat], width_stitches=width,
+                        rows=rows, colors=dict(_DEFAULT_PALETTE))
+        cir = concept_to_cir(probe)
+        twin = build_twin(cir, compile_cir(cir))
+        _TEMPLATE_SIZE[key] = (float(twin.width_cm), float(twin.height_cm))
+    return _TEMPLATE_SIZE[key]
+
+
+_TEMPLATE_SIZE: dict[tuple, tuple[float, float]] = {}
+
+
+def _sized(g: dict, width: int, target: tuple[float, float]) -> tuple[int, int]:
+    """Stitches and rows that make `target` (short, long) cm on template `g`, keeping the
+    template's orientation (a runner stays long in rows, a placemat wide in stitches).
+
+    S1 review 6958883678 H2: a title's requested size is drafted, not replaced by the
+    template's. Scaled from the template's own measured twin, so the result is the same
+    deterministic arithmetic the twin will check."""
+    from ..creative import size_truth
+
+    unit = sum(n for _, n in g["stitch_repeat"])
+    w0, h0 = _template_size(tuple(tuple(x) for x in g["stitch_repeat"]), width, g["rows"])
+    short, long_ = target
+    if size_truth._met(short, min(w0, h0)) and size_truth._met(long_, max(w0, h0)):
+        # The template already makes the asked size: its numbers (and every release
+        # fingerprint drafted from them) stay as they are.
+        return width, g["rows"]
+    tw, th = (short, long_) if w0 <= h0 else (long_, short)
+    sts = max(unit, int(round(width * tw / w0 / unit)) * unit)
+    rows = max(2, int(round(g["rows"] * th / h0)))
+    return sts, rows
+
+
+def drafted_size(category: str | None, title: str | None) -> tuple[float, float]:
+    """The finished (width, height) in cm the flat template drafts for this title: the
+    `concept_geometry` numbers, measured by their own compiled twin (S1F2-LOW: the plan checks
+    this size with the certificate's size check, so plan and certify agree)."""
+    from types import SimpleNamespace
+
+    g = concept_geometry(SimpleNamespace(category=category, title=title, family=None))
+    return _template_size(tuple(tuple(x) for x in g["stitch_repeat"]), g["width_stitches"],
+                          g["rows"])
+
+
 def concept_geometry(seed: ConceptSeed) -> dict:
     """Turn a market concept into the numbers the CIR builder needs."""
-    g = _GEOMETRY.get(seed.category, _DEFAULT_GEOMETRY)
+    from ..creative import size_truth
+
+    g = _geometry_entry(seed.category, seed.title)
     unit = sum(n for _, n in g["stitch_repeat"])
     width = g["width"]
     if width % unit:
         # Round up to a multiple of the repeat rather than emitting a CIR we know will fail.
         width += unit - (width % unit)
+    rows = g["rows"]
+    req = size_truth.request(seed.category, seed.title)
+    if req["target"] is not None and not req["refused"]:
+        width, rows = _sized(g, width, req["target"])
     return {
         "stitch_repeat": [list(x) for x in g["stitch_repeat"]],
         "width_stitches": width,
-        "rows": g["rows"],
+        "rows": rows,
         "colors": dict(_PALETTES.get(seed.family or "", _DEFAULT_PALETTE)),
     }
 
