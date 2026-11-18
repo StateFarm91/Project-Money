@@ -124,3 +124,5 @@
 {"at": "2026-11-18T08:48:18Z", "worker": "opus2", "assignment": "S4", "event": "review_requested", "sha": "bbc4d473", "note": "S4b P0 board page on opus2/s4b-p0-board-page (comment 6973607191)"}
 {"at": "2026-11-18T10:35:56Z", "worker": "opus2", "assignment": "WS5-LOWS", "event": "review_requested", "sha": "9b807fed", "note": "ws5 N1-N3 on the E6 draft resolver, opus2/ws5-n1-n3-resolver-lows"}
 {"at": "2026-11-18T14:05:28Z", "worker": "opus2", "assignment": "S2", "event": "review_requested", "sha": "b6dd73ad", "note": "S2 MEDIUM shared estimator + LOWs (verdict 6979817823), opus2/s2-openai-provider-fix, comment 6980888558"}
+{"at": "2026-11-18T15:04:42Z", "worker": "opus2", "assignment": "QF-ETSY-SCOPES", "event": "review_requested", "sha": "b3e037b9", "note": "Store tab scopes display, opus2/etsy-connect-scopes-display (6981550036)"}
+{"at": "2026-11-18T15:04:42Z", "worker": "opus2", "assignment": "A4B-2", "event": "review_requested", "sha": "b8929db7", "note": "A4b-2 merged onto INTEG1 26762746 + 6979345975 fixes, opus2/a4b-2-producer-fix"}
