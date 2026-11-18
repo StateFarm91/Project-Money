@@ -22,6 +22,12 @@ dedupe and anti-copy -- stays with `radar.intake.run`, which approves or refuses
 
 One proposal per research task: a task that already carries a proposal is left alone, so a
 proposal the owner or another writer attached is never overwritten.
+
+Review H1 (eng/r5-research-2): a proposal is written only when the task's evidence clears
+concept intake's own floor (`intake.research_evidence`, the same function intake judges
+with), and an earlier proposal for the gap blocks a new one only while it is pending or
+approved, or -- if refused -- only until the evidence quality rises above what it was refused
+on. Each proposal is stamped on its task with its evidence digest and quality.
 """
 from __future__ import annotations
 
@@ -103,10 +109,8 @@ def _gap_state_skip() -> dict[str, str | None]:
 _GAP_STATE_SKIP = _gap_state_skip()
 
 
-def _already_proposed(db, gap_id: int) -> bool:
-    """Whether any research task opened for this gap already carries a proposal. A watchlist
-    answer expires in a day and the question re-opens, so the per-task check alone would
-    propose the same gap again every day."""
+def gap_tasks(db, gap_id: int) -> list:
+    """Every research task opened for this gap (its trigger, and the `#after:` re-openings)."""
     from sqlalchemy import select
 
     from ..intel import research
@@ -114,13 +118,76 @@ def _already_proposed(db, gap_id: int) -> bool:
     research._ensure(db)
     prefix = f"watchlist_gap:{gap_id}"
     with db.session() as s:
-        for t in s.scalars(select(research.ResearchTask).where(
-                research.ResearchTask.trigger.like(prefix + "%"))):
-            trig = str(t.trigger or "")
-            if (trig == prefix or trig.startswith(prefix + "#")) and \
-                    (t.detail or {}).get("concept_proposals"):
-                return True
-    return False
+        rows = [t for t in s.scalars(select(research.ResearchTask).where(
+                    research.ResearchTask.trigger.like(prefix + "%"))
+                    .order_by(research.ResearchTask.id))
+                if str(t.trigger or "") == prefix
+                or str(t.trigger or "").startswith(prefix + "#")]
+        s.expunge_all()
+        return rows
+
+
+def prior_proposals(db, gap_id: int) -> list[dict]:
+    """Review H1 (eng/r5-research-2): every proposal written for this gap, with the evidence
+    it was written on (digest, quality) and what concept intake decided (None = not judged
+    yet). Keyed on the evidence, not just the gap, so a refusal is not forever."""
+    from sqlalchemy import select
+
+    from . import intake
+
+    out = []
+    for t in gap_tasks(db, gap_id):
+        d = dict(t.detail or {})
+        stamps = d.get("proposal_evidence") or {}
+        for p in d.get("concept_proposals") or []:
+            slug = str(p.get("slug") or "")
+            intake._ensure(db)
+            with db.session() as s:
+                row = s.scalar(select(intake.RadarConcept).where(
+                    intake.RadarConcept.source_ref == f"research_task:{t.id}",
+                    intake.RadarConcept.slug == slug).order_by(intake.RadarConcept.id.desc())
+                    .limit(1))
+                decided = (row.state, float(row.quality or 0.0)) if row is not None else None
+            stamp = stamps.get(slug) or {}
+            out.append({"task": t.id, "slug": slug, "digest": stamp.get("digest"),
+                        "quality": (float(stamp["quality"]) if "quality" in stamp else
+                                    decided[1] if decided else 0.0),
+                        "state": decided[0] if decided else None})
+    return out
+
+
+def evidence_digest(ev: dict) -> str:
+    """What the proposal's evidence says, independent of which task holds it or the day it
+    is judged: the confidence and the cited statements and dates."""
+    import hashlib
+    import json
+
+    body = {"confidence": ev.get("confidence"),
+            "items": sorted([str(i.get("claim_class")), str(i.get("statement") or
+                                                            i.get("citation") or ""),
+                             str(i.get("date"))] for i in ev.get("items") or [])}
+    return hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()[:24]
+
+
+def _blocked_by_prior(priors: list[dict], digest: str, quality: float) -> str | None:
+    """Why an earlier proposal for this gap blocks a new one, or None. A proposal intake has
+    not judged yet, or approved (it was handed off; a later withdrawal or supersession is the
+    concept's own lifecycle), blocks. A refused one blocks only the same evidence or evidence
+    no stronger than it was refused on."""
+    from . import intake
+
+    for p in priors:
+        if p["state"] != intake.REFUSED:
+            return (f"an earlier proposal for this gap ({p['slug']} on research task "
+                    f"{p['task']}) is {p['state'] or 'awaiting concept intake'}")
+    refused = [p for p in priors if p["state"] == intake.REFUSED]
+    if any(p["digest"] == digest for p in refused):
+        return "the same evidence was already proposed for this gap and refused"
+    best = max((p["quality"] for p in refused), default=None)
+    if best is not None and quality <= best:
+        return (f"the evidence quality {quality} has not risen above the {best} an earlier "
+                f"proposal for this gap was refused on")
+    return None
 
 
 def _task_facts(db, task_id: int, today: date) -> tuple[dict | None, str | None]:
@@ -154,6 +221,20 @@ def _task_facts(db, task_id: int, today: date) -> tuple[dict | None, str | None]
     for f in facts:
         refs += [r for r in f.get("rests_on") or [] if r not in refs]
     return {"refs": refs, "confidence": conf, "facts": len(facts)}, None
+
+
+def _stamp(db, task_id: int, slug: str, digest: str, quality: float) -> None:
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from ..intel import research
+
+    with db.session() as s:
+        t = s.get(research.ResearchTask, int(task_id))
+        d = dict(t.detail or {})
+        d["proposal_evidence"] = {**(d.get("proposal_evidence") or {}),
+                                  slug: {"digest": digest, "quality": quality}}
+        t.detail = d
+        flag_modified(t, "detail")
 
 
 def proposal_for(gap_id: int, pod: str, task_id: int, corroborated: int, facts: dict,
@@ -215,9 +296,6 @@ def write(db, *, today: date | None = None, now: datetime | None = None) -> dict
         if why_not:
             skip(why_not)
             continue
-        if _already_proposed(db, gid):
-            skip("an earlier research answer for this gap already carries a proposal")
-            continue
         if not task_id:
             skip("no research question was opened for this gap")
             continue
@@ -236,10 +314,25 @@ def write(db, *, today: date | None = None, now: datetime | None = None) -> dict
         if facts is None:
             skip(why)
             continue
+        # Review H1 (eng/r5-research-2): judge the evidence exactly as concept intake will,
+        # and propose only what clears intake's own floor. A proposal refused for thin
+        # evidence used to block the gap for good; now none is written until it would pass.
+        ev = intake.research_evidence(db, int(task_id), facts["refs"], today=today)
+        if not ev.get("ok"):
+            skip("the answer does not clear concept intake's evidence floor yet: "
+                 + "; ".join(ev.get("reasons") or [])[:300])
+            continue
+        digest = evidence_digest(ev)
+        blocked = _blocked_by_prior(prior_proposals(db, gid), digest, float(ev["quality"]))
+        if blocked:
+            skip(blocked)
+            continue
         proposal = proposal_for(gid, pod, int(task_id), corroborated, facts, band)
         intake.attach_proposal(db, int(task_id), proposal)
+        _stamp(db, int(task_id), proposal["slug"], digest, float(ev["quality"]))
         written.append({"gap": gid, "pod": pod, "task": int(task_id),
-                        "slug": proposal["slug"], "evidence": proposal["evidence"]})
+                        "slug": proposal["slug"], "evidence": proposal["evidence"],
+                        "evidence_digest": digest, "quality": ev["quality"]})
     with db.session() as s:
         for w in written:
             s.add(AuditLog(actor="market_radar", action=ACTION,

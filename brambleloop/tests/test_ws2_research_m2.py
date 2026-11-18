@@ -6,9 +6,9 @@ comparison, answers the gap's open question from the comparison readings already
 
 Proved here on real-shaped rows (stored `intel.watchlist_compare` readings, the real
 `record_comparison`, the real `radar.concept_intake` handler):
-* three days of corroboration -> an answered task with dated, internal, fact-grade evidence ->
-  a proposal -> an APPROVED radar concept;
-* one day only -> confidence `low` -> no proposal (intake's evidence floor);
+* three days of corroboration (real scans, the real comparison job) -> an answered task with
+  dated, internal, fact-grade evidence -> a proposal -> an APPROVED radar concept;
+* one day only -> no answer, no proposal (eng/r5-research-2 H1: nothing below intake's floor);
 * what the readings cannot show (sales) is an `unresolved` finding, never a fact;
 * a task that is not open is never touched; the daily re-opened question never proposes the
   same gap twice;
@@ -23,7 +23,6 @@ import json
 import sys
 from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
-from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -36,6 +35,7 @@ from brambleloop.intel import watchlist_research as WR  # noqa: E402
 from brambleloop.radar import intake  # noqa: E402
 from brambleloop.radar import proposal_writer as W  # noqa: E402
 from brambleloop.runtime.etsy_ops import store_reading  # noqa: E402
+import _watchlist_sim as S  # noqa: E402
 from test_w5_concept_intake import TODAY, _db, _rows, _run  # noqa: E402
 
 POD = "kitchen_bath"
@@ -52,11 +52,12 @@ def _rep(when: datetime, arenas):
             "copies_competitor_content": False, "uncertainty": "fixture"}
 
 
-def _compare(db, days_ago: int, arenas=((POD, ALIASES),)):
-    """Run the real `record_comparison` for one day, with the day's comparison report."""
-    when = _at(days_ago)
-    with patch.object(watchlist, "compare", lambda db_, now=None: _rep(when, arenas)):
-        return watchlist.record_comparison(db, now=when)
+def _compare(db, days_ago: int, reader=None):
+    """Review LOW (eng/r5-research-2): one simulated day through the REAL watchlist scan and
+    the REAL `intel.watchlist_compare` job -- `watchlist.compare` is never patched."""
+    reader = reader or S.Reader(S.default_catalogues())
+    S.scan(db, reader, S.at(days_ago, 6))
+    return S.compare(db, S.at(days_ago, 7))
 
 
 def _gap(db):
@@ -74,13 +75,9 @@ def _task(db, tid):
 
 
 def test_three_days_of_corroboration_reach_an_approved_concept_unattended():
-    db = _db()
-    for days_ago in (2, 1):
-        for store_day in (days_ago,):
-            store_reading(db, watchlist.COMPARE_READING, _rep(_at(store_day), [(POD, ALIASES)]),
-                          now=_at(store_day))
-    got = _compare(db, 0)
-    assert got["research"] and got["research"][0]["answered"] is True, got["research"]
+    db = S.make_db()
+    for days_ago in (2, 1, 0):
+        _compare(db, days_ago)
     gid, ev = _gap(db)
     t = _task(db, ev["research_task_id"])
     assert t.state == research.ANSWERED and t.confidence == "medium", (t.state, t.confidence)
@@ -88,7 +85,7 @@ def test_three_days_of_corroboration_reach_an_approved_concept_unattended():
     assert classes == ["fact", "fact", "unresolved"], t.findings
     assert all(s["retrieval"] == "internal" and s["read_on"] for s in t.sources), t.sources
     assert "UNKNOWN" in t.findings[2]["statement"] and "sell" in t.findings[2]["statement"]
-    assert "3 of the 3" in t.findings[1]["statement"], t.findings[1]
+    assert "3 or more distinct observation dates" in t.findings[1]["statement"], t.findings[1]
     out = _run(db, "radar.concept_intake", {"as_of": TODAY.isoformat()}, key="t:m2:e2e")
     assert out["proposals_written"] == 1, out
     rows = _rows(db)
@@ -101,19 +98,18 @@ def test_three_days_of_corroboration_reach_an_approved_concept_unattended():
         assert s.scalar(select(AuditLog).where(AuditLog.action == WR.ACTION)) is not None
 
 
-def test_one_day_of_corroboration_is_low_confidence_and_proposes_nothing():
-    db = _db()
+def test_one_day_of_corroboration_answers_nothing_and_proposes_nothing():
+    """Review H1 (eng/r5-research-2): no `low` answer is written for intake to refuse; the
+    task stays open with its progress, and no proposal (so no refusal) exists."""
+    db = S.make_db()
     got = _compare(db, 0)
-    assert got["research"][0]["answered"] is True
+    assert got["gaps"]
     _gid, ev = _gap(db)
     t = _task(db, ev["research_task_id"])
-    assert t.confidence == "low" and "1 of the 1" in t.findings[1]["statement"]
-    # The writer passes the answer on; concept intake's evidence floor refuses a low one.
+    assert t.state == research.OPEN and not t.findings, (t.state, t.findings)
+    assert (t.detail or {})["watchlist_progress"]["days"] == 1
     _run(db, "radar.concept_intake", {"as_of": TODAY.isoformat()}, key="t:m2:low")
-    rows = _rows(db)
-    assert rows and all(r.state != intake.APPROVED for r in rows), [(r.state, r.reasons)
-                                                                  for r in rows]
-    assert any("below 0.4" in " ".join(r.reasons or []) for r in rows)
+    assert _rows(db) == [], [(r.state, r.reasons) for r in _rows(db)]
 
 
 def test_a_task_that_is_not_open_is_never_touched():
@@ -144,21 +140,25 @@ def test_no_reading_for_the_arena_answers_nothing():
 
 
 def test_the_reopened_daily_question_never_proposes_the_same_gap_twice():
-    db = _db()
-    for d in (3, 2, 1):
-        store_reading(db, watchlist.COMPARE_READING, _rep(_at(d), [(POD, ALIASES)]), now=_at(d))
-    _compare(db, 1)
-    assert W.write(db, today=TODAY - timedelta(days=1))["written"], "first proposal"
+    db = S.make_db()
+    for d in (2, 1, 0):
+        _compare(db, d)
+    assert W.write(db, today=TODAY)["written"], "first proposal"
     gid, _ev = _gap(db)
-    # The answer expires (market_radar freshness) and the question re-opens with "#after:".
-    research.expire_due(db, now=_at(0) + timedelta(hours=1))
-    _compare(db, 0)
-    _gid, ev = _gap(db)
-    assert _task(db, ev["research_task_id"]).state == research.ANSWERED
-    second = W.write(db, today=TODAY)
+    # The answer expires (market_radar freshness) and the question would re-open.
+    research.expire_due(db, now=S.at(-1, 5))
+    day2 = _compare(db, -1)
+    # The comparison does not re-answer a gap whose proposal is with concept intake.
+    with db.session() as s:
+        logged = s.scalars(select(AuditLog).where(
+            AuditLog.action == "intel.watchlist_compare").order_by(AuditLog.id.desc())).first()
+    assert day2["gaps"] == [gid] and logged is not None
+    assert not [t for t in research.tasks(db) if t["state"] == research.ANSWERED
+                and t["id"] != _gap(db)[1]["research_task_id"]]
+    second = W.write(db, today=TODAY + timedelta(days=1))
     assert second["written"] == [], second
-    assert any("already carries a proposal" in s["why"] for s in second["skipped"]
-               if s["gap"] == gid), second["skipped"]
+    # A forced re-answer of the gap still cannot propose it twice.
+    assert W._blocked_by_prior(W.prior_proposals(db, gid), "other-digest", 0.99)
 
 
 def test_the_durability_threshold_is_pinned():

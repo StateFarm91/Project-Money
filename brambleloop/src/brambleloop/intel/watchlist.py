@@ -424,7 +424,8 @@ def compare(db, *, now: datetime | None = None) -> dict:
     for g in snap["groups"]:
         by_alias.setdefault(g["benchmark"], []).append(g)
     shops = []
-    arenas: dict[str, list[str]] = {}
+    arenas: dict[str, list[dict]] = {}
+    support = _arena_support(db)
     for m in WATCHLIST:
         alias = benchmark_alias(m.key)
         st = _state(db, m.key)
@@ -435,17 +436,22 @@ def compare(db, *, now: datetime | None = None) -> dict:
         media = [g["median_media"] for g in groups
                  if isinstance(g["median_media"], (int, float))]
         mix = {g["pod"]: g["listings"] for g in groups}
-        for pod, n in mix.items():
-            if n >= MIN_LISTINGS_FOR_ARENA:
-                arenas.setdefault(pod, []).append(alias)
         shop = st.get("shop") or {}
         as_of = st.get("last_ok_at") or (snap["at"] if listings else None)
         src = "etsy open api v3 (stored benchmark_listings)"
         state = st.get("state") or ("rows_present" if listings else "never")
+        mine = {pod: v for (bk, pod), v in support.items() if bk == m.key}
+        observed_at, observed_fresh = _observation(m, st, mine, now)
+        for pod, v in mine.items():
+            arenas.setdefault(pod, []).append(
+                {"alias": alias, "fresh": observed_fresh, "observed_at": observed_at,
+                 "live": sorted(v["live"], key=_ref_order), "withdrawn": v["withdrawn"]})
         # Review L-1: a figure carried over from an earlier read while this shop's latest
         # read failed is STALE, not MEASURED. (L-3: the anchor has no watchlist read state;
-        # stored rows are labelled rows_present, never "ok".)
-        fresh = state in ("ok", "rows_present")
+        # stored rows are labelled rows_present, never "ok".) Review H2 (eng/r5-research-2):
+        # an "ok" read older than STALE_AFTER is STALE too.
+        fresh = state in ("ok", "rows_present") and (
+            m.role == ANCHOR or observed_fresh)
 
         def G(value, source, at, basis="MEASURED"):
             return _grade(value, source, at, basis if fresh else "STALE")
@@ -481,13 +487,106 @@ def compare(db, *, now: datetime | None = None) -> dict:
                                               "assumed AI-operated"},
         })
     ours = _our_pods(db)
-    validated = sorted((pod, sorted(a)) for pod, a in arenas.items()
-                       if len(a) >= MIN_SHOPS_FOR_ARENA and pod not in ours)
+    validated, unknown = _judge_arenas(arenas, ours)
     return {"at": now.isoformat(), "shops": shops, "scope": {k: v[0] for k, v in SCOPE.items()},
-            "validated_arenas": [{"pod": p, "corroborated_by": a} for p, a in validated],
+            "validated_arenas": validated, "unknown_arenas": unknown,
             "copies_competitor_content": False,
             "uncertainty": ("figures are what the official API exposed at as_of; a shop whose "
                             "observation is not ok has UNKNOWN figures, never zeros")}
+
+
+# Review H2 (eng/r5-research-2): an arena is corroborated only by what a shop has listed
+# now, as seen by a fresh official-API read -- never by rows of a shop unobserved for days,
+# nor by listings the shop has withdrawn. Each corroborating shop carries its observation time
+# and the listing ids it rests on, so every fact built on the comparison is traceable.
+MAX_LISTING_IDS = 50
+
+
+def _ref_order(ref: str):
+    return (0, int(ref)) if str(ref).isdigit() else (1, str(ref))
+
+
+def _arena_support(db) -> dict[tuple[str, str], dict]:
+    """(benchmark_key, pod label) -> live listing refs, withdrawn count, newest last_seen."""
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing
+    from ..runtime.intel_ops import _aware, _label
+    from .pods import POD_KEYS
+
+    out: dict[tuple[str, str], dict] = {}
+    with db.session() as s:
+        for r in s.execute(select(BenchmarkListing.benchmark_key, BenchmarkListing.pod,
+                                  BenchmarkListing.listing_ref, BenchmarkListing.audit_state,
+                                  BenchmarkListing.last_seen)).all():
+            pod = _label(r.pod or "unclassified", frozenset(POD_KEYS))
+            e = out.setdefault((r.benchmark_key, pod),
+                               {"live": [], "withdrawn": 0, "last_seen": None})
+            if r.audit_state == "withdrawn":
+                e["withdrawn"] += 1
+                continue
+            e["live"].append(str(r.listing_ref))
+            seen = _aware(r.last_seen)
+            if seen is not None and (e["last_seen"] is None or seen > e["last_seen"]):
+                e["last_seen"] = seen
+    return out
+
+
+def _observation(m: Member, st: dict, mine: dict, now: datetime) -> tuple[str | None, bool]:
+    """When this shop was last observed by a successful read, and whether that is fresh
+    (within STALE_AFTER). A watchlist shop: its last successful scan, and only while its
+    state is ok. The anchor (scanned by `mjs.scan`, no watchlist state): the newest
+    `last_seen` of its live rows."""
+    if m.role == ANCHOR and not st.get("state"):
+        seen = [v["last_seen"] for v in mine.values() if v["last_seen"] is not None]
+        at = max(seen) if seen else None
+        ok = at is not None
+    else:
+        raw = st.get("last_ok_at")
+        at = datetime.fromisoformat(raw) if raw else None
+        if at is not None and at.tzinfo is None:
+            at = at.replace(tzinfo=timezone.utc)
+        ok = at is not None and st.get("state") == "ok"
+    if at is None:
+        return None, False
+    return at.isoformat(), bool(ok and now - at <= STALE_AFTER)
+
+
+def _judge_arenas(arenas: dict[str, list[dict]], ours: set[str]) -> tuple[list, list]:
+    """Validated arenas (fresh shops, live listings) and UNKNOWN ones (the rows that would
+    have corroborated are mostly stale or withdrawn, or too few fresh shops remain)."""
+    validated, unknown = [], []
+    for pod in sorted(arenas):
+        if pod in ours:
+            continue
+        entries = arenas[pod]
+        live_ok = [e for e in entries
+                   if e["fresh"] and len(e["live"]) >= MIN_LISTINGS_FOR_ARENA]
+        stored = [e for e in entries
+                  if len(e["live"]) + e["withdrawn"] >= MIN_LISTINGS_FOR_ARENA]
+        if len(live_ok) < MIN_SHOPS_FOR_ARENA and len(stored) < MIN_SHOPS_FOR_ARENA:
+            continue
+        total = sum(len(e["live"]) + e["withdrawn"] for e in entries)
+        bad = sum(e["withdrawn"] + (0 if e["fresh"] else len(e["live"])) for e in entries)
+        why = None
+        if total and bad * 2 > total:
+            why = (f"{bad} of the {total} stored listing rows in this arena are withdrawn or "
+                   f"belong to a shop with no fresh observation: UNKNOWN, not corroborated")
+        elif len(live_ok) < MIN_SHOPS_FOR_ARENA:
+            why = (f"only {len(live_ok)} shop(s) have a fresh observation with at least "
+                   f"{MIN_LISTINGS_FOR_ARENA} live listings here: UNKNOWN, not corroborated")
+        if why:
+            unknown.append({"pod": pod, "value": "UNKNOWN", "why": why,
+                            "stored_rows": total, "stale_or_withdrawn_rows": bad})
+            continue
+        live_ok.sort(key=lambda e: e["alias"])
+        validated.append({
+            "pod": pod, "corroborated_by": [e["alias"] for e in live_ok],
+            "observations": [{"alias": e["alias"], "observed_at": e["observed_at"],
+                              "live_listings": len(e["live"]),
+                              "listing_ids": e["live"][:MAX_LISTING_IDS]}
+                             for e in live_ok]})
+    return validated, unknown
 
 
 def _our_pods(db) -> set[str]:
@@ -517,12 +616,30 @@ def record_comparison(db, *, now: datetime | None = None) -> dict:
         _merge_gap_evidence(db, gid, {"corroborated_by": a["corroborated_by"],
                                       "validated_at": now.isoformat(),
                                       "source": COMPARE_READING})
+        decided = _decided_by_proposal(db, gid)
+        if decided:
+            # Review LOW (eng/r5-research-2): the question served its decision -- a proposal
+            # for this gap is with concept intake or was approved. No new task is opened and
+            # answered every day for it.
+            answered.append({"answered": False, "gap": gid, "why": decided})
+            opened.append(gid)
+            continue
         task = _research_question(db, gid, a["pod"], now=now)
         if task is not None:
             _merge_gap_evidence(db, gid, {"research_task_id": task})
             answered.append(_answer_research(db, gid, task, a["pod"], now=now))
         opened.append(gid)
     return {"report": rep, "gaps": opened, "research": answered}
+
+
+def _decided_by_proposal(db, gap_id: int) -> str | None:
+    from ..radar import intake, proposal_writer
+
+    for p in proposal_writer.prior_proposals(db, gap_id):
+        if p["state"] != intake.REFUSED:
+            return (f"research not re-opened: proposal {p['slug']} (task {p['task']}) is "
+                    f"{p['state'] or 'awaiting concept intake'}")
+    return None
 
 
 def _answer_research(db, gap_id: int, task_id: int, pod: str, *, now: datetime) -> dict:
