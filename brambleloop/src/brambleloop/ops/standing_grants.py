@@ -607,6 +607,14 @@ def runbook_sql(owner: str, issuer_password: str, worker_password: str) -> list[
         f"standing_grant_slots FROM {w}",
         f"GRANT UPDATE (consumed_at, consumed_job_id, consumed_stage) ON standing_grants "
         f"TO {w}",
+        # Several job handlers create their own tables on first use (e.g. radar_concepts):
+        # the worker keeps CREATE in the schema. It owns only what it creates, so it still
+        # cannot alter, drop or add a trigger to the grant store (owned by `owner`).
+        f"GRANT CREATE ON SCHEMA public TO {w}",
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {w} IN SCHEMA public GRANT ALL ON TABLES TO {o}",
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {w} IN SCHEMA public GRANT SELECT ON TABLES TO {i}",
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {w} IN SCHEMA public GRANT ALL ON SEQUENCES "
+        f"TO {o}",
         # Tables a later release creates (always by the migration owner).
         f"ALTER DEFAULT PRIVILEGES FOR ROLE {o} IN SCHEMA public GRANT SELECT, INSERT, UPDATE, "
         f"DELETE ON TABLES TO {w}",
