@@ -28,7 +28,13 @@ worktrees, not this file.
 - Queue (6979979731) now fully delivered. Awaiting verdicts: S2 b6dd73ad, QF scopes b3e037b9,
   A4b-2 b8929db7, S4 daa31ad9, S4b bbc4d473, WS4 LOWs fbe0bdd0 (plus older E1/A3/research/
   Stage A 497a8301/9772f4a4, now behind ENG-E's WS4-7).
-- Stop reason (2026-11-18T16:20Z): Main's queue for opus2 is exhausted; waiting on verdicts or a
+- Tick 2026-11-18T16:28Z: no [MAIN] message on #28 since 6983580477; no COORDINATION change; no
+  review-branch findings on opus2 code. INTEG1 12e3ab44 (Main): reverted the A4a merge d51adb3a
+  (certify-time size bands refuse the fallback dishcloth/washcloth templates; template geometry fix
+  assigned to ENG-B3, not opus2) and classified approvals._standing_policy in test_w4_listready F8,
+  which answers my sp.activate question 6969301528. Note: A4b-2 b8929db7 was built on an INTEG1 that
+  carried A4a; it re-bases only when Main says so.
+- Stop reason (2026-11-18T16:35Z): Main's queue for opus2 is exhausted; waiting on verdicts or a
   new assignment. Answer any [MAIN] message first next tick.
 
 ## State at 2026-11-18T10:50Z (superseded)
