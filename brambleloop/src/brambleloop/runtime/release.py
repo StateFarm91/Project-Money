@@ -628,11 +628,7 @@ def handle_assets_build(ctx: JobContext) -> dict:
                # the renders this build actually placed. A kept photograph's slot is left
                # OUT: its sha never enters a render build's outputs (the provenance backfill
                # indexes them as renders), and classification never reads a photo as one.
-               # Review 6817652112 N2: at the positions they were actually placed (after
-               # any photograph), so later stages compare like with like.
-               "frames": [{**f, "position": placed["positions"].get(f["position"],
-                                                                    f["position"])}
-                          for f in stored_frames if f["position"] not in placed["kept"]]}
+               "frames": [f for f in stored_frames if f["position"] not in placed["kept"]]}
     if placed["live_candidate"]:
         payload["candidate_only"] = True
     # W6 FIX-ONLY: the bound is passed to the next stage only, never stored in this job's
@@ -1852,20 +1848,7 @@ def frame_review_state(db, slug: str, version: str) -> dict:
                 "why": "the frame review on record judged no frames (#61): an empty review "
                        "is not a review"}
     reviewed_shas = {str(k): v for k, v in (detail.get("frame_shas") or {}).items()}
-    stored_rows = _stored_frames(db, slug, version)
-    photos = [f for f in stored_rows if f["asset_class"] == "PHYSICAL_PRODUCT_PHOTO"]
-    if photos:
-        # Review of 3928ba00 L2: a photo-led gallery. The owner-attested sample photograph is
-        # not a frame this review renders or judges -- its authority is the deterministic
-        # asset-truth review (`publish.photo_asset_review`), which approves the row only
-        # when the attestation, hashes, order and claims all pass. `plan_upgrade` puts it
-        # first and shifts every render one slot, so the review's position-keyed hashes
-        # could never equal the stored map and #61 refused every photo-led listing for good.
-        # Now: each photograph must be approved by its own review (a NOT-QUALIFYING one is
-        # excluded from the uploaded set and is not counted), and the reviewed bytes must be
-        # exactly the stored non-photo frames, in the same order. Tightens nothing else.
-        return _photo_led_review_state(db, slug, version, stored_rows, reviewed_shas, bad)
-    stored = {str(f["position"]): f["sha256"] for f in stored_rows}
+    stored = {str(f["position"]): f["sha256"] for f in _stored_frames(db, slug, version)}
     bound = bool(reviewed_shas) and bool(stored) and reviewed_shas == stored
     if not bound:
         why = ("the frame review on record is not bound to the frames now stored for this "
@@ -1877,52 +1860,6 @@ def frame_review_state(db, slug: str, version: str) -> dict:
     return {"reviewed": not bad, "not_clear": bad, "bound_to_stored_frames": True,
             "why": ("every stored frame was independently reviewed and communicates its claim"
                     if not bad else f"frames not independently cleared (#61): {bad}")}
-
-
-def _photo_led_review_state(db, slug, version, stored_rows, reviewed_shas, bad) -> dict:
-    """`frame_review_state` for a gallery holding a physical photograph (review of 3928ba00
-    L2): renders are bound by bytes and order, photographs by their own approval."""
-    from sqlalchemy import select
-
-    from ..core.models import ListingAsset
-    from ..publish.photo_asset_review import NOT_QUALIFYING, PHOTO_CLASS
-
-    with db.session() as s:
-        photo_rows = [(r.position, bool(r.approved), list(r.blocked_reasons or []))
-                      for r in s.scalars(select(ListingAsset).where(
-                          ListingAsset.product_slug == slug, ListingAsset.version == version,
-                          ListingAsset.asset_class == PHOTO_CLASS))]
-    excluded = {p for p, _ok, reasons in photo_rows
-                if any(str(r).startswith(NOT_QUALIFYING) for r in reasons)}
-    pending = sorted(p for p, ok, _r in photo_rows if not ok and p not in excluded)
-    led = [p for p, ok, _r in photo_rows if ok]
-    renders = [f["sha256"] for f in sorted(stored_rows, key=lambda f: f["position"])
-               if f["asset_class"] != PHOTO_CLASS]
-    try:
-        reviewed = [v for _k, v in sorted(reviewed_shas.items(), key=lambda kv: int(kv[0]))]
-    except ValueError:
-        reviewed = None
-    bound = bool(reviewed) and bool(renders) and reviewed == renders
-    base = {"photo_led": True, "photo_frames_approved": sorted(led),
-            "photo_frames_awaiting": pending, "photo_frames_excluded": sorted(excluded)}
-    if not bound:
-        why = ("the frame review on record is not bound to the frames now stored for this "
-               "release (#61): " + ("it recorded no frame hashes" if not reviewed_shas else
-                                    "no rendered frames are stored" if not renders else
-                                    "the stored rendered frames (around the physical "
-                                    "photograph) differ from the ones reviewed"))
-        return {"reviewed": False, "not_clear": bad, "bound_to_stored_frames": False,
-                "why": why, **base}
-    if pending:
-        return {"reviewed": False, "not_clear": bad, "bound_to_stored_frames": True,
-                "why": (f"physical photograph frame(s) at {pending} await the deterministic "
-                        f"asset-truth review (#61): a photo frame is cleared only by its own "
-                        f"approval"), **base}
-    return {"reviewed": not bad, "not_clear": bad, "bound_to_stored_frames": True,
-            "why": ("every rendered frame was independently reviewed and every uploaded "
-                    "physical photograph frame was approved by the asset-truth review"
-                    if not bad
-                    else f"frames not independently cleared (#61): {bad}"), **base}
 
 
 def _stored_frames(db, slug: str, version: str) -> list[dict]:
@@ -2900,55 +2837,15 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
             ctx.audit("listing.fix_frame_candidate", artifact=f"{slug}@{version}", detail={
                 "live": True, "applied": False, "frames": candidate,
                 "rejected": reasons[:10]})
-            return {"kept": [], "live_candidate": True, "positions": {}}
+            return {"kept": [], "live_candidate": True}
     kept: set[int] = set()
-    # Review A3 U5 F2 (second half): a gallery that holds a physical photograph is fenced by
-    # the photo review's write lock, and a rebuild that rewrites its renders invalidates the
-    # photo-led certificate in the same transaction -- the certified set no longer matches
-    # what is stored, and readers that trust `state == "valid"` (storefront preview, ads
-    # readiness, first customer, image review, search evidence) must not see it as current.
-    # The chain re-certifies after this build. A gallery with no photo is unchanged.
-    # Review of 3928ba00 L1: the gallery's photo positions are read UNDER the photo review's
-    # write lock, in the same transaction as the writes. Read before the lock, a concurrent
-    # `plan_upgrade` / `lead_with_if_qualifying` that shifts the frames between the read and
-    # the lock left this build targeting a slot a photograph now holds -- the shifted hero
-    # render was then recorded "not placed" and silently dropped. The lock is taken for every
-    # gallery (a photo can arrive between any read and the write); it is the same lock every
-    # photo-frame writer takes, so the build simply serialises behind them.
-    from ..publish.photo_asset_review import _lock as _photo_lock
-
     with ctx.db.session() as s:
-        _photo_lock(s, ctx.db)
-        held = list(s.execute(select(ListingAsset.position, ListingAsset.asset_class).where(
-            ListingAsset.product_slug == slug, ListingAsset.version == version)))
-        photo_positions = {p for p, c in held if c == "PHYSICAL_PRODUCT_PHOTO"}
-        # Review of 3928ba00 L4: a generated concept (`visual.gallery_persist`) is another
-        # writer's image; a render is never written over it. Its slot is skipped like a
-        # photograph's.
-        concept_positions = {p for p, c in held if c == "AI_LIFESTYLE_CONCEPT"}
-        photo_led = bool(photo_positions)
-        reserved = photo_positions | concept_positions
-        # Review 6817652112 N2: `plan_upgrade` puts the photograph first and shifts the
-        # renders after it, so a rebuild must place its renders in the slots AFTER the photo
-        # frames, not at the builder's 1..N (which reported the hero as "not placed" and left
-        # the old tail row approved). Each render goes to the next slot no photograph (or
-        # concept) holds, in builder order. With nothing reserved this is the identity.
-        target: dict[int, int] = {}
-        free = (p for p in range(1, 10_000) if p not in reserved)
-        for frame in sorted(frames, key=lambda f: f.position):
-            target[frame.position] = (frame.position
-                                      if not reserved
-                                      or frame.asset_class.value in ("PHYSICAL_PRODUCT_PHOTO",
-                                                                     "AI_LIFESTYLE_CONCEPT")
-                                      else next(free))
-        rewritten = False
         for frame, meta in zip(frames, stored):
             row = s.scalar(select(ListingAsset).where(
                 ListingAsset.product_slug == slug, ListingAsset.version == version,
-                ListingAsset.position == target[frame.position]))
-            if row is not None and row.asset_class in ("PHYSICAL_PRODUCT_PHOTO",
-                                                       "AI_LIFESTYLE_CONCEPT") \
-                    and frame.asset_class.value != row.asset_class:
+                ListingAsset.position == frame.position))
+            if row is not None and row.asset_class == "PHYSICAL_PRODUCT_PHOTO" \
+                    and frame.asset_class.value != "PHYSICAL_PRODUCT_PHOTO":
                 # Review A3 U5 84085fa8 F2: a rebuild's render never replaces a physical
                 # photograph's slot. The photo, its approval and its certificate stand; the
                 # render is recorded as not placed.
@@ -2956,11 +2853,8 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
                 continue
             if row is None:
                 row = ListingAsset(product_slug=slug, version=version,
-                                   position=target[frame.position])
+                                   position=frame.position)
                 s.add(row)
-            if (row.sha256, row.asset_class, bool(row.approved)) != (
-                    meta["sha256"], frame.asset_class.value, not reasons):
-                rewritten = True
             row.asset_class = frame.asset_class.value
             row.role = frame.role
             row.sha256 = meta["sha256"]
@@ -2970,30 +2864,7 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
                           "colors": list(frame.claims.colors)}
             row.approved = not reasons
             row.blocked_reasons = reasons[:10]
-        # Review 6817652112 N2: a render row beyond the rebuilt set (the old tail after a
-        # shift, or a longer earlier gallery) is not part of this build. It is dropped -- the
-        # gallery is exactly what this build placed plus the photographs -- so a remediated
-        # image cannot survive there and be re-certified. What was dropped is audited.
-        # Only rows of the classes this build itself produces: a photograph, or an image a
-        # different writer filed (`visual.gallery_persist`'s generated concepts), is never
-        # this build's to drop.
-        placed_at = {target[f.position] for f in frames if f.position not in kept}
-        own_classes = {f.asset_class.value for f in frames} - {"PHYSICAL_PRODUCT_PHOTO",
-                                                               "AI_LIFESTYLE_CONCEPT"}
-        dropped = []
-        for stale in list(s.scalars(select(ListingAsset).where(
-                ListingAsset.product_slug == slug, ListingAsset.version == version,
-                ListingAsset.asset_class.in_(sorted(own_classes))))):
-            if stale.position not in placed_at:
-                dropped.append({"position": stale.position, "sha256": stale.sha256,
-                                "approved": bool(stale.approved)})
-                rewritten = True
-                s.delete(stale)
         s.flush()
-        if photo_led and rewritten:
-            from ..publish.photo_asset_review import _invalidate_photo_certificates
-
-            _invalidate_photo_certificates(s, slug, version, "gallery_rebuilt_around_photo")
 
         # One visual-truth row per frame, keyed by the frame's own row id and carrying the
         # rendered file's hash, so a frame that outlives its design is found by the same
@@ -3008,21 +2879,17 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
                 continue
             row = s.scalar(select(ListingAsset).where(
                 ListingAsset.product_slug == slug, ListingAsset.version == version,
-                ListingAsset.position == target[frame.position]))
+                ListingAsset.position == frame.position))
             provenance.record_lineage(
                 s, artefact_class="visual_truth",
                 artefact_key=provenance.visual_key(slug, version, row.id),
                 product_slug=slug, inputs=design, chain_version=CHAIN_VERSION,
                 lineage=lineage.for_file(row.sha256).under(certificate_ref))
-    if dropped:
-        ctx.audit("listing.frames_beyond_rebuild_dropped", artifact=f"{slug}@{version}",
-                  detail={"dropped": dropped[:50]})
     if kept:
         ctx.audit("listing.frame_photo_kept", artifact=f"{slug}@{version}", detail={
             "positions": sorted(kept), "not_placed": [c for c in candidate
                                                       if c["position"] in kept]})
-    return {"kept": sorted(kept), "live_candidate": False,
-            "positions": {p: target[p] for p in target if p not in kept}}
+    return {"kept": sorted(kept), "live_candidate": False}
 
 
 def _motifs_for(slug: str) -> list[str]:
@@ -3958,12 +3825,6 @@ def handle_physical_upgrade(ctx: JobContext) -> dict:
                                         role=str(ctx.job.inputs.get("role") or "proof"),
                                         lineage=_lineage(ctx, validation_status="blocked"))
     ctx.audit("physical.upgrade_planned", artifact=out.get("slug"), detail=out)
-    if out.get("upgraded") and out.get("frame_position") == 1:
-        # OPUS2 (P0-PHOTO-ASSET-REVIEW): the photo leads the gallery; review it now rather
-        # than at the next hourly sweep.
-        ctx.enqueue("asset_truth", "assets.photo_review", {},
-                    idempotency_key=f"photo_review:{out.get('slug')}:{out.get('version')}:"
-                                    f"{ctx.job.inputs.get('photo_id')}")
     return out
 
 

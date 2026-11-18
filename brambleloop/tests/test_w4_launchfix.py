@@ -565,35 +565,24 @@ def test_e4_on_the_real_names_crochet_is_never_a_node_and_needs_etsys_own_proper
 def _photo_fixture(db, *, bind=True, version_of_photo=None, unedited=True, first=True,
                    other_test_release=False, attest=True, medium="PHYSICAL_PRODUCT_PHOTO"):
     """A certified release, a passed full make bound to its content, a photo recorded through
-    the one intake, and a listing-set certificate issued by the real certificate step.
-    Returns (slug, version, photo sha).
-
-    Review U5 F1: the photo frame reaches the gallery only the way production puts it there --
-    intake -> owner attestation -> `physical_upgrade.plan_upgrade` -> the deterministic
-    `photo_asset_review.review_frame` -> `release_gates.certificate_step` -- never as a
-    hand-written certificate row the consumer fence would rightly refuse. `first=False` and a
-    non-photo `medium` leave the photo out of the gallery (no upgrade), so the certificate leads
-    with a render; a photo that does not qualify is refused by the upgrade, the same way."""
+    the one intake, and a valid listing-set certificate. Returns (slug, version, photo sha)."""
     from datetime import datetime, timezone
 
     from brambleloop.cir.compiler import compile_cir
     from brambleloop.cir.writer import write_pattern
     from brambleloop.core.artifacts import ArtifactStore
-    from brambleloop.core.models import (ListingAsset, PatternVersion, PhysicalPhoto,
+    from brambleloop.core.models import (ListingSetCertificateRecord, PatternVersion,
                                          PhysicalTest, Product)
     from brambleloop.gates.certificate import _release_hash
     from brambleloop.gates.risk_matrix import FULL_PHYSICAL_MAKE
     from brambleloop.products import launch0 as l0
-    from brambleloop.publish import eligibility as EL
-    from brambleloop.publish import photo_asset_review as PAR
     from brambleloop.publish import physical_upgrade as PU
-    from brambleloop.publish import release_gates as RG
 
     cir = l0.cir_for(l0.candidate("hexagon-coaster-set").variants[0].build)
     content = _release_hash(cir, write_pattern(cir, compile_cir(cir), "US"))
-    store = ArtifactStore()
     photo_bytes = b"\xff\xd8\xff" + uuid.uuid4().bytes * 64      # a JPEG-headed sample photo
-    sha = store.put(f"photo-{uuid.uuid4().hex}", photo_bytes, "image/jpeg").sha256
+    sha = ArtifactStore().put(f"photo-{uuid.uuid4().hex}", photo_bytes, "image/jpeg").sha256
+    render_sha = "e" * 64
     with db.session() as s:
         prod = Product(slug=cir.slug, title="Hexagon coasters")
         s.add(prod)
@@ -609,44 +598,24 @@ def _photo_fixture(db, *, bind=True, version_of_photo=None, unedited=True, first
         s.add(test)
         s.flush()
         test_id = test.id
-        for pos, role in enumerate(("hero", "chart"), start=1):     # the render gallery
-            rsha = store.put(f"r-{uuid.uuid4().hex}.png", f"render {role} {pos}".encode(),
-                             "image/png").sha256
-            s.add(ListingAsset(product_slug=cir.slug, version=cir.version, position=pos,
-                               asset_class="DIGITAL_TWIN_RENDER", role=role, sha256=rsha,
-                               approved=True, claims={}, blocked_reasons=[]))
+        photo_frame = {"sha256": sha, "medium": medium}
+        render_frame = {"sha256": render_sha, "medium": "DIGITAL_TWIN_RENDER"}
+        frames = [{"position": 1, **photo_frame}, {"position": 2, **render_frame}]
+        if not first:
+            frames = [{"position": 1, **render_frame}, {"position": 2, **photo_frame}]
+        s.add(ListingSetCertificateRecord(product_slug=cir.slug, version=cir.version,
+                                          release_hash=content, state="valid",
+                                          certificate={"frames": frames}))
     PU.intake(db, slug=cir.slug, version=version_of_photo or cir.version, source="tester",
               sha256=sha, rights_basis="tester_agreement", taken_by="tester-1",
               physical_test_id=test_id, unedited=unedited)
-    with db.session() as s:
-        pid = s.scalar(select(PhysicalPhoto.id).where(PhysicalPhoto.sha256 == sha))
     if attest:
+        from brambleloop.core.models import PhysicalPhoto
+
+        with db.session() as s:
+            pid = s.scalar(select(PhysicalPhoto.id).where(PhysicalPhoto.sha256 == sha))
         PU.attest_unedited(db, pid, actor="owner:cc:test-session",
                            confirm=PU.UNEDITED_CONFIRMATION)
-    if first and medium == "PHYSICAL_PRODUCT_PHOTO":
-        try:
-            plan = PU.plan_upgrade(db, pid)
-        except PU.UpgradeRefused:
-            plan = {"upgraded": False}
-        if plan.get("upgraded"):
-            with db.session() as s:
-                fid = s.scalar(select(ListingAsset.id).where(
-                    ListingAsset.product_slug == plan["slug"],
-                    ListingAsset.version == plan["version"],
-                    ListingAsset.asset_class == PAR.PHOTO_CLASS))
-            PAR.review_frame(db, fid, reissue=False)
-    with db.session() as s:
-        frames = sorted(s.scalars(select(ListingAsset).where(
-            ListingAsset.product_slug == cir.slug, ListingAsset.version == cir.version)),
-            key=lambda f: f.position)
-        for f in frames:
-            s.expunge(f)
-    per_frame = [{"position": f.position, "sha256": f.sha256, "role": f.role,
-                  "gates": {g: {"outcome": EL.PASSED} for g in EL.GATES}} for f in frames]
-    RG.certificate_step(db, slug=cir.slug, version=cir.version, release_hash=content,
-                        frames=frames, per_frame=per_frame,
-                        geometry={"width_cm": 10.0, "height_cm": 10.0},
-                        claims={"title": cir.title}, issue=True)
     return cir.slug, cir.version, sha
 
 
@@ -773,8 +742,6 @@ def test_img_stage_only_activation_asks_for_the_activation_stage_and_nothing_int
     # The photo gate refuses only inside for_publish at activation; the other src users of
     # sample_photo only choose the truthful disclosure sentence. Internal callers of
     # for_publish (e.g. products.inventory) use the default draft stage.
-    import re as _re_par
-
     # W5-INTEG1: match the module name as a whole word. A substring test also matched PDF1's
     # unrelated `sample_photo_placeholders` keyword in publish/pdf.py, which never touches the
     # sample_photo module. `\bsample_photo\b` still catches every import, attribute access
@@ -787,45 +754,9 @@ def test_img_stage_only_activation_asks_for_the_activation_stage_and_nothing_int
     # which photograph leads the gallery. It never calls `requirement` (it cannot judge the
     # gate) and never passes a stage.
     assert users == ["brambleloop/gates/platform_policy.py",
-                     "brambleloop/publish/photo_asset_review.py",
                      "brambleloop/publish/physical_upgrade.py",
                      "brambleloop/publish/release_gates.py",
                      "brambleloop/runtime/release.py"], users
-    # OPUS2 (P0-PHOTO-ASSET-REVIEW): the deterministic photo-frame review reads the gate's own
-    # qualifying predicate and its synthetic-digest list, and nothing else of sample_photo.
-    par_src = (ROOT / "src/brambleloop/publish/photo_asset_review.py").read_text()
-    assert set(_re_par.findall(r"sample_photo\.(\w+)\(", par_src)) == {
-        "qualifying_photos", "_synthetic_shas"}
-    assert not _re_par.search(r"from\s+[.\w]*sample_photo\s+import", par_src)
-    assert not _re_par.search(r"import\s+[.\w]*sample_photo\s+as\s", par_src)
-    assert "requirement(" not in par_src and "stage=" not in par_src
-    # OPUS2S-5: any reach into sample_photo (a getattr, a call) names only those two, as the
-    # physical_upgrade guard reads it; no other binding of the module exists.
-    reached = {m for line in par_src.splitlines() if "import" not in line
-               for m in _re_par.findall(r"sample_photo\W+(\w+)", line)}
-    assert reached == {"qualifying_photos", "_synthetic_shas"}, reached
-    assert "getattr(sample_photo" not in par_src.replace(" ", "")
-    # OPUS2W-6: no alias anywhere (also after a comma on a multi-name import), and every
-    # mention in code -- docstrings and comments stripped -- is one of the two calls or the
-    # single import.
-    assert not _re_par.search(r"sample_photo\s+as\b", par_src)
-    import ast as _ast_par
-    import io as _io_par
-    import tokenize as _tok_par
-
-    code_only = []
-    for tok in _tok_par.generate_tokens(_io_par.StringIO(par_src).readline):
-        if tok.type in (_tok_par.COMMENT, _tok_par.STRING):
-            continue
-        code_only.append(tok.string)
-    names = [s for s in code_only if s == "sample_photo"]
-    tree = _ast_par.parse(par_src)
-    calls = [n for n in _ast_par.walk(tree) if isinstance(n, _ast_par.Attribute)
-             and isinstance(n.value, _ast_par.Name) and n.value.id == "sample_photo"]
-    assert {c.attr for c in calls} == {"qualifying_photos", "_synthetic_shas"}, calls
-    imports = [n for n in _ast_par.walk(tree) if isinstance(n, _ast_par.ImportFrom)
-               for a in n.names if a.name == "sample_photo" and a.asname is None]
-    assert imports and len(names) == len(calls) + len(imports), (len(names), len(calls))
     import re as _re
     pu_src = (ROOT / "src/brambleloop/publish/physical_upgrade.py").read_text()
     calls = set(_re.findall(r"sample_photo\.(\w+)\(", pu_src))

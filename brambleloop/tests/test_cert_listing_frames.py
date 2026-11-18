@@ -91,15 +91,14 @@ def test_every_frame_is_measured_and_recorded_unreviewed_when_vision_is_closed()
     assert not any(v["verdict"] == "unclaimed" for v in review["frames"].values())
 
 
-def _fake_vision(unmade: list[str], marks: str = "none",
-                 shown: str = "a set of hexagon coasters"):
+def _fake_vision(unmade: list[str], marks: str = "none"):
     from brambleloop.visual import inspect as inspection
 
     def fake_inspect(ref, *, db=None, provider=None, claim=None):
         chart = bool(claim and claim.get("shows_chart_preview"))
         # W4-FIRSTIMG (F-027): the fixture describes what the release actually sells (a
         # hexagon coaster set); "a blanket" for a coaster set is now a misidentified hero.
-        description = {"object_shown": "a chart" if chart else shown,
+        description = {"object_shown": "a chart" if chart else "a set of hexagon coasters",
                        "chart_or_diagram": chart, "finished_or_in_progress": "finished",
                        "object_count": "1", "clarity": "clear", "text_present": True,
                        "third_party_marks": marks, "human_present": False}
@@ -109,10 +108,10 @@ def _fake_vision(unmade: list[str], marks: str = "none",
     return fake_inspect
 
 
-def _fake_describe(marks: str = "none", shown: str = "a set of hexagon coasters"):
+def _fake_describe(marks: str = "none"):
     """`inspect.describe_image`: the blind description a non-photo frame gets (D-W4-VISROLE),
     with no realism call at all."""
-    inspect = _fake_vision([], marks, shown)
+    inspect = _fake_vision([], marks)
 
     def fake_describe(ref, *, db=None, provider=None, claim=None):
         got = inspect(ref, db=db, provider=provider, claim=claim)
@@ -303,102 +302,6 @@ def test_the_box_rules_measure_truncation_and_footer_overlap():
     assert layout_qa.check_layout(Image.new("RGB", (10, 10)), position=1)[0].startswith(
         "LAYOUT_UNRECORDED")
 
-
-
-def test_l2_a_photo_led_listing_passes_the_61_publish_check_and_keeps_it_across_a_rebuild():
-    """Review of 3928ba00 L2 (the owner's physical-sample plan). A genuine owner-attested sample
-    photograph is put first by `plan_upgrade`, which shifts every render one slot; the #61
-    frame review is keyed by the builder's positions, so `frame_review_state` could never
-    match the stored frames again -- #61 refused every photo-led listing at publish
-    (`pipeline._listing_parity`) and `publication_authority`'s parity read UNKNOWN.
-
-    Driven here through the real build, intake, owner attestation, upgrade planner and the
-    deterministic photo review: the photo awaiting its review holds #61 (by name); once the
-    asset-truth review approves it, #61 passes on the publish path; a rebuild (renders
-    re-placed after the photograph) keeps that authority; changed render bytes still fail."""
-    from types import SimpleNamespace
-
-    from brambleloop.build2 import executor
-    from brambleloop.core.models import ListingAsset
-    from brambleloop.ops import publication_authority
-    from brambleloop.publish import photo_asset_review as par
-    from brambleloop.visual import inspect as inspection
-
-    sys.path.insert(0, str(ROOT / "tests"))
-    import test_physfix_photo_first as T
-
-    db = T._db()                     # records the tester's agreement
-    cir, _release_hash = T._certified_basket(db)
-    gate = executor.GATE_BY_KEY["image_vision"]
-    saved = (gate.check, inspection.inspect_image, inspection.describe_image,
-             inspection.identify_at_grid)
-    gate.check = lambda db_, env: True
-    inspection.identify_at_grid = _fake_grid("clear")
-    inspection.inspect_image = _fake_vision(["texture_not_repeating"],
-                                            shown="a small crochet basket")
-    inspection.describe_image = _fake_describe(marks="none", shown="a small crochet basket")
-
-    def publish_check():
-        ctx = SimpleNamespace(db=db, job=SimpleNamespace(
-            id=0, inputs={"slug": cir.slug, "version": cir.version}),
-            audit=lambda *a, **k: None, enqueue=lambda *a, **k: None)
-        verdict = pipeline._listing_parity(ctx)
-        return verdict["frame_review"], verdict.get("why") or ""
-
-    try:
-        _build(db, cir, "photo-led-1")
-        assert release.frame_review_state(db, cir.slug, cir.version)["reviewed"] is True
-        test_id = T._passed_full_make(db, cir)
-        plan = T._upgrade(db, cir, test_id)
-        assert plan["frame_position"] == 1, plan
-        with db.session() as s:
-            gallery = [(r.position, r.asset_class) for r in s.scalars(
-                select(ListingAsset).where(ListingAsset.product_slug == cir.slug,
-                                           ListingAsset.version == cir.version)
-                .order_by(ListingAsset.position))]
-        assert gallery[0] == (1, par.PHOTO_CLASS), gallery
-
-        # 1. The photograph awaiting its deterministic review holds #61, by name.
-        state = release.frame_review_state(db, cir.slug, cir.version)
-        assert state["reviewed"] is False and state["bound_to_stored_frames"] is True, state
-        assert state["photo_frames_awaiting"] == [1] and "await" in state["why"], state
-
-        # 2. The asset-truth review approves it: #61 passes, on the publish path too.
-        assert par.sweep(db)["approved"] == 1
-        state = release.frame_review_state(db, cir.slug, cir.version)
-        assert state["reviewed"] is True and state["photo_frames_approved"] == [1], state
-        review, why = publish_check()
-        assert review["reviewed"] is True and "(#61)" not in why, (review, why)
-        parity = publication_authority._parity(db, cir.slug, cir.version)
-        assert parity["frame_review"]["reviewed"] is True, parity
-
-        # 3. A rebuild re-places the renders after the photograph and re-reviews them under
-        # the builder's own positions: the authority is kept.
-        _build(db, cir, "photo-led-2")
-        with db.session() as s:
-            photo = s.scalar(select(ListingAsset).where(
-                ListingAsset.product_slug == cir.slug, ListingAsset.version == cir.version,
-                ListingAsset.asset_class == par.PHOTO_CLASS))
-            assert photo.position == 1 and photo.approved is True, (photo.position,
-                                                                    photo.blocked_reasons)
-        state = release.frame_review_state(db, cir.slug, cir.version)
-        assert state["reviewed"] is True and state["bound_to_stored_frames"] is True, state
-        review, why = publish_check()
-        assert review["reviewed"] is True and "(#61)" not in why, (review, why)
-    finally:
-        (gate.check, inspection.inspect_image, inspection.describe_image,
-         inspection.identify_at_grid) = saved
-
-    # 4. Still bound to bytes: a stored render that differs from the reviewed one fails.
-    with db.session() as s:
-        row = s.scalar(select(ListingAsset).where(
-            ListingAsset.product_slug == cir.slug, ListingAsset.version == cir.version,
-            ListingAsset.position == 3))
-        assert row.asset_class != par.PHOTO_CLASS
-        row.sha256 = "0" * 64
-    state = release.frame_review_state(db, cir.slug, cir.version)
-    assert state["reviewed"] is False and state["bound_to_stored_frames"] is False, state
-    assert "differ" in state["why"], state
 
 if __name__ == "__main__":
     fails = 0
