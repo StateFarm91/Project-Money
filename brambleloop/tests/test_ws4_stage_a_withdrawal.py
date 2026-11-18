@@ -133,7 +133,7 @@ def _updates(fake):
 
 
 def test_deactivate_takes_a_stopped_policys_listing_down_and_records_it_even_in_shadow():
-    from tests.fake_etsy import FakeEtsy
+    from fake_etsy import FakeEtsy
 
     try:
         db, _, aid = _effective_db()
@@ -179,7 +179,7 @@ def test_deactivate_takes_a_stopped_policys_listing_down_and_records_it_even_in_
 
 
 def test_deactivate_raises_when_etsy_does_not_report_inactive():
-    from tests.fake_etsy import FakeEtsy
+    from fake_etsy import FakeEtsy
 
     with FakeEtsy() as fake:
         lid, shadow = _fake_live(fake)
@@ -247,3 +247,5 @@ if __name__ == "__main__":
 
                 traceback.print_exc()
     print(f"{failed} failed")
+    # run_tests.sh reads the exit code: a failing test must fail the suite.
+    sys.exit(1 if failed else 0)
