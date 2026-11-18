@@ -54,7 +54,12 @@ def _snapshot(db, day: str, views: dict[str, int]):
 
 
 def _order(db, slug, n, *, day="2026-10-10", source=SOURCE, ref_prefix="etsy",
-           offsite=False):
+           offsite=False, ledger_fee: float | None = 0.0):
+    """`ledger_fee` is the Offsite Ads fee Etsy's payment-account ledger showed for the order
+    (0.0: read, no fee -- organic). None: the ledger was not read (attribution UNKNOWN, F-570;
+    eng/e1-receipt-lessons-fix M1)."""
+    from brambleloop.core.models import Order
+
     for i in range(n):
         ref = f"{ref_prefix}:{slug}-{day}-{source}-{int(offsite)}-{i}:{i}"
         cohorts.record_customer(db, f"cust-{ref}", at=datetime.fromisoformat(day).replace(
@@ -63,6 +68,9 @@ def _order(db, slug, n, *, day="2026-10-10", source=SOURCE, ref_prefix="etsy",
                              at=datetime.fromisoformat(day).replace(tzinfo=timezone.utc),
                              price_cad=8.0, revenue_cad=8.0, source=source,
                              offsite_ad_attributed=offsite, detail={"state": "paid"})
+        with db.session() as s:
+            o = s.scalar(select(Order).where(Order.external_ref == ref))
+            o.offsite_ads_fee_cad = ledger_fee
 
 
 def _two_week_window(db):
