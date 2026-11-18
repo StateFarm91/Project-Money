@@ -302,6 +302,8 @@ EVIDENCE_CHECKS = ("publishing_halt_clear", "stale_artefacts_rebuilding",
 # (item, evidence section, server judgement key or None)
 EVIDENCE_ITEMS = (
     ("dead letters in 24 h by job type", "dead_letters_24h", "no_unexpected_dead_letters_in_24h"),
+    ("listing-package releases recorded", "listing_package_releases",
+     "no_unrecorded_listing_releases_in_24h"),
     ("publishing halt clear", "publishing_halt", "publishing_halt_clear"),
     ("stale artefacts rebuilding", "stale_artefact_rebuilds", "stale_artefacts_rebuilding"),
     ("repeated paid calls prevented", "paid_call_dedupe", "no_repeated_paid_call_in_24h"),
@@ -353,6 +355,12 @@ def _judge_section(name: str, section, judged) -> tuple[str, str]:
         types = [f"{g.get('job_type')}:{g.get('error_class')}x{g.get('count')}"
                  for g in section.get("by_type") or [] if not g.get("expected_refusal")]
         return (PASS if judged else FAIL), (f"unexpected: {types}" if types else "none unexpected")
+    if name == "listing_package_releases":
+        bad = [f"{g.get('release')}:{g.get('error_class')}x{g.get('final_attempt_failures')}"
+               for g in section.get("by_release") or [] if g.get("final_attempt_failures")]
+        return (PASS if judged else FAIL), (
+            f"{section.get('degraded_sweeps')} degraded sweeps; unrecorded: {bad}"
+            if not judged else "every release recorded")
     return (PASS if judged else FAIL), ""
 
 

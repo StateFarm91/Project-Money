@@ -211,6 +211,52 @@ def test_max_attempts_zero_is_an_explicit_last_attempt():
         assert finals and all(f is True for f in finals), audits
 
 
+
+def test_queue_reader_degrades_to_unknown_when_the_listing_query_fails():
+    """A9 round-2 review (LOW): the listing-release query failing must not fail the whole
+    jobs reader; that field reads an explicit UNKNOWN and the reader never claims OK."""
+    db = _two_releases()
+    job, _seen = _drive(db, record_fails=set())
+    assert job.status == JobStatus.DONE
+    from brambleloop.app.command_center import readers
+
+    with patch.object(pe, "listing_package_releases",
+                      side_effect=RuntimeError("SENSITIVE-ROW-TEXT")):
+        q = readers.queue(db)
+    assert q["status"] == "UNKNOWN", q                 # not OK, and not a reader failure
+    assert q["provider"] == "jobs" and q["items"], q    # the rest of the reader still served
+    assert q["unrecorded_listing_releases"] == {
+        "status": "UNKNOWN", "error_class": "RuntimeError",
+        "reason": "listing-package release evidence unreadable"}, q
+    assert "listing-package release evidence UNKNOWN (RuntimeError)" in q["reason"], q
+    assert "SENSITIVE-ROW-TEXT" not in str(q)
+    # A dead letter alongside still reads DEGRADED (known bad outranks unknown).
+    with db.session() as s:
+        s.add(Job(agent="ops", job_type="probe", status=JobStatus.DEAD, inputs={}))
+    with patch.object(pe, "listing_package_releases", side_effect=RuntimeError("x")):
+        q = readers.queue(db)
+    assert q["status"] == "DEGRADED", q
+    assert q["unrecorded_listing_releases"]["status"] == "UNKNOWN", q
+
+
+def test_post_deploy_readback_reports_unrecorded_listing_releases():
+    """A9 round-2 review (MEDIUM): `readback --evidence` reads the new judgement, so the
+    rollback decision sees an unrecorded listing release as FAIL."""
+    sys.path.insert(0, str(_Path(__file__).resolve().parents[2] / "ops"))
+    import readback
+
+    db = _two_releases()
+    _drive(db, record_fails={"a-broken-release"})
+    ev = pe.evidence(db, now=utcnow() + timedelta(seconds=1))
+    out = readback.run_evidence(
+        url="https://prod.invalid", env={readback.READBACK_TOKEN_VAR: "rb-token-0123456789"},
+        fetch=lambda u, tok=None: (200, ev if u.endswith(readback.EVIDENCE_ENDPOINT) else
+                                   {"evidence_checks": []}))
+    [row] = [i for i in out["items"] if i.get("section") == "listing_package_releases"]
+    assert row["verdict"] == readback.FAIL, row
+    assert BROKEN in row["detail"] and "1 degraded sweeps" in row["detail"], row
+    assert out["verdict"] == readback.FAIL, out
+
 if __name__ == "__main__":
     import _minipytest
 

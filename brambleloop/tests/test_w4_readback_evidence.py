@@ -565,7 +565,9 @@ def test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart():
         assert "improve.weekly:TypeError" in by["dead letters in 24 h by job type"]["detail"]
         assert by["publishing halt clear"]["verdict"] == readback.FAIL, by  # the seeded halt
         assert all(i["verdict"] in (readback.PASS, readback.FAIL, readback.UNKNOWN)
-                   for i in out["items"]) and len(out["items"]) == 12, out["items"]
+                   for i in out["items"]) and len(out["items"]) == 13, out["items"]
+        # A9 round 2: unrecorded listing-package releases are a readback row (none seeded).
+        assert by["listing-package releases recorded"]["verdict"] == readback.PASS, by
         # An unreadable section is UNKNOWN, never PASS.
         v, _ = readback._judge_section("weekly_jobs", {"readable": False}, True)
         assert v == readback.UNKNOWN

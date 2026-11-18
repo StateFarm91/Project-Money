@@ -99,25 +99,36 @@ def queue(db) -> dict:
         from ...ops.production_evidence import (judge_listing_package_releases,
                                                  listing_package_releases)
 
-        unrecorded = listing_package_releases(db, now=datetime.now(timezone.utc))
-        listing_ok = judge_listing_package_releases(unrecorded)
-        status = "DEGRADED" if counts.get("dead") or not listing_ok else "OK"
+        # Review of the A9 round-2 change (LOW): this one query failing must not take the
+        # whole jobs reader down; the field reads an explicit UNKNOWN instead, and the reader
+        # never claims OK while it is unknown.
+        try:
+            unrecorded = listing_package_releases(db, now=datetime.now(timezone.utc))
+            listing_ok = judge_listing_package_releases(unrecorded)
+            listing_field = {k: unrecorded[k] for k in ("degraded_sweeps", "degraded_job_ids",
+                                                        "unrecorded_releases", "by_release")}
+        except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never a pass
+            unrecorded, listing_ok = None, None
+            listing_field = {"status": "UNKNOWN", "error_class": type(exc).__name__,
+                             "reason": "listing-package release evidence unreadable"}
         if not counts:
             return envelope("UNKNOWN", [], ["jobs"], basis="unknown",
                             reason="no job has ever been recorded", provider="jobs")
+        status = ("DEGRADED" if counts.get("dead") or listing_ok is False
+                  else "UNKNOWN" if listing_ok is None else "OK")
         reasons = []
         if counts.get("dead"):
             reasons.append(f"{counts.get('dead')} dead-lettered jobs")
-        if not listing_ok:
+        if listing_ok is False:
             reasons.append(f"{unrecorded['unrecorded_releases']} listing release(s) not "
                            f"recorded on a final attempt in 24 h "
                            f"({unrecorded['degraded_sweeps']} degraded sweep(s))")
+        elif listing_ok is None:
+            reasons.append("listing-package release evidence UNKNOWN "
+                           f"({listing_field['error_class']})")
         return envelope(status, items, ["jobs"], provider="jobs",
                         last_job_done_at=_iso(last_done), dead_letters=dead_items,
-                        unrecorded_listing_releases={
-                            k: unrecorded[k] for k in ("degraded_sweeps",
-                                                       "degraded_job_ids",
-                                                       "unrecorded_releases", "by_release")},
+                        unrecorded_listing_releases=listing_field,
                         reason="; ".join(reasons) or None)
 
     return guard("jobs", read, sources=["jobs"])
