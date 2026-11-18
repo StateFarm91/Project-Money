@@ -130,7 +130,18 @@ _SHAPED_WORDS = ("amigurumi", "hat", "beanie", "bonnet", "cardigan", "tee", "swe
                  "drawstring", "holder", "backpack", "clutch", "crossbody", "pouch", "sachet",
                  "bean bag", "diaper", "purse", "wallet",
                  # Review OPUS2C N3.2: motif assemblies and shaped beds are not one panel.
-                 "granny", "hexagon", "hexie", "bed")
+                 "granny", "hexagon", "hexie", "bed",
+                 # S1 Product Truth: a cowl, an infinity scarf or a snood is a closed loop,
+                 # not the flat scarf strip the scarf template drafts.
+                 "cowl", "infinity", "snood")
+
+# S1 Product Truth: an outline the title promises that a rectangle of flat rows (or a pair of
+# them) does not have. "Round Placemat" drafted on the placemat template was a 45 x 30 cm
+# rectangle sold as round.
+_FLAT_SHAPE_CLAIM = (r"(?<![-\w])(?:round|circular|oval|heart[- ]shaped|star[- ]shaped|hexagonal|"
+                     r"octagonal)\s+(?:[a-z]+\s+)?(?:placemats?|mats?|rugs?|cushions?|pillows?|"
+                     r"coasters?|tablecloths?|doil(?:y|ies)|toppers?|blankets?|throws?|"
+                     r"dishcloths?|washcloths?)\b")
 
 
 def _shaped_title(title: str) -> str | None:
@@ -332,6 +343,11 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
             return {"family": TOTE, "needs": "",
                     "why": "a tote is a vessel worked in the round with two sewn straps"}
     lowered = (title or "").lower()
+    shape = re.search(_FLAT_SHAPE_CLAIM, fold_title(title))
+    if shape:
+        return {"family": REFUSED, "needs": f"a construction that makes {shape.group(0)!r}",
+                "why": (f"the title promises {shape.group(0)!r}; the fallback drafts rectangles "
+                        f"of flat rows, so it refuses rather than selling that outline")}
     if category in TRIANGLE_CATEGORIES or re.search(_TRIANGLE_WORDS, lowered):
         named = re.search(_STITCH_PATTERN_WORDS, lowered)
         if named:
@@ -344,6 +360,9 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
                 "why": "a triangle shawl worked flat from the point, increasing at each end"}
     if (category in PANEL_PAIR_CATEGORIES or re.search(_PANEL_PAIR_WORDS, lowered)) \
             and not _shaped_title(re.sub(_PANEL_PAIR_WORDS, "", lowered)):
+        sized = _size_refusal(category, title)
+        if sized:
+            return sized
         return {"family": PANEL_PAIR, "needs": "",
                 "why": "a cushion is a front and a back panel seamed around a pad"}
     word = _shaped_title(title)
@@ -351,7 +370,24 @@ def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
         return {"family": REFUSED, "needs": f"the construction a {word} is made in",
                 "why": (f"the title names a {word!r}, which one flat panel does not make; the "
                         f"fallback refuses rather than drafting a panel under that name")}
+    sized = _size_refusal(category, title)
+    if sized:
+        return sized
     return {"family": FLAT_PANEL, "needs": "", "why": "a flat form"}
+
+
+def _size_refusal(category: str, title: str) -> dict | None:
+    """S1 review 6958883678 (H2/M1): a flat object the title names must have a size band and a
+    correct template, and the size the title asks for must be one the family is made in.
+    Otherwise the draft is refused by name -- never the default panel, never a silent resize."""
+    from . import size_truth
+
+    req = size_truth.request(category, title)
+    if req["refused"]:
+        return {"family": REFUSED,
+                "needs": "a size band and a template that make the size the title names",
+                "why": req["refused"]}
+    return None
 
 
 # A cushion or pillow cover: two identical panels of the concept's own repeat, joined on three

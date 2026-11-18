@@ -612,6 +612,17 @@ def test_attack_a_corrupted_artifact_is_detected():
 
 
 
+def _placemat_sized(cir: dict) -> dict:
+    """The wall hanging cut to 44 rows (25.6 x 44.7 cm): a placemat-sized stale design.
+
+    The full hanging is 57 cm long, and certification now refuses a title naming a placemat
+    at that size (OBJECT_SIZE_OUT_OF_BAND), so the stale design would never certify. Cut, it
+    is still different fabric from the 48-row mosaic design.
+    """
+    first = {**cir["components"][0], "rows": cir["components"][0]["rows"][:44]}
+    return {**cir, "components": [first, *cir["components"][1:]]}
+
+
 def test_a_redesigned_product_re_enters_the_chain():
     """The defect that broke the previous four "code changed, database didn't" fixes.
 
@@ -647,8 +658,8 @@ def test_a_redesigned_product_re_enters_the_chain():
     stale = build(CATALOGUE["cottage-wall-hanging"])
     # PT-03: an older release. Different fabric under the SAME version is now refused at
     # certification (tests/test_version_immutability.py); a redesign ships as a new version.
-    stale = CIR.from_dict({**stale.to_dict(), "slug": slug, "title": fresh.title,
-                           "version": "0.9.0"})
+    stale = CIR.from_dict({**_placemat_sized(stale.to_dict()), "slug": slug,
+                           "title": fresh.title, "version": "0.9.0"})
     assert stale.fingerprint != fresh.fingerprint
     JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": stale.to_dict()})
     drain_all()
@@ -707,8 +718,8 @@ def test_a_recertified_release_rebuilds_its_listing():
     stale = build(CATALOGUE["cottage-wall-hanging"])
     # PT-03: an older release. Different fabric under the SAME version is now refused at
     # certification (tests/test_version_immutability.py); a redesign ships as a new version.
-    stale = CIR.from_dict({**stale.to_dict(), "slug": slug, "title": fresh.title,
-                           "version": "0.9.0"})
+    stale = CIR.from_dict({**_placemat_sized(stale.to_dict()), "slug": slug,
+                           "title": fresh.title, "version": "0.9.0"})
 
     JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": stale.to_dict()})
     drain_all()
