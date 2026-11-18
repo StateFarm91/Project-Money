@@ -227,6 +227,15 @@ def _startup() -> None:
         _release_record.record_incident(db)
     except Exception:  # noqa: BLE001 - the phase is already forced; the row is the record
         pass
+    # WS4-7: the web process reports which keys it holds (fingerprints only), the web third of
+    # the Mode T readiness check (`standing_grants.mode_report`). A report is evidence, never
+    # authority; a failure to write it only keeps the deployment reading Mode S.
+    try:
+        from ..ops import standing_grants as _sg
+
+        _sg.process_report(db, _sg.WEB_COMPONENT)
+    except Exception:  # noqa: BLE001
+        pass
     # One row per container start, carrying the commit it started on.
     #
     # `runner.STATE.worker_restarts` looks like a restart count and cannot be one: it counts

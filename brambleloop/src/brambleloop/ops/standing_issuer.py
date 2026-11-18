@@ -706,8 +706,8 @@ def decide(db, slug: str, version: str, release: str, *,
 
     No effective policy (always, until Mode T exists) -> nothing is decided and no card is
     opened: today's per-product approval is the only path, as before. A HOLD becomes an owner
-    card (`record_hold`). An ISSUE is refused here: the grant store and the issuer key are the
-    Mode T increment, so this function can never sign or issue."""
+    card (`record_hold`). An ISSUE is returned, never signed here: only the policy-issuer
+    process mints a grant (`standing_grants.issue`)."""
     now = _now(now)
     eff = SP.effective(db, now=now)
     if eff.get("state") != SP.EFFECTIVE:
@@ -719,6 +719,7 @@ def decide(db, slug: str, version: str, release: str, *,
                            reasons=out["reasons"], content=content,
                            approval_id=eff.get("approval_id"), now=now)
         return {"decision": "HOLD", "reasons": out["reasons"], "card": card}
-    return {"decision": "ISSUE_REFUSED", "card": None,
-            "why": "in policy, but no standing grant can be issued: the grant store and "
-                   "issuer process do not exist (Mode T increment)"}
+    # WS4-7: in policy. This function never signs: only the policy-issuer process turns an
+    # ISSUE into a grant (`standing_grants.issue`, which re-checks Mode T and its own limits).
+    return {"decision": "ISSUE", "card": None, "reasons": [],
+            "class_id": out.get("class_id"), "effective_risk": out.get("effective_risk")}

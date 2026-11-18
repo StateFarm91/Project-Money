@@ -387,7 +387,7 @@ def _standing_policy_cards(db) -> list[dict]:
                                   "per-product approval",
         "statement": statement,
         "digest": sp.statement_digest(content) if statement else None,
-        "deployment_mode": sp.deployment_mode(),
+        "deployment_mode": sp.deployment_mode(db),
         "key_health": sp.key_health(),
         "proposed_action": "review the policy's state and act on it",
         "downside": "a standing policy can create Etsy drafts without asking per product",
@@ -904,7 +904,7 @@ def _standing_policy(db, action: str, body: dict, reason: str, *, actor: str) ->
             if not isinstance(content, dict):
                 raise ActionRefused("content must be the policy fields to preview")
             prev = sp.preview(db, content)
-            return {**prev, "deployment_mode": sp.deployment_mode(),
+            return {**prev, "deployment_mode": sp.deployment_mode(db),
                     "key_health": sp.key_health()}
         if action == "standing_policy.approve":
             if not reason:

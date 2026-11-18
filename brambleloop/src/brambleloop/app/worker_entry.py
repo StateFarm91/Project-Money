@@ -47,6 +47,12 @@ def main() -> int:
     if _sp.mark_job_process():
         log.warning("removed the standing-policy signing key from the worker environment: "
                     "a job process never signs a standing policy")
+    # WS4-7: nor a standing execution grant (only the policy-issuer service holds that key).
+    from ..ops import standing_grants as _sg
+
+    if _sg.mark_job_process():
+        log.warning("removed the grant-issuer signing key from the worker environment: "
+                    "only the policy-issuer service mints a standing grant")
     # A3-05: same runtime boot guard as the web service. On the hosting platform an unproven
     # build runs as SHADOW (the phase env is forced before the effective phase is read below).
     from ..ops import release_record
@@ -59,6 +65,10 @@ def main() -> int:
     except Exception:  # noqa: BLE001 - the phase is already forced
         pass
     Registry(db).seed_defaults()
+    try:
+        _sg.process_report(db, _sg.WORKER_COMPONENT)    # WS4-7 Mode T evidence (keys held)
+    except Exception:  # noqa: BLE001 - a missing report keeps the deployment in Mode S
+        log.exception("worker key report not written; the deployment stays Mode S")
     from ..intel.benchmarks import seed as seed_benchmarks
 
     seed_benchmarks(db)
