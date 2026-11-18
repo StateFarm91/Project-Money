@@ -218,7 +218,16 @@ def _frames(db, slug: str, version: str) -> list:
             .order_by(ListingAsset.position)))
         for r in rows:
             s.expunge(r)
-    return rows
+    # I-A3-NONQUALIFYING-PHOTO (opus2): a photo frame the asset-truth review holds as not
+    # qualifying is out of the listing set; it never blocks the set it was appended to.
+    # Review U5 F8: only a PHOTO frame drops out this way (as photo_snapshot_current and
+    # photo_certificate_current read it); any other frame carrying that reason still blocks.
+    from .photo_asset_review import NOT_QUALIFYING, PHOTO_CLASS
+
+    return [r for r in rows
+            if not (r.asset_class == PHOTO_CLASS
+                    and any(str(x).startswith(NOT_QUALIFYING)
+                            for x in (r.blocked_reasons or [])))]
 
 
 def _listing(db, slug: str, version: str):
@@ -1047,6 +1056,11 @@ def _record_certificate(db, cert: ls.ListingCertificate, *, release_hash: str, i
                         f"listing-set certificate would bind to nothing; refused")}
     covered = None
     with db.session() as s:
+        from .photo_asset_review import _lock, photo_certificate_current
+        _lock(s, db)
+        if not photo_certificate_current(s, db, cert.slug, cert.version, cert.frames):
+            return {"valid": False, "issued": False, "rechecked": rechecked,
+                    "why": "photo frame or evidence changed before certificate review"}
         current = s.scalar(select(ListingSetCertificateRecord).where(
             ListingSetCertificateRecord.product_slug == cert.slug,
             ListingSetCertificateRecord.version == cert.version,
@@ -1070,6 +1084,11 @@ def _record_certificate(db, cert: ls.ListingCertificate, *, release_hash: str, i
         return {"valid": False, "issued": False, "rechecked": rechecked,
                 "why": "no valid certificate covers these frames and issuing was not asked"}
     with db.session() as s:
+        from .photo_asset_review import _lock, photo_certificate_current
+        _lock(s, db)
+        if not photo_certificate_current(s, db, cert.slug, cert.version, cert.frames):
+            return {"valid": False, "issued": False, "rechecked": rechecked,
+                    "why": "photo frame or evidence changed before certificate issuance"}
         rec = ListingSetCertificateRecord(
             product_slug=cert.slug, version=cert.version, release_hash=release_hash,
             certificate=cert.to_dict(), geometry_fingerprint=cert.geometry_fingerprint,
@@ -1125,8 +1144,20 @@ def recheck(db, *, slug: str, version: str, geometry: dict, claims: dict,
 
     from ..core.models import ListingAsset, ListingSetCertificateRecord
 
+    from .photo_asset_review import AWAITING, PHOTO_CLASS
+
     results = []
+    # Review A3 U5 F3: a release whose gallery holds a photo frame is rechecked under the
+    # photo review's write lock, so no review or issuance interleaves with the revocation.
     with db.session() as s:
+        photo_led = s.scalar(select(ListingAsset.id).where(
+            ListingAsset.product_slug == slug, ListingAsset.version == version,
+            ListingAsset.asset_class == PHOTO_CLASS).limit(1)) is not None
+    with db.session() as s:
+        if photo_led:
+            from .photo_asset_review import _lock
+
+            _lock(s, db)
         for rec in s.scalars(select(ListingSetCertificateRecord).where(
                 ListingSetCertificateRecord.product_slug == slug,
                 ListingSetCertificateRecord.version == version,
@@ -1138,21 +1169,47 @@ def recheck(db, *, slug: str, version: str, geometry: dict, claims: dict,
                 rec.state = "invalidated"
                 rec.invalidated_by = list(verdict["invalidated_by"])
                 rec.invalidated_at = datetime.now(timezone.utc)
-                positions = {f["asset_id"]: f["position"]
+                certified = {f["asset_id"]: (f.get("position"), f.get("sha256"))
                              for f in (rec.certificate or {}).get("frames", [])}
+                gallery = list(s.scalars(select(ListingAsset).where(
+                    ListingAsset.product_slug == slug, ListingAsset.version == version)))
                 for asset_id in verdict["affected_assets"]:
-                    pos = positions.get(asset_id)
-                    row = s.scalar(select(ListingAsset).where(
-                        ListingAsset.product_slug == slug, ListingAsset.version == version,
-                        ListingAsset.position == pos)) if pos else None
-                    if row is not None:
-                        row.approved = False
-                        row.blocked_reasons = [
-                            f"LISTING_SET_INVALIDATED: certificate {rec.id} invalidated by "
-                            f"{', '.join(verdict['invalidated_by'])}; re-certify before "
-                            f"export"] + list(row.blocked_reasons or [])[:9]
+                    pos, sha = certified.get(asset_id, (None, None))
+                    for row in _certified_rows(gallery, pos, sha):
+                        _mark_invalidated(row, rec, verdict, PHOTO_CLASS, AWAITING)
             results.append(verdict)
     return results
+
+
+def _certified_rows(gallery, position, sha256) -> list:
+    """The stored rows a certificate frame names (review of 3928ba00 L3). A certificate
+    records each frame's position AND its exact bytes; a later shift (`plan_upgrade` putting
+    a photograph first) moves the bytes to another slot. Resolving by the recorded position
+    alone marked whatever row now sits there -- the newly approved photograph went back to
+    awaiting review, and the shifted render the certificate actually named was missed. The
+    row holding the certified bytes at the recorded slot is preferred; else every row that
+    holds those bytes; with no recorded hash (a legacy record), the recorded slot."""
+    if sha256:
+        same = [r for r in gallery if r.sha256 == sha256]
+        at = [r for r in same if r.position == position]
+        return at or same
+    return [r for r in gallery if position and r.position == position]
+
+
+def _mark_invalidated(row, rec, verdict, PHOTO_CLASS, AWAITING) -> None:
+    """Take a certified frame's approval away when its certificate is invalidated."""
+    row.approved = False
+    if row.asset_class == PHOTO_CLASS:
+        # Review A3 U5 F3: a photo frame is not rebuilt -- a rebuild never replaces it -- so a
+        # LISTING_SET_INVALIDATED mark would strand it for good. It goes back to the
+        # asset-truth review instead, which re-checks it and re-issues the set.
+        row.blocked_reasons = [AWAITING] + [
+            r for r in (row.blocked_reasons or []) if r != AWAITING][:9]
+    else:
+        row.blocked_reasons = [
+            f"LISTING_SET_INVALIDATED: certificate {rec.id} invalidated by "
+            f"{', '.join(verdict['invalidated_by'])}; re-certify before "
+            f"export"] + list(row.blocked_reasons or [])[:9]
 
 
 def certificate_step(db, *, slug: str, version: str, release_hash: str, frames, per_frame,
@@ -1169,6 +1226,11 @@ def certificate_step(db, *, slug: str, version: str, release_hash: str, frames, 
     hashes = {v["position"]: v.get("sha256") for v in per_frame}
     covered = None
     with db.session() as s:
+        from .photo_asset_review import _lock, photo_snapshot_current
+        _lock(s, db)
+        if not photo_snapshot_current(s, db, slug, version, frames):
+            return {"valid": False, "issued": False, "rechecked": rechecked,
+                    "why": "photo frame or evidence changed before certificate review"}
         current = s.scalar(select(ListingSetCertificateRecord).where(
             ListingSetCertificateRecord.product_slug == slug,
             ListingSetCertificateRecord.version == version,
@@ -1215,6 +1277,11 @@ def certificate_step(db, *, slug: str, version: str, release_hash: str, frames, 
     except ls.ListingSetRefused as e:
         return {"valid": False, "issued": False, "rechecked": rechecked, "why": str(e)[:400]}
     with db.session() as s:
+        from .photo_asset_review import _lock, photo_snapshot_current
+        _lock(s, db)
+        if not photo_snapshot_current(s, db, slug, version, frames):
+            return {"valid": False, "issued": False, "rechecked": rechecked,
+                    "why": "photo frame or evidence changed before certificate issuance"}
         rec = ListingSetCertificateRecord(
             product_slug=slug, version=version, release_hash=release_hash,
             certificate=cert.to_dict(), geometry_fingerprint=cert.geometry_fingerprint,
@@ -1303,7 +1370,84 @@ def window_decision(db, *, slug: str, version: str, today: date | None = None,
 
 # ---- #172 / #173: staleness --------------------------------------------------------------
 
-def _halting_other_than_staleness(db, slug: str, own: set[str]) -> list:
+# eng/stale-rebuild-loop: the families that are staleness -- the sentinel's own rows and the
+# rebuild graph's `rebuild-incomplete` (a rebuild that has not yet delivered). Both are what
+# a rebuild cures, so neither may refuse the rebuild; an *exhausted* rebuild-incomplete row
+# (REBUILD_MAX_ATTEMPTS attempts failed) is a named hold instead of a waiver.
+STALENESS_FAMILIES = frozenset({"stale-artefact", "rebuild-incomplete"})
+
+
+def _staleness_only(ev: dict) -> bool:
+    fams = set(ev.get("widespread_families") or ())
+    return (bool(ev.get("systemic")) and not ev.get("integrity_failures") and bool(fams)
+            and fams <= STALENESS_FAMILIES)
+
+
+def incident_slug(row) -> str | None:
+    """The product an incident is filed against. Review M-A of 4b683993: rebuild-incomplete
+    rows written before the product slug was filed carry it only in their signature
+    (`rebuild-incomplete:<slug>`), so a reader that matched on `product_slug` alone never saw
+    them -- an exhausted legacy row held nothing."""
+    from ..ops.rebuild_graph import REBUILD_INCOMPLETE_SIGNATURE
+
+    if row.product_slug:
+        return row.product_slug
+    sig = str(row.signature or "")
+    if sig.startswith(f"{REBUILD_INCOMPLETE_SIGNATURE}:"):
+        return sig[len(REBUILD_INCOMPLETE_SIGNATURE) + 1:] or None
+    return None
+
+
+def rebuild_withheld(db, slug: str) -> tuple[str | None, str | None]:
+    """(version, withholding summary) for the release `chain.rebuild` targets -- the newest
+    release by version, its withholding record re-read (owner ruling included) exactly as
+    the rebuild reads it. Review L1: the retry hold and the rebuild's own refusal read one
+    function, so they cannot disagree."""
+    from sqlalchemy import select
+
+    from ..core.models import Product
+    from ..ops import artefacts as provenance
+    from . import withholding
+
+    with db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        pv = provenance.newest_release(s, product.id) if product is not None else None
+        version = pv.version if pv is not None else None
+    if version is None:
+        return None, None
+    summary = withholding.current(db, slug, version, stage="chain.rebuild")["summary"]
+    return version, (summary or None)
+
+
+def rebuild_exhausted(row) -> bool:
+    """A `rebuild-incomplete:<slug>` row whose attempts are used up (held, named reason).
+    A row written before eng/stale-rebuild-loop is not: it gets a fresh budget first."""
+    from ..ops.rebuild_graph import REBUILD_INCOMPLETE_SIGNATURE, incomplete_exhausted
+
+    if not str(row.signature or "").startswith(f"{REBUILD_INCOMPLETE_SIGNATURE}:"):
+        return False
+    # review M-E of 0d2e6cbc: one definition; a pre-branch row is not exhausted by its count
+    return incomplete_exhausted(row.report_count, row.detail)
+
+
+def _waivable_staleness(row, slug: str, fresh: set[str]) -> bool:
+    """A halting row that is this product's staleness and so may not refuse its rebuild:
+    a sentinel row for an artefact that already reads FRESH again (the next sweep closes
+    it -- the rebuild in progress just remade it), or a rebuild-incomplete row that is not
+    yet exhausted."""
+    from ..ops.artefacts import SENTINEL_SIGNATURE
+    from ..ops.rebuild_graph import REBUILD_INCOMPLETE_SIGNATURE
+
+    sig = str(row.signature or "")
+    if sig.startswith(f"{SENTINEL_SIGNATURE}:"):
+        return sig[len(SENTINEL_SIGNATURE) + 1:] in fresh
+    if sig == f"{REBUILD_INCOMPLETE_SIGNATURE}:{slug}":
+        return not rebuild_exhausted(row)
+    return False
+
+
+def _halting_other_than_staleness(db, slug: str, own: set[str],
+                                  fresh: set[str] | None = None) -> list:
     """Open halting incidents for `slug` other than its own stale-marketing rows and other
     than a company-wide halt whose only evidence is widespread stale-artefact rows.
 
@@ -1315,20 +1459,22 @@ def _halting_other_than_staleness(db, slug: str, own: set[str]) -> list:
 
     from ..core.models import Incident
     from ..ops.incident_lifecycle import SYSTEMIC_SIGNATURE, systemic_evidence
+    from ..ops.rebuild_graph import REBUILD_INCOMPLETE_SIGNATURE
 
     with db.session() as s:
         try:
             ev = systemic_evidence(s)
-            staleness_only = (bool(ev["systemic"]) and not ev["integrity_failures"]
-                              and set(ev["widespread_families"]) == {"stale-artefact"})
+            staleness_only = _staleness_only(ev)
         except Exception:  # noqa: BLE001
             staleness_only = False
         rows = list(s.scalars(select(Incident).where(
             Incident.resolved == False,  # noqa: E712
             Incident.halts_publication.is_(True),
-            (Incident.product_slug == slug) | Incident.signature.like("systemic-halt:%"))))
+            (Incident.product_slug == slug) | Incident.signature.like("systemic-halt:%")
+            | (Incident.signature == f"{REBUILD_INCOMPLETE_SIGNATURE}:{slug}"))))
         return [r.signature for r in rows
                 if r.signature not in own
+                and not _waivable_staleness(r, slug, fresh or set())
                 and not (staleness_only and r.signature == SYSTEMIC_SIGNATURE)]
 
 
@@ -1377,7 +1523,12 @@ def staleness(db, *, slug: str) -> dict:
     # halt open since 2026-10-11). It is waived for this rebuild flag only; `halted`,
     # `reasons` and `blocks` -- what publication reads -- still carry it, and a systemic halt
     # with any other evidence (an integrity failure, another family) still refuses.
-    halting_other = _halting_other_than_staleness(db, slug, own_marketing)
+    # eng/stale-rebuild-loop (production ea3aacc7): the same rebuild that remade this
+    # product's PDF, charts and copy reaches marketing.schedule before the hourly sweep has
+    # closed the sentinel rows for those artefacts. Counting rows whose artefact already reads
+    # FRESH refused the marketing rebuild on every attempt, so marketing never converged.
+    halting_other = _halting_other_than_staleness(db, slug, own_marketing,
+                                                  set(graph.get("fresh") or ()))
     # Review F4: an unreviewed platform-policy change (#39) is not staleness, so it is never
     # waived by the marketing rebuild exception.
     only_marketing = (bool(outstanding) and not halting_other and not policy
@@ -1396,38 +1547,66 @@ def retry_hold_reason(db, *, slug: str) -> str | None:
     - an unreviewed material platform-policy change (#39), or
     - an open halting incident for the product that is not staleness (integrity, tamper and
       the like).
+    - eng/stale-rebuild-loop: an exhausted `rebuild-incomplete` row (REBUILD_MAX_ATTEMPTS
+      attempts at the change failed; its named reason is returned), or a withheld release
+      -- each a refusal the retry cannot cure.
     The sentinel's own `stale-artefact:*` rows, which are the staleness the retry exists to
-    cure, never hold it. Neither does a company-wide halt whose only evidence is widespread
-    stale-artefact rows. The hold lifts by itself when the gate clears. An unreadable gate does
-    not hold (the retry is CA$0 and bounded to once a day)."""
+    cure, never hold it, nor does a rebuild-incomplete row with attempts left. Neither does a
+    company-wide halt whose only evidence is widespread staleness rows. The hold lifts by
+    itself when the gate clears. An unreadable gate does not hold (the retry is CA$0 and
+    bounded to once a day)."""
     from sqlalchemy import select
 
     from ..core.models import Incident
     from ..gates.platform_policy import unreviewed_changes
     from ..ops.artefacts import SENTINEL_SIGNATURE
     from ..ops.incident_lifecycle import SYSTEMIC_SIGNATURE, systemic_evidence
+    from ..ops.rebuild_graph import REBUILD_INCOMPLETE_SIGNATURE, REBUILD_MAX_ATTEMPTS
 
     try:
         policy = [c for c in unreviewed_changes(db) if "publishing" in c["affects"]]
         with db.session() as s:
             try:
                 ev = systemic_evidence(s)
-                staleness_only = (bool(ev["systemic"]) and not ev["integrity_failures"]
-                                  and set(ev["widespread_families"]) == {"stale-artefact"})
+                staleness_only = _staleness_only(ev)
             except Exception:  # noqa: BLE001 - unreadable evidence never waives a halt
                 staleness_only = False
             rows = list(s.scalars(select(Incident).where(
                 Incident.resolved == False,  # noqa: E712
                 Incident.halts_publication.is_(True),
-                (Incident.product_slug == slug) | Incident.signature.like("systemic-halt:%"))))
+                (Incident.product_slug == slug) | Incident.signature.like("systemic-halt:%")
+                # review M-A: a legacy row carries its product only in the signature
+                | (Incident.signature == f"{REBUILD_INCOMPLETE_SIGNATURE}:{slug}"))))
+            # eng/stale-rebuild-loop: rebuild-incomplete (now filed against its product) is
+            # staleness the retry exists to cure, so it never holds while attempts remain.
+            # Once they are used up it becomes the named hold.
+            exhausted = [r for r in rows if incident_slug(r) == slug and rebuild_exhausted(r)]
             others = [r.signature for r in rows
                       if not str(r.signature).startswith(f"{SENTINEL_SIGNATURE}:")
+                      and not str(r.signature).startswith(f"{REBUILD_INCOMPLETE_SIGNATURE}:")
                       and not (staleness_only and r.signature == SYSTEMIC_SIGNATURE)]
+            exhausted_why = [str((r.detail or {}).get("held") or r.summary or "")[:300]
+                             for r in exhausted]
     except Exception:  # noqa: BLE001
         return None
     if policy:
         return ("held: platform policy change awaiting the owner's review (#39): "
                 + ", ".join(c["source"] for c in policy))
+    if exhausted_why:
+        return (f"held: rebuild could not complete after {REBUILD_MAX_ATTEMPTS} attempts "
+                f"({REBUILD_INCOMPLETE_SIGNATURE}:{slug}): " + exhausted_why[0])
+    # eng/stale-rebuild-loop: what `chain.rebuild` itself refuses on -- a release withheld
+    # (#163/#228) -- is a gate the retry cannot cure. It was retried daily, refused, and
+    # left no incident (a silent loop). Read live, so the hold
+    # lifts by itself when the withholding clears.
+    try:
+        # review L1: the same function `chain.rebuild` refuses on (newest release, its
+        # withholding record re-read at stage chain.rebuild).
+        version, withheld = rebuild_withheld(db, slug)
+        if withheld:
+            return f"held: release {slug}@{version} withheld (#163/#228): {str(withheld)[:200]}"
+    except Exception:  # noqa: BLE001 - an unreadable gate does not hold (CA$0, once a day)
+        pass
     if others:
         return ("held: open halting incident(s) the rebuild cannot cure: "
                 + ", ".join(map(str, others[:3])))
@@ -1639,7 +1818,10 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
         db, slug, version,
         listing=(None if row is None else
                  {"title": row.title, "description": row.description,
-                  "tags": list(row.tags or []), "price_cad": row.price_cad}))
+                  # Preserve malformed values so the audience gate can fail closed;
+                  # list("baby") would silently turn the word into four tags.
+                  "tags": row.tags if row.tags is not None else [],
+                  "price_cad": row.price_cad}))
     reasons.extend(f"{r['code']}: {r['why']}" for r in scope["reasons"])
     price_check = launch_price_check(slug, None if row is None else row.price_cad)
     if price_check["state"] == "DRIFT":

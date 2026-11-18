@@ -717,6 +717,27 @@ def effective_route(db, task_key: str) -> tuple[Task, Tier, dict]:
 #     contract (structured output, vision, context, quality, latency, cost) PASSES.
 # The best routable candidate wins on quality, then cost, then latency. OFF unless
 # BRAMBLELOOP_OUTCOME_ROUTING=1; off, the declared table (and F-313 overrides) route as before.
+# S2: the OpenAI snapshot each tier routes to when a task runs on the `openai` vendor. Pinned,
+# dated snapshots priced in `gateway.openai_chat.PRICES_USD_PER_MTOK` only; a tier with no entry
+# is refused rather than given a default model. Outcome routing and cross-provider fallback
+# stay Anthropic-only (ROUTABLE_PROVIDERS, fallback_contract) until the capability contract
+# can price a second provider.
+OPENAI_MODEL_BY_TIER: dict[str, str] = {
+    CHEAP: "gpt-4.1-mini-2025-04-14",
+    STANDARD: "gpt-4.1-2025-04-14",
+    DEEP: "gpt-5-2025-08-07",
+}
+
+
+def openai_model_for(task_key: str) -> str:
+    """The pinned OpenAI snapshot for `task_key`'s tier, or a refusal by name."""
+    _task, tier = route(task_key)
+    model = OPENAI_MODEL_BY_TIER.get(tier.key)
+    if model is None:
+        raise UnpricedTier(f"tier {tier.key!r} has no pinned OpenAI snapshot; refused")
+    return model
+
+
 OUTCOME_SWITCH = "BRAMBLELOOP_OUTCOME_ROUTING"
 ROUTABLE_PROVIDERS: tuple[str, ...] = ("anthropic",)
 

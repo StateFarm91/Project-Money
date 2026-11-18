@@ -90,7 +90,7 @@ JOB_CLASS: dict[str, ActionClass] = {
     "improve.mine": _R, "improve.retrospective": _R, "intel.acceptance": _R,
     "intel.benchmark_health": _R, "intel.benchmark_refresh": _R,
     "intel.gallery_analysis": _R, "intel.panel_discovery": _R, "intel.pod_learning": _R,
-    "intel.serp_capture": _R, "intel.children_portfolio": _R, "intel.scan_evidence": _O, "learn.scan": _R, "research.investigate": _R, "research.sweep": _R, "research.flag_architecture": _R, "listing.taxonomy_refresh": _R,
+    "intel.serp_capture": _R, "intel.children_portfolio": _R, "intel.scan_evidence": _O, "policy.issuer_shadow": _O, "policy.stop_watch": _O, "learn.scan": _R, "research.investigate": _R, "research.sweep": _R, "research.flag_architecture": _R, "listing.taxonomy_refresh": _R,
     "mjs.reviews": _R, "mjs.scan": _R, "pricing.position": _R,
     "radar.competitor_snapshot": _R, "radar.scan": _R, "radar.score": _R,
     "radar.concept_intake": _R,
@@ -109,7 +109,7 @@ JOB_CLASS: dict[str, ActionClass] = {
     "teardown.enforce": _B, "visual.portrait_repair": _B,
     "visual.image_production": _B,
     # test: validation, certification, sandbox trials, probes
-    "cir.compile": _T, "cir.reverse": _T, "cir.twin": _T, "gate.asset_truth": _T,
+    "cir.compile": _T, "cir.reverse": _T, "cir.twin": _T, "gate.asset_truth": _T, "assets.photo_review": _T,
     "gate.certify": _T, "gate.lanes": _T, "gate.policy": _T, "gate.quality": _T,
     "growth.conclude": _T, "growth.experiments": _T, "improve.league": _T,
     "improve.replay": _T, "improve.sandbox": _T, "model.probe": _T,

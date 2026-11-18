@@ -176,13 +176,28 @@ class GrantLedger:
       middle of the chain therefore refuses every grant instead of reviving one, and opens a
       P1 tamper incident;
     * the owner re-anchors a broken chain with `rebase`, which voids every earlier grant.
+
+    WS4-1: `extra_actions` names further events of the same family (the standing policy's
+    activated / suspended / resumed). They are loaded, walked and sealed as links of the one
+    chain, so deleting, replaying or hand-inserting one of them breaks the chain exactly as it
+    would for an approval or a revocation. Without this, a family's other events would sit
+    outside the chain and, for example, deleting a suspension row would go unnoticed. They
+    neither approve nor revoke anything by themselves, and they cannot re-anchor a broken
+    chain (only a revocation or an owner rebase can).
     """
 
     def __init__(self, *, approved: str, revoked: str, rebased: str, principal: str,
                  seal: Callable[[dict], str], signature: str, label: str,
-                 verify: Callable[[dict, str], bool] | None = None) -> None:
+                 verify: Callable[[dict, str], bool] | None = None,
+                 extra_actions: Iterable[str] = ()) -> None:
         self.approved, self.revoked, self.rebased = approved, revoked, rebased
-        self.actions = (approved, revoked, rebased)
+        core = (approved, revoked, rebased)
+        extra = tuple(extra_actions)
+        if (any(not isinstance(a, str) or not a.strip() for a in core + extra)
+                or len(set(core + extra)) != len(core + extra)):
+            raise ValueError(f"{label}: chain action names must be distinct non-empty strings")
+        self.extra_actions = extra
+        self.actions = core + extra
         self.principal = principal
         self._seal = seal
         # W4-AGENTS M-2: an asymmetric family verifies with a public key, so the process that
@@ -245,6 +260,10 @@ class GrantLedger:
         """Seal and append one row, chained to the current last row of the family."""
         from .models import AuditLog
 
+        if action not in self.actions:
+            # WS4-1: a row under any other action name would be invisible to `load` and so
+            # outside the chain it claims to extend.
+            raise ValueError(f"{action!r} is not an action of the {self.label} chain")
         with db.session() as s:
             rows = load(s, self.actions)
             c = self._walk(rows)

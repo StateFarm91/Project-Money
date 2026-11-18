@@ -60,6 +60,34 @@ from brambleloop.publish.pdf import build_pattern_pdf  # noqa: E402
 RELEASED = date(2026, 9, 24)
 
 
+def _authorised_child_design(cir):
+    """A9 (c10a6eb9, reviewed SHIP ffb9ca5b): a child assignment binds one exact CIR digest, so
+    a test that deliberately changes an assigned design is first refused for that -- asserted
+    here, so the binding stays proved -- and then authorises its own changed design for the
+    duration, the way an explicit decision for that exact version would."""
+    import contextlib
+
+    @contextlib.contextmanager
+    def _cm():
+        try:
+            build_pattern_pdf(cir, released_on=RELEASED)
+        except pdf_mod.ChildrensDecisionRequired as e:
+            assert "does not bind this exact design and version" in str(e), str(e)
+        else:                                       # pragma: no cover
+            raise AssertionError("a changed child design rendered under the old assignment")
+        table = l0._ASSIGNED_DECISION_CIR_SHA256
+        had, old = cir.slug in table, table.get(cir.slug)
+        table[cir.slug] = l0._cir_decision_digest(cir)
+        try:
+            yield
+        finally:
+            if had:
+                table[cir.slug] = old
+            else:
+                table.pop(cir.slug, None)
+    return _cm()
+
+
 def _designs() -> list:
     """Every design the pipeline can actually ship, not a convenient sample.
 
@@ -1158,7 +1186,8 @@ def test_the_greyscale_warning_names_the_colours_that_merge():
         assert reading["prints"] is False, reading
         assert reading["merging_pairs"], reading
         _, twin = _twin_for(merged)
-        rendered = _flat(build_pattern_pdf(merged, twin=twin, released_on=RELEASED))
+        with _authorised_child_design(merged):
+            rendered = _flat(build_pattern_pdf(merged, twin=twin, released_on=RELEASED))
         assert "two of these colours" not in rendered
         for pair in reading["merging_pairs"]:
             assert " / ".join(pair["between"]) in rendered, (pair, "the pair is not named")
@@ -1591,7 +1620,8 @@ def test_a_childrens_document_missing_a_statement_is_refused_rather_than_shipped
     assert pdf_mod.fibres_named(cir)[0] == (), "a yarn naming no fibre yielded one anyway"
 
     try:
-        build_pattern_pdf(cir, released_on=RELEASED)
+        with _authorised_child_design(cir):
+            build_pattern_pdf(cir, released_on=RELEASED)
     except ValueError as e:
         assert "fibre_and_care" in str(e), str(e)
         assert "refusing to render" in str(e)

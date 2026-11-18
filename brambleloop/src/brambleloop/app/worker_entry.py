@@ -41,18 +41,43 @@ def main() -> int:
     if _ogk.mark_job_process():
         log.warning("removed the owner-grant signing key from the worker environment: "
                     "a job process never signs owner grants")
+    # WS4-3: nor a standing publication policy row.
+    from ..ops import standing_policy as _sp
+
+    if _sp.mark_job_process():
+        log.warning("removed the standing-policy signing key from the worker environment: "
+                    "a job process never signs a standing policy")
+    # WS4-7: nor a standing execution grant (only the policy-issuer service holds that key).
+    # HIGH-2: `mark_job_process` records that the key WAS here before it scrubs it, and the
+    # boot report below states that (Mode S + a P1): the scrub cannot remove the key from the
+    # exec environment or the service settings, so presence is the fact that matters.
+    from ..ops import standing_grants as _sg
+
+    if _sg.mark_job_process():
+        log.warning("removed the grant-issuer signing key from the worker environment: "
+                    "only the policy-issuer service mints a standing grant")
     # A3-05: same runtime boot guard as the web service. On the hosting platform an unproven
     # build runs as SHADOW (the phase env is forced before the effective phase is read below).
     from ..ops import release_record
 
     release_record.apply_at_import()
     db = Database()
-    db.create_all()
+    # Round-2 L4: on its own database role (Mode T runbook) the worker never creates a table
+    # it should not own; a missing one means web (the migration owner) has not deployed this
+    # release yet, and the worker refuses to start until it has.
+    schema = db.boot_schema("worker")
+    if schema["refusal"]:
+        log.error("worker refused to start: %s", schema["refusal"])
+        return 3
     try:
         release_record.record_incident(db)
     except Exception:  # noqa: BLE001 - the phase is already forced
         pass
     Registry(db).seed_defaults()
+    try:
+        _sg.process_report(db, _sg.WORKER_COMPONENT)    # WS4-7 Mode T evidence (keys held)
+    except Exception:  # noqa: BLE001 - a missing report keeps the deployment in Mode S
+        log.exception("worker key report not written; the deployment stays Mode S")
     from ..intel.benchmarks import seed as seed_benchmarks
 
     seed_benchmarks(db)

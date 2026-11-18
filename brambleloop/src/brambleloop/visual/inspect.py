@@ -289,7 +289,7 @@ def _bill(db, provider, billed: dict, image_ref: str, purpose: str = TASK) -> No
 
         spend_report.record(
             db, agent=AGENT, amount_cad=billed["actual"],
-            estimated_cad=billed["reserved"], purpose=purpose, provider="anthropic",
+            estimated_cad=billed["reserved"], purpose=purpose, provider=getattr(provider, "name", "anthropic"),
             model=provider.model, department="quality",
             tokens_in=billed["tokens_in"], tokens_out=billed["tokens_out"],
             detail={"price_basis": "assumed", "image": image_ref[:120]})
@@ -412,7 +412,7 @@ def inspect_image(image_ref: str, *, db=None, provider=None,
 
     provider = provider or gw.provider_for(TASK)
     out: dict = {"image": image_ref, "described": False, "realism_judged": False,
-                 "model": provider.model}
+                 "model": provider.model, "provider": getattr(provider, "name", None)}
     billed = {"reserved": 0.0, "actual": 0.0, "tokens_in": 0, "tokens_out": 0}
 
     def _call(system, prompt, max_tokens):
@@ -489,7 +489,7 @@ def inspect_image(image_ref: str, *, db=None, provider=None,
 
         spend_report.record(
             db, agent=AGENT, amount_cad=billed["actual"],
-            estimated_cad=billed["reserved"], purpose=TASK, provider="anthropic",
+            estimated_cad=billed["reserved"], purpose=TASK, provider=getattr(provider, "name", "anthropic"),
             model=provider.model, department="quality",
             tokens_in=billed["tokens_in"], tokens_out=billed["tokens_out"],
             detail={"price_basis": "assumed", "image": image_ref[:120]})
@@ -512,7 +512,8 @@ def describe_image(image_ref: str, *, db=None, provider=None, claim: dict | None
 
     provider = provider or gw.provider_for(TASK)
     out: dict = {"image": image_ref, "described": False, "realism_judged": False,
-                 "model": provider.model, "realism_not_applicable": True}
+                 "model": provider.model, "provider": getattr(provider, "name", None),
+                 "realism_not_applicable": True}
     billed = {"reserved": 0.0, "actual": 0.0, "tokens_in": 0, "tokens_out": 0}
 
     def _call(system, prompt, max_tokens):

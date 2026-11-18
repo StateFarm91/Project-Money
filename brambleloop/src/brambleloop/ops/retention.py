@@ -121,6 +121,14 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "chain.rebuild_unbound": ("windowed",
                               "ops.production_evidence.stale_rebuilds counts the last 7 days"),
     "ops.rebuild_propagated": ("latest", "ops.production_evidence reads the newest propagation"),
+    # eng/stale-rebuild-loop: refused rebuilds are counted; the newest refusal for a release
+    # names why a rebuild could not complete (runtime.release._rebuild_incomplete).
+    "chain.rebuild_refused": ("windowed",
+                              "ops.production_evidence.stale_rebuilds counts the last 7 days; "
+                              "_rebuild_incomplete reads the newest for a release"),
+    "marketing.blocked": ("windowed", "runtime.release._rebuild_incomplete reads the newest "
+                                      "refusal for a release inside one rebuild attempt (~1 h) "
+                                      "to name a held rebuild"),
     "ops.truth.sweep": ("latest", "ops.production_evidence.publishing_halt reads the newest "
                                   "sweep (freshness judged by its age)"),
     "etsy.taxonomy_refreshed": ("latest", "ops.production_evidence.taxonomy reads the newest "
@@ -131,6 +139,10 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                                "manual_adoption links a hand-made listing to its release"),
     "paid_call.replayed": ("windowed", "ops.production_evidence.paid_calls counts the "
                                        "last 24 h"),
+    # Review of a9feb805: releases a listing-package sweep left unrecorded.
+    "listing.package_release_failed": ("windowed", "ops.production_evidence."
+                                                   "listing_package_releases counts the "
+                                                   "last 24 h"),
     # INTEG8 (Batch 4): readers added on C04, C09 and INTELREC without an entry (caught by
     # test_cost_governance_wave2). Each reads every row of its action, so each is
     # lifetime_total: pruning would change the answer, not just shorten a window.
@@ -241,6 +253,42 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     # publication one (`ops.storefront_authority` over `core.sealed_chain.GrantLedger`), read
     # through constants, so the literal scan below never saw it. Pruning one row would refuse
     # every storefront grant (fail closed) and raise a tamper incident.
+    # WS4-2: the standing publication policy is one sealed chain (`ops.standing_policy` over
+    # `core.sealed_chain.GrantLedger`, extra actions included). Pruning any row breaks the
+    # chain, which refuses every policy (fail closed) and raises a tamper incident.
+    "owner.standing_policy.approved": ("lifetime_total",
+                                       "ops.standing_policy chain (sealed_chain)"),
+    "owner.standing_policy.activated": ("lifetime_total",
+                                        "ops.standing_policy chain (sealed_chain)"),
+    "owner.standing_policy.revoked": ("lifetime_total",
+                                      "ops.standing_policy chain (sealed_chain)"),
+    "owner.standing_policy.rebased": ("lifetime_total",
+                                      "ops.standing_policy chain (sealed_chain)"),
+    "system.standing_policy.suspended": ("lifetime_total",
+                                         "ops.standing_policy chain (sealed_chain)"),
+    "owner.standing_policy.resumed": ("lifetime_total",
+                                      "ops.standing_policy chain (sealed_chain)"),
+    # Read for existence: activation needs at least one shadow decision for the policy.
+    # Pruning one can only refuse an activation (fail closed), never allow one.
+    "standing_policy.shadow_decision": ("lifetime_total",
+                                        "ops.standing_policy.activation_refusals requires one"),
+    # The stop watch's newest reading is the silence fact (design §5.1), and G-SHADOW reads
+    # the last 7 days for continuity -- far inside the horizon. Pruning older readings cannot
+    # clear a stop: no reading at all reads as silence, and a short history fails G-SHADOW.
+    "standing_policy.stop_watch_reading": ("windowed",
+                                           "ops.standing_stop.last_reading (silence); "
+                                           "ops.standing_shadow_gate 7-day continuity"),
+    # WS4-7: the issuer's request/answer rows. `standing_grants.pending_requests` reads a
+    # request as pending while no issued or held row names it. Each request has exactly one
+    # answer, written after it, so the window always prunes a request no later than its
+    # answer and keep-per-action keeps the newest requests' answers too. Pruning can only
+    # drop a request (no grant: fail closed); the grant itself lives in `standing_grants`.
+    "policy.grant_requested": ("windowed",
+                               "ops.standing_grants.pending_requests (unanswered requests)"),
+    "policy.grant_issued": ("windowed",
+                            "ops.standing_grants.pending_requests marks a request answered"),
+    "policy.grant_held": ("windowed",
+                          "ops.standing_grants.pending_requests marks a request answered"),
     "owner.storefront.approved": ("lifetime_total",
                                   "ops.storefront_authority grant chain (sealed_chain)"),
     "owner.storefront.revoked": ("lifetime_total",

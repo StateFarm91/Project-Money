@@ -509,6 +509,7 @@ def due_for_investigation(db, *, now: datetime | None = None) -> list[int]:
     from sqlalchemy import select
 
     from ..core.models import AuditLog
+    from .watchlist_research import refreshed_by_comparison
 
     now = now or datetime.now(timezone.utc)
     R._ensure(db)
@@ -518,7 +519,8 @@ def due_for_investigation(db, *, now: datetime | None = None) -> list[int]:
             AuditLog.action == INVESTIGATED, AuditLog.at >= since)).all()}
         return [r.id for r in s.scalars(select(R.ResearchTask).where(
             R.ResearchTask.state == R.OPEN).order_by(R.ResearchTask.id))
-                if f"research_task:{r.id}" not in recent]
+                if f"research_task:{r.id}" not in recent
+                and not refreshed_by_comparison(r.detail or {}, now)]
 
 
 def request_research(ctx, *, question: str, trigger: str, decision_ref: str, domain: str,
