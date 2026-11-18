@@ -940,6 +940,7 @@ def test_f8_every_etsy_write_is_authorised_at_the_client_boundary():
     that checks."""
     mutating, methods = _etsy_mutating_methods()
     assert set(mutating) >= {"create_draft", "update_listing", "delete_listing", "activate",
+                             "deactivate",
                              "set_listing_property", "_upload_image", "_attach_file"}, mutating
     for name, body in mutating.items():
         if name.startswith("_"):
@@ -950,6 +951,16 @@ def test_f8_every_etsy_write_is_authorised_at_the_client_boundary():
         elif name == "activate":
             assert "launch_authorisation" in body and "_grant_refusal" in body or \
                 "_authorise_write(" in body, body[:200]
+        elif name == "deactivate":
+            # WS4 Stage A part 2: taking a listing down is deny-direction. It never rides the
+            # draft lane and is not phase-gated; it needs the withdrawal grant, re-verified
+            # against a before-state read-back immediately before the request, and a read-back
+            # after it.
+            assert "grant.action != OwnerGrant.WITHDRAW" in body, body[:200]
+            assert "grant.refusal(action=OwnerGrant.WITHDRAW" in body and "remote=current" in body
+            assert body.index("grant.refusal(") < body.index('form={"state": "inactive"}') \
+                < body.rindex("get_listing(")
+            assert "_authorise_write(" not in body
         elif name in STOREFRONT_WRITES:
             # W4-AGENTS: storefront writes never ride the shadow draft lane; they need a
             # publishing phase, the live-state gate and the owner's storefront grant.
@@ -990,6 +1001,10 @@ def test_f8_every_etsy_write_call_site_is_classified_and_release_writes_pass_for
             "write-path probe's exercise listing: shadow lane only, activation asserted refused",
         ("commerce/listing_rollback.py", "execute"):
             "owner-grant rollback of an existing listing's fields; no caller in src",
+        ("ops/standing_withdrawal.py", "withdraw"):
+            "WS4 Stage A part 2: deactivate (state -> inactive) of ONE standing-policy listing "
+            "of a stopped policy; the withdrawal grant is re-verified at the client against a "
+            "before-state read-back; deny-direction, never a release write",
         ("runtime/storefront_ops.py", "handle_store_update"):
             "W4-AGENTS store.update: a recorded storefront proposal, held in SHADOW; sent only "
             "with the owner's sealed storefront grant for that exact change",

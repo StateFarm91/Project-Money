@@ -122,11 +122,15 @@ class OwnerGrant:
     # change it was approved for -- the operation and the fields/values sent -- and nothing
     # else; a listing publication or activation grant never covers a storefront write.
     STOREFRONT = "store.update.storefront"
+    # WS4 Stage A part 2: take ONE standing-policy listing back down (`deactivate`). Deny-
+    # direction and bounded in `ops.standing_withdrawal` (SP lineage, a stopped policy, a rate,
+    # a before-state read-back); never a grant for any other request.
+    WITHDRAW = "store.withdraw"
 
     def __init__(self, db: Any, *, action: str, approval_id: Any, slug: str = "",
                  version: str = "", release: str = "", listing_id: str = "",
                  change: dict | None = None, job_id: int | None = None) -> None:
-        if action not in (self.ACTIVATE, self.PUBLISH, self.STOREFRONT):
+        if action not in (self.ACTIVATE, self.PUBLISH, self.STOREFRONT, self.WITHDRAW):
             raise ValueError(f"unknown grant action {action!r}")
         self.db, self.action, self.approval_id = db, action, approval_id
         # WS4 Stage A: a standing activation grant ("seg:<id>") is single use and bound to
@@ -153,6 +157,15 @@ class OwnerGrant:
                 return f"owner grant is for {self.action}, not {action}"
             if self.db is None:
                 return "owner grant has no database to be verified against"
+            if action == self.WITHDRAW:
+                # Deny-direction: not gated on a publishing phase, because a withdrawal is
+                # most wanted right after the owner rolls the phase back.
+                if not self.listing_id or str(listing_id) != self.listing_id:
+                    return "withdrawal grant names another listing"
+                from ..ops import standing_withdrawal
+
+                return standing_withdrawal.withdraw_refusal(self.db, self.listing_id,
+                                                            remote=remote)
             from ..core.phase import effective
 
             live = effective(self.db)
@@ -1562,6 +1575,36 @@ class EtsyClient:
                               operation="updateListing", authority=Authority.ACTIVATE,
                               form={"state": "active"})
         return response.body
+
+    def deactivate(self, listing_id: str, *, grant: OwnerGrant | None = None) -> dict[str, Any]:
+        """Take a live listing down: the only request in this client that sends
+        `state=inactive` (WS4 Stage A part 2, design §5.3 v2).
+
+        It reads the listing back first and hands that reading to the grant, which refuses
+        unless the listing is this one, is `active`, and is a standing-policy listing whose
+        policy has stopped (`ops.standing_withdrawal`). After the request it reads the
+        listing back again and raises unless Etsy reports `inactive`. A credential is the
+        only client-side authority it needs: the grant is the gate, and it is checked
+        immediately before the request. Etsy does not refund the listing fee.
+        """
+        creds = self._require(Authority.READ)
+        if not isinstance(grant, OwnerGrant) or grant.action != OwnerGrant.WITHDRAW:
+            raise EtsyNotPermitted("deactivate needs a withdrawal grant (OwnerGrant.WITHDRAW) "
+                                   "on the call itself")
+        current = self.get_listing(listing_id, includes=())
+        before = str(current.get("state") or "").lower()
+        refused = grant.refusal(action=OwnerGrant.WITHDRAW, listing_id=str(listing_id),
+                                remote=current)
+        if refused is not None:
+            raise EtsyNotPermitted(f"withdrawal refused at the client: {refused}")
+        self._call("PATCH", f"/shops/{creds.shop_id}/listings/{listing_id}",
+                   operation="updateListing", authority=Authority.READ,
+                   form={"state": "inactive"})
+        after = str(self.get_listing(listing_id, includes=()).get("state") or "").lower()
+        if after != "inactive":
+            raise EtsyRejected(f"listing {listing_id} reads {after!r} after deactivation, "
+                               "not 'inactive'")
+        return {"listing_id": str(listing_id), "before": before, "after": after}
 
     # ---- the publish path, unchanged in what it permits -------------------
 
