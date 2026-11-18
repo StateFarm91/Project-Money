@@ -316,6 +316,67 @@ def _db_user(db) -> str | None:
         return None
 
 
+# M-3: what a role can actually do to the grant store, not what it is called. Every entry is
+# a power a WORKER must not have; the issuer may have only the INSERTs.
+_TABLE_POWERS = (("standing_grants", "INSERT"), ("standing_grants", "DELETE"),
+                 ("standing_grants", "TRUNCATE"), ("standing_grants", "TRIGGER"),
+                 ("standing_grant_slots", "INSERT"), ("standing_grant_slots", "UPDATE"),
+                 ("standing_grant_slots", "DELETE"), ("standing_grant_slots", "TRUNCATE"),
+                 ("standing_grant_slots", "TRIGGER"))
+_SIGNED_COLUMNS = ("policy_row_id", "policy_version", "scope", "release", "digest",
+                   "detail_json", "seal", "issued_at", "expires_at", "id")
+_ISSUER_MAY = {"INSERT standing_grants", "INSERT standing_grant_slots"}
+
+
+def _role_powers(session, role: str | None = None) -> list[str]:
+    """Write powers `role` (default: this session's role) has over the grant store, read from
+    PostgreSQL's own catalogue: superuser, membership in the tables' owner role (an owner can
+    drop the write-once guard), table privileges and UPDATE on any signed column."""
+    who = role if role is not None else str(session.execute(text("SELECT current_user"))
+                                            .scalar())
+    out = []
+    r = session.execute(text("SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = :r"),
+                        {"r": who}).first()
+    if r is None:
+        return [f"role {who!r} does not exist"]
+    if r[0]:
+        out.append("superuser")
+    for table in ("standing_grants", "standing_grant_slots"):
+        if session.execute(text(
+                "SELECT pg_has_role(:r, c.relowner, 'MEMBER') FROM pg_class c "
+                "WHERE c.oid = to_regclass(:t)"), {"r": who, "t": table}).scalar():
+            out.append(f"owns {table}")
+    for table, priv in _TABLE_POWERS:
+        if session.execute(text("SELECT has_table_privilege(:r, :t, :p)"),
+                           {"r": who, "t": table, "p": priv}).scalar():
+            out.append(f"{priv} {table}")
+    for col in _SIGNED_COLUMNS:
+        if session.execute(text("SELECT has_column_privilege(:r, 'standing_grants', :c, "
+                                "'UPDATE')"), {"r": who, "c": col}).scalar():
+            out.append(f"UPDATE standing_grants.{col}")
+    return out
+
+
+def _db_powers(db, role: str | None = None) -> list[str] | None:
+    """None off PostgreSQL (no roles to separate), ["unreadable ..."] if the catalogue read
+    fails (which keeps Mode S)."""
+    try:
+        with db.session() as s:
+            if s.get_bind().dialect.name != "postgresql":
+                return None
+            return _role_powers(s, role)
+    except Exception as exc:  # noqa: BLE001
+        return [f"unreadable ({type(exc).__name__})"]
+
+
+def clock_skew_seconds(db) -> float | None:
+    """This process's clock minus the database's, in seconds (LOW: refuse beyond 30 s)."""
+    try:
+        return (datetime.now(timezone.utc) - _db_now(db)).total_seconds()
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _env_fp(var: str, env) -> str | None:
     raw = str(env.get(var) or "").strip()
     if not raw:
@@ -340,8 +401,19 @@ def issuer_heartbeat(db, *, now: datetime | None = None, env=None) -> dict:
         "etsy_credentials_present": any(str(env.get(v) or "").strip()
                                         for v in _ETSY_CREDENTIAL_VARS),
         "db_user": _db_user(db),
+        "db_powers": _db_powers(db),
+        "clock_skew_s": clock_skew_seconds(db),
         "at": (now or datetime.now(timezone.utc)).isoformat(),
     }
+    # The issuer's own (signed) reading of the role the worker says it uses: a worker report
+    # can be wrong or forged, the issuer's catalogue read of that role cannot be.
+    try:
+        _wat, wrk = _latest(db, WORKER_COMPONENT)
+    except Exception:  # noqa: BLE001
+        wrk = None
+    wrole = (wrk or {}).get("db_user")
+    detail["worker_role"] = wrole
+    detail["worker_role_powers"] = _db_powers(db, wrole) if wrole else None
     detail["seal"] = _sign(HEARTBEAT_DOMAIN, detail)
     slo.record_heartbeat(db, ISSUER_COMPONENT, instance=ISSUER_HOST, detail=detail, now=now)
     return detail
@@ -360,6 +432,8 @@ def process_report(db, component: str, *, now: datetime | None = None, env=None)
         "policy_verify_fp": _env_fp(SP.VERIFY_KEY_VAR, env),
         "embedded_worker": str(env.get(SP.EMBEDDED_VAR, "1")),
         "db_user": _db_user(db),
+        "db_powers": _db_powers(db),
+        "at": (now or datetime.now(timezone.utc)).isoformat(),
     }
     slo.record_heartbeat(db, component, instance=component, detail=detail, now=now)
     if present:
@@ -412,8 +486,19 @@ def mode_report(db, *, now: datetime | None = None, env=None) -> dict:
         rows[comp] = d
         if d is None:
             reasons.append(f"no {comp} report")
-        elif now - at > HEARTBEAT_FRESH:
+            continue
+        if comp == ISSUER_COMPONENT:
+            # LOW: the issuer's freshness is its SIGNED time, never the row's own `at` (any
+            # writer could re-insert an old signed heartbeat as a new row).
+            try:
+                at = _aware(datetime.fromisoformat(str(d.get("at"))))
+            except (TypeError, ValueError):
+                reasons.append("the issuer heartbeat carries no readable signed time")
+                continue
+        if now - at > HEARTBEAT_FRESH:
             reasons.append(f"the {comp} report is older than {HEARTBEAT_FRESH}")
+        elif at - now > CLOCK_SKEW:
+            reasons.append(f"the {comp} report is dated after now (clock disagreement)")
     iss, wrk, web = rows[ISSUER_COMPONENT], rows[WORKER_COMPONENT], rows[WEB_COMPONENT]
     if iss is not None:
         body = {k: v for k, v in iss.items() if k != "seal"}
@@ -441,13 +526,94 @@ def mode_report(db, *, now: datetime | None = None, env=None) -> dict:
                        or (web or {}).get("policy_verify_fp")) if x]
     if len(fps) == 2 and fps[0] == fps[1]:
         reasons.append("the issuer key and the policy key are the same key")
+    if iss is not None:
+        skew = iss.get("clock_skew_s")
+        if skew is not None and (not isinstance(skew, (int, float))
+                                 or abs(skew) > CLOCK_SKEW.total_seconds()):
+            reasons.append(f"the issuer's clock and the database's disagree by {skew!r} s "
+                           f"(at most {CLOCK_SKEW.total_seconds():g})")
     users = {c: (rows[c] or {}).get("db_user") for c in rows}
-    if users[ISSUER_COMPONENT] and users[ISSUER_COMPONENT] == users[WORKER_COMPONENT]:
+    iu, wu = users[ISSUER_COMPONENT], users[WORKER_COMPONENT]
+    separated = False
+    if iu and iu == wu:
         reasons.append("the worker and the issuer use the same database role (runbook §2.3 "
                        "not applied)")
+    elif iu or wu:
+        # On PostgreSQL the separation is judged by real privileges (M-3), not role names: a
+        # worker on the owner or a superuser role can write grants whatever it is called.
+        before = len(reasons)
+        wp = (wrk or {}).get("db_powers")
+        if not wu or wp is None:
+            reasons.append("the worker reports no database role or privileges")
+        elif wp:
+            reasons.append(f"the worker's database role {wu!r} can write the grant store: "
+                           f"{wp[:4]}")
+        xp = (iss or {}).get("worker_role_powers")
+        if (iss or {}).get("worker_role") != wu or xp is None:
+            reasons.append("the issuer has not checked the worker's database role")
+        elif xp:
+            reasons.append(f"the issuer reads role {wu!r} as able to write the grant store: "
+                           f"{xp[:4]}")
+        ip = (iss or {}).get("db_powers")
+        if not iu or ip is None:
+            reasons.append("the issuer reports no database role or privileges")
+        else:
+            extra = [x for x in ip if x not in _ISSUER_MAY]
+            if extra:
+                reasons.append(f"the issuer's database role {iu!r} can bypass the grant "
+                               f"store's own limits: {extra[:4]}")
+        separated = len(reasons) == before
     return {"mode": "S" if reasons else "T", "reasons": reasons,
-            "db_roles_separated": bool(users[ISSUER_COMPONENT] and users[WORKER_COMPONENT]
-                                       and users[ISSUER_COMPONENT] != users[WORKER_COMPONENT])}
+            "db_roles_separated": separated}
+
+
+# ---- the owner's database-role runbook (§2.3), one source for the doc and the PG test --------
+
+ISSUER_ROLE, WORKER_ROLE = "bl_issuer", "bl_worker"
+# Tables the issuer writes. owner_actions/incidents: a HOLD becomes an owner card (review M-5:
+# without these the first out-of-policy request raised a permission error mid-pass).
+ISSUER_INSERT_TABLES = ("standing_grants", "standing_grant_slots", "audit_log",
+                        "ops_runtime_samples", "incidents", "owner_actions")
+ISSUER_UPDATE_TABLES = ("ops_leases", "incidents", "owner_actions")
+
+
+def runbook_sql(owner: str, issuer_password: str, worker_password: str) -> list[str]:
+    """The statements the owner runs ONCE, as the migration owner `owner` (the role web uses,
+    which creates every table), after web has started on this release. Not run by code."""
+    def q(v: str) -> str:
+        return "'" + str(v).replace("'", "''") + "'"
+
+    def ident(v: str) -> str:
+        return '"' + str(v).replace('"', '""') + '"'
+
+    o, i, w = ident(owner), ISSUER_ROLE, WORKER_ROLE
+    return [
+        f"CREATE ROLE {i} LOGIN PASSWORD {q(issuer_password)} NOSUPERUSER NOCREATEDB "
+        f"NOCREATEROLE NOBYPASSRLS",
+        f"CREATE ROLE {w} LOGIN PASSWORD {q(worker_password)} NOSUPERUSER NOCREATEDB "
+        f"NOCREATEROLE NOBYPASSRLS",
+        f"GRANT USAGE ON SCHEMA public TO {i}, {w}",
+        # The issuer reads everything and writes only its own rows.
+        f"GRANT SELECT ON ALL TABLES IN SCHEMA public TO {i}",
+        f"GRANT INSERT ON {', '.join(ISSUER_INSERT_TABLES)} TO {i}",
+        f"GRANT UPDATE ON {', '.join(ISSUER_UPDATE_TABLES)} TO {i}",
+        f"GRANT INSERT ON ops_leases TO {i}",
+        f"GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {i}",
+        # The worker keeps the DML it has today on every table except the grant store, where
+        # it may only mark a grant consumed (and the write-once trigger allows that once).
+        f"GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO {w}",
+        f"GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO {w}",
+        f"REVOKE INSERT, UPDATE, DELETE, TRUNCATE, TRIGGER, REFERENCES ON standing_grants, "
+        f"standing_grant_slots FROM {w}",
+        f"GRANT UPDATE (consumed_at, consumed_job_id, consumed_stage) ON standing_grants "
+        f"TO {w}",
+        # Tables a later release creates (always by the migration owner).
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {o} IN SCHEMA public GRANT SELECT, INSERT, UPDATE, "
+        f"DELETE ON TABLES TO {w}",
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {o} IN SCHEMA public GRANT SELECT ON TABLES TO {i}",
+        f"ALTER DEFAULT PRIVILEGES FOR ROLE {o} IN SCHEMA public GRANT USAGE, SELECT ON "
+        f"SEQUENCES TO {i}, {w}",
+    ]
 
 
 # ---- requests, issue, consume --------------------------------------------------------------
@@ -561,6 +727,37 @@ def pace_refusals(p: dict, limits: dict) -> list[str]:
     return out
 
 
+PUBLISH_JOB_TYPE = "store.publish"
+
+
+def job_refusal(db, job_id, slug: str, version: str) -> str | None:
+    """LOW: a request's job id is a claim. The grant binds to a job only if that job exists,
+    is a store.publish job for this exact slug@version, and has not finished."""
+    from ..core.models import Job, JobStatus
+
+    try:
+        jid = int(job_id)
+    except (TypeError, ValueError):
+        return f"job id {job_id!r} is not an integer"
+    if isinstance(job_id, bool) or jid <= 0:
+        return f"job id {job_id!r} is not a job"
+    with db.session() as s:
+        job = s.get(Job, jid)
+        if job is None:
+            return f"no job {jid}"
+        inputs = dict(job.inputs or {})
+        status = job.status.value if hasattr(job.status, "value") else str(job.status)
+        jtype = job.job_type
+    if jtype != PUBLISH_JOB_TYPE:
+        return f"job {jid} is a {jtype} job, not {PUBLISH_JOB_TYPE}"
+    if status not in (JobStatus.PENDING.value, JobStatus.RUNNING.value):
+        return f"job {jid} is {status}"
+    if str(inputs.get("slug")) != str(slug) or str(inputs.get("version")) != str(version):
+        return (f"job {jid} publishes {inputs.get('slug')}@{inputs.get('version')}, "
+                f"not {slug}@{version}")
+    return None
+
+
 def issue(db, *, slug: str, version: str, release: str, job_id: int,
           now: datetime | None = None, request_id: int | None = None) -> dict:
     """Issue one SEG, or raise `GrantRefused` with every reason. Issuer process only."""
@@ -575,12 +772,19 @@ def issue(db, *, slug: str, version: str, release: str, job_id: int,
     if why:
         raise GrantRefused(why)
     ensure_tables(db)
-    now = now or _db_now(db)
+    if now is None:
+        # LOW: the issuer's clock must agree with the database's (both directions).
+        skew = clock_skew_seconds(db)
+        if skew is None or abs(skew) > CLOCK_SKEW.total_seconds():
+            raise GrantRefused(f"the issuer's clock and the database's disagree by {skew!r} s")
+        now = _db_now(db)
     if (mode := mode_report(db, now=now))["mode"] != "T":
         raise GrantRefused("deployment is not Mode T: " + "; ".join(mode["reasons"][:4]))
     eff = SP.effective(db, now=now)
     if eff.get("state") != SP.EFFECTIVE:
         raise GrantRefused(f"no effective standing policy: {eff.get('why')}")
+    if why := job_refusal(db, job_id, slug, version):
+        raise GrantRefused(f"the request's job is not valid: {why}")
     decided = SI.decide(db, slug, version, release, now=now)
     if decided.get("decision") != "ISSUE":
         raise GrantRefused(f"out of policy: {decided.get('reasons') or decided.get('why')}")
@@ -742,15 +946,28 @@ def pending_requests(db, *, limit: int = 20) -> list[dict]:
 
 
 def answer(db, req: dict, *, now: datetime | None = None) -> dict:
-    """The issuer's answer to one request: a grant, or a recorded refusal."""
+    """The issuer's answer to one request: a grant, or a recorded refusal.
+
+    Review M-5: ANY failure (a permission error writing the HOLD card, a database error) is a
+    refusal for this request, recorded, so the request is answered and never re-read first on
+    every later pass. Fail closed: no grant was issued (issue() inserts in one transaction)."""
+    import logging
+
     from ..core.models import AuditLog
 
     try:
         got = issue(db, slug=req["slug"], version=req["version"], release=req["release"],
                     job_id=req["job_id"], now=now, request_id=req["request_id"])
-    except GrantRefused as exc:
-        with db.session() as s:
-            s.add(AuditLog(actor=ACTOR, action=HELD, artifact=f"{req['slug']}@{req['version']}",
-                           detail={"request_id": req["request_id"], "why": str(exc)[:400]}))
-        return {"request_id": req["request_id"], "issued": False, "why": str(exc)}
+    except Exception as exc:  # noqa: BLE001 - every failure is a recorded refusal
+        why = (str(exc) if isinstance(exc, GrantRefused)
+               else f"issuer error, refused ({type(exc).__name__}: {str(exc)[:200]})")
+        try:
+            with db.session() as s:
+                s.add(AuditLog(actor=ACTOR, action=HELD,
+                               artifact=f"{req['slug']}@{req['version']}",
+                               detail={"request_id": req["request_id"], "why": why[:400]}))
+        except Exception:  # noqa: BLE001 - cannot even record: logged, the pass goes on
+            logging.getLogger("brambleloop.issuer").exception(
+                "could not record the refusal of grant request %s", req.get("request_id"))
+        return {"request_id": req["request_id"], "issued": False, "why": why}
     return {"request_id": req["request_id"], "issued": True, "grant_id": got["grant_id"]}

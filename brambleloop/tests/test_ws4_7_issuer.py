@@ -121,6 +121,27 @@ class _InPolicy:
             p.stop()
 
 
+def _job(db, job_id, slug, version=None, *, job_type="store.publish", status=None):
+    """The live store.publish job a grant binds to (the issuer validates it, review LOW)."""
+    from brambleloop.core.models import Job, JobStatus
+
+    with db.session() as s:
+        if s.get(Job, int(job_id)) is None:
+            s.add(Job(id=int(job_id), agent="store_operator", job_type=job_type,
+                      inputs={"slug": slug, "version": version or VERSION},
+                      status=status or JobStatus.PENDING))
+
+
+def _issue_kw(db, **kw):
+    _job(db, kw["job_id"], kw["slug"], kw.get("version"))
+    return SG.issue(db, **kw)
+
+
+def _request(db, **kw):
+    _job(db, kw["job_id"], kw["slug"], kw.get("version"))
+    return SG.request_grant(db, **kw)
+
+
 def _refused(fn, contains):
     try:
         fn()
@@ -214,6 +235,24 @@ def test_a_forged_issuer_heartbeat_reads_mode_s():
         _reset()
 
 
+ISSUER_POWERS = ["INSERT standing_grants", "INSERT standing_grant_slots"]
+
+
+def _roles(db, *, worker_user, worker_powers, issuer_user="bl_issuer",
+           issuer_powers=ISSUER_POWERS, issuer_sees_worker=None, at=NOW):
+    """Reports as the three processes write them on PostgreSQL, with the catalogue readings
+    stubbed (the real catalogue is read in test_ws4_7_postgres.py)."""
+    seen = worker_powers if issuer_sees_worker is None else issuer_sees_worker
+    with patch.object(SG, "_db_user", lambda _db: worker_user), \
+            patch.object(SG, "_db_powers", lambda _db, role=None: list(worker_powers)):
+        _reports(db, now=at)
+    with patch.object(SG, "_db_user", lambda _db: issuer_user), \
+            patch.object(SG, "_db_powers",
+                         lambda _db, role=None: list(seen if role else issuer_powers)):
+        _as_issuer()
+        SG.issuer_heartbeat(db, now=at + timedelta(seconds=1), env=_issuer_env())
+
+
 def test_the_same_database_role_for_worker_and_issuer_reads_mode_s():
     try:
         db, c, a = _effective_db()
@@ -221,11 +260,58 @@ def test_the_same_database_role_for_worker_and_issuer_reads_mode_s():
             _reports(db)
         got = SG.mode_report(db, now=NOW)
         assert got["mode"] == "S" and any("same database role" in r for r in got["reasons"])
-        with patch.object(SG, "_db_user", lambda _db: "bl_issuer"):
-            _as_issuer()
-            SG.issuer_heartbeat(db, now=NOW + timedelta(seconds=1), env=_issuer_env())
+        _roles(db, worker_user="bl_worker", worker_powers=[])
         got = SG.mode_report(db, now=NOW + timedelta(seconds=2))
         assert got["mode"] == "T" and got["db_roles_separated"] is True, got
+    finally:
+        _reset()
+
+
+def test_role_separation_is_judged_by_privileges_not_names():
+    """Review M-3 probe: a worker on the owner/superuser role, under a name different from the
+    issuer's, read as separated. Each case below must read Mode S and NOT separated."""
+    cases = {
+        "superuser worker": dict(worker_user="postgres", worker_powers=["superuser"]),
+        "worker owns the tables": dict(worker_user="railway",
+                                       worker_powers=["owns standing_grants"]),
+        "worker can insert grants": dict(worker_user="bl_worker",
+                                         worker_powers=["INSERT standing_grants"]),
+        "worker can rewrite the expiry": dict(
+            worker_user="bl_worker", worker_powers=["UPDATE standing_grants.expires_at"]),
+        "worker lies, the issuer reads the role": dict(
+            worker_user="postgres", worker_powers=[], issuer_sees_worker=["superuser"]),
+        "superuser issuer": dict(worker_user="bl_worker", worker_powers=[],
+                                 issuer_powers=ISSUER_POWERS + ["superuser"]),
+    }
+    for name, kw in cases.items():
+        try:
+            db, c, a = _effective_db()
+            _roles(db, **kw)
+            got = SG.mode_report(db, now=NOW + timedelta(seconds=2))
+            assert got["mode"] == "S" and got["db_roles_separated"] is False, (name, got)
+        finally:
+            _reset()
+
+
+def test_issuer_freshness_is_its_signed_time_and_clock_skew_is_refused():
+    """LOW: a re-inserted old signed heartbeat (new row time) is stale; >30 s skew is S."""
+    from brambleloop.ops import slo
+
+    try:
+        db, c, a = _effective_db()
+        _reports(db)
+        _at, old = SG._latest(db, SG.ISSUER_COMPONENT)
+        later = NOW + timedelta(minutes=30)
+        _reports(db, now=later)
+        slo.record_heartbeat(db, SG.ISSUER_COMPONENT, instance=SG.ISSUER_HOST, detail=old,
+                             now=later + timedelta(seconds=5))     # the replayed row
+        got = SG.mode_report(db, now=later + timedelta(seconds=6))
+        assert got["mode"] == "S" and any("policy_issuer report is older" in r
+                                          for r in got["reasons"]), got
+        with patch.object(SG, "clock_skew_seconds", lambda _db: 45.0):
+            _reports(db, now=later)
+        got = SG.mode_report(db, now=later + timedelta(seconds=6))
+        assert got["mode"] == "S" and any("clock" in r for r in got["reasons"]), got
     finally:
         _reset()
 
@@ -238,7 +324,7 @@ def test_an_in_policy_request_is_answered_with_a_signed_single_use_job_bound_gra
     try:
         db, c, a = _effective_db()
         _reports(db)
-        rid = SG.request_grant(db, slug=SLUG, version=VERSION, release="a" * 64, job_id=41)
+        rid = _request(db, slug=SLUG, version=VERSION, release="a" * 64, job_id=41)
         os.environ.pop(sp.SIGNING_KEY_VAR, None)    # the issuer service never holds it
         with _InPolicy():
             out = issuer_entry.tick(db, holder="issuer-test", now=NOW + timedelta(minutes=1))
@@ -269,12 +355,12 @@ def test_a_new_request_is_seen_past_any_number_of_answered_ones():
         db, c, a = _effective_db()
         with patch.object(SG, "_REQUEST_SCAN", 2):
             for job in (1, 2, 3):
-                rid = SG.request_grant(db, slug=SLUG, version=VERSION, release="a" * 64,
+                rid = _request(db, slug=SLUG, version=VERSION, release="a" * 64,
                                        job_id=job)
                 with db.session() as s:
                     s.add(AuditLog(actor=SG.ACTOR, action=SG.HELD, artifact=SLUG,
                                    detail={"request_id": rid}))
-            new = SG.request_grant(db, slug=SLUG, version=VERSION, release="a" * 64,
+            new = _request(db, slug=SLUG, version=VERSION, release="a" * 64,
                                    job_id=4)
             assert [r["request_id"] for r in SG.pending_requests(db)] == [new]
     finally:
@@ -287,9 +373,9 @@ def test_an_expired_or_tampered_grant_is_refused_at_use():
         _reports(db)
         _as_issuer()
         with _InPolicy():
-            g1 = SG.issue(db, slug=SLUG, version=VERSION, release=REL, job_id=1,
+            g1 = _issue_kw(db, slug=SLUG, version=VERSION, release=REL, job_id=1,
                           now=NOW + timedelta(minutes=1))
-            g2 = SG.issue(db, slug=SLUG + "-2", version=VERSION, release=REL, job_id=2,
+            g2 = _issue_kw(db, slug=SLUG + "-2", version=VERSION, release=REL, job_id=2,
                           now=NOW + timedelta(minutes=1))
         _refused(lambda: SG.consume(db, g1["grant_id"], job_id=1,
                                     now=NOW + timedelta(minutes=17)), "expired")
@@ -325,17 +411,17 @@ def test_outstanding_and_daily_limits_hold_in_code_and_in_the_database():
         _as_issuer()
         t = NOW + timedelta(minutes=1)
         with _InPolicy():
-            g1 = SG.issue(db, slug=slugs[0], version=VERSION, release=REL, job_id=1, now=t)
-            SG.issue(db, slug=slugs[1], version=VERSION, release=REL, job_id=2, now=t)
-            _refused(lambda: SG.issue(db, slug=slugs[2], version=VERSION, release=REL,
+            g1 = _issue_kw(db, slug=slugs[0], version=VERSION, release=REL, job_id=1, now=t)
+            _issue_kw(db, slug=slugs[1], version=VERSION, release=REL, job_id=2, now=t)
+            _refused(lambda: _issue_kw(db, slug=slugs[2], version=VERSION, release=REL,
                                       job_id=3, now=t), "outstanding")
             SG.consume(db, g1["grant_id"], job_id=1, now=t)
-            SG.issue(db, slug=slugs[2], version=VERSION, release=REL, job_id=3, now=t)
+            _issue_kw(db, slug=slugs[2], version=VERSION, release=REL, job_id=3, now=t)
             with db.session() as s:
                 for g in s.scalars(select(SG.StandingGrant)):
                     if g.consumed_at is None:
                         g.consumed_at, g.consumed_job_id = t, g.id + 1000
-            _refused(lambda: SG.issue(db, slug=slugs[3], version=VERSION, release=REL,
+            _refused(lambda: _issue_kw(db, slug=slugs[3], version=VERSION, release=REL,
                                       job_id=4, now=t), "grants_today: 3 issued")
         # The database refuses a 4th slot and a second open grant even if code did not.
         for build in (lambda: SG.StandingGrantSlot(policy_row_id=a, day=t.date().isoformat(),
@@ -371,15 +457,15 @@ def test_no_grant_without_mode_t_an_effective_policy_or_an_in_policy_release():
         db, c, a = _effective_db()
         _as_issuer()
         with _InPolicy():
-            why = _refused(lambda: SG.issue(db, slug=SLUG, version=VERSION, release="a" * 64,
+            why = _refused(lambda: _issue_kw(db, slug=SLUG, version=VERSION, release="a" * 64,
                                             job_id=1, now=NOW), "not Mode T")
         # The issuer's own Mode T check, not only the policy's (defence in depth).
         assert why.startswith("deployment is not Mode T: no policy_issuer report"), why
         _reports(db)
-        _refused(lambda: SG.issue(db, slug=SLUG, version=VERSION, release="a" * 64,
+        _refused(lambda: _issue_kw(db, slug=SLUG, version=VERSION, release="a" * 64,
                                   job_id=1, now=NOW + timedelta(minutes=1)), "out of policy")
         # The answer is recorded, so the request is not retried every tick.
-        rid = SG.request_grant(db, slug=SLUG, version=VERSION, release="a" * 64, job_id=5)
+        rid = _request(db, slug=SLUG, version=VERSION, release="a" * 64, job_id=5)
         got = SG.answer(db, SG.pending_requests(db)[0], now=NOW + timedelta(minutes=1))
         assert got["issued"] is False and got["request_id"] == rid
         assert SG.pending_requests(db) == []
@@ -392,7 +478,7 @@ def test_no_grant_without_mode_t_an_effective_policy_or_an_in_policy_release():
         _issuer_keys()
         _release(db2, release="a" * 64)
         _reports(db2)
-        _refused(lambda: SG.issue(db2, slug=SLUG, version=VERSION, release="a" * 64,
+        _refused(lambda: _issue_kw(db2, slug=SLUG, version=VERSION, release="a" * 64,
                                   job_id=1, now=NOW), "no effective standing policy")
     finally:
         _reset()
@@ -456,7 +542,7 @@ def test_the_issuer_pass_is_small():
 # ---- HIGH-1: the owner's signed pace limits, read from the grant store ------------------------
 
 def _issue(db, slug, job, at):
-    return SG.issue(db, slug=slug, version=VERSION, release=REL, job_id=job, now=at)
+    return _issue_kw(db, slug=slug, version=VERSION, release=REL, job_id=job, now=at)
 
 
 def test_the_owner_pace_limits_are_enforced_not_only_the_code_ceilings():
@@ -733,6 +819,63 @@ def test_consumption_is_write_once_in_the_database():
             n = len([r for r in s.scalars(select(AuditLog).where(
                 AuditLog.action == SG.CONSUMED))])
         assert n == 1, n
+    finally:
+        _reset()
+
+
+# ---- M-5: one failing request never wedges the issuer ---------------------------------------
+
+def test_an_unexpected_error_on_one_request_is_a_recorded_refusal_and_the_pass_goes_on():
+    """Review M-5: under the runbook roles the first out-of-policy request raised a
+    permission error (writing its HOLD card) that answer() did not catch: the pass aborted,
+    and the same request was read first on every later pass, so nothing was ever answered."""
+    from sqlalchemy.exc import ProgrammingError
+
+    from brambleloop.app import issuer_entry
+
+    slugs = [f"{SLUG}-m{i}" for i in range(2)]
+    try:
+        db, c, a = _effective_db(slugs=slugs, frequency=AT_CEILINGS)
+        _reports(db)
+        r1 = _request(db, slug=slugs[0], version=VERSION, release=REL, job_id=1)
+        r2 = _request(db, slug=slugs[1], version=VERSION, release=REL, job_id=2)
+        real = SI.decide
+
+        def decide(db_, slug, version, release, **kw):
+            if slug == slugs[0]:
+                raise ProgrammingError("INSERT INTO owner_actions", {},
+                                       Exception("permission denied for table owner_actions"))
+            return real(db_, slug, version, release, **kw)
+
+        os.environ.pop(sp.SIGNING_KEY_VAR, None)
+        with _InPolicy(), patch.object(SI, "decide", decide):
+            out = issuer_entry.tick(db, holder="issuer-m5", now=NOW + timedelta(minutes=1))
+        got = {x["request_id"]: x for x in out["answered"]}
+        assert got[r1]["issued"] is False and "ProgrammingError" in got[r1]["why"], got
+        assert got[r2]["issued"] is True, got
+        assert SG.pending_requests(db) == []       # both answered; nothing is retried forever
+    finally:
+        _reset()
+
+
+def test_the_request_job_must_be_a_live_publish_job_for_that_release():
+    from brambleloop.core.models import JobStatus
+
+    try:
+        db, c, a = _effective_db(frequency=AT_CEILINGS)
+        _reports(db)
+        _as_issuer()
+        t = NOW + timedelta(minutes=1)
+        _job(db, 11, SLUG, job_type="marketing.schedule")
+        _job(db, 12, SLUG, status=JobStatus.DONE)
+        _job(db, 13, SLUG + "-other")
+        with _InPolicy():
+            for jid, why in ((10, "no job 10"), (11, "not store.publish"), (12, "is done"),
+                             (13, f"not {SLUG}@{VERSION}")):
+                _refused(lambda: SG.issue(db, slug=SLUG, version=VERSION, release=REL,
+                                          job_id=jid, now=t), why)
+            with db.session() as s:
+                assert s.scalar(select(SG.StandingGrant)) is None
     finally:
         _reset()
 
