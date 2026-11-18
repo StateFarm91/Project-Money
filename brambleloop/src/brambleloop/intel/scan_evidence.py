@@ -164,7 +164,11 @@ def _anchor(db) -> dict:
         bench = None if row is None else {"last_scan_at": _iso(row.last_scan_at),
                                           "last_change_at": _iso(row.last_change_at),
                                           "scan_health": dict(row.scan_health or {})}
-    jobs = _jobs(db, "mjs.scan")
+    # WS2 R2: an adaptive-interval deferral (#313) did not try to read the shop, so it is
+    # neither an attempt nor a failure. `mjs.scan` fires every 2 h while the interval is at
+    # least 6 h, so most of its jobs are deferrals; counting them made the anchor read
+    # `attempted_not_scanned` with "not due" as its failure reason.
+    jobs = [j for j in _jobs(db, "mjs.scan", limit=200) if not j["outputs"].get("deferred")]
     attempted = jobs[0] if jobs else None
     ok = next((j for j in jobs if j["status"] == "done" and j["outputs"].get("ran") is not False),
               None)
@@ -191,7 +195,12 @@ def _anchor(db) -> dict:
             "schedule": _cadence("mjs.scan"), "state": state,
             "last_attempted": (attempted or {}).get("finished_at") or (attempted or {}).get(
                 "created_at"),
-            "last_successful": last_ok, "source_timestamp": last_ok,
+            "last_successful": last_ok,
+            # WS2 R3: Etsy's newest listing modification time from the last successful scan;
+            # None (with the reason) when that scan recorded none -- never our own clock.
+            "source_timestamp": (ok or {}).get("outputs", {}).get("source_timestamp"),
+            "source_timestamp_basis": _basis((ok or {}).get("outputs", {}).get(
+                "source_timestamp"), last_ok),
             "provenance": "benchmarks row + mjs.scan jobs",
             "failure_reason": reason,
             "limitations": ["the API gives the catalogue, not the rendered page (badges, sale "
@@ -225,7 +234,8 @@ def _watched(db, member) -> dict:
     return {"key": member.key, "registered_as": f"watchlist member ({member.role})",
             "schedule": _cadence("intel.watchlist_scan"), "state": derived,
             "last_attempted": st.get("last_attempt_at"), "last_successful": st.get("last_ok_at"),
-            "source_timestamp": st.get("last_ok_at"),
+            "source_timestamp": st.get("source_timestamp"),
+            "source_timestamp_basis": _basis(st.get("source_timestamp"), st.get("last_ok_at")),
             "provenance": f"company_memory {watchlist.STATE_PREFIX}{member.key}",
             "failure_reason": (None if derived == SCANNED else
                                st.get("last_error") or (f"latest attempt: {state}" if state
@@ -234,6 +244,16 @@ def _watched(db, member) -> dict:
             "listings_seen_last_scan": st.get("listings_seen"),
             "limitations": limits,
             "alternative_evidence": st.get("alternative_evidence")}
+
+
+def _basis(source_timestamp, last_ok) -> str:
+    """WS2 R3: what the source timestamp is, said plainly."""
+    if source_timestamp:
+        return "Etsy last_modified_timestamp (newest listing in the last successful scan)"
+    if last_ok:
+        return ("not recorded: the last successful scan predates source timestamps or read "
+                "no listing carrying one")
+    return "no successful scan"
 
 
 def report(db, *, now: datetime | None = None) -> dict:

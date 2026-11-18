@@ -1024,6 +1024,12 @@ def run_past_shadow(rec: Recorder, db, state: dict) -> dict:
     env_keys = {"BRAMBLELOOP_PHASE": "limited_production",
                 "BRAMBLELOOP_OPS_TOKEN": REHEARSAL_OPS_TOKEN,
                 "BRAMBLELOOP_PUBLISH_AUTHORISED": "1"}
+    # WS4-0 (cert 20261112T090404Z-20841): owner grants are Ed25519-signed only inside the
+    # owner's Command Center request. The simulated owner gets its own throwaway key pair for
+    # this phase -- the same treatment as REHEARSAL_OPS_TOKEN -- and is never handed the
+    # deployment's signing key; saved_env below restores whatever was set before.
+    from brambleloop.core import owner_grant_keys as _rehearsal_ogk
+    env_keys.update(_rehearsal_ogk.generate_keypair())
     saved_env = {k: os.environ.get(k) for k in
                  list(env_keys) + ["ETSY_API_KEY", "ETSY_ACCESS_TOKEN", "ETSY_SHOP_ID",
                                    "ETSY_SHARED_SECRET", "ETSY_KEYSTRING",
@@ -1054,10 +1060,14 @@ def run_past_shadow(rec: Recorder, db, state: dict) -> dict:
             grant = None
             try:
                 content = pa.snapshot(db, slug, version, release)
-                grant = pa.approve(db, authorization=REHEARSAL_OPS_TOKEN, slug=slug,
-                                   version=version, release=release,
-                                   expected_digest=pa.digest(content),
-                                   reason="shadow rehearsal: simulated owner review (F-848)")
+                # The simulated owner's review, inside an explicitly labelled owner request
+                # (the rehearsal plays the owner here; production enters it only from the
+                # Command Center route after session, CSRF/nonce and step-up).
+                with _rehearsal_ogk.owner_request("shadow-rehearsal-simulated-owner"):
+                    grant = pa.approve(db, authorization=REHEARSAL_OPS_TOKEN, slug=slug,
+                                       version=version, release=release,
+                                       expected_digest=pa.digest(content),
+                                       reason="shadow rehearsal: simulated owner review (F-848)")
                 rec.step("owner_publication_grant", PASS,
                          expected="sealed, content-bound grant recorded via approve()",
                          observed={"approval_id": grant["approval_id"],

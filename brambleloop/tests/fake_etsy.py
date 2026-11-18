@@ -445,7 +445,15 @@ class _Handler(BaseHTTPRequestHandler):
             state = params.get("state", "")
             results = [dict(r) for r in fake.listings.values()
                        if not state or r.get("state") == state]
-            return self._send(200, {"count": len(results), "results": results})
+            # Etsy pages this read: at most `limit` (default 25, max 100) from `offset`, with
+            # `count` the total (WS5 E7 -- a caller that reads one page sees only that page).
+            try:
+                limit = max(1, min(100, int(params.get("limit") or 25)))
+                offset = max(0, int(params.get("offset") or 0))
+            except ValueError:
+                return self._send(400, {"error": "limit and offset must be integers"})
+            return self._send(200, {"count": len(results),
+                                    "results": results[offset:offset + limit]})
 
         # GET /v3/application/seller-taxonomy/nodes -- the whole tree, as Etsy returns it.
         if path == "/v3/application/seller-taxonomy/nodes":
@@ -638,12 +646,19 @@ class _Handler(BaseHTTPRequestHandler):
             listing = self.fake.listings.get(parts[5])
             if listing is None:
                 return self._send(404, {"error": "Listing not found"})
+            # Review 6818959626 (E2 HIGH): Etsy's OpenAPI marks BOTH value_ids and values as
+            # required for updateListingProperty; a write that omits either is a 400 there,
+            # so it is a 400 here.
+            if not fields.get("value_ids") or not fields.get("values"):
+                return self._send(400, {"error": "value_ids and values are required"})
             prop = {"property_id": int(parts[7]),
                     "value_ids": [int(v) for v in fields.get("value_ids", "").split(",") if v],
                     "values": [v for v in fields.get("values", "").split(",") if v],
                     "scale_id": int(fields["scale_id"]) if fields.get("scale_id") else None}
+            override = getattr(self.fake, "property_value_override", None)
+            stored = dict(prop, value_ids=list(override)) if override is not None else prop
             if not getattr(self.fake, "ignore_property_writes", False):
-                listing["properties"] = [p for p in listing.get("properties", []) if p["property_id"] != prop["property_id"]] + [prop]
+                listing["properties"] = [p for p in listing.get("properties", []) if p["property_id"] != prop["property_id"]] + [stored]
             return self._send(200, prop)
         return self._send(404, {"error": "unknown PUT endpoint"})
 

@@ -211,6 +211,50 @@ def test_the_evidence_copies_no_competitor_content():
     assert "COMPETITOR TITLE" not in text and "/listing/Z9/secret" not in text
 
 
+def test_ws2_r2_an_adaptive_deferral_is_neither_an_attempt_nor_a_failure():
+    """WS2 R2: `mjs.scan` fires every 2 h while the adaptive interval is >= 6 h, so most of its
+    jobs are deferrals. A deferral newer than the last success leaves the anchor SCANNED, with
+    the success's time as its last attempt -- never `attempted_not_scanned` with "not due"."""
+    db = _db()
+    with db.session() as s:
+        s.add(Job(agent="market_radar", job_type="mjs.scan", status=JobStatus.DONE,
+                  inputs={}, outputs={"new": 1}, finished_at=NOW - timedelta(hours=5)))
+        for h in (3, 1):
+            s.add(Job(agent="market_radar", job_type="mjs.scan", status=JobStatus.DONE,
+                      inputs={}, outputs={"ran": False, "deferred": True,
+                                          "reason": "adaptive interval (#313): not due"},
+                      finished_at=NOW - timedelta(hours=h)))
+    mjs = _by_shop(SE.report(db, now=NOW))["MJsOffTheHookDesigns"]
+    assert mjs["state"] == SE.SCANNED and mjs["failure_reason"] is None, mjs
+    assert mjs["last_attempted"] == mjs["last_successful"], mjs
+    # A real failure after the deferrals is still the anchor's current failure.
+    with db.session() as s:
+        s.add(Job(agent="market_radar", job_type="mjs.scan", status=JobStatus.DONE,
+                  inputs={}, outputs={"ran": False, "reason": "ping returned HTTP 403"},
+                  finished_at=NOW - timedelta(minutes=10)))
+    mjs = _by_shop(SE.report(db, now=NOW))["MJsOffTheHookDesigns"]
+    assert mjs["state"] == SE.NOT_ACCESSIBLE and "403" in mjs["failure_reason"], mjs
+
+
+def test_ws2_r2_the_handler_carries_the_deferral_into_its_output():
+    from unittest.mock import patch
+
+    from brambleloop.runtime import release as R
+
+    class _Ctx:
+        db = _db()
+        audits = []
+
+        def audit(self, action, **kw):
+            self.audits.append(action)
+
+    with patch("brambleloop.intel.observe.scan_or_explain",
+               return_value={"ran": False, "deferred": True, "reason": "not due"}), \
+            patch.object(R, "_run_mjs_mission",
+                         return_value={"pending": 0, "processed": 0, "tournaments": 0}):
+        out = R.handle_mjs_scan(_Ctx())
+    assert out["ran"] is False and out["deferred"] is True, out
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

@@ -26,6 +26,16 @@ sys.path.insert(0, str(ROOT))
 _ART = tempfile.TemporaryDirectory()
 os.environ["BRAMBLELOOP_ARTIFACT_DIR"] = _ART.name
 
+# W6 cert-fix (2026-11-12): this file's whole run is a calendar scenario anchored on TODAY
+# (2026-09-17): the flagship Christmas throw's buying window closes 2026-11-18. The cycle is
+# enqueued with as_of=TODAY, but the downstream launch.plan job reads date.today(), so on the
+# wall clock the scenario stopped existing on 2026-11-12 (today + 7-day build lead > window
+# close). Run it at its stated date with the same pinned, ticking clock as the other calendar
+# suites. No assertion and no rule changed. See tests/pinned_clock.py.
+import pinned_clock  # noqa: E402
+pinned_clock.install("2026-09-17T12:00:00+00:00")
+from datetime import date  # noqa: E402,F811 - rebind to the pinned classes
+
 from sqlalchemy import select  # noqa: E402
 
 from brambleloop.agents.registry import PermissionDenied, Registry  # noqa: E402

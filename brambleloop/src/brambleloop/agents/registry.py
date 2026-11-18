@@ -195,9 +195,7 @@ DEFAULT_AGENTS: list[dict] = [
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=1.0),
     dict(name="asset_truth", description="Blocks imagery that misrepresents the pattern",
-         allowed_job_types=["gate.asset_truth",
-                            # OPUS2 (P0-PHOTO-ASSET-REVIEW): deterministic photo-frame review.
-                            "assets.photo_review"], authority=Authority.GREEN,
+         allowed_job_types=["gate.asset_truth"], authority=Authority.GREEN,
          daily_cost_ceiling_cad=1.0),
     dict(name="policy", description="Platform policy and compliance checks; can veto",
          allowed_job_types=["gate.policy"], authority=Authority.GREEN,
@@ -238,7 +236,11 @@ DEFAULT_AGENTS: list[dict] = [
                             # definition, owner step-up, its own caps inside this ceiling).
                             "visual.controlled_experiment",
                             # W4-AGENTS C2 (F-744): the durable model evidence ledger.
-                            "visual.model_ledger"],
+                            "visual.model_ledger",
+                            # WS4-5: the standing-policy issuer in shadow (signs nothing).
+                            "policy.issuer_shadow",
+                            # WS4: the standing policy's stop watch (deny-direction only).
+                            "policy.stop_watch"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
     dict(name="growth", description="Launch timing and marketing cadence. Cannot author patterns.",
@@ -788,6 +790,8 @@ for _agent in DEFAULT_AGENTS:
         _agent["allowed_job_types"] = list(_agent["allowed_job_types"]) + [
             "etsy.credential_health", "etsy.shop_snapshot", "etsy.listing_census",
             "store.live_drift",
+            # WS5 E6: read-only resolution of unknown draft-create outcomes.
+            "store.draft_reconcile",
             # W4-FM2 F-514: weekly re-verification of the Etsy surface classifications
             # against Etsy's published OpenAPI document (GREEN, public read-only GET, CA$0).
             "etsy.openapi_reverify",

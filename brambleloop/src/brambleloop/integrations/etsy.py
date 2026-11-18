@@ -242,7 +242,6 @@ def _completion_refusal(self, listing_id: str) -> str | None:
 
 def _completion_grant_row_refusal(self, pa, ident: int) -> str | None:
     """`publication_authority._check_one` without the pre-creation content digest."""
-    import hmac
     from datetime import datetime
 
     from ..core.models import AuditLog
@@ -258,8 +257,21 @@ def _completion_grant_row_refusal(self, pa, ident: int) -> str | None:
     if chained is not None:
         return f"owner publication grant refused: {chained}"
     seal = detail.pop("seal", "")
-    if not hmac.compare_digest(str(seal), pa._seal(detail)):
-        return "owner publication grant invalid or credential rotated"
+    # Review 6817118202 F1: VERIFY with the public key -- never re-sign (the worker holds no
+    # signing key, and re-signing is what let a verifier mint). F2: the signed event must be
+    # the row's own action.
+    from ..core import owner_grant_keys
+
+    if detail.get("event") != pa.APPROVED:
+        return "owner publication grant row's signed event is not an approval"
+    if owner_grant_keys.legacy_hmac_seal(seal):
+        return ("owner publication grant was sealed under the retired ops-token HMAC "
+                "(pre-WS4-0); the owner records a new grant")
+    try:
+        if not pa._verify(detail, seal):
+            return "owner publication grant invalid or signing key rotated"
+    except ValueError as exc:
+        return f"owner publication grant cannot be verified: {exc}"
     now = pa._now()
     try:
         if not (datetime.fromisoformat(detail["approved_at"]) <= now
@@ -1095,8 +1107,8 @@ class EtsyClient:
             return False, ""
         return True, str(response.body.get("state") or "")
 
-    def get_shop_listings(self, *, state: str = "draft",
-                          limit: int = 100) -> list[dict[str, Any]]:
+    def get_shop_listings(self, *, state: str = "draft", limit: int = 100,
+                          max_pages: int = 50) -> list[dict[str, Any]]:
         """The shop's listings in one state. The read that makes a run idempotent.
 
         A run that failed before its cleanup left a draft in a real shop. Without this, the
@@ -1108,11 +1120,24 @@ class EtsyClient:
         sweep never sees an active listing and cannot act on one.
         """
         creds = self._require(Authority.READ)
-        body = self._call("GET", f"/shops/{creds.shop_id}/listings",
-                          operation="getListingsByShop", authority=Authority.READ,
-                          query={"state": state, "limit": limit}).body
-        results = body.get("results")
-        return list(results) if isinstance(results, list) else []
+        # WS5 E7: paged. Etsy returns at most `limit` (<= 100) per call, so a shop with more
+        # listings in this state was silently truncated at 100 -- the census, the outcome
+        # snapshot and the stale-draft sweep each saw only the first page.
+        out: list[dict[str, Any]] = []
+        offset = 0
+        for _ in range(max(1, int(max_pages))):
+            body = self._call("GET", f"/shops/{creds.shop_id}/listings",
+                              operation="getListingsByShop", authority=Authority.READ,
+                              query={"state": state, "limit": limit,
+                                     "offset": offset}).body
+            results = body.get("results")
+            page = list(results) if isinstance(results, list) else []
+            out.extend(page)
+            offset += len(page)
+            count = body.get("count")
+            if len(page) < limit or (isinstance(count, int) and offset >= count):
+                break
+        return out
 
     def get_shop_receipts(self, *, min_created: int | None = None, limit: int = 100,
                           offset: int = 0,

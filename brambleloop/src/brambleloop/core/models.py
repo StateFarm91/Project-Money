@@ -388,7 +388,10 @@ class OperatingReading(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
     kind: Mapped[str] = mapped_column(String(60), index=True)
-    period_key: Mapped[str] = mapped_column(String(20), index=True)
+    # Some readings are keyed by a release: an 80-character product slug,
+    # '@', and a 20-character version cannot fit the former VARCHAR(20).
+    # core.migrate.widen upgrades existing PostgreSQL columns at startup.
+    period_key: Mapped[str] = mapped_column(String(200), index=True)
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
 
     __table_args__ = (UniqueConstraint("kind", "period_key", name="uq_operating_reading"),)

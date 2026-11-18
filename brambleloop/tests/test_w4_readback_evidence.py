@@ -564,8 +564,13 @@ def test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart():
         assert by["dead letters in 24 h by job type"]["verdict"] == readback.FAIL, by
         assert "improve.weekly:TypeError" in by["dead letters in 24 h by job type"]["detail"]
         assert by["publishing halt clear"]["verdict"] == readback.FAIL, by  # the seeded halt
+        # WS2 R1: the advisory competitor-scans row may WARN; every other row is PASS, FAIL
+        # or UNKNOWN as before.
         assert all(i["verdict"] in (readback.PASS, readback.FAIL, readback.UNKNOWN)
-                   for i in out["items"]) and len(out["items"]) == 12, out["items"]
+                   for i in out["items"] if i.get("section") != "competitor_scans")
+        assert by["competitor shops scanned (eight-shop research network)"]["verdict"] in (
+            readback.PASS, readback.WARN), by
+        assert len(out["items"]) == 13, out["items"]
         # An unreadable section is UNKNOWN, never PASS.
         v, _ = readback._judge_section("weekly_jobs", {"readable": False}, True)
         assert v == readback.UNKNOWN

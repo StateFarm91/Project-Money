@@ -178,6 +178,17 @@ def credential_shape(env: dict[str, str] | None = None) -> dict:
     }
 
 
+ALT_KEYSTRING_VAR = "ETSY_KEYSTRING"
+
+
+def _keystring(e) -> str:
+    """WS5 E7: the keystring under either name the integrations accept (`integrations.etsy`
+    and `etsy_taxonomy` read `ETSY_KEYSTRING` too). `ETSY_API_KEY` wins when both are set;
+    `credential_shape` reports a disagreement between them."""
+    return ((e.get(KEYSTRING_VAR) or "").strip()
+            or (e.get(ALT_KEYSTRING_VAR) or "").strip())
+
+
 class Transport(Protocol):
     def request(self, method: str, url: str, *, headers: dict[str, str],
                 body: bytes | None = None, timeout: float = 20.0) -> Any: ...
@@ -193,7 +204,7 @@ class ReadCredential:
     @staticmethod
     def from_env(env: dict[str, str] | None = None) -> "ReadCredential | None":
         e = env if env is not None else os.environ
-        keystring = (e.get(KEYSTRING_VAR) or "").strip()
+        keystring = _keystring(e)
         secret = (e.get(SECRET_VAR) or "").strip()
         if not keystring:
             return None
@@ -219,7 +230,7 @@ class ReadCredential:
 def health(env: dict[str, str] | None = None) -> dict:
     """Whether the mission can read, without revealing anything about the credential."""
     e = env if env is not None else os.environ
-    keystring = (e.get(KEYSTRING_VAR) or "").strip()
+    keystring = _keystring(e)
     secret = (e.get(SECRET_VAR) or "").strip()
     return {
         "keystring_set": bool(keystring),
@@ -582,6 +593,87 @@ def usable(db) -> bool:
     return bool(state and state.get("ok"))
 
 
+# WS5 E3: probes run every six hours; a success older than a day no longer demonstrates it.
+PROBE_FRESH_HOURS = 24
+
+
+def _probe_age_hours(state: dict | None, now=None) -> float | None:
+    from datetime import datetime, timezone
+
+    try:
+        at = datetime.fromisoformat(str((state or {}).get("at") or ""))
+    except ValueError:
+        return None
+    if at.tzinfo is None:
+        at = at.replace(tzinfo=timezone.utc)
+    return round(((now or datetime.now(timezone.utc)) - at).total_seconds() / 3600.0, 2)
+
+
+AUTH_READ_FRESH_HOURS = 26     # the authenticated read is daily; 2 h for cadence jitter
+
+
+def last_authenticated_read(db) -> dict | None:
+    """The newest `etsy.credential_health` reading: an OAuth-authenticated `getMe` with the
+    stored grant (refreshing it), not the app-key `ping` that `etsy.probe` makes."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        row = s.scalars(select(AuditLog).where(AuditLog.action == "etsy.credential_health")
+                        .order_by(desc(AuditLog.id)).limit(1)).first()
+    return dict(row.detail or {}) if row is not None else None
+
+
+def credential_usable(db, state: dict | None = None, env: dict[str, str] | None = None,
+                      now=None) -> dict:
+    """WS5 E3 (review 6818959626): whether the Etsy credential is USABLE for this company's
+    operations, not merely configured. All of:
+
+    * an OAuth-AUTHENTICATED read with the stored grant succeeded within
+      AUTH_READ_FRESH_HOURS -- the newest `etsy.credential_health` reading is HEALTHY with
+      `live.ok` true (an authenticated `getMe`). `etsy.probe` is an app-key ping and proves
+      only that Etsy answers; it is reported, never relied on;
+    * the stored grant can be opened (decrypted) by this deployment;
+    * every scope the company needs (`etsy_oauth.SCOPES_WANTED`, `transactions_r` included) is
+      among the scopes recorded when the grant was made.
+
+    A future-dated or unreadable reading is not recent. UNKNOWN parts are false."""
+    import time as _time
+
+    from ..core import oauth_store
+    from ..integrations import etsy_oauth
+
+    state = last_probe(db) if state is None else state
+    auth_read = last_authenticated_read(db)
+    try:
+        observed = float((auth_read or {}).get("observed_at"))
+    except (TypeError, ValueError):
+        observed = None
+    now_epoch = (now.timestamp() if now is not None else _time.time())
+    auth_age = (round((now_epoch - observed) / 3600.0, 2) if observed is not None else None)
+    recent = bool(auth_read and auth_read.get("status") == "HEALTHY"
+                  and (auth_read.get("live") or {}).get("ok") is True
+                  and auth_age is not None and 0 <= auth_age <= AUTH_READ_FRESH_HOURS)
+    try:
+        oauth = oauth_store.credential_health(db, env=env)
+        openable = bool(oauth.get("openable"))
+        granted = set(oauth_store.stored_scopes(db))
+    except Exception:  # noqa: BLE001 - unreadable is not usable
+        openable, granted = False, set()
+    missing = [sc for sc in etsy_oauth.SCOPES_WANTED if sc not in granted]
+    why = [w for w, bad in (
+        ("no successful OAuth-authenticated Etsy read (etsy.credential_health getMe) in the "
+         f"last {AUTH_READ_FRESH_HOURS} h", not recent),
+        ("no stored OAuth grant this deployment can open", not openable),
+        (f"scopes not recorded as granted: {missing}", bool(missing))) if bad]
+    return {"usable": not why, "demonstrated_recently": recent,
+            "authenticated_read_age_hours": auth_age,
+            "probe_age_hours": _probe_age_hours(state, now),
+            "refused": auth_refused(state), "oauth_openable": openable,
+            "scopes_not_granted": missing, "why": "; ".join(why)}
+
+
 def capability(db, env: dict[str, str] | None = None) -> dict:
     """What this company can currently read from Etsy, and what that rests on."""
     state = last_probe(db)
@@ -589,6 +681,8 @@ def capability(db, env: dict[str, str] | None = None) -> dict:
         **health(env),
         "last_probe": state,
         "demonstrated": bool(state and state.get("ok")),
+        # WS5 E3: what the readback judges -- usable for operations, not merely configured.
+        "credential": credential_usable(db, state, env),
         "note": ("no probe has been run, so whether these credentials can serve a request is "
                  "unknown -- which is not the same as unavailable"
                  if state is None else

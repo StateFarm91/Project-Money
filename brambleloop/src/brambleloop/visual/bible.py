@@ -215,7 +215,7 @@ def judge(image_ref: str, *, db=None, provider=None,
         gw.release_reservation(db, held, actual_cad=cost)
         spend_report.record(
             db, agent=AGENT, amount_cad=cost, estimated_cad=estimate,
-            purpose=TASK, provider="anthropic", model=provider.model,
+            purpose=TASK, provider=getattr(provider, "name", "anthropic"), model=provider.model,
             department="creative", tokens_in=response.input_tokens,
             tokens_out=response.output_tokens,
             detail={"price_basis": "assumed", "check": "character_bible",

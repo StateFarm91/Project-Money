@@ -172,6 +172,20 @@ def _state(db, key: str) -> dict:
     return dict((rec or {}).get("body") or {})
 
 
+ERROR_HISTORY_DAYS = 30
+ERROR_HISTORY_MAX = 200
+
+
+def _note_error(st: dict, error_class: str, *, now: datetime) -> None:
+    """WS2 R4: keep each failed attempt's time and CLASS (never its text), for 30 days, so the
+    readback can count errors by class over a window instead of seeing only the last one."""
+    keep_from = (now - timedelta(days=ERROR_HISTORY_DAYS)).isoformat()
+    history = [e for e in (st.get("error_history") or [])
+               if isinstance(e, dict) and str(e.get("at") or "") >= keep_from]
+    history.append({"at": now.isoformat(), "class": str(error_class)[:60]})
+    st["error_history"] = history[-ERROR_HISTORY_MAX:]
+
+
 def _save_state(db, key: str, body: dict, *, now: datetime) -> None:
     from ..autonomy import memory
 
@@ -207,7 +221,8 @@ class _OnceReader:
 
 
 def scan_member(db, member: Member, reader, *, now: datetime | None = None,
-                enqueue=None, force: bool = False) -> dict:
+                enqueue=None, force: bool = False,
+                env: dict[str, str] | None = None) -> dict:
     """One shop: due check, public shop counters, catalogue scan, mission, weekly reviews."""
     from . import mission, mission_runtime, observe
     from .etsy_public import ReadFailed
@@ -232,8 +247,11 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
     try:
         shop = reader.resolve_shop(member.shop_name)
         facts = {f: shop.get(f) for f in SHOP_FIELDS}
+        # WS2 R6: the real environment (None = the process's), so an official API read is
+        # graded as the observation it is. `env={}` hid the credential and graded every
+        # watchlist observation `supporting`.
         result = observe.scan(db, reader, benchmark_key=member.key,
-                              shop_name=member.shop_name, env={})
+                              shop_name=member.shop_name, env=env)
         report = result.to_report()
         mission.check_report(report, shop_name=member.shop_name)
         reviews = None
@@ -250,12 +268,14 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
         if not exc.credential_refused and _not_found(exc):
             return _record_not_accessible(db, member, st, str(exc), now=now)
         kind = "credential_refused" if exc.credential_refused else "source_outage"
+        _note_error(st, kind, now=now)
         st.update(state=kind, last_error=str(exc)[:300], last_attempt_at=now.isoformat(),
                   consecutive_failures=int(st.get("consecutive_failures") or 0) + 1)
         _save_state(db, member.key, st, now=now)
         return {"key": member.key, "ran": False, "state": kind,
                 "consecutive_failures": st["consecutive_failures"]}
     except Exception as exc:  # noqa: BLE001 - one shop's fault never stops the others
+        _note_error(st, type(exc).__name__, now=now)
         st.update(state="source_outage", last_error=f"{type(exc).__name__}: {exc}"[:300],
                   last_attempt_at=now.isoformat(),
                   consecutive_failures=int(st.get("consecutive_failures") or 0) + 1)
@@ -267,7 +287,9 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
     st.update(state="ok", last_ok_at=now.isoformat(), last_attempt_at=now.isoformat(),
               consecutive_failures=0, last_error="", shop=facts, shop_history=history,
               listings_seen=report["catalogue_coverage"]["listings_seen_this_scan"],
-              changes=len(report["changes"]))
+              changes=len(report["changes"]),
+              # WS2 R3: Etsy's clock for this scan, not ours.
+              source_timestamp=report["source_timestamp"]["newest_listing_modified_at"])
     if reviews is not None:
         st.update(reviews_at=now.isoformat(), reviews=reviews)
     _save_state(db, member.key, st, now=now)
@@ -318,6 +340,7 @@ def _record_not_accessible(db, member: Member, st: dict, reason: str, *,
     Do not pretend an inaccessible shop was scanned." Nothing scan-shaped is written: no
     last_ok_at, no listings_seen, no shop counters, no mission."""
     limitation = f"not accessible: {reason}"[:300]
+    _note_error(st, NOT_ACCESSIBLE, now=now)
     st.update(state=NOT_ACCESSIBLE, limitation=limitation, limitation_on=now.date().isoformat(),
               last_error=limitation, last_attempt_at=now.isoformat(),
               consecutive_failures=int(st.get("consecutive_failures") or 0) + 1,
@@ -361,7 +384,8 @@ def scan_all(db, *, enqueue=None, env=None, now: datetime | None = None,
     for m in members:
         # N-1: one shop's unexpected fault never stops the others or fails the job.
         try:
-            shops.append(scan_member(db, m, reader, now=now, enqueue=enqueue, force=force))
+            shops.append(scan_member(db, m, reader, now=now, enqueue=enqueue, force=force,
+                                     env=env))
         except Exception as exc:  # noqa: BLE001
             st = _state(db, m.key)
             st.update(state="source_outage", last_attempt_at=now.isoformat(),

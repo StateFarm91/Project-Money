@@ -230,9 +230,31 @@ def spent_this_month_cad(db, *, now: datetime | None = None) -> float:
     return round(total, 6)
 
 
+def _price_table(model: str) -> tuple[str, tuple[float, float]] | None:
+    """(provider, (in, out) US$/Mtok) for a priced model of ANY routed provider, or None.
+
+    S2 review 6957356475: the ceiling ledger prices each call by the provider that serves it.
+    Before, only this module's table was read, so an OpenAI model was refused as unpriced and
+    logged as `anthropic`."""
+    if model in PRICES_USD_PER_MTOK:
+        return "anthropic", PRICES_USD_PER_MTOK[model]
+    from . import openai_chat
+
+    if model in openai_chat.PRICES_USD_PER_MTOK:
+        return openai_chat.NAME, openai_chat.PRICES_USD_PER_MTOK[model]
+    return None
+
+
+def provider_of_model(model: str) -> str | None:
+    """The provider whose price table holds `model`, or None for an unpriced model."""
+    found = _price_table(model)
+    return found[0] if found else None
+
+
 def estimate_cad(model: str, *, input_tokens: int, output_tokens: int) -> float:
     """What a call of this shape is expected to cost, padded on purpose."""
-    prices = PRICES_USD_PER_MTOK.get(model)
+    found = _price_table(model)
+    prices = found[1] if found else None
     if prices is None:
         raise BudgetExceeded(
             f"{model!r} has no price on file, so its cost cannot be checked against the "
@@ -338,9 +360,10 @@ def check_budget(db, *, model: str, input_tokens: int, max_tokens: int,
         spend_report.record_refusal(
             db, agent=agent, ceiling_cad=monthly_ceiling_cad(), estimate_cad=0.0,
             committed_cad=0.0, which="unpriced_model", why=str(exc), purpose=purpose,
-            now=now, detail={"model": model, "provider": "anthropic", "job_id": job_id})
+            now=now, detail={"model": model, "provider": "unpriced", "job_id": job_id})
         raise
-    return check_budget_cad(db, estimate_cad=estimate, model=model, provider="anthropic",
+    return check_budget_cad(db, estimate_cad=estimate, model=model,
+                            provider=provider_of_model(model) or "anthropic",
                             now=now, uncommitted_cad=uncommitted_cad, agent=agent,
                             purpose=purpose, job_id=job_id, reserve=reserve, holder=holder,
                             ttl_seconds=ttl_seconds, product_slug=product_slug,

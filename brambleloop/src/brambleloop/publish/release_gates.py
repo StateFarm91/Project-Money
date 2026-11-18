@@ -218,16 +218,7 @@ def _frames(db, slug: str, version: str) -> list:
             .order_by(ListingAsset.position)))
         for r in rows:
             s.expunge(r)
-    # I-A3-NONQUALIFYING-PHOTO (opus2): a photo frame the asset-truth review holds as not
-    # qualifying is out of the listing set; it never blocks the set it was appended to.
-    # Review U5 F8: only a PHOTO frame drops out this way (as photo_snapshot_current and
-    # photo_certificate_current read it); any other frame carrying that reason still blocks.
-    from .photo_asset_review import NOT_QUALIFYING, PHOTO_CLASS
-
-    return [r for r in rows
-            if not (r.asset_class == PHOTO_CLASS
-                    and any(str(x).startswith(NOT_QUALIFYING)
-                            for x in (r.blocked_reasons or [])))]
+    return rows
 
 
 def _listing(db, slug: str, version: str):
@@ -1056,11 +1047,6 @@ def _record_certificate(db, cert: ls.ListingCertificate, *, release_hash: str, i
                         f"listing-set certificate would bind to nothing; refused")}
     covered = None
     with db.session() as s:
-        from .photo_asset_review import _lock, photo_certificate_current
-        _lock(s, db)
-        if not photo_certificate_current(s, db, cert.slug, cert.version, cert.frames):
-            return {"valid": False, "issued": False, "rechecked": rechecked,
-                    "why": "photo frame or evidence changed before certificate review"}
         current = s.scalar(select(ListingSetCertificateRecord).where(
             ListingSetCertificateRecord.product_slug == cert.slug,
             ListingSetCertificateRecord.version == cert.version,
@@ -1084,11 +1070,6 @@ def _record_certificate(db, cert: ls.ListingCertificate, *, release_hash: str, i
         return {"valid": False, "issued": False, "rechecked": rechecked,
                 "why": "no valid certificate covers these frames and issuing was not asked"}
     with db.session() as s:
-        from .photo_asset_review import _lock, photo_certificate_current
-        _lock(s, db)
-        if not photo_certificate_current(s, db, cert.slug, cert.version, cert.frames):
-            return {"valid": False, "issued": False, "rechecked": rechecked,
-                    "why": "photo frame or evidence changed before certificate issuance"}
         rec = ListingSetCertificateRecord(
             product_slug=cert.slug, version=cert.version, release_hash=release_hash,
             certificate=cert.to_dict(), geometry_fingerprint=cert.geometry_fingerprint,
@@ -1144,20 +1125,8 @@ def recheck(db, *, slug: str, version: str, geometry: dict, claims: dict,
 
     from ..core.models import ListingAsset, ListingSetCertificateRecord
 
-    from .photo_asset_review import AWAITING, PHOTO_CLASS
-
     results = []
-    # Review A3 U5 F3: a release whose gallery holds a photo frame is rechecked under the
-    # photo review's write lock, so no review or issuance interleaves with the revocation.
     with db.session() as s:
-        photo_led = s.scalar(select(ListingAsset.id).where(
-            ListingAsset.product_slug == slug, ListingAsset.version == version,
-            ListingAsset.asset_class == PHOTO_CLASS).limit(1)) is not None
-    with db.session() as s:
-        if photo_led:
-            from .photo_asset_review import _lock
-
-            _lock(s, db)
         for rec in s.scalars(select(ListingSetCertificateRecord).where(
                 ListingSetCertificateRecord.product_slug == slug,
                 ListingSetCertificateRecord.version == version,
@@ -1169,47 +1138,21 @@ def recheck(db, *, slug: str, version: str, geometry: dict, claims: dict,
                 rec.state = "invalidated"
                 rec.invalidated_by = list(verdict["invalidated_by"])
                 rec.invalidated_at = datetime.now(timezone.utc)
-                certified = {f["asset_id"]: (f.get("position"), f.get("sha256"))
+                positions = {f["asset_id"]: f["position"]
                              for f in (rec.certificate or {}).get("frames", [])}
-                gallery = list(s.scalars(select(ListingAsset).where(
-                    ListingAsset.product_slug == slug, ListingAsset.version == version)))
                 for asset_id in verdict["affected_assets"]:
-                    pos, sha = certified.get(asset_id, (None, None))
-                    for row in _certified_rows(gallery, pos, sha):
-                        _mark_invalidated(row, rec, verdict, PHOTO_CLASS, AWAITING)
+                    pos = positions.get(asset_id)
+                    row = s.scalar(select(ListingAsset).where(
+                        ListingAsset.product_slug == slug, ListingAsset.version == version,
+                        ListingAsset.position == pos)) if pos else None
+                    if row is not None:
+                        row.approved = False
+                        row.blocked_reasons = [
+                            f"LISTING_SET_INVALIDATED: certificate {rec.id} invalidated by "
+                            f"{', '.join(verdict['invalidated_by'])}; re-certify before "
+                            f"export"] + list(row.blocked_reasons or [])[:9]
             results.append(verdict)
     return results
-
-
-def _certified_rows(gallery, position, sha256) -> list:
-    """The stored rows a certificate frame names (review of 3928ba00 L3). A certificate
-    records each frame's position AND its exact bytes; a later shift (`plan_upgrade` putting
-    a photograph first) moves the bytes to another slot. Resolving by the recorded position
-    alone marked whatever row now sits there -- the newly approved photograph went back to
-    awaiting review, and the shifted render the certificate actually named was missed. The
-    row holding the certified bytes at the recorded slot is preferred; else every row that
-    holds those bytes; with no recorded hash (a legacy record), the recorded slot."""
-    if sha256:
-        same = [r for r in gallery if r.sha256 == sha256]
-        at = [r for r in same if r.position == position]
-        return at or same
-    return [r for r in gallery if position and r.position == position]
-
-
-def _mark_invalidated(row, rec, verdict, PHOTO_CLASS, AWAITING) -> None:
-    """Take a certified frame's approval away when its certificate is invalidated."""
-    row.approved = False
-    if row.asset_class == PHOTO_CLASS:
-        # Review A3 U5 F3: a photo frame is not rebuilt -- a rebuild never replaces it -- so a
-        # LISTING_SET_INVALIDATED mark would strand it for good. It goes back to the
-        # asset-truth review instead, which re-checks it and re-issues the set.
-        row.blocked_reasons = [AWAITING] + [
-            r for r in (row.blocked_reasons or []) if r != AWAITING][:9]
-    else:
-        row.blocked_reasons = [
-            f"LISTING_SET_INVALIDATED: certificate {rec.id} invalidated by "
-            f"{', '.join(verdict['invalidated_by'])}; re-certify before "
-            f"export"] + list(row.blocked_reasons or [])[:9]
 
 
 def certificate_step(db, *, slug: str, version: str, release_hash: str, frames, per_frame,
@@ -1226,11 +1169,6 @@ def certificate_step(db, *, slug: str, version: str, release_hash: str, frames, 
     hashes = {v["position"]: v.get("sha256") for v in per_frame}
     covered = None
     with db.session() as s:
-        from .photo_asset_review import _lock, photo_snapshot_current
-        _lock(s, db)
-        if not photo_snapshot_current(s, db, slug, version, frames):
-            return {"valid": False, "issued": False, "rechecked": rechecked,
-                    "why": "photo frame or evidence changed before certificate review"}
         current = s.scalar(select(ListingSetCertificateRecord).where(
             ListingSetCertificateRecord.product_slug == slug,
             ListingSetCertificateRecord.version == version,
@@ -1277,11 +1215,6 @@ def certificate_step(db, *, slug: str, version: str, release_hash: str, frames, 
     except ls.ListingSetRefused as e:
         return {"valid": False, "issued": False, "rechecked": rechecked, "why": str(e)[:400]}
     with db.session() as s:
-        from .photo_asset_review import _lock, photo_snapshot_current
-        _lock(s, db)
-        if not photo_snapshot_current(s, db, slug, version, frames):
-            return {"valid": False, "issued": False, "rechecked": rechecked,
-                    "why": "photo frame or evidence changed before certificate issuance"}
         rec = ListingSetCertificateRecord(
             product_slug=slug, version=version, release_hash=release_hash,
             certificate=cert.to_dict(), geometry_fingerprint=cert.geometry_fingerprint,

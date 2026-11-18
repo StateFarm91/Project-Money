@@ -53,6 +53,10 @@ NEEDS_OPERATOR = "NEEDS_OPERATOR"
 # `WARN_ONLY` reads WARN where it would otherwise read FAIL.
 WARN = "WARN"
 WARN_ONLY = "warn"
+# Review 6818959626 (E3 MED): WARN only when the route answered 200 AND carried the field
+# with a false value. A crashing route (500), a refused one (401) or a missing field stays
+# UNKNOWN -- a broken endpoint must never read as a merely degraded credential.
+WARN_IF_READ = "warn_if_read"
 # every feature read back, some WARN only: a success (ops/deploy.sh). Review 6791709875 nit 3:
 # distinct from every code this script and ops/deploy.sh already use (deploy.sh's own 3 is
 # "NO DEPLOY"; readback's 4 unreachable, 5 not done).
@@ -119,8 +123,14 @@ MANIFEST = (
      lambda v, _s: v is True),
     ("continuity proof passing", ["F-628"], "/api/continuity", "last_proof_ok", "true",
      lambda v, _s: v is True),
-    ("Etsy credential usable", ["F-437"], "/api/etsy", "usable", "true",
-     lambda v, _s: v is True),
+    # WS5 E3: "usable" alone was true whenever the two variables were set (it read PASS for the
+    # whole 403 period). The row now reads the server's judgement: a successful Etsy read in
+    # the last 24 h, an openable OAuth grant, and every needed scope granted.
+    # WARN_ONLY: an external credential state (an unpaid subscription, a revoked grant) is
+    # reported honestly -- never PASS -- without blocking a code deploy (Main 6814167293).
+    ("Etsy credential usable", ["F-437"], "/api/etsy", "credential.usable",
+     "true (recent real read, OAuth grant openable, no scope missing)",
+     lambda v, _s: v is True, WARN_IF_READ),
 )
 
 # SECPATCH made these GETs operator-only; their rows need the operator credential (above).
@@ -187,11 +197,16 @@ def _from_evidence(body, endpoint: str) -> tuple[int | None, object]:
         if isinstance(body, dict) else None
     if not isinstance(row, dict) or not isinstance(row.get("status"), int):
         return None, None
-    fields = {}
+    fields: dict = {}
     for k, v in (row.get("fields") or {}).items():
         if isinstance(v, dict) and isinstance(v.get("list_length"), int):
             v = [None] * v["list_length"]
-        fields[k] = v
+        # WS5 E3: a dotted field ("credential.usable") is rebuilt nested, as `_dig` reads it.
+        *parents, leaf = str(k).split(".")
+        cur = fields
+        for p in parents:
+            cur = cur.setdefault(p, {}) if isinstance(cur.get(p, {}), dict) else {}
+        cur[leaf] = v
     return row["status"], fields
 
 
@@ -212,7 +227,8 @@ def run(sha: str, *, url: str = PRODUCTION_URL, fetch=None, token: str | None = 
     base = url.rstrip("/")
     for row in MANIFEST:
         feature, rows, endpoint, field, expected, pred = row[:6]
-        bad = WARN if len(row) > 6 and row[6] == WARN_ONLY else FAIL
+        bad = WARN if len(row) > 6 and row[6] in (WARN_ONLY, WARN_IF_READ) else FAIL
+        strict = len(row) > 6 and row[6] == WARN_IF_READ
         operator = endpoint in OPERATOR_ENDPOINTS
         if operator and not token and not readback_token:
             items.append({"feature": feature, "rows": rows, "endpoint": endpoint,
@@ -238,8 +254,10 @@ def run(sha: str, *, url: str = PRODUCTION_URL, fetch=None, token: str | None = 
                 verdict, value = UNKNOWN, None
             else:
                 value = code if field == "@status" else _dig(body, field)
-                verdict = ((bad if bad == WARN else UNKNOWN)
+                verdict = ((bad if bad == WARN and not strict else UNKNOWN)
                            if value is None and field != "@status" else None)
+                if verdict is None and strict and code != 200:
+                    verdict = UNKNOWN
                 if verdict is None:
                     try:
                         verdict = PASS if pred(value, sha) else bad
@@ -267,8 +285,11 @@ def run(sha: str, *, url: str = PRODUCTION_URL, fetch=None, token: str | None = 
             value = code if field == "@status" else _dig(body, field)
             if value is None and field != "@status":
                 # a warn-only row never escalates past WARN: an advisory a build does not
-                # report yet is degraded evidence, not an unknown that forces containment
-                verdict = WARN if bad == WARN else UNKNOWN
+                # report yet is degraded evidence, not an unknown that forces containment.
+                # A WARN_IF_READ row is the exception: a missing field is UNKNOWN.
+                verdict = WARN if bad == WARN and not strict else UNKNOWN
+            elif strict and code != 200:
+                verdict = UNKNOWN
             else:
                 try:
                     verdict = PASS if pred(value, sha) else bad
@@ -309,11 +330,19 @@ EVIDENCE_ITEMS = (
     ("products progressing through certification", "certification_pipeline", None),
     ("autonomous company loop", "autonomy_loop", None),
     ("Etsy category resolvable (crochet offered by the chosen node)", "etsy_taxonomy", None),
+    # WS2 R1: the eight shops' scan state. Advisory: a WARN never fails the readback or a
+    # deploy -- an Etsy refusal (or one seed shop gone) is reported, not turned into a FAIL.
+    ("competitor shops scanned (eight-shop research network)", "competitor_scans", None),
 )
 
 
 def _judge_section(name: str, section, judged) -> tuple[str, str]:
     """(verdict, short reason). UNKNOWN whenever the evidence is absent or unreadable."""
+    if name == "competitor_scans" and (not isinstance(section, dict)
+                                       or section.get("readable") is not True):
+        # WS2 R1: advisory -- a build without the section, or one that cannot read it, warns.
+        return WARN, ("section missing" if not isinstance(section, dict) else
+                      f"unreadable ({section.get('error_class') or 'no reason given'})")
     if not isinstance(section, dict):
         return UNKNOWN, "section missing"
     if section.get("readable") is not True:
@@ -347,6 +376,32 @@ def _judge_section(name: str, section, judged) -> tuple[str, str]:
         if unk:
             return UNKNOWN, f"no stored schema for {unk}"
         return PASS, f"refreshed {section.get('refreshed_at')}; {len(offers)} categories"
+    if name == "competitor_scans":
+        shops = section.get("shops")
+        if not isinstance(shops, list) or not shops:
+            return WARN, "no shops reported"
+        credential = section.get("credential")
+        unscanned = [f"{r.get('alias')}:{r.get('state')}"
+                     + (f"/{r.get('failure_class')}" if r.get("failure_class") else "")
+                     for r in shops if r.get("state") != "scanned"]
+        # Review 6816970157 M2: a scanned shop whose newest success is stale is not current.
+        # Review 6819096414 LOW-1: recomputed from the age and the limit as well as the
+        # flag, and an unreadable age or limit is stale -- never trusted as current.
+        def _stale(r):
+            age, limit = r.get("success_age_hours"), r.get("stale_after_hours")
+            numeric = all(isinstance(v, (int, float)) and not isinstance(v, bool)
+                          for v in (age, limit))
+            return bool(r.get("stale")) or not numeric or age > limit
+
+        unscanned += [f"{r.get('alias')}:stale({r.get('success_age_hours')}h>"
+                      f"{r.get('stale_after_hours')}h)"
+                      for r in shops if r.get("state") == "scanned" and _stale(r)]
+        if credential != "usable":
+            return WARN, (f"Etsy read credential {credential}; {len(shops) - len(unscanned)}/"
+                          f"{len(shops)} scanned")
+        if unscanned:
+            return WARN, f"{len(shops) - len(unscanned)}/{len(shops)} scanned; {unscanned}"
+        return PASS, f"{len(shops)}/{len(shops)} scanned"
     if not isinstance(judged, bool):
         return UNKNOWN, "no server judgement"
     if name == "dead_letters_24h":
@@ -405,8 +460,9 @@ def run_evidence(*, url: str = PRODUCTION_URL, fetch=None, env=None) -> dict:
                                              judged.get(key) if key else None)
         items.append({"item": item, "section": section, "verdict": verdict, "detail": detail})
     verdicts = {i["verdict"] for i in items}
+    # Review 6816970157 L1: as `run`, a WARN row reads WARN overall (still not a failure).
     overall = (UNKNOWN if not reachable else FAIL if FAIL in verdicts else
-               UNKNOWN if UNKNOWN in verdicts else PASS)
+               UNKNOWN if UNKNOWN in verdicts else WARN if WARN in verdicts else PASS)
     import datetime as _dt
 
     out = {"url": url, "verdict": overall, "reachable": reachable,
@@ -442,6 +498,11 @@ def main_evidence(a) -> int:
     if not out["reachable"]:
         print("readback --evidence: production unreachable; nothing verified", file=sys.stderr)
         return 4
+    if out["verdict"] == WARN:
+        warned = [i["item"] for i in out["items"] if i["verdict"] == WARN]
+        print(f"readback --evidence: WARN ({len(out['items'])} items; degraded, not a "
+              f"failure: {warned})", file=sys.stderr)
+        return WARN_EXIT
     if out["verdict"] != PASS:
         n = {v: sum(1 for i in out["items"] if i["verdict"] == v) for v in (PASS, FAIL, UNKNOWN)}
         print(f"readback --evidence: {out['verdict']} (PASS {n[PASS]}, FAIL {n[FAIL]}, "

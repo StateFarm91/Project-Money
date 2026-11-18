@@ -935,7 +935,15 @@ def _finance_owner_view() -> dict:
 
         return close_mod.status(db, now=now)
 
+    def model_providers():
+        # S2 review 6957356475: the per-provider model ledger -- gross CAD and USD, credit and
+        # cash, held, uncertain, per-grant expiry -- where the owner reads the budget.
+        from ..finance import credits
+
+        return credits.model_providers(db, now=now)
+
     return {"as_of": now.isoformat(), "windows": guard(windows), "ads": guard(ads),
+            "model_providers": guard(model_providers),
             "cash_and_payout": guard(cash_position), "unreconciled": guard(unreconciled),
             "monthly_close": guard(close)}
 

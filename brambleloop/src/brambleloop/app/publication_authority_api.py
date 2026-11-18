@@ -2,6 +2,11 @@
 
 Never contacts Etsy and never enqueues store.publish: it only records, previews and revokes
 the sealed, content-bound grant that `store.publish` resolves at its pre-create boundary.
+
+WS4-0a: grants are Ed25519-signed only inside the owner's Command Center request
+(`core.owner_grant_keys.owner_request`), so `approve` and `rebase` here refuse (409) with the
+reason; the owner approves in the Command Center. `preview` and `revoke` (which tightens)
+still work with the operator credential.
 """
 from fastapi import APIRouter, Header, HTTPException
 

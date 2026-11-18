@@ -80,6 +80,22 @@ def _mark_job_process() -> bool | None:
     if removed:
         print("removed the storefront signing key from the HQ worker environment: a job "
               "process never signs storefront grants", file=sys.stderr)
+    try:   # WS4-0a: nor an owner publication or activation grant
+        from ..core import owner_grant_keys as _ogk
+    except ImportError:
+        return removed
+    if _ogk.mark_job_process():
+        print("removed the owner-grant signing key from the HQ worker environment: a job "
+              "process never signs owner grants", file=sys.stderr)
+        removed = True
+    try:   # WS4-3: nor a standing publication policy row
+        from ..ops import standing_policy as _sp
+    except ImportError:
+        return removed
+    if _sp.mark_job_process():
+        print("removed the standing-policy signing key from the HQ worker environment: a "
+              "job process never signs a standing policy", file=sys.stderr)
+        removed = True
     return removed
 
 
