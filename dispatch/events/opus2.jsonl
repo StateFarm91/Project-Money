@@ -134,3 +134,9 @@
 {"at": "2026-11-18T17:38:56Z", "worker": "opus2", "assignment": "WS4-STAGE-A", "event": "review_requested", "sha": "8dc219a7", "note": "run_tests.sh header + fake_etsy import + runner exit; a1-fix 571fc326, a2-fix 8dc219a7"}
 {"at": "2026-11-18T21:34:32Z", "worker": "opus2", "assignment": "S4", "event": "review_requested", "sha": "15da4b85", "note": "verdict 6990820438 M1 countable_orders, M2 source_state UNKNOWN, LOWs; opus2/s4-p0-command-board-fix"}
 {"at": "2026-11-18T21:34:32Z", "worker": "opus2", "assignment": "S4B", "event": "review_requested", "sha": "2ef70fcc", "note": "page: unmeasured sales Unknown, counts; opus2/s4b-p0-board-page-fix"}
+{"at": "2026-11-18T23:43:59Z", "worker": "opus2", "assignment": "S4", "event": "checkpoint", "sha": "ed50c29a", "note": "merged onto INTEG1 7a0bc63b per 6994599424"}
+{"at": "2026-11-18T23:43:59Z", "worker": "opus2", "assignment": "S4B", "event": "checkpoint", "sha": "a941700e", "note": "merged onto INTEG1 7a0bc63b per 6994599424"}
+{"at": "2026-11-18T23:43:59Z", "worker": "opus2", "assignment": "WS5-LOWS", "event": "checkpoint", "sha": "c5756c4c", "note": "merged onto INTEG1 7a0bc63b per 6994599424"}
+{"at": "2026-11-18T23:43:59Z", "worker": "opus2", "assignment": "WS4-LOWS", "event": "checkpoint", "sha": "b493a9c6", "note": "merged onto INTEG1 7a0bc63b per 6994599424"}
+{"at": "2026-11-18T23:43:59Z", "worker": "opus2", "assignment": "S2", "event": "checkpoint", "sha": "c1c5309c", "note": "merged onto INTEG1 7a0bc63b per 6994599424"}
+{"at": "2026-11-18T23:43:59Z", "worker": "opus2", "assignment": "WS4-STAGE-A", "event": "checkpoint", "sha": "ae9d837e", "note": "merged onto INTEG1 7a0bc63b per 6994599424"}
