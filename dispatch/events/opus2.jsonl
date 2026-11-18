@@ -127,3 +127,8 @@
 {"at": "2026-11-18T15:04:42Z", "worker": "opus2", "assignment": "QF-ETSY-SCOPES", "event": "review_requested", "sha": "b3e037b9", "note": "Store tab scopes display, opus2/etsy-connect-scopes-display (6981550036)"}
 {"at": "2026-11-18T15:04:42Z", "worker": "opus2", "assignment": "A4B-2", "event": "review_requested", "sha": "b8929db7", "note": "A4b-2 merged onto INTEG1 26762746 + 6979345975 fixes, opus2/a4b-2-producer-fix"}
 {"at": "2026-11-18T15:47:27Z", "worker": "opus2", "assignment": "WS4-LOWS", "event": "review_requested", "sha": "fbe0bdd0", "note": "WS4 LOWs from 6979645791 on opus2/ws4-g-shadow-lows"}
+{"at": "2026-11-18T17:38:56Z", "worker": "opus2", "assignment": "WS5-LOWS", "event": "review_requested", "sha": "b18cdc15", "note": "verdict 6985175377: run_tests.sh header + runner exit, opus2/ws5-n1-n3-resolver-lows-fix"}
+{"at": "2026-11-18T17:38:56Z", "worker": "opus2", "assignment": "WS4-LOWS", "event": "review_requested", "sha": "fb427c7e", "note": "verdict 6985175377: header, t>now test, issuer dedupe load bounded, opus2/ws4-g-shadow-lows-fix"}
+{"at": "2026-11-18T17:38:56Z", "worker": "opus2", "assignment": "S2", "event": "review_requested", "sha": "a222be00", "note": "verdict 6985175377 LOW: card example route topic_filing, opus2/s2-card-route-low"}
+{"at": "2026-11-18T17:38:56Z", "worker": "opus2", "assignment": "S4", "event": "review_requested", "sha": "04855ba2", "note": "runner exits non-zero; s4-fix 64123f83, s4b-fix 04855ba2"}
+{"at": "2026-11-18T17:38:56Z", "worker": "opus2", "assignment": "WS4-STAGE-A", "event": "review_requested", "sha": "8dc219a7", "note": "run_tests.sh header + fake_etsy import + runner exit; a1-fix 571fc326, a2-fix 8dc219a7"}
