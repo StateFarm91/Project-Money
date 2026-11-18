@@ -128,22 +128,27 @@ def shops(db, now):
     def build_section(deployed):
         rows = list(ev.get("shops") or [])
         fresh = [r for r in rows if r.get("last_successful") and not r.get("stale")]
-        failing = [r for r in rows if (r.get("consecutive_failures") or 0) > 0]
-        return {"state": ("OK" if len(fresh) == MANDATORY_SHOPS and not failing
-                          else "DEGRADED" if rows else UNKNOWN),
+        # Verdict 6990820438 LOW: a shop whose failure count is not reported is UNKNOWN,
+        # never "no failures".
+        unknown = [r for r in rows if not isinstance(r.get("consecutive_failures"), int)]
+        failing = [r for r in rows if isinstance(r.get("consecutive_failures"), int)
+                   and r["consecutive_failures"] > 0]
+        clean = len(fresh) == MANDATORY_SHOPS and not failing and not unknown
+        return {"state": ("OK" if clean else "DEGRADED" if rows else UNKNOWN),
                 "required": MANDATORY_SHOPS, "configured": len(rows), "fresh": len(fresh),
-                "failing": len(failing), "credential": ev.get("credential"),
+                "failing": len(failing), "failures_unknown": len(unknown),
+                "credential": ev.get("credential"),
                 "shops": [{k: r.get(k) for k in (
                     "owner_order", "alias", "role", "state", "last_attempted",
                     "last_successful", "etsy_source_timestamp", "listings_seen_last_scan",
                     "listings_live", "consecutive_failures", "failure_class", "next_due",
                     "stale", "downstream")} for r in rows],
                 **_level(deployed, running=bool(fresh),
-                         verified=len(rows) == MANDATORY_SHOPS
-                         and len(fresh) == MANDATORY_SHOPS and not failing,
+                         verified=len(rows) == MANDATORY_SHOPS and clean,
                          why={RUNNING: "at least one shop scanned inside its cadence",
                               PROD_VERIFIED: "all 8 mandatory shops scanned inside their "
-                                             "cadence with no consecutive failures"})}
+                                             "cadence, each reporting zero consecutive "
+                                             "failures"})}
     return build_section
 
 
@@ -248,9 +253,14 @@ def etsy(db, now):
 
     from ...core.models import Listing
 
+    on_etsy = (Listing.etsy_listing_id.is_not(None), Listing.etsy_listing_id != "")
     with db.session() as s:
         by_state = dict(s.execute(select(Listing.state, func.count(Listing.id))
                                   .group_by(Listing.state)).all())
+        # Verdict 6990820438 LOW: counted in SQL over every remote listing, not from the
+        # ROW_LIMIT-capped list below.
+        remote_by_state = dict(s.execute(select(Listing.state, func.count(Listing.id))
+                                         .where(*on_etsy).group_by(Listing.state)).all())
         remote = list(s.execute(select(Listing.product_slug, Listing.version, Listing.state,
                                        Listing.etsy_listing_id)
                                 .where(Listing.etsy_listing_id.is_not(None),
@@ -262,7 +272,11 @@ def etsy(db, now):
         return {"state": "OK" if remote else "NO_REMOTE_LISTING", "by_state": by_state,
                 "remote": [{"slug": r[0], "version": r[1], "state": r[2],
                             "etsy_listing_id": r[3]} for r in remote],
-                "drafts_on_etsy": sum(1 for r in remote if r[2] != "active"),
+                "remote_shown": len(remote),
+                "remote_total": sum(remote_by_state.values()),
+                "drafts_on_etsy": int(remote_by_state.get("draft", 0)),
+                "not_live_on_etsy": sum(n for st, n in remote_by_state.items()
+                                        if st != "active"),
                 "live_on_etsy": live,
                 **_level(deployed, running=bool(remote),
                          why={RUNNING: "at least one listing has an Etsy listing id"})}
@@ -270,49 +284,73 @@ def etsy(db, now):
 
 
 def sales(db, now):
-    from sqlalchemy import func, select
+    from sqlalchemy import select
 
+    from ...commerce import orders_ingest as OI
     from ...core.models import Order
 
+    # Verdict 6990820438 M2: a source that is not connected, or never completed a read, has
+    # observed nothing. Its figures are UNKNOWN, never 0 orders and $0.
+    source = OI.source_state(db)
     with db.session() as s:
-        real = (Order.refunded.is_(False), Order.revenue_cad > 0,
-                Order.source == REAL_ORDER_SOURCE)
-        n = int(s.scalar(select(func.count(Order.id)).where(*real)) or 0)
-        revenue = float(s.scalar(select(func.coalesce(func.sum(Order.revenue_cad), 0.0))
-                                 .where(*real)) or 0.0)
-        last = _aware(s.scalar(select(func.max(Order.at)).where(*real)))
-        sources = dict(s.execute(select(Order.source, func.count(Order.id))
-                                 .group_by(Order.source)).all())
+        # M1: the one countable predicate the books use (held, unreconciled, unpaid,
+        # refunded and unknown-revenue orders never count), over Etsy's receipts only.
+        rows = OI.countable_orders(s, select(Order).where(Order.source == REAL_ORDER_SOURCE))
+        n = len(rows)
+        revenue = sum(float(o.revenue_cad or 0.0) for o in rows)
+        last = max((_aware(o.at) for o in rows if o.at is not None), default=None)
 
     def build_section(deployed):
-        return {"state": "OK" if n else "NO_SALES", "real_orders": n,
-                "counted": f"unrefunded orders with revenue ingested from {REAL_ORDER_SOURCE}",
-                "revenue_cad": round(revenue, 2), "last_order_at": _iso(last),
-                "by_source": sources,
-                **_level(deployed, running=n > 0, verified=n > 0, commerce=n > 0,
-                         why={RUNNING: "real orders are recorded",
-                              PROD_VERIFIED: "an order was ingested from Etsy's receipts",
-                              COMMERCE: "an unrefunded Etsy order with revenue exists"})}
+        measured = bool(source.get("measured"))
+        out = {"source": {k: source.get(k) for k in ("open", "measured", "last_read_at",
+                                                      "missing", "why")},
+               "counted": f"countable orders (the books' rule: not held, not unreconciled, "
+                          f"paid, not refunded) read from {REAL_ORDER_SOURCE}",
+               "last_order_at": _iso(last)}
+        if measured:
+            out.update(state="OK" if n else "NO_SALES", real_orders=n,
+                       revenue_cad=round(revenue, 2))
+        else:
+            # Recorded countable orders still happened; they are a floor, not the total.
+            out.update(state=UNKNOWN, real_orders=None, revenue_cad=None,
+                       recorded_countable_orders=n,
+                       recorded_countable_revenue_cad=round(revenue, 2),
+                       why=source.get("why") or "the order source is not measured")
+        out.update(_level(deployed, running=n > 0, verified=n > 0, commerce=n > 0,
+                          why={RUNNING: "countable orders are recorded",
+                               PROD_VERIFIED: "a countable order was ingested from Etsy's "
+                                              "receipts",
+                               COMMERCE: "a countable Etsy order (paid, not refunded, not "
+                                         "held or unreconciled) exists"}))
+        return out
     return build_section
 
 
 def costs(db, now):
     from ...finance import credits
 
+    from sqlalchemy import func, select
+
+    from ...core.models import CostEntry
+
     wallet = credits.wallet(db, now=now)
+    with db.session() as s:
+        last_cost = _aware(s.scalar(select(func.max(CostEntry.at))))
+    active = last_cost is not None and now - last_cost <= FRESH_WORK
 
     def build_section(deployed):
         return {"state": "OK" if wallet else UNKNOWN, "credits": wallet,
                 "note": "the month's cash spend is on the Money tab; API credits are the "
                         "provider-credit wallet (a balance is UNKNOWN where the provider "
                         "publishes no API for it)",
-                **_level(deployed, running=bool(wallet),
-                         why={RUNNING: "the credit wallet is readable"})}
+                "last_cost_at": _iso(last_cost),
+                **_level(deployed, running=active,
+                         why={RUNNING: "a cost was recorded in the last 24 hours"})}
     return build_section
 
 
 def blockers(db, now):
-    from sqlalchemy import select
+    from sqlalchemy import func, select
 
     from ...core.models import Incident, OwnerAction
 
@@ -328,9 +366,17 @@ def blockers(db, now):
                                           Incident.halts_publication, Incident.at)
                                    .where(Incident.resolved.is_(False))
                                    .order_by(Incident.id.desc()).limit(ROW_LIMIT)))
+        # Verdict 6990820438 LOW: RUNNING is evidence of activity (a blocker raised or moved
+        # in the last 24 hours, open or closed), not merely that the tables are readable.
+        stamps = [_aware(s.scalar(select(func.max(OwnerAction.at)))),
+                  _aware(s.scalar(select(func.max(OwnerAction.state_at)))),
+                  _aware(s.scalar(select(func.max(Incident.at))))]
+    last = max((t for t in stamps if t is not None), default=None)
+    active = last is not None and now - last <= FRESH_WORK
 
     def build_section(deployed):
         return {"state": "CLEAR" if not actions and not incidents else "OPEN",
+                "last_activity_at": _iso(last),
                 "owner_actions": [{"id": a[0], "owner": "owner", "action": a[1],
                                    "requirement": a[2], "max_cost_cad": a[3],
                                    "minutes": a[4], "blocks": a[5], "since": _iso(a[6])}
@@ -339,8 +385,9 @@ def blockers(db, now):
                                "family": str(i[2] or "").split(":")[0], "product": i[3],
                                "halts_publication": i[4], "since": _iso(i[5])}
                               for i in incidents],
-                **_level(deployed, running=True,
-                         why={RUNNING: "owner actions and incidents are read live"})}
+                **_level(deployed, running=active,
+                         why={RUNNING: "an owner action or incident was raised or changed "
+                                       "in the last 24 hours"})}
     return build_section
 
 

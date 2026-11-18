@@ -121,17 +121,35 @@ def test_health_reaches_production_verified_only_on_a_fresh_healthy_sweep():
         assert B.view(DB)["sections"]["running"]["level"] == B.PROD_VERIFIED
 
 
-def _customer():
+def _customer(ref="board-buyer"):
     with DB.session() as s:
-        c = Customer(customer_ref="board-buyer")
+        c = Customer(customer_ref=ref)
         s.add(c)
         s.flush()
         return c.id
 
 
+class _Measured:
+    """The order source is connected and a completed receipt read is recorded."""
+    def __init__(self, measured=True):
+        self.measured = measured
+
+    def __enter__(self):
+        from brambleloop.commerce import orders_ingest as OI
+
+        state = {"open": self.measured, "measured": self.measured,
+                 "last_read_at": NOW.isoformat() if self.measured else None, "missing": [],
+                 "why": "" if self.measured else "the order source is not connected: x"}
+        self.p = patch.object(OI, "source_state", lambda db: state)
+        self.p.start()
+
+    def __exit__(self, *a):
+        self.p.stop()
+
+
 def test_only_an_unrefunded_etsy_order_is_real_commerce():
     cid = _customer()
-    with _Deployed():
+    with _Deployed(), _Measured():
         with DB.session() as s:
             s.add(Order(customer_id=cid, external_ref="hand-1", product_slug="x",
                         revenue_cad=9.0, source=""))                       # hand-entered
@@ -283,6 +301,104 @@ def test_assets_are_production_verified_only_when_every_item_is_proven():
             assert B.view(DB)["sections"]["assets"]["level"] == B.RUNNING
         with ready("OK", [], {}):
             assert B.view(DB)["sections"]["assets"]["level"] == B.DEPLOYED
+
+
+def test_m1_held_or_unreconciled_orders_never_count():
+    """Verdict 6990820438 M1: the board counts with `orders_ingest.countable_orders`."""
+    from brambleloop.commerce import orders_ingest as OI
+
+    cid = _customer("board-buyer-m1")
+    with DB.session() as s:
+        before = len(OI.countable_orders(s, select(Order).where(
+            Order.source == B.REAL_ORDER_SOURCE)))
+    with _Deployed(), _Measured():
+        base = B.view(DB)["sections"]["sales"]
+        assert base["real_orders"] == before, (base, before)
+        with DB.session() as s:
+            s.add(Order(customer_id=cid, external_ref="m1-unreconciled", product_slug="x",
+                        revenue_cad=12.0, source="etsy_receipts",
+                        detail={"state": OI.UNRECONCILED, "revenue_unknown": True}))
+        sec = B.view(DB)["sections"]["sales"]
+    with DB.session() as s:
+        assert len(OI.countable_orders(s, select(Order).where(
+            Order.source == B.REAL_ORDER_SOURCE))) == before
+    assert sec["real_orders"] == before and sec["revenue_cad"] == base["revenue_cad"], sec
+
+
+def test_m1_an_unreconciled_order_alone_is_never_real_commerce():
+    from brambleloop.commerce import orders_ingest as OI
+
+    with patch.object(OI, "countable_orders", lambda s, q=None: []), \
+            _Deployed(), _Measured():
+        sec = B.view(DB)["sections"]["sales"]
+    assert sec["real_orders"] == 0 and sec["state"] == "NO_SALES"
+    assert sec["level"] == B.DEPLOYED, sec["level"]
+
+
+def test_m2_an_unmeasured_order_source_is_unknown_never_zero():
+    """Verdict 6990820438 M2: not connected / never read -> UNKNOWN, not 0 orders and $0."""
+    from brambleloop.commerce import orders_ingest as OI
+
+    with patch.object(OI, "countable_orders", lambda s, q=None: []), \
+            _Deployed(), _Measured(False):
+        sec = B.view(DB)["sections"]["sales"]
+    assert sec["state"] == B.UNKNOWN and "NO_SALES" not in str(sec["state"])
+    assert sec["real_orders"] is None and sec["revenue_cad"] is None, sec
+    assert "not connected" in sec["why"] and sec["source"]["measured"] is False
+    # The real reader, on this harness's database (no probe, no grant): UNKNOWN too.
+    real = B.view(DB)["sections"]["sales"]
+    assert real["state"] == B.UNKNOWN and real["real_orders"] is None, real
+
+
+def test_drafts_are_counted_over_every_remote_listing_not_the_capped_list():
+    """Verdict 6990820438 LOW: 30 remote drafts are 30, not ROW_LIMIT (25)."""
+    before = B.view(DB)["sections"]["etsy"]
+    with DB.session() as s:
+        for i in range(30):
+            s.add(Listing(product_slug=f"cap-{i}", version="1.0.0", title="t",
+                          description="d", tags=[], price_cad=5.0, state="draft",
+                          etsy_listing_id=f"9{i:04d}"))
+        s.add(Listing(product_slug="cap-inactive", version="1.0.0", title="t",
+                      description="d", tags=[], price_cad=5.0, state="inactive",
+                      etsy_listing_id="99999"))
+    sec = B.view(DB)["sections"]["etsy"]
+    assert len(sec["remote"]) == B.ROW_LIMIT == sec["remote_shown"]
+    assert sec["drafts_on_etsy"] == before["drafts_on_etsy"] + 30, sec["drafts_on_etsy"]
+    assert sec["not_live_on_etsy"] == before["not_live_on_etsy"] + 31
+    assert sec["remote_total"] == before["remote_total"] + 31
+
+
+def test_costs_and_blockers_run_only_on_recent_activity():
+    """Verdict 6990820438 LOW: readable is not RUNNING."""
+    from brambleloop.core.models import CostEntry
+
+    later = NOW + timedelta(days=10)            # every row in this database is older than 24 h
+    with _Deployed():
+        v = B.view(DB, now=later)["sections"]
+        assert v["costs"]["level"] == B.DEPLOYED, v["costs"]["level"]
+        assert v["blockers"]["level"] == B.DEPLOYED, v["blockers"]["level"]
+        with DB.session() as s:
+            s.add(CostEntry(agent="board-test", provider="board-test", kind="api",
+                            amount_cad=0.01, at=later - timedelta(hours=1)))
+            s.add(Incident(severity="P3", signature="board:recent", summary="s",
+                           resolved=True, at=later - timedelta(hours=2)))
+        v = B.view(DB, now=later)["sections"]
+        assert v["costs"]["level"] == B.RUNNING, v["costs"]
+        assert v["blockers"]["level"] == B.RUNNING, v["blockers"]["level"]
+        assert v["blockers"]["last_activity_at"] is not None
+
+
+def test_an_unknown_shop_failure_count_is_not_zero():
+    """Verdict 6990820438 LOW: eight fresh shops, one with no failure count, is not clean."""
+    from brambleloop.ops import production_evidence as PE
+
+    rows = [_shop(i) for i in range(1, 8)] + [_shop(8, failures=None)]
+    with _Deployed(), patch.object(PE, "competitor_scans",
+                                   lambda db, now: {"readable": True, "credential": "ok",
+                                                    "shops": rows}):
+        sec = B.view(DB)["sections"]["shops"]
+    assert sec["state"] == "DEGRADED" and sec["failures_unknown"] == 1, sec["state"]
+    assert sec["level"] == B.RUNNING and sec["failing"] == 0
 
 
 if __name__ == "__main__":
