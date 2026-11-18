@@ -251,4 +251,14 @@ All runs used `JOBS=… SUITE_REGISTRY=0 PY=/tmp/venv/bin/python bash run_tests.
 - `brambleloop/DECISION_LOG.md`: D-S1-FAIL-CLOSED.
 - Root `REVIEW_REQUEST.md`: deleted. This file replaces it.
 
-**Final SHA:** the head of `eng/s1-product-truth-3`, which is the commit that adds this section. Code is unchanged since cdbe5d5.
+**Scope of this request: round 4 = code at cdbe5d5.** All measurements and suite results above were taken on that code.
+
+While `test_product_run` was running, another session pushed three "S1 round 5" commits onto this branch on top of 2a858b5:
+
+- 87d2488
+- f2866e9
+- 148533e
+
+They change `creative/size_truth.py`, `products/pipeline_board.py` and `tests/test_s1_product_truth_3.py`, and add `tests/test_s1_product_truth_4.py` and two DECISION_LOG entries.
+
+This request does not cover, measure or vouch for those commits. The commit that adds this section is rebased on top of them and changes only this file.
