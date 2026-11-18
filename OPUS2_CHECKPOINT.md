@@ -45,7 +45,11 @@ worktrees, not this file.
 - Tick 2026-11-18T19:28Z: no [MAIN] message since RR 6986520536. INTEG1 now fb13063a: A4a re-landed
   (8801c522) and S1 Product Truth merged, so A4b-2 b8929db7's A4a base is back on INTEG1. No
   review-branch findings on opus2 code. Nothing posted.
-- Stop reason (2026-11-18T19:30Z): all of Main's findings fixed and review-requested; queue
+- Tick 2026-11-18T20:28Z: no [MAIN] message since RR 6986520536. INTEG1 a2191fde (Main) added
+  S2 openai_chat to test_cert_spend_hosts and vacuity guards (incl. test_s2_openai_provider).
+  Checked: test_vacuity on INTEG1 + all 7 pending opus2 test files: 8/8 OK. RULE: before any RR
+  also run test_vacuity and test_cert_spend_hosts (paid callers). Nothing posted.
+- Stop reason (2026-11-18T20:35Z): all of Main's findings fixed and review-requested; queue
   exhausted pending verdicts. Answer any [MAIN] message first next tick.
 
 ## State at 2026-11-18T10:50Z (superseded)
