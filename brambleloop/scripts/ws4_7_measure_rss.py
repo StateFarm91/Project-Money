@@ -13,7 +13,10 @@ Runs, against a throwaway local PostgreSQL cluster under the owner runbook's rol
 No provider key, no network call, no spend: SHADOW with no credentials. Samples VmRSS of each
 process tree every 5 s and CPU time from /proc, then prints JSON.
 
-Run: cd brambleloop && PYTHONPATH=src:tests python3 scripts/ws4_7_measure_rss.py [seconds]
+Run: cd brambleloop && PYTHONPATH=src:tests python3 scripts/ws4_7_measure_rss.py [seconds] [--idle]
+
+`--idle` (round-3 LOW) enqueues no `plan.cycle`: the worker only polls an empty queue, which
+is the idle-worker figure on the cost card. Grant requests and web health checks still run.
 """
 from __future__ import annotations
 
@@ -79,7 +82,7 @@ def _cpu_s(pid: int) -> float:
     return total
 
 
-def main(seconds: int) -> dict:
+def main(seconds: int, idle: bool = False) -> dict:
     with _cluster() as (url, bindir):
         admin_url = url.format(user="postgres", db="postgres")
         from sqlalchemy import create_engine
@@ -144,7 +147,7 @@ def main(seconds: int) -> dict:
         try:
             while time.monotonic() - start < seconds:
                 t = time.monotonic() - start
-                if t >= cycle * 180:                     # a plan.cycle every 3 minutes
+                if not idle and t >= cycle * 180:        # a plan.cycle every 3 minutes
                     JobQueue(owner).enqueue("orchestrator", "plan.cycle",
                                             {"as_of": f"2026-11-{18 + cycle % 10:02d}"})
                     cycle += 1
@@ -191,7 +194,8 @@ def main(seconds: int) -> dict:
             errors = [tuple(r) for r in s.execute(text(
                 "SELECT job_type, left(last_error, 160) FROM jobs WHERE last_error IS NOT NULL "
                 "AND last_error <> '' LIMIT 8"))]
-        out = {"seconds": seconds, "plan_cycles": cycle, "grant_requests": req,
+        out = {"mode": "idle (no plan.cycle enqueued)" if idle else "load",
+               "seconds": seconds, "plan_cycles": cycle, "grant_requests": req,
                "grant_requests_answered_held": held, "jobs_by_status": jobs,
                "distinct_job_types": types, "jobs_by_type": by_type, "job_errors": errors,
                "web_health_checks": health}
@@ -205,5 +209,6 @@ def main(seconds: int) -> dict:
 
 
 if __name__ == "__main__":
-    print(json.dumps(main(int(sys.argv[1]) if len(sys.argv) > 1 else 660), indent=2,
-                     default=str))
+    args = [a for a in sys.argv[1:] if a != "--idle"]
+    print(json.dumps(main(int(args[0]) if args else 660, idle="--idle" in sys.argv[1:]),
+                     indent=2, default=str))

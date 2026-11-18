@@ -199,24 +199,37 @@ class Database:
 
         if not is_postgres(self.engine):
             return {"created": True, "changes": self.create_all(), "missing": [],
-                    "refusal": None}
+                    "missing_columns": [], "refusal": None}
         with self.engine.connect() as c:
             me = c.execute(text("SELECT current_user")).scalar()
             owner = c.execute(text("SELECT tableowner FROM pg_tables WHERE schemaname = "
                                    "current_schema() AND tablename = 'jobs'")).scalar()
         if owner is None or owner == me:
             return {"created": True, "changes": self.create_all(), "missing": [],
-                    "refusal": None}
+                    "missing_columns": [], "refusal": None}
         self.register_models()
-        have = set(inspect(self.engine).get_table_names())
+        insp = inspect(self.engine)
+        have = set(insp.get_table_names())
         missing = sorted(t for t in Base.metadata.tables if t not in have)
+        # Round-3 LOW: a release that only ADDS a column to an existing table is the same
+        # hazard -- the migration owner has not migrated, and this role must not ALTER it.
+        missing_columns = sorted(
+            f"{name}.{col}" for name, table in Base.metadata.tables.items() if name in have
+            for col in ({c.name for c in table.columns}
+                        - {c["name"] for c in insp.get_columns(name)}))
         refusal = None
-        if missing:
+        if missing or missing_columns:
+            gaps = []
+            if missing:
+                gaps.append(f"{len(missing)} table(s) do not exist yet ({missing[:5]})")
+            if missing_columns:
+                gaps.append(f"{len(missing_columns)} column(s) do not exist yet "
+                            f"({missing_columns[:5]})")
             refusal = (f"the {component} runs as database role {me!r}, not the migration owner "
-                       f"{owner!r}, and {len(missing)} table(s) do not exist yet "
-                       f"({missing[:5]}): it never creates them. Deploy web (the migration "
-                       f"owner) first, then restart the {component}.")
-        return {"created": False, "changes": [], "missing": missing, "refusal": refusal,
+                       f"{owner!r}, and {' and '.join(gaps)}: it never creates them. Deploy "
+                       f"web (the migration owner) first, then restart the {component}.")
+        return {"created": False, "changes": [], "missing": missing,
+                "missing_columns": missing_columns, "refusal": refusal,
                 "role": me, "owner": owner}
 
     def drop_all(self) -> None:

@@ -187,12 +187,12 @@ ADS_PLANNER = "ads.adjust"
 
 
 def _ads_jobs(db, slug, content):
-    """Pending or running ads.* jobs on the requested product or any product in this policy's
+    """Live (pending, running or failed-will-retry) ads.* jobs on the requested product or any product in this policy's
     standing lineage (`standing_stop.lineage`: every grant issued under it). A lineage or
     queue that cannot be read raises, and `_guard` makes that UNKNOWN (never PASS 0)."""
     from sqlalchemy import select
 
-    from ..core.models import Job, JobStatus
+    from ..core.models import LIVE_JOB_STATUSES, Job
     from . import standing_stop
 
     products = {str(slug)} | {str(p) for p in
@@ -201,16 +201,16 @@ def _ads_jobs(db, slug, content):
     with db.session() as s:
         for jid, jtype, inputs in s.execute(select(Job.id, Job.job_type, Job.inputs).where(
                 Job.job_type.like("ads.%"),
-                Job.status.in_((JobStatus.PENDING, JobStatus.RUNNING)))):
+                Job.status.in_(LIVE_JOB_STATUSES))):
             named = (inputs or {}).get("slug") if isinstance(inputs, dict) else None
             if named is None and jtype == ADS_PLANNER:
                 continue
             if named is None or str(named) in products:
                 hits.append((jid, jtype, named))
     if hits:
-        return _fact(SB.PASS, len(hits), f"{len(hits)} ads job(s) pending or running on "
+        return _fact(SB.PASS, len(hits), f"{len(hits)} ads job(s) live (pending, running or retrying) on "
                                          f"{sorted({str(h[2]) for h in hits})[:3]}")
-    return _fact(SB.PASS, 0, f"no ads job pending or running on {len(products)} product(s) "
+    return _fact(SB.PASS, 0, f"no live ads job on {len(products)} product(s) "
                              f"(the release and its standing lineage)")
 
 

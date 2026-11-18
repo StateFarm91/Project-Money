@@ -31,6 +31,11 @@ class JobStatus(str, enum.Enum):
     CANCELLED = "cancelled"
 
 
+# Statuses of a job that can still run: FAILED means "will retry" in this queue (the claim in
+# queue/durable.py takes PENDING and FAILED). Anything counting in-flight work uses this set.
+LIVE_JOB_STATUSES = (JobStatus.PENDING, JobStatus.RUNNING, JobStatus.FAILED)
+
+
 class Authority(str, enum.Enum):
     """Master Plan section 26 authority matrix."""
 

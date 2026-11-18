@@ -948,6 +948,14 @@ def test_ads_jobs_on_the_release_or_its_standing_lineage_hold_the_grant():
         # An ads job that names no product (other than the planner) counts: fail closed.
         _ads_job(db, "ads.something", None, JobStatus.PENDING)
         assert read(slugs[1])["value"] == 2, read(slugs[1])
+        # FAILED means "will retry" in this queue (attempt 1 of 3): a failed campaign on a
+        # lineage product is still live and holds the grant. DEAD / CANCELLED are not live.
+        _ads_job(db, "ads.campaign", slugs[0], JobStatus.FAILED)
+        got = read(slugs[1])
+        assert got["state"] == SB.PASS and got["value"] == 3, got
+        _ads_job(db, "ads.campaign", slugs[0], JobStatus.DEAD)
+        _ads_job(db, "ads.campaign", slugs[0], JobStatus.CANCELLED)
+        assert read(slugs[1])["value"] == 3, read(slugs[1])
         # A lineage that cannot be read is UNKNOWN, never PASS 0, and it holds.
         with patch.object(standing_stop, "lineage", side_effect=RuntimeError("down")):
             got = read(slugs[1])
@@ -959,6 +967,19 @@ def test_ads_jobs_on_the_release_or_its_standing_lineage_hold_the_grant():
                              now=t)["ads_jobs_queued"]["state"] == SB.UNKNOWN
     finally:
         _reset()
+
+
+def test_the_issuer_and_the_queue_share_one_live_status_set():
+    """Round-3 MEDIUM: the issuer's ads count and the queue's retry claim agree on "live"."""
+    import inspect
+
+    from brambleloop.core.models import LIVE_JOB_STATUSES, JobStatus
+    from brambleloop.queue import durable
+
+    assert set(LIVE_JOB_STATUSES) == {JobStatus.PENDING, JobStatus.RUNNING, JobStatus.FAILED}
+    assert "LIVE_JOB_STATUSES" in inspect.getsource(SI._ads_jobs)
+    # Every status the queue will claim again is live.
+    assert "JobStatus.PENDING, JobStatus.FAILED" in inspect.getsource(durable)
 
 
 def test_a_report_dated_in_the_future_reads_mode_s():

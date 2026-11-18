@@ -336,6 +336,21 @@ def test_the_worker_role_never_creates_a_table_it_should_not_own(url):
         got, _err = _boot_worker_as(wurl)
         assert got["rc"] == 0, got
         assert _owned_by(owner, "bl_worker") == []
+        # Round-3 LOW: a release that only ADDS a column (every table exists) is the same
+        # case. The worker refuses rather than starting against a table it cannot read.
+        with owner.engine.begin() as c:
+            c.execute(text("ALTER TABLE jobs DROP COLUMN last_error"))
+        out = Database(wurl).boot_schema("worker")
+        assert out["missing"] == [] and out["missing_columns"] == ["jobs.last_error"], out
+        got, err = _boot_worker_as(wurl)
+        assert got["rc"] == 3, (got, err[-800:])
+        assert "column(s) do not exist yet" in err and "jobs.last_error" in err, err[-800:]
+        assert "Deploy web (the migration owner) first" in err, err[-800:]
+        out = owner.boot_schema("web")                    # web migrates: the column is back
+        assert out["refusal"] is None and any("jobs.last_error" in x for x in out["changes"]), out
+        got, _err = _boot_worker_as(wurl)
+        assert got["rc"] == 0, got
+        assert _owned_by(owner, "bl_worker") == []
     finally:
         _reset()
 
