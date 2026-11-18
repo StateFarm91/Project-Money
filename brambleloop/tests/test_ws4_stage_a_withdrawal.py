@@ -54,10 +54,9 @@ def test_only_a_listing_a_standing_activation_made_live_is_in_lineage():
     try:
         db, _, aid = _effective_db()
         assert SW.lineage_of_live(db, LISTING) is None
-        g5 = _publish_grant(db, aid, job_id=5)                     # a publish grant: no,
-        with db.session() as s:                                    # even naming the listing
-            s.get(SG.StandingGrant, g5).detail_json = {"action": "store.publish",
-                                                       "listing_id": LISTING}
+        _publish_grant(db, aid, job_id=5,                          # a publish grant: no,
+                       detail={"action": "store.publish",          # even naming the listing
+                               "listing_id": LISTING})             # (write-once: built so)
         _activation_grant(db, aid, consumed=False)                 # never used: no
         _activation_grant(db, aid, listing_id="999", job_id=62)    # another listing: no
         assert SW.lineage_of_live(db, LISTING) is None
