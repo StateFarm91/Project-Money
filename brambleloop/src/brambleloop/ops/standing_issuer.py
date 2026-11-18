@@ -35,6 +35,7 @@ ASSUMED_IN_SHADOW = ("kill_switch", "policy_enabled", "mode_t", "phase_may_publi
 # they read UNKNOWN and every decision holds.
 NOT_BUILT_YET: dict[str, str] = {}
 DEDUPE_HOURS = 24
+DEDUPE_LOAD_SLACK = timedelta(minutes=10)
 
 
 def _now(now=None) -> datetime:
@@ -574,10 +575,16 @@ def shadow_run(db, *, now: datetime | None = None) -> dict:
     # Review 6955504377 (LOW): the dedupe keys of the last DEDUPE_HOURS are read once per run,
     # not once per candidate (it scanned every shadow row for every release: O(n^2)). The window
     # is the decision's own time (`decided_at`, the run's clock), not the stored row time.
+    # Review 6985175377 (LOW): the load itself is bounded in SQL. Each row is stored at its
+    # decision time (`at=now` below), so a row stored before `since - DEDUPE_LOAD_SLACK` is
+    # outside the window and is not read. The slack covers rows written before `at` was set
+    # explicitly, whose stored time was the database clock at write (the same clock as the
+    # run's `now` in production, seconds apart).
     with db.session() as s:
         recent = {(d or {}).get("decision_key") for d in s.scalars(
             select(AuditLog.detail).where(AuditLog.action == SP.SHADOW_DECISION,
-                                          AuditLog.artifact == content["policy_id"]))
+                                          AuditLog.artifact == content["policy_id"],
+                                          AuditLog.at >= since - DEDUPE_LOAD_SLACK))
                   if (SP._when((d or {}).get("decided_at")) or since) > since}
     for slug, version, release in candidates(db):
         evaluated += 1
@@ -594,7 +601,7 @@ def shadow_run(db, *, now: datetime | None = None) -> dict:
             continue
         recent.add(key)
         with db.session() as s:
-            s.add(AuditLog(actor=ACTOR, action=SP.SHADOW_DECISION,
+            s.add(AuditLog(actor=ACTOR, action=SP.SHADOW_DECISION, at=now,
                            artifact=content["policy_id"], detail={
                                "decision_key": key, "approval_id": policy["approval_id"],
                                "policy_version": content["version"], "slug": slug,

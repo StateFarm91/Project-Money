@@ -8,19 +8,27 @@
 from __future__ import annotations
 
 import _tmp; _tmp.install()  # noqa: E702
+import os
+import sys
 from datetime import timedelta
 from unittest.mock import patch
+
+# run_tests.sh sets no PYTHONPATH (verdict 6985175377): src before any brambleloop import.
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+sys.path.insert(0, os.path.dirname(__file__))
 
 from sqlalchemy import func, select  # noqa: E402
 
 from brambleloop.core.models import AuditLog  # noqa: E402
 from brambleloop.ops import standing_boundary as SB  # noqa: E402
+from brambleloop.ops import standing_issuer as SI  # noqa: E402
 from brambleloop.ops import standing_policy as sp  # noqa: E402
 from brambleloop.ops import standing_shadow_gate as G  # noqa: E402
 from brambleloop.ops import standing_stop as ST  # noqa: E402
 from brambleloop.visual import experiment  # noqa: E402
 from test_ws4_g_shadow import (LATER, NOW, _met_db, _owner_keys, _readings,  # noqa: E402
                                _restore_all)
+from test_ws4_issuer_shadow import _release  # noqa: E402
 from test_ws4_policy_object import _approve, _db, content  # noqa: E402
 
 
@@ -125,6 +133,47 @@ def test_the_load_is_bounded_in_sql_and_the_reading_is_unchanged():
         got = G.g_shadow(db, now=LATER, record=False)
         assert got["verdict"] == expected["verdict"] == "MET"
         assert got["criteria"] == expected["criteria"]
+    finally:
+        _restore_all()
+
+
+def test_a_reading_dated_after_now_never_counts():
+    """Verdict 6985175377 LOW: the SQL bound loads rows up to `now + CLOCK_SKEW`, so the
+    `t > now` guard in `_trusted` is what refuses a reading dated in the future."""
+    try:
+        db, c = _db(), content()
+        now = NOW + timedelta(days=1)
+        t = now + timedelta(minutes=5)                  # inside CLOCK_SKEW of now
+        with db.session() as s:
+            s.add(AuditLog(actor=ST.ACTOR, action=ST.READING, artifact=c["policy_id"], at=t,
+                           detail={"policy_id": c["policy_id"], "read_at": t.isoformat()}))
+        rows = G._rows(db, ST.READING, c["policy_id"], ST.ACTOR, since=NOW, now=now)
+        assert len(rows) == 1                           # loaded by the bound...
+        assert G._trusted(rows, time_key="read_at", since=NOW, now=now) == []   # ...not kept
+        assert len(G._trusted(rows, time_key="read_at", since=NOW, now=t)) == 1
+    finally:
+        _restore_all()
+
+
+def test_the_shadow_run_dedupe_load_is_bounded_in_sql():
+    """Verdict 6985175377 LOW (standing_issuer.py:577): the per-run dedupe read loads only
+    rows stored inside the window, and each decision row is stored at its decision time."""
+    try:
+        db, c = _db(), content()
+        _owner_keys()
+        _approve(db, c)
+        _release(db)
+        assert SI.shadow_run(db, now=NOW)["recorded"] == 1
+        with db.session() as s:
+            row = s.scalars(select(AuditLog).where(AuditLog.action == sp.SHADOW_DECISION)).one()
+            assert row.at.replace(tzinfo=None) == NOW.replace(tzinfo=None)
+            assert row.detail["decided_at"] == NOW.isoformat()
+        assert SI.shadow_run(db, now=NOW + timedelta(hours=1))["recorded"] == 0    # deduped
+        # A row stored long before the window is never loaded, whatever its detail says.
+        with db.session() as s:
+            row = s.scalars(select(AuditLog).where(AuditLog.action == sp.SHADOW_DECISION)).one()
+            row.at = NOW - timedelta(days=3)
+        assert SI.shadow_run(db, now=NOW + timedelta(hours=2))["recorded"] == 1
     finally:
         _restore_all()
 
