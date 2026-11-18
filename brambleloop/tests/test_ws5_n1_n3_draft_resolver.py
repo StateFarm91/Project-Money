@@ -7,7 +7,11 @@ N3: one list of listing states, read by the census, manual adoption and the reso
 from __future__ import annotations
 
 import _tmp; _tmp.install()  # noqa: E702
+import sys
 from datetime import timedelta
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))  # run_tests.sh sets no PYTHONPATH
 
 from sqlalchemy import select  # noqa: E402
 
