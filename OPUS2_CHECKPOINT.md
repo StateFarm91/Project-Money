@@ -1,10 +1,28 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-18T02:55Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-18T04:55Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-18T02:55Z (read first)
+## State at 2026-11-18T04:55Z (read first)
+- S3 part 2 RR POSTED 497a8301 on opus2/ws4-stage-a1-activation (6969301528): WS4 Stage A
+  part 1, the bounded public-activation grant, OFF in code (STAGE_A_ENABLED=False;
+  refused in ceiling_refusals, issue, use). 10/10 tests, 27/27 mutants. 79-suite regression:
+  70 green as run + 3 fixed in-commit + v0 gate green after freeing disk; 4 environmental
+  (missing research/ files); w4_close5_rows3 red ON BASE (F-542 scan flags sp.activate) --
+  asked Main: exemption vs rename. test_etsy_exercise activate hash updated (flagged).
+- S3 part 1 RR fa3a09e9 (WS4-7 Mode T) still awaiting verdict; owner action relayed.
+- Awaiting verdicts: E1 34dbf572, A3 e5575380 (+L2 go?), research 26548a38, WS4 db785f92,
+  A4 ac0ca847/eb47549e, S1 e490fc6f, S2 9d03acb2, S3 fa3a09e9, S3b 497a8301.
+- NEXT: Stage A part 2 (EtsyClient.deactivate(listing_id, grant) read-back-first, only
+  active + SP lineage; OwnerGrant.WITHDRAW per §5.4: lineage, SP suspended/revoked or owner
+  asked, <=10/h, before-state read-back; policy.rollback job plans by default) on 497a8301,
+  unless Main redirects to S4. Then S4 P0 command board; ws5 LOWs N1-N3.
+- Scratch copy scratchpad/ws47 now holds the 497a8301 tree (minus release/, research/).
+  Disk: freed 139 MB of stale test sqlite under /tmp; ~350 MB free.
+- Stop reason this tick: S3 part 2 work unit complete (RR posted).
+
+## State at 2026-11-18T02:55Z (superseded)
 - S3 / WS4-7 RR POSTED fa3a09e9 on opus2/ws4-7-mode-t (6967426295): 86e6de43 issuer service
   (app/issuer_entry.py, ops/standing_grants.py, Mode T report) + fa3a09e9 (retention entries
   for policy.grant_requested/issued/held; pending_requests excludes answered ids before the
