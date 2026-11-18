@@ -311,9 +311,14 @@ def handle_watchlist_scan(ctx: JobContext) -> dict:
                                           "listings_seen")}
                   | {"alias": watchlist.benchmark_alias_safe(s["key"])}
                   for s in out.get("shops", [])]})
-    return {"ran": out["ran"], "observed": out.get("observed", 0),
-            "outages": len(out.get("outages", [])), "network_calls": None,
-            "work_done": out.get("observed", 0)}
+    res = {"ran": out["ran"], "observed": out.get("observed", 0),
+           "outages": len(out.get("outages", [])), "network_calls": None,
+           "work_done": out.get("observed", 0)}
+    if out.get("credential_refused"):
+        # ENG watchlist-cadence: the thrash sweep reads this as a gated no-op that waits for
+        # etsy.probe, never as a poll without progress to back off.
+        res.update(credential_refused=True, gated_on=out.get("gated_on") or "etsy.probe")
+    return res
 
 
 @handlers.register("intel.watchlist_compare")

@@ -236,7 +236,8 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
         fails = int(st.get("consecutive_failures") or 0)
         last = st.get("last_attempt_at")
         if fails and last and st.get("state") in ("source_outage", "credential_refused",
-                                                   NOT_ACCESSIBLE):
+                                                   NOT_ACCESSIBLE) \
+                and not _credential_fixed_since(db, st, last):
             wait = backoff_for(fails)
             if now - datetime.fromisoformat(last) < wait:
                 return {"key": member.key, "ran": False, "deferred": True,
@@ -314,6 +315,30 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
             "changes": st["changes"], "reviews": reviews, "mission": mission_out}
 
 
+def _credential_fixed_since(db, st: dict, last: str) -> bool:
+    """ENG watchlist-cadence: a shop backed off because Etsy refused the credential is read
+    on the first run after an etsy.probe succeeds -- the refusal was the key's, not the
+    shop's, and the owner's fix is the changed input. A source outage or an inaccessible shop
+    keeps its backoff: a working key says nothing about either."""
+    if st.get("state") != "credential_refused":
+        return False
+    from .etsy_public import last_probe
+
+    probe = last_probe(db) or {}
+    if not probe.get("ok"):
+        return False
+    try:
+        at = datetime.fromisoformat(str(probe.get("at") or ""))
+        since = datetime.fromisoformat(last)
+    except ValueError:
+        return False
+    if at.tzinfo is None:
+        at = at.replace(tzinfo=timezone.utc)
+    if since.tzinfo is None:
+        since = since.replace(tzinfo=timezone.utc)
+    return at > since
+
+
 def _not_found(exc) -> bool:
     """The shop itself is not reachable by name (closed, renamed, not found) -- as distinct
     from an outage of the source, which says nothing about the shop."""
@@ -379,6 +404,8 @@ def scan_all(db, *, enqueue=None, env=None, now: datetime | None = None,
         return {"ran": False, "reason": "Etsy refused the read credential at the last "
                                         "etsy.probe; the watchlist waits for a probe to "
                                         "succeed rather than knocking with a refused key",
+                # ENG watchlist-cadence: a gated no-op, never an unchanged poll to back off
+                "credential_refused": True, "gated_on": "etsy.probe",
                 "shops": [], "substituted": False}
     shops = []
     for m in members:

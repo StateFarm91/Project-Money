@@ -335,11 +335,27 @@ EVIDENCE_ITEMS = (
     # WS2 R1: the eight shops' scan state. Advisory: a WARN never fails the readback or a
     # deploy -- an Etsy refusal (or one seed shop gone) is reported, not turned into a FAIL.
     ("competitor shops scanned (eight-shop research network)", "competitor_scans", None),
+    # ENG watchlist-cadence: what the scheduler is holding back. Advisory, like the scans: a
+    # suspension or a silent mandatory shop WARNs (the P1 incident is the escalation).
+    ("scheduler holds and silent mandatory shops", "scheduler", None),
 )
 
 
 def _judge_section(name: str, section, judged) -> tuple[str, str]:
     """(verdict, short reason). UNKNOWN whenever the evidence is absent or unreadable."""
+    if name == "scheduler":
+        if not isinstance(section, dict) or section.get("readable") is not True:
+            return WARN, ("section missing" if not isinstance(section, dict) else
+                          f"unreadable ({section.get('error_class') or 'no reason given'})")
+        held = [f"{r.get('job_type')}:{r.get('kind')}"
+                for r in section.get("suspended_job_types") or []]
+        silent = [f"{r.get('alias')}:{r.get('cause')}"
+                  for r in section.get("unattempted_mandatory_shops") or []]
+        blocked = [r.get("department") for r in section.get("blocked_departments") or []]
+        if silent or held or blocked:
+            return WARN, (f"silent mandatory shops {silent}; held {held}; "
+                          f"blocked departments {blocked}")
+        return PASS, "no job type held, no department blocked, every mandatory shop attempted"
     if name == "competitor_scans" and (not isinstance(section, dict)
                                        or section.get("readable") is not True):
         # WS2 R1: advisory -- a build without the section, or one that cannot read it, warns.
