@@ -1,4 +1,9 @@
 """Caller-owned work survives a duplicate job insert race."""
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))   # review 6979345975: run_tests.sh sets no PYTHONPATH
 import tempfile
 from unittest.mock import patch
 

@@ -241,6 +241,31 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     # publication one (`ops.storefront_authority` over `core.sealed_chain.GrantLedger`), read
     # through constants, so the literal scan below never saw it. Pruning one row would refuse
     # every storefront grant (fail closed) and raise a tamper incident.
+    # WS4-2: the standing publication policy is one sealed chain (`ops.standing_policy` over
+    # `core.sealed_chain.GrantLedger`, extra actions included). Pruning any row breaks the
+    # chain, which refuses every policy (fail closed) and raises a tamper incident.
+    "owner.standing_policy.approved": ("lifetime_total",
+                                       "ops.standing_policy chain (sealed_chain)"),
+    "owner.standing_policy.activated": ("lifetime_total",
+                                        "ops.standing_policy chain (sealed_chain)"),
+    "owner.standing_policy.revoked": ("lifetime_total",
+                                      "ops.standing_policy chain (sealed_chain)"),
+    "owner.standing_policy.rebased": ("lifetime_total",
+                                      "ops.standing_policy chain (sealed_chain)"),
+    "system.standing_policy.suspended": ("lifetime_total",
+                                         "ops.standing_policy chain (sealed_chain)"),
+    "owner.standing_policy.resumed": ("lifetime_total",
+                                      "ops.standing_policy chain (sealed_chain)"),
+    # Read for existence: activation needs at least one shadow decision for the policy.
+    # Pruning one can only refuse an activation (fail closed), never allow one.
+    "standing_policy.shadow_decision": ("lifetime_total",
+                                        "ops.standing_policy.activation_refusals requires one"),
+    # The stop watch's newest reading is the silence fact (design §5.1), and G-SHADOW reads
+    # the last 7 days for continuity -- far inside the horizon. Pruning older readings cannot
+    # clear a stop: no reading at all reads as silence, and a short history fails G-SHADOW.
+    "standing_policy.stop_watch_reading": ("windowed",
+                                           "ops.standing_stop.last_reading (silence); "
+                                           "ops.standing_shadow_gate 7-day continuity"),
     "owner.storefront.approved": ("lifetime_total",
                                   "ops.storefront_authority grant chain (sealed_chain)"),
     "owner.storefront.revoked": ("lifetime_total",

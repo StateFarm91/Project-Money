@@ -2918,11 +2918,18 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "chain.successors": ("work_done",),
     # OPUS2-P0 (P0-COMPETITOR-EVIDENCE): shops evaluated into the daily evidence reading.
     "intel.scan_evidence": ("work_done",),
+    # WS4-5: shadow decisions recorded (none when no policy is approved).
+    "policy.issuer_shadow": ("work_done",),
+    # WS4 stop watch: one reading per watched standing policy.
+    "policy.stop_watch": ("work_done",),
     # OPUS2-P0: lessons published or withdrawn from measured listing performance.
     "improve.commercial_lessons": ("work_done",),
     # OPUS2-P0 (P0-LEARNING-GAPS): gaps recorded or reference purchases recommended.
     "learning.knowledge_gaps": ("work_done",),
     "research.enrichment_sweep": ("work_done",),
+    # Review 6979345975 LOW: an answer did work only when it was accepted (resolved or
+    # recorded as a round), never because the job ran.
+    "research.enrichment_answer": ("accepted",),
     "listing.cross_sell_graph": ("work_done",),
     # W4-C12 wiring: Search Visibility aging, boost-window captures, dashboard task harvest.
     "listing.search_visibility_aging": ("work_done",),
@@ -3584,6 +3591,7 @@ from . import commercial_ops  # noqa: E402,F401  (OPUS2-P0: improve.commercial_l
 from . import learning_gaps_ops  # noqa: E402,F401  (OPUS2-P0: learning.knowledge_gaps)
 from . import enrichment_ops  # noqa: E402,F401  (OPUS2: research.enrichment_sweep)
 from . import evidence_ops  # noqa: E402,F401  (OPUS2-P0: intel.scan_evidence)
+from . import standing_policy_ops  # noqa: E402,F401  (WS4-5: policy.issuer_shadow)
 
 
 def _listing_parity(ctx: JobContext) -> dict:
