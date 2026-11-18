@@ -4,6 +4,7 @@ from pathlib import Path as _Path
 
 sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "src"))
 sys.path.insert(0, str(_Path(__file__).resolve().parent))
+import _tmp; _tmp.install()  # noqa: E702,E402
 import contextlib
 import os
 import sys

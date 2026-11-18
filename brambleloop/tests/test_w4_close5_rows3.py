@@ -47,6 +47,9 @@ DRAFT_ONLY = {
     "delete_listing reads the listing first and refuses any other state",
     "integrations/etsy_probe.py::run_exercise#delete_listing": "deletes the exercise's own "
     "draft (expect_states=('draft',)) and then verifies it is gone with listing_exists",
+    "app/command_center/approvals.py::_standing_policy#activate": "WS4: `sp.activate` is "
+    "ops.standing_policy.activate -- the owner's signed, stepped-up activation of a standing "
+    "policy ROW in our database; it calls no Etsy client and writes nothing to Etsy",
 }
 
 

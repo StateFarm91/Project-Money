@@ -12,6 +12,7 @@ No competitor content: titles here are fixture strings, and the tests assert non
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # noqa: E702
 import os
 import sys
 import tempfile

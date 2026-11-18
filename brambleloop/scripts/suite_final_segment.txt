@@ -253,4 +253,11 @@ tests/test_codex_a9_defer_state.py
 tests/test_codex_a9_source_binding.py
 tests/test_a3_postgres_photo_fence.py
 tests/test_opus2_photo_asset_review.py
+tests/test_a4a_fix_floor_and_reopen.py
+tests/test_a4a_low_fixes.py
+tests/test_codex_a9_defer_state_pg.py
+tests/test_opus2_a9_u6_import_path.py
+tests/test_s2_fix_ledger.py
+tests/test_s2_fix_routing.py
+tests/test_s2_openai_provider.py
 tests/test_product_run.py
