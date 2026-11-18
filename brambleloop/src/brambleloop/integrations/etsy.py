@@ -125,10 +125,13 @@ class OwnerGrant:
 
     def __init__(self, db: Any, *, action: str, approval_id: Any, slug: str = "",
                  version: str = "", release: str = "", listing_id: str = "",
-                 change: dict | None = None) -> None:
+                 change: dict | None = None, job_id: int | None = None) -> None:
         if action not in (self.ACTIVATE, self.PUBLISH, self.STOREFRONT):
             raise ValueError(f"unknown grant action {action!r}")
         self.db, self.action, self.approval_id = db, action, approval_id
+        # WS4 Stage A: a standing activation grant ("seg:<id>") is single use and bound to
+        # the job that consumed it, so the job is part of what is checked.
+        self.job_id = job_id
         self.slug, self.version, self.release = slug, version, release
         self.listing_id = str(listing_id or "")
         self.change = dict(change) if isinstance(change, dict) else None
@@ -138,7 +141,7 @@ class OwnerGrant:
                 f"approval={self.approval_id})")
 
     def refusal(self, *, action: str, listing_id: str = "",
-                change: dict | None = None) -> str | None:
+                change: dict | None = None, remote: dict | None = None) -> str | None:
         """Why this grant does not authorise `action` now, or None. Fails closed.
 
         For STOREFRONT, `change` is the exact change about to be sent (operation + fields);
@@ -167,6 +170,13 @@ class OwnerGrant:
             if action == self.ACTIVATE:
                 if not self.listing_id or str(listing_id) != self.listing_id:
                     return "owner activation grant names another listing"
+                from ..ops import standing_activation
+
+                if str(self.approval_id or "").startswith(standing_activation.SEG_PREFIX):
+                    return standing_activation.use_refusal(
+                        self.db, self.approval_id, slug=self.slug, version=self.version,
+                        listing_id=self.listing_id, release=self.release,
+                        job_id=self.job_id, remote=remote)
                 from ..ops import activation_authority
 
                 return activation_authority.validate(
@@ -288,10 +298,13 @@ def _completion_grant_row_refusal(self, pa, ident: int) -> str | None:
 OwnerGrant._completion_refusal = _completion_refusal  # type: ignore[attr-defined]
 
 
-def _grant_refusal(grant: Any, *, action: str, listing_id: str = "") -> str | None:
+def _grant_refusal(grant: Any, *, action: str, listing_id: str = "",
+                   remote: dict | None = None) -> str | None:
     if not isinstance(grant, OwnerGrant):
         return (f"{action} needs a validated owner grant (OwnerGrant) on the call itself; a "
                 f"credential, a phase and an environment flag are not the owner's grant")
+    if remote is not None:
+        return grant.refusal(action=action, listing_id=listing_id, remote=remote)
     return grant.refusal(action=action, listing_id=listing_id)
 
 
@@ -1538,7 +1551,11 @@ class EtsyClient:
                 f"listings that are not made to order must have a file upload associated "
                 f"with it to be activated.'")
         # Re-resolved immediately before the one request that spends money and goes public.
-        refused = _grant_refusal(grant, action=OwnerGrant.ACTIVATE, listing_id=str(listing_id))
+        # A standing activation grant also checks the listing as Etsy holds it (its renewal
+        # setting); an owner's per-product grant is checked exactly as before.
+        standing = str(getattr(grant, "approval_id", "") or "").startswith("seg:")
+        refused = _grant_refusal(grant, action=OwnerGrant.ACTIVATE, listing_id=str(listing_id),
+                                 remote=current if standing else None)
         if refused is not None:
             raise EtsyNotPermitted(f"activation refused at the client: {refused}")
         response = self._call("PATCH", f"/shops/{creds.shop_id}/listings/{listing_id}",

@@ -277,6 +277,11 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                             "ops.standing_grants.pending_requests marks a request answered"),
     "policy.grant_held": ("windowed",
                           "ops.standing_grants.pending_requests marks a request answered"),
+    # WS4 Stage A: Stage A's own shadow gate counts every would-activate decision since the
+    # approval (`standing_activation.a_shadow`). Like `standing_policy.shadow_decision`,
+    # pruning one can only fail that gate (fail closed), never pass it.
+    "standing_activation.shadow_decision": ("lifetime_total",
+                                            "ops.standing_activation.a_shadow counts them"),
     "owner.storefront.approved": ("lifetime_total",
                                   "ops.storefront_authority grant chain (sealed_chain)"),
     "owner.storefront.revoked": ("lifetime_total",
