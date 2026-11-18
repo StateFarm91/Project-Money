@@ -143,6 +143,46 @@ CANONICAL_STAGES: tuple[str, ...] = (
 CONDITIONAL_STAGES: tuple[str, ...] = ("geometry", "asset_truth", "policy")
 
 
+# A4A-1: the finished size an object noun promises, enforced at certification. A name a buyer
+# reads as an object ("dishcloth") states its size as surely as a number does: a 38 x 11 cm
+# panel titled "dishcloth" is a size claim the pattern does not keep. Bands are the object's
+# conventional finished size, in cm, per side (min, max) and the most a square object may
+# differ between its sides.
+OBJECT_SIZE_BANDS: dict[str, dict] = {
+    "dishcloth": {"side_cm": (18.0, 28.0), "max_aspect": 1.25,
+                  "basis": "a dishcloth is a hand-sized square of about 20-25 cm a side"},
+}
+
+
+def object_size_findings(cir, twin) -> list[Finding]:
+    """ERROR when the CIR's title names an object whose size band the twin's finished size
+    is outside. Deterministic: the product-type family words and the twin's computed size."""
+    from .first_customer import _family_hits
+
+    out: list[Finding] = []
+    if twin is None:
+        return out
+    hits = _family_hits(cir.title or "")
+    for family, band in OBJECT_SIZE_BANDS.items():
+        if family not in hits:
+            continue
+        w, h = float(twin.width_cm), float(twin.height_cm)
+        lo, hi = band["side_cm"]
+        aspect = max(w, h) / max(min(w, h), 1e-9)
+        problems = []
+        if not (lo <= w <= hi and lo <= h <= hi):
+            problems.append(f"{w:.1f} x {h:.1f} cm is outside {lo:g}-{hi:g} cm a side")
+        if aspect > band["max_aspect"]:
+            problems.append(f"its sides differ by {aspect:.2f}x (at most "
+                            f"{band['max_aspect']:g}x for this object)")
+        if problems:
+            out.append(Finding(ERROR, "OBJECT_SIZE_OUT_OF_BAND", (
+                f"the title names a {hits[family][0]!r}, and the pattern's finished size "
+                f"{'; '.join(problems)} ({band['basis']}); the name promises a size the "
+                f"pattern does not make")))
+    return out
+
+
 def stitch_semantics_findings(cir) -> list[Finding]:
     """Structured stitches used by `cir` with unstated or untaught structure (F-751)."""
     from ..cir import stitches as _st
@@ -314,6 +354,8 @@ def certify(
     # F-751: every structured stitch this pattern uses compiles to stated anatomy that agrees
     # with its counts, and the printed method teaches that structure.
     findings.extend(stitch_semantics_findings(cir))
+    # A4A-1: an object noun in the title is held to that object's size band.
+    findings.extend(object_size_findings(cir, twin))
 
     # 4. Asset truth.
     asset_findings: list[Finding] = []

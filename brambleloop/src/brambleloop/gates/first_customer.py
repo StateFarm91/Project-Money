@@ -381,6 +381,9 @@ PRODUCT_TYPE_FAMILIES: dict[str, tuple[str, ...]] = {
     "basket": ("basket",),
     "coaster": ("coaster",),
     "placemat": ("placemat",),
+    # A4A-1: a dishcloth is its own product type with its own size band.
+    "dishcloth": ("dishcloth", "dish cloth", "washcloth", "wash cloth", "facecloth",
+                  "face cloth"),
     "runner": ("runner",),
     "pillow": ("pillow", "cushion"),
     "scarf": ("scarf", "scarves", "cowl"),
