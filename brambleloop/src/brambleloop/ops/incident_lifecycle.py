@@ -243,6 +243,11 @@ REMEDIATION: dict[str, tuple[str, str]] = {
                                     "waiting on gates)"),
     "scheduler.cadence_failed": ("ops.health hygiene", "resolves when the cadence enqueues "
                                                        "a job again after the failure"),
+    # ENG watchlist-cadence: a mandatory watchlist shop not attempted for > 2x its cadence.
+    "watchlist.not_attempted": ("owner (P1) via the scheduler tick",
+                                "fix the named cause (scheduler suspension, department "
+                                "block, cadence, failing job, credential, per-shop backoff); "
+                                "resolves itself when the shop is attempted again"),
     "paid_call.unresolved": ("operator", "reconcile the paid call's outcome at the provider; "
                                          "never re-sent automatically (F-339)"),
     "effect.reconcile": ("operator", "reconcile the external effect's outcome; automatic "
@@ -448,8 +453,13 @@ def systemic_evidence(session) -> dict:
     products = len(list(session.scalars(select(Product.id))))
     by_family: dict[str, set[str]] = {}
     for r in open_rows:
-        if r.halts_publication and r.product_slug:
-            by_family.setdefault(kind_of(r.signature), set()).add(r.product_slug)
+        # review M-A of 4b683993: a legacy rebuild-incomplete row names its product only in
+        # its signature; it is still that product's halt.
+        slug = r.product_slug or (str(r.signature).split(":", 1)[1]
+                                  if str(r.signature or "").startswith("rebuild-incomplete:")
+                                  else None)
+        if r.halts_publication and slug:
+            by_family.setdefault(kind_of(r.signature), set()).add(slug)
     widespread = {fam: sorted(slugs) for fam, slugs in by_family.items()
                   if len(slugs) >= SYSTEMIC_MIN_SLUGS and products
                   and len(slugs) / products >= SYSTEMIC_SHARE}

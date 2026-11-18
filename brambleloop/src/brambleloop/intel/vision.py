@@ -743,7 +743,7 @@ def _bill(db, spent: float, judged: int, job_id: int | None, *, provider,
 
     spend_report.record(
         db, agent=AGENT, amount_cad=round(spent, 8),
-        estimated_cad=round(reserved, 8), purpose=TASK, provider="anthropic",
+        estimated_cad=round(reserved, 8), purpose=TASK, provider=getattr(provider, "name", "anthropic"),
         model=provider.model, department="intel", job_id=job_id,
         tokens_in=tokens_in, tokens_out=tokens_out,
         detail={"images_judged": judged, "price_basis": "assumed"})

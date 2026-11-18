@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-17T03:27:21.060462+00:00",
+ "generated_at": "2026-11-18T21:10:25.574707+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,10 +10,10 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 138,
-  "handlers": 170,
+  "cadences": 141,
+  "handlers": 173,
   "agents": 34,
-  "follow_on_edges": 91
+  "follow_on_edges": 94
  },
  "departments": [
   {
@@ -439,6 +439,7 @@
      "plan.cycle",
      "portfolio.review",
      "radar.scan",
+     "radar/ideation.py:open_briefs",
      "research.sweep",
      "runtime/pipeline.py:_score_coverage_handoff"
     ]
@@ -1036,6 +1037,7 @@
    "name": "Visual",
    "mission": "Produce truthful, disclosed imagery for certified releases and watch the canonical model's identity for drift.",
    "agents": [
+    "asset_truth",
     "creative_director",
     "publishing",
     "quality_director"
@@ -1102,6 +1104,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "photo_review",
+      "agent": "asset_truth",
+      "job_type": "assets.photo_review",
+      "period_seconds": 3600
+     },
+     {
       "name": "identity_drift",
       "agent": "quality_director",
       "job_type": "visual.identity_drift",
@@ -1130,6 +1138,7 @@
     "follow_on_from": [
      "assets.build",
      "assets.launch_review",
+     "assets.physical_upgrade",
      "creative.image_benchmark",
      "listing.draft",
      "owner/API route _startup",
@@ -1174,6 +1183,7 @@
    "execution": {
     "handler_modules": [
      "brambleloop.autonomy.visual_rnd_job",
+     "brambleloop.runtime.photo_review_ops",
      "brambleloop.runtime.quality_ops",
      "brambleloop.runtime.release"
     ],
@@ -1182,6 +1192,7 @@
      "assets.launch_review",
      "assets.model_photography",
      "assets.owned_photography",
+     "assets.photo_review",
      "assets.physical_upgrade",
      "creative.image_benchmark",
      "creative.model_freeze",
@@ -1264,6 +1275,7 @@
     "listing",
     "orchestrator",
     "pricing",
+    "publishing",
     "store_operator",
     "storefront_director"
    ],
@@ -1371,6 +1383,18 @@
       "period_seconds": 86400
      },
      {
+      "name": "standing_policy_shadow",
+      "agent": "publishing",
+      "job_type": "policy.issuer_shadow",
+      "period_seconds": 21600
+     },
+     {
+      "name": "standing_policy_stop_watch",
+      "agent": "publishing",
+      "job_type": "policy.stop_watch",
+      "period_seconds": 300
+     },
+     {
       "name": "cross_sell_graph",
       "agent": "listing",
       "job_type": "listing.cross_sell_graph",
@@ -1435,12 +1459,14 @@
      "owner/API route api_chain_rebuild",
      "pricing.position",
      "runtime/pipeline.py:_publish_and_read_back",
+     "runtime/release.py:_enqueue_listing_package",
      "runtime/release.py:_price_launch0",
      "runtime/release.py:_reprice_on_plan_drift",
      "runtime/release.py:_targeted_rebuild"
     ]
    },
    "cadence": [
+    300,
     3600,
     21600,
     86400,
@@ -1480,6 +1506,7 @@
      "brambleloop.runtime.listing_package_ops",
      "brambleloop.runtime.pipeline",
      "brambleloop.runtime.release",
+     "brambleloop.runtime.standing_policy_ops",
      "brambleloop.runtime.storefront_ops",
      "brambleloop.runtime.storefront_watch",
      "brambleloop.seo.handler"
@@ -1501,6 +1528,8 @@
      "listing.seo",
      "listing.taxonomy_refresh",
      "listing.window_captures",
+     "policy.issuer_shadow",
+     "policy.stop_watch",
      "pricing.position",
      "seasonal.remerchandising",
      "seo.cycle",

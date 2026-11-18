@@ -533,6 +533,10 @@ def start(db: Database) -> RunnerState:
     from ..ops import storefront_authority as _sfa
 
     _sfa.mark_job_process()
+    # WS4-3: a standing policy is never signed in a process that runs job handlers.
+    from ..ops import standing_policy as _sp
+
+    _sp.mark_job_process()
     _stop.clear()  # a previous stop() must not silently disarm a fresh start
     # F-299: the environment AND the recorded owner transition; disagreement -> the more
     # restrictive phase plus an incident. Shadow when nothing is recorded.

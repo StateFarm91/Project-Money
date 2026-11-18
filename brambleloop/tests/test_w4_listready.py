@@ -993,6 +993,10 @@ def test_f8_every_etsy_write_call_site_is_classified_and_release_writes_pass_for
         ("runtime/storefront_ops.py", "handle_store_update"):
             "W4-AGENTS store.update: a recorded storefront proposal, held in SHADOW; sent only "
             "with the owner's sealed storefront grant for that exact change",
+        ("app/command_center/approvals.py", "_standing_policy"):
+            "WS4: `sp.activate` is ops.standing_policy.activate -- the owner's signed, "
+            "stepped-up activation of a standing policy row; it writes nothing to Etsy "
+            "(deployment_mode stays S; Stage A public activation does not exist)",
     }
     found = set()
     for path in src_root.rglob("*.py"):
