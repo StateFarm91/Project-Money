@@ -175,8 +175,43 @@ def read_facts(db, slug: str, version: str, release: str, content: dict, *,
     else:
         for name in ("grants_today", "grants_7d", "outstanding", "minutes_since_last"):
             facts[name] = pace
-    facts["ads_jobs_queued"] = _fact(SB.PASS, 0, "no job carries a standing-policy lineage")
+    # Round-2 MEDIUM-1: read the job queue, never assume it empty. Once ads authority exists,
+    # `ads.adjust` queues `ads.campaign` for any eligible product, standing lineage included.
+    facts["ads_jobs_queued"] = _guard(lambda: _ads_jobs(db, slug, content))
     return facts
+
+
+# The planner names no product and spends nothing: it only enqueues `ads.campaign` jobs, and
+# those are what is counted. Any OTHER ads.* job that names no product counts (fail closed).
+ADS_PLANNER = "ads.adjust"
+
+
+def _ads_jobs(db, slug, content):
+    """Pending or running ads.* jobs on the requested product or any product in this policy's
+    standing lineage (`standing_stop.lineage`: every grant issued under it). A lineage or
+    queue that cannot be read raises, and `_guard` makes that UNKNOWN (never PASS 0)."""
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus
+    from . import standing_stop
+
+    products = {str(slug)} | {str(p) for p in
+                             standing_stop.lineage(db, content["policy_id"])["products"]}
+    hits = []
+    with db.session() as s:
+        for jid, jtype, inputs in s.execute(select(Job.id, Job.job_type, Job.inputs).where(
+                Job.job_type.like("ads.%"),
+                Job.status.in_((JobStatus.PENDING, JobStatus.RUNNING)))):
+            named = (inputs or {}).get("slug") if isinstance(inputs, dict) else None
+            if named is None and jtype == ADS_PLANNER:
+                continue
+            if named is None or str(named) in products:
+                hits.append((jid, jtype, named))
+    if hits:
+        return _fact(SB.PASS, len(hits), f"{len(hits)} ads job(s) pending or running on "
+                                         f"{sorted({str(h[2]) for h in hits})[:3]}")
+    return _fact(SB.PASS, 0, f"no ads job pending or running on {len(products)} product(s) "
+                             f"(the release and its standing lineage)")
 
 
 def _pace(db, now):

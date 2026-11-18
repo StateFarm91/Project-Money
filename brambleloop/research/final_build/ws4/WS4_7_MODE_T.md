@@ -1,7 +1,8 @@
 # WS4-7: Mode T, the policy-issuer service (S3 of Main 6953884261)
 
-Status: **CODE BUILT; review of fa3a09e9 fixed on `eng/ws4-7-mode-t-fix`** (see
-`REVIEW_REQUEST.md`). It is not integrated, deployed or running. No Railway setting
+Status: **CODE BUILT; review of fa3a09e9 and the round-2 review of 91ee7f50 fixed on
+`eng/ws4-7-mode-t-fix`** (see `REVIEW_REQUEST.md` and
+`research/final_build/w6/review_requests/ws4_7_round2.md`). It is not integrated, deployed or running. No Railway setting
 was changed. No standing policy is active, and none can be activated until the owner approves
 this service's spend and activates a policy after a MET G-SHADOW reading.
 
@@ -25,32 +26,68 @@ this service's spend and activates a policy after a MET G-SHADOW reading.
   - The roles must differ once the runbook below is applied.
   - A stale (>5 min), forged or disagreeing report reads Mode S.
 
-## Cost (measured 2026-11-18 on PostgreSQL 16 under the runbook roles)
+## Cost: a range, from measurements only (round-2 L5)
 
-Railway bills used resources per minute: **US$10 per GB-month of memory and US$20 per
-vCPU-month** (docs.railway.com pricing, read 2026-11-17). Measured by
-`scripts/ws4_7_measure_rss.py` (720 s; issuer as `bl_issuer` with a 10 s pass and a grant
-request every 30 s; worker as `bl_worker` fed a `plan.cycle` every 3 min, which ran 16 job
-types / 203 jobs through the whole offline pipeline to `store.publish`, refused in SHADOW).
-Summary: `ws4_7_rss_measurement_2026-11-18.json`. VmRSS of each process tree, every 5 s.
+Railway bills used resources per minute: **US$10 per GiB-month of memory and US$20 per
+vCPU-month** (docs.railway.com pricing, read 2026-11-17). Two runs of
+`scripts/ws4_7_measure_rss.py` (720 s each, PG16, runbook roles; VmRSS of each process tree
+every 5 s) plus the reviewer's own measurement of 91ee7f50:
 
-| Process | Peak RSS | Steady RSS (median, 2nd half) | Avg vCPU | US$/month | CA$/month (1.4154) |
-|---|---|---|---|---|---|
-| policy-issuer | 75.0 MiB | 74.9 MiB | 0.0016 | 0.76 | 1.08 |
-| worker, idle (75 s trial, empty queue) | 95.8 MiB | 95.8 MiB | 0.0022 | 0.98 | 1.39 |
-| worker, saturated (steady RSS) | 809.8 MiB | 304.0 MiB | 0.914 | 21.25 | 30.08 |
-| worker, saturated (peak RSS held all month) | 809.8 MiB | — | 0.914 | 26.19 | 37.07 |
+- Run 1 (`ws4_7_rss_measurement_2026-11-18.json`): issuer and worker.
+- Run 2 (`ws4_7_rss_measurement_2026-11-18_round2.json`): issuer, worker **and web with the
+  worker removed** (`uvicorn brambleloop.app.main:app`, `BRAMBLELOOP_EMBEDDED_WORKER=0`, as
+  the migration owner, `/health` read every 30 s: 24/24 OK).
+- Load: a `plan.cycle` every 3 min (4 cycles, ~200 jobs through the offline pipeline,
+  `store.publish` refused in SHADOW) and a grant request every 30 s (24 answered, HELD).
 
-**Reading it:**
-- The issuer is a new, always-on cost of about **US$0.76/month**.
-- Mode T needs `BRAMBLELOOP_EMBEDDED_WORKER=0` on web, so the worker runs as its own service.
-  Today the same jobs run inside web, so most of the worker's memory and CPU is **moved, not
-  added**. The new cost is roughly one more Python process with the app imported (about the
-  idle figure, **~US$1/month**). Web's own reduction was not measured here.
-- The saturated row is an upper bound: a `plan.cycle` every 3 minutes keeps the worker busy
-  all the time (0.9 vCPU, mostly image rendering). Real load is one daily cycle plus the
-  cadences, so the time-averaged CPU is far lower.
-- Not measured: psycopg2 connection-pool growth over days; web's RSS with the worker removed.
+| Process | Measured RSS | Avg vCPU | US$/month |
+|---|---|---|---|
+| policy-issuer | **~70 MiB** (reviewer) to 74.8–75.0 MiB (runs 1–2) | 0.0012–0.0016 | 0.71–0.76 |
+| worker, idle (empty queue) | 95.8 MiB (75 s trial) | 0.0022 | 0.98 |
+| worker, steady after jobs (median, 2nd half) | **~284 MiB** (reviewer) to 291.1–304.0 MiB (runs 2, 1); **~300 MiB** after jobs (reviewer) | — | 2.77–2.97 (memory) |
+| worker, saturated (cycle every 3 min) | steady 291–304, peak 809.8–942.7 MiB | 0.86–0.91 | 20.1–26.5 (upper bound) |
+| **web, worker removed** (run 2) | **134.1 MiB** (peak = steady) | 0.0015 | 1.34 |
+
+**The new monthly cost, as a range (never one number):**
+
+| Case | What it assumes | US$/month |
+|---|---|---|
+| **Expected, low** | Splitting the worker out *moves* its job memory out of web: web falls to its measured 134 MiB floor, and the only new memory is one more interpreter (the idle worker, 95.8 MiB) plus the issuer. 0.76 + 0.98 | **≈ 1.75** |
+| **Expected, high** | Web does not shrink at all: the worker's whole steady footprint (284–304 MiB) is new, plus the issuer, plus a daily cycle's CPU (measured ≈ 2.4–2.5 vCPU-min per cycle ≈ US$0.04/month) and the cadences (not measured; allowed up to ~US$0.25). 0.76 + 2.97 + ≤ 0.3 | **≈ 4** |
+| **Upper bound** | The worker saturated all month with its peak RSS held throughout, plus the issuer. 26.19–26.49 (runs 1–2) + 0.76 | **≈ 27** |
+
+So: **≈ US$1.75–4/month expected (≈ CA$2.50–5.70 at 1.4154), US$27/month upper bound.**
+
+What is still **not** measured (so it is a range, not a point): web's RSS *with* the embedded
+worker under the same load (which would say exactly how much moves); the cadence jobs' CPU at a
+real daily load; psycopg2 connection-pool growth over days.
+
+## Deploy order and table ownership (round-2 L4)
+
+**Every table belongs to the migration owner, the role web uses.** Web creates every registered
+table, the grant store and its write-once trigger on boot (`Database.create_all`). Neither the
+worker nor the issuer ever creates a registered table:
+
+- **Worker boot** (`Database.boot_schema("worker")`): on PostgreSQL, if the worker's role is
+  not the owner of `jobs` (the migration owner), it only checks that every registered table
+  exists. If one is missing it logs `worker refused to start: … Deploy web (the migration
+  owner) first` and exits with code 3, having created nothing. Railway restarts it; it starts
+  once web has migrated. On a single-role (Mode S) deployment the worker is the owner and
+  boots exactly as before.
+- **The grant store** (`standing_grants.ensure_tables`): a job or issuer process never creates
+  it, whatever its role may do. It refuses instead ("never creates it … Deploy web first").
+- **Handler tables** created lazily by a job on first use (e.g. `radar_concepts`) are the only
+  tables the worker may own; the default privileges below give web ALL on them. The worker
+  owns nothing that bounds it.
+
+**On every release, deploy in this order:**
+1. **web** first. Wait until it is healthy (`/health` 200): its boot has created the new
+   tables and the trigger, as the owner.
+2. **worker** next. If it was deployed first, it refuses to start (exit 3) until step 1 is
+   done; nothing needs repair.
+3. **policy-issuer** last. It only checks the grant store and refuses while it is missing.
+
+The first time only: run the runbook below after step 1, before steps 2 and 3.
 
 ## Owner runbook: database roles (§2.3). Not executed by code.
 
@@ -93,7 +130,8 @@ What each part is for:
   so the column grant cannot be used to reset `consumed_at` and consume twice (M-3).
 - **Worker CREATE:** several handlers create their own tables on first use (the cost
   measurement found `radar.scan` dying on `radar_concepts` without it). The worker owns only
-  what it creates; it cannot alter, drop or add a trigger to the grant store.
+  what it creates. It never creates a registered table or the grant store (see "Deploy order
+  and table ownership"), so it cannot alter, drop or add a trigger to the grant store.
 
 **Mode T reads privileges, not names (M-3).** Each process reports its role's write powers
 over the grant store from PostgreSQL's catalogue (superuser, owner membership, table
@@ -105,9 +143,38 @@ therefore not reachable until this runbook is applied.
 **Honest limits that remain:**
 - The worker and web reports are unsigned rows: a compromised worker can write a false web
   report. Mode T is a check against misconfiguration; the boundary is the key and the database
-  privileges.
-- The issuer reads the role the worker *names*; a compromised worker could name another role.
-  The worker's actual connection is bound by `bl_worker`'s privileges whatever it reports.
+  privileges. (Review L1: accepted while the mode is S.)
+- The issuer reads the role the worker *names*; a compromised or misconfigured worker could
+  name another role. The worker's actual connection is bound by `bl_worker`'s privileges
+  whatever it reports, so the owner checks the real role once (below).
+
+**One-time owner check before Mode T is ever enabled (review L1).** CA$0, about 5 minutes. The
+reports are not evidence of which role the worker *really* connects as; the owner checks it
+from PostgreSQL's own catalogue, once, after the services exist and before activating any
+policy:
+1. In Railway, open the **worker** service's variables and confirm the user in its
+   `DATABASE_URL` is `bl_worker` (and the issuer's is `bl_issuer`). Do not paste the URL anywhere.
+2. In the Postgres query tab (as web's role), with web, worker and issuer running:
+   ```sql
+   SELECT usename, application_name, client_addr, count(*)
+     FROM pg_stat_activity WHERE datname = current_database() GROUP BY 1, 2, 3 ORDER BY 1;
+   SELECT rolname, rolsuper, rolcreaterole, rolbypassrls FROM pg_roles
+    WHERE rolname IN ('bl_worker', 'bl_issuer');
+   SELECT has_table_privilege('bl_worker', 'standing_grants', 'INSERT')  AS w_insert,
+          has_table_privilege('bl_worker', 'standing_grants', 'DELETE')  AS w_delete,
+          has_column_privilege('bl_worker', 'standing_grants', 'expires_at', 'UPDATE') AS w_exp,
+          pg_has_role('bl_worker', (SELECT tableowner FROM pg_tables
+                                    WHERE tablename = 'standing_grants'), 'MEMBER') AS w_owner;
+   SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tableowner = 'bl_worker';
+   ```
+   Expected: connections from exactly three roles (web's, which includes this query tab,
+   `bl_worker` and `bl_issuer`) and no other; both roles `rolsuper = false`, `rolcreaterole = false`, `rolbypassrls = false`; all
+   four privilege columns `false`; the last query lists no grant-store table (only handler
+   tables such as `radar_concepts`, or nothing).
+3. Stop the worker service for a minute and re-run the first query: the `bl_worker`
+   connections disappear. That ties the role to the worker service, not to another process.
+
+If any answer differs, Mode T is not enabled; the report rows alone never suffice.
 - If web is not a superuser, `ALTER DEFAULT PRIVILEGES FOR ROLE bl_worker` must be run by a
   member of `bl_worker` (on Railway's default `postgres` superuser this needs nothing more).
 

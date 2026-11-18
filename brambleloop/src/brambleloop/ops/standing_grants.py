@@ -189,6 +189,15 @@ def ensure_tables(db) -> None:
         if have:
             with engine.connect() as conn:
                 have = _has_write_once(conn)
+        if not have and (_PROCESS["job"] or _PROCESS["issuer"]):
+            # Round-2 L4: the worker role keeps CREATE on the schema (handler tables), so a
+            # job process that created the grant store would OWN it and could drop its
+            # write-once trigger. Neither the worker nor the issuer ever creates it.
+            raise GrantRefused(
+                "the grant store or its write-once guard is missing, and this "
+                + ("job" if _PROCESS["job"] else "issuer")
+                + " process never creates it: the migration owner (web, "
+                "Database.create_all) does. Deploy web first.")
         if not have:
             try:
                 install_guards(engine)
@@ -914,6 +923,8 @@ def consume(db, grant_id: int, *, job_id: int, stage: str = "pre_claim",
         raise GrantRefused(f"standing grant {grant_id} is void: it was issued under policy "
                            f"row {pol.get('row_id')}, and the effective policy is row "
                            f"{eff.get('approval_id')}")
+    if why := shop_refusal(db, body):
+        raise GrantRefused(f"standing grant {grant_id} is void: {why}")
     try:
         with db.session() as s:
             hit = s.execute(update(StandingGrant).where(
@@ -930,6 +941,26 @@ def consume(db, grant_id: int, *, job_id: int, stage: str = "pre_claim",
         raise GrantRefused(f"the grant store refused consumption of {grant_id} "
                            f"({type(exc.orig).__name__})") from None
     return body
+
+
+def shop_refusal(db, body: dict) -> str | None:
+    """Round-2 L3: the shop a grant was signed for is re-read at use. The binding read now
+    must be a name-verified shop (PASS), and its id and name must equal the SIGNED ones: a
+    grant never publishes to a shop that was re-bound, unbound or renamed after issue."""
+    from . import standing_boundary as SB
+    from . import standing_issuer as SI
+
+    signed = body.get("shop") or {}
+    now_id, now_name = SI._guard(lambda: SI._shop_id(db)), SI._guard(SI._shop_name)
+    for label, then, cur in (("shop id", signed.get("shop_id"), now_id),
+                             ("shop name", signed.get("shop_name"), now_name)):
+        then = then if isinstance(then, dict) else {}
+        if cur.get("state") != SB.PASS or not cur.get("value"):
+            return f"the {label} cannot be read at use ({cur.get('why')})"
+        if then.get("state") != SB.PASS or str(then.get("value")) != str(cur.get("value")):
+            return (f"it was signed for {label} {then.get('value')!r}, and the bound "
+                    f"{label} is now {cur.get('value')!r}")
+    return None
 
 
 def pending_requests(db, *, limit: int = 20) -> list[dict]:

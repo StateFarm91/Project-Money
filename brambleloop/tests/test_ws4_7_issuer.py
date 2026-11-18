@@ -95,7 +95,20 @@ def _effective_db(*, slugs=(SLUG,), frequency=None):
     _activate_raw(db, a, c)
     for slug in slugs:
         _release(db, slug=slug, release=REL)
+    _bind_shop(db)
     return db, c, a
+
+
+SHOP_ID = "70001"
+
+
+def _bind_shop(db, shop_id=SHOP_ID, shop_name=None):
+    """A name-verified shop binding: a grant is signed for it and re-checked at use (L3)."""
+    from brambleloop.core import oauth_store
+    from brambleloop.integrations import etsy_shop_binding
+
+    oauth_store.save_shop_binding(db, shop_id=shop_id,
+                                  shop_name=shop_name or etsy_shop_binding.expected_shop_name())
 
 
 def _all_pass(db_, slug, version, release, content_, *, shadow=True, **_kw):
@@ -878,6 +891,186 @@ def test_the_request_job_must_be_a_live_publish_job_for_that_release():
                 assert s.scalar(select(SG.StandingGrant)) is None
     finally:
         _reset()
+
+
+# ---- round 2 (review of 91ee7f50) -------------------------------------------------------------
+
+def _ads_job(db, job_type, slug, status):
+    from brambleloop.core.models import Job
+
+    with db.session() as s:
+        s.add(Job(agent="ads", job_type=job_type,
+                  inputs={} if slug is None else {"slug": slug, "daily_budget_cad": 1.0},
+                  status=status))
+
+
+def test_ads_jobs_on_the_release_or_its_standing_lineage_hold_the_grant():
+    """Round-2 MEDIUM-1: `ads_jobs_queued` was hard-coded PASS 0. Once ads authority exists,
+    ads.adjust queues ads.campaign for any eligible product, standing lineage included: the
+    issue-time "ads must be NONE" check now reads the job queue."""
+    from brambleloop.core.models import JobStatus
+    from brambleloop.ops import standing_boundary as SB
+    from brambleloop.ops import standing_stop
+    from test_ws4_boundary import facts as all_pass
+
+    slugs = [f"{SLUG}-ads{i}" for i in range(3)]
+    try:
+        db, c, a = _effective_db(slugs=slugs, frequency=AT_CEILINGS)
+        _reports(db)
+        _as_issuer()
+        t = NOW + timedelta(minutes=1)
+        with _InPolicy():
+            _issue(db, slugs[0], 1, t)            # slugs[0] is now in standing lineage
+
+        def read(slug):
+            return SI.read_facts(db, slug, VERSION, REL, c, shadow=False,
+                                 now=t + timedelta(minutes=5))["ads_jobs_queued"]
+
+        def reasons(slug):
+            return SB.classify(c, {**all_pass(slug=slug),
+                                   "ads_jobs_queued": read(slug)})["reasons"]
+
+        assert read(slugs[1]) == {**read(slugs[1]), "state": SB.PASS, "value": 0}
+        assert not any("ads must be NONE" in r for r in reasons(slugs[1]))
+        # Finished ads jobs and the planner (which names no product) are not queued ads.
+        _ads_job(db, "ads.campaign", slugs[0], JobStatus.DONE)
+        _ads_job(db, "ads.adjust", None, JobStatus.PENDING)
+        assert read(slugs[1])["value"] == 0, read(slugs[1])
+        # A campaign queued on a LINEAGE product holds a grant for another product.
+        _ads_job(db, "ads.campaign", slugs[0], JobStatus.PENDING)
+        got = read(slugs[1])
+        assert got["state"] == SB.PASS and got["value"] == 1, got
+        assert any("ads must be NONE" in r for r in reasons(slugs[1])), reasons(slugs[1])
+        # A running campaign on the requested product itself counts too.
+        _ads_job(db, "ads.campaign", slugs[2], JobStatus.RUNNING)
+        assert read(slugs[2])["value"] == 2, read(slugs[2])
+        assert read(slugs[1])["value"] == 1          # slugs[2] is neither slugs[1] nor lineage
+        # An ads job that names no product (other than the planner) counts: fail closed.
+        _ads_job(db, "ads.something", None, JobStatus.PENDING)
+        assert read(slugs[1])["value"] == 2, read(slugs[1])
+        # A lineage that cannot be read is UNKNOWN, never PASS 0, and it holds.
+        with patch.object(standing_stop, "lineage", side_effect=RuntimeError("down")):
+            got = read(slugs[1])
+            assert got["state"] == SB.UNKNOWN, got
+            assert SB.classify(c, {**all_pass(slug=slugs[1]),
+                                   "ads_jobs_queued": got})["in_policy"] is False
+        # A policy content with no policy_id cannot name its lineage: UNKNOWN.
+        assert SI.read_facts(db, slugs[1], VERSION, REL, {}, shadow=False,
+                             now=t)["ads_jobs_queued"]["state"] == SB.UNKNOWN
+    finally:
+        _reset()
+
+
+def test_a_report_dated_in_the_future_reads_mode_s():
+    """Round-2 L2: the "dated after now" check, on its own. Reports 2 minutes ahead of the
+    reader read Mode S with only that reason; within the skew allowance they read T."""
+    try:
+        db, c, a = _effective_db()
+        _reports(db, now=NOW + timedelta(minutes=2))
+        got = SG.mode_report(db, now=NOW)
+        assert got["mode"] == "S", got
+        assert got["reasons"] and all("dated after now" in r for r in got["reasons"]), got
+        assert SG.mode_report(db, now=NOW + timedelta(minutes=2, seconds=2))["mode"] == "T"
+        assert SG.mode_report(db, now=NOW + timedelta(minutes=2) - SG.CLOCK_SKEW
+                              + timedelta(seconds=1))["mode"] == "T"
+    finally:
+        _reset()
+
+
+def test_the_issuer_key_seen_at_boot_is_reported_after_the_scrub_in_process():
+    """Round-2 L2: the boot-key fact on its own (the subprocess test also sees the key in
+    /proc/self/environ, so it cannot tell whether the boot fact is recorded or read)."""
+    worker_env = None
+    try:
+        db, c, a = _effective_db()
+        _reports(db)
+        worker_env = {sp.ISSUER_VERIFY_KEY_VAR: os.environ[sp.ISSUER_VERIFY_KEY_VAR],
+                      sp.VERIFY_KEY_VAR: os.environ[sp.VERIFY_KEY_VAR], sp.EMBEDDED_VAR: "0"}
+        assert SG.issuer_key_present(worker_env) is False      # before: a clean mapping
+        assert SG.mark_job_process() is True                   # the key was here; scrubbed
+        assert sp.ISSUER_KEY_VAR not in os.environ
+        assert SG.issuer_key_present(worker_env) is True       # the boot fact, not the env
+        d = SG.process_report(db, SG.WORKER_COMPONENT, now=NOW + timedelta(seconds=1),
+                              env=worker_env)
+        assert d["issuer_signing_present"] is True, d
+        got = SG.mode_report(db, now=NOW + timedelta(seconds=2))
+        assert got["mode"] == "S" and got["reasons"] == [
+            "the worker holds the issuer signing key"], got
+    finally:
+        _reset()
+    assert worker_env is not None and SG.issuer_key_present(worker_env) is False
+
+
+def test_a_worker_reporting_grant_store_powers_reads_mode_s_on_its_own():
+    """Round-2 L2: the worker-privileges check on its own. The worker's own report says its
+    role can write the grant store and the issuer's catalogue read says it cannot: Mode S,
+    with only the worker-privileges reason."""
+    try:
+        db, c, a = _effective_db()
+        _roles(db, worker_user="bl_worker", worker_powers=["INSERT standing_grants"],
+               issuer_sees_worker=[])
+        got = SG.mode_report(db, now=NOW + timedelta(seconds=2))
+        assert got["mode"] == "S" and got["db_roles_separated"] is False, got
+        assert len(got["reasons"]) == 1 and "the worker's database role 'bl_worker' can " \
+            "write the grant store" in got["reasons"][0], got
+    finally:
+        _reset()
+
+
+def test_consume_rechecks_the_shop_binding_at_use():
+    """Round-2 L3: a grant is signed for one shop; re-bound, unbound or renamed after issue,
+    it is void at use and nothing is consumed."""
+    from brambleloop.integrations import etsy_shop_binding
+
+    cases = {
+        "rebound": lambda db: _bind_shop(db, shop_id="70002"),
+        "unbound": lambda db: _bind_shop(db, shop_id=""),
+        "binding names another shop": lambda db: _bind_shop(db, shop_name="SomeOtherShop"),
+    }
+    for name, change in cases.items():
+        try:
+            db, c, a, g = _one_grant()
+            assert g["content"]["shop"]["shop_id"]["value"] == SHOP_ID, g["content"]["shop"]
+            change(db)
+            _refused(lambda: SG.consume(db, g["grant_id"], job_id=1,
+                                        now=NOW + timedelta(minutes=2)), "is void")
+            with db.session() as s:
+                assert s.get(SG.StandingGrant, g["grant_id"]).consumed_at is None, name
+        finally:
+            _reset()
+    try:                                  # the expected shop name changes after issue
+        db, c, a, g = _one_grant()
+        with patch.object(etsy_shop_binding, "expected_shop_name", lambda: "Renamed"):
+            _bind_shop(db, shop_name="Renamed")
+            _refused(lambda: SG.consume(db, g["grant_id"], job_id=1,
+                                        now=NOW + timedelta(minutes=2)), "shop name")
+        # The original binding restored: the same grant is consumed.
+        _bind_shop(db)
+        SG.consume(db, g["grant_id"], job_id=1, now=NOW + timedelta(minutes=2))
+    finally:
+        _reset()
+
+
+def test_a_job_or_issuer_process_never_creates_the_grant_store():
+    """Round-2 L4: the worker role keeps CREATE on the schema; a job process that created
+    the grant store would own it (and could drop its write-once trigger)."""
+    import tempfile
+
+    from sqlalchemy import inspect
+
+    from brambleloop.core.db import Database
+
+    for who in ("job", "issuer"):
+        try:
+            db = Database(f"sqlite:///{tempfile.mkdtemp()}/g.sqlite", scratch=True)
+            SG._PROCESS.update(**{who: True})
+            _refused(lambda: SG.ensure_tables(db), "never creates it")
+            assert not inspect(db.engine).has_table("standing_grants"), who
+        finally:
+            _reset()
+    db = Database(f"sqlite:///{tempfile.mkdtemp()}/g.sqlite", scratch=True)
+    SG.ensure_tables(db)                     # the migration owner's process (unmarked) does
+    assert inspect(db.engine).has_table("standing_grants")
 
 
 if __name__ == "__main__":

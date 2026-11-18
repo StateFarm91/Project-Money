@@ -39,7 +39,8 @@ from brambleloop.ops import standing_grants as SG  # noqa: E402
 from brambleloop.ops import standing_issuer as SI  # noqa: E402
 from brambleloop.ops import standing_policy as sp  # noqa: E402
 from test_ws4_7_issuer import (AT_CEILINGS, REL, _InPolicy, _as_issuer,  # noqa: E402
-                               _issuer_env, _issuer_keys, _job, _reset)
+                               _bind_shop, _issuer_env, _issuer_keys, _job,
+                               _reset)
 from test_ws4_issuer_shadow import SLUG, VERSION, _release  # noqa: E402
 from test_ws4_policy_object import NOW, _activate_raw, _approve, _keys, content  # noqa: E402
 
@@ -155,6 +156,7 @@ def _policy(owner, slugs, frequency=AT_CEILINGS):
     _activate_raw(owner, a, c)
     for slug in slugs:
         _release(owner, slug=slug, release=REL)
+    _bind_shop(owner)
     return c, a
 
 
@@ -254,6 +256,85 @@ def test_the_issuer_role_answers_an_out_of_policy_request_and_the_next(url):
                      if r.requirement_key == SI.hold_key(slugs[0], VERSION, REL)]
         assert cards, "the HOLD became an owner card, written by the issuer role"
         assert "out of policy" in got[min(got)]["why"], got
+    finally:
+        _reset()
+
+
+_WORKER_BOOT_PG = """
+import _tmp; _tmp.install()
+import json, sys
+from unittest.mock import patch
+from brambleloop.core.db import Database
+db = Database(sys.argv[1])
+from brambleloop.app import worker_entry
+
+class _NoRun:
+    def __init__(self, *a, **k): pass
+    def run(self, **k): return {}
+
+with patch.object(worker_entry, "Database", lambda *a, **k: db), \\
+        patch.object(worker_entry, "Worker", _NoRun):
+    rc = worker_entry.main()
+print(json.dumps({"rc": rc}))
+"""
+
+
+def _boot_worker_as(url_):
+    import json
+
+    here = os.path.dirname(__file__)
+    env = {k: v for k, v in os.environ.items() if k != sp.ISSUER_KEY_VAR}
+    env.update(PYTHONPATH=os.pathsep.join([os.path.join(here, "..", "src"), here,
+                                           os.environ.get("PYTHONPATH", "")]))
+    out = subprocess.run([sys.executable, "-c", _WORKER_BOOT_PG, url_], capture_output=True,
+                         text=True, env=env, timeout=600)
+    assert out.returncode == 0, out.stderr[-1500:]
+    return json.loads(out.stdout.strip().splitlines()[-1]), out.stderr
+
+
+def _owned_by(owner, role):
+    with owner.engine.connect() as c:
+        return sorted(c.execute(text("SELECT tablename FROM pg_tables WHERE schemaname = "
+                                     "'public' AND tableowner = :r"), {"r": role}).scalars())
+
+
+def test_the_worker_role_never_creates_a_table_it_should_not_own(url):
+    """Round-2 L4: under the runbook the worker keeps CREATE on the schema. A worker that
+    booted before web on a release adding the grant store ran create_all and OWNED it (and
+    an owner can drop the write-once trigger). It now refuses to start and creates nothing."""
+    owner, issuer, worker = _fresh(url)
+    name = owner.engine.url.database
+    wurl = url.format(user="bl_worker", db=name)
+    try:
+        got, _err = _boot_worker_as(wurl)                 # every table exists: it starts
+        assert got["rc"] == 0, got
+        assert _owned_by(owner, "bl_worker") == [], _owned_by(owner, "bl_worker")
+        with owner.engine.begin() as c:                   # a release whose web is not up yet
+            c.execute(text("DROP TABLE standing_grant_slots, standing_grants CASCADE"))
+        got, err = _boot_worker_as(wurl)
+        assert got["rc"] == 3, (got, err[-800:])
+        assert "Deploy web (the migration owner) first" in err, err[-800:]
+        assert _owned_by(owner, "bl_worker") == [], _owned_by(owner, "bl_worker")
+        with owner.engine.connect() as c:
+            assert c.execute(text("SELECT to_regclass('public.standing_grants')")).scalar() \
+                is None
+        # Nor does the worker create the grant store lazily from a job process.
+        SG._PROCESS.update(job=True)
+        try:
+            try:
+                SG.ensure_tables(Database(wurl))          # a new engine: no cached check
+                raise AssertionError("a job process created the grant store")
+            except SG.GrantRefused as exc:
+                assert "never creates it" in str(exc), exc
+        finally:
+            SG._PROCESS.update(job=False)
+        assert _owned_by(owner, "bl_worker") == []
+        # Web (the migration owner) boots: it creates them, guard included; the worker starts.
+        out = owner.boot_schema("web")
+        assert out["created"] is True and out["refusal"] is None, out
+        got, _err = _boot_worker_as(wurl)
+        assert got["rc"] == 0, got
+        assert _owned_by(owner, "bl_worker") == []
     finally:
         _reset()
 

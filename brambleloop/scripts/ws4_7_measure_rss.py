@@ -6,7 +6,9 @@ Runs, against a throwaway local PostgreSQL cluster under the owner runbook's rol
   short pass interval and grant requests arriving (each answered: Mode S, so refused), and
 * the separate worker service (`python -m brambleloop.app.worker_entry`) as `bl_worker`, fed a
   `plan.cycle` every few minutes -- the full offline pipeline the suite drives (radar, CIR draft
-  and compile, certification, listing draft with image rendering, publish refused in SHADOW).
+  and compile, certification, listing draft with image rendering, publish refused in SHADOW),
+* web as Mode T runs it (round-2 L5): `uvicorn brambleloop.app.main:app` with
+  `BRAMBLELOOP_EMBEDDED_WORKER=0`, as the migration owner, its `/health` read every 30 s.
 
 No provider key, no network call, no spend: SHADOW with no credentials. Samples VmRSS of each
 process tree every 5 s and CPU time from /proc, then prints JSON.
@@ -106,9 +108,20 @@ def main(seconds: int) -> dict:
                           BRAMBLELOOP_EMBEDDED_WORKER="0",
                           **{sp.ISSUER_VERIFY_KEY_VAR: keys[sp.ISSUER_VERIFY_KEY_VAR],
                              sp.VERIFY_KEY_VAR: keys[sp.VERIFY_KEY_VAR]})
+        web_env = dict(base, BRAMBLELOOP_DATABASE_URL=url.format(user="postgres",
+                                                                  db="ws47_cost"),
+                       BRAMBLELOOP_EMBEDDED_WORKER="0",
+                       **{sp.ISSUER_VERIFY_KEY_VAR: keys[sp.ISSUER_VERIFY_KEY_VAR],
+                          sp.VERIFY_KEY_VAR: keys[sp.VERIFY_KEY_VAR],
+                          sp.SIGNING_KEY_VAR: keys[sp.SIGNING_KEY_VAR]})
+        import socket
+
+        with socket.socket() as so:
+            so.bind(("127.0.0.1", 0))
+            port = so.getsockname()[1]
         logdir = os.environ.get("WS47_LOGDIR") or os.environ.get("TMPDIR", "/tmp")
         logs = {n: open(os.path.join(logdir, f"ws47_{n}.log"), "w")
-                for n in ("issuer", "worker")}
+                for n in ("issuer", "worker", "web")}
         procs = {
             "issuer": subprocess.Popen([sys.executable, "-m", "brambleloop.app.issuer_entry"],
                                        env=issuer_env, stdout=logs["issuer"],
@@ -116,7 +129,14 @@ def main(seconds: int) -> dict:
             "worker": subprocess.Popen([sys.executable, "-m", "brambleloop.app.worker_entry"],
                                        env=worker_env, stdout=logs["worker"],
                                        stderr=subprocess.STDOUT),
+            "web": subprocess.Popen([sys.executable, "-m", "uvicorn",
+                                     "brambleloop.app.main:app", "--host", "127.0.0.1",
+                                     "--port", str(port), "--workers", "1"],
+                                    env=web_env, stdout=logs["web"],
+                                    stderr=subprocess.STDOUT),
         }
+        health = {"ok": 0, "failed": 0}
+        hreq = 0
         samples = {n: [] for n in procs}
         cpu0 = {}
         start = time.monotonic()
@@ -132,6 +152,16 @@ def main(seconds: int) -> dict:
                     SG.request_grant(owner, slug=f"measure-{req}", version="1.0.0",
                                      release="a" * 64, job_id=req + 1)
                     req += 1
+                if t >= 20 + hreq * 30:                  # web serves its health check
+                    hreq += 1
+                    import urllib.request
+
+                    try:
+                        with urllib.request.urlopen(f"http://127.0.0.1:{port}/health",
+                                                    timeout=10) as r:
+                            health["ok" if r.status == 200 else "failed"] += 1
+                    except Exception:  # noqa: BLE001 - counted, never fatal
+                        health["failed"] += 1
                 for n, p in procs.items():
                     if p.poll() is not None:
                         raise RuntimeError(f"{n} exited early ({p.returncode})")
@@ -163,7 +193,8 @@ def main(seconds: int) -> dict:
                 "AND last_error <> '' LIMIT 8"))]
         out = {"seconds": seconds, "plan_cycles": cycle, "grant_requests": req,
                "grant_requests_answered_held": held, "jobs_by_status": jobs,
-               "distinct_job_types": types, "jobs_by_type": by_type, "job_errors": errors}
+               "distinct_job_types": types, "jobs_by_type": by_type, "job_errors": errors,
+               "web_health_checks": health}
         for n, rows in samples.items():
             mib = [k / 1024 for _t, k in rows]
             steady = [k / 1024 for t, k in rows if t >= seconds / 2]

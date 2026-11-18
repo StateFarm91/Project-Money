@@ -10,7 +10,7 @@ import os
 from contextlib import contextmanager
 from typing import Iterator
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -138,6 +138,18 @@ class Database:
         code never reaches a deployed database. Returns what the additive migration changed,
         which the caller logs -- a schema change nobody can see is how a deploy breaks quietly.
         """
+        from .migrate import apply as apply_migrations
+
+        from ..ops import standing_grants as _standing_grants  # WS4-7 grant store + guard
+
+        self.register_models()
+        Base.metadata.create_all(self.engine)
+        changes = apply_migrations(self.engine)
+        return changes + _standing_grants.install_guards(self.engine)
+
+    @staticmethod
+    def register_models() -> None:
+        """Import every module that registers tables in `Base.metadata` (no database I/O)."""
         from . import models  # noqa: F401  (import registers the mappings)
         from ..learn import models as learn_models  # noqa: F401; additive Learn tables
         from ..publish import draft_intent  # noqa: F401; additive remote-create intent
@@ -170,13 +182,42 @@ class Database:
         # REL2 tables, created at boot rather than only lazily on first use (W4-INTEG3):
         # etsy_webhook_refusals rides in etsy_webhooks above; the brief cursors live here.
         from ..creative import prospecting as _prospecting  # noqa: F401; brief cursors
-        from .migrate import apply as apply_migrations
+        from ..ops import standing_grants as _standing_grants  # noqa: F401; WS4-7 grant store
 
-        from ..ops import standing_grants as _standing_grants  # WS4-7 grant store + guard
+    def boot_schema(self, component: str) -> dict:
+        """WS4-7 round-2 L4: a process that is NOT the migration owner never creates tables.
 
-        Base.metadata.create_all(self.engine)
-        changes = apply_migrations(self.engine)
-        return changes + _standing_grants.install_guards(self.engine)
+        Under the Mode T runbook the worker role keeps CREATE on the schema (handlers make
+        their own tables on first use), so a worker that booted before web on a new release
+        would run `create_all` and OWN the new tables -- the grant store among them, whose
+        owner can drop its write-once trigger. Here the migration owner is the owner of
+        `jobs` (created by web's first boot); a process on another role only CHECKS that every
+        registered table exists and refuses to start when one is missing ("deploy web first").
+        On SQLite, and for the role that owns the schema (Mode S: one role), this is
+        `create_all` exactly as before."""
+        from sqlalchemy import inspect
+
+        if not is_postgres(self.engine):
+            return {"created": True, "changes": self.create_all(), "missing": [],
+                    "refusal": None}
+        with self.engine.connect() as c:
+            me = c.execute(text("SELECT current_user")).scalar()
+            owner = c.execute(text("SELECT tableowner FROM pg_tables WHERE schemaname = "
+                                   "current_schema() AND tablename = 'jobs'")).scalar()
+        if owner is None or owner == me:
+            return {"created": True, "changes": self.create_all(), "missing": [],
+                    "refusal": None}
+        self.register_models()
+        have = set(inspect(self.engine).get_table_names())
+        missing = sorted(t for t in Base.metadata.tables if t not in have)
+        refusal = None
+        if missing:
+            refusal = (f"the {component} runs as database role {me!r}, not the migration owner "
+                       f"{owner!r}, and {len(missing)} table(s) do not exist yet "
+                       f"({missing[:5]}): it never creates them. Deploy web (the migration "
+                       f"owner) first, then restart the {component}.")
+        return {"created": False, "changes": [], "missing": missing, "refusal": refusal,
+                "role": me, "owner": owner}
 
     def drop_all(self) -> None:
         Base.metadata.drop_all(self.engine)

@@ -110,10 +110,13 @@ Pricing: Railway memory ~US$10/GB-month, vCPU ~US$20/vCPU-month.
 **How to read the worker rows:**
 - The worker's jobs run inside web today, as the embedded worker, so splitting them out
   **moves** most of that memory and CPU rather than adding it.
-- The new cost is about one more interpreter (~US$1/month) plus the issuer: **≈ US$1.75/month**.
+- The new cost is a **range, ≈ US$1.75–4/month expected, US$27 upper bound** (round 2 measured
+  web with the worker removed at 134.1 MiB; derivation in `WS4_7_MODE_T.md` "Cost" and
+  `brambleloop/research/final_build/w6/review_requests/ws4_7_round2.md`).
 - The saturated rows are an upper bound. A cycle every 3 minutes keeps the worker busy all the
   time; production runs one daily cycle plus the cadences.
-- Web's RSS with the worker removed was **not** measured.
+- Web's RSS with the worker removed: measured in round 2 (134.1 MiB). Web *with* the embedded
+  worker under the same load is still not measured, hence the range.
 
 ### The Railway setup the owner would create (names only, no values)
 
@@ -147,11 +150,14 @@ Pricing: Railway memory ~US$10/GB-month, vCPU ~US$20/vCPU-month.
 - Keep the owner `DATABASE_URL`: web is the migration owner.
 
 **Then** run `runbook_sql` in the Postgres query tab, as web's role, after web has started on
-this release. It is printed in `WS4_7_MODE_T.md`.
+this release. It is printed in `WS4_7_MODE_T.md`. **Deploy order on every release: web, then
+worker, then policy-issuer** (round 2: a worker on `bl_worker` refuses to start while a table
+is missing, and never creates one). Before Mode T is ever enabled, the owner runs the one-time
+catalogue check of the worker's real role in `WS4_7_MODE_T.md`.
 
 ## OWNER ACTION REQUIRED (batched; nothing is blocked on it today)
 
 | Action | Why | Max cost | Minutes | If it waits |
 |---|---|---|---|---|
-| Approve the Mode T spend: the `policy-issuer` service, and splitting `worker` out of web | Mode T is the only path to standing issuance. | ≈ US$1.75/month net (upper bound US$27/month if the worker were saturated all month) | 0 to approve | No standing policy can be activated. Per-product approval continues as today. |
+| Approve the Mode T spend: the `policy-issuer` service, and splitting `worker` out of web | Mode T is the only path to standing issuance. | ≈ US$1.75–4/month expected; US$27/month upper bound (worker saturated all month) | 0 to approve | No standing policy can be activated. Per-product approval continues as today. |
 | After approval and integration: create the services, set the variables and run the runbook | The database privileges are what bound the worker. | CA$0 beyond the above | ~30 | Same as above. |
