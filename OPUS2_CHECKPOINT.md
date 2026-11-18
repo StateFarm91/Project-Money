@@ -1,10 +1,29 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-18T04:55Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-18T07:15Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-18T04:55Z (read first)
+## State at 2026-11-18T07:15Z (read first)
+- S3 part 3 RR POSTED 9772f4a4 on opus2/ws4-stage-a2-withdrawal (6971474128): Stage A part 2
+  (EtsyClient.deactivate, OwnerGrant.WITHDRAW not phase-gated, ops/standing_withdrawal.py:
+  lineage + stopped policy + 10/h + active read-back; plan() executes nothing). 6/6 tests,
+  23/23 mutants. 102-suite regression: 94 green + 3 fixed in-commit; w4_close5_rows3 and
+  w4_listready F8 call-site red ON BASE (sp.activate false positive; asked Main 6969301528).
+  test_w4_listready F8 changes flagged for review.
+- S3 now complete as code: fa3a09e9 (WS4-7 issuer) -> 497a8301 (Stage A1) -> 9772f4a4 (A2).
+  Owner actions (relayed in fa3a09e9 RR): issuer spend + DB role. Stage A stays off in code.
+- Awaiting verdicts: E1 34dbf572, A3 e5575380 (+L2 go?), research 26548a38, WS4 db785f92,
+  A4 ac0ca847/eb47549e, S1 e490fc6f, S2 9d03acb2, S3 fa3a09e9, 497a8301, 9772f4a4.
+- NEXT: S4 P0 command board (Command Center, read-only, operator-gated): running SHA/health;
+  8 mandatory shops scan status; opportunities; products in development; certified releases;
+  PDFs/galleries; Etsy draft status + remote ids; published/sales; costs + credits; blockers +
+  owners; agents active/idle/failed; status vocabulary CODE BUILT / INDEPENDENTLY REVIEWED /
+  INTEGRATED / DEPLOYED / RUNNING / PRODUCTION-VERIFIED / REAL COMMERCE VERIFIED. Base it on
+  claude/w6-INTEG1 per Main's queue. ws5 LOWs N1-N3 after.
+- Stop reason this tick: S3 part 3 work unit complete (RR posted); S4 starts next tick.
+
+## State at 2026-11-18T04:55Z (superseded)
 - S3 part 2 RR POSTED 497a8301 on opus2/ws4-stage-a1-activation (6969301528): WS4 Stage A
   part 1, the bounded public-activation grant, OFF in code (STAGE_A_ENABLED=False;
   refused in ceiling_refusals, issue, use). 10/10 tests, 27/27 mutants. 79-suite regression:
