@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-17T19:40:38.600117+00:00",
+ "generated_at": "2026-11-18T13:07:26.966044+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 138,
-  "handlers": 170,
+  "cadences": 140,
+  "handlers": 172,
   "agents": 34,
   "follow_on_edges": 92
  },
@@ -1265,6 +1265,7 @@
     "listing",
     "orchestrator",
     "pricing",
+    "publishing",
     "store_operator",
     "storefront_director"
    ],
@@ -1372,6 +1373,18 @@
       "period_seconds": 86400
      },
      {
+      "name": "standing_policy_shadow",
+      "agent": "publishing",
+      "job_type": "policy.issuer_shadow",
+      "period_seconds": 21600
+     },
+     {
+      "name": "standing_policy_stop_watch",
+      "agent": "publishing",
+      "job_type": "policy.stop_watch",
+      "period_seconds": 300
+     },
+     {
       "name": "cross_sell_graph",
       "agent": "listing",
       "job_type": "listing.cross_sell_graph",
@@ -1442,6 +1455,7 @@
     ]
    },
    "cadence": [
+    300,
     3600,
     21600,
     86400,
@@ -1481,6 +1495,7 @@
      "brambleloop.runtime.listing_package_ops",
      "brambleloop.runtime.pipeline",
      "brambleloop.runtime.release",
+     "brambleloop.runtime.standing_policy_ops",
      "brambleloop.runtime.storefront_ops",
      "brambleloop.runtime.storefront_watch",
      "brambleloop.seo.handler"
@@ -1502,6 +1517,8 @@
      "listing.seo",
      "listing.taxonomy_refresh",
      "listing.window_captures",
+     "policy.issuer_shadow",
+     "policy.stop_watch",
      "pricing.position",
      "seasonal.remerchandising",
      "seo.cycle",

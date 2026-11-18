@@ -925,6 +925,10 @@ def make_router(db) -> APIRouter:
 
     OWNER_GRANT_SIGNING_ACTIONS = ("publication.approve", "publication.rebase",
                                    "activation.approve", "activation.rebase")
+    # WS4-3: the standing policy acts that GRANT or re-anchor. Revoke and suspend only tighten,
+    # and preview reads, so they never enter the owner request.
+    STANDING_POLICY_SIGNING_ACTIONS = ("standing_policy.approve", "standing_policy.activate",
+                                       "standing_policy.resume", "standing_policy.rebase")
 
     @router.post("/actions/{action}")
     async def run_action(action: str, request: Request):
@@ -947,6 +951,14 @@ def make_router(db) -> APIRouter:
                 # WS4-0a: an owner publication/activation grant (or rebase) is signed only
                 # inside this request context, set here after session, CSRF/nonce and step-up.
                 # Review 6817118202 F6: ONLY the approve and rebase actions enter it.
+                from ...core import owner_grant_keys as _ogk
+
+                with _ogk.owner_request(auth.current_public_id(request) or "owner"):
+                    out = await run_in_threadpool(approvals.execute, db, action, body,
+                                                  actor=actor(request))
+            elif action in STANDING_POLICY_SIGNING_ACTIONS:
+                # WS4-3: a standing policy approval, activation, resume or rebase is signed
+                # only inside this request context, after session, CSRF/nonce and step-up.
                 from ...core import owner_grant_keys as _ogk
 
                 with _ogk.owner_request(auth.current_public_id(request) or "owner"):

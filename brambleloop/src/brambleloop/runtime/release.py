@@ -1769,7 +1769,12 @@ def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict
                                     # which of the other two reasons blocked it.
                                     "failed_realism": verdict.get("failed_realism") or [],
                                     "third_party_marks": verdict.get("third_party_marks")
-                                    or []}
+                                    or [],
+                                    # WS4 §3.3 check 11: who reviewed these exact bytes, so a
+                                    # reviewer from the generator's own family is refused.
+                                    "reviewer": {"provider": got.get("provider"),
+                                                 "model": got.get("model")},
+                                    "sha256": (shas or {}).get(frame.position)}
         if frame.role == "hero":
             # F-027 / F-031: identification needs a family to compare against, and the hero
             # must still read as that product at search-grid size. Either missing is

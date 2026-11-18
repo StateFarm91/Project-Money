@@ -127,7 +127,9 @@ def review(db, slug: str, version: str, *, provider=None, gate_open: bool | None
             else:
                 verdict, why = "clear", "communicates its job's claim"
             entry = {"job": job, "sha256": row["sha256"], "verdict": verdict, "why": why,
-                     "problems": sem.get("problems") or []}
+                     "problems": sem.get("problems") or [],
+                     # WS4 §3.3 check 11: the reviewer of these exact bytes.
+                     "reviewer": {"provider": got.get("provider"), "model": got.get("model")}}
             if job == "DESIRE" and verdict == "clear":
                 grid = inspection_mod.identify_at_grid(path, families=families, db=db,
                                                        provider=provider)
