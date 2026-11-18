@@ -696,8 +696,13 @@ def _not_attempted(db, key, r: dict, now: datetime, held: dict) -> dict | None:
     if last is not None and period and (now - last).total_seconds() <= period:
         return None
     cause = SR.shop_not_attempted(db, member, now=now, **held)
-    return {k: cause.get(k) for k in ("code", "detail", "job_type", "until", "incident")
-            if cause.get(k) is not None}
+    # `detail` is a forbidden key on the read-only route: the scheduler's fixed sentence
+    # leaves as `explanation`.
+    out = {k: cause.get(k) for k in ("code", "job_type", "until", "incident")
+           if cause.get(k) is not None}
+    if cause.get("detail"):
+        out["explanation"] = cause["detail"]
+    return out
 
 
 def scheduler(db, *, now: datetime) -> dict:
@@ -710,7 +715,7 @@ def scheduler(db, *, now: datetime) -> dict:
         {"alias": _alias(r["key"]), "job_type": r["job_type"],
          "last_attempted": r["last_attempted"], "hours_since": r["hours_since"],
          "limit_hours": r["limit_hours"], "cause": r["cause"].get("code"),
-         "cause_detail": r["cause"].get("detail")}
+         "cause_explanation": r["cause"].get("detail")}
         for r in SR.unattempted(db, now=now)]
     return out
 
