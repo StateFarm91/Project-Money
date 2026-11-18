@@ -131,6 +131,10 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                                "manual_adoption links a hand-made listing to its release"),
     "paid_call.replayed": ("windowed", "ops.production_evidence.paid_calls counts the "
                                        "last 24 h"),
+    # Review of a9feb805: releases a listing-package sweep left unrecorded.
+    "listing.package_release_failed": ("windowed", "ops.production_evidence."
+                                                   "listing_package_releases counts the "
+                                                   "last 24 h"),
     # INTEG8 (Batch 4): readers added on C04, C09 and INTELREC without an entry (caught by
     # test_cost_governance_wave2). Each reads every row of its action, so each is
     # lifetime_total: pruning would change the answer, not just shorten a window.

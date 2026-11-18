@@ -94,14 +94,31 @@ def queue(db) -> dict:
                            "finished_at": _iso(j.finished_at), "source": f"jobs:{j.id}"}
                           for j in dead]
         items = [{"status": k, "count": v} for k, v in sorted(counts.items())]
-        status = "DEGRADED" if counts.get("dead") else "OK"
+        # Review of a9feb805: a listing-package sweep that completed DEGRADED left releases
+        # unrecorded without a dead letter; the operations surface shows it like one.
+        from ...ops.production_evidence import (judge_listing_package_releases,
+                                                 listing_package_releases)
+
+        unrecorded = listing_package_releases(db, now=datetime.now(timezone.utc))
+        listing_ok = judge_listing_package_releases(unrecorded)
+        status = "DEGRADED" if counts.get("dead") or not listing_ok else "OK"
         if not counts:
             return envelope("UNKNOWN", [], ["jobs"], basis="unknown",
                             reason="no job has ever been recorded", provider="jobs")
+        reasons = []
+        if counts.get("dead"):
+            reasons.append(f"{counts.get('dead')} dead-lettered jobs")
+        if not listing_ok:
+            reasons.append(f"{unrecorded['unrecorded_releases']} listing release(s) not "
+                           f"recorded on a final attempt in 24 h "
+                           f"({unrecorded['degraded_sweeps']} degraded sweep(s))")
         return envelope(status, items, ["jobs"], provider="jobs",
                         last_job_done_at=_iso(last_done), dead_letters=dead_items,
-                        reason=(f"{counts.get('dead')} dead-lettered jobs"
-                                if counts.get("dead") else None))
+                        unrecorded_listing_releases={
+                            k: unrecorded[k] for k in ("degraded_sweeps",
+                                                       "degraded_job_ids",
+                                                       "unrecorded_releases", "by_release")},
+                        reason="; ".join(reasons) or None)
 
     return guard("jobs", read, sources=["jobs"])
 

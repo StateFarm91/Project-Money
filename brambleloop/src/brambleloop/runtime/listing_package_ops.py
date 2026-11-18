@@ -8,17 +8,57 @@ model, network or spend, and nothing is published. Integrator item INTEG-LISTING
 """
 from __future__ import annotations
 
+import re
+from collections import Counter
+
 from .worker import JobContext, handlers
 
 JOB_TYPE = "listing.package"
 RELEASE_FAILED = "listing.package_release_failed"
+_CLASS_NAME = re.compile(r"^[A-Z][A-Za-z0-9_]{1,63}$")
 
 
-def _failure_message(failed: list[dict], single: bool) -> str:
+class ListingPackageNotRecorded(RuntimeError):
+    """Releases of a listing-package run were not recorded. The worker writes `last_error` as
+    `<class name>: <message>`; the class raised is a subclass NAMED after the releases' real
+    (most common) error class, so a dead letter reads e.g. `StringDataRightTruncation: ...`
+    and `ops.production_evidence.error_class` reports that class, not a generic wrapper.
+    Only the class name travels; the message holds release keys and class names only."""
+
+
+_NAMED: dict[str, type] = {}
+
+
+def _not_recorded(failed: list[dict], single: bool, *, degraded: bool = False):
+    """(exception class, message) for releases that were not recorded."""
     named = ", ".join(f"{f['key']} ({f['error_class']})" for f in failed[:10])
     more = f" and {len(failed) - 10} more" if len(failed) > 10 else ""
-    return (f"listing package {'event' if single else 'sweep'}: {len(failed)} release(s) not "
-            f"recorded: {named}{more}; retry the job")
+    what = f"listing package {'event' if single else 'sweep'}"
+    tail = ("completed degraded; the next sweep retries them" if degraded else "retry the job")
+    message = f"{what}: {len(failed)} release(s) not recorded: {named}{more}; {tail}"
+    top = Counter(f["error_class"] for f in failed).most_common(1)[0][0]
+    if not (isinstance(top, str) and _CLASS_NAME.match(top)):
+        return ListingPackageNotRecorded, message
+    cls = _NAMED.get(top)
+    if cls is None:
+        cls = _NAMED[top] = type(top, (ListingPackageNotRecorded,), {"__module__": __name__})
+    return cls, message
+
+
+def _replace_last_error(ctx: JobContext, text: str | None) -> None:
+    """Review of a9feb805 (LOW): a DONE job must not keep an earlier attempt's `last_error`.
+    Written under this run's lease (fenced on the lease token), before `complete`."""
+    job_id = getattr(ctx.job, "id", None)
+    if job_id is None:
+        return
+    from sqlalchemy import update
+
+    from ..core.models import Job
+
+    with ctx.db.session() as s:
+        s.execute(update(Job).where(Job.id == job_id,
+                                    Job.lease_token == getattr(ctx.job, "lease_token", None))
+                  .values(last_error=text))
 
 
 @handlers.register(JOB_TYPE)
@@ -65,29 +105,42 @@ def handle_listing_package(ctx: JobContext) -> dict:
                                                          "review_requested", "error_class",
                                                          "refused")}
                                   for r in out["results"][:30]]})
-    final_attempt = int(getattr(ctx.job, "attempts", 0) or 0) >= int(
-        getattr(ctx.job, "max_attempts", 0) or 0)
+    attempts = int(getattr(ctx.job, "attempts", 0) or 0)
+    max_attempts = int(getattr(ctx.job, "max_attempts", 0) or 0)
+    # Review of a9feb805 (LOW): with max_attempts <= 0 the queue dead-letters the first
+    # failure (`attempts >= max_attempts`), so every attempt IS the last one; say so
+    # explicitly rather than by the accident of `0 >= 0`.
+    final_attempt = max_attempts <= 0 or attempts >= max_attempts
     for f in failed:
         # Each failing release is named durably, with its real error class.
         ctx.audit(RELEASE_FAILED, artifact=str(f["key"]), detail={
             **f, "trigger": "event" if single else "sweep",
-            "attempt": int(getattr(ctx.job, "attempts", 0) or 0),
-            "final_attempt": final_attempt})
-    if failed and (single or not final_attempt):
-        # Let the durable worker retry; do not report an unrecorded snapshot as done. The
-        # message says what actually failed -- a ValueError is not "changed repeatedly".
-        raise RuntimeError(_failure_message(failed, single))
+            "attempt": attempts, "final_attempt": final_attempt})
+    # Review of a9feb805 (MEDIUM): a sweep in which NOTHING was recorded is a failed sweep,
+    # on the final attempt too -- it dead-letters, with the real error class and the failing
+    # releases, where every DEAD-reading check sees it (the PostgreSQL period_key truncation
+    # failed every release's record; that must never pass as DONE every six hours).
+    recorded = [r for r in out["results"] if not r.get("retry")]
+    if failed and (single or not final_attempt or not recorded):
+        # Let the durable worker retry (or dead-letter on the last attempt); do not report an
+        # unrecorded snapshot as done. A ValueError is not "changed repeatedly".
+        cls, message = _not_recorded(failed, single)
+        raise cls(message)
     degraded = bool(failed)
     refused = next((r["refused"] for r in out["results"] if r.get("refused")), None)
     if degraded:
-        # One release failing every attempt does not dead-letter the six-hourly sweep: every
-        # other release is recorded, the failing ones are named above, and the next sweep
-        # tries them again.
+        # Some releases recorded, some not, on the last attempt: the sweep completes so one
+        # bad release does not dead-letter the rest, but DEGRADED and visibly so -- the
+        # failing releases are named above (`listing.package_release_failed`, final_attempt)
+        # and `ops.production_evidence.listing_package_releases` reports them; last_error is
+        # replaced with what actually happened on this attempt.
+        cls, message = _not_recorded(failed, single, degraded=True)
+        _replace_last_error(ctx, f"{cls.__name__}: {message}")
         return {"ran": True, "trigger": "sweep", "eligible": out.get("eligible", True),
                 "releases": out["releases"], "ready": out["ready"],
                 "changed": out["changed"], "publishes": False,
                 "work_done": bool(out["changed"]), "degraded": True,
-                "failed_releases": failed[:30]}
+                "recorded": len(recorded), "failed_releases": failed[:30]}
     return {"ran": True, "trigger": "event" if single else "sweep",
             "eligible": out.get("eligible", True), "releases": out["releases"],
             "ready": out["ready"], "changed": out["changed"], "publishes": False,

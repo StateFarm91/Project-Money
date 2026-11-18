@@ -610,7 +610,13 @@ def _package_one(db, slug: str, version: str, *, expected_release: str = "") -> 
 
 # Review of 56f92eb9 M4: what a retryable per-release result failed with, by class only (an
 # exception's text can carry database or provider detail and is not recorded durably).
-CHANGED_REPEATEDLY = "PackageChangedRepeatedly"
+class PackageChangedRepeatedly(RuntimeError):
+    """A release's package kept changing while it was assembled (never raised; its name is the
+    recorded error class, and being a real exception class lets `ops.production_evidence`
+    name it on a dead letter or a degraded sweep in any process)."""
+
+
+CHANGED_REPEATEDLY = PackageChangedRepeatedly.__name__
 
 
 def _error_class(err) -> str:
