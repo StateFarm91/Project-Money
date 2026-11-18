@@ -118,3 +118,4 @@
 {"at": "2026-11-17T22:44:33Z", "worker": "opus2", "assignment": "S2", "event": "checkpoint", "sha": "9d4abc1b", "note": "S2 fix for 6957356475 on opus2/s2-openai-provider-fix (comment 6963175262); RR after neighbour regression"}
 {"at": "2026-11-17T23:15:09Z", "worker": "opus2", "assignment": "S2", "event": "review_requested", "sha": "9d03acb2", "note": "S2 fix for 6957356475 on opus2/s2-openai-provider-fix (comment 6963803447)"}
 {"at": "2026-11-18T02:44:12Z", "worker": "opus2", "assignment": "S3", "event": "review_requested", "sha": "fa3a09e9", "note": "WS4-7 Mode T issuer service on opus2/ws4-7-mode-t (comment 6967426295); owner spend + DB role needed to run it"}
+{"at": "2026-11-18T04:44:24Z", "worker": "opus2", "assignment": "S3", "event": "review_requested", "sha": "497a8301", "note": "WS4 Stage A part 1 activation grant, off in code, on opus2/ws4-stage-a1-activation (comment 6969301528)"}
