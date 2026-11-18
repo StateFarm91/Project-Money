@@ -266,6 +266,17 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "standing_policy.stop_watch_reading": ("windowed",
                                            "ops.standing_stop.last_reading (silence); "
                                            "ops.standing_shadow_gate 7-day continuity"),
+    # WS4-7: the issuer's request/answer rows. `standing_grants.pending_requests` reads a
+    # request as pending while no issued or held row names it. Each request has exactly one
+    # answer, written after it, so the window always prunes a request no later than its
+    # answer and keep-per-action keeps the newest requests' answers too. Pruning can only
+    # drop a request (no grant: fail closed); the grant itself lives in `standing_grants`.
+    "policy.grant_requested": ("windowed",
+                               "ops.standing_grants.pending_requests (unanswered requests)"),
+    "policy.grant_issued": ("windowed",
+                            "ops.standing_grants.pending_requests marks a request answered"),
+    "policy.grant_held": ("windowed",
+                          "ops.standing_grants.pending_requests marks a request answered"),
     "owner.storefront.approved": ("lifetime_total",
                                   "ops.storefront_authority grant chain (sealed_chain)"),
     "owner.storefront.revoked": ("lifetime_total",

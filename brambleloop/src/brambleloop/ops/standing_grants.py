@@ -50,6 +50,7 @@ REQUESTED = "policy.grant_requested"
 ISSUED = "policy.grant_issued"
 CONSUMED = "policy.grant_consumed"
 HELD = "policy.grant_held"
+_REQUEST_SCAN = 500   # request rows read per pass, after answered ones are excluded
 ACTOR = "policy_issuer"
 HEARTBEAT_FRESH = timedelta(minutes=5)
 _ETSY_CREDENTIAL_VARS = ("ETSY_API_KEY", "ETSY_KEYSTRING", "ETSY_SHARED_SECRET",
@@ -479,8 +480,12 @@ def pending_requests(db, *, limit: int = 20) -> list[dict]:
     with db.session() as s:
         answered = {int((d or {}).get("request_id") or 0) for d in s.scalars(
             select(AuditLog.detail).where(AuditLog.action.in_((ISSUED, HELD))))}
-        rows = list(s.execute(select(AuditLog.id, AuditLog.detail).where(
-            AuditLog.action == REQUESTED).order_by(AuditLog.id).limit(500)))
+        # Answered rows are excluded in SQL, before the limit: a limit taken first would
+        # fill with answered requests and never reach a new one.
+        q = select(AuditLog.id, AuditLog.detail).where(AuditLog.action == REQUESTED)
+        if answered:
+            q = q.where(AuditLog.id.notin_(answered))
+        rows = list(s.execute(q.order_by(AuditLog.id).limit(_REQUEST_SCAN)))
     out = []
     for rid, d in rows:
         if rid in answered:

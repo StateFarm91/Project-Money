@@ -258,6 +258,23 @@ def test_an_in_policy_request_is_answered_with_a_signed_single_use_job_bound_gra
         _reset()
 
 
+def test_a_new_request_is_seen_past_any_number_of_answered_ones():
+    try:
+        db, c, a = _effective_db()
+        with patch.object(SG, "_REQUEST_SCAN", 2):
+            for job in (1, 2, 3):
+                rid = SG.request_grant(db, slug=SLUG, version=VERSION, release="a" * 64,
+                                       job_id=job)
+                with db.session() as s:
+                    s.add(AuditLog(actor=SG.ACTOR, action=SG.HELD, artifact=SLUG,
+                                   detail={"request_id": rid}))
+            new = SG.request_grant(db, slug=SLUG, version=VERSION, release="a" * 64,
+                                   job_id=4)
+            assert [r["request_id"] for r in SG.pending_requests(db)] == [new]
+    finally:
+        _reset()
+
+
 def test_an_expired_or_tampered_grant_is_refused_at_use():
     try:
         db, c, a = _effective_db(slugs=(SLUG, SLUG + "-2"))
