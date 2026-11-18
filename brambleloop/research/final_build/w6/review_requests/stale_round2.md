@@ -115,8 +115,31 @@ Now both refuse.
 
 ## L3: PG run of the e2e convergence test
 
-See "Suites" below.
+`pg_e2e_convergence` in `test_eng_stale_round2.py` (PG list only, since it already runs on SQLite in
+round 1) runs round 1's `test_end_to_end_a_moved_chain_converges_in_one_attempt` on a disposable PG16
+database. This covers the real chain: compile, build, move the chain, sentinel, rebuild, verify,
+resolve. **OK on PG16.**
 
 ## Suites
 
-See the end of this file.
+1. **57 related suites** at 962d628 (every suite that references retry_hold_reason, probe_if_due,
+   rebuild-incomplete, systemic_evidence, stale_rebuilds, ops.sentinel, rebuild_graph, withholding,
+   model.probe or chain.rebuild), plus round 2. Venv was built from the unpinned `requirements.txt`:
+   714 passing, 17 suites failing. 16 of the 17 failed only because that venv had a starlette that
+   needs `httpx2`, which is an environment issue.
+2. **Rerun of the 17 + both stale-loop suites** at 784b8dc, venv built as the lock files prescribe
+   (`requirements.lock` + `requirements-test.lock`, `--require-hashes`): **365 passing, 1 suite
+   failing**:
+   - `test_w4_listready::test_f8_every_etsy_write_call_site_is_classified...` reports
+     "unclassified Etsy write call sites: approvals.py `_standing_policy`".
+   - This is **pre-existing**: it fails identically on 4b683993 (checked in a worktree). It comes from
+     the WS4 standing-policy merge and is not touched by this change.
+3. `test_eng_stale_round2`: 9/9 SQLite, 9/9 PG16 (8 checks + the e2e). `test_eng_stale_rebuild_loop`
+   (round 1): all OK on SQLite and PG16.
+4. On 4b683993: the round-2 file fails 17/17 (9 SQLite + 8 PG; the e2e was added after that run and
+   passes on the base by design).
+
+PG status: PostgreSQL 16 via the `_disposable_cluster` pattern. M-A and M-C (plus M-B, M-D and L1)
+are proven on PG.
+
+No deploy, no Railway, no production, no secrets, no spend.
