@@ -5504,7 +5504,10 @@ def _rebuild_incomplete(ctx: JobContext, slug: str, version: str, *, stale: list
                    "; no refusal was recorded -- the stage ran and did not rewrite them"))
             inc.severity = "P1"
         inc.summary = summary[:500]
-        inc.detail = dict(inc.detail or {}, **detail)
+        merged = dict(inc.detail or {}, **detail)
+        if "held" not in detail:
+            merged.pop("held", None)          # a fresh budget (new change) is not held
+        inc.detail = merged
         return detail
 
 
