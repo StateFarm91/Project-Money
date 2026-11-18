@@ -149,7 +149,9 @@ def test_bases_never_supersede_each_other():
             s.add(ListingOutcome(product_slug=slug, version="1.0.0",
                                  period_start="2026-09-01", period_end="2026-09-30",
                                  impressions=visits * 10, visits=visits, favourites=1,
-                                 orders=orders, source=EXPORT_SOURCE + "fixture-1"))
+                                 orders=orders, source=EXPORT_SOURCE + "fixture-1",
+                                 # WS5 E4: a learner reads only rows marked real
+                                 detail={"provenance": "real"}))
     first = CL.record_lessons(db)
     bases = {p["basis"] for p in first["published"]}
     assert bases == {CL.EXPORT, CL.OFFICIAL}, first["published"]
