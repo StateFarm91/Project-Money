@@ -233,3 +233,22 @@ All runs used `JOBS=… SUITE_REGISTRY=0 PY=/tmp/venv/bin/python bash run_tests.
   - `test_w4_pipe_board` `proposal_certifies:diamond-lattice-dishcloth` and `basketweave-textured-washcloth`, and `proposals_reach_visual`. A4a's dishcloth band refuses two proposal CIRs (21.6 x 15.9 and 19.2 x 17.0 cm). These are the same failures on the base, unchanged by this branch.
 
 **3. After the retitle:** `test_w4_pipe_board test_texture test_release_versions test_geometry test_s1_product_truth_3` → **TOTAL PASSING: 156; suites failing: 1** (`test_w4_pipe_board`, with only the base failures above).
+
+**4. `SUITES="test_product_run"`, run alone:** **TOTAL PASSING: 36; suites failing: 0** (3644 s).
+
+- Run record `artifacts/suite_runs/20261118T153536Z-8896.json`: GIT SHA cdbe5d5, tree clean at start.
+- During the run, HEAD moved to 2a858b5. That commit adds only this file and deletes the root REVIEW_REQUEST.md, so the runner marks the run not release-eligible. The code under test is the code at the final SHA.
+
+## Files
+
+- `brambleloop/src/brambleloop/creative/size_truth.py`: fail-closed tokenizer, `ALLOWED_NON_SIZE`, `SIZE_CLASS_VOCAB`, yards, quote normalisation, pet blankets, `facts_of`, `plan_refusal`, `drafted_refusal`.
+- `brambleloop/src/brambleloop/gates/certificate.py`: `size_findings_for`, the one size check; the listing title is checked with the CIR's facts.
+- `brambleloop/src/brambleloop/creative/fallback_constructions.py`: `plan` wraps `_plan` with `plan_refusal`; `_size_refusal` adds `drafted_refusal`.
+- `brambleloop/src/brambleloop/runtime/pipeline.py`: `drafted_size`; merge resolution.
+- `brambleloop/src/brambleloop/products/texture.py`, `radar/opportunity.py`, `tests/data/release_fingerprints.tsv`, `tests/test_release_versions.py`, `tests/test_w4_pipe_board.py`: the bobble pillow retitle to 1.5.0.
+- `brambleloop/tests/test_s1_product_truth_3.py`: new, 16 tests.
+- `brambleloop/tests/test_a4a_fix_object_size.py`: merge resolution.
+- `brambleloop/DECISION_LOG.md`: D-S1-FAIL-CLOSED.
+- Root `REVIEW_REQUEST.md`: deleted. This file replaces it.
+
+**Final SHA:** the head of `eng/s1-product-truth-3`, which is the commit that adds this section. Code is unchanged since cdbe5d5.
