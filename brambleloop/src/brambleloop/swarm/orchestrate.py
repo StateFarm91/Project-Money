@@ -261,6 +261,7 @@ def thrash_sweep(db, *, now: datetime | None = None,
     detector = ThrashDetector()
     tripped: dict[str, dict] = {}
     observed = 0
+    gate_cache: dict = {}
     with db.session() as s:
         jobs = list(s.scalars(select(Job).where(or_(
             Job.status == JobStatus.DEAD,
@@ -270,6 +271,18 @@ def thrash_sweep(db, *, now: datetime | None = None,
                 job.created_at.replace(tzinfo=timezone.utc)
             if created < since:
                 continue
+            gate = gate_of(job.job_type)
+            if gate:
+                # ENG watchlist-cadence review round 2 (A): a run of a credential-gated job
+                # type that ended while the gate was refused, with the gate genuinely fixed
+                # since, describes the old credential, not the loop. Re-observing it every
+                # hour would rewrite the breaker's suspension (since=now, gate_refused=False)
+                # and refuse the probe's lift for good. Runs after the fix still count.
+                ended = _aware(job.finished_at) or created
+                if (gate, ended) not in gate_cache:
+                    gate_cache[(gate, ended)] = gate_changed_since(s, gate, ended)
+                if gate_cache[(gate, ended)] is not None:
+                    continue
             if job.status == JobStatus.DEAD:
                 result = {"error": (job.last_error or "")[:500]}
             elif job.status == JobStatus.DONE and float(job.cost_cad or 0.0) > 0:

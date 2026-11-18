@@ -457,6 +457,180 @@ def test_shop_backoff_from_refused_reads_lifts_once_a_probe_succeeds():
     assert got.get("deferred") is True, got
 
 
+# --- Review round 2 (of 77795758) -------------------------------------------------------
+
+REFUSED_ERROR = "EtsyAuthError: ping returned HTTP 403: API key refused"
+
+
+def _dead_mjs(db, at, n=3):
+    """`n` DEAD mjs.scan jobs whose final error is the refused key, one per 2 h before `at`."""
+    with db.session() as s:
+        for i in range(n):
+            t = at - timedelta(hours=2 * (n - i))
+            s.add(Job(agent="market_radar", job_type="mjs.scan",
+                      inputs={"cadence": "mjs_scan"}, status=JobStatus.DEAD,
+                      last_error=REFUSED_ERROR, cost_cad=0.0,
+                      created_at=t, started_at=t, finished_at=t + timedelta(minutes=1)))
+
+
+def test_a_breaker_suspension_lifted_by_the_probe_is_not_rewritten_by_the_next_sweep():
+    """Review A. The breaker trips on DEAD runs that failed on the refused key; the owner's fix
+    (an OK probe) lifts it. The next hourly sweep still sees the same DEAD runs in its 72 h
+    window: it must not re-suspend the job type on them (on 77795758 it rewrote the
+    suspension with since=now and gate_refused=False, refusing the lift for good)."""
+    db = _db()
+    t0 = utcnow() - timedelta(hours=10)
+    _probe(db, t0 - timedelta(hours=12), ok=False)
+    _dead_mjs(db, t0)
+    out = orc.thrash_sweep(db, now=t0)
+    assert out["tripped"] == 1 and "mjs.scan" in out["suspended"], out
+    fixed = t0 + timedelta(minutes=30)
+    _probe(db, fixed, ok=True)
+    assert "mjs.scan" not in orc.suspended_job_types(db, now=fixed + timedelta(minutes=1))
+    for h in (1, 2, 5):
+        out = orc.thrash_sweep(db, now=t0 + timedelta(hours=h))
+        assert "mjs.scan" not in out["suspended"], (h, out)
+    with db.session() as s:
+        inc = s.scalar(select(Incident).where(
+            Incident.signature.like(f"{orc.THRASH_SIGNATURE_PREFIX}mjs.scan:%"),
+            Incident.resolved.is_(False)))
+        sus = inc.detail["suspension"]
+        assert sus["gate_refused"] is True and sus["since"] == t0.isoformat(), sus
+    # 80 h later the trips have left the window; the lift still holds
+    later = t0 + timedelta(hours=80)
+    assert "mjs.scan" not in orc.thrash_sweep(db, now=later)["suspended"]
+    assert "mjs.scan" not in orc.suspended_job_types(db, now=later)
+
+
+def test_the_same_loop_after_the_fix_still_trips_the_breaker():
+    """Control for review A: three new DEAD runs *after* the OK probe are a loop with a working
+    key. They trip the breaker and that suspension does not lift on later OK probes."""
+    db = _db()
+    t0 = utcnow() - timedelta(hours=20)
+    _probe(db, t0 - timedelta(hours=12), ok=False)
+    _dead_mjs(db, t0)
+    orc.thrash_sweep(db, now=t0)
+    _probe(db, t0 + timedelta(minutes=30), ok=True)
+    _dead_mjs(db, t0 + timedelta(hours=8))          # 3 more, all after the fix
+    out = orc.thrash_sweep(db, now=t0 + timedelta(hours=8))
+    assert "mjs.scan" in out["suspended"], out
+    _probe(db, t0 + timedelta(hours=9), ok=True)    # a routine OK probe is no changed gate
+    assert "mjs.scan" in orc.suspended_job_types(db, now=t0 + timedelta(hours=10))
+
+
+def _legacy_backoff(db, at, *, job_type=SCAN):
+    """A backoff as the old build wrote it: no gate recorded, judged by the probe in force."""
+    with db.session() as s:
+        s.add(Incident(severity="P3", signature=f"{orc.BACKOFF_SIGNATURE_PREFIX}{job_type}",
+                       summary="legacy", at=at,
+                       detail={"suspension": {"kind": orc.BACKOFF, "job_type": job_type,
+                                              "level": 5, "factor": 32,
+                                              "suspend_until": (at + timedelta(days=8))
+                                              .isoformat()}}))
+
+
+def test_only_a_genuine_gate_change_lifts_a_backoff():
+    """Review B (kills M2: dropping 'the probe in force then was refused'). The lift is the
+    credential changing, not the 6-hourly probe clock: OK->OK and refused->refused must not
+    lift; refused->OK must."""
+    now = utcnow()
+    t0 = now - timedelta(days=2)
+    cases = {  # probes before the backoff, probes after it -> lifted?
+        "ok->ok": ([True], [True, True], False),
+        "refused->refused": ([False], [False], False),
+        "refused->ok": ([False], [True], True),
+        "ok->refused->ok": ([True], [False, True], False),
+        "no probe then->ok": ([], [True], False),
+    }
+    for name, (before, after, lifts) in cases.items():
+        db = _db()
+        for i, ok in enumerate(before):
+            _probe(db, t0 - timedelta(hours=6 * (len(before) - i)), ok=ok)
+        _legacy_backoff(db, t0)
+        for i, ok in enumerate(after):
+            _probe(db, t0 + timedelta(hours=6 * (i + 1)), ok=ok)
+        held = SCAN in orc.suspended_job_types(db, now=now)
+        assert held is (not lifts), (name, "lifted" if not held else "held")
+        with db.session() as s:
+            got = orc.gate_changed_since(s, orc.ETSY_GATE, t0)
+        assert bool(got) is lifts, (name, got)
+    # (kills M3) the newest-written probe is an OK row stamped *before* the backoff (a
+    # backfilled or clock-skewed write) while a refusal was in force at the backoff: an OK
+    # from before the backoff is no change after it.
+    db = _db()
+    _probe(db, t0 - timedelta(hours=1), ok=False)
+    _legacy_backoff(db, t0)
+    _probe(db, t0 - timedelta(hours=3), ok=True)
+    assert SCAN in orc.suspended_job_types(db, now=now)
+    with db.session() as s:
+        assert orc.gate_changed_since(s, orc.ETSY_GATE, t0) is None
+
+
+def test_the_sweep_still_backs_off_an_unchanged_poll_across_routine_ok_probes():
+    """Review B, the sweep's side of M2: identical (non-gated) runs of a gated job type while
+    the key works are a poll without progress. A routine OK probe after them is no changed
+    input, so the sweep must still back them off."""
+    db = _db()
+    now = utcnow()
+    t0 = now - timedelta(hours=30)
+    _probe(db, t0 - timedelta(hours=1), ok=True)
+    with db.session() as s:
+        for i in range(3):
+            at = t0 + timedelta(hours=6 * i)
+            s.add(Job(agent="market_radar", job_type=SCAN, inputs={"cadence": "watchlist_scan"},
+                      status=JobStatus.DONE, cost_cad=0.0,
+                      outputs={"ran": True, "observed": 0, "outages": 0, "work_done": 0},
+                      created_at=at, started_at=at, finished_at=at + timedelta(minutes=1)))
+    _probe(db, now - timedelta(hours=1), ok=True)
+    out = orc.thrash_sweep(db, now=now)
+    assert SCAN in [a["job_type"] for a in out["backoff"]["applied"]], out["backoff"]
+    assert SCAN in out["suspended"], out
+
+
+def test_production_magnitude_32x_backoff_driven_by_the_sweep_lifts_and_cadence_resumes():
+    """Review LOW: the reproduction reached factor 2. Here the hourly sweep itself carries the
+    old build's standing backoff to production's level 5 (32x, eight 6 h periods), the
+    owner fixes the key, and the scan is enqueued in the very next window, reads every shop,
+    and keeps its 6-hourly cadence for a day with the hourly sweep running."""
+    db = _db()
+    now = utcnow() - timedelta(days=2)
+    t0 = now - timedelta(hours=30)
+    _probe(db, t0 - timedelta(hours=1), ok=False)
+    last_id = _legacy_runs(db, t0)                 # the old build's unmarked refused runs
+    with db.session() as s:
+        s.add(Incident(severity="P3", signature=f"{orc.BACKOFF_SIGNATURE_PREFIX}{SCAN}",
+                       summary="legacy", at=t0,
+                       detail={"suspension": {"kind": orc.BACKOFF, "job_type": SCAN,
+                                              "level": 4, "factor": 16,
+                                              "suspend_until": (t0 + timedelta(days=4))
+                                              .isoformat(),
+                                              "last_counted_job_id": last_id - 1}}))
+    out = orc.thrash_sweep(db, now=now)            # key still refused: level 4 -> 5
+    hold = orc.suspended_job_types(db, now=now)[SCAN]
+    assert hold["factor"] == orc.MAX_BACKOFF_FACTOR == 32, (hold, out["backoff"])
+    assert hold["until"] >= (now + timedelta(seconds=PERIOD * 32)).isoformat(), hold
+    try:
+        window = _fix_and_tick(db, now + timedelta(minutes=30))
+        assert SCAN not in orc.suspended_job_types(db, now=window)
+        assert _scan_jobs(db, JobStatus.PENDING), "the scan was not enqueued after the fix"
+        _run_pending_scan(db, window)
+        last = _scan_jobs(db)[-1]
+        assert last.outputs.get("ran") is True and \
+            last.outputs.get("observed") == len(intelrec.SHOPS), last.outputs
+        # a day of hourly ticks and sweeps: every 6 h window enqueues and runs the scan
+        runs = 0
+        t = window + timedelta(hours=1)
+        while t < window + timedelta(hours=24):
+            Scheduler(db).tick(now=t)
+            runs += _run_pending_scan(db, t)
+            assert SCAN not in orc.thrash_sweep(db, now=t + timedelta(minutes=5))["suspended"]
+            t += timedelta(hours=1)
+        assert runs >= 24 * 3600 // PERIOD - 1, runs
+    finally:
+        watchlist.reader_factory = None
+        os.environ.pop("ETSY_API_KEY", None)
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in list(globals().items()):
