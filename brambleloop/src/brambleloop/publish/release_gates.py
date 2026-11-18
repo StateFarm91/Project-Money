@@ -1353,13 +1353,14 @@ def rebuild_withheld(db, slug: str) -> tuple[str | None, str | None]:
 
 
 def rebuild_exhausted(row) -> bool:
-    """A `rebuild-incomplete:<slug>` row whose attempts are used up (held, named reason)."""
-    from ..ops.rebuild_graph import REBUILD_INCOMPLETE_SIGNATURE, REBUILD_MAX_ATTEMPTS
+    """A `rebuild-incomplete:<slug>` row whose attempts are used up (held, named reason).
+    A row written before eng/stale-rebuild-loop is not: it gets a fresh budget first."""
+    from ..ops.rebuild_graph import REBUILD_INCOMPLETE_SIGNATURE, incomplete_exhausted
 
     if not str(row.signature or "").startswith(f"{REBUILD_INCOMPLETE_SIGNATURE}:"):
         return False
-    return bool((row.detail or {}).get("held")) or int(row.report_count or 1) >= \
-        REBUILD_MAX_ATTEMPTS
+    # review M-E of 0d2e6cbc: one definition; a pre-branch row is not exhausted by its count
+    return incomplete_exhausted(row.report_count, row.detail)
 
 
 def _waivable_staleness(row, slug: str, fresh: set[str]) -> bool:

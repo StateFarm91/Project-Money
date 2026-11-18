@@ -1018,7 +1018,14 @@ NO_KEY_REASON = "no ANTHROPIC_API_KEY in this environment"
 def key_fingerprint(key: str | None = None) -> str | None:
     """A non-secret tag for the configured key: the first 8 hex of its SHA-256, or None when
     no key is set. Never the key; it only lets a reused probe prove it was made with the key
-    in force now (review M-D of 4b683993)."""
+    in force now (review M-D of 4b683993).
+
+    Persisted (review LOW of 0d2e6cbc, accepted as non-secret): `key_fp` is written to the
+    `model.probe` audit rows, which are retained and readable by operators. 32 bits of an
+    unsalted SHA-256 of a high-entropy API key reveal nothing usable about the key -- it
+    cannot be inverted or used to authenticate -- and tell the reader only whether two probes
+    were made with the same key. Do not lengthen it, salt-and-store it elsewhere, or record
+    any other part of the key."""
     import hashlib
 
     key = AnthropicProvider.key() if key is None else (key or "").strip()

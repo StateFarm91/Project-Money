@@ -247,9 +247,16 @@ def publishing_halt(db, *, now: datetime) -> dict:
 
 
 def _exhausted(report_count, detail) -> bool:
-    from ..ops.rebuild_graph import REBUILD_MAX_ATTEMPTS
+    # review M-E of 0d2e6cbc: the one definition the retry hold and the publish gate read
+    from ..ops.rebuild_graph import incomplete_exhausted
 
-    return bool((detail or {}).get("held")) or int(report_count or 1) >= REBUILD_MAX_ATTEMPTS
+    return incomplete_exhausted(report_count, detail)
+
+
+def _legacy(detail) -> bool:
+    from ..ops.rebuild_graph import legacy_incomplete
+
+    return legacy_incomplete(detail)
 
 
 def stale_rebuilds(db, *, now: datetime) -> dict:
@@ -330,6 +337,18 @@ def stale_rebuilds(db, *, now: datetime) -> dict:
         "rebuild_incomplete_held_reasons": dict(sorted(
             (sig.split(":", 1)[1], str((d or {}).get("held") or f"{_n} attempts")[:200])
             for sig, _n, d in incomplete if _exhausted(_n, d))[:EXAMPLES]),
+        # round 3 (review M-E of 0d2e6cbc): a remaining hold is visible to the owner, not
+        # silent -- the full count (the lists above are capped), the pre-branch rows still
+        # waiting for their first restate under the new budget (retried, not held), and the
+        # rows whose legacy count was reset (slug -> the legacy count kept in the row).
+        "rebuild_incomplete_held_count": sum(1 for _s, _n, d in incomplete
+                                             if _exhausted(_n, d)),
+        "rebuild_incomplete_legacy_budget_pending": sorted(
+            sig.split(":", 1)[1] for sig, _n, d in incomplete if _legacy(d))[:SLUGS_PER_STAGE],
+        "rebuild_incomplete_budget_reset": dict(sorted(
+            (sig.split(":", 1)[1],
+             int(((d or {}).get("budget_reset") or {}).get("legacy_report_count") or 0))
+            for sig, _n, d in incomplete if (d or {}).get("budget_reset"))[:EXAMPLES]),
         "newest_verified_rebuild_at": max((_iso(c.at) for c in real), default=None),
         "newest_verified_rebuild_audit_ids": sorted((int(c.id) for c in real),
                                                     reverse=True)[:EXAMPLES],
@@ -887,7 +906,11 @@ def checks(db, *, now: datetime | None = None) -> list[dict]:
          "evidence": short(stale, ("readable", "error_class", "sentinel_last_at",
                                    "sentinel_stale_artefacts", "rebuilds_verified_48h",
                                    "oldest_unfinished_rebuild_age_hours",
-                                   "open_stale_artefact_incidents"))},
+                                   "open_stale_artefact_incidents",
+                                   # round 3 (M-E): a held rebuild is named here, not silent
+                                   "rebuild_incomplete_held_count",
+                                   "rebuild_incomplete_held_reasons",
+                                   "rebuild_incomplete_legacy_budget_pending"))},
         {"check": "no_repeated_paid_call_in_24h", "ok": judge_paid_calls(paid),
          "evidence": short(paid, ("readable", "error_class", "intents_7d",
                                   "billed_in_window", "repeated_billed_requests"))},

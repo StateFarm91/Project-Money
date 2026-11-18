@@ -58,6 +58,19 @@ def _legacy_row(s, slug, *, count, stale=None):
                            "fingerprints": FP}))
 
 
+def _exhausted_null_slug_row(s, slug, *, stale=None):
+    """Round 3 (M-E): a pre-branch row is no longer exhausted by its count -- it gets a fresh
+    budget first. M-A's property (slug-keyed readers also match the signature) is pinned on a
+    row exhausted under the new budget (`attempts`, `held`) whose product_slug is NULL."""
+    s.add(Incident(severity="P1", signature=f"rebuild-incomplete:{slug}", product_slug=None,
+                   halts_publication=True, report_count=G.REBUILD_MAX_ATTEMPTS,
+                   summary=f"artefacts of {slug} still carry a moved input",
+                   detail={"stale": stale or [f"marketing_asset:{slug}:x"], "reason": "t",
+                           "fingerprints": FP, "attempts": G.REBUILD_MAX_ATTEMPTS,
+                           "held": f"{G.REBUILD_MAX_ATTEMPTS} rebuild attempts at this "
+                                   "change left 1 artefact(s) stale"}))
+
+
 # --- M-A ----------------------------------------------------------------------------------------
 
 def test_ma_legacy_null_slug_exhausted_row_holds_the_retry():
@@ -66,7 +79,7 @@ def test_ma_legacy_null_slug_exhausted_row_holds_the_retry():
     try:
         with db.session() as s:
             s.add(Product(slug="a", title="a"))
-            _legacy_row(s, "a", count=G.REBUILD_MAX_ATTEMPTS)
+            _exhausted_null_slug_row(s, "a")
         why = release_gates.retry_hold_reason(db, slug="a")
         assert why and "could not complete" in why and "rebuild-incomplete:a" in why, why
         # the marketing-rebuild waiver and the systemic evidence see it too
@@ -80,12 +93,15 @@ def test_ma_legacy_null_slug_exhausted_row_holds_the_retry():
             assert fams["rebuild-incomplete"] == {"a"}, fams
         ev = PE.stale_rebuilds(db, now=datetime.now(timezone.utc))
         assert ev["rebuild_incomplete_held"] == ["a"], ev
-        # a legacy row with attempts left holds nothing
+        # a legacy row holds nothing, whatever its count (round 3, M-E: a fresh budget first)
         db2 = base._db()
         with db2.session() as s:
-            s.add(Product(slug="b", title="b"))
-            _legacy_row(s, "b", count=1)
-        assert release_gates.retry_hold_reason(db2, slug="b") is None
+            for slug, n in (("b", 1), ("c", G.REBUILD_MAX_ATTEMPTS), ("d", 6)):
+                s.add(Product(slug=slug, title=slug))
+                _legacy_row(s, slug, count=n)
+        for slug in ("b", "c", "d"):
+            assert release_gates.retry_hold_reason(db2, slug=slug) is None, slug
+            assert not release_gates._halting_other_than_staleness(db2, slug, set()), slug
     finally:
         restore()
 
@@ -97,7 +113,9 @@ def test_ma_restating_a_legacy_row_files_its_product_slug():
         with db.session() as s:
             s.add(Product(slug="a", title="a"))
             _legacy_row(s, "a", count=1)
-        for _ in range(G.REBUILD_MAX_ATTEMPTS - 1):
+        # round 3 (M-E): the first restate starts a fresh budget, so exhausting it takes
+        # REBUILD_MAX_ATTEMPTS restates under the new code (was MAX - 1 on top of the legacy 1)
+        for _ in range(G.REBUILD_MAX_ATTEMPTS):
             release._rebuild_incomplete(base._Ctx(db), "a", "1.0.0",
                                         stale=["marketing_asset:a:x"], reason="t",
                                         fingerprints=FP, checks=3)
@@ -105,14 +123,16 @@ def test_ma_restating_a_legacy_row_files_its_product_slug():
             row = s.scalar(select(Incident).where(Incident.signature == "rebuild-incomplete:a"))
             assert row.product_slug == "a", row.product_slug
             assert row.report_count == G.REBUILD_MAX_ATTEMPTS and row.detail.get("held")
+            assert row.detail["budget_reset"]["legacy_report_count"] == 1, row.detail
         assert release_gates.retry_hold_reason(db, slug="a")
     finally:
         restore()
 
 
 def test_ma_sentinel_holds_a_legacy_exhausted_product_instead_of_retrying():
-    """The production loop end to end through the sentinel: the legacy exhausted product is
-    reported held with the named reason, the others are retried."""
+    """The production loop end to end through the sentinel: the NULL-slug exhausted product is
+    reported held with the named reason, the others are retried. (Round 3: exhausted under
+    the new budget; a pre-branch count alone is retried -- see test_me_*.)"""
     db = base._db()
     slugs = base.SLUGS[:3]
     base._production_estate(db, slugs)
@@ -122,8 +142,7 @@ def test_ma_sentinel_holds_a_legacy_exhausted_product_instead_of_retrying():
             base._sentinel(db, "1")
             base._finish_all_rebuilds(db, at=utcnow() - timedelta(hours=13))
             with db.session() as s:
-                _legacy_row(s, slugs[0], count=G.REBUILD_MAX_ATTEMPTS,
-                            stale=[f"pdf:{slugs[0]}@1.0.0#pdf-us"])
+                _exhausted_null_slug_row(s, slugs[0], stale=[f"pdf:{slugs[0]}@1.0.0#pdf-us"])
             out = base._sentinel(db, "2")
         assert slugs[0] in out["rebuild_retry_held"], out
         assert "could not complete" in out["rebuild_retry_held"][slugs[0]], out
@@ -242,8 +261,7 @@ def test_mc_sentinel_does_not_close_without_positive_evidence():
             s.add(Product(slug=slug, title=slug))
         s.flush()
         # ghost: no provenance rows at all; unproven: the named artefact has no row
-        _legacy_row(s, "ghost", count=G.REBUILD_MAX_ATTEMPTS,
-                    stale=["marketing_asset:ghost:pin:1"])
+        _exhausted_null_slug_row(s, "ghost", stale=["marketing_asset:ghost:pin:1"])
         _legacy_row(s, "unproven", count=1, stale=["pdf:unproven@1.0.0#pdf-us"])
         A.record(s, artefact_class="chart", artefact_key="unproven@1.0.0#chart",
                  product_slug="unproven", inputs={"chain:release": A.chain_fingerprint()})
@@ -384,6 +402,149 @@ def test_l1_hold_and_rebuild_read_the_same_withholding():
         restore()
 
 
+# --- round 3: M-E (review of 0d2e6cbc) ----------------------------------------------------------
+#
+# A pre-branch rebuild-incomplete row counted every failed daily attempt -- attempts that failed
+# only because of the bugs this branch fixes -- so its report_count is not an attempt budget.
+# Treating `report_count >= 3` on such a row as exhausted held every long-open product on the
+# first sentinel run after the deploy, never retried, never rebuilt: a deadlock. A legacy row
+# now gets a fresh, recorded budget on its first restate; after that budget the hold applies.
+
+LEGACY_COUNTS = {"me-one": 1, "me-three": 3, "me-six": 6}
+
+
+def test_me_legacy_counts_get_a_fresh_recorded_budget_then_hold():
+    db = base._db()
+    slugs = sorted(LEGACY_COUNTS)
+    base._production_estate(db, slugs)
+    restore = base._no_policy()
+    try:
+        with base._MovedChain():
+            base._sentinel(db, "me-1")
+            base._finish_all_rebuilds(db, at=utcnow() - timedelta(hours=13))
+            with db.session() as s:
+                for slug, n in LEGACY_COUNTS.items():
+                    _legacy_row(s, slug, count=n, stale=[f"pdf:{slug}@1.0.0#pdf-us"])
+            # before any restate: no legacy row is a hold, whatever its count
+            for slug in slugs:
+                assert release_gates.retry_hold_reason(db, slug=slug) is None, slug
+            ev = PE.stale_rebuilds(db, now=datetime.now(timezone.utc))
+            assert ev["rebuild_incomplete_held"] == [] and ev["rebuild_incomplete_held_count"] == 0
+            assert ev["rebuild_incomplete_legacy_budget_pending"] == slugs, ev
+            out = base._sentinel(db, "me-2")
+            # the probe: legacy counts 1, 3, 6 -> all three retried once under the new code
+            assert sorted(out["rebuild_retried"]) == slugs, out
+            assert not out["rebuild_retry_held"], out
+            # the retried attempts fail verify: each restate under the new code spends the
+            # fresh budget; the first one records the legacy count and why it was reset
+            for attempt in range(1, G.REBUILD_MAX_ATTEMPTS + 1):
+                for slug in slugs:
+                    release._rebuild_incomplete(base._Ctx(db), slug, "1.0.0",
+                                                stale=[f"pdf:{slug}@1.0.0#pdf-us"],
+                                                reason="t", fingerprints=FP, checks=3)
+                with db.session() as s:
+                    for slug, n in LEGACY_COUNTS.items():
+                        row = s.scalar(select(Incident).where(
+                            Incident.signature == f"rebuild-incomplete:{slug}"))
+                        assert row.report_count == attempt, (slug, row.report_count)
+                        reset = row.detail["budget_reset"]
+                        assert reset["legacy_report_count"] == n, reset
+                        assert "before eng/stale-rebuild-loop" in reset["why"], reset
+                        # the history is kept, not erased
+                        assert reset["legacy_detail"]["fingerprints"] == FP, reset
+                        assert reset["legacy_detail"]["stale"] == [
+                            f"pdf:{slug}@1.0.0#pdf-us"], reset
+                held = [s_ for s_ in slugs if release_gates.retry_hold_reason(db, slug=s_)]
+                if attempt < G.REBUILD_MAX_ATTEMPTS:
+                    assert held == [], (attempt, held)   # budget left: retried, not held
+                else:
+                    assert held == slugs, held           # new budget spent: the named hold
+            base._finish_all_rebuilds(db, at=utcnow() - timedelta(hours=13))
+            out = base._sentinel(db, "me-3")
+        assert sorted(out["rebuild_retry_held"]) == slugs, out
+        assert all("could not complete" in v for v in out["rebuild_retry_held"].values()), out
+        assert not out["rebuild_retried"], out
+        # the remaining holds are visible to the owner: counted, with their reasons
+        ev = PE.stale_rebuilds(db, now=datetime.now(timezone.utc))
+        assert ev["rebuild_incomplete_held_count"] == 3 and ev["rebuild_incomplete_held"] == slugs
+        assert set(ev["rebuild_incomplete_held_reasons"]) == set(slugs), ev
+        assert all("rebuild attempts" in v for v in ev["rebuild_incomplete_held_reasons"].values())
+        assert ev["rebuild_incomplete_legacy_budget_pending"] == []
+        assert ev["rebuild_incomplete_budget_reset"] == {s_: n for s_, n in
+                                                         LEGACY_COUNTS.items()}, ev
+    finally:
+        restore()
+
+
+def test_me_legacy_dead_jobs_do_not_spend_the_new_budget():
+    """The M-B bound has the same hazard: pre-branch DEAD attempts at a change (failed by the
+    round-1 bugs) must not hold the product before the new code has tried it."""
+    db = base._db()
+    slugs = ["legacy-dead"]
+    _estate(db, slugs, release_for=slugs)
+    changed = {"chain:release": "9" * 16}
+    stamp = "-".join(f"{ref}={fp[:8]}" for ref, fp in sorted(changed.items()))
+    key = G.job_key("rebuild:product:legacy-dead", stamp)
+    t_old = datetime.now(timezone.utc) - timedelta(days=4)
+    with db.session() as s:      # the pre-branch payload: no per-product change id
+        for i in range(4):
+            s.add(Job(agent="listing", job_type="chain.rebuild", status=JobStatus.DEAD,
+                      idempotency_key=key if i == 0 else f"{key}:retry:legacy-{i}",
+                      inputs={"product_slug": "legacy-dead",
+                              "artefacts": ["pdf:legacy-dead@1.0.0#pdf-us"], "reason": "t",
+                              **({"retry_of_key": key} if i else {})},
+                      last_error="KeyError: 'pdf_sha256'", finished_at=t_old))
+    restore = base._no_policy()
+
+    def die(now):
+        with db.session() as s:
+            for j in s.scalars(select(Job).where(Job.job_type == "chain.rebuild",
+                                                 Job.status == JobStatus.PENDING)):
+                j.status, j.finished_at = JobStatus.DEAD, now + timedelta(hours=1)
+                j.last_error = "KeyError: 'pdf_sha256'"
+    try:
+        retried, last = _days(db, slugs, settle=die)
+        assert retried["legacy-dead"] == [0, 1, 2], retried    # a fresh budget of three
+        assert "KeyError" in last["retry_held"]["legacy-dead"], last
+        with db.session() as s:
+            row = s.scalar(select(Incident).where(
+                Incident.signature == "rebuild-incomplete:legacy-dead"))
+            assert row.detail["attempts"] == G.REBUILD_MAX_ATTEMPTS, row.detail
+            assert row.detail["legacy_failed_attempts_not_counted"] == 4, row.detail
+    finally:
+        restore()
+
+
+def test_low_mb_bound_is_per_product_not_per_estate_change():
+    """Review LOW: the job key carries the estate-wide change set, so another product's ref
+    moving restarted this product's bound. The bound is keyed on the product's own change."""
+    db = base._db()
+    slugs = ["perprod"]
+    _estate(db, slugs, release_for=slugs)
+    restore = base._no_policy()
+    t0 = datetime.now(timezone.utc)
+    try:
+        for d in range(6):
+            now = t0 + timedelta(days=d)
+            # another product's ref moves every day: a new estate stamp, a new job key
+            changed = {"chain:release": "9" * 16, "design:someone-else": f"{d:x}" * 16}
+            with db.session() as s:
+                out = G.enqueue(s, JobQueue(db), changed=changed, per="product", reason="t",
+                                now=now, hold=lambda slug: release_gates.retry_hold_reason(
+                                    db, slug=slug))
+            with db.session() as s:
+                for j in s.scalars(select(Job).where(Job.job_type == "chain.rebuild",
+                                                     Job.status == JobStatus.PENDING)):
+                    j.status, j.finished_at = JobStatus.DEAD, now + timedelta(hours=1)
+                    j.last_error = "KeyError: 'pdf_sha256'"
+        assert "perprod" in out["retry_held"], out
+        with db.session() as s:
+            n = len(s.scalars(select(Job).where(Job.job_type == "chain.rebuild")).all())
+        assert n == G.REBUILD_MAX_ATTEMPTS, n          # on 0d2e6cbc: one per day (6)
+    finally:
+        restore()
+
+
 def pg_e2e_convergence():
     """Review L3: the round-1 end-to-end convergence test (the real chain: compile, build,
     move the chain, sentinel, rebuild, verify, resolve) on this engine. Not prefixed `test_`:
@@ -404,6 +565,9 @@ PG_TESTS = ("test_ma_legacy_null_slug_exhausted_row_holds_the_retry",
             "test_mc_sentinel_does_not_close_without_positive_evidence",
             "test_md_probe_reuse_requires_the_probe_model_and_the_same_key",
             "test_l1_hold_and_rebuild_read_the_same_withholding",
+            "test_me_legacy_counts_get_a_fresh_recorded_budget_then_hold",
+            "test_me_legacy_dead_jobs_do_not_spend_the_new_budget",
+            "test_low_mb_bound_is_per_product_not_per_estate_change",
             "pg_e2e_convergence")
 
 

@@ -5468,7 +5468,7 @@ def _rebuild_incomplete(ctx: JobContext, slug: str, version: str, *, stale: list
     from sqlalchemy import desc, select
 
     from ..core.models import AuditLog, Incident
-    from ..ops.rebuild_graph import REBUILD_MAX_ATTEMPTS
+    from ..ops.rebuild_graph import REBUILD_MAX_ATTEMPTS, reset_legacy_budget
 
     with ctx.db.session() as s:
         refusal = s.scalar(select(AuditLog).where(
@@ -5483,11 +5483,17 @@ def _rebuild_incomplete(ctx: JobContext, slug: str, version: str, *, stale: list
                                               Incident.resolved.is_(False)))
         summary = (f"{len(stale)} artefact(s) of {slug} still carry a moved input after "
                    f"{checks} rebuild checks: {stale[:5]}")
+        reset = None
         if inc is None:
             inc = Incident(severity="P2", signature=sig, halts_publication=True,
                            product_slug=slug, summary=summary[:500], report_count=1,
                            detail={})
             s.add(inc)
+        elif (reset := reset_legacy_budget(inc)) is not None:
+            # review M-E of 0d2e6cbc: a pre-branch row's count is loop iterations under the
+            # bugs this branch fixes, not attempts. This attempt is the first of a fresh,
+            # recorded budget; the legacy count and detail are kept in `budget_reset`.
+            inc.report_count = 1
         elif (inc.detail or {}).get("fingerprints") != fingerprints:
             inc.report_count = 1                        # a different change: a fresh budget
         else:
@@ -5499,6 +5505,8 @@ def _rebuild_incomplete(ctx: JobContext, slug: str, version: str, *, stale: list
         detail = {"stale": stale[:50], "reason": reason, "fingerprints": fingerprints,
                   "version": version, "attempts": attempts,
                   "max_attempts": REBUILD_MAX_ATTEMPTS, "refused_by": refused}
+        if reset is not None:
+            detail["budget_reset"] = reset
         if attempts >= REBUILD_MAX_ATTEMPTS:
             detail["held"] = (
                 f"{attempts} rebuild attempts at this change left {len(stale)} artefact(s) "
