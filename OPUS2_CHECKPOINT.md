@@ -28,14 +28,20 @@ worktrees, not this file.
 - Queue (6979979731) now fully delivered. Awaiting verdicts: S2 b6dd73ad, QF scopes b3e037b9,
   A4b-2 b8929db7, S4 daa31ad9, S4b bbc4d473, WS4 LOWs fbe0bdd0 (plus older E1/A3/research/
   Stage A 497a8301/9772f4a4, now behind ENG-E's WS4-7).
-- Tick 2026-11-18T16:28Z: no [MAIN] message on #28 since 6983580477; no COORDINATION change; no
-  review-branch findings on opus2 code. INTEG1 12e3ab44 (Main): reverted the A4a merge d51adb3a
-  (certify-time size bands refuse the fallback dishcloth/washcloth templates; template geometry fix
-  assigned to ENG-B3, not opus2) and classified approvals._standing_policy in test_w4_listready F8,
-  which answers my sp.activate question 6969301528. Note: A4b-2 b8929db7 was built on an INTEG1 that
-  carried A4a; it re-bases only when Main says so.
-- Stop reason (2026-11-18T16:35Z): Main's queue for opus2 is exhausted; waiting on verdicts or a
-  new assignment. Answer any [MAIN] message first next tick.
+- Tick 2026-11-18T17:28Z: answered [MAIN] VERDICTS 6985175377 with RR 6986520536.
+  SHIP+merged: S2 b6dd73ad, scopes b3e037b9 (INTEG1 a1b4f5d9; A4a and A3 reverted there,
+  owned by ENG-B3 / ENG-C4). Fix heads (all run THROUGH run_tests.sh, per Main's rule):
+  * opus2/ws5-n1-n3-resolver-lows-fix b18cdc15 (header + runner exit)
+  * opus2/ws4-g-shadow-lows-fix fb427c7e (header; t>now test; issuer dedupe load bounded,
+    rows stored at=now)
+  * opus2/s2-card-route-low a222be00 (EXAMPLE_ROUTE_TASK = topic_filing)
+  * runner-exit defect (FAIL printed, exit 0): s4-p0-command-board-fix 64123f83,
+    s4b-p0-board-page-fix 04855ba2, ws4-stage-a1-activation-fix 571fc326,
+    ws4-stage-a2-withdrawal-fix 8dc219a7 (also fake_etsy import)
+  Dispatch 2fc368d4. RULE: every new test file through `run_tests.sh` with a non-zero-exit
+  runner before any REVIEW-REQUEST.
+- Stop reason (2026-11-18T18:05Z): all of Main's findings fixed and review-requested; queue
+  exhausted pending verdicts. Answer any [MAIN] message first next tick.
 
 ## State at 2026-11-18T10:50Z (superseded)
 - ws5 LOWs N1-N3 RR POSTED 9b807fed on opus2/ws5-n1-n3-resolver-lows (on w6-INTEG1 19e6a8ff):
