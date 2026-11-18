@@ -139,7 +139,26 @@ SIZE_CLASS_VOCAB = (
     r"\bhalf\b", r"\bquarter\b", r"\bstandard\b", r"\bregular\b", r"\bpreemie\b",
     r"\bxx?s\b", r"\bx{2,3}l\b", r"\bxl\b", r"\bsize[sd]?\b", r"\bone[- ]size\b",
 )
-BEDDING_VOCAB = (r"\bfull\b", r"\bdouble\b", r"\bsingle\b")
+BEDDING_VOCAB = (r"\bfull\b", r"\bdouble\b", r"\bsingle\b",
+                 # S1F3-M1: bed sizes with no CYC class ("superking" is the UK 6 ft bed) and
+                 # bed, cot and occasion words that name a size the template does not keep:
+                 # a bedspread or coverlet covers a bed (bound only with a named bed class,
+                 # `BED_COVER`), a bassinet blanket is its own small size, a picnic, travel or
+                 # beach blanket is sold in its own sizes, and a "grand" one is a size claim.
+                 # None has a cited band here, so each is refused rather than drafted at the
+                 # throw default.
+                 r"\bsuperking\b", r"\bemperor\b", r"\bbedspreads?\b", r"\bcoverlets?\b",
+                 r"\bbassinets?\b", r"\bmoses\b", r"\bcradle\b", r"\bpram\b", r"\bpicnic\b",
+                 r"\btravel\b", r"\bbeach\b", r"\bstadium\b", r"\bcamping\b", r"\bgrand\b")
+# A bed cover word is bound when the title names the bed class it covers ("Queen Coverlet").
+BED_COVER = r"\b(?:bedspread|coverlet)s?\b"
+BED_CLASSES = ("twin", "full", "queen", "king")
+# S1F3-M1: compounds and variants of the bed-size words, normalised before any size word is
+# read: "Kingsize" is "king size", "Calking" is "california king", "Super King" is the UK
+# superking (refused above), never the CYC king.
+SIZE_COMPOUNDS = ((r"\b(king|queen|twin|full|double)-?size(d?)\b", r"\1 size\2"),
+                  (r"\bcal(?:ifornia)?-?king\b", "california king"),
+                  (r"\bsuper[- ]?king\b", "superking"))
 # A unit word left with no figure ("... by fifty inches") is a size the parser did not bind.
 _STRAY_UNIT = (r"\b(?:cm|mm|centimet(?:er|re)s?|millimet(?:er|re)s?|inch(?:es)?|yards?|yds?|"
                r"met(?:er|re)s?)\b")
@@ -166,15 +185,47 @@ ALLOWED_NON_SIZE: dict[str, dict] = {
               "bind": "grade", "prepass": True,
               "basis": "a garment size ('(size 2X)') is the CYC grade the CIR is graded to: "
                        "bound to CIR.grading.size"},
-    "code": {"re": r"\b[a-wyz][a-z]*\d+[a-z0-9]*\b",
-             "basis": "a letter-led code ('C5', 'J7', 'C2C', 'v3') is a name or a technique "
-                      "(corner-to-corner), not a figure; an x-led one ('x2') is a count"},
+    # S1F3-H1: an EXACT, cited list. The earlier `[a-w][a-z]*\d+` shape let any letter-led
+    # figure through as a "code", so the size tokens "L300", "W60 H60" and "sz60" certified
+    # at the template size. Only these two kinds pass now; any other letter-led figure is a
+    # lettered dimension (`_bind_lettered`) or an unbound size token.
+    # Bound first (`_protect_codes`), before the lettered dimensions read the title: "L-11" is
+    # the 8 mm hook, not a length of 11.
+    "code": {"re": (r"(?<![a-z0-9])(?:c2c|"
+                    r"(?:b-1|c-2|d-3|e-4|f-5|g-6|h-8|i-9|j-10|k-10(?:\.5| ?1[/\u2044]2)?|l-11|"
+                    r"m-13|n-13|m/n-13|n-15|p-15|n/p-15)(?: hook)?)(?![a-z0-9.])"),
+             "prepass": True,
+             "basis": "'C2C' is corner-to-corner, a technique; the letter-number pairs are US "
+                      "crochet hook sizes (B-1 2.25 mm ... K-10.5 6.5 mm, L-11 8 mm, M/N-13 9 mm, "
+                      "N/P-15 10 mm), Craft Yarn Council, Hooks chart (craftyarncouncil.com/"
+                      "standards/hooks): a tool size, not a dimension of the piece"},
+    # S1F3-LOW: three non-size figures that were refused and cost sales.
+    "percent": {"re": r"(?<![\d.])(?:100|[1-9]?\d)(?:\.\d+)? ?%",
+                "basis": "a percentage ('100% Cotton') is fibre content, never a length"},
+    "ply": {"re": r"\b(?:2|3|4|5|8|10|12|14)[- ]?ply\b",
+            "basis": "'4ply', '8 ply' are the UK/AU/NZ names of yarn weights (Craft Yarn "
+                     "Council, Standard Yarn Weight System, craftyarncouncil.com/standards/"
+                     "yarn-weight-system): a yarn, not a dimension"},
+    "number": {"re": (r"\bno\.? ?\d{1,3}\b(?![.,/⁄]\d)"
+                      r"(?! ?(?:x\b|by\b|cm|mm|in\b|inch|ft|feet|foot|m\b|met|yd|yard|\"|'))"),
+               "basis": "'No. 5' is a design number in a series (or a thread size), a name, not "
+                        "a dimension; a 'no' followed by a unit or 'x' is not this"},
 }
 
 # What the fallback drafts, for binding at plan time: one piece of one component (a cushion is a
-# front and a back, so it has no single piece count), no garment grade, and colours read at
-# certification (the palette is chosen after the plan).
+# front and a back, so it has no single piece count), no garment grade, and a palette from
+# `runtime.pipeline._PALETTES` (S1F3-LOW: the colour count is bound at plan to the counts those
+# palettes have, `fallback_colour_counts`, so the plan never drafts a "3 Colour" title that
+# certification then refuses).
 FALLBACK_FACTS = {"pieces": 1, "colours": None, "grade": None, "at_plan": True}
+
+
+def fallback_colour_counts() -> frozenset[int]:
+    """Every colour count a fallback draft can have: the sizes of the palettes
+    `runtime.pipeline.concept_geometry` chooses from."""
+    from ..runtime.pipeline import _DEFAULT_PALETTE, _PALETTES
+
+    return frozenset(len(p) for p in (*_PALETTES.values(), _DEFAULT_PALETTE))
 
 
 def facts_of(cir) -> dict:
@@ -233,8 +284,13 @@ def _residual_unbound(rest: str, obj: str | None, facts: dict | None) -> list[st
                     want, have = (raw or "").lower(), facts.get("grade")
                 else:
                     want, have = _count_value(raw), facts.get(bind)
-                if bind == "colours" and have is None and facts.get("at_plan"):
-                    pass        # the palette is chosen after the plan: bound at certification
+                if bind == "colours" and facts.get("at_plan"):
+                    counts = fallback_colour_counts()
+                    if want not in counts:
+                        out.append(f"unbound size token: {token} (a colour count the fallback "
+                                   f"does not draft: its palettes have "
+                                   f"{' or '.join(str(n) for n in sorted(counts))} colours; "
+                                   f"{entry['basis']})")
                 elif want is None or have is None or want != have:
                     what = {"pieces": "piece count", "colours": "colour count",
                             "grade": "graded size"}[bind]
@@ -245,7 +301,8 @@ def _residual_unbound(rest: str, obj: str | None, facts: dict | None) -> list[st
                                f"make: {made}; {entry['basis']})")
             rest = _blank(rest, m.start(), m.end())
     tokens: list[tuple[int, str, str]] = []
-    for m in re.finditer(r"\d+(?:[.,/\u2044]\d+)*[a-z]*|[\u00bc-\u00be\u2150-\u215e]", rest):
+    for m in re.finditer(r"[a-z]*\d+(?:[.,/\u2044]\d+)*[a-z]*|[\u00bc-\u00be\u2150-\u215e]",
+                         rest):
         tokens.append((m.start(), m.group(0), "a figure with no unit and no claim it binds to"))
     for m in re.finditer(rf"\b{_NUMBER_WORD}\b", rest):
         tokens.append((m.start(), m.group(0), "a number word"))
@@ -318,7 +375,9 @@ WIDTH_WORDS = ("skinny", "slim", "wide", "narrow")
 # A unit is cm, mm, m, inches ("in" only when no figure follows it: "2 in 1" is not 2 inches),
 # feet. `''` and `"` are inches, a single `'` is feet.
 # S1F2-H1: yards ("3 yards", "60 yd") are a unit too (1 yd = 36 in = 91.44 cm).
-_UNIT = (r"(cm|centimet(?:er|re)s?|mm|millimet(?:er|re)s?|in(?:ch(?:es)?)?(?![a-z])(?!\s*\d)"
+# S1F3-LOW: only a bare "in" refuses a following figure ("2 in 1"); "inches" never does
+# ("50 x 60 inches 2 in 1" is 50 x 60 in and the idiom).
+_UNIT = (r"(cm|centimet(?:er|re)s?|mm|millimet(?:er|re)s?|inch(?:es)?(?![a-z])|in(?![a-z])(?!\s*\d)"
          r"|\"|''|ft|feet|foot|'|y(?:ar)?ds?(?![a-z])|m(?:et(?:er|re)s?)?(?![a-z]))")
 # A figure is a whole number token: never the "2" of "1/2", "1,5" or "1.5.3" (S1F2-H1).
 _NUM = r"(?<![\d.,/\u2044])(\d+(?:\.\d+)?)(?![\d,/\u2044]|\.\d)"
@@ -326,6 +385,60 @@ _BY = r"\s*(?:x|×|by)\s*"
 _DIMS = re.compile(rf"{_NUM}\s*{_UNIT}?{_BY}{_NUM}\s*{_UNIT}?(?:{_BY}{_NUM}\s*{_UNIT}?)?")
 _DIM1 = re.compile(rf"{_NUM}\s*{_UNIT}")
 _DANGLING = re.compile(r"\d\s*(?:x|×)(?![a-z])|(?<![a-z])(?:x|×)\s*\d")
+# S1F3-H1: a lettered dimension is a size claim. L and H are the length (on a flat piece its
+# height is its length), W the width, D / Dia a diameter and Sz a size: "L300", "W60 H60",
+# "W130cm L170cm", "d50", "sz60". The hook sizes in ALLOWED_NON_SIZE["code"] ("L-11", "H-8")
+# are taken out first.
+_LETTERED = re.compile(rf"(?<![a-z0-9])(sz|dia|[lwhd])\s*[:=-]?\s*{_NUM}\s*{_UNIT}?(?![a-z0-9])")
+
+
+def _protect_codes(sized: str) -> str:
+    """The title with the cited codes (C2C, hook sizes) blanked: they are not sizes."""
+    for m in list(re.finditer(ALLOWED_NON_SIZE["code"]["re"], sized)):
+        sized = _blank(sized, m.start(), m.end())
+    return sized
+
+
+def _bind_lettered(sized: str) -> tuple[str, list[str]]:
+    """The title with its lettered dimensions rewritten as the stated dimensions they are
+    ("W130cm L170cm" -> "130cm x 170cm"; "L300cm" -> "long 300cm"), so the one dimension
+    parser binds them (a unitless pair under D-S1-UNITLESS-DIMS, a unitless single figure is
+    unbound); and why for each one that cannot be bound (a diameter, a size code, two widths
+    or two lengths)."""
+    found = list(_LETTERED.finditer(sized))
+    if not found:
+        return sized, []
+    out: list[str] = []
+    widths = [m for m in found if m.group(1) == "w"]
+    lengths = [m for m in found if m.group(1) in ("l", "h")]
+    for m in found:
+        if m.group(1) in ("d", "dia"):
+            out.append(f"unbound size token: {m.group(0).strip()} (a diameter; the fallback "
+                       f"drafts no round piece, so it cannot be bound; D-S1-FAIL-CLOSED)")
+        elif m.group(1) == "sz":
+            out.append(f"unbound size token: {m.group(0).strip()} (a size code with no unit "
+                       f"and no size class it binds to; D-S1-FAIL-CLOSED)")
+    if len(widths) + len(lengths) == 1 and not (widths + lengths)[0].group(3):
+        m = (widths + lengths)[0]
+        out.append(f"unbound size token: {m.group(0).strip()} (a lettered "
+                   f"{'width' if widths else 'length'} with no unit: a single figure's unit "
+                   f"cannot be determined; D-S1-FAIL-CLOSED)")
+        widths, lengths = [], []
+    if len(widths) > 1 or len(lengths) > 1:
+        out.append(f"unbound size token: {' '.join(m.group(0).strip() for m in widths + lengths)}"
+                   f" (the title states {len(widths)} widths and {len(lengths)} lengths; a flat "
+                   f"piece has one of each; D-S1-FAIL-CLOSED)")
+        widths, lengths = [], []
+    for m in found:
+        sized = _blank(sized, m.start(), m.end())
+    fig = lambda m: f"{m.group(2)}{m.group(3) or ''}"  # noqa: E731
+    if widths and lengths:
+        sized += f" {fig(widths[0])} x {fig(lengths[0])}"
+    elif widths:
+        sized += f" wide {fig(widths[0])}"
+    elif lengths:
+        sized += f" long {fig(lengths[0])}"
+    return sized, out
 
 
 def _unit_cm(unit: str) -> float:
@@ -391,7 +504,9 @@ def stated_dimensions(title: str | None) -> tuple[float, ...]:
 _QUOTES = {"\u201c": '"', "\u201d": '"', "\u201e": '"', "\u201f": '"', "\u2033": '"',
            "\u2036": '"', "\u3003": '"', "\uff02": '"', "\u2018": "'", "\u2019": "'",
            "\u201a": "'", "\u201b": "'", "\u2032": "'", "\u2035": "'", "\u00b4": "'",
-           "\uff07": "'"}
+           "\uff07": "'",
+           # S1F3-LOW: the modifier-letter primes ("60\u02ba") are inch and foot marks too.
+           "\u02ba": '"', "\u02ee": '"', "\u02b9": "'", "\u02bc": "'"}
 
 
 def _fold(title: str | None) -> str:
@@ -406,6 +521,8 @@ def _sized_text(title: str | None) -> str:
     folded = _fold(title)
     for p in NON_SIZE_PHRASES:
         folded = re.sub(p, " ", folded)
+    for p, repl in SIZE_COMPOUNDS:
+        folded = re.sub(p, repl, folded)
     return re.sub(r"\s+", " ", folded).strip()
 
 
@@ -431,6 +548,9 @@ def object_of(category: str | None, title: str | None) -> str | None:
         return "pet_mat"
     if not hits and re.search(TAPESTRY, folded):
         return "wall_hanging"
+    if not hits and re.search(BED_COVER, folded):
+        # S1F3-M1: a bedspread or coverlet is a blanket for a bed, held to its bed class.
+        return "blanket"
     return CATEGORY_OBJECT.get(category or "")
 
 
@@ -508,6 +628,8 @@ def claims(category: str | None, title: str | None, facts: dict | None = None) -
     """
     obj = object_of(category, title)
     sized, graded = _bind_grades(_sized_text(title), facts)
+    sized, lettered = _bind_lettered(_protect_codes(sized))
+    graded += lettered
     classes = named_classes(obj, title)
     pet = obj == "blanket" and bool(re.search(PET_BLANKET, sized))
     if pet:
@@ -598,6 +720,10 @@ def claims(category: str | None, title: str | None, facts: dict | None = None) -
             rest = _blank(rest, m.start(), m.end())
     for m in list(re.finditer(RELATIVE_SIZE, rest)):
         rest = _blank(rest, m.start(), m.end())
+    if set(classes) & set(BED_CLASSES):
+        # S1F3-M1: "Queen Coverlet" -- the bed cover is bound by the bed class it names.
+        for m in list(re.finditer(BED_COVER, rest)):
+            rest = _blank(rest, m.start(), m.end())
     out["unbound"].extend(_residual_unbound(rest, obj, facts))
     return out
 

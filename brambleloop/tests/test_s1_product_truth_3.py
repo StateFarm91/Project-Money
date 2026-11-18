@@ -263,15 +263,23 @@ def test_allow_list_garment_grades_are_bound_to_the_grading():
 
 
 def test_allow_list_letter_led_codes_are_not_figures():
-    for title in ("C5 Linen Throw", "Linen Throw J7", "Tapestry C2C Linen Throw"):
+    # S1F3-H1 (round 5): the code entry is an exact, cited list -- C2C and the Craft Yarn
+    # Council US hook sizes. "C5" and "J7" were accepted by the old letter-led shape; neither
+    # is a hook size, so they are unbound now (tests/test_s1_product_truth_4.py has the rest).
+    for title in ("H-8 Hook Linen Throw", "Linen Throw J-10", "Tapestry C2C Linen Throw"):
         assert ST.claims("blanket", title)["unbound"] == [], title
         assert _cert_unbound(_FactCir(title), (128.0, 152.2)) == [], title
+    for title in ("C5 Linen Throw", "Linen Throw J7"):
+        assert _cert_unbound(_FactCir(title), (128.0, 152.2)), title
     # An x-led figure is a count, not a code.
     assert _cert_unbound(_FactCir("Ornament x2", makes=(1,)))
 
 
 def test_every_allow_list_entry_is_tested():
-    assert set(ST.ALLOWED_NON_SIZE) == {"n_in_1", "count", "colours", "grade", "code"}, (
+    # S1F3-LOW (round 5) added percent, ply and number; each is tested in
+    # tests/test_s1_product_truth_4.py (test_low_*_is_not_a_size).
+    assert set(ST.ALLOWED_NON_SIZE) == {"n_in_1", "count", "colours", "grade", "code",
+                                        "percent", "ply", "number"}, (
         "a new ALLOWED_NON_SIZE entry needs its own test here")
     for key, entry in ST.ALLOWED_NON_SIZE.items():
         assert entry.get("basis"), key
