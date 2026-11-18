@@ -49,7 +49,12 @@ worktrees, not this file.
   S2 openai_chat to test_cert_spend_hosts and vacuity guards (incl. test_s2_openai_provider).
   Checked: test_vacuity on INTEG1 + all 7 pending opus2 test files: 8/8 OK. RULE: before any RR
   also run test_vacuity and test_cert_spend_hosts (paid callers). Nothing posted.
-- Stop reason (2026-11-18T20:35Z): all of Main's findings fixed and review-requested; queue
+- Tick 2026-11-18T21:28Z: answered [MAIN] VERDICT S4 6990820438 (DO NOT SHIP, M1/M2 + LOWs) with
+  RR 6992288568: s4-p0-command-board-fix 15da4b85 (countable_orders; source_state UNKNOWN never
+  0; SQL draft counts; RUNNING needs activity for costs/blockers; unknown shop failures), 6/6
+  mutants; s4b-p0-board-page-fix 2ef70fcc (page Unknown sales, counts, check.mjs). Asked Main to
+  name the two wording issues (full verdict text not found). Dispatch pushed.
+- Stop reason (2026-11-18T21:55Z): all of Main's findings fixed and review-requested; queue
   exhausted pending verdicts. Answer any [MAIN] message first next tick.
 
 ## State at 2026-11-18T10:50Z (superseded)
