@@ -124,3 +124,5 @@ if __name__ == "__main__":
                 print(f"FAIL {name}")
                 traceback.print_exc()
     print(f"{fails} failed")
+    # run_tests.sh reads the exit code: a failing test must fail the suite.
+    sys.exit(1 if fails else 0)
