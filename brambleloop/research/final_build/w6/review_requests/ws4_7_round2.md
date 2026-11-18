@@ -1,5 +1,8 @@
 # Review request: WS4-7 Mode T, round 2 (fixes for the review of 91ee7f50)
 
+> **Round 3 (fixes for the review of `259555fe`)** is at the end of this file. Code SHA
+> `dd67d90`; the final SHA is the docs commit that updates this file.
+
 - **Branch:** `eng/ws4-7-mode-t-fix`
 - **Reviewed:** `91ee7f50`
 - **Code SHA:** `c1743d9` (fixes `99e6d24`, plus one test-only commit). The commit that adds
@@ -35,21 +38,21 @@ Pricing: US$10 per GiB-month of memory, US$20 per vCPU-month.
 | Process | Measured | US$/month |
 |---|---|---|
 | policy-issuer | ~70 MiB (reviewer) to 74.8–75.0 MiB (runs 1–2), 0.0012–0.0016 vCPU | 0.71–0.76 |
-| worker, idle | 95.8 MiB | 0.98 |
+| worker, idle | 103.0 MiB (round 3, measured; was 95.8 from a 75 s trial) | 1.01 |
 | worker, steady after jobs | ~284 MiB (reviewer) to 291–304 MiB (runs 2, 1); ~300 MiB after jobs (reviewer) | 2.77–2.97 (memory) |
 | web, worker removed | **134.1 MiB**, 0.0015 vCPU (run 2) | 1.34 |
 | worker, saturated (upper bound) | peak 810–943 MiB, 0.86–0.91 vCPU | 20.1–26.5 |
 
 The new monthly cost has three cases.
-- **Low end, ≈ US$1.75.** The worker's job memory moves out of web, so web falls to its measured
-  134 MiB floor. The new cost is one more interpreter plus the issuer: 0.98 + 0.76.
+- **Low end, ≈ US$1.77** (round 3: 1.01 + 0.76). The worker's job memory moves out of web, so web falls to its measured
+  134 MiB floor. The new cost is one more interpreter plus the issuer.
 - **High end, ≈ US$4.** Web does not shrink at all. The new cost is the worker's full steady
   footprint (US$2.97) plus the issuer (0.76), plus at most ~US$0.3 of CPU (a daily cycle
   measures ≈ 2.4–2.5 vCPU-min).
 - **Upper bound, US$27.** The worker is saturated all month at peak RSS (26.19–26.49) plus the
   issuer.
 
-**Expected: ≈ US$1.75–4/month (≈ CA$2.50–5.70). Upper bound: US$27/month.**
+**Expected: ≈ US$1.77–4/month (≈ CA$2.51–5.70). Upper bound: US$27/month.**
 
 Still not measured, which is why this is a range:
 - web *with* the embedded worker under the same load
@@ -122,7 +125,60 @@ call path is the `Database.create_all` refactor (same imports, same order, now v
 ## OWNER ACTION REQUIRED
 
 There is nothing new; the batch in `REVIEW_REQUEST.md` stands, with these changes.
-- Its cost is now **≈ US$1.75–4/month expected, US$27/month upper bound**.
+- Its cost is now **≈ US$1.77–4/month expected, US$27/month upper bound**.
 - After the services exist and before any policy is activated, the owner runs the one-time
   catalogue check (L1) in `WS4_7_MODE_T.md`: CA$0, ~5 min. Until then, Mode T is not
   enabled.
+
+---
+
+# Round 3: fixes for the review of `259555fe`
+
+- **Branch:** `eng/ws4-7-mode-t-fix`. **Code SHA:** `dd67d90`. The final SHA is the commit
+  that adds this section (documentation and one measurement JSON only).
+- **Nothing is live.** No deploy, no Railway change, no secret, no Etsy call, no spend.
+
+| Finding | Fix | Regression test | On 259555fe |
+|---|---|---|---|
+| **MEDIUM** `_ads_jobs` counted only PENDING and RUNNING. In this queue FAILED means "will retry" (`queue/durable.py` claims PENDING and FAILED; `release_recovery` counts FAILED as live), so a FAILED `ads.campaign` (attempt 1 of 3) on a lineage product read `PASS 0`. | One shared constant, `core.models.LIVE_JOB_STATUSES = (PENDING, RUNNING, FAILED)`. `standing_issuer._ads_jobs` uses it. `release_recovery.certify_in_flight` and `idle_capacity` now use the same constant (same set as before, so no behaviour change there). | `test_ads_jobs_on_the_release_or_its_standing_lineage_hold_the_grant`: a FAILED `ads.campaign` on a lineage product raises the count (2 → 3). DEAD and CANCELLED rows do not raise it. New: `test_the_issuer_and_the_queue_share_one_live_status_set`. | **Failed:** `{'state': 'PASS', 'value': 2, …}` where 3 was expected. The shared-set test also failed. |
+| **LOW** The idle-worker figure (95.8 MiB) came from a 75 s trial with no stored artifact. | `scripts/ws4_7_measure_rss.py --idle` enqueues no `plan.cycle`; everything else is unchanged (PG16, runbook roles, grant requests every 30 s, web `/health`). Run for 360 s: the worker's steady RSS (median of the second half) is **103.0 MiB**, peak 103.1, 0.0030 vCPU. The worker ran only its six boot-seeded one-off jobs, all DONE. Issuer 74.7 MiB; web 132.7 MiB; 12/12 health checks OK. Data: `research/final_build/ws4/ws4_7_rss_measurement_2026-11-18_round3_idle.json`, stored next to the round-2 JSON. The card's low end moves from US$1.75 to **US$1.77** (worker idle row: 0.98 → 1.01). `WS4_7_MODE_T.md`, `REVIEW_REQUEST.md` and the cost card above are updated. | (measurement) | — |
+| **LOW** The worker's boot check verified tables only. | `Database.boot_schema` on a non-owner role also compares every registered table's columns with the catalogue. When a column is missing it refuses ("N column(s) do not exist yet (…) … Deploy web (the migration owner) first"), exits 3 and reports `missing_columns`. It never ALTERs. Owner and SQLite paths are unchanged. | PG16 `test_the_worker_role_never_creates_a_table_it_should_not_own`, new tail: the owner drops `jobs.last_error`. `boot_schema("worker")` reports `missing_columns == ['jobs.last_error']`, and `worker_entry.main` as `bl_worker` exits rc 3 with the message. Web's `boot_schema` re-adds the column, then the worker starts with rc 0 and owns nothing. | **Failed:** the worker started with **rc 0** against a table missing a column. (With the `missing_columns` key assertion removed, so the old code could be tested at all.) |
+
+## Round 3 suites
+
+**WS4 run, on `dd67d90` (tree clean at start, HEAD unchanged).** Command:
+`JOBS=4 SUITE_REGISTRY=0 SUITES="<13 test_ws4_* suites> test_shadow_rehearsal test_w4_listready test_w4_swarmmetrics test_rc1_auth" PY=/tmp/venv/bin/python bash run_tests.sh`.
+Record: `artifacts/suite_runs/20261118T190907Z-1352.json`, 630 s.
+The run reported **TOTAL PASSING: 264 ; suites failing: 2**. Every WS4 suite passed:
+
+| Suite | OK | FAIL |
+|---|---|---|
+| `test_ws4_0_owner_grant_keys` | 17 | 0 |
+| `test_ws4_1_grant_ledger_extra_actions` | 10 | 0 |
+| `test_ws4_3_owner_signing_flow` | 11 | 0 |
+| `test_ws4_7_issuer` | 34 (+1 new) | 0 |
+| `test_ws4_7_postgres` (disposable PG16 cluster) | 4 | 0 |
+| `test_ws4_boundary` | 16 | 0 |
+| `test_ws4_g_shadow` | 18 | 0 |
+| `test_ws4_hold_cards` | 8 | 0 |
+| `test_ws4_issue_time_readers` | 11 | 0 |
+| `test_ws4_issuer_shadow` | 9 | 0 |
+| `test_ws4_policy_object` | 25 | 0 |
+| `test_ws4_stop` | 20 | 0 |
+| `test_ws4_vision_reviewer` | 12 | 0 |
+| `test_rc1_auth` (boots `worker_entry`) | 11 | 0 |
+| `test_w4_swarmmetrics` (`idle_capacity`) | 8 | 0 |
+| `test_w4_listready` (`release_recovery`) | 40 | **1** (also fails on 259555fe) |
+| `test_shadow_rehearsal` (`release_recovery`) | 10 | **1** (SHADOW_RESULT) |
+
+The two failures are in suites I added because `release_recovery` now imports the shared
+constant. Neither failure is in a file this round changed:
+- `test_w4_listready::test_f8_every_etsy_write_call_site_is_classified…`: "unclassified Etsy
+  write call sites: [('app/command_center/approvals.py', '_standing_policy')]". The call site
+  comes from earlier WS4 work, and the test **fails identically on `259555fe`** (re-run in a
+  clean worktree).
+- `test_shadow_rehearsal::test_approval_reaches_the_simulated_publish…`: owner_publication_grant
+  is BLOCKED by "an owner grant or rebase is signed only inside the owner's Command Center
+  request …". SHADOW_RESULT
+
+**`test_cert_claude_independence` alone** (nothing else running): CERT_RESULT

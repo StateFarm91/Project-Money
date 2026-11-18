@@ -43,7 +43,7 @@ every 5 s) plus the reviewer's own measurement of 91ee7f50:
 | Process | Measured RSS | Avg vCPU | US$/month |
 |---|---|---|---|
 | policy-issuer | **~70 MiB** (reviewer) to 74.8–75.0 MiB (runs 1–2) | 0.0012–0.0016 | 0.71–0.76 |
-| worker, idle (empty queue) | 95.8 MiB (75 s trial) | 0.0022 | 0.98 |
+| worker, idle (no `plan.cycle`; round 3, 360 s, PG16) | **103.0 MiB** steady, 103.1 peak (`research/final_build/ws4/ws4_7_rss_measurement_2026-11-18_round3_idle.json`) | 0.0030 | 1.01 |
 | worker, steady after jobs (median, 2nd half) | **~284 MiB** (reviewer) to 291.1–304.0 MiB (runs 2, 1); **~300 MiB** after jobs (reviewer) | — | 2.77–2.97 (memory) |
 | worker, saturated (cycle every 3 min) | steady 291–304, peak 809.8–942.7 MiB | 0.86–0.91 | 20.1–26.5 (upper bound) |
 | **web, worker removed** (run 2) | **134.1 MiB** (peak = steady) | 0.0015 | 1.34 |
@@ -52,11 +52,11 @@ every 5 s) plus the reviewer's own measurement of 91ee7f50:
 
 | Case | What it assumes | US$/month |
 |---|---|---|
-| **Expected, low** | Splitting the worker out *moves* its job memory out of web: web falls to its measured 134 MiB floor, and the only new memory is one more interpreter (the idle worker, 95.8 MiB) plus the issuer. 0.76 + 0.98 | **≈ 1.75** |
+| **Expected, low** | Splitting the worker out *moves* its job memory out of web: web falls to its measured 134 MiB floor, and the only new memory is one more interpreter (the idle worker, measured 103.0 MiB) plus the issuer. 0.76 + 1.01 | **≈ 1.77** |
 | **Expected, high** | Web does not shrink at all: the worker's whole steady footprint (284–304 MiB) is new, plus the issuer, plus a daily cycle's CPU (measured ≈ 2.4–2.5 vCPU-min per cycle ≈ US$0.04/month) and the cadences (not measured; allowed up to ~US$0.25). 0.76 + 2.97 + ≤ 0.3 | **≈ 4** |
 | **Upper bound** | The worker saturated all month with its peak RSS held throughout, plus the issuer. 26.19–26.49 (runs 1–2) + 0.76 | **≈ 27** |
 
-So: **≈ US$1.75–4/month expected (≈ CA$2.50–5.70 at 1.4154), US$27/month upper bound.**
+So: **≈ US$1.77–4/month expected (≈ CA$2.51–5.70 at 1.4154), US$27/month upper bound.**
 
 What is still **not** measured (so it is a range, not a point): web's RSS *with* the embedded
 worker under the same load (which would say exactly how much moves); the cadence jobs' CPU at a

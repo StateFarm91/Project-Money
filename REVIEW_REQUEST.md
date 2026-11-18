@@ -101,7 +101,7 @@ Pricing: Railway memory ~US$10/GB-month, vCPU ~US$20/vCPU-month.
 | Process | Peak RSS | Steady RSS | Avg vCPU | US$/month | CA$/month (1.4154) |
 |---|---|---|---|---|---|
 | policy-issuer | 75.0 MiB | 74.9 MiB | 0.0016 | **0.76** | 1.08 |
-| worker, idle (empty queue, 75 s trial) | 95.8 MiB | 95.8 MiB | 0.0022 | **0.98** | 1.39 |
+| worker, idle (no `plan.cycle`, 360 s, round 3; `brambleloop/research/final_build/ws4/ws4_7_rss_measurement_2026-11-18_round3_idle.json`) | 103.1 MiB | 103.0 MiB | 0.0030 | **1.01** | 1.42 |
 | worker, saturated: steady RSS | 809.8 MiB | 304.0 MiB | 0.914 | **21.25** | 30.08 |
 | worker, saturated: peak RSS all month | 809.8 MiB | — | 0.914 | **26.19** | 37.07 |
 
@@ -110,7 +110,7 @@ Pricing: Railway memory ~US$10/GB-month, vCPU ~US$20/vCPU-month.
 **How to read the worker rows:**
 - The worker's jobs run inside web today, as the embedded worker, so splitting them out
   **moves** most of that memory and CPU rather than adding it.
-- The new cost is a **range, ≈ US$1.75–4/month expected, US$27 upper bound** (round 2 measured
+- The new cost is a **range, ≈ US$1.77–4/month expected, US$27 upper bound** (round 2 measured
   web with the worker removed at 134.1 MiB; derivation in `WS4_7_MODE_T.md` "Cost" and
   `brambleloop/research/final_build/w6/review_requests/ws4_7_round2.md`).
 - The saturated rows are an upper bound. A cycle every 3 minutes keeps the worker busy all the
@@ -159,5 +159,5 @@ catalogue check of the worker's real role in `WS4_7_MODE_T.md`.
 
 | Action | Why | Max cost | Minutes | If it waits |
 |---|---|---|---|---|
-| Approve the Mode T spend: the `policy-issuer` service, and splitting `worker` out of web | Mode T is the only path to standing issuance. | ≈ US$1.75–4/month expected; US$27/month upper bound (worker saturated all month) | 0 to approve | No standing policy can be activated. Per-product approval continues as today. |
+| Approve the Mode T spend: the `policy-issuer` service, and splitting `worker` out of web | Mode T is the only path to standing issuance. | ≈ US$1.77–4/month expected; US$27/month upper bound (worker saturated all month) | 0 to approve | No standing policy can be activated. Per-product approval continues as today. |
 | After approval and integration: create the services, set the variables and run the runbook | The database privileges are what bound the worker. | CA$0 beyond the above | ~30 | Same as above. |
