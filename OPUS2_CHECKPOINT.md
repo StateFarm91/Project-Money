@@ -1,10 +1,23 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-18T08:40Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-18T09:20Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-18T08:40Z (read first)
+## State at 2026-11-18T09:20Z (read first)
+- S4b RR POSTED bbc4d473 on opus2/s4b-p0-board-page (6973607191), on daa31ad9: the
+  #/p0_board page (views/p0_board.js, routes/api/sw v30) + cc_mock fixture/checks;
+  test_v11_pwa_browser 230/230; 23/25 UI suites green (w4_board, plact environmental).
+  opus2/s4-p0-command-board restored to daa31ad9 (S4 under review; never move a head under
+  review -- new work goes on its own branch).
+- Awaiting verdicts: E1 34dbf572, A3 e5575380 (+L2 go?), research 26548a38, WS4 db785f92,
+  A4 ac0ca847/eb47549e, S1 e490fc6f, S2 9d03acb2, S3 fa3a09e9/497a8301/9772f4a4,
+  S4 daa31ad9, S4b bbc4d473; sp.activate F-542/F8 scan question (6969301528).
+- NEXT: ws5 LOWs N1-N3 (bind release on listing_id; refuse rows without state; one
+  LISTING_STATES constant) -- find the ws5 E-stack head and Main's LOW text first.
+- Stop reason this tick: S4b work unit complete (RR posted).
+
+## State at 2026-11-18T08:40Z (superseded)
 - S4 RR POSTED daa31ad9 on opus2/s4-p0-command-board (6973250760), one commit on
   claude/w6-INTEG1 19e6a8ff: app/command_center/p0_board.py + GET /api/cc/p0-board (owner,
   read-only, composes existing readers; per-section level from the 7-rung vocabulary, never
