@@ -69,7 +69,34 @@ passes on this branch. No test was weakened or skipped. The repo-root `REVIEW_RE
 
 ## Suites run
 
-SUITES_PLACEHOLDER
+`JOBS=4 SUITE_REGISTRY=0 SUITES="<24 suites>" PY=/tmp/venv/bin/python bash run_tests.sh` on a
+clean tree at d65c9e6a (run record `artifacts/suite_runs/20261118T152533Z-2639.json`):
+**TOTAL PASSING: 186; suites failing: 5**, and all 5 are the environment issue below.
+
+**Green (19 suites):** all 13 A9 suites from round 1 (test_codex_a9_defer_state,
+_defer_state_pg, _event_release, _event_scope, _owner_action_fence, _parked_source_change,
+_source_binding, _sweep_isolation, test_opus2_a9_u6_child_vocab, _import_path,
+_record_reverify, test_opus2_listing_package, test_w5_a9_package_event), the new
+**test_opus2_a9_u6_sweep_visibility (4 OK)**, and the suites that read the touched modules:
+test_w4_fmbatch1_retention_guard, test_cost_governance_wave2 (both retention guards),
+test_w4_board, test_w3_k7_ops_truth, test_w5_a7_supply_stall.
+
+**Not run, environment (NOT a pass):** test_w4_readback_evidence, test_w4_cc_company,
+test_v11_cc_actions, test_w4_fmbatch1_master_view, test_w4_fmbatch1_dept_workspace. Each
+fails at import with `RuntimeError: The starlette.testclient module requires the httpx2
+package to be installed`. `requirements.txt` has `fastapi>=0.115` and no httpx; a fresh venv
+resolves starlette 1.10.0 / fastapi 0.164.0, whose TestClient needs `httpx2`. It fails the
+same way on a9feb805 (checked: test_w4_readback_evidence in an a9feb805 worktree). Installing
+httpx2 was not permitted in this session, so **the reviewer should run these five in an
+environment that has the test client**, especially test_w4_readback_evidence (it covers
+`production_evidence.evidence()`, which now has a new section and judgement) and
+test_w4_cc_company (Command Center readers). The new section and the queue-reader change are
+exercised directly, without a TestClient, by test_opus2_a9_u6_sweep_visibility.
+
+Separate finding for the integrator (not fixed here, out of scope): `requirements.txt` does
+not pin a TestClient-compatible httpx/starlette, so the API suites cannot run in a fresh venv.
+
+The full suite was not run (per instructions).
 
 ## Final SHA
 
