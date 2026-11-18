@@ -80,8 +80,8 @@ REQUIRED_SCOPES = ("listings_r", "listings_w", "listings_d", "shops_r", "shops_w
                    "transactions_r")
 
 #: Etsy's getListingsByShop `state` filter values. Every one is read so a listing moved to
-#: any of them is observed rather than inferred from its absence.
-CENSUS_STATES = ("active", "draft", "inactive", "sold_out", "expired")
+#: any of them is observed rather than inferred from its absence (the one list, ws5 N3).
+from ..integrations.etsy import LISTING_STATES as CENSUS_STATES  # noqa: E402
 
 #: How our Listing.state maps to the state Etsy should report. store.publish creates drafts
 #: and only store.activate makes one active.

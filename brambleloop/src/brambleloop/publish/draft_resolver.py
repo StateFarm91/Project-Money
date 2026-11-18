@@ -21,6 +21,10 @@ intent:
   are **escalated**. One owner card names every candidate, the incident's detail lists
   them, and nothing is adopted. Two identical drafts cannot be told apart, so that case
   always needs a person.
+* **Nothing carries the certified title, but a listing was created inside the intent's create
+  window under another title** (the draft may have been renamed by hand during the halt; no
+  remote id came back to bind on): escalated, never released (review 6957411211, N1).
+* **A listing read without its own `state`** makes the whole read undecided (N2).
 * **No candidate** is never read as "not created" from one look. The run records the empty
   read on the intent. After `EMPTY_READS` complete empty reads spanning at least
   `EMPTY_SPAN`, the intent is released (deleted, audited) and the incident resolves, so the
@@ -46,7 +50,7 @@ MAX_PAGES = 50
 # Review 6954619488 (E6 MEDIUM): every state a shop listing can hold. A draft that was created
 # and then activated (or deactivated, expired, sold out) is no longer a draft; reading drafts
 # only made it invisible, so its intent was released and the next publish duplicated it.
-LISTING_STATES = ("draft", "active", "inactive", "expired", "sold_out")
+from ..integrations.etsy import LISTING_STATES  # noqa: E402  (the one list, ws5 N3)
 
 ADOPTED = "draft_intent.adopted_by_match"
 ESCALATED = "draft_intent.escalated"
@@ -132,19 +136,30 @@ def match(db, intent, drafts: list[dict]) -> dict:
         return {"candidates": [], "near": [], "certified": None,
                 "why": "no local listing bound to the intent's certified release"}
     bound = _bound_ids(db)
-    floor = (_aware(intent.at) or datetime.now(timezone.utc)) - CREATE_SKEW
-    candidates, near = [], []
+    started = _aware(intent.at) or datetime.now(timezone.utc)
+    floor, ceiling = started - CREATE_SKEW, started + CREATE_SKEW
+    candidates, near, window = [], [], []
     for d in drafts:
         lid = str(d.get("listing_id") or "")
         if not lid or lid in bound:
             continue
-        if norm_title(d.get("title")) != norm_title(certified["title"]):
-            continue
-        state = str(d.get("state") or "draft")
+        state = str(d.get("state") or "")
         created = _created_at(d)
-        entry = {"listing_id": lid, "price": _price(d), "state": state,
+        entry = {"listing_id": lid, "price": _price(d), "state": state or None,
                  "created": created.isoformat() if created else None}
-        if state != "draft":
+        if norm_title(d.get("title")) != norm_title(certified["title"]):
+            # Review 6957411211 (ws5 N1): the create may have reached Etsy and the draft been
+            # renamed by hand during the halt. No remote id came back, so there is no id to
+            # bind on; the create's own time window is the binding. An unbound listing created
+            # inside it is never read as "no listing", whatever its title: escalated, never
+            # released and never adopted.
+            if created is not None and floor <= created <= ceiling:
+                window.append({**entry, "why": "created inside this intent's create window "
+                                               "under another title (renamed by hand?)"})
+            continue
+        if not state:
+            near.append({**entry, "why": "listing state unread"})
+        elif state != "draft":
             # The create reached Etsy and the listing has since moved on (activated by hand,
             # deactivated, expired, sold out): never released, never adopted automatically.
             near.append({**entry, "why": f"certified title on a listing now {state!r}"})
@@ -154,7 +169,8 @@ def match(db, intent, drafts: list[dict]) -> dict:
             near.append({**entry, "why": "certified title but a different price"})
         else:
             candidates.append(entry)
-    return {"candidates": candidates, "near": near, "certified": certified, "why": None}
+    return {"candidates": candidates, "near": near, "window": window, "certified": certified,
+            "why": None}
 
 
 def _signature(intent) -> str:
@@ -252,6 +268,10 @@ def resolve(db, drafts: list[dict], *, audit, now: datetime | None = None) -> di
             results.append(_adopt(db, intent, found, audit))
         elif found["why"] is not None or found["candidates"] or found["near"]:
             results.append(_escalate(db, intent, found, audit))
+        elif found.get("window"):
+            # N1: nothing carries the certified title, but a listing was created inside the
+            # create window under another title. Never an empty read: escalate.
+            results.append(_escalate(db, intent, {**found, "near": found["window"]}, audit))
         else:
             results.append(_empty(db, intent, now, audit))
     return {"read": True, "drafts_seen": len(drafts), "intents": results,
@@ -281,7 +301,16 @@ def run(db, *, audit, client=None, now: datetime | None = None) -> dict:
                 return {"read": False, "intents": [],
                         "why": f"{len(got)} {state} listings read, the paging limit; the read "
                                f"may be incomplete, so nothing was decided"}
-            drafts.extend({**d, "state": d.get("state") or state} for d in got)
+            # Review 6957411211 (ws5 N2): a row without its own `state` is refused, never
+            # tagged with the state it was queried under -- a filter Etsy did not apply would
+            # otherwise let a live listing read as a draft. The whole read is undecided.
+            stateless = [str(d.get("listing_id") or "?") for d in got if not d.get("state")]
+            if stateless:
+                return {"read": False, "intents": [],
+                        "why": f"{len(stateless)} listing(s) read under state={state!r} carry "
+                               f"no state of their own ({', '.join(stateless[:5])}); nothing "
+                               f"was decided"}
+            drafts.extend(got)
     except Exception as e:  # noqa: BLE001 - an unread shop is UNKNOWN, never "empty"
         return {"read": False, "why": f"{type(e).__name__}: {e}"[:300], "intents": []}
     return resolve(db, drafts, audit=audit, now=now)
