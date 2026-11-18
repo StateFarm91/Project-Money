@@ -80,7 +80,7 @@ Notes: "Large Linen Throw" and "Oversized Chunky Throw" now draft at 128 x 164.9
 
 - `JOBS=4 SUITE_REGISTRY=0 SUITES="test_a4a_fix_object_size test_blanket_size_truth test_colourwork_template_size_truth test_fallback_draft_provenance test_flat_rows_size_truth test_opus2_draft_constructions test_opus2_drawstring_pouch test_opus2_knowledge_gaps test_opus2_pet_bed test_opus2_stocking test_opus2_tapestry_basket test_s1_fix_size_families test_s1_product_truth test_s1_product_truth_2 test_w4_pipe2_candidates test_w5_concept_intake"` → **TOTAL PASSING: 226; suites failing: 0**
 - `SUITES="test_w5_a7_supply_stall"` → **6 passing, 0 failing**
-- `SUITES="test_product_run"`, run alone → PRODUCT_RUN_RESULT
+- `SUITES="test_product_run"`, run alone → **TOTAL PASSING: 36; suites failing: 0** (3323 s, at d062033 with a clean tree; later commits change only DECISION_LOG.md and this file)
 
 ## Files
 
@@ -89,4 +89,4 @@ Notes: "Large Linen Throw" and "Oversized Chunky Throw" now draft at 128 x 164.9
 - `brambleloop/tests/test_s1_product_truth_2.py`: new
 - `brambleloop/DECISION_LOG.md`: D-S1-UNITLESS-DIMS and D-S1-RELATIVE-SIZE
 
-Final SHA: FINAL_SHA
+Final SHA: the head of `eng/s1-product-truth-2`, the commit that adds this line (the code is unchanged since d062033; reported in the closing message)
