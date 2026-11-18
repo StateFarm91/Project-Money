@@ -53,6 +53,7 @@ HELD = "policy.grant_held"
 _REQUEST_SCAN = 500   # request rows read per pass, after answered ones are excluded
 ACTOR = "policy_issuer"
 HEARTBEAT_FRESH = timedelta(minutes=5)
+CLOCK_SKEW = timedelta(seconds=30)   # process clock vs database clock, either direction
 _ETSY_CREDENTIAL_VARS = ("ETSY_API_KEY", "ETSY_KEYSTRING", "ETSY_SHARED_SECRET",
                          "ETSY_ACCESS_TOKEN", "ETSY_REFRESH_TOKEN")
 
@@ -109,15 +110,84 @@ _LOCK = threading.Lock()
 _FLAG = "_brambleloop_standing_grants_ready"
 
 
+WRITE_ONCE_TRIGGER = "standing_grants_write_once"
+_WRITE_ONCE_MSG = "standing grant consumption is write-once"
+_SQLITE_WRITE_ONCE = f"""
+CREATE TRIGGER IF NOT EXISTS {WRITE_ONCE_TRIGGER} BEFORE UPDATE ON standing_grants
+WHEN OLD.consumed_at IS NOT NULL OR OLD.consumed_job_id IS NOT NULL
+     OR NEW.consumed_at IS NULL OR NEW.consumed_job_id IS NULL
+BEGIN SELECT RAISE(ABORT, '{_WRITE_ONCE_MSG}'); END
+"""
+_PG_WRITE_ONCE_FN = f"""
+CREATE OR REPLACE FUNCTION {WRITE_ONCE_TRIGGER}() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF OLD.consumed_at IS NOT NULL OR OLD.consumed_job_id IS NOT NULL
+     OR NEW.consumed_at IS NULL OR NEW.consumed_job_id IS NULL THEN
+    RAISE EXCEPTION '{_WRITE_ONCE_MSG} (grant %)', OLD.id USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END $$
+"""
+_PG_WRITE_ONCE_TRIGGER = (f"CREATE TRIGGER {WRITE_ONCE_TRIGGER} BEFORE UPDATE ON standing_grants "
+                          f"FOR EACH ROW EXECUTE FUNCTION {WRITE_ONCE_TRIGGER}()")
+
+
+def _has_write_once(conn) -> bool:
+    if conn.dialect.name == "postgresql":
+        return bool(conn.execute(text(
+            "SELECT 1 FROM pg_trigger WHERE tgname = :n AND NOT tgisinternal "
+            "AND tgrelid = 'standing_grants'::regclass AND tgenabled <> 'D'"),
+            {"n": WRITE_ONCE_TRIGGER}).scalar())
+    return bool(conn.execute(text(
+        "SELECT 1 FROM sqlite_master WHERE type='trigger' AND name=:n"),
+        {"n": WRITE_ONCE_TRIGGER}).scalar())
+
+
+def install_guards(engine) -> list[str]:
+    """M-3: make consumption write-once IN THE DATABASE. Any UPDATE of a grant row that is
+    already consumed, or that leaves it unconsumed, is refused by a trigger -- so a role with
+    the runbook's column UPDATE cannot reset consumed_at to NULL and re-consume, and no UPDATE
+    can touch a grant except the one NULL -> consumed transition. Run by the migration owner
+    (`Database.create_all`); idempotent; never by the issuer or worker role."""
+    Base.metadata.create_all(engine, tables=[StandingGrant.__table__,
+                                             StandingGrantSlot.__table__], checkfirst=True)
+    with engine.begin() as conn:
+        if _has_write_once(conn):
+            return []
+        if conn.dialect.name == "postgresql":
+            conn.execute(text(_PG_WRITE_ONCE_FN))
+            conn.execute(text(_PG_WRITE_ONCE_TRIGGER))
+        else:
+            conn.execute(text(_SQLITE_WRITE_ONCE))
+    return [f"standing_grants: {WRITE_ONCE_TRIGGER} trigger installed"]
+
+
 def ensure_tables(db) -> None:
+    """The grant store must exist WITH its write-once guard. A role that may not create them
+    (the issuer and worker under the runbook) only checks: the migration owner creates them
+    (`Database.create_all` -> `install_guards`). Missing -> a refusal, never a lazy CREATE
+    that would fail with a permission error mid-pass (review M-5)."""
+    from sqlalchemy import inspect
+
     engine = db.engine if hasattr(db, "engine") else db.get_bind()
     if getattr(engine, _FLAG, False):
         return
     with _LOCK:
         if getattr(engine, _FLAG, False):
             return
-        Base.metadata.create_all(engine, tables=[StandingGrant.__table__,
-                                                 StandingGrantSlot.__table__], checkfirst=True)
+        insp = inspect(engine)
+        have = all(insp.has_table(t) for t in ("standing_grants", "standing_grant_slots"))
+        if have:
+            with engine.connect() as conn:
+                have = _has_write_once(conn)
+        if not have:
+            try:
+                install_guards(engine)
+            except Exception as exc:  # noqa: BLE001 - not the owner: refuse, do not crash
+                raise GrantRefused(
+                    "the grant store or its write-once guard is missing and this role may "
+                    f"not create it ({type(exc).__name__}); the migration owner creates it "
+                    "(Database.create_all)") from None
         setattr(engine, _FLAG, True)
 
 
@@ -584,7 +654,8 @@ def issue(db, *, slug: str, version: str, release: str, job_id: int,
 def consume(db, grant_id: int, *, job_id: int, stage: str = "pre_claim",
             now: datetime | None = None, env=None) -> dict:
     """Use a SEG once: verify, then one conditional UPDATE that must hit exactly one row."""
-    from sqlalchemy import select, update
+    from sqlalchemy import update
+    from sqlalchemy.exc import DBAPIError
 
     from ..core.models import AuditLog
 
@@ -599,16 +670,44 @@ def consume(db, grant_id: int, *, job_id: int, stage: str = "pre_claim",
         raise GrantRefused(f"standing grant {grant_id} does not verify under the issuer key")
     if int(body.get("job_id", -1)) != int(job_id):
         raise GrantRefused(f"standing grant {grant_id} was issued for job {body.get('job_id')}")
-    with db.session() as s:
-        hit = s.execute(update(StandingGrant).where(
-            StandingGrant.id == int(grant_id), StandingGrant.consumed_at.is_(None),
-            StandingGrant.expires_at > now).values(
-            consumed_at=now, consumed_job_id=int(job_id), consumed_stage=str(stage)[:40]))
-        if hit.rowcount != 1:
-            raise GrantRefused(f"standing grant {grant_id} is used, expired or gone")
-        s.add(AuditLog(actor="worker", action=CONSUMED, artifact=body.get("scope", ""),
-                       detail={"grant_id": int(grant_id), "job_id": int(job_id),
-                               "stage": str(stage)[:40]}))
+    # M-3: the SIGNED window decides, not the unsigned expires_at column.
+    try:
+        nb = datetime.fromisoformat(str(body["not_before"]))
+        ex = datetime.fromisoformat(str(body["expires_at"]))
+    except (KeyError, TypeError, ValueError):
+        raise GrantRefused(f"standing grant {grant_id} carries no readable signed window") \
+            from None
+    nb, ex = _aware(nb), _aware(ex)
+    if now >= ex:
+        raise GrantRefused(f"standing grant {grant_id} expired at {ex.isoformat()} (signed)")
+    if now < nb - CLOCK_SKEW:
+        raise GrantRefused(f"standing grant {grant_id} is not valid before {nb.isoformat()}")
+    # M-3: the policy is re-read at use. A suspended, revoked, expired or replaced policy (or
+    # a deployment no longer in Mode T) voids every grant it backed that is still unused.
+    eff = SP.effective(db, now=now)
+    pol = body.get("policy") or {}
+    if eff.get("state") != SP.EFFECTIVE:
+        raise GrantRefused(f"standing grant {grant_id} is void: no effective standing policy "
+                           f"at use ({eff.get('why')})")
+    if eff.get("approval_id") != pol.get("row_id") or eff.get("seal") != pol.get("seal"):
+        raise GrantRefused(f"standing grant {grant_id} is void: it was issued under policy "
+                           f"row {pol.get('row_id')}, and the effective policy is row "
+                           f"{eff.get('approval_id')}")
+    try:
+        with db.session() as s:
+            hit = s.execute(update(StandingGrant).where(
+                StandingGrant.id == int(grant_id), StandingGrant.consumed_at.is_(None),
+                StandingGrant.consumed_job_id.is_(None), StandingGrant.expires_at > now).values(
+                consumed_at=now, consumed_job_id=int(job_id), consumed_stage=str(stage)[:40]))
+            if hit.rowcount != 1:
+                raise GrantRefused(f"standing grant {grant_id} is used, expired or gone")
+            s.add(AuditLog(actor="worker", action=CONSUMED, artifact=body.get("scope", ""),
+                           detail={"grant_id": int(grant_id), "job_id": int(job_id),
+                                   "stage": str(stage)[:40]}))
+    except DBAPIError as exc:
+        # The database's own write-once guard or UNIQUE(consumed_job_id).
+        raise GrantRefused(f"the grant store refused consumption of {grant_id} "
+                           f"({type(exc.orig).__name__})") from None
     return body
 
 

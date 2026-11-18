@@ -172,8 +172,11 @@ class Database:
         from ..creative import prospecting as _prospecting  # noqa: F401; brief cursors
         from .migrate import apply as apply_migrations
 
+        from ..ops import standing_grants as _standing_grants  # WS4-7 grant store + guard
+
         Base.metadata.create_all(self.engine)
-        return apply_migrations(self.engine)
+        changes = apply_migrations(self.engine)
+        return changes + _standing_grants.install_guards(self.engine)
 
     def drop_all(self) -> None:
         Base.metadata.drop_all(self.engine)

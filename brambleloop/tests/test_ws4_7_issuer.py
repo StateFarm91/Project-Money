@@ -292,8 +292,21 @@ def test_an_expired_or_tampered_grant_is_refused_at_use():
             g2 = SG.issue(db, slug=SLUG + "-2", version=VERSION, release=REL, job_id=2,
                           now=NOW + timedelta(minutes=1))
         _refused(lambda: SG.consume(db, g1["grant_id"], job_id=1,
-                                    now=NOW + timedelta(minutes=17)), "used, expired or gone")
+                                    now=NOW + timedelta(minutes=17)), "expired")
+        # The write-once guard refuses any edit of an unconsumed grant (M-3); an attacker
+        # who can drop the guard (the table owner) still fails the signature check.
+        from sqlalchemy import text
+        from sqlalchemy.exc import IntegrityError
+
+        try:
+            with db.session() as s:
+                row = s.get(SG.StandingGrant, g2["grant_id"])
+                row.detail_json = {**row.detail_json, "release": "c" * 64}
+            raise AssertionError("the write-once guard must refuse this edit")
+        except IntegrityError:
+            pass
         with db.session() as s:
+            s.execute(text(f"DROP TRIGGER {SG.WRITE_ONCE_TRIGGER}"))
             row = s.get(SG.StandingGrant, g2["grant_id"])
             row.detail_json = {**row.detail_json, "release": "c" * 64}
         _refused(lambda: SG.consume(db, g2["grant_id"], job_id=2,
@@ -645,6 +658,83 @@ def test_a_clean_worker_boot_reports_no_key_and_no_incident():
                         sp.EMBEDDED_VAR: "0"})
     assert got["report"]["issuer_signing_present"] is False, got["report"]
     assert not [i for i in got["incidents"] if i[0].startswith(SG.KEY_EXPOSED_INCIDENT)], got
+
+
+# ---- M-3: use-time checks, write-once consumption --------------------------------------------
+
+def _one_grant(job=1, frequency=AT_CEILINGS):
+    db, c, a = _effective_db(frequency=frequency)
+    _reports(db)
+    _as_issuer()
+    with _InPolicy():
+        g = _issue(db, SLUG, job, NOW + timedelta(minutes=1))
+    return db, c, a, g
+
+
+def test_consume_trusts_the_signed_expiry_not_the_column():
+    """Review M-3 probe: the unsigned expires_at column was pushed out and the old consume
+    accepted the grant 2 days after its signed expiry."""
+    from sqlalchemy import text
+
+    try:
+        db, c, a, g = _one_grant()
+        trigger = getattr(SG, "WRITE_ONCE_TRIGGER", None)
+        with db.session() as s:          # an owner-level edit: the guard dropped first
+            if trigger:
+                s.execute(text(f"DROP TRIGGER {trigger}"))
+            row = s.get(SG.StandingGrant, g["grant_id"])
+            row.expires_at = row.expires_at + timedelta(days=3)
+        late = NOW + timedelta(days=2)
+        _reports(db, now=late)           # Mode T and the policy are fine at that time
+        _refused(lambda: SG.consume(db, g["grant_id"], job_id=1, now=late), "(signed)")
+        with db.session() as s:
+            assert s.get(SG.StandingGrant, g["grant_id"]).consumed_at is None
+    finally:
+        _reset()
+
+
+def test_a_suspended_or_revoked_policy_voids_its_outstanding_grants():
+    for how in ("suspend", "revoke"):
+        try:
+            db, c, a, g = _one_grant()
+            if how == "suspend":
+                sp.suspend(db, c["policy_id"], reason="stop watch: test", by="test",
+                           now=NOW + timedelta(minutes=1))
+            else:
+                sp.revoke(db, a)
+            _refused(lambda: SG.consume(db, g["grant_id"], job_id=1,
+                                        now=NOW + timedelta(minutes=2)), "is void")
+        finally:
+            _reset()
+
+
+def test_consumption_is_write_once_in_the_database():
+    """Review M-3: with the runbook's column UPDATE a worker could set consumed_at back to
+    NULL and consume again. The database now refuses any UPDATE of a consumed grant."""
+    from sqlalchemy import update
+    from sqlalchemy.exc import IntegrityError
+
+    try:
+        db, c, a, g = _one_grant(job=7)
+        gid = g["grant_id"]
+        SG.consume(db, gid, job_id=7, now=NOW + timedelta(minutes=2))
+        for values in ({"consumed_at": None}, {"consumed_at": None, "consumed_job_id": None},
+                       {"consumed_stage": "again"}):
+            try:
+                with db.session() as s:
+                    s.execute(update(SG.StandingGrant).where(SG.StandingGrant.id == gid)
+                              .values(**values))
+                raise AssertionError(f"the database accepted {values}")
+            except IntegrityError:
+                pass
+        _refused(lambda: SG.consume(db, gid, job_id=7, now=NOW + timedelta(minutes=3)),
+                 "used, expired or gone")
+        with db.session() as s:
+            n = len([r for r in s.scalars(select(AuditLog).where(
+                AuditLog.action == SG.CONSUMED))])
+        assert n == 1, n
+    finally:
+        _reset()
 
 
 if __name__ == "__main__":
