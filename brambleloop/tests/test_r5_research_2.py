@@ -89,6 +89,14 @@ def test_h1_the_real_cadence_takes_a_new_arena_to_an_approved_concept():
     gid, _ev, _state = S.gap(db)
     props = W.prior_proposals(db, gid)
     assert len(props) == 1 and props[0]["digest"], props
+    # Review H3 (eng/r5-research-3): an approval record is not enough -- under continuously
+    # fresh evidence the concept is STILL approved on every following day.
+    slug = rows[0].slug
+    for days_ago in (-2, -3, -4, -5, -6):
+        _real_cadence(db, reader, days_ago)
+        assert [c.state for c in S.concepts(db)] == [intake.APPROVED], \
+            (days_ago, [(c.state, c.reasons) for c in S.concepts(db)])
+        assert intake.seed_for(db, slug) is not None, days_ago
 
 
 def test_h1_a_refused_proposal_is_re_eligible_when_its_evidence_rises():
