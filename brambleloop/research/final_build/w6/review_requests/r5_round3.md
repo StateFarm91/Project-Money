@@ -24,10 +24,11 @@ asserts: exactly one original task (answered/expired), exactly one renewal per l
 (3), none left OPEN, all answered on distinct days, and the concept still APPROVED.
 
 ## Known limits (honest)
-- Renewal churn: up to **two** renewal tasks per approved watchlist concept per day (the
+- Renewal churn: up to **two** renewals per approved watchlist concept per day (the
   intake job's last-chance renewal within 12 h of expiry, then the comparison's renewal from
-  the new reading). Bounded; each is a real answer from fresh observations. The test pins
-  5..10 renewals over 5 days.
+  the new reading). Each is a real answer from fresh observations. The test pins 5..10
+  renewals over 5 days (counted in the audit log since round 4; only `RENEWAL_KEEP` = 2
+  renewal task rows are kept per concept).
 - The last-chance renewal may answer from the previous day's reading while its observations
   are still within `STALE_AFTER` (48 h); intake's freshness on that reading's date
   (`market_radar` = 1 day) still applies, so an old reading is never renewed into a fresh one.
@@ -52,3 +53,39 @@ test_search_truth test_w4_c12_dashboard_registers test_w4_c12_lifecycle
 test_w4_close5_vision_timeout test_w4_launchfix test_w4_listready: **210 passing**, 1 suite
 failing: `test_w4_launchfix` cannot import (`fastapi.testclient` needs `httpx2`, not
 installed). This is the same environmental failure as above; no test in that suite ran.
+
+---
+
+# Round 4 (review of 5f8c02aa) — code commit `14e1dffc`
+
+## Findings → fix → test
+
+| Finding | Fix | Regression test (fails on 5f8c02aa, passes here) |
+|---|---|---|
+| **M1** a shop that relists listings it withdrew never counts again: `observe.scan` updated `last_seen` on an unchanged listing but left `audit_state == "withdrawn"`, so `compare()` kept them in the stale-or-withdrawn majority → arena UNKNOWN forever, never re-proposed | `intel/observe.py`: a withdrawn row seen live again is **revived** — unchanged: `audit_state` back to `audited` (gallery already read) or `queued`; changed: the normal re-read (`queued`). The withdrawal is not erased: `_revival` moves `withdrawn_first_noticed` into `detail.withdrawal_history` (entries `{withdrawn_first_noticed, relisted_at}`, last 20 kept); the changed-listing rebuild of `detail` carries the history over. The scan report lists them (`relisted_since_last_scan`, change "listed again after a withdrawal") | `test_r5_research_4.test_m1_a_relisted_listing_counts_again_and_keeps_its_withdrawal_history` (real scans + compare: drop 2 of 3 → UNKNOWN; relist identical → rows live, history recorded, arena validated with 3 live listings per shop); `test_m1_a_relisted_and_changed_listing_keeps_its_withdrawal_history`; `test_m1_withdraw_then_relist_is_re_proposed_through_the_daily_cycle` (production cadence: approved → shop drops 2 of 3 → concept withdrawn → identical listings return → a second proposal on a new source is APPROVED; on 5f8c02aa it stays withdrawn, nothing re-proposed) |
+| **LOW** renewal tasks per approved concept per day kept forever (chain unbounded) | `watchlist_research.renew_support`: `renewed_support.chain` keeps the last `RENEWAL_KEEP` (2) renewal ids; the superseded head is set EXPIRED (`superseded_by`, so `research.expire_due` never re-opens it as a new OPEN task); older renewal tasks are deleted (`renewed_support.pruned` counts them). Every renewal stays in the audit log (`research.support_renewed`: task, refs, previous) | `test_low_renewal_tasks_are_bounded_per_approved_concept` (8 days: ≤ 2 renewal rows, exactly one ANSWERED = the head, renewed evidence ok each day, ≥ 8 renewals in the audit log, nothing OPEN) |
+| **LOW** an OPEN renewal task lingers after a withdrawal | `watchlist_research.close_renewals`, called from every intake withdrawal of a research concept (`withdraw_unsupported`, the hand-off withdrawal, the refused-revision withdrawal) via `intake._close_renewals`: OPEN tasks with trigger `watchlist_gap:<gap>#…` are EXPIRED with `detail.closed` (why, at, concept task) and audited `research.renewal_closed` — not while another APPROVED concept rests on the same gap. Fresh evidence later opens a new question as before | `test_low_an_open_renewal_task_is_closed_with_the_withdrawal` (on 5f8c02aa: `watchlist_gap:3#renew:7` stays OPEN); `test_low_close_renewals_spares_a_gap_another_approved_concept_rests_on` |
+
+Proof on 5f8c02aa (worktree, `test_r5_research_4.py` copied in): **0 passed / 6 failed**, each
+on the asserted behaviour (rows stay `withdrawn`; no history; concept stays WITHDRAWN; no
+bound; the OPEN renewal task lingers; no `close_renewals`).
+
+## Changed expectations (stated, not weakened)
+`test_r5_research_2.test_low_one_open_task_per_gap_refreshed_not_duplicated` and
+`test_r5_research_3.test_h3_an_approved_concept_stays_approved_while_evidence_stays_fresh`
+counted renewal task rows (3, and 5..10). Rows are now pruned by design, so the same counts
+are asserted on the audit log (3 distinct renewals; 5..10), **plus** the new row bound
+(exactly `RENEWAL_KEEP` rows, exactly one ANSWERED, the kept rows are the last renewals).
+
+## Suites run (round 4)
+`JOBS=4 SUITE_REGISTRY=0 PY=/tmp/venv/bin/python bash run_tests.sh` with SUITES =
+test_r5_research_4 test_r5_research_3 test_r5_research_2 test_ws2_research_m2
+test_w5_concept_intake test_w4_launchfix test_cert_mjs test_ws2_r3_source_timestamp
+test_ws2_r4_kept_scan_facts test_ws2_r6_r7_watchlist_env_dedupe test_opus2_scan_evidence
+test_radar: **12 of 12 suites passed, 181 tests passing, 0 failing**
+(run record `artifacts/suite_runs/20261118T162050Z-3336.json`). Per suite:
+r5_research_4 6, r5_research_3 7, r5_research_2 10, ws2_research_m2 7, w5_concept_intake 39,
+w4_launchfix 32, cert_mjs 19, ws2_r3_source_timestamp 6, ws2_r4_kept_scan_facts 7,
+ws2_r6_r7_watchlist_env_dedupe 5, opus2_scan_evidence 11, radar 32. With the venv from
+`requirements.lock` + `requirements-test.lock`, `test_w4_launchfix` and the `test_cert_mjs`
+veto-route test now run and pass (round 3's `httpx2` failure was that session's venv).
