@@ -148,8 +148,11 @@ def classify(topics: list[str], *, provider=None, db=None) -> dict:
     try:
         user = prompt(topics)           # built before the call: a bug here is never "sent"
         if db is not None:
+            # S2 review 6979817823: the same estimate the provider's paid gate makes (system
+            # + user), so an OpenAI-routed classify is never refused as underfunded.
             budget = gw.check_budget(
-                db, model=provider.model, input_tokens=len(user) // 4,
+                db, model=provider.model,
+                input_tokens=gw.input_tokens(provider.model, system=CLASSIFY_SYSTEM, user=user),
                 max_tokens=CLASSIFY_MAX_TOKENS, agent="market_radar", purpose=TASK)
             estimate = budget["estimate_cad"]
             reservation = budget["reservation_id"]

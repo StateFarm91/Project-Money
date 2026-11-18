@@ -215,7 +215,11 @@ class OpenAIProvider:
             raise ProviderUnusable(f"no {KEY_VAR} in this environment")
         messages = ([{"role": "system", "content": system}] if system else []) + [
             {"role": "user", "content": user}]
-        own = estimate_cad(self.model, input_tokens=(len(system or "") + len(user or "")) // 4,
+        from . import providers
+
+        own = estimate_cad(self.model,
+                           input_tokens=providers.input_tokens(self.model, system=system,
+                                                               user=user),
                            output_tokens=max_tokens)
         from . import paid_provider_gate as gate
 
@@ -243,9 +247,12 @@ class OpenAIProvider:
         messages = ([{"role": "system", "content": system}] if system else []) + [
             {"role": "user", "content": content}]
         payload = self._body(messages, max_tokens)
+        from . import providers
+
         own = estimate_cad(self.model,
-                           input_tokens=image_tokens(self.model) * len(image_urls)
-                           + len(prompt or "") // 4 + len(system or "") // 4,
+                           input_tokens=providers.input_tokens(self.model, system=system,
+                                                               user=prompt,
+                                                               images=len(image_urls)),
                            output_tokens=max_tokens)
         return self._guarded(payload, key, "openai.vision", timeout=VISION_TIMEOUT_SECONDS,
                              gate=self._vision_gate(own))

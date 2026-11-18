@@ -903,6 +903,11 @@ def enforce(db, *, provider: str, scope: str, estimate_cad: float, fingerprint: 
 
 # ---- the owner's view -----------------------------------------------------------------------
 
+def _paid_providers() -> list[str]:
+    """Every gated paid provider: image generators, vision providers and text providers."""
+    return image_providers() + list(VISION_PROVIDERS) + list(TEXT_PROVIDERS)
+
+
 def owner_view(db, *, now: datetime | None = None) -> dict:
     """Every paid provider, its activation state and this month's gated spend. Names only;
     never a credential value."""
@@ -914,7 +919,9 @@ def owner_view(db, *, now: datetime | None = None) -> dict:
         keyed = set(images.available())
     except Exception:  # noqa: BLE001
         keyed = set()
-    for provider in image_providers() + list(VISION_PROVIDERS):
+    # S2 review 6979817823 LOW: the text providers are listed too (an `openai-text` activation
+    # was gated and could be granted, but the owner could not see it here).
+    for provider in _paid_providers():
         for scope in scopes_for(provider):
             st = activation_state(db, provider, scope, now=now)
             out["providers"].append({
@@ -928,7 +935,7 @@ def owner_view(db, *, now: datetime | None = None) -> dict:
         with db.session() as s:
             out["month_gated_cad"] = {
                 p: _sum(s, PaidProviderCall.provider == p, PaidProviderCall.at >= month0)
-                for p in image_providers() + list(VISION_PROVIDERS)}
+                for p in _paid_providers()}
     except Exception as exc:  # noqa: BLE001
         out["month_gated_cad"] = f"UNKNOWN ({type(exc).__name__})"
     return out
