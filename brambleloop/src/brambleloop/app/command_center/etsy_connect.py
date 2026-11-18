@@ -48,7 +48,12 @@ def status(db) -> dict:
     probe = etsy_public.last_probe(db)
     config = etsy_authorise.configuration()
     health = oauth_store.credential_health(db)
-    granted = list(health.get("scopes") or [])
+    # Review 6980322299: `credential_health` returns the granted scopes as Etsy's own
+    # space-separated STRING; `list()` of it was a list of characters, so the Store tab read
+    # "authorised for: l, i, s, t, ..." and every scope as still needed.
+    raw = health.get("scopes") or ""
+    granted = ([str(x) for x in raw if x] if isinstance(raw, (list, tuple))
+               else [x for x in str(raw).split() if x])
     wanted = list(config.get("scopes") or [])
     return {
         "api_key_probe": _probe_view(probe),

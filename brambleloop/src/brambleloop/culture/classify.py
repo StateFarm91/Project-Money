@@ -148,8 +148,11 @@ def classify(topics: list[str], *, provider=None, db=None) -> dict:
     try:
         user = prompt(topics)           # built before the call: a bug here is never "sent"
         if db is not None:
+            # S2 review 6979817823: the same estimate the provider's paid gate makes (system
+            # + user), so an OpenAI-routed classify is never refused as underfunded.
             budget = gw.check_budget(
-                db, model=provider.model, input_tokens=len(user) // 4,
+                db, model=provider.model,
+                input_tokens=gw.input_tokens(provider.model, system=CLASSIFY_SYSTEM, user=user),
                 max_tokens=CLASSIFY_MAX_TOKENS, agent="market_radar", purpose=TASK)
             estimate = budget["estimate_cad"]
             reservation = budget["reservation_id"]
@@ -185,7 +188,7 @@ def classify(topics: list[str], *, provider=None, db=None) -> dict:
             gw.release_reservation(db, reservation, actual_cad=estimate)
             spend_report.record(
                 db, agent="market_radar", amount_cad=estimate, estimated_cad=estimate,
-                purpose=TASK, provider="anthropic", model=provider.model,
+                purpose=TASK, provider=getattr(provider, "name", "anthropic"), model=provider.model,
                 department="culture",
                 detail={"topics": len(topics), "price_basis": "assumed",
                         "billing": "unknown_counted_at_estimate",
@@ -208,7 +211,7 @@ def classify(topics: list[str], *, provider=None, db=None) -> dict:
         gw.release_reservation(db, reservation, actual_cad=cost)
         spend_report.record(
             db, agent="market_radar", amount_cad=cost,
-            estimated_cad=estimate, purpose=TASK, provider="anthropic",
+            estimated_cad=estimate, purpose=TASK, provider=getattr(provider, "name", "anthropic"),
             model=provider.model, department="culture",
             tokens_in=response.input_tokens, tokens_out=response.output_tokens,
             detail={"topics": len(topics), "price_basis": "assumed"})

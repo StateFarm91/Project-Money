@@ -183,7 +183,12 @@ DEPARTMENT_ALLOCATION: dict[str, float] = {}
 # moment it is written and nothing binds while the table is empty. The monthly ceiling above
 # is still the authority; a provider ceiling can only be tighter than it, never a second
 # budget beside it.
-PROVIDER_CEILINGS_CAD: dict[str, float] = {}
+# S2 review 6957356475 (MEDIUM): OpenAI is new spend routed per task, so it starts with its own
+# tighter-only cap: a quarter of the authorised month, until the owner sets another figure.
+# ESTIMATED as a starting cap, not measured from a need; the owner's activation ceilings
+# (`paid_provider_gate`, `openai-text` / `openai-vision`) bind beneath it.
+OPENAI_DEFAULT_CEILING_SHARE = 0.25
+PROVIDER_CEILINGS_CAD: dict[str, float] = {"openai": round(CEILING_CAD * OPENAI_DEFAULT_CEILING_SHARE, 2)}
 
 # Recurring infrastructure: a separate ceiling from the model ceiling, and one this system
 # does not observe. The two figures were literals in three places (`app.main`,

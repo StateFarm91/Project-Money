@@ -10,6 +10,7 @@ This module answers the questions the owner asked production to prove, from rows
 * repeated paid calls being prevented (`paid_call_records`, the write-ahead intents);
 * weekly jobs completing (every 7-day cadence, `improve.weekly` among them);
 * dead letters in 24 h by job type, with the error *class* only;
+* listing-package releases left unrecorded (degraded sweeps), by `slug@version` and class;
 * products progressing through certification (`products.lifecycle` stages);
 * the autonomous company loop, stage by stage, with useful work counted apart from no-ops
   (`runtime.pipeline.did_no_work` is the one judge).
@@ -246,6 +247,19 @@ def publishing_halt(db, *, now: datetime) -> dict:
     }
 
 
+def _exhausted(report_count, detail) -> bool:
+    # review M-E of 0d2e6cbc: the one definition the retry hold and the publish gate read
+    from ..ops.rebuild_graph import incomplete_exhausted
+
+    return incomplete_exhausted(report_count, detail)
+
+
+def _legacy(detail) -> bool:
+    from ..ops.rebuild_graph import legacy_incomplete
+
+    return legacy_incomplete(detail)
+
+
 def stale_rebuilds(db, *, now: datetime) -> dict:
     from sqlalchemy import select
 
@@ -262,6 +276,14 @@ def stale_rebuilds(db, *, now: datetime) -> dict:
             AuditLog.action == "chain.rebuild_completed", AuditLog.at >= d7)))
         unbound = list(s.execute(select(AuditLog.id, AuditLog.at).where(
             AuditLog.action == "chain.rebuild_unbound", AuditLog.at >= d7)))
+        # eng/stale-rebuild-loop: a refused rebuild (withheld, no stored release) finishes
+        # DONE and writes neither completion nor unbound evidence -- invisible before.
+        refused = list(s.execute(select(AuditLog.detail).where(
+            AuditLog.action == "chain.rebuild_refused", AuditLog.at >= d7)))
+        incomplete = list(s.execute(select(Incident.signature, Incident.report_count,
+                                           Incident.detail).where(
+            Incident.resolved == False,  # noqa: E712
+            Incident.signature.like("rebuild-incomplete:%"))))
         jobs = list(s.execute(select(Job.id, Job.status, Job.created_at, Job.finished_at).where(
             Job.job_type == "chain.rebuild", Job.created_at >= d7)))
         unfinished_any = list(s.execute(select(Job.id, Job.created_at).where(
@@ -296,11 +318,38 @@ def stale_rebuilds(db, *, now: datetime) -> dict:
         "last_propagation_enqueued": len(pd.get("rebuild_enqueued") or []),
         "last_propagation_retried": len(pd.get("rebuild_retried") or []),
         "last_propagation_already_queued": len(pd.get("rebuild_already_queued") or []),
+        "last_propagation_retry_waiting": len(pd.get("rebuild_retry_waiting") or []),
+        "last_propagation_retry_held": len(pd.get("rebuild_retry_held") or {}),
+        "last_propagation_retry_held_reasons": dict(list(
+            (pd.get("rebuild_retry_held") or {}).items())[:EXAMPLES]),
         "rebuilds_verified_24h": sum(1 for c in real if _aware(c.at) >= d1),
         "rebuilds_verified_48h": sum(1 for c in real if _aware(c.at) >= d2),
         "rebuilds_verified_7d": len(real),
         "rebuilds_already_fresh_7d": len(noop),
         "rebuilds_unbound_7d": len(unbound),
+        "rebuilds_refused_7d": len(refused),
+        "rebuilds_refused_reasons": sorted({str((d or {}).get("why") or "")[:120]
+                                            for (d,) in refused})[:EXAMPLES],
+        "open_rebuild_incomplete": len(incomplete),
+        # round 2 (review M-A/M-B): a legacy row exhausted by count (no `held` written) is
+        # held too, and the named reason is shown, not only the slug.
+        "rebuild_incomplete_held": sorted(sig.split(":", 1)[1] for sig, _n, d in incomplete
+                                          if _exhausted(_n, d))[:SLUGS_PER_STAGE],
+        "rebuild_incomplete_held_reasons": dict(sorted(
+            (sig.split(":", 1)[1], str((d or {}).get("held") or f"{_n} attempts")[:200])
+            for sig, _n, d in incomplete if _exhausted(_n, d))[:EXAMPLES]),
+        # round 3 (review M-E of 0d2e6cbc): a remaining hold is visible to the owner, not
+        # silent -- the full count (the lists above are capped), the pre-branch rows still
+        # waiting for their first restate under the new budget (retried, not held), and the
+        # rows whose legacy count was reset (slug -> the legacy count kept in the row).
+        "rebuild_incomplete_held_count": sum(1 for _s, _n, d in incomplete
+                                             if _exhausted(_n, d)),
+        "rebuild_incomplete_legacy_budget_pending": sorted(
+            sig.split(":", 1)[1] for sig, _n, d in incomplete if _legacy(d))[:SLUGS_PER_STAGE],
+        "rebuild_incomplete_budget_reset": dict(sorted(
+            (sig.split(":", 1)[1],
+             int(((d or {}).get("budget_reset") or {}).get("legacy_report_count") or 0))
+            for sig, _n, d in incomplete if (d or {}).get("budget_reset"))[:EXAMPLES]),
         "newest_verified_rebuild_at": max((_iso(c.at) for c in real), default=None),
         "newest_verified_rebuild_audit_ids": sorted((int(c.id) for c in real),
                                                     reverse=True)[:EXAMPLES],
@@ -397,6 +446,74 @@ def weekly_jobs(db, *, now: datetime) -> dict:
     return {"readable": True, "grace_days": WEEKLY_GRACE.days, "required": list(WEEKLY_REQUIRED),
             "judged": "every weekly cadence that has ever been enqueued, and the required ones",
             "weekly_job_types": out}
+
+
+_RELEASE_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,119}@[A-Za-z0-9._+-]{1,40}$")
+
+
+def _safe_class(name) -> str:
+    """A recorded class NAME, emitted only when it is a loaded exception class (L1)."""
+    return (name if isinstance(name, str) and _CLASS_NAME.match(name)
+            and name in _known_exception_names() else "unclassified")
+
+
+def listing_package_releases(db, *, now: datetime, hours: int = PASS_WINDOW_HOURS) -> dict:
+    """Review of a9feb805 (MEDIUM): releases the `listing.package` job did NOT record.
+
+    A sweep whose final attempt records some releases but not others completes DONE with
+    `degraded: true` (so one bad release does not dead-letter the rest), and every failing
+    release is audited `listing.package_release_failed`. Neither is a dead letter, so the
+    dead-letter readers never saw it: a release failing every six hours passed silently. This
+    section reads both. Emitted: `slug@version`, error class names, counts, job ids, times."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog, Job, JobStatus
+    from ..runtime.listing_package_ops import JOB_TYPE, RELEASE_FAILED
+
+    since = now - timedelta(hours=hours)
+    with db.session() as s:
+        rows = list(s.execute(select(AuditLog.artifact, AuditLog.detail, AuditLog.at,
+                                     AuditLog.job_id).where(AuditLog.action == RELEASE_FAILED,
+                                                            AuditLog.at >= since)))
+        done = list(s.execute(select(Job.id, Job.outputs, Job.finished_at).where(
+            Job.job_type == JOB_TYPE, Job.status == JobStatus.DONE, Job.finished_at >= since)))
+    releases: dict[tuple, dict] = {}
+    for r in rows:
+        at = _aware(r.at)
+        if at is None or at < since:
+            continue
+        d = r.detail if isinstance(r.detail, dict) else {}
+        key = r.artifact if isinstance(r.artifact, str) and _RELEASE_KEY.match(r.artifact) \
+            else "unparseable"
+        cls = _safe_class(d.get("error_class"))
+        g = releases.setdefault((key, cls), {"release": key, "error_class": cls,
+                                             "failed_attempts": 0, "final_attempt_failures": 0,
+                                             "newest_at": None, "job_ids": []})
+        g["failed_attempts"] += 1
+        g["final_attempt_failures"] += 1 if d.get("final_attempt") is True else 0
+        if g["newest_at"] is None or at.isoformat() > g["newest_at"]:
+            g["newest_at"] = at.isoformat()
+        if r.job_id is not None and int(r.job_id) not in g["job_ids"]:
+            g["job_ids"] = sorted(g["job_ids"] + [int(r.job_id)], reverse=True)[:EXAMPLES]
+    degraded = sorted((int(j.id) for j in done
+                       if isinstance(j.outputs, dict) and j.outputs.get("degraded") is True
+                       and _aware(j.finished_at) is not None and _aware(j.finished_at) >= since),
+                      reverse=True)
+    by_release = sorted(releases.values(),
+                        key=lambda g: (-g["final_attempt_failures"], -g["failed_attempts"],
+                                       g["release"], g["error_class"]))
+    return {"readable": True, "window_hours": hours,
+            "degraded_sweeps": len(degraded), "degraded_job_ids": degraded[:EXAMPLES],
+            "unrecorded_releases": len({g["release"] for g in by_release
+                                        if g["final_attempt_failures"]}),
+            "final_attempt_failures": sum(g["final_attempt_failures"] for g in by_release),
+            "by_release": by_release[:30]}
+
+
+def judge_listing_package_releases(ev: dict) -> bool:
+    """True only when readable and no release went unrecorded on a final attempt."""
+    return bool(ev.get("readable") and ev.get("degraded_sweeps") == 0
+                and ev.get("final_attempt_failures") == 0)
 
 
 def certification(db, *, now: datetime) -> dict:
@@ -682,6 +799,50 @@ def _anchor_active_count(db) -> int | None:
     return None
 
 
+def _not_attempted(db, key, r: dict, now: datetime, held: dict) -> dict | None:
+    """ENG watchlist-cadence: why a mandatory shop was not attempted within its cadence --
+    None when it was. Fixed cause codes and the scheduler's own sentences; no error text."""
+    from ..intel import watchlist
+    from ..ops import scheduler_readback as SR
+
+    member = watchlist.BY_KEY.get(key)
+    if member is None:
+        return None
+    period = SR._period_of(SR._job_type_of(member))
+    last = _aware(SR.last_attempted(db, member))
+    if last is not None and period and (now - last).total_seconds() <= period:
+        return None
+    cause = SR.shop_not_attempted(db, member, now=now, **held)
+    # `detail` is a forbidden key on the read-only route: the scheduler's fixed sentence
+    # leaves as `explanation`.
+    out = {k: cause.get(k) for k in ("code", "job_type", "until", "incident")
+           if cause.get(k) is not None}
+    if cause.get("detail"):
+        out["explanation"] = cause["detail"]
+    return out
+
+
+def scheduler(db, *, now: datetime) -> dict:
+    """ENG watchlist-cadence: suspended job types, blocked departments, per-cadence last
+    enqueue and next window, and the mandatory shops silent for > 2x their cadence."""
+    from ..ops import scheduler_readback as SR
+
+    out = SR.scheduler_block(db, now=now)
+    out["unattempted_mandatory_shops"] = [
+        {"alias": _alias(r["key"]), "job_type": r["job_type"],
+         "last_attempted": r["last_attempted"], "hours_since": r["hours_since"],
+         "limit_hours": r["limit_hours"], "cause": r["cause"].get("code"),
+         "cause_explanation": r["cause"].get("detail")}
+        for r in SR.unattempted(db, now=now)]
+    return out
+
+
+def _alias(key):
+    from ..runtime.intel_ops import benchmark_alias
+
+    return benchmark_alias(key) if key else None
+
+
 def competitor_scans(db, *, now: datetime) -> dict:
     """Per-shop scan state, in the owner's order (`intel.scan_evidence.OWNER_SHOPS`), from the
     same read-only join `intel.scan_evidence` makes daily -- plus the facts it computes but did
@@ -695,8 +856,13 @@ def competitor_scans(db, *, now: datetime) -> dict:
     from ..intel import watchlist
     from ..runtime.intel_ops import benchmark_alias
 
+    from ..ops import scheduler_readback as SR
+
     rep = SE.report(db, now=now)
     stored = SE.latest(db) or {}
+    # ENG watchlist-cadence: per shop, why it was not attempted (the scheduler's own reasons)
+    held = {"suspended": SR._suspended(db, now), "blocked": SR._blocked(db, now),
+            "latest": SR._latest_cadence_jobs(db, now=now)}
     credential = str(rep.get("credential") or "UNKNOWN").split(":")[0].strip()
     rows = []
     with db.session() as s:
@@ -767,6 +933,7 @@ def competitor_scans(db, *, now: datetime) -> dict:
                 "errors_7d": _errors_7d(db, key, st, now),
                 "downstream": {"mission_events": _int(mission_events),
                                "coverage_gaps": _int(gaps)},
+                "not_attempted_because": _not_attempted(db, key, r, now, held),
             })
     return {"readable": True, "as_of": now.isoformat(), "credential": credential,
             "reading_day": (str(stored.get("as_of") or "")[:10] or None),
@@ -787,6 +954,8 @@ SECTIONS = {
     "autonomy_loop": autonomy_loop,
     "etsy_taxonomy": etsy_taxonomy,
     "competitor_scans": competitor_scans,
+    "listing_package_releases": listing_package_releases,
+    "scheduler": scheduler,
 }
 CHECK_NAMES = ("publishing_halt_clear", "stale_artefacts_rebuilding",
                "no_repeated_paid_call_in_24h", "weekly_jobs_completing")
@@ -858,7 +1027,11 @@ def checks(db, *, now: datetime | None = None) -> list[dict]:
          "evidence": short(stale, ("readable", "error_class", "sentinel_last_at",
                                    "sentinel_stale_artefacts", "rebuilds_verified_48h",
                                    "oldest_unfinished_rebuild_age_hours",
-                                   "open_stale_artefact_incidents"))},
+                                   "open_stale_artefact_incidents",
+                                   # round 3 (M-E): a held rebuild is named here, not silent
+                                   "rebuild_incomplete_held_count",
+                                   "rebuild_incomplete_held_reasons",
+                                   "rebuild_incomplete_legacy_budget_pending"))},
         {"check": "no_repeated_paid_call_in_24h", "ok": judge_paid_calls(paid),
          "evidence": short(paid, ("readable", "error_class", "intents_7d",
                                   "billed_in_window", "repeated_billed_requests"))},
@@ -944,6 +1117,10 @@ def evidence(db, *, now: datetime | None = None, deploy_handlers: dict | None = 
     dl = sections["dead_letters_24h"]
     judged["no_unexpected_dead_letters_in_24h"] = bool(
         dl.get("readable") and dl.get("unexpected_total") == 0)
+    # Review of a9feb805: a degraded listing-package sweep is not a dead letter but is a
+    # release left unrecorded; judged beside the dead letters so it can never pass silently.
+    judged["no_unrecorded_listing_releases_in_24h"] = judge_listing_package_releases(
+        sections["listing_package_releases"])
     return {"as_of": now.isoformat(), "read_only": True,
             "never_included": ["job inputs/outputs", "error text", "incident text",
                                "paid-call payloads", "conversations", "owner data",

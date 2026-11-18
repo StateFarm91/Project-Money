@@ -60,7 +60,11 @@ DERIVED_VERSION = "1.2.0"
 # four-row blocks, the block count the nearest to the front's height -- so the written pattern
 # collapses it to one block (it printed 63 identical rows as seven before the repeat line) and
 # the maker counts both panels the same way. Back row count changed, so a new release.
-PILLOW_VERSION = "1.4.0"
+# S1 Product Truth 3 (D-S1-FAIL-CLOSED, 2026-11-18): "Floor" is a size class the pillow family
+# does not define from a cited standard, and this cover is a 44 x 45 cm cushion, not a floor
+# pillow (those are made for 56-91 cm pads). Retitled "Bobble Pillow Cover"; the title is
+# pattern content, so the release moves a minor. The slug is the release identity and stays.
+PILLOW_VERSION = "1.5.0"
 CABLE_TARGET_CM = (90.0, 128.9)
 
 PINE = {"pine": "#244A3A"}
@@ -217,7 +221,7 @@ def build_bobble_pillow(version: str = PILLOW_VERSION) -> CIR:
 
     return CIR(
         slug="bobble-floor-pillow",
-        title="Bobble Floor Pillow Cover",
+        title="Bobble Pillow Cover",
         version=version,
         construction="flat_rows",
         risk_class="B",

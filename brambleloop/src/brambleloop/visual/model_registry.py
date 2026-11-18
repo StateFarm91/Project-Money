@@ -380,7 +380,7 @@ def observe(db, image_ref: str, *, provider=None) -> dict:
         gw.release_reservation(db, held, actual_cad=cost)
         spend_report.record(
             db, agent=OBSERVE_AGENT, amount_cad=cost, estimated_cad=estimate,
-            purpose=TASK, provider="anthropic", model=provider.model,
+            purpose=TASK, provider=getattr(provider, "name", "anthropic"), model=provider.model,
             department="quality", tokens_in=response.input_tokens,
             tokens_out=response.output_tokens, detail={"price_basis": "assumed"})
 
@@ -481,7 +481,7 @@ def compare_identity(db, reference_ref: str, candidate_ref: str, *, provider=Non
         gw.release_reservation(db, held, actual_cad=cost)
         spend_report.record(
             db, agent=OBSERVE_AGENT, amount_cad=cost, estimated_cad=estimate,
-            purpose=TASK, provider="anthropic", model=provider.model,
+            purpose=TASK, provider=getattr(provider, "name", "anthropic"), model=provider.model,
             department="quality", tokens_in=response.input_tokens,
             tokens_out=response.output_tokens, detail={"price_basis": "assumed"})
 
@@ -587,7 +587,7 @@ def compare_hair(db, reference_ref: str, candidate_ref: str, *, provider=None) -
         gw.release_reservation(db, held, actual_cad=cost)
         spend_report.record(
             db, agent=HAIR_AGENT, amount_cad=cost, estimated_cad=estimate,
-            purpose=TASK, provider="anthropic", model=provider.model,
+            purpose=TASK, provider=getattr(provider, "name", "anthropic"), model=provider.model,
             department="creative", tokens_in=response.input_tokens,
             tokens_out=response.output_tokens, detail={"price_basis": "assumed"})
 

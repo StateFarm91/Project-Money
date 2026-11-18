@@ -1,0 +1,775 @@
+"""WS4-5 (design §3.3, §4.1, §9 M6 increment 5): the standing-policy issuer, in SHADOW only.
+
+For every certified release that has no Etsy listing yet, the issuer reads the facts the
+design's sixteen issue-time checks need, classifies the release against the owner's newest
+approved policy (`standing_boundary.classify`, pure) and records what it WOULD have done as a
+`standing_policy.shadow_decision` row. It SIGNS NOTHING and issues nothing: there is no grant
+store, no signing key is touched, and nothing here can create or authorise a listing. The
+shadow rows are what the owner reads before activating (`standing_policy.activation_refusals`
+requires at least one) and what Stage D's shadow gate is measured on.
+
+Facts. Each reader is guarded: an exception reads UNKNOWN, and UNKNOWN holds. Readers that the
+next increment (issue-time checks) builds read UNKNOWN today with that reason, so every shadow
+decision is honestly HOLD until they exist -- never a would-issue resting on an unread fact.
+
+Activation-time facts. The kill switch, the enable switch, Mode T and the publishing phase are
+facts about the moment of issue, and in shadow they are false by construction (the shadow
+period runs before activation, in SHADOW). Shadow evaluates "would this release be in policy if
+the policy were active", so those four are recorded as ASSUMED for shadow -- named in the row,
+never silently -- and every other fact is read for real.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+from datetime import datetime, timedelta, timezone
+
+from . import standing_boundary as SB
+from . import standing_policy as SP
+
+JOB_TYPE = "policy.issuer_shadow"
+ACTOR = "standing_issuer"
+# Facts about the moment of issue: assumed (and named) in shadow, read for real at issue.
+ASSUMED_IN_SHADOW = ("kill_switch", "policy_enabled", "mode_t", "phase_may_publish")
+# Readers the next increment (issue-time checks, design §3.3 6/9/10/11/12) builds; until then
+# they read UNKNOWN and every decision holds.
+NOT_BUILT_YET: dict[str, str] = {}
+DEDUPE_HOURS = 24
+
+
+def _now(now=None) -> datetime:
+    now = now or datetime.now(timezone.utc)
+    return now if now.tzinfo else now.replace(tzinfo=timezone.utc)
+
+
+def _fact(state: str, value=None, why: str | None = None) -> dict:
+    return {"state": state, "value": value, "why": why}
+
+
+def _guard(fn):
+    """A reader that raises is UNKNOWN (never a pass, never a crash that skips the release)."""
+    try:
+        return fn()
+    except Exception as exc:  # noqa: BLE001
+        return _fact(SB.UNKNOWN, None, f"reader raised {type(exc).__name__}")
+
+
+# ---------------------------------------------------------------------------------------------
+# The policy shadow evaluates against
+# ---------------------------------------------------------------------------------------------
+
+def shadow_policy(db, *, now: datetime | None = None) -> dict | None:
+    """The owner's newest approved policy that a shadow run evaluates: a verified approval in
+    the current chain segment, not revoked, passing the code ceilings and not expired. It
+    need not be activated -- the shadow period comes before activation. None when there is
+    none (then the issuer records nothing)."""
+    now = _now(now)
+    c, rows = SP._segment(db)
+    if not c["valid"]:
+        return None
+    revoked = {d.get("approval_id") for _rid, d in rows if d.get("event") == SP.REVOKED}
+    for rid, d in reversed(rows):
+        if d.get("event") != SP.APPROVED or rid in revoked:
+            continue
+        content = d.get("content") or {}
+        if SP.ceiling_refusals(content):
+            continue
+        expires = SP._when((content.get("validity") or {}).get("expires_at"))
+        if expires is None or now >= expires:
+            continue
+        return {"approval_id": rid, "content": content, "seal": d.get("seal"),
+                "approved_at": d.get("approved_at")}
+    return None
+
+
+# ---------------------------------------------------------------------------------------------
+# Candidates and facts
+# ---------------------------------------------------------------------------------------------
+
+def candidates(db) -> list[tuple[str, str, str]]:
+    """(slug, version, release) of every certified release with a draft listing not on Etsy."""
+    from sqlalchemy import select
+
+    from ..core.models import Listing, PatternVersion, Product
+
+    out = []
+    with db.session() as s:
+        for pv, product in s.execute(select(PatternVersion, Product).join(
+                Product, Product.id == PatternVersion.product_id).where(
+                PatternVersion.certified.is_(True))):
+            listing = s.scalar(select(Listing).where(Listing.product_slug == product.slug,
+                                                     Listing.version == pv.version))
+            if listing is None or listing.etsy_listing_id or not pv.release_hash:
+                continue
+            out.append((product.slug, pv.version, pv.release_hash))
+    return sorted(out)
+
+
+def read_facts(db, slug: str, version: str, release: str, content: dict, *,
+               shadow: bool = True, now: datetime | None = None) -> dict:
+    """The facts `standing_boundary.classify` needs, each guarded. In shadow the four
+    activation-time facts are assumed and marked so."""
+    facts: dict[str, dict] = {}
+    for name in ASSUMED_IN_SHADOW:
+        facts[name] = (_fact(SB.PASS, True, "assumed for shadow: checked at issue only")
+                       if shadow else _fact(SB.UNKNOWN, None, "issue-time reader not built"))
+    for name, why in NOT_BUILT_YET.items():
+        facts[name] = _fact(SB.UNKNOWN, None, f"not built yet: {why}")
+    # Design §5.1: the stop conditions are read inline at issue, and the stop watch's newest
+    # reading must be younger than the policy's silence limit. Read for real in shadow too
+    # (only the publishing-phase condition is assumed there, as for the issue-time facts).
+    stops = _guard(lambda: _fact(SB.PASS, _stop_facts(db, content, shadow)))
+    if stops["state"] == SB.PASS:
+        facts.update(stops["value"])
+    else:
+        facts["stop_conditions_clear"] = facts["stop_watch_fresh"] = stops
+
+    facts["slug"] = _fact(SB.PASS, slug)
+    facts["category"] = _guard(lambda: _category(db, slug))
+    risk = _guard(lambda: _risk(db, slug, version))
+    if risk.get("state") == SB.PASS:
+        facts["risk_declared"] = _fact(SB.PASS, risk["value"]["declared"])
+        facts["risk_derived"] = _fact(SB.PASS, risk["value"]["derived"])
+    else:
+        facts["risk_declared"] = facts["risk_derived"] = risk
+    facts["price_cad"] = _guard(lambda: _listing_field(db, slug, version, "price_cad"))
+    facts["not_on_etsy"] = _guard(lambda: _not_on_etsy(db, slug, version))
+    facts["no_publish_incomplete"] = _guard(lambda: _no_publish_incomplete(db, slug, version))
+    facts["not_experiment"] = _guard(lambda: _not_experiment(db, slug, version))
+    facts["publication_evidence"] = _guard(
+        lambda: _publication_evidence(db, slug, version, release))
+    facts["release_gates"] = _guard(lambda: _release_gates(db, slug, version))
+    # WS4-6 (design §3.3 checks 6, 9, 10, 12): the issue-time readers.
+    cir = _guard(lambda: _stored_cir(db, slug, version))
+    if cir.get("state") == SB.PASS:
+        c = cir["value"]
+        facts["deterministic_reverify"] = _guard(lambda: _reverify(c, release))
+        physical = _guard(lambda: _physical(db, c))
+        facts["physical_held"] = physical.pop("held", physical)
+        facts["owner_attested_physical"] = physical
+        facts["sizes"] = _guard(lambda: _sizes(c))
+        facts["colourwork"] = _guard(lambda: _fact(SB.PASS, len(c.colors or {}) > 1))
+        facts["wearable"] = _guard(lambda: _wearable(c))
+    else:
+        for name in ("deterministic_reverify", "physical_held", "owner_attested_physical",
+                     "sizes", "colourwork", "wearable"):
+            facts[name] = cir
+    facts["taxonomy_agrees"] = _guard(lambda: _taxonomy_agrees(db, slug, version))
+    facts["no_fake_discount"] = _guard(lambda: _no_fake_discount(db, slug, version))
+    facts["independent_vision_review"] = _guard(
+        lambda: _independent_vision_review(db, slug, version))
+    facts["shop_id"] = _guard(lambda: _shop_id(db))
+    facts["shop_name"] = _guard(_shop_name)
+    # HIGH-1: the pace is read from the grant store itself (every issued grant, any policy),
+    # never assumed. Unreadable -> UNKNOWN on all four, which holds.
+    pace = _guard(lambda: _fact(SB.PASS, _pace(db, now)))
+    if pace["state"] == SB.PASS:
+        p = pace["value"]
+        facts["grants_today"] = _fact(SB.PASS, p["grants_today"], "read from the grant store")
+        facts["grants_7d"] = _fact(SB.PASS, p["grants_7d"], "read from the grant store")
+        facts["outstanding"] = _fact(SB.PASS, p["outstanding"], "read from the grant store")
+        facts["minutes_since_last"] = _fact(
+            SB.PASS, p["minutes_since_last"],
+            "no earlier standing grant" if p["minutes_since_last"] is None
+            else "read from the grant store")
+    else:
+        for name in ("grants_today", "grants_7d", "outstanding", "minutes_since_last"):
+            facts[name] = pace
+    # Round-2 MEDIUM-1: read the job queue, never assume it empty. Once ads authority exists,
+    # `ads.adjust` queues `ads.campaign` for any eligible product, standing lineage included.
+    facts["ads_jobs_queued"] = _guard(lambda: _ads_jobs(db, slug, content))
+    return facts
+
+
+# The planner names no product and spends nothing: it only enqueues `ads.campaign` jobs, and
+# those are what is counted. Any OTHER ads.* job that names no product counts (fail closed).
+ADS_PLANNER = "ads.adjust"
+
+
+def _ads_jobs(db, slug, content):
+    """Live (pending, running or failed-will-retry) ads.* jobs on the requested product or any product in this policy's
+    standing lineage (`standing_stop.lineage`: every grant issued under it). A lineage or
+    queue that cannot be read raises, and `_guard` makes that UNKNOWN (never PASS 0)."""
+    from sqlalchemy import select
+
+    from ..core.models import LIVE_JOB_STATUSES, Job
+    from . import standing_stop
+
+    products = {str(slug)} | {str(p) for p in
+                             standing_stop.lineage(db, content["policy_id"])["products"]}
+    hits = []
+    with db.session() as s:
+        for jid, jtype, inputs in s.execute(select(Job.id, Job.job_type, Job.inputs).where(
+                Job.job_type.like("ads.%"),
+                Job.status.in_(LIVE_JOB_STATUSES))):
+            named = (inputs or {}).get("slug") if isinstance(inputs, dict) else None
+            if named is None and jtype == ADS_PLANNER:
+                continue
+            if named is None or str(named) in products:
+                hits.append((jid, jtype, named))
+    if hits:
+        return _fact(SB.PASS, len(hits), f"{len(hits)} ads job(s) live (pending, running or retrying) on "
+                                         f"{sorted({str(h[2]) for h in hits})[:3]}")
+    return _fact(SB.PASS, 0, f"no live ads job on {len(products)} product(s) "
+                             f"(the release and its standing lineage)")
+
+
+def _pace(db, now):
+    from . import standing_grants
+
+    return standing_grants.pace_facts(db, now=now)
+
+
+def _stop_facts(db, content, shadow):
+    from . import standing_stop
+
+    return standing_stop.issue_facts(db, content, activated=not shadow)
+
+
+def _category(db, slug):
+    from ..runtime import release
+
+    record = release._product_record(slug, db=db)
+    if not record or not record.get("category"):
+        return _fact(SB.UNKNOWN, None, "nobody has said what this product is")
+    return _fact(SB.PASS, str(record["category"]))
+
+
+def _risk(db, slug, version):
+    from sqlalchemy import select
+
+    from ..cir.model import CIR
+    from ..core.models import PatternVersion, Product
+    from ..gates import risk_matrix
+
+    with db.session() as s:
+        pv = s.scalar(select(PatternVersion).join(Product).where(
+            Product.slug == slug, PatternVersion.version == version))
+        cir_json = dict(pv.cir_json or {}) if pv is not None else None
+    if not cir_json:
+        return _fact(SB.UNKNOWN, None, "no stored CIR")
+    matrix = risk_matrix.assess(CIR.from_dict(cir_json), twin_summary=None)
+    return _fact(SB.PASS, {"declared": matrix["declared"], "derived": matrix["derived"]})
+
+
+def _listing(db, slug, version):
+    from sqlalchemy import select
+
+    from ..core.models import Listing
+
+    with db.session() as s:
+        row = s.scalar(select(Listing).where(Listing.product_slug == slug,
+                                             Listing.version == version))
+        if row is not None:
+            s.expunge(row)
+        return row
+
+
+def _listing_field(db, slug, version, name):
+    row = _listing(db, slug, version)
+    if row is None:
+        return _fact(SB.UNKNOWN, None, "no listing")
+    return _fact(SB.PASS, getattr(row, name))
+
+
+def _not_on_etsy(db, slug, version):
+    row = _listing(db, slug, version)
+    if row is None:
+        return _fact(SB.UNKNOWN, None, "no listing")
+    return (_fact(SB.PASS, True) if not row.etsy_listing_id
+            else _fact(SB.FAIL, False, "already on Etsy"))
+
+
+def _no_publish_incomplete(db, slug, version):
+    """Check 16: no incomplete publish of this release -- neither the publish job's own
+    `store.publish_incomplete` row nor the read-back incident
+    (`etsy_ops.open_publish_incomplete`, signature `store.publish_incomplete:{slug}@{version}`),
+    resolved or not: an incomplete draft is never re-published by a standing grant."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog, Incident
+    from ..runtime import etsy_ops
+
+    with db.session() as s:
+        hit = s.scalar(select(AuditLog.id).where(
+            AuditLog.action == "store.publish_incomplete",
+            AuditLog.artifact == f"{slug}@{version}").limit(1))
+        incident = s.scalar(select(Incident.id).where(
+            Incident.signature == f"{etsy_ops.PUBLISH_INCOMPLETE}{slug}@{version}").limit(1))
+    if hit is None and incident is None:
+        return _fact(SB.PASS, True)
+    return _fact(SB.FAIL, False, "a publish of this release is incomplete"
+                 + (" (read-back incident)" if incident is not None else ""))
+
+
+def _not_experiment(db, slug, version):
+    from ..visual import experiment
+
+    try:
+        experiment.refuse_if_experiment(db, slug, version, action="standing policy")
+    except experiment.ExperimentRefused as exc:
+        return _fact(SB.FAIL, False, str(exc)[:200])
+    return _fact(SB.PASS, True)
+
+
+def _publication_evidence(db, slug, version, release):
+    from . import publication_authority as pub
+
+    ev = pub.evidence(db, slug, version, release)
+    summary = ev.get("summary") or {}
+    if summary.get("all_gated_sections_pass") is True:
+        return _fact(SB.PASS, True)
+    return _fact(SB.FAIL, False, "not passing: " + ", ".join(
+        summary.get("not_passing") or ["UNKNOWN"])[:300])
+
+
+def _release_gates(db, slug, version):
+    from ..publish import release_gates
+
+    verdict = release_gates.for_publish(db, slug=slug, version=version, read_only=True)
+    if verdict.get("blocks_release") is False:
+        return _fact(SB.PASS, True)
+    return _fact(SB.FAIL, False, "; ".join(str(r) for r in (verdict.get("reasons")
+                                                             or ["blocks"]))[:300])
+
+
+def _stored_cir(db, slug, version):
+    from sqlalchemy import select
+
+    from ..cir.model import CIR
+    from ..core.models import PatternVersion, Product
+
+    with db.session() as s:
+        pv = s.scalar(select(PatternVersion).join(Product).where(
+            Product.slug == slug, PatternVersion.version == version))
+        cir_json = dict(pv.cir_json or {}) if pv is not None else None
+    if not cir_json:
+        return _fact(SB.UNKNOWN, None, "no stored CIR")
+    return _fact(SB.PASS, CIR.from_dict(cir_json))
+
+
+def _reverify(cir, release):
+    """Check 9: recompile the stored CIR, re-render the US text and recompute the release
+    hash with the certificate's own function. A stored `certified=True` that this code cannot
+    reproduce is refused ("deterministic validation wins")."""
+    from ..cir.compiler import compile_cir
+    from ..cir.writer import write_pattern
+    from ..gates.certificate import _release_hash
+
+    result = compile_cir(cir)
+    if getattr(result, "errors", None):
+        return _fact(SB.FAIL, False, f"the stored CIR no longer compiles: "
+                                     f"{str(result.errors[0])[:120]}")
+    recomputed = _release_hash(cir, write_pattern(cir, result, "US"))
+    if recomputed != release:
+        return _fact(SB.FAIL, False, f"recompiled release hash {recomputed[:12]} is not the "
+                                     f"stored {str(release)[:12]}")
+    return _fact(SB.PASS, True)
+
+
+def _physical(db, cir):
+    """Check 10: the physical samples bound to exactly this content
+    (`first_customer.physical_binding`), and an owner attestation on every bound test's
+    photograph -- an operator-token intake alone is not enough. Returns the attestation fact
+    with the held classes attached under "held"."""
+    from sqlalchemy import select
+
+    from ..core.models import PhysicalPhoto
+    from ..gates import first_customer
+
+    binding = first_customer.physical_binding(db, cir)
+    # `bound_classes` maps each bound test id to its evidence class (gates.certificate).
+    raw = binding.get("bound_classes") or {}
+    classes = sorted(set(raw.values() if isinstance(raw, dict) else raw))
+    held = _fact(SB.PASS, classes)
+    bound = [int(b.get("id")) if isinstance(b, dict) else int(b)
+             for b in (binding.get("bound") or [])
+             if (b.get("id") if isinstance(b, dict) else b) is not None]
+    if not bound:
+        return {**_fact(SB.PASS, True, "no physical sample is bound (nothing to attest)"),
+                "held": held}
+    with db.session() as s:
+        # The owner's Command Center attestation (`physical_upgrade.attest_unedited`): by an
+        # owner session, bound to this exact file's sha.
+        attested = set()
+        for p in s.scalars(select(PhysicalPhoto).where(
+                PhysicalPhoto.physical_test_id.in_(bound))):
+            att = (p.detail or {}).get("owner_attestation") or {}
+            if str(att.get("by") or "").startswith("owner:cc:") and att.get("sha256") == p.sha256:
+                attested.add(p.physical_test_id)
+    missing = sorted(set(bound) - attested)
+    if missing:
+        return {**_fact(SB.FAIL, False, f"bound physical tests without an owner attestation: "
+                                        f"{missing}"), "held": held}
+    return {**_fact(SB.PASS, True), "held": held}
+
+
+def _sizes(cir):
+    """Each size of a graded design is its own release; a graded release offers the family."""
+    grading = getattr(cir, "grading", None)
+    sizes = list(getattr(grading, "sizes", None) or []) if grading is not None else []
+    return _fact(SB.PASS, max(1, len(sizes)))
+
+
+def _wearable(cir):
+    from ..gates import risk_matrix
+
+    return _fact(SB.PASS, bool(risk_matrix._is_wearable(cir)))
+
+
+def _taxonomy_agrees(db, slug, version):
+    """Check 6: the node the listing will be filed in is the one the category matcher
+    chooses for this product's own category on the newest taxonomy snapshot, and its
+    search profile is certified PASS."""
+    from ..commerce import category as cat
+    from ..integrations import etsy_taxonomy
+    from ..runtime import release
+
+    selected = cat.publish_inputs(db, slug=slug, version=version)
+    if selected.get("status") != cat.CHOSEN or not selected.get("taxonomy_id"):
+        return _fact(SB.FAIL, False, "the listing's category node is UNKNOWN")
+    if selected.get("certified") != "PASS":
+        return _fact(SB.FAIL, False, f"search profile {selected.get('certified')}")
+    record = release._product_record(slug, db=db)
+    snapshot = etsy_taxonomy.latest(db)
+    if not record or not record.get("category") or snapshot is None:
+        return _fact(SB.UNKNOWN, None, "product category or taxonomy snapshot unavailable")
+    choice = cat.choose(snapshot, str(record["category"]))
+    if getattr(choice, "status", None) != cat.CHOSEN or str(
+            getattr(choice, "taxonomy_id", None)) != str(selected["taxonomy_id"]):
+        return _fact(SB.FAIL, False, f"category {record['category']} chooses node "
+                                     f"{getattr(choice, 'taxonomy_id', None)}, the listing "
+                                     f"is filed in {selected['taxonomy_id']}")
+    return _fact(SB.PASS, True)
+
+
+# Frames no model generated: a camera photograph, and code-rendered images. Any reviewer is
+# independent of these; an AI frame needs its generator's identity from its candidate record.
+DETERMINISTIC_ASSET_CLASSES = frozenset({"PHYSICAL_PRODUCT_PHOTO", "DIGITAL_TWIN_RENDER",
+                                         "INFOGRAPHIC", "PATTERN_PREVIEW"})
+
+
+def model_family(model) -> str | None:
+    """The family of a model id: its first name token, lower-cased ("claude-x-5" -> "claude",
+    "black-forest-labs/flux-pro" -> "flux"). None when there is no id."""
+    import re
+
+    text = str(model or "").strip().lower()
+    if not text:
+        return None
+    text = text.rsplit("/", 1)[-1]
+    token = re.split(r"[-_.:@\s]+", text, maxsplit=1)[0]
+    return token or None
+
+
+def _generators(db, slug, version) -> dict[str, dict]:
+    """position -> {"sha256", "generator": None | {"provider", "model"}, "why"} for every
+    stored frame. None means no model generated it; a missing record is reported in "why"."""
+    from sqlalchemy import select
+
+    from ..core.models import ListingAsset
+
+    out: dict[str, dict] = {}
+    with db.session() as s:
+        rows = list(s.scalars(select(ListingAsset).where(
+            ListingAsset.product_slug == slug, ListingAsset.version == version)))
+        for r in rows:
+            entry = {"sha256": r.sha256, "generator": None, "why": None}
+            if r.asset_class not in DETERMINISTIC_ASSET_CLASSES:
+                from ..visual.gallery_persist import _candidate_facts
+
+                cand = (r.claims or {}).get("candidate_id")
+                facts = _candidate_facts(s, cand) if cand else {}
+                if not facts or facts.get("sha256") != r.sha256 or not facts.get("model"):
+                    entry["why"] = (f"frame {r.position} ({r.asset_class}) has no generator "
+                                    f"record bound to its bytes")
+                else:
+                    entry["generator"] = {"provider": facts.get("provider"),
+                                          "model": facts.get("model")}
+            out[str(r.position)] = entry
+    return out
+
+
+def _independent_vision_review(db, slug, version):
+    """Check 11: the stored frames' independent review and the exported-frame review both
+    hold, and every reviewed frame names its reviewer (provider and model) in the review
+    entry for exactly those bytes, from a provider AND a model family other than the one
+    that generated the frame. A review that names no reviewer is UNKNOWN."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+    from ..runtime.release import FRAME_REVIEW_ACTION, frame_review_state
+    from ..visual import exported_review
+
+    frames_state = frame_review_state(db, slug, version)
+    if not frames_state.get("reviewed"):
+        return _fact(SB.FAIL, False, "frame review: " + str(frames_state.get("why"))[:200])
+    exported = exported_review.review_state(db, slug, version)
+    if not exported.get("reviewed"):
+        return _fact(SB.FAIL, False, "exported-frame review: "
+                     + str(exported.get("why"))[:200])
+    artifact = f"{slug}@{version}"
+    reviews = []
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == FRAME_REVIEW_ACTION,
+                                              AuditLog.artifact == artifact)
+                       .order_by(desc(AuditLog.id)).limit(1))
+        reviews.append((FRAME_REVIEW_ACTION, dict(row.detail or {}) if row is not None else {}))
+        if exported.get("applies"):
+            row = s.scalar(select(AuditLog).where(AuditLog.action == exported_review.ACTION,
+                                                  AuditLog.artifact == artifact)
+                           .order_by(desc(AuditLog.id)).limit(1))
+            reviews.append((exported_review.ACTION,
+                            dict(row.detail or {}) if row is not None else {}))
+    gens = _generators(db, slug, version)
+    unknown, failed = [], []
+    for action, detail in reviews:
+        shas = {str(k): v for k, v in (detail.get("frame_shas") or {}).items()}
+        for pos, entry in sorted((detail.get("frames") or {}).items()):
+            entry = entry or {}
+            where = f"{action} frame {pos}"
+            reviewer = entry.get("reviewer") or {}
+            if not reviewer.get("provider") or not reviewer.get("model"):
+                unknown.append(f"{where}: no reviewer identity recorded")
+                continue
+            if entry.get("sha256") != shas.get(str(pos)) or not entry.get("sha256"):
+                unknown.append(f"{where}: reviewer not bound to the reviewed bytes")
+                continue
+            gen = next((g for g in gens.values() if g["sha256"] == entry["sha256"]), None)
+            if gen is None:
+                unknown.append(f"{where}: the reviewed bytes are not a stored frame")
+                continue
+            if gen["why"]:
+                unknown.append(f"{where}: {gen['why']}")
+                continue
+            g = gen["generator"]
+            if g is None:
+                continue
+            same = []
+            if str(g.get("provider") or "").lower() == str(reviewer["provider"]).lower():
+                same.append(f"provider {reviewer['provider']}")
+            if model_family(g.get("model")) == model_family(reviewer["model"]):
+                same.append(f"model family {model_family(reviewer['model'])}")
+            if same:
+                failed.append(f"{where}: reviewer shares the generator's "
+                              f"{' and '.join(same)}")
+    if failed:
+        return _fact(SB.FAIL, False, "; ".join(failed)[:400])
+    if unknown:
+        return _fact(SB.UNKNOWN, None, "; ".join(unknown)[:400])
+    return _fact(SB.PASS, True)
+
+
+def _no_fake_discount(db, slug, version):
+    """Check 12: no reference ("was") price is sent. The certified payload carries none
+    (`etsy_ops.certified_payload`); a promotion would, and none may run under the policy."""
+    from ..runtime import etsy_ops
+
+    payload = etsy_ops.certified_payload(db, slug, version)
+    sent = etsy_ops.sent_fields(payload)
+    reference = [k for k in sent if "reference" in k or "was_price" in k or "compare" in k]
+    if reference:
+        return _fact(SB.FAIL, False, f"the payload carries a reference price: {reference}")
+    return _fact(SB.PASS, True)
+
+
+def _shop_id(db):
+    from ..integrations import etsy_shop_binding
+
+    value = etsy_shop_binding.bound_shop_id(db)
+    return (_fact(SB.PASS, str(value)) if value
+            else _fact(SB.UNKNOWN, None, "no shop is bound"))
+
+
+def _shop_name():
+    from ..integrations import etsy_shop_binding
+
+    return _fact(SB.PASS, etsy_shop_binding.expected_shop_name())
+
+
+# ---------------------------------------------------------------------------------------------
+# Shadow run
+# ---------------------------------------------------------------------------------------------
+
+def evaluate(db, slug, version, release, content, *, shadow: bool = True,
+             now: datetime | None = None) -> dict:
+    facts = read_facts(db, slug, version, release, content, shadow=shadow, now=now)
+    verdict = SB.classify(content, facts)
+    return {"decision": "ISSUE" if verdict["in_policy"] else "HOLD",
+            "reasons": verdict["reasons"], "class_id": verdict["class_id"],
+            "effective_risk": verdict["effective_risk"],
+            "assumed": list(ASSUMED_IN_SHADOW) if shadow else [],
+            "fact_states": {k: v.get("state") for k, v in sorted(facts.items())}}
+
+
+def _digest(body: dict) -> str:
+    return hashlib.sha256(json.dumps(body, sort_keys=True, default=str).encode()).hexdigest()
+
+
+def shadow_run(db, *, now: datetime | None = None) -> dict:
+    """Evaluate every candidate against the shadow policy and record each decision. One row
+    per (approval, release, decision, reasons) per DEDUPE_HOURS. Never signs, never issues."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    now = _now(now)
+    policy = shadow_policy(db, now=now)
+    if policy is None:
+        return {"policy": None, "evaluated": 0, "recorded": 0, "would_issue": 0,
+                "signed": 0, "issued": 0}
+    content = policy["content"]
+    evaluated = recorded = would = 0
+    since = now - timedelta(hours=DEDUPE_HOURS)
+    # Review 6955504377 (LOW): the dedupe keys of the last DEDUPE_HOURS are read once per run,
+    # not once per candidate (it scanned every shadow row for every release: O(n^2)). The window
+    # is the decision's own time (`decided_at`, the run's clock), not the stored row time.
+    with db.session() as s:
+        recent = {(d or {}).get("decision_key") for d in s.scalars(
+            select(AuditLog.detail).where(AuditLog.action == SP.SHADOW_DECISION,
+                                          AuditLog.artifact == content["policy_id"]))
+                  if (SP._when((d or {}).get("decided_at")) or since) > since}
+    for slug, version, release in candidates(db):
+        evaluated += 1
+        try:
+            out = evaluate(db, slug, version, release, content, shadow=True)
+        except Exception as exc:  # noqa: BLE001 - one release never stops the run
+            out = {"decision": "HOLD", "reasons": [f"evaluation raised {type(exc).__name__}"],
+                   "class_id": None, "effective_risk": None, "assumed": [],
+                   "fact_states": {}}
+        would += out["decision"] == "ISSUE"
+        key = _digest({"approval_id": policy["approval_id"], "release": release,
+                       "decision": out["decision"], "reasons": out["reasons"]})
+        if key in recent:
+            continue
+        recent.add(key)
+        with db.session() as s:
+            s.add(AuditLog(actor=ACTOR, action=SP.SHADOW_DECISION,
+                           artifact=content["policy_id"], detail={
+                               "decision_key": key, "approval_id": policy["approval_id"],
+                               "policy_version": content["version"], "slug": slug,
+                               "version": version, "release": release,
+                               "decided_at": now.isoformat(), "shadow": True,
+                               "signed": False, **out}))
+            recorded += 1
+    return {"policy": content["policy_id"], "approval_id": policy["approval_id"],
+            "evaluated": evaluated, "recorded": recorded, "would_issue": would,
+            "signed": 0, "issued": 0}
+
+
+# ---------------------------------------------------------------------------------------------
+# Holds become owner cards (design §4.2; M6 item 9)
+# ---------------------------------------------------------------------------------------------
+
+HELD = "standing_policy.held"
+HOLD_KEY_PREFIX = "standing_policy.hold:"
+
+
+def hold_key(slug: str, version: str, release: str) -> str:
+    return f"{HOLD_KEY_PREFIX}{slug}@{version}:{str(release)[:12]}"
+
+
+def record_hold(db, *, slug: str, version: str, release: str, reasons: list[str],
+                content: dict, approval_id: int | None = None,
+                now: datetime | None = None) -> dict:
+    """A live HOLD: one `standing_policy.held` row and one deduplicated owner card that leads
+    to today's per-product approval (`publication.preview` -> `publication.approve`).
+
+    The card's key binds the release, so a re-held release restates its one card, and a new
+    release closes the older release's card as superseded. A hold never turns into an issue
+    by itself: the owner decides per product, exactly as without a policy."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog, OwnerAction
+    from . import owner_queue
+
+    now = _now(now)
+    key = hold_key(slug, version, release)
+    reasons = [str(r)[:300] for r in (reasons or ["held (no reason recorded)"])]
+    digest = (content or {}).get("owner_statement_digest")
+    with db.session() as s:
+        s.add(AuditLog(actor=ACTOR, action=HELD, artifact=f"{slug}@{version}", detail={
+            "scope": "standing_policy", "slug": slug, "version": version,
+            "release": release, "reasons": reasons[:20],
+            "policy_id": (content or {}).get("policy_id"),
+            "policy_version": (content or {}).get("version"),
+            "owner_statement_digest": digest, "approval_id": approval_id,
+            "held_at": now.isoformat()}))
+        superseded = []
+        prefix = f"{HOLD_KEY_PREFIX}{slug}@{version}:"
+        for row in s.scalars(select(OwnerAction).where(
+                OwnerAction.requirement_key.like(f"{prefix}%"),
+                OwnerAction.done == False)):  # noqa: E712
+            if row.requirement_key.startswith(prefix) and row.requirement_key != key:
+                owner_queue.close(row, owner_queue.SUPERSEDED,
+                                  f"release {str(release)[:12]} replaces this one", now=now)
+                superseded.append(row.requirement_key)
+        card = owner_queue.ensure(
+            s, key,
+            action=(f"{slug}@{version} is outside the standing publication policy, so it was "
+                    f"not drafted automatically. Decide it per product as today: "
+                    f"`publication.preview` shows the exact content and evidence, then "
+                    f"`publication.approve` (step-up) grants it, or leave it unpublished."),
+            reason=("held by the standing policy (statement digest "
+                    f"{str(digest)[:12]}): " + "; ".join(reasons[:6]))[:2000],
+            max_cost_cad=0.0, minutes=10,
+            consequence_of_delay="the release stays an unpublished draft",
+            why_software_cannot=("the standing policy covers only releases inside its "
+                                 "owner-signed boundary; this one is outside it"))
+        card_id = card.id
+    return {"key": key, "card_id": card_id, "superseded": superseded}
+
+
+def close_settled_holds(db, *, now: datetime | None = None) -> dict:
+    """Close hold cards on evidence: the release is on Etsy (the owner published it), or it
+    is no longer a candidate release (a newer release replaced it)."""
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+    from . import owner_queue
+
+    now = _now(now)
+    current = {f"{slug}@{version}": release for slug, version, release in candidates(db)}
+    closed = []
+    with db.session() as s:
+        for row in s.scalars(select(OwnerAction).where(
+                OwnerAction.requirement_key.like(f"{HOLD_KEY_PREFIX}%"),
+                OwnerAction.done == False)):  # noqa: E712
+            rest = row.requirement_key[len(HOLD_KEY_PREFIX):]
+            ident, _, rel = rest.rpartition(":")
+            slug, _, version = ident.partition("@")
+            listing = _listing(db, slug, version)
+            if listing is not None and listing.etsy_listing_id:
+                owner_queue.close(row, owner_queue.SATISFIED,
+                                  f"{ident} is on Etsy as {listing.etsy_listing_id}", now=now)
+                closed.append(row.requirement_key)
+            elif str(current.get(ident) or "")[:12] != rel:
+                owner_queue.close(row, owner_queue.SUPERSEDED,
+                                  f"{ident} release {rel} is no longer the candidate", now=now)
+                closed.append(row.requirement_key)
+    return {"closed": closed}
+
+
+def decide(db, slug: str, version: str, release: str, *,
+           now: datetime | None = None) -> dict:
+    """The live decision for one release against the EFFECTIVE policy (Mode T only).
+
+    No effective policy (always, until Mode T exists) -> nothing is decided and no card is
+    opened: today's per-product approval is the only path, as before. A HOLD becomes an owner
+    card (`record_hold`). An ISSUE is returned, never signed here: only the policy-issuer
+    process mints a grant (`standing_grants.issue`)."""
+    now = _now(now)
+    eff = SP.effective(db, now=now)
+    if eff.get("state") != SP.EFFECTIVE:
+        return {"decision": None, "why": eff.get("why"), "card": None}
+    content = eff["content"]
+    out = evaluate(db, slug, version, release, content, shadow=False, now=now)
+    if out["decision"] == "HOLD":
+        card = record_hold(db, slug=slug, version=version, release=release,
+                           reasons=out["reasons"], content=content,
+                           approval_id=eff.get("approval_id"), now=now)
+        return {"decision": "HOLD", "reasons": out["reasons"], "card": card}
+    # WS4-7: in policy. This function never signs: only the policy-issuer process turns an
+    # ISSUE into a grant (`standing_grants.issue`, which re-checks Mode T and its own limits).
+    return {"decision": "ISSUE", "card": None, "reasons": [],
+            "class_id": out.get("class_id"), "effective_risk": out.get("effective_risk")}
