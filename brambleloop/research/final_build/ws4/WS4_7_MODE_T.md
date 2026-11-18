@@ -25,34 +25,32 @@ this service's spend and activates a policy after a MET G-SHADOW reading.
   - The roles must differ once the runbook below is applied.
   - A stale (>5 min), forged or disagreeing report reads Mode S.
 
-## Cost (memory-priced, measured)
+## Cost (measured 2026-11-18 on PostgreSQL 16 under the runbook roles)
 
 Railway bills used resources per minute: **US$10 per GB-month of memory and US$20 per
-vCPU-month** (docs.railway.com, pricing comparison page, read 2026-11-17).
+vCPU-month** (docs.railway.com pricing, read 2026-11-17). Measured by
+`scripts/ws4_7_measure_rss.py` (720 s; issuer as `bl_issuer` with a 10 s pass and a grant
+request every 30 s; worker as `bl_worker` fed a `plan.cycle` every 3 min, which ran 16 job
+types / 203 jobs through the whole offline pipeline to `store.publish`, refused in SHADOW).
+Summary: `ws4_7_rss_measurement_2026-11-18.json`. VmRSS of each process tree, every 5 s.
 
-| Measured on this build (CPython, SQLite) | Figure |
-|---|---|
-| Peak RSS: idle pass, or a refusal before evaluation | 66.6 MiB |
-| Peak RSS upper bound: an in-policy evaluation that loads the CIR compiler and twin, measured with every model imported | 155 MiB |
-| CPU per idle pass | 1.9 ms per 60 s ≈ 0.00003 vCPU |
+| Process | Peak RSS | Steady RSS (median, 2nd half) | Avg vCPU | US$/month | CA$/month (1.4154) |
+|---|---|---|---|---|---|
+| policy-issuer | 75.0 MiB | 74.9 MiB | 0.0016 | 0.76 | 1.08 |
+| worker, idle (75 s trial, empty queue) | 95.8 MiB | 95.8 MiB | 0.0022 | 0.98 | 1.39 |
+| worker, saturated (steady RSS) | 809.8 MiB | 304.0 MiB | 0.914 | 21.25 | 30.08 |
+| worker, saturated (peak RSS held all month) | 809.8 MiB | — | 0.914 | 26.19 | 37.07 |
 
-| Monthly | US$ | CA$ (at the assumed 1.4154, core/fx) |
-|---|---|---|
-| Memory, idle, 66.6 MiB ≈ 0.070 GB | 0.70 | 0.99 |
-| Memory, upper bound, 155 MiB ≈ 0.163 GB | 1.63 | 2.30 |
-| CPU | < 0.01 | < 0.01 |
-| **Total** | **0.70 – 1.63** | **≈ 0.99 – 2.30** |
-
-**What the estimate covers:**
-- It adds no resident memory to the existing services. Web and worker each write one report
-  row at boot, and nothing stays resident.
-- Postgres is the existing database: one more small connection, and two small tables.
-
-**Caveats:**
-- The figures are measured on SQLite in this container. Production uses psycopg2 on
-  Postgres, which adds a few MiB.
-- The owner approves the spend before any service exists. This is the Mode T owner action of
-  design §8.
+**Reading it:**
+- The issuer is a new, always-on cost of about **US$0.76/month**.
+- Mode T needs `BRAMBLELOOP_EMBEDDED_WORKER=0` on web, so the worker runs as its own service.
+  Today the same jobs run inside web, so most of the worker's memory and CPU is **moved, not
+  added**. The new cost is roughly one more Python process with the app imported (about the
+  idle figure, **~US$1/month**). Web's own reduction was not measured here.
+- The saturated row is an upper bound: a `plan.cycle` every 3 minutes keeps the worker busy
+  all the time (0.9 vCPU, mostly image rendering). Real load is one daily cycle plus the
+  cadences, so the time-averaged CPU is far lower.
+- Not measured: psycopg2 connection-pool growth over days; web's RSS with the worker removed.
 
 ## Owner runbook: database roles (§2.3). Not executed by code.
 
