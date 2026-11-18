@@ -73,7 +73,26 @@ swapping the old source file back in and re-running the test).
 
 ## Suites run
 
-(run in progress — counts added in the next commit)
+1. Changed-area suites on this branch (48a86145): `test_opus2_photo_asset_review
+   test_cert_listing_frames test_physfix_photo_first test_a3_postgres_photo_fence
+   test_codex_a3_disclosed_race` → **TOTAL PASSING 54; suites failing 0**. `test_w6_fix_only_rebuild`
+   new tests were run individually (L1/L4 OK); the suite's other tests all printed OK in the
+   wide run.
+2. Wide run: every suite that references `release_gates.recheck`, `frame_review_state`,
+   `_persist_frames`, `publication_authority`, `photo_asset_review`, `physical_upgrade` or
+   `assets.build` (68 suites, clean tree at 48a86145) → **TOTAL PASSING 960; suites failing 12
+   (23 tests)**.
+3. Those 12 failing suites re-run on the base **3928ba00**: **the same 12 suites and the same 23
+   tests fail with identical messages** — pre-existing on the base, not regressions:
+   - `test_etsy_readback_observe` (16), `test_rc1_auth` (2): "photo frame or evidence no longer
+     matches the certificate" from `etsy_ops.certified_frames` — identical at base;
+   - `test_fb4_launch`, `test_provenance_backfill`, `test_w5_v0_paid_provider_gate`,
+     `test_r2_security_actions`, `test_v11_cc_actions`, … : `starlette.testclient requires
+     the httpx2 package` (environment, not installed by requirements.txt here);
+   - `test_product_run`: date-dependent ("the buying window closed on 2026-11-18");
+   - `test_draft_intent_precreate_refusal`, `test_w4_controlled_experiments`,
+     `test_w4_launchfix`, `test_w5_inventory`: fail identically at base.
+   Not investigated further (outside this assignment); flagged for Main.
 
 ## PostgreSQL
 
@@ -90,4 +109,4 @@ differs: regenerate). Both already conflict at base 3928ba00; this branch touche
 
 ## Final SHA
 
-(added in the next commit)
+The commit adding this text (code under review = 48a86145, all fixes; see `git log`).
