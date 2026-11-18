@@ -7,8 +7,14 @@ store's `consume` and the client's `OwnerGrant` door are exercised.
 from __future__ import annotations
 
 import _tmp; _tmp.install()  # noqa: E702
+import os
+import sys
 from datetime import timedelta
 from unittest.mock import patch
+
+# run_tests.sh sets no PYTHONPATH (verdict 6985175377): src before any brambleloop import.
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+sys.path.insert(0, os.path.dirname(__file__))
 
 from sqlalchemy import update  # noqa: E402
 
