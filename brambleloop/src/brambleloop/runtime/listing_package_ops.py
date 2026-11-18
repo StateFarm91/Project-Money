@@ -11,6 +11,14 @@ from __future__ import annotations
 from .worker import JobContext, handlers
 
 JOB_TYPE = "listing.package"
+RELEASE_FAILED = "listing.package_release_failed"
+
+
+def _failure_message(failed: list[dict], single: bool) -> str:
+    named = ", ".join(f"{f['key']} ({f['error_class']})" for f in failed[:10])
+    more = f" and {len(failed) - 10} more" if len(failed) > 10 else ""
+    return (f"listing package {'event' if single else 'sweep'}: {len(failed)} release(s) not "
+            f"recorded: {named}{more}; retry the job")
 
 
 @handlers.register(JOB_TYPE)
@@ -42,18 +50,44 @@ def handle_listing_package(ctx: JobContext) -> dict:
     single = valid_event
     out = (LP.for_release(ctx.db, i["slug"], i["version"], expected_release=i.get("release", ""))
            if single else LP.sweep(ctx.db))
-    if any(result.get("retry") for result in out["results"]):
-        # Let the durable worker retry; do not report an unrecorded snapshot as done.
-        raise RuntimeError("listing package changed repeatedly; retry the job")
+    failed = [{"key": r.get("key"), "error_class": r.get("error_class") or "UnknownError"}
+              for r in out["results"] if r.get("retry")]
+    # Review of 56f92eb9 M4: the run's audit row is written whatever happened -- before any
+    # retry is requested -- with every release's outcome, so the releases that WERE recorded
+    # and the ones that failed (by error class) are both on file.
     ctx.audit(JOB_TYPE, artifact=(f"{i['slug']}@{i['version']}" if single else None),
               detail={"trigger": "event" if single else "sweep",
                       "eligible": out.get("eligible", True),
                       "releases": out["releases"], "ready": out["ready"],
-                      "changed": out["changed"],
+                      "changed": out["changed"], "failed": failed[:30],
+                      "attempt": int(getattr(ctx.job, "attempts", 0) or 0),
                       "results": [{k: r.get(k) for k in ("key", "state", "blockers",
-                                                         "review_requested", "error", "refused")}
+                                                         "review_requested", "error_class",
+                                                         "refused")}
                                   for r in out["results"][:30]]})
+    final_attempt = int(getattr(ctx.job, "attempts", 0) or 0) >= int(
+        getattr(ctx.job, "max_attempts", 0) or 0)
+    for f in failed:
+        # Each failing release is named durably, with its real error class.
+        ctx.audit(RELEASE_FAILED, artifact=str(f["key"]), detail={
+            **f, "trigger": "event" if single else "sweep",
+            "attempt": int(getattr(ctx.job, "attempts", 0) or 0),
+            "final_attempt": final_attempt})
+    if failed and (single or not final_attempt):
+        # Let the durable worker retry; do not report an unrecorded snapshot as done. The
+        # message says what actually failed -- a ValueError is not "changed repeatedly".
+        raise RuntimeError(_failure_message(failed, single))
+    degraded = bool(failed)
     refused = next((r["refused"] for r in out["results"] if r.get("refused")), None)
+    if degraded:
+        # One release failing every attempt does not dead-letter the six-hourly sweep: every
+        # other release is recorded, the failing ones are named above, and the next sweep
+        # tries them again.
+        return {"ran": True, "trigger": "sweep", "eligible": out.get("eligible", True),
+                "releases": out["releases"], "ready": out["ready"],
+                "changed": out["changed"], "publishes": False,
+                "work_done": bool(out["changed"]), "degraded": True,
+                "failed_releases": failed[:30]}
     return {"ran": True, "trigger": "event" if single else "sweep",
             "eligible": out.get("eligible", True), "releases": out["releases"],
             "ready": out["ready"], "changed": out["changed"], "publishes": False,

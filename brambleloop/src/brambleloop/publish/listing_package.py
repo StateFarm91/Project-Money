@@ -581,7 +581,8 @@ def _package_one(db, slug: str, version: str, *, expected_release: str = "") -> 
         expected = (previous or {}).get("fingerprint")
         package, err = _try(assemble, db, slug, version)
         if err is not None:
-            return {"key": f"{slug}@{version}", "error": err, "retry": True}
+            return {"key": f"{slug}@{version}", "error": err, "retry": True,
+                    "error_class": _error_class(err)}
         if package is None:
             # Certification may have disappeared after the initial eligibility
             # check. Reconcile any previous owner request, not just this job.
@@ -598,11 +599,23 @@ def _package_one(db, slug: str, version: str, *, expected_release: str = "") -> 
         recorded, rerr = _try(record, db, package, expected_fingerprint=expected)
         if rerr is not None:
             # No READY verdict exists until the record transaction commits.
-            return {"key": f"{slug}@{version}", "error": rerr, "retry": True}
+            return {"key": f"{slug}@{version}", "error": rerr, "retry": True,
+                    "error_class": _error_class(rerr)}
         if not recorded.get("retry"):
             return recorded
     return {"key": f"{slug}@{version}", "state": "STALE", "retry": True,
-            "error": "package changed repeatedly while assembling"}
+            "error": "package changed repeatedly while assembling",
+            "error_class": CHANGED_REPEATEDLY}
+
+
+# Review of 56f92eb9 M4: what a retryable per-release result failed with, by class only (an
+# exception's text can carry database or provider detail and is not recorded durably).
+CHANGED_REPEATEDLY = "PackageChangedRepeatedly"
+
+
+def _error_class(err) -> str:
+    head = str(err or "").split(":", 1)[0].strip()
+    return head if head.isidentifier() else "UnknownError"
 
 
 def _summary(results: list[dict]) -> dict:
@@ -636,7 +649,8 @@ def sweep(db) -> dict:
             # retries the job if any result requests it; omit exception text,
             # which can contain sensitive database or provider details.
             return {"key": f"{slug}@{version}", "changed": False,
-                    "retry": True, "error": f"{type(exc).__name__} processing release"}
+                    "retry": True, "error": f"{type(exc).__name__} processing release",
+                    "error_class": type(exc).__name__}
 
     for slug, version in sorted(eligible):
         results.append(run_one(slug, version))

@@ -125,6 +125,82 @@ def test_reader_does_not_swallow_lost_lease():
         lp._try(lost)
 
 
+def test_m4_one_release_failing_every_attempt_does_not_dead_letter_the_sweep():
+    """Review of 56f92eb9 M4: one release whose assembly raises ValueError on every attempt
+    sent the six-hourly sweep to the dead letter as "listing package changed repeatedly"
+    (false: it was a ValueError), named the failing release nowhere durable, and never wrote
+    the sweep's audit row. Now every attempt writes the sweep row with each release's outcome,
+    each failing release is audited with its real error class, retries say what failed, and
+    the final attempt completes (degraded) with the other release recorded."""
+    from brambleloop.core.models import AuditLog
+
+    db = fixture()
+    with db.session() as session:
+        product = Product(slug="a-broken-release", title="Fixture")
+        session.add(product)
+        session.flush()
+        session.add(PatternVersion(product_id=product.id, version="1.0.0", cir_json={},
+                                   certified=True, release_hash="b" * 64,
+                                   certificate={"granted": True}))
+        session.add(Listing(product_slug=product.slug, version="1.0.0", title="Adult Basket",
+                            description="Fixture copy", tags=["basket"], release_hash="b" * 64))
+    def broken_assemble(database, slug, version):
+        if slug == "a-broken-release":
+            raise ValueError("sensitive detail of a bad release")
+        with database.session() as session:      # the healthy release: a READY package
+            listing = session.scalar(select(Listing).where(Listing.product_slug == slug))
+            copy = {"title": listing.title, "description": listing.description,
+                    "tags": listing.tags}
+            release_hash = listing.release_hash
+        digest = lp.listing_copy_digest(copy)
+        return {"slug": slug, "version": version, "fingerprint": digest, "state": lp.READY,
+                "release_hash": release_hash, "identity": {}, "copy": copy,
+                "listing_snapshot_sha256": digest,
+                "source_snapshot_sha256": lp._release(database, slug, version)[
+                    "source_snapshot_sha256"],
+                "blockers": []}
+
+    job = JobQueue(db).enqueue("listing", "listing.package", {"cadence": "listing_package"},
+                               priority=0)
+    worker = Worker(db, "sweep-m4", job_types=["listing.package"])
+    errors = []
+    with patch.object(lp, "assemble", side_effect=broken_assemble):
+        for _ in range(5):
+            worker.run_once()
+            with db.session() as session:
+                saved = session.get(Job, job.id)
+                if saved.status in (JobStatus.DONE, JobStatus.DEAD):
+                    break
+                errors.append(saved.last_error or "")
+                saved.run_after = utcnow() - timedelta(seconds=1)
+    with db.session() as session:
+        saved = session.get(Job, job.id)
+        assert saved.status == JobStatus.DONE, (saved.status, saved.last_error)
+        assert saved.outputs.get("degraded") is True, saved.outputs
+        assert saved.outputs["failed_releases"] == [
+            {"key": "a-broken-release@1.0.0", "error_class": "ValueError"}], saved.outputs
+        sweeps = [r.detail for r in session.scalars(select(AuditLog).where(
+            AuditLog.action == "listing.package"))]
+        failures = [(r.artifact, r.detail) for r in session.scalars(select(AuditLog).where(
+            AuditLog.action == "listing.package_release_failed"))]
+        actions = list(session.scalars(select(OwnerAction).where(OwnerAction.done.is_(False))))
+    assert errors and all("a-broken-release@1.0.0 (ValueError)" in e for e in errors), errors
+    assert not any("changed repeatedly" in e for e in errors), errors
+    assert not any("sensitive detail" in e for e in errors), errors
+    assert len(sweeps) == len(errors) + 1, (len(sweeps), len(errors))
+    for d in sweeps:
+        assert d["trigger"] == "sweep"
+        assert d["failed"] == [{"key": "a-broken-release@1.0.0", "error_class": "ValueError"}]
+        assert any(r["key"] != "a-broken-release@1.0.0" and not r.get("error_class")
+                   for r in d["results"]), d["results"]
+    assert len(failures) == len(sweeps) and all(
+        a == "a-broken-release@1.0.0" and d["error_class"] == "ValueError"
+        for a, d in failures), failures
+    assert failures[-1][1]["final_attempt"] is True
+    assert "sensitive detail" not in str(sweeps) + str(failures)
+    # the healthy release was recorded, exactly once
+    assert len(actions) == 1 and "test-bound-release" in actions[0].requirement_key, actions
+
 if __name__ == "__main__":
     # Review U6 H2: run under the suite harness (one `OK name` line per test), without pytest.
     import _minipytest
