@@ -311,9 +311,14 @@ def handle_watchlist_scan(ctx: JobContext) -> dict:
                                           "listings_seen")}
                   | {"alias": watchlist.benchmark_alias_safe(s["key"])}
                   for s in out.get("shops", [])]})
-    return {"ran": out["ran"], "observed": out.get("observed", 0),
-            "outages": len(out.get("outages", [])), "network_calls": None,
-            "work_done": out.get("observed", 0)}
+    res = {"ran": out["ran"], "observed": out.get("observed", 0),
+           "outages": len(out.get("outages", [])), "network_calls": None,
+           "work_done": out.get("observed", 0)}
+    if out.get("credential_refused"):
+        # ENG watchlist-cadence: the thrash sweep reads this as a gated no-op that waits for
+        # etsy.probe, never as a poll without progress to back off.
+        res.update(credential_refused=True, gated_on=out.get("gated_on") or "etsy.probe")
+    return res
 
 
 @handlers.register("intel.watchlist_compare")
@@ -364,7 +369,26 @@ def handle_concept_intake(ctx: JobContext) -> dict:
 
     raw = (ctx.job.inputs or {}).get("as_of")
     today = _date.fromisoformat(raw) if raw else None
+    # WS2 R5: validated watchlist gaps whose research is answered become proposals first,
+    # so intake has automatic input; intake still judges every one of them.
+    from ..radar import proposal_writer
+
+    from ..intel import watchlist, watchlist_research
+
+    # Review H3 (eng/r5-research-3): an approved watchlist concept's research is renewed from
+    # the latest fresh observations before it expires (the daily comparison renews it too),
+    # so intake's withdrawal below follows the evidence, not the comparison's timing.
+    real = datetime.now(timezone.utc)
+    at = real if today is None or today == real.date() else \
+        datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
+    renewed = watchlist.renew_approved_support(
+        ctx.db, now=at, expiring_within=watchlist_research.RENEW_AHEAD)
+    wrote = proposal_writer.write(ctx.db, today=today)
     out = intake.run(ctx.db, audit=ctx.audit, enqueue=ctx.enqueue, today=today)
+    out["proposals_written"] = len(wrote["written"])
+    out["supports_renewed"] = sum(1 for r in renewed if r.get("renewed"))
+    out["work_done"] = out.get("work_done", 0) + len(wrote["written"])
     ctx.audit("radar.concept_intake", detail={k: out[k] for k in (
-        "candidates", "unchanged", "approved", "refused", "work_done", "as_of")})
+        "candidates", "unchanged", "approved", "refused", "work_done", "as_of",
+        "proposals_written")})
     return out

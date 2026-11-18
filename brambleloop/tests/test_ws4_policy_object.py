@@ -123,7 +123,7 @@ def _activate_raw(db, approval_id, c):
 class _ModeT:
     def __enter__(self):
         self.orig = sp.deployment_mode
-        sp.deployment_mode = lambda: "T"
+        sp.deployment_mode = lambda *a, **k: "T"
 
     def __exit__(self, *a):
         sp.deployment_mode = self.orig

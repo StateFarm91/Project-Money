@@ -1391,6 +1391,14 @@ class Scheduler:
         if attempted and not ok:
             raise RuntimeError(f"every cadence failed to enqueue ({len(self.failures)}); "
                                f"first: {next(iter(self.failures.values()), '')}")
+        # ENG watchlist-cadence: a mandatory watchlist shop the scheduler has not attempted for
+        # more than 2x its cadence is a P1 owner incident naming the cause (throttled).
+        try:
+            from ..ops.scheduler_readback import maybe_escalate
+
+            self.escalation = maybe_escalate(self.db, now=now)
+        except Exception:  # noqa: BLE001 - escalation never stops the scheduler
+            self.escalation = {"error": traceback.format_exc(limit=2)[-300:]}
         # PRIORITY ZERO: an empty queue is a reason to ask the orchestrator now, not to wait
         # for its next window. Keyed per five minutes inside `idle_wake`, so it cannot flood.
         try:

@@ -68,8 +68,9 @@ def test_the_size_band_refuses_a_placemat_sized_dishcloth():
     # A square at the wrong size, and a right-sized oblong, are both refused.
     assert C.object_size_findings(_Cir("Wash Cloth"), _Twin(35.0, 35.0))
     assert C.object_size_findings(_Cir("A Dishcloth"), _Twin(27.0, 18.5))
-    # A title that names no banded object is untouched.
-    assert C.object_size_findings(_Cir("Linen Ridge Placemat"), _Twin(38.4, 11.4)) == []
+    # A title that names no banded object is untouched. (A placemat is banded since the
+    # flat-rows size-truth fix, so the unbanded example is an ornament.)
+    assert C.object_size_findings(_Cir("Linen Ridge Ornament"), _Twin(38.4, 11.4)) == []
     assert C.object_size_findings(_Cir("Dishcloth"), None) == []
 
 

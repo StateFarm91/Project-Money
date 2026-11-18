@@ -246,9 +246,24 @@ def decide(db, task_key: str, *, agent: str = "", payload: dict | None = None,
         task, _tier = routing.route(task_key)
     except routing.TaskRefused as exc:
         return Decision(REFUSED, task_key, agent, reason=str(exc))
-    # F-313: an evidenced cheaper route, re-checked against the latest evidence every call.
-    _t, in_force, route_basis = routing.effective_route(_DbView(db), task_key)
-    chain = candidates(task_key, tier=in_force)
+    # S2 review 6957356475: the vendor comes from the one per-task router. A task routed to a
+    # second vendor runs on that vendor's pinned model for its tier, with no cross-provider
+    # fallback (the capability contract cannot price one yet) and no F-313 override.
+    from . import providers
+
+    try:
+        vendor = providers.vendor_for(task_key)
+    except providers.NoProviderAvailable as exc:
+        return Decision(REFUSED, task_key, agent, reason=str(exc))
+    if vendor == "anthropic":
+        _t, in_force, route_basis = routing.effective_route(_DbView(db), task_key)
+        chain = candidates(task_key, tier=in_force)
+    else:
+        try:
+            chain = [_vendor_model(vendor, task_key)]
+        except Exception as exc:  # noqa: BLE001 - an unpinned tier is refused by name
+            return Decision(REFUSED, task_key, agent, reason=str(exc))
+        route_basis = {"basis": "per_task_route", "vendor": vendor}
     if payload is not None and task.cacheable:
         cached = routing.cached_analysis(_DbView(db), task_key, payload)
         if cached is not None:
@@ -258,7 +273,7 @@ def decide(db, task_key: str, *, agent: str = "", payload: dict | None = None,
     money = _money(_DbView(db), agent, now)
     rows, order, waits = [], [], []
     for model in chain:
-        h = states.get(_key("anthropic", model), {"state": UNKNOWN})
+        h = states.get(_key(vendor, model), {"state": UNKNOWN})
         estimate = gw.estimate_cad(model, input_tokens=task.typical_input_tokens,
                                    output_tokens=task.max_output_tokens)
         fits_month = money["month_spent_cad"] + estimate <= money["month_ceiling_cad"]
@@ -266,7 +281,7 @@ def decide(db, task_key: str, *, agent: str = "", payload: dict | None = None,
         fits_day = (daily is None
                     or daily["spent_today_cad"] + estimate <= daily["daily_ceiling_cad"])
         available = h["state"] != DOWN
-        row = {"model": model, "provider": "anthropic", "health": h["state"],
+        row = {"model": model, "provider": vendor, "health": h["state"],
                "estimate_cad": estimate, "fits_month": fits_month, "fits_agent_day": fits_day,
                "is_fallback": model != chain[0]}
         rows.append(row)
@@ -318,6 +333,29 @@ def decide(db, task_key: str, *, agent: str = "", payload: dict | None = None,
                     retry_after_s=int(retry))
 
 
+def _vendor_model(vendor: str, task_key: str) -> str:
+    """The pinned model `vendor` serves `task_key`'s tier with."""
+    if vendor == "openai":
+        return routing.openai_model_for(task_key)
+    raise routing.TaskRefused(f"vendor {vendor!r} has no pinned model table; refused")
+
+
+def _default_factory(task_key: str):
+    """The real provider class for the vendor `task_key` routes to (tests inject their own)."""
+    from . import providers
+
+    vendor = providers.vendor_for(task_key)
+    if vendor == "openai":
+        from .openai_chat import OpenAIProvider
+
+        return lambda model: OpenAIProvider(model=model)
+    if vendor != "anthropic":
+        return lambda model: providers.for_task(task_key, model=model)
+    from .anthropic import AnthropicProvider
+
+    return lambda model: AnthropicProvider(model=model)
+
+
 class _DbView:
     """`Database`-shaped access to whatever `db` is (Database or Session)."""
 
@@ -350,16 +388,15 @@ def gateway_for(db, task_key: str, *, registry, agent: str, job_id: int | None =
     if decision.action == PARK:
         raise Parked(decision.reason, decision.to_dict())
     if provider_factory is None:
-        from .anthropic import AnthropicProvider
-
-        def provider_factory(model: str):
-            return AnthropicProvider(model=model)
+        provider_factory = _default_factory(task_key)
     providers = [provider_factory(m) for m in decision.order]
     gateway = ModelGateway(providers, registry=registry, job_id=job_id)
     # F-314: an unsure answer from this tier is asked once more on the next stronger tier --
     # through the same gateway machinery (budget check, reservation, paid-call guard, billing).
+    # Anthropic tiers only: escalation is a tier of the same vendor's table.
     up = routing.escalation_tier(task_key)
-    if up is not None and up.model not in decision.order[:1]:
+    on_default = all(r.get("provider") == "anthropic" for r in decision.candidates or [])
+    if up is not None and on_default and up.model not in decision.order[:1]:
         gateway.escalation = [provider_factory(up.model)]
     return gateway, decision
 
@@ -384,15 +421,16 @@ def job_gateway(db, task_key: str, *, registry, agent: str, job_id: int | None =
                                     job_id=job_id, payload=None,
                                     provider_factory=provider_factory)
     if gateway is None:
-        if provider_factory is None:
-            from .anthropic import AnthropicProvider
+        from . import providers
 
-            def provider_factory(model: str):
-                return AnthropicProvider(model=model)
+        if provider_factory is None:
+            provider_factory = _default_factory(task_key)
         _task, tier = routing.route(task_key)
+        vendor = providers.vendor_for(task_key)
+        model = tier.model if vendor == "anthropic" else _vendor_model(vendor, task_key)
         decision.reason = (f"{decision.reason}; a multi-call handler cannot use one cached "
-                           f"answer, so it runs on the declared tier {tier.model}")
-        gateway = ModelGateway([provider_factory(tier.model)], registry=registry,
+                           f"answer, so it runs on the declared tier {model}")
+        gateway = ModelGateway([provider_factory(model)], registry=registry,
                                job_id=job_id)
     gateway.decision = decision
     return gateway

@@ -151,7 +151,64 @@ def proposal_cir(p: Proposal, version: str = "0.1.0"):
                             width_stitches=across * motif.width, motif_repeats=repeats,
                             yarn=p.yarn, yarn_weight=p.yarn_weight, note=p.note,
                             pieces=p.pieces)
-    return builder.build(builder._derive_from_yarn(design), version=version)
+    derived = builder._derive_from_yarn(design)
+    cir = builder.build(derived, version=version)
+    return _fit_to_proposal(p, derived, cir, version)
+
+
+# S1F3 (integration): whole motifs quantise the size. Rounding width and height separately
+# drew the 22 x 22 cm dishcloth at 21.6 x 15.9 cm and the washcloth at 19.2 x 17.0 cm: off the
+# size the proposal states, and outside a dishcloth's band. When the drawn counts miss the
+# proposal's size (or the certificate's size check), the counts are chosen again from the
+# neighbouring whole-motif counts, measured on their own twins.
+FIT_REACH = 2
+
+
+def _measured(cir) -> tuple[float, float]:
+    from ..cir.compiler import compile_cir
+    from ..cir.twin import build_twin
+
+    twin = build_twin(cir, compile_cir(cir))
+    return float(twin.width_cm or 0), float(twin.height_cm or 0)
+
+
+def _size_miss(p: Proposal, w: float, h: float) -> float:
+    """How far a made size is from the proposal's, as the worst of: each side's ratio and the
+    shape's (aspect) ratio, in log terms. A square proposal drawn oblong misses by its
+    aspect even when each side is near."""
+    import math
+
+    return max(abs(math.log(w / p.width_cm)), abs(math.log(h / p.height_cm)),
+               abs(math.log((h / w) / (p.height_cm / p.width_cm))))
+
+
+def _fit_to_proposal(p: Proposal, derived, cir, version: str):
+    from ..creative import size_truth
+    from ..gates.certificate import size_findings_for
+    from . import builder
+    from .motifs import get
+
+    def size_ok(c, w, h):
+        return not size_findings_for(c.title, w, h, size_truth.facts_of(c))
+
+    w, h = _measured(cir)
+    if (size_truth._met(p.width_cm, w) and size_truth._met(p.height_cm, h)
+            and size_ok(cir, w, h)):
+        return cir
+    unit = get(p.motif).width
+    across, repeats = derived.width_stitches // unit, derived.motif_repeats
+    best = (0 if size_ok(cir, w, h) else 1, _size_miss(p, w, h), cir)
+    for a in range(max(1, across - FIT_REACH), across + FIT_REACH + 1):
+        for r in range(max(1, repeats - FIT_REACH), repeats + FIT_REACH + 1):
+            if (a, r) == (across, repeats):
+                continue
+            c = builder.build(replace(derived, width_stitches=a * unit, motif_repeats=r),
+                              version=version)
+            cw, ch = _measured(c)
+            cand = (0 if size_ok(c, cw, ch) else 1, _size_miss(p, cw, ch), c)
+            if cand[:2] < best[:2]:
+                best = cand
+    return best[2]
 
 
 # W4-CAND: the pencil roll's closure and pocket, as numbers the CIR is built to.

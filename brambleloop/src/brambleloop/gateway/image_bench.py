@@ -1046,7 +1046,7 @@ def _judge(db, images_shown, dimensions: tuple[Dimension, ...]) -> str:
     gw.release_reservation(db, budget["reservation_id"], actual_cad=cost)
     spend_report.record(
         db, agent="creative_director", amount_cad=cost,
-        estimated_cad=estimate, purpose=JUDGE_TASK, provider="anthropic",
+        estimated_cad=estimate, purpose=JUDGE_TASK, provider=getattr(provider, "name", "anthropic"),
         model=provider.model, department="creative",
         tokens_in=response.input_tokens, tokens_out=response.output_tokens,
         detail={"price_basis": "assumed"})

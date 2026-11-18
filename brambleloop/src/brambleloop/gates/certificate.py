@@ -151,35 +151,132 @@ CONDITIONAL_STAGES: tuple[str, ...] = ("geometry", "asset_truth", "policy")
 OBJECT_SIZE_BANDS: dict[str, dict] = {
     "dishcloth": {"side_cm": (18.0, 28.0), "max_aspect": 1.25,
                   "basis": "a dishcloth is a hand-sized square of about 20-25 cm a side"},
+    # Craft Yarn Council standard blanket sizes, from preemie (18 x 24 in, 46 x 61 cm) to king
+    # (108 x 100 in, 274 x 254 cm). S1 review 6958883678 H1: the family band spans the whole
+    # table -- a 70 cm floor refused Launch-0's 57.6 x 67.8 cm baby blanket -- and a title that
+    # names a size class (baby, throw, queen...) is held to that class's own band by
+    # `creative.size_truth.findings`. Applied only when the title names a blanket and no other
+    # object ("Throw Pillow" is a pillow): two objects are the product-type gate's finding.
+    "blanket": {"side_cm": (42.0, 290.0), "max_aspect": 1.6, "sole": True,
+                "basis": "a blanket is from about 46 x 61 cm (preemie) to 274 x 254 cm (king) "
+                         "(Craft Yarn Council standard blanket sizes)"},
+    # Flat-rows size truth: each object with a common standard size. `side_cm` bounds both
+    # sides of a near-square object; `short_cm`/`long_cm` bound an oblong one.
+    "coaster": {"side_cm": (8.0, 13.0), "max_aspect": 1.25, "sole": True,
+                "basis": "a coaster is a square of about 10 cm (4 in) a side"},
+    "placemat": {"short_cm": (25.0, 40.0), "long_cm": (38.0, 52.0), "sole": True,
+                 "basis": "a placemat is about 30 x 45 cm (12 x 18 in)"},
+    "runner": {"short_cm": (25.0, 50.0), "long_cm": (90.0, 275.0), "sole": True,
+               "basis": "a table runner is about 30-45 cm wide and 90-275 cm long"},
+    "scarf": {"short_cm": (12.0, 35.0), "long_cm": (110.0, 230.0), "sole": True,
+              "words": ("scarf", "scarves"),
+              "basis": "a scarf is about 15-30 cm wide and 120-200 cm long (Craft Yarn "
+                       "Council standard scarf sizes); a cowl is a loop, not this band"},
+    # S1 review 6958883678: the top is the 26 in (66 cm) form plus blocking and one stitch
+    # repeat, so a "26 x 26 inch" cover drafted to the repeat is not refused at the edge.
+    "pillow": {"side_cm": (28.0, 68.0), "max_aspect": 2.0, "sole": True,
+               "unless": "ring_cushion",
+               "basis": "a pillow or cushion cover face is about 30-66 cm (12-26 in), from "
+                        "square to lumbar (standard pillow-form sizes)"},
+    # S1 Product Truth: a ring bearer's cushion is its own small object, read from the phrase
+    # (its words are the pillow family's), and held to its own band instead of the pillow's.
+    "ring_cushion": {"side_cm": (12.0, 25.0), "max_aspect": 1.25, "family": "pillow",
+                     "phrase": r"\bring[- ]?(?:bearer\s+)?(?:cushion|pillow)s?\b",
+                     "basis": "a ring bearer's cushion is a small square of about 15-20 cm"},
+    # S1 review 6958883678 M1: the flat objects the fallback drafts have a band each; one with
+    # no band is refused before drafting (`creative.size_truth.request`). No published
+    # standard exists for these three, so each basis says what it rests on.
+    "wall_hanging": {"short_cm": (15.0, 120.0), "long_cm": (20.0, 180.0), "sole": True,
+                     "basis": "a wall hanging is made from about 20 x 30 cm to 100 x 150 cm "
+                              "(ESTIMATED from the sizes patterns are sold in; no standard)"},
+    "pet_mat": {"short_cm": (30.0, 80.0), "long_cm": (40.0, 110.0), "family": "pet_mat",
+                "basis": "a pet mat is about 45 x 50 cm for a cat to 70 x 100 cm for a medium "
+                         "dog (ESTIMATED from crate-mat sizes; no standard)"},
+    "burp_cloth": {"short_cm": (20.0, 30.0), "long_cm": (40.0, 60.0), "family": "burp_cloth",
+                   "basis": "a burp cloth is about 25 x 50 cm (10 x 20 in) (ESTIMATED from the "
+                            "sizes sold; no standard)"},
 }
+
+
+def _band_phrase(name: str, folded: str) -> bool:
+    import re
+
+    phrase = OBJECT_SIZE_BANDS[name].get("phrase")
+    return bool(phrase and re.search(phrase, folded))
 
 
 def object_size_findings(cir, twin) -> list[Finding]:
     """ERROR when the CIR's title names an object whose size band the twin's finished size
-    is outside. Deterministic: the product-type family words and the twin's computed size."""
+    is outside, or a size the twin does not make, or a size token nothing binds.
+    Deterministic: the product-type family words and the twin's computed size.
+
+    The one object-size check (A4A-1 and S1 Product Truth reconciled on w6-INTEG1): the plan
+    runs the same `size_findings_for` on the size it would draft, so the two cannot differ."""
+    if twin is None:
+        return []
+    from ..creative import size_truth
+
+    return [Finding(ERROR, code, why) for code, why in size_findings_for(
+        cir.title, float(twin.width_cm or 0), float(twin.height_cm or 0),
+        size_truth.facts_of(cir))]
+
+
+def size_findings_for(title, width_cm: float, height_cm: float, facts: dict | None,
+                      category: str | None = None) -> list[tuple[str, str]]:
+    """(code, why) for every size finding on a title and a finished size: the family bands
+    below, then `creative.size_truth.coded_findings` (named classes, stated dimensions, and the
+    fail-closed unbound-token rule, D-S1-FAIL-CLOSED)."""
     from .first_customer import _family_hits
 
-    out: list[Finding] = []
-    if twin is None:
+    out: list[tuple[str, str]] = []
+    if not width_cm or not height_cm:
         return out
-    hits = _family_hits(cir.title or "")
-    for family, band in OBJECT_SIZE_BANDS.items():
-        if family not in hits:
+    from ..creative.fallback_constructions import fold_title
+
+    hits = _family_hits(title or "")
+    folded = fold_title(title)
+    for name, band in OBJECT_SIZE_BANDS.items():
+        family = band.get("family", name)
+        if family not in hits or (band.get("sole", "phrase" in band) and set(hits) != {family}):
             continue
-        w, h = float(twin.width_cm), float(twin.height_cm)
-        lo, hi = band["side_cm"]
-        aspect = max(w, h) / max(min(w, h), 1e-9)
+        if "phrase" in band and not _band_phrase(name, folded):
+            continue
+        if band.get("unless") and _band_phrase(band["unless"], folded):
+            continue
+        if band.get("words") and not set(hits[family]) & set(band["words"]):
+            continue
+        w, h = float(width_cm), float(height_cm)
+        short, long_ = min(w, h), max(w, h)
         problems = []
-        if not (lo <= w <= hi and lo <= h <= hi):
-            problems.append(f"{w:.1f} x {h:.1f} cm is outside {lo:g}-{hi:g} cm a side")
-        if aspect > band["max_aspect"]:
-            problems.append(f"its sides differ by {aspect:.2f}x (at most "
-                            f"{band['max_aspect']:g}x for this object)")
+        if "side_cm" in band:
+            lo, hi = band["side_cm"]
+            aspect = long_ / max(short, 1e-9)
+            if not (lo <= w <= hi and lo <= h <= hi):
+                problems.append(f"{w:.1f} x {h:.1f} cm is outside {lo:g}-{hi:g} cm a side")
+            if aspect > band["max_aspect"]:
+                problems.append(f"its sides differ by {aspect:.2f}x (at most "
+                                f"{band['max_aspect']:g}x for this object)")
+        else:
+            (slo, shi), (llo, lhi) = band["short_cm"], band["long_cm"]
+            if not (slo <= short <= shi):
+                problems.append(f"its short side {short:.1f} cm is outside {slo:g}-{shi:g} cm")
+            if not (llo <= long_ <= lhi):
+                problems.append(f"its long side {long_:.1f} cm is outside {llo:g}-{lhi:g} cm")
         if problems:
-            out.append(Finding(ERROR, "OBJECT_SIZE_OUT_OF_BAND", (
+            out.append(("OBJECT_SIZE_OUT_OF_BAND", (
                 f"the title names a {hits[family][0]!r}, and the pattern's finished size "
                 f"{'; '.join(problems)} ({band['basis']}); the name promises a size the "
                 f"pattern does not make")))
+    # S1 review 6958883678 H1/H2: the size the title claims -- a named size class ("Baby",
+    # "Queen Size", "Lumbar") or stated dimensions ("200 x 220 cm") -- is checked against the
+    # twin too, so a request is never silently resized to the template.
+    from ..creative import size_truth
+
+    # Second review (S1F-H1/LOW): every size token in the title is bound or is an
+    # OBJECT_SIZE_UNBOUND refusal, and the pet-mat / burp-cloth / tapestry bands, which no
+    # product-type family word reaches, are checked here (OBJECT_SIZE_OUT_OF_BAND).
+    out.extend(size_truth.coded_findings(title, float(width_cm), float(height_cm),
+                                         category, facts))
     return out
 
 
@@ -356,6 +453,15 @@ def certify(
     findings.extend(stitch_semantics_findings(cir))
     # A4A-1: an object noun in the title is held to that object's size band.
     findings.extend(object_size_findings(cir, twin))
+    # S1 review 6958883678 H2: the listing title is a size claim too ("Queen Size", "26 x 26
+    # inch"); the twin must be the size it states.
+    if listing is not None and twin is not None and getattr(listing, "title", None):
+        from ..creative import size_truth
+
+        for _code, why in size_truth.coded_findings(listing.title, float(twin.width_cm or 0),
+                                                    float(twin.height_cm or 0),
+                                                    facts=size_truth.facts_of(cir)):
+            findings.append(Finding(ERROR, "LISTING_SIZE_NOT_AS_TITLED", f"listing: {why}"))
 
     # 4. Asset truth.
     asset_findings: list[Finding] = []

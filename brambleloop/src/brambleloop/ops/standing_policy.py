@@ -611,11 +611,19 @@ def generate_keypairs() -> dict:
     return out
 
 
-def deployment_mode() -> str:
-    """'T' only when the issuer process has reported Mode T readiness (§2.4). The issuer
-    process and its sealed heartbeat are WS4-7 and do not exist yet, so this is 'S' and every
-    activation is refused. Stated plainly: no standing policy can be activated today."""
-    return "S"
+def deployment_mode(db=None, *, now: datetime | None = None) -> str:
+    """'T' only when the issuer, worker and web processes' latest reports agree (§2.4,
+    `standing_grants.mode_report`, WS4-7). With no database, or any unreadable report, 'S':
+    every activation and every issuance is refused. Today no issuer service exists, so this
+    reads 'S' in production."""
+    if db is None:
+        return "S"
+    try:
+        from . import standing_grants
+
+        return standing_grants.mode_report(db, now=now)["mode"]
+    except Exception:  # noqa: BLE001 - unreadable evidence is not Mode T
+        return "S"
 
 
 # ---------------------------------------------------------------------------------------------
@@ -650,8 +658,8 @@ def effective(db, *, now: datetime | None = None) -> dict:
     now = _now(now)
     out = {"state": NONE, "why": "no standing policy is active", "approval_id": None,
            "activation_id": None, "content": None, "seal": None}
-    if deployment_mode() != "T":
-        out_mode = "deployment is not Mode T (the issuer process does not exist yet)"
+    if deployment_mode(db, now=now) != "T":
+        out_mode = "deployment is not Mode T (no agreeing issuer, worker and web reports)"
     else:
         out_mode = None
     try:
@@ -807,7 +815,7 @@ def activation_refusals(db, approval_id: int, *, now: datetime | None = None) ->
 
     now = _now(now)
     out = []
-    if deployment_mode() != "T":
+    if deployment_mode(db, now=now) != "T":
         out.append("deployment is not Mode T: live standing issuance needs a separate issuer "
                    "process, an owner spend decision (design §9 M4)")
     if os.environ.get(ENABLED_VAR, "") != "1":
