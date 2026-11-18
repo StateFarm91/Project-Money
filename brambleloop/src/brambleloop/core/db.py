@@ -255,3 +255,7 @@ class Database:
 # owner-queue lock and never queues a requirement twice (ops.owner_queue_guard).
 from ..ops import owner_queue_guard as _owner_queue_guard  # noqa: E402,F401
 from ..publish import listing_package_fence as _listing_package_fence  # noqa: E402,F401
+# Review A3 U5 F4: on PostgreSQL every ORM flush that writes photo evidence takes the photo
+# review's advisory key in shared mode, so no evidence writer commits during a review or a
+# certificate issue (publish.photo_fence).
+from ..publish import photo_fence as _photo_fence  # noqa: E402,F401

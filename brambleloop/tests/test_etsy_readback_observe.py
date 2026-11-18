@@ -88,12 +88,26 @@ def _product(db, *, frames: int = 3) -> dict:
                       description=DESCRIPTION, tags=["crochet pattern", "throw blanket"],
                       price_cad=12.5, release_hash="r" * 64))
         # Stored out of order on purpose: the upload must follow `position`, not row order.
+        # A3 round 2: the frames carry a real job/purpose/medium vocabulary (a render-only
+        # gallery: DIGITAL_TWIN_RENDER frames, no photo). The earlier "hero"/"conversion"/
+        # "render" values were never a certificate any issuance path could write; the
+        # certificate-currency check parses frames with `listing_set.CertifiedFrame` and
+        # correctly fails closed on them.
+        from brambleloop.gates.asset_truth import AssetClass
+        from brambleloop.publish import eligibility
         record = ListingSetCertificateRecord(
             product_slug=cir.slug, version=cir.version, release_hash="r" * 64, state="valid",
             certificate={"frames": [
                 {"position": p, "asset_id": f"{cir.slug}-frame-{p}", "sha256": shas[p - 1],
-                 "job": "hero", "purpose": "conversion", "medium": "render"}
+                 "job": eligibility.DESIRE if p == 1 else eligibility.DETAIL,
+                 "purpose": eligibility.CONVERSION_CREATIVE,
+                 "medium": AssetClass.DIGITAL_TWIN_RENDER.value,
+                 "honesty_label": eligibility.RENDER_LABEL}
                 for p in reversed(range(1, frames + 1))]})
+        # The fixture must be a certificate the release gates can read; fail here, loudly,
+        # rather than as a downstream "no longer matches" refusal.
+        from brambleloop.publish.release_gates import _certificate_from_record
+        _certificate_from_record(record)
         s.add(record)
         s.flush()
         # A completed search certificate in the shape `search.judge_hero` writes, bound to

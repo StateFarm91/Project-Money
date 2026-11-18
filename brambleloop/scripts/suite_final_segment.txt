@@ -251,4 +251,6 @@ tests/test_w5_a4a_research_to_concept.py
 tests/test_w5_a9_package_event.py
 tests/test_codex_a9_defer_state.py
 tests/test_codex_a9_source_binding.py
+tests/test_a3_postgres_photo_fence.py
+tests/test_opus2_photo_asset_review.py
 tests/test_product_run.py
