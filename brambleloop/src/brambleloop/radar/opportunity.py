@@ -268,7 +268,7 @@ def _pool() -> list[ConceptSeed]:
           "Class A as a concept but engineered as Class B, because how firmly it stands "
           "up is not computable from gauge.",
           evergreen=True),
-        C("bobble-floor-pillow", "Bobble Floor Pillow",
+        C("bobble-floor-pillow", "Bobble Pillow Cover",
           "pillow", "B", 7.00, (5.0, 12.0), 10.0, 0.52,
           "Texture-led, modest competition, photographs well in a styled room.",
           evergreen=True),
