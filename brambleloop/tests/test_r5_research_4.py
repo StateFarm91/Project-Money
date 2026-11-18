@@ -97,6 +97,7 @@ def test_m1_a_relisted_and_changed_listing_keeps_its_withdrawal_history():
     cats[SHOP] = [full[0], changed, full[2]]
     S.scan(db, reader, S.at(-2, 6))
     rows = _rows(db, [full[1]["listing_id"], full[2]["listing_id"]])
+    assert len(rows) == 2, rows
     for r in rows.values():
         assert r.audit_state != "withdrawn", r.audit_state
         assert len((r.detail or {}).get("withdrawal_history") or []) == 1, r.detail

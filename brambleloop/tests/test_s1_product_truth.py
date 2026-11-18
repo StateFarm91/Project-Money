@@ -112,6 +112,7 @@ def test_an_outline_or_loop_a_rectangle_does_not_have_is_refused_by_name():
 def test_every_template_and_title_route_writes_the_size_its_twin_has_and_reverse_compiles():
     titles = [(c, f"Linen Ridge {c.replace('_', ' ').title()}") for c in pipeline._GEOMETRY]
     titles += [("baby", "Linen Ridge Baby Blanket"), ("wedding", "Wedding Ring Cushion")]
+    assert len(titles) > 2, titles
     for category, title in titles:
         _, cir, result, twin = _drafted(category, title)
         text = write_pattern(cir, result, width_cm=twin.width_cm, height_cm=twin.height_cm)
