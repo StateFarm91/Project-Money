@@ -40,7 +40,9 @@ worktrees, not this file.
     ws4-stage-a2-withdrawal-fix 8dc219a7 (also fake_etsy import)
   Dispatch 2fc368d4. RULE: every new test file through `run_tests.sh` with a non-zero-exit
   runner before any REVIEW-REQUEST.
-- Stop reason (2026-11-18T18:05Z): all of Main's findings fixed and review-requested; queue
+- Tick 2026-11-18T18:28Z: no [MAIN] message since RR 6986520536; INTEG1 unchanged (a1b4f5d9);
+  no new review-branch findings. Nothing posted.
+- Stop reason (2026-11-18T18:30Z): all of Main's findings fixed and review-requested; queue
   exhausted pending verdicts. Answer any [MAIN] message first next tick.
 
 ## State at 2026-11-18T10:50Z (superseded)
