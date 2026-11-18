@@ -262,6 +262,14 @@ def stale_rebuilds(db, *, now: datetime) -> dict:
             AuditLog.action == "chain.rebuild_completed", AuditLog.at >= d7)))
         unbound = list(s.execute(select(AuditLog.id, AuditLog.at).where(
             AuditLog.action == "chain.rebuild_unbound", AuditLog.at >= d7)))
+        # eng/stale-rebuild-loop: a refused rebuild (withheld, no stored release) finishes
+        # DONE and writes neither completion nor unbound evidence -- invisible before.
+        refused = list(s.execute(select(AuditLog.detail).where(
+            AuditLog.action == "chain.rebuild_refused", AuditLog.at >= d7)))
+        incomplete = list(s.execute(select(Incident.signature, Incident.report_count,
+                                           Incident.detail).where(
+            Incident.resolved == False,  # noqa: E712
+            Incident.signature.like("rebuild-incomplete:%"))))
         jobs = list(s.execute(select(Job.id, Job.status, Job.created_at, Job.finished_at).where(
             Job.job_type == "chain.rebuild", Job.created_at >= d7)))
         unfinished_any = list(s.execute(select(Job.id, Job.created_at).where(
@@ -296,11 +304,21 @@ def stale_rebuilds(db, *, now: datetime) -> dict:
         "last_propagation_enqueued": len(pd.get("rebuild_enqueued") or []),
         "last_propagation_retried": len(pd.get("rebuild_retried") or []),
         "last_propagation_already_queued": len(pd.get("rebuild_already_queued") or []),
+        "last_propagation_retry_waiting": len(pd.get("rebuild_retry_waiting") or []),
+        "last_propagation_retry_held": len(pd.get("rebuild_retry_held") or {}),
+        "last_propagation_retry_held_reasons": dict(list(
+            (pd.get("rebuild_retry_held") or {}).items())[:EXAMPLES]),
         "rebuilds_verified_24h": sum(1 for c in real if _aware(c.at) >= d1),
         "rebuilds_verified_48h": sum(1 for c in real if _aware(c.at) >= d2),
         "rebuilds_verified_7d": len(real),
         "rebuilds_already_fresh_7d": len(noop),
         "rebuilds_unbound_7d": len(unbound),
+        "rebuilds_refused_7d": len(refused),
+        "rebuilds_refused_reasons": sorted({str((d or {}).get("why") or "")[:120]
+                                            for (d,) in refused})[:EXAMPLES],
+        "open_rebuild_incomplete": len(incomplete),
+        "rebuild_incomplete_held": sorted(sig.split(":", 1)[1] for sig, _n, d in incomplete
+                                          if (d or {}).get("held"))[:SLUGS_PER_STAGE],
         "newest_verified_rebuild_at": max((_iso(c.at) for c in real), default=None),
         "newest_verified_rebuild_audit_ids": sorted((int(c.id) for c in real),
                                                     reverse=True)[:EXAMPLES],

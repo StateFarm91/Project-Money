@@ -4009,7 +4009,10 @@ def handle_model_probe(ctx: JobContext) -> dict:
     from ..gateway import anthropic
 
     previous = anthropic.last_probe(ctx.db)
-    record = anthropic.probe(ctx.db, job_id=ctx.job.id)
+    # eng/stale-rebuild-loop: a fresh, uncontradicted success is reused, not re-billed; an
+    # owner's on-demand run always asks the provider.
+    record = anthropic.probe_if_due(ctx.db, job_id=ctx.job.id,
+                                    force=bool((ctx.job.inputs or {}).get("on_demand")))
     ctx.audit("model.probe.ok" if record["ok"] else "model.probe.unavailable",
               detail={k: v for k, v in record.items() if k != "key"})
     if record.get("ok"):
@@ -5451,7 +5454,78 @@ STAGE_AGENT = {"gate.certify": "quality_director", "assets.build": "publishing",
 # How many times the rebuild comes back to collect completion evidence before it raises.
 REBUILD_VERIFY_ATTEMPTS = 3
 REBUILD_VERIFY_DELAY_MINUTES = 20
-REBUILD_INCOMPLETE_SIGNATURE = "rebuild-incomplete"
+from ..ops.rebuild_graph import REBUILD_INCOMPLETE_SIGNATURE  # noqa: E402  (one definition)
+
+
+def _rebuild_incomplete(ctx: JobContext, slug: str, version: str, *, stale: list,
+                        reason: str, fingerprints: dict, checks: int) -> dict:
+    """Open or restate `rebuild-incomplete:<slug>` after an attempt's verify checks ran out.
+
+    eng/stale-rebuild-loop: `report_count` counts failed attempts *at this change* (it resets
+    when the fingerprints differ). At REBUILD_MAX_ATTEMPTS the row carries `held`, a named
+    reason built from what refused the rebuild, and `release_gates.retry_hold_reason` stops
+    the daily retry -- a rebuild that cannot succeed is held, not looped."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog, Incident
+    from ..ops.rebuild_graph import REBUILD_MAX_ATTEMPTS
+
+    with ctx.db.session() as s:
+        refusal = s.scalar(select(AuditLog).where(
+            AuditLog.action.in_(("marketing.blocked", "chain.rebuild_refused")),
+            AuditLog.artifact == f"{slug}@{version}").order_by(desc(AuditLog.id)).limit(1))
+        refused = ([str(x)[:200] for x in ((refusal.detail or {}).get("reasons") or [])][:3]
+                   or ([str((refusal.detail or {}).get("why"))[:200]]
+                       if refusal is not None and (refusal.detail or {}).get("why") else [])
+                   ) if refusal is not None else []
+        sig = f"{REBUILD_INCOMPLETE_SIGNATURE}:{slug}"
+        inc = s.scalar(select(Incident).where(Incident.signature == sig,
+                                              Incident.resolved.is_(False)))
+        summary = (f"{len(stale)} artefact(s) of {slug} still carry a moved input after "
+                   f"{checks} rebuild checks: {stale[:5]}")
+        if inc is None:
+            inc = Incident(severity="P2", signature=sig, halts_publication=True,
+                           product_slug=slug, summary=summary[:500], report_count=1,
+                           detail={})
+            s.add(inc)
+        elif (inc.detail or {}).get("fingerprints") != fingerprints:
+            inc.report_count = 1                        # a different change: a fresh budget
+        else:
+            inc.report_count = int(inc.report_count or 1) + 1
+        attempts = int(inc.report_count or 1)
+        detail = {"stale": stale[:50], "reason": reason, "fingerprints": fingerprints,
+                  "version": version, "attempts": attempts,
+                  "max_attempts": REBUILD_MAX_ATTEMPTS, "refused_by": refused}
+        if attempts >= REBUILD_MAX_ATTEMPTS:
+            detail["held"] = (
+                f"{attempts} rebuild attempts at this change left {len(stale)} artefact(s) "
+                f"stale ({', '.join(sorted({k.split(':', 1)[0] for k in stale}))})"
+                + (f"; refused by: {'; '.join(refused)}" if refused else
+                   "; no refusal was recorded -- the stage ran and did not rewrite them"))
+            inc.severity = "P1"
+        inc.summary = summary[:500]
+        inc.detail = dict(inc.detail or {}, **detail)
+        return detail
+
+
+def _close_on_verified_rebuild(ctx: JobContext, slug: str, *, completed: list,
+                               outstanding: list) -> list[str]:
+    """Resolve the incidents a verified, bound rebuild disproves. Returns what it closed."""
+    from ..ops import incident_lifecycle
+    from ..ops.artefacts import SENTINEL_SIGNATURE
+
+    sigs = [f"{SENTINEL_SIGNATURE}:{k}" for k in completed]
+    with ctx.db.session() as s:
+        closed = incident_lifecycle.resolve_signatures(
+            s, sigs, resolution=("rebuilt and verified: the row was written by this "
+                                 "attempt's stage job and records the new fingerprints "
+                                 f"(chain.rebuild job {ctx.job.id})")) if sigs else []
+        if not outstanding:
+            closed += incident_lifecycle.resolve_signatures(
+                s, [f"{REBUILD_INCOMPLETE_SIGNATURE}:{slug}"],
+                resolution=(f"the outstanding rebuild completed and was verified "
+                            f"(chain.rebuild job {ctx.job.id})"))
+    return closed
 
 
 def _targeted_rebuild(ctx: JobContext) -> dict:
@@ -5525,8 +5599,12 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
     def binding(k) -> dict:
         facts = row_facts.get(k) or {}
         inputs = facts.get("inputs") or {}
+        # eng/stale-rebuild-loop: a ref the row does not record is not one of its inputs
+        # (a sentinel job could name every moved ref in the estate); requiring it made a
+        # correctly rebuilt row permanently unbound. Every ref the row does record must
+        # read exactly the new fingerprint.
         mismatched = sorted(ref for ref, fp in fingerprints.items()
-                            if isinstance(fp, dict) and fp.get("new")
+                            if isinstance(fp, dict) and fp.get("new") and ref in inputs
                             and inputs.get(ref) != fp["new"])
         after = i.get("stage_job") or i.get("requested_by")
         row_job = facts.get("job_id")
@@ -5562,21 +5640,16 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
                                          f"{verify + 1}"),
                         run_after=utcnow() + _td(minutes=REBUILD_VERIFY_DELAY_MINUTES))
         elif stale:
-            with ctx.db.session() as s:
-                sig = f"{REBUILD_INCOMPLETE_SIGNATURE}:{slug}"
-                inc = s.scalar(select(Incident).where(Incident.signature == sig,
-                                                      Incident.resolved.is_(False)))
-                if inc is None:
-                    s.add(Incident(severity="P2", signature=sig, halts_publication=True,
-                                   summary=(f"{len(stale)} artefact(s) of {slug} still carry "
-                                            f"a moved input after {verify} rebuild checks: "
-                                            f"{stale[:5]}"),
-                                   detail={"stale": stale, "reason": reason,
-                                           "fingerprints": fingerprints}))
-                else:
-                    inc.report_count += 1
+            _rebuild_incomplete(ctx, slug, version, stale=stale, reason=reason,
+                                fingerprints=fingerprints, checks=verify)
+        # eng/stale-rebuild-loop: verified, bound completion evidence closes what it proves --
+        # the sentinel row of each artefact this attempt remade, and once nothing is
+        # outstanding, the product's rebuild-incomplete row. Nothing is closed on a row that
+        # merely reads fresh (unbound) or on a job's say-so.
+        closed = _close_on_verified_rebuild(ctx, slug, completed=fresh, outstanding=stale)
         ctx.audit("chain.rebuild_verified", artifact=f"{slug}@{version}", detail={
-            "completed": fresh, "outstanding": stale, "unbound": unbound, "check": verify})
+            "completed": fresh, "outstanding": stale, "unbound": unbound, "check": verify,
+            "closed": closed})
         return {"targeted": True, "verify": verify, "slug": slug, "completed": fresh,
                 "outstanding": stale, "unbound": unbound}
 
@@ -7643,6 +7716,24 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         graduated_now = provenance.declare_graduations(session, current=current,
                                                        expected=expected)
         gate = provenance.graduation(session, current=current, expected=expected)
+        # eng/stale-rebuild-loop: a rebuild-incomplete row closes when the deterministic
+        # provenance check reads none of its product's artefacts stale -- the same evidence
+        # that closes the sentinel's own rows above. (Rows written before the product slug
+        # was filed carry it only in the signature.)
+        from sqlalchemy import select as _select
+
+        from ..core.models import Incident as _Incident
+        from ..ops import incident_lifecycle as _life
+
+        stale_slugs = {v["product_slug"] for v in report.get("verdicts", [])
+                       if v.get("state") == provenance.STALE}
+        incomplete_cleared = _life.resolve_signatures(session, [
+            r.signature for r in session.scalars(_select(_Incident).where(
+                _Incident.signature.like(f"{REBUILD_INCOMPLETE_SIGNATURE}:%"),
+                _Incident.resolved == False))  # noqa: E712
+            if r.signature.split(":", 1)[1] not in stale_slugs],
+            resolution=("the provenance check reads every recorded artefact of this product "
+                        "fresh: the outstanding rebuild has been delivered"))
 
     # W4-LISTREADY (delta review N3): a live listing of a superseded release is owner-visible.
     from . import release_recovery
@@ -7665,6 +7756,8 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         "rebuild": report["rebuild"],
         "may_enforce_unproven": gate["may_enforce_unproven"],
         "superseded_live": superseded_live,
+        "incidents_cleared": len(report.get("incidents_cleared") or []),
+        "rebuild_incomplete_cleared": incomplete_cleared,
     }
     ctx.audit("ops.sentinel", detail=detail)
 
@@ -7706,12 +7799,17 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         detail["rebuild_already_queued"] = queued["already_queued"][:50]
         detail["rebuild_retried"] = list(queued.get("retried") or [])[:50]
         detail["rebuild_retry_held"] = dict(list((queued.get("retry_held") or {}).items())[:50])
+        # eng/stale-rebuild-loop: products whose last attempt ended and that are waiting out
+        # RETRY_AFTER (or whose retry for today has run) -- not queued, not held.
+        detail["rebuild_retry_waiting"] = list(queued.get("retry_waiting") or [])[:50]
         detail["rebuild_order"] = [r["key"] for r in queued["plan"]["rebuild"]][:50]
         detail["fingerprints"] = {ref: {"old": previous.get(ref), "new": fp}
                                   for ref, fp in sorted(changed.items())}
         ctx.audit("ops.rebuild_propagated", detail={
             k: detail[k] for k in ("rebuild_enqueued", "rebuild_already_queued",
-                                   "rebuild_retried", "rebuild_order", "fingerprints")})
+                                   "rebuild_retried", "rebuild_retry_held",
+                                   "rebuild_retry_waiting", "rebuild_order",
+                                   "fingerprints")})
     return detail
 
 

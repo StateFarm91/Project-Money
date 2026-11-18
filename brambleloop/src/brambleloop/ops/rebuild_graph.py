@@ -149,7 +149,10 @@ def rebuild_set(db, *, changed: dict[str, str],
         "changed": sorted(changed),
         "rebuild": [{"key": k, "artefact_class": nodes[k].artefact_class,
                      "artefact_key": nodes[k].artefact_key,
-                     "product_slug": nodes[k].product_slug} for k in order],
+                     "product_slug": nodes[k].product_slug,
+                     # the moved refs this node itself records (eng/stale-rebuild-loop)
+                     "refs": sorted(r for r in nodes[k].inputs if r in changed)}
+                    for k in order],
         "count": len(order),
         "seeds": sorted(seeds),
         "coverage": {
@@ -242,6 +245,27 @@ def _recent_rebuild_slugs(db, now: datetime) -> set[str]:
     return {str((inputs or {}).get("product_slug") or "") for (inputs,) in rows}
 
 
+# eng/stale-rebuild-loop: a rebuild that cannot complete must not loop silently. After this
+# many attempts at the same change ended `rebuild-incomplete`, the daily retry stops and the
+# product is held with the named reason on that incident (`release_gates.retry_hold_reason`).
+REBUILD_INCOMPLETE_SIGNATURE = "rebuild-incomplete"
+REBUILD_MAX_ATTEMPTS = 3
+
+
+def _inflight_slugs(db) -> set[str]:
+    """Products with a chain.rebuild in flight (pending, running, or failed-and-retrying) --
+    the first attempt, its daily retry or one of its verify passes. A key held by a finished
+    job is not a queued rebuild."""
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus
+
+    rows = db.execute(select(Job.inputs).where(
+        Job.job_type == "chain.rebuild",
+        Job.status.in_((JobStatus.PENDING, JobStatus.RUNNING, JobStatus.FAILED))))
+    return {str((inputs or {}).get("product_slug") or "") for (inputs,) in rows}
+
+
 def _retry_key(db, slug: str, key: str, *, now: datetime | None = None,
                recent: set[str] | None = None) -> str | None:
     """A fresh daily key when no chain.rebuild for `slug` is in flight and none ended inside
@@ -281,15 +305,21 @@ def enqueue(db, queue, *, changed: dict[str, str], reason: str,
             by_product.setdefault(row["product_slug"], []).append(row)
         retried: list[str] = []
         held: dict[str, str] = {}
+        waiting: list[str] = []
         recent: set[str] | None = None
+        inflight: set[str] | None = None
         for slug, rows in sorted(by_product.items()):
             key = job_key(f"rebuild:product:{slug}", stamp)
+            # eng/stale-rebuild-loop: only the refs this product's artefacts record. The
+            # verify pass requires every named ref to read its new fingerprint on the row, so
+            # naming another product's design here made a correctly rebuilt row unbound.
+            own_refs = {ref for r in rows for ref in (r.get("refs") or [])} or set(changed)
             payload = {"product_slug": slug,
                        "artefacts": [r["key"] for r in rows],
                        "reason": reason, "changed": plan["changed"],
                        "fingerprints": {
                            ref: {"old": (previous or {}).get(ref), "new": fp}
-                           for ref, fp in sorted(changed.items())}}
+                           for ref, fp in sorted(changed.items()) if ref in own_refs}}
             try:
                 queue.enqueue("listing", "chain.rebuild", payload, idempotency_key=key)
                 enqueued.extend(r["key"] for r in rows)
@@ -306,8 +336,8 @@ def enqueue(db, queue, *, changed: dict[str, str], reason: str,
                 # refuses this product's rebuild; it resumes when the gate clears.
                 held_why = hold(slug) if (again and hold is not None) else None
                 if held_why:
+                    # held is held, not queued: the product has no job in flight
                     held[slug] = held_why
-                    already.extend(r["key"] for r in rows)
                     continue
                 if again:
                     try:
@@ -319,9 +349,18 @@ def enqueue(db, queue, *, changed: dict[str, str], reason: str,
                         continue
                     except DuplicateJob:
                         pass
-                already.extend(r["key"] for r in rows)
+                # eng/stale-rebuild-loop (production ea3aacc7: 50 "already queued", zero
+                # unfinished jobs): "already queued" means a job for this change is in
+                # flight. An attempt that ended and is waiting out RETRY_AFTER, or whose
+                # retry for today has run, is reported as waiting -- not as queued work.
+                if inflight is None:
+                    inflight = _inflight_slugs(db)
+                if slug in inflight:
+                    already.extend(r["key"] for r in rows)
+                else:
+                    waiting.append(slug)
         return {"enqueued": enqueued, "already_queued": already, "retried": retried,
-                "retry_held": held,
+                "retry_held": held, "retry_waiting": waiting,
                 "plan": plan, "reason": reason, "per": per,
                 "idempotency": ("keyed on the product and the new fingerprint, so the same "
                                 "change enqueues once and a different change enqueues again")}
@@ -401,8 +440,13 @@ def publication_gate(db, *, slug: str, current: dict[str, str] | None = None) ->
     evidence = [{"key": _node_key(c, k), "built_at": str(built)}
                 for (c, k), (_, built) in sorted(recorded.items())
                 if _node_key(c, k) in rebuilt]
+    fresh = sorted(_node_key(v.artefact_class, v.artefact_key) for v in verdicts
+                   if v.product_slug == slug and v.state == FRESH)
     return {
         "slug": slug, "may_publish": not outstanding, "outstanding": outstanding,
+        # eng/stale-rebuild-loop: every artefact of this product that reads FRESH now, so a
+        # gate can tell a sentinel row awaiting its next sweep from a live staleness.
+        "fresh": fresh,
         "changed": {ref: {"old": previous.get(ref), "new": fp}
                     for ref, fp in sorted(changed.items())},
         "rebuilt_evidence": evidence[:40],

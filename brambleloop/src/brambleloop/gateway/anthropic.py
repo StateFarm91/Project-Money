@@ -35,7 +35,7 @@ import time
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from ..core.resilience import PermanentError, TransientError
 from .model_gateway import ModelResponse
@@ -1323,6 +1323,82 @@ def vision_usable(db) -> bool:
     except Exception:  # noqa: BLE001 - unreadable evidence is a closed gate
         return False
     return gate.probe_activation_open(db, state, gate.ANTHROPIC_VISION, gate.VISION)
+
+
+# eng/stale-rebuild-loop (production ea3aacc7, paid_call_dedupe): the 6-hourly `model.probe`
+# cadence billed the identical request (fingerprint beff7c26565a) four times a day. The
+# paid-call store replays within one job only (`paid_calls`: key is per job), so a new cadence
+# job is a new question by construction -- the waste is asking a question already answered.
+# A successful probe younger than this is reused (an audited `model.probe` row marked
+# `reused`, nothing billed) unless something since contradicts it.
+MODEL_PROBE_REUSE = timedelta(hours=24)
+_CONTRADICTS = ("DECLINED", "FAILED_BILLED", "UNCERTAIN")
+
+
+def _probe_at(record: dict) -> datetime | None:
+    try:
+        at = datetime.fromisoformat(str(record.get("reused_from_at") or record.get("at")))
+    except (TypeError, ValueError):
+        return None
+    return at if at.tzinfo else at.replace(tzinfo=timezone.utc)
+
+
+def _contradicted_since(db, since: datetime) -> list[str]:
+    """Evidence after `since` that the provider may no longer serve: an open funding action,
+    or an Anthropic paid call that failed. Unreadable evidence counts as a contradiction."""
+    why: list[str] = []
+    try:
+        from ..ops import funding
+
+        if funding.blocked(db).get("blocked"):
+            why.append("funding: the Anthropic balance is recorded as spent")
+    except Exception:  # noqa: BLE001
+        why.append("funding state unreadable")
+    try:
+        from sqlalchemy import func, select
+
+        from .paid_calls import PaidCallRecord
+
+        with db.session() as s:
+            failed = int(s.scalar(select(func.count()).select_from(PaidCallRecord).where(
+                PaidCallRecord.effect.like("anthropic.%"),
+                PaidCallRecord.outcome.in_(_CONTRADICTS),
+                PaidCallRecord.at >= since)) or 0)
+        if failed:
+            why.append(f"{failed} Anthropic paid call(s) failed since the last probe")
+    except Exception:  # noqa: BLE001
+        why.append("paid-call record unreadable")
+    return why
+
+
+def probe_if_due(db, *, job_id: int | None = None, now: datetime | None = None,
+                 force: bool = False, **kw) -> dict:
+    """`probe`, unless a successful probe younger than MODEL_PROBE_REUSE is on file and
+    nothing since contradicts it -- then that answer is restated (audited, `reused`, CA$0).
+
+    `force` (an owner's on-demand run) always asks the provider. A failed or absent probe is
+    always re-asked: only a success is reused, so the gate never opens on a reuse."""
+    now = now or datetime.now(timezone.utc)
+    last = last_probe(db)
+    if not force and last and last.get("ok"):
+        at = _probe_at(last)
+        if at is not None and timedelta(0) <= now - at < MODEL_PROBE_REUSE \
+                and not _contradicted_since(db, at):
+            record = {k: v for k, v in last.items() if k not in ("why", "checked_at")}
+            record.update({
+                "reused": True, "reused_from_at": at.isoformat(),
+                "checked_at": now.isoformat(), "cost_cad": 0.0,
+                "why": (f"a successful probe at {at.isoformat()} is under "
+                        f"{int(MODEL_PROBE_REUSE.total_seconds() // 3600)} h old and nothing "
+                        f"since contradicts it; not re-billed")})
+            from ..core.models import AuditLog
+
+            with db.session() as s:
+                s.add(AuditLog(actor="orchestrator", action="model.probe",
+                               artifact=str(record.get("model") or PROBE_MODEL),
+                               detail=record))
+            return record
+    return probe(db, job_id=job_id, now=now, **kw)
 
 
 def last_probe(db) -> dict | None:
