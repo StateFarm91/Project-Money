@@ -223,6 +223,7 @@ def test_each_disagreement_reads_mode_s():
         "web reports": dict(web_env={sp.EMBEDDED_VAR: "1"}),
         "web holds the issuer signing key": dict(web_env={sp.ISSUER_KEY_VAR: "AAAA"}),
     }
+    assert bad_cases, bad_cases
     for why, kw in bad_cases.items():
         try:
             db, c, a = _effective_db()
@@ -296,6 +297,7 @@ def test_role_separation_is_judged_by_privileges_not_names():
         "superuser issuer": dict(worker_user="bl_worker", worker_powers=[],
                                  issuer_powers=ISSUER_POWERS + ["superuser"]),
     }
+    assert cases, cases
     for name, kw in cases.items():
         try:
             db, c, a = _effective_db()
@@ -1048,6 +1050,7 @@ def test_consume_rechecks_the_shop_binding_at_use():
         "unbound": lambda db: _bind_shop(db, shop_id=""),
         "binding names another shop": lambda db: _bind_shop(db, shop_name="SomeOtherShop"),
     }
+    assert cases, cases
     for name, change in cases.items():
         try:
             db, c, a, g = _one_grant()
