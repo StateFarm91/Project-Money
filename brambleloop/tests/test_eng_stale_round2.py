@@ -437,6 +437,7 @@ def test_me_legacy_counts_get_a_fresh_recorded_budget_then_hold():
             assert not out["rebuild_retry_held"], out
             # the retried attempts fail verify: each restate under the new code spends the
             # fresh budget; the first one records the legacy count and why it was reset
+            assert G.REBUILD_MAX_ATTEMPTS >= 1, G.REBUILD_MAX_ATTEMPTS
             for attempt in range(1, G.REBUILD_MAX_ATTEMPTS + 1):
                 for slug in slugs:
                     release._rebuild_incomplete(base._Ctx(db), slug, "1.0.0",
