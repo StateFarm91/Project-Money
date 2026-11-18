@@ -472,6 +472,62 @@ def gate_lifted(session, job_type: str, suspension: dict, recorded_at) -> dict |
                               _parse_when(suspension.get("since")) or recorded_at)
 
 
+# ENG watchlist-cadence task 4: readers whose only input is other jobs' output. Unchanged
+# runs of these back off like any free poll (radar.concept_intake reached 4x within a day of
+# no new input in the reproduction), but a backoff must not outlive the input changing: a
+# real scan of the shops is new input for the comparison, a fresh comparison or an answered
+# research task is new input for concept intake. A backoff lifts once an upstream job has
+# made progress after it was recorded (or after the newest observation it counted).
+UPSTREAM_INPUTS: dict[str, tuple[str, ...]] = {
+    "intel.watchlist_compare": ("intel.watchlist_scan", "mjs.scan"),
+    # (not intel.watchlist_compare: it reports work_done=1 on every run, changed or not)
+    "radar.concept_intake": ("research.investigate", "intel.opportunity_review",
+                             "intel.watchlist_scan"),
+}
+
+
+def made_progress(outputs) -> bool:
+    """A finished run that produced something: not a gated no-op, not a deferral."""
+    if not isinstance(outputs, dict) or gated_noop(outputs) or outputs.get("deferred"):
+        return False
+    wd = outputs.get("work_done")
+    if isinstance(wd, (int, float)) and not isinstance(wd, bool):
+        return wd > 0
+    return outputs.get("ran") is True
+
+
+def upstream_progressed(session, job_type: str, since) -> dict | None:
+    """The newest upstream job that made progress after `since`, as {job_type, job_id, at}."""
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus
+
+    ups = UPSTREAM_INPUTS.get(job_type)
+    since = _aware(since)
+    if not ups or since is None:
+        return None
+    for job in session.scalars(select(Job).where(
+            Job.job_type.in_(ups), Job.status == JobStatus.DONE, Job.finished_at > since)
+            .order_by(Job.id.desc()).limit(200)):
+        if made_progress(job.outputs) and _aware(job.finished_at) > since:
+            return {"job_type": job.job_type, "job_id": job.id,
+                    "at": _aware(job.finished_at).isoformat()}
+    return None
+
+
+def input_changed_since(session, job_type: str, since, suspension: dict | None = None):
+    """The gate (credential probe) or an upstream input changed after `since`."""
+    sus = suspension or {}
+    gate = gate_of(job_type, sus)
+    if gate and not ("gate_refused" in sus and not sus["gate_refused"]):
+        hit = gate_changed_since(session, gate, since)
+        if hit:
+            return hit
+    if sus.get("kind", BACKOFF) == BACKOFF:
+        return upstream_progressed(session, job_type, since)
+    return None
+
+
 _VOLATILE_KEYS = ("at", "as_of", "now", "ran_at", "generated_at", "checked_at", "timestamp",
                   "allocation_id", "reading_id", "job_id", "audit_id", "id")
 
@@ -646,13 +702,12 @@ def _free_poll_backoff(session, progress: dict, *, now: datetime,
         signature = f"{BACKOFF_SIGNATURE_PREFIX}{jt}"
         open_row = session.scalar(select(Incident).where(Incident.signature == signature,
                                                          Incident.resolved.is_(False)))
-        if row["identical_tail"] and gate_of(jt) and row.get("last_finished_at") and \
-                gate_changed_since(session, gate_of(jt),
-                                   _parse_when(row["last_finished_at"])):
-            # ENG watchlist-cadence: the credential its runs waited on has been fixed since
-            # the newest observation. Those observations describe the refused key, not the
-            # reader: no new backoff, no higher level, and an open one stands lifted
-            # (`suspended_job_types`) until a run under the working key resolves it.
+        if row["identical_tail"] and row.get("last_finished_at") and \
+                input_changed_since(session, jt, _parse_when(row["last_finished_at"])):
+            # ENG watchlist-cadence: the credential its runs waited on has been fixed, or an
+            # upstream input has changed, since the newest observation. Those observations
+            # describe the old input, not the reader: no new backoff, no higher level, and an
+            # open one stands lifted (`suspended_job_types`) until the next run decides.
             continue
         if not row["identical_tail"]:
             if open_row is not None:
@@ -720,6 +775,9 @@ def suspended_job_types(db, *, now: datetime | None = None) -> dict[str, dict]:
                 continue
             if gate_lifted(s, jt, sus, inc.at):
                 continue              # the gating probe succeeded since: a changed hypothesis
+            if sus.get("kind") == BACKOFF and upstream_progressed(
+                    s, jt, _parse_when(sus.get("since")) or inc.at):
+                continue              # its input changed since: run it again
             if sus.get("kind") == SUSPENDED:
                 if _hypothesis_changed(sus):
                     continue          # the handler's own code changed: a changed hypothesis

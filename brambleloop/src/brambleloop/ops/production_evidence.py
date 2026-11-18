@@ -682,6 +682,45 @@ def _anchor_active_count(db) -> int | None:
     return None
 
 
+def _not_attempted(db, key, r: dict, now: datetime, held: dict) -> dict | None:
+    """ENG watchlist-cadence: why a mandatory shop was not attempted within its cadence --
+    None when it was. Fixed cause codes and the scheduler's own sentences; no error text."""
+    from ..intel import watchlist
+    from ..ops import scheduler_readback as SR
+
+    member = watchlist.BY_KEY.get(key)
+    if member is None:
+        return None
+    period = SR._period_of(SR._job_type_of(member))
+    last = _aware(SR.last_attempted(db, member))
+    if last is not None and period and (now - last).total_seconds() <= period:
+        return None
+    cause = SR.shop_not_attempted(db, member, now=now, **held)
+    return {k: cause.get(k) for k in ("code", "detail", "job_type", "until", "incident")
+            if cause.get(k) is not None}
+
+
+def scheduler(db, *, now: datetime) -> dict:
+    """ENG watchlist-cadence: suspended job types, blocked departments, per-cadence last
+    enqueue and next window, and the mandatory shops silent for > 2x their cadence."""
+    from ..ops import scheduler_readback as SR
+
+    out = SR.scheduler_block(db, now=now)
+    out["unattempted_mandatory_shops"] = [
+        {"alias": _alias(r["key"]), "job_type": r["job_type"],
+         "last_attempted": r["last_attempted"], "hours_since": r["hours_since"],
+         "limit_hours": r["limit_hours"], "cause": r["cause"].get("code"),
+         "cause_detail": r["cause"].get("detail")}
+        for r in SR.unattempted(db, now=now)]
+    return out
+
+
+def _alias(key):
+    from ..runtime.intel_ops import benchmark_alias
+
+    return benchmark_alias(key) if key else None
+
+
 def competitor_scans(db, *, now: datetime) -> dict:
     """Per-shop scan state, in the owner's order (`intel.scan_evidence.OWNER_SHOPS`), from the
     same read-only join `intel.scan_evidence` makes daily -- plus the facts it computes but did
@@ -695,8 +734,13 @@ def competitor_scans(db, *, now: datetime) -> dict:
     from ..intel import watchlist
     from ..runtime.intel_ops import benchmark_alias
 
+    from ..ops import scheduler_readback as SR
+
     rep = SE.report(db, now=now)
     stored = SE.latest(db) or {}
+    # ENG watchlist-cadence: per shop, why it was not attempted (the scheduler's own reasons)
+    held = {"suspended": SR._suspended(db, now), "blocked": SR._blocked(db, now),
+            "latest": SR._latest_cadence_jobs(db, now=now)}
     credential = str(rep.get("credential") or "UNKNOWN").split(":")[0].strip()
     rows = []
     with db.session() as s:
@@ -767,6 +811,7 @@ def competitor_scans(db, *, now: datetime) -> dict:
                 "errors_7d": _errors_7d(db, key, st, now),
                 "downstream": {"mission_events": _int(mission_events),
                                "coverage_gaps": _int(gaps)},
+                "not_attempted_because": _not_attempted(db, key, r, now, held),
             })
     return {"readable": True, "as_of": now.isoformat(), "credential": credential,
             "reading_day": (str(stored.get("as_of") or "")[:10] or None),
@@ -787,6 +832,7 @@ SECTIONS = {
     "autonomy_loop": autonomy_loop,
     "etsy_taxonomy": etsy_taxonomy,
     "competitor_scans": competitor_scans,
+    "scheduler": scheduler,
 }
 CHECK_NAMES = ("publishing_halt_clear", "stale_artefacts_rebuilding",
                "no_repeated_paid_call_in_24h", "weekly_jobs_completing")

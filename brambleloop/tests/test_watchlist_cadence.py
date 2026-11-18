@@ -265,6 +265,174 @@ def test_a_paid_loop_on_a_gated_job_type_still_trips_and_stays_suspended():
     assert "mjs.scan" in orc.suspended_job_types(db, now=now + timedelta(minutes=2))
 
 
+NON_ANCHOR = [m for m in watchlist.WATCHLIST if m.role != watchlist.ANCHOR]
+
+
+def _production_silence(db, now):
+    """Production at 15:10Z on 11-18 as it stood: the old build's standing backoff on the
+    scan (recorded while the key was refused), the seven shops last attempted ~19 h ago."""
+    t_ref = now - timedelta(days=40)
+    _probe(db, t_ref, ok=False)
+    last = now - timedelta(hours=19)
+    with db.session() as s:
+        s.add(Incident(severity="P3", signature=f"{orc.BACKOFF_SIGNATURE_PREFIX}{SCAN}",
+                       summary="legacy", at=t_ref + timedelta(hours=1),
+                       detail={"suspension": {"kind": orc.BACKOFF, "job_type": SCAN,
+                                              "level": 5, "factor": 32,
+                                              "suspend_until": (last + timedelta(days=8))
+                                              .isoformat()}}))
+        s.add(Job(agent="market_radar", job_type=SCAN, inputs={"cadence": "watchlist_scan"},
+                  idempotency_key="cadence:watchlist_scan:legacy", status=JobStatus.DONE,
+                  outputs=dict(LEGACY_REFUSED_OUTPUTS), created_at=last, started_at=last,
+                  finished_at=last))
+    for m in NON_ANCHOR:
+        watchlist._save_state(db, m.key, {"state": "credential_refused",
+                                          "last_attempt_at": last.isoformat()}, now=last)
+
+
+def test_the_readback_names_the_scheduler_hold_and_each_shop_says_why():
+    from brambleloop.ops import production_evidence as PE
+
+    db = _db()
+    now = utcnow()
+    _production_silence(db, now)
+    ev = PE.evidence(db, now=now)
+    sched = ev["scheduler"]
+    assert sched.get("readable") is True, sched
+    held = {r["job_type"]: r for r in sched["suspended_job_types"]}
+    assert held[SCAN]["kind"] == orc.BACKOFF and held[SCAN]["until"] \
+        and held[SCAN]["incident"].startswith("thrash:backoff:"), held
+    row = next(c for c in sched["cadences"] if c["job_type"] == SCAN)
+    assert row["skipped_because"] == "suspended", row
+    assert row["last_enqueued_at"] and row["next_window_at"], row
+    assert sched["blocked_departments"] == [], sched["blocked_departments"]
+    silent = {r["alias"] for r in sched["unattempted_mandatory_shops"]}
+    assert len(silent) == len(NON_ANCHOR), sched["unattempted_mandatory_shops"]
+    shops = [r for r in ev["competitor_scans"]["shops"] if r["role"] != "anchor"]
+    assert shops, ev["competitor_scans"]
+    for r in shops:
+        why = r.get("not_attempted_because") or {}
+        assert why.get("code") == "scheduler_backoff", r
+        assert why.get("until") and why.get("incident"), why
+    # no shop name leaves on the read-only route
+    blob = repr(ev)
+    for m in watchlist.WATCHLIST:
+        assert m.shop_name not in blob, m.shop_name
+
+
+def test_a_mandatory_shop_silent_for_twice_its_cadence_raises_a_p1_naming_the_cause():
+    from brambleloop.ops import scheduler_readback as SR
+
+    db = _db()
+    now = utcnow()
+    _production_silence(db, now)
+    SR._LAST_ESCALATION.clear()
+    Scheduler(db).tick(now=now)
+    with db.session() as s:
+        rows = list(s.scalars(select(Incident).where(
+            Incident.signature.like(f"{SR.INCIDENT_PREFIX}%"), Incident.resolved.is_(False))))
+        assert len(rows) == len(NON_ANCHOR), [r.signature for r in rows]
+        for r in rows:
+            assert r.severity == "P1"
+            assert r.detail["cause"]["code"] == "scheduler_backoff", r.detail
+            assert "scheduler_backoff" in r.summary and SCAN in r.summary, r.summary
+    # the owner's fix: the probe succeeds; the hold lifts, the scan is enqueued and runs,
+    # every shop is attempted, and the escalation resolves itself with the reason.
+    _probe(db, now + timedelta(minutes=1), ok=True)
+    watchlist.reader_factory = intelrec.Reader
+    try:
+        later = now + timedelta(minutes=20)
+        Scheduler(db).tick(now=later)
+        assert _scan_jobs(db, JobStatus.PENDING), "the lifted scan was not enqueued"
+        _run_pending_scan(db, later)
+        got = SR.escalate_unattempted(db, now=later + timedelta(minutes=5))
+    finally:
+        watchlist.reader_factory = None
+    assert not got["raised"] and len(got["resolved"]) == len(NON_ANCHOR), got
+    # an adaptive-interval deferral is the scanner working: never escalated
+    assert "adaptive_not_due" in SR.LEGITIMATE_CAUSES
+
+
+def _run_cadence(db, job_type, *, days, end, step_hours=1):
+    """Tick hourly and execute `job_type` whenever its cadence enqueues it (no new input)."""
+    t = end - timedelta(days=days)
+    while t < end:
+        Scheduler(db).tick(now=t)
+        with db.session() as s:
+            pend = [j.id for j in s.scalars(select(Job).where(
+                Job.job_type == job_type, Job.status == JobStatus.PENDING))]
+        for _ in pend:
+            Worker(db, "wlcad", phase=Phase.SHADOW, job_types=[job_type]).run_once()
+        with db.session() as s:
+            for i in pend:
+                r = s.get(Job, i)
+                assert r.status == JobStatus.DONE, (job_type, r.status, r.last_error)
+                r.created_at = r.started_at = t
+                r.finished_at = t + timedelta(minutes=1)
+        orc.thrash_sweep(db, now=t + timedelta(minutes=5))
+        t += timedelta(hours=step_hours)
+
+
+def _upstream_done(db, job_type, outputs, at):
+    with db.session() as s:
+        s.add(Job(agent="market_radar", job_type=job_type, inputs={}, status=JobStatus.DONE,
+                  outputs=outputs, created_at=at, started_at=at, finished_at=at))
+
+
+def test_concept_intake_and_compare_backoffs_lift_when_their_input_changes():
+    """Task 4. Same department and cadence family: CA$0, no credential, but each reads only
+    other jobs' output. With no new input their runs are identical and back off (reproduced:
+    concept_intake at 4x within days); the backoff must lift once the input changes -- an
+    answered research task for intake, a real watchlist scan for the comparison -- not
+    outlast it by up to 32 periods."""
+    db = _db()
+    end = utcnow() - timedelta(hours=3)
+    _run_cadence(db, "radar.concept_intake", days=5, end=end)
+    held = orc.suspended_job_types(db, now=end)
+    assert held.get("radar.concept_intake", {}).get("kind") == orc.BACKOFF, (
+        "precondition: unchanged intake runs back off", held)
+    # a fresh comparison is NOT new input for intake (it reports work_done=1 every run)
+    _upstream_done(db, "intel.watchlist_compare", {"shops": 8, "work_done": 1},
+                   end + timedelta(minutes=10))
+    assert "radar.concept_intake" in orc.suspended_job_types(
+        db, now=end + timedelta(minutes=11))
+    # an answered research task is
+    _upstream_done(db, "research.investigate", {"ran": True, "work_done": 1},
+                   end + timedelta(minutes=20))
+    assert "radar.concept_intake" not in orc.suspended_job_types(
+        db, now=end + timedelta(minutes=21))
+    Scheduler(db).tick(now=end + timedelta(minutes=22))
+    with db.session() as s:
+        assert s.scalar(select(Job).where(Job.job_type == "radar.concept_intake",
+                                          Job.status == JobStatus.PENDING)), \
+            "intake was not enqueued after its input changed"
+    # the hourly sweep does not re-arm it from the pre-input observations
+    out = orc.thrash_sweep(db, now=end + timedelta(minutes=25))
+    assert "radar.concept_intake" not in out["suspended"], out["backoff"]
+
+    # the comparison: a backoff (as written by the sweep) lifts on a real scan of the shops,
+    # not on a refused no-op or a run that observed nothing
+    t = end
+    with db.session() as s:
+        s.add(Incident(severity="P3",
+                       signature=f"{orc.BACKOFF_SIGNATURE_PREFIX}intel.watchlist_compare",
+                       summary="x", at=t, detail={"suspension": {
+                           "kind": orc.BACKOFF, "job_type": "intel.watchlist_compare",
+                           "level": 3, "factor": 8, "since": t.isoformat(),
+                           "suspend_until": (t + timedelta(days=8)).isoformat()}}))
+    _upstream_done(db, SCAN, {"ran": False, "credential_refused": True, "work_done": 0},
+                   t + timedelta(hours=1))
+    _upstream_done(db, SCAN, {"ran": True, "observed": 0, "work_done": 0},
+                   t + timedelta(hours=2))
+    assert "intel.watchlist_compare" in orc.suspended_job_types(db, now=t + timedelta(hours=3))
+    _upstream_done(db, SCAN, {"ran": True, "observed": 7, "work_done": 7},
+                   t + timedelta(hours=4))
+    assert "intel.watchlist_compare" not in orc.suspended_job_types(
+        db, now=t + timedelta(hours=5))
+    for jt in ("intel.watchlist_compare", "radar.concept_intake"):
+        assert orc.gate_of(jt) is None      # no credential gate: never a gated no-op
+
+
 def test_shop_backoff_from_refused_reads_lifts_once_a_probe_succeeds():
     """A shop whose own reads Etsy refused (consecutive_failures, state credential_refused)
     is read on the first run after a successful probe, not after its per-shop backoff."""
