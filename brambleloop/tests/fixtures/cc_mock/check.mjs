@@ -165,6 +165,11 @@ try {
   const shopsCard = board.find((b) => /mandatory shops/.test(b.title)) || {};
   check(/Last successful/.test(shopsCard.text || "") && /EtsyRateLimited/.test(shopsCard.text || "") && /Next scan/.test(shopsCard.text || ""),
     "p0 board: each shop shows its scan times, failures and next scan", (shopsCard.text || "").slice(0, 200));
+  // Verdict 6990820438 M2: an unmeasured order source reads Unknown with its reason, never 0.
+  const salesCard = board.find((b) => /sales/.test(b.title)) || {};
+  check(/Unknown: the order source is not connected/.test(salesCard.text || "")
+    && /Real orders\s*Unknown/.test(salesCard.text || "") && !/Real orders\s*0/.test(salesCard.text || ""),
+    "p0 board: unmeasured sales read Unknown, never 0 orders", (salesCard.text || "").slice(0, 300));
   const runCard = board.find((b) => /Running build/.test(b.title)) || {};
   check(/Level: PRODUCTION-VERIFIED/.test(runCard.sub || "") && runCard.reached.at(-1) === "PRODUCTION-VERIFIED",
     "p0 board: the level shown is the section's own", JSON.stringify(runCard.reached));
