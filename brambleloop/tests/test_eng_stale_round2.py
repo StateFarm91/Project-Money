@@ -384,6 +384,18 @@ def test_l1_hold_and_rebuild_read_the_same_withholding():
         restore()
 
 
+def pg_e2e_convergence():
+    """Review L3: the round-1 end-to-end convergence test (the real chain: compile, build,
+    move the chain, sentinel, rebuild, verify, resolve) on this engine. Not prefixed `test_`:
+    it runs on SQLite in test_eng_stale_rebuild_loop, so here it runs in the PG list only."""
+    real = base._sqlite_db
+    base._sqlite_db = base._db           # the factory the runner set (PG)
+    try:
+        base.test_end_to_end_a_moved_chain_converges_in_one_attempt()
+    finally:
+        base._sqlite_db = real
+
+
 PG_TESTS = ("test_ma_legacy_null_slug_exhausted_row_holds_the_retry",
             "test_ma_restating_a_legacy_row_files_its_product_slug",
             "test_ma_sentinel_holds_a_legacy_exhausted_product_instead_of_retrying",
@@ -391,7 +403,8 @@ PG_TESTS = ("test_ma_legacy_null_slug_exhausted_row_holds_the_retry",
             "test_mb_refused_no_stored_release_is_bounded_then_held_with_the_refusal",
             "test_mc_sentinel_does_not_close_without_positive_evidence",
             "test_md_probe_reuse_requires_the_probe_model_and_the_same_key",
-            "test_l1_hold_and_rebuild_read_the_same_withholding")
+            "test_l1_hold_and_rebuild_read_the_same_withholding",
+            "pg_e2e_convergence")
 
 
 def _run_here(names, label):
