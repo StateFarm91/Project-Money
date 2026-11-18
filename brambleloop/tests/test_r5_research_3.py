@@ -94,8 +94,18 @@ def test_h3_an_approved_concept_stays_approved_while_evidence_stays_fresh():
     # Renewed from each day's reading (plus the intake job's last-chance renewal before the
     # old answer expires): at most two renewals a day, and the gap is never re-proposed.
     assert len(W.prior_proposals(db, gid)) == 1
+    # Review LOW (round 4): only the last RENEWAL_KEEP renewal tasks are kept; every renewal
+    # is in the audit log.
+    from sqlalchemy import select
+
+    from brambleloop.core.models import AuditLog
+    from brambleloop.intel import watchlist_research as WR
+
     renewals = [t for t in S.tasks(db) if "#renew:" in t.trigger]
-    assert 5 <= len(renewals) <= 10, [(t.id, t.state, t.trigger) for t in S.tasks(db)]
+    assert len(renewals) == WR.RENEWAL_KEEP, [(t.id, t.state, t.trigger) for t in S.tasks(db)]
+    with db.session() as s:
+        logged = len(list(s.scalars(select(AuditLog).where(AuditLog.action == WR.RENEWED))))
+    assert 5 <= logged <= 10, logged
     assert not [t for t in S.tasks(db) if t.state == research.OPEN], \
         [(t.id, t.state, t.trigger) for t in S.tasks(db)]
 

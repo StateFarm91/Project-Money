@@ -992,6 +992,9 @@ def evaluate(db, candidate: dict, *, audit, enqueue, today: date) -> dict:
         audit(WITHDRAWN_ACTION, artifact=slug, detail={
             "row": old_id, "source_ref": candidate["source_ref"],
             "reasons": [f"revised proposal row {row_id} was refused"]})
+    if withdrawn_ids:
+        _close_renewals(db, [(i, candidate["source_ref"]) for i in withdrawn_ids],
+                        audit=audit, why=f"its revised proposal (row {row_id}) was refused")
     if not verdict["ok"]:
         audit(REFUSED_ACTION, artifact=slug, detail={
             "row": row_id, "source_ref": candidate["source_ref"],
@@ -1018,6 +1021,7 @@ def evaluate(db, candidate: dict, *, audit, enqueue, today: date) -> dict:
             r.reasons = list(r.reasons or []) + [f"withdrawn: {why}"]
         audit(WITHDRAWN_ACTION, artifact=slug, detail={
             "row": row_id, "source_ref": candidate["source_ref"], "reasons": [why]})
+        _close_renewals(db, [(row_id, candidate["source_ref"])], audit=audit, why=why)
         return {"slug": slug, "state": WITHDRAWN, "id": row_id, "reasons": [why]}
     seed = got["seed"]
     payload = score_concept(seed, today).to_dict()
@@ -1057,6 +1061,29 @@ def rescore_judged(db, *, audit, enqueue, today: date) -> list[str]:
                 "reason": "re-scored: a vision judgement is now on record"})
             out.append(row.slug)
     return out
+
+
+def _close_renewals(db, rows, *, audit, why: str) -> None:
+    """Review LOW (eng/r5-research-2): a withdrawn research concept takes the OPEN tasks that
+    were renewing its support with it (`intel.watchlist_research.close_renewals`), unless
+    another approved concept rests on the same gap. Never blocks intake."""
+    from ..intel import watchlist_research
+
+    rows = [(rid, str(ref)) for rid, ref in rows if str(ref).startswith("research_task:")]
+    if not rows:
+        return
+    with db.session() as s:
+        keep = {int(r.source_ref.split(":", 1)[1]) for r in s.scalars(
+            select(RadarConcept).where(RadarConcept.state == APPROVED,
+                                       RadarConcept.source == SOURCE_RESEARCH))}
+    for rid, ref in rows:
+        try:
+            watchlist_research.close_renewals(
+                db, concept_task_id=int(ref.split(":", 1)[1]), keep_for=keep,
+                why=f"concept row {rid} withdrawn: {why}", audit=audit)
+        except Exception as exc:  # noqa: BLE001 - housekeeping never blocks intake
+            audit("research.renewal_close_failed", artifact=ref,
+                  detail={"row": rid, "why": f"{type(exc).__name__}: {str(exc)[:200]}"})
 
 
 def withdraw_unsupported(db, *, audit, today: date) -> list[dict]:
@@ -1102,6 +1129,8 @@ def withdraw_unsupported(db, *, audit, today: date) -> list[dict]:
         audit(WITHDRAWN_ACTION, artifact=row.slug, detail={
             "row": row.id, "source_ref": row.source_ref,
             "reasons": list(ev.get("reasons") or [])[:5], "as_of": today.isoformat()})
+        _close_renewals(db, [(row.id, row.source_ref)], audit=audit,
+                        why="its evidence no longer supports it")
         out.append({"slug": row.slug, "reasons": list(ev.get("reasons") or [])[:3]})
     return out
 

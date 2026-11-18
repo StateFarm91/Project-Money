@@ -48,6 +48,7 @@ class ScanResult:
     changed_listings: list[str] = field(default_factory=list)
     unchanged: int = 0
     withdrawn: list[str] = field(default_factory=list)
+    relisted: list[str] = field(default_factory=list)
     deep_audited: list[str] = field(default_factory=list)
     # Galleries read to close the backlog rather than because the listing moved.
     backfilled: list[str] = field(default_factory=list)
@@ -77,6 +78,7 @@ class ScanResult:
                 "listings_inspected": len(self.deep_audited),
                 "unchanged_skipped": self.unchanged,
                 "withdrawn_since_last_scan": len(self.withdrawn),
+                "relisted_since_last_scan": len(self.relisted),
                 "galleries_backfilled": len(self.backfilled),
                 "descriptions_read_for_the_first_time": len(self.deliverable_backfilled),
             },
@@ -85,7 +87,9 @@ class ScanResult:
                         + [{"listing_ref": ref, "what": "materially changed"}
                            for ref in self.changed_listings]
                         + [{"listing_ref": ref, "what": "no longer listed"}
-                           for ref in self.withdrawn]),
+                           for ref in self.withdrawn]
+                        + [{"listing_ref": ref, "what": "listed again after a withdrawal"}
+                           for ref in self.relisted]),
             "listings_inspected": list(self.deep_audited),
             "images_inspected": self.images_inspected,
             "pods_notified": sorted(self.pods_notified),
@@ -136,6 +140,24 @@ def source_modified_at(listing: dict) -> str | None:
     if seconds <= 0:
         return None
     return datetime.fromtimestamp(seconds, tz=timezone.utc).isoformat()
+
+
+# Review M1 (eng/r5-research-2): a row's withdrawals and relistings, oldest first. Bounded:
+# a shop that toggles a listing daily cannot grow the row without limit.
+WITHDRAWAL_HISTORY = "withdrawal_history"
+WITHDRAWAL_HISTORY_KEEP = 20
+
+
+def _revival(detail: dict | None, now: datetime) -> dict:
+    """The row's detail with this withdrawal closed in its history: when it was first
+    noticed missing and when it was seen listed again. Nothing about the withdrawal is
+    erased; `withdrawn_first_noticed` moves into the history entry."""
+    d = dict(detail or {})
+    history = list(d.get(WITHDRAWAL_HISTORY) or [])
+    history.append({"withdrawn_first_noticed": d.pop("withdrawn_first_noticed", None),
+                    "relisted_at": now.isoformat()})
+    d[WITHDRAWAL_HISTORY] = history[-WITHDRAWAL_HISTORY_KEEP:]
+    return d
 
 
 def fingerprint_of(listing: dict) -> str:
@@ -191,10 +213,24 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
                 result.changed_listings.append(ref)
                 to_audit.append(listing)
                 row = s.merge(row)
+                if row.audit_state == "withdrawn":
+                    result.relisted.append(ref)
+                    revived = _revival(row.detail, now)
+                    row.audit_state = "queued"
+                    row.detail = revived      # the rebuild below keeps the history
             else:
                 result.unchanged += 1
                 row = s.merge(row)
                 row.last_seen = now
+                # Review M1 (eng/r5-research-2): a listing the shop withdrew and then listed
+                # again, unchanged, is live again. Left "withdrawn" it counted against its
+                # arena forever, so a gap it once corroborated could never be re-opened. The
+                # withdrawal stays in the row's history; the revival is added to it.
+                if row.audit_state == "withdrawn":
+                    result.relisted.append(ref)
+                    row.detail = _revival(row.detail, now)
+                    row.audit_state = ("audited" if row.detail.get("gallery_audited")
+                                       else "queued")
                 # A new reading of a field already in this payload must reach the listings
                 # that did not change, or it only ever describes the shop's recent edits.
                 # This is what the gallery backlog taught: a reading attached to the
@@ -228,6 +264,7 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
             row.on_sale = bool(listing.get("is_sale") or False)
             row.last_seen = now
             row.audit_state = "queued"
+            history = (row.detail or {}).get(WITHDRAWAL_HISTORY)
             row.detail = {"tags": listing.get("tags") or [],
                           "materials": listing.get("materials") or [],
                           "num_favorers": listing.get("num_favorers"),
@@ -235,6 +272,10 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
                           "when_made": listing.get("when_made"),
                           # WS2 R3: Etsy's own modification time for this listing.
                           "source_modified_at": source_modified_at(listing)}
+            if history:
+                # Review M1: a changed listing's facts are re-read, its withdrawals are not
+                # forgotten.
+                row.detail[WITHDRAWAL_HISTORY] = history
             # #208: options and variants, from the API's own listing fields. Stored only
             # when the payload carries them -- an absent field is unmeasured, not "none".
             options = listing_options(listing)

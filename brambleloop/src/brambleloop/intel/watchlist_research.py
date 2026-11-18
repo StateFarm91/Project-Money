@@ -263,6 +263,69 @@ def fact_refs(findings: list[dict]) -> list[str]:
 
 
 RENEW_AHEAD = timedelta(hours=12)
+RENEWAL_KEEP = 2
+CLOSED_WITH_WITHDRAWAL = "research.renewal_closed"
+
+
+def _retire(row, by: int, now: datetime) -> None:
+    """A superseded renewal answer: EXPIRED (it no longer supports anything), so
+    `research.expire_due` does not later re-open its question as a new OPEN task."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from . import research
+
+    if row is None or row.state != research.ANSWERED:
+        return
+    row.state = research.EXPIRED
+    row.detail = {**(row.detail or {}), "superseded_by": by,
+                  "superseded_at": now.isoformat()}
+    flag_modified(row, "detail")
+
+
+def _gap_of(row) -> int | None:
+    trigger = str(getattr(row, "trigger", "") or "")
+    if not trigger.startswith("watchlist_gap:"):
+        return None
+    head = trigger.split(":", 1)[1].split("#", 1)[0]
+    return int(head) if head.isdigit() else None
+
+
+def close_renewals(db, *, concept_task_id: int, why: str, now: datetime | None = None,
+                   keep_for: set[int] | frozenset = frozenset(), audit=None) -> list[int]:
+    """Review LOW (eng/r5-research-2): when a watchlist concept is withdrawn, the OPEN tasks
+    that were renewing its support (`watchlist_gap:<gap>#renew:...`, or the gap question
+    re-opened by `research.expire_due`, `watchlist_gap:<gap>#after:...`) are closed with it:
+    EXPIRED, with the withdrawal recorded on the task. Not while another approved concept
+    (`keep_for`: its concept task ids) rests on the same gap. Fresh evidence later opens a
+    new question (`watchlist._research_question`), so nothing is lost."""
+    from sqlalchemy import select
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from . import research
+
+    research._ensure(db)
+    now = now or datetime.now(timezone.utc)
+    closed: list[int] = []
+    with db.session() as s:
+        gid = _gap_of(s.get(research.ResearchTask, int(concept_task_id)))
+        if gid is None:
+            return []
+        if any(_gap_of(s.get(research.ResearchTask, int(k))) == gid
+               for k in keep_for if int(k) != int(concept_task_id)):
+            return []
+        prefix = f"watchlist_gap:{gid}#"
+        for row in s.scalars(select(research.ResearchTask).where(
+                research.ResearchTask.state == research.OPEN,
+                research.ResearchTask.trigger.startswith(prefix))):
+            row.state = research.EXPIRED
+            row.detail = {**(row.detail or {}), "closed": {
+                "why": why, "at": now.isoformat(), "concept_task": int(concept_task_id)}}
+            flag_modified(row, "detail")
+            closed.append(row.id)
+    if closed and audit is not None:
+        audit(CLOSED_WITH_WITHDRAWAL, artifact=f"research_task:{concept_task_id}",
+              detail={"gap": gid, "closed": closed, "why": why})
+    return closed
 
 
 def renew_support(db, *, gap_id: int, concept_task_id: int, pod: str, now: datetime,
@@ -321,12 +384,25 @@ def renew_support(db, *, gap_id: int, concept_task_id: int, pod: str, now: datet
         refs = fact_refs(list(t.findings or []))
         c = s.get(research.ResearchTask, int(concept_task_id))
         d = dict(c.detail or {})
-        chain = list((d.get("renewed_support") or {}).get("chain") or [])
+        chain = list((d.get("renewed_support") or {}).get("chain") or []) + [int(task)]
+        # Review LOW (eng/r5-research-2): a renewal supersedes the one before it. Only the
+        # last RENEWAL_KEEP renewals are kept (the head that supports the concept and the one
+        # it replaced, for traceability); older ones are deleted, so a concept approved for a
+        # year holds two renewal tasks, not 365. Every renewal stays in the audit log
+        # (`research.support_renewed`: the task, its refs and the one it replaced).
+        kept, pruned = chain[-RENEWAL_KEEP:], chain[:-RENEWAL_KEEP]
         d["renewed_support"] = {"task": int(task), "refs": refs, "at": now.isoformat(),
-                                "reading_day": out.get("reading_day"),
-                                "chain": chain + [int(task)]}
+                                "reading_day": out.get("reading_day"), "chain": kept,
+                                "pruned": int((d.get("renewed_support") or {})
+                                              .get("pruned") or 0) + len(pruned)}
         c.detail = d
         flag_modified(c, "detail")
+        for old_id in kept[:-1]:
+            _retire(s.get(research.ResearchTask, old_id), int(task), now)
+        for old_id in pruned:
+            old = s.get(research.ResearchTask, old_id)
+            if old is not None and old.id not in (int(concept_task_id), int(task)):
+                s.delete(old)
     if audit is not None:
         audit(RENEWED, artifact=f"research_task:{concept_task_id}",
               detail={"gap": gap_id, "pod": pod, "renewed_by": int(task), "refs": refs,

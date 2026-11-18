@@ -259,12 +259,25 @@ def test_low_one_open_task_per_gap_refreshed_not_duplicated():
     # Review H3 (eng/r5-research-3) changed the "no new task after approval" expectation: a
     # market_radar answer is fresh for one day, so the approved concept's support is renewed
     # exactly once per later day (days -1, -2, -3) -- never duplicated, never left open.
+    # Review LOW (round 4): superseded renewal tasks are pruned to the last RENEWAL_KEEP, so
+    # the once-per-day renewals are counted from the audit log, where every one is recorded.
+    from sqlalchemy import select
+
+    from brambleloop.core.models import AuditLog
+    from brambleloop.intel import watchlist_research as WR
+
     plain = [t for t in ts if "#renew:" not in t.trigger]
     renewals = [t for t in ts if "#renew:" in t.trigger]
     assert len(plain) == 1 and plain[0].state in (research.ANSWERED, research.EXPIRED), seen
-    assert len(renewals) == 3, seen
+    assert len(renewals) == WR.RENEWAL_KEEP, seen
     assert all(t.state in (research.ANSWERED, research.EXPIRED) for t in renewals), seen
-    assert len({t.answered_at.date() for t in renewals}) == 3, seen
+    assert [t.state for t in renewals].count(research.ANSWERED) == 1, seen
+    with db.session() as s:
+        logged = list(s.scalars(select(AuditLog).where(AuditLog.action == WR.RENEWED)))
+        by = [int(a.detail["renewed_by"]) for a in logged]
+    assert len(by) == 3 and len(set(by)) == 3, by
+    assert {t.id for t in renewals} == set(by[-WR.RENEWAL_KEEP:]), (by, seen)
+    assert len({t.answered_at.date() for t in renewals}) == WR.RENEWAL_KEEP, seen
     assert _approvals(db)
     assert [c.state for c in S.concepts(db)].count(intake.REFUSED) == 0
     assert [c.state for c in S.concepts(db)] == [intake.APPROVED], \
