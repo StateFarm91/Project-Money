@@ -175,7 +175,7 @@ def read_listing(image_ref: str, *, db=None, provider=None) -> dict:
         gw.release_reservation(db, reservation, actual_cad=cost)
         spend_report.record(
             db, agent="creative_director", amount_cad=cost,
-            estimated_cad=estimate, purpose=TASK, provider="anthropic",
+            estimated_cad=estimate, purpose=TASK, provider=getattr(provider, "name", "anthropic"),
             model=provider.model, department="creative",
             tokens_in=response.input_tokens, tokens_out=response.output_tokens,
             detail={"price_basis": "assumed"})

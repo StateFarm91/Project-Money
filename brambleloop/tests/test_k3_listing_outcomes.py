@@ -209,12 +209,14 @@ def test_the_etsy_api_half_is_read_only_differenced_and_never_invents_impression
         day1 = LO.produce(db, client=client, now=NOW - timedelta(days=1))
         assert day1["api"]["status"] == "OK" and day1["api"]["observed"] == 1
         first = day1["api"]["periods"]["7001"]
-        assert first["visits"] == "UNKNOWN" and first["impressions"] == "UNKNOWN"
+        assert first["views"] == "UNKNOWN" and first["impressions"] == "UNKNOWN"
+        # WS5 E7: cumulative views are page views, never reported as Stats "visits".
+        assert "visits" not in first
         fake.listings["7001"].update(views=160, num_favorers=4)
         day2 = LO.produce(db, client=client, now=NOW)
         ops = {r["operation"] for r in fake.requests}
     period = day2["api"]["periods"]["7001"]
-    assert period["slug"] == "coaster-a" and period["visits"] == 60
+    assert period["slug"] == "coaster-a" and period["views"] == 60
     assert period["favourites"] == "UNKNOWN" and "fell" in period["favourites_why"]
     assert period["impressions"] == "UNKNOWN" and period["carts"] == "UNKNOWN"
     # Read-only: the only Etsy operation was the listing read.
@@ -222,7 +224,7 @@ def test_the_etsy_api_half_is_read_only_differenced_and_never_invents_impression
     # A visits count with no impressions is never written as a ListingOutcome row.
     assert not _outcomes(db)
     entry = next(r for r in day2["listings"] if r["slug"] == "coaster-a")
-    assert entry["stage"] == "UNMEASURED" and entry["api_period"]["visits"] == 60
+    assert entry["stage"] == "UNMEASURED" and entry["api_period"]["views"] == 60
     print("OK test_the_etsy_api_half_is_read_only_differenced_and_never_invents_impressions")
 
 

@@ -126,13 +126,13 @@ def certify_in_flight(db, slug: str, version: str, *, except_key: str | None = N
     """Unfinished `gate.certify` jobs for exactly this slug@version (review F5)."""
     from sqlalchemy import select
 
-    from ..core.models import Job, JobStatus
+    from ..core.models import LIVE_JOB_STATUSES, Job
 
     out = []
     with db.session() as s:
         for j in s.scalars(select(Job).where(
                 Job.job_type == "gate.certify",
-                Job.status.in_((JobStatus.PENDING, JobStatus.RUNNING, JobStatus.FAILED)))):
+                Job.status.in_(LIVE_JOB_STATUSES))):
             cir = (j.inputs or {}).get("cir") or {}
             if except_key and j.idempotency_key == except_key:
                 continue
@@ -253,11 +253,11 @@ def idle_capacity(db, *, limit: int = WIP_LIMIT, now=None) -> dict:
 
     from sqlalchemy import select
 
-    from ..core.models import Job, JobStatus
+    from ..core.models import LIVE_JOB_STATUSES, Job, JobStatus
 
     now = _aware(now) or datetime.now(timezone.utc)
     horizon = now + timedelta(hours=IN_FLIGHT_HORIZON_HOURS)
-    live = (JobStatus.PENDING, JobStatus.RUNNING, JobStatus.FAILED)
+    live = LIVE_JOB_STATUSES
     busy: dict[str, list] = {}
     parked: list[str] = []
     with db.session() as s:

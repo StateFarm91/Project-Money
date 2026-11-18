@@ -62,6 +62,9 @@ class ModelResponse:
     # says. "max_tokens" means the reply was cut off at the request's cap; the gateway then
     # raises `OutputTruncated` instead of a generic malformed-output error. "" = not reported.
     stop_reason: str = ""
+    # S2 review 6957356475 (LOW): the provider's own id for this answer, when it gives one, so a
+    # ledger row can be matched to the provider's statement. "" = not reported.
+    response_id: str = ""
 
     @property
     def total_tokens(self) -> int:
@@ -286,6 +289,7 @@ class ModelGateway:
                 data["_meta"] = {
                     "prompt": prompt.ref, "prompt_sha256": prompt.sha256,
                     "provider": provider.name, "model": provider.model,
+                    "response_id": getattr(response, "response_id", "") or "",
                     "cost_cad": round(cost, 6),
                     "latency_ms": round(elapsed_ms, 1),
                 }

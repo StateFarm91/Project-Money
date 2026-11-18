@@ -427,13 +427,30 @@ def test_no_rebuild_ever_replaces_a_physical_photograph_slot():
                                                 ListingAsset.version == version,
                                                 ListingAsset.position == 1))
         a.asset_class, a.sha256, a.approved = "PHYSICAL_PRODUCT_PHOTO", "f" * 64, True
+        # Review A3 U5 F2 (second half): a photo-led certificate stands over this gallery.
+        from brambleloop.core.models import ListingSetCertificateRecord
+
+        cert = ListingSetCertificateRecord(product_slug=slug, version=version,
+                                           release_hash="r" * 64, state="valid",
+                                           certificate={"frames": []})
+        s.add(cert)
+        s.flush()
+        cert_id = cert.id
     JobQueue(db).enqueue("publishing", "assets.build", {**st["inputs"], "rebuild": "fr-ph-1"},
                          priority=0, idempotency_key="fo-fr-ph-1")
     _drain(db, name="fo-fr-ph")
+    with db.session() as s:
+        # The rebuild rewrote the renders around the photo: the old photo-led certificate is
+        # invalidated in the same transaction, never left "valid" over different frames.
+        rec = s.get(ListingSetCertificateRecord, cert_id)
+        assert rec.state == "invalidated" and rec.invalidated_by == [
+            "gallery_rebuilt_around_photo"], (rec.state, rec.invalidated_by)
     assert "assets.build" in [t for t, _s in _jobs(db, "fr-ph-1")]
     assert _gallery(db, slug, version)[0] == (1, "PHYSICAL_PRODUCT_PHOTO", "f" * 64, True)
+    # Review 6817652112 N2: the renders are placed AFTER the photograph, every one of them --
+    # none is reported "not placed", and no render row sits at the photo's slot.
     kept = _audits(db, "listing.frame_photo_kept")
-    assert kept and 1 in kept[-1]["positions"], kept
+    assert not kept, kept
     from brambleloop.core.models import ArtefactProvenance
     from brambleloop.ops import artefacts as provenance
 
@@ -453,6 +470,220 @@ def test_no_rebuild_ever_replaces_a_physical_photograph_slot():
         frames = (build.outputs or {}).get("frames") or []
         assert frames and 1 not in [f["position"] for f in frames], frames
         assert "f" * 64 not in [f["sha256"] for f in frames], frames
+
+
+def test_a_rebuild_after_plan_upgrade_places_renders_after_the_photo_and_drops_the_tail():
+    """Review 6817652112 N2: start from the gallery `plan_upgrade` leaves -- the photograph at
+    1, the renders shifted to 2..N+1 -- plus an approved stale render past them. A rebuild
+    places its N renders at 2..N+1 (the hero render at 2, never "not placed") and drops every
+    render row beyond them, so a remediated image cannot survive at the tail."""
+    st = chain()
+    db, slug, version = st["db"], st["slug"], st["version"]
+    _set_listing(db, slug, version, state="draft", etsy_listing_id="")
+    from brambleloop.core.models import ListingAsset
+
+    with db.session() as s:
+        rows = sorted(s.scalars(select(ListingAsset).where(
+            ListingAsset.product_slug == slug, ListingAsset.version == version)),
+            key=lambda r: r.position)
+        renders = [r for r in rows if r.asset_class != "PHYSICAL_PRODUCT_PHOTO"]
+        for r in rows:
+            s.delete(r)
+        s.flush()
+        s.add(ListingAsset(product_slug=slug, version=version, position=1,
+                           asset_class="PHYSICAL_PRODUCT_PHOTO", role="hero",
+                           sha256="e" * 64, approved=True, claims={}, blocked_reasons=[]))
+        n = len(renders)
+        for i, r in enumerate(renders, start=2):          # the plan_upgrade shift
+            s.add(ListingAsset(product_slug=slug, version=version, position=i,
+                               asset_class=r.asset_class, role=r.role, sha256="1" * 64,
+                               approved=True, claims={}, blocked_reasons=[]))
+        s.add(ListingAsset(product_slug=slug, version=version, position=n + 2,
+                           asset_class=renders[0].asset_class, role="stale_tail",
+                           sha256="2" * 64, approved=True, claims={}, blocked_reasons=[]))
+        # Another writer's image (a generated concept) is not this build's to drop.
+        s.add(ListingAsset(product_slug=slug, version=version, position=n + 3,
+                           asset_class="AI_LIFESTYLE_CONCEPT", role="concept",
+                           sha256="3" * 64, approved=True, claims={}, blocked_reasons=[]))
+    kept_before = len(_audits(db, "listing.frame_photo_kept"))
+    JobQueue(db).enqueue("publishing", "assets.build", {**st["inputs"], "rebuild": "fr-sh-1"},
+                         priority=0, idempotency_key="fo-fr-sh-1")
+    _drain(db, name="fo-fr-sh")
+    with db.session() as s:
+        build = s.scalars(select(Job).where(Job.job_type == "assets.build")
+                          .order_by(Job.id.desc())).first()
+    frames = (build.outputs or {}).get("frames") or []
+    assert len(frames) == n and sorted(f["position"] for f in frames) == list(
+        range(2, n + 2)), frames
+    gallery = {pos: (cls, sha, ok) for pos, cls, sha, ok in _gallery(db, slug, version)}
+    assert gallery[1] == ("PHYSICAL_PRODUCT_PHOTO", "e" * 64, True), gallery[1]
+    for f in frames:                     # every render placed where the build says it is
+        assert gallery[f["position"]][1] == f["sha256"], (f, gallery[f["position"]])
+    assert not any(sha == "1" * 64 for _c, sha, _ok in gallery.values()), gallery
+    # The stale tail row is gone: the photo, exactly the N renders, and the other writer's
+    # concept image untouched.
+    assert sorted(gallery) == list(range(1, n + 2)) + [n + 3], sorted(gallery)
+    assert gallery[n + 3] == ("AI_LIFESTYLE_CONCEPT", "3" * 64, True), gallery[n + 3]
+    assert not any(sha == "2" * 64 for _c, sha, _ok in gallery.values()), gallery
+    dropped = _audits(db, "listing.frames_beyond_rebuild_dropped")
+    assert dropped and {"position": n + 2, "sha256": "2" * 64, "approved": True} in \
+        dropped[-1]["dropped"], dropped
+    assert len(_audits(db, "listing.frame_photo_kept")) == kept_before
+    with db.session() as s:   # leave the shared chain gallery as the other tests expect it
+        s.delete(s.scalar(select(ListingAsset).where(
+            ListingAsset.product_slug == slug, ListingAsset.version == version,
+            ListingAsset.position == n + 3)))
+
+
+def _snapshot_gallery(db, slug, version):
+    from brambleloop.core.models import ListingAsset
+
+    with db.session() as s:
+        return [dict(position=a.position, asset_class=a.asset_class, role=a.role,
+                     sha256=a.sha256, approved=a.approved, claims=dict(a.claims or {}),
+                     blocked_reasons=list(a.blocked_reasons or []))
+                for a in s.scalars(select(ListingAsset).where(
+                    ListingAsset.product_slug == slug, ListingAsset.version == version))]
+
+
+def _restore_gallery(db, slug, version, rows):
+    from brambleloop.core.models import ListingAsset
+
+    with db.session() as s:
+        for a in s.scalars(select(ListingAsset).where(ListingAsset.product_slug == slug,
+                                                      ListingAsset.version == version)):
+            s.delete(a)
+        s.flush()
+        for r in rows:
+            s.add(ListingAsset(product_slug=slug, version=version, **r))
+
+
+def _photo_led_gallery(db, slug, version, *, concept_at=None):
+    """The gallery `plan_upgrade` leaves: photo `e` at 1, the renders (`1`) shifted after it;
+    with `concept_at`, another writer's generated concept sits at that slot, renders around
+    it. Returns the number of renders."""
+    from brambleloop.core.models import ListingAsset
+
+    with db.session() as s:
+        rows = sorted(s.scalars(select(ListingAsset).where(
+            ListingAsset.product_slug == slug, ListingAsset.version == version)),
+            key=lambda r: r.position)
+        renders = [r for r in rows if r.asset_class not in ("PHYSICAL_PRODUCT_PHOTO",
+                                                             "AI_LIFESTYLE_CONCEPT")]
+        for r in rows:
+            s.delete(r)
+        s.flush()
+        s.add(ListingAsset(product_slug=slug, version=version, position=1,
+                           asset_class="PHYSICAL_PRODUCT_PHOTO", role="hero",
+                           sha256="e" * 64, approved=True, claims={}, blocked_reasons=[]))
+        slots = (p for p in range(2, 100) if p != concept_at)
+        for r in renders:
+            s.add(ListingAsset(product_slug=slug, version=version, position=next(slots),
+                               asset_class=r.asset_class, role=r.role, sha256="1" * 64,
+                               approved=True, claims={}, blocked_reasons=[]))
+        if concept_at is not None:
+            s.add(ListingAsset(product_slug=slug, version=version, position=concept_at,
+                               asset_class="AI_LIFESTYLE_CONCEPT", role="concept",
+                               sha256="3" * 64, approved=True, claims={}, blocked_reasons=[]))
+        return len(renders)
+
+
+def _rebuild(db, st, token):
+    JobQueue(db).enqueue("publishing", "assets.build", {**st["inputs"], "rebuild": token},
+                         priority=0, idempotency_key=f"fo-{token}")
+    _drain(db, name=f"fo-{token}")
+    with db.session() as s:
+        build = s.scalars(select(Job).where(Job.job_type == "assets.build")
+                          .order_by(Job.id.desc())).first()
+    return (build.outputs or {}).get("frames") or []
+
+
+def test_l1_photo_positions_are_read_under_the_lock_so_a_concurrent_shift_drops_no_render():
+    """Review of 3928ba00 L1: `_persist_frames` read the photo positions BEFORE taking the
+    photo review's lock. A `plan_upgrade` that committed in between (a second photograph put
+    first, every frame shifted one slot) left the build aiming its hero render at the slot the
+    first photograph had moved into -- the render was recorded "not placed" and dropped. The
+    positions are now read under the lock: every render is placed after BOTH photographs."""
+    st = chain()
+    db, slug, version = st["db"], st["slug"], st["version"]
+    _set_listing(db, slug, version, state="draft", etsy_listing_id="")
+    saved = _snapshot_gallery(db, slug, version)
+    from brambleloop.core.models import ListingAsset
+    from brambleloop.publish import photo_asset_review as par
+
+    try:
+        n = _photo_led_gallery(db, slug, version)
+        with db.session() as s:     # the second photograph, filed before the build starts
+            s.add(ListingAsset(product_slug=slug, version=version, position=500,
+                               asset_class="PHYSICAL_PRODUCT_PHOTO", role="hero",
+                               sha256="d" * 64, approved=True, claims={},
+                               blocked_reasons=[]))
+        real_lock = par._lock
+        fired = []
+
+        def concurrent_plan_upgrade_then_lock(s, d):
+            import inspect
+
+            if not fired and any(f.function == "_persist_frames" for f in inspect.stack()):
+                fired.append(True)
+                # `lead_with_if_qualifying`, committed before the build gets the lock: the
+                # second photograph moves to 1 and every other frame shifts one slot.
+                with db.session() as w:
+                    rows = sorted(w.scalars(select(ListingAsset).where(
+                        ListingAsset.product_slug == slug, ListingAsset.version == version)),
+                        key=lambda r: r.position)
+                    second = next(r for r in rows if r.sha256 == "d" * 64)
+                    ordered = [second] + [r for r in rows if r is not second]
+                    for i, r in enumerate(ordered, start=1):
+                        r.position = 1000 + i
+                    w.flush()
+                    for i, r in enumerate(ordered, start=1):
+                        r.position = i
+            return real_lock(s, d)
+
+        kept_before = len(_audits(db, "listing.frame_photo_kept"))
+        par._lock = concurrent_plan_upgrade_then_lock
+        try:
+            frames = _rebuild(db, st, "fr-l1-1")
+        finally:
+            par._lock = real_lock
+        assert fired, "the build never took the photo lock"
+        assert len(frames) == n and sorted(f["position"] for f in frames) == list(
+            range(3, n + 3)), frames
+        gallery = {pos: (cls, sha, ok) for pos, cls, sha, ok in _gallery(db, slug, version)}
+        assert gallery[1][:2] == ("PHYSICAL_PRODUCT_PHOTO", "d" * 64), gallery[1]
+        assert gallery[2][:2] == ("PHYSICAL_PRODUCT_PHOTO", "e" * 64), gallery[2]
+        for f in frames:
+            assert gallery[f["position"]][1] == f["sha256"], (f, gallery[f["position"]])
+        assert len(_audits(db, "listing.frame_photo_kept")) == kept_before, \
+            _audits(db, "listing.frame_photo_kept")[-1]
+    finally:
+        _restore_gallery(db, slug, version, saved)
+
+
+def test_l4_a_render_never_overwrites_a_generated_concept_slot():
+    """Review of 3928ba00 L4: after the photo shift a render was mapped to the next slot no
+    PHOTOGRAPH held, so a slot holding another writer's AI_LIFESTYLE_CONCEPT was written over.
+    The concept's slot is now skipped like a photograph's: the concept stands, untouched, and
+    every render is placed around it."""
+    st = chain()
+    db, slug, version = st["db"], st["slug"], st["version"]
+    _set_listing(db, slug, version, state="draft", etsy_listing_id="")
+    saved = _snapshot_gallery(db, slug, version)
+    try:
+        n = _photo_led_gallery(db, slug, version, concept_at=3)
+        assert n >= 2, n
+        frames = _rebuild(db, st, "fr-l4-1")
+        expect = [p for p in range(2, n + 3) if p != 3]
+        assert len(frames) == n and sorted(f["position"] for f in frames) == expect, frames
+        gallery = {pos: (cls, sha, ok) for pos, cls, sha, ok in _gallery(db, slug, version)}
+        assert gallery[3] == ("AI_LIFESTYLE_CONCEPT", "3" * 64, True), gallery[3]
+        assert gallery[1] == ("PHYSICAL_PRODUCT_PHOTO", "e" * 64, True), gallery[1]
+        for f in frames:
+            assert gallery[f["position"]][1] == f["sha256"], (f, gallery[f["position"]])
+        assert sorted(gallery) == list(range(1, n + 3)), sorted(gallery)
+    finally:
+        _restore_gallery(db, slug, version, saved)
 
 
 def test_a_blocked_rebuild_leaves_a_kept_photos_approval_alone():

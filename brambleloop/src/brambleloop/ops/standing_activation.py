@@ -350,6 +350,7 @@ def issue(db, *, slug: str, version: str, release: str, job_id: int,
     from ..core.models import AuditLog
     from . import activation_authority as AA
     from . import standing_grants as SG
+    from . import standing_issuer as SI
 
     if not STAGE_A_ENABLED:
         raise ActivationRefused(OFF)
@@ -374,6 +375,9 @@ def issue(db, *, slug: str, version: str, release: str, job_id: int,
         "schema": SCHEMA, "action": ACTION, "scope": scope, "release": str(release),
         "listing_id": snapshot["listing_id"], "content": snapshot,
         "digest": AA.digest(snapshot), "fee_cad": fee_cad(),
+        # WS4-7 round 2 L3 (consume -> shop_refusal): the shop is signed and re-read at use,
+        # exactly as for a publish grant.
+        "shop": {"shop_id": SI._shop_id(db), "shop_name": SI._shop_name()},
         "classification": {"class_id": decided.get("class_id"),
                            "effective_risk_class": decided.get("effective_risk")},
         "policy": {"row_id": aid, "version": int(eff["content"].get("version") or 0),

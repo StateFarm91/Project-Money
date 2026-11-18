@@ -40,11 +40,14 @@ def _frames(db, slug: str, *, model: bool = False) -> None:
                            asset_class="INFOGRAPHIC", role="size", claims={}))
 
 
-def _outcome(db, slug, impressions, visits, orders=0, **kw):
+def _outcome(db, slug, impressions, visits, orders=0, *, provenance="real", **kw):
+    """A measured period. WS5 E4: learners read only `real` rows, so a fixture that stands
+    for real measurement says so explicitly; `provenance="synthetic"` / None test refusal."""
     return SL.record_outcome(db, product_slug=slug, version="1.0.0",
                              period_start="2027-01-01", period_end="2027-01-31",
                              impressions=impressions, visits=visits, orders=orders,
-                             source="fixture: synthetic stats export", **kw)
+                             source="fixture: synthetic stats export",
+                             provenance=provenance, **kw)
 
 
 def test_tagging_is_deterministic_from_the_frame_record():

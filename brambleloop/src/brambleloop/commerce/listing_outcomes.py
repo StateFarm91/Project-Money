@@ -310,6 +310,11 @@ def _record_export(db, key: str, payload: dict) -> dict:
                     "carts": r["carts"]}
             if got != want:
                 mismatches.append({"slug": r["slug"], "wrote": want, "read": got})
+            else:
+                # WS5 E4: `real` only for a row the intake wrote AND read back unchanged.
+                from . import evidence_provenance as ep
+
+                row.detail = ep.mark(row.detail, ep.REAL)
     return {"status": "recorded" if recorded and not refused else
                       ("partial" if recorded else "refused"),
             "recorded": [r["slug"] for r in recorded], "refused": refused,
@@ -374,8 +379,8 @@ def api_snapshot(db, client, *, now: datetime | None = None) -> dict:
 
     now = now or datetime.now(timezone.utc)
     if client is None or getattr(client, "credentials", None) is None:
-        return {"status": UNKNOWN, "why": "no Etsy credential; nothing was read, so views, "
-                                          "visits and favourites are UNKNOWN, never zero"}
+        return {"status": UNKNOWN, "why": "no Etsy credential; nothing was read, so views "
+                                          "and favourites are UNKNOWN, never zero"}
     try:
         observed = client.get_shop_listings(state="active")
     except Exception as e:  # noqa: BLE001 - an unread shop is UNKNOWN, never clean
@@ -410,7 +415,9 @@ def api_snapshot(db, client, *, now: datetime | None = None) -> dict:
                  "period_end": today, "impressions": UNKNOWN, "carts": UNKNOWN,
                  "impressions_why": "the Etsy API exposes no impressions",
                  "carts_why": "the Etsy API exposes no cart adds"}
-        for field, name in (("views", "visits"), ("favourites", "favourites")):
+        # WS5 E7: Etsy's cumulative `views` is a page-view count, not Stats "visits"
+        # (unique visits); it is reported under its own name and never as visits.
+        for field, name in (("views", "views"), ("favourites", "favourites")):
             a, b = (before or {}).get(field), cur.get(field)
             if before is None or a is None or b is None:
                 entry[name] = UNKNOWN

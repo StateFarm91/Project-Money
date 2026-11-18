@@ -311,7 +311,7 @@ def _judge(db, image_refs: list[str], system: str, prompt: str, max_tokens: int)
         gw.release_reservation(db, held, actual_cad=cost)
         spend_report.record(
             db, agent=JUDGE_AGENT, amount_cad=cost, estimated_cad=estimate,
-            purpose=JUDGE_PURPOSE, provider="anthropic", model=provider.model,
+            purpose=JUDGE_PURPOSE, provider=getattr(provider, "name", "anthropic"), model=provider.model,
             department="creative", tokens_in=response.input_tokens,
             tokens_out=response.output_tokens, detail={"price_basis": "assumed"})
     return response.text

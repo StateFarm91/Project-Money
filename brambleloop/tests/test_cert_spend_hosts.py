@@ -28,6 +28,11 @@ PAID_HOSTS = re.compile(
 DECLARED = {
     "brambleloop/gateway/images.py": "images.generate reserves via check_budget_cad first",
     "brambleloop/gateway/anthropic.py": "the model gateway checks check_budget_cad first",
+    # S2 (independent review SHIP b6dd73ad, 2026-11-18): the OpenAI provider in the same model
+    # gateway. Every request leaves through paid_calls.guarded after check_budget reserves on
+    # the shared estimator; off by default (per-task BRAMBLELOOP_MODEL_ROUTES + owner activation).
+    "brambleloop/gateway/openai_chat.py": "the model gateway checks check_budget_cad first; "
+                                         "owner-activated per task, paid_calls.guarded",
     "brambleloop/visual/d_judge.py": "research judge: refuses without an operator cap (C-54)",
     # Reviewed 2026-10-07 (W4-SPENDA F-106/F-103): GET-only reads of the providers' own
     # cost-report endpoints, refused without an owner-supplied admin key; no billable call.

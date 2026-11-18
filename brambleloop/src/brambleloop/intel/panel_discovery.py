@@ -190,6 +190,11 @@ def discover(db, *, reader=None, env: dict | None = None, limit: int = PER_RUN,
     with db.session() as s:
         members = [(r.key, r.shop_name) for r in s.scalars(select(Benchmark).where(
             Benchmark.mandatory == False, Benchmark.key.like(f"{KEY_PREFIX}%")))]  # noqa: E712
+    # WS2 R7: a panel row for a shop the code registry already owns (HanJanCrochet joined as
+    # a second-market shop before the dedupe) is the same shop: it is scanned once, under the
+    # registry's key, never twice. The row is left in place (observed history is kept).
+    owned = {spec.shop_name.lower() for spec in benchmarks.REGISTRY}
+    members = [(k, n) for k, n in members if str(n or "").lower() not in owned]
     scanned: list[dict] = []
     for key, name in members:
         try:
