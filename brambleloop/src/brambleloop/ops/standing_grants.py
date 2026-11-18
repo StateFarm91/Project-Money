@@ -123,7 +123,8 @@ def ensure_tables(db) -> None:
 
 # ---- who may sign --------------------------------------------------------------------------
 
-_PROCESS = {"issuer": False, "job": False}
+_PROCESS = {"issuer": False, "job": False, "issuer_key_at_boot": False}
+KEY_EXPOSED_INCIDENT = "standing_grant_issuer_key_exposed:"
 
 
 def mark_issuer_process() -> None:
@@ -132,9 +133,39 @@ def mark_issuer_process() -> None:
 
 
 def mark_job_process() -> bool:
-    """A job process never mints a grant: the issuer signing key is scrubbed (worker boot)."""
+    """A job process never mints a grant: the issuer signing key is scrubbed (worker boot).
+
+    HIGH-2: the scrub is NOT the boundary. `os.environ.pop` leaves the key in the process's
+    exec environment (/proc/<pid>/environ) and in the service's settings, so whether the key
+    was here is recorded BEFORE the scrub and the boot report states it (Mode S + a P1)."""
     _PROCESS["job"] = True
+    if str(os.environ.get(SP.ISSUER_KEY_VAR) or "").strip():
+        _PROCESS["issuer_key_at_boot"] = True
     return os.environ.pop(SP.ISSUER_KEY_VAR, None) is not None
+
+
+def _exec_environ_has(var: str) -> bool:
+    """The process's exec environment (Linux /proc/self/environ): what a scrub cannot undo."""
+    try:
+        with open("/proc/self/environ", "rb") as fh:
+            raw = fh.read()
+    except OSError:
+        return False
+    prefix = var.encode() + b"="
+    return any(item.startswith(prefix) and item[len(prefix):].strip()
+               for item in raw.split(b"\0"))
+
+
+def issuer_key_present(env=None) -> bool:
+    """Was the issuer signing key ever in THIS process: its env now, before a scrub, or its
+    exec environment. `env` given (a test or a report about another environment) reads only
+    that mapping plus the recorded boot fact."""
+    if _PROCESS["issuer_key_at_boot"]:
+        return True
+    if env is not None:
+        return bool(str(env.get(SP.ISSUER_KEY_VAR) or "").strip())
+    return (bool(str(os.environ.get(SP.ISSUER_KEY_VAR) or "").strip())
+            or _exec_environ_has(SP.ISSUER_KEY_VAR))
 
 
 def issuer_signing_refusal(env=None) -> str | None:
@@ -250,17 +281,35 @@ def process_report(db, component: str, *, now: datetime | None = None, env=None)
     """A worker's or web process's own report: which keys it holds (fingerprints only)."""
     from . import slo
 
+    present = issuer_key_present(env)
     env = os.environ if env is None else env
     detail = {
         "issuer_verify_fp": _env_fp(SP.ISSUER_VERIFY_KEY_VAR, env),
-        "issuer_signing_present": bool(str(env.get(SP.ISSUER_KEY_VAR) or "").strip()),
+        "issuer_signing_present": present,
         "policy_signing_fp": _env_fp(SP.SIGNING_KEY_VAR, env),
         "policy_verify_fp": _env_fp(SP.VERIFY_KEY_VAR, env),
         "embedded_worker": str(env.get(SP.EMBEDDED_VAR, "1")),
         "db_user": _db_user(db),
     }
     slo.record_heartbeat(db, component, instance=component, detail=detail, now=now)
+    if present:
+        _key_exposed_incident(db, component, now=now)
     return detail
+
+
+def _key_exposed_incident(db, component: str, *, now=None) -> None:
+    """A non-issuer process held the grant-issuer signing key: P1. Mode T is refused while
+    that process's latest report says so; the key must be rotated (it may have been read)."""
+    from . import incident_lifecycle
+
+    with db.session() as s:
+        incident_lifecycle.open_or_restate(
+            s, signature=f"{KEY_EXPOSED_INCIDENT}{component}", severity="P1",
+            summary=(f"The {component} process held {SP.ISSUER_KEY_VAR} (the standing-grant "
+                     f"signing key). Only the policy-issuer service may hold it: remove the "
+                     f"variable from that service and rotate the issuer key pair. Mode T is "
+                     f"refused until a clean report."),
+            detail={"component": component, "var": SP.ISSUER_KEY_VAR}, now=now)
 
 
 def _latest(db, component: str):

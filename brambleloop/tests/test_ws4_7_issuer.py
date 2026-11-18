@@ -47,7 +47,7 @@ def _issuer_keys():
 
 
 def _reset():
-    SG._PROCESS.update(issuer=False, job=False)
+    SG._PROCESS.update(issuer=False, job=False, issuer_key_at_boot=False)
     for k, v in _ENV_SAVED.items():
         if v is None:
             os.environ.pop(k, None)
@@ -575,6 +575,76 @@ def test_concurrent_issuers_cannot_both_take_the_last_grant():
         assert any(isinstance(x, str) and "outstanding" in x for x in out), out
     finally:
         _reset()
+
+
+# ---- HIGH-2: a worker that was given the issuer key says so ---------------------------------
+
+_WORKER_BOOT = """
+import _tmp; _tmp.install()
+import json, os, sys, tempfile
+from unittest.mock import patch
+from brambleloop.core.db import Database
+db = Database(f"sqlite:///{tempfile.mkdtemp()}/w.sqlite", scratch=True); db.create_all()
+from brambleloop.app import worker_entry
+from brambleloop.ops import standing_grants as SG
+
+class _NoRun:
+    def __init__(self, *a, **k): pass
+    def run(self, **k): return {}
+
+with patch.object(worker_entry, "Database", lambda *a, **k: db), \
+        patch.object(worker_entry, "Worker", _NoRun):
+    assert worker_entry.main() == 0
+at, d = SG._latest(db, SG.WORKER_COMPONENT)
+from sqlalchemy import select
+from brambleloop.core.models import Incident
+with db.session() as s:
+    inc = [(i.signature, i.severity) for i in s.scalars(select(Incident))]
+print(json.dumps({"report": d, "incidents": inc,
+                  "env_after": os.environ.get(sys.argv[1])}))
+"""
+
+
+def _boot_worker(extra_env):
+    import json
+
+    here = os.path.dirname(__file__)
+    env = {k: v for k, v in os.environ.items() if k != sp.ISSUER_KEY_VAR}
+    env.update(extra_env, PYTHONPATH=os.pathsep.join(
+        [os.path.join(here, "..", "src"), here, os.environ.get("PYTHONPATH", "")]))
+    out = subprocess.run([sys.executable, "-c", _WORKER_BOOT, sp.ISSUER_KEY_VAR],
+                         capture_output=True, text=True, env=env, timeout=600)
+    assert out.returncode == 0, out.stderr[-1500:]
+    return json.loads(out.stdout.strip().splitlines()[-1])
+
+
+def test_a_worker_booted_with_the_issuer_key_reports_it_and_opens_a_p1():
+    """Review HIGH-2: the old worker scrubbed the key BEFORE writing its report, so the
+    report always said "no key" while the key stayed in /proc/<pid>/environ."""
+    pairs = sp.generate_keypairs()
+    got = _boot_worker({sp.ISSUER_KEY_VAR: pairs[sp.ISSUER_KEY_VAR],
+                        sp.ISSUER_VERIFY_KEY_VAR: pairs[sp.ISSUER_VERIFY_KEY_VAR],
+                        sp.EMBEDDED_VAR: "0"})
+    assert got["env_after"] is None                       # still scrubbed from os.environ
+    assert got["report"]["issuer_signing_present"] is True, got["report"]
+    assert [SG.KEY_EXPOSED_INCIDENT + SG.WORKER_COMPONENT, "P1"] in got["incidents"], got
+    # And the reading of that report is Mode S.
+    try:
+        db, c, a = _effective_db()
+        _reports(db, worker_env={sp.ISSUER_KEY_VAR: "x"})
+        got2 = SG.mode_report(db, now=NOW)
+        assert got2["mode"] == "S" and "the worker holds the issuer signing key" in \
+            got2["reasons"], got2
+    finally:
+        _reset()
+
+
+def test_a_clean_worker_boot_reports_no_key_and_no_incident():
+    pairs = sp.generate_keypairs()
+    got = _boot_worker({sp.ISSUER_VERIFY_KEY_VAR: pairs[sp.ISSUER_VERIFY_KEY_VAR],
+                        sp.EMBEDDED_VAR: "0"})
+    assert got["report"]["issuer_signing_present"] is False, got["report"]
+    assert not [i for i in got["incidents"] if i[0].startswith(SG.KEY_EXPOSED_INCIDENT)], got
 
 
 if __name__ == "__main__":

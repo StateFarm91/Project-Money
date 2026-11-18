@@ -48,6 +48,9 @@ def main() -> int:
         log.warning("removed the standing-policy signing key from the worker environment: "
                     "a job process never signs a standing policy")
     # WS4-7: nor a standing execution grant (only the policy-issuer service holds that key).
+    # HIGH-2: `mark_job_process` records that the key WAS here before it scrubs it, and the
+    # boot report below states that (Mode S + a P1): the scrub cannot remove the key from the
+    # exec environment or the service settings, so presence is the fact that matters.
     from ..ops import standing_grants as _sg
 
     if _sg.mark_job_process():
