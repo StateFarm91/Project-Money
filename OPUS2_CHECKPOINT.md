@@ -54,7 +54,10 @@ worktrees, not this file.
   0; SQL draft counts; RUNNING needs activity for costs/blockers; unknown shop failures), 6/6
   mutants; s4b-p0-board-page-fix 2ef70fcc (page Unknown sales, counts, check.mjs). Asked Main to
   name the two wording issues (full verdict text not found). Dispatch pushed.
-- Stop reason (2026-11-18T21:55Z): all of Main's findings fixed and review-requested; queue
+- Tick 2026-11-18T22:28Z: no [MAIN] message since RR 6992288568. INTEG1 4bad3a30: WS4-7 trusted issuer
+  (ENG-E 67dc61cd) and A3 merged. Stage A (a1/a2-fix) sits on fa3a09e9, the pre-ENG-E WS4-7 head;
+  rebase onto INTEG1 only when Main says. Nothing posted.
+- Stop reason (2026-11-18T22:30Z): all of Main's findings fixed and review-requested; queue
   exhausted pending verdicts. Answer any [MAIN] message first next tick.
 
 ## State at 2026-11-18T10:50Z (superseded)
