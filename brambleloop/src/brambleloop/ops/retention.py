@@ -121,6 +121,14 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "chain.rebuild_unbound": ("windowed",
                               "ops.production_evidence.stale_rebuilds counts the last 7 days"),
     "ops.rebuild_propagated": ("latest", "ops.production_evidence reads the newest propagation"),
+    # eng/stale-rebuild-loop: refused rebuilds are counted; the newest refusal for a release
+    # names why a rebuild could not complete (runtime.release._rebuild_incomplete).
+    "chain.rebuild_refused": ("windowed",
+                              "ops.production_evidence.stale_rebuilds counts the last 7 days; "
+                              "_rebuild_incomplete reads the newest for a release"),
+    "marketing.blocked": ("windowed", "runtime.release._rebuild_incomplete reads the newest "
+                                      "refusal for a release inside one rebuild attempt (~1 h) "
+                                      "to name a held rebuild"),
     "ops.truth.sweep": ("latest", "ops.production_evidence.publishing_halt reads the newest "
                                   "sweep (freshness judged by its age)"),
     "etsy.taxonomy_refreshed": ("latest", "ops.production_evidence.taxonomy reads the newest "
@@ -131,6 +139,10 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                                "manual_adoption links a hand-made listing to its release"),
     "paid_call.replayed": ("windowed", "ops.production_evidence.paid_calls counts the "
                                        "last 24 h"),
+    # Review of a9feb805: releases a listing-package sweep left unrecorded.
+    "listing.package_release_failed": ("windowed", "ops.production_evidence."
+                                                   "listing_package_releases counts the "
+                                                   "last 24 h"),
     # INTEG8 (Batch 4): readers added on C04, C09 and INTELREC without an entry (caught by
     # test_cost_governance_wave2). Each reads every row of its action, so each is
     # lifetime_total: pruning would change the answer, not just shorten a window.

@@ -628,7 +628,11 @@ def handle_assets_build(ctx: JobContext) -> dict:
                # the renders this build actually placed. A kept photograph's slot is left
                # OUT: its sha never enters a render build's outputs (the provenance backfill
                # indexes them as renders), and classification never reads a photo as one.
-               "frames": [f for f in stored_frames if f["position"] not in placed["kept"]]}
+               # Review 6817652112 N2: at the positions they were actually placed (after
+               # any photograph), so later stages compare like with like.
+               "frames": [{**f, "position": placed["positions"].get(f["position"],
+                                                                    f["position"])}
+                          for f in stored_frames if f["position"] not in placed["kept"]]}
     if placed["live_candidate"]:
         payload["candidate_only"] = True
     # W6 FIX-ONLY: the bound is passed to the next stage only, never stored in this job's
@@ -996,6 +1000,15 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     i = dict(ctx.job.inputs)
     slug, version = i["slug"], i["version"]
     cir = _load_cir(ctx, slug, version)
+    # The catalogue's audience assignment belongs to an exact design/version.
+    # Never write safety copy using a stale or unrelated slug-only assignment.
+    if products_launch0.childrens_assignment(cir.slug) is not None:
+        decision, _why = products_launch0.childrens_decision_for(cir)
+        if decision != products_launch0.ASSIGNED:
+            why = "child audience assignment does not bind this exact design and version"
+            ctx.audit("listing.seo_blocked", artifact=f"{slug}@{version}",
+                      detail={"blocking": [why], "code": "CHILD_ASSIGNMENT_UNDECIDED"})
+            return {"slug": slug, "version": version, "ok": False, "blocking": [why]}
     result = compile_cir(cir)
     twin = build_twin(cir, result, calibration=calibration_from_db(ctx.db, cir))
     # PT-01: the title, tags and category come from the product's own record. A product
@@ -1848,7 +1861,20 @@ def frame_review_state(db, slug: str, version: str) -> dict:
                 "why": "the frame review on record judged no frames (#61): an empty review "
                        "is not a review"}
     reviewed_shas = {str(k): v for k, v in (detail.get("frame_shas") or {}).items()}
-    stored = {str(f["position"]): f["sha256"] for f in _stored_frames(db, slug, version)}
+    stored_rows = _stored_frames(db, slug, version)
+    photos = [f for f in stored_rows if f["asset_class"] == "PHYSICAL_PRODUCT_PHOTO"]
+    if photos:
+        # Review of 3928ba00 L2: a photo-led gallery. The owner-attested sample photograph is
+        # not a frame this review renders or judges -- its authority is the deterministic
+        # asset-truth review (`publish.photo_asset_review`), which approves the row only
+        # when the attestation, hashes, order and claims all pass. `plan_upgrade` puts it
+        # first and shifts every render one slot, so the review's position-keyed hashes
+        # could never equal the stored map and #61 refused every photo-led listing for good.
+        # Now: each photograph must be approved by its own review (a NOT-QUALIFYING one is
+        # excluded from the uploaded set and is not counted), and the reviewed bytes must be
+        # exactly the stored non-photo frames, in the same order. Tightens nothing else.
+        return _photo_led_review_state(db, slug, version, stored_rows, reviewed_shas, bad)
+    stored = {str(f["position"]): f["sha256"] for f in stored_rows}
     bound = bool(reviewed_shas) and bool(stored) and reviewed_shas == stored
     if not bound:
         why = ("the frame review on record is not bound to the frames now stored for this "
@@ -1860,6 +1886,52 @@ def frame_review_state(db, slug: str, version: str) -> dict:
     return {"reviewed": not bad, "not_clear": bad, "bound_to_stored_frames": True,
             "why": ("every stored frame was independently reviewed and communicates its claim"
                     if not bad else f"frames not independently cleared (#61): {bad}")}
+
+
+def _photo_led_review_state(db, slug, version, stored_rows, reviewed_shas, bad) -> dict:
+    """`frame_review_state` for a gallery holding a physical photograph (review of 3928ba00
+    L2): renders are bound by bytes and order, photographs by their own approval."""
+    from sqlalchemy import select
+
+    from ..core.models import ListingAsset
+    from ..publish.photo_asset_review import NOT_QUALIFYING, PHOTO_CLASS
+
+    with db.session() as s:
+        photo_rows = [(r.position, bool(r.approved), list(r.blocked_reasons or []))
+                      for r in s.scalars(select(ListingAsset).where(
+                          ListingAsset.product_slug == slug, ListingAsset.version == version,
+                          ListingAsset.asset_class == PHOTO_CLASS))]
+    excluded = {p for p, _ok, reasons in photo_rows
+                if any(str(r).startswith(NOT_QUALIFYING) for r in reasons)}
+    pending = sorted(p for p, ok, _r in photo_rows if not ok and p not in excluded)
+    led = [p for p, ok, _r in photo_rows if ok]
+    renders = [f["sha256"] for f in sorted(stored_rows, key=lambda f: f["position"])
+               if f["asset_class"] != PHOTO_CLASS]
+    try:
+        reviewed = [v for _k, v in sorted(reviewed_shas.items(), key=lambda kv: int(kv[0]))]
+    except ValueError:
+        reviewed = None
+    bound = bool(reviewed) and bool(renders) and reviewed == renders
+    base = {"photo_led": True, "photo_frames_approved": sorted(led),
+            "photo_frames_awaiting": pending, "photo_frames_excluded": sorted(excluded)}
+    if not bound:
+        why = ("the frame review on record is not bound to the frames now stored for this "
+               "release (#61): " + ("it recorded no frame hashes" if not reviewed_shas else
+                                    "no rendered frames are stored" if not renders else
+                                    "the stored rendered frames (around the physical "
+                                    "photograph) differ from the ones reviewed"))
+        return {"reviewed": False, "not_clear": bad, "bound_to_stored_frames": False,
+                "why": why, **base}
+    if pending:
+        return {"reviewed": False, "not_clear": bad, "bound_to_stored_frames": True,
+                "why": (f"physical photograph frame(s) at {pending} await the deterministic "
+                        f"asset-truth review (#61): a photo frame is cleared only by its own "
+                        f"approval"), **base}
+    return {"reviewed": not bad, "not_clear": bad, "bound_to_stored_frames": True,
+            "why": ("every rendered frame was independently reviewed and every uploaded "
+                    "physical photograph frame was approved by the asset-truth review"
+                    if not bad
+                    else f"frames not independently cleared (#61): {bad}"), **base}
 
 
 def _stored_frames(db, slug: str, version: str) -> list[dict]:
@@ -2295,6 +2367,28 @@ def _persist_listing(ctx: JobContext, slug: str, version: str, copy, share: floa
                 lineage=lineage.under(certificate_ref))
 
 
+def _enqueue_listing_package(ctx: JobContext, i: dict, slug: str) -> None:
+    """W5-A9 (P0-PACKAGE-EVENT): the owner-review listing package of this release, now.
+
+    `launch.plan` is the last stage that writes what the package reads (the listing-set
+    renders `release_gates.for_publish` verifies), so every exit of it -- launched, held or
+    withheld -- asks for this one release's package instead of leaving it to the six-hourly
+    sweep. Keyed like every other chain stage (release and rebuild token, plus the evergreen
+    pivot, which re-runs this stage with new copy), so a re-delivered event is a duplicate key.
+    The package itself is idempotent per `slug@version` and fingerprint, so the sweep running
+    after it writes nothing new. Internal writes only; it never publishes.
+    """
+    token = i.get("rebuild", "") + (":evergreen" if i.get("positioning") == "evergreen" else "")
+    try:
+        ctx.enqueue("listing", "listing.package", {"slug": slug, "version": i["version"],
+                                                   "release": i.get("release", "")},
+                    idempotency_key=chain_key("package", slug, i["version"],
+                                              i.get("release", ""), token))
+    except Exception as exc:  # noqa: BLE001 - the sweep remains the safety net
+        ctx.audit("listing.package_event_failed", artifact=f"{slug}@{i['version']}",
+                  detail={"error": f"{type(exc).__name__}: {str(exc)[:300]}"})
+
+
 @handlers.register("launch.plan")
 def handle_launch_plan(ctx: JobContext) -> dict:
     i = dict(ctx.job.inputs)
@@ -2348,6 +2442,7 @@ def handle_launch_plan(ctx: JobContext) -> dict:
                                                   i.get("rebuild", "") + ":evergreen"))
             ctx.audit("launch.pivot_queued", artifact=f"{slug}@{i['version']}",
                       detail={"why": decision.get("why"), "occasion": decision.get("occasion")})
+        _enqueue_listing_package(ctx, i, slug)
         out = plan.to_dict()
         out.update({"held": True, "window_decision": decision})
         return out
@@ -2419,6 +2514,7 @@ def handle_launch_plan(ctx: JobContext) -> dict:
         _mark_withheld(ctx, _load_cir(ctx, slug, i["version"]), reason)
         ctx.audit("gate.release_withheld", artifact=f"{slug}@{i['version']}",
                   detail={"reason": reason, "stage": "launch.plan"})
+        _enqueue_listing_package(ctx, i, slug)
         out = plan.to_dict()
         out.update({"withheld": reason, "window_decision": decision})
         return out
@@ -2433,6 +2529,7 @@ def handle_launch_plan(ctx: JobContext) -> dict:
     ctx.enqueue("store_operator", "store.publish", publish_inputs,
                 idempotency_key=chain_key("publish", slug, i["version"],
                                           i.get("release", ""), i.get("rebuild", "")))
+    _enqueue_listing_package(ctx, i, slug)
     out = plan.to_dict()
     out["window_decision"] = decision
     out["ranking_readiness"] = ranking_summary
@@ -2837,15 +2934,55 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
             ctx.audit("listing.fix_frame_candidate", artifact=f"{slug}@{version}", detail={
                 "live": True, "applied": False, "frames": candidate,
                 "rejected": reasons[:10]})
-            return {"kept": [], "live_candidate": True}
+            return {"kept": [], "live_candidate": True, "positions": {}}
     kept: set[int] = set()
+    # Review A3 U5 F2 (second half): a gallery that holds a physical photograph is fenced by
+    # the photo review's write lock, and a rebuild that rewrites its renders invalidates the
+    # photo-led certificate in the same transaction -- the certified set no longer matches
+    # what is stored, and readers that trust `state == "valid"` (storefront preview, ads
+    # readiness, first customer, image review, search evidence) must not see it as current.
+    # The chain re-certifies after this build. A gallery with no photo is unchanged.
+    # Review of 3928ba00 L1: the gallery's photo positions are read UNDER the photo review's
+    # write lock, in the same transaction as the writes. Read before the lock, a concurrent
+    # `plan_upgrade` / `lead_with_if_qualifying` that shifts the frames between the read and
+    # the lock left this build targeting a slot a photograph now holds -- the shifted hero
+    # render was then recorded "not placed" and silently dropped. The lock is taken for every
+    # gallery (a photo can arrive between any read and the write); it is the same lock every
+    # photo-frame writer takes, so the build simply serialises behind them.
+    from ..publish.photo_asset_review import _lock as _photo_lock
+
     with ctx.db.session() as s:
+        _photo_lock(s, ctx.db)
+        held = list(s.execute(select(ListingAsset.position, ListingAsset.asset_class).where(
+            ListingAsset.product_slug == slug, ListingAsset.version == version)))
+        photo_positions = {p for p, c in held if c == "PHYSICAL_PRODUCT_PHOTO"}
+        # Review of 3928ba00 L4: a generated concept (`visual.gallery_persist`) is another
+        # writer's image; a render is never written over it. Its slot is skipped like a
+        # photograph's.
+        concept_positions = {p for p, c in held if c == "AI_LIFESTYLE_CONCEPT"}
+        photo_led = bool(photo_positions)
+        reserved = photo_positions | concept_positions
+        # Review 6817652112 N2: `plan_upgrade` puts the photograph first and shifts the
+        # renders after it, so a rebuild must place its renders in the slots AFTER the photo
+        # frames, not at the builder's 1..N (which reported the hero as "not placed" and left
+        # the old tail row approved). Each render goes to the next slot no photograph (or
+        # concept) holds, in builder order. With nothing reserved this is the identity.
+        target: dict[int, int] = {}
+        free = (p for p in range(1, 10_000) if p not in reserved)
+        for frame in sorted(frames, key=lambda f: f.position):
+            target[frame.position] = (frame.position
+                                      if not reserved
+                                      or frame.asset_class.value in ("PHYSICAL_PRODUCT_PHOTO",
+                                                                     "AI_LIFESTYLE_CONCEPT")
+                                      else next(free))
+        rewritten = False
         for frame, meta in zip(frames, stored):
             row = s.scalar(select(ListingAsset).where(
                 ListingAsset.product_slug == slug, ListingAsset.version == version,
-                ListingAsset.position == frame.position))
-            if row is not None and row.asset_class == "PHYSICAL_PRODUCT_PHOTO" \
-                    and frame.asset_class.value != "PHYSICAL_PRODUCT_PHOTO":
+                ListingAsset.position == target[frame.position]))
+            if row is not None and row.asset_class in ("PHYSICAL_PRODUCT_PHOTO",
+                                                       "AI_LIFESTYLE_CONCEPT") \
+                    and frame.asset_class.value != row.asset_class:
                 # Review A3 U5 84085fa8 F2: a rebuild's render never replaces a physical
                 # photograph's slot. The photo, its approval and its certificate stand; the
                 # render is recorded as not placed.
@@ -2853,8 +2990,11 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
                 continue
             if row is None:
                 row = ListingAsset(product_slug=slug, version=version,
-                                   position=frame.position)
+                                   position=target[frame.position])
                 s.add(row)
+            if (row.sha256, row.asset_class, bool(row.approved)) != (
+                    meta["sha256"], frame.asset_class.value, not reasons):
+                rewritten = True
             row.asset_class = frame.asset_class.value
             row.role = frame.role
             row.sha256 = meta["sha256"]
@@ -2864,7 +3004,30 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
                           "colors": list(frame.claims.colors)}
             row.approved = not reasons
             row.blocked_reasons = reasons[:10]
+        # Review 6817652112 N2: a render row beyond the rebuilt set (the old tail after a
+        # shift, or a longer earlier gallery) is not part of this build. It is dropped -- the
+        # gallery is exactly what this build placed plus the photographs -- so a remediated
+        # image cannot survive there and be re-certified. What was dropped is audited.
+        # Only rows of the classes this build itself produces: a photograph, or an image a
+        # different writer filed (`visual.gallery_persist`'s generated concepts), is never
+        # this build's to drop.
+        placed_at = {target[f.position] for f in frames if f.position not in kept}
+        own_classes = {f.asset_class.value for f in frames} - {"PHYSICAL_PRODUCT_PHOTO",
+                                                               "AI_LIFESTYLE_CONCEPT"}
+        dropped = []
+        for stale in list(s.scalars(select(ListingAsset).where(
+                ListingAsset.product_slug == slug, ListingAsset.version == version,
+                ListingAsset.asset_class.in_(sorted(own_classes))))):
+            if stale.position not in placed_at:
+                dropped.append({"position": stale.position, "sha256": stale.sha256,
+                                "approved": bool(stale.approved)})
+                rewritten = True
+                s.delete(stale)
         s.flush()
+        if photo_led and rewritten:
+            from ..publish.photo_asset_review import _invalidate_photo_certificates
+
+            _invalidate_photo_certificates(s, slug, version, "gallery_rebuilt_around_photo")
 
         # One visual-truth row per frame, keyed by the frame's own row id and carrying the
         # rendered file's hash, so a frame that outlives its design is found by the same
@@ -2879,17 +3042,21 @@ def _persist_frames(ctx: JobContext, slug: str, version: str, frames, stored, bl
                 continue
             row = s.scalar(select(ListingAsset).where(
                 ListingAsset.product_slug == slug, ListingAsset.version == version,
-                ListingAsset.position == frame.position))
+                ListingAsset.position == target[frame.position]))
             provenance.record_lineage(
                 s, artefact_class="visual_truth",
                 artefact_key=provenance.visual_key(slug, version, row.id),
                 product_slug=slug, inputs=design, chain_version=CHAIN_VERSION,
                 lineage=lineage.for_file(row.sha256).under(certificate_ref))
+    if dropped:
+        ctx.audit("listing.frames_beyond_rebuild_dropped", artifact=f"{slug}@{version}",
+                  detail={"dropped": dropped[:50]})
     if kept:
         ctx.audit("listing.frame_photo_kept", artifact=f"{slug}@{version}", detail={
             "positions": sorted(kept), "not_placed": [c for c in candidate
                                                       if c["position"] in kept]})
-    return {"kept": sorted(kept), "live_candidate": False}
+    return {"kept": sorted(kept), "live_candidate": False,
+            "positions": {p: target[p] for p in target if p not in kept}}
 
 
 def _motifs_for(slug: str) -> list[str]:
@@ -3825,6 +3992,12 @@ def handle_physical_upgrade(ctx: JobContext) -> dict:
                                         role=str(ctx.job.inputs.get("role") or "proof"),
                                         lineage=_lineage(ctx, validation_status="blocked"))
     ctx.audit("physical.upgrade_planned", artifact=out.get("slug"), detail=out)
+    if out.get("upgraded") and out.get("frame_position") == 1:
+        # OPUS2 (P0-PHOTO-ASSET-REVIEW): the photo leads the gallery; review it now rather
+        # than at the next hourly sweep.
+        ctx.enqueue("asset_truth", "assets.photo_review", {},
+                    idempotency_key=f"photo_review:{out.get('slug')}:{out.get('version')}:"
+                                    f"{ctx.job.inputs.get('photo_id')}")
     return out
 
 
@@ -4009,7 +4182,10 @@ def handle_model_probe(ctx: JobContext) -> dict:
     from ..gateway import anthropic
 
     previous = anthropic.last_probe(ctx.db)
-    record = anthropic.probe(ctx.db, job_id=ctx.job.id)
+    # eng/stale-rebuild-loop: a fresh, uncontradicted success is reused, not re-billed; an
+    # owner's on-demand run always asks the provider.
+    record = anthropic.probe_if_due(ctx.db, job_id=ctx.job.id,
+                                    force=bool((ctx.job.inputs or {}).get("on_demand")))
     ctx.audit("model.probe.ok" if record["ok"] else "model.probe.unavailable",
               detail={k: v for k, v in record.items() if k != "key"})
     if record.get("ok"):
@@ -4489,6 +4665,9 @@ def handle_mjs_scan(ctx: JobContext) -> dict:
         return {"ran": False, "reason": outcome["reason"][:200],
                 # W4-PRODDIAG: an Etsy credential refusal is named, not left to a dead letter.
                 "credential_refused": bool(outcome.get("credential_refused")),
+                # WS2 R2: an adaptive-interval deferral (#313) is not an attempt; the scan
+                # evidence reads it as such only if the flag survives into the job output.
+                "deferred": bool(outcome.get("deferred")),
                 "mission": {k: mission[k] for k in ("pending", "processed", "tournaments")},
                 "findings": mission.get("findings")}
 
@@ -4517,6 +4696,10 @@ def handle_mjs_scan(ctx: JobContext) -> dict:
     # lessons, memory, coverage, arena response, breakthrough tournament).
     mission = _run_mjs_mission(ctx)
     return {"ran": True,
+            # WS2 R3: Etsy's newest listing modification time this scan read.
+            "source_timestamp": report["source_timestamp"]["newest_listing_modified_at"],
+            # WS2 R4: Etsy's active-listing count for the anchor, kept per scan.
+            "etsy_active_listing_count": report["shop"]["listing_active_count"],
             "listings_known": report["catalogue_coverage"]["listings_known"],
             "new": len(report["changes"]),
             "reclassified": routing["moved"],
@@ -5444,7 +5627,92 @@ STAGE_AGENT = {"gate.certify": "quality_director", "assets.build": "publishing",
 # How many times the rebuild comes back to collect completion evidence before it raises.
 REBUILD_VERIFY_ATTEMPTS = 3
 REBUILD_VERIFY_DELAY_MINUTES = 20
-REBUILD_INCOMPLETE_SIGNATURE = "rebuild-incomplete"
+from ..ops.rebuild_graph import REBUILD_INCOMPLETE_SIGNATURE  # noqa: E402  (one definition)
+
+
+def _rebuild_incomplete(ctx: JobContext, slug: str, version: str, *, stale: list,
+                        reason: str, fingerprints: dict, checks: int) -> dict:
+    """Open or restate `rebuild-incomplete:<slug>` after an attempt's verify checks ran out.
+
+    eng/stale-rebuild-loop: `report_count` counts failed attempts *at this change* (it resets
+    when the fingerprints differ). At REBUILD_MAX_ATTEMPTS the row carries `held`, a named
+    reason built from what refused the rebuild, and `release_gates.retry_hold_reason` stops
+    the daily retry -- a rebuild that cannot succeed is held, not looped."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog, Incident
+    from ..ops.rebuild_graph import REBUILD_MAX_ATTEMPTS, reset_legacy_budget
+
+    with ctx.db.session() as s:
+        refusal = s.scalar(select(AuditLog).where(
+            AuditLog.action.in_(("marketing.blocked", "chain.rebuild_refused")),
+            AuditLog.artifact == f"{slug}@{version}").order_by(desc(AuditLog.id)).limit(1))
+        refused = ([str(x)[:200] for x in ((refusal.detail or {}).get("reasons") or [])][:3]
+                   or ([str((refusal.detail or {}).get("why"))[:200]]
+                       if refusal is not None and (refusal.detail or {}).get("why") else [])
+                   ) if refusal is not None else []
+        sig = f"{REBUILD_INCOMPLETE_SIGNATURE}:{slug}"
+        inc = s.scalar(select(Incident).where(Incident.signature == sig,
+                                              Incident.resolved.is_(False)))
+        summary = (f"{len(stale)} artefact(s) of {slug} still carry a moved input after "
+                   f"{checks} rebuild checks: {stale[:5]}")
+        reset = None
+        if inc is None:
+            inc = Incident(severity="P2", signature=sig, halts_publication=True,
+                           product_slug=slug, summary=summary[:500], report_count=1,
+                           detail={})
+            s.add(inc)
+        elif (reset := reset_legacy_budget(inc)) is not None:
+            # review M-E of 0d2e6cbc: a pre-branch row's count is loop iterations under the
+            # bugs this branch fixes, not attempts. This attempt is the first of a fresh,
+            # recorded budget; the legacy count and detail are kept in `budget_reset`.
+            inc.report_count = 1
+        elif (inc.detail or {}).get("fingerprints") != fingerprints:
+            inc.report_count = 1                        # a different change: a fresh budget
+        else:
+            inc.report_count = int(inc.report_count or 1) + 1
+        # review M-A: rows written before the slug was filed (production) carry it only in
+        # the signature; restating files it, so every slug-keyed reader sees the row.
+        inc.product_slug = slug
+        attempts = int(inc.report_count or 1)
+        detail = {"stale": stale[:50], "reason": reason, "fingerprints": fingerprints,
+                  "version": version, "attempts": attempts,
+                  "max_attempts": REBUILD_MAX_ATTEMPTS, "refused_by": refused}
+        if reset is not None:
+            detail["budget_reset"] = reset
+        if attempts >= REBUILD_MAX_ATTEMPTS:
+            detail["held"] = (
+                f"{attempts} rebuild attempts at this change left {len(stale)} artefact(s) "
+                f"stale ({', '.join(sorted({k.split(':', 1)[0] for k in stale}))})"
+                + (f"; refused by: {'; '.join(refused)}" if refused else
+                   "; no refusal was recorded -- the stage ran and did not rewrite them"))
+            inc.severity = "P1"
+        inc.summary = summary[:500]
+        merged = dict(inc.detail or {}, **detail)
+        if "held" not in detail:
+            merged.pop("held", None)          # a fresh budget (new change) is not held
+        inc.detail = merged
+        return detail
+
+
+def _close_on_verified_rebuild(ctx: JobContext, slug: str, *, completed: list,
+                               outstanding: list) -> list[str]:
+    """Resolve the incidents a verified, bound rebuild disproves. Returns what it closed."""
+    from ..ops import incident_lifecycle
+    from ..ops.artefacts import SENTINEL_SIGNATURE
+
+    sigs = [f"{SENTINEL_SIGNATURE}:{k}" for k in completed]
+    with ctx.db.session() as s:
+        closed = incident_lifecycle.resolve_signatures(
+            s, sigs, resolution=("rebuilt and verified: the row was written by this "
+                                 "attempt's stage job and records the new fingerprints "
+                                 f"(chain.rebuild job {ctx.job.id})")) if sigs else []
+        if not outstanding:
+            closed += incident_lifecycle.resolve_signatures(
+                s, [f"{REBUILD_INCOMPLETE_SIGNATURE}:{slug}"],
+                resolution=(f"the outstanding rebuild completed and was verified "
+                            f"(chain.rebuild job {ctx.job.id})"))
+    return closed
 
 
 def _targeted_rebuild(ctx: JobContext) -> dict:
@@ -5498,9 +5766,9 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
         return {"targeted": True, "slug": slug, "refused": "no stored release"}
     # #163 / #228 (C-67, M10): every build-blocking reason on the release's one withholding
     # record, the owner's ruling re-read, not a field one stage happened to write.
-    from ..publish import withholding
+    from ..publish import release_gates as _rg
 
-    withheld = withholding.current(ctx.db, slug, version, stage="chain.rebuild")["summary"]
+    _v, withheld = _rg.rebuild_withheld(ctx.db, slug)       # review L1: one function
     if withheld:
         ctx.audit("chain.rebuild_refused", artifact=f"{slug}@{version}",
                   detail={"why": f"release withheld (#163/#228): {str(withheld)[:200]}",
@@ -5518,8 +5786,12 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
     def binding(k) -> dict:
         facts = row_facts.get(k) or {}
         inputs = facts.get("inputs") or {}
+        # eng/stale-rebuild-loop: a ref the row does not record is not one of its inputs
+        # (a sentinel job could name every moved ref in the estate); requiring it made a
+        # correctly rebuilt row permanently unbound. Every ref the row does record must
+        # read exactly the new fingerprint.
         mismatched = sorted(ref for ref, fp in fingerprints.items()
-                            if isinstance(fp, dict) and fp.get("new")
+                            if isinstance(fp, dict) and fp.get("new") and ref in inputs
                             and inputs.get(ref) != fp["new"])
         after = i.get("stage_job") or i.get("requested_by")
         row_job = facts.get("job_id")
@@ -5555,21 +5827,16 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
                                          f"{verify + 1}"),
                         run_after=utcnow() + _td(minutes=REBUILD_VERIFY_DELAY_MINUTES))
         elif stale:
-            with ctx.db.session() as s:
-                sig = f"{REBUILD_INCOMPLETE_SIGNATURE}:{slug}"
-                inc = s.scalar(select(Incident).where(Incident.signature == sig,
-                                                      Incident.resolved.is_(False)))
-                if inc is None:
-                    s.add(Incident(severity="P2", signature=sig, halts_publication=True,
-                                   summary=(f"{len(stale)} artefact(s) of {slug} still carry "
-                                            f"a moved input after {verify} rebuild checks: "
-                                            f"{stale[:5]}"),
-                                   detail={"stale": stale, "reason": reason,
-                                           "fingerprints": fingerprints}))
-                else:
-                    inc.report_count += 1
+            _rebuild_incomplete(ctx, slug, version, stale=stale, reason=reason,
+                                fingerprints=fingerprints, checks=verify)
+        # eng/stale-rebuild-loop: verified, bound completion evidence closes what it proves --
+        # the sentinel row of each artefact this attempt remade, and once nothing is
+        # outstanding, the product's rebuild-incomplete row. Nothing is closed on a row that
+        # merely reads fresh (unbound) or on a job's say-so.
+        closed = _close_on_verified_rebuild(ctx, slug, completed=fresh, outstanding=stale)
         ctx.audit("chain.rebuild_verified", artifact=f"{slug}@{version}", detail={
-            "completed": fresh, "outstanding": stale, "unbound": unbound, "check": verify})
+            "completed": fresh, "outstanding": stale, "unbound": unbound, "check": verify,
+            "closed": closed})
         return {"targeted": True, "verify": verify, "slug": slug, "completed": fresh,
                 "outstanding": stale, "unbound": unbound}
 
@@ -7547,6 +7814,14 @@ def handle_health_sweep(ctx: JobContext) -> dict:
                 ctx.db, session, facts=(_runner_state() or {}).get("disk"))
     except Exception as exc:  # noqa: BLE001
         detail["hygiene"] = {"state": "UNKNOWN", "error": type(exc).__name__}
+    # S2 review 6979817823 LOW: a process-wide switch to a routed-only vendor stops all model
+    # work; it is raised as an owner card naming the per-task routes. Guarded.
+    try:
+        from ..gateway import providers as _vendors
+
+        detail["model_vendor"] = _vendors.vendor_switch_card(ctx.db)
+    except Exception as exc:  # noqa: BLE001
+        detail["model_vendor"] = {"state": "UNKNOWN", "error": type(exc).__name__}
     # W4-FMBATCH1 (F-171): a model/vision probe that answered with a failure opens an
     # incident naming the provider and reason class (owner-actionable for credit/auth).
     from ..ops import provider_health
@@ -7636,6 +7911,56 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         graduated_now = provenance.declare_graduations(session, current=current,
                                                        expected=expected)
         gate = provenance.graduation(session, current=current, expected=expected)
+        # eng/stale-rebuild-loop: a rebuild-incomplete row closes when the deterministic
+        # provenance check reads none of its product's artefacts stale -- the same evidence
+        # that closes the sentinel's own rows above. (Rows written before the product slug
+        # was filed carry it only in the signature.)
+        from sqlalchemy import select as _select
+
+        from ..core.models import Incident as _Incident
+        from ..core.models import utcnow as _utcnow
+        from ..ops import incident_lifecycle as _life
+
+        # Review M-C of 4b683993: closed only on positive evidence -- every artefact the row
+        # names (or, for a row naming none, every recorded artefact of the product, of which
+        # there must be at least one) reads FRESH or SUPERSEDED, and none of the product's
+        # artefacts reads STALE. An artefact with no provenance row, an UNPROVEN or retired
+        # one, or a product with no rows at all is not evidence of a delivered rebuild; the
+        # row stays open with the verdicts it actually read.
+        by_key = {f"{v['artefact_class']}:{v['artefact_key']}": v
+                  for v in report.get("verdicts", [])}
+        by_slug: dict[str, list[dict]] = {}
+        for v in report.get("verdicts", []):
+            by_slug.setdefault(v.get("product_slug") or "", []).append(v)
+        settled = (provenance.FRESH, provenance.SUPERSEDED)
+        incomplete_close, incomplete_open = [], {}
+        for r in list(session.scalars(_select(_Incident).where(
+                _Incident.signature.like(f"{REBUILD_INCOMPLETE_SIGNATURE}:%"),
+                _Incident.resolved == False))):  # noqa: E712
+            slug_ = r.signature.split(":", 1)[1]
+            if not r.product_slug:
+                r.product_slug = slug_       # review M-A: file legacy rows against the product
+            named = [str(k) for k in ((r.detail or {}).get("stale") or [])]
+            own = [v for v in by_slug.get(slug_, []) if not v.get("retired")]
+            keys = named or [f"{v['artefact_class']}:{v['artefact_key']}" for v in own]
+            read = {k: (by_key[k]["state"] + (" (retired)" if by_key[k].get("retired") else "")
+                        if k in by_key else "no provenance row") for k in keys}
+            ok = (bool(keys)
+                  and all(k in by_key and by_key[k]["state"] in settled for k in keys)
+                  and not any(v["state"] == provenance.STALE
+                              for v in by_slug.get(slug_, [])))
+            if ok:
+                incomplete_close.append(r.signature)
+            else:
+                incomplete_open[r.signature] = read or {"(none)": "no artefact on file"}
+                r.detail = dict(r.detail or {}, sentinel_read={
+                    "at": _utcnow().isoformat(), "verdicts": dict(list(read.items())[:50])
+                    or {"(none)": "no artefact of this product is on file"}})
+        incomplete_cleared = _life.resolve_signatures(
+            session, incomplete_close,
+            resolution=("every artefact this row named reads fresh (or superseded) in the "
+                        "provenance check and none of the product's reads stale: the "
+                        "outstanding rebuild has been delivered"))
 
     # W4-LISTREADY (delta review N3): a live listing of a superseded release is owner-visible.
     from . import release_recovery
@@ -7658,6 +7983,9 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         "rebuild": report["rebuild"],
         "may_enforce_unproven": gate["may_enforce_unproven"],
         "superseded_live": superseded_live,
+        "incidents_cleared": len(report.get("incidents_cleared") or []),
+        "rebuild_incomplete_cleared": incomplete_cleared,
+        "rebuild_incomplete_open": dict(list(incomplete_open.items())[:50]),
     }
     ctx.audit("ops.sentinel", detail=detail)
 
@@ -7699,12 +8027,17 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         detail["rebuild_already_queued"] = queued["already_queued"][:50]
         detail["rebuild_retried"] = list(queued.get("retried") or [])[:50]
         detail["rebuild_retry_held"] = dict(list((queued.get("retry_held") or {}).items())[:50])
+        # eng/stale-rebuild-loop: products whose last attempt ended and that are waiting out
+        # RETRY_AFTER (or whose retry for today has run) -- not queued, not held.
+        detail["rebuild_retry_waiting"] = list(queued.get("retry_waiting") or [])[:50]
         detail["rebuild_order"] = [r["key"] for r in queued["plan"]["rebuild"]][:50]
         detail["fingerprints"] = {ref: {"old": previous.get(ref), "new": fp}
                                   for ref, fp in sorted(changed.items())}
         ctx.audit("ops.rebuild_propagated", detail={
             k: detail[k] for k in ("rebuild_enqueued", "rebuild_already_queued",
-                                   "rebuild_retried", "rebuild_order", "fingerprints")})
+                                   "rebuild_retried", "rebuild_retry_held",
+                                   "rebuild_retry_waiting", "rebuild_order",
+                                   "fingerprints")})
     return detail
 
 
@@ -10049,8 +10382,51 @@ def _successor(fn, ctx: JobContext, out: dict) -> dict:
     return out
 
 
+CHILDRENS_HOLD = "childrens.decision_required"
+
+
+def _childrens_hold(ctx: JobContext, exc) -> dict:
+    """A1R-4: one named, owner-visible hold per product, never retried, never blocking any
+    other product: an audit row (every time, with the reason) and ONE open owner decision
+    per slug (requirement key childrens-decision:<slug>)."""
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    i = dict(ctx.job.inputs)
+    slug = getattr(exc, "slug", "") or str(i.get("slug") or "")
+    reason = getattr(exc, "reason", "undecided")
+    ctx.audit(CHILDRENS_HOLD, artifact=f"{slug}@{i.get('version') or ''}",
+              detail={"slug": slug, "reason": reason, "why": str(exc)[:600],
+                      "job_type": "assets.build"})
+    rk = f"childrens-decision:{slug}"
+    with ctx.db.session() as s:
+        if not s.scalar(select(OwnerAction.id).where(OwnerAction.requirement_key == rk,
+                                                     OwnerAction.done == False)):  # noqa: E712
+            s.add(OwnerAction(
+                requirement_key=rk,
+                action=((f"{slug}: supply a measured small-parts sample and obtain an "
+                         "approved content-bound evidence authority; this hold stays in place "
+                         "until that authority is implemented") if reason == "small_parts" else
+                        (f"Decide whether {slug} is merchandised to a child: assign it in "
+                         f"products.launch0.EXTRA_CHILDRENS_ASSIGNMENTS, or record the reasoned "
+                         f"exemption in NOT_MERCHANDISED_TO_A_CHILD; an authorized decision "
+                         f"bound to this exact design/version is also required, and a "
+                         f"reapproval workflow is not yet implemented")),
+                reason=str(exc)[:600], max_cost_cad=0.0, minutes=5,
+                blocks=f"{slug} documents and listing",
+                consequence_of_delay=(f"{slug} stays held; every other product continues")))
+    return {"ok": False, "held": True, "gate": "childrens_decision", "slug": slug,
+            "reason": reason, "why": str(exc)[:300]}
+
+
 def handle_assets_build_with_successor(ctx: JobContext) -> dict:
-    out = handle_assets_build(ctx)
+    from ..publish.pdf import ChildrensDecisionRequired
+
+    try:
+        out = handle_assets_build(ctx)
+    except ChildrensDecisionRequired as exc:
+        return _childrens_hold(ctx, exc)
     if isinstance(out, dict) and out.get("ok") is False and out.get("blocking_image_problems"):
         from . import chain_successors
 

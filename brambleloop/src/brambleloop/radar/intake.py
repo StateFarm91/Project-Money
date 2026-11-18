@@ -99,6 +99,7 @@ SUPPORTED_FORMS: dict[str, tuple[str, ...]] = {
     "baby": ("rectangle_throw",),
     "runner": ("runner",),
     "placemat": ("flat_panel",),
+    "dishcloth": ("flat_panel",),
     "coaster": ("coaster", "flat_panel"),
     "pillow": ("pillow",),
     "wall_decor": ("wall_hanging",),
@@ -144,6 +145,7 @@ CONSTRUCTION_WHY: dict[str, str] = {
 _NOUN: dict[str, str] = {
     "blanket": "Throw", "baby": "Baby Blanket", "runner": "Table Runner",
     "placemat": "Placemat Pair", "coaster": "Coaster Set", "pillow": "Cushion Cover",
+    "dishcloth": "Dishcloth",
     "wall_decor": "Wall Hanging", "pet": "Pet Mat", "scarf": "Scarf",
 }
 _FUNCTION: dict[str, str] = {
@@ -151,6 +153,7 @@ _FUNCTION: dict[str, str] = {
     "baby": "wraps a new baby in the family's pattern",
     "runner": "dresses the table to match the set",
     "placemat": "lays a matching place at the table",
+    "dishcloth": "wipes dishes and counters at the sink",
     "coaster": "protects a table under mugs in the matching pattern",
     "pillow": "fronts a cushion that matches the set",
     "wall_decor": "hangs the family's motif on a wall",
@@ -160,6 +163,7 @@ _FUNCTION: dict[str, str] = {
 _WHAT: dict[str, str] = {
     "blanket": "a sofa throw", "baby": "a pram-sized blanket", "runner": "a table runner",
     "placemat": "a pair of placemats", "coaster": "a set of coasters",
+    "dishcloth": "a square dishcloth",
     "pillow": "a cushion front", "wall_decor": "a hung panel", "pet": "a pet mat",
     "scarf": "a wrapped scarf",
 }
@@ -431,6 +435,31 @@ def approved_rows(db) -> list[RadarConcept]:
     return out
 
 
+def renewed_support(db, task_id: int) -> dict | None:
+    """Review H3 (eng/r5-research-3): the newer answer that renewed this task's support
+    (`detail.renewed_support` = {task, refs}), written by
+    `intel.watchlist_research.renew_support` only after it answered the same question from
+    newer observations. None when the support was never renewed."""
+    from ..intel import research
+
+    research._ensure(db)
+    with db.session() as s:
+        row = s.get(research.ResearchTask, int(task_id))
+        got = dict((row.detail or {}).get("renewed_support") or {}) if row is not None else {}
+    if not got.get("task") or not got.get("refs"):
+        return None
+    return {"task": int(got["task"]), "refs": [str(r) for r in got["refs"]]}
+
+
+def renewed_evidence(db, task_id: int, *, today: date) -> dict | None:
+    """The renewed answer judged exactly like the original (`research_evidence`): an
+    approval follows its latest renewed answer, and stands only while THAT is fresh."""
+    got = renewed_support(db, task_id)
+    if got is None:
+        return None
+    return research_evidence(db, got["task"], got["refs"], today=today)
+
+
 def _unsupported_research(db, rows) -> set[int]:
     """F1: ids of approved research rows whose task is no longer an approved opportunity --
     not ANSWERED, concluded unresolved, or past `expires_on` -- read from the task row at the
@@ -442,6 +471,9 @@ def _unsupported_research(db, rows) -> set[int]:
         return set()
     research._ensure(db)
     ids = {int(v.split(":", 1)[1]) for v in refs.values()}
+    # Review H3: a task whose support was renewed is supported by its renewed answer too.
+    renewed = {i: got["task"] for i in ids for got in [renewed_support(db, i)] if got}
+    ids |= set(renewed.values())
     now = datetime.now(timezone.utc)
     with db.session() as s:
         tasks = {t.id: t for t in s.scalars(select(research.ResearchTask)
@@ -453,7 +485,9 @@ def _unsupported_research(db, rows) -> set[int]:
             if (t.state == research.ANSWERED and concl.get("status") != "unresolved"
                     and (expires is None or expires > now)):
                 ok.add(tid)
-    return {rid for rid, ref in refs.items() if int(ref.split(":", 1)[1]) not in ok}
+    return {rid for rid, ref in refs.items()
+            if int(ref.split(":", 1)[1]) not in ok
+            and renewed.get(int(ref.split(":", 1)[1])) not in ok}
 
 
 def has_rows(db, slug: str) -> bool:
@@ -708,6 +742,13 @@ def validate(db, proposal: dict, evidence: dict, *, source_ref: str) -> dict:
     c = p["concept"]
     reasons += construction_verdict(p["category"], str(c.get("form")),
                                     str(c.get("construction")))
+    # S1 review 6958883678 H2: the size the title asks for (a class word or stated dimensions)
+    # is read here; a size the family cannot make is refused now, not resized at draft time.
+    from ..creative import size_truth
+
+    sized = size_truth.request(p["category"], str(p["title"]))
+    if sized["refused"] and size_truth.applies(p["category"], str(p["title"])):
+        reasons.append(f"size: {sized['refused']}")
     if c.get("pod") not in POD_KEYS:
         reasons.append(f"pod {c.get('pod')!r} is not a pod key")
     make_lane = make_lane_for_hours(hours) if hours[1] > 0 else "QUICK"
@@ -962,6 +1003,9 @@ def evaluate(db, candidate: dict, *, audit, enqueue, today: date) -> dict:
         audit(WITHDRAWN_ACTION, artifact=slug, detail={
             "row": old_id, "source_ref": candidate["source_ref"],
             "reasons": [f"revised proposal row {row_id} was refused"]})
+    if withdrawn_ids:
+        _close_renewals(db, [(i, candidate["source_ref"]) for i in withdrawn_ids],
+                        audit=audit, why=f"its revised proposal (row {row_id}) was refused")
     if not verdict["ok"]:
         audit(REFUSED_ACTION, artifact=slug, detail={
             "row": row_id, "source_ref": candidate["source_ref"],
@@ -974,7 +1018,23 @@ def evaluate(db, candidate: dict, *, audit, enqueue, today: date) -> dict:
         "originality": verdict.get("originality")})
     # The successor job: the ordinary per-slug radar.score, keyed like radar.scan so a
     # concept the scan already queued today is not queued twice.
-    seed = approved_concept(db, slug)["seed"]
+    got = approved_concept(db, slug)
+    if got is None:
+        # Review LOW (eng/r5-research-3): the approved pool is read at the moment of use, and
+        # it can leave this row out (its research expired by the real clock since `today`).
+        # A concept that is not in the pool is not handed off: it is withdrawn and audited,
+        # never a TypeError that stops the whole intake pass.
+        why = (f"not in the approved pool at hand-off ({datetime.now(timezone.utc).isoformat()}"
+               f"): its research no longer supports it")
+        with db.session() as s:
+            r = s.get(RadarConcept, row_id)
+            r.state = WITHDRAWN
+            r.reasons = list(r.reasons or []) + [f"withdrawn: {why}"]
+        audit(WITHDRAWN_ACTION, artifact=slug, detail={
+            "row": row_id, "source_ref": candidate["source_ref"], "reasons": [why]})
+        _close_renewals(db, [(row_id, candidate["source_ref"])], audit=audit, why=why)
+        return {"slug": slug, "state": WITHDRAWN, "id": row_id, "reasons": [why]}
+    seed = got["seed"]
     payload = score_concept(seed, today).to_dict()
     payload["intake"] = {"row": row_id, "source_ref": candidate["source_ref"]}
     job = enqueue("market_radar", "radar.score", payload,
@@ -1014,6 +1074,29 @@ def rescore_judged(db, *, audit, enqueue, today: date) -> list[str]:
     return out
 
 
+def _close_renewals(db, rows, *, audit, why: str) -> None:
+    """Review LOW (eng/r5-research-2): a withdrawn research concept takes the OPEN tasks that
+    were renewing its support with it (`intel.watchlist_research.close_renewals`), unless
+    another approved concept rests on the same gap. Never blocks intake."""
+    from ..intel import watchlist_research
+
+    rows = [(rid, str(ref)) for rid, ref in rows if str(ref).startswith("research_task:")]
+    if not rows:
+        return
+    with db.session() as s:
+        keep = {int(r.source_ref.split(":", 1)[1]) for r in s.scalars(
+            select(RadarConcept).where(RadarConcept.state == APPROVED,
+                                       RadarConcept.source == SOURCE_RESEARCH))}
+    for rid, ref in rows:
+        try:
+            watchlist_research.close_renewals(
+                db, concept_task_id=int(ref.split(":", 1)[1]), keep_for=keep,
+                why=f"concept row {rid} withdrawn: {why}", audit=audit)
+        except Exception as exc:  # noqa: BLE001 - housekeeping never blocks intake
+            audit("research.renewal_close_failed", artifact=ref,
+                  detail={"row": rid, "why": f"{type(exc).__name__}: {str(exc)[:200]}"})
+
+
 def withdraw_unsupported(db, *, audit, today: date) -> list[dict]:
     """F1: an approval stands only while its evidence does. Each approved row is re-checked
     against its source as of `today`; one that no longer passes (stale, expired, unresolved,
@@ -1029,6 +1112,11 @@ def withdraw_unsupported(db, *, audit, today: date) -> list[dict]:
         refs = ((row.detail or {}).get("proposal") or {}).get("evidence") or []
         if row.source == SOURCE_RESEARCH:
             ev = research_evidence(db, int(row.source_ref.split(":", 1)[1]), refs, today=today)
+            if not ev.get("ok"):
+                renewed = renewed_evidence(db, int(row.source_ref.split(":", 1)[1]),
+                                           today=today)
+                if renewed is not None and renewed.get("ok"):
+                    continue
         else:
             if report is None:
                 from ..creative.family_engine import family_report
@@ -1052,6 +1140,8 @@ def withdraw_unsupported(db, *, audit, today: date) -> list[dict]:
         audit(WITHDRAWN_ACTION, artifact=row.slug, detail={
             "row": row.id, "source_ref": row.source_ref,
             "reasons": list(ev.get("reasons") or [])[:5], "as_of": today.isoformat()})
+        _close_renewals(db, [(row.id, row.source_ref)], audit=audit,
+                        why="its evidence no longer supports it")
         out.append({"slug": row.slug, "reasons": list(ev.get("reasons") or [])[:3]})
     return out
 

@@ -193,18 +193,20 @@ print(f"     distinct CIRs from {len(combos)} concepts: {len(spread)}")
 check("concepts spread over far more than the old 16 variants", len(spread) >= 100,
       len(spread))
 
-# Every size of a varied set still certifies end to end.
+# Every size of a varied set still certifies end to end. The fixture titles are the keys
+# (`idea`): S1 round 5 (D-S1-EXACT-ALLOW-LIST) refuses a bare "V1" as an unbound size token,
+# so the keys are words, not letter-number codes.
 varied = [
-    idea("v1", "top_down_yoke", "child", "QUICK", premise="a cropped slouchy yoke of ripples "
+    idea("tidepool", "top_down_yoke", "child", "QUICK", premise="a cropped slouchy yoke of ripples "
          "that reads as a tide pool", motif="tidepool ripples", feeling="whimsical",
          occasion="summer_travel", palette="sea glass, sand and teal"),
-    idea("v2", "side_to_side", "self", "LONG", premise="a longline oversized layer of bark "
+    idea("forest", "side_to_side", "self", "LONG", premise="a longline oversized layer of bark "
          "ridges that reads as a forest floor", motif="bark ridges", feeling="rugged",
          occasion="winter_nesting", palette="moss and slate"),
-    idea("v3", "flat_rows", "teen", "SHORT", premise="a boxy layer with stripes that reads as "
+    idea("deckchair", "flat_rows", "teen", "SHORT", premise="a boxy layer with stripes that reads as "
          "a deckchair", motif="deckchair stripe", feeling="playful", occasion="valentines",
          palette="cranberry and cream"),
-    idea("v4", "top_down_yoke", "grandparent", "MEDIUM", premise="a longline layer of still "
+    idea("harbour", "top_down_yoke", "grandparent", "MEDIUM", premise="a longline layer of still "
          "stone that reads as a harbour wall", motif="stone", feeling="heirloom",
          occasion="wedding", palette="granite and ivory and ink"),
 ]

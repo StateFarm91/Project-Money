@@ -72,9 +72,12 @@ OPENAPI_REVIEW_KEY = "store:etsy.openapi_review"
 #: How long one re-verification of the surface classifications stands (F-514).
 OPENAPI_REVERIFY_DAYS = 7
 
-#: The scopes the publish, read-back and census paths use. A stored credential missing any
-#: of them is scope drift (F-540/F-541): the next write or read would be refused.
-REQUIRED_SCOPES = ("listings_r", "listings_w", "listings_d", "shops_r", "shops_w")
+#: The scopes the publish, read-back, census and order-ingest paths use. A stored credential
+#: missing any of them is scope drift (F-540/F-541): the next write or read would be refused.
+#: WS5 E7: `transactions_r` too -- `commerce.orders_ingest` reads receipts with it, so a
+#: credential without it cannot see a single order, and that is drift, not "no orders".
+REQUIRED_SCOPES = ("listings_r", "listings_w", "listings_d", "shops_r", "shops_w",
+                   "transactions_r")
 
 #: Etsy's getListingsByShop `state` filter values. Every one is read so a listing moved to
 #: any of them is observed rather than inferred from its absence.
@@ -559,6 +562,8 @@ def certified_frames(db, slug: str, version: str, *, release: str = "") -> dict:
     from ..core.models import ListingSetCertificateRecord
 
     with db.session() as s:
+        from ..publish.photo_asset_review import _lock, photo_certificate_current
+        _lock(s, db)
         rec = s.scalar(select(ListingSetCertificateRecord).where(
             ListingSetCertificateRecord.product_slug == slug,
             ListingSetCertificateRecord.version == version,
@@ -570,6 +575,17 @@ def certified_frames(db, slug: str, version: str, *, release: str = "") -> dict:
                                  f"there are no certified images to upload"]}
         frames = sorted((rec.certificate or {}).get("frames") or [],
                         key=lambda f: int(f.get("position") or 0))
+        # A certificate is not evidence that current photo rights and attestation
+        # still hold. Refuse bytes before upload if that evidence is stale/unknown.
+        from ..publish.release_gates import _certificate_from_record
+        try:
+            current = photo_certificate_current(s, db, slug, version,
+                                                _certificate_from_record(rec).frames)
+        except Exception:  # noqa: BLE001 - malformed or unavailable evidence is a hold
+            current = False
+        if not current:
+            return {"frames": [], "record_id": rec.id,
+                    "problems": ["photo frame or evidence no longer matches the certificate"]}
         problems = []
         # PT-13: an empty hash on either side used to skip the binding. A caller that names
         # no release is bound to the release on file for slug@version; a certificate bound to
@@ -896,7 +912,15 @@ def handle_credential_health(ctx: JobContext) -> dict:
     findings: list[str] = []
     if health["stored"] and not health["openable"]:
         findings.append("stored credential is not openable under the current sealing key")
-    if missing:
+    if missing == ["transactions_r"]:
+        # Review 6954619488 (LOW): name the cause. WS5 E7 added `transactions_r` to the
+        # required scopes; a grant made before that lacks it, so every real draft is refused
+        # until the owner re-authorises once -- the grant is not broken, it is older than E7.
+        findings.append(
+            "stored credential is missing scopes ['transactions_r']: WS5 E7 made "
+            "transactions_r (order ingest) a required scope, and this grant predates it; "
+            "every real Etsy draft is refused until the owner re-authorises once")
+    elif missing:
         findings.append(f"stored credential is missing scopes {missing}")
     live: dict[str, Any] = {"attempted": False}
     auth: dict | None = None
@@ -1468,6 +1492,22 @@ def handle_listing_census(ctx: JobContext) -> dict:
 
 LIVE_DRIFT_READING = "store.live_drift"
 LIVE_OWNER_FIELD_BLANK = "store.live:owner_field_blank:"
+
+
+@handlers.register("store.draft_reconcile")
+def handle_store_draft_reconcile(ctx: JobContext) -> dict:
+    """WS5 E6: resolve unknown draft-create outcomes from one read-only read of the shop's
+    drafts (`publish.draft_resolver`). Adopts exactly one content match, escalates any
+    ambiguity to one owner card, releases only after repeated complete empty reads. Never
+    writes to Etsy."""
+    from ..publish import draft_resolver
+
+    out = draft_resolver.run(ctx.db, audit=ctx.audit)
+    outcomes = [i.get("outcome") for i in out.get("intents", [])]
+    ctx.audit("store.draft_reconcile", detail={**out, "writes_performed": 0})
+    return {"read": out.get("read"), "why": out.get("why"),
+            "resolved": sum(1 for o in outcomes if o in ("adopted", "released")),
+            "escalated": outcomes.count("escalated"), "intents": out.get("intents", [])}
 
 
 @handlers.register("store.live_drift")

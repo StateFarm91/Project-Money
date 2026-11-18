@@ -158,7 +158,7 @@ def test_a_live_in_policy_decision_is_refused_and_never_signed():
         _activate_raw(db, a, c)
         _release(db, release=REL_A)
 
-        def all_pass(db_, slug, version, release, content_, *, shadow=True):
+        def all_pass(db_, slug, version, release, content_, *, shadow=True, **_kw):
             from test_ws4_boundary import facts
 
             return facts(slug=slug)

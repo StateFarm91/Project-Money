@@ -22,11 +22,10 @@ What a holding condition does depends on whether the policy is ACTIVATED:
   publishing-phase condition holds by construction in SHADOW; that one condition is
   recorded as ASSUMED in shadow, as the issuer records its activation-time facts.
 
-Standing-policy lineage. A condition scoped to "a product the SP published" needs the SEG
-lineage (consumed grant <-> listing). No standing grant has ever been issued -- there is no
-grant store until the Mode T increment -- so the lineage is exactly empty, a fact read from
-`lineage()`, not an assumption. The per-lineage conditions are read for real over that set
-and are exercised with a non-empty set in the tests. Shop-wide conditions (refunds, Etsy
+Standing-policy lineage. A condition scoped to "a product the SP published" reads the SEG
+lineage from the grant store (`lineage()`: every grant issued under the policy, used or not,
+and the Etsy listings of those releases). The per-lineage conditions, spend included, are read
+for real over that set. Shop-wide conditions (refunds, Etsy
 notices, P0, tamper, dead letters, platform-policy freshness) are not scoped to the lineage:
 they stop the policy whatever product they concern.
 
@@ -79,12 +78,41 @@ def _aware(at):
 # ---------------------------------------------------------------------------------------------
 
 def lineage(db, policy_id: str) -> dict:
-    """The products and Etsy listings a standing grant of `policy_id` published.
+    """The products and Etsy listings a standing grant of `policy_id` published (review M-4:
+    read from the grant store, never assumed empty).
 
-    Exactly empty today: no standing grant has been issued (the grant store and the issuer
-    process are the Mode T increment). Returned with that reason so a reading says so."""
-    return {"products": set(), "listing_ids": set(),
-            "why": "no standing grant has been issued, so no product is in standing lineage"}
+    Every ISSUED grant counts, used or not (an outstanding grant can publish at any moment),
+    under any approval row of this policy_id; a grant whose approval row cannot be read in the
+    current chain segment counts too (fail closed: more lineage only means more stops)."""
+    from sqlalchemy import inspect, select
+
+    from ..core.models import Listing
+    from . import standing_grants as SG
+
+    engine = db.engine if hasattr(db, "engine") else db.get_bind()
+    if not inspect(engine).has_table(SG.StandingGrant.__tablename__):
+        return {"products": set(), "listing_ids": set(), "grants": 0,
+                "why": "no grant store: no standing grant has been issued"}
+    _c, rows = SP._segment(db)
+    approvals = SP._approvals(rows)
+    with db.session() as s:
+        grants = list(s.execute(select(SG.StandingGrant.policy_row_id, SG.StandingGrant.scope)))
+    mine = [scope for row_id, scope in grants
+            if row_id not in approvals
+            or (approvals[row_id].get("content") or {}).get("policy_id") == policy_id]
+    pairs = {tuple(str(sc).split("@", 1)) for sc in mine if "@" in str(sc)}
+    products = {slug for slug, _v in pairs}
+    listing_ids: set[str] = set()
+    if pairs:
+        with db.session() as s:
+            for slug, version, lid in s.execute(select(
+                    Listing.product_slug, Listing.version, Listing.etsy_listing_id).where(
+                    Listing.product_slug.in_(sorted(products)))):
+                if (slug, version) in pairs and str(lid or "").strip():
+                    listing_ids.add(str(lid).strip())
+    return {"products": products, "listing_ids": listing_ids, "grants": len(mine),
+            "why": (f"{len(mine)} standing grant(s) issued under this policy" if mine
+                    else "no standing grant has been issued under this policy")}
 
 
 # ---------------------------------------------------------------------------------------------
@@ -178,16 +206,43 @@ def _platform_policy(db, now: datetime) -> dict:
     return _fact(SB.PASS, True)
 
 
-def _spend(db, lin: dict) -> dict:
-    """Spend over the policy's cap (zero: drafts only, ads NONE) or a SpendGuard refusal
-    naming standing lineage. Spend can carry standing lineage only through a lineage
-    product; with none, nothing can have been spent under the policy. A non-empty lineage
-    needs the grant store's spend join (Mode T increment): until then it reads UNKNOWN, and
-    UNKNOWN stops."""
+FEE_KINDS = ("etsy_listing_fee", "etsy_listing_fee_actual")
+
+
+def _spend(db, lin: dict, now: datetime | None = None,
+           cap_cad: float = SP.MAX_LISTING_FEES_CAD_PER_30D) -> dict:
+    """Spend under standing lineage (review M-4: a real join, not UNKNOWN): listing fees
+    (exposure or actual) on a lineage listing or product in the last 30 days over the policy's
+    cap (CA$0: drafts only), or ANY ads cost on a lineage product (ads must be NONE)."""
+    from sqlalchemy import select
+
+    from ..core.models import CostEntry
+
     if not lin["products"]:
         return _fact(SB.PASS, 0, "no product is in standing lineage")
-    return _fact(SB.UNKNOWN, None, "spend under standing lineage is not readable until the "
-                                   "grant store exists")
+    now = _now(now)
+    since = now - timedelta(days=30)
+    products = set(lin["products"])
+    listings = {str(x) for x in lin["listing_ids"]}
+    fees, ads = 0.0, []
+    with db.session() as s:
+        for kind, slug, amount, at, detail in s.execute(select(
+                CostEntry.kind, CostEntry.product_slug, CostEntry.amount_cad, CostEntry.at,
+                CostEntry.detail).where(CostEntry.kind.in_(FEE_KINDS + ("ads",)))):
+            on_lineage = slug in products or str((detail or {}).get("listing_id")) in listings
+            if not on_lineage:
+                continue
+            if kind == "ads":
+                ads.append(slug)
+            elif _aware(at) >= since:
+                fees += float(amount or 0.0)
+    if ads:
+        return _fact(SB.FAIL, len(ads), f"ads cost on standing product(s) {sorted(set(ads))[:3]}"
+                                        f"; the policy's ads are NONE")
+    if fees > float(cap_cad) + 1e-9:
+        return _fact(SB.FAIL, round(fees, 2), f"listing fees CA${fees:.2f} in 30 days on "
+                                              f"standing listings (cap CA${cap_cad:.2f})")
+    return _fact(SB.PASS, round(fees, 2))
 
 
 def _dead_letters(db, now: datetime, threshold: int) -> dict:
@@ -269,7 +324,9 @@ def conditions(db, content: dict, *, now: datetime | None = None, activated: boo
     else:
         out["open_defect_incident_on_policy_product"] = _guard(lambda: _defects(
             db, set(lin["products"]), int(st["open_defect_incident_on_policy_product"])))
-        out["spend"] = _guard(lambda: _spend(db, lin))
+        cap = min(float((content.get("spend") or {}).get("max_listing_fees_cad_per_30d", 0.0)),
+                  float(SP.MAX_LISTING_FEES_CAD_PER_30D))
+        out["spend"] = _guard(lambda: _spend(db, lin, now, cap))
         out["publish_incomplete_any"] = _guard(lambda: _publish_incomplete(db, lin))
         out["census_drift_on_policy_listing"] = _guard(lambda: _census_drift(db, lin))
     out["refunds"] = _guard(lambda: _refunds(db, now, int(st["refunds_7d_count"]),

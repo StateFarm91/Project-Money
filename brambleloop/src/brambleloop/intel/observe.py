@@ -48,6 +48,7 @@ class ScanResult:
     changed_listings: list[str] = field(default_factory=list)
     unchanged: int = 0
     withdrawn: list[str] = field(default_factory=list)
+    relisted: list[str] = field(default_factory=list)
     deep_audited: list[str] = field(default_factory=list)
     # Galleries read to close the backlog rather than because the listing moved.
     backfilled: list[str] = field(default_factory=list)
@@ -59,6 +60,12 @@ class ScanResult:
     gaps_opened: list[str] = field(default_factory=list)
     problems: list[str] = field(default_factory=list)
     baseline: bool = False
+    # WS2 R3: Etsy's own clock. The newest `last_modified_timestamp` among the listings this
+    # scan read (ISO 8601 UTC), or None when the payload carried none -- never our clock.
+    newest_source_modified_at: str | None = None
+    # WS2 R4: Etsy's own count of the shop's active listings, from the shop record this scan
+    # resolved (None when the record did not carry it).
+    shop_active_listing_count: int | None = None
 
     def to_report(self) -> dict:
         """The shape #319 demands, and `mission.check_report` enforces."""
@@ -71,6 +78,7 @@ class ScanResult:
                 "listings_inspected": len(self.deep_audited),
                 "unchanged_skipped": self.unchanged,
                 "withdrawn_since_last_scan": len(self.withdrawn),
+                "relisted_since_last_scan": len(self.relisted),
                 "galleries_backfilled": len(self.backfilled),
                 "descriptions_read_for_the_first_time": len(self.deliverable_backfilled),
             },
@@ -79,7 +87,9 @@ class ScanResult:
                         + [{"listing_ref": ref, "what": "materially changed"}
                            for ref in self.changed_listings]
                         + [{"listing_ref": ref, "what": "no longer listed"}
-                           for ref in self.withdrawn]),
+                           for ref in self.withdrawn]
+                        + [{"listing_ref": ref, "what": "listed again after a withdrawal"}
+                           for ref in self.relisted]),
             "listings_inspected": list(self.deep_audited),
             "images_inspected": self.images_inspected,
             "pods_notified": sorted(self.pods_notified),
@@ -87,6 +97,9 @@ class ScanResult:
                         or ["no new arena required a coverage gap this scan"]),
             "baseline": self.baseline,
             "problems": list(self.problems),
+            "source_timestamp": {"newest_listing_modified_at": self.newest_source_modified_at,
+                                 "basis": "Etsy last_modified_timestamp"},
+            "shop": {"listing_active_count": self.shop_active_listing_count},
         }
 
 
@@ -115,6 +128,38 @@ def listing_options(listing: dict) -> dict:
     return {k: listing[k] for k in OPTION_FIELDS if listing.get(k) is not None}
 
 
+def source_modified_at(listing: dict) -> str | None:
+    """WS2 R3: Etsy's `last_modified_timestamp` (epoch seconds) as ISO 8601 UTC, or None."""
+    raw = listing.get("last_modified_timestamp")
+    if isinstance(raw, bool) or raw in (None, ""):
+        return None
+    try:
+        seconds = int(raw)
+    except (TypeError, ValueError):
+        return None
+    if seconds <= 0:
+        return None
+    return datetime.fromtimestamp(seconds, tz=timezone.utc).isoformat()
+
+
+# Review M1 (eng/r5-research-2): a row's withdrawals and relistings, oldest first. Bounded:
+# a shop that toggles a listing daily cannot grow the row without limit.
+WITHDRAWAL_HISTORY = "withdrawal_history"
+WITHDRAWAL_HISTORY_KEEP = 20
+
+
+def _revival(detail: dict | None, now: datetime) -> dict:
+    """The row's detail with this withdrawal closed in its history: when it was first
+    noticed missing and when it was seen listed again. Nothing about the withdrawal is
+    erased; `withdrawn_first_noticed` moves into the history entry."""
+    d = dict(detail or {})
+    history = list(d.get(WITHDRAWAL_HISTORY) or [])
+    history.append({"withdrawn_first_noticed": d.pop("withdrawn_first_noticed", None),
+                    "relisted_at": now.isoformat()})
+    d[WITHDRAWAL_HISTORY] = history[-WITHDRAWAL_HISTORY_KEEP:]
+    return d
+
+
 def fingerprint_of(listing: dict) -> str:
     return pods.fingerprint({k: listing.get(k) for k in FINGERPRINTED})
 
@@ -133,8 +178,14 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
 
     shop = reader.resolve_shop(shop_name)
     shop_id = shop.get("shop_id")
+    count = shop.get("listing_active_count")
+    result.shop_active_listing_count = (count if isinstance(count, int)
+                                        and not isinstance(count, bool) and count >= 0
+                                        else None)
     listings = reader.catalogue(shop_id)
     result.listings_seen = len(listings)
+    stamps = [t for t in (source_modified_at(x) for x in listings) if t]
+    result.newest_source_modified_at = max(stamps) if stamps else None
 
     with db.session() as s:
         known = {row.listing_ref: row for row in s.scalars(
@@ -162,16 +213,33 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
                 result.changed_listings.append(ref)
                 to_audit.append(listing)
                 row = s.merge(row)
+                if row.audit_state == "withdrawn":
+                    result.relisted.append(ref)
+                    revived = _revival(row.detail, now)
+                    row.audit_state = "queued"
+                    row.detail = revived      # the rebuild below keeps the history
             else:
                 result.unchanged += 1
                 row = s.merge(row)
                 row.last_seen = now
+                # Review M1 (eng/r5-research-2): a listing the shop withdrew and then listed
+                # again, unchanged, is live again. Left "withdrawn" it counted against its
+                # arena forever, so a gap it once corroborated could never be re-opened. The
+                # withdrawal stays in the row's history; the revival is added to it.
+                if row.audit_state == "withdrawn":
+                    result.relisted.append(ref)
+                    row.detail = _revival(row.detail, now)
+                    row.audit_state = ("audited" if row.detail.get("gallery_audited")
+                                       else "queued")
                 # A new reading of a field already in this payload must reach the listings
                 # that did not change, or it only ever describes the shop's recent edits.
                 # This is what the gallery backlog taught: a reading attached to the
                 # new-or-changed branch covered 25 of 438 listings and had no path to the
                 # rest. Unlike the gallery this costs nothing -- the description arrived with
                 # the catalogue page -- so the whole map closes on the next scan.
+                stamp = source_modified_at(listing)
+                if stamp and (row.detail or {}).get("source_modified_at") != stamp:
+                    row.detail = {**(row.detail or {}), "source_modified_at": stamp}
                 if "options" not in (row.detail or {}) and listing_options(listing):
                     row.detail = {**(row.detail or {}), "options": listing_options(listing)}
                 if "deliverable" not in (row.detail or {}):
@@ -196,11 +264,18 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
             row.on_sale = bool(listing.get("is_sale") or False)
             row.last_seen = now
             row.audit_state = "queued"
+            history = (row.detail or {}).get(WITHDRAWAL_HISTORY)
             row.detail = {"tags": listing.get("tags") or [],
                           "materials": listing.get("materials") or [],
                           "num_favorers": listing.get("num_favorers"),
                           "who_made": listing.get("who_made"),
-                          "when_made": listing.get("when_made")}
+                          "when_made": listing.get("when_made"),
+                          # WS2 R3: Etsy's own modification time for this listing.
+                          "source_modified_at": source_modified_at(listing)}
+            if history:
+                # Review M1: a changed listing's facts are re-read, its withdrawals are not
+                # forgotten.
+                row.detail[WITHDRAWAL_HISTORY] = history
             # #208: options and variants, from the API's own listing fields. Stored only
             # when the payload carries them -- an absent field is unmeasured, not "none".
             options = listing_options(listing)

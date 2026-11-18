@@ -26,6 +26,16 @@ sys.path.insert(0, str(ROOT))
 _ART = tempfile.TemporaryDirectory()
 os.environ["BRAMBLELOOP_ARTIFACT_DIR"] = _ART.name
 
+# W6 cert-fix (2026-11-12): this file's whole run is a calendar scenario anchored on TODAY
+# (2026-09-17): the flagship Christmas throw's buying window closes 2026-11-18. The cycle is
+# enqueued with as_of=TODAY, but the downstream launch.plan job reads date.today(), so on the
+# wall clock the scenario stopped existing on 2026-11-12 (today + 7-day build lead > window
+# close). Run it at its stated date with the same pinned, ticking clock as the other calendar
+# suites. No assertion and no rule changed. See tests/pinned_clock.py.
+import pinned_clock  # noqa: E402
+pinned_clock.install("2026-09-17T12:00:00+00:00")
+from datetime import date  # noqa: E402,F811 - rebind to the pinned classes
+
 from sqlalchemy import select  # noqa: E402
 
 from brambleloop.agents.registry import PermissionDenied, Registry  # noqa: E402
@@ -602,6 +612,17 @@ def test_attack_a_corrupted_artifact_is_detected():
 
 
 
+def _placemat_sized(cir: dict) -> dict:
+    """The wall hanging cut to 44 rows (25.6 x 44.7 cm): a placemat-sized stale design.
+
+    The full hanging is 57 cm long, and certification now refuses a title naming a placemat
+    at that size (OBJECT_SIZE_OUT_OF_BAND), so the stale design would never certify. Cut, it
+    is still different fabric from the 48-row mosaic design.
+    """
+    first = {**cir["components"][0], "rows": cir["components"][0]["rows"][:44]}
+    return {**cir, "components": [first, *cir["components"][1:]]}
+
+
 def test_a_redesigned_product_re_enters_the_chain():
     """The defect that broke the previous four "code changed, database didn't" fixes.
 
@@ -637,8 +658,8 @@ def test_a_redesigned_product_re_enters_the_chain():
     stale = build(CATALOGUE["cottage-wall-hanging"])
     # PT-03: an older release. Different fabric under the SAME version is now refused at
     # certification (tests/test_version_immutability.py); a redesign ships as a new version.
-    stale = CIR.from_dict({**stale.to_dict(), "slug": slug, "title": fresh.title,
-                           "version": "0.9.0"})
+    stale = CIR.from_dict({**_placemat_sized(stale.to_dict()), "slug": slug,
+                           "title": fresh.title, "version": "0.9.0"})
     assert stale.fingerprint != fresh.fingerprint
     JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": stale.to_dict()})
     drain_all()
@@ -697,8 +718,8 @@ def test_a_recertified_release_rebuilds_its_listing():
     stale = build(CATALOGUE["cottage-wall-hanging"])
     # PT-03: an older release. Different fabric under the SAME version is now refused at
     # certification (tests/test_version_immutability.py); a redesign ships as a new version.
-    stale = CIR.from_dict({**stale.to_dict(), "slug": slug, "title": fresh.title,
-                           "version": "0.9.0"})
+    stale = CIR.from_dict({**_placemat_sized(stale.to_dict()), "slug": slug,
+                           "title": fresh.title, "version": "0.9.0"})
 
     JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": stale.to_dict()})
     drain_all()

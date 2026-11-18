@@ -1252,6 +1252,10 @@ _BEHAVIOURS = ("stands upright without stiffener", "folds flat for storage",
                "carries its own handle")
 
 
+_TITLE_WORDS = ("Ash", "Birch", "Cedar", "Dune", "Elm", "Fern", "Gale", "Heath", "Ivy",
+                "Juniper")
+
+
 class _WideGateway:
     """A generator that answers with a full batch of parseable concepts."""
 
@@ -1273,7 +1277,10 @@ class _WideGateway:
             self.issued += 1
             k = self.issued
             out.append({
-                "title": f"Piece {k}",
+                # Unique and figure-free: a bare counter ("Piece 1") is an unbound size token
+                # that Product Truth refuses at certification (D-S1-FAIL-CLOSED), and a real
+                # generator does not number its concepts.
+                "title": "Piece " + "-".join(_TITLE_WORDS[int(d)] for d in str(k)),
                 # The premise varies as well, because a near-identical sentence contributes
                 # nothing to the novelty distance and the field then collapses into siblings
                 # whatever its other fields say. A real generator asked twelve different

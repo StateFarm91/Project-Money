@@ -172,6 +172,20 @@ def _state(db, key: str) -> dict:
     return dict((rec or {}).get("body") or {})
 
 
+ERROR_HISTORY_DAYS = 30
+ERROR_HISTORY_MAX = 200
+
+
+def _note_error(st: dict, error_class: str, *, now: datetime) -> None:
+    """WS2 R4: keep each failed attempt's time and CLASS (never its text), for 30 days, so the
+    readback can count errors by class over a window instead of seeing only the last one."""
+    keep_from = (now - timedelta(days=ERROR_HISTORY_DAYS)).isoformat()
+    history = [e for e in (st.get("error_history") or [])
+               if isinstance(e, dict) and str(e.get("at") or "") >= keep_from]
+    history.append({"at": now.isoformat(), "class": str(error_class)[:60]})
+    st["error_history"] = history[-ERROR_HISTORY_MAX:]
+
+
 def _save_state(db, key: str, body: dict, *, now: datetime) -> None:
     from ..autonomy import memory
 
@@ -207,7 +221,8 @@ class _OnceReader:
 
 
 def scan_member(db, member: Member, reader, *, now: datetime | None = None,
-                enqueue=None, force: bool = False) -> dict:
+                enqueue=None, force: bool = False,
+                env: dict[str, str] | None = None) -> dict:
     """One shop: due check, public shop counters, catalogue scan, mission, weekly reviews."""
     from . import mission, mission_runtime, observe
     from .etsy_public import ReadFailed
@@ -221,7 +236,8 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
         fails = int(st.get("consecutive_failures") or 0)
         last = st.get("last_attempt_at")
         if fails and last and st.get("state") in ("source_outage", "credential_refused",
-                                                   NOT_ACCESSIBLE):
+                                                   NOT_ACCESSIBLE) \
+                and not _credential_fixed_since(db, st, last):
             wait = backoff_for(fails)
             if now - datetime.fromisoformat(last) < wait:
                 return {"key": member.key, "ran": False, "deferred": True,
@@ -232,8 +248,11 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
     try:
         shop = reader.resolve_shop(member.shop_name)
         facts = {f: shop.get(f) for f in SHOP_FIELDS}
+        # WS2 R6: the real environment (None = the process's), so an official API read is
+        # graded as the observation it is. `env={}` hid the credential and graded every
+        # watchlist observation `supporting`.
         result = observe.scan(db, reader, benchmark_key=member.key,
-                              shop_name=member.shop_name, env={})
+                              shop_name=member.shop_name, env=env)
         report = result.to_report()
         mission.check_report(report, shop_name=member.shop_name)
         reviews = None
@@ -250,12 +269,14 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
         if not exc.credential_refused and _not_found(exc):
             return _record_not_accessible(db, member, st, str(exc), now=now)
         kind = "credential_refused" if exc.credential_refused else "source_outage"
+        _note_error(st, kind, now=now)
         st.update(state=kind, last_error=str(exc)[:300], last_attempt_at=now.isoformat(),
                   consecutive_failures=int(st.get("consecutive_failures") or 0) + 1)
         _save_state(db, member.key, st, now=now)
         return {"key": member.key, "ran": False, "state": kind,
                 "consecutive_failures": st["consecutive_failures"]}
     except Exception as exc:  # noqa: BLE001 - one shop's fault never stops the others
+        _note_error(st, type(exc).__name__, now=now)
         st.update(state="source_outage", last_error=f"{type(exc).__name__}: {exc}"[:300],
                   last_attempt_at=now.isoformat(),
                   consecutive_failures=int(st.get("consecutive_failures") or 0) + 1)
@@ -267,7 +288,9 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
     st.update(state="ok", last_ok_at=now.isoformat(), last_attempt_at=now.isoformat(),
               consecutive_failures=0, last_error="", shop=facts, shop_history=history,
               listings_seen=report["catalogue_coverage"]["listings_seen_this_scan"],
-              changes=len(report["changes"]))
+              changes=len(report["changes"]),
+              # WS2 R3: Etsy's clock for this scan, not ours.
+              source_timestamp=report["source_timestamp"]["newest_listing_modified_at"])
     if reviews is not None:
         st.update(reviews_at=now.isoformat(), reviews=reviews)
     _save_state(db, member.key, st, now=now)
@@ -290,6 +313,30 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
                        "paid_work_withheld": withheld}
     return {"key": member.key, "ran": True, "listings_seen": st["listings_seen"],
             "changes": st["changes"], "reviews": reviews, "mission": mission_out}
+
+
+def _credential_fixed_since(db, st: dict, last: str) -> bool:
+    """ENG watchlist-cadence: a shop backed off because Etsy refused the credential is read
+    on the first run after an etsy.probe succeeds -- the refusal was the key's, not the
+    shop's, and the owner's fix is the changed input. A source outage or an inaccessible shop
+    keeps its backoff: a working key says nothing about either."""
+    if st.get("state") != "credential_refused":
+        return False
+    from .etsy_public import last_probe
+
+    probe = last_probe(db) or {}
+    if not probe.get("ok"):
+        return False
+    try:
+        at = datetime.fromisoformat(str(probe.get("at") or ""))
+        since = datetime.fromisoformat(last)
+    except ValueError:
+        return False
+    if at.tzinfo is None:
+        at = at.replace(tzinfo=timezone.utc)
+    if since.tzinfo is None:
+        since = since.replace(tzinfo=timezone.utc)
+    return at > since
 
 
 def _not_found(exc) -> bool:
@@ -318,6 +365,7 @@ def _record_not_accessible(db, member: Member, st: dict, reason: str, *,
     Do not pretend an inaccessible shop was scanned." Nothing scan-shaped is written: no
     last_ok_at, no listings_seen, no shop counters, no mission."""
     limitation = f"not accessible: {reason}"[:300]
+    _note_error(st, NOT_ACCESSIBLE, now=now)
     st.update(state=NOT_ACCESSIBLE, limitation=limitation, limitation_on=now.date().isoformat(),
               last_error=limitation, last_attempt_at=now.isoformat(),
               consecutive_failures=int(st.get("consecutive_failures") or 0) + 1,
@@ -356,12 +404,15 @@ def scan_all(db, *, enqueue=None, env=None, now: datetime | None = None,
         return {"ran": False, "reason": "Etsy refused the read credential at the last "
                                         "etsy.probe; the watchlist waits for a probe to "
                                         "succeed rather than knocking with a refused key",
+                # ENG watchlist-cadence: a gated no-op, never an unchanged poll to back off
+                "credential_refused": True, "gated_on": "etsy.probe",
                 "shops": [], "substituted": False}
     shops = []
     for m in members:
         # N-1: one shop's unexpected fault never stops the others or fails the job.
         try:
-            shops.append(scan_member(db, m, reader, now=now, enqueue=enqueue, force=force))
+            shops.append(scan_member(db, m, reader, now=now, enqueue=enqueue, force=force,
+                                     env=env))
         except Exception as exc:  # noqa: BLE001
             st = _state(db, m.key)
             st.update(state="source_outage", last_attempt_at=now.isoformat(),
@@ -400,7 +451,8 @@ def compare(db, *, now: datetime | None = None) -> dict:
     for g in snap["groups"]:
         by_alias.setdefault(g["benchmark"], []).append(g)
     shops = []
-    arenas: dict[str, list[str]] = {}
+    arenas: dict[str, list[dict]] = {}
+    support = _arena_support(db)
     for m in WATCHLIST:
         alias = benchmark_alias(m.key)
         st = _state(db, m.key)
@@ -411,17 +463,23 @@ def compare(db, *, now: datetime | None = None) -> dict:
         media = [g["median_media"] for g in groups
                  if isinstance(g["median_media"], (int, float))]
         mix = {g["pod"]: g["listings"] for g in groups}
-        for pod, n in mix.items():
-            if n >= MIN_LISTINGS_FOR_ARENA:
-                arenas.setdefault(pod, []).append(alias)
         shop = st.get("shop") or {}
         as_of = st.get("last_ok_at") or (snap["at"] if listings else None)
         src = "etsy open api v3 (stored benchmark_listings)"
         state = st.get("state") or ("rows_present" if listings else "never")
+        mine = {pod: v for (bk, pod), v in support.items() if bk == m.key}
+        observed_at, observed_fresh = _observation(m, st, mine, now)
+        for pod, v in mine.items():
+            arenas.setdefault(pod, []).append(
+                {"alias": alias, "fresh": observed_fresh, "observed_at": observed_at,
+                 "live": sorted(v["live"], key=_ref_order), "withdrawn": v["withdrawn"]})
         # Review L-1: a figure carried over from an earlier read while this shop's latest
         # read failed is STALE, not MEASURED. (L-3: the anchor has no watchlist read state;
-        # stored rows are labelled rows_present, never "ok".)
-        fresh = state in ("ok", "rows_present")
+        # stored rows are labelled rows_present, never "ok".) Review H2 (eng/r5-research-2):
+        # an "ok" read older than STALE_AFTER is STALE too.
+        # Review LOW (eng/r5-research-3): the anchor too is graded by the age of its last
+        # good read (its newest `last_seen`), not MEASURED whatever that age.
+        fresh = state in ("ok", "rows_present") and observed_fresh
 
         def G(value, source, at, basis="MEASURED"):
             return _grade(value, source, at, basis if fresh else "STALE")
@@ -457,13 +515,106 @@ def compare(db, *, now: datetime | None = None) -> dict:
                                               "assumed AI-operated"},
         })
     ours = _our_pods(db)
-    validated = sorted((pod, sorted(a)) for pod, a in arenas.items()
-                       if len(a) >= MIN_SHOPS_FOR_ARENA and pod not in ours)
+    validated, unknown = _judge_arenas(arenas, ours)
     return {"at": now.isoformat(), "shops": shops, "scope": {k: v[0] for k, v in SCOPE.items()},
-            "validated_arenas": [{"pod": p, "corroborated_by": a} for p, a in validated],
+            "validated_arenas": validated, "unknown_arenas": unknown,
             "copies_competitor_content": False,
             "uncertainty": ("figures are what the official API exposed at as_of; a shop whose "
                             "observation is not ok has UNKNOWN figures, never zeros")}
+
+
+# Review H2 (eng/r5-research-2): an arena is corroborated only by what a shop has listed
+# now, as seen by a fresh official-API read -- never by rows of a shop unobserved for days,
+# nor by listings the shop has withdrawn. Each corroborating shop carries its observation time
+# and the listing ids it rests on, so every fact built on the comparison is traceable.
+MAX_LISTING_IDS = 50
+
+
+def _ref_order(ref: str):
+    return (0, int(ref)) if str(ref).isdigit() else (1, str(ref))
+
+
+def _arena_support(db) -> dict[tuple[str, str], dict]:
+    """(benchmark_key, pod label) -> live listing refs, withdrawn count, newest last_seen."""
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing
+    from ..runtime.intel_ops import _aware, _label
+    from .pods import POD_KEYS
+
+    out: dict[tuple[str, str], dict] = {}
+    with db.session() as s:
+        for r in s.execute(select(BenchmarkListing.benchmark_key, BenchmarkListing.pod,
+                                  BenchmarkListing.listing_ref, BenchmarkListing.audit_state,
+                                  BenchmarkListing.last_seen)).all():
+            pod = _label(r.pod or "unclassified", frozenset(POD_KEYS))
+            e = out.setdefault((r.benchmark_key, pod),
+                               {"live": [], "withdrawn": 0, "last_seen": None})
+            if r.audit_state == "withdrawn":
+                e["withdrawn"] += 1
+                continue
+            e["live"].append(str(r.listing_ref))
+            seen = _aware(r.last_seen)
+            if seen is not None and (e["last_seen"] is None or seen > e["last_seen"]):
+                e["last_seen"] = seen
+    return out
+
+
+def _observation(m: Member, st: dict, mine: dict, now: datetime) -> tuple[str | None, bool]:
+    """When this shop was last observed by a successful read, and whether that is fresh
+    (within STALE_AFTER). A watchlist shop: its last successful scan, and only while its
+    state is ok. The anchor (scanned by `mjs.scan`, no watchlist state): the newest
+    `last_seen` of its live rows."""
+    if m.role == ANCHOR and not st.get("state"):
+        seen = [v["last_seen"] for v in mine.values() if v["last_seen"] is not None]
+        at = max(seen) if seen else None
+        ok = at is not None
+    else:
+        raw = st.get("last_ok_at")
+        at = datetime.fromisoformat(raw) if raw else None
+        if at is not None and at.tzinfo is None:
+            at = at.replace(tzinfo=timezone.utc)
+        ok = at is not None and st.get("state") == "ok"
+    if at is None:
+        return None, False
+    return at.isoformat(), bool(ok and now - at <= STALE_AFTER)
+
+
+def _judge_arenas(arenas: dict[str, list[dict]], ours: set[str]) -> tuple[list, list]:
+    """Validated arenas (fresh shops, live listings) and UNKNOWN ones (the rows that would
+    have corroborated are mostly stale or withdrawn, or too few fresh shops remain)."""
+    validated, unknown = [], []
+    for pod in sorted(arenas):
+        if pod in ours:
+            continue
+        entries = arenas[pod]
+        live_ok = [e for e in entries
+                   if e["fresh"] and len(e["live"]) >= MIN_LISTINGS_FOR_ARENA]
+        stored = [e for e in entries
+                  if len(e["live"]) + e["withdrawn"] >= MIN_LISTINGS_FOR_ARENA]
+        if len(live_ok) < MIN_SHOPS_FOR_ARENA and len(stored) < MIN_SHOPS_FOR_ARENA:
+            continue
+        total = sum(len(e["live"]) + e["withdrawn"] for e in entries)
+        bad = sum(e["withdrawn"] + (0 if e["fresh"] else len(e["live"])) for e in entries)
+        why = None
+        if total and bad * 2 > total:
+            why = (f"{bad} of the {total} stored listing rows in this arena are withdrawn or "
+                   f"belong to a shop with no fresh observation: UNKNOWN, not corroborated")
+        elif len(live_ok) < MIN_SHOPS_FOR_ARENA:
+            why = (f"only {len(live_ok)} shop(s) have a fresh observation with at least "
+                   f"{MIN_LISTINGS_FOR_ARENA} live listings here: UNKNOWN, not corroborated")
+        if why:
+            unknown.append({"pod": pod, "value": "UNKNOWN", "why": why,
+                            "stored_rows": total, "stale_or_withdrawn_rows": bad})
+            continue
+        live_ok.sort(key=lambda e: e["alias"])
+        validated.append({
+            "pod": pod, "corroborated_by": [e["alias"] for e in live_ok],
+            "observations": [{"alias": e["alias"], "observed_at": e["observed_at"],
+                              "live_listings": len(e["live"]),
+                              "listing_ids": e["live"][:MAX_LISTING_IDS]}
+                             for e in live_ok]})
+    return validated, unknown
 
 
 def _our_pods(db) -> set[str]:
@@ -486,21 +637,113 @@ def record_comparison(db, *, now: datetime | None = None) -> dict:
     rep = compare(db, now=now)
     _assert_no_content(rep)
     store_reading(db, COMPARE_READING, rep, now=now)
-    opened = []
+    opened, answered = [], []
     for a in rep["validated_arenas"]:
         gid = coverage.upsert(db, benchmark_key=WATCHLIST_KEY, arena=f"watchlist:{a['pod']}",
                               pod=a["pod"], evidence=None)
         _merge_gap_evidence(db, gid, {"corroborated_by": a["corroborated_by"],
                                       "validated_at": now.isoformat(),
                                       "source": COMPARE_READING})
+        decided, approved_tasks = _decided_by_proposal(db, gid)
+        if approved_tasks:
+            # Review H3 (eng/r5-research-3): an approved concept stands only while its
+            # research does, and a market_radar answer is fresh for one day. While today's
+            # fresh, durable observations still corroborate the arena, the supporting answer
+            # is renewed from them before it expires; the concept is never kept on old ones.
+            answered += renew_approved_support(db, now=now, gaps=[(gid, a["pod"])])
+            opened.append(gid)
+            continue
+        if decided:
+            # Review LOW (eng/r5-research-2): the question served its decision -- a proposal
+            # for this gap is with concept intake. No new task is opened and answered for it.
+            answered.append({"answered": False, "gap": gid, "why": decided})
+            opened.append(gid)
+            continue
         task = _research_question(db, gid, a["pod"], now=now)
         if task is not None:
             _merge_gap_evidence(db, gid, {"research_task_id": task})
+            answered.append(_answer_research(db, gid, task, a["pod"], now=now))
         opened.append(gid)
-    return {"report": rep, "gaps": opened}
+    return {"report": rep, "gaps": opened, "research": answered}
 
 
-def _research_question(db, gap_id: int, pod: str, *, now: datetime) -> int | None:
+def renew_approved_support(db, *, now: datetime | None = None, gaps=None,
+                           expiring_within=None) -> list[dict]:
+    """Review H3 (eng/r5-research-3): renew the research behind every APPROVED watchlist
+    concept (`watchlist_research.renew_support`). `gaps` = [(gap id, pod)]; default every
+    watchlist gap. With `expiring_within`, only supports that expire within it."""
+    from sqlalchemy import select
+
+    from ..core.models import CoverageGap
+    from . import watchlist_research
+
+    now = _now(now)
+    if gaps is None:
+        with db.session() as s:
+            gaps = [(g.id, g.pod) for g in s.scalars(select(CoverageGap).where(
+                CoverageGap.benchmark_key == WATCHLIST_KEY).order_by(CoverageGap.id))]
+    out = []
+    for gid, pod in gaps:
+        for ctask in _decided_by_proposal(db, gid)[1]:
+            def renew(gid=gid, pod=pod, ctask=ctask):
+                return watchlist_research.renew_support(
+                    db, gap_id=gid, concept_task_id=ctask, pod=pod, now=now,
+                    expiring_within=expiring_within, audit=_audit_fn(db),
+                    open_task=lambda trigger, note: _research_question(
+                        db, gid, pod, now=now, trigger=trigger,
+                        reopen_because={"reason": "new_evidence", "note": note}))
+            out.append({"gap": gid, **_guarded(db, gid, ctask, pod, renew)})
+    return out
+
+
+def _decided_by_proposal(db, gap_id: int) -> tuple[str | None, list[int]]:
+    """(why research waits, the tasks of APPROVED proposals). A proposal awaiting intake
+    makes research wait. An approved one has its support renewed (review H3). A refused,
+    withdrawn or superseded one does not block research: fresh evidence may re-propose."""
+    from ..radar import intake, proposal_writer
+
+    why, approved = None, []
+    for p in proposal_writer.prior_proposals(db, gap_id):
+        if p["state"] == intake.APPROVED:
+            approved.append(int(p["task"]))
+        elif p["state"] in (None, intake.PROPOSED) and why is None:
+            why = (f"research not re-opened: proposal {p['slug']} (task {p['task']}) is "
+                   f"awaiting concept intake")
+    return why, approved
+
+
+def _audit_fn(db):
+    from ..core.models import AuditLog
+
+    def audit(action, artifact=None, detail=None):
+        with db.session() as s:
+            s.add(AuditLog(actor="intel", action=action, artifact=artifact,
+                           detail=detail or {}))
+    return audit
+
+
+def _guarded(db, gap_id: int, task_id: int, pod: str, fn) -> dict:
+    """Research never blocks the comparison; a failure is recorded, not raised."""
+    try:
+        return fn()
+    except Exception as exc:  # noqa: BLE001 - research never blocks the comparison
+        why = f"{type(exc).__name__}: {str(exc)[:300]}"
+        _audit_fn(db)("research.answer_failed", artifact=f"research_task:{task_id}",
+                      detail={"gap": gap_id, "pod": pod, "why": why})
+        return {"answered": False, "task": task_id, "why": why}
+
+
+def _answer_research(db, gap_id: int, task_id: int, pod: str, *, now: datetime) -> dict:
+    """Research M2: answer the gap's open question from the recorded comparisons. Never blocks
+    the comparison; a failure is recorded, not raised."""
+    from . import watchlist_research
+
+    return _guarded(db, gap_id, task_id, pod, lambda: watchlist_research.answer(
+        db, gap_id=gap_id, task_id=task_id, pod=pod, now=now, audit=_audit_fn(db)))
+
+
+def _research_question(db, gap_id: int, pod: str, *, now: datetime, trigger: str | None = None,
+                       reopen_because: dict | None = None) -> int | None:
     """G6 (F-401/F-429): every validated arena is also a question for the Research Agent --
     durable demand or a passing trend? Opened once per gap (research dedupes on the
     trigger), answered from internal evidence first by `research.sweep`/`investigate`."""
@@ -510,7 +753,7 @@ def _research_question(db, gap_id: int, pod: str, *, now: datetime) -> int | Non
         got = research.open_question(
             db, question=(f"Is buyer demand in the {pod} arena durable across the owner's "
                           f"watchlist shops, or a passing trend?"),
-            trigger=f"watchlist_gap:{gap_id}",
+            trigger=trigger or f"watchlist_gap:{gap_id}", reopen_because=reopen_because,
             decision_ref=f"intel.opportunity_review:gap:{gap_id}", domain="market_radar",
             query_terms=[pod],
             evidence_needed=("new-listing cadence and favourites in this arena across "

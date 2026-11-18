@@ -44,7 +44,7 @@ MARKERS: tuple[str, ...] = (
 # account to top up, and "a provider" is not an actionable sentence.
 PROVIDERS: tuple[tuple[str, str], ...] = (
     ("anthropic", "Anthropic (judging, vision, all text calls)"),
-    ("openai", "OpenAI (image generation)"),
+    ("openai", "OpenAI (image generation; gateway text and vision)"),
     ("bfl", "Black Forest Labs (image generation)"),
     ("x-key", "Black Forest Labs (image generation)"),
 )
@@ -177,3 +177,81 @@ def cleared(db) -> dict:
         s.flush()
     return {"cleared": True, "requirement_key": REQUIREMENT_KEY,
             "by": "a real model call succeeded, so the balance is no longer the blocker"}
+
+
+# ---- S2: a per-provider HOLD for gateway providers other than Anthropic ----------------------
+#
+# The shared action above is one row for every provider: while Anthropic's is open, an OpenAI
+# balance running out is "already open" and unrecorded, and clearing one clears the other. A
+# gateway provider that is not Anthropic therefore holds on its own row, keyed
+# `model_provider_balance:<provider>`. The shared row and its readers are unchanged.
+
+def provider_key(provider: str) -> str:
+    return f"{REQUIREMENT_KEY}:{provider}"
+
+
+def note_provider(db, provider: str, text: str) -> dict:
+    """Open `provider`'s HOLD, once, when `text` is a spent-balance refusal."""
+    if db is None or not detect(text):
+        return {"raised": False}
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    key = provider_key(provider)
+    label = next((nm for n, nm in PROVIDERS if n == provider), provider)
+    with db.session() as s:
+        if s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == key,
+                                              OwnerAction.done == False)) is not None:  # noqa: E712
+            return {"raised": False, "reason": "already open", "provider": provider}
+        s.add(OwnerAction(
+            requirement_key=key,
+            action=(f"Add credit to the {label} account ({provider}). OpenAI: "
+                    f"platform.openai.com -> Billing."),
+            reason=(f"{label} refused a call because the account has no usable credit. Calls "
+                    f"to it are on HOLD until credit is added. This is not the monthly ceiling, "
+                    f"which this system enforces on itself and is not breached."),
+            # S2 review 6957356475 (LOW): how much credit to add is the owner's choice; no
+            # figure here is a real ceiling, so it is UNKNOWN (rendered as such), not CA$25.
+            max_cost_cad=0.0, max_cost_basis="UNKNOWN", minutes=5,
+            consequence_of_delay=(f"Every task routed to {provider} is held; other providers "
+                                  f"are unaffected."),
+            blocks=f"model calls routed to {provider}"))
+    return {"raised": True, "provider": provider, "requirement_key": key}
+
+
+def blocked_provider(db, provider: str) -> dict:
+    """Whether `provider` is on HOLD (its own balance action is open)."""
+    if db is None:
+        return {"blocked": False}
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    with db.session() as s:
+        row = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == provider_key(provider),
+            OwnerAction.done == False))  # noqa: E712
+        if row is None:
+            return {"blocked": False}
+        return {"blocked": True, "provider": provider, "action": row.action}
+
+
+def cleared_provider(db, provider: str) -> dict:
+    """Close `provider`'s HOLD when one of its calls succeeds again."""
+    if db is None:
+        return {"cleared": False}
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    with db.session() as s:
+        row = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == provider_key(provider),
+            OwnerAction.done == False))  # noqa: E712
+        if row is None:
+            return {"cleared": False, "reason": "nothing was open"}
+        from . import owner_queue
+        owner_queue.close(row, owner_queue.SATISFIED, f"a {provider} call succeeded")
+        s.flush()
+    return {"cleared": True, "requirement_key": provider_key(provider)}

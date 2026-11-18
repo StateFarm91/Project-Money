@@ -355,11 +355,13 @@ def test_every_production_model_gateway_is_constructed_with_a_registry():
 # --- empty tables are no cap; entries bind ----------------------------------------------------
 
 def test_empty_provider_and_department_tables_report_no_cap():
-    assert spend_policy.PROVIDER_CEILINGS_CAD == {}
+    # S2 fix (review 6957356475): OpenAI starts with its own tighter-only cap; every other
+    # provider still has no entry, and no entry is no cap -- not a cap of zero.
+    default = round(spend_policy.CEILING_CAD * spend_policy.OPENAI_DEFAULT_CEILING_SHARE, 2)
+    assert spend_policy.PROVIDER_CEILINGS_CAD == {"openai": default}
     assert spend_policy.DEPARTMENT_ALLOCATION == {}
     st = spend_policy.state()
-    assert st["provider_ceilings"].startswith("0 provider ceiling(s) set")
-    assert "no cap, not a cap of zero" in st["provider_ceilings"]
+    assert st["provider_ceilings"].startswith("1 provider ceiling(s) set"), st
     assert "no cap, not a cap of zero" in st["department_caps"]
     db = _db()
     out = spend_policy.may_spend(db, "unallocated_purpose", department="intel")
@@ -368,7 +370,8 @@ def test_empty_provider_and_department_tables_report_no_cap():
     chk = gw.check_budget_cad(db, estimate_cad=0.01, provider="anthropic", reserve=False)
     assert chk["provider_ceiling_cad"] is None
     gov = spend_report.governance(db)
-    assert gov["provider_ceilings_cad"] == {} and gov["department_allocations"] == {}
+    assert gov["provider_ceilings_cad"] == {"openai": default}
+    assert gov["department_allocations"] == {}
 
 
 def test_an_entry_in_either_table_is_enforced():
@@ -387,7 +390,7 @@ def test_an_entry_in_either_table_is_enforced():
         out = spend_policy.may_spend(db, "anything", department="intel")
         assert out["may_spend"] is False and out["department_capped"] is True, out
         st = spend_policy.state()
-        assert st["provider_ceilings"].startswith("1 provider ceiling(s) set")
+        assert st["provider_ceilings"].startswith("2 provider ceiling(s) set"), st
     finally:
         spend_policy.PROVIDER_CEILINGS_CAD.clear()
         spend_policy.PROVIDER_CEILINGS_CAD.update(saved_p)

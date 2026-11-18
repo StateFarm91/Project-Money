@@ -164,7 +164,9 @@ def inbox(db, cell: str, *, unacted_only: bool = True,
             continue
         out.append({"id": row.id, "subject": row.subject, "statement": row.statement,
                     "from": row.origin_cell, "confidence": row.confidence,
-                    "evidence_ref": row.evidence_ref})
+                    "evidence_ref": row.evidence_ref,
+                    # WS5 E5: a lesson's age, so its weight can decay over cycles.
+                    "at": row.at.isoformat() if row.at is not None else None})
     return out
 
 

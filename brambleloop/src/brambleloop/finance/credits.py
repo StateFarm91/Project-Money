@@ -197,6 +197,125 @@ def wallet(db, *, now: datetime | None = None) -> dict:
     }
 
 
+def split(db, provider: str, *, now: datetime | None = None) -> dict:
+    """S2: one provider's ledger split into promotional credit and billable cash, in CAD.
+
+    The same draw order `wallet` assumes (credits first, in grant order, each against usage
+    after its grant date and before its expiry), applied call by call so every ledger row says
+    which it is estimated to have been paid from. ESTIMATED until a provider statement says
+    otherwise; it changes no ceiling -- the monthly cash ceiling still counts every call.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import CostEntry
+
+    ensure_table(db)
+    now = now or datetime.now(timezone.utc)
+    with db.session() as s:
+        grants = [{"id": c.id, "left": _to_cad(c.amount, c.currency),
+                   "from": c.granted_on, "until": c.expires_on or None}
+                  for c in s.scalars(select(ProviderCredit).where(
+                      ProviderCredit.provider == provider).order_by(
+                      ProviderCredit.granted_on, ProviderCredit.id))]
+        rows = [(e.id, (e.at if e.at.tzinfo else e.at.replace(tzinfo=timezone.utc)),
+                 float(e.amount_cad or 0.0))
+                for e in s.scalars(select(CostEntry).where(
+                    CostEntry.provider == provider).order_by(CostEntry.at, CostEntry.id))]
+    calls, promo, cash = [], 0.0, 0.0
+    for row_id, at, cad in rows:
+        day, need, from_credit = at.date().isoformat(), cad, 0.0
+        for g in grants:
+            if need <= 0:
+                break
+            if g["left"] <= 0 or day < g["from"] or (g["until"] and day > g["until"]):
+                continue
+            take = min(g["left"], need)
+            g["left"] -= take
+            need -= take
+            from_credit += take
+        promo += from_credit
+        cash += need
+        calls.append({"cost_entry": row_id, "cad": round(cad, 6),
+                      "promo_credit_cad": round(from_credit, 6),
+                      "billable_cash_cad": round(need, 6),
+                      "source": ("promo_credit" if need <= 1e-12 and cad > 0 else
+                                 "billable_cash" if from_credit <= 1e-12 else "mixed")})
+    from ..gateway.routing import USD_PER_CAD
+
+    today = now.date().isoformat()
+    for c in calls:
+        c["usd"] = round(c["cad"] * USD_PER_CAD, 6)
+    # S2 review 6957356475 (MEDIUM): what is held and what is uncertain is part of the ledger.
+    # Live reservations for this provider are money committed but not yet billed; a paid call
+    # whose outcome is UNCERTAIN may have billed and is counted at its estimate, never at 0.
+    held = _held_and_uncertain(db, provider, now)
+    gross_cad = round(promo + cash, 6)
+    return {"provider": provider, "currency": "CAD", "calls": calls,
+            "ledger_cad": gross_cad, "promo_credit_cad": round(promo, 6),
+            "billable_cash_cad": round(cash, 6),
+            "gross_usd": round(gross_cad * USD_PER_CAD, 6),
+            "usd_basis": (f"DERIVED: recorded CAD x the single assumed rate {USD_PER_CAD:.4f} "
+                          f"USD/CAD (core.fx); the provider bills in USD"),
+            **held,
+            "exposure_cad": round(cash + held["reserved_cad"] + held["uncertain_cad"], 6),
+            "grants": [{"id": g["id"], "granted_on": g["from"], "expires_on": g["until"],
+                        "expiry_basis": "stated" if g["until"] else "UNKNOWN",
+                        "expired": bool(g["until"] and g["until"] < today),
+                        "estimated_left_cad": (0.0 if g["until"] and g["until"] < today
+                                               else round(max(g["left"], 0.0), 6))}
+                       for g in grants],
+            "credit_left_cad": round(sum(max(g["left"], 0.0) for g in grants
+                                         if not (g["until"] and g["until"] < today)), 6),
+            "basis": "ESTIMATED", "draw_assumption": DRAW_ASSUMPTION, "ceilings_changed": 0}
+
+
+def _held_and_uncertain(db, provider: str, now: datetime) -> dict:
+    """Live (unreleased, unexpired) reservations held for `provider`, and its paid calls whose
+    billing is UNCERTAIN, at their estimates. A table not yet created reads as nothing held."""
+    from sqlalchemy import inspect as sa_inspect, select
+
+    from ..core.models import SpendReservation
+    from ..gateway.paid_calls import UNCERTAIN, PaidCallRecord
+
+    reserved = uncertain = 0.0
+    n_res = n_unc = 0
+    with db.session() as s:
+        tables = set(sa_inspect(s.get_bind()).get_table_names())
+        if SpendReservation.__tablename__ in tables:
+            for r in s.scalars(select(SpendReservation).where(
+                    SpendReservation.released_at.is_(None))):
+                exp = r.expires_at if (r.expires_at is None or r.expires_at.tzinfo) else \
+                    r.expires_at.replace(tzinfo=timezone.utc)
+                if (r.detail or {}).get("provider") == provider and exp and exp > now:
+                    reserved += float(r.amount_cad or 0.0)
+                    n_res += 1
+        if PaidCallRecord.__tablename__ in tables:
+            for r in s.scalars(select(PaidCallRecord).where(
+                    PaidCallRecord.outcome == UNCERTAIN,
+                    PaidCallRecord.provider.in_((provider, f"{provider}-vision")))):
+                uncertain += float(r.estimate_cad or 0.0)
+                n_unc += 1
+    return {"reserved_cad": round(reserved, 6), "reservations": n_res,
+            "uncertain_cad": round(uncertain, 6), "uncertain_calls": n_unc,
+            "uncertain_basis": "UNCERTAIN paid calls counted at their estimate until a provider "
+                               "statement settles them; never as 0"}
+
+
+def model_providers(db, *, now: datetime | None = None) -> dict:
+    """The Command Center budget view of every model provider's ledger (S2 / S4 board)."""
+    from ..gateway.routing import ROUTABLE_PROVIDERS
+
+    names = sorted(set(ROUTABLE_PROVIDERS) | {"openai"})
+    out = {}
+    for name in names:
+        got = split(db, name, now=now)
+        out[name] = {k: v for k, v in got.items() if k != "calls"}
+        out[name]["balance"] = "UNKNOWN"
+    return {"providers": out,
+            "why_balance_unknown": "no supported API reports an API key's remaining credit; "
+                                   "the ledger is what was recorded, never a balance"}
+
+
 # ---------------------------------------------------------------------------------------------
 # F-688: Etsy Plus Ads credit, cycle by cycle, separate from owner cash.
 # ---------------------------------------------------------------------------------------------

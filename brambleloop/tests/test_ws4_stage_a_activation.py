@@ -56,11 +56,14 @@ def _draft(db, *, listing_id=LISTING, state="draft"):
                   .values(etsy_listing_id=listing_id, state=state))
 
 
-def _publish_grant(db, aid, *, job_id, action="store.publish", consumed=True):
+def _publish_grant(db, aid, *, job_id, action="store.publish", consumed=True, detail=None):
     SG.ensure_tables(db)
     with db.session() as s:
+        # The grant store is write-once (WS4-7 M-3 trigger): the row is created as it will be
+        # read, never updated afterwards.
         g = SG.StandingGrant(policy_row_id=aid, policy_version=1, scope=f"{SLUG}@{VERSION}",
-                             release=REL, digest="d" * 64, detail_json={"action": action},
+                             release=REL, digest="d" * 64,
+                             detail_json=detail if detail is not None else {"action": action},
                              seal="00", issued_at=NOW, expires_at=NOW + timedelta(minutes=15),
                              consumed_at=NOW if consumed else None,
                              consumed_job_id=job_id if consumed else None)
@@ -362,9 +365,8 @@ def test_an_issued_activation_grant_is_single_use_job_and_listing_bound():
 def test_a_publish_grant_is_never_consumed_or_used_as_an_activation():
     try:
         db, aid = _activation_policy_db()
-        gid = _publish_grant(db, aid, job_id=0, consumed=False)
-        with db.session() as s:
-            s.get(SG.StandingGrant, gid).detail_json = {"action": "store.publish", "job_id": 5}
+        gid = _publish_grant(db, aid, job_id=0, consumed=False,
+                             detail={"action": "store.publish", "job_id": 5})
         _refused(lambda: SG.consume(db, gid, job_id=5, action="store.activate", now=NOW),
                  SG.GrantRefused, "not store.activate")
         with _On():

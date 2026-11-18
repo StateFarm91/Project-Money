@@ -339,9 +339,14 @@ def test_a_full_run_walks_every_step_and_leaves_the_shop_clean():
         assert fake.listings == {}, "the fake shop still holds a listing"
 
     steps = [s["step"] for s in report["exercise"]["steps"]]
-    assert steps == ["sweep", "identity", "create_draft", "upload_image", "update_listing",
-                     "refusals_hold", "read_back", "verify_contract", "cleanup",
-                     "verify_cleanup"], steps
+    # WS5 E2: the digital file is uploaded and read back (no chosen node is recorded in this
+    # fixture, so the property and chosen-node steps are skipped, and say so).
+    assert steps == ["sweep", "identity", "create_draft", "upload_image", "upload_file",
+                     "update_listing", "refusals_hold", "read_back", "verify_contract",
+                     "cleanup", "verify_cleanup"], steps
+    file_step = next(s for s in report["exercise"]["steps"] if s["step"] == "upload_file")
+    assert file_step["ok"] is True and file_step["observed"]["held"] is True, file_step
+    assert report["chosen_node"]["status"] == "UNKNOWN", report["chosen_node"]
     assert report["exercise"]["verified"] is True
     assert report["exercise"]["cleaned_up"] is True
     assert report["exercise"]["cleanup_verified"] is True
@@ -824,6 +829,225 @@ def test_the_module_never_writes_a_secret_to_the_repository_or_reads_one_from_it
         assert forbidden not in source, (
             f"{forbidden!r} appears in etsy_exercise.py: this module must not touch the "
             f"filesystem, because the only thing it holds is a credential")
+
+
+# ---- WS5 E2: the digital file, the chosen node and its craft property, each read back ------
+
+_E2_NODE, _E2_PROP, _E2_VALUE = 1234, 9001, 77
+
+
+@contextlib.contextmanager
+def _chosen_node_recorded(status: str = "CHOSEN"):
+    """A recorded taxonomy refresh whose 'pattern' choice is node 1234, whose stored schema
+    offers 'Crochet' (property 9001, value 77). Removed afterwards (the module DB is shared)."""
+    from brambleloop.core.models import EtsyTaxonomySnapshot
+    from brambleloop.integrations.etsy_taxonomy import REFRESHED_ACTION
+
+    with DB.session() as s:
+        snap = EtsyTaxonomySnapshot(sha256="e2" * 32, node_count=1, nodes=[], properties={
+            str(_E2_NODE): [{"property_id": _E2_PROP, "name": "Craft type",
+                             "possible_values": [{"value_id": _E2_VALUE, "name": "Crochet"},
+                                                 {"value_id": 78, "name": "Knitting"}]}]})
+        s.add(snap)
+        s.flush()
+        row = AuditLog(actor="market_radar", action=REFRESHED_ACTION, artifact="taxonomy",
+                       detail={"snapshot_id": snap.id, "category_choices": {
+                           "pattern": {"status": status, "taxonomy_id": _E2_NODE}}})
+        s.add(row)
+        s.flush()
+        ids = (snap.id, row.id)
+    try:
+        yield
+    finally:
+        with DB.session() as s:
+            s.execute(delete(AuditLog).where(AuditLog.id == ids[1]))
+            s.execute(delete(EtsyTaxonomySnapshot).where(EtsyTaxonomySnapshot.id == ids[0]))
+
+
+def _outcomes(report):
+    return {f["outcome"] for f in report["exercise"]["findings"]}
+
+
+def test_ws5_e2_the_run_proves_the_file_the_chosen_node_and_its_property():
+    reset()
+    with _chosen_node_recorded(), FakeEtsy() as fake:
+        report = run_full(fake)
+        assert fake.listings == {}, "the fake shop still holds a listing"
+    assert report["chosen_node"] == {"status": "CHOSEN", "category": "pattern",
+                                     "taxonomy_id": _E2_NODE,
+                                     "property": {"property_id": _E2_PROP,
+                                                  "value_ids": [_E2_VALUE],
+                                                  "values": ["Crochet"]},
+                                     "why": ""}, report["chosen_node"]
+    steps = {s["step"]: s for s in report["exercise"]["steps"]}
+    for name in ("upload_file", "set_property", "chosen_taxonomy"):
+        assert steps[name]["ok"] is True, (name, steps[name])
+    assert report["exercise"]["taxonomy_id_sent"] == _E2_NODE
+    assert {"file_held", "property_held", "chosen_node_held"} <= _outcomes(report), (
+        _outcomes(report))
+    # Against the fake nothing is promoted to VERIFIED_AGAINST_ETSY (one fake run is not Etsy).
+    claims = {c["claim"]: c for c in report["exercise"]["claims"]}
+    for claim in ("multipart_file_upload", "listing_property_write", "chosen_taxonomy_create"):
+        assert claims[claim]["state_after"] == claims[claim]["state_before"], claims[claim]
+        assert claims[claim]["blocks_launch"] is True
+    assert report["shop_is_clean"] is True
+
+
+def test_ws5_e2_a_property_etsy_does_not_keep_is_found_not_assumed():
+    reset()
+    with _chosen_node_recorded(), FakeEtsy() as fake:
+        fake.ignore_property_writes = True
+        report = run_full(fake)
+    step = next(s for s in report["exercise"]["steps"] if s["step"] == "set_property")
+    assert step["ok"] is False and step["observed"]["value_ids_on_etsy"] == [], step
+    assert "property_not_held" in _outcomes(report), _outcomes(report)
+
+
+def test_ws5_e2_a_remapped_node_is_found_not_assumed():
+    reset()
+    with _chosen_node_recorded(), FakeEtsy(remap_taxonomy_to=66) as fake:
+        report = run_full(fake)
+    step = next(s for s in report["exercise"]["steps"] if s["step"] == "chosen_taxonomy")
+    assert step["ok"] is False and step["observed"] == {"chosen": _E2_NODE, "on_etsy": 66}, step
+    assert "chosen_node_remapped" in _outcomes(report), _outcomes(report)
+
+
+def test_ws5_e2_the_three_claims_block_launch_until_verified_against_etsy():
+    from brambleloop.publish import listing_schema
+
+    rows = {r["claim"]: r for r in listing_schema.verification_matrix()}
+    for claim in ("multipart_file_upload", "listing_property_write", "chosen_taxonomy_create"):
+        assert rows[claim]["blocks_launch"] is True, rows[claim]
+        assert rows[claim]["state"] != listing_schema.VERIFIED_AGAINST_ETSY, rows[claim]
+    pdf = etsy_probe.transport_test_pdf("marker-x")
+    assert pdf.startswith(b"%PDF-") and pdf.rstrip().endswith(b"%%EOF")
+    assert b"Not a product" in pdf and b"marker-x" in pdf
+
+
+def test_ws5_e2_a_file_etsy_accepts_but_does_not_hold_is_found_not_assumed():
+    from unittest.mock import patch
+
+    reset()
+    with FakeEtsy() as fake, patch.object(EtsyClient, "get_listing_files",
+                                          lambda self, listing_id: []):
+        report = run_full(fake)
+    step = next(s for s in report["exercise"]["steps"] if s["step"] == "upload_file")
+    assert step["ok"] is False and step["observed"]["accepted"] is True, step
+    assert step["observed"]["held"] is False
+    assert "file_not_held" in _outcomes(report), _outcomes(report)
+
+def _step(report, name):
+    return next(s for s in report["exercise"]["steps"] if s["step"] == name)
+
+
+def test_ws5_e2_a_property_write_without_values_is_refused_as_etsy_would():
+    """Review 6818959626 (HIGH): Etsy requires `values` with `value_ids`; the fake refuses a
+    write that omits either, as Etsy does, and the run's write carries both."""
+    from brambleloop.integrations import etsy_exercise as EX
+
+    reset()
+    with _chosen_node_recorded():
+        node = EX.chosen_test_node(DB)
+    assert node["property"]["values"] == ["Crochet"], node
+    with _chosen_node_recorded(), FakeEtsy() as fake:
+        report = run_full(fake)
+        assert _step(report, "set_property")["ok"] is True
+        listing = next(iter(fake.listings.values()), None)
+    assert listing is None and report["shop_is_clean"] is True
+    from unittest.mock import patch
+
+    real = EtsyClient.set_listing_property
+
+    def without_values(self, listing_id, prop, **kw):
+        return real(self, listing_id, {k: v for k, v in prop.items() if k != "values"}, **kw)
+
+    reset()
+    with _chosen_node_recorded(), FakeEtsy() as fake, patch.object(
+            EtsyClient, "set_listing_property", without_values):
+        report = run_full(fake)
+        assert fake.listings == {}
+    step = _step(report, "set_property")
+    assert step["ok"] is False and "400" in str(step.get("error", "")), step
+
+
+def test_ws5_e2_m2_a_different_value_held_by_etsy_is_found_not_assumed():
+    reset()
+    with _chosen_node_recorded(), FakeEtsy() as fake:
+        fake.property_value_override = [78]          # Etsy keeps "Knitting", not "Crochet"
+        report = run_full(fake)
+    step = _step(report, "set_property")
+    assert step["ok"] is False and step["observed"]["value_ids_on_etsy"] == [78], step
+    assert step["observed"]["value_ids_sent"] == [_E2_VALUE]
+    assert report["shop_is_clean"] is True
+
+
+def test_ws5_e2_m5_only_non_chosen_choices_leave_the_node_unknown():
+    from brambleloop.integrations import etsy_exercise as EX
+
+    reset()
+    for status in ("AMBIGUOUS", "UNMATCHED", "NEEDS_OWNER"):
+        with _chosen_node_recorded(status):
+            node = EX.chosen_test_node(DB)
+        assert node["status"] == "UNKNOWN" and node["property"] is None, (status, node)
+        assert node["taxonomy_id"] is None
+
+
+def test_ws5_e2_m6_a_file_is_ours_only_by_name_and_size():
+    from unittest.mock import patch
+
+    real = EtsyClient.get_listing_files
+    for label, mutate in (
+            ("other name", lambda f: {**f, "filename": "someone-else.pdf"}),
+            ("other size", lambda f: {**f, "size_bytes": int(f.get("size_bytes") or 0) + 1}),
+            ("no size", lambda f: {k: v for k, v in f.items() if k != "size_bytes"})):
+        reset()
+        with FakeEtsy() as fake, patch.object(
+                EtsyClient, "get_listing_files",
+                lambda self, lid, _m=mutate: [_m(dict(f)) for f in real(self, lid)]):
+            report = run_full(fake)
+        step = _step(report, "upload_file")
+        assert step["ok"] is False and step["observed"]["held"] is False, (label, step)
+        assert report["shop_is_clean"] is True, label
+
+
+def test_ws5_e2_cleanup_runs_whatever_steps_3_to_6_raise():
+    """Review 6818959626 (MED): the three reproduced crashes each still delete the draft."""
+    from unittest.mock import patch
+
+    def bad_attach(self, *a, **k):
+        raise RuntimeError("attach blew up")
+
+    probes = (
+        ("non-dict file row", patch.object(EtsyClient, "get_listing_files",
+                                           lambda self, lid: ["not a dict"])),
+        ("non-numeric property id", patch.object(EtsyClient, "get_listing_properties",
+                                                 lambda self, lid: [{"property_id": "x"}])),
+        ("attach RuntimeError", patch.object(EtsyClient, "attach_file", bad_attach)),
+    )
+    assert len(probes) == 3
+    for label, probe in probes:
+        reset()
+        with _chosen_node_recorded(), FakeEtsy() as fake, probe:
+            report = run_full(fake)
+            assert fake.listings == {}, (label, "the draft was left in the shop")
+        names = [s["step"] for s in report["exercise"]["steps"]]
+        assert "unexpected_error" in names and "cleanup" in names, (label, names)
+        assert _step(report, "unexpected_error")["ok"] is False
+        assert report["shop_is_clean"] is True and report["exercise"]["left_behind"] == [], \
+            label
+
+
+def test_ws5_e2_the_diagnosis_reads_the_node_that_was_sent():
+    reset()
+    with _chosen_node_recorded(), FakeEtsy() as fake:
+        report = run_full(fake)
+    diag = _step(report, "verify_contract")["observed"]["taxonomy"]
+    assert diag["taxonomy_id_sent"] == _E2_NODE, diag
+    reset()
+    with FakeEtsy() as fake:
+        report = run_full(fake)
+    diag = _step(report, "verify_contract")["observed"]["taxonomy"]
+    assert diag["taxonomy_id_sent"] == etsy_probe.TAXONOMY_PATTERNS, diag
 
 
 if __name__ == "__main__":
