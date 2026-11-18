@@ -4,8 +4,14 @@ Set A3_TEST_POSTGRES_URL to a fresh localhost database named codex_photo_test.
 """
 from __future__ import annotations
 
+import contextlib
 import os
+import sys
+from pathlib import Path
 from urllib.parse import urlparse
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import _tmp; _tmp.install()  # noqa: E702
 from sqlalchemy import select, text
@@ -20,13 +26,77 @@ from brambleloop.publish import photo_asset_review as par
 from brambleloop.quality import tester_programme as tp
 
 
+@contextlib.contextmanager
+def _disposable_cluster():
+    """Review of 3928ba00 N1 (the W6 `_disposable_cluster` pattern of
+    test_codex_v0_postgres.py): when A3_TEST_POSTGRES_URL is not supplied but a local
+    PostgreSQL toolchain is installed, make a brand-new throwaway cluster for this run only --
+    TCP on 127.0.0.1, a free port, one fresh empty `codex_photo_test` database -- and destroy
+    it afterwards. `initdb -A trust` trusts local connections while the test runs: fine in a
+    single-tenant test container, never on a shared host. A supplied A3_TEST_POSTGRES_URL is
+    always used as is. With no toolchain nothing is created and main() SKIPs (which the
+    runner counts as no passes, i.e. failing -- never a silent pass)."""
+    import glob
+    import shutil
+    import socket
+    import subprocess
+    import tempfile
+
+    if os.environ.get("A3_TEST_POSTGRES_URL"):
+        yield
+        return
+    bins = sorted(glob.glob("/usr/lib/postgresql/*/bin/initdb"))
+    if not bins:
+        yield
+        return
+    bindir = os.path.dirname(bins[-1])
+    as_pg = []
+    if os.geteuid() == 0:                       # initdb refuses root: run as `postgres`
+        import pwd
+
+        try:
+            pwd.getpwnam("postgres")
+        except KeyError:
+            yield
+            return
+        as_pg = ["runuser", "-u", "postgres", "--"]
+    base = tempfile.mkdtemp(prefix="a3-photo-pg-", dir="/tmp")  # postgres must reach it
+    os.chmod(base, 0o755)
+    if as_pg:
+        shutil.chown(base, user="postgres")
+    data = os.path.join(base, "data")
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    started = False
+    try:
+        run = lambda *a: subprocess.run(as_pg + list(a), check=True, capture_output=True,  # noqa: E731
+                                        timeout=120)
+        run(f"{bindir}/initdb", "-D", data, "-A", "trust", "-U", "postgres")
+        started = True   # before start: a start that times out may still leave a postmaster
+        run(f"{bindir}/pg_ctl", "-D", data, "-w", "-l", os.path.join(base, "log"), "-o",
+            f"-c listen_addresses=127.0.0.1 -c port={port} -c unix_socket_directories={base}",
+            "start")
+        run(f"{bindir}/createdb", "-h", "127.0.0.1", "-p", str(port), "-U", "postgres",
+            "codex_photo_test")
+        os.environ["A3_TEST_POSTGRES_URL"] = (
+            f"postgresql://postgres@127.0.0.1:{port}/codex_photo_test")
+        yield
+    finally:
+        os.environ.pop("A3_TEST_POSTGRES_URL", None)
+        if started:
+            subprocess.run(as_pg + [f"{bindir}/pg_ctl", "-D", data, "-m", "immediate", "-w",
+                                    "stop"], capture_output=True, timeout=120)
+        shutil.rmtree(base, ignore_errors=True)
+
+
 def main():
     url = os.environ.get("A3_TEST_POSTGRES_URL", "")
     if not url:
-        # Review 6817652112 N1: without a disposable PostgreSQL the suite reports SKIP and
-        # exits 0 (UNKNOWN, never PASS); a URL that is set but not disposable still fails.
-        print("SKIP test_a3_postgres_photo_fence: A3_TEST_POSTGRES_URL is not set "
-              "(needs a local disposable codex_photo_test database)")
+        # No supplied database and no local PostgreSQL toolchain to make one: SKIP exits 0,
+        # which run_tests.sh counts as SUITE REPORTED NO PASSES (UNKNOWN, never PASS).
+        print("SKIP test_a3_postgres_photo_fence: A3_TEST_POSTGRES_URL is not set and no "
+              "local PostgreSQL toolchain could make a disposable codex_photo_test database")
         return
     parsed = urlparse(url)
     if parsed.scheme not in ("postgresql", "postgresql+psycopg2") or parsed.hostname not in ("localhost", "127.0.0.1") or parsed.path != "/codex_photo_test":
@@ -228,4 +298,5 @@ def a_nested_fenced_write_errors_instead_of_hanging(db, plan):
 
 
 if __name__ == "__main__":
-    main()
+    with _disposable_cluster():
+        main()
