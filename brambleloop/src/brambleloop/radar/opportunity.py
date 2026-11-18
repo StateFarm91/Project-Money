@@ -42,6 +42,7 @@ CATEGORY_DEMAND: dict[str, float] = {
     "pillow": 0.58,
     "coaster": 0.60,
     "placemat": 0.45,
+    "dishcloth": 0.45,       # A4A-1: as the flat placemat panel it was drafted as
     "runner": 0.42,
     "wall_decor": 0.50,
     "bag": 0.66,
@@ -72,6 +73,7 @@ CATEGORY_COMPETITION: dict[str, float] = {
     "pillow": 0.48,
     "coaster": 0.52,
     "placemat": 0.35,
+    "dishcloth": 0.35,
     "runner": 0.32,
     "wall_decor": 0.45,
     "bag": 0.62,

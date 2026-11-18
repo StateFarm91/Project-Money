@@ -216,6 +216,19 @@ def handle_research_investigate(ctx: JobContext) -> dict:
         except research.ResearchRefused as exc:
             return {"ran": False, "why": f"refused: {exc}"}
         tid = opened["task"]
+    # A4(a): a task carrying an ideation brief (opened by radar.score's coverage handoff) is
+    # answered by the deterministic ideation step from the recorded market observations; it
+    # proposes a concept to intake, or records a named outcome. Never the generic agent,
+    # whose unresolved stop would close the question before the observations arrive.
+    from ..radar import ideation
+
+    if ideation.brief_of(ctx.db, int(tid)) is not None:
+        out = ideation.investigate(ctx, int(tid))
+        ctx.audit(research_agent.INVESTIGATED, artifact=f"research_task:{tid}",
+                  detail={"method": "radar.ideation", "status": out.get("outcome")
+                          or out.get("why"), "proposed": bool(out.get("proposed")),
+                          "slug": out.get("slug")})
+        return out
     out = research_agent.investigate(ctx.db, int(tid))
     if out["status"] == research_agent.NOT_OPEN:
         return {"ran": False, "task": tid, "why": "the task is not open", "work_done": 0}
