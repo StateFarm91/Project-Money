@@ -1,10 +1,30 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-18T10:50Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-18T15:20Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-18T10:50Z (read first)
+## State at 2026-11-18T15:20Z (read first)
+- OWNER DIRECTIVE 6979979731 (ACKed 6980028539): S1F, R5/E1, A3/A9 and WS4-7 fixes are
+  REASSIGNED to ENG sessions -- do not touch. Stage A 497a8301/9772f4a4 sit on fa3a09e9
+  (ENG-E owns WS4-7); rebase them only when Main says.
+- Verdicts 13:03-13:25Z: A4a ac0ca847 SHIP (merged); WS4 db785f92 SHIP (merged); S1 e490fc6f,
+  S2 9d03acb2, WS4-7 fa3a09e9, A4b-2 eb47549e DO NOT SHIP.
+- RRs posted this session: S2 fix b6dd73ad (6980888558; shared estimator + 2 LOWs);
+  QF Store-tab scopes b3e037b9 on opus2/etsy-connect-scopes-display (6981550036);
+  A4b-2 b8929db7 (merge of eb47549e + INTEG1 26762746; headers, WORK_KEYS, suite order).
+- My queue now: (1) S2 done; (2) A4b-2 done; (3) S4 daa31ad9 + S4b bbc4d473 awaiting verdict;
+  (4) NEXT: WS4 LOW tests from 6979645791 on top of INTEG1 (WS4 merged there): three
+  surviving mutants (experiment exclusion; stop watch ignoring pre-approval readings;
+  activation rejecting a MET for a different approval); bound per-run load in SQL;
+  T1b residual-risk docstring; make the G-SHADOW read pure (no experiment.refused rows).
+  Server now() for row timestamps belongs to Mode T (ENG-E) unless Main says otherwise.
+- Env notes: this container has pytest 9.2 (not in requirements) -> modules that `import
+  pytest` and run via _minipytest fail here; hide it with PYTHONPATH=<dir with pytest.py
+  raising ImportError>. Disk ~0.3-0.4 GB; test_health degrades on disk here.
+- Stop reason this tick: three RRs posted; WS4 LOW tests start next tick.
+
+## State at 2026-11-18T10:50Z (superseded)
 - ws5 LOWs N1-N3 RR POSTED 9b807fed on opus2/ws5-n1-n3-resolver-lows (on w6-INTEG1 19e6a8ff):
   N1 create-window binding (escalate, never release, on an unbound listing created within
   CREATE_SKEW under another title); N2 stateless rows make the read undecided; N3 one
