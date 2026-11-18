@@ -1,6 +1,6 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-18T15:20Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-18T16:20Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
@@ -22,7 +22,14 @@ worktrees, not this file.
 - Env notes: this container has pytest 9.2 (not in requirements) -> modules that `import
   pytest` and run via _minipytest fail here; hide it with PYTHONPATH=<dir with pytest.py
   raising ImportError>. Disk ~0.3-0.4 GB; test_health degrades on disk here.
-- Stop reason this tick: three RRs posted; WS4 LOW tests start next tick.
+- WS4 LOWs RR POSTED fbe0bdd0 on opus2/ws4-g-shadow-lows (on INTEG1 e4c442cb): pure
+  G-SHADOW read (experiment.experiment_rows), SQL-bounded _rows, T1b docstring, 5 tests,
+  7/7 mutants, 19/19 neighbours (pytest hidden; research/w4 present).
+- Queue (6979979731) now fully delivered. Awaiting verdicts: S2 b6dd73ad, QF scopes b3e037b9,
+  A4b-2 b8929db7, S4 daa31ad9, S4b bbc4d473, WS4 LOWs fbe0bdd0 (plus older E1/A3/research/
+  Stage A 497a8301/9772f4a4, now behind ENG-E's WS4-7).
+- Stop reason (2026-11-18T16:20Z): Main's queue for opus2 is exhausted; waiting on verdicts or a
+  new assignment. Answer any [MAIN] message first next tick.
 
 ## State at 2026-11-18T10:50Z (superseded)
 - ws5 LOWs N1-N3 RR POSTED 9b807fed on opus2/ws5-n1-n3-resolver-lows (on w6-INTEG1 19e6a8ff):
