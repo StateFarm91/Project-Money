@@ -42,7 +42,10 @@ worktrees, not this file.
   runner before any REVIEW-REQUEST.
 - Tick 2026-11-18T18:28Z: no [MAIN] message since RR 6986520536; INTEG1 unchanged (a1b4f5d9);
   no new review-branch findings. Nothing posted.
-- Stop reason (2026-11-18T18:30Z): all of Main's findings fixed and review-requested; queue
+- Tick 2026-11-18T19:28Z: no [MAIN] message since RR 6986520536. INTEG1 now fb13063a: A4a re-landed
+  (8801c522) and S1 Product Truth merged, so A4b-2 b8929db7's A4a base is back on INTEG1. No
+  review-branch findings on opus2 code. Nothing posted.
+- Stop reason (2026-11-18T19:30Z): all of Main's findings fixed and review-requested; queue
   exhausted pending verdicts. Answer any [MAIN] message first next tick.
 
 ## State at 2026-11-18T10:50Z (superseded)
