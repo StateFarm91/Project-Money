@@ -246,6 +246,12 @@ def publishing_halt(db, *, now: datetime) -> dict:
     }
 
 
+def _exhausted(report_count, detail) -> bool:
+    from ..ops.rebuild_graph import REBUILD_MAX_ATTEMPTS
+
+    return bool((detail or {}).get("held")) or int(report_count or 1) >= REBUILD_MAX_ATTEMPTS
+
+
 def stale_rebuilds(db, *, now: datetime) -> dict:
     from sqlalchemy import select
 
@@ -317,8 +323,13 @@ def stale_rebuilds(db, *, now: datetime) -> dict:
         "rebuilds_refused_reasons": sorted({str((d or {}).get("why") or "")[:120]
                                             for (d,) in refused})[:EXAMPLES],
         "open_rebuild_incomplete": len(incomplete),
+        # round 2 (review M-A/M-B): a legacy row exhausted by count (no `held` written) is
+        # held too, and the named reason is shown, not only the slug.
         "rebuild_incomplete_held": sorted(sig.split(":", 1)[1] for sig, _n, d in incomplete
-                                          if (d or {}).get("held"))[:SLUGS_PER_STAGE],
+                                          if _exhausted(_n, d))[:SLUGS_PER_STAGE],
+        "rebuild_incomplete_held_reasons": dict(sorted(
+            (sig.split(":", 1)[1], str((d or {}).get("held") or f"{_n} attempts")[:200])
+            for sig, _n, d in incomplete if _exhausted(_n, d))[:EXAMPLES]),
         "newest_verified_rebuild_at": max((_iso(c.at) for c in real), default=None),
         "newest_verified_rebuild_audit_ids": sorted((int(c.id) for c in real),
                                                     reverse=True)[:EXAMPLES],

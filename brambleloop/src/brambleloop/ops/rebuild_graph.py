@@ -252,6 +252,78 @@ REBUILD_INCOMPLETE_SIGNATURE = "rebuild-incomplete"
 REBUILD_MAX_ATTEMPTS = 3
 
 
+def _failed_attempts_by_change(db) -> dict[str, list[dict]]:
+    """Review M-B of 4b683993: attempts that ended without ever reaching a verify pass --
+    the job went DEAD (raised until its retries ran out) or the rebuild refused (no stored
+    release, a withheld release) -- keyed by the change they attempted (the first attempt's
+    idempotency key; a daily retry carries it as `retry_of_key`). Verify passes are not
+    attempts; their outcome is counted on the rebuild-incomplete row. One query per call."""
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus
+
+    out: dict[str, list[dict]] = {}
+    for key, status, inputs, outputs, err, finished in db.execute(select(
+            Job.idempotency_key, Job.status, Job.inputs, Job.outputs, Job.last_error,
+            Job.finished_at).where(
+            Job.job_type == "chain.rebuild",
+            Job.status.in_((JobStatus.DEAD, JobStatus.DONE)),
+            ~Job.idempotency_key.like("rebuild-verify:%")).order_by(Job.id)):
+        inputs, outputs = dict(inputs or {}), dict(outputs or {})
+        if inputs.get("verify"):
+            continue
+        if status == JobStatus.DEAD:
+            text = str(err or "").strip()
+            why = (f"chain.rebuild went dead: {text.split(':', 1)[0][:80] or 'unknown error'}"
+                   + (f" ({text[:160]})" if text else ""))
+        elif outputs.get("refused") or outputs.get("withheld"):
+            why = ("chain.rebuild refused: "
+                   + (str(outputs.get("refused")) if outputs.get("refused")
+                      else "release withheld (#163/#228)"))
+        else:
+            continue
+        change = str(inputs.get("retry_of_key") or key or "")
+        out.setdefault(change, []).append({"why": why, "finished_at": str(finished),
+                                           "status": getattr(status, "value", str(status))})
+    return out
+
+
+def _hold_failed_change(db, slug: str, key: str, failures: list[dict], *,
+                        artefacts: list[str], fingerprints: dict) -> str:
+    """File the named, durable hold for a change whose attempts all died or were refused:
+    `rebuild-incomplete:<slug>` (the family production_evidence, retry_hold_reason and the
+    publish gate already read), exhausted, with the last failure's class as the reason. It
+    closes like any rebuild-incomplete row: on a verified rebuild, or when the sentinel reads
+    every artefact it names fresh."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+
+    last = failures[-1]["why"]
+    held = (f"{len(failures)} rebuild attempts at this change ended without a verify pass; "
+            f"last: {last}")
+    sig = f"{REBUILD_INCOMPLETE_SIGNATURE}:{slug}"
+    inc = db.scalar(select(Incident).where(Incident.signature == sig,
+                                           Incident.resolved.is_(False)))
+    detail = {"stale": list(artefacts)[:50], "fingerprints": fingerprints, "change": key,
+              "attempts": len(failures), "max_attempts": REBUILD_MAX_ATTEMPTS,
+              "failed_attempts": failures[-REBUILD_MAX_ATTEMPTS:], "held": held,
+              "reason": "attempts died or were refused before any verify pass"}
+    summary = (f"rebuild of {slug} held: {len(failures)} attempts at one change ended "
+               f"without a verify pass ({last[:120]})")
+    if inc is None:
+        db.add(Incident(severity="P1", signature=sig, halts_publication=True,
+                        product_slug=slug, summary=summary[:500],
+                        report_count=len(failures), detail=detail))
+    else:
+        inc.product_slug, inc.severity, inc.halts_publication = slug, "P1", True
+        inc.report_count = max(int(inc.report_count or 1), len(failures))
+        inc.summary = summary[:500]
+        inc.detail = dict(inc.detail or {}, **detail)
+    db.flush()
+    return held
+
+
 def _inflight_slugs(db) -> set[str]:
     """Products with a chain.rebuild in flight (pending, running, or failed-and-retrying) --
     the first attempt, its daily retry or one of its verify passes. A key held by a finished
@@ -308,6 +380,7 @@ def enqueue(db, queue, *, changed: dict[str, str], reason: str,
         waiting: list[str] = []
         recent: set[str] | None = None
         inflight: set[str] | None = None
+        failed: dict[str, list[dict]] | None = None
         for slug, rows in sorted(by_product.items()):
             key = job_key(f"rebuild:product:{slug}", stamp)
             # eng/stale-rebuild-loop: only the refs this product's artefacts record. The
@@ -332,6 +405,18 @@ def enqueue(db, queue, *, changed: dict[str, str], reason: str,
                 if recent is None:
                     recent = _recent_rebuild_slugs(db, now or datetime.now(timezone.utc))
                 again = _retry_key(db, slug, key, now=now, recent=recent)
+                # Review M-B of 4b683993: a change whose attempts all died or were refused
+                # (never reaching verify) is bounded like one that ended rebuild-incomplete:
+                # after REBUILD_MAX_ATTEMPTS it is held, named and filed -- not retried daily.
+                if again:
+                    if failed is None:
+                        failed = _failed_attempts_by_change(db)
+                    fails = failed.get(key) or []
+                    if len(fails) >= REBUILD_MAX_ATTEMPTS:
+                        held[slug] = "held: " + _hold_failed_change(
+                            db, slug, key, fails, artefacts=payload["artefacts"],
+                            fingerprints=payload["fingerprints"])
+                        continue
                 # INTEG7 (review S-2): no daily retry while an owner- or policy-gated reason
                 # refuses this product's rebuild; it resumes when the gate clears.
                 held_why = hold(slug) if (again and hold is not None) else None

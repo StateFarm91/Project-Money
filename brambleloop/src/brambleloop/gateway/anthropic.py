@@ -1015,6 +1015,16 @@ PROBE_MODEL = "claude-haiku-4-5-20251001"
 NO_KEY_REASON = "no ANTHROPIC_API_KEY in this environment"
 
 
+def key_fingerprint(key: str | None = None) -> str | None:
+    """A non-secret tag for the configured key: the first 8 hex of its SHA-256, or None when
+    no key is set. Never the key; it only lets a reused probe prove it was made with the key
+    in force now (review M-D of 4b683993)."""
+    import hashlib
+
+    key = AnthropicProvider.key() if key is None else (key or "").strip()
+    return hashlib.sha256(key.encode()).hexdigest()[:8] if key else None
+
+
 def probe(db, *, provider: AnthropicProvider | None = None,
           now: datetime | None = None, job_id: int | None = None) -> dict:
     """Make the smallest possible real call and record whether it worked.
@@ -1029,7 +1039,8 @@ def probe(db, *, provider: AnthropicProvider | None = None,
 
     provider = provider or AnthropicProvider(model=PROBE_MODEL)
     record: dict = {"at": (now or datetime.now(timezone.utc)).isoformat(),
-                    "model": provider.model, "ok": False, "reason": ""}
+                    "model": provider.model, "ok": False, "reason": "",
+                    "key_fp": key_fingerprint(provider.key())}
 
     if not provider.key():
         record["reason"] = NO_KEY_REASON
@@ -1380,7 +1391,13 @@ def probe_if_due(db, *, job_id: int | None = None, now: datetime | None = None,
     always re-asked: only a success is reused, so the gate never opens on a reuse."""
     now = now or datetime.now(timezone.utc)
     last = last_probe(db)
-    if not force and last and last.get("ok"):
+    # Review M-D of 4b683993 (mirrors images.probe_if_due's activation-tied reuse): a success
+    # is reused only for the probe model, while a key is configured, and when that key is the
+    # one the success was made with (non-secret fingerprint). Otherwise the provider is asked
+    # -- with no key, `probe` records NO_KEY_REASON and the gate closes.
+    fp = key_fingerprint()
+    if not force and last and last.get("ok") and last.get("model") == PROBE_MODEL \
+            and fp is not None and last.get("key_fp") == fp:
         at = _probe_at(last)
         if at is not None and timedelta(0) <= now - at < MODEL_PROBE_REUSE \
                 and not _contradicted_since(db, at):

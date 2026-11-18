@@ -1316,6 +1316,42 @@ def _staleness_only(ev: dict) -> bool:
             and fams <= STALENESS_FAMILIES)
 
 
+def incident_slug(row) -> str | None:
+    """The product an incident is filed against. Review M-A of 4b683993: rebuild-incomplete
+    rows written before the product slug was filed carry it only in their signature
+    (`rebuild-incomplete:<slug>`), so a reader that matched on `product_slug` alone never saw
+    them -- an exhausted legacy row held nothing."""
+    from ..ops.rebuild_graph import REBUILD_INCOMPLETE_SIGNATURE
+
+    if row.product_slug:
+        return row.product_slug
+    sig = str(row.signature or "")
+    if sig.startswith(f"{REBUILD_INCOMPLETE_SIGNATURE}:"):
+        return sig[len(REBUILD_INCOMPLETE_SIGNATURE) + 1:] or None
+    return None
+
+
+def rebuild_withheld(db, slug: str) -> tuple[str | None, str | None]:
+    """(version, withholding summary) for the release `chain.rebuild` targets -- the newest
+    release by version, its withholding record re-read (owner ruling included) exactly as
+    the rebuild reads it. Review L1: the retry hold and the rebuild's own refusal read one
+    function, so they cannot disagree."""
+    from sqlalchemy import select
+
+    from ..core.models import Product
+    from ..ops import artefacts as provenance
+    from . import withholding
+
+    with db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        pv = provenance.newest_release(s, product.id) if product is not None else None
+        version = pv.version if pv is not None else None
+    if version is None:
+        return None, None
+    summary = withholding.current(db, slug, version, stage="chain.rebuild")["summary"]
+    return version, (summary or None)
+
+
 def rebuild_exhausted(row) -> bool:
     """A `rebuild-incomplete:<slug>` row whose attempts are used up (held, named reason)."""
     from ..ops.rebuild_graph import REBUILD_INCOMPLETE_SIGNATURE, REBUILD_MAX_ATTEMPTS
@@ -1355,6 +1391,7 @@ def _halting_other_than_staleness(db, slug: str, own: set[str],
 
     from ..core.models import Incident
     from ..ops.incident_lifecycle import SYSTEMIC_SIGNATURE, systemic_evidence
+    from ..ops.rebuild_graph import REBUILD_INCOMPLETE_SIGNATURE
 
     with db.session() as s:
         try:
@@ -1365,7 +1402,8 @@ def _halting_other_than_staleness(db, slug: str, own: set[str],
         rows = list(s.scalars(select(Incident).where(
             Incident.resolved == False,  # noqa: E712
             Incident.halts_publication.is_(True),
-            (Incident.product_slug == slug) | Incident.signature.like("systemic-halt:%"))))
+            (Incident.product_slug == slug) | Incident.signature.like("systemic-halt:%")
+            | (Incident.signature == f"{REBUILD_INCOMPLETE_SIGNATURE}:{slug}"))))
         return [r.signature for r in rows
                 if r.signature not in own
                 and not _waivable_staleness(r, slug, fresh or set())
@@ -1468,11 +1506,13 @@ def retry_hold_reason(db, *, slug: str) -> str | None:
             rows = list(s.scalars(select(Incident).where(
                 Incident.resolved == False,  # noqa: E712
                 Incident.halts_publication.is_(True),
-                (Incident.product_slug == slug) | Incident.signature.like("systemic-halt:%"))))
+                (Incident.product_slug == slug) | Incident.signature.like("systemic-halt:%")
+                # review M-A: a legacy row carries its product only in the signature
+                | (Incident.signature == f"{REBUILD_INCOMPLETE_SIGNATURE}:{slug}"))))
             # eng/stale-rebuild-loop: rebuild-incomplete (now filed against its product) is
             # staleness the retry exists to cure, so it never holds while attempts remain.
             # Once they are used up it becomes the named hold.
-            exhausted = [r for r in rows if r.product_slug == slug and rebuild_exhausted(r)]
+            exhausted = [r for r in rows if incident_slug(r) == slug and rebuild_exhausted(r)]
             others = [r.signature for r in rows
                       if not str(r.signature).startswith(f"{SENTINEL_SIGNATURE}:")
                       and not str(r.signature).startswith(f"{REBUILD_INCOMPLETE_SIGNATURE}:")
@@ -1492,14 +1532,9 @@ def retry_hold_reason(db, *, slug: str) -> str | None:
     # left no incident (a silent loop). Read live, so the hold
     # lifts by itself when the withholding clears.
     try:
-        from ..ops import artefacts as provenance
-        from . import withholding
-
-        with db.session() as s:
-            pv = provenance.newest_certified(s, slug)
-            version = pv.version if pv is not None else None
-        withheld = (withholding.reasons(db, slug, version).get("summary")
-                    if version is not None else None)
+        # review L1: the same function `chain.rebuild` refuses on (newest release, its
+        # withholding record re-read at stage chain.rebuild).
+        version, withheld = rebuild_withheld(db, slug)
         if withheld:
             return f"held: release {slug}@{version} withheld (#163/#228): {str(withheld)[:200]}"
     except Exception:  # noqa: BLE001 - an unreadable gate does not hold (CA$0, once a day)

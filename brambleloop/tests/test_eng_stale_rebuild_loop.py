@@ -434,9 +434,15 @@ def test_end_to_end_a_moved_chain_converges_in_one_attempt():
 def _stub_probe(calls, ok=True):
     from brambleloop.gateway import anthropic as gw
 
+    # round 2 (review M-D): the stub records what the real probe records -- the probe model
+    # and the non-secret key fingerprint -- under a configured (dummy) key, since a reuse is
+    # now tied to both.
+    os.environ["ANTHROPIC_API_KEY"] = "test-dummy-key-not-a-secret"
+
     def fake(db, *, job_id=None, now=None, **kw):
         calls.append(now)
-        record = {"at": (now or datetime.now(timezone.utc)).isoformat(), "model": "stub",
+        record = {"at": (now or datetime.now(timezone.utc)).isoformat(),
+                  "model": gw.PROBE_MODEL, "key_fp": gw.key_fingerprint(),
                   "ok": ok, "reason": "" if ok else "credit balance is too low"}
         with db.session() as s:
             s.add(AuditLog(actor="orchestrator", action="model.probe", artifact="stub",
@@ -444,7 +450,11 @@ def _stub_probe(calls, ok=True):
         return record
     real = gw.probe
     gw.probe = fake
-    return lambda: setattr(gw, "probe", real)
+
+    def restore():
+        gw.probe = real
+        os.environ.pop("ANTHROPIC_API_KEY", None)
+    return restore
 
 
 def test_p2_four_cadence_runs_a_day_bill_once():

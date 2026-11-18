@@ -5492,6 +5492,9 @@ def _rebuild_incomplete(ctx: JobContext, slug: str, version: str, *, stale: list
             inc.report_count = 1                        # a different change: a fresh budget
         else:
             inc.report_count = int(inc.report_count or 1) + 1
+        # review M-A: rows written before the slug was filed (production) carry it only in
+        # the signature; restating files it, so every slug-keyed reader sees the row.
+        inc.product_slug = slug
         attempts = int(inc.report_count or 1)
         detail = {"stale": stale[:50], "reason": reason, "fingerprints": fingerprints,
                   "version": version, "attempts": attempts,
@@ -5582,9 +5585,9 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
         return {"targeted": True, "slug": slug, "refused": "no stored release"}
     # #163 / #228 (C-67, M10): every build-blocking reason on the release's one withholding
     # record, the owner's ruling re-read, not a field one stage happened to write.
-    from ..publish import withholding
+    from ..publish import release_gates as _rg
 
-    withheld = withholding.current(ctx.db, slug, version, stage="chain.rebuild")["summary"]
+    _v, withheld = _rg.rebuild_withheld(ctx.db, slug)       # review L1: one function
     if withheld:
         ctx.audit("chain.rebuild_refused", artifact=f"{slug}@{version}",
                   detail={"why": f"release withheld (#163/#228): {str(withheld)[:200]}",
@@ -7726,17 +7729,49 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         from sqlalchemy import select as _select
 
         from ..core.models import Incident as _Incident
+        from ..core.models import utcnow as _utcnow
         from ..ops import incident_lifecycle as _life
 
-        stale_slugs = {v["product_slug"] for v in report.get("verdicts", [])
-                       if v.get("state") == provenance.STALE}
-        incomplete_cleared = _life.resolve_signatures(session, [
-            r.signature for r in session.scalars(_select(_Incident).where(
+        # Review M-C of 4b683993: closed only on positive evidence -- every artefact the row
+        # names (or, for a row naming none, every recorded artefact of the product, of which
+        # there must be at least one) reads FRESH or SUPERSEDED, and none of the product's
+        # artefacts reads STALE. An artefact with no provenance row, an UNPROVEN or retired
+        # one, or a product with no rows at all is not evidence of a delivered rebuild; the
+        # row stays open with the verdicts it actually read.
+        by_key = {f"{v['artefact_class']}:{v['artefact_key']}": v
+                  for v in report.get("verdicts", [])}
+        by_slug: dict[str, list[dict]] = {}
+        for v in report.get("verdicts", []):
+            by_slug.setdefault(v.get("product_slug") or "", []).append(v)
+        settled = (provenance.FRESH, provenance.SUPERSEDED)
+        incomplete_close, incomplete_open = [], {}
+        for r in list(session.scalars(_select(_Incident).where(
                 _Incident.signature.like(f"{REBUILD_INCOMPLETE_SIGNATURE}:%"),
-                _Incident.resolved == False))  # noqa: E712
-            if r.signature.split(":", 1)[1] not in stale_slugs],
-            resolution=("the provenance check reads every recorded artefact of this product "
-                        "fresh: the outstanding rebuild has been delivered"))
+                _Incident.resolved == False))):  # noqa: E712
+            slug_ = r.signature.split(":", 1)[1]
+            if not r.product_slug:
+                r.product_slug = slug_       # review M-A: file legacy rows against the product
+            named = [str(k) for k in ((r.detail or {}).get("stale") or [])]
+            own = [v for v in by_slug.get(slug_, []) if not v.get("retired")]
+            keys = named or [f"{v['artefact_class']}:{v['artefact_key']}" for v in own]
+            read = {k: (by_key[k]["state"] + (" (retired)" if by_key[k].get("retired") else "")
+                        if k in by_key else "no provenance row") for k in keys}
+            ok = (bool(keys)
+                  and all(k in by_key and by_key[k]["state"] in settled for k in keys)
+                  and not any(v["state"] == provenance.STALE
+                              for v in by_slug.get(slug_, [])))
+            if ok:
+                incomplete_close.append(r.signature)
+            else:
+                incomplete_open[r.signature] = read or {"(none)": "no artefact on file"}
+                r.detail = dict(r.detail or {}, sentinel_read={
+                    "at": _utcnow().isoformat(), "verdicts": dict(list(read.items())[:50])
+                    or {"(none)": "no artefact of this product is on file"}})
+        incomplete_cleared = _life.resolve_signatures(
+            session, incomplete_close,
+            resolution=("every artefact this row named reads fresh (or superseded) in the "
+                        "provenance check and none of the product's reads stale: the "
+                        "outstanding rebuild has been delivered"))
 
     # W4-LISTREADY (delta review N3): a live listing of a superseded release is owner-visible.
     from . import release_recovery
@@ -7761,6 +7796,7 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         "superseded_live": superseded_live,
         "incidents_cleared": len(report.get("incidents_cleared") or []),
         "rebuild_incomplete_cleared": incomplete_cleared,
+        "rebuild_incomplete_open": dict(list(incomplete_open.items())[:50]),
     }
     ctx.audit("ops.sentinel", detail=detail)
 
