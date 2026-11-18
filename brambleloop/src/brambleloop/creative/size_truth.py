@@ -21,6 +21,16 @@ parser cannot bind (two different sizes, three dimensions, a dangling figure, a 
 whose unit is not determined by the band, a relative word with no family) is a refusal with
 a reason, never a pass. D-S1-UNITLESS-DIMS and D-S1-RELATIVE-SIZE record the two rules.
 
+Third review of a570aab7 (S1F2-H1, S1F2-M1, LOWs): the parser FAILS CLOSED
+(D-S1-FAIL-CLOSED). Every title is tokenised; after the bound claims above are taken out, any
+figure (digits, a fraction, a decimal, a number word such as "forty"), any size-class word from
+`SIZE_CLASS_VOCAB` the object's family does not define, a size letter, a leftover "size" or a
+unit with no figure is `unbound size token: <token>` -- refused at plan and at certification.
+Only the cited entries of `ALLOWED_NON_SIZE` pass, each bound to a fact the CIR states (piece
+count, colour count, garment grade) or shown not to be a size. Plan and certify read the same
+function, and the plan also measures the size it would draft and runs the certificate's own
+size check on it (`drafted_refusal`), so the two cannot disagree.
+
 Nothing here estimates from prose. A title with no class word and no dimensions asks for the
 family's default size, which the plain template makes and the family band checks.
 """
@@ -101,7 +111,159 @@ NON_SIZE_PHRASES = (
     r"\bqueen anne'?s?\b", r"\b(?:king|queen|twin)'s\b", r"\bfull (?:moon|bloom|of|colou?rs?)\b",
     r"\btwin (?:peaks|set)\b", r"\blong (?:stitch(?:es)?|weekend)\b", r"\bshort rows?\b",
     r"\bsmall batch\b",
+    # S1F2-M1: "double" and "half" in these phrases name a construction, not a size.
+    r"\bdouble[- ](?:sided|layer(?:ed)?|thick(?:ness)?|knit|faced?|weave|bobble|strand(?:ed)?)\b",
+    r"\bhalf[- ](?:square|hexagon|hexie|circle|moon)s?(?: triangles?)?\b",
 )
+
+# ---- fail-closed tokenizer (D-S1-FAIL-CLOSED, S1F2-H1/M1) ------------------------------------
+# Number words: a figure spelled out ("forty by fifty inches") is a size token like "40".
+NUMBER_WORDS = ("zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+                "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
+                "seventeen", "eighteen", "nineteen", "twenty", "thirty", "forty", "fourty",
+                "fifty", "sixty", "seventy", "eighty", "ninety", "hundred", "thousand", "dozen")
+_NUMBER_VALUE = {w: i for i, w in enumerate(NUMBER_WORDS[:21])}
+_NUMBER_VALUE.update({"thirty": 30, "forty": 40, "fourty": 40, "fifty": 50, "sixty": 60,
+                      "seventy": 70, "eighty": 80, "ninety": 90, "dozen": 12})
+_NUMBER_WORD = r"(?:" + "|".join(NUMBER_WORDS) + r")"
+_COUNT = rf"(\d+|{_NUMBER_WORD})"
+
+# Words that name a size class. A word here is refused unless the object's family defines that
+# class from a cited standard (BLANKET_CLASSES / PILLOW_CLASSES words are taken out first, so
+# "Queen Linen Blanket" binds and "King Pillow Cover" is refused). Bed words that are also
+# ordinary English ("full", "double", "single") are size words only on bedding (a blanket or
+# a pillow), and the construction phrases in NON_SIZE_PHRASES are removed before this runs.
+SIZE_CLASS_VOCAB = (
+    r"\b(?:cal(?:ifornia)? )?king\b", r"\bqueen\b", r"\btwin\b", r"\btoddler\b", r"\byouth\b",
+    r"\bjunior\b", r"\bteen\b", r"\badult\b", r"\bbody\b", r"\beuro\b", r"\bfloor\b",
+    r"\bhalf\b", r"\bquarter\b", r"\bstandard\b", r"\bregular\b", r"\bpreemie\b",
+    r"\bxx?s\b", r"\bx{2,3}l\b", r"\bxl\b", r"\bsize[sd]?\b", r"\bone[- ]size\b",
+)
+BEDDING_VOCAB = (r"\bfull\b", r"\bdouble\b", r"\bsingle\b")
+# A unit word left with no figure ("... by fifty inches") is a size the parser did not bind.
+_STRAY_UNIT = (r"\b(?:cm|mm|centimet(?:er|re)s?|millimet(?:er|re)s?|inch(?:es)?|yards?|yds?|"
+               r"met(?:er|re)s?)\b")
+
+# The allow-list: the only figures and size-like words a title may carry that are not a size,
+# each with its reason and its test (tests/test_s1_product_truth_3.py). Count, colour and grade
+# entries are BOUND to what the CIR states (`facts_of`); a value the CIR does not state is
+# unbound. Everything else that looks like a figure or a size word is refused.
+ALLOWED_NON_SIZE: dict[str, dict] = {
+    "n_in_1": {"re": r"\b[2-4][- ]?in[- ]?1\b",
+               "basis": "'2 in 1' is a product-versatility idiom (two uses), not 2 inches"},
+    "count": {"re": (rf"\bset of {_COUNT}\b|\bpack of {_COUNT}\b|\(\s*{_COUNT}\s*\)|"
+                     rf"\b{_COUNT}[- ]?(?:piece|pc)s?\b|\b{_COUNT}[- ]?pack\b|\bx ?(\d+)\b"),
+              "bind": "pieces",
+              "basis": "a set count ('Set of 4', '(6)') is the number of pieces the pattern "
+                       "makes: bound to the CIR's single component's make count"},
+    "colours": {"re": rf"\b{_COUNT}[- ]?(?:colou?r(?:s|ed|way)?|tone[sd]?)\b",
+                "bind": "colours",
+                "basis": "a colour count ('Two-Colour') is the number of yarn colours: bound "
+                         "to the CIR's colour table"},
+    # Bound first, before any other parser reads the title (`_bind_grades`): "XL" and "2X" in
+    # "(size XL)" are the grade, not a relative word or a dangling "2 x".
+    "grade": {"re": r"\(?\bsize ([a-z0-9]{1,4})\b\)?",
+              "bind": "grade", "prepass": True,
+              "basis": "a garment size ('(size 2X)') is the CYC grade the CIR is graded to: "
+                       "bound to CIR.grading.size"},
+    "code": {"re": r"\b[a-wyz][a-z]*\d+[a-z0-9]*\b",
+             "basis": "a letter-led code ('C5', 'J7', 'C2C', 'v3') is a name or a technique "
+                      "(corner-to-corner), not a figure; an x-led one ('x2') is a count"},
+}
+
+# What the fallback drafts, for binding at plan time: one piece of one component (a cushion is a
+# front and a back, so it has no single piece count), no garment grade, and colours read at
+# certification (the palette is chosen after the plan).
+FALLBACK_FACTS = {"pieces": 1, "colours": None, "grade": None, "at_plan": True}
+
+
+def facts_of(cir) -> dict:
+    """The facts a title's counts bind to, read from the CIR."""
+    comps = list(getattr(cir, "components", None) or [])
+    pieces = int(getattr(comps[0], "make", 1) or 1) if len(comps) == 1 else None
+    colours = getattr(cir, "colors", None)
+    grading = getattr(cir, "grading", None)
+    return {"pieces": pieces, "colours": len(colours) if colours else None,
+            "grade": (str(grading.size).lower() if grading is not None
+                      and getattr(grading, "size", None) else None),
+            "at_plan": False}
+
+
+def _count_value(text: str) -> int | None:
+    if text is None:
+        return None
+    return int(text) if text.isdigit() else _NUMBER_VALUE.get(text)
+
+
+def _blank(text: str, start: int, end: int) -> str:
+    return text[:start] + " " * (end - start) + text[end:]
+
+
+def _bind_grades(sized: str, facts: dict | None) -> tuple[str, list[str]]:
+    """The title with each "size <grade>" phrase blanked, and why for each one the CIR's
+    grading does not state."""
+    facts = facts or FALLBACK_FACTS
+    entry = ALLOWED_NON_SIZE["grade"]
+    out: list[str] = []
+    for m in list(re.finditer(entry["re"], sized)):
+        if m.group(1).lower() != facts.get("grade"):
+            made = ("the fallback drafts no graded size" if facts.get("at_plan")
+                    else f"the pattern's graded size is {facts.get('grade') or 'not stated'}")
+            out.append(f"unbound size token: {m.group(0).strip()} (a graded size the pattern "
+                       f"does not make: {made}; {entry['basis']})")
+        sized = _blank(sized, m.start(), m.end())
+    return sized, out
+
+
+def _residual_unbound(rest: str, obj: str | None, facts: dict | None) -> list[str]:
+    """Every size token left in `rest` (the title with its bound claims blanked out): the
+    allow-list is bound or refused, then any figure, number word or size word left is
+    `unbound size token: <token>`."""
+    facts = facts or FALLBACK_FACTS
+    out: list[str] = []
+    for key, entry in ALLOWED_NON_SIZE.items():
+        if entry.get("prepass"):
+            continue
+        for m in list(re.finditer(entry["re"], rest)):
+            bind = entry.get("bind")
+            token = m.group(0).strip()
+            if bind:
+                raw = next((g for g in m.groups() if g is not None), None)
+                if bind == "grade":
+                    want, have = (raw or "").lower(), facts.get("grade")
+                else:
+                    want, have = _count_value(raw), facts.get(bind)
+                if bind == "colours" and have is None and facts.get("at_plan"):
+                    pass        # the palette is chosen after the plan: bound at certification
+                elif want is None or have is None or want != have:
+                    what = {"pieces": "piece count", "colours": "colour count",
+                            "grade": "graded size"}[bind]
+                    made = ("the fallback drafts one piece and no graded size"
+                            if facts.get("at_plan") and bind != "colours"
+                            else f"the pattern's {what} is {have if have is not None else 'not stated'}")
+                    out.append(f"unbound size token: {token} (a {what} the pattern does not "
+                               f"make: {made}; {entry['basis']})")
+            rest = _blank(rest, m.start(), m.end())
+    tokens: list[tuple[int, str, str]] = []
+    for m in re.finditer(r"\d+(?:[.,/\u2044]\d+)*[a-z]*|[\u00bc-\u00be\u2150-\u215e]", rest):
+        tokens.append((m.start(), m.group(0), "a figure with no unit and no claim it binds to"))
+    for m in re.finditer(rf"\b{_NUMBER_WORD}\b", rest):
+        tokens.append((m.start(), m.group(0), "a number word"))
+    vocab = SIZE_CLASS_VOCAB + (BEDDING_VOCAB if obj in ("blanket", "pillow") else ())
+    for pat in vocab:
+        for m in re.finditer(pat, rest):
+            tokens.append((m.start(), m.group(0),
+                           f"a size-class word the {(obj or 'object').replace('_', ' ')} "
+                           f"family does not define from a cited standard"))
+    for m in re.finditer(_STRAY_UNIT, rest):
+        tokens.append((m.start(), m.group(0), "a unit with no figure the parser could bind"))
+    seen: set[int] = set()
+    for pos, tok, why in sorted(tokens):
+        if pos in seen:
+            continue
+        seen.add(pos)
+        out.append(f"unbound size token: {tok} ({why}; D-S1-FAIL-CLOSED)")
+    return out
 
 # Objects the fallback has a correct flat template and a band for, by the family word in the
 # title (`gates.first_customer.PRODUCT_TYPE_FAMILIES`) or, when the title names none, by the
@@ -144,17 +306,22 @@ TAPESTRY = r"\btapestr(?:y|ies)\b(?!\s+(?:crochet|stitch))|\bwall (?:art|decor)\
 # stated dimensions, or by a defined size family for the object (a class whose words include
 # it: only the large blanket), or refused. A length word binds a single figure to the length,
 # a width word to the width.
+# S1F2-M1: "medium" is a relative size word too (between small and large): it is bound by
+# stated dimensions or a defined family exactly as "small" and "large" are.
 RELATIVE_SIZE = (r"\b(?:extra[- ]?large|x-?large|xxl|xl|extra[- ]?long|oversized?|giant|jumbo|"
-                 r"huge|large|big|small|mini|tiny|petite|short|long|skinny|slim|wide|narrow)\b")
+                 r"huge|large|big|medium|small|mini|tiny|petite|short|long|skinny|slim|wide|"
+                 r"narrow)\b")
 LENGTH_WORDS = ("short", "long", "extra long", "extra-long", "extralong")
 WIDTH_WORDS = ("skinny", "slim", "wide", "narrow")
 
 # ---- stated dimensions -----------------------------------------------------------------------
 # A unit is cm, mm, m, inches ("in" only when no figure follows it: "2 in 1" is not 2 inches),
 # feet. `''` and `"` are inches, a single `'` is feet.
+# S1F2-H1: yards ("3 yards", "60 yd") are a unit too (1 yd = 36 in = 91.44 cm).
 _UNIT = (r"(cm|centimet(?:er|re)s?|mm|millimet(?:er|re)s?|in(?:ch(?:es)?)?(?![a-z])(?!\s*\d)"
-         r"|\"|''|ft|feet|foot|'|m(?:et(?:er|re)s?)?(?![a-z]))")
-_NUM = r"(\d+(?:\.\d+)?)"
+         r"|\"|''|ft|feet|foot|'|y(?:ar)?ds?(?![a-z])|m(?:et(?:er|re)s?)?(?![a-z]))")
+# A figure is a whole number token: never the "2" of "1/2", "1,5" or "1.5.3" (S1F2-H1).
+_NUM = r"(?<![\d.,/\u2044])(\d+(?:\.\d+)?)(?![\d,/\u2044]|\.\d)"
 _BY = r"\s*(?:x|×|by)\s*"
 _DIMS = re.compile(rf"{_NUM}\s*{_UNIT}?{_BY}{_NUM}\s*{_UNIT}?(?:{_BY}{_NUM}\s*{_UNIT}?)?")
 _DIM1 = re.compile(rf"{_NUM}\s*{_UNIT}")
@@ -172,6 +339,8 @@ def _unit_cm(unit: str) -> float:
         return 100.0
     if unit.startswith(("ft", "fe", "fo")):
         return 30.48
+    if unit.startswith("y"):
+        return 91.44
     if unit.startswith("i"):
         return INCH_CM
     return 1.0
@@ -208,7 +377,7 @@ def _tokens(title: str | None) -> tuple[list[dict], list[str]]:
 
 def stated_dimensions(title: str | None) -> tuple[float, ...]:
     """The dimensions a title states with a unit, in cm: (short, long), (one,) or ()."""
-    toks, _ = _tokens(title)
+    toks, _ = _tokens(_fold(title))
     for t in toks:
         if all(t["units"]) and len(t["values"]) <= 2:
             cm = [_cm(v, u) for v, u in zip(t["values"], t["units"])]
@@ -216,10 +385,20 @@ def stated_dimensions(title: str | None) -> tuple[float, ...]:
     return ()
 
 
+# S1F2-LOW: typographic quotes and primes are the inch and foot marks they stand for
+# ('Linen Throw 50”x60”' is 50 x 60 in). NFKC (fold_title) turns a double prime into two
+# primes, so the doubles are mapped first.
+_QUOTES = {"\u201c": '"', "\u201d": '"', "\u201e": '"', "\u201f": '"', "\u2033": '"',
+           "\u2036": '"', "\u3003": '"', "\uff02": '"', "\u2018": "'", "\u2019": "'",
+           "\u201a": "'", "\u201b": "'", "\u2032": "'", "\u2035": "'", "\u00b4": "'",
+           "\uff07": "'"}
+
+
 def _fold(title: str | None) -> str:
     from .fallback_constructions import fold_title
 
-    return fold_title(title)
+    text = "".join(_QUOTES.get(ch, ch) for ch in (title or ""))
+    return fold_title(text)
 
 
 def _sized_text(title: str | None) -> str:
@@ -313,7 +492,13 @@ def _class_target(obj: str | None, classes: dict) -> tuple[tuple[float, float] |
     return (pick(ds, s_lo, s_hi), pick(dl, l_lo, l_hi)), ""
 
 
-def claims(category: str | None, title: str | None) -> dict:
+# S1F2-LOW: a blanket for a pet is not a person's blanket. The CYC classes (and the large
+# family built on them) are human bed and throw sizes, and no cited pet-blanket band exists, so
+# a size word on a pet blanket is unbound ("XL Dog Blanket" was drafted 153.6 x 202.9 cm).
+PET_BLANKET = r"\b(?:pet|dog|doggy|doggie|cat|kitty|puppy|kitten|crate|kennel)s?\b"
+
+
+def claims(category: str | None, title: str | None, facts: dict | None = None) -> dict:
     """Every size-bearing token in the title, bound to what the twin must be, or unbound.
 
     Returns {"object", "classes": {name: class}, "dims": (short, long) | None,
@@ -322,10 +507,13 @@ def claims(category: str | None, title: str | None) -> dict:
     be bound to one size of the twin; callers refuse on it, never pass.
     """
     obj = object_of(category, title)
-    sized = _sized_text(title)
+    sized, graded = _bind_grades(_sized_text(title), facts)
     classes = named_classes(obj, title)
+    pet = obj == "blanket" and bool(re.search(PET_BLANKET, sized))
+    if pet:
+        classes = {}
     out = {"object": obj, "classes": classes, "dims": None, "single": None, "relative": [],
-           "unbound": [], "inferred": ""}
+           "unbound": list(graded), "relative_unbound": [], "inferred": ""}
     noun = (obj or "object").replace("_", " ")
     toks, unread = _tokens(sized)
     for u in unread:
@@ -374,16 +562,43 @@ def claims(category: str | None, title: str | None) -> dict:
             role = ("long" if _has(LENGTH_WORDS, sized) else
                     "short" if _has(WIDTH_WORDS, sized) else "")
             out["single"] = (d[0], role)
+    # D-S1-FAIL-CLOSED: stated dimensions bind only to an object this module holds to a band.
+    if (out["dims"] or out["single"]) and obj not in SUPPORTED_FLAT and not classes:
+        stated = out["dims"] or (out["single"][0],)
+        out["unbound"].append(
+            f"the title states {' x '.join(f'{v:g}' for v in stated)} cm for "
+            f"{'a ' + noun if obj else 'an object'} with no size band here, so the size cannot "
+            f"be checked (D-S1-FAIL-CLOSED)")
+        out["dims"] = out["single"] = None
     rel = [m.group(0) for m in re.finditer(RELATIVE_SIZE, sized)]
     out["relative"] = rel
     class_words = {w for c in classes.values() for w in c["words"]}
     for word in rel:
         if word in class_words or out["dims"] or out["single"]:
             continue
-        out["unbound"].append(
-            f"the title names a relative size ({word!r}) with no dimensions, and a {noun} has "
-            f"no defined size family for it (D-S1-RELATIVE-SIZE); the template makes one size "
-            f"and cannot back a relative size word")
+        family = ("a pet blanket has no cited size band (the CYC classes are human sizes)"
+                  if pet else f"a {noun} has no defined size family for it")
+        why = (f"the title names a relative size ({word!r}) with no dimensions, and {family} "
+               f"(D-S1-RELATIVE-SIZE); the template makes one size and cannot back a relative "
+               f"size word")
+        out["unbound"].append(why)
+        out["relative_unbound"].append(why)
+    # D-S1-FAIL-CLOSED: everything the claims above did not bind is refused by token.
+    rest = sized
+    for t in toks:
+        i = rest.find(t["text"])
+        if i >= 0:
+            rest = _blank(rest, i, i + len(t["text"]))
+    for u in unread:
+        i = rest.find(u)
+        if i >= 0:
+            rest = _blank(rest, i, i + len(u))
+    for w in sorted(class_words, key=len, reverse=True):
+        for m in list(re.finditer(rf"\b{re.escape(w)}\b", rest)):
+            rest = _blank(rest, m.start(), m.end())
+    for m in list(re.finditer(RELATIVE_SIZE, rest)):
+        rest = _blank(rest, m.start(), m.end())
+    out["unbound"].extend(_residual_unbound(rest, obj, facts))
     return out
 
 
@@ -416,10 +631,11 @@ def _single_target(obj: str, b: dict, value: float, role: str) -> tuple[tuple | 
             return None, (f"the title asks for a {noun} {value:g} cm wide; the {noun} band is "
                           f"{slo:g}-{shi:g} cm wide ({b['basis']})")
         return (value, round((llo + lhi) / 2, 1)), ""
-    which = "both" if as_long and as_short else "neither"
-    return None, (f"the title states one dimension ({value:g} cm), which is {which} the width "
-                  f"({slo:g}-{shi:g} cm) and the length ({llo:g}-{lhi:g} cm) of a {noun}, so it "
-                  f"cannot be bound to one side ({b['basis']})")
+    which = ("both the width ({w}) and the length ({l})" if as_long and as_short
+             else "neither the width ({w}) nor the length ({l})")
+    which = which.format(w=f"{slo:g}-{shi:g} cm", l=f"{llo:g}-{lhi:g} cm")
+    return None, (f"the title states one dimension ({value:g} cm), which is {which} of a "
+                  f"{noun}, so it cannot be bound to one side ({b['basis']})")
 
 
 def request(category: str | None, title: str | None) -> dict:
@@ -497,7 +713,8 @@ _TITLE_ONLY_BANDS = ("pet_mat", "burp_cloth", "wall_hanging")
 
 
 def coded_findings(title: str | None, width_cm: float, height_cm: float,
-                   category: str | None = None) -> list[tuple[str, str]]:
+                   category: str | None = None, facts: dict | None = None
+                   ) -> list[tuple[str, str]]:
     """(code, why) for each way the finished size does not match the size the title claims:
     OBJECT_SIZE_UNBOUND for a size token that cannot be bound, OBJECT_SIZE_NOT_AS_TITLED for a
     bound claim the twin does not meet, OBJECT_SIZE_OUT_OF_BAND for a title-only band."""
@@ -506,13 +723,18 @@ def coded_findings(title: str | None, width_cm: float, height_cm: float,
     from ..gates.first_customer import _family_hits
 
     short, long_ = sorted((float(width_cm), float(height_cm)))
-    c = claims(category, title)
+    c = claims(category, title, facts)
     obj, classes = c["object"], c["classes"]
     out: list[tuple[str, str]] = []
-    if c["unbound"] and (obj in SUPPORTED_FLAT or classes):
-        for why in c["unbound"]:
-            out.append((UNBOUND, f"{why}; the size the title claims cannot be checked against "
-                                 f"the pattern's {short:.1f} x {long_:.1f} cm"))
+    # D-S1-FAIL-CLOSED: every unbound token is reported for every title. Relative words alone
+    # stay with the objects this module sizes: a vessel's small / medium / large is bound by
+    # the vessel route (`fallback_constructions._basket_size`, products.vessels.BASKET_SIZES).
+    flat = obj in SUPPORTED_FLAT or bool(classes)
+    for why in c["unbound"]:
+        if why in c["relative_unbound"] and not flat:
+            continue
+        out.append((UNBOUND, f"{why}; the size the title claims cannot be checked against "
+                             f"the pattern's {short:.1f} x {long_:.1f} cm"))
     missed = {k: cl for k, cl in classes.items() if not _in_class(cl, short, long_)}
     if missed:
         names = ", ".join(sorted(missed))
@@ -552,6 +774,34 @@ def coded_findings(title: str | None, width_cm: float, height_cm: float,
 
 
 def findings(title: str | None, width_cm: float, height_cm: float,
-             category: str | None = None) -> list[str]:
+             category: str | None = None, facts: dict | None = None) -> list[str]:
     """Why a finished size does not match the size the title claims, or [] when it does."""
-    return [why for _, why in coded_findings(title, width_cm, height_cm, category)]
+    return [why for _, why in coded_findings(title, width_cm, height_cm, category, facts)]
+
+
+def plan_refusal(category: str | None, title: str | None) -> str | None:
+    """The first unbound size token of any title, at plan time (FALLBACK_FACTS), or None.
+
+    `fallback_constructions.plan` runs this on every route it would draft, so a title the
+    certificate would refuse for an unbound token is refused before drafting (S1F2-LOW)."""
+    c = claims(category, title, FALLBACK_FACTS)
+    flat = c["object"] in SUPPORTED_FLAT or bool(c["classes"])
+    for why in c["unbound"]:
+        if why in c["relative_unbound"] and not flat:
+            continue
+        return why
+    return None
+
+
+def drafted_refusal(category: str | None, title: str | None) -> str | None:
+    """Why the certificate would refuse the size of what the fallback drafts for this title,
+    or None. The size is measured from the template the pipeline drafts
+    (`runtime.pipeline.drafted_size`) and checked by the certificate's own
+    `object_size_findings`, so plan and certify cannot disagree (S1F2-LOW)."""
+    from ..gates.certificate import size_findings_for
+    from ..runtime.pipeline import drafted_size
+
+    w, h = drafted_size(category, title)
+    # Category None, as at certification: the certificate reads the title alone.
+    found = size_findings_for(title, w, h, FALLBACK_FACTS)
+    return found[0][1] if found else None

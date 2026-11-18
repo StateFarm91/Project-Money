@@ -207,16 +207,34 @@ def _band_phrase(name: str, folded: str) -> bool:
 
 def object_size_findings(cir, twin) -> list[Finding]:
     """ERROR when the CIR's title names an object whose size band the twin's finished size
-    is outside. Deterministic: the product-type family words and the twin's computed size."""
+    is outside, or a size the twin does not make, or a size token nothing binds.
+    Deterministic: the product-type family words and the twin's computed size.
+
+    The one object-size check (A4A-1 and S1 Product Truth reconciled on w6-INTEG1): the plan
+    runs the same `size_findings_for` on the size it would draft, so the two cannot differ."""
+    if twin is None:
+        return []
+    from ..creative import size_truth
+
+    return [Finding(ERROR, code, why) for code, why in size_findings_for(
+        cir.title, float(twin.width_cm or 0), float(twin.height_cm or 0),
+        size_truth.facts_of(cir))]
+
+
+def size_findings_for(title, width_cm: float, height_cm: float, facts: dict | None,
+                      category: str | None = None) -> list[tuple[str, str]]:
+    """(code, why) for every size finding on a title and a finished size: the family bands
+    below, then `creative.size_truth.coded_findings` (named classes, stated dimensions, and the
+    fail-closed unbound-token rule, D-S1-FAIL-CLOSED)."""
     from .first_customer import _family_hits
 
-    out: list[Finding] = []
-    if twin is None:
+    out: list[tuple[str, str]] = []
+    if not width_cm or not height_cm:
         return out
     from ..creative.fallback_constructions import fold_title
 
-    hits = _family_hits(cir.title or "")
-    folded = fold_title(cir.title)
+    hits = _family_hits(title or "")
+    folded = fold_title(title)
     for name, band in OBJECT_SIZE_BANDS.items():
         family = band.get("family", name)
         if family not in hits or (band.get("sole", "phrase" in band) and set(hits) != {family}):
@@ -227,7 +245,7 @@ def object_size_findings(cir, twin) -> list[Finding]:
             continue
         if band.get("words") and not set(hits[family]) & set(band["words"]):
             continue
-        w, h = float(twin.width_cm), float(twin.height_cm)
+        w, h = float(width_cm), float(height_cm)
         short, long_ = min(w, h), max(w, h)
         problems = []
         if "side_cm" in band:
@@ -245,7 +263,7 @@ def object_size_findings(cir, twin) -> list[Finding]:
             if not (llo <= long_ <= lhi):
                 problems.append(f"its long side {long_:.1f} cm is outside {llo:g}-{lhi:g} cm")
         if problems:
-            out.append(Finding(ERROR, "OBJECT_SIZE_OUT_OF_BAND", (
+            out.append(("OBJECT_SIZE_OUT_OF_BAND", (
                 f"the title names a {hits[family][0]!r}, and the pattern's finished size "
                 f"{'; '.join(problems)} ({band['basis']}); the name promises a size the "
                 f"pattern does not make")))
@@ -257,9 +275,8 @@ def object_size_findings(cir, twin) -> list[Finding]:
     # Second review (S1F-H1/LOW): every size token in the title is bound or is an
     # OBJECT_SIZE_UNBOUND refusal, and the pet-mat / burp-cloth / tapestry bands, which no
     # product-type family word reaches, are checked here (OBJECT_SIZE_OUT_OF_BAND).
-    for code, why in size_truth.coded_findings(cir.title, float(twin.width_cm or 0),
-                                               float(twin.height_cm or 0)):
-        out.append(Finding(ERROR, code, why))
+    out.extend(size_truth.coded_findings(title, float(width_cm), float(height_cm),
+                                         category, facts))
     return out
 
 
@@ -442,7 +459,8 @@ def certify(
         from ..creative import size_truth
 
         for _code, why in size_truth.coded_findings(listing.title, float(twin.width_cm or 0),
-                                                    float(twin.height_cm or 0)):
+                                                    float(twin.height_cm or 0),
+                                                    facts=size_truth.facts_of(cir)):
             findings.append(Finding(ERROR, "LISTING_SIZE_NOT_AS_TITLED", f"listing: {why}"))
 
     # 4. Asset truth.

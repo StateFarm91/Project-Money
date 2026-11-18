@@ -178,7 +178,25 @@ def _colour_count_free(text: str) -> str:
 
 def plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
          rationale: str = "") -> dict:
-    """The construction family a fallback concept is drafted in, and why."""
+    """The construction family a fallback concept is drafted in, and why.
+
+    D-S1-FAIL-CLOSED (S1F2): a route that would draft is refused when the title carries a
+    size token nothing binds (`size_truth.plan_refusal`), the same rule the certificate
+    applies, so no route drafts a title certification would refuse for its size words."""
+    route = _plan(category=category, title=title, is_bundle=is_bundle, slug=slug,
+                  rationale=rationale)
+    if route["family"] != REFUSED:
+        from . import size_truth
+
+        why = size_truth.plan_refusal(category, title)
+        if why:
+            return {"family": REFUSED, "needs": "a size claim the pattern can be checked against",
+                    "why": why}
+    return route
+
+
+def _plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
+          rationale: str = "") -> dict:
     if is_bundle:
         return {"family": REFUSED, "needs": "the member releases it collects",
                 "why": "a bundle is a collection of other designs, not a design to draft"}
@@ -387,6 +405,14 @@ def _size_refusal(category: str, title: str) -> dict | None:
         return {"family": REFUSED,
                 "needs": "a size band and a template that make the size the title names",
                 "why": req["refused"]}
+    # S1F2-LOW: the size this would draft, measured, must pass the certificate's own size
+    # check -- the plan refuses exactly what certification would ("Linen Throw 1.5 m",
+    # "Large Baby Blanket" were drafted and then refused at certify).
+    why = size_truth.drafted_refusal(category, title)
+    if why:
+        return {"family": REFUSED,
+                "needs": "a template that drafts the size the title names inside its bands",
+                "why": why}
     return None
 
 

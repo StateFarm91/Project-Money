@@ -246,6 +246,17 @@ def _sized(g: dict, width: int, target: tuple[float, float]) -> tuple[int, int]:
     return sts, rows
 
 
+def drafted_size(category: str | None, title: str | None) -> tuple[float, float]:
+    """The finished (width, height) in cm the flat template drafts for this title: the
+    `concept_geometry` numbers, measured by their own compiled twin (S1F2-LOW: the plan checks
+    this size with the certificate's size check, so plan and certify agree)."""
+    from types import SimpleNamespace
+
+    g = concept_geometry(SimpleNamespace(category=category, title=title, family=None))
+    return _template_size(tuple(tuple(x) for x in g["stitch_repeat"]), g["width_stitches"],
+                          g["rows"])
+
+
 def concept_geometry(seed: ConceptSeed) -> dict:
     """Turn a market concept into the numbers the CIR builder needs."""
     from ..creative import size_truth
