@@ -570,7 +570,9 @@ def test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart():
                    for i in out["items"] if i.get("section") != "competitor_scans")
         assert by["competitor shops scanned (eight-shop research network)"]["verdict"] in (
             readback.PASS, readback.WARN), by
-        assert len(out["items"]) == 13, out["items"]
+        # A9 round 2: unrecorded listing-package releases are a readback row (none seeded).
+        assert by["listing-package releases recorded"]["verdict"] == readback.PASS, by
+        assert len(out["items"]) == 14, out["items"]
         # An unreadable section is UNKNOWN, never PASS.
         v, _ = readback._judge_section("weekly_jobs", {"readable": False}, True)
         assert v == readback.UNKNOWN

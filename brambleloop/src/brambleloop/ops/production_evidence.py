@@ -10,6 +10,7 @@ This module answers the questions the owner asked production to prove, from rows
 * repeated paid calls being prevented (`paid_call_records`, the write-ahead intents);
 * weekly jobs completing (every 7-day cadence, `improve.weekly` among them);
 * dead letters in 24 h by job type, with the error *class* only;
+* listing-package releases left unrecorded (degraded sweeps), by `slug@version` and class;
 * products progressing through certification (`products.lifecycle` stages);
 * the autonomous company loop, stage by stage, with useful work counted apart from no-ops
   (`runtime.pipeline.did_no_work` is the one judge).
@@ -397,6 +398,74 @@ def weekly_jobs(db, *, now: datetime) -> dict:
     return {"readable": True, "grace_days": WEEKLY_GRACE.days, "required": list(WEEKLY_REQUIRED),
             "judged": "every weekly cadence that has ever been enqueued, and the required ones",
             "weekly_job_types": out}
+
+
+_RELEASE_KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,119}@[A-Za-z0-9._+-]{1,40}$")
+
+
+def _safe_class(name) -> str:
+    """A recorded class NAME, emitted only when it is a loaded exception class (L1)."""
+    return (name if isinstance(name, str) and _CLASS_NAME.match(name)
+            and name in _known_exception_names() else "unclassified")
+
+
+def listing_package_releases(db, *, now: datetime, hours: int = PASS_WINDOW_HOURS) -> dict:
+    """Review of a9feb805 (MEDIUM): releases the `listing.package` job did NOT record.
+
+    A sweep whose final attempt records some releases but not others completes DONE with
+    `degraded: true` (so one bad release does not dead-letter the rest), and every failing
+    release is audited `listing.package_release_failed`. Neither is a dead letter, so the
+    dead-letter readers never saw it: a release failing every six hours passed silently. This
+    section reads both. Emitted: `slug@version`, error class names, counts, job ids, times."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog, Job, JobStatus
+    from ..runtime.listing_package_ops import JOB_TYPE, RELEASE_FAILED
+
+    since = now - timedelta(hours=hours)
+    with db.session() as s:
+        rows = list(s.execute(select(AuditLog.artifact, AuditLog.detail, AuditLog.at,
+                                     AuditLog.job_id).where(AuditLog.action == RELEASE_FAILED,
+                                                            AuditLog.at >= since)))
+        done = list(s.execute(select(Job.id, Job.outputs, Job.finished_at).where(
+            Job.job_type == JOB_TYPE, Job.status == JobStatus.DONE, Job.finished_at >= since)))
+    releases: dict[tuple, dict] = {}
+    for r in rows:
+        at = _aware(r.at)
+        if at is None or at < since:
+            continue
+        d = r.detail if isinstance(r.detail, dict) else {}
+        key = r.artifact if isinstance(r.artifact, str) and _RELEASE_KEY.match(r.artifact) \
+            else "unparseable"
+        cls = _safe_class(d.get("error_class"))
+        g = releases.setdefault((key, cls), {"release": key, "error_class": cls,
+                                             "failed_attempts": 0, "final_attempt_failures": 0,
+                                             "newest_at": None, "job_ids": []})
+        g["failed_attempts"] += 1
+        g["final_attempt_failures"] += 1 if d.get("final_attempt") is True else 0
+        if g["newest_at"] is None or at.isoformat() > g["newest_at"]:
+            g["newest_at"] = at.isoformat()
+        if r.job_id is not None and int(r.job_id) not in g["job_ids"]:
+            g["job_ids"] = sorted(g["job_ids"] + [int(r.job_id)], reverse=True)[:EXAMPLES]
+    degraded = sorted((int(j.id) for j in done
+                       if isinstance(j.outputs, dict) and j.outputs.get("degraded") is True
+                       and _aware(j.finished_at) is not None and _aware(j.finished_at) >= since),
+                      reverse=True)
+    by_release = sorted(releases.values(),
+                        key=lambda g: (-g["final_attempt_failures"], -g["failed_attempts"],
+                                       g["release"], g["error_class"]))
+    return {"readable": True, "window_hours": hours,
+            "degraded_sweeps": len(degraded), "degraded_job_ids": degraded[:EXAMPLES],
+            "unrecorded_releases": len({g["release"] for g in by_release
+                                        if g["final_attempt_failures"]}),
+            "final_attempt_failures": sum(g["final_attempt_failures"] for g in by_release),
+            "by_release": by_release[:30]}
+
+
+def judge_listing_package_releases(ev: dict) -> bool:
+    """True only when readable and no release went unrecorded on a final attempt."""
+    return bool(ev.get("readable") and ev.get("degraded_sweeps") == 0
+                and ev.get("final_attempt_failures") == 0)
 
 
 def certification(db, *, now: datetime) -> dict:
@@ -787,6 +856,7 @@ SECTIONS = {
     "autonomy_loop": autonomy_loop,
     "etsy_taxonomy": etsy_taxonomy,
     "competitor_scans": competitor_scans,
+    "listing_package_releases": listing_package_releases,
 }
 CHECK_NAMES = ("publishing_halt_clear", "stale_artefacts_rebuilding",
                "no_repeated_paid_call_in_24h", "weekly_jobs_completing")
@@ -944,6 +1014,10 @@ def evidence(db, *, now: datetime | None = None, deploy_handlers: dict | None = 
     dl = sections["dead_letters_24h"]
     judged["no_unexpected_dead_letters_in_24h"] = bool(
         dl.get("readable") and dl.get("unexpected_total") == 0)
+    # Review of a9feb805: a degraded listing-package sweep is not a dead letter but is a
+    # release left unrecorded; judged beside the dead letters so it can never pass silently.
+    judged["no_unrecorded_listing_releases_in_24h"] = judge_listing_package_releases(
+        sections["listing_package_releases"])
     return {"as_of": now.isoformat(), "read_only": True,
             "never_included": ["job inputs/outputs", "error text", "incident text",
                                "paid-call payloads", "conversations", "owner data",
