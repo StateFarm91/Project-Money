@@ -45,4 +45,10 @@ test_w4_finhealth test_ws2_r1_competitor_scans test_ws2_r3_source_timestamp
 test_ws2_r4_kept_scan_facts test_w4_research test_w4_research_to_product_stall:
 **191 passing**, 1 failing — `test_cert_mjs.test_the_veto_route_records_counts_and_feeds_lessons`,
 environmental (starlette test client needs `httpx2`), same on a459d73e.
-Second batch (callers of intake/comparison): results pending at commit time; see the next commit.
+Second batch (every other suite that calls concept intake, the comparison or withdrawal):
+test_cert_orchestration test_chaos test_creators test_k8_listing_estate
+test_operating_cost_basis test_r2_autonomy_scheduler_blocks test_rehearsal_stall
+test_search_truth test_w4_c12_dashboard_registers test_w4_c12_lifecycle
+test_w4_close5_vision_timeout test_w4_launchfix test_w4_listready: **210 passing**, 1 suite
+failing: `test_w4_launchfix` cannot import (`fastapi.testclient` needs `httpx2`, not
+installed). This is the same environmental failure as above; no test in that suite ran.
