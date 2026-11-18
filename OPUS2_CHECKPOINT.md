@@ -57,7 +57,13 @@ worktrees, not this file.
 - Tick 2026-11-18T22:28Z: no [MAIN] message since RR 6992288568. INTEG1 4bad3a30: WS4-7 trusted issuer
   (ENG-E 67dc61cd) and A3 merged. Stage A (a1/a2-fix) sits on fa3a09e9, the pre-ENG-E WS4-7 head;
   rebase onto INTEG1 only when Main says. Nothing posted.
-- Stop reason (2026-11-18T22:30Z): all of Main's findings fixed and review-requested; queue
+- Tick 2026-11-18T23:28Z: Main 6994599424 (INTEG1 7a0bc63b; builders rebase; F7 final-segment
+  rule; no bare numbers in fixture titles). All seven heads merged onto 7a0bc63b (CHECKPOINT
+  6994982091): s4 ed50c29a (+_tmp, final segment), s4b a941700e, ws5 c5756c4c, g-shadow
+  b493a9c6, s2-card c1c5309c, stage-a1 9a781810 (consume conflict; activation grant signs the
+  shop; write-once fixtures), stage-a2 ae9d837e. RULE: also run test_w4_resume_runner (F7) and
+  test_w3_tmp_hygiene before any RR.
+- Stop reason (2026-11-19T00:05Z): all of Main's findings fixed and review-requested; queue
   exhausted pending verdicts. Answer any [MAIN] message first next tick.
 
 ## State at 2026-11-18T10:50Z (superseded)
