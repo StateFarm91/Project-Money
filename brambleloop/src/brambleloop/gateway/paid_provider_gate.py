@@ -73,8 +73,8 @@ from ..core.resilience import PermanentError
 
 # ---- vocabulary ------------------------------------------------------------------------------
 
-GENERATION, VISION, PROBE = "generation", "vision", "probe"
-SCOPES = (GENERATION, VISION, PROBE)
+GENERATION, VISION, PROBE, TEXT = "generation", "vision", "probe", "text"
+SCOPES = (GENERATION, VISION, PROBE, TEXT)
 
 # The paid vision providers. Image generators come from `images.PROVIDERS` (every one of them,
 # read at call time so a provider added there is gated without an edit here).
@@ -83,6 +83,14 @@ OPENAI_VISION = "openai-vision"           # `visual.d_judge.see` -- the research
 VISION_PROVIDERS: dict[str, str] = {
     ANTHROPIC_VISION: "Anthropic Messages API with images (every vision judge and observer)",
     OPENAI_VISION: "OpenAI chat completions with an inline image (visual.d_judge)",
+}
+
+# S2 review 6957356475 (MEDIUM): a paid TEXT provider routed per task needs the same owner
+# activation (with its own day/month/attempt ceilings) as a vision provider. Anthropic text is
+# governed by the monthly model ceiling as before; OpenAI text is new spend, so it is gated.
+OPENAI_TEXT = "openai-text"               # `gateway.openai_chat.OpenAIProvider.complete`
+TEXT_PROVIDERS: dict[str, str] = {
+    OPENAI_TEXT: "OpenAI chat completions, text only (tasks routed per task to openai)",
 }
 
 NOT_ACTIVATED = "not_activated_by_owner"
@@ -198,9 +206,11 @@ def image_providers() -> list[str]:
 
 
 def family(provider: str) -> str:
-    """`image` or `vision`; anything else is not a provider this gate knows (refused)."""
+    """`image`, `vision` or `text`; anything else is not a provider this gate knows (refused)."""
     if provider in VISION_PROVIDERS:
         return "vision"
+    if provider in TEXT_PROVIDERS:
+        return "text"
     if provider in image_providers():
         return "image"
     return ""
@@ -208,13 +218,14 @@ def family(provider: str) -> str:
 
 def scopes_for(provider: str) -> tuple[str, ...]:
     fam = family(provider)
-    return (GENERATION, PROBE) if fam == "image" else (VISION, PROBE) if fam == "vision" else ()
+    return ((GENERATION, PROBE) if fam == "image" else (VISION, PROBE) if fam == "vision"
+            else (TEXT, PROBE) if fam == "text" else ())
 
 
 def _covering(scope: str) -> tuple[str, ...]:
     """Activation scopes that authorise a call of `scope`. A generation (or vision) activation
     covers that provider's probe; a probe-only activation covers nothing else."""
-    return (scope,) if scope != PROBE else (PROBE, GENERATION, VISION)
+    return (scope,) if scope != PROBE else (PROBE, GENERATION, VISION, TEXT)
 
 
 # ---- gallery context ------------------------------------------------------------------------
@@ -279,6 +290,12 @@ _BUDGET: ContextVar[tuple | None] = ContextVar("brambleloop_paid_gate_budget", d
 def note_budget(db, decided: dict | None) -> None:
     if db is not None and decided and decided.get("reservation_id") is not None:
         _BUDGET.set((db, dict(decided)))
+
+
+def peek_budget_db():
+    """The database a noted reservation was taken in, without consuming the note."""
+    held = _BUDGET.get()
+    return held[0] if held else None
 
 
 def take_budget() -> tuple[Any, dict] | tuple[None, None]:
@@ -886,6 +903,11 @@ def enforce(db, *, provider: str, scope: str, estimate_cad: float, fingerprint: 
 
 # ---- the owner's view -----------------------------------------------------------------------
 
+def _paid_providers() -> list[str]:
+    """Every gated paid provider: image generators, vision providers and text providers."""
+    return image_providers() + list(VISION_PROVIDERS) + list(TEXT_PROVIDERS)
+
+
 def owner_view(db, *, now: datetime | None = None) -> dict:
     """Every paid provider, its activation state and this month's gated spend. Names only;
     never a credential value."""
@@ -897,7 +919,9 @@ def owner_view(db, *, now: datetime | None = None) -> dict:
         keyed = set(images.available())
     except Exception:  # noqa: BLE001
         keyed = set()
-    for provider in image_providers() + list(VISION_PROVIDERS):
+    # S2 review 6979817823 LOW: the text providers are listed too (an `openai-text` activation
+    # was gated and could be granted, but the owner could not see it here).
+    for provider in _paid_providers():
         for scope in scopes_for(provider):
             st = activation_state(db, provider, scope, now=now)
             out["providers"].append({
@@ -911,7 +935,7 @@ def owner_view(db, *, now: datetime | None = None) -> dict:
         with db.session() as s:
             out["month_gated_cad"] = {
                 p: _sum(s, PaidProviderCall.provider == p, PaidProviderCall.at >= month0)
-                for p in image_providers() + list(VISION_PROVIDERS)}
+                for p in _paid_providers()}
     except Exception as exc:  # noqa: BLE001
         out["month_gated_cad"] = f"UNKNOWN ({type(exc).__name__})"
     return out
