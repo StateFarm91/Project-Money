@@ -103,8 +103,8 @@ try {
   check(tabs.length > 0 && tabs.every((t) => t.h >= 44 && t.w >= 44), "tabbar: tap targets >= 44px", JSON.stringify(tabs));
 
   // ---- every tab -------------------------------------------------------------------------
-  const TABS = ["home", "approvals", "money", "store", "operations", "learn", "insights", "notifications", "timeline", "ask", "account", "emergency", "more", "company", "completion"];
-  const SHOT = new Set(["home", "approvals", "money", "store", "operations", "learn", "notifications", "ask", "account", "emergency", "company", "completion"]);
+  const TABS = ["home", "approvals", "money", "store", "operations", "learn", "insights", "notifications", "timeline", "ask", "account", "emergency", "more", "company", "completion", "p0_board"];
+  const SHOT = new Set(["home", "approvals", "money", "store", "operations", "learn", "notifications", "ask", "account", "emergency", "company", "completion", "p0_board"]);
   for (const t of TABS) {
     consoleErrors.length = 0;
     await page.goto(`${BASE}/cc/#/${t}`);
@@ -146,6 +146,29 @@ try {
     labels: [...e.querySelectorAll(".kpi-trend svg")].map((g) => g.getAttribute("aria-label") || ""), text: e.textContent })));
   check(kpi.some((r) => r.labels.length === 2 && /useful completions per day/i.test(r.labels[0]) && /defect dead letters/i.test(r.labels[1])), "company: KPI trend drawn as two charts", JSON.stringify(kpi.map((r) => r.labels)));
   check(kpi.some((r) => /KPI trend:\s*Unknown/.test(r.text)), "company: unmeasured KPI trend reads Unknown", "");
+
+  // ---- S4b: the P0 board -------------------------------------------------------------------
+  await page.goto(`${BASE}/cc/#/p0_board`);
+  await settle();
+  const board = await page.$$eval("#main section.card", (els) => els.map((e) => ({
+    title: (e.querySelector(".card-title") || {}).textContent || "",
+    sub: (e.querySelector(".card-sub") || {}).textContent || "",
+    reached: [...e.querySelectorAll(".ladder-rung.is-reached")].map((r) => r.textContent.split(":")[0]),
+    text: e.textContent })));
+  check(board.length === 11, "p0 board: all eleven sections render", JSON.stringify(board.map((b) => b.title)));
+  check(board.every((b) => !b.reached.includes("INDEPENDENTLY REVIEWED") && !b.reached.includes("INTEGRATED"))
+    && board.every((b) => /INDEPENDENTLY REVIEWED: not readable here/.test(b.text)),
+    "p0 board: review and integration are never shown as reached", JSON.stringify(board.map((b) => b.reached)));
+  const costs = board.find((b) => /Costs/.test(b.title)) || {};
+  check(/Level: Unknown/.test(costs.sub || "") && /Unknown: could not be read/.test(costs.text || "") && (costs.reached || []).length === 0,
+    "p0 board: an unreadable section says Unknown with its reason and claims no level", JSON.stringify(costs));
+  const shopsCard = board.find((b) => /mandatory shops/.test(b.title)) || {};
+  check(/Last successful/.test(shopsCard.text || "") && /EtsyRateLimited/.test(shopsCard.text || "") && /Next scan/.test(shopsCard.text || ""),
+    "p0 board: each shop shows its scan times, failures and next scan", (shopsCard.text || "").slice(0, 200));
+  const runCard = board.find((b) => /Running build/.test(b.title)) || {};
+  check(/Level: PRODUCTION-VERIFIED/.test(runCard.sub || "") && runCard.reached.at(-1) === "PRODUCTION-VERIFIED",
+    "p0 board: the level shown is the section's own", JSON.stringify(runCard.reached));
+
   await page.goto(`${BASE}/cc/#/completion`);
   await settle();
   // INTEG4: the first-sale card (W4-FIRSTSALE) has its own rows; the lanes are the other sections.
@@ -468,7 +491,8 @@ try {
   // W4-LAUNCHFIX added "policy" (the owner's Etsy policy-page readings): the exact list is
   // pinned, not just its length, so an item added or dropped is a deliberate change here.
   // W5-INVENTORY adds "production" (product inventory by state, stalls, loops, agents).
-  const MORE_IDS = ["company", "images", "production", "completion", "policy", "operations", "learn",
+  // S4b adds "p0_board" (the P0 command board, each section with its proven level).
+  const MORE_IDS = ["company", "images", "production", "p0_board", "completion", "policy", "operations", "learn",
     "insights", "notifications", "timeline", "ask", "account", "emergency"];
   check(JSON.stringify(menu.map((m) => m.id)) === JSON.stringify(MORE_IDS) && menu.every((m) => m.hint.length > 5), "ccux more: every More item says what it holds", JSON.stringify(menu.map((m) => [m.id, m.hint])));
   const nb = await page.$eval(".menu a[data-more=notifications] .badge", (b) => ({ hidden: b.hidden, t: b.textContent }));

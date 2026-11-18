@@ -1,0 +1,107 @@
+// S4b: the P0 command board (#/p0_board), read from GET /api/cc/p0-board. Read-only.
+// Each section shows its state and the highest rung the running system proved, with the rule
+// that proved it. INDEPENDENTLY REVIEWED and INTEGRATED are never shown as reached: the
+// running system cannot read them, and the page says so. A null is Unknown, never 0.
+import { h } from "../dom.js";
+import { api } from "../api.js";
+import { card, statusPill, statTile } from "../components.js";
+import { relTime, utcStamp, UNKNOWN_TEXT } from "../format.js";
+import { pageMeta } from "./_shared.js";
+
+const TITLES = {
+  running: "Running build and health",
+  shops: "The 8 mandatory shops",
+  opportunities: "Opportunities scored",
+  development: "Products in development",
+  releases: "Certified releases",
+  assets: "PDFs and galleries",
+  etsy: "Etsy drafts and live listings",
+  sales: "Published and sales",
+  costs: "Costs and API credits",
+  blockers: "Open blockers and owners",
+  agents: "Agents",
+};
+const txt = (v) => (v === null || v === undefined || v === "" ? UNKNOWN_TEXT : String(v));
+const when = (iso) => (iso ? `${relTime(iso)} (${utcStamp(iso)})` : UNKNOWN_TEXT);
+
+function fact(label, text) {
+  return h("div", { class: "fact" }, h("dt", null, label), h("dd", null, text));
+}
+
+function ladder(vocabulary, sec) {
+  const reached = sec.level ? vocabulary.indexOf(sec.level) : -1;
+  const notHere = new Set(sec.not_provable_here || []);
+  return h("ol", { class: "ladder", aria: { label: "status level" } },
+    ...vocabulary.map((rung, i) => {
+      const rule = (sec.proved_by || {})[rung];
+      const state = notHere.has(rung) ? "not readable here" : i <= reached ? "proved" : "not proved";
+      return h("li", { class: ["ladder-rung", i <= reached && !notHere.has(rung) ? "is-reached" : null] },
+        `${rung}: ${state}${rule ? ` (${rule})` : ""}`);
+    }));
+}
+
+function rows(items, render, empty) {
+  if (!Array.isArray(items) || !items.length) return h("p", { class: "muted" }, empty);
+  return h("ul", { class: "rows" }, ...items.slice(0, 25).map(render));
+}
+
+const DETAIL = {
+  running: (s) => h("dl", { class: "facts" },
+    fact("Commit", txt(s.commit)), fact("Branch", txt(s.branch)),
+    fact("Health", txt(s.health && s.health.state)),
+    fact("Swept", when(s.health && s.health.swept_at)),
+    fact("Why", txt(s.health && s.health.why))),
+  shops: (s) => h("div", null,
+    h("div", { class: "tiles" }, statTile("Required", s.required), statTile("Fresh", s.fresh),
+      statTile("Failing", s.failing, { status: s.failing ? "DEGRADED" : null })),
+    rows(s.shops, (r) => h("li", { class: "row" },
+      h("div", { class: "row-head" }, h("p", { class: "row-title" }, `${txt(r.owner_order)}. ${txt(r.alias)}`),
+        statusPill(r.stale ? "STALE" : (r.consecutive_failures ? "DEGRADED" : "OK"))),
+      h("dl", { class: "facts" },
+        fact("Last attempted", when(r.last_attempted)), fact("Last successful", when(r.last_successful)),
+        fact("Etsy source time", when(r.etsy_source_timestamp)),
+        fact("Listings seen", txt(r.listings_seen_last_scan)),
+        fact("Failures", `${txt(r.consecutive_failures)}${r.failure_class ? ` (${r.failure_class})` : ""}`),
+        fact("Next scan", when(r.next_due)),
+        fact("Downstream", r.downstream ? `${txt(r.downstream.mission_events)} mission events, ${txt(r.downstream.coverage_gaps)} gaps` : UNKNOWN_TEXT))),
+    "No shop reading yet.")),
+  opportunities: (s) => rows(s.scored, (r) => h("li", { class: "row" },
+    h("p", { class: "row-title" }, `${r.slug} · ${r.state} · quality ${txt(r.quality)}`)), "No concept scored yet."),
+  development: (s) => h("dl", { class: "facts" }, ...Object.entries(s.count_by_stage || {}).map(([k, v]) => fact(k, txt(v)))),
+  releases: (s) => rows(s.certified, (r) => h("li", { class: "row" },
+    h("p", { class: "row-title" }, `${r.slug}@${r.version} · ${txt(r.listing_state)} · Etsy ${txt(r.etsy_listing_id)}${r.listing_release_matches === false ? " · listing is not this release" : ""}`)),
+    "No certified release yet."),
+  assets: (s) => rows(s.not_proven, (r) => h("li", { class: "row" },
+    h("p", { class: "row-title" }, `${txt(r.title)} · ${txt(r.status)}${r.gate ? ` · gate: ${r.gate}` : ""}`)), "Every readiness item is proven."),
+  etsy: (s) => h("div", null,
+    h("div", { class: "tiles" }, statTile("Drafts on Etsy", s.drafts_on_etsy), statTile("Live on Etsy", s.live_on_etsy)),
+    rows(s.remote, (r) => h("li", { class: "row" }, h("p", { class: "row-title" }, `${r.slug}@${r.version} · ${r.state} · ${r.etsy_listing_id}`)), "No listing has an Etsy id yet.")),
+  sales: (s) => h("div", { class: "tiles" }, statTile("Real orders", s.real_orders),
+    statTile("Revenue (CA$)", s.revenue_cad), statTile("Last order", s.last_order_at ? relTime(s.last_order_at) : null)),
+  costs: (s) => h("p", { class: "muted" }, s.note || ""),
+  blockers: (s) => h("div", null,
+    rows(s.owner_actions, (a) => h("li", { class: "row" }, h("p", { class: "row-title" },
+      `Owner: ${a.action}${a.max_cost_cad !== null && a.max_cost_cad !== undefined ? ` · up to CA$${a.max_cost_cad}` : ""}${a.minutes ? ` · ${a.minutes} min` : ""}`)), "No owner action open."),
+    rows(s.incidents, (i) => h("li", { class: "row" }, h("p", { class: "row-title" },
+      `System: ${i.severity} ${i.family}${i.product ? ` · ${i.product}` : ""}${i.halts_publication ? " · halts publication" : ""}`)), "No incident open.")),
+  agents: (s) => h("dl", { class: "facts" }, ...Object.entries(s.counts || {}).map(([k, v]) => fact(k, txt(v)))),
+};
+
+export async function render() {
+  const result = await api.p0Board();
+  const data = result.data || {};
+  const vocabulary = Array.isArray(data.vocabulary) ? data.vocabulary : [];
+  const sections = data.sections || {};
+  return h("div", { class: "stack" }, ...pageMeta(result, data),
+    h("p", { class: "callout" },
+      "Each level is the highest the running system can prove from its own records. "
+      + "INDEPENDENTLY REVIEWED and INTEGRATED are review and branch facts it cannot read, so they are never shown as reached."),
+    ...Object.keys(TITLES).map((name) => {
+      const sec = sections[name];
+      if (!sec) return card({ title: TITLES[name], actions: statusPill("UNKNOWN") }, h("p", { class: "callout callout-warn" }, "Unknown: not in the response."));
+      const detail = sec.why && !sec.level ? h("p", { class: "callout callout-warn" }, `Unknown: ${sec.why}`)
+        : (DETAIL[name] ? DETAIL[name](sec) : null);
+      return card({ title: TITLES[name], subtitle: sec.level ? `Level: ${sec.level}` : "Level: Unknown",
+        actions: statusPill(sec.state) }, detail, ladder(vocabulary, sec));
+    }));
+}
