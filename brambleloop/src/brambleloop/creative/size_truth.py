@@ -14,6 +14,13 @@ Three callers read it:
 * `gates.certificate.object_size_findings` holds the twin to the size the title claims: the
   named class's band, and the stated dimensions within `TOLERANCE` (H1/H2).
 
+Second review of e490fc6f (S1F-H1, S1F-M1): every size-bearing token in a title -- a class
+word, a relative size word, stated dimensions -- is bound to the drafted twin and checked by
+`claims`, which both the draft (`request`) and the certificate (`findings`) read. A token the
+parser cannot bind (two different sizes, three dimensions, a dangling figure, a unitless size
+whose unit is not determined by the band, a relative word with no family) is a refusal with
+a reason, never a pass. D-S1-UNITLESS-DIMS and D-S1-RELATIVE-SIZE record the two rules.
+
 Nothing here estimates from prose. A title with no class word and no dimensions asks for the
 family's default size, which the plain template makes and the family band checks.
 """
@@ -38,6 +45,8 @@ PILLOW_FORMS = ("standard pillow-form sizes: square 12-26 in, lumbar 12 x 20 in 
 # sides may differ, its default drafted size (short, long) and the standard it comes from.
 # A blanket class band spans its CYC sizes with room for blocking; the `baby` class spans
 # preemie (18 x 24 in) to crib (45 x 60 in) because "baby blanket" names all of them.
+# S1F-H1: the bed sizes are named by the bare word too ("Queen Linen Blanket"); the phrases in
+# `NON_SIZE_PHRASES` (single crochet, full moon, Queen Anne's lace...) are removed first.
 BLANKET_CLASSES: dict[str, dict] = {
     "preemie": {"words": ("preemie", "premie", "nicu"),
                 "short": (42.0, 55.0), "long": (55.0, 70.0), "default": (46.0, 61.0),
@@ -53,17 +62,29 @@ BLANKET_CLASSES: dict[str, dict] = {
     "throw": {"words": ("throw", "sofa", "couch"),
               "short": (75.0, 145.0), "long": (90.0, 170.0), "default": (128.0, 152.0),
               "basis": f"lapghan 36 x 48 in to throw 50 x 60 in ({CYC_BLANKETS})"},
-    "twin": {"words": ("twin size", "twin sized", "twin bed", "twin blanket", "single bed"),
+    # S1F-M1 (D-S1-RELATIVE-SIZE): the one relative size word with a defined family. A "large"
+    # or "oversized" blanket is bigger than the CYC throw and no bigger than the CYC twin; it
+    # is drafted at 60 x 80 in, the size large throws are sold in. Catalogue: Nordic Forest
+    # Relief Large Blanket, 120 x 171 cm.
+    "large": {"words": ("large", "extra large", "x-large", "xl", "oversized", "oversize",
+                        "big", "giant", "jumbo", "huge"),
+              "relative": True,
+              "short": (110.0, 185.0), "long": (160.0, 245.0), "default": (152.0, 203.0),
+              "basis": f"HOUSE FAMILY D-S1-RELATIVE-SIZE: longer than the CYC throw (50 x 60 "
+                       f"in) up to the CYC twin (66 x 90 in); drafted at 60 x 80 in "
+                       f"({CYC_BLANKETS})"},
+    "twin": {"words": ("twin", "twin size", "twin sized", "twin bed", "single bed"),
              "short": (155.0, 185.0), "long": (215.0, 245.0), "default": (168.0, 229.0),
              "basis": f"twin 66 x 90 in ({CYC_BLANKETS})"},
-    "full": {"words": ("full size", "full sized", "full bed", "double bed", "double size"),
+    "full": {"words": ("full", "full size", "full sized", "full bed", "double bed",
+                       "double size"),
              "short": (190.0, 215.0), "long": (215.0, 245.0), "default": (203.0, 229.0),
              "basis": f"full 80 x 90 in ({CYC_BLANKETS})"},
-    "queen": {"words": ("queen size", "queen sized", "queen bed", "queen blanket"),
+    "queen": {"words": ("queen", "queen size", "queen sized", "queen bed"),
               "short": (215.0, 245.0), "long": (240.0, 270.0), "default": (229.0, 254.0),
               "basis": f"queen 90 x 100 in ({CYC_BLANKETS})"},
-    "king": {"words": ("king size", "king sized", "king bed", "king blanket",
-                       "california king", "cal king"),
+    "king": {"words": ("king", "king size", "king sized", "king bed", "california king",
+                       "cal king"),
              "short": (240.0, 280.0), "long": (260.0, 290.0), "default": (254.0, 274.0),
              "basis": f"king 108 x 100 in ({CYC_BLANKETS})"},
 }
@@ -72,6 +93,15 @@ PILLOW_CLASSES: dict[str, dict] = {
                "short": (25.0, 40.0), "long": (45.0, 66.0), "min_aspect": 1.4,
                "default": (30.0, 50.0), "basis": PILLOW_FORMS},
 }
+
+# Phrases whose words look like sizes and are not: crochet stitches, names, idioms. Removed
+# from the title before any size word is read. A word left after this is a size word.
+NON_SIZE_PHRASES = (
+    r"\b(?:single|double|half double|treble|triple|extended single) crochet\b",
+    r"\bqueen anne'?s?\b", r"\b(?:king|queen|twin)'s\b", r"\bfull (?:moon|bloom|of|colou?rs?)\b",
+    r"\btwin (?:peaks|set)\b", r"\blong (?:stitch(?:es)?|weekend)\b", r"\bshort rows?\b",
+    r"\bsmall batch\b",
+)
 
 # Objects the fallback has a correct flat template and a band for, by the family word in the
 # title (`gates.first_customer.PRODUCT_TYPE_FAMILIES`) or, when the title names none, by the
@@ -105,13 +135,85 @@ NO_TEMPLATE: dict[str, str] = {
 }
 
 BURP_CLOTH = r"\bburp ?(?:cloth|rag)s?\b"
-RELATIVE_SIZE = (r"\b(?:extra[- ]?large|x-?large|xl|xxl|oversized?|giant|jumbo|huge|large|big|"
-                 r"small|mini|tiny|petite|short)\b")
+# S1F-LOW: a pet mat and a tapestry are read from the title too, so their bands apply at
+# certification (where there is no radar category). "Tapestry crochet" is a technique.
+PET_MAT = r"\b(?:pet|dog|cat|puppy|kitten|crate)\b(?:\s+[a-z']+){0,2}?\s+mats?\b"
+TAPESTRY = r"\btapestr(?:y|ies)\b(?!\s+(?:crochet|stitch))|\bwall (?:art|decor)\b"
 
-_DIM2 = re.compile(r"(\d+(?:\.\d+)?)\s*(cm|centimet(?:er|re)s?|in(?:ch(?:es)?)?\b|\"|'')?\s*"
-                   r"(?:x|×|by)\s*(\d+(?:\.\d+)?)\s*(cm|centimet(?:er|re)s?|in(?:ch(?:es)?)?\b"
-                   r"|\"|'')")
-_DIM1 = re.compile(r"(\d+(?:\.\d+)?)\s*(cm|centimet(?:er|re)s?|in(?:ch(?:es)?)?\b|\"|'')")
+# S1F-M1 (D-S1-RELATIVE-SIZE): every relative size word. One rule for all of them: bound by
+# stated dimensions, or by a defined size family for the object (a class whose words include
+# it: only the large blanket), or refused. A length word binds a single figure to the length,
+# a width word to the width.
+RELATIVE_SIZE = (r"\b(?:extra[- ]?large|x-?large|xxl|xl|extra[- ]?long|oversized?|giant|jumbo|"
+                 r"huge|large|big|small|mini|tiny|petite|short|long|skinny|slim|wide|narrow)\b")
+LENGTH_WORDS = ("short", "long", "extra long", "extra-long", "extralong")
+WIDTH_WORDS = ("skinny", "slim", "wide", "narrow")
+
+# ---- stated dimensions -----------------------------------------------------------------------
+# A unit is cm, mm, m, inches ("in" only when no figure follows it: "2 in 1" is not 2 inches),
+# feet. `''` and `"` are inches, a single `'` is feet.
+_UNIT = (r"(cm|centimet(?:er|re)s?|mm|millimet(?:er|re)s?|in(?:ch(?:es)?)?(?![a-z])(?!\s*\d)"
+         r"|\"|''|ft|feet|foot|'|m(?:et(?:er|re)s?)?(?![a-z]))")
+_NUM = r"(\d+(?:\.\d+)?)"
+_BY = r"\s*(?:x|×|by)\s*"
+_DIMS = re.compile(rf"{_NUM}\s*{_UNIT}?{_BY}{_NUM}\s*{_UNIT}?(?:{_BY}{_NUM}\s*{_UNIT}?)?")
+_DIM1 = re.compile(rf"{_NUM}\s*{_UNIT}")
+_DANGLING = re.compile(r"\d\s*(?:x|×)(?![a-z])|(?<![a-z])(?:x|×)\s*\d")
+
+
+def _unit_cm(unit: str) -> float:
+    if unit in ("''", '"'):
+        return INCH_CM
+    if unit == "'":
+        return 30.48
+    if unit.startswith("mm") or unit.startswith("mil"):
+        return 0.1
+    if unit.startswith("me") or unit == "m":
+        return 100.0
+    if unit.startswith(("ft", "fe", "fo")):
+        return 30.48
+    if unit.startswith("i"):
+        return INCH_CM
+    return 1.0
+
+
+def _cm(value: str, unit: str | None) -> float:
+    return round(float(value) * _unit_cm(unit), 1) if unit else float(value)
+
+
+def _tokens(title: str | None) -> tuple[list[dict], list[str]]:
+    """The size-bearing figures in a title, and the ones that cannot be read.
+
+    Each token: {"values": raw figures, "units": unit per figure (None when unstated)}. A unit
+    stated on one figure of a pair applies to the other ("12 x 24 in", '18" x 12').
+    """
+    text = (title or "").lower().replace("×", "x")
+    toks: list[dict] = []
+    unread: list[str] = []
+    rest = text
+    for m in _DIMS.finditer(text):
+        values = [g for g in (m.group(1), m.group(3), m.group(5)) if g is not None]
+        units = [m.group(2), m.group(4), m.group(6)][:len(values)]
+        known = [u for u in units if u]
+        units = [u or (known[-1] if known else None) for u in units]
+        toks.append({"text": m.group(0).strip(), "values": values, "units": units})
+        rest = rest.replace(m.group(0), " " * len(m.group(0)), 1)
+    for m in _DIM1.finditer(rest):
+        toks.append({"text": m.group(0).strip(), "values": [m.group(1)], "units": [m.group(2)]})
+        rest = rest.replace(m.group(0), " " * len(m.group(0)), 1)
+    for m in _DANGLING.finditer(rest):
+        unread.append(m.group(0).strip())
+    return toks, unread
+
+
+def stated_dimensions(title: str | None) -> tuple[float, ...]:
+    """The dimensions a title states with a unit, in cm: (short, long), (one,) or ()."""
+    toks, _ = _tokens(title)
+    for t in toks:
+        if all(t["units"]) and len(t["values"]) <= 2:
+            cm = [_cm(v, u) for v, u in zip(t["values"], t["units"])]
+            return tuple(sorted(cm))
+    return ()
 
 
 def _fold(title: str | None) -> str:
@@ -120,21 +222,12 @@ def _fold(title: str | None) -> str:
     return fold_title(title)
 
 
-def _cm(value: str, unit: str | None) -> float:
-    v = float(value)
-    return round(v * INCH_CM, 1) if unit and not unit.startswith(("c",)) else v
-
-
-def stated_dimensions(title: str | None) -> tuple[float, ...]:
-    """The dimensions a title states, in cm: (short, long), (one,) or ()."""
-    text = (title or "").lower().replace("×", "x")
-    m = _DIM2.search(text)
-    if m:
-        unit = m.group(4)
-        a, b = _cm(m.group(1), m.group(2) or unit), _cm(m.group(3), unit)
-        return (min(a, b), max(a, b))
-    m = _DIM1.search(text)
-    return (_cm(m.group(1), m.group(2)),) if m else ()
+def _sized_text(title: str | None) -> str:
+    """The folded title with the non-size phrases removed: what size words are read from."""
+    folded = _fold(title)
+    for p in NON_SIZE_PHRASES:
+        folded = re.sub(p, " ", folded)
+    return re.sub(r"\s+", " ", folded).strip()
 
 
 def _has(words, folded: str) -> list[str]:
@@ -155,15 +248,16 @@ def object_of(category: str | None, title: str | None) -> str | None:
                         ("wall_hanging", "wall_hanging"), ("blanket", "blanket")):
         if family in hits:
             return obj
-    if re.search(r"\btapestr(?:y|ies)\b|\bwall (?:art|decor)\b", folded) and \
-            category == "wall_decor":
+    if not hits and re.search(PET_MAT, folded):
+        return "pet_mat"
+    if not hits and re.search(TAPESTRY, folded):
         return "wall_hanging"
     return CATEGORY_OBJECT.get(category or "")
 
 
 def named_classes(obj: str | None, title: str | None) -> dict[str, dict]:
     """The size classes the title names for `obj` (blanket / pillow), or {}."""
-    folded = _fold(title)
+    folded = _sized_text(title)
     table = BLANKET_CLASSES if obj == "blanket" else PILLOW_CLASSES if obj == "pillow" else {}
     return {k: c for k, c in table.items() if _has(c["words"], folded)}
 
@@ -193,6 +287,106 @@ def _met(stated: float, made: float) -> bool:
     return abs(stated - made) <= max(TOLERANCE_CM, TOLERANCE_REL * stated)
 
 
+def _fits(obj: str | None, classes: dict, short: float, long_: float) -> bool:
+    """Inside every named class and the object's family band."""
+    b = band(obj)
+    return (b is not None and _in_band(b, short, long_)
+            and all(_in_class(c, short, long_) for c in classes.values()))
+
+
+def _class_target(obj: str | None, classes: dict) -> tuple[tuple[float, float] | None, str]:
+    """The size drafted for the named classes: the first class's default where every class
+    holds it, else the middle of their common band; None and why when they share no size."""
+    s_lo = max(c["short"][0] for c in classes.values())
+    s_hi = min(c["short"][1] for c in classes.values())
+    l_lo = max(c["long"][0] for c in classes.values())
+    l_hi = min(c["long"][1] for c in classes.values())
+    if s_lo > s_hi or l_lo > l_hi:
+        bases = "; ".join(f"{k}: {c['short'][0]:g}-{c['short'][1]:g} x "
+                          f"{c['long'][0]:g}-{c['long'][1]:g} cm" for k, c in classes.items())
+        return None, (f"the title names {' and '.join(classes)}, and no size is all of them "
+                      f"({bases}); one pattern makes one size")
+    table = BLANKET_CLASSES if obj == "blanket" else PILLOW_CLASSES
+    first = next(k for k in table if k in classes)
+    ds, dl = table[first]["default"]
+    pick = lambda d, lo, hi: d if lo <= d <= hi else round((lo + hi) / 2, 1)  # noqa: E731
+    return (pick(ds, s_lo, s_hi), pick(dl, l_lo, l_hi)), ""
+
+
+def claims(category: str | None, title: str | None) -> dict:
+    """Every size-bearing token in the title, bound to what the twin must be, or unbound.
+
+    Returns {"object", "classes": {name: class}, "dims": (short, long) | None,
+    "single": (cm, "short" | "long" | "square") | None, "relative": [words],
+    "unbound": [why...], "inferred": note | ""}. `unbound` is non-empty when any token cannot
+    be bound to one size of the twin; callers refuse on it, never pass.
+    """
+    obj = object_of(category, title)
+    sized = _sized_text(title)
+    classes = named_classes(obj, title)
+    out = {"object": obj, "classes": classes, "dims": None, "single": None, "relative": [],
+           "unbound": [], "inferred": ""}
+    noun = (obj or "object").replace("_", " ")
+    toks, unread = _tokens(sized)
+    for u in unread:
+        out["unbound"].append(f"the title has a figure the size parser cannot read ({u!r})")
+    b = band(obj)
+    bound: list[tuple[float, ...]] = []
+    for t in toks:
+        if len(t["values"]) == 3:
+            out["unbound"].append(f"the title states three dimensions ({t['text']!r}); a flat "
+                                  f"{noun} has two")
+            continue
+        if all(t["units"]):
+            bound.append(tuple(sorted(_cm(v, u) for v, u in zip(t["values"], t["units"]))))
+            continue
+        # D-S1-UNITLESS-DIMS: a unitless pair is read in the one unit (cm or inches) that puts
+        # it inside the object's band and every named class; both or neither -> refused.
+        fits = []
+        for unit, label in (("cm", "cm"), ("in", "in")):
+            s_, l_ = sorted(_cm(v, unit) for v in t["values"])
+            if _fits(obj, classes, s_, l_):
+                fits.append((label, (s_, l_)))
+        if len(fits) == 1:
+            bound.append(fits[0][1])
+            out["inferred"] = (f"{t['text']!r} read as {fits[0][0]} (D-S1-UNITLESS-DIMS: the "
+                               f"only unit that puts it inside the {noun} band)")
+        else:
+            which = ("both cm and in fit" if fits else "neither cm nor in fits")
+            out["unbound"].append(
+                f"the title states {t['text']!r} with no unit, and the unit cannot be "
+                f"determined: {which} the {noun} band{' (' + b['basis'] + ')' if b else ''} "
+                f"(D-S1-UNITLESS-DIMS)")
+    distinct: list[tuple[float, ...]] = []
+    for d in bound:
+        if not any(len(d) == len(e) and all(_met(x, y) for x, y in zip(d, e))
+                   for e in distinct):
+            distinct.append(d)
+    if len(distinct) > 1:
+        out["unbound"].append(f"the title states {len(distinct)} different sizes "
+                              f"({', '.join(' x '.join(f'{v:g}' for v in d) for d in distinct)} "
+                              f"cm); one pattern makes one size")
+    elif distinct:
+        d = distinct[0]
+        if len(d) == 2:
+            out["dims"] = (d[0], d[1])
+        else:
+            role = ("long" if _has(LENGTH_WORDS, sized) else
+                    "short" if _has(WIDTH_WORDS, sized) else "")
+            out["single"] = (d[0], role)
+    rel = [m.group(0) for m in re.finditer(RELATIVE_SIZE, sized)]
+    out["relative"] = rel
+    class_words = {w for c in classes.values() for w in c["words"]}
+    for word in rel:
+        if word in class_words or out["dims"] or out["single"]:
+            continue
+        out["unbound"].append(
+            f"the title names a relative size ({word!r}) with no dimensions, and a {noun} has "
+            f"no defined size family for it (D-S1-RELATIVE-SIZE); the template makes one size "
+            f"and cannot back a relative size word")
+    return out
+
+
 def applies(category: str | None, title: str | None) -> bool:
     """Whether the title or category is a flat object this module decides the size of."""
     folded = _fold(title)
@@ -200,11 +394,39 @@ def applies(category: str | None, title: str | None) -> bool:
             or any(re.search(p, folded) for p in NO_TEMPLATE))
 
 
+def _single_target(obj: str, b: dict, value: float, role: str) -> tuple[tuple | None, str]:
+    """One figure: a square object's side; an oblong object's length or width -- the side a
+    length/width word names, else the one side whose band holds it."""
+    noun = obj.replace("_", " ")
+    if "side_cm" in b:
+        lo, hi = b["side_cm"]
+        if not lo <= value <= hi:
+            return None, (f"the title asks for a {noun} {value:g} cm a side; the {noun} band "
+                          f"is {lo:g}-{hi:g} cm ({b['basis']})")
+        return (value, value), ""
+    (slo, shi), (llo, lhi) = b["short_cm"], b["long_cm"]
+    as_long, as_short = llo <= value <= lhi, slo <= value <= shi
+    if role == "long" or (not role and as_long and not as_short):
+        if not as_long:
+            return None, (f"the title asks for a {noun} {value:g} cm long; the {noun} band is "
+                          f"{llo:g}-{lhi:g} cm long ({b['basis']})")
+        return (round((slo + shi) / 2 if obj != "runner" else 35.0, 1), value), ""
+    if role == "short" or (not role and as_short and not as_long):
+        if not as_short:
+            return None, (f"the title asks for a {noun} {value:g} cm wide; the {noun} band is "
+                          f"{slo:g}-{shi:g} cm wide ({b['basis']})")
+        return (value, round((llo + lhi) / 2, 1)), ""
+    which = "both" if as_long and as_short else "neither"
+    return None, (f"the title states one dimension ({value:g} cm), which is {which} the width "
+                  f"({slo:g}-{shi:g} cm) and the length ({llo:g}-{lhi:g} cm) of a {noun}, so it "
+                  f"cannot be bound to one side ({b['basis']})")
+
+
 def request(category: str | None, title: str | None) -> dict:
     """What size the title asks for, and whether the fallback can make it.
 
     Returns {"object", "classes", "dims", "target": (short, long) | None, "refused": why | None}.
-    `target` is None when the template's own size is the answer (no class word, no dimensions).
+    `target` is None when the template's own size is the answer (no size token at all).
     """
     folded = _fold(title)
     obj = object_of(category, title)
@@ -219,33 +441,38 @@ def request(category: str | None, title: str | None) -> dict:
                           f"template (category {category!r} has none of its own), so the "
                           f"fallback would draft the default panel under that name")
         return out
-    classes = named_classes(obj, title)
+    c = claims(category, title)
+    classes = c["classes"]
     out["classes"] = sorted(classes)
-    dims = out["dims"]
-    if dims:
-        b = band(obj)
-        if len(dims) == 1 and b is not None and "side_cm" in b:
-            # One figure on a square object is its side ("Pillow Cover 18 inch").
-            dims = (dims[0], dims[0])
-        if len(dims) == 1:
-            if b is None:
-                out["refused"] = (f"the title states one dimension ({dims[0]:g} cm) for a "
-                                  f"{obj.replace('_', ' ')}, which has no size band")
-                return out
-            # A single figure on an oblong object is its length ("Table Runner 72 in").
-            (slo, shi), (llo, lhi) = b["short_cm"], b["long_cm"]
-            if not llo <= dims[0] <= lhi:
-                out["refused"] = (f"the title asks for a {obj.replace('_', ' ')} {dims[0]:g} cm "
-                                  f"long; the {obj.replace('_', ' ')} band is {llo:g}-{lhi:g} cm "
-                                  f"long ({b['basis']})")
-                return out
-            out["target"] = (round((slo + shi) / 2 if obj != "runner" else 35.0, 1), dims[0])
+    if c["unbound"]:
+        out["refused"] = c["unbound"][0]
+        return out
+    b = band(obj)
+    if classes:
+        target, why = _class_target(obj, classes)
+        if target is None:
+            out["refused"] = why
             return out
-        short, long_ = dims
-        fits = [k for k, c in classes.items() if _in_class(c, short, long_)]
-        if classes and not fits:
+        out["target"] = target
+    if c["single"] is not None:
+        if b is None:
+            out["refused"] = (f"the title states one dimension ({c['single'][0]:g} cm) for a "
+                              f"{obj.replace('_', ' ')}, which has no size band")
+            return out
+        target, why = _single_target(obj, b, *c["single"])
+        if target is None:
+            out["refused"] = why
+            return out
+        out["dims"] = (c["single"][0],)
+        out["target"] = target
+    elif c["dims"] is not None:
+        short, long_ = c["dims"]
+        out["dims"] = c["dims"]
+        fits = [k for k, cl in classes.items() if not _in_class(cl, short, long_)]
+        if fits:
             out["refused"] = (f"the title asks for {short:g} x {long_:g} cm and names "
-                              f"{', '.join(sorted(classes))}, whose band does not hold it")
+                              f"{', '.join(sorted(classes))}, whose band does not hold it "
+                              f"({', '.join(fits)})")
             return out
         if b is None or not _in_band(b, short, long_):
             where = f" ({b['basis']})" if b else ""
@@ -253,18 +480,7 @@ def request(category: str | None, title: str | None) -> dict:
                               f"{long_:g} cm, outside the size the family is made in{where}")
             return out
         out["target"] = (short, long_)
-        return out
-    rel = re.search(RELATIVE_SIZE, folded)
-    if rel and not classes:
-        out["refused"] = (f"the title names a size ({rel.group(0)!r}) with no dimensions; the "
-                          f"template makes one size and cannot back a relative size word")
-        return out
-    if classes:
-        # The first named class in table order decides the draft size ("Baby Throw": baby).
-        table = BLANKET_CLASSES if obj == "blanket" else PILLOW_CLASSES
-        first = next(k for k in table if k in classes)
-        out["target"] = table[first]["default"]
-    elif obj == "burp_cloth":
+    elif not classes and obj == "burp_cloth":
         out["target"] = BURP_CLOTH_SIZE
     return out
 
@@ -272,28 +488,70 @@ def request(category: str | None, title: str | None) -> dict:
 # A burp cloth: about 25 x 50 cm (10 x 20 in), the size sold and written for.
 BURP_CLOTH_SIZE = (25.0, 50.0)
 
+UNBOUND = "OBJECT_SIZE_UNBOUND"
+NOT_AS_TITLED = "OBJECT_SIZE_NOT_AS_TITLED"
+OUT_OF_BAND = "OBJECT_SIZE_OUT_OF_BAND"
+# Objects whose band `gates.certificate.object_size_findings` cannot reach by a product-type
+# family word, so this module checks it (S1F-LOW).
+_TITLE_ONLY_BANDS = ("pet_mat", "burp_cloth", "wall_hanging")
+
+
+def coded_findings(title: str | None, width_cm: float, height_cm: float,
+                   category: str | None = None) -> list[tuple[str, str]]:
+    """(code, why) for each way the finished size does not match the size the title claims:
+    OBJECT_SIZE_UNBOUND for a size token that cannot be bound, OBJECT_SIZE_NOT_AS_TITLED for a
+    bound claim the twin does not meet, OBJECT_SIZE_OUT_OF_BAND for a title-only band."""
+    if not width_cm or not height_cm:
+        return []
+    from ..gates.first_customer import _family_hits
+
+    short, long_ = sorted((float(width_cm), float(height_cm)))
+    c = claims(category, title)
+    obj, classes = c["object"], c["classes"]
+    out: list[tuple[str, str]] = []
+    if c["unbound"] and (obj in SUPPORTED_FLAT or classes):
+        for why in c["unbound"]:
+            out.append((UNBOUND, f"{why}; the size the title claims cannot be checked against "
+                                 f"the pattern's {short:.1f} x {long_:.1f} cm"))
+    missed = {k: cl for k, cl in classes.items() if not _in_class(cl, short, long_)}
+    if missed:
+        names = ", ".join(sorted(missed))
+        bases = "; ".join(f"{k}: {cl['short'][0]:g}-{cl['short'][1]:g} x "
+                          f"{cl['long'][0]:g}-{cl['long'][1]:g} cm ({cl['basis']})"
+                          for k, cl in sorted(missed.items()))
+        out.append((NOT_AS_TITLED, f"the title names a {names} {obj}, and the pattern's "
+                                   f"finished size {short:.1f} x {long_:.1f} cm is outside "
+                                   f"that size class ({bases})"))
+    if c["dims"] is not None:
+        ds, dl = c["dims"]
+        if not (_met(ds, short) and _met(dl, long_)):
+            note = f" ({c['inferred']})" if c["inferred"] else ""
+            out.append((NOT_AS_TITLED, f"the title states {ds:g} x {dl:g} cm{note}, and the "
+                                       f"pattern makes {short:.1f} x {long_:.1f} cm"))
+    elif c["single"] is not None:
+        value, role = c["single"]
+        b = band(obj)
+        if b is not None and "side_cm" in b:
+            ok, side = _met(value, short) and _met(value, long_), "each side"
+        elif role == "long":
+            ok, side = _met(value, long_), "the length"
+        elif role == "short":
+            ok, side = _met(value, short), "the width"
+        else:
+            ok, side = _met(value, long_) or _met(value, short), "either side"
+        if not ok:
+            out.append((NOT_AS_TITLED, f"the title states {value:g} cm for {side}, and the "
+                                       f"pattern makes {short:.1f} x {long_:.1f} cm"))
+    if obj in _TITLE_ONLY_BANDS and obj not in _family_hits(title or ""):
+        b = band(obj)
+        if b is not None and not _in_band(b, short, long_):
+            out.append((OUT_OF_BAND, f"the title names a {obj.replace('_', ' ')}, and the "
+                                     f"pattern's finished size {short:.1f} x {long_:.1f} cm is "
+                                     f"outside its band ({b['basis']})"))
+    return out
+
 
 def findings(title: str | None, width_cm: float, height_cm: float,
              category: str | None = None) -> list[str]:
     """Why a finished size does not match the size the title claims, or [] when it does."""
-    if not width_cm or not height_cm:
-        return []
-    short, long_ = sorted((float(width_cm), float(height_cm)))
-    obj = object_of(category, title)
-    out: list[str] = []
-    classes = named_classes(obj, title)
-    if classes and not any(_in_class(c, short, long_) for c in classes.values()):
-        names = ", ".join(sorted(classes))
-        bases = "; ".join(f"{k}: {c['short'][0]:g}-{c['short'][1]:g} x "
-                          f"{c['long'][0]:g}-{c['long'][1]:g} cm ({c['basis']})"
-                          for k, c in sorted(classes.items()))
-        out.append(f"the title names a {names} {obj}, and the pattern's finished size "
-                   f"{short:.1f} x {long_:.1f} cm is outside that size class ({bases})")
-    dims = stated_dimensions(title)
-    if len(dims) == 2 and not (_met(dims[0], short) and _met(dims[1], long_)):
-        out.append(f"the title states {dims[0]:g} x {dims[1]:g} cm, and the pattern makes "
-                   f"{short:.1f} x {long_:.1f} cm")
-    elif len(dims) == 1 and not (_met(dims[0], long_) or _met(dims[0], short)):
-        out.append(f"the title states {dims[0]:g} cm, and neither side of the pattern's "
-                   f"{short:.1f} x {long_:.1f} cm is that")
-    return out
+    return [why for _, why in coded_findings(title, width_cm, height_cm, category)]

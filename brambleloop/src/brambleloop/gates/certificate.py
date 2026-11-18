@@ -254,9 +254,12 @@ def object_size_findings(cir, twin) -> list[Finding]:
     # twin too, so a request is never silently resized to the template.
     from ..creative import size_truth
 
-    for why in size_truth.findings(cir.title, float(twin.width_cm or 0),
-                                   float(twin.height_cm or 0)):
-        out.append(Finding(ERROR, "OBJECT_SIZE_NOT_AS_TITLED", why))
+    # Second review (S1F-H1/LOW): every size token in the title is bound or is an
+    # OBJECT_SIZE_UNBOUND refusal, and the pet-mat / burp-cloth / tapestry bands, which no
+    # product-type family word reaches, are checked here (OBJECT_SIZE_OUT_OF_BAND).
+    for code, why in size_truth.coded_findings(cir.title, float(twin.width_cm or 0),
+                                               float(twin.height_cm or 0)):
+        out.append(Finding(ERROR, code, why))
     return out
 
 
@@ -438,8 +441,8 @@ def certify(
     if listing is not None and twin is not None and getattr(listing, "title", None):
         from ..creative import size_truth
 
-        for why in size_truth.findings(listing.title, float(twin.width_cm or 0),
-                                       float(twin.height_cm or 0)):
+        for _code, why in size_truth.coded_findings(listing.title, float(twin.width_cm or 0),
+                                                    float(twin.height_cm or 0)):
             findings.append(Finding(ERROR, "LISTING_SIZE_NOT_AS_TITLED", f"listing: {why}"))
 
     # 4. Asset truth.
