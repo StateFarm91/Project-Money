@@ -247,12 +247,20 @@ def test_low_one_open_task_per_gap_refreshed_not_duplicated():
         S.compare(db, S.at(d, 7))
         S.intake(db, S.at(d, 9))
     ts = S.tasks(db)
-    assert [t.state for t in ts].count(research.ANSWERED) + \
-        [t.state for t in ts].count(research.EXPIRED) == 1, \
-        [(t.id, t.state, t.trigger) for t in ts]
-    assert len(ts) <= 2, [(t.id, t.state, t.trigger) for t in ts]
+    seen = [(t.id, t.state, t.trigger) for t in ts]
+    # Review H3 (eng/r5-research-3) changed the "no new task after approval" expectation: a
+    # market_radar answer is fresh for one day, so the approved concept's support is renewed
+    # exactly once per later day (days -1, -2, -3) -- never duplicated, never left open.
+    plain = [t for t in ts if "#renew:" not in t.trigger]
+    renewals = [t for t in ts if "#renew:" in t.trigger]
+    assert len(plain) == 1 and plain[0].state in (research.ANSWERED, research.EXPIRED), seen
+    assert len(renewals) == 3, seen
+    assert all(t.state in (research.ANSWERED, research.EXPIRED) for t in renewals), seen
+    assert len({t.answered_at.date() for t in renewals}) == 3, seen
     assert _approvals(db)
     assert [c.state for c in S.concepts(db)].count(intake.REFUSED) == 0
+    assert [c.state for c in S.concepts(db)] == [intake.APPROVED], \
+        [(c.state, c.reasons) for c in S.concepts(db)]
 
 
 def test_the_sweep_leaves_a_task_the_comparison_is_refreshing():

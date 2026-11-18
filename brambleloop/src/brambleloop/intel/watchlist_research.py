@@ -239,9 +239,96 @@ def answer(db, *, gap_id: int, task_id: int, pod: str, now: datetime | None = No
     _note_progress(db, task_id, {"at": now.isoformat(), "answered": True, "days": days,
                                  "observation_dates": dates, "observations": obs})
     detail = {"gap": gap_id, "task": task_id, "pod": pod, "days": days,
+              "reading_day": latest_day,
               "confidence": confidence, "findings": [f_now, f_durable, f_unknown],
               "observations": [{k: o[k] for k in ("alias", "observed_at", "live_listings")}
                                for o in obs]}
     if audit is not None:
         audit(ACTION, artifact=f"research_task:{task_id}", detail=detail)
     return {"answered": True, **detail, "result": out}
+
+
+# ---- Review H3 (eng/r5-research-3): an approved concept's support is renewed, not lapsed --
+RENEWED = "research.support_renewed"
+
+
+def fact_refs(findings: list[dict]) -> list[str]:
+    """The fact-grade findings of a task and the sources they rest on -- what a proposal (or
+    a renewal of its support) cites, so `intake.research_evidence` resolves every ref."""
+    facts = [f for f in findings or [] if f.get("claim_class") == "fact" and f.get("ref")]
+    refs = [f["ref"] for f in facts]
+    for f in facts:
+        refs += [r for r in f.get("rests_on") or [] if r not in refs]
+    return refs
+
+
+RENEW_AHEAD = timedelta(hours=12)
+
+
+def renew_support(db, *, gap_id: int, concept_task_id: int, pod: str, now: datetime,
+                  open_task, audit=None, expiring_within: timedelta | None = None) -> dict:
+    """Renew the research behind an APPROVED concept from today's observations.
+
+    A `market_radar` answer is fresh for one day, so the answer a concept was approved on
+    expires the next day and intake would withdraw the concept although the evidence is
+    still there. Each daily comparison therefore re-asks the gap's question (a new task,
+    reopened for new evidence) and answers it with `answer` -- the same rules: fresh per-shop
+    observations in the latest reading and durability. Only when that new answer is written
+    is it recorded on the concept's task (`detail.renewed_support`: the task and the refs it
+    cites), which intake then judges as the concept's support. When today's evidence is
+    stale, withdrawn or not durable, nothing is renewed: the old answer expires and intake
+    withdraws the concept. Nothing here keeps a concept alive on old evidence.
+
+    Two callers: the daily comparison (renews unless the support already rests on today's
+    reading) and the 6-hourly concept-intake job with `expiring_within` (renews only when the
+    support expires within that window), so a late comparison cannot let the support lapse
+    between two intake passes."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from . import research
+
+    research._ensure(db)
+    with db.session() as s:
+        c = s.get(research.ResearchTask, int(concept_task_id))
+        renewed = dict((c.detail or {}).get("renewed_support") or {})
+        head_id = int(renewed.get("task") or concept_task_id)
+        head = s.get(research.ResearchTask, head_id)
+        head_live = head is not None and head.state == research.ANSWERED
+        head_expires = research._aware(head.expires_on) if head_live else None
+        head_answered = research._aware(head.answered_at) if head_live else None
+        head_day = str(renewed.get("reading_day") or "") if renewed else (
+            head_answered.date().isoformat() if head_answered else "")
+    if expiring_within is not None:
+        if head_live and (head_expires is None or head_expires - now > expiring_within):
+            return {"answered": False, "task": head_id, "renewed": False,
+                    "why": "the support does not expire within "
+                           f"{int(expiring_within.total_seconds() // 3600)} h"}
+    elif head_live and head_day >= now.date().isoformat():
+        return {"answered": False, "task": head_id, "renewed": False,
+                "why": f"the support already rests on the {head_day} reading"}
+    task = open_task(f"watchlist_gap:{gap_id}#renew:{head_id}",
+                     f"the {now.date().isoformat()} watchlist comparison re-observes the "
+                     f"{pod} arena; renews the support of the concept approved on research "
+                     f"task {concept_task_id}")
+    if task is None:
+        return {"answered": False, "task": None, "renewed": False,
+                "why": "no research task could be opened to renew the support"}
+    out = answer(db, gap_id=gap_id, task_id=int(task), pod=pod, now=now, audit=audit)
+    if not out.get("answered"):
+        return {**out, "renewed": False}
+    with db.session() as s:
+        t = s.get(research.ResearchTask, int(task))
+        refs = fact_refs(list(t.findings or []))
+        c = s.get(research.ResearchTask, int(concept_task_id))
+        d = dict(c.detail or {})
+        chain = list((d.get("renewed_support") or {}).get("chain") or [])
+        d["renewed_support"] = {"task": int(task), "refs": refs, "at": now.isoformat(),
+                                "reading_day": out.get("reading_day"),
+                                "chain": chain + [int(task)]}
+        c.detail = d
+        flag_modified(c, "detail")
+    if audit is not None:
+        audit(RENEWED, artifact=f"research_task:{concept_task_id}",
+              detail={"gap": gap_id, "pod": pod, "renewed_by": int(task), "refs": refs,
+                      "previous": head_id})
+    return {**out, "renewed": True, "concept_task": int(concept_task_id)}

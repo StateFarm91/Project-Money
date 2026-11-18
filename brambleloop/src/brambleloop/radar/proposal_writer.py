@@ -171,15 +171,22 @@ def evidence_digest(ev: dict) -> str:
 
 def _blocked_by_prior(priors: list[dict], digest: str, quality: float) -> str | None:
     """Why an earlier proposal for this gap blocks a new one, or None. A proposal intake has
-    not judged yet, or approved (it was handed off; a later withdrawal or supersession is the
-    concept's own lifecycle), blocks. A refused one blocks only the same evidence or evidence
-    no stronger than it was refused on."""
+    not judged yet, or approved (its support is renewed daily while the evidence holds,
+    review H3), blocks. A refused one blocks only the same evidence or evidence no stronger
+    than it was refused on. A withdrawn one (its evidence went stale or unsupported) blocks
+    only the same evidence: fresh, durable evidence -- a new digest -- makes the gap
+    re-eligible; the old evidence never resurrects it. A superseded one was replaced by a
+    newer decision on the same task, which is judged instead."""
     from . import intake
 
     for p in priors:
-        if p["state"] != intake.REFUSED:
+        if p["state"] in (None, intake.PROPOSED, intake.APPROVED):
             return (f"an earlier proposal for this gap ({p['slug']} on research task "
                     f"{p['task']}) is {p['state'] or 'awaiting concept intake'}")
+    for p in priors:
+        if p["state"] == intake.WITHDRAWN and p["digest"] == digest:
+            return ("the same evidence was already proposed for this gap and withdrawn as "
+                    "no longer supported")
     refused = [p for p in priors if p["state"] == intake.REFUSED]
     if any(p["digest"] == digest for p in refused):
         return "the same evidence was already proposed for this gap and refused"

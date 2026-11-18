@@ -450,8 +450,9 @@ def compare(db, *, now: datetime | None = None) -> dict:
         # read failed is STALE, not MEASURED. (L-3: the anchor has no watchlist read state;
         # stored rows are labelled rows_present, never "ok".) Review H2 (eng/r5-research-2):
         # an "ok" read older than STALE_AFTER is STALE too.
-        fresh = state in ("ok", "rows_present") and (
-            m.role == ANCHOR or observed_fresh)
+        # Review LOW (eng/r5-research-3): the anchor too is graded by the age of its last
+        # good read (its newest `last_seen`), not MEASURED whatever that age.
+        fresh = state in ("ok", "rows_present") and observed_fresh
 
         def G(value, source, at, basis="MEASURED"):
             return _grade(value, source, at, basis if fresh else "STALE")
@@ -616,11 +617,18 @@ def record_comparison(db, *, now: datetime | None = None) -> dict:
         _merge_gap_evidence(db, gid, {"corroborated_by": a["corroborated_by"],
                                       "validated_at": now.isoformat(),
                                       "source": COMPARE_READING})
-        decided = _decided_by_proposal(db, gid)
+        decided, approved_tasks = _decided_by_proposal(db, gid)
+        if approved_tasks:
+            # Review H3 (eng/r5-research-3): an approved concept stands only while its
+            # research does, and a market_radar answer is fresh for one day. While today's
+            # fresh, durable observations still corroborate the arena, the supporting answer
+            # is renewed from them before it expires; the concept is never kept on old ones.
+            answered += renew_approved_support(db, now=now, gaps=[(gid, a["pod"])])
+            opened.append(gid)
+            continue
         if decided:
             # Review LOW (eng/r5-research-2): the question served its decision -- a proposal
-            # for this gap is with concept intake or was approved. No new task is opened and
-            # answered every day for it.
+            # for this gap is with concept intake. No new task is opened and answered for it.
             answered.append({"answered": False, "gap": gid, "why": decided})
             opened.append(gid)
             continue
@@ -632,38 +640,83 @@ def record_comparison(db, *, now: datetime | None = None) -> dict:
     return {"report": rep, "gaps": opened, "research": answered}
 
 
-def _decided_by_proposal(db, gap_id: int) -> str | None:
+def renew_approved_support(db, *, now: datetime | None = None, gaps=None,
+                           expiring_within=None) -> list[dict]:
+    """Review H3 (eng/r5-research-3): renew the research behind every APPROVED watchlist
+    concept (`watchlist_research.renew_support`). `gaps` = [(gap id, pod)]; default every
+    watchlist gap. With `expiring_within`, only supports that expire within it."""
+    from sqlalchemy import select
+
+    from ..core.models import CoverageGap
+    from . import watchlist_research
+
+    now = _now(now)
+    if gaps is None:
+        with db.session() as s:
+            gaps = [(g.id, g.pod) for g in s.scalars(select(CoverageGap).where(
+                CoverageGap.benchmark_key == WATCHLIST_KEY).order_by(CoverageGap.id))]
+    out = []
+    for gid, pod in gaps:
+        for ctask in _decided_by_proposal(db, gid)[1]:
+            def renew(gid=gid, pod=pod, ctask=ctask):
+                return watchlist_research.renew_support(
+                    db, gap_id=gid, concept_task_id=ctask, pod=pod, now=now,
+                    expiring_within=expiring_within, audit=_audit_fn(db),
+                    open_task=lambda trigger, note: _research_question(
+                        db, gid, pod, now=now, trigger=trigger,
+                        reopen_because={"reason": "new_evidence", "note": note}))
+            out.append({"gap": gid, **_guarded(db, gid, ctask, pod, renew)})
+    return out
+
+
+def _decided_by_proposal(db, gap_id: int) -> tuple[str | None, list[int]]:
+    """(why research waits, the tasks of APPROVED proposals). A proposal awaiting intake
+    makes research wait. An approved one has its support renewed (review H3). A refused,
+    withdrawn or superseded one does not block research: fresh evidence may re-propose."""
     from ..radar import intake, proposal_writer
 
+    why, approved = None, []
     for p in proposal_writer.prior_proposals(db, gap_id):
-        if p["state"] != intake.REFUSED:
-            return (f"research not re-opened: proposal {p['slug']} (task {p['task']}) is "
-                    f"{p['state'] or 'awaiting concept intake'}")
-    return None
+        if p["state"] == intake.APPROVED:
+            approved.append(int(p["task"]))
+        elif p["state"] in (None, intake.PROPOSED) and why is None:
+            why = (f"research not re-opened: proposal {p['slug']} (task {p['task']}) is "
+                   f"awaiting concept intake")
+    return why, approved
 
 
-def _answer_research(db, gap_id: int, task_id: int, pod: str, *, now: datetime) -> dict:
-    """Research M2: answer the gap's open question from the recorded comparisons. Never blocks
-    the comparison; a failure is recorded, not raised."""
+def _audit_fn(db):
     from ..core.models import AuditLog
-    from . import watchlist_research
 
     def audit(action, artifact=None, detail=None):
         with db.session() as s:
             s.add(AuditLog(actor="intel", action=action, artifact=artifact,
                            detail=detail or {}))
+    return audit
 
+
+def _guarded(db, gap_id: int, task_id: int, pod: str, fn) -> dict:
+    """Research never blocks the comparison; a failure is recorded, not raised."""
     try:
-        return watchlist_research.answer(db, gap_id=gap_id, task_id=task_id, pod=pod,
-                                         now=now, audit=audit)
+        return fn()
     except Exception as exc:  # noqa: BLE001 - research never blocks the comparison
         why = f"{type(exc).__name__}: {str(exc)[:300]}"
-        audit("research.answer_failed", artifact=f"research_task:{task_id}",
-              detail={"gap": gap_id, "pod": pod, "why": why})
+        _audit_fn(db)("research.answer_failed", artifact=f"research_task:{task_id}",
+                      detail={"gap": gap_id, "pod": pod, "why": why})
         return {"answered": False, "task": task_id, "why": why}
 
 
-def _research_question(db, gap_id: int, pod: str, *, now: datetime) -> int | None:
+def _answer_research(db, gap_id: int, task_id: int, pod: str, *, now: datetime) -> dict:
+    """Research M2: answer the gap's open question from the recorded comparisons. Never blocks
+    the comparison; a failure is recorded, not raised."""
+    from . import watchlist_research
+
+    return _guarded(db, gap_id, task_id, pod, lambda: watchlist_research.answer(
+        db, gap_id=gap_id, task_id=task_id, pod=pod, now=now, audit=_audit_fn(db)))
+
+
+def _research_question(db, gap_id: int, pod: str, *, now: datetime, trigger: str | None = None,
+                       reopen_because: dict | None = None) -> int | None:
     """G6 (F-401/F-429): every validated arena is also a question for the Research Agent --
     durable demand or a passing trend? Opened once per gap (research dedupes on the
     trigger), answered from internal evidence first by `research.sweep`/`investigate`."""
@@ -673,7 +726,7 @@ def _research_question(db, gap_id: int, pod: str, *, now: datetime) -> int | Non
         got = research.open_question(
             db, question=(f"Is buyer demand in the {pod} arena durable across the owner's "
                           f"watchlist shops, or a passing trend?"),
-            trigger=f"watchlist_gap:{gap_id}",
+            trigger=trigger or f"watchlist_gap:{gap_id}", reopen_because=reopen_because,
             decision_ref=f"intel.opportunity_review:gap:{gap_id}", domain="market_radar",
             query_terms=[pod],
             evidence_needed=("new-listing cadence and favourites in this arena across "
