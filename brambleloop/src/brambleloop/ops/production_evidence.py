@@ -247,6 +247,19 @@ def publishing_halt(db, *, now: datetime) -> dict:
     }
 
 
+def _exhausted(report_count, detail) -> bool:
+    # review M-E of 0d2e6cbc: the one definition the retry hold and the publish gate read
+    from ..ops.rebuild_graph import incomplete_exhausted
+
+    return incomplete_exhausted(report_count, detail)
+
+
+def _legacy(detail) -> bool:
+    from ..ops.rebuild_graph import legacy_incomplete
+
+    return legacy_incomplete(detail)
+
+
 def stale_rebuilds(db, *, now: datetime) -> dict:
     from sqlalchemy import select
 
@@ -263,6 +276,14 @@ def stale_rebuilds(db, *, now: datetime) -> dict:
             AuditLog.action == "chain.rebuild_completed", AuditLog.at >= d7)))
         unbound = list(s.execute(select(AuditLog.id, AuditLog.at).where(
             AuditLog.action == "chain.rebuild_unbound", AuditLog.at >= d7)))
+        # eng/stale-rebuild-loop: a refused rebuild (withheld, no stored release) finishes
+        # DONE and writes neither completion nor unbound evidence -- invisible before.
+        refused = list(s.execute(select(AuditLog.detail).where(
+            AuditLog.action == "chain.rebuild_refused", AuditLog.at >= d7)))
+        incomplete = list(s.execute(select(Incident.signature, Incident.report_count,
+                                           Incident.detail).where(
+            Incident.resolved == False,  # noqa: E712
+            Incident.signature.like("rebuild-incomplete:%"))))
         jobs = list(s.execute(select(Job.id, Job.status, Job.created_at, Job.finished_at).where(
             Job.job_type == "chain.rebuild", Job.created_at >= d7)))
         unfinished_any = list(s.execute(select(Job.id, Job.created_at).where(
@@ -297,11 +318,38 @@ def stale_rebuilds(db, *, now: datetime) -> dict:
         "last_propagation_enqueued": len(pd.get("rebuild_enqueued") or []),
         "last_propagation_retried": len(pd.get("rebuild_retried") or []),
         "last_propagation_already_queued": len(pd.get("rebuild_already_queued") or []),
+        "last_propagation_retry_waiting": len(pd.get("rebuild_retry_waiting") or []),
+        "last_propagation_retry_held": len(pd.get("rebuild_retry_held") or {}),
+        "last_propagation_retry_held_reasons": dict(list(
+            (pd.get("rebuild_retry_held") or {}).items())[:EXAMPLES]),
         "rebuilds_verified_24h": sum(1 for c in real if _aware(c.at) >= d1),
         "rebuilds_verified_48h": sum(1 for c in real if _aware(c.at) >= d2),
         "rebuilds_verified_7d": len(real),
         "rebuilds_already_fresh_7d": len(noop),
         "rebuilds_unbound_7d": len(unbound),
+        "rebuilds_refused_7d": len(refused),
+        "rebuilds_refused_reasons": sorted({str((d or {}).get("why") or "")[:120]
+                                            for (d,) in refused})[:EXAMPLES],
+        "open_rebuild_incomplete": len(incomplete),
+        # round 2 (review M-A/M-B): a legacy row exhausted by count (no `held` written) is
+        # held too, and the named reason is shown, not only the slug.
+        "rebuild_incomplete_held": sorted(sig.split(":", 1)[1] for sig, _n, d in incomplete
+                                          if _exhausted(_n, d))[:SLUGS_PER_STAGE],
+        "rebuild_incomplete_held_reasons": dict(sorted(
+            (sig.split(":", 1)[1], str((d or {}).get("held") or f"{_n} attempts")[:200])
+            for sig, _n, d in incomplete if _exhausted(_n, d))[:EXAMPLES]),
+        # round 3 (review M-E of 0d2e6cbc): a remaining hold is visible to the owner, not
+        # silent -- the full count (the lists above are capped), the pre-branch rows still
+        # waiting for their first restate under the new budget (retried, not held), and the
+        # rows whose legacy count was reset (slug -> the legacy count kept in the row).
+        "rebuild_incomplete_held_count": sum(1 for _s, _n, d in incomplete
+                                             if _exhausted(_n, d)),
+        "rebuild_incomplete_legacy_budget_pending": sorted(
+            sig.split(":", 1)[1] for sig, _n, d in incomplete if _legacy(d))[:SLUGS_PER_STAGE],
+        "rebuild_incomplete_budget_reset": dict(sorted(
+            (sig.split(":", 1)[1],
+             int(((d or {}).get("budget_reset") or {}).get("legacy_report_count") or 0))
+            for sig, _n, d in incomplete if (d or {}).get("budget_reset"))[:EXAMPLES]),
         "newest_verified_rebuild_at": max((_iso(c.at) for c in real), default=None),
         "newest_verified_rebuild_audit_ids": sorted((int(c.id) for c in real),
                                                     reverse=True)[:EXAMPLES],
@@ -928,7 +976,11 @@ def checks(db, *, now: datetime | None = None) -> list[dict]:
          "evidence": short(stale, ("readable", "error_class", "sentinel_last_at",
                                    "sentinel_stale_artefacts", "rebuilds_verified_48h",
                                    "oldest_unfinished_rebuild_age_hours",
-                                   "open_stale_artefact_incidents"))},
+                                   "open_stale_artefact_incidents",
+                                   # round 3 (M-E): a held rebuild is named here, not silent
+                                   "rebuild_incomplete_held_count",
+                                   "rebuild_incomplete_held_reasons",
+                                   "rebuild_incomplete_legacy_budget_pending"))},
         {"check": "no_repeated_paid_call_in_24h", "ok": judge_paid_calls(paid),
          "evidence": short(paid, ("readable", "error_class", "intents_7d",
                                   "billed_in_window", "repeated_billed_requests"))},
