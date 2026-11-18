@@ -143,3 +143,115 @@ PG status: PostgreSQL 16 via the `_disposable_cluster` pattern. M-A and M-C (plu
 are proven on PG.
 
 No deploy, no Railway, no production, no secrets, no spend.
+
+---
+
+# Round 3: review of 0d2e6cbc (M-E + LOWs)
+
+Code SHA: **fd43edf2b66e6bf3a30175daf2f119e92f7c3c66** (later commits change only this file). Based on
+0d2e6cbc. No deploy, no Railway, no production, no secrets, no spend.
+
+## M-E: pre-branch report_count deadlocked long-open products
+
+**Finding.** `rebuild_exhausted` / `_exhausted` treated `report_count >= 3` as exhausted. After M-A this
+applied to legacy rows, whose count had grown once per failed daily attempt under the round-1 bugs. So
+products open since before this branch were held on the first sentinel run, never retried and never
+rebuilt (deadlock).
+
+**Fix.**
+- **One definition of exhaustion.** `ops/rebuild_graph.py` gains `legacy_incomplete(detail)`: no
+  `attempts` and no `budget_reset`. Every write since this branch records `attempts`; the pre-branch
+  code wrote only `stale`, `reason` and `fingerprints` (checked at 2676274). It also gains
+  `incomplete_exhausted(report_count, detail)`, which is True if the row is `held`, False for a legacy
+  row, and otherwise `count >= REBUILD_MAX_ATTEMPTS`. `release_gates.rebuild_exhausted` (the retry hold
+  and the marketing waiver) and `production_evidence._exhausted` both call it.
+- **A fresh, recorded budget.** On a legacy row's first restate, `release._rebuild_incomplete` records
+  `detail.budget_reset` and sets `report_count = 1`. `budget_reset` holds:
+  - `legacy_report_count`, plus the legacy severity, summary and opened-at;
+  - `legacy_detail`, the row's full prior detail (it keeps the history);
+  - `at`, and `why` (written before eng/stale-rebuild-loop, the count was loop iterations under the
+    bugs that branch fixed, and the legacy count and detail are kept here).
+
+  `_hold_failed_change` records the same reset when it restates a legacy row (M-B path). The key
+  survives later restates because the detail is merged. After `REBUILD_MAX_ATTEMPTS` restates under
+  the new code, `held` is written and the named hold applies as designed.
+- **The same hazard on the M-B bound.** Pre-branch DEAD or refused `chain.rebuild` jobs have no
+  `change_id` in their payload, so they spend none of the new budget. The hold records them as
+  `legacy_failed_attempts_not_counted`.
+- **Visible, not silent.** `production_evidence.stale_rebuilds` adds:
+  - `rebuild_incomplete_held_count` (uncapped);
+  - `rebuild_incomplete_legacy_budget_pending`: legacy rows awaiting their first restate, which are
+    retried, not held;
+  - `rebuild_incomplete_budget_reset`: slug mapped to the legacy count.
+
+  The operator `/api/verify` `stale_artefacts_rebuilding` evidence now carries the held count, the held
+  reasons and the pending list. The anonymous view is unchanged: name and verdict only.
+
+**Tests** (`tests/test_eng_stale_round2.py`, SQLite + PG16):
+- `test_me_legacy_counts_get_a_fresh_recorded_budget_then_hold` is the probe equivalent, with legacy
+  counts 1, 3 and 6:
+  - Before the sentinel, none of the three holds; evidence lists them as budget-pending and 0 held.
+  - The sentinel retries all three once; none is held.
+  - Three restates under the new code follow. After each one, `report_count == attempt` and
+    `budget_reset.legacy_report_count` is the legacy N, with the legacy detail kept. Nothing holds
+    after attempts 1 and 2; all three hold after attempt 3.
+  - The next sentinel holds all three ("could not complete"); none is retried. Evidence shows held
+    count 3 with a reason per product, and budget_reset `{me-one: 1, me-three: 3, me-six: 6}`.
+- `test_me_legacy_dead_jobs_do_not_spend_the_new_budget`: with 4 pre-branch DEAD jobs, the product is
+  retried on days 0, 1 and 2 and then held with `KeyError`. 0d2e6cbc held it on day 0 without a retry.
+
+## LOWs
+
+- **M-B bound per product.** Each `chain.rebuild` payload now carries `change_id`, a sha256 over only
+  the refs this product's artefacts record and their new fingerprints. Failures are keyed
+  `slug|change_id`. The bound is checked before the first enqueue as well, so a new estate-wide job key
+  (another product's ref moved) no longer restarts it. Job idempotency keys are unchanged.
+  Test: `test_low_mb_bound_is_per_product_not_per_estate_change` (another product's ref moves daily;
+  3 jobs, then held; 0d2e6cbc enqueued 6).
+- **Failed-attempt query bounded.** It reads only the plan's products (`idempotency_key LIKE
+  'rebuild:product:<slug>:%'`, plus the whole-hashed `rebuild:sha256=%` form, filtered by
+  `inputs.product_slug`) and only jobs finished inside `REBUILD_FAILURE_WINDOW` (30 days). A change
+  already held stays held through the durable rebuild-incomplete row (`retry_hold_reason`) after its
+  failures age out.
+- **key_fp documented.** The `gateway/anthropic.py::key_fingerprint` docstring states that the value is
+  persisted in `model.probe` audit rows, why that is acceptable (32 bits of an unsalted SHA-256 of a
+  high-entropy key cannot be inverted or used), and that no other part of the key may be recorded.
+
+## Changed existing tests (semantics changed by M-E, documented in place)
+
+- **Round-2 M-A tests.** The signature-matching property is now pinned on a NULL-slug row exhausted
+  under the new budget (`_exhausted_null_slug_row`: `attempts` + `held`), because a legacy count alone
+  no longer holds. `test_ma_legacy_null_slug...` also asserts that legacy counts 1, 3 and 6 hold
+  nothing and are not refused by the waiver.
+- **`test_ma_restating...`** needs `REBUILD_MAX_ATTEMPTS` restates to exhaust (the first one resets),
+  and asserts the recorded legacy count.
+- **`test_mc...`** gives the ghost row the new-budget exhausted shape.
+- **Round-1 `test_b_marketing_rebuild_waives...`** now asserts that a detail-less row at count 3 is
+  waived (M-E), and that the row is a never-waived hold once `attempts` reaches the budget.
+
+## Results
+
+- **New checks on 0d2e6cbc.** A worktree of 0d2e6cbc holding only the new test file: the 3 new tests
+  **fail 6/6** (3 SQLite + 3 PG16).
+- **At fd43edf2** (venv built from `requirements.lock` + `requirements-test.lock`, PG16 via
+  `_disposable_cluster`), the command was `JOBS=4 SUITE_REGISTRY=0 SUITES="test_eng_stale_round2
+  test_eng_stale_rebuild_loop test_rebuild_graph test_cert_rebuild_chain test_cert_publish_gates
+  test_artefacts test_w4_fmgate_rebuild_key test_w4_readback_evidence test_model_spend_paths"
+  bash run_tests.sh`. Result: **144 passing, 0 suites failing, 0 skips**; all 9 suites ran.
+
+  | Suite | OK |
+  |---|---|
+  | test_eng_stale_round2 | 24 (12 SQLite + 11 PG16 + pg_e2e_convergence on PG16) |
+  | test_eng_stale_rebuild_loop | 20 (incl. 9 PG16) |
+  | test_rebuild_graph | 10 |
+  | test_cert_rebuild_chain | 10 |
+  | test_cert_publish_gates | 18 |
+  | test_artefacts | 23 |
+  | test_w4_fmgate_rebuild_key | 4 |
+  | test_w4_readback_evidence | 23 |
+  | test_model_spend_paths | 12 |
+
+  Run record: `artifacts/suite_runs/20261118T192144Z-3591.json`.
+- **First run, at 0b767134** (before the round-1 test update): the only failure was
+  `test_b_marketing_rebuild_waives...` (SQLite + PG). That was the expected M-E semantic change,
+  addressed above.
