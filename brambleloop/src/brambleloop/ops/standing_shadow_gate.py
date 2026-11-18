@@ -22,7 +22,15 @@ only when it resolves to a certified, non-experiment PatternVersion of that exac
 
 `g_shadow(db)` reads each criterion from rows as {state, value, why}; the verdict is MET only
 when 2-5 are PASS (and then still owes criterion 1 to the test run). It is a reading: it
-records itself (`standing_policy.g_shadow`) and authorises nothing.
+records itself (`standing_policy.g_shadow`) only when asked to (`record=True`), writes nothing
+else, and authorises nothing.
+
+Accepted residual risk (design §6 T1b, review 6979645791): the evidence rows this reads --
+shadow decisions, stop-watch readings -- are audit rows without a seal. A process that can
+write the database (a compromised worker, Mode S) can forge them, and the rules above only
+narrow what a forgery can look like (actor, approval-relative time, monotone order, a real
+certified non-experiment release). G-SHADOW is therefore evidence for a person and a gate,
+not proof against a database writer; the issuer re-derives what it relies on at issue time.
 """
 from __future__ import annotations
 
@@ -77,17 +85,28 @@ def _fact(state, value=None, why=None) -> dict:
     return {"state": state, "value": value, "why": why}
 
 
-def _rows(db, action: str, artifact: str, actor: str) -> list[tuple]:
+def _rows(db, action: str, artifact: str, actor: str, *, since: datetime | None = None,
+          now: datetime | None = None) -> list[tuple]:
     """(id, stored_at, detail) of the rows `actor` wrote; any other writer's rows are not
-    evidence (review 6955504377 M-1)."""
+    evidence (review 6955504377 M-1).
+
+    Review 6979645791 LOW: bounded in SQL, not in Python. `_trusted` keeps a row only when its
+    own time is >= `since` and <= `now` AND within CLOCK_SKEW of its stored time, so a row
+    stored before `since - CLOCK_SKEW` or after `now + CLOCK_SKEW` can never be kept; it is
+    not loaded. Rows before `since` never raise `_trusted`'s monotone high-water mark either
+    (they are skipped first), so the result is the same as reading every row."""
     from sqlalchemy import select
 
     from ..core.models import AuditLog
 
+    q = select(AuditLog).where(AuditLog.action == action, AuditLog.artifact == artifact,
+                               AuditLog.actor == actor)
+    if since is not None:
+        q = q.where(AuditLog.at >= since - CLOCK_SKEW)
+    if now is not None:
+        q = q.where(AuditLog.at <= now + CLOCK_SKEW)
     with db.session() as s:
-        return [(r.id, r.at, dict(r.detail or {})) for r in s.scalars(select(AuditLog).where(
-            AuditLog.action == action, AuditLog.artifact == artifact,
-            AuditLog.actor == actor).order_by(AuditLog.id))]
+        return [(r.id, r.at, dict(r.detail or {})) for r in s.scalars(q.order_by(AuditLog.id))]
 
 
 def _certified(db, slug, version, release) -> bool:
@@ -95,7 +114,6 @@ def _certified(db, slug, version, release) -> bool:
     from sqlalchemy import select
 
     from ..core.models import PatternVersion, Product
-    from . import standing_issuer as SI
 
     with db.session() as s:
         pv = s.scalar(select(PatternVersion).join(Product).where(
@@ -104,8 +122,13 @@ def _certified(db, slug, version, release) -> bool:
                   and pv.release_hash == str(release))
     if not ok:
         return False
+    # Review 6979645791 LOW: a READING is pure. `SI._not_experiment` goes through
+    # `refuse_if_experiment`, which writes an `experiment.refused` row each time; this reads
+    # the same registrations and writes nothing. Unreadable is not a candidate.
+    from ..visual import experiment
+
     try:
-        return SI._not_experiment(db, slug, version).get("state") == SB.PASS
+        return not experiment.experiment_rows(db, slug, version, strict=True)
     except Exception:  # noqa: BLE001 - unreadable is not a candidate
         return False
 
@@ -113,7 +136,8 @@ def _certified(db, slug, version, release) -> bool:
 def _shadow_rows(db, policy_id: str, approval_id: int, *, approved_at, now) -> list[dict]:
     from . import standing_issuer as SI
 
-    rows = _trusted(_rows(db, SP.SHADOW_DECISION, policy_id, SI.ACTOR),
+    rows = _trusted(_rows(db, SP.SHADOW_DECISION, policy_id, SI.ACTOR, since=approved_at,
+                          now=now),
                     time_key="decided_at", since=approved_at, now=now)
     return [d for d in rows if d.get("approval_id") == approval_id and d.get("shadow") is True
             and _certified(db, d.get("slug"), d.get("version"), d.get("release"))]
@@ -188,7 +212,8 @@ def _stop_watch(db, policy_id: str, now: datetime, approved_at=None) -> dict:
 
     since = now - timedelta(days=STOP_WATCH_DAYS)
     times = sorted(t for t in (SP._when(d.get("read_at")) for d in _trusted(
-        _rows(db, standing_stop.READING, policy_id, standing_stop.ACTOR),
+        _rows(db, standing_stop.READING, policy_id, standing_stop.ACTOR, since=approved_at,
+              now=now),
         time_key="read_at", since=approved_at, now=now)) if t is not None)
     if not times or times[0] > since:
         return _fact(SB.FAIL, {"first_reading_at": times[0].isoformat() if times else None},
