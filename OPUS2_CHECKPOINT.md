@@ -1,10 +1,24 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-18T09:20Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-18T10:50Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-18T09:20Z (read first)
+## State at 2026-11-18T10:50Z (read first)
+- ws5 LOWs N1-N3 RR POSTED 9b807fed on opus2/ws5-n1-n3-resolver-lows (on w6-INTEG1 19e6a8ff):
+  N1 create-window binding (escalate, never release, on an unbound listing created within
+  CREATE_SKEW under another title); N2 stateless rows make the read undecided; N3 one
+  integrations.etsy.LISTING_STATES. 5/5 tests, 9/10 mutants (tag_state equivalent), 56/56
+  neighbour suites, etsy_exercise 43/43.
+- Main's S1-S4 queue + ws5 LOWs are now all delivered as RRs. Awaiting verdicts: E1 34dbf572,
+  A3 e5575380 (+L2 go?), research 26548a38, WS4 db785f92, A4 ac0ca847/eb47549e, S1 e490fc6f,
+  S2 9d03acb2, S3 fa3a09e9/497a8301/9772f4a4, S4 daa31ad9, S4b bbc4d473, WS5 9b807fed;
+  sp.activate F-542/F8 scan question (6969301528).
+- NEXT: answer any [MAIN] verdict/assignment first (review findings top of queue). With none,
+  no safe assigned work remains; asked Main for the next assignment in the RR.
+- Stop reason this tick: queue exhausted pending Main's verdicts / next assignment.
+
+## State at 2026-11-18T09:20Z (superseded)
 - S4b RR POSTED bbc4d473 on opus2/s4b-p0-board-page (6973607191), on daa31ad9: the
   #/p0_board page (views/p0_board.js, routes/api/sw v30) + cc_mock fixture/checks;
   test_v11_pwa_browser 230/230; 23/25 UI suites green (w4_board, plact environmental).
