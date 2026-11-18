@@ -81,9 +81,15 @@ def _reports(db, *, now=NOW, worker_env=None, web_env=None):
 REL = "a" * 64
 
 
-def _effective_db(*, slugs=(SLUG,)):
+# The code ceilings as a policy: 3 a day, 10 a week, 2 outstanding, no spacing.
+AT_CEILINGS = {"max_per_day": sp.MAX_PER_DAY, "max_per_7d": sp.MAX_PER_7D,
+               "min_spacing_minutes": 0, "max_outstanding_unconsumed_grants": sp.MAX_OUTSTANDING}
+
+
+def _effective_db(*, slugs=(SLUG,), frequency=None):
     """An EFFECTIVE policy and one certified release (REL) per slug."""
-    db, c = _db(), content()
+    db = _db()
+    c = content(frequency=dict(frequency)) if frequency else content()
     _issuer_keys()
     a = _approve(db, c)
     _activate_raw(db, a, c)
@@ -92,7 +98,7 @@ def _effective_db(*, slugs=(SLUG,)):
     return db, c, a
 
 
-def _all_pass(db_, slug, version, release, content_, *, shadow=True):
+def _all_pass(db_, slug, version, release, content_, *, shadow=True, **_kw):
     from test_ws4_boundary import facts
 
     return facts(slug=slug)
@@ -277,7 +283,7 @@ def test_a_new_request_is_seen_past_any_number_of_answered_ones():
 
 def test_an_expired_or_tampered_grant_is_refused_at_use():
     try:
-        db, c, a = _effective_db(slugs=(SLUG, SLUG + "-2"))
+        db, c, a = _effective_db(slugs=(SLUG, SLUG + "-2"), frequency=AT_CEILINGS)
         _reports(db)
         _as_issuer()
         with _InPolicy():
@@ -301,7 +307,7 @@ def test_outstanding_and_daily_limits_hold_in_code_and_in_the_database():
 
     slugs = [f"{SLUG}-{i}" for i in range(5)]
     try:
-        db, c, a = _effective_db(slugs=slugs)
+        db, c, a = _effective_db(slugs=slugs, frequency=AT_CEILINGS)
         _reports(db)
         _as_issuer()
         t = NOW + timedelta(minutes=1)
@@ -317,7 +323,7 @@ def test_outstanding_and_daily_limits_hold_in_code_and_in_the_database():
                     if g.consumed_at is None:
                         g.consumed_at, g.consumed_job_id = t, g.id + 1000
             _refused(lambda: SG.issue(db, slug=slugs[3], version=VERSION, release=REL,
-                                      job_id=4, now=t), "today's grant slots")
+                                      job_id=4, now=t), "grants_today: 3 issued")
         # The database refuses a 4th slot and a second open grant even if code did not.
         for build in (lambda: SG.StandingGrantSlot(policy_row_id=a, day=t.date().isoformat(),
                                                    slot_no=4),
@@ -432,6 +438,143 @@ def test_the_issuer_pass_is_small():
     kib = int(out.stdout.strip().splitlines()[-1])
     print(f"   issuer pass peak RSS: {kib / 1024:.1f} MiB")
     assert kib < 200 * 1024, kib
+
+
+# ---- HIGH-1: the owner's signed pace limits, read from the grant store ------------------------
+
+def _issue(db, slug, job, at):
+    return SG.issue(db, slug=slug, version=VERSION, release=REL, job_id=job, now=at)
+
+
+def test_the_owner_pace_limits_are_enforced_not_only_the_code_ceilings():
+    """Review HIGH-1 probe: policy signed 2/day, 1 outstanding, 180 min spacing. The old code
+    issued 3 grants in one minute (it enforced only 3/day and 2 outstanding)."""
+    slugs = [f"{SLUG}-p{i}" for i in range(4)]
+    try:
+        db, c, a = _effective_db(slugs=slugs)
+        assert c["frequency"] == {"max_per_day": 2, "max_per_7d": 6, "min_spacing_minutes": 180,
+                                  "max_outstanding_unconsumed_grants": 1}
+        _reports(db)
+        _as_issuer()
+        t = NOW + timedelta(minutes=1)
+        with _InPolicy():
+            g1 = _issue(db, slugs[0], 1, t)
+            # One minute later: the second grant is refused (1 outstanding, 180 min spacing).
+            why = _refused(lambda: _issue(db, slugs[1], 2, t + timedelta(minutes=1)),
+                           "grants outstanding")
+            assert "minutes since the last grant" in why, why
+            SG.consume(db, g1["grant_id"], job_id=1, now=t + timedelta(minutes=1))
+            _refused(lambda: _issue(db, slugs[1], 2, t + timedelta(minutes=2)),
+                     "minutes since the last grant; the policy needs 180")
+            # After the spacing: the second of the day is issued...
+            t2 = t + timedelta(minutes=181)
+            _reports(db, now=t2)
+            g2 = _issue(db, slugs[1], 2, t2)
+            SG.consume(db, g2["grant_id"], job_id=2, now=t2)
+            # ...and the third is refused by the owner's 2/day, though code allows 3.
+            _reports(db, now=t2 + timedelta(minutes=200))
+            _refused(lambda: _issue(db, slugs[2], 3, t2 + timedelta(minutes=200)),
+                     "grants_today: 2 issued; the limit is 2")
+        with db.session() as s:
+            assert len(list(s.scalars(select(SG.StandingGrant)))) == 2
+    finally:
+        _reset()
+
+
+def test_the_seven_day_limit_counts_every_grant_in_the_window():
+    slugs = [f"{SLUG}-w{i}" for i in range(4)]
+    freq = {"max_per_day": 2, "max_per_7d": 3, "min_spacing_minutes": 0,
+            "max_outstanding_unconsumed_grants": 2}
+    try:
+        db, c, a = _effective_db(slugs=slugs, frequency=freq)
+        _reports(db)
+        _as_issuer()
+        t = NOW + timedelta(minutes=1)
+        with _InPolicy():
+            _issue(db, slugs[0], 1, t)
+            _issue(db, slugs[1], 2, t)                # never used: it expires, still counted
+            day2 = t + timedelta(days=1)
+            _reports(db, now=day2)
+            g3 = _issue(db, slugs[2], 3, day2)
+            SG.consume(db, g3["grant_id"], job_id=3, now=day2)
+            day3 = t + timedelta(days=2)
+            _reports(db, now=day3)
+            _refused(lambda: _issue(db, slugs[3], 4, day3), "grants_7d: 3 issued")
+            later = t + timedelta(days=7, minutes=1)   # the first two leave the window
+            _reports(db, now=later)
+            _issue(db, slugs[3], 4, later)
+    finally:
+        _reset()
+
+
+def test_read_facts_reports_the_grant_store_not_zero():
+    """The boundary's pace facts come from the store: with one outstanding grant under a
+    1-outstanding / 180-minute policy, the issue-time classification HOLDs."""
+    slugs = [f"{SLUG}-f{i}" for i in range(2)]
+    try:
+        db, c, a = _effective_db(slugs=slugs)
+        _reports(db)
+        _as_issuer()
+        t = NOW + timedelta(minutes=1)
+        with _InPolicy():
+            _issue(db, slugs[0], 1, t)
+        facts = SI.read_facts(db, slugs[1], VERSION, REL, c, shadow=False,
+                              now=t + timedelta(minutes=5))
+        assert facts["outstanding"]["value"] == 1, facts["outstanding"]
+        assert facts["grants_today"]["value"] == {"consumed": 0, "outstanding": 1}
+        assert abs(facts["minutes_since_last"]["value"] - 5.0) < 1e-6
+        from brambleloop.ops import standing_boundary as SB
+        from test_ws4_boundary import facts as all_pass
+
+        merged = {**all_pass(slug=slugs[1]), **{k: facts[k] for k in (
+            "grants_today", "grants_7d", "outstanding", "minutes_since_last")}}
+        reasons = SB.classify(c, merged)["reasons"]
+        assert any("outstanding" in r for r in reasons), reasons
+        assert any("minutes since the last grant" in r for r in reasons), reasons
+    finally:
+        _reset()
+
+
+def test_concurrent_issuers_cannot_both_take_the_last_grant():
+    """The pace re-read and the slot insert are one serialized transaction: two issuers
+    racing on a 1-outstanding policy produce exactly one grant."""
+    import threading
+
+    slugs = [f"{SLUG}-r{i}" for i in range(2)]
+    freq = {"max_per_day": 3, "max_per_7d": 10, "min_spacing_minutes": 0,
+            "max_outstanding_unconsumed_grants": 1}
+    try:
+        db, c, a = _effective_db(slugs=slugs, frequency=freq)
+        _reports(db)
+        _as_issuer()
+        t = NOW + timedelta(minutes=1)
+        barrier = threading.Barrier(2)
+        real_pace = SG.pace
+        calls = {"n": 0}
+
+        def slow_pace(session, now):
+            got = real_pace(session, now)
+            calls["n"] += 1
+            if calls["n"] <= 2:          # both early (unlocked) reads see nothing issued
+                barrier.wait(timeout=10)
+            return got
+
+        out = []
+        with _InPolicy(), patch.object(SG, "pace", slow_pace):
+            def go(slug, job):
+                try:
+                    out.append(_issue(db, slug, job, t)["grant_id"])
+                except SG.GrantRefused as exc:
+                    out.append(str(exc))
+            ts = [threading.Thread(target=go, args=(slugs[i], i + 1)) for i in range(2)]
+            for th in ts:
+                th.start()
+            for th in ts:
+                th.join(30)
+        assert sum(isinstance(x, int) for x in out) == 1, out
+        assert any(isinstance(x, str) and "outstanding" in x for x in out), out
+    finally:
+        _reset()
 
 
 if __name__ == "__main__":

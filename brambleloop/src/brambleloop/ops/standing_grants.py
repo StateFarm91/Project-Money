@@ -355,10 +355,97 @@ def _db_now(db) -> datetime:
     return v if v.tzinfo else v.replace(tzinfo=timezone.utc)
 
 
+# ---- pace (HIGH-1): the owner's signed limits AND the code ceilings, read from the store ----
+
+GRANT_STORE_LOCK = 734543631   # pg_advisory_xact_lock key; distinct from every other in src/
+
+
+def _serialize(session) -> None:
+    """One issuance at a time across every issuer process: the pace read and the slot insert
+    happen under this lock, in one transaction."""
+    dialect = session.get_bind().dialect.name
+    if dialect == "postgresql":
+        session.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": GRANT_STORE_LOCK})
+    elif dialect == "sqlite":
+        session.execute(text("BEGIN IMMEDIATE"))
+    else:
+        raise GrantRefused(f"the grant store cannot serialize issuance on {dialect}")
+
+
+def pace_limits(content: dict) -> dict:
+    """min(signed policy, code ceiling) on every pace dimension. Unreadable is a refusal."""
+    fr = (content or {}).get("frequency") or {}
+    out = {}
+    for key, name, ceiling in (("max_per_day", "per_day", SP.MAX_PER_DAY),
+                               ("max_per_7d", "per_7d", SP.MAX_PER_7D),
+                               ("max_outstanding_unconsumed_grants", "outstanding",
+                                SP.MAX_OUTSTANDING),
+                               ("min_spacing_minutes", "spacing_minutes", None)):
+        v = fr.get(key)
+        if isinstance(v, bool) or not isinstance(v, int) or v < 0:
+            raise GrantRefused(f"policy frequency.{key} is unreadable ({v!r})")
+        out[name] = v if ceiling is None else min(v, ceiling)
+    return out
+
+
+def _aware(at):
+    return at if at is None or at.tzinfo else at.replace(tzinfo=timezone.utc)
+
+
+def pace(session, now: datetime) -> dict:
+    """What has been issued, from the grant store itself (every policy: a new policy version
+    does not get a fresh day). A grant counts from its issue until the window passes, used
+    or not: an expired, unused grant spent its slot ("consumed" here means not outstanding).
+    """
+    from sqlalchemy import select
+
+    day_start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
+    week_start = now - timedelta(days=7)
+    rows = [(_aware(i), _aware(c), _aware(e)) for i, c, e in session.execute(
+        select(StandingGrant.issued_at, StandingGrant.consumed_at, StandingGrant.expires_at))]
+
+    def window(start):
+        ins = [r for r in rows if r[0] >= start]
+        out = sum(1 for _i, c, e in ins if c is None and e > now)
+        return {"consumed": len(ins) - out, "outstanding": out}
+
+    last = max((i for i, _c, _e in rows), default=None)
+    return {"grants_today": window(day_start), "grants_7d": window(week_start),
+            "outstanding": sum(1 for _i, c, e in rows if c is None and e > now),
+            "minutes_since_last": None if last is None
+            else (now - last).total_seconds() / 60.0}
+
+
+def pace_facts(db, *, now: datetime | None = None) -> dict:
+    """`pace` as the four facts `standing_boundary.classify` reads."""
+    ensure_tables(db)
+    now = now or _db_now(db)
+    with db.session() as s:
+        return pace(s, now)
+
+
+def pace_refusals(p: dict, limits: dict) -> list[str]:
+    out = []
+    for name, cap in (("grants_today", limits["per_day"]), ("grants_7d", limits["per_7d"])):
+        n = p[name]["consumed"] + p[name]["outstanding"]
+        if n >= cap:
+            out.append(f"{name}: {n} issued; the limit is {cap} (min of policy and code)")
+    if p["outstanding"] >= limits["outstanding"]:
+        out.append(f"{p['outstanding']} grants outstanding; the limit is "
+                   f"{limits['outstanding']} (min of policy and code)")
+    m = p["minutes_since_last"]
+    if m is not None and m < 0:
+        out.append("a standing grant is dated after now: clock disagreement, refused")
+    elif m is not None and m < limits["spacing_minutes"]:
+        out.append(f"only {m:.1f} minutes since the last grant; the policy needs "
+                   f"{limits['spacing_minutes']}")
+    return out
+
+
 def issue(db, *, slug: str, version: str, release: str, job_id: int,
           now: datetime | None = None, request_id: int | None = None) -> dict:
     """Issue one SEG, or raise `GrantRefused` with every reason. Issuer process only."""
-    from sqlalchemy import func, select
+    from sqlalchemy import select
     from sqlalchemy.exc import IntegrityError
 
     from ..core.models import AuditLog
@@ -379,45 +466,50 @@ def issue(db, *, slug: str, version: str, release: str, job_id: int,
     if decided.get("decision") != "ISSUE":
         raise GrantRefused(f"out of policy: {decided.get('reasons') or decided.get('why')}")
     content_policy = eff["content"]
+    limits = pace_limits(content_policy)          # min(signed policy, code ceiling), each
     scope = f"{slug}@{version}"
     day = now.date().isoformat()
-    week_ago = now - timedelta(days=7)
-    with db.session() as s:
-        outstanding = int(s.scalar(select(func.count(StandingGrant.id)).where(
-            StandingGrant.policy_row_id == eff["approval_id"],
-            StandingGrant.consumed_at.is_(None), StandingGrant.expires_at > now)) or 0)
-        week = int(s.scalar(select(func.count(StandingGrantSlot.id)).where(
-            StandingGrantSlot.policy_row_id == eff["approval_id"],
-            StandingGrantSlot.at >= week_ago)) or 0)
-        used_today = sorted(s.scalars(select(StandingGrantSlot.slot_no).where(
-            StandingGrantSlot.policy_row_id == eff["approval_id"],
-            StandingGrantSlot.day == day)))
-    if outstanding >= SP.MAX_OUTSTANDING:
-        raise GrantRefused(f"{outstanding} grants outstanding (at most {SP.MAX_OUTSTANDING})")
-    free = [n for n in range(1, SP.MAX_PER_DAY + 1) if n not in used_today]
-    if not free:
-        raise GrantRefused(f"all {SP.MAX_PER_DAY} of today's grant slots are used")
+    with db.session() as s:                       # a cheap refusal before any snapshot
+        why = pace_refusals(pace(s, now), limits)
+    if why:
+        raise GrantRefused("; ".join(why))
     snapshot = PA.snapshot(db, slug, version, release)
     ttl = min(int(SP.SEG_TTL_MINUTES), int(SP.SEG_TTL_CEILING_MINUTES))
-    body = {
-        "schema": SCHEMA, "action": "store.publish", "scope": scope, "release": str(release),
-        "content": snapshot, "digest": PA.digest(snapshot),
-        "shop": {"shop_id": SI._shop_id(db), "shop_name": SI._shop_name()},
-        "classification": {"class_id": decided.get("class_id"),
-                           "effective_risk_class": decided.get("effective_risk")},
-        "policy": {"row_id": eff["approval_id"],
-                   "version": int(content_policy.get("version") or 0),
-                   "seal": eff.get("seal"), "activation_row_id": eff.get("activation_id")},
-        "budget": {"day": day, "slot_no": free[0], "seven_day_count_before": week},
-        "job_id": int(job_id), "nonce": secrets.token_hex(16),
-        "issued_at": now.isoformat(), "not_before": now.isoformat(),
-        "expires_at": (now + timedelta(minutes=ttl)).isoformat(),
-        "issuer_key_fp": fingerprint(_public_of(_key(SP.ISSUER_KEY_VAR))),
-        "issuer_host": ISSUER_HOST,
-    }
-    seal = _sign(DOMAIN, body)
     try:
         with db.session() as s:
+            # HIGH-1: the pace is re-read and enforced in the SAME transaction as the slot
+            # insert, under one store-wide lock, so two passes (or two issuers) cannot both
+            # read "one left" and both insert.
+            _serialize(s)
+            p = pace(s, now)
+            why = pace_refusals(p, limits)
+            if why:
+                raise GrantRefused("; ".join(why))
+            used_today = set(s.scalars(select(StandingGrantSlot.slot_no).where(
+                StandingGrantSlot.policy_row_id == eff["approval_id"],
+                StandingGrantSlot.day == day)))
+            free = [n for n in range(1, SP.MAX_PER_DAY + 1) if n not in used_today]
+            if not free:
+                raise GrantRefused(f"all {SP.MAX_PER_DAY} of today's grant slots are used")
+            body = {
+                "schema": SCHEMA, "action": "store.publish", "scope": scope,
+                "release": str(release), "content": snapshot, "digest": PA.digest(snapshot),
+                "shop": {"shop_id": SI._shop_id(db), "shop_name": SI._shop_name()},
+                "classification": {"class_id": decided.get("class_id"),
+                                   "effective_risk_class": decided.get("effective_risk")},
+                "policy": {"row_id": eff["approval_id"],
+                           "version": int(content_policy.get("version") or 0),
+                           "seal": eff.get("seal"), "activation_row_id": eff.get("activation_id")},
+                "budget": {"day": day, "slot_no": free[0],
+                           "seven_day_count_before": p["grants_7d"]["consumed"]
+                           + p["grants_7d"]["outstanding"], "limits": limits},
+                "job_id": int(job_id), "nonce": secrets.token_hex(16),
+                "issued_at": now.isoformat(), "not_before": now.isoformat(),
+                "expires_at": (now + timedelta(minutes=ttl)).isoformat(),
+                "issuer_key_fp": fingerprint(_public_of(_key(SP.ISSUER_KEY_VAR))),
+                "issuer_host": ISSUER_HOST,
+            }
+            seal = _sign(DOMAIN, body)
             row = StandingGrant(policy_row_id=eff["approval_id"],
                                 policy_version=body["policy"]["version"], scope=scope,
                                 release=str(release), digest=body["digest"], detail_json=body,

@@ -106,7 +106,7 @@ def candidates(db) -> list[tuple[str, str, str]]:
 
 
 def read_facts(db, slug: str, version: str, release: str, content: dict, *,
-               shadow: bool = True) -> dict:
+               shadow: bool = True, now: datetime | None = None) -> dict:
     """The facts `standing_boundary.classify` needs, each guarded. In shadow the four
     activation-time facts are assumed and marked so."""
     facts: dict[str, dict] = {}
@@ -160,15 +160,29 @@ def read_facts(db, slug: str, version: str, release: str, content: dict, *,
         lambda: _independent_vision_review(db, slug, version))
     facts["shop_id"] = _guard(lambda: _shop_id(db))
     facts["shop_name"] = _guard(_shop_name)
-    # No standing grant has ever been issued (there is no grant store until the Mode T
-    # increment), so every count is exactly zero -- a fact, not an assumption.
-    zero = {"consumed": 0, "outstanding": 0}
-    facts["grants_today"] = _fact(SB.PASS, dict(zero), "no standing grant has been issued")
-    facts["grants_7d"] = _fact(SB.PASS, dict(zero), "no standing grant has been issued")
-    facts["outstanding"] = _fact(SB.PASS, 0, "no standing grant has been issued")
-    facts["minutes_since_last"] = _fact(SB.PASS, None, "no earlier standing grant")
+    # HIGH-1: the pace is read from the grant store itself (every issued grant, any policy),
+    # never assumed. Unreadable -> UNKNOWN on all four, which holds.
+    pace = _guard(lambda: _fact(SB.PASS, _pace(db, now)))
+    if pace["state"] == SB.PASS:
+        p = pace["value"]
+        facts["grants_today"] = _fact(SB.PASS, p["grants_today"], "read from the grant store")
+        facts["grants_7d"] = _fact(SB.PASS, p["grants_7d"], "read from the grant store")
+        facts["outstanding"] = _fact(SB.PASS, p["outstanding"], "read from the grant store")
+        facts["minutes_since_last"] = _fact(
+            SB.PASS, p["minutes_since_last"],
+            "no earlier standing grant" if p["minutes_since_last"] is None
+            else "read from the grant store")
+    else:
+        for name in ("grants_today", "grants_7d", "outstanding", "minutes_since_last"):
+            facts[name] = pace
     facts["ads_jobs_queued"] = _fact(SB.PASS, 0, "no job carries a standing-policy lineage")
     return facts
+
+
+def _pace(db, now):
+    from . import standing_grants
+
+    return standing_grants.pace_facts(db, now=now)
 
 
 def _stop_facts(db, content, shadow):
@@ -542,8 +556,9 @@ def _shop_name():
 # Shadow run
 # ---------------------------------------------------------------------------------------------
 
-def evaluate(db, slug, version, release, content, *, shadow: bool = True) -> dict:
-    facts = read_facts(db, slug, version, release, content, shadow=shadow)
+def evaluate(db, slug, version, release, content, *, shadow: bool = True,
+             now: datetime | None = None) -> dict:
+    facts = read_facts(db, slug, version, release, content, shadow=shadow, now=now)
     verdict = SB.classify(content, facts)
     return {"decision": "ISSUE" if verdict["in_policy"] else "HOLD",
             "reasons": verdict["reasons"], "class_id": verdict["class_id"],
@@ -713,7 +728,7 @@ def decide(db, slug: str, version: str, release: str, *,
     if eff.get("state") != SP.EFFECTIVE:
         return {"decision": None, "why": eff.get("why"), "card": None}
     content = eff["content"]
-    out = evaluate(db, slug, version, release, content, shadow=False)
+    out = evaluate(db, slug, version, release, content, shadow=False, now=now)
     if out["decision"] == "HOLD":
         card = record_hold(db, slug=slug, version=version, release=release,
                            reasons=out["reasons"], content=content,
