@@ -117,7 +117,46 @@ All 9 pass on the branch.
 Suites (targeted; never the full suite), `JOBS=4 SUITE_REGISTRY=0`, `PY=/tmp/venv/bin/python`
 (requirements.txt + requirements-test.lock):
 
-SUITE_RESULTS_PLACEHOLDER
+Code under test: **2fe7f5d**. 38 targeted suites (the ones that import production_evidence,
+readback, the Scheduler, incident_lifecycle, scan_evidence, suspended_job_types or the
+watchlist):
+
+```
+test_a4a_low_fixes test_cadence_spread test_cert_claude_independence test_cert_mjs
+test_cert_orchestration test_cert_thrash test_cert_wiring test_incident_lifecycle
+test_opus2_chain_deadends test_opus2_scan_evidence test_p1_worker_long_job_liveness
+test_persistence test_r2_autonomy_scheduler_blocks test_r2_autonomy_scheduler_isolation
+test_seasonal_incidents test_shadow test_v11_autonomy_orchestrator test_w3_k7_ops_truth
+test_w3_laura_core_continuity test_w3_laura_core_executive test_w4_auto_status test_w4_board
+test_w4_close5_rows4 test_w4_intelrec_watchlist test_w4_listready test_w4_mjs_findings
+test_w4_owner_incidents test_w4_readback_evidence test_w5_a4a_research_to_concept
+test_w5_a7_supply_stall test_w6_secret_leak_escalate test_w6_support_defect_incident
+test_watchlist_cadence test_ws2_r1_competitor_scans test_ws2_r3_source_timestamp
+test_ws2_r4_kept_scan_facts test_ws2_r6_r7_watchlist_env_dedupe test_ws5_e3_credential_row
+```
+
+Result: **TOTAL PASSING 422; suites failing 2; environment failures 0.**
+
+1. `test_w4_listready::test_f8_every_etsy_write_call_site_is_classified...` fails with
+   "unclassified Etsy write call sites: approvals.py _standing_policy". It is
+   **pre-existing**: it fails identically on base origin/claude/w6-INTEG1 (e4c442c), run in
+   a worktree. This branch does not touch that code.
+2. `test_cert_claude_independence::test_production_start_command_runs_kills_and_resumes...`
+   is **intermittent** and asserts `len(actors) >= 3`. When it fails, only the
+   `web-<pid>` / `web-<pid>-control` actors are present. Branch tally: 2 FAIL (the 38-suite
+   run and one isolated run on 2fe7f5d), 3 OK (the 38-suite run on a8c3edf, one
+   instrumented run, one isolated run). Base tally: 2 OK out of 2. An instrumented passing
+   run shows 26 actors and a normal chain. I cannot exclude that the extra work per
+   scheduler tick (the 15-min-throttled escalation, plus the gate queries in
+   `suspended_job_types`) shifts this timing-sensitive test. **Reviewer: please judge, and
+   rerun it.**
+
+`test_w4_readback_evidence` changed: the exact item count goes 13 → 14 for the new
+`scheduler` row, and that row is asserted PASS/WARN like competitor_scans. This is a
+structural update, not a weakening. It first failed *correctly* on this branch: the new
+section carried a forbidden `detail` key, fixed by renaming it to `explanation`. The
+`scheduler` section is registered in `ops/readback.py` EVIDENCE_ITEMS as an advisory row
+(WARN, never FAIL).
 
 ## Residuals / for the reviewer
 
@@ -132,4 +171,4 @@ SUITE_RESULTS_PLACEHOLDER
 - After deploy, the production backoff `thrash:backoff:intel.watchlist_scan` stays *open*
   but lifted. The first real scan's changed outputs resolve it on the next sweep.
 
-Final SHA: FINAL_SHA_PLACEHOLDER
+Final SHA: the commit that adds this file's final text (code identical to 2fe7f5d); see the branch head.
