@@ -1,10 +1,28 @@
 # OPUS2 engineering checkpoint (read first on every wake)
 
-Updated: 2026-11-17T09:30Z. The engineering loop rewrites this file at the end of every work
+Updated: 2026-11-18T02:55Z. The engineering loop rewrites this file at the end of every work
 unit and pushes it to `origin/opus2/checkpoint`. A container reset loses /tmp and the
 worktrees, not this file.
 
-## State at 2026-11-17T23:50Z (read first)
+## State at 2026-11-18T02:55Z (read first)
+- S3 / WS4-7 RR POSTED fa3a09e9 on opus2/ws4-7-mode-t (6967426295): 86e6de43 issuer service
+  (app/issuer_entry.py, ops/standing_grants.py, Mode T report) + fa3a09e9 (retention entries
+  for policy.grant_requested/issued/held; pending_requests excludes answered ids before the
+  limit). test_ws4_7_issuer 14/14; 23/23 mutants; 110-suite regression: 102 green as run,
+  etsy_oauth_callback fixed by fa3a09e9, 7 environmental (missing release/, repo-root ops/,
+  research/ files; test_health reads disk 0% free). Dispatch event a7d8f065.
+- OWNER ACTION relayed via Main: issuer service spend (<= ~CA$2.35/month) + separate DB role.
+  Until both, Mode S; no grant can be issued.
+- Awaiting verdicts: E1 34dbf572, A3 e5575380 (+L2 go?), research 26548a38, WS4 db785f92,
+  A4 ac0ca847/eb47549e, S1 e490fc6f, S2 9d03acb2, S3 fa3a09e9.
+- NEXT: S3 part 2 -- bounded public-activation authority, separate increment on fa3a09e9,
+  OFF by default (owner approval required to enable). Then S4 P0 command board; ws5 LOWs N1-N3.
+- Scratch copy: scratchpad/ws47 (git archive of fa3a09e9 tree minus release/, research/).
+  Never run foreground tests while a background regression loop runs `rm -rf /tmp/bl-test-*`.
+- Stop reason this tick: S3 work unit complete (RR posted); container disk ~227 MB free;
+  public-activation authority starts next tick.
+
+## State at 2026-11-17T23:50Z (superseded)
 - S2 fix RR POSTED 9d03acb2 on opus2/s2-openai-provider-fix (6963803447): 9d4abc1b fix +
   cert_cost default-cap expectation. 74/77 neighbours green as run; cert_cost fixed;
   spend_governance + canon_manifest environmental (repo-root files). Two decisions offered to
