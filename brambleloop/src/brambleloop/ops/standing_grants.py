@@ -32,7 +32,7 @@ import threading
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import (JSON, CheckConstraint, DateTime, Index, Integer, String,
-                        UniqueConstraint, text)
+                        UniqueConstraint, event, text)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..core.db import Base
@@ -132,6 +132,19 @@ _PG_WRITE_ONCE_TRIGGER = (f"CREATE TRIGGER {WRITE_ONCE_TRIGGER} BEFORE UPDATE ON
                           f"FOR EACH ROW EXECUTE FUNCTION {WRITE_ONCE_TRIGGER}()")
 
 
+def _create_write_once(target, connection, **_kw) -> None:
+    """The guard is created WITH the table (so a fresh database needs no migration);
+    `install_guards` adds it to a table that predates it."""
+    if connection.dialect.name == "postgresql":
+        connection.execute(text(_PG_WRITE_ONCE_FN))
+        connection.execute(text(_PG_WRITE_ONCE_TRIGGER))
+    else:
+        connection.execute(text(_SQLITE_WRITE_ONCE))
+
+
+event.listen(StandingGrant.__table__, "after_create", _create_write_once)
+
+
 def _has_write_once(conn) -> bool:
     if conn.dialect.name == "postgresql":
         return bool(conn.execute(text(
@@ -154,11 +167,7 @@ def install_guards(engine) -> list[str]:
     with engine.begin() as conn:
         if _has_write_once(conn):
             return []
-        if conn.dialect.name == "postgresql":
-            conn.execute(text(_PG_WRITE_ONCE_FN))
-            conn.execute(text(_PG_WRITE_ONCE_TRIGGER))
-        else:
-            conn.execute(text(_SQLITE_WRITE_ONCE))
+        _create_write_once(None, conn)
     return [f"standing_grants: {WRITE_ONCE_TRIGGER} trigger installed"]
 
 
