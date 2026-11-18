@@ -1,7 +1,7 @@
 # Review request — eng/stale-rebuild-loop, round 2
 
 Branch `eng/stale-rebuild-loop`, continued from 4b683993 (head was f04d769, which only added
-`REVIEW_REQUEST.md`). Final SHA: see the end of this file.
+`REVIEW_REQUEST.md`). Final code SHA: 784b8dc855d2c3a0945dbfd9e8c12fc1c931ea5b (later commits only change this file).
 
 Scope: the four MEDIUMs and L1/L3 from the independent review of 4b683993. No deploy, no Railway, no
 production, no secrets, no spend. New regression file: `tests/test_eng_stale_round2.py`. Every check in
