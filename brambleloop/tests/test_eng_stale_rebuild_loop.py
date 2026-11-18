@@ -239,10 +239,18 @@ def test_b_marketing_rebuild_waives_rows_whose_artefact_already_reads_fresh():
     # a row whose artefact is still stale (not in `fresh`) still refuses the rebuild
     assert _gate_with(db, outstanding=[mk], fresh=["pdf:a@1#pdf-us"])[
         "outstanding_only_marketing"] is False
-    # an exhausted rebuild-incomplete is a hold, never waived
+    # round 3 (review M-E of 0d2e6cbc): a pre-branch row (no `attempts` in its detail) is not
+    # exhausted by its count alone -- it gets a fresh budget first, so it is still waived
     with db.session() as s:
         s.scalar(select(Incident).where(Incident.signature == "rebuild-incomplete:a")
                  ).report_count = G.REBUILD_MAX_ATTEMPTS
+    assert _gate_with(db, outstanding=[mk], fresh=["pdf:a@1#pdf-us", "chart:a@1#chart"])[
+        "outstanding_only_marketing"] is True
+    # an exhausted rebuild-incomplete (its budget spent under the new code) is a hold,
+    # never waived
+    with db.session() as s:
+        s.scalar(select(Incident).where(Incident.signature == "rebuild-incomplete:a")
+                 ).detail = {"attempts": G.REBUILD_MAX_ATTEMPTS}
     assert _gate_with(db, outstanding=[mk], fresh=["pdf:a@1#pdf-us", "chart:a@1#chart"])[
         "outstanding_only_marketing"] is False
 
