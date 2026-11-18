@@ -182,4 +182,6 @@ All runs used `JOBS=… SUITE_REGISTRY=0 PY=/tmp/venv/bin/python bash run_tests.
   - `test_w4_listready` `test_f8_…`: "unclassified Etsy write call sites: approvals.py `_standing_policy`". This also fails at the base (WS4 standing-policy merge on INTEG1; recorded in round 4). It is not from this branch.
 - These suites ran and passed here: `test_cert_growth_ops` (13 OK), `test_cert_growth_seasonal` (24 OK), `test_fb4_launch` (9 OK), `test_fb4_lc` (16 OK) and `test_w4_adopt_manual_listing` (19 OK). In round 4 they could not start because `httpx2` was missing. In this venv `httpx2` only causes a StarletteDeprecationWarning.
 
-**2. `test_garment_design` and `test_w4_listready` re-run at 6f1db7e**, and **3. `test_product_run`, run alone at 6f1db7e.** Both were started at 6f1db7e. Their results are recorded in the commit that follows this one.
+**2. `test_garment_design` and `test_w4_listready` re-run at 6f1db7e:** TOTAL PASSING 65, 1 suite failing (run record `artifacts/suite_runs/20261118T164935Z-9774.json`). `test_garment_design` passes. The one failure is `test_w4_listready` f8 (`unclassified Etsy write call sites: [('app/command_center/approvals.py', '_standing_policy')]`). That failure is pre-existing on the base 2a858b59 and lies outside S1's scope.
+
+**3. `test_product_run`, run alone at 4ab9559:** TOTAL PASSING 36, 0 suites failing (run record `artifacts/suite_runs/20261118T165218Z-10183.json`, tree clean at start). 4ab9559 changes only this document on top of 6f1db7e, so the code under test is the same as at 6f1db7e.
