@@ -391,7 +391,7 @@ def test_end_to_end_a_moved_chain_converges_in_one_attempt():
     with _MovedChain():
         first = _sentinel(db, "e2e-1")
         assert first["stale"] > len(marketing) and first["rebuild_enqueued"], first
-        for _ in range(G.REBUILD_MAX_ATTEMPTS + 2):      # the stage chain, then each check
+        for _ in range(5):                               # the stage chain, then each check
             _drain(db, "e2e-drain")
             with db.session() as s:
                 for j in s.scalars(select(Job).where(Job.status == JobStatus.PENDING)):
