@@ -309,8 +309,9 @@ def test_the_worker_role_never_creates_a_table_it_should_not_own(url):
         got, _err = _boot_worker_as(wurl)                 # every table exists: it starts
         assert got["rc"] == 0, got
         assert _owned_by(owner, "bl_worker") == [], _owned_by(owner, "bl_worker")
-        with owner.engine.begin() as c:                   # a release whose web is not up yet
+        with owner.engine.begin() as c:   # a release that adds the grant store, web not up
             c.execute(text("DROP TABLE standing_grant_slots, standing_grants CASCADE"))
+            c.execute(text(f"DROP FUNCTION {SG.WRITE_ONCE_TRIGGER}()"))
         got, err = _boot_worker_as(wurl)
         assert got["rc"] == 3, (got, err[-800:])
         assert "Deploy web (the migration owner) first" in err, err[-800:]
