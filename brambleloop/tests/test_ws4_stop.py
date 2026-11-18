@@ -58,8 +58,8 @@ def _incident(db, signature, *, severity="P1", resolved=False, slug=None):
 
 
 def _held(db, c, *, lin=None, activated=True, spend=False):
-    """The holding reasons. Spend under a non-empty lineage always reads UNKNOWN today (its
-    own test pins that), so the other lineage tests leave it out unless asked."""
+    """The holding reasons. Spend has its own tests (it reads cost rows), so the other lineage
+    tests leave it out unless asked."""
     out = ST._reasons(ST.conditions(db, c, now=NOW, activated=activated, lin=lin))
     return out if spend or lin is None else [r for r in out if not r.startswith("spend:")]
 
@@ -165,14 +165,71 @@ def test_a_stale_never_read_or_changed_platform_policy_reading_stops():
         _restore()
 
 
-def test_spend_under_a_non_empty_lineage_is_unknown_and_stops():
+def _cost(db, *, kind, slug="", amount=0.0, listing_id=None, at=None):
+    from brambleloop.core.models import CostEntry
+
+    with db.session() as s:
+        s.add(CostEntry(agent="store_operator", kind=kind, amount_cad=amount,
+                        product_slug=slug, at=at or NOW - timedelta(days=1),
+                        detail={"listing_id": listing_id} if listing_id else {}))
+
+
+def test_spend_under_a_non_empty_lineage_is_read_from_the_cost_rows():
+    """Review M-4: spend under lineage is a real join (it read UNKNOWN for any non-empty
+    lineage, so the first standing grant would have suspended the policy)."""
     try:
         db, c = _db(), content()
+        _cost(db, kind="llm", slug=SLUG, amount=3.0)                  # not spend under it
+        _cost(db, kind="etsy_listing_fee", slug="other", amount=0.27, listing_id="999")
         with _Clear():
-            r = _held(db, c, lin=LINEAGE, spend=True)
-            assert len(r) == 1, r
-            assert _held(db, c) == []
-        assert r[0].startswith("spend: UNKNOWN"), r
+            assert _held(db, c, lin=LINEAGE, spend=True) == []
+            _cost(db, kind="etsy_listing_fee_actual", amount=0.27, listing_id="4400001")
+            r = _one(_held(db, c, lin=LINEAGE, spend=True), "spend")
+            assert r.startswith("spend: FAIL") and "CA$0.27" in r, r
+        db2 = _db()
+        _cost(db2, kind="etsy_listing_fee", amount=0.27, listing_id="4400001",
+              at=NOW - timedelta(days=31))                          # outside 30 days
+        _cost(db2, kind="ads", slug=SLUG, amount=0.0)
+        with _Clear():
+            r = _one(_held(db2, c, lin=LINEAGE, spend=True), "spend")
+            assert "ads" in r and "NONE" in r, r
+            with patch.object(ST, "_spend", side_effect=RuntimeError("x")):
+                assert _one(_held(db2, c, lin=LINEAGE, spend=True),
+                            "spend").startswith("spend: UNKNOWN")
+    finally:
+        _restore()
+
+
+def test_the_lineage_is_read_from_the_grant_store():
+    """Review M-4: `lineage()` was a stub returning empty, so per-product stop conditions
+    never saw a standing grant. A grant issued under this policy puts its product (and its
+    Etsy listing) in lineage; a defect there now stops the policy with no lineage passed in."""
+    from brambleloop.core.models import Listing
+    from brambleloop.ops import standing_grants as SG
+
+    try:
+        db, c = _db(), content()
+        a = _approve(db, c)
+        SG.ensure_tables(db)
+        with db.session() as s:
+            for i, (slug, row) in enumerate(((SLUG, a), ("not-this-policy", a + 10_000))):
+                s.add(SG.StandingGrant(policy_row_id=row, policy_version=1,
+                                       scope=f"{slug}@1.0.0", release="r" * 64, digest="d",
+                                       detail_json={}, seal="s", issued_at=NOW,
+                                       expires_at=NOW + timedelta(minutes=15)))
+            s.add(Listing(product_slug=SLUG, version="1.0.0", title="t", description="d",
+                          tags=[], price_cad=8.0, release_hash="r" * 64,
+                          etsy_listing_id="4400001"))
+        lin = ST.lineage(db, c["policy_id"])
+        # A grant whose approval row is unreadable counts too (fail closed).
+        assert lin["products"] == {SLUG, "not-this-policy"}, lin
+        assert lin["listing_ids"] == {"4400001"}, lin
+        assert ST.lineage(db, "sp-some-other-policy")["products"] == {"not-this-policy"}
+        _incident(db, f"support.defect:{SLUG}:1.0.0:row3")
+        with _Clear():
+            reasons = ST._reasons(ST.conditions(db, c, now=NOW))
+        assert any(r.startswith("open_defect_incident_on_policy_product: FAIL")
+                   for r in reasons), reasons
     finally:
         _restore()
 
