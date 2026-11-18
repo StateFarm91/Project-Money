@@ -313,7 +313,8 @@ def thrash_sweep(db, *, now: datetime | None = None,
             # (the root-cause fix) -- so the next cadence window cannot restart the loop.
             suspension = {"kind": SUSPENDED, "job_type": entry["job_type"],
                           "code_commit": _commit(), "since": now.isoformat(),
-                          "handler_digest": handler_digest(entry["job_type"])}
+                          "handler_digest": handler_digest(entry["job_type"]),
+                          **gate_snapshot(s, entry["job_type"])}
             if row is None:
                 s.add(Incident(severity="P2", signature=signature, summary=summary,
                                detail={"job_type": entry["job_type"],
@@ -370,6 +371,107 @@ LIVENESS_JOB_TYPES: frozenset[str] = frozenset({
     # W4-CREDHEALTH: its job is to notice the owner's key rotation or top-up.
     "ops.provider_credentials",
 })
+# ENG watchlist-cadence (prod 2026-11-18): a reader gated on a credential that a probe
+# re-tests. While the probe says the key is refused, the reader correctly does nothing and
+# says so (outputs `credential_refused`): a CA$0 no-op that waits is not a poll without
+# progress, and backing it off is what silenced intel.watchlist_scan for days after the
+# owner fixed the Etsy key (its refused outputs never changed, so the backoff climbed to 32x
+# and nothing about the fix could reach it). Two rules follow:
+#   1. a gated no-op is never an observation for the backoff (nor for the breaker);
+#   2. a backoff or suspension recorded while the gate was refused lifts as soon as the
+#      gating probe succeeds after it -- the changed hypothesis is the credential itself.
+# A loop that spends money keeps the breaker: its suspension records the gate as it was, and
+# a probe success lifts it only when the gate was refused when it tripped.
+ETSY_GATE = "etsy.probe"
+CREDENTIAL_GATED_JOB_TYPES: dict[str, str] = {
+    "intel.watchlist_scan": ETSY_GATE, "mjs.scan": ETSY_GATE,
+    "intel.serp_capture": ETSY_GATE, "listing.taxonomy_refresh": ETSY_GATE,
+    "store.live_drift": ETSY_GATE,
+}
+
+
+def gated_noop(outputs) -> str | None:
+    """The probe a job's outputs say it waited on (credential refused), else None."""
+    if isinstance(outputs, dict) and outputs.get("credential_refused"):
+        return str(outputs.get("gated_on") or ETSY_GATE)
+    return None
+
+
+def gate_of(job_type: str, suspension: dict | None = None) -> str | None:
+    return (suspension or {}).get("gated_on") or CREDENTIAL_GATED_JOB_TYPES.get(job_type)
+
+
+def _probe_rows(session, gate: str, *, since: datetime | None = None, limit: int = 1):
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    q = select(AuditLog).where(AuditLog.action == gate)
+    if since is not None:
+        q = q.where(AuditLog.at >= since)
+    return list(session.scalars(q.order_by(desc(AuditLog.id)).limit(limit)))
+
+
+def _probe_refused(detail) -> bool:
+    from ..intel.etsy_public import auth_refused
+
+    return auth_refused(dict(detail or {}))
+
+
+def gate_snapshot(session, job_type: str) -> dict:
+    """What a suspension records about its gate when it is written."""
+    gate = gate_of(job_type)
+    if not gate:
+        return {}
+    rows = _probe_rows(session, gate)
+    return {"gated_on": gate,
+            "gate_refused": bool(rows and _probe_refused(rows[0].detail))}
+
+
+def _probe_in_force(session, gate: str, at: datetime):
+    """The newest probe recorded at or before `at` (what the system believed then)."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    return session.scalar(select(AuditLog).where(AuditLog.action == gate, AuditLog.at <= at)
+                          .order_by(desc(AuditLog.at), desc(AuditLog.id)).limit(1))
+
+
+def gate_changed_since(session, gate: str, since) -> dict | None:
+    """The gate changed after `since`: the probe in force then was refused, and the newest
+    probe has succeeded after it. Returns {gate, at} of the succeeding probe, else None."""
+    since = _aware(since)
+    if since is None:
+        return None
+    latest = _probe_rows(session, gate)
+    if not latest or not (latest[0].detail or {}).get("ok"):
+        return None
+    ok_at = _aware(latest[0].at)
+    if ok_at is None or ok_at <= since:
+        return None
+    then = _probe_in_force(session, gate, since)
+    if then is None or not _probe_refused(then.detail):
+        return None
+    return {"gate": gate, "at": ok_at.isoformat()}
+
+
+def gate_lifted(session, job_type: str, suspension: dict, recorded_at) -> dict | None:
+    """Whether a suspended credential-gated job type's gate has changed since the suspension
+    was recorded: refused then, succeeded since. Returns the lifting probe or None. A
+    suspension written while the gate was open (`gate_refused` False) never lifts this way --
+    a loop that spends with a working key keeps the breaker. A suspension written before
+    gates were recorded (production's standing backoff) is judged by the probe in force when
+    it was recorded."""
+    gate = gate_of(job_type, suspension)
+    if not gate:
+        return None
+    if "gate_refused" in suspension and not suspension["gate_refused"]:
+        return None
+    return gate_changed_since(session, gate,
+                              _parse_when(suspension.get("since")) or recorded_at)
+
+
 _VOLATILE_KEYS = ("at", "as_of", "now", "ran_at", "generated_at", "checked_at", "timestamp",
                   "allocation_id", "reading_id", "job_id", "audit_id", "id")
 
@@ -476,6 +578,16 @@ def _progress(session, *, since: datetime) -> dict:
                                                              Job.finished_at >= since)
                                            .order_by(Job.id))
             if job.finished_at is not None and _aware(job.finished_at) >= since]
+    # ENG watchlist-cadence: a refused-credential no-op that waits for its probe is neither
+    # progress nor an unchanged poll; it is not observed (counted only as `gated_runs`).
+    gated: dict[str, int] = {}
+    kept = []
+    for job in jobs:
+        if gated_noop(job.outputs):
+            gated[job.job_type] = gated.get(job.job_type, 0) + 1
+        else:
+            kept.append(job)
+    jobs = kept
     evidence = _evidence_by_job(session, [j.id for j in jobs]) if jobs else {}
     for job in jobs:
         row = by.setdefault(job.job_type, {"iterations": 0, "cost_cad": 0.0, "states": [],
@@ -492,6 +604,7 @@ def _progress(session, *, since: datetime) -> dict:
             state = f"{state}+ev:{new[0]}"
         row["states"].append(state)
         row["last_job_id"] = job.id
+        row["last_finished_at"] = _aware(job.finished_at)
     out = {}
     for jt, row in by.items():
         states = row["states"]
@@ -509,6 +622,9 @@ def _progress(session, *, since: datetime) -> dict:
             # The newest observation counted: a backoff level rises only when a *new*
             # unchanged observation appears, never on a sweep that saw nothing new.
             "last_job_id": row["last_job_id"],
+            "gated_runs": gated.get(jt, 0),
+            "last_finished_at": (row["last_finished_at"].isoformat()
+                                 if row.get("last_finished_at") else None),
         }
     return out
 
@@ -530,6 +646,14 @@ def _free_poll_backoff(session, progress: dict, *, now: datetime,
         signature = f"{BACKOFF_SIGNATURE_PREFIX}{jt}"
         open_row = session.scalar(select(Incident).where(Incident.signature == signature,
                                                          Incident.resolved.is_(False)))
+        if row["identical_tail"] and gate_of(jt) and row.get("last_finished_at") and \
+                gate_changed_since(session, gate_of(jt),
+                                   _parse_when(row["last_finished_at"])):
+            # ENG watchlist-cadence: the credential its runs waited on has been fixed since
+            # the newest observation. Those observations describe the refused key, not the
+            # reader: no new backoff, no higher level, and an open one stands lifted
+            # (`suspended_job_types`) until a run under the working key resolves it.
+            continue
         if not row["identical_tail"]:
             if open_row is not None:
                 open_row.resolved = True
@@ -554,7 +678,8 @@ def _free_poll_backoff(session, progress: dict, *, now: datetime,
             until = max(until, datetime.fromisoformat(previous["suspend_until"]))
         suspension = {"kind": BACKOFF, "job_type": jt, "level": level, "factor": factor,
                       "suspend_until": until.isoformat(), "code_commit": _commit(),
-                      "last_counted_job_id": row.get("last_job_id")}
+                      "last_counted_job_id": row.get("last_job_id"),
+                      "since": now.isoformat(), **gate_snapshot(session, jt)}
         summary = (f"{jt} observed {IDENTICAL_STATES} identical states in a row without "
                    f"progress; polling backs off to every {factor}x its period (#34)")
         if open_row is None:
@@ -593,6 +718,8 @@ def suspended_job_types(db, *, now: datetime | None = None) -> dict[str, dict]:
             jt = sus.get("job_type")
             if not jt:
                 continue
+            if gate_lifted(s, jt, sus, inc.at):
+                continue              # the gating probe succeeded since: a changed hypothesis
             if sus.get("kind") == SUSPENDED:
                 if _hypothesis_changed(sus):
                     continue          # the handler's own code changed: a changed hypothesis

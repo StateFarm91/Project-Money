@@ -195,6 +195,57 @@ def test_a_legacy_backoff_written_before_the_fix_lifts_on_a_successful_probe():
         db, now=now + timedelta(minutes=2))
 
 
+LEGACY_REFUSED_OUTPUTS = {"ran": False, "observed": 0, "outages": 0, "network_calls": None,
+                          "work_done": 0}       # what build ea3aacc7 returned, unmarked
+
+
+def _legacy_runs(db, at, n=3):
+    with db.session() as s:
+        rows = [Job(agent="market_radar", job_type=SCAN, inputs={"cadence": "watchlist_scan"},
+                    status=JobStatus.DONE, outputs=dict(LEGACY_REFUSED_OUTPUTS), cost_cad=0.0,
+                    created_at=at + timedelta(hours=6 * i), started_at=at + timedelta(hours=6 * i),
+                    finished_at=at + timedelta(hours=6 * i, minutes=1)) for i in range(n)]
+        s.add_all(rows)
+        s.flush()
+        return rows[-1].id
+
+
+def test_the_hourly_sweep_does_not_rearm_a_lifted_legacy_backoff_before_the_scan_runs():
+    """After the deploy, the 72 h window still holds the old build's unmarked refused runs.
+    The hourly sweep must neither raise the standing backoff's level nor, with none open,
+    write a fresh one from them once the probe has succeeded."""
+    db = _db()
+    now = utcnow()
+    t0 = now - timedelta(hours=30)
+    _probe(db, t0 - timedelta(hours=1), ok=False)
+    last_id = _legacy_runs(db, t0)
+    with db.session() as s:
+        s.add(Incident(severity="P3", signature=f"{orc.BACKOFF_SIGNATURE_PREFIX}{SCAN}",
+                       summary="legacy", at=t0,
+                       detail={"suspension": {"kind": orc.BACKOFF, "job_type": SCAN,
+                                              "level": 5, "factor": 32,
+                                              "suspend_until": (now + timedelta(days=6))
+                                              .isoformat(),
+                                              "last_counted_job_id": last_id - 1}}))
+    _probe(db, now - timedelta(hours=2), ok=True)
+    out = orc.thrash_sweep(db, now=now)
+    assert SCAN not in out["suspended"], out["backoff"]
+    assert SCAN not in [a["job_type"] for a in out["backoff"]["applied"]], out["backoff"]
+    # and with no backoff open at all, the same window writes none
+    with db.session() as s:
+        for inc in s.scalars(select(Incident).where(Incident.signature.like("thrash:%"))):
+            inc.resolved = True
+    out = orc.thrash_sweep(db, now=now + timedelta(minutes=5))
+    assert SCAN not in out["suspended"], out["backoff"]
+    # control: the same unchanged runs with the key STILL refused do back off (the old rule
+    # stands for anything the gate does not explain)
+    db2 = _db()
+    _probe(db2, t0 - timedelta(hours=1), ok=False)
+    _legacy_runs(db2, t0)
+    out = orc.thrash_sweep(db2, now=now)
+    assert SCAN in out["suspended"], out["backoff"]
+
+
 def test_a_paid_loop_on_a_gated_job_type_still_trips_and_stays_suspended():
     """The breaker is kept for real spend loops: a probe success is no changed hypothesis for
     a loop that spent money returning the same answer."""
