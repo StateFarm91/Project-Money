@@ -138,23 +138,64 @@ def concept_to_cir(c: Concept, version: str = "1.0.0",
 # the stated width, so the compiler's divisibility check passes for a reason rather than by
 # luck.
 _GEOMETRY: dict[str, dict] = {
-    "mosaic_blanket": {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 160, "rows": 24},
-    "blanket":        {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 160, "rows": 24},
-    "graphghan":      {"stitch_repeat": [["sc", 4]],            "width": 140, "rows": 24},
+    # Mosaic and graphghan size truth: both are throws. At 24 rows they drafted 128 x 20 and
+    # 112 x 17 cm strips, which the blanket band refused. Every catalogue seed in these
+    # categories is engineered (its own chart), so only research and radar concepts use these
+    # plain templates, and their row counts are not tied to a chart.
+    "mosaic_blanket": {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 160, "rows": 188},
+    # Blanket size truth: a throw is about 127 x 152 cm (Craft Yarn Council standard blanket
+    # sizes). 24 rows drafted a 128 x 22 cm strip that certification called a blanket.
+    "blanket":        {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 160, "rows": 168},
+    "graphghan":      {"stitch_repeat": [["sc", 4]],            "width": 140, "rows": 192},
     "baby":           {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 100, "rows": 20},
     "seasonal_decor": {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 40,  "rows": 12},
-    "runner":         {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 60,  "rows": 16},
-    "placemat":       {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 48,  "rows": 14},
-    "coaster":        {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 24,  "rows": 8},
+    "runner":         {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 40,  "rows": 148},
+    "placemat":       {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 56,  "rows": 37},
+    # A4A-1: a dishcloth is its own object, not a placemat: a square of about 22 x 22 cm at
+    # the certified worsted gauge (28 sts x 27 rows), inside the size band certification
+    # enforces (`gates.certificate.OBJECT_SIZE_BANDS`).
+    "dishcloth":      {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 28,  "rows": 27},
+    "coaster":        {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 12,  "rows": 11},
     "basket":         {"stitch_repeat": [["sc", 4]],            "width": 48,  "rows": 14},
-    "pillow":         {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 72,  "rows": 20},
-    "wall_decor":     {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 44,  "rows": 16},
+    "pillow":         {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 52,  "rows": 46},
+    # S1 Product Truth: a wall hanging is a portrait panel of about 40 x 60 cm (the
+    # prototype's `wall_hanging` form), not the 35 x 14 cm strip this drafted.
+    "wall_decor":     {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 52,  "rows": 66},
     "flower":         {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 24,  "rows": 8},
-    "pet":            {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 60,  "rows": 18},
-    "scarf":          {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 40,  "rows": 20},
+    # S1 Product Truth: a flat pet mat is about 50 x 45 cm (a cat or small dog lies on it),
+    # not the 48 x 15 cm strip this drafted. A pet bed is a vessel (fallback_constructions).
+    "pet":            {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 64,  "rows": 50},
+    "scarf":          {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 24,  "rows": 168},
     "ornament":       {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 24,  "rows": 8},
 }
 _DEFAULT_GEOMETRY = {"stitch_repeat": [["sc", 3], ["dc", 1]], "width": 40, "rows": 12}
+
+# S1 Product Truth (size-family routing): the object a title names decides the size where the
+# category alone cannot. The `baby` category holds hats, blankets and small items, so a "Baby
+# Blanket" on its template was refused by the blanket band; and a ring cushion is a small
+# square, not a pillow or the default strip. First match wins; each entry's size sits inside
+# the band certification holds that object to (`gates.certificate.OBJECT_SIZE_BANDS`).
+_TITLE_GEOMETRY: tuple[tuple[str, frozenset | None, dict], ...] = (
+    # A ring bearer's cushion: about 19 x 19 cm.
+    (r"\bring[- ]?(?:bearer\s+)?(?:cushion|pillow)s?\b", None,
+     {"stitch_repeat": [["dc", 2], ["sc", 2]], "width": 24, "rows": 21}),
+    # A baby (stroller) blanket: about 80 x 89 cm (Craft Yarn Council: 76 x 89 cm stroller).
+    (r"\b(?:blanket|afghan|throw|blankie)s?\b", frozenset({"baby"}),
+     {"stitch_repeat": [["sc", 2], ["dc", 2]], "width": 100, "rows": 98}),
+)
+
+
+def _geometry_entry(category: str, title: str | None) -> dict:
+    """The template `concept_geometry` uses: a title-named object first, then the category."""
+    import re as _re
+
+    from ..creative.fallback_constructions import fold_title
+
+    folded = fold_title(title)
+    for pattern, categories, entry in _TITLE_GEOMETRY:
+        if (categories is None or category in categories) and _re.search(pattern, folded):
+            return entry
+    return _GEOMETRY.get(category, _DEFAULT_GEOMETRY)
 
 _PALETTES: dict[str, dict[str, str]] = {
     "nordic-forest": {"forest": "#244A3A", "cream": "#FAF6EB"},
@@ -164,18 +205,76 @@ _PALETTES: dict[str, dict[str, str]] = {
 _DEFAULT_PALETTE = {"forest": "#244A3A", "cream": "#FAF6EB"}
 
 
+def _template_size(stitch_repeat: tuple, width: int, rows: int) -> tuple[float, float]:
+    """The finished (width, height) in cm a template makes: its own twin, measured once."""
+    key = (stitch_repeat, width, rows)
+    if key not in _TEMPLATE_SIZE:
+        from ..cir.compiler import compile_cir
+        from ..cir.twin import build_twin
+
+        probe = Concept(slug="size-probe", title="size probe", category="probe",
+                        stitch_repeat=[tuple(x) for x in stitch_repeat], width_stitches=width,
+                        rows=rows, colors=dict(_DEFAULT_PALETTE))
+        cir = concept_to_cir(probe)
+        twin = build_twin(cir, compile_cir(cir))
+        _TEMPLATE_SIZE[key] = (float(twin.width_cm), float(twin.height_cm))
+    return _TEMPLATE_SIZE[key]
+
+
+_TEMPLATE_SIZE: dict[tuple, tuple[float, float]] = {}
+
+
+def _sized(g: dict, width: int, target: tuple[float, float]) -> tuple[int, int]:
+    """Stitches and rows that make `target` (short, long) cm on template `g`, keeping the
+    template's orientation (a runner stays long in rows, a placemat wide in stitches).
+
+    S1 review 6958883678 H2: a title's requested size is drafted, not replaced by the
+    template's. Scaled from the template's own measured twin, so the result is the same
+    deterministic arithmetic the twin will check."""
+    from ..creative import size_truth
+
+    unit = sum(n for _, n in g["stitch_repeat"])
+    w0, h0 = _template_size(tuple(tuple(x) for x in g["stitch_repeat"]), width, g["rows"])
+    short, long_ = target
+    if size_truth._met(short, min(w0, h0)) and size_truth._met(long_, max(w0, h0)):
+        # The template already makes the asked size: its numbers (and every release
+        # fingerprint drafted from them) stay as they are.
+        return width, g["rows"]
+    tw, th = (short, long_) if w0 <= h0 else (long_, short)
+    sts = max(unit, int(round(width * tw / w0 / unit)) * unit)
+    rows = max(2, int(round(g["rows"] * th / h0)))
+    return sts, rows
+
+
+def drafted_size(category: str | None, title: str | None) -> tuple[float, float]:
+    """The finished (width, height) in cm the flat template drafts for this title: the
+    `concept_geometry` numbers, measured by their own compiled twin (S1F2-LOW: the plan checks
+    this size with the certificate's size check, so plan and certify agree)."""
+    from types import SimpleNamespace
+
+    g = concept_geometry(SimpleNamespace(category=category, title=title, family=None))
+    return _template_size(tuple(tuple(x) for x in g["stitch_repeat"]), g["width_stitches"],
+                          g["rows"])
+
+
 def concept_geometry(seed: ConceptSeed) -> dict:
     """Turn a market concept into the numbers the CIR builder needs."""
-    g = _GEOMETRY.get(seed.category, _DEFAULT_GEOMETRY)
+    from ..creative import size_truth
+
+    g = _geometry_entry(seed.category, seed.title)
     unit = sum(n for _, n in g["stitch_repeat"])
     width = g["width"]
     if width % unit:
         # Round up to a multiple of the repeat rather than emitting a CIR we know will fail.
         width += unit - (width % unit)
+    rows = g["rows"]
+    req = size_truth.request(seed.category, seed.title)
+    if req["target"] is not None and not req["refused"]:
+        width, rows = _sized(g, width, req["target"])
     return {
         "stitch_repeat": [list(x) for x in g["stitch_repeat"]],
         "width_stitches": width,
-        "rows": g["rows"],
+        "rows": rows,
         "colors": dict(_PALETTES.get(seed.family or "", _DEFAULT_PALETTE)),
     }
 
@@ -287,6 +386,16 @@ def handle_radar_scan(ctx: JobContext) -> dict:
         ctx.enqueue("market_radar", "radar.score", c.to_dict(),
                     idempotency_key=f"score:{c.slug}:{today.isoformat()}")
 
+    # A4(a) continuation: every scan also works the coverage-gap queue (radar.score with no
+    # slug -> `_score_coverage_handoff`), so a gap whose ideation finished is followed by the
+    # next eligible gap on this cadence with no session. Only when an open gap exists; keyed
+    # per scan job, so a re-delivered scan queues nothing new.
+    if _open_gap_count(ctx.db):
+        ctx.enqueue("market_radar", "radar.score",
+                    {"handoff": {"source": "radar.scan", "scan_job": ctx.job.id},
+                     "as_of": today.isoformat()},
+                    idempotency_key=f"coverage-handoff:scan:{ctx.job.id}")
+
     # F-051: observed demand in a pod our catalogue does not cover becomes a coverage gap on
     # the queue radar.score's gap handoff already works -- expansion by new queries, never
     # by near-duplicate SKUs. A planner fault never costs the scan.
@@ -376,6 +485,16 @@ def _scan_date_utc(ctx: JobContext) -> date:
 _OPEN_GAP_STATES = ("uncovered", "concepting")
 
 
+def _open_gap_count(db) -> int:
+    from sqlalchemy import func, select
+
+    from ..core.models import CoverageGap
+
+    with db.session() as s:
+        return int(s.scalar(select(func.count(CoverageGap.id))
+                            .where(CoverageGap.state.in_(_OPEN_GAP_STATES))) or 0)
+
+
 def _score_coverage_handoff(ctx: JobContext, inputs: dict) -> dict:
     """radar.score without a concept: score the open coverage-gap queue (#314) by concept.
 
@@ -427,14 +546,23 @@ def _score_coverage_handoff(ctx: JobContext, inputs: dict) -> dict:
         job = ctx.enqueue("market_radar", "radar.score", payload,
                           idempotency_key=f"score:{slug}:{today.isoformat()}")
         (queued if job is not None else already).append(slug)
+    # A4(a) P0-RESEARCH-TO-CONCEPT: a gap no concept answers is an ideation need, and it now
+    # becomes one research task per gap carrying the ideation brief {gap, pod, arena}; the
+    # research step answers it from recorded observations and proposes a concept to intake.
+    # Bounded (radar.ideation.MAX_IN_FLIGHT) and idempotent per gap; never a guessed concept.
+    from ..radar import ideation
+
+    ideated = ideation.open_briefs(ctx, unanswered, today=today)
     ctx.audit("radar.gap_queue_scored", detail={
         "source": sorted(k for k in inputs if k != "slug") or ["no inputs"],
         "open_gaps": len(gaps), "queued": queued, "already_queued": already,
         "without_a_pool_concept": unanswered[:50], "handoff": handoff,
+        "ideation": {k: ideated[k] for k in ("opened", "already", "waiting", "completed")},
         "as_of": today.isoformat()})
     return {"slug": None, "score": None, "promoted": False, "mode": "coverage_handoff",
             "open_gaps": len(gaps), "queued": queued, "already_queued": already,
             "without_a_pool_concept": len(unanswered), "unanswered": unanswered[:50],
+            "ideation": ideated,
             "reason": ("coverage-gap queue: each open gap's pool concepts re-scored by slug"
                        if queued or already else
                        "no open coverage gap has a concept in the radar pool; nothing to "
@@ -2962,6 +3090,8 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "learn.scan": ("queued", "generated", "published"),
     "listing.draft": ("drafted",),
     "listing.outcomes": ("exports_processed", "recorded_listings"),  # W3 K3 via D (WIRE4)
+    # OPUS2 (P0-PHOTO-ASSET-REVIEW): a photo frame approved by the deterministic review.
+    "assets.photo_review": ("work_done",),
     "listing.seo": ("listing",),
     "marketing.ads_readiness": ("rechecked", "campaign_activated"),
     "marketing.schedule": ("pieces",),
@@ -3527,6 +3657,7 @@ from . import storefront_ops  # noqa: E402,F401  (W4-AGENTS: Storefront Director
 from . import quality_ops  # noqa: E402,F401  (W4-AGENTS: Quality & Compliance re-verification)
 from . import engineering_ops  # noqa: E402,F401  (W4-AGENTS: cir.revise)
 from . import intel_ops  # noqa: E402,F401  (W4-AGENTS: radar.competitor_snapshot)
+from . import photo_review_ops  # noqa: E402,F401  (OPUS2: assets.photo_review)
 from . import listing_package_ops  # noqa: E402,F401  (OPUS2: listing.package)
 from . import c12_ops  # noqa: E402,F401  (W4-C12 wiring: SV aging, window captures, harvest)
 from . import commercial_ops  # noqa: E402,F401  (OPUS2-P0: improve.commercial_lessons)

@@ -172,7 +172,7 @@ def test_with_every_fact_passing_the_shadow_decision_is_would_issue_and_still_un
         _approve(db, c)
         _release(db)
 
-        def all_pass(db_, slug, version, release, content_, *, shadow=True):
+        def all_pass(db_, slug, version, release, content_, *, shadow=True, **_kw):
             from test_ws4_boundary import facts
 
             return facts(slug=slug)

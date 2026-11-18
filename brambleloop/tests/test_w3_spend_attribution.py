@@ -92,7 +92,12 @@ def test_binding_ceiling_and_vocabulary_are_in_the_governance_reading():
     assert binding["binding"]["remaining_cad"] <= binding["company_binding"]["remaining_cad"]
     kinds = {row["limit"] for row in binding["limits"]}
     assert {"monthly model ceiling", "purpose allocation"} <= kinds, kinds
-    assert len(binding["precedence"]) >= 5 and binding["unset"]["provider_ceilings"] is True
+    assert len(binding["precedence"]) >= 5
+    # S2 (reviewed SHIP b6dd73ad): a default OpenAI provider ceiling is set, so the reading
+    # must report provider ceilings as SET and show one limit row per configured provider.
+    assert binding["unset"]["provider_ceilings"] is (not spend_policy.PROVIDER_CEILINGS_CAD)
+    providers = {r["scope"] for r in binding["limits"] if r["limit"] == "provider ceiling"}
+    assert providers == set(spend_policy.PROVIDER_CEILINGS_CAD), providers
     for row in binding["limits"]:
         assert row["effective_remaining_cad"] <= binding["company_binding"]["remaining_cad"]
     terms = {row["term"] for row in gov["vocabulary"]}

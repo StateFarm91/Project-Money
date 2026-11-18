@@ -64,7 +64,7 @@ VALUE_FACTS = (
     "grants_7d",            # {"consumed": int, "outstanding": int}
     "outstanding",          # int: unconsumed, unexpired grants of this policy
     "minutes_since_last",   # number or None (no earlier grant)
-    "ads_jobs_queued",      # int: ads jobs under this policy's lineage
+    "ads_jobs_queued",      # int: pending/running ads.* jobs on the release or its lineage
     "shop_id",              # str: bound shop id (binding AND worker-reported, already equal)
     "shop_name",            # str
 )

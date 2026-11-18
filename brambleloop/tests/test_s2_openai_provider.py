@@ -181,6 +181,7 @@ def test_failures_are_classified_declined_or_uncertain():
              ((400, '{"error":{"message":"bad"}}'), ProviderUnusable, "declined"),
              ((-1, ""), O.OpenAITimeout, "uncertain"),
              ((0, ""), TransientError, "declined")]
+    assert cases
     for answer, kind, billing in cases:
         with activated(db=db, activate=False), Wire(answer):
             try:

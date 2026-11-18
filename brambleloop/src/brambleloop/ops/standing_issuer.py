@@ -106,7 +106,7 @@ def candidates(db) -> list[tuple[str, str, str]]:
 
 
 def read_facts(db, slug: str, version: str, release: str, content: dict, *,
-               shadow: bool = True) -> dict:
+               shadow: bool = True, now: datetime | None = None) -> dict:
     """The facts `standing_boundary.classify` needs, each guarded. In shadow the four
     activation-time facts are assumed and marked so."""
     facts: dict[str, dict] = {}
@@ -160,15 +160,64 @@ def read_facts(db, slug: str, version: str, release: str, content: dict, *,
         lambda: _independent_vision_review(db, slug, version))
     facts["shop_id"] = _guard(lambda: _shop_id(db))
     facts["shop_name"] = _guard(_shop_name)
-    # No standing grant has ever been issued (there is no grant store until the Mode T
-    # increment), so every count is exactly zero -- a fact, not an assumption.
-    zero = {"consumed": 0, "outstanding": 0}
-    facts["grants_today"] = _fact(SB.PASS, dict(zero), "no standing grant has been issued")
-    facts["grants_7d"] = _fact(SB.PASS, dict(zero), "no standing grant has been issued")
-    facts["outstanding"] = _fact(SB.PASS, 0, "no standing grant has been issued")
-    facts["minutes_since_last"] = _fact(SB.PASS, None, "no earlier standing grant")
-    facts["ads_jobs_queued"] = _fact(SB.PASS, 0, "no job carries a standing-policy lineage")
+    # HIGH-1: the pace is read from the grant store itself (every issued grant, any policy),
+    # never assumed. Unreadable -> UNKNOWN on all four, which holds.
+    pace = _guard(lambda: _fact(SB.PASS, _pace(db, now)))
+    if pace["state"] == SB.PASS:
+        p = pace["value"]
+        facts["grants_today"] = _fact(SB.PASS, p["grants_today"], "read from the grant store")
+        facts["grants_7d"] = _fact(SB.PASS, p["grants_7d"], "read from the grant store")
+        facts["outstanding"] = _fact(SB.PASS, p["outstanding"], "read from the grant store")
+        facts["minutes_since_last"] = _fact(
+            SB.PASS, p["minutes_since_last"],
+            "no earlier standing grant" if p["minutes_since_last"] is None
+            else "read from the grant store")
+    else:
+        for name in ("grants_today", "grants_7d", "outstanding", "minutes_since_last"):
+            facts[name] = pace
+    # Round-2 MEDIUM-1: read the job queue, never assume it empty. Once ads authority exists,
+    # `ads.adjust` queues `ads.campaign` for any eligible product, standing lineage included.
+    facts["ads_jobs_queued"] = _guard(lambda: _ads_jobs(db, slug, content))
     return facts
+
+
+# The planner names no product and spends nothing: it only enqueues `ads.campaign` jobs, and
+# those are what is counted. Any OTHER ads.* job that names no product counts (fail closed).
+ADS_PLANNER = "ads.adjust"
+
+
+def _ads_jobs(db, slug, content):
+    """Live (pending, running or failed-will-retry) ads.* jobs on the requested product or any product in this policy's
+    standing lineage (`standing_stop.lineage`: every grant issued under it). A lineage or
+    queue that cannot be read raises, and `_guard` makes that UNKNOWN (never PASS 0)."""
+    from sqlalchemy import select
+
+    from ..core.models import LIVE_JOB_STATUSES, Job
+    from . import standing_stop
+
+    products = {str(slug)} | {str(p) for p in
+                             standing_stop.lineage(db, content["policy_id"])["products"]}
+    hits = []
+    with db.session() as s:
+        for jid, jtype, inputs in s.execute(select(Job.id, Job.job_type, Job.inputs).where(
+                Job.job_type.like("ads.%"),
+                Job.status.in_(LIVE_JOB_STATUSES))):
+            named = (inputs or {}).get("slug") if isinstance(inputs, dict) else None
+            if named is None and jtype == ADS_PLANNER:
+                continue
+            if named is None or str(named) in products:
+                hits.append((jid, jtype, named))
+    if hits:
+        return _fact(SB.PASS, len(hits), f"{len(hits)} ads job(s) live (pending, running or retrying) on "
+                                         f"{sorted({str(h[2]) for h in hits})[:3]}")
+    return _fact(SB.PASS, 0, f"no live ads job on {len(products)} product(s) "
+                             f"(the release and its standing lineage)")
+
+
+def _pace(db, now):
+    from . import standing_grants
+
+    return standing_grants.pace_facts(db, now=now)
 
 
 def _stop_facts(db, content, shadow):
@@ -542,8 +591,9 @@ def _shop_name():
 # Shadow run
 # ---------------------------------------------------------------------------------------------
 
-def evaluate(db, slug, version, release, content, *, shadow: bool = True) -> dict:
-    facts = read_facts(db, slug, version, release, content, shadow=shadow)
+def evaluate(db, slug, version, release, content, *, shadow: bool = True,
+             now: datetime | None = None) -> dict:
+    facts = read_facts(db, slug, version, release, content, shadow=shadow, now=now)
     verdict = SB.classify(content, facts)
     return {"decision": "ISSUE" if verdict["in_policy"] else "HOLD",
             "reasons": verdict["reasons"], "class_id": verdict["class_id"],
@@ -706,19 +756,20 @@ def decide(db, slug: str, version: str, release: str, *,
 
     No effective policy (always, until Mode T exists) -> nothing is decided and no card is
     opened: today's per-product approval is the only path, as before. A HOLD becomes an owner
-    card (`record_hold`). An ISSUE is refused here: the grant store and the issuer key are the
-    Mode T increment, so this function can never sign or issue."""
+    card (`record_hold`). An ISSUE is returned, never signed here: only the policy-issuer
+    process mints a grant (`standing_grants.issue`)."""
     now = _now(now)
     eff = SP.effective(db, now=now)
     if eff.get("state") != SP.EFFECTIVE:
         return {"decision": None, "why": eff.get("why"), "card": None}
     content = eff["content"]
-    out = evaluate(db, slug, version, release, content, shadow=False)
+    out = evaluate(db, slug, version, release, content, shadow=False, now=now)
     if out["decision"] == "HOLD":
         card = record_hold(db, slug=slug, version=version, release=release,
                            reasons=out["reasons"], content=content,
                            approval_id=eff.get("approval_id"), now=now)
         return {"decision": "HOLD", "reasons": out["reasons"], "card": card}
-    return {"decision": "ISSUE_REFUSED", "card": None,
-            "why": "in policy, but no standing grant can be issued: the grant store and "
-                   "issuer process do not exist (Mode T increment)"}
+    # WS4-7: in policy. This function never signs: only the policy-issuer process turns an
+    # ISSUE into a grant (`standing_grants.issue`, which re-checks Mode T and its own limits).
+    return {"decision": "ISSUE", "card": None, "reasons": [],
+            "class_id": out.get("class_id"), "effective_risk": out.get("effective_risk")}

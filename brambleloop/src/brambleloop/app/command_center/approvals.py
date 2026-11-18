@@ -387,7 +387,7 @@ def _standing_policy_cards(db) -> list[dict]:
                                   "per-product approval",
         "statement": statement,
         "digest": sp.statement_digest(content) if statement else None,
-        "deployment_mode": sp.deployment_mode(),
+        "deployment_mode": sp.deployment_mode(db),
         "key_health": sp.key_health(),
         "proposed_action": "review the policy's state and act on it",
         "downside": "a standing policy can create Etsy drafts without asking per product",
@@ -764,7 +764,13 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
         elif action == "owner_action.defer":
             oid = _int(body, "owner_action_id")
             with db.session() as s:
-                row = s.get(OwnerAction, oid)
+                # Package record/invalidation uses this same lock before
+                # reading or changing the owner question. Re-read only after
+                # taking it so a superseded question cannot be re-parked from
+                # an earlier snapshot.
+                from ...runtime.release import _serialise_owner_queue
+                _serialise_owner_queue(s, db)
+                row = s.scalar(select(OwnerAction).where(OwnerAction.id == oid).with_for_update())
                 if row is None:
                     raise ActionRefused(f"no owner action {oid}")
                 # F-180 (K7): a deferral is the owner parking the action -- it leaves the
@@ -772,10 +778,22 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
                 from ...ops import owner_queue
 
                 note = str(body.get("note") or "")[:500]
-                if owner_queue.effective_state(row) == owner_queue.OPEN:
+                # Do not normalize an inconsistent closed state into OPEN:
+                # owner_queue.effective_state is a display compatibility rule,
+                # not authority to revive a superseded question.
+                state = row.state or owner_queue.OPEN
+                if row.done:
+                    raise ActionRefused(f"owner action {oid} is closed, not open for deferral")
+                changed = False
+                if state == owner_queue.OPEN:
                     owner_queue.transition(s, row, owner_queue.PARKED,
                                            note or "deferred by the owner", actor=actor)
-            result = {"deferred": oid, "note": note, "state": owner_queue.PARKED}
+                    changed = True
+                elif state != owner_queue.PARKED:
+                    raise ActionRefused(f"owner action {oid} is {state}, not open for deferral")
+                actual_note = row.state_reason or ""
+            result = {"deferred": oid, "note": actual_note, "state": owner_queue.PARKED,
+                      "changed": changed}
         elif action == "acceptance.rule":
             result = _record_acceptance_ruling(db, str(body.get("ruling") or ""), tagged,
                                                actor=actor)
@@ -904,7 +922,7 @@ def _standing_policy(db, action: str, body: dict, reason: str, *, actor: str) ->
             if not isinstance(content, dict):
                 raise ActionRefused("content must be the policy fields to preview")
             prev = sp.preview(db, content)
-            return {**prev, "deployment_mode": sp.deployment_mode(),
+            return {**prev, "deployment_mode": sp.deployment_mode(db),
                     "key_health": sp.key_health()}
         if action == "standing_policy.approve":
             if not reason:
