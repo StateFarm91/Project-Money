@@ -1,4 +1,9 @@
 """Scheduled sweep isolates release failures, while the durable job retries."""
+import sys  # noqa: E402  (review U6 H2: standalone/run_tests.sh import path)
+from pathlib import Path as _Path
+
+sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(_Path(__file__).resolve().parent))
 from datetime import timedelta
 from unittest.mock import patch
 
