@@ -1,0 +1,145 @@
+{
+  "seconds": 720,
+  "plan_cycles": 4,
+  "grant_requests": 24,
+  "grant_requests_answered_held": 24,
+  "jobs_by_status": {
+    "DEAD": 11,
+    "DONE": 192,
+    "PENDING": 1
+  },
+  "distinct_job_types": 16,
+  "jobs_by_type": [
+    [
+      "assets.build",
+      "DONE",
+      12
+    ],
+    [
+      "cir.compile",
+      "DONE",
+      12
+    ],
+    [
+      "cir.draft",
+      "DONE",
+      11
+    ],
+    [
+      "collection.assemble",
+      "DONE",
+      3
+    ],
+    [
+      "gate.certify",
+      "DONE",
+      12
+    ],
+    [
+      "gate.lanes",
+      "DONE",
+      11
+    ],
+    [
+      "launch.plan",
+      "DONE",
+      13
+    ],
+    [
+      "launch.plan",
+      "PENDING",
+      1
+    ],
+    [
+      "listing.draft",
+      "DONE",
+      11
+    ],
+    [
+      "listing.seo",
+      "DONE",
+      13
+    ],
+    [
+      "marketing.schedule",
+      "DONE",
+      11
+    ],
+    [
+      "plan.cycle",
+      "DONE",
+      4
+    ],
+    [
+      "pricing.position",
+      "DONE",
+      12
+    ],
+    [
+      "radar.scan",
+      "DONE",
+      4
+    ],
+    [
+      "radar.score",
+      "DONE",
+      44
+    ],
+    [
+      "store.publish",
+      "DEAD",
+      11
+    ],
+    [
+      "visual.image_production",
+      "DONE",
+      19
+    ]
+  ],
+  "job_errors": [
+    [
+      "store.publish",
+      "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+    ],
+    [
+      "store.publish",
+      "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+    ],
+    [
+      "store.publish",
+      "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+    ],
+    [
+      "store.publish",
+      "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+    ],
+    [
+      "store.publish",
+      "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+    ],
+    [
+      "store.publish",
+      "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+    ],
+    [
+      "store.publish",
+      "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+    ],
+    [
+      "store.publish",
+      "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+    ]
+  ],
+  "issuer": {
+    "peak_rss_mib": 75.0,
+    "steady_rss_mib_median_2nd_half": 74.9,
+    "avg_vcpu_after_60s": 0.0016,
+    "samples": 144
+  },
+  "worker": {
+    "peak_rss_mib": 809.8,
+    "steady_rss_mib_median_2nd_half": 304.0,
+    "avg_vcpu_after_60s": 0.9142,
+    "samples": 144
+  }
+}

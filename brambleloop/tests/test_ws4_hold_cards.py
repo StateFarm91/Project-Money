@@ -158,7 +158,7 @@ def test_a_live_in_policy_decision_is_refused_and_never_signed():
         _activate_raw(db, a, c)
         _release(db, release=REL_A)
 
-        def all_pass(db_, slug, version, release, content_, *, shadow=True):
+        def all_pass(db_, slug, version, release, content_, *, shadow=True, **_kw):
             from test_ws4_boundary import facts
 
             return facts(slug=slug)
@@ -170,7 +170,9 @@ def test_a_live_in_policy_decision_is_refused_and_never_signed():
                 patch.object(sp, "_sign", no_signing), \
                 patch.object(owner_grant_keys, "sign", no_signing):
             out = SI.decide(db, SLUG, VERSION, REL_A, now=NOW + timedelta(days=1))
-        assert out["decision"] == "ISSUE_REFUSED" and out["card"] is None, out
+        # WS4-7: in policy reads ISSUE; this function still signs nothing (the issuer
+        # process alone mints a grant, standing_grants.issue).
+        assert out["decision"] == "ISSUE" and out["card"] is None, out
         assert _cards(db) == [] and _held_rows(db) == []
     finally:
         _restore()

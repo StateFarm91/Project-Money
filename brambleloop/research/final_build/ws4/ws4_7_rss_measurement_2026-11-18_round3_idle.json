@@ -1,0 +1,66 @@
+{
+  "mode": "idle (no plan.cycle enqueued)",
+  "seconds": 360,
+  "plan_cycles": 0,
+  "grant_requests": 12,
+  "grant_requests_answered_held": 12,
+  "jobs_by_status": {
+    "DONE": 6
+  },
+  "distinct_job_types": 6,
+  "jobs_by_type": [
+    [
+      "creative.model_freeze",
+      "DONE",
+      1
+    ],
+    [
+      "creative.photoreal_calibration",
+      "DONE",
+      1
+    ],
+    [
+      "model.probe",
+      "DONE",
+      1
+    ],
+    [
+      "ops.capability_probes",
+      "DONE",
+      1
+    ],
+    [
+      "seasonal.cycle_proof",
+      "DONE",
+      1
+    ],
+    [
+      "visual.portrait_repair",
+      "DONE",
+      1
+    ]
+  ],
+  "job_errors": [],
+  "web_health_checks": {
+    "ok": 12,
+    "failed": 0
+  },
+  "issuer": {
+    "peak_rss_mib": 74.8,
+    "steady_rss_mib_median_2nd_half": 74.7,
+    "avg_vcpu_after_60s": 0.0016,
+    "samples": 72
+  },
+  "worker": {
+    "peak_rss_mib": 103.1,
+    "steady_rss_mib_median_2nd_half": 103.0,
+    "avg_vcpu_after_60s": 0.003,
+    "samples": 72
+  },
+  "web": {
+    "peak_rss_mib": 132.7,
+    "steady_rss_mib_median_2nd_half": 132.7,
+    "avg_vcpu_after_60s": 0.002,
+    "samples": 72
+  }
+}
