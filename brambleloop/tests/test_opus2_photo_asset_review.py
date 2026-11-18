@@ -1016,6 +1016,44 @@ def test_review_u5_f3_a_policy_recheck_sends_a_photo_frame_back_to_review_never_
     _, again = _certify_without_touching_approval(db, cir, release)
     assert again["valid"] and again["issued"], again
 
+def test_l3_a_pre_shift_certificate_is_revoked_by_its_bytes_not_its_old_slots():
+    """Review of 3928ba00 L3: a render-only certificate (hero render at 1) is still valid when
+    `plan_upgrade` puts the photograph first and shifts the renders to 2..4. Revoking it
+    resolved its frames by their OLD positions: the photograph now at 1 -- just approved by
+    the review -- went back to awaiting, and the render shifted to 4 (certified at 3) kept
+    its approval under a revoked certificate. Frames are resolved by their certified bytes."""
+    db = T._db()
+    cir, release = T._certified_basket(db)
+    T._render_gallery(db, cir)
+    _, cert = _certify_without_touching_approval(db, cir, release)
+    assert cert["valid"] and cert["issued"], cert
+    with db.session() as s:
+        renders = {r.sha256: r.position for r in s.scalars(select(ListingAsset).where(
+            ListingAsset.product_slug == cir.slug, ListingAsset.version == cir.version))}
+    test_id = T._passed_full_make(db, cir)
+    T._upgrade(db, cir, test_id)
+    fid = _photo_frame(db, cir)
+    assert par.review_frame(db, fid, reissue=False)["approved"]
+    from brambleloop.core.models import ListingSetCertificateRecord
+
+    with db.session() as s:
+        assert s.get(ListingAsset, fid).approved is True
+        assert s.get(ListingSetCertificateRecord, cert["record_id"]).state == "valid"
+    out = release_gates.recheck(db, slug=cir.slug, version=cir.version,
+                                geometry={"width_cm": 99.0, "height_cm": 99.0},
+                                claims={"title": "moved"}, policy_version="policy-bumped-l3")
+    assert out and not out[0]["valid"], out
+    with db.session() as s:
+        photo = s.get(ListingAsset, fid)
+        assert photo.position == 1 and photo.approved is True and not photo.blocked_reasons, \
+            (photo.approved, photo.blocked_reasons)
+        for r in s.scalars(select(ListingAsset).where(
+                ListingAsset.product_slug == cir.slug, ListingAsset.version == cir.version,
+                ListingAsset.asset_class != par.PHOTO_CLASS)):
+            assert r.position == renders[r.sha256] + 1, (r.position, renders)
+            assert r.approved is False and "LISTING_SET_INVALIDATED" in str(
+                r.blocked_reasons[0]), (r.position, r.approved, r.blocked_reasons)
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in sorted(globals().items()):

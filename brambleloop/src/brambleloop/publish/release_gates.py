@@ -1169,29 +1169,47 @@ def recheck(db, *, slug: str, version: str, geometry: dict, claims: dict,
                 rec.state = "invalidated"
                 rec.invalidated_by = list(verdict["invalidated_by"])
                 rec.invalidated_at = datetime.now(timezone.utc)
-                positions = {f["asset_id"]: f["position"]
+                certified = {f["asset_id"]: (f.get("position"), f.get("sha256"))
                              for f in (rec.certificate or {}).get("frames", [])}
+                gallery = list(s.scalars(select(ListingAsset).where(
+                    ListingAsset.product_slug == slug, ListingAsset.version == version)))
                 for asset_id in verdict["affected_assets"]:
-                    pos = positions.get(asset_id)
-                    row = s.scalar(select(ListingAsset).where(
-                        ListingAsset.product_slug == slug, ListingAsset.version == version,
-                        ListingAsset.position == pos)) if pos else None
-                    if row is not None and row.asset_class == PHOTO_CLASS:
-                        # Review A3 U5 F3: a photo frame is not rebuilt -- a rebuild never
-                        # replaces it -- so a LISTING_SET_INVALIDATED mark would strand it
-                        # for good. It goes back to the asset-truth review instead, which
-                        # re-checks it and re-issues the set.
-                        row.approved = False
-                        row.blocked_reasons = [AWAITING] + [
-                            r for r in (row.blocked_reasons or []) if r != AWAITING][:9]
-                    elif row is not None:
-                        row.approved = False
-                        row.blocked_reasons = [
-                            f"LISTING_SET_INVALIDATED: certificate {rec.id} invalidated by "
-                            f"{', '.join(verdict['invalidated_by'])}; re-certify before "
-                            f"export"] + list(row.blocked_reasons or [])[:9]
+                    pos, sha = certified.get(asset_id, (None, None))
+                    for row in _certified_rows(gallery, pos, sha):
+                        _mark_invalidated(row, rec, verdict, PHOTO_CLASS, AWAITING)
             results.append(verdict)
     return results
+
+
+def _certified_rows(gallery, position, sha256) -> list:
+    """The stored rows a certificate frame names (review of 3928ba00 L3). A certificate
+    records each frame's position AND its exact bytes; a later shift (`plan_upgrade` putting
+    a photograph first) moves the bytes to another slot. Resolving by the recorded position
+    alone marked whatever row now sits there -- the newly approved photograph went back to
+    awaiting review, and the shifted render the certificate actually named was missed. The
+    row holding the certified bytes at the recorded slot is preferred; else every row that
+    holds those bytes; with no recorded hash (a legacy record), the recorded slot."""
+    if sha256:
+        same = [r for r in gallery if r.sha256 == sha256]
+        at = [r for r in same if r.position == position]
+        return at or same
+    return [r for r in gallery if position and r.position == position]
+
+
+def _mark_invalidated(row, rec, verdict, PHOTO_CLASS, AWAITING) -> None:
+    """Take a certified frame's approval away when its certificate is invalidated."""
+    row.approved = False
+    if row.asset_class == PHOTO_CLASS:
+        # Review A3 U5 F3: a photo frame is not rebuilt -- a rebuild never replaces it -- so a
+        # LISTING_SET_INVALIDATED mark would strand it for good. It goes back to the
+        # asset-truth review instead, which re-checks it and re-issues the set.
+        row.blocked_reasons = [AWAITING] + [
+            r for r in (row.blocked_reasons or []) if r != AWAITING][:9]
+    else:
+        row.blocked_reasons = [
+            f"LISTING_SET_INVALIDATED: certificate {rec.id} invalidated by "
+            f"{', '.join(verdict['invalidated_by'])}; re-certify before "
+            f"export"] + list(row.blocked_reasons or [])[:9]
 
 
 def certificate_step(db, *, slug: str, version: str, release_hash: str, frames, per_frame,
