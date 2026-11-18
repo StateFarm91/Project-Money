@@ -302,6 +302,14 @@ def make_router(db) -> APIRouter:
 
         return ok(production.view(db))
 
+    # S4: the P0 command board -- read-only, owner session, the same `/api/cc` default-deny
+    # gate as every route here. It composes existing readers and writes nothing.
+    @router.get("/p0-board")
+    def p0_board_view(request: Request):
+        from . import p0_board
+
+        return ok(p0_board.view(db))
+
     @router.get("/completion")
     def completion_view(request: Request):
         return ok({"tab": "COMPLETION", "generated_at": providers.now_iso(),
