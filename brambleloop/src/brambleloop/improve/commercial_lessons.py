@@ -39,8 +39,28 @@ publishes nothing and says why (UNMEASURED, never "no demand").
 Thresholds are this module's own: no requirement row gives figures. `MIN_VISITS` is the
 company's measured-sample floor (`growth.loops.MEASURED_SAMPLE`).
 
-GREEN: reads `listing_outcomes` only; the `orders` table is not read (orders come from the same export row,
-so numerator and denominator share one source), writes lessons. No model, network or spend.
+**WS6 E1: the official basis.** Without owner exports nothing above ever measured, so no buyer
+evidence reached a ranking. A second, separate basis now reads only official Etsy data:
+
+* the numerator is the countable orders ingested from `getShopReceipts` (`transactions_r`;
+  `Order.source == orders_ingest.SOURCE`, refs `etsy:<receipt>:<transaction>`), counting only
+  orders Etsy's payment-account ledger shows carried no Offsite Ads fee
+  (`paid_media.offsite_attribution(o) is False`, F-570). Attributed orders are paid traffic;
+  orders whose ledger was not read are UNKNOWN, never organic, and a category holding any is
+  UNMEASURED (review M1, eng/e1-receipt-lessons-fix);
+* the denominator is listing VIEWS from the official listing reads (`getListingsByShop`,
+  cumulative `views`, differenced between the earliest and latest daily snapshot of each
+  listing) -- labelled and stored as views, never visits. Views come from every source,
+  ad-driven views included (`VIEWS_INCLUDE`); the API cannot separate them. Impressions, visits, carts, conversion and traffic
+  sources stay UNKNOWN: the API has none of them;
+* orders count only between the read times of the snapshots the views were differenced
+  over, per product.
+
+The two bases are never mixed: each is compared with its own shop rate, and a lesson names its
+basis in its evidence (`commercial:official:<category>:...`). Export lessons keep their refs.
+
+GREEN: reads `listing_outcomes`, the official listing snapshots and receipt-ingested orders;
+writes lessons. No model, network or spend.
 """
 from __future__ import annotations
 
@@ -59,6 +79,14 @@ SUBJECTS = (DEMAND, UNDERPERFORMANCE)
 MEASURED = "MEASURED"
 UNMEASURED = "UNMEASURED"
 EVIDENCE_PREFIX = "commercial:"
+EXPORT = "export"            # owner Etsy Stats export: orders per visit
+OFFICIAL = "official"        # WS6 E1: receipt orders per official listing view
+BASES = (EXPORT, OFFICIAL)
+MIN_VIEWS = MIN_VISITS       # the same measured-sample floor, on the views denominator
+# Review LOW (eng/e1-receipt-lessons-fix): Etsy's listing `views` counts every view, from
+# every source -- Etsy Ads and Offsite Ads clicks included. The API cannot split them.
+VIEWS_INCLUDE = ("all traffic sources, including ad-driven views (Etsy Ads and Offsite Ads "
+                 "clicks); the official API does not separate them")
 
 
 @dataclass
@@ -71,6 +99,10 @@ class Group:
     orders: int = 0
     first: str = ""
     last: str = ""
+    # Review M1 (eng/e1-receipt-lessons-fix): receipt orders in the window whose Offsite Ads
+    # attribution is UNKNOWN (ledger not read). Not counted as organic; a category holding
+    # any is UNMEASURED on the official basis.
+    orders_unknown: int = 0
 
     @property
     def rate(self) -> float | None:
@@ -160,6 +192,97 @@ def measured_groups(db) -> dict[str, Group]:
     return groups
 
 
+def _view_windows(db) -> dict[str, dict]:
+    """Per product: views over the official snapshot window, and that window's days.
+
+    Each listing's views are its latest daily snapshot minus its earliest (cumulative counts);
+    a listing whose count fell, or that appears in only one snapshot, contributes nothing (its
+    period is UNKNOWN, never zero). Listings map to products through `listings`."""
+    from sqlalchemy import select
+
+    from ..commerce.listing_outcomes import SNAPSHOT_KIND
+    from ..core.models import Listing, OperatingReading
+
+    with db.session() as s:
+        snaps = [(r.period_key, _utc(r.at), dict((r.payload or {}).get("listings") or {}))
+                 for r in s.scalars(select(OperatingReading)
+                                    .where(OperatingReading.kind == SNAPSHOT_KIND)
+                                    .order_by(OperatingReading.period_key))]
+        ours = {str(r.etsy_listing_id): r.product_slug
+                for r in s.scalars(select(Listing).where(Listing.etsy_listing_id != ""))}
+    first: dict[str, tuple] = {}
+    last: dict[str, tuple] = {}
+    for day, at, listings in snaps:
+        for lid, rec in listings.items():
+            v = (rec or {}).get("views")
+            if not isinstance(v, int) or isinstance(v, bool) or v < 0:
+                continue
+            first.setdefault(lid, (day, at, v))
+            last[lid] = (day, at, v)
+    out: dict[str, dict] = {}
+    for lid, (d0, t0, v0) in first.items():
+        d1, t1, v1 = last[lid]
+        slug = ours.get(lid)
+        if not slug or d1 <= d0 or v1 < v0:
+            continue
+        # Review LOW (eng/e1-receipt-lessons-fix): the views were counted between the two
+        # snapshots' own read times, so orders count between those times -- not from the
+        # first day's midnight to the day after the last.
+        w = out.setdefault(slug, {"views": 0, "first": d0, "last": d1,
+                                  "first_at": t0, "last_at": t1})
+        w["views"] += v1 - v0
+        w["first"], w["last"] = min(w["first"], d0), max(w["last"], d1)
+        w["first_at"], w["last_at"] = min(w["first_at"], t0), max(w["last_at"], t1)
+    return out
+
+
+def _utc(v):
+    from datetime import timezone
+
+    return v if v is None or v.tzinfo else v.replace(tzinfo=timezone.utc)
+
+
+def official_groups(db) -> dict[str, Group]:
+    """WS6 E1: per-category receipt orders over official listing views, inside the views
+    window. Only orders Etsy's ledger shows were NOT Offsite Ads count (F-570
+    `offsite_attribution(o) is False`); attributed ones are paid traffic, and unread ones are
+    counted apart as unknown -- never as organic (review M1, eng/e1-receipt-lessons-fix)."""
+    from sqlalchemy import select
+
+    from ..commerce.orders_ingest import SOURCE, countable_orders
+    from ..commerce.paid_media import offsite_attribution
+    from ..core.models import Order
+
+    windows = _view_windows(db)
+    groups: dict[str, Group] = {}
+    if not windows:
+        return groups
+    with db.session() as s:
+        for slug, w in sorted(windows.items()):
+            start, end = w["first_at"], w["last_at"]
+            inside = [o for o in countable_orders(s, select(Order).where(
+                Order.product_slug == slug, Order.source == SOURCE,
+                Order.external_ref.like("etsy:%"), Order.at >= start, Order.at <= end))
+                      if start <= _utc(o.at) <= end]
+            states = [offsite_attribution(o) for o in inside]
+            orders = [o for o, a in zip(inside, states) if a is False]
+            unknown = sum(1 for a in states if a is None)
+            category, family = _category_and_family(slug)
+            if not category:
+                continue
+            g = groups.setdefault(category, Group(category=category, products=set(),
+                                                  families=set()))
+            g.products.add(slug)
+            if family:
+                g.families.add(family)
+            g.visits += int(w["views"])        # the denominator here is VIEWS (see module doc)
+            g.orders += len(orders)
+            g.orders_unknown += unknown
+            g.first = min(filter(None, (g.first, w["first"])), default=w["first"])
+            g.last = max(filter(None, (g.last, w["last"])), default=w["last"])
+    return groups
+
+
 def follow_ons(category: str, families: set, products: set) -> list:
     """Radar concepts the evidence points at: same category or family, not already a product."""
     from ..products import launch0
@@ -176,32 +299,55 @@ def _words(text: str) -> str:
     return text.replace("_", " ").replace("-", " ")
 
 
-def verdicts(db) -> dict:
-    """Every category's reading and verdict. Read-only."""
-    groups = measured_groups(db)
-    measured = {k: g for k, g in groups.items() if g.visits >= MIN_VISITS}
-    out = {"categories": {}, "shop": None, "measurable": False, "why": ""}
+def verdicts(db, basis: str = EXPORT) -> dict:
+    """Every category's reading and verdict on one basis. Read-only.
+
+    `EXPORT`: owner export rows, orders per VISIT. `OFFICIAL` (WS6 E1): receipt orders per
+    official listing VIEW; its `visits` fields hold views (the reading says so)."""
+    groups = measured_groups(db) if basis == EXPORT else official_groups(db)
+    floor = MIN_VISITS if basis == EXPORT else MIN_VIEWS
+    # Review M1: a category with receipt orders of unknown Offsite Ads attribution has no
+    # honest organic rate (too low if they were organic, too high if they were paid).
+    measured = {k: g for k, g in groups.items() if g.visits >= floor and not g.orders_unknown}
+    # Review LOW: the official denominator is VIEWS and is stored under that name.
+    den = "visits" if basis == EXPORT else "views"
+    out = {"categories": {}, "shop": None, "measurable": False, "why": "", "basis": basis,
+           "denominator": den,
+           "unknown": ([] if basis == EXPORT else
+                       ["impressions", "visits", "carts", "conversion_rate",
+                        "traffic_sources"])}
+    if basis == OFFICIAL:
+        out["views_include"] = VIEWS_INCLUDE
     for k, g in sorted(groups.items()):
-        out["categories"][k] = {"visits": g.visits, "orders": g.orders,
+        out["categories"][k] = {den: g.visits, "orders": g.orders,
                                 "favourites": g.favourites, "products": sorted(g.products),
                                 "rate": round(g.rate, 5) if g.rate is not None else None,
                                 "state": MEASURED if k in measured else UNMEASURED,
                                 "verdict": None, "window": [g.first, g.last]}
+        if basis == OFFICIAL:
+            out["categories"][k]["orders_attribution_unknown"] = g.orders_unknown
+            if g.orders_unknown:
+                out["categories"][k]["why"] = (
+                    f"{g.orders_unknown} receipt order(s) have no Offsite Ads reading (Etsy's "
+                    f"payment-account ledger not read for them): not counted as organic, so "
+                    f"the category is UNMEASURED")
     if len(measured) < 2:
-        out["why"] = (f"{len(measured)} category measured at >= {MIN_VISITS} visits from "
-                      f"export-intake rows with orders; a comparison needs two. UNMEASURED, "
-                      f"never 'no demand'")
+        source = ("export-intake rows with orders" if basis == EXPORT else
+                  "official listing views (getListingsByShop) with receipt orders")
+        out["why"] = (f"{len(measured)} category measured at >= {floor} "
+                      f"{out['denominator']} from {source}; a comparison needs two. "
+                      f"UNMEASURED, never 'no demand'")
         return out
     visits = sum(g.visits for g in measured.values())
     orders = sum(g.orders for g in measured.values())
     shop = orders / visits if visits else 0.0
-    out.update(shop={"visits": visits, "orders": orders, "rate": round(shop, 5)},
+    out.update(shop={den: visits, "orders": orders, "rate": round(shop, 5)},
                measurable=True)
     for k, g in measured.items():
         rec = out["categories"][k]
         if shop > 0 and g.orders >= MIN_ORDERS and g.rate >= WIN_RATIO * shop:
             rec["verdict"] = DEMAND
-        elif shop > 0 and g.visits >= 2 * MIN_VISITS and g.rate <= LOSE_RATIO * shop:
+        elif shop > 0 and g.visits >= 2 * floor and g.rate <= LOSE_RATIO * shop:
             rec["verdict"] = UNDERPERFORMANCE
         if rec["verdict"]:
             rec["follow_ons"] = [s.slug for s in follow_ons(k, g.families, g.products)]
@@ -209,45 +355,64 @@ def verdicts(db) -> dict:
     return out
 
 
-def _statement(category: str, rec: dict, shop: dict, concepts: list) -> str:
+def _statement(category: str, rec: dict, shop: dict, concepts: list,
+               basis: str = EXPORT) -> str:
     named = "; ".join(_words(f"{s.slug} {s.title}") for s in concepts) or "none yet in the pool"
     pct = f"{rec['rate'] * 100:.2f}%"
     base = f"{shop['rate'] * 100:.2f}%"
     cat = _words(category)
+    unit = ("visits" if basis == EXPORT else
+            "Etsy listing views (official API, all sources including ad-driven views; "
+            "visits UNKNOWN)")
+    orders = ("orders" if basis == EXPORT else "organic receipt orders")
+    n = rec["visits"] if basis == EXPORT else rec["views"]
     if rec["verdict"] == DEMAND:
-        return (f"Measured demand: our own {cat} listings converted {pct} of {rec['visits']} "
-                f"visits ({rec['orders']} orders) against a shop rate of {base}. Pursue "
+        return (f"Measured demand: our own {cat} listings converted {pct} of {n} "
+                f"{unit} ({rec['orders']} {orders}) against a shop rate of {base}. Pursue "
                 f"original {cat} follow-on concepts first: {named}.")
     return (f"Measured underperformance: our own {cat} listings converted {pct} of "
-            f"{rec['visits']} visits ({rec['orders']} orders) against a shop rate of {base}. "
-            f"Engineer further {cat} concepts later, after the listing presentation is "
-            f"reviewed: {named}.")
+            f"{n} {unit} ({rec['orders']} {orders}) against a shop rate of "
+            f"{base}. Engineer further {cat} concepts later, after the listing presentation "
+            f"is reviewed: {named}.")
+
+
+def _ref_basis_and_category(ref: str) -> tuple[str, str]:
+    """(basis, category) of a lesson's evidence ref. Export refs predate the basis and carry
+    none (`commercial:<category>:...`); official ones are `commercial:official:<category>:...`."""
+    parts = ref[len(EVIDENCE_PREFIX):].split(":")
+    if parts and parts[0] == OFFICIAL and len(parts) > 1:
+        return OFFICIAL, parts[1]
+    return EXPORT, parts[0] if parts else ""
 
 
 def record_lessons(db) -> dict:
-    """Publish one lesson per category verdict, withdrawing ones the evidence no longer supports."""
+    """Publish one lesson per category verdict on each basis, withdrawing ones the evidence no
+    longer supports. The bases are separate evidence: neither supersedes the other's lessons."""
     from sqlalchemy import select
 
     from ..core.models import Lesson
     from . import bus
 
-    v = verdicts(db)
+    readings = {b: verdicts(db, b) for b in BASES}
     published, withdrawn = [], []
     current_refs: set[str] = set()
-    if v["measurable"]:
+    for basis, v in readings.items():
+        if not v["measurable"]:
+            continue
         for category, rec in sorted(v["categories"].items()):
             if not rec["verdict"]:
                 continue
             concepts = follow_ons(category, set(rec.get("families") or ()),
                                   set(rec["products"]))
-            ref = (f"{EVIDENCE_PREFIX}{category}:{rec['verdict']}:{rec['window'][0]}"
-                   f"..{rec['window'][1]}:{rec['visits']}:{rec['orders']}")[:200]
+            tag = "" if basis == EXPORT else f"{OFFICIAL}:"
+            ref = (f"{EVIDENCE_PREFIX}{tag}{category}:{rec['verdict']}:{rec['window'][0]}"
+                   f"..{rec['window'][1]}:{rec[v['denominator']]}:{rec['orders']}")[:200]
             current_refs.add(ref)
             lid = bus.publish(db, origin_cell=ORIGIN_CELL, subject=rec["verdict"],
-                              statement=_statement(category, rec, v["shop"], concepts),
+                              statement=_statement(category, rec, v["shop"], concepts, basis),
                               evidence_ref=ref, confidence="measured")
             published.append({"lesson": lid, "category": category, "subject": rec["verdict"],
-                              "follow_ons": [s.slug for s in concepts]})
+                              "basis": basis, "follow_ons": [s.slug for s in concepts]})
     with db.session() as s:
         stale = [(r.id, r.evidence_ref) for r in s.scalars(
             select(Lesson).where(Lesson.subject.in_(SUBJECTS),
@@ -256,14 +421,21 @@ def record_lessons(db) -> dict:
                                  Lesson.withdrawn_at.is_(None)))
                  if r.evidence_ref not in current_refs]
     for lid, ref in stale:
-        category = ref[len(EVIDENCE_PREFIX):].split(":", 1)[0]
-        newer = next((p for p in published if p["category"] == category), None)
+        basis, category = _ref_basis_and_category(ref)
+        newer = next((p for p in published
+                      if p["category"] == category and p["basis"] == basis), None)
+        tag = "" if basis == EXPORT else f"{OFFICIAL}:"
         bus.withdraw(db, lid, reason=("superseded by newer measured evidence" if newer else
                                       "no longer supported by the measured window"),
                      evidence_ref=(f"lesson:{newer['lesson']}" if newer else
-                                   f"{EVIDENCE_PREFIX}{category}:unmeasured"),
+                                   f"{EVIDENCE_PREFIX}{tag}{category}:unmeasured"),
                      withdrawn_by="analyst")
         withdrawn.append(lid)
-    return {"measurable": v["measurable"], "why": v["why"], "shop": v["shop"],
-            "categories": v["categories"], "published": published, "withdrawn": withdrawn,
+    export = readings[EXPORT]
+    return {"measurable": any(v["measurable"] for v in readings.values()),
+            "why": export["why"], "shop": export["shop"], "categories": export["categories"],
+            "official": {k: readings[OFFICIAL][k] for k in ("measurable", "why", "shop",
+                                                             "categories", "denominator",
+                                                             "unknown", "views_include")},
+            "published": published, "withdrawn": withdrawn,
             "work_done": len(published) + len(withdrawn)}
