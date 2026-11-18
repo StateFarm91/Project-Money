@@ -51,7 +51,13 @@ integration tree.
 
 ## Suites run
 
-(run in progress — counts added in the next commit)
+`JOBS=4 SUITE_REGISTRY=0 SUITES="<13 suites>" PY=/tmp/venv/bin/python bash run_tests.sh` on a clean
+tree at 8a800682: **TOTAL PASSING: 105; suites failing: 0** (no SKIP, no NO-PASSES).
+Suites: test_codex_a9_defer_state, test_codex_a9_defer_state_pg, test_codex_a9_event_release,
+test_codex_a9_event_scope, test_codex_a9_owner_action_fence, test_codex_a9_parked_source_change,
+test_codex_a9_source_binding, test_codex_a9_sweep_isolation, test_opus2_a9_u6_child_vocab,
+test_opus2_a9_u6_import_path, test_opus2_a9_u6_record_reverify, test_opus2_listing_package,
+test_w5_a9_package_event. The full suite was not run (per instructions).
 
 ## PostgreSQL
 
@@ -68,4 +74,4 @@ INTEG1 was not merged into this branch.
 
 ## Final SHA
 
-(added in the next commit)
+The commit that adds this file's final text; code under review = 8a800682 (all fixes). See `git log`.
