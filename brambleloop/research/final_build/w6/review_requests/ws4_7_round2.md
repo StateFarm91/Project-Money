@@ -135,7 +135,7 @@ There is nothing new; the batch in `REVIEW_REQUEST.md` stands, with these change
 # Round 3: fixes for the review of `259555fe`
 
 - **Branch:** `eng/ws4-7-mode-t-fix`. **Code SHA:** `dd67d90`. The final SHA is the commit
-  that adds this section (documentation and one measurement JSON only).
+  that adds this section (documentation and one measurement JSON only; `4ccf1fa` plus the commit that records these results).
 - **Nothing is live.** No deploy, no Railway change, no secret, no Etsy call, no spend.
 
 | Finding | Fix | Regression test | On 259555fe |
@@ -169,7 +169,7 @@ The run reported **TOTAL PASSING: 264 ; suites failing: 2**. Every WS4 suite pas
 | `test_rc1_auth` (boots `worker_entry`) | 11 | 0 |
 | `test_w4_swarmmetrics` (`idle_capacity`) | 8 | 0 |
 | `test_w4_listready` (`release_recovery`) | 40 | **1** (also fails on 259555fe) |
-| `test_shadow_rehearsal` (`release_recovery`) | 10 | **1** (SHADOW_RESULT) |
+| `test_shadow_rehearsal` (`release_recovery`) | 10 | **1** (also fails on 259555fe) |
 
 The two failures are in suites I added because `release_recovery` now imports the shared
 constant. Neither failure is in a file this round changed:
@@ -179,6 +179,11 @@ constant. Neither failure is in a file this round changed:
   clean worktree).
 - `test_shadow_rehearsal::test_approval_reaches_the_simulated_publish…`: owner_publication_grant
   is BLOCKED by "an owner grant or rebase is signed only inside the owner's Command Center
-  request …". SHADOW_RESULT
+  request …". It **fails identically on `259555fe`** (same clean worktree), so it is not caused by this round.
+- Both are pre-existing and left as they are; they belong outside WS4-7 round 3.
 
-**`test_cert_claude_independence` alone** (nothing else running): CERT_RESULT
+**`test_cert_claude_independence` alone** (nothing else running): run on `4ccf1fa`, whose code is identical to `dd67d90`. Started 2026-11-18T19:30:40Z and finished 19:46:20Z with rc 0: **4/4 passed in 934 s**.
+- `test_the_runtime_import_closure_names_no_claude_session_artefact`: OK
+- `test_the_deployed_image_and_start_command_carry_no_session_state`: OK
+- `test_production_start_command_runs_kills_and_resumes_without_this_session`: OK
+- `test_split_services_do_the_same_work_as_separate_processes`: OK
