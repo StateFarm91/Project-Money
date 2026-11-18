@@ -126,3 +126,4 @@
 {"at": "2026-11-18T14:05:28Z", "worker": "opus2", "assignment": "S2", "event": "review_requested", "sha": "b6dd73ad", "note": "S2 MEDIUM shared estimator + LOWs (verdict 6979817823), opus2/s2-openai-provider-fix, comment 6980888558"}
 {"at": "2026-11-18T15:04:42Z", "worker": "opus2", "assignment": "QF-ETSY-SCOPES", "event": "review_requested", "sha": "b3e037b9", "note": "Store tab scopes display, opus2/etsy-connect-scopes-display (6981550036)"}
 {"at": "2026-11-18T15:04:42Z", "worker": "opus2", "assignment": "A4B-2", "event": "review_requested", "sha": "b8929db7", "note": "A4b-2 merged onto INTEG1 26762746 + 6979345975 fixes, opus2/a4b-2-producer-fix"}
+{"at": "2026-11-18T15:47:27Z", "worker": "opus2", "assignment": "WS4-LOWS", "event": "review_requested", "sha": "fbe0bdd0", "note": "WS4 LOWs from 6979645791 on opus2/ws4-g-shadow-lows"}
