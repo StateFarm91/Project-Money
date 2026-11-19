@@ -81,7 +81,7 @@ every gated section passes" or names the sections not passing.
 
 | # | Who | Screen / call | Expected read-back |
 |---|---|---|---|
-| 1 | Main | Railway: set `BRAMBLELOOP_PUBLISH_AUTHORISED=1` (the global kill-switch; it can deny, never grant) and `BRAMBLELOOP_PHASE=limited_production`. **Owner approval is required** for the deployment change. | `GET /api/owner/phase` → `env_phase: "limited_production"`, `phase` still `"shadow"` (no recorded transition yet), `mismatch: true` (a phase-mismatch incident opens and is expected until step 3) |
+| 1 | Main | Railway: set `BRAMBLELOOP_PUBLISH_AUTHORISED=1` (the global kill-switch; it can deny, never grant) and `BRAMBLELOOP_PHASE=limited_production` **on every service that runs the worker**: the worker service, and web too while its embedded worker is on (`BRAMBLELOOP_EMBEDDED_WORKER` not `0`). A service left on SHADOW or with the switch off refuses the job if it claims it, and a refused `store.publish` is never re-driven. **Owner approval is required** for the deployment change. | `GET /api/owner/phase` → `env_phase: "limited_production"`, `phase` still `"shadow"` (no recorded transition yet), `mismatch: true` (a phase-mismatch incident opens and is expected until step 3) |
 | 2 | Owner (ops token) | `POST /api/owner/phase/transition` `{"to":"staging","reason":"<why>","evidence_refs":{"readiness":"<newest launch.assessed id>","rollback":"<newest launch.rollback_rehearsed id>"}}`. The ids come from `GET /api/audit?action=launch.assessed&limit=1` and `?action=launch.rollback_rehearsed&limit=1`. | 200, `to: "staging"`, `readiness_at_transition.ready: true`, `effective_now: "staging"` |
 | 3 | Owner (ops token) | same, `{"to":"limited_production", ...}`. Both cited rows must be passing (`ready: true` / `ok: true`) and under their age limits. | `effective_now: "limited_production"`, `env_agrees: true`; `GET /api/owner/phase` → `agree: true`, mismatch incident resolved |
 | 4 | Owner | **Command Center → Approvals → "Create the Etsy draft for <slug> v<version>" → Preview** | the preview shows each gated section `PASS` and the digest |
@@ -144,10 +144,10 @@ grant (steps 10 and 11). A double tap queues nothing extra.
 | Situation | Action | Read-back |
 |---|---|---|
 | Grant recorded, not used | Approvals card → **Revoke** (`publication.revoke` / `activation.revoke`) | `owner.*.revoked`; `store.publish` / `store.activate` then refuse at their boundary |
-| Job queued, not run | Revoke the grant (the handler re-resolves it), or set `BRAMBLELOOP_PUBLISH_AUTHORISED=0` | `store.execution_refused` / `store.activate_refused` |
+| Job queued, not run | Revoke the grant (the handler re-resolves it), or set `BRAMBLELOOP_PUBLISH_AUTHORISED=0` on every service that runs the worker | `store.execution_refused` / `store.activate_refused` |
 | Draft exists, should not | Etsy Shop Manager → Drafts → delete. There is no automated delete job for a product draft; `EtsyClient.delete_listing` (reads back first, refuses unless draft or inactive) has no product caller. | the draft gone from Shop Manager. **The local `Listing` keeps its `etsy_listing_id` (G5).** The census will report it missing, and this `slug@version` cannot be drafted again. |
 | Public listing must come down | Etsy Shop Manager → deactivate (no automated deactivation exists); the release chain marks it `withdrawn` | listing not visible logged out. **The listing fee is not refunded.** Buyers keep downloads (Etsy behaviour UNKNOWN to this system). |
-| Phase back | `POST /api/owner/phase/transition {"to":"staging"}` then `{"to":"shadow"}` (moving down never evaluates readiness), and set `BRAMBLELOOP_PHASE=shadow` | `GET /api/owner/phase` → `phase: "shadow"`, `agree: true` |
+| Phase back | `POST /api/owner/phase/transition {"to":"staging"}` then `{"to":"shadow"}` (moving down never evaluates readiness), and set `BRAMBLELOOP_PHASE=shadow` on every service that runs the worker | `GET /api/owner/phase` → `phase: "shadow"`, `agree: true` |
 
 ## 6. What can go wrong
 
