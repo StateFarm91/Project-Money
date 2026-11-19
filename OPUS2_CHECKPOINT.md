@@ -101,7 +101,10 @@ worktrees, not this file.
 - Tick 2026-11-19T11:28Z: INTEG2 05c735a7 merged stage-a-lows-3 50242d0c and s2-s4-lows-3 8ff5854b
   (both independent review SHIP). No [MAIN] verdict comment yet on #28, so no new LOWs.
 - Tick 2026-11-19T12:28Z: no change (#28, INTEG2 05c735a7). Nothing posted.
-- Stop reason (2026-11-19T12:30Z): every opus2 head is SHIPped and integrated; no assigned work.
+- Tick 2026-11-19T13:28Z: [MAIN] STATUS 7010424969 (release f34c25ae ready, waiting on owner deploy
+  permission; INTEG2 05c735a7 incl. stage-a-lows-3 + s2-s4-lows-3 certifying). No assignment for opus2;
+  nothing to answer. Nothing posted.
+- Stop reason (2026-11-19T13:30Z): every opus2 head is SHIPped and integrated; no assigned work.
   Answer any [MAIN] message (incl. LOWs on the two merges) first next tick.
 - ws5 LOWs N1-N3 RR POSTED 9b807fed on opus2/ws5-n1-n3-resolver-lows (on w6-INTEG1 19e6a8ff):
   N1 create-window binding (escalate, never release, on an unbound listing created within
