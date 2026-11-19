@@ -25,6 +25,7 @@ os.environ.setdefault("OPENAI_API_KEY", "k")      # presence only; `_post` is al
 from brambleloop.gateway import openai_chat as O  # noqa: E402
 from brambleloop.gateway import paid_calls, providers, routing  # noqa: E402
 from brambleloop.gateway.anthropic import ProviderUnusable  # noqa: E402
+from brambleloop.gateway.model_gateway import NoProviderAvailable  # noqa: E402
 from brambleloop.core.resilience import TransientError  # noqa: E402
 
 AGENT = "orchestrator"
@@ -261,11 +262,17 @@ def test_vendor_routing_keeps_anthropic_the_default_and_pins_openai_per_tier():
         assert p.model in O.PRICES_USD_PER_MTOK
     assert set(routing.OPENAI_MODEL_BY_TIER) == set(routing.TIERS)
     try:
-        providers.for_task("not-a-declared-task",
-                           env={providers.ROUTES_VAR: "not-a-declared-task=openai"})
+        providers.for_task("not-a-declared-task", env={})
         raise AssertionError("an undeclared task must be refused before any provider exists")
     except routing.TaskRefused:
         pass
+    # Verdict 6996033652 LOW: routing an undeclared task is itself refused, at the table.
+    try:
+        providers.for_task("not-a-declared-task",
+                           env={providers.ROUTES_VAR: "not-a-declared-task=openai"})
+        raise AssertionError("a route for an undeclared task must be refused")
+    except NoProviderAvailable as exc:
+        assert "not a routing task" in str(exc), exc
 
 
 def test_through_the_gateway_an_openai_call_reserves_settles_and_records_provenance():
