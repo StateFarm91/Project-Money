@@ -174,6 +174,7 @@ def test_no_routine_or_auto_close_rule_names_an_executor_gate():
     from brambleloop.build2 import executor
 
     gate_keys = set(executor.GATE_BY_KEY) | set(executor.OWNER_ACTION_GATE_ALIASES)
+    assert len(gate_keys) > 20, gate_keys
     for k in sorted(gate_keys):
         v = SI.classify(k)
         assert v["disposition"] == SI.GENUINE_EXCEPTION, (k, v)
@@ -401,6 +402,7 @@ def test_a_publication_hold_does_not_block_internal_jobs_and_still_holds_publica
 
     internal = ("chain.rebuild", "gate.certify", "assets.build", "assets.render",
                 "listing.package", "listing.seo", "seo.cycle", "cir.compile", "cir.twin")
+    assert internal
     for jt in internal:
         owner = next((a["name"] for a in DEFAULT_AGENTS if jt in a["allowed_job_types"]),
                      "orchestrator")
@@ -446,7 +448,8 @@ def test_no_grant_is_ever_signed_automatically():
                  "storefront_authority", "opsauth"}
     for mod in (SI, OQC):
         tree = ast.parse(open(mod.__file__).read())
-        for node in ast.walk(tree):
+        assert tree.body
+        for node in ast.walk(tree):  # vacuity-ok: a non-empty module, asserted above
             if isinstance(node, ast.ImportFrom):
                 names = {(node.module or "").split(".")[-1]} | {a.name for a in node.names}
             elif isinstance(node, ast.Import):
@@ -461,14 +464,6 @@ def test_no_grant_is_ever_signed_automatically():
 
 
 if __name__ == "__main__":
-    fails = 0
-    for name, fn in list(globals().items()):
-        if name.startswith("test_") and callable(fn):
-            try:
-                fn()
-                print(f"PASS {name}")
-            except Exception as exc:  # noqa: BLE001
-                fails += 1
-                print(f"FAIL {name}: {type(exc).__name__}: {exc}")
-    print(f"{fails} failed")
-    sys.exit(1 if fails else 0)
+    import _minipytest
+
+    _minipytest.run_module(globals())
