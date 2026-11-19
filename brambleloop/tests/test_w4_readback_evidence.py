@@ -568,7 +568,9 @@ def test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart():
         # or UNKNOWN as before.
         # ENG watchlist-cadence: the advisory scheduler row likewise PASSes or WARNs only.
         # ENG-FIRSTLIST: the first-draft candidates row is advisory too (WARN or PASS only).
-        advisory = ("competitor_scans", "scheduler", "first_listing_readiness")
+        # ENG-VISUAL: the visual-pipeline row is advisory (WARN or PASS only).
+        advisory = ("competitor_scans", "scheduler", "first_listing_readiness",
+                    "visual_pipeline")
         assert all(i["verdict"] in (readback.PASS, readback.FAIL, readback.UNKNOWN)
                    for i in out["items"] if i.get("section") not in advisory)
         assert by["competitor shops scanned (eight-shop research network)"]["verdict"] in (
@@ -579,7 +581,9 @@ def test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart():
             readback.PASS, readback.WARN), by
         assert by["first Etsy draft candidates (Launch-0)"]["verdict"] in (
             readback.PASS, readback.WARN), by
-        assert len(out["items"]) == 16, out["items"]
+        assert by["listing-image and PDF factory (visual pipeline)"]["verdict"] in (
+            readback.PASS, readback.WARN), by
+        assert len(out["items"]) == 17, out["items"]
         # An unreadable section is UNKNOWN, never PASS.
         v, _ = readback._judge_section("weekly_jobs", {"readable": False}, True)
         assert v == readback.UNKNOWN
