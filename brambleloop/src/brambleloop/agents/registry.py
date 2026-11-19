@@ -242,7 +242,10 @@ DEFAULT_AGENTS: list[dict] = [
                             # WS4-5: the standing-policy issuer in shadow (signs nothing).
                             "policy.issuer_shadow",
                             # WS4: the standing policy's stop watch (deny-direction only).
-                            "policy.stop_watch"],
+                            "policy.stop_watch",
+                            # WS4-8 Stage A: schedules standing store.activate jobs (for
+                            # store_operator) and asks the issuer; sends nothing itself.
+                            "policy.activation_schedule"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=2.0),
     dict(name="growth", description="Launch timing and marketing cadence. Cannot author patterns.",

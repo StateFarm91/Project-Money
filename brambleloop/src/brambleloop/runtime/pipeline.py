@@ -2696,6 +2696,14 @@ def handle_store_activate(ctx: JobContext) -> dict:
        Nothing the job carried from when it was planned counts.
     5. Only then `EtsyClient.activate`, which re-checks image and file itself, and a
        read-back that the listing is `active` before anything records it as live.
+
+    WS4-8 (Stage A use path): a job marked `standing_activation` carries no approval. It finds
+    the standing activation grant the policy issuer bound to THIS job, consumes it once, and
+    goes through every step above unchanged -- the grant (`seg:<id>`, re-checked by
+    `standing_activation.use_refusal`) only takes the place of the owner's per-product
+    approval. After the read-back shows the listing `active` it is recorded in SP lineage;
+    a retry after a crash past the Etsy request reconciles from the read-back instead of
+    sending again. Off in code with `standing_activation.STAGE_A_ENABLED`.
     """
     import os
 
@@ -2757,6 +2765,32 @@ def handle_store_activate(ctx: JobContext) -> dict:
                   detail={"reason": "Etsy credential needs the owner", **raised})
         raise
 
+    # WS4-8: a standing job's authority is the grant the issuer bound to this job, found in
+    # the grant store -- never anything the job carried. One authority per job.
+    standing = bool(i.get("standing_activation"))
+    seg_id = None
+    if standing:
+        from ..ops import standing_activation_flow as stage_a
+
+        if i.get("owner_activation_approval_id") not in (None, ""):
+            why = "a job carries one authority: a standing job never also names an owner approval"
+            ctx.audit("store.activate_refused", artifact=artifact, detail={"reason": why})
+            return {"slug": slug, "version": version, "activated": False,
+                    "etsy_listing_id": listing_id, "reasons": [why]}
+        found = stage_a.grant_for_job(ctx.db, ctx.job.id)
+        seg_id = found["grant_id"]
+        if seg_id is None:
+            ctx.audit("store.activate_refused", artifact=artifact,
+                      detail={"reason": found["why"], "authority": "standing"})
+            return {"slug": slug, "version": version, "activated": False,
+                    "etsy_listing_id": listing_id, "reasons": [found["why"]]}
+        # A retry after a crash past the Etsy request: Etsy's read-back decides, nothing is
+        # sent again and the fee is not reserved twice.
+        reconciled = stage_a.reconcile(ctx, grant_id=seg_id, listing_id=str(listing_id),
+                                       remote=remote, slug=slug, version=version)
+        if reconciled is not None:
+            return reconciled
+
     from ..integrations import etsy_verify
 
     frames = etsy_ops.certified_frames(ctx.db, slug, version, release=i.get("release", ""))
@@ -2794,12 +2828,32 @@ def handle_store_activate(ctx: JobContext) -> dict:
 
     from ..ops import activation_authority
 
-    authorisation = i.get("owner_activation_approval_id")
-    refusal = client.refusal_for(Authority.ACTIVATE)
-    if refusal is None:
-        refusal = activation_authority.validate(
+    if standing:
+        from ..ops import standing_activation
+
+        authorisation = f"{standing_activation.SEG_PREFIX}{seg_id}"
+    else:
+        authorisation = i.get("owner_activation_approval_id")
+
+    def _authority_refusal():
+        """The job's one authority, resolved anew each time it is asked."""
+        if standing:
+            # Everything `use_refusal` checks except the write-ahead intent, which cannot
+            # exist yet; the client re-checks with the intent immediately before the request.
+            return standing_activation.use_refusal(
+                ctx.db, authorisation, slug=slug, version=version, listing_id=str(listing_id),
+                release=i.get("release", ""), job_id=ctx.job.id, remote=remote,
+                at_effect=False)
+        return activation_authority.validate(
             ctx.db, authorisation, slug=slug, version=version,
             listing_id=listing_id, release=i.get("release", ""))
+
+    refusal = client.refusal_for(Authority.ACTIVATE)
+    if refusal is None and standing:
+        # Consumed once, by this job, after the draft read back as the certified listing.
+        refusal = stage_a.claim(ctx.db, seg_id, job_id=ctx.job.id)
+    if refusal is None:
+        refusal = _authority_refusal()
     from ..finance import listing_costs
     from ..core.fx import ASSUMED_CAD_PER_USD
     fee_cad = round(LISTING_FEE_USD * ASSUMED_CAD_PER_USD, 2)
@@ -2822,9 +2876,7 @@ def handle_store_activate(ctx: JobContext) -> dict:
     # the effect boundary. A queued magic string is never owner evidence.
     final_gates, final_parity = (_release_gates(ctx, stage="activation"),
                                   _listing_parity(ctx))
-    refusal = activation_authority.validate(
-        ctx.db, authorisation, slug=slug, version=version,
-        listing_id=listing_id, release=i.get("release", ""))
+    refusal = _authority_refusal()
     if os.environ.get("BRAMBLELOOP_PUBLISH_AUTHORISED", "") != "1":
         refusal = "owner publishing grant withdrawn"
     if final_gates["blocks_release"] or final_parity["blocks_release"]:
@@ -2843,9 +2895,7 @@ def handle_store_activate(ctx: JobContext) -> dict:
     # must be current after that wait; a revoked attempt retains conservative exposure.
     final_gates, final_parity = (_release_gates(ctx, stage="activation"),
                                   _listing_parity(ctx))
-    refusal = activation_authority.validate(
-        ctx.db, authorisation, slug=slug, version=version,
-        listing_id=listing_id, release=i.get("release", ""))
+    refusal = _authority_refusal()
     if os.environ.get("BRAMBLELOOP_PUBLISH_AUTHORISED", "") != "1":
         refusal = "owner publishing grant withdrawn during reservation"
     if final_gates["blocks_release"] or final_parity["blocks_release"]:
@@ -2858,7 +2908,9 @@ def handle_store_activate(ctx: JobContext) -> dict:
         ctx.audit("store.activate_refused", artifact=artifact, detail={"reason": refusal})
         return {"activated": False, "blocked": True, "reasons": [refusal]}
     ctx.audit("store.activation_authority_used", artifact=artifact,
-              detail={"approval_id": int(authorisation), "etsy_listing_id": listing_id})
+              detail={"approval_id": authorisation if standing else int(authorisation),
+                      "authority": "standing" if standing else "owner",
+                      "etsy_listing_id": listing_id})
     # Immediately before the request: the phase once more, then the client itself re-verifies
     # the sealed grant and the live phase (rc1-AUTH D3) before it sends updateListing.
     phase_live = protected_phase(ctx).value
@@ -2871,7 +2923,7 @@ def handle_store_activate(ctx: JobContext) -> dict:
 
     grant = OwnerGrant(ctx.db, action=OwnerGrant.ACTIVATE, approval_id=authorisation,
                        slug=slug, version=version, release=i.get("release", ""),
-                       listing_id=str(listing_id))
+                       listing_id=str(listing_id), job_id=ctx.job.id)
     # Audit ddf9c6e L-1: the activation (a listing fee) is at-most-one automatic attempt per
     # listing + approval. A reclaimed or retried run finds the write-ahead intent and is
     # refused for reconciliation instead of re-sending; a stale worker stops at the lease check.
@@ -2882,7 +2934,9 @@ def handle_store_activate(ctx: JobContext) -> dict:
             with effect_guard(ctx, "etsy.activate", f"{listing_id}:{authorisation}") as intent:
                 try:
                     client.activate(listing_id,
-                                    launch_authorisation=f"owner-approval:{authorisation}",
+                                    launch_authorisation=(f"standing-grant:{authorisation}"
+                                                          if standing else
+                                                          f"owner-approval:{authorisation}"),
                                     grant=grant)
                 except EtsyAuthNeedsOwner as e:
                     # Refused for authentication: the activation was not performed, so the
@@ -2904,14 +2958,24 @@ def handle_store_activate(ctx: JobContext) -> dict:
         if row is not None and live:
             row.state = "active"
     ctx.audit("store.activated" if live else "store.activate_incomplete", artifact=artifact,
-              detail={"etsy_listing_id": listing_id, "state_on_etsy": after.get("state")})
+              detail={"etsy_listing_id": listing_id, "state_on_etsy": after.get("state"),
+                      "authority": "standing" if standing else "owner",
+                      **({"grant_id": seg_id} if standing else {})})
+    lineage_recorded = None
+    if standing and live:
+        # L-B: only now -- after `store.activated` and a read-back showing it active -- is
+        # the listing in SP lineage, which is what the rollback plan and withdrawal read.
+        lineage_recorded = stage_a.record_live(ctx, grant_id=seg_id,
+                                               listing_id=str(listing_id), after=after,
+                                               artifact=artifact)
     if not live:
         etsy_ops.open_publish_incomplete(
             ctx.db, slug=slug, version=version, listing_id=listing_id,
             reasons=[f"activation was accepted and Etsy reports state "
                      f"{after.get('state')!r}"])
     return {"slug": slug, "version": version, "activated": live,
-            "etsy_listing_id": listing_id, "state_on_etsy": after.get("state")}
+            "etsy_listing_id": listing_id, "state_on_etsy": after.get("state"),
+            **({"lineage_recorded": lineage_recorded} if standing else {})}
 
 
 def _release_gates(ctx: JobContext, stage: str = "draft") -> dict:
@@ -2996,6 +3060,8 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "policy.issuer_shadow": ("work_done",),
     # WS4 stop watch: one reading per watched standing policy.
     "policy.stop_watch": ("work_done",),
+    # WS4-8 Stage A: standing activations scheduled plus shadow decisions recorded.
+    "policy.activation_schedule": ("work_done",),
     # OPUS2-P0: lessons published or withdrawn from measured listing performance.
     "improve.commercial_lessons": ("work_done",),
     # OPUS2-P0 (P0-LEARNING-GAPS): gaps recorded or reference purchases recommended.

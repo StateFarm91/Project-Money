@@ -37,6 +37,11 @@ def tick(db, *, holder: str, now=None) -> dict:
     SG.ensure_tables(db)
     SG.issuer_heartbeat(db, now=now)
     answered = [SG.answer(db, req, now=now) for req in SG.pending_requests(db)]
+    # WS4-8 Stage A: activation requests, answered by `standing_activation.issue` (which
+    # refuses everything while STAGE_A_ENABLED is False).
+    from ..ops import standing_activation_flow as stage_a
+
+    answered += [stage_a.answer(db, req, now=now) for req in stage_a.pending_requests(db)]
     return {"leader": True, "answered": answered}
 
 

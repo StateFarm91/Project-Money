@@ -42,8 +42,8 @@ verify under the issuer key, be for `store.activate`, name this listing, have be
 this job, still match `activation_authority.snapshot`, and the listing Etsy holds must have
 `should_auto_renew` exactly False (a renewal is a recurring fee no ceiling here counts).
 
-Nothing in the publish path calls this yet: wiring consume-at-claim into `store.publish` and
-`store.activate` is WS4-8, the use path, for both kinds together.
+WS4-8 wires the use path: `ops.standing_activation_flow` schedules and requests, the issuer
+answers, and `runtime.pipeline.handle_store_activate` (the only handler) consumes and uses.
 """
 from __future__ import annotations
 
@@ -371,7 +371,7 @@ def record_shadow(db, slug, version, release, *, approval_id: int, decision: str
 # ---- issue (policy-issuer process only) -----------------------------------------------------
 
 def issue(db, *, slug: str, version: str, release: str, job_id: int,
-          now: datetime | None = None) -> dict:
+          now: datetime | None = None, request_id: int | None = None) -> dict:
     """Mint one activation SEG, or raise `ActivationRefused` with every reason."""
     from sqlalchemy.exc import IntegrityError
 
@@ -432,7 +432,8 @@ def issue(db, *, slug: str, version: str, release: str, job_id: int,
             s.add(AuditLog(actor=SG.ACTOR, action=ISSUED, artifact=scope,
                            detail={"grant_id": row.id, "digest": body["digest"],
                                    "listing_id": body["listing_id"], "job_id": int(job_id),
-                                   "slot_no": slot, "seal": seal}))
+                                   "slot_no": slot, "seal": seal,
+                                   "request_id": request_id}))
             s.flush()
             gid = row.id
     except IntegrityError as exc:
@@ -451,11 +452,15 @@ ACTIVATE_EFFECT = "etsy.activate"
 
 def use_refusal(db, approval_id, *, slug: str, version: str, listing_id: str,
                 release: str = "", job_id: int | None = None, remote: dict | None = None,
-                env=None, now: datetime | None = None) -> str | None:
+                env=None, now: datetime | None = None, at_effect: bool = True) -> str | None:
     """Why this activation SEG does not authorise going live now, or None. Fails closed.
 
     `approval_id` is "seg:<grant id>". The grant must already have been consumed by `job_id`
-    (single use, at claim); `remote` is the listing as Etsy holds it, read back by the caller."""
+    (single use, at claim); `remote` is the listing as Etsy holds it, read back by the caller.
+
+    WS4-8: `at_effect=False` is the handler's own re-checks BEFORE it claims the write-ahead
+    intent (the intent cannot exist yet). Every other condition is checked the same. The
+    client's check immediately before the request always runs with `at_effect=True`."""
     from . import activation_authority as AA
     from . import standing_grants as SG
 
@@ -492,13 +497,13 @@ def use_refusal(db, approval_id, *, slug: str, version: str, listing_id: str,
         with db.session() as s:
             from sqlalchemy import select
 
-            intent = s.scalar(select(effects.EffectIntent).where(
+            intent = None if not at_effect else s.scalar(select(effects.EffectIntent).where(
                 effects.EffectIntent.effect == ACTIVATE_EFFECT,
                 effects.EffectIntent.idem == f"{listing_id}:{SEG_PREFIX}{gid}",
                 effects.EffectIntent.job_id == int(job_id),
                 effects.EffectIntent.job_type == ACTIVATE_JOB,
                 effects.EffectIntent.state == effects.CLAIMED))
-        if intent is None:
+        if at_effect and intent is None:
             return (f"standing activation grant {gid} is used only through {ACTIVATE_JOB} "
                     f"(its kill switch, spend reservation and write-ahead intent); no claimed "
                     f"{ACTIVATE_EFFECT} intent for this listing and job")
