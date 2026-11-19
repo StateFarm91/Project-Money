@@ -694,6 +694,11 @@ class Authority(Enum):
 # protecting rather than say "a fee".
 LISTING_FEE_USD = 0.20
 
+# Review 6957411211 (ws5 N3): every `state` a shop listing can hold, as getListingsByShop
+# filters them. The one list: the census, manual adoption and the draft resolver all read
+# it, so a state added here is read everywhere at once instead of in one copy of three.
+LISTING_STATES = ("draft", "active", "inactive", "expired", "sold_out")
+
 # The fields `updateListing` accepts, from the operation's own request schema. A field not in
 # this set is refused here rather than sent: a listing that silently keeps its old value is
 # worse than a 400, because read-back verification would then report a mismatch whose real

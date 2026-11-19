@@ -143,5 +143,23 @@ def test_the_health_sweep_raises_the_vendor_switch_card():
             OwnerAction.requirement_key == providers.VENDOR_CARD_KEY,
             OwnerAction.done.is_(False))) is not None
 
+def test_the_owner_card_example_route_names_a_real_task():
+    """Verdict 6985175377 LOW: the card's example route is a task the router knows."""
+    from brambleloop.culture import classify
+    from brambleloop.gateway import routing
+
+    assert providers.EXAMPLE_ROUTE_TASK in routing.TASKS
+    assert providers.EXAMPLE_ROUTE_TASK == classify.TASK
+    from brambleloop.core.models import OwnerAction
+
+    db = boot("s2fix-route-")
+    providers.vendor_switch_card(db, env={providers.VENDOR_VAR: "openai"})
+    with db.session() as s:
+        action = s.scalars(select(OwnerAction.action).where(
+            OwnerAction.requirement_key == providers.VENDOR_CARD_KEY)).one()
+    assert f"{providers.ROUTES_VAR}={providers.EXAMPLE_ROUTE_TASK}=openai" in action, action
+    assert "culture_classify" not in action
+
+
 if __name__ == "__main__":
     run_tests(globals())

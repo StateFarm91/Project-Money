@@ -287,6 +287,42 @@ export const DATA = {
     blockers: env("BLOCKED", [{ what: "Store / Commerce: owner_gate", gate: "etsy_api" }]),
     completion_effort: env("OK", [], { counts: { RUNNING: 2 }, href: "#/completion" }),
   }, { status: "BLOCKED", reason: "departments BLOCKED" }),
+  // S4b: the P0 board, as /api/cc/p0-board serves it (sections carry their own level).
+  p0Board: () => {
+    const V = ["CODE BUILT", "INDEPENDENTLY REVIEWED", "INTEGRATED", "DEPLOYED", "RUNNING",
+      "PRODUCTION-VERIFIED", "REAL COMMERCE VERIFIED"];
+    const NP = ["INDEPENDENTLY REVIEWED", "INTEGRATED"];
+    const lv = (level, rules) => ({ level, proved_by: rules, not_provable_here: NP });
+    const run = (extra) => ({ ...lv("RUNNING", { "CODE BUILT": "reader ran", DEPLOYED: "commit reported", RUNNING: "fresh work" }), ...extra });
+    return { tab: "P0_BOARD", generated_at: now(), read_only: true, vocabulary: V, not_provable_here: NP,
+      deployed_commit: "0123456789abcdef", sections: {
+        running: { state: "healthy", commit: "0123456789abcdef", branch: "main",
+          health: { state: "healthy", bad: [], why: "work progressing", activity: "work_completed", swept_at: ago(6), fresh: true },
+          ...lv("PRODUCTION-VERIFIED", { "CODE BUILT": "reader ran", DEPLOYED: "commit reported", RUNNING: "sweep fresh", "PRODUCTION-VERIFIED": "sweep healthy" }) },
+        shops: run({ state: "DEGRADED", required: 8, configured: 8, fresh: 7, failing: 1, failures_unknown: 0, credential: "ok",
+          shops: Array.from({ length: 8 }, (_, i) => ({ owner_order: i + 1, alias: `shop-${i + 1}`, role: "benchmark", state: "ok",
+            last_attempted: ago(30), last_successful: i === 7 ? null : ago(30), etsy_source_timestamp: ago(31),
+            listings_seen_last_scan: 40 + i, listings_live: 40 + i, consecutive_failures: i === 7 ? 2 : 0,
+            failure_class: i === 7 ? "EtsyRateLimited" : null, next_due: ago(-60), stale: i === 7,
+            downstream: { mission_events: 2, coverage_gaps: 0 } })) }),
+        opportunities: run({ state: "OK", by_state: { proposed: 3 }, scored: [{ slug: "moss-coaster", state: "proposed", quality: 0.81, source: "radar", at: ago(90) }], newest_at: ago(90) }),
+        development: run({ state: "OK", stage_order: ["drafted", "certified"], count_by_stage: { drafted: 4, certified: 2 }, slugs_by_stage: {}, halted: [] }),
+        releases: run({ state: "OK", certified: [{ slug: "nordic-forest", version: "1.0.0", release: "abc123def456", certified_at: ago(600), listing_state: "draft", etsy_listing_id: "777", listing_release_matches: true }] }),
+        assets: run({ state: "OK", counts: { PROVEN: 11, "NOT-PROVEN": 1 }, not_proven: [{ title: "gallery frame 4", status: "NOT-PROVEN", gate: "independent review" }], note: "" }),
+        etsy: run({ state: "OK", by_state: { draft: 1 }, remote: [{ slug: "nordic-forest", version: "1.0.0", state: "draft", etsy_listing_id: "777" }], drafts_on_etsy: 1, not_live_on_etsy: 1, remote_total: 1, remote_shown: 1, live_on_etsy: 0 }),
+        // Verdict 6990820438 M2: the order source is not connected, so the figures are null.
+        sales: { state: "UNKNOWN", real_orders: null, revenue_cad: null, last_order_at: null,
+          recorded_countable_orders: 0, recorded_countable_revenue_cad: 0,
+          source: { open: false, measured: false, last_read_at: null, missing: ["transactions_r"], why: "x" },
+          why: "the order source is not connected: transactions_r. Sales are UNMEASURED, which is different from zero sales",
+          counted: "countable orders (the books' rule) read from etsy_receipts",
+          ...lv("DEPLOYED", { "CODE BUILT": "reader ran", DEPLOYED: "commit reported" }) },
+        costs: { state: "UNKNOWN", why: "could not be read: OperationalError: wallet table missing", level: null, proved_by: {}, not_provable_here: NP },
+        blockers: run({ state: "OPEN", owner_actions: [{ id: 1, owner: "owner", action: "Approve the issuer service", requirement: "k", max_cost_cad: 2.35, minutes: 5, blocks: "standing grants", since: ago(120) }],
+          incidents: [{ id: 2, owner: "system", severity: "P2", family: "dead-letter", product: null, halts_publication: false, since: ago(60) }] }),
+        agents: run({ state: "OK", counts: { active: 3, idle: 5, failed: 0 }, agents: [] }),
+      } };
+  },
   completion: () => tab("COMPLETION", { board: env("OK", [
     { lane: "W4-CC", worker: "lane CC", task: "Command Center online", status: "RUNNING", started_at: ago(60), last_update_at: ago(5),
       useful_output: "company view", blocker: null, next_action: "deploy package", rows_closed: { count: 3, ids: ["F-884"] }, rows_closed_count: 3, stale: false },

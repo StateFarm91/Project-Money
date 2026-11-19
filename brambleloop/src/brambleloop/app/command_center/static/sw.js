@@ -13,7 +13,8 @@
 // W5-INVENTORY: the Production view joins the shell, so v28.
 // Batch 5 integration: LAUNCHFIX's Policy view (v28) and W5-INVENTORY's Production view (v28)
 // merged, so a new version.
-const VERSION = "cc-shell-v29";
+// S4b: the P0 board view (#/p0_board) joins the shell, so v30.
+const VERSION = "cc-shell-v30";
 const SHELL = [
   "./",
   "index.html",
@@ -40,6 +41,7 @@ const SHELL = [
   "js/views/approvals.js",
   "js/views/company.js",
   "js/views/completion.js",
+  "js/views/p0_board.js",
   "js/views/production.js",
   "js/views/ask.js",
   "js/views/drill.js",
