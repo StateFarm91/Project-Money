@@ -476,15 +476,17 @@ def test_a_model_frame_f852_cannot_use_is_charged_and_not_waited_on():
 
 
 if __name__ == "__main__":
-    failures = 0
+    passed = failed = 0
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):
             try:
                 fn()
-                print(f"ok   {name}")
+                passed += 1
+                print(f"OK   {name}")
             except Exception as exc:  # noqa: BLE001
-                failures += 1
+                failed += 1
                 import traceback
                 traceback.print_exc()
-                print(f"FAIL {name}: {exc}")
-    sys.exit(1 if failures else 0)
+                print(f"FAIL {name} {exc!r}")
+    print(f"{passed} passing, {failed} failing")
+    sys.exit(1 if failed else 0)

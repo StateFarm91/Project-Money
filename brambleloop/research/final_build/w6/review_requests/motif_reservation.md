@@ -85,7 +85,7 @@ were affected are the ones filed before F-852.
 
 ## Tests
 
-`tests/test_motif_reservation.py` has 18 tests and is in `scripts/suite_final_segment.txt`,
+`tests/test_motif_reservation.py` has 17 tests and is in `scripts/suite_final_segment.txt`,
 before `test_product_run`, because it uses `now()`. The tests run the **real**
 `AnthropicProvider` through the **real** paid-provider gate. The owner activation is the real
 record, from `_paid_activation`. Only `_send` is replaced, so "nothing was sent" is counted at
