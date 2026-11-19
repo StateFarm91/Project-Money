@@ -816,6 +816,48 @@ def test_the_report_is_on_the_p0_board_and_the_readback_evidence():
         assert len(list(s.scalars(select(MB.MotifRecovery)))) == 2
 
 
+def test_a_gallery_completed_by_other_frames_is_not_counted_as_recovered():
+    """A recovered render whose release's gallery is complete from OTHER frames (its verified
+    disclosed renders) did not complete that gallery: no handoff, no count."""
+    db, cir, rh = _certified("other-frames")
+    _chain(db, cir, rh)
+    builds_before = len(_jobs(db, "assets.build"))
+    # Asset truth blocked this render, so it can never be the listing frame even with a
+    # matching motif; the motif question is still worth asking under the stand-in floor.
+    _, sha = _owned_row(db, cir, 91, verdict="blocked")
+    from brambleloop.visual import product_authority as PA
+
+    real = PA.structural_floor
+
+    def scoped(frame):            # STAND-IN for this one render only; every other frame real
+        if isinstance(frame, dict) and MB._sha(frame) == sha:
+            return _qualified_floor(frame)
+        return real(frame)
+
+    with patch.object(PA, "structural_floor", scoped):
+        _sweep(db, StubVision(["match"]), "o1", floor=False)
+        assert _states(db) == {sha: MB.PASSED}
+        done, _ident, shas = MB.gallery_complete(db, cir.slug, cir.version)
+    assert done and sha not in shas
+    assert len(_jobs(db, "assets.build")) == builds_before
+    assert MB.report(db)["counts"]["products_gallery_completed"] == 0
+
+
+def test_a_gallery_the_existing_reader_rejects_is_never_complete_or_handed_on():
+    """Real gates: a release whose only listing record is a generated render (motif matched,
+    asset truth clear) has no complete gallery -- the structural floor says UNKNOWN -- so the
+    handoff enqueues nothing."""
+    db, cir, _rh = _certified("unusable")
+    _owned_row(db, cir, 93, motif={"verdict": MF.MATCH, "why": "matched"})
+    record = listing_asset.last(db, slug=cir.slug)
+    assert record and record.get("usable_as_listing_asset") is True
+    assert listing_asset.usable(record) is False
+    assert MB.gallery_complete(db, cir.slug, cir.version) == (False, "", frozenset())
+    queued = []
+    out = MB.gallery_handoff(lambda *a, **k: queued.append(a), db, cir.slug, cir.version)
+    assert out["advanced"] is False and queued == []
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
