@@ -1,3 +1,12 @@
+> **2026-11-19 — ENG-CREDITS (branch `eng/credits`, builder; NOT integrated, NOT deployed).** Model-provider promotional
+> credit accounting in `finance.credits`: `record_model_credit` (owner step-up `POST /api/cc/finance/model-credit`; additive
+> nullable columns `period_start`/`period_end`/`recorded_by` on `provider_credits`), `model_credit_accounting` (remaining credit
+> UNKNOWN until a verified grant covers the period; gross / provider-billed (else UNKNOWN) / estimated cash; failed and uncertain
+> calls), `model_cost_by_product` (reconciles to the model ledger; per-package cost UNKNOWN when a product has several certified
+> packages), `productive_model_use` (STARVED / NO_CALLER / RUNNING / IDLE per family), and a read-only `model_credit` P0 section.
+> A credit never raises the CA$100 cash ceiling (`ceilings_changed` 0). No route, ceiling, allocation or paid caller changed; no
+> probe or recharge. No credit has been recorded: the Anthropic and OpenAI credits are UNKNOWN. Routing audit and allocation
+> proposal: `research/final_build/w6/model_allocation.md`.
 > **2026-11-02 — Batch 4 DEPLOYED: production = 0967c3ee (SHADOW unchanged). 24-hour acceptance running until 2026-11-03T03:31Z.**
 > - Owner approval: "APPROVE DEPLOY 0967c3eee287d06cad0d8034a99e39076c0ab6d5" (2026-11-02).
 > - Pre-release backup (03:27:45Z, before the push): `brambleloop_prod_20261102T032745Z.dump`, 497,732,160 bytes, sha256

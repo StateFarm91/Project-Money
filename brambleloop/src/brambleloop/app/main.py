@@ -951,8 +951,15 @@ def _finance_owner_view() -> dict:
 
         return credits.model_providers(db, now=now)
 
+    def model_credit():
+        # ENG-CREDITS: the owner-recorded promotional credit per model provider (UNKNOWN until
+        # recorded), gross / billed / cash usage and failed or uncertain calls, this month.
+        from ..finance import credits
+
+        return credits.model_credit_accounting(db, now=now)
+
     return {"as_of": now.isoformat(), "windows": guard(windows), "ads": guard(ads),
-            "model_providers": guard(model_providers),
+            "model_providers": guard(model_providers), "model_credit": guard(model_credit),
             "cash_and_payout": guard(cash_position), "unreconciled": guard(unreconciled),
             "monthly_close": guard(close)}
 

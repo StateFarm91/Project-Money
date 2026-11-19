@@ -802,6 +802,45 @@ def make_router(db) -> APIRouter:
                     detail={"action": "launch_review.resume", "run_job_id": job.id})
         return ok({**st, "run_job_id": job.id})
 
+    # ---- ENG-CREDITS: the owner's verified model-provider credit grant ------------------------
+    # Owner session to read; step-up to record. A recorded grant is accounting only: it never
+    # raises the cash ceiling, authorises no call and triggers no probe or recharge.
+    # `recorded_by` is the authenticated owner, never the body.
+
+    @router.get("/finance/model-credit")
+    def model_credit_state(request: Request):
+        from ...finance import credits
+
+        return ok({"accounting": credits.model_credit_accounting(db),
+                   "cost_by_product": credits.model_cost_by_product(db)})
+
+    @router.post("/finance/model-credit")
+    async def model_credit_record(request: Request):
+        from ...agents.registry import Registry
+        from ...finance import credits
+
+        body = await body_of(request)
+        auth.require_stepup(db, request, credits.MODEL_CREDIT_ACTION)
+        pid = auth.current_public_id(request)
+        try:
+            out = await run_in_threadpool(lambda: credits.record_model_credit(
+                db, provider=str(body.get("provider") or "")[:40],
+                amount=body.get("amount"), currency=str(body.get("currency") or "")[:3],
+                period_start=str(body.get("period_start") or "")[:10],
+                period_end=str(body.get("period_end") or "")[:10],
+                expires_on=str(body.get("expires_on") or "")[:10],
+                evidence_note=str(body.get("evidence_note") or "")[:1000],
+                recorded_by=actor(request)))
+        except credits.CreditRefused as exc:
+            raise auth.refuse(db, request, 400, "REFUSED", str(exc)[:300], kind="action",
+                              session_public_id=pid) from None
+        detail = {k: out.get(k) for k in ("id", "provider", "amount", "currency",
+                                          "period_start", "period_end", "expires_on")}
+        Registry(db).audit("orchestrator", credits.MODEL_CREDIT_RECORDED, detail=detail)
+        auth.record(db, kind="action", outcome="ok", request=request, session_public_id=pid,
+                    detail={"action": credits.MODEL_CREDIT_ACTION, **detail})
+        return ok({**out, "accounting": credits.model_credit_accounting(db)})
+
     # ---- paid provider owner activation (P0-PAID-PROVIDER-OWNER-GATE) ------------------------
     # A provider key authorises nothing. The owner activates (and revokes) each paid image or
     # vision provider here, behind the owner session and a fresh step-up; the step-up is

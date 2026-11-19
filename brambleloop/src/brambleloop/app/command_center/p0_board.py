@@ -363,6 +363,42 @@ def costs(db, now):
     return build_section
 
 
+def model_credit(db, now):
+    """ENG-CREDITS: per model provider, the remaining promotional credit (UNKNOWN until the
+    owner records a verified grant), gross / billed / cash usage, failed and uncertain calls,
+    the unchanged cash ceiling, and model cost per product and certified package."""
+    from ...finance import credits
+
+    acct = credits.model_credit_accounting(db, now=now)
+    per_product = credits.model_cost_by_product(db, now=now)
+    productive = credits.productive_model_use(db, now=now)
+    calls = sum(p["calls"] for p in acct["providers"].values())
+
+    def build_section(deployed):
+        known = [p for p, v in acct["providers"].items()
+                 if v["credit"]["state"] != credits.UNKNOWN]
+        return {"state": "RECORDED" if known else UNKNOWN,
+                "why": ("" if known else "no verified model credit grant is recorded for "
+                                         "this period: the credit is UNKNOWN, never assumed"),
+                "month": acct["month"], "cash_ceiling_cad": acct["cash_ceiling_cad"],
+                "ceilings_changed": acct["ceilings_changed"],
+                "ceiling_rule": acct["ceiling_rule"],
+                "providers": {p: {k: v[k] for k in (
+                    "credit", "gross_usage_cad", "gross_usage_usd", "billed_usage_cad",
+                    "billed_basis", "estimated_cash_cad", "cash_basis", "calls",
+                    "calls_outcomes")} for p, v in acct["providers"].items()},
+                "cost_by_product": {k: per_product[k] for k in (
+                    "ledger_total_cad", "unattributed_cad", "reconciles")}
+                | {"by_product": per_product["by_product"][:ROW_LIMIT],
+                   "certified_packages": per_product["certified_packages"][:ROW_LIMIT]},
+                "productive_use": [{k: f[k] for k in ("family", "state", "why", "calls",
+                                                      "spend_cad", "agent_daily_ceiling_cad")}
+                                   for f in productive["families"]],
+                **_level(deployed, running=calls > 0,
+                         why={RUNNING: "a model call was recorded this month"})}
+    return build_section
+
+
 def blockers(db, now):
     from sqlalchemy import func, select
 
@@ -423,7 +459,8 @@ def agents(db, now):
 
 SECTIONS = (("running", running), ("shops", shops), ("opportunities", opportunities),
             ("development", development), ("releases", releases), ("assets", assets),
-            ("etsy", etsy), ("sales", sales), ("costs", costs), ("blockers", blockers),
+            ("etsy", etsy), ("sales", sales), ("costs", costs),
+            ("model_credit", model_credit), ("blockers", blockers),
             ("agents", agents))
 
 

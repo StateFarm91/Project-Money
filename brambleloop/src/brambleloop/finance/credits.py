@@ -49,6 +49,12 @@ class ProviderCredit(Base):
     source: Mapped[str] = mapped_column(String(30), default="owner_reported")
     evidence_ref: Mapped[str] = mapped_column(String(200), default="")
     note: Mapped[str] = mapped_column(Text, default="")
+    # ENG-CREDITS (W6), additive and nullable (`core.migrate` adds them to an existing table):
+    # the usage period an owner-recorded model credit applies to, and who recorded it. Empty
+    # on the rows written before them; such a grant keeps its old draw window.
+    period_start: Mapped[str | None] = mapped_column(String(10), nullable=True, default="")
+    period_end: Mapped[str | None] = mapped_column(String(10), nullable=True, default="")
+    recorded_by: Mapped[str | None] = mapped_column(String(80), nullable=True, default="")
 
 
 class AdsCreditCycle(Base):
@@ -197,6 +203,14 @@ def wallet(db, *, now: datetime | None = None) -> dict:
     }
 
 
+def _draw_until(c) -> str | None:
+    """The last day a grant may absorb usage: the earlier of its stated expiry and the end of
+    the usage period it was granted for (ENG-CREDITS). A grant with neither keeps the old
+    reading (no stated end; its expiry basis is still UNKNOWN)."""
+    ends = [d for d in (c.expires_on or "", getattr(c, "period_end", "") or "") if d]
+    return min(ends) if ends else None
+
+
 def split(db, provider: str, *, now: datetime | None = None) -> dict:
     """S2: one provider's ledger split into promotional credit and billable cash, in CAD.
 
@@ -213,7 +227,8 @@ def split(db, provider: str, *, now: datetime | None = None) -> dict:
     now = now or datetime.now(timezone.utc)
     with db.session() as s:
         grants = [{"id": c.id, "left": _to_cad(c.amount, c.currency),
-                   "from": c.granted_on, "until": c.expires_on or None}
+                   "from": c.period_start or c.granted_on,
+                   "until": _draw_until(c)}
                   for c in s.scalars(select(ProviderCredit).where(
                       ProviderCredit.provider == provider).order_by(
                       ProviderCredit.granted_on, ProviderCredit.id))]
@@ -407,3 +422,399 @@ def ads_credit(db, *, now: datetime | None = None) -> dict:
         "why_empty": ("" if out else "no Etsy Plus Ads-credit cycle has been recorded: the "
                       "entitlement is unverified and all recorded ad spend is cash"),
     }
+
+
+# ---------------------------------------------------------------------------------------------
+# ENG-CREDITS (W6): the owner's model-provider promotional credit, accounted per provider.
+#
+# The owner receives roughly US$100 a month of Anthropic API credit, and possibly an OpenAI
+# credit. Neither is spending authority. This section only *accounts*:
+#
+# * The remaining eligible credit is UNKNOWN until the owner records a verified grant for the
+#   period (`record_model_credit`, the Command Center's step-up action). Nothing here assumes a
+#   credit exists, and nothing reads "no grant recorded" as "credit is zero" either.
+# * Gross usage is the recorded ledger at this system's assumed list prices; billed usage is
+#   only what a provider statement reported (`CostEntry.observed_cad`), else UNKNOWN; cash is
+#   gross less the ESTIMATED credit draw, and with no grant recorded every call is cash.
+# * The cash ceiling (`finance.spend_policy.CEILING_CAD`) is reported beside the credit and is
+#   never changed by it: `routing.spent_this_month` and every reservation still count every
+#   call at its recorded cost, credit or not (`ceilings_changed` is always 0).
+# * Nothing here calls a provider, probes a balance, tops up or recharges: no supported API
+#   reports an API key's remaining promotional credit, and a paid probe to find out would be
+#   spend with nothing on the other side of it.
+# ---------------------------------------------------------------------------------------------
+
+MODEL_PROVIDERS: tuple[str, ...] = ("anthropic", "openai")
+MODEL_CREDIT_ACTION = "finance.model_credit"     # the Command Center step-up action name
+MODEL_CREDIT_RECORDED = "finance.model_credit_recorded"   # audit action (written, never read)
+MIN_EVIDENCE_CHARS = 12
+UNKNOWN = "UNKNOWN"
+MODEL_COST_KINDS: tuple[str, ...] = ("llm",)
+
+
+def _provider_of(name: str) -> str:
+    """`anthropic-vision` is billed on the same Anthropic key as `anthropic`."""
+    name = (name or "").strip().lower()
+    for p in MODEL_PROVIDERS:
+        if name == p or name.startswith(p + "-"):
+            return p
+    return name
+
+
+def record_model_credit(db, *, provider: str, amount: float, currency: str,
+                        period_start: str, period_end: str, expires_on: str = "",
+                        evidence_note: str, recorded_by: str) -> dict:
+    """Record one owner-verified model-provider credit grant for a usage period.
+
+    Refuses: a provider that is not a model provider; a non-positive or non-finite amount; a
+    currency with no conversion; unparseable dates, a period that ends before it starts, an
+    expiry before the period starts; an evidence note too short to be evidence; a recorder that
+    is not the owner's Command Center session; and a second grant for the same provider whose
+    period overlaps one already recorded (the same credit counted twice would read as twice
+    the credit). An empty `expires_on` is recorded as UNKNOWN, never "does not expire".
+    The grant is accounting only: it changes no ceiling and authorises no call.
+    """
+    import math
+
+    from sqlalchemy import select
+
+    provider = (provider or "").strip().lower()
+    if provider not in MODEL_PROVIDERS:
+        raise CreditRefused(f"{provider!r} is not a model provider: {MODEL_PROVIDERS}")
+    if not str(recorded_by or "").startswith("owner:"):
+        raise CreditRefused("only the owner records a model credit grant")
+    try:
+        amt = float(amount)
+    except (TypeError, ValueError):
+        raise CreditRefused("amount is a number") from None
+    if not math.isfinite(amt) or amt <= 0:
+        raise CreditRefused("a credit is a positive amount")
+    currency = str(currency or "").upper()
+    _to_cad(amt, currency)
+    try:
+        start = date.fromisoformat(str(period_start))
+        end = date.fromisoformat(str(period_end))
+        expiry = date.fromisoformat(str(expires_on)) if expires_on else None
+    except ValueError:
+        raise CreditRefused("period_start, period_end and expires_on are ISO dates") from None
+    if end < start:
+        raise CreditRefused("the credit period ends before it starts")
+    if expiry is not None and expiry < start:
+        raise CreditRefused("the credit expires before its period starts")
+    note = " ".join(str(evidence_note or "").split())
+    if len(note) < MIN_EVIDENCE_CHARS:
+        raise CreditRefused("an evidence note says where the grant was read (the provider's "
+                            "billing page, an email, a statement); without it the grant is a "
+                            "claim, not a credit")
+    ensure_table(db)
+    with db.session() as s:
+        for c in s.scalars(select(ProviderCredit).where(
+                ProviderCredit.provider == provider,
+                ProviderCredit.kind == "promotional_credit")):
+            c_start = c.period_start or c.granted_on
+            c_end = c.period_end or c.expires_on or "9999-12-31"
+            if c_start <= end.isoformat() and start.isoformat() <= c_end:
+                raise CreditRefused(f"a {provider} credit for an overlapping period "
+                                    f"({c_start}..{c_end}) is already recorded (id {c.id})")
+        row = ProviderCredit(provider=provider, kind="promotional_credit", amount=amt,
+                             currency=currency, granted_on=start.isoformat(),
+                             expires_on=expiry.isoformat() if expiry else "",
+                             source="owner_reported", evidence_ref=note[:200], note=note,
+                             period_start=start.isoformat(), period_end=end.isoformat(),
+                             recorded_by=str(recorded_by)[:80])
+        s.add(row)
+        s.flush()
+        rid = row.id
+    return {"id": rid, "provider": provider, "amount": amt, "currency": currency,
+            "amount_cad": round(_to_cad(amt, currency), 6),
+            "period_start": start.isoformat(), "period_end": end.isoformat(),
+            "expires_on": expiry.isoformat() if expiry else None,
+            "expiry_basis": "stated" if expiry else UNKNOWN,
+            "ceilings_changed": 0}
+
+
+def _month_window(now: datetime) -> tuple[datetime, datetime]:
+    start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    nxt = (start.replace(year=start.year + 1, month=1) if start.month == 12
+           else start.replace(month=start.month + 1))
+    return start, nxt
+
+
+def _aware(v):
+    if v is None:
+        return None
+    return v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+
+
+def _failed_and_uncertain(db, provider: str, start: datetime, end: datetime) -> dict:
+    """Paid calls this month for `provider` (and its `-vision` key) by outcome. UNCERTAIN is
+    counted at its estimate, never 0; DECLINED never billed; FAILED_BILLED billed and failed."""
+    from sqlalchemy import inspect as sa_inspect, select
+
+    from ..gateway.paid_calls import DECLINED, FAILED_BILLED, UNCERTAIN, PaidCallRecord
+
+    out = {"declined": 0, "failed_billed": 0, "failed_billed_estimate_cad": 0.0,
+           "uncertain": 0, "uncertain_estimate_cad": 0.0}
+    with db.session() as s:
+        if PaidCallRecord.__tablename__ not in set(sa_inspect(s.get_bind()).get_table_names()):
+            out["why"] = "no paid call has been guarded yet (the table does not exist)"
+            return out
+        for r in s.scalars(select(PaidCallRecord).where(
+                PaidCallRecord.provider.in_((provider, f"{provider}-vision")),
+                PaidCallRecord.outcome.in_((DECLINED, FAILED_BILLED, UNCERTAIN)))):
+            at = _aware(r.at)
+            if at is None or not (start <= at < end):
+                continue
+            if r.outcome == DECLINED:
+                out["declined"] += 1
+            elif r.outcome == FAILED_BILLED:
+                out["failed_billed"] += 1
+                out["failed_billed_estimate_cad"] += float(r.estimate_cad or 0.0)
+            else:
+                out["uncertain"] += 1
+                out["uncertain_estimate_cad"] += float(r.estimate_cad or 0.0)
+    out["failed_billed_estimate_cad"] = round(out["failed_billed_estimate_cad"], 6)
+    out["uncertain_estimate_cad"] = round(out["uncertain_estimate_cad"], 6)
+    return out
+
+
+def model_credit_accounting(db, *, now: datetime | None = None) -> dict:
+    """Per model provider, this calendar month: the remaining eligible promotional credit
+    (UNKNOWN until recorded), gross usage, provider-billed usage (UNKNOWN until a statement is
+    read), estimated cash, failed and uncertain calls -- beside the cash ceiling, unchanged.
+
+    Read-only: no row is written, no provider is called.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import CostEntry
+    from ..gateway.routing import USD_PER_CAD
+    from . import spend_policy
+
+    ensure_table(db)
+    now = now or datetime.now(timezone.utc)
+    start, end = _month_window(now)
+    today = now.date().isoformat()
+    m0, m1 = start.date().isoformat(), (end.date().isoformat())
+    with db.session() as s:
+        grants = list(s.scalars(select(ProviderCredit).where(
+            ProviderCredit.kind == "promotional_credit").order_by(
+            ProviderCredit.granted_on, ProviderCredit.id)))
+        grant_rows = [{"id": g.id, "provider": _provider_of(g.provider), "amount": g.amount,
+                       "currency": g.currency, "amount_cad": round(_to_cad(g.amount, g.currency), 6),
+                       "period_start": g.period_start or g.granted_on,
+                       "period_end": g.period_end or None,
+                       "expires_on": g.expires_on or None,
+                       "expiry_basis": "stated" if g.expires_on else UNKNOWN,
+                       "recorded_by": g.recorded_by or "", "evidence_ref": g.evidence_ref,
+                       "draw_until": _draw_until(g)} for g in grants]
+        entries = [(e.id, _provider_of(e.provider), float(e.amount_cad or 0.0),
+                    e.observed_cad, e.kind)
+                   for e in s.scalars(select(CostEntry).where(
+                       CostEntry.at >= start, CostEntry.at < end))]
+    providers = {}
+    for p in MODEL_PROVIDERS:
+        mine = [e for e in entries if e[1] == p]
+        gross = round(sum(e[2] for e in mine), 6)
+        observed = [e for e in mine if e[3] is not None]
+        billed = (round(sum(float(e[3]) for e in observed), 6) if observed else UNKNOWN)
+        p_grants = [g for g in grant_rows if g["provider"] == p]
+        # A grant is eligible this month when its usage window overlaps the month.
+        active = [g for g in p_grants
+                  if g["period_start"] < m1 and (g["draw_until"] or "9999-12-31") >= m0]
+        current = [g for g in active if g["period_start"] <= today
+                   and (g["draw_until"] or "9999-12-31") >= today]
+        led = split(db, p, now=now) if p_grants else None
+        if led is not None:
+            month_calls = {c["cost_entry"]: c for c in led["calls"]}
+            promo = round(sum(month_calls[e[0]]["promo_credit_cad"] for e in mine
+                              if e[0] in month_calls), 6)
+            cash = round(gross - promo, 6)
+            left_by_id = {g["id"]: g["estimated_left_cad"] for g in led["grants"]}
+        else:
+            promo, cash, left_by_id = 0.0, gross, {}
+        for g in p_grants:
+            g["estimated_left_cad"] = left_by_id.get(g["id"])
+        if current:
+            remaining = round(sum(left_by_id.get(g["id"]) or 0.0 for g in current), 6)
+            credit = {"state": "RECORDED", "remaining_eligible_cad": remaining,
+                      "remaining_eligible_usd": round(remaining * USD_PER_CAD, 6),
+                      "basis": "ESTIMATED: owner-recorded grant less the assumed draw "
+                               "(credits first) of recorded usage; never a provider balance",
+                      "why": ""}
+        else:
+            credit = {"state": UNKNOWN, "remaining_eligible_cad": UNKNOWN,
+                      "remaining_eligible_usd": UNKNOWN, "basis": UNKNOWN,
+                      "why": (f"no verified {p} credit grant is recorded for the period "
+                              f"covering {today}; the credit is not assumed to exist, and "
+                              f"every call is counted as cash")}
+        providers[p] = {
+            "credit": credit,
+            "grants": p_grants,
+            "gross_usage_cad": gross,
+            "gross_usage_usd": round(gross * USD_PER_CAD, 6),
+            "gross_basis": "recorded at this system's assumed list prices (not an invoice)",
+            "calls": len(mine),
+            "billed_usage_cad": billed,
+            "billed_basis": (f"provider-reported for {len(observed)} of {len(mine)} rows"
+                             if observed else
+                             "UNKNOWN: no provider statement has been read for this month"),
+            "estimated_credit_absorbed_cad": promo,
+            "estimated_cash_cad": cash,
+            "cash_basis": ("ESTIMATED: gross less the assumed credit draw" if p_grants else
+                           "no credit recorded: all recorded usage is treated as cash"),
+            "calls_outcomes": _failed_and_uncertain(db, p, start, end),
+        }
+    ceiling = spend_policy.ceiling_cad()
+    return {
+        "month": start.strftime("%Y-%m"), "as_of": now.isoformat(), "currency": "CAD",
+        "providers": providers,
+        "cash_ceiling_cad": ceiling,
+        "ceiling_rule": ("a promotional credit is not spending authority: the monthly cash "
+                         "ceiling counts every recorded call at its cost, credit or not"),
+        "ceilings_changed": 0,
+        "balance_probe": "none: no supported API reports a key's remaining promotional "
+                         "credit, and no paid probe or auto-recharge is made to find out",
+        "draw_assumption": DRAW_ASSUMPTION,
+    }
+
+
+def model_cost_by_product(db, *, now: datetime | None = None) -> dict:
+    """Model (`llm`) cost this calendar month per product and per certified listing package.
+
+    Reconciles: per-product totals plus the unattributed remainder equal the month's model
+    ledger total. The ledger records the product, not the release version, so a package's
+    cost is its product's cost when the product has exactly one certified package; with
+    several, the per-package figure is UNKNOWN rather than an invented split.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import CostEntry
+
+    now = now or datetime.now(timezone.utc)
+    start, end = _month_window(now)
+    with db.session() as s:
+        rows = [(e.product_slug or "", float(e.amount_cad or 0.0), _provider_of(e.provider))
+                for e in s.scalars(select(CostEntry).where(
+                    CostEntry.kind.in_(MODEL_COST_KINDS),
+                    CostEntry.at >= start, CostEntry.at < end))]
+    total = round(sum(r[1] for r in rows), 6)
+    by_product: dict[str, dict] = {}
+    unattributed = 0.0
+    for slug, cad, prov in rows:
+        if not slug:
+            unattributed += cad
+            continue
+        b = by_product.setdefault(slug, {"product_slug": slug, "cad": 0.0, "calls": 0,
+                                         "by_provider": {}})
+        b["cad"] += cad
+        b["calls"] += 1
+        b["by_provider"][prov] = round(b["by_provider"].get(prov, 0.0) + cad, 6)
+    products = sorted(({**v, "cad": round(v["cad"], 6)} for v in by_product.values()),
+                      key=lambda r: (-r["cad"], r["product_slug"]))
+    packages, why_packages = [], ""
+    try:
+        from ..publish import listing_package
+
+        certified = listing_package.certified_releases(db)
+        per_slug: dict[str, int] = {}
+        for slug, _v in certified:
+            per_slug[slug] = per_slug.get(slug, 0) + 1
+        for slug, version in certified:
+            pkg = listing_package.latest(db, slug, version) or {}
+            product_cad = round(by_product.get(slug, {}).get("cad", 0.0), 6)
+            alone = per_slug[slug] == 1
+            packages.append({
+                "package": f"{slug}@{version}", "status": pkg.get("status") or UNKNOWN,
+                "product_model_cost_cad": product_cad,
+                "package_model_cost_cad": product_cad if alone else UNKNOWN,
+                "basis": ("product-level: the only certified package of this product" if alone
+                          else "UNKNOWN: the ledger records the product, not the version, "
+                               "and this product has several certified packages")})
+    except Exception as exc:  # noqa: BLE001 - unreadable packages never blank the products
+        why_packages = f"certified packages unreadable: {type(exc).__name__}"
+    accounted = round(sum(p["cad"] for p in products) + unattributed, 6)
+    return {"month": start.strftime("%Y-%m"), "kinds": list(MODEL_COST_KINDS),
+            "ledger_total_cad": total, "by_product": products,
+            "unattributed_cad": round(unattributed, 6),
+            "reconciles": abs(accounted - total) < 1e-6,
+            "certified_packages": packages, "why_packages": why_packages,
+            "basis": "recorded at this system's assumed list prices (not an invoice)"}
+
+
+# ENG-CREDITS part 3: where an approved model call would raise certified throughput or quality,
+# and whether it is starved now. Read-only; it wires nothing and changes no ceiling. A family
+# with no call site is reported NO_CALLER (adding one is a routing change for the owner card).
+PRODUCTIVE_FAMILIES: tuple[dict, ...] = (
+    {"family": "concept_generation", "agent": "creative_director",
+     "tasks": ("concept_generation", "concept_ideation", "construction_reading")},
+    {"family": "independent_review", "agent": "creative_director",
+     "tasks": ("benchmark_challenge",)},
+    {"family": "image_review", "agent": "quality_director", "tasks": ("asset_inspection",)},
+    {"family": "taste_gate", "agent": "creative_director",
+     "tasks": ("creative_evaluation", "gallery_observation")},
+    {"family": "listing_copy_refinement", "agent": "publishing", "tasks": ("listing_copy",),
+     "no_caller": "listing copy is deterministic templating (commerce.seo); no model call "
+                  "site exists"},
+    {"family": "defect_learning", "agent": "", "tasks": (),
+     "no_caller": "no model task is declared; improve.failure_memory is deterministic"},
+)
+
+
+def productive_model_use(db, *, now: datetime | None = None) -> dict:
+    """Per productive family, this month: model calls and spend, ceiling refusals by which
+    ceiling refused, and the governing agent's daily ceiling. STARVED when a ceiling refused
+    its work this month; NO_CALLER when no call site exists; IDLE when nothing ran."""
+    from sqlalchemy import select
+
+    from ..agents.registry import DEFAULT_AGENTS
+    from ..core.models import AuditLog, CostEntry
+    from . import spend_policy, spend_report
+
+    now = now or datetime.now(timezone.utc)
+    start, end = _month_window(now)
+    ceilings = {a.get("name"): a.get("daily_cost_ceiling_cad") for a in DEFAULT_AGENTS}
+    with db.session() as s:
+        costs = [(e.purpose or (e.detail or {}).get("task") or "", e.agent or "",
+                  float(e.amount_cad or 0.0))
+                 for e in s.scalars(select(CostEntry).where(
+                     CostEntry.kind.in_(MODEL_COST_KINDS),
+                     CostEntry.at >= start, CostEntry.at < end))]
+        refused = []
+        for row in s.scalars(select(AuditLog).where(
+                AuditLog.action == spend_report.REFUSED_ACTION)):
+            at = _aware(row.at)
+            if at is None or not (start <= at < end):
+                continue
+            d = row.detail or {}
+            refused.append((str(d.get("purpose") or row.artifact or ""),
+                            str(d.get("agent") or row.actor or ""),
+                            str(d.get("which") or "unknown")))
+    out = []
+    for fam in PRODUCTIVE_FAMILIES:
+        tasks = set(fam["tasks"])
+        mine = [c for c in costs if c[0] in tasks]
+        refusals: dict[str, int] = {}
+        for purpose, agent, which in refused:
+            if purpose in tasks or (fam["agent"] and agent == fam["agent"] and which == "agent"):
+                refusals[which] = refusals.get(which, 0) + 1
+        if fam.get("no_caller"):
+            state, why = "NO_CALLER", fam["no_caller"]
+        elif refusals:
+            state = "STARVED"
+            why = "refused this month by: " + ", ".join(
+                f"{k} x{v}" for k, v in sorted(refusals.items()))
+        elif mine:
+            state, why = "RUNNING", "model calls were recorded this month, none refused"
+        else:
+            state, why = "IDLE", "no model call and no refusal recorded this month"
+        out.append({"family": fam["family"], "tasks": list(fam["tasks"]), "state": state,
+                    "why": why, "calls": len(mine),
+                    "spend_cad": round(sum(c[2] for c in mine), 6),
+                    "refusals": refusals, "agent": fam["agent"] or None,
+                    "agent_daily_ceiling_cad": ceilings.get(fam["agent"]),
+                    "allocations": {t: spend_policy.ALLOCATION[t] for t in fam["tasks"]
+                                    if t in spend_policy.ALLOCATION}})
+    return {"month": start.strftime("%Y-%m"), "families": out, "ceilings_changed": 0,
+            "wired": "nothing: this view reports; raising a ceiling or adding a call site is an "
+                     "owner decision with this evidence attached"}
