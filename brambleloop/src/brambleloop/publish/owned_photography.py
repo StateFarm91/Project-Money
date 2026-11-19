@@ -357,7 +357,12 @@ def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
         "rung_constraints": list(constraints) or None,
         "prompt": prompt,
         "claim": claim,
-        "image": tournament._keep(image_ref),
+        # A render whose motif question went unasked for money or plumbing is re-asked about
+        # later (`rejudge_motif`), so its bytes must still be there when it is: kept where a
+        # restart cannot reach them. Everything else keeps the old, cheaper keep.
+        "image": (tournament._keep(image_ref, db=db, why=(
+                      "a paid render awaiting its motif judgement"))
+                  if motif_fidelity.rejudgeable(motif) else tournament._keep(image_ref)),
         "image_ref": image_ref,
         "provider": render.get("provider"),
         "generated": True,
@@ -452,9 +457,107 @@ def rung_attempts(db, *, slug: str, version: str, rung: str) -> list[dict]:
     return [a for a in assets_for(db, slug=slug, version=version) if a.get("rung") == rung]
 
 
+def awaiting_motif(asset: dict) -> bool:
+    """A render that passed every asset-truth check and whose motif question went unasked.
+
+    Unasked for money or plumbing (`motif_fidelity.rejudgeable`), never for anything about
+    the picture. It is not a failed attempt -- nobody looked -- and it is not usable either;
+    it is a paid render waiting for its one remaining judgement. Only `clear` assets wait:
+    a render the asset-truth gate blocked cannot be rescued by a motif answer, so it is the
+    failed attempt it looks like. And only a render a match would make usable
+    (`motif_fidelity.worth_rejudging`): a redraw F-852 refuses is not waited on.
+    """
+    from . import motif_fidelity
+
+    return (isinstance(asset, dict) and asset.get("verdict") == "clear"
+            and motif_fidelity.rejudgeable(asset.get("motif"))
+            and motif_fidelity.worth_rejudging(asset))
+
+
+def _image_key(asset: dict):
+    image = asset.get("image") or {}
+    return (image.get("sha256") if isinstance(image, dict) else None) or id(asset)
+
+
+def current_states(db, *, slug: str, version: str) -> list[dict]:
+    """One record per render, the newest: a re-asked motif supersedes the record it re-asks.
+
+    `rejudge_motif` files a new row for the same image rather than editing the old one (the
+    log is append-only), so a reader counting rows would count one render twice. Keyed by
+    the kept image's digest, newest first.
+    """
+    seen: set = set()
+    out: list[dict] = []
+    for asset in assets_for(db, slug=slug, version=version):
+        key = _image_key(asset)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(asset)
+    return out
+
+
 def ordinary_attempts(db, *, slug: str, version: str) -> list[dict]:
-    """The assets the daily cadence made for this release, not the escalation rungs."""
-    return [a for a in assets_for(db, slug=slug, version=version) if not a.get("rung")]
+    """The renders the daily cadence made for this release, not the escalation rungs.
+
+    One per render, and not the ones still waiting on their motif question: a render the
+    budget stopped anybody judging has not failed, so it does not spend an attempt -- the
+    attempt is charged once the question is answered, whichever way.
+    """
+    return [a for a in current_states(db, slug=slug, version=version)
+            if not a.get("rung") and not awaiting_motif(a)]
+
+
+def pending_rejudge(db, *, slug: str, version: str) -> dict | None:
+    """The newest render of this release still waiting on its motif question, if any."""
+    for asset in current_states(db, slug=slug, version=version):
+        if awaiting_motif(asset):
+            return asset
+    return None
+
+
+def rejudge_motif(db, asset: dict, cir, twin, *, work_dir: str, provider=None,
+                  judger=None, now=None) -> dict:
+    """Ask the motif question again about a render on file, and file the answer.
+
+    Returns `{"filed": False, ...}` -- and files nothing -- when the question is still
+    refused for money or plumbing: the render keeps waiting, and a row per refused day would
+    be noise about nothing. Any real answer, or a render whose bytes are gone, is filed as a
+    new record for the same image (`motif_rejudge` names what it re-asked), so the render is
+    then counted as one attempt, usable or not.
+    """
+    from datetime import datetime, timezone
+
+    from . import motif_fidelity
+
+    motif = motif_fidelity.rejudge(db, asset.get("image") or {}, cir, twin,
+                                   work_dir=work_dir, provider=provider, judger=judger)
+    if motif_fidelity.rejudgeable(motif):
+        return {"filed": False, "motif": motif,
+                "why": f"the motif question is still unasked: {motif.get('why')}"[:300]}
+    clear = asset.get("verdict") == "clear"
+    matched = motif["verdict"] == motif_fidelity.MATCH
+    prior = asset.get("motif") or {}
+    record = dict(asset)
+    record.update({
+        "motif": motif,
+        "motif_verified": matched,
+        "motif_why": motif["why"],
+        "usable_as_listing_asset": clear and matched,
+        "usable_why": (
+            "every asset-truth check passed and the fabric works the chart's pattern"
+            if clear and matched
+            else f"motif: {motif['why']}" if clear else asset.get("why")),
+        # Nothing new was rendered: the render's cost is on the row this one re-asks.
+        "spent_cad": 0.0,
+        "motif_rejudge": {
+            "of_image": (asset.get("image") or {}).get("sha256"),
+            "previous_unmeasured": prior.get("unmeasured") or "legacy_unreserved_call",
+            "previous_why": str(prior.get("why") or "")[:240],
+            "at": (now or datetime.now(timezone.utc)).isoformat(),
+        },
+    })
+    return {"filed": True, "record": record}
 
 
 def usable_asset(db, *, slug: str, version: str) -> dict | None:
@@ -491,7 +594,7 @@ def historical_failures(db, *, slug: str, limit: int = 300) -> int:
                              .order_by(desc(AuditLog.id)).limit(limit)):
             detail = row.detail or {}
             if detail.get("made") and detail.get("slug") == slug and not detail.get(
-                    "usable_as_listing_asset"):
+                    "usable_as_listing_asset") and not awaiting_motif(detail):
                 failures += 1
     return failures
 
@@ -516,6 +619,18 @@ def what_to_do_next(db, *, slug: str, version: str) -> dict:
                 "why": "this release already has an asset that cleared every check",
                 "verdict": good.get("verdict"),
                 "attempts": len(assets_for(db, slug=slug, version=version))}
+
+    # A paid render whose only missing answer is the motif question is asked about again,
+    # not replaced. Before the method and attempt checks, because it is not an attempt
+    # (`ordinary_attempts`) and re-asking costs one vision call where a render costs an image.
+    waiting = pending_rejudge(db, slug=slug, version=version)
+    if waiting:
+        return {"render": False, "reason": "motif_rejudge_pending", "asset": waiting,
+                "attempts": len(ordinary_attempts(db, slug=slug, version=version)),
+                "why": ("a render of this release passed every asset-truth check and its "
+                        "motif question was never answered "
+                        f"({(waiting.get('motif') or {}).get('unmeasured') or 'unreserved'}"
+                        "); it is asked again about the same image rather than re-rendered")}
 
     blocked = systematically_blocked(db)
     if blocked:
@@ -672,6 +787,9 @@ def systematically_blocked(db, *, limit: int = 200) -> list[str]:
                              .order_by(desc(AuditLog.id)).limit(limit)):
             detail = row.detail or {}
             if not detail.get("made") or detail.get("method_version") != METHOD_VERSION:
+                continue
+            if detail.get("motif_rejudge"):
+                # The same render re-asked about its motif; its realism was already counted.
                 continue
             realism = ((detail.get("inspection") or {}).get("realism")) or {}
             for name, ok in realism.items():

@@ -5538,12 +5538,18 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
     if scope is None:
         from . import release_recovery
 
+        from ..products import supply
+
         for name, step in (("halted_certifications", release_recovery.retry_halted),
-                           ("launch0_seed", release_recovery.seed_launch0)):
+                           ("supply", supply.run)):
             try:
                 recovery[name] = step(ctx)
             except Exception as exc:  # noqa: BLE001 - recorded, never fails the rebuild
                 recovery[name] = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+        # ENG-SUPPLY: Launch-0 seeding is the first source of the admission pass; its reading
+        # keeps the key every reader of chain.rebuilt already uses.
+        recovery["launch0_seed"] = (recovery.get("supply") or {}).get("launch0") \
+            or recovery.get("supply")
 
     ctx.audit("chain.rebuilt", detail={"chain_version": CHAIN_VERSION,
                                        "doc_version": DOC_VERSION,
@@ -7941,6 +7947,8 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
             by_slug.setdefault(v.get("product_slug") or "", []).append(v)
         settled = (provenance.FRESH, provenance.SUPERSEDED)
         incomplete_close, incomplete_open = [], {}
+        legacy_restart: list[tuple[str, int, list[str]]] = []
+        from ..ops.rebuild_graph import legacy_incomplete
         for r in list(session.scalars(_select(_Incident).where(
                 _Incident.signature.like(f"{REBUILD_INCOMPLETE_SIGNATURE}:%"),
                 _Incident.resolved == False))):  # noqa: E712
@@ -7959,6 +7967,17 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
             if ok:
                 incomplete_close.append(r.signature)
             else:
+                # ENG-RECOVERY slice 2: a pre-branch row whose product reads nothing STALE
+                # is never reached by the propagation below (it enqueues only for moved
+                # refs), so it could neither restate onto the bounded budget nor close: it
+                # sat in `rebuild_incomplete_legacy_budget_pending` for good. It gets ONE
+                # targeted rebuild of what it names (keyed on the row, so once per row);
+                # that attempt restates it under the new budget (`budget_reset`) or
+                # completes and closes it on verified evidence. Nothing closes here.
+                if (legacy_incomplete(r.detail) and keys
+                        and not any(v["state"] == provenance.STALE
+                                    for v in by_slug.get(slug_, []))):
+                    legacy_restart.append((slug_, r.id, keys[:50]))
                 incomplete_open[r.signature] = read or {"(none)": "no artefact on file"}
                 r.detail = dict(r.detail or {}, sentinel_read={
                     "at": _utcnow().isoformat(), "verdicts": dict(list(read.items())[:50])
@@ -7968,6 +7987,18 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
             resolution=("every artefact this row named reads fresh (or superseded) in the "
                         "provenance check and none of the product's reads stale: the "
                         "outstanding rebuild has been delivered"))
+
+    legacy_restarted: list[str] = []
+    for slug_, row_id, keys_ in legacy_restart:
+        job = ctx.enqueue("listing", "chain.rebuild",
+                          {"product_slug": slug_, "artefacts": keys_, "fingerprints": {},
+                           "reason": ("legacy rebuild-incomplete row with nothing reading "
+                                      "stale: one targeted rebuild onto the bounded budget "
+                                      "(ENG-RECOVERY)"),
+                           "legacy_restart": row_id},
+                          idempotency_key=f"rebuild:legacy-restart:{slug_}:{row_id}")
+        if job is not None:
+            legacy_restarted.append(slug_)
 
     # W4-LISTREADY (delta review N3): a live listing of a superseded release is owner-visible.
     from . import release_recovery
@@ -7993,6 +8024,7 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         "incidents_cleared": len(report.get("incidents_cleared") or []),
         "rebuild_incomplete_cleared": incomplete_cleared,
         "rebuild_incomplete_open": dict(list(incomplete_open.items())[:50]),
+        "rebuild_incomplete_legacy_restarted": legacy_restarted[:50],
     }
     ctx.audit("ops.sentinel", detail=detail)
 
@@ -8034,6 +8066,15 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         detail["rebuild_already_queued"] = queued["already_queued"][:50]
         detail["rebuild_retried"] = list(queued.get("retried") or [])[:50]
         detail["rebuild_retry_held"] = dict(list((queued.get("retry_held") or {}).items())[:50])
+        # ENG-RECOVERY: publication-side policy changes pending review that did NOT hold
+        # these rebuilds (they hold publication only), so the readback can see the scope.
+        try:
+            from ..gates.platform_policy import unreviewed_changes as _uc
+
+            detail["rebuild_policy_publication_only"] = _rg.policy_publication_only(
+                _uc(ctx.db))
+        except Exception:  # noqa: BLE001 - a readback field never fails the sentinel
+            detail["rebuild_policy_publication_only"] = None
         # eng/stale-rebuild-loop: products whose last attempt ended and that are waiting out
         # RETRY_AFTER (or whose retry for today has run) -- not queued, not held.
         detail["rebuild_retry_waiting"] = list(queued.get("retry_waiting") or [])[:50]
@@ -8043,6 +8084,7 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         ctx.audit("ops.rebuild_propagated", detail={
             k: detail[k] for k in ("rebuild_enqueued", "rebuild_already_queued",
                                    "rebuild_retried", "rebuild_retry_held",
+                                   "rebuild_policy_publication_only",
                                    "rebuild_retry_waiting", "rebuild_order",
                                    "fingerprints")})
     return detail
@@ -9550,6 +9592,27 @@ def handle_owned_photography(ctx: JobContext) -> dict:
         return _owned_photography_rung(ctx, cir, slug, rung, failed)
 
     next_move = owned_photography.what_to_do_next(ctx.db, slug=slug, version=cir.version)
+    if next_move["reason"] == "motif_rejudge_pending":
+        # ENG-MOTIF: a paid render whose motif question went unasked (the unreserved vision
+        # call, or a budget that was spent) is asked again about the same image. Nothing is
+        # rendered; a still-refused question files nothing and waits for the next tick.
+        compiled = compile_cir(cir)
+        if not compiled.ok:
+            return {"ran": False, "reason": f"{slug} does not compile, so there is nothing "
+                                            f"true to judge the render against"}
+        with workspace.work_dir(ctx.job.inputs.get("work_dir"),
+                                prefix="owned-rejudge-") as work:
+            again = owned_photography.rejudge_motif(
+                ctx.db, next_move["asset"], cir, build_twin(cir, compiled), work_dir=work)
+        if not again["filed"]:
+            return {"ran": False, "reason": "motif_judgement_waiting", "slug": slug,
+                    "why": again["why"], "unmeasured": again["motif"].get("unmeasured")}
+        record = again["record"]
+        ctx.audit(owned_photography.ACTION, detail=record)
+        return {"ran": True, "slug": slug, "made": False, "rejudged": True,
+                "motif": record["motif"]["verdict"], "verdict": record.get("verdict"),
+                "usable_as_listing_asset": record.get("usable_as_listing_asset"),
+                "spent_cad": 0.0}
     if not next_move["render"]:
         return {"ran": False, "reason": next_move["reason"], "slug": slug,
                 "attempts": next_move["attempts"], "why": next_move["why"],
@@ -9712,8 +9775,11 @@ def _representative_slug(db) -> str:
     waiting = []
     for index, (slug, cir) in enumerate(product_first):
         move = owned_photography.what_to_do_next(db, slug=slug, version=cir.version)
-        if move["render"]:
-            waiting.append((move["attempts"],
+        # ENG-MOTIF: a paid render waiting on its motif question needs work too, and it goes
+        # first -- re-asking costs one vision call where every other choice costs an image.
+        rejudge = move["reason"] == "motif_rejudge_pending"
+        if move["render"] or rejudge:
+            waiting.append((0 if rejudge else 1, move["attempts"],
                             owned_photography.historical_failures(db, slug=slug),
                             index, slug))
     if waiting:
@@ -10474,6 +10540,19 @@ def handle_chain_successors(ctx: JobContext) -> dict:
     ctx.audit("chain.successors_swept", detail={k: out[k] for k in (
         "open", "redriven", "resolved", "commit")} | {"waiting": out["waiting"][:20]})
     return out
+
+
+@handlers.register("supply.admit")
+def handle_supply_admit(ctx: JobContext) -> dict:
+    """ENG-SUPPLY, every 15 minutes: admit the next eligible products into free capacity.
+
+    Launch-0 releases first, then the research and creative offers waiting in the supply
+    queue (products.supply). A slot freed by a finished chain, or by a product parked on a
+    physical sample or an owner decision, is refilled here with no manual kick. CA$0 itself;
+    every admission and refusal is recorded with its reason (`supply.admission`)."""
+    from ..products import supply
+
+    return supply.run(ctx)
 
 
 # The runtime handlers for these three job types are the wrappers (the registry keeps the last

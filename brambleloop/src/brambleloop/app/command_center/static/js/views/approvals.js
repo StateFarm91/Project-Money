@@ -51,12 +51,26 @@ function actionLabel(action) {
 // and launch-decision approval from this screen was refused ("approval preview changed").
 // The digest the card's own preview returned is substituted; with none yet, null is returned
 // and the caller asks the owner to preview first. Pure, so a test can run it.
-export function fillPreviewParams(params, digests) {
+// Assign 7012067586 L2: a digest belongs to one preview of one action WITH its params, so two
+// preview buttons on a card (or a re-preview with other params) never lend each other a digest.
+// `previewParams` maps a preview action's name to the params that card sends with it.
+export function previewKey(action, params) {
+  const p = params || {};
+  return `${action}|${JSON.stringify(Object.keys(p).sort().map((k) => [k, p[k]]))}`;
+}
+
+// L3: every preview verb ("preview", "review_preview", ...) is a preview.
+export function isPreviewVerb(verb) {
+  return /preview/.test(String(verb || ""));
+}
+
+export function fillPreviewParams(params, digests, previewParams) {
   const out = { ...(params || {}) };
   for (const [k, v] of Object.entries(out)) {
     const m = typeof v === "string" ? /^<from ([a-z_]+\.[a-z_]+)>$/.exec(v) : null;
     if (!m) continue;
-    const got = digests && digests[m[1]];
+    const pp = previewParams && previewParams[m[1]];
+    const got = digests && pp !== undefined ? digests[previewKey(m[1], pp)] : undefined;
     if (typeof got !== "string" || !got) return null;
     out[k] = got;
   }
@@ -77,31 +91,40 @@ function approvalCard(c, { stale, rerender, open = false, readAt = null }) {
   const actions = Array.isArray(c.actions) ? c.actions : [];
   const out = h("div", { class: "preview-out" });
   const digests = {};
+  const previewParams = {};
+  for (const a of actions) {
+    if (isPreviewVerb(String(a.action || "").split(".").pop())) previewParams[a.action] = a.params || {};
+  }
   const buttons = actions.map((a) => {
     const verb = String(a.action || "").split(".").pop();
     const isApprove = verb === "approve";
-    const isPreview = verb === "preview";
+    const isPreview = isPreviewVerb(verb);
     const blocked = stale || (isApprove && (!evidence.length || c.executable === false));
     const btn = h("button", { type: "button", class: ["btn", isApprove ? "btn-primary" : verb === "revoke" ? "btn-danger" : null],
       disabled: blocked, data: { action: a.action || "" } }, a.label || actionLabel(a.action));
     btn.addEventListener("click", async () => {
       if (isPreview) {
         btn.disabled = true;
+        const key = previewKey(a.action, a.params || {});
+        delete digests[key];            // L2: a stale digest never survives a new preview
         try {
           const r = await api.action(a.action, a.params || {});
           const res = (r && r.result) || {};
-          if (typeof res.digest === "string" && res.digest) digests[a.action] = res.digest;
+          // L3: policy.review_preview names its digest `review_digest`.
+          const dg = (typeof res.digest === "string" && res.digest) ? res.digest
+            : (typeof res.review_digest === "string" && res.review_digest) ? res.review_digest : "";
+          if (dg) digests[key] = dg;
           const shown = Array.isArray(res.display)
             ? res.display.map((d) => `${d.section}: ${d.state}`).join(" · ")
             : res.display;
           clear(out).append(h("div", { class: "callout callout-info" },
             h("p", { class: "answer" }, shown || "Preview generated."),
-            res.digest ? h("p", { class: "mono" }, `Digest: ${res.digest}`) : null));
+            dg ? h("p", { class: "mono" }, `Digest: ${dg}`) : null));
         } catch (e) { toast(e.message, "bad"); }
         finally { btn.disabled = false; }
         return;
       }
-      if (fillPreviewParams(a.params, digests) === null) {
+      if (fillPreviewParams(a.params, digests, previewParams) === null) {
         toast("Preview first: this approval binds the exact content the preview shows.", "bad");
         return;
       }
@@ -113,7 +136,7 @@ function approvalCard(c, { stale, rerender, open = false, readAt = null }) {
         requiresStepUp: !!a.requires_step_up,
         reasonLabel: isApprove || a.requires_step_up ? "Why are you deciding this?" : "Note",
         reasonRequired: isApprove || !!a.requires_step_up,
-        run: (reason) => api.action(a.action, actionParams({ ...a, params: fillPreviewParams(a.params, digests) }, reason)),
+        run: (reason) => api.action(a.action, actionParams({ ...a, params: fillPreviewParams(a.params, digests, previewParams) }, reason)),
         success: `${actionLabel(a.action)} recorded.`,
       });
       if (body) rerender();

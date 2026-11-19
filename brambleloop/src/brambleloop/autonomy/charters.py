@@ -188,7 +188,9 @@ CHARTERS: tuple[Charter, ...] = (
        # department, so it is never paused (F-889) and never counted as department work.
        prefixes=("autonomy.", "plan.", "swarm.", "portfolio.", "laura."),
        job_types={"scale.trajectory", "launch.readiness", "launch.plan", "ops.capacity",
-                  "build.tick"},
+                  "build.tick",
+                  # ENG-SUPPLY: capacity-aware product admission into engineering.
+                  "supply.admit"},
        generatable=("autonomy.morning_handoff", "scale.trajectory",
                     "autonomy.department_review"),
        forbidden=("publish, activate, spend, message a customer or change a live price",

@@ -2693,3 +2693,53 @@ Reversible by decision.
 
 The trigger is the proposal's stated size, not only the band, so the dishcloths fit with or without A4a's code on the tree. Reversible by decision.
 **D-A1R-STUFFED-EXEMPTIONS: the two catalogue stuffed pieces are written "not merchandised to a child" (opus2 under the owner's A1-R directive, 2026-11-02; owner ratification pending).** A1-R made the construction the children's-safety trigger: any closed stuffed form is held until an explicit decision exists, and the implicit candidate exemption is not one. The catalogue has two closed stuffed forms. `heart-row-ring-pillow` is a wedding ring-bearer pillow and `spring-garden-kneeler` a garden kneeling pad; neither is merchandised, sized or described for a child. Both are recorded in `products/launch0.NOT_MERCHANDISED_TO_A_CHILD`, with who, when and this entry in `NOT_MERCHANDISED_DECISIONS`. Any other closed stuffed form (a radar or registry draft, a toy) is held as a named hold with one owner decision item (`childrens-decision:<slug>`) until assigned or exempted. Reversing either exemption is one line and re-holds the product.
+
+**D-OWNER-CORE-FAMILIES: stuffed animals/amigurumi, baby products and pillows/cushions are permanent CORE product families; MadelineMaeCo is a priority research shop. The factory runs first (owner FINAL DIRECTIVE, 2026-11-19, approved).** The owner reports these as the shop's "huge hits" and made them a permanent business direction, not a temporary assignment. Every future engineering and research session follows it.
+
+1. **Two parallel tracks, and Track 1 always wins a conflict.**
+   - **Track 1 (immediate revenue factory)** carries the construction families already proven through the whole chain, 24/7 on Railway: research → original design → CIR → compile → twin/reverse → certification → US/UK PDFs → FLUX galleries → SEO/pricing → listing package → authorized draft/publication → learning.
+   - **Track 2 (permanent category expansion)** is a dedicated team building the amigurumi, pillow/cushion and baby families.
+   - New families are never a reason to delay production from proven ones.
+2. **Each new family enters the publishable catalogue only after passing its own tests:** real engineering, compilation, sizing, certification and customer-deliverable tests.
+3. **Child and baby safety is more than embroidered eyes.**
+   - Embroidered features only, with no detachable small parts.
+   - Validated joins, cords and loops, stuffing, and age suitability.
+   - Cited age and choking-hazard requirements.
+   - Physical evidence where the gate requires it.
+   - We sell patterns and claim no toy certification.
+4. **Research weighting.**
+   - MadelineMaeCo gets higher research priority and up to 5 benchmark-shortlist picks, inside the CA$300 benchmark budget.
+   - No purchase happens without separate owner authorization.
+   - Research demand for stuffed animals, baby items and cushions is prioritized, while proven families keep a steady flow.
+   - Concepts that cannot be manufactured yet stay visible and HELD with exact reasons.
+5. **Visual and PDF standard.**
+   - Premium FLUX imagery is encouraged: lifestyle scenes, multiple settings, varied angles.
+   - Laura's identity stays locked, her outfit is consistent within a listing, and the product's construction is identical throughout the gallery.
+   - PDF requirements scale with the product family: a coaster does not need a garment manual.
+   - Images never substitute for physical or engineering proof, and the Etsy disclosures and publication safeguards stay.
+6. **Accountability.**
+   - Every day the factory shows production evidence: concepts entering engineering, certifications, US/UK PDFs, images verified or recovered, galleries, listing packages, Etsy drafts/live listings, and lessons applied.
+   - Zero output is a blocker that gets fixed the same day.
+
+Reversible only by the owner.
+
+**D-OWNER-NINTH-SHOP: ArtLoveDesing is the ninth mandatory research shop, permanent (owner directive, 2026-11-19).** The owner added a ninth research shop. It is named ArtLoveDesing, spelled "Desing" exactly as the shop spells itself. The owner-supplied URL is kept verbatim: `https://www.etsy.com/ca/shop/ArtLoveDesing?ref=shop_profile&listing_id=4427559824`. The canonical URL `https://www.etsy.com/ca/shop/ArtLoveDesing` is stored beside it. The shop is a permanent research source and never a report mention.
+
+**Registries.** It is added to every registry, with role `permanent`:
+- `intel/benchmarks.py`: `ARTLOVE` in `OWNER_ADDED_SHOPS`, so it is in `REGISTRY` and mandatory.
+- `intel/watchlist.py`: a `Member` in `WATCHLIST`.
+- `intel/scan_evidence.py`: in `OWNER_SHOPS`, the ninth in the owner's order.
+- `radar/market.py`: in `COMPETITORS`, as an owner-named profile with nothing observed and nothing claimed.
+
+**Scanning.** It is scanned on the watchlist cadence by the same `scan_member` as the other shops. That is the official Etsy Open API v3 public read endpoints only: findShops, the shop's listings and getReviewsByShop.
+
+**Monitoring.** The owner asked for listings, prices, amigurumi, PDF languages and quality, reviews and trends. `watchlist.MONITORING_FOCUS` maps each of these to the `compare` figures that answer it. Three figures are new, and they are read for every shop:
+- `amigurumi_listings` is DERIVED from our pod routing.
+- `listing_languages` is MEASURED from findShops `languages`. Language codes only are kept. The PDF is never bought, downloaded or opened.
+- `pdf_quality` is UNMEASURED. No compliant source exists, because judging a competitor's PDF needs their file. The review average and recurring complaint themes are shown as their own figures and are never relabelled as PDF quality.
+
+**Unreachable shop.** If the authorised API cannot reach the shop, the D-W4-OWNER-SEEDSHOPS pattern applies unchanged. The shop is recorded as `not_accessible`, its monitoring is kept, it backs off, the other shops are not blocked and it is never reported as scanned. Its alternative evidence says "owner-named profile, not yet observed" rather than citing an observation that never happened. IvyLoop's unobserved profile now reads the same way.
+
+**Readback.** `ops/production_evidence.competitor_scans` reports nine shops. `ops/readback` states `RESEARCH_SHOPS = 9`, a test pins that number to `len(OWNER_SHOPS)`, and the row is now "competitor shops scanned (nine-shop research network)". A server that reports fewer shops WARNs with "expected 9" and never PASSes.
+
+**Tests.** `tests/test_ninth_shop.py` covers the change, and the existing suites now assert the exact nine. This is reversible only by an owner decision.

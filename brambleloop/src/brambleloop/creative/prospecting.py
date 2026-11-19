@@ -661,7 +661,13 @@ JSON_OVERHEAD_TOKENS = 200
 # product gets when nobody was paying attention.
 EVENT_OCCASION: dict[str, str] = {
     "Christmas": "christmas", "Halloween": "halloween", "Easter": "easter",
-    "Valentine's Day": "valentines", "Thanksgiving (CA)": "thanksgiving",
+    # The calendar (`radar.market.SEASONAL_EVENTS`, and so every arena the matrix returns)
+    # names this event "Valentine's"; "Valentine's Day" is kept as the spelling older callers
+    # use. Production, 2026-11: the vocabulary knew only the long form, so the one arena the
+    # wheel picked at cycle 0 refused in `propose` and `seasonal.cycle_proof` dead-lettered on
+    # every run. A guard test now requires every calendar event to have an entry here.
+    "Valentine's": "valentines", "Valentine's Day": "valentines",
+    "Thanksgiving (CA)": "thanksgiving",
     "Thanksgiving": "thanksgiving", "Mother's Day": "mothers_day",
     "Father's Day": "fathers_day", "Back to School": "back_to_school",
 }
