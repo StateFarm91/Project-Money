@@ -113,7 +113,10 @@ worktrees, not this file.
   auto-renew-docs eed2d5cb, first-listing-lows 7cf994a3 (sw v33); deploy note text in the RR.
   Main STATUS 7013299904: 8bc96eef deployed; workforce lanes ENG-RECOVERY/SUPPLY/FAMILIES/
   CATALOGUE/RESEARCH/CREDITS/NINTH-SHOP (not opus2).
-- Stop reason (2026-11-19T16:05Z): ASSIGN 7012067586 delivered; awaiting Main's verdicts.
+- Tick 2026-11-19T16:28Z: no [MAIN] message since RR 7014276939; INTEG2 still a35ad302. New RRs from
+  ENG-CATALOGUE, ENG-FAMILIES (touches test_opus2_draft_constructions; no finding on opus2 code),
+  ENG-RESEARCH. Nothing posted.
+- Stop reason (2026-11-19T16:30Z): ASSIGN 7012067586 delivered; awaiting Main's verdicts.
   Answer any [MAIN] message first next tick.
 - ws5 LOWs N1-N3 RR POSTED 9b807fed on opus2/ws5-n1-n3-resolver-lows (on w6-INTEG1 19e6a8ff):
   N1 create-window binding (escalate, never release, on an unbound listing created within
