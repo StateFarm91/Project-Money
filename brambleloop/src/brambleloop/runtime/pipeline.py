@@ -982,12 +982,18 @@ def handle_cir_draft(ctx: JobContext) -> dict:
     route = FC.plan(category=concept.category, title=concept.title,
                     is_bundle=bool(seed.is_bundle) if seed is not None else False,
                     slug=concept.slug, rationale=seed.rationale if seed is not None else "")
+    from ..creative.construction_families import draft_hold
+
     if route["family"] == FC.REFUSED:
+        # ENG-FAMILIES: the refusal names the family it holds, the label intake uses, so the
+        # production inventory shows a construction hold, never "drafted, not compiled".
+        hold = draft_hold(concept.category, concept.title)
         ctx.audit("cir.draft_refused", artifact=slug,
                   detail={"reason": route["why"][:400], "gate": "construction",
-                          "category": concept.category, "needs": route["needs"][:200]})
+                          "category": concept.category, "needs": route["needs"][:200],
+                          "hold": hold})
         return {"artifact": slug, "drafted": False, "gate": "construction",
-                "construction": FC.REFUSED, "reasons": [route["why"][:300]]}
+                "construction": FC.REFUSED, "hold": hold, "reasons": [route["why"][:300]]}
     try:
         if route["family"] == FC.VESSEL:
             provenance = None
@@ -1039,12 +1045,14 @@ def handle_cir_draft(ctx: JobContext) -> dict:
             cir = FC.stocking(concept, provenance=provenance)
         elif route["family"] == FC.TAPESTRY:
             if len(set((concept.colors or {}).values())) < 2:
+                hold = draft_hold(concept.category, concept.title, FC.TAPESTRY)
                 ctx.audit("cir.draft_refused", artifact=slug,
                           detail={"reason": "tapestry needs two distinct colours",
                                   "gate": "construction", "category": concept.category,
-                                  "needs": "a second, distinct colour in the palette"})
+                                  "needs": "a second, distinct colour in the palette",
+                                  "hold": hold})
                 return {"artifact": slug, "drafted": False, "gate": "construction",
-                        "construction": FC.REFUSED,
+                        "construction": FC.REFUSED, "hold": hold,
                         "reasons": ["tapestry needs two distinct colours"]}
             provenance = None
             if lineage["known"]:
@@ -1099,12 +1107,14 @@ def handle_cir_draft(ctx: JobContext) -> dict:
         # Review OPUS2C N3.3: a construction that cannot be built from these inputs (an empty
         # repeat, no colours, a stitch outside the taxonomy) is a named refusal, not a crash.
         why = f"{type(exc).__name__}: {str(exc)[:300]}"
+        hold = draft_hold(concept.category, concept.title, route["family"])
         ctx.audit("cir.draft_refused", artifact=slug,
                   detail={"reason": why[:400], "gate": "construction",
                           "category": concept.category,
-                          "needs": f"inputs the {route['family']} construction can work"})
+                          "needs": f"inputs the {route['family']} construction can work",
+                          "hold": hold})
         return {"artifact": slug, "drafted": False, "gate": "construction",
-                "construction": route["family"], "reasons": [why[:300]]}
+                "construction": route["family"], "hold": hold, "reasons": [why[:300]]}
     # OPUS2-P0: the publish gate's name-truth rule, read at draft time for the constructions
     # this fallback now makes. Recorded, never a refusal here: publication refuses it
     # (NAME_OUTRUNS_PATTERN), and the count shows what the fallback cannot yet chart.

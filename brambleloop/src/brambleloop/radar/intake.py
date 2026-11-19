@@ -28,11 +28,14 @@ What this module never does:
 * invent evidence. A proposal with no recorded evidence, evidence that does not resolve to
   the research task's own findings and dated sources, an unanswered or expired task, or a
   task that recorded no confidence is refused;
-* accept a construction the radar draft path cannot compile honestly. `cir.draft` drafts a
-  radar concept with `runtime.pipeline.concept_to_cir`: a flat_rows panel worked over the
-  category's stitch repeat. Anything else -- worked in the round, mosaic overlay, cables,
-  tapestry, granny squares, shaping -- would be compiled as an object it is not, so it is
-  refused here with an "unsupported construction" reason instead of failing downstream;
+* accept a construction the radar draft path cannot build honestly. `cir.draft` drafts a
+  radar concept through `creative.fallback_constructions.plan` (a flat rows panel, a basket in
+  joined rounds, a charted tapestry basket, a seamed cushion pair, ...). ENG-FAMILIES:
+  `creative.construction_families.route` admits a concept only into a family whose engine is
+  verified end to end and whose declared form and construction name what the draft builds;
+  anything else -- mosaic overlay, cables, granny squares, shaping, an unverified engine, a
+  declaration the title would draft as something else -- is held with a
+  `construction_unsupported:<family>` reason instead of being flattened into a panel;
 * set a taste judgement. `thumbnail_reads_small` / `craft_impression` are stripped from
   proposals; only the vision judge's record (`creative.intake.judgement_for`) supplies them,
   and with `image_vision` CLOSED the pre-engineering gate leaves the concept WAITING;
@@ -569,22 +572,20 @@ def gate_inputs(db, slug: str, inputs: dict) -> dict:
 # ---- validation ------------------------------------------------------------------------------
 
 
-def construction_verdict(category: str, form: str, construction: str) -> list[str]:
-    """Reasons the radar draft path cannot compile this, or [] when it can."""
-    reasons = []
-    if construction not in SUPPORTED_CONSTRUCTIONS:
-        why = CONSTRUCTION_WHY.get(construction, "no template drafts it")
-        reasons.append(f"unsupported construction {construction!r}: {why}. Supported on the "
-                       f"radar draft path: {list(SUPPORTED_CONSTRUCTIONS)}")
-    if category not in SUPPORTED_FORMS:
-        why = UNSUPPORTED_CATEGORY_WHY.get(
-            category, "no `concept_geometry` template row exists for it")
-        reasons.append(f"unsupported construction for category {category!r}: {why}. "
-                       f"Supported categories: {sorted(SUPPORTED_FORMS)}")
-    elif form not in SUPPORTED_FORMS[category]:
-        reasons.append(f"unsupported construction: form {form!r} is not what a flat rows "
-                       f"{category} panel is (allowed {list(SUPPORTED_FORMS[category])})")
-    return reasons
+def construction_verdict(category: str, form: str, construction: str, *, title: str = "",
+                         slug: str = "", rationale: str = "") -> list[str]:
+    """Reasons the radar draft path cannot build this honestly, or [] when it can.
+
+    ENG-FAMILIES: routed by `creative.construction_families.route`, which asks the same
+    `fallback_constructions.plan` `cir.draft` calls. A concept is admitted only into a family
+    whose engine is verified end to end and whose declared form and construction name what the
+    draft will build; anything else is held as `construction_unsupported:<family>`."""
+    from ..creative import construction_families
+
+    got = construction_families.route(category=category, title=title, form=form,
+                                      construction=construction, slug=slug,
+                                      rationale=rationale)
+    return [] if got["admitted"] else [got["reason"]]
 
 
 def _children_reasons(db, p: dict, concept: dict) -> list[str]:
@@ -741,7 +742,8 @@ def validate(db, proposal: dict, evidence: dict, *, source_ref: str) -> dict:
     reasons += list(evidence.get("reasons") or [])
     c = p["concept"]
     reasons += construction_verdict(p["category"], str(c.get("form")),
-                                    str(c.get("construction")))
+                                    str(c.get("construction")), title=str(p["title"]),
+                                    slug=str(p["slug"]), rationale=str(p["rationale"]))
     # S1 review 6958883678 H2: the size the title asks for (a class word or stated dimensions)
     # is read here; a size the family cannot make is refused now, not resized at draft time.
     from ..creative import size_truth
@@ -771,8 +773,11 @@ def validate(db, proposal: dict, evidence: dict, *, source_ref: str) -> dict:
     seed = None
     if not reasons:
         seed = {"title": str(p["title"]), "category": p["category"],
-                # Derived, not typed: a flat rows panel is the Class A geometry the compiler
-                # proves end to end; whitespace is the measured distance to the nearest
+                # Derived, not typed: every admitted family (construction_families) is a home
+                # object proposed as Class A; certification's risk matrix raises it from the
+                # built CIR where it must (a seamed cushion pair needs its physical sample, C)
+                # and is never lowered by this seed; whitespace is the
+                # measured distance to the nearest
                 # existing idea; the make lane is read from the maker hours.
                 "risk_class": "A", "price_cad": price, "maker_hours": list(hours),
                 "design_hours": design, "whitespace": round(min(1.0, gap), 3),

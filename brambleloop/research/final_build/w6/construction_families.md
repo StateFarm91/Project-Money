@@ -1,0 +1,103 @@
+# Construction families: which engine makes a researched concept (ENG-FAMILIES)
+
+Status as of 2026-11-19, branch `eng/families` (base `claude/w6-INTEG2` @ a35ad302).
+Nothing here is deployed. The router's machine-readable form is
+`src/brambleloop/creative/construction_families.py` (`FAMILIES`, `UNBUILT`, `family_table()`).
+`tests/test_eng_families.py::test_router_family_table_is_the_report_and_names_every_unbuilt_family`
+fails if a family in that table is missing from this file.
+
+## How a researched concept is routed
+
+`radar.concept_intake` → `construction_families.route` → `radar.score` → `cir.draft` →
+`cir.compile` → `gate.certify`.
+
+- The route has no rule of its own. It asks `creative.fallback_constructions.plan`, the same
+  function `cir.draft` calls, which family the concept's category and title draft.
+- The concept's **declared** form and construction (closed vocabulary) must name that same
+  family. If they don't (for example, a "tapestry" basket whose title the draft would build
+  as a plain striped vessel, or a basket in the placemat category), the concept is held.
+- Only families with status `verified` or `physical_gate` are admitted. Everything else is
+  held with the reason `construction_unsupported:<family> -- <why>`.
+- Holds show up in `production_inventory` as hold kind `construction_unsupported`, both for
+  intake holds (state `research_candidate`) and for `cir.draft` construction refusals (state
+  `research_approved`, "held: …"). `production_summary.held_by_reason` counts them.
+- Children's safety is untouched. Intake's `_children_reasons` pre-check runs for every
+  family. `childrens_decision` and `small_parts` run at PDF build. Routing never changes a
+  concept's category or title, and no baby item routes to a shaped family: a baby concept
+  declared in the round is held as `construction_unsupported:vessel`.
+
+## Status definitions
+
+- **verified**: a research-derived, non-catalogue concept goes through all of the following,
+  pinned by the named test: intake approval, score, draft, compile, twin, independent reverse
+  compile, Product Truth size check (no `OBJECT_SIZE_*` finding), and a granted certificate
+  with no ERROR finding.
+- **physical_gate**: everything computes clean, and certification withholds only for the
+  physical sample that its risk class requires. The existing physical-sample path carries it.
+  Admitted.
+- **partial**: an engine exists, but it does not certify a research concept, or no pinned
+  research-derived proof exists yet. Held.
+- **none**: no engine on the research route. Held.
+
+## Research-route families (reachable from a researched concept)
+
+| Family | Engine | Status | Test that proves it | Sizes (source) | Gaps |
+|---|---|---|---|---|---|
+| `flat_panel` | `runtime.pipeline.concept_to_cir` | verified | `test_a_research_flat_runner_certifies_end_to_end` | per-category template (`_GEOMETRY`, `_TITLE_GEOMETRY`); size classes from `creative.size_truth` (Craft Yarn Council blanket sizes) | plain sc/dc stripes only: no charted motif, no texture stitch |
+| `vessel` | `creative.fallback_constructions.vessel` | verified | `test_a_research_basket_routes_to_the_vessel_engine_and_certifies` | small / medium / large from `products.vessels.BASKET_SIZES` (house design sizes, **no published standard**) | striped walls only; one size per release; pet bed is cat size only |
+| `tapestry` | `creative.fallback_constructions.tapestry_basket` | verified | `test_a_research_tapestry_basket_routes_to_its_chart_and_certifies` | small / medium / large from `BASKET_SIZES` | two charts (diamond, check), two colours; a motif word outside the allowlist (for example "heron") is held |
+| `panel_pair` | `creative.fallback_constructions.panel_pair` | physical_gate | `test_a_research_cushion_is_physical_gated_not_flattened` | `size_truth.PILLOW_FORMS` (standard pillow-form sizes) | certification's risk matrix sets class C; the only refusal is `PHYSICAL_TEST_REQUIRED` |
+| `pouch` | `creative.fallback_constructions.pouch` | partial | none: an exploratory run was refused | one size (`POUCH_ACROSS_CM`, design choice) | certification refuses `ASSET_COLOR_ABSENT`: the pouch works one palette colour while its hero asset depicts two |
+| `tote` | `creative.fallback_constructions.tote` | partial | none yet | `BASKET_SIZES` | no research-derived concept pinned through certification (the exploratory title was a dedupe hit on POOL `everyday-market-tote`) |
+| `cosy` | `creative.fallback_constructions.cosy` | partial | none yet | one size (`EGG_AROUND_CM`) | one exploratory run was granted; no pinned test yet (slice two) |
+| `stocking` | `creative.fallback_constructions.stocking` | partial | none yet | one size (`STOCKING_SIZE_SOURCE`, design choice) | no research-derived concept pinned through certification |
+| `triangle` | `creative.fallback_constructions.triangle` | partial | none yet | one size (`SHAWL_WINGSPAN_CM`, design choice) | no research-derived concept pinned through certification |
+| `amigurumi` | none | none | — | — | spiral rounds with sculpted shaping; no shaped-form engine on the radar path |
+| `mosaic` | none on research route | none | — | — | overlay mosaic needs stitches that reach past the previous row; only the hand-engineered Nordic Forest throw has it |
+| `graphghan` | none | none | — | — | a charted picture in rows; the radar template drafts stripes |
+| `cable` | none on research route | none | — | — | post-stitch crossings (B-080); only the hand-engineered `texture.build_cable_throw` has them |
+| `motif` | none | none | — | — | granny squares / joined motifs |
+| `c2c` | none | none | — | — | diagonal tile increases and decreases |
+| `side_to_side` | none | none | — | — | lengthwise foundation |
+| `modular` | none | none | — | — | several shaped panels and an assembly |
+| `garment` | `creative.garment_design` (tournament path only) | none on research route | — | — | graded garments are built only from tournament winners, not radar concepts |
+| `ornament` | none | none | — | — | closed or shaped small pieces |
+| `hat` | none | none | — | — | the sourced head chart lacks height and negative ease (`HAT_UNSOURCED`) |
+| `flower` | none | none | — | — | a motif in rounds |
+| `seasonal_decor` | none | none | — | — | garlands and shapes |
+
+## Catalogue engines (hand-engineered; not reachable from a researched concept)
+
+These build named catalogue slugs (`runtime.pipeline.ENGINEERED`). They are not parameterised
+by a concept, so a researched concept cannot route to them. They were **not re-verified on
+this branch**. Their certification status is whatever the certification runs in
+`BUILD_STATE.md` recorded.
+
+| Engine | Builds | Research-route status | Gap to route research concepts |
+|---|---|---|---|
+| `products.nordic_forest.build` | mosaic/overlay throw (and baby proposal) | none | one fixed motif; would need a parameterised overlay-chart engine |
+| `products.texture` | cable throw, bobble pillow, ribbed scarf | none | each is one design; cable, bobble and rib are not exposed as concept parameters |
+| `products.launch0` / `products.vessels.build_basket` | the three Launch-0 baskets, hexagon coasters | none directly; the research `vessel` family reuses `vessels._disc_rounds`, `base_stitches_for` and `BASKET_SIZES` | hexagon coaster disc is not on the fallback route |
+| `products.moment_candidates` | tea cosy, advent garland, ring pillow, key basket, kneeler, cable wrap | none | per-candidate builders, tournament path |
+| `products.garments` + `cir.graded` + `creative.garment_design` | graded garments | none on radar route | tournament path only |
+| `products.builder` + `products.motifs` | generated catalogue (motif × palette panels) | none | the catalogue generator, not a research route |
+| `products.personalisation` | personalised variants of certified designs | n/a | operates on certified releases |
+| `creative.prototype.author` | tournament prototypes (sc body in the routed construction) | n/a here | `ENGINE_ROUTE` maps tapestry, mosaic, cable, granny and C2C to `flat_rows`, a plain sc body. It is a prototype size check, not a product. It is out of scope for this slice and noted as a gap: it must never be certified under a technique name (`launch0.fabric_truth` refuses that at publication) |
+
+## Defects found while verifying (not fixed here; owned elsewhere)
+
+- **`gates/policy.py` IP terms match bare substrings.** "Fer**nba**nk Cushion Cover" was refused
+  `POLICY_IP_RISK 'nba'`. It fails closed (blocks, never passes), so it is safe but produces
+  false refusals. A word-boundary match would fix it. This is the policy gate's owner's call.
+- **`pouch` hero asset colour.** The pouch engine works one colour of a two-colour palette,
+  while its hero asset depicts both, so certification correctly refuses it. To promote the
+  family, either colour the pouch (rim or cord in the second colour) or render a one-colour
+  asset.
+
+## Next slices
+
+1. Pin cosy, tote, stocking and triangle with research-derived certify tests and promote any
+   that pass. Fix the pouch colour and promote it.
+2. Family expansion: sizes from each family's size table (vessel and tapestry: small, medium,
+   large), tapestry charts (diamond, check) and colourways. Each variation is deduplicated by
+   the existing novelty and sibling gates and certified as its own release.
