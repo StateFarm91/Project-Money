@@ -13,7 +13,8 @@
 // W5-INVENTORY: the Production view joins the shell, so v28.
 // Batch 5 integration: LAUNCHFIX's Policy view (v28) and W5-INVENTORY's Production view (v28)
 // merged, so a new version.
-const VERSION = "cc-shell-v29";
+// ENG-FIRSTLIST: approvals.js threads the preview digest into approvals, so v30.
+const VERSION = "cc-shell-v30";
 const SHELL = [
   "./",
   "index.html",
