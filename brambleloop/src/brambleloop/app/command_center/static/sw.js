@@ -16,7 +16,9 @@
 // S4b: the P0 board view (#/p0_board) joins the shell, so v30.
 // S4 sales LOWs (verdict 6998037105): the board page shows PARTIAL sales "as of the last
 // read", so v31.
-const VERSION = "cc-shell-v31";
+// ENG-FIRSTLIST: approvals.js threads the preview digest into approvals; merged after S4's
+// v30/v31 (INTEG2), so v32 supersedes both shells.
+const VERSION = "cc-shell-v32";
 const SHELL = [
   "./",
   "index.html",
