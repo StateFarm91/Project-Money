@@ -33,6 +33,7 @@ or `record_activated`, so it is never in Stage A lineage and never reachable by 
 """
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta
 
 from . import standing_activation as SA
@@ -48,6 +49,7 @@ HELD = "policy.activation_grant_held"
 SKIPPED = "standing_activation.schedule_skipped"
 SCHEDULED = "standing_activation.scheduled"
 LINEAGE_UNRECORDED = "standing_activation.lineage_unrecorded:"
+_log = logging.getLogger(__name__)
 REQUEST_ACTOR = "standing_scheduler"
 #: The job runs no earlier than this after it is queued, so the issuer (a 60-second pull loop)
 #: has answered before the worker looks for the grant. Inside the grant's 15-minute life.
@@ -341,27 +343,100 @@ def claim(db, grant_id: int, *, job_id: int, now: datetime | None = None) -> str
     return None
 
 
-def record_live(ctx, *, grant_id: int, listing_id: str, after: dict, artifact: str) -> bool:
-    """L-B: after the handler's `store.activated` row and a read-back showing the listing
-    `active`, put it in SP lineage. A read-back that does not show it is recorded nothing; a
-    live listing whose lineage cannot be recorded is an incident (withdrawal could not reach
-    it), never silence."""
-    ok = SA.record_activated(ctx.db, int(grant_id), listing_id=str(listing_id), after=after)
-    if not ok and str((after or {}).get("state") or "").lower() == "active":
+def lineage_recorded(db, grant_id: int, listing_id: str) -> bool:
+    """True when `standing_policy.activation_verified` already names this listing under this
+    grant: the listing is in SP lineage and a retry has nothing to repair."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        for d in s.scalars(select(AuditLog.detail).where(AuditLog.action == SA.ACTIVATED)):
+            d = d or {}
+            if int(d.get("grant_id") or -1) == int(grant_id) and \
+                    str(d.get("etsy_listing_id")) == str(listing_id):
+                return True
+    return False
+
+
+def open_lineage_unrecorded(db, *, grant_id: int, listing_id: str, artifact: str,
+                            why: str) -> bool:
+    """Open (or restate) the P1 `standing_activation.lineage_unrecorded:<listing>` incident.
+    Best effort: an incident that cannot be written is logged, never raised over the caller's
+    own outcome. Returns whether it was written."""
+    try:
         from . import incident_lifecycle as lifecycle
 
-        with ctx.db.session() as s:
+        with db.session() as s:
             lifecycle.open_or_restate(
                 s, signature=f"{LINEAGE_UNRECORDED}{listing_id}", severity="P1",
                 summary=(f"listing {listing_id} went live under standing grant {grant_id} but "
-                         f"its Stage A lineage could not be recorded; the rollback cannot "
-                         f"reach it. Check it on Etsy."),
+                         f"its Stage A lineage could not be recorded ({why[:200]}); the "
+                         f"rollback cannot reach it. Check it on Etsy."),
                 detail={"etsy_listing_id": str(listing_id), "grant_id": int(grant_id),
-                        "artifact": artifact})
+                        "artifact": artifact, "why": why[:300]})
+        return True
+    except Exception:  # noqa: BLE001 - best effort; the caller's result still says unrecorded
+        _log.exception("could not open %s%s", LINEAGE_UNRECORDED, listing_id)
+        return False
+
+
+def record_live(ctx, *, grant_id: int, listing_id: str, after: dict, artifact: str) -> bool:
+    """L-B: after the handler's `store.activated` row and a read-back showing the listing
+    `active`, put it in SP lineage. A read-back that does not show it is recorded nothing; a
+    live listing whose lineage cannot be recorded -- refused, or `record_activated` raising --
+    is an incident (withdrawal could not reach it), never silence. Idempotent: a listing
+    already in lineage under this grant is not recorded twice."""
+    live = str((after or {}).get("state") or "").lower() == "active"
+    why = "standing_activation.record_activated refused the read-back"
+    try:
+        if lineage_recorded(ctx.db, grant_id, listing_id):
+            return True
+        ok = SA.record_activated(ctx.db, int(grant_id), listing_id=str(listing_id),
+                                 after=after)
+    except Exception as exc:  # noqa: BLE001 - MEDIUM-1: a DB error here must not be silent
+        ok, live = False, True
+        why = f"recording raised {type(exc).__name__}: {str(exc)[:200]}"
+    if not ok and live:
+        open_lineage_unrecorded(ctx.db, grant_id=grant_id, listing_id=listing_id,
+                                artifact=artifact, why=why)
+    elif ok:
+        _resolve_lineage_unrecorded(ctx.db, listing_id=listing_id, grant_id=grant_id)
     return ok
 
 
+def _resolve_lineage_unrecorded(db, *, listing_id: str, grant_id: int) -> None:
+    """A retry that recorded the lineage closes the incident an earlier attempt opened."""
+    try:
+        from . import incident_lifecycle as lifecycle
+
+        with db.session() as s:
+            lifecycle.resolve_signatures(
+                s, [f"{LINEAGE_UNRECORDED}{listing_id}"],
+                resolution=f"listing {listing_id} is now in Stage A lineage under standing "
+                           f"grant {grant_id}")
+    except Exception:  # noqa: BLE001 - best effort; the lineage itself is recorded
+        _log.exception("could not resolve %s%s", LINEAGE_UNRECORDED, listing_id)
+
+
 # ---- 4. reconcile a crash after the Etsy request --------------------------------------------
+
+def _activated_audited(db, grant_id: int, listing_id: str) -> bool:
+    """A `store.activated` row already names this listing under this standing grant (an
+    earlier attempt got that far), so a reconcile does not write a second one."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        for d in s.scalars(select(AuditLog.detail).where(AuditLog.action == "store.activated")):
+            d = d or {}
+            if d.get("authority") == "standing" and \
+                    int(d.get("grant_id") or -1) == int(grant_id) and \
+                    str(d.get("etsy_listing_id")) == str(listing_id):
+                return True
+    return False
+
 
 def reconcile(ctx, *, grant_id: int, listing_id: str, remote: dict, slug: str,
               version: str) -> dict | None:
@@ -391,10 +466,12 @@ def reconcile(ctx, *, grant_id: int, listing_id: str, remote: dict, slug: str,
                                              Listing.version == version))
         if row is not None:
             row.state = "active"
-    ctx.audit("store.activated", artifact=artifact,
-              detail={"etsy_listing_id": str(listing_id), "state_on_etsy": remote.get("state"),
-                      "authority": "standing", "grant_id": int(grant_id),
-                      "reconciled": True, "intent_state": state})
+    if not _activated_audited(ctx.db, grant_id, listing_id):
+        ctx.audit("store.activated", artifact=artifact,
+                  detail={"etsy_listing_id": str(listing_id),
+                          "state_on_etsy": remote.get("state"), "authority": "standing",
+                          "grant_id": int(grant_id), "reconciled": True,
+                          "intent_state": state})
     recorded = record_live(ctx, grant_id=grant_id, listing_id=listing_id, after=remote,
                            artifact=artifact)
     from . import incident_lifecycle as lifecycle

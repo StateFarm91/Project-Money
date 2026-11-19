@@ -2744,9 +2744,14 @@ def handle_store_activate(ctx: JobContext) -> dict:
                   detail={"reason": "no Etsy draft is recorded for this release"})
         return {"slug": slug, "version": version, "activated": False,
                 "reasons": ["no Etsy draft is recorded for this release"]}
-    if local_state == "active":
-        return {"slug": slug, "version": version, "activated": False,
-                "etsy_listing_id": listing_id, "reasons": ["already active"]}
+    standing = bool(i.get("standing_activation"))
+    already = {"slug": slug, "version": version, "activated": False,
+               "etsy_listing_id": listing_id, "reasons": ["already active"]}
+    # MEDIUM-1: a standing job whose listing already reads active locally may be the retry of
+    # an attempt that stopped between the active commit and its Stage A lineage; it reaches
+    # the reconcile below (which sends nothing) before it can stop here.
+    if local_state == "active" and not standing:
+        return already
 
     # Read at execution: the grant may have been withdrawn since this job was queued.
     owner_authorised = os.environ.get("BRAMBLELOOP_PUBLISH_AUTHORISED", "") == "1"
@@ -2767,7 +2772,6 @@ def handle_store_activate(ctx: JobContext) -> dict:
 
     # WS4-8: a standing job's authority is the grant the issuer bound to this job, found in
     # the grant store -- never anything the job carried. One authority per job.
-    standing = bool(i.get("standing_activation"))
     seg_id = None
     if standing:
         from ..ops import standing_activation_flow as stage_a
@@ -2779,17 +2783,33 @@ def handle_store_activate(ctx: JobContext) -> dict:
                     "etsy_listing_id": listing_id, "reasons": [why]}
         found = stage_a.grant_for_job(ctx.db, ctx.job.id)
         seg_id = found["grant_id"]
+        if seg_id is None and local_state == "active":
+            return already
         if seg_id is None:
             ctx.audit("store.activate_refused", artifact=artifact,
                       detail={"reason": found["why"], "authority": "standing"})
             return {"slug": slug, "version": version, "activated": False,
                     "etsy_listing_id": listing_id, "reasons": [found["why"]]}
-        # A retry after a crash past the Etsy request: Etsy's read-back decides, nothing is
-        # sent again and the fee is not reserved twice.
+        if local_state == "active" and \
+                stage_a.lineage_recorded(ctx.db, seg_id, str(listing_id)):
+            return already
+        # A retry after a crash past the Etsy request (or after the active commit, before its
+        # lineage was recorded): Etsy's read-back decides, nothing is sent again and the fee
+        # is not reserved twice.
         reconciled = stage_a.reconcile(ctx, grant_id=seg_id, listing_id=str(listing_id),
                                        remote=remote, slug=slug, version=version)
         if reconciled is not None:
             return reconciled
+        if local_state == "active":
+            # Recorded active here, but no lineage and nothing this job can reconcile from
+            # (Etsy does not read it active, or the intent is not this job's): send nothing,
+            # and never leave a live listing outside lineage silently.
+            if str(remote.get("state") or "").lower() == "active":
+                stage_a.open_lineage_unrecorded(
+                    ctx.db, grant_id=seg_id, listing_id=str(listing_id), artifact=artifact,
+                    why="the listing reads active but this job holds no applied activation "
+                        "intent to reconcile it from")
+            return already
 
     from ..integrations import etsy_verify
 

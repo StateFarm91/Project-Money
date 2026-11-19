@@ -119,14 +119,16 @@ def _mint(db, slug, version, release, job_id):
 
 
 def _world():
-    """A certified release whose verified draft is on the fake Etsy, with its renewal off."""
+    """A certified release whose verified draft is on the fake Etsy, its renewal off as created."""
     db = rb._db()
     fake = rb.FakeEtsy()
     fake.__enter__()
     _FAKES.append(fake)
     with patch.dict(os.environ, {"BRAMBLELOOP_OPS_TOKEN": TOKEN}):
         p, lid = rb._published(db, fake)
-    fake.listings[str(lid)]["should_auto_renew"] = False
+    # The create payload itself sends should_auto_renew=false (the fake defaults a create
+    # that omits it to True), so nothing here sets it: the draft proves it.
+    assert fake.listings[str(lid)]["should_auto_renew"] is False
     with db.session() as s:
         release = s.scalar(select(Listing.release_hash).where(
             Listing.product_slug == p["slug"])) or ""
@@ -420,6 +422,8 @@ def test_a_retried_job_never_activates_or_charges_twice():
         third = _handler(db, fake, job, activate=counting)
         assert third["activated"] is True and third.get("reconciled") is True, third
         assert len(sent) == 1 and len(_fees(db)) == 1
+        # Lineage and store.activated are recorded once, however often the job is retried.
+        assert len(_audits(db, SA.ACTIVATED)) == 1 and len(_audits(db, "store.activated")) == 1
     finally:
         _unkeys()
 
@@ -484,6 +488,185 @@ def test_a_crash_before_etsy_applied_is_never_resent():
         assert not _audits(db, SA.ACTIVATED) and len(_fees(db)) == 1
     finally:
         _unkeys()
+
+
+def _open_lineage_incidents(db, lid):
+    with db.session() as s:
+        return [i.signature for i in s.scalars(select(Incident).where(
+            Incident.resolved.is_(False), Incident.signature == f"{F.LINEAGE_UNRECORDED}{lid}"))]
+
+
+def _counting_send(sent):
+    real = EtsyClient.activate
+
+    def counting(self, listing_id, **kw):
+        sent.append(listing_id)
+        return real(self, listing_id, **kw)
+    return counting
+
+
+def test_record_activated_raising_once_opens_an_incident_and_the_retry_repairs_lineage():
+    """MEDIUM-1: a DB error inside record_activated after the listing went live is never
+    silent (P1 incident), and a retry of the job -- whose listing now reads active locally --
+    records the lineage from the read-back, sending nothing and charging nothing again."""
+    from sqlalchemy.exc import OperationalError
+
+    _keys()
+    try:
+        db, fake, p, lid, release = _world()
+        job = _standing_job(db, p, release)
+        gid = _mint(db, p["slug"], p["version"], release, job.id)["grant_id"]
+        sent: list = []
+        real_record = SA.record_activated
+        calls = {"n": 0}
+
+        def flaky(*a, **k):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise OperationalError("INSERT audit_log", {}, Exception("connection reset"))
+            return real_record(*a, **k)
+        with patch.object(SA, "record_activated", flaky):
+            first = _handler(db, fake, job, activate=_counting_send(sent))
+            assert first["activated"] is True and first["lineage_recorded"] is False, first
+            assert fake.listings[lid]["state"] == "active" and not _audits(db, SA.ACTIVATED)
+            assert _open_lineage_incidents(db, lid) == [f"{F.LINEAGE_UNRECORDED}{lid}"]
+            with db.session() as s:
+                assert s.scalar(select(Listing.state).where(
+                    Listing.product_slug == p["slug"])) == "active"
+            retry = _handler(db, fake, job, activate=_counting_send(sent))
+        assert retry["activated"] is True and retry["reconciled"] is True and \
+            retry["lineage_recorded"] is True, retry
+        verified = _audits(db, SA.ACTIVATED)
+        assert len(verified) == 1 and verified[0][1]["grant_id"] == gid
+        assert len(_audits(db, "store.activated")) == 1        # not written a second time
+        assert len(sent) == 1 and len(_fees(db)) == 1          # nothing re-sent or re-charged
+        assert _plan_live(db) == [lid]
+        assert SW.lineage_of_live(db, lid)["grant_id"] == gid
+        assert _open_lineage_incidents(db, lid) == []          # the repair closes it
+        # And a further retry finds nothing to do.
+        again = _handler(db, fake, job, activate=_counting_send(sent))
+        assert again["reasons"] == ["already active"] and len(_audits(db, SA.ACTIVATED)) == 1
+    finally:
+        _unkeys()
+
+
+def test_record_activated_raising_on_every_attempt_is_never_silent():
+    _keys()
+    try:
+        db, fake, p, lid, release = _world()
+        job = _standing_job(db, p, release)
+        _mint(db, p["slug"], p["version"], release, job.id)
+
+        def broken(*a, **k):
+            raise RuntimeError("database gone")
+        with patch.object(SA, "record_activated", broken):
+            for _ in range(2):                                  # first attempt, then a retry
+                out = _handler(db, fake, job)
+                assert out["lineage_recorded"] is False, out
+                assert _open_lineage_incidents(db, lid) == [f"{F.LINEAGE_UNRECORDED}{lid}"]
+        assert not _audits(db, SA.ACTIVATED) and fake.listings[lid]["state"] == "active"
+    finally:
+        _unkeys()
+
+
+def test_record_live_reports_even_when_the_incident_cannot_be_written():
+    """Best effort: if the incident write fails too, record_live still returns False rather
+    than raising over the activation's result."""
+    from brambleloop.ops import incident_lifecycle as lifecycle
+
+    db, fake, p, lid, release = _world()
+
+    class _Ctx:
+        pass
+    ctx = _Ctx()
+    ctx.db = db
+
+    def boom(*a, **k):
+        raise RuntimeError("no")
+    with patch.object(SA, "record_activated", boom), \
+            patch.object(lifecycle, "open_or_restate", boom):
+        assert F.record_live(ctx, grant_id=1, listing_id=lid,
+                             after={"listing_id": lid, "state": "active"}, artifact="a") is False
+
+
+def test_a_crash_between_the_active_commit_and_store_activated_is_repaired_by_the_retry():
+    """MEDIUM-1: the attempt dies after committing Listing.state='active' and before writing
+    `store.activated` (lease loss, OOM). The retry reconciles from the read-back: one
+    `store.activated` (reconciled), lineage recorded, nothing sent or charged twice."""
+    from brambleloop.runtime.worker import JobContext
+
+    _keys()
+    try:
+        db, fake, p, lid, release = _world()
+        job = _standing_job(db, p, release)
+        gid = _mint(db, p["slug"], p["version"], release, job.id)["grant_id"]
+        sent: list = []
+        real_audit = JobContext.audit
+
+        def dies_at_activated(self, action, **kw):
+            if action == "store.activated":
+                raise SystemExit("worker killed")
+            return real_audit(self, action, **kw)
+        with patch.object(JobContext, "audit", dies_at_activated):
+            try:
+                _handler(db, fake, job, activate=_counting_send(sent))
+                raise AssertionError("the crash must propagate")
+            except SystemExit:
+                pass
+        with db.session() as s:
+            assert s.scalar(select(Listing.state).where(
+                Listing.product_slug == p["slug"])) == "active"
+            assert s.get(effects.EffectIntent, effects.key_for(
+                "etsy.activate", f"{lid}:seg:{gid}")).state == effects.APPLIED
+        assert not _audits(db, "store.activated") and not _audits(db, SA.ACTIVATED)
+        retry = _handler(db, fake, job, activate=_counting_send(sent))
+        assert retry["activated"] is True and retry["reconciled"] is True and \
+            retry["lineage_recorded"] is True, retry
+        activated = _audits(db, "store.activated")
+        assert len(activated) == 1 and activated[0][1]["reconciled"] is True
+        verified = _audits(db, SA.ACTIVATED)
+        assert len(verified) == 1 and verified[0][0] > activated[0][0]
+        assert len(sent) == 1 and len(_fees(db)) == 1
+        assert _plan_live(db) == [lid]
+    finally:
+        _unkeys()
+
+
+def test_an_active_listing_this_job_cannot_reconcile_is_an_incident_not_silence():
+    """Locally active, Etsy reads it active, no lineage, and no applied intent of this job to
+    reconcile from: nothing is sent, and the gap is a P1 incident."""
+    _keys()
+    try:
+        db, fake, p, lid, release = _world()
+        job = _standing_job(db, p, release)
+        _mint(db, p["slug"], p["version"], release, job.id)
+        fake.listings[lid]["state"] = "active"
+        with db.session() as s:
+            s.scalar(select(Listing).where(Listing.product_slug == p["slug"])).state = "active"
+        sent: list = []
+        out = _handler(db, fake, job, activate=_counting_send(sent))
+        assert out["reasons"] == ["already active"] and sent == [] and not _fees(db), out
+        assert _open_lineage_incidents(db, lid) == [f"{F.LINEAGE_UNRECORDED}{lid}"]
+    finally:
+        _unkeys()
+
+
+def test_the_draft_is_created_with_auto_renew_off_and_the_read_back_proves_it():
+    """The create payload sends should_auto_renew=false (fake Etsy defaults an omitted field to
+    True), and the F-542 read-back compares it: a draft that reads True is a mismatch."""
+    from brambleloop.integrations import etsy_verify
+    from brambleloop.runtime import etsy_ops
+
+    db, fake, p, lid, release = _world()
+    assert fake.listings[lid]["should_auto_renew"] is False
+    sent = etsy_ops.sent_fields(etsy_ops.certified_payload(db, p["slug"], p["version"]))
+    assert sent["should_auto_renew"] is False
+    renewing = dict(fake.listings[lid], should_auto_renew=True)
+    mism = etsy_verify.verify(sent, renewing, listing_id=lid).summary()["mismatched"]
+    assert [m["field"] for m in mism] == ["should_auto_renew"], mism
+    missing = {k: v for k, v in fake.listings[lid].items() if k != "should_auto_renew"}
+    assert "should_auto_renew" in etsy_verify.verify(
+        sent, missing, listing_id=lid).summary()["not_returned"]
 
 
 def test_the_client_refuses_a_standing_grant_without_the_handlers_intent():

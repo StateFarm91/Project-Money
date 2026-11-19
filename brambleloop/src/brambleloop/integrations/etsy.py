@@ -579,6 +579,12 @@ class ListingPayload:
             "state": self.state,
             "tags": list(self.tags),
             "materials": list(self.materials),
+            # Renewal is a fee (US$0.20 every four months) that no ceiling here counts, and a
+            # Stage A activation is refused unless Etsy reads it back False
+            # (`standing_activation.use_refusal`). Every draft says so explicitly rather than
+            # inheriting Etsy's or the shop's default, and the F-542 read-back compares it
+            # like every other sent field. Not a parameter: nothing here may ask for renewal.
+            "should_auto_renew": False,
         }
 
 
