@@ -140,3 +140,7 @@
 {"at": "2026-11-18T23:43:59Z", "worker": "opus2", "assignment": "WS4-LOWS", "event": "checkpoint", "sha": "b493a9c6", "note": "merged onto INTEG1 7a0bc63b per 6994599424"}
 {"at": "2026-11-18T23:43:59Z", "worker": "opus2", "assignment": "S2", "event": "checkpoint", "sha": "c1c5309c", "note": "merged onto INTEG1 7a0bc63b per 6994599424"}
 {"at": "2026-11-18T23:43:59Z", "worker": "opus2", "assignment": "WS4-STAGE-A", "event": "checkpoint", "sha": "ae9d837e", "note": "merged onto INTEG1 7a0bc63b per 6994599424"}
+{"at": "2026-11-19T01:43:53Z", "worker": "opus2", "assignment": "WS4-STAGE-A", "event": "review_requested", "sha": "cd0a20c6", "note": "Stage-A-on-INTEG2 per 6996033652"}
+{"at": "2026-11-19T01:43:53Z", "worker": "opus2", "assignment": "S4", "event": "review_requested", "sha": "f5c527c1", "note": "sales-LOWs per 6996033652"}
+{"at": "2026-11-19T01:43:53Z", "worker": "opus2", "assignment": "WS4-LOWS", "event": "review_requested", "sha": "f286b74d", "note": "dedupe-edge-LOWs per 6996033652"}
+{"at": "2026-11-19T01:43:53Z", "worker": "opus2", "assignment": "S2", "event": "review_requested", "sha": "b36100e0", "note": "routes-strict-LOW per 6996033652"}
