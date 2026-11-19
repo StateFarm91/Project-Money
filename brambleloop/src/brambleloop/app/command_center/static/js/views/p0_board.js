@@ -20,6 +20,7 @@ const TITLES = {
   costs: "Costs and API credits",
   blockers: "Open blockers and owners",
   agents: "Agents",
+  research_sources: "Research sources and the research loop",
 };
 const txt = (v) => (v === null || v === undefined || v === "" ? UNKNOWN_TEXT : String(v));
 const when = (iso) => (iso ? `${relTime(iso)} (${utcStamp(iso)})` : UNKNOWN_TEXT);
@@ -95,6 +96,30 @@ const DETAIL = {
     rows(s.incidents, (i) => h("li", { class: "row" }, h("p", { class: "row-title" },
       `System: ${i.severity} ${i.family}${i.product ? ` · ${i.product}` : ""}${i.halts_publication ? " · halts publication" : ""}`)), "No incident open.")),
   agents: (s) => h("dl", { class: "facts" }, ...Object.entries(s.counts || {}).map(([k, v]) => fact(k, txt(v)))),
+  // ENG-RESEARCH: every registered source (shops by alias), then the loop and its conclusion.
+  research_sources: (s) => h("div", null,
+    h("div", { class: "tiles" }, ...Object.entries(s.counts || {}).map(([k, v]) =>
+      statTile(k, v, { status: k === "scheduled" ? null : (v ? "DEGRADED" : null) }))),
+    s.conclusion ? h("p", { class: "callout" }, `Latest conclusion (${txt(s.conclusion.at)}): ${txt(s.conclusion.outcome)}: ${txt(s.conclusion.why)}`)
+      : h("p", { class: "callout callout-warn" }, "Unknown: no research conclusion recorded yet."),
+    rows((s.loop || {}).stages, (r) => h("li", { class: "row" }, h("p", { class: "row-title" },
+      `${r.pod} · ${r.stage}${r.held_because ? ` · ${r.held_because}` : ""}${(r.engineering || []).length ? ` · engineering: ${r.engineering.join(", ")}` : ""}`)),
+      "No validated opportunity."),
+    rows(s.sources, (r) => h("li", { class: "row" },
+      h("div", { class: "row-head" }, h("p", { class: "row-title" }, `${txt(r.id)} · ${txt(r.agent)} · ${txt(r.job_type)}`),
+        statusPill(r.status === "scheduled" ? (r.stale ? "STALE" : "OK") : r.status === "missing" ? "UNKNOWN" : "DEGRADED")),
+      h("dl", { class: "facts" },
+        fact("Method", txt(r.method)), fact("Status", `${txt(r.status)}: ${txt(r.why)}`),
+        fact("Last attempt", when(r.last_attempt)), fact("Last success", when(r.last_success)),
+        r.source_timestamp !== undefined ? fact("Source time", when(r.source_timestamp)) : null,
+        r.listings_observed !== undefined ? fact("Listings observed", txt(r.listings_observed)) : null,
+        r.changes_discovered !== undefined ? fact("Changes discovered", txt(r.changes_discovered)) : null,
+        fact("Next scan", when(r.next_scan)),
+        fact("Failures", r.consecutive_failures !== undefined
+          ? `${txt(r.consecutive_failures)}${r.failure_class ? ` (${r.failure_class})` : ""}${r.backoff_until ? ` · backoff until ${utcStamp(r.backoff_until)}` : ""}`
+          : `${txt(r.failures_7d)} in 7 days`),
+        r.findings !== undefined ? fact("Downstream", `${txt(r.findings)} findings · concepts: ${(r.concepts || []).join(", ") || "none"} · engineering: ${(r.engineering || []).join(", ") || "none"}`) : null))),
+      "No source registered.")),
 };
 
 export async function render() {

@@ -244,6 +244,17 @@ def _stamp(db, task_id: int, slug: str, digest: str, quality: float) -> None:
         flag_modified(t, "detail")
 
 
+def brief_for(pod: str) -> dict:
+    """The gate brief for a pod's concept, in our own words (`POD_CONCEPTS` only)."""
+    from .intake import _WHAT
+
+    spec = POD_CONCEPTS[pod]
+    what = _WHAT.get(spec["category"], spec["category"])
+    return {"thumbnail_storyboard": (f"{what} laid flat from above showing its "
+                                     f"{spec['motif']} in {spec['palette']}"),
+            "silhouette_qualifiers": ["motif_composition"]}
+
+
 def proposal_for(gap_id: int, pod: str, task_id: int, corroborated: int, facts: dict,
                  band: dict) -> dict:
     """The proposal, built from our own vocabulary only."""
@@ -273,6 +284,11 @@ def proposal_for(gap_id: int, pod: str, task_id: int, corroborated: int, facts: 
             "motif": spec["motif"], "palette_story": spec["palette"],
             "recipient": spec["recipient"], "occasion": spec["occasion"],
             "feeling": spec["feeling"], "function": spec["function"]},
+        # ENG-RESEARCH: the pre-engineering gate's own deterministic inputs (#88 storyboard,
+        # #108 silhouette qualifier), written from the same house vocabulary as the concept --
+        # without them radar.score refused every watchlist proposal, so research never
+        # reached engineering. The vision checks the gate still needs stay unmeasured.
+        "brief": brief_for(pod),
         "evidence": list(facts["refs"]),
     }
 

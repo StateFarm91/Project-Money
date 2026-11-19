@@ -387,8 +387,15 @@ def handle_concept_intake(ctx: JobContext) -> dict:
     out = intake.run(ctx.db, audit=ctx.audit, enqueue=ctx.enqueue, today=today)
     out["proposals_written"] = len(wrote["written"])
     out["supports_renewed"] = sum(1 for r in renewed if r.get("renewed"))
+    # ENG-RESEARCH: every cycle ends in a recorded outcome -- the opportunities and the stage
+    # each reached (and what holds it), or "no qualifying opportunity" with its evidence.
+    from ..intel import research_flow
+
+    concluded = research_flow.conclude(ctx.db, now=at, written=wrote["written"],
+                                       skipped=wrote["skipped"], intake_out=out)
+    out["research_outcome"] = concluded["outcome"]
     out["work_done"] = out.get("work_done", 0) + len(wrote["written"])
     ctx.audit("radar.concept_intake", detail={k: out[k] for k in (
         "candidates", "unchanged", "approved", "refused", "work_done", "as_of",
-        "proposals_written")})
+        "proposals_written", "research_outcome")})
     return out

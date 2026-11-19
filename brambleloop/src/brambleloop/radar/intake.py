@@ -621,7 +621,7 @@ def _originality_reasons(db, p: dict, built, source_ref: str) -> tuple[list[str]
     from ..creative import preengineering
     from ..creative.audit import briefed_catalogue_concepts
     from ..creative.concept import Concept, ConceptRefused, nearest
-    from ..creative.prospecting import MIN_NOVELTY, _matches_a_listing, benchmark_comparables
+    from ..creative.prospecting import MIN_NOVELTY, _matches_a_listing, watchlist_comparables
 
     slug, title, category = p["slug"], p["title"], p["category"]
     reasons: list[str] = []
@@ -668,7 +668,7 @@ def _originality_reasons(db, p: dict, built, source_ref: str) -> tuple[list[str]
         reasons.append(f"duplicate: {gap} from {near.key!r}, below the novelty floor "
                        f"{MIN_NOVELTY} -- a near-clone or recolour of an existing concept")
     # Anti-copy: never arrive as a competitor's listing, never wear its title.
-    cards = benchmark_comparables(db, pod=built.pod)
+    cards = watchlist_comparables(db, pod=built.pod)
     twin = _matches_a_listing(built, cards) if cards else ""
     detail["benchmark_cards"] = len(cards)
     if twin:
