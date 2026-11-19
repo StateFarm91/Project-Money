@@ -715,6 +715,33 @@ def test_the_issuer_binds_a_grant_only_to_a_live_standing_job_for_this_release()
         _unkeys()
 
 
+def test_the_issuer_answer_refuses_a_job_that_is_not_live_even_when_every_gate_passes():
+    """`answer` checks the job before `issue`: with every issue-time gate passing, a request
+    naming a finished or non-standing job is HELD and no grant exists."""
+    _keys()
+    try:
+        db, p, lid, release = _sched_world()
+        done_job = _standing_job(db, p, release)
+        with db.session() as s:
+            s.get(Job, done_job.id).status = JobStatus.DONE
+        owner_job = _enqueue(db, {"slug": p["slug"], "version": p["version"],
+                                  "release": release}, cancel=False)
+        decided = {"decision": "ACTIVATE", "reasons": [], "approval_id": AID,
+                   "counts": {"today": [], "7d": 0, "30d": 0}}
+        for job in (done_job, owner_job):
+            F.request(db, slug=p["slug"], version=p["version"], release=release,
+                      job_id=job.id)
+            with _StageA(), patch.object(SG, "issuer_signing_refusal", lambda env=None: None), \
+                    patch.object(SG, "mode_report", lambda *a, **k: {"mode": "T",
+                                                                     "reasons": []}), \
+                    patch.object(SA, "decide", lambda *a, **k: dict(decided)):
+                ans = F.answer(db, F.pending_requests(db)[0])
+            assert ans["issued"] is False and "job is not valid" in ans["why"], ans
+            assert F.grant_for_job(db, job.id)["grant_id"] is None
+    finally:
+        _unkeys()
+
+
 def test_the_issuer_tick_answers_activation_requests():
     from brambleloop.app import issuer_entry
 
