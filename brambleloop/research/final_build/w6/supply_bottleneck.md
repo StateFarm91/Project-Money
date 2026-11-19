@@ -85,18 +85,20 @@ How a research concept becomes a CIR:
 - **Executive Orchestrator** (`autonomy.orchestrate`, 15 min): it cannot generate `cir.draft`
   (not in product_design's `generatable`).
 
-## What ENG-SUPPLY changes (slice 1)
+## What ENG-SUPPLY changes (slices 1–2)
 
 `brambleloop/src/brambleloop/products/supply.py` is the one admission door.
 
 **Producers offer, they do not enqueue.**
 - A, B and C call `supply.offer(...)` with exactly the payload and `draft:<slug>` key they used to
   enqueue.
-- The offer is recorded durably (`supply.offered`) and admitted at once if there is room.
+- The offer is recorded durably (`supply.offered`) and a full admission pass runs at once, in
+  rank order: a newly arrived offer never overtakes a higher-ranked one already waiting.
 - Otherwise it waits in the supply queue.
 - A re-offer of a waiting key adds no row.
 
-**Admission** runs from `supply.admit` (new cadence, 15 min) and `chain.rebuild` (hourly). A
+**Admission** runs from `supply.admit` (new cadence, 15 min), from `chain.rebuild` (hourly), and
+from the worker whenever a product's last live chain-stage job ends (see below). A
 candidate is admitted only when every one of these holds; each run records every admission and
 refusal with its reason (`supply.admission`):
 
@@ -107,7 +109,7 @@ refusal with its reason (`supply.admission`):
 | Expected work per stage | Mean measured job-seconds per stage (7d), else 300 s labelled ESTIMATED | Due backlog ≤ 2h of expected job-seconds per worker |
 | Model and image cost | `spend_policy.binding_ceiling`: month remaining vs (in-flight + 1) × expected product cost (measured from `CostEntry.product_slug` over 30d, else CA$5 labelled ESTIMATED); month below the 80% escalation share; `crochet_engineer` / `publishing` daily permission not spent | Unreadable spend refuses (UNKNOWN is never PASS) |
 | Blocked / waiting products | `waiting_on`: an open physical test, a certified release needing a sample with none completed, or an open owner action naming the product. These hold **no** WIP slot unless a job is RUNNING. Finished, dead-lettered and cancelled chains hold nothing | — |
-| Family diversity | Family from the offer, else the pool seed, else the slug | `MAX_PER_FAMILY = 1` in flight |
+| Family diversity | Family from the offer, else the pool seed, else the slug | `MAX_PER_FAMILY = 1` in flight, **work-conserving**: a same-family candidate is deferred, and takes the slot only if no other family's candidate wants it. Diversity orders the work; it never leaves a free slot idle |
 | Research demand | Research-backed originals before static-pool re-promotions, then measured demand (radar adjusted score) descending, unknown last, then oldest | — |
 | Trickle | `MAX_ADMIT_PER_RUN = 1` | A freed slot never becomes a burst |
 
@@ -117,8 +119,15 @@ refusal with its reason (`supply.admission`):
   recorded.
 - One candidate's refusal (in flight, family) never stops the loop. Only a global refusal
   (capacity, backlog, cost) refuses everything, and it is named on every candidate.
-- A slot frees automatically: by the next `supply.admit` run (≤ 15 min) after a chain finishes,
-  dead-letters, or parks on a sample or the owner. There is no manual kick.
+- A slot frees automatically, with no manual kick:
+  - **On chain end (event).** After every job, `Worker.run_once` calls
+    `supply.after_chain_job`. When a chain-stage job leaves the live states (done, dead-lettered,
+    cancelled) and its product has no other live chain-stage job, one `supply.admit` is enqueued
+    under `supply-refill:<ending job id>`. A retry, a second worker or a restart cannot enqueue
+    it twice, and none is added while an admission pass is already due.
+  - **On parking.** A product waiting on a sample or the owner stops holding its slot at the next
+    pass (`supply.admit` every 15 min at most).
+  - `supply.admit` is a liveness job type: the free-poll backoff never delays it.
 - **Restart-safe:** the queue is the audit log plus the durable job queue. An admitted offer is
   never admitted twice, even if its `cir.draft` job is later pruned (`supply.admitted` is read
   by key).
