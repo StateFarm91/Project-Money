@@ -937,6 +937,10 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # gate reads and refuses to run at all when it finds an audit action nobody has decided
     # about; `ops.retention` carries the reasoning.
     ("retention_sweep", "orchestrator", "ops.retention", 24 * 60 * 60),
+    # ENG-APPROVALS (D-OWNER-STANDING-INTERNAL): hourly owner-queue consolidation -- routine
+    # internal cards superseded by the standing authority, redundant/stale/satisfied cards
+    # closed, genuine exceptions never touched. Rows kept; every move audited. CA$0.
+    ("owner_queue_consolidate", "orchestrator", "ops.owner_queue_consolidate", 60 * 60),
     # C-69 (#50, #29): the dependency map probed daily and every failed probe, unproved
     # recovery, unmapped paid provider or existential concentration raised as an incident.
     # W4-F454: the integration domain's focused agent.

@@ -402,7 +402,9 @@ CHARTERS: tuple[Charter, ...] = (
        job_types={"ops.heartbeat", "ops.queue_check", "ops.health", "ops.continuity",
                   "ops.offsite_archive", "ops.retention", "ops.dependencies",
                   "ops.capability_probes", "ops.thrash", "ops.policy_watch",
-                  "ops.maturity_disagreements", "model.probe"},
+                  "ops.maturity_disagreements", "model.probe",
+                  # ENG-APPROVALS: owner-queue consolidation (D-OWNER-STANDING-INTERNAL).
+                  "ops.owner_queue_consolidate"},
        generatable=("ops.queue_check", "ops.maturity_disagreements", "ops.slo",
                     "autonomy.department_review"),
        forbidden=("deploy, merge or mutate hosting", "delete evidence a gate reads"),

@@ -2885,6 +2885,11 @@ def handle_store_activate(ctx: JobContext) -> dict:
             refusal = (f"the listing fee (about CA${fee_cad:.2f}) would take "
                        f"{ctx.job.agent} past its daily ceiling of "
                        f"CA${agent.daily_cost_ceiling_cad:.2f} (spent CA${spent:.2f})")
+    if refusal is None:
+        # ENG-APPROVALS: the owner's opening-catalogue listing-fee budget (CA$6 in total,
+        # reservations counted; D-OWNER-STANDING-INTERNAL). `reserve` re-checks it under the
+        # accounting lock; this is the early, audited refusal.
+        refusal = listing_costs.opening_budget_refusal(ctx.db, listing_id, fee_cad)
     if refusal is not None:
         ctx.audit("store.activate_refused", artifact=artifact,
                   detail={"reason": refusal, "verified": True,
@@ -3249,6 +3254,8 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     # `{"error": ...}` a failed synthesis records, is not work.
     "mjs.scan": ("new", "reclassified", "inspected", "learning_domains", "findings.changed"),
     "ops.retention": ("removed",),
+    # ENG-APPROVALS: work is an owner card moved under the standing authority.
+    "ops.owner_queue_consolidate": ("work_done",),
     "plan.strategy": (),
     "seasonal.cycle_proof": ("complete", "assets_state"),
 }
@@ -3750,6 +3757,7 @@ from . import commercial_ops  # noqa: E402,F401  (OPUS2-P0: improve.commercial_l
 from . import learning_gaps_ops  # noqa: E402,F401  (OPUS2-P0: learning.knowledge_gaps)
 from . import evidence_ops  # noqa: E402,F401  (OPUS2-P0: intel.scan_evidence)
 from . import standing_policy_ops  # noqa: E402,F401  (WS4-5: policy.issuer_shadow)
+from . import owner_queue_ops  # noqa: E402,F401  (ENG-APPROVALS: ops.owner_queue_consolidate)
 
 
 def _listing_parity(ctx: JobContext) -> dict:

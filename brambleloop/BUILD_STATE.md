@@ -1,3 +1,15 @@
+> **2026-11-19 — ENG-APPROVALS slice 1 (`eng/approvals`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
+> - The owner directive `D-OWNER-STANDING-INTERNAL` is recorded in DECISION_LOG.
+> - Code: `authority.standing_internal` (classifier and directive), `ops.owner_queue_consolidate` (idempotent sweep, the one
+>   exception batch, P0 board counts) and the hourly job `ops.owner_queue_consolidate` (fully registered).
+> - The CA$6 opening-catalogue listing-fee budget is enforced in `finance.listing_costs.reserve` and in store.activate.
+> - The classification of every owner-card kind is in `research/final_build/w6/owner_queue_classification.md`.
+> - Honest status:
+>   - The sweep has not run against production, so the real count of open cards versus genuine exceptions is not yet
+>     measured.
+>   - The listing-package preparation path that a publication-only policy hold still stops (`_judge_search_hero`'s
+>     listing-set issuance) is slice 2.
+
 > **2026-11-02 — Batch 4 DEPLOYED: production = 0967c3ee (SHADOW unchanged). 24-hour acceptance running until 2026-11-03T03:31Z.**
 > - Owner approval: "APPROVE DEPLOY 0967c3eee287d06cad0d8034a99e39076c0ab6d5" (2026-11-02).
 > - Pre-release backup (03:27:45Z, before the push): `brambleloop_prod_20261102T032745Z.dump`, 497,732,160 bytes, sha256

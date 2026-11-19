@@ -1105,6 +1105,7 @@ JOB_BANDS: dict[str, str] = {
     # Keeps the system honest, urgent to nobody.
     "build.tick": "housekeeping",
     "ops.retention": "housekeeping",
+    "ops.owner_queue_consolidate": "housekeeping",   # ENG-APPROVALS
     "ops.capacity": "housekeeping",
     "ops.dependencies": "housekeeping",
     "ops.provenance_backfill": "housekeeping",
