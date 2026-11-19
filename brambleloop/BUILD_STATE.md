@@ -1,3 +1,16 @@
+> **2026-11-19 — ENG-RESEARCH fix round 1 (`eng/research-flow`, NOT integrated, NOT deployed).** Main's review
+> (DO NOT SHIP) found the first round fabricated the #108 qualifier: `brief_for` typed `motif_composition` for every
+> pod. It is now DERIVED by `creative.intake.qualifiers_for` from the concept's own premise and construction, with
+> provenance on the proposal and a #108 precheck recorded beside it. Honest outcome per pod on the flat-rows radar path:
+> - **home_decor** (pillow, an outline, not a generic form) clears #108 with no qualifier and reaches `cir.draft` once a
+>   vision verdict exists. Its occasion moved from `spring_refresh` to `housewarming` (no spring motifs; #83 moment).
+> - **blankets** and **kitchen_bath** (rectangle throw, coaster: generic forms, plain-row stripes) carry no qualifier and
+>   are REFUSED by #108. The lineage names the hold, they are not "qualifying", and nothing is engineered. They need a
+>   construction the radar draft path does not compile yet (e.g. a charted flat panel) — an open engineering item.
+> Also fixed: P0 board JS SyntaxError (an extra `)`), per-row health pill (never-succeeded/failing ≠ OK), MP1.2-s4
+> off-Etsy channels (websites, YouTube, Pinterest) as UNAVAILABLE registry rows, unreadable vision ≠ scheduled,
+> downstream UNKNOWN without lineage tables, guarded conclusion in the intake job. SW `cc-shell-v35`.
+
 > **2026-11-19 — ENG-RESEARCH (`eng/research-flow`, NOT integrated, NOT deployed).** The research loop was traced
 > from watchlist change to engineering. It stopped at the pre-engineering gate: every watchlist proposal was refused
 > deterministically (no #88 storyboard, no #108 qualifier). That is fixed, and anti-clone now covers all eight watchlist

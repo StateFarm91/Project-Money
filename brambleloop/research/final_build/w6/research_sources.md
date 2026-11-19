@@ -79,6 +79,19 @@ comparison reads it.
 | `external_trends` (Google Trends, Pinterest Trends, social, Etsy trend reports) | — | — | none | **missing**: no official API is wired, and none will be scraped. Requested only generically (spec/05 "external traffic/content ecosystems"; master v1.1 "external research"; B2#38 "Etsy trend reports"). Kept visible as a limitation |
 | spec/05 search seed URL (`is_star_seller=true`) and example listing ids | — | — | — | **missing as a source id**. SERP derives its own queries and has no star-seller filter. The example listings are not monitored individually; their shops are |
 
+## 4a. Off-Etsy competitor channels (Master Plan MP1.2-s4) — UNAVAILABLE
+
+MP1.2-s4 asks for competitors' websites, YouTube and Pinterest. `FOUR_SHOP_COMPARISON.md`
+(w4/intel) records all three as UNAVAILABLE: no compliant collector exists. Each is a
+registry row with `kind="offsite"`, status **missing**, and its reason, so it stays visible as
+a limitation (the board's `limitations` list) and is never scraped.
+
+| id | agent / job | cadence | method | status |
+|---|---|---|---|---|
+| `competitor_websites` | market_radar / — | — | none | **missing (UNAVAILABLE)**: no allow-listed, terms-compliant fetch exists for a competitor's site; `research_fetch` covers gov, Wikipedia and Etsy help only |
+| `youtube` | market_radar / — | — | none | **missing (UNAVAILABLE)**: needs a YouTube Data API key (owner action) and a collector |
+| `pinterest` | market_radar / — | — | none | **missing (UNAVAILABLE)**: needs Pinterest API app approval and owner OAuth; never scraped |
+
 ## 5. Reference and owner-supplied
 
 | id | agent / job | status |

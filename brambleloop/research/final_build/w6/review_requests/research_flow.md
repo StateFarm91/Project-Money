@@ -1,4 +1,104 @@
-# Review request — eng/research-flow (ENG-RESEARCH, slice 1 + 2)
+# Review request — eng/research-flow (ENG-RESEARCH), fix round 1
+
+Main's independent review of ecb5ce0c gave DO NOT SHIP. Every finding is addressed below.
+Nothing is deployed; no Railway, production, secret or spend was touched.
+
+## H1 — the #108 qualifier is derived, never typed
+
+- `proposal_writer.brief_for(slug, title, category, concept)` now derives:
+  - `silhouette_qualifiers` with `creative.intake.qualifiers_for` on the creative `Concept`
+    built from the proposal's own fields (the same fields `radar.intake.validate` builds);
+  - `thumbnail_storyboard` from the category, `concept.motif` and `concept.palette_story`.
+- Each proposal carries `brief_provenance` (`derived_from` the concept fields; the qualifier
+  rule is named) and `silhouette_precheck`, which is #108 run exactly as the gate runs it
+  (`preengineering._silhouette`) on the derived brief.
+- Honest per-pod result on the flat-rows radar draft path (all three derive `[]`):
+  - **home_decor → pillow.** `pillow` is not in `GENERIC_FORMS`, so #108 passes with no
+    qualifier. Two concept fields were corrected because the gate refused them honestly:
+    `spring_refresh` → `housewarming`. Plain bands draw nothing from the spring grammar
+    (#110), and "everyday, for oneself, serene" names no buying moment (#83 jury).
+  - **blankets → rectangle throw, kitchen_bath → coaster.** These are generic forms with
+    plain-row stripes, so they carry no qualifier. #108 REFUSES them at radar.score.
+- What the refusal shows:
+  - `research_flow.lineage` names it with the #108 reason ("…shape rather than an outline…").
+    Only `#108 `-prefixed text is surfaced, never a novelty reason.
+  - The gap is `held_by_108` and **not qualifying**, so the conclusion reads
+    `no_qualifying_opportunity` with the reason.
+  - Before scoring, an approved or proposed concept whose precheck fails is already named
+    "held by #108".
+- **Why no relabel or alternative for blankets/kitchen.** I checked every engine route:
+  - The radar draft path compiles only `flat_rows` (`radar.intake.SUPPORTED_CONSTRUCTIONS`),
+    and `concept_to_cir` emits striped rows.
+  - The only charted colourwork fallback (`fallback_constructions.tapestry_route`) drafts
+    baskets, which radar intake refuses.
+  - So no supported construction gives a rectangle throw or a coaster a real motif
+    composition, texture or shaping. Making one is an **open engineering item**: a charted
+    flat panel on the radar path. I did not relabel anything to pass.
+- **Tests.**
+  - The end-to-end test now uses a home-decor arena, which honestly clears #108.
+  - New `test_a_generic_concept_with_no_qualifier_is_held_by_108_and_says_so` drives the
+    kitchen arena: refused, not qualifying, reason named, nothing drafted.
+  - New `test_the_brief_is_derived_from_the_concept_not_a_constant`.
+  - The old `failed == []` assertion now runs only on the honestly qualifying concept.
+  - The novelty test now asserts that the coaster FAILS #108 and that the precheck agrees.
+- **Pre-existing, not on this branch's diff (flagged for Main).** Two other writers still type
+  `silhouette_qualifiers: ["motif_composition"]`:
+  - `radar/ideation.py:542`;
+  - the family-variation proposer at `radar/intake.py:925`. Its premise names "motif", so
+    derivation would agree.
+  The same derivation should replace both.
+
+## H2 — P0 board SyntaxError
+
+- `p0_board.js:121` had one `)` too many; it is removed.
+- Note: `node --check file.js` parses as CommonJS and passed silently. The file is an ES
+  module, and `node --input-type=module --check < file` is what catches it. Both changed JS
+  files (p0_board.js, sw.js) are clean that way.
+
+## M1 — per-row pill
+
+`research_flow.health_of(row)` derives the pill on the server:
+- not scheduled → UNKNOWN (missing) or DEGRADED;
+- failing (consecutive failures, or failures in 7 days) → DEGRADED;
+- never succeeded → UNKNOWN;
+- stale → STALE;
+- otherwise OK.
+
+The JS shows `r.health` (UNKNOWN for anything else). Test:
+`test_a_never_succeeded_or_failing_source_never_reads_ok`.
+
+## M2 — MP1.2-s4 off-Etsy channels
+
+`competitor_websites`, `youtube` and `pinterest` are now registry rows (`kind="offsite"`).
+They are MISSING, with an "UNAVAILABLE: …" reason, in `sources()`, in `research_sources.md`
+§4a, and in the board's limitations. Test:
+`test_the_off_etsy_channels_of_mp1_2_s4_are_visible_as_unavailable`.
+
+## LOWs
+
+- **Watchlist set.** The registry test asserts the exact shop set derived from the registry
+  (`mjs.scan` + `intel.watchlist_scan` rows == `WATCHLIST` keys), with no hardcoded 8.
+- **Conclusion failure.** In the concept_intake handler, `conclude` is guarded. A failure is
+  audited as `intel.research_conclusion_failed`, the job's `research_outcome` reads
+  `conclusion_failed`, and the job still succeeds.
+- **Vision.** `vision_ok=None` reads BLOCKED ("could not be read"), never scheduled.
+- **Downstream.** Without lineage tables, findings, concepts and engineering are `None` and
+  the board reads "Unknown: no lineage recorded yet", not 0.
+
+SW cache is `cc-shell-v35`.
+
+## Mutants (fix round 1, PYTHONDONTWRITEBYTECODE=1)
+
+MUTANTS_PLACEHOLDER
+
+## Suites
+
+SUITES_PLACEHOLDER
+
+---
+
+# Round 0 (ecb5ce0c), kept for the record
+
 
 This branch was cut from `origin/claude/w6-INTEG2` @ a35ad302. Nothing on it has been deployed.
 It does not touch Railway, production, secrets, Etsy, spend, BRAMBLELOOP_PHASE or

@@ -41,19 +41,31 @@ KITCHEN_A = ["Farmhouse Dishcloth Crochet Pattern", "Rustic Washcloth Crochet Pa
              "Granny Potholder Crochet Pattern"]
 KITCHEN_B = ["Cottage Dishcloth Pattern", "Vintage Washcloth Pattern",
              "Classic Potholder Pattern"]
+# Review H1: the end-to-end arena is one whose concept HONESTLY clears #108. Our home-decor
+# concept is a pillow, which is an outline rather than a generic shape (`GENERIC_FORMS`), so
+# it needs no qualifier; the kitchen concept is a coaster, a generic form whose plain-row
+# stripes carry none, and #108 holds it.
+DECOR_A = ["Boho Cushion Cover Crochet Pattern", "Meadow Cushion Pattern",
+           "Square Pillow Crochet Pattern"]
+DECOR_B = ["Scandi Pillow Sham Pattern", "Lumbar Cushion Cover Pattern",
+           "Sunrise Cushion Pattern"]
+ARENAS = {"home_decor": (DECOR_A, DECOR_B), "kitchen_bath": (KITCHEN_A, KITCHEN_B)}
+QUALIFYING_POD = "home_decor"
 ELSEWHERE = {"MadelineMaeCo": ["Chunky Beanie Crochet Pattern"],
              "ZKBDESIGNER": ["Boho Tote Bag Crochet Pattern"]}
-SECRET_WORDS = ("Farmhouse", "Rustic", "Granny", "Cottage", "Vintage", "Classic")
+SECRET_WORDS = ("Farmhouse", "Rustic", "Granny", "Cottage", "Vintage", "Classic", "Boho",
+                "Meadow", "Scandi", "Lumbar", "Sunrise", "Sham")
 
 
-def _catalogues(changed: bool) -> dict[str, list[dict]]:
+def _catalogues(changed: bool, pod: str = QUALIFYING_POD) -> dict[str, list[dict]]:
     cats = {m.shop_name: [] for m in watchlist.WATCHLIST}
     for shop, titles in ELSEWHERE.items():
         base = 7000 if shop == "MadelineMaeCo" else 8000
         cats[shop] = [S.listing(base + i, t) for i, t in enumerate(titles)]
-    if changed:   # the change: both shops start selling in the kitchen arena
-        cats["MadelineMaeCo"] += [S.listing(7100 + i, t) for i, t in enumerate(KITCHEN_A)]
-        cats["ZKBDESIGNER"] += [S.listing(8100 + i, t) for i, t in enumerate(KITCHEN_B)]
+    if changed:   # the change: both shops start selling in the arena
+        a, b = ARENAS[pod]
+        cats["MadelineMaeCo"] += [S.listing(7100 + i, t) for i, t in enumerate(a)]
+        cats["ZKBDESIGNER"] += [S.listing(8100 + i, t) for i, t in enumerate(b)]
     return cats
 
 
@@ -105,11 +117,11 @@ def _drafts(db) -> list[Job]:
         return list(s.scalars(select(Job).where(Job.job_type == "cir.draft")))
 
 
-def _run_change(db, *, judged: bool):
+def _run_change(db, *, judged: bool, pod: str = QUALIFYING_POD):
     reader = S.Reader(_catalogues(changed=False))
     _day(db, reader, 4)                       # baseline: nothing to corroborate
     assert research_flow.latest_conclusion(db)["outcome"] == research_flow.NO_QUALIFYING
-    reader.catalogues = _catalogues(changed=True)   # the watchlist change
+    reader.catalogues = _catalogues(changed=True, pod=pod)   # the watchlist change
     restore = _judge_gap_concepts() if judged else (lambda: None)
     try:
         for d in (2, 1, 0, -1):
@@ -122,9 +134,10 @@ def test_a_watchlist_change_reaches_engineering_with_no_manual_step():
     db = S.make_db()
     _run_change(db, judged=True)
     rows = research_flow.lineage(db)
-    assert len(rows) == 1 and rows[0]["pod"] == S.POD, rows
+    assert len(rows) == 1 and rows[0]["pod"] == QUALIFYING_POD, rows
     row = rows[0]
     assert row["stage"] == "engineering", row
+    assert row["qualifying"] and not row["held_by_108"], row
     assert row["research_task"], "the opportunity was validated by a research question"
     slug = row["proposals"][0]["slug"]
     assert [c.state for c in S.concepts(db) if c.slug == slug] == [intake.APPROVED]
@@ -155,13 +168,69 @@ def test_without_a_vision_verdict_the_concept_waits_and_the_hold_is_named():
     assert concl["qualifying"][0]["stage"] in ("approved", "gate_waiting")
 
 
-def test_the_proposal_clears_the_gates_deterministic_checks():
-    """The gap this module closed: proposals reached radar.score with no storyboard and no
-    silhouette qualifier, and were refused deterministically every time."""
+def test_an_honestly_qualifying_proposal_clears_the_gates_deterministic_checks():
+    """The brief is derived (never typed): the home-decor concept is a pillow, an outline
+    #108 accepts without a qualifier, and `qualifiers_for` honestly finds none on it."""
+    from brambleloop.creative.invention import GENERIC_FORMS
+
     db = S.make_db()
     _run_change(db, judged=False)
-    score = research_flow.lineage(db)[0]["proposals"][0]["score_job"]
+    row = research_flow.lineage(db)[0]
+    score = row["proposals"][0]["score_job"]
     assert score["gate"] == "waiting" and score["failed"] == [], score
+    (task,) = [t for t in S.tasks(db) if (t.detail or {}).get("concept_proposals")]
+    (prop,) = task.detail["concept_proposals"]
+    assert prop["concept"]["form"] not in GENERIC_FORMS
+    assert prop["brief"]["silhouette_qualifiers"] == [], prop["brief"]
+    assert prop["silhouette_precheck"]["passes"] is True
+    prov = prop["brief_provenance"]
+    assert prov["silhouette_qualifiers"]["rule"] == "creative.intake.qualifiers_for"
+    assert "concept.premise" in prov["silhouette_qualifiers"]["derived_from"]
+    assert "concept.motif" in prov["thumbnail_storyboard"]["derived_from"]
+
+
+def test_a_generic_concept_with_no_qualifier_is_held_by_108_and_says_so():
+    """The kitchen arena's concept is a plain-row striped coaster: a generic form carrying no
+    qualifier. It is never relabelled; #108 refuses it at the gate, nothing is engineered,
+    and the lineage and conclusion name the hold."""
+    db = S.make_db()
+    _run_change(db, judged=True, pod="kitchen_bath")
+    (row,) = research_flow.lineage(db)
+    assert row["pod"] == "kitchen_bath"
+    (task,) = [t for t in S.tasks(db) if (t.detail or {}).get("concept_proposals")]
+    (prop,) = task.detail["concept_proposals"]
+    assert prop["brief"]["silhouette_qualifiers"] == [], prop["brief"]
+    assert prop["silhouette_precheck"]["passes"] is False
+    score = row["proposals"][0]["score_job"]
+    assert score is not None and "silhouette" in score["failed"], score
+    assert row["stage"] == "gate_refused" and row["held_by_108"], row
+    assert not row["qualifying"]
+    assert "#108" in row["held_because"] and "shape rather than an outline" in \
+        row["held_because"], row["held_because"]
+    assert not _drafts(db), "a #108-refused concept never reaches engineering"
+    concl = research_flow.latest_conclusion(db)
+    assert concl["outcome"] == research_flow.NO_QUALIFYING, concl
+    assert "#108" in concl["why"], concl["why"]
+
+
+def test_the_brief_is_derived_from_the_concept_not_a_constant():
+    """Mutation guard: the same writer yields different qualifiers for different premises,
+    exactly as `creative.intake.qualifiers_for` reads them."""
+    from brambleloop.creative.intake import qualifiers_for
+    from brambleloop.radar import proposal_writer as W
+
+    for pod, spec in W.POD_CONCEPTS.items():
+        p = W.proposal_for(1, pod, 1, 2, {"refs": [], "confidence": "medium", "facts": 1},
+                           W.bands(spec["category"]))
+        want = qualifiers_for(W.creative_concept(p["slug"], p["title"], p["concept"]))
+        assert p["brief"]["silhouette_qualifiers"] == want, (pod, p["brief"])
+        assert want == [], (pod, "plain-row stripes carry no #108 qualifier")
+    c = dict(p["concept"], premise="A cushion front whose motif procession of figures fills "
+                                   "the whole front, worked in rows")
+    assert W.brief_for("x", "Cushion", "pillow", c)["silhouette_qualifiers"] == \
+        ["motif_composition"]
+    c = dict(c, premise="A cushion front worked in plain rows of quiet horizontal bands")
+    assert W.brief_for("x", "Cushion", "pillow", c)["silhouette_qualifiers"] == []
 
 
 def test_no_corroborated_arena_records_no_qualifying_opportunity_with_evidence():
@@ -254,7 +323,10 @@ def test_novelty_measures_against_every_watchlist_shop_not_only_the_anchor():
                                                "brief": p["brief"]}, catalogue=[])
     assert verdict["checks"]["novelty"]["status"] == "pass", verdict["checks"]["novelty"]
     assert verdict["checks"]["premise_thumbnail"]["status"] != "fail"
-    assert verdict["checks"]["silhouette"]["status"] == "pass", verdict["checks"]["silhouette"]
+    # Review H1: the coaster's derived brief carries no qualifier, so #108 refuses it -- and
+    # the writer's recorded precheck agrees with the gate.
+    assert verdict["checks"]["silhouette"]["status"] == "fail", verdict["checks"]["silhouette"]
+    assert p["silhouette_precheck"]["passes"] is False
 
 
 def test_every_research_cadence_is_in_the_registry_and_every_mandatory_shop_too():
@@ -263,8 +335,10 @@ def test_every_research_cadence_is_in_the_registry_and_every_mandatory_shop_too(
     reg = research_flow.sources()
     ids = [s["id"] for s in reg]
     assert len(ids) == len(set(ids))
-    assert {m.key for m in watchlist.WATCHLIST} <= set(ids)
-    assert len(watchlist.WATCHLIST) == 8
+    # The exact watchlist set, derived from the registry (not a hardcoded count: a ninth
+    # shop is being added on eng/ninth-shop).
+    shop_ids = {s["id"] for s in reg if s["job_type"] in ("mjs.scan", "intel.watchlist_scan")}
+    assert shop_ids == {m.key for m in watchlist.WATCHLIST}, shop_ids
     covered = {s["job_type"] for s in reg if s["job_type"]}
     research_jobs = {jt for _n, agent, jt, _p in CADENCES
                      if agent in ("market_radar", "research_agent")
@@ -393,6 +467,109 @@ def test_a_shop_name_in_the_evidence_makes_the_section_unknown_not_shown():
     with patch.object(research_flow, "sources", lambda: leaky_label):
         sec = B.view(db)["sections"]["research_sources"]
     assert sec["state"] == B.UNKNOWN and "zkbdesigner" not in json.dumps(sec).lower(), sec
+
+
+def test_a_never_succeeded_or_failing_source_never_reads_ok():
+    """Review M1: the per-row pill is derived. A shop that has never scanned successfully, or
+    is failing, reads UNKNOWN / DEGRADED -- never OK."""
+    from brambleloop.app.command_center import p0_board as B
+    from brambleloop.runtime.intel_ops import benchmark_alias
+
+    H = research_flow.health_of
+    base = {"status": research_flow.SCHEDULED, "consecutive_failures": 0, "stale": False}
+    assert H({**base, "last_success": None}) == "UNKNOWN"
+    assert H({**base, "last_success": "2026-11-19T00:00:00+00:00",
+              "consecutive_failures": 2}) == "DEGRADED"
+    assert H({**base, "last_success": None, "consecutive_failures": 1}) == "DEGRADED"
+    assert H({**base, "last_success": "2026-11-19T00:00:00+00:00", "stale": True}) == "STALE"
+    assert H({**base, "last_success": "2026-11-19T00:00:00+00:00"}) == "OK"
+    assert H({"status": research_flow.SCHEDULED, "failures_7d": 3,
+              "last_success": "2026-11-19T00:00:00+00:00"}) == "DEGRADED"
+    assert H({"status": research_flow.MISSING}) == "UNKNOWN"
+    assert H({"status": research_flow.DISABLED, "last_success": "x"}) == "DEGRADED"
+
+    db = S.make_db()
+    reader = S.Reader(_catalogues(changed=True))
+    real = reader.resolve_shop
+
+    def resolve(name):
+        if name == "FireflyCrochets":
+            raise RuntimeError("upstream timeout")
+        return real(name)
+
+    reader.resolve_shop = resolve
+    S.scan(db, reader, S.at(0, 6))
+    srcs = {r["id"]: r for r in B.view(db)["sections"]["research_sources"]["sources"]}
+    bad = srcs[benchmark_alias("firefly_crochets")]
+    assert bad["last_success"] is None and bad["health"] in ("UNKNOWN", "DEGRADED"), bad
+    assert bad["health"] != "OK"
+    never = [r for r in srcs.values() if not r.get("last_success")]
+    assert never and all(r["health"] != "OK" for r in never), \
+        [(r["id"], r["health"]) for r in never if r["health"] == "OK"]
+    # A shop that scanned is OK only once its gate is open: here the fixture credential
+    # reads UNKNOWN, so it is blocked (DEGRADED); with the gate open it would read OK.
+    ok = srcs[benchmark_alias("zkbdesigner")]
+    assert ok["last_success"] and ok["status"] == research_flow.BLOCKED
+    assert ok["health"] == "DEGRADED"
+    assert H({**ok, "status": research_flow.SCHEDULED}) == "OK"
+
+
+def test_the_off_etsy_channels_of_mp1_2_s4_are_visible_as_unavailable():
+    """Review M2: competitors' websites, YouTube and Pinterest are registry rows, MISSING
+    with their reason, in the code registry, the prose registry and the board."""
+    from brambleloop.app.command_center import p0_board as B
+
+    reg = {s["id"]: s for s in research_flow.sources()}
+    md = (ROOT / "research/final_build/w6/research_sources.md").read_text()
+    for sid in ("competitor_websites", "youtube", "pinterest"):
+        st, why = research_flow.status_of(reg[sid], env={}, credential="OK")
+        assert st == research_flow.MISSING and "UNAVAILABLE" in why, (sid, st, why)
+        assert f"`{sid}`" in md, sid
+    sec = B.view(S.make_db())["sections"]["research_sources"]
+    lim = {x["id"]: x for x in sec["limitations"]}
+    assert {"competitor_websites", "youtube", "pinterest"} <= set(lim)
+    assert all("UNAVAILABLE" in lim[k]["why"] for k in ("competitor_websites", "youtube",
+                                                         "pinterest"))
+
+
+def test_an_unreadable_vision_state_never_reads_scheduled():
+    reg = {s["id"]: s for s in research_flow.sources()}
+    cad = research_flow.cadences()
+    st, why = research_flow.status_of(reg["gallery_analysis"], env={}, vision_ok=None, cad=cad)
+    assert st == research_flow.BLOCKED and "could not be read" in why, (st, why)
+    assert research_flow.status_of(reg["gallery_analysis"], env={}, vision_ok=True,
+                                   cad=cad)[0] == research_flow.SCHEDULED
+
+
+def test_findings_read_unknown_not_zero_without_lineage_tables():
+    from brambleloop.radar.intake import RadarConcept
+
+    db = S.make_db()
+    RadarConcept.__table__.drop(bind=db.engine, checkfirst=True)
+    rows = [r for r in research_flow.evidence(db)["sources"] if r["kind"] == "shop"]
+    assert rows and all(r["findings"] is None and r["concepts"] is None
+                        and r["engineering"] is None for r in rows), rows[0]
+
+
+def test_a_conclusion_failure_is_recorded_and_does_not_fail_intake():
+    """Review LOW: intake has already written when the conclusion runs; a failure there is
+    audited and named in the job's output, and the job still succeeds."""
+    from unittest.mock import patch
+
+    from brambleloop.core.models import AuditLog
+
+    db = S.make_db()
+
+    def boom(*a, **k):
+        raise RuntimeError("conclusion store unavailable")
+
+    with patch.object(research_flow, "conclude", boom):
+        out = S.intake(db, S.at(0, 6))
+    assert out["research_outcome"] == research_flow.CONCLUSION_FAILED, out
+    with db.session() as s:
+        rows = list(s.scalars(select(AuditLog).where(
+            AuditLog.action == "intel.research_conclusion_failed")))
+    assert rows and "conclusion store unavailable" in rows[0].detail["error"]
 
 
 if __name__ == "__main__":

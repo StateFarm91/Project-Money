@@ -107,7 +107,7 @@ const DETAIL = {
       "No validated opportunity."),
     rows(s.sources, (r) => h("li", { class: "row" },
       h("div", { class: "row-head" }, h("p", { class: "row-title" }, `${txt(r.id)} · ${txt(r.agent)} · ${txt(r.job_type)}`),
-        statusPill(r.status === "scheduled" ? (r.stale ? "STALE" : "OK") : r.status === "missing" ? "UNKNOWN" : "DEGRADED")),
+        statusPill(["OK", "STALE", "DEGRADED", "UNKNOWN"].includes(r.health) ? r.health : "UNKNOWN")),
       h("dl", { class: "facts" },
         fact("Method", txt(r.method)), fact("Status", `${txt(r.status)}: ${txt(r.why)}`),
         fact("Last attempt", when(r.last_attempt)), fact("Last success", when(r.last_success)),
@@ -118,7 +118,8 @@ const DETAIL = {
         fact("Failures", r.consecutive_failures !== undefined
           ? `${txt(r.consecutive_failures)}${r.failure_class ? ` (${r.failure_class})` : ""}${r.backoff_until ? ` · backoff until ${utcStamp(r.backoff_until)}` : ""}`
           : `${txt(r.failures_7d)} in 7 days`),
-        r.findings !== undefined ? fact("Downstream", `${txt(r.findings)} findings · concepts: ${(r.concepts || []).join(", ") || "none"} · engineering: ${(r.engineering || []).join(", ") || "none"}`) : null))),
+        r.findings !== undefined ? fact("Downstream", r.findings === null ? "Unknown: no lineage recorded yet"
+          : `${txt(r.findings)} findings · concepts: ${(r.concepts || []).join(", ") || "none"} · engineering: ${(r.engineering || []).join(", ") || "none"}`) : null)),
       "No source registered.")),
 };
 

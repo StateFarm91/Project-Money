@@ -29,6 +29,7 @@ from datetime import datetime, timezone
 CONCLUSION_READING = "intel.research_conclusion"
 NO_QUALIFYING = "no_qualifying_opportunity"
 OPPORTUNITIES = "opportunities"
+CONCLUSION_FAILED = "conclusion_failed"
 
 # The stages, in loop order. A gap's stage is the furthest one its own rows prove.
 STAGES = ("validated", "researching", "proposed", "approved", "scored", "gate_refused",
@@ -73,6 +74,10 @@ def _jobs_for_slug(db, slug: str) -> tuple[dict | None, dict | None]:
                         "exempt" if out.get("gate_exempt") else None),
                     "waiting_on": list(gate.get("waiting_on") or []),
                     "failed": list(gate.get("failed") or []),
+                    # Review H1: our own #108 rule text only (never a novelty reason, which
+                    # can quote what a concept was measured against).
+                    "silhouette_reasons": [r for r in gate.get("reasons") or []
+                                           if str(r).startswith("#108 ")][:2],
                     "at": _iso(j.finished_at or j.created_at)}
         return row(score), row(draft)
 
@@ -91,6 +96,17 @@ def _proposal_stage(p: dict, score: dict | None, draft: dict | None) -> str:
     if p.get("state") == intake.APPROVED or score is not None:
         return "approved"
     return "proposed"
+
+
+def _precheck(db, task_id, slug: str) -> dict | None:
+    """The #108 precheck the proposal writer recorded on this proposal, or None."""
+    from . import research
+
+    with db.session() as s:
+        t = s.get(research.ResearchTask, int(task_id))
+        props = list((t.detail or {}).get("concept_proposals") or []) if t else []
+    got = next((p.get("silhouette_precheck") for p in props if p.get("slug") == slug), None)
+    return dict(got) if isinstance(got, dict) else None
 
 
 def lineage(db, *, now: datetime | None = None) -> list[dict]:
@@ -121,6 +137,7 @@ def lineage(db, *, now: datetime | None = None) -> list[dict]:
             proposals.append({"slug": p["slug"], "task": p["task"],
                               "intake_state": p.get("state"),
                               "stage": _proposal_stage(p, score, draft),
+                              "silhouette": _precheck(db, p["task"], p["slug"]),
                               "score_job": score, "engineering_job": draft})
         stage = "researching" if task_id else "validated"
         for p in proposals:
@@ -137,19 +154,34 @@ def lineage(db, *, now: datetime | None = None) -> list[dict]:
         elif stage == "gate_refused":
             failed = sorted({w for p in proposals for w in
                              ((p["score_job"] or {}).get("failed") or [])})
-            held = f"the pre-engineering gate refused it ({failed}); returned to development"
-        elif stage == "proposed":
-            held = "awaiting concept intake's judgement"
-        elif stage == "approved":
-            held = "approved; radar.score not yet run"
+            why108 = next((r for p in proposals for r in
+                           ((p["score_job"] or {}).get("silhouette_reasons") or [])), None)
+            held = (f"the pre-engineering gate refused it ({failed}); returned to development"
+                    + (f". {why108[:240]}" if why108 else ""))
+        elif stage in ("proposed", "approved"):
+            held = ("awaiting concept intake's judgement" if stage == "proposed"
+                    else "approved; radar.score not yet run")
+            # Review H1: a concept whose derived brief fails #108 is named as held by it now,
+            # before scoring -- the gate will refuse it, and nothing relabels it to pass.
+            bad = next((p["silhouette"] for p in proposals
+                        if p["silhouette"] and not p["silhouette"].get("passes")), None)
+            if bad:
+                held += (f"; held by #108: it honestly carries no silhouette qualifier "
+                         f"({(bad.get('reasons') or [''])[0][:200]})")
         else:
             held = None
+        held_by_108 = stage == "gate_refused" and any(
+            "silhouette" in ((p["score_job"] or {}).get("failed") or []) for p in proposals) \
+            or (stage in ("proposed", "approved") and "held by #108" in (held or ""))
         out.append({"gap": gid, "pod": pod, "gap_state": state,
                     "corroborated_by": list(ev.get("corroborated_by") or []),
                     "validated_at": ev.get("validated_at"),
                     "research_task": task_id, "research_state": task_state,
                     "proposals": proposals, "stage": stage,
-                    "qualifying": _RANK[stage] >= _RANK[QUALIFYING_FROM],
+                    # A refused gap, or one #108 holds, is not a qualifying opportunity.
+                    "qualifying": (_RANK[stage] >= _RANK[QUALIFYING_FROM]
+                                   and stage != "gate_refused" and not held_by_108),
+                    "held_by_108": held_by_108,
                     "held_because": held})
     return out
 
@@ -330,6 +362,22 @@ def sources() -> tuple[dict, ...]:
              "none: no official API is wired; never scraped", kind="trend",
              note="spec/05 'external traffic/content ecosystems'; master v1.1 'external "
                   "research'. Wikimedia pageviews is the only trend feed"),
+        # Review M2: the off-Etsy competitor channels Master Plan MP1.2-s4 asks for. Each is
+        # UNAVAILABLE (FOUR_SHOP_COMPARISON.md: "Off-Etsy channels (websites, YouTube,
+        # Pinterest) have no compliant collector") and kept visible as a limitation.
+        _src("competitor_websites", "competitors' own websites (MP1.2-s4)", "market_radar",
+             None, "none: no compliant collector; pages are never scraped", kind="offsite",
+             note="UNAVAILABLE: no allow-listed, terms-compliant fetch exists for a "
+                  "competitor's site; research_fetch is limited to gov, Wikipedia and Etsy "
+                  "help"),
+        _src("youtube", "competitors' YouTube channels (MP1.2-s4)", "market_radar", None,
+             "none: the YouTube Data API is not wired and no key is provisioned",
+             kind="offsite",
+             note="UNAVAILABLE: needs a YouTube Data API key (owner action) and a collector"),
+        _src("pinterest", "competitors' Pinterest boards (MP1.2-s4)", "market_radar", None,
+             "none: the Pinterest API needs an approved app and owner OAuth; never scraped",
+             kind="offsite",
+             note="UNAVAILABLE: needs Pinterest API app approval and owner OAuth"),
     )
 
 
@@ -353,6 +401,9 @@ def status_of(src: dict, *, env=None, credential: str | None = None,
     if not src["job_type"]:
         if src["gate"] == "owner_readings":
             return BLOCKED, "no collector exists by design: the owner records the readings"
+        if src.get("kind") == "offsite":
+            return MISSING, ("UNAVAILABLE: no compliant collector exists; kept visible as a "
+                             "limitation (" + src["note"].split(": ", 1)[-1] + ")")
         return MISSING, "no collector and no cadence exist; kept visible as a limitation"
     if src["job_type"] not in cad:
         return MISSING, f"job {src['job_type']} has no cadence in runtime.worker.CADENCES"
@@ -364,8 +415,11 @@ def status_of(src: dict, *, env=None, credential: str | None = None,
     if gate == ETSY_CREDENTIAL and credential not in (None, "OK"):
         return BLOCKED, f"the Etsy read credential reads {credential}; jobs no-op until " \
                         f"etsy.probe succeeds"
-    if gate == "image_vision" and vision_ok is False:
-        return BLOCKED, "no usable vision model (image_vision closed)"
+    if gate == "image_vision" and vision_ok is not True:
+        # Review LOW: an unreadable vision state is not a usable one.
+        return BLOCKED, ("no usable vision model (image_vision closed)" if vision_ok is False
+                         else "the image_vision gate's state could not be read; unknown is "
+                              "not usable")
     return SCHEDULED, f"every {cad[src['job_type']] // 3600} h via {src['job_type']}"
 
 
@@ -406,6 +460,23 @@ def _job_facts(db, job_types: set[str], now: datetime) -> dict[str, dict]:
     return out
 
 
+def health_of(row: dict) -> str:
+    """Review M1: the per-row pill, derived. OK only for a scheduled source that has
+    succeeded, is not failing and is not stale. Never succeeded -> UNKNOWN; failing -> DEGRADED;
+    not scheduled -> UNKNOWN (missing) or DEGRADED (disabled / blocked)."""
+    if row.get("status") != SCHEDULED:
+        return "UNKNOWN" if row.get("status") == MISSING else "DEGRADED"
+    failing = (row.get("consecutive_failures") or 0) > 0 if "consecutive_failures" in row \
+        else (row.get("failures_7d") or 0) > 0
+    if failing:
+        return "DEGRADED"
+    if not row.get("last_success"):
+        return "UNKNOWN"
+    if row.get("stale"):
+        return "STALE"
+    return "OK"
+
+
 def _tables_exist(db) -> bool:
     from sqlalchemy import inspect
 
@@ -441,7 +512,8 @@ def evidence(db, *, now: datetime | None = None, env=None) -> dict:
     sched = {c["job_type"]: c for c in SR.scheduler_block(db, now=now)["cadences"]}
     reg = sources()
     facts = _job_facts(db, {s["job_type"] for s in reg if s["job_type"]}, now)
-    rows = lineage(db, now=now) if _tables_exist(db) else []
+    tables = _tables_exist(db)
+    rows = lineage(db, now=now) if tables else []
     downstream = per_alias(rows)
     out = []
     for src in reg:
@@ -462,7 +534,9 @@ def evidence(db, *, now: datetime | None = None, env=None) -> dict:
             alias = benchmark_alias(src["id"])
             sh = by_alias.get(alias) or {}
             st = _state(db, src["id"])
-            d = downstream.get(alias) or {"findings": 0, "concepts": [], "engineering": []}
+            # Review LOW: with no lineage tables the downstream is UNKNOWN (None), not 0.
+            d = (downstream.get(alias) or {"findings": 0, "concepts": [], "engineering": []}) \
+                if tables else {"findings": None, "concepts": None, "engineering": None}
             row.update(
                 id=alias, label=f"{src['label']} (owner order {sh.get('owner_order')})",
                 last_attempt=sh.get("last_attempted"), last_success=sh.get("last_successful"),
@@ -475,8 +549,10 @@ def evidence(db, *, now: datetime | None = None, env=None) -> dict:
                 failure_class=sh.get("failure_class"),
                 backoff_until=sh.get("backoff_until"),
                 not_attempted_because=sh.get("not_attempted_because"),
-                findings=d["findings"], concepts=sorted(set(d["concepts"])),
-                engineering=sorted(set(d["engineering"])))
+                findings=d["findings"],
+                concepts=None if d["concepts"] is None else sorted(set(d["concepts"])),
+                engineering=None if d["engineering"] is None else sorted(set(d["engineering"])))
+        row["health"] = health_of(row)
         out.append(row)
     concl = latest_conclusion(db) or {}
     payload = {
