@@ -245,5 +245,29 @@ def test_the_health_sweep_raises_the_invalid_routes_card():
             OwnerAction.requirement_key == providers.ROUTES_CARD_KEY,
             OwnerAction.done.is_(False))) is not None
 
+def test_an_unknown_vendor_or_a_duplicate_route_is_named_and_refused():
+    """Verdict 6999967600 S2 LOW: `topic_filing=bogus` and a task routed twice are invalid
+    entries: each refuses only its task and is named on the owner card."""
+    from brambleloop.gateway.model_gateway import NoProviderAvailable
+
+    t = providers.EXAMPLE_ROUTE_TASK
+    env = {providers.ROUTES_VAR: f"{t}=bogus,listing_copy=openai,listing_copy=anthropic"}
+    table, invalid = providers.parse_routes(env)
+    assert table == {}, table
+    whys = {b["entry"]: b["why"] for b in invalid}
+    assert "not a registered model vendor" in whys[f"{t}=bogus"]
+    assert "a second time" in whys["listing_copy=anthropic"]
+    for task in (t, "listing_copy"):
+        try:
+            providers.vendor_for(task, env)
+            raise AssertionError(f"{task} resolved through an invalid route")
+        except NoProviderAvailable as exc:
+            assert "other tasks are unaffected" in str(exc), exc
+    assert providers.vendor_for("concept_ideation", env) == providers.DEFAULT_VENDOR
+    db = boot("s2fix-routes-card-2-")
+    out = providers.routes_card(db, env=env)
+    assert out["state"] == "raised" and len(out["invalid"]) == 2, out
+
+
 if __name__ == "__main__":
     run_tests(globals())

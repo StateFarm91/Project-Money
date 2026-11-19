@@ -288,7 +288,7 @@ export const DATA = {
     completion_effort: env("OK", [], { counts: { RUNNING: 2 }, href: "#/completion" }),
   }, { status: "BLOCKED", reason: "departments BLOCKED" }),
   // S4b: the P0 board, as /api/cc/p0-board serves it (sections carry their own level).
-  p0Board: () => {
+  p0Board: (salesReading = "partial") => {
     const V = ["CODE BUILT", "INDEPENDENTLY REVIEWED", "INTEGRATED", "DEPLOYED", "RUNNING",
       "PRODUCTION-VERIFIED", "REAL COMMERCE VERIFIED"];
     const NP = ["INDEPENDENTLY REVIEWED", "INTEGRATED"];
@@ -313,7 +313,16 @@ export const DATA = {
         // Verdict 6990820438 M2: the order source is not connected, so the figures are null.
         // Verdicts 6996033652 / 6998037105: the source is not measured now, but countable orders
         // were recorded earlier: PARTIAL, figures null, commerce "as of the last read".
-        sales: { state: "PARTIAL", real_orders: null, revenue_cad: null, last_order_at: ago(3000),
+        sales: salesReading === "unknown"
+          // The unmeasured source with nothing recorded: UNKNOWN, figures null, no commerce level.
+          ? { state: "UNKNOWN", real_orders: null, revenue_cad: null, last_order_at: null,
+              recorded_countable_orders: 0, recorded_countable_revenue_cad: 0,
+              source: { open: false, measured: false, last_read_at: null, missing: ["transactions_r"], why: "x" },
+              why: "the order source is not connected: transactions_r. Sales are UNMEASURED, which is different from zero sales",
+              as_of: "as of the orders recorded before the source stopped being read",
+              counted: "countable orders (the books' rule) read from etsy_receipts",
+              ...lv("DEPLOYED", { "CODE BUILT": "reader ran", DEPLOYED: "commit reported" }) }
+          : { state: "PARTIAL", real_orders: null, revenue_cad: null, last_order_at: ago(3000),
           recorded_countable_orders: 2, recorded_countable_revenue_cad: 18.5,
           source: { open: false, measured: false, last_read_at: "2026-11-01T09:00:00+00:00", missing: ["transactions_r"], why: "x" },
           why: "the order source is not connected: transactions_r. Sales are UNMEASURED, which is different from zero sales",

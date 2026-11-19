@@ -61,6 +61,9 @@ export function createMock() {
     if (p === "/__mock/log") return send(res, 200, st.log);
     // W4-CCREL: fixture switch for the Etsy Connect flow (ready = key accepted, grant missing
     // transactions_r, Connect enabled; evil = the server answers a non-Etsy authorize URL).
+    // Verdict 6999967600 S4 LOW: the board's sales reading, PARTIAL (default) or the
+    // unmeasured zero-order UNKNOWN, so the browser check covers both renderings.
+    if (p === "/__mock/p0-sales") { st.p0Sales = url.searchParams.get("reading") || "partial"; return send(res, 200, { reading: st.p0Sales }); }
     if (p === "/__mock/etsy") { st.etsy = { ready: url.searchParams.get("ready") === "1", evil: url.searchParams.get("evil") === "1" }; return send(res, 200, st.etsy); }
     if (p === "/" ) { res.writeHead(302, { Location: "/cc/" }); return res.end(); }
     if (p.startsWith("/cc/") || p === "/cc") {
@@ -82,8 +85,9 @@ export function createMock() {
       const simple = { home: "home", "brief/morning": "morning", approvals: "approvals", store: "store", operations: "operations",
         autonomy: "autonomy", learn: "autonomy", insights: "insights", timeline: "timeline", notifications: "notifications",
         account: "account", "account/sessions": "sessions", emergency: "emergency",
-        company: "company", completion: "completion", "p0-board": "p0Board", "launch/packet": "launchPacket", "first-sale": "firstSale", "launch-review": "launchReview", credentials: "credentials",
+        company: "company", completion: "completion", "launch/packet": "launchPacket", "first-sale": "firstSale", "launch-review": "launchReview", credentials: "credentials",
         checks: "checks", "store/settings": "storeSettings" };
+      if (route === "p0-board") return send(res, 200, DATA.p0Board(st.p0Sales || "partial"));
       if (Object.hasOwn(simple, route)) return send(res, 200, DATA[simple[route]]());
       if (route === "laura") return send(res, 200, DATA.laura());
       if (route === "laura/conversation") return send(res, 200, DATA.lauraConversation());

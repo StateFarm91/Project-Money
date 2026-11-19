@@ -176,6 +176,21 @@ try {
     && (salesCard.reached || []).at(-1) === "REAL COMMERCE VERIFIED"
     && /REAL COMMERCE VERIFIED: proved \([^)]*as of the last read/.test(salesCard.text || ""),
     "p0 board: PARTIAL sales show the recorded floor and the commerce level as of the last read", (salesCard.text || "").slice(0, 400));
+  // Verdict 6999967600 S4 LOW: the unmeasured zero-order reading, rendered in the browser too.
+  await fetch(`${BASE}/__mock/p0-sales?reading=unknown`);
+  await page.goto(`${BASE}/cc/#/home`);
+  await settle();
+  await page.goto(`${BASE}/cc/#/p0_board`);
+  await settle();
+  const unkSales = await page.$$eval("#main section.card", (els) => els.map((e) => ({
+    title: (e.querySelector(".card-title") || {}).textContent || "",
+    reached: [...e.querySelectorAll(".ladder-rung.is-reached")].map((r) => r.textContent.split(":")[0]),
+    text: e.textContent }))).then((b) => b.find((x) => /sales/.test(x.title)) || {});
+  check(/UNKNOWN/.test(unkSales.text || "") && /Real orders\s*Unknown/.test(unkSales.text || "")
+    && /Revenue \(CA\$\)\s*Unknown/.test(unkSales.text || "") && !/At least \d+ countable/.test(unkSales.text || "")
+    && !(unkSales.reached || []).includes("REAL COMMERCE VERIFIED"),
+    "p0 board: an unmeasured source with no recorded order reads UNKNOWN, no floor, no commerce", (unkSales.text || "").slice(0, 300));
+  await fetch(`${BASE}/__mock/p0-sales?reading=partial`);
   const runCard = board.find((b) => /Running build/.test(b.title)) || {};
   check(/Level: PRODUCTION-VERIFIED/.test(runCard.sub || "") && runCard.reached.at(-1) === "PRODUCTION-VERIFIED",
     "p0 board: the level shown is the section's own", JSON.stringify(runCard.reached));
