@@ -108,8 +108,13 @@ worktrees, not this file.
   (uses my guard via stage_a.record_live) and a50a57de. cert-results/05c735a7: 11643 passing, 1 suite
   failing (test_w4_adopt_manual_listing literal guard on ENG-FIRSTLIST code, fixed by Main in a50a57de);
   not opus2 code. Nothing posted.
-- Stop reason (2026-11-19T14:30Z): every opus2 head is SHIPped and integrated; no assigned work.
-  Answer any [MAIN] message (incl. LOWs on the two merges) first next tick.
+- Tick 2026-11-19T15:28Z: [MAIN] ASSIGN 7012067586 (WS4-8 LOWs), ACK 7013654841, RR 7014276939:
+  ws4-8-double-fault 3849e806, ws4-8-owner-activation-p1 7cd0e278 (stacked on it),
+  auto-renew-docs eed2d5cb, first-listing-lows 7cf994a3 (sw v33); deploy note text in the RR.
+  Main STATUS 7013299904: 8bc96eef deployed; workforce lanes ENG-RECOVERY/SUPPLY/FAMILIES/
+  CATALOGUE/RESEARCH/CREDITS/NINTH-SHOP (not opus2).
+- Stop reason (2026-11-19T16:05Z): ASSIGN 7012067586 delivered; awaiting Main's verdicts.
+  Answer any [MAIN] message first next tick.
 - ws5 LOWs N1-N3 RR POSTED 9b807fed on opus2/ws5-n1-n3-resolver-lows (on w6-INTEG1 19e6a8ff):
   N1 create-window binding (escalate, never release, on an unbound listing created within
   CREATE_SKEW under another title); N2 stateless rows make the read undecided; N3 one
