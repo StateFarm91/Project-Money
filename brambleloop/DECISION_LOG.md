@@ -2693,3 +2693,32 @@ Reversible by decision.
 
 The trigger is the proposal's stated size, not only the band, so the dishcloths fit with or without A4a's code on the tree. Reversible by decision.
 **D-A1R-STUFFED-EXEMPTIONS: the two catalogue stuffed pieces are written "not merchandised to a child" (opus2 under the owner's A1-R directive, 2026-11-02; owner ratification pending).** A1-R made the construction the children's-safety trigger: any closed stuffed form is held until an explicit decision exists, and the implicit candidate exemption is not one. The catalogue has two closed stuffed forms. `heart-row-ring-pillow` is a wedding ring-bearer pillow and `spring-garden-kneeler` a garden kneeling pad; neither is merchandised, sized or described for a child. Both are recorded in `products/launch0.NOT_MERCHANDISED_TO_A_CHILD`, with who, when and this entry in `NOT_MERCHANDISED_DECISIONS`. Any other closed stuffed form (a radar or registry draft, a toy) is held as a named hold with one owner decision item (`childrens-decision:<slug>`) until assigned or exempted. Reversing either exemption is one line and re-holds the product.
+
+**D-OWNER-CORE-FAMILIES: stuffed animals/amigurumi, baby products and pillows/cushions are permanent CORE product families; MadelineMaeCo is a priority research shop. The factory runs first (owner FINAL DIRECTIVE, 2026-11-19, approved).** The owner reports these as the shop's "huge hits" and made them a permanent business direction, not a temporary assignment. Every future engineering and research session follows it.
+
+1. **Two parallel tracks, and Track 1 always wins a conflict.**
+   - **Track 1 (immediate revenue factory)** carries the construction families already proven through the whole chain, 24/7 on Railway: research → original design → CIR → compile → twin/reverse → certification → US/UK PDFs → FLUX galleries → SEO/pricing → listing package → authorized draft/publication → learning.
+   - **Track 2 (permanent category expansion)** is a dedicated team building the amigurumi, pillow/cushion and baby families.
+   - New families are never a reason to delay production from proven ones.
+2. **Each new family enters the publishable catalogue only after passing its own tests:** real engineering, compilation, sizing, certification and customer-deliverable tests.
+3. **Child and baby safety is more than embroidered eyes.**
+   - Embroidered features only, with no detachable small parts.
+   - Validated joins, cords and loops, stuffing, and age suitability.
+   - Cited age and choking-hazard requirements.
+   - Physical evidence where the gate requires it.
+   - We sell patterns and claim no toy certification.
+4. **Research weighting.**
+   - MadelineMaeCo gets higher research priority and up to 5 benchmark-shortlist picks, inside the CA$300 benchmark budget.
+   - No purchase happens without separate owner authorization.
+   - Research demand for stuffed animals, baby items and cushions is prioritized, while proven families keep a steady flow.
+   - Concepts that cannot be manufactured yet stay visible and HELD with exact reasons.
+5. **Visual and PDF standard.**
+   - Premium FLUX imagery is encouraged: lifestyle scenes, multiple settings, varied angles.
+   - Laura's identity stays locked, her outfit is consistent within a listing, and the product's construction is identical throughout the gallery.
+   - PDF requirements scale with the product family: a coaster does not need a garment manual.
+   - Images never substitute for physical or engineering proof, and the Etsy disclosures and publication safeguards stay.
+6. **Accountability.**
+   - Every day the factory shows production evidence: concepts entering engineering, certifications, US/UK PDFs, images verified or recovered, galleries, listing packages, Etsy drafts/live listings, and lessons applied.
+   - Zero output is a blocker that gets fixed the same day.
+
+Reversible only by the owner.
