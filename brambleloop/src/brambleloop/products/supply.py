@@ -363,8 +363,9 @@ def family_of(db, slug: str) -> str:
 
 
 def admit(ctx, *, per_run: int = MAX_ADMIT_PER_RUN, wip_limit: int | None = None,
-          only_key: str | None = None, now=None) -> dict:
-    """Admit waiting offers into free capacity, recording every admission and refusal."""
+          now=None) -> dict:
+    """Admit waiting offers into free capacity, in rank order, recording every admission
+    and refusal with its reason."""
     now = _aware(now) or datetime.now(timezone.utc)
     cap = assess(ctx.db, now=now, wip_limit=wip_limit)
     families: dict[str, int] = {}
@@ -373,38 +374,54 @@ def admit(ctx, *, per_run: int = MAX_ADMIT_PER_RUN, wip_limit: int | None = None
         families[f] = families.get(f, 0) + 1
     slots = cap["slots"]
     admitted, refused, already = [], {}, []
-    for o in offers(ctx.db):
+    budget = min(per_run, slots)
+    pool = offers(ctx.db)
+    # Work-conserving family diversity: a candidate whose family already has a product in
+    # flight is deferred, and admitted only if no other eligible candidate wants the slot.
+    # Diversity orders the work; it never leaves a free slot idle.
+    deferred: list[tuple[dict, str]] = []
+
+    def take(o, family):
+        job = ctx.enqueue(o.get("agent") or "crochet_engineer",
+                          o.get("job_type") or "cir.draft", dict(o.get("payload") or {}),
+                          idempotency_key=o["key"])
+        if job is None:
+            already.append(o["key"])
+            return
+        ctx.audit(ADMITTED, artifact=o["slug"], detail={
+            "key": o["key"], "job": job.id, "source": o.get("source"), "family": family,
+            "demand": o.get("demand"), "offer_id": o["offer_id"],
+            "family_in_flight": families.get(family, 0)})
+        admitted.append({"slug": o["slug"], "key": o["key"], "job": job.id,
+                         "family": family})
+        families[family] = families.get(family, 0) + 1
+
+    for o in pool:
         key, slug = o["key"], o["slug"]
-        if only_key is not None and key != only_key:
-            continue
         family = str(o.get("family") or family_of(ctx.db, slug))
         if slug in cap["in_flight"] or slug in cap["waiting"]:
             refused[key] = (f"product {slug} already has a chain in flight"
                             + (f" (waiting: {cap['waiting'][slug]})"
                                if slug in cap["waiting"] else ""))
             continue
-        if families.get(family, 0) >= MAX_PER_FAMILY:
-            refused[key] = (f"family diversity: {families[family]} product(s) of family "
-                            f"{family!r} already in flight (max {MAX_PER_FAMILY})")
-            continue
         if cap["refusals"]:
             refused[key] = "; ".join(cap["refusals"])
             continue
-        if len(admitted) >= min(per_run, slots):
+        if families.get(family, 0) >= MAX_PER_FAMILY:
+            deferred.append((o, family))
+            continue
+        if len(admitted) >= budget:
             refused[key] = (f"per-run trickle: {len(admitted)} admitted this run "
-                            f"(max {min(per_run, slots)}); admitted on a later run")
+                            f"(max {budget}); admitted on a later run")
             continue
-        job = ctx.enqueue(o.get("agent") or "crochet_engineer",
-                          o.get("job_type") or "cir.draft", dict(o.get("payload") or {}),
-                          idempotency_key=key)
-        if job is None:
-            already.append(key)
+        take(o, family)
+    for o, family in deferred:
+        if len(admitted) < budget:                # no other family wanted the slot
+            take(o, family)
             continue
-        ctx.audit(ADMITTED, artifact=slug, detail={
-            "key": key, "job": job.id, "source": o.get("source"), "family": family,
-            "demand": o.get("demand"), "offer_id": o["offer_id"]})
-        admitted.append({"slug": slug, "key": key, "job": job.id, "family": family})
-        families[family] = families.get(family, 0) + 1
+        refused[o["key"]] = (f"family diversity: {families.get(family, 0)} product(s) of "
+                             f"family {family!r} already in flight (max {MAX_PER_FAMILY}); "
+                             f"another family goes first")
     summary = {k: cap[k] for k in ("limit", "in_flight", "slots", "waiting", "refusals")}
     summary.update(backlog_per_worker_s=cap["backlog"]["per_worker_seconds"],
                    expected_cost=cap["cost"].get("expected"),
@@ -438,11 +455,53 @@ def offer(ctx, *, slug: str, payload: dict, key: str, source: str,
 
 
 def _try(ctx, key: str) -> dict:
-    out = admit(ctx, only_key=key)
+    # A full pass, not this offer alone: the queue is admitted in rank order (research
+    # first, then demand), so a higher-ranked waiting offer is never overtaken by arrival.
+    out = admit(ctx)
     hit = next((a for a in out["admitted"] if a["key"] == key), None)
     return {"offered": True, "admitted": hit is not None,
             "job": hit["job"] if hit else None,
             "why": None if hit else out["refused"].get(key, "already enqueued")}
+
+
+REFILL_PREFIX = "supply-refill"
+
+
+def after_chain_job(db, queue, job) -> int | None:
+    """Enqueue one admission pass when `job` ended its product's live chain work.
+
+    Called by the worker after every job. Only a chain-stage job whose product now has no
+    live chain-stage job (finished, dead-lettered or waiting on nothing) triggers it; the key
+    is the ending job, so a retry or a second worker never enqueues it twice. Returns the
+    enqueued job id, or None."""
+    from sqlalchemy import select
+
+    from ..core.models import LIVE_JOB_STATUSES, Job, JobStatus
+    from ..runtime.release_recovery import CHAIN_STAGE_JOBS, _job_slug
+
+    if job.job_type not in CHAIN_STAGE_JOBS:
+        return None
+    slug = _job_slug(job.inputs)
+    with db.session() as s:
+        status = s.scalar(select(Job.status).where(Job.id == job.id))
+        if status in LIVE_JOB_STATUSES:
+            return None                               # retrying or still running: no end
+        for other in s.scalars(select(Job).where(Job.job_type.in_(CHAIN_STAGE_JOBS),
+                                                 Job.status.in_(LIVE_JOB_STATUSES),
+                                                 Job.id != job.id)):
+            if slug is None or _job_slug(other.inputs) == slug:
+                return None                           # the chain continues
+        if s.scalar(select(Job.id).where(Job.job_type == "supply.admit",
+                                         Job.status == JobStatus.PENDING,
+                                         Job.run_after <= datetime.now(timezone.utc))
+                    .limit(1)) is not None:
+            return None                               # an admission pass is already due
+    try:
+        made = queue.enqueue("orchestrator", "supply.admit", {"after_job": job.id},
+                             idempotency_key=f"{REFILL_PREFIX}:{job.id}")
+    except Exception:  # noqa: BLE001 - a duplicate key is the same refill
+        return None
+    return getattr(made, "id", None)
 
 
 def launch0_share(limit: int) -> int:

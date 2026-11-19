@@ -56,8 +56,8 @@ def _ctx(db, key="holder"):
 
 
 def _chain(db, slug, status=JobStatus.PENDING, job_type="gate.certify", key=None,
-           run_after=None):
-    j = JobQueue(db).enqueue("quality_director", job_type, {"slug": slug},
+           run_after=None, agent="quality_director"):
+    j = JobQueue(db).enqueue(agent, job_type, {"slug": slug},
                              idempotency_key=key or f"chain:{slug}:{job_type}",
                              **({"run_after": run_after} if run_after else {}))
     with db.session() as s:
@@ -247,22 +247,27 @@ def test_a_blocked_product_does_not_halt_the_others():
         s.add(AuditLog(actor="test", action=supply.OFFERED, artifact="nordic-thing",
                        detail={"slug": "nordic-thing", "key": "draft:nordic-thing",
                                "family": "nordic", "payload": {"slug": "nordic-thing"}}))
-    # the same family is refused; another family behind it is admitted in the same run
-    blocked = _offer(ctx, "nordic-twin", family="nordic", demand=0.9)
-    assert not blocked["admitted"] and "family diversity" in blocked["why"], blocked
-    ok = _offer(ctx, "tidepool-mat", family="tidepool", demand=0.2)
-    assert ok["admitted"], ok
-    # an offer for a product already in flight is refused for that product only
-    _finish(db, "tidepool-mat")
-    dup = _offer(ctx, "nordic-thing-redo", family="other")
-    assert dup["admitted"], dup
+        s.add(AuditLog(actor="test", action=supply.ADMITTED, artifact="nordic-thing",
+                       detail={"key": "draft:nordic-thing"}))
+    # family diversity is work-conserving: a second nordic product waits while another family
+    # wants the slot, even with higher demand ...
     with db.session() as s:
-        s.add(AuditLog(actor="test", action=supply.OFFERED, artifact="tidepool-mat",
-                       detail={"slug": "nordic-twin", "key": "draft:second-of-nordic-twin",
-                               "payload": {"slug": "nordic-twin"}, "family": "nordic"}))
-    _finish(db, "nordic-thing")
-    out = supply.admit(ctx, per_run=3)
-    assert "draft:nordic-twin" in [x["key"] for x in out["admitted"]], out
+        for slug, fam, demand in (("nordic-twin", "nordic", 0.9), ("tidepool-mat", "tide", 0.2)):
+            s.add(AuditLog(actor="test", action=supply.OFFERED, artifact=slug, detail={
+                "slug": slug, "key": f"draft:{slug}", "family": fam, "demand": demand,
+                "research": True, "payload": {"slug": slug}}))
+    out = supply.admit(ctx)
+    assert [x["slug"] for x in out["admitted"]] == ["tidepool-mat"], out
+    assert out["refused"]["draft:nordic-twin"].startswith("family diversity"), out
+    assert "another family goes first" in out["refused"]["draft:nordic-twin"]
+    # ... and is admitted when nothing else wants the slot: diversity never idles capacity
+    _finish(db, "tidepool-mat")
+    out = supply.admit(ctx)
+    assert [x["slug"] for x in out["admitted"]] == ["nordic-twin"], out
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == supply.ADMITTED,
+                                              AuditLog.artifact == "nordic-twin"))
+        assert row.detail["family_in_flight"] == 1, row.detail
 
 
 def test_blocked_candidates_ranked_first_do_not_stop_one_admission_run():
@@ -322,6 +327,75 @@ def test_launch0_keeps_priority_but_yields_a_slot_to_waiting_research():
     assert [x["slug"] for x in second["offers"]["admitted"]] == ["loch-mist-throw"], second
     assert any("launch0_yielded" in d for d in _admissions(db))
     assert supply.launch0_share(1) == 1 and supply.launch0_share(4) == 3
+
+
+def test_a_chain_that_ends_refills_its_slot_at_once_through_the_worker():
+    """Requirement 3: when a product's last live chain job ends, the worker enqueues one
+    admission pass keyed on that job -- the next eligible offer is admitted without waiting
+    for the 15-minute cadence and without a manual kick."""
+    db = _db()
+    ctx = _ctx(db)
+    with db.session() as s:                    # the holder admit job is not a due pass here
+        s.get(Job, ctx.job.id).status = JobStatus.DONE
+    _chain(db, "busy-one", key="a")
+    two = _chain(db, "busy-two", key="b")
+    _chain(db, "busy-two", job_type="assets.build", key="b2")
+    _offer(ctx, "ash-grove-cushion")
+    assert _drafts(db) == []
+    with db.session() as s:
+        s.get(Job, two).status = JobStatus.DONE
+    with db.session() as s:
+        ended = s.get(Job, two)
+        s.expunge(ended)
+    # busy-two still has assets.build live: its chain continues, no refill
+    assert supply.after_chain_job(db, JobQueue(db), ended) is None
+    with db.session() as s:
+        for j in s.scalars(select(Job).where(Job.idempotency_key == "b2")):
+            j.status = JobStatus.DONE
+    rid = supply.after_chain_job(db, JobQueue(db), ended)
+    assert rid is not None
+    assert supply.after_chain_job(db, JobQueue(db), ended) is None   # one pass per end
+    with db.session() as s:
+        assert s.get(Job, rid).idempotency_key == f"{supply.REFILL_PREFIX}:{two}"
+    # a non-chain job never triggers one; a still-live (retrying) chain job does not either
+    other = JobQueue(db).enqueue("orchestrator", "ops.heartbeat", {}, idempotency_key="hb")
+    assert supply.after_chain_job(db, JobQueue(db), other) is None
+    # the real worker: it runs the pass and the waiting offer is admitted
+    w = Worker(db, "refill-worker", job_types=["supply.admit"])
+    while w.run_once():
+        pass
+    # the freed slot is filled at once: Launch-0 (the owner's launch scope) has first claim
+    # while none of its releases is in flight; the research offer is next in line
+    assert _drafts(db) == ["market-basket-small"], _drafts(db)
+    with db.session() as s:
+        assert s.get(Job, rid).status == JobStatus.DONE
+        assert s.get(Job, rid).outputs["admitted"] == 1
+    # end to end: a worker finishing a chain job enqueues the pass by itself
+    db2 = _db()
+    ctx2 = _ctx(db2)
+    with db2.session() as s:
+        s.get(Job, ctx2.job.id).status = JobStatus.DONE
+    _chain(db2, "full-one", key="a")
+    with db2.session() as s:
+        s.add(AuditLog(actor="test", action=supply.OFFERED, artifact="ash-grove-cushion",
+                       detail={"slug": "ash-grove-cushion", "key": "draft:ash-grove-cushion",
+                               "research": True, "payload": {"slug": "ash-grove-cushion"}}))
+    seo = _chain(db2, "full-two", status=JobStatus.PENDING, job_type="listing.seo", key="seo",
+                 agent="listing")
+    with db2.session() as s:        # one attempt: whether it completes or dead-letters, it ends
+        s.get(Job, seo).max_attempts = 1
+    assert not supply.admit(_ctx(db2, "probe"))["admitted"]
+    with db2.session() as s:
+        s.get(Job, s.scalar(select(Job.id).where(Job.idempotency_key == "probe"))).status = \
+            JobStatus.DONE
+    Worker(db2, "chain-worker", job_types=["listing.seo"]).run_once()
+    with db2.session() as s:
+        refill = s.scalar(select(Job).where(Job.idempotency_key.like(
+            f"{supply.REFILL_PREFIX}:%")))
+    with db2.session() as s:
+        assert s.get(Job, seo).status in (JobStatus.DONE, JobStatus.DEAD)
+    assert refill is not None and refill.job_type == "supply.admit", refill
+    assert refill.idempotency_key == f"{supply.REFILL_PREFIX}:{seo}"
 
 
 # ---- the non-catalogue research concept, through the real job, across a restart ----------

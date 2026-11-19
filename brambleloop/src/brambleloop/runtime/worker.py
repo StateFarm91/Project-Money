@@ -561,7 +561,18 @@ class Worker:
                               detail={"error": str(e)})
             self.stats.failed += 1
         self._refill_after(job)
+        self._supply_after(job)
         return True
+
+    def _supply_after(self, job) -> None:
+        """ENG-SUPPLY: a product chain that just ended frees its slot now, not at the next
+        15-minute `supply.admit`: one admission pass is enqueued, keyed on the ending job."""
+        try:
+            from ..products import supply
+
+            supply.after_chain_job(self.db, self.queue, job)
+        except Exception:  # noqa: BLE001 - a refill never fails the job that ended
+            pass
 
     def _lifecycle_after(self, job, outputs) -> None:
         """F-672: a completed pipeline job records the product's lifecycle move it caused."""
