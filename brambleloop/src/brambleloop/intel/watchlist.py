@@ -9,6 +9,9 @@ Owner directive, 2026-10-26 (W4-INTELREC). Four shops, permanent and exact:
   her "original special monitoring" is restored here from the directive itself.
 * ZKBDESIGNER and TheEasyDesign -- permanent benchmarks, not replacements.
 
+Since joined: the four spec/05 seed shops (D-W4-OWNER-SEEDSHOPS, 2026-10-27) and ArtLoveDesing
+(D-OWNER-NINTH-SHOP, 2026-11-19), the ninth research shop -- nine in all, anchor included.
+
 What runs, all on the existing job framework and agents (market_radar, Intelligence):
 
 1. `intel.watchlist_scan` -- each non-anchor shop through the SAME scan as Mrs J
@@ -34,6 +37,7 @@ starts (a tournament) passes the creative director's existing ceilings like any 
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 
@@ -119,6 +123,11 @@ WATCHLIST: tuple[Member, ...] = (
     # benchmark."
     Member(spec.key, spec.shop_name, spec.owner_supplied_url, SEED, False)
     for spec in benchmarks.SEED_SHOPS
+) + tuple(
+    # D-OWNER-NINTH-SHOP (owner directive 2026-11-19): ArtLoveDesing, a permanent research
+    # source on the watchlist cadence, scanned by the same `scan_member` as the others.
+    Member(spec.key, spec.shop_name, spec.owner_supplied_url, PERMANENT, False)
+    for spec in benchmarks.OWNER_ADDED_SHOPS
 )
 BY_KEY = {m.key: m for m in WATCHLIST}
 
@@ -143,9 +152,33 @@ SCOPE: dict[str, tuple[str, str]] = {
     "public_sales_milestones": ("MEASURED", "findShops transaction_sold_count"),
     "popularity_signals": ("MEASURED", "num_favorers (shop and listing)"),
     "style_trends_positioning": ("DERIVED", "pod mix and price band over time"),
+    # D-OWNER-NINTH-SHOP: the parts the owner named for the ninth shop, read for every shop.
+    "amigurumi": ("DERIVED", "listings our pod routing sends to the amigurumi pod"),
+    "pdf_languages": ("MEASURED", "findShops `languages` and each listing's `language` from "
+                                  "the API: the language the listing is offered in. The PDF "
+                                  "itself is never bought, downloaded or opened"),
+    "pdf_quality": ("UNMEASURED", "no compliant source: judging a PDF needs the competitor's "
+                                  "file, which is never bought or copied. Buyer-side proxies "
+                                  "(review average, recurring complaint themes) are shown "
+                                  "separately and never relabelled as PDF quality"),
+}
+# What the owner asked to have monitored, per shop key, mapped to the compare figures that
+# answer each part. A part with no figure here would be a promise nothing keeps.
+MONITORING_FOCUS: dict[str, dict[str, tuple[str, ...]]] = {
+    benchmarks.ARTLOVE_KEY: {
+        "listings": ("listings_observed", "new_listings_7d"),
+        "prices": ("price_median_cad", "on_sale_share"),
+        "amigurumi": ("amigurumi_listings",),
+        "pdf_languages": ("listing_languages",),
+        "pdf_quality": ("pdf_quality",),
+        "reviews": ("review_count", "review_average", "recurring_complaint_themes"),
+        "trends": ("new_listings_7d", "category_mix", "public_sales"),
+    },
 }
 SHOP_FIELDS = ("transaction_sold_count", "review_count", "review_average", "num_favorers",
-               "listing_active_count")
+               "listing_active_count", "languages")
+# The scope part that can never be MEASURED from a compliant source (see SCOPE).
+PDF_QUALITY_WHY = SCOPE["pdf_quality"][1]
 
 
 class _NoReader(Exception):
@@ -248,6 +281,7 @@ def scan_member(db, member: Member, reader, *, now: datetime | None = None,
     try:
         shop = reader.resolve_shop(member.shop_name)
         facts = {f: shop.get(f) for f in SHOP_FIELDS}
+        facts["languages"] = _languages(facts.get("languages"))  # codes only, never text
         # WS2 R6: the real environment (None = the process's), so an official API read is
         # graded as the observation it is. `env={}` hid the credential and graded every
         # watchlist observation `supporting`.
@@ -354,8 +388,19 @@ def alternative_evidence(member: Member) -> str:
     prof = next((c for c in COMPETITORS if c.shop.lower() == member.shop_name.lower()), None)
     if prof is None:
         return "none on file"
+    if not _profile_observed(prof):
+        # D-OWNER-NINTH-SHOP: a profile the owner named but nobody has observed is not
+        # evidence of anything, and is not dressed up as an observation.
+        return (f"radar.market.COMPETITORS[{prof.shop}] owner-named profile, not yet observed "
+                f"(no price band, formats or badges on file)")
     return (f"radar.market.COMPETITORS[{prof.shop}] public-profile seed observation, "
             f"observed {prof.observed_on} (price band, formats, badges; no content)")
+
+
+def _profile_observed(prof) -> bool:
+    """Whether a COMPETITORS profile carries anything observed (a price band or formats)."""
+    lo, hi = prof.observed_price_band_cad
+    return bool((lo > 0 and hi > 0) or prof.format_signals)
 
 
 def _record_not_accessible(db, member: Member, st: dict, reason: str, *,
@@ -508,7 +553,16 @@ def compare(db, *, now: datetime | None = None) -> dict:
                 "recurring_complaint_themes": G(
                     (st.get("reviews") or {}).get("recurring_themes"), "getReviewsByShop",
                     st.get("reviews_at"), "DERIVED"),
+                # D-OWNER-NINTH-SHOP: amigurumi, PDF languages, PDF quality.
+                "amigurumi_listings": G(mix.get("amigurumi", 0) if listings else None, src,
+                                        as_of, "DERIVED"),
+                "listing_languages": G(_languages(shop.get("languages")), "findShops", as_of),
+                "pdf_quality": {"value": "UNKNOWN", "grade": "UNMEASURED",
+                                "source": "none compliant", "as_of": None,
+                                "why": PDF_QUALITY_WHY},
             },
+            "monitoring_focus": {part: list(figs) for part, figs
+                                 in MONITORING_FOCUS.get(m.key, {}).items()},
             # Never assumed. A hypothesis slot with no evidence collected is UNKNOWN.
             "ai_use": {"assessment": "UNKNOWN", "hypothesis_only": True,
                        "evidence": [], "why": "no evidence collected; a shop is never "
@@ -521,6 +575,16 @@ def compare(db, *, now: datetime | None = None) -> dict:
             "copies_competitor_content": False,
             "uncertainty": ("figures are what the official API exposed at as_of; a shop whose "
                             "observation is not ok has UNKNOWN figures, never zeros")}
+
+
+def _languages(value) -> list[str] | None:
+    """The shop's offered languages as short language codes, or None when unread. Only codes
+    pass (e.g. "en-US"): anything else from the payload is not ours to carry."""
+    if not isinstance(value, (list, tuple)):
+        return None
+    out = sorted({str(v) for v in value
+                  if isinstance(v, str) and re.fullmatch(r"[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})?", v)})
+    return out or None
 
 
 # Review H2 (eng/r5-research-2): an arena is corroborated only by what a shop has listed

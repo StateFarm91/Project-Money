@@ -1,6 +1,6 @@
 """S4: the P0 command board -- one read-only page of what the company is doing right now.
 
-Main's S4 (#28 6953884261): running SHA and health; the 8 mandatory shops with last attempted
+Main's S4 (#28 6953884261): running SHA and health; the mandatory research shops (nine) with last attempted
 and successful scan, source timestamp, listings observed, failures, next scan and downstream
 concept evidence; opportunities scored; products in development; certified releases; PDFs and
 galleries; Etsy draft status and remote listing ids; published and sales; costs and API
@@ -39,7 +39,10 @@ LEVELS = ("CODE BUILT", "INDEPENDENTLY REVIEWED", "INTEGRATED", "DEPLOYED", "RUN
           "PRODUCTION-VERIFIED", "REAL COMMERCE VERIFIED")
 CODE_BUILT, REVIEWED, INTEGRATED, DEPLOYED, RUNNING, PROD_VERIFIED, COMMERCE = LEVELS
 NOT_PROVABLE_HERE = (REVIEWED, INTEGRATED)
-MANDATORY_SHOPS = 8
+# D-OWNER-NINTH-SHOP: computed from the owner's list (nine since 2026-11-19), never retyped.
+from ...intel.scan_evidence import OWNER_SHOPS as _OWNER_SHOPS  # noqa: E402
+
+MANDATORY_SHOPS = len(_OWNER_SHOPS)
 HEALTH_FRESH = timedelta(minutes=45)          # the sweep runs every 15 minutes
 FRESH_WORK = timedelta(hours=24)
 ROW_LIMIT = 25
@@ -146,7 +149,8 @@ def shops(db, now):
                 **_level(deployed, running=bool(fresh),
                          verified=len(rows) == MANDATORY_SHOPS and clean,
                          why={RUNNING: "at least one shop scanned inside its cadence",
-                              PROD_VERIFIED: "all 8 mandatory shops scanned inside their "
+                              PROD_VERIFIED: f"all {MANDATORY_SHOPS} mandatory shops scanned "
+                                             "inside their "
                                              "cadence, each reporting zero consecutive "
                                              "failures"})}
     return build_section

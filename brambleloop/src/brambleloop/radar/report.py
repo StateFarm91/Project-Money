@@ -121,9 +121,13 @@ def render(today: date | None = None, target: int = 10) -> str:
     for c in COMPETITORS:
         w(f"### {c.shop}")
         w("")
-        w(f"{c.positioning}. Observed {c.observed_on} at CA${c.observed_price_band_cad[0]:.2f}"
-          f"-{c.observed_price_band_cad[1]:.2f}."
-          + (f" Discounting: {c.discount_pattern}." if c.discount_pattern else ""))
+        lo, hi = c.observed_price_band_cad
+        if lo <= 0 or hi <= 0:
+            # An owner-named profile nobody has observed yet: no date or band is claimed.
+            w(f"{c.positioning}. No price band observed yet.")
+        else:
+            w(f"{c.positioning}. Observed {c.observed_on} at CA${lo:.2f}-{hi:.2f}."
+              + (f" Discounting: {c.discount_pattern}." if c.discount_pattern else ""))
         w("")
         w(f"- **Strength.** {c.strength}")
         w(f"- **Gap we can attack.** {c.gap}")
