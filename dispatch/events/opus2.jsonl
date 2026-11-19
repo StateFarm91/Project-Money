@@ -150,3 +150,7 @@
 {"at": "2026-11-19T06:18:08Z", "worker": "opus2", "assignment": "WS4-STAGE-A", "event": "review_requested", "sha": "50242d0c", "note": "L-A..L-F per 6999967600"}
 {"at": "2026-11-19T06:18:08Z", "worker": "opus2", "assignment": "S2", "event": "review_requested", "sha": "8ff5854b", "note": "vendor+dup-LOWs per 6999967600"}
 {"at": "2026-11-19T06:18:08Z", "worker": "opus2", "assignment": "S4", "event": "review_requested", "sha": "8ff5854b", "note": "UNKNOWN-browser-case per 6999967600"}
+{"at": "2026-11-19T15:52:55Z", "worker": "opus2", "assignment": "WS4-8-LOWS", "event": "review_requested", "sha": "3849e806", "note": "double-fault per 7012067586"}
+{"at": "2026-11-19T15:52:55Z", "worker": "opus2", "assignment": "WS4-8-LOWS", "event": "review_requested", "sha": "7cd0e278", "note": "owner-activation-p1 per 7012067586"}
+{"at": "2026-11-19T15:52:55Z", "worker": "opus2", "assignment": "WS4-8-LOWS", "event": "review_requested", "sha": "eed2d5cb", "note": "auto-renew-docs per 7012067586"}
+{"at": "2026-11-19T15:52:55Z", "worker": "opus2", "assignment": "WS4-8-LOWS", "event": "review_requested", "sha": "7cf994a3", "note": "first-listing-L2-L5 per 7012067586"}
