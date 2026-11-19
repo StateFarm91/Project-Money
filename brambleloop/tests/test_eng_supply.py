@@ -232,8 +232,10 @@ def test_an_unreadable_spend_reading_refuses_unknown_is_never_pass():
 def test_a_product_parked_on_a_sample_or_the_owner_frees_its_slot():
     db = _db()
     ctx = _ctx(db)
-    _chain(db, "sample-wait-item", key="a")
-    _chain(db, "owner-wait-item", key="b")
+    # In flight (due inside the horizon) but not due now: waiting holds no worker time.
+    soon = datetime.now(timezone.utc) + timedelta(hours=1)
+    _chain(db, "sample-wait-item", key="a", run_after=soon)
+    _chain(db, "owner-wait-item", key="b", run_after=soon)
     assert not _offer(ctx, "fern-path-coaster")["admitted"]          # both slots taken
     with db.session() as s:
         s.add(PhysicalTest(product_slug="sample-wait-item", version="1.0.0",
@@ -254,6 +256,51 @@ def test_a_product_parked_on_a_sample_or_the_owner_frees_its_slot():
            key="c")
     cap = supply.assess(db)
     assert "owner-wait-item" in cap["in_flight"] and cap["slots"] == 0, cap
+
+
+def test_an_owner_action_naming_a_longer_slug_never_parks_a_different_product():
+    """Supply review M2: substring matching parked "granny-square" because an owner action
+    named "granny-square-blanket", freeing a slot while its chain work was due."""
+    db = _db()
+    soon = datetime.now(timezone.utc) + timedelta(hours=1)
+    _chain(db, "granny-square", key="a", run_after=soon)
+    _chain(db, "tote", key="b", job_type="cir.compile", run_after=soon)
+    with db.session() as s:
+        s.add(OwnerAction(action="approve the granny-square-blanket listing", reason="fixture",
+                          requirement_key="fixture:granny-square-blanket"))
+        s.add(OwnerAction(action="review market-tote-bag photos", reason="fixture",
+                          requirement_key="fixture:market-tote-bag"))
+    cap = supply.assess(db)
+    assert cap["waiting"] == {}, cap
+    assert sorted(cap["in_flight"]) == ["granny-square", "tote"] and cap["slots"] == 0, cap
+    # the exact slug, delimited by punctuation, still parks it
+    with db.session() as s:
+        s.add(OwnerAction(action="decide: granny-square, needs the owner", reason="fixture",
+                          requirement_key="fixture:granny-square"))
+    cap = supply.assess(db)
+    assert "granny-square" in cap["waiting"] and cap["slots"] == 1, cap
+
+
+def test_a_waiting_product_with_chain_work_due_now_keeps_its_slot():
+    """Supply review M2: a product whose chain job is due now uses the worker and the model
+    budget now, so an owner action or a sample naming it does not free its slot."""
+    db = _db()
+    _chain(db, "due-now-item", key="a")                               # due now
+    with db.session() as s:
+        s.add(OwnerAction(action="approve the due-now-item listing", reason="fixture",
+                          requirement_key="fixture:due-now-item"))
+        s.add(PhysicalTest(product_slug="due-now-item", version="1.0.0",
+                           tester_ref="fixture tester"))
+    cap = supply.assess(db)
+    assert "due-now-item" in cap["in_flight"] and "due-now-item" not in cap["waiting"], cap
+    # a FAILED retry that is due now holds its slot the same way
+    db2 = _db()
+    _chain(db2, "retry-item", status=JobStatus.FAILED, key="r")
+    with db2.session() as s:
+        s.add(OwnerAction(action="approve retry-item", reason="fixture",
+                          requirement_key="fixture:retry-item"))
+    cap = supply.assess(db2)
+    assert "retry-item" in cap["in_flight"] and "retry-item" not in cap["waiting"], cap
 
 
 def test_a_blocked_product_does_not_halt_the_others():

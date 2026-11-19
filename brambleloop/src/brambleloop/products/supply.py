@@ -146,9 +146,46 @@ def waiting_on(db, slugs) -> dict[str, str]:
         for a in s.scalars(select(OwnerAction).where(OwnerAction.done.is_(False))):
             text = " ".join(str(x or "") for x in (a.action, a.blocks, a.requirement_key))
             for slug in slugs:
-                if slug in text:
+                if _names_slug(text, slug):
                     out.setdefault(slug, f"owner action #{a.id} open: {str(a.action)[:120]}")
     return out
+
+
+def _names_slug(text: str, slug: str) -> bool:
+    """True only when `slug` appears in `text` as a whole slug token.
+
+    A substring test let an owner action about "granny-square-blanket" park the different
+    product "granny-square" and free its slot while its chain work was still due (supply
+    review M2). Slugs are runs of [a-z0-9-], so a match must not touch another slug
+    character on either side."""
+    import re
+
+    return re.search(rf"(?<![A-Za-z0-9-]){re.escape(slug)}(?![A-Za-z0-9-])", text) is not None
+
+
+def _due_now(db, slugs, *, now) -> set[str]:
+    """Slugs with a chain-stage job PENDING or FAILED (retry) that is due now.
+
+    Such a product is using the worker and the model budget now, so it keeps its slot even if
+    an owner action or a sample also names it (supply review M2). Read-only."""
+    from sqlalchemy import or_, select
+
+    from ..core.models import Job, JobStatus
+    from ..runtime.release_recovery import CHAIN_STAGE_JOBS, _job_slug
+
+    wanted = set(slugs)
+    if not wanted:
+        return set()
+    due: set[str] = set()
+    with db.session() as s:
+        for inputs, in s.execute(select(Job.inputs).where(
+                Job.job_type.in_(CHAIN_STAGE_JOBS),
+                Job.status.in_((JobStatus.PENDING, JobStatus.FAILED)),
+                or_(Job.run_after.is_(None), Job.run_after <= now))):
+            slug = _job_slug(inputs)
+            if slug in wanted:
+                due.add(slug)
+    return due
 
 
 # ---- the measurements admission reads -----------------------------------------------------
@@ -266,7 +303,9 @@ def assess(db, *, now=None, wip_limit: int | None = None) -> dict:
     base = idle_capacity(db, limit=limit, now=now)
     running = {slug for slug, jobs in base["jobs"].items()
                if any(j.endswith(":running") for j in jobs)}
-    parked_on = waiting_on(db, [s for s in base["in_flight"] if s not in running])
+    due = _due_now(db, [s for s in base["in_flight"] if s not in running], now=now)
+    parked_on = waiting_on(db, [s for s in base["in_flight"]
+                                if s not in running and s not in due])
     in_flight = [s for s in base["in_flight"] if s not in parked_on]
     slots = max(0, limit - len(in_flight))
     backlog = stage_backlog(db, now=now, workers=ceiling["workers"])

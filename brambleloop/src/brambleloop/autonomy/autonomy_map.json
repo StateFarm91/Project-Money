@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-19T15:10:52.513435+00:00",
+ "generated_at": "2026-11-19T22:33:27.881146+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -13,7 +13,7 @@
   "cadences": 143,
   "handlers": 175,
   "agents": 34,
-  "follow_on_edges": 91
+  "follow_on_edges": 92
  },
  "departments": [
   {
@@ -153,6 +153,7 @@
      "owner/API route api_launch_readiness",
      "owner/API route api_plan_cycle",
      "plan.strategy",
+     "products/supply.py:after_chain_job",
      "runtime/chain_successors.py:launch_held",
      "runtime/orders.py:handle_trajectory"
     ]
