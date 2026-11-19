@@ -65,7 +65,14 @@ worktrees, not this file.
   test_w3_tmp_hygiene before any RR.
 - Tick 2026-11-19T00:28Z: no [MAIN] message since CHECKPOINT 6994982091; INTEG1 still 7a0bc63b. Nothing
   posted.
-- Stop reason (2026-11-19T00:30Z): all of Main's findings fixed and review-requested; queue
+- Tick 2026-11-19T01:28Z: Main 6996033652 SHIPped S4 ed50c29a, S4b a941700e, ws5 c5756c4c, g-shadow
+  b493a9c6, s2-card c1c5309c into claude/w6-INTEG2 a0b8f72b. Done this tick:
+  * Stage A on INTEG2: a1 9fa89fdb, a2 cd0a20c6 (247/0), RR 6996941051.
+  * LOWs, RR 6997094498: s4-sales-lows f5c527c1 (PARTIAL reading, no $0 top rung, revenue
+    tile check), g-shadow-lows-2 f286b74d (24h-edge + slack tests, comment), s2-routes-strict
+    b36100e0 (unknown task refused).
+- Stop reason (2026-11-19T02:05Z): queue exhausted; awaiting Main's verdicts on Stage A and the
+  three LOW heads. Answer any [MAIN] message first next tick. all of Main's findings fixed and review-requested; queue
   exhausted pending verdicts. Answer any [MAIN] message first next tick.
 
 ## State at 2026-11-18T10:50Z (superseded)
