@@ -147,3 +147,6 @@
 {"at": "2026-11-19T03:59:25Z", "worker": "opus2", "assignment": "S2", "event": "review_requested", "sha": "801a500b", "note": "routes-scoped-MEDIUM per 6998037105/6998051067"}
 {"at": "2026-11-19T03:59:25Z", "worker": "opus2", "assignment": "WS4-STAGE-A", "event": "review_requested", "sha": "83317385", "note": "M1-M3+LOWs per 6998037105/6998051067"}
 {"at": "2026-11-19T03:59:25Z", "worker": "opus2", "assignment": "S4", "event": "review_requested", "sha": "7880c164", "note": "as-of+PARTIAL-browser per 6998037105/6998051067"}
+{"at": "2026-11-19T06:18:08Z", "worker": "opus2", "assignment": "WS4-STAGE-A", "event": "review_requested", "sha": "50242d0c", "note": "L-A..L-F per 6999967600"}
+{"at": "2026-11-19T06:18:08Z", "worker": "opus2", "assignment": "S2", "event": "review_requested", "sha": "8ff5854b", "note": "vendor+dup-LOWs per 6999967600"}
+{"at": "2026-11-19T06:18:08Z", "worker": "opus2", "assignment": "S4", "event": "review_requested", "sha": "8ff5854b", "note": "UNKNOWN-browser-case per 6999967600"}
