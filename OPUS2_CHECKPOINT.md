@@ -1476,3 +1476,9 @@ See P0_GAP_REGISTER.json `opus2_open_engineering`.
 - 2026-11-02T06:34Z — loop 06:28: review OPUS2O read (pet/stocking SHIP; #3 O-1 MED, #9 O-4 MED). O-1 morphology count reader built (#3, 15-suite run). O-4/O-5/O-2 colourwork class fixes built (#9, catalogue unchanged after dropping "one"; 19-suite run). Stocking LOWs O-6/O-7/O-9 built (#11, 15-suite run). Tapestry N pushed (#15 71e26e6f); amigurumi PR #18 opened, merge c0ecc55e in run; registry 8b4076a9 local; photo 45/119.
 - 2026-11-02T07:37Z — OPUS2O all pushed: #3 b185b528 (b4merge f4bf34bb), #9 2f9c413d, #11 d3a485a1. #18 merge c0ecc55e pushed. Research->PD registry PR opened (opus2/p0-construction-registry 21d4ceaf, 24/24). Photo review: 46/119 clean before the 2h limit; remaining 73 resumed.
 - 2026-11-02T08:40Z — loop 08:37: #15 merged into INTEG1 (#18 retargeted, clean). OPUS2P fixed on #18 (P-1 HIGH children gate, P-2 counted joins, P-3 floor, P-4..P-9) local, 28-suite run. Photo branch: band + guard fixed (5a47cd8e), product_run rerun. Claimed P0-NAME-OBJECT-MISMATCH on #3: head-noun object check, POOL routes unchanged, 14-suite run. Pet+stocking integrated by integrator (52f9f4b5).
+
+## 2026-11-19T21:30Z tick (covers the queued 18:28-21:28Z firings)
+- INTEG2 is now ef67febf. All of ASSIGN 7012067586 merged with SHIP: 7cd0e278 (incl. 3849e806) as 1c1cef6d, eed2d5cb as dba0c8e4, 7cf994a3 as ef67febf.
+- Issue #28 through 18:18Z has no opus2 VERDICT or ASSIGN. D-OWNER-CORE-FAMILIES (7017292315) lists Secondary on Track 1 with no specific item. ENG-PLUSH owns the revival of opus2/p0-amigurumi.
+- Posted ACK 7022770281.
+- STOP REASON: no assigned opus2 work. Awaiting Main's ASSIGN; answer any [MAIN] message first next tick.
