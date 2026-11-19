@@ -43,6 +43,13 @@ from . import standing_policy as SP
 WITHDRAW = "store.withdraw"
 MAX_PER_HOUR = 10
 WITHDRAWN = "listing.withdrawn"
+# Verdict 6998051067 M1: written BEFORE the Etsy request, so a crash after Etsy accepted is
+# recoverable from the record (a retry reconciles from Etsy's read-back).
+INTENT = "listing.withdraw_intent"
+MISMATCH_INCIDENT = "standing_policy.withdrawal_unconfirmed:"
+MISMATCH_CARD = "standing_policy.withdrawal_unconfirmed:"
+#: The per-product owner path's success event (runtime.pipeline.handle_store_activate).
+OWNER_ACTIVATED = "store.activated"
 PLANNED = "policy.rollback_planned"
 ACTOR = "standing_rollback"
 STOPPED_STATES = frozenset({SP.SUSPENDED_STATE, SP.NONE, SP.DEAD, SP.BROKEN})
@@ -55,21 +62,46 @@ def _now(now=None) -> datetime:
 
 
 def lineage_of_live(db, listing_id: str) -> dict | None:
-    """The consumed standing activation grant that made `listing_id` live, or None."""
+    """The standing activation that made `listing_id` live, or None. Fails closed.
+
+    Verdict 6998051067 M2: a consumed activation grant is not enough. The grant's seal must
+    verify under the issuer key, a read-back-verified Stage A activation event
+    (`standing_activation.ACTIVATED`) must exist for that grant and listing, and no later
+    activation of the listing by another path (the owner's per-product `store.activated`) may
+    exist: a listing the owner made live is never withdrawn from here."""
     from sqlalchemy import select
 
+    from ..core.models import AuditLog
     from . import standing_activation as SA
     from . import standing_grants as SG
 
     SG.ensure_tables(db)
+    lid = str(listing_id)
     with db.session() as s:
-        for g in s.scalars(select(SG.StandingGrant).where(
-                SG.StandingGrant.consumed_at.is_not(None)).order_by(SG.StandingGrant.id.desc())):
-            body = g.detail_json or {}
-            if body.get("action") == SA.ACTION and str(body.get("listing_id")) == str(listing_id):
-                return {"grant_id": g.id, "policy_row_id": g.policy_row_id, "scope": g.scope,
-                        "release": g.release, "job_id": g.consumed_job_id}
-    return None
+        verified = [r for r in s.scalars(select(AuditLog).where(
+            AuditLog.action == SA.ACTIVATED, AuditLog.actor == SA.ACTIVATED_ACTOR)
+            .order_by(AuditLog.id.desc()))
+            if str((r.detail or {}).get("etsy_listing_id")) == lid]
+        if not verified:
+            return None
+        latest = verified[0]
+        other = [r for r in s.scalars(select(AuditLog).where(
+            AuditLog.action == OWNER_ACTIVATED, AuditLog.id > latest.id))
+            if str((r.detail or {}).get("etsy_listing_id")) == lid]
+        if other:
+            return None
+        g = s.get(SG.StandingGrant, int((latest.detail or {}).get("grant_id") or -1))
+        if g is None or g.consumed_at is None:
+            return None
+        body, seal = dict(g.detail_json or {}), str(g.seal or "")
+        out = {"grant_id": g.id, "policy_row_id": g.policy_row_id, "scope": g.scope,
+               "release": g.release, "job_id": g.consumed_job_id,
+               "activated_event_id": latest.id}
+    if body.get("action") != SA.ACTION or str(body.get("listing_id")) != lid:
+        return None
+    if not SG.verify(SA.DOMAIN, body, seal):
+        return None
+    return out
 
 
 def stopped(db, *, now=None) -> str | None:
@@ -114,27 +146,121 @@ def withdraw_refusal(db, listing_id: str, *, remote: dict | None,
         return f"withdrawal could not be verified: {type(exc).__name__}"
 
 
-def withdraw(db, client, *, slug: str, version: str, listing_id: str,
-             now: datetime | None = None) -> dict:
-    """Take one SP-lineage listing down through `EtsyClient.deactivate`, and record it."""
+def _open_intent(db, listing_id: str):
+    """The latest withdrawal intent for `listing_id` with no withdrawal recorded after it."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    lid = str(listing_id)
+    with db.session() as s:
+        intents = [r for r in s.scalars(select(AuditLog).where(AuditLog.action == INTENT)
+                                        .order_by(AuditLog.id.desc()))
+                   if str((r.detail or {}).get("etsy_listing_id")) == lid]
+        if not intents:
+            return None
+        done = [r for r in s.scalars(select(AuditLog).where(AuditLog.action == WITHDRAWN,
+                                                              AuditLog.id > intents[0].id))
+                if str((r.detail or {}).get("etsy_listing_id")) == lid]
+        return None if done else {"id": intents[0].id, **dict(intents[0].detail or {})}
+
+
+def _record_withdrawn(db, *, slug, version, listing_id, before, after, now, reconciled=False):
     from sqlalchemy import update
 
     from ..core.models import AuditLog, Listing
-    from ..integrations.etsy import OwnerGrant
+    from ..ops import incident_lifecycle as lifecycle
+    from ..ops import owner_queue
 
-    now = _now(now)
-    grant = OwnerGrant(db, action=OwnerGrant.WITHDRAW, approval_id="policy-stopped",
-                       slug=slug, version=version, listing_id=str(listing_id))
-    out = client.deactivate(str(listing_id), grant=grant)
     lineage = lineage_of_live(db, listing_id) or {}
     with db.session() as s:
         s.execute(update(Listing).where(Listing.product_slug == slug, Listing.version == version,
                                         Listing.etsy_listing_id == str(listing_id))
                   .values(state="withdrawn"))
         s.add(AuditLog(actor=ACTOR, action=WITHDRAWN, artifact=f"{slug}@{version}",
-                       detail={"etsy_listing_id": str(listing_id), "before": out["before"],
-                               "after": out["after"], "grant_id": lineage.get("grant_id"),
-                               "why": stopped(db, now=now), "at": now.isoformat()}))
+                       detail={"etsy_listing_id": str(listing_id), "before": before,
+                               "after": after, "grant_id": lineage.get("grant_id"),
+                               "why": stopped(db, now=now), "reconciled": reconciled,
+                               "at": now.isoformat()}))
+        lifecycle.resolve_signatures(
+            s, [f"{MISMATCH_INCIDENT}{listing_id}"],
+            resolution=f"listing {listing_id} reads inactive on Etsy and is recorded withdrawn")
+        from sqlalchemy import select
+
+        from ..core.models import OwnerAction
+
+        card = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == f"{MISMATCH_CARD}{listing_id}",
+            OwnerAction.done.is_(False)))
+        if card is not None:
+            owner_queue.close(card, owner_queue.SATISFIED,
+                              f"listing {listing_id} reads inactive on Etsy")
+
+
+def _unconfirmed(db, *, slug, version, listing_id, why, now):
+    """Verdict 6998051067 M1: Etsy accepted (or may have) but does not read inactive. One
+    incident and one owner card name the listing; nothing is recorded as withdrawn."""
+    from ..ops import incident_lifecycle as lifecycle
+    from ..ops import owner_queue
+
+    with db.session() as s:
+        lifecycle.open_or_restate(
+            s, signature=f"{MISMATCH_INCIDENT}{listing_id}", severity="P2",
+            summary=(f"withdrawal of standing-policy listing {listing_id} is unconfirmed: "
+                     f"{why}"),
+            detail={"etsy_listing_id": str(listing_id), "slug": slug, "version": version,
+                    "why": why}, product_slug=slug, now=now)
+        owner_queue.ensure(
+            s, f"{MISMATCH_CARD}{listing_id}",
+            action=(f"Check listing {listing_id} on Etsy: a standing-policy withdrawal was sent "
+                    f"but Etsy does not report it inactive ({why}). Deactivate it on Etsy if "
+                    f"it is still live; the next withdrawal run reconciles the record."),
+            reason="the rollback of a stopped standing policy could not confirm this listing",
+            max_cost_cad=0.0, minutes=5,
+            consequence_of_delay="a listing of a stopped policy may still be live",
+            blocks="completing the standing-policy rollback")
+
+
+def withdraw(db, client, *, slug: str, version: str, listing_id: str,
+             now: datetime | None = None) -> dict:
+    """Take one SP-lineage listing down through `EtsyClient.deactivate`, and record it.
+
+    Verdict 6998051067 M1: durable at every step.
+    * An intent (`listing.withdraw_intent`) is written before the request.
+    * If an earlier intent has no recorded withdrawal and Etsy already reads the listing
+      inactive, the earlier attempt reached Etsy and crashed before recording: this run
+      completes the local record (`reconciled`) and sends nothing.
+    * If Etsy does not read inactive after the request, one incident and one owner card name
+      the listing, and nothing is recorded as withdrawn (a later run retries or reconciles).
+    """
+    from ..core.models import AuditLog
+    from ..integrations.etsy import EtsyRejected, OwnerGrant
+
+    now = _now(now)
+    pending = _open_intent(db, listing_id)
+    if pending is not None:
+        current = client.get_listing(str(listing_id), includes=())
+        state = str(current.get("state") or "").lower()
+        if state == "inactive" and lineage_of_live(db, listing_id) is not None:
+            _record_withdrawn(db, slug=slug, version=version, listing_id=listing_id,
+                              before=pending.get("before") or "active", after=state, now=now,
+                              reconciled=True)
+            return {"listing_id": str(listing_id), "before": pending.get("before") or "active",
+                    "after": state, "reconciled": True}
+    with db.session() as s:
+        s.add(AuditLog(actor=ACTOR, action=INTENT, artifact=f"{slug}@{version}",
+                       detail={"etsy_listing_id": str(listing_id), "before": "active",
+                               "at": now.isoformat()}))
+    grant = OwnerGrant(db, action=OwnerGrant.WITHDRAW, approval_id="policy-stopped",
+                       slug=slug, version=version, listing_id=str(listing_id))
+    try:
+        out = client.deactivate(str(listing_id), grant=grant)
+    except EtsyRejected as exc:
+        _unconfirmed(db, slug=slug, version=version, listing_id=listing_id,
+                     why=str(exc)[:300], now=now)
+        raise
+    _record_withdrawn(db, slug=slug, version=version, listing_id=listing_id,
+                      before=out["before"], after=out["after"], now=now)
     return out
 
 
@@ -165,7 +291,10 @@ def plan(db, *, now: datetime | None = None) -> dict:
             item = {"slug": slug, "version": version, "listing_id": str(row.etsy_listing_id),
                     "grant_id": g.id}
             if body.get("action") == SA.ACTION and row.state == "active" and \
-                    str(body.get("listing_id")) == str(row.etsy_listing_id):
+                    str(body.get("listing_id")) == str(row.etsy_listing_id) and \
+                    (lin := lineage_of_live(db, row.etsy_listing_id)) is not None and \
+                    lin["grant_id"] == g.id:
+                # Verdict 6998051067 M2: the same lineage `withdraw` requires.
                 live.append(item)
             elif body.get("action") == SA.PUBLISH and row.state != "active":
                 if SA.lineage(db, slug, version, g.release, g.policy_row_id)["state"] == SB.PASS:

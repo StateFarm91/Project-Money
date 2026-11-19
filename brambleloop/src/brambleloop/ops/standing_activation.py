@@ -74,6 +74,10 @@ MIN_A_SHADOW_DAYS = 7
 MIN_A_CANDIDATES = 3
 SHADOW_DECISION = "standing_activation.shadow_decision"
 ISSUED = "policy.activation_grant_issued"
+# Verdict 6998051067 M2: the one event that puts a listing in SP lineage. Written only after
+# Etsy reads the listing back `active` following a request this grant authorised.
+ACTIVATED = "standing_policy.activation_verified"
+ACTIVATED_ACTOR = "standing_activation"
 SHADOW_ACTOR = "standing_issuer"
 OFF = ("store.activate is off in code (Stage A): making listings live without a per-product "
        "owner approval is a power the owner has not granted, and enabling it is a reviewed "
@@ -420,7 +424,7 @@ SEG_PREFIX = "seg:"
 
 def use_refusal(db, approval_id, *, slug: str, version: str, listing_id: str,
                 release: str = "", job_id: int | None = None, remote: dict | None = None,
-                env=None) -> str | None:
+                env=None, now: datetime | None = None) -> str | None:
     """Why this activation SEG does not authorise going live now, or None. Fails closed.
 
     `approval_id` is "seg:<grant id>". The grant must already have been consumed by `job_id`
@@ -457,6 +461,54 @@ def use_refusal(db, approval_id, *, slug: str, version: str, listing_id: str,
         if not isinstance(remote, dict) or remote.get("should_auto_renew") is not False:
             return ("the listing Etsy holds must have should_auto_renew false: a renewal is a "
                     "recurring fee no standing ceiling counts")
+        # Verdict 6998051067 M3: consumed at claim is not authorised at use. A delayed or
+        # reclaimed job re-reads, immediately before the request, the owner's policy (still
+        # EFFECTIVE, and the very approval the grant was signed under), the grant's signed
+        # expiry, and the shop it was signed for.
+        from . import standing_issuer as SI
+
+        now = SI._now(now)
+        eff = SP.effective(db, now=now)
+        if eff.get("state") != SP.EFFECTIVE:
+            return (f"the standing policy is {eff.get('state')} at use ({eff.get('why')}); a "
+                    "consumed grant does not outlive it")
+        signed_row = (body.get("policy") or {}).get("row_id")
+        if signed_row is None or int(eff.get("approval_id") or -1) != int(signed_row):
+            return "the effective policy is no longer the approval this grant was signed under"
+        expires = SP._when(body.get("expires_at"))
+        if expires is None or now > expires:
+            return f"standing activation grant {gid} expired at {body.get('expires_at')}"
+        shop = SG.shop_refusal(db, body)
+        if shop is not None:
+            return f"standing activation grant {gid} is void: {shop}"
         return None
     except Exception as exc:  # noqa: BLE001 - an unverifiable grant is no grant
         return f"standing activation grant could not be verified: {type(exc).__name__}"
+
+
+def record_activated(db, grant_id: int, *, listing_id: str, after: dict | None,
+                     now: datetime | None = None) -> bool:
+    """Verdict 6998051067 M2: record that the activation this grant authorised happened.
+
+    Called by the Stage A activation path after the request, with the listing as Etsy reads it
+    back. Only a read-back that is this listing and `active` is recorded; anything else
+    records nothing and returns False (the listing is then never in SP lineage)."""
+    from ..core.models import AuditLog
+    from . import standing_grants as SG
+    from . import standing_issuer as SI
+
+    if not isinstance(after, dict) or str(after.get("listing_id")) != str(listing_id) \
+            or str(after.get("state") or "").lower() != "active":
+        return False
+    SG.ensure_tables(db)
+    with db.session() as s:
+        row = s.get(SG.StandingGrant, int(grant_id))
+        if row is None or row.consumed_at is None:
+            return False
+        body = dict(row.detail_json or {})
+        if body.get("action") != ACTION or str(body.get("listing_id")) != str(listing_id):
+            return False
+        s.add(AuditLog(actor=ACTIVATED_ACTOR, action=ACTIVATED, artifact=row.scope,
+                       detail={"grant_id": int(grant_id), "etsy_listing_id": str(listing_id),
+                               "state_on_etsy": "active", "at": SI._now(now).isoformat()}))
+    return True

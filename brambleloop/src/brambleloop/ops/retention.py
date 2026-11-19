@@ -300,6 +300,12 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                           "ops.standing_withdrawal rate: MAX_PER_HOUR over the last hour"),
     "policy.rollback_planned": ("latest",
                                 "ops.standing_withdrawal.plan compares with the newest plan"),
+    # Verdict 6998051067: SP lineage is read from the verified-activation events, and an
+    # unfinished withdrawal from its intent; pruning either could only refuse (fail closed).
+    "standing_policy.activation_verified": ("lifetime_total",
+                                            "ops.standing_withdrawal.lineage_of_live"),
+    "listing.withdraw_intent": ("lifetime_total",
+                                "ops.standing_withdrawal._open_intent reconciles a retry"),
     "owner.storefront.approved": ("lifetime_total",
                                   "ops.storefront_authority grant chain (sealed_chain)"),
     "owner.storefront.revoked": ("lifetime_total",

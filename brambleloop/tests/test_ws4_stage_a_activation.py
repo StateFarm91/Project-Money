@@ -333,7 +333,8 @@ def test_an_issued_activation_grant_is_single_use_job_and_listing_bound():
             ok = {"should_auto_renew": False}
             use = lambda **k: SA.use_refusal(  # noqa: E731
                 db, k.pop("aid", seg), slug=SLUG, version=VERSION,
-                **{"release": REL, "listing_id": LISTING, "job_id": 51, "remote": ok, **k})
+                **{"release": REL, "listing_id": LISTING, "job_id": 51, "remote": ok,
+                   "now": NOW + timedelta(minutes=5), **k})
             assert "not consumed by this job" in use()
             # Consumed only as an activation, only by its own job.
             _refused(lambda: SG.consume(db, gid, job_id=51, now=NOW + timedelta(minutes=3)),
@@ -346,6 +347,24 @@ def test_an_issued_activation_grant_is_single_use_job_and_listing_bound():
             _refused(lambda: SG.consume(db, gid, job_id=51, action="store.activate",
                                         now=NOW + timedelta(minutes=4)),
                      SG.GrantRefused, "used, expired or gone")
+            assert use() is None
+            # Verdict 6998051067 M3: consumed at claim is not authorised at use.
+            with patch.object(sp, "effective", lambda *a, **k: {
+                    **_with_actions(real(*a, **k)), "state": sp.SUSPENDED_STATE,
+                    "why": "owner suspended"}):
+                assert "SUSPENDED at use" in use(), use()             # suspend after consume
+            with patch.object(sp, "effective", lambda *a, **k: {
+                    **_with_actions(real(*a, **k)), "approval_id": aid + 1}):
+                assert "no longer the approval" in use()              # superseded after
+            # Expiry alone: the policy still reads effective (as at NOW+5m), the grant's signed
+            # 15-minute life has passed.
+            with patch.object(sp, "effective", lambda db_, now=None: _with_actions(
+                    real(db_, now=NOW + timedelta(minutes=5)))):
+                late = use(now=NOW + timedelta(minutes=20))
+                assert late is not None and "expired at" in late, late
+            from brambleloop.ops import standing_issuer as SI
+            with patch.object(SI, "_shop_id", lambda db_: {"state": SB.PASS, "value": "999"}):
+                assert "is void" in use() and "shop id" in use()      # shop re-bound
             assert use() is None
             assert "not consumed by this job" in use(job_id=52)
             assert "another listing" in use(listing_id="999")
