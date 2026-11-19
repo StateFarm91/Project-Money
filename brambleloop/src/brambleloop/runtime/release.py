@@ -8034,6 +8034,15 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         detail["rebuild_already_queued"] = queued["already_queued"][:50]
         detail["rebuild_retried"] = list(queued.get("retried") or [])[:50]
         detail["rebuild_retry_held"] = dict(list((queued.get("retry_held") or {}).items())[:50])
+        # ENG-RECOVERY: publication-side policy changes pending review that did NOT hold
+        # these rebuilds (they hold publication only), so the readback can see the scope.
+        try:
+            from ..gates.platform_policy import unreviewed_changes as _uc
+
+            detail["rebuild_policy_publication_only"] = _rg.policy_publication_only(
+                _uc(ctx.db))
+        except Exception:  # noqa: BLE001 - a readback field never fails the sentinel
+            detail["rebuild_policy_publication_only"] = None
         # eng/stale-rebuild-loop: products whose last attempt ended and that are waiting out
         # RETRY_AFTER (or whose retry for today has run) -- not queued, not held.
         detail["rebuild_retry_waiting"] = list(queued.get("retry_waiting") or [])[:50]
@@ -8043,6 +8052,7 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         ctx.audit("ops.rebuild_propagated", detail={
             k: detail[k] for k in ("rebuild_enqueued", "rebuild_already_queued",
                                    "rebuild_retried", "rebuild_retry_held",
+                                   "rebuild_policy_publication_only",
                                    "rebuild_retry_waiting", "rebuild_order",
                                    "fingerprints")})
     return detail

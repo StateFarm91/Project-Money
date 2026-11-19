@@ -545,7 +545,10 @@ def inbox(db) -> dict:
             "title": f"Etsy policy changed: {c['source']}",
             "what": (f"{c['source']} changed materially (reading {c['checked_on']}); "
                      f"{', '.join(c['affects'])} are blocked until it is reviewed and "
-                     f"re-tested"),
+                     f"re-tested"
+                     + ("" if "product_creation" in (c.get("affects") or ()) else
+                        ". Internal rebuilds and re-certification continue under the "
+                        "reviewed rules; publication stays held until you review it")),
             "executable": True,
             "actions": [{"action": "policy.review_preview", "requires_step_up": False,
                          "params": {"source": c["source"]}},

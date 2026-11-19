@@ -6,7 +6,8 @@ run on a SQLite FILE through `JobQueue` and `Worker.run_once`:
 
 * POOL exhausted: one `radar.supply_stall` reading and one audit per scan date, however many
   scans run that day; a new date is a new period; no duplicate `cir.draft` is queued.
-* Selection all drafted while undrafted pool concepts remain: recorded, with its own reason.
+* Selection all drafted while undrafted pool concepts remain: the scan selects the
+  undrafted concepts instead (ENG-RECOVERY), so no stall and new drafts are queued.
 * Supply available: no reading.
 * The reading is visible on the Command Center Production view (stalls_loops) and in the
   readback evidence (autonomy_loop), informational only: no /api/verify check is added.
@@ -161,19 +162,26 @@ def test_with_supply_available_there_is_no_reading():
     assert flow_health.concept_supply_stall(db) is None
 
 
-def test_a_selection_of_only_drafted_concepts_is_recorded_with_its_own_reason():
+def test_a_drafted_selection_is_replaced_by_undrafted_pool_concepts():
+    """ENG-RECOVERY (prod 2026-11-19, `selection_all_drafted` with 18 undrafted in the pool):
+    W5-A7 recorded the stall but the next scan selected the very same drafted concepts, so
+    original_product did nothing for a week. The scan now selects from the undrafted pool:
+    no stall, a different selection, and the scores it queues reach new `cir.draft` jobs."""
     db = _db("selection")
     first = _scan(db, DAY1, "scan-a")
     assert first["concept_supply"]["stalled"] is False
     _drafted(db, first["selected"])
-    # Same date, so the same deterministic selection -- now every one of them drafted.
+    before = _drafts(db)
     second = _scan(db, DAY1, "scan-b")
-    assert second["selected"] == first["selected"]
+    assert second["selected"] and not set(second["selected"]) & set(first["selected"]), second
     supply = second["concept_supply"]
-    assert supply["stalled"] is True and supply["recorded"] is True, supply
-    assert supply["undrafted_pool"] > 0 and supply["reason"] == "selection_all_drafted"
-    assert [p for p, _ in _readings(db)] == [DAY1] and len(_audits(db)) == 1
-    assert _readings(db)[0][1]["undrafted_pool"]          # what could still be drafted
+    assert supply["stalled"] is False and supply["recorded"] is False, supply
+    assert supply["undrafted_selected"] == len(second["selected"])
+    assert _readings(db) == [] and _audits(db) == []
+    _score_all(db)
+    new_drafts = sorted(set(_drafts(db)) - set(before))
+    assert new_drafts and all(k[len("draft:"):] in second["selected"] for k in new_drafts), \
+        new_drafts
 
 
 def test_recovery_and_a_later_stall_are_reported_from_real_scans():

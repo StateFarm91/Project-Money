@@ -348,6 +348,7 @@ def thrash_sweep(db, *, now: datetime | None = None,
             "limit": THRASH_LIMIT,
             "progress": progress, "backoff": backoffs,
             "suspended": sorted(suspended_job_types(db, now=now)),
+            "rearmed": rearmed_job_types(db),
             "note": ("no loop: no failing or paid call repeated an identical result three "
                      "times" if not tripped else
                      f"{len(tripped)} loop(s) broken: incidents raised and queued retries "
@@ -589,6 +590,115 @@ def _hypothesis_changed(suspension: dict) -> bool:
     return bool(suspension.get("code_commit")) and suspension["code_commit"] != _commit()
 
 
+# ---------------------------------------------------------------------------
+# ENG-RECOVERY (prod 2026-11-19): a release change re-arms a suspended NON-SPENDING loop once.
+#
+# Production read 19 job types parked by the breaker, most of them backoffs at the 32x cap
+# (chain.rebuild, chain.successors, assets.owned_photography until 12-17). A backoff lifted
+# only when its deadline passed, its gate probe succeeded or an upstream made progress --
+# never when the code that runs it changed. So a loop whose cause was fixed and redeployed
+# stayed parked for up to 32 periods, and when the deadline passed the one run it got was
+# judged against the old tail and pushed the deadline out again. The fix's own evidence could
+# never reach it.
+#
+# The rule: when the running release differs from the one the suspension was recorded under
+# (or the handler's recorded source digest has changed), a suspended loop that does not spend
+# is released for exactly ONE probe run under the new release. "Once" is stateless and
+# durable: the probe is allowed only while no job of that type has been enqueued since the
+# current release first booted (the `release.boot_verdict` row the boot writes). The tick
+# enqueues one cadence job; from then on the suspension stands again, and the next sweep
+# judges the probe's result -- a changed result lifts the backoff, an unchanged one records
+# the new release and keeps it parked until the next release. An unknown release, a release
+# with no boot record, or a job type whose spending cannot be ruled out gets no probe.
+#
+# A loop that spends keeps the breaker: it lifts only through `gate_lifted` (its credential
+# gate changed) or `_hypothesis_changed` (its own handler's code changed), as before.
+REARM_BOOT_ACTION = "release.boot_verdict"
+# Families whose handlers buy model, vision or render work, or advertising. Listed so that a
+# job type that has not spent *yet* is still treated as spending (UNKNOWN is never PASS).
+SPENDING_PREFIXES: tuple[str, ...] = (
+    "creative.", "assets.", "visual.", "marketing.ads", "ads.", "gateway.", "culture.",
+    "intel.gallery", "seasonal.")
+
+
+def spending_job_type(session, job_type: str) -> bool:
+    """Whether a job type spends money, or might. Conservative: a failed read is True."""
+    if not job_type or job_type.startswith(SPENDING_PREFIXES):
+        return True
+    try:
+        from ..intel.watchlist import paid_job_types
+        from ..queue.effects import EXTERNAL_EFFECT_JOB_TYPES
+
+        if job_type in paid_job_types() or job_type in EXTERNAL_EFFECT_JOB_TYPES:
+            return True
+        from sqlalchemy import select
+
+        from ..core.models import CostEntry, Job
+
+        if session.scalar(select(Job.id).where(Job.job_type == job_type, Job.cost_cad > 0)
+                          .limit(1)) is not None:
+            return True
+        if session.scalar(select(CostEntry.id).join(Job, CostEntry.job_id == Job.id)
+                          .where(Job.job_type == job_type, CostEntry.amount_cad > 0)
+                          .limit(1)) is not None:
+            return True
+    except Exception:  # noqa: BLE001 - spending that cannot be ruled out is spending
+        return True
+    return False
+
+
+def release_booted_at(session, commit: str | None = None) -> datetime | None:
+    """When the running release first booted, from its own `release.boot_verdict` rows."""
+    from sqlalchemy import select
+
+    from ..core.build import UNKNOWN
+    from ..core.models import AuditLog
+
+    commit = commit if commit is not None else _commit()
+    if not commit or commit == UNKNOWN:
+        return None
+    first = None
+    for at, detail in session.execute(
+            select(AuditLog.at, AuditLog.detail).where(AuditLog.action == REARM_BOOT_ACTION)
+            .order_by(AuditLog.id.desc()).limit(500)):
+        running = str((detail or {}).get("running_commit") or "")
+        if running and running == commit:
+            at = _aware(at)
+            first = at if first is None or at < first else first
+    return first
+
+
+def rearm_probe(session, job_type: str, suspension: dict) -> dict | None:
+    """The one probe run a release change grants a suspended non-spending loop, or None."""
+    from sqlalchemy import select
+
+    from ..core.build import UNKNOWN
+    from ..core.models import Job
+
+    commit = _commit()
+    if not job_type or not commit or commit == UNKNOWN:
+        return None
+    recorded = str(suspension.get("code_commit") or "")
+    digest_changed = bool(suspension.get("handler_digest")) and _hypothesis_changed(suspension)
+    if not digest_changed and (not recorded or recorded == UNKNOWN or recorded == commit):
+        return None
+    if spending_job_type(session, job_type):
+        return None
+    booted = release_booted_at(session, commit)
+    if booted is None:
+        return None
+    since = _parse_when(suspension.get("since"))
+    if since is not None and since >= booted:
+        return None          # recorded under this release already: its probe has been judged
+    newest = session.scalar(select(Job.created_at).where(Job.job_type == job_type)
+                            .order_by(Job.id.desc()).limit(1))
+    if newest is not None and _aware(newest) >= booted:
+        return None          # the one probe for this release has been enqueued
+    return {"job_type": job_type, "release": commit, "release_booted_at": booted.isoformat(),
+            "suspended_under": recorded or None, "digest_changed": digest_changed,
+            "kind": suspension.get("kind")}
+
+
 def _state_of(outputs) -> str:
     """A job's result with its clocks and row ids removed: what state did it observe?"""
     def strip(v):
@@ -747,6 +857,7 @@ def _free_poll_backoff(session, progress: dict, *, now: datetime,
         suspension = {"kind": BACKOFF, "job_type": jt, "level": level, "factor": factor,
                       "suspend_until": until.isoformat(), "code_commit": _commit(),
                       "last_counted_job_id": row.get("last_job_id"),
+                      "handler_digest": handler_digest(jt),
                       "since": now.isoformat(), **gate_snapshot(session, jt)}
         summary = (f"{jt} observed {IDENTICAL_STATES} identical states in a row without "
                    f"progress; polling backs off to every {factor}x its period (#34)")
@@ -791,6 +902,8 @@ def suspended_job_types(db, *, now: datetime | None = None) -> dict[str, dict]:
             if sus.get("kind") == BACKOFF and upstream_progressed(
                     s, jt, _parse_when(sus.get("since")) or inc.at):
                 continue              # its input changed since: run it again
+            if sus.get("kind") in (BACKOFF, SUSPENDED) and rearm_probe(s, jt, sus):
+                continue              # ENG-RECOVERY: one probe under a new release (free only)
             if sus.get("kind") == SUSPENDED:
                 if _hypothesis_changed(sus):
                     continue          # the handler's own code changed: a changed hypothesis
@@ -804,6 +917,29 @@ def suspended_job_types(db, *, now: datetime | None = None) -> dict[str, dict]:
                     out[jt] = {"kind": BACKOFF, "until": sus["suspend_until"],
                                "factor": sus.get("factor"), "incident": inc.signature}
     return out
+
+
+def rearmed_job_types(db) -> list[dict]:
+    """The suspended loops a release change has released for their one probe (readback)."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+
+    out: list[dict] = []
+    try:
+        with db.session() as s:
+            for inc in s.scalars(select(Incident).where(
+                    Incident.resolved.is_(False),
+                    Incident.signature.like(f"{THRASH_SIGNATURE_PREFIX}%"))):
+                sus = (inc.detail or {}).get("suspension") or {}
+                jt = sus.get("job_type")
+                if jt and sus.get("kind") in (BACKOFF, SUSPENDED):
+                    hit = rearm_probe(s, jt, sus)
+                    if hit:
+                        out.append({**hit, "incident": inc.signature})
+    except Exception:  # noqa: BLE001 - a readback never breaks the sweep
+        return []
+    return sorted(out, key=lambda r: r["job_type"])
 
 
 def retry_allowed(db, job) -> dict:

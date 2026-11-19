@@ -340,7 +340,27 @@ def handle_radar_scan(ctx: JobContext) -> dict:
     nudges = _consume.rank_adjustments(ctx.db, [x.seed for x in steered])
     steered = [_replace(x, score=round(x.score + nudges.get(x.seed.slug, 0.0), 4))
                if nudges.get(x.seed.slug) else x for x in steered]
-    portfolio = select_portfolio(steered, target=target, today=today)
+    # ENG-RECOVERY (prod 2026-11-19: original_product 0/0/0 for 7 days with 18 undrafted
+    # concepts in the pool): `select_portfolio` ranks by score alone, so every scan returned
+    # the same top 11, all drafted long ago, whose `draft:<slug>` keys were taken -- the
+    # radar.score jobs promoted them and enqueued nothing. The portfolio is now chosen from
+    # the concepts not yet drafted (the same section-33 rules, the same score threshold, risk
+    # class and pre-engineering gate in radar.score and cir.draft); only when every concept
+    # has been drafted does it fall back to the full pool, which is the `pool_exhausted`
+    # stall the supply reading reports.
+    from ..ops import flow_health as _fh
+
+    try:
+        _drafted = _fh.drafted_slugs(ctx.db, {c.slug for c in steered})
+    except Exception:  # noqa: BLE001 - an unreadable draft record selects as before
+        _drafted = set()
+    undrafted = [c for c in steered if c.slug not in _drafted]
+    portfolio = select_portfolio(undrafted, target=target, today=today) if undrafted else None
+    if portfolio is None or not portfolio.selected:
+        # Nothing undrafted is selectable on its own (a bundle is held unless its members
+        # are selected with it): select as before; the supply reading names the stall.
+        undrafted = []
+        portfolio = select_portfolio(steered, target=target, today=today)
 
     ctx.audit("radar.scanned", detail={
         "pool": len(portfolio.selected) + len(portfolio.rejected),
@@ -348,6 +368,7 @@ def handle_radar_scan(ctx: JobContext) -> dict:
         "constraints_met": portfolio.constraints_met,
         "as_of": today.isoformat(),
         "arbitrage": steering,
+        "drafted_excluded": len(steered) - len(undrafted) if undrafted else 0,
     })
     if not portfolio.ok:
         # Never silently ship a portfolio that violates section 33; say which rule broke.
