@@ -134,6 +134,10 @@ KIND_RULES: tuple[dict, ...] = (
     _r("prefix", "childrens-decision:", G, _CERT, "children's-safety decision (A1-R)"),
     _r("prefix", "physical_size_conflict:", G, _CERT, "lifting a physical size halt"),
     _r("exact", "decision.api_vision_equivalence", G, _CERT, "the acceptance-wording ruling"),
+    # A ruling of not_a_defect releases a publication withholding, and the incident's `clears`
+    # field says "owner decision only" (support/defects.py): never superseded.
+    _r("prefix", "support_defect_decision:", G, _CERT,
+       "a reader-reported pattern defect: only the owner's ruling releases the withholding"),
     _r("prefix", "improve.upgrade:", G, _CERT, "a gate-tier improvement (cells approval)"),
     # ---- GENUINE: grant signatures and step-up acts --------------------------------------
     _r("prefix", "improve.league:", G, _GS, "promoting a challenger is a step-up owner act"),
@@ -237,8 +241,6 @@ KIND_RULES: tuple[dict, ...] = (
        f"{_COVERED}: recovery -- re-certifying drifted listings is internal work"),
     _r("prefix", "portfolio.rework:", R, "product_development",
        f"{_COVERED}: product development -- a new design version"),
-    _r("prefix", "support_defect_decision:", R, "engineering",
-       f"{_COVERED}: engineering triage of a reported row defect"),
     _r("exact", "improve.retirement:weekly_review", R, "agent_coordination",
        f"{_COVERED}: agent coordination -- the weekly retire/merge review"),
     _r("exact", "improve.architecture:add", R, "agent_coordination",
@@ -321,3 +323,66 @@ def _aware(v):
     if v is None:
         return None
     return v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+
+
+# ---- the covered marker: producers must not re-raise a closure that is in force ---------------
+
+#: Audit rows written when a producer sees its condition clear while a closure is in force.
+CLEARED_ARTIFACT_PREFIX = "owner_action_key:"
+
+
+def closure_in_force(session, requirement_key: str, action: str | None = None) -> bool:
+    """True while an automatic (standing-authority) closure covers this key and condition.
+
+    The sweep closes a routine or redundant card; a producer that still sees its condition would
+    raise the same card again on the next tick, and the sweep would close it again -- one more
+    owner_actions row, lifecycle row and audit row per hour, for ever. A producer asks this
+    first and, when it is True, raises nothing.
+
+    In force means all of:
+      * the kind is not a genuine exception (a genuine one is never covered);
+      * the most recent closed row for the key was closed by the standing authority, i.e. an
+        `owner_action.standing_authority` audit row names it (a card the owner closed, or one the
+        producer closed itself because its condition cleared, is not covered);
+      * no later audit row says the producer saw the condition clear
+        (`note_condition_cleared`);
+      * when `action` is given, it is the text the closed card carried: a changed condition
+        (another vendor named, another invalid route) is a new card.
+    Nothing is deleted or rewritten; the closed row and its audit trail stay as they are."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog, OwnerAction
+
+    key = (requirement_key or "").strip()
+    if not key or is_genuine(key):
+        return False
+    with session.no_autoflush:
+        last = session.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == key, OwnerAction.done == True)  # noqa: E712
+            .order_by(OwnerAction.id.desc()).limit(1))
+        if last is None:
+            return False
+        if action is not None and (last.action or "") != action:
+            return False
+        marks = list(session.scalars(select(AuditLog).where(
+            AuditLog.action == AUDIT_ACTION,
+            AuditLog.artifact.in_([f"owner_action:{last.id}",
+                                   CLEARED_ARTIFACT_PREFIX + key[:150]]))
+            .order_by(AuditLog.id.desc()).limit(1)))
+    return bool(marks) and marks[0].artifact == f"owner_action:{last.id}"
+
+
+def note_condition_cleared(session, requirement_key: str) -> bool:
+    """A producer saw its condition clear: end any closure in force, with one audit row.
+
+    Writes nothing when no closure is in force, so a clear condition costs no rows."""
+    from ..core.models import AuditLog
+
+    key = (requirement_key or "").strip()
+    if not closure_in_force(session, key):
+        return False
+    session.add(AuditLog(actor=ACTOR, action=AUDIT_ACTION,
+                         artifact=CLEARED_ARTIFACT_PREFIX + key[:150],
+                         detail={"directive": DIRECTIVE_ID, "event": "condition_cleared",
+                                 "requirement_key": key}))
+    return True

@@ -10259,3 +10259,8 @@ etsy_api/benchmark_observation read CLOSED today; /api/verify reads 11/12. Repor
   - `test_w4_smoke`, `test_w4_close6_readback`, `test_vacuity`, `test_secret_scan`.
 
 **Owner action (not done).** Set `BRAMBLELOOP_READBACK_TOKEN` in Railway (32 characters or more, different from the ops token). Until then the endpoint answers 503, and every evidence item reads UNKNOWN.
+
+## ENG-APPROVALS-FIX (2026-11-19, branch eng/approvals; not merged, not deployed)
+- M1: `support_defect_decision:` is now GENUINE (certification_construction_safety_authority); the sweep never supersedes it.
+- M2: producers (`autonomy.orchestrator._raise_approval`, `authority.dag._raise_owner_action`, `gateway.providers` vendor/routes cards) call `standing_internal.closure_in_force` and raise nothing while a standing-authority closure for the same key (and, for the provider cards, the same condition text) is in force; a cleared condition writes one audit row (`note_condition_cleared`) and ends the closure. Nothing deleted; audit preserved.
+- M3: `test_eng_approvals` pins every KIND_RULES row and every inventoried kind to its class; 15 mutants run, all killed.

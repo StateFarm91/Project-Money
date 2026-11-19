@@ -130,7 +130,7 @@ lifetime).
 | `legal_review:etsy.policy_violation:item` | commerce/policy_violations.py:130 | GENUINE_EXCEPTION | kyc_legal_banking | an IP/account notice; legal advice |
 | `policy_violation_overdue:etsy.policy_violation:item` | commerce/policy_violations.py:192 | GENUINE_EXCEPTION | external_policy_attestation | an Etsy policy-violation item |
 | `support.first_response:case:one` | support/response_watch.py:227 | GENUINE_EXCEPTION | publication_or_activation | a reply to a buyer |
-| `support_defect_decision:support.defect:sig` | support/defects.py:362 | ROUTINE_INTERNAL | engineering | covered by D-OWNER-STANDING-INTERNAL: engineering triage of a reported row defect |
+| `support_defect_decision:support.defect:sig` | support/defects.py:362 | GENUINE_EXCEPTION | certification_construction_safety_authority | a reader-reported pattern defect: only the owner's ruling releases the withholding (review M1; never superseded) |
 | `improve.retirement:weekly_review` | improve/director.py:481 | ROUTINE_INTERNAL | agent_coordination | covered by D-OWNER-STANDING-INTERNAL: agent coordination -- the weekly retire/merge review |
 | `improve.architecture:add` | improve/evolution.py:290 | ROUTINE_INTERNAL | agent_coordination | covered by D-OWNER-STANDING-INTERNAL: agent coordination -- specialist agents |
 | `improve.architecture:revise_metric` | improve/evolution.py:290 | ROUTINE_INTERNAL | agent_coordination | covered by D-OWNER-STANDING-INTERNAL: agent coordination -- department metrics |

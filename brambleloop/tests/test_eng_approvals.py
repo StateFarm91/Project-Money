@@ -463,6 +463,400 @@ def test_no_grant_is_ever_signed_automatically():
             assert not bad, (mod.__name__, bad)
 
 
+
+# ---- M1-M3 (independent review) ----------------------------------------------------------
+
+#: Every rule in KIND_RULES, pinned as (disposition, class). Any reclassification fails.
+D_G, D_R, D_A = SI.GENUINE_EXCEPTION, SI.ROUTINE_INTERNAL, SI.AUTO_CLOSE
+PINNED_RULES = {
+    'prefix:childrens-decision:': (D_G, SI.CERT_SAFETY_AUTHORITY),
+    'prefix:physical_size_conflict:': (D_G, SI.CERT_SAFETY_AUTHORITY),
+    'exact:decision.api_vision_equivalence': (D_G, SI.CERT_SAFETY_AUTHORITY),
+    'prefix:support_defect_decision:': (D_G, SI.CERT_SAFETY_AUTHORITY),
+    'prefix:improve.upgrade:': (D_G, SI.CERT_SAFETY_AUTHORITY),
+    'prefix:improve.league:': (D_G, SI.GRANT_SIGNATURE),
+    'exact:storefront:write_authority': (D_G, SI.GRANT_SIGNATURE),
+    'exact:canonical_model_selection': (D_G, SI.GRANT_SIGNATURE),
+    'exact:canonical_model_approval': (D_G, SI.GRANT_SIGNATURE),
+    'exact:etsy.auth:reauthorise': (D_G, SI.GRANT_SIGNATURE),
+    'exact:reauthorise_transactions_r': (D_G, SI.GRANT_SIGNATURE),
+    'exact:benchmark_observation': (D_G, SI.GRANT_SIGNATURE),
+    'exact:model_provider': (D_G, SI.GRANT_SIGNATURE),
+    'prefix:credential_rotation:': (D_G, SI.GRANT_SIGNATURE),
+    'exact:etsy_surface:webhook_order_paid': (D_G, SI.GRANT_SIGNATURE),
+    'exact:store:OA-B': (D_G, SI.GRANT_SIGNATURE),
+    'exact:etsy_shop': (D_G, SI.KYC_LEGAL_BANKING),
+    'exact:payout': (D_G, SI.KYC_LEGAL_BANKING),
+    'exact:brand_clearance': (D_G, SI.KYC_LEGAL_BANKING),
+    'exact:etsy_surface:payment_settings_setup': (D_G, SI.KYC_LEGAL_BANKING),
+    'exact:etsy_surface:legal_and_tax_setup': (D_G, SI.KYC_LEGAL_BANKING),
+    'prefix:legal_review:': (D_G, SI.KYC_LEGAL_BANKING),
+    'prefix:creators.graduate:': (D_G, SI.KYC_LEGAL_BANKING),
+    'exact:model_credits': (D_G, SI.KYC_LEGAL_BANKING),
+    'exact:model_provider_balance': (D_G, SI.KYC_LEGAL_BANKING),
+    'prefix:model_provider_balance:': (D_G, SI.KYC_LEGAL_BANKING),
+    'exact:listing_fees': (D_G, SI.SPEND_BEYOND_BUDGET),
+    'exact:benchmark_challenge': (D_G, SI.SPEND_BEYOND_BUDGET),
+    'exact:image_benchmark_budget': (D_G, SI.SPEND_BEYOND_BUDGET),
+    'prefix:spend.ceiling.': (D_G, SI.SPEND_BEYOND_BUDGET),
+    'prefix:reinvestment:': (D_G, SI.SPEND_BEYOND_BUDGET),
+    'prefix:knowledge_gap:': (D_G, SI.SPEND_BEYOND_BUDGET),
+    'prefix:benchmark_refresh:': (D_G, SI.SPEND_BEYOND_BUDGET),
+    'prefix:etsy.dashboard:renewal:': (D_G, SI.SPEND_BEYOND_BUDGET),
+    'prefix:ads.': (D_G, SI.PAID_ADS_SUBSCRIPTIONS),
+    'exact:etsy_ads_eligibility_evidence': (D_G, SI.PAID_ADS_SUBSCRIPTIONS),
+    'exact:etsy_surface:etsy_ads_off': (D_G, SI.PAID_ADS_SUBSCRIPTIONS),
+    'exact:store:OA-G2': (D_G, SI.PAID_ADS_SUBSCRIPTIONS),
+    'exact:etsy_surface:subscription_none': (D_G, SI.PAID_ADS_SUBSCRIPTIONS),
+    'exact:artifact_storage': (D_G, SI.PAID_ADS_SUBSCRIPTIONS),
+    'exact:laura.voice.listen_shortlist': (D_G, SI.PAID_ADS_SUBSCRIPTIONS),
+    'prefix:physical_evidence:': (D_G, SI.PHYSICAL_EVIDENCE),
+    'prefix:physical_review:': (D_G, SI.PHYSICAL_EVIDENCE),
+    'exact:physical_calibration': (D_G, SI.PHYSICAL_EVIDENCE),
+    'exact:search_visibility:launch_week': (D_G, SI.PHYSICAL_EVIDENCE),
+    'exact:store:OA-BANNER': (D_G, SI.PHYSICAL_EVIDENCE),
+    'exact:etsy_surface:offsite_ads_fee_readout': (D_G, SI.PHYSICAL_EVIDENCE),
+    'exact:etsy_surface:first_monthly_statement': (D_G, SI.PHYSICAL_EVIDENCE),
+    'exact:etsy_surface:developer_portal_quota': (D_G, SI.PHYSICAL_EVIDENCE),
+    'prefix:policy_violation_overdue:': (D_G, SI.POLICY_ATTESTATION),
+    'exact:etsy_surface:messages_watch': (D_G, SI.POLICY_ATTESTATION),
+    'exact:etsy_surface:policy_violations_check': (D_G, SI.POLICY_ATTESTATION),
+    'exact:etsy_surface:apps_none_installed': (D_G, SI.POLICY_ATTESTATION),
+    'exact:etsy_surface:shared_access_empty': (D_G, SI.POLICY_ATTESTATION),
+    'exact:store:OA-OBS': (D_G, SI.POLICY_ATTESTATION),
+    'exact:store:OA-G1': (D_G, SI.POLICY_ATTESTATION),
+    'exact:phase': (D_G, SI.PUBLICATION),
+    'prefix:standing_policy.hold:': (D_G, SI.PUBLICATION),
+    'prefix:standing_policy.withdrawal_unconfirmed:': (D_G, SI.PUBLICATION),
+    'prefix:listing.live_update:': (D_G, SI.PUBLICATION),
+    'prefix:portfolio.retire:': (D_G, SI.PUBLICATION),
+    'prefix:draft_reconcile:': (D_G, SI.PUBLICATION),
+    'prefix:etsy.exercise.stranded_draft.': (D_G, SI.PUBLICATION),
+    'prefix:correction_notice:': (D_G, SI.PUBLICATION),
+    'prefix:support.first_response:': (D_G, SI.PUBLICATION),
+    'prefix:etsy.dashboard:order:': (D_G, SI.PUBLICATION),
+    'exact:club:launch_decision': (D_G, SI.PUBLICATION),
+    'prefix:storefront.asset:': (D_G, SI.PUBLICATION),
+    'prefix:etsy_surface:': (D_G, SI.PUBLICATION),
+    'prefix:store:OA-': (D_G, SI.PUBLICATION),
+    'exact:autonomy:store_commerce:publication_review': (D_A, 'redundant'),
+    'exact:etsy.oauth.reauthorise': (D_A, 'redundant'),
+    'prefix:listing_package:': (D_A, 'redundant_withdrawn'),
+    'exact:store:etsy.openapi_review': (D_R, 'engineering'),
+    'exact:store:etsy.ui_drift_review': (D_R, 'engineering'),
+    'exact:model.vendor_switch_routed_only': (D_R, 'engineering'),
+    'exact:model.routes_invalid': (D_R, 'engineering'),
+    'exact:creative.reengineer:owner_choice': (D_R, 'product_development'),
+    'prefix:chain-deadend:pricing:': (D_R, 'product_development'),
+    'prefix:taxonomy_drift:': (D_R, 'recovery'),
+    'prefix:portfolio.rework:': (D_R, 'product_development'),
+    'exact:improve.retirement:weekly_review': (D_R, 'agent_coordination'),
+    'exact:improve.architecture:add': (D_R, 'agent_coordination'),
+    'exact:improve.architecture:revise_metric': (D_R, 'agent_coordination'),
+    'exact:improve.stop_list:weekly': (D_R, 'scheduling'),
+    'prefix:improve.challenger_run:': (D_R, 'learning'),
+}
+
+#: Every inventoried kind and the job-type families, pinned the same way.
+EXPECTED_RULE_TALLY = {D_G: 70, D_R: 13, D_A: 3}
+
+PINNED_KINDS = {
+    'etsy.auth:reauthorise': (D_G, SI.GRANT_SIGNATURE),
+    'reauthorise_transactions_r': (D_G, SI.GRANT_SIGNATURE),
+    'store:etsy.openapi_review': (D_R, 'engineering'),
+    'etsy_surface:messages_watch': (D_G, SI.POLICY_ATTESTATION),
+    'etsy_surface:policy_violations_check': (D_G, SI.POLICY_ATTESTATION),
+    'etsy_surface:etsy_ads_off': (D_G, SI.PAID_ADS_SUBSCRIPTIONS),
+    'etsy_surface:offsite_ads_fee_readout': (D_G, SI.PHYSICAL_EVIDENCE),
+    'etsy_surface:first_monthly_statement': (D_G, SI.PHYSICAL_EVIDENCE),
+    'etsy_surface:payment_settings_setup': (D_G, SI.KYC_LEGAL_BANKING),
+    'etsy_surface:legal_and_tax_setup': (D_G, SI.KYC_LEGAL_BANKING),
+    'etsy_surface:apps_none_installed': (D_G, SI.POLICY_ATTESTATION),
+    'etsy_surface:info_and_appearance_setup': (D_G, SI.PUBLICATION),
+    'etsy_surface:shared_access_empty': (D_G, SI.POLICY_ATTESTATION),
+    'etsy_surface:policy_settings_paste': (D_G, SI.PUBLICATION),
+    'etsy_surface:subscription_none': (D_G, SI.PAID_ADS_SUBSCRIPTIONS),
+    'etsy_surface:webhook_order_paid': (D_G, SI.GRANT_SIGNATURE),
+    'etsy_surface:developer_portal_quota': (D_G, SI.PHYSICAL_EVIDENCE),
+    'search_visibility:launch_week': (D_G, SI.PHYSICAL_EVIDENCE),
+    'storefront:write_authority': (D_G, SI.GRANT_SIGNATURE),
+    'storefront.asset:ICON_MISSING:shop': (D_G, SI.PUBLICATION),
+    'store:OA-OBS': (D_G, SI.POLICY_ATTESTATION),
+    'store:OA-B': (D_G, SI.GRANT_SIGNATURE),
+    'store:OA-BANNER': (D_G, SI.PHYSICAL_EVIDENCE),
+    'store:OA-C': (D_G, SI.PUBLICATION),
+    'store:OA-D1': (D_G, SI.PUBLICATION),
+    'store:OA-E': (D_G, SI.PUBLICATION),
+    'store:OA-F': (D_G, SI.PUBLICATION),
+    'store:OA-G1': (D_G, SI.POLICY_ATTESTATION),
+    'store:OA-G2': (D_G, SI.PAID_ADS_SUBSCRIPTIONS),
+    'store:OA-LIVE-title': (D_G, SI.PUBLICATION),
+    'store:etsy.ui_drift_review': (D_R, 'engineering'),
+    'etsy_shop': (D_G, SI.KYC_LEGAL_BANKING),
+    'payout': (D_G, SI.KYC_LEGAL_BANKING),
+    'listing_fees': (D_G, SI.SPEND_BEYOND_BUDGET),
+    'physical_calibration': (D_G, SI.PHYSICAL_EVIDENCE),
+    'model_credits': (D_G, SI.KYC_LEGAL_BANKING),
+    'benchmark_challenge': (D_G, SI.SPEND_BEYOND_BUDGET),
+    'brand_clearance': (D_G, SI.KYC_LEGAL_BANKING),
+    'artifact_storage': (D_G, SI.PAID_ADS_SUBSCRIPTIONS),
+    'phase': (D_G, SI.PUBLICATION),
+    'benchmark_observation': (D_G, SI.GRANT_SIGNATURE),
+    'model_provider': (D_G, SI.GRANT_SIGNATURE),
+    'credential_rotation:ANTHROPIC_API_KEY': (D_G, SI.GRANT_SIGNATURE),
+    'image_benchmark_budget': (D_G, SI.SPEND_BEYOND_BUDGET),
+    'canonical_model_selection': (D_G, SI.GRANT_SIGNATURE),
+    'canonical_model_approval': (D_G, SI.GRANT_SIGNATURE),
+    'model_provider_balance': (D_G, SI.KYC_LEGAL_BANKING),
+    'model_provider_balance:bfl': (D_G, SI.KYC_LEGAL_BANKING),
+    'model.vendor_switch_routed_only': (D_R, 'engineering'),
+    'model.routes_invalid': (D_R, 'engineering'),
+    'laura.voice.listen_shortlist': (D_G, SI.PAID_ADS_SUBSCRIPTIONS),
+    'creative.reengineer:owner_choice': (D_R, 'product_development'),
+    'childrens-decision:demo-mat': (D_G, SI.CERT_SAFETY_AUTHORITY),
+    'listing.live_update:demo-mat@v': (D_G, SI.PUBLICATION),
+    'physical_size_conflict:demo-mat@v:row': (D_G, SI.CERT_SAFETY_AUTHORITY),
+    'physical_review:demo-mat@v:row': (D_G, SI.PHYSICAL_EVIDENCE),
+    'physical_evidence:demo-mat@v:abcdefabcdef': (D_G, SI.PHYSICAL_EVIDENCE),
+    'chain-deadend:pricing:demo-mat@v': (D_R, 'product_development'),
+    'standing_policy.hold:demo-mat@v:abcdefabcdef': (D_G, SI.PUBLICATION),
+    'standing_policy.withdrawal_unconfirmed:listing': (D_G, SI.PUBLICATION),
+    'autonomy:store_commerce:publication_review': (D_A, 'redundant'),
+    'listing_package:demo-mat@v:abcdef': (D_A, 'redundant_withdrawn'),
+    'draft_reconcile:abcdef': (D_G, SI.PUBLICATION),
+    'etsy.exercise.stranded_draft.listing': (D_G, SI.PUBLICATION),
+    'taxonomy_drift:snap': (D_R, 'recovery'),
+    'portfolio.retire:demo-mat': (D_G, SI.PUBLICATION),
+    'portfolio.rework:demo-mat': (D_R, 'product_development'),
+    'ads.scale:demo-mat': (D_G, SI.PAID_ADS_SUBSCRIPTIONS),
+    'ads.proposal:abcdef': (D_G, SI.PAID_ADS_SUBSCRIPTIONS),
+    'etsy_ads_eligibility_evidence': (D_G, SI.PAID_ADS_SUBSCRIPTIONS),
+    'creators.graduate:tester': (D_G, SI.KYC_LEGAL_BANKING),
+    'club:launch_decision': (D_G, SI.PUBLICATION),
+    'spend.ceiling.2026-11': (D_G, SI.SPEND_BEYOND_BUDGET),
+    'reinvestment:2026-11': (D_G, SI.SPEND_BEYOND_BUDGET),
+    'knowledge_gap:line': (D_G, SI.SPEND_BEYOND_BUDGET),
+    'benchmark_refresh:trigger:subject': (D_G, SI.SPEND_BEYOND_BUDGET),
+    'etsy.dashboard:order:ref': (D_G, SI.PUBLICATION),
+    'etsy.dashboard:renewal:listing': (D_G, SI.SPEND_BEYOND_BUDGET),
+    'correction_notice:demo-mat@v': (D_G, SI.PUBLICATION),
+    'legal_review:etsy.policy_violation:item': (D_G, SI.KYC_LEGAL_BANKING),
+    'policy_violation_overdue:etsy.policy_violation:item': (D_G, SI.POLICY_ATTESTATION),
+    'support.first_response:case:one': (D_G, SI.PUBLICATION),
+    'support_defect_decision:support.defect:sig': (D_G, SI.CERT_SAFETY_AUTHORITY),
+    'improve.retirement:weekly_review': (D_R, 'agent_coordination'),
+    'improve.architecture:add': (D_R, 'agent_coordination'),
+    'improve.architecture:revise_metric': (D_R, 'agent_coordination'),
+    'improve.stop_list:weekly': (D_R, 'scheduling'),
+    'improve.upgrade:one': (D_G, SI.CERT_SAFETY_AUTHORITY),
+    'improve.league:one': (D_G, SI.GRANT_SIGNATURE),
+    'improve.challenger_run:one': (D_R, 'learning'),
+    'laura:growth:seo.cycle': (D_R, 'autonomous_class'),
+    'laura:store.publish:demo-mat': (D_G, SI.PUBLICATION),
+    'decision.api_vision_equivalence': (D_G, SI.CERT_SAFETY_AUTHORITY),
+    'etsy.oauth.reauthorise': (D_A, 'redundant'),
+    'dag:x:ads.campaign': (D_G, SI.SPEND_BEYOND_BUDGET),
+    'something.nobody.named': (D_G, SI.UNCLASSIFIED),
+    '': (D_G, SI.UNCLASSIFIED),
+}
+
+
+
+def test_every_owner_action_kind_is_pinned_to_its_expected_class():
+    # M3 (review): classification mutants survived because only "is it classified" was tested.
+    # Every rule, and every inventoried kind, is pinned to (disposition, class); a rule added,
+    # removed or reclassified fails here until this table is changed on purpose.
+    actual_rules = {f"{r['match']}:{r['pattern']}": (r["disposition"], r["class"])
+                    for r in SI.KIND_RULES}
+    assert len(actual_rules) == len(SI.KIND_RULES)           # no duplicate rule
+    assert actual_rules == PINNED_RULES
+    assert len(PINNED_RULES) >= 80 and len(PINNED_KINDS) >= 90          # vacuity guard
+    for k, (disp, klass) in PINNED_KINDS.items():
+        v = SI.classify(k)
+        assert (v["disposition"], v["class"]) == (disp, klass), (k, v["disposition"], v["class"])
+    # Every inventoried kind is pinned, and each genuine one names a directive class or the
+    # fail-closed default, never a routine label.
+    assert set(INVENTORY) <= set(PINNED_KINDS)
+    for k, (disp, klass) in PINNED_KINDS.items():
+        if disp == SI.GENUINE_EXCEPTION:
+            assert klass in SI.EXCEPTION_CLASSES + (SI.UNCLASSIFIED,), (k, klass)
+    # The counts by disposition: a mover between buckets shifts one of these.
+    tally: dict = {}
+    for disp, _k in PINNED_RULES.values():
+        tally[disp] = tally.get(disp, 0) + 1
+    assert tally == EXPECTED_RULE_TALLY, tally
+
+
+def test_a_support_defect_decision_is_a_genuine_certification_authority_card():
+    # M1 (review): a not_a_defect ruling releases a publication withholding, and the incident
+    # says "owner decision only". The sweep must never supersede it, at any age or state.
+    key = "support_defect_decision:support.defect:sig"
+    v = SI.classify(key)
+    assert v["disposition"] == SI.GENUINE_EXCEPTION and v["class"] == SI.CERT_SAFETY_AUTHORITY
+    assert SI.is_genuine(key)
+    db = _db()
+    open_id = _add(db, key, at=NOW - timedelta(days=400))
+    parked_id = _add(db, key + "2", parked=True)
+    out = OQC.sweep(db, now=NOW)
+    out2 = OQC.sweep(db, now=NOW + timedelta(days=60))
+    assert out["closed"] == 0 and out2["closed"] == 0 and _audits(db) == []
+    assert {open_id, parked_id} <= set(out["genuine_open"])
+    rows = _rows(db)
+    assert rows[key][0] == owner_queue.OPEN and rows[key + "2"][0] == owner_queue.PARKED
+    sec = OQC.counts(db, now=NOW)
+    assert sec["owner_exceptions_by_class"].get(SI.CERT_SAFETY_AUTHORITY) == 1
+    assert SI.CERT_SAFETY_AUTHORITY == SI.classify("childrens-decision:x")["class"]
+    # The batch groups it as an exception, never as covered.
+    b = OQC.card_verdict({"card_id": "x", "requirement_key": key})
+    assert b["disposition"] == SI.GENUINE_EXCEPTION and b["class"] == SI.CERT_SAFETY_AUTHORITY
+
+
+# ---- M2: a closure in force is not re-raised every tick ------------------------------------
+
+def _hours(n):
+    return [NOW + timedelta(hours=h) for h in range(n)]
+
+
+def _count(db, model, *where):
+    with db.session() as s:
+        return s.scalar(select(func.count(model.id)).where(*where))
+
+
+def _assert_one_row_one_audit(db, key, hours):
+    rows = _count(db, OwnerAction, OwnerAction.requirement_key == key)
+    audits = [d for _a, d in _audits(db) if d.get("requirement_key") == key and d.get("to")]
+    lifecycle = [d for _a, d in _audits(db, "owner_action.lifecycle")
+                 if d.get("requirement_key") == key]
+    assert rows == 1, f"{key}: {rows} owner_actions rows after {hours} ticks"
+    assert len(audits) == 1, f"{key}: {len(audits)} standing_authority rows"
+    assert len(lifecycle) == 1, f"{key}: {len(lifecycle)} lifecycle rows"
+    return audits[0]
+
+
+def _candidate():
+    from brambleloop.autonomy import generators
+
+    return generators.Candidate(
+        department="store_commerce", job_type="store.publish", value=0, source="approval",
+        protected=True, reason="drafts prepared", fingerprint="approval:store.publish:1:1",
+        evidence=["listings:1"],
+        approval={"requirement_key": "autonomy:store_commerce:publication_review",
+                  "action": "Review 1 prepared listing draft(s)", "reason": "protected",
+                  "max_cost_cad": 0.0, "minutes": 10, "consequence": "stay drafts",
+                  "blocks": "store_commerce publication"})
+
+
+def test_publication_review_is_not_reraised_while_its_closure_is_in_force():
+    from brambleloop.autonomy import charters, orchestrator
+
+    db = _db()
+    charter = next(c for c in charters.CHARTERS if c.key == "store_commerce")
+    cand = _candidate()
+    key = cand.approval["requirement_key"]
+    raised = []
+    for t in _hours(8):                      # eight simulated hours: producer, then the sweep
+        out = orchestrator._raise_approval(db, charter, cand, t)
+        raised.append(out["created"])
+        OQC.sweep(db, now=t)
+    assert raised == [True] + [False] * 7, raised
+    detail = _assert_one_row_one_audit(db, key, 8)
+    assert detail["disposition"] == SI.AUTO_CLOSE
+    sec = OQC.counts(db, now=NOW + timedelta(hours=8))
+    assert sec["closed_automatically_24h"] == 1, sec            # not ~24 for one card
+    assert sec["owner_exceptions_open"] == 0
+    # Nothing was deleted: the closed row is still there, closed.
+    assert _rows(db)[key][0] == owner_queue.SUPERSEDED
+
+
+def test_dag_recompute_does_not_reraise_a_closed_routine_approval():
+    from brambleloop.authority import dag
+
+    db = _db()
+    key = "autonomy:store_commerce:publication_review"
+    dag.ensure_tables(db)
+    dag.submit(db, key="approval:" + key, department="store_commerce", job_type="store.publish",
+               submitted_by="coo", requires_approval=True,
+               inputs={"requirement_key": key}, title="Review drafts", now=NOW)
+    for t in _hours(8):
+        dag.recompute(db, now=t)
+        OQC.sweep(db, now=t)
+    _assert_one_row_one_audit(db, key, 8)
+    with db.session() as s:
+        from brambleloop.authority.models import WorkItem
+
+        w = s.scalar(select(WorkItem).where(WorkItem.key == "approval:" + key))
+        assert w.state == "awaiting_approval"      # still waiting for the owner's real approval
+
+
+def test_provider_cards_are_not_reraised_while_their_closure_is_in_force():
+    from brambleloop.gateway import providers
+
+    db = _db()
+    env = {providers.VENDOR_VAR: sorted(providers.ROUTED_ONLY)[0],
+           providers.ROUTES_VAR: "no_such_task=openai"}
+    states = []
+    for t in _hours(8):
+        states.append((providers.vendor_switch_card(db, env=env)["state"],
+                       providers.routes_card(db, env=env)["state"]))
+        OQC.sweep(db, now=t)
+    assert states[0] == ("raised", "raised") and set(states[1:]) == {("covered", "covered")}
+    for key in (providers.VENDOR_CARD_KEY, providers.ROUTES_CARD_KEY):
+        _assert_one_row_one_audit(db, key, 8)
+    sec = OQC.counts(db, now=NOW + timedelta(hours=8))
+    assert sec["routine_auto_approved_24h"] == 2, sec
+    # The condition clears: the marker is lifted with one audit row, and costs nothing after.
+    ok = {providers.VENDOR_VAR: "", providers.ROUTES_VAR: ""}
+    n = len(_audits(db))
+    for _ in range(3):
+        assert providers.vendor_switch_card(db, env=ok)["state"] == "clear"
+        assert providers.routes_card(db, env=ok)["state"] == "clear"
+    assert len(_audits(db)) == n + 2
+    # It comes back (a genuinely new episode): raised again once, then covered again.
+    assert providers.vendor_switch_card(db, env=env)["state"] == "raised"
+    OQC.sweep(db, now=NOW + timedelta(hours=20))
+    assert providers.vendor_switch_card(db, env=env)["state"] == "covered"
+    assert _count(db, OwnerAction, OwnerAction.requirement_key == providers.VENDOR_CARD_KEY) == 2
+
+
+def test_a_changed_condition_or_an_owner_closed_card_is_not_covered():
+    from brambleloop.gateway import providers
+
+    db = _db()
+    routed = sorted(providers.ROUTED_ONLY)
+    first = {providers.VENDOR_VAR: routed[0]}
+    assert providers.vendor_switch_card(db, env=first)["state"] == "raised"
+    OQC.sweep(db, now=NOW)
+    assert providers.vendor_switch_card(db, env=first)["state"] == "covered"
+    if len(routed) > 1:                          # another vendor named: a new condition
+        second = {providers.VENDOR_VAR: routed[1]}
+        assert providers.vendor_switch_card(db, env=second)["state"] == "raised"
+    # The same key with a different condition (another invalid route entry) is a new card.
+    one = {providers.ROUTES_VAR: "no_such_task=openai"}
+    two = {providers.ROUTES_VAR: "another_bad_task=openai"}
+    assert providers.routes_card(db, env=one)["state"] == "raised"
+    OQC.sweep(db, now=NOW)
+    assert providers.routes_card(db, env=one)["state"] == "covered"
+    assert providers.routes_card(db, env=two)["state"] == "raised"
+    # A genuine kind is never covered, whatever closed it.
+    with db.session() as s:
+        row = OwnerAction(requirement_key="payout", action="a", done=True, state="withdrawn")
+        s.add(row)
+        s.flush()
+        s.add(AuditLog(actor=SI.ACTOR, action=SI.AUDIT_ACTION, artifact=f"owner_action:{row.id}",
+                       detail={"to": "superseded"}))
+        s.flush()
+        assert not SI.closure_in_force(s, "payout")
+        assert not SI.closure_in_force(s, "")
+        assert not SI.closure_in_force(s, "no.such.key")
+
+
+def test_the_sweep_still_closes_a_card_a_producer_raises_when_not_covered():
+    # The marker only suppresses producers; a stray routine row is still closed by the sweep.
+    db = _db()
+    _add(db, "model.routes_invalid")
+    assert OQC.sweep(db, now=NOW)["closed"] == 1
+
+
 if __name__ == "__main__":
     import _minipytest
 
