@@ -2722,6 +2722,7 @@ The trigger is the proposal's stated size, not only the band, so the dishcloths 
    - Zero output is a blocker that gets fixed the same day.
 
 Reversible only by the owner.
+
 **D-OWNER-NINTH-SHOP: ArtLoveDesing is the ninth mandatory research shop, permanent (owner directive, 2026-11-19).** The owner added a ninth research shop. It is named ArtLoveDesing, spelled "Desing" exactly as the shop spells itself. The owner-supplied URL is kept verbatim: `https://www.etsy.com/ca/shop/ArtLoveDesing?ref=shop_profile&listing_id=4427559824`. The canonical URL `https://www.etsy.com/ca/shop/ArtLoveDesing` is stored beside it. The shop is a permanent research source and never a report mention.
 
 **Registries.** It is added to every registry, with role `permanent`:
