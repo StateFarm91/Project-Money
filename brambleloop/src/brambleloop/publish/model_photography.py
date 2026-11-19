@@ -553,8 +553,24 @@ def sequence(db, cir, twin, **kw) -> dict:
         # replacing its sibling. Nothing here lowers a floor: a kept frame kept its
         # verdicts too, and they are re-combined with the new frame's on every pass.
         keep = _passing_frame(db, cir, shot=name)
-        frame = keep or make(db, cir, twin, shot=name, chart_reference=chart, **kw)
-        frame = dict(frame, reused=bool(keep))
+        # ENG-MOTIF: a frame that cleared every other floor it answers and whose motif
+        # question went unasked for money or plumbing is asked again about itself, never
+        # re-rendered. If the question is still refused, nothing is rendered either: a new
+        # frame would buy a picture nobody can judge, so the sequence waits.
+        waiting = None if keep else _rejudgeable_frame(db, cir, shot=name)
+        if waiting is not None:
+            again = rejudge_frame(db, waiting, cir, twin, work_dir=kw.get("work_dir") or "",
+                                  judger=kw.get("motif_judger"))
+            if not again["filed"]:
+                return {"made": False, "slug": cir.slug, "shot": name,
+                        "waiting_on": "motif_judgement", "frames": frames,
+                        "usable_as_listing_asset": False, "shot_plan": planned,
+                        "unmeasured": again["motif"].get("unmeasured"),
+                        "why": again["why"]}
+            frame = dict(again["frame"], reused=False, rejudged=True)
+        else:
+            frame = keep or make(db, cir, twin, shot=name, chart_reference=chart, **kw)
+            frame = dict(frame, reused=bool(keep), rejudged=False)
         frames.append(frame)
         if not frame.get("made"):
             # One frame that could not be rendered is a sequence that does not exist.
@@ -605,6 +621,11 @@ def sequence(db, cir, twin, **kw) -> dict:
         "spent_cad": round(sum(float(f.get("spent_cad") or 0.0)
                                for f in frames if not f.get("reused")), 4),
         "reused_frames": [f["shot"] for f in frames if f.get("reused")],
+        "rejudged_frames": [f["shot"] for f in frames if f.get("rejudged")],
+        # Nothing rendered: every frame kept or re-asked about. Still an attempt -- the
+        # answer it carries is the one the earlier, unjudged sequence was waiting for.
+        "motif_rejudge_only": (any(f.get("rejudged") for f in frames)
+                               and all(f.get("reused") or f.get("rejudged") for f in frames)),
         "why_reuse_is_safe": (
             "a kept frame was conditioned on the same frozen pack, the same body reference "
             "and the same certified chart as the frame rendered beside it, and it kept its "
@@ -662,6 +683,101 @@ def _passing_frame(db, cir, *, shot: str) -> dict | None:
         if all(floors.get(name) == "pass" for name in wanted):
             return frame
     return None
+
+
+def _awaiting_motif_frame(frame: dict) -> bool:
+    """A frame that would pass every floor it answers once its motif question is answered.
+
+    Only a frame that answers product truth can wait (the detail shot); its product-truth
+    floor is `unverifiable` because the question was never put for money or plumbing
+    (`motif_fidelity.rejudgeable`), every other floor it answers says `pass`, and no floor
+    anywhere says `fail` -- and a match would make it usable
+    (`motif_fidelity.worth_rejudging`), so a redraw F-852 refuses is never waited on.
+    """
+    from . import motif_fidelity
+
+    answers = dict((name, floors) for name, _, floors in SHOTS).get(frame.get("shot"), ())
+    if "product_truth" not in answers:
+        return False
+    floors = frame.get("floors") or {}
+    if floors.get("product_truth") != "unverifiable" or any(
+            v == "fail" for v in floors.values()):
+        return False
+    if not motif_fidelity.rejudgeable(frame.get("motif")):
+        return False
+    wanted = (set(answers) | set(SHARED_FLOORS)) - {"product_truth"}
+    return (all(floors.get(name) == "pass" for name in wanted)
+            and motif_fidelity.worth_rejudging(frame))
+
+
+def _rejudgeable_frame(db, cir, *, shot: str) -> dict | None:
+    """The newest frame of this release and shot still waiting on its motif question.
+
+    Newest state per image: a re-asked frame is filed again inside a later sequence, so the
+    earlier copy of the same image is superseded rather than waiting for ever.
+    """
+    seen: set = set()
+    for frame in _filed_frames(db, slug=cir.slug, version=cir.version):
+        sha = (frame.get("shot"), (frame.get("image") or {}).get("sha256") or id(frame))
+        if sha in seen:
+            continue
+        seen.add(sha)
+        if frame.get("shot") == shot and _awaiting_motif_frame(frame):
+            return frame
+    return None
+
+
+def rejudge_frame(db, frame: dict, cir, twin, *, work_dir: str, provider=None,
+                  judger=None, now=None) -> dict:
+    """Ask the motif question again about a filed frame; the frame with the answer.
+
+    `{"filed": False, ...}` when the question is still refused for money or plumbing. Any
+    real answer -- or a frame whose bytes are gone -- re-derives the product-truth floor and
+    the frame's usability exactly as `make` does.
+    """
+    from datetime import datetime, timezone
+
+    from . import motif_fidelity
+
+    motif = motif_fidelity.rejudge(db, frame.get("image") or {}, cir, twin,
+                                   work_dir=work_dir, provider=provider, judger=judger)
+    if motif_fidelity.rejudgeable(motif):
+        return {"filed": False, "motif": motif,
+                "why": f"the motif question is still unasked: {motif.get('why')}"[:300]}
+    floors = dict(frame.get("floors") or {})
+    floors["product_truth"] = ("pass" if motif["verdict"] == motif_fidelity.MATCH
+                               else "fail" if motif["verdict"] == motif_fidelity.MISMATCH
+                               else "unverifiable")
+    usable = all(v == "pass" for v in floors.values())
+    prior = frame.get("motif") or {}
+    out = dict(frame)
+    out.update({
+        "motif": motif,
+        "motif_verified": motif["verdict"] == motif_fidelity.MATCH,
+        "floors": floors,
+        "usable_as_listing_asset": usable,
+        "why": ("every floor cleared" if usable else
+                "; ".join(f"{k}: {v}" for k, v in sorted(floors.items()) if v != "pass")),
+        # The render's cost is on the sequence that rendered it.
+        "spent_cad": 0.0,
+        "motif_rejudge": {
+            "of_image": (frame.get("image") or {}).get("sha256"),
+            "previous_unmeasured": prior.get("unmeasured") or "legacy_unreserved_call",
+            "previous_why": str(prior.get("why") or "")[:240],
+            "at": (now or datetime.now(timezone.utc)).isoformat(),
+        },
+    })
+    return {"filed": True, "frame": out}
+
+
+def _sequence_awaiting_motif(record: dict) -> bool:
+    """A filed sequence whose only open floor is product truth, waiting on its question."""
+    floors = record.get("floors") or {}
+    if not floors or any(v != "pass" for k, v in floors.items() if k != "product_truth"):
+        return False
+    if floors.get("product_truth") != "unverifiable":
+        return False
+    return any(_awaiting_motif_frame(f) for f in record.get("frames") or ())
 
 
 def _authority_for(floor: str) -> str:
@@ -745,8 +861,14 @@ def usable_asset(db, *, slug: str = "", version: str = "") -> dict | None:
 
 
 def attempts_for(db, *, slug: str, version: str) -> int:
-    """How many times this method has already tried this exact release."""
-    return sum(1 for f in _frames(db, slug=slug) if f.get("version") == version)
+    """How many times this method has already tried this exact release.
+
+    A sequence still waiting on its motif question is not counted: nobody judged its
+    fabric, so it has not failed. The sequence that carries the answer
+    (`motif_rejudge_only`) is counted instead, so the render is charged once either way.
+    """
+    return sum(1 for f in _frames(db, slug=slug)
+               if f.get("version") == version and not _sequence_awaiting_motif(f))
 
 
 def _reference_cannot_be_photographed(db) -> dict | None:

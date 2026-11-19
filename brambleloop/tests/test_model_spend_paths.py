@@ -59,12 +59,12 @@ KNOWN_UNGUARDED: dict[tuple[str, str], str] = {
     # `check_budget_cad(agent=..., purpose=prompt.ref)` before `breaker.call` and releases the
     # reservation in `_record`, so the daily permission and the authorised month bind before
     # the provider is asked rather than being measured after it answered.
-    ("brambleloop/publish/motif_fidelity.py", "check"): (
-        "Owner: Publishing (`publish/**`). One vision call per customer-facing asset, "
-        "billed nowhere and checked nowhere -- it does not even write a `spend_report` row, "
-        "so this call site is invisible to the monthly total as well as unguarded by it. "
-        "Closing it means the same six lines as `creative/reference.py::read_listing`, with "
-        "two image allowances in the estimate because it shows the render and the chart."),
+    #
+    # `publish/motif_fidelity.py::check` was here until 2026-11-19 (ENG-MOTIF). Its vision call
+    # had no reservation, so the paid-provider gate refused it with `no_budget_reservation`
+    # and every owned and model render came out UNMEASURABLE. The call now lives in
+    # `_call_judge`, reserved under `quality_director`/`asset_inspection` with both images in
+    # the estimate, released at the bill and written to `spend_report`; pinned below.
 }
 
 # Image *generation* call sites that reach a provider with no ceiling mechanism in front of
@@ -198,6 +198,8 @@ def test_the_scan_finds_the_provider_calls_that_are_actually_there():
             ("brambleloop/visual/tournament.py", "_judge"),
             # Independent review FMBATCH1 F-4: the compatibility pack's live drill.
             ("brambleloop/gateway/compat_pack.py", "run"),
+            # ENG-MOTIF: the motif judge, unreserved until 2026-11-19.
+            ("brambleloop/publish/motif_fidelity.py", "_call_judge"),
     ):
         assert site in sites, f"the scan no longer sees {site}; the instrument is broken"
         assert site in guarded, f"{site} lost its ceiling check"
@@ -237,6 +239,7 @@ def test_every_visual_spend_path_passes_its_agent_and_releases_its_reservation()
     import inspect as _inspect
 
     from brambleloop.visual import bible, inspect as visual_inspect
+    from brambleloop.publish import motif_fidelity
     from brambleloop.visual import model_registry, photoreal, tournament
 
     for module, name in (
@@ -247,6 +250,7 @@ def test_every_visual_spend_path_passes_its_agent_and_releases_its_reservation()
             (photoreal, "judge"),
             (bible, "judge"),
             (tournament, "_judge"),
+            (motif_fidelity, "_call_judge"),
     ):
         source = _inspect.getsource(getattr(module, name))
         assert "check_budget(" in source, f"{module.__name__}.{name} checks no ceiling"
