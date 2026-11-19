@@ -167,7 +167,13 @@ The judges are `vision_judges.Adapters` (`:804`), reached through `candidate_gat
 - A literal `image_count: 7` exists only in the experiment plan (`visual/experiment.py:271-326`), and experiments never publish.
 - `publish/listing_assets.py:626 build_frames` produces the deterministic frame plan.
 
-**Blocker:** no code refuses a gallery of fewer or more than 7. This is a candidate fix for slice 2 (see the fix plan).
+**Blocker (S1):** no code refused a gallery below 7.
+
+**Fixed in S2:**
+- `visual/shot_plans.py` adds `CAMPAIGN_MIN_FRAMES = 7` and `campaign_standard(plan)`, which needs at least 7 frames and one job per frame. It never pads a short gallery.
+- `image_production.readiness` reports `campaign_standard`. A shortfall is a set-check problem, and `gallery_ready` requires the standard.
+- The owner card carries the reading.
+- All 8 Launch-0 plans meet it (7–9 frames). Test: `tests/test_visual_campaign_standard.py`.
 
 ### 7. Automatic verification, motif fidelity, repairs — **WIRED, BLOCKED**
 
@@ -179,7 +185,7 @@ The judges are `vision_judges.Adapters` (`:804`), reached through `candidate_gat
 **Motif fidelity**
 - `publish/motif_fidelity.py:346 check` returns MATCH / MISMATCH / UNMEASURABLE, and UNMEASURABLE blocks (`:394-398`).
 - It is used only by `publish/owned_photography.py` and `publish/model_photography.py`, not by `image_production`.
-- The motif work belongs to `eng/motif-reservation` and `eng/motif-backlog`. Neither branch was on origin at audit time, so neither is duplicated or merged here.
+- The motif work belongs to `eng/motif-reservation` and `eng/motif-backlog`. `eng/motif-reservation` (aa8b2b93) was merged into this branch in S2. `eng/motif-backlog` is not on origin yet.
 
 **Repair**
 - Stage `repair` (`image_production.py:1285-1308`) → `_repair_for:1880` → `visual/repair_routes.py:103 route`.
@@ -240,7 +246,7 @@ The judges are `vision_judges.Adapters` (`:804`), reached through `candidate_gat
 | 3 | Laura identity verification | blocked | no qualified embedder; no second vision transport; `image_vision` closed |
 | 4 | Outfit uniqueness / consistency | works (registry) / blocked (visual) | `image_vision` closed → UNKNOWN |
 | 5 | Product-specific references | works | runs only behind 2 |
-| 6 | 7-image standard | missing | not enforced in code |
+| 6 | 7-image standard | works (S2) | enforced at gallery readiness; ≥7 frames, one job each |
 | 7 | Verify / repair | wired, blocked | identity UNKNOWN; motif fidelity not on the generated path (motif branches) |
 | 8 | Gallery certification | blocked | generated frames are never in a listing-set certificate while the disclosed set is current |
 | 9 | Listing package | works, BLOCKED in practice | listing-set certificate, F-004, `SAMPLE_PHOTO_REQUIRED` |
@@ -294,3 +300,24 @@ Both are structural facts, not row counts.
   - an end-to-end test on a certified fixture: certified pattern → PDFs → stub-FLUX images → identity and product QA (fixture judges, labelled) → gallery certification → listing package → FakeEtsy draft with read-back of both PDFs and every image.
 - **S3:** a generated-gallery certificate route so that verified generated frames can join a listing-set certificate (stage 8). It requires every frame PASS, so UNKNOWN identity keeps blocking.
 - **S4:** merge `eng/motif-reservation` and `eng/motif-backlog` when they appear, and wire `recovered_images`.
+
+## S2 proof: end to end on a certified fixture (`tests/test_visual_factory_e2e.py`)
+
+Real handlers throughout. The doubles are: the FLUX-3 StubRenderer (no network, no spend), labelled stub vision and identity judges (production has no qualified method), and `tests/fake_etsy.py` (loopback).
+
+**A. Generated gallery** (cloudline-baby-blanket):
+- `assets.build` triggers `visual.image_production`.
+- The real `Flux3Generator` builds every request: lifestyle, size and colour_context, plus the product and identity anchors. Spend is CA$0.
+- Identity is judged on every Laura frame, and product truth on every gallery frame. `visual_pipeline` counts exactly these rows.
+- The campaign standard holds: 7 frames, one job each.
+- The run stops at the owner card on named gates.
+- Stage-8 blocker, pinned: `approve` refuses, no `listing_assets` row is written, no certificate is issued, and nothing reaches the package or Etsy.
+
+**B. Certified gallery to Etsy:**
+- Chain: `gate.certify` → `assets.build` (US+UK PDFs) → `listing.seo` → `listing.package` (recorded) → owner grant → `store.publish` on FakeEtsy → read-back.
+- Both certified PDFs arrived byte for byte: their sha256 equals the `assets.built` hashes. Etsy lists both, and `files_attached_by_terminology` is `{US: True, UK: True}`.
+- Every certified image arrived in rank order, byte for byte.
+- The read-back verified the fields, the files and the images.
+- `visual_pipeline.etsy_drafts.fully_read_back` is 1.
+
+**What remains unproven:** a *generated* frame inside a certified listing on Etsy. That is blocked by stage 8 and by the owner gates (identity method, F-852 verified exception, Etsy policy, Laura publication). No test claims it.

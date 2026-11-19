@@ -267,5 +267,6 @@ tests/test_ws4_7_postgres.py
 tests/test_ws4_8_stage_a_wiring.py
 tests/test_s4_p0_board.py
 tests/test_motif_reservation.py
+tests/test_visual_factory_e2e.py
 tests/test_product_run.py
 tests/test_first_listing_doors.py

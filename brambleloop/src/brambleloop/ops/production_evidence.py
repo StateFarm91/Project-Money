@@ -1045,7 +1045,6 @@ _CANDIDATE_OUTCOMES = ("accepted", "rejected", "unverified", "provider_error")
 _RUN_STATES = ("awaiting_certified_pattern", "reference_preparation", "product_generation",
                "lifestyle_generation", "gallery_assembly", "automated_verification",
                "ready_for_owner_review", "blocked", "approved_for_publication")
-GALLERY_FRAMES = 7   # the campaign standard (visual.shot_plans.campaign_plan)
 
 
 def block_family(reason) -> str:
@@ -1315,7 +1314,12 @@ def visual_pipeline(db, *, now: datetime) -> dict:
     out["recovered_images"] = _vp_recovered(db)
     out["listing_packages"] = part("listing_packages", _vp_packages, db)
     out["etsy_drafts"] = part("etsy_drafts", _vp_drafts, db)
-    out["gallery_standard_frames"] = GALLERY_FRAMES
+    try:
+        from ..visual.shot_plans import CAMPAIGN_MIN_FRAMES
+
+        out["gallery_standard_frames"] = CAMPAIGN_MIN_FRAMES
+    except Exception:  # noqa: BLE001
+        out["gallery_standard_frames"] = UNKNOWN_COUNT
     return out
 
 
