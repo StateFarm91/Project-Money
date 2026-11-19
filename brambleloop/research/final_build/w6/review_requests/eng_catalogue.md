@@ -314,8 +314,18 @@ Venv, `JOBS=4 SUITE_REGISTRY=0`: **18 suites, 561 passing, 0 failing, 0 tmp leak
 # Open items, honest
 
 - **18-stage list.** This is still my mapping, pending the owner's list.
-- **PDF and gallery evidence in tests.** The Python fixture products do not reach the
-  PDF/gallery stages. Those evidence fields are exercised only through the cc_mock page check,
-  not end-to-end on derived rows. That would be the next test to add.
+- ~~PDF and gallery evidence in tests~~ **Closed at 85896793:**
+  `test_pdf_gallery_and_listing_evidence_reach_the_row_end_to_end`.
+  - It seeds a certified release with its `assets.build` job, per-terminology PDF hashes,
+    `assets.listing_images_built`, `listing.seo_drafted` and a bound listing. The row derives
+    to Listing package completed and carries the certificate, PDF hashes with link, gallery
+    with link, and listing-package ids. The rows are removed afterwards.
+  - 4/4 evidence-mapping mutants killed (pdf, gallery, listing package, certificate dropped).
+  - Suite run at 85896793 (20261119T154644Z-22600): 561 passing, 1 suite failing.
+    `test_w4_resume_runner::test_p09_a_finalize_failure_fails_the_run_and_never_fails_open`
+    failed under the 18-suite parallel load. It then passed twice in isolation
+    (20261119T155131Z-11103 and 20261119T155307Z-28777, 53/53 with `test_eng_catalogue`).
+    This commit changes only `tests/test_eng_catalogue.py`. I am reporting it as a flake
+    under load, not waiving it.
 - **Last useful job cost.** It costs up to 5 queries of 200 rows per department per uncached
   read. The endpoint is not cached, so each page load re-reads.
