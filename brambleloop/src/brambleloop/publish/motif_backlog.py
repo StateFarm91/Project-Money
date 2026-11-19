@@ -27,6 +27,15 @@ superseding record every reader already understands. This module is the backlog 
   genuine unmeasurable is FAILED, the only state queued for regeneration (the existing
   photography job for its path); a budget/activation refusal is QUEUED_BUDGET and retried next
   sweep -- never lost, never regenerated; plumbing is retried MAX_RECHECKS times.
+* **Spend bounds (ENG-MOTIF-BACKLOG-FIX).** One bound on paid re-asks per sweep, `limit`
+  (SWEEP_LIMIT), across every row state -- a PARKED row that becomes worth asking draws on
+  it too -- and a durable daily cap (DAILY_CAP, lowered only by DAILY_CAP_ENV), counted from
+  the `assets.motif_backlog.claimed` rows. Each paid re-ask is claimed BEFORE the call, in one
+  transaction that advances `rechecks` by compare-and-set and writes the claim row, so a crash
+  mid-call still counts toward MAX_RECHECKS and the cap. Before paying, an answer already on
+  file for the same image (the photography job's own re-ask, or this sweep's before a crash)
+  is reused. A render ineligible on its merits (`eligible`: the photography jobs' own rule) is
+  INELIGIBLE and never asked; PASSED means a real MATCH that left the render usable.
 * `sweep` (the `assets.motif_backlog` job) also hands a completed gallery to the release
   chain (`gallery_handoff`), and stamps galleries and listing packages that completed.
 * `report` is the owner's read-only count, from the `motif_recovery` rows.
@@ -40,11 +49,12 @@ and the report says how many did.
 """
 from __future__ import annotations
 
+import os
 import re
 import threading
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, DateTime, Integer, String, select
+from sqlalchemy import JSON, DateTime, Integer, String, func, select, update
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..core.db import Base
@@ -54,8 +64,13 @@ JOB_TYPE = "assets.motif_backlog"
 AGENT = "publishing"                 # the agent that runs the photography jobs it recovers
 AUDIT_SWEPT = "assets.motif_backlog.swept"
 AUDIT_RECHECKED = "assets.motif_backlog.rechecked"
+# One row per claimed paid re-ask, written in the same transaction that claims the recovery
+# row (`_claim`), so the daily cap is a durable count that survives a crash mid-call.
+AUDIT_CLAIMED = "assets.motif_backlog.claimed"
 REGEN_KEY = "motif-backlog-regen:"
-SWEEP_LIMIT = 50                     # re-checks per sweep; the rest wait for the next sweep
+SWEEP_LIMIT = 50                     # paid re-asks per sweep, across every row state
+DAILY_CAP = 40                       # paid re-asks per UTC day, across every sweep
+DAILY_CAP_ENV = "BRAMBLELOOP_MOTIF_BACKLOG_DAILY_CAP"   # may lower DAILY_CAP, never raise it
 SCAN_LIMIT = 2000                    # filed rows read per action per scan
 
 OWNED = "assets.owned_photography"
@@ -73,8 +88,14 @@ SOURCES = (OWNED, MODEL)
 BLOCKED, QUEUED_BUDGET, PASSED, FAILED = "BLOCKED", "QUEUED_BUDGET", "PASSED", "FAILED"
 BYTES_MISSING, SUPERSEDED = "BYTES_MISSING", "SUPERSEDED"
 QUEUED_RETRY, UNRESOLVED, PARKED = "QUEUED_RETRY", "UNRESOLVED", "PARKED"
+# INELIGIBLE: the render fails on its merits whatever the motif says -- an owned render whose
+# asset-truth verdict is not `clear` (`owned_photography.motif_eligible`), a model frame with
+# another floor open or failed (`model_photography.motif_eligible_frame`) -- or a match was
+# filed and the existing readers still do not accept it as usable. Never re-asked, never
+# counted as passed, never regenerated here (its own job's cadence owns it).
+INELIGIBLE = "INELIGIBLE"
 STATES = (BLOCKED, QUEUED_BUDGET, QUEUED_RETRY, PARKED, PASSED, FAILED, BYTES_MISSING,
-          SUPERSEDED, UNRESOLVED)
+          SUPERSEDED, UNRESOLVED, INELIGIBLE)
 # PARKED: a match would not make the render usable (no structural PASS for a generated frame,
 # F-852), so no vision call is bought. Re-evaluated on every sweep at no cost.
 OPEN_STATES = (BLOCKED, QUEUED_BUDGET, QUEUED_RETRY, PARKED)
@@ -346,9 +367,119 @@ def _answered_frames(db, slug: str, version: str) -> dict:
     return out
 
 
+def daily_cap() -> int:
+    """DAILY_CAP, or a lower value from the environment. Never higher: an unreadable, negative
+    or larger value leaves DAILY_CAP in force."""
+    raw = os.environ.get(DAILY_CAP_ENV, "").strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        return DAILY_CAP
+    return value if 0 <= value < DAILY_CAP else DAILY_CAP
+
+
+def _day_start(now: datetime) -> datetime:
+    return now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def claimed_today(db, *, now: datetime | None = None) -> int:
+    """Paid re-asks claimed since 00:00 UTC, from the durable claim rows."""
+    from ..core.models import AuditLog
+
+    now = _now(now)
+    with db.session() as s:
+        return int(s.scalar(select(func.count()).select_from(AuditLog).where(
+            AuditLog.action == AUDIT_CLAIMED, AuditLog.at >= _day_start(now))) or 0)
+
+
+def _claim(db, rec_id: int, rec: dict, now: datetime) -> str:
+    """Claim one paid re-ask BEFORE it is made: in one transaction, the daily cap is read from
+    the durable claim rows, `rechecks` is advanced by compare-and-set on the value this call
+    read (so two sweeps cannot both claim the same attempt, and a replay after a crash claims
+    a new attempt rather than re-using a spent one), and the claim row the cap counts is
+    written. A crash during the call therefore still counts, toward MAX_RECHECKS and the cap.
+    Returns "claimed", "daily_cap" or "lost"."""
+    from ..core.models import AuditLog
+
+    cap = daily_cap()
+    with db.session() as s:
+        used = int(s.scalar(select(func.count()).select_from(AuditLog).where(
+            AuditLog.action == AUDIT_CLAIMED, AuditLog.at >= _day_start(now))) or 0)
+        if used >= cap:
+            return "daily_cap"
+        moved = s.execute(update(MotifRecovery).where(
+            MotifRecovery.id == rec_id, MotifRecovery.rechecks == rec["rechecks"],
+            MotifRecovery.state.in_(OPEN_STATES)).values(
+            rechecks=rec["rechecks"] + 1, checked_at=now)).rowcount
+        if moved != 1:
+            return "lost"
+        s.add(AuditLog(actor=AGENT, action=AUDIT_CLAIMED, artifact=str(rec_id)[:200], at=now,
+                       detail={"render_key": rec.get("render_key"),
+                               "image_sha256": rec["image_sha256"],
+                               "attempt": rec["rechecks"] + 1, "daily_cap": cap}))
+    return "claimed"
+
+
+def eligible(source: str, frame: dict) -> bool:
+    """The render on its merits, by the photography jobs' own rule (structural floor aside):
+    `owned_photography.motif_eligible` (asset truth `clear`) for an owned render,
+    `model_photography.motif_eligible_frame` (every other floor) for a model frame."""
+    from . import model_photography as MP
+    from . import owned_photography as OP
+
+    if source == OWNED:
+        return OP.motif_eligible(frame, structural=False)
+    return MP.motif_eligible_frame(frame, structural=False)
+
+
+def _usable(answer: dict) -> bool:
+    """Whether a filed answer made the render usable, by the existing readers' test."""
+    from ..visual.product_authority import structural_floor
+
+    try:
+        return bool(answer.get("usable_as_listing_asset")) and \
+            structural_floor(answer)["status"] == "PASS"
+    except Exception:  # noqa: BLE001 - unreadable evidence is not usable
+        return False
+
+
+def _newer_answer(db, rec) -> tuple[int, dict, dict] | None:
+    """The newest answered motif on file for this image, filed after the refused row:
+    (row id, row detail, the frame carrying the answer), or None. Whoever filed it -- the
+    photography job's own re-ask, or this sweep before a crash -- the image was looked at,
+    so it is not paid for again."""
+    from sqlalchemy import desc
+
+    from ..core.models import AuditLog
+    from . import motif_fidelity as MF
+
+    with db.session() as s:
+        rows = [(r.id, r.action, dict(r.detail or {})) for r in s.scalars(
+            select(AuditLog).where(AuditLog.action.in_(SOURCES),
+                                   AuditLog.id > rec["audit_id"])
+            .order_by(desc(AuditLog.id)).limit(SCAN_LIMIT))]
+    for row_id, action, detail in rows:
+        for _shot, frame, slug, version in _frames_of(action, detail):
+            if (_sha(frame) != rec["image_sha256"] or slug != rec["slug"]
+                    or version != rec["version"]):
+                continue
+            motif = frame.get("motif")
+            if (isinstance(motif, dict) and motif.get("verdict")
+                    and refusal_code(motif) is None and not MF.rejudgeable(motif)):
+                return row_id, detail, frame
+    return None
+
+
+_NO_VERDICT = ("call_failed", "answer_unreadable", "chart_unrenderable")
+
+
 def recheck_one(db, rec_id: int, *, provider=None, judger=None,
-                now: datetime | None = None, regenerate=None) -> dict:
-    """Re-ask only the motif question about one recovery row's render. Never renders."""
+                now: datetime | None = None, regenerate=None,
+                allowance: dict | None = None) -> dict:
+    """Re-ask only the motif question about one recovery row's render. Never renders.
+
+    At most one paid call, and only after it is claimed (`_claim`). `allowance` is the
+    sweep's shared {"left": n}: with none left, nothing is paid and the row waits."""
     from ..core import workspace
     from . import model_photography as MP
     from . import motif_fidelity as MF
@@ -360,7 +491,8 @@ def recheck_one(db, rec_id: int, *, provider=None, judger=None,
         if row is None or row.state not in OPEN_STATES:
             return {"id": rec_id, "state": getattr(row, "state", None), "skipped": True}
         rec = {k: getattr(row, k) for k in ("source_action", "audit_id", "slug", "version",
-                                             "image_sha256", "rechecks")}
+                                             "image_sha256", "rechecks", "budget_deferrals",
+                                             "render_key", "state")}
 
     def settle(state: str, **fields) -> dict:
         with db.session() as s:
@@ -372,9 +504,49 @@ def recheck_one(db, rec_id: int, *, provider=None, judger=None,
         return {"id": rec_id, "state": state,
                 **{k: v for k, v in fields.items() if k in ("verdict", "why")}}
 
+    def settle_answer(answer: dict, filed_id: int, *, ours: bool) -> dict:
+        """The state an answer on file puts this render in. PASSED only on a real MATCH that
+        the existing readers accept as usable."""
+        motif = dict(answer.get("motif") or {})
+        motif.pop("chart", None)
+        code = str(motif.get("unmeasured") or "")
+        verdict = str(motif.get("verdict") or "")
+        why = str(motif.get("why") or "")[:400]
+        if code == "image_missing":
+            return settle(BYTES_MISSING, motif=motif, why=why, recovered_audit_id=filed_id)
+        if code in _NO_VERDICT:
+            return settle(UNRESOLVED, motif=motif, why=why, recovered_audit_id=filed_id)
+        if verdict == MF.MATCH:
+            if _usable(answer):
+                return settle(PASSED, verdict=verdict, motif=motif, why=why,
+                              recovered_audit_id=filed_id)
+            return settle(INELIGIBLE, verdict=verdict, motif=motif, recovered_audit_id=filed_id,
+                          why=("the motif matched, but the existing readers do not accept "
+                               "the render as usable: " + why)[:400])
+        # A mismatch, or a genuine unmeasurable (the judge could not see the fabric): the
+        # picture was looked at and it does not show the pattern. The only kind regenerated
+        # -- here only when this sweep asked; an answer the photography job filed is its own
+        # cadence's to act on, and queueing it again would buy a second render.
+        out = settle(FAILED, verdict=verdict, motif=motif, why=why, recovered_audit_id=filed_id)
+        if ours and regenerate is not None:
+            job_id = regenerate(rec["source_action"], rec["slug"], rec_id)
+            if job_id is not None:
+                with db.session() as s:
+                    s.get(MotifRecovery, rec_id).regen_job_id = int(job_id)
+            out["regen_job_id"] = job_id
+        return out
+
     detail, frame = _filed(db, rec)
     if frame is None:
         return settle(SUPERSEDED, why="the filed render this row names is no longer on file")
+    if not eligible(rec["source_action"], frame):
+        # The photography jobs' own rule (`OP.awaiting_motif`, `MP._awaiting_motif_frame`):
+        # a render the asset-truth gate did not clear, or a frame with another floor open or
+        # failed, is not made usable by any motif answer, so nothing is bought to ask.
+        return settle(INELIGIBLE, why=("ineligible on its merits: "
+                                       + ("the asset-truth verdict is not clear"
+                                          if rec["source_action"] == OWNED else
+                                          "another floor of the frame is open or failed")))
     if not MF.worth_rejudging(frame):
         # ENG-MOTIF's rule, kept: a re-ask is bought only when a match would make the render
         # usable. A generated frame has no structural PASS (F-852), so asking would spend a
@@ -383,9 +555,32 @@ def recheck_one(db, rec_id: int, *, provider=None, judger=None,
         return settle(PARKED, why=("a match would not make this render usable: the "
                                    "structural floor gives a generated frame no PASS (F-852, "
                                    "D-FB-7), so no vision call is bought to re-ask"))
+    newer = _newer_answer(db, rec)
+    if newer is not None:
+        # Already answered for this image -- by the photography job's own re-ask, or by this
+        # sweep before a crash between filing and settling. Reused; nothing is paid.
+        filed_id, newer_detail, newer_frame = newer
+        out = settle_answer(newer_frame, filed_id,
+                            ours=newer_detail.get("motif_recovered_by") == JOB_TYPE)
+        return dict(out, reused_answer=filed_id)
+    paid_attempts = int(rec["rechecks"] or 0) - int(rec["budget_deferrals"] or 0)
+    if paid_attempts >= MAX_RECHECKS:
+        # Every attempt that could have paid is spent -- including one claimed and then lost
+        # to a crash mid-call. Reported, never regenerated: nobody judged the fabric.
+        return settle(UNRESOLVED, why=f"{paid_attempts} re-asks claimed with no verdict "
+                                      f"(MAX_RECHECKS {MAX_RECHECKS})")
+    if allowance is not None and allowance.get("left", 0) <= 0:
+        return {"id": rec_id, "state": rec["state"], "skipped": True,
+                "deferred": "sweep_bound"}
     cir, twin, why = _release_of(db, rec["slug"], rec["version"])
     if cir is None:
         return settle(SUPERSEDED, why=why[:400])
+    claim = _claim(db, rec_id, rec, now)
+    if claim != "claimed":
+        return {"id": rec_id, "state": rec["state"], "skipped": True, "deferred": claim}
+    if allowance is not None:
+        allowance["left"] = allowance.get("left", 0) - 1
+    asked = int(rec["rechecks"] or 0) + 1
 
     with workspace.work_dir(None, prefix="motif-backlog-") as work:
         if rec["source_action"] == OWNED:
@@ -397,48 +592,27 @@ def recheck_one(db, rec_id: int, *, provider=None, judger=None,
     motif = dict(answered.get("motif") or (answered.get("record") or answered.get("frame")
                                            or {}).get("motif") or {})
     motif.pop("chart", None)
-    asked = rec["rechecks"] + 1
     code = str(motif.get("unmeasured") or "")
     if not answered.get("filed"):
         state = _CODE_STATE.get(code, QUEUED_RETRY)
         if state == QUEUED_RETRY and asked >= MAX_RECHECKS:
             state = UNRESOLVED
-        with db.session() as s:
-            row = s.get(MotifRecovery, rec_id)
-            if state == QUEUED_BUDGET:
+        if state == QUEUED_BUDGET:
+            with db.session() as s:
+                row = s.get(MotifRecovery, rec_id)
                 row.budget_deferrals = int(row.budget_deferrals or 0) + 1
-            row.rechecks = asked
-        return settle(state, refusal_code=(code or "unknown")[:40],
-                      why=str(motif.get("why") or answered.get("why") or "")[:400])
-    verdict = str(motif.get("verdict") or "")
-    with db.session() as s:
-        s.get(MotifRecovery, rec_id).rechecks = asked
-    if code in ("call_failed", "answer_unreadable", "chart_unrenderable") and asked < MAX_RECHECKS:
+        return dict(settle(state, refusal_code=(code or "unknown")[:40],
+                           why=str(motif.get("why") or answered.get("why") or "")[:400]),
+                    paid=True)
+    if code in _NO_VERDICT and asked < MAX_RECHECKS:
         # No verdict about the fabric: retried, and nothing filed -- an unanswered question is
         # not charged as an attempt while it can still be asked. On the last try it is filed,
         # so the render stops waiting everywhere (ENG-MOTIF's own reading of these codes).
-        return settle(QUEUED_RETRY, refusal_code=code, why=str(motif.get("why"))[:400])
+        return dict(settle(QUEUED_RETRY, refusal_code=code, why=str(motif.get("why"))[:400]),
+                    paid=True)
     filed_id = _file_answer(db, rec, detail, answered)
-    if code == "image_missing":
-        return settle(BYTES_MISSING, motif=motif, why=str(motif.get("why"))[:400],
-                      recovered_audit_id=filed_id)
-    if code in ("call_failed", "answer_unreadable", "chart_unrenderable"):
-        return settle(UNRESOLVED, motif=motif, why=str(motif.get("why"))[:400],
-                      recovered_audit_id=filed_id)
-    if verdict == MF.MATCH:
-        return settle(PASSED, verdict=verdict, motif=motif, why=str(motif.get("why"))[:400],
-                      recovered_audit_id=filed_id)
-    # A mismatch, or a genuine unmeasurable (the judge could not see the fabric): the picture
-    # was looked at and it does not show the pattern. The only kind regenerated.
-    out = settle(FAILED, verdict=verdict, motif=motif, why=str(motif.get("why"))[:400],
-                 recovered_audit_id=filed_id)
-    if regenerate is not None:
-        job_id = regenerate(rec["source_action"], rec["slug"], rec_id)
-        if job_id is not None:
-            with db.session() as s:
-                s.get(MotifRecovery, rec_id).regen_job_id = int(job_id)
-        out["regen_job_id"] = job_id
-    return out
+    answer = answered["record"] if rec["source_action"] == OWNED else answered["frame"]
+    return dict(settle_answer(answer, filed_id, ours=True), paid=True)
 
 
 # ---- advancement: a completed gallery hands off to the release chain ------------------------
@@ -564,15 +738,19 @@ def sweep(db, enqueue, *, provider=None, judger=None, limit: int = SWEEP_LIMIT,
     with db.session() as s:
         ids = list(s.scalars(select(MotifRecovery.id).where(
             MotifRecovery.state.in_((BLOCKED, QUEUED_BUDGET, QUEUED_RETRY)))
-            .order_by(MotifRecovery.id).limit(limit)))
-        # Parked rows cost nothing to re-evaluate (no call unless a match could be used).
+            .order_by(MotifRecovery.id).limit(SCAN_LIMIT)))
+        # Parked rows cost nothing to re-evaluate (no call unless a match could be used), but
+        # one that becomes worth asking draws on the same allowance as every other row.
         ids += list(s.scalars(select(MotifRecovery.id).where(MotifRecovery.state == PARKED)
                               .order_by(MotifRecovery.id).limit(SCAN_LIMIT)))
+    # ONE bound on paid re-asks for the whole sweep, across every row state, and never more
+    # than the day has left under the durable daily cap (`_claim` re-checks it per call).
+    allowance = {"left": max(0, min(int(limit), daily_cap() - claimed_today(db, now=now)))}
     regen = regenerate_with(enqueue)
     results = []
     for rec_id in ids:
         out = recheck_one(db, rec_id, provider=provider, judger=judger, now=now,
-                          regenerate=regen)
+                          regenerate=regen, allowance=allowance)
         results.append(out)
         if audit is not None and not out.get("skipped"):
             audit(AUDIT_RECHECKED, artifact=str(rec_id),
@@ -599,10 +777,13 @@ def sweep(db, enqueue, *, provider=None, judger=None, limit: int = SWEEP_LIMIT,
     summary = {"scan": found,
                "rechecked": len([r for r in results if not r.get("skipped")
                                  and r.get("state") != PARKED]),
+               "paid_reasks": sum(1 for r in results if r.get("paid")),
+               "deferred": sum(1 for r in results if r.get("deferred")),
                "states": {st: sum(1 for r in results if r.get("state") == st) for st in STATES},
                "advanced": advanced[:30]}
     if audit is not None:
         audit(AUDIT_SWEPT, detail={"scan": found, "rechecked": summary["rechecked"],
+                                   "paid_reasks": summary["paid_reasks"],
                                    "states": summary["states"],
                                    "advanced": len(advanced)})
     summary["work_done"] = bool(found["new"] or summary["rechecked"] or advanced)
@@ -662,6 +843,7 @@ def report(db) -> dict:
             "renders_awaiting_first_recheck": int(by_state.get(BLOCKED, 0)),
             "renders_bytes_missing": int(by_state.get(BYTES_MISSING, 0)),
             "renders_superseded": int(by_state.get(SUPERSEDED, 0)),
+            "renders_ineligible_on_merits": int(by_state.get(INELIGIBLE, 0)),
             "regenerations_queued": int(regenerated or 0),
             "products_blocked": int(products or 0),
             "products_gallery_completed": int(galleries or 0),
@@ -687,5 +869,5 @@ COUNT_NAMES = ("renders_found_blocked", "renders_rechecked", "renders_passed",
                "renders_failed", "renders_still_queued_budget", "renders_queued_retry",
                "renders_parked_unusable_if_matched", "renders_unresolved",
                "renders_awaiting_first_recheck", "renders_bytes_missing",
-               "renders_superseded", "regenerations_queued", "products_blocked",
+               "renders_superseded", "renders_ineligible_on_merits", "regenerations_queued", "products_blocked",
                "products_gallery_completed", "listing_packages_became_ready")

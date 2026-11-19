@@ -198,13 +198,14 @@ def _owned_row(db, cir, seed, *, motif=None, verdict="clear"):
         return row.id, sha
 
 
-def _model_row(db, cir, seeds, *, motifs):
+def _model_row(db, cir, seeds, *, motifs, floors_override=None):
     frames = []
     for seed, motif in zip(seeds, motifs):
         sha = _png(seed)
         floors = {f: "pass" for f in MP.FLOORS}
         floors["product_truth"] = ("pass" if motif["verdict"] == MF.MATCH else "fail"
                                    if motif["verdict"] == MF.MISMATCH else "unverifiable")
+        floors.update(floors_override or {})
         frames.append({"made": True, "shot": "detail", "slug": cir.slug,
                        "version": cir.version, "method_version": MP.METHOD_VERSION,
                        "generated": True, "carries_model": True, "provider": "stub",
@@ -727,13 +728,15 @@ def test_the_report_counts_are_exact_and_unknown_is_never_zero():
         _rec(s, 12, MB.SUPERSEDED, slug="eps-wrap", version="0.9.0", rechecks=0)
         _rec(s, 13, MB.PASSED, slug="zeta-bag", gallery=t0)
         _rec(s, 14, MB.PARKED, slug="zeta-bag", rechecks=0)
+        _rec(s, 15, MB.INELIGIBLE, slug="zeta-bag", rechecks=0)   # never a pass
     counts = MB.report(db)["counts"]
     assert counts == {
-        "renders_found_blocked": 14, "renders_rechecked": 9, "renders_passed": 4,
+        "renders_found_blocked": 15, "renders_rechecked": 9, "renders_passed": 4,
         "renders_failed": 2, "renders_still_queued_budget": 2, "renders_queued_retry": 1,
         "renders_parked_unusable_if_matched": 1,
         "renders_unresolved": 1, "renders_awaiting_first_recheck": 1,
-        "renders_bytes_missing": 1, "renders_superseded": 1, "regenerations_queued": 2,
+        "renders_bytes_missing": 1, "renders_superseded": 1,
+        "renders_ineligible_on_merits": 1, "regenerations_queued": 2,
         "products_blocked": 7, "products_gallery_completed": 2,
         "listing_packages_became_ready": 1}, counts
     assert set(counts) == set(MB.COUNT_NAMES)
@@ -822,9 +825,13 @@ def test_a_gallery_completed_by_other_frames_is_not_counted_as_recovered():
     db, cir, rh = _certified("other-frames")
     _chain(db, cir, rh)
     builds_before = len(_jobs(db, "assets.build"))
-    # Asset truth blocked this render, so it can never be the listing frame even with a
-    # matching motif; the motif question is still worth asking under the stand-in floor.
-    _, sha = _owned_row(db, cir, 91, verdict="blocked")
+    # A model detail frame, recovered by a match under the stand-in floor scoped to it; its
+    # sequence has no fit frame, so it is not the listing gallery, which was already
+    # complete from other frames. (This was an asset-truth-`blocked` owned render before
+    # ENG-MOTIF-BACKLOG-FIX; a blocked render is now INELIGIBLE on its merits and never
+    # re-asked, so it cannot reach PASSED.)
+    _model_row(db, cir, (91,), motifs=({"verdict": MF.UNMEASURABLE, "why": REFUSAL},))
+    sha = _png(91)
     from brambleloop.visual import product_authority as PA
 
     real = PA.structural_floor
@@ -858,10 +865,175 @@ def test_a_gallery_the_existing_reader_rejects_is_never_complete_or_handed_on():
     assert out["advanced"] is False and queued == []
 
 
+# ---- ENG-MOTIF-BACKLOG-FIX: the per-sweep bound, the daily cap, no double charge, merits ------
+
+class Crash(BaseException):
+    """A process death: not an Exception, so nothing in the call path swallows it."""
+
+
+def _direct_sweep(db, stub, *, limit=MB.SWEEP_LIMIT, now=None, floor=True):
+    with no_generation(), vision(stub):
+        if not floor:
+            return MB.sweep(db, JobQueue(db).enqueue, limit=limit, now=now)
+        with qualified():
+            return MB.sweep(db, JobQueue(db).enqueue, limit=limit, now=now)
+
+
+def _row(db, sha):
+    with db.session() as s:
+        r = s.scalar(select(MB.MotifRecovery).where(MB.MotifRecovery.image_sha256 == sha))
+        s.expunge(r)
+        return r
+
+
+def test_limit_n_means_at_most_n_paid_reasks_across_every_row_state():
+    """The probe the review ran: parked rows became worth asking and each bought a call
+    outside the 50-row bound. One bound now covers every state."""
+    db, cir, _rh = _certified("tick-bound")
+    parked = [_owned_row(db, cir, seed)[1] for seed in (101, 102, 103)]
+    _direct_sweep(db, StubVision([]), floor=False)
+    assert {_states(db)[s] for s in parked} == {MB.PARKED}
+    blocked = _owned_row(db, cir, 104)[1]            # a BLOCKED row alongside the parked ones
+    stub = StubVision(["match"] * 8)
+    out = _direct_sweep(db, stub, limit=1)
+    assert len(stub.calls) == 1 and out["paid_reasks"] == 1, (stub.calls, out)
+    assert list(_states(db).values()).count(MB.PASSED) == 1
+    out = _direct_sweep(db, stub, limit=2)
+    assert len(stub.calls) == 3 and out["paid_reasks"] == 2
+    out = _direct_sweep(db, stub, limit=0)
+    assert len(stub.calls) == 3 and out["paid_reasks"] == 0
+    _direct_sweep(db, stub, limit=5)
+    assert len(stub.calls) == 4
+    assert {_states(db)[s] for s in parked + [blocked]} == {MB.PASSED}
+
+
+def test_the_daily_cap_is_durable_and_only_lowered_by_the_environment():
+    db, cir, _rh = _certified("daily-cap")
+    shas = [_owned_row(db, cir, seed)[1] for seed in (111, 112, 113, 114, 115)]
+    day1 = datetime(2026, 11, 19, 9, tzinfo=timezone.utc)
+    stub = StubVision(["match"] * 10)
+    with patch.dict(os.environ, {MB.DAILY_CAP_ENV: "2"}):
+        assert MB.daily_cap() == 2
+        _direct_sweep(db, stub, now=day1)
+        assert len(stub.calls) == 2
+        # Later the same day: the durable count says the day is spent, whatever the sweep.
+        _direct_sweep(db, stub, now=day1 + timedelta(hours=6))
+        assert len(stub.calls) == 2 and MB.claimed_today(db, now=day1) == 2
+        # A direct re-check outside the sweep is held by the same cap.
+        waiting = next(s for s in shas if _states(db)[s] != MB.PASSED)
+        with no_generation(), vision(stub), qualified():
+            out = MB.recheck_one(db, _row(db, waiting).id, now=day1 + timedelta(hours=7))
+        assert out.get("deferred") == "daily_cap" and len(stub.calls) == 2
+        _direct_sweep(db, stub, now=day1 + timedelta(days=1))
+        assert len(stub.calls) == 4
+    # Configurable only downward.
+    for raw in ("1000", "41", "-1", "abc", ""):
+        with patch.dict(os.environ, {MB.DAILY_CAP_ENV: raw}):
+            assert MB.daily_cap() == MB.DAILY_CAP == 40, raw
+    with patch.dict(os.environ, {MB.DAILY_CAP_ENV: "0"}):
+        _direct_sweep(db, stub, now=day1 + timedelta(days=2))
+        assert len(stub.calls) == 4
+
+
+def test_an_answer_the_photography_job_filed_first_is_reused_not_paid_again():
+    db, cir, _rh = _certified("answered-first")
+    _, sha = _owned_row(db, cir, 121)
+    MB.scan(db)
+    # ENG-MOTIF's own re-ask in the photography job answers first: a new row, same image.
+    answered_id, same = _owned_row(db, cir, 121, motif={"verdict": MF.MATCH,
+                                                        "why": "the lattice matches"})
+    assert same == sha
+    stub = StubVision(["match"])
+    out = _direct_sweep(db, stub)
+    assert stub.calls == [] and out["paid_reasks"] == 0
+    rec = _row(db, sha)
+    assert rec.state == MB.PASSED and rec.recovered_audit_id == answered_id and rec.rechecks == 0
+    assert MB.claimed_today(db) == 0
+
+
+def test_a_crash_between_filing_and_settling_is_not_charged_twice():
+    db, cir, _rh = _certified("crash-filed")
+    _, sha = _owned_row(db, cir, 131)
+    rows_before = len(OP.assets_for(db, slug=cir.slug, version=cir.version))
+    real = MB._file_answer
+
+    def file_then_die(*a, **k):
+        real(*a, **k)
+        raise Crash("killed after filing, before settling")
+
+    stub = StubVision(["match", "match"])
+    with patch.object(MB, "_file_answer", file_then_die):
+        try:
+            _direct_sweep(db, stub)
+            raise AssertionError("the crash did not happen")
+        except Crash:
+            pass
+    assert len(stub.calls) == 1 and _row(db, sha).rechecks == 1
+    _direct_sweep(db, stub)
+    assert len(stub.calls) == 1, "the answer already on file was paid for again"
+    assert _row(db, sha).state == MB.PASSED
+    assert len(OP.assets_for(db, slug=cir.slug, version=cir.version)) == rows_before + 1
+
+
+def test_a_crash_during_the_paid_call_counts_as_a_claimed_attempt():
+    db, cir, _rh = _certified("crash-call")
+    _, sha = _owned_row(db, cir, 141)
+    for n in range(MB.MAX_RECHECKS):
+        stub = StubVision([Crash("killed mid-call")])
+        try:
+            _direct_sweep(db, stub)
+            raise AssertionError("the crash did not happen")
+        except Crash:
+            pass
+        assert len(stub.calls) == 1
+        # Claimed BEFORE the call, in the claim's transaction: the attempt is counted.
+        assert _row(db, sha).rechecks == n + 1 and MB.claimed_today(db) == n + 1
+    stub = StubVision(["match"])
+    _direct_sweep(db, stub)
+    assert stub.calls == [] and _row(db, sha).state == MB.UNRESOLVED
+    assert _jobs(db, OP.ACTION) == []
+
+
+def test_a_render_ineligible_on_its_merits_is_never_reasked_or_passed():
+    db, cir, _rh = _certified("merits")
+    _, blocked = _owned_row(db, cir, 151, verdict="blocked")   # asset truth did not clear
+    refused = {"verdict": MF.UNMEASURABLE, "why": REFUSAL}
+    _model_row(db, cir, (152,), motifs=(refused,), floors_override={"styling": "fail"})
+    _model_row(db, cir, (153,), motifs=(refused,), floors_override={"photographic_realism": "unverifiable"})
+    stub = StubVision(["match"] * 3)
+    _direct_sweep(db, stub)
+    assert stub.calls == [], stub.calls
+    assert set(_states(db).values()) == {MB.INELIGIBLE}, _states(db)
+    _sweep(db, stub, "merits-job")
+    counts = MB.report(db)["counts"]
+    assert counts["renders_passed"] == 0 and counts["renders_ineligible_on_merits"] == 3
+    assert _jobs(db, OP.ACTION) == [] and _jobs(db, MP.ACTION) == []
+
+
+def test_a_match_that_leaves_the_render_unusable_is_not_counted_passed():
+    """renders_passed counts renders that became USABLE, not every match: a detail frame
+    carrying a floor it cannot answer is still unusable after a matching motif."""
+    db, cir, _rh = _certified("match-unusable")
+    refused = {"verdict": MF.UNMEASURABLE, "why": REFUSAL}
+    _model_row(db, cir, (161,), motifs=(refused,),
+               floors_override={"face_identity": "unverifiable"})
+    stub = StubVision(["match"])
+    _direct_sweep(db, stub)
+    assert len(stub.calls) == 1
+    (state,) = _states(db).values()
+    assert state == MB.INELIGIBLE, state
+    _sweep(db, stub, "match-unusable-job")
+    counts = MB.report(db)["counts"]
+    assert counts["renders_passed"] == 0 and counts["renders_ineligible_on_merits"] == 1
+    assert len(stub.calls) == 1 and _jobs(db, "assets.build") == []
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):
+            if sys.argv[1:] and not any(a in name for a in sys.argv[1:]):
+                continue
             try:
                 fn()
                 print("OK  ", name)
