@@ -231,7 +231,9 @@ def test_a_paid_hold_routes_the_next_action_to_the_owner():
     row = held["items"][0]
     assert row["slug"] == f"cat-fixture-{_word(5)}" and row["held"] == ["paid_approval"]
     assert row["next_action"]["owner"] == "owner" and row["next_action"]["job_type"] is None
-    assert C.query(idx, {"owner": "owner"})["matching"] == 1
+    # The owner's queue is the paid hold plus every read-back-verified draft awaiting the
+    # owner's activation (fix round 1: a verified draft is not live, so not finance's).
+    assert C.query(idx, {"owner": "owner"})["matching"] == 1 + _sql_counts()["verified"]
 
 
 def test_an_index_missing_a_product_row_fails_the_crosscheck():

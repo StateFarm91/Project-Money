@@ -224,10 +224,11 @@ class _Job:
 
     __slots__ = ("id", "agent", "job_type", "status", "inputs", "outputs", "created_at",
                  "started_at", "finished_at", "run_after", "cost_cad", "last_error", "attempts",
-                 "slug", "version", "release")
+                 "slug", "version", "release", "idem")
 
     def __init__(self, row):
         self.id = row.id
+        self.idem = getattr(row, "idempotency_key", None) or None
         self.agent = row.agent
         self.job_type = row.job_type
         self.status = _status(row)
@@ -284,9 +285,17 @@ def load_records(db) -> dict:
                 "id": t.id, "passed": t.passed, "requested_at": _iso(t.requested_at),
                 "completed_at": _iso(t.completed_at), "_completed": _aware(t.completed_at)})
         conds = [Job.job_type.like(p + "%") for p in JOB_PREFIXES]
-        jobs = [_Job(j) for j in s.scalars(select(Job).where(or_(*conds)).order_by(Job.id))]
-        audits = [_Audit(a) for a in s.scalars(
-            select(AuditLog).where(AuditLog.action.in_(AUDIT_ACTIONS)).order_by(AuditLog.id))]
+        # Column rows, not ORM entities: entity hydration was ~40% of the cold read at 220k
+        # rows. The filters are the indexed ones (`job_type` / `action`).
+        jobs = [_Job(j) for j in s.execute(
+            select(Job.id, Job.agent, Job.job_type, Job.status, Job.inputs, Job.outputs,
+                   Job.created_at, Job.started_at, Job.finished_at, Job.run_after,
+                   Job.cost_cad, Job.last_error, Job.attempts, Job.idempotency_key)
+            .where(or_(*conds)).order_by(Job.id))]
+        audits = [_Audit(a) for a in s.execute(
+            select(AuditLog.id, AuditLog.at, AuditLog.action, AuditLog.artifact,
+                   AuditLog.job_id, AuditLog.detail)
+            .where(AuditLog.action.in_(AUDIT_ACTIONS)).order_by(AuditLog.id))]
         costs = [(c.id, c.product_slug or "", c.job_id, float(c.amount_cad or 0.0))
                  for c in s.scalars(select(CostEntry))]
         owner_open = [{"id": a.id, "text": " ".join([a.requirement_key or "", a.action or "",
@@ -308,6 +317,40 @@ def load_records(db) -> dict:
     return {"products": products, "versions": versions, "listings": listings, "tests": tests,
             "jobs": jobs, "audits": audits, "costs": costs, "owner_open": owner_open,
             "intents": intents, "intents_unreadable": intents_unreadable}
+
+
+# ---- shared snapshot ---------------------------------------------------------------------------
+# Production runs one uvicorn worker with the job worker embedded, so two cold reads (the
+# production view and the catalogue) must not each reload and re-derive the same 70k-job
+# inventory, nor run concurrently. One lock coalesces them; a short TTL lets the second view
+# reuse the first's `load_records` + `derive`. Read-only consumers only.
+import threading as _threading
+import time as _time
+
+SNAPSHOT_TTL = 15.0
+_SNAP_LOCK = _threading.Lock()
+_SNAP: dict = {"at": 0.0, "db": None, "snap": None}
+
+
+def reset_snapshot() -> None:
+    with _SNAP_LOCK:
+        _SNAP.update(at=0.0, db=None, snap=None)
+
+
+def snapshot(db, *, ttl: float | None = None) -> dict:
+    """{"rec", "inv", "now"}: `load_records` + `derive` (recorded gate mode), computed once and
+    shared. Concurrent cold callers wait on the lock and get the same snapshot."""
+    ttl = SNAPSHOT_TTL if ttl is None else ttl
+    with _SNAP_LOCK:
+        if (_SNAP["snap"] is not None and _SNAP["db"] is db
+                and _time.monotonic() - _SNAP["at"] < ttl):
+            return _SNAP["snap"]
+        now = datetime.now(timezone.utc)
+        rec = load_records(db)
+        inv = derive(db, records=rec, now=now)
+        snap = {"rec": rec, "inv": inv, "now": now}
+        _SNAP.update(at=_time.monotonic(), db=db, snap=snap)
+        return snap
 
 
 def _version_key(v: str | None):
@@ -347,10 +390,37 @@ def rows_from(rec: dict) -> list[dict]:
     return out
 
 
+def _ix(rec: dict) -> dict:
+    """Per-product groupings of the loaded rows, built ONCE per `rec` (one O(rows) pass) so a
+    per-product lookup is O(that product's rows), not a scan of every job/audit/cost row
+    (ENG-CATALOGUE LOW: 600 products x 70k jobs x 150k audits took 6-7 s). The rows were
+    already selected with indexed filters (`job_type LIKE prefix%`, `action IN (...)`); the
+    slug/version a row belongs to lives in JSON inputs/outputs, so grouping is done here."""
+    ix = rec.get("_ix")
+    if ix is None:
+        jobs_by_slug: dict = {}
+        for j in rec["jobs"]:
+            if j.slug:
+                jobs_by_slug.setdefault(j.slug, []).append(j)
+        audits_by_art: dict = {}
+        for a in rec["audits"]:
+            audits_by_art.setdefault(a.artifact, []).append(a)
+        costs_by_slug: dict = {}
+        costs_by_job: dict = {}
+        for c in rec["costs"]:
+            if c[1]:
+                costs_by_slug.setdefault(c[1], []).append(c)
+            if c[2] is not None:
+                costs_by_job.setdefault(c[2], []).append(c)
+        ix = rec["_ix"] = {"jobs": jobs_by_slug, "audits": audits_by_art,
+                           "costs_slug": costs_by_slug, "costs_job": costs_by_job}
+    return ix
+
+
 def _jobs_for(rec: dict, slug: str, version: str | None, head: bool) -> list:
     """A row's jobs: its own versioned jobs, and (head row only) its slug's unversioned ones."""
-    return [j for j in rec["jobs"] if j.slug == slug
-            and (j.version == version or (head and j.version is None))]
+    return [j for j in _ix(rec)["jobs"].get(slug, ())
+            if j.version == version or (head and j.version is None)]
 
 
 def _latest(jobs, job_type: str, *, statuses=("done",)):
@@ -360,7 +430,7 @@ def _latest(jobs, job_type: str, *, statuses=("done",)):
 
 def _audits_for(rec: dict, slug: str, version: str | None, actions) -> list:
     art = f"{slug}@{version}" if version else slug
-    return [a for a in rec["audits"] if a.action in actions and a.artifact == art]
+    return [a for a in _ix(rec)["audits"].get(art, ()) if a.action in actions]
 
 
 # ---- gate readers (the only places publication's gates are consulted) -------------------------
@@ -377,12 +447,12 @@ def _recorded_product_gates(rec: dict, slug: str, version: str, changed_at,
     verdict must be younger than `VERDICT_TTL`, and newer than the product's last change.
     Anything else is UNKNOWN; UNKNOWN is never a pass."""
     now = _aware(now) or datetime.now(timezone.utc)
-    publish = {j.id: j for j in rec["jobs"] if j.job_type == "store.publish"
-               and j.slug == slug and j.version == version}
+    publish = {j.id: j for j in _ix(rec)["jobs"].get(slug, ())
+               if j.job_type == "store.publish" and j.version == version}
     gates = {}
     parity = {}
-    for a in rec["audits"]:
-        if a.artifact != slug or a.job_id not in publish:
+    for a in _ix(rec)["audits"].get(slug, ()):
+        if a.job_id not in publish:
             continue
         if a.action == "store.release_gates" and a.detail.get("version") == version:
             if a.job_id not in gates or a.id > gates[a.job_id].id:
@@ -507,12 +577,12 @@ def _hold(kind: str, why: str, **evidence) -> dict:
 
 
 def _cost(rec: dict, slug: str, job_ids: set) -> float:
-    seen, total = set(), 0.0
-    for cid, pslug, jid, amount in rec["costs"]:
-        if (pslug == slug or (jid is not None and jid in job_ids)) and cid not in seen:
-            seen.add(cid)
-            total += amount
-    return round(total, 4)
+    ix = _ix(rec)
+    found = {c[0]: c[3] for c in ix["costs_slug"].get(slug, ())}
+    for jid in job_ids:
+        for c in ix["costs_job"].get(jid, ()):
+            found.setdefault(c[0], c[3])
+    return round(sum(found[k] for k in sorted(found)), 4)
 
 
 def physical_status(pv: dict | None, tests: list) -> dict:
@@ -718,8 +788,8 @@ def derive_row(db, rec: dict, row: dict, *, gate_mode: str = "recorded",
         return result(REVISION_REQUIRED, "listing withdrawn by a failed re-certification",
                       failed_stage="listing")
     if latest_seo is None or listing is None or listing["release_hash"] != release:
-        priced = [a for a in rec["audits"] if a.action == "pricing.refused" and a.artifact == slug
-                  and a.id > latest_vis.id]
+        priced = [a for a in _ix(rec)["audits"].get(slug, ())
+                  if a.action == "pricing.refused" and a.id > latest_vis.id]
         if priced:
             holds.append(_hold(HOLD_POLICY, "pricing refused", audit_id=priced[-1].id))
         return result(VISUAL_COMPLETED, "visuals verified; no listing bound to this release yet")

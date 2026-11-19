@@ -39,6 +39,7 @@ PAGE_DEFAULT = 50
 PAGE_MAX = 200
 UNKNOWN = "UNKNOWN"
 _LOCK = threading.Lock()
+_BUILD_LOCK = threading.Lock()  # coalesces concurrent cold reads into one build
 _CACHE: dict = {"at": 0.0, "index": None}
 
 # ---- the owner's 18-stage view -----------------------------------------------------------------
@@ -85,7 +86,7 @@ def stage18(item: dict, listing: dict | None, sold: bool | None) -> str:
         lstate = (listing or {}).get("state", "")
         from ...core import listing_state
 
-        if lstate == "active" or lstate == listing_state.PUBLISHED_MANUALLY:
+        if is_live(lstate):
             # Sales monitoring needs a measured sale; otherwise the listing is live, no more.
             return "sales_monitoring" if sold else "live_on_etsy"
         if listing_state.is_live_on_etsy(lstate) and (listing or {}).get("etsy_listing_id"):
@@ -133,14 +134,32 @@ NEXT_ACTION: dict[str, tuple[str, str | None]] = {
     "listing_package_completed": ("pass the publication gates", "store.publish"),
     "owner_approval_pending": ("owner publication grant", None),
     "ready_for_publication": ("create the Etsy draft", "store.publish"),
+    # `published` is two different things (see `next_action`): a LIVE listing is monitored; a
+    # read-back-verified DRAFT is not live and waits for the owner's activation.
     "published": ("monitor sales and listing health", "commerce.orders_ingest"),
     "revision_required": ("revise the CIR", "cir.revise"),
     "rejected": ("none (terminal)", None),
 }
 OWNER_HOLDS = ("owner", "physical", "paid_approval")
+ACTIVATE_ACTION = "owner: activate (public listing), subject to the activation gates"
+#: Listing states that are PUBLIC on Etsy. `listing_state.PUBLISHED` is the verified private
+#: draft the gated store.publish path leaves behind -- it is not in this tuple.
+LIVE_STATES = ("active", "published_manually")
 
 
-def next_action(item: dict) -> dict:
+def is_live(lstate) -> bool:
+    from ...core import listing_state
+
+    return str(lstate or "") == "active" or str(lstate or "") == listing_state.PUBLISHED_MANUALLY
+
+
+def is_verified_draft(lstate) -> bool:
+    from ...core import listing_state
+
+    return str(lstate or "") == listing_state.PUBLISHED
+
+
+def next_action(item: dict, listing: dict | None = None) -> dict:
     """The row's next action and its owner: the owner for an owner/physical/paid hold or an
     owner grant, otherwise the department chartered for the job type. UNKNOWN when unread."""
     if (item.get("evidence") or {}).get("derivation_error"):
@@ -152,6 +171,14 @@ def next_action(item: dict) -> dict:
         if kind in holds:
             return {"action": action, "owner": "owner", "job_type": None}
     action, job_type = NEXT_ACTION.get(item.get("state"), (UNKNOWN, None))
+    if item.get("state") == "published":
+        lstate = (listing or {}).get("state", "")
+        if is_verified_draft(lstate) and (listing or {}).get("etsy_listing_id"):
+            # A verified draft is not live: the next step is the owner's activation, which
+            # is itself gated (activation authority + release gates), never sales monitoring.
+            return {"action": ACTIVATE_ACTION, "owner": "owner", "job_type": None}
+        if not is_live(lstate):
+            return {"action": UNKNOWN, "owner": UNKNOWN, "job_type": None}
     if item.get("state") in ("owner_approval_pending",):
         return {"action": action, "owner": "owner", "job_type": None}
     if job_type is None:
@@ -249,7 +276,7 @@ def _families(db) -> dict[str, tuple[str, str | None]]:
 
 # ---- the index ---------------------------------------------------------------------------------
 
-_COLUMNS = ("slug", "version", "title", "head", "state", "state_label", "stage", "category",
+_COLUMNS = ("slug", "version", "title", "head", "is_product", "state", "state_label", "stage", "category",
             "family", "held", "next_action", "next_owner", "listing_state", "payload")
 
 
@@ -271,12 +298,18 @@ def _sold_slugs(db) -> set[str] | None:
         return None
 
 
-def build_index(db, *, now: datetime | None = None) -> dict:
-    """Derive every row once and load it into a private in-memory SQLite index."""
+def build_index(db, *, now: datetime | None = None, snap: dict | None = None) -> dict:
+    """Derive every row once and load it into a private in-memory SQLite index. `snap` is the
+    shared `production_inventory.snapshot` (so the production view and the catalogue do not
+    each reload and re-derive the inventory); without it the rows are loaded here."""
     pi = _pi()
-    now = now or datetime.now(timezone.utc)
-    rec = pi.load_records(db)
-    inv = pi.derive(db, records=rec, now=now)
+    if snap is not None:
+        rec, inv, now = snap["rec"], snap["inv"], snap["now"]
+    else:
+        now = now or datetime.now(timezone.utc)
+        rec = pi.load_records(db)
+        inv = pi.derive(db, records=rec, now=now)
+    product_slugs = {slug for slug, _t in rec["products"].values()}
     fams = _families(db)
     sold = _sold_slugs(db)
     versions = {}
@@ -291,7 +324,7 @@ def build_index(db, *, now: datetime | None = None) -> dict:
         intent = rec["intents"].get(key) if it["version"] else None
         stage = stage18(it, listing, (it["slug"] in sold) if sold is not None else None)
         cat, fam = fams.get(it["slug"], (UNKNOWN, None))
-        nxt = next_action(it)
+        nxt = next_action(it, listing)
         held = sorted({h.get("kind") for h in it.get("holds") or [] if h.get("kind")})
         derr = bool((it.get("evidence") or {}).get("derivation_error"))
         payload = {
@@ -299,6 +332,7 @@ def build_index(db, *, now: datetime | None = None) -> dict:
             "head": it.get("head"),
             "state": UNKNOWN if derr else it["state"],
             "state_label": UNKNOWN if derr else it.get("label"),
+            "current": bool(it.get("head")), "concept_only": it["slug"] not in product_slugs,
             "stage": stage, "stage_label": STAGE18_LABEL.get(stage, UNKNOWN),
             "category": cat, "family": fam or None, "why": it.get("why"),
             "held": held, "holds": [{"kind": h.get("kind"), "why": h.get("why")}
@@ -311,13 +345,14 @@ def build_index(db, *, now: datetime | None = None) -> dict:
             "cost_to_date_cad": (it.get("evidence") or {}).get("cost_to_date_cad"),
         }
         rows.append((it["slug"], it["version"] or "", it.get("title") or "",
-                     1 if it.get("head") else 0, payload["state"], payload["state_label"],
+                     1 if it.get("head") else 0, 1 if it["slug"] in product_slugs else 0,
+                     payload["state"], payload["state_label"],
                      stage, cat, fam or "", ",".join(held), nxt["action"], nxt["owner"],
                      (listing or {}).get("state") or "", json.dumps(payload, default=str)))
     con.executemany(f"INSERT INTO cat ({', '.join(_COLUMNS)}) VALUES "
                     f"({', '.join('?' * len(_COLUMNS))})", rows)
     con.commit()
-    return {"con": con, "as_of": now.isoformat(), "gate_mode": inv["gate_mode"],
+    return {"con": con, "lock": threading.RLock(), "as_of": now.isoformat(), "gate_mode": inv["gate_mode"],
             "derived_total": inv["total"], "crosscheck": crosscheck(db, con),
             "sales_measured": sold is not None}
 
@@ -328,11 +363,15 @@ def crosscheck(db, con) -> dict:
     from sqlalchemy import func, select
 
     from ...core import listing_state
-    from ...core.models import Listing, Product
+    from ...core.models import Listing, PatternVersion, Product
 
     with db.session() as s:
         products = s.scalar(select(func.count()).select_from(Product))
         product_slugs = set(s.scalars(select(Product.slug)))
+        distinct_products = s.scalar(select(func.count(func.distinct(Product.slug))))
+        sql_versions = {(slug, v) for slug, v in s.execute(
+            select(Product.slug, PatternVersion.version)
+            .join(Product, Product.id == PatternVersion.product_id))}
         live = s.scalar(select(func.count()).select_from(Listing).where(
             Listing.state.in_(listing_state.LIVE_ON_ETSY + ("active",))))
     indexed = {r[0] for r in con.execute("SELECT DISTINCT slug FROM cat")}
@@ -346,40 +385,64 @@ def crosscheck(db, con) -> dict:
         f"SELECT COUNT(*) FROM cat WHERE stage = 'UNKNOWN' AND listing_state IN "
         f"({', '.join('?' * len(live_states))})", live_states).fetchone()[0]
     missing = sorted(product_slugs - indexed)
+    idx_products = con.execute("SELECT COUNT(DISTINCT slug) FROM cat WHERE is_product = 1"
+                               ).fetchone()[0]
+    idx_pairs = {(r[0], r[1]) for r in con.execute(
+        "SELECT slug, version FROM cat WHERE is_product = 1 AND version != ''")}
+    heads = con.execute("SELECT COUNT(*) FROM (SELECT slug FROM cat GROUP BY slug "
+                        "HAVING SUM(head) = 1)").fetchone()[0]
+    all_slugs = con.execute("SELECT COUNT(DISTINCT slug) FROM cat").fetchone()[0]
     checks = {
         "every_product_row_indexed": {"ok": not missing, "products_table": products,
                                       "missing": missing[:10]},
+        # The headline count must EQUAL SQL's distinct count, not merely be present.
+        "distinct_products_equal_sql": {"ok": idx_products == distinct_products == products,
+                                        "sql_distinct": distinct_products,
+                                        "index_distinct": idx_products},
+        "every_version_row_indexed": {"ok": sql_versions <= idx_pairs,
+                                      "sql_pattern_versions": len(sql_versions),
+                                      "index_versions": len(idx_pairs)},
+        "one_current_row_per_product": {"ok": heads == all_slugs, "products_and_concepts":
+                                        all_slugs, "with_exactly_one_current": heads},
         "published_listings_match": {"ok": idx_live + idx_unknown_pub == live,
                                      "listings_table": live, "index": idx_live,
                                      "index_unknown": idx_unknown_pub},
     }
-    return {"ok": all(c["ok"] for c in checks.values()), "checks": checks}
+    return {"ok": all(c["ok"] for c in checks.values()), "checks": checks,
+            "sql": {"products": distinct_products, "pattern_versions": len(sql_versions)}}
 
 
 def reset() -> None:
+    """Drop the cache. The old index is NOT closed: a read that is still using it keeps its
+    own reference and the connection closes when the last reference goes (closing it here
+    raised sqlite3.ProgrammingError in an overlapping read -- a 500)."""
     with _LOCK:
-        old = _CACHE.get("index")
         _CACHE.update(at=0.0, index=None)
-    if old is not None:
-        old["con"].close()
+    _pi().reset_snapshot()
+
+
+def _fresh(now: float) -> bool:
+    return _CACHE["index"] is not None and now - _CACHE["at"] < TTL
 
 
 def _index(db) -> dict:
     with _LOCK:
-        if _CACHE["index"] is not None and time.monotonic() - _CACHE["at"] < TTL:
+        if _fresh(time.monotonic()):
             return _CACHE["index"]
-    idx = build_index(db)
-    with _LOCK:
-        old = _CACHE.get("index")
-        _CACHE.update(at=time.monotonic(), index=idx)
-    if old is not None and old is not idx:
-        old["con"].close()
-    return idx
+    # One cold build at a time; waiters reuse what the winner built.
+    with _BUILD_LOCK:
+        with _LOCK:
+            if _fresh(time.monotonic()):
+                return _CACHE["index"]
+        idx = build_index(db, snap=_pi().snapshot(db))
+        with _LOCK:
+            _CACHE.update(at=time.monotonic(), index=idx)
+        return idx
 
 
 # ---- query -------------------------------------------------------------------------------------
 
-FILTERS = ("state", "stage", "category", "family", "held", "owner", "next_action")
+FILTERS = ("state", "stage", "category", "family", "held", "owner", "next_action", "scope")
 
 
 def _int(v, default: int, lo: int, hi: int) -> int:
@@ -388,6 +451,10 @@ def _int(v, default: int, lo: int, hi: int) -> int:
     except (TypeError, ValueError):
         return default
     return max(lo, min(hi, n))
+
+
+def _like_escape(v: str) -> str:
+    return v.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 def _where(params: dict) -> tuple[str, list]:
@@ -399,28 +466,43 @@ def _where(params: dict) -> tuple[str, list]:
         if v not in (None, ""):
             clauses.append(f"{col} = ?")
             args.append(str(v)[:120])
+    scope = params.get("scope")
+    if scope == "current":
+        clauses.append("head = 1")
+    elif scope == "superseded":
+        clauses.append("head = 0")
     held = params.get("held")
     if held == "none":
         clauses.append("held = ''")
     elif held == "any":
         clauses.append("held != ''")
     elif held not in (None, ""):
-        clauses.append("(',' || held || ',') LIKE ?")
-        args.append(f"%,{str(held)[:40]},%")
+        clauses.append("(',' || held || ',') LIKE ? ESCAPE '\\'")
+        args.append(f"%,{_like_escape(str(held)[:40])},%")
     q = str(params.get("q") or "").strip()[:120]
     if q:
-        like = "%" + q.lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        like = "%" + _like_escape(q.lower()) + "%"
         clauses.append("(lower(slug) LIKE ? ESCAPE '\\' OR lower(title) LIKE ? ESCAPE '\\')")
         args += [like, like]
     return (" WHERE " + " AND ".join(clauses)) if clauses else "", args
 
 
-def _group(con, col: str, where: str = "", args=()) -> dict:
+CUR = " WHERE head = 1"
+
+
+def _group(con, col: str, where: str = CUR, args=()) -> dict:
     return {str(k): int(n) for k, n in con.execute(
         f"SELECT {col}, COUNT(*) FROM cat{where} GROUP BY {col}", list(args))}
 
 
 def query(idx: dict, params: dict | None = None) -> dict:
+    # A read holds the index's own lock, so overlapping reads of one index serialize on the
+    # connection; the index itself outlives a cache reset (see `reset`).
+    with idx["lock"]:
+        return _query(idx, params)
+
+
+def _query(idx: dict, params: dict | None = None) -> dict:
     params = dict(params or {})
     con = idx["con"]
     size = _int(params.get("page_size"), PAGE_DEFAULT, 1, PAGE_MAX)
@@ -431,16 +513,35 @@ def query(idx: dict, params: dict | None = None) -> dict:
     rows = [json.loads(r[0]) for r in con.execute(
         f"SELECT payload FROM cat{where} ORDER BY slug, version, n LIMIT ? OFFSET ?",
         args + [size, (page - 1) * size])]
-    total = con.execute("SELECT COUNT(*) FROM cat").fetchone()[0]
-    trusted = idx["crosscheck"]["ok"] and total == idx["derived_total"]
+    rows_total = con.execute("SELECT COUNT(*) FROM cat").fetchone()[0]
+    # Distinct products (Product rows), versions, concepts and superseded rows are four
+    # different counts. A product with two versions is ONE product; a research slug with no
+    # Product row is a concept, not a product.
+    products = con.execute("SELECT COUNT(DISTINCT slug) FROM cat WHERE is_product = 1"
+                           ).fetchone()[0]
+    concepts = con.execute("SELECT COUNT(DISTINCT slug) FROM cat WHERE is_product = 0"
+                           ).fetchone()[0]
+    versions = con.execute("SELECT COUNT(*) FROM cat WHERE is_product = 1 AND version != ''"
+                           ).fetchone()[0]
+    superseded = con.execute("SELECT COUNT(*) FROM cat WHERE head = 0").fetchone()[0]
+    current = con.execute("SELECT COUNT(*) FROM cat WHERE head = 1").fetchone()[0]
+    sql = idx["crosscheck"].get("sql") or {}
+    trusted = (idx["crosscheck"]["ok"] and rows_total == idx["derived_total"]
+               and products == sql.get("products") and current == products + concepts
+               and rows_total == current + superseded)
+    # Stage tiles, state, family, owner and hold counts: every product ONCE, at its CURRENT
+    # version (superseded versions are the separate `superseded` count).
     by_stage = _group(con, "stage")
     held_counts = {}
     for kind in ("owner", "physical", "paid_approval", "policy"):
         held_counts[kind] = con.execute(
-            "SELECT COUNT(*) FROM cat WHERE (',' || held || ',') LIKE ?",
-            [f"%,{kind},%"]).fetchone()[0]
+            "SELECT COUNT(*) FROM cat WHERE head = 1 AND (',' || held || ',') LIKE ? "
+            "ESCAPE '\\'", [f"%,{_like_escape(kind)},%"]).fetchone()[0]
     totals = {
-        "products": total,
+        "products": products,
+        "versions": versions,
+        "concepts": concepts,
+        "superseded": superseded,
         "by_state": {**{k: 0 for k in _pi().PRIMARY_STATES}, **_group(con, "state")},
         "by_stage": {**{k: 0 for k in STAGE18_KEYS}, **by_stage},
         "by_category": _group(con, "category"),
@@ -470,7 +571,8 @@ def view(db, params: dict | None = None) -> dict:
                 "reason": f"catalogue could not be built: {type(exc).__name__}: "
                           f"{str(exc)[:160]}",
                 "items": [], "matching": None, "page": 1, "pages": None,
-                "totals": {"products": None, "by_state": None, "by_stage": None,
+                "totals": {"products": None, "versions": None, "concepts": None,
+                           "superseded": None, "by_state": None, "by_stage": None,
                            "by_category": None, "by_held": None, "by_owner": None,
                            "unknown": None}}
     return query(idx, params)

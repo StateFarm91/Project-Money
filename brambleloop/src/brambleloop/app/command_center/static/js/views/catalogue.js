@@ -108,9 +108,9 @@ export async function render() {
        statTile("Unknown", byStage.UNKNOWN ?? 0, { status: byStage.UNKNOWN ? "UNKNOWN" : null })]
     : [statTile("Every stage", null, { status: "UNKNOWN" })];
   return h("div", { class: "stack" }, ...pageMeta(first, data),
-    h("p", { class: "callout" }, "Every product the company is making, one stage each, from the "
-      + "production inventory. Totals are counted over all products, not this page; Unknown is never 0."),
-    card({ title: "Totals", subtitle: `Products: ${txt(totals.products)}`,
+    h("p", { class: "callout" }, "Every product the company is making, one stage each (its current version), from the "
+      + "production inventory. Totals are counted over all products, not this page; superseded versions and research concepts are counted apart; Unknown is never 0."),
+    card({ title: "Totals", subtitle: `Products: ${txt(totals.products)} · versions: ${txt(totals.versions)} · concepts: ${txt(totals.concepts)} · superseded: ${txt(totals.superseded)}`,
       actions: statusPill(data.status || "UNKNOWN") },
       h("div", { class: "tiles", id: "cat-stage-tiles" }, ...stageTiles),
       byCat ? h("dl", { class: "facts" }, ...Object.entries(byCat).sort().map(([k, v]) => fact(k === "UNKNOWN" ? "Unknown family" : k, txt(v))))

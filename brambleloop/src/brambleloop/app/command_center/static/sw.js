@@ -20,7 +20,9 @@
 // v30/v31 (INTEG2), so v32 supersedes both shells.
 // ENG-CATALOGUE: the Catalogue (#/catalogue) and Agent evidence (#/agents_evidence) views join
 // the shell, so v33 (above INTEG2's v32).
-const VERSION = "cc-shell-v33";
+// ENG-CATALOGUE fix round 1: catalogue.js shows products / versions / concepts / superseded
+// apart, so v34.
+const VERSION = "cc-shell-v34";
 const SHELL = [
   "./",
   "index.html",

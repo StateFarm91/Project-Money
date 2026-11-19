@@ -84,6 +84,12 @@ def _useful(job) -> bool:
         return False
 
 
+def _same_job(dead, later) -> bool:
+    if dead.idem and later.idem and dead.idem == later.idem:
+        return True
+    return inv_mod.input_digest(dead.inputs) == inv_mod.input_digest(later.inputs)
+
+
 def _dead_kind(job) -> str:
     from ..queue.durable import classify_dead_letter
 
@@ -129,8 +135,11 @@ def row_flow(item: dict, jobs: list, *, now: datetime) -> dict:
             stalls.append({"kind": "running_too_long", "job_id": j.id, "job_type": j.job_type,
                            "age_hours": round((now - j.started_at).total_seconds() / 3600, 1)})
         elif j.status == "dead":
+            # Resolved only by a later success of the SAME job: the same idempotency key, or
+            # the same job type on the same inputs for this product. A success of a different
+            # job of the same type (other inputs) does not resolve it.
             later = [k for k in jobs if k.job_type == j.job_type and k.id > j.id
-                     and k.status == "done"]
+                     and k.status == "done" and _same_job(j, k)]
             if later:
                 continue
             kind = _dead_kind(j)

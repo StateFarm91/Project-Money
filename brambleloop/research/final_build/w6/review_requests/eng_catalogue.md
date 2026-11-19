@@ -329,3 +329,31 @@ Venv, `JOBS=4 SUITE_REGISTRY=0`: **18 suites, 561 passing, 0 failing, 0 tmp leak
     under load, not waiving it.
 - **Last useful job cost.** It costs up to 5 queries of 200 rows per department per uncached
   read. The endpoint is not cached, so each page load re-reads.
+
+## Fix round 1 (Main's DO NOT SHIP review)
+
+- **MEDIUM-1 counts.** `totals.products` = DISTINCT Product rows; `versions`, `concepts` (slugs with
+  no Product row) and `superseded` are separate. Stage/state/family/owner/hold tiles count each
+  product once at its CURRENT version (concepts included, so `sum(by_stage) = products + concepts`).
+  The SQL cross-check now compares the headline count to `COUNT(DISTINCT Product.slug)` and
+  `COUNT(Product)` for equality (plus every PatternVersion indexed, one current row per product);
+  a mismatch makes status and totals UNKNOWN. New filter `scope=current|superseded`.
+- **MEDIUM-2 next action.** A read-back-verified draft (`listing_state.PUBLISHED` + Etsy id) goes
+  to `owner: activate (public listing), subject to the activation gates`; only live rows
+  (`active` / `published_manually`) go to sales monitoring. No bare `"published"` literal.
+- **LOWs.** Per-product job/audit/cost lookups use one grouping pass (`production_inventory._ix`);
+  job and audit rows load as columns, not ORM entities; the production view and the catalogue share
+  one `snapshot` (load + derive) and cold reads coalesce behind a lock; a cache reset no longer
+  closes an index in use (no ProgrammingError); `held` escapes LIKE wildcards; a dead letter is
+  resolved only by a later success of the same job (same idempotency key, or same inputs);
+  service worker v34.
+- **Performance, honestly.** Fixture 600 products / 70k jobs / 150k audits (all relevant rows),
+  SQLite: cold read 7.7 s before, about 3.2 s after. The under-1 s target is NOT met here: the
+  remainder is fetching and JSON-decoding 220k rows in `load_records`. I have no Postgres in this
+  sandbox, so the PG figure is unmeasured. The next step would be an id-watermark incremental load
+  of the append-only audit rows. Warm reads are cached.
+- Idempotency keys are unique in `jobs`, so "same idempotency key" can only mean the same row; the
+  operative same-job rule is same type plus same input digest.
+- Tests: `test_eng_catalogue_fix1.py`, `test_eng_catalogue_perf.py` (both added to the final
+  segment); each fix was mutated and a test failed. One existing assertion changed on purpose: the
+  owner queue now includes verified drafts.

@@ -268,5 +268,7 @@ tests/test_ws4_8_stage_a_wiring.py
 tests/test_s4_p0_board.py
 tests/test_eng_catalogue.py
 tests/test_eng_catalogue_agents.py
+tests/test_eng_catalogue_fix1.py
+tests/test_eng_catalogue_perf.py
 tests/test_product_run.py
 tests/test_first_listing_doors.py
