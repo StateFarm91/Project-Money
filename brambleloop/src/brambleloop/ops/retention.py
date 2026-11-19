@@ -289,6 +289,23 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                             "ops.standing_grants.pending_requests marks a request answered"),
     "policy.grant_held": ("windowed",
                           "ops.standing_grants.pending_requests marks a request answered"),
+    # WS4 Stage A: Stage A's own shadow gate counts every would-activate decision since the
+    # approval (`standing_activation.a_shadow`). Like `standing_policy.shadow_decision`,
+    # pruning one can only fail that gate (fail closed), never pass it.
+    "standing_activation.shadow_decision": ("lifetime_total",
+                                            "ops.standing_activation.a_shadow counts them"),
+    # WS4 Stage A part 2: the withdrawal rate reads the last hour only, and the rollback
+    # plan's de-duplication reads the newest plan only.
+    "listing.withdrawn": ("windowed",
+                          "ops.standing_withdrawal rate: MAX_PER_HOUR over the last hour"),
+    "policy.rollback_planned": ("latest",
+                                "ops.standing_withdrawal.plan compares with the newest plan"),
+    # Verdict 6998051067: SP lineage is read from the verified-activation events, and an
+    # unfinished withdrawal from its intent; pruning either could only refuse (fail closed).
+    "standing_policy.activation_verified": ("lifetime_total",
+                                            "ops.standing_withdrawal.lineage_of_live"),
+    "listing.withdraw_intent": ("lifetime_total",
+                                "ops.standing_withdrawal._open_intent reconciles a retry"),
     "owner.storefront.approved": ("lifetime_total",
                                   "ops.storefront_authority grant chain (sealed_chain)"),
     "owner.storefront.revoked": ("lifetime_total",
