@@ -607,6 +607,9 @@ def build_payload(*, title: str, description: str, price_cad: float, tags: list[
         problems.append(f"description is {len(description)} characters")
     if price_cad <= 0:
         problems.append("price must be positive")
+    from ..publish.etsy_ai_policy import authorship_claim_problems
+
+    problems.extend(authorship_claim_problems(f"{title}\n{description}"))
     if len(tags) > TAGS_MAX:
         problems.append(f"{len(tags)} tags; Etsy allows {TAGS_MAX}")
     over = [t for t in tags if len(t) > TAG_CHARS_MAX]
