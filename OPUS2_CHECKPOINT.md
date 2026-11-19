@@ -104,7 +104,11 @@ worktrees, not this file.
 - Tick 2026-11-19T13:28Z: [MAIN] STATUS 7010424969 (release f34c25ae ready, waiting on owner deploy
   permission; INTEG2 05c735a7 incl. stage-a-lows-3 + s2-s4-lows-3 certifying). No assignment for opus2;
   nothing to answer. Nothing posted.
-- Stop reason (2026-11-19T13:30Z): every opus2 head is SHIPped and integrated; no assigned work.
+- Tick 2026-11-19T14:28Z: no new [MAIN] message. INTEG2 a35ad302 merged WS4-8 Stage A wiring d1ab6a95
+  (uses my guard via stage_a.record_live) and a50a57de. cert-results/05c735a7: 11643 passing, 1 suite
+  failing (test_w4_adopt_manual_listing literal guard on ENG-FIRSTLIST code, fixed by Main in a50a57de);
+  not opus2 code. Nothing posted.
+- Stop reason (2026-11-19T14:30Z): every opus2 head is SHIPped and integrated; no assigned work.
   Answer any [MAIN] message (incl. LOWs on the two merges) first next tick.
 - ws5 LOWs N1-N3 RR POSTED 9b807fed on opus2/ws5-n1-n3-resolver-lows (on w6-INTEG1 19e6a8ff):
   N1 create-window binding (escalate, never release, on an unbound listing created within
