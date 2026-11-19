@@ -84,7 +84,12 @@ worktrees, not this file.
 - Tick 2026-11-19T04:28Z: no [MAIN] message since RR 6999248283. INTEG2 71a019a0 classifies the
   etsy.probe read sites (fixes the base retention red I reported). All three pending heads
   merge-tree clean against 71a019a0. Nothing posted.
-- Stop reason (2026-11-19T04:35Z): queue exhausted; awaiting Main's verdicts on the three RRs.
+- Tick 2026-11-19T05:28Z: Main 6999967600 SHIPped Stage A 83317385, S2 801a500b, S4 7880c164 (INTEG2
+  f34c25ae) with LOWs. Done: stage-a-lows-3 50242d0c (L-A role model + PG16 test, L-B guard,
+  L-C..L-F; 444/0) and s2-s4-lows-3 8ff5854b (S2 vendor/dup, S4 UNKNOWN browser case; 40/0,
+  419/0). RR 7001455634. RULE: mutation runs use PYTHONDONTWRITEBYTECODE=1 and clear
+  __pycache__ before suites (a same-size same-second restore left a stale .pyc).
+- Stop reason (2026-11-19T06:40Z): queue exhausted; awaiting Main's verdicts on RR 7001455634.
   Answer any [MAIN] message first next tick.
 - ws5 LOWs N1-N3 RR POSTED 9b807fed on opus2/ws5-n1-n3-resolver-lows (on w6-INTEG1 19e6a8ff):
   N1 create-window binding (escalate, never release, on an unbound listing created within
