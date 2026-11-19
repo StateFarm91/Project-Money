@@ -9592,6 +9592,27 @@ def handle_owned_photography(ctx: JobContext) -> dict:
         return _owned_photography_rung(ctx, cir, slug, rung, failed)
 
     next_move = owned_photography.what_to_do_next(ctx.db, slug=slug, version=cir.version)
+    if next_move["reason"] == "motif_rejudge_pending":
+        # ENG-MOTIF: a paid render whose motif question went unasked (the unreserved vision
+        # call, or a budget that was spent) is asked again about the same image. Nothing is
+        # rendered; a still-refused question files nothing and waits for the next tick.
+        compiled = compile_cir(cir)
+        if not compiled.ok:
+            return {"ran": False, "reason": f"{slug} does not compile, so there is nothing "
+                                            f"true to judge the render against"}
+        with workspace.work_dir(ctx.job.inputs.get("work_dir"),
+                                prefix="owned-rejudge-") as work:
+            again = owned_photography.rejudge_motif(
+                ctx.db, next_move["asset"], cir, build_twin(cir, compiled), work_dir=work)
+        if not again["filed"]:
+            return {"ran": False, "reason": "motif_judgement_waiting", "slug": slug,
+                    "why": again["why"], "unmeasured": again["motif"].get("unmeasured")}
+        record = again["record"]
+        ctx.audit(owned_photography.ACTION, detail=record)
+        return {"ran": True, "slug": slug, "made": False, "rejudged": True,
+                "motif": record["motif"]["verdict"], "verdict": record.get("verdict"),
+                "usable_as_listing_asset": record.get("usable_as_listing_asset"),
+                "spent_cad": 0.0}
     if not next_move["render"]:
         return {"ran": False, "reason": next_move["reason"], "slug": slug,
                 "attempts": next_move["attempts"], "why": next_move["why"],
@@ -9754,8 +9775,11 @@ def _representative_slug(db) -> str:
     waiting = []
     for index, (slug, cir) in enumerate(product_first):
         move = owned_photography.what_to_do_next(db, slug=slug, version=cir.version)
-        if move["render"]:
-            waiting.append((move["attempts"],
+        # ENG-MOTIF: a paid render waiting on its motif question needs work too, and it goes
+        # first -- re-asking costs one vision call where every other choice costs an image.
+        rejudge = move["reason"] == "motif_rejudge_pending"
+        if move["render"] or rejudge:
+            waiting.append((0 if rejudge else 1, move["attempts"],
                             owned_photography.historical_failures(db, slug=slug),
                             index, slug))
     if waiting:
