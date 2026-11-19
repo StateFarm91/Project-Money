@@ -1,3 +1,19 @@
+> **2026-11-19 — ENG-RECOVERY slice 1 (`eng/recovery`, NOT merged, NOT deployed; production 8bc96eef SHADOW).**
+> P0 "the factory makes nothing" root-caused from the code; no gate weakened.
+> - original_product 0/0/0: `radar.scan` re-selected the same 11 drafted concepts every time
+>   (score-only ranking; `draft:<slug>` dedupe swallowed silently). It now selects from the
+>   undrafted pool, falling back to the full pool.
+> - Thrash breaker: a backoff never consulted the code, so a fixed and redeployed loop stayed at
+>   x32. A suspended NON-SPENDING loop now gets one probe per new release (boot record plus a
+>   changed commit or handler digest). Spending loops are unchanged.
+> - #39 `listing_image_rules`: it held every internal rebuild retry. Now only a change governing
+>   `product_creation` holds the rebuild; publication still refuses on every unreviewed change.
+>   OWNER ACTION: Command Center card "Etsy policy changed: listing_image_rules", Preview then
+>   Review (confirm "reviewed and tested").
+> - Tests: `test_eng_recovery` (new), 12 of 12 mutants killed. Suites and status:
+>   `research/final_build/w6/review_requests/recovery.md`. Still open: legacy rebuild-incomplete
+>   rows with no STALE verdict (slice 2).
+
 > **2026-11-02 — Batch 4 DEPLOYED: production = 0967c3ee (SHADOW unchanged). 24-hour acceptance running until 2026-11-03T03:31Z.**
 > - Owner approval: "APPROVE DEPLOY 0967c3eee287d06cad0d8034a99e39076c0ab6d5" (2026-11-02).
 > - Pre-release backup (03:27:45Z, before the push): `brambleloop_prod_20261102T032745Z.dump`, 497,732,160 bytes, sha256

@@ -247,4 +247,58 @@ New: `tests/test_eng_recovery.py` (offline). Each production state is a fixture:
 - `test_w5_a7_supply_stall`: the real `radar.scan` and `radar.score` handlers queue new
   `cir.draft` jobs from the undrafted pool.
 
-Suite results and the mutation table are below.
+Changed after the first suite run:
+
+- `ops.retention.KNOWN_READ_ACTIONS` now lists `release.boot_verdict` as `windowed`. The
+  re-arm reads it by name.
+- `ops.retention.unknown_read_actions()` returns `[]`.
+
+### Suite results (venv from `requirements.lock` + `requirements-test.lock`, no PYTHONPATH)
+
+**Run `20261119T160241Z-27083`**
+- 57 suites (JOBS=4): the required list, every suite matching
+  `thrash|suspension|backoff`, and every suite touching `retry_hold_reason`,
+  `unreviewed_changes`, `radar.scan` or `policy_review`.
+- Result: 915 passing, 5 suites failing:
+  - Four failed because `release.boot_verdict` had no retention decision:
+    `test_cost_governance_wave2`, `test_etsy_oauth_callback`,
+    `test_w4_fmbatch1_retention_guard`, `test_w5_concept_intake`. Now fixed.
+  - `test_w4_resume_runner` p09 failed on its nested-runner output under load. It passes
+    alone on base `a35ad302`, and on this branch in run 3.
+
+**Run 3**: the six suites above (`test_eng_recovery`, `test_cost_governance_wave2`,
+`test_etsy_oauth_callback`, `test_w4_fmbatch1_retention_guard`, `test_w4_resume_runner`,
+`test_w5_concept_intake`) → **179 passing, 0 suites failing**.
+
+**Not run in this slice**
+- A full re-run of all 57 suites after the retention fix. The fix only adds one entry to
+  the retention table.
+- A first run with 72 suites was killed by my own 50-minute timeout before the runner
+  printed anything (`20261119T151217Z-1232`, interrupted). It produced no evidence, and I
+  claim none from it.
+
+### Mutation table
+
+Each mutant was applied to a copy of the tree and must make the named suite fail.
+
+| # | Mutant | Suite | Result |
+|---|---|---|---|
+| M1 | spending check removed from `rearm_probe` | test_eng_recovery | KILLED |
+| M2 | once-per-release check removed | test_eng_recovery | KILLED |
+| M3 | boot record matched for any commit | test_eng_recovery | KILLED |
+| M4 | suspension recorded under `unknown` re-arms | test_eng_recovery | KILLED |
+| M5 | `since >= booted` check removed | test_eng_recovery | KILLED |
+| M6 | `suspended_job_types` ignores the re-arm | test_eng_recovery | KILLED |
+| M7 | unknown running commit allowed in `rearm_probe` | test_eng_recovery | KILLED (after adding `test_rearm_probe_itself_refuses_an_unknown_running_commit`; it survived first because `release_booted_at` repeats the guard) |
+| M8 | retry held on any publishing policy change again | test_eng_recovery | KILLED |
+| M9 | product_creation changes no longer hold | test_eng_recovery | KILLED |
+| M10 | publication no longer held by unreviewed policy | test_eng_recovery | KILLED |
+| M11 | radar.scan ignores drafted state | test_w5_a7_supply_stall | KILLED |
+| M12 | no fallback when nothing undrafted is selectable | test_w5_a7_supply_stall | KILLED |
+
+## Next slice (in progress)
+
+- Point 4 remainder: a legacy `rebuild-incomplete` row whose product has no STALE verdict
+  gets exactly one targeted rebuild of its named keys (keyed per row). That moves it onto
+  the bounded attempt budget, recorded through `budget_reset`.
+- No row is closed and no halt is lifted without evidence.
