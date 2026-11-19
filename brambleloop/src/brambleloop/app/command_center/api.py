@@ -320,6 +320,14 @@ def make_router(db) -> APIRouter:
                   catalogue.FILTERS + ("q", "page", "page_size")}
         return ok(catalogue.view(db, params))
 
+    # ENG-CATALOGUE slice 2: operating evidence per department (the agents panel), from
+    # persisted rows only. Read-only, owner session, same gate.
+    @router.get("/operating-evidence")
+    def operating_evidence_view(request: Request):
+        from . import operating_evidence
+
+        return ok(operating_evidence.view(db))
+
     @router.get("/completion")
     def completion_view(request: Request):
         return ok({"tab": "COMPLETION", "generated_at": providers.now_iso(),

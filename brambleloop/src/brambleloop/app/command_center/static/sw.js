@@ -18,7 +18,9 @@
 // read", so v31.
 // ENG-FIRSTLIST: approvals.js threads the preview digest into approvals; merged after S4's
 // v30/v31 (INTEG2), so v32 supersedes both shells.
-const VERSION = "cc-shell-v32";
+// ENG-CATALOGUE: the Catalogue (#/catalogue) and Agent evidence (#/agents_evidence) views join
+// the shell, so v33 (above INTEG2's v32).
+const VERSION = "cc-shell-v33";
 const SHELL = [
   "./",
   "index.html",
@@ -46,6 +48,8 @@ const SHELL = [
   "js/views/company.js",
   "js/views/completion.js",
   "js/views/p0_board.js",
+  "js/views/catalogue.js",
+  "js/views/agents_evidence.js",
   "js/views/production.js",
   "js/views/ask.js",
   "js/views/drill.js",

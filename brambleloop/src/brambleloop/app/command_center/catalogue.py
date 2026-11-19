@@ -211,7 +211,9 @@ def evidence(item: dict, version_row: dict | None, listing: dict | None,
                 "read_back": "not_verified", "draft_intent": intent.get("state")}
     return {
         "certificate": cert,
-        "pdf": ({"sha256": pdf, "href": f"/api/cc/store/pdf/{slug}"} if pdf else None),
+        # Per terminology (US/UK), as `assets.build` recorded them for this release.
+        "pdf": ({"sha256_by_terminology": dict(pdf), "href": f"/api/cc/store/pdf/{slug}"}
+                if pdf else None),
         "gallery": ({"audit_id": vis.get("audit_id"), "frames": vis.get("frames"),
                      "href": f"/api/cc/visual/evidence/{slug}"} if vis else None),
         "listing_package": ({"listing_id": lst.get("listing_id"),
