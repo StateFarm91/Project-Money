@@ -14,7 +14,9 @@
 // Batch 5 integration: LAUNCHFIX's Policy view (v28) and W5-INVENTORY's Production view (v28)
 // merged, so a new version.
 // S4b: the P0 board view (#/p0_board) joins the shell, so v30.
-const VERSION = "cc-shell-v30";
+// S4 sales LOWs (verdict 6998037105): the board page shows PARTIAL sales "as of the last
+// read", so v31.
+const VERSION = "cc-shell-v31";
 const SHELL = [
   "./",
   "index.html",

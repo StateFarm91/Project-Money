@@ -311,12 +311,17 @@ export const DATA = {
         assets: run({ state: "OK", counts: { PROVEN: 11, "NOT-PROVEN": 1 }, not_proven: [{ title: "gallery frame 4", status: "NOT-PROVEN", gate: "independent review" }], note: "" }),
         etsy: run({ state: "OK", by_state: { draft: 1 }, remote: [{ slug: "nordic-forest", version: "1.0.0", state: "draft", etsy_listing_id: "777" }], drafts_on_etsy: 1, not_live_on_etsy: 1, remote_total: 1, remote_shown: 1, live_on_etsy: 0 }),
         // Verdict 6990820438 M2: the order source is not connected, so the figures are null.
-        sales: { state: "UNKNOWN", real_orders: null, revenue_cad: null, last_order_at: null,
-          recorded_countable_orders: 0, recorded_countable_revenue_cad: 0,
-          source: { open: false, measured: false, last_read_at: null, missing: ["transactions_r"], why: "x" },
+        // Verdicts 6996033652 / 6998037105: the source is not measured now, but countable orders
+        // were recorded earlier: PARTIAL, figures null, commerce "as of the last read".
+        sales: { state: "PARTIAL", real_orders: null, revenue_cad: null, last_order_at: ago(3000),
+          recorded_countable_orders: 2, recorded_countable_revenue_cad: 18.5,
+          source: { open: false, measured: false, last_read_at: "2026-11-01T09:00:00+00:00", missing: ["transactions_r"], why: "x" },
           why: "the order source is not connected: transactions_r. Sales are UNMEASURED, which is different from zero sales",
+          as_of: "as of the last read (2026-11-01T09:00:00+00:00)",
           counted: "countable orders (the books' rule) read from etsy_receipts",
-          ...lv("DEPLOYED", { "CODE BUILT": "reader ran", DEPLOYED: "commit reported" }) },
+          ...lv("REAL COMMERCE VERIFIED", { "CODE BUILT": "reader ran", DEPLOYED: "commit reported",
+            RUNNING: "countable orders are recorded", "PRODUCTION-VERIFIED": "a countable order was ingested",
+            "REAL COMMERCE VERIFIED": "a countable Etsy order with revenue above $0 exists, as of the last read (2026-11-01T09:00:00+00:00); the order source is not measured now" }) },
         costs: { state: "UNKNOWN", why: "could not be read: OperationalError: wallet table missing", level: null, proved_by: {}, not_provable_here: NP },
         blockers: run({ state: "OPEN", owner_actions: [{ id: 1, owner: "owner", action: "Approve the issuer service", requirement: "k", max_cost_cad: 2.35, minutes: 5, blocks: "standing grants", since: ago(120) }],
           incidents: [{ id: 2, owner: "system", severity: "P2", family: "dead-letter", product: null, halts_publication: false, since: ago(60) }] }),

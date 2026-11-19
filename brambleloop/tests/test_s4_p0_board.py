@@ -419,6 +419,14 @@ def test_sales_never_read_unknown_beside_a_commerce_level():
         sec = B.view(DB)["sections"]["sales"]
     assert sec["state"] == "PARTIAL" and sec["level"] == B.COMMERCE, sec
     assert sec["real_orders"] is None and sec["recorded_countable_orders"] == 1
+    # Verdict 6998037105 LOW: the commerce rung says it is a past reading.
+    assert sec["as_of"].startswith("as of the ") and sec["as_of"] in sec["proved_by"][B.COMMERCE]
+    assert "not measured now" in sec["proved_by"][B.COMMERCE]
+    with patch.object(OI, "countable_orders", lambda s, q=None: _orders(9.0)), \
+            _Deployed(), _Measured():
+        live = B.view(DB)["sections"]["sales"]
+    assert live["level"] == B.COMMERCE and "as_of" not in live
+    assert "as of" not in live["proved_by"][B.COMMERCE]
     with patch.object(OI, "countable_orders", lambda s, q=None: []), \
             _Deployed(), _Measured(False):
         sec = B.view(DB)["sections"]["sales"]

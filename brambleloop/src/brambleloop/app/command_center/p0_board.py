@@ -321,13 +321,21 @@ def sales(db, now):
                        recorded_countable_orders=n,
                        recorded_countable_revenue_cad=round(revenue, 2),
                        why=source.get("why") or "the order source is not measured")
+        commerce_why = ("a countable Etsy order (paid, not refunded, not held or "
+                        "unreconciled) with revenue above $0 exists")
+        if not measured:
+            # Verdict 6998037105 LOW: while the source is unmeasured the recorded orders are a
+            # reading from the past. The level says so, and when that reading was taken.
+            read_at = source.get("last_read_at")
+            as_of = f"as of the last read ({read_at})" if read_at else \
+                "as of the orders recorded before the source stopped being read"
+            out["as_of"] = as_of
+            commerce_why = f"{commerce_why}, {as_of}; the order source is not measured now"
         out.update(_level(deployed, running=n > 0, verified=n > 0, commerce=paid > 0,
                           why={RUNNING: "countable orders are recorded",
                                PROD_VERIFIED: "a countable order was ingested from Etsy's "
                                               "receipts",
-                               COMMERCE: "a countable Etsy order (paid, not refunded, not "
-                                         "held or unreconciled) with revenue above $0 "
-                                         "exists"}))
+                               COMMERCE: commerce_why}))
         return out
     return build_section
 

@@ -86,7 +86,7 @@ const DETAIL = {
     h("div", { class: "tiles" }, statTile("Real orders", s.real_orders),
       statTile("Revenue (CA$)", s.revenue_cad), statTile("Last order", s.last_order_at ? relTime(s.last_order_at) : null)),
     s.recorded_countable_orders ? h("p", { class: "muted" },
-      `At least ${s.recorded_countable_orders} countable order(s) are recorded; the total is Unknown until the source is read.`) : null,
+      `At least ${s.recorded_countable_orders} countable order(s) are recorded${s.as_of ? `, ${s.as_of}` : ""}; the total is Unknown until the source is read.`) : null,
     s.counted ? h("p", { class: "muted" }, `Counted: ${s.counted}`) : null),
   costs: (s) => h("p", { class: "muted" }, s.note || ""),
   blockers: (s) => h("div", null,

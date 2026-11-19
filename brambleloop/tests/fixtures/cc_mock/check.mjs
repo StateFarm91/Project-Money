@@ -171,6 +171,11 @@ try {
     && /Real orders\s*Unknown/.test(salesCard.text || "") && !/Real orders\s*0/.test(salesCard.text || "")
     && /Revenue \(CA\$\)\s*Unknown/.test(salesCard.text || "") && !/Revenue \(CA\$\)\s*\$?0/.test(salesCard.text || ""),
     "p0 board: unmeasured sales read Unknown (orders and revenue), never 0", (salesCard.text || "").slice(0, 300));
+  // Verdict 6998037105 LOW: the PARTIAL reading renders as one reading, dated.
+  check(/PARTIAL/.test(salesCard.text || "") && /At least 2 countable order\(s\) are recorded, as of the last read/.test(salesCard.text || "")
+    && (salesCard.reached || []).at(-1) === "REAL COMMERCE VERIFIED"
+    && /REAL COMMERCE VERIFIED: proved \([^)]*as of the last read/.test(salesCard.text || ""),
+    "p0 board: PARTIAL sales show the recorded floor and the commerce level as of the last read", (salesCard.text || "").slice(0, 400));
   const runCard = board.find((b) => /Running build/.test(b.title)) || {};
   check(/Level: PRODUCTION-VERIFIED/.test(runCard.sub || "") && runCard.reached.at(-1) === "PRODUCTION-VERIFIED",
     "p0 board: the level shown is the section's own", JSON.stringify(runCard.reached));
