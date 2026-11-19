@@ -229,7 +229,10 @@ def test_a_refused_call_sends_not_one_byte_to_etsy():
 # rc1-AUTH D3 (reviewed, deliberate): activate keeps phase, owner authority and the Launch-0
 # string in that order, and adds a fourth gate -- a validated OwnerGrant, type-checked before
 # any request and re-verified from the database immediately before updateListing.
-ACTIVATE_SOURCE_SHA256 = "33fcf6d3c3600c8a41ecf86a48ad684874c873ceb1401934d6da62bf930b973e"
+# WS4 Stage A part 1 (deliberate, for review): the same gates in the same order; the final
+# re-verification also hands a STANDING activation grant ("seg:<id>") the listing as Etsy
+# holds it (its renewal setting). An owner's per-product grant is called exactly as before.
+ACTIVATE_SOURCE_SHA256 = "c0ff5d16c65491c34a6bbb3d836f052b672774f1698dfff3dd594999f71f7434"
 
 
 def test_activate_keeps_its_three_gates_byte_for_byte():

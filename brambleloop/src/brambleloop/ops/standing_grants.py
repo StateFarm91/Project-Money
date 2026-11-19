@@ -882,8 +882,11 @@ def issue(db, *, slug: str, version: str, release: str, job_id: int,
 
 
 def consume(db, grant_id: int, *, job_id: int, stage: str = "pre_claim",
-            now: datetime | None = None, env=None) -> dict:
-    """Use a SEG once: verify, then one conditional UPDATE that must hit exactly one row."""
+            now: datetime | None = None, env=None, action: str = "store.publish") -> dict:
+    """Use a SEG once: verify, then one conditional UPDATE that must hit exactly one row.
+
+    `action` is what the caller is about to do. Each kind is signed under its own domain, and
+    a grant for one action is never consumed for another (Stage A adds `store.activate`)."""
     from sqlalchemy import update
     from sqlalchemy.exc import DBAPIError
 
@@ -896,7 +899,12 @@ def consume(db, grant_id: int, *, job_id: int, stage: str = "pre_claim",
         if row is None:
             raise GrantRefused(f"no standing grant {grant_id}")
         body, seal = dict(row.detail_json or {}), str(row.seal or "")
-    if not verify(DOMAIN, body, seal, env):
+    from . import standing_activation as SA
+
+    domain = SA.DOMAIN if action == SA.ACTION else DOMAIN
+    if body.get("action") != action:
+        raise GrantRefused(f"standing grant {grant_id} is for {body.get('action')}, not {action}")
+    if not verify(domain, body, seal, env):
         raise GrantRefused(f"standing grant {grant_id} does not verify under the issuer key")
     if int(body.get("job_id", -1)) != int(job_id):
         raise GrantRefused(f"standing grant {grant_id} was issued for job {body.get('job_id')}")

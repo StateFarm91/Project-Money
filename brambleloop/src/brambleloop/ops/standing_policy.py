@@ -174,10 +174,15 @@ def ceiling_refusals(content: dict) -> list[str]:
                             or not isinstance(sup.get("row_id"), int)
                             or not isinstance(sup.get("seal"), str)):
         out.append("supersedes must be null or {row_id, seal}")
+    from . import standing_activation as SA
+
     acts = c["actions"]
     if (not isinstance(acts, list) or not acts or len(set(acts)) != len(acts)
-            or not set(acts) <= ALLOWED_ACTIONS):
+            or not set(acts) <= ALLOWED_ACTIONS | {SA.ACTION}):
         out.append(f"actions must be a non-empty subset of {sorted(ALLOWED_ACTIONS)} in v1")
+    else:
+        # Stage A: store.activate is refused here while it is off in code.
+        out += SA.content_refusals(c)
     etsy = c["etsy"]
     if (not isinstance(etsy, dict) or set(etsy) != {"shop_id", "shop_name"}
             or not isinstance(etsy.get("shop_id"), str)
@@ -202,10 +207,11 @@ def ceiling_refusals(content: dict) -> list[str]:
     out += _frequency_refusals(c["frequency"])
     sp = c["spend"]
     fees = _num((sp or {}).get("max_listing_fees_cad_per_30d")) if isinstance(sp, dict) else None
+    fee_cap = SA.fee_ceiling_cad(c)
     if (not isinstance(sp, dict) or set(sp) != {"max_listing_fees_cad_per_30d", "ads"}
-            or fees is None or fees < 0 or fees > MAX_LISTING_FEES_CAD_PER_30D):
+            or fees is None or fees < 0 or fees > fee_cap):
         out.append(f"spend.max_listing_fees_cad_per_30d must be within "
-                   f"[0, {MAX_LISTING_FEES_CAD_PER_30D:.2f}] in v1")
+                   f"[0, {fee_cap:.2f}] in v1")
     if not isinstance(sp, dict) or sp.get("ads") != "NONE":
         out.append("spend.ads must be NONE")
     out += _stop_refusals(c["stop_conditions"])
@@ -347,13 +353,16 @@ def render_statement(content: dict) -> str:
     stops = "; ".join([f"{k} = {st[k]}" for k in sorted(st)])
     ev, fr, va, sp = c["evidence"], c["frequency"], c["validity"], c["spend"]
     sup = c["supersedes"]
+    from . import standing_activation as SA
+
+    may, may_not = SA.statement(c)
     lines = [
         f"STANDING PUBLICATION POLICY {c['policy_id']} version {c['version']}",
         f"Schema {c['schema']}; code ceilings {c['code_ceilings_version']}; supersedes "
         + (f"row {sup['row_id']} (seal {sup['seal'][:16]})" if sup else "nothing") + ".",
         "",
         "I, the owner of Brambleloop Studio, authorise the Brambleloop policy authority to "
-        f"create Etsy DRAFT listings on shop {c['etsy']['shop_name']} (id "
+        f"{may} on shop {c['etsy']['shop_name']} (id "
         f"{c['etsy']['shop_id']}) without asking me for each product, only while ALL of the "
         "following hold:",
         "",
@@ -375,8 +384,7 @@ def render_statement(content: dict) -> str:
         f"  Period: from {va['not_before']} until {va['expires_at']}; I will review it by "
         f"{va['review_by']}.",
         "",
-        "This policy cannot activate a listing, change a price, spend on advertising, or "
-        "change itself. Any product outside it is held for my individual decision. I can "
+        f"{may_not} Any product outside it is held for my individual decision. I can "
         "suspend or revoke it at any time, and either takes effect at the next check (at most "
         "15 minutes).",
     ]
@@ -687,7 +695,7 @@ def effective(db, *, now: datetime | None = None) -> dict:
                 "why": "the newest activation names no approval in the current chain segment"}
     content = approval.get("content") or {}
     base = {**out, "approval_id": aid, "activation_id": act_id, "content": content,
-            "seal": approval.get("seal")}
+            "seal": approval.get("seal"), "approved_at": approval.get("approved_at")}
     if aid in revoked:
         return {**base, "state": NONE, "why": f"policy approval {aid} is revoked"}
     refusals = ceiling_refusals(content)
