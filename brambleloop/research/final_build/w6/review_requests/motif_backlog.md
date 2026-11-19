@@ -211,6 +211,32 @@ two tests named above were added for them. The first draft of the `requires_imag
 also failed *unmutated*: a blanket floor stand-in hid the disclosed frames' real PASS. It was
 rescoped to the one render's sha before it was counted as a kill.
 
+## ENG-MOTIF-BACKLOG-FIX: the four MEDIUM findings of the independent review
+
+Verdict was DO NOT SHIP. Each finding is fixed and has a test that its mutant fails.
+
+| # | Finding | Fix | Test (kills the mutant) | Mutant |
+|---|---|---|---|---|
+| 1 | `test_cost_governance_wave2` fails: `motif-backlog-` missing from `ops.health.TEMP_PREFIXES` | prefix added | `test_cost_governance_wave2` (the registry test) | prefix absent (the tree as reviewed): fails |
+| 2a | `sweep` bounded only BLOCKED/QUEUED rows; PARKED rows that became worth asking each bought a call (limit=1 made 4) | ONE allowance `{"left": limit}` shared by every row the sweep touches, all states; checked before the claim | `test_limit_n_means_at_most_n_paid_reasks_across_every_row_state` (limit 1/2/0/5 -> 1/2/0/1 calls) | allowance check removed: 4 calls on limit=1 |
+| 2b | no per-day cap | `DAILY_CAP = 40`, `BRAMBLELOOP_MOTIF_BACKLOG_DAILY_CAP` may only lower it; durable count = `assets.motif_backlog.claimed` rows since 00:00 UTC, read inside the claim transaction (retention: `windowed`) | `test_the_daily_cap_is_durable_and_only_lowered_by_the_environment` | cap check removed |
+| 3a | a newer answer on file for the image (the photography job's ENG-MOTIF rejudge, or this sweep before a crash) was paid for again | `_newer_answer`: before paying, the newest answered motif for the same image hash and slug@version filed after the refused row is reused; no call, no claim | `test_an_answer_the_photography_job_filed_first_is_reused_not_paid_again`, `test_a_crash_between_filing_and_settling_is_not_charged_twice` | reuse removed: both fail |
+| 3b | `rechecks` incremented after the paid call; a crash mid-call counted toward nothing | `_claim` runs BEFORE the call, in one transaction: daily-cap count, compare-and-set `rechecks = rechecks + 1 WHERE rechecks = <read> AND state IN open`, and the claim row. A replay claims a new attempt, never re-uses a spent one; two sweeps cannot claim the same attempt. Paid attempts (`rechecks - budget_deferrals`) >= MAX_RECHECKS -> UNRESOLVED with no call | `test_a_crash_during_the_paid_call_counts_as_a_claimed_attempt` | increment removed from the claim |
+| 4a | `worth_rejudging` read only the structural floor | `eligible()` applies the photography jobs' own merits rule, now one shared function each: `owned_photography.motif_eligible` (asset truth `clear`; `awaiting_motif` calls it) and `model_photography.motif_eligible_frame` (every other floor; `_awaiting_motif_frame` calls it). Ineligible -> `INELIGIBLE`, never asked, reported as `renders_ineligible_on_merits` | `test_a_render_ineligible_on_its_merits_is_never_reasked_or_passed` (blocked owned, failed styling, open realism) | eligibility check removed |
+| 4b | a match was PASSED whether or not it made the render usable | PASSED only on a real MATCH whose filed answer is `usable_as_listing_asset` with structural PASS; a match that leaves it unusable is INELIGIBLE | `test_a_match_that_leaves_the_render_unusable_is_not_counted_passed` | usable check removed |
+
+Kept: no FLUX call and no regeneration path added (`no_generation` in every new test); UNKNOWN /
+UNMEASURABLE never PASSED; budget refusals queue and spend nothing; MAX_RECHECKS unchanged; Laura's
+identity code and `laura-r2-a42aeac7` untouched (not in the diff).
+
+`test_a_gallery_completed_by_other_frames_is_not_counted_as_recovered` was rescoped: it used an
+asset-truth-`blocked` owned render that reached PASSED -- finding 4 itself. It now uses a recovered
+model detail frame outside the gallery, and still kills its `requires_image` mutant.
+
+A FAILED answer reused from the photography job is not queued for regeneration by the sweep (that
+job's own cadence owns it; queueing it here would buy a second render). A FAILED answer this sweep
+filed before a crash is, idempotently by the existing per-row key.
+
 ## Suites
 
 SUITES_PLACEHOLDER
