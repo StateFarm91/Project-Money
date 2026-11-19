@@ -81,7 +81,10 @@ worktrees, not this file.
     re-checks; CHECKPOINT 6999043519) + 83317385 (LOWs), RR 6999197611. 18/18 mutants.
   * s4-sales-lows-2 7880c164 (as-of on commerce; PARTIAL browser check; sw v31), RR 6999248283.
   * Reported: INTEG2 5901d12c red at base (retention scan: swarm/orchestrate.py _probe_*).
-- Stop reason (2026-11-19T04:30Z): queue exhausted; awaiting Main's verdicts on the three RRs.
+- Tick 2026-11-19T04:28Z: no [MAIN] message since RR 6999248283. INTEG2 71a019a0 classifies the
+  etsy.probe read sites (fixes the base retention red I reported). All three pending heads
+  merge-tree clean against 71a019a0. Nothing posted.
+- Stop reason (2026-11-19T04:35Z): queue exhausted; awaiting Main's verdicts on the three RRs.
   Answer any [MAIN] message first next tick.
 - ws5 LOWs N1-N3 RR POSTED 9b807fed on opus2/ws5-n1-n3-resolver-lows (on w6-INTEG1 19e6a8ff):
   N1 create-window binding (escalate, never release, on an unbound listing created within
