@@ -296,6 +296,22 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                                             "ops.standing_activation.a_shadow counts them"),
     # WS4 Stage A part 2: the withdrawal rate reads the last hour only, and the rollback
     # plan's de-duplication reads the newest plan only.
+    # WS4-8 Stage A use path. A request is pending while no issued or held row names it
+    # (`standing_activation_flow.pending_requests`); each has one answer written after it, so
+    # the window prunes a request no later than its answer. Pruning can only drop a request
+    # (no grant: fail closed). The handler finds a held answer by its job for the refusal
+    # text only; the grant itself lives in `standing_grants`.
+    "policy.activation_grant_requested": ("windowed",
+                                          "ops.standing_activation_flow.pending_requests"),
+    "policy.activation_grant_issued": ("windowed",
+                                       "ops.standing_activation_flow.pending_requests marks a "
+                                       "request answered"),
+    "policy.activation_grant_held": ("windowed",
+                                     "ops.standing_activation_flow.pending_requests and "
+                                     "grant_for_job (refusal text)"),
+    # Written for the owner's record of each scheduling pass; no code reads them back.
+    "standing_activation.schedule_skipped": ("windowed", "owner record only (not read)"),
+    "standing_activation.scheduled": ("windowed", "owner record only (not read)"),
     "listing.withdrawn": ("windowed",
                           "ops.standing_withdrawal rate: MAX_PER_HOUR over the last hour"),
     "policy.rollback_planned": ("latest",

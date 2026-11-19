@@ -271,9 +271,10 @@ def test_d1_refuses_a_draft_activation_or_fee_bearing_write_without_its_own_appr
     else:
         raise AssertionError("state=active rode the draft lane")
     assert wire.calls == []
-    # Renewal is fee-bearing: no create payload asks Etsy to auto-renew, and no source line
-    # anywhere sets it true.
-    assert "should_auto_renew" not in _payload().to_dict()
+    # Renewal is fee-bearing: every create payload says no to auto-renewal explicitly (WS4-8:
+    # Etsy's or the shop's default is never relied on), and no source line anywhere sets it
+    # true.
+    assert _payload().to_dict()["should_auto_renew"] is False
     hits = [str(p) for p in (ROOT / "src").rglob("*.py")
             if re.search(r"should_auto_renew\"?\s*[:=]\s*True", p.read_text())]
     assert hits == [], hits

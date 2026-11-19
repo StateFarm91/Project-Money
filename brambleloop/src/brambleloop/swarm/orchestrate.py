@@ -971,6 +971,7 @@ JOB_BANDS: dict[str, str] = {
     "intel.scan_evidence": "benchmark_change",    # competitor evidence, like intel.benchmark_*
     "policy.issuer_shadow": "proven_winner",      # WS4-5: shadow decisions on the publish chain
     "policy.stop_watch": "proven_winner",         # WS4: the standing policy's automatic stops
+    "policy.activation_schedule": "proven_winner",  # WS4-8: Stage A standing activations
     "improve.commercial_lessons": "exploration",  # learning, like improve.*
     "learning.knowledge_gaps": "exploration",     # learning gaps -> capped owner recommendations
     "physical.photo": "truth_defect",

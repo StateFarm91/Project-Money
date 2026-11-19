@@ -592,8 +592,19 @@ def test_the_activation_handler_records_the_verified_activation_once_it_handles_
     src = inspect.getsource(pipeline.handle_store_activate)
     uses_seg = any(k in src for k in ("standing_activation", "SEG_PREFIX", '"seg:'))
     if uses_seg:
-        assert "record_activated" in src, "WS4-8 must call standing_activation.record_activated"
-        assert src.index("record_activated") > src.index('"store.activated"'), \
+        # WS4-8 calls it through `standing_activation_flow.record_live`, which wraps it so a
+        # refusal or an exception opens the P1 lineage_unrecorded incident. Either the direct
+        # call or that wrapper (which must itself call record_activated) satisfies the guard,
+        # and it must follow the `store.activated` audit.
+        from brambleloop.ops import standing_activation_flow as flow
+
+        call = "record_activated(" if "record_activated(" in src else "stage_a.record_live("
+        assert call in src, "WS4-8 must call standing_activation.record_activated"
+        if call == "stage_a.record_live(":
+            wrapped = inspect.getsource(flow.record_live)
+            assert "SA.record_activated(" in wrapped, \
+                "record_live must call standing_activation.record_activated"
+        assert src.index(call) > src.index('"store.activated"'), \
             "record_activated must follow the store.activated audit (the verified read-back)"
     else:
         # Today the handler validates per-product approvals only: no seg grant can be used,

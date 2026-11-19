@@ -42,3 +42,20 @@ def handle_stop_watch(ctx: JobContext) -> dict:
 
     out = standing_stop.run(ctx.db)
     return {**out, "ran": True, "work_done": out["policies"]}
+
+
+ACTIVATION_SCHEDULE = "policy.activation_schedule"
+
+
+@handlers.register(ACTIVATION_SCHEDULE)
+def handle_activation_schedule(ctx: JobContext) -> dict:
+    """`policy.activation_schedule` (publishing, OBSERVE, hourly; WS4-8 Stage A): queues at
+    most one standing `store.activate` within the owner's policy and the code ceilings, and
+    asks the policy issuer for its grant. While Stage A is off in code, or no approved policy
+    naming store.activate is in effect, it records why and does nothing else. It sends
+    nothing to Etsy and spends nothing; the store.activate job carries every guard."""
+    from ..ops import standing_activation_flow
+
+    out = standing_activation_flow.schedule(ctx.db, enqueue=ctx.enqueue)
+    return {**out, "ran": True,
+            "work_done": len(out["scheduled"]) + int(out.get("shadow_recorded") or 0)}

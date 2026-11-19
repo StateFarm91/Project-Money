@@ -140,6 +140,8 @@ def remote_listing(lid: str, **over) -> dict:
            # defaults and the CIR's materials), as Etsy returns them.
            "who_made": "i_did", "when_made": "made_to_order", "is_supply": True,
            "type": "download", "quantity": 999, "materials": ["dk cotton"],
+           # WS4-8: every create payload says no to renewal, and getListing returns it.
+           "should_auto_renew": False,
            "price": {"amount": 400, "divisor": 100, "currency_code": "CAD"},
            "images": [{"rank": 1, "alt_text": "photo"}, {"rank": 2, "alt_text": "render"}],
            "_files": [{"filename": "hexagon-coaster-set-pattern-us.pdf", "size_bytes": 60876},

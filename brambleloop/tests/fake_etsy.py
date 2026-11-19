@@ -108,6 +108,8 @@ class FakeEtsy:
         # publish handler implements (pipeline.handle_store_publish -> set_listing_property).
         self.create_refuses_required_property = create_refuses_required_property
         self.remap_taxonomy_to = remap_taxonomy_to
+        #: What a create that does not send `should_auto_renew` gets (see `_new_listing`).
+        self.create_auto_renew_default = True
         self.image_failure = image_failure
         self.delete_failure = delete_failure
         self.delete_is_soft = delete_is_soft
@@ -258,6 +260,12 @@ class FakeEtsy:
             "who_made": fields.get("who_made", ""),
             "when_made": fields.get("when_made", ""),
             "is_supply": fields.get("is_supply", "false") == "true",
+            # Honoured as sent. A create that omits it gets `create_auto_renew_default`, True
+            # here on purpose: the shop's renewal setting can make that the default, so a
+            # client that relies on not sending it is caught by its read-back.
+            "should_auto_renew": (fields["should_auto_renew"] == "true"
+                                  if "should_auto_renew" in fields
+                                  else bool(self.create_auto_renew_default)),
             "file_data": "",
             "url": f"https://www.etsy.com/listing/{listing_id}/",
         }

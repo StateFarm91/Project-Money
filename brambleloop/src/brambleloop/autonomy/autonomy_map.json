@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-18T21:10:25.574707+00:00",
+ "generated_at": "2026-11-19T05:42:46.521943+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 141,
-  "handlers": 173,
+  "cadences": 142,
+  "handlers": 174,
   "agents": 34,
   "follow_on_edges": 94
  },
@@ -1395,6 +1395,12 @@
       "period_seconds": 300
      },
      {
+      "name": "standing_activation_schedule",
+      "agent": "publishing",
+      "job_type": "policy.activation_schedule",
+      "period_seconds": 3600
+     },
+     {
       "name": "cross_sell_graph",
       "agent": "listing",
       "job_type": "listing.cross_sell_graph",
@@ -1528,6 +1534,7 @@
      "listing.seo",
      "listing.taxonomy_refresh",
      "listing.window_captures",
+     "policy.activation_schedule",
      "policy.issuer_shadow",
      "policy.stop_watch",
      "pricing.position",
