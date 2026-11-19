@@ -163,10 +163,14 @@ def is_experiment(db, slug: str, version: str) -> bool:
     return bool(_opened(db, slug, version))
 
 
-def refuse_if_experiment(db, slug: str | None, version: str | None, *, action: str) -> None:
-    """The publication paths call this first. An experiment never reaches them."""
+def experiment_rows(db, slug: str | None, version: str | None, *,
+                    strict: bool = False) -> list[dict]:
+    """The experiment registrations for slug@version (any version when none is given). A pure
+    read: it writes nothing (review 6979645791 LOW: a gate READING must not leave
+    `experiment.refused` rows behind). `strict` lets an unreadable table raise, for readers
+    that must fail closed; the publication refusal keeps its historical lenient read."""
     if not slug:
-        return
+        return []
     rows = _opened(db, slug, version or "") if version else []
     if not rows:
         from sqlalchemy import select
@@ -181,7 +185,17 @@ def refuse_if_experiment(db, slug: str | None, version: str | None, *, action: s
                 rows = [dict(r.detail or {}) for r in s.scalars(select(AuditLog).where(
                     AuditLog.action.in_(actions), art))]
         except Exception:  # noqa: BLE001
+            if strict:
+                raise
             rows = []
+    return rows
+
+
+def refuse_if_experiment(db, slug: str | None, version: str | None, *, action: str) -> None:
+    """The publication paths call this first. An experiment never reaches them."""
+    if not slug:
+        return
+    rows = experiment_rows(db, slug, version)
     if not rows:
         return
     why = (f"{LABEL}: {slug}@{version or '?'} is an uncertified experiment "

@@ -55,8 +55,8 @@ REVIEW_PREFIX = "listing.adoption_review:"
 VERIFIED = "VERIFIED"
 UNVERIFIED = "UNVERIFIED"
 
-#: The states Etsy's census reads; any of them is a listing that exists.
-_KNOWN_STATES = ("active", "draft", "inactive", "sold_out", "expired")
+#: The states Etsy's census reads; any of them is a listing that exists (the one list, ws5 N3).
+from ..integrations.etsy import LISTING_STATES as _KNOWN_STATES  # noqa: E402
 
 
 class AdoptionRefused(ValueError):
