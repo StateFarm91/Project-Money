@@ -99,7 +99,9 @@ class StandingActivationSlot(Base):
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     __table_args__ = (
-        UniqueConstraint("policy_row_id", "day", "slot_no", name="uq_standing_activation_slot"),
+        # Verdict 6999967600 L-C: one slot key across every policy row, so two issues racing
+        # across a supersede cannot both take "slot 1 today" under different rows.
+        UniqueConstraint("day", "slot_no", name="uq_standing_activation_slot_day"),
         CheckConstraint(f"slot_no BETWEEN 1 AND {MAX_ACTIVATIONS_PER_DAY}",
                         name="ck_standing_activation_slot_no"),
     )
@@ -108,10 +110,12 @@ class StandingActivationSlot(Base):
 class StandingWithdrawalSlot(Base):
     """Verdict 6998051067 LOW: the hourly withdrawal cap, enforced by the database.
 
-    One row per withdrawal REQUEST sent (`standing_withdrawal.withdraw`), keyed by the UTC
-    clock hour and a slot number 1..MAX_PER_HOUR. Two concurrent withdrawals cannot take the
-    same slot, so at most MAX_PER_HOUR requests are sent in any clock hour however many
-    workers race; the rolling-hour read in `withdraw_refusal` stays as the advisory check."""
+    One row per listing per UTC clock hour in which a withdrawal request may be sent
+    (`standing_withdrawal.withdraw`), slot numbers 1..MAX_PER_HOUR // 2. Two concurrent
+    withdrawals cannot take the same slot; a retry of the same listing in the same hour reuses
+    its slot (repeated crashes cannot use up the hour); and because a rolling hour overlaps at
+    most two clock hours, no rolling hour sees more than MAX_PER_HOUR (verdict 6999967600
+    L-D). The rolling-hour read in `withdraw_refusal` stays as the advisory check."""
     __tablename__ = "standing_withdrawal_slots"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -122,7 +126,9 @@ class StandingWithdrawalSlot(Base):
 
     __table_args__ = (
         UniqueConstraint("hour", "slot_no", name="uq_standing_withdrawal_slot"),
-        CheckConstraint("slot_no BETWEEN 1 AND 10", name="ck_standing_withdrawal_slot_no"),
+        # Verdict 6999967600 L-D: 5 per clock hour, so any rolling hour (which overlaps at most
+        # two clock hours) holds at most 10 = standing_withdrawal.MAX_PER_HOUR.
+        CheckConstraint("slot_no BETWEEN 1 AND 5", name="ck_standing_withdrawal_slot_no"),
     )
 
 

@@ -559,6 +559,48 @@ def test_deactivate_writes_under_its_own_withdraw_authority():
     assert ("call", E.Authority.READ) not in seen
 
 
+def test_one_daily_activation_slot_key_across_policy_rows():
+    """Verdict 6999967600 L-C: two approvals cannot both take today's slot 1."""
+    from sqlalchemy.exc import IntegrityError
+
+    try:
+        db, aid = _activation_policy_db()
+        SA.ensure_tables(db)
+        day = NOW.date().isoformat()
+        with db.session() as s:
+            s.add(SA.StandingActivationSlot(policy_row_id=aid, day=day, slot_no=1, at=NOW))
+        try:
+            with db.session() as s:
+                s.add(SA.StandingActivationSlot(policy_row_id=aid + 1, day=day, slot_no=1,
+                                                at=NOW))
+            raise AssertionError("a superseding approval took the same daily slot")
+        except IntegrityError:
+            pass
+    finally:
+        _reset()
+
+
+def test_the_activation_handler_records_the_verified_activation_once_it_handles_seg_grants():
+    """Verdict 6999967600 L-B: when `handle_store_activate` (WS4-8) starts using standing
+    activation grants, it must call `standing_activation.record_activated` after its
+    `store.activated` audit, or Stage A listings fall out of lineage and can never be rolled
+    back. This guard fails the day the handler names a seg grant without doing so."""
+    import inspect
+
+    from brambleloop.runtime import pipeline
+
+    src = inspect.getsource(pipeline.handle_store_activate)
+    uses_seg = any(k in src for k in ("standing_activation", "SEG_PREFIX", '"seg:'))
+    if uses_seg:
+        assert "record_activated" in src, "WS4-8 must call standing_activation.record_activated"
+        assert src.index("record_activated") > src.index('"store.activated"'), \
+            "record_activated must follow the store.activated audit (the verified read-back)"
+    else:
+        # Today the handler validates per-product approvals only: no seg grant can be used,
+        # so nothing can go live under Stage A without this guard tripping first.
+        assert "activation_authority.validate" in src
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in list(globals().items()):

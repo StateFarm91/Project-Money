@@ -340,10 +340,27 @@ _TABLE_POWERS = (("standing_grants", "INSERT"), ("standing_grants", "DELETE"),
                  ("standing_grants", "TRUNCATE"), ("standing_grants", "TRIGGER"),
                  ("standing_grant_slots", "INSERT"), ("standing_grant_slots", "UPDATE"),
                  ("standing_grant_slots", "DELETE"), ("standing_grant_slots", "TRUNCATE"),
-                 ("standing_grant_slots", "TRIGGER"))
+                 ("standing_grant_slots", "TRIGGER"),
+                 # Verdict 6999967600 L-A: Stage A's pace and fee caps live in its slot tables.
+                 # A role that could UPDATE or DELETE a slot could reset a cap; the worker
+                 # never inserts an activation slot (the issuer does) and may only INSERT a
+                 # withdrawal slot (withdrawals run in a job).
+                 ("standing_activation_slots", "INSERT"),
+                 ("standing_activation_slots", "UPDATE"),
+                 ("standing_activation_slots", "DELETE"),
+                 ("standing_activation_slots", "TRUNCATE"),
+                 ("standing_activation_slots", "TRIGGER"),
+                 ("standing_withdrawal_slots", "UPDATE"),
+                 ("standing_withdrawal_slots", "DELETE"),
+                 ("standing_withdrawal_slots", "TRUNCATE"),
+                 ("standing_withdrawal_slots", "TRIGGER"))
+#: Tables whose owner could drop a guard or reset a cap: never the worker or the issuer.
+_GUARDED_TABLES = ("standing_grants", "standing_grant_slots", "standing_activation_slots",
+                   "standing_withdrawal_slots")
 _SIGNED_COLUMNS = ("policy_row_id", "policy_version", "scope", "release", "digest",
                    "detail_json", "seal", "issued_at", "expires_at", "id")
-_ISSUER_MAY = {"INSERT standing_grants", "INSERT standing_grant_slots"}
+_ISSUER_MAY = {"INSERT standing_grants", "INSERT standing_grant_slots",
+               "INSERT standing_activation_slots"}
 
 
 def _role_powers(session, role: str | None = None) -> list[str]:
@@ -359,7 +376,7 @@ def _role_powers(session, role: str | None = None) -> list[str]:
         return [f"role {who!r} does not exist"]
     if r[0]:
         out.append("superuser")
-    for table in ("standing_grants", "standing_grant_slots"):
+    for table in _GUARDED_TABLES:
         if session.execute(text(
                 "SELECT pg_has_role(:r, c.relowner, 'MEMBER') FROM pg_class c "
                 "WHERE c.oid = to_regclass(:t)"), {"r": who, "t": table}).scalar():
@@ -590,8 +607,8 @@ def mode_report(db, *, now: datetime | None = None, env=None) -> dict:
 ISSUER_ROLE, WORKER_ROLE = "bl_issuer", "bl_worker"
 # Tables the issuer writes. owner_actions/incidents: a HOLD becomes an owner card (review M-5:
 # without these the first out-of-policy request raised a permission error mid-pass).
-ISSUER_INSERT_TABLES = ("standing_grants", "standing_grant_slots", "audit_log",
-                        "ops_runtime_samples", "incidents", "owner_actions")
+ISSUER_INSERT_TABLES = ("standing_grants", "standing_grant_slots", "standing_activation_slots",
+                        "audit_log", "ops_runtime_samples", "incidents", "owner_actions")
 ISSUER_UPDATE_TABLES = ("ops_leases", "incidents", "owner_actions")
 
 
@@ -625,6 +642,13 @@ def runbook_sql(owner: str, issuer_password: str, worker_password: str) -> list[
         f"standing_grant_slots FROM {w}",
         f"GRANT UPDATE (consumed_at, consumed_job_id, consumed_stage) ON standing_grants "
         f"TO {w}",
+        # Verdict 6999967600 L-A: Stage A's caps. The worker never writes an activation slot
+        # and may only INSERT a withdrawal slot; no role but the owner may UPDATE or DELETE
+        # either, so no process can reset a pace or fee cap.
+        f"REVOKE INSERT, UPDATE, DELETE, TRUNCATE, TRIGGER, REFERENCES ON "
+        f"standing_activation_slots FROM {w}",
+        f"REVOKE UPDATE, DELETE, TRUNCATE, TRIGGER, REFERENCES ON standing_withdrawal_slots "
+        f"FROM {w}",
         # Several job handlers create their own tables on first use (e.g. radar_concepts):
         # the worker keeps CREATE in the schema. It owns only what it creates, so it still
         # cannot alter, drop or add a trigger to the grant store (owned by `owner`).
