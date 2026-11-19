@@ -89,7 +89,22 @@ SW cache is `cc-shell-v35`.
 
 ## Mutants (fix round 1, PYTHONDONTWRITEBYTECODE=1)
 
-MUTANTS_PLACEHOLDER
+Each mutant was applied alone and the suite rerun; every one is killed.
+
+- H1 constant `["motif_composition"]` restored in `brief_for`: 4 tests fail.
+- N1 never-succeeded reads OK: 1 fails.
+- N2 failures ignored: 1 fails.
+- N3 #108-refused gap still "qualifying": 1 fails.
+- N4 `vision_ok=None` reads scheduled: 1 fails.
+- N5 downstream 0 without lineage tables: 1 fails.
+- N6 `conclude` unguarded: 1 fails.
+- N7 an offsite row dropped: 1 fails.
+- N8 #108 reason not surfaced in the lineage: 1 fails.
+- J1 old JS pill (`scheduled` → OK) restored: `test_v11_pwa_browser` fails.
+
+The mock P0 board in `tests/fixtures/cc_mock` now carries the `research_sources` section, so
+the browser check counts twelve sections. Three new checks: a never-succeeded source reads
+UNKNOWN, unknown downstream reads Unknown, and the #108 hold is named.
 
 ## Suites
 

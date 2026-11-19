@@ -155,7 +155,20 @@ try {
     sub: (e.querySelector(".card-sub") || {}).textContent || "",
     reached: [...e.querySelectorAll(".ladder-rung.is-reached")].map((r) => r.textContent.split(":")[0]),
     text: e.textContent })));
-  check(board.length === 11, "p0 board: all eleven sections render", JSON.stringify(board.map((b) => b.title)));
+  check(board.length === 12, "p0 board: all twelve sections render", JSON.stringify(board.map((b) => b.title)));
+  // ENG-RESEARCH review M1/LOW: a never-succeeded source never reads OK; unknown downstream is not 0.
+  const research = board.find((b) => /Research sources/.test(b.title)) || {};
+  const pills = await page.$$eval("#main section.card", (els) => {
+    const card = els.find((e) => /Research sources/.test((e.querySelector(".card-title") || {}).textContent || ""));
+    return card ? [...card.querySelectorAll("li.row")].filter((li) => li.querySelector(".row-head"))
+      .map((li) => ({ id: (li.querySelector(".row-title") || {}).textContent || "", pill: (li.querySelector(".row-head .pill, .row-head [class*=pill]") || {}).textContent || "" })) : [];
+  });
+  const never = pills.find((p) => /bm-never/.test(p.id)) || {};
+  const okRow = pills.find((p) => /bm-ok/.test(p.id)) || {};
+  check(/unknown/i.test(never.pill || "") && !/^\s*ok\s*$/i.test(never.pill || "") && /\bok\b/i.test(okRow.pill || ""),
+    "p0 board: a never-succeeded research source reads Unknown, a healthy one OK", JSON.stringify(pills));
+  check(/Unknown: no lineage recorded yet/.test(research.text || "") && /held by #108/.test(research.text || ""),
+    "p0 board: unknown downstream reads Unknown and the #108 hold is named", (research.text || "").slice(0, 300));
   check(board.every((b) => !b.reached.includes("INDEPENDENTLY REVIEWED") && !b.reached.includes("INTEGRATED"))
     && board.every((b) => /INDEPENDENTLY REVIEWED: not readable here/.test(b.text)),
     "p0 board: review and integration are never shown as reached", JSON.stringify(board.map((b) => b.reached)));
