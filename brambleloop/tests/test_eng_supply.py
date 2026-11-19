@@ -114,6 +114,24 @@ def test_admission_fills_free_capacity_and_refuses_past_it_with_the_reason():
     assert supply.offers(db) == []
 
 
+def test_a_larger_per_run_allowance_never_admits_past_the_free_slots():
+    """The trickle is the lesser of the per-run allowance and the free slots: a caller asking
+    for more per run still gets no more than the work-in-progress limit leaves free."""
+    db = _db()
+    ctx = _ctx(db)
+    _chain(db, "kiln-dust-throw", key="k1")
+    _chain(db, "salt-marsh-wrap", key="k2")
+    for slug in ("birch-bark-pouch", "wren-song-mitts", "quarry-stone-mat"):
+        assert not _offer(ctx, slug)["admitted"]
+    _finish(db, "kiln-dust-throw")
+    out = supply.admit(ctx, per_run=5)
+    assert [x["slug"] for x in out["admitted"]] == ["birch-bark-pouch"], out
+    assert out["capacity"]["slots"] == 1, out
+    assert len(out["refused"]) == 2 and all(
+        v.startswith("per-run trickle") for v in out["refused"].values()), out
+    assert _drafts(db) == ["birch-bark-pouch"]
+
+
 def test_the_wip_ceiling_follows_the_worker_target_and_stays_bounded():
     from brambleloop.swarm import capacity
 
@@ -370,6 +388,18 @@ def test_a_chain_that_ends_refills_its_slot_at_once_through_the_worker():
     with db.session() as s:
         assert s.get(Job, rid).status == JobStatus.DONE
         assert s.get(Job, rid).outputs["admitted"] == 1
+    # a chain job that failed and will retry is still live: its product's slot is not freed,
+    # so it enqueues no refill (checked with no admission pass due, so nothing else masks it)
+    retrying = _chain(db, "kettle-pond-shawl", status=JobStatus.FAILED, key="retry")
+    with db.session() as s:
+        assert s.scalar(select(Job.id).where(Job.job_type == "supply.admit",
+                                             Job.status == JobStatus.PENDING)) is None
+        live = s.get(Job, retrying)
+        s.expunge(live)
+    assert supply.after_chain_job(db, JobQueue(db), live) is None
+    with db.session() as s:
+        s.get(Job, retrying).status = JobStatus.DEAD
+    assert supply.after_chain_job(db, JobQueue(db), live) is not None   # dead-lettered: ends
     # end to end: a worker finishing a chain job enqueues the pass by itself
     db2 = _db()
     ctx2 = _ctx(db2)
