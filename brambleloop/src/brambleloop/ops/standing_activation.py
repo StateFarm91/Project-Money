@@ -105,6 +105,27 @@ class StandingActivationSlot(Base):
     )
 
 
+class StandingWithdrawalSlot(Base):
+    """Verdict 6998051067 LOW: the hourly withdrawal cap, enforced by the database.
+
+    One row per withdrawal REQUEST sent (`standing_withdrawal.withdraw`), keyed by the UTC
+    clock hour and a slot number 1..MAX_PER_HOUR. Two concurrent withdrawals cannot take the
+    same slot, so at most MAX_PER_HOUR requests are sent in any clock hour however many
+    workers race; the rolling-hour read in `withdraw_refusal` stays as the advisory check."""
+    __tablename__ = "standing_withdrawal_slots"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    hour: Mapped[str] = mapped_column(String(13))
+    slot_no: Mapped[int] = mapped_column(Integer)
+    listing_id: Mapped[str] = mapped_column(String(32), default="")
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("hour", "slot_no", name="uq_standing_withdrawal_slot"),
+        CheckConstraint("slot_no BETWEEN 1 AND 10", name="ck_standing_withdrawal_slot_no"),
+    )
+
+
 _LOCK = threading.Lock()
 _FLAG = "_brambleloop_standing_activation_ready"
 
@@ -118,7 +139,8 @@ def ensure_tables(db) -> None:
         return
     with _LOCK:
         if not getattr(engine, _FLAG, False):
-            Base.metadata.create_all(engine, tables=[StandingActivationSlot.__table__],
+            Base.metadata.create_all(engine, tables=[StandingActivationSlot.__table__,
+                                                     StandingWithdrawalSlot.__table__],
                                      checkfirst=True)
             setattr(engine, _FLAG, True)
 
@@ -270,16 +292,18 @@ def a_shadow(db, approval_id: int, *, approved_at, now) -> dict:
 
 
 def _counts(db, policy_row_id: int, now: datetime) -> dict:
+    """Stage A's pace and fee counts. Verdict 6998051067 LOW: counted across EVERY policy row,
+    not per row, so superseding (or re-approving) the policy never resets the daily, 7-day or
+    30-day counts: the ceilings bind the shop, whichever approval issued the activation.
+    `policy_row_id` is kept for the caller's record only."""
     from sqlalchemy import func, select
 
     ensure_tables(db)
     with db.session() as s:
         def n(since):
             return int(s.scalar(select(func.count(StandingActivationSlot.id)).where(
-                StandingActivationSlot.policy_row_id == int(policy_row_id),
                 StandingActivationSlot.at >= since)) or 0)
         used_today = sorted(s.scalars(select(StandingActivationSlot.slot_no).where(
-            StandingActivationSlot.policy_row_id == int(policy_row_id),
             StandingActivationSlot.day == now.date().isoformat())))
         return {"today": used_today, "7d": n(now - timedelta(days=7)),
                 "30d": n(now - timedelta(days=30))}
@@ -420,6 +444,9 @@ def issue(db, *, slug: str, version: str, release: str, job_id: int,
 # ---- use (the worker; reached through integrations.etsy.OwnerGrant) -------------------------
 
 SEG_PREFIX = "seg:"
+#: The one handler (runtime.pipeline.handle_store_activate) and its write-ahead effect.
+ACTIVATE_JOB = "store.activate"
+ACTIVATE_EFFECT = "etsy.activate"
 
 
 def use_refusal(db, approval_id, *, slug: str, version: str, listing_id: str,
@@ -456,6 +483,25 @@ def use_refusal(db, approval_id, *, slug: str, version: str, listing_id: str,
             return f"standing activation grant {gid} names another listing"
         if job_id is None or consumed_job is None or int(consumed_job) != int(job_id):
             return f"standing activation grant {gid} was not consumed by this job"
+        # Verdict 6998051067 LOW: only `handle_store_activate` may use a standing activation
+        # grant. Its kill switch, spend reservation and write-ahead intent all run before the
+        # request; the intent (etsy.activate, "<listing>:seg:<id>", claimed by this job) is
+        # the proof the call came through it, so a direct client call is refused.
+        from ..queue import effects
+
+        with db.session() as s:
+            from sqlalchemy import select
+
+            intent = s.scalar(select(effects.EffectIntent).where(
+                effects.EffectIntent.effect == ACTIVATE_EFFECT,
+                effects.EffectIntent.idem == f"{listing_id}:{SEG_PREFIX}{gid}",
+                effects.EffectIntent.job_id == int(job_id),
+                effects.EffectIntent.job_type == ACTIVATE_JOB,
+                effects.EffectIntent.state == effects.CLAIMED))
+        if intent is None:
+            return (f"standing activation grant {gid} is used only through {ACTIVATE_JOB} "
+                    f"(its kill switch, spend reservation and write-ahead intent); no claimed "
+                    f"{ACTIVATE_EFFECT} intent for this listing and job")
         if AA.digest(AA.snapshot(db, slug, version, release)) != body.get("digest"):
             return "the listing no longer matches what the activation grant bound"
         if not isinstance(remote, dict) or remote.get("should_auto_renew") is not False:

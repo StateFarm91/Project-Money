@@ -41,6 +41,18 @@ class _On:
         self.p.stop()
 
 
+def _claimed_intent(db, gid, *, job_id, listing_id=LISTING, job_type="store.activate",
+                    state="CLAIMED"):
+    """The write-ahead intent `handle_store_activate` holds while it sends the request."""
+    from brambleloop.queue import effects
+
+    effects.EffectIntent.__table__.create(db.engine, checkfirst=True)
+    with db.session() as s:
+        s.add(effects.EffectIntent(key=f"k{gid}-{job_id}-{job_type}-{state}-{listing_id}"[:64],
+                                   effect="etsy.activate", idem=f"{listing_id}:seg:{gid}",
+                                   job_id=job_id, job_type=job_type, token="t", state=state))
+
+
 def _refused(fn, exc, contains):
     try:
         fn()
@@ -347,7 +359,14 @@ def test_an_issued_activation_grant_is_single_use_job_and_listing_bound():
             _refused(lambda: SG.consume(db, gid, job_id=51, action="store.activate",
                                         now=NOW + timedelta(minutes=4)),
                      SG.GrantRefused, "used, expired or gone")
+            # Verdict 6998051067 LOW: a direct client call (no handler intent) is refused.
+            from brambleloop.queue import effects
+            effects.EffectIntent.__table__.create(db.engine, checkfirst=True)
+            assert "used only through store.activate" in use(), use()
+            _claimed_intent(db, gid, job_id=51)
             assert use() is None
+            assert "used only through store.activate" in use(job_id=52) or \
+                "not consumed by this job" in use(job_id=52)
             # Verdict 6998051067 M3: consumed at claim is not authorised at use.
             with patch.object(sp, "effective", lambda *a, **k: {
                     **_with_actions(real(*a, **k)), "state": sp.SUSPENDED_STATE,
@@ -441,6 +460,103 @@ def test_the_client_hands_a_standing_grant_the_listing_as_etsy_holds_it():
         client.activate(lid, launch_authorisation="LAUNCH-0-TEST", grant=g)
     reads = [r for r in seen if r is not None]
     assert reads and str(reads[-1].get("listing_id")) == str(lid), seen
+
+
+def test_only_the_store_activate_handler_may_use_a_standing_grant():
+    """Verdict 6998051067 LOW: the intent must be the handler's own: right effect, listing,
+    job, job type and still claimed."""
+    from brambleloop.queue import effects
+
+    try:
+        db, aid = _activation_policy_db()
+        real = sp.effective
+        with _On(), _Gates(aid=aid), patch.object(AA, "snapshot", _aa_snapshot), \
+                patch.object(sp, "effective", lambda *a, **k: _with_actions(real(*a, **k))):
+            gid = SA.issue(db, slug=SLUG, version=VERSION, release=REL, job_id=71,
+                           now=NOW + timedelta(minutes=1))["grant_id"]
+            SG.consume(db, gid, job_id=71, action="store.activate",
+                       now=NOW + timedelta(minutes=2))
+            use = lambda: SA.use_refusal(  # noqa: E731
+                db, f"seg:{gid}", slug=SLUG, version=VERSION, release=REL,
+                listing_id=LISTING, job_id=71, remote={"should_auto_renew": False},
+                now=NOW + timedelta(minutes=3))
+            for wrong in (dict(job_type="store.publish"), dict(state=effects.APPLIED),
+                          dict(listing_id="999"), dict(job_id=72)):
+                _claimed_intent(db, gid, **{"job_id": 71, **wrong})
+                assert "used only through store.activate" in use(), wrong
+            _claimed_intent(db, gid, job_id=71)
+            assert use() is None
+    finally:
+        _reset()
+
+
+def test_issue_requires_mode_t():
+    """Verdict 6998051067 LOW: the Mode T check in `issue` has a killing test."""
+    try:
+        db, aid = _activation_policy_db()
+        real = sp.effective
+        at = NOW + timedelta(minutes=1)
+        eff = _with_actions(real(db, now=at))            # the policy as it reads in Mode T
+        assert eff["state"] == sp.EFFECTIVE, eff
+        with _On(), _Gates(aid=aid), patch.object(AA, "snapshot", _aa_snapshot), \
+                patch.object(sp, "effective", lambda *a, **k: eff):
+            # Control: with Mode T the same call issues, so the refusal below is Mode T's.
+            assert SA.issue(db, slug=SLUG, version=VERSION, release=REL, job_id=80,
+                            now=at)["grant_id"]
+        with db.session() as s:                          # free today's slot again
+            s.query(SA.StandingActivationSlot).delete()
+        with _On(), _Gates(aid=aid), patch.object(AA, "snapshot", _aa_snapshot), \
+                patch.object(sp, "effective", lambda *a, **k: eff), \
+                patch.object(SG, "mode_report",
+                             lambda db_, now=None: {"mode": "S", "reasons": ["drill: web"]}):
+            _refused(lambda: SA.issue(db, slug=SLUG, version=VERSION, release=REL, job_id=81,
+                                      now=at),
+                     SA.ActivationRefused, "deployment is not Mode T: drill: web")
+    finally:
+        _reset()
+
+
+def test_pace_and_fee_counts_carry_across_a_superseded_policy():
+    """Verdict 6998051067 LOW: a new approval does not reset the counts."""
+    try:
+        db, aid = _activation_policy_db()
+        SA.ensure_tables(db)
+        day = NOW.date().isoformat()
+        with db.session() as s:
+            s.add(SA.StandingActivationSlot(policy_row_id=aid, day=day, slot_no=1, at=NOW))
+            s.add(SA.StandingActivationSlot(policy_row_id=aid, day=(NOW - timedelta(days=3))
+                                            .date().isoformat(), slot_no=1,
+                                            at=NOW - timedelta(days=3)))
+        c = SA._counts(db, aid + 1, NOW + timedelta(minutes=1))   # a later approval row
+        assert c["today"] == [1] and c["7d"] == 2 and c["30d"] == 2, c
+    finally:
+        _reset()
+
+
+def test_deactivate_writes_under_its_own_withdraw_authority():
+    """Verdict 6998051067 LOW: the PATCH is a WITHDRAW write, never a READ."""
+    from brambleloop.integrations import etsy as E
+
+    assert E.Authority.WITHDRAW.value == "withdraw"
+    client = E.EtsyClient.__new__(E.EtsyClient)
+    client.credentials = None
+    assert "credentials" in client.refusal_for(E.Authority.WITHDRAW)
+    seen = []
+
+    class _G(E.OwnerGrant):
+        def refusal(self, **k):
+            return None
+    c = E.EtsyClient.__new__(E.EtsyClient)
+    c.credentials = type("C", (), {"shop_id": "1"})()
+    c.get_listing = lambda lid, includes=(): {"listing_id": lid,
+                                               "state": "inactive" if seen else "active"}
+    c._require = lambda a: (seen.append(("require", a)), c.credentials)[1]
+    c._call = lambda *a, **k: seen.append(("call", k.get("authority")))
+    out = c.deactivate("5", grant=_G(None, action=E.OwnerGrant.WITHDRAW, approval_id="x",
+                                     listing_id="5"))
+    assert out["after"] == "inactive"
+    assert ("require", E.Authority.WITHDRAW) in seen and ("call", E.Authority.WITHDRAW) in seen
+    assert ("call", E.Authority.READ) not in seen
 
 
 if __name__ == "__main__":

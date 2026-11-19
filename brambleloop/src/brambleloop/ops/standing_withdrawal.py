@@ -55,6 +55,10 @@ ACTOR = "standing_rollback"
 STOPPED_STATES = frozenset({SP.SUSPENDED_STATE, SP.NONE, SP.DEAD, SP.BROKEN})
 
 
+class WithdrawalRefused(Exception):
+    """A withdrawal the database bound refused before anything was sent."""
+
+
 def _now(now=None) -> datetime:
     from . import standing_issuer as SI
 
@@ -221,6 +225,31 @@ def _unconfirmed(db, *, slug, version, listing_id, why, now):
             blocks="completing the standing-policy rollback")
 
 
+def _claim_slot(db, listing_id: str, now: datetime) -> int:
+    """Take one of the clock hour's MAX_PER_HOUR request slots, or refuse (nothing sent)."""
+    from sqlalchemy import select
+    from sqlalchemy.exc import IntegrityError
+
+    from . import standing_activation as SA
+
+    SA.ensure_tables(db)
+    hour = now.strftime("%Y-%m-%dT%H")
+    with db.session() as s:
+        used = set(s.scalars(select(SA.StandingWithdrawalSlot.slot_no).where(
+            SA.StandingWithdrawalSlot.hour == hour)))
+    free = [n for n in range(1, MAX_PER_HOUR + 1) if n not in used]
+    if not free:
+        raise WithdrawalRefused(f"at most {MAX_PER_HOUR} withdrawals per hour (database)")
+    try:
+        with db.session() as s:
+            s.add(SA.StandingWithdrawalSlot(hour=hour, slot_no=free[0],
+                                            listing_id=str(listing_id), at=now))
+    except IntegrityError:
+        raise WithdrawalRefused("another withdrawal took this hour's slot first; "
+                                "refused, never retried into an extra slot") from None
+    return free[0]
+
+
 def withdraw(db, client, *, slug: str, version: str, listing_id: str,
              now: datetime | None = None) -> dict:
     """Take one SP-lineage listing down through `EtsyClient.deactivate`, and record it.
@@ -247,6 +276,7 @@ def withdraw(db, client, *, slug: str, version: str, listing_id: str,
                               reconciled=True)
             return {"listing_id": str(listing_id), "before": pending.get("before") or "active",
                     "after": state, "reconciled": True}
+    _claim_slot(db, listing_id, now)
     with db.session() as s:
         s.add(AuditLog(actor=ACTOR, action=INTENT, artifact=f"{slug}@{version}",
                        detail={"etsy_listing_id": str(listing_id), "before": "active",

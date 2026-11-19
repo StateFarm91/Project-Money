@@ -680,7 +680,7 @@ class PublishOutcome:
 
 
 class Authority(Enum):
-    """The three different things a request to Etsy can be, and they are not one gate.
+    """The different things a request to Etsy can be, and they are not one gate.
 
     The client used to have a single refusal covering everything, which was correct while it
     could only do one thing -- publish. It is wrong now, in both directions:
@@ -700,6 +700,10 @@ class Authority(Enum):
     READ = "read"
     DRAFT_WRITE = "draft_write"
     ACTIVATE = "activate"
+    # Verdict 6998051067 LOW: taking a live listing down is a write, not a read. Deny-
+    # direction and unrelated to publishing authority (it is most wanted right after the owner
+    # rolls the phase back), so it needs a credential, and the withdrawal grant is the gate.
+    WITHDRAW = "withdraw"
 
 
 # Etsy charges the listing fee when a listing is *published*, not when a draft is created.
@@ -904,6 +908,11 @@ class EtsyClient:
         if authority is Authority.READ:
             # A read creates nothing, charges nothing and cannot be seen by a buyer. The only
             # thing that can stop it is not having a credential.
+            return None if self.credentials is not None else no_credentials
+
+        if authority is Authority.WITHDRAW:
+            # Only `deactivate` asks this, and it also requires `OwnerGrant.WITHDRAW` on the
+            # call, re-resolved immediately before the request.
             return None if self.credentials is not None else no_credentials
 
         if authority is Authority.DRAFT_WRITE:
@@ -1605,7 +1614,7 @@ class EtsyClient:
         only client-side authority it needs: the grant is the gate, and it is checked
         immediately before the request. Etsy does not refund the listing fee.
         """
-        creds = self._require(Authority.READ)
+        creds = self._require(Authority.WITHDRAW)
         if not isinstance(grant, OwnerGrant) or grant.action != OwnerGrant.WITHDRAW:
             raise EtsyNotPermitted("deactivate needs a withdrawal grant (OwnerGrant.WITHDRAW) "
                                    "on the call itself")
@@ -1616,7 +1625,7 @@ class EtsyClient:
         if refused is not None:
             raise EtsyNotPermitted(f"withdrawal refused at the client: {refused}")
         self._call("PATCH", f"/shops/{creds.shop_id}/listings/{listing_id}",
-                   operation="updateListing", authority=Authority.READ,
+                   operation="updateListing", authority=Authority.WITHDRAW,
                    form={"state": "inactive"})
         after = str(self.get_listing(listing_id, includes=()).get("state") or "").lower()
         if after != "inactive":

@@ -405,6 +405,48 @@ def test_a_crash_before_the_request_is_a_plain_retry():
         _reset()
 
 
+def test_the_hourly_withdrawal_cap_is_enforced_by_the_database():
+    """Verdict 6998051067 LOW: MAX_PER_HOUR holds in SQL, not only in a racy count."""
+    from sqlalchemy.exc import IntegrityError
+
+    from brambleloop.ops import standing_activation as SA
+    from fake_etsy import FakeEtsy
+
+    assert SW.MAX_PER_HOUR == 10            # the slot CHECK constraint names the same bound
+    try:
+        db, _, aid = _effective_db()
+        SA.ensure_tables(db)
+        hour = NOW.strftime("%Y-%m-%dT%H")
+        with db.session() as s:
+            s.add(SA.StandingWithdrawalSlot(hour=hour, slot_no=1, listing_id="a"))
+        try:
+            with db.session() as s:
+                s.add(SA.StandingWithdrawalSlot(hour=hour, slot_no=1, listing_id="b"))
+            raise AssertionError("two withdrawals took one slot")
+        except IntegrityError:
+            pass
+        with db.session() as s:
+            for n in range(2, SW.MAX_PER_HOUR + 1):
+                s.add(SA.StandingWithdrawalSlot(hour=hour, slot_no=n, listing_id="x"))
+        with FakeEtsy() as fake:
+            lid, shadow = _fake_live(fake)
+            _draft(db, listing_id=lid, state="active")
+            _activation_grant(db, aid, listing_id=lid)
+            n = len(_updates(fake))
+            with _stopped():
+                try:
+                    SW.withdraw(db, shadow, slug=SLUG, version=VERSION, listing_id=lid, now=NOW)
+                    raise AssertionError("an eleventh withdrawal was sent this hour")
+                except SW.WithdrawalRefused as exc:
+                    assert "per hour" in str(exc)
+                assert len(_updates(fake)) == n                 # nothing sent
+                out = SW.withdraw(db, shadow, slug=SLUG, version=VERSION, listing_id=lid,
+                                  now=NOW + timedelta(hours=1))   # the next hour has room
+                assert out["after"] == "inactive"
+    finally:
+        _reset()
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in list(globals().items()):
