@@ -139,6 +139,7 @@ def parse_routes(env=None) -> tuple[dict[str, str], list[dict]]:
     raw = str(e.get(ROUTES_VAR) or "").strip()
     table: dict[str, str] = {}
     invalid: list[dict] = []
+    dup: set[str] = set()
     for part in filter(None, (x.strip() for x in raw.split(","))):
         task, sep, name = part.partition("=")
         task, name = task.strip(), name.strip()
@@ -151,8 +152,21 @@ def parse_routes(env=None) -> tuple[dict[str, str], list[dict]]:
             invalid.append({"entry": part, "task": task,
                             "why": f"names task {task!r}, which is not a routing task "
                                    f"(routing.TASKS)"})
+        elif name not in _VENDORS:
+            # Verdict 6999967600 S2 LOW: `topic_filing=bogus` refused its task with no card.
+            invalid.append({"entry": part, "task": task,
+                            "why": f"names vendor {name!r}, which is not a registered model "
+                                   f"vendor ({sorted(_VENDORS)})"})
+        elif task in table or task in dup:
+            # Verdict 6999967600 S2 LOW: a task named twice was last-wins, silently.
+            dup.add(task)
+            invalid.append({"entry": part, "task": task,
+                            "why": f"routes task {task!r} a second time; refusing rather "
+                                   f"than choosing one"})
         else:
             table[task] = name
+    for task in dup:
+        table.pop(task, None)
     return table, invalid
 
 
