@@ -161,5 +161,22 @@ def test_the_owner_card_example_route_names_a_real_task():
     assert "culture_classify" not in action
 
 
+def test_a_route_for_an_unknown_task_is_refused_not_ignored():
+    """Verdict 6996033652 LOW: `routes()` rejects a task name that is not in routing.TASKS."""
+    from brambleloop.gateway import routing
+    from brambleloop.gateway.model_gateway import NoProviderAvailable
+
+    ok_env = {providers.ROUTES_VAR: f"{providers.EXAMPLE_ROUTE_TASK}=openai"}
+    assert providers.routes(ok_env) == {providers.EXAMPLE_ROUTE_TASK: "openai"}
+    assert "culture_classify" not in routing.TASKS
+    for bad in ("culture_classify=openai", f"{providers.EXAMPLE_ROUTE_TASK}=openai,serp_x=openai"):
+        try:
+            providers.routes({providers.ROUTES_VAR: bad})
+        except NoProviderAvailable as exc:
+            assert "not a routing task" in str(exc), exc
+        else:
+            raise AssertionError(f"{bad!r} was accepted")
+
+
 if __name__ == "__main__":
     run_tests(globals())

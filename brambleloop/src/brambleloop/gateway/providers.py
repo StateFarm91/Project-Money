@@ -132,6 +132,14 @@ def routes(env=None) -> dict[str, str]:
         if not sep or not task or not name:
             raise NoProviderAvailable(f"{ROUTES_VAR} entry {part!r} is not task=vendor; "
                                       f"refusing rather than guessing a route")
+        # Verdict 6996033652 LOW: a task the router does not know is a typo, and a typo would
+        # leave that task on the default vendor while the owner believes it is routed.
+        from . import routing
+
+        if task not in routing.TASKS:
+            raise NoProviderAvailable(
+                f"{ROUTES_VAR} entry {part!r} names task {task!r}, which is not a routing task "
+                f"(routing.TASKS); refusing rather than ignoring it")
         out[task] = name
     return out
 
