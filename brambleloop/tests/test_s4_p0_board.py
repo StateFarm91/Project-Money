@@ -266,24 +266,24 @@ def test_all_eight_shops_fresh_and_clean_is_the_only_production_verified_scan_st
                             lambda db, now: {"readable": True, "credential": "ok",
                                              "shops": rows})
     with _Deployed():
-        with scans([_shop(i) for i in range(1, 9)]):
+        with scans([_shop(i) for i in range(1, 10)]):
             sec = B.view(DB)["sections"]["shops"]
-        assert sec["level"] == B.PROD_VERIFIED and sec["state"] == "OK" and sec["fresh"] == 8
+        assert sec["level"] == B.PROD_VERIFIED and sec["state"] == "OK" and sec["fresh"] == 9
         row = sec["shops"][0]
         for k in ("last_attempted", "last_successful", "etsy_source_timestamp",
                   "listings_seen_last_scan", "consecutive_failures", "next_due",
                   "downstream"):
             assert k in row, k
-        for rows in ([_shop(i) for i in range(1, 8)],                       # only 7
-                     [_shop(i) for i in range(1, 8)] + [_shop(8, fresh=False)],
-                     [_shop(i) for i in range(1, 8)] + [_shop(8, failures=2)]):
+        for rows in ([_shop(i) for i in range(1, 9)],                       # only 8
+                     [_shop(i) for i in range(1, 9)] + [_shop(9, fresh=False)],
+                     [_shop(i) for i in range(1, 9)] + [_shop(9, failures=2)]):
             with scans(rows):
                 sec = B.view(DB)["sections"]["shops"]
             assert sec["level"] == B.RUNNING and sec["state"] == "DEGRADED", sec["state"]
-        # Nine configured is a misconfiguration, not "all eight", even with eight fresh.
-        with scans([_shop(i) for i in range(1, 9)] + [_shop(9, fresh=False)]):
+        # Ten configured is a misconfiguration, not "all nine", even with nine fresh.
+        with scans([_shop(i) for i in range(1, 10)] + [_shop(10, fresh=False)]):
             assert B.view(DB)["sections"]["shops"]["level"] == B.RUNNING
-        with scans([_shop(i, fresh=False) for i in range(1, 9)]):
+        with scans([_shop(i, fresh=False) for i in range(1, 10)]):
             assert B.view(DB)["sections"]["shops"]["level"] == B.DEPLOYED
 
 
@@ -391,11 +391,18 @@ def test_costs_and_blockers_run_only_on_recent_activity():
         assert v["blockers"]["last_activity_at"] is not None
 
 
+def test_the_board_requires_every_owner_shop():
+    """D-OWNER-NINTH-SHOP: the board's required count is the owner's list, nine shops."""
+    from brambleloop.intel import scan_evidence as SE
+
+    assert B.MANDATORY_SHOPS == len(SE.OWNER_SHOPS) == 9
+
+
 def test_an_unknown_shop_failure_count_is_not_zero():
-    """Verdict 6990820438 LOW: eight fresh shops, one with no failure count, is not clean."""
+    """Verdict 6990820438 LOW: nine fresh shops, one with no failure count, is not clean."""
     from brambleloop.ops import production_evidence as PE
 
-    rows = [_shop(i) for i in range(1, 8)] + [_shop(8, failures=None)]
+    rows = [_shop(i) for i in range(1, 9)] + [_shop(9, failures=None)]
     with _Deployed(), patch.object(PE, "competitor_scans",
                                    lambda db, now: {"readable": True, "credential": "ok",
                                                     "shops": rows}):

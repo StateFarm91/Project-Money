@@ -10,7 +10,7 @@ import { pageMeta } from "./_shared.js";
 
 const TITLES = {
   running: "Running build and health",
-  shops: "The 8 mandatory shops",
+  shops: "The mandatory shops",  // the count is the Required tile (server-computed)
   opportunities: "Opportunities scored",
   development: "Products in development",
   releases: "Certified releases",

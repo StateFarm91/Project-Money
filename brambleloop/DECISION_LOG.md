@@ -2722,3 +2722,23 @@ The trigger is the proposal's stated size, not only the band, so the dishcloths 
    - Zero output is a blocker that gets fixed the same day.
 
 Reversible only by the owner.
+**D-OWNER-NINTH-SHOP: ArtLoveDesing is the ninth mandatory research shop, permanent (owner directive, 2026-11-19).** The owner added a ninth research shop. It is named ArtLoveDesing, spelled "Desing" exactly as the shop spells itself. The owner-supplied URL is kept verbatim: `https://www.etsy.com/ca/shop/ArtLoveDesing?ref=shop_profile&listing_id=4427559824`. The canonical URL `https://www.etsy.com/ca/shop/ArtLoveDesing` is stored beside it. The shop is a permanent research source and never a report mention.
+
+**Registries.** It is added to every registry, with role `permanent`:
+- `intel/benchmarks.py`: `ARTLOVE` in `OWNER_ADDED_SHOPS`, so it is in `REGISTRY` and mandatory.
+- `intel/watchlist.py`: a `Member` in `WATCHLIST`.
+- `intel/scan_evidence.py`: in `OWNER_SHOPS`, the ninth in the owner's order.
+- `radar/market.py`: in `COMPETITORS`, as an owner-named profile with nothing observed and nothing claimed.
+
+**Scanning.** It is scanned on the watchlist cadence by the same `scan_member` as the other shops. That is the official Etsy Open API v3 public read endpoints only: findShops, the shop's listings and getReviewsByShop.
+
+**Monitoring.** The owner asked for listings, prices, amigurumi, PDF languages and quality, reviews and trends. `watchlist.MONITORING_FOCUS` maps each of these to the `compare` figures that answer it. Three figures are new, and they are read for every shop:
+- `amigurumi_listings` is DERIVED from our pod routing.
+- `listing_languages` is MEASURED from findShops `languages`. Language codes only are kept. The PDF is never bought, downloaded or opened.
+- `pdf_quality` is UNMEASURED. No compliant source exists, because judging a competitor's PDF needs their file. The review average and recurring complaint themes are shown as their own figures and are never relabelled as PDF quality.
+
+**Unreachable shop.** If the authorised API cannot reach the shop, the D-W4-OWNER-SEEDSHOPS pattern applies unchanged. The shop is recorded as `not_accessible`, its monitoring is kept, it backs off, the other shops are not blocked and it is never reported as scanned. Its alternative evidence says "owner-named profile, not yet observed" rather than citing an observation that never happened. IvyLoop's unobserved profile now reads the same way.
+
+**Readback.** `ops/production_evidence.competitor_scans` reports nine shops. `ops/readback` states `RESEARCH_SHOPS = 9`, a test pins that number to `len(OWNER_SHOPS)`, and the row is now "competitor shops scanned (nine-shop research network)". A server that reports fewer shops WARNs with "expected 9" and never PASSes.
+
+**Tests.** `tests/test_ninth_shop.py` covers the change, and the existing suites now assert the exact nine. This is reversible only by an owner decision.

@@ -56,6 +56,11 @@ OWNER_SHOPS: tuple[tuple[str, str, str], ...] = (
     ("IvyLoop", "https://www.etsy.com/ca/shop/IvyLoop", "seed"),
     ("LoveandStitchDesigns", "https://www.etsy.com/ca/shop/LoveandStitchDesigns", "seed"),
     ("FireflyCrochets", "https://www.etsy.com/ca/shop/FireflyCrochets", "seed"),
+    # D-OWNER-NINTH-SHOP (owner directive 2026-11-19): the owner-supplied URL, verbatim; the
+    # canonical one is `benchmarks.ARTLOVE_CANONICAL_URL`.
+    ("ArtLoveDesing",
+     "https://www.etsy.com/ca/shop/ArtLoveDesing?ref=shop_profile&listing_id=4427559824",
+     "permanent"),
 )
 
 # The owner's two MJ's reference listings (P0 directive 2026-10-30 §7): references for
@@ -118,6 +123,11 @@ def _seed_observation(shop: str) -> dict | None:
     prof = next((c for c in COMPETITORS if c.shop.lower() == shop.lower()), None)
     if prof is None:
         return None
+    from .watchlist import _profile_observed
+
+    if not _profile_observed(prof):
+        return {"source": f"radar.market.COMPETITORS[{prof.shop}]", "observed_on": None,
+                "kind": "owner-named profile, not yet observed (nothing on file)"}
     return {"source": f"radar.market.COMPETITORS[{prof.shop}]",
             "observed_on": str(getattr(prof, "observed_on", "") or ""),
             "kind": "public-profile seed observation (price band, formats; no content)"}
