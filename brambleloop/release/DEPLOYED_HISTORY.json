@@ -76,6 +76,11 @@
       "sha": "ea3aacc783635d7f67d3e2e1efd5d28e2c854d6c",
       "observed": "2026-11-17T03:28Z",
       "evidence": "owner exact-SHA approval 2026-11-17 ('Yes' to ea3aacc7). Batch 8 release record over suite tree 9e91b75b (full suite 20261112T114611Z-23092: 10905 passing, 0 suites failing, clean, release-eligible). Pre-deploy backup brambleloop_prod_20261117T032249Z.dump 639814286 B sha256 0ce5a88e restore_ok, BK RESULT OK, 1.3G free. ops/deploy.sh --deployed 88d1ce5e: guard ALLOW, rollback rehearsal ALLOW; DEPLOYED. Readback: first pass worker_alive FAIL just after boot (ROLLBACK recorded, AUTO_ROLLBACK off, nothing pushed); re-read FIX_FORWARD, rc=5 on P1: smoke matrix FAIL (pre-existing since 88d1ce5e, sub-check not visible without readback token) and 6 NEEDS_OPERATOR. /health build ea3aacc7 worker_alive true; /api/verify 14/14."
+    },
+    {
+      "sha": "8bc96eefc0dd385c578ab118f23d9481a5493c1a",
+      "observed": "2026-11-19T15:01Z",
+      "evidence": "owner approval 2026-11-19 ('I approve'; earlier 'launch batch 9' and standing 'do whatever it takes'). Batches 9+10 release record over suite tree f34c25ae (full suite 20261119T045037Z-1780: 11639 passing, 0 suites failing, clean, release-eligible; contains Batch 9 6e47d9bb, itself certified 11568/0). Pre-deploy backup brambleloop_prod_20261119T132003Z.dump 652694066 B sha256 dd34116d restore_ok, 150 tables, 425448 rows, BK RESULT OK, 640M free (next dump needs pruning). ops/deploy.sh --deployed ea3aacc7: guard ALLOW, rollback rehearsal ALLOW; verify_deploy DEPLOYED. Readback: first pass worker_alive FAIL just after boot (ROLLBACK recorded, AUTO_ROLLBACK off, nothing pushed); re-read with readback token: worker alive, all 6 operator rows PASS (incl. Etsy credential usable, continuity proof), FAIL on P1 only: no_unexpected_dead_letters (2 NoHandlerRegistered at 15:01:16-19Z for assets.photo_review and policy.issuer_shadow, both new in this release, claimed by the outgoing ea3aacc7 worker during switchover; the new build registers both handlers) and smoke matrix FAIL (pre-existing since 88d1ce5e). /health build 8bc96eef worker_alive true."
     }
   ]
 }
