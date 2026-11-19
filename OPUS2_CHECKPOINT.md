@@ -63,7 +63,9 @@ worktrees, not this file.
   b493a9c6, s2-card c1c5309c, stage-a1 9a781810 (consume conflict; activation grant signs the
   shop; write-once fixtures), stage-a2 ae9d837e. RULE: also run test_w4_resume_runner (F7) and
   test_w3_tmp_hygiene before any RR.
-- Stop reason (2026-11-19T00:05Z): all of Main's findings fixed and review-requested; queue
+- Tick 2026-11-19T00:28Z: no [MAIN] message since CHECKPOINT 6994982091; INTEG1 still 7a0bc63b. Nothing
+  posted.
+- Stop reason (2026-11-19T00:30Z): all of Main's findings fixed and review-requested; queue
   exhausted pending verdicts. Answer any [MAIN] message first next tick.
 
 ## State at 2026-11-18T10:50Z (superseded)
