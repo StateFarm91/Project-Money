@@ -628,8 +628,8 @@ def shadow_run(db, *, now: datetime | None = None) -> dict:
     # Review 6985175377 (LOW): the load itself is bounded in SQL. Each row is stored at its
     # decision time (`at=now` below), so a row stored before `since - DEDUPE_LOAD_SLACK` is
     # outside the window and is not read. The slack covers rows written before `at` was set
-    # explicitly, whose stored time was the database clock at write (the same clock as the
-    # run's `now` in production, seconds apart).
+    # explicitly, whose stored time is the app's `core.models.utcnow()` at write (the same
+    # process clock as the run's default `now`, seconds apart; verdict 6996033652 LOW).
     with db.session() as s:
         recent = {(d or {}).get("decision_key") for d in s.scalars(
             select(AuditLog.detail).where(AuditLog.action == SP.SHADOW_DECISION,

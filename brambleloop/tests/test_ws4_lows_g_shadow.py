@@ -178,6 +178,41 @@ def test_the_shadow_run_dedupe_load_is_bounded_in_sql():
         _restore_all()
 
 
+def test_the_dedupe_window_holds_to_its_24_hour_edge():
+    """Verdict 6996033652 LOW: a decision 23 h 55 min old is still deduplicated (the SQL bound
+    must reach back past `since`), and one 24 h 1 min old is recorded again."""
+    try:
+        db, c = _db(), content()
+        _owner_keys()
+        _approve(db, c)
+        _release(db)
+        assert SI.shadow_run(db, now=NOW)["recorded"] == 1
+        edge = timedelta(hours=SI.DEDUPE_HOURS)
+        assert SI.shadow_run(db, now=NOW + edge - timedelta(minutes=5))["recorded"] == 0
+        assert SI.shadow_run(db, now=NOW + edge + timedelta(minutes=1))["recorded"] == 1
+    finally:
+        _restore_all()
+
+
+def test_the_slack_reaches_a_legacy_row_stored_just_before_its_decision_time():
+    """A row written before `at=now` carries the app clock at write, which may sit a few
+    minutes before `decided_at`. Inside the window it must still deduplicate."""
+    try:
+        db, c = _db(), content()
+        _owner_keys()
+        _approve(db, c)
+        _release(db)
+        assert SI.shadow_run(db, now=NOW)["recorded"] == 1
+        with db.session() as s:
+            row = s.scalars(select(AuditLog).where(AuditLog.action == sp.SHADOW_DECISION)).one()
+            row.at = NOW - timedelta(minutes=3)              # legacy: stored before decided_at
+        edge = timedelta(hours=SI.DEDUPE_HOURS)
+        # since = NOW - 1 min: decided_at (NOW) is inside, the stored time is not.
+        assert SI.shadow_run(db, now=NOW + edge - timedelta(minutes=1))["recorded"] == 0
+    finally:
+        _restore_all()
+
+
 if __name__ == "__main__":
     import _minipytest
 
