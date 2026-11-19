@@ -216,13 +216,13 @@ def test_deactivate_takes_a_stopped_policys_listing_down_and_records_it_even_in_
                     Listing.product_slug == SLUG)) == "withdrawn"
                 row = s.scalar(select(AuditLog).where(AuditLog.action == SW.WITHDRAWN))
                 assert row.detail["before"] == "active" and row.detail["after"] == "inactive"
-            # Again: the read-back says it is no longer active, so it is refused.
+            # Again: the withdrawal ended its lineage (verdict 6999967600 L-F), so it is refused.
             with _stopped():
                 try:
                     SW.withdraw(db, shadow, slug=SLUG, version=VERSION, listing_id=lid)
-                    raise AssertionError("withdrew an inactive listing")
+                    raise AssertionError("withdrew a withdrawn listing")
                 except E.EtsyNotPermitted as exc:
-                    assert "'inactive'" in str(exc)
+                    assert "not in SP lineage" in str(exc), exc
     finally:
         _reset()
 
@@ -406,28 +406,33 @@ def test_a_crash_before_the_request_is_a_plain_retry():
 
 
 def test_the_hourly_withdrawal_cap_is_enforced_by_the_database():
-    """Verdict 6998051067 LOW: MAX_PER_HOUR holds in SQL, not only in a racy count."""
+    """Verdicts 6998051067 / 6999967600 L-D: the cap holds in SQL; 5 per clock hour so no
+    rolling hour sees more than MAX_PER_HOUR; a retry of one listing reuses its slot."""
     from sqlalchemy.exc import IntegrityError
 
     from brambleloop.ops import standing_activation as SA
     from fake_etsy import FakeEtsy
 
-    assert SW.MAX_PER_HOUR == 10            # the slot CHECK constraint names the same bound
+    assert SW.MAX_PER_HOUR == 10 and SW.SLOTS_PER_CLOCK_HOUR == 5   # = the CHECK bound
     try:
         db, _, aid = _effective_db()
         SA.ensure_tables(db)
         hour = NOW.strftime("%Y-%m-%dT%H")
         with db.session() as s:
             s.add(SA.StandingWithdrawalSlot(hour=hour, slot_no=1, listing_id="a"))
-        try:
-            with db.session() as s:
-                s.add(SA.StandingWithdrawalSlot(hour=hour, slot_no=1, listing_id="b"))
-            raise AssertionError("two withdrawals took one slot")
-        except IntegrityError:
-            pass
+        for bad in (dict(slot_no=1, listing_id="b"), dict(slot_no=6, listing_id="c")):
+            try:
+                with db.session() as s:
+                    s.add(SA.StandingWithdrawalSlot(hour=hour, **bad))
+                raise AssertionError(f"the slot table accepted {bad}")
+            except IntegrityError:
+                pass
+        # Repeated crashes on ONE listing take one slot, not the hour.
+        for _ in range(3):
+            assert SW._claim_slot(db, "a", NOW) == 1
         with db.session() as s:
-            for n in range(2, SW.MAX_PER_HOUR + 1):
-                s.add(SA.StandingWithdrawalSlot(hour=hour, slot_no=n, listing_id="x"))
+            for n in range(2, SW.SLOTS_PER_CLOCK_HOUR + 1):
+                s.add(SA.StandingWithdrawalSlot(hour=hour, slot_no=n, listing_id=f"x{n}"))
         with FakeEtsy() as fake:
             lid, shadow = _fake_live(fake)
             _draft(db, listing_id=lid, state="active")
@@ -436,13 +441,65 @@ def test_the_hourly_withdrawal_cap_is_enforced_by_the_database():
             with _stopped():
                 try:
                     SW.withdraw(db, shadow, slug=SLUG, version=VERSION, listing_id=lid, now=NOW)
-                    raise AssertionError("an eleventh withdrawal was sent this hour")
+                    raise AssertionError("a sixth withdrawal was sent this clock hour")
                 except SW.WithdrawalRefused as exc:
-                    assert "per hour" in str(exc)
+                    assert "per clock hour" in str(exc)
                 assert len(_updates(fake)) == n                 # nothing sent
                 out = SW.withdraw(db, shadow, slug=SLUG, version=VERSION, listing_id=lid,
                                   now=NOW + timedelta(hours=1))   # the next hour has room
                 assert out["after"] == "inactive"
+    finally:
+        _reset()
+
+
+def test_a_transport_error_after_the_request_is_an_unconfirmed_withdrawal():
+    """Verdict 6999967600 L-E: an error after the PATCH opens the incident and card too."""
+    from fake_etsy import FakeEtsy
+
+    try:
+        db, _, aid = _effective_db()
+        with FakeEtsy() as fake:
+            lid, shadow = _fake_live(fake)
+            _draft(db, listing_id=lid, state="active")
+            _activation_grant(db, aid, listing_id=lid)
+            real_call = shadow._call
+
+            def lost(*a, **k):                      # the PATCH lands, the response is lost
+                out = real_call(*a, **k)
+                if k.get("operation") == "updateListing" and a and a[0] == "PATCH":
+                    raise ConnectionError("connection reset after send")
+                return out
+            with _stopped(), patch.object(shadow, "_call", lost):
+                try:
+                    SW.withdraw(db, shadow, slug=SLUG, version=VERSION, listing_id=lid)
+                    raise AssertionError("a lost response was reported done")
+                except ConnectionError:
+                    pass
+            assert _incident_open(db, lid) == (True, True)
+            assert _withdrawn_rows(db) == []
+            with _stopped():                        # the retry reconciles from Etsy
+                assert SW.withdraw(db, shadow, slug=SLUG, version=VERSION,
+                                   listing_id=lid)["reconciled"] is True
+            assert _incident_open(db, lid) == (False, False)
+    finally:
+        _reset()
+
+
+def test_a_recorded_withdrawal_ends_lineage():
+    """Verdict 6999967600 L-F: after a withdrawal the listing is out of SP lineage until a
+    new verified Stage A activation; a later owner re-listing is never withdrawn from here."""
+    try:
+        db, _, aid = _effective_db()
+        gid = _activation_grant(db, aid)
+        assert SW.lineage_of_live(db, LISTING)["grant_id"] == gid
+        with db.session() as s:
+            s.add(AuditLog(actor=SW.ACTOR, action=SW.WITHDRAWN, artifact=f"{SLUG}@{VERSION}",
+                           detail={"etsy_listing_id": LISTING}))
+        assert SW.lineage_of_live(db, LISTING) is None
+        with _stopped():
+            assert "not in SP lineage" in SW.withdraw_refusal(db, LISTING, remote=ACTIVE)
+        again = _activation_grant(db, aid, job_id=91)              # a new Stage A activation
+        assert SW.lineage_of_live(db, LISTING)["grant_id"] == again
     finally:
         _reset()
 
