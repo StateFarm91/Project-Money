@@ -209,6 +209,20 @@ def test_an_unknown_release_never_rearms():
         assert "chain.rebuild" in orc.suspended_job_types(db2, now=NOW)
 
 
+def test_rearm_probe_itself_refuses_an_unknown_running_commit():
+    """Defence in depth: even if a boot time were found, an unknown running build is no
+    evidence of a release change (UNKNOWN is never PASS)."""
+    db = _db()
+    _backoff(db, "chain.rebuild")
+    real = orc.release_booted_at
+    orc.release_booted_at = lambda session, commit=None: NOW - timedelta(minutes=10)
+    try:
+        with _Release(None):
+            assert "chain.rebuild" in orc.suspended_job_types(db, now=NOW)
+    finally:
+        orc.release_booted_at = real
+
+
 def test_a_changed_handler_digest_is_a_recorded_hypothesis_change():
     db = _db()
     # recorded under this very release but with another handler source: the hypothesis moved
