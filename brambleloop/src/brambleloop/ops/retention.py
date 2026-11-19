@@ -864,6 +864,17 @@ UNRESOLVED_READ_SITES: dict[str, str] = {
         "AuditLog.action in brief.ADVANCED + REJECTED, IMAGE and ETSY, counted since the "
         "owner's last view (or the last 12 h); windowed. gate.certified is lifetime_total above. "
         "A last view older than AUDIT_RETENTION_DAYS would undercount the pruned actions"),
+    # Batch 9 cert (7a0bc63b; ENG watchlist-cadence): the scan cannot resolve `gate`, which is
+    # `gate_of(job_type)` -- a value of `CREDENTIAL_GATED_JOB_TYPES` or a suspension's recorded
+    # `gated_on`, both only ever `ETSY_GATE` ("etsy.probe", classified `latest` above).
+    "swarm/orchestrate.py::_probe_rows": (
+        "AuditLog.action == gate (etsy.probe), newest row only (limit 1); `latest` above, and "
+        "KEEP_PER_ACTION keeps the newest rows of every action"),
+    "swarm/orchestrate.py::_probe_in_force": (
+        "AuditLog.action == gate (etsy.probe): the newest probe at or before a suspension's "
+        "`since`; windowed. Exact while the probe in force at `since` is inside "
+        "AUDIT_RETENTION_DAYS or among the KEEP_PER_ACTION newest rows. Otherwise it may be pruned, and then gate_changed_since returns None: the "
+        "suspension is not lifted by the gate (fails closed, never a false lift)"),
 }
 
 PROTECTED_ACTIONS: frozenset[str] = frozenset(
