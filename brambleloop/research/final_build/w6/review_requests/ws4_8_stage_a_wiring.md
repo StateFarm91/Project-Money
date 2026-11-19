@@ -94,7 +94,77 @@ All 14 killed (M1–M11 against the wiring suite, G1b–G3 against `test_ws4_sta
 The first G1 attempt failed with a SyntaxError, which does not count as a kill. It was re-run
 with valid code (G1b) and killed by the guard's assertion.
 
-SUITES_PLACEHOLDER
+### Suites (fix round)
+
+- **Command.** `JOBS=4 SUITE_REGISTRY=0`, with a venv from `requirements.lock` +
+  `requirements-test.lock`, no PYTHONPATH, `PYTHONDONTWRITEBYTECODE=1`.
+- **Result.** Run `20261119T085959Z-30301` at **08f7b0ec**, tree clean, exit 0:
+  **TOTAL PASSING 765; suites failing 0**; environment failures 0; tmp leaked 0.
+- **Which suites (49).** Every requested suite, plus every suite that touches the Etsy create
+  payload, `sent_fields`, `certified_payload` or `should_auto_renew`.
+  `test_first_listing_doors` does not exist on this branch or on origin INTEG2 (f34c25ae), so it
+  was not run.
+- **The run before it** (`20261119T084654Z-6374` at d28bf8e1) had one failing suite,
+  `test_w4_adopt_manual_listing`, with two findings, both fixed in 08f7b0ec:
+  - Its static "published" guard caught `standing_activation_flow.candidates()` (from
+    be45c37c). That code now uses `listing_state.PUBLISHED`. Manually adopted listings are
+    excluded on purpose, because they are never SP drafts.
+  - Its hand-built getListing fixture lacked `should_auto_renew`. The fixture now carries it,
+    as real getListing does.
+
+OK lines per suite, as printed:
+
+| Suite | OK |
+|---|---|
+| test_activation_authority | 2 |
+| test_cert_commerce | 14 |
+| test_cert_spend_hosts | 6 |
+| test_codex_a1_listing_child | 3 |
+| test_codex_a9_source_binding | 11 |
+| test_disclosed_certified_upload | 7 |
+| test_draft_creation_durability | 6 |
+| test_draft_intent_precreate_refusal | 1 |
+| test_etsy | 17 |
+| test_etsy_exercise | 43 |
+| test_etsy_oauth_callback | 41 |
+| test_etsy_property_contract | 4 |
+| test_etsy_readback_observe | 37 |
+| test_etsy_transport | 44 |
+| test_fb4_launch | 9 |
+| test_k8_listing_estate | 9 |
+| test_listing_schema | 18 |
+| test_opus2_listing_package | 14 |
+| test_originality_runtime | 1 |
+| test_publish_execution_gate | 1 |
+| test_r2_product_client_grant | 5 |
+| test_r2_product_listing_writes | 5 |
+| test_r2_product_seo_unicode | 6 |
+| test_r2_security_actions | 4 |
+| test_rc1_auth | 11 |
+| test_route_auth_default_deny | 8 |
+| test_search_hero_publish | 4 |
+| test_v11_autonomy_timeline | 6 |
+| test_v11_seo_proposals | 8 |
+| test_vacuity | 8 |
+| test_w3_etsy_upload_readback | 9 |
+| test_w3_tmp_hygiene | 16 |
+| test_w4_adopt_manual_listing | 19 |
+| test_w4_c12_wiring | 4 |
+| test_w4_close5_rows3 | 3 |
+| test_w4_fmbatch1_retention_guard | 5 |
+| test_w4_launchfix | 32 |
+| test_w4_listready | 41 |
+| test_w4_resume_runner | 40 |
+| test_w4_retfix_retention_keys | 4 |
+| test_w4_secreview_adopt_adversarial | 10 |
+| test_w4_wraptest | 115 |
+| test_w6_listing_chain_e2e | 6 |
+| test_ws4_7_issuer | 34 |
+| test_ws4_7_postgres | 5 |
+| test_ws4_8_stage_a_wiring | 29 |
+| test_ws4_issue_time_readers | 11 |
+| test_ws4_stage_a_activation | 16 |
+| test_ws4_stage_a_withdrawal | 13 |
 
 Wires a Stage A standing activation grant (`seg:<id>`, from `standing_activation.issue`) into
 `runtime/pipeline.py::handle_store_activate`, which is the only path that uses it. Adds the
@@ -221,6 +291,12 @@ run (as instructed).
 ## Notes for the integrator (not fixed here, outside this scope)
 
 - **should_auto_renew.** Fixed in fix round 1 (see above).
+  - Consequence: the census and adoption drift compare (`_certified_field_drift`, which uses
+    `sent_fields`) now also compares `should_auto_renew`.
+  - A listing created before this change that Etsy holds with renewal on will report
+    `should_auto_renew: certified False, Etsy holds True` as drift.
+  - That is intended (renewal is a fee), but it may surface on existing drafts.
+- **BUILD_STATE.** Not touched here; main integrates it.
 - **Mode T roles.** The issuer now reads `jobs` (`job_refusal`) and writes `policy.activation_grant_held`, `standing_grants` and `standing_activation_slots`. The worker consumes activation grants. The Mode T role grants for these belong to opus2's L-A work.
 - **Shadow evidence.** Shadow decisions are de-duplicated per (approval, release, decision), so `MIN_A_CANDIDATES` counts releases rather than scheduler ticks. Whether `a_shadow` should also count distinct releases is a Stage A design point, left unchanged here.
 - **Retries.** A standing job uses the queue's default `max_attempts`. A retry that outlives the grant's 15-minute signed life is refused by `use_refusal`, and the next pass schedules afresh.
