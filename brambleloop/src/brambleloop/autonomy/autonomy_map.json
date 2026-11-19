@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-19T22:33:27.881146+00:00",
+ "generated_at": "2026-11-19T23:11:17.362824+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -13,7 +13,7 @@
   "cadences": 143,
   "handlers": 175,
   "agents": 34,
-  "follow_on_edges": 92
+  "follow_on_edges": 93
  },
  "departments": [
   {
@@ -1016,6 +1016,10 @@
      "to": "listing.draft"
     },
     {
+     "from": "ops.sentinel",
+     "to": "chain.rebuild"
+    },
+    {
      "from": "physical.record",
      "to": "assets.build"
     }
@@ -1462,6 +1466,7 @@
      "growth/portfolio_act.py:act",
      "integrations/taxonomy_drift.py:after_refresh",
      "launch.plan",
+     "ops.sentinel",
      "ops/rebuild_graph.py:enqueue",
      "owner/API route api_chain_rebuild",
      "pricing.position",
