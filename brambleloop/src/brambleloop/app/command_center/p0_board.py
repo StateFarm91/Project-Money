@@ -298,6 +298,9 @@ def sales(db, now):
         rows = OI.countable_orders(s, select(Order).where(Order.source == REAL_ORDER_SOURCE))
         n = len(rows)
         revenue = sum(float(o.revenue_cad or 0.0) for o in rows)
+        # Verdict 6996033652 LOW: real money moved only if a countable order carried revenue;
+        # a $0 countable order is a sale record, not commerce.
+        paid = sum(1 for o in rows if float(o.revenue_cad or 0.0) > 0)
         last = max((_aware(o.at) for o in rows if o.at is not None), default=None)
 
     def build_section(deployed):
@@ -311,17 +314,20 @@ def sales(db, now):
             out.update(state="OK" if n else "NO_SALES", real_orders=n,
                        revenue_cad=round(revenue, 2))
         else:
-            # Recorded countable orders still happened; they are a floor, not the total.
-            out.update(state=UNKNOWN, real_orders=None, revenue_cad=None,
+            # Verdict 6996033652 LOW: one reading. With nothing recorded the figures are
+            # UNKNOWN. Recorded countable orders still happened, so the section is PARTIAL
+            # (the totals are a floor), never UNKNOWN beside a commerce level it proved.
+            out.update(state="PARTIAL" if n else UNKNOWN, real_orders=None, revenue_cad=None,
                        recorded_countable_orders=n,
                        recorded_countable_revenue_cad=round(revenue, 2),
                        why=source.get("why") or "the order source is not measured")
-        out.update(_level(deployed, running=n > 0, verified=n > 0, commerce=n > 0,
+        out.update(_level(deployed, running=n > 0, verified=n > 0, commerce=paid > 0,
                           why={RUNNING: "countable orders are recorded",
                                PROD_VERIFIED: "a countable order was ingested from Etsy's "
                                               "receipts",
                                COMMERCE: "a countable Etsy order (paid, not refunded, not "
-                                         "held or unreconciled) exists"}))
+                                         "held or unreconciled) with revenue above $0 "
+                                         "exists"}))
         return out
     return build_section
 

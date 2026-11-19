@@ -168,8 +168,9 @@ try {
   // Verdict 6990820438 M2: an unmeasured order source reads Unknown with its reason, never 0.
   const salesCard = board.find((b) => /sales/.test(b.title)) || {};
   check(/Unknown: the order source is not connected/.test(salesCard.text || "")
-    && /Real orders\s*Unknown/.test(salesCard.text || "") && !/Real orders\s*0/.test(salesCard.text || ""),
-    "p0 board: unmeasured sales read Unknown, never 0 orders", (salesCard.text || "").slice(0, 300));
+    && /Real orders\s*Unknown/.test(salesCard.text || "") && !/Real orders\s*0/.test(salesCard.text || "")
+    && /Revenue \(CA\$\)\s*Unknown/.test(salesCard.text || "") && !/Revenue \(CA\$\)\s*\$?0/.test(salesCard.text || ""),
+    "p0 board: unmeasured sales read Unknown (orders and revenue), never 0", (salesCard.text || "").slice(0, 300));
   const runCard = board.find((b) => /Running build/.test(b.title)) || {};
   check(/Level: PRODUCTION-VERIFIED/.test(runCard.sub || "") && runCard.reached.at(-1) === "PRODUCTION-VERIFIED",
     "p0 board: the level shown is the section's own", JSON.stringify(runCard.reached));

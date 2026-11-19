@@ -346,9 +346,11 @@ def test_m2_an_unmeasured_order_source_is_unknown_never_zero():
     assert sec["state"] == B.UNKNOWN and "NO_SALES" not in str(sec["state"])
     assert sec["real_orders"] is None and sec["revenue_cad"] is None, sec
     assert "not connected" in sec["why"] and sec["source"]["measured"] is False
-    # The real reader, on this harness's database (no probe, no grant): UNKNOWN too.
+    # The real reader, on this harness's database (no probe, no grant): never measured, so
+    # never a total. Earlier tests recorded a countable order, so it reads PARTIAL (6996033652).
     real = B.view(DB)["sections"]["sales"]
-    assert real["state"] == B.UNKNOWN and real["real_orders"] is None, real
+    assert real["real_orders"] is None and real["revenue_cad"] is None, real
+    assert real["state"] == ("PARTIAL" if real["recorded_countable_orders"] else B.UNKNOWN), real
 
 
 def test_drafts_are_counted_over_every_remote_listing_not_the_capped_list():
@@ -400,6 +402,48 @@ def test_an_unknown_shop_failure_count_is_not_zero():
         sec = B.view(DB)["sections"]["shops"]
     assert sec["state"] == "DEGRADED" and sec["failures_unknown"] == 1, sec["state"]
     assert sec["level"] == B.RUNNING and sec["failing"] == 0
+
+
+def _orders(*revenues):
+    from types import SimpleNamespace
+
+    return [SimpleNamespace(revenue_cad=r, at=NOW) for r in revenues]
+
+
+def test_sales_never_read_unknown_beside_a_commerce_level():
+    """Verdict 6996033652 LOW: unmeasured source + recorded countable orders is PARTIAL."""
+    from brambleloop.commerce import orders_ingest as OI
+
+    with patch.object(OI, "countable_orders", lambda s, q=None: _orders(9.0)), \
+            _Deployed(), _Measured(False):
+        sec = B.view(DB)["sections"]["sales"]
+    assert sec["state"] == "PARTIAL" and sec["level"] == B.COMMERCE, sec
+    assert sec["real_orders"] is None and sec["recorded_countable_orders"] == 1
+    with patch.object(OI, "countable_orders", lambda s, q=None: []), \
+            _Deployed(), _Measured(False):
+        sec = B.view(DB)["sections"]["sales"]
+    assert sec["state"] == B.UNKNOWN and sec["level"] == B.DEPLOYED, sec
+    # The one reading, over every combination: UNKNOWN never sits beside a level above DEPLOYED.
+    for measured in (True, False):
+        for revenues in ((), (0.0,), (5.0,), (0.0, 5.0)):
+            with patch.object(OI, "countable_orders", lambda s, q=None, r=revenues: _orders(*r)), \
+                    _Deployed(), _Measured(measured):
+                sec = B.view(DB)["sections"]["sales"]
+            if sec["state"] == B.UNKNOWN:
+                assert sec["level"] == B.DEPLOYED, (measured, revenues, sec)
+
+
+def test_a_zero_dollar_countable_order_is_not_real_commerce():
+    """Verdict 6996033652 LOW: a $0 countable order never reaches the top rung."""
+    from brambleloop.commerce import orders_ingest as OI
+
+    with patch.object(OI, "countable_orders", lambda s, q=None: _orders(0.0)), \
+            _Deployed(), _Measured():
+        sec = B.view(DB)["sections"]["sales"]
+    assert sec["real_orders"] == 1 and sec["level"] == B.PROD_VERIFIED, sec
+    with patch.object(OI, "countable_orders", lambda s, q=None: _orders(0.0, 4.5)), \
+            _Deployed(), _Measured():
+        assert B.view(DB)["sections"]["sales"]["level"] == B.COMMERCE
 
 
 if __name__ == "__main__":
