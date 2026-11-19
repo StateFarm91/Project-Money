@@ -42,6 +42,8 @@ from . import standing_policy as SP
 
 WITHDRAW = "store.withdraw"
 MAX_PER_HOUR = 10
+#: Slots per UTC clock hour (the database bound): half the rolling-hour ceiling.
+SLOTS_PER_CLOCK_HOUR = MAX_PER_HOUR // 2
 WITHDRAWN = "listing.withdrawn"
 # Verdict 6998051067 M1: written BEFORE the Etsy request, so a crash after Etsy accepted is
 # recoverable from the record (a retry reconciles from Etsy's read-back).
@@ -93,6 +95,13 @@ def lineage_of_live(db, listing_id: str) -> dict | None:
             AuditLog.action == OWNER_ACTIVATED, AuditLog.id > latest.id))
             if str((r.detail or {}).get("etsy_listing_id")) == lid]
         if other:
+            return None
+        # Verdict 6999967600 L-F: a recorded withdrawal ends that activation's lineage; only a
+        # new verified Stage A activation starts it again.
+        ended = [r for r in s.scalars(select(AuditLog).where(
+            AuditLog.action == WITHDRAWN, AuditLog.id > latest.id))
+            if str((r.detail or {}).get("etsy_listing_id")) == lid]
+        if ended:
             return None
         g = s.get(SG.StandingGrant, int((latest.detail or {}).get("grant_id") or -1))
         if g is None or g.consumed_at is None:
@@ -235,11 +244,17 @@ def _claim_slot(db, listing_id: str, now: datetime) -> int:
     SA.ensure_tables(db)
     hour = now.strftime("%Y-%m-%dT%H")
     with db.session() as s:
-        used = set(s.scalars(select(SA.StandingWithdrawalSlot.slot_no).where(
+        rows = list(s.execute(select(SA.StandingWithdrawalSlot.slot_no,
+                                     SA.StandingWithdrawalSlot.listing_id).where(
             SA.StandingWithdrawalSlot.hour == hour)))
-    free = [n for n in range(1, MAX_PER_HOUR + 1) if n not in used]
+    mine = [n for n, lid in rows if str(lid) == str(listing_id)]
+    if mine:
+        return mine[0]              # L-D: a retry of this listing this hour reuses its slot
+    used = {n for n, _lid in rows}
+    free = [n for n in range(1, SLOTS_PER_CLOCK_HOUR + 1) if n not in used]
     if not free:
-        raise WithdrawalRefused(f"at most {MAX_PER_HOUR} withdrawals per hour (database)")
+        raise WithdrawalRefused(f"at most {SLOTS_PER_CLOCK_HOUR} withdrawals per clock hour "
+                                f"({MAX_PER_HOUR} per rolling hour, database)")
     try:
         with db.session() as s:
             s.add(SA.StandingWithdrawalSlot(hour=hour, slot_no=free[0],
@@ -263,7 +278,7 @@ def withdraw(db, client, *, slug: str, version: str, listing_id: str,
       the listing, and nothing is recorded as withdrawn (a later run retries or reconciles).
     """
     from ..core.models import AuditLog
-    from ..integrations.etsy import EtsyRejected, OwnerGrant
+    from ..integrations.etsy import EtsyNotPermitted, OwnerGrant
 
     now = _now(now)
     pending = _open_intent(db, listing_id)
@@ -285,9 +300,12 @@ def withdraw(db, client, *, slug: str, version: str, listing_id: str,
                        slug=slug, version=version, listing_id=str(listing_id))
     try:
         out = client.deactivate(str(listing_id), grant=grant)
-    except EtsyRejected as exc:
+    except EtsyNotPermitted:
+        raise                       # refused at the client before any request: nothing sent
+    except Exception as exc:  # noqa: BLE001 - verdict 6999967600 L-E: a transport error after
+        # the PATCH is as unconfirmed as a read-back mismatch: the request may have landed.
         _unconfirmed(db, slug=slug, version=version, listing_id=listing_id,
-                     why=str(exc)[:300], now=now)
+                     why=f"{type(exc).__name__}: {str(exc)[:280]}", now=now)
         raise
     _record_withdrawn(db, slug=slug, version=version, listing_id=listing_id,
                       before=out["before"], after=out["after"], now=now)

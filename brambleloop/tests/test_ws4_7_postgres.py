@@ -178,7 +178,8 @@ def test_role_separation_is_read_from_the_catalogue(url):
         assert any("superuser" in r for r in got["reasons"]), got
         _at, hb = SG._latest(issuer, SG.ISSUER_COMPONENT)
         assert hb["worker_role"] == "postgres" and "superuser" in hb["worker_role_powers"], hb
-        assert hb["db_powers"] == ["INSERT standing_grants", "INSERT standing_grant_slots"], hb
+        assert hb["db_powers"] == ["INSERT standing_grants", "INSERT standing_grant_slots",
+                                   "INSERT standing_activation_slots"], hb
     finally:
         _reset()
 
@@ -220,6 +221,63 @@ def test_the_worker_role_cannot_reset_a_consumed_grant_or_mint_one(url):
                 raise AssertionError(f"the worker role may: {stmt}")
             except DBAPIError as exc:
                 assert "permission denied" in str(exc.orig), (stmt, exc)
+    finally:
+        _reset()
+
+
+def test_no_process_role_can_reset_a_stage_a_cap(url):
+    """Verdict 6999967600 L-A: Stage A's slot tables are in the role model. The migration
+    owner creates them (register_models); the worker never writes an activation slot and may
+    only INSERT a withdrawal slot; neither the worker nor the issuer may UPDATE or DELETE
+    either table, so no process can reset a pace or fee cap."""
+    owner, issuer, worker = _fresh(url)
+    try:
+        with owner.session() as s:
+            for t in ("standing_activation_slots", "standing_withdrawal_slots"):
+                assert s.execute(text("SELECT tableowner FROM pg_tables WHERE tablename = :t"),
+                                 {"t": t}).scalar() == "postgres", t
+            s.execute(text("INSERT INTO standing_activation_slots (policy_row_id, day, slot_no, "
+                           "at) VALUES (1, '2026-11-20', 1, now())"))
+            s.execute(text("INSERT INTO standing_withdrawal_slots (hour, slot_no, listing_id, "
+                           "at) VALUES ('2026-11-20T12', 1, 'a', now())"))
+        refused = {
+            worker: ("INSERT INTO standing_activation_slots (policy_row_id, day, slot_no, at) "
+                     "VALUES (1, '2026-11-21', 1, now())",
+                     "UPDATE standing_activation_slots SET slot_no = 2",
+                     "DELETE FROM standing_activation_slots",
+                     "UPDATE standing_withdrawal_slots SET hour = '2026-11-19T00'",
+                     "DELETE FROM standing_withdrawal_slots"),
+            issuer: ("UPDATE standing_activation_slots SET slot_no = 2",
+                     "DELETE FROM standing_activation_slots",
+                     "DELETE FROM standing_withdrawal_slots"),
+        }
+        assert len(refused) == 2 and all(refused.values()), refused
+        for role, stmts in refused.items():
+            assert stmts, role
+            for stmt in stmts:
+                try:
+                    with role.session() as s:
+                        s.execute(text(stmt))
+                    raise AssertionError(f"a process role may: {stmt}")
+                except DBAPIError as exc:
+                    assert "permission denied" in str(exc.orig), (stmt, exc)
+        with worker.session() as s:             # what a withdrawal job does
+            s.execute(text("INSERT INTO standing_withdrawal_slots (hour, slot_no, listing_id, at)"
+                           " VALUES ('2026-11-20T12', 2, 'b', now())"))
+        with issuer.session() as s:             # what Stage A's issue does
+            s.execute(text("INSERT INTO standing_activation_slots (policy_row_id, day, slot_no, "
+                           "at) VALUES (2, '2026-11-21', 1, now())"))
+        with owner.session() as s:
+            assert s.execute(text("SELECT count(*) FROM standing_activation_slots")).scalar() == 2
+            assert s.execute(text("SELECT count(*) FROM standing_withdrawal_slots")).scalar() == 2
+        # The catalogue read Mode T relies on names the slot tables too.
+        with owner.session() as s:
+            worker_powers = SG._role_powers(s, "bl_worker")
+            issuer_powers = SG._role_powers(s, "bl_issuer")
+        assert not [p for p in worker_powers if "activation_slots" in p or
+                    "withdrawal_slots" in p], worker_powers
+        assert "INSERT standing_activation_slots" in issuer_powers, issuer_powers
+        assert not [p for p in issuer_powers if p.startswith(("UPDATE", "DELETE"))], issuer_powers
     finally:
         _reset()
 

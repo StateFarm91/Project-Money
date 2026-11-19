@@ -173,6 +173,9 @@ class Database:
         from ..improve import failure_memory as _failmem  # noqa: F401; F-378 failure memory
         from ..intel import research as _research  # noqa: F401; F-431 research tasks
         from ..integrations import etsy_webhooks as _etsy_wh  # noqa: F401; F-512 deliveries
+        # Verdict 6999967600 L-A: Stage A's slot tables are created by the migration owner,
+        # never lazily by a worker or issuer role (which would then own them).
+        from ..ops import standing_activation as _stage_a  # noqa: F401; Stage A slots
         from ..visual import image_records as _img_records  # noqa: F401; W-OWNERIMG
         from ..experiments import controlled as _controlled  # noqa: F401; W-VISNEXT
         # W4-LISTREADY: the launch image-review batch tables. `gateway.anthropic` imports this
