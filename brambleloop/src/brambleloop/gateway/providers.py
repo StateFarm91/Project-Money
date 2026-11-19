@@ -67,11 +67,14 @@ def unregister_vendor(name: str) -> None:
 # asks (`for_task`, `failover.decide`/`gateway_for`/`job_gateway`). A process-wide switch to a
 # second vendor sent every caller -- vision judges, culture, serp -- to a provider the rest of
 # the gateway could not price or route, so no call happened and every Anthropic path stopped.
-# `BRAMBLELOOP_MODEL_ROUTES` names tasks one by one: "culture_classify=openai,serp_x=openai".
-# A task it does not name stays on the default vendor.
+# `BRAMBLELOOP_MODEL_ROUTES` names tasks (keys of `routing.TASKS`) one by one:
+# "topic_filing=openai,listing_copy=openai". A task it does not name stays on the default vendor.
 ROUTES_VAR = "BRAMBLELOOP_MODEL_ROUTES"
 # Vendors that may only be reached through a per-task route, never the process-wide switch.
 ROUTED_ONLY = frozenset({"openai"})
+# The task the owner card names as its example route: culture classification's task
+# (`culture.classify.TASK`), a real `routing.TASKS` key (verdict 6985175377 LOW).
+EXAMPLE_ROUTE_TASK = "topic_filing"
 
 
 def vendor(env=None) -> str:
@@ -97,7 +100,7 @@ def vendor_switch_card(db, *, env=None) -> dict:
                 s, VENDOR_CARD_KEY,
                 action=(f"Remove {VENDOR_VAR}={name} from the service variables and name the "
                         f"tasks that should use {name} in {ROUTES_VAR} instead (for example "
-                        f"{ROUTES_VAR}=culture_classify={name})."),
+                        f"{ROUTES_VAR}={EXAMPLE_ROUTE_TASK}={name})."),
                 reason=(f"{VENDOR_VAR}={name}: {name} may only be reached per task through "
                         f"{ROUTES_VAR}, never for the whole process, so every model task is "
                         f"refused while this is set (review 6957356475)."),
