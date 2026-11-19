@@ -2805,10 +2805,15 @@ def handle_store_activate(ctx: JobContext) -> dict:
             # (Etsy does not read it active, or the intent is not this job's): send nothing,
             # and never leave a live listing outside lineage silently.
             if str(remote.get("state") or "").lower() == "active":
-                stage_a.open_lineage_unrecorded(
+                written = stage_a.open_lineage_unrecorded(
                     ctx.db, grant_id=seg_id, listing_id=str(listing_id), artifact=artifact,
                     why="the listing reads active but this job holds no applied activation "
                         "intent to reconcile it from")
+                if not written:
+                    # Verdict 7012067586 item 1: no lineage and no incident is never silent.
+                    raise stage_a.LineageUnrecorded(
+                        f"listing {listing_id} reads active with no lineage and its incident "
+                        f"could not be written")
             return already
 
     from ..integrations import etsy_verify

@@ -50,6 +50,15 @@ SKIPPED = "standing_activation.schedule_skipped"
 SCHEDULED = "standing_activation.scheduled"
 LINEAGE_UNRECORDED = "standing_activation.lineage_unrecorded:"
 _log = logging.getLogger(__name__)
+
+
+from ..core.resilience import TransientError as _TransientError  # noqa: E402
+
+
+class LineageUnrecorded(_TransientError):
+    """Verdict 7012067586 item 1: the listing is live, its lineage could not be recorded AND
+    the P1 incident could not be written. Raised so the job retries (the retry reconciles from
+    the read-back and sends nothing), never returned as a silent False."""
 REQUEST_ACTOR = "standing_scheduler"
 #: The job runs no earlier than this after it is queued, so the issuer (a 60-second pull loop)
 #: has answered before the worker looks for the grant. Inside the grant's 15-minute life.
@@ -402,8 +411,14 @@ def record_live(ctx, *, grant_id: int, listing_id: str, after: dict, artifact: s
         ok, live = False, True
         why = f"recording raised {type(exc).__name__}: {str(exc)[:200]}"
     if not ok and live:
-        open_lineage_unrecorded(ctx.db, grant_id=grant_id, listing_id=listing_id,
-                                artifact=artifact, why=why)
+        written = open_lineage_unrecorded(ctx.db, grant_id=grant_id, listing_id=listing_id,
+                                          artifact=artifact, why=why)
+        if not written:
+            # Double fault: no lineage and no incident would leave a live listing invisible to
+            # the rollback and to the owner. Fail the attempt so the job is retried.
+            raise LineageUnrecorded(
+                f"listing {listing_id} is live under standing grant {grant_id}; its lineage "
+                f"and its incident could not be recorded ({why[:160]})")
     elif ok:
         _resolve_lineage_unrecorded(ctx.db, listing_id=listing_id, grant_id=grant_id)
     return ok

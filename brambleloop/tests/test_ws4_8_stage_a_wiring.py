@@ -569,9 +569,10 @@ def test_record_activated_raising_on_every_attempt_is_never_silent():
         _unkeys()
 
 
-def test_record_live_reports_even_when_the_incident_cannot_be_written():
-    """Best effort: if the incident write fails too, record_live still returns False rather
-    than raising over the activation's result."""
+def test_record_live_raises_when_neither_lineage_nor_incident_can_be_written():
+    """Verdict 7012067586 item 1: a double fault (no lineage AND no incident) is never silent:
+    record_live raises LineageUnrecorded (a TransientError) so the job retries. With the
+    incident written, the same failure still returns False (the incident is the signal)."""
     from brambleloop.ops import incident_lifecycle as lifecycle
 
     db, fake, p, lid, release = _world()
@@ -583,10 +584,20 @@ def test_record_live_reports_even_when_the_incident_cannot_be_written():
 
     def boom(*a, **k):
         raise RuntimeError("no")
+    from brambleloop.core.resilience import TransientError
+
     with patch.object(SA, "record_activated", boom), \
             patch.object(lifecycle, "open_or_restate", boom):
+        try:
+            F.record_live(ctx, grant_id=1, listing_id=lid,
+                          after={"listing_id": lid, "state": "active"}, artifact="a")
+            raise AssertionError("a double fault returned silently")
+        except F.LineageUnrecorded as exc:
+            assert isinstance(exc, TransientError) and lid in str(exc), exc
+    with patch.object(SA, "record_activated", boom):        # incident written: no raise
         assert F.record_live(ctx, grant_id=1, listing_id=lid,
                              after={"listing_id": lid, "state": "active"}, artifact="a") is False
+        assert _open_lineage_incidents(db, lid) == [f"{F.LINEAGE_UNRECORDED}{lid}"]
 
 
 def test_a_crash_between_the_active_commit_and_store_activated_is_repaired_by_the_retry():
@@ -647,6 +658,35 @@ def test_an_active_listing_this_job_cannot_reconcile_is_an_incident_not_silence(
         out = _handler(db, fake, job, activate=_counting_send(sent))
         assert out["reasons"] == ["already active"] and sent == [] and not _fees(db), out
         assert _open_lineage_incidents(db, lid) == [f"{F.LINEAGE_UNRECORDED}{lid}"]
+    finally:
+        _unkeys()
+
+
+def test_an_unreconcilable_active_listing_whose_incident_fails_raises_for_a_retry():
+    """Verdict 7012067586 item 1, the handler's own call: no lineage and the incident write
+    fails too, so the job raises (TransientError) instead of returning "already active"."""
+    from brambleloop.core.resilience import TransientError
+    from brambleloop.ops import incident_lifecycle as lifecycle
+
+    _keys()
+    try:
+        db, fake, p, lid, release = _world()
+        job = _standing_job(db, p, release)
+        _mint(db, p["slug"], p["version"], release, job.id)
+        fake.listings[lid]["state"] = "active"
+        with db.session() as s:
+            s.scalar(select(Listing).where(Listing.product_slug == p["slug"])).state = "active"
+        sent: list = []
+
+        def boom(*a, **k):
+            raise RuntimeError("incidents table gone")
+        with patch.object(lifecycle, "open_or_restate", boom):
+            try:
+                _handler(db, fake, job, activate=_counting_send(sent))
+                raise AssertionError("a double fault returned 'already active'")
+            except TransientError as exc:
+                assert isinstance(exc, F.LineageUnrecorded), exc
+        assert sent == [] and not _fees(db)
     finally:
         _unkeys()
 
