@@ -704,11 +704,17 @@ def _frames(db, *, slug: str = "", limit: int = 60) -> list[dict]:
 
     from ..core.models import AuditLog
 
+    from . import motif_backlog
+
+    # ENG-MOTIF-BACKLOG: a motif check refused for budget is replaced by the re-check that
+    # was actually made (same rows, same count; an unreadable table leaves them as filed).
+    table = motif_backlog.recovered(db)
     out: list[dict] = []
     with db.session() as s:
         for row in s.scalars(select(AuditLog).where(AuditLog.action == ACTION)
                              .order_by(desc(AuditLog.id)).limit(limit)):
-            detail = row.detail or {}
+            detail = (motif_backlog._overlay_one(ACTION, row.detail or {}, table)
+                      if table else row.detail or {})
             if (detail.get("made")
                     and detail.get("method_version") == METHOD_VERSION
                     and (not slug or detail.get("slug") == slug)):

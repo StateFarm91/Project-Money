@@ -421,7 +421,34 @@ def agents(db, now):
     return build_section
 
 
-SECTIONS = (("running", running), ("shops", shops), ("opportunities", opportunities),
+def motif_recovery(db, now):
+    """ENG-MOTIF-BACKLOG (owner P0): paid renders blocked by a refused motif check, and what
+    the recovery made of them. Counts from the persisted `motif_recovery` rows only; a backlog
+    never swept is UNKNOWN, never 0 (`publish.motif_backlog.report`)."""
+    from ...publish import motif_backlog
+
+    rep = motif_backlog.report(db)
+
+    def build_section(deployed):
+        counts = rep.get("counts") or {}
+        swept = rep.get("swept") is True
+        open_ = (counts.get("renders_still_queued_budget"),
+                 counts.get("renders_queued_retry"),
+                 counts.get("renders_awaiting_first_recheck"))
+        settled = swept and all(isinstance(n, int) and n == 0 for n in open_)
+        state = (UNKNOWN if not swept else "RECOVERED" if settled else "RECOVERING")
+        return {"state": state, "counts": counts, "last_sweep_at": rep.get("last_sweep_at"),
+                "recheck_spend_cad": rep.get("recheck_spend_cad"),
+                "why": rep.get("why") or rep.get("gates_unchanged"),
+                "note": "renders re-checked, never re-rendered; only a genuine motif failure "
+                        "is queued for regeneration",
+                **_level(deployed, running=swept, verified=settled,
+                         why={RUNNING: "the recovery sweep has run",
+                              PROD_VERIFIED: "no refused render is still waiting"})}
+    return build_section
+
+
+SECTIONS = (("running", running), ("motif_recovery", motif_recovery), ("shops", shops), ("opportunities", opportunities),
             ("development", development), ("releases", releases), ("assets", assets),
             ("etsy", etsy), ("sales", sales), ("costs", costs), ("blockers", blockers),
             ("agents", agents))
