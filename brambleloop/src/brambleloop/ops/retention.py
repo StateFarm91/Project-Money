@@ -204,6 +204,13 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                               "sample measured at the wrong size is withheld forever (PHYSFIX "
                               "R28 follow-up); release_gates.for_publish refuses on any such "
                               "row, at any age"),
+    # ENG-SUPPLY: products.supply reads every offer not yet admitted (the supply queue
+    # itself) and every admission (so an offer whose cir.draft job was later pruned is never
+    # admitted twice). Pruning either would drop a waiting product or draft one twice.
+    "supply.offered": ("lifetime_total",
+                       "products.supply.offers reads each waiting offer, newest per key"),
+    "supply.admitted": ("lifetime_total",
+                        "products.supply.offers/_taken read every admission by key"),
     "gate.halted": ("lifetime_total",
                     "release_recovery.halted_releases compares each release's newest halt with "
                     "its newest certify outcome (per artifact, which keep-per-action does not "

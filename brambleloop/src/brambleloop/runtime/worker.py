@@ -728,6 +728,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # OPUS2-P0 (P0-CHAIN-DEADENDS): each recorded dead end is re-driven once per deployed
     # commit and closed once its stage succeeds. CA$0; never re-drives under an unknown commit.
     ("chain_successors", "listing", "chain.successors", 60 * 60),
+    # ENG-SUPPLY: the capacity-aware product admission controller (products.supply). A slot
+    # freed by a finished or parked chain is refilled within 15 minutes; CA$0 itself.
+    ("supply_admit", "orchestrator", "supply.admit", 15 * 60),
     # OPUS2 (INTEG-LISTING-JOB): the owner-review listing package of every certified release,
     # from the chain's stored outputs. Six-hourly, CA$0, never publishes.
     ("listing_package", "listing", "listing.package", 6 * 60 * 60),

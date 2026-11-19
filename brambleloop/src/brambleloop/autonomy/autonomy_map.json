@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-19T05:42:46.521943+00:00",
+ "generated_at": "2026-11-19T15:10:52.513435+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,10 +10,10 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 142,
-  "handlers": 174,
+  "cadences": 143,
+  "handlers": 175,
   "agents": 34,
-  "follow_on_edges": 94
+  "follow_on_edges": 91
  },
  "departments": [
   {
@@ -110,6 +110,12 @@
       "period_seconds": 3600
      },
      {
+      "name": "supply_admit",
+      "agent": "orchestrator",
+      "job_type": "supply.admit",
+      "period_seconds": 900
+     },
+     {
       "name": "launch_readiness",
       "agent": "orchestrator",
       "job_type": "launch.readiness",
@@ -195,6 +201,7 @@
      "plan.strategy",
      "portfolio.review",
      "scale.trajectory",
+     "supply.admit",
      "swarm.allocate",
      "swarm.backlog",
      "swarm.orphans",
@@ -523,10 +530,6 @@
     {
      "from": "mjs.seasonal_sentinel",
      "to": "creative.tournament"
-    },
-    {
-     "from": "radar.score",
-     "to": "cir.draft"
     }
    ],
    "learning_signal": [
@@ -727,13 +730,10 @@
      "chain.rebuild",
      "cir.compile",
      "cir.draft",
-     "creative/intake.py:intake",
-     "creative/intake.py:regate_held",
      "creative/preengineering.py:record",
      "mjs.seasonal_sentinel",
      "owner/API route api_seasonal_recompute",
      "products/pipeline_board.py:handle_product_pipeline",
-     "radar.score",
      "runtime/release.py:enqueue_member_collections",
      "runtime/release_recovery.py:seed_launch0",
      "seasonal.engine"

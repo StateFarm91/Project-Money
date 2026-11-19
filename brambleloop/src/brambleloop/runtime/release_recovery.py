@@ -323,7 +323,7 @@ def _resolve_exhausted(ctx, *, seeded: list, pending: list) -> None:
             row.detail = detail
 
 
-def seed_launch0(ctx, *, limit: int = SEED_PER_RUN, wip_limit: int = WIP_LIMIT) -> dict:
+def seed_launch0(ctx, *, limit: int = SEED_PER_RUN, wip_limit: int | None = None) -> dict:
     """R5: draft the next Launch-0 release whose code version is not certified, once per design.
 
     In listing order; a release already seeded under this design is skipped (its key is taken),
@@ -341,7 +341,13 @@ def seed_launch0(ctx, *, limit: int = SEED_PER_RUN, wip_limit: int = WIP_LIMIT) 
 
     from ..queue.durable import fit_idempotency_key
 
-    capacity = idle_capacity(ctx.db, limit=wip_limit)
+    # ENG-SUPPLY: the capacity-aware admission reading (products.supply.assess) replaces the
+    # fixed count. Its WIP ceiling follows the active worker target (one worker -> WIP_LIMIT),
+    # a product parked on a physical sample or an owner decision holds no slot, and a stage
+    # backlog or the spend ceilings close every slot -- each with its reason.
+    from ..products import supply
+
+    capacity = supply.assess(ctx.db, wip_limit=wip_limit)
     limit = min(limit, capacity["slots"])
     in_flight_here: list[str] = []
     stopped = False
@@ -366,7 +372,7 @@ def seed_launch0(ctx, *, limit: int = SEED_PER_RUN, wip_limit: int = WIP_LIMIT) 
         if taken:                         # seeded before, whatever the capacity is now
             already.append(rel)
             continue
-        if cir.slug in capacity["in_flight"]:
+        if cir.slug in capacity["in_flight"] or cir.slug in capacity["waiting"]:
             # review L4 M2: this product's chain is already running (a radar draft, a
             # redraft): a second cir.draft would take a second slot for the same product.
             in_flight_here.append(rel)
@@ -390,15 +396,19 @@ def seed_launch0(ctx, *, limit: int = SEED_PER_RUN, wip_limit: int = WIP_LIMIT) 
         # review 6776323331 LOW: a release whose product is already in flight is not
         # exhaustion either; the registry still has that release to finish.
         _resolve_exhausted(ctx, seeded=seeded, pending=pending + in_flight_here)
+    only_wip = (len(capacity["refusals"]) == 1
+                and capacity["refusals"][0].startswith("capacity:"))
     held = None if capacity["idle"] or not pending else {
         "in_flight": capacity["in_flight"], "limit": capacity["limit"],
+        "refusals": capacity["refusals"],
         "why": (f"{len(capacity['in_flight'])} product chain(s) in flight, at the work-in-"
                 f"progress limit {capacity['limit']}: the next release is seeded once one "
-                f"finishes")}
+                f"finishes") if only_wip else "; ".join(capacity["refusals"])}
     return {"seeded": seeded, "certified": present, "already_seeded": already,
             "pending": pending, "in_flight_already": in_flight_here,
             "capacity": {k: capacity[k] for k in
-                         ("limit", "in_flight", "slots", "idle", "parked")},
+                         ("limit", "in_flight", "slots", "idle", "parked", "waiting",
+                          "refusals")},
             "held_for_capacity": held,
             "exhausted": exhausted,
             "exhausted_why": None if not exhausted else (

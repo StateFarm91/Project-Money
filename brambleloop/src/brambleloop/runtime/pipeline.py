@@ -692,9 +692,17 @@ def handle_radar_score(ctx: JobContext) -> dict:
                         how=(f"cir.draft of {seed.slug} moved up to {MAX_HEURISTIC_STEPS} "
                              f"step inside its band by a lesson heuristic; benefit unmeasured "
                              f"until the draft's outcome is read"))
-        ctx.enqueue("crochet_engineer", "cir.draft", payload,
-                    idempotency_key=f"draft:{seed.slug}")
-    return {"slug": seed.slug, "score": adjusted, "raw_score": rescored.score,
+        # ENG-SUPPLY: offered to the capacity-aware admission controller, not enqueued
+        # directly. Admitted at once when there is room (the same `draft:<slug>` job and
+        # payload), otherwise it waits in the supply queue for the next free slot.
+        from ..products import supply
+
+        admission = supply.offer(ctx, slug=seed.slug, payload=payload,
+                                 key=f"draft:{seed.slug}", source="radar.score",
+                                 family=seed.family, demand=adjusted,
+                                 research=bool(seed.origin))
+    return {"slug": seed.slug, "score": adjusted,
+            "admission": admission if promote else None, "raw_score": rescored.score,
             "evidence_score": evidence_score,
             "evidence": {k: evidence.get(k) for k in ("measured", "discount", "rows",
                                                       "mean_weight", "why")},
@@ -3074,6 +3082,8 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "intel.children_portfolio": ("work_done",),
     # OPUS2-P0 (P0-CHAIN-DEADENDS): dead ends re-driven or resolved.
     "chain.successors": ("work_done",),
+    # ENG-SUPPLY: products admitted into engineering this run.
+    "supply.admit": ("admitted",),
     # OPUS2-P0 (P0-COMPETITOR-EVIDENCE): shops evaluated into the daily evidence reading.
     "intel.scan_evidence": ("work_done",),
     # WS4-5: shadow decisions recorded (none when no policy is approved).

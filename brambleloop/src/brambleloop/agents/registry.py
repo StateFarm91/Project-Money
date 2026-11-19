@@ -48,6 +48,8 @@ DEFAULT_AGENTS: list[dict] = [
                             "plan.cycle", "portfolio.review", "ops.heartbeat",
                             "ops.queue_check", "plan.strategy", "launch.readiness",
                             "ops.continuity", "seasonal.sentinel",
+                            # ENG-SUPPLY: capacity-aware product admission (products.supply).
+                            "supply.admit",
                             "improve.retrospective", "ops.policy_watch", "build.tick",
                             "ops.capacity", "ops.sentinel", "ops.health", "model.probe",
                             "improve.nightly", "improve.weekly",
