@@ -103,7 +103,19 @@ My hold test asserts three things:
 `tests/test_eng_approvals.py` has 20 tests. It is added to `scripts/suite_final_segment.txt`
 before `test_product_run`.
 
-The full required suite list, run through `run_tests.sh`, is reported in the issue comment.
+Required suites, run through `run_tests.sh` (JOBS=4, SUITE_REGISTRY=0, venv from the lock
+files) on a clean tree at `3f4a8bf9`: **TOTAL PASSING 264; suites failing 0**. The run record is
+`20261119T165747Z-23618`.
+
+The suites: test_eng_approvals, test_vacuity, test_w3_tmp_hygiene, test_w4_resume_runner,
+test_w4_c12_wiring, test_v11_autonomy_timeline, test_etsy_oauth_callback,
+test_w4_fmbatch1_retention_guard, test_w4_adopt_manual_listing, test_cert_spend_hosts,
+test_cost_governance_wave2, test_route_auth_default_deny, test_v11_cc_actions, test_v11_cc_auth,
+test_s4_p0_board, test_first_listing_doors and test_ws4_hold_cards. The only commit after that
+run changes this file.
+
+**Not yet run:** the broad set of 229 suites that mention owner actions, approvals, cadences or
+charters. It runs next and its result will follow on #28.
 
 Mutation table (each mutant applied alone; the test file run against it):
 
