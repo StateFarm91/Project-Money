@@ -505,3 +505,41 @@ real chain on SQLite:
   - every named key has `chain.rebuild_completed`;
   - the row is resolved on that evidence, with no `held` and attempts < 3;
   - `staleness()` still blocks the product's publication on `listing_image_rules`.
+
+### Mutation table (fix round 1)
+
+**Method.** Each mutant was applied to a fresh copy of `src/` and `tests/`, then the named
+test functions were run. Runner: `/tmp/claude-0/s/mutate.py`, a scratch file that is not
+committed.
+
+| # | Mutant | Test(s) | Result |
+|---|---|---|---|
+| M16 | classifier back to a deny-list (allow-list check removed) | fails_closed, deny_list_missed, every_handler_reach | KILLED |
+| M17 | `intel.serp_capture` added to FREE_JOB_TYPES | every_handler_reach | KILLED |
+| M18 | `laura.executive_tick` added to FREE_JOB_TYPES | every_handler_reach | KILLED |
+| M19 | free-listed `plan.cycle` handler gains `providers.for_task(...)` | every_handler_reach | KILLED |
+| M19b | free-listed `plan.cycle` reaches `laura_converse.call` through a helper | every_handler_reach | KILLED |
+| M20 | `for_task` removed from the graph's name-based sinks only | every_handler_reach | SURVIVED (see below) |
+| M20b | `for_task` removed from both the name sinks and the resolved keys | every_handler_reach | KILLED |
+| M21 | a new DECLARED module that nobody classified | declared_cross_check | KILLED |
+| M22 | radar.scan ignores promotability | production_drafted_set | KILLED |
+| M23 | a gate-refused concept counts as promotable | production_drafted_set | KILLED |
+| M24 | `selection_unpromotable` never recorded | production_drafted_set | KILLED |
+| M25 | an unpromotable selection counted as supply | production_drafted_set | KILLED |
+| M26 | L1: `pool_size` reports the sub-pool again | production_drafted_set | KILLED |
+| M27 | L4: boot cache never filled | boot_record_once | KILLED |
+| M28 | L5: empty-outstanding waiver removed (old rule) | waiver_bounded, legacy_row_e2e | KILLED |
+| M29 | L5: waiver ignores an exhausted own row | waiver_bounded | SURVIVED (see below) |
+| M30 | L5: waiver ignores other halting rows | waiver_bounded | KILLED |
+
+**Survivors**
+
+- **M20 is a redundant layer, not a hole.** `gw.for_task` is also resolved through the import
+  alias to `gateway.providers.for_task`, which is a resolved paid entry point. Removing only
+  the name-based layer still finds `intel.serp_capture`. Removing both (M20b) is killed.
+- **M29 is a redundant guard.** An exhausted own `rebuild-incomplete` row is not waivable
+  (`_waivable_staleness`), so it lands in `halting_other` and the waiver is refused there
+  anyway. The exhaustion check in `_own_rebuild_pending` is defence in depth. It is kept, and
+  stated here as not independently tested.
+
+**Score:** 15 of 17 killed. The 2 survivors are redundant guards, explained above.
