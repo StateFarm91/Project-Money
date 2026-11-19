@@ -403,19 +403,6 @@ def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
     }
 
 
-def _recovery_view(db):
-    """ENG-MOTIF-BACKLOG: a filed record with any recovered motif measurement applied
-    (`motif_backlog.overlay`). A motif check the paid-provider gate refused for budget is
-    replaced by the re-check that was actually made; nothing else changes, and an unreadable
-    recovery table leaves every record exactly as filed."""
-    from . import motif_backlog
-
-    table = motif_backlog.recovered(db)
-    if not table:
-        return lambda detail: detail
-    return lambda detail: motif_backlog._overlay_one(ACTION, detail, table)
-
-
 def last_asset(db, *, slug: str = "") -> dict | None:
     """The most recent owned asset on file, optionally for one product.
 
@@ -427,11 +414,10 @@ def last_asset(db, *, slug: str = "") -> dict | None:
 
     from ..core.models import AuditLog
 
-    ov = _recovery_view(db)
     with db.session() as s:
         for row in s.scalars(select(AuditLog).where(AuditLog.action == ACTION)
                              .order_by(desc(AuditLog.id)).limit(20)):
-            detail = ov(row.detail or {})
+            detail = row.detail or {}
             if (detail.get("made")
                     and detail.get("method_version") == METHOD_VERSION
                     and (not slug or detail.get("slug") == slug)):
@@ -454,11 +440,10 @@ def assets_for(db, *, slug: str, version: str) -> list[dict]:
     from ..core.models import AuditLog
 
     out: list[dict] = []
-    ov = _recovery_view(db)
     with db.session() as s:
         for row in s.scalars(select(AuditLog).where(AuditLog.action == ACTION)
                              .order_by(desc(AuditLog.id)).limit(200)):
-            detail = ov(row.detail or {})
+            detail = row.detail or {}
             if (detail.get("made")
                     and detail.get("method_version") == METHOD_VERSION
                     and detail.get("slug") == slug
@@ -604,11 +589,10 @@ def historical_failures(db, *, slug: str, limit: int = 300) -> int:
     from ..core.models import AuditLog
 
     failures = 0
-    ov = _recovery_view(db)
     with db.session() as s:
         for row in s.scalars(select(AuditLog).where(AuditLog.action == ACTION)
                              .order_by(desc(AuditLog.id)).limit(limit)):
-            detail = ov(row.detail or {})
+            detail = row.detail or {}
             if detail.get("made") and detail.get("slug") == slug and not detail.get(
                     "usable_as_listing_asset") and not awaiting_motif(detail):
                 failures += 1

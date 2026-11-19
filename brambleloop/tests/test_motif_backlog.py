@@ -205,7 +205,7 @@ def _model_row(db, cir, seeds, *, motifs):
         floors = {f: "pass" for f in MP.FLOORS}
         floors["product_truth"] = ("pass" if motif["verdict"] == MF.MATCH else "fail"
                                    if motif["verdict"] == MF.MISMATCH else "unverifiable")
-        frames.append({"made": True, "shot": f"shot-{seed}", "slug": cir.slug,
+        frames.append({"made": True, "shot": "detail", "slug": cir.slug,
                        "version": cir.version, "method_version": MP.METHOD_VERSION,
                        "generated": True, "carries_model": True, "provider": "stub",
                        "image": {"sha256": sha}, "motif": motif, "floors": floors,
@@ -238,9 +238,27 @@ def _drain(db, limit=60):
     raise AssertionError("the queue did not drain")
 
 
-def _sweep(db, stub, key):
+def _qualified_floor(frame):
+    """STAND-IN (the convention test_motif_reservation uses): a qualified whole-product
+    producer, which this base does not have -- PASS exactly when the motif matched. F-852
+    gives a generated frame no PASS today, so without it every re-ask is parked."""
+    verdict = ((frame or {}).get("motif") or {}).get("verdict")
+    return {"status": "PASS" if verdict == MF.MATCH else
+            "FAIL" if verdict == MF.MISMATCH else "UNKNOWN"}
+
+
+@contextmanager
+def qualified():
+    with patch("brambleloop.visual.product_authority.structural_floor", _qualified_floor):
+        yield
+
+
+def _sweep(db, stub, key, *, floor=True):
     with no_generation(), vision(stub):
-        return _run(db, "publishing", MB.JOB_TYPE, {}, key)
+        if not floor:
+            return _run(db, "publishing", MB.JOB_TYPE, {}, key)
+        with qualified():
+            return _run(db, "publishing", MB.JOB_TYPE, {}, key)
 
 
 def _shared():
@@ -275,7 +293,7 @@ def test_the_job_is_fully_registered():
 
 # ---- 2. what is a refusal -----------------------------------------------------------------
 
-def test_only_a_budget_refusal_is_recoverable_and_the_real_gate_text_parses():
+def test_only_a_budget_refusal_is_recoverable_legacy_and_coded():
     db, cir, _rh = _shared()
     from brambleloop.cir.compiler import compile_cir
     from brambleloop.cir.twin import build_twin
@@ -283,16 +301,22 @@ def test_only_a_budget_refusal_is_recoverable_and_the_real_gate_text_parses():
     twin = build_twin(cir, compile_cir(cir))
     path = os.path.join(_TMP, "probe.png")
     Image.new("RGB", (32, 32)).save(path)
-    # The exact refusal `motif_fidelity.check` files when the real gate refuses the call.
-    refused = MF.check(db, path, cir, twin, provider=StubVision([_gate_refusal()]))
-    assert refused["verdict"] == MF.UNMEASURABLE
-    assert MB.refusal_code(refused) == "no_budget_reservation", refused["why"]
+    # Legacy: the text production filed before ENG-MOTIF coded the reason.
+    assert MB.refusal_code({"verdict": MF.UNMEASURABLE, "why": REFUSAL}) == \
+        "no_budget_reservation"
     for code in sorted(MB.BUDGET_CODES):
+        why = f"the comparison call failed: [{code}] refused"
+        assert MB.refusal_code({"verdict": MF.UNMEASURABLE, "why": why}) == code
+    assert MB.refusal_code({"verdict": MF.UNMEASURABLE, "why": "the comparison call failed: "
+                            "AgentCeilingExceeded: the day is spent"}) == "AgentCeilingExceeded"
+    # Coded (since ENG-MOTIF): the real gate refusing for money is `budget_refused`.
+    for code in sorted(MF._BUDGET_GATE_CODES):
         exc = G.PaidCallRefused(code, "refused")
         out = MF.check(db, path, cir, twin,
                        provider=StubVision([A.VisionGateRefused(str(exc), code)]))
-        assert MB.refusal_code(out) == code, (code, out["why"])
-    # Not refusals: a judged mismatch, a genuine unmeasurable, an owner who never activated.
+        assert MB.refusal_code(out) == MF.UNMEASURED_BUDGET, (code, out)
+    # Not this backlog's: a judged mismatch, a genuine unmeasurable, an owner who never
+    # activated the provider, plumbing.
     assert MB.refusal_code(MF.check(db, path, cir, twin,
                                     provider=StubVision(["mismatch"]))) is None
     unreadable = {**OBSERVED["match"], "fabric_readable": False}
@@ -302,14 +326,40 @@ def test_only_a_budget_refusal_is_recoverable_and_the_real_gate_text_parses():
     exc = G.PaidCallRefused("not_activated_by_owner", "no activation")
     assert MB.refusal_code(MF.check(db, path, cir, twin, provider=StubVision(
         [A.VisionGateRefused(str(exc), exc.code)]))) is None
+    assert MB.refusal_code(MF.check(db, path, cir, twin, provider=StubVision(
+        [A.ProviderUnusable("no key")]))) is None
     assert MB.refusal_code({"verdict": MF.MATCH, "why": REFUSAL}) is None
     assert MB.refusal_code({"verdict": MF.UNMEASURABLE,
                             "why": "the fabric could not be seen [no_budget_reservation]"}) \
         is None
+    assert MB.refusal_code({"verdict": MF.UNMEASURABLE, "unmeasured": "gate_refused",
+                            "why": REFUSAL}) is None
     assert MB.refusal_code(None) is None
 
 
 # ---- 3. the backlog is recovered without a single render -----------------------------------
+
+def test_with_every_gate_as_it_is_the_backlog_is_found_and_parked_at_no_cost():
+    """The production truth today: every refused render is found, and none is re-asked,
+    because a match could not make a generated frame usable (F-852). No call, no spend, no
+    regeneration; re-evaluated every sweep."""
+    from brambleloop.finance import reservations
+
+    db, cir, _rh = _certified("parked")
+    shas = [_owned_row(db, cir, seed)[1] for seed in (81, 82)]
+    stub = StubVision(["match", "match"])
+    job = _sweep(db, stub, "p1", floor=False)
+    assert job.status is JobStatus.DONE, job.last_error
+    assert {_states(db)[s] for s in shas} == {MB.PARKED}
+    assert stub.calls == [] and _jobs(db, OP.ACTION) == [] and _jobs(db, "assets.build") == []
+    assert reservations.outstanding(db)["cad"] == 0
+    counts = MB.report(db)["counts"]
+    assert (counts["renders_found_blocked"], counts["renders_parked_unusable_if_matched"],
+            counts["renders_rechecked"], counts["renders_passed"]) == (2, 2, 0, 0), counts
+    # The day a qualified producer gives these frames a structural floor, they are asked.
+    _sweep(db, stub, "p2")
+    assert {_states(db)[s] for s in shas} == {MB.PASSED} and len(stub.calls) == 2
+
 
 def test_a_backlog_of_refused_renders_is_recovered_with_no_regeneration():
     from brambleloop.finance import reservations
@@ -324,7 +374,6 @@ def test_a_backlog_of_refused_renders_is_recovered_with_no_regeneration():
     _owned_row(db, cir, 15, motif={"verdict": MF.MISMATCH, "why": "checkerboard"})
     _owned_row(db, cir, 16, motif={"verdict": MF.UNMEASURABLE,
                                    "why": "the fabric could not be seen well enough"})
-    before = {jt: len(_jobs(db, jt)) for jt in (OP.ACTION, MP.ACTION, "assets.build")}
     stub = StubVision(["match"] * 4)
     job = _sweep(db, stub, "b1")
     assert job.status is JobStatus.DONE, job.last_error
@@ -333,26 +382,35 @@ def test_a_backlog_of_refused_renders_is_recovered_with_no_regeneration():
     assert len(stub.calls) == 4                          # one motif comparison per render
     assert all(len(c) == 2 for c in stub.calls)          # the paid bytes and the chart
     # No regeneration of any kind: no generator call (no_generation), no photography job.
-    assert {jt: len(_jobs(db, jt)) for jt in (OP.ACTION, MP.ACTION)} == {
-        OP.ACTION: before[OP.ACTION], MP.ACTION: before[MP.ACTION]}
-    # Every reservation was taken and given back; the spend is on the ledger at cost.
+    assert _jobs(db, OP.ACTION) == [] and _jobs(db, MP.ACTION) == []
+    # Every reservation was taken and given back; the spend is on the ledger, at cost.
     assert reservations.outstanding(db)["cad"] == 0
+    from brambleloop.core.models import CostEntry
+
+    with db.session() as s:
+        costs = [c for c in s.scalars(select(CostEntry)) if c.purpose == MF.TASK]
+    assert len(costs) == 4 and all(c.agent == MF.AGENT for c in costs)
     rep = MB.report(db)["counts"]
     assert rep["renders_rechecked"] == 4 and rep["regenerations_queued"] == 0
-    assert MB.report(db)["recheck_spend_cad"] > 0
     # Idempotent: a second sweep re-checks nothing and spends nothing.
     job = _sweep(db, stub, "b2")
     assert job.outputs["rechecked"] == 0 and job.outputs["new"] == 0 and len(stub.calls) == 4
-    # Readers see the measurement instead of the refusal; the attempt budget is unchanged.
-    owned = OP.assets_for(db, slug=cir.slug, version=cir.version)
-    by_sha = {a["image"]["sha256"]: a for a in owned}
-    assert all(by_sha[s]["motif_verified"] and by_sha[s]["motif"]["verdict"] == MF.MATCH
-               for s in ids)
-    assert len(owned) == 4 and len(OP.ordinary_attempts(db, slug=cir.slug,
-                                                        version=cir.version)) == 4
-    seq = MP.sequences(db, slug=cir.slug)
-    assert all(f["floors"]["product_truth"] == "pass" for r in seq for f in r["frames"])
-    assert MP.attempts_for(db, slug=cir.slug, version=cir.version) == 2
+    # The readers see the answer that superseded the refusal, and each render is charged once.
+    with qualified():
+        owned = OP.current_states(db, slug=cir.slug, version=cir.version)
+        by_sha = {a["image"]["sha256"]: a for a in owned}
+        assert all(by_sha[s]["motif_verified"] and by_sha[s]["usable_as_listing_asset"]
+                   for s in ids)
+        assert len(OP.ordinary_attempts(db, slug=cir.slug, version=cir.version)) == 4
+        assert OP.usable_asset(db, slug=cir.slug, version=cir.version) is not None
+        newest = MP.sequences(db, slug=cir.slug)[0]
+        assert newest["motif_rejudge_only"] and newest["floors"]["product_truth"] == "pass"
+        assert all(f["motif"]["verdict"] == MF.MATCH for f in newest["frames"])
+        # Only the floors the fixture's detail frames cannot answer (no fit frame) stay open:
+        # the re-ask closed product truth and opened nothing else.
+        assert {k for k, v in newest["floors"].items() if v != "pass"} == {
+            "face_identity", "whole_person_morphology", "styling"}, newest["floors"]
+        assert not listing_asset.usable(newest)
 
 
 # ---- 4. only a genuine failure is regenerated ----------------------------------------------
@@ -373,13 +431,24 @@ def test_only_a_render_that_genuinely_fails_is_queued_for_regeneration():
     # A re-sweep never queues it twice.
     _sweep(db, stub, "f2")
     assert len(_jobs(db, OP.ACTION)) == 1
-    # The failed render stays failed in every reader, and blocks structurally as before.
+    # The failed render is failed in every reader, and blocks structurally as before.
     from brambleloop.visual.product_authority import structural_floor
 
-    failed = next(a for a in OP.assets_for(db, slug=cir.slug, version=cir.version)
+    failed = next(a for a in OP.current_states(db, slug=cir.slug, version=cir.version)
                   if a["image"]["sha256"] == bad)
     assert failed["usable_as_listing_asset"] is False
     assert structural_floor(failed)["status"] == "FAIL"
+
+
+def test_a_judge_that_cannot_see_the_fabric_is_a_genuine_failure():
+    db, cir, _rh = _certified("unseen")
+    _, sha = _owned_row(db, cir, 23)
+    stub = StubVision([])
+    stub.see = lambda *a, **k: (stub.calls.append(a[2]),
+                                _Resp(json.dumps({**OBSERVED["match"],
+                                                  "fabric_readable": False})))[1]
+    _sweep(db, stub, "u1")
+    assert _states(db) == {sha: MB.FAILED} and len(_jobs(db, OP.ACTION)) == 1
 
 
 def test_a_model_frame_that_fails_regenerates_through_the_model_path():
@@ -394,14 +463,19 @@ def test_a_model_frame_that_fails_regenerates_through_the_model_path():
 def test_a_recheck_with_no_verdict_is_retried_then_unresolved_never_regenerated():
     db, cir, _rh = _certified("no-verdict")
     _, sha = _owned_row(db, cir, 41)
+    rows_before = len(OP.assets_for(db, slug=cir.slug, version=cir.version))
     gone = A.ProviderUnusable("no ANTHROPIC_API_KEY in this environment")
     for n in range(MB.MAX_RECHECKS):
         _sweep(db, StubVision([gone]), f"n{n}")
-        assert _states(db)[sha] == (MB.QUEUED_RETRY if n < MB.MAX_RECHECKS - 1
-                                    else MB.UNRESOLVED), (n, _states(db))
+        last = n == MB.MAX_RECHECKS - 1
+        assert _states(db)[sha] == (MB.UNRESOLVED if last else MB.QUEUED_RETRY), (n, _states(db))
+        # Nothing filed while it can still be asked; the last answer is filed once.
+        assert len(OP.assets_for(db, slug=cir.slug, version=cir.version)) == \
+            rows_before + (1 if last else 0)
     assert _jobs(db, OP.ACTION) == []
-    _sweep(db, StubVision(["match"]), "n-after")
-    assert _states(db)[sha] == MB.UNRESOLVED
+    stub = StubVision(["match"])
+    _sweep(db, stub, "n-after")
+    assert _states(db)[sha] == MB.UNRESOLVED and stub.calls == []
 
 
 # ---- 5. budget exhaustion leaves renders queued -------------------------------------------
@@ -411,6 +485,7 @@ def test_budget_exhaustion_leaves_every_render_queued_and_nothing_regenerated():
 
     db, cir, _rh = _certified("budget")
     shas = [_owned_row(db, cir, seed)[1] for seed in (51, 52)]
+    rows_before = len(OP.assets_for(db, slug=cir.slug, version=cir.version))
     stub = StubVision(["match", "match"])
 
     def spent(*_a, **_k):
@@ -421,14 +496,14 @@ def test_budget_exhaustion_leaves_every_render_queued_and_nothing_regenerated():
     assert job.status is JobStatus.DONE, job.last_error
     assert {_states(db)[s] for s in shas} == {MB.QUEUED_BUDGET}
     assert stub.calls == [] and _jobs(db, OP.ACTION) == []
+    assert len(OP.assets_for(db, slug=cir.slug, version=cir.version)) == rows_before
     assert MB.report(db)["counts"]["renders_still_queued_budget"] == 2
-    # The gate itself refusing the re-check (a ceiling reached between reservation and call)
-    # is a refusal too: still queued, still not regenerated.
+    # The gate itself refusing the re-ask is a refusal too: still queued, not regenerated.
     _sweep(db, StubVision([_gate_refusal(), _gate_refusal()]), "x2")
     assert {_states(db)[s] for s in shas} == {MB.QUEUED_BUDGET}
     with db.session() as s:
         assert {r.budget_deferrals for r in s.scalars(select(MB.MotifRecovery))} == {2}
-    # Budget back: the same renders are recovered, never lost.
+    # Budget back: the same renders are recovered, never lost, never re-rendered.
     _sweep(db, stub, "x3")
     assert {_states(db)[s] for s in shas} == {MB.PASSED} and len(stub.calls) == 2
     assert _jobs(db, OP.ACTION) == []
@@ -465,25 +540,28 @@ def _chain(db, cir, rh, *, stop_after_assets=False):
 
 
 def test_e2e_gates_are_unchanged_a_recovered_generated_render_completes_no_gallery():
-    """The production truth, with every gate as it is: a refused render is re-checked and
-    passes its motif, and it still completes no gallery -- a generated frame has no structural
-    PASS (F-852 / D-FB-7) -- so nothing is handed on and the report says 0, measured."""
+    """The production truth, with every gate as it is: a refused render is found, and not
+    re-asked -- a match could not make a generated frame usable (no structural PASS, F-852 /
+    D-FB-7) -- so it completes no gallery, nothing is handed on, and the report says 0,
+    measured, with the reason in its own count."""
     db, cir, rh = _certified("e2e-real")
     _chain(db, cir, rh)                       # the release's own disclosed-render gallery
     builds_before = len(_jobs(db, "assets.build"))
     _, sha = _owned_row(db, cir, 71)
-    job = _sweep(db, StubVision(["match"]), "r1")
-    assert job.status is JobStatus.DONE and _states(db) == {sha: MB.PASSED}
+    stub = StubVision(["match"])
+    job = _sweep(db, stub, "r1", floor=False)
+    assert job.status is JobStatus.DONE and _states(db) == {sha: MB.PARKED}
+    assert stub.calls == []
     rec = OP.last_asset(db, slug=cir.slug)
-    assert rec["motif_verified"] is True and rec["usable_as_listing_asset"] is True
     assert listing_asset.usable(rec) is False                 # structural floor unchanged
     # The release's gallery is complete -- from its disclosed renders, not from this render.
     assert MB.gallery_complete(db, cir.slug, cir.version)[0] is True
     assert sha not in MB.gallery_complete(db, cir.slug, cir.version)[2]
     assert len(_jobs(db, "assets.build")) == builds_before    # nothing handed on
     counts = MB.report(db)["counts"]
-    assert (counts["renders_passed"], counts["products_gallery_completed"],
-            counts["listing_packages_became_ready"]) == (1, 0, 0), counts
+    assert (counts["renders_found_blocked"], counts["renders_parked_unusable_if_matched"],
+            counts["renders_passed"], counts["products_gallery_completed"],
+            counts["listing_packages_became_ready"]) == (1, 1, 0, 0, 0), counts
 
 
 def test_e2e_a_recovered_render_the_gallery_accepts_advances_through_the_chain_unkicked():
@@ -511,7 +589,7 @@ def test_e2e_a_recovered_render_the_gallery_accepts_advances_through_the_chain_u
         return real(frame)
 
     with patch.object(PA, "structural_floor", stand_in):
-        job = _sweep(db, StubVision(["match"]), "a1")
+        job = _sweep(db, StubVision(["match"]), "a1", floor=False)
         assert job.outputs["advanced"] == 1, job.outputs
         with no_generation():
             _drain(db)
@@ -533,7 +611,7 @@ def test_e2e_a_recovered_render_the_gallery_accepts_advances_through_the_chain_u
         assert s.scalar(select(MB.MotifRecovery)).gallery_completed_at is not None
     # The handoff fired once for this gallery: a re-sweep queues nothing new.
     with patch.object(PA, "structural_floor", stand_in):
-        _sweep(db, StubVision([]), "a2")
+        _sweep(db, StubVision([]), "a2", floor=False)
     assert len([i for i in _jobs(db, "assets.build")
                 if str(i.get("rebuild", "")).startswith(MB.GALLERY_TOKEN)]) == 1
 
@@ -610,12 +688,20 @@ def test_the_photography_handlers_hand_a_usable_gallery_on():
 
 # ---- 7. the report ------------------------------------------------------------------------
 
+def _audit(db):
+    def write(action, **kw):
+        with db.session() as s:
+            s.add(AuditLog(actor="publishing", action=action, artifact=kw.get("artifact"),
+                           detail=kw.get("detail") or {}))
+    return write
+
+
 def _rec(s, n, state, *, slug="alpha-blanket", version="1.0.0", rechecks=1, regen=None,
          gallery=None, package=None):
     s.add(MB.MotifRecovery(render_key=f"k-{slug}-{n}", source_action=OP.ACTION, audit_id=n,
                            slug=slug, version=version, image_sha256=f"{n:064x}",
                            refusal_code="no_budget_reservation", state=state,
-                           rechecks=rechecks, regen_job_id=regen, spent_cad=0.01,
+                           rechecks=rechecks, regen_job_id=regen,
                            gallery_completed_at=gallery, package_ready_at=package))
 
 
@@ -640,16 +726,17 @@ def test_the_report_counts_are_exact_and_unknown_is_never_zero():
         _rec(s, 11, MB.BYTES_MISSING, slug="eps-wrap", rechecks=0)
         _rec(s, 12, MB.SUPERSEDED, slug="eps-wrap", version="0.9.0", rechecks=0)
         _rec(s, 13, MB.PASSED, slug="zeta-bag", gallery=t0)
+        _rec(s, 14, MB.PARKED, slug="zeta-bag", rechecks=0)
     counts = MB.report(db)["counts"]
     assert counts == {
-        "renders_found_blocked": 13, "renders_rechecked": 8, "renders_passed": 4,
+        "renders_found_blocked": 14, "renders_rechecked": 9, "renders_passed": 4,
         "renders_failed": 2, "renders_still_queued_budget": 2, "renders_queued_retry": 1,
+        "renders_parked_unusable_if_matched": 1,
         "renders_unresolved": 1, "renders_awaiting_first_recheck": 1,
         "renders_bytes_missing": 1, "renders_superseded": 1, "regenerations_queued": 2,
         "products_blocked": 7, "products_gallery_completed": 2,
         "listing_packages_became_ready": 1}, counts
     assert set(counts) == set(MB.COUNT_NAMES)
-    assert MB.report(db)["recheck_spend_cad"] == 0.13
     # Unreadable: UNKNOWN, never 0.
     with patch.object(MB, "select", side_effect=RuntimeError("down")):
         bad = MB.report(db)
@@ -676,13 +763,13 @@ def test_a_package_counts_as_ready_only_when_ready_after_the_gallery_completed()
     with db.session() as s:
         _rec(s, 1, MB.PASSED, slug=cir.slug, version=cir.version, gallery=t0)
     reading(LP.READY, t0 - timedelta(hours=1))           # ready BEFORE: not this recovery's
-    MB.sweep(db, lambda *a, **k: None)
+    MB.sweep(db, lambda *a, **k: None, audit=_audit(db))
     reading(LP.BLOCKED, t0 + timedelta(hours=1))
-    MB.sweep(db, lambda *a, **k: None)
+    MB.sweep(db, lambda *a, **k: None, audit=_audit(db))
     with db.session() as s:
         assert s.scalar(select(MB.MotifRecovery)).package_ready_at is None
     reading(LP.READY, t0 + timedelta(hours=2))
-    MB.sweep(db, lambda *a, **k: None)
+    MB.sweep(db, lambda *a, **k: None, audit=_audit(db))
     with db.session() as s:
         assert s.scalar(select(MB.MotifRecovery)).package_ready_at is not None
     assert MB.report(db)["counts"]["listing_packages_became_ready"] == 1

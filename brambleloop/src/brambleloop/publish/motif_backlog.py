@@ -10,35 +10,33 @@ The owner's instruction (verbatim): "Recover the backlog of existing paid images
 generating replacements. Do not throw away assets merely because verification was temporarily
 refused."
 
-**What this does, and what it never does.**
+**What this does, and what it never does.** The re-ask itself is ENG-MOTIF's
+(`eng/motif-reservation`, merged): `motif_fidelity.rejudge` re-runs `check` on the kept bytes
+through its own reservation (`quality_director` / `asset_inspection`, billed at cost), and
+`owned_photography.rejudge_motif` / `model_photography.rejudge_frame` turn the answer into the
+superseding record every reader already understands. This module is the backlog around it:
 
 * `scan` finds every filed render (an `assets.owned_photography` row, or a frame inside an
-  `assets.model_photography` sequence row) whose motif verdict is `unmeasurable` *because the
-  gate refused the call for budget or reservation reasons* (`BUDGET_CODES`). A genuine
-  `unmeasurable` (the fabric could not be seen) or a `mismatch` is not a refusal and is never
-  picked up. One `motif_recovery` row per distinct image (slug@version + image sha256), so a
-  frame a later sequence reused is one render, not two.
-* `recheck` re-runs ONLY the motif comparison, on the exact bytes that were paid for (fetched
-  from the artifact store by their sha256), through a reservation taken by
-  `gateway.providers.check_budget` under the existing agent (`visual.inspect.AGENT`) and purpose
-  (`motif_fidelity.TASK`) -- so the per-agent daily ceiling, the purpose's authorisation, the
-  company month and the owner's paid-provider activation all bind exactly as they do for every
-  other vision call. Nothing is rendered. No image generator is imported here.
-* A render that now reads `match` is PASSED: its corrected record is overlaid onto the filed
-  row by every reader that decides usability (`overlay`), so its gallery slot is judged on a
-  measurement instead of on a refusal. A render that reads `mismatch` (or a genuine
-  `unmeasurable`) is FAILED and is the only kind queued for regeneration, through the
-  existing photography job for its path. A refusal for budget again leaves the row
-  QUEUED_BUDGET for the next sweep: never lost, never regenerated.
+  `assets.model_photography` sequence) whose motif is `unmeasurable` because the call was
+  refused for budget or reservation (`refusal_code`): the legacy refusal text, or the coded
+  `budget_refused`. A genuine `unmeasurable` or a `mismatch` is never picked up. One
+  `motif_recovery` row per distinct image, so a frame a later sequence reused is one render.
+* `recheck_one` re-asks only the motif question -- nothing is rendered -- and only when a
+  match would make the render usable (`motif_fidelity.worth_rejudging`); otherwise the row is
+  PARKED at no cost and re-evaluated every sweep. A match is PASSED and filed; a mismatch or a
+  genuine unmeasurable is FAILED, the only state queued for regeneration (the existing
+  photography job for its path); a budget/activation refusal is QUEUED_BUDGET and retried next
+  sweep -- never lost, never regenerated; plumbing is retried MAX_RECHECKS times.
+* `sweep` (the `assets.motif_backlog` job) also hands a completed gallery to the release
+  chain (`gallery_handoff`), and stamps galleries and listing packages that completed.
+* `report` is the owner's read-only count, from the `motif_recovery` rows.
 
-**No gate is weakened.** The overlay replaces a refusal with a real, paid, reserved
-measurement and recomputes only what that measurement feeds (`motif_verified`, the model
-path's `product_truth` floor, and the record's own `usable_as_listing_asset` conjunction).
-Every reader still requires `visual.product_authority.structural_floor` == PASS, which a
-generated frame does not reach (F-852, D-FB-7); the listing-set certificate, the A3 photo
-authority and `SAMPLE_PHOTO_REQUIRED` are untouched. So a recovered frame completes a gallery
-slot only where the existing readers already accept it -- and the report says how many did,
-from persisted rows, rather than assuming.
+**No gate is weakened.** A filed re-ask changes only what the motif measurement feeds.
+Every usability reader still requires `visual.product_authority.structural_floor` == PASS,
+which a generated frame does not reach (F-852, D-FB-7); the listing-set certificate, the
+F-852 policy classification, the A3 photo authority and `SAMPLE_PHOTO_REQUIRED` are
+untouched. A recovered frame completes a gallery only where the existing readers accept it,
+and the report says how many did.
 """
 from __future__ import annotations
 
@@ -74,14 +72,13 @@ SOURCES = (OWNED, MODEL)
 # MAX_RECHECKS, then UNRESOLVED (reported, never regenerated -- nobody judged the fabric).
 BLOCKED, QUEUED_BUDGET, PASSED, FAILED = "BLOCKED", "QUEUED_BUDGET", "PASSED", "FAILED"
 BYTES_MISSING, SUPERSEDED = "BYTES_MISSING", "SUPERSEDED"
-QUEUED_RETRY, UNRESOLVED = "QUEUED_RETRY", "UNRESOLVED"
-STATES = (BLOCKED, QUEUED_BUDGET, QUEUED_RETRY, PASSED, FAILED, BYTES_MISSING, SUPERSEDED,
-          UNRESOLVED)
-OPEN_STATES = (BLOCKED, QUEUED_BUDGET, QUEUED_RETRY)
+QUEUED_RETRY, UNRESOLVED, PARKED = "QUEUED_RETRY", "UNRESOLVED", "PARKED"
+STATES = (BLOCKED, QUEUED_BUDGET, QUEUED_RETRY, PARKED, PASSED, FAILED, BYTES_MISSING,
+          SUPERSEDED, UNRESOLVED)
+# PARKED: a match would not make the render usable (no structural PASS for a generated frame,
+# F-852), so no vision call is bought. Re-evaluated on every sweep at no cost.
+OPEN_STATES = (BLOCKED, QUEUED_BUDGET, QUEUED_RETRY, PARKED)
 MAX_RECHECKS = 3
-# `motif_fidelity.check` reasons that are not a verdict about the fabric: nothing was judged.
-_NOT_A_VERDICT = ("the comparison call failed:", "the answer could not be read:",
-                  "the chart could not be rendered", "nothing was observed")
 
 # The gate's refusal codes that mean "the accounting said no", not "the picture was judged".
 # Read from `paid_provider_gate.authorize` and `anthropic.check_budget*`. `not_activated_by_owner`
@@ -116,7 +113,7 @@ class MotifRecovery(Base):
     verdict: Mapped[str] = mapped_column(String(16), default="")
     motif: Mapped[dict] = mapped_column(JSON, default=dict)
     why: Mapped[str] = mapped_column(String(400), default="")
-    spent_cad: Mapped[float] = mapped_column(default=0.0)
+    recovered_audit_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     regen_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     gallery_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
                                                                    nullable=True)
@@ -158,6 +155,11 @@ def refusal_code(motif: dict | None) -> str | None:
 
     if not isinstance(motif, dict) or motif.get("verdict") != MF.UNMEASURABLE:
         return None
+    if "unmeasured" in motif:
+        # A reading filed since ENG-MOTIF codes its reason: only a budget refusal is this
+        # backlog's (the owner's "missing reservation or budget refusal").
+        return (str(motif.get("unmeasured")) if motif.get("unmeasured") == MF.UNMEASURED_BUDGET
+                else None)
     why = str(motif.get("why") or "")
     if not why.startswith(_FAILED_CALL):
         return None
@@ -229,23 +231,16 @@ def scan(db, *, now: datetime | None = None) -> dict:
     return {"rows_read": rows_read, "refused_frames_seen": found, "new": new}
 
 
-# ---- re-check -------------------------------------------------------------------------------
-
-class _Metered:
-    """The provider, with the one response it returns kept so the call is billed at cost."""
-
-    def __init__(self, provider):
-        self._p = provider
-        self.response = None
-        self.model = provider.model
-        self.name = getattr(provider, "name", "anthropic")
-        self.cost_per_1k_input_cad = getattr(provider, "cost_per_1k_input_cad", 0.0)
-        self.cost_per_1k_output_cad = getattr(provider, "cost_per_1k_output_cad", 0.0)
-
-    def see(self, system, prompt, image_urls, **kw):
-        self.response = self._p.see(system, prompt, image_urls, **kw)
-        return self.response
-
+# ---- re-check (through ENG-MOTIF's reserved re-ask; nothing is rendered) --------------------
+#
+# The re-ask itself is ENG-MOTIF's (`eng/motif-reservation`, merged here): `motif_fidelity.rejudge`
+# reads the kept bytes back by digest and runs `check`, whose `_call_judge` reserves through
+# `check_budget` as `quality_director` / `asset_inspection` and bills at cost; the answer is filed
+# as a new row for the same image by `owned_photography.rejudge_motif` /
+# `model_photography.rejudge_frame`, which every reader already takes as superseding the refused
+# one. This module adds the backlog around it: finding every refused render, the per-render
+# state, the budget queue, routing a genuine failure to regeneration, the gallery handoff and
+# the report. It does not reserve or call a provider of its own.
 
 def _release_of(db, slug: str, version: str):
     """The certified CIR and twin for exactly slug@version, or (None, None, why).
@@ -271,193 +266,179 @@ def _release_of(db, slug: str, version: str):
     return cir, build_twin(cir, result), ""
 
 
-def recheck_one(db, rec_id: int, *, provider=None, now: datetime | None = None,
-                regenerate=None) -> dict:
-    """Re-run only the motif comparison for one recovery row. Never renders."""
-    import os
+def _filed(db, rec) -> tuple[dict | None, dict | None]:
+    """(the filed row's detail, the frame inside it this recovery row is about)."""
+    from ..core.models import AuditLog
 
+    with db.session() as s:
+        row = s.get(AuditLog, rec["audit_id"])
+        detail = dict(row.detail or {}) if row is not None else None
+    if detail is None:
+        return None, None
+    for _shot, frame, _slug, _version in _frames_of(rec["source_action"], detail):
+        if _sha(frame) == rec["image_sha256"]:
+            return detail, frame
+    return detail, None
+
+
+# `motif_fidelity` unmeasured codes -> this backlog's state. Budget and activation are spend
+# decisions (queued, never lost); plumbing is retried a bounded number of times; a render whose
+# bytes are gone cannot be asked about.
+_CODE_STATE = {
+    "budget_refused": QUEUED_BUDGET, "no_accounting_store": QUEUED_BUDGET,
+    "gate_refused": QUEUED_BUDGET, "call_failed_transient": QUEUED_RETRY,
+    "call_failed": QUEUED_RETRY, "answer_unreadable": QUEUED_RETRY,
+    "chart_unrenderable": QUEUED_RETRY, "image_missing": BYTES_MISSING,
+}
+
+
+def _file_answer(db, rec, detail: dict, answered: dict) -> int:
+    """File the re-ask's answer the way the photography jobs file it; returns the row id."""
+    from ..core.models import AuditLog
+    from . import model_photography as MP
+
+    if rec["source_action"] == OWNED:
+        record = answered["record"]
+    else:
+        # Every frame of the sequence carries the newest answer on file for its image: this
+        # one's, and any sibling frame of the same sequence answered by an earlier sweep.
+        known = _answered_frames(db, rec["slug"], rec["version"])
+        frames = []
+        for frame in detail.get("frames") or [detail]:
+            sha = _sha(frame) if isinstance(frame, dict) else ""
+            if sha == rec["image_sha256"]:
+                frames.append(dict(answered["frame"], reused=False, rejudged=True))
+            elif sha in known:
+                frames.append(dict(known[sha], reused=False, rejudged=True))
+            else:
+                frames.append(dict(frame, reused=True, rejudged=False))
+        floors = MP._combine_floors(frames)
+        usable = all(v == "pass" for v in floors.values())
+        record = dict(detail, frames=frames, floors=floors, usable_as_listing_asset=usable,
+                      spent_cad=0.0, reused_frames=[f.get("shot") for f in frames
+                                                    if f.get("reused")],
+                      rejudged_frames=[f.get("shot") for f in frames if f.get("rejudged")],
+                      motif_rejudge_only=True,
+                      why=("every floor cleared across the sequence" if usable else
+                           "; ".join(f"{k}: {v}" for k, v in sorted(floors.items())
+                                     if v != "pass")))
+    record = dict(record, motif_recovered_by=JOB_TYPE)
+    with db.session() as s:
+        row = AuditLog(actor=AGENT, action=rec["source_action"],
+                       artifact=f"{rec['slug']}@{rec['version']}"[:200], detail=record)
+        s.add(row)
+        s.flush()
+        return row.id
+
+
+def _answered_frames(db, slug: str, version: str) -> dict:
+    """{image sha256: the newest re-asked frame on file} for this release's model frames."""
+    from . import model_photography as MP
+
+    out: dict = {}
+    for record in MP.sequences(db, slug=slug):
+        if record.get("version") != version:
+            continue
+        for frame in record.get("frames") or ():
+            sha = _sha(frame) if isinstance(frame, dict) else ""
+            if sha and sha not in out and frame.get("motif_rejudge"):
+                out[sha] = frame
+    return out
+
+
+def recheck_one(db, rec_id: int, *, provider=None, judger=None,
+                now: datetime | None = None, regenerate=None) -> dict:
+    """Re-ask only the motif question about one recovery row's render. Never renders."""
     from ..core import workspace
-    from ..core.artifacts import ArtifactStore
-    from ..gateway import providers as gw
-    from ..visual import inspect as I
+    from . import model_photography as MP
     from . import motif_fidelity as MF
+    from . import owned_photography as OP
 
     now = _now(now)
     with db.session() as s:
-        rec = s.get(MotifRecovery, rec_id)
-        if rec is None or rec.state not in OPEN_STATES:
-            return {"id": rec_id, "state": getattr(rec, "state", None), "skipped": True}
-        slug, version, sha, source = rec.slug, rec.version, rec.image_sha256, rec.source_action
+        row = s.get(MotifRecovery, rec_id)
+        if row is None or row.state not in OPEN_STATES:
+            return {"id": rec_id, "state": getattr(row, "state", None), "skipped": True}
+        rec = {k: getattr(row, k) for k in ("source_action", "audit_id", "slug", "version",
+                                             "image_sha256", "rechecks")}
 
     def settle(state: str, **fields) -> dict:
         with db.session() as s:
-            rec = s.get(MotifRecovery, rec_id)
-            rec.state = state
+            row = s.get(MotifRecovery, rec_id)
+            row.state = state
             for k, v in fields.items():
-                setattr(rec, k, v)
-            rec.checked_at = now
-        return {"id": rec_id, "state": state, **{k: v for k, v in fields.items()
-                                                  if k in ("verdict", "why")}}
+                setattr(row, k, v)
+            row.checked_at = now
+        return {"id": rec_id, "state": state,
+                **{k: v for k, v in fields.items() if k in ("verdict", "why")}}
 
-    cir, twin, why = _release_of(db, slug, version)
+    detail, frame = _filed(db, rec)
+    if frame is None:
+        return settle(SUPERSEDED, why="the filed render this row names is no longer on file")
+    if not MF.worth_rejudging(frame):
+        # ENG-MOTIF's rule, kept: a re-ask is bought only when a match would make the render
+        # usable. A generated frame has no structural PASS (F-852), so asking would spend a
+        # vision call on an answer that changes nothing. Parked, not lost: re-evaluated free
+        # on every sweep, and asked the day a qualified producer gives it a structural floor.
+        return settle(PARKED, why=("a match would not make this render usable: the "
+                                   "structural floor gives a generated frame no PASS (F-852, "
+                                   "D-FB-7), so no vision call is bought to re-ask"))
+    cir, twin, why = _release_of(db, rec["slug"], rec["version"])
     if cir is None:
         return settle(SUPERSEDED, why=why[:400])
-    try:
-        data = ArtifactStore().get(sha, db=db)
-    except Exception as exc:  # noqa: BLE001 - unreadable bytes are not a verdict
-        return settle(BYTES_MISSING, why=f"paid bytes unavailable: {type(exc).__name__}"[:400])
 
-    provider = _Metered(provider or gw.provider_for(MF.TASK))
-    held, estimate = None, 0.0
-    with workspace.work_dir(None, prefix="motif-backlog-") as root:
-        path = os.path.join(root, f"{sha[:16]}.png")
-        with open(path, "wb") as fh:
-            fh.write(data)
-        try:
-            budget = gw.check_budget(
-                db, model=provider.model,
-                input_tokens=gw.input_tokens(provider.model, system=MF.SYSTEM,
-                                             user=MF.prompt(), images=2),
-                max_tokens=MF.MAX_TOKENS, agent=I.AGENT, purpose=MF.TASK,
-                product_slug=slug)
-            held, estimate = budget.get("reservation_id"), float(budget.get("estimate_cad") or 0)
-        except Exception as exc:  # noqa: BLE001 - a ceiling refusal waits; it is not a verdict
-            with db.session() as s:
-                rec = s.get(MotifRecovery, rec_id)
-                rec.budget_deferrals = int(rec.budget_deferrals or 0) + 1
-            return settle(QUEUED_BUDGET,
-                          why=f"re-check refused before the call: {type(exc).__name__}: "
-                              f"{str(exc)[:200]}"[:400])
-        try:
-            motif = MF.check(db, path, cir, twin, provider=provider)
-        finally:
-            resp = provider.response
-            cost = 0.0
-            if resp is not None:
-                cost = round(resp.input_tokens * provider.cost_per_1k_input_cad / 1000
-                             + resp.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
-            gw.release_reservation(db, held, actual_cad=cost if resp is not None else None)
-            if resp is not None:
-                I._bill(db, provider, {"reserved": estimate, "actual": cost,
-                                       "tokens_in": resp.input_tokens,
-                                       "tokens_out": resp.output_tokens},
-                        f"motif-backlog:{sha[:16]}", purpose=MF.TASK)
-    motif = {**motif, "chart": "", "rechecked_by": JOB_TYPE, "rechecked_at": now.isoformat()}
-
-    with db.session() as s:
-        rec = s.get(MotifRecovery, rec_id)
-        rec.rechecks = int(rec.rechecks or 0) + 1
-        rec.spent_cad = round(float(rec.spent_cad or 0.0) + cost, 8)
-    code = refusal_code(motif)
-    if code is not None:
+    with workspace.work_dir(None, prefix="motif-backlog-") as work:
+        if rec["source_action"] == OWNED:
+            answered = OP.rejudge_motif(db, frame, cir, twin, work_dir=work, provider=provider,
+                                        judger=judger, now=now)
+        else:
+            answered = MP.rejudge_frame(db, frame, cir, twin, work_dir=work, provider=provider,
+                                        judger=judger, now=now)
+    motif = dict(answered.get("motif") or (answered.get("record") or answered.get("frame")
+                                           or {}).get("motif") or {})
+    motif.pop("chart", None)
+    asked = rec["rechecks"] + 1
+    code = str(motif.get("unmeasured") or "")
+    if not answered.get("filed"):
+        state = _CODE_STATE.get(code, QUEUED_RETRY)
+        if state == QUEUED_RETRY and asked >= MAX_RECHECKS:
+            state = UNRESOLVED
         with db.session() as s:
-            rec = s.get(MotifRecovery, rec_id)
-            rec.budget_deferrals = int(rec.budget_deferrals or 0) + 1
-        return settle(QUEUED_BUDGET, refusal_code=code, why=str(motif.get("why"))[:400])
+            row = s.get(MotifRecovery, rec_id)
+            if state == QUEUED_BUDGET:
+                row.budget_deferrals = int(row.budget_deferrals or 0) + 1
+            row.rechecks = asked
+        return settle(state, refusal_code=(code or "unknown")[:40],
+                      why=str(motif.get("why") or answered.get("why") or "")[:400])
     verdict = str(motif.get("verdict") or "")
-    if verdict == MF.UNMEASURABLE and str(motif.get("why") or "").startswith(_NOT_A_VERDICT):
-        with db.session() as s:
-            spent_checks = int(s.get(MotifRecovery, rec_id).rechecks or 0)
-        return settle(QUEUED_RETRY if spent_checks < MAX_RECHECKS else UNRESOLVED,
-                      why=str(motif.get("why"))[:400])
+    with db.session() as s:
+        s.get(MotifRecovery, rec_id).rechecks = asked
+    if code in ("call_failed", "answer_unreadable", "chart_unrenderable") and asked < MAX_RECHECKS:
+        # No verdict about the fabric: retried, and nothing filed -- an unanswered question is
+        # not charged as an attempt while it can still be asked. On the last try it is filed,
+        # so the render stops waiting everywhere (ENG-MOTIF's own reading of these codes).
+        return settle(QUEUED_RETRY, refusal_code=code, why=str(motif.get("why"))[:400])
+    filed_id = _file_answer(db, rec, detail, answered)
+    if code == "image_missing":
+        return settle(BYTES_MISSING, motif=motif, why=str(motif.get("why"))[:400],
+                      recovered_audit_id=filed_id)
+    if code in ("call_failed", "answer_unreadable", "chart_unrenderable"):
+        return settle(UNRESOLVED, motif=motif, why=str(motif.get("why"))[:400],
+                      recovered_audit_id=filed_id)
     if verdict == MF.MATCH:
-        return settle(PASSED, verdict=verdict, motif=motif, why=str(motif.get("why"))[:400])
-    out = settle(FAILED, verdict=verdict, motif=motif, why=str(motif.get("why"))[:400])
+        return settle(PASSED, verdict=verdict, motif=motif, why=str(motif.get("why"))[:400],
+                      recovered_audit_id=filed_id)
+    # A mismatch, or a genuine unmeasurable (the judge could not see the fabric): the picture
+    # was looked at and it does not show the pattern. The only kind regenerated.
+    out = settle(FAILED, verdict=verdict, motif=motif, why=str(motif.get("why"))[:400],
+                 recovered_audit_id=filed_id)
     if regenerate is not None:
-        job_id = regenerate(source, slug, rec_id)
+        job_id = regenerate(rec["source_action"], rec["slug"], rec_id)
         if job_id is not None:
             with db.session() as s:
                 s.get(MotifRecovery, rec_id).regen_job_id = int(job_id)
         out["regen_job_id"] = job_id
     return out
-
-
-# ---- overlay: the readers' view of a recovered render ---------------------------------------
-
-def recovered(db) -> dict:
-    """{(slug, version, sha256): motif} for every render a re-check measured. {} if none or
-    the table is unreadable -- an unreadable recovery table leaves every record as filed."""
-    try:
-        ensure_tables(db)
-        with db.session() as s:
-            return {(r.slug, r.version, r.image_sha256): dict(r.motif or {})
-                    for r in s.scalars(select(MotifRecovery).where(
-                        MotifRecovery.state.in_((PASSED, FAILED))))}
-    except Exception:  # noqa: BLE001 - fail closed: the filed (refused) verdict stands
-        return {}
-
-
-def _apply_owned(detail: dict, motif: dict) -> dict:
-    from . import motif_fidelity as MF
-
-    out = dict(detail, motif=motif, motif_verified=motif.get("verdict") == MF.MATCH,
-               motif_why=motif.get("why"), motif_recovered=True)
-    clear = (detail.get("verdict") == "clear")
-    out["usable_as_listing_asset"] = clear and motif.get("verdict") == MF.MATCH
-    out["usable_why"] = (
-        "every asset-truth check passed and the fabric works the chart's pattern"
-        if out["usable_as_listing_asset"]
-        else f"motif: {motif.get('why')}" if clear else detail.get("why"))
-    return out
-
-
-def _apply_frame(frame: dict, motif: dict) -> dict:
-    from . import motif_fidelity as MF
-
-    floors = dict(frame.get("floors") or {})
-    v = motif.get("verdict")
-    floors["product_truth"] = ("pass" if v == MF.MATCH else "fail" if v == MF.MISMATCH
-                               else "unverifiable")
-    usable = bool(floors) and all(x == "pass" for x in floors.values())
-    return dict(frame, motif=motif, motif_verified=v == MF.MATCH, floors=floors,
-                usable_as_listing_asset=usable, motif_recovered=True,
-                why=("every floor cleared" if usable else
-                     "; ".join(f"{k}: {x}" for k, x in sorted(floors.items()) if x != "pass")))
-
-
-def overlay(db, source: str, details: list[dict], *, table: dict | None = None) -> list[dict]:
-    """The filed records with every recovered measurement applied. Same rows, same order,
-    same count -- attempt budgets and failure histories count renders, and a re-check is not
-    a render."""
-    table = recovered(db) if table is None else table
-    if not table:
-        return details
-    out = []
-    for detail in details:
-        out.append(_overlay_one(source, detail, table))
-    return out
-
-
-def _overlay_one(source: str, detail: dict, table: dict) -> dict:
-    if not isinstance(detail, dict) or not detail.get("made"):
-        return detail
-    slug, version = str(detail.get("slug") or ""), str(detail.get("version") or "")
-    if source == MODEL and detail.get("frames"):
-        from . import model_photography as MP
-
-        changed, frames = False, []
-        for frame in detail.get("frames") or ():
-            motif = (table.get((str(frame.get("slug") or slug),
-                                str(frame.get("version") or version), _sha(frame)))
-                     if isinstance(frame, dict) else None)
-            if motif is not None and refusal_code(frame.get("motif")) is not None:
-                frame, changed = _apply_frame(frame, motif), True
-            frames.append(frame)
-        if not changed:
-            return detail
-        floors = MP._combine_floors(frames)
-        usable = all(v == "pass" for v in floors.values())
-        return dict(detail, frames=frames, floors=floors, usable_as_listing_asset=usable,
-                    motif_recovered=True,
-                    why=("every floor cleared across the sequence" if usable else
-                         "; ".join(f"{k}: {v}" for k, v in sorted(floors.items())
-                                   if v != "pass")))
-    motif = table.get((slug, version, _sha(detail)))
-    if motif is None or refusal_code(detail.get("motif")) is None:
-        return detail
-    if source == MODEL:
-        return _apply_frame(detail, motif)
-    return _apply_owned(detail, motif)
 
 
 # ---- advancement: a completed gallery hands off to the release chain ------------------------
@@ -471,6 +452,17 @@ def _overlay_one(source: str, detail: dict, table: dict) -> dict:
 # to `listing.package`. One key per gallery identity, so the same gallery advances once.
 
 GALLERY_TOKEN = "gallery:"
+
+
+def _enqueue_once(enqueue, agent, job_type, inputs, **kw):
+    """A duplicate idempotency key is the same work already queued: a success, not an error
+    (`JobContext.enqueue` already says so; a bare `JobQueue.enqueue` raises)."""
+    from ..queue.durable import DuplicateJob
+
+    try:
+        return enqueue(agent, job_type, inputs, **kw)
+    except DuplicateJob:
+        return None
 
 
 def certified_release(db, slug: str, version: str) -> str | None:
@@ -522,9 +514,9 @@ def gallery_handoff(enqueue, db, slug: str, version: str, *,
     if release is None:
         return {"advanced": False, "why": "no certified release for this version"}
     token = GALLERY_TOKEN + ident
-    job = enqueue("publishing", "assets.build",
-                  {"slug": slug, "version": version, "release": release, "rebuild": token},
-                  idempotency_key=chain_key("assets", slug, version, release, token))
+    job = _enqueue_once(enqueue, "publishing", "assets.build",
+                        {"slug": slug, "version": version, "release": release, "rebuild": token},
+                        idempotency_key=chain_key("assets", slug, version, release, token))
     return {"advanced": True, "job_id": getattr(job, "id", None), "token": token,
             "queued": job is not None}
 
@@ -536,8 +528,9 @@ def regenerate_with(enqueue):
     its path, keyed per render so a re-sweep never queues it twice."""
     def regen(source: str, slug: str, rec_id: int):
         with_key = f"{REGEN_KEY}{source}:{rec_id}"[:200]
-        job = enqueue(AGENT, source, {"slug": slug, "reason": "motif_backlog_failed"},
-                      idempotency_key=with_key)
+        job = _enqueue_once(enqueue, AGENT, source,
+                            {"slug": slug, "reason": "motif_backlog_failed"},
+                            idempotency_key=with_key)
         return getattr(job, "id", None)
     return regen
 
@@ -562,7 +555,7 @@ def _package_ready_since(db, slug: str, version: str, since: datetime) -> dateti
     return at if at >= since else None
 
 
-def sweep(db, enqueue, *, provider=None, limit: int = SWEEP_LIMIT,
+def sweep(db, enqueue, *, provider=None, judger=None, limit: int = SWEEP_LIMIT,
           now: datetime | None = None, audit=None) -> dict:
     """Scan, re-check the open rows, regenerate only genuine failures, hand completed
     galleries to the chain, and stamp galleries/packages that completed. Idempotent."""
@@ -570,11 +563,16 @@ def sweep(db, enqueue, *, provider=None, limit: int = SWEEP_LIMIT,
     found = scan(db, now=now)
     with db.session() as s:
         ids = list(s.scalars(select(MotifRecovery.id).where(
-            MotifRecovery.state.in_(OPEN_STATES)).order_by(MotifRecovery.id).limit(limit)))
+            MotifRecovery.state.in_((BLOCKED, QUEUED_BUDGET, QUEUED_RETRY)))
+            .order_by(MotifRecovery.id).limit(limit)))
+        # Parked rows cost nothing to re-evaluate (no call unless a match could be used).
+        ids += list(s.scalars(select(MotifRecovery.id).where(MotifRecovery.state == PARKED)
+                              .order_by(MotifRecovery.id).limit(SCAN_LIMIT)))
     regen = regenerate_with(enqueue)
     results = []
     for rec_id in ids:
-        out = recheck_one(db, rec_id, provider=provider, now=now, regenerate=regen)
+        out = recheck_one(db, rec_id, provider=provider, judger=judger, now=now,
+                          regenerate=regen)
         results.append(out)
         if audit is not None and not out.get("skipped"):
             audit(AUDIT_RECHECKED, artifact=str(rec_id),
@@ -598,7 +596,9 @@ def sweep(db, enqueue, *, provider=None, limit: int = SWEEP_LIMIT,
             if ready is not None:
                 with db.session() as s:
                     s.get(MotifRecovery, rec_id).package_ready_at = ready
-    summary = {"scan": found, "rechecked": len([r for r in results if not r.get("skipped")]),
+    summary = {"scan": found,
+               "rechecked": len([r for r in results if not r.get("skipped")
+                                 and r.get("state") != PARKED]),
                "states": {st: sum(1 for r in results if r.get("state") == st) for st in STATES},
                "advanced": advanced[:30]}
     if audit is not None:
@@ -650,7 +650,6 @@ def report(db) -> dict:
                 MotifRecovery.regen_job_id.is_not(None)).select_from(MotifRecovery))
             products = s.scalar(select(func.count(func.distinct(
                 MotifRecovery.slug + "@" + MotifRecovery.version))))
-            spent = s.scalar(select(func.coalesce(func.sum(MotifRecovery.spent_cad), 0.0)))
         counts = {
             "renders_found_blocked": sum(by_state.values()),
             "renders_rechecked": int(rechecked or 0),
@@ -658,6 +657,7 @@ def report(db) -> dict:
             "renders_failed": int(by_state.get(FAILED, 0)),
             "renders_still_queued_budget": int(by_state.get(QUEUED_BUDGET, 0)),
             "renders_queued_retry": int(by_state.get(QUEUED_RETRY, 0)),
+            "renders_parked_unusable_if_matched": int(by_state.get(PARKED, 0)),
             "renders_unresolved": int(by_state.get(UNRESOLVED, 0)),
             "renders_awaiting_first_recheck": int(by_state.get(BLOCKED, 0)),
             "renders_bytes_missing": int(by_state.get(BYTES_MISSING, 0)),
@@ -670,7 +670,9 @@ def report(db) -> dict:
         return {"readable": True, "swept": True,
                 "last_sweep_at": (last_sweep if last_sweep.tzinfo else
                                   last_sweep.replace(tzinfo=timezone.utc)).isoformat(),
-                "counts": counts, "recheck_spend_cad": round(float(spent or 0.0), 6),
+                "counts": counts,
+                "spend": ("each re-ask is reserved and billed by motif_fidelity._call_judge "
+                          "as quality_director / asset_inspection on the spend ledger"),
                 "gates_unchanged": ("a recovered motif verdict completes a gallery only where "
                                     "listing_asset.usable already accepts it: structural PASS, "
                                     "F-852, the A3 photo authority and SAMPLE_PHOTO_REQUIRED "
@@ -683,7 +685,7 @@ def report(db) -> dict:
 
 COUNT_NAMES = ("renders_found_blocked", "renders_rechecked", "renders_passed",
                "renders_failed", "renders_still_queued_budget", "renders_queued_retry",
-               "renders_unresolved",
+               "renders_parked_unusable_if_matched", "renders_unresolved",
                "renders_awaiting_first_recheck", "renders_bytes_missing",
                "renders_superseded", "regenerations_queued", "products_blocked",
                "products_gallery_completed", "listing_packages_became_ready")
