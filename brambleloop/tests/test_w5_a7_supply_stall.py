@@ -184,6 +184,63 @@ def test_a_drafted_selection_is_replaced_by_undrafted_pool_concepts():
         new_drafts
 
 
+# The 16 concepts production had drafted when the review read it (8bc96eef, 2026-11-19).
+PRODUCTION_DRAFTED = (
+    "autumn-oak-mosaic-throw", "cloudline-baby-blanket", "harvest-table-runner",
+    "hexie-coaster-set", "market-basket-trio", "mosaic-placemat-pair",
+    "nordic-forest-mosaic-throw", "nordic-star-ornaments", "pet-snuggle-mat",
+    "pressed-flower-motifs", "pumpkin-cluster-set", "spooky-garland", "valentine-heart-garland",
+    "winter-village-graphghan", "heirloom-cable-blanket", "nordic-forest-bundle")
+
+
+def test_the_production_drafted_set_drafts_what_can_be_drafted_then_names_the_stall():
+    """ENG-RECOVERY fix round 1 (review M1), the reviewer's probe on the real POOL.
+
+    "Select undrafted" made three drafts and then re-selected the same ten every scan --
+    eight refused by #88 (a radar slot with no premise or storyboard is not a concept), one
+    at 0.544 < 0.55 -- with `stalled=False`. Now every promotable undrafted concept is drafted
+    on the first scan, and every later scan reports `selection_unpromotable` with each held
+    concept's reason. The gate is not relaxed: no held concept is ever drafted."""
+    db = _db("production-drafted")
+    pool = [c.slug for c in pool_with_intake(db)]
+    assert len(pool) == 34 and set(PRODUCTION_DRAFTED) <= set(pool)
+    _drafted(db, PRODUCTION_DRAFTED)
+    days = ("2026-11-19", "2026-11-19", "2026-11-20", "2026-11-21")
+    outs, made = [], []
+    for i, day in enumerate(days):
+        before = set(_drafts(db))
+        outs.append(_scan(db, day, f"prod-{i}"))
+        _score_all(db)
+        made.append(sorted(k[len("draft:"):] for k in set(_drafts(db)) - before))
+    first = outs[0]
+    # continued progress: everything the gate passes is drafted, in one scan
+    assert made[0] and set(made[0]) == set(first["selected"]), (made[0], first["selected"])
+    assert first["concept_supply"]["stalled"] is False
+    assert first["concept_supply"]["supply_selected"] == len(made[0])
+    assert first["selection_pool"] == "promotable_undrafted"
+    # L1: the full section-33 pool is reported beside the sub-pool selected from
+    assert first["pool_size"] == 34 and first["selection_pool_size"] < 34
+    # then the stall is named, not hidden behind a non-empty selection
+    for out, new in zip(outs[1:], made[1:]):
+        supply = out["concept_supply"]
+        assert new == [], new
+        assert supply["stalled"] is True and supply["reason"] == "selection_unpromotable", supply
+        assert supply["promotable_undrafted"] == 0 and supply["undrafted_pool"] > 0
+        held = supply["held"]
+        assert set(held) == set(pool) - set(PRODUCTION_DRAFTED) - set(made[0]), held
+        assert "premise_thumbnail" in held["nordic-forest-stocking"], held
+        assert "below promotion threshold" in held["alpine-slouch-beanie"], held
+        assert "Class C" in held["boxy-summer-tee"], held
+        assert out["pool_size"] == 34
+    # every held concept stays undrafted (#88 and the threshold stand)
+    assert not set(_drafts(db)) & {f"draft:{s}" for s in outs[-1]["concept_supply"]["held"]}
+    # one reading per scan date, and the supply readback shows the reason
+    assert [p for p, _ in _readings(db)] == ["2026-11-19", "2026-11-20", "2026-11-21"]
+    got = flow_health.concept_supply_stall(db)
+    assert got and got["reason"] == "selection_unpromotable" and got["held"] > 0, got
+    assert got["promotable_undrafted"] == 0 and got["pool"] == 34, got
+
+
 def test_recovery_and_a_later_stall_are_reported_from_real_scans():
     db = _db("recovery")
     pool = [c.slug for c in pool_with_intake(db)]

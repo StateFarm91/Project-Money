@@ -614,16 +614,61 @@ def _hypothesis_changed(suspension: dict) -> bool:
 # A loop that spends keeps the breaker: it lifts only through `gate_lifted` (its credential
 # gate changed) or `_hypothesis_changed` (its own handler's code changed), as before.
 REARM_BOOT_ACTION = "release.boot_verdict"
-# Families whose handlers buy model, vision or render work, or advertising. Listed so that a
-# job type that has not spent *yet* is still treated as spending (UNKNOWN is never PASS).
+# Families whose handlers buy model, vision or render work, or advertising. Kept as a second,
+# independent refusal: a job type in one of these families is spending even if somebody adds
+# it to the allow-list below.
 SPENDING_PREFIXES: tuple[str, ...] = (
     "creative.", "assets.", "visual.", "marketing.ads", "ads.", "gateway.", "culture.",
     "intel.gallery", "seasonal.")
 
+# ENG-RECOVERY fix round 1 (independent review H1): the classifier FAILS CLOSED. The first
+# version was a deny-list (prefixes + paid_job_types + external effects + recorded spend), and
+# it called `intel.serp_capture` (score_thumbnails -> providers.for_task, a paid vision call)
+# and `laura.executive_tick` (_model_rank -> laura_converse.call) free, so a deploy would have
+# re-armed two paid loops. Now only a job type on this explicit list is free; anything else --
+# a new job type, a renamed one, one nobody has looked at -- is spending and keeps the breaker.
+#
+# Membership is evidence, not opinion: tests/test_eng_recovery.py builds a conservative static
+# call graph of every registered handler (tests/_spend_reach.py) and fails if any job type
+# listed here can reach a paid entry point (`provider_for`, `for_task`, `paid_calls.guarded`,
+# `laura_converse.call`, `images.generate`, or a request site in a paid module declared in
+# test_cert_spend_hosts.DECLARED). These are the cadence loops that graph proves free and that
+# no other rule (prefix, paid_job_types, external effects) already calls spending. Adding one
+# is a decision about spend, made in review.
+FREE_JOB_TYPES: frozenset[str] = frozenset({
+    "autonomy.orchestrate", "build.tick", "chain.rebuild", "chain.successors",
+    "commerce.order_readings", "commerce.orders_ingest", "commerce.readings",
+    "etsy.credential_health", "etsy.dashboard_harvest", "etsy.listing_census",
+    "etsy.openapi_reverify", "etsy.probe", "etsy.shop_snapshot", "finance.accounting.cycle",
+    "finance.accounting.period_pack", "finance.escalation_check", "finance.governor",
+    "finance.reconcile", "gate.lanes", "gate.quality", "growth.conclude",
+    "growth.distribution", "growth.experiments", "growth.journey", "growth.preproduction",
+    "growth.steer", "improve.commercial_lessons", "improve.league", "improve.measure",
+    "improve.mine", "improve.monitor", "improve.nightly", "improve.replay",
+    "improve.retrospective", "improve.role_work", "improve.sandbox", "improve.weekly",
+    "intel.acceptance", "intel.benchmark_health", "intel.benchmark_refresh",
+    "intel.children_portfolio", "intel.panel_discovery", "intel.pod_learning",
+    "intel.scan_evidence", "intel.watchlist_compare", "intel.watchlist_scan", "learn.scan",
+    "learning.knowledge_gaps", "listing.cross_sell_graph", "listing.outcomes",
+    "listing.package", "listing.search_visibility_aging", "listing.search_visibility_watch",
+    "listing.taxonomy_refresh", "listing.window_captures", "mjs.reviews", "mjs.scan",
+    "ops.capacity", "ops.continuity", "ops.dependencies", "ops.health", "ops.heartbeat",
+    "ops.maturity_disagreements", "ops.offsite_archive", "ops.policy_watch",
+    "ops.provenance_backfill", "ops.provider_credentials", "ops.queue_check", "ops.retention",
+    "ops.sentinel", "ops.slo", "ops.thrash", "physical.upgrade_impact", "plan.cycle",
+    "plan.strategy", "policy.activation_schedule", "policy.issuer_shadow", "policy.stop_watch",
+    "portfolio.review", "radar.competitor_snapshot", "radar.concept_intake", "radar.scan",
+    "research.sweep", "scale.trajectory", "seo.cycle", "store.draft_reconcile",
+    "store.live_drift", "storefront.review", "support.triage", "swarm.allocate",
+    "swarm.backlog", "swarm.orphans", "swarm.review", "teardown.enforce",
+})
+
 
 def spending_job_type(session, job_type: str) -> bool:
-    """Whether a job type spends money, or might. Conservative: a failed read is True."""
-    if not job_type or job_type.startswith(SPENDING_PREFIXES):
+    """Whether a job type spends money, or might. Fails closed: True unless the type is on
+    the explicit FREE_JOB_TYPES list AND no other evidence says it spends. A failed read is
+    True (UNKNOWN is never PASS)."""
+    if not job_type or job_type not in FREE_JOB_TYPES or job_type.startswith(SPENDING_PREFIXES):
         return True
     try:
         from ..intel.watchlist import paid_job_types
@@ -668,8 +713,12 @@ def release_booted_at(session, commit: str | None = None) -> datetime | None:
     return first
 
 
-def rearm_probe(session, job_type: str, suspension: dict) -> dict | None:
-    """The one probe run a release change grants a suspended non-spending loop, or None."""
+def rearm_probe(session, job_type: str, suspension: dict, *,
+                boot_cache: dict | None = None) -> dict | None:
+    """The one probe run a release change grants a suspended non-spending loop, or None.
+
+    `boot_cache` (review L4): one dict per caller pass, so the boot-record scan runs once per
+    `suspended_job_types` / `rearmed_job_types` call instead of once per suspension."""
     from sqlalchemy import select
 
     from ..core.build import UNKNOWN
@@ -684,7 +733,12 @@ def rearm_probe(session, job_type: str, suspension: dict) -> dict | None:
         return None
     if spending_job_type(session, job_type):
         return None
-    booted = release_booted_at(session, commit)
+    if boot_cache is not None and commit in boot_cache:
+        booted = boot_cache[commit]
+    else:
+        booted = release_booted_at(session, commit)
+        if boot_cache is not None:
+            boot_cache[commit] = booted
     if booted is None:
         return None
     since = _parse_when(suspension.get("since"))
@@ -889,6 +943,7 @@ def suspended_job_types(db, *, now: datetime | None = None) -> dict[str, dict]:
     now = now or datetime.now(timezone.utc)
     commit = _commit()
     out: dict[str, dict] = {}
+    boot_cache: dict = {}
     with db.session() as s:
         for inc in s.scalars(select(Incident).where(
                 Incident.resolved.is_(False),
@@ -902,7 +957,8 @@ def suspended_job_types(db, *, now: datetime | None = None) -> dict[str, dict]:
             if sus.get("kind") == BACKOFF and upstream_progressed(
                     s, jt, _parse_when(sus.get("since")) or inc.at):
                 continue              # its input changed since: run it again
-            if sus.get("kind") in (BACKOFF, SUSPENDED) and rearm_probe(s, jt, sus):
+            if sus.get("kind") in (BACKOFF, SUSPENDED) and rearm_probe(s, jt, sus,
+                                                                       boot_cache=boot_cache):
                 continue              # ENG-RECOVERY: one probe under a new release (free only)
             if sus.get("kind") == SUSPENDED:
                 if _hypothesis_changed(sus):
@@ -926,6 +982,7 @@ def rearmed_job_types(db) -> list[dict]:
     from ..core.models import Incident
 
     out: list[dict] = []
+    boot_cache: dict = {}
     try:
         with db.session() as s:
             for inc in s.scalars(select(Incident).where(
@@ -934,7 +991,7 @@ def rearmed_job_types(db) -> list[dict]:
                 sus = (inc.detail or {}).get("suspension") or {}
                 jt = sus.get("job_type")
                 if jt and sus.get("kind") in (BACKOFF, SUSPENDED):
-                    hit = rearm_probe(s, jt, sus)
+                    hit = rearm_probe(s, jt, sus, boot_cache=boot_cache)
                     if hit:
                         out.append({**hit, "incident": inc.signature})
     except Exception:  # noqa: BLE001 - a readback never breaks the sweep

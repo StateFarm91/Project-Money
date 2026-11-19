@@ -258,6 +258,32 @@ def test_the_sweep_records_the_handler_digest_on_a_backoff_and_reports_rearmed()
         assert "chain.rebuild" not in out["suspended"]
 
 
+def test_the_boot_record_is_read_once_per_pass():
+    """Review L4: `release_booted_at` scans up to 500 audit rows; one pass over N suspensions
+    reads it once, not N times."""
+    db = _db()
+    for jt in ("chain.rebuild", "chain.successors", "plan.cycle", "improve.monitor"):
+        _backoff(db, jt)
+    real, calls = orc.release_booted_at, []
+
+    def counted(session, commit=None):
+        calls.append(commit)
+        return real(session, commit)
+
+    orc.release_booted_at = counted
+    try:
+        with _Release(NEW):
+            _boot(db, NEW, NOW - timedelta(minutes=10))
+            held = orc.suspended_job_types(db, now=NOW)
+            assert not {"chain.rebuild", "chain.successors", "plan.cycle"} & set(held), held
+            assert len(calls) == 1, calls
+            calls.clear()
+            assert len(orc.rearmed_job_types(db)) >= 3
+            assert len(calls) == 1, calls
+    finally:
+        orc.release_booted_at = real
+
+
 def test_spending_classifier_is_conservative():
     db = _db()
     with db.session() as s:
@@ -271,6 +297,110 @@ def test_spending_classifier_is_conservative():
                   cost_cad=0.01))
         s.flush()
         assert orc.spending_job_type(s, "improve.monitor")
+
+
+def test_the_spend_classifier_fails_closed():
+    """Review H1: only an allow-listed job type is free. A job type nobody listed -- new,
+    renamed or simply never looked at -- is spending, and so are the two paid loops the
+    first (deny-list) version called free."""
+    db = _db()
+    with db.session() as s:
+        for jt in ("intel.serp_capture", "laura.executive_tick", "brand.new_loop",
+                   "radar.score", "cir.draft", "listing.seo", "model.probe"):
+            assert orc.spending_job_type(s, jt), jt
+        assert "intel.serp_capture" not in orc.FREE_JOB_TYPES
+        assert "laura.executive_tick" not in orc.FREE_JOB_TYPES
+        # the allow-list never overrides the other refusals
+        from brambleloop.intel.watchlist import paid_job_types
+        from brambleloop.queue.effects import EXTERNAL_EFFECT_JOB_TYPES
+
+        assert not orc.FREE_JOB_TYPES & set(EXTERNAL_EFFECT_JOB_TYPES)
+        assert not orc.FREE_JOB_TYPES & set(paid_job_types())
+        assert not [jt for jt in orc.FREE_JOB_TYPES if jt.startswith(orc.SPENDING_PREFIXES)]
+
+
+def test_a_paid_loop_the_deny_list_missed_does_not_rearm():
+    db = _db()
+    _backoff(db, "intel.serp_capture")
+    _backoff(db, "laura.executive_tick")
+    _backoff(db, "chain.rebuild")
+    with _Release(NEW):
+        _boot(db, NEW, NOW - timedelta(minutes=10))
+        held = orc.suspended_job_types(db, now=NOW)
+        assert "intel.serp_capture" in held and "laura.executive_tick" in held, held
+        assert "chain.rebuild" not in held
+        assert {r["job_type"] for r in orc.rearmed_job_types(db)} == {"chain.rebuild"}
+
+
+_GRAPH = {}
+
+
+def _spend_graph():
+    """Every registered handler, and the static call graph of the source (tests/_spend_reach)."""
+    if not _GRAPH:
+        import importlib
+        import re
+
+        import _spend_reach as sr
+        from test_cert_spend_hosts import DECLARED
+
+        from brambleloop.runtime.worker import handlers
+
+        src = ROOT / "src"
+        for path in sorted((src / "brambleloop").rglob("*.py")):
+            if re.search(r"@handlers\.register\(", path.read_text(encoding="utf-8")):
+                importlib.import_module(sr._modname(path))
+        declared = {k[:-3].replace("/", ".") for k in DECLARED}
+        request = declared - sr.FREE_REQUEST_MODULES
+        _GRAPH.update(sr=sr, declared=declared, request=request, handlers=handlers,
+                      graph=sr.Graph(request))
+    return _GRAPH
+
+
+def test_every_handler_that_can_reach_the_paid_gateway_is_classified_spending():
+    """Review H1: the allow-list is checked against the code. Every registered handler that
+    can reach `provider_for`, `for_task`, `paid_calls.guarded`, `laura_converse.call`,
+    `images.generate` or a request site in a DECLARED paid module is spending, and every
+    allow-listed type is registered and cannot reach one."""
+    g = _spend_graph()
+    sr, graph, handlers = g["sr"], g["graph"], g["handlers"]
+    db = _db()
+    reaching, wrong = {}, []
+    with db.session() as s:
+        for jt in handlers.known():
+            path = graph.reach(sr.handler_key(handlers.get(jt)))
+            if path:
+                reaching[jt] = " -> ".join(f"{m}:{q}" for m, q in path)
+                if not orc.spending_job_type(s, jt):
+                    wrong.append((jt, reaching[jt]))
+    assert not wrong, f"handlers that reach the paid gateway but are classified free: {wrong}"
+    # the review's two findings are seen by the graph (the check is not vacuous) ...
+    assert "score_thumbnails" in reaching.get("intel.serp_capture", ""), reaching
+    assert "laura_converse:call" in reaching.get("laura.executive_tick", ""), reaching
+    for jt in ("creative.model_tournament", "visual.image_production", "model.probe",
+               "culture.sweep", "listing.seo"):
+        assert jt in reaching, jt
+    # ... and every allow-listed type is a registered handler the graph proves free
+    unregistered = sorted(orc.FREE_JOB_TYPES - set(handlers.known()))
+    assert not unregistered, unregistered
+    leaked = sorted(jt for jt in orc.FREE_JOB_TYPES if jt in reaching)
+    assert not leaked, [(jt, reaching[jt]) for jt in leaked]
+
+
+def test_the_paid_entry_points_cover_test_cert_spend_hosts_declared():
+    """Review H1 cross-check: every module test_cert_spend_hosts DECLARES as addressing a paid
+    provider is either a reviewed free read or contributes a paid entry point to the graph,
+    and each named gateway entry point exists. A new DECLARED module fails here until it is
+    classified."""
+    g = _spend_graph()
+    sr, graph = g["sr"], g["graph"]
+    assert g["declared"] == g["request"] | sr.FREE_REQUEST_MODULES
+    assert sr.FREE_REQUEST_MODULES <= g["declared"]
+    for mod in g["request"]:
+        assert any(k[0] == mod for k in graph.sinks), f"{mod}: no request site found"
+    for key in sr.SINK_KEYS:
+        assert key in graph.funcs, f"named paid entry point {key} no longer exists"
+        assert key in graph.sinks
 
 
 # --- B. policy hold #39: internal rebuild proceeds, publication stays held -----------------
@@ -411,6 +541,121 @@ def test_a_legacy_row_with_nothing_stale_gets_exactly_one_targeted_rebuild():
             Incident.signature.like("rebuild-incomplete:%")))}
         assert not any(r.resolved for r in rows.values())            # nothing closed
         assert all(r.halts_publication for r in rows.values())        # no halt lifted
+
+
+def test_the_empty_outstanding_marketing_waiver_is_bounded():
+    """Review L5 fix: with nothing outstanding, the marketing rebuild may proceed only on this
+    product's own open, unexhausted rebuild-incomplete row; publication still refuses."""
+    import test_eng_stale_rebuild_loop as base
+
+    from brambleloop.core.models import Product
+    from brambleloop.ops import rebuild_graph as G
+
+    db = base._db()
+    with db.session() as s:
+        s.add(Product(slug="a", title="a"))
+    # no own row: nothing to rebuild for, no waiver
+    assert base._gate_with(db, outstanding=[], fresh=[])["outstanding_only_marketing"] is False
+    with db.session() as s:
+        s.add(Incident(severity="P2", product_slug=None, halts_publication=True,
+                       signature="rebuild-incomplete:a", summary="legacy", report_count=6,
+                       detail={"stale": ["marketing_asset:a:pin:1"]}))
+    out = base._gate_with(db, outstanding=[], fresh=[])
+    assert out["outstanding_only_marketing"] is True, out
+    assert out["blocks"] is True                                  # publication still refuses
+    with _Policy(IMAGE_RULES):                                    # publication-only change
+        assert release_gates.staleness(db, slug="a")["outstanding_only_marketing"] is True
+    with _Policy(CHILDREN):                                       # product creation: held
+        assert release_gates.staleness(db, slug="a")["outstanding_only_marketing"] is False
+    # non-marketing work outstanding: refused
+    assert base._gate_with(db, outstanding=["pdf:a@1#pdf-us"], fresh=[])[
+        "outstanding_only_marketing"] is False
+    # any other halting row: refused
+    with db.session() as s:
+        other = Incident(severity="P1", product_slug="a", halts_publication=True,
+                         signature="qa-teardown:a", summary="other halt")
+        s.add(other)
+    assert base._gate_with(db, outstanding=[], fresh=[])["outstanding_only_marketing"] is False
+    with db.session() as s:
+        s.scalar(select(Incident).where(Incident.signature == "qa-teardown:a")).resolved = True
+    # an exhausted own row is a hold, never waived
+    with db.session() as s:
+        s.scalar(select(Incident).where(Incident.signature == "rebuild-incomplete:a")
+                 ).detail = {"attempts": G.REBUILD_MAX_ATTEMPTS}
+    assert base._gate_with(db, outstanding=[], fresh=[])["outstanding_only_marketing"] is False
+
+
+def test_a_legacy_row_completes_its_chain_while_the_image_rule_review_is_pending():
+    """Review L5: the 14 legacy rebuilds must complete their chain while #39
+    (`listing_image_rules`) waits for the owner, without spending their three-attempt budget
+    on a policy refusal. Real chain on SQLite: a certified product, a pre-branch
+    `rebuild-incomplete` row naming its PDF and content, #39 pending throughout. The sentinel
+    restarts the row once; the stage jobs remake the artefacts; the verify pass binds them;
+    the row closes on that evidence. No stage refuses on the policy, no attempt is counted
+    against the budget, and publication for the product still refuses on #39."""
+    import test_eng_stale_rebuild_loop as base
+
+    from brambleloop.core.models import ArtefactProvenance, utcnow
+    from brambleloop.ops import artefacts as A
+    from brambleloop.products import builder
+    from brambleloop.queue.durable import JobQueue
+
+    db = base._sqlite_db()
+    cir = builder.for_slug("cloudline-baby-blanket")
+    slug = cir.slug
+    with _Policy():
+        JobQueue(db).enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
+                             idempotency_key="l5-compile")
+        base._drain(db, "l5-build")
+    with db.session() as s:
+        keys = sorted(f"{r.artefact_class}:{r.artefact_key}" for r in s.scalars(
+            select(ArtefactProvenance).where(ArtefactProvenance.product_slug == slug,
+                                             ArtefactProvenance.artefact_class.in_(
+                                                 ("pdf", "marketing_asset")))))
+        assert any(k.startswith("pdf:") for k in keys) and any(
+            k.startswith("marketing_asset:") for k in keys), keys
+        # production's legacy rows name keys that read "no provenance row" (nothing STALE,
+        # nothing positive to close on): the shape slice 2 restarts
+        for r in list(s.scalars(select(ArtefactProvenance).where(
+                ArtefactProvenance.product_slug == slug))):
+            if f"{r.artefact_class}:{r.artefact_key}" in keys:
+                s.delete(r)
+        fp = {"chain:release": {"old": "0" * 16, "new": A.chain_fingerprint()}}
+        s.add(Incident(severity="P2", signature=f"rebuild-incomplete:{slug}", product_slug=None,
+                       halts_publication=True, report_count=6, summary="legacy (fixture)",
+                       detail={"stale": keys, "reason": "legacy", "fingerprints": fp}))
+    with _Policy(IMAGE_RULES):
+        assert release_gates.retry_hold_reason(db, slug=slug) is None
+        out = base._sentinel(db, "l5-1")
+        assert out["rebuild_incomplete_legacy_restarted"] == [slug], out
+        for _ in range(6):                       # the stage chain, then each verify check
+            base._drain(db, "l5-drain")
+            with db.session() as s:
+                for j in s.scalars(select(Job).where(Job.status == JobStatus.PENDING)):
+                    j.run_after = utcnow()       # the verify delay, elapsed
+        with db.session() as s:
+            row = s.scalar(select(Incident).where(
+                Incident.signature == f"rebuild-incomplete:{slug}"))
+            refusals = [(a.action, a.detail) for a in s.scalars(select(AuditLog).where(
+                AuditLog.action.in_(("chain.rebuild_refused", "marketing.blocked")),
+                AuditLog.artifact.like(f"{slug}%")))]
+            completed = {a.artifact for a in s.scalars(select(AuditLog).where(
+                AuditLog.action == "chain.rebuild_completed"))}
+            stale = [f"{v.artefact_class}:{v.artefact_key}"
+                     for v in A.check(s, current=A.current_from_db(s))
+                     if v.state == A.STALE and v.product_slug == slug]
+            detail = dict(row.detail or {})
+            resolved = row.resolved
+        assert not refusals, refusals            # nothing refused, on the policy or otherwise
+        assert stale == [], stale
+        assert set(keys) <= completed, sorted(set(keys) - completed)
+        # the chain completed: the row closed on verified evidence, and the budget was
+        # never spent (a restatement would carry attempts; a held row would carry `held`)
+        assert resolved, detail
+        assert "held" not in detail and int(detail.get("attempts") or 0) < 3, detail
+        # publication is still held by the pending review
+        gate = release_gates.staleness(db, slug=slug)
+        assert gate["blocks"] and any("listing_image_rules" in r for r in gate["reasons"]), gate
 
 
 # --- C. original_product: selection from the undrafted pool ------------------------------

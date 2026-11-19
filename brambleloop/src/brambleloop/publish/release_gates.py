@@ -1446,6 +1446,24 @@ def _waivable_staleness(row, slug: str, fresh: set[str]) -> bool:
     return False
 
 
+def _own_rebuild_pending(db, slug: str) -> bool:
+    """This product's own `rebuild-incomplete` row is open and its budget is not exhausted.
+    Unreadable is False (a halt is never waived on a failed read)."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+    from ..ops.rebuild_graph import REBUILD_INCOMPLETE_SIGNATURE
+
+    try:
+        with db.session() as s:
+            row = s.scalar(select(Incident).where(
+                Incident.resolved == False,  # noqa: E712
+                Incident.signature == f"{REBUILD_INCOMPLETE_SIGNATURE}:{slug}"))
+            return row is not None and not rebuild_exhausted(row)
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def _halting_other_than_staleness(db, slug: str, own: set[str],
                                   fresh: set[str] | None = None) -> list:
     """Open halting incidents for `slug` other than its own stale-marketing rows and other
@@ -1534,7 +1552,19 @@ def staleness(db, *, slug: str) -> dict:
     # ENG-RECOVERY: only a change governing growth or product creation holds the marketing
     # rebuild (drafted, held content); a listing-image or search change holds publication.
     policy_marketing = policy_holds_manufacturing(policy, MARKETING_REBUILD_POLICY_WORKFLOWS)
-    only_marketing = (bool(outstanding) and not halting_other and not policy_marketing
+    # ENG-RECOVERY fix round 1 (review L5): a legacy rebuild-incomplete row names keys that
+    # read "no provenance row" -- nothing is outstanding in the graph -- and the targeted
+    # rebuild that row is waiting for reaches marketing.schedule with an empty `outstanding`.
+    # Requiring a non-empty outstanding list refused that rebuild on every attempt (proved by
+    # test_eng_recovery's end-to-end L5 test), spending the row's three-attempt budget on a
+    # refusal the rebuild exists to cure. So the exception also applies when this product's
+    # own rebuild-incomplete row is open and not exhausted. Everything else is unchanged: any
+    # other halting row, a growth/product-creation policy change or non-marketing outstanding
+    # work still refuses, and `halted`, `reasons` and `blocks` (what publication reads) still
+    # carry the halt and every unreviewed publishing change.
+    own_rebuild_pending = not outstanding and _own_rebuild_pending(db, slug)
+    only_marketing = ((bool(outstanding) or own_rebuild_pending)
+                      and not halting_other and not policy_marketing
                       and all(str(k).startswith("marketing_asset:") for k in outstanding))
     return {"halted": bool(halting), "incidents": halting[:5], "rebuild": graph,
             "policy_changes_unreviewed": [c["source"] for c in policy],

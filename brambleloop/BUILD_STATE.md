@@ -1,3 +1,18 @@
+> **2026-11-19 — ENG-RECOVERY fix round 1 (`eng/recovery`, NOT merged, NOT deployed).** Main's review was DO NOT SHIP.
+> - H1: the spend classifier now FAILS CLOSED. `swarm.orchestrate.FREE_JOB_TYPES` is an explicit allow-list
+>   (94 cadence loops). Every other job type is spending, including `intel.serp_capture` and
+>   `laura.executive_tick`, which the old deny-list missed. A static call graph (`tests/_spend_reach.py`)
+>   proves that no allow-listed handler reaches the paid gateway, cross-checked against
+>   `test_cert_spend_hosts.DECLARED`.
+> - M1: `radar.scan` selects only undrafted concepts that `radar.score` would promote today (one shared
+>   `promotion_verdict`; #88 and the threshold are unchanged). On the production drafted set it drafts the
+>   3 promotable concepts, then records `selection_unpromotable` with a reason for each of the 15 held
+>   concepts. No honest premise path exists for POOL slots (only creative tournament winners or approved
+>   intake), so they stay held. **original_product will stall again after those 3 drafts** until creative
+>   or intake supplies real concepts.
+> - L1/L4/L5 addressed (full pool size reported; boot record read once per pass; an end-to-end test
+>   proves a legacy row completes its chain under a pending #39 without spending its budget).
+
 > **2026-11-19 — ENG-RECOVERY slice 1 (`eng/recovery`, NOT merged, NOT deployed; production 8bc96eef SHADOW).**
 > P0 "the factory makes nothing" root-caused from the code; no gate weakened.
 > - original_product 0/0/0: `radar.scan` re-selected the same 11 drafted concepts every time

@@ -342,3 +342,166 @@ Each mutant was applied to a copy of the tree and must make the named suite fail
 - If a product has no stored release, the restart is refused with "no stored release" and
   the row stays legacy. That outcome is visible through `chain.rebuild_refused`.
 - The 14 production products all have certified releases, so this should not apply to them.
+
+---
+
+## Fix round 1 (Main's review: DO NOT SHIP; H1, M1, L1, L3, L4, L5)
+
+### H1: the spend classifier fails closed
+
+**Defect.** `spending_job_type` was a deny-list. It called two paid loops free:
+- `intel.serp_capture`: `score_thumbnails` → `providers.for_task(vision.TASK)`;
+- `laura.executive_tick`: `_model_rank` → `laura_converse.call`.
+
+So a deploy would have re-armed both.
+
+**Fix** (`swarm/orchestrate.py`)
+- `FREE_JOB_TYPES` is an explicit allow-list. A job type is free only if it is on the list
+  **and** none of the old refusals applies (spending prefix, `paid_job_types()`,
+  `EXTERNAL_EFFECT_JOB_TYPES`, recorded `cost_cad`/`CostEntry`, failed read).
+- Every other job type is spending: new, renamed or never examined.
+- The list holds 94 cadence loops. Each one is a registered handler that the static graph
+  below proves cannot reach a paid entry point, and that no other rule already calls
+  spending. Adding one is a reviewed decision about spend.
+
+**Proof** (`tests/_spend_reach.py` plus three tests in `test_eng_recovery`)
+- A conservative static call graph over `src/brambleloop`:
+  - function-local imports are resolved;
+  - a reference to a function counts as an edge (callbacks included);
+  - a reference to a class is an edge to all of its methods;
+  - `self.x` resolves within the class.
+- Paid entry points:
+  - by name on any receiver: `provider_for`, `for_task`;
+  - by resolution: `paid_calls.guarded`, `laura_converse.call`, `images.generate`,
+    `providers.for_task`, and both `provider_for`s;
+  - every request site (`urlopen`, `Request(`, `_post(`, `.post(`, `http.client`) in a
+    module that `test_cert_spend_hosts.DECLARED` declares, or in any `gateway` module, except
+    the three reviewed free reads (`gateway/credentials.py`, `ops/provider_accounts.py`,
+    `ops/adoptions.py`).
+- `test_every_handler_that_can_reach_the_paid_gateway_is_classified_spending`:
+  - every registered handler (all modules containing `@handlers.register`) that reaches an
+    entry point is classified spending;
+  - every allow-listed type is registered and unreachable;
+  - not vacuous: the graph finds both review findings
+    (`handle_serp_capture -> score_thumbnails`,
+    `handle_executive_tick -> tick -> _model_rank -> laura_converse.call`) and five known
+    paid loops.
+- `test_the_paid_entry_points_cover_test_cert_spend_hosts_declared`:
+  - DECLARED = request modules ∪ reviewed free reads;
+  - each request module contributes an entry point, and each named entry point exists;
+  - a new DECLARED module fails here until it is classified.
+- `test_the_spend_classifier_fails_closed` and
+  `test_a_paid_loop_the_deny_list_missed_does_not_rearm`: both findings stay parked across a
+  release change, while `chain.rebuild` gets its probe.
+
+**Stated limit.** The graph cannot follow a method called on an object injected from outside,
+or `getattr` by string. As a cross-check, I listed every non-gateway function that calls
+`.complete/.vision/.render/.generate/.messages/.chat` on any receiver and is reachable from
+an allow-listed handler. Every hit was a local deterministic renderer or terms text
+(`disclosed_render`, `contents_frame`, `customer_terms.render`), with no model call. The
+allow-list is the runtime rule; the graph only has to agree with it.
+
+### M1: supply no longer re-stalls invisibly
+
+**Reproduced first** (real `radar.scan` and `radar.score`, real POOL, the 16 production
+drafted slugs). The old branch:
+- drafted 2, then 1, then 0, 0, 0;
+- re-selected the same 10 every time;
+- reported `stalled=False`.
+
+**Verdicts for the 15 undrafted concepts**
+- 9 are refused by #88 at `premise_thumbnail`: "is not a concept yet: it has no ['premise',
+  'pod', 'form', 'construction', 'motif', 'palette_story', …]".
+- `alpine-slouch-beanie` is at 0.5442, below the 0.55 threshold.
+- 3 more are below the threshold.
+- `boxy-summer-tee` and `cropped-cardigan` are risk class C.
+
+**Fix** (`runtime/pipeline.py`)
+- `promotion_verdict(db, seed, inputs, today)` is the decision `radar.score` makes, extracted
+  unchanged and read-only:
+  - steering, the evidence discount, the lesson nudge;
+  - `PROMOTION_THRESHOLD`, risk A/B;
+  - the established/bundle exemption;
+  - `preengineering.gate_concept`.
+- `radar.score` now calls it and writes the same records in the same order. `radar.scan`
+  calls it through `promotable_now` before it selects. One rule, two callers; nothing is
+  re-implemented or relaxed.
+- Selection tiers: promotable undrafted → undrafted → full pool. The first tier from which
+  section 33 can select wins.
+- `_record_supply_stall` counts as supply only a selected concept that is undrafted **and**
+  promotable. Reasons:
+  - `pool_exhausted`;
+  - `selection_unpromotable` (new): undrafted concepts remain, none promotable; each held
+    concept's reason is recorded, including the failed gate checks;
+  - `promotable_not_selectable`: promotable ones exist but section 33 cannot select them on
+    their own;
+  - `selection_all_drafted`: only when promotability was not judged.
+- `flow_health.concept_supply_stall` shows `promotable_undrafted` and the `held` count.
+
+**#88 is not weakened, and no repair was possible.**
+- A POOL seed is a radar slot (category, price, season). It has no Concept fields.
+- The only paths that make one a Concept are:
+  - a creative tournament winner through `creative/intake.py` (`creative.*`, paid model
+    work);
+  - an approved `radar.intake` row.
+- Deriving a premise from a slot is exactly what #83 forbids ("engineering something because
+  it fills a slot").
+- So the 9 stay held, now *visibly*.
+- **Consequence:** after the 3 promotable drafts, original_product stalls again until
+  creative or intake supplies concepts. The supply reading now says so.
+
+**Test**
+`test_w5_a7_supply_stall::test_the_production_drafted_set_drafts_what_can_be_drafted_then_names_the_stall`
+uses the real POOL (34), the 16 drafted slugs and four scans:
+- scan 1 drafts exactly the 3 promotable concepts (`bobble-floor-pillow`,
+  `chunky-ribbed-scarf`, `cottage-wall-hanging`);
+- scans 2 to 4 draft nothing, report `stalled=True`, `selection_unpromotable`,
+  `promotable_undrafted=0`, and give held reasons that name `premise_thumbnail`, the threshold
+  and Class C;
+- no held concept gets a `cir.draft`;
+- there is one reading per scan date;
+- `flow_health.concept_supply_stall` shows the reason.
+
+### L1
+`radar.scan` returns and audits:
+- `pool_size`: the full section-33 pool, 34;
+- `selection_pool` and `selection_pool_size`: the tier the selection came from and its size;
+- `drafted_excluded` and `unpromotable_excluded`.
+
+### L4
+`rearm_probe(..., boot_cache=)` takes one memo per pass of `suspended_job_types` or
+`rearmed_job_types`. `test_the_boot_record_is_read_once_per_pass` checks one read over four
+suspensions.
+
+### L5: a real defect, found by the requested test
+
+`test_a_legacy_row_completes_its_chain_while_the_image_rule_review_is_pending` runs on the
+real chain on SQLite:
+- `cloudline-baby-blanket` is built and certified;
+- a pre-branch `rebuild-incomplete` row names its PDF and content keys, which read "no
+  provenance row", as in production;
+- #39 is pending throughout.
+
+**First run: FAILED.**
+- `marketing.schedule` refused the rebuild (`marketing.blocked`). Its reasons were the row's
+  own halt and #39.
+- The marketing rebuild exception (`outstanding_only_marketing`) required a non-empty
+  `outstanding` list. A legacy row's keys are not STALE, so the list is empty and the
+  exception never applied.
+- Every retry would have been refused the same way, using up the three-attempt budget on the
+  refusal the rebuild exists to cure.
+
+**Fix** (`publish/release_gates.staleness`)
+- The exception also applies when nothing is outstanding and this product's own
+  `rebuild-incomplete` row is open and not exhausted (`_own_rebuild_pending`; a failed read
+  is False).
+- Any other halting row still refuses the marketing rebuild, and so does a growth or
+  product-creation policy change or non-marketing outstanding work.
+- `halted`, `reasons` and `blocks` (what `for_publish` and `for_marketing` publication read)
+  are unchanged.
+- The test then asserts:
+  - no refusal;
+  - nothing stale;
+  - every named key has `chain.rebuild_completed`;
+  - the row is resolved on that evidence, with no `held` and attempts < 3;
+  - `staleness()` still blocks the product's publication on `listing_image_rules`.
