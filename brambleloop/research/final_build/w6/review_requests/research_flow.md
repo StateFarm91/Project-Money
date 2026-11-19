@@ -108,7 +108,17 @@ UNKNOWN, unknown downstream reads Unknown, and the #108 hold is named.
 
 ## Suites
 
-SUITES_PLACEHOLDER
+Command: `run_tests.sh` with `JOBS=4 SUITE_REGISTRY=0`, the venv, and no PYTHONPATH. It ran
+on a clean tree at 1ee2be90 (the commit before this doc-only commit): **738 passing, 0
+suites failing.** The 24 suites were the 16 required ones plus these 8:
+- test_ws2_r5_proposal_writer;
+- test_ws2_research_m2;
+- test_r5_research_2, test_r5_research_3 and test_r5_research_4;
+- test_cert_preengineering;
+- test_w5_a4a_research_to_concept;
+- test_cert_mjs.
+
+`node --input-type=module --check` is clean on p0_board.js and sw.js.
 
 ---
 
