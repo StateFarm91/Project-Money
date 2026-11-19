@@ -306,6 +306,64 @@ def test_a_mapping_that_loses_a_live_listing_is_caught_by_the_sql_crosscheck():
     C.reset()
 
 
+def test_pdf_gallery_and_listing_evidence_reach_the_row_end_to_end():
+    """A certified release with its assets.build job, PDF hashes, verified listing images and
+    a bound listing derives to Listing package completed, and the catalogue row links each
+    piece of evidence. Seeded and removed here, so the other tests' counts are unchanged."""
+    from brambleloop.core.models import AuditLog
+
+    slug, rel = "cat-evidence-heath-iris", "f" * 64
+    with DB.session() as s:
+        p = Product(slug=slug, title="Fixture Evidence Basket")
+        s.add(p)
+        s.flush()
+        s.add(PatternVersion(product_id=p.id, version="1.0.0", cir_json={}, certified=True,
+                             release_hash=rel, certificate={"content_hash": "cc"}))
+        build = Job(agent="visual", job_type="assets.build", status=JobStatus.DONE,
+                    inputs={"slug": slug, "version": "1.0.0", "release": rel},
+                    outputs={"pdf_sha256_by_terminology": {"us": "a" * 64, "uk": "b" * 64}},
+                    finished_at=NOW)
+        s.add(build)
+        s.flush()
+        s.add_all([
+            AuditLog(actor="t", action="assets.built", artifact=f"{slug}@1.0.0", job_id=build.id,
+                     detail={"pdf_sha256_by_terminology": {"us": "a" * 64, "uk": "b" * 64}}),
+            AuditLog(actor="t", action="assets.listing_images_built", artifact=f"{slug}@1.0.0",
+                     job_id=build.id, detail={"frames": 6}),
+            AuditLog(actor="t", action="listing.seo_drafted", artifact=f"{slug}@1.0.0",
+                     detail={"search_share": 0.4}),
+            Listing(product_slug=slug, version="1.0.0", title="t", description="d",
+                    state="draft", release_hash=rel)])
+        s.commit()
+    try:
+        row = _view(q=slug)["items"][0]
+        assert row["slug"] == slug and row["state"] == PI.LISTING_COMPLETED, row["why"]
+        assert row["stage"] in ("publication_gates_pending", "physical_sample_pending",
+                                "physical_sample_passed")
+        ev = row["evidence"]
+        assert ev["certificate"]["release_hash"] == rel
+        assert ev["pdf"]["sha256_by_terminology"] == {"us": "a" * 64, "uk": "b" * 64}
+        assert ev["pdf"]["href"] == f"/api/cc/store/pdf/{slug}"
+        assert ev["gallery"]["frames"] == 6 and ev["gallery"]["href"].endswith(slug)
+        assert ev["listing_package"]["listing_id"] and ev["listing_package"]["audit_id"]
+        assert ev["etsy"]["read_back"] == "no_remote_listing"
+        assert row["next_action"]["owner"] in ("store_commerce", "owner")
+    finally:
+        with DB.session() as s:
+            from sqlalchemy import delete
+
+            s.execute(delete(AuditLog).where(AuditLog.artifact == f"{slug}@1.0.0"))
+            s.execute(delete(Listing).where(Listing.product_slug == slug))
+            s.execute(delete(Job).where(Job.job_type == "assets.build",
+                                        Job.agent == "visual"))
+            pid = s.scalar(select(Product.id).where(Product.slug == slug))
+            s.execute(delete(PatternVersion).where(PatternVersion.product_id == pid))
+            s.execute(delete(Product).where(Product.id == pid))
+            s.commit()
+        C.reset()
+    assert _view()["totals"]["products"] == N
+
+
 def test_the_route_is_owner_only_and_read_only():
     anon = TestClient(main.app, base_url="https://testserver", raise_server_exceptions=False)
     assert anon.get("/api/cc/catalogue").status_code in (401, 403)
