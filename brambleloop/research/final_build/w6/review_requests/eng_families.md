@@ -98,4 +98,20 @@ Applied one at a time with `PYTHONDONTWRITEBYTECODE=1`, running `tests/test_eng_
 
 ### Suites
 
-SUITES_RESULT
+Run `20261119T153650Z-22910`: **22 suites, 367 passing, 0 failing**, 1150 s. The tree under
+test is the content of commit 2ed3294d; no edits were made after the run started.
+
+Command: `JOBS=4 SUITE_REGISTRY=0 run_tests.sh`. Suites run:
+
+- **Touched:** test_eng_families (new, 9), test_w5_concept_intake,
+  test_w5_a4a_research_to_concept, test_opus2_draft_constructions, test_w5_inventory,
+  test_fallback_draft_provenance, test_w4_c03_fallback, test_w5_a7_supply_stall,
+  test_w6_fix_only_rebuild, test_cadence_spread.
+- **Required guards:** test_vacuity, test_w3_tmp_hygiene, test_w4_resume_runner,
+  test_w4_c12_wiring, test_v11_autonomy_timeline, test_etsy_oauth_callback,
+  test_w4_fmbatch1_retention_guard, test_w4_adopt_manual_listing, test_cert_spend_hosts,
+  test_s1_product_truth_3, test_seasonal_cycle, test_prospecting.
+
+`test_eng_families` reads `date.today()`, so it is listed in `scripts/suite_final_segment.txt`
+just before `test_product_run`. No new job type and no new audit action, so there is no
+retention or registry change.
