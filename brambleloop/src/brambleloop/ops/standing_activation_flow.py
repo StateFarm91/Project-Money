@@ -83,11 +83,15 @@ def candidates(db) -> list[tuple[str, str, str]]:
     fixed order. Lineage, gates and ceilings are `standing_activation.decide`'s to judge."""
     from sqlalchemy import select
 
+    from ..core.listing_state import PUBLISHED
     from ..core.models import Listing, PatternVersion, Product
 
     out = []
     with db.session() as s:
-        for row in s.scalars(select(Listing).where(Listing.state == "published")
+        # Only drafts the gated store.publish made (PUBLISHED). A listing the owner made by
+        # hand and adopted (PUBLISHED_MANUALLY) is deliberately not a candidate: it was never
+        # an SP draft, so it can never be in Stage A lineage.
+        for row in s.scalars(select(Listing).where(Listing.state == PUBLISHED)
                              .order_by(Listing.product_slug, Listing.version)):
             if not row.etsy_listing_id or not row.release_hash:
                 continue

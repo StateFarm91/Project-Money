@@ -1,5 +1,101 @@
 # Review request — WS4-8 Stage A wiring (`eng/ws4-8-stage-a-wiring`, base `claude/w6-INTEG2` @ f34c25ae)
 
+## Fix round 1 (answers main's DO NOT SHIP on be45c37c, MEDIUM-1)
+
+**Merges.** `origin/claude/w6-INTEG2` was already an ancestor (still f34c25ae on origin when
+this ran). Main reported `opus2/stage-a-lows-3` 50242d0c as merged in INTEG2, but it was not
+yet on origin, so 50242d0c was merged here directly with a merge commit (no rebase, no force).
+It is the same reviewed commit, so INTEG2 will see no duplicate.
+
+### MEDIUM-1: a crash after the listing goes live no longer loses lineage silently
+
+1. **The retry reaches reconcile** (`runtime/pipeline.py::handle_store_activate`).
+   - The `local_state == "active"` stop now applies before the Etsy read **only to owner
+     jobs**.
+   - A standing job reads the listing, then runs `grant_for_job`, then:
+     - stops with "already active" when `activation_verified` already names this listing and
+       grant (`standing_activation_flow.lineage_recorded`);
+     - otherwise runs `reconcile`, which sends nothing to Etsy.
+   - `reconcile` (needs this job's claimed intent and an Etsy read-back `active`) now writes
+     `store.activated` only when no standing `store.activated` names this listing and grant.
+     That covers a crash between the active commit and `store.activated`, as well as a
+     `record_activated` failure after it.
+   - When the row is active, there is no lineage, and nothing can be reconciled while Etsy
+     reads it active (for example, the intent is not this job's), the job sends nothing and
+     opens the P1 incident.
+2. **`record_live` wraps `record_activated`.**
+   - Any exception opens P1 `standing_activation.lineage_unrecorded:<listing>`, best effort.
+     An incident write that fails is logged and never raised over the result.
+   - It is idempotent: it returns True without a second row when the lineage is already
+     recorded.
+   - Once a retry records the lineage, it resolves the incident.
+3. **Tests** (`tests/test_ws4_8_stage_a_wiring.py`):
+   - `test_record_activated_raising_once_opens_an_incident_and_the_retry_repairs_lineage`:
+     - first attempt: `OperationalError` once, incident open, no lineage;
+     - retry: reconciled, 1 `activation_verified`, 1 `store.activated`, 1 send, 1 fee,
+       `plan()` live == [lid], `lineage_of_live` names the grant, incident resolved;
+     - a third run returns "already active".
+   - `test_record_activated_raising_on_every_attempt_is_never_silent`: the incident stays
+     open across retries.
+   - `test_record_live_reports_even_when_the_incident_cannot_be_written`.
+   - `test_a_crash_between_the_active_commit_and_store_activated_is_repaired_by_the_retry`:
+     `SystemExit` at the `store.activated` audit; the retry writes 1 reconciled
+     `store.activated` and then the lineage, with 1 send and 1 fee.
+   - `test_an_active_listing_this_job_cannot_reconcile_is_an_incident_not_silence`.
+   - `a_retried_job_never_activates_or_charges_twice` now also asserts 1 `activation_verified`
+     and 1 `store.activated`.
+
+### Semantic merge conflict with opus2's guard
+
+`test_ws4_stage_a_activation.py::test_the_activation_handler_records_the_verified_activation_once_it_handles_seg_grants`
+now accepts either of two calls in the handler, and still requires the call to follow
+`"store.activated"`:
+- a direct `record_activated(` call;
+- `stage_a.record_live(`, in which case `inspect.getsource(record_live)` must contain
+  `SA.record_activated(`.
+
+### Auto-renew functional gap
+
+- `ListingPayload.to_dict()` now always carries `"should_auto_renew": False`. It is not a
+  parameter, so nothing can ask for renewal. Renewal costs US$0.20 per 4 months.
+- So `create_draft` sends it, and the F-542 read-back (`etsy_ops.read_back` →
+  `etsy_verify.verify`) compares it like every other sent field: True is a MISMATCH, absent
+  is NOT_RETURNED.
+- The activation readiness re-check (`sent_fields`) does the same.
+- `tests/fake_etsy.py` honours the field on create. A create that omits it gets
+  `create_auto_renew_default = True`, conservatively, so a client relying on a default is
+  caught.
+- The wiring tests' `_world` no longer forces the flag: it asserts the draft was created with
+  it off. The new test is `test_the_draft_is_created_with_auto_renew_off_and_the_read_back_proves_it`.
+- `test_w4_launchfix` D1 changed from "not in payload" to "payload says False". Its no-source-
+  sets-True scan is unchanged.
+
+### Mutants (fix round; PYTHONDONTWRITEBYTECODE=1, `__pycache__` cleared, each alone, file restored)
+
+All 14 killed (M1–M11 against the wiring suite, G1b–G3 against `test_ws4_stage_a_activation`):
+
+| Mutant | Killed by |
+|---|---|
+| M1 "already active" stop before reconcile for standing jobs too | raising-once test |
+| M2 `record_live` lets the exception propagate | raising-once test |
+| M3 exception opens no incident | raising-once test |
+| M4 `record_live` not idempotent | retried-job test |
+| M5 reconcile always writes `store.activated` | retried-job test |
+| M6 no "lineage recorded → already active" stop | retried-job test |
+| M7 unreconcilable active listing opens no incident | unreconcilable test |
+| M8 payload omits `should_auto_renew` | lineage test (`_world` assertion) |
+| M9 fake ignores the sent field | lineage test |
+| M10 repair does not resolve the incident | raising-once test |
+| M11 incident write failure propagates | incident-cannot-be-written test |
+| G1b handler drops the `record_live` call | the opus2 guard |
+| G2 `record_live` no longer calls `SA.record_activated` | the opus2 guard |
+| G3 `record_live` named before `"store.activated"` | the opus2 guard |
+
+The first G1 attempt failed with a SyntaxError, which does not count as a kill. It was re-run
+with valid code (G1b) and killed by the guard's assertion.
+
+SUITES_PLACEHOLDER
+
 Wires a Stage A standing activation grant (`seg:<id>`, from `standing_activation.issue`) into
 `runtime/pipeline.py::handle_store_activate`, which is the only path that uses it. Adds the
 deterministic scheduler that queues standing activations. **`STAGE_A_ENABLED` stays `False`**
@@ -124,7 +220,7 @@ run (as instructed).
 
 ## Notes for the integrator (not fixed here, outside this scope)
 
-- **should_auto_renew.** `use_refusal` requires the listing Etsy holds to have `should_auto_renew is False`, and nothing in the publish path sets it. Real drafts may therefore read `True` or absent, in which case every standing activation is refused (fail closed) until the publish payload sets `should_auto_renew=false`.
+- **should_auto_renew.** Fixed in fix round 1 (see above).
 - **Mode T roles.** The issuer now reads `jobs` (`job_refusal`) and writes `policy.activation_grant_held`, `standing_grants` and `standing_activation_slots`. The worker consumes activation grants. The Mode T role grants for these belong to opus2's L-A work.
 - **Shadow evidence.** Shadow decisions are de-duplicated per (approval, release, decision), so `MIN_A_CANDIDATES` counts releases rather than scheduler ticks. Whether `a_shadow` should also count distinct releases is a Stage A design point, left unchanged here.
 - **Retries.** A standing job uses the queue's default `max_attempts`. A retry that outlives the grant's 15-minute signed life is refused by `use_refusal`, and the next pass schedules afresh.
