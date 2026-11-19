@@ -37,7 +37,7 @@ Tiers: C = `claude-haiku-4-5`, S = `claude-sonnet-5`, D = `claude-opus-5` (`gate
 | concept_ideation (C) | `creative/prospecting.py` via `runtime/release.py:6315` | `creative.tournament`, weekly | **yes** | creative_director | a wide, inexpensive field (#3) |
 | concept_generation (D) | `runtime/release.py:6446`, `:6875` | `creative.expedition` weekly; `seasonal.cycle_proof` weekly | **yes** | creative_director | decides what the company tries to sell |
 | benchmark_challenge (D) | `creative/blinded.py:648` via `runtime/release.py:6203` | `creative.blinded`, every 14 days | **yes** (independent review) | creative_director | release-blocking blinded comparison (#315) |
-| asset_inspection (S) | `visual/inspect.py:323,413,513`; `visual/fidelity.py:1074`; `visual/photoreal.py:98`; `visual/bible.py:193`; `visual/model_registry.py`; `publish/motif_fidelity.py:375` | `assets.build` frame review, `visual.image_production`, `listing.seo` exported review, model photography | **yes** (release frames) | **quality_director CA$1.00/day** | does an image show what its caption claims (#61, #79) |
+| asset_inspection (S) | `visual/inspect.py:323,413,513`; `visual/fidelity.py:1074`; `visual/photoreal.py:98`; `visual/bible.py:193`; `visual/model_registry.py`; `publish/motif_fidelity.py:375-377` | `assets.build` frame review, `visual.image_production`, `listing.seo` exported review, model photography | **yes** (release frames) | **quality_director CA$1.00/day** | does an image show what its caption claims (#61, #79) |
 | image_benchmark_judging (D) | `gateway/image_bench.py:1024`; `visual/tournament.py:289` | `creative.image_benchmark` and `creative.model_tournament`, hourly | no (provider choice) | `BENCHMARK_BUDGET_CAD`; creative_director | blind image scoring |
 | laura.* (C/S) | `gateway/laura_*.py`, `laura/executive/loop.py:664` | Command Center; `laura.executive_tick` | no | laura CA$0.50/day; 1–8% allocations | conversation and ranking over supplied facts |
 | (probes, no task) | `gateway/anthropic.py:1070` `probe`; `:1231` `vision_probe` | `model.probe`, `ops.capability_probes`, every 6 h | no | month ceiling | provider liveness (fixed haiku model) |
@@ -83,8 +83,8 @@ Declared tasks with **no runtime call site**: `listing_copy` (copy is determinis
 - **F-A3** Some spend is filed under purposes that are not `TASKS` keys:
   `search_grid_tournament`, `model_tournament`, `compat_pack` and `model.probe`. For example,
   `search_grid_tournament` uses the gallery_observation model but escapes its 40% stop.
-- **F-A4** `publish/motif_fidelity.py:374` calls `provider.see` without `check_budget`. The
-  vision gate refuses an unreserved call, so in production this check most likely always
+- **F-A4** `publish/motif_fidelity.py:375-377` (provider chosen at 375, `provider.see` at 377)
+  calls `provider.see` without `check_budget`. The vision gate refuses an unreserved call, so in production this check most likely always
   returns UNMEASURABLE. A certified-product check is silently doing nothing (see §4).
 - **F-A5** `seasonal.cycle_proof` is scheduled under publishing but bills creative_director.
 

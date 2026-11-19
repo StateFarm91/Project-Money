@@ -1,4 +1,7 @@
-# ENG-CREDITS — review request (round 1)
+# ENG-CREDITS — review request (fix round 1)
+
+**Fix round 1** answers main's DO NOT SHIP (M1, L1, L2, L3, L4, L7); see the section at the end.
+The round-1 text below is kept as written; where it conflicts, the fix-round section wins.
 
 Branch `eng/credits`. Base `claude/w6-INTEG2` @ a35ad302, which has not moved. Code commit:
 89ae3cf13a0a15f999853cf652dbd9caf40f5572. Builder. Not merged and not deployed. Nothing touched
@@ -92,3 +95,84 @@ Suite runs:
     before a worker reads them.
   - The `split()` window change for grants that have a `period_end`.
   - The product-level (not version-level) basis for per-package cost.
+
+## Fix round 1 (answers DO NOT SHIP: M1 and the LOWs)
+
+Branch `eng/credits`, from 0904367c. Code commit: see the review-request comment on #28 for the
+full sha. Nothing deployed; nothing touched Railway, production, secrets, `STAGE_A_ENABLED` or
+any ceiling. A credit still never raises the cash ceiling (`ceilings_changed` 0 everywhere).
+
+**M1 (all four parts)** — `finance/credits.py`, `app/command_center/api.py`:
+1. *Booleans and non-numbers.* `amount` must be an `int` or `float`: `True`, `"100"`, `None`,
+   lists and bytes are refused. (Previously `True` was stored as 1.0.)
+2. *Bounds.* At most `MAX_GRANT_USD` = US$1000 per period, applied in USD whatever currency was
+   typed (a CAD amount is converted first). A period is at most `MAX_PERIOD_DAYS` = 366 days,
+   both ends inclusive. The evidence note is at most 1000 characters.
+3. *Void.* New owner step-up action `finance.model_credit_void`, route
+   `POST /api/cc/finance/model-credit/void` (`{id, reason}`), audit row
+   `finance.model_credit_voided` (written, never read; retention check still clean). The row is
+   **never deleted**: `voided_at`, `voided_by`, `void_reason` are set (three additive nullable
+   columns). A voided grant draws nothing, does not count as credit, and does not block an
+   overlapping grant, so one typo is now correctable. It is listed under `voided_grants`.
+   Refused: not the owner, bad or missing id, an already-voided grant, a reason that is too
+   short or carries a secret.
+4. *Atomic overlap check.* New table `provider_credit_locks`, one row per model provider. Every
+   recording (and every void) first `UPDATE`s its provider's row, then does the overlap read and
+   the insert in the same transaction. On PostgreSQL that is a row lock: the second recorder
+   waits for the first to commit and then sees its row. On SQLite it takes the database write
+   lock, so the behaviour is the same. This was chosen over a unique constraint because no
+   unique constraint can express "these date ranges overlap". Real PostgreSQL 16 test: it starts
+   a throwaway cluster (127.0.0.1, free port, destroyed afterwards), then runs two threads that
+   record overlapping grants while a seam holds both between the check and the insert. Exactly
+   one is recorded and one is refused. It runs a second time after a void.
+   If no local PostgreSQL toolchain exists the test prints SKIP; here it ran against 16.
+
+**L1** `billed_usage_cad` is a total only when the provider reported every row. With some rows
+reported it is UNKNOWN; `billed_state` says COMPLETE, PARTIAL or UNKNOWN, and the reported part is
+`billed_reported_partial_cad`, labelled partial.
+**L2** With no stated expiry, `expiry_basis` is `period_end` (the period the owner recorded), on
+the record result, the accounting and `split()`. UNKNOWN remains only for a legacy row with no
+period.
+**L3** Currency and dates are validated whole. The route no longer truncates to 3 or 10
+characters, so `USDX` and `2026-11-01junk` are refused. Dates must match YYYY-MM-DD exactly
+(`date.fromisoformat` alone also accepts `20261101` and `2026-W45-1`).
+**L4** The evidence note and the void reason are screened with `ops.log_secret_guard.scan_text`.
+A hit is a refusal that names the pattern kind only; the note is never stored, audited or
+echoed. The provider name is no longer echoed in a refusal either.
+**L7** `model_allocation.md` cites `publish/motif_fidelity.py:375-377` (provider chosen at 375,
+the unguarded `provider.see` call at 377) in the table and in F-A4. The earlier 374/375 were off by
+a few lines.
+
+### Tests and mutants
+
+Eight new tests in `tests/test_eng_credits.py` (now 22) plus two updated for L1 and L2:
+nonsense amounts and periods (M1.1, M1.2); currency and dates, at function and route level (L3);
+void (function, route, step-up, audit, never deleted, frees the period, stops drawing); secrets
+in the note and the reason (L4); the SQLite race; the PostgreSQL 16 race.
+
+Required suite set (14 suites, `JOBS=4 SUITE_REGISTRY=0`, venv from the lock files, no
+PYTHONPATH): **236 passing, 0 failing suites**.
+
+**Mutants: 18 of 18 killed** (`PYTHONDONTWRITEBYTECODE=1`; each mutation made `test_eng_credits`
+fail; source restored after each run):
+
+| # | Mutation |
+|---|---|
+| F1 | A bool amount accepted |
+| F2 | A string amount accepted |
+| F3 | Amount cap removed |
+| F4 | Period-length cap removed |
+| F5 | Overlap lock removed (killed by both the SQLite and the PostgreSQL race) |
+| F6 | A voided grant still blocks an overlap |
+| F7 | A voided grant still draws in `split()` |
+| F8 | A voided grant still counted in the accounting |
+| F9 | Void does not mark the row |
+| F10 | A grant can be voided twice |
+| F11 | Void owner check removed |
+| F12 | Secret screen removed |
+| F13 | A partial billed figure read as the total |
+| F14 | `expiry_basis` reads "stated" for a period-only grant |
+| F15 | Loose date parsing (truncate) |
+| F16 | Currency prefix accepted (`USDX`) |
+| F17 | Void route without step-up |
+| F18 | Void route without the audit row |

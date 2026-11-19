@@ -111,12 +111,15 @@ def test_an_expired_grant_leaves_the_credit_unknown_not_zero():
         "estimated_cash_cad"] == 3.0
 
 
-def test_an_unknown_expiry_is_recorded_as_unknown():
+def test_an_unstated_expiry_is_recorded_as_period_end():
     db = boot("engcred-noexp-")
     out = _grant(db, expires_on="")
-    assert out["expires_on"] is None and out["expiry_basis"] == C.UNKNOWN
+    # L2: no stated expiry, but the owner recorded a period end: the basis says so.
+    assert out["expires_on"] is None and out["expiry_basis"] == "period_end"
     g = C.model_credit_accounting(db, now=NOW)["providers"]["anthropic"]["grants"][0]
-    assert g["expiry_basis"] == C.UNKNOWN and g["expires_on"] is None
+    assert g["expiry_basis"] == "period_end" and g["expires_on"] is None
+    led = C.split(db, "anthropic", now=NOW)["grants"][0]
+    assert led["expiry_basis"] == "period_end"
     # The period still bounds the draw: usage after the period is cash.
     _cost(db, cad=4.0, at=datetime(2026, 12, 2, tzinfo=timezone.utc))
     dec = C.model_credit_accounting(db, now=datetime(2026, 12, 3, tzinfo=timezone.utc))
@@ -142,7 +145,7 @@ def test_a_credit_grant_never_raises_the_cash_ceiling():
     except routing.CeilingReached:
         pass
     # A grant far larger than the ceiling.
-    _grant(db, amount=5000.0)
+    _grant(db, amount=C.MAX_GRANT_USD)  # the largest grant accepted, still >> the ceiling
     acct = C.model_credit_accounting(db, now=NOW)
     assert acct["providers"]["anthropic"]["credit"]["state"] == "RECORDED"
     assert acct["ceilings_changed"] == 0 and acct["cash_ceiling_cad"] == ceiling
@@ -217,9 +220,20 @@ def test_billed_usage_is_provider_reported_only_and_failed_calls_are_counted():
     assert got["billed_usage_cad"] == C.UNKNOWN and "UNKNOWN" in got["billed_basis"]
     _cost(db, cad=2.0, observed=1.8)
     got = C.model_credit_accounting(db, now=NOW)["providers"]["anthropic"]
-    assert got["gross_usage_cad"] == 3.0 and got["billed_usage_cad"] == 1.8
-    assert "1 of 2" in got["billed_basis"]
+    # L1: one of two rows reported is PARTIAL: the total is UNKNOWN, never the 1.8 as the bill.
+    assert got["gross_usage_cad"] == 3.0 and got["billed_usage_cad"] == C.UNKNOWN
+    assert got["billed_state"] == "PARTIAL" and got["billed_reported_partial_cad"] == 1.8
+    assert "1 of 2" in got["billed_basis"] and "UNKNOWN" in got["billed_basis"]
     assert abs(got["gross_usage_usd"] - round(3.0 * USD_PER_CAD, 6)) < 1e-9
+    _cost(db, cad=1.0, observed=0.9)
+    got = C.model_credit_accounting(db, now=NOW)["providers"]["anthropic"]
+    assert got["billed_state"] == "PARTIAL"
+    with db.session() as s:
+        for e in s.scalars(select(CostEntry).where(CostEntry.observed_cad.is_(None))):
+            e.observed_cad = 0.1
+    got = C.model_credit_accounting(db, now=NOW)["providers"]["anthropic"]
+    assert got["billed_state"] == "COMPLETE" and got["billed_usage_cad"] == 2.8
+    assert got["billed_reported_partial_cad"] is None
     paid_calls.ensure_table(db)
     with db.session() as s:
         for i, (outcome, prov, est) in enumerate((
@@ -430,6 +444,348 @@ def test_the_owner_route_requires_step_up_and_records_the_owner_not_the_body():
     v = view.json()
     assert v["accounting"]["cash_ceiling_cad"] == spend_policy.CEILING_CAD
     assert v["cost_by_product"]["reconciles"] is True
+
+
+# ---- 7. review fix round 1: nonsense grants, void, atomic overlap, secrets -------------------
+
+# Built from fragments so this file does not match the secret scan's own patterns.
+FAKE_KEY = "sk" + "-ant-api03-" + "Zq9" * 12
+
+
+def _refused(fn, *a, why="", **kw):
+    try:
+        fn(*a, **kw)
+    except C.CreditRefused as exc:
+        assert why in str(exc), (why, str(exc))
+        return str(exc)
+    raise AssertionError(f"was not refused: {kw}")
+
+
+def _count(db):
+    C.ensure_table(db)
+    with db.session() as s:
+        return s.scalar(select(func.count()).select_from(C.ProviderCredit))
+
+
+def test_m1_nonsense_amounts_and_periods_are_refused():
+    db = boot("engcred-m1-")
+    for amt in (True, False, None, "100", "1e3", [100], {"a": 1}, b"5",
+                1e15, 1000.01, float("inf"), 10 ** 9):
+        _refused(_grant, db, amount=amt)
+    # The cap is in USD whatever currency the owner types: CA$ 1e6 is far above it too.
+    _refused(_grant, db, amount=1_000_000.0, currency="CAD", why="above")
+    _refused(_grant, db, amount=C.MAX_GRANT_USD / USD_PER_CAD * 1.01, currency="CAD")
+    # A period of 100 years, or one day over a year, is not a credit period.
+    _refused(_grant, db, period_start="2026-01-01", period_end="2126-01-01", why="at most")
+    _refused(_grant, db, period_start="2026-01-01", period_end="2027-01-02", why="at most")
+    assert _count(db) == 0
+    # The edges are accepted: exactly the cap, exactly a (leap-free) year of 366 days.
+    _grant(db, amount=C.MAX_GRANT_USD, period_start="2026-01-01", period_end="2027-01-01")
+    db2 = boot("engcred-m1b-")
+    _grant(db2, amount=C.MAX_GRANT_USD / USD_PER_CAD, currency="CAD")
+    _grant(db2, provider="openai", period_start="2027-01-01", period_end="2028-01-01", expires_on="")
+
+
+def test_l3_currency_and_dates_are_validated_whole_not_truncated():
+    db = boot("engcred-l3-")
+    for over in (dict(currency="USDX"), dict(currency="CADX"), dict(currency="US"),
+                 dict(currency=None), dict(currency=5),
+                 dict(period_start="2026-11-01junk"), dict(period_end="2026-11-30T00:00"),
+                 dict(period_start="20261101"), dict(period_start="2026-W45-1"),
+                 dict(expires_on="2026-11-30x"), dict(period_start=20261101)):
+        _refused(_grant, db, **over)
+    assert _count(db) == 0
+    import r2_security_harness as H
+
+    c = H.client()
+    csrf = H.login(c)
+    _reset(H)
+    _stepup(H)
+    base = {"provider": "anthropic", "amount": 100, "currency": "USD",
+            "period_start": "2026-11-01", "period_end": "2026-11-30",
+            "evidence_note": EVIDENCE}
+    for over in ({"currency": "USDX"}, {"period_start": "2026-11-01junk"},
+                 {"amount": True}, {"amount": 1e15}):
+        r = c.post("/api/cc/finance/model-credit", json={**base, **over},
+                   headers=H.fresh(csrf))
+        assert r.status_code == 400 and "REFUSED" in r.text, (over, r.text)
+    assert _live_count(H.DB) == 0
+
+
+def _live_count(db):
+    C.ensure_table(db)
+    with db.session() as s:
+        return s.scalar(select(func.count()).select_from(C.ProviderCredit).where(
+            C.ProviderCredit.voided_at.is_(None)))
+
+
+def _reset(H):
+    """The route tests share one app DB: void whatever an earlier test recorded there."""
+    C.ensure_table(H.DB)
+    with H.DB.session() as s:
+        ids = list(s.scalars(select(C.ProviderCredit.id).where(
+            C.ProviderCredit.voided_at.is_(None))))
+    for i in ids:
+        C.void_model_credit(H.DB, grant_id=i, reason="test reset of the shared app database",
+                            voided_by=OWNER)
+
+
+def _stepup(H):
+    from brambleloop.app.command_center.models import OwnerSession
+
+    with H.DB.session() as s:
+        for row in s.scalars(select(OwnerSession)):
+            row.stepup_until = datetime.now(timezone.utc) + timedelta(minutes=5)
+
+
+def test_void_frees_the_period_never_deletes_and_stops_drawing():
+    db = boot("engcred-void-")
+    first = _grant(db)
+    _cost(db, cad=5.0)
+    assert C.split(db, "anthropic", now=NOW)["promo_credit_cad"] == 5.0
+    _refused(_grant, db, why="overlapping")
+    # Refusals: not the owner, a bad id, a missing id, a vague or secret-bearing reason.
+    ok_reason = "typed 100 where the console says 10"
+    _refused(C.void_model_credit, db, grant_id=first["id"], reason=ok_reason,
+             voided_by="agent:x", why="owner")
+    for gid in (True, "1", None, 0, -3, 9999):
+        _refused(C.void_model_credit, db, grant_id=gid, reason=ok_reason, voided_by=OWNER)
+    _refused(C.void_model_credit, db, grant_id=first["id"], reason="oops", voided_by=OWNER)
+    _refused(C.void_model_credit, db, grant_id=first["id"],
+             reason=f"wrong key {FAKE_KEY}", voided_by=OWNER, why="secret")
+    assert _count(db) == 1
+    with db.session() as s:
+        assert s.scalar(select(C.ProviderCredit.voided_at)) is None
+    out = C.void_model_credit(db, grant_id=first["id"], reason=ok_reason, voided_by=OWNER,
+                              now=NOW)
+    assert out["ceilings_changed"] == 0 and out["id"] == first["id"]
+    _refused(C.void_model_credit, db, grant_id=first["id"], reason=ok_reason,
+             voided_by=OWNER, why="already voided")
+    # Never deleted: the row stays, marked.
+    assert _count(db) == 1
+    with db.session() as s:
+        row = s.scalar(select(C.ProviderCredit))
+        assert row.voided_by == OWNER and row.void_reason == ok_reason and row.voided_at
+    # Voided: draws nothing (the call is cash again), credit is UNKNOWN, and it is listed.
+    sp = C.split(db, "anthropic", now=NOW)
+    assert sp["promo_credit_cad"] == 0.0 and sp["billable_cash_cad"] == 5.0 and not sp["grants"]
+    acct = C.model_credit_accounting(db, now=NOW)["providers"]["anthropic"]
+    assert acct["credit"]["state"] == C.UNKNOWN and acct["grants"] == []
+    assert acct["estimated_cash_cad"] == 5.0
+    assert [v["id"] for v in acct["voided_grants"]] == [first["id"]]
+    assert C.wallet(db, now=NOW)["providers"] == {} or all(
+        r["id"] != first["id"] for r in C.wallet(db, now=NOW).get("grants", []))
+    # The period is free: the corrected grant records, and now a third still overlaps.
+    again = _grant(db, amount=10.0)
+    assert again["id"] != first["id"] and _count(db) == 2
+    _refused(_grant, db, why="overlapping")
+    got = C.model_credit_accounting(db, now=NOW)["providers"]["anthropic"]
+    assert got["credit"]["state"] == "RECORDED"
+    assert got["credit"]["remaining_eligible_cad"] == round(10.0 / USD_PER_CAD - 5.0, 6)
+
+
+def test_the_void_route_needs_step_up_is_audited_and_never_echoes_a_secret():
+    import r2_security_harness as H
+    from brambleloop.app.command_center.models import OwnerSession
+    from brambleloop.core.models import AuditLog
+
+    c = H.client()
+    csrf = H.login(c)
+    _reset(H)
+    _stepup(H)
+    body = {"provider": "anthropic", "amount": 100, "currency": "USD",
+            "period_start": "2026-11-01", "period_end": "2026-11-30",
+            "evidence_note": EVIDENCE}
+    # L4 on the record route: a key pasted into the note is refused, never stored or echoed.
+    r = c.post("/api/cc/finance/model-credit", json={**body, "evidence_note": f"key {FAKE_KEY}"},
+               headers=H.fresh(csrf))
+    assert r.status_code == 400 and "secret" in r.text and FAKE_KEY not in r.text, r.text
+    assert "Zq9Zq9" not in r.text and _live_count(H.DB) == 0
+    r = c.post("/api/cc/finance/model-credit", json=body, headers=H.fresh(csrf))
+    assert r.status_code == 200, r.text
+    gid = r.json()["id"]
+    assert r.json()["expiry_basis"] == "period_end"
+    with H.DB.session() as s:
+        for row in s.scalars(select(OwnerSession)):
+            row.stepup_until = None
+    why = {"id": gid, "reason": "recorded from the wrong statement"}
+    r = c.post("/api/cc/finance/model-credit/void", json=why, headers=H.fresh(csrf))
+    assert r.status_code == 403 and "STEP_UP_REQUIRED" in r.text, r.text
+    anon = H.client()
+    r = anon.post("/api/cc/finance/model-credit/void", json=why, headers=H.fresh(None))
+    assert r.status_code in (401, 403), r.text
+    _stepup(H)
+    r = c.post("/api/cc/finance/model-credit/void",
+               json={**why, "reason": f"key {FAKE_KEY} here"}, headers=H.fresh(csrf))
+    assert r.status_code == 400 and FAKE_KEY not in r.text and "Zq9Zq9" not in r.text, r.text
+    r = c.post("/api/cc/finance/model-credit/void", json={"id": gid, "reason": "x"},
+               headers=H.fresh(csrf))
+    assert r.status_code == 400, r.text
+    r = c.post("/api/cc/finance/model-credit/void", json=why, headers=H.fresh(csrf))
+    assert r.status_code == 200 and r.json()["ceilings_changed"] == 0, r.text
+    assert r.json()["accounting"]["providers"]["anthropic"]["grants"] == []
+    with H.DB.session() as s:
+        acts = [(a.action, a.detail) for a in s.scalars(select(AuditLog))
+                if a.action == C.MODEL_CREDIT_VOIDED]
+        assert len(acts) == 1 and acts[0][1]["id"] == gid
+        blob = " ".join(str(a.detail) for a in s.scalars(select(AuditLog)))
+    assert FAKE_KEY not in blob and "Zq9Zq9" not in blob
+    r = c.post("/api/cc/finance/model-credit/void", json=why, headers=H.fresh(csrf))
+    assert r.status_code == 400 and "already voided" in r.text, r.text
+
+
+def test_l4_secret_like_evidence_is_refused_and_never_echoed():
+    db = boot("engcred-l4-")
+    for note in (f"billing page, key {FAKE_KEY}",
+                 "console read; Authorization: Bearer " + "abcDEF0123456789" * 3,
+                 "email, AKIA" + "ABCDEFGHIJKLMNOP",
+                 "statement -----BEGIN RSA PRIVATE KEY-----"):
+        msg = _refused(_grant, db, evidence_note=note, why="secret")
+        assert FAKE_KEY not in msg and "Zq9Zq9" not in msg and "abcDEF" not in msg, msg
+    _refused(_grant, db, evidence_note="x" * 5000, why="at most")
+    assert _count(db) == 0
+    # An honest note, and a note that merely mentions the word, are fine.
+    _grant(db, evidence_note="Billing page: the credit grant line; no key quoted here")
+    with db.session() as s:
+        assert "Zq9" not in s.scalar(select(C.ProviderCredit.note))
+
+
+def _race(db, results):
+    """Two threads record overlapping grants at the same instant: both read the ledger before
+    either inserts (the seam holds them between the check and the insert)."""
+    import threading
+
+    barrier = threading.Barrier(2)
+
+    def seam():
+        try:
+            barrier.wait(timeout=2.0)
+        except threading.BrokenBarrierError:
+            pass            # the other recorder is (correctly) waiting on the lock
+
+    def one(i, **over):
+        try:
+            results[i] = _grant(db, **over)
+        except C.CreditRefused as exc:
+            results[i] = exc
+        except Exception as exc:  # noqa: BLE001 - an engine-level lock failure is a refusal too
+            results[i] = exc
+
+    C._before_insert = seam
+    try:
+        ts = [threading.Thread(target=one, args=(0,)),
+              threading.Thread(target=one, args=(1,), kwargs=dict(
+                  period_start="2026-11-15", period_end="2026-12-14", expires_on=""))]
+        for th in ts:
+            th.start()
+        for th in ts:
+            th.join(timeout=30)
+    finally:
+        C._before_insert = None
+
+
+def _one_wins(db, results):
+    won = [r for r in results if isinstance(r, dict)]
+    lost = [r for r in results if isinstance(r, Exception)]
+    assert len(won) == 1 and len(lost) == 1, results
+    assert isinstance(lost[0], C.CreditRefused) and "overlapping" in str(lost[0]), lost
+    assert _count(db) == 1
+
+
+def test_two_concurrent_overlapping_grants_record_only_one_sqlite():
+    db = boot("engcred-race-")
+    results = [None, None]
+    _race(db, results)
+    _one_wins(db, results)
+
+
+def _local_pg_cluster():
+    """A throwaway PostgreSQL cluster (the W6 pattern of test_a3_postgres_photo_fence):
+    127.0.0.1, a free port, one empty database, destroyed afterwards. Yields the URL, or None
+    when no local PostgreSQL toolchain exists (the test then prints SKIP: never a silent pass)."""
+    import contextlib
+    import glob
+    import os
+    import shutil
+    import socket
+    import subprocess
+    import tempfile
+
+    @contextlib.contextmanager
+    def cluster():
+        bins = sorted(glob.glob("/usr/lib/postgresql/*/bin/initdb"))
+        if not bins:
+            yield None
+            return
+        bindir = os.path.dirname(bins[-1])
+        as_pg = []
+        if os.geteuid() == 0:
+            import pwd
+
+            try:
+                pwd.getpwnam("postgres")
+            except KeyError:
+                yield None
+                return
+            as_pg = ["runuser", "-u", "postgres", "--"]
+        base = tempfile.mkdtemp(prefix="eng-credits-pg-", dir="/tmp")
+        os.chmod(base, 0o755)
+        if as_pg:
+            shutil.chown(base, user="postgres")
+        data = os.path.join(base, "data")
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            port = sock.getsockname()[1]
+        started = False
+        run = lambda *a: subprocess.run(as_pg + list(a), check=True,  # noqa: E731
+                                        capture_output=True, timeout=120)
+        try:
+            run(f"{bindir}/initdb", "-D", data, "-A", "trust", "-U", "postgres")
+            started = True
+            run(f"{bindir}/pg_ctl", "-D", data, "-w", "-l", os.path.join(base, "log"), "-o",
+                f"-c listen_addresses=127.0.0.1 -c port={port} "
+                f"-c unix_socket_directories={base}", "start")
+            run(f"{bindir}/createdb", "-h", "127.0.0.1", "-p", str(port), "-U", "postgres",
+                "eng_credits_test")
+            yield f"postgresql://postgres@127.0.0.1:{port}/eng_credits_test"
+        finally:
+            if started:
+                subprocess.run(as_pg + [f"{bindir}/pg_ctl", "-D", data, "-m", "immediate",
+                                        "-w", "stop"], capture_output=True, timeout=120)
+            shutil.rmtree(base, ignore_errors=True)
+
+    return cluster()
+
+
+def test_two_concurrent_overlapping_grants_record_only_one_postgresql():
+    from brambleloop.core.db import Database
+
+    with _local_pg_cluster() as url:
+        if url is None:
+            print("SKIP test_two_concurrent_overlapping_grants_record_only_one_postgresql: "
+                  "no local PostgreSQL toolchain (UNKNOWN, not PASS)")
+            return
+        db = Database(url, scratch=True)
+        assert db.engine.dialect.name == "postgresql"
+        with db.engine.connect() as conn:
+            from sqlalchemy import text
+            assert int(conn.execute(text("show server_version_num")).scalar()) // 10000 >= 16
+        C.ensure_table(db)
+        results = [None, None]
+        _race(db, results)
+        _one_wins(db, results)
+        # Run the race again for the next period boundary and a void between: still one winner.
+        with db.session() as s:
+            gid = s.scalar(select(C.ProviderCredit.id))
+        C.void_model_credit(db, grant_id=gid, reason="recorded in the wrong period",
+                            voided_by=OWNER)
+        results = [None, None]
+        _race(db, results)
+        with db.session() as s:
+            live = s.scalar(select(func.count()).select_from(C.ProviderCredit).where(
+                C.ProviderCredit.voided_at.is_(None)))
+        assert live == 1 and sum(isinstance(r, dict) for r in results) == 1, results
+        db.engine.dispose()
 
 
 def test_no_new_audit_action_lacks_a_retention_decision():

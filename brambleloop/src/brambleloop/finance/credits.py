@@ -15,6 +15,7 @@ existing database.
 """
 from __future__ import annotations
 
+import re
 import threading
 from datetime import date, datetime, timezone
 
@@ -55,6 +56,25 @@ class ProviderCredit(Base):
     period_start: Mapped[str | None] = mapped_column(String(10), nullable=True, default="")
     period_end: Mapped[str | None] = mapped_column(String(10), nullable=True, default="")
     recorded_by: Mapped[str | None] = mapped_column(String(80), nullable=True, default="")
+    # ENG-CREDITS fix round 1: a grant is never deleted. The owner VOIDS a wrong one (audited,
+    # step-up); a voided grant draws nothing, is reported as voided and frees its period.
+    voided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    voided_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    void_reason: Mapped[str | None] = mapped_column(String(300), nullable=True)
+
+
+class ProviderCreditLock(Base):
+    """One row per model provider: the serialisation point of `record_model_credit`.
+
+    The overlap check is check-then-insert, and no unique constraint can say "these periods
+    overlap". Every recording first UPDATEs its provider's row, which takes a row lock on
+    PostgreSQL (the second recorder waits for the first to commit, then reads its row) and the
+    database write lock on SQLite, so the check and the insert are one atomic step on both.
+    """
+    __tablename__ = "provider_credit_locks"
+
+    provider: Mapped[str] = mapped_column(String(40), primary_key=True)
+    n: Mapped[int] = mapped_column(default=0)
 
 
 class AdsCreditCycle(Base):
@@ -90,8 +110,28 @@ def ensure_table(db) -> None:
         if getattr(engine, _FLAG, False):
             return
         Base.metadata.create_all(engine, tables=[ProviderCredit.__table__,
+                                                 ProviderCreditLock.__table__,
                                                  AdsCreditCycle.__table__], checkfirst=True)
+        _seed_locks(db)
         setattr(engine, _FLAG, True)
+
+
+def _seed_locks(db) -> None:
+    """Make sure each model provider has its lock row (a lost race is harmless)."""
+    from sqlalchemy.exc import IntegrityError
+
+    for p in MODEL_PROVIDERS:
+        try:
+            with db.session() as s:
+                if s.get(ProviderCreditLock, p) is None:
+                    s.add(ProviderCreditLock(provider=p, n=0))
+        except IntegrityError:
+            pass
+
+
+def _live(stmt):
+    """Restrict a ProviderCredit select to grants that have not been voided."""
+    return stmt.where(ProviderCredit.voided_at.is_(None))
 
 
 def _to_cad(amount: float, currency: str) -> float:
@@ -145,8 +185,8 @@ def wallet(db, *, now: datetime | None = None) -> dict:
     now = now or datetime.now(timezone.utc)
     today = now.date().isoformat()
     with db.session() as s:
-        credits = list(s.scalars(select(ProviderCredit).order_by(ProviderCredit.granted_on,
-                                                                 ProviderCredit.id)))
+        credits = list(s.scalars(_live(select(ProviderCredit)).order_by(
+            ProviderCredit.granted_on, ProviderCredit.id)))
         providers = sorted({c.provider for c in credits})
         spend: dict[str, list] = {p: [] for p in providers}
         if providers:
@@ -228,8 +268,9 @@ def split(db, provider: str, *, now: datetime | None = None) -> dict:
     with db.session() as s:
         grants = [{"id": c.id, "left": _to_cad(c.amount, c.currency),
                    "from": c.period_start or c.granted_on,
-                   "until": _draw_until(c)}
-                  for c in s.scalars(select(ProviderCredit).where(
+                   "until": _draw_until(c),
+                   "basis": _expiry_basis(c.expires_on, getattr(c, "period_end", ""))}
+                  for c in s.scalars(_live(select(ProviderCredit)).where(
                       ProviderCredit.provider == provider).order_by(
                       ProviderCredit.granted_on, ProviderCredit.id))]
         rows = [(e.id, (e.at if e.at.tzinfo else e.at.replace(tzinfo=timezone.utc)),
@@ -274,7 +315,7 @@ def split(db, provider: str, *, now: datetime | None = None) -> dict:
             **held,
             "exposure_cad": round(cash + held["reserved_cad"] + held["uncertain_cad"], 6),
             "grants": [{"id": g["id"], "granted_on": g["from"], "expires_on": g["until"],
-                        "expiry_basis": "stated" if g["until"] else "UNKNOWN",
+                        "expiry_basis": g["basis"],
                         "expired": bool(g["until"] and g["until"] < today),
                         "estimated_left_cad": (0.0 if g["until"] and g["until"] < today
                                                else round(max(g["left"], 0.0), 6))}
@@ -461,63 +502,129 @@ def _provider_of(name: str) -> str:
     return name
 
 
-def record_model_credit(db, *, provider: str, amount: float, currency: str,
+MAX_GRANT_USD = 1000.0       # a sane per-provider ceiling for ONE period's promotional credit
+MAX_NOTE_CHARS = 1000
+MAX_PERIOD_DAYS = 366        # a credit period is at most a year, both ends inclusive
+MODEL_CREDIT_VOID_ACTION = "finance.model_credit_void"            # step-up action name
+MODEL_CREDIT_VOIDED = "finance.model_credit_voided"               # audit action (written, never read)
+_CURRENCIES = ("CAD", "USD")
+_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+# Test seam: called after the overlap check and before the insert, inside the transaction.
+_before_insert = None
+
+
+def _iso_date(label: str, value) -> date:
+    """A strict YYYY-MM-DD (date.fromisoformat also takes 20261101 and 2026-W01-1)."""
+    text = value if isinstance(value, str) else ""
+    if not _ISO_DATE.match(text):
+        raise CreditRefused(f"{label} is an ISO date, YYYY-MM-DD")
+    try:
+        return date.fromisoformat(text)
+    except ValueError:
+        raise CreditRefused(f"{label} is an ISO date, YYYY-MM-DD") from None
+
+
+def _screened_note(label: str, value, minimum: int) -> str:
+    """The note with whitespace collapsed, refused if it is too short to be evidence or looks
+    like it carries a secret. A refusal names the kind of pattern, never the matched text."""
+    from ..ops import log_secret_guard
+
+    if isinstance(value, str) and len(value) > MAX_NOTE_CHARS * 4:
+        raise CreditRefused(f"the {label} is at most {MAX_NOTE_CHARS} characters")
+    note = " ".join(str(value or "").split())
+    if len(note) > MAX_NOTE_CHARS:
+        raise CreditRefused(f"the {label} is at most {MAX_NOTE_CHARS} characters")
+    hits = log_secret_guard.scan_text(note)
+    if hits:
+        kinds = sorted({name for _, name, _ in hits})
+        raise CreditRefused(f"the {label} looks like it contains a secret ({', '.join(kinds)}); "
+                            f"write where it was read, never a key or token -- nothing was "
+                            f"recorded")
+    if len(note) < minimum:
+        raise CreditRefused(
+            "an evidence note says where the grant was read (the provider's billing page, an "
+            "email, a statement); without it the grant is a claim, not a credit"
+            if label == "evidence note" else f"the {label} is at least {minimum} characters")
+    return note
+
+
+def _expiry_basis(expires_on, period_end) -> str:
+    """How the end of a grant's draw window is known: stated by the owner, bounded only by the
+    period the owner recorded, or UNKNOWN. Never "does not expire"."""
+    return "stated" if expires_on else ("period_end" if period_end else UNKNOWN)
+
+
+def record_model_credit(db, *, provider: str, amount, currency: str,
                         period_start: str, period_end: str, expires_on: str = "",
                         evidence_note: str, recorded_by: str) -> dict:
     """Record one owner-verified model-provider credit grant for a usage period.
 
-    Refuses: a provider that is not a model provider; a non-positive or non-finite amount; a
-    currency with no conversion; unparseable dates, a period that ends before it starts, an
-    expiry before the period starts; an evidence note too short to be evidence; a recorder that
-    is not the owner's Command Center session; and a second grant for the same provider whose
-    period overlaps one already recorded (the same credit counted twice would read as twice
-    the credit). An empty `expires_on` is recorded as UNKNOWN, never "does not expire".
-    The grant is accounting only: it changes no ceiling and authorises no call.
+    Refuses: a provider that is not a model provider; an amount that is not a real number (a
+    bool, a string, None), is non-positive, non-finite or above `MAX_GRANT_USD` (US$1000)
+    per period; a currency other than CAD or USD; dates that are not strict YYYY-MM-DD, a
+    period that ends before it starts or runs past `MAX_PERIOD_DAYS` (one year), an expiry
+    before the period starts; an evidence note too short to be evidence or carrying a
+    secret-like string; a recorder that is not the owner's Command Center session; and a second
+    grant for the same provider whose period overlaps a live one (the same credit counted
+    twice would read as twice the credit). A voided grant frees its period. The overlap check
+    and the insert are one atomic step (`ProviderCreditLock`). An empty `expires_on` is
+    recorded with expiry_basis "period_end", never "does not expire". The grant is accounting
+    only: it changes no ceiling and authorises no call.
     """
     import math
 
-    from sqlalchemy import select
+    from sqlalchemy import select, update
 
-    provider = (provider or "").strip().lower()
+    provider = (provider or "").strip().lower() if isinstance(provider, str) else ""
     if provider not in MODEL_PROVIDERS:
-        raise CreditRefused(f"{provider!r} is not a model provider: {MODEL_PROVIDERS}")
+        raise CreditRefused(f"that is not a model provider: {MODEL_PROVIDERS}")
     if not str(recorded_by or "").startswith("owner:"):
         raise CreditRefused("only the owner records a model credit grant")
-    try:
-        amt = float(amount)
-    except (TypeError, ValueError):
-        raise CreditRefused("amount is a number") from None
+    if isinstance(amount, bool) or not isinstance(amount, (int, float)):
+        raise CreditRefused("amount is a number")
+    amt = float(amount)
     if not math.isfinite(amt) or amt <= 0:
         raise CreditRefused("a credit is a positive amount")
-    currency = str(currency or "").upper()
-    _to_cad(amt, currency)
-    try:
-        start = date.fromisoformat(str(period_start))
-        end = date.fromisoformat(str(period_end))
-        expiry = date.fromisoformat(str(expires_on)) if expires_on else None
-    except ValueError:
-        raise CreditRefused("period_start, period_end and expires_on are ISO dates") from None
+    cur = currency.strip().upper() if isinstance(currency, str) else ""
+    if cur not in _CURRENCIES:
+        raise CreditRefused(f"currency is one of {_CURRENCIES}")
+    start = _iso_date("period_start", period_start)
+    end = _iso_date("period_end", period_end)
+    expiry = _iso_date("expires_on", expires_on) if expires_on else None
     if end < start:
         raise CreditRefused("the credit period ends before it starts")
+    if (end - start).days + 1 > MAX_PERIOD_DAYS:
+        raise CreditRefused(f"a credit period is at most {MAX_PERIOD_DAYS} days")
     if expiry is not None and expiry < start:
         raise CreditRefused("the credit expires before its period starts")
-    note = " ".join(str(evidence_note or "").split())
-    if len(note) < MIN_EVIDENCE_CHARS:
-        raise CreditRefused("an evidence note says where the grant was read (the provider's "
-                            "billing page, an email, a statement); without it the grant is a "
-                            "claim, not a credit")
+    from ..gateway.routing import USD_PER_CAD
+
+    usd = amt if cur == "USD" else amt * USD_PER_CAD
+    if usd > MAX_GRANT_USD + 1e-6:       # float round trip of a CAD edge amount
+        raise CreditRefused(f"a credit above US${MAX_GRANT_USD:,.0f} per period is not "
+                            f"recorded; check the amount and the currency")
+    note = _screened_note("evidence note", evidence_note, MIN_EVIDENCE_CHARS)
     ensure_table(db)
     with db.session() as s:
-        for c in s.scalars(select(ProviderCredit).where(
+        # Serialise recorders of this provider: the overlap read and the insert are one step.
+        locked = s.execute(update(ProviderCreditLock).where(
+            ProviderCreditLock.provider == provider).values(n=ProviderCreditLock.n + 1))
+        if locked.rowcount != 1:
+            raise CreditRefused("the credit ledger lock is missing; nothing was recorded")
+        for c in s.scalars(_live(select(ProviderCredit)).where(
                 ProviderCredit.provider == provider,
                 ProviderCredit.kind == "promotional_credit")):
             c_start = c.period_start or c.granted_on
             c_end = c.period_end or c.expires_on or "9999-12-31"
             if c_start <= end.isoformat() and start.isoformat() <= c_end:
                 raise CreditRefused(f"a {provider} credit for an overlapping period "
-                                    f"({c_start}..{c_end}) is already recorded (id {c.id})")
+                                    f"({c_start}..{c_end}) is already recorded (id {c.id}); "
+                                    f"void it first if it was recorded wrongly")
+        if _before_insert is not None:
+            _before_insert()
         row = ProviderCredit(provider=provider, kind="promotional_credit", amount=amt,
-                             currency=currency, granted_on=start.isoformat(),
+                             currency=cur, granted_on=start.isoformat(),
                              expires_on=expiry.isoformat() if expiry else "",
                              source="owner_reported", evidence_ref=note[:200], note=note,
                              period_start=start.isoformat(), period_end=end.isoformat(),
@@ -525,12 +632,51 @@ def record_model_credit(db, *, provider: str, amount: float, currency: str,
         s.add(row)
         s.flush()
         rid = row.id
-    return {"id": rid, "provider": provider, "amount": amt, "currency": currency,
-            "amount_cad": round(_to_cad(amt, currency), 6),
+    return {"id": rid, "provider": provider, "amount": amt, "currency": cur,
+            "amount_cad": round(_to_cad(amt, cur), 6),
             "period_start": start.isoformat(), "period_end": end.isoformat(),
             "expires_on": expiry.isoformat() if expiry else None,
-            "expiry_basis": "stated" if expiry else UNKNOWN,
+            "expiry_basis": _expiry_basis(expiry, end),
             "ceilings_changed": 0}
+
+
+def void_model_credit(db, *, grant_id, reason: str, voided_by: str,
+                      now: datetime | None = None) -> dict:
+    """Void one recorded model credit grant: the owner's correction for a wrong grant.
+
+    Nothing is deleted. The row stays, marked voided with who, when and why; from then on it
+    draws no usage, is not counted as credit, and no longer blocks an overlapping grant. Only
+    the owner voids; the reason must say why and must not carry a secret; a grant already
+    voided, or one that does not exist, is refused. Accounting only: no ceiling changes.
+    """
+    from sqlalchemy import select, update
+
+    if not str(voided_by or "").startswith("owner:"):
+        raise CreditRefused("only the owner voids a model credit grant")
+    if isinstance(grant_id, bool) or not isinstance(grant_id, int) or grant_id < 1:
+        raise CreditRefused("grant_id is the id of a recorded grant")
+    why = _screened_note("void reason", reason, MIN_EVIDENCE_CHARS)
+    now = now or datetime.now(timezone.utc)
+    ensure_table(db)
+    with db.session() as s:
+        row = s.scalar(select(ProviderCredit).where(
+            ProviderCredit.id == grant_id, ProviderCredit.kind == "promotional_credit",
+            ProviderCredit.source == "owner_reported"))
+        if row is None:
+            raise CreditRefused(f"no owner-recorded model credit grant has id {grant_id}")
+        provider = _provider_of(row.provider)
+        # Same lock as recording, so a void and a new grant for the provider do not interleave.
+        s.execute(update(ProviderCreditLock).where(
+            ProviderCreditLock.provider == provider).values(n=ProviderCreditLock.n + 1))
+        s.refresh(row)
+        if row.voided_at is not None:
+            raise CreditRefused(f"grant {grant_id} is already voided")
+        row.voided_at, row.voided_by, row.void_reason = now, str(voided_by)[:80], why[:300]
+        out = {"id": row.id, "provider": provider, "amount": row.amount,
+               "currency": row.currency, "period_start": row.period_start or row.granted_on,
+               "period_end": row.period_end or None, "voided_at": now.isoformat(),
+               "void_reason": why[:300]}
+    return {**out, "ceilings_changed": 0}
 
 
 def _month_window(now: datetime) -> tuple[datetime, datetime]:
@@ -597,15 +743,22 @@ def model_credit_accounting(db, *, now: datetime | None = None) -> dict:
     today = now.date().isoformat()
     m0, m1 = start.date().isoformat(), (end.date().isoformat())
     with db.session() as s:
-        grants = list(s.scalars(select(ProviderCredit).where(
+        all_grants = list(s.scalars(select(ProviderCredit).where(
             ProviderCredit.kind == "promotional_credit").order_by(
             ProviderCredit.granted_on, ProviderCredit.id)))
+        grants = [g for g in all_grants if g.voided_at is None]
+        voided_rows = [{"id": g.id, "provider": _provider_of(g.provider), "amount": g.amount,
+                        "currency": g.currency, "period_start": g.period_start or g.granted_on,
+                        "period_end": g.period_end or None,
+                        "voided_at": g.voided_at.isoformat(), "voided_by": g.voided_by or "",
+                        "void_reason": g.void_reason or ""}
+                       for g in all_grants if g.voided_at is not None]
         grant_rows = [{"id": g.id, "provider": _provider_of(g.provider), "amount": g.amount,
                        "currency": g.currency, "amount_cad": round(_to_cad(g.amount, g.currency), 6),
                        "period_start": g.period_start or g.granted_on,
                        "period_end": g.period_end or None,
                        "expires_on": g.expires_on or None,
-                       "expiry_basis": "stated" if g.expires_on else UNKNOWN,
+                       "expiry_basis": _expiry_basis(g.expires_on, g.period_end),
                        "recorded_by": g.recorded_by or "", "evidence_ref": g.evidence_ref,
                        "draw_until": _draw_until(g)} for g in grants]
         entries = [(e.id, _provider_of(e.provider), float(e.amount_cad or 0.0),
@@ -617,7 +770,12 @@ def model_credit_accounting(db, *, now: datetime | None = None) -> dict:
         mine = [e for e in entries if e[1] == p]
         gross = round(sum(e[2] for e in mine), 6)
         observed = [e for e in mine if e[3] is not None]
-        billed = (round(sum(float(e[3]) for e in observed), 6) if observed else UNKNOWN)
+        reported = round(sum(float(e[3]) for e in observed), 6) if observed else None
+        # Billed usage is a total only when the provider reported every row; with only some
+        # rows reported it is UNKNOWN (the partial sum is shown beside it, labelled partial).
+        billed_state = ("UNKNOWN" if not observed else
+                        "COMPLETE" if len(observed) == len(mine) else "PARTIAL")
+        billed = reported if billed_state == "COMPLETE" else UNKNOWN
         p_grants = [g for g in grant_rows if g["provider"] == p]
         # A grant is eligible this month when its usage window overlaps the month.
         active = [g for g in p_grants
@@ -651,12 +809,18 @@ def model_credit_accounting(db, *, now: datetime | None = None) -> dict:
         providers[p] = {
             "credit": credit,
             "grants": p_grants,
+            "voided_grants": [v for v in voided_rows if v["provider"] == p],
             "gross_usage_cad": gross,
             "gross_usage_usd": round(gross * USD_PER_CAD, 6),
             "gross_basis": "recorded at this system's assumed list prices (not an invoice)",
             "calls": len(mine),
             "billed_usage_cad": billed,
+            "billed_state": billed_state,
+            "billed_reported_partial_cad": reported if billed_state == "PARTIAL" else None,
             "billed_basis": (f"provider-reported for {len(observed)} of {len(mine)} rows"
+                             + ("" if billed_state == "COMPLETE" else
+                                "; the total is UNKNOWN until every row is reported (the "
+                                "reported part is shown as a partial figure, never as the bill)")
                              if observed else
                              "UNKNOWN: no provider statement has been read for this month"),
             "estimated_credit_absorbed_cad": promo,

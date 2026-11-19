@@ -822,15 +822,14 @@ def make_router(db) -> APIRouter:
         body = await body_of(request)
         auth.require_stepup(db, request, credits.MODEL_CREDIT_ACTION)
         pid = auth.current_public_id(request)
+        # Values go to the validator exactly as sent: truncating first would let "USDX" read
+        # as USD and "2026-11-01junk" as a date. The validator refuses what it cannot parse.
         try:
             out = await run_in_threadpool(lambda: credits.record_model_credit(
-                db, provider=str(body.get("provider") or "")[:40],
-                amount=body.get("amount"), currency=str(body.get("currency") or "")[:3],
-                period_start=str(body.get("period_start") or "")[:10],
-                period_end=str(body.get("period_end") or "")[:10],
-                expires_on=str(body.get("expires_on") or "")[:10],
-                evidence_note=str(body.get("evidence_note") or "")[:1000],
-                recorded_by=actor(request)))
+                db, provider=body.get("provider"), amount=body.get("amount"),
+                currency=body.get("currency"), period_start=body.get("period_start"),
+                period_end=body.get("period_end"), expires_on=body.get("expires_on") or "",
+                evidence_note=body.get("evidence_note"), recorded_by=actor(request)))
         except credits.CreditRefused as exc:
             raise auth.refuse(db, request, 400, "REFUSED", str(exc)[:300], kind="action",
                               session_public_id=pid) from None
@@ -839,6 +838,29 @@ def make_router(db) -> APIRouter:
         Registry(db).audit("orchestrator", credits.MODEL_CREDIT_RECORDED, detail=detail)
         auth.record(db, kind="action", outcome="ok", request=request, session_public_id=pid,
                     detail={"action": credits.MODEL_CREDIT_ACTION, **detail})
+        return ok({**out, "accounting": credits.model_credit_accounting(db)})
+
+    @router.post("/finance/model-credit/void")
+    async def model_credit_void(request: Request):
+        """Void (never delete) a recorded grant: audited, step-up, frees its period."""
+        from ...agents.registry import Registry
+        from ...finance import credits
+
+        body = await body_of(request)
+        auth.require_stepup(db, request, credits.MODEL_CREDIT_VOID_ACTION)
+        pid = auth.current_public_id(request)
+        try:
+            out = await run_in_threadpool(lambda: credits.void_model_credit(
+                db, grant_id=body.get("id"), reason=body.get("reason"),
+                voided_by=actor(request)))
+        except credits.CreditRefused as exc:
+            raise auth.refuse(db, request, 400, "REFUSED", str(exc)[:300], kind="action",
+                              session_public_id=pid) from None
+        detail = {k: out.get(k) for k in ("id", "provider", "amount", "currency",
+                                          "period_start", "period_end", "void_reason")}
+        Registry(db).audit("orchestrator", credits.MODEL_CREDIT_VOIDED, detail=detail)
+        auth.record(db, kind="action", outcome="ok", request=request, session_public_id=pid,
+                    detail={"action": credits.MODEL_CREDIT_VOID_ACTION, **detail})
         return ok({**out, "accounting": credits.model_credit_accounting(db)})
 
     # ---- paid provider owner activation (P0-PAID-PROVIDER-OWNER-GATE) ------------------------
