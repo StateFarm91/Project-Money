@@ -34,6 +34,7 @@ def test_claims_are_refused_in_copy():
 
 def test_company_sentences_pass():
     texts = [DISCLOSURES[k] for k in DISCLOSURES] + [AI_DISCLOSURE]
+    assert len(texts) > 1
     for t in texts:
         assert pol.authorship_claim_problems(t) == [], t
 
@@ -67,6 +68,7 @@ if __name__ == "__main__":
     for name, fn in tests:
         try:
             fn()
+            print(f"OK   {name}")
         except Exception:  # noqa: BLE001
             traceback.print_exc()
             print(f"FAIL {name}")
