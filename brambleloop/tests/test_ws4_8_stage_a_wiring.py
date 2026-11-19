@@ -987,6 +987,47 @@ def test_every_new_audit_action_has_a_retention_decision():
         assert action in retention.KNOWN_READ_ACTIONS, action
 
 
+def test_an_owner_activation_before_the_standing_run_raises_no_lineage_p1():
+    """Verdict 7012067586 item 2: the owner activated the listing (per-product approval)
+    between grant issue and this run. The standing job sends nothing and opens no
+    `lineage_unrecorded` P1, because the listing is not this grant's. A standing
+    `store.activated` (or none at all) keeps the P1."""
+    from brambleloop.core.models import AuditLog
+
+    _keys()
+    try:
+        db, fake, p, lid, release = _world()
+        job = _standing_job(db, p, release)
+        _mint(db, p["slug"], p["version"], release, job.id)
+        fake.listings[lid]["state"] = "active"
+        with db.session() as s:
+            s.scalar(select(Listing).where(Listing.product_slug == p["slug"])).state = "active"
+            s.add(AuditLog(actor="store_operator", action="store.activated",
+                           artifact=f"{p['slug']}@{p['version']}",
+                           detail={"etsy_listing_id": lid, "state_on_etsy": "active",
+                                   "authority": "owner"}))
+        sent: list = []
+        out = _handler(db, fake, job, activate=_counting_send(sent))
+        assert out["reasons"] == ["already active: activated by the owner"], out
+        assert sent == [] and not _fees(db) and _open_lineage_incidents(db, lid) == []
+        assert F.owner_activated(db, lid) is True
+        # A later standing store.activated is the newest: not the owner's any more.
+        with db.session() as s:
+            s.add(AuditLog(actor="store_operator", action="store.activated",
+                           artifact=f"{p['slug']}@{p['version']}",
+                           detail={"etsy_listing_id": lid, "state_on_etsy": "active",
+                                   "authority": "standing", "grant_id": 1}))
+        assert F.owner_activated(db, lid) is False
+        assert F.owner_activated(db, "no-such-listing") is False
+        # A pre-WS4-8 row carries no authority: it was always the owner's per-product path.
+        with db.session() as s:
+            s.add(AuditLog(actor="store_operator", action="store.activated", artifact="old@1",
+                           detail={"etsy_listing_id": "legacy-1", "state_on_etsy": "active"}))
+        assert F.owner_activated(db, "legacy-1") is True
+    finally:
+        _unkeys()
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in list(globals().items()):

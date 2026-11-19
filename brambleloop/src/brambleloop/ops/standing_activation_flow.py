@@ -394,6 +394,24 @@ def open_lineage_unrecorded(db, *, grant_id: int, listing_id: str, artifact: str
         return False
 
 
+def owner_activated(db, listing_id: str) -> bool:
+    """Verdict 7012067586 item 2: the newest `store.activated` for this listing was the owner's
+    (authority "owner", or a pre-WS4-8 row with no authority, which was always the owner's
+    per-product path). Such a listing went live on the owner's approval, not this grant, so it
+    is no lineage gap and raises no `lineage_unrecorded` P1."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        for r in s.scalars(select(AuditLog).where(AuditLog.action == "store.activated")
+                           .order_by(AuditLog.id.desc())):
+            d = r.detail or {}
+            if str(d.get("etsy_listing_id")) == str(listing_id):
+                return d.get("authority", "owner") == "owner"
+    return False
+
+
 def record_live(ctx, *, grant_id: int, listing_id: str, after: dict, artifact: str) -> bool:
     """L-B: after the handler's `store.activated` row and a read-back showing the listing
     `active`, put it in SP lineage. A read-back that does not show it is recorded nothing; a
