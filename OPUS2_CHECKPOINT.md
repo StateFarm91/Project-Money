@@ -116,7 +116,11 @@ worktrees, not this file.
 - Tick 2026-11-19T16:28Z: no [MAIN] message since RR 7014276939; INTEG2 still a35ad302. New RRs from
   ENG-CATALOGUE, ENG-FAMILIES (touches test_opus2_draft_constructions; no finding on opus2 code),
   ENG-RESEARCH. Nothing posted.
-- Stop reason (2026-11-19T16:30Z): ASSIGN 7012067586 delivered; awaiting Main's verdicts.
+- Tick 2026-11-19T17:28Z: no verdict on RR 7014276939; INTEG2 still a35ad302. New [MAIN] posts
+  7016618307/7016740650 are owner visual/benchmark standards for ENG-VISUAL/ETSY-AI-POLICY/RESEARCH/
+  FAMILIES (not opus2). ENG-NINTH-SHOP edits opus2_scan_evidence + s4_p0_board to nine shops (green).
+  Nothing posted.
+- Stop reason (2026-11-19T17:30Z): ASSIGN 7012067586 delivered; awaiting Main's verdicts.
   Answer any [MAIN] message first next tick.
 - ws5 LOWs N1-N3 RR POSTED 9b807fed on opus2/ws5-n1-n3-resolver-lows (on w6-INTEG1 19e6a8ff):
   N1 create-window binding (escalate, never release, on an unbound listing created within
