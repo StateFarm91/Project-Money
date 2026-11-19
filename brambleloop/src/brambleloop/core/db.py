@@ -191,3 +191,8 @@ class Database:
 
     def new_session(self) -> Session:
         return self._sessions()
+
+
+# OPUS2 (P1-OWNER-QUEUE-RACES): every session flush that inserts an open owner action takes the
+# owner-queue lock and never queues a requirement twice (ops.owner_queue_guard).
+from ..ops import owner_queue_guard as _owner_queue_guard  # noqa: E402,F401

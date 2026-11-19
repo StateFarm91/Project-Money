@@ -152,6 +152,21 @@ def apply(engine: Engine) -> list[str]:
         for index in table_obj.indexes:
             if index.name in have:
                 continue
+            requires = index.info.get("requires_clean")
+            if requires:
+                # A unique index over existing rows can only be created once the rows satisfy
+                # it. This module never alters data, so it creates the index only when the
+                # named module reports no conflicting rows, and otherwise defers it and says so
+                # (a deploy never fails on it). Closing the rows is that module's explicit job.
+                import importlib
+
+                conflicts = importlib.import_module(requires).conflicts(engine)
+                if conflicts:
+                    changes.append(f"index {index.name} DEFERRED: {conflicts} conflicting "
+                                   f"row group(s); run python -m {requires}")
+                    log.warning("index %s deferred: %s conflicting groups", index.name,
+                                conflicts)
+                    continue
             index.create(bind=engine, checkfirst=True)
             changes.append(f"index {index.name}")
             log.info("created index %s", index.name)

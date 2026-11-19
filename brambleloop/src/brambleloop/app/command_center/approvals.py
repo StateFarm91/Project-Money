@@ -476,12 +476,13 @@ def _record_acceptance_ruling(db, ruling: str, reason: str, *, actor: str) -> di
     if not reason:
         raise ActionRefused("owner decision reason required")
     with db.session() as s:
-        row = OwnerAction(requirement_key=executor.ACCEPTANCE_RULING_KEY,
-                          action=f"Acceptance ruling ({ruling}): {ACCEPTANCE_RULINGS[ruling]}",
-                          reason=reason[:2000], max_cost_cad=0.0, minutes=2,
-                          blocks="#189 #221 #222 #320")
-        s.add(row)
-        s.flush()
+        # Review OPUS2G D-2: `ensure` returns the stored open row (inserted, or the existing
+        # open row restated), so the SATISFIED transition below lands on the row the gate
+        # reads -- never on a detached copy the owner-queue guard merged away.
+        row = owner_queue.ensure(
+            s, executor.ACCEPTANCE_RULING_KEY,
+            action=f"Acceptance ruling ({ruling}): {ACCEPTANCE_RULINGS[ruling]}",
+            reason=reason[:2000], max_cost_cad=0.0, minutes=2, blocks="#189 #221 #222 #320")
         owner_queue.transition(s, row, owner_queue.SATISFIED,
                                f"owner ruled {ruling}: {reason}"[:1000], actor=actor)
         oid = row.id
