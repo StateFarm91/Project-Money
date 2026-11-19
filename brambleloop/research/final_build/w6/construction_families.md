@@ -86,9 +86,8 @@ this branch**. Their certification status is whatever the certification runs in
 
 ## Defects found while verifying (not fixed here; owned elsewhere)
 
-- **`gates/policy.py` IP terms match bare substrings.** "Fer**nba**nk Cushion Cover" was refused
-  `POLICY_IP_RISK 'nba'`. It fails closed (blocks, never passes), so it is safe but produces
-  false refusals. A word-boundary match would fix it. This is the policy gate's owner's call.
+- **`gates/policy.py` IP terms** matched bare substrings ("Fernbank" refused 'nba'). Fixed in
+  fix round 1: whole-word matching with a test.
 - **`pouch` hero asset colour.** The pouch engine works one colour of a two-colour palette,
   while its hero asset depicts both, so certification correctly refuses it. To promote the
   family, either colour the pouch (rim or cord in the second colour) or render a one-colour
@@ -101,3 +100,19 @@ this branch**. Their certification status is whatever the certification runs in
 2. Family expansion: sizes from each family's size table (vessel and tapestry: small, medium,
    large), tapestry charts (diamond, check) and colourways. Each variation is deduplicated by
    the existing novelty and sibling gates and certified as its own release.
+
+## Fix round 1 (review verdict DO NOT SHIP: H1, M1)
+
+- **H1, named constructions.** `route` now also reads the title and the concept premise against
+  one shared vocabulary, `construction_families.NAMED_FEATURES` (granny squares, cables,
+  bobbles, waffle and other texture stitches, lids and closures, ears and other amigurumi
+  parts, trim, lining and pockets, motif assemblies, colourwork techniques, wearables). A
+  family's own honest word is exempt (handles for the tote). Any hit holds the concept as
+  `construction_unsupported:<feature>` for every admitted family. Winner Amplification
+  premises no longer name the winner's own construction word.
+- **M1, pet beds.** A pet bed drafts as the vessel but certifies nowhere: its note states 10 cm
+  against the twin's 11.4 cm (`TWIN_DIMENSION_IMPLAUSIBLE`). Held as
+  `construction_unsupported:pet_bed` until the sizing is corrected and proven. The flat pet mat
+  stays admitted. The twin tolerance is untouched.
+- **Pair guard.** `PAIR_PROOFS` names a certifying proof for every admitted (family, category)
+  pair; a sweep test fails when the router admits a pair without one.

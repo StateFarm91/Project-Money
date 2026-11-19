@@ -424,6 +424,155 @@ def test_router_family_table_is_the_report_and_names_every_unbuilt_family():
         assert f"`{key}`" in report, f"construction_families.md omits {key}"
 
 
+# ---- H1/M1 (fix round 1): named features, held categories, every admitted pair ----------------
+
+FLAT_PAIR_TITLES = {
+    "blanket": ("Tidewater Line Throw", "rectangle_throw"),
+    "baby": ("Tidewater Line Baby Blanket", "rectangle_throw"),
+    "runner": ("Tidewater Line Table Runner", "runner"),
+    "placemat": ("Tidewater Line Placemat Pair", "flat_panel"),
+    "dishcloth": ("Tidewater Line Dishcloth", "flat_panel"),
+    "wall_decor": ("Tidewater Line Wall Decor", "wall_hanging"),
+    "pet": ("Tidewater Line Pet Mat", "flat_panel"),
+    "scarf": ("Tidewater Line Scarf", "scarf"),
+}
+# A word for each feature in the shared vocabulary (one sample each; the meta-guard below
+# fails when a feature is added to the vocabulary without one).
+FEATURE_SAMPLES = {
+    "granny_square": "Granny Square", "cable": "Cable", "bobble": "Bobble",
+    "waffle_stitch": "Waffle", "lid": "Lidded", "handles": "Handled",
+    "amigurumi_features": "Bunny Ears", "trim": "Fringe", "lining_pocket": "Lined",
+    "motif_assembly": "Hexie", "colourwork": "Fair Isle", "garment_or_wearable": "Beanie",
+}
+# One plain, admitted concept per admitted family: (category, form, construction, title).
+ADMITTED_PLAIN = {
+    FC.FLAT_PANEL: ("runner", "runner", "flat_rows", "Tide Line Table Runner"),
+    FC.VESSEL: ("basket", "basket", "in_the_round", "Saltmarsh Reed Basket"),
+    FC.TAPESTRY: ("basket", "basket", "tapestry", "Checked Tapestry Shelf Basket"),
+    FC.PANEL_PAIR: ("pillow", "pillow", "flat_rows", "Hollow Fern Cushion Cover"),
+}
+
+
+def _route(family: str, title: str, premise: str = "") -> dict:
+    cat, form, constr, base = ADMITTED_PLAIN[family]
+    return CF.route(category=cat, title=title or base, form=form, construction=constr,
+                    premise=premise)
+
+
+def test_plain_concepts_are_still_admitted_in_every_admitted_family():
+    for family in ADMITTED_PLAIN:
+        got = _route(family, "")
+        assert got["admitted"] and got["family"] == family, (family, got)
+    # Plain baskets, with and without a premise that names nothing unbuilt.
+    for title in ("Saltmarsh Reed Basket", "Everyday Storage Basket", "Cosy Yarn Basket"):
+        got = CF.route(category="basket", title=title, form="basket",
+                       construction="in_the_round",
+                       premise="holds rolled towels by the bath, in quiet bands of sea glass")
+        assert got["admitted"], (title, got)
+
+
+def test_every_named_feature_is_held_for_every_admitted_family():
+    assert set(FEATURE_SAMPLES) == {f for f, _, _ in CF.NAMED_FEATURES}, \
+        "a feature in the shared vocabulary has no sample here (or a sample has no feature)"
+    for family in ADMITTED_PLAIN:
+        base = ADMITTED_PLAIN[family][3]
+        for feature, word in FEATURE_SAMPLES.items():
+            # The title names it.
+            got = _route(family, f"{word} {base}")
+            assert not got["admitted"] and got["reason"].startswith(CF.HOLD_PREFIX), \
+                (family, feature, "title", got)
+            # The premise names it, and the title is plain: the premise is read too.
+            got = _route(family, "", premise=f"A plain piece, made with {word.lower()} work")
+            assert not got["admitted"] and got["reason"].startswith(CF.HOLD_PREFIX), \
+                (family, feature, "premise", got)
+            if feature != "handles":    # the tote (not admitted) is the family handles belong to
+                assert feature in got["reason"], (family, feature, got["reason"])
+
+
+def test_the_reported_basket_features_are_held_not_certified_as_plain_baskets():
+    for title in ("Granny Square Basket", "Cable Knit Look Basket", "Bobble Storage Basket",
+                  "Lidded Storage Basket", "Bunny Ears Nursery Basket", "Waffle Stitch Basket"):
+        got = CF.route(category="basket", title=title, form="basket",
+                       construction="in_the_round")
+        assert not got["admitted"], (title, got)
+        assert got["reason"].startswith(CF.HOLD_PREFIX), (title, got["reason"])
+    # Through intake, so the hold reaches the concept's refusal reasons.
+    reasons = intake.construction_verdict("basket", "basket", "in_the_round",
+                                          title="Granny Square Basket")
+    assert reasons and reasons[0].startswith("construction_unsupported:granny_square"), reasons
+
+
+def test_mutant_without_the_feature_vocabulary_admits_a_granny_basket():
+    """Mutate: with the shared vocabulary emptied, the granny basket is admitted again, so the
+    vocabulary is what holds it (and the tests above fail without it)."""
+    real = CF.NAMED_FEATURES
+    try:
+        CF.NAMED_FEATURES = ()
+        got = CF.route(category="basket", title="Granny Square Basket", form="basket",
+                       construction="in_the_round")
+        assert got["admitted"], "the mutant must admit it, or the guard is not what holds it"
+    finally:
+        CF.NAMED_FEATURES = real
+    assert not CF.route(category="basket", title="Granny Square Basket", form="basket",
+                        construction="in_the_round")["admitted"]
+
+
+def test_a_pet_bed_is_held_until_it_certifies():
+    for title in ("Cat Bed", "Snug Cat Bed", "Kitten Nest"):
+        got = CF.route(category="pet", title=title, form="basket", construction="in_the_round")
+        assert not got["admitted"] and got["reason"].startswith("construction_unsupported:pet_bed"), \
+            (title, got)
+    # The flat pet mat is a different, certifying pair and stays admitted.
+    assert CF.route(category="pet", title="Tidewater Line Pet Mat", form="flat_panel",
+                    construction="flat_rows")["admitted"]
+
+
+def test_every_admitted_flat_category_certifies_end_to_end():
+    for category, (title, form) in FLAT_PAIR_TITLES.items():
+        got = CF.route(category=category, title=title, form=form, construction="flat_rows")
+        assert got["admitted"] and got["family"] == FC.FLAT_PANEL, (category, got)
+        slug = "tidewater-" + category.replace("_", "-")
+        pod = "kitchen_bath" if category in ("runner", "placemat", "dishcloth") else "home_decor"
+        out = _certify_research_concept(_proposal(slug, title, category, form=form, pod=pod))
+        assert out["drafted"]["construction"] == FC.FLAT_PANEL, (category, out["drafted"])
+        _assert_certified_end_to_end(out)
+
+
+def test_every_admitted_family_category_pair_names_an_existing_certifying_proof():
+    """The meta-guard over (family, category) pairs, not families: sweep the router across every
+    category and plain title, and require each pair it admits to name a proof that exists."""
+    from brambleloop.radar import intake as I
+
+    here = {n for n, _ in inspect.getmembers(sys.modules[__name__], inspect.isfunction)}
+    probes = []
+    for cat, forms in I.SUPPORTED_FORMS.items():
+        for noun in (I._NOUN.get(cat, cat.title()), cat.replace("_", " ").title()):
+            for form in forms:
+                probes.append((cat, form, "flat_rows", f"Tidewater Line {noun}"))
+    probes += [("basket", "basket", "in_the_round", "Saltmarsh Reed Basket"),
+               ("basket", "basket", "tapestry", "Checked Tapestry Shelf Basket"),
+               ("pillow", "pillow", "flat_rows", "Hollow Fern Cushion Cover"),
+               ("wedding", "pillow", "flat_rows", "Wedding Ring Cushion"),
+               ("pet", "basket", "in_the_round", "Snug Cat Bed"),
+               ("pet", "basket", "in_the_round", "Cat Bed"),
+               ("pet", "basket", "in_the_round", "Kitten Nest")]
+    admitted = set()
+    for cat, form, constr, title in probes:
+        got = CF.route(category=cat, title=title, form=form, construction=constr)
+        if got["admitted"]:
+            admitted.add((got["family"], cat))
+    assert (FC.VESSEL, "pet") not in admitted, "pet beds do not certify and must stay held"
+    for pair in sorted(admitted):
+        proof = CF.PAIR_PROOFS.get(pair)
+        assert proof, f"{pair} is admitted but names no certifying proof (CF.PAIR_PROOFS)"
+        assert proof.startswith("tests/test_eng_families.py::"), (pair, proof)
+        assert proof.split("::")[1] in here, (pair, proof)
+    # And no proof is claimed for a pair the router never admits.
+    assert set(CF.PAIR_PROOFS) >= admitted
+    assert set(CF.PAIR_PROOFS) == admitted, \
+        set(CF.PAIR_PROOFS) - admitted
+
+
 TESTS = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
 
 if __name__ == "__main__":

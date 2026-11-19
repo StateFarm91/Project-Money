@@ -37,6 +37,7 @@ title, which routing never changes. No baby or nursery item routes to a shaped f
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from . import fallback_constructions as FC
@@ -119,6 +120,53 @@ UNBUILT: dict[str, str] = {
     "seasonal_decor": "garlands, shapes and ornaments; no radar engine makes them",
 }
 
+
+# H1 (ENG-FAMILIES review): a title or premise can NAME a construction or feature the drafted
+# engine does not build. The plan reads the category and a few head nouns; it never reads
+# "granny", "cable" or "lid", so a "Granny Square Basket" drafted as the plain striped vessel
+# and certified under a name it does not make. One shared vocabulary, read for EVERY admitted
+# family: (feature, regex over the folded text, families the word is honest for).
+NAMED_FEATURES: tuple[tuple[str, str, frozenset], ...] = (
+    ("granny_square", r"\bgranny\b|\bafghan squares?\b|\bsquare motifs?\b", frozenset()),
+    ("cable", r"\bcables?\b|\bcabled\b", frozenset()),
+    ("bobble", r"\bbobbles?\b|\bpopcorn\b|\bpuff(?:s|ed)?\b|\bnubby\b", frozenset()),
+    ("waffle_stitch", r"\bwaffles?\b|\bbasket[- ]?weave\b|\btextured?\b|\bribbed\b|"
+                      r"\bribbing\b|\bwoven\b|\bcluster\b|\bshell stitch\b|\bcrocodile\b",
+     frozenset()),
+    ("lid", r"\blids?\b|\blidded\b|\bcovered\b|\blidded\b|\bzipp?(?:er|ered)?\b|"
+            r"\bbuttons?\b|\bclosures?\b|\bflaps?\b", frozenset()),
+    ("handles", r"\bhandles?\b|\bhandled\b|\bstraps?\b", frozenset({FC.TOTE})),
+    ("amigurumi_features", r"\bamigurumi\b|\bears?\b|\btails?\b|\bwhiskers?\b|\bfaces?\b|"
+                           r"\bsnouts?\b|\beyes?\b|\bpaws?\b|\bhorns?\b|\bwings?\b|"
+                           r"\bplush\b|\bstuffed\b", frozenset()),
+    ("trim", r"\bfring(?:e|ed)\b|\btassels?\b|\bpom[- ]?poms?\b|\bruffles?\b|\bfrills?\b|"
+             r"\bscallop(?:s|ed)?\b|\bpicots?\b|\blace\b|\blacy\b|\bfilet\b|"
+             r"\bapplique\b|\bappliqu\u00e9d?\b|\bembroider(?:y|ed)\b|\bbeaded\b|"
+             r"\bsequin(?:s|ned)?\b", frozenset()),
+    ("lining_pocket", r"\blin(?:ed|ing)\b|\bpockets?\b|\bpadded\b|\bquilted\b|"
+                      r"\bfelted\b|\bstiffened\b|\bwired\b|\breinforced\b", frozenset()),
+    ("motif_assembly", r"\bhexie\b|\bhexagon (?:motifs?|squares?|tiles?)\b|\bflowers?\b|"
+                       r"\bfloral\b|\bpatchwork\b|\bmotif (?:join|panel)\b|\bjoined\b",
+     frozenset()),
+    ("colourwork", r"\bintarsia\b|\bfair[- ]?isle\b|\bjacquard\b|\bmosaic\b|\bc2c\b|"
+                   r"\bcorner[- ]to[- ]corner\b|\bgraph ?gh?an\b|\bpixel\b|\bcharted\b",
+     frozenset()),
+    ("garment_or_wearable", r"\b(?:hat|beanie|cardigan|sweater|sock|mitten|cowl)s?\b", frozenset()),
+)
+
+
+def named_feature(text: str, family: str = "") -> tuple[str, str] | None:
+    """The first construction or feature a title/premise names that `family`'s engine does not
+    build, as (feature, matched word); None when it names none."""
+    folded = FC.fold_title(text)
+    for feature, rx, honest_for in NAMED_FEATURES:
+        if family in honest_for:
+            continue
+        hit = re.search(rx, folded)
+        if hit:
+            return feature, hit.group(0)
+    return None
+
 # Declared construction -> the family label it names when no engine route applies.
 _CONSTRUCTION_LABEL: dict[str, str] = {
     "amigurumi_shaping": "amigurumi", "mosaic_overlay": "mosaic", "cable_panel": "cable",
@@ -170,8 +218,32 @@ def hold_family(reason: str) -> str | None:
     return text[len(HOLD_PREFIX):].split(" ", 1)[0] or None
 
 
+# Every (family, category) pair the router admits, and the test that certifies it (or, for
+# the physical-gated family, proves it is refused only for the physical sample). Admitting a
+# pair means certifying one; a pair without a proof here is a hole `tests/test_eng_families.py`
+# finds by sweeping the router.
+_FLAT = f"{PROOF}::test_every_admitted_flat_category_certifies_end_to_end"
+PAIR_PROOFS: dict[tuple[str, str], str] = {
+    **{(FC.FLAT_PANEL, c): _FLAT for c in ("blanket", "baby", "runner", "placemat", "dishcloth",
+                                           "wall_decor", "pet", "scarf")},
+    (FC.VESSEL, "basket"): FAMILIES[FC.VESSEL].proof,
+    (FC.TAPESTRY, "basket"): FAMILIES[FC.TAPESTRY].proof,
+    (FC.PANEL_PAIR, "pillow"): FAMILIES[FC.PANEL_PAIR].proof,
+}
+
+# M1 (ENG-FAMILIES review): families admitted only for these categories. A pet bed drafts as
+# the vessel but its twin height (11.4 cm) disagrees with the 10 cm its note states, so it is
+# deterministically refused at certify (TWIN_DIMENSION_IMPLAUSIBLE). Held until it certifies.
+HELD_CATEGORIES: dict[tuple[str, str], str] = {
+    (FC.VESSEL, "pet"): ("pet_bed", "a pet bed drafts as the vessel but does not certify: its "
+                                    "stated 10 cm differs from the twin's 11.4 cm "
+                                    "(TWIN_DIMENSION_IMPLAUSIBLE); held until the sizing is "
+                                    "corrected and proven"),
+}
+
+
 def route(*, category: str, title: str, form: str, construction: str, slug: str = "",
-          rationale: str = "") -> dict:
+          rationale: str = "", premise: str = "") -> dict:
     """Which verified engine drafts this concept, or the named construction hold.
 
     Returns {"admitted", "family", "status", "reason"}; `reason` is "" when admitted and
@@ -215,6 +287,18 @@ def route(*, category: str, title: str, form: str, construction: str, slug: str 
         f = FAMILIES.get(family)
         return _hold(family, f"the {family} engine is {status}, not verified end to end"
                              + (f": {f.gaps}" if f is not None else ""))
+    if (family, category) in HELD_CATEGORIES:
+        label, why = HELD_CATEGORIES[(family, category)]
+        return _hold(label, why)
+    # H1: the title and the premise must not name what the drafted engine does not build.
+    # (Each is read on its own so a word cannot straddle the join.)
+    for source, text in (("title", title), ("premise", premise)):
+        named = named_feature(text, family)
+        if named is not None:
+            feature, word = named
+            return _hold(feature, f"the {source} names {word!r} ({feature}), which the {family} "
+                                  f"engine does not build; drafting it would sell a {word} the "
+                                  f"pattern does not make")
     return {"admitted": True, "family": family, "status": status, "reason": ""}
 
 

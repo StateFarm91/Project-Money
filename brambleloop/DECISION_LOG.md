@@ -2704,3 +2704,5 @@ The trigger is the proposal's stated size, not only the band, so the dishcloths 
 - **Children's gates are untouched.** Intake `_children_reasons` still runs, as do `childrens_decision` and `small_parts` at PDF. No baby item routes to a shaped family.
 
 The table is `research/final_build/w6/construction_families.md`. Reversible by decision.
+
+**D-ENG-FAMILIES-2: the router reads what a title and premise name, and admits only (family, category) pairs that certify (ENG-FAMILIES fix round 1, 2026-11-19).** Main's review found a "Granny Square Basket" admitted, drafted as the plain striped vessel and certified (H1), and pet beds admitted but never certifying (M1). `construction_families.route` now holds any title or premise naming a construction the drafted engine does not build (`NAMED_FEATURES`, shared across every admitted family) as `construction_unsupported:<feature>`; the pet bed variant is held as `construction_unsupported:pet_bed` rather than widening the twin tolerance; `PAIR_PROOFS` and a router sweep require a certifying proof per admitted (family, category). `gates/policy._IP_TERMS` matches whole words.

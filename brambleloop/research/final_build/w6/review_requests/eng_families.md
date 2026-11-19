@@ -115,3 +115,10 @@ Command: `JOBS=4 SUITE_REGISTRY=0 run_tests.sh`. Suites run:
 `test_eng_families` reads `date.today()`, so it is listed in `scripts/suite_final_segment.txt`
 just before `test_product_run`. No new job type and no new audit action, so there is no
 retention or registry change.
+
+## Fix round 1
+
+H1 and M1 from main's review are fixed; see "Fix round 1" in `construction_families.md` and
+D-ENG-FAMILIES-2. The review verdict's LOWs were not included in the task text, so none beyond
+the `_IP_TERMS` false positive were fixed. No static files changed, so the service worker
+stays at its current version.

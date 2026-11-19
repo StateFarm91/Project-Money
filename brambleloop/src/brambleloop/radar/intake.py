@@ -573,7 +573,7 @@ def gate_inputs(db, slug: str, inputs: dict) -> dict:
 
 
 def construction_verdict(category: str, form: str, construction: str, *, title: str = "",
-                         slug: str = "", rationale: str = "") -> list[str]:
+                         slug: str = "", rationale: str = "", premise: str = "") -> list[str]:
     """Reasons the radar draft path cannot build this honestly, or [] when it can.
 
     ENG-FAMILIES: routed by `creative.construction_families.route`, which asks the same
@@ -584,7 +584,7 @@ def construction_verdict(category: str, form: str, construction: str, *, title: 
 
     got = construction_families.route(category=category, title=title, form=form,
                                       construction=construction, slug=slug,
-                                      rationale=rationale)
+                                      rationale=rationale, premise=premise)
     return [] if got["admitted"] else [got["reason"]]
 
 
@@ -743,7 +743,8 @@ def validate(db, proposal: dict, evidence: dict, *, source_ref: str) -> dict:
     c = p["concept"]
     reasons += construction_verdict(p["category"], str(c.get("form")),
                                     str(c.get("construction")), title=str(p["title"]),
-                                    slug=str(p["slug"]), rationale=str(p["rationale"]))
+                                    slug=str(p["slug"]), rationale=str(p["rationale"]),
+                                    premise=str(c.get("premise") or ""))
     # S1 review 6958883678 H2: the size the title asks for (a class word or stated dimensions)
     # is read here; a size the family cannot make is refused now, not resized at draft time.
     from ..creative import size_truth
@@ -918,7 +919,10 @@ def family_candidates(db, *, today: date) -> list[dict]:
                               f"no declared next member, so a {_NOUN[category].lower()} "
                               f"extends the set in a construction the draft path compiles"),
                 "concept": {
-                    "premise": (f"The {motif} motif from {winner_title} carried onto "
+                    # The proven winner is named in the storyboard and evidence, not here: this
+                    # premise is read by the construction router, and the winner's own
+                    # construction word ("mosaic") is not what this plain panel builds.
+                    "premise": (f"The {motif} motif from the family's proven winner carried onto "
                                 f"{_WHAT[category]} so an owner of one piece can complete "
                                 f"the matching set"),
                     "pod": pods.route(f"{title} {category.replace('_', ' ')}"),
