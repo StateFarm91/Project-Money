@@ -202,8 +202,14 @@ def check_ai_disclosure(description: str, classification) -> list[Finding]:
     """
     from .platform_policy import DISCLOSURES
 
-    owed = (classification.get("disclosures") if isinstance(classification, dict)
-            else getattr(classification, "disclosures", None)) or []
+    if classification is None:
+        # ENG-ETSY-AI-FIX (H2b): a listing package nobody classified still owes the design
+        # disclosure -- every Brambleloop pattern is AI-assisted design. Unclassified is never
+        # "owes nothing".
+        owed = [DISCLOSURES["ai_assisted_design"]]
+    else:
+        owed = (classification.get("disclosures") if isinstance(classification, dict)
+                else getattr(classification, "disclosures", None)) or []
     rule = _ai_disclosure_rule()
     out: list[Finding] = []
     for key in AI_DISCLOSURE_KEYS:
@@ -218,6 +224,18 @@ def check_ai_disclosure(description: str, classification) -> list[Finding]:
     return out
 
 
+def check_authorship(text: str, where: str) -> list[Finding]:
+    """ERROR for every authorship/making/testing/sample claim in free listing copy.
+
+    Structural, not a blacklist: honest statements come only from the closed allowlist in
+    `publish.etsy_ai_policy.honest_statements`; any such claim left in the free text after
+    those sentences are removed is refused (ENG-ETSY-AI-FIX H1)."""
+    from ..publish.etsy_ai_policy import CODE, authorship_claim_problems
+
+    return [Finding(ERROR, f"POLICY_{CODE}", p, where)
+            for p in authorship_claim_problems(text)]
+
+
 def check_listing(draft: ListingDraft, cir: CIR | None = None,
                   proof_states: dict | None = None,
                   classification=None) -> list[Finding]:
@@ -225,12 +243,18 @@ def check_listing(draft: ListingDraft, cir: CIR | None = None,
 
     `classification` is what `platform_policy.classify` returned for this release. When it
     is supplied and owes an AI disclosure, a description without that exact sentence is an
-    ERROR (`check_ai_disclosure`). Without it the older keyword WARNING below still applies,
-    because a listing nobody classified is not thereby free of disclosure duties.
+    ERROR (`check_ai_disclosure`). Without it the design disclosure is still owed (ERROR),
+    and the older keyword WARNING below still applies.
     """
     out: list[Finding] = []
-    if classification is not None:
-        out += check_ai_disclosure(draft.description, classification)
+    # ENG-ETSY-AI-FIX (H2b, M4): this is the listing-package gate (release drafting, the
+    # certificate, first-customer doors, list-ready, listing tests). The AI disclosure is
+    # required on every package and authorship claims are refused in every text field.
+    out += check_ai_disclosure(draft.description, classification)
+    out += check_authorship(draft.title, "listing.title")
+    out += check_authorship(draft.description, "listing.description")
+    for t in draft.tags:
+        out += check_authorship(t, f"listing.tag:{t}")
     out += check_text(draft.title, "listing.title")
     out += check_text(draft.description, "listing.description")
     out += check_proof_claims(draft.title, "listing.title", proof_states)

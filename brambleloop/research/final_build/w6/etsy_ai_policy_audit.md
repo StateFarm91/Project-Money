@@ -1,18 +1,24 @@
-# Etsy AI / authorship / listing-photo policy audit (ENG-ETSY-AI-POLICY)
+# Etsy AI / authorship / listing-photo policy audit (ENG-ETSY-AI-POLICY, fix round ENG-ETSY-AI-FIX)
 
 Branch `eng/etsy-ai-policy`, base `a35ad302`. Read 2026-11-19. Nothing here deploys, publishes
 or spends. Not legal advice.
 
 ## 1. Research: what could and could not be read
 
-| Page | Result 2026-11-19 |
-|---|---|
-| https://help.etsy.com/hc/en-us/articles/44297885802647 (via `/api/v2/help_center/en-us/articles/44297885802647.json`) | **Read in full**, `edited_at` 2026-11-11T14:26:29Z |
-| https://help.etsy.com/hc/en-us/articles/115015663347 (same API) | **Read in full**, `edited_at` 2026-11-06T18:10:09Z |
-| https://help.etsy.com/hc/en-us/articles/115015628347, `...115015628707`, `...360000336547` (HTML) | Read; digital listings, who-made fields, production partners |
-| etsy.com/legal/creativity-standards, /legal/creativity, /legal/handmade, /legal/sellers, /legal/prohibited, /legal/policy/listing-image-requirements/253962679005 | **HTTP 403** (bot protection). Not read. No evasion attempted. |
-| Seller Handbook articles 1522733284810, 1275449912004 | **HTTP 403**. Not read. |
-| help.etsy.com articles 360000343608, 34707360607511 | **HTTP 404** |
+How each page was read, stated per page (ENG-ETSY-AI-FIX, review M6). "API" means the public
+Zendesk Help Center article endpoint `https://help.etsy.com/api/v2/help_center/en-us/articles/<id>.json`,
+fetched by an automated `curl` with no login, cookies or bot-protection workaround; the JSON
+`body` was HTML-stripped and each quote below was string-matched against it. No page was read
+in a browser, and no page was read by a person.
+
+| Page | How read | Accessed (UTC) | Result |
+|---|---|---|---|
+| help.etsy.com article 44297885802647 | API, automated | 2026-11-19 (first attempt); **re-fetched and quotes re-verified 2026-11-19 by ENG-ETSY-AI-FIX** | HTTP 200, `edited_at` 2026-11-11T14:26:29Z, all 6 quotes below match verbatim |
+| help.etsy.com article 115015663347 | API, automated | 2026-11-19 (first attempt); **re-fetched and quotes re-verified 2026-11-19 by ENG-ETSY-AI-FIX** | HTTP 200, `edited_at` 2026-11-06T18:10:09Z, all 5 quotes below match verbatim |
+| help.etsy.com articles 115015628347, 115015628707, 360000336547 | HTML, automated, by the first attempt (ENG-ETSY-AI-POLICY) | 2026-11-19 | Reported read; **not re-verified in the fix round** -- treat those quotes as secondary |
+| etsy.com/legal/creativity-standards, /legal/creativity, /legal/handmade, /legal/sellers, /legal/prohibited, /legal/policy/listing-image-requirements/253962679005 | automated GET | 2026-11-19 | **HTTP 403** (bot protection). Not read. No evasion attempted. |
+| Seller Handbook articles 1522733284810, 1275449912004 | automated GET | 2026-11-19 | **HTTP 403**. Not read. |
+| help.etsy.com articles 360000343608, 34707360607511 | automated GET | 2026-11-19 | **HTTP 404** |
 
 **Rules quoted from pages actually read** (exact text):
 
@@ -54,8 +60,9 @@ re-read them first-hand.
 | # | Rule | What the code does | Status | Fix |
 |---|---|---|---|---|
 | 1 | Instructions not misrepresented as handmade/own creation | Instructions are deterministic CIR compilation validated by code, not an LLM prompt. PDF carries `AI_DISCLOSURE`; description carries `DISCLOSURES["ai_assisted_design"]`, enforced by `gates.policy.check_listing` (`POLICY_AI_DISCLOSURE_MISSING`). | Compliant | none |
-| 2 | Copy must not claim human authorship / physical evidence | Fixed sentences only; nothing refused a description claiming "I designed", "hand-drawn", "tested by crocheters". | **Gap (fixed)** | `publish/etsy_ai_policy.authorship_claim_problems`, wired into `integrations.etsy.build_payload`; tests `test_w6_etsy_ai_policy.py` |
-| 3 | AI use disclosed in the listing | `ai_assisted_design`, `generated_imagery`, `disclosed_render` sentences generated from asset facts; `policy.check_listing` requires them verbatim. | Compliant | none |
+| 2 | Copy must not claim human authorship / physical evidence | Fix round (review H1): structural guard. Authorship, making, testing and sample statements come only from a closed allowlist (`etsy_ai_policy.honest_statements`); any such claim in the remaining free text is refused after Unicode/case/spacing/joiner normalisation, all inflections and UK spellings. Wired into the listing-package gate `gates.policy.check_listing` (release drafting, certificate, first-customer doors, list-ready, listing tests), `manual_adoption.truth_problems` (owner-accepted live copy) and `integrations.etsy.build_payload`. A refusal raises an owner hold card with its reason (`etsy_ai_policy.hold_card`). | **Gap (fixed)** | tests `test_w6_etsy_ai_policy.py` (adversarial and false-positive corpora) |
+| 3 | AI use disclosed in the listing | `ai_assisted_design`, `generated_imagery`, `disclosed_render` sentences generated from asset facts; `policy.check_listing` requires them verbatim. Fix round (H2b): before, an unclassified package owed nothing; now `check_ai_disclosure` requires `ai_assisted_design` on every package, classified or not. | **Gap (fixed)** | `gates.policy.check_ai_disclosure`; a mutant returning `[]` fails `test_w6_etsy_ai_policy` |
+| 3a | Etsy AI policy for functional guides unresolved (see "Unverified" above) | Fix round (H2a): `etsy_ai_policy.publication_status` is UNKNOWN until a named person records a reading (`etsy_ai_policy.reading` audit row, PERMITTED/PROHIBITED, dated on or after 2026-11-11). UNKNOWN and PROHIBITED add a reason to `release_gates.for_publish`; staleness, rebuild retries and certification are untouched. | **Held (UNKNOWN)** | owner exception B |
 | 4 | Pattern: at least one real unedited photo of something made with the product; first image should be the clearest realistic view | `publish.sample_photo` (`SAMPLE_PHOTO_REQUIRED`): photo through `physical_upgrade.intake`, SHA-256 on file, unedited attestation, passed FULL physical make bound to the release hash, and it must be the **first** certified frame. Refuses at activation, reports at draft. Stricter than Etsy (first image need not be the photo). | Compliant (gate) / **owner action** (no photo exists) | owner exception A |
 | 5 | AI images not the only finished-result images | `platform_policy.ASSET_ROLES`: a generated image in a photograph role is refused however labelled (B-184); deterministic renders of own chart permitted, labelled; `disclosed_render` copy says "no sample has been photographed" unless a qualifying photo leads. | Compliant | none |
 | 6 | "If you use AI to edit any of your listing photos, note whether images were edited" (115015663347, new 2026-11-06) | Fully generated/rendered images are covered by `generated_imagery`/`disclosed_render`. No path edits the unedited sample photo (intake refuses edited/AI-processed). No explicit "edited" note exists for AI-*edited real photos*, but no such photos are produced. | Compliant today; **unknown** if owner supplies edited extra photos | `owner_images` already marks `ai_generated_owner_submitted`; owner exception C |

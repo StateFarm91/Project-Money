@@ -1826,6 +1826,13 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
         reasons.append(superseded["why"])
     originality = originality_gate(db, slug=slug, version=version, store_root=store_root)
     reasons.extend(originality["reasons"])
+    # ENG-ETSY-AI-FIX (H2a): Etsy AI policy status UNKNOWN (or PROHIBITED) holds publication
+    # with its reason. Publication only: staleness, rebuilds and certification are untouched.
+    from . import etsy_ai_policy
+
+    ai_policy = etsy_ai_policy.publication_status(db)
+    if ai_policy["hold"]:
+        reasons.append(ai_policy["reason"])
     if not window["may_launch_seasonally"]:
         reasons.append(f"missed window (#297): {window['action']} -- {window['why']}")
     reasons.extend(set_verdict["reasons"])
@@ -1919,7 +1926,7 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
             "reasons": reasons, "staleness": stale, "window": window,
             "superseded": superseded, "listing_set": set_verdict, "search": search, "standards": standards,
             "withholding": held, "publication_scope": scope, "originality": originality,
-            "sample_photo": photo, "stage": stage}
+            "sample_photo": photo, "stage": stage, "etsy_ai_policy": ai_policy}
 
 
 def our_competitive_reading(db, *, slug: str, version: str, key: str) -> float | None:

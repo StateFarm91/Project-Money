@@ -1320,6 +1320,19 @@ def handle_listing_seo(ctx: JobContext) -> dict:
             f"LISTING_PRODUCT_TYPE_UNSUPPORTED: {record['source']} declares a "
             f"{record['kind']!r} and the CIR ({cir.slug}) names "
             f"{sorted(_fc.product_type_words_in_cir(cir))}")
+    # ENG-ETSY-AI-FIX (M5): an authorship refusal -- possibly a false positive -- reaches the
+    # owner as a hold card with its reason, not only as a line in the blocking list.
+    authorship = [f.message for f in policy if f.is_error and f.code == "POLICY_AUTHORSHIP_CLAIM"]
+    if authorship:
+        from ..publish import etsy_ai_policy as _eap
+
+        try:
+            _eap.hold_card(ctx.db, artifact=f"{slug}@{version}", problems=authorship,
+                           where="listing.seo")
+        except Exception as exc:  # noqa: BLE001 - the copy stays blocked either way
+            ctx.audit(_eap.HOLD_ACTION, artifact=f"{slug}@{version}",
+                      detail={"card_failed": f"{type(exc).__name__}: {str(exc)[:200]}",
+                              "problems": authorship[:5]})
     blocking = (structural + [str(f) for f in policy if f.is_error] + class_problems
                 + rights_problems + copy_gate["blocking"] + tag_problems + attribute_problems
                 + (identity_problems if record["launch0"] else []))

@@ -733,6 +733,12 @@ def truth_problems(db, *, slug: str, version: str, snap: dict) -> list[str]:
         if owed and sentence not in description:
             problems.append(f"the AI disclosure {key!r} is not in the live description "
                             f"verbatim: {sentence!r}")
+    # ENG-ETSY-AI-FIX (M4): owner-edited live copy passes the same authorship guard as
+    # drafted copy; accepting it as a baseline never launders a "handmade" claim.
+    from .etsy_ai_policy import authorship_claim_problems
+
+    problems.extend(authorship_claim_problems(
+        "\n".join([title, description] + [str(t) for t in snap.get("tags") or []])))
     # Product Truth: every promise the live title, description and tags make is backed.
     try:
         from ..cir.model import CIR
