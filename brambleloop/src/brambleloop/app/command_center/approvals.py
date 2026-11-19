@@ -31,6 +31,14 @@ ACTIONS: dict[str, tuple[bool, str]] = {
     "activation.preview": (False, "read the exact content an activation grant would bind"),
     "activation.approve": (True, "record a sealed 24 h owner activation grant"),
     "activation.revoke": (False, "revoke an activation grant (tightens)"),
+    # ENG-FIRSTLIST: a grant alone caused nothing (the launch-time store.publish died in SHADOW
+    # and is never re-driven; nothing put an activation approval id on a store.activate job).
+    # These queue that one job for a grant valid now, in a phase that may publish; the
+    # handler re-checks everything at its own boundary (`ops.owner_execution`).
+    "publication.execute": (True, "queue the store.publish that creates the Etsy draft for "
+                                  "a valid publication grant (inactive draft; no fee)"),
+    "activation.execute": (True, "queue the store.activate that makes a verified draft "
+                                 "public for a valid activation grant (Etsy fee US$0.20)"),
     # WS4-0a: grant chains are Ed25519-signed in this request context only; a chain holding
     # rows sealed under the retired ops-token HMAC is re-anchored here once by the owner.
     "publication.rebase": (True, "re-anchor the publication grant chain (voids earlier grants)"),
@@ -278,15 +286,20 @@ def _publication_cards(db, limit: int = 20) -> list[dict]:
     with db.session() as s:
         rows = list(s.execute(
             select(Product.slug, PatternVersion.version, PatternVersion.release_hash,
-                   PatternVersion.id, Listing.id, Listing.state)
+                   PatternVersion.id, Listing.id, Listing.state, Listing.etsy_listing_id)
             .join(PatternVersion, PatternVersion.product_id == Product.id)
             .join(Listing, (Listing.product_slug == Product.slug)
                   & (Listing.version == PatternVersion.version))
             .where(PatternVersion.certified == True)  # noqa: E712
             .order_by(PatternVersion.id.desc()).limit(limit)))
     seen = set()
-    for slug, version, release, pv_id, listing_id, listing_state in rows:
+    for slug, version, release, pv_id, listing_id, listing_state, etsy_id in rows:
         if (slug, version) in seen or listing_state == "active":
+            continue
+        if etsy_id:
+            # ENG-FIRSTLIST: already on Etsy. A publication grant covers draft creation only
+            # (`publication_authority.snapshot` refuses), so the activation card takes over.
+            seen.add((slug, version))
             continue
         seen.add((slug, version))
         try:
@@ -327,11 +340,103 @@ def _publication_cards(db, limit: int = 20) -> list[dict]:
                           "params": {"slug": slug, "version": version,
                                      "release": release or "",
                                      "expected_digest": "<from publication.preview>"}}]
+                        + _execute_action("publication.execute", slug, version, release or "",
+                                          _live_publication_grant(db, slug, version,
+                                                                  release or ""),
+                                          "Create the Etsy draft now")
                         if ready else []),
             "not_executable_reason": (None if ready else
                                       "gated sections do not all pass (Product Truth first)"),
             "sources": [f"pattern_versions:{pv_id}", f"listings:{listing_id}",
                         "ops.publication_authority.evidence"]})
+    return out
+
+
+def _live_publication_grant(db, slug, version, release) -> int | None:
+    """The newest publication grant valid now for this release, or None (never raises)."""
+    from ...ops import publication_authority as pa
+
+    try:
+        refusal, grant = pa.resolve(db, slug=slug, version=version, release=release)
+    except Exception:  # noqa: BLE001 - unreadable is no grant
+        return None
+    return grant if refusal is None else None
+
+
+def _live_activation_grant(db, slug, version, release, listing_id) -> int | None:
+    """The newest activation grant valid now for this listing, or None (never raises)."""
+    from ...ops import activation_authority as aa
+
+    try:
+        with db.session() as s:
+            ids = list(s.scalars(select(AuditLog.id).where(
+                AuditLog.action == aa.APPROVED, AuditLog.artifact == f"{slug}@{version}")
+                .order_by(AuditLog.id.desc()).limit(10)))
+        for ident in ids:
+            if aa.validate(db, ident, slug=slug, version=version, listing_id=listing_id,
+                           release=release) is None:
+                return ident
+    except Exception:  # noqa: BLE001 - unreadable is no grant
+        return None
+    return None
+
+
+def _execute_action(action, slug, version, release, grant, label) -> list[dict]:
+    """ENG-FIRSTLIST: the button that queues the job a live grant authorises, or nothing."""
+    if grant is None:
+        return []
+    return [{"action": action, "requires_step_up": True, "label": label,
+             "params": {"slug": slug, "version": version, "release": release,
+                        "approval_id": grant}}]
+
+
+def _activation_cards(db, limit: int = 20) -> list[dict]:
+    """ENG-FIRSTLIST: verified Etsy drafts (state 'published', not active): activation
+    candidates. Before this there was no card, so `activation.approve` had no button."""
+    from ...core.models import Listing
+
+    out = []
+    with db.session() as s:
+        rows = list(s.execute(
+            select(Listing.product_slug, Listing.version, Listing.release_hash,
+                   Listing.etsy_listing_id, Listing.id)
+            .where(Listing.state == "published", Listing.etsy_listing_id != "")
+            .order_by(Listing.id.desc()).limit(limit)))
+    for slug, version, release, listing_id, row_id in rows:
+        if not listing_id:
+            continue
+        release = release or ""
+        grant = _live_activation_grant(db, slug, version, release, str(listing_id))
+        out.append({
+            "card_id": f"activation:{slug}@{version}", "kind": "ACTIVATION",
+            "title": f"Make Etsy listing {listing_id} public ({slug} v{version})",
+            "proposed_action": ("record a sealed 24 h activation grant bound to this verified "
+                                "draft, then queue store.activate, which reads the draft back "
+                                "and re-checks every gate before activating"),
+            "recommendation": ("A grant is live: queue the activation" if grant else
+                               "Preview, then approve: the draft read back as the certified "
+                               "listing"),
+            "evidence": [_ev("draft", "PASS", f"Etsy listing {listing_id} read back as the "
+                                              "certified draft (store.published)",
+                             f"listings:{row_id}")],
+            "uncertainty": "store.activate reads the draft back again before activating",
+            "expected_benefit": "the product becomes visible and purchasable on Etsy",
+            "downside": "a public listing; Etsy charges its US$0.20 listing fee at activation",
+            "max_spend_cad": 0.29,
+            "reversibility": ("deactivate in Etsy Shop Manager (no automated deactivation job "
+                              "exists); the listing fee is not refunded"),
+            "deadline": None,
+            "consequence_of_no_action": "the draft stays invisible to buyers; nothing is spent",
+            "executable": True,
+            "actions": ([{"action": "activation.preview", "requires_step_up": False,
+                          "params": {"slug": slug, "version": version, "release": release}},
+                         {"action": "activation.approve", "requires_step_up": True,
+                          "params": {"slug": slug, "version": version, "release": release,
+                                     "expected_digest": "<from activation.preview>"}}]
+                        + _execute_action("activation.execute", slug, version, release,
+                                          grant, "Make it public now")),
+            "not_executable_reason": None,
+            "sources": [f"listings:{row_id}", "ops.activation_authority"]})
     return out
 
 
@@ -417,6 +522,12 @@ def inbox(db) -> dict:
             f"publication candidates unreadable: {type(exc).__name__}")
         status = "DEGRADED" if status == "OK" else status
     cards = cards + pub
+    try:
+        cards = cards + _activation_cards(db)
+    except Exception as exc:  # noqa: BLE001
+        reason = (reason + "; " if reason else "") + (
+            f"activation candidates unreadable: {type(exc).__name__}")
+        status = "DEGRADED" if status == "OK" else status
     # WS4-3: the standing publication policy card (state, statement, and the next owner act).
     try:
         cards = cards + _standing_policy_cards(db)
@@ -696,6 +807,20 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
                           version=body.get("version"), release=body.get("release", ""),
                           expected_digest=body.get("expected_digest"), reason=tagged)
             result = mod.approve(db, **kwargs)
+        elif action in ("publication.execute", "activation.execute"):
+            from ...ops import owner_execution as oe
+
+            if not reason:
+                raise ActionRefused("owner decision reason required")
+            fn = oe.queue_publication if action == "publication.execute" else \
+                oe.queue_activation
+            try:
+                result = fn(db, slug=str(body.get("slug") or ""),
+                            version=str(body.get("version") or ""),
+                            release=str(body.get("release") or ""),
+                            approval_id=_int(body, "approval_id"), actor=actor)
+            except oe.ExecutionRefused as exc:
+                raise ActionRefused(str(exc)[:500]) from None
         elif action in ("publication.rebase", "activation.rebase"):
             mod = pub if action.startswith("publication") else act
             if not reason:

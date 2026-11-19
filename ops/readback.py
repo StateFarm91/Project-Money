@@ -338,6 +338,9 @@ EVIDENCE_ITEMS = (
     # ENG watchlist-cadence: what the scheduler is holding back. Advisory, like the scans: a
     # suspension or a silent mandatory shop WARNs (the P1 incident is the escalation).
     ("scheduler holds and silent mandatory shops", "scheduler", None),
+    # ENG-FIRSTLIST: which Launch-0 release could become the first Etsy draft. Advisory: no
+    # candidate yet is the honest state before launch, so it WARNs and never fails a deploy.
+    ("first Etsy draft candidates (Launch-0)", "first_listing_readiness", None),
 )
 
 
@@ -356,6 +359,15 @@ def _judge_section(name: str, section, judged) -> tuple[str, str]:
             return WARN, (f"silent mandatory shops {silent}; held {held}; "
                           f"blocked departments {blocked}")
         return PASS, "no job type held, no department blocked, every mandatory shop attempted"
+    if name == "first_listing_readiness":
+        if not isinstance(section, dict) or section.get("readable") is not True:
+            return WARN, ("section missing" if not isinstance(section, dict) else
+                          f"unreadable ({section.get('error_class') or 'no reason given'})")
+        cands = section.get("draft_candidates") or []
+        if cands:
+            return PASS, f"draft candidates {cands}"
+        return WARN, (f"no draft candidate among {section.get('certified_with_listing')} "
+                      f"certified Launch-0 releases with a listing")
     if name == "competitor_scans" and (not isinstance(section, dict)
                                        or section.get("readable") is not True):
         # WS2 R1: advisory -- a build without the section, or one that cannot read it, warns.

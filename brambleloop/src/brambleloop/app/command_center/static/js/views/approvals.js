@@ -46,6 +46,23 @@ function actionLabel(action) {
   return { approve: "Approve", preview: "Preview", revoke: "Revoke", defer: "Defer", acknowledge: "Acknowledge" }[verb] || humanize(verb);
 }
 
+// ENG-FIRSTLIST: a server card names a value the owner must first read with a preview as
+// "<from x.preview>" (expected_digest). It was sent verbatim, so every publication, activation
+// and launch-decision approval from this screen was refused ("approval preview changed").
+// The digest the card's own preview returned is substituted; with none yet, null is returned
+// and the caller asks the owner to preview first. Pure, so a test can run it.
+export function fillPreviewParams(params, digests) {
+  const out = { ...(params || {}) };
+  for (const [k, v] of Object.entries(out)) {
+    const m = typeof v === "string" ? /^<from ([a-z_]+\.[a-z_]+)>$/.exec(v) : null;
+    if (!m) continue;
+    const got = digests && digests[m[1]];
+    if (typeof got !== "string" || !got) return null;
+    out[k] = got;
+  }
+  return out;
+}
+
 function actionParams(a, reason) {
   const params = { ...(a.params || {}) };
   const ns = String(a.action || "").split(".")[0];
@@ -59,6 +76,7 @@ function approvalCard(c, { stale, rerender, open = false, readAt = null }) {
   const evidence = Array.isArray(c.evidence) ? c.evidence : [];
   const actions = Array.isArray(c.actions) ? c.actions : [];
   const out = h("div", { class: "preview-out" });
+  const digests = {};
   const buttons = actions.map((a) => {
     const verb = String(a.action || "").split(".").pop();
     const isApprove = verb === "approve";
@@ -72,11 +90,19 @@ function approvalCard(c, { stale, rerender, open = false, readAt = null }) {
         try {
           const r = await api.action(a.action, a.params || {});
           const res = (r && r.result) || {};
+          if (typeof res.digest === "string" && res.digest) digests[a.action] = res.digest;
+          const shown = Array.isArray(res.display)
+            ? res.display.map((d) => `${d.section}: ${d.state}`).join(" · ")
+            : res.display;
           clear(out).append(h("div", { class: "callout callout-info" },
-            h("p", { class: "answer" }, res.display || "Preview generated."),
+            h("p", { class: "answer" }, shown || "Preview generated."),
             res.digest ? h("p", { class: "mono" }, `Digest: ${res.digest}`) : null));
         } catch (e) { toast(e.message, "bad"); }
         finally { btn.disabled = false; }
+        return;
+      }
+      if (fillPreviewParams(a.params, digests) === null) {
+        toast("Preview first: this approval binds the exact content the preview shows.", "bad");
         return;
       }
       const body = await guardedAction({
@@ -87,7 +113,7 @@ function approvalCard(c, { stale, rerender, open = false, readAt = null }) {
         requiresStepUp: !!a.requires_step_up,
         reasonLabel: isApprove || a.requires_step_up ? "Why are you deciding this?" : "Note",
         reasonRequired: isApprove || !!a.requires_step_up,
-        run: (reason) => api.action(a.action, actionParams(a, reason)),
+        run: (reason) => api.action(a.action, actionParams({ ...a, params: fillPreviewParams(a.params, digests) }, reason)),
         success: `${actionLabel(a.action)} recorded.`,
       });
       if (body) rerender();

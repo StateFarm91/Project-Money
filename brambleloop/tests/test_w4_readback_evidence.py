@@ -567,7 +567,8 @@ def test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart():
         # WS2 R1: the advisory competitor-scans row may WARN; every other row is PASS, FAIL
         # or UNKNOWN as before.
         # ENG watchlist-cadence: the advisory scheduler row likewise PASSes or WARNs only.
-        advisory = ("competitor_scans", "scheduler")
+        # ENG-FIRSTLIST: the first-draft candidates row is advisory too (WARN or PASS only).
+        advisory = ("competitor_scans", "scheduler", "first_listing_readiness")
         assert all(i["verdict"] in (readback.PASS, readback.FAIL, readback.UNKNOWN)
                    for i in out["items"] if i.get("section") not in advisory)
         assert by["competitor shops scanned (eight-shop research network)"]["verdict"] in (
@@ -576,7 +577,9 @@ def test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart():
         assert by["listing-package releases recorded"]["verdict"] == readback.PASS, by
         assert by["scheduler holds and silent mandatory shops"]["verdict"] in (
             readback.PASS, readback.WARN), by
-        assert len(out["items"]) == 15, out["items"]
+        assert by["first Etsy draft candidates (Launch-0)"]["verdict"] in (
+            readback.PASS, readback.WARN), by
+        assert len(out["items"]) == 16, out["items"]
         # An unreadable section is UNKNOWN, never PASS.
         v, _ = readback._judge_section("weekly_jobs", {"readable": False}, True)
         assert v == readback.UNKNOWN

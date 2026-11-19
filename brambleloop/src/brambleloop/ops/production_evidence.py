@@ -942,6 +942,88 @@ def competitor_scans(db, *, now: datetime) -> dict:
             "shops": rows}
 
 
+_SOURCE_NAME = re.compile(r"^[a-z][a-z0-9_.:-]{0,63}$")
+_LISTING_STATES = ("draft", "published", "incomplete_on_etsy", "active", "published_manually",
+                   "withdrawn", "retired")
+
+
+def first_listing_readiness(db, *, now: datetime) -> dict:
+    """ENG-FIRSTLIST: which Launch-0 release could become the first Etsy draft, read-only.
+
+    For every certified Launch-0 release with a stored listing: the code's own two readiness
+    readings -- the publication approval packet (`ops.publication_authority.evidence`, the
+    same reading the owner's Approvals card and `publication.approve` use; every gated section
+    must be PASS) and the latest automatic listing package (`publish.listing_package.latest`,
+    `ready_for_owner_review` or `blocked`). Emitted: `slug@version`, a 12-character release
+    hash prefix, section names with PASS/FAIL/UNKNOWN, blocker *source* identifiers and
+    counts, and whether the listing is already on Etsy. No copy, no reason text, no ids of
+    grants. Nothing is written, rendered or sent."""
+    from sqlalchemy import select
+
+    from ..core.models import Listing, PatternVersion, Product
+    from ..ops import publication_authority as pa
+    from ..products.launch0 import LAUNCH0_SLUGS
+    from ..publish import listing_package
+
+    with db.session() as s:
+        rows = list(s.execute(
+            select(Product.slug, PatternVersion.version, PatternVersion.release_hash,
+                   Listing.state, Listing.etsy_listing_id, Listing.release_hash)
+            .join(PatternVersion, PatternVersion.product_id == Product.id)
+            .join(Listing, (Listing.product_slug == Product.slug)
+                  & (Listing.version == PatternVersion.version))
+            .where(PatternVersion.certified == True,  # noqa: E712
+                   Product.slug.in_(tuple(LAUNCH0_SLUGS)))
+            .order_by(Product.slug, PatternVersion.id.desc())))
+    releases, seen = [], set()
+    for slug, version, release, state, etsy_id, listing_release in rows:
+        if (slug, version) in seen:
+            continue
+        seen.add((slug, version))
+        try:
+            ev = pa.evidence(db, slug, version, release or "")
+            sections = {k: str((ev.get(k) or {}).get("state") or pa.UNKNOWN)
+                        for k in pa.GATED_SECTIONS}
+            sections = {k: (v if v in (pa.PASS, pa.FAIL, pa.UNKNOWN) else pa.UNKNOWN)
+                        for k, v in sections.items()}
+            evidence_class = None
+        except Exception as exc:  # noqa: BLE001 - unreadable is never ready
+            sections = {k: pa.UNKNOWN for k in pa.GATED_SECTIONS}
+            evidence_class = _safe_class(type(exc).__name__)
+        try:
+            pkg = listing_package.latest(db, slug, version) or {}
+        except Exception:  # noqa: BLE001
+            pkg = {}
+        pkg_state = pkg.get("state") if pkg.get("state") in (
+            listing_package.READY, listing_package.BLOCKED) else None
+        blockers = [b for b in (pkg.get("blockers") or []) if isinstance(b, dict)]
+        sources = sorted({str(b.get("source")) for b in blockers
+                          if isinstance(b.get("source"), str)
+                          and _SOURCE_NAME.match(str(b.get("source")))})
+        pkg_release = str(pkg.get("release_hash") or "")
+        gated_pass = all(v == pa.PASS for v in sections.values())
+        releases.append({
+            "release": f"{slug}@{version}",
+            "release_hash_prefix": str(release or "")[:12],
+            "listing_bound_to_release": bool(release) and listing_release == release,
+            "listing_state": state if state in _LISTING_STATES else "other",
+            "on_etsy": bool(etsy_id),
+            "publication_sections": sections,
+            "publication_all_gated_pass": gated_pass,
+            "evidence_error_class": evidence_class,
+            "package_state": pkg_state,
+            "package_is_current_release": bool(pkg_release) and pkg_release == release,
+            "package_blocker_count": len(blockers),
+            "package_blocker_sources": sources[:20],
+            "draft_candidate": bool(gated_pass and not etsy_id and pkg_state ==
+                                    listing_package.READY and pkg_release == release),
+        })
+    return {"readable": True, "launch0_slugs": list(LAUNCH0_SLUGS),
+            "certified_with_listing": len(releases),
+            "draft_candidates": [r["release"] for r in releases if r["draft_candidate"]],
+            "releases": releases[:30]}
+
+
 # ---- the anonymous-safe checks ----------------------------------------------------------
 
 SECTIONS = {
@@ -956,6 +1038,7 @@ SECTIONS = {
     "competitor_scans": competitor_scans,
     "listing_package_releases": listing_package_releases,
     "scheduler": scheduler,
+    "first_listing_readiness": first_listing_readiness,
 }
 CHECK_NAMES = ("publishing_halt_clear", "stale_artefacts_rebuilding",
                "no_repeated_paid_call_in_24h", "weekly_jobs_completing")
