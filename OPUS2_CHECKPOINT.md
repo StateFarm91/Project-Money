@@ -73,11 +73,16 @@ worktrees, not this file.
     b36100e0 (unknown task refused).
 - Tick 2026-11-19T02:28Z: no [MAIN] message since RR 6997094498; INTEG2 unchanged (a0b8f72b). Nothing
   posted.
-- Stop reason (2026-11-19T02:30Z): queue exhausted; awaiting Main's verdicts on Stage A and the
-  three LOW heads. Answer any [MAIN] message first next tick. all of Main's findings fixed and review-requested; queue
-  exhausted pending verdicts. Answer any [MAIN] message first next tick.
-
-## State at 2026-11-18T10:50Z (superseded)
+- Tick 2026-11-19T03:28Z: Main 6998037105 (s4-sales-lows f5c527c1 + g-shadow-lows-2 f286b74d SHIP,
+  merged INTEG2 5901d12c; s2-routes-strict DO NOT SHIP) and 6998051067 (Stage A cd0a20c6 DO NOT
+  SHIP: M1-M3 + 6 LOWs). Done:
+  * s2-routes-scoped 801a500b (invalid entry refuses only its own task; routes_card), RR 6998857784.
+  * ws4-stage-a-fix2 46c75a0a (M1 durable withdrawal, M2 verified lineage, M3 use-time
+    re-checks; CHECKPOINT 6999043519) + 83317385 (LOWs), RR 6999197611. 18/18 mutants.
+  * s4-sales-lows-2 7880c164 (as-of on commerce; PARTIAL browser check; sw v31), RR 6999248283.
+  * Reported: INTEG2 5901d12c red at base (retention scan: swarm/orchestrate.py _probe_*).
+- Stop reason (2026-11-19T04:30Z): queue exhausted; awaiting Main's verdicts on the three RRs.
+  Answer any [MAIN] message first next tick.
 - ws5 LOWs N1-N3 RR POSTED 9b807fed on opus2/ws5-n1-n3-resolver-lows (on w6-INTEG1 19e6a8ff):
   N1 create-window binding (escalate, never release, on an unbound listing created within
   CREATE_SKEW under another title); N2 stateless rows make the read undecided; N3 one
