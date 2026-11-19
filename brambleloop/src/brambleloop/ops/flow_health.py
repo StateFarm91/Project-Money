@@ -407,8 +407,11 @@ def concept_supply_stall(db, *, now: datetime | None = None) -> dict | None:
                     "reason": supply.get("reason"), "pool": supply.get("pool"),
                     "drafted": supply.get("drafted"),
                     "undrafted_pool": supply.get("undrafted_pool"),
+                    "promotable_undrafted": supply.get("promotable_undrafted"),
+                    "held": len(supply.get("held") or {}),
                     "selected": len((scan.outputs or {}).get("selected") or [])}
     return {"period": period, "at": inv_mod._iso(at), "reason": p.get("reason"),
             "pool": p.get("pool"), "drafted": p.get("drafted"),
             "undrafted_pool": len(p.get("undrafted_pool") or []),
+            "held": len(p.get("held") or {}),
             "selected": len(p.get("selected") or [])}

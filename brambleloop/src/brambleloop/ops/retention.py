@@ -113,6 +113,13 @@ NEVER_PRUNED_TABLES = ("oauth_credentials",)
 # The point is not this list's current contents; it is that the next lifetime aggregate
 # somebody writes has to come here and make a decision.
 KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+    # ENG-RECOVERY: the thrash-breaker re-arm reads the boot rows of the RUNNING commit (the
+    # newest 500) for when this release first booted. A release is weeks old at most, far
+    # inside the horizon; were its first boot row pruned, a later boot of the same release
+    # would anchor the window, granting at most one more probe to a non-spending loop.
+    "release.boot_verdict": ("windowed",
+                             "swarm.orchestrate.release_booted_at reads the running "
+                             "release's own boot rows (the newest 500) for its first boot"),
     # Batch 4 integration (W4-READBACK + LAUNCHFIX + RESUMEFIX merge, 2026-10-31): readers
     # added by ops.production_evidence without an entry, caught by
     # test_w4_fmbatch1_retention_guard on the merged tree.
