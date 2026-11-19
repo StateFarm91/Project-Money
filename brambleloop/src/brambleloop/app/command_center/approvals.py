@@ -391,8 +391,9 @@ def _execute_action(action, slug, version, release, grant, label) -> list[dict]:
 
 
 def _activation_cards(db, limit: int = 20) -> list[dict]:
-    """ENG-FIRSTLIST: verified Etsy drafts (state 'published', not active): activation
+    """ENG-FIRSTLIST: verified Etsy drafts (state core.listing_state.PUBLISHED, not active): activation
     candidates. Before this there was no card, so `activation.approve` had no button."""
+    from ...core import listing_state as _ls
     from ...core.models import Listing
 
     out = []
@@ -400,7 +401,7 @@ def _activation_cards(db, limit: int = 20) -> list[dict]:
         rows = list(s.execute(
             select(Listing.product_slug, Listing.version, Listing.release_hash,
                    Listing.etsy_listing_id, Listing.id)
-            .where(Listing.state == "published", Listing.etsy_listing_id != "")
+            .where(Listing.state == _ls.PUBLISHED, Listing.etsy_listing_id != "")
             .order_by(Listing.id.desc()).limit(limit)))
     for slug, version, release, listing_id, row_id in rows:
         if not listing_id:

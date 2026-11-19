@@ -28,6 +28,8 @@ import os
 
 from sqlalchemy import select
 
+from ..core import listing_state
+
 PUBLISH_AGENT = "store_operator"
 PUBLISH_JOB = "store.publish"
 ACTIVATE_JOB = "store.activate"
@@ -165,7 +167,7 @@ def queue_activation(db, *, slug: str, version: str, release: str, approval_id: 
         raise ExecutionRefused("no Etsy draft is recorded for this release")
     if state == "active":
         raise ExecutionRefused(f"listing {listing_id} is already active")
-    if state != "published":
+    if state != listing_state.PUBLISHED:  # a verified draft only, never "live" (SECREVIEW F-4)
         raise ExecutionRefused(f"listing {listing_id} is {state!r}, not a draft whose "
                                f"read-back verified ('published'); resolve the incomplete "
                                f"draft first")
