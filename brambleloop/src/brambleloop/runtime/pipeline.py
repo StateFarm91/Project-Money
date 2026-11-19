@@ -2804,11 +2804,24 @@ def handle_store_activate(ctx: JobContext) -> dict:
             # Recorded active here, but no lineage and nothing this job can reconcile from
             # (Etsy does not read it active, or the intent is not this job's): send nothing,
             # and never leave a live listing outside lineage silently.
+            if str(remote.get("state") or "").lower() == "active" and \
+                    stage_a.owner_activated(ctx.db, str(listing_id)):
+                # Verdict 7012067586 item 2: the owner made it live between grant issue and
+                # this run (per-product approval). Not this grant's listing: no lineage, no P1.
+                ctx.audit("store.activate_refused", artifact=artifact,
+                          detail={"reason": "already active: activated by the owner",
+                                  "authority": "standing", "grant_id": seg_id})
+                return {**already, "reasons": ["already active: activated by the owner"]}
             if str(remote.get("state") or "").lower() == "active":
-                stage_a.open_lineage_unrecorded(
+                written = stage_a.open_lineage_unrecorded(
                     ctx.db, grant_id=seg_id, listing_id=str(listing_id), artifact=artifact,
                     why="the listing reads active but this job holds no applied activation "
                         "intent to reconcile it from")
+                if not written:
+                    # Verdict 7012067586 item 1: no lineage and no incident is never silent.
+                    raise stage_a.LineageUnrecorded(
+                        f"listing {listing_id} reads active with no lineage and its incident "
+                        f"could not be written")
             return already
 
     from ..integrations import etsy_verify
