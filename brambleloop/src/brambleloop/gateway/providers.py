@@ -121,33 +121,88 @@ def vendor_switch_card(db, *, env=None) -> dict:
     return {"state": "clear", "vendor": name}
 
 
-def routes(env=None) -> dict[str, str]:
-    """The per-task vendor table, parsed strictly: a malformed entry is refused, not skipped."""
+ROUTES_CARD_KEY = "model.routes_invalid"
+
+
+def parse_routes(env=None) -> tuple[dict[str, str], list[dict]]:
+    """The per-task vendor table and its invalid entries, parsed without guessing.
+
+    Verdict 6998037105 (MEDIUM): an invalid entry is refused FOR ITS OWN TASK only. The table
+    is read on every model call, so raising on the whole table let one typo refuse every task
+    in the fleet. A malformed entry (`task` with no `=vendor`) and an entry naming a task the
+    router does not know (`routing.TASKS`) are both returned in `invalid`, never in the table;
+    `vendor_for` refuses the task an invalid entry names, and the health sweep's owner card
+    names every invalid entry (`routes_card`)."""
+    from . import routing
+
     e = env if env is not None else os.environ
     raw = str(e.get(ROUTES_VAR) or "").strip()
-    out: dict[str, str] = {}
+    table: dict[str, str] = {}
+    invalid: list[dict] = []
     for part in filter(None, (x.strip() for x in raw.split(","))):
         task, sep, name = part.partition("=")
         task, name = task.strip(), name.strip()
         if not sep or not task or not name:
-            raise NoProviderAvailable(f"{ROUTES_VAR} entry {part!r} is not task=vendor; "
-                                      f"refusing rather than guessing a route")
-        # Verdict 6996033652 LOW: a task the router does not know is a typo, and a typo would
-        # leave that task on the default vendor while the owner believes it is routed.
-        from . import routing
+            invalid.append({"entry": part, "task": task or None,
+                            "why": "is not task=vendor"})
+        elif task not in routing.TASKS:
+            # Verdict 6996033652 LOW: a typo would leave the meant task on the default vendor
+            # while the owner believes it is routed; it is named, never silently ignored.
+            invalid.append({"entry": part, "task": task,
+                            "why": f"names task {task!r}, which is not a routing task "
+                                   f"(routing.TASKS)"})
+        else:
+            table[task] = name
+    return table, invalid
 
-        if task not in routing.TASKS:
-            raise NoProviderAvailable(
-                f"{ROUTES_VAR} entry {part!r} names task {task!r}, which is not a routing task "
-                f"(routing.TASKS); refusing rather than ignoring it")
-        out[task] = name
-    return out
+
+def routes(env=None) -> dict[str, str]:
+    """The valid per-task vendor routes (invalid entries are in `parse_routes`)."""
+    return parse_routes(env)[0]
+
+
+def routes_card(db, *, env=None) -> dict:
+    """Verdict 6998037105: an invalid `BRAMBLELOOP_MODEL_ROUTES` entry is an owner's setting
+    that silently refuses its task, so it is raised as one owner card naming every invalid
+    entry, and closed as satisfied once the table has none. Called from the health sweep."""
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+    from ..ops import owner_queue
+
+    _table, invalid = parse_routes(env)
+    with db.session() as s:
+        if invalid:
+            named = "; ".join(f"{b['entry']!r} {b['why']}" for b in invalid)
+            owner_queue.ensure(
+                s, ROUTES_CARD_KEY,
+                action=(f"Correct {ROUTES_VAR} in the service variables: {named}. Each entry "
+                        f"is task=vendor with a task from routing.TASKS (for example "
+                        f"{EXAMPLE_ROUTE_TASK}=openai)."),
+                reason=(f"{ROUTES_VAR} has {len(invalid)} invalid entr"
+                        f"{'y' if len(invalid) == 1 else 'ies'}; the task each one names is "
+                        f"refused its model calls until it is corrected (verdict 6998037105)."),
+                max_cost_cad=0.0, minutes=5,
+                consequence_of_delay="the named tasks make no model calls",
+                blocks="model calls for the tasks the invalid entries name")
+            return {"state": "raised", "invalid": invalid}
+        row = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == ROUTES_CARD_KEY,
+                                                 OwnerAction.done.is_(False)))
+        if row is not None:
+            owner_queue.close(row, owner_queue.SATISFIED, f"{ROUTES_VAR} has no invalid entry")
+            return {"state": "closed", "invalid": []}
+    return {"state": "clear", "invalid": []}
 
 
 def vendor_for(task_key: str, env=None) -> str:
     """The one router: the vendor `task_key` runs on. Raises `NoProviderAvailable` for an
     unregistered vendor, or a routed-only vendor named by the process-wide switch."""
-    table = routes(env)
+    table, invalid = parse_routes(env)
+    mine = [b for b in invalid if b["task"] == task_key]
+    if mine:
+        raise NoProviderAvailable(
+            f"{ROUTES_VAR} entry {mine[0]['entry']!r} {mine[0]['why']}; task {task_key!r} is "
+            f"refused rather than guessed (the other tasks are unaffected)")
     if task_key in table:
         name = table[task_key]
     else:

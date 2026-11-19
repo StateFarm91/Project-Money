@@ -161,22 +161,89 @@ def test_the_owner_card_example_route_names_a_real_task():
     assert "culture_classify" not in action
 
 
-def test_a_route_for_an_unknown_task_is_refused_not_ignored():
-    """Verdict 6996033652 LOW: `routes()` rejects a task name that is not in routing.TASKS."""
+def test_an_invalid_route_refuses_only_its_own_task():
+    """Verdict 6998037105 MEDIUM: one bad entry never refuses the fleet. With
+    `topic_filing=openai,typo_task=openai` topic_filing still routes and unrelated tasks still
+    resolve; a malformed entry refuses only the task it names."""
     from brambleloop.gateway import routing
     from brambleloop.gateway.model_gateway import NoProviderAvailable
 
-    ok_env = {providers.ROUTES_VAR: f"{providers.EXAMPLE_ROUTE_TASK}=openai"}
-    assert providers.routes(ok_env) == {providers.EXAMPLE_ROUTE_TASK: "openai"}
-    assert "culture_classify" not in routing.TASKS
-    for bad in ("culture_classify=openai", f"{providers.EXAMPLE_ROUTE_TASK}=openai,serp_x=openai"):
-        try:
-            providers.routes({providers.ROUTES_VAR: bad})
-        except NoProviderAvailable as exc:
-            assert "not a routing task" in str(exc), exc
-        else:
-            raise AssertionError(f"{bad!r} was accepted")
+    t = providers.EXAMPLE_ROUTE_TASK
+    env = {providers.ROUTES_VAR: f"{t}=openai,typo_task=openai"}
+    assert "typo_task" not in routing.TASKS and "listing_copy" in routing.TASKS
+    table, invalid = providers.parse_routes(env)
+    assert table == {t: "openai"} and [b["entry"] for b in invalid] == ["typo_task=openai"]
+    assert providers.vendor_for(t, env) == "openai"
+    assert providers.vendor_for("listing_copy", env) == providers.DEFAULT_VENDOR
+    assert providers.for_task("listing_copy", env=env).name == providers.DEFAULT_VENDOR
+    # A malformed entry names its task: that task is refused, the rest are not.
+    env = {providers.ROUTES_VAR: f"listing_copy,{t}=openai"}
+    try:
+        providers.vendor_for("listing_copy", env)
+        raise AssertionError("a malformed entry must refuse its own task")
+    except NoProviderAvailable as exc:
+        assert "is not task=vendor" in str(exc) and "other tasks are unaffected" in str(exc)
+    assert providers.vendor_for(t, env) == "openai"
+    assert providers.vendor_for("concept_ideation", env) == providers.DEFAULT_VENDOR
+    # A route naming an undeclared task refuses that task (and only it).
+    try:
+        providers.vendor_for("typo_task", {providers.ROUTES_VAR: "typo_task=openai"})
+        raise AssertionError("an undeclared routed task must be refused")
+    except NoProviderAvailable as exc:
+        assert "not a routing task" in str(exc), exc
 
+
+def test_invalid_routes_raise_one_owner_card_naming_each_entry():
+    from brambleloop.core.models import OwnerAction
+
+    db = boot("s2fix-routes-card-")
+
+    def card():
+        with db.session() as s:
+            return [(r.done, r.action) for r in s.scalars(select(OwnerAction).where(
+                OwnerAction.requirement_key == providers.ROUTES_CARD_KEY))]
+
+    assert providers.routes_card(db, env={})["state"] == "clear" and card() == []
+    env = {providers.ROUTES_VAR: f"{providers.EXAMPLE_ROUTE_TASK}=openai,typo_task=openai,oops"}
+    out = providers.routes_card(db, env=env)
+    assert out["state"] == "raised" and len(out["invalid"]) == 2, out
+    assert providers.routes_card(db, env=env)["state"] == "raised"          # one card
+    rows = card()
+    assert len(rows) == 1 and rows[0][0] is False
+    assert "'typo_task=openai'" in rows[0][1] and "'oops'" in rows[0][1], rows[0][1]
+    good = {providers.ROUTES_VAR: f"{providers.EXAMPLE_ROUTE_TASK}=openai"}
+    assert providers.routes_card(db, env=good)["state"] == "closed"
+    assert card()[0][0] is True
+
+
+def test_the_health_sweep_raises_the_invalid_routes_card():
+    from brambleloop.agents.registry import Registry
+    from brambleloop.core.models import OwnerAction
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import pipeline  # noqa: F401
+    from brambleloop.runtime.release import handle_health_sweep
+    from brambleloop.runtime.worker import JobContext
+
+    db = boot("s2fix-routes-sweep-")
+    Registry(db).seed_defaults()
+    queue = JobQueue(db)
+    saved = os.environ.get(providers.ROUTES_VAR)
+    os.environ[providers.ROUTES_VAR] = "typo_task=openai"
+    try:
+        ctx = JobContext(job=queue.enqueue("orchestrator", "ops.health",
+                                           {"cadence": "health_sweep"}),
+                         db=db, queue=queue, registry=Registry(db), phase=None)
+        out = handle_health_sweep(ctx)
+    finally:
+        if saved is None:
+            os.environ.pop(providers.ROUTES_VAR, None)
+        else:
+            os.environ[providers.ROUTES_VAR] = saved
+    assert (out.get("model_routes") or {}).get("state") == "raised", out.get("model_routes")
+    with db.session() as s:
+        assert s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == providers.ROUTES_CARD_KEY,
+            OwnerAction.done.is_(False))) is not None
 
 if __name__ == "__main__":
     run_tests(globals())
