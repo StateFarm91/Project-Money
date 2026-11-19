@@ -451,7 +451,7 @@ def evidence(db, *, now: datetime | None = None, env=None) -> dict:
         f = facts.get(jt) or {}
         c = sched.get(jt) or {}
         row = {"id": src["id"], "kind": src["kind"], "label": src["label"],
-               "agent": src["agent"], "job_type": jt, "method": src["method"],
+               "agent": src["agent"], "job_type": jt, "method": src["method"], "note": src["note"],
                "status": status, "why": why,
                "cadence_hours": round(cad[jt] / 3600, 2) if jt in cad else None,
                "last_attempt": f.get("last_attempt"), "last_success": f.get("last_success"),

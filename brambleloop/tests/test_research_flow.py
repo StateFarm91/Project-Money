@@ -357,12 +357,42 @@ def test_the_board_section_writes_nothing():
     from brambleloop.app.command_center import p0_board as B
     from sqlalchemy import inspect
 
+    from brambleloop.radar.intake import RadarConcept
+
     db = S.make_db()
+    # A database where no concept was ever proposed: the board must not create the table.
+    RadarConcept.__table__.drop(bind=db.engine, checkfirst=True)
+    research.ResearchTask.__table__.drop(bind=db.engine, checkfirst=True)
     before = set(inspect(db.engine).get_table_names())
+    assert RadarConcept.__tablename__ not in before
+    assert research.ResearchTask.__tablename__ not in before
     sec = B.view(db)["sections"]["research_sources"]
     assert set(inspect(db.engine).get_table_names()) == before
     assert sec["conclusion"] is None and sec["state"] == "DEGRADED"
     assert research_flow.latest_conclusion(db) is None
+
+
+
+def test_a_shop_name_in_the_evidence_makes_the_section_unknown_not_shown():
+    from unittest.mock import patch
+
+    from brambleloop.app.command_center import p0_board as B
+
+    db = S.make_db()
+    leaky = tuple({**src, "note": "seen at ZKBDESIGNER"} if src["id"] == "serp_capture"
+                  else src for src in research_flow.sources())
+    with patch.object(research_flow, "sources", lambda: leaky):
+        try:
+            research_flow.evidence(db)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("a shop name would have reached Mission Control")
+        leaky_label = tuple({**src, "label": "about ZKBDESIGNER"} if src["id"] == "serp_capture"
+                            else src for src in research_flow.sources())
+    with patch.object(research_flow, "sources", lambda: leaky_label):
+        sec = B.view(db)["sections"]["research_sources"]
+    assert sec["state"] == B.UNKNOWN and "zkbdesigner" not in json.dumps(sec).lower(), sec
 
 
 if __name__ == "__main__":
@@ -371,7 +401,7 @@ if __name__ == "__main__":
         if name.startswith("test_") and callable(fn):
             try:
                 fn()
-                print(f"ok   {name}")
+                print(f"OK   {name}")
             except Exception as exc:  # noqa: BLE001
                 fails += 1
                 import traceback

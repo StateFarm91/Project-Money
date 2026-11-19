@@ -1,3 +1,16 @@
+> **2026-11-19 — ENG-RESEARCH (`eng/research-flow`, NOT integrated, NOT deployed).** The research loop was traced
+> from watchlist change to engineering. It stopped at the pre-engineering gate: every watchlist proposal was refused
+> deterministically (no #88 storyboard, no #108 qualifier). That is fixed, and anti-clone now covers all eight watchlist
+> shops. With a vision verdict on record, a simulated watchlist change reaches `cir.draft` unattended. Without one, the
+> concept WAITS on `image_vision`. That wait is legitimate, owner-gated and not bypassed.
+> Every `radar.concept_intake` cycle now records `intel.research_conclusion`: `opportunities` or
+> `no_qualifying_opportunity`, with evidence. New pieces:
+> - the source registry `research/final_build/w6/research_sources.md`;
+> - P0 board section `research_sources`.
+>
+> Limitations, kept visible: research_fetch disabled (deployment flag); external trend platforms missing (no official
+> API); Marketplace Insights is owner-recorded. Review: `research/final_build/w6/review_requests/research_flow.md`.
+
 > **2026-11-02 — Batch 4 DEPLOYED: production = 0967c3ee (SHADOW unchanged). 24-hour acceptance running until 2026-11-03T03:31Z.**
 > - Owner approval: "APPROVE DEPLOY 0967c3eee287d06cad0d8034a99e39076c0ab6d5" (2026-11-02).
 > - Pre-release backup (03:27:45Z, before the push): `brambleloop_prod_20261102T032745Z.dump`, 497,732,160 bytes, sha256

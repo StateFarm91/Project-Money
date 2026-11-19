@@ -1,0 +1,119 @@
+# Review request — eng/research-flow (ENG-RESEARCH, slice 1 + 2)
+
+This branch was cut from `origin/claude/w6-INTEG2` @ a35ad302. Nothing on it has been deployed.
+It does not touch Railway, production, secrets, Etsy, spend, BRAMBLELOOP_PHASE or
+STAGE_A_ENABLED. It adds no new job type, so the autonomy map is unchanged. It reads no new
+audit action: `unknown_read_actions()` returns [].
+
+## 1. Source registry
+
+`research/final_build/w6/research_sources.md` is the prose form of the code registry
+`intel.research_flow.sources()`. The registry takes each cadence from `CADENCES`, and
+`status_of()` derives each status (scheduled / disabled / blocked / missing). A test fails if a
+research cadence or any of the eight mandatory shops falls out of the registry.
+
+Sources that are not scheduled stay visible as limitations:
+- `research_fetch` is **disabled**: `BRAMBLELOOP_RESEARCH_FETCH` is a deployment flag, and
+  turning it on is Main's decision.
+- `gallery_analysis` is **blocked** on `image_vision`.
+- `marketplace_insights` is **blocked by design**: only the owner can record the readings.
+- `external_trends` (Google/Pinterest Trends, social) is **missing**: no official API is wired,
+  and none will be scraped.
+
+## 2. The loop: where it stopped and what changed
+
+The loop was traced on the real handlers with `_watchlist_sim`:
+
+watchlist_scan → watchlist_compare → coverage gap + research → proposal_writer →
+concept_intake → radar.score → pre-engineering gate → cir.draft.
+
+**Stop 1 (fixed).**
+- *Defect:* every watchlist proposal was refused deterministically at the gate. It had no #88
+  thumbnail storyboard and no #108 silhouette qualifier, and nothing consumes the resulting
+  `returned_to_ideation` row for intake concepts.
+- *Fix:* `proposal_writer.brief_for(pod)` adds the brief, written from `POD_CONCEPTS` only.
+
+**Stop 2 (fixed).**
+- *Defect:* #87 novelty and intake's anti-copy check compared a concept only with the
+  anchor's listings. A concept inspired by other watchlist shops was never checked against
+  them, and it waited on `benchmark_observation` when the anchor had nothing in the pod.
+- *Fix:* both now use `prospecting.watchlist_comparables`, which covers all eight shops.
+- *Effect:* this can only add twins to refuse. In the sense of the earlier behaviour it widens
+  nothing, but please review that judgement.
+
+**Stop 3 (legitimate, not bypassed).**
+- The gate's vision checks wait for a recorded verdict.
+- `intake.rescore_judged` re-scores the concept automatically once a verdict exists.
+- Asking the paid judge about a board-less radar-intake concept is still an open item. It
+  belongs to the creative director's budget and the `image_vision` gate.
+
+**Conclusion (new).**
+- `radar.concept_intake` now ends with `research_flow.conclude`, which writes one
+  `intel.research_conclusion` reading per day.
+- The reading's outcome is either `opportunities` (stages, and what holds each one) or
+  `no_qualifying_opportunity` (with its evidence).
+- It names shops by alias only. `_assert_no_content` refuses a shop name or key.
+
+## 3. Mission Control
+
+A new P0 board section, `research_sources`, served under the existing owner-only `/api/cc`
+gate.
+
+It shows one row per source:
+- agent, method and status with its reason;
+- last attempt, last success and Etsy's source timestamp;
+- listings observed, changes discovered and staleness;
+- next scan, failures and backoff, and why the shop was not attempted;
+- findings, concepts and engineering per shop alias. The existing `downstream` counted gaps by
+  the shop's own key, which is always 0 for `watchlist` gaps.
+
+The section also carries the loop's stages and the latest conclusion.
+
+Other properties:
+- It writes nothing: lineage is read only when its tables already exist.
+- A shop name in the payload makes the section UNKNOWN.
+- The JS view is added and the SW cache is bumped to `cc-shell-v33`.
+
+## Tests
+
+`tests/test_research_flow.py` has 15 tests; it is in `suite_final_segment.txt`, before
+test_product_run. They cover:
+- A watchlist change reaches `cir.draft` with no manual step.
+- Without a vision verdict the concept waits, the hold is named, and nothing is drafted.
+- The proposal has no deterministic gate failure.
+- "No qualifying opportunity" is recorded, with its evidence. No comparison at all is a named
+  conclusion of its own.
+- An inaccessible shop stays visible and the others still scan.
+- No competitor text, shop name or key reaches a proposal, a task, a concept or the
+  conclusion.
+- Novelty is measured against non-anchor watchlist shops.
+- The registry covers every research cadence.
+- Statuses are derived.
+- The board's per-source evidence and per-shop downstream, the failing-shop row, write-nothing,
+  and the shop-name refusal.
+
+**Mutants.** All were run with PYTHONDONTWRITEBYTECODE=1, and every one is killed:
+- M1 brief removed: 4 tests fail.
+- M2 anchor-only cards: 2 fail.
+- M3 conclusion never "opportunities": 2 fail.
+- M4 no-content check removed: 1 fails.
+- M5 conclude not called: 5 fail.
+- M6 disabled read as scheduled: 1 fails.
+- M7 engineering stage lost: 1 fails.
+- B1 per-shop engineering lost: 2 fail.
+- B2 shop key instead of alias: 3 fail.
+- B3 table guard removed: 1 fails.
+- B4 evidence no-content check removed: 1 fails.
+- B5 failures forced to 0: 1 fails.
+- B6 section unregistered: 3 fail.
+
+**Wide suites.** The run used `run_tests.sh` with JOBS=4. The suites were the mandatory list
+plus every suite that imports preengineering, prospecting, intake, proposal_writer or
+concept_intake, plus radar/intel/research/watchlist/p0. That is 49 suites, 822 passing.
+
+Two suites failed on that run:
+- `test_research_flow` printed lowercase "ok", which the runner does not count.
+- `test_cert_lanes_capacity` hit "runtime graph source changed during analysis" because I
+  edited files mid-run.
+
+Both pass on a clean rerun.
