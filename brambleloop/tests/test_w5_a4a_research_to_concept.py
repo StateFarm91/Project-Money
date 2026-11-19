@@ -42,8 +42,10 @@ from brambleloop.runtime.worker import Scheduler, Worker  # noqa: E402
 TODAY = date.today()
 POOL_SLUGS = {s.slug for s in POOL}
 # The research-to-concept chain. Everything else the cadences enqueue stays PENDING here.
+# ENG-SUPPLY: promotions are offered to the capacity-aware admission controller
+# (products.supply) and `supply.admit` admits them into free capacity, so it is chain work too.
 CHAIN = ["radar.scan", "radar.score", "research.investigate", "radar.concept_intake",
-         "cir.draft"]
+         "supply.admit", "cir.draft"]
 
 
 def _db() -> Database:
@@ -97,12 +99,37 @@ def _judge_intake_concepts():
 
 
 def _drive(db, now: datetime, *, types=CHAIN, limit: int = 400) -> int:
-    """One cadence tick, then the worker runs until the chain is idle."""
+    """One cadence tick, then the worker runs until the chain is idle.
+
+    ENG-SUPPLY: the radar scan promotes every static-pool concept in the same tick, and the
+    admission controller admits only into free work-in-progress (two chains on one worker).
+    The research concept is offered behind them and is admitted -- ahead of the waiting
+    static-pool promotions, which rank after research-backed originals -- once a slot frees.
+    Downstream chain stages are not run here, so the in-flight products' chains are finished
+    by hand, as the worker would once it ran them, and `supply.admit` (its 15-minute cadence)
+    admits the next offer. Nothing is admitted past the limit at any point."""
+    from brambleloop.products import supply
+    from brambleloop.runtime.release_recovery import CHAIN_STAGE_JOBS
+
     Scheduler(db).tick(now)
     w = Worker(db, "a4a-test", job_types=list(types))
     ran = 0
     while ran < limit and w.run_once():
         ran += 1
+    for i in range(12):
+        waiting = [o for o in supply.offers(db) if o.get("research")]
+        if not waiting:
+            break
+        with db.session() as s:
+            for j in s.scalars(select(Job).where(Job.job_type.in_(CHAIN_STAGE_JOBS),
+                                                 Job.status != JobStatus.DONE)):
+                if j.status in (JobStatus.PENDING, JobStatus.FAILED, JobStatus.RUNNING):
+                    j.status = JobStatus.DONE
+        assert supply.assess(db, now=now)["slots"] > 0
+        JobQueue(db).enqueue("orchestrator", "supply.admit", {},
+                             idempotency_key=f"a4a-admit:{now.isoformat()}:{i}")
+        while ran < limit and w.run_once():
+            ran += 1
     assert ran < limit, "the chain did not go idle"
     return ran
 
@@ -200,6 +227,12 @@ def test_a_gap_with_no_pool_concept_becomes_a_new_concept_and_a_cir_draft():
     # ... radar.score promoted it, and cir.draft was enqueued AND run automatically.
     drafts = [j for j in _jobs(db, "cir.draft") if j.idempotency_key == f"draft:{slug}"]
     assert len(drafts) == 1
+    # ENG-SUPPLY: it entered engineering through the admission controller, offered by
+    # radar.score as research-backed supply and admitted with a recorded reason
+    offered = [a.detail for a in _audits(db, "supply.offered") if a.artifact == slug]
+    assert len(offered) == 1 and offered[0]["source"] == "radar.score" \
+        and offered[0]["research"] is True, offered
+    assert [a for a in _audits(db, "supply.admitted") if a.artifact == slug]
     draft = drafts[0]
     assert draft.inputs["provenance"] == f"radar.intake:research_task:{task.id}"
     assert draft.status == JobStatus.DONE, (draft.status, draft.last_error)
@@ -308,7 +341,10 @@ def test_no_recorded_evidence_is_a_named_outcome_and_no_proposal():
     assert any("below 3" in r for r in rec["why"]) and any("shop" in r for r in rec["why"])
     named = _audits(db, ideation.INSUFFICIENT)
     assert len(named) == 1 and named[0].artifact == f"research_task:{tasks[0].id}"
-    assert not [j for j in _jobs(db, "cir.draft") if j.idempotency_key[6:] not in POOL_SLUGS]
+    # ENG-SUPPLY: supply.admit also seeds Launch-0 releases (`launch0-seed:` keys); only a
+    # research draft (`draft:<slug>` outside the pool) would be a proposal's draft.
+    assert not [j for j in _jobs(db, "cir.draft") if j.idempotency_key.startswith("draft:")
+                and j.idempotency_key[6:] not in POOL_SLUGS]
 
 
 def test_a_title_that_overlaps_a_competitor_listing_is_refused():

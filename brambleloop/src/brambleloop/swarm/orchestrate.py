@@ -383,6 +383,10 @@ LIVENESS_JOB_TYPES: frozenset[str] = frozenset({
     "ops.continuity",
     # W4-CREDHEALTH: its job is to notice the owner's key rotation or top-up.
     "ops.provider_credentials",
+    # ENG-SUPPLY: product admission. While capacity is full its output is unchanged by
+    # design; its job is to notice the slot a finished or parked chain frees. Backed off
+    # (up to 32 x 15 min) the next product would wait hours for nothing. CA$0, a DB read.
+    "supply.admit",
 })
 # ENG watchlist-cadence (prod 2026-11-18): a reader gated on a credential that a probe
 # re-tests. While the probe says the key is refused, the reader correctly does nothing and
@@ -966,7 +970,8 @@ JOB_BANDS: dict[str, str] = {
     "assets.photo_review": "proven_winner",
     # W5-INTEG1 (integration fix): opus2 job types merged in Batch 5 had no decided band
     # (test_swarm_runtime). Each takes the band of the chain it belongs to.
-    "chain.successors": "proven_winner",          # advances a release to its next stage
+    "chain.successors": "proven_winner",
+    "supply.admit": "proven_winner",              # admits the next product into engineering          # advances a release to its next stage
     "listing.package": "proven_winner",           # owner-review listing package (listing.draft's chain)
     "intel.scan_evidence": "benchmark_change",    # competitor evidence, like intel.benchmark_*
     "policy.issuer_shadow": "proven_winner",      # WS4-5: shadow decisions on the publish chain

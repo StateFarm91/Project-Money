@@ -5538,12 +5538,18 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
     if scope is None:
         from . import release_recovery
 
+        from ..products import supply
+
         for name, step in (("halted_certifications", release_recovery.retry_halted),
-                           ("launch0_seed", release_recovery.seed_launch0)):
+                           ("supply", supply.run)):
             try:
                 recovery[name] = step(ctx)
             except Exception as exc:  # noqa: BLE001 - recorded, never fails the rebuild
                 recovery[name] = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+        # ENG-SUPPLY: Launch-0 seeding is the first source of the admission pass; its reading
+        # keeps the key every reader of chain.rebuilt already uses.
+        recovery["launch0_seed"] = (recovery.get("supply") or {}).get("launch0") \
+            or recovery.get("supply")
 
     ctx.audit("chain.rebuilt", detail={"chain_version": CHAIN_VERSION,
                                        "doc_version": DOC_VERSION,
@@ -10474,6 +10480,19 @@ def handle_chain_successors(ctx: JobContext) -> dict:
     ctx.audit("chain.successors_swept", detail={k: out[k] for k in (
         "open", "redriven", "resolved", "commit")} | {"waiting": out["waiting"][:20]})
     return out
+
+
+@handlers.register("supply.admit")
+def handle_supply_admit(ctx: JobContext) -> dict:
+    """ENG-SUPPLY, every 15 minutes: admit the next eligible products into free capacity.
+
+    Launch-0 releases first, then the research and creative offers waiting in the supply
+    queue (products.supply). A slot freed by a finished chain, or by a product parked on a
+    physical sample or an owner decision, is refilled here with no manual kick. CA$0 itself;
+    every admission and refusal is recorded with its reason (`supply.admission`)."""
+    from ..products import supply
+
+    return supply.run(ctx)
 
 
 # The runtime handlers for these three job types are the wrappers (the registry keeps the last

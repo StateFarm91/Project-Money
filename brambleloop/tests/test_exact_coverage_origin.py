@@ -79,12 +79,18 @@ class OriginTests(unittest.TestCase):
             enqueue=lambda *a,**kw: queued.append(a) or SimpleNamespace(id=23))
         brief={'motifs':['waves'],'wow_mechanism':'border','skill_level':'intermediate'}
         # Upstream gate clearance is an explicit fixture premise, not certification evidence.
+        # So is engineering admission (ENG-SUPPLY): this mock ctx keeps no durable audit, and
+        # the admission controller is tested in test_eng_supply.
+        def admitted(ctx,*,slug,payload,key,**kw):
+            job=ctx.enqueue(kw.get('agent','crochet_engineer'),kw.get('job_type','cir.draft'),payload,idempotency_key=key)
+            return {'offered':True,'admitted':True,'job':job.id,'why':None}
         with patch.object(intake,'design_slug',return_value='product-b'), patch.object(intake,'judgement_for',return_value={}), \
              patch.object(intake,'_event_for',return_value=('',None,100)), patch.object(intake,'brief_for',return_value=brief), \
              patch.object(intake,'culture_domain',return_value=''), patch.object(intake,'funnel_verdict',return_value={'carried':True}), \
              patch('brambleloop.creative.ideation.pre_engineering_gate',return_value={'cleared_for_engineering':True,'verdict':{}}), \
              patch('brambleloop.creative.prototype.source_provenance',return_value=None), \
-             patch('brambleloop.improve.roi.design_provenance',return_value={}), patch.object(intake,'response_lesson',return_value={}):
+             patch('brambleloop.improve.roi.design_provenance',return_value={}), patch.object(intake,'response_lesson',return_value={}), \
+             patch('brambleloop.products.supply.offer',side_effect=admitted):
             result=intake.intake(ctx,candidate=SimpleNamespace(concept=c),plan={},source='test',mjs_event_id=self.event)
         self.assertEqual(result['coverage']['gap'],self.b)
         self.assertEqual(self.states(),[('uncovered',''),('engineering','product-b')])
