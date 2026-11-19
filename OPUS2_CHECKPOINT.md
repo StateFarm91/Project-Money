@@ -1482,3 +1482,7 @@ See P0_GAP_REGISTER.json `opus2_open_engineering`.
 - Issue #28 through 18:18Z has no opus2 VERDICT or ASSIGN. D-OWNER-CORE-FAMILIES (7017292315) lists Secondary on Track 1 with no specific item. ENG-PLUSH owns the revival of opus2/p0-amigurumi.
 - Posted ACK 7022770281.
 - STOP REASON: no assigned opus2 work. Awaiting Main's ASSIGN; answer any [MAIN] message first next tick.
+
+## 2026-11-19T22:30Z tick
+- No new #28 comments since ACK 7022770281. INTEG2 is still ef67febf, and nothing new is in dispatch.
+- STOP REASON: no assigned opus2 work; awaiting Main ASSIGN.
