@@ -69,7 +69,7 @@ the tests pin it:
 |---|---|
 | Private draft (`createDraftListing`) | the owner's own sealed, content-bound 24 h **publication grant** (`ops.publication_authority`, CC `publication.approve` under step-up), effective phase ≥ LIMITED PRODUCTION, kill-switch, every release gate (now including D1). The client refuses without an `OwnerGrant` (`EtsyClient._authorise_write`). |
 | Public listing (`state=active`) | a **separate** sealed activation grant bound to the listing id (`ops.activation_authority`), `launch_authorisation` on the call, read-back, the daily spend ceiling, and the fee reservation. `update_listing` refuses `state` outright. |
-| Renewal (fee-bearing) | No create payload sends `should_auto_renew`, and no source line sets it to true (test). |
+| Renewal (fee-bearing) | Every create payload sends `should_auto_renew: false` (`ListingPayload.to_dict`, since WS4-8), the F-542 read-back compares it (`true` is a mismatch, absent is not-returned), and no source line sets it to true (test). |
 | Test draft (exercise) | the narrow `shadow_writes_authorised` lane, only in a non-publishing phase; it can never activate (`refusal_for(ACTIVATE)`). The operator-token endpoint is the owner's word. |
 
 **Is there a fee at draft creation?** Repo evidence: `integrations/etsy.py` ("Etsy charges the
