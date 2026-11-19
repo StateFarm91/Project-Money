@@ -106,6 +106,25 @@ def _audits(db):
         return list(s.scalars(select(AuditLog.id).where(AuditLog.action == "radar.supply_stall")))
 
 
+def _free_slots_and_admit(db):
+    """Finish the research drafts already made, then run the offer admission pass
+    (`supply.admit`, the event refill). Launch-0 seeding (`supply.run`) is a separate decision
+    with its own priority rules (test_eng_supply) and is not under test here."""
+    from brambleloop.agents.registry import Registry as _Reg
+    from brambleloop.products import supply
+    from brambleloop.runtime.worker import JobContext
+
+    with db.session() as s:
+        for j in s.scalars(select(Job).where(Job.job_type == "cir.draft")):
+            j.status = JobStatus.DONE
+    holder = JobQueue(db).enqueue("orchestrator", "supply.admit", {},
+                                  idempotency_key="admit-after-free", priority=0)
+    ctx = JobContext(job=holder, db=db, queue=JobQueue(db), registry=_Reg(db),
+                     phase=Phase.SHADOW)
+    out = supply.admit(ctx)
+    assert out["admitted"], out
+
+
 def _drafts(db):
     with db.session() as s:
         return sorted(s.scalars(select(Job.idempotency_key).where(Job.job_type == "cir.draft")))
@@ -211,9 +230,22 @@ def test_the_production_drafted_set_drafts_what_can_be_drafted_then_names_the_st
         before = set(_drafts(db))
         outs.append(_scan(db, day, f"prod-{i}"))
         _score_all(db)
+        if i == 0:
+            # ENG-SUPPLY: a promoted concept is offered to the capacity-aware admission
+            # controller. What fits the WIP limit is drafted now; the rest waits in the
+            # supply queue (never dropped), and is drafted when a slot frees.
+            from brambleloop.products import supply
+
+            waiting = [o["slug"] for o in supply.offers(db)]
+            now_made = {k[len("draft:"):] for k in set(_drafts(db)) - before}
+            assert now_made and now_made.isdisjoint(waiting), (now_made, waiting)
+            assert now_made | set(waiting) == set(outs[0]["selected"]), (now_made, waiting)
+            _free_slots_and_admit(db)
+            assert not supply.offers(db), supply.offers(db)
         made.append(sorted(k[len("draft:"):] for k in set(_drafts(db)) - before))
     first = outs[0]
-    # continued progress: everything the gate passes is drafted, in one scan
+    # continued progress: everything the gate passes is drafted (within capacity, then as
+    # slots free)
     assert made[0] and set(made[0]) == set(first["selected"]), (made[0], first["selected"])
     assert first["concept_supply"]["stalled"] is False
     assert first["concept_supply"]["supply_selected"] == len(made[0])

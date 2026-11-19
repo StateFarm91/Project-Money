@@ -50,7 +50,9 @@ from brambleloop.swarm import orchestrate as orc  # noqa: E402
 
 OLD = "f34c25ae" + "0" * 32
 NEW = "8bc96eef" + "1" * 32
-NOW = datetime(2026, 11, 19, 15, 3, tzinfo=timezone.utc)
+# The scheduler stamps created_at with the wall clock, and rearm_probe compares it with the
+# boot times below; a fixed date made this suite fail for any run 8 h after 2026-11-19 15:03Z.
+NOW = datetime.now(timezone.utc).replace(second=0, microsecond=0)
 PERIOD = {jt: p for _n, _a, jt, p in CADENCES}
 
 
