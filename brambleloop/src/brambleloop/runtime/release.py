@@ -7941,6 +7941,8 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
             by_slug.setdefault(v.get("product_slug") or "", []).append(v)
         settled = (provenance.FRESH, provenance.SUPERSEDED)
         incomplete_close, incomplete_open = [], {}
+        legacy_restart: list[tuple[str, int, list[str]]] = []
+        from ..ops.rebuild_graph import legacy_incomplete
         for r in list(session.scalars(_select(_Incident).where(
                 _Incident.signature.like(f"{REBUILD_INCOMPLETE_SIGNATURE}:%"),
                 _Incident.resolved == False))):  # noqa: E712
@@ -7959,6 +7961,17 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
             if ok:
                 incomplete_close.append(r.signature)
             else:
+                # ENG-RECOVERY slice 2: a pre-branch row whose product reads nothing STALE
+                # is never reached by the propagation below (it enqueues only for moved
+                # refs), so it could neither restate onto the bounded budget nor close: it
+                # sat in `rebuild_incomplete_legacy_budget_pending` for good. It gets ONE
+                # targeted rebuild of what it names (keyed on the row, so once per row);
+                # that attempt restates it under the new budget (`budget_reset`) or
+                # completes and closes it on verified evidence. Nothing closes here.
+                if (legacy_incomplete(r.detail) and keys
+                        and not any(v["state"] == provenance.STALE
+                                    for v in by_slug.get(slug_, []))):
+                    legacy_restart.append((slug_, r.id, keys[:50]))
                 incomplete_open[r.signature] = read or {"(none)": "no artefact on file"}
                 r.detail = dict(r.detail or {}, sentinel_read={
                     "at": _utcnow().isoformat(), "verdicts": dict(list(read.items())[:50])
@@ -7968,6 +7981,18 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
             resolution=("every artefact this row named reads fresh (or superseded) in the "
                         "provenance check and none of the product's reads stale: the "
                         "outstanding rebuild has been delivered"))
+
+    legacy_restarted: list[str] = []
+    for slug_, row_id, keys_ in legacy_restart:
+        job = ctx.enqueue("listing", "chain.rebuild",
+                          {"product_slug": slug_, "artefacts": keys_, "fingerprints": {},
+                           "reason": ("legacy rebuild-incomplete row with nothing reading "
+                                      "stale: one targeted rebuild onto the bounded budget "
+                                      "(ENG-RECOVERY)"),
+                           "legacy_restart": row_id},
+                          idempotency_key=f"rebuild:legacy-restart:{slug_}:{row_id}")
+        if job is not None:
+            legacy_restarted.append(slug_)
 
     # W4-LISTREADY (delta review N3): a live listing of a superseded release is owner-visible.
     from . import release_recovery
@@ -7993,6 +8018,7 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         "incidents_cleared": len(report.get("incidents_cleared") or []),
         "rebuild_incomplete_cleared": incomplete_cleared,
         "rebuild_incomplete_open": dict(list(incomplete_open.items())[:50]),
+        "rebuild_incomplete_legacy_restarted": legacy_restarted[:50],
     }
     ctx.audit("ops.sentinel", detail=detail)
 

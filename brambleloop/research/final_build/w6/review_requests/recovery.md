@@ -296,9 +296,49 @@ Each mutant was applied to a copy of the tree and must make the named suite fail
 | M11 | radar.scan ignores drafted state | test_w5_a7_supply_stall | KILLED |
 | M12 | no fallback when nothing undrafted is selectable | test_w5_a7_supply_stall | KILLED |
 
-## Next slice (in progress)
+## Slice 2: the legacy rebuild-incomplete rows (point 4)
 
-- Point 4 remainder: a legacy `rebuild-incomplete` row whose product has no STALE verdict
-  gets exactly one targeted rebuild of its named keys (keyed per row). That moves it onto
-  the bounded attempt budget, recorded through `budget_reset`.
-- No row is closed and no halt is lifted without evidence.
+**Cause**
+- A pre-branch `rebuild-incomplete` row has no `attempts` and no `budget_reset`.
+- If its product reads nothing STALE, the sentinel's propagation never reaches it, because
+  propagation enqueues only for moved refs.
+- It cannot close either. Its named keys read "no provenance row", UNPROVEN or retired, which
+  is not positive evidence.
+- So it sat in `rebuild_incomplete_legacy_budget_pending` for good.
+- Separately, slice 1 removed the #39 hold that kept every daily retry from running.
+
+**Fix** (`ops.sentinel`, `runtime/release.py`)
+- Such a row gets exactly one targeted `chain.rebuild` of the keys it names.
+- The job is keyed `rebuild:legacy-restart:<slug>:<row id>`, so it runs once per row.
+- That attempt restates the row under the bounded budget (`_rebuild_incomplete` →
+  `budget_reset`), or verifies and closes it through the existing evidence path.
+- Nothing is closed here and no halt is lifted.
+- A row already under the new budget, or a product with a STALE verdict, is left to the
+  existing bounded retry.
+- The sentinel output gains `rebuild_incomplete_legacy_restarted`.
+
+**Test**
+- `test_eng_recovery::test_a_legacy_row_with_nothing_stale_gets_exactly_one_targeted_rebuild`.
+  It has three products: legacy with nothing stale, already on the new budget, and legacy
+  with a STALE chart.
+- Exactly one job is enqueued, for the first product only.
+- A second sentinel run enqueues nothing.
+- No row is resolved and every row still halts publication.
+
+**Mutants**
+
+| # | Mutant | Result |
+|---|---|---|
+| M13 | the legacy restart ignores STALE | KILLED |
+| M14 | the legacy restart applies to non-legacy rows | KILLED |
+| M15 | the legacy restart runs more than once per row | KILLED |
+
+**Suites, run 4** (`test_eng_recovery`, `test_eng_stale_rebuild_loop`,
+`test_eng_stale_round2`, `test_w4_prodfix`, `test_cert_rebuild_chain`,
+`test_w4_fmbatch1_retention_guard`, `test_w4_readback_evidence`, `test_vacuity`,
+`test_w3_tmp_hygiene`): **130 passing, 0 suites failing**.
+
+**Limit, stated plainly**
+- If a product has no stored release, the restart is refused with "no stored release" and
+  the row stays legacy. That outcome is visible through `chain.rebuild_refused`.
+- The 14 production products all have certified releases, so this should not apply to them.

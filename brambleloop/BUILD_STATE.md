@@ -11,8 +11,8 @@
 >   OWNER ACTION: Command Center card "Etsy policy changed: listing_image_rules", Preview then
 >   Review (confirm "reviewed and tested").
 > - Tests: `test_eng_recovery` (new), 12 of 12 mutants killed. Suites and status:
->   `research/final_build/w6/review_requests/recovery.md`. Still open: legacy rebuild-incomplete
->   rows with no STALE verdict (slice 2).
+>   `research/final_build/w6/review_requests/recovery.md`. Slice 2: a legacy rebuild-incomplete row
+>   with nothing STALE gets one targeted rebuild (once per row); 15 of 15 mutants killed.
 
 > **2026-11-02 — Batch 4 DEPLOYED: production = 0967c3ee (SHADOW unchanged). 24-hour acceptance running until 2026-11-03T03:31Z.**
 > - Owner approval: "APPROVE DEPLOY 0967c3eee287d06cad0d8034a99e39076c0ab6d5" (2026-11-02).
