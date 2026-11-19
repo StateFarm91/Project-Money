@@ -113,6 +113,13 @@ NEVER_PRUNED_TABLES = ("oauth_credentials",)
 # The point is not this list's current contents; it is that the next lifetime aggregate
 # somebody writes has to come here and make a decision.
 KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+    # ENG-RECOVERY: the thrash-breaker re-arm reads the boot rows of the RUNNING commit (the
+    # newest 500) for when this release first booted. A release is weeks old at most, far
+    # inside the horizon; were its first boot row pruned, a later boot of the same release
+    # would anchor the window, granting at most one more probe to a non-spending loop.
+    "release.boot_verdict": ("windowed",
+                             "swarm.orchestrate.release_booted_at reads the running "
+                             "release's own boot rows (the newest 500) for its first boot"),
     # Batch 4 integration (W4-READBACK + LAUNCHFIX + RESUMEFIX merge, 2026-10-31): readers
     # added by ops.production_evidence without an entry, caught by
     # test_w4_fmbatch1_retention_guard on the merged tree.
@@ -204,6 +211,13 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                               "sample measured at the wrong size is withheld forever (PHYSFIX "
                               "R28 follow-up); release_gates.for_publish refuses on any such "
                               "row, at any age"),
+    # ENG-SUPPLY: products.supply reads every offer not yet admitted (the supply queue
+    # itself) and every admission (so an offer whose cir.draft job was later pruned is never
+    # admitted twice). Pruning either would drop a waiting product or draft one twice.
+    "supply.offered": ("lifetime_total",
+                       "products.supply.offers reads each waiting offer, newest per key"),
+    "supply.admitted": ("lifetime_total",
+                        "products.supply.offers/_taken read every admission by key"),
     "gate.halted": ("lifetime_total",
                     "release_recovery.halted_releases compares each release's newest halt with "
                     "its newest certify outcome (per artifact, which keep-per-action does not "

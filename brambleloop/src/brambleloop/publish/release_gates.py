@@ -1446,6 +1446,24 @@ def _waivable_staleness(row, slug: str, fresh: set[str]) -> bool:
     return False
 
 
+def _own_rebuild_pending(db, slug: str) -> bool:
+    """This product's own `rebuild-incomplete` row is open and its budget is not exhausted.
+    Unreadable is False (a halt is never waived on a failed read)."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+    from ..ops.rebuild_graph import REBUILD_INCOMPLETE_SIGNATURE
+
+    try:
+        with db.session() as s:
+            row = s.scalar(select(Incident).where(
+                Incident.resolved == False,  # noqa: E712
+                Incident.signature == f"{REBUILD_INCOMPLETE_SIGNATURE}:{slug}"))
+            return row is not None and not rebuild_exhausted(row)
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def _halting_other_than_staleness(db, slug: str, own: set[str],
                                   fresh: set[str] | None = None) -> list:
     """Open halting incidents for `slug` other than its own stale-marketing rows and other
@@ -1531,12 +1549,61 @@ def staleness(db, *, slug: str) -> dict:
                                                   set(graph.get("fresh") or ()))
     # Review F4: an unreviewed platform-policy change (#39) is not staleness, so it is never
     # waived by the marketing rebuild exception.
-    only_marketing = (bool(outstanding) and not halting_other and not policy
+    # ENG-RECOVERY: only a change governing growth or product creation holds the marketing
+    # rebuild (drafted, held content); a listing-image or search change holds publication.
+    policy_marketing = policy_holds_manufacturing(policy, MARKETING_REBUILD_POLICY_WORKFLOWS)
+    # ENG-RECOVERY fix round 1 (review L5): a legacy rebuild-incomplete row names keys that
+    # read "no provenance row" -- nothing is outstanding in the graph -- and the targeted
+    # rebuild that row is waiting for reaches marketing.schedule with an empty `outstanding`.
+    # Requiring a non-empty outstanding list refused that rebuild on every attempt (proved by
+    # test_eng_recovery's end-to-end L5 test), spending the row's three-attempt budget on a
+    # refusal the rebuild exists to cure. So the exception also applies when this product's
+    # own rebuild-incomplete row is open and not exhausted. Everything else is unchanged: any
+    # other halting row, a growth/product-creation policy change or non-marketing outstanding
+    # work still refuses, and `halted`, `reasons` and `blocks` (what publication reads) still
+    # carry the halt and every unreviewed publishing change.
+    own_rebuild_pending = not outstanding and _own_rebuild_pending(db, slug)
+    only_marketing = ((bool(outstanding) or own_rebuild_pending)
+                      and not halting_other and not policy_marketing
                       and all(str(k).startswith("marketing_asset:") for k in outstanding))
     return {"halted": bool(halting), "incidents": halting[:5], "rebuild": graph,
             "policy_changes_unreviewed": [c["source"] for c in policy],
+            "policy_publication_only": policy_publication_only(policy),
             "blocks": bool(reasons), "reasons": reasons,
             "outstanding_only_marketing": only_marketing}
+
+
+# ENG-RECOVERY (prod 2026-11-19, owner directive): a publication-side platform-policy question
+# must not halt internal production; it may hold publication only. Production held 16 daily
+# rebuild retries (and left 14 legacy rebuild-incomplete rows unable to start their fresh
+# budget) on `listing_image_rules` alone -- a change that governs what a *listing* may show,
+# pending the owner's review since 2026-10-11 -- so stale PDFs, charts and galleries were
+# never remade, the stale-artefact halt could never converge and certification stayed halted.
+#
+# The scope rule: an unreviewed change holds the internal rebuild only when it governs whether
+# the product may be MADE at all (`product_creation`: a prohibited children's item, a design
+# outside the creativity categories). Every other unreviewed change -- image, listing, search,
+# seller rules -- leaves internal manufacturing running under the codified, owner-reviewed
+# reading (`gates.policy_knowledge`), which is the stricter of the two until the new text is
+# reviewed: nothing the new reading may relax is used, and nothing built under it can
+# publish, because `staleness()` (what for_publish and for_marketing read) still refuses on
+# EVERY unreviewed publishing change. The marketing rebuild (drafted and held content) is
+# held by changes that govern growth or product creation.
+MANUFACTURING_POLICY_WORKFLOWS: frozenset[str] = frozenset({"product_creation"})
+MARKETING_REBUILD_POLICY_WORKFLOWS: frozenset[str] = frozenset({"product_creation", "growth"})
+
+
+def policy_holds_manufacturing(changes, workflows=MANUFACTURING_POLICY_WORKFLOWS) -> list[str]:
+    """The unreviewed policy sources that hold internal work of the given kind (#39 scope)."""
+    return sorted({str(c.get("source")) for c in changes or ()
+                   if set(c.get("affects") or ()) & set(workflows)})
+
+
+def policy_publication_only(changes) -> list[str]:
+    """Unreviewed sources that hold publication but let internal manufacturing proceed."""
+    held = set(policy_holds_manufacturing(changes))
+    return sorted({str(c.get("source")) for c in changes or ()
+                   if "publishing" in (c.get("affects") or ()) and str(c.get("source")) not in held})
 
 
 def retry_hold_reason(db, *, slug: str) -> str | None:
@@ -1544,7 +1611,9 @@ def retry_hold_reason(db, *, slug: str) -> str | None:
     `slug` should wait, or None.
 
     A retry is held only while a gate the rebuild cannot cure refuses the product:
-    - an unreviewed material platform-policy change (#39), or
+    - an unreviewed material platform-policy change (#39) that governs product creation
+      (ENG-RECOVERY: a publication-side change -- listing images, search, seller rules --
+      holds publication only, never the internal rebuild), or
     - an open halting incident for the product that is not staleness (integrity, tamper and
       the like).
     - eng/stale-rebuild-loop: an exhausted `rebuild-incomplete` row (REBUILD_MAX_ATTEMPTS
@@ -1564,7 +1633,7 @@ def retry_hold_reason(db, *, slug: str) -> str | None:
     from ..ops.rebuild_graph import REBUILD_INCOMPLETE_SIGNATURE, REBUILD_MAX_ATTEMPTS
 
     try:
-        policy = [c for c in unreviewed_changes(db) if "publishing" in c["affects"]]
+        policy = policy_holds_manufacturing(unreviewed_changes(db))
         with db.session() as s:
             try:
                 ev = systemic_evidence(s)
@@ -1590,8 +1659,8 @@ def retry_hold_reason(db, *, slug: str) -> str | None:
     except Exception:  # noqa: BLE001
         return None
     if policy:
-        return ("held: platform policy change awaiting the owner's review (#39): "
-                + ", ".join(c["source"] for c in policy))
+        return ("held: platform policy change governing product creation awaiting the "
+                "owner's review (#39): " + ", ".join(policy))
     if exhausted_why:
         return (f"held: rebuild could not complete after {REBUILD_MAX_ATTEMPTS} attempts "
                 f"({REBUILD_INCOMPLETE_SIGNATURE}:{slug}): " + exhausted_why[0])

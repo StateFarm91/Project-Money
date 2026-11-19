@@ -86,8 +86,8 @@ def run(db, *, today: date | None = None, gateway=None,
     a test sweep walks the routes.
     """
     from ..creative.audit import catalogue_concepts
-    from ..creative.prospecting import (NoArenasContradictsEvidence, arenas, choose,
-                                        slots)
+    from ..creative.prospecting import (NoArenasContradictsEvidence, ProspectingRefused,
+                                        arenas, choose, slots)
     from ..intel import benchmarks
 
     today = today or date.today()
@@ -133,7 +133,14 @@ def run(db, *, today: date | None = None, gateway=None,
 
     # 3. Choose an upcoming event ---------------------------------------------
     chosen = add("choose_event", "an upcoming event with runway left")
-    arena = choose(found, cycle=0, today=today)
+    try:
+        arena = choose(found, cycle=0, today=today)
+    except ProspectingRefused as e:
+        # "No proven arena has a form that can still be made in time" is a statement about
+        # the calendar. Raised, it dead-letters the proof job and reads as a broken worker;
+        # reported here it is a failed link with its reason, and the schedule retries.
+        chosen.why = str(e)[:300]
+        return _verdict(steps, today, None, None)
     chosen.state = RAN
     chosen.evidence = {"event": arena.event, "pod": arena.pod,
                        "days_away": arena.days_away,

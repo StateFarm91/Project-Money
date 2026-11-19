@@ -155,9 +155,18 @@ def test_pipeline_resumes_across_a_worker_restart_mid_flight():
                 break
 
         with db.session() as s:
-            product = s.scalar(select(Product).where(
-                Product.slug == "nordic-forest-mosaic-throw"))
-            assert product is not None and product.status == "certified"
+            # ENG-SUPPLY: products enter engineering through the admission controller, in
+            # demand order at a bounded work-in-progress limit, so the product carried across
+            # the restart is the first one admitted, read from the durable record rather than
+            # assumed. (Every other offer stays recorded as waiting, never lost.)
+            first = s.scalar(select(AuditLog).where(AuditLog.action == "supply.admitted")
+                             .order_by(AuditLog.id).limit(1))
+            assert first is not None and first.artifact, "nothing was admitted to engineering"
+            product = s.scalar(select(Product).where(Product.slug == first.artifact))
+            assert product is not None and product.status == "certified", first.artifact
+            offered = {a.artifact for a in s.scalars(select(AuditLog).where(
+                AuditLog.action == "supply.offered"))}
+            assert "nordic-forest-mosaic-throw" in offered
             actors = {a.actor for a in s.scalars(select(AuditLog))}
         assert actors, "the audit trail must survive the restart"
 

@@ -803,8 +803,12 @@ def intake(ctx, *, candidate, plan: dict, source: str, arena=None,
     ctx.audit(INTAKE_ACTION, artifact=slug, detail=detail)
     job = None
     if decision == ENGINEERING:
-        job = ctx.enqueue("crochet_engineer", "cir.draft", payload,
-                          idempotency_key=f"draft:{slug}")
+        # ENG-SUPPLY: through the capacity-aware admission controller (products.supply).
+        from ..products import supply
+
+        job = supply.offer(ctx, slug=slug, payload=payload, key=f"draft:{slug}",
+                           source="creative.intake", family=str(pod) if pod else None,
+                           research=True)
         detail["coverage"] = advance_gap(db, pod, "engineering", origin=origin,
                                          event_id=mjs_event_id, candidate_key=original_key,
                                          reason=f"{slug} cleared the funnel and the "
@@ -813,13 +817,17 @@ def intake(ctx, *, candidate, plan: dict, source: str, arena=None,
     return {"slug": slug, "decision": decision, "funnel": funnel["carried"],
             "gate_call": gate,
             "gate": verdict.get("decision"), "waiting_on": verdict.get("waiting_on"),
-            "cir_draft_job": getattr(job, "id", None), "motifs": brief["motifs"],
+            "cir_draft_job": (job or {}).get("job"),
+            "admission": job, "motifs": brief["motifs"],
             "wow_mechanism": brief["wow_mechanism"], "skill_level": brief["skill_level"],
             "days_to_event": days, "coverage": detail["coverage"],
             "why": (funnel["why"] if decision == NOT_CARRIED else
                     "; ".join(verdict.get("reasons") or [])[:400] if decision == REFUSED else
                     f"waiting, unpassed, on {verdict.get('waiting_on')}"
-                    if decision == WAITING else "queued for engineering")}
+                    if decision == WAITING else "queued for engineering"
+                    if (job or {}).get("admitted") else
+                    f"offered to engineering supply, waiting for admission: "
+                    f"{(job or {}).get('why')}")}
 
 
 def intake_rows(db, *, slug: str | None = None, mjs_event_id: int | None = None,
@@ -1118,14 +1126,19 @@ def regate_held(ctx, *, today: date | None = None, provider=None) -> dict:
         ctx.audit(INTAKE_ACTION, artifact=slug, detail=new)
         presented.append({"slug": slug, "decision": decision})
         if decision == ENGINEERING:
-            job = ctx.enqueue("crochet_engineer", "cir.draft", payload,
-                              idempotency_key=f"draft:{slug}")
+            from ..products import supply
+
+            job = supply.offer(ctx, slug=slug, payload=payload, key=f"draft:{slug}",
+                               source="creative.regate",
+                               family=str(concept.pod) if getattr(concept, "pod", None)
+                               else None, research=True)
             advance_gap(ctx.db, concept.pod, "engineering", product_slug=slug,
                         origin=brief_coverage_origin(brief),
                         event_id=detail.get("mjs_event_id"),
                         candidate_key=detail.get("original_key", ""),
                         reason=f"{slug} cleared the pre-engineering gate on re-presentation")
-            queued.append({"slug": slug, "job": getattr(job, "id", None)})
+            queued.append({"slug": slug, "job": job.get("job"),
+                           "admitted": job.get("admitted"), "why": job.get("why")})
     return {"presented": presented, "queued": queued, "held": held[:REGATE_LIMIT],
             "vision_usable": vision_ok}
 

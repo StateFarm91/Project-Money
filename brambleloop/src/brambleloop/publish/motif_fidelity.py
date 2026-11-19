@@ -40,6 +40,37 @@ from __future__ import annotations
 
 TASK = "asset_inspection"
 
+# Whose daily permission and which purpose this call is reserved and billed under. The motif
+# judgement is an asset-truth judgement on the same render `visual.inspect.inspect_image`
+# judges in the same job, so it is the same agent and the same purpose: the quality
+# director's `asset_inspection` permission, inside its existing ceilings. Not a new agent and
+# not a new allowance -- a second line on the bill the frame review already pays.
+AGENT = "quality_director"
+DEPARTMENT = "quality"
+
+# Why a verdict came back UNMEASURABLE, as a code a caller can branch on. Only the first group
+# says nothing about the picture: the question was never put (or never answered) for a reason
+# that is about money, permission or plumbing, so the render -- already paid for -- is still
+# a candidate and the right next move is to ask again later about the *same* image rather
+# than render a new one. The second group is about the picture or the answer, and re-asking
+# would buy the same unreadable frame twice.
+UNMEASURED_NO_LEDGER = "no_accounting_store"
+UNMEASURED_BUDGET = "budget_refused"
+UNMEASURED_GATE = "gate_refused"
+UNMEASURED_TRANSIENT = "call_failed_transient"
+UNMEASURED_IMAGE_MISSING = "image_missing"
+UNMEASURED_CALL = "call_failed"
+UNMEASURED_ANSWER = "answer_unreadable"
+UNMEASURED_CHART = "chart_unrenderable"
+REJUDGEABLE = frozenset({UNMEASURED_NO_LEDGER, UNMEASURED_BUDGET, UNMEASURED_GATE,
+                         UNMEASURED_TRANSIENT})
+
+# The paid-provider gate's refusal codes that are about money rather than permission. Either
+# way nothing was sent; the split is only so the record says which.
+_BUDGET_GATE_CODES = frozenset({"no_budget_reservation", "reservation_underfunded",
+                                "reservation_already_used", "company_monthly_budget",
+                                "provider_daily_ceiling", "provider_monthly_ceiling"})
+
 MATCH = "match"
 MISMATCH = "mismatch"
 UNMEASURABLE = "unmeasurable"
@@ -343,6 +374,126 @@ def chart_image(cir, twin, *, work_dir: str = "") -> str:
         return ""
 
 
+def _unmeasured(want, code: str, why: str) -> dict:
+    """An UNMEASURABLE verdict that says why, as a code, and whether to ask again.
+
+    `rejudge` is the whole point of the code: an answer that never came for a reason about
+    money or plumbing says nothing about the render, which was paid for and is still a
+    candidate. The photo jobs read it (`owned_photography.awaiting_motif`,
+    `model_photography._rejudgeable_frame`) and re-ask about the same image instead of
+    counting it as a failed attempt or paying for another render.
+    """
+    return {"verdict": UNMEASURABLE, "expected": want, "why": why[:240],
+            "unmeasured": code, "rejudge": code in REJUDGEABLE}
+
+
+def rejudgeable(motif) -> bool:
+    """Whether this motif reading is an unasked question about a still-good render.
+
+    Records filed before the reason was a code (production, until this change) carry only
+    the gate's refusal in `why`; those are read by the refusal they name, so the renders the
+    unreserved call left unjudged are re-asked rather than written off.
+    """
+    if not isinstance(motif, dict) or motif.get("verdict") != UNMEASURABLE:
+        return False
+    if "unmeasured" in motif:
+        return bool(motif.get("rejudge")) and motif.get("unmeasured") in REJUDGEABLE
+    why = str(motif.get("why") or "")
+    return why.startswith("the comparison call failed:") and (
+        "no_budget_reservation" in why or "no live company-budget reservation" in why)
+
+
+def worth_rejudging(record: dict) -> bool:
+    """Whether a match would make this render usable, so re-asking can buy something.
+
+    Asked of the structural floor with the motif assumed to match. F-852 (e6b6d47) refuses
+    generative product redraw and gives a generated frame no structural PASS without qualified
+    whole-product evidence, so a render filed before it -- the renders the unreserved call left
+    unjudged in production -- could not be used whatever the judge said. Re-asking about one
+    would be a vision call bought to answer a question whose answer changes nothing, so it is
+    not asked, and the render is counted as the attempt it was.
+    """
+    if not isinstance(record, dict):
+        return False
+    from ..visual.product_authority import structural_floor
+
+    try:
+        return structural_floor(dict(record, motif={"verdict": MATCH}))["status"] == "PASS"
+    except Exception:  # noqa: BLE001 - unreadable evidence buys no call
+        return False
+
+
+def _call_judge(db, provider, image_ref: str, chart_path: str, want):
+    """The one paid call, reserved before it is made and billed after it answers.
+
+    Returns `(answer, None)` or `(None, unmeasured_record)`. The same discipline as every
+    other vision judge (`visual.photoreal.judge`, `visual.inspect._call`,
+    `creative.reference.read_listing`): `check_budget` with agent and purpose bound -- which
+    also notes the reservation for the paid-provider gate, so `provider.see` carries its
+    accounting evidence -- then `release_reservation` on the way out whatever happens, settled
+    at the bill when there is one, and a `spend_report` row so the call is on the month.
+
+    With no accounting store there is nothing to reserve against, and the gate would refuse
+    the call for want of one; it is refused here instead, before anything is built.
+    """
+    from ..core.resilience import TransientError
+    from ..gateway import providers as gw
+
+    if db is None:
+        return None, _unmeasured(want, UNMEASURED_NO_LEDGER,
+                                 "no accounting store to reserve this comparison against, so "
+                                 "it was not asked (fail closed); the render is still a "
+                                 "candidate and the question is asked again")
+    images = [image_ref, chart_path]
+    try:
+        budget = gw.check_budget(
+            db, model=provider.model,
+            # Both pictures, at the model's own per-image figure: the gate prices the call
+            # it sees, and a reservation smaller than that is `reservation_underfunded`.
+            input_tokens=gw.input_tokens(provider.model, system=SYSTEM, user=prompt(),
+                                         images=len(images)),
+            max_tokens=MAX_TOKENS, agent=AGENT, purpose=TASK)
+    except gw.BudgetExceeded as exc:
+        return None, _unmeasured(want, UNMEASURED_BUDGET,
+                                 f"no budget to ask (fail closed), nothing was sent; the "
+                                 f"render is kept and asked about again: {exc}")
+    estimate, held = budget["estimate_cad"], budget["reservation_id"]
+    try:
+        response = provider.see(SYSTEM, prompt(), images, max_tokens=MAX_TOKENS)
+    except BaseException as exc:
+        gw.release_reservation(db, held)
+        if not isinstance(exc, Exception):
+            raise
+        code = getattr(exc, "code", None)
+        if isinstance(code, str) and code:
+            # The paid-provider gate refused before any network I/O.
+            return None, _unmeasured(
+                want, UNMEASURED_BUDGET if code in _BUDGET_GATE_CODES else UNMEASURED_GATE,
+                f"the paid-provider gate refused the comparison ({code}), nothing was sent; "
+                f"the render is kept and asked about again: {exc}")
+        if isinstance(exc, TransientError):
+            return None, _unmeasured(want, UNMEASURED_TRANSIENT,
+                                     f"the comparison call failed: {exc}")
+        return None, _unmeasured(want, UNMEASURED_CALL, f"the comparison call failed: {exc}")
+    from ..finance import spend_report
+
+    cost = round(response.input_tokens * provider.cost_per_1k_input_cad / 1000
+                 + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+    gw.release_reservation(db, held, actual_cad=cost)
+    spend_report.record(
+        db, agent=AGENT, amount_cad=cost, estimated_cad=estimate, purpose=TASK,
+        provider=getattr(provider, "name", "anthropic"), model=provider.model,
+        department=DEPARTMENT, tokens_in=response.input_tokens,
+        tokens_out=response.output_tokens,
+        detail={"price_basis": "assumed", "check": "motif_fidelity",
+                "image": str(image_ref)[:120]})
+    try:
+        return parse(response.text), None
+    except (MotifRefused, ValueError) as exc:
+        return None, _unmeasured(want, UNMEASURED_ANSWER,
+                                 f"the answer could not be read: {exc}")
+
+
 def check(db, image_ref: str, cir, twin, *, provider=None, judger=None) -> dict:
     """Render the chart, show both, and decide. Blocks a customer-facing asset unless match.
 
@@ -351,6 +502,14 @@ def check(db, image_ref: str, cir, twin, *, provider=None, judger=None) -> dict:
     one owns its directory and removes it on the way out. Only the judge reads the file, and
     the judge has answered by the time the block ends. `chart_retained` says so in the record
     rather than leaving a path that quietly stops resolving.
+
+    **The vision call is reserved (ENG-MOTIF, 2026-11-19).** It called `provider.see` with no
+    `check_budget`, so in production the paid-provider gate refused it with
+    `no_budget_reservation`, the refusal was swallowed as UNMEASURABLE, and every owned and
+    model render -- already paid for -- came out unusable. It now reserves under
+    `AGENT`/`TASK` like every other vision judge. When the budget genuinely refuses, the
+    verdict is still UNMEASURABLE (fail closed) but carries `unmeasured` and `rejudge`, and
+    the photo jobs re-ask about the same render later instead of writing it off.
     """
     from pathlib import Path
 
@@ -366,24 +525,17 @@ def check(db, image_ref: str, cir, twin, *, provider=None, judger=None) -> dict:
             chart_path = str(Path(root) / "chart.png")
             chart.save(chart_path)
         except Exception as exc:  # noqa: BLE001 - a chart that will not render is a refusal
-            return {"verdict": UNMEASURABLE, "expected": want,
-                    "why": f"the chart could not be rendered to compare against: {exc}"[:200]}
+            return _unmeasured(want, UNMEASURED_CHART,
+                               f"the chart could not be rendered to compare against: "
+                               f"{exc}"[:200])
 
         if judger is not None:
             answer = judger(image_ref, chart_path)
         else:
-            provider = provider or gw.provider_for(TASK)
-            try:
-                response = provider.see(SYSTEM, prompt(), [image_ref, chart_path],
-                                        max_tokens=MAX_TOKENS)
-            except Exception as exc:  # noqa: BLE001
-                return {"verdict": UNMEASURABLE, "expected": want,
-                        "why": f"the comparison call failed: {exc}"[:240]}
-            try:
-                answer = parse(response.text)
-            except (MotifRefused, ValueError) as exc:
-                return {"verdict": UNMEASURABLE, "expected": want,
-                        "why": f"the answer could not be read: {exc}"[:240]}
+            answer, refused = _call_judge(db, provider or gw.provider_for(TASK),
+                                          image_ref, chart_path, want)
+            if refused is not None:
+                return refused
 
     out = judge(answer, want)
     out["expected"] = want
@@ -400,3 +552,40 @@ def check(db, image_ref: str, cir, twin, *, provider=None, judger=None) -> dict:
         "The difference is what to do next: a mismatch needs a different render, an "
         "unmeasurable one needs a closer frame")
     return out
+
+
+def rejudge(db, image: dict, cir, twin, *, work_dir: str, provider=None,
+            judger=None) -> dict:
+    """Ask the motif question again about a render already on file, by its kept bytes.
+
+    The other half of `rejudge` in a verdict: a render whose comparison was refused for
+    money or plumbing is re-asked about *itself*, never re-rendered. The bytes are read back
+    from the artifact store by digest (`tournament._keep` put them there) into the caller's
+    directory, and the ordinary `check` runs on them -- the same reservation, the same chart,
+    the same verdict rules.
+
+    A render whose bytes are gone cannot be re-asked about; the answer is UNMEASURABLE with
+    `image_missing`, which is not rejudgeable, so the job stops waiting on it and the render
+    is counted as the attempt it was.
+    """
+    from pathlib import Path
+
+    want = expected(cir, twin)
+    sha = str((image or {}).get("sha256") or "")
+    if not sha or not work_dir:
+        return _unmeasured(want, UNMEASURED_IMAGE_MISSING,
+                           "the render's bytes were never kept, so the question cannot be "
+                           "asked about the same image again")
+    try:
+        from ..core.artifacts import ArtifactStore
+
+        data = ArtifactStore().get(sha, db=db)
+    except Exception as exc:  # noqa: BLE001 - a lost render is an answer, not a crash
+        return _unmeasured(want, UNMEASURED_IMAGE_MISSING,
+                           f"the render's bytes are no longer readable: {exc}")
+    ctype = str((image or {}).get("content_type") or "")
+    ext = ".jpg" if "jpeg" in ctype else ".webp" if "webp" in ctype else ".png"
+    path = Path(work_dir) / f"rejudge-{sha[:16]}{ext}"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    return check(db, str(path), cir, twin, provider=provider, judger=judger)
