@@ -50,6 +50,8 @@ DEFAULT_AGENTS: list[dict] = [
                             "ops.continuity", "seasonal.sentinel",
                             "improve.retrospective", "ops.policy_watch", "build.tick",
                             "ops.capacity", "ops.sentinel", "ops.health", "model.probe",
+                            # FABLE-P0 §6: the daily product stage register (reads only).
+                            "products.stage_register",
                             "improve.nightly", "improve.weekly",
                             # The learning loop's measure / mine / monitor stages (#90, #93,
                             # #97) and the provenance backfill (#171): read-only against the
