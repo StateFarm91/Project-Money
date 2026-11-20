@@ -167,7 +167,12 @@ def _chain_db():
         db = _db("chain")
         JobQueue(db).enqueue("quality_director", "gate.certify",
                              {"cir": build_hexagon_coaster().to_dict()})
-        w = Worker(db, "fmb1-chain")
+        # Only this product's chain. An unrestricted worker also claims `supply.admit`, which
+        # (since ENG-DEMAND-SUPPLY) admits further concepts and builds five more products,
+        # so `_profile` sees six profiles and "elsewhere" is no longer elsewhere.
+        w = Worker(db, "fmb1-chain", job_types=[
+            "gate.certify", "gate.lanes", "pricing.position", "listing.draft", "assets.build",
+            "visual.image_production", "listing.seo", "launch.plan", "listing.package"])
         for _ in range(100):
             if not w.run_once():
                 break

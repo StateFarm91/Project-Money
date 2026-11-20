@@ -154,6 +154,7 @@ class Database:
         from ..learn import models as learn_models  # noqa: F401; additive Learn tables
         from ..publish import draft_intent  # noqa: F401; additive remote-create intent
         from ..publish import manual_adoption  # noqa: F401; W-ADOPT manual_listing_claims
+        from ..publish import motif_backlog  # noqa: F401; ENG-MOTIF-BACKLOG motif_recovery
         from ..commerce import search_visibility  # noqa: F401; F-248 owner readings
         # v1.1 lanes, registered here so a worker-only or scheduler-only process creates
         # them too (each also creates its tables lazily, so nothing broke before this).

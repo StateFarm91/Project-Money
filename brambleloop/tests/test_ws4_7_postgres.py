@@ -365,7 +365,7 @@ def test_the_worker_role_never_creates_a_table_it_should_not_own(url):
     wurl = url.format(user="bl_worker", db=name)
     try:
         got, _err = _boot_worker_as(wurl)                 # every table exists: it starts
-        assert got["rc"] == 0, got
+        assert got["rc"] == 0, (got, _err[-1500:])
         assert _owned_by(owner, "bl_worker") == [], _owned_by(owner, "bl_worker")
         with owner.engine.begin() as c:   # a release that adds the grant store, web not up
             c.execute(text("DROP TABLE standing_grant_slots, standing_grants CASCADE"))
