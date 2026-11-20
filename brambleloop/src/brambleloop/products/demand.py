@@ -704,15 +704,39 @@ def panel(db, *, now: datetime | None = None) -> dict:
     pool = pool_reclassification(ix)
     held_pool = [{"slug": r["slug"], "family": r["engine"], "demand": r["demand"],
                   "reason": r["reason"]} for r in pool if not r["buildable"]]
+    intake_held, intake_error = intake_engine_demand(db, ix)
     seen = {w["slug"] for w in waiting}
-    engines = engine_demand(waiting + [h for h in held_pool if h["slug"] not in seen])
+    rest = [h for h in intake_held + held_pool if h["slug"] not in seen]
+    merged, slugs = list(waiting), set(seen)
+    for h in rest:
+        if h["slug"] not in slugs:
+            merged.append(h)
+            slugs.add(h["slug"])
+    engines = engine_demand(merged)
     return {"readable": True, "as_of": ix.as_of.isoformat(), "basis": ix.basis,
             "engines": engines, "families": ix.families(),
             "clusters": ix.clusters()[:40], "pool": pool,
             "pool_counts": {"total": len(pool),
                             "buildable": sum(1 for r in pool if r["buildable"]),
                             "held": sum(1 for r in pool if not r["buildable"])},
+            "intake_held": len(intake_held), "intake_error": intake_error,
             "rule": ix.basis["rule"]}
+
+
+def intake_engine_demand(db, ix: DemandIndex) -> tuple[list[dict], str | None]:
+    """Research and original concepts intake held for their construction: engine demand,
+    each with its stored-evidence demand reading."""
+    from ..creative.construction_families import hold_family
+    from .production_inventory import _intake_construction_holds
+
+    holds, err = _intake_construction_holds(db)
+    out = []
+    for slug, h in sorted(holds.items()):
+        fam = hold_family(h["reason"]) or "unknown"
+        d = ix.score(str(h.get("title") or slug.replace("-", " ")))
+        out.append({"slug": slug, "family": fam, "demand": d, "reason": h["reason"],
+                    "source": "radar.intake"})
+    return out, err
 
 
 def readback(db, *, now: datetime | None = None) -> dict:
