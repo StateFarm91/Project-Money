@@ -2,7 +2,8 @@
 
 - **Branch:** `eng/composer`, from `claude/w6-INTEG7-wip` @ `c6d4400`. Not merged, not deployed.
   Production is unchanged.
-- **SHA under review:** `__SHA__` (the commit that adds this file; later commits only update it).
+- **SHA under review:** `7157976` (the commit that adds this file; later commits only update it). The branch head also
+  carries another session's B18 fixes and its merge of `eng/colourwork`, merged in at `11630be`.
 - **Owner goal:** production learns to build new things without a new hand-written engine for
   every product family.
 
@@ -134,7 +135,39 @@ Six items certify without the beanie.
 and `PAIR_PROOFS` cover (composer, amigurumi) and (composer, bag).
 `research/final_build/w6/construction_families.md` gains the `composer` row.
 
-__SUITE__
+### Suite results (2026-11-20, on this branch)
+
+**The full `run_tests.sh` did not finish.** It was started on `4e982e1` with `JOBS=8` on a 4-CPU
+container and was stopped by its 7000 s timeout with no per-suite results (status `interrupted`).
+So there is **no full-suite total** here. Instead, the suites that import code this work changed
+(the composer, `cir.assembly`, `pdf_standard`, `construction_families`, `runtime.pipeline`, or
+`build_pattern_pdf`: 226 suites) were run directly. Every failure was then re-run on the base
+`c6d4400`.
+
+- **Required suites, all passing:** `compiler`, `twin`, `reverse`, `eng_families`,
+  `eng_composer`, `vacuity`, `w4_resume_runner`. Also passing: `eng_plush`, `pdf_standard`,
+  `pdf_premium` and `acceptance_gates` (23 of 23, the same as the base).
+- **Run so far:** 114 of 226 suites finished. 108 pass and 6 fail: the five below, plus
+  `cert_wiring`'s timing failure.
+- **Failing, and failing identically on the base `c6d4400`** (already broken, not caused by this
+  work):
+
+  | Suite | Failing tests | Cause |
+  |---|---|---|
+  | `cert_design` | 3 | `acorn-drop`, `CHILD_SAFETY_JOINS_VALIDATED` |
+  | `cert_parity_copy` | 1 | `listing_seo` query portfolio |
+  | `cert_rebuild_chain` | 2 | launch readiness imagery, divergent listing |
+  | `opus2_size_claims` | 1 | graded size chart promises 9 sizes |
+  | `physfix` | 1 | `basket_small` kit rebuild |
+
+- **`cert_wiring` is a timing failure, not a code difference.** On this branch its drain
+  exceeded the 1525 s wall-clock limit, and five dependent tests failed with it. A probe with
+  no time limit drained exactly **427 jobs on both trees, with identical job types and
+  statuses** (1490 s here, 1529 s on the base, so the base is also over the limit on this
+  host). Its one real failure, `no such table: radar_concepts` in `ops.continuity`, is the same
+  on the base.
+- **Not yet run:** 116 suites. They are running now, and this section will be updated with the
+  results.
 
 `autonomy_map.json` was regenerated. It has one new follow-on edge,
 `runtime/pipeline.py:_draft_composed` → `cir.compile` (95 → 96).
