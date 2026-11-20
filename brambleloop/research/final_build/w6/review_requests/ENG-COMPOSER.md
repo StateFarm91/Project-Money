@@ -138,36 +138,47 @@ and `PAIR_PROOFS` cover (composer, amigurumi) and (composer, bag).
 ### Suite results (2026-11-20, on this branch)
 
 **The full `run_tests.sh` did not finish.** It was started on `4e982e1` with `JOBS=8` on a 4-CPU
-container and was stopped by its 7000 s timeout with no per-suite results (status `interrupted`).
-So there is **no full-suite total** here. Instead, the suites that import code this work changed
-(the composer, `cir.assembly`, `pdf_standard`, `construction_families`, `runtime.pipeline`, or
-`build_pattern_pdf`: 226 suites) were run directly. Every failure was then re-run on the base
-`c6d4400`.
+container and stopped at its 7000 s timeout without printing any per-suite results (status
+`interrupted`). So there is **no full-suite total**.
+
+Instead, every suite that imports code this work changed was run directly: 226 suites, covering
+the composer, `cir.assembly`, `pdf_standard`, `construction_families`, `runtime.pipeline` and
+`build_pattern_pdf`. Every failure was re-run on the base `c6d4400`.
+
+**All 226 ran: 210 pass, 13 fail and 3 hit the time limit. Nothing fails because of this work.**
 
 - **Required suites, all passing:** `compiler`, `twin`, `reverse`, `eng_families`,
-  `eng_composer`, `vacuity`, `w4_resume_runner`. Also passing: `eng_plush`, `pdf_standard`,
+  `eng_composer`, `vacuity` and `w4_resume_runner`. Also passing: `eng_plush`, `pdf_standard`,
   `pdf_premium` and `acceptance_gates` (23 of 23, the same as the base).
-- **Run so far:** 114 of 226 suites finished. 108 pass and 6 fail: the five below, plus
-  `cert_wiring`'s timing failure.
-- **Failing, and failing identically on the base `c6d4400`** (already broken, not caused by this
-  work):
+- **Already failing on the base `c6d4400`.** These 12 fail with the same tests and the same
+  errors there:
 
   | Suite | Failing tests | Cause |
   |---|---|---|
   | `cert_design` | 3 | `acorn-drop`, `CHILD_SAFETY_JOINS_VALIDATED` |
   | `cert_parity_copy` | 1 | `listing_seo` query portfolio |
   | `cert_rebuild_chain` | 2 | launch readiness imagery, divergent listing |
-  | `opus2_size_claims` | 1 | graded size chart promises 9 sizes |
+  | `opus2_size_claims` | 1 | the graded size chart promises 9 sizes |
   | `physfix` | 1 | `basket_small` kit rebuild |
+  | `platform` | 1 | `ops.continuity`: no such table `radar_concepts` |
+  | `provenance_write_path` | 2 | `KeyError cir:hexagon-coaster-set` |
+  | `r2_autonomy_useful_work` | 1 | `improve.self_tune` declares no work keys |
+  | `swarm_runtime` | 1 | `improve.self_tune` has no decided band |
+  | `w4_fmbatch1_drift` | 4 | six seed products held after a taxonomy change |
+  | `w5_a9_package_event` | 5 | seed listing packages |
+  | `shadow` | 1 | a withdrawn listing stays `draft` |
 
-- **`cert_wiring` is a timing failure, not a code difference.** On this branch its drain
-  exceeded the 1525 s wall-clock limit, and five dependent tests failed with it. A probe with
-  no time limit drained exactly **427 jobs on both trees, with identical job types and
-  statuses** (1490 s here, 1529 s on the base, so the base is also over the limit on this
-  host). Its one real failure, `no such table: radar_concepts` in `ops.continuity`, is the same
-  on the base.
-- **Not yet run:** 116 suites. They are running now, and this section will be updated with the
-  results.
+- **`s1_fix_size_families`** fails two tests. "Baby Lovey" fails the same way on the base. "Large
+  Tapestry 100 x 150 cm" comes from the `eng/colourwork` merge: it fails the same way on
+  `origin/eng/colourwork` (`9479c0e`) alone, and passes on this work's pre-merge commit
+  `73cedf1`.
+- **`cert_wiring` fails on time, not code.** Its drain exceeded the 1525 s wall-clock limit, and
+  five tests that depend on the drain failed with it. A probe with no time limit drained
+  exactly **427 jobs on both trees, with identical job types and statuses** (1490 s here, 1529 s
+  on the base). Its one real failure, `radar_concepts`, is the same on the base.
+- **Hit the 3000 s limit under load:** `physical`, `product_run` and `shadow`. None of them has a
+  failing test except `shadow`'s, which is listed above. `physical` stalled on one slow test;
+  run alone, that test passes in 737 s here and 731 s on the base.
 
 `autonomy_map.json` was regenerated. It has one new follow-on edge,
 `runtime/pipeline.py:_draft_composed` → `cir.compile` (95 → 96).

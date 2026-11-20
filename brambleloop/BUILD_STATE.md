@@ -27,11 +27,12 @@
 >
 > Tests: `tests/test_eng_composer.py` (21, including 7 killed mutants). Results:
 > `research/final_build/w6/review_requests/ENG-COMPOSER.md`.
-> Suites: the full `run_tests.sh` did NOT finish (7000 s timeout, 4 CPUs, no totals). Of the 226
-> suites that touch the changed code, 114 ran: 108 pass, and 6 fail. Five of those fail the same
-> way on the base `c6d4400` (`cert_design`, `cert_parity_copy`, `cert_rebuild_chain`,
-> `opus2_size_claims`, `physfix`). `cert_wiring` exceeds its wall-clock drain limit under load,
-> with a job set identical to the base (427 jobs on both). 116 suites were still unrun.
+> Suites: the full `run_tests.sh` did NOT finish (7000 s timeout, 4 CPUs, no totals). All 226
+> suites that touch the changed code ran: 210 pass, 13 fail and 3 hit the time limit. Twelve of
+> the 13 fail identically on the base `c6d4400`, apart from the tapestry case in
+> `s1_fix_size_families`, which comes from the `eng/colourwork` merge. `cert_wiring` exceeds
+> its wall-clock drain limit under load, with a job set identical to the base. No failure is
+> caused by ENG-COMPOSER. Details are in the review request.
 
 > **2026-11-20 — ENG-DAILY-FIX (`eng/daily`, NOT merged, NOT deployed; production unchanged).** Fixes every Unit B
 > finding of the independent review of a795be17 (BLOCK). Merged `origin/claude/w6-INTEG4` (259e47c4) first, so
