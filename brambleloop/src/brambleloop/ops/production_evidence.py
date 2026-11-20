@@ -244,7 +244,23 @@ def publishing_halt(db, *, now: datetime) -> dict:
         "stale_artefact_family": SENTINEL_SIGNATURE,
         "halted_certifications": len(halted),
         "halted_certification_artefacts": [h["artifact"] for h in halted][:SLUGS_PER_STAGE],
+        # Review main-integ (Unit B): an owner-directed policy override releases holds, so
+        # it must be visible wherever holds are read -- never silent. Unreadable is None.
+        "owner_overridden_policy_changes": _overridden_view(db),
     }
+
+
+def _overridden_view(db):
+    try:
+        from ..gates.platform_policy import overridden_changes
+
+        return [{"source": str(r.get("source")), "checked_on": str(r.get("checked_on")),
+                 "decision": str((r.get("override") or {}).get("decision") or ""),
+                 "through": str((r.get("override") or {}).get("through") or ""),
+                 "reviewed": False}
+                for r in overridden_changes(db)][:SLUGS_PER_STAGE]
+    except Exception:  # noqa: BLE001 - unreadable is UNKNOWN (None), never "no override"
+        return None
 
 
 def _exhausted(report_count, detail) -> bool:
