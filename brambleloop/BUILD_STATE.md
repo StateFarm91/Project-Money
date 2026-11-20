@@ -1,3 +1,16 @@
+> **2026-11-20 — ENG-PDF-PREMIUM slice 1 (`eng/pdf-premium`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
+> - `publish.pdf_standard`: family-aware premium standard (small home goods, blanket, basket, garment, pillow, amigurumi),
+>   22 rules + running header/footer, audited on the finished PDF bytes; `build_pattern_pdf` refuses a PDF that fails
+>   (`PremiumStandardRefused`). D-ENG-PDF-PREMIUM-1.
+> - Renderer gaps closed: CYC number and US hook size, "or size to obtain gauge", yarn per colour in 100 g balls and
+>   yd (US) / m (UK), length-per-gram substitution, RS/WS row labels, own licence with designer credit plus a
+>   disclaimer, "About Brambleloop Studio" (never Laura), schematic measurements as text, schematic cover hero for
+>   designs the stitch renderer cannot draw. Fixed buyer-facing defects: "Makes 4 bodys" (pullover) and "Makes 3 pillows"
+>   (one ring pillow of 3 pieces).
+> - Measured: all 13 catalogue documents (11 Launch-0/proposed + a garment size + a pillow) pass in US and UK.
+> - NOT built: one multi-size garment edition with sizes in parentheses (each size is still its own PDF); garment
+>   inline diagrams; amigurumi (no engine exists). Review request: `research/final_build/w6/review_requests/pdf_premium_slice1.md`.
+
 > **2026-11-19 — ENG-APPROVALS slice 1 (`eng/approvals`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
 > - The owner directive `D-OWNER-STANDING-INTERNAL` is recorded in DECISION_LOG.
 > - Code: `authority.standing_internal` (classifier and directive), `ops.owner_queue_consolidate` (idempotent sweep, the one
