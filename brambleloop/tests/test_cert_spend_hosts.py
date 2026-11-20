@@ -57,6 +57,11 @@ DECLARED = {
     # (cost and footprint report). It imports no HTTP client and makes no request.
     "brambleloop/ops/adoptions.py": "data only: provider host names in the F-417 adoption "
                                     "register; no request",
+    # ENG-VIS-FLUX (2026-11-20): the verified FLUX 3 Image contract -- endpoint, documented
+    # fields, prices and the cited BFL documentation URLs -- held as data. It imports no HTTP
+    # client and makes no request; images.generate is still the only caller (reserving first).
+    "brambleloop/gateway/flux_contract.py": "data only: the verified BFL FLUX 3 contract and "
+                                            "its citations; no request",
 }
 
 
@@ -99,12 +104,17 @@ def test_free_check_and_transport_modules_address_only_their_allowlisted_urls():
         assert found <= allowed, (rel, sorted(found - allowed))
 
 
+DATA_ONLY = ("brambleloop/ops/adoptions.py", "brambleloop/gateway/flux_contract.py")
+
+
 def test_the_data_only_declaration_holds_no_http_client():
-    """INTEG7: `ops/adoptions.py` is declared as data only, so it must not grow a request path."""
-    text = (SRC / "brambleloop/ops/adoptions.py").read_text(encoding="utf-8")
-    for client in ("urllib", "urlopen", "http.client", "requests", "httpx", "socket",
-                   "Request("):
-        assert client not in text, client
+    """INTEG7: `ops/adoptions.py` is declared as data only, so it must not grow a request path.
+    ENG-VIS-FLUX: nor may the FLUX contract module (`gateway/flux_contract.py`)."""
+    for rel in DATA_ONLY:
+        text = (SRC / rel).read_text(encoding="utf-8")
+        for client in ("urllib", "urlopen", "http.client", "requests", "httpx", "socket",
+                       "Request("):
+            assert client not in text, (rel, client)
 
 
 def test_the_scan_would_see_a_new_one():

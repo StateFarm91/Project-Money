@@ -691,6 +691,8 @@ TEMP_PREFIXES: tuple[str, ...] = (
     "owned-rung-", "moat-hero-",
     # ENG-MOTIF: the owned handler's motif re-ask on a kept render; scoped to the call.
     "owned-rejudge-",
+    # ENG-MOTIF-BACKLOG: the backlog sweep's motif re-ask on a filed render; scoped to the call.
+    "motif-backlog-",
     # The hand-run physically based renderer. Its directory is a TemporaryDirectory and is
     # removed with the render, so a leftover one means the render died -- which is exactly
     # the case the disk signal exists to show. A prefix used in `src/` and absent here is

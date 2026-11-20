@@ -469,9 +469,19 @@ def awaiting_motif(asset: dict) -> bool:
     """
     from . import motif_fidelity
 
+    return (motif_eligible(asset) and motif_fidelity.rejudgeable(asset.get("motif")))
+
+
+def motif_eligible(asset: dict, *, structural: bool = True) -> bool:
+    """`awaiting_motif` without the question of why the motif went unasked: a render on its
+    merits -- asset truth `clear`, and a match would make it usable. Shared with the motif
+    backlog (`motif_backlog.eligible`), which has already established that the question was
+    refused for budget, so both read one rule. `structural=False` reads the merits alone
+    (the structural floor is the backlog's separate, re-evaluated PARKED question)."""
+    from . import motif_fidelity
+
     return (isinstance(asset, dict) and asset.get("verdict") == "clear"
-            and motif_fidelity.rejudgeable(asset.get("motif"))
-            and motif_fidelity.worth_rejudging(asset))
+            and (not structural or motif_fidelity.worth_rejudging(asset)))
 
 
 def _image_key(asset: dict):
