@@ -1,3 +1,11 @@
+> **2026-11-20 — ENG-PLUSH-FIX round 2 (`eng/plush`, builder branch; NOT re-reviewed, NOT integrated, NOT deployed).**
+> - Merged `claude/w6-INTEG6` dde3ea62. Union-resolved DECISION_LOG and suite_final_segment (kept test_research_flow and test_motif_backlog), and regenerated autonomy_map.
+> - Attachments are now an allow-list (ATTACHMENTS_KNOWN). An attachment that is not a piece of the pattern, yarn or embroidery is UNKNOWN and holds the item.
+> - Eye options: embroidered is the default. For a baby or a child under 3 it is the only option. Age guidance is printed in the PDF text, and AGE_GUIDANCE_IN_TEXT fails a document without it.
+> - Every reviewer probe is its own test. There are 7 new mutants, and the one that survived ("pdf ignores the age band") is now killed.
+> - Counts: `research/final_build/w6/review_requests/ENG-PLUSH-FIX.md`.
+> - `research/benchmarks/TEARDOWN_*.md` is not in this tree or in INTEG6, so no claim about benchmark safety guidance is made in code or docs.
+
 > **2026-11-20 — ENG-PLUSH-FIX (`eng/plush`, builder branch; fixes the DO NOT SHIP review of 2763340b; NOT re-reviewed, NOT integrated, NOT deployed).**
 > - Merged `claude/w6-INTEG4` 259e47c4. Union-resolved DECISION_LOG and suite_final_segment, and regenerated autonomy_map.
 > - H1: added non-emptiness asserts before the four loops. H2: declared `tests/test_eng_plush.py` in the final segment. H3: `plush_results.md` now exists with measured counts.
