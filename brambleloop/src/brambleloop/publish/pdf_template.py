@@ -40,7 +40,9 @@ Deterministic: the same CIR, terminology, release date and gallery bytes give th
 from __future__ import annotations
 
 import hashlib
+import dataclasses
 import io
+import math
 import re
 from dataclasses import dataclass, field
 from datetime import date
@@ -349,6 +351,100 @@ def hook_label(mm: float | None) -> str:
         return ""
     us = CYC_HOOK_US.get(round(float(mm), 2))
     return f"US {us} / {mm:g} mm" if us else f"{mm:g} mm (no US letter size)"
+
+
+AMIGURUMI_HOOK_STEP_MM = 0.5   # how far below the stated hook an amigurumi maker may go
+
+
+def hook_range(mm: float) -> tuple[float, float]:
+    """The amigurumi hook range: the stated hook and the standard sizes up to 0.5 mm below
+    it. Stuffed fabric is worked tighter than the ball band's hook so the fibrefill cannot
+    show (TEARDOWN_MADELINEMAECO_CAPYBARA D1: "stitches too tight with the stated hook" is a
+    gauge complaint a stated range prevents). Never above the stated hook: the gauge is
+    measured at it."""
+    sizes = sorted(CYC_HOOK_US)
+    lower = [s for s in sizes if mm - AMIGURUMI_HOOK_STEP_MM - 1e-9 <= s < mm]
+    return (min(lower) if lower else float(mm), float(mm))
+
+
+def _pattern_yardage(cir: CIR, result, twin: TwinModel) -> dict[str, float]:
+    """Yarn per colour for the whole pattern: every component, each times its `make`.
+
+    `cir.twin.build_twin` models one component (the first unless told otherwise), so its
+    yardage is that piece's only; a pullover's body is 584 m of an 808 m pattern. The
+    buyer's quantity is the sum over every piece, at the twin's own calibration."""
+    if len(cir.components) == 1:
+        return dict(twin.yarn_metres_by_color)
+    first = build_twin(cir, result, component=twin.component).yarn_metres_by_color
+    base, given = sum(first.values()), sum(twin.yarn_metres_by_color.values())
+    scale = (given / base) if base else 1.0
+    total: dict[str, float] = {}
+    for comp in cir.components:
+        part = build_twin(cir, result, component=comp.name).yarn_metres_by_color
+        for colour, metres in part.items():
+            total[colour] = total.get(colour, 0.0) + metres * scale
+    return {k: round(v, 1) for k, v in total.items()}
+
+
+PROFILE_PX = 420
+
+
+def _round_rows(comp) -> list:
+    return [r for r in comp.rows if r.declared_count]
+
+
+def stuff_round(comp) -> int | None:
+    """The round whose own note says to stuff (the CIR's words, not an inference)."""
+    return next((r.index for r in comp.rows if r.note and "stuff" in r.note.lower()), None)
+
+
+def profile_scale(cir: CIR) -> float:
+    """Pixels per cm, one scale for every piece of the pattern so they compare truly."""
+    g = cir.gauge
+    st, rw = 10.0 / g.stitches_per_10cm, 10.0 / g.rows_per_10cm
+    w = max(max(r.declared_count for r in _round_rows(c)) * st / math.pi
+            for c in cir.components if _round_rows(c))
+    h = max(len(_round_rows(c)) * rw for c in cir.components if _round_rows(c))
+    return 0.88 * PROFILE_PX / max(w, h)
+
+
+def component_profile(cir: CIR, comp, *, highlight: tuple[int, int] | None = None):
+    """A side profile of a piece worked in rounds, drawn from its stitch counts.
+
+    Each band is one round, `rows_per_10cm` tall, as wide as the round's diameter at gauge
+    (stitches x stitch width / pi), in the round's yarn colour, on one scale shared by every
+    piece of the pattern. `highlight` outlines rounds a..b in rose (a placement). It is a
+    diagram of the stitch data; it is never presented as a photograph."""
+    from PIL import Image, ImageDraw
+
+    g = cir.gauge
+    st, rw = 10.0 / g.stitches_per_10cm, 10.0 / g.rows_per_10cm
+    px = profile_scale(cir)
+    rows = _round_rows(comp)
+    img = Image.new("RGB", (PROFILE_PX, PROFILE_PX), (243, 238, 231))
+    d = ImageDraw.Draw(img)
+    band = rw * px
+    top = (PROFILE_PX - band * len(rows)) / 2
+    cx = PROFILE_PX / 2
+    for i, r in enumerate(rows):
+        half = r.declared_count * st / math.pi * px / 2
+        hexv = (cir.colors or {}).get(r.color or "", "#B9AE9C")
+        fill = tuple(int(hexv.lstrip("#")[k:k + 2], 16) for k in (0, 2, 4))
+        y0, y1 = top + i * band, top + (i + 1) * band
+        d.rectangle([cx - half, y0, cx + half, y1], fill=fill, outline=(47, 62, 51), width=1)
+    if highlight is not None:
+        a, b = highlight
+        sel = [i for i, r in enumerate(rows) if a <= r.index <= b]
+        if sel:
+            half = max(rows[i].declared_count for i in sel) * st / math.pi * px / 2
+            d.rectangle([cx - half - 6, top + sel[0] * band - 3, cx + half + 6,
+                         top + (sel[-1] + 1) * band + 3], outline=(142, 90, 89), width=5)
+    stuffed = stuff_round(comp)
+    if stuffed is not None:
+        i = next(k for k, r in enumerate(rows) if r.index == stuffed)
+        y = top + (i + 0.5) * band
+        d.polygon([(18, y - 9), (34, y), (18, y + 9)], fill=(142, 90, 89))
+    return img
 
 
 def cyc_label(cir: CIR) -> str:
@@ -713,6 +809,8 @@ def build_template_pdf(cir: CIR, *, terminology: str = "US", twin: TwinModel | N
 
     text = write_pattern(cir, result, terminology=terminology,
                          width_cm=twin.width_cm, height_cm=twin.height_cm)
+    # the buyer's yarn is every piece's, not the twin's one component (_pattern_yardage)
+    twin = dataclasses.replace(twin, yarn_metres_by_color=_pattern_yardage(cir, result, twin))
     facts = _Facts(cir, result, twin, text, terminology, released_on, fam, childrens)
     facts.has_gallery = bool(plan["slots"])
     slots = plan["slots"]
@@ -758,7 +856,7 @@ def build_template_pdf(cir: CIR, *, terminology: str = "US", twin: TwinModel | N
         logo_pages=sorted(set(t.logo_pages)), logo_sha256=logo_fingerprints(),
         problems=sorted(set(problems)), prose="\n".join(t.prose), figures=list(t.figures),
         rows=rows,
-        claims=[f"{P._short_size(twin, cir)} at the stated gauge"],
+        claims=[f"{facts.size_text()} at the stated gauge"],
         finished_size_cm=((twin.width_cm, twin.height_cm)
                           if twin.width_cm and twin.height_cm else None),
         yardage_by_color=dict(twin.yarn_metres_by_color),
@@ -783,7 +881,8 @@ class _Facts:
             self.block("the certified CIR names no yarn", "tools_and_yarn")
         if not twin.yarn_metres_by_color:
             self.block("the twin computes no yarn quantity", "tools_and_yarn")
-        if not twin.width_cm:
+        self.circumferences = self._circumferences() if family == AMIGURUMI else []
+        if not twin.width_cm and not self.circumferences:
             self.block("the twin computes no finished size", "sizing")
         self.make_total = sum(c.make for c in cir.components)
         self.piece = cir.components[0].name.replace("_", " ")
@@ -800,13 +899,32 @@ class _Facts:
     def block(self, reason: str, section: str):
         raise TemplateBlocked(reason, slug=self.cir.slug, section=section)
 
+    def _circumferences(self) -> list[tuple[str, float]]:
+        """(piece, cm around its widest round) for each stuffed piece of a toy: the size the
+        twin can state for a closed shaped piece (its own size_refusal says so). Its other
+        dimensions come from stuffing and tension, which gauge cannot predict."""
+        out = []
+        for comp in self.cir.components:
+            if comp.construction not in ("joined_rounds", "spiral_rounds"):
+                continue
+            tw = build_twin(self.cir, self.result, component=comp.name)
+            if tw.circumference_cm:
+                out.append((comp.name.replace("_", " "), tw.circumference_cm))
+        return out
+
+    def size_text(self) -> str:
+        """The finished size as the certified data can state it."""
+        if self.twin.width_cm or not self.circumferences:
+            return P._short_size(self.twin, self.cir)
+        return ", ".join(f"{n} {c:.1f} cm around" for n, c in self.circumferences)
+
     # -- statements ----------------------------------------------------------------------
     def sizes_line(self) -> str:
         g = self.cir.grading
         if g is not None:
             names = g.size_names
             return f"{len(names)} sizes, {names[0]} to {names[-1]} (this edition: size {g.size})"
-        return P._short_size(self.twin, self.cir)
+        return self.size_text()
 
     def overview(self) -> list[str]:
         """publish.pdf's overview, without its closing sentence about the engine layout's
@@ -927,7 +1045,7 @@ class _Facts:
                     note = (note + "; this edition" if note else "this edition")
                 out.append((str(e.get("size")), fin, yarn, note))
             return out
-        size = P._short_size(self.twin, self.cir)
+        size = self.size_text()
         yarn = self.total_yarn()
         note = (f"makes {self.make_total} {self.piece}s" if self.make_total > 1
                 else "one size, as written")
@@ -944,7 +1062,7 @@ class _Facts:
             if cir.grading.table == CHILD.name:
                 fit += " " + P.AGE_IS_A_GUIDE
             return fit
-        size = P._short_size(twin, cir)
+        size = self.size_text()
         if fam == PILLOW:
             return (f"The finished cover measures {size} at the stated gauge. Its measurements "
                     f"are the cover's own, from this pattern's stitches; choose a pad to suit.")
@@ -956,6 +1074,11 @@ class _Facts:
             return (f"The finished piece measures {size} at the stated gauge. The colour motif "
                     f"is set by stitch counts, so it keeps its proportions at any gauge; only "
                     f"the measurements change.")
+        if fam == AMIGURUMI and not twin.width_cm:
+            return (f"At the stated gauge the stuffed pieces measure {size} at their widest "
+                    f"rounds. Their height and fullness come from how firmly you stuff, which "
+                    f"gauge cannot predict, so measure your own pieces. Read the safety notes "
+                    f"in section 08 before you start: this pattern is for a children's item.")
         if fam in (BABY, AMIGURUMI):
             return (f"The finished piece measures {size} at the stated gauge. Read the safety "
                     f"notes in section 08 before you start: this pattern is for a children's "
@@ -997,6 +1120,75 @@ class _Facts:
                        "construction")
         return steps
 
+    def hook_range_line(self) -> str:
+        lo, hi = hook_range(self.cir.gauge.hook_mm)
+        if lo == hi:
+            return (f"Hook range: {hook_label(hi)} only; there is no standard size within "
+                    f"{AMIGURUMI_HOOK_STEP_MM:g} mm below it.")
+        return (f"Hook range: {hook_label(lo)} to {hook_label(hi)}. Toy fabric should be "
+                f"firm, with no stuffing showing between stitches: if it shows, go down "
+                f"within this range and check the gauge again.")
+
+    def eye_options(self) -> list[str]:
+        """Embroidered or safety eyes, from the CIR's own materials and the head's rounds.
+
+        Safety eyes are offered only when the certified materials list them; they are a
+        small part, so an embroidered face is the only option for a child under 3."""
+        mats = [m.name.lower() for m in self.cir.materials]
+        head = next((c for c in self.cir.components if "head" in c.name.lower()), None)
+        if head is None and len(self.cir.components) == 1:
+            head = self.cir.components[0]
+        if head is None or not _round_rows(head):
+            self.block("an amigurumi pattern needs a head (or single piece) to place eyes on",
+                       "notes")
+        rows = _round_rows(head)
+        widest = max(r.declared_count for r in rows)
+        at = [r.index for r in rows if r.declared_count == widest]
+        floss = next((m for m in self.cir.materials if "floss" in m.name.lower()
+                      or "embroider" in m.name.lower()), None)
+        out = [f"Embroidered eyes (as written): with "
+               f"{floss.name if floss else 'embroidery thread'}, work a few straight stitches "
+               f"over one stitch for each eye, between rounds {at[0]} and {at[-1]} of the "
+               f"{head.name.replace('_', ' ')} (its widest rounds), before the piece is "
+               f"closed, and knot the ends inside. Nothing can be pulled off, so this is the "
+               f"option for any child, and the only one for a child under 3."]
+        safety = [m for m in self.cir.materials if "safety eye" in m.name.lower()]
+        if safety:
+            out.append(f"Safety eyes: {safety[0].name}. Fit the washer before the piece is "
+                       f"closed. Safety eyes are a small part: never use them on a toy for a "
+                       f"child under 3.")
+        else:
+            out.append("Safety eyes are not part of this pattern: they are a small part, and "
+                       "the materials, safety notes and age guidance here are for the "
+                       "embroidered face only.")
+        return out
+
+    def assembly_lines(self) -> list[str]:
+        """The writer's Assembly steps, with the "Step N:" label dropped (07 numbers them)."""
+        for title, lines in self.parsed["blocks"]:
+            if title.lower().startswith("assembly"):
+                return [re.sub(r"^Step \d+:\s*", "", ln) for ln in lines if ln.strip()]
+        return []
+
+    def component_for(self, block_key: str):
+        for c in self.cir.components:
+            if c.name.replace("_", " ").lower() == block_key and _round_rows(c) and \
+                    c.construction in ("joined_rounds", "spiral_rounds"):
+                return c
+        return None
+
+    def component_caption(self, comp) -> str:
+        rows = _round_rows(comp)
+        widest = max(r.declared_count for r in rows)
+        at = [r.index for r in rows if r.declared_count == widest]
+        span = f"round {at[0]}" if len(at) == 1 else f"rounds {at[0]} to {at[-1]}"
+        cap = (f"Diagram of the {comp.name.replace('_', ' ')}: one band per round, as wide as "
+               f"that round at gauge. Widest at {span} ({widest} sts).")
+        stuffed = stuff_round(comp)
+        if stuffed is not None:
+            cap += f" The arrow marks round {stuffed}: stuff here."
+        return cap + " Drawn from the stitch data, not a photograph."
+
     def finishing_lines(self) -> list[str]:
         for title, lines in self.parsed["blocks"]:
             if title.lower().startswith("finishing"):
@@ -1008,7 +1200,7 @@ class _Facts:
         rows = P._rows_by_index(twin)
         comp = cir.components[0]
         unit = "round" if "round" in comp.construction else "row"
-        bits = [f"Finished size: {P._short_size(twin, cir)}."]
+        bits = [f"Finished size: {self.size_text()}."]
         if rows:
             bits.append(f"The last {unit} has {len(rows[max(rows)])} stitches, and there are "
                         f"{len(rows)} {unit}s in all.")
@@ -1018,8 +1210,9 @@ class _Facts:
 
     def quality_checks(self) -> str:
         cir = self.cir
-        out = [f"Measure the piece: it should be {P._short_size(self.twin, cir)} after "
-               f"blocking."]
+        out = ([f"Measure the piece: it should be {self.size_text()} after blocking."]
+               if self.twin.width_cm else
+               [f"Measure each stuffed piece around its widest round: {self.size_text()}."])
         rows = P._rows_by_index(self.twin)
         if rows:
             out.append(f"Count the last {'round' if 'round' in cir.components[0].construction else 'row'}: "
@@ -1220,6 +1413,8 @@ def _tools(t: _T, f: _Facts) -> None:
             name += f"; {f.yarn_amount(metres)}"
         yarn.append(name + fibres + ".")
     hooks = [f"{hook_label(cir.gauge.hook_mm)}, {P._std.HOOK_GAUGE_PHRASE}."]
+    if f.family == AMIGURUMI:
+        hooks.append(f.hook_range_line())
     instructed = "\n".join([f.text] + [abbreviations.method(code, f.terminology)
                                        for code in sorted(twin.stitch_types_used)])
     notions = [f"{n.capitalize()}: {w}." for n, w in P._tools_required(cir, instructed)]
@@ -1326,6 +1521,11 @@ def _schematic_image_uncached(f: _Facts):
     sch = schematic_for(f.cir, f.result)
     if sch is not None:
         return sch.image, "publish.schematic.schematic_for"
+    if f.family == AMIGURUMI and not f.twin.width_cm:
+        # a closed stuffed piece has no width the twin will state; its profile is the
+        # schematic (one band per round at gauge), not a disclosed render that needs one
+        return (component_profile(f.cir, f.cir.components[0]),
+                "publish.pdf_template.component_profile")
     views = P._disclosed_views(f.cir)
     if "scale" in views:
         return views["scale"][0], "visual.disclosed_render (scale view, from the twin)"
@@ -1547,6 +1747,8 @@ def _pattern(t: _T, f: _Facts, slots: list[dict]) -> int:
     for title, lines in f.parsed["blocks"]:
         if title.lower().startswith("finishing"):
             continue
+        if f.family == AMIGURUMI and title.lower().startswith("assembly"):
+            continue   # section 07 carries it as numbered, placed steps (_assembly_steps)
         # The twin (and so every inline diagram drawn from it) describes one component; a
         # diagram is placed only in that component's block, never under another piece.
         block_key = title.lower().split(" (")[0].replace("_", " ").strip()
@@ -1561,6 +1763,21 @@ def _pattern(t: _T, f: _Facts, slots: list[dict]) -> int:
         t.text(x + 12, y + 18.5, title.upper(), SANS_BOLD, MIN_PT, ON_FOREST, track=1.0)
         t.prose.append(title[:1].upper() + title[1:])
         y += 29 + 12
+        comp = f.component_for(block_key) if f.family == AMIGURUMI else None
+        if comp is not None:
+            ih = 118
+            next_col(ih + 10)
+            t.card(x, y, COL_W, ih, fill=CREAM, radius=6)
+            t.image(component_profile(f.cir, comp), x + 6, y + 6, ih - 12, ih - 12,
+                    figure={"kind": "component_diagram", "component": comp.name,
+                            "source": "publish.pdf_template.component_profile"})
+            cap = f.component_caption(comp)
+            yy = y + 16
+            for b in t.wrap(cap, SANS, MIN_PT, COL_W - ih - 8):
+                t.text(x + ih + 2, yy, b, SANS, MIN_PT, INK, record=False)
+                yy += 11.5
+            t.prose.append(cap)
+            y += ih + 10
         for ln in lines:
             if not ln.strip():
                 continue
@@ -1692,12 +1909,55 @@ def _chart_block(t: _T, f: _Facts) -> None:
     t.para(47, t.top + 96, CONTENT_W, art["caption"], size=MIN_PT, color=BROWN, leading=12)
 
 
+def _assembly_steps(t: _T, f: _Facts, y: float) -> float:
+    """Numbered assembly, one step per CIR seam, each with its placement cue in round
+    numbers (the writer's own Assembly sentence) and a placement diagram: the host piece's
+    profile with the rounds the join spans outlined (TEARDOWN_HIGHLAND_COW_AMIGURUMI)."""
+    t.label(47, y - 8, "ASSEMBLY", ROSE, track=1.8)
+    y += 6
+    steps = f.assembly_lines()
+    if len(steps) != len(f.cir.assembly):
+        f.block("the compiled pattern's assembly does not state every join", "finishing")
+    ih = 104
+    for i, (seam, line) in enumerate(zip(f.cir.assembly, steps), start=1):
+        host = next((c for c in f.cir.components if c.name == seam.piece_b), None)
+        if seam.at_round is None or host is None:
+            f.block(f"join {i} ({seam.piece_a} to {seam.piece_b}) has no round placement",
+                    "finishing")
+        lines = t.wrap(line, SANS, 10, 520 - 60 - ih - 12)
+        h = max(ih + 12, 20 + len(lines) * 14)
+        if y + h > CONTENT_BOTTOM:
+            t.section_page("finishing", continued=True)
+            y = 200
+        t.card(47, y, 520, h, fill=SAGE if i % 2 else CREAM)
+        t.text(62, y + 32, f"A{i}", SERIF, 20, ROSE)
+        yy = y + 18 + 10 * 0.78
+        for ln in lines:
+            t.text(108, yy, ln, SANS, 10, INK, record=False)
+            yy += 14
+        last = seam.at_round + max(1, seam.spans_rounds) - 1
+        t.image(component_profile(f.cir, host, highlight=(seam.at_round, last)),
+                567 - ih - 6, y + 6, ih, ih,
+                figure={"kind": "placement_diagram", "join": i, "host": host.name,
+                        "rounds": [seam.at_round, last],
+                        "source": "publish.pdf_template.component_profile"})
+        t.prose.append(line)
+        y += h + 12
+    cap = ("Placement diagrams show the piece each join is sewn onto, drawn from its stitch "
+           "counts, with the rounds of the join outlined. They are diagrams, not photographs.")
+    t.para(47, y, 520, cap, size=MIN_PT, color=BROWN, leading=12)
+    t.prose.append(cap)
+    return y + 34
+
+
 def _finishing(t: _T, f: _Facts) -> None:
     t.section_page("finishing")
     steps = f.finishing_lines()
     if not steps:
         f.block("the compiled pattern has no finishing block", "finishing")
     y = 230
+    if f.family == AMIGURUMI and f.cir.assembly:
+        y = _assembly_steps(t, f, y)
     for i, s in enumerate(steps, start=1):
         lines = t.wrap(s, SANS, 10, 440)
         h = max(48, 20 + len(lines) * 14)
@@ -1787,6 +2047,8 @@ def _notes(t: _T, f: _Facts) -> None:
         helpful.append(f"{tip.title}. {tip.text}")
     if helpful:
         _flow_card(t, "HELPFUL NOTES", helpful, fill=SAGE)
+    if f.family == AMIGURUMI:
+        _flow_card(t, "EYE OPTIONS", f.eye_options(), fill=CREAM)
     if f.childrens is not None:
         rendered = P.childrens_statements(cir, twin, f.childrens)
         if rendered.unrenderable:

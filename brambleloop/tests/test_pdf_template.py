@@ -351,7 +351,9 @@ def test_family_amigurumi_needs_the_child_safety_gate_or_it_blocks():
         T.build_template_pdf(sphere, childrens=("amigurumi_toy", ch.UNDER_3),
                              released_on=RELEASED, gallery=list(_gallery()))
     except T.TemplateBlocked as e:
-        assert "finished size" in e.reason, e
+        # its circumference is stated (size_text); the child-safety statement still needs a
+        # width x height the twin refuses for a closed stuffed form, so it blocks there
+        assert "finished size" in e.reason or "finished_size_cm" in e.reason, e
     else:
         raise AssertionError("an amigurumi PDF with no finished size")
 
@@ -426,6 +428,88 @@ def test_the_layout_switch():
         pass
     else:
         raise AssertionError("an unknown layout was accepted")
+
+
+# ---- amigurumi variant (teardown lessons: TEARDOWN_HIGHLAND_COW_AMIGURUMI, _CAPYBARA) ------
+
+def _ami():
+    sys.path.insert(0, str(ROOT / "tests"))
+    import fixture_amigurumi as F
+
+    return F
+
+
+def test_the_amigurumi_hook_range_is_the_stated_hook_and_half_a_millimetre_below():
+    assert T.hook_range(4.0) == (3.5, 4.0)
+    assert T.hook_range(5.0) == (4.5, 5.0)
+    lo, hi = T.hook_range(2.0)
+    assert hi == 2.0 and lo <= hi
+
+
+def test_yarn_is_every_pieces_not_the_first_components():
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.cir.twin import build_twin
+
+    cir = _cir("garment:harbour-drop-shoulder-pullover:M")
+    r = compile_cir(cir)
+    first = sum(build_twin(cir, r).yarn_metres_by_color.values())
+    every = sum(sum(build_twin(cir, r, component=c.name).yarn_metres_by_color.values())
+                for c in cir.components)
+    total = sum(T._pattern_yardage(cir, r, build_twin(cir, r)).values())
+    assert abs(total - every) < 0.5 and total > first * 1.2, (first, every, total)
+
+
+def test_a_stuffed_toy_blocks_on_the_child_safety_size_it_cannot_state():
+    F = _ami()
+    try:
+        T.build_template_pdf(F.pebble_friend(), released_on=RELEASED,
+                             gallery=T.test_double_gallery(), childrens=F.CHILDRENS)
+    except T.TemplateBlocked as e:
+        assert e.section == "notes" and "finished_size_cm" in str(e), e
+    else:
+        raise AssertionError("a closed stuffed toy rendered child-safety text without a size")
+
+
+def _ami_doc():
+    """LAYOUT-ONLY: the child-safety facts' missing size is stubbed so the amigurumi pages
+    can be inspected. Never a product path; the real path blocks (test above)."""
+    F = _ami()
+    orig = P.childrens_facts
+
+    def stub(cir, twin, audience):
+        fx = orig(cir, twin, audience)
+        return dataclasses.replace(fx, finished_size_cm=(11.0, 16.0),
+                                   fibres=fx.fibres or ("cotton",),
+                                   fibre_read_from=fx.fibre_read_from or "test stub")
+    P.childrens_facts = stub
+    try:
+        return T.build_template_pdf(F.pebble_friend(), released_on=RELEASED,
+                                    gallery=T.test_double_gallery(), childrens=F.CHILDRENS)
+    finally:
+        P.childrens_facts = orig
+
+
+def test_the_amigurumi_variant_has_component_diagrams_placed_assembly_and_eye_options():
+    F = _ami()
+    cir = F.pebble_friend()
+    doc = _ami_doc()
+    assert doc.family == T.AMIGURUMI and doc.status == "proof_test_double"
+    kinds = [f["kind"] for f in doc.figures]
+    drawn = {f["component"] for f in doc.figures if f["kind"] == "component_diagram"}
+    assert drawn == {c.name for c in cir.components}, drawn
+    placed = [f for f in doc.figures if f["kind"] == "placement_diagram"]
+    assert [p["rounds"] for p in placed] == [[12, 12], [5, 7]], placed
+    assert kinds.count("certified_frame") >= 7
+    text = doc.prose
+    assert "not a photograph" in text and "stuff here" in text
+    assert "across rounds 5-7, 6 sts either side of centre" in text
+    assert "Embroidered eyes (as written)" in text and "between rounds 6 and 12 of the head" in text
+    assert "Safety eyes are not part of this pattern" in text
+    assert "Hook range: US E-4 / 3.5 mm to US G-6 / 4 mm" in text, text[:0]
+    assert "Step 1:" not in text
+    assert "head 20.0 cm around" in text
+    assert sum(doc.yardage_by_color.values()) > 40
+    assert T.audit(doc.pdf_bytes, expected_gallery=doc.gallery)["verdict"] == "PASS"
 
 
 if __name__ == "__main__":
