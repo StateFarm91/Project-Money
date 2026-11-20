@@ -275,7 +275,8 @@ def test_counts_for_the_p0_board():
     OQC.sweep(db, now=NOW)
     c = OQC.counts(db, now=NOW + timedelta(minutes=5))
     assert c["owner_exceptions_open"] == 4 and c["awaiting_sweep"] == 0
-    assert c["routine_auto_approved_24h"] == 3 and c["closed_automatically_24h"] == 1
+    assert c["routine_auto_approved_24h"] == 2 and c["closed_automatically_24h"] == 1
+    assert c["routine_superseded_nothing_approved_24h"] == 1
     later = OQC.counts(db, now=NOW + timedelta(hours=25))
     assert later["routine_auto_approved_24h"] == 0 and later["closed_automatically_24h"] == 0
 
@@ -317,7 +318,8 @@ def test_the_batch_shows_only_genuine_exceptions_grouped_by_class():
                    SI.CERT_SAFETY_AUTHORITY: ["owner_action:10"],
                    SI.UNCLASSIFIED: ["owner_action:11"]}, got
     assert b["exceptions"] == 5 and b["covered_by_standing_authority"] == 2
-    assert b["covered_by_class"] == {"engineering": 1, "publication_not_ready": 1}
+    assert b["covered_by_class"] == {"engineering": 1, SI.PUBLICATION: 1}
+    assert b["not_ready_publication"] == 1
     assert [s["class"] for s in b["sections"]][-1] == SI.UNCLASSIFIED
 
 
@@ -855,6 +857,167 @@ def test_the_sweep_still_closes_a_card_a_producer_raises_when_not_covered():
     db = _db()
     _add(db, "model.routes_invalid")
     assert OQC.sweep(db, now=NOW)["closed"] == 1
+
+
+# ---- FIX2: owner-closed vs standing-authority-closed, labels, counts, no wall-clock ---------
+
+def _closed_row(db, key, state, actor, *, max_cost=None):
+    """A done card closed to `state` by `actor` (the lifecycle audit says who)."""
+    with db.session() as s:
+        row = OwnerAction(requirement_key=key, action=f"do {key}", reason="r", at=NOW,
+                          max_cost_cad=max_cost or 0.0)
+        s.add(row)
+        s.flush()
+        owner_queue.transition(s, row, state, "closed for the test", actor=actor, now=NOW)
+        if actor == SI.ACTOR:
+            s.add(AuditLog(actor=SI.ACTOR, action=SI.AUDIT_ACTION, at=NOW,
+                           artifact=f"owner_action:{row.id}", detail={"to": state}))
+        return row.id
+
+
+def _owner_closed(db, rid, states=None):
+    with db.session() as s:
+        return SI.owner_closed(s, s.get(OwnerAction, rid), states)
+
+
+def test_owner_closed_excludes_standing_authority_and_non_decisions():
+    db = _db()
+    owner = _closed_row(db, "k1", owner_queue.SATISFIED, "owner")
+    standing = _closed_row(db, "k2", owner_queue.SATISFIED, SI.ACTOR)
+    withdrawn_owner = _closed_row(db, "k3", owner_queue.WITHDRAWN, "owner")
+    withdrawn_standing = _closed_row(db, "k4", owner_queue.WITHDRAWN, SI.ACTOR)
+    superseded = _closed_row(db, "k5", owner_queue.SUPERSEDED, "owner")
+    assert _owner_closed(db, owner) and not _owner_closed(db, standing)
+    assert not _owner_closed(db, withdrawn_owner) and not _owner_closed(db, superseded)
+    both = (owner_queue.SATISFIED, owner_queue.WITHDRAWN)
+    assert _owner_closed(db, withdrawn_owner, both)
+    assert not _owner_closed(db, withdrawn_standing, both)
+    with db.session() as s:
+        assert not SI.owner_closed(s, None)
+        assert not SI.owner_closed(s, OwnerAction(requirement_key="x", action="a"))
+    # Closed by the standing authority, reopened, then closed by the owner: the owner's.
+    with db.session() as s:
+        row = s.get(OwnerAction, standing)
+        owner_queue.transition(s, row, owner_queue.OPEN, "reopened", actor="owner", now=NOW)
+        owner_queue.transition(s, row, owner_queue.SATISFIED, "owner did it", actor="owner",
+                               now=NOW)
+    assert _owner_closed(db, standing)
+    # Mutation: a helper that forgets the standing check lets that closure through.
+    orig = SI.closed_by_standing_authority
+    SI.closed_by_standing_authority = lambda s, r: False
+    try:
+        assert _owner_closed(db, _closed_row(db, "k6", owner_queue.SATISFIED, SI.ACTOR))
+    finally:
+        SI.closed_by_standing_authority = orig
+    assert not _owner_closed(db, _closed_row(db, "k7", owner_queue.SATISFIED, SI.ACTOR))
+
+
+def test_finance_spend_authority_needs_an_owner_closure():
+    from brambleloop.finance.accounting import policy
+
+    db = _db()
+    ok = _closed_row(db, "spend:ok", owner_queue.SATISFIED, "owner", max_cost=10.0)
+    bad = _closed_row(db, "spend:bad", owner_queue.SATISFIED, SI.ACTOR, max_cost=10.0)
+    wd = _closed_row(db, "spend:wd", owner_queue.WITHDRAWN, "owner", max_cost=10.0)
+
+    def run(key):
+        with db.session() as s:
+            return policy._authority(s, {"authority": {"type": "owner_action", "ref": key},
+                                         "amount_cad": 1.0})[0]
+
+    assert run("spend:ok") is True
+    assert run("spend:bad") is False and run("spend:wd") is False
+    orig = SI.owner_closed
+    SI.owner_closed = lambda s, r, states=None: bool(r.done)       # mutation: the old check
+    try:
+        assert run("spend:bad") is True and run("spend:wd") is True
+    finally:
+        SI.owner_closed = orig
+    assert ok and bad and wd
+
+
+def test_reengineer_job_ignores_a_standing_authority_closure():
+    from brambleloop.runtime import engineering_ops as E
+
+    db = _db()
+    ok = _closed_row(db, E.REENGINEER_CARD, owner_queue.SATISFIED, "owner")
+
+    class _Job:
+        def __init__(self, aid):
+            self.inputs = {"owner_action_id": aid, "slugs": []}
+
+    class _Ctx:
+        def __init__(self, aid):
+            self.db, self.job = db, _Job(aid)
+
+    def ran(aid):
+        return E.handle_cir_reengineer(_Ctx(aid)).get("ran") is not False
+
+    assert ran(ok)
+    with db.session() as s:
+        s.get(OwnerAction, ok).requirement_key = "other"       # one card per key at a time
+    standing = _closed_row(db, E.REENGINEER_CARD, owner_queue.SATISFIED, SI.ACTOR)
+    assert not ran(standing)
+    orig = SI.owner_closed
+    SI.owner_closed = lambda s, r, states=None: bool(r.done)       # mutation: card.done
+    try:
+        assert ran(standing)
+    finally:
+        SI.owner_closed = orig
+
+
+def test_listing_package_does_not_read_a_standing_withdrawal_as_the_owners():
+    from brambleloop.publish import listing_package as LP
+
+    db = _db()
+    owner = _closed_row(db, "listing_package:a@1:x", owner_queue.WITHDRAWN, "owner")
+    standing = _closed_row(db, "listing_package:b@1:x", owner_queue.WITHDRAWN, SI.ACTOR)
+    states = LP._owner_closed()
+    assert _owner_closed(db, owner, states) and not _owner_closed(db, standing, states)
+    src = open(LP.__file__).read()
+    assert "_si.owner_closed(s, r, _OWNER_CLOSED)" in src          # mutation: the old state test
+    assert "r.state in _OWNER_CLOSED" not in src
+
+
+def test_not_ready_publication_is_labelled_by_its_true_class():
+    v = OQC.card_verdict({"card_id": "publication:x", "kind": "PUBLICATION",
+                          "executable": False})
+    assert v["class"] == SI.PUBLICATION and v["disposition"] == SI.ROUTINE_INTERNAL
+    assert v["not_ready"] is True
+    ready = OQC.card_verdict({"card_id": "publication:x", "kind": "PUBLICATION",
+                              "executable": True})
+    assert ready["disposition"] == SI.GENUINE_EXCEPTION and not ready.get("not_ready")
+    b = OQC.exception_batch([{"card_id": "p", "kind": "PUBLICATION", "executable": False}])
+    assert b["covered_by_class"] == {SI.PUBLICATION: 1} and b["not_ready_publication"] == 1
+    assert "publication_not_ready" not in b["covered_by_class"]
+
+
+def test_supersedes_that_approve_nothing_are_counted_apart():
+    db = _db()
+    _add(db, "improve.challenger_run:7")
+    _add(db, "taxonomy_drift:seven")
+    _add(db, "store:etsy.openapi_review")
+    _add(db, "model.routes_invalid")
+    OQC.sweep(db, now=NOW)
+    c = OQC.counts(db, now=NOW + timedelta(minutes=5))
+    assert c["routine_auto_approved_24h"] == 2
+    assert c["routine_superseded_nothing_approved_24h"] == 2
+    orig = SI.NO_APPROVAL_PREFIXES
+    SI.NO_APPROVAL_PREFIXES = ()                                   # mutation: lump them in
+    try:
+        assert OQC.counts(db, now=NOW + timedelta(minutes=5))["routine_auto_approved_24h"] == 4
+    finally:
+        SI.NO_APPROVAL_PREFIXES = orig
+
+
+def test_audit_rows_carry_the_injected_clock_not_the_wall_clock():
+    db = _db()
+    _add(db, "model.routes_invalid")
+    OQC.sweep(db, now=NOW)
+    with db.session() as s:
+        ats = [r.at.replace(tzinfo=timezone.utc) if r.at.tzinfo is None else r.at
+               for r in s.scalars(select(AuditLog))]
+    assert ats and all(a == NOW for a in ats), ats
 
 
 if __name__ == "__main__":

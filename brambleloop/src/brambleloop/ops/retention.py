@@ -295,6 +295,12 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "owner_action.standing_authority": ("lifetime_total",
                                         "the owner's standing-authority audit trail (kept); "
                                         "ops.owner_queue_consolidate.counts reads 24 h"),
+    # FIX2: `authority.standing_internal.closed_by_standing_authority` reads the newest
+    # lifecycle row of a card to tell the owner's closure from the standing authority's. A
+    # pruned row would make a standing closure read as the owner's (fail open), so kept for life.
+    "owner_action.lifecycle": ("lifetime_total",
+                               "authority.standing_internal.closed_by_standing_authority: who "
+                               "made a card's latest closure (kept; pruning would fail open)"),
     "standing_policy.stop_watch_reading": ("windowed",
                                            "ops.standing_stop.last_reading (silence); "
                                            "ops.standing_shadow_gate 7-day continuity"),

@@ -65,6 +65,8 @@ AUDIT_ACTION = "owner_action.standing_authority"
 ACTOR = "standing_authority"
 
 ROUTINE_INTERNAL = "ROUTINE_INTERNAL"
+#: ROUTINE_INTERNAL keys whose supersede approves nothing (no work is authorised by it).
+NO_APPROVAL_PREFIXES: tuple[str, ...] = ("improve.challenger_run:", "taxonomy_drift:")
 AUTO_CLOSE = "AUTO_CLOSE"
 GENUINE_EXCEPTION = "GENUINE_EXCEPTION"
 DISPOSITIONS = (ROUTINE_INTERNAL, AUTO_CLOSE, GENUINE_EXCEPTION)
@@ -370,6 +372,41 @@ def closure_in_force(session, requirement_key: str, action: str | None = None) -
                                    CLEARED_ARTIFACT_PREFIX + key[:150]]))
             .order_by(AuditLog.id.desc()).limit(1)))
     return bool(marks) and marks[0].artifact == f"owner_action:{last.id}"
+
+
+def closed_by_standing_authority(session, row) -> bool:
+    """True when the standing authority (not the owner) made the latest closure of `row`.
+
+    The latest lifecycle or standing audit row naming the card decides, so a card the standing
+    authority superseded and the owner later reopened and closed is the owner's."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    rid = getattr(row, "id", None)
+    if rid is None:
+        return False
+    with session.no_autoflush:
+        last = session.scalar(select(AuditLog).where(
+            AuditLog.action.in_([AUDIT_ACTION, "owner_action.lifecycle"]),
+            AuditLog.artifact == f"owner_action:{rid}")
+            .order_by(AuditLog.id.desc()).limit(1))
+    return bool(last is not None and (last.action == AUDIT_ACTION or last.actor == ACTOR))
+
+
+def owner_closed(session, row, states=None) -> bool:
+    """The OWNER closed `row`: it is done, in one of `states` (default satisfied or the legacy
+    closed_unclassified), and the standing authority did not close it. A withdrawn, superseded
+    or expired card is not an owner decision unless a caller names that state in `states`."""
+    from ..ops import owner_queue
+
+    if row is None or not row.done:
+        return False
+    allowed = frozenset(states) if states is not None else frozenset(
+        {owner_queue.SATISFIED, owner_queue.CLOSED_UNCLASSIFIED})
+    if owner_queue.effective_state(row) not in allowed:
+        return False
+    return not closed_by_standing_authority(session, row)
 
 
 def note_condition_cleared(session, requirement_key: str) -> bool:

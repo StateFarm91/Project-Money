@@ -10294,3 +10294,10 @@ etsy_api/benchmark_observation read CLOSED today; /api/verify reads 11/12. Repor
 - M1: `support_defect_decision:` is now GENUINE (certification_construction_safety_authority); the sweep never supersedes it.
 - M2: producers (`autonomy.orchestrator._raise_approval`, `authority.dag._raise_owner_action`, `gateway.providers` vendor/routes cards) call `standing_internal.closure_in_force` and raise nothing while a standing-authority closure for the same key (and, for the provider cards, the same condition text) is in force; a cleared condition writes one audit row (`note_condition_cleared`) and ends the closure. Nothing deleted; audit preserved.
 - M3: `test_eng_approvals` pins every KIND_RULES row and every inventoried kind to its class; 15 mutants run, all killed.
+
+## ENG-APPROVALS-FIX2 (2026-11-20)
+- M4: sweep and lifecycle audit rows are now stamped with the injected `now`; the P0-board count test no longer depends on the wall clock.
+- LOW 1-3: `standing_internal.owner_closed` (owner closure only; never a standing-authority closure) now gates Finance spend authority, the `creative.reengineer` job and the `listing_package:` module. `owner_action.lifecycle` is kept for life in retention (pruning it would fail open).
+- LOW 4: not-ready PUBLICATION cards are class PUBLICATION (flag `not_ready`), not ROUTINE-labelled `publication_not_ready`.
+- LOW 5: `routine_superseded_nothing_approved_24h` counts `improve.challenger_run:` / `taxonomy_drift:` supersedes apart from `routine_auto_approved_24h`.
+- Known, not from this change: `test_first_listing_doors` fails the same way at eb0f062 ("listing search profile not certified PASS").

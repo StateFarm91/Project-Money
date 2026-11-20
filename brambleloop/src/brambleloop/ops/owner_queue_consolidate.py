@@ -105,7 +105,7 @@ def sweep(db, *, now: datetime | None = None) -> dict:
             moved = owner_queue.transition(s, row, state, reason, actor=SI.ACTOR, now=now)
             if not moved.get("changed"):
                 continue
-            s.add(AuditLog(actor=SI.ACTOR, action=SI.AUDIT_ACTION,
+            s.add(AuditLog(actor=SI.ACTOR, action=SI.AUDIT_ACTION, at=now,
                            artifact=f"owner_action:{row.id}",
                            detail={"directive": SI.DIRECTIVE_ID,
                                    "directive_at": SI.DIRECTIVE_AT,
@@ -120,6 +120,11 @@ def sweep(db, *, now: datetime | None = None) -> dict:
                                 "to": state})
     out["closed"] = len(out["routine_superseded"]) + len(out["auto_closed"])
     return out
+
+
+def _approves_nothing(detail: dict) -> bool:
+    key = str(detail.get("requirement_key") or "")
+    return key.startswith(SI.NO_APPROVAL_PREFIXES)
 
 
 def counts(db, *, now: datetime | None = None) -> dict:
@@ -150,8 +155,13 @@ def counts(db, *, now: datetime | None = None) -> dict:
         "awaiting_sweep": len(verdicts) - len(genuine),
         "closed_automatically_24h": sum(1 for d in recent
                                         if d.get("disposition") == SI.AUTO_CLOSE),
-        "routine_auto_approved_24h": sum(1 for d in recent
-                                         if d.get("disposition") == SI.ROUTINE_INTERNAL),
+        "routine_auto_approved_24h": sum(
+            1 for d in recent if d.get("disposition") == SI.ROUTINE_INTERNAL
+            and not _approves_nothing(d)),
+        # Supersedes that approve nothing (a stale challenger run, a drift note): counted apart.
+        "routine_superseded_nothing_approved_24h": sum(
+            1 for d in recent if d.get("disposition") == SI.ROUTINE_INTERNAL
+            and _approves_nothing(d)),
         "since": since.isoformat(), "directive": SI.DIRECTIVE_ID,
         "source": f"owner_actions (open) + audit_log[{SI.AUDIT_ACTION}] (24 h)"}
 
@@ -197,7 +207,9 @@ def card_verdict(card: dict) -> dict:
     cid = str(card.get("card_id") or "")
     if kind == "PUBLICATION" and not card.get("executable"):
         # Not ready: nothing to approve yet. Manufacturing continues; it is not an ask.
-        return {"disposition": SI.ROUTINE_INTERNAL, "class": "publication_not_ready",
+        # Labelled by its true class (PUBLICATION): not-ready is the state, not the class.
+        return {"disposition": SI.ROUTINE_INTERNAL, "class": SI.PUBLICATION,
+                "not_ready": True,
                 "why": ("its gated sections do not all pass yet; rebuild, recertify, PDF, "
                         "gallery, SEO and listing-package work continue automatically "
                         f"({SI.DIRECTIVE_ID}) and the card returns when it is ready")}
@@ -232,7 +244,8 @@ def exception_batch(cards: list[dict]) -> dict:
         v = card_verdict(c)
         if v["disposition"] != SI.GENUINE_EXCEPTION:
             covered.append({"card_id": c.get("card_id"), "class": v["class"],
-                            "disposition": v["disposition"]})
+                            "disposition": v["disposition"],
+                            "not_ready": bool(v.get("not_ready"))})
             continue
         groups.setdefault(v["class"], []).append({
             "card_id": c.get("card_id"), "kind": c.get("kind"),
@@ -253,6 +266,7 @@ def exception_batch(cards: list[dict]) -> dict:
             "exceptions": total, "sections": sections,
             "covered_by_standing_authority": len(covered),
             "covered_by_class": _tally(covered),
+            "not_ready_publication": sum(1 for c in covered if c["not_ready"]),
             "rule": ("only the directive's exception classes reach the owner: grant signatures "
                      "and step-up acts, publication/activation, external policy attestation, "
                      "physical evidence, spend beyond approved budgets, paid ads or "
