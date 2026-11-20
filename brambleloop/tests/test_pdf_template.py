@@ -116,7 +116,11 @@ def test_home_decor_us_and_uk_pass_the_audit_and_are_not_customer_ready_with_tes
         text = _flat(doc)
         assert T.TEST_DOUBLE_MARKER.split("  ")[0] in text
         assert f"{term} TERMINOLOGY" in text
-        assert doc.rows == 7 and not doc.problems, doc.problems
+        # the only premium-standard finding a test-double proof may carry: its hero is
+        # labelled TEST DOUBLE, not as a rendering or photograph (a real gallery clears it)
+        assert doc.rows == 7 and doc.problems == [
+            "PREMIUM_STANDARD cover: the cover hero is labelled neither as a rendering nor "
+            "as a photograph"], doc.problems
     uk = _flat(_doc("hexagon_coasters", "UK"))
     us = _flat(_doc("hexagon_coasters", "US"))
     assert "in dc" in uk and "in sc" in us      # the gauge stitch, in each edition's terms
@@ -510,6 +514,17 @@ def test_the_amigurumi_variant_has_component_diagrams_placed_assembly_and_eye_op
     assert "head 20.0 cm around" in text
     assert sum(doc.yardage_by_color.values()) > 40
     assert T.audit(doc.pdf_bytes, expected_gallery=doc.gallery)["verdict"] == "PASS"
+    assert [p for p in doc.problems if "cover hero" not in p] == [], doc.problems
+
+
+def test_every_proof_family_meets_the_premium_standard_with_a_rendered_gallery():
+    rendered = [dict(f, test_double=False, kind="generated") for f in _gallery()]
+    for key in ("hexagon_coasters", "cloudline_blanket",
+                "garment:harbour-drop-shoulder-pullover:M", "pillow", "snowfall_throw"):
+        for term in ("US", "UK"):
+            doc = T.build_template_pdf(_cir(key), terminology=term, released_on=RELEASED,
+                                       gallery=rendered)
+            assert doc.customer_ready and not doc.problems, (key, term, doc.problems)
 
 
 if __name__ == "__main__":

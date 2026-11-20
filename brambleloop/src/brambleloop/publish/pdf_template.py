@@ -850,6 +850,13 @@ def build_template_pdf(cir: CIR, *, terminology: str = "US", twin: TwinModel | N
                                                        terminology)
         except ValueError as e:
             raise TemplateBlocked(str(e), slug=cir.slug, section="notes") from e
+    # D-OWNER-PDF-STANDARD, audited on the bytes exactly as the engine does: a customer
+    # document that fails it is refused; a proof records the failures in `problems`.
+    standard = P._std.audit(pdf_bytes, cir, terminology=terminology, result=result,
+                            childrens=childrens is not None)
+    if status == "customer_ready":
+        P._std.refuse_if_incomplete(standard)
+    problems += [f"PREMIUM_STANDARD {k}: {v[0]}" for k, v in sorted(standard.failures.items())]
     return TemplateDocument(
         pdf_bytes=pdf_bytes, pages=t.pages, terminology=terminology, family=fam,
         status=status, sections=list(t.sections), gallery=gallery_out,
@@ -946,7 +953,10 @@ class _Facts:
         return self.memo("chart", build)
 
     def chart_included(self) -> bool:
-        return self.family in CHART_FAMILIES or not self.chart_art().get("tiles")
+        # colourwork (more than one colour in the fabric) always carries its chart and key
+        # (D-OWNER-PDF-STANDARD colourwork_chart), whatever its family
+        return (self.family in CHART_FAMILIES or P._std.colourwork(self.twin)
+                or not self.chart_art().get("tiles"))
 
     def includes_line(self) -> str:
         from .construction_diagrams import stages as _stages
@@ -1033,17 +1043,21 @@ class _Facts:
                             if k in d] or sorted(d)
                     return keys[:2]
 
-                fin = ", ".join(f"{k.replace('_', ' ')} {built[k]:g} cm" for k in pick(built))
-                yarn = (f"{e['yarn_m']:.0f} m / {e['yarn_m'] * 1.094:.0f} yd"
+                fin = ", ".join(f"{'finished ' if k == 'chest' else ''}"
+                                f"{k.replace('_', ' ')} {built[k]:g} cm" for k in pick(built))
+                yarn = (f"yarn about {e['yarn_m']:.0f} m / {e['yarn_m'] * 1.094:.0f} yd"
                         if e.get("yarn_m") else "")
                 if not fin or not yarn:
                     self.block(f"size {e.get('size')} has no built measurement or yarn figure",
                                "sizing")
-                note = ", ".join(f"to fit {k.replace('_', ' ')} {body[k]:g} cm"
-                                 for k in pick(body)[:1])
+                # the body table's bust is the chest the garment is fitted to (publish.pdf)
+                note = ", ".join(f"to fit {'chest' if k in ('bust', 'chest') else k.replace('_', ' ')}"
+                                 f" {body[k]:g} cm" for k in pick(body)[:1])
+                if built.get("chest") is not None and body.get("bust") is not None:
+                    note += f", {built['chest'] - body['bust']:+.0f} cm ease"
                 if str(e.get("size")) == str(g.size):
                     note = (note + "; this edition" if note else "this edition")
-                out.append((str(e.get("size")), fin, yarn, note))
+                out.append((f"SIZE {str(e.get('size')).upper()}", fin, yarn, note))
             return out
         size = self.size_text()
         yarn = self.total_yarn()
@@ -1256,7 +1270,7 @@ def _cover(t: _T, f: _Facts, slots: list[dict]) -> None:
         f.block("no one-line product description can be stated", "cover")
     line_top = y - size * 0.85 + 14
     line_top = t.para(58, line_top, 496, story, font=SANS, size=10.2, color=GREY, leading=14)
-    ident = (f"{cir.title}  ·  Crochet pattern  ·  {f.terminology} terms  ·  "
+    ident = (f"{cir.title}  ·  Crochet pattern by Brambleloop Studio  ·  {f.terminology} terms  ·  "
              f"version {cir.version}")
     if line_top + 4 < 420:
         t.text(58, line_top + 10, ident, SANS_SEMI, MIN_PT, GREY)
@@ -1845,7 +1859,9 @@ def _pattern(t: _T, f: _Facts, slots: list[dict]) -> int:
                         figure={"kind": "construction_diagram", "round": st.round,
                                 "source": "publish.construction_diagrams.stages",
                                 "png_sha256": hashlib.sha256(st.png).hexdigest()})
-                cap = (f"After {unit_word} {st.round}: {st.stitches} stitches. Diagram drawn "
+                # "round"/"row" in words: a "Rnd N:" label here would read as a pattern row
+                cap = (f"After {'round' if unit_word == 'Rnd' else 'row'} {st.round}: "
+                       f"{st.stitches} stitches. Diagram drawn "
                        f"from this pattern's stitch data, not a photograph.")
                 yy = y + 18
                 for b in t.wrap(cap, SANS, MIN_PT, COL_W - ih - 8):
@@ -1863,9 +1879,9 @@ def _pattern(t: _T, f: _Facts, slots: list[dict]) -> int:
                     t.image(grid, x + 6, y + 6, gw, ih - 30,
                             figure={"kind": "mini_diagram", "rows": [max(1, n - 2), n + 3],
                                     "source": "publish.pdf_template._mini_grid"})
-                    cap = (f"Diagram of {unit_word.lower()}s {max(1, n - 2)} to {n + 3} (first "
-                           f"stitches): one cell per stitch, in its yarn colour, drawn from "
-                           f"the pattern data.")
+                    cap = (f"{unit_word.lower()}s {max(1, n - 2)} to {n + 3}, first stitches, "
+                           f"one cell per stitch in its yarn colour. Diagram drawn from this "
+                           f"pattern's stitch data, not a photograph.")
                     t.para(x + 8, y + ih - 22, COL_W - 16, cap, size=MIN_PT, leading=11)
                     y += ih + 10
             if draws and n is not None and n in tricky and progress is not None \
@@ -1898,7 +1914,8 @@ def _chart_block(t: _T, f: _Facts) -> None:
     charts = [tile["chart"] for tile in art.get("tiles") or []] or [art["chart"]]
     for n, chart in enumerate(charts, start=1):
         t.section_page("pattern", continued=True)
-        label = "CHART" if len(charts) == 1 else f"CHART, TILE {n} OF {len(charts)}"
+        label = ("CHART AND KEYS" if len(charts) == 1
+                 else f"CHART AND KEYS, TILE {n} OF {len(charts)}")
         t.label(47, 203, label, ROSE, track=1.8)
         t.prose.append("Chart")
         t.image(chart, 47, 222, CONTENT_W, CONTENT_BOTTOM - 222 - 150, fit="contain",
@@ -1906,7 +1923,11 @@ def _chart_block(t: _T, f: _Facts) -> None:
     t.top = CONTENT_BOTTOM - 140
     t.image(art["legend"], 47, t.top, CONTENT_W, 90, fit="contain",
             figure={"kind": "chart_legend", "source": "publish.charts.render_legend"})
-    t.para(47, t.top + 96, CONTENT_W, art["caption"], size=MIN_PT, color=BROWN, leading=12)
+    key = "Colour key: " + "; ".join(f"{name} ({hexv.upper()})" for name, hexv in
+                                     sorted((f.cir.colors or {}).items()) if hexv) + "."
+    t.para(47, t.top + 96, CONTENT_W, art["caption"] + " " + key, size=MIN_PT, color=BROWN,
+           leading=12)
+    t.prose.append(key)
 
 
 def _assembly_steps(t: _T, f: _Facts, y: float) -> float:
