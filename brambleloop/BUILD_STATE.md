@@ -1,3 +1,26 @@
+> **2026-11-20 — ENG-PLUSH slices 1-3 (`eng/plush`, NOT merged, NOT deployed; Track 2 of D-OWNER-CORE-FAMILIES).**
+> - Base: INTEG2 809107b5 + eng/families 777a66f3 (independent review SHIP). opus2/p0-amigurumi 98d216b ported;
+>   OPUS2T-4/T-5 and OPUS2P P-1..P-9 fixed (details: `research/final_build/w6/review_requests/plush_slice1.md`).
+> - **Child-safety pattern-content gate** `gates/child_safety.py`: embroidered features only (and instructed in the
+>   printed text), validated joins, no cords or loops, stuffing guidance, small parts, physical evidence, plus the
+>   rendered section's statements, cited sources with access dates (2026-11-20) and no certification claim. Wired into
+>   `gates.certificate` (step 6e) and `publish.pdf` (section + read-back refusal). UNKNOWN is never PASS: every toy
+>   and lovey is HELD on physical evidence, because no content-bound physical-evidence authority exists.
+> - **CIR**: `Component.stuff_at_round` / `closes`, validated by `cir/closed_forms.py` (compiler), printed by the
+>   writer, read back by the reverse compiler; `surface` joins (appliqué, lovey head) checked by `cir.assembly`.
+>   PDF part diagram (`publish/part_diagram.py`).
+> - **Families** (`creative/construction_families.py`): `amigurumi` physical_gate, `envelope_cushion` verified,
+>   `applique_cushion` verified (ORIGINAL Highland cow face), `lovey` physical_gate; baby blankets remain the
+>   verified flat panel, now with the safety section; baby garments HELD. Each pinned by an end-to-end test in
+>   `tests/test_eng_plush.py` (real handlers -> certify -> US/UK PDF).
+> - **Not true yet**: no toy, lovey or cushion PDF renders in production without an owner children's decision
+>   (A1-R, unchanged); nothing is certified for release; no listing exists.
+> - The review of 2763340 (DO NOT SHIP) was fixed by ENG-PLUSH-FIX on this branch (D-ENG-PLUSH-FIX: allow-lists for
+>   eyes/noses and materials, AGE_SUITABILITY, summed chain runs); merged at d781499 with the garment scope kept.
+> - Suites: `research/final_build/w6/review_requests/plush_results.md` (pre-existing and inherited failures attributed
+>   against base 809107b and INTEG3). Mutation: 44 of 44 killed after the shadowed survivor got a direct test.
+> - OWNER ACTION (batched in plush_results.md): a standing decision for adult cushion covers (A1-R holds each one).
+
 
 > **2026-11-20 — ENG-VIS-IDENTITY slice 1 (`eng/vis-identity`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
 > - Built: `visual/face_embedder.py` (YuNet+SFace ONNX on CPU, Apache-2.0/MIT, weights pinned by sha256), `visual/identity_calibration.py` (measured thresholds, FAR/FRR with exact 95% bounds, production floors >=30 genuine / >=300 impostors / FAR-UB <=1% / FRR <=10%), `visual/identity_records.py` (durable per-image identity records), `outfits.claim` (idempotent compare-and-set outfit claim), blind outfit-vs-approved-reference check, OpenAI gpt-4.1 second judge via the existing `GatewayVisionJudge` reservation path, `identity_gate.assess` consumer `verdict` PASS/HOLD/REFUSE and all-three-references rule.

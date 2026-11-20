@@ -2914,3 +2914,32 @@ The independent review of `eng/plush` @ 2763340b (DO NOT SHIP) found real gaps i
 - **The mutation harness** requires a green baseline and reports an import or environment failure as ERROR, never as KILLED.
 
 Physical evidence for flat, one-piece, unstuffed items (a baby blanket) is still not required. Such an item has no seam to pull and nothing to contain. Its under-3 risks (cords, loops, hard parts, small parts, unknown materials) are computed by the other checks. The PHYSICAL_EVIDENCE docstring now says this instead of promising more than the code did. No gate was weakened. Reversible by decision.
+
+**D-ENG-PLUSH-GATE: core child-facing families are certified only through a child-safety pattern-content gate, and a family is admitted to routing only by a pinned end-to-end proof (ENG-PLUSH, 2026-11-20).** Under D-OWNER-CORE-FAMILIES section 3.
+
+1. `gates.child_safety` is the single gate. It applies to:
+   - a children's assignment;
+   - child words in the title or slug;
+   - a stuffed figure;
+   - any stuffed or closed piece in rounds;
+   - a closed stuffed form decided for a child.
+
+   An undecided stuffed cushion stays with the A1-R decision gate.
+2. Every check answers PASS, FAIL or UNKNOWN. UNKNOWN is never PASS.
+   - Physical evidence is required for anything stuffed or with sewn-on pieces.
+   - It is UNKNOWN until a content-bound evidence authority exists, so such items are HELD at
+     certification.
+   - A FAIL refuses the PDF. HELD does not refuse the PDF; it refuses certification and so
+     publication.
+3. The safety section cites only sources read on a primary page, each with its access date. Facts not confirmed are not printed:
+   - a Canadian cord-length rule (SOR/2011-17 has none);
+   - an age in months on CPSC's safe-sleep page;
+   - ASTM F963's 12-inch figure (found only in a 2010 CPSC staff memo).
+4. We sell patterns. No document claims a test, a certification or a standard met.
+5. Stuffing points and closures are CIR structure (`Component.stuff_at_round`, `closes`), not prose. Appliqué and lovey heads are `surface` joins whose placement `cir.assembly` checks.
+6. Status follows the proof:
+   - amigurumi and lovey are physical_gate;
+   - the envelope and appliqué cushion covers are verified (risk class A, granted end to end);
+   - baby garments stay held.
+
+Reversible by the owner. Weakening any check needs a decision entry naming it.
