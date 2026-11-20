@@ -233,6 +233,19 @@ def ensure_run(db, slug: str, version: str, release: str) -> dict:
         return _view(r)
 
 
+_ORDER = {st: i for i, st in enumerate(STATES)}
+HIGH_WATER = "progress_high_water"   # evidence key: the furthest state this run has reached
+
+
+def _forward(high: str | None, now: str) -> bool:
+    """True when `now` is further along STATES than the furthest state the run has reached.
+    Returning to a state held earlier (a flapping gate) is not progress, so it never resets
+    the stall clock. PARKED and REJECTED are terminal decisions and count as progress."""
+    if now in (PARKED, REJECTED):
+        return True
+    return _ORDER.get(now, -1) > _ORDER.get(high, -1)
+
+
 def _update(db, key: str, *, state: str | None = None, stage: str | None = None,
             blocker: str | None = None, detail: str = "", progressed: bool = False,
             evidence: dict | None = None, **fields) -> dict:
@@ -241,7 +254,17 @@ def _update(db, key: str, *, state: str | None = None, stage: str | None = None,
     with db.session() as s:
         r = _row(s, key, lock=True)
         if state is not None and state != r.state:
-            progressed = True
+            # Progress is a forward move past the furthest state reached: a flap back and
+            # forth (a transient UNKNOWN gate) never resets the stall clock (review b19-a #5).
+            ev0 = dict(r.evidence or {})
+            high = ev0.get(HIGH_WATER) or r.state
+            if _forward(high, state):
+                progressed = True
+                ev0[HIGH_WATER] = state
+            else:
+                ev0[HIGH_WATER] = high
+            r.evidence = ev0
+            flag_modified(r, "evidence")
             r.state = state
         if stage is not None:
             r.stage = stage
@@ -568,6 +591,7 @@ def try_admit(db, key: str) -> dict:
                     "why": f"{len(ahead)} higher-value release(s) ahead within the caps"}
         r.reservation, r.reserved_cad = "held", cap
         r.state, r.stage, r.blocker, r.blocker_detail = GALLERY, "gallery", "", ""
+        r.evidence = {**dict(r.evidence or {}), HIGH_WATER: GALLERY}
         r.updated_at = r.progressed_at = _now()
         r.redrives = 0
         return {"admitted": True, "reserved_cad": cap}
@@ -586,6 +610,8 @@ def release_reservation(db, key: str, *, to_state: str, why: str) -> dict:
             r.reservation, r.reserved_cad = "released", 0.0
         r.state, r.blocker, r.blocker_detail = to_state, (
             "" if to_state == AWAITING_PRE_IMAGE else to_state), why[:2000]
+        # A reservation given back restarts the run: the next admission is real progress.
+        r.evidence = {**dict(r.evidence or {}), HIGH_WATER: to_state}
         r.updated_at = r.progressed_at = _now()
         return {"released": was == "held", "state": to_state}
 
@@ -971,6 +997,20 @@ def pdf_certificates(db, slug: str, version: str, release: str) -> dict:
         base_now = base_pdf_hashes(db, slug, version, release) or {}
     except Exception:  # noqa: BLE001 - unreadable base binding never passes
         base_now = None
+    # The certificate is bound to the checker that issued it (a PASS from an older, weaker
+    # checker is not current) and to the gallery certified now (a re-certified gallery
+    # supersedes PDFs holding the old photos). A mismatch is UNKNOWN, never PASS, so the
+    # sweep re-certifies (review b19-a #3, #4).
+    checker_now = PS.CHECKER_VERSION
+    try:
+        standard_now = PS.standard_sha256() or ""
+    except Exception:  # noqa: BLE001 - an unreadable standard binds nothing
+        standard_now = None
+    try:
+        g = gallery_reading(db, slug, version, release)
+        gallery_now = g.get("record_id") if g.get("complete") else None
+    except Exception:  # noqa: BLE001 - an unreadable gallery binds nothing
+        gallery_now = None
     with db.session() as s:
         for t in PS.TERMINOLOGIES:
             sha = (files.get(t) or {}).get("sha256")
@@ -982,8 +1022,19 @@ def pdf_certificates(db, slug: str, version: str, release: str) -> dict:
             bound = bool(row is not None and base_now is not None
                          and row.base_pdf_sha256 == str(base_now.get(t) or "")
                          and row.base_pdf_sha256)
-            out["editions"][t] = {"verdict": row.verdict if row else UNKNOWN,
+            current = bool(row is not None and row.checker == checker_now
+                           and standard_now is not None
+                           and (row.standard_sha256 or "") == standard_now)
+            on_gallery = bool(row is not None and gallery_now is not None
+                              and row.gallery_record_id == gallery_now)
+            verdict = UNKNOWN
+            if row is not None:
+                verdict = row.verdict if (current and on_gallery) else UNKNOWN
+            out["editions"][t] = {"verdict": verdict,
+                                  "recorded_verdict": row.verdict if row else None,
                                   "pdf_sha256": sha, "certificate_id": row.id if row else None,
+                                  "current_checker": current,
+                                  "bound_to_gallery": on_gallery,
                                   "bound_to_release_pdfs": bound}
     out["both_pass"] = all(e["verdict"] == PASS and e["bound_to_release_pdfs"]
                            for e in out["editions"].values()) and len(out["editions"]) == 2

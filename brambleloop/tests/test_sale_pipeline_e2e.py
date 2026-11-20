@@ -306,6 +306,55 @@ def test_the_checker_fails_a_wrong_logo_a_short_or_reordered_gallery_and_another
     assert r["layout"] == "engine" and by["layout"]["status"] == "FAIL", by["layout"]
     assert r["verdict"] == "FAIL"
 
+def test_one_unknown_check_among_passes_is_unknown_and_never_certifies():
+    """Review b19-a #2: UNKNOWN is never PASS. On the real premium bytes every check PASSES
+    except the cover logo, whose reader is made to raise (UNKNOWN). The verdict is UNKNOWN,
+    and the certificate recorded from it does not make both editions pass."""
+    from brambleloop.publish import pdf_standard as PS
+
+    R = _chain()
+    expected = dict((R["run"]["evidence"] or {}).get("expected"))
+    ev = R["run"]["evidence"]
+    restore = R["double"].install()               # the certified gallery, as during the chain
+    real_logo = PS._cover_logo_check
+
+    def unreadable_logo(_pdf_bytes):
+        raise RuntimeError("cover image unreadable")
+
+    try:
+        for t, data in R["premium"].items():
+            r = PS.check(data, cir=R["cir"], terminology=t, expected=expected,
+                         require_template=True)
+            assert r["verdict"] == "PASS", (t, r["failed"], r["unknown"])
+        PS._cover_logo_check = unreadable_logo
+        for t, data in R["premium"].items():
+            r = PS.check(data, cir=R["cir"], terminology=t, expected=expected,
+                         require_template=True)
+            by = {c["check"]: c["status"] for c in r["checks"]}
+            assert by.pop("logo:cover") == "UNKNOWN", by
+            assert by and set(by.values()) == {"PASS"}, by     # the only non-PASS check
+            assert r["verdict"] == "UNKNOWN" and r["failed"] == [], (t, r["verdict"])
+        got = SPL.certify_pdfs(R["db"], R["cir"].slug, R["cir"].version, R["release"],
+                               files=ev["premium_pdfs"], expected=ev["expected"],
+                               gallery_record_id=ev["gallery_record_id"],
+                               base=ev["base_pdfs"])
+        assert {v["verdict"] for v in got.values()} == {"UNKNOWN"}, got
+        certs = SPL.pdf_certificates(R["db"], R["cir"].slug, R["cir"].version, R["release"])
+        assert certs["both_pass"] is False, certs
+        assert {e["verdict"] for e in certs["editions"].values()} == {"UNKNOWN"}, certs
+        assert SPL.certified_premium_pdfs(R["db"], R["cir"].slug, R["cir"].version,
+                                          R["release"]) is None
+    finally:
+        PS._cover_logo_check = real_logo
+        # re-certify with the real reader so the fixture's certificates are as the chain left
+        SPL.certify_pdfs(R["db"], R["cir"].slug, R["cir"].version, R["release"],
+                         files=ev["premium_pdfs"], expected=ev["expected"],
+                         gallery_record_id=ev["gallery_record_id"], base=ev["base_pdfs"])
+        assert SPL.pdf_certificates(R["db"], R["cir"].slug, R["cir"].version,
+                                    R["release"])["both_pass"] is True
+        restore()
+
+
 def test_the_listing_package_carries_the_gallery_and_both_pdfs():
     R = _chain()
     pkg = R["package"]

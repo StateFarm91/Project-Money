@@ -181,6 +181,34 @@ def test_a_stalled_eligible_release_is_a_named_incident_with_bounded_redrives():
     assert b["blocked_by_reason"] == {"provider_key_missing": 1}
 
 
+def test_a_flapping_gate_does_not_reset_the_stall_clock():
+    """Review b19-a #5: AWAITING_ADMISSION -> AWAITING_PRE_IMAGE -> AWAITING_ADMISSION (one
+    readiness reading flipping, e.g. a transient UNKNOWN gate) is not progress, so an eligible
+    release that flaps still reaches its stall bound and becomes an incident. A forward move
+    past the furthest state reached is progress."""
+    from datetime import datetime as _dt, timezone as _tz
+
+    db = _db()
+    key = SPL.run_key(SLUG, VERSION, O.RELEASE)
+    real_now = _dt.now(_tz.utc)
+    stale = real_now - SPL.STALL_AFTER[SPL.AWAITING_ADMISSION] - timedelta(hours=1)
+    _row(db, SLUG, O.RELEASE, state=SPL.AWAITING_ADMISSION, progressed_at=stale)
+    for _ in range(3):
+        SPL._update(db, key, state=SPL.AWAITING_PRE_IMAGE, blocker="pre_image:pdf_structure")
+        SPL._update(db, key, state=SPL.AWAITING_ADMISSION, blocker="")
+    run = SPL.get(db, SLUG, VERSION, O.RELEASE)
+    assert SPL._aware(_dt.fromisoformat(run["progressed_at"])) == SPL._aware(stale), run
+    follow, _sent = _collect()
+    seen = []
+    out = SPL.sweep(db, follow=follow, now=real_now,
+                    incident=lambda sig, summary, detail: seen.append(detail))
+    assert out["stalled"] == 1 and seen[0]["state"] == SPL.AWAITING_ADMISSION, out
+    # a real forward move resets the clock
+    SPL._update(db, key, state=SPL.GALLERY)
+    run = SPL.get(db, SLUG, VERSION, O.RELEASE)
+    assert SPL._aware(_dt.fromisoformat(run["progressed_at"])) > SPL._aware(stale), run
+
+
 def test_the_gallery_stage_names_the_image_runs_blocker():
     db = _db()
     _row(db, SLUG, O.RELEASE, state=SPL.GALLERY, reservation="held", reserved_cad=2.0)
@@ -212,57 +240,151 @@ def test_the_sweep_asks_admission_for_every_certified_listed_release_hourly():
 
 # ---- certificates and the ready rule ----------------------------------------------------------
 
+GALLERY_RECORD = 1
+
+
+class _Gallery:
+    """test_double for the release's certified listing-set reading
+    (`sale_pipeline.gallery_reading`): complete on record `record_id`, incomplete, or
+    unreadable. Installed for the certificate tests and always restored."""
+
+    def __init__(self, record_id=GALLERY_RECORD, *, complete=True, raises=False):
+        self.record_id, self.complete, self.raises = record_id, complete, raises
+
+    def __call__(self, db, slug, version, release):
+        if self.raises:
+            raise RuntimeError("listing-set certificate unreadable")
+        return {"complete": self.complete, "record_id": self.record_id, "frames": [],
+                "why": "" if self.complete else "6 of 7 frames"}
+
+    def __enter__(self):
+        self.saved = SPL.gallery_reading
+        SPL.gallery_reading = self
+        return self
+
+    def __exit__(self, *exc):
+        SPL.gallery_reading = self.saved
+
+
 def _certified(db, base=("a" * 64, "b" * 64)):
+    """Both editions PASS, issued by the current checker against the current standard, for
+    the premium files the pipeline built on gallery record GALLERY_RECORD."""
+    from brambleloop.publish import pdf_standard as PS
+
     _row(db, SLUG, O.RELEASE, state=SPL.PDFS_CERTIFIED, reservation="consumed",
          evidence={"premium_pdfs": {"US": {"sha256": "c" * 64}, "UK": {"sha256": "d" * 64}}})
     for t, sha, b in (("US", "c" * 64, base[0]), ("UK", "d" * 64, base[1])):
         SPL._record_certificate(db, slug=SLUG, version=VERSION, release=O.RELEASE,
                                 terminology=t, pdf_sha256=sha, verdict="PASS", checks=[],
-                                expected={}, gallery_record_id=1, base_pdf_sha256=b,
-                                standard_sha256="s")
+                                expected={}, gallery_record_id=GALLERY_RECORD,
+                                base_pdf_sha256=b,
+                                standard_sha256=PS.standard_sha256() or "")
 
 
 def test_pdf_certificates_bind_to_this_releases_pdfs():
-    db = _db()
-    assert SPL.pdf_certificates(db, SLUG, VERSION, O.RELEASE)["both_pass"] is False
-    _certified(db)
-    assert SPL.pdf_certificates(db, SLUG, VERSION, O.RELEASE)["both_pass"] is True
-    assert SPL.pdf_certificates(db, SLUG, VERSION, "other-release")["both_pass"] is False
-    # a certificate for a superseded text PDF no longer binds
-    from brambleloop.core.models import AuditLog, Job
+    with _Gallery():
+        db = _db()
+        assert SPL.pdf_certificates(db, SLUG, VERSION, O.RELEASE)["both_pass"] is False
+        _certified(db)
+        assert SPL.pdf_certificates(db, SLUG, VERSION, O.RELEASE)["both_pass"] is True
+        assert SPL.pdf_certificates(db, SLUG, VERSION, "other-release")["both_pass"] is False
+        # a certificate for a superseded text PDF no longer binds
+        from brambleloop.core.models import AuditLog, Job
 
-    with db.session() as s:
-        j = Job(agent="synthetic", job_type="assets.build", inputs={"release": O.RELEASE})
-        s.add(j)
-        s.flush()
-        s.add(AuditLog(actor="synthetic", action="assets.built", artifact=f"{SLUG}@{VERSION}",
-                       job_id=j.id, detail={"pdf_sha256_by_terminology": {"US": "e" * 64,
-                                                                          "UK": "b" * 64}}))
-    got = SPL.pdf_certificates(db, SLUG, VERSION, O.RELEASE)
-    assert got["both_pass"] is False and not got["editions"]["US"]["bound_to_release_pdfs"]
+        with db.session() as s:
+            j = Job(agent="synthetic", job_type="assets.build", inputs={"release": O.RELEASE})
+            s.add(j)
+            s.flush()
+            s.add(AuditLog(actor="synthetic", action="assets.built", artifact=f"{SLUG}@{VERSION}",
+                           job_id=j.id, detail={"pdf_sha256_by_terminology": {"US": "e" * 64,
+                                                                              "UK": "b" * 64}}))
+        got = SPL.pdf_certificates(db, SLUG, VERSION, O.RELEASE)
+        assert got["both_pass"] is False and not got["editions"]["US"]["bound_to_release_pdfs"]
 
 
 def test_a_failing_or_unknown_edition_never_certifies():
-    db = _db()
-    _certified(db)
-    SPL._record_certificate(db, slug=SLUG, version=VERSION, release=O.RELEASE, terminology="UK",
-                            pdf_sha256="d" * 64, verdict="UNKNOWN", checks=[], expected={},
-                            gallery_record_id=1, base_pdf_sha256="b" * 64, standard_sha256="s")
-    assert SPL.pdf_certificates(db, SLUG, VERSION, O.RELEASE)["both_pass"] is False
+    with _Gallery():
+        db = _db()
+        _certified(db)
+        assert SPL.pdf_certificates(db, SLUG, VERSION, O.RELEASE)["both_pass"] is True
+        from brambleloop.publish import pdf_standard as PS
+
+        for verdict in ("UNKNOWN", "FAIL"):   # current checker, standard and gallery: only
+            SPL._record_certificate(          # the recorded verdict differs
+                db, slug=SLUG, version=VERSION, release=O.RELEASE, terminology="UK",
+                pdf_sha256="d" * 64, verdict=verdict, checks=[], expected={},
+                gallery_record_id=GALLERY_RECORD, base_pdf_sha256="b" * 64,
+                standard_sha256=PS.standard_sha256() or "")
+            got = SPL.pdf_certificates(db, SLUG, VERSION, O.RELEASE)
+            assert got["both_pass"] is False and got["editions"]["UK"]["verdict"] == verdict
 
 
 def test_the_listing_package_blocks_without_both_pdf_certificates():
-    from brambleloop.publish import listing_package as LP
+    with _Gallery():
+        from brambleloop.publish import listing_package as LP
+
+        db = _db()
+        pkg = LP.assemble(db, SLUG, VERSION)
+        src = [b for b in pkg["blockers"] if b["source"] == "pdf_standard"]
+        assert pkg["state"] == LP.BLOCKED and src, pkg["blockers"]
+        assert "D-OWNER-PDF-STANDARD" in src[0]["why"]
+        _certified(db)
+        pkg = LP.assemble(db, SLUG, VERSION)
+        assert not [b for b in pkg["blockers"] if b["source"] == "pdf_standard"], pkg["blockers"]
+        assert pkg["files"]["premium_pdfs"]["US"]["verdict"] == "PASS"
+
+
+def test_a_certificate_from_another_checker_or_standard_is_unknown():
+    """Review b19-a #3: a PASS issued by another (older, weaker) checker, or against another
+    standard document, is not a current certificate -- UNKNOWN, so the sweep re-certifies."""
+    from sqlalchemy import update
+
+    from brambleloop.publish import pdf_standard as PS
 
     db = _db()
-    pkg = LP.assemble(db, SLUG, VERSION)
-    src = [b for b in pkg["blockers"] if b["source"] == "pdf_standard"]
-    assert pkg["state"] == LP.BLOCKED and src, pkg["blockers"]
-    assert "D-OWNER-PDF-STANDARD" in src[0]["why"]
-    _certified(db)
-    pkg = LP.assemble(db, SLUG, VERSION)
-    assert not [b for b in pkg["blockers"] if b["source"] == "pdf_standard"], pkg["blockers"]
-    assert pkg["files"]["premium_pdfs"]["US"]["verdict"] == "PASS"
+    with _Gallery():
+        _certified(db)
+        assert SPL.pdf_certificates(db, SLUG, VERSION, O.RELEASE)["both_pass"] is True
+        for field, stale in (("checker", "pdf_standard/1"), ("standard_sha256", "0" * 64),
+                             ("standard_sha256", "")):
+            with db.session() as s:
+                s.execute(update(SPL.PdfCertificate).where(
+                    SPL.PdfCertificate.terminology == "UK").values({field: stale}))
+            got = SPL.pdf_certificates(db, SLUG, VERSION, O.RELEASE)
+            uk = got["editions"]["UK"]
+            assert got["both_pass"] is False, (field, got)
+            assert uk["verdict"] == SPL.UNKNOWN and uk["recorded_verdict"] == "PASS", uk
+            assert uk["current_checker"] is False, uk
+            assert got["editions"]["US"]["verdict"] == "PASS"
+            _certified(db)                            # re-certified by the current checker
+            assert SPL.pdf_certificates(db, SLUG, VERSION, O.RELEASE)["both_pass"] is True
+        # an unreadable standard binds nothing
+        saved = PS.standard_sha256
+        PS.standard_sha256 = lambda root=None: (_ for _ in ()).throw(OSError("unreadable"))
+        try:
+            assert SPL.pdf_certificates(db, SLUG, VERSION, O.RELEASE)["both_pass"] is False
+        finally:
+            PS.standard_sha256 = saved
+        assert SPL.ready_for_sale(db, SLUG, VERSION)["ready"] is False
+
+
+def test_a_certificate_for_a_superseded_or_unreadable_gallery_is_unknown():
+    """Review b19-a #4: the certificate is bound to the gallery certified now. Once the
+    gallery is re-certified (a new listing-set record) PDFs holding the old photos no longer
+    pass, and an incomplete or unreadable gallery binds nothing."""
+    db = _db()
+    with _Gallery():
+        _certified(db)
+        assert SPL.pdf_certificates(db, SLUG, VERSION, O.RELEASE)["both_pass"] is True
+    for reading in (_Gallery(GALLERY_RECORD + 1), _Gallery(complete=False),
+                    _Gallery(raises=True), _Gallery(None)):
+        with reading:
+            got = SPL.pdf_certificates(db, SLUG, VERSION, O.RELEASE)
+            assert got["both_pass"] is False, got
+            for e in got["editions"].values():
+                assert e["verdict"] == SPL.UNKNOWN and e["bound_to_gallery"] is False, e
+    with _Gallery():
+        assert SPL.pdf_certificates(db, SLUG, VERSION, O.RELEASE)["both_pass"] is True
 
 
 def test_ready_for_sale_needs_everything():
