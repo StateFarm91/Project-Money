@@ -570,9 +570,10 @@ def test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart():
         # ENG-FIRSTLIST: the first-draft candidates row is advisory too (WARN or PASS only).
         # ENG-VISUAL: the visual-pipeline row is advisory (WARN or PASS only).
         # ENG-LEARN: the learning-loops row is advisory (WARN or PASS only).
+        # ENG-MOTIF-BACKLOG: the recovery row is advisory (WARN or PASS only).
         # ENG-SALE-PIPELINE: the sale-pipeline row is advisory (WARN or PASS only).
         advisory = ("competitor_scans", "scheduler", "first_listing_readiness",
-                    "visual_pipeline", "learning", "sale_pipeline")
+                    "motif_backlog_recovery", "visual_pipeline", "learning", "sale_pipeline")
         assert all(i["verdict"] in (readback.PASS, readback.FAIL, readback.UNKNOWN)
                    for i in out["items"] if i.get("section") not in advisory)
         assert by["competitor shops scanned (nine-shop research network)"]["verdict"] in (
@@ -583,6 +584,9 @@ def test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart():
             readback.PASS, readback.WARN), by
         assert by["first Etsy draft candidates (Launch-0)"]["verdict"] in (
             readback.PASS, readback.WARN), by
+        # ENG-MOTIF-BACKLOG: the advisory recovery row (never swept here: WARN, not PASS).
+        assert by["paid renders recovered from refused motif checks"]["verdict"] == \
+            readback.WARN, by
         assert by["listing-image and PDF factory (visual pipeline)"]["verdict"] in (
             readback.PASS, readback.WARN), by
         assert by["learning loops (image + pattern) progress"]["verdict"] in (
@@ -590,7 +594,7 @@ def test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart():
         # ENG-SALE-PIPELINE: the sale-pipeline advisory row (nothing READY yet: WARN).
         assert by["sale pipeline (eligible, gallery, PDFs certified, READY, blocked)"][
             "verdict"] in (readback.PASS, readback.WARN), by
-        assert len(out["items"]) == 19, out["items"]
+        assert len(out["items"]) == 20, out["items"]
         # An unreadable section is UNKNOWN, never PASS.
         v, _ = readback._judge_section("weekly_jobs", {"readable": False}, True)
         assert v == readback.UNKNOWN
