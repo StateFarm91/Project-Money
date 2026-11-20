@@ -102,6 +102,19 @@
 > - Measured: all 13 catalogue documents (11 Launch-0/proposed + a garment size + a pillow) pass in US and UK.
 > - NOT built: one multi-size garment edition with sizes in parentheses (each size is still its own PDF); garment
 >   inline diagrams; amigurumi (no engine exists). Review request: `research/final_build/w6/review_requests/pdf_premium_slice1.md`.
+> **2026-11-20 — ENG-WARDROBE-SCENES slice 1 (`eng/wardrobe-scenes`, NOT reviewed, NOT merged, NOT deployed; no provider called).**
+> - **Built, new files only:**
+>   - `visual/outfit_library.py`: 63 outfits, pairwise distinct (max 0.598 < 0.60), with harmony, family compatibility and a durable claim through `outfits.reserve`;
+>   - `visual/scene_library.py`: 59 scenes, 16 of them outdoor, 36 props, and the misleading-prop rule;
+>   - `visual/prompt_assembly.py`: versioned `ws.<role>@1` templates, the ENG-LEARN `image_lessons/1` interface and a CIR product block;
+>   - `visual/gallery_planner.py`: 7 or 8 distinct frames per listing, one outfit, an invariant product, and refusal of filler.
+> - **Decisions:** D-ENG-WARDROBE-1..4.
+> - **Tests:** `tests/test_wardrobe_scenes.py`, 34 OK, including 8 rule mutations, all killed. Review request: `research/final_build/w6/review_requests/wardrobe_scenes_slice1.md`.
+> - **Not done or not verified:**
+>   - Not wired into the image producer or ENG-VIS-GALLERY's FLUX route (slice 2).
+>   - No outfit reference image exists: they are HELD until the owner's FLUX activation.
+>   - Library outfits are approved by code, not by the owner.
+>   - The cream + ink palette admits only 5 outfits.
 > **2026-11-19 — ENG-APPROVALS slice 1 (`eng/approvals`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
 > - The owner directive `D-OWNER-STANDING-INTERNAL` is recorded in DECISION_LOG.
 > - Code: `authority.standing_internal` (classifier and directive), `ops.owner_queue_consolidate` (idempotent sweep, the one
