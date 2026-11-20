@@ -198,7 +198,7 @@ def _refusal_suite() -> list[str]:
     for k, v in (("research.unknown_weight", 1.0),          # undeclared
                  (KEY, 3.0), (KEY, 0.1), (KEY, float("nan")), (KEY, True), (KEY, "1.0"),
                  ("engineering.lesson_match_words", 2.5),     # integer key
-                 ("visual.prompt_template", "scene_v9"),     # not a declared choice
+                 ("listing.title_template", "scene_v9"),     # not a declared choice
                  ("pricing.test_arm", 0.99)):
         if tuning.check(k, v).ok:
             missed.append(f"{k}={v!r}")
@@ -592,6 +592,36 @@ def test_h_a_parked_improve_loop_files_a_failing_loop_request():
     assert out["parked_improve_loops"] == ["improve.mine"]
     rows = [r for r in ecr.listing(db) if r["defect_class"] == "failing_loop"]
     assert len(rows) == 1 and rows[0]["module"] == "improve.mine"
+
+
+# --- I. ENG-LEARN's interface is reused, not duplicated ---------------------------------
+
+def test_i_eng_learn_arms_and_lessons_are_the_visual_loop():
+    from brambleloop.learning import stats as lstats
+    from brambleloop.learning.store import Arm, Decision, DerivedLesson, ensure_tables
+
+    # one pooled z for the company
+    assert abs(stats.z_two_proportions(60, 100, 40, 100)
+               - lstats.two_proportion(40, 100, 60, 100)["z"]) < 1e-9
+    # visual prompt templates are ENG-LEARN's arms, not a second tuner
+    assert not any(t.department == "visual" for t in tuning.TUNABLES)
+    db = _db()
+    ensure_tables(db)
+    with db.session() as s:
+        s.add(DerivedLesson(loop="image", key="k1", scope="pillow:hero", direction=1,
+                            statement="window light passes fidelity more", applied=2))
+        s.add(Arm(scope="pillow:hero", digest="d", payload={}, status="challenger"))
+        s.add(Decision(scope="pillow:hero", kind="promote", arm_id=1, evidence={}))
+        s.add(Decision(scope="pillow:hero", kind="demote", arm_id=1, evidence={}))
+    row = next(r for r in DL.table(db, now=NOW)["departments"] if r["department"] == "visual")
+    assert row["lessons"]["derived"] == {"loops": ["image"], "active": 1, "deactivated": 0,
+                                         "applications": 2}
+    arm = next(c for c in row["consumers"] if c["kind"] == "learning_arm")
+    # no producer generates from image_lessons.prompt_for yet: MISSING, never ACTIVE
+    assert arm["state"] == "MISSING", arm
+    p = self_improve.panel(db, now=NOW)
+    v = next(r for r in p["departments"] if r["department"] == "visual")
+    assert len(v["challengers_active"]) == 1 and v["promotions"] == 1 and v["rollbacks"] == 1
 
 
 if __name__ == "__main__":

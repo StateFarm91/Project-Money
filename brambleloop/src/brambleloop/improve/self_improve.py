@@ -103,15 +103,37 @@ def cycle(db, *, now: datetime | None = None) -> dict:
             "ecrs_reopened": [v["id"] for v in verified if v.get("verdict") == ecr.REOPENED]}
 
 
+def _learning_arms(db) -> dict:
+    """ENG-LEARN's image prompt arms: the Visual department's champion/challenger surface."""
+    from sqlalchemy import func, select
+
+    from ..learning.store import Arm, Decision, ensure_tables
+
+    ensure_tables(db)
+    with db.session() as s:
+        active = [{"id": a.id, "key": f"learning_arm:{a.scope}", "state": "RUNNING",
+                   "source": "learning.image_lessons"}
+                  for a in s.scalars(select(Arm).where(Arm.status == "challenger"))]
+        kinds = dict(s.execute(select(Decision.kind, func.count(Decision.id))
+                               .group_by(Decision.kind)).all())
+    return {"active": active, "promotions": int(kinds.get("promote", 0)),
+            "rollbacks": int(kinds.get("demote", 0))}
+
+
 def panel(db, *, now: datetime | None = None) -> dict:
     """The Self-improvement section (read-only)."""
     now = now or _now()
     tbl = department_loops.table(db, now=now)
     trials = tuning.trials(db)
     ecrs = ecr.summary(db)
+    try:
+        arms = _learning_arms(db)
+    except Exception:  # noqa: BLE001 - ENG-LEARN's tables unreadable: shown as nothing, not as zero
+        arms = None
     rows = []
     for d in tbl["departments"]:
         mine = [t for t in trials if t["department"] == d["department"]]
+        extra = arms if (d["department"] == "visual" and arms) else None
         e = ecrs.get(d["department"], {"open": 0, "shipped": 0, "verified": 0, "reopened": 0})
         trend = d["kpi"]["trend"]["trend"]
         rows.append({
@@ -123,9 +145,12 @@ def panel(db, *, now: datetime | None = None) -> dict:
             "consumers": [{"module": c["module"], "state": c["state"]} for c in d["consumers"]]
                          or [{"module": None, "state": "MISSING"}],
             "loop": d["verdict"],
-            "challengers_active": [t for t in mine if t["state"] in tuning.ACTIVE_STATES],
-            "promotions": sum(1 for t in mine if t["promoted_at"]),
-            "rollbacks": sum(1 for t in mine if t["state"] == tuning.ROLLED_BACK),
+            "challengers_active": ([t for t in mine if t["state"] in tuning.ACTIVE_STATES]
+                                   + (extra["active"] if extra else [])),
+            "promotions": (sum(1 for t in mine if t["promoted_at"])
+                           + (extra["promotions"] if extra else 0)),
+            "rollbacks": (sum(1 for t in mine if t["state"] == tuning.ROLLED_BACK)
+                          + (extra["rollbacks"] if extra else 0)),
             "ecrs": e,
             # Improvement is claimed only on evidence: an UP trend on enough runs, or a
             # verified shipped change. Everything else -- including "nothing happened" -- is not.
@@ -135,6 +160,7 @@ def panel(db, *, now: datetime | None = None) -> dict:
     return {"status": status, "as_of": now.isoformat(), "departments": rows,
             "loops_closed": tbl["closed"], "total": tbl["total"],
             "findings": tbl["findings"],
-            "basis": "measured from jobs, lessons, learn_decisions, si_challengers and "
+            "basis": "measured from jobs, lessons, learn_decisions, si_challengers, "
+                     "learning_arms/learning_decisions (ENG-LEARN) and "
                      "engineering_change_requests; UNKNOWN below the sample floor",
             "tunables": tuning.describe()}

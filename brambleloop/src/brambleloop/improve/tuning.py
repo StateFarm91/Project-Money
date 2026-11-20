@@ -87,9 +87,8 @@ TUNABLES: tuple[Tunable, ...] = (
             what="shared content words for an engineering lesson to match a draft"),
     Tunable("qa.recheck_period_factor", "qa", "number", 1.0, 0.5, 2.0,
             what="schedule: multiplier on re-verification of certified releases"),
-    Tunable("visual.prompt_template", "visual", "choice", "scene_v1",
-            choices=("scene_v1", "scene_v2_light", "scene_v3_context"),
-            what="lifestyle prompt template; identity lock and disclosures are unaffected"),
+    # Visual prompt templates are NOT here: ENG-LEARN's `learning.image_lessons` owns them as
+    # versioned arms (`learning_arms`) with their own champion/challenger. One tuner per surface.
     Tunable("listing.title_template", "seo_listing", "choice", "object_first",
             choices=("object_first", "use_first", "style_first"),
             what="title word order; required disclosures are appended regardless"),

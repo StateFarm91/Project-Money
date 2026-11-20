@@ -35,11 +35,14 @@ VERIFIED_CONFIDENCE = ("measured", "confirmed")
 
 @dataclass(frozen=True)
 class Consumer:
-    kind: str          # "lesson" (consume.matching/act on a cell) | "policy_loop"
-    module: str        # dotted module whose source must contain `token`
+    # "lesson" (consume.matching/act on a cell) | "policy_loop" (learn_decisions) |
+    # "learning_arm" (ENG-LEARN's learning_arms/learning_decisions for one loop)
+    kind: str
+    module: str        # dotted module (or, with package=True, package) that must contain `token`
     token: str
     cell_or_loop: str
     how: str
+    package: bool = False
 
 
 @dataclass(frozen=True)
@@ -79,7 +82,13 @@ DEPARTMENTS: tuple[Department, ...] = (
                     "pattern_defect_watch", "defect watch queues extra review of releases"),)),
     Department("visual", "Visual", ("assets.", "visual."), ("creative_assets",),
                (_pl("brambleloop.learn.improvement_status", "pl.visual_precheck(db)",
-                    "visual_gate_precheck", "visual pre-check flags assets before the gate"),)),
+                    "visual_gate_precheck", "visual pre-check flags assets before the gate"),
+                # ENG-LEARN's image loop: a producer generating from `image_lessons.prompt_for`
+                # is the consumer of its measured scene lessons and prompt arms.
+                Consumer("learning_arm", "brambleloop.visual,brambleloop.publish,brambleloop.creative",
+                         "image_lessons.prompt_for(", "image",
+                         "a producer generates from ENG-LEARN's champion/challenger prompt "
+                         "arm and its scene lessons", package=True))),
     Department("seo_listing", "SEO & listing", ("listing.", "seo.", "store."), ("seo_search",),
                (_lc("brambleloop.runtime.release", 'consume.matching(ctx.db, "seo_search"',
                     "seo_search", "lesson-matched queries get a tag slot"),)),
@@ -186,10 +195,36 @@ def lessons(db, department: str, *, now: datetime | None = None) -> dict:
             if len(examples) < 3:
                 examples.append({"lesson": r.id, "subject": r.subject,
                                  "confidence": r.confidence, "applied": bool(acts)})
+    derived = _derived(db, department)
     return {"learned": learned, "verified": verified, "applied": applied,
-            "applied_in_window": applied_window,
+            "applied_in_window": applied_window, "derived": derived,
             "threshold": f"confidence in {list(VERIFIED_CONFIDENCE)} with an evidence_ref",
             "examples": examples}
+
+
+# ENG-LEARN's derived lessons (`learning_derived_lessons`), by loop. They are published on the
+# bus too (and counted above through `lessons`); this is the loop's own ledger beside them.
+DERIVED_LOOP_DEPARTMENT = {"image": "visual", "pattern": "engineering", "commerce": "marketing"}
+
+
+def _derived(db, department: str) -> dict | None:
+    loops = [k for k, v in DERIVED_LOOP_DEPARTMENT.items() if v == department]
+    if not loops:
+        return None
+    from sqlalchemy import func, select
+
+    from ..learning.store import DerivedLesson, ensure_tables
+
+    ensure_tables(db)
+    with db.session() as s:
+        rows = list(s.execute(select(DerivedLesson.active, func.count(DerivedLesson.id),
+                                     func.coalesce(func.sum(DerivedLesson.applied), 0))
+                              .where(DerivedLesson.loop.in_(loops))
+                              .group_by(DerivedLesson.active)))
+    active = sum(n for a, n, _x in rows if a)
+    return {"loops": loops, "active": active,
+            "deactivated": sum(n for a, n, _x in rows if not a),
+            "applications": int(sum(x for _a, _n, x in rows))}
 
 
 def _parse(v):
@@ -200,6 +235,37 @@ def _parse(v):
 
 
 # ---- consumers --------------------------------------------------------------------------
+
+_PACKAGE_SOURCE: dict[str, str] = {}
+
+
+def _package_source(package: str) -> str | None:
+    """Every module of a package, concatenated -- for a consumer whose call site may live in
+    any producer. Cached per process: a new deploy is a new process."""
+    if package in _PACKAGE_SOURCE:
+        return _PACKAGE_SOURCE[package]
+    import os
+
+    parts = []
+    roots = []
+    for pkg in package.split(","):
+        spec = importlib.util.find_spec(pkg.strip())
+        if spec is not None and spec.submodule_search_locations:
+            roots.extend(spec.submodule_search_locations)
+    if not roots:
+        return None
+    for root in roots:
+        for dirpath, _dirs, files in os.walk(root):
+            for f in files:
+                if f.endswith(".py"):
+                    try:
+                        with open(os.path.join(dirpath, f), encoding="utf-8") as fh:
+                            parts.append(fh.read())
+                    except OSError:
+                        continue
+    _PACKAGE_SOURCE[package] = "\n".join(parts)
+    return _PACKAGE_SOURCE[package]
+
 
 def _source(module: str) -> str | None:
     try:
@@ -213,7 +279,7 @@ def _source(module: str) -> str | None:
 
 
 def consumer_state(db, c: Consumer, *, now: datetime | None = None) -> dict:
-    src = _source(c.module)
+    src = _package_source(c.module) if c.package else _source(c.module)
     static = bool(src and c.token in src)
     out = {"kind": c.kind, "module": c.module, "target": c.cell_or_loop, "how": c.how,
            "static_check": "PRESENT" if static else "ABSENT"}
@@ -229,6 +295,16 @@ def consumer_state(db, c: Consumer, *, now: datetime | None = None) -> dict:
 def _fired(db, c: Consumer, since: datetime) -> int:
     from sqlalchemy import func, select
 
+    if c.kind == "learning_arm":
+        from ..learning.store import Decision, ImageObservation, ensure_tables
+
+        ensure_tables(db)
+        with db.session() as s:
+            obs = int(s.scalar(select(func.count()).select_from(ImageObservation).where(
+                ImageObservation.arm_id.is_not(None), ImageObservation.at >= since)) or 0)
+            dec = int(s.scalar(select(func.count()).select_from(Decision).where(
+                Decision.at >= since, Decision.kind != "seed")) or 0)
+        return obs + dec
     if c.kind == "policy_loop":
         from ..learn.models import LearnDecision
 

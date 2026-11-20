@@ -2,8 +2,8 @@
 
 Every department KPI the team tunes against is a rate measured from rows (useful completions
 over finished runs, granted certificates over attempts, ...), so a pooled two-proportion
-z-test is the honest instrument. The same formula `visual.rnd.loop._z` uses for marketplace
-calibration; kept here without that module's imports so the cadence job stays light.
+z-test is the honest instrument. The z itself is ENG-LEARN's `learning.stats.two_proportion`;
+this module adds the decision rules the self-tuner needs on top of it.
 
 Three rules make it safe to call repeatedly on a growing stream (peeking):
 * a floor on the sample in EACH arm before anything is decided (`MIN_ARM_N`);
@@ -32,14 +32,15 @@ TREND_MIN_N = 20           # per window, for a department KPI trend
 
 
 def z_two_proportions(x1: int, n1: int, x2: int, n2: int) -> float | None:
-    """z for rate1 - rate2 (pooled); None when either arm is empty or the pool is degenerate."""
+    """z for rate1 - rate2 (pooled); None when either arm is empty.
+
+    The arithmetic is ENG-LEARN's `learning.stats.two_proportion` (one implementation of the
+    pooled z for the whole company); a degenerate pool (all pass or all fail) reads 0.0."""
+    from ..learning.stats import two_proportion
+
     if not n1 or not n2:
         return None
-    p = (x1 + x2) / (n1 + n2)
-    if not 0 < p < 1:
-        return 0.0 if x1 / n1 == x2 / n2 else None
-    se = math.sqrt(p * (1 - p) * (1 / n1 + 1 / n2))
-    return ((x1 / n1) - (x2 / n2)) / se
+    return float(two_proportion(x2, n2, x1, n1)["z"])
 
 
 def checkpoint(n_smaller_arm: int) -> int | None:
