@@ -2912,6 +2912,9 @@ The independent review of `eng/plush` @ 2763340b (DO NOT SHIP) found real gaps i
 - **Certify reads the catalogue's children's assignment**, so a flat design assigned to a child is in the gate at certify as it is at render.
 - **Quotes carry a `verified` record.** An unread quote makes CITATIONS UNKNOWN. All seven were re-read on 2026-11-20.
 - **The mutation harness** requires a green baseline and reports an import or environment failure as ERROR, never as KILLED.
+- **Attachments are an allow-list (new check ATTACHMENTS_KNOWN, round 2).** A clause that attaches, sews on, fastens, glues or clips something must name a piece of this CIR, yarn or an embroidered feature. Any other attachment ("sew on the felt heart") is UNKNOWN and holds the item, flat baby blankets included.
+- **Eye options (round 2).** For any face or stuffed item, the PDF prints an "Eye options" statement: embroidered with yarn is the default. For a baby or a child under 3 (the under-3 band, a sleep-profile item, no assignment or an unknown band) it is the only option. The statement carries its age guidance, and the new text check AGE_GUIDANCE_IN_TEXT fails a document that drops it. No hard-eye option is offered at any age, because FEATURES_EMBROIDERED still fails any hard eye.
+- **One test per probe.** Every probe the review listed is its own generated test, so one probe that regresses is named in the run.
 
 Physical evidence for flat, one-piece, unstuffed items (a baby blanket) is still not required. Such an item has no seam to pull and nothing to contain. Its under-3 risks (cords, loops, hard parts, small parts, unknown materials) are computed by the other checks. The PHYSICAL_EVIDENCE docstring now says this instead of promising more than the code did. No gate was weakened. Reversible by decision.
 

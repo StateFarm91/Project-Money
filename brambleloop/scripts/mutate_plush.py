@@ -169,6 +169,26 @@ MUTANTS: list[tuple[str, str, str, str]] = [
      "    unread = []"),
     ("fix L4: depicted pieces unread", "src/brambleloop/gates/asset_truth.py",
      "    depicted = set(asset.depicts_components) or None", "    depicted = None"),
+    # ENG-PLUSH-FIX round 2: the attachment allow-list and the eye-options reading.
+    ("fix round 2: attachment allow-list off", CS,
+     "    if unknown:\n        return Check(\"ATTACHMENTS_KNOWN\", UNKNOWN,",
+     "    if False:\n        return Check(\"ATTACHMENTS_KNOWN\", UNKNOWN,"),
+    ("fix round 2: any attach verb is known", CS,
+     "            if _KNOWN_ATTACHED.search(clause) or words & names:",
+     "            if True:"),
+    ("fix round 2: attachments not evaluated", CS,
+     "    v.checks += [_features(cir, profile), _materials(cir), _attachments(cir),",
+     "    v.checks += [_features(cir, profile), _materials(cir),"),
+    ("fix round 2: eye options not required", CS,
+     '        keys.append("eye_options")\n', ""),
+    ("fix round 2: young reads as older", CS,
+     '    young = band == _ch.UNDER_3 or "sleep" in profile or not known',
+     "    young = band == _ch.UNDER_3"),
+    ("fix round 2: age guidance unchecked", CS,
+     "        guided = _fold(AGE_GUIDANCE_MARKER) in folded", "        guided = True"),
+    ("fix round 2: pdf ignores the age band", "src/brambleloop/publish/pdf.py",
+     "                age_band=childrens[1] if childrens else None):",
+     "                age_band=None):"),
 ]
 
 

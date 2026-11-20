@@ -22,6 +22,9 @@ Construction checks (from the CIR):
                         (hook, needle, marker, scissors). Anything else -- felt, leather
                         lacing, an unnamed notion -- is UNKNOWN and holds the item (an
                         allow-list, so an unlisted hard part is never a pass).
+  ATTACHMENTS_KNOWN     every clause that attaches, sews on, fastens, glues or clips something
+                        names a piece of this pattern, yarn or an embroidered feature; any
+                        other attachment ("sew on the felt heart") is UNKNOWN and holds.
   JOINS_VALIDATED       every sewn-on piece is joined by a sewing method at a stated position
                         (round and stitches, or named edges), measured by `cir.assembly` with
                         no mismatch, sewn across its whole edge with the tail buried.
@@ -54,7 +57,10 @@ Content checks (from the rendered text, when given):
 
   SAFETY_SECTION        every required statement of the product's profile is present
                         (age suitability, features, joins, stuffing, cords, safe sleep, the
-                        not-a-toy-certification statement).
+                        not-a-toy-certification statement, and for a face or stuffed item
+                        the eye options: embroidered is the default, and for a baby or a
+                        child under 3 the only option).
+  AGE_GUIDANCE_IN_TEXT  a document that gives eye options prints their age guidance.
   CITATIONS             every source a statement rests on is printed with its URL and the
                         date it was accessed.
   NO_CERTIFICATION_CLAIM the document claims no toy certification, test or standard -- we sell
@@ -223,8 +229,7 @@ AGE_TEXT_UNPROVEN = (
 
 # ENG-PLUSH-FIX: the eye-options reading. Embroidered with yarn is the default eye for every
 # item in this gate, and for a baby or a child under 3 it is the only option the pattern gives.
-# The age guidance is printed in the PDF text with it (D-ENG-PLUSH-EYES). The benchmark
-# teardowns found no competitor pattern that gives this guidance at all.
+# The age guidance is printed in the PDF text with it (D-ENG-PLUSH-FIX, eye options).
 EYE_DEFAULT = "embroidered"
 EYE_OPTIONS_MARKER = EYE_OPTIONS_MARKER_
 AGE_GUIDANCE_MARKER = "Age guidance:"
