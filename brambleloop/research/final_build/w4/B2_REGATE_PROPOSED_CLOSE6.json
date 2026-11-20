@@ -1,0 +1,36 @@
+{
+ "_meta": {
+  "status": "ACCEPTED by the coordinator 2026-10-20 (D-W4-CLOSE6-OVERRIDES); to be applied to build2/requirements.json at INTEG5, not before.",
+  "what": "Re-park Build 2 #11 (First 100 Customers Program) and #12 (Customer LTV and Cohorts) from the `transactions_r` gate, which is now OPEN in production, to the `customers` data gate.",
+  "precedent": "#242-245 were re-parked from ad_authority to customers the same way (W4-GATESB, 2026-10-07; their registry notes).",
+  "how_to_accept": "In src/brambleloop/build2/requirements.json set parked_on='customers' on ids 11 and 12 and append the note below to each; then re-run research/final_build/w4/build2_ledger.py and the board regeneration, and tests/test_build2_*.py + test_w4_board.py.",
+  "accepted_by": "coordinator (operator session) 2026-10-20",
+  "accepted_by_is_null": "F-867: a worker cannot certify itself; the integrator accepts or rejects.",
+  "acceptance_rationale": "the cohort/LTV code is live and reached from the live order handlers; only real buyer orders can supply the remaining evidence, so the rows wait on customers (data), not transactions_r."
+ },
+ "rows": {
+  "11": {
+   "parked_on": {
+    "from": "transactions_r",
+    "to": "customers"
+   }
+  },
+  "12": {
+   "parked_on": {
+    "from": "transactions_r",
+    "to": "customers"
+   }
+  }
+ },
+ "note_to_append": "W4-CLOSE6 2026-10-20 (PROPOSED, integrator to accept): re-parked from transactions_r to customers. transactions_r is OPEN in production b931d17 and commerce.orders_ingest runs on its 6h cadence there (job.completed:commerce.orders_ingest every run, zero orders.ingested rows: there are no receipts), commerce.order_readings runs daily; commerce/cohorts.py and commerce/ladder.py are reached from those live handlers. What is left of both rows -- a validation cohort of real buyers, repeat purchase, LTV -- can only be observed when real buyers create orders: DATA-GATED, never an owner action.",
+ "evidence": {
+  "production_gates": "research/final_build/w4/evidence_CLOSE6/prod_orders_ingest_20261020T1229Z.json gates: transactions_r open, customers closed",
+  "production_ingest_runs": "research/final_build/w4/evidence_CLOSE6/prod_orders_ingest_20261020T1229Z.json orders_ingest_completed (10 most recent), order_readings_completed",
+  "no_orders": "research/final_build/w4/evidence_CLOSE6/prod_orders_ingest_20261020T1229Z.json orders_ingested_rows == [] (no receipts exist to ingest)",
+  "reachability": "research/final_build/w4/evidence_CLOSE5/module_reachability_b931d17.json: commerce/cohorts.py reached via commerce.orders_ingest; commerce/ladder.py via commerce.order_readings",
+  "tests": [
+   "tests/test_cert_orders.py (the ingest writes Customer/Order rows from a receipt feed; idempotent; UNMEASURED below minimum n)"
+  ],
+  "why_not_complete_now": "the criterion is about what real buyers do; a fixture feed proves the machinery, not the program -- so the rows stay open on customers, not closed"
+ }
+}

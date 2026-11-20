@@ -1,0 +1,692 @@
+"""The sanctioned read-only route to the benchmark shop.
+
+Requirements 206, 207, 208, 212, 221, 222, 303. The owner approved registering an Etsy
+developer application for the MJsOffTheHookDesigns intelligence mission, at CA$0, with three
+conditions: current v3 authentication, secrets that stay in the hosting environment, and the
+**minimum access the read-only mission needs** — no write or private scopes bought early
+because we might want them for our own shop one day.
+
+Those conditions decide the shape of this module.
+
+**Authentication.** Etsy v3 wants `x-api-key: <keystring>:<shared_secret>` on every request.
+Not the keystring alone, which is what this codebase had. OAuth is additionally required for
+private data and writes — which this module never touches, so it never asks for a token and
+has no code path that could send one.
+
+**Minimum scope, enforced rather than intended.** `ALLOWED` lists the exact endpoints the
+mission needs, every one of them served by the API key alone according to Etsy's own OpenAPI
+specification. A call to anything else raises before a request is built. An allowlist rather
+than a policy, because "we only use the public endpoints" is a sentence, and a sentence does
+not stop the commit that adds one more.
+
+**Nothing secret leaves.** The credential is read from the environment, never logged, never
+audited, never written to evidence, and `__repr__` hides it. Errors carry the endpoint and
+the status, never the header.
+
+What the sanctioned API turns out to give, which is more than expected: the full active
+catalogue with title, description, price, tags, materials, style, favourites and timestamps;
+every listing's gallery image URLs *with Etsy's own per-image hex, hue, saturation, brightness
+and black-and-white flag*; videos; reviews; and the shop's own section structure. What it does
+not give is the rendered page — badges, sale banners as presented, thumbnail-as-displayed,
+cross-sell placement. That gap is reported, never papered over (#224).
+"""
+from __future__ import annotations
+
+import json
+import re
+import os
+import time
+import urllib.parse
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Any, Protocol
+
+BASE = "https://openapi.etsy.com"
+
+# Read-only, public, API-key-only. Every path below is marked `api_key`-only in Etsy's
+# published OpenAPI specification; none of them requires an OAuth scope.
+ALLOWED: dict[str, str] = {
+    "find_shops": "/v3/application/shops",
+    "get_shop": "/v3/application/shops/{shop_id}",
+    "shop_listings": "/v3/application/shops/{shop_id}/listings/active",
+    "shop_sections": "/v3/application/shops/{shop_id}/sections",
+    "shop_reviews": "/v3/application/shops/{shop_id}/reviews",
+    "get_listing": "/v3/application/listings/{listing_id}",
+    "listing_images": "/v3/application/listings/{listing_id}/images",
+    "listing_videos": "/v3/application/listings/{listing_id}/videos",
+    "ping": "/v3/application/openapi-ping",
+    # findAllListingsActive, added 2026-09-27 (#2 listing density, #15 SERP laboratory, #98
+    # search behaviour). A read-only public search of the marketplace's active listings,
+    # marked `api_key`-only in Etsy's published OpenAPI exactly as the nine above are, and
+    # already recorded as such in `intel.etsy_surfaces` (search_visibility). It widens what
+    # is read, not what is authorised: same credential, no OAuth scope, no Authorization
+    # header, nothing written. Its ranking is the API index's `sort_on=score` order and its
+    # `count` is the API index's result count -- neither is a claim about the rendered
+    # etsy.com search page, and every consumer labels them so.
+    "search_listings": "/v3/application/listings/active",
+}
+
+# The orderings `findAllListingsActive` accepts that the mission uses. `score` is the
+# API's relevance order; `created` and `price` are the plain sorts.
+SEARCH_SORTS: tuple[str, ...] = ("score", "created", "price")
+
+KEYSTRING_VAR = "ETSY_API_KEY"
+SECRET_VAR = "ETSY_SHARED_SECRET"
+
+# Etsy's own page cap for the listings endpoint.
+PAGE_MAX = 100
+
+
+class NotConfigured(RuntimeError):
+    """No read credential. Not an outage: there is nothing to call."""
+
+
+class EndpointRefused(RuntimeError):
+    """An endpoint outside the mission's minimum read-only scope."""
+
+
+class ReadFailed(RuntimeError):
+    """Etsy refused or could not answer. Carries the status, never the credential."""
+
+    def __init__(self, message: str = "", *, status: int | None = None,
+                 etsy_error: str = ""):
+        super().__init__(message)
+        self.status = status
+        self.etsy_error = etsy_error
+
+    @property
+    def credential_refused(self) -> bool:
+        """401/403: Etsy refused the credential itself. Asking again gives the same answer."""
+        return self.status in AUTH_REFUSED
+
+
+# W4-PRODDIAG: the HTTP statuses with which Etsy refuses the credential itself. Not transient:
+# the same key gets the same answer, so a scan must not keep knocking (see `auth_refused`).
+AUTH_REFUSED = (401, 403)
+
+# W4-ETSYCOMM: Etsy's own refusal text, kept (redacted, capped) instead of discarded. Production
+# probed `ping` successfully every six hours from 2026-09-19 to 2026-10-07T06:00Z and has been
+# refused with HTTP 403 since 12:00Z that day, with no deploy in between -- and the record said
+# only "HTTP 403", because the body was thrown away. Etsy distinguishes the causes in that body
+# ("Invalid API key: should be in the format 'keystring:shared_secret'." versus "API key not
+# found or not active, or incorrect shared secret for API key."), which is the difference
+# between a configuration defect here and an owner/Etsy action. The text is Etsy's fixed
+# message, not data; it still passes the redactor so a credential echoed back cannot be stored.
+ETSY_ERROR_CHARS = 200
+
+
+def etsy_error_text(body: Any, secrets: tuple[str, ...] = ()) -> str:
+    """Etsy's `error` (or `error_description`) from a refusal body, redacted and capped."""
+    if not isinstance(body, dict):
+        return ""
+    text = body.get("error") or body.get("error_description") or ""
+    if not isinstance(text, str):
+        text = json.dumps(text, default=str)
+    text = " ".join(text.split())
+    if not text:
+        return ""
+    from ..integrations.http import Redactor
+
+    return Redactor(secrets).string(text)[:ETSY_ERROR_CHARS]
+
+
+def refusal_hint(status: int | None, etsy_error: str = "") -> str:
+    """What a 401/403 on the API-key path can mean, without guessing which one it is.
+
+    The old hint ("check ETSY_SHARED_SECRET") assumed a configuration typo, which a credential
+    that worked for eighteen days and then stopped is not: Etsy's own text is what decides.
+    """
+    if status not in AUTH_REFUSED:
+        return ""
+    said = f" Etsy said: \"{etsy_error}\"" if etsy_error else " Etsy gave no reason text"
+    return (f" —{said}. Either the keystring is no longer active on Etsy's side or the "
+            f"shared secret no longer matches {SECRET_VAR} (Etsy v3 needs x-api-key as "
+            f"keystring:shared_secret); the app's status is visible only to the owner at "
+            f"etsy.com/developers/your-apps")
+
+
+# W4-ETSY403: whether the configured values are *shaped* like an Etsy keystring and shared
+# secret, reported as booleans only -- never a value, length, prefix or fingerprint. Etsy
+# answers the same 403 ("API key not found or not active, or incorrect shared secret") for a
+# deactivated app and for a mistyped value, so the only way to tell a paste error (quotes,
+# an inner space or newline, "keystring:secret" pasted into one variable, a second keystring
+# also set) from an Etsy-side state is to check the shape here.
+_TOKEN = re.compile(r"^[A-Za-z0-9]+$")
+
+
+def credential_shape(env: dict[str, str] | None = None) -> dict:
+    e = env if env is not None else os.environ
+    key = (e.get(KEYSTRING_VAR) or "").strip()
+    secret = (e.get(SECRET_VAR) or "").strip()
+    alt = (e.get("ETSY_KEYSTRING") or "").strip()
+    raw_key, raw_secret = e.get(KEYSTRING_VAR) or "", e.get(SECRET_VAR) or ""
+
+    def odd(v: str) -> bool:
+        return bool(v) and not _TOKEN.match(v)
+
+    return {
+        "keystring_alphanumeric": bool(key) and not odd(key),
+        "secret_alphanumeric": bool(secret) and not odd(secret),
+        "colon_inside_a_value": ":" in key or ":" in secret,
+        "quotes_inside_a_value": any(q in key + secret for q in "\"'`"),
+        "inner_whitespace": any(c.isspace() for c in key + secret),
+        "outer_whitespace_trimmed": raw_key != raw_key.strip() or raw_secret != raw_secret.strip(),
+        # Two modules once read different names; a second keystring that disagrees is a
+        # configuration the integrations would resolve differently.
+        "etsy_keystring_also_set": bool(alt),
+        "etsy_keystring_differs": bool(alt) and alt != key,
+    }
+
+
+ALT_KEYSTRING_VAR = "ETSY_KEYSTRING"
+
+
+def _keystring(e) -> str:
+    """WS5 E7: the keystring under either name the integrations accept (`integrations.etsy`
+    and `etsy_taxonomy` read `ETSY_KEYSTRING` too). `ETSY_API_KEY` wins when both are set;
+    `credential_shape` reports a disagreement between them."""
+    return ((e.get(KEYSTRING_VAR) or "").strip()
+            or (e.get(ALT_KEYSTRING_VAR) or "").strip())
+
+
+class Transport(Protocol):
+    def request(self, method: str, url: str, *, headers: dict[str, str],
+                body: bytes | None = None, timeout: float = 20.0) -> Any: ...
+
+
+@dataclass(frozen=True)
+class ReadCredential:
+    """The keystring and shared secret, from the environment and nowhere else."""
+
+    keystring: str
+    shared_secret: str
+
+    @staticmethod
+    def from_env(env: dict[str, str] | None = None) -> "ReadCredential | None":
+        e = env if env is not None else os.environ
+        keystring = _keystring(e)
+        secret = (e.get(SECRET_VAR) or "").strip()
+        if not keystring:
+            return None
+        return ReadCredential(keystring=keystring, shared_secret=secret)
+
+    def header(self) -> str:
+        """`keystring:shared_secret`, per Etsy v3.
+
+        A missing secret is sent as an empty half rather than silently dropped, so Etsy
+        refuses it and the error names the real problem. Quietly falling back to the
+        keystring alone produces a 401 whose cause is indistinguishable from six others.
+        """
+        return f"{self.keystring}:{self.shared_secret}"
+
+    @property
+    def complete(self) -> bool:
+        return bool(self.keystring and self.shared_secret)
+
+    def __repr__(self) -> str:  # pragma: no cover - keeps the secret out of tracebacks
+        return "ReadCredential(keystring=***, shared_secret=***)"
+
+
+def health(env: dict[str, str] | None = None) -> dict:
+    """Whether the mission can read, without revealing anything about the credential."""
+    e = env if env is not None else os.environ
+    keystring = _keystring(e)
+    secret = (e.get(SECRET_VAR) or "").strip()
+    return {
+        "keystring_set": bool(keystring),
+        "shared_secret_set": bool(secret),
+        "usable": bool(keystring and secret),
+        "variables": [KEYSTRING_VAR, SECRET_VAR],
+        "reason": ("" if keystring and secret else
+                   "neither variable is set" if not keystring and not secret else
+                   f"{SECRET_VAR} is not set; Etsy v3 requires keystring:shared_secret"
+                   if keystring else f"{KEYSTRING_VAR} is not set"),
+        "scopes_requested": "none — every endpoint used is served by the API key alone",
+    }
+
+
+class PublicReader:
+    """Read public marketplace data. Cannot write, cannot authenticate as anybody."""
+
+    def __init__(self, transport: Transport, credential: ReadCredential | None = None,
+                 env: dict[str, str] | None = None, base: str = BASE,
+                 max_attempts: int = 4, backoff_cap: float = 60.0, sleep=None):
+        self.transport = transport
+        self.credential = credential or ReadCredential.from_env(env)
+        self.base = base
+        self.max_attempts = max_attempts
+        self.backoff_cap = backoff_cap
+        # Injected so a test can prove the backoff without waiting for it.
+        self.sleep = sleep or time.sleep
+        self.calls: list[str] = []
+        self.throttled = 0
+
+    def _headers(self) -> dict[str, str]:
+        if self.credential is None:
+            raise NotConfigured(
+                f"{KEYSTRING_VAR} is not set. The benchmark mission reads public marketplace "
+                f"data only and cannot run without it; it is set in the hosting environment, "
+                f"never in this repository")
+        return {"x-api-key": self.credential.header(), "Accept": "application/json"}
+
+    def get(self, endpoint: str, *, path: dict | None = None,
+            query: dict | None = None) -> dict:
+        """One read, against one of the mission's allowed endpoints."""
+        template = ALLOWED.get(endpoint)
+        if template is None:
+            raise EndpointRefused(
+                f"{endpoint!r} is not in the mission's read-only scope. This client exists to "
+                f"read public marketplace data; adding an endpoint is a deliberate change to "
+                f"{sorted(ALLOWED)}, not something a call site does")
+
+        url = self.base + template.format(**(path or {}))
+        if query:
+            clean = {k: v for k, v in query.items() if v is not None}
+            url = f"{url}?{urllib.parse.urlencode(clean)}"
+
+        # Recorded for the evidence trail: which endpoint, never which credential.
+        self.calls.append(f"{endpoint} {template}")
+        return self._request_with_retries(endpoint, url)
+
+    def _request_with_retries(self, endpoint: str, url: str) -> dict:
+        """One read, retried on rate limits and server faults, refused on our own mistakes.
+
+        Etsy publishes a rate limit and a `Retry-After`; ignoring it is how a client turns a
+        throttle into a ban, and a ban on the one shop the owner named is the worst available
+        outcome for this mission. A 400 or a 404 is retried zero times, because the same
+        request produces the same answer and hammering it is what gets noticed.
+        """
+        from ..core.resilience import TransientError, classify_http, retry_after_seconds
+
+        last: Exception | None = None
+        for attempt in range(self.max_attempts):
+            response = self.transport.request("GET", url, headers=self._headers())
+            status = getattr(response, "status", None)
+            body = getattr(response, "body", None)
+            headers = getattr(response, "headers", None) or {}
+            if body is None and hasattr(response, "read"):  # pragma: no cover
+                body = json.loads(response.read() or b"{}")
+
+            if status is None or status < 400:
+                return body or {}
+
+            kind = classify_http(status)
+            secrets = ((self.credential.keystring, self.credential.shared_secret)
+                       if self.credential else ())
+            etsy_error = etsy_error_text(body, secrets)
+            hint = refusal_hint(status, etsy_error)
+            last = ReadFailed(f"{endpoint} returned HTTP {status}{hint}", status=status,
+                              etsy_error=etsy_error)
+            if kind is not TransientError:
+                raise last
+            self.throttled += status == 429
+            if attempt + 1 < self.max_attempts:
+                self.sleep(retry_after_seconds(headers, attempt, cap=self.backoff_cap))
+        raise ReadFailed(
+            f"{endpoint} failed {self.max_attempts} times: {last}. Etsy was asked to wait "
+            f"and kept refusing; the scan stops rather than continuing to knock")
+
+    # -- the mission's reads ------------------------------------------------
+
+    def resolve_shop(self, shop_name: str) -> dict:
+        """Find the named shop, and refuse anything that is not it.
+
+        `findShops` is a search, so it answers with near matches — which is the same hazard as
+        following a redirect to a different seller (#206). The mandate names one shop, so an
+        exact case-insensitive match is the only acceptable result.
+        """
+        found = self.get("find_shops", query={"shop_name": shop_name, "limit": 25})
+        results = found.get("results") or []
+        for shop in results:
+            if str(shop.get("shop_name", "")).lower() == shop_name.lower():
+                return shop
+        raise ReadFailed(
+            f"{shop_name!r} was not found exactly. Etsy returned "
+            f"{[s.get('shop_name') for s in results][:5]}, and a near match is a different "
+            f"seller: the mandate names one shop (#301)")
+
+    def catalogue(self, shop_id: int | str, *, limit: int = PAGE_MAX,
+                  max_pages: int = 20) -> list[dict]:
+        """Every active listing, paginated. #207 asks for the complete catalogue, not a sample."""
+        out: list[dict] = []
+        offset = 0
+        for _ in range(max_pages):
+            page = self.get("shop_listings", path={"shop_id": shop_id},
+                            query={"limit": min(limit, PAGE_MAX), "offset": offset})
+            results = page.get("results") or []
+            out.extend(results)
+            count = page.get("count")
+            offset += len(results)
+            if not results or (count is not None and offset >= int(count)):
+                break
+        return out
+
+    def shop(self, shop_id: int | str) -> dict:
+        """One shop's public record (`getShop`): its name and its stated location (#219)."""
+        return self.get("get_shop", path={"shop_id": shop_id})
+
+    def listing(self, listing_id: int | str) -> dict:
+        return self.get("get_listing", path={"listing_id": listing_id})
+
+    def images(self, listing_id: int | str) -> list[dict]:
+        return (self.get("listing_images",
+                         path={"listing_id": listing_id}).get("results") or [])
+
+    def videos(self, listing_id: int | str) -> list[dict]:
+        return (self.get("listing_videos",
+                         path={"listing_id": listing_id}).get("results") or [])
+
+    def reviews(self, shop_id: int | str, *, limit: int = 100) -> list[dict]:
+        """Buyer reviews of this shop. Already in the sanctioned endpoint allowlist.
+
+        What this is for is the one thing #2 names that nothing could measure: recurring
+        complaints. A review is a buyer describing a problem with a product in this category,
+        which is demand intelligence of the most direct kind available -- and it is the only
+        route to the `customer_pain` learning domain that does not involve having customers.
+
+        What it is never for is reproducing anybody's words. `complaint_themes` below counts
+        classifications, not quotations.
+        """
+        return (self.get("shop_reviews", path={"shop_id": shop_id},
+                         query={"limit": limit}).get("results") or [])
+
+    def sections(self, shop_id: int | str) -> list[dict]:
+        return (self.get("shop_sections",
+                         path={"shop_id": shop_id}).get("results") or [])
+
+    def search(self, keywords: str = "", *, taxonomy_id: int | None = None,
+               sort_on: str = "score", limit: int = PAGE_MAX, offset: int = 0) -> dict:
+        """One page of the public marketplace search (`findAllListingsActive`).
+
+        Returns Etsy's body unchanged: `count` is the API index's total result count for
+        the query and `results` is this page in `sort_on` order. Both describe the API's
+        search index, not the rendered etsy.com search page -- a caller that reports either
+        says `api_index`, never "Etsy search shows".
+        """
+        if sort_on not in SEARCH_SORTS:
+            raise EndpointRefused(
+                f"sort_on={sort_on!r} is not one of {SEARCH_SORTS}; an ordering nobody "
+                f"declared is a ranking nobody can compare against the last one")
+        if not str(keywords or "").strip() and taxonomy_id is None:
+            raise EndpointRefused(
+                "a marketplace search needs keywords or a taxonomy_id; an unscoped search "
+                "is the whole marketplace and answers no question the mission asks")
+        query = {"keywords": str(keywords).strip() or None, "taxonomy_id": taxonomy_id,
+                 "sort_on": sort_on, "sort_order": "desc" if sort_on == "score" else None,
+                 "limit": max(1, min(int(limit), PAGE_MAX)), "offset": max(0, int(offset))}
+        return self.get("search_listings", query=query)
+
+
+# ---------------------------------------------------------------------------
+# What the sanctioned route can and cannot do (#224)
+#
+# Written from Etsy's published OpenAPI specification rather than from hope, and reported as
+# a capability inventory so that the part the API cannot satisfy is a named gap with a
+# proposed alternative, never a quietly lowered requirement.
+
+MANDATE_COVERAGE: dict[str, dict] = {
+    "resolve_canonical_shop": {
+        "requirement": 206, "available": True,
+        "how": "findShops with an exact case-insensitive name match; a near match is refused",
+    },
+    "enumerate_full_catalogue": {
+        "requirement": 207, "available": True,
+        "how": "findAllActiveListingsByShop, paginated to the shop's own count",
+    },
+    "listing_text_and_commerce_metadata": {
+        "requirement": 208, "available": True,
+        "how": "getListing gives title, description, price, tags, materials, style, "
+               "when_made, who_made, quantity, favourites and timestamps",
+    },
+    "gallery_asset_inventory": {
+        "requirement": 209, "available": True,
+        "how": "getListingImages gives every image URL at four sizes, plus Etsy's own "
+               "per-image hex, hue, saturation, brightness and black-and-white flag — which "
+               "answers palette and colour-architecture questions with no vision model at all",
+    },
+    "video_presence": {
+        "requirement": 157, "available": True, "how": "getListingVideos"},
+    "merchandising_structure": {
+        "requirement": 303, "available": True,
+        "how": "getShopSections gives the shop's own categorisation, which is stronger "
+               "evidence of how they think about their catalogue than our inference is",
+    },
+    "reputation_context": {
+        "requirement": 150, "available": True,
+        "how": "getReviewsByShop and getReviewsByListing"},
+    "change_detection": {
+        "requirement": 212, "available": True,
+        "how": "last_modified_timestamp per listing plus a content fingerprint, so unchanged "
+               "listings are never reprocessed",
+    },
+    "image_level_visual_judgement": {
+        "requirement": 209, "available": False,
+        "gap": "the API gives image URLs and colour statistics, not an opinion about shot "
+               "type, composition, styling or thumbnail legibility",
+        "alternative": "fetch the public image URL and analyse it with the approved model "
+                       "provider — no browser, no scraping, inside the authorised ceiling",
+    },
+    "marketplace_search_index": {
+        "requirement": 15, "available": True,
+        "how": "findAllListingsActive with keywords, taxonomy_id and sort_on=score gives the "
+               "API index's ranked results and its result count -- a directional proxy for "
+               "search placement and listing density, never the rendered search page",
+    },
+    "rendered_page_presentation": {
+        "requirement": 208, "available": False,
+        "gap": "badges, sale banners as presented, thumbnail crop as displayed in search, "
+               "and cross-sell placement exist only in the rendered page",
+        "alternative": "an owner-approved managed cloud browser, roughly CA$40-70 per month. "
+                       "Not requested: the API covers the mandate's substance, and this is "
+                       "presentation detail. It is recorded as an unmet fraction rather than "
+                       "claimed (#224)",
+    },
+}
+
+
+def capability_report(env: dict[str, str] | None = None) -> dict:
+    available = [k for k, v in MANDATE_COVERAGE.items() if v["available"]]
+    gaps = {k: v for k, v in MANDATE_COVERAGE.items() if not v["available"]}
+    return {
+        "credential": health(env),
+        "endpoints_in_scope": sorted(ALLOWED),
+        "oauth_scopes_requested": [],
+        "covered_by_the_sanctioned_api": available,
+        "not_covered": gaps,
+        "statement": (
+            "Etsy's own OpenAPI specification marks every endpoint above as served by the API "
+            "key alone. The mission requests no OAuth scope and has no code path that could "
+            "send a token. Two parts of the mandate are not covered by the API: one is "
+            "answered by the approved model provider reading public image URLs, and one "
+            "needs a browser and is recorded as unmet rather than approximated."),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Demonstrated capability
+#
+# The owner's condition on these credentials: the gate opens from a successful read, not from
+# the variables being present. That is the same lesson the model provider taught on the same
+# day -- a key that authenticates against an account which cannot serve a request would have
+# opened a gate and un-parked work nothing could start. Here the failure mode is narrower and
+# real: Etsy v3 refuses the keystring alone with "Shared secret is required in x-api-key
+# header", so a half-configured credential is indistinguishable from a working one until
+# something actually asks.
+
+PROBE_ENDPOINT = "ping"
+
+
+def probe(db, *, transport=None, env: dict[str, str] | None = None) -> dict:
+    """Make the smallest sanctioned read and record whether it worked.
+
+    The ping endpoint returns an application id and nothing about anybody's shop, so this
+    demonstrates capability without reading data the mission has not decided to read yet.
+    Nothing about the credential is recorded, in the row or in the failure.
+    """
+    from ..core.models import AuditLog
+
+    record: dict = {"at": datetime.now(timezone.utc).isoformat(),
+                    "endpoint": PROBE_ENDPOINT, "ok": False, "reason": ""}
+
+    credential = ReadCredential.from_env(env)
+    if credential is None:
+        record["reason"] = f"{KEYSTRING_VAR} is not set"
+    elif not credential.complete:
+        record["reason"] = (f"{SECRET_VAR} is not set; Etsy v3 refuses the keystring alone "
+                            f"with 'Shared secret is required in x-api-key header'")
+    else:
+        from ..integrations.http import UrllibTransport
+
+        reader = PublicReader(transport or UrllibTransport(), env=env)
+        try:
+            body = reader.get(PROBE_ENDPOINT)
+        except Exception as exc:  # noqa: BLE001 - the reason is the point, whatever it is
+            record["reason"] = f"{type(exc).__name__}: {exc}"[:400]
+            if getattr(exc, "status", None) is not None:
+                record["status"] = exc.status
+            if getattr(exc, "etsy_error", ""):
+                record["etsy_error"] = exc.etsy_error
+            if getattr(exc, "credential_refused", False):
+                record["credential_shape"] = credential_shape(env)
+        else:
+            record["ok"] = True
+            # The application id identifies the developer application, not the credential,
+            # and having it in the row is what makes "this worked" checkable later.
+            record["application_id"] = body.get("application_id")
+
+    with db.session() as s:
+        s.add(AuditLog(actor="market_radar", action="etsy.probe",
+                       artifact=PROBE_ENDPOINT, detail=record))
+    return record
+
+
+def last_probe(db) -> dict | None:
+    """The most recent probe result, or None if nobody has ever tried."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        rows = list(s.scalars(select(AuditLog).where(AuditLog.action == "etsy.probe")
+                              .order_by(desc(AuditLog.id)).limit(1)))
+    return dict(rows[0].detail or {}) if rows else None
+
+
+def auth_refused(state: dict | None) -> bool:
+    """Whether a probe record says Etsy refused the credential (HTTP 401/403).
+
+    W4-PRODDIAG: records written before `status` existed carry it only in the reason text
+    ("ping returned HTTP 403 ..."), so that is read too."""
+    import re
+
+    if not state or state.get("ok"):
+        return False
+    if state.get("status") in AUTH_REFUSED:
+        return True
+    m = re.search(r"HTTP (\d{3})", str(state.get("reason") or ""))
+    return bool(m and int(m.group(1)) in AUTH_REFUSED)
+
+
+def usable(db) -> bool:
+    """Whether a real sanctioned read has actually succeeded. The gate's condition."""
+    state = last_probe(db)
+    return bool(state and state.get("ok"))
+
+
+# WS5 E3: probes run every six hours; a success older than a day no longer demonstrates it.
+PROBE_FRESH_HOURS = 24
+
+
+def _probe_age_hours(state: dict | None, now=None) -> float | None:
+    from datetime import datetime, timezone
+
+    try:
+        at = datetime.fromisoformat(str((state or {}).get("at") or ""))
+    except ValueError:
+        return None
+    if at.tzinfo is None:
+        at = at.replace(tzinfo=timezone.utc)
+    return round(((now or datetime.now(timezone.utc)) - at).total_seconds() / 3600.0, 2)
+
+
+AUTH_READ_FRESH_HOURS = 26     # the authenticated read is daily; 2 h for cadence jitter
+
+
+def last_authenticated_read(db) -> dict | None:
+    """The newest `etsy.credential_health` reading: an OAuth-authenticated `getMe` with the
+    stored grant (refreshing it), not the app-key `ping` that `etsy.probe` makes."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        row = s.scalars(select(AuditLog).where(AuditLog.action == "etsy.credential_health")
+                        .order_by(desc(AuditLog.id)).limit(1)).first()
+    return dict(row.detail or {}) if row is not None else None
+
+
+def credential_usable(db, state: dict | None = None, env: dict[str, str] | None = None,
+                      now=None) -> dict:
+    """WS5 E3 (review 6818959626): whether the Etsy credential is USABLE for this company's
+    operations, not merely configured. All of:
+
+    * an OAuth-AUTHENTICATED read with the stored grant succeeded within
+      AUTH_READ_FRESH_HOURS -- the newest `etsy.credential_health` reading is HEALTHY with
+      `live.ok` true (an authenticated `getMe`). `etsy.probe` is an app-key ping and proves
+      only that Etsy answers; it is reported, never relied on;
+    * the stored grant can be opened (decrypted) by this deployment;
+    * every scope the company needs (`etsy_oauth.SCOPES_WANTED`, `transactions_r` included) is
+      among the scopes recorded when the grant was made.
+
+    A future-dated or unreadable reading is not recent. UNKNOWN parts are false."""
+    import time as _time
+
+    from ..core import oauth_store
+    from ..integrations import etsy_oauth
+
+    state = last_probe(db) if state is None else state
+    auth_read = last_authenticated_read(db)
+    try:
+        observed = float((auth_read or {}).get("observed_at"))
+    except (TypeError, ValueError):
+        observed = None
+    now_epoch = (now.timestamp() if now is not None else _time.time())
+    auth_age = (round((now_epoch - observed) / 3600.0, 2) if observed is not None else None)
+    recent = bool(auth_read and auth_read.get("status") == "HEALTHY"
+                  and (auth_read.get("live") or {}).get("ok") is True
+                  and auth_age is not None and 0 <= auth_age <= AUTH_READ_FRESH_HOURS)
+    try:
+        oauth = oauth_store.credential_health(db, env=env)
+        openable = bool(oauth.get("openable"))
+        granted = set(oauth_store.stored_scopes(db))
+    except Exception:  # noqa: BLE001 - unreadable is not usable
+        openable, granted = False, set()
+    missing = [sc for sc in etsy_oauth.SCOPES_WANTED if sc not in granted]
+    why = [w for w, bad in (
+        ("no successful OAuth-authenticated Etsy read (etsy.credential_health getMe) in the "
+         f"last {AUTH_READ_FRESH_HOURS} h", not recent),
+        ("no stored OAuth grant this deployment can open", not openable),
+        (f"scopes not recorded as granted: {missing}", bool(missing))) if bad]
+    return {"usable": not why, "demonstrated_recently": recent,
+            "authenticated_read_age_hours": auth_age,
+            "probe_age_hours": _probe_age_hours(state, now),
+            "refused": auth_refused(state), "oauth_openable": openable,
+            "scopes_not_granted": missing, "why": "; ".join(why)}
+
+
+def capability(db, env: dict[str, str] | None = None) -> dict:
+    """What this company can currently read from Etsy, and what that rests on."""
+    state = last_probe(db)
+    return {
+        **health(env),
+        "last_probe": state,
+        "demonstrated": bool(state and state.get("ok")),
+        # WS5 E3: what the readback judges -- usable for operations, not merely configured.
+        "credential": credential_usable(db, state, env),
+        "note": ("no probe has been run, so whether these credentials can serve a request is "
+                 "unknown -- which is not the same as unavailable"
+                 if state is None else
+                 "a real sanctioned read succeeded, so the mission can observe"
+                 if state.get("ok") else
+                 f"the last read failed: {str(state.get('reason', ''))[:200]}"),
+    }

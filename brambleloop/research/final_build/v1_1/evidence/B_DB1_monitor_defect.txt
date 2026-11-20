@@ -1,0 +1,19 @@
+D-B1 reproduction (lane B, 2026-10-06). improve.monitor.sweep on BASE code (claude/visual-investigation
+worktree, PYTHONPATH=<base>/brambleloop/src):
+
+  cells.propose(cell="runtime", trial="league_replay", trial_metric="replay_on_time:x",
+                higher_is_better=True, baseline=0.5, change={"config_id": 2, "replaces": 1})
+  row.state="promoted", row.result_value=0.6
+  cells.record_capability(db, "runtime", 0.0, detail={"from": "improve.measure"})   # dead letters/day
+  monitor.sweep(db)
+
+Observed on base:   BASE state after sweep: reverted | reverted list: [1]
+  -> the row says REVERTED, but no rollback executor ran: the job-priority registry still has the
+     challenger as incumbent and swarm.orchestrate.priority_for keeps reading it (the C-81 failure).
+     In production improve.measure writes a runtime capability point daily, so every promoted
+     job-priority policy would be "reverted" on paper at the next improve.monitor.
+
+Fix (lane B, improve/monitor.py): the capability sweep skips trial-metric rows
+(cells.is_trial_metric) and reports them under "trial_judged_elsewhere"; they are judged by
+runner.monitor_trials, which executes and verifies the rollback.
+Regression test: tests/test_v11_learn_loops.py::test_capability_monitor_no_longer_reverts_a_trial_promotion_on_paper

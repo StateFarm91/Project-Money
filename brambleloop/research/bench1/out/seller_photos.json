@@ -1,0 +1,84 @@
+{
+ "seller_1.jpg": {
+  "product_type": "cardigan",
+  "front": "open",
+  "closure_count": 0,
+  "front_band": "ribbed_band",
+  "hem_band": "ribbed",
+  "cuffs": "ribbed",
+  "sleeve_length": "long",
+  "body_length": "hip",
+  "texture": "waffle_textured",
+  "body_ridge_direction": "vertical",
+  "colour_count": 1,
+  "main_colour": "pink",
+  "extra_features": [
+   "none"
+  ],
+  "handmade_crochet": true,
+  "notes": "Chunky textured body with wide ribbed hem and cuffs."
+ },
+ "seller_2.jpg": {
+  "product_type": "cardigan",
+  "front": "open",
+  "closure_count": 0,
+  "front_band": "ribbed_band",
+  "hem_band": "ribbed",
+  "cuffs": "ribbed",
+  "pocket_count": 2,
+  "pocket_position": "hip",
+  "sleeve_length": "long",
+  "body_length": "mid_thigh",
+  "texture": "waffle_textured",
+  "body_ridge_direction": "horizontal",
+  "colour_count": 1,
+  "main_colour": "pink",
+  "extra_features": [
+   "none"
+  ],
+  "handmade_crochet": true,
+  "notes": "Chunky open-front longline cardigan with patch pockets and ribbed trims."
+ },
+ "seller_3.jpg": {
+  "product_type": "cardigan",
+  "front": "open",
+  "closure_count": 0,
+  "front_band": "ribbed_band",
+  "hem_band": "ribbed",
+  "cuffs": "ribbed",
+  "pocket_count": 2,
+  "pocket_position": "hip",
+  "sleeve_length": "long",
+  "body_length": "mid_thigh",
+  "texture": "waffle_textured",
+  "body_ridge_direction": "horizontal",
+  "colour_count": 1,
+  "main_colour": "pink",
+  "extra_features": [
+   "none"
+  ],
+  "handmade_crochet": true,
+  "notes": "Chunky textured open-front cardigan with wide ribbed bands and patch pockets."
+ },
+ "seller_4.jpg": {
+  "product_type": "cardigan",
+  "front": "open",
+  "closure_count": 0,
+  "front_band": "ribbed_band",
+  "hem_band": "ribbed",
+  "cuffs": "ribbed",
+  "pocket_count": 2,
+  "pocket_position": "hip",
+  "sleeve_length": "long",
+  "body_length": "mid_thigh",
+  "texture": "other",
+  "body_ridge_direction": "horizontal",
+  "colour_count": 1,
+  "main_colour": "pink",
+  "extra_features": [
+   "none"
+  ],
+  "handmade_crochet": true,
+  "notes": "Oversized chunky crochet with wide ribbed bands and patch pockets."
+ }
+}

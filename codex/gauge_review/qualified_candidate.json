@@ -1,0 +1,112 @@
+[
+  {
+    "builder": "basket_small",
+    "version": "1.1.0",
+    "gauge": {
+      "stitches_per_10cm": 12.5,
+      "rows_per_10cm": 13.8,
+      "stitch_type": "sc",
+      "hook_mm": 5.0,
+      "yarn_weight": "medium",
+      "chains_per_10cm": null,
+      "chain_gauge_uncertainty": 0.0
+    },
+    "width_cm": 15.3,
+    "height_cm": 8.7,
+    "calibrated": false,
+    "shape": "vessel",
+    "rows": 22,
+    "granted": true,
+    "errors": [],
+    "gauge_standard": "cyc-sc-band/1",
+    "content_hash": "4e7fdc7b26ba26560ca5322f16527a06963f81c1e16f260ee0aa0c12732592b2"
+  },
+  {
+    "builder": "basket_medium",
+    "version": "1.1.0",
+    "gauge": {
+      "stitches_per_10cm": 12.5,
+      "rows_per_10cm": 13.8,
+      "stitch_type": "sc",
+      "hook_mm": 5.0,
+      "yarn_weight": "medium",
+      "chains_per_10cm": null,
+      "chain_gauge_uncertainty": 0.0
+    },
+    "width_cm": 19.9,
+    "height_cm": 15.9,
+    "calibrated": false,
+    "shape": "vessel",
+    "rows": 35,
+    "granted": true,
+    "errors": [],
+    "gauge_standard": "cyc-sc-band/1",
+    "content_hash": "70acee0dae4c9d87faa7ededa56421fe60725de971bc7366ea53e79c4488e84d"
+  },
+  {
+    "builder": "basket_large",
+    "version": "1.1.0",
+    "gauge": {
+      "stitches_per_10cm": 12.5,
+      "rows_per_10cm": 13.8,
+      "stitch_type": "sc",
+      "hook_mm": 5.0,
+      "yarn_weight": "medium",
+      "chains_per_10cm": null,
+      "chain_gauge_uncertainty": 0.0
+    },
+    "width_cm": 24.4,
+    "height_cm": 23.2,
+    "calibrated": false,
+    "shape": "vessel",
+    "rows": 48,
+    "granted": true,
+    "errors": [],
+    "gauge_standard": "cyc-sc-band/1",
+    "content_hash": "f0fe24003762e79095a659c094be33453571da074a2f855a61df76524f5ab7d7"
+  },
+  {
+    "builder": "hexagon_coasters",
+    "version": "1.1.0",
+    "gauge": {
+      "stitches_per_10cm": 14.5,
+      "rows_per_10cm": 16.0,
+      "stitch_type": "sc",
+      "hook_mm": 5.0,
+      "yarn_weight": "light",
+      "chains_per_10cm": null,
+      "chain_gauge_uncertainty": 0.0
+    },
+    "width_cm": 9.2,
+    "height_cm": 9.2,
+    "calibrated": false,
+    "shape": "disc",
+    "rows": 7,
+    "granted": true,
+    "errors": [],
+    "gauge_standard": "cyc-sc-band/1",
+    "content_hash": "4139fe4fe9f6a498e214443dd2f7729988a3422ae98e192f09be704978e04c98"
+  },
+  {
+    "builder": "cloudline_blanket",
+    "version": "1.1.0",
+    "gauge": {
+      "stitches_per_10cm": 12.5,
+      "rows_per_10cm": 13.8,
+      "stitch_type": "sc",
+      "hook_mm": 5.0,
+      "yarn_weight": null,
+      "chains_per_10cm": null,
+      "chain_gauge_uncertainty": 0.0
+    },
+    "width_cm": 79.2,
+    "height_cm": 97.1,
+    "calibrated": false,
+    "shape": null,
+    "rows": 70,
+    "granted": true,
+    "errors": [],
+    "gauge_standard": "cyc-sc-band/1",
+    "content_hash": "3b5f6c57e06ee1b46551f8a748d45e341c699669fc3a0947af871952ec37cb64"
+  }
+]

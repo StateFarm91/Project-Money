@@ -1,0 +1,5 @@
+C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\final-build-integration-01\brambleloop\../..\runtime-build2\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+PASS test_authority_lifecycle_and_adversarial_mutations
+PASS test_actual_snapshot_and_worker_reject_magic_authority
+2 passed

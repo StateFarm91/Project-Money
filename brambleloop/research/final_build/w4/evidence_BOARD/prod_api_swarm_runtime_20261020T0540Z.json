@@ -1,0 +1,2002 @@
+{
+    "agent_quality": {
+        "as_of": "2026-10-20T05:40:15.045402+00:00",
+        "agents": {
+            "ads": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "cohorts",
+                    "cost_entries"
+                ],
+                "outputs": [
+                    "ad campaigns"
+                ],
+                "function_quality": {
+                    "metric": "exempt",
+                    "value": null,
+                    "sample": 0,
+                    "reading": "exempt",
+                    "reads": "owner-gated"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 10,
+                "done": 10,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [
+                    "ads.adjust"
+                ],
+                "verdict": "keep",
+                "why": "dormant by design: paid media is owner-gated; idle is the spend gate working"
+            },
+            "asset_truth": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "listing_assets"
+                ],
+                "outputs": [
+                    "listing_assets approval"
+                ],
+                "function_quality": {
+                    "metric": "asset_approval_rate",
+                    "reads": "listing assets approved against all recorded",
+                    "value": 0.8876,
+                    "sample": 169,
+                    "reading": "measured",
+                    "floor": 0.5,
+                    "evidence": "production_rate_proxy",
+                    "limits": "a rate over rows this function produced, judged by the next stage it fed; it screens for weak output and does not measure the quality of what passed, so it can lower a verdict to watch and never raise one"
+                },
+                "value": null,
+                "reading": "UNMEASURED",
+                "sample": 0,
+                "done": 0,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [],
+                "verdict": "retire",
+                "why": "no completed job in 21 days, none of its job types is scheduled and nothing is queued for it"
+            },
+            "cfo": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "ledger",
+                    "cost_entries",
+                    "spend_reservations"
+                ],
+                "outputs": [
+                    "incidents",
+                    "spend holds"
+                ],
+                "function_quality": {
+                    "metric": "useful_output_rate",
+                    "reads": "done finance jobs that reported work done",
+                    "value": 0.0037,
+                    "sample": 545,
+                    "reading": "measured",
+                    "floor": 0.5,
+                    "evidence": "production_rate_proxy",
+                    "limits": "a rate over rows this function produced, judged by the next stage it fed; it screens for weak output and does not measure the quality of what passed, so it can lower a verdict to watch and never raise one"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 538,
+                "done": 538,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [
+                    "commerce.order_readings",
+                    "commerce.orders_ingest",
+                    "commerce.readings",
+                    "finance.accounting.cycle",
+                    "finance.accounting.period_pack",
+                    "finance.escalation_check",
+                    "finance.governor",
+                    "finance.reconcile",
+                    "listing.outcomes"
+                ],
+                "verdict": "watch",
+                "why": "its function metric useful_output_rate reads 0% over 545, below 50%: its jobs finish and what they produce is weak"
+            },
+            "coo": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "jobs",
+                    "company_memory",
+                    "owner_actions",
+                    "gate states"
+                ],
+                "outputs": [
+                    "jobs (missions)",
+                    "company_memory",
+                    "company_timeline",
+                    "owner_actions",
+                    "lessons"
+                ],
+                "function_quality": {
+                    "metric": "useful_output_rate",
+                    "reads": "done jobs whose outputs report work done",
+                    "value": 0.1874,
+                    "sample": 3164,
+                    "reading": "measured",
+                    "floor": 0.5,
+                    "evidence": "production_rate_proxy",
+                    "limits": "a rate over rows this function produced, judged by the next stage it fed; it screens for weak output and does not measure the quality of what passed, so it can lower a verdict to watch and never raise one"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 3164,
+                "done": 3164,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [
+                    "autonomy.orchestrate"
+                ],
+                "verdict": "watch",
+                "why": "its function metric useful_output_rate reads 19% over 3164, below 50%: its jobs finish and what they produce is weak"
+            },
+            "cost_optimiser": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "improvements",
+                    "config_versions",
+                    "lessons",
+                    "audit_log"
+                ],
+                "outputs": [
+                    "improvements (proposals)",
+                    "audit_log improve.role_work"
+                ],
+                "function_quality": {
+                    "metric": "role_realised_uplift",
+                    "reads": "improve.roles.activity_from_db: realised uplift of the role's kept proposals, measured after promotion by improve.roi",
+                    "value": null,
+                    "sample": 0,
+                    "reading": "UNMEASURED",
+                    "floor": null,
+                    "evidence": "realised_outcome",
+                    "limits": "realised uplift attributed to kept proposals (improve.roi's window)"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 31,
+                "done": 31,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [
+                    "improve.role_work"
+                ],
+                "verdict": "keep",
+                "why": "inside its floor"
+            },
+            "creative_critic": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "improvements",
+                    "config_versions",
+                    "lessons",
+                    "audit_log"
+                ],
+                "outputs": [
+                    "improvements (proposals)",
+                    "audit_log improve.role_work"
+                ],
+                "function_quality": {
+                    "metric": "role_realised_uplift",
+                    "reads": "improve.roles.activity_from_db: realised uplift of the role's kept proposals, measured after promotion by improve.roi",
+                    "value": null,
+                    "sample": 0,
+                    "reading": "UNMEASURED",
+                    "floor": null,
+                    "evidence": "realised_outcome",
+                    "limits": "realised uplift attributed to kept proposals (improve.roi's window)"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 31,
+                "done": 31,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [
+                    "improve.role_work"
+                ],
+                "verdict": "keep",
+                "why": "inside its floor"
+            },
+            "creative_director": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "lessons",
+                    "audit_log creative.*",
+                    "benchmark_listings"
+                ],
+                "outputs": [
+                    "audit_log creative.tournament",
+                    "concept autopsies"
+                ],
+                "function_quality": {
+                    "metric": "useful_output_rate",
+                    "reads": "done creative jobs that reported work done",
+                    "value": 0.0528,
+                    "sample": 1990,
+                    "reading": "measured",
+                    "floor": 0.5,
+                    "evidence": "production_rate_proxy",
+                    "limits": "a rate over rows this function produced, judged by the next stage it fed; it screens for weak output and does not measure the quality of what passed, so it can lower a verdict to watch and never raise one"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 1985,
+                "done": 1985,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [
+                    "creative.benchmark_memory",
+                    "creative.blind_review",
+                    "creative.blinded",
+                    "creative.candidates_file",
+                    "creative.expedition",
+                    "creative.four_season",
+                    "creative.grid_tournament",
+                    "creative.image_benchmark",
+                    "creative.model_reference_pack",
+                    "creative.model_tournament",
+                    "creative.north_star",
+                    "creative.outcome_learning",
+                    "creative.reference_reading",
+                    "creative.style_learning",
+                    "creative.tournament",
+                    "creative.white_space"
+                ],
+                "verdict": "watch",
+                "why": "its function metric useful_output_rate reads 5% over 1990, below 50%: its jobs finish and what they produce is weak"
+            },
+            "crochet_engineer": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "jobs cir.draft inputs"
+                ],
+                "outputs": [
+                    "jobs cir.compile"
+                ],
+                "function_quality": {
+                    "metric": "drafts_certified",
+                    "reads": "certified pattern versions per completed draft",
+                    "value": 0.3034,
+                    "sample": 89,
+                    "reading": "measured",
+                    "floor": 0.5,
+                    "evidence": "production_rate_proxy",
+                    "limits": "a rate over rows this function produced, judged by the next stage it fed; it screens for weak output and does not measure the quality of what passed, so it can lower a verdict to watch and never raise one"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 45,
+                "done": 45,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [],
+                "verdict": "watch",
+                "why": "its function metric drafts_certified reads 30% over 89, below 50%: its jobs finish and what they produce is weak"
+            },
+            "evaluator": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "improvements",
+                    "config_versions",
+                    "lessons",
+                    "audit_log"
+                ],
+                "outputs": [
+                    "improvements (proposals)",
+                    "audit_log improve.role_work"
+                ],
+                "function_quality": {
+                    "metric": "role_realised_uplift",
+                    "reads": "improve.roles.activity_from_db: realised uplift of the role's kept proposals, measured after promotion by improve.roi",
+                    "value": null,
+                    "sample": 0,
+                    "reading": "UNMEASURED",
+                    "floor": null,
+                    "evidence": "realised_outcome",
+                    "limits": "realised uplift attributed to kept proposals (improve.roi's window)"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 31,
+                "done": 31,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [
+                    "improve.role_work"
+                ],
+                "verdict": "keep",
+                "why": "inside its floor"
+            },
+            "experiment_designer": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "improvements",
+                    "config_versions",
+                    "lessons",
+                    "audit_log"
+                ],
+                "outputs": [
+                    "improvements (proposals)",
+                    "audit_log improve.role_work"
+                ],
+                "function_quality": {
+                    "metric": "role_realised_uplift",
+                    "reads": "improve.roles.activity_from_db: realised uplift of the role's kept proposals, measured after promotion by improve.roi",
+                    "value": null,
+                    "sample": 0,
+                    "reading": "UNMEASURED",
+                    "floor": null,
+                    "evidence": "realised_outcome",
+                    "limits": "realised uplift attributed to kept proposals (improve.roi's window)"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 31,
+                "done": 31,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [
+                    "improve.role_work"
+                ],
+                "verdict": "keep",
+                "why": "inside its floor"
+            },
+            "experiment_steward": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "experiments",
+                    "cohorts"
+                ],
+                "outputs": [
+                    "experiments"
+                ],
+                "function_quality": {
+                    "metric": "experiments_decided",
+                    "reads": "experiments with a recorded result",
+                    "value": null,
+                    "sample": 0,
+                    "reading": "UNMEASURED",
+                    "floor": 0.5,
+                    "evidence": "production_rate_proxy",
+                    "limits": "a rate over rows this function produced, judged by the next stage it fed; it screens for weak output and does not measure the quality of what passed, so it can lower a verdict to watch and never raise one"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 20,
+                "done": 20,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [
+                    "growth.conclude",
+                    "growth.experiments"
+                ],
+                "verdict": "keep",
+                "why": "inside its floor"
+            },
+            "failure_miner": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "improvements",
+                    "config_versions",
+                    "lessons",
+                    "audit_log"
+                ],
+                "outputs": [
+                    "improvements (proposals)",
+                    "audit_log improve.role_work"
+                ],
+                "function_quality": {
+                    "metric": "role_realised_uplift",
+                    "reads": "improve.roles.activity_from_db: realised uplift of the role's kept proposals, measured after promotion by improve.roi",
+                    "value": 0.0,
+                    "sample": 596,
+                    "reading": "measured",
+                    "floor": null,
+                    "evidence": "realised_outcome",
+                    "limits": "realised uplift attributed to kept proposals (improve.roi's window)"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 31,
+                "done": 31,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [
+                    "improve.role_work"
+                ],
+                "verdict": "keep",
+                "why": "inside its floor"
+            },
+            "growth": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "listings",
+                    "pattern_versions"
+                ],
+                "outputs": [
+                    "content_pieces"
+                ],
+                "function_quality": {
+                    "metric": "content_without_problems",
+                    "reads": "marketing.schedule jobs whose outputs carry no problems",
+                    "value": 0.9006,
+                    "sample": 171,
+                    "reading": "measured",
+                    "floor": 0.5,
+                    "evidence": "production_rate_proxy",
+                    "limits": "a rate over rows this function produced, judged by the next stage it fed; it screens for weak output and does not measure the quality of what passed, so it can lower a verdict to watch and never raise one"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 157,
+                "done": 157,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [
+                    "growth.distribution",
+                    "growth.journey",
+                    "growth.preproduction",
+                    "marketing.ads_readiness"
+                ],
+                "verdict": "keep",
+                "why": "inside its floor"
+            },
+            "laura": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "autonomy.status",
+                    "company_memory",
+                    "owner_actions",
+                    "incidents",
+                    "jobs",
+                    "department providers"
+                ],
+                "outputs": [
+                    "laura_priorities",
+                    "laura_decisions",
+                    "jobs (missions via COO)",
+                    "owner_actions",
+                    "company_timeline",
+                    "lessons"
+                ],
+                "function_quality": {
+                    "metric": "useful_output_rate",
+                    "reads": "executive ticks whose work_done > 0",
+                    "value": 0.0448,
+                    "sample": 2454,
+                    "reading": "measured",
+                    "floor": 0.5,
+                    "evidence": "production_rate_proxy",
+                    "limits": "a rate over rows this function produced, judged by the next stage it fed; it screens for weak output and does not measure the quality of what passed, so it can lower a verdict to watch and never raise one"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 2454,
+                "done": 2454,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [
+                    "laura.executive_tick"
+                ],
+                "verdict": "watch",
+                "why": "its function metric useful_output_rate reads 4% over 2454, below 50%: its jobs finish and what they produce is weak"
+            },
+            "laura_private": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "owner-private context (via app.command_center.private_context only)"
+                ],
+                "outputs": [
+                    "private reply (no-store response body; encrypted private store)"
+                ],
+                "function_quality": {
+                    "metric": "exempt",
+                    "value": null,
+                    "sample": 0,
+                    "reading": "exempt",
+                    "reads": "nothing: a billing identity; its replies are owner-private"
+                },
+                "value": null,
+                "reading": "UNMEASURED",
+                "sample": 0,
+                "done": 0,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [],
+                "verdict": "keep",
+                "why": "dormant by design: runs no jobs: a billing identity for owner-private replies, off by default"
+            },
+            "learn": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [],
+                "outputs": [],
+                "function_quality": {
+                    "metric": "useful_output_rate",
+                    "reads": "done jobs whose outputs report work done",
+                    "value": 0.0,
+                    "sample": 208,
+                    "reading": "measured",
+                    "floor": 0.5,
+                    "evidence": "production_rate_proxy",
+                    "limits": "a rate over rows this function produced, judged by the next stage it fed; it screens for weak output and does not measure the quality of what passed, so it can lower a verdict to watch and never raise one"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 208,
+                "done": 208,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [
+                    "learn.scan"
+                ],
+                "verdict": "watch",
+                "why": "its function metric useful_output_rate reads 0% over 208, below 50%: its jobs finish and what they produce is weak"
+            },
+            "lesson_router": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "improvements",
+                    "config_versions",
+                    "lessons",
+                    "audit_log"
+                ],
+                "outputs": [
+                    "improvements (proposals)",
+                    "audit_log improve.role_work"
+                ],
+                "function_quality": {
+                    "metric": "role_realised_uplift",
+                    "reads": "improve.roles.activity_from_db: realised uplift of the role's kept proposals, measured after promotion by improve.roi",
+                    "value": 0.0,
+                    "sample": 1052,
+                    "reading": "measured",
+                    "floor": null,
+                    "evidence": "realised_outcome",
+                    "limits": "realised uplift attributed to kept proposals (improve.roi's window)"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 31,
+                "done": 31,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [
+                    "improve.role_work"
+                ],
+                "verdict": "keep",
+                "why": "inside its floor"
+            },
+            "listing": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "pattern_versions",
+                    "lessons",
+                    "keywords"
+                ],
+                "outputs": [
+                    "listings"
+                ],
+                "function_quality": {
+                    "metric": "listing_seo_score",
+                    "reads": "mean seo_score of recorded listings",
+                    "value": 0.5426,
+                    "sample": 26,
+                    "reading": "measured",
+                    "floor": null,
+                    "evidence": "internal_score",
+                    "limits": "our own scorer read on our own artefact; not an independent reading"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 925,
+                "done": 925,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [
+                    "chain.rebuild",
+                    "listing.search_visibility_watch",
+                    "listing.taxonomy_refresh",
+                    "seasonal.remerchandising",
+                    "seo.cycle"
+                ],
+                "verdict": "keep",
+                "why": "inside its floor"
+            },
+            "market_radar": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "benchmark_listings",
+                    "keywords",
+                    "coverage_gaps",
+                    "lessons"
+                ],
+                "outputs": [
+                    "coverage_gaps",
+                    "jobs cir.draft"
+                ],
+                "function_quality": {
+                    "metric": "promotion_yield",
+                    "reads": "radar.score jobs whose outputs promoted the concept",
+                    "value": 0.8891,
+                    "sample": 478,
+                    "reading": "measured",
+                    "floor": 0.5,
+                    "evidence": "production_rate_proxy",
+                    "limits": "a rate over rows this function produced, judged by the next stage it fed; it screens for weak output and does not measure the quality of what passed, so it can lower a verdict to watch and never raise one"
+                },
+                "value": 0.9992,
+                "reading": "measured",
+                "sample": 1238,
+                "done": 1237,
+                "dead": 1,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [
+                    "culture.sweep",
+                    "etsy.probe",
+                    "intel.acceptance",
+                    "intel.benchmark_health",
+                    "intel.benchmark_refresh",
+                    "intel.gallery_analysis",
+                    "intel.panel_discovery",
+                    "intel.pod_learning",
+                    "intel.serp_capture",
+                    "mjs.reviews",
+                    "mjs.scan",
+                    "mjs.seasonal_sentinel",
+                    "radar.scan"
+                ],
+                "verdict": "keep",
+                "why": "inside its floor"
+            },
+            "orchestrator": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "jobs",
+                    "capability_points",
+                    "improvements",
+                    "audit_log"
+                ],
+                "outputs": [
+                    "jobs (cadences)",
+                    "improvements",
+                    "incidents",
+                    "audit_log"
+                ],
+                "function_quality": {
+                    "metric": "useful_output_rate",
+                    "reads": "done jobs whose outputs report work done, not ran=false",
+                    "value": 0.4701,
+                    "sample": 10390,
+                    "reading": "measured",
+                    "floor": 0.5,
+                    "evidence": "production_rate_proxy",
+                    "limits": "a rate over rows this function produced, judged by the next stage it fed; it screens for weak output and does not measure the quality of what passed, so it can lower a verdict to watch and never raise one"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 10005,
+                "done": 10005,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [
+                    "build.tick",
+                    "etsy.credential_health",
+                    "etsy.listing_census",
+                    "etsy.openapi_reverify",
+                    "etsy.shop_snapshot",
+                    "improve.league",
+                    "improve.measure",
+                    "improve.mine",
+                    "improve.monitor",
+                    "improve.nightly",
+                    "improve.replay",
+                    "improve.retrospective",
+                    "improve.sandbox",
+                    "improve.weekly",
+                    "launch.readiness",
+                    "model.probe",
+                    "ops.capability_probes",
+                    "ops.capacity",
+                    "ops.continuity",
+                    "ops.dependencies",
+                    "ops.health",
+                    "ops.heartbeat",
+                    "ops.maturity_disagreements",
+                    "ops.offsite_archive",
+                    "ops.policy_watch",
+                    "ops.provenance_backfill",
+                    "ops.queue_check",
+                    "ops.retention",
+                    "ops.sentinel",
+                    "ops.slo",
+                    "ops.thrash",
+                    "plan.cycle",
+                    "plan.strategy",
+                    "portfolio.review",
+                    "scale.trajectory",
+                    "seasonal.engine",
+                    "seasonal.harvest",
+                    "seasonal.sentinel",
+                    "store.live_drift",
+                    "teardown.enforce"
+                ],
+                "verdict": "watch",
+                "why": "its function metric useful_output_rate reads 47% over 10390, below 50%: its jobs finish and what they produce is weak"
+            },
+            "policy": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "listings"
+                ],
+                "outputs": [
+                    "audit_log gate.policy"
+                ],
+                "function_quality": {
+                    "metric": "useful_output_rate",
+                    "reads": "done policy jobs that reported work done",
+                    "value": null,
+                    "sample": 0,
+                    "reading": "UNMEASURED",
+                    "floor": 0.5,
+                    "evidence": "production_rate_proxy",
+                    "limits": "a rate over rows this function produced, judged by the next stage it fed; it screens for weak output and does not measure the quality of what passed, so it can lower a verdict to watch and never raise one"
+                },
+                "value": null,
+                "reading": "UNMEASURED",
+                "sample": 0,
+                "done": 0,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [],
+                "verdict": "retire",
+                "why": "no completed job in 21 days, none of its job types is scheduled and nothing is queued for it"
+            },
+            "pricing": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "price_observations",
+                    "ledger"
+                ],
+                "outputs": [
+                    "audit_log pricing.*"
+                ],
+                "function_quality": {
+                    "metric": "useful_output_rate",
+                    "reads": "done pricing jobs that reported work done",
+                    "value": 0.0,
+                    "sample": 198,
+                    "reading": "measured",
+                    "floor": 0.5,
+                    "evidence": "production_rate_proxy",
+                    "limits": "a rate over rows this function produced, judged by the next stage it fed; it screens for weak output and does not measure the quality of what passed, so it can lower a verdict to watch and never raise one"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 64,
+                "done": 64,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [],
+                "verdict": "watch",
+                "why": "its function metric useful_output_rate reads 0% over 198, below 50%: its jobs finish and what they produce is weak"
+            },
+            "prompt_tool_challenger": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "improvements",
+                    "config_versions",
+                    "lessons",
+                    "audit_log"
+                ],
+                "outputs": [
+                    "improvements (proposals)",
+                    "audit_log improve.role_work"
+                ],
+                "function_quality": {
+                    "metric": "role_realised_uplift",
+                    "reads": "improve.roles.activity_from_db: realised uplift of the role's kept proposals, measured after promotion by improve.roi",
+                    "value": null,
+                    "sample": 6,
+                    "reading": "UNMEASURED",
+                    "floor": null,
+                    "evidence": "realised_outcome",
+                    "limits": "realised uplift attributed to kept proposals (improve.roi's window)"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 31,
+                "done": 31,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [
+                    "improve.role_work"
+                ],
+                "verdict": "keep",
+                "why": "inside its floor"
+            },
+            "publishing": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "pattern_versions",
+                    "CIR"
+                ],
+                "outputs": [
+                    "listing_assets"
+                ],
+                "function_quality": {
+                    "metric": "asset_approval_rate",
+                    "reads": "listing assets approved against all recorded",
+                    "value": 0.8876,
+                    "sample": 169,
+                    "reading": "measured",
+                    "floor": 0.5,
+                    "evidence": "production_rate_proxy",
+                    "limits": "a rate over rows this function produced, judged by the next stage it fed; it screens for weak output and does not measure the quality of what passed, so it can lower a verdict to watch and never raise one"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 614,
+                "done": 614,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [
+                    "assets.model_photography",
+                    "assets.owned_photography",
+                    "seasonal.cycle_proof",
+                    "visual.rnd.cycle"
+                ],
+                "verdict": "keep",
+                "why": "inside its floor"
+            },
+            "quality_director": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "CIR",
+                    "incidents",
+                    "calibration"
+                ],
+                "outputs": [
+                    "pattern_versions certificates",
+                    "jobs listing.draft"
+                ],
+                "function_quality": {
+                    "metric": "certification_grant_rate",
+                    "reads": "gate.certify jobs whose outputs granted",
+                    "value": 0.87,
+                    "sample": 100,
+                    "reading": "measured",
+                    "floor": 0.5,
+                    "evidence": "production_rate_proxy",
+                    "limits": "a rate over rows this function produced, judged by the next stage it fed; it screens for weak output and does not measure the quality of what passed, so it can lower a verdict to watch and never raise one"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 98,
+                "done": 98,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.95,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [
+                    "gate.lanes",
+                    "physical.upgrade_impact",
+                    "visual.identity_drift"
+                ],
+                "verdict": "keep",
+                "why": "inside its floor"
+            },
+            "reliability_engineer": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "improvements",
+                    "config_versions",
+                    "lessons",
+                    "audit_log"
+                ],
+                "outputs": [
+                    "improvements (proposals)",
+                    "audit_log improve.role_work"
+                ],
+                "function_quality": {
+                    "metric": "role_realised_uplift",
+                    "reads": "improve.roles.activity_from_db: realised uplift of the role's kept proposals, measured after promotion by improve.roi",
+                    "value": null,
+                    "sample": 0,
+                    "reading": "UNMEASURED",
+                    "floor": null,
+                    "evidence": "realised_outcome",
+                    "limits": "realised uplift attributed to kept proposals (improve.roi's window)"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 31,
+                "done": 31,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [
+                    "improve.role_work"
+                ],
+                "verdict": "keep",
+                "why": "inside its floor"
+            },
+            "store_operator": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "listings",
+                    "release gates"
+                ],
+                "outputs": [
+                    "etsy listings"
+                ],
+                "function_quality": {
+                    "metric": "exempt",
+                    "value": null,
+                    "sample": 0,
+                    "reading": "exempt",
+                    "reads": "owner-gated"
+                },
+                "value": 0.0,
+                "reading": "measured",
+                "sample": 52,
+                "done": 0,
+                "dead": 52,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [],
+                "verdict": "keep",
+                "why": "dormant by design: live publication is owner-gated; idle is shadow mode working"
+            },
+            "support": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "support_cases",
+                    "pattern_versions",
+                    "lessons",
+                    "teardown findings"
+                ],
+                "outputs": [
+                    "support_cases drafts",
+                    "jobs support.reply"
+                ],
+                "function_quality": {
+                    "metric": "cases_drafted",
+                    "reads": "support cases carrying a drafted answer",
+                    "value": null,
+                    "sample": 0,
+                    "reading": "UNMEASURED",
+                    "floor": 0.5,
+                    "evidence": "production_rate_proxy",
+                    "limits": "a rate over rows this function produced, judged by the next stage it fed; it screens for weak output and does not measure the quality of what passed, so it can lower a verdict to watch and never raise one"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 208,
+                "done": 208,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [
+                    "support.triage"
+                ],
+                "verdict": "keep",
+                "why": "dormant by design: no customer exists yet; idle is the honest state, not a defect"
+            },
+            "swarm_steward": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) among this agent's jobs that reached a terminal state in the window",
+                "inputs": [
+                    "jobs",
+                    "agents",
+                    "work items"
+                ],
+                "outputs": [
+                    "swarm_allocations",
+                    "incidents swarm.orphan"
+                ],
+                "function_quality": {
+                    "metric": "orphans_resolved",
+                    "reads": "swarm.orphan incidents resolved against raised",
+                    "value": null,
+                    "sample": 0,
+                    "reading": "UNMEASURED",
+                    "floor": 0.5,
+                    "evidence": "production_rate_proxy",
+                    "limits": "a rate over rows this function produced, judged by the next stage it fed; it screens for weak output and does not measure the quality of what passed, so it can lower a verdict to watch and never raise one"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 663,
+                "done": 663,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.8,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [
+                    "growth.steer",
+                    "swarm.allocate",
+                    "swarm.backlog",
+                    "swarm.orphans",
+                    "swarm.review"
+                ],
+                "verdict": "keep",
+                "why": "inside its floor"
+            },
+            "validator": {
+                "metric": "job_success_rate",
+                "reads": "jobs table: done / (done + dead) for cir.compile; a validator that dies is a gate that did not run",
+                "inputs": [
+                    "CIR"
+                ],
+                "outputs": [
+                    "jobs gate.certify"
+                ],
+                "function_quality": {
+                    "metric": "compile_pass_rate",
+                    "reads": "cir.compile jobs whose outputs compiled",
+                    "value": 1.0,
+                    "sample": 88,
+                    "reading": "measured",
+                    "floor": 0.5,
+                    "evidence": "production_rate_proxy",
+                    "limits": "a rate over rows this function produced, judged by the next stage it fed; it screens for weak output and does not measure the quality of what passed, so it can lower a verdict to watch and never raise one"
+                },
+                "value": 1.0,
+                "reading": "measured",
+                "sample": 44,
+                "done": 44,
+                "dead": 0,
+                "permission_denied": 0,
+                "open": 0,
+                "floor": 0.95,
+                "retire_below": 0.5,
+                "retirement_condition": "success rate under 50% across at least 10 terminal jobs in 30 days; or no completed job in 21 days while none of its job types is scheduled or queued; or a second agent holds exactly the same job types with more completions (merge)",
+                "on_cadence": [],
+                "verdict": "keep",
+                "why": "inside its floor"
+            }
+        },
+        "retire": [
+            "asset_truth",
+            "policy"
+        ],
+        "merge": [],
+        "watch": [
+            "cfo",
+            "coo",
+            "creative_director",
+            "crochet_engineer",
+            "laura",
+            "learn",
+            "orchestrator",
+            "pricing"
+        ],
+        "unmeasured": [
+            "asset_truth",
+            "laura_private",
+            "policy"
+        ],
+        "enacted": false,
+        "note": "A recommendation, not an action: retiring an agent is a change to DEFAULT_AGENTS, reviewed like any other permission change (#174, #192)."
+    },
+    "allocation": {
+        "allocation_id": 208,
+        "at": "2026-10-20T05:00:57.201579+00:00",
+        "lanes": {
+            "ads": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 0,
+                "bounded_by": "budget",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.041667,
+                "batch": 0,
+                "active": false,
+                "green": false,
+                "function": "distribution",
+                "target_share": 0.2,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "asset_truth": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 0,
+                "bounded_by": "budget",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.041667,
+                "batch": 0,
+                "active": false,
+                "green": true,
+                "function": "product_qa",
+                "target_share": 0.45,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "cfo": {
+                "open_work": 1,
+                "wanted": 1,
+                "granted": 0,
+                "bounded_by": "budget",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.041667,
+                "batch": 0,
+                "active": false,
+                "green": true,
+                "function": "infrastructure",
+                "target_share": 0.15,
+                "deadline_pressure": true,
+                "value_open": 1,
+                "boosts": [
+                    "1 open job(s) at proven-winner value or above"
+                ]
+            },
+            "coo": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 0,
+                "bounded_by": "budget",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.0,
+                "batch": 0,
+                "active": false,
+                "green": true,
+                "function": "infrastructure",
+                "target_share": 0.15,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "cost_optimiser": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 0,
+                "bounded_by": "budget",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.010417,
+                "batch": 0,
+                "active": false,
+                "green": true,
+                "function": "infrastructure",
+                "target_share": 0.15,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "creative_critic": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 0,
+                "bounded_by": "budget",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.010417,
+                "batch": 0,
+                "active": false,
+                "green": true,
+                "function": "infrastructure",
+                "target_share": 0.15,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "creative_director": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 1,
+                "bounded_by": "work",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 1.069121,
+                "batch": 0,
+                "active": true,
+                "green": true,
+                "function": "market_intelligence",
+                "target_share": 0.2,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "crochet_engineer": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 1,
+                "bounded_by": "work",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.166667,
+                "batch": 0,
+                "active": true,
+                "green": true,
+                "function": "product_qa",
+                "target_share": 0.45,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "evaluator": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 0,
+                "bounded_by": "budget",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.010417,
+                "batch": 0,
+                "active": false,
+                "green": true,
+                "function": "infrastructure",
+                "target_share": 0.15,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "experiment_designer": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 0,
+                "bounded_by": "budget",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.010417,
+                "batch": 0,
+                "active": false,
+                "green": true,
+                "function": "infrastructure",
+                "target_share": 0.15,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "experiment_steward": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 0,
+                "bounded_by": "budget",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.010417,
+                "batch": 0,
+                "active": false,
+                "green": true,
+                "function": "market_intelligence",
+                "target_share": 0.2,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "failure_miner": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 0,
+                "bounded_by": "budget",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.010417,
+                "batch": 0,
+                "active": false,
+                "green": true,
+                "function": "infrastructure",
+                "target_share": 0.15,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "growth": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 1,
+                "bounded_by": "work",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.083333,
+                "batch": 0,
+                "active": true,
+                "green": true,
+                "function": "distribution",
+                "target_share": 0.2,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "laura": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 0,
+                "bounded_by": "budget",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.020833,
+                "batch": 0,
+                "active": false,
+                "green": true,
+                "function": "infrastructure",
+                "target_share": 0.15,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "laura_private": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 0,
+                "bounded_by": "budget",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.020833,
+                "batch": 0,
+                "active": false,
+                "green": true,
+                "function": "infrastructure",
+                "target_share": 0.15,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "learn": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 0,
+                "bounded_by": "budget",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.0,
+                "batch": 0,
+                "active": false,
+                "green": true,
+                "function": "infrastructure",
+                "target_share": 0.15,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "lesson_router": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 0,
+                "bounded_by": "budget",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.010417,
+                "batch": 0,
+                "active": false,
+                "green": true,
+                "function": "infrastructure",
+                "target_share": 0.15,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "listing": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 1,
+                "bounded_by": "work",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.083333,
+                "batch": 0,
+                "active": true,
+                "green": true,
+                "function": "distribution",
+                "target_share": 0.2,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "market_radar": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 2,
+                "bounded_by": "work",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.140912,
+                "batch": 0,
+                "active": true,
+                "green": true,
+                "function": "market_intelligence",
+                "target_share": 0.2,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": [],
+                "mjs_reserve": {
+                    "total": 2,
+                    "reserved": 2,
+                    "reserve_floor": 3,
+                    "mission_specialists": 2,
+                    "generic_wanted": 0,
+                    "generic_granted": 0,
+                    "mission_open": 0,
+                    "generic_open": 0,
+                    "mission_batch": 0,
+                    "generic_batch": 0,
+                    "bounded_by": "budget",
+                    "reserve_binding": false,
+                    "generic_refused": "",
+                    "would_starve": []
+                }
+            },
+            "orchestrator": {
+                "open_work": 4,
+                "wanted": 1,
+                "granted": 2,
+                "bounded_by": "work",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.125,
+                "batch": 4,
+                "active": true,
+                "green": true,
+                "function": "infrastructure",
+                "target_share": 0.15,
+                "deadline_pressure": true,
+                "value_open": 3,
+                "boosts": [
+                    "3 open job(s) at proven-winner value or above"
+                ]
+            },
+            "policy": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 0,
+                "bounded_by": "budget",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.041667,
+                "batch": 0,
+                "active": false,
+                "green": true,
+                "function": "product_qa",
+                "target_share": 0.45,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "pricing": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 0,
+                "bounded_by": "budget",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.041667,
+                "batch": 0,
+                "active": false,
+                "green": true,
+                "function": "market_intelligence",
+                "target_share": 0.2,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "prompt_tool_challenger": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 0,
+                "bounded_by": "budget",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.010417,
+                "batch": 0,
+                "active": false,
+                "green": true,
+                "function": "infrastructure",
+                "target_share": 0.15,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "publishing": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 1,
+                "bounded_by": "work",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.083333,
+                "batch": 0,
+                "active": true,
+                "green": true,
+                "function": "product_qa",
+                "target_share": 0.45,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "quality_director": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 0,
+                "bounded_by": "budget",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.041667,
+                "batch": 0,
+                "active": false,
+                "green": true,
+                "function": "product_qa",
+                "target_share": 0.45,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "reliability_engineer": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 0,
+                "bounded_by": "budget",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.010417,
+                "batch": 0,
+                "active": false,
+                "green": true,
+                "function": "infrastructure",
+                "target_share": 0.15,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "store_operator": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 0,
+                "bounded_by": "budget",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.041667,
+                "batch": 0,
+                "active": false,
+                "green": false,
+                "function": "distribution",
+                "target_share": 0.2,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "support": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 1,
+                "bounded_by": "work",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.083333,
+                "batch": 0,
+                "active": true,
+                "green": false,
+                "function": "distribution",
+                "target_share": 0.2,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "swarm_steward": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 0,
+                "bounded_by": "budget",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.010417,
+                "batch": 0,
+                "active": false,
+                "green": true,
+                "function": "infrastructure",
+                "target_share": 0.15,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            },
+            "validator": {
+                "open_work": 0,
+                "wanted": 1,
+                "granted": 0,
+                "bounded_by": "budget",
+                "binding_ceiling": "agent_daily_ceiling",
+                "cad_available_now": 0.041667,
+                "batch": 0,
+                "active": false,
+                "green": true,
+                "function": "product_qa",
+                "target_share": 0.45,
+                "deadline_pressure": false,
+                "value_open": 0,
+                "boosts": []
+            }
+        },
+        "backlog_batch": 0,
+        "idle": false,
+        "active_lanes": [
+            "creative_director",
+            "crochet_engineer",
+            "growth",
+            "listing",
+            "market_radar",
+            "orchestrator",
+            "publishing",
+            "support"
+        ],
+        "backlog_lanes": [
+            "creative_director",
+            "crochet_engineer",
+            "growth",
+            "listing",
+            "market_radar",
+            "publishing"
+        ]
+    },
+    "orphans": [
+        {
+            "key": "incident:12",
+            "kind": "truth_defect",
+            "owner": "",
+            "state": "open",
+            "band": 15,
+            "priority": 15.0,
+            "value_cad": 0.0,
+            "deadline_days": null
+        },
+        {
+            "key": "incident:844",
+            "kind": "truth_defect",
+            "owner": "",
+            "state": "open",
+            "band": 15,
+            "priority": 15.0,
+            "value_cad": 0.0,
+            "deadline_days": null
+        },
+        {
+            "key": "incident:861",
+            "kind": "truth_defect",
+            "owner": "",
+            "state": "open",
+            "band": 15,
+            "priority": 15.0,
+            "value_cad": 0.0,
+            "deadline_days": null
+        },
+        {
+            "key": "incident:842",
+            "kind": "truth_defect",
+            "owner": "",
+            "state": "open",
+            "band": 15,
+            "priority": 15.0,
+            "value_cad": 0.0,
+            "deadline_days": null
+        },
+        {
+            "key": "incident:848",
+            "kind": "truth_defect",
+            "owner": "",
+            "state": "open",
+            "band": 15,
+            "priority": 15.0,
+            "value_cad": 0.0,
+            "deadline_days": null
+        },
+        {
+            "key": "incident:843",
+            "kind": "truth_defect",
+            "owner": "",
+            "state": "open",
+            "band": 15,
+            "priority": 15.0,
+            "value_cad": 0.0,
+            "deadline_days": null
+        },
+        {
+            "key": "incident:841",
+            "kind": "truth_defect",
+            "owner": "",
+            "state": "open",
+            "band": 15,
+            "priority": 15.0,
+            "value_cad": 0.0,
+            "deadline_days": null
+        },
+        {
+            "key": "incident:845",
+            "kind": "truth_defect",
+            "owner": "",
+            "state": "open",
+            "band": 15,
+            "priority": 15.0,
+            "value_cad": 0.0,
+            "deadline_days": null
+        },
+        {
+            "key": "incident:846",
+            "kind": "truth_defect",
+            "owner": "",
+            "state": "open",
+            "band": 15,
+            "priority": 15.0,
+            "value_cad": 0.0,
+            "deadline_days": null
+        },
+        {
+            "key": "incident:847",
+            "kind": "truth_defect",
+            "owner": "",
+            "state": "open",
+            "band": 15,
+            "priority": 15.0,
+            "value_cad": 0.0,
+            "deadline_days": null
+        }
+    ],
+    "work_items": 604,
+    "starved_ready": {
+        "reading": "ok",
+        "starved": 0,
+        "late_ready": 0,
+        "late_by_band": {},
+        "capacity_idle": true,
+        "running": 0,
+        "worker_target": 1,
+        "oldest": [],
+        "sla_s": {
+            "customer_incident": 900,
+            "truth_defect": 1800,
+            "seasonal_deadline": 7200,
+            "proven_winner": 21600,
+            "benchmark_change": 43200,
+            "new_opportunity": 86400,
+            "exploration": 172800,
+            "housekeeping": 259200
+        },
+        "why": "no READY work is past its band SLA"
+    },
+    "untouched_opportunities": {
+        "reading": "ok",
+        "untouched": 0,
+        "of_gaps": 20,
+        "value_weighted": 0,
+        "after_days": 7,
+        "top": [],
+        "why": "every discovered gap was acted on within the window"
+    },
+    "parallelism": {
+        "busy_seconds": 947.8,
+        "idle_seconds": 5717.9,
+        "utilisation": 0.1422,
+        "lanes": {
+            "control": {
+                "busy_seconds": 173.9,
+                "idle_seconds": 6463.2
+            }
+        },
+        "worker_pool": 3,
+        "worker_target": 1,
+        "dedupe_hits": {
+            "learn.scan": 109,
+            "ops.heartbeat": 104,
+            "ops.queue_check": 109,
+            "radar.scan": 111,
+            "portfolio.review": 111,
+            "finance.reconcile": 111,
+            "plan.strategy": 111,
+            "improve.nightly": 111,
+            "improve.weekly": 111,
+            "improve.measure": 111,
+            "creative.style_learning": 111,
+            "creative.outcome_learning": 111,
+            "seasonal.harvest": 111,
+            "gate.lanes": 111,
+            "creative.white_space": 111,
+            "creative.four_season": 111,
+            "improve.sandbox": 111,
+            "improve.league": 111,
+            "finance.governor": 109,
+            "support.triage": 109,
+            "commerce.readings": 111,
+            "commerce.orders_ingest": 111,
+            "listing.taxonomy_refresh": 111,
+            "listing.search_visibility_watch": 111,
+            "commerce.order_readings": 111,
+            "scale.trajectory": 111,
+            "creative.north_star": 111,
+            "ads.adjust": 111,
+            "growth.distribution": 111,
+            "growth.journey": 111,
+            "growth.conclude": 111,
+            "ops.thrash": 109,
+            "seasonal.engine": 111,
+            "swarm.review": 111,
+            "swarm.allocate": 109,
+            "swarm.orphans": 109,
+            "swarm.backlog": 109,
+            "growth.preproduction": 111,
+            "growth.experiments": 111,
+            "creative.blind_review": 111,
+            "creative.grid_tournament": 111,
+            "intel.acceptance": 111,
+            "ops.provenance_backfill": 111,
+            "finance.escalation_check": 111,
+            "launch.readiness": 111,
+            "ops.maturity_disagreements": 111,
+            "model.probe": 111,
+            "ops.continuity": 111,
+            "ops.offsite_archive": 111,
+            "assets.owned_photography": 113,
+            "seasonal.sentinel": 111,
+            "etsy.probe": 111,
+            "mjs.scan": 110,
+            "intel.serp_capture": 111,
+            "intel.benchmark_health": 111,
+            "intel.pod_learning": 111,
+            "mjs.seasonal_sentinel": 111,
+            "intel.panel_discovery": 111,
+            "intel.benchmark_refresh": 111,
+            "physical.upgrade_impact": 111,
+            "visual.identity_drift": 111,
+            "creative.benchmark_memory": 111,
+            "creative.reference_reading": 73,
+            "mjs.reviews": 111,
+            "improve.retrospective": 111,
+            "ops.policy_watch": 111,
+            "build.tick": 109,
+            "creative.blinded": 111,
+            "creative.expedition": 111,
+            "seasonal.remerchandising": 111,
+            "seasonal.cycle_proof": 111,
+            "ops.capacity": 111,
+            "ops.sentinel": 109,
+            "ops.health": 104,
+            "ops.capability_probes": 111,
+            "culture.sweep": 111,
+            "intel.gallery_analysis": 110,
+            "ops.retention": 111,
+            "ops.dependencies": 111,
+            "improve.replay": 111,
+            "teardown.enforce": 111,
+            "etsy.credential_health": 111,
+            "etsy.shop_snapshot": 111,
+            "store.live_drift": 111,
+            "etsy.openapi_reverify": 111,
+            "etsy.listing_census": 111,
+            "autonomy.orchestrate": 162,
+            "laura.executive_tick": 89,
+            "listing.outcomes": 111,
+            "finance.accounting.period_pack": 111,
+            "ops.slo": 104,
+            "seo.cycle": 111,
+            "finance.accounting.cycle": 111,
+            "improve.role_work": 888,
+            "creative.tournament": 16,
+            "chain.rebuild": 32,
+            "improve.mine": 37,
+            "visual.rnd.cycle": 37
+        },
+        "dedupe_hits_total": 11283,
+        "dedupe_since": "2026-10-20T03:48:39.791289+00:00",
+        "basis": "process-local counters since this process started (runner STATE, queue idempotency refusals); a restart resets them",
+        "merge_delay": "dev-lane merge delay is measured by ops/registry.py (`merge_delay`), outside the deployed tree"
+    }
+}

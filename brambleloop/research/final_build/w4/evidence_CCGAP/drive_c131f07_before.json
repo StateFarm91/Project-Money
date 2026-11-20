@@ -1,0 +1,704 @@
+{
+ "base": "http://localhost:8911",
+ "started_at": "2026-10-11T05:37:36.464Z",
+ "login": {
+  "csp": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; manifest-src 'self'; worker-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'",
+  "totp_field": true,
+  "signed_in": true,
+  "cookies": [
+   {
+    "name": "__Host-bl_cc",
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "Strict"
+   },
+   {
+    "name": "__Host-bl_dev",
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "Strict"
+   }
+  ],
+  "js_errors": []
+ },
+ "pages": [
+  {
+   "id": "01_home",
+   "hash": "#/home",
+   "seconds": 3.4,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 12,
+   "cards_without_time": [
+    "Since you last looked"
+   ],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "02_laura",
+   "hash": "#/laura",
+   "seconds": 2.2,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 4,
+   "cards_without_time": [
+    "Laura · Founder/CEO (persistent AI person)",
+    "Laura's presence",
+    "Ask",
+    "Private"
+   ],
+   "page_meta": null
+  },
+  {
+   "id": "03_approvals",
+   "hash": "#/approvals",
+   "seconds": 2.4,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 18,
+   "cards_without_time": [
+    "Your decisions, batch by batch",
+    "Not yet askable",
+    "the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320",
+    "the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)",
+    "a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grant",
+    "owner-recorded Marketplace Insights readings exist",
+    "the owner's authorisation to run this build in production for a full unattended window, so the off-device proof can be read from real rows",
+    "an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself",
+    "a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+    "a model provider that can actually serve a request",
+    "an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner",
+    "one person who has agreed to test a Brambleloop pattern, which needs outreach to real people and therefore an exit from shadow mode",
+    "a completed physical test of a Brambleloop pattern by whoever the testing protocol says performs one",
+    "the approved 13-pattern MJs benchmark set (CA$300 ceiling), bought by the owner and uploaded at /ops/teardown",
+    "Listen to the shortlisted Laura voice candidates and choose one (or none)",
+    "Create the Etsy draft for hexagon-coaster-set v1.2.0"
+   ],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "04_money_default",
+   "hash": "#/money",
+   "seconds": 1.1,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 7,
+   "cards_without_time": [
+    "Headline",
+    "Source health",
+    "Period",
+    null
+   ],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "04_money_month",
+   "hash": "#/money?period=month",
+   "seconds": 0.7,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 7,
+   "cards_without_time": [
+    "Headline",
+    "Source health",
+    "Period",
+    null
+   ],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "04_money_last_month",
+   "hash": "#/money?period=last_month",
+   "seconds": 0.8,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 7,
+   "cards_without_time": [
+    "Headline",
+    "Source health",
+    "Period",
+    null
+   ],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "04_money_ytd",
+   "hash": "#/money?period=ytd",
+   "seconds": 0.7,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 7,
+   "cards_without_time": [
+    "Headline",
+    "Source health",
+    "Period",
+    null
+   ],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "04_money_all",
+   "hash": "#/money?period=all",
+   "seconds": 0.8,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 7,
+   "cards_without_time": [
+    "Headline",
+    "Source health",
+    "Period",
+    null
+   ],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "04_money_drill_recorded_spend",
+   "hash": "#/money/drill/recorded_spend?period=month",
+   "seconds": 0.6,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 1,
+   "cards_without_time": [],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "04_money_bad_period_7d",
+   "hash": "#/money?period=7d",
+   "seconds": 0.5,
+   "fail": null,
+   "js_errors": [
+    "Failed to load resource: the server responded with a status of 400 (Bad Request)"
+   ],
+   "api_failures": [
+    "400 /api/cc/money?period=7d"
+   ],
+   "error_state": true,
+   "error_text": "Could not loadperiod '7d': use month, last_month, 30d, ytd, all or YYYY-MMNothing on this screen is current. No data is shown rather than old or invented data.Try again",
+   "bad_tokens": [],
+   "cards": 1,
+   "cards_without_time": [
+    "Could not load"
+   ],
+   "page_meta": null
+  },
+  {
+   "id": "05_store",
+   "hash": "#/store",
+   "seconds": 6.7,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 13,
+   "cards_without_time": [
+    "Customer-view preview",
+    "Record what the live shop shows"
+   ],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "06_company",
+   "hash": "#/company",
+   "seconds": 20.8,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 21,
+   "cards_without_time": [],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "06_company_warm",
+   "hash": "#/company",
+   "seconds": 5.4,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 21,
+   "cards_without_time": [],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "06_company_departments",
+   "hash": "#/company/departments",
+   "seconds": 11.5,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 21,
+   "cards_without_time": [],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "07_completion",
+   "hash": "#/completion",
+   "seconds": 3,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 3,
+   "cards_without_time": [
+    "Lanes"
+   ],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "07_completion_warm",
+   "hash": "#/completion",
+   "seconds": 1,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 3,
+   "cards_without_time": [
+    "Lanes"
+   ],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "08_operations",
+   "hash": "#/operations",
+   "seconds": 3,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 6,
+   "cards_without_time": [],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "09_learn",
+   "hash": "#/learn",
+   "seconds": 2.7,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 12,
+   "cards_without_time": [],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "10_insights",
+   "hash": "#/insights",
+   "seconds": 1.4,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 5,
+   "cards_without_time": [],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "11_notifications",
+   "hash": "#/notifications",
+   "seconds": 2.1,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 18,
+   "cards_without_time": [
+    "Alerts",
+    "Decision needed: an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself",
+    "Decision needed: a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+    "Decision needed: a model provider that can actually serve a request",
+    "Decision needed: an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner",
+    "Decision needed: a completed physical test of a Brambleloop pattern by whoever the testing protocol says performs one",
+    "Decision needed: the approved 13-pattern MJs benchmark set (CA$300 ceiling), bought by the owner and uploaded at /ops/teardown",
+    "1 dead-lettered jobs",
+    "Decision needed: the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320",
+    "Decision needed: the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)",
+    "Decision needed: a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grant",
+    "Decision needed: owner-recorded Marketplace Insights readings exist",
+    "Decision needed: the owner's authorisation to run this build in production for a full unattended window, so the off-device proof can be read from real rows",
+    "Decision needed: one person who has agreed to test a Brambleloop pattern, which needs outreach to real people and therefore an exit from shadow mode",
+    "Decision needed: Listen to the shortlisted Laura voice candidates and choose one (or none)",
+    "Decision needed: Create the Etsy draft for hexagon-coaster-set v1.2.0",
+    null
+   ],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "12_timeline",
+   "hash": "#/timeline",
+   "seconds": 0.8,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 1,
+   "cards_without_time": [],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "13_ask",
+   "hash": "#/ask",
+   "seconds": 2.5,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 2,
+   "cards_without_time": [
+    "Ask Company",
+    "What is blocking launch?"
+   ],
+   "page_meta": null
+  },
+  {
+   "id": "14_account",
+   "hash": "#/account",
+   "seconds": 1,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 15,
+   "cards_without_time": [
+    "Emergency controls",
+    "Authentication",
+    "Signed-in devices",
+    "Phase",
+    "Appearance",
+    "Sign out"
+   ],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "15_emergency",
+   "hash": "#/emergency",
+   "seconds": 0.6,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 4,
+   "cards_without_time": [
+    "Company phase",
+    "Publishing & spend",
+    "Departments",
+    "Never paused"
+   ],
+   "page_meta": "Loaded just now"
+  },
+  {
+   "id": "16_more",
+   "hash": "#/more",
+   "seconds": 0.5,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 1,
+   "cards_without_time": [
+    null
+   ],
+   "page_meta": null
+  },
+  {
+   "id": "17_drill",
+   "hash": "#/drill?provider=autonomy&index=0",
+   "seconds": 0.5,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 1,
+   "cards_without_time": [
+    "Source reference"
+   ],
+   "page_meta": null
+  },
+  {
+   "id": "02_laura_talk",
+   "hash": "#/laura",
+   "seconds": 4.9,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 5,
+   "cards_without_time": [
+    "Laura · Founder/CEO (persistent AI person)",
+    "Laura's presence",
+    "Laura",
+    "Ask",
+    "Private"
+   ],
+   "page_meta": null
+  },
+  {
+   "id": "20_phone_home",
+   "hash": "#/home",
+   "seconds": 3.3,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 12,
+   "cards_without_time": [
+    "Since you last looked"
+   ],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "20_phone_company",
+   "hash": "#/company",
+   "seconds": 6,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 21,
+   "cards_without_time": [],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "20_phone_money",
+   "hash": "#/money",
+   "seconds": 0.7,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 7,
+   "cards_without_time": [
+    "Headline",
+    "Source health",
+    "Period",
+    null
+   ],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "20_phone_learn",
+   "hash": "#/learn",
+   "seconds": 2.4,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 12,
+   "cards_without_time": [],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "20_phone_completion",
+   "hash": "#/completion",
+   "seconds": 1,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 3,
+   "cards_without_time": [
+    "Lanes"
+   ],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "20_phone_store",
+   "hash": "#/store",
+   "seconds": 6.2,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 13,
+   "cards_without_time": [
+    "Customer-view preview",
+    "Record what the live shop shows"
+   ],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "20_phone_operations",
+   "hash": "#/operations",
+   "seconds": 2.6,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 6,
+   "cards_without_time": [],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "20_phone_approvals",
+   "hash": "#/approvals",
+   "seconds": 2.4,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 18,
+   "cards_without_time": [
+    "Your decisions, batch by batch",
+    "Not yet askable",
+    "the owner has ruled whether an API+vision traversal satisfies the browser/vision wording of #189/#221/#222/#320",
+    "the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)",
+    "a listing that exists on the marketplace: company work first (a product clears the final publication gate), then the owner's per-listing publication grant",
+    "owner-recorded Marketplace Insights readings exist",
+    "the owner's authorisation to run this build in production for a full unattended window, so the off-device proof can be read from real rows",
+    "an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself",
+    "a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+    "a model provider that can actually serve a request",
+    "an owned publishing surface beyond the Etsy shop (which exists and is the paid destination): a site and/or Pinterest account, opened by the owner",
+    "one person who has agreed to test a Brambleloop pattern, which needs outreach to real people and therefore an exit from shadow mode",
+    "a completed physical test of a Brambleloop pattern by whoever the testing protocol says performs one",
+    "the approved 13-pattern MJs benchmark set (CA$300 ceiling), bought by the owner and uploaded at /ops/teardown",
+    "Listen to the shortlisted Laura voice candidates and choose one (or none)",
+    "Create the Etsy draft for hexagon-coaster-set v1.2.0"
+   ],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "20_phone_insights",
+   "hash": "#/insights",
+   "seconds": 1.5,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 5,
+   "cards_without_time": [],
+   "page_meta": "as of just now"
+  },
+  {
+   "id": "20_phone_laura",
+   "hash": "#/laura",
+   "seconds": 2.3,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 5,
+   "cards_without_time": [
+    "Laura · Founder/CEO (persistent AI person)",
+    "Laura's presence",
+    "Laura",
+    "Ask",
+    "Private"
+   ],
+   "page_meta": null
+  },
+  {
+   "id": "20_phone_more",
+   "hash": "#/more",
+   "seconds": 0.4,
+   "fail": null,
+   "js_errors": [],
+   "api_failures": [],
+   "error_state": false,
+   "error_text": null,
+   "bad_tokens": [],
+   "cards": 1,
+   "cards_without_time": [
+    null
+   ],
+   "page_meta": null
+  }
+ ],
+ "logout": {
+  "before_status": 200
+ },
+ "finished_at": "2026-10-11T05:41:56.392Z"
+}

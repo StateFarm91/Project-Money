@@ -1,0 +1,33 @@
+{
+ "dropped_tables": [],
+ "dropped_columns": [],
+ "retyped_columns": [],
+ "nullability_tightened": [],
+ "row_count_changes": {
+  "audit_log": [
+   2507,
+   2509
+  ]
+ },
+ "content_changes": [],
+ "added_tables": [],
+ "added_columns": [],
+ "dropped_indexes": [],
+ "added_indexes": [],
+ "dropped_constraints": [],
+ "added_constraints": [],
+ "summary": {
+  "dropped_tables": 0,
+  "dropped_columns": 0,
+  "retyped_columns": 0,
+  "nullability_tightened": 0,
+  "row_count_changes": 1,
+  "content_changes": 0,
+  "added_tables": 0,
+  "added_columns": 0,
+  "dropped_indexes": 0,
+  "added_indexes": 0,
+  "dropped_constraints": 0,
+  "added_constraints": 0
+ }
+}

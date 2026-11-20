@@ -1,0 +1,11 @@
+test_bound_packet_passes_but_changed_pdf_bytes_refuse (test_publish_execution_gate.ExecutionRecheck.test_bound_packet_passes_but_changed_pdf_bytes_refuse) ... ok
+test_gate_changed_after_claim_blocks_real_client_http_and_retry (test_publish_execution_gate.ExecutionRecheck.test_gate_changed_after_claim_blocks_real_client_http_and_retry) ... ok
+test_owner_revocation_inside_client_blocks_http (test_publish_execution_gate.ExecutionRecheck.test_owner_revocation_inside_client_blocks_http) ... ok
+test_payload_image_release_and_unknown_gates_refuse (test_publish_execution_gate.ExecutionRecheck.test_payload_image_release_and_unknown_gates_refuse) ... ok
+test_phase_and_unavailable_evidence_refuse (test_publish_execution_gate.ExecutionRecheck.test_phase_and_unavailable_evidence_refuse) ... ok
+test_real_client_calls_callback_before_fake_http_create (test_publish_execution_gate.ExecutionRecheck.test_real_client_calls_callback_before_fake_http_create) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 18.497s
+
+OK

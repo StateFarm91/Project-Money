@@ -1,0 +1,511 @@
+"""CIR -> customer-facing written pattern.
+
+Downstream of the CIR, never the source of truth (Master Plan section 2). US terminology is
+canonical; UK is a rendering choice, not a fork (section 31).
+
+The emitted grammar is deliberately strict and regular so the reverse compiler can parse it
+back independently. Writer and reverse compiler share no parsing code on purpose: if they
+shared it, a round-trip would prove nothing.
+"""
+from __future__ import annotations
+
+from .. cir import stitches
+from .compiler import CompileResult
+from .rowcycle import describe, detect_cycle
+from .model import CIR, Component, Op, OpNode, Repeat, Row
+
+
+def _term(code: str, terminology: str) -> str:
+    """Delegates to the single terminology table in `stitches`. See UK_TERMS there."""
+    return stitches.term(code, terminology)
+
+
+def write_op(op: Op, terminology: str = "US") -> str:
+    """One op; an op worked in its own colour ends "with <colour>" (P0-CIR-COLOURWORK)."""
+    text = _write_op(op, terminology)
+    colour = getattr(op, "color", None)
+    return f"{text} with {colour}" if colour else text
+
+
+def _write_op(op: Op, terminology: str = "US") -> str:
+    code = _term(op.stitch, terminology)
+    st = stitches.get(op.stitch)
+    n = op.count
+
+    if op.stitch == "ch":
+        return f"ch {n}" if n > 1 else "ch 1"
+    if op.stitch == "sk":
+        # `code`, not the literal. This returned "sk" in both terminologies because it ran
+        # before the mapping was consulted -- the UK entry existed and was dead.
+        return f"{code} next {n} sts" if n > 1 else f"{code} next st"
+    # Which loop the hook enters. Count-neutral, so the arithmetic never noticed it was
+    # missing -- and a back-loop row written as plain "hdc in next 12 sts" is a different
+    # fabric that passes every count check. The loop is stated in the same regular grammar
+    # so the reverse compiler reads it back and a flipped loop is a mismatch, not a nuance.
+    # "back loop"/"front loop" are the same words in US and UK terms.
+    loop = getattr(op, "loop", "both")
+    where = f" in {loop} loop" if loop in ("front", "back") else ""
+    if st.consumes > 1:
+        # Decreases consume two; a 2-over-2 cable crossing consumes four. Both are "over
+        # next N sts", and hardcoding the two meant the first stitch that consumed more
+        # would have been written as though it consumed one.
+        base = f"{code}{where} over next {st.consumes} sts"
+        return f"{base} x {n}" if n > 1 else base
+    if where:
+        return f"{code}{where} of next {n} sts" if n > 1 else f"{code}{where} of next st"
+    return f"{code} in next {n} sts" if n > 1 else f"{code} in next st"
+
+
+def write_node(node: OpNode, terminology: str = "US") -> str:
+    if isinstance(node, Op):
+        return write_op(node, terminology)
+    inner = ", ".join(write_node(o, terminology) for o in node.ops)
+    if node.times is None:
+        return f"*{inner}; rep from * to end"
+    return f"[{inner}] x {node.times}"
+
+
+def write_row(
+    row: Row, component: Component, count: int | None, terminology: str = "US",
+    state_color: bool = False,
+) -> str:
+    """One row or round of customer-facing instruction.
+
+    `state_color` names the yarn in the line. It is on whenever the pattern has more than one
+    colour, because a two-colour pattern whose written instructions never say which yarn to
+    pick up is not a written pattern -- it is a chart with sentences next to it. Overlay
+    mosaic in particular is one colour per row, and the colour *is* the design.
+    """
+    label = "Row" if component.construction == "flat_rows" else "Rnd"
+    parts: list[str] = []
+    if row.turning_chain:
+        turn = ", turn" if component.construction == "flat_rows" else ""
+        parts.append(f"Ch {row.turning_chain}{turn}.")
+
+    is_first = component.rows and row is component.rows[0]
+    if is_first and component.foundation_kind == "magic_ring":
+        # A magic-ring round has no previous fabric to work into, so "in next N sts" would
+        # be nonsense to a maker. Structure is still a plain run of stitches.
+        if len(row.ops) == 1 and isinstance(row.ops[0], Op):
+            op = row.ops[0]
+            body = f"{op.count} {_term(op.stitch, terminology)} in magic ring"
+        else:
+            body = ", ".join(write_node(n, terminology) for n in row.ops) + " in magic ring"
+        parts.append(body + ".")
+    else:
+        body = ", ".join(write_node(n, terminology) for n in row.ops)
+        parts.append(body + ".")
+    heading = f"{label} {row.index}"
+    if state_color and row.color:
+        heading += f" ({row.color})"
+    line = f"{heading}: " + " ".join(parts)
+    if count is not None:
+        line += f" ({count} sts)"
+    if row.note:
+        line += f"  -- {row.note}"
+    return line
+
+
+def hold_line(comp: Component, row: Row) -> str:
+    """The division, written where it happens.
+
+    Without this a divided pattern reads "Rnd 24: sc 32 (32 sts)" over a round of 48 and the
+    maker has no idea what became of the other sixteen. The arithmetic would be correct, the
+    twin would agree, and the document would be unfollowable -- the bag-of-pieces failure
+    arriving through shaping rather than through assembly.
+    """
+    taken = [h for h in comp.holds if h.at_row == row.index]
+    if not taken:
+        return ""
+    parts = []
+    for hold in sorted(taken, key=lambda h: h.from_stitch):
+        start, end = hold.spans
+        where = f"sts {start + 1}-{end}"
+        parts.append(f"{hold.count} sts ({where}) for {hold.name.replace('_', ' ')}")
+    return ("Place " + ", and ".join(parts) + " on a stitch holder or waste yarn; "
+            "they are worked separately later.")
+
+
+def resume_line(comp: Component) -> str:
+    """How a held piece starts, said rather than implied."""
+    if not comp.resumes:
+        return ""
+    # Said for the construction the piece actually has: a flat sleeve worked from held
+    # stitches is worked in rows and seamed, and telling the maker "in the round" would make
+    # a tube the pattern never validated.
+    how = "in rows" if comp.construction == "flat_rows" else "in the round"
+    return (f"Rejoin yarn to the sts held for {comp.resumes.replace('_', ' ')} and work "
+            f"{how} from here.")
+
+
+SPIRAL_LINE = ("Work in a continuous spiral. Do not join the rounds; mark the first stitch "
+               "of each round and move the marker up as you go.")
+# F3 (2026-10-31): the stitch totals only add up if the ch 1 is not a stitch, and counting it
+# is the commonest beginner error in joined rounds -- so the line says so.
+JOINED_LINE = ("Join each round with a sl st to the first stitch, then ch 1 to begin the "
+               "next round. The ch 1 does not count as a stitch.")
+
+
+def construction_lines(comp: Component) -> list[str]:
+    """How the rounds are worked, stated once rather than repeated on every line.
+
+    A maker who does not know whether to join has a different fabric from the one the
+    pattern was validated as: joining leaves a seam up the side, spiralling does not. Saying
+    it once at the top of the component keeps one source of truth, and the reverse compiler
+    reads this line back and checks it against the CIR, so a document that says "spiral"
+    over a joined pattern is caught rather than shipped.
+    """
+    if comp.construction == "spiral_rounds":
+        return [SPIRAL_LINE]
+    if comp.construction == "joined_rounds":
+        return [JOINED_LINE]
+    return []
+
+
+def stuff_line(comp: Component) -> str:
+    """ENG-PLUSH: the stuffing point, in a fixed grammar the reverse compiler reads back."""
+    return (f"Stuff after Rnd {comp.stuff_at_round}: stuff firmly with new polyester "
+            f"fibrefill, pushing it out to the widest round so the piece keeps its shape; "
+            f"top up as the opening closes.")
+
+
+def close_line(comp: Component, result) -> str:
+    """ENG-PLUSH: the closure of a closed piece, in a fixed grammar the reverse compiler reads."""
+    last = comp.rows[-1]
+    try:
+        count = result.row(comp.name, last.index).stitch_count
+    except (KeyError, AttributeError):
+        count = last.declared_count
+    return (f"Close after Rnd {last.index}: fasten off leaving a 20 cm tail, thread it through "
+            f"the front loop of each of the last {count} sts, pull tight to close the hole, "
+            f"then weave the tail through at least 5 cm of stitches in two directions and "
+            f"trim it inside the piece.")
+
+
+ASSEMBLY_HEADING = "## Assembly"
+
+_SEAM_WORDS = {
+    "whipstitch": "Whipstitch",
+    "slst": "Slip stitch",
+    "mattress": "Mattress stitch",
+    "sew": "Sew",
+    "pick_up": "Work",
+    "thread": "Thread",
+}
+
+
+def write_seam(seam, position: int, unit: str = "round") -> str:
+    """One finishing step, in the same regular grammar as a row so it can be read back.
+
+    The placement clause is what turns a set of correct pieces into an object. A maker who
+    is told only that the ear attaches to the head has to work out where from a photograph,
+    which is the "beauty image, guess the instructions" failure arriving through the back
+    door of an unspecified assembly step.
+    """
+    verb = _SEAM_WORDS.get(seam.method, "Join")
+    if seam.is_self_seam:
+        where = f"the two edges of the {seam.piece_a} together"
+    else:
+        from .model import SEAM_CONNECTOR
+
+        where = (f"the {seam.piece_a} {SEAM_CONNECTOR.get(seam.method, 'to')} "
+                 f"the {seam.piece_b}")
+    if seam.is_placed and seam.edge_b == "surface":
+        # ENG-PLUSH: laid on the piece, not along an edge.
+        where = where.replace(f" to the {seam.piece_b}", f" onto the {seam.piece_b}", 1)
+        where += f" centred on {unit} {seam.at_round}"
+        if seam.stitches_from_centre:
+            where += f", {seam.stitches_from_centre} sts from the centre line"
+        if seam.mirrored:
+            where += ", and the second one mirrored on the far side"
+    elif seam.is_placed:
+        last = seam.at_round + seam.spans_rounds - 1
+        # "rows" on a piece worked in flat rows: a maker counting rows of a flat panel is
+        # not counting rounds, and the reader accepts either word.
+        span = (f"{unit} {seam.at_round}" if seam.spans_rounds == 1
+                else f"{unit}s {seam.at_round}-{last}")
+        where += f" across {span}"
+        if seam.stitches_from_centre is not None:
+            where += f", {seam.stitches_from_centre} sts either side of centre"
+        if seam.mirrored:
+            where += ", and the second one mirrored on the far side"
+    line = f"Step {position}: {verb} {where}."
+    if seam.stuff_before_closing:
+        line += " Stuff firmly before closing."
+    if seam.note:
+        note = seam.note.rstrip(".")
+        line += f" {note[0].upper()}{note[1:]}."
+    return line
+
+
+def assembly_lines(cir: CIR) -> list[str]:
+    if not cir.assembly:
+        return []
+    out = [ASSEMBLY_HEADING]
+    flat = {c.name for c in cir.components if c.construction == "flat_rows"}
+    out.extend(write_seam(seam, i, "row" if seam.piece_b in flat else "round")
+               for i, seam in enumerate(cir.assembly, start=1))
+    return out
+
+
+FINISHING_HEADING = "## Finishing"
+
+
+def _is_upright(cir: CIR, result) -> bool:
+    """True when the piece is a measured non-disc (a vessel): it has an inside."""
+    if result is None:
+        return False
+    from . import geometry as _geom
+
+    return any(rev.shape != _geom.DISC for rev in _geom.measure_all(cir, result).values())
+
+
+def finishing_lines(cir: CIR, *, width_cm: float | None = None,
+                    height_cm: float | None = None,
+                    result: "CompileResult | None" = None) -> list[str]:
+    """How the work stops being work in progress.
+
+    Every Brambleloop pattern shipped without this, and nobody noticed until the teardown
+    reader -- built to audit somebody else's document -- was pointed at ours and found no
+    finishing section. The last thing the maker was told was the last row. Fastening off,
+    securing the ends and blocking to the stated size are the difference between a finished
+    object and a piece still on the hook, and every benchmark in the category says so.
+
+    Derived, not written: the ends come from the colours the CIR actually uses and the
+    blocking measurements from the twin. Nothing here claims anything about a fibre --
+    the ball band is cited instead.
+
+    That sentence used to end "a fibre this schema does not record", and the schema records
+    one now (`Material.fibre_content`, added 2026-09-25). The ball band is still what is
+    cited here, and for a better reason than the schema's silence: the buyer of a *pattern*
+    chooses their own yarn, so the composition this pattern was written for is not the
+    composition of the object in their hands. `write_pattern` prints the stated content on
+    the Materials line, where it describes the yarn it belongs to; care instructions stay
+    with the yarn the maker actually bought.
+    """
+    out = [FINISHING_HEADING,
+           "Fasten off and weave in all ends on the wrong side. Thread each end through at "
+           "least 5 cm of stitches, then back through a few in the opposite direction, so "
+           "it cannot work loose in wear or washing."]
+
+    colours = len(cir.colors or [])
+    in_rounds = bool(cir.components) and all(
+        c.construction in ("joined_rounds", "spiral_rounds") for c in cir.components)
+    if colours > 1:
+        # How each change is made, derived from the rows (`cir.colour_changes`, PT-09): a
+        # change can be carried only when the resting colour is at the edge the row starts.
+        from .colour_changes import analyse, instruction, rounds_instruction
+
+        if not in_rounds:
+            # Turned-row work keeps its wording. (F2's "an end at every join" is replaced
+            # for round-worked pieces below; a flat-row release changes its text only with
+            # a version of its own.)
+            out.append(f"This pattern uses {colours} colours, so there is an end to secure at "
+                       f"every join and every change.")
+        upright_piece = _is_upright(cir, result) if in_rounds else False
+        by_name = {c.name: c for c in cir.components}
+        for plan in analyse(cir).values():
+            if in_rounds:
+                comp = by_name[plan.component]
+                line = rounds_instruction(plan, piece=comp.name.replace("_", " "),
+                                          make=comp.make, upright=upright_piece)
+            else:
+                line = instruction(plan)
+            if line:
+                out.append(line if len(cir.components) == 1
+                           else f"{plan.component}: {line}")
+
+    # "Pin it out and leave it to dry flat" is the one instruction in this document that can
+    # destroy a finished object. It is correct for anything that IS flat -- a blanket, a
+    # runner, a disc coaster -- and ruinous for a vessel: flattening a damp basket sets a
+    # crease across the wall and it does not come back. The shape is not guessed at; it is
+    # the same `cir.geometry` classification the twin records, so this branches on the
+    # measured object rather than on the title or the slug.
+    #
+    # DISC stays with the flat wording deliberately: a coaster is flat, and a pattern that
+    # hedged on every round piece would teach makers to ignore the finishing section.
+    upright = ()
+    if result is not None:
+        from . import geometry as _geom
+
+        # Inverted on purpose: NOT-flat rather than a list of the solid shapes. The
+        # classifier already answers disc / tube / cone / dome / vessel / shaped / gathered,
+        # and enumerating the six solid ones would mean a seventh added later silently
+        # inherits "leave it to dry flat" -- a new shape would default to the one wording
+        # that can destroy the object. A flat piece produces no revolution at all, so an
+        # empty measurement keeps the flat wording and only a measured non-disc changes it.
+        upright = tuple(sorted({
+            rev.shape for rev in _geom.measure_all(cir, result).values()
+            if rev.shape != _geom.DISC}))
+
+    # OPUS2 (amigurumi): a stuffed, closed piece is never blocked. "Damp-finish it standing
+    # up, stuffed lightly with a towel" is vessel advice; on a toy or a stuffed pillow it
+    # tells the maker to soak a finished, stuffed object. Branches on the assembly's own
+    # stuff_before_closing, never on a title.
+    stuffed = any(getattr(s, "stuff_before_closing", False) for s in (cir.assembly or [])) \
+        or any(c.stuff_at_round is not None for c in cir.components)   # ENG-PLUSH
+    if stuffed:
+        out.append("This piece is stuffed and closed, so it is not blocked: do not soak, pin "
+                   "or press it. Ease its shape and any sewn-on pieces into place with your "
+                   "fingers.")
+    elif upright:
+        # No pinning measurement is offered: the stated size of a vessel is a diameter and a
+        # height, and pinning to a width would be pinning it flat by another name.
+        out.append("Do not block this piece flat. It is worked in the round and pressing it "
+                   "out would crease the wall: damp-finish it standing up, easing it to the "
+                   "stated measurements with your hands and letting it dry in its own shape, "
+                   "stuffed lightly with a towel if it needs help standing.")
+    elif width_cm and height_cm and _polygon_disc(cir, result):
+        sides = _polygon_disc(cir, result)
+        out.append(f"Block each piece to {width_cm:.1f} cm across the points and "
+                   f"{height_cm:.1f} cm across the flats, keeping the {sides} corners where "
+                   f"the stacked increases put them: pin it out damp, easing rather than "
+                   f"stretching, and leave it to dry flat. Those are the dimensions this "
+                   f"pattern's gauge produces.")
+    elif width_cm and height_cm:
+        out.append(f"Block the finished piece to {width_cm:.0f} x {height_cm:.0f} cm: pin "
+                   f"it out damp to those measurements, easing rather than stretching, and "
+                   f"leave it to dry flat. Those are the dimensions this pattern's gauge "
+                   f"produces, so blocking to them is what makes the stated size the size "
+                   f"you get.")
+    else:
+        out.append("Block the finished piece: pin it out damp, easing rather than "
+                   "stretching, and leave it to dry flat.")
+
+    if not stuffed:
+        # OPUS2P-8: a stuffed piece is not blocked, so no "before blocking" line follows.
+        out.append("Check the ball band before blocking with heat or water. Fibres behave "
+                   "differently and yours is the one in your hands.")
+    return out
+
+
+def _polygon_disc(cir: CIR, result) -> int | None:
+    """The corner count of a flat stacked-increase piece, or None (PT-10)."""
+    if result is None or len(cir.components) != 1:
+        return None
+    comp = cir.components[0]
+    if comp.construction == "flat_rows":
+        return None
+    from . import geometry as _geom
+
+    rev = _geom.measure_all(cir, result).get(comp.name)
+    if rev is None or rev.shape != _geom.DISC:
+        return None
+    sides = _geom.corners([r for r in result.rows if r.component == comp.name])
+    return sides if sides and sides >= 3 else None
+
+
+def fibre_content_phrase(material) -> str:
+    """"55% cotton, 45% linen", or "" when the source does not state a composition.
+
+    Empty is the honest output for a yarn nobody has a composition for, and it is the one
+    the rest of the document is built to handle: `publish/pdf.py`'s children's gate reports
+    `fibre_and_care` unrenderable and refuses the product rather than printing a guess. A
+    phrase invented from the yarn *name* -- "worsted acrylic" becoming "100% acrylic" --
+    would satisfy that gate with something no source said, which is the one failure the
+    field was added to make impossible.
+
+    The order is the material's own, which `Material.__post_init__` has already normalised
+    to descending percentage. The writer does not re-sort: two places deciding an order is
+    two places that can come to disagree about it.
+    """
+    return ", ".join(f"{percent}% {fibre}"
+                     for fibre, percent in (material.fibre_content or ()))
+
+
+def material_line(material) -> str:
+    """One material as the buyer reads it on the Materials line.
+
+    `name (colorway), 55% cotton, 45% linen` -- the composition appended to the yarn the
+    pattern was written for, and only where the CIR states one.
+
+    The buyer needs this here rather than in a footnote: fibre decides whether a garment is
+    wearable against a child's skin, whether it can be machine washed, and whether an
+    allergy rules the project out, and all three are decisions made before the yarn is
+    bought. It is on the same line as the yarn it belongs to because a composition floating
+    free of the yarn it describes is the kind of fact that gets attached to the wrong one.
+
+    `cir.reverse.parse_fibre_content` reads this back with its own grammar, which is the
+    round trip B-005 requires. It does not import this function and this function does not
+    import it: a round trip through shared code proves nothing.
+    """
+    head = f"{material.name} ({material.colorway})" if material.colorway else material.name
+    fibres = fibre_content_phrase(material)
+    return f"{head}, {fibres}" if fibres else head
+
+
+def collapses_rows(cir: CIR) -> bool:
+    """True when the written pattern will collapse a repeated block into an instruction.
+
+    Listing copy has to say what the PDF actually contains. "A stitch count on every single
+    row" stops being true the moment the writer collapses rows 49-120 into one sentence, and
+    a claim that was true last week is the kind that ships. Derived from the same
+    `detect_cycle` the writer uses, so the copy and the document cannot drift apart.
+    """
+    return any(detect_cycle(c.rows) is not None for c in cir.components)
+
+
+def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US", *,
+                  width_cm: float | None = None, height_cm: float | None = None) -> str:
+    """Render the full customer-facing pattern body."""
+    out: list[str] = [f"{cir.title}", f"Version {cir.version}", ""]
+    if cir.gauge:
+        g = cir.gauge
+        hook = f", {g.hook_mm}mm hook" if g.hook_mm else ""
+        out.append(
+            f"Gauge: {g.stitches_per_10cm} sts x {g.rows_per_10cm} rows = 10cm in "
+            f"{_term(g.stitch_type, terminology)}{hook}"
+        )
+    if cir.materials:
+        out.append("Materials: " + "; ".join(material_line(m) for m in cir.materials))
+    out.append(f"Terminology: {terminology.upper()} terms")
+    out.append("")
+
+    for comp in cir.components:
+        if len(cir.components) > 1 or comp.name != "body":
+            make = f" (make {comp.make})" if comp.make > 1 else ""
+            out.append(f"## {comp.name}{make}")
+        if comp.foundation and comp.foundation_kind == "chain":
+            out.append(f"Foundation: ch {comp.foundation}.")
+        # F-750: a piece that declares its work direction says it (cir.topology).
+        from .topology import direction_line
+        if direction_line(comp):
+            out.append(direction_line(comp))
+        resumed = resume_line(comp)
+        if resumed:
+            out.append(resumed)
+        out.extend(construction_lines(comp))
+        # Collapse a repeated row-block into an instruction, the way a real pattern does.
+        # Printing all 120 rows of a five-repeat blanket is complete and unusable: a maker
+        # loses their place in four pages of near-identical lines. The cycle is derived from
+        # the rows, so it cannot disagree with them.
+        cycle = detect_cycle(comp.rows)
+        state_color = len(cir.colors) > 1
+        stuff_pending = comp.stuff_at_round is not None
+        for row in comp.rows:
+            if stuff_pending and row.index > comp.stuff_at_round:
+                out.append(stuff_line(comp))
+                stuff_pending = False
+            if cycle is not None and cycle.covers(row.index):
+                continue
+            try:
+                count = result.row(comp.name, row.index).stitch_count
+            except KeyError:
+                count = None
+            out.append(write_row(row, comp, count, terminology, state_color))
+            held = hold_line(comp, row)
+            if held:
+                out.append(held)
+            if cycle is not None and row.index == cycle.end:
+                out.append(describe(cycle, comp.rows[-1].index))
+        if stuff_pending:
+            out.append(stuff_line(comp))
+        if comp.closes and comp.rows:
+            out.append(close_line(comp, result))
+        out.append("")
+
+    out.extend(assembly_lines(cir))
+    out.append("")
+    out.extend(finishing_lines(cir, width_cm=width_cm, height_cm=height_cm, result=result))
+
+    return "\n".join(out).rstrip() + "\n"

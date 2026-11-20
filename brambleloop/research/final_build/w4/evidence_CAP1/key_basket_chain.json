@@ -1,0 +1,165 @@
+{
+ "chain_run": {
+  "dir": "<scratch>",
+  "built": {
+   "housewarming-key-basket": "0.1.0"
+  },
+  "jobs": {
+   "gate.certify:done": 1,
+   "gate.lanes:pending": 1,
+   "listing.draft:done": 1,
+   "assets.build:done": 1,
+   "pricing.position:done": 1,
+   "listing.seo:done": 1,
+   "launch.plan:done": 1,
+   "marketing.schedule:pending": 1,
+   "store.publish:dead": 1
+  },
+  "seconds": 96.8
+ },
+ "slug": "housewarming-key-basket",
+ "version": "0.1.0",
+ "cir": {
+  "compiles": true,
+  "errors": 0,
+  "warnings": 0
+ },
+ "release": {
+  "certified": true,
+  "release_hash": "142b52f0f9c62e9f3b22a96fd13bf0ae387108fc8b2293d78cad1980b75d7760",
+  "physical_test_required": false,
+  "physical_test_passed": false
+ },
+ "product_truth": {
+  "gates": {
+   "compiles_clean": true,
+   "title_promise_backed": true,
+   "assembly_promise_backed": true,
+   "fabric_claim_backed": true,
+   "size_label_backed": true
+  },
+  "passes": true,
+  "calibrated": false
+ },
+ "first_customer": {
+  "final_pdf": {
+   "state": "PASS",
+   "detail": "both documents render with no problems: {'UK': 7, 'US': 7}"
+  },
+  "terminology": {
+   "state": "PASS",
+   "detail": "every stitch in both documents is defined by that document's own key, and the writer localises every code UK renders differently"
+  },
+  "counts_and_construction": {
+   "state": "PASS",
+   "detail": "compiles with no errors, both documents reverse-compile back to this CIR, and the title's count claim is backed (the title makes no multiplicity claim, so there is nothing to contradict)"
+  },
+  "gauge_and_size_claims": {
+   "state": "UNRESOLVED",
+   "detail": "no passed physical sample is bound to this content (142b52f0f9c6); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text"
+  },
+  "listing_claims": {
+   "state": "PASS",
+   "detail": "the listing's shape, technique and proof claims are all backed by the twin and by this release's own evidence"
+  },
+  "imagery": {
+   "state": "PASS",
+   "detail": "3 disclosed frames, structurally PASS on their bound bytes, and 5 disclosed gallery frame(s) re-verified on their bytes, covered by valid listing-set certificate 1 for release 142b52f0f9c6"
+  },
+  "etsy_remote_state": {
+   "state": "UNVERIFIABLE",
+   "detail": "9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_image sends the binary in a part named `image` to the listing's images endpoint, and read-back verific"
+  },
+  "fulfilment_and_download": {
+   "state": "FAIL",
+   "detail": "the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner decision"
+  },
+  "licence_and_safety_statements": {
+   "state": "PASS",
+   "detail": "both documents carry the canonical licence; this product is not merchandised to a child, so no safety statement set attaches to it"
+  }
+ },
+ "publication_authority": {
+  "certification": {
+   "state": "PASS",
+   "why": "certificate granted for this release, nothing withheld"
+  },
+  "parity": {
+   "state": "UNKNOWN",
+   "why": "unjudged ['competitive_blind_review', 'hero']"
+  },
+  "listing_set": {
+   "state": "PASS",
+   "why": "listing set certified"
+  },
+  "disclosure": {
+   "state": "PASS",
+   "why": "every owed disclosure is in the stored copy"
+  },
+  "policy": {
+   "state": "UNKNOWN",
+   "why": "a policy source has never been read"
+  },
+  "search": {
+   "state": "FAIL",
+   "why": "search certificate refuses"
+  },
+  "rollback": {
+   "state": "UNKNOWN",
+   "why": "no rollback rehearsal within the last 3 days"
+  },
+  "economics": {
+   "state": "MODELLED",
+   "why": "price is the stored listing price (set, not measured); fees and net are modelled from the recorded fee schedule; sales volume is unknown -- no order has been ingested"
+  }
+ },
+ "release_gates": {
+  "blocks_release": true,
+  "reasons": [
+   "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+   "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+   "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (142b52f0f9c6); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+   "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im",
+   "FIRST_CUSTOMER_BLOCKING: fulfilment_and_download: FAIL -- the artifact store is not durable: the rendered PDF lives on a container filesystem that a redeploy reclaims, so a paid download can resolve to nothing. Object storage is the fix and it is an owner de"
+  ],
+  "originality": {
+   "state": "CHECKED",
+   "reasons": []
+  },
+  "window": {
+   "may_launch_seasonally": true,
+   "action": "launch",
+   "why": "unassigned: no seasonal premise to miss"
+  }
+ },
+ "listing": {
+  "state": "draft",
+  "title": "Housewarming Key Basket | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
+  "tag_count": 13,
+  "price_cad": 5.5,
+  "title_chars": 96,
+  "description_chars": 2888
+ },
+ "launch_price": {
+  "slug": "housewarming-key-basket",
+  "band_cad": [
+   4.0,
+   12.0
+  ],
+  "band_basis": "SOURCED",
+  "band_why": "the CA$4-12 crochet-pattern cluster from radar/market.py OBSERVATIONS, below the nesting baskets' three-size price. A key-basket-specific observed price is UNKNOWN",
+  "proposed_cad": 5.5,
+  "price_cad": 5.5,
+  "net_cad_after_fees": 4.6995,
+  "take_rate": 0.1455,
+  "reasons": [],
+  "warnings": [
+   "take rate 14.5% excludes offsite_ads, regulatory_operating_fee, currency_conversion; if all three apply at their reported rates the take rate is 33.2% and the net is CA$3.67. Those rates are SECONDARY -- etsy.com/legal/fees is 403 to automated readers"
+  ],
+  "held_at_proposal": true,
+  "candidate": "housewarming-key-basket",
+  "cir_slug": "housewarming-key-basket",
+  "within_plan_band": true,
+  "basis": "products.launch0.price_plan(housewarming-key-basket): band CA$4.00-12.00 (SOURCED), proposal CA$5.50, decided by commerce.pricing"
+ }
+}

@@ -1,0 +1,659 @@
+{
+ "note": "the seller's photographs read by the same reader as every candidate; each answer judged against Product Truth's expectation",
+ "readings": {
+  "seller_1.jpg": {
+   "product_type": "cardigan",
+   "front": "open",
+   "closure_count": 0,
+   "front_band": "ribbed_band",
+   "hem_band": "ribbed",
+   "cuffs": "ribbed",
+   "sleeve_length": "long",
+   "body_length": "hip",
+   "texture": "waffle_textured",
+   "body_ridge_direction": "vertical",
+   "colour_count": 1,
+   "main_colour": "pink",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": true,
+   "notes": "Chunky textured body with wide ribbed hem and cuffs."
+  },
+  "seller_2.jpg": {
+   "product_type": "cardigan",
+   "front": "open",
+   "closure_count": 0,
+   "front_band": "ribbed_band",
+   "hem_band": "ribbed",
+   "cuffs": "ribbed",
+   "pocket_count": 2,
+   "pocket_position": "hip",
+   "sleeve_length": "long",
+   "body_length": "mid_thigh",
+   "texture": "waffle_textured",
+   "body_ridge_direction": "horizontal",
+   "colour_count": 1,
+   "main_colour": "pink",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": true,
+   "notes": "Chunky open-front longline cardigan with patch pockets and ribbed trims."
+  },
+  "seller_3.jpg": {
+   "product_type": "cardigan",
+   "front": "open",
+   "closure_count": 0,
+   "front_band": "ribbed_band",
+   "hem_band": "ribbed",
+   "cuffs": "ribbed",
+   "pocket_count": 2,
+   "pocket_position": "hip",
+   "sleeve_length": "long",
+   "body_length": "mid_thigh",
+   "texture": "waffle_textured",
+   "body_ridge_direction": "horizontal",
+   "colour_count": 1,
+   "main_colour": "pink",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": true,
+   "notes": "Chunky textured open-front cardigan with wide ribbed bands and patch pockets."
+  },
+  "seller_4.jpg": {
+   "product_type": "cardigan",
+   "front": "open",
+   "closure_count": 0,
+   "front_band": "ribbed_band",
+   "hem_band": "ribbed",
+   "cuffs": "ribbed",
+   "pocket_count": 2,
+   "pocket_position": "hip",
+   "sleeve_length": "long",
+   "body_length": "mid_thigh",
+   "texture": "other",
+   "body_ridge_direction": "horizontal",
+   "colour_count": 1,
+   "main_colour": "pink",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": true,
+   "notes": "Oversized chunky crochet with wide ribbed bands and patch pockets."
+  }
+ },
+ "vs_product_truth": {
+  "seller_1.jpg": {
+   "product_type": {
+    "status": "PASS",
+    "got": "cardigan",
+    "expected": [
+     "cardigan"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "front": {
+    "status": "PASS",
+    "got": "open",
+    "expected": [
+     "open",
+     "overlapping"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "closure_count": {
+    "status": "PASS",
+    "got": 0,
+    "expected": [
+     "0"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "front_band": {
+    "status": "PASS",
+    "got": "ribbed_band",
+    "expected": [
+     "plain_band",
+     "ribbed_band"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "hem_band": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "plain",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "cuffs": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "gathered",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "pocket_count": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": true
+   },
+   "pocket_position": {
+    "status": "UNKNOWN",
+    "got": null,
+    "why": "not visible to the reader",
+    "material": true
+   },
+   "sleeve_length": {
+    "status": "PASS",
+    "got": "long",
+    "expected": [
+     "long"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "body_length": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip",
+     "mid_thigh"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "waffle_textured",
+    "expected": [
+     "other",
+     "ribbed_all_over",
+     "waffle_textured"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "body_ridge_direction": {
+    "status": "PASS",
+    "got": "vertical",
+    "expected": [
+     "vertical"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": null
+   }
+  },
+  "seller_2.jpg": {
+   "product_type": {
+    "status": "PASS",
+    "got": "cardigan",
+    "expected": [
+     "cardigan"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "front": {
+    "status": "PASS",
+    "got": "open",
+    "expected": [
+     "open",
+     "overlapping"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "closure_count": {
+    "status": "PASS",
+    "got": 0,
+    "expected": [
+     "0"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "front_band": {
+    "status": "PASS",
+    "got": "ribbed_band",
+    "expected": [
+     "plain_band",
+     "ribbed_band"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "hem_band": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "plain",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "cuffs": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "gathered",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "pocket_count": {
+    "status": "PASS",
+    "got": 2,
+    "expected": [
+     "2"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "pocket_position": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "sleeve_length": {
+    "status": "PASS",
+    "got": "long",
+    "expected": [
+     "long"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "body_length": {
+    "status": "PASS",
+    "got": "mid_thigh",
+    "expected": [
+     "hip",
+     "mid_thigh"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "waffle_textured",
+    "expected": [
+     "other",
+     "ribbed_all_over",
+     "waffle_textured"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "body_ridge_direction": {
+    "status": "FAIL",
+    "got": "horizontal",
+    "expected": [
+     "vertical"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": null
+   }
+  },
+  "seller_3.jpg": {
+   "product_type": {
+    "status": "PASS",
+    "got": "cardigan",
+    "expected": [
+     "cardigan"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "front": {
+    "status": "PASS",
+    "got": "open",
+    "expected": [
+     "open",
+     "overlapping"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "closure_count": {
+    "status": "PASS",
+    "got": 0,
+    "expected": [
+     "0"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "front_band": {
+    "status": "PASS",
+    "got": "ribbed_band",
+    "expected": [
+     "plain_band",
+     "ribbed_band"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "hem_band": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "plain",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "cuffs": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "gathered",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "pocket_count": {
+    "status": "PASS",
+    "got": 2,
+    "expected": [
+     "2"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "pocket_position": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "sleeve_length": {
+    "status": "PASS",
+    "got": "long",
+    "expected": [
+     "long"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "body_length": {
+    "status": "PASS",
+    "got": "mid_thigh",
+    "expected": [
+     "hip",
+     "mid_thigh"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "waffle_textured",
+    "expected": [
+     "other",
+     "ribbed_all_over",
+     "waffle_textured"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "body_ridge_direction": {
+    "status": "FAIL",
+    "got": "horizontal",
+    "expected": [
+     "vertical"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": null
+   }
+  },
+  "seller_4.jpg": {
+   "product_type": {
+    "status": "PASS",
+    "got": "cardigan",
+    "expected": [
+     "cardigan"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "front": {
+    "status": "PASS",
+    "got": "open",
+    "expected": [
+     "open",
+     "overlapping"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "closure_count": {
+    "status": "PASS",
+    "got": 0,
+    "expected": [
+     "0"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "front_band": {
+    "status": "PASS",
+    "got": "ribbed_band",
+    "expected": [
+     "plain_band",
+     "ribbed_band"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "hem_band": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "plain",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "cuffs": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "gathered",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "pocket_count": {
+    "status": "PASS",
+    "got": 2,
+    "expected": [
+     "2"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "pocket_position": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "sleeve_length": {
+    "status": "PASS",
+    "got": "long",
+    "expected": [
+     "long"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "body_length": {
+    "status": "PASS",
+    "got": "mid_thigh",
+    "expected": [
+     "hip",
+     "mid_thigh"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "other",
+    "expected": [
+     "other",
+     "ribbed_all_over",
+     "waffle_textured"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "body_ridge_direction": {
+    "status": "FAIL",
+    "got": "horizontal",
+    "expected": [
+     "vertical"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": null
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": null
+   }
+  }
+ }
+}

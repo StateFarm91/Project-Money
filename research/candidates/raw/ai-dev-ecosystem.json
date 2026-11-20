@@ -1,0 +1,382 @@
+{
+  "lens": "AI-agent and developer-tool ecosystem (2026): MCP servers, Claude Code / Cursor / Codex plugins and skills, CLI tools, GitHub Actions, paid packages, evals/observability, agent templates",
+  "searches_run": 16,
+  "pages_read": 29,
+  "market_notes": "The 2026 agent-tool ecosystem is enormous on the supply side and thin on the paying side. Anthropic's plugin/skill marketplaces have no payment layer at all (\"plugins are free\"; the community marketplace is a free, SHA-pinned catalog), and the biggest \"products\" in the space are free GitHub repos with tens or hundreds of thousands of stars (ECC 258k, awesome-cursorrules 40.8k, wshobson/agents 39.7k, agents.md 24.4k), so anything that is \"just config\" competes with free by default. MCP monetization is mostly aspiration: reporting says <5% of ~12,000 servers are monetized, one author who launched a per-call MCP server on 2026-04-12 had zero paying users months later, and MCPize's \"$4,200/mo PostgreSQL server\" examples are unverified marketing; the one credible MRR claim (21st.dev Magic, $10K MRR in 6 weeks) is an unverified founder claim and its pricing page has since been folded into a broader product. Two sub-niches are fully commoditized by free tools and should be avoided as standalone paid products: Claude Code cost/usage tracking (ccusage, codeburn 11k stars, TokenTracker; Lineman already sells the team tier at $14.99/mo) and MCP/skill security scanning (NVIDIA SkillSpector 17k stars, Snyk agent-scan, Cisco mcp-scanner, agentshield free CLI+Action+App; the paid Apify MCP auditor has 2 users). The places where money verifiably changes hands are (1) Apify Store, which pays ~$1.4M/month to ~3,000 developers (avg ~$470, heavily skewed), takes 20%, pays out monthly, and now exposes every pay-per-event actor to AI agents through its MCP server, with rentals being force-migrated to pay-per-event on 2026-10-01; (2) one-time digital products on Gumroad/Polar (rules packs at EUR29-$167, boilerplates at $49-$299) where prices are visible but nobody publishes sales counts; and (3) vibe-coded-app security, where a June 2026 study of 1,072 Lovable/Bolt/v0 apps found 98% had flaws and multiple SaaS scanners already charge $29-$49/month while open-source Supabase RLS scanners have 0-2 stars. GitHub Actions can be listed on the Marketplace instantly with no review (public repo + action.yml + 2FA), whereas paid GitHub Marketplace apps require a verified-publisher organization (DNS TXT + 2FA) and pay out 95%. Payment rails for a Canadian solo seller: Polar (MoR, 5% + 50c, auto GitHub-repo access as an entitlement), Gumroad (10% + 50c direct, 30% via Discover), Lemon Squeezy (5% + 50c, MoR). Net: within this lens, distribution via an existing marketplace with built-in billing (Apify) or an existing pain with proven willingness to pay (vibe-app security) beats clever agent tooling; expect modest Day-90 revenue (hundreds of CAD) and treat Day-180 catalog effects as the real prize.",
+  "candidates": [
+    {
+      "name": "Agent-callable Apify pay-per-event actor portfolio",
+      "one_liner": "Publish 5-10 small pay-per-event Apify actors (dev-data tools that coding agents call via mcp.apify.com, plus a few underserved scraping niches) and collect 80% of every metered event with Apify handling billing, hosting, discovery and payouts.",
+      "model_type": "marketplace listing, usage-based (pay-per-event) with platform revenue share",
+      "target_customer": "Developers, data teams and AI-agent builders on paid Apify plans (Apify reports 10,000+ daily signups) who run actors from the Store UI, the API, or from Claude Desktop / Claude Code / Cursor through Apify's MCP server (search-actors / call-actor).",
+      "problem": "Agent builders need reliable, metered tools they can call without hosting anything; Apify Store users search for narrow, use-case-named tools and pay per result. Rental actors are being retired on 2026-10-01 and are excluded from the MCP server, so a wave of listings is being repriced and agent-callable pay-per-event actors are the only monetizable shape going forward.",
+      "offer_and_pricing": "Portfolio of pay-per-event actors priced like the market ($1-$10 per 1,000 results; per-event $0.001-$0.10). In-lens examples: (a) package upgrade intelligence: npm/PyPI version-diff + breaking-change/migration summary for a dependency range, ~$0.02-0.05 per package report; (b) docs-site to agent context bundle (clean markdown + llms.txt) ~$1-2 per 1,000 pages; (c) GitHub repo health/maintainer-risk report for dependency decisions ~$0.05 per repo. Out-of-lens fillers where the 98-actor case study shows money actually is (regional job boards, Skool, niche directories). Free-plan gate so free users get capped output (their events never pay out).",
+      "first_10_customers": "Apify Store search and category pages (the primary channel in the July 2026 98-actor case study; READMEs that lead with use case + sample output), plus agents discovering the actors through mcp.apify.com search-actors. A dev.to / Reddit r/webscraping or r/ClaudeAI walkthrough showing Claude Code calling the actor. No outreach needed; first revenue appears only when paid-plan users run it.",
+      "first_100_customers": "Catalog effect: 5-10 actors cross-linking each other in READMEs (the case study reports the effect kicking in around months 5-6), Google-indexed Apify Store pages, listing the MCP-callable actors on PulseMCP/Glama/Smithery, and Apify's agentic-payments path (requires PPE + limited permissions + KYC).",
+      "why_over_alternatives": "Versus MCPize/self-hosting: Apify brings an existing paying audience ($1.4M/mo paid to devs), billing, hosting credits ($500 on the $1/mo Creator plan) and monthly payouts; the operator only ships code via the Apify CLI. Versus generic scrapers: narrow, agent-oriented, use-case-named tools avoid head-to-head fights with LinkedIn/Amazon scrapers, which the case study says fail.",
+      "evidence": [
+        {
+          "claim": "Apify pays out about $1.4M per month to roughly 3,000 developers (avg ~$470/dev, heavily skewed); store has 53,954 tools; 10,000+ daily signups; pricing typically $1-$10 per 1,000 results",
+          "source_url": "https://agentbyline.com/articles/apify-actor-passive-income-what-really-earns-in-2026-67lcfr",
+          "recency": "2026-08-04",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Solo dev built 98 actors in 6 months: first double-digit user counts only in months 3-4, catalog effect in months 5-6, 2,500 total users; pay-per-event variants got 6-12.7x more users than standard pricing; he spends 15-20 h/week including 3-4 h support",
+          "source_url": "https://blog.apify.com/building-98-actors-on-apify-store/",
+          "recency": "2026-07-22",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Developers keep 80% of pay-per-event revenue minus platform costs (Apify takes 20% commission); Apify says top creators exceed $10K MRR and many make $1K+/month",
+          "source_url": "https://help.apify.com/en/articles/8684010-make-money-publishing-your-actors-on-apify-store",
+          "recency": "undated",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Events fired by free-plan users do not pay out; author's Google Reviews scraper logged 5,407 results in 4 days with $0 developer revenue; rental actors blocked from 2026-04-01 and auto-migrated 2026-10-01",
+          "source_url": "https://godberrystudios.com/posts/apify-pay-per-event-migration-playbook-2026/",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Apify's MCP server lets agents search-actors and call-actor; rental actors are excluded; agentic-payment eligibility requires pay-per-event pricing, limited permissions, no Standby mode, and developer KYC",
+          "source_url": "https://docs.apify.com/platform/integrations/mcp",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Apify's own agent-oriented actor (RAG Web Browser) shows 173,346 total users and 30,632 monthly users; by contrast a paid MCP security auditor at $0.25/audit has 2 users",
+          "source_url": "https://apify.com/apify/rag-web-browser",
+          "recency": "2026-09-15",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Creator plan costs $1/month for 6 months and includes a one-time $500 platform-usage bonus",
+          "source_url": "https://apify.com/pricing/creator-plan",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Payout minimums are commonly $100 for bank transfer and $20 for PayPal (from search snippet; page not read in full)",
+          "source_url": "https://use-apify.com/docs/apify-for-developers/monetize-actors",
+          "recency": "undated",
+          "kind": "assumption"
+        },
+        {
+          "claim": "In-lens dev-data actors (package diffs, docs bundles) will attract paid-plan users at a rate comparable to niche scrapers",
+          "source_url": "https://blog.apify.com/building-98-actors-on-apify-store/",
+          "recency": "2026",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 40,
+      "est_days_to_first_revenue": 45,
+      "est_day90_revenue_base_cad": 250,
+      "gross_margin_est": "60-75% of gross event revenue after Apify's 20% commission and platform compute (HTTP-only actors keep compute low; LLM-summarization events must be priced above API cost)",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "One setup block: create Apify account, subscribe to Creator plan ($1/mo), complete KYC/payout details (PayPal or bank), generate API token for the operator. Afterwards zero required; optional 10 min/week glance at Insights. Support requests arrive as Apify issues, which the operator can answer on its scheduled runs (not real-time).",
+      "automation_potential": "high",
+      "competition_intensity": "high",
+      "biggest_failure_reason": "Long-tail economics: the store has ~69,000 actors, average payouts are skewed, and the only public solo case study needed 3-4 months to reach double-digit users, so a 90-day window may end with runs from free-plan users only (which pay $0).",
+      "key_risks": [
+        "Only paid-plan user events pay out; free users can generate load without revenue",
+        "Discovery inside Apify Store takes months; catalog effect needs 5-10 actors",
+        "In-lens dev-data niches may have less demand than mainstream scraping niches (assumption)",
+        "Target sites' anti-bot or ToS changes can break actors; maintenance is ongoing",
+        "Monthly payout on the 11th plus $100 bank minimum means first cash may land after Day 90 even if revenue is earned"
+      ],
+      "why_now_2026": "Rental pricing is retired on 2026-10-01 and rentals are excluded from Apify's MCP server, so agent-callable pay-per-event actors are the only monetizable shape; Apify's MCP server, agentic payments (AGI/Skyfire) and Claude Code's MCP Tool Search make actors directly discoverable by coding agents.",
+      "day180_asset_potential": "high",
+      "confidence": "medium"
+    },
+    {
+      "name": "Stack-specific agent config and plugin packs with license-gated delivery",
+      "one_liner": "Sell benchmarked, stack-specific CLAUDE.md/AGENTS.md/Cursor-rules + hooks + skills packs as a private Claude Code plugin marketplace, with Polar granting buyers read access to the private GitHub repo (auto-updates) and Gumroad Discover as the second storefront.",
+      "model_type": "one-time digital product with entitlement-gated repo access (Polar) plus Gumroad listing",
+      "target_customer": "Individual developers and 2-10 person teams using Claude Code, Cursor or Codex on a specific stack (e.g., Next.js + Supabase, Django + HTMX, Rails, Laravel, Flutter) who want opinionated, tested agent configs instead of assembling them from 40k-star awesome lists.",
+      "problem": "Generic rules files are ineffective (the paid packs on the market sell exactly this argument); teams waste tokens and get drive-by refactors; assembling hooks + skills + rules per stack takes hours and most free collections are unmeasured. Buyers already pay EUR29-$167 for packs, but none publish token-cost or eval evidence.",
+      "offer_and_pricing": "Per-stack pack at $29 USD (one dev), $79 team (5 devs); bundle of all stacks $99. Each pack ships: CLAUDE.md/AGENTS.md pair, .cursor/rules .mdc set, 6-10 hooks (pre-commit, secret guard, test gate), 5-8 skills, and a measured report (context tokens per turn, before/after benchmark on 10 tasks). Free sampler: one stack MIT-licensed on GitHub and submitted to the Anthropic community marketplace as a lead magnet.",
+      "first_10_customers": "Free sampler repo + a dev.to / r/ClaudeAI / r/cursor post with the measured benchmark (this is exactly how the EUR29 BLNCraft pack markets); a pull request adding the free sampler to awesome-cursorrules / agents.md examples (community-rule-compliant); Gumroad product page for Discover search; Polar checkout link on the sampler README. Buyers choose it because it is the only pack with published token/eval numbers.",
+      "first_100_customers": "Long-tail SEO pages on GitHub Pages per stack ('CLAUDE.md for Next.js 16 + Supabase'), Gumroad Discover (30% fee but zero-effort traffic), Product Hunt launch of the bundle, team-license upsell emails to existing buyers (consent-based, CASL-compliant), and continuous updates when Claude Code/Cursor ship changes (buyers get auto-updates via the private marketplace).",
+      "why_over_alternatives": "Free lists (awesome-cursorrules 40.8k stars, ECC 258k stars) are broad and unmeasured; existing paid packs (BLNCraft EUR29, Olivia Craft $79 team) are static zip files with no delivery mechanism. A private plugin marketplace gives one-command install, versioned updates and reduced piracy, and Polar's GitHub-access entitlement automates access grant/revoke.",
+      "evidence": [
+        {
+          "claim": "BLNCraft sells 162 production rules files across 54 stacks for EUR29 one-time on Gumroad, marketed via dev.to; no sales numbers disclosed",
+          "source_url": "https://dev.to/blncraft/how-we-built-162-production-rules-files-for-claude-code-and-cursor-and-why-you-should-too-4b0m",
+          "recency": "2026-05-19",
+          "kind": "evidence"
+        },
+        {
+          "claim": "A 'CLAUDE.md Rules Pack Team License (5 devs)' is listed at $79 one-time on Gumroad (price from search snippet; the page itself showed no sales count)",
+          "source_url": "https://oliviacraftlat.gumroad.com/l/cnyyd",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Claude Code marketplaces can be served from private git repos via SSH or HTTPS credential helpers, with headersHelper for authenticated archive downloads; docs provide no built-in licensing or paid-access mechanism",
+          "source_url": "https://code.claude.com/docs/en/plugin-marketplaces",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Polar automatically grants GitHub repo collaborator access on purchase/subscription and removes it on cancellation; requires an org-owned repo and a dedicated GitHub App; collaborators may count as seats on paid GitHub orgs",
+          "source_url": "https://polar.sh/docs/features/benefits/github-access",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Polar Starter is free with 5% + 50c per transaction (+1.5% international cards); payout fee $2/month active plus 0.25% + $0.25",
+          "source_url": "https://polar.sh/docs/merchant-of-record/fees",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Gumroad charges 10% + $0.50 on direct sales and 30% on sales via Discover",
+          "source_url": "https://gumroad.com/pricing",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Free competition is huge: awesome-cursorrules has 40,789 stars; wshobson/agents multi-harness marketplace 39,677; agentsmd/agents.md 24,384",
+          "source_url": "https://github.com/PatrickJS/awesome-cursorrules",
+          "recency": "2026-09-15",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Research cited by vibeready.sh: LLM-generated context files lowered agent success and raised cost while human-written ones helped (search snippet; page not read in full)",
+          "source_url": "https://vibeready.sh/blog/agents-md-for-saas/",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Publishing measured token/eval benchmarks will convert enough buyers to reach 15-25 sales in 90 days",
+          "source_url": "https://dev.to/blncraft/how-we-built-162-production-rules-files-for-claude-code-and-cursor-and-why-you-should-too-4b0m",
+          "recency": "2026",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 30,
+      "est_days_to_first_revenue": 14,
+      "est_day90_revenue_base_cad": 500,
+      "gross_margin_est": "85-93% (Polar 5% + 50c or Gumroad 10% + 50c; 70% on Gumroad Discover sales); LLM cost for benchmarking is a one-time build cost",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "Setup block: create Polar account (MoR, tax handled), Gumroad account with Canadian payout, a GitHub organization for the private repo, install Polar's GitHub App, keep the org on the free plan so collaborators are not billed seats. After that the operator maintains packs and answers support via GitHub issues on its scheduled runs.",
+      "automation_potential": "high",
+      "competition_intensity": "high",
+      "biggest_failure_reason": "Free, massively starred alternatives plus buyers who can ask Claude to generate their own config: without an audience the launch produces single-digit sales, and any hint that the packs are unmeasured AI-generated content kills credibility.",
+      "key_risks": [
+        "Piracy/redistribution of files once downloaded",
+        "Claude Code / Cursor format changes require frequent updates",
+        "Gumroad Discover takes 30%",
+        "Polar GitHub-access benefit requires an org repo and a GitHub App install by the owner",
+        "Product must be genuinely benchmarked to be legitimate; that is real build effort before first sale"
+      ],
+      "why_now_2026": "AGENTS.md is a Linux-Foundation standard used by 60,000+ repos and read by 28+ tools; Claude Code plugins/marketplaces (256 official entries by July 2026) made packaged configs installable in one command; Polar entitlements make gated repo access automatic; Cursor 3.3 parallel agents raised the cost of bad rules.",
+      "day180_asset_potential": "medium",
+      "confidence": "low"
+    },
+    {
+      "name": "Agent-PR Guard GitHub Action",
+      "one_liner": "A GitHub Action (free for public repos, paid Pro license for private/org repos) that gates pull requests opened by AI coding agents: detects agent authorship, enforces AGENTS.md/CLAUDE.md policy (scope, forbidden paths, test and dependency rules), flags concurrent-agent conflicts, and posts a structured verdict before humans spend review time.",
+      "model_type": "GitHub Action (Marketplace listing, no review) with paid Pro license key sold via Polar; optional GitHub App later",
+      "target_customer": "Maintainers and 3-30 person engineering teams whose repos receive PRs from Claude Code, Codex, Copilot agent, Cursor or Devin and who already have AGENTS.md/CLAUDE.md conventions they want enforced mechanically.",
+      "problem": "AI-agent PRs grew from ~4M (Sept 2025) to 17M+ (March 2026); a Voiceflow lead says only 1 in 10 AI PRs is legitimate; GitHub had to ship kill-switch settings in Feb 2026; cross-agent PRs conflict 41.7% of the time. Teams need a cheap, deterministic pre-review gate, not another $15-30/seat LLM reviewer.",
+      "offer_and_pricing": "Free tier: public repos, core checks. Pro: $9 USD/month per org (or $79/year) via Polar license key validated inside the action; covers private repos, custom policy rules, conflict radar across open agent PRs, weekly digest. Unlimited seats (undercuts per-seat reviewers).",
+      "first_10_customers": "GitHub Actions Marketplace listing (instant, unreviewed), a Show HN / r/github / r/ExperiencedDevs post with data on agent-PR noise, and adoption by OSS maintainers on the free tier whose PR comments show the verdict badge (tasteful, opt-in). Pro buyers come from those maintainers' day jobs and from the AGENTS.md ecosystem (agents.md repo discussions, respectfully).",
+      "first_100_customers": "SEO/content around 'AI PR policy' and 'AGENTS.md enforcement', listing in awesome-actions and AGENTS.md tool lists, integration examples for Claude Code's official GitHub action, and Polar affiliate links for dev newsletters (inbound partnerships, no cold outreach).",
+      "why_over_alternatives": "CodeRabbit/Copilot review are per-seat LLM reviewers that comment on code quality; this is a deterministic, org-priced policy gate that runs on the customer's own Actions minutes (near-zero cost to serve) and requires no server, no GitHub verified-publisher process and no marketplace review.",
+      "evidence": [
+        {
+          "claim": "AI agents opened 17M PRs in March 2026 vs 4M in Sept 2025; 'only 1 out of 10 PRs created with AI is legitimate'; GitHub shipped settings on 2026-02-13 to disable or restrict PRs and is evaluating AI attribution and triage tools",
+          "source_url": "https://www.danilchenko.dev/posts/2026-04-11-github-ai-agents-pull-requests/",
+          "recency": "2026-04-11",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Study of 33,596 PRs across 2,807 repos: 79.4% of agent PRs are co-active pairs; cross-agent pairs hit textual merge conflicts 41.7% of the time, intra-agent 19.8%",
+          "source_url": "https://arxiv.org/abs/2607.04697v2",
+          "recency": "2026-07",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Actions are published to GitHub Marketplace immediately without review if the repo is public with a single action.yml and the publisher uses 2FA; verified-creator badge is optional",
+          "source_url": "https://docs.github.com/en/actions/creating-actions/publishing-actions-in-github-marketplace",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Paid GitHub Marketplace apps require a verified-publisher organization (DNS TXT + email + 2FA) and GitHub keeps 5%",
+          "source_url": "https://docs.github.com/en/apps/github-marketplace/selling-your-app-on-github-marketplace/receiving-payment-for-app-purchases",
+          "recency": "undated",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Incumbent AI review pricing: CodeRabbit $15 (Lite) / $30 (Pro) per dev per month; Copilot Pro $10/month includes code review",
+          "source_url": "https://www.critique.sh/blog/ai-code-review-pricing-2026",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "agentshield (1,186 stars, Feb 2026) already offers a free AI-agent config security scanner as CLI, GitHub Action and GitHub App, showing both demand and free competition in adjacent territory",
+          "source_url": "https://github.com/affaan-m/agentshield",
+          "recency": "2026-09-15",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Teams will pay ~$9/month per org for a deterministic policy gate they could approximate with custom workflows",
+          "source_url": "https://docs.github.com/en/actions/creating-actions/publishing-actions-in-github-marketplace",
+          "recency": "2026",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 40,
+      "est_days_to_first_revenue": 35,
+      "est_day90_revenue_base_cad": 300,
+      "gross_margin_est": "90%+ (Polar 5% + 50c; compute runs on customer Actions minutes; no LLM calls in core checks)",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "Setup block: Polar account, a GitHub org with 2FA for publishing, optional domain. If a paid GitHub Marketplace listing is desired later, owner completes DNS TXT publisher verification (15 min). Operator handles issues and releases on schedule.",
+      "automation_potential": "high",
+      "competition_intensity": "high",
+      "biggest_failure_reason": "GitHub itself is evaluating native AI attribution and triage; if it ships (or CodeRabbit adds agent-policy checks), a paid third-party gate becomes redundant, and many teams will simply write their own workflow.",
+      "key_risks": [
+        "Agent-authorship detection is heuristic (commit trailers, bot accounts, co-author lines) and can be gamed or missed",
+        "Free-tier users may never convert; OSS maintainers are the loudest but least paying segment",
+        "Requires a compelling deterministic ruleset; too thin and it is a lint action nobody pays for",
+        "Public PR-comment badge could be perceived as spammy if not opt-in"
+      ],
+      "why_now_2026": "4x growth in agent PRs in six months, GitHub's Feb 2026 kill-switch settings, and AGENTS.md's adoption by 60k+ repos created a machine-checkable contract that did not exist a year ago.",
+      "day180_asset_potential": "medium",
+      "confidence": "low"
+    },
+    {
+      "name": "Vibe-app RLS and secrets scan with fix pull requests (adjacent to lens)",
+      "one_liner": "A self-serve scanner for Lovable/Bolt/v0/Replit apps on Supabase or Firebase that probes the deployed site with its own public anon key for RLS holes and exposed keys, then opens a fix PR (RLS policies, key rotation steps) on the customer's GitHub repo or feeds a fix skill to Claude Code/Cursor via MCP.",
+      "model_type": "micro-SaaS subscription plus one-time report; MCP endpoint for agent users",
+      "target_customer": "Non-technical and semi-technical founders who shipped an app with Lovable, Bolt.new, v0 or Replit on Supabase/Firebase and have real users or are about to launch; secondary: freelancers who clean up vibe-coded apps.",
+      "problem": "A June 2026 scan of 1,072 vibe-coded apps found 98% had at least one flaw, 16% critical; 172 sites allowed anyone to delete database rows with the public key. Founders cannot read RLS policies and existing scanners mostly report problems without fixing them.",
+      "offer_and_pricing": "Free score + one detailed finding (industry-standard lead magnet). One-time Full Report + Fix PR: $19 USD. Monitor plan: $19/month (weekly rescan, alerts, unlimited fix PRs, MCP access) undercutting VibeAppScanner's $29 Go tier. Site ownership verified (meta tag/DNS or GitHub repo connect) before any active probing.",
+      "first_10_customers": "Free URL scan shared in Lovable and Bolt community forums/Discords and r/lovable-type subreddits within their self-promotion rules (posting the anonymized study-style findings, not ads), a Product Hunt launch, and listing the MCP endpoint on Smithery/Glama/PulseMCP so Claude Code and Cursor users find 'audit my Supabase RLS'. They choose it because it produces the fix, not just the finding, and because Lovable projects already sync to GitHub.",
+      "first_100_customers": "SEO pages ('Lovable Supabase RLS checklist', 'Bolt app exposed anon key'), affiliate program on Polar/Lemon Squeezy for vibe-coding YouTubers and template sellers (inbound partnerships), Supabase community showcase, and a GitHub Action variant for the semi-technical segment.",
+      "why_over_alternatives": "VibeAppScanner ($29/$49) and CheckVibe scan URLs and hand you AI fix prompts; Symbiotic ($10M funded) sells to enterprises via demo. None commits fixes to the repo. Open-source Supabase RLS scanners have 0-2 stars, so the DIY route is weak.",
+      "evidence": [
+        {
+          "claim": "Symbiotic scanned 1,072 vibe-coded apps (Lovable, v0, Bolt, Replit, Windsurf, Tempo): 98% had a flaw, 16% critical, 172 sites allowed unauthenticated DELETE via the public Supabase key",
+          "source_url": "https://www.symbioticsec.ai/blog/we-scanned-1-072-vibe-coded-apps-98-had-security-flaws",
+          "recency": "2026-06-02",
+          "kind": "evidence"
+        },
+        {
+          "claim": "VibeAppScanner prices Go at $29/month (20 scans, AI fixes, 3 projects) and Pro at $49/month, with a free first scan and a remote MCP server for Pro users",
+          "source_url": "https://vibeappscanner.com/",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "CheckVibe offers free URL scans (100+ checks incl. Supabase/Firebase world-readable tables) with paid plans for fix prompts and monitoring; prices not published",
+          "source_url": "https://checkvibe.dev/vibe-coding-security-scanner",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Open-source Supabase RLS/anon-key scanners on GitHub have 0-2 stars each (Supabase-Dumper, supabase-rls-guard, supabase-rls-linter)",
+          "source_url": "https://github.com/NickQuelloVero/Supabase-Dumper",
+          "recency": "2026-09-15",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Polar handles GST/VAT as merchant of record at 5% + 50c on the free tier",
+          "source_url": "https://polar.sh/docs/merchant-of-record/fees",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Non-technical founders will accept an automated fix PR and pay $19 without live support; Lovable/Bolt or Supabase may add native RLS checks that erode the niche",
+          "source_url": "https://vibeappscanner.com/",
+          "recency": "2026",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 150,
+      "est_days_to_first_revenue": 21,
+      "est_day90_revenue_base_cad": 600,
+      "gross_margin_est": "75-85% (Polar/LS fees ~6%, LLM cost ~$0.10-0.40 per fix PR, free-tier hosting on Cloudflare/Vercel)",
+      "owner_involvement": "medium",
+      "owner_involvement_notes": "Setup block: Polar or Lemon Squeezy account, domain, hosting, LLM API key, GitHub App registration (owner clicks through). Ongoing: non-technical customers ask questions; the operator answers by email/issue on its scheduled runs, so replies are hours not minutes. Any abuse report about scanning must be handled by the owner (mitigated by ownership verification).",
+      "automation_potential": "high",
+      "competition_intensity": "high",
+      "biggest_failure_reason": "Several free-first scanners already exist and platform vendors (Supabase Security Advisor, Lovable) are the natural place for this check; the paid layer ($19-49/mo) may be too crowded for a newcomer without an audience, and non-technical buyers churn fast.",
+      "key_risks": [
+        "Legal/ethical: active probing must be limited to owner-verified sites; false positives can alarm customers",
+        "Platform vendors add native checks and remove the need",
+        "Support load from non-technical customers",
+        "Fix PRs touching RLS can break apps; needs conservative, reviewable changes",
+        "Outside the strict lens (customer is a founder, not a developer)"
+      ],
+      "why_now_2026": "Vibe-coding platforms exploded in 2025-26 and a June 2026 study quantified the damage; buyers already pay $29-49/month to competitors, and MCP endpoints let the same scanner ride inside Claude Code/Cursor where the fix can be applied by the agent.",
+      "day180_asset_potential": "medium",
+      "confidence": "medium"
+    },
+    {
+      "name": "Role-specific Claude skills and Cowork plugin packs for non-developers (outside lens)",
+      "one_liner": "Sell curated, tested skill packs (e.g., bookkeeping/CRA-compliance, real-estate marketing, consulting deliverables) for Claude Cowork/desktop users, with a free lite plugin submitted to Anthropic's community marketplace as the discovery channel and a paid full pack on Gumroad/Polar.",
+      "model_type": "one-time digital product (Gumroad Discover + Polar) with free lead-magnet plugin",
+      "target_customer": "Non-developer professionals on Claude Pro/Max ($17-100/month) who use Cowork or Claude desktop and want ready-made, role-specific workflows rather than writing skills themselves.",
+      "problem": "Cowork plugins bundle skills, connectors and sub-agents for a role, but the official and community libraries are generic and free; professionals want vetted, domain-specific packs and there is no paid marketplace, so sellers route to Gumroad where bundles are already listed at $167.",
+      "offer_and_pricing": "Per-role pack $29-49 USD; bundle $99; free lite plugin with 2-3 skills in the community marketplace and on GitHub. Each pack includes tested skills, sample outputs and a maintenance changelog.",
+      "first_10_customers": "Gumroad Discover search for 'Claude skills', Product Hunt launch, r/ClaudeAI posts showing real outputs, and the free lite plugin's README linking to the paid pack. Buyers choose it for domain depth (e.g., Canadian small-business bookkeeping) and testing evidence, which existing bundles lack.",
+      "first_100_customers": "SEO pages per role ('Claude skills for real estate agents'), YouTube/TikTok creator affiliates through Gumroad's affiliate feature (inbound), and Cowork plugin directory presence.",
+      "why_over_alternatives": "Existing Gumroad bundles ($167 for 167 marketing skills) compete on quantity; a narrower, tested, regularly updated pack with a free installable lite version has a discovery path the bundles lack.",
+      "evidence": [
+        {
+          "claim": "Cowork plugins target 'professionals doing knowledge work with no terminal'; plugins are free; Cowork requires Pro ($17-20/mo) or Max ($100+/mo); no official paid plugin channel",
+          "source_url": "https://theaicareerlab.com/blog/claude-plugins-explained-marketplace-2026",
+          "recency": "2026-08-24",
+          "kind": "evidence"
+        },
+        {
+          "claim": "A 'Master Marketing Skills Bundle' of 167 Claude skills is listed on Gumroad at $167; a 'Premium Claude Skills Collection' was updated 2026-05-15; no sales counts visible",
+          "source_url": "https://inflectual.gumroad.com/l/master-marketing-claude-skills-bundle",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Anthropic's community marketplace (4,056 stars) accepts third-party Cowork and Claude Code plugins via a submission form after automated validation",
+          "source_url": "https://github.com/anthropics/claude-plugins-community",
+          "recency": "2026-09-15",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Gumroad Discover sales cost 30%; direct sales 10% + $0.50",
+          "source_url": "https://gumroad.com/pricing",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Non-developer buyers convert on Gumroad at a rate sufficient for 10-20 sales in 90 days without an existing audience",
+          "source_url": "https://inflectual.gumroad.com/l/master-marketing-claude-skills-bundle",
+          "recency": "2026",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 20,
+      "est_days_to_first_revenue": 14,
+      "est_day90_revenue_base_cad": 300,
+      "gross_margin_est": "70-90% (30% on Discover sales, ~10% direct on Gumroad, ~6% on Polar)",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "Setup block: Gumroad and/or Polar account; nothing else. Operator builds, tests and updates packs and answers buyer questions asynchronously.",
+      "automation_potential": "high",
+      "competition_intensity": "high",
+      "biggest_failure_reason": "Skills are text files that any Claude user can generate on demand; without domain credibility or an audience the packs are indistinguishable from the dozens already on Gumroad, and no seller has published evidence that they sell.",
+      "key_risks": [
+        "Zero public sales data for any skills pack",
+        "Easy to copy/pirate",
+        "Anthropic could launch an official paid marketplace or ship equivalent skills for free",
+        "Outside the developer lens; included only because it surfaced repeatedly during research"
+      ],
+      "why_now_2026": "Cowork opened Claude plugins to non-developers in 2026 and the community marketplace gives a free, curated discovery slot; paid packs are appearing on Gumroad but none yet combine a free installable plugin with a paid pack.",
+      "day180_asset_potential": "low",
+      "confidence": "low"
+    }
+  ]
+}

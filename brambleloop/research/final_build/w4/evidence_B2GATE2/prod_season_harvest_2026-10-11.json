@@ -1,0 +1,45 @@
+{
+ "events": {
+  "Christmas": {
+   "event": "Christmas",
+   "status": "UNMEASURED",
+   "why": "0 order(s) attributed to Christmas 2025-12-25 between 2025-07-28 and 2026-01-15, against a floor of 20. Nothing is learned from a season with no buyers, and nothing is written to next year's calendar",
+   "needs": "a harvest with n >= 20 orders"
+  },
+  "Halloween": {
+   "event": "Halloween",
+   "status": "UNMEASURED",
+   "why": "0 order(s) attributed to Halloween 2025-10-31 between 2025-06-03 and 2025-11-21, against a floor of 20. Nothing is learned from a season with no buyers, and nothing is written to next year's calendar",
+   "needs": "a harvest with n >= 20 orders"
+  },
+  "Thanksgiving (CA)": {
+   "event": "Thanksgiving (CA)",
+   "status": "UNMEASURED",
+   "why": "0 order(s) attributed to Thanksgiving (CA) 2025-10-12 between 2025-05-15 and 2025-11-02, against a floor of 20. Nothing is learned from a season with no buyers, and nothing is written to next year's calendar",
+   "needs": "a harvest with n >= 20 orders"
+  },
+  "Valentine's": {
+   "event": "Valentine's",
+   "status": "UNMEASURED",
+   "why": "0 order(s) attributed to Valentine's 2026-02-14 between 2025-09-17 and 2026-03-07, against a floor of 20. Nothing is learned from a season with no buyers, and nothing is written to next year's calendar",
+   "needs": "a harvest with n >= 20 orders"
+  },
+  "Easter": {
+   "event": "Easter",
+   "status": "UNMEASURED",
+   "why": "0 order(s) attributed to Easter 2026-04-04 between 2025-11-05 and 2026-04-25, against a floor of 20. Nothing is learned from a season with no buyers, and nothing is written to next year's calendar",
+   "needs": "a harvest with n >= 20 orders"
+  },
+  "Mother's Day": {
+   "event": "Mother's Day",
+   "status": "UNMEASURED",
+   "why": "0 order(s) attributed to Mother's Day 2026-05-09 between 2025-12-10 and 2026-05-30, against a floor of 20. Nothing is learned from a season with no buyers, and nothing is written to next year's calendar",
+   "needs": "a harvest with n >= 20 orders"
+  }
+ },
+ "minimums": {
+  "event_orders": 20,
+  "group_orders": 5,
+  "signal_points": 4
+ }
+}

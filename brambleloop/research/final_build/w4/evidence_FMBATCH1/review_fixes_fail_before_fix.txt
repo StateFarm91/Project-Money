@@ -1,0 +1,15 @@
+FAILS-BEFORE-FIX test_w4_fmbatch1_drift test_by_default_drift_requeues_nothing_and_asks_the_owner AttributeError module 'brambleloop.integrations.taxonomy_drift' has no attribute 'REQUEUE_VAR'
+FAILS-BEFORE-FIX test_w4_fmbatch1_rollback test_by_default_a_p0_is_reported_and_production_is_not_pushed AssertionError To /tmp/bl-test-x-b1w92kll/fmb1-rb-gmnqt3fs/remote.git    94a8243..34df3da  34df3da71ef2c784e0785aa4361f3207cd44daa9 -> 
+FAILS-BEFORE-FIX test_w4_fmbatch1_rollback test_auto_rollback_without_an_owner_reason_refuses_to_push AssertionError To /tmp/bl-test-x-9a5ac21l/fmb1-rb-4xxsh0nz/remote.git    ce9acf1..142e785  142e78509d27389241f39d4432e4755a7eeeea42 -> 
+FAILS-BEFORE-FIX test_w4_fmbatch1_research_run test_review_f2_redirects_off_the_allowlist_or_to_http_are_refused AttributeError module 'brambleloop.intel.research_fetch' has no attribute '_redirect_handler'
+FAILS-BEFORE-FIX test_w4_fmbatch1_research_run test_review_f2_non_default_port_and_oversized_robots_are_refused AssertionError a non-default port was allowed
+FAILS-BEFORE-FIX test_w4_fmbatch1_research_run test_review_f8_a_network_error_is_not_fetched_and_promotion_still_runs AttributeError module 'brambleloop.intel.research_fetch' has no attribute 'FetchUnavailable'
+FAILS-BEFORE-FIX test_w4_fmbatch1_compat test_review_f4_every_billed_response_is_a_spend_row_and_nothing_stays_reserved AssertionError []
+FAILS-BEFORE-FIX test_w4_fmbatch1_compat test_review_f4_unreadable_usage_is_billed_at_the_estimate_not_released_as_free AssertionError []
+FAILS-BEFORE-FIX test_w4_fmbatch1_compat test_review_f5_vision_reserves_its_image_tokens_and_text_only_reserves_nothing AssertionError 
+PASSED-BEFORE-FIX test_model_spend_paths test_the_scan_finds_the_provider_calls_that_are_actually_there
+FAILS-BEFORE-FIX test_w4_fmbatch1_failclass test_review_f6_an_assertion_quoting_an_environment_phrase_is_a_code_failure AssertionError FAIL test_owner_route_refuses AssertionError: expected 401, body={"error": "Permission denied"}
+FAILS-BEFORE-FIX test_w4_fmbatch1_signing test_review_f7_required_signing_refuses_an_unreadable_or_empty_range AssertionError {'status': 'empty_range', 'unsigned': [], 'claimed': False, 'required': True, 'allowed_signers': {'configured': False, '
+FAILS-BEFORE-FIX test_w4_fmbatch1_physical_truth test_review_f9_a_malformed_plan_row_is_unknown_not_a_500 ValueError Invalid isoformat string: 'next week'
+FAILS-BEFORE-FIX test_w4_fmbatch1_providers test_review_f10_an_unreadable_contract_is_not_routed AssertionError {'action': 'CALL', 'task': 'listing_classify', 'agent': '', 'chosen': 'claude-sonnet-5', 'order': ['claude-sonnet-5'], '
+FAILS-BEFORE-FIX test_w4_fmbatch1_departments test_review_f11_an_open_watching_span_is_not_rewritten_every_tick AssertionError 

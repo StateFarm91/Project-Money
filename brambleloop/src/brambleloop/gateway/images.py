@@ -1,0 +1,1993 @@
+"""Image generation: a different purchase from a model that can look at images.
+
+Requirements 72, 73, 74, 75, 130, 198, 199, 200, 201, 202. The canonical Brambleloop model is
+a fictional person who has to be the same person across every listing, every season and every
+regeneration -- #200 calls it an identity lock and #201 makes drift a release-blocking defect.
+Nothing in that is served by a language model that can see. The owner said so explicitly, and
+the distinction is worth keeping in code rather than in a note:
+
+**Looking is not making.** `gateway.anthropic.see` judges a photograph that exists. This
+generates one that does not. They are different capabilities, different providers and
+different bills, and the only thing they share is the ceiling they both spend against. A
+system that quietly substituted the first for the second would report the model pack as
+buildable and produce nothing.
+
+**An identity lock needs reference conditioning, not a better prompt.** A prompt describing a
+face produces a different face every time, within a family. What makes the same person appear
+twice is conditioning generation on an approved reference image -- so a provider that cannot
+take reference images cannot satisfy #200, whatever its output quality, and `SUPPORTS_LOCK`
+is part of the provider table rather than a footnote.
+
+**Unpriced is unbounded.** The same rule the text gateway learned the hard way: a provider
+with no price on file is refused rather than defaulted to zero, because a model the price
+table does not know bills CA$0.00 against a ceiling that counts dollars.
+
+**Nothing here is configured yet, and the gate says so by being a probe.** A key that is set
+and a provider that will generate an image are different states; so are a provider that
+generates and one that refuses this company's prompts on content grounds, which is a real
+outcome for a brief about an attractive adult model and one that must surface as a refusal
+rather than as an empty gallery.
+"""
+from __future__ import annotations
+
+import json
+import os
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from datetime import datetime, timedelta, timezone
+
+from ..core.resilience import PermanentError, TransientError
+
+KEY_VAR = "BRAMBLELOOP_IMAGE_KEY"
+PROVIDER_VAR = "BRAMBLELOOP_IMAGE_PROVIDER"
+PROBE_ACTION = "image.probe"
+
+# Assumed list prices, USD per generated image at the stated size, read 2026-09-20 from
+# published pricing pages. An assumption and labelled one on every row this produces, exactly
+# as the text gateway labels its per-token figures: these are not a measurement of this
+# account's billing.
+from ..core.fx import ASSUMED_CAD_PER_USD as USD_TO_CAD  # noqa: E402 - single source
+
+
+@dataclass(frozen=True)
+class ImageProvider:
+    key: str
+    what: str
+    endpoint: str
+    usd_per_image: float
+    supports_lock: bool
+    reference_images: int
+    note: str
+    # Which sign-up this model is bought through. Not the same thing as the model: one
+    # Google AI Studio key covers two of the candidates below, and an owner action list that
+    # counted models rather than accounts would ask for five sign-ups to reach five
+    # candidates when three reach four of them.
+    account: str = ""
+    # The exact identifier on the wire, and which API dialect to speak. These exist because
+    # the first version of `generate` sent one invented body -- `{"prompt", "size"}` with a
+    # bearer token -- to every provider's base endpoint, on the reasoning that the
+    # differences "are not worth an abstraction nobody has exercised". The moment a real key
+    # existed the reasoning collapsed: Google wants `x-goog-api-key`, a `:generateContent`
+    # suffix, a `contents` array and an `imageConfig`, and would have refused that body under
+    # any billing arrangement. An abstraction nobody has exercised is not thin, it is untested.
+    model: str = ""
+    dialect: str = ""
+
+    @property
+    def cad_per_image(self) -> float:
+        return round(self.usd_per_image * USD_TO_CAD, 6)
+
+    def to_dict(self) -> dict:
+        return {"provider": self.key, "what": self.what, "account": self.account,
+                "usd_per_image": self.usd_per_image,
+                "cad_per_image": self.cad_per_image,
+                "supports_identity_lock": self.supports_lock,
+                "reference_images": self.reference_images,
+                "note": self.note, "price_basis": "assumed, read 2026-09-20"}
+
+
+# Kept in step with `image_bench.CANDIDATES`, which is the list the measurement runs over.
+# This table is what the *generator* can be pointed at; that one is what the benchmark
+# compares. A test asserts every conditioning-capable candidate there has an entry here, so
+# a model can never win a benchmark this module cannot then call.
+PROVIDERS: tuple[ImageProvider, ...] = (
+    ImageProvider(
+        "flux-2-pro", "Black Forest Labs FLUX 2 Pro",
+        "https://api.bfl.ai/v1/flux-2-pro", 0.02, True, 8,
+        "cheapest of the candidates that conditions on reference images, which is what an "
+        "identity lock actually is. Eight references is the documented API limit "
+        "(`input_image` .. `input_image_8`, api.bfl.ai/openapi.json `Flux2Inputs`, read "
+        "2026-10-19). The table price is the 2026-09-20 assumption; the per-call reservation "
+        "uses BFL's published megapixel formula (`bfl_estimate_usd`), which is higher",
+        account="bfl", model="flux-2-pro", dialect="bfl"),
+    # FLUX 3 Image (W4-FLUXAPI). Verified 2026-10-19 against BFL's official API reference
+    # (docs.bfl.ai/api-reference/utility/generate-an-image-with-flux-3 and
+    # api.bfl.ai/openapi.json `Flux3ImageInputs`): POST /v1/flux-3-image, `x-key` auth,
+    # `images` = one to 10 references (http(s) URL or base64), `aspect_ratio` (15 ratios or
+    # `auto`), `resolution` tier (768sq/1k/1.5k/2k/4k), unknown fields refused with 422 -- so
+    # no `seed`, `width`, `input_image`. Priced per image by resolution tier, references not
+    # charged (docs.bfl.ai/quick_start/pricing, release notes 2026-10-01). `usd_per_image` is
+    # the 1k tier, the tier this gateway asks for at 1024x1024; other tiers reserve their own
+    # documented price (`BFL3_TIER_USD`).
+    ImageProvider(
+        "flux-3-image", "Black Forest Labs FLUX 3 Image",
+        "https://api.bfl.ai/v1/flux-3-image", 0.048, True, 10,
+        "the model the owner measured by hand on dashboard.bfl.ai (US$0.048 per image at 1k, "
+        "37-216 s each, up to three references). Same BFL account and key as flux-2-pro",
+        account="bfl", model="flux-3-image", dialect="bfl3"),
+    ImageProvider(
+        "gpt-image-2", "OpenAI GPT Image 2 at 1024px",
+        "https://api.openai.com/v1/images/generations", 0.03, True, 16,
+        "strongest prompt adherence of the three and the most reference images; half again "
+        "the price of FLUX per image, which matters at catalogue scale and not at pack "
+        "scale", account="openai", model="gpt-image-2", dialect="openai"),
+    ImageProvider(
+        "nano-banana-2", "Google Gemini 3.1 Flash Image (Nano Banana 2)",
+        "https://generativelanguage.googleapis.com/v1beta/models", 0.101, True, 5,
+        "fine-grained fabric and material texture at up to 4K and feature consistency across "
+        "characters. The most expensive candidate that can hold an identity, and the "
+        "benchmark exists to find out whether that buys anything on crochet. "
+        "US$0.101 read from Google's own pricing page 2026-09-21: image output is billed at "
+        "US$60 per million tokens and a 2048px image is 1,680 of them. The table said 0.063, "
+        "which is nearer the 1K figure (1,120 tokens, US$0.067) -- and this candidate is "
+        "benchmarked at 2K, so the estimate was for a rendering nobody was going to do",
+        account="google", model="gemini-3.1-flash-image", dialect="google"),
+    ImageProvider(
+        "seedream-v5-lite", "ByteDance Seedream v5.0 Lite",
+        "https://ark.cn-beijing.volces.com/api/v3/images/generations", 0.026, True, 4,
+        "production-quality output at 2048px, between FLUX and GPT Image on price",
+        account="volcengine", model="seedream-5-0-lite", dialect="openai"),
+    # Imagen 4 was here, listed to be ruled out on the requirement rather than on taste: no
+    # reference conditioning, so #200 and #201 are unmeetable by it whatever its
+    # photorealism. It is removed rather than re-priced because on 2026-09-21 it no longer
+    # appears on Google's Gemini API pricing page at all. A provider table is what the
+    # generator can be *pointed at*, and a row for a model that cannot be bought is a row
+    # that will one day be selected. The exclusion itself is kept in `image_bench.CANDIDATES`,
+    # where it is a recorded decision rather than an endpoint.
+)
+
+BY_KEY: dict[str, ImageProvider] = {p.key: p for p in PROVIDERS}
+
+
+# The sign-ups behind those models, because the owner action is an account and not a model.
+# `minutes` and `needs_card` are what makes this list orderable on a phone: an account that
+# unlocks two candidates for free and two minutes is not the same ask as one that needs a
+# card and an identity check, and an action list that did not say so would be sorted by
+# whichever provider was typed first.
+#
+# `reachable` is the honest column. Volcano Engine is where Seedream is bought and it wants a
+# mainland Chinese account with phone verification; calling that a two-minute action and
+# leaving it in the list is how a benchmark ends up permanently one candidate short with
+# nobody able to say why.
+ACCOUNTS: dict[str, dict] = {
+    "google": {
+        "name": "Google AI Studio",
+        "where": "https://aistudio.google.com/apikey",
+        # Corrected 2026-09-21 against Google's own pricing page. The key is free to create
+        # and this said so and stopped there, which made it the first and easiest action in
+        # the owner's list. But Nano Banana 2's image output reads "Not available" under Free
+        # Tier: generation is paid-tier only, so a key created without billing produces a
+        # refusal rather than an image. "Free to create" and "free to use" are different
+        # claims and the owner was given the wrong one.
+        "needs_card": True,
+        "reachable": True,
+        "minutes": 4,
+        "how": ("sign in with the Google account already on the phone, tap Get API key, "
+                "create the key in a project with billing enabled -- image output is not "
+                "available on the free tier -- and copy it"),
+        "why_first": ("the texture-strongest candidate, and the one the benchmark exists to "
+                      "test: it is also the dearest, so whether 4K fabric detail is worth "
+                      "five times FLUX's price is exactly the question"),
+    },
+    "bfl": {
+        "name": "Black Forest Labs",
+        "where": "https://api.bfl.ai",
+        "needs_card": True,
+        "reachable": True,
+        "minutes": 4,
+        "how": "register, add a card, buy the smallest credit pack, copy the API key",
+        "why_first": ("the cheap candidate the owner refused to lock on price alone. It "
+                      "cannot be ruled in or out without being measured"),
+    },
+    "openai": {
+        "name": "OpenAI platform",
+        "where": "https://platform.openai.com/api-keys",
+        "needs_card": True,
+        "reachable": True,
+        "minutes": 4,
+        "how": ("sign in, add a payment method under Billing, set a low usage limit, "
+                "create a secret key, copy it"),
+        "why_first": ("the strongest prompt adherence of the candidates and the most "
+                      "reference images, which is what an identity lock conditions on"),
+    },
+    "volcengine": {
+        "name": "Volcano Engine (ByteDance)",
+        "where": "https://www.volcengine.com",
+        "needs_card": True,
+        "reachable": False,
+        "minutes": 0,
+        "how": "",
+        "why_first": "",
+        "unreachable_because": (
+            "registration expects a mainland Chinese mobile number and identity "
+            "verification. Listed so the benchmark can report Seedream as unmeasured for a "
+            "named reason rather than leaving a candidate silently absent"),
+    },
+}
+
+
+def key_var(account: str) -> str:
+    """The environment variable holding one account's credential.
+
+    Per account rather than per model, because that is how the credential is actually
+    issued: one Google key renders both Google candidates, and two variables holding the
+    same secret is a secret that gets rotated in one of them.
+    """
+    return f"BRAMBLELOOP_IMAGE_KEY_{account.upper()}"
+
+
+def key_for(provider_key: str, env: dict[str, str] | None = None) -> str:
+    """This provider's credential, or empty.
+
+    Falls back to the single `BRAMBLELOOP_IMAGE_KEY` only when `BRAMBLELOOP_IMAGE_PROVIDER`
+    names this same provider -- so a one-provider environment keeps working with one
+    variable, and a benchmark across four providers cannot accidentally send all four
+    requests with whichever key happened to be in the general slot. That accident would not
+    look like a failure: it would look like four candidates scoring identically.
+    """
+    e = env if env is not None else os.environ
+    provider = BY_KEY.get(provider_key)
+    if provider is None:
+        return ""
+    specific = (e.get(key_var(provider.account)) or "").strip()
+    if specific:
+        return specific
+    if (e.get(PROVIDER_VAR) or "").strip() == provider_key:
+        return (e.get(KEY_VAR) or "").strip()
+    return ""
+
+
+def available(env: dict[str, str] | None = None) -> list[str]:
+    """Which providers this environment holds a credential for. Not which ones work."""
+    return [p.key for p in PROVIDERS if key_for(p.key, env)]
+
+
+def credential_plan(env: dict[str, str] | None = None) -> dict:
+    """The owner actions that would unlock the most candidates for the least phone time.
+
+    Ordered by what each account unlocks rather than by provider name, and it reports what
+    stays unmeasurable afterwards. A plan that listed only what to create would read as
+    though completing it measured everything.
+    """
+    have = set(available(env))
+    todo = []
+    for account, info in ACCOUNTS.items():
+        models = [p for p in PROVIDERS if p.account == account]
+        unlocked = [p.key for p in models if p.key not in have]
+        if not unlocked or not info["reachable"]:
+            continue
+        if any(p.key in have for p in models):
+            continue        # the account exists; its models are already reachable
+        todo.append({
+            "account": account, "name": info["name"], "where": info["where"],
+            "how": info["how"], "minutes": info["minutes"],
+            "needs_card": info["needs_card"],
+            "unlocks": unlocked,
+            "unlocks_count": len(unlocked),
+            "set_variable": key_var(account),
+            "why": info["why_first"],
+        })
+    # Free first, then by how many candidates one sign-up unlocks, then by how long it takes.
+    todo.sort(key=lambda row: (row["needs_card"], -row["unlocks_count"], row["minutes"]))
+
+    unreachable = [{"account": a, "models": [p.key for p in PROVIDERS if p.account == a],
+                    "why": info.get("unreachable_because", "")}
+                   for a, info in ACCOUNTS.items() if not info["reachable"]]
+    return {
+        "have": sorted(have),
+        "actions": todo,
+        "total_minutes": sum(row["minutes"] for row in todo),
+        "unreachable": unreachable,
+        "still_unmeasured_after": sorted(
+            {p.key for p in PROVIDERS if p.key not in have}
+            - {m for row in todo for m in row["unlocks"]}),
+        "note": ("one account can cover more than one candidate, so this counts sign-ups "
+                 "rather than models. Nothing here is a claim that a key works: the probe "
+                 "is what says that"),
+    }
+
+# What the requirements actually need generated, so "how much a month" is answerable before
+# anything is bought rather than after. Counts are this build's estimate and are labelled.
+WORKLOAD: dict[str, dict] = {
+    "candidate_tournament": {
+        "requirement": 199, "images": 24, "once": True,
+        "why": "a controlled candidate set wide enough that the owner's choice is a choice"},
+    "identity_reference_pack": {
+        "requirement": 200, "images": 20, "once": True,
+        "why": "canonical face views, expression and lighting range, frozen after selection"},
+    "listing_creative": {
+        "requirement": 130, "images": 60, "once": False,
+        "why": "model-led frames across the listings a month produces"},
+    "anti_drift_regeneration": {
+        "requirement": 201, "images": 20, "once": False,
+        "why": "assets that failed the identity check are regenerated, never shipped"},
+}
+
+
+class ImagesNotConfigured(PermanentError):
+    """No provider or no key. Not an outage: there is nothing to call."""
+
+
+class ImagesRefused(PermanentError):
+    """The provider answered and the answer is not an image."""
+
+
+class ImagesGateRefused(ImagesRefused):
+    """Refused by the owner activation gate (`paid_provider_gate`) before any network I/O.
+    `.code` names the reason (`not_activated_by_owner`, `provider_daily_ceiling`, ...)."""
+
+    def __init__(self, message: str, code: str = ""):
+        super().__init__(message)
+        self.code = code
+
+
+class ImagesRejectedAtGeneration(ImagesRefused):
+    """ENG-VIS-FLUX: the provider rendered and billed, and the bytes fail the generation-time
+    check (`flux_qc`): wrong resolution, wrong aspect for the frame role, not PNG/JPEG, or
+    corrupt after the bounded free re-fetches. The render is ledgered; its bytes are KEPT on
+    disk (`.result["path"]`) so it can be recovered and re-checked before any replacement is
+    bought. Never retried with the same request (the owner gate would refuse it as already
+    billed); never handed to a QA judge."""
+
+    def __init__(self, message: str, *, verdict: dict, result: dict):
+        super().__init__(message)
+        self.verdict = dict(verdict or {})
+        self.result = dict(result or {})
+        self.reasons = list(self.verdict.get("reasons") or [])
+
+
+# A corrupt download is re-fetched from the same delivery URL -- free, no new render -- at
+# most this many times before the render is rejected as corrupt.
+CORRUPT_REFETCHES = 2
+GENERATION_REJECTED_ACTION = "image.generation_rejected"
+
+
+class SubstitutionRefused(PermanentError):
+    """Somebody tried to satisfy image generation with a model that can only look."""
+
+
+def refuse_vision_substitution(reason: str = "") -> None:
+    """Called where the temptation lives, so the refusal is in the code path.
+
+    The owner named this one specifically: do not silently substitute ordinary language-model
+    vision for image generation. It is a tempting substitution because the vision capability
+    exists, is paid for and answers questions about pictures -- and it cannot produce one.
+    A system that made the swap would report the model pack as progressing.
+    """
+    raise SubstitutionRefused(
+        "image generation is not image understanding. `gateway.anthropic.see` judges a "
+        "photograph that exists; nothing in it makes one. The canonical model (#198-#202) "
+        "needs a generator that conditions on reference images, and no amount of looking "
+        f"substitutes for that. {reason}".strip())
+
+
+def configured_provider(env: dict[str, str] | None = None) -> ImageProvider | None:
+    """Which provider this environment names, refusing one with no price on file."""
+    e = env if env is not None else os.environ
+    key = (e.get(PROVIDER_VAR) or "").strip()
+    if not key:
+        return None
+    provider = BY_KEY.get(key)
+    if provider is None:
+        raise ImagesRefused(
+            f"{key!r} has no price on file, so what it spends cannot be checked against the "
+            f"ceiling. An unpriced call is an unbounded one. Known: {sorted(BY_KEY)}")
+    return provider
+
+
+def api_key(env: dict[str, str] | None = None) -> str:
+    e = env if env is not None else os.environ
+    return (e.get(KEY_VAR) or "").strip()
+
+
+def configured(env: dict[str, str] | None = None) -> bool:
+    """Whether any provider has a credential in this environment. Deliberately not `usable`.
+
+    Reads the per-account variables as well as the general slot, because the benchmark can
+    run on a Google key alone and a `configured` that only knew about `BRAMBLELOOP_IMAGE_KEY`
+    would report nothing configured while four candidates were reachable.
+    """
+    try:
+        if configured_provider(env) and api_key(env):
+            return True
+    except ImagesRefused:
+        pass
+    return bool(available(env))
+
+
+def monthly_estimate_cad(provider: ImageProvider) -> dict:
+    """What the workload above costs at this provider, one-off and recurring apart.
+
+    Two numbers rather than one. The candidate tournament and the reference pack are bought
+    once; listing creative and regeneration are bought every month, and a single blended
+    figure would make the first month look like the standing rate.
+    """
+    once = sum(w["images"] for w in WORKLOAD.values() if w["once"])
+    recurring = sum(w["images"] for w in WORKLOAD.values() if not w["once"])
+    return {
+        "provider": provider.key,
+        "one_off_images": once,
+        "one_off_cad": round(once * provider.cad_per_image, 2),
+        "monthly_images": recurring,
+        "monthly_cad": round(recurring * provider.cad_per_image, 2),
+        "first_month_cad": round((once + recurring) * provider.cad_per_image, 2),
+        "price_basis": "assumed list price read 2026-09-20, not a measurement of billing",
+    }
+
+
+class QuotaUnavailable(PermanentError):
+    """The account cannot pay for this call. Not a rate limit, and not a content refusal.
+
+    Two live responses on 2026-09-21 made the case for a separate class:
+
+    Google answered 429 `generate_content_free_tier_requests, limit: 0`. A rate limit says
+    "slower"; a free-tier limit of zero says "not on this plan". Both arrive as 429 and only
+    one is worth retrying, and the generic mapping would have had the queue back off and
+    retry a request that could never succeed, reporting a transient outage the whole time.
+
+    Black Forest Labs answered 402 `Insufficient credits`. That fell through to
+    `ImagesRefused`, whose message says a content refusal "is a fact about the brief rather
+    than the wiring" -- so the audit log would have recorded the provider declining to
+    render a crochet basket on content grounds, when the actual fact was an empty balance.
+    A wrong diagnosis in the log is worse than none, because somebody acts on it: the answer
+    to a content refusal is a new brief, and the answer to this is a top-up.
+    """
+
+
+# What a 429 body says when the answer is "not on this plan" rather than "slower". Matched
+# on the provider's own words because there is no status code for the difference.
+_PERMANENT_QUOTA: tuple[str, ...] = (
+    "limit: 0", "free_tier", "free tier", "billing details", "check your plan",
+    "exceeded your current quota", "insufficient_quota", "billing_hard_limit_reached",
+)
+
+
+def _is_permanent_quota(detail: str) -> bool:
+    low = (detail or "").lower()
+    return any(marker.lower() in low for marker in _PERMANENT_QUOTA)
+
+
+# Size on the wire. Google names sizes; the others take pixels. Kept as a translation rather
+# than as a string the caller is trusted to get right per provider.
+def _pixels(size: str) -> int:
+    try:
+        return int(str(size).lower().split("x")[0])
+    except (ValueError, IndexError):
+        return 1024
+
+
+def _google_tier(size: str) -> str:
+    px = _pixels(size)
+    return "4K" if px >= 3072 else "2K" if px >= 1536 else "1K"
+
+
+# BFL's published prices (W4-FLUXAPI), read 2026-10-19 from the feed the official pricing page
+# renders (docs.bfl.ai/quick_start/pricing; values there are US cents, 1 credit = US$0.01) and
+# confirmed for 768sq/1k/2k/4k in the 2026-10-01 release notes. FLUX 3 Image is priced per
+# image by `resolution` tier; references are not charged.
+BFL3_TIER_USD: dict[str, float] = {"768sq": 0.041, "1k": 0.048, "1.5k": 0.070, "2k": 0.100,
+                                   "4k": 0.607}
+BFL3_ASPECT_RATIOS: tuple[str, ...] = ("21:9", "2:1", "16:9", "3:2", "7:5", "4:3", "5:4", "1:1",
+                                       "4:5", "3:4", "5:7", "2:3", "9:16", "1:2", "9:21")
+# The only fields FLUX 3 Image accepts (`Flux3ImageInputs`, additionalProperties: false).
+# ENG-VIS-FLUX: read from the verified contract (`flux_contract`, openapi read 2026-11-20), which
+# added `user`, `width` and `height` to the 2026-10-19 reading. Still no `seed`.
+from .flux_contract import REQUEST_FIELDS as BFL3_FIELDS  # noqa: E402
+# FLUX.2 [pro] megapixel pricing, same source: first output MP, each further output MP, and
+# each input (reference) MP. A megapixel is 1,048,576 pixels (BFL's own definition).
+BFL2_PRO_USD = {"first_mp": 0.03, "extra_mp": 0.015, "input_mp": 0.015}
+BFL_MP = 1_048_576
+BFL_PRICE_BASIS = ("published BFL price read 2026-10-19 (docs.bfl.ai/quick_start/pricing); "
+                   "the submit response's `cost` is the provider's own figure")
+
+
+def _bfl_input_field(i: int) -> str:
+    """FLUX.2's reference fields: `input_image`, then `input_image_2` .. `input_image_8`."""
+    return "input_image" if i == 0 else f"input_image_{i + 1}"
+
+
+def _wh(size: str) -> tuple[int, int]:
+    try:
+        w, h = (int(x) for x in str(size).lower().split("x"))
+        return w, h
+    except (ValueError, TypeError):
+        px = _pixels(size)
+        return px, px
+
+
+def bfl3_tier(size: str) -> str:
+    """The FLUX 3 `resolution` tier for a WxH request: the nearest equal-area tier at or above.
+
+    768sq is a square-only preview tier, so a non-square request never lands on it."""
+    w, h = _wh(size)
+    area = w * h
+    if w == h and area <= 768 * 768:
+        return "768sq"
+    for tier, cap in (("1k", 1.05 * BFL_MP), ("1.5k", 2.1 * BFL_MP), ("2k", 4.2 * BFL_MP)):
+        if area <= cap:
+            return tier
+    return "4k"
+
+
+def bfl3_aspect(size: str) -> str:
+    """The FLUX 3 `aspect_ratio` for a WxH request, refused when it is not a documented one."""
+    import math
+
+    w, h = _wh(size)
+    g = math.gcd(w, h) or 1
+    ratio = f"{w // g}:{h // g}"
+    if ratio not in BFL3_ASPECT_RATIOS:
+        raise ImagesRefused(f"{size} is {ratio}, which FLUX 3 Image does not offer; documented "
+                            f"ratios: {', '.join(BFL3_ASPECT_RATIOS)}")
+    return ratio
+
+
+def _image_mp(path: str) -> float:
+    """A local reference's megapixels, for FLUX.2's per-input-MP price. Unreadable: refused."""
+    try:
+        from PIL import Image
+
+        with Image.open(path) as im:
+            w, h = im.size
+    except Exception as exc:  # noqa: BLE001 - an unpriceable input is an unbounded one
+        raise ImagesRefused(f"{Path(str(path)).name}: cannot read its dimensions to price it "
+                            f"({type(exc).__name__}); an unpriced input is refused") from exc
+    return (w * h) / BFL_MP
+
+
+def render_estimate_usd(provider: ImageProvider, size: str = "1024x1024",
+                        reference_urls: list[str] | None = None,
+                        payload: bytes | None = None) -> dict:
+    """What one render will cost, before it is asked for, in US dollars, with its basis.
+
+    Never below the table price. For FLUX 3 the tier is read from the built request body when
+    there is one (an `extra_fields` resolution changes the price). For FLUX.2 [pro] the
+    documented megapixel formula is applied to the output size and every reference's actual
+    pixels. Every other provider: its table price, as before."""
+    refs = list(reference_urls or [])
+    table = float(provider.usd_per_image)
+    if provider.dialect == "bfl3":
+        tier = ""
+        if payload:
+            try:
+                tier = str(json.loads(payload).get("resolution") or "")
+            except ValueError:
+                tier = ""
+        tier = tier or bfl3_tier(size)
+        if tier not in BFL3_TIER_USD:
+            raise ImagesRefused(f"FLUX 3 resolution {tier!r} has no published price")
+        usd = BFL3_TIER_USD[tier]
+        return {"usd": max(usd, 0.0), "basis": BFL_PRICE_BASIS, "tier": tier,
+                "formula": f"per image at resolution {tier}; references not charged"}
+    if provider.dialect == "bfl":
+        import math
+
+        w, h = _wh(size)
+        out_mp = max(1, math.ceil((w * h) / BFL_MP))
+        in_mp = sum(_image_mp(r) for r in refs if Path(str(r)).is_file())
+        usd = (BFL2_PRO_USD["first_mp"] + (out_mp - 1) * BFL2_PRO_USD["extra_mp"]
+               + in_mp * BFL2_PRO_USD["input_mp"])
+        return {"usd": round(max(usd, table), 6), "basis": BFL_PRICE_BASIS,
+                "formula": (f"{out_mp} output MP + {in_mp:.3f} input MP at "
+                            f"{BFL2_PRO_USD}; never below the table price {table}")}
+    return {"usd": table, "basis": "assumed, read 2026-09-20", "formula": "table price"}
+
+
+def refuse_benchmark_references(reference_urls: list[str] | None, *,
+                                benchmark_hashes=None) -> None:
+    """F-785: no benchmark or seller image ever conditions a Brambleloop render.
+
+    Checked here, where every provider's request is built, so no caller -- a tournament, a
+    reference pack, a repair pass -- can reach a provider with one. The provenance tests live in
+    `gates.originality.refuse_benchmark_reference`: inside the benchmark library, marked as
+    seller/designer/competitor photography or a benchmark reconstruction, or byte-identical to
+    a file in a purchase manifest.
+    """
+    from ..gates.originality import ReferenceRefused, refuse_benchmark_reference
+
+    for ref in reference_urls or ():
+        try:
+            refuse_benchmark_reference(ref, benchmark_hashes=benchmark_hashes)
+        except ReferenceRefused as exc:
+            raise ImagesRefused(str(exc)) from exc
+
+
+def _request_for(provider: ImageProvider, key: str, prompt: str,
+                 reference_urls: list[str] | None, size: str,
+                 extra_fields: dict | None = None, *,
+                 benchmark_hashes=None) -> tuple[str, dict, bytes]:
+    """The URL, headers and body this provider actually accepts.
+
+    Verified against the live API for `google` on 2026-09-21: the auth header, the
+    `:generateContent` suffix, the `contents` shape and `imageConfig` are what the endpoint
+    answered 200 to for model listing and 429-with-a-quota-reason for generation, which is
+    the response of an endpoint that understood the request. The other two dialects are
+    written from their published documentation and are **unverified** -- no key for either
+    exists yet, and the probe is what will prove them rather than this comment.
+    """
+    refs = list(reference_urls or [])
+    # Before any bytes are read or any body is built (F-785).
+    refuse_benchmark_references(refs, benchmark_hashes=benchmark_hashes)
+    if provider.dialect == "google":
+        url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
+               f"{provider.model}:generateContent")
+        parts: list[dict] = [{"text": prompt}]
+        for ref in refs:
+            # Reference conditioning is what an identity lock is (#200). Google takes the
+            # bytes inline, so a reference has to be readable from here.
+            parts.append({"inlineData": {"mimeType": "image/png",
+                                         "data": _inline_reference(ref)}})
+        body = {
+            "contents": [{"parts": parts}],
+            "generationConfig": {"responseModalities": ["IMAGE"],
+                                 "imageConfig": {"imageSize": _google_tier(size)}},
+        }
+        return url, {"x-goog-api-key": key}, json.dumps(body).encode()
+
+    if provider.dialect in ("bfl", "bfl3"):
+        # Black Forest Labs is a submit-then-poll API: the POST returns a job, not a picture.
+        #
+        # W4-FLUXAPI: every reference is transmitted, in the documented field, up to the
+        # documented limit -- and more than the limit is refused, never truncated. Until
+        # 2026-10-19 this sent only `refs[0]`, as `image_prompt`: a field the FLUX.2 schema
+        # does not define at all (it belongs to FLUX1.1 [pro]; `Flux2Inputs` allows unknown
+        # fields, so nothing refused it). The receipt saw the bytes in the body and called the
+        # reference transmitted; whether the model conditioned on it was never documented.
+        limit = int(provider.reference_images)
+        if len(refs) > limit:
+            raise ImagesRefused(
+                f"{provider.key} takes at most {limit} reference image(s) (BFL API docs); "
+                f"{len(refs)} were supplied. Refused rather than silently dropping "
+                f"{len(refs) - limit} of them: an identity lock that quietly loses a "
+                f"reference is a prompt")
+        inline = [_inline_reference(r) for r in refs]
+        if provider.dialect == "bfl3":
+            body = {"prompt": prompt, "aspect_ratio": bfl3_aspect(size),
+                    "resolution": bfl3_tier(size),
+                    # Off by default: grounding lets the model search the web and image search
+                    # for material, which would put other people's photography into a
+                    # Brambleloop render's inputs (never copy competitor imagery).
+                    "grounding": False}
+            if inline:
+                body["images"] = inline
+            extra = dict(extra_fields or {})
+            unknown = sorted(set(extra) - BFL3_FIELDS - {"images", "prompt"})
+            if unknown:
+                raise ImagesRefused(f"FLUX 3 Image refuses unknown fields with 422; "
+                                    f"not sending {unknown}")
+            body.update({k: v for k, v in extra.items() if k not in ("images", "prompt")})
+            # ENG-VIS-FLUX: the whole body against the documented schema (ranges, exact-size
+            # bounds, the 0-4 safety_tolerance of FLUX 3 Image) before any budget is reserved.
+            from . import flux_contract
+
+            try:
+                flux_contract.validate_request(body)
+            except flux_contract.ContractViolation as exc:
+                raise ImagesRefused(f"FLUX 3 Image request outside the documented contract: "
+                                    f"{exc}") from exc
+        else:
+            px = _pixels(size)
+            w, h = _wh(size)
+            body = {"prompt": prompt, "width": w or px, "height": h or px}
+            for i, data in enumerate(inline):
+                body[_bfl_input_field(i)] = data
+        return provider.endpoint, {"x-key": key}, json.dumps(body).encode()
+
+    if provider.dialect == "openai" and refs:
+        # Reference conditioning is a *different endpoint* on OpenAI, not a field.
+        # `/v1/images/generations` answered `Unknown parameter: 'image'` on 2026-09-21,
+        # which cost the benchmark a whole candidate: GPT Image 2 rendered twenty-five of
+        # thirty samples and failed exactly the five that carry the identity lock, leaving
+        # an incomplete schedule that is not a measurement. Edits is multipart, with the
+        # reference as an uploaded file rather than a JSON value.
+        url = provider.endpoint.replace("/images/generations", "/images/edits")
+        fields = {"model": provider.model, "prompt": prompt, "size": size, "n": "1"}
+        # `extra_fields` is the caller's, verbatim, edits path only: e.g. `input_fidelity`,
+        # which asks the model to keep the uploaded reference's detail. Nothing here adds it.
+        fields.update({k: str(v) for k, v in (extra_fields or {}).items()})
+        files = [("image[]", Path(r).name, Path(r).read_bytes()) for r in refs
+                 if Path(r).is_file()]
+        if not files:
+            raise ImagesRefused(
+                f"none of {refs} is a file on this disk. OpenAI conditions on uploaded "
+                f"bytes, so a reference that is only a URL conditions on nothing")
+        boundary, body = _multipart(fields, files)
+        return url, {"authorization": f"Bearer {key}",
+                     "content-type": f"multipart/form-data; boundary={boundary}"}, body
+
+    # OpenAI-shaped, which Volcano Engine also speaks.
+    body = {"model": provider.model, "prompt": prompt, "size": size, "n": 1}
+    return provider.endpoint, {"authorization": f"Bearer {key}"}, json.dumps(body).encode()
+
+
+CONDITIONING_RECEIPT_VERSION = "conditioning-receipt/1"
+
+
+def conditioning_receipt(provider: ImageProvider, reference_urls: list[str] | None,
+                         payload: bytes) -> dict:
+    """Proof, per request, that each reference's bytes are inside the body being sent (F-212).
+
+    A prompt that says "the same person as the reference" is not conditioning, and neither
+    is a `reference_urls` argument: the dialect builders decide what actually leaves, and
+    one of them (BFL) only ever sends the first reference. So this reads the *built request
+    body* -- the exact bytes `_post` will transmit -- and, for every reference, checks that
+    its file bytes are in it in the form this dialect carries them (base64 inline for Google
+    and BFL, the raw upload for OpenAI-shaped multipart). Deterministic and offline: the
+    sha256 of each reference is recorded so a frame record can be compared against the
+    frozen pack (`visual.identity.provenance_check`) without anyone re-reading the file.
+
+    `proven` is true only when there was at least one reference and every one of them was
+    found in the body. No references: `proven` is False with `requested` 0 -- nothing was
+    conditioned on, which is a fact rather than a failure for an unconditioned render.
+    """
+    import base64
+    import hashlib
+
+    refs = list(reference_urls or [])
+    body = bytes(payload or b"")
+    rows: list[dict] = []
+    inline_dialects = ("google", "bfl", "bfl3")
+    for index, ref in enumerate(refs):
+        path = Path(str(ref))
+        if not path.is_file():
+            rows.append({"reference": str(ref)[:200], "sha256": "", "bytes": 0,
+                         "transmitted": False, "why": "not a file on this disk"})
+            continue
+        raw = path.read_bytes()
+        encoded = base64.standard_b64encode(raw)
+        found = bool(raw) and (encoded in body if provider.dialect in inline_dialects
+                               else raw in body)
+        rows.append({"reference": path.name, "sha256": hashlib.sha256(raw).hexdigest(),
+                     "bytes": len(raw), "transmitted": found,
+                     "carried_as": ("base64_inline" if provider.dialect in inline_dialects
+                                    else "multipart_upload"),
+                     "field": _reference_field(provider, index),
+                     "position": index + 1,
+                     "why": "" if found else (
+                         f"the {provider.dialect} request body does not contain these bytes; "
+                         f"this dialect did not transmit this reference")})
+    proven = bool(rows) and all(r["transmitted"] for r in rows)
+    return {"version": CONDITIONING_RECEIPT_VERSION, "provider": provider.key,
+            "dialect": provider.dialect, "requested": len(refs),
+            "transmitted": sum(1 for r in rows if r["transmitted"]),
+            "references": rows, "proven": proven,
+            "reference_sha256s": [r["sha256"] for r in rows],
+            "reference_limit": int(provider.reference_images),
+            "request_sha256": hashlib.sha256(body).hexdigest(),
+            "basis": ("measured: reference bytes located in the exact request body sent"
+                      if rows else "no reference requested")}
+
+
+def _reference_field(provider: ImageProvider, index: int) -> str:
+    """Where reference `index` sits in this dialect's request, for the receipt."""
+    if provider.dialect == "bfl":
+        return _bfl_input_field(index)
+    if provider.dialect == "bfl3":
+        return f"images[{index}]"
+    if provider.dialect == "google":
+        return f"contents[0].parts[{index + 1}].inlineData"
+    return "image[]"
+
+
+def _multipart(fields: dict, files: list[tuple[str, str, bytes]]) -> tuple[str, bytes]:
+    """Encode a multipart/form-data body. Small and local: one caller, one shape."""
+    import mimetypes
+    import uuid
+
+    boundary = f"----brambleloop{uuid.uuid4().hex}"
+    out = bytearray()
+    for name, value in fields.items():
+        out += (f"--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n"
+                f"{value}\r\n").encode()
+    for name, filename, payload in files:
+        mime = mimetypes.guess_type(filename)[0] or "image/png"
+        out += (f"--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"; "
+                f"filename=\"{filename}\"\r\nContent-Type: {mime}\r\n\r\n").encode()
+        out += payload + b"\r\n"
+    out += f"--{boundary}--\r\n".encode()
+    return boundary, bytes(out)
+
+
+def _inline_reference(reference: str) -> str:
+    """A reference image as base64, from a local file. Never fetched from the network."""
+    import base64
+    from pathlib import Path
+
+    path = Path(reference)
+    if not path.is_file():
+        raise ImagesRefused(
+            f"{reference!r} is not a file on this disk. A reference image that resolves to "
+            f"nothing would be sent as a conditioning signal that conditions on nothing, "
+            f"and the identity lock would silently become a prompt")
+    return base64.standard_b64encode(path.read_bytes()).decode()
+
+
+def _parse_image(provider: ImageProvider, body: dict) -> tuple[str, str, str]:
+    """(url, base64, mime) from one provider's answer. Exactly one of url/base64 is set."""
+    if provider.dialect == "google":
+        for candidate in body.get("candidates") or []:
+            for part in (candidate.get("content") or {}).get("parts") or []:
+                inline = part.get("inlineData") or part.get("inline_data")
+                if inline and inline.get("data"):
+                    return "", inline["data"], inline.get("mimeType") or "image/png"
+        return "", "", ""
+
+    for container in (body.get("data"), body.get("images"), body.get("output"),
+                      body.get("result")):
+        for item in container or []:
+            if isinstance(item, str) and item.startswith("http"):
+                return item, "", ""
+            if isinstance(item, dict):
+                if item.get("url"):
+                    return str(item["url"]), "", ""
+                if item.get("b64_json"):
+                    return "", str(item["b64_json"]), "image/png"
+    sample = body.get("result") if isinstance(body.get("result"), dict) else {}
+    if sample.get("sample"):
+        return str(sample["sample"]), "", ""
+    return str(body.get("url") or ""), "", ""
+
+
+def _post(url: str, headers: dict, payload: bytes, *, label: str,
+          timeout: float) -> dict:
+    import urllib.error
+    import urllib.request
+
+    request = urllib.request.Request(url, data=payload, method="POST")
+    if not any(k.lower() == "content-type" for k in headers):
+        request.add_header("content-type", "application/json")
+    for name, value in headers.items():
+        request.add_header(name, value)
+    try:
+        with _no_redirect().open(request, timeout=timeout) as response:
+            return json.loads(response.read().decode())
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode(errors="replace")[:500]
+        if exc.code == 402 or (exc.code == 429 and _is_permanent_quota(detail)):
+            raise QuotaUnavailable(
+                f"{label} {exc.code}: {detail}. This is the account's balance or plan "
+                f"rather than traffic or the brief, so it is neither retried nor recorded "
+                f"as a content refusal. The answer is a top-up, not a new prompt") from exc
+        if exc.code in (429, 500, 502, 503, 504):
+            raise TransientError(f"{label} {exc.code}: {detail}") from exc
+        # A content refusal is permanent and is a fact about the brief rather than the
+        # wiring. It must surface as a refusal with the provider's words, not as an empty
+        # gallery somebody later explains as a rendering bug.
+        raise ImagesRefused(f"{label} {exc.code}: {detail}") from exc
+    except urllib.error.URLError as exc:
+        raise TransientError(f"{label} unreachable: {exc.reason}") from exc
+
+
+def _no_redirect():
+    """Delta review N-9: keyed BFL requests never follow a redirect (the x-key header would be
+    re-sent to the new location)."""
+    from .venice import no_redirect_opener
+
+    return no_redirect_opener()
+
+
+def _get(url: str, headers: dict, *, label: str, timeout: float) -> dict:
+    import urllib.error
+    import urllib.request
+
+    request = urllib.request.Request(url, method="GET")
+    for name, value in headers.items():
+        request.add_header(name, value)
+    try:
+        with _no_redirect().open(request, timeout=timeout) as response:
+            return json.loads(response.read().decode())
+    except urllib.error.HTTPError as exc:
+        # FLUX 3 docs: "A failed task can come back as HTTP 503 with a normal JSON body. Read
+        # `status` from the body before treating a 503 as a retryable outage."
+        try:
+            parsed = json.loads(exc.read().decode(errors="replace"))
+        except Exception:  # noqa: BLE001 - not a status body: an outage
+            parsed = None
+        if isinstance(parsed, dict) and parsed.get("status"):
+            return parsed
+        raise TransientError(f"{label} poll {exc.code}") from exc
+    except urllib.error.URLError as exc:
+        raise TransientError(f"{label} poll unreachable: {exc.reason}") from exc
+
+
+BFL_POLL_SECONDS = 2.0
+# 150 * 2s = 5 minutes. It was 60 (two minutes), set for the benchmark's single
+# un-conditioned renders. A reference-conditioned edit -- conditioning on two images and
+# holding an identity while changing one dimension -- is markedly slower, and flux-2-pro
+# is the fallback the reference pack reaches for when the incumbent will not apply the
+# change. At two minutes it timed out before returning a picture on every such attempt,
+# so the escape hatch had never actually rendered: "the second provider did not help"
+# and "the second provider never finished" are different findings, and the attempt log
+# was reporting the second as the first.
+BFL_POLL_ATTEMPTS = 150
+# FLUX 3 Image took 37-216 s per image by the owner's hand measurement, inside the 300 s bound.
+BFL_IN_PROGRESS = frozenset({"pending", "reasoning", "generating", "queued", "processing"})
+
+
+# The database the render guard reads when a caller passes none. `generate` had no `db`
+# parameter and nine call sites across `visual/**`, `publish/**` and the benchmark, none of
+# which could pass through `check_budget` because an image is priced per image rather than
+# per token. The mechanism learned a per-image estimate (`anthropic.check_budget_cad`) and
+# the guard moved *here*, in front of the provider call, so every render is checked whether
+# or not the caller knew to check. A caller that has a database passes it; one that does not
+# is checked against the process's own, which in production is the one database there is.
+_DEFAULT_DB = None
+# Who a render is attributed to when the caller says nothing. Not a registered agent, on
+# purpose: `agent_daily_ceiling` returns None for it, so no permission is invented, and
+# `spend_report.per_agent_today` reports it under `spenders_with_no_agent_row`.
+DEFAULT_RENDER_AGENT = "gateway"
+DEFAULT_RENDER_PURPOSE = "image.generate"
+
+
+def _budget_db(db):
+    global _DEFAULT_DB
+    if db is not None:
+        return db
+    if _DEFAULT_DB is None:
+        from ..core.db import Database
+
+        _DEFAULT_DB = Database()
+    return _DEFAULT_DB
+
+
+def reserve_render(db, provider: ImageProvider, *, agent: str = "", purpose: str = "",
+                   job_id: int | None = None, estimate_cad: float | None = None) -> dict:
+    """Claim one image's price against the monthly ceiling before the provider is asked.
+
+    Raises `anthropic.BudgetExceeded` (or its agent-permission subclass) with the provider
+    untouched. The estimate is `provider.cad_per_image`, which is also what the bill will be,
+    so this reservation reconciles by construction and the drift report says so.
+    """
+    from . import anthropic as gw
+
+    # W4-FLUXAPI: a per-call estimate (`render_estimate_usd`) replaces the table price when the
+    # documented price of this exact request is known, and is never below it.
+    from . import paid_provider_gate
+
+    estimate = max(float(provider.cad_per_image), float(estimate_cad or 0.0))
+    budget = gw.check_budget_cad(
+        _budget_db(db), estimate_cad=estimate,
+        agent=agent or DEFAULT_RENDER_AGENT, purpose=purpose or DEFAULT_RENDER_PURPOSE,
+        job_id=job_id, model=provider.key, provider=provider.key)
+    # A render carries its reservation to the owner gate explicitly; the context note
+    # `check_budget_cad` leaves for vision calls is cleared so no vision call can spend it.
+    paid_provider_gate.take_budget()
+    return budget
+
+
+def release_render(db, budget: dict | None, *, billed: bool) -> None:
+    """Give the claim back: with the price when the provider rendered, without one when it
+    did not, so a refused render never reads as a bill."""
+    if not budget or budget.get("reservation_id") is None:
+        return
+    from . import anthropic as gw
+
+    gw.release_reservation(_budget_db(db), budget["reservation_id"],
+                           actual_cad=budget["estimate_cad"] if billed else None)
+
+
+def bill_render(db, provider: ImageProvider, budget: dict | None, *, agent: str = "",
+                purpose: str = "", job_id: int | None = None, billing: str = "rendered",
+                error: str = "", spend_detail: dict | None = None) -> int | None:
+    """Write the ledger row for one render the provider billed, then release the claim.
+
+    RC1 audit B2/B3: the single writer for render spend. Before it, `generate` released the
+    reservation with `actual_cad` and wrote no `CostEntry`, so the moment the claim was given
+    back the render vanished from the month, the break-even and the spend report -- and every
+    caller (tournament, portrait repair, reference pack, both photography paths, the
+    reference probe) inherited the hole. One row per billed render, kind
+    `routing.IMAGE_COST_KIND`, priced at `provider.cad_per_image` with `price_basis: assumed`
+    because that is a list price and not this account's invoice.
+
+    `billing` says why it is billed: `rendered`, `accepted_then_failed` (the provider took
+    the request and then the poll, the link or the body failed -- the provider has charged
+    for the work all the same), or `unknown_counted_at_estimate` (the request was sent and
+    the answer never arrived, so whether it billed is UNKNOWN, and UNKNOWN is not zero).
+
+    The row is written *before* the reservation is released, so there is no instant in which
+    neither is counted; the release happens even if the write fails.
+    """
+    try:
+        return record_render(db, provider, budget, agent=agent, purpose=purpose,
+                             job_id=job_id, billing=billing, error=error,
+                             spend_detail=spend_detail)
+    finally:
+        release_render(db, budget, billed=True)
+
+
+def record_render(db, provider: ImageProvider, budget: dict | None, *, agent: str = "",
+                  purpose: str = "", job_id: int | None = None, billing: str = "rendered",
+                  error: str = "", spend_detail: dict | None = None) -> int:
+    """The ledger half of `bill_render`: one `CostEntry` of kind `image`. Never releases."""
+    from ..finance import spend_report
+    from . import routing
+
+    # The reserved per-call estimate when there is one (W4-FLUXAPI), so the ledger row and the
+    # reservation reconcile; otherwise the table price, as before.
+    cost = float((budget or {}).get("estimate_cad") or provider.cad_per_image)
+    detail = {"price_basis": "assumed", "billing": billing,
+              "reservation_id": (budget or {}).get("reservation_id"),
+              **({"error": str(error)[:300]} if error else {}),
+              **dict(spend_detail or {})}
+    return spend_report.record(
+        _budget_db(db), agent=agent or DEFAULT_RENDER_AGENT, amount_cad=cost,
+        estimated_cad=float((budget or {}).get("estimate_cad") or cost),
+        purpose=purpose or DEFAULT_RENDER_PURPOSE, provider=provider.key,
+        model=provider.key, department="gateway", job_id=job_id,
+        kind=routing.IMAGE_COST_KIND, detail=detail)
+
+
+def _prepare(prompt: str, *, reference_urls, env, size: str, provider_key, extra_fields,
+             db) -> tuple:
+    """Everything `generate` checks before any budget is reserved (W4-C07 F-464: shared with
+    `submit_render`, so the deferred path meets exactly the same refusals). Returns
+    (provider, url, headers, payload, receipt). Moved verbatim from `generate`."""
+    e = env if env is not None else os.environ
+    # `provider_key` is how the benchmark asks for a specific candidate. Without it this
+    # falls back to whichever provider the environment names, which is right for ordinary
+    # generation and wrong for a comparison: a benchmark that sent every candidate's prompt
+    # to one provider would not fail, it would return five identical-looking scores and call
+    # the cheapest of them a winner.
+    provider = BY_KEY.get(provider_key) if provider_key else configured_provider(e)
+    if provider_key and provider is None:
+        raise ImagesRefused(
+            f"{provider_key!r} has no price on file, so what it spends cannot be checked "
+            f"against the ceiling. Known: {sorted(BY_KEY)}")
+    key = key_for(provider.key, e) if provider else ""
+    if provider is None or not key:
+        want = provider.key if provider else "a provider"
+        # Certification C-37: with no provider configured there is no account to name, and
+        # reading `.account` off None raised AttributeError instead of this refusal.
+        named = f"Set {key_var(provider.account)} if it is named, or " if provider else "Set "
+        raise ImagesNotConfigured(
+            f"no credential for {want}. {named}"
+            f"{PROVIDER_VAR} to one of {sorted(BY_KEY)} with {KEY_VAR} as that provider's "
+            f"key. This is the state the gate describes rather than a failure to retry")
+
+    # A renamed copy of a purchased file is caught by its bytes as well. A caller that passes
+    # no database is checked against the same default database its budget reservation uses
+    # (`_budget_db`): skipping the byte test because a caller omitted `db` would let a renamed
+    # benchmark image condition a render that the ceiling still let through.
+    hashes = None
+    if reference_urls:
+        try:
+            from ..gates.originality import benchmark_file_hashes
+
+            hashes = benchmark_file_hashes(_budget_db(db))
+        except Exception as exc:  # noqa: BLE001 - an unreadable manifest is UNKNOWN, refused
+            # Fail closed (FB2-R2 #3). Carrying on with `hashes = None` skipped the byte test,
+            # so a renamed copy of a purchased benchmark image would have passed the path and
+            # name tests and conditioned a render. Unknown is not "no match": refused before
+            # any budget is reserved or request sent.
+            raise ImagesRefused(
+                f"benchmark purchase-manifest hashes could not be read ({type(exc).__name__}: "
+                f"{str(exc)[:200]}), so a renamed copy of a benchmark image among "
+                f"{len(reference_urls)} reference(s) cannot be ruled out; originality of the "
+                f"references is UNKNOWN and the render is refused (F-785)") from exc
+    url, headers, payload = _request_for(provider, key, prompt, reference_urls, size,
+                                         extra_fields, benchmark_hashes=hashes)
+    # F-212: a reference the caller asked for and the request does not carry is refused
+    # before any budget is reserved. Silently conditioning on fewer references than asked
+    # for (BFL sends only the first) would turn an identity lock back into a prompt.
+    receipt = conditioning_receipt(provider, reference_urls, payload)
+    if reference_urls and not receipt["proven"]:
+        missing = [r["reference"] for r in receipt["references"] if not r["transmitted"]]
+        raise ImagesRefused(
+            f"{provider.key} ({provider.dialect}) would transmit {receipt['transmitted']} of "
+            f"{receipt['requested']} reference(s); not carried: {missing}. Conditioning that "
+            f"cannot be proven in the request body is not conditioning (F-212)")
+    # Reserved before the request leaves. A refusal here has cost nothing; the same refusal
+    # after `_post` would be a report about money already spent.
+    # The documented price of *this* request (tier, output and input megapixels), reserved
+    # before anything leaves. Never below the table price; an unpriceable input is refused.
+    estimate = render_estimate_usd(provider, size, reference_urls, payload)
+    receipt["price"] = {**estimate, "cad": round(estimate["usd"] * USD_TO_CAD, 6)}
+    return provider, url, headers, payload, receipt
+
+
+def _finish_render(provider: ImageProvider, body: dict, size: str, work_dir: str,
+                   timeout: float, started: float, budget: dict, db, billing: dict) -> dict:
+    """From a finished provider answer to bytes on disk and the one ledger row (W4-C07 F-464:
+    shared with `poll_render`). Moved verbatim from `_generate_reserved`."""
+    import base64
+    from pathlib import Path
+
+    image_url, b64, mime = _parse_image(provider, body)
+    if not image_url and not b64:
+        raise ImagesRefused(
+            f"{provider.key} answered without an image. A 200 with no picture in it is what "
+            f"a content refusal and a wrong payload shape both look like from here")
+
+    # Every render is written to this disk, whether it arrived as bytes or as a link.
+    #
+    # The link case is the one that had to be learned. Black Forest Labs returns a presigned
+    # URL that expires about ten minutes after it is issued -- measured 2026-09-21: issued
+    # 01:47Z, `se=2026-09-21T01:57:00Z`. Passing that along works for a benchmark that
+    # judges immediately and fails quietly everywhere else: a model whose thirty renders
+    # take longer than the expiry loses its earliest images before they are scored, and the
+    # canonical identity pack of #200 -- the frozen reference every future listing is
+    # conditioned on -- cannot be a set of links that stop resolving over lunch. A reference
+    # that expires is not a lock.
+    root = Path(work_dir)
+    root.mkdir(parents=True, exist_ok=True)
+
+    def fetch() -> tuple[bytes, str]:
+        import urllib.request
+
+        try:
+            with urllib.request.urlopen(image_url, timeout=timeout) as response:
+                return response.read(), (mime or response.headers.get("content-type", ""))
+        except Exception as exc:  # noqa: BLE001 - a link that will not fetch is no image
+            raise ImagesRefused(
+                f"{provider.key} returned a link that could not be fetched: {exc}. A "
+                f"presigned URL is only an image while it lasts") from exc
+
+    if b64:
+        raw = base64.b64decode(b64)
+    else:
+        raw, mime = fetch()
+
+    # ENG-VIS-FLUX: the generation-time check, for a render that is a frame (`frame_role`).
+    # A corrupt download is re-fetched from the same delivery URL (free, bounded); every other
+    # defect is a fact about the render and is rejected below, after the bill is recorded.
+    from . import flux_qc
+
+    frame = dict(billing.get("frame") or {})
+    qc = None
+    refetches = []
+    if frame.get("role"):
+        qc = flux_qc.inspect(raw, requested_size=size, frame_role=frame["role"])
+        while (qc["reasons"] == [flux_qc.CORRUPT_BYTES] and image_url
+               and len(refetches) < CORRUPT_REFETCHES):
+            refetches.append(f"refetch {len(refetches) + 1}: corrupt_bytes "
+                             f"({qc.get('error') or 'undecodable'})")
+            raw, mime = fetch()
+            qc = flux_qc.inspect(raw, requested_size=size, frame_role=frame["role"])
+        qc["refetches"] = refetches
+
+    import hashlib
+
+    suffix = ".jpg" if "jpeg" in mime else ".webp" if "webp" in mime else ".png"
+    path = str(root / f"{provider.key}-{int(time.time() * 1000)}{suffix}")
+    Path(path).write_bytes(raw)
+    # Fingerprinted the moment it is on disk: the delivery URL expires (BFL: 10 minutes in the
+    # integration guidelines, 1 hour on the FLUX 3 page), the bytes and their hash do not.
+    output_sha256 = hashlib.sha256(raw).hexdigest()
+    result_meta = body.get("result") if isinstance(body.get("result"), dict) else {}
+    provider_receipt = {
+        **dict(billing.get("provider_submit") or {}),
+        "task_id": body.get("id") or (billing.get("provider_submit") or {}).get("id"),
+        "seed": result_meta.get("seed"),
+        "duration_s": result_meta.get("duration"),
+        "expanded_prompt_sha256": (hashlib.sha256(str(result_meta["prompt"]).encode())
+                                   .hexdigest() if result_meta.get("prompt") else None),
+        "settled_cost_credits": body.get("cost"),
+    }
+
+    # The picture exists, so the provider has billed: the ledger row is written and the
+    # claim comes back with the price (B2).
+    # Written before the release, so there is no instant in which neither is counted.
+    cost_entry_id = record_render(db, provider, budget, agent=billing.get("agent") or "",
+                                  purpose=billing.get("purpose") or "",
+                                  job_id=billing.get("job_id"), billing="rendered",
+                                  spend_detail=billing.get("spend_detail"))
+    billing["billed"] = True
+    # The claim is released by the caller (`_generate_reserved` / `poll_render`), right after
+    # this returns, so the reserved path keeps its own release (test_model_spend_paths pin).
+
+    result = {"provider": provider.key, "url": image_url, "path": path,
+            "image_ref": path, "bytes": len(raw), "sha256": output_sha256,
+            "model": provider.model, "provider_receipt": provider_receipt,
+            # Reported rather than assumed: the first version defaulted this to image/png
+            # and said so about a JPEG that BFL had plainly labelled.
+            "mime": mime or "", "size": size,
+            "cad": float(budget.get("estimate_cad") or provider.cad_per_image),
+            "reservation_id": budget.get("reservation_id"),
+            "cost_entry_id": cost_entry_id,
+            "ceiling_headroom_cad": budget.get("headroom_cad"),
+            "latency_ms": round((time.time() - started) * 1000, 2)}
+    if provider.dialect == "bfl3" or frame:
+        # ENG-VIS-FLUX: the F-852 provenance record (D-W4-F852-AMEND item 7), from what was
+        # measured: references found in the body sent, the provider's task id, the reserved
+        # cost the ledger row carries, the output's own fingerprint and size.
+        from . import flux_provenance
+        from .paid_provider_gate import current_gallery
+
+        try:
+            request = json.loads(frame.get("payload") or b"{}")
+        except ValueError:
+            request = {}
+        request.pop("images", None)
+        request.pop("prompt", None)
+        result["provenance"] = flux_provenance.build(
+            provider=provider.key, model=provider.model, prompt=frame.get("prompt") or "",
+            prompt_version=frame.get("prompt_version") or "",
+            conditioning=frame.get("conditioning") or {}, provider_receipt=provider_receipt,
+            cost_cad=result["cad"],
+            cost_basis=str(((frame.get("conditioning") or {}).get("price") or {})
+                           .get("basis") or BFL_PRICE_BASIS),
+            cost_entry_id=cost_entry_id, output_sha256=output_sha256,
+            qc=qc or flux_qc.inspect(raw, requested_size=size, frame_role=flux_qc.INTERMEDIATE),
+            gallery=current_gallery(), request=request, product=frame.get("product") or "",
+            reservation_id=budget.get("reservation_id"))
+        result["provenance_missing"] = flux_provenance.missing(result["provenance"])
+    if qc is not None:
+        result["generation_check"] = qc
+        if not qc["ok"]:
+            # Billed and kept: the bytes stay at `path` for recovery and re-check. The claim
+            # comes back with the price now, because no caller will release it after a raise.
+            release_render(db, budget, billed=True)
+            budget["reservation_id"] = None
+            _record_rejection(db, provider, result, qc, frame)
+            raise ImagesRejectedAtGeneration(
+                f"{provider.key}: rejected at generation, before QA: {flux_qc.explain(qc)}. "
+                f"Billed (cost entry {cost_entry_id}); bytes kept at {path} for recovery",
+                verdict=qc, result=result)
+    return result
+
+
+def _record_rejection(db, provider: ImageProvider, result: dict, qc: dict, frame: dict) -> None:
+    """One audit row per rejected render: what was paid for, why, and where its bytes are, so
+    `flux_provider.replacement_allowed` can re-check it before a replacement is bought."""
+    try:
+        from ..core.models import AuditLog
+
+        with _budget_db(db).session() as s:
+            s.add(AuditLog(actor="gateway", action=GENERATION_REJECTED_ACTION,
+                           artifact=str((result.get("provenance") or {}).get("gallery")
+                                        or "")[:200],
+                           detail={"provider": provider.key, "path": result.get("path"),
+                                   "sha256": result.get("sha256"),
+                                   "reasons": list(qc.get("reasons") or []),
+                                   "verdict": {k: qc.get(k) for k in
+                                               ("px", "format", "role", "requested_size",
+                                                "refetches")},
+                                   "cost_entry_id": result.get("cost_entry_id"),
+                                   "cad": result.get("cad"),
+                                   "product": frame.get("product") or "",
+                                   "gallery": (result.get("provenance") or {}).get("gallery"),
+                                   "receipt_id": (result.get("provider_receipt") or {})
+                                   .get("task_id")}))
+    except Exception:  # noqa: BLE001 - the rejection stands whether or not it was recorded
+        pass
+
+
+def generate(prompt: str, *, reference_urls: list[str] | None = None,
+             env: dict[str, str] | None = None, size: str = "1024x1024",
+             provider_key: str | None = None, work_dir: str | None = None,
+             timeout: float = 120.0, extra_fields: dict | None = None,
+             db=None, agent: str = "", purpose: str = "", job_id: int | None = None,
+             spend_detail: dict | None = None, gate_scope: str = "generation",
+             frame_role: str | None = None, prompt_version: str = "",
+             product: str = "") -> dict:
+    """Ask one provider for one image. Raises rather than returning nothing.
+
+    **ENG-VIS-FLUX.** `frame_role` (`flux_qc.LISTING` / `flux_qc.INTERMEDIATE`) marks a render
+    that is a gallery frame: its bytes pass the generation-time check before anything else
+    sees them, and a failing render raises `ImagesRejectedAtGeneration` (billed, bytes kept).
+    `prompt_version` and `product` go into the result's `provenance` record.
+
+    **No render leaves without the owner's activation (P0-PAID-PROVIDER-OWNER-GATE).** The
+    provider request runs inside `paid_provider_gate.enforce` (`_gated`): an active owner
+    activation of this provider for `gate_scope` (`generation`, or `probe` for the capability
+    and reference probes), the provider's daily/monthly ceilings, the per-gallery limit, the
+    company month, idempotency and the retry ceiling -- checked after the reservation below
+    and before any network I/O. A key in the environment authorises nothing.
+
+    **Every billed render is written to the ledger here** (`bill_render`, RC1 audit B2/B3):
+    one `CostEntry` of kind `image` per render the provider charged for, including renders
+    that failed after the provider accepted them. Callers must not write a second row; the
+    result's `cost_entry_id` is the row this call wrote. `spend_detail` is merged into that
+    row's detail (e.g. `{"attribution": "shared"}`).
+
+    **Every render is checked against the ceiling here, before the provider is asked.**
+    `reserve_render` claims `provider.cad_per_image` through `anthropic.check_budget_cad` --
+    the same month, the same agent permission and the same reservation table every
+    token-priced call passes through -- and the claim is released with the price once the
+    picture exists. A ceiling that is exhausted raises `BudgetExceeded` with no request sent.
+    `db`, `agent`, `purpose` and `job_id` attribute the reservation; a caller that passes none
+    is still checked (see `_budget_db`) and attributed to `gateway`.
+
+    Returns `image_ref`: whatever the judge can be handed, which is a URL when the provider
+    gives one and a path on this disk when it returns the bytes inline. Google returns
+    inline base64 and never a URL, so a caller that only read `url` would treat every
+    successful Google render as an answer with no picture in it.
+
+    **`work_dir` is required, and the refusal below is the fix for a real leak.** This used to
+    fall back to `tempfile.mkdtemp`, which removes nothing, and it could not be changed to
+    `TemporaryDirectory` here for a reason worth writing down: the returned `path` has to
+    outlive this call, so a directory this function cleaned up would hand every caller a path
+    to a file that no longer exists. The lifetime belongs to whoever consumes the bytes, and
+    every production caller but two already passed one. The two that did not -- the image
+    benchmark and this module's own reference probe -- are exactly where the `generated-`
+    directories in production came from. A render whose bytes nobody owns is the leak, so it
+    is refused rather than defaulted: a caller that gets this error has a one-line fix, and a
+    caller that got a temporary directory had a slow disk failure nobody could attribute.
+    """
+    if gate_scope == "probe":
+        # Probe authorization is narrower than generation: fixed diagnostic
+        # prompts only, without arbitrary caller-provided fields or sizing.
+        allowed = {
+            ("image.probe", "A plain grey fabric swatch on a white background, product photograph.", 0),
+            ("image.reference_probe", "A plain ceramic mug on a white background, product photograph.", 0),
+        }
+        if ((purpose, prompt, len(reference_urls or [])) not in allowed
+                or size != "1024x1024" or extra_fields):
+            raise ImagesGateRefused("probe activation covers only fixed diagnostic requests",
+                                    "probe_scope_mismatch")
+    elif gate_scope != "generation":
+        raise ImagesGateRefused("unknown image authorization scope", "probe_scope_mismatch")
+    if not work_dir:
+        raise ImagesRefused(
+            "generate() needs a work_dir: the path it returns has to outlive the call, so "
+            "this function cannot own the directory and will not create one nobody owns. "
+            "Wrap the work in `core.workspace.work_dir(None, prefix=\"generated-\")` and "
+            "pass it in -- that is what removes the render when the work is finished")
+
+    provider, url, headers, payload, receipt = _prepare(
+        prompt, reference_urls=reference_urls, env=env, size=size,
+        provider_key=provider_key, extra_fields=extra_fields, db=db)
+    # Validated before the reservation: a bad frame role has cost nothing.
+    frame = _frame_context(frame_role, prompt, prompt_version, product, receipt, payload)
+    budget = reserve_render(db, provider, agent=agent, purpose=purpose, job_id=job_id,
+                            estimate_cad=receipt["price"]["cad"])
+    started = time.time()
+    billing = {"accepted": False, "agent": agent, "purpose": purpose, "job_id": job_id,
+               "spend_detail": spend_detail, "frame": frame}
+    try:
+        result = _guarded_render(
+            provider, prompt, reference_urls, size, extra_fields, work_dir, budget,
+            agent, billing,
+            lambda: _gated(db, provider, gate_scope, budget, _render_fp(
+                provider, prompt, reference_urls, size, extra_fields), purpose, billing,
+                lambda: _generate_reserved(provider, url, headers, payload, size, work_dir,
+                                           timeout, started, budget, db, billing)))
+        if result.get("replayed"):
+            # Served from an earlier attempt of this job (F-307): nothing was sent, so the
+            # claim taken above comes back unbilled. The bill is the original attempt's row.
+            release_render(db, budget, billed=False)
+        return {**result, "conditioning": receipt}
+    except BaseException as exc:
+        # RC1 audit B3. Once the provider has accepted the request it has charged for the
+        # work, whatever happens next -- a poll that times out, a moderation verdict, a link
+        # that will not fetch, a body with no picture. Those were released as unbilled, so
+        # the month never saw them. A request sent whose answer never arrived (a read
+        # timeout) is UNKNOWN, and counted at the price rather than as zero. Only a request
+        # the provider refused outright (HTTP status, unreachable) is released unbilled.
+        if billing.get("billed"):
+            raise
+        if billing["accepted"]:
+            bill_render(db, provider, budget, agent=agent, purpose=purpose, job_id=job_id,
+                        billing="accepted_then_failed",
+                        error=f"{type(exc).__name__}: {exc}", spend_detail=spend_detail)
+        elif isinstance(exc, TimeoutError):
+            bill_render(db, provider, budget, agent=agent, purpose=purpose, job_id=job_id,
+                        billing="unknown_counted_at_estimate",
+                        error=f"{type(exc).__name__}: {exc}", spend_detail=spend_detail)
+        else:
+            release_render(db, budget, billed=False)
+        raise
+
+
+def _frame_context(frame_role, prompt, prompt_version, product, receipt, payload) -> dict:
+    from . import flux_qc
+
+    if frame_role is not None and frame_role not in flux_qc.FRAME_ROLES:
+        raise ImagesRefused(f"frame_role {frame_role!r} is not one of "
+                            f"{sorted(flux_qc.FRAME_ROLES)}")
+    return {"role": frame_role or "", "prompt": prompt, "prompt_version": prompt_version or "",
+            "product": product or "", "conditioning": receipt,
+            "payload": (payload.decode(errors="replace") if isinstance(payload, bytes)
+                        else payload)}
+
+
+def _render_fp(provider: ImageProvider, prompt: str, reference_urls, size: str,
+               extra_fields) -> str:
+    from . import paid_calls
+
+    return paid_calls.fingerprint("image.render", provider.key, prompt,
+                                  list(reference_urls or []), size, extra_fields or {})
+
+
+def _gated(db, provider: ImageProvider, scope: str, budget: dict, fp: str, purpose: str,
+           billing: dict, send):
+    """The provider request through the owner activation gate (`paid_provider_gate.enforce`):
+    refused with a named reason and nothing sent unless the owner has activated this provider
+    for `scope` and every ceiling holds. Accepted-then-failed is BILLED, a timeout UNCERTAIN
+    (counted), a refusal before the provider took the work RELEASED."""
+    from . import paid_provider_gate as gate
+
+    def classify(exc: BaseException) -> str:
+        if billing.get("billed") or billing.get("accepted"):
+            return gate.BILLED
+        # Once the transport is entered, a reset, wrapped timeout, malformed 2xx,
+        # or HTTP error does not prove that the provider did not accept work.
+        return gate.UNCERTAIN
+
+    try:
+        return gate.enforce(
+            _budget_db(db), provider=provider.key, scope=scope,
+            estimate_cad=float(budget.get("estimate_cad") or provider.cad_per_image),
+            fingerprint=fp, reservation_id=budget.get("reservation_id"), call=send,
+            classify=classify, purpose=purpose or DEFAULT_RENDER_PURPOSE)
+    except gate.PaidCallRefused as exc:
+        raise ImagesGateRefused(str(exc), exc.code) from None
+
+
+def _guarded_render(provider: ImageProvider, prompt: str, reference_urls, size: str,
+                    extra_fields, work_dir: str, budget: dict, agent: str, billing: dict,
+                    call) -> dict:
+    """One render through the paid-call guard (F-307/F-339, `gateway.paid_calls`).
+
+    Inside a job a reclaimed or retried attempt asking for the same render gets the picture
+    the earlier attempt paid for -- copied into this attempt's `work_dir` -- instead of a
+    second bill. A render the provider accepted and that then failed is FAILED_BILLED (the
+    failure is replayed, not re-bought); a timeout is UNCERTAIN; a refusal before the
+    provider took the work is DECLINED and may be asked again. Outside a job: a plain call."""
+    from . import paid_calls
+
+    def classify(exc: BaseException) -> str:
+        if billing.get("accepted"):
+            return paid_calls.FAILED_BILLED
+        if isinstance(exc, TimeoutError):
+            return paid_calls.UNCERTAIN
+        return paid_calls.DECLINED
+
+    def decode(stored: dict) -> dict:
+        import shutil
+        from pathlib import Path
+
+        src = Path(str(stored.get("path") or ""))
+        if not stored.get("path") or not src.is_file():
+            raise paid_calls.PaidCallReplayedFailure(
+                f"{provider.key}: this job already paid for this render "
+                f"(cost entry {stored.get('cost_entry_id')}) and its bytes are gone with the "
+                f"earlier attempt's work dir; not bought again (F-307). A new job asks again")
+        root = Path(work_dir)
+        root.mkdir(parents=True, exist_ok=True)
+        dest = root / src.name
+        if dest.resolve() != src.resolve():
+            shutil.copyfile(src, dest)
+        return {**stored, "path": str(dest), "image_ref": str(dest), "replayed": True,
+                "cad": 0.0, "replayed_cad": stored.get("cad"),
+                "reservation_id": budget.get("reservation_id")}
+
+    effect = "image.render"
+    return paid_calls.guarded(
+        effect,
+        paid_calls.fingerprint(effect, provider.key, prompt, list(reference_urls or []), size,
+                               extra_fields or {}),
+        call, encode=lambda r: dict(r), decode=decode, classify=classify,
+        cost_kind="image", provider=provider.key, model=provider.key,
+        agent=agent or DEFAULT_RENDER_AGENT,
+        estimate_cad=float(budget.get("estimate_cad") or provider.cad_per_image),
+        reservation_id=budget.get("reservation_id"))
+
+
+def _generate_reserved(provider: ImageProvider, url: str, headers: dict, payload: bytes,
+                       size: str, work_dir: str, timeout: float, started: float,
+                       budget: dict, db, billing: dict | None = None) -> dict:
+    """The provider call and everything after it, inside the reservation `generate` took."""
+    billing = billing if billing is not None else {"accepted": False}
+    body = _post(url, headers, payload, label=provider.key, timeout=timeout)
+    # The provider answered 2xx: from here on the work is billed whatever happens next.
+    billing["accepted"] = True
+
+    if provider.dialect in ("bfl", "bfl3") and body.get("polling_url"):
+        # Submit-then-poll. A job id is not a picture, and returning one as though it were
+        # is how a benchmark scores sixty identical acknowledgements.
+        poll = str(body["polling_url"])
+        submitted = {k: body.get(k) for k in ("id", "cost", "input_mp", "output_mp")}
+        billing["provider_submit"] = submitted
+        for _ in range(BFL_POLL_ATTEMPTS):
+            body = _get(poll, headers, label=provider.key, timeout=timeout)
+            # BFL's statuses are "Request Moderated", "Task not found", ...: normalised, so a
+            # moderation verdict ends the poll instead of polling to the timeout.
+            status = str(body.get("status") or "").strip().lower().replace(" ", "_")
+            if status in ("ready", "succeeded", "complete", "completed"):
+                break
+            # Only the documented in-progress statuses keep polling (StatusResponse). Any other
+            # answer -- Error, Request/Content Moderated, Task not found, No Card Generated, or
+            # something new -- is terminal: a status nobody recognises is not a reason to wait.
+            if status not in BFL_IN_PROGRESS:
+                raise ImagesRefused(f"{provider.key} returned {status or 'no status'}: "
+                                    f"{json.dumps(body)[:300]}")
+            time.sleep(BFL_POLL_SECONDS)
+        else:
+            raise TransientError(
+                f"{provider.key} did not finish within "
+                f"{int(BFL_POLL_ATTEMPTS * BFL_POLL_SECONDS)}s")
+
+    result = _finish_render(provider, body, size, work_dir, timeout, started, budget, db,
+                            billing)
+    release_render(db, budget, billed=True)
+    return result
+
+
+# ---- W4-C07 F-464: the deferred render (submit, then one poll per durable job) --------------
+#
+# `generate` holds a worker thread for up to BFL_POLL_ATTEMPTS x BFL_POLL_SECONDS while BFL
+# renders. These two calls are the same request split at the provider's acceptance, so a job
+# can `runtime.awaiting.defer` between them instead of sleeping. The invariants of `generate`
+# are kept, each stated where it is enforced:
+#
+# * the same refusals, before any budget is reserved (`_prepare`, shared);
+# * the reservation is taken before the request (`reserve_render`);
+# * acceptance is durable before the call returns: a `paid_call_records` row keyed by the
+#   request fingerprint, outcome ACCEPTED, holding the poll URL, the reservation and the
+#   estimate -- never the key, which is read from the environment at poll time. A second
+#   `submit_render` of the same request finds it and never submits again;
+# * a 2xx is billed whatever happens after it: a terminal poll status bills
+#   `accepted_then_failed` and the record becomes FAILED_BILLED;
+# * the CostEntry is written exactly once, by `_finish_render` on the ready poll, after which
+#   the record is OK and a later poll replays the stored result without billing.
+#
+# Nothing in production calls these yet. Converting the render handlers onto them, and
+# accepting the BFL status vocabulary and the ~10-minute presigned-URL expiry against a live
+# render, is the remaining step of the FMBATCH2 design and needs an owner-authorised render.
+
+DEFERRED_EFFECT = "image.render.deferred"
+ACCEPTED = "ACCEPTED"
+
+
+def _deferred_key(fp: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(f"{DEFERRED_EFFECT}|{fp}".encode()).hexdigest()
+
+
+def classify_poll(body: dict) -> str:
+    """`ready`, `in_progress` or `terminal` -- the same vocabulary `_generate_reserved` reads."""
+    status = str(body.get("status") or "").strip().lower().replace(" ", "_")
+    if status in ("ready", "succeeded", "complete", "completed"):
+        return "ready"
+    return "in_progress" if status in BFL_IN_PROGRESS else "terminal"
+
+
+def submit_render(prompt: str, *, provider_key: str, reference_urls: list[str] | None = None,
+                  env: dict[str, str] | None = None, size: str = "1024x1024",
+                  extra_fields: dict | None = None, timeout: float = 120.0, db=None,
+                  agent: str = "", purpose: str = "", job_id: int | None = None,
+                  spend_detail: dict | None = None) -> dict:
+    """Send one render and return at the provider's acceptance: {fingerprint, op_ref, state}."""
+    from . import paid_calls
+
+    provider, url, headers, payload, receipt = _prepare(
+        prompt, reference_urls=reference_urls, env=env, size=size,
+        provider_key=provider_key, extra_fields=extra_fields, db=db)
+    if provider.dialect not in ("bfl", "bfl3"):
+        raise ImagesRefused(f"{provider.key} answers inline; deferral is for submit-then-poll "
+                            f"providers -- use generate()")
+    fp = paid_calls.fingerprint(DEFERRED_EFFECT, provider.key, prompt,
+                                list(reference_urls or []), size, extra_fields or {})
+    key = _deferred_key(fp)
+    bdb = _budget_db(db)
+    paid_calls.ensure_table(bdb)
+    with bdb.session() as s:
+        row = s.get(paid_calls.PaidCallRecord, key)
+        if row is not None and row.outcome in (ACCEPTED, paid_calls.OK):
+            return {"fingerprint": fp, "op_ref": (row.payload or {}).get("op_ref"),
+                    "state": row.outcome, "resubmitted": False}
+        if row is not None and row.outcome in (paid_calls.FAILED_BILLED, paid_calls.UNCERTAIN):
+            raise paid_calls.PaidCallReplayedFailure(
+                f"{provider.key}: this render was already billed ({row.outcome}); a new "
+                f"request is a new render, not a resend")
+    budget = reserve_render(db, provider, agent=agent, purpose=purpose, job_id=job_id,
+                            estimate_cad=receipt["price"]["cad"])
+    try:
+        # P0-PAID-PROVIDER-OWNER-GATE: the submit is the paid request; it passes the gate.
+        body = _gated(db, provider, "generation", budget, fp, purpose,
+                      {"accepted": False},
+                      lambda: _post(url, headers, payload, label=provider.key,
+                                    timeout=timeout))
+    except TimeoutError as exc:
+        bill_render(db, provider, budget, agent=agent, purpose=purpose, job_id=job_id,
+                    billing="unknown_counted_at_estimate", error=f"{type(exc).__name__}: {exc}",
+                    spend_detail=spend_detail)
+        _store_deferred(bdb, key, fp, provider, budget, paid_calls.UNCERTAIN, {}, agent, job_id)
+        raise
+    except BaseException:
+        release_render(db, budget, billed=False)
+        raise
+    if not body.get("polling_url"):
+        bill_render(db, provider, budget, agent=agent, purpose=purpose, job_id=job_id,
+                    billing="accepted_then_failed", error="accepted without a polling_url",
+                    spend_detail=spend_detail)
+        _store_deferred(bdb, key, fp, provider, budget, paid_calls.FAILED_BILLED, {}, agent,
+                        job_id)
+        raise ImagesRefused(f"{provider.key} accepted the request but returned no polling_url")
+    op = {"op_ref": str(body["polling_url"]),
+          "provider_submit": {k: body.get(k) for k in ("id", "cost", "input_mp", "output_mp")},
+          "size": size, "purpose": purpose, "spend_detail": spend_detail or {},
+          "conditioning": receipt}
+    _store_deferred(bdb, key, fp, provider, budget, ACCEPTED, op, agent, job_id)
+    return {"fingerprint": fp, "op_ref": op["op_ref"], "state": ACCEPTED,
+            "reservation_id": budget.get("reservation_id"), "resubmitted": True}
+
+
+def _store_deferred(bdb, key, fp, provider, budget, outcome, payload, agent, job_id):
+    from . import paid_calls
+
+    with bdb.session() as s:
+        row = s.get(paid_calls.PaidCallRecord, key)
+        if row is None:
+            row = paid_calls.PaidCallRecord(key=key, effect=DEFERRED_EFFECT, fingerprint=fp[:64])
+            s.add(row)
+        row.job_id, row.outcome, row.cost_kind = job_id, outcome, "image"
+        row.estimate_cad = float(budget.get("estimate_cad") or provider.cad_per_image)
+        row.reservation_id = budget.get("reservation_id")
+        row.provider, row.model, row.agent = provider.key, provider.key, agent or ""
+        row.payload = {**dict(row.payload or {}), **payload,
+                       "budget": {k: budget.get(k) for k in ("reservation_id", "estimate_cad",
+                                                             "headroom_cad")}}
+
+
+def poll_render(fingerprint: str, *, work_dir: str, env: dict[str, str] | None = None,
+                timeout: float = 120.0, db=None) -> dict:
+    """One GET for an accepted render: {done: False} while it renders, the result once ready."""
+    from . import paid_calls
+
+    if not work_dir:
+        raise ImagesRefused("poll_render() needs a work_dir, for the same reason generate does")
+    key = _deferred_key(fingerprint)
+    bdb = _budget_db(db)
+    paid_calls.ensure_table(bdb)
+    with bdb.session() as s:
+        row = s.get(paid_calls.PaidCallRecord, key)
+        if row is None:
+            raise ImagesRefused("no accepted render with this fingerprint")
+        outcome, payload, prov_key = row.outcome, dict(row.payload or {}), row.provider
+        agent, job_id = row.agent, row.job_id
+    if outcome == paid_calls.OK:
+        return {**payload.get("result", {}), "done": True, "replayed": True, "cad": 0.0}
+    if outcome != ACCEPTED:
+        raise paid_calls.PaidCallReplayedFailure(f"this render ended {outcome}; not repeated")
+    provider = BY_KEY[prov_key]
+    e = env if env is not None else os.environ
+    headers = {"x-key": key_for(provider.key, e)}
+    body = _get(payload["op_ref"], headers, label=provider.key, timeout=timeout)
+    state = classify_poll(body)
+    if state == "in_progress":
+        return {"done": False, "status": body.get("status")}
+    budget = dict(payload.get("budget") or {})
+    billing = {"accepted": True, "agent": agent, "purpose": payload.get("purpose") or "",
+               "job_id": job_id, "spend_detail": payload.get("spend_detail") or {},
+               "provider_submit": payload.get("provider_submit") or {}}
+    if state == "terminal":
+        bill_render(db, provider, budget, agent=agent, purpose=billing["purpose"],
+                    job_id=job_id, billing="accepted_then_failed",
+                    error=f"poll status {body.get('status')!r}",
+                    spend_detail=billing["spend_detail"])
+        _store_deferred(bdb, key, fingerprint, provider, budget, paid_calls.FAILED_BILLED, {},
+                        agent, job_id)
+        raise ImagesRefused(f"{provider.key} returned {body.get('status') or 'no status'}")
+    try:
+        result = _finish_render(provider, body, payload.get("size") or "1024x1024", work_dir,
+                                timeout, time.time(), budget, db, billing)
+    except BaseException:
+        if not billing.get("billed"):
+            bill_render(db, provider, budget, agent=agent, purpose=billing["purpose"],
+                        job_id=job_id, billing="accepted_then_failed",
+                        error="the ready render could not be read",
+                        spend_detail=billing["spend_detail"])
+        # Billed either way (ENG-VIS-FLUX: a render rejected after its ledger row too): the
+        # record ends FAILED_BILLED so a later poll never fetches and bills it a second time.
+        _store_deferred(bdb, key, fingerprint, provider, budget, paid_calls.FAILED_BILLED,
+                        {}, agent, job_id)
+        raise
+    release_render(db, budget, billed=True)
+    _store_deferred(bdb, key, fingerprint, provider, budget, paid_calls.OK,
+                    {"result": {k: v for k, v in result.items() if k != "provider_receipt"}},
+                    agent, job_id)
+    return {**result, "done": True, "conditioning": payload.get("conditioning")}
+
+
+REFERENCE_PROBE_ACTION = "image.reference_probe"
+
+
+def reference_probe(db, provider_key: str, *, env: dict[str, str] | None = None,
+                    work_dir: str | None = None) -> dict:
+    """Prove this provider will condition on a reference image, for two images.
+
+    Written after a benchmark spent about CA$21 across four runs without completing a single
+    schedule. Both times the cause was the same shape: reference conditioning is the one part
+    of each provider's dialect that cannot be exercised by an ordinary render, it was wrong
+    in a different way for each provider, and the only thing that noticed was the sixth trial
+    of a thirty-sample run. A capability nothing checks until it is expensive to check is one
+    that gets checked expensively.
+    """
+    from ..agents.registry import Registry
+    from ..core import workspace
+
+    # The probe owns the two renders it makes: nothing outside it ever reads them, because
+    # what it reports is whether conditioning worked and what it cost. So the directory lives
+    # exactly as long as the probe does. This is the call that left the `generated-`
+    # directories production is counting -- it ran four times a day through
+    # `ops.capability_probes` and passed no `work_dir`, so every run made one more.
+    record: dict = {"provider": provider_key, "ok": False, "why": ""}
+    try:
+        # The conditioned step accepts an image reference. Until its same-run
+        # first-render identity is bound durably, probe-only authority must not
+        # authorize it. Check before the first render to avoid a wasted call.
+        from . import paid_provider_gate as gate
+        if not gate.activation_state(db, provider_key, gate.GENERATION)["active"]:
+            raise ImagesGateRefused("reference conditioning requires generation activation "
+                                    "until diagnostic inputs are bound", "probe_scope_mismatch")
+        with workspace.work_dir(work_dir, prefix="generated-") as root:
+            # `db` passed through so both renders are reserved and ledgered (B2) in the
+            # database this probe audits into, attributed as shared platform spend.
+            shared = {"attribution": "shared"}
+            first = generate("A plain ceramic mug on a white background, product photograph.",
+                             env=env, provider_key=provider_key, work_dir=root, db=db,
+                             purpose=REFERENCE_PROBE_ACTION,
+                             spend_detail=shared, gate_scope="probe")
+            second = generate("The same mug as the reference image, now on a wooden table.",
+                              env=env, provider_key=provider_key,
+                              reference_urls=[first["image_ref"]], work_dir=root, db=db,
+                              purpose=REFERENCE_PROBE_ACTION,
+                              spend_detail=shared, gate_scope="generation")
+            # `ok` means the conditioned render came back *and* the reference's bytes were
+            # proven to be in the request that produced it (F-212). A render alone proves
+            # only that the provider answered.
+            conditioning = dict(second.get("conditioning") or {})
+            record.update(ok=bool(conditioning.get("proven")),
+                          cad=round(first["cad"] + second["cad"], 6),
+                          bytes=second.get("bytes"), conditioning=conditioning,
+                          why=("" if conditioning.get("proven") else
+                               "rendered, but no per-request proof the reference was sent"))
+    except Exception as exc:  # noqa: BLE001 - every failure means "do not run the schedule"
+        record["why"] = f"{type(exc).__name__}: {str(exc)[:300]}"
+
+    if db is not None:
+        Registry(db).audit("creative_director", REFERENCE_PROBE_ACTION, detail=record)
+    return record
+
+
+def reference_proven(db, provider_key: str) -> bool:
+    """Whether a reference-conditioned render has actually succeeded for this provider."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    if db is None:
+        return False
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog)
+                             .where(AuditLog.action == REFERENCE_PROBE_ACTION)
+                             .order_by(desc(AuditLog.id)).limit(40)):
+            detail = row.detail or {}
+            if detail.get("provider") == provider_key:
+                # A probe filed before per-request receipts existed proved a render, not
+                # that the reference was transmitted: it does not count (F-212).
+                return bool(detail.get("ok")) and bool(
+                    (detail.get("conditioning") or {}).get("proven"))
+    return False
+
+
+def probe(db, *, env: dict[str, str] | None = None, generator=None,
+          now: datetime | None = None, job_id: int | None = None) -> dict:
+    """Generate one real image and record whether that worked. The gate's evidence.
+
+    The gate this replaces read whether `BRAMBLELOOP_IMAGE_KEY` was set. A key that is set,
+    a key for a provider with no price on file, an account with no credit and a provider that
+    refuses this company's brief on content grounds are four states and one string, and the
+    fourth is a genuine possibility for a brief about an attractive adult model that this
+    system must surface rather than absorb.
+    """
+    from ..core.models import AuditLog, CostEntry
+    from . import routing
+
+    e = env if env is not None else os.environ
+    record: dict = {"at": (now or datetime.now(timezone.utc)).isoformat(),
+                    "ok": False, "reason": "", "provider": ""}
+    try:
+        provider = configured_provider(e)
+    except ImagesRefused as exc:
+        provider = None
+        record["reason"] = str(exc)[:400]
+
+    if provider is None:
+        # No provider named, but a credential may still exist for one. The capability this
+        # gate describes is "this company can generate an image", and any provider that
+        # renders proves it -- the same fix `configured` already needed. Requiring
+        # BRAMBLELOOP_IMAGE_PROVIDER meant two working providers could not open the gate.
+        candidates = available(e)
+        provider = BY_KEY.get(candidates[0]) if candidates else None
+        if provider is not None:
+            record["reason"] = ""
+
+    # P0-PAID-PROVIDER-OWNER-GATE: a key is not an activation. Among the credentialled
+    # providers, the probe uses one the owner has activated (the configured one first); with
+    # none activated it records NOT_ACTIVATED -- a named state, not an error -- and sends
+    # nothing. The render itself still passes `paid_provider_gate.enforce` in `generate`.
+    from . import paid_provider_gate as gate
+
+    activation = None
+    if provider is not None and key_for(provider.key, e):
+        for cand in [provider] + [BY_KEY[k] for k in available(e) if k != provider.key]:
+            st = gate.activation_state(db, cand.key, gate.PROBE, now=now)
+            if st["active"]:
+                provider, activation = cand, st["activation"]
+                break
+        else:
+            st = gate.activation_state(db, provider.key, gate.PROBE, now=now)
+
+    if provider is None and not record["reason"]:
+        record["reason"] = (f"no {PROVIDER_VAR} and no per-account key in this environment")
+    elif provider is not None and not key_for(provider.key, e):
+        record["reason"] = f"no credential for {provider.key}"
+        record["provider"] = provider.key
+    elif provider is not None and activation is None:
+        record.update(provider=provider.key, state=st["reason"],
+                      reason=(f"{st['reason']}: {gate.KEY_IS_NOT_ACTIVATION}"
+                              if st["reason"] == gate.NOT_ACTIVATED else
+                              f"{st['reason']}: no paid probe is made without an active "
+                              f"owner activation"))
+    elif provider is not None:
+        record["provider"] = provider.key
+        record["activation_id"] = activation["id"]
+        from ..core import workspace
+
+        try:
+            prompt_ = "A plain grey fabric swatch on a white background, product photograph."
+            # W4-GATESI: `generate` refuses without a `work_dir` (the leak fix), and this
+            # probe never passed one -- so every real probe since that fix recorded
+            # "generate() needs a work_dir" and the gate could not open on any credit
+            # balance. Production's last image.probe (2026-10-07T00:03Z) says exactly that.
+            # The probe owns its render: the directory lives as long as the probe does.
+            with workspace.work_dir(None, prefix="generated-") as root:
+                got = (generator(prompt_, env=e, size="1024x1024",
+                                 provider_key=provider.key)
+                       if generator is not None else
+                       generate(prompt_, env=e, size="1024x1024", provider_key=provider.key,
+                                work_dir=root, db=db, agent="gateway",
+                                purpose=PROBE_ACTION, job_id=job_id,
+                                spend_detail={"attribution": "shared"},
+                                gate_scope="probe"))
+        except (PermanentError, TransientError) as exc:
+            record["reason"] = str(exc)[:400]
+            if getattr(exc, "code", ""):
+                record["state"] = exc.code
+        else:
+            record.update({"ok": True, "url_present": bool(got.get("url")),
+                           "cad": got.get("cad"), "latency_ms": got.get("latency_ms")})
+            from ..finance import spend_report
+
+            # `generate` ledgers every billed render itself (B2) and says so with
+            # `cost_entry_id`; writing a second row here would count the render twice. An
+            # injected generator that wrote nothing is still ledgered, as an image row.
+            if not got.get("cost_entry_id"):
+                spend_report.record(
+                    db, agent="gateway", amount_cad=float(got.get("cad") or 0.0),
+                    estimated_cad=provider.cad_per_image, purpose=PROBE_ACTION,
+                    provider=provider.key, model=provider.key, department="gateway",
+                    job_id=job_id, kind=routing.IMAGE_COST_KIND,
+                    detail={"price_basis": "assumed", "attribution": "shared"})
+
+    with db.session() as s:
+        s.add(AuditLog(actor="orchestrator", action=PROBE_ACTION,
+                       artifact=record.get("provider") or "none", detail=record))
+    return record
+
+
+def last_probe(db) -> dict | None:
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        rows = list(s.scalars(select(AuditLog).where(AuditLog.action == PROBE_ACTION)
+                              .order_by(desc(AuditLog.id)).limit(1)))
+    return dict(rows[0].detail or {}) if rows else None
+
+
+# W4-PRODFIX: a successful render proves the capability for a day. The 6-hourly
+# capability sweep re-rendered the identical probe prompt four times a day (production:
+# `spend-repeat-paid-request` "the same image.render request was paid for by 4 different
+# jobs"); the gate reads only the newest probe, never its age, so re-proving it hourly bought
+# the same evidence. A failed or missing probe is still retried on every sweep.
+PROBE_REUSE = timedelta(hours=24)
+
+
+def probe_if_due(db, *, job_id: int | None = None, now: datetime | None = None,
+                 **kw) -> dict:
+    """`probe`, unless a successful probe younger than PROBE_REUSE is on file (then reused,
+    nothing billed)."""
+    from . import paid_provider_gate as gate
+
+    now = now or datetime.now(timezone.utc)
+    last = last_probe(db)
+    # P0-PAID-PROVIDER-OWNER-GATE: a success is reused only while the activation it was made
+    # under is still in force; otherwise `probe` runs, and without an activation it sends
+    # nothing and records `not_activated_by_owner`.
+    if last and last.get("ok") and gate.is_active_id(db, last.get("activation_id"), now=now):
+        try:
+            at = datetime.fromisoformat(str(last.get("at")))
+            at = at if at.tzinfo else at.replace(tzinfo=timezone.utc)
+        except ValueError:
+            at = None
+        if at is not None and now - at < PROBE_REUSE:
+            return {**last, "reused": True,
+                    "why": f"a successful probe at {last.get('at')} is under "
+                           f"{int(PROBE_REUSE.total_seconds() // 3600)} h old; not re-billed"}
+    return probe(db, job_id=job_id, now=now, **kw)
+
+
+def usable(db) -> bool:
+    """The `image_generation` condition: the owner has activated generation for a provider
+    AND the latest probe succeeded under an activation that is still in force
+    (P0-PAID-PROVIDER-OWNER-GATE). A key alone, or an old successful probe row alone, never
+    opens it; a revoked or expired activation closes it."""
+    from . import paid_provider_gate as gate
+
+    try:
+        state_ = last_probe(db)
+    except Exception:  # noqa: BLE001 - unreadable evidence is a closed gate
+        return False
+    return gate.probe_activation_open(db, state_, (state_ or {}).get("provider"),
+                                      gate.GENERATION)
+
+
+def state(db, *, env: dict[str, str] | None = None) -> dict:
+    """The decision this needs from the owner, with the numbers already worked out."""
+    try:
+        provider = configured_provider(env)
+        provider_error = ""
+    except ImagesRefused as exc:
+        provider, provider_error = None, str(exc)
+    last = last_probe(db)
+
+    from . import image_bench
+
+    return {
+        "configured": configured(env),
+        "provider": provider.key if provider else None,
+        "provider_error": provider_error,
+        "key_present": bool(api_key(env)),
+        "credentialled": available(env),
+        "credential_plan": credential_plan(env),
+        "last_probe": last,
+        "usable": usable(db),
+        # P0-PAID-PROVIDER-OWNER-GATE: names and states only, never a credential value.
+        "owner_activation": _activation_card(db),
+        "candidates": [p.to_dict() for p in PROVIDERS],
+        # No standing recommendation. There was one -- the cheapest candidate that supports
+        # reference conditioning -- and the owner's 2026-09-20 decision replaced it with a
+        # measurement: do not lock a provider because it is inexpensive, and a moderately
+        # dearer model that materially outperforms is worth paying for. Naming a winner here
+        # would be the price list deciding again, with a benchmark sitting beside it.
+        "recommended": None,
+        "why_no_recommendation": (
+            "the choice is measured rather than reasoned. gateway/image_bench.py renders the "
+            "same six Brambleloop trials on every eligible model, five samples each, and "
+            "scores them blind against a rubric whose every line cites a requirement. Until "
+            "it runs there is no winner, and the cheapest candidate is not a default"),
+        "benchmark": image_bench.state(db),
+        "workload": WORKLOAD,
+        "estimate_per_candidate": {
+            p.key: monthly_estimate_cad(p) for p in PROVIDERS if p.supports_lock},
+        "never": ("image generation is not image understanding. The model that can look at a "
+                  "photograph cannot make one, and substituting it is refused in code rather "
+                  "than discouraged in a note"),
+    }
+
+
+def _activation_card(db) -> dict:
+    from . import paid_provider_gate as gate
+
+    try:
+        return gate.gate_card(db, "image_generation")
+    except Exception as exc:  # noqa: BLE001 - the card says what it could not read
+        return {"key_is_not_activation": gate.KEY_IS_NOT_ACTIVATION,
+                "error": f"{type(exc).__name__}: {str(exc)[:160]}"}

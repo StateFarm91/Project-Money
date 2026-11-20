@@ -1,0 +1,111 @@
+[
+ {
+  "uid": "F-171",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "post-deploy truth of critical paths",
+  "maturity": "EXERCISED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/app/main.py::api_verify",
+  "durable_state": "research/b2_resume/evidence/prod_api_verify_*.json",
+  "consumer": "ops/readback.py MANIFEST 'smoke matrix' (run by ops/deploy.sh after every deploy; exit 5 unless PASS)",
+  "protected_effect": "production smoke of critical invariants",
+  "tests": [
+   "tests/test_deploy.py::test_every_get_endpoint_answers_rather_than_500ing",
+   "tests/test_deploy.py::test_verify_endpoint_reports_the_standing_safety_assertions",
+   "tests/test_w4_smoke.py::test_a_healthy_production_passes_every_check_and_a_refused_probe_still_ran",
+   "tests/test_w4_smoke.py::test_stale_cadences_and_a_stopped_queue_fail",
+   "tests/test_w4_smoke.py::test_the_smoke_route_is_public_read_only_and_never_200_unless_pass"
+  ],
+  "evidence": [
+   "prod_api_verify_2026-09-28T0816Z.json (12 checks, ok true)",
+   "w4-FMGATE on 0417f35: the production_deploy gate is cleared; production 0417f3516f30 (GET /health build.commit, 2026-10-11T14:39Z) /api/verify: 13 checks, ok:false on every_agent_has_a_cost_ceiling and no_unexpected_dead_letters_in_24h",
+   "research/final_build/w4/evidence_BOARD/prod_api_verify_smoke_20261019T1308Z.json (production 1b21e81, research/final_build/w4/evidence_BOARD/prod_health_20261019T1308Z.json build.commit): verdict PASS on every check -- probe_ran:model.probe, probe_ran:vision.probe, probe_ran:etsy.probe, continuity_restore_proven, cadence_coverage, queue_round_trip, search_intelligence_captured; HTTP 200 (the route never answers 200 unless PASS)",
+   "research/final_build/w4/evidence_BOARD/readback_1b21e81_20261019T1308Z.json: ops/readback.py --sha 1b21e81 run after the deploy: 11 PASS, 1 FAIL (no unexpected dead letters, #195)"
+  ],
+  "build2_rows": [
+   "#181 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none -- the smoke matrix passed on the deployed 1b21e81",
+  "confidence": "HIGH",
+  "searched": " | w4-FMGATE 0417f35"
+ },
+ {
+  "uid": "F-697",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "runtime durability and recovery",
+  "maturity": "EXERCISED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/core/continuity.py::prove_restore",
+  "durable_state": "continuity_archives (last 3, gzipped, hashed), durable_artifacts",
+  "consumer": "src/brambleloop/runtime/release.py (ops.continuity cadence)",
+  "protected_effect": "a corrupt archive is refused; restore re-hashes identically",
+  "tests": [
+   "tests/test_continuity.py::test_an_export_restores_into_an_empty_database_and_hashes_identically",
+   "tests/test_continuity.py::test_a_retained_archive_restores_a_working_database",
+   "tests/test_persistence.py::test_state_survives_a_full_process_restart_on_disk",
+   "tests/test_offsite.py::test_an_archive_is_never_written_unencrypted",
+   "tests/test_offsite.py::test_a_complete_round_trip_restores_the_company",
+   "tests/test_w4_board_close.py::test_f697_durable_artifacts_ride_in_the_continuity_export"
+  ],
+  "evidence": [
+   "BUILD_STATE.md: archive 1 holds 5,299 rows across 41 tables in production, survives container replacement and redeploy",
+   "research/final_build/w4/evidence_BOARD/prod_api_offsite_20261019T1249Z.json (production 1b21e81, research/final_build/w4/evidence_BOARD/prod_health_20261019T1249Z.json build.commit): last_archive 2026-10-19T12:43:39Z ok=true stage=complete, encrypted=true, key continuity/2026/10/19/340ab26103f5a567.blarc, tables_restored 124, rows_restored 131981, survives provider_loss=true -- an export uploaded off-provider, read back, decrypted and restored into a scratch database",
+   "research/final_build/w4/evidence_BOARD/prod_api_continuity_20261019T1249Z.json: nightly retained archives 2026-10-17T00:22Z, 2026-10-18T01:10Z, 2026-10-19T00:41Z; last_proof ok, round_trip_digest == source_digest over 122 tables / 129255 rows; mismatches {}",
+   "durable_artifacts (the canonical model's approved body frames) is not in core/continuity.EXCLUDED_TABLES, so its payload bytes ride in the offsite archive (tests/test_w4_board_close.py::test_f697_durable_artifacts_ride_in_the_continuity_export)"
+  ],
+  "build2_rows": [
+   "#51 OWNER-GATED",
+   "#50 COMPLETE+PROVEN",
+   "#184 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "offsite_storage OPEN in production (1b21e81): the gate read an actual off-provider round trip, not a variable"
+  },
+  "defect": null,
+  "next_action": "none -- offsite archive and restore drill run in production",
+  "confidence": "HIGH",
+  "searched": null
+ },
+ {
+  "uid": "F-486",
+  "launch_class": "MATURE",
+  "launch_class_reason": "scheduler fairness",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/queue/durable.py::JobQueue.claim",
+  "durable_state": "jobs (priority, run_after)",
+  "consumer": "src/brambleloop/runtime/worker.py::Worker.run_once (claims through JobQueue.claim, so the aged ordering is what the worker executes)",
+  "protected_effect": "bounded aging lifts a waiting low-band job; a starved lane's engineering is moved up",
+  "tests": [
+   "tests/test_cert_orchestration.py::test_a_flood_of_high_band_jobs_cannot_starve_a_low_band_job_forever",
+   "tests/test_cert_lanes_capacity.py::test_a_starved_lane_has_its_queued_engineering_moved_up"
+  ],
+  "evidence": [
+   "queue/durable.py AGING (C-15) absent from fcb982d",
+   "research/final_build/w4/evidence_BOARD/prod_api_swarm_runtime_20261019T1249Z.json (production 1b21e81): starved_ready {reading: ok, starved: 0, late_ready: 0, why: 'no READY work is past its band SLA'} with parallelism.utilisation 0.98 (the worker busy) -- long-running work is not starving smaller READY jobs; band SLAs are the fairness bound"
+  ],
+  "build2_rows": [
+   "#187 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": null,
+   "detail": "deployed: queue/durable.py aging runs in production 1b21e81"
+  },
+  "defect": null,
+  "next_action": "none -- deployed and read in production",
+  "confidence": "HIGH",
+  "searched": null
+ }
+]

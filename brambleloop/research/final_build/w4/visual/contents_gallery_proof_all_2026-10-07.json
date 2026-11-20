@@ -1,0 +1,831 @@
+{
+ "generated_at": "2026-10-07T08:42:02Z",
+ "products": {
+  "harvest-table-runner": {
+   "version": "1.2.0",
+   "assets_build": "done",
+   "disclosed_made": true,
+   "usable": true,
+   "launch_blocked": [],
+   "frames": [
+    {
+     "view": "hero",
+     "job": "DESIRE",
+     "sha256": "2b9a42b1d9359675e1d27edf1a6684ad4fcc0e708b1d0ef40f9fdbc7d664c541",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "scale",
+     "job": "SCALE",
+     "sha256": "3e628e16f7140e7aab54cade52d0331dee9c841629d51209b2d1d85516bb4cd7",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "detail",
+     "job": "DETAIL",
+     "sha256": "641da5f67bb7b0469844f461fb1a6a9a2ad07de6e65491cbfd1be3d2205b1869",
+     "structural_truth": "PASS"
+    }
+   ],
+   "listing_set": {
+    "blocks_release": false,
+    "reasons": [],
+    "supplements": {
+     "certified": [
+      "COLOUR_CONTEXT",
+      "MATERIALS",
+      "CONTENTS"
+     ],
+     "refused": {}
+    },
+    "certificate_valid": true
+   },
+   "upload_path": {
+    "images": 6,
+    "problems": [],
+    "jobs": [
+     "DESIRE",
+     "SCALE",
+     "DETAIL",
+     "COLOUR_CONTEXT",
+     "MATERIALS",
+     "CONTENTS"
+    ]
+   },
+   "first_customer_imagery": {
+    "state": "PASS",
+    "detail": "3 disclosed frames, structurally PASS on their bound bytes, and 3 disclosed gallery frame(s) re-verified on their bytes, covered by valid listing-set certificate 1 for release 179cb1277bec",
+    "certificate": 1
+   },
+   "search_evidence_gallery": {
+    "status": "FAIL",
+    "covered": [
+     "COLOUR_CONTEXT",
+     "CONTENTS",
+     "DESIRE",
+     "DETAIL",
+     "MATERIALS",
+     "SCALE"
+    ],
+    "missing": [
+     "LIFESTYLE"
+    ],
+    "sizes": 1,
+    "colours": 2,
+    "why": null
+   },
+   "certificate_frames": [
+    {
+     "position": 1,
+     "job": "DESIRE",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "2b9a42b1d9359675e1d27edf1a6684ad4fcc0e708b1d0ef40f9fdbc7d664c541",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Harvest Table Runner: the whole piece laid flat, seen from above, in gold and wine. About 32 x 122.2 cm at the stated gauge, with a centimetre scale bar."
+    },
+    {
+     "position": 2,
+     "job": "SCALE",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "3e628e16f7140e7aab54cade52d0331dee9c841629d51209b2d1d85516bb4cd7",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Harvest Table Runner: the whole piece with its finished width and length marked, in gold and wine. About 32 x 122.2 cm at the stated gauge, with a centimetre scale bar."
+    },
+    {
+     "position": 3,
+     "job": "DETAIL",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "641da5f67bb7b0469844f461fb1a6a9a2ad07de6e65491cbfd1be3d2205b1869",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Harvest Table Runner: a close view of one corner, stitch for stitch, in gold and wine. About 32 x 122.2 cm at the stated gauge, with a centimetre scale bar."
+    },
+    {
+     "position": 4,
+     "job": "COLOUR_CONTEXT",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "82aa0e5700bbf2405fb054272bdb892034d2c17e42cc02c7f2ed11578cff73a8",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Harvest Table Runner: each yarn colour's share of the finished piece, counted from the pattern."
+    },
+    {
+     "position": 5,
+     "job": "MATERIALS",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "864421a18026c4043e924eff5306ceb0184c31c58d7f2dacf949f052c5346f01",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Harvest Table Runner: the yarn colours, yarn weight, hook size and gauge the pattern calls for."
+    },
+    {
+     "position": 6,
+     "job": "CONTENTS",
+     "medium": "PATTERN_PREVIEW",
+     "honesty_label": "Preview of the pattern document",
+     "sha256": "e653bc3b8872a9005a4c46daa7980b218a3b9c78391387047e6a79b4d193797d",
+     "alt_text": "Preview of the pattern document. Harvest Table Runner: the first pages of the PDF pattern you download, shown at reduced size."
+    }
+   ]
+  },
+  "cloudline-baby-blanket": {
+   "version": "1.2.0",
+   "assets_build": "done",
+   "disclosed_made": true,
+   "usable": true,
+   "launch_blocked": [],
+   "frames": [
+    {
+     "view": "hero",
+     "job": "DESIRE",
+     "sha256": "bf30686b90bff8e07e276da02650da258531d2710d152cf10e08c967e82aeba6",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "scale",
+     "job": "SCALE",
+     "sha256": "a111813d7165a1efc5f8a8e77e7aeabb8d085dd0088177951b6d09c04e79d286",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "detail",
+     "job": "DETAIL",
+     "sha256": "8826b569457c4a0a1af32d96466bf63c99152f55c533907815608b6614590450",
+     "structural_truth": "PASS"
+    }
+   ],
+   "listing_set": {
+    "blocks_release": false,
+    "reasons": [],
+    "supplements": {
+     "certified": [
+      "COLOUR_CONTEXT",
+      "MATERIALS",
+      "CONTENTS"
+     ],
+     "refused": {}
+    },
+    "certificate_valid": true
+   },
+   "upload_path": {
+    "images": 6,
+    "problems": [],
+    "jobs": [
+     "DESIRE",
+     "SCALE",
+     "DETAIL",
+     "COLOUR_CONTEXT",
+     "MATERIALS",
+     "CONTENTS"
+    ]
+   },
+   "first_customer_imagery": {
+    "state": "PASS",
+    "detail": "3 disclosed frames, structurally PASS on their bound bytes, and 3 disclosed gallery frame(s) re-verified on their bytes, covered by valid listing-set certificate 2 for release 7c63dbdd501f",
+    "certificate": 2
+   },
+   "search_evidence_gallery": {
+    "status": "FAIL",
+    "covered": [
+     "COLOUR_CONTEXT",
+     "CONTENTS",
+     "DESIRE",
+     "DETAIL",
+     "MATERIALS",
+     "SCALE"
+    ],
+    "missing": [
+     "LIFESTYLE"
+    ],
+    "sizes": 1,
+    "colours": 2,
+    "why": null
+   },
+   "certificate_frames": [
+    {
+     "position": 1,
+     "job": "DESIRE",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "bf30686b90bff8e07e276da02650da258531d2710d152cf10e08c967e82aeba6",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Cloudline Textured Baby Blanket: the whole piece laid flat, seen from above, in cream and ink. About 79.2 x 96.4 cm at the stated gauge, with a centimetre scale bar."
+    },
+    {
+     "position": 2,
+     "job": "SCALE",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "a111813d7165a1efc5f8a8e77e7aeabb8d085dd0088177951b6d09c04e79d286",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Cloudline Textured Baby Blanket: the whole piece with its finished width and length marked, in cream and ink. About 79.2 x 96.4 cm at the stated gauge, with a centimetre scale bar."
+    },
+    {
+     "position": 3,
+     "job": "DETAIL",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "8826b569457c4a0a1af32d96466bf63c99152f55c533907815608b6614590450",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Cloudline Textured Baby Blanket: a close view of one corner, stitch for stitch, in cream and ink. About 79.2 x 96.4 cm at the stated gauge, with a centimetre scale bar."
+    },
+    {
+     "position": 4,
+     "job": "COLOUR_CONTEXT",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "638137d2aa2a095bb52bf2b5359cb46f7a81fff35d7accf7a3f64991f0368c9b",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Cloudline Baby Blanket: each yarn colour's share of the finished piece, counted from the pattern."
+    },
+    {
+     "position": 5,
+     "job": "MATERIALS",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "0d28e525c5ef34d9c2ae7bd673cb816167bd8d29160987ed1a291663a855df1e",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Cloudline Baby Blanket: the yarn colours, yarn weight, hook size and gauge the pattern calls for."
+    },
+    {
+     "position": 6,
+     "job": "CONTENTS",
+     "medium": "PATTERN_PREVIEW",
+     "honesty_label": "Preview of the pattern document",
+     "sha256": "c27076db6e47f0cd95575f608b271ed099a766775a258a56ac9f7d2d246fc131",
+     "alt_text": "Preview of the pattern document. Cloudline Baby Blanket: the first pages of the PDF pattern you download, shown at reduced size."
+    }
+   ]
+  },
+  "market-basket-small": {
+   "version": "1.2.0",
+   "assets_build": "done",
+   "disclosed_made": true,
+   "usable": true,
+   "launch_blocked": [],
+   "frames": [
+    {
+     "view": "hero",
+     "job": "DESIRE",
+     "sha256": "a16ae6095d757310939d7e132035ca5128522d1dc9af36c0d5e0147651cef13f",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "scale",
+     "job": "SCALE",
+     "sha256": "43c10f1776e8a8753cadc9a05ae76cf365d7da2f02fbf1148a74cfd1887b300b",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "detail",
+     "job": "DETAIL",
+     "sha256": "a0a73285cb1129163e476ba449af7610f193053f91231dff6c03bb66557e505e",
+     "structural_truth": "PASS"
+    }
+   ],
+   "listing_set": {
+    "blocks_release": false,
+    "reasons": [],
+    "supplements": {
+     "certified": [
+      "ANGLE",
+      "CONSTRUCTION",
+      "COLOUR_CONTEXT",
+      "SIZING",
+      "MATERIALS",
+      "CONTENTS"
+     ],
+     "refused": {}
+    },
+    "certificate_valid": true
+   },
+   "upload_path": {
+    "images": 9,
+    "problems": [],
+    "jobs": [
+     "DESIRE",
+     "SCALE",
+     "DETAIL",
+     "ANGLE",
+     "CONSTRUCTION",
+     "COLOUR_CONTEXT",
+     "SIZING",
+     "MATERIALS",
+     "CONTENTS"
+    ]
+   },
+   "first_customer_imagery": {
+    "state": "PASS",
+    "detail": "3 disclosed frames, structurally PASS on their bound bytes, and 6 disclosed gallery frame(s) re-verified on their bytes, covered by valid listing-set certificate 3 for release 1ddde587f537",
+    "certificate": 3
+   },
+   "search_evidence_gallery": {
+    "status": "FAIL",
+    "covered": [
+     "ANGLE",
+     "COLOUR_CONTEXT",
+     "CONSTRUCTION",
+     "CONTENTS",
+     "DESIRE",
+     "DETAIL",
+     "MATERIALS",
+     "SCALE",
+     "SIZING"
+    ],
+    "missing": [
+     "LIFESTYLE"
+    ],
+    "sizes": 3,
+    "colours": 2,
+    "why": null
+   },
+   "certificate_frames": [
+    {
+     "position": 1,
+     "job": "DESIRE",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "a16ae6095d757310939d7e132035ca5128522d1dc9af36c0d5e0147651cef13f",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Bread Basket: the finished basket seen from slightly above, in cream and wine. About 16 x 8.7 cm at the stated gauge, with a centimetre scale bar."
+    },
+    {
+     "position": 2,
+     "job": "SCALE",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "43c10f1776e8a8753cadc9a05ae76cf365d7da2f02fbf1148a74cfd1887b300b",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Bread Basket: the finished piece with its size marked, in cream and wine. About 16 x 8.7 cm at the stated gauge, with a centimetre scale bar."
+    },
+    {
+     "position": 3,
+     "job": "DETAIL",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "a0a73285cb1129163e476ba449af7610f193053f91231dff6c03bb66557e505e",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Bread Basket: the base seen from above, every base round stitch for stitch, in cream and wine. About 16 x 8.7 cm at the stated gauge, with a centimetre scale bar."
+    },
+    {
+     "position": 4,
+     "job": "ANGLE",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "3a704ae62f89fe142f7ca05d3813613699182bff1c8dbf46810cee1dde2661c2",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Nesting Baskets, three sizes: the finished piece seen from the side at a raised angle."
+    },
+    {
+     "position": 5,
+     "job": "CONSTRUCTION",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "b861d52ed6b3efc930a502697bb19d9efd2b2cd561f1805fb1659ea9acd4e488",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Nesting Baskets, three sizes: how it is built: the stitch count of every round or row, in working order."
+    },
+    {
+     "position": 6,
+     "job": "COLOUR_CONTEXT",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "df7c2ec9124e0df2912fda807088374c094a7e49376f66dbcebba2e71c51f1ca",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Nesting Baskets, three sizes: each yarn colour's share of the finished piece, counted from the pattern."
+    },
+    {
+     "position": 7,
+     "job": "SIZING",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "2df939664faecaebb74e9800e4734bfabb7af2ff5ac75b72bc1d77892e0fe556",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Nesting Baskets, three sizes: every size sold, drawn to one scale with its finished measurements."
+    },
+    {
+     "position": 8,
+     "job": "MATERIALS",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "e8f008f60e29233f4e17ccc63cf4b5e4bbca0a5862f28fd0aa8c2ec251e83647",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Nesting Baskets, three sizes: the yarn colours, yarn weight, hook size and gauge the pattern calls for."
+    },
+    {
+     "position": 9,
+     "job": "CONTENTS",
+     "medium": "PATTERN_PREVIEW",
+     "honesty_label": "Preview of the pattern document",
+     "sha256": "f15ff026561f86b393b013b38b238b93da26dc29698263e791b5d0075b63d452",
+     "alt_text": "Preview of the pattern document. Nesting Baskets, three sizes: the first pages of the PDF pattern you download, shown at reduced size."
+    }
+   ]
+  },
+  "market-basket-medium": {
+   "version": "1.2.0",
+   "assets_build": "done",
+   "disclosed_made": true,
+   "usable": true,
+   "launch_blocked": [],
+   "frames": [
+    {
+     "view": "hero",
+     "job": "DESIRE",
+     "sha256": "2853edb459191a8d65a4adaa4ee5782b06c4a33d5340f215ad169a817b55a48a",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "scale",
+     "job": "SCALE",
+     "sha256": "63cbb8b1d67e07cdc2d03a68d57fd54ffcb9c39772b2c1ffc3e4888a00a04946",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "detail",
+     "job": "DETAIL",
+     "sha256": "c808e35866fe1402d137f8006c66a49408e5d89585b9bd316bbd73343599bc93",
+     "structural_truth": "PASS"
+    }
+   ],
+   "listing_set": {
+    "blocks_release": false,
+    "reasons": [],
+    "supplements": {
+     "certified": [
+      "ANGLE",
+      "CONSTRUCTION",
+      "COLOUR_CONTEXT",
+      "MATERIALS",
+      "CONTENTS"
+     ],
+     "refused": {}
+    },
+    "certificate_valid": true
+   },
+   "upload_path": {
+    "images": 8,
+    "problems": [],
+    "jobs": [
+     "DESIRE",
+     "SCALE",
+     "DETAIL",
+     "ANGLE",
+     "CONSTRUCTION",
+     "COLOUR_CONTEXT",
+     "MATERIALS",
+     "CONTENTS"
+    ]
+   },
+   "first_customer_imagery": {
+    "state": "PASS",
+    "detail": "3 disclosed frames, structurally PASS on their bound bytes, and 5 disclosed gallery frame(s) re-verified on their bytes, covered by valid listing-set certificate 4 for release 00182234041c",
+    "certificate": 4
+   },
+   "search_evidence_gallery": {
+    "status": "FAIL",
+    "covered": [
+     "ANGLE",
+     "COLOUR_CONTEXT",
+     "CONSTRUCTION",
+     "CONTENTS",
+     "DESIRE",
+     "DETAIL",
+     "MATERIALS",
+     "SCALE"
+    ],
+    "missing": [
+     "LIFESTYLE"
+    ],
+    "sizes": 1,
+    "colours": 2,
+    "why": null
+   },
+   "certificate_frames": [
+    {
+     "position": 1,
+     "job": "DESIRE",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "2853edb459191a8d65a4adaa4ee5782b06c4a33d5340f215ad169a817b55a48a",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Storage Basket: the finished basket seen from slightly above, in cream and wine. About 20.8 x 15.9 cm at the stated gauge, with a centimetre scale bar."
+    },
+    {
+     "position": 2,
+     "job": "SCALE",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "63cbb8b1d67e07cdc2d03a68d57fd54ffcb9c39772b2c1ffc3e4888a00a04946",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Storage Basket: the finished piece with its size marked, in cream and wine. About 20.8 x 15.9 cm at the stated gauge, with a centimetre scale bar."
+    },
+    {
+     "position": 3,
+     "job": "DETAIL",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "c808e35866fe1402d137f8006c66a49408e5d89585b9bd316bbd73343599bc93",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Storage Basket: the base seen from above, every base round stitch for stitch, in cream and wine. About 20.8 x 15.9 cm at the stated gauge, with a centimetre scale bar."
+    },
+    {
+     "position": 4,
+     "job": "ANGLE",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "0dc54d5fc940d8d35eec3926a5ce11ba45c81a41bd40540863682f0fd65c670b",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Nesting Baskets, three sizes: the finished piece seen from the side at a raised angle."
+    },
+    {
+     "position": 5,
+     "job": "CONSTRUCTION",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "0e30a2d016c4c92953a343b5c0d085ebabb3a0418a7a6c4a390b6171fdcd18ea",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Nesting Baskets, three sizes: how it is built: the stitch count of every round or row, in working order."
+    },
+    {
+     "position": 6,
+     "job": "COLOUR_CONTEXT",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "9d7b51a64aacdbe8ac9722a976bede310306e7cabca0caf871638b338bcc0961",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Nesting Baskets, three sizes: each yarn colour's share of the finished piece, counted from the pattern."
+    },
+    {
+     "position": 7,
+     "job": "MATERIALS",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "e8f008f60e29233f4e17ccc63cf4b5e4bbca0a5862f28fd0aa8c2ec251e83647",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Nesting Baskets, three sizes: the yarn colours, yarn weight, hook size and gauge the pattern calls for."
+    },
+    {
+     "position": 8,
+     "job": "CONTENTS",
+     "medium": "PATTERN_PREVIEW",
+     "honesty_label": "Preview of the pattern document",
+     "sha256": "f53114cb07463d3ed1cc108894077d7e24a5fe59cac159518b4012ef2f48a137",
+     "alt_text": "Preview of the pattern document. Nesting Baskets, three sizes: the first pages of the PDF pattern you download, shown at reduced size."
+    }
+   ]
+  },
+  "market-basket-large": {
+   "version": "1.2.0",
+   "assets_build": "done",
+   "disclosed_made": true,
+   "usable": true,
+   "launch_blocked": [],
+   "frames": [
+    {
+     "view": "hero",
+     "job": "DESIRE",
+     "sha256": "e4de773ba6b2401ed5b8322feea81563993c23194d0fcab3b957dce005ef2aba",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "scale",
+     "job": "SCALE",
+     "sha256": "9d685d32f7546421bd2d7a1f27e83e2fb1f64ddfd67bdcc42480b61c809bacca",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "detail",
+     "job": "DETAIL",
+     "sha256": "4310a0c65f5405890f76a6ac026ec821106c1b2616b7cd0fa5c5946758e0c9ee",
+     "structural_truth": "PASS"
+    }
+   ],
+   "listing_set": {
+    "blocks_release": false,
+    "reasons": [],
+    "supplements": {
+     "certified": [
+      "ANGLE",
+      "CONSTRUCTION",
+      "COLOUR_CONTEXT",
+      "MATERIALS",
+      "CONTENTS"
+     ],
+     "refused": {}
+    },
+    "certificate_valid": true
+   },
+   "upload_path": {
+    "images": 8,
+    "problems": [],
+    "jobs": [
+     "DESIRE",
+     "SCALE",
+     "DETAIL",
+     "ANGLE",
+     "CONSTRUCTION",
+     "COLOUR_CONTEXT",
+     "MATERIALS",
+     "CONTENTS"
+    ]
+   },
+   "first_customer_imagery": {
+    "state": "PASS",
+    "detail": "3 disclosed frames, structurally PASS on their bound bytes, and 5 disclosed gallery frame(s) re-verified on their bytes, covered by valid listing-set certificate 5 for release cc698c1b1498",
+    "certificate": 5
+   },
+   "search_evidence_gallery": {
+    "status": "FAIL",
+    "covered": [
+     "ANGLE",
+     "COLOUR_CONTEXT",
+     "CONSTRUCTION",
+     "CONTENTS",
+     "DESIRE",
+     "DETAIL",
+     "MATERIALS",
+     "SCALE"
+    ],
+    "missing": [
+     "LIFESTYLE"
+    ],
+    "sizes": 1,
+    "colours": 2,
+    "why": null
+   },
+   "certificate_frames": [
+    {
+     "position": 1,
+     "job": "DESIRE",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "e4de773ba6b2401ed5b8322feea81563993c23194d0fcab3b957dce005ef2aba",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Market Basket: the finished basket seen from slightly above, in cream and wine. About 25.6 x 23.2 cm at the stated gauge, with a centimetre scale bar."
+    },
+    {
+     "position": 2,
+     "job": "SCALE",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "9d685d32f7546421bd2d7a1f27e83e2fb1f64ddfd67bdcc42480b61c809bacca",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Market Basket: the finished piece with its size marked, in cream and wine. About 25.6 x 23.2 cm at the stated gauge, with a centimetre scale bar."
+    },
+    {
+     "position": 3,
+     "job": "DETAIL",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "4310a0c65f5405890f76a6ac026ec821106c1b2616b7cd0fa5c5946758e0c9ee",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Crochet Hexagonal Market Basket: the base seen from above, every base round stitch for stitch, in cream and wine. About 25.6 x 23.2 cm at the stated gauge, with a centimetre scale bar."
+    },
+    {
+     "position": 4,
+     "job": "ANGLE",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "df1f044fff82a166a1f75e3d6ad814872dd9426f583bff9c1dad219b598954a2",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Nesting Baskets, three sizes: the finished piece seen from the side at a raised angle."
+    },
+    {
+     "position": 5,
+     "job": "CONSTRUCTION",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "e108e6219445d2e18e21fd9964113f51bb0f4a1bc0141da737bc4d4b80a16cc4",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Nesting Baskets, three sizes: how it is built: the stitch count of every round or row, in working order."
+    },
+    {
+     "position": 6,
+     "job": "COLOUR_CONTEXT",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "30729d788562caadce97150f01b8000a1e1aff1a4ffe8c36cc7ab785b952516d",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Nesting Baskets, three sizes: each yarn colour's share of the finished piece, counted from the pattern."
+    },
+    {
+     "position": 7,
+     "job": "MATERIALS",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "e8f008f60e29233f4e17ccc63cf4b5e4bbca0a5862f28fd0aa8c2ec251e83647",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Nesting Baskets, three sizes: the yarn colours, yarn weight, hook size and gauge the pattern calls for."
+    },
+    {
+     "position": 8,
+     "job": "CONTENTS",
+     "medium": "PATTERN_PREVIEW",
+     "honesty_label": "Preview of the pattern document",
+     "sha256": "d99c8095eadb58e7135d4839c8ea453563921926d7ec20edac97d535c5362f70",
+     "alt_text": "Preview of the pattern document. Nesting Baskets, three sizes: the first pages of the PDF pattern you download, shown at reduced size."
+    }
+   ]
+  },
+  "pet-snuggle-mat": {
+   "version": "1.2.0",
+   "assets_build": "done",
+   "disclosed_made": true,
+   "usable": true,
+   "launch_blocked": [],
+   "frames": [
+    {
+     "view": "hero",
+     "job": "DESIRE",
+     "sha256": "30266863daa3998134dbe2696d23706883636e8760f78693a37ee3e1441c79ec",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "scale",
+     "job": "SCALE",
+     "sha256": "7b75bbd6f85c4bfdaba4477c6c30f2a5899bbf9cba8aa1bccd1ec043d4be0731",
+     "structural_truth": "PASS"
+    },
+    {
+     "view": "detail",
+     "job": "DETAIL",
+     "sha256": "96a345c9ef5368654ecfbf9fd988863d2a829c078165bec002c08a5fec8730ad",
+     "structural_truth": "PASS"
+    }
+   ],
+   "listing_set": {
+    "blocks_release": false,
+    "reasons": [],
+    "supplements": {
+     "certified": [
+      "COLOUR_CONTEXT",
+      "MATERIALS",
+      "CONTENTS"
+     ],
+     "refused": {
+      "ANGLE": "RenderRefused: pet-snuggle-mat: a flat piece's back is its front; an angle view would repeat the hero",
+      "CONSTRUCTION": "the CIR does not carry what this job draws"
+     }
+    },
+    "certificate_valid": true
+   },
+   "upload_path": {
+    "images": 6,
+    "problems": [],
+    "jobs": [
+     "DESIRE",
+     "SCALE",
+     "DETAIL",
+     "COLOUR_CONTEXT",
+     "MATERIALS",
+     "CONTENTS"
+    ]
+   },
+   "first_customer_imagery": {
+    "state": "PASS",
+    "detail": "3 disclosed frames, structurally PASS on their bound bytes, and 3 disclosed gallery frame(s) re-verified on their bytes, covered by valid listing-set certificate 6 for release 5dccca80a6ab",
+    "certificate": 6
+   },
+   "search_evidence_gallery": {
+    "status": "FAIL",
+    "covered": [
+     "COLOUR_CONTEXT",
+     "CONTENTS",
+     "DESIRE",
+     "DETAIL",
+     "MATERIALS",
+     "SCALE"
+    ],
+    "missing": [
+     "ANGLE",
+     "CONSTRUCTION",
+     "LIFESTYLE"
+    ],
+    "sizes": 1,
+    "colours": 2,
+    "why": null
+   },
+   "certificate_frames": [
+    {
+     "position": 1,
+     "job": "DESIRE",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "30266863daa3998134dbe2696d23706883636e8760f78693a37ee3e1441c79ec",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Pet Snuggle Mat: the whole piece laid flat, seen from above, in gold and pine. About 32 x 60.5 cm at the stated gauge, with a centimetre scale bar."
+    },
+    {
+     "position": 2,
+     "job": "SCALE",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "7b75bbd6f85c4bfdaba4477c6c30f2a5899bbf9cba8aa1bccd1ec043d4be0731",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Pet Snuggle Mat: the whole piece with its finished width and length marked, in gold and pine. About 32 x 60.5 cm at the stated gauge, with a centimetre scale bar."
+    },
+    {
+     "position": 3,
+     "job": "DETAIL",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "96a345c9ef5368654ecfbf9fd988863d2a829c078165bec002c08a5fec8730ad",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Pet Snuggle Mat: a close view of one corner, stitch for stitch, in gold and pine. About 32 x 60.5 cm at the stated gauge, with a centimetre scale bar."
+    },
+    {
+     "position": 4,
+     "job": "COLOUR_CONTEXT",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "ce402b17a113efc7b97a4d86f0aea2735f464edc2f65864e6f8135b79b2eaf83",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Pet Snuggle Mat: each yarn colour's share of the finished piece, counted from the pattern."
+    },
+    {
+     "position": 5,
+     "job": "MATERIALS",
+     "medium": "DIGITAL_TWIN_RENDER",
+     "honesty_label": "Digital rendering of the pattern's finished design, not a photograph",
+     "sha256": "e5fe5c7853bced5dd1e2c07e3bf78a471c54d9ef41dfbd71233929b9a28e2af4",
+     "alt_text": "Digital rendering of the pattern's finished design, not a photograph. Pet Snuggle Mat: the yarn colours, yarn weight, hook size and gauge the pattern calls for."
+    },
+    {
+     "position": 6,
+     "job": "CONTENTS",
+     "medium": "PATTERN_PREVIEW",
+     "honesty_label": "Preview of the pattern document",
+     "sha256": "53ed59c68b17a55c35dc4b54bfbfe5e4207e55d0e1ba35d229a9f529106c347e",
+     "alt_text": "Preview of the pattern document. Pet Snuggle Mat: the first pages of the PDF pattern you download, shown at reduced size."
+    }
+   ]
+  }
+ }
+}

@@ -1,0 +1,44 @@
+{
+ "_meta": {
+  "head": "570e715",
+  "runner": "close_fmgate.py --run-tests (sequential, private TMPDIR per file)"
+ },
+ "suites": {
+  "tests/test_freeze_candidate.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 9,
+   "seconds": 5.4
+  },
+  "tests/test_rc1_own_release.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 10,
+   "seconds": 11.6
+  },
+  "tests/test_reachability.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 12,
+   "seconds": 160.6
+  },
+  "tests/test_w3_deploy_evidence.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 3,
+   "seconds": 6.5
+  },
+  "tests/test_w3_final_master_gate.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 13,
+   "seconds": 62.5
+  },
+  "tests/test_w4_fmgate_catalogue_filters.py": {
+   "exit": 0,
+   "fail": 0,
+   "ok": 1,
+   "seconds": 8.6
+  }
+ }
+}

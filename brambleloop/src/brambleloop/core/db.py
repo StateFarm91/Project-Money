@@ -1,0 +1,267 @@
+"""Database layer.
+
+Postgres in production, SQLite for hermetic tests (DECISION B-004). The queue's claim query
+is the only place the two genuinely differ, and that difference is isolated in
+`queue/durable.py`.
+"""
+from __future__ import annotations
+
+import os
+from contextlib import contextmanager
+from typing import Iterator
+
+from sqlalchemy import create_engine, event, text
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+
+DEFAULT_URL = "sqlite:///brambleloop.db"
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class EphemeralStorageRefused(RuntimeError):
+    """A hosted deployment was about to run on storage that does not survive a restart."""
+
+
+def resolve_url(url: str | None = None, *, scratch: bool = False) -> str:
+    """Pick the database URL, preferring an explicit one, then the platform's.
+
+    Railway (and most platforms) inject `DATABASE_URL`, and inject it in the historical
+    `postgres://` form that SQLAlchemy 2.x does not accept. Normalising it here rather than in
+    a dashboard variable means the deployment cannot be broken by someone copying the value
+    by hand.
+
+    The refusal below matters more than it looks. Without it, a container whose database
+    variable failed to bind falls back to a SQLite file on an ephemeral disk: every health
+    check passes, the dashboard renders, and every job, audit record and release certificate
+    is destroyed on the next restart. Failing to start is enormously preferable to running a
+    company whose memory silently resets.
+
+    `scratch=True` is the one exemption, and it is a parameter rather than an environment
+    variable on purpose: the caller has to say at the call site that this database is a
+    throwaway, so the exemption is greppable and cannot be turned on for the whole process by
+    a dashboard setting. Production found the need for it -- the continuity restore proof
+    builds a local SQLite file to restore into, and the guard, correctly refusing ephemeral
+    SQLite, killed the job that proves the real database can be recovered.
+    """
+    explicit = bool(url)
+    url = (url or os.environ.get("BRAMBLELOOP_DATABASE_URL")
+           or os.environ.get("DATABASE_URL") or "").strip()
+    if url.startswith("postgres://"):
+        url = "postgresql+psycopg2://" + url[len("postgres://"):]
+    elif url.startswith("postgresql://"):
+        url = "postgresql+psycopg2://" + url[len("postgresql://"):]
+    if not url:
+        url = DEFAULT_URL
+    if url.startswith("sqlite") and not scratch:
+        why = sqlite_refusal_reason(os.environ, explicit=explicit)
+        if why:
+            raise EphemeralStorageRefused(
+                f"{why}, but no Postgres URL is bound. Refusing to start on ephemeral "
+                "SQLite: the container would look healthy and lose every job, audit record "
+                "and release certificate on its next restart."
+            )
+    return url
+
+
+#: Markers the hosting platform injects into every container it runs (A3-08).
+HOSTED_MARKERS = ("RAILWAY_ENVIRONMENT", "RAILWAY_ENVIRONMENT_NAME", "RAILWAY_PROJECT_ID",
+                  "RAILWAY_SERVICE_ID", "RAILWAY_DEPLOYMENT_ID")
+
+
+def sqlite_refusal_reason(env, *, explicit: bool = False) -> str | None:
+    """Why SQLite must be refused here, or None (A3-08: default-on, not opt-in).
+
+    * `BRAMBLELOOP_REQUIRE_POSTGRES=1` -- the original opt-in; refuses every SQLite URL.
+    * On the hosting platform (any `RAILWAY_*` marker), or with `BRAMBLELOOP_PHASE` set to
+      anything but `shadow`, SQLite reached from the environment or the default is refused
+      whatever `BRAMBLELOOP_REQUIRE_POSTGRES` says: a mis-bound `DATABASE_URL` there would
+      silently reset the company on restart. A SQLite URL passed explicitly by code (a tool
+      or a test building its own file) is that caller's decision and is not refused here.
+    """
+    if env.get("BRAMBLELOOP_REQUIRE_POSTGRES") == "1":
+        return "BRAMBLELOOP_REQUIRE_POSTGRES=1"
+    if explicit:
+        return None
+    hosted = sorted(m for m in HOSTED_MARKERS if env.get(m))
+    if hosted:
+        return f"running on the hosting platform ({hosted[0]} is set)"
+    phase = (env.get("BRAMBLELOOP_PHASE") or "shadow").strip().lower() or "shadow"
+    if phase != "shadow":
+        return f"BRAMBLELOOP_PHASE={phase} (not shadow)"
+    return None
+
+
+def make_engine(url: str | None = None, echo: bool = False, *,
+                scratch: bool = False) -> Engine:
+    url = resolve_url(url, scratch=scratch)
+    kwargs: dict = {"echo": echo, "future": True}
+    if url.startswith("sqlite"):
+        # check_same_thread=False so a worker thread can share the engine; WAL so a reader
+        # does not block the queue writer.
+        kwargs["connect_args"] = {"check_same_thread": False}
+    else:
+        kwargs["pool_pre_ping"] = True
+    eng = create_engine(url, **kwargs)
+    if url.startswith("sqlite"):
+
+        @event.listens_for(eng, "connect")
+        def _sqlite_pragmas(dbapi_conn, _record):  # pragma: no cover - driver glue
+            cur = dbapi_conn.cursor()
+            cur.execute("PRAGMA journal_mode=WAL")
+            cur.execute("PRAGMA foreign_keys=ON")
+            cur.close()
+
+    return eng
+
+
+def is_postgres(engine: Engine) -> bool:
+    return engine.dialect.name == "postgresql"
+
+
+class Database:
+    def __init__(self, url: str | None = None, echo: bool = False, *,
+                 scratch: bool = False):
+        """`scratch=True` marks a deliberate throwaway database (see `resolve_url`)."""
+        self.engine = make_engine(url, echo, scratch=scratch)
+        # Read by `visual.experiment`: an uncertified EXPERIMENT run is refused on any
+        # database not declared a throwaway at its call site (W4-WRAPTEST).
+        self.scratch = bool(scratch)
+        self._sessions = sessionmaker(bind=self.engine, expire_on_commit=False, future=True)
+
+    def create_all(self) -> list[str]:
+        """Create missing tables, then add missing columns to the ones that exist.
+
+        `create_all` alone does not touch a table that already exists, so a column added in
+        code never reaches a deployed database. Returns what the additive migration changed,
+        which the caller logs -- a schema change nobody can see is how a deploy breaks quietly.
+        """
+        from .migrate import apply as apply_migrations
+
+        from ..ops import standing_grants as _standing_grants  # WS4-7 grant store + guard
+
+        self.register_models()
+        Base.metadata.create_all(self.engine)
+        changes = apply_migrations(self.engine)
+        return changes + _standing_grants.install_guards(self.engine)
+
+    @staticmethod
+    def register_models() -> None:
+        """Import every module that registers tables in `Base.metadata` (no database I/O)."""
+        from . import models  # noqa: F401  (import registers the mappings)
+        from ..learn import models as learn_models  # noqa: F401; additive Learn tables
+        from ..publish import draft_intent  # noqa: F401; additive remote-create intent
+        from ..publish import manual_adoption  # noqa: F401; W-ADOPT manual_listing_claims
+        from ..commerce import search_visibility  # noqa: F401; F-248 owner readings
+        # v1.1 lanes, registered here so a worker-only or scheduler-only process creates
+        # them too (each also creates its tables lazily, so nothing broke before this).
+        from ..autonomy import models as autonomy_models  # noqa: F401; memory/timeline (A)
+        from ..seo import models as seo_models  # noqa: F401; SEO evidence/proposals (G)
+        from ..finance.accounting import models as acct_models  # noqa: F401; ledger (E)
+        from ..growth import ads_readiness  # noqa: F401; ads readiness tables (H)
+        from ..ops import slo as _slo_tables  # noqa: F401; SLO samples + leases (I)
+        from ..app.command_center import models as cc_models  # noqa: F401; owner CC (C)
+        from ..laura.core import models as laura_core_models  # noqa: F401; Laura (W3-D)
+        from ..finance import cost_attribution as _cost_attr  # noqa: F401; F-304 (W4-SPENDA)
+        from ..finance import credits as _credits  # noqa: F401; F-629 credits (W4-SPENDA)
+        from ..visual.rnd import models as visual_rnd_models  # noqa: F401; Visual R&D (H, w3)
+        from ..gateway import paid_calls as _paid_calls  # noqa: F401; PaidCallRecord (SPEND)
+        from ..gateway import paid_provider_gate as _ppg  # noqa: F401; owner activation (V0)
+        from ..authority import models as _authority_models  # noqa: F401; authority (W3-K11)
+        from ..improve import failure_memory as _failmem  # noqa: F401; F-378 failure memory
+        from ..improve import self_models as _self_models  # noqa: F401; ENG-IMPROVE tables
+        from ..intel import research as _research  # noqa: F401; F-431 research tasks
+        from ..integrations import etsy_webhooks as _etsy_wh  # noqa: F401; F-512 deliveries
+        # Verdict 6999967600 L-A: Stage A's slot tables are created by the migration owner,
+        # never lazily by a worker or issuer role (which would then own them).
+        from ..ops import standing_activation as _stage_a  # noqa: F401; Stage A slots
+        from ..visual import image_records as _img_records  # noqa: F401; W-OWNERIMG
+        from ..visual import identity_records as _identity_records  # noqa: F401; ENG-VIS-IDENTITY
+        from ..learning import store as _learn_store  # noqa: F401; ENG-LEARN
+        from ..experiments import controlled as _controlled  # noqa: F401; W-VISNEXT
+        # W4-LISTREADY: the launch image-review batch tables. `gateway.anthropic` imports this
+        # module on every reservation, which registers them in Base; created here so every
+        # process has them (continuity.export walks every registered table).
+        from ..finance import launch_review as _launch_review  # noqa: F401
+        # REL2 tables, created at boot rather than only lazily on first use (W4-INTEG3):
+        # etsy_webhook_refusals rides in etsy_webhooks above; the brief cursors live here.
+        from ..creative import prospecting as _prospecting  # noqa: F401; brief cursors
+        from ..ops import standing_grants as _standing_grants  # noqa: F401; WS4-7 grant store
+
+    def boot_schema(self, component: str) -> dict:
+        """WS4-7 round-2 L4: a process that is NOT the migration owner never creates tables.
+
+        Under the Mode T runbook the worker role keeps CREATE on the schema (handlers make
+        their own tables on first use), so a worker that booted before web on a new release
+        would run `create_all` and OWN the new tables -- the grant store among them, whose
+        owner can drop its write-once trigger. Here the migration owner is the owner of
+        `jobs` (created by web's first boot); a process on another role only CHECKS that every
+        registered table exists and refuses to start when one is missing ("deploy web first").
+        On SQLite, and for the role that owns the schema (Mode S: one role), this is
+        `create_all` exactly as before."""
+        from sqlalchemy import inspect
+
+        if not is_postgres(self.engine):
+            return {"created": True, "changes": self.create_all(), "missing": [],
+                    "missing_columns": [], "refusal": None}
+        with self.engine.connect() as c:
+            me = c.execute(text("SELECT current_user")).scalar()
+            owner = c.execute(text("SELECT tableowner FROM pg_tables WHERE schemaname = "
+                                   "current_schema() AND tablename = 'jobs'")).scalar()
+        if owner is None or owner == me:
+            return {"created": True, "changes": self.create_all(), "missing": [],
+                    "missing_columns": [], "refusal": None}
+        self.register_models()
+        insp = inspect(self.engine)
+        have = set(insp.get_table_names())
+        missing = sorted(t for t in Base.metadata.tables if t not in have)
+        # Round-3 LOW: a release that only ADDS a column to an existing table is the same
+        # hazard -- the migration owner has not migrated, and this role must not ALTER it.
+        missing_columns = sorted(
+            f"{name}.{col}" for name, table in Base.metadata.tables.items() if name in have
+            for col in ({c.name for c in table.columns}
+                        - {c["name"] for c in insp.get_columns(name)}))
+        refusal = None
+        if missing or missing_columns:
+            gaps = []
+            if missing:
+                gaps.append(f"{len(missing)} table(s) do not exist yet ({missing[:5]})")
+            if missing_columns:
+                gaps.append(f"{len(missing_columns)} column(s) do not exist yet "
+                            f"({missing_columns[:5]})")
+            refusal = (f"the {component} runs as database role {me!r}, not the migration owner "
+                       f"{owner!r}, and {' and '.join(gaps)}: it never creates them. Deploy "
+                       f"web (the migration owner) first, then restart the {component}.")
+        return {"created": False, "changes": [], "missing": missing,
+                "missing_columns": missing_columns, "refusal": refusal,
+                "role": me, "owner": owner}
+
+    def drop_all(self) -> None:
+        Base.metadata.drop_all(self.engine)
+
+    @contextmanager
+    def session(self) -> Iterator[Session]:
+        s = self._sessions()
+        try:
+            yield s
+            s.commit()
+        except Exception:
+            s.rollback()
+            raise
+        finally:
+            s.close()
+
+    def new_session(self) -> Session:
+        return self._sessions()
+
+
+# OPUS2 (P1-OWNER-QUEUE-RACES): every session flush that inserts an open owner action takes the
+# owner-queue lock and never queues a requirement twice (ops.owner_queue_guard).
+from ..ops import owner_queue_guard as _owner_queue_guard  # noqa: E402,F401
+from ..publish import listing_package_fence as _listing_package_fence  # noqa: E402,F401
+# Review A3 U5 F4: on PostgreSQL every ORM flush that writes photo evidence takes the photo
+# review's advisory key in shared mode, so no evidence writer commits during a review or a
+# certificate issue (publish.photo_fence).
+from ..publish import photo_fence as _photo_fence  # noqa: E402,F401

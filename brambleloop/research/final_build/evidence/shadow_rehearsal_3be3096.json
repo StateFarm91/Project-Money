@@ -1,0 +1,617 @@
+{
+ "kind": "shadow_rehearsal",
+ "requirement": "F-848",
+ "head": "3be3096047934302a64d56e83b72e8729782eaed",
+ "head_short": "3be3096",
+ "tree_dirty": false,
+ "product": "cloudline-baby-blanket",
+ "version": "1.1.0",
+ "mode": "production",
+ "started_at": "2026-10-06T00:35:29.233574+00:00",
+ "finished_at": "2026-10-06T00:39:53.151866+00:00",
+ "seconds": 263.9,
+ "database": "fresh sqlite file (discarded after the run)",
+ "simulations": [
+  "past-shadow phase is simulated in-process (BRAMBLELOOP_PHASE=limited_production); production stays SHADOW",
+  "Etsy is tests/fake_etsy.py on loopback; EtsyClient.BASE pointed at it for the simulated phase only",
+  "owner publication grant recorded through approve() under a fixture ops credential",
+  "receipt feed is a fixture via commerce.orders_ingest.reader_factory; receipts gate rows (etsy.probe ok, transactions_r scope) seeded as a simulated owner grant",
+  "support case taken in through CustomerExperience.intake (no messaging integration exists)"
+ ],
+ "steps": [
+  {
+   "step": "boot",
+   "outcome": "PASS",
+   "expected": "production start command serves /health in SHADOW with the network guard installed in its process",
+   "observed": {
+    "health_200": true,
+    "pid": 19099,
+    "guard_installed_in_pids": [
+     "19099"
+    ],
+    "start_command": "uvicorn brambleloop.app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1",
+    "argv": [
+     "-m",
+     "uvicorn",
+     "brambleloop.app.main:app",
+     "--host",
+     "127.0.0.1",
+     "--port",
+     "57247",
+     "--workers",
+     "1"
+    ],
+    "env_keys": [
+     "BRAMBLELOOP_ARTIFACT_DIR",
+     "BRAMBLELOOP_DATABASE_URL",
+     "BRAMBLELOOP_IDLE_SLEEP",
+     "BRAMBLELOOP_LOG_LEVEL",
+     "BRAMBLELOOP_PHASE",
+     "BRAMBLELOOP_RUNNER_START_DELAY",
+     "BRAMBLELOOP_SCHEDULER_INTERVAL",
+     "HOME",
+     "LANG",
+     "PATH",
+     "PYTHONDONTWRITEBYTECODE",
+     "PYTHONPATH"
+    ]
+   },
+   "db_proof": {
+    "runtime.started": [
+     {
+      "id": 1,
+      "job_id": null,
+      "actor": "orchestrator",
+      "artifact": null,
+      "detail": {
+       "commit": "unknown",
+       "commit_short": "unknown",
+       "at": "2026-10-06T00:35:30.932616+00:00"
+      }
+     }
+    ]
+   },
+   "at": "2026-10-06T00:35:31.529784+00:00"
+  },
+  {
+   "step": "chain.jobs",
+   "outcome": "PASS",
+   "expected": "the release chain for this product ran inside the runtime",
+   "observed": {
+    "jobs": 9
+   },
+   "db_proof": {
+    "jobs": [
+     [
+      109,
+      "cir.compile",
+      "done"
+     ],
+     [
+      111,
+      "gate.certify",
+      "done"
+     ],
+     [
+      113,
+      "listing.draft",
+      "done"
+     ],
+     [
+      127,
+      "assets.build",
+      "done"
+     ],
+     [
+      139,
+      "pricing.position",
+      "done"
+     ],
+     [
+      155,
+      "cir.compile",
+      "done"
+     ],
+     [
+      176,
+      "listing.seo",
+      "done"
+     ],
+     [
+      184,
+      "launch.plan",
+      "done"
+     ],
+     [
+      186,
+      "store.publish",
+      "dead"
+     ]
+    ]
+   },
+   "at": "2026-10-06T00:39:35.273061+00:00"
+  },
+  {
+   "step": "cir.compile",
+   "outcome": "PASS",
+   "expected": "compiles clean and enqueues gate.certify",
+   "observed": {
+    "job": 155,
+    "status": "done",
+    "last_error": ""
+   },
+   "db_proof": {
+    "cir.compiled": [
+     {
+      "ok": true,
+      "errors": 0
+     },
+     {
+      "ok": true,
+      "errors": 0
+     }
+    ]
+   },
+   "at": "2026-10-06T00:39:35.274295+00:00"
+  },
+  {
+   "step": "gate.certify",
+   "outcome": "PASS",
+   "expected": "certificate granted and PatternVersion certified",
+   "observed": {
+    "job": 111,
+    "status": "done",
+    "last_error": ""
+   },
+   "db_proof": {
+    "pattern_versions": {
+     "certified": true,
+     "release_hash": "7f08959c2dcfc6d4a1af215131d026812acf7f7b782f0e4fb75a414331ccd661",
+     "granted": true,
+     "stages_run": [
+      "compile",
+      "specification",
+      "twin",
+      "assembly",
+      "write",
+      "reverse",
+      "originality",
+      "asset_truth",
+      "policy",
+      "physical_test",
+      "confidence"
+     ]
+    },
+    "gate.certified": [
+     {
+      "granted": true,
+      "reasons": [],
+      "content_hash": "7f08959c2dcfc6d4a1af215131d026812acf7f7b782f0e4fb75a414331ccd661",
+      "physical_test_required": false,
+      "physical_evidence": {
+       "content_hash": "7f08959c2dcfc6d4a1af215131d026812acf7f7b782f0e4fb75a414331ccd661",
+       "passed": false,
+       "bound": [],
+       "unbound": []
+      }
+     }
+    ]
+   },
+   "at": "2026-10-06T00:39:35.278879+00:00"
+  },
+  {
+   "step": "assets.build",
+   "outcome": "PASS",
+   "expected": "PDFs (US/UK) and listing images built and hashed",
+   "observed": {
+    "job": 127,
+    "status": "done",
+    "last_error": ""
+   },
+   "db_proof": {
+    "assets.built": [
+     {
+      "artifact": "cloudline-baby-blanket@1.1.0",
+      "pdfs": {
+       "UK": "7202fa8fce0553a5ee510111740237b063120312ce1561c15e35d415e96a7ecc",
+       "US": "817a1a0fbdc0999e584392a5fe1a99feebeea460634db12d7ac33a124318d228"
+      }
+     }
+    ],
+    "assets.listing_images_built": [
+     "{\"blocking\": [], \"defect_fixtures\": null, \"disclosed_render\": {\"frames\": [{\"sha256\": \"77440e73c184c802dfc305b0e64ccfc5ff8795ec572ccdf6ab4bb628203255ec\", \"structural_truth\": \"PASS\", \"view\": \"hero\"}, {\"sha256\": \"8ec61b9491fb9c2759f17ccfbbfc1a6ced454be6870ec8ae60f9e4c03848facb\", \"structural_truth\": \"PASS\", \"view\": \"scale\"}, {\"sha256\": \"667c3035170fa767b972fd2425af42b09a0c545037185ff9ff4fc97ab17c21e3\"...(truncated)"
+    ]
+   },
+   "at": "2026-10-06T00:39:35.280257+00:00"
+  },
+  {
+   "step": "listing.seo",
+   "outcome": "PASS",
+   "expected": "Listing row written from the certified release",
+   "observed": {
+    "job": 176,
+    "status": "done",
+    "last_error": ""
+   },
+   "db_proof": {
+    "listings": {
+     "id": 1,
+     "title": "Cloudline Textured Baby Blanket | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
+     "price_cad": 8.91,
+     "tags": [
+      "baby crochet pattern",
+      "cloudline crochet",
+      "cloudline baby",
+      "written and chart",
+      "pdf crochet pattern",
+      "diy baby",
+      "digital download",
+      "instant download pdf",
+      "yarn craft project",
+      "us and uk terms",
+      "printable pdf chart",
+      "fiber art project",
+      "crochet baby chart"
+     ],
+     "release_hash": "7f08959c2dcfc6d4a1af215131d026812acf7f7b782f0e4fb75a414331ccd661",
+     "etsy_listing_id": ""
+    },
+    "listing_search_profiles": {
+     "verdict": "REFUSED",
+     "category_status": "UNKNOWN",
+     "taxonomy_id": null
+    },
+    "listing.seo_drafted": 1,
+    "listing.seo_blocked": []
+   },
+   "at": "2026-10-06T00:39:35.284889+00:00"
+  },
+  {
+   "step": "store.publish[shadow]",
+   "outcome": "REFUSED_AS_EXPECTED",
+   "expected": "refused in SHADOW by the capability layer; no store.published row",
+   "observed": {
+    "job": 186,
+    "status": "dead",
+    "last_error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+   },
+   "db_proof": {
+    "store.publish_refused": [
+     "{\"creative_parity\": \"unjudged\", \"parity_would_block\": true, \"reason\": \"shadow mode: no live publication\", \"release_gate_reasons\": [\"search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed\", \"search certificate (F-004) attributes: no category, so no property schema to be complete against\", \"FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- twin.calibrated is False: every finished dimension is arithmetic from the gauge the CIR states, and no sample has been crocheted. The documents say so, which keeps the claim truthful, but a claim that\", \"FIRST_CUSTOMER_BLOCKING: imagery: UNVERIFIABLE -- no listing frames have been built for this product, so there is nothing to check. An unbuilt image set is unchecked, not clean\", \"FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listin...(truncated)"
+    ],
+    "store.published": 0,
+    "store.release_gates": [
+     "{\"blocks_release\": true, \"listing_set\": {\"blocks_release\": false, \"certificate\": {\"issued\": false, \"rechecked\": [{\"affected_assets\": [], \"invalidated_by\": [], \"recomputed\": \"compared against the current inputs rather than read from a flag. A revocation step is a step somebody forgets, and the forgetting is silent\", \"record_id\": 1, \"slug\": \"cloudline-baby-blanket\", \"valid\": true, \"version\": \"1.1.0\", \"why\": \"the geometry, the claims and the policy are the ones this was issued against\"}], \"record_id\": 1, \"valid\": true, \"why\": \"a valid certificate covers exactly these frame hashes\"}, \"dimensions\": {\"displayed\": 6, \"ok\": true, \"problems\": [], \"references\": 0, \"sources\": [\"finished.length\", \"finished.width\"]}, \"frame_set\": {\"ok\": true}, \"frames\": [{\"gates\": {\"COMMERCIAL_QA\": \"passed\", \"DATA_TRUTH\": \"passed\", \"LAYOUT_QA\": \"passed\", \"POLICY_PROVENANCE\": \"passed\"}, \"job\": \"DESIRE\", \"may_export\": ...(truncated)"
+    ]
+   },
+   "at": "2026-10-06T00:39:35.286161+00:00"
+  },
+  {
+   "step": "network[shadow]",
+   "outcome": "PASS",
+   "expected": "tests/network_guard.py installed in the process that ran the chain; every connection attempt refused and logged",
+   "observed": {
+    "guard_installed": true,
+    "refused_attempts": 15
+   },
+   "db_proof": {
+    "refused": [
+     {
+      "pid": 19099,
+      "kind": "create_connection",
+      "args": "(('wikimedia.org', 443), 20.0, None)"
+     },
+     {
+      "pid": 19099,
+      "kind": "create_connection",
+      "args": "(('wikimedia.org', 443), 20.0, None)"
+     },
+     {
+      "pid": 19099,
+      "kind": "create_connection",
+      "args": "(('wikimedia.org', 443), 20.0, None)"
+     },
+     {
+      "pid": 19099,
+      "kind": "create_connection",
+      "args": "(('wikimedia.org', 443), 20.0, None)"
+     },
+     {
+      "pid": 19099,
+      "kind": "create_connection",
+      "args": "(('wikimedia.org', 443), 20.0, None)"
+     },
+     {
+      "pid": 19099,
+      "kind": "create_connection",
+      "args": "(('wikimedia.org', 443), 20.0, None)"
+     },
+     {
+      "pid": 19099,
+      "kind": "create_connection",
+      "args": "(('wikimedia.org', 443), 20.0, None)"
+     },
+     {
+      "pid": 19099,
+      "kind": "create_connection",
+      "args": "(('wikimedia.org', 443), 20.0, None)"
+     },
+     {
+      "pid": 19099,
+      "kind": "create_connection",
+      "args": "(('wikimedia.org', 443), 20.0, None)"
+     },
+     {
+      "pid": 19099,
+      "kind": "create_connection",
+      "args": "(('wikimedia.org', 443), 20.0, None)"
+     },
+     {
+      "pid": 19099,
+      "kind": "create_connection",
+      "args": "(('wikimedia.org', 443), 20.0, None)"
+     },
+     {
+      "pid": 19099,
+      "kind": "create_connection",
+      "args": "(('wikimedia.org', 443), 20.0, None)"
+     },
+     {
+      "pid": 19099,
+      "kind": "create_connection",
+      "args": "(('wikimedia.org', 443), 20.0, None)"
+     },
+     {
+      "pid": 19099,
+      "kind": "create_connection",
+      "args": "(('wikimedia.org', 443), 20.0, None)"
+     },
+     {
+      "pid": 19099,
+      "kind": "create_connection",
+      "args": "(('wikimedia.org', 443), 20.0, None)"
+     }
+    ]
+   },
+   "at": "2026-10-06T00:39:35.286216+00:00"
+  },
+  {
+   "step": "owner_publication_grant",
+   "outcome": "BLOCKED",
+   "expected": "sealed, content-bound grant recorded via approve()",
+   "observed": "ValueError: certified listing taxonomy UNKNOWN; default fallback prohibited",
+   "db_proof": {},
+   "at": "2026-10-06T00:39:35.395018+00:00"
+  },
+  {
+   "step": "store.publish[past-shadow]",
+   "outcome": "BLOCKED",
+   "expected": "exactly one draft created on fake Etsy under the owner grant",
+   "observed": {
+    "job": 200,
+    "status": "dead",
+    "last_error": "capability not enabled: listing export is blocked by the eight-part creative parity gate: parity is unjudged on ['hero', 'competitive_blind_review'], and unjudged is not a pass; frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed', '7': 'unreviewed'}",
+    "fake_listings": {},
+    "create_requests": 0
+   },
+   "db_proof": {
+    "listings.etsy_listing_id": "",
+    "store.publish_refused": [
+     {
+      "reason": "creative parity (#75): parity is unjudged on ['hero', 'competitive_blind_review'], and unjudged is not a pass; frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed', '7': 'unreviewed'}"
+     }
+    ],
+    "store.published": [],
+    "store.execution_revalidated": []
+   },
+   "at": "2026-10-06T00:39:52.704820+00:00"
+  },
+  {
+   "step": "network[past-shadow]",
+   "outcome": "PASS",
+   "expected": "only the fake Etsy loopback port was reachable",
+   "observed": {
+    "refused_attempts": 0,
+    "fake_requests": 0
+   },
+   "db_proof": {
+    "refused": [],
+    "fake_operations": []
+   },
+   "at": "2026-10-06T00:39:52.704906+00:00"
+  },
+  {
+   "step": "orders.ingest",
+   "outcome": "PASS",
+   "expected": "one fake receipt becomes one order, a version mapping and a ledger sale entry (fixture feed via reader_factory; never Etsy)",
+   "observed": {
+    "job": {
+     "id": 201,
+     "status": "done",
+     "last_error": ""
+    },
+    "orders": 1,
+    "feed_calls": 2,
+    "receipt_listing_id": "rehearsal-unpublished-listing",
+    "version_mapped": false
+   },
+   "db_proof": {
+    "orders": [
+     {
+      "external_ref": "etsy:9100001:91000010",
+      "price_cad": 12.99,
+      "revenue_cad": 12.99,
+      "source": "etsy_receipts"
+     }
+    ],
+    "order_versions": [],
+    "commerce.orders_ingested": [
+     {
+      "ran": true,
+      "reading": "measured",
+      "receipts": 1,
+      "orders_created": 1,
+      "orders_reconciled": 0,
+      "reconciliations": [],
+      "customers_created": 1,
+      "ledger_entries": 1,
+      "versions_recorded": 0,
+      "versions_unknown": [
+       "etsy:9100001:91000010"
+      ],
+      "network_calls": 1,
+      "since": null,
+      "read_mode": "initial: no cursor yet, reading the whole history",
+      "cursor": {
+       "last_modified": "2026-10-05T23:39:52+00:00",
+       "last_full_sweep": "2026-10-06T00:39:52.935690+00:00",
+       "runs": 1,
+       "last_run": "2026-10-06T00:39:52.935690+00:00",
+       "last_mode": "initial: no cursor yet, reading the whole history"
+      },
+      "held": [],
+      "held_by_state": {},
+      "validation_cohort": {
+       "members": 1,
+       "added": 0,
+       "removed": 0
+      },
+      "gate_missing": [],
+      "queued_readings": true,
+      "why": "",
+      "not_recorded": []
+     },
+     "{\"cursor\": {\"last_full_sweep\": \"2026-10-06T00:39:52.935690+00:00\", \"last_mode\": \"cursor: receipts modified since; the reader does not declare `since` a last-modified watermark, so it is asked from 180 days back (the change window)\", \"last_modified\": \"2026-10-05T23:39:52+00:00\", \"last_run\": \"2026-10-06T00:39:52.992049+00:00\", \"runs\": 2}, \"customers_created\": 0, \"gate_missing\": [], \"held\": [], \"held_by_state\": {}, \"ledger_entries\": 0, \"network_calls\": 2, \"not_recorded\": [], \"orders_created\": 0, \"orders_reconciled\": 0, \"ran\": true, \"read_mode\": \"cursor: receipts modified since; the reader does not declare `since` a last-modified watermark, so it is asked from 180 days back (the change window)\", \"reading\": \"measured\", \"receipts\": 1, \"reconciliations\": [], \"since\": \"2026-04-09T00:39:52.992049+00:00\", \"validation_cohort\": {\"added\": 0, \"members\": 1, \"removed\": 0}, \"versions_recorded\": 0, \"versi...(truncated)"
+    ]
+   },
+   "at": "2026-10-06T00:39:53.015786+00:00"
+  },
+  {
+   "step": "support.case",
+   "outcome": "PASS",
+   "expected": "case taken in, triaged, a reply drafted from the sold version, nothing sent",
+   "observed": {
+    "triage_job": {
+     "id": 203,
+     "status": "done",
+     "last_error": ""
+    },
+    "reply_jobs": [
+     {
+      "id": 204,
+      "job_type": "support.reply",
+      "status": "done",
+      "last_error": "",
+      "inputs_keys": [
+       "case_id",
+       "customer_ref",
+       "question",
+       "slug",
+       "version"
+      ],
+      "idempotency_key": "support.reply:case:1"
+     }
+    ]
+   },
+   "db_proof": {
+    "support_cases": {
+     "id": 1,
+     "specialist": "crochet_help",
+     "answer_len": 288,
+     "sent": false,
+     "escalated": false,
+     "version": "1.1.0",
+     "detail_keys": [
+      "awaiting_reply",
+      "cited_rows",
+      "defect_suspected",
+      "drafted_at",
+      "escalation_reason",
+      "from_canonical",
+      "needs_reply",
+      "reply_job",
+      "resolve_before",
+      "response_measured_as",
+      "response_minutes",
+      "source",
+      "theme",
+      "triaged_at",
+      "triaged_specialist"
+     ]
+    }
+   },
+   "at": "2026-10-06T00:39:53.120342+00:00"
+  },
+  {
+   "step": "ledger",
+   "outcome": "PASS",
+   "expected": "the sale is in the ledger with its evidence ref and finance.reconcile runs over it",
+   "observed": {
+    "sale_entries": 1,
+    "reconcile_job": {
+     "id": 205,
+     "status": "done",
+     "last_error": ""
+    }
+   },
+   "db_proof": {
+    "ledger": [
+     {
+      "category": "sale",
+      "gross_cad": 12.99,
+      "fees_cad": 1.51,
+      "evidence_ref": "etsy:9100001:91000010"
+     }
+    ],
+    "finance.reconciled": [
+     "{\"pl\": {\"all_figures_observed\": false, \"cash_cad\": null, \"cash_reading\": \"UNKNOWN\", \"contribution_margin_cad\": null, \"cost_by_kind\": {}, \"customers\": null, \"discounts_cad\": null, \"gross_sales_cad\": null, \"net_profit_cad\": null, \"net_sales_cad\": null, \"note\": \"Sales are UNMEASURED, not CA$0.00: the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sa...(truncated)",
+     "{\"pl\": {\"all_figures_observed\": false, \"cash_cad\": null, \"cash_reading\": \"UNKNOWN\", \"contribution_margin_cad\": 11.48, \"cost_by_kind\": {}, \"customers\": 1, \"discounts_cad\": 0.0, \"gross_sales_cad\": 12.99, \"net_profit_cad\": 9.79, \"net_sales_cad\": 12.99, \"operating_cost_reading\": \"basis-labelled costs\", \"operating_costs_by_basis\": {}, \"operating_costs_cad\": 0.0, \"order_source\": {\"last_read_at\": \"2026-10-06T00:39:53.000351\", \"missing\": [], \"open\": true, \"owner_action\": \"reauthorise_transactions_r\"}, \"orders\": 1, \"period\": {\"end\": \"2026-10-06\", \"start\": \"2026-09-06\"}, \"platform_fees_basis\": \"modelled...(truncated)"
+    ]
+   },
+   "at": "2026-10-06T00:39:53.151805+00:00"
+  }
+ ],
+ "outcomes": {
+  "boot": "PASS",
+  "chain.jobs": "PASS",
+  "cir.compile": "PASS",
+  "gate.certify": "PASS",
+  "assets.build": "PASS",
+  "listing.seo": "PASS",
+  "store.publish[shadow]": "REFUSED_AS_EXPECTED",
+  "network[shadow]": "PASS",
+  "owner_publication_grant": "BLOCKED",
+  "store.publish[past-shadow]": "BLOCKED",
+  "network[past-shadow]": "PASS",
+  "orders.ingest": "PASS",
+  "support.case": "PASS",
+  "ledger": "PASS"
+ },
+ "blocking_defects": [
+  {
+   "key": "search_certificate_not_pass",
+   "where": "listing_search_profiles.verdict",
+   "detail": "stored search verdict after listing.seo is 'REFUSED'; store.publish's search_certificate gate requires PASS"
+  },
+  {
+   "key": "grant_snapshot_refused",
+   "where": "ops/publication_authority.snapshot",
+   "detail": "ValueError: certified listing taxonomy UNKNOWN; default fallback prohibited"
+  },
+  {
+   "key": "past_shadow_publish_blocked",
+   "where": "runtime/pipeline.py::handle_store_publish",
+   "detail": "capability not enabled: listing export is blocked by the eight-part creative parity gate: parity is unjudged on ['hero', 'competitive_blind_review'], and unjudged is not a pass; frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed', '7': 'unreviewed'}"
+  },
+  {
+   "key": "order_version_unmapped",
+   "where": "commerce/orders_ingest.py",
+   "detail": "the receipt's listing rehearsal-unpublished-listing did not map to cloudline-baby-blanket@1.1.0 (no draft listing id existed to sell)"
+  }
+ ],
+ "complete": false,
+ "not_complete_because": [
+  "owner_publication_grant",
+  "store.publish[past-shadow]"
+ ]
+}

@@ -1,0 +1,411 @@
+{
+ "basis": {
+  "judged": "lane-A builder's rubric; opinion, labelled; lane J and the owner are the independent judges",
+  "measured": "raster of the shipped geometry at 40/70/160 px"
+ },
+ "benchmarks": [
+  {
+   "archetype": "heritage wool mill / yarn house",
+   "closest": "D1",
+   "lesson": "restraint and one ink carry premium; the emblem is simple enough to stamp",
+   "structure": "serif or slab capitals, generous tracking, small pictorial emblem (animal, landscape), one dark ink on natural ground, descriptor line with a founding date or place"
+  },
+  {
+   "archetype": "Scandinavian design-led yarn/pattern brand",
+   "closest": "D2",
+   "lesson": "type alone can be premium if the imagery is excellent",
+   "structure": "lower-case geometric sans wordmark, no or abstract mark, photography does the emotional work, lots of white space"
+  },
+  {
+   "archetype": "botanical stationery / letterpress studio",
+   "closest": "D1",
+   "lesson": "the illustration must have a simplified small-size cut or it fails as an icon",
+   "structure": "monogram or initial with fine botanical line art, serif + italic pairing, hairline rules, muted sage/blush palette"
+  },
+  {
+   "archetype": "top Etsy pattern shops (visual merchandising)",
+   "closest": "D1/D3",
+   "lesson": "the icon must read at 40 px; the grid of listing photos is the real brand",
+   "structure": "square icon that is a simple initial or object on a flat colour; banners built from product photography; consistent thumbnail styling matters far more than the logo for clicks"
+  },
+  {
+   "archetype": "artisan food / preserves label",
+   "closest": "D3",
+   "lesson": "a fruit mark drifts into 'jam brand' unless tied to the craft",
+   "structure": "fruit illustration, rounded serif, warm reds"
+  }
+ ],
+ "distinctness": {
+  "D1-briar-monogram": {
+   "distinctness": 0.517,
+   "iou_vs_generic": {
+    "generic_circle_badge": 0.256,
+    "generic_flower_sprig": 0.353,
+    "generic_hook": 0.126,
+    "generic_yarn_ball": 0.457,
+    "plain_serif_B": 0.483
+   },
+   "iou_vs_other_directions": {
+    "D2-chain-link": 0.245,
+    "D3-drupelet": 0.373,
+    "D4-tapestry-b": 0.415
+   }
+  },
+  "D2-chain-link": {
+   "distinctness": 0.646,
+   "iou_vs_generic": {
+    "generic_circle_badge": 0.116,
+    "generic_flower_sprig": 0.319,
+    "generic_hook": 0.081,
+    "generic_yarn_ball": 0.354,
+    "plain_serif_B": 0.227
+   },
+   "iou_vs_other_directions": {
+    "D1-briar-monogram": 0.245,
+    "D3-drupelet": 0.325,
+    "D4-tapestry-b": 0.28
+   }
+  },
+  "D3-drupelet": {
+   "distinctness": 0.431,
+   "iou_vs_generic": {
+    "generic_circle_badge": 0.046,
+    "generic_flower_sprig": 0.533,
+    "generic_hook": 0.141,
+    "generic_yarn_ball": 0.569,
+    "plain_serif_B": 0.386
+   },
+   "iou_vs_other_directions": {
+    "D1-briar-monogram": 0.373,
+    "D2-chain-link": 0.325,
+    "D4-tapestry-b": 0.379
+   }
+  },
+  "D4-tapestry-b": {
+   "distinctness": 0.505,
+   "iou_vs_generic": {
+    "generic_circle_badge": 0.179,
+    "generic_flower_sprig": 0.378,
+    "generic_hook": 0.156,
+    "generic_yarn_ball": 0.44,
+    "plain_serif_B": 0.495
+   },
+   "iou_vs_other_directions": {
+    "D1-briar-monogram": 0.415,
+    "D2-chain-link": 0.28,
+    "D3-drupelet": 0.379
+   }
+  }
+ },
+ "metrics": {
+  "D1-briar-monogram": {
+   "basis": "measured",
+   "crispness_40": 0.652,
+   "header_letter_px": 16.5,
+   "header_lockup_px": [
+    275,
+    40
+   ],
+   "id": "D1-briar-monogram",
+   "ink_coverage": {
+    "40": 0.341,
+    "70": 0.304
+   },
+   "ink_outside_circle": 0.0022,
+   "mono_edge_correlation": 0.99,
+   "non_blank": {
+    "40": true,
+    "70": true
+   },
+   "primary_contrast": 9.97,
+   "reversed_non_blank": true,
+   "role_contrast": {
+    "ink": 9.97,
+    "leaf": 3.58,
+    "yarn": 3.76
+   },
+   "stroke_survival_40": 0.654,
+   "thinnest_stroke_px_40": 2.0,
+   "wordmark_aspect": 11.91
+  },
+  "D2-chain-link": {
+   "basis": "measured",
+   "crispness_40": 0.659,
+   "header_letter_px": 8.9,
+   "header_lockup_px": [
+    157,
+    40
+   ],
+   "id": "D2-chain-link",
+   "ink_coverage": {
+    "40": 0.231,
+    "70": 0.207
+   },
+   "ink_outside_circle": 0.0,
+   "mono_edge_correlation": 0.992,
+   "non_blank": {
+    "40": true,
+    "70": true
+   },
+   "primary_contrast": 11.95,
+   "reversed_non_blank": true,
+   "role_contrast": {
+    "accent": 4.06,
+    "ink": 11.95
+   },
+   "stroke_survival_40": 0.692,
+   "thinnest_stroke_px_40": 2.72,
+   "wordmark_aspect": 5.69
+  },
+  "D3-drupelet": {
+   "basis": "measured",
+   "crispness_40": 0.588,
+   "header_letter_px": 8.2,
+   "header_lockup_px": [
+    156,
+    40
+   ],
+   "id": "D3-drupelet",
+   "ink_coverage": {
+    "40": 0.355,
+    "70": 0.313
+   },
+   "ink_outside_circle": 0.015,
+   "mono_edge_correlation": 0.998,
+   "non_blank": {
+    "40": true,
+    "70": true
+   },
+   "primary_contrast": 5.65,
+   "reversed_non_blank": true,
+   "role_contrast": {
+    "accent": 11.28,
+    "ink": 5.65
+   },
+   "stroke_survival_40": 0.659,
+   "thinnest_stroke_px_40": 1.28,
+   "wordmark_aspect": 5.63
+  },
+  "D4-tapestry-b": {
+   "basis": "measured",
+   "crispness_40": 0.591,
+   "header_letter_px": 9.1,
+   "header_lockup_px": [
+    158,
+    40
+   ],
+   "id": "D4-tapestry-b",
+   "ink_coverage": {
+    "40": 0.349,
+    "70": 0.277
+   },
+   "ink_outside_circle": 0.0048,
+   "mono_edge_correlation": 0.947,
+   "non_blank": {
+    "40": true,
+    "70": true
+   },
+   "primary_contrast": 11.06,
+   "reversed_non_blank": true,
+   "role_contrast": {
+    "ink": 11.06,
+    "quiet": 1.6
+   },
+   "stroke_survival_40": 0.23,
+   "thinnest_stroke_px_40": null,
+   "wordmark_aspect": 5.75
+  }
+ },
+ "ranking": [
+  "D1-briar-monogram",
+  "D2-chain-link",
+  "D3-drupelet",
+  "D4-tapestry-b"
+ ],
+ "rubric": {
+  "D1-briar-monogram": {
+   "coherence": [
+    5,
+    "One B, one strand, one sprig across icon, emblem and motif."
+   ],
+   "laura_fit": [
+    5,
+    "Cream/sage/rose sits naturally with a warm, natural-light portrait and cream crochet; the mark is calm enough to sit beside a face."
+   ],
+   "ownable": [
+    4,
+    "A serif B alone is common; the B held in a yarn loop with a leaf pair, and the figure-of-eight emblem, make it Brambleloop's. Risk: monogram + botanical is a popular Etsy aesthetic, so execution quality matters."
+   ],
+   "owner_taste": [
+    5,
+    "Rebuilt directly from the owner's concept."
+   ],
+   "premium": [
+    5,
+    "High-contrast serif monogram, spaced capitals, hairline descriptor and a restrained sage/cream/rose palette: the structure of heritage and stationery houses, executed without clip-art."
+   ],
+   "story": [
+    5,
+    "Bramble (leaf, blossom, berry) + loop (yarn) + B, literally the name."
+   ]
+  },
+  "D2-chain-link": {
+   "coherence": [
+    4,
+    "Simple and consistent."
+   ],
+   "laura_fit": [
+    3,
+    "Neutral; cool charcoal fights a warm portrait slightly."
+   ],
+   "ownable": [
+    2,
+    "Two interlocked ovals are the universal 'hyperlink' / chain icon; the crochet meaning needs explaining -- the opposite of the owner's brief to stop looking like a software project."
+   ],
+   "owner_taste": [
+    1,
+    "Nothing of the owner's concept."
+   ],
+   "premium": [
+    3,
+    "Clean and modern, but reads as a tech brand more than a pattern house."
+   ],
+   "story": [
+    3,
+    "Loop, yes; bramble, no."
+   ]
+  },
+  "D3-drupelet": {
+   "coherence": [
+    4,
+    "Berry, drupelet motif and rounded serif agree."
+   ],
+   "laura_fit": [
+    4,
+    "Warm wine/cream complements a portrait."
+   ],
+   "ownable": [
+    3,
+    "A berry of bobble stitches with a looped stem is clever up close, but at 40 px it reads as a generic raspberry/grape icon."
+   ],
+   "owner_taste": [
+    3,
+    "Shares the palette mood and the bramble, not the monogram."
+   ],
+   "premium": [
+    3,
+    "Charming and warm; closer to a jam label than a design house."
+   ],
+   "story": [
+    4,
+    "Bramble fruit + loop stem."
+   ]
+  },
+  "D4-tapestry-b": {
+   "coherence": [
+    4,
+    "Stitch grid unifies icon and motif."
+   ],
+   "laura_fit": [
+    3,
+    "Strong colour blocks compete with a portrait in a banner."
+   ],
+   "ownable": [
+    4,
+    "A B worked in V stitches is specific to the craft and unusual."
+   ],
+   "owner_taste": [
+    2,
+    "Different mood (indigo/saffron, modern) from the owner's concept."
+   ],
+   "premium": [
+    3,
+    "Graphic and confident; risks reading as a knitting app or pixel art."
+   ],
+   "story": [
+    3,
+    "Crochet and B; no bramble, no loop."
+   ]
+  }
+ },
+ "rubric_criteria": {
+  "coherence": "Do icon, emblem, wordmark, palette and motif read as one system?",
+  "laura_fit": "Does it complement a warm, photographic Laura portrait rather than compete?",
+  "ownable": "Could only Brambleloop own it? Is it free of generic yarn-ball / hook / flower / chain-icon readings?",
+  "owner_taste": "Alignment with the owner's 2026-10-06 concept images (strong signal, not an automatic win).",
+  "premium": "Would it sit beside a premium design-house or heritage-mill identity without looking template-made?",
+  "story": "Does the mark tell the name (bramble + loop) and crochet without words?"
+ },
+ "scores": {
+  "D1-briar-monogram": {
+   "judged": 96.7,
+   "measured": 92.9,
+   "measured_components": {
+    "circle_safe": 1.0,
+    "contrast": 1.0,
+    "coverage": 1.0,
+    "crispness": 0.652,
+    "distinctness": 0.862,
+    "header": 1.0,
+    "mono": 0.99,
+    "stroke_survival": 1.0
+   },
+   "total": 94.8
+  },
+  "D2-chain-link": {
+   "judged": 53.3,
+   "measured": 93.3,
+   "measured_components": {
+    "circle_safe": 1.0,
+    "contrast": 1.0,
+    "coverage": 1.0,
+    "crispness": 0.659,
+    "distinctness": 1.0,
+    "header": 0.742,
+    "mono": 0.992,
+    "stroke_survival": 1.0
+   },
+   "total": 73.3
+  },
+  "D3-drupelet": {
+   "judged": 70.0,
+   "measured": 76.6,
+   "measured_components": {
+    "circle_safe": 0.5,
+    "contrast": 0.442,
+    "coverage": 1.0,
+    "crispness": 0.588,
+    "distinctness": 0.718,
+    "header": 0.683,
+    "mono": 0.998,
+    "stroke_survival": 1.0
+   },
+   "total": 73.3
+  },
+  "D4-tapestry-b": {
+   "judged": 63.3,
+   "measured": 78.4,
+   "measured_components": {
+    "circle_safe": 1.0,
+    "contrast": 1.0,
+    "coverage": 1.0,
+    "crispness": 0.591,
+    "distinctness": 0.842,
+    "header": 0.758,
+    "mono": 0.947,
+    "stroke_survival": 0.383
+   },
+   "total": 70.9
+  }
+ },
+ "weights": {
+  "judged": 0.5,
+  "measured": 0.5
+ },
+ "why_not": {
+  "D2-chain-link": "owner_taste: Nothing of the owner's concept.; ownable: Two interlocked ovals are the universal 'hyperlink' / chain icon; the crochet meaning needs explaining -- the opposite of the owner's brief to stop looking like a software project.",
+  "D3-drupelet": "premium: Charming and warm; closer to a jam label than a design house.; ownable: A berry of bobble stitches with a looped stem is clever up close, but at 40 px it reads as a generic raspberry/grape icon.",
+  "D4-tapestry-b": "owner_taste: Different mood (indigo/saffron, modern) from the owner's concept.; premium: Graphic and confident; risks reading as a knitting app or pixel art."
+ },
+ "winner": "D1-briar-monogram"
+}

@@ -1,0 +1,11 @@
+{
+  "base": "03aa689",
+  "branch": "codex/final-lineage-01",
+  "new_tests": 5,
+  "existing_originality": 28,
+  "existing_prototype": 8,
+  "certification": "NOT_CLAIMED",
+  "raw_missing_source": "UNQUALIFIED",
+  "exact_originating_gap": "UNKNOWN",
+  "spend": 0
+}

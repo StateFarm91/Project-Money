@@ -1,0 +1,2436 @@
+{
+ "rights": {
+  "lanes": {
+   "direct_reference": "the protected element itself, permitted only with a basis recorded before use",
+   "original_concept": "the same emotional territory in Brambleloop's own language; where unclear rights go, and where durable original IP comes from"
+  },
+  "protected_classes": {
+   "character_name": "a named character, which is a trade mark before it is anything else",
+   "character_likeness": "a recognisable character design, including a crocheted one",
+   "dialogue": "a line of dialogue, however short and however often quoted",
+   "lyric": "song lyrics, which are licensed separately from everything else and rarely cheaply",
+   "slogan": "a slogan or catchphrase, the class that feels most free and is not",
+   "logo": "a logo or wordmark",
+   "work_title": "the title of a film, series, book, album or game",
+   "distinctive_motif": "a visual motif distinctive enough to identify its source"
+  },
+  "clearance_bases": {
+   "public_domain": "the work's own publication year, jurisdiction and the screen's result",
+   "licensed": "the licence reference, its scope, its term and what it does not cover",
+   "permissioned": "who gave permission, when, in what form, and for which products",
+   "brambleloop_original": "the Brambleloop work it originates from, so the claim is checkable",
+   "generic": "why this phrase is ordinary language rather than a protected one, with the evidence that it is in common use outside the source"
+  },
+  "public_domain_screen": {
+   "safe_before": 1900,
+   "jurisdiction": "CA",
+   "note": "A deliberately conservative screen, not a clearance. Copyright term depends on authorship, work type, renewal and country; a system that computed a date from a year would be giving legal advice while sounding like arithmetic."
+  },
+  "may_never": [
+   "use a named character, likeness, quote, lyric, slogan, logo or title without a recorded basis",
+   "treat 'everyone else is doing it' as a basis",
+   "discard a cultural opportunity because its obvious execution is protected"
+  ],
+  "why": "A pipeline optimising for demand finds that the strongest signals are all protected, and each step receives a slightly more abstract description of the same thing until it arrives at production having been refused by nobody. Nobody chose it; the gradient did."
+ },
+ "feed": {
+  "source": "wikimedia_pageviews",
+  "requires_a_key": false,
+  "cost_cad_per_month": 0.0,
+  "sanctioned": "Wikimedia's own REST API, used within its documented terms with an identifying user agent. Nothing here scrapes and nothing evades a rate limit",
+  "channel": "reference",
+  "measures": "reference reading: how many people looked a topic up",
+  "does_not_measure": "search volume, social volume or purchase intent. Calling this search interest would make #140's lead-lag model compare a series against a mislabelled copy of itself",
+  "lag_days": 2,
+  "last_probe": {
+   "at": "2026-10-11T14:05:54.128009+00:00",
+   "source": "wikimedia_pageviews",
+   "article": "Crochet",
+   "ok": true,
+   "reason": "",
+   "days": 28,
+   "interest": 0.8417,
+   "observed_on": "2026-10-09",
+   "peak_views": 436
+  },
+  "usable": true,
+  "sourced_observations": 454,
+  "still_missing_for_140": "the marketplace demand series. A lead-lag model needs two series, and this is one of them"
+ },
+ "findings": {
+  "findings": [
+   {
+    "signal": "yarn",
+    "momentum": {
+     "measurable": true,
+     "observations": 22,
+     "peak": 0.8204,
+     "latest": 0.7621,
+     "from_peak": -0.071,
+     "direction": "falling",
+     "copycat_multiple": null,
+     "series": [
+      {
+       "on": "2026-09-18",
+       "channel": "reference",
+       "interest": 0.2939,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-19",
+       "channel": "reference",
+       "interest": 0.3071,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-20",
+       "channel": "reference",
+       "interest": 0.2939,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-21",
+       "channel": "reference",
+       "interest": 0.3383,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-22",
+       "channel": "reference",
+       "interest": 0.2742,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-23",
+       "channel": "reference",
+       "interest": 0.3235,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-24",
+       "channel": "reference",
+       "interest": 0.2874,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-25",
+       "channel": "reference",
+       "interest": 0.2939,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-26",
+       "channel": "reference",
+       "interest": 0.2841,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-27",
+       "channel": "reference",
+       "interest": 0.2808,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-28",
+       "channel": "reference",
+       "interest": 0.3186,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-29",
+       "channel": "reference",
+       "interest": 0.3054,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-30",
+       "channel": "reference",
+       "interest": 0.2759,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-01",
+       "channel": "reference",
+       "interest": 0.2627,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-02",
+       "channel": "reference",
+       "interest": 0.2594,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-03",
+       "channel": "reference",
+       "interest": 0.2562,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-04",
+       "channel": "reference",
+       "interest": 0.2726,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-05",
+       "channel": "reference",
+       "interest": 0.7249,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-06",
+       "channel": "reference",
+       "interest": 0.6372,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-07",
+       "channel": "reference",
+       "interest": 0.7913,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-08",
+       "channel": "reference",
+       "interest": 0.8204,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-09",
+       "channel": "reference",
+       "interest": 0.7621,
+       "listings": 0
+      }
+     ]
+    },
+    "lead_lag": {
+     "measurable": false,
+     "reason": "lead-lag needs both series: 22 reference and 0 etsy readings. One series cannot lead anything",
+     "culture_readings": 22,
+     "demand_readings": 0
+    },
+    "sensitive": false,
+    "routes_to": [
+     "content",
+     "creative",
+     "improvement",
+     "market_radar",
+     "seasonal",
+     "seo"
+    ]
+   },
+   {
+    "signal": "resident_evil_(2026_film)",
+    "momentum": {
+     "measurable": true,
+     "observations": 2,
+     "peak": 0.9286,
+     "latest": 0.5775,
+     "from_peak": -0.378,
+     "direction": "falling",
+     "copycat_multiple": null,
+     "series": [
+      {
+       "on": "2026-09-20",
+       "channel": "reference",
+       "interest": 0.9286,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-22",
+       "channel": "reference",
+       "interest": 0.5775,
+       "listings": 0
+      }
+     ]
+    },
+    "lead_lag": {
+     "measurable": false,
+     "reason": "lead-lag needs both series: 2 reference and 0 etsy readings. One series cannot lead anything",
+     "culture_readings": 2,
+     "demand_readings": 0
+    },
+    "sensitive": false,
+    "routes_to": [
+     "content",
+     "creative",
+     "improvement",
+     "market_radar",
+     "seasonal",
+     "seo"
+    ]
+   },
+   {
+    "signal": "nostalgia",
+    "momentum": {
+     "measurable": true,
+     "observations": 4,
+     "peak": 0.9173,
+     "latest": 0.7732,
+     "from_peak": -0.157,
+     "direction": "flat",
+     "copycat_multiple": null,
+     "series": [
+      {
+       "on": "2026-09-20",
+       "channel": "reference",
+       "interest": 0.9173,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-22",
+       "channel": "reference",
+       "interest": 0.9102,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-02",
+       "channel": "reference",
+       "interest": 0.7732,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-08",
+       "channel": "reference",
+       "interest": 0.7732,
+       "listings": 0
+      }
+     ]
+    },
+    "lead_lag": {
+     "measurable": false,
+     "reason": "lead-lag needs both series: 4 reference and 0 etsy readings. One series cannot lead anything",
+     "culture_readings": 4,
+     "demand_readings": 0
+    },
+    "sensitive": false,
+    "routes_to": [
+     "content",
+     "creative",
+     "improvement",
+     "market_radar",
+     "seasonal",
+     "seo"
+    ]
+   },
+   {
+    "signal": "monster:_the_lizzie_borden_story",
+    "momentum": {
+     "measurable": true,
+     "observations": 2,
+     "peak": 1.0,
+     "latest": 0.6736,
+     "from_peak": -0.326,
+     "direction": "falling",
+     "copycat_multiple": null,
+     "series": [
+      {
+       "on": "2026-09-20",
+       "channel": "reference",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-22",
+       "channel": "reference",
+       "interest": 0.6736,
+       "listings": 0
+      }
+     ]
+    },
+    "lead_lag": {
+     "measurable": false,
+     "reason": "lead-lag needs both series: 2 reference and 0 etsy readings. One series cannot lead anything",
+     "culture_readings": 2,
+     "demand_readings": 0
+    },
+    "sensitive": false,
+    "routes_to": [
+     "content",
+     "creative",
+     "improvement",
+     "market_radar",
+     "seasonal",
+     "seo"
+    ]
+   },
+   {
+    "signal": "lizzie_borden",
+    "momentum": {
+     "measurable": true,
+     "observations": 2,
+     "peak": 1.0,
+     "latest": 0.6643,
+     "from_peak": -0.336,
+     "direction": "falling",
+     "copycat_multiple": null,
+     "series": [
+      {
+       "on": "2026-09-20",
+       "channel": "reference",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-22",
+       "channel": "reference",
+       "interest": 0.6643,
+       "listings": 0
+      }
+     ]
+    },
+    "lead_lag": {
+     "measurable": false,
+     "reason": "lead-lag needs both series: 2 reference and 0 etsy readings. One series cannot lead anything",
+     "culture_readings": 2,
+     "demand_readings": 0
+    },
+    "sensitive": false,
+    "routes_to": [
+     "content",
+     "creative",
+     "improvement",
+     "market_radar",
+     "seasonal",
+     "seo"
+    ]
+   },
+   {
+    "signal": "knitting",
+    "momentum": {
+     "measurable": true,
+     "observations": 21,
+     "peak": 0.8084,
+     "latest": 0.5689,
+     "from_peak": -0.296,
+     "direction": "falling",
+     "copycat_multiple": null,
+     "series": [
+      {
+       "on": "2026-09-19",
+       "channel": "reference",
+       "interest": 0.5778,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-20",
+       "channel": "reference",
+       "interest": 0.7725,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-21",
+       "channel": "reference",
+       "interest": 0.8084,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-22",
+       "channel": "reference",
+       "interest": 0.7695,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-23",
+       "channel": "reference",
+       "interest": 0.7545,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-24",
+       "channel": "reference",
+       "interest": 0.5988,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-25",
+       "channel": "reference",
+       "interest": 0.7066,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-26",
+       "channel": "reference",
+       "interest": 0.7275,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-27",
+       "channel": "reference",
+       "interest": 0.7036,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-28",
+       "channel": "reference",
+       "interest": 0.7275,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-29",
+       "channel": "reference",
+       "interest": 0.7066,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-30",
+       "channel": "reference",
+       "interest": 0.6228,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-01",
+       "channel": "reference",
+       "interest": 0.7605,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-02",
+       "channel": "reference",
+       "interest": 0.7216,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-03",
+       "channel": "reference",
+       "interest": 0.7485,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-04",
+       "channel": "reference",
+       "interest": 0.7126,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-05",
+       "channel": "reference",
+       "interest": 0.7365,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-06",
+       "channel": "reference",
+       "interest": 0.6856,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-07",
+       "channel": "reference",
+       "interest": 0.7545,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-08",
+       "channel": "reference",
+       "interest": 0.7455,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-09",
+       "channel": "reference",
+       "interest": 0.5689,
+       "listings": 0
+      }
+     ]
+    },
+    "lead_lag": {
+     "measurable": false,
+     "reason": "lead-lag needs both series: 21 reference and 0 etsy readings. One series cannot lead anything",
+     "culture_readings": 21,
+     "demand_readings": 0
+    },
+    "sensitive": false,
+    "routes_to": [
+     "content",
+     "creative",
+     "improvement",
+     "market_radar",
+     "seasonal",
+     "seo"
+    ]
+   },
+   {
+    "signal": "internet_meme",
+    "momentum": {
+     "measurable": true,
+     "observations": 21,
+     "peak": 1.0,
+     "latest": 0.6819,
+     "from_peak": -0.318,
+     "direction": "falling",
+     "copycat_multiple": null,
+     "series": [
+      {
+       "on": "2026-09-19",
+       "channel": "reference",
+       "interest": 0.7621,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-20",
+       "channel": "reference",
+       "interest": 0.8185,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-21",
+       "channel": "reference",
+       "interest": 0.9024,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-22",
+       "channel": "reference",
+       "interest": 0.9071,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-23",
+       "channel": "reference",
+       "interest": 0.8611,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-24",
+       "channel": "reference",
+       "interest": 0.9436,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-25",
+       "channel": "reference",
+       "interest": 0.8555,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-26",
+       "channel": "reference",
+       "interest": 0.8033,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-27",
+       "channel": "reference",
+       "interest": 0.8777,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-28",
+       "channel": "reference",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-29",
+       "channel": "reference",
+       "interest": 0.9148,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-30",
+       "channel": "reference",
+       "interest": 0.9253,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-01",
+       "channel": "reference",
+       "interest": 0.8978,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-02",
+       "channel": "reference",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-03",
+       "channel": "reference",
+       "interest": 0.8089,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-04",
+       "channel": "reference",
+       "interest": 0.7062,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-05",
+       "channel": "reference",
+       "interest": 0.6927,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-06",
+       "channel": "reference",
+       "interest": 0.6977,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-07",
+       "channel": "reference",
+       "interest": 0.822,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-08",
+       "channel": "reference",
+       "interest": 0.7506,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-09",
+       "channel": "reference",
+       "interest": 0.6819,
+       "listings": 0
+      }
+     ]
+    },
+    "lead_lag": {
+     "measurable": false,
+     "reason": "lead-lag needs both series: 21 reference and 0 etsy readings. One series cannot lead anything",
+     "culture_readings": 21,
+     "demand_readings": 0
+    },
+    "sensitive": false,
+    "routes_to": [
+     "content",
+     "creative",
+     "improvement",
+     "market_radar",
+     "seasonal",
+     "seo"
+    ]
+   },
+   {
+    "signal": "halloween",
+    "momentum": {
+     "measurable": true,
+     "observations": 62,
+     "peak": 1.0,
+     "latest": 0.8689,
+     "from_peak": -0.131,
+     "direction": "falling",
+     "copycat_multiple": null,
+     "series": [
+      {
+       "on": "2026-09-13",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-13",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-13",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-14",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-14",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-14",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-15",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-15",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-15",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-16",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-16",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-16",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-17",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-17",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-17",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-18",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-18",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-18",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-19",
+       "channel": "reference",
+       "interest": 0.8728,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-19",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-19",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-19",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-20",
+       "channel": "reference",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-21",
+       "channel": "reference",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-21",
+       "channel": "etsy",
+       "interest": 0.25,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-21",
+       "channel": "etsy",
+       "interest": 0.25,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-22",
+       "channel": "reference",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-22",
+       "channel": "etsy",
+       "interest": 0.25,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-22",
+       "channel": "etsy",
+       "interest": 0.25,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-23",
+       "channel": "reference",
+       "interest": 0.8993,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-23",
+       "channel": "etsy",
+       "interest": 0.25,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-23",
+       "channel": "etsy",
+       "interest": 0.25,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-24",
+       "channel": "reference",
+       "interest": 0.9059,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-24",
+       "channel": "etsy",
+       "interest": 0.25,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-24",
+       "channel": "etsy",
+       "interest": 0.25,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-25",
+       "channel": "reference",
+       "interest": 0.9311,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-25",
+       "channel": "etsy",
+       "interest": 0.25,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-25",
+       "channel": "etsy",
+       "interest": 0.25,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-26",
+       "channel": "reference",
+       "interest": 0.8554,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-26",
+       "channel": "etsy",
+       "interest": 0.25,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-26",
+       "channel": "etsy",
+       "interest": 0.25,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-27",
+       "channel": "etsy",
+       "interest": 0.25,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-27",
+       "channel": "reference",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-27",
+       "channel": "etsy",
+       "interest": 0.25,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-27",
+       "channel": "etsy",
+       "interest": 0.25,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-28",
+       "channel": "reference",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-29",
+       "channel": "reference",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-30",
+       "channel": "reference",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-01",
+       "channel": "reference",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-01",
+       "channel": "etsy",
+       "interest": 0.25,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-02",
+       "channel": "reference",
+       "interest": 0.9433,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-02",
+       "channel": "etsy",
+       "interest": 0.25,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-03",
+       "channel": "reference",
+       "interest": 0.8101,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-03",
+       "channel": "etsy",
+       "interest": 0.25,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-04",
+       "channel": "reference",
+       "interest": 0.873,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-04",
+       "channel": "etsy",
+       "interest": 0.25,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-05",
+       "channel": "reference",
+       "interest": 0.9929,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-06",
+       "channel": "reference",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-07",
+       "channel": "etsy",
+       "interest": 0.25,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-07",
+       "channel": "reference",
+       "interest": 0.92,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-08",
+       "channel": "reference",
+       "interest": 0.8993,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-09",
+       "channel": "reference",
+       "interest": 0.8689,
+       "listings": 0
+      }
+     ]
+    },
+    "lead_lag": {
+     "measurable": true,
+     "culture_peak": "2026-09-20",
+     "demand_peak": "2026-09-13",
+     "lead_days": -7,
+     "is_a_leading_indicator": false,
+     "note": "cultural interest peaked 7 days *after* demand: on this topic the radar is reporting the news, and entering on it is entering at saturation (#140)"
+    },
+    "sensitive": false,
+    "routes_to": [
+     "content",
+     "creative",
+     "improvement",
+     "market_radar",
+     "seasonal",
+     "seo"
+    ]
+   },
+   {
+    "signal": "granny_square",
+    "momentum": {
+     "measurable": true,
+     "observations": 42,
+     "peak": 1.0,
+     "latest": 0.55,
+     "from_peak": -0.45,
+     "direction": "falling",
+     "copycat_multiple": null,
+     "series": [
+      {
+       "on": "2026-09-13",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-13",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-13",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-14",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-14",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-14",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-15",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-15",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-15",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-16",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-16",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-16",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-17",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-17",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-17",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-18",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-18",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-18",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-19",
+       "channel": "reference",
+       "interest": 0.4419,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-19",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-19",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-19",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-20",
+       "channel": "reference",
+       "interest": 0.814,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-21",
+       "channel": "reference",
+       "interest": 0.814,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-22",
+       "channel": "reference",
+       "interest": 0.6829,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-23",
+       "channel": "reference",
+       "interest": 0.6585,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-24",
+       "channel": "reference",
+       "interest": 0.825,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-25",
+       "channel": "reference",
+       "interest": 0.725,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-26",
+       "channel": "reference",
+       "interest": 0.975,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-27",
+       "channel": "reference",
+       "interest": 0.725,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-28",
+       "channel": "reference",
+       "interest": 0.875,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-29",
+       "channel": "reference",
+       "interest": 0.825,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-30",
+       "channel": "reference",
+       "interest": 0.55,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-01",
+       "channel": "reference",
+       "interest": 0.85,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-02",
+       "channel": "reference",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-03",
+       "channel": "reference",
+       "interest": 0.775,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-04",
+       "channel": "reference",
+       "interest": 0.9,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-05",
+       "channel": "reference",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-06",
+       "channel": "reference",
+       "interest": 0.75,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-07",
+       "channel": "reference",
+       "interest": 0.925,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-08",
+       "channel": "reference",
+       "interest": 0.875,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-09",
+       "channel": "reference",
+       "interest": 0.55,
+       "listings": 0
+      }
+     ]
+    },
+    "lead_lag": {
+     "measurable": true,
+     "culture_peak": "2026-10-02",
+     "demand_peak": "2026-09-13",
+     "lead_days": -19,
+     "is_a_leading_indicator": false,
+     "note": "cultural interest peaked 19 days *after* demand: on this topic the radar is reporting the news, and entering on it is entering at saturation (#140)"
+    },
+    "sensitive": false,
+    "routes_to": [
+     "content",
+     "creative",
+     "improvement",
+     "market_radar",
+     "seasonal",
+     "seo"
+    ]
+   },
+   {
+    "signal": "fashion",
+    "momentum": {
+     "measurable": true,
+     "observations": 4,
+     "peak": 0.712,
+     "latest": 0.712,
+     "from_peak": 0.0,
+     "direction": "rising",
+     "copycat_multiple": null,
+     "series": [
+      {
+       "on": "2026-09-20",
+       "channel": "reference",
+       "interest": 0.5144,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-22",
+       "channel": "reference",
+       "interest": 0.6541,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-03",
+       "channel": "reference",
+       "interest": 0.5702,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-08",
+       "channel": "reference",
+       "interest": 0.712,
+       "listings": 0
+      }
+     ]
+    },
+    "lead_lag": {
+     "measurable": false,
+     "reason": "lead-lag needs both series: 4 reference and 0 etsy readings. One series cannot lead anything",
+     "culture_readings": 4,
+     "demand_readings": 0
+    },
+    "sensitive": false,
+    "routes_to": [
+     "content",
+     "creative",
+     "improvement",
+     "market_radar",
+     "seasonal",
+     "seo"
+    ]
+   },
+   {
+    "signal": "crochet_hook",
+    "momentum": {
+     "measurable": true,
+     "observations": 66,
+     "peak": 1.0,
+     "latest": 0.7059,
+     "from_peak": -0.294,
+     "direction": "rising",
+     "copycat_multiple": null,
+     "series": [
+      {
+       "on": "2026-09-13",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-13",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-13",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-14",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-14",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-14",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-15",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-15",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-15",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-16",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-16",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-16",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-17",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-17",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-17",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-18",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-18",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-18",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-19",
+       "channel": "reference",
+       "interest": 0.549,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-19",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-19",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-19",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-20",
+       "channel": "reference",
+       "interest": 0.549,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-21",
+       "channel": "reference",
+       "interest": 0.5294,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-21",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-21",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-22",
+       "channel": "reference",
+       "interest": 0.4902,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-22",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-22",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-23",
+       "channel": "reference",
+       "interest": 0.6275,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-23",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-23",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-24",
+       "channel": "reference",
+       "interest": 0.2157,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-24",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-24",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-25",
+       "channel": "reference",
+       "interest": 0.6471,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-25",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-25",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-26",
+       "channel": "reference",
+       "interest": 0.7647,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-26",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-26",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-27",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-27",
+       "channel": "reference",
+       "interest": 0.7059,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-27",
+       "channel": "etsy",
+       "interest": 0.0046,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-27",
+       "channel": "etsy",
+       "interest": 0.0046,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-28",
+       "channel": "reference",
+       "interest": 0.6275,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-28",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-29",
+       "channel": "reference",
+       "interest": 0.5882,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-29",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-30",
+       "channel": "reference",
+       "interest": 0.4706,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-30",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-01",
+       "channel": "reference",
+       "interest": 0.5294,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-01",
+       "channel": "etsy",
+       "interest": 0.0046,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-02",
+       "channel": "reference",
+       "interest": 0.4902,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-02",
+       "channel": "etsy",
+       "interest": 0.0046,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-03",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-03",
+       "channel": "reference",
+       "interest": 0.5098,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-03",
+       "channel": "etsy",
+       "interest": 0.0046,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-04",
+       "channel": "reference",
+       "interest": 0.6667,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-04",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-05",
+       "channel": "reference",
+       "interest": 0.549,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-06",
+       "channel": "reference",
+       "interest": 0.7451,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-07",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-07",
+       "channel": "reference",
+       "interest": 0.5294,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-08",
+       "channel": "reference",
+       "interest": 0.4706,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-09",
+       "channel": "reference",
+       "interest": 0.7059,
+       "listings": 0
+      }
+     ]
+    },
+    "lead_lag": {
+     "measurable": true,
+     "culture_peak": "2026-09-26",
+     "demand_peak": "2026-09-13",
+     "lead_days": -13,
+     "is_a_leading_indicator": false,
+     "note": "cultural interest peaked 13 days *after* demand: on this topic the radar is reporting the news, and entering on it is entering at saturation (#140)"
+    },
+    "sensitive": false,
+    "routes_to": [
+     "content",
+     "creative",
+     "improvement",
+     "market_radar",
+     "seasonal",
+     "seo"
+    ]
+   },
+   {
+    "signal": "crochet",
+    "momentum": {
+     "measurable": true,
+     "observations": 67,
+     "peak": 1.0,
+     "latest": 0.8417,
+     "from_peak": -0.158,
+     "direction": "falling",
+     "copycat_multiple": null,
+     "series": [
+      {
+       "on": "2026-09-13",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-13",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-13",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-14",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-14",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-14",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-15",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-15",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-15",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-16",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-16",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-16",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-17",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-17",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-17",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-18",
+       "channel": "reference",
+       "interest": 0.7475,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-18",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-18",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-18",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-19",
+       "channel": "reference",
+       "interest": 0.7475,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-19",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-19",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-19",
+       "channel": "etsy",
+       "interest": 1.0,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-20",
+       "channel": "reference",
+       "interest": 0.8141,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-21",
+       "channel": "reference",
+       "interest": 0.8808,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-21",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-21",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-22",
+       "channel": "reference",
+       "interest": 0.7273,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-22",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-22",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-23",
+       "channel": "reference",
+       "interest": 0.8182,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-23",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-23",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-24",
+       "channel": "reference",
+       "interest": 0.7475,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-24",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-24",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-25",
+       "channel": "reference",
+       "interest": 0.699,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-25",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-25",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-26",
+       "channel": "reference",
+       "interest": 0.5919,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-26",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-26",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-27",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-27",
+       "channel": "reference",
+       "interest": 0.7414,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-27",
+       "channel": "etsy",
+       "interest": 0.0046,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-27",
+       "channel": "etsy",
+       "interest": 0.0046,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-28",
+       "channel": "reference",
+       "interest": 0.8566,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-28",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-29",
+       "channel": "reference",
+       "interest": 0.7636,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-29",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-30",
+       "channel": "reference",
+       "interest": 0.7758,
+       "listings": 0
+      },
+      {
+       "on": "2026-09-30",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-01",
+       "channel": "reference",
+       "interest": 0.7717,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-01",
+       "channel": "etsy",
+       "interest": 0.0046,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-02",
+       "channel": "reference",
+       "interest": 0.6485,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-02",
+       "channel": "etsy",
+       "interest": 0.0046,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-03",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-03",
+       "channel": "reference",
+       "interest": 0.7838,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-03",
+       "channel": "etsy",
+       "interest": 0.0046,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-04",
+       "channel": "reference",
+       "interest": 0.7152,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-04",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-05",
+       "channel": "reference",
+       "interest": 0.8234,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-06",
+       "channel": "reference",
+       "interest": 0.9106,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-07",
+       "channel": "etsy",
+       "interest": 0.0023,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-07",
+       "channel": "reference",
+       "interest": 0.8349,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-08",
+       "channel": "reference",
+       "interest": 0.8716,
+       "listings": 0
+      },
+      {
+       "on": "2026-10-09",
+       "channel": "reference",
+       "interest": 0.8417,
+       "listings": 0
+      }
+     ]
+    },
+    "lead_lag": {
+     "measurable": true,
+     "culture_peak": "2026-10-06",
+     "demand_peak": "2026-09-13",
+     "lead_days": -23,
+     "is_a_leading_indicator": false,
+     "note": "cultural interest peaked 23 days *after* demand: on this topic the radar is reporting the news, and entering on it is entering at saturation (#140)"
+    },
+    "sensitive": false,
+    "routes_to": [
+     "content",
+     "creative",
+     "improvement",
+     "market_radar",
+     "seasonal",
+     "seo"
+    ]
+   }
+  ],
+  "routes": {
+   "market_radar": "a rising topic becomes a micro-market worth scoring",
+   "creative": "a topic with clear rights becomes a concept brief rather than a motif",
+   "seo": "the words a topic is discussed in are the words a listing is searched in",
+   "content": "a rising topic is what an owned-audience post is about this week",
+   "seasonal": "a topic peaking before an occasion changes what that occasion leads with",
+   "improvement": "whether the last topic acted on converted is how the weights move"
+  },
+  "refuses": [
+   "a topic flagged sensitive, whatever its momentum",
+   "a topic whose rights are unresolved, which goes to culture.rights and not to creative",
+   "a topic with no momentum reading, since a name is not a signal"
+  ],
+  "weights_learn_from": "post-launch outcomes",
+  "weights_measurable": false,
+  "why_weights_are_unmeasured": "#147 asks that outcomes update the cultural scoring weights so the system gets better at telling useful signals from noise. That needs launches and their results. Nothing has launched, so the weights are the ones the build started with -- said plainly rather than approximated, because a weight that moved for no reason looks exactly like a weight that learned"
+ },
+ "radar": {
+  "scanned": true,
+  "feeds": [
+   "wikimedia_pageviews"
+  ],
+  "memory": {
+   "signals": 0,
+   "by_state": {
+    "observed": 0,
+    "translated": 0,
+    "in_production": 0,
+    "launched": 0,
+    "exited": 0
+   },
+   "by_lane": {
+    "original_concept": 0,
+    "direct_reference": 0
+   },
+   "recurring_annually": [],
+   "recurrence_evidence": {},
+   "exited_with_a_lesson": [],
+   "all": [],
+   "note": "The value of a culture radar is almost entirely in its second year. A radar with no memory rediscovers that retro Halloween recurs every autumn, every autumn, at full research cost (#144)."
+  }
+ },
+ "owned_territories": {
+  "eras": {
+   "retro_suburban_christmas": "aluminium tree, orange and avocado, a very tidy living room",
+   "eighties_holiday_maximalism": "more of everything, jewel tones, unapologetic tinsel",
+   "nineties_family_christmas": "plaid, forest green, a camcorder and a burnt casserole",
+   "vintage_ski_lodge": "fair isle, oxblood, woodsmoke, a thermos",
+   "mid_century_holiday": "clean lines, brass, a low table with a martini on it",
+   "classic_storybook_winter": "ink-drawn hares, cream and soot, a lamp in the snow",
+   "retro_halloween": "die-cut cats, harvest orange, crepe paper",
+   "cottage_summer": "sun-bleached stripes, gingham, a jug of something on a step",
+   "romantic_comedy_autumn": "camel coats, bookshops, leaves somebody is walking through"
+  },
+  "themes": {
+   "chaotic_family_holiday": "everything goes wrong and it is still the best day",
+   "over_the_top_decorating": "the house is visible from space and that is the point",
+   "awkward_relatives": "affection expressed entirely through mild hostility",
+   "winter_road_trip": "a thermos, a long dark road, and somebody asleep in the back",
+   "office_holiday_party": "a paper crown worn with total sincerity",
+   "cozy_movie_night": "the specific safety of a blanket and a screen",
+   "magical_childhood_christmas": "the version remembered rather than the one that happened",
+   "retro_toy_shop_winter": "a window display at night, seen from outside",
+   "spooky_cute_halloween": "frightening in the way a very small ghost is frightening",
+   "romantic_comedy_valentine": "sincerity that knows it is being sincere"
+  },
+  "count": 19,
+  "note": "Eras and themes belong to nobody, recur annually, and cannot be withdrawn in January. Every product built on one is an asset this company keeps; every product built on a franchise is rented (#146)."
+ },
+ "primitives": {
+  "emotion": "what the person feels, stated as a feeling rather than a topic",
+  "setting": "where it happens, concretely enough to draw",
+  "era": "which reusable aesthetic territory it belongs to",
+  "humour_type": "the shape of the joke, if there is one",
+  "colour_language": "the palette the moment carries, as a language not a swatch",
+  "object_category": "what physical object the feeling attaches to",
+  "ritual": "the repeated act the moment is built around",
+  "character_archetype": "the role, never the character",
+  "visual_motif_class": "the class of motif, never the distinctive one",
+  "gifting_context": "who gives this to whom, and why that person"
+ },
+ "opportunity_components": {
+  "search_momentum": "how fast interest is rising, not how high it is",
+  "recurrence": "whether this comes back every year or happened once",
+  "nostalgia_durability": "whether the feeling outlives the moment",
+  "seasonal_fit": "whether it lands on a date people already buy for",
+  "crochet_translatability": "whether yarn is a good material for this idea",
+  "giftability": "whether somebody buys it for somebody else",
+  "visual_recognisability": "whether it reads in a thumbnail at 200 pixels",
+  "product_family_potential": "whether it supports a collection or one item",
+  "competition_density": "inverted: crowded scores low",
+  "make_time_window": "whether a customer could still finish it in time",
+  "rights_feasibility": "whether this can be sold without somebody's permission"
+ },
+ "gates": [
+  "make_time_window",
+  "rights_feasibility"
+ ],
+ "rapid_response_cell": {
+  "may_accelerate": {
+   "research": "start it now instead of at the next planning cycle",
+   "concept_tournament": "run more concepts in parallel rather than fewer rounds",
+   "feasibility": "compile the twin for several candidates at once",
+   "creative_prototyping": "prototype in parallel instead of sequentially",
+   "asset_drafting": "draft assets while the pattern is still certifying",
+   "listing_copy": "write it early; it still passes every claim gate before it is used"
+  },
+  "may_never_bypass": {
+   "cir_validation": "a pattern that was not validated is not a pattern, it is a document",
+   "product_truth": "a claim nobody checked is a claim, and a customer will check it",
+   "creative_parity": "the visual standard does not drop because the window is closing",
+   "policy_gate": "the rights router is the reason this cell is allowed near culture at all",
+   "spend_ceilings": "a closing window is the most persuasive possible argument for an unbudgeted spend, which is why the ceiling is in code",
+   "release_gates": "the certificate is what a release is; issuing it early issues nothing",
+   "reverse_compilation": "the document and the design must still agree",
+   "shadow_mode": "a cultural window does not graduate a phase"
+  },
+  "covers_protected_gates": [
+   "policy_gate",
+   "product_truth",
+   "reverse_compilation",
+   "shadow_mode",
+   "spend_ceilings"
+  ],
+  "rule": "speed comes from prioritization and parallelism, not lower standards (#141)"
+ },
+ "note": "Cultural observation is demand evidence, never source material. A signal whose rights are unclear becomes an original concept rather than a dead opportunity, which is where the territories this company owns come from."
+}

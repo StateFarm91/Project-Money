@@ -1,0 +1,37 @@
+test_bound_packet_passes_but_changed_pdf_bytes_refuse (test_publish_execution_gate.ExecutionRecheck.test_bound_packet_passes_but_changed_pdf_bytes_refuse) ... ok
+test_gate_changed_after_claim_blocks_real_client_http_and_retry (test_publish_execution_gate.ExecutionRecheck.test_gate_changed_after_claim_blocks_real_client_http_and_retry) ... ok
+test_missing_real_release_proof_refuses_without_http (test_publish_execution_gate.ExecutionRecheck.test_missing_real_release_proof_refuses_without_http) ... ok
+test_mutation_after_reservation_refuses_even_if_current_payload_agrees (test_publish_execution_gate.ExecutionRecheck.test_mutation_after_reservation_refuses_even_if_current_payload_agrees) ... ok
+test_owner_revocation_inside_client_blocks_http (test_publish_execution_gate.ExecutionRecheck.test_owner_revocation_inside_client_blocks_http) ... ok
+test_payload_image_release_and_unknown_gates_refuse (test_publish_execution_gate.ExecutionRecheck.test_payload_image_release_and_unknown_gates_refuse) ... ok
+test_phase_and_unavailable_evidence_refuse (test_publish_execution_gate.ExecutionRecheck.test_phase_and_unavailable_evidence_refuse) ... ok
+test_real_client_calls_callback_before_fake_http_create (test_publish_execution_gate.ExecutionRecheck.test_real_client_calls_callback_before_fake_http_create) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 14.697s
+
+OK
+PASS test_before_create_failure_refuses_blind_retry_even_if_remote_did_nothing
+PASS test_after_create_lost_response_blocks_retry_without_invented_remote_id
+PASS test_after_checkpoint_upload_crash_retains_id_and_public_handler_never_recreates
+PASS test_checkpoint_failure_after_id_return_prevents_upload_and_retry
+PASS test_concurrent_connections_allow_only_one_committed_creation_owner
+PASS test_hard_process_exit_leaves_creating_intent_that_blocks_new_process
+6/6 passing
+OK   test_a_credential_is_not_a_permission
+OK   test_a_credential_never_prints_its_secrets
+OK   test_a_granted_client_creates_a_draft_and_attaches_the_file
+OK   test_a_listing_that_cannot_be_mapped_is_refused_not_truncated
+OK   test_a_listing_with_no_file_is_reported_as_its_own_outcome
+OK   test_a_rate_limit_is_transient_and_a_rejection_is_not
+OK   test_a_success_with_no_listing_id_is_treated_as_a_rejection
+OK   test_credentials_are_read_from_the_environment_and_absent_here
+OK   test_missing_credentials_are_a_configuration_refusal_not_an_outage
+OK   test_past_shadow_the_client_still_refuses_for_want_of_credentials
+OK   test_shadow_mode_makes_no_request_at_all
+OK   test_staging_may_not_publish_either
+OK   test_the_drift_check_sits_after_the_shadow_refusal_and_before_any_upload
+OK   test_the_payload_says_what_a_digital_pattern_is
+OK   test_the_publish_job_refuses_in_shadow_and_says_the_draft_is_kept
+OK   test_the_refusals_are_ordered_phase_first
+OK   test_the_uploaded_pdf_must_be_the_certified_one_or_the_publish_refuses

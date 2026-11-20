@@ -1,0 +1,128 @@
+{
+ "as_of": "2026-10-06T16:11:51+00:00",
+ "candidates": [
+  {
+   "direction_id": "D1-briar-monogram",
+   "key": "D1",
+   "kind": "vector",
+   "label": "D1 Briar Monogram",
+   "notes": [],
+   "source": "brand.directions (deterministic SVG, outlined OFL type)"
+  },
+  {
+   "direction_id": null,
+   "key": "OWNER",
+   "kind": "raster",
+   "label": "Owner concept (raster, as supplied)",
+   "notes": [
+    "cropped and resampled only; no tracing, redrawing or recolouring",
+    "no horizontal lockup or designed one-ink version exists for this raster",
+    "its tagline and category line are part of the supplied artwork"
+   ],
+   "source": "owner-supplied PNG 1536x1024, sha256 28f301b28766"
+  },
+  {
+   "direction_id": "D2-chain-link",
+   "key": "D2",
+   "kind": "vector",
+   "label": "D2 Chain Link",
+   "notes": [],
+   "source": "brand.directions (deterministic SVG, outlined OFL type)"
+  },
+  {
+   "direction_id": "D3-drupelet",
+   "key": "D3",
+   "kind": "vector",
+   "label": "D3 Drupelet",
+   "notes": [],
+   "source": "brand.directions (deterministic SVG, outlined OFL type)"
+  }
+ ],
+ "decision": "OWNER_TO_DECIDE",
+ "etsy": {
+  "big_banner_recommended_px": [
+   1600,
+   400
+  ],
+  "logo_min_px": [
+   500,
+   500
+  ]
+ },
+ "measurements": {
+  "D1": {
+   "basis": "measured on a 500 px square icon resampled (Lanczos) to 160/70/40 px",
+   "candidate": "D1",
+   "contrast_darkest_ink_40": 12.09,
+   "contrast_median_ink_40": 3.83,
+   "detail_retained_40": 0.67,
+   "ground": "#F6F0E6",
+   "header_letter_px": 16.5,
+   "ink_at_3to1_share_40": 0.641,
+   "ink_coverage_40": 0.334,
+   "ink_outside_circle": 0.002,
+   "kind": "vector",
+   "label": "D1 Briar Monogram",
+   "mono_basis": "designed one-colour variant",
+   "mono_edge_correlation_70": 0.984,
+   "mono_ink_kept": 0.926,
+   "stroke_survival_40": 0.652
+  },
+  "D2": {
+   "basis": "measured on a 500 px square icon resampled (Lanczos) to 160/70/40 px",
+   "candidate": "D2",
+   "contrast_darkest_ink_40": 13.97,
+   "contrast_median_ink_40": 4.33,
+   "detail_retained_40": 0.669,
+   "ground": "#EEE7DA",
+   "header_letter_px": 8.9,
+   "ink_at_3to1_share_40": 0.748,
+   "ink_coverage_40": 0.213,
+   "ink_outside_circle": 0.0,
+   "kind": "vector",
+   "label": "D2 Chain Link",
+   "mono_basis": "designed one-colour variant",
+   "mono_edge_correlation_70": 0.988,
+   "mono_ink_kept": 0.952,
+   "stroke_survival_40": 0.688
+  },
+  "D3": {
+   "basis": "measured on a 500 px square icon resampled (Lanczos) to 160/70/40 px",
+   "candidate": "D3",
+   "contrast_darkest_ink_40": 13.79,
+   "contrast_median_ink_40": 7.14,
+   "detail_retained_40": 0.626,
+   "ground": "#F8F1E4",
+   "header_letter_px": 8.2,
+   "ink_at_3to1_share_40": 0.759,
+   "ink_coverage_40": 0.345,
+   "ink_outside_circle": 0.015,
+   "kind": "vector",
+   "label": "D3 Drupelet",
+   "mono_basis": "designed one-colour variant",
+   "mono_edge_correlation_70": 0.994,
+   "mono_ink_kept": 0.934,
+   "stroke_survival_40": 0.66
+  },
+  "OWNER": {
+   "basis": "measured on a 500 px square icon resampled (Lanczos) to 160/70/40 px",
+   "candidate": "OWNER",
+   "contrast_darkest_ink_40": 7.61,
+   "contrast_median_ink_40": 2.44,
+   "detail_retained_40": 0.534,
+   "ground": "#F3EEE7",
+   "header_letter_px": 5.1,
+   "ink_at_3to1_share_40": 0.422,
+   "ink_coverage_40": 0.316,
+   "ink_outside_circle": 0.017,
+   "kind": "raster",
+   "label": "Owner concept (raster, as supplied)",
+   "mono_basis": "DERIVED Otsu luminance threshold of the supplied raster",
+   "mono_edge_correlation_70": 0.969,
+   "mono_ink_kept": 0.83,
+   "stroke_survival_40": 0.452
+  }
+ },
+ "owner_included": true,
+ "recommendation": null
+}

@@ -1,0 +1,692 @@
+"""The governing model and creative spend policy, in the one place everything else reads.
+
+Recorded 2026-09-20 on the owner's decision, which reversed the standing instruction rather
+than relaxing it. The old policy was a hard CA$25 a month and "start economically"; the
+build did that faithfully and the faithfulness became the problem. Routing decisions, cadence
+intervals and analysis depths had accumulated whose stated justification was the ceiling
+rather than the work -- each defensible, and together a company optimising for cheapness.
+
+**QUALITY FIRST. COST SECOND. WASTE NEVER.**
+
+The three clauses are ordered and the order is the policy. Quality decides. Cost is the
+tie-breaker, not the argument. And waste -- paying twice for an unchanged listing, asking a
+model something deterministic code answers, rendering a field nobody will look at -- is
+refused at any budget, because waste is not a saving that was declined, it is spending with
+nothing on the other side of it.
+
+**A ceiling is not a target, and this file cannot make it one.** CA$100 a month is the
+authority; the expectation is that most months cost far less. What changed is not how much
+this company intends to spend but which argument is allowed to win: "the cheaper model is
+adequate" is no longer a reason, and "the better model costs several times more" is no
+longer an objection when the improvement is commercially meaningful.
+
+**The ceiling lives here and nowhere else.** It used to be restated in two modules, which is
+the defect this build has named repeatedly about prices: a number written twice is a number
+that will drift, and the one that bills is the one that is true. `routing` and the provider
+gateway both read this constant, and a test refuses a second literal.
+
+**Approaching the ceiling is a report, never a quiet downgrade.** If genuinely useful work
+consumes the budget, the answer is an owner action with the evidence attached -- what was
+spent, what it bought, what is being constrained, what a higher ceiling would buy. Silently
+routing to a weaker model to stay inside is the failure this policy exists to prevent, and it
+is the one that would never appear in any log.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta, timezone
+
+# The one ceiling. Combined model, vision and image-generation spend, per calendar month.
+# Raised from CA$25 on 2026-09-20. Infrastructure is a separate ceiling (CA$20) and is not
+# governed here.
+CEILING_CAD = 100.0
+PREVIOUS_CEILING_CAD = 25.0
+CEILING_SET_ON = "2026-09-20"
+
+# Report to the owner at this share of the ceiling, with evidence, rather than waiting for a
+# refusal. Four-fifths leaves room to finish the month's committed work while the decision is
+# being made -- an escalation that arrives at the moment of the first refusal arrives too
+# late to be a decision and only in time to be a complaint.
+ESCALATE_AT_SHARE = 0.80
+
+# A separate, one-off authorisation: what the owner approved for the controlled
+# image-provider benchmark. Here rather than in the benchmark module for the same reason the
+# monthly ceiling is here -- owner-authorised money is written once, in the file that says
+# what the authority is, so a second literal cannot drift from it.
+# Cumulative lifetime authorization for the image-provider benchmark, raised from CA$25 by
+# the owner on 2026-09-21 and explicitly *inclusive of everything already spent* across every
+# prior run: rendering, blind judging, retries, re-drives and the experiments that were
+# invalidated when the method was corrected. It is not CA$50 of new spend. The distinction is
+# the whole reason the figure is enforced cumulatively rather than per run -- four runs each
+# stayed inside a CA$25 approved once, which is how CA$25 became CA$31.
+BENCHMARK_BUDGET_CAD = 50.0
+
+# Spend that buys nothing, refused at any budget. Not a cost-saving list: each of these is
+# money with nothing on the other side of it, which is a different thing from money the
+# policy would rather not spend.
+WASTE: dict[str, str] = {
+    "recompute_unchanged": (
+        "an observation whose content fingerprint has not moved is the same observation. "
+        "Paying for it twice buys the answer already held (#212, #225)"),
+    "ask_what_code_answers": (
+        "stitch counts, yardage, gauge and every other pattern fact are decided by the "
+        "compiler. A model asked them produces noise with a price (§27)"),
+    "duplicate_questions": (
+        "a second question about the same picture is a second bill for an answer already "
+        "bought. Derive from what was gathered rather than re-asking"),
+    "unbatched_fields": (
+        "a field of concepts asked one at a time costs more and produces less variety, "
+        "because a model asked for five different things at once cannot answer with the "
+        "same thing five times"),
+    "render_what_nobody_reads": (
+        "an asset generated for a frame the gallery will not carry is finished waste rather "
+        "than cheap work"),
+}
+
+# What the owner named as worth paying for, in the owner's order. Each carries what may not
+# be traded away to save money, because "we economised here" is the sentence this list
+# exists to make impossible to write without noticing.
+@dataclass(frozen=True)
+class Priority:
+    rank: int
+    key: str
+    what: str
+    never: str
+
+
+PRIORITIES: tuple[Priority, ...] = (
+    Priority(1, "product_creativity",
+             "the product itself must be exceptional",
+             "a technically correct mediocre product is a failure, so concept tournaments "
+             "and jury quality are not reduced to preserve unused budget"),
+    Priority(2, "mjs_intelligence",
+             "deep analysis of the accessible benchmark catalogue and gallery evidence",
+             "visual-analysis depth is not reduced where deeper analysis materially "
+             "improves product decisions"),
+    Priority(3, "product_visualization",
+             "crochet texture, construction, proportions and materials convincing enough "
+             "for serious creative evaluation",
+             "an inferior image model is not selected because it saves a few dollars"),
+    Priority(4, "model_identity",
+             "permanent identity consistency once the canonical model is chosen",
+             "identity drift is a failed asset; reference-conditioning architecture is "
+             "chosen on what performs, not on what is cheapest"),
+    Priority(5, "listing_and_storefront_creative",
+             "heroes, galleries, banner, icon and seasonal storefront at the premium "
+             "standard",
+             "materially inferior customer-facing creative is not chosen because the better "
+             "option costs modestly more"),
+    Priority(6, "high_value_judgement",
+             "final concept selection, benchmark challenges and flagship decisions",
+             "important creative judgement is not downgraded to a weaker model to save "
+             "pennies"),
+)
+
+PRIORITY_BY_KEY: dict[str, Priority] = {p.key: p for p in PRIORITIES}
+
+# The levers that reduce cost without reducing quality. Kept as a list because the policy's
+# third clause is an instruction to keep using them, not permission to stop.
+LEVERS: tuple[str, ...] = (
+    "content-keyed caching, which cannot go stale: a changed input has a different key and "
+    "simply misses",
+    "fingerprints, so an unchanged competitor listing is never re-read",
+    "deduplication across pods, so one observation is not paid for by each reader",
+    "batching, which is cheaper per item and produces more internal variety",
+    "tier routing by what the task needs, so reading a title into a category does not cost "
+    "what judging a photograph costs",
+)
+
+# The sentence this policy was written to make unwriteable, kept verbatim so a test can look
+# for it. A justification that reduces to "the cheaper option was adequate" is refused.
+REFUSED_JUSTIFICATION = "the cheaper option was adequate"
+
+
+# What share of the month one purpose may consume before it has to stop and say so.
+#
+# Not a budget-splitting exercise: only the purposes that can run away have an entry, and
+# the number is a *stop*, not an allowance to reach. Gallery analysis is the live case --
+# measured at CA$0.029 an image, the raised cadence is CA$8.70 a day while the backlog
+# drains, which is CA$260 a month if the queue never empties. The queue does empty, and a
+# capability whose safety depends on an assumption about a queue is a capability with no
+# guard at all.
+#
+# The purpose of the cap is priority order rather than thrift. Product creativity is the
+# owner's first priority and MJs intelligence the second, so a four-day image backlog must
+# not be able to consume the month and leave concept generation refused at the ceiling. When
+# it stops it stops loudly and the work is named as constrained -- which is the escalation
+# path, not a quiet downgrade.
+ALLOCATION: dict[str, float] = {
+    "gallery_observation": 0.40,
+    # Optional Laura phrasing (lane F): CA$1.00 of a CA$100 month. Past it the Command Center
+    # shows the deterministic sentence, which is complete on its own.
+    "laura.business_phrase@1": 0.01,
+    # W4-LAURACEO (ADD-LCEO-06): Business Laura's routine conversation targets CA$10-15 a
+    # month. These are stops inside her unchanged CA$0.50/day permission and the CA$100 month:
+    # chat CA$8, executive reasoning CA$5, the tick's priority ordering CA$2 (CA$15 together).
+    "laura.converse@1": 0.08,
+    "laura.executive@1": 0.05,
+    "laura.exec_rank@1": 0.02,
+}
+
+# The same stop, per department. Empty on purpose and enforced anyway: the mechanism exists so
+# that the day the owner names a department's share of the month it binds by adding one line
+# here, rather than by somebody building a second guard in a hurry. An empty table is not a
+# cap of zero and it is not a cap of everything -- it is "no department cap has been set",
+# and `may_spend(department=...)` and `state()` both say so in those words rather than
+# letting the absence read as a limit that held.
+DEPARTMENT_ALLOCATION: dict[str, float] = {}
+
+# Per-provider ceilings, CAD per calendar month, keyed by the provider name a ledger row
+# carries (`CostEntry.provider`: "anthropic", "gpt-image-2", ...). Owner-gated values in an
+# owner-independent mechanism: `gateway.anthropic.check_budget_cad` reads this against
+# `spend_report.what_it_bought()["by_provider"]` before every call, so an entry binds the
+# moment it is written and nothing binds while the table is empty. The monthly ceiling above
+# is still the authority; a provider ceiling can only be tighter than it, never a second
+# budget beside it.
+# S2 review 6957356475 (MEDIUM): OpenAI is new spend routed per task, so it starts with its own
+# tighter-only cap: a quarter of the authorised month, until the owner sets another figure.
+# ESTIMATED as a starting cap, not measured from a need; the owner's activation ceilings
+# (`paid_provider_gate`, `openai-text` / `openai-vision`) bind beneath it.
+OPENAI_DEFAULT_CEILING_SHARE = 0.25
+PROVIDER_CEILINGS_CAD: dict[str, float] = {"openai": round(CEILING_CAD * OPENAI_DEFAULT_CEILING_SHARE, 2)}
+
+# Recurring infrastructure: a separate ceiling from the model ceiling, and one this system
+# does not observe. The two figures were literals in three places (`app.main`,
+# `runtime.pipeline` twice) -- the defect this file exists to prevent, one number written
+# thrice. They live here now, and they are marked for what they are: declared by the owner,
+# not measured from a bill. Nothing in this repository reads the hosting invoice, so the
+# CA$7.00 is what the owner said the platform costs and not what it charged.
+INFRA_CEILING_CAD = 20.0
+INFRA_MONTHLY_CAD = 7.0
+INFRA_BASIS = "declared_not_observed"
+
+
+SECONDS_PER_DAY = int(timedelta(days=1).total_seconds())
+
+
+def runs_per_day(period_seconds: int) -> int:
+    """How many times a cadence of this period fires in a UTC day. At least one.
+
+    The day is UTC because that is the day the ceilings reset on. A rate paced against the
+    host's local day would divide a UTC budget by a number of hours that depends on a
+    container setting nobody records -- the same defect `registry.spend_today` was fixed for.
+    """
+    return max(1, SECONDS_PER_DAY // max(1, int(period_seconds)))
+
+
+def work_that_fits(db, *, agent: str, purpose: str, period_seconds: int,
+                   unit_cost_cad: float, now: datetime | None = None) -> dict:
+    """How many units of work this cadence may do *this run*, derived from the ceiling.
+
+    **This exists because a cadence and a ceiling were two numbers that disagreed.** The
+    gallery-observation cadence was twenty-five images every two hours, and the comment
+    beside it stated the cost: CA$8.70 a day. `market_radar`'s authorised daily ceiling is
+    CA$4.00. Both were owner-derived, both were written down, and neither knew about the
+    other -- so the batch size was a literal that had drifted to twice the budget and nothing
+    in the system could notice, because the ceiling was enforced by nobody on that path.
+
+    The owner ruled on 2026-09-25: keep the CA$4.00, adapt the cadence to fit it. So the batch
+    is no longer a number at all. It is computed here, from the ceiling, every run -- which is
+    the only form of "one value, one place" that survives somebody editing a cadence next
+    month. Change the ceiling in `agents.registry.DEFAULT_AGENTS` and the rate follows. Change
+    the period in `runtime.worker.CADENCES` and the per-run batch follows. Neither can drift
+    from the other again, because there is only one of them.
+
+    **Paced across the day, not spent at midnight.** The agent's *remaining* ceiling is
+    divided by the number of times this cadence fires in a day. Without the division, the
+    first run of each day would take the whole permission and every later cadence of the same
+    agent -- the culture sweep, the radar scans, the probes -- would find it spent.
+
+    The divisor is runs-per-day rather than runs-*left*-today, which is a choice with two
+    reasons. The first is that the policy above says in as many words that a ceiling is not a
+    target: an unspent morning should not license a burst at 22:00, and dividing what is left
+    by what is left to do would license exactly that. The second is operational. A batch is one
+    job, a job holds a lease of five minutes (`queue.durable.DEFAULT_LEASE_SECONDS`), and a run
+    that outlives its lease can be reclaimed and re-driven by another worker -- which is
+    duplicate spend arriving through the recovery path. A fixed divisor keeps the batch small
+    and the run short; a shrinking one produces a run sixty images long at the end of a quiet
+    day. It still adapts downwards, which is the direction that matters: another cadence
+    spending lowers `remaining`, so the rest of the day's batches get smaller rather than being
+    refused.
+
+    **Three bounds, and the report says which one binds.** The agent's daily ceiling (a
+    permission, paced), the month's authorised ceiling (the budget, a hard stop), and nothing
+    else: a purpose's share of the month is `may_spend`'s job and is asked once per batch by
+    the handler rather than folded in here, because it is a stop rather than a rate and
+    turning it into one would re-decide it.
+
+    The unit cost passed in must be the *padded* estimate the ceiling check uses, not the
+    measured mean. A batch sized on the average overshoots on the expensive half of the batch,
+    and this build has already been wrong about this number twice in the optimistic direction.
+    """
+    from ..gateway.providers import agent_daily_ceiling, monthly_ceiling_cad
+    from . import spend_report
+
+    now = now or datetime.now(timezone.utc)
+    unit = round(float(unit_cost_cad or 0.0), 8)
+    runs = runs_per_day(period_seconds)
+
+    bounds: dict[str, dict] = {}
+
+    permission = agent_daily_ceiling(db, agent, now=now)
+    if permission is not None:
+        remaining = max(0.0, permission["daily_ceiling_cad"] - permission["spent_today_cad"])
+        bounds["agent_daily_ceiling"] = {
+            "cad_available_now": round(remaining / runs, 6),
+            "ceiling_cad": permission["daily_ceiling_cad"],
+            "spent_today_cad": permission["spent_today_cad"],
+            "runs_per_day": runs,
+            "why": (f"{agent} may spend CA${permission['daily_ceiling_cad']:.2f} a day and "
+                    f"has spent CA${permission['spent_today_cad']:.4f} of it; this cadence "
+                    f"fires {runs} times a day, so one run's share of what is left is "
+                    f"CA${remaining / runs:.4f}"),
+        }
+
+    produced = spend_report.what_it_bought(db, now=now)
+    month_remaining = max(0.0, monthly_ceiling_cad() - float(produced["spent_cad"]))
+    bounds["monthly_model_ceiling"] = {
+        "cad_available_now": round(month_remaining, 6),
+        "ceiling_cad": monthly_ceiling_cad(),
+        "spent_month_cad": round(float(produced["spent_cad"]), 6),
+        "why": ("the authorised month is the budget and is not paced: it is a hard stop, and "
+                "a batch is never planned larger than the room left in it"),
+    }
+
+    binding, available = min(
+        ((name, b["cad_available_now"]) for name, b in bounds.items()),
+        key=lambda kv: kv[1])
+    units = int(available // unit) if unit > 0 else 0
+
+    return {
+        "units": units,
+        "unit_cost_cad": unit,
+        "cad_available_now": round(available, 6),
+        "binding_ceiling": binding,
+        "bounds": bounds,
+        "period_seconds": int(period_seconds),
+        "runs_per_day": runs,
+        "derived_not_declared": (
+            "this batch size is computed from the ceiling every run. There is no batch "
+            "constant to drift from the budget, which is what a CA$8.70/day cadence under a "
+            "CA$4.00/day ceiling was"),
+        "why": (f"CA${available:.4f} is available to this cadence now under its "
+                f"{binding.replace('_', ' ')}, and one unit is estimated at CA${unit:.4f}"
+                if units else
+                f"nothing fits: CA${available:.4f} is available under this cadence's "
+                f"{binding.replace('_', ' ')} and one unit is estimated at CA${unit:.4f}. "
+                f"The work is not lost -- it is still queued, and the next run takes it once "
+                f"the ceiling has room. Raising the rate is an owner decision about the "
+                f"ceiling, not a number to edit here"),
+    }
+
+
+def may_spend(db, purpose: str, *, now: datetime | None = None,
+              department: str = "") -> dict:
+    """Whether this purpose has room left in its share of the month.
+
+    Returns rather than raises: the caller is a drain loop, and a loop that crashes on a
+    budget boundary loses the work it had already done. It stops, records why, and the
+    reason reaches the owner as constrained work instead of as a smaller number nobody
+    queried.
+
+    `department` asks the same question of `DEPARTMENT_ALLOCATION`. Both stops have to hold
+    for the answer to be yes, and the report says which one said no -- a purpose inside its
+    share whose department is over its own is refused by the department, in those words.
+    """
+    from . import spend_report
+
+    share = ALLOCATION.get(purpose)
+    dept_share = DEPARTMENT_ALLOCATION.get(department) if department else None
+    if share is None and dept_share is None:
+        return {"may_spend": True, "purpose": purpose, "capped": False,
+                "department": department, "department_capped": False,
+                "why": ("no allocation: this purpose cannot run away on its own"
+                        + (f", and no department cap is set for {department!r} "
+                           f"(DEPARTMENT_ALLOCATION is empty: that is no cap, not a cap "
+                           f"of zero)" if department else ""))}
+
+    report = spend_report.what_it_bought(db, now=now)
+    out: dict = {"may_spend": True, "purpose": purpose, "capped": share is not None,
+                 "department": department, "department_capped": dept_share is not None}
+    reasons: list[str] = []
+
+    if share is not None:
+        spent = float((report["by_purpose"].get(purpose) or {}).get("cad") or 0.0)
+        allowed = round(CEILING_CAD * share, 4)
+        out.update(spent_cad=round(spent, 4), allowed_cad=allowed, share_of_ceiling=share)
+        if spent >= allowed:
+            out["may_spend"] = False
+            reasons.append(
+                f"{purpose} has spent CA${spent:.2f} of the CA${allowed:.2f} this month's "
+                f"policy allows it. Stopping here keeps the ceiling available for the "
+                f"priorities above it rather than letting one backlog consume the month")
+        else:
+            reasons.append(f"CA${round(allowed - spent, 2):.2f} of this purpose's share remains")
+
+    if dept_share is not None:
+        dept_spent = float((report["by_department"].get(department) or {}).get("cad") or 0.0)
+        dept_allowed = round(CEILING_CAD * dept_share, 4)
+        out.update(department_spent_cad=round(dept_spent, 4),
+                   department_allowed_cad=dept_allowed,
+                   department_share_of_ceiling=dept_share)
+        if dept_spent >= dept_allowed:
+            out["may_spend"] = False
+            reasons.append(
+                f"department {department!r} has spent CA${dept_spent:.2f} of the "
+                f"CA${dept_allowed:.2f} its allocation allows this month; refused by the "
+                f"department cap")
+        else:
+            reasons.append(f"CA${round(dept_allowed - dept_spent, 2):.2f} of "
+                           f"{department!r}'s department share remains")
+    elif department:
+        reasons.append(f"no department cap is set for {department!r}")
+
+    out["why"] = "; ".join(reasons)
+    return out
+
+
+class PolicyRefused(ValueError):
+    """A trade the policy does not allow, or an escalation with nothing behind it."""
+
+
+def ceiling_cad() -> float:
+    """The authorised monthly ceiling. Every other module reads this rather than a literal."""
+    return CEILING_CAD
+
+
+def headroom(spent_cad: float) -> dict:
+    """Where the month stands, and whether it is time to tell the owner."""
+    share = round(spent_cad / CEILING_CAD, 4) if CEILING_CAD else 1.0
+    return {
+        "spent_cad": round(spent_cad, 4),
+        "ceiling_cad": CEILING_CAD,
+        "share": share,
+        "remaining_cad": round(CEILING_CAD - spent_cad, 4),
+        "escalate": share >= ESCALATE_AT_SHARE,
+        "escalate_at_share": ESCALATE_AT_SHARE,
+        "why_early": ("an escalation that arrives at the first refusal arrives too late to "
+                      "be a decision and only in time to be a complaint"),
+    }
+
+
+def may_downgrade_for_cost(*, priority_key: str, reason: str) -> None:
+    """Refuse a quality downgrade whose argument is money.
+
+    Called where the temptation lives: a routing choice, a cadence interval, an analysis
+    depth. It does not stop anybody hard-coding a cheaper model -- nothing could -- but it
+    refuses the *declared* trade, so a downgrade has to be made without saying why, and a
+    change with no stated reason is what code review is for.
+    """
+    priority = PRIORITY_BY_KEY.get(priority_key)
+    if priority is None:
+        raise PolicyRefused(
+            f"{priority_key!r} is not one of the owner's spending priorities: "
+            f"{sorted(PRIORITY_BY_KEY)}")
+    raise PolicyRefused(
+        f"priority {priority.rank} ({priority.key}) may not be traded for cost: "
+        f"{priority.never}. The stated reason was {reason!r}. Quality decides; cost is the "
+        f"tie-breaker, not the argument")
+
+
+def escalation(db, *, now: datetime | None = None,
+               constrained: list[str] | None = None,
+               proposed_ceiling_cad: float | None = None,
+               expected_value: str = "") -> dict:
+    """The OWNER ACTION REQUIRED report, in the shape the owner asked for.
+
+    Six fields, and the two that are easy to leave out are the two that matter: what the
+    money produced, and what work is being constrained. A ceiling request with the first
+    four is a bill; with all six it is a decision somebody can make.
+    """
+    from . import spend_report
+
+    now = now or datetime.now(timezone.utc)
+    produced = spend_report.what_it_bought(db, now=now)
+    state = headroom(produced["spent_cad"])
+
+    if not state["escalate"] and proposed_ceiling_cad is None:
+        return {"required": False, **state,
+                "why": (f"the month is {state['share'] * 100:.0f}% spent, under the "
+                        f"{ESCALATE_AT_SHARE * 100:.0f}% at which this reports. Nothing is "
+                        f"being constrained and nothing is asked for")}
+
+    return {
+        "required": True,
+        "action": "raise the authorised monthly model and creative spend ceiling",
+        "current_spend_cad": state["spent_cad"],
+        "ceiling_cad": CEILING_CAD,
+        "share_of_ceiling": state["share"],
+        "burn_rate_cad_per_day": produced["burn_rate_cad_per_day"],
+        "projected_month_end_cad": produced["projected_month_end_cad"],
+        "what_the_money_produced": produced["by_purpose"],
+        # F-110: collected from what the controls actually refused when the caller names
+        # nothing -- an escalation with an empty "constrained" list asks for money blind.
+        "what_is_constrained": (constrained if constrained is not None
+                                else constrained_work(db, now=now)),
+        "proposed_ceiling_cad": proposed_ceiling_cad or round(CEILING_CAD * 2, 2),
+        "expected_improvement": expected_value or (
+            "state what the additional ceiling buys before asking for it. A request with no "
+            "expected improvement is a bill"),
+        "not_doing_meanwhile": (
+            "quality is not silently degraded to stay inside. Work that cannot be done at "
+            "the standard the policy sets waits and is named here"),
+        "minutes": 2,
+        "consequence_of_waiting": (
+            "the named work stops at the ceiling rather than being done worse"),
+    }
+
+
+def constrained_work(db, *, now: datetime | None = None) -> list[str]:
+    """F-110: the work the money controls are holding back right now, in words.
+
+    Read from the controls themselves: every purpose allocation that says no, and this
+    month's ceiling refusals grouped by which ceiling refused which purpose. Empty only when
+    nothing is constrained."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+    from . import spend_report
+
+    now = now or datetime.now(timezone.utc)
+    out: list[str] = []
+    for purpose in sorted(ALLOCATION):
+        verdict = may_spend(db, purpose, now=now)
+        if not verdict.get("may_spend", True):
+            out.append(f"{purpose}: stopped by its allocation ({verdict.get('why', '')})")
+    start, end = spend_report._month_bounds(now)
+    grouped: dict[tuple[str, str], int] = {}
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(
+                AuditLog.action == spend_report.REFUSED_ACTION)):
+            at = spend_report._aware(row.at)
+            if at is None or not (start <= at < end):
+                continue
+            d = row.detail or {}
+            k = (str(d.get("purpose") or row.artifact or "unnamed"), str(d.get("which") or "?"))
+            grouped[k] = grouped.get(k, 0) + 1
+    for (purpose, which), n in sorted(grouped.items(), key=lambda kv: -kv[1]):
+        out.append(f"{purpose}: refused {n} time(s) this month by the {which}")
+    return out
+
+
+def binding_ceiling(db, *, now: datetime | None = None) -> dict:
+    """F-184: which of the nested limits binds next, and how they interact.
+
+    Every limit is reported with what remains under it; the one with the least room is the
+    binding one. Precedence is not "the smallest wins" by accident: the monthly ceiling is the
+    authority, and every other limit can only be tighter than it, never a second budget."""
+    from . import reservations, spend_report
+
+    now = now or datetime.now(timezone.utc)
+    produced = spend_report.what_it_bought(db, now=now)
+    held = float(reservations.outstanding(db, now=now).get("cad") or 0.0)
+    limits: list[dict] = [{
+        "limit": "monthly model ceiling", "scope": "company",
+        "ceiling_cad": CEILING_CAD, "used_cad": round(produced["spent_cad"] + held, 4),
+        "remaining_cad": round(CEILING_CAD - produced["spent_cad"] - held, 4)}]
+    for provider, cap in sorted(PROVIDER_CEILINGS_CAD.items()):
+        used = float((produced["by_provider"].get(provider) or {}).get("cad") or 0.0)
+        limits.append({"limit": "provider ceiling", "scope": provider, "ceiling_cad": cap,
+                       "used_cad": round(used, 4), "remaining_cad": round(cap - used, 4)})
+    for dept, share in sorted(DEPARTMENT_ALLOCATION.items()):
+        cap = round(CEILING_CAD * share, 4)
+        used = float((produced["by_department"].get(dept) or {}).get("cad") or 0.0)
+        limits.append({"limit": "department allocation", "scope": dept, "ceiling_cad": cap,
+                       "used_cad": round(used, 4), "remaining_cad": round(cap - used, 4)})
+    for purpose, share in sorted(ALLOCATION.items()):
+        cap = round(CEILING_CAD * share, 4)
+        used = float((produced["by_purpose"].get(purpose) or {}).get("cad") or 0.0)
+        limits.append({"limit": "purpose allocation", "scope": purpose, "ceiling_cad": cap,
+                       "used_cad": round(used, 4), "remaining_cad": round(cap - used, 4)})
+    for a in spend_report.per_agent_today(db, now=now)["agents"]:
+        if a["daily_ceiling_cad"]:
+            limits.append({"limit": "agent daily permission", "scope": a["agent"],
+                           "ceiling_cad": a["daily_ceiling_cad"],
+                           "used_cad": a["spent_today_cad"],
+                           "remaining_cad": round(a["daily_ceiling_cad"]
+                                                  - a["spent_today_cad"], 4)})
+    month_left = limits[0]["remaining_cad"]
+    for row in limits:
+        row["effective_remaining_cad"] = round(min(row["remaining_cad"], month_left), 4)
+    company_wide = [r for r in limits if r["limit"] in ("monthly model ceiling",)]
+    binding = min(limits, key=lambda r: r["effective_remaining_cad"])
+    return {
+        "as_of": now.isoformat(), "binding": binding,
+        "company_binding": company_wide[0], "limits": limits,
+        "precedence": [
+            "1. monthly model ceiling: the authority; nothing spends past it",
+            "2. provider ceilings: tighter caps on one provider inside the month",
+            "3. department allocations: a department's share of the month",
+            "4. purpose allocations: a backlog's share, so one purpose cannot eat the month",
+            "5. agent daily permission: a per-day permission, not a slice of the budget",
+            "A call must fit every limit that applies to it; the effective room under any "
+            "limit is never more than the month's own remaining room."],
+        "unset": {"provider_ceilings": not PROVIDER_CEILINGS_CAD,
+                  "department_allocations": not DEPARTMENT_ALLOCATION},
+    }
+
+
+def vocabulary(db=None) -> list[dict]:
+    """F-183: every spend authority in one table, including the ones that are not model
+    spend and the ones nobody has granted -- so "the ceiling" is never ambiguous."""
+    return [
+        {"term": "monthly model ceiling", "cad": CEILING_CAD, "basis": "enforced",
+         "enforced_by": "gateway.anthropic.check_budget_cad", "period": "calendar month"},
+        {"term": "infrastructure ceiling", "cad": INFRA_CEILING_CAD, "basis": INFRA_BASIS,
+         "declared_monthly_cad": INFRA_MONTHLY_CAD, "enforced_by": None,
+         "period": "calendar month",
+         "note": "declared by the owner; no hosting invoice is read, so not observed"},
+        {"term": "research/benchmark authority", "cad": BENCHMARK_BUDGET_CAD,
+         "basis": "enforced cumulatively", "enforced_by": "gateway.image_bench",
+         "period": "lifetime"},
+        {"term": "purpose allocations", "shares": dict(ALLOCATION), "basis": "enforced",
+         "enforced_by": "spend_policy.may_spend", "period": "calendar month"},
+        {"term": "department allocations", "shares": dict(DEPARTMENT_ALLOCATION),
+         "basis": "enforced when set", "enforced_by": "spend_policy.may_spend",
+         "note": "empty: no department cap has been set (not a cap of zero)"},
+        {"term": "provider ceilings", "cad_by_provider": dict(PROVIDER_CEILINGS_CAD),
+         "basis": "enforced when set", "enforced_by": "gateway.anthropic.check_budget_cad"},
+        {"term": "agent daily permission", "basis": "enforced",
+         "enforced_by": "gateway.anthropic.check_budget_cad", "period": "UTC day"},
+        {"term": "paid-media (ad) authority", "basis": "not granted",
+         "enforced_by": "core.models.SpendLimit scoped caps",
+         "note": "advertising authority has not been granted by the owner; no ad spend"},
+    ]
+
+
+def escalation_key(now: datetime | None = None) -> str:
+    """The owner-queue identity of this month's ceiling decision: one per calendar month.
+
+    `OwnerAction` de-duplicates on `requirement_key`, so a key that carries the month is what
+    makes the escalation idempotent within it and new when the ceiling resets.
+    """
+    now = now or datetime.now(timezone.utc)
+    return f"spend.ceiling.{now:%Y-%m}"
+
+
+def owner_action_fields(report: dict) -> dict:
+    """The six fields the owner asked every action to carry, from an `escalation()` report.
+
+    Maximum cost is the *increase* being asked for, not the new ceiling: the owner is deciding
+    whether to authorise more money, and the figure beside that decision has to be the money.
+    """
+    constrained = report.get("what_is_constrained") or []
+    produced = report.get("what_the_money_produced") or {}
+    top = sorted(produced.items(), key=lambda kv: -float(kv[1].get("cad") or 0.0))[:4]
+    bought = ", ".join(f"{k} CA${float(v.get('cad') or 0.0):.2f}" for k, v in top) or "nothing yet"
+    increase = round(float(report["proposed_ceiling_cad"]) - float(report["ceiling_cad"]), 2)
+    return {
+        "action": (f"Decide the authorised monthly model and creative spend ceiling: raise "
+                   f"CA${report['ceiling_cad']:.2f} to CA${report['proposed_ceiling_cad']:.2f}, "
+                   f"or confirm it and accept that the named work waits"),
+        "reason": (f"CA${report['current_spend_cad']:.2f} of CA${report['ceiling_cad']:.2f} "
+                   f"is spent ({report['share_of_ceiling'] * 100:.0f}%), burning "
+                   f"CA${report['burn_rate_cad_per_day']:.2f}/day towards a projected "
+                   f"CA${report['projected_month_end_cad']:.2f} by month end. The money "
+                   f"bought: {bought}. Expected improvement from more: "
+                   f"{report['expected_improvement']}"),
+        "max_cost_cad": max(0.0, increase),
+        "minutes": int(report.get("minutes") or 2),
+        "consequence_of_delay": report["consequence_of_waiting"],
+        "blocks": "; ".join(constrained) if constrained else (
+            "work at the standard the policy sets stops at the ceiling rather than being "
+            "done worse; nothing is named as constrained yet"),
+    }
+
+
+def state(db=None) -> dict:
+    """The policy as a readable object, for the console and for the owner."""
+    body = {
+        "policy": "QUALITY FIRST. COST SECOND. WASTE NEVER.",
+        "ceiling_cad": CEILING_CAD,
+        "previous_ceiling_cad": PREVIOUS_CEILING_CAD,
+        "ceiling_set_on": CEILING_SET_ON,
+        "ceiling_is_not_a_target": (
+            "the authority is CA$100; the expectation is that most months cost far less. "
+            "What changed is which argument may win, not how much this company intends to "
+            "spend"),
+        "priorities": [{"rank": p.rank, "key": p.key, "what": p.what, "never": p.never}
+                       for p in PRIORITIES],
+        "waste_refused_at_any_budget": dict(WASTE),
+        "levers": list(LEVERS),
+        "escalate_at_share": ESCALATE_AT_SHARE,
+        "per_purpose_allocation": dict(ALLOCATION),
+        "allocation_is_a_stop_not_an_allowance": (
+            "only purposes that can run away have an entry. The cap exists for priority "
+            "order rather than thrift: a four-day image backlog must not consume the month "
+            "and leave concept generation refused at the ceiling"),
+        "per_department_allocation": dict(DEPARTMENT_ALLOCATION),
+        "department_caps": (
+            f"{len(DEPARTMENT_ALLOCATION)} department cap(s) set. "
+            + ("None binds: an empty table is no cap, not a cap of zero. The mechanism is "
+               "live in `may_spend(department=...)` and an entry binds the day it is written"
+               if not DEPARTMENT_ALLOCATION else
+               "each is enforced by `may_spend(department=...)` as a share of the month")),
+        "per_provider_ceilings_cad": dict(PROVIDER_CEILINGS_CAD),
+        "provider_ceilings": (
+            f"{len(PROVIDER_CEILINGS_CAD)} provider ceiling(s) set. "
+            + ("None binds: an empty table is no cap, not a cap of zero. The mechanism is "
+               "live in `gateway.anthropic.check_budget_cad` and an entry binds the day it "
+               "is written" if not PROVIDER_CEILINGS_CAD else
+               "each is checked before every call against this month's spend by provider")),
+        "infrastructure_is_separate": (
+            f"recurring infrastructure has its own CA${INFRA_CEILING_CAD:.0f} ceiling and "
+            f"is not governed here"),
+        "infrastructure": {"ceiling_cad": INFRA_CEILING_CAD,
+                           "monthly_cad": INFRA_MONTHLY_CAD,
+                           "basis": INFRA_BASIS,
+                           "why": ("the owner declared these figures; nothing here reads "
+                                   "the hosting invoice, so neither is an observation")},
+    }
+    if db is not None:
+        from . import spend_report
+
+        produced = spend_report.what_it_bought(db)
+        body["this_month"] = headroom(produced["spent_cad"])
+        body["burn_rate_cad_per_day"] = produced["burn_rate_cad_per_day"]
+    return body
+
+
+def month_start(now: datetime | None = None) -> date:
+    now = now or datetime.now(timezone.utc)
+    return date(now.year, now.month, 1)

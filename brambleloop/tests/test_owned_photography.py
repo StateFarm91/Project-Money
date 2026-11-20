@@ -1,0 +1,696 @@
+"""A styled product image the company owns, and the rules that keep it honest.
+
+Requirements 292 and 300 both ended at the same wall: a certified seasonal product with no
+picture of the finished object. The capability exists now. What these tests protect is the
+difference between having a picture and claiming to have made the thing in it.
+"""
+from __future__ import annotations
+
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
+import os
+import sys
+import tempfile as _tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT))
+os.environ.setdefault("BRAMBLELOOP_ARTIFACT_DIR",
+                      os.path.join(_tempfile.mkdtemp(prefix="owned_photo_"), "artifacts"))
+
+from brambleloop.cir.compiler import compile_cir  # noqa: E402
+from brambleloop.cir.twin import build_twin  # noqa: E402
+from brambleloop.core.db import Database  # noqa: E402
+from brambleloop.products.builder import for_slug  # noqa: E402
+from brambleloop.publish import owned_photography as op  # noqa: E402
+from brambleloop.visual import inspect as inspect_mod  # noqa: E402
+
+
+def _db() -> Database:
+    db = Database("sqlite://")
+    db.create_all()
+    return db
+
+
+def _subject(slug: str = "cloudline-baby-blanket"):
+    cir = for_slug(slug)
+    return cir, build_twin(cir, compile_cir(cir))
+
+
+def _generator(tmp: Path):
+    def generate(prompt, *, env=None, size="1024x1024", reference_urls=None):
+        path = tmp / "asset.png"
+        path.write_bytes(b"\x89PNG\r\n\x1a\n")
+        return {"image_ref": str(path), "provider": "gpt-image-2", "cad": 0.04}
+    return generate
+
+
+def _inspector(**overrides):
+    def inspect(image_ref, *, db=None, claim=None):
+        out = {
+            "image": image_ref, "described": True, "realism_judged": True,
+            "description": {"finished_or_in_progress": "finished", "chart_or_diagram": False,
+                            "human_present": False, "clarity": "clear", "object_count": "1",
+                            "third_party_marks": []},
+            "realism": {k: True for k in inspect_mod.REALISM_CHECKS},
+            "realism_unjudged": [],
+        }
+        out.update(overrides)
+        if claim:
+            out["semantic"] = inspect_mod.compare(out["description"], claim)
+        return out
+    return inspect
+
+
+def _motif(**overrides):
+    """A motif judge that sees the chart's own pattern unless told otherwise."""
+    answer = {"repeating_unit_shape": "diamond outline lattice", "repeats_across": 14,
+              "colour_arrangement": "two colours alternating", "same_pattern_as_chart": True,
+              "fabric_readable": True}
+    answer.update(overrides)
+    return lambda image_ref, chart_ref: answer
+
+
+def _make(tmp: Path, **kw):
+    cir, twin = _subject()
+    return op.make(_db(), cir, twin, generator=_generator(tmp),
+                   inspector=_inspector(**kw.pop("inspection", {})),
+                   motif_judger=kw.pop("motif_judger", _motif()), **kw)
+
+
+class _Spy:
+    """A generator / inspector / motif judge that records whether it was ever reached."""
+
+    def __init__(self, inner):
+        self.inner, self.calls = inner, 0
+
+    def __call__(self, *a, **k):
+        self.calls += 1
+        return self.inner(*a, **k)
+
+
+def _refused_before_any_render(record: dict, *spies: _Spy) -> None:
+    """F-852 (Visual authority, e6b6d47): generative product redraw is refused before a
+    generator, describer or judge is reached -- so nothing is spent and nothing is judged,
+    and the record says why rather than carrying a verdict about a picture never made."""
+    assert record["made"] is False and record["generated"] is False, record
+    assert record["usable_as_listing_asset"] is False
+    assert record["waiting_on"] == "qualified_protected_product_renderer"
+    assert "F-852" in record["why"] and "redraw" in record["why"]
+    assert "verdict" not in record and "image" not in record, record
+    assert (record.get("structural_truth") or {}).get("status") == "UNKNOWN"
+    for spy in spies:
+        assert spy.calls == 0, "the redraw path was reached"
+
+
+def _make_spied(tmp: Path, **kw):
+    cir, twin = _subject()
+    gen = _Spy(_generator(tmp))
+    insp = _Spy(_inspector(**kw.pop("inspection", {})))
+    motif = _Spy(kw.pop("motif_judger", _motif()))
+    record = op.make(_db(), cir, twin, generator=gen, inspector=insp, motif_judger=motif, **kw)
+    return record, (gen, insp, motif)
+
+
+def test_the_prompt_is_derived_from_the_certified_pattern():
+    """A prompt somebody typed is a second, unvalidated description of the product."""
+    cir, twin = _subject()
+    prompt = op.prompt_for(cir, twin, occasion="Christmas")
+    _vac_119 = 0
+    for name in cir.colors:
+        _vac_119 += 1
+        assert name in prompt, name
+    assert _vac_119, "cir.colors was empty: the loop proved nothing (F-123)"
+    assert f"{twin.width_cm:.0f} by {twin.height_cm:.0f} cm" in prompt
+    assert "blanket" in prompt
+    # The hex codes the twin renders with describe nothing to a generator or to a reader.
+    assert "#" not in prompt
+    # And nothing that would put somebody else's mark, or a person, in the frame.
+    assert "no logos" in prompt and "No people" in prompt
+
+
+def test_it_is_an_illustration_and_it_says_so_everywhere():
+    """This company has not photographed a made item, and must never imply that it has.
+
+    Rewritten for F-852: the V1 test asserted a *generated* redraw came back labelled as an
+    illustration. Generative product redraw is now refused outright, so the stronger
+    property is that no generated picture of the product is made at all -- labelled or not.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        record, spies = _make_spied(Path(tmp))
+    _refused_before_any_render(record, *spies)
+
+
+def test_a_picture_that_does_not_show_what_the_pattern_says_is_not_usable():
+    """F-852 rewrite: the describer is never reached because no picture is generated; the
+    record is unusable for the stronger reason that the redraw itself is refused."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        record, spies = _make_spied(Path(tmp), inspection={"description": {
+            "finished_or_in_progress": "in progress", "chart_or_diagram": False,
+            "human_present": False, "clarity": "clear", "object_count": "1"}})
+    _refused_before_any_render(record, *spies)
+
+
+def test_an_unmade_realism_check_is_not_a_pass():
+    """F-852 rewrite: unmade checks still never pass -- and now no check is made at all."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        record, spies = _make_spied(Path(tmp), inspection={
+            "realism_judged": False, "realism": {},
+            "realism_unjudged": sorted(inspect_mod.REALISM_CHECKS)})
+    _refused_before_any_render(record, *spies)
+
+
+def test_a_clean_render_whose_fabric_is_the_chart_is_a_listing_image():
+    """F-852 rewrite. V1 asserted a generated render with perfect judge answers became a
+    listing image. Under F-852 even a flawless-looking generation is refused: a picture a
+    model drew is not structural evidence of the crochet, however clean it looks. The only
+    product-first listing imagery is the disclosed deterministic render
+    (`listing_asset.make`, D-FB-7), covered in test_disclosed_render_runtime."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        record, spies = _make_spied(Path(tmp))
+    _refused_before_any_render(record, *spies)
+    assert "spent_cad" not in record, "a refused redraw spends nothing"
+
+
+def test_the_checkerboard_that_started_this_is_blocked():
+    """The live failure, as the test that keeps it failing.
+
+    A clean, believable crocheted blanket in the right two colours -- worked in a
+    checkerboard, while the certified pattern makes a diamond lattice. F-852 rewrite: the
+    checkerboard can no longer even be drawn, because the redraw is refused before any
+    generator runs.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        record, spies = _make_spied(Path(tmp), motif_judger=_motif(
+            repeating_unit_shape="solid square", repeats_across=8))
+    _refused_before_any_render(record, *spies)
+
+
+def test_fabric_nobody_could_see_blocks_too_and_says_what_it_needs():
+    """F-852 rewrite: still blocked, and what it needs is named -- a qualified protected
+    product renderer rather than a closer generated crop."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        record, spies = _make_spied(Path(tmp), motif_judger=_motif(fabric_readable=False))
+    _refused_before_any_render(record, *spies)
+    assert "rendered and protected" in record["why"]
+
+
+def test_the_prompt_states_the_patterns_own_motif():
+    cir, twin = _subject()
+    assert "diamond lattice" in op.prompt_for(cir, twin).lower()
+    assert "9-stitch repeat" in op.prompt_for(cir, twin)
+
+
+def test_a_product_whose_listing_needs_the_model_is_refused_for_the_true_reason():
+    """A worn form is refused, and the refusal has to say which of two things is missing.
+
+    It used to return one hardcoded sentence -- "she is built but not approved" -- and on
+    2026-09-22 that became false while still being returned. A refusal that states a
+    condition instead of reading it is the same defect as a gate reading configuration.
+
+    F-852 rewrite: `make` now refuses every product redraw first, for garments and flat
+    products alike, so the true reason from `make` is F-852. The model-bearing reason is
+    still read rather than stated, and is asserted on `model_bearing_refusal` directly.
+    """
+    import dataclasses
+    import tempfile
+
+    from brambleloop.visual import freeze, identity, model_registry
+
+    cir, twin = _subject()
+    garment = dataclasses.replace(cir, slug="winter-cardigan", title="Cardigan")
+    assert op.needs_no_model(cir) is True
+    assert op.needs_no_model(garment) is False
+
+    db = _db()
+    with tempfile.TemporaryDirectory() as tmp:
+        gen = _Spy(_generator(Path(tmp)))
+        record = op.make(db, garment, twin, generator=gen, inspector=_inspector())
+    _refused_before_any_render(record, gen)
+
+    # No canonical identity: blocked on the owner's decision -- read, not stated.
+    before = op.model_bearing_refusal(db, garment)
+    assert before["waiting_on"] == "canonical_model"
+    assert "no canonical identity has been approved" in before["why"]
+
+    model_registry.record_candidate(
+        db, "brambleloop-canonical",
+        fields={f: "described" for f in identity.IDENTITY_FIELDS},
+        image_refs=[freeze.brief.approved_portrait()])
+    model_registry.select_canonical(db, "brambleloop-canonical", owner_approved=True)
+
+    after = op.model_bearing_refusal(db, garment)
+    assert after["waiting_on"] == "model_bearing_render_path"
+    assert "approved and frozen" in after["why"]
+    assert "not approved" not in after["why"], "the expired reason came back"
+    with tempfile.TemporaryDirectory() as tmp:
+        gen = _Spy(_generator(Path(tmp)))
+        _refused_before_any_render(op.make(db, garment, twin, generator=gen), gen)
+
+
+def test_the_provider_is_named_rather_than_left_to_a_variable_nobody_set():
+    """The first live run of this job died inside the gateway for exactly this.
+
+    `images.generate` without a provider falls back to `BRAMBLELOOP_IMAGE_PROVIDER`, which
+    nobody has set. The historical V1 body (retained for evidence, unreachable) still names
+    its provider at every call; F-852 rewrite: with nothing able to render, `make` declines
+    for the stronger reason -- the redraw is refused -- rather than crashing or rendering.
+    """
+    import ast
+
+    tree = ast.parse((ROOT / "src/brambleloop/publish/owned_photography.py").read_text())
+    calls = [n for n in ast.walk(tree)
+             if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+             and n.func.attr == "generate"]
+    assert calls, "the retained V1 body no longer names a generate call to check"
+    for call in calls:
+        assert "provider_key" in {kw.arg for kw in call.keywords}, ast.dump(call)[:120]
+
+    cir, twin = _subject()
+    _refused_before_any_render(op.make(_db(), cir, twin))
+
+
+def test_the_seasonal_cycle_reports_the_asset_rather_than_rendering_one():
+    """A report that spent money every time somebody opened an endpoint would spend money
+    to answer a question about the past -- and the endpoint sweep walks every GET route."""
+    import ast
+
+    tree = ast.parse((ROOT / "src/brambleloop/seasonal/cycle.py").read_text())
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and node.attr in ("generate", "make"):
+            raise AssertionError("the cycle renders an image while reporting")
+    source = (ROOT / "src/brambleloop/seasonal/cycle.py").read_text()
+    assert "last_asset" in source
+
+
+def _file_asset(db, *, slug="cloudline-baby-blanket", version="1.0.0", usable,
+                verdict="clear"):
+    from brambleloop.agents.registry import Registry
+
+    Registry(db).audit("publishing", op.ACTION, detail={
+        "made": True, "method_version": op.METHOD_VERSION, "slug": slug,
+        "version": version, "usable_as_listing_asset": usable, "verdict": verdict})
+
+
+def test_an_unjudged_asset_is_not_a_release_that_already_has_one():
+    """B-631 again, left standing on the path that carries the whole shippable catalogue.
+
+    Production, 2026-09-23: the cadence replied "this release already has an owned asset"
+    carrying `verdict: "unjudged"`. An asset whose checks were never made was reported as a
+    finished release, every day, by a job that looked healthy while doing nothing. The
+    model path was rescued from exactly this; this path never was.
+    """
+    db = _db()
+    _file_asset(db, usable=False, verdict="unjudged")
+
+    move = op.what_to_do_next(db, slug="cloudline-baby-blanket", version="1.0.0")
+    assert move["render"] is True
+    assert move["reason"] == "no_usable_asset_yet"
+    assert move["attempts"] == 1
+
+
+def test_an_asset_that_cleared_its_checks_is_a_release_that_has_one():
+    """The gate has to be able to close, or the cadence never stops spending.
+
+    F-852 / F-856 rewrite: a record's self-declared `usable_as_listing_asset` is no longer a
+    cleared check -- usability needs structural truth PASS on bound bytes, which no generated
+    asset can have -- so a self-declared row does not close the gate. The cadence still
+    cannot spend: `make` refuses the redraw before any generator runs.
+    """
+    import tempfile
+
+    db = _db()
+    _file_asset(db, usable=True)
+
+    assert op.usable_asset(db, slug="cloudline-baby-blanket", version="1.0.0") is None
+    move = op.what_to_do_next(db, slug="cloudline-baby-blanket", version="1.0.0")
+    assert move["reason"] != "usable_asset_on_file", move
+    cir, twin = _subject()
+    with tempfile.TemporaryDirectory() as tmp:
+        gen = _Spy(_generator(Path(tmp)))
+        _refused_before_any_render(op.make(db, cir, twin, generator=gen), gen)
+
+
+def test_rephotographing_is_bounded_and_says_the_method_is_what_needs_changing():
+    db = _db()
+    for _ in range(op.ATTEMPTS):
+        _file_asset(db, usable=False, verdict="blocked")
+
+    move = op.what_to_do_next(db, slug="cloudline-baby-blanket", version="1.0.0")
+    assert move["render"] is False
+    assert move["reason"] == "attempts_exhausted"
+    assert "METHOD_VERSION" in move["why"]
+
+
+def test_a_new_release_gets_its_own_attempts():
+    """Attempts belong to the release, or a re-cut product inherits an exhausted budget."""
+    db = _db()
+    for _ in range(op.ATTEMPTS):
+        _file_asset(db, usable=False, verdict="blocked", version="1.0.0")
+
+    assert op.what_to_do_next(db, slug="cloudline-baby-blanket",
+                              version="1.1.0")["render"] is True
+
+
+_DISCLOSED: dict = {}
+
+
+def _disclosed_coaster_set(db):
+    """A real disclosed render set (D-FB-7) for a Launch-0 product, built once, filed into
+    `db`. The bytes live in the artifact store; the verifier re-measures them on every read."""
+    from brambleloop.products import launch0
+    from brambleloop.publish import disclosed_listing
+
+    if "rec" not in _DISCLOSED:
+        cir = launch0.cir_for("hexagon_coasters")
+        _DISCLOSED["rec"] = disclosed_listing.build(cir)
+        assert _DISCLOSED["rec"]["usable_as_listing_asset"], _DISCLOSED["rec"]["launch_blocked"]
+    disclosed_listing.record(db, _DISCLOSED["rec"])
+    return _DISCLOSED["rec"]
+
+
+def test_coverage_counts_the_catalogue_rather_than_the_job():
+    """"The photography job ran" and "the catalogue can be listed" are different facts.
+
+    `_representative_slug` returned the same product every day for ever, so one product was
+    photographed and the rest never were, while the cadence reported success. Nothing
+    counted the difference until this did.
+
+    F-852 / D-FB-7 rewrite: a self-declared usable row ("a") no longer counts -- it is
+    reported unusable, with its record -- and the product that is listable is the one with a
+    verified disclosed render set.
+    """
+    db = _db()
+    rec = _disclosed_coaster_set(db)
+    _file_asset(db, slug="a", usable=True)
+    _file_asset(db, slug="b", usable=False, verdict="unjudged")
+
+    slug = rec["slug"]
+    out = op.coverage(db, slugs=[slug, "a", "b", "c"],
+                      versions={slug: rec["version"], "a": "1.0.0", "b": "1.0.0",
+                                "c": "1.0.0"})
+    assert out["certified"] == 4
+    assert out["with_usable_asset"] == [slug]
+    assert out["with_disclosed_render"] == [slug]
+    assert out["with_only_unusable_assets"] == ["a", "b"]
+    assert out["with_no_asset_at_all"] == ["c"]
+    assert out["listable"] == 1
+    assert out["complete"] is False
+    assert "method_blocked_on" in out, "the gate's state has to be readable without a render"
+    assert out["why_each_unusable_one_failed"]["b"]["verdict"] == "unjudged"
+    assert out["why_each_unusable_one_failed"]["a"]["verdict"] == "clear"
+    assert slug not in out["why_each_unusable_one_failed"]
+    assert "c" not in out["why_each_unusable_one_failed"]
+
+
+def test_coverage_is_complete_only_when_every_certified_product_has_a_usable_asset():
+    """F-852 / D-FB-7 rewrite: two self-declared rows are not coverage; a verified disclosed
+    set is, and a disclosed set for a different version is not this release's."""
+    db = _db()
+    _file_asset(db, slug="a", usable=True)
+    _file_asset(db, slug="b", usable=True)
+    out = op.coverage(db, slugs=["a", "b"], versions={"a": "1.0.0", "b": "1.0.0"})
+    assert out["complete"] is False
+    assert out["listable"] == 0
+
+    rec = _disclosed_coaster_set(db)
+    slug = rec["slug"]
+    out = op.coverage(db, slugs=[slug], versions={slug: rec["version"]})
+    assert out["complete"] is True and out["listable"] == 1
+    other = op.coverage(db, slugs=[slug], versions={slug: "9.9.9"})
+    assert other["complete"] is False
+
+
+def test_an_empty_catalogue_is_not_complete_coverage():
+    """Nothing certified is not everything photographed -- the absence-of-evidence rule."""
+    out = op.coverage(_db(), slugs=[], versions={})
+    assert out["complete"] is False
+    assert out["listable"] == 0
+
+
+def test_the_generator_is_shown_the_chart_it_will_be_judged_against():
+    """The render was failed for not reproducing information it was never given.
+
+    F-852 rewrite: no generator is shown anything any more, because none is called -- the
+    product is never redrawn by a model, so there is no render to be judged against a chart
+    it never saw. Asserted with a generator that records every call.
+    """
+    import tempfile
+
+    seen = {}
+
+    def generator(prompt, *, env=None, size="1024x1024", reference_urls=None):
+        seen["refs"] = list(reference_urls or [])
+        return {"image_ref": "", "provider": "test", "cad": 0.04}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        cir = for_slug("cloudline-baby-blanket")
+        result = compile_cir(cir)
+        record = op.make(_db(), cir, build_twin(cir, result), work_dir=tmp,
+                         generator=generator,
+                         inspector=lambda ref, db=None, claim="": {"described": True},
+                         motif_judger=lambda *a, **k: {"judged": False})
+    _refused_before_any_render(record)
+    assert seen == {}, "the generator was reached"
+
+
+def test_an_asset_from_a_superseded_method_is_not_read_as_this_release_s():
+    """Attempts and assets belong to the method, not to the product.
+
+    Was written as `METHOD_VERSION.startswith("v4-")`, which tested the label rather than
+    the behaviour and broke the moment the method legitimately moved to v5. The durable
+    property is that a superseded method's asset does not satisfy this release -- that is
+    what stops a corrected render being skipped as "already has one".
+    """
+    db = _db()
+    from brambleloop.agents.registry import Registry
+
+    Registry(db).audit("publishing", op.ACTION, detail={
+        "made": True, "method_version": "v0-superseded", "slug": "a",
+        "version": "1.0.0", "usable_as_listing_asset": True})
+
+    assert op.usable_asset(db, slug="a", version="1.0.0") is None
+    assert op.what_to_do_next(db, slug="a", version="1.0.0")["render"] is True
+
+
+def test_a_blocked_asset_says_which_checks_failed_not_what_the_gate_is_for():
+    """Production, 2026-09-23: a blocked asset reported the gate's description of itself.
+
+    "artefacts a maker sees instantly, a picture that does not show what its caption
+    promises, or somebody else's brand in the frame" is what asset truth is *for*. It is
+    not what went wrong with this picture, and no next step can be chosen from it. The
+    gate already computes the names; the record was throwing them away.
+    """
+    db = _db()
+    from brambleloop.agents.registry import Registry
+
+    Registry(db).audit("publishing", op.ACTION, detail={
+        "made": True, "method_version": op.METHOD_VERSION, "slug": "a",
+        "version": "1.0.0", "usable_as_listing_asset": False, "verdict": "blocked",
+        "why": "the gate describing itself",
+        "asset_truth": {"verdict": "blocked", "failed_realism": ["stitch_scale_is_sane"],
+                        "semantic_problems": ["shows a cushion, caption promises a throw"],
+                        "third_party_marks": []}})
+
+    out = op.coverage(db, slugs=["a"], versions={"a": "1.0.0"})
+    found = out["why_each_unusable_one_failed"]["a"]
+    assert found["failed_realism"] == ["stitch_scale_is_sane"]
+    assert found["semantic_problems"] == ["shows a cushion, caption promises a throw"]
+    assert found["third_party_marks"] == []
+    assert found["detail"] == "recorded"
+
+
+def test_an_older_record_reports_unknown_rather_than_four_empty_lists():
+    """`verdict: blocked` beside four empty lists reads as "blocked and nothing failed".
+
+    Caught in production an hour after the detail-keeping was written, by reading its own
+    output: the record predated the change, so every list came back empty and the report
+    looked like a gate that blocked for no reason. A verdict computed from the absence of
+    a field is the defect this file keeps finding everywhere except in itself.
+    """
+    db = _db()
+    from brambleloop.agents.registry import Registry
+
+    Registry(db).audit("publishing", op.ACTION, detail={
+        "made": True, "method_version": op.METHOD_VERSION, "slug": "a",
+        "version": "1.0.0", "usable_as_listing_asset": False, "verdict": "blocked",
+        "why": "the gate describing itself"})
+
+    found = op.coverage(db, slugs=["a"], versions={"a": "1.0.0"}
+                        )["why_each_unusable_one_failed"]["a"]
+    assert found["detail"] == "not_recorded"
+    assert "unknown rather than empty" in found["why_no_detail"]
+    assert "failed_realism" not in found, "an empty list reads as nothing having failed"
+
+
+def test_the_cadence_photographs_an_untried_product_before_retrying_a_hard_one():
+    """Row order queued the whole catalogue behind its worst case.
+
+    `winter-village-graphghan` is a pictorial picture-blanket -- the hardest thing here for
+    a generator -- and it came first by row id, so three attempts at it would run before
+    nine simpler products got their first. That is also the weaker measurement: nine
+    products at one attempt each says far more about whether the method works than one
+    product at three.
+    """
+    from brambleloop.core.models import Product
+    from brambleloop.runtime.release import _representative_slug
+
+    db = _db()
+    with db.session() as sess:
+        sess.add(Product(slug="winter-village-graphghan", title="Graphghan",
+                         status="certified"))
+        sess.add(Product(slug="spooky-garland", title="Garland", status="certified"))
+
+    # The hard one already has an attempt on file; the simple one has none.
+    _file_asset(db, slug="winter-village-graphghan", usable=False, verdict="blocked")
+
+    assert _representative_slug(db) == "spooky-garland"
+
+
+def _file_realism(db, *, slug="a", version="1.0.0", **checks):
+    from brambleloop.agents.registry import Registry
+
+    Registry(db).audit("publishing", op.ACTION, detail={
+        "made": True, "method_version": op.METHOD_VERSION, "slug": slug,
+        "version": version, "usable_as_listing_asset": False,
+        "inspection": {"realism": dict(checks)}})
+
+
+def test_a_check_that_never_once_passed_stops_the_catalogue_spending_on_it():
+    """`ATTEMPTS` bounds one release and does nothing about a method that does not work.
+
+    Live, 2026-09-23: four renders across two products and two method versions, every one
+    blocked on `texture_not_repeating`. A real benchmark photograph then passed all ten
+    gallery checks with nothing unjudged, so the check discriminates and the renders are
+    genuinely tiling. Each new product starts its own attempt budget, so without this the
+    remaining eight pay three times each for the same answer.
+    """
+    db = _db()
+    for slug in ("a", "b"):
+        _file_realism(db, slug=slug, texture_not_repeating=False, drape=True)
+
+    move = op.what_to_do_next(db, slug="c", version="1.0.0")
+    assert move["render"] is False
+    assert move["reason"] == "method_systematically_blocked"
+    assert move["blocked_on"] == ["texture_not_repeating"]
+    assert "never once passed" in move["why"]
+
+
+def test_a_check_that_fails_sometimes_is_retried_rather_than_blocked():
+    """Stochastic failure is exactly what the attempt budget is for."""
+    db = _db()
+    _file_realism(db, slug="a", texture_not_repeating=False)
+    _file_realism(db, slug="b", texture_not_repeating=True)
+
+    assert op.what_to_do_next(db, slug="c", version="1.0.0")["render"] is True
+
+
+def test_a_check_asked_once_is_not_classified_from_a_single_ask():
+    """One ask cannot tell an architecture failure from bad luck."""
+    db = _db()
+    _file_realism(db, slug="a", texture_not_repeating=False)
+
+    assert op.systematically_blocked(db) == []
+
+
+def test_a_superseded_methods_failures_do_not_block_the_corrected_one():
+    """The escape is work rather than waiting: a new METHOD_VERSION clears it."""
+    db = _db()
+    from brambleloop.agents.registry import Registry
+
+    for _ in range(3):
+        Registry(db).audit("publishing", op.ACTION, detail={
+            "made": True, "method_version": "v0-superseded", "slug": "a",
+            "version": "1.0.0",
+            "inspection": {"realism": {"texture_not_repeating": False}}})
+
+    assert op.systematically_blocked(db) == []
+    assert op.what_to_do_next(db, slug="a", version="1.0.0")["render"] is True
+
+
+def test_the_prompt_names_tiling_because_that_is_what_every_render_failed_on():
+    """A general request for realism did not reach it; the defect has to be named.
+
+    `photoreal.DIRECTION` already records that lesson about skin. It had never been applied
+    to fabric: the prompt asked for visible stitch texture and for fabric that "lies as real
+    crocheted fabric lies", and never once said what tiling was. Four renders across two
+    products and two method versions were blocked on `texture_not_repeating`, and a real
+    crochet photograph passed all ten gallery checks -- so the check discriminates and the
+    renders genuinely tile.
+    """
+    cir = for_slug("cloudline-baby-blanket")
+    prompt = op.prompt_for(cir, build_twin(cir, compile_cir(cir)))
+
+    assert "never tiled" in prompt
+    assert "repeat boundary" in prompt
+    assert "worked stitch by stitch rather than stamped" in prompt
+    # It asks for the harder thing rather than relaxing the check.
+    assert "vary slightly in tension" in prompt
+
+
+def test_the_version_bump_targets_the_check_that_actually_failed():
+    """The systematic block's escape is a method change, and this is the test of one.
+
+    `model_photography` deliberately did NOT bump for a change addressing only *unjudged*
+    checks while the *failed* ones stood (B-655). Here the new direction targets
+    `texture_not_repeating` itself, which is the check that failed four times out of four,
+    so clearing the block is the gate working rather than being defeated.
+    """
+    assert op.METHOD_VERSION.startswith("v5-")
+    assert "tiling" in op.METHOD_VERSION
+
+
+def test_a_version_bump_does_not_send_the_cadence_back_to_the_hardest_product():
+    """History survives a version bump; the attempt budget does not.
+
+    v5 reset every product to zero attempts, so "untried first" went flat and row id
+    decided again -- straight back to `winter-village-graphghan`, the hardest thing in the
+    catalogue and the arbitrary tie-break the ordering fix existed to remove. A product
+    that has failed repeatedly under earlier methods is evidence about the product.
+    """
+    from brambleloop.core.models import Product
+    from brambleloop.runtime.release import _representative_slug
+
+    db = _db()
+    with db.session() as sess:
+        sess.add(Product(slug="winter-village-graphghan", title="Graphghan",
+                         status="certified"))
+        sess.add(Product(slug="spooky-garland", title="Garland", status="certified"))
+
+    # Failures under superseded methods: they do not spend this release's budget, and they
+    # are still the best evidence available about which product to try next.
+    from brambleloop.agents.registry import Registry
+
+    for method in ("v3-old", "v4-old"):
+        Registry(db).audit("publishing", op.ACTION, detail={
+            "made": True, "method_version": method, "slug": "winter-village-graphghan",
+            "version": "1.0.0", "usable_as_listing_asset": False})
+
+    assert op.historical_failures(db, slug="winter-village-graphghan") == 2
+    assert op.historical_failures(db, slug="spooky-garland") == 0
+    assert _representative_slug(db) == "spooky-garland"
+
+
+if __name__ == "__main__":
+    fails = 0
+    for name, fn in sorted(globals().items()):
+        if name.startswith("test_"):
+            try:
+                fn()
+                print("OK  ", name)
+            except Exception as e:  # noqa: BLE001
+                fails += 1
+                print("FAIL", name, repr(e))
+    sys.exit(1 if fails else 0)

@@ -1,0 +1,181 @@
+"""Certification C-3 remainder and C-54: no paid provider is reachable outside a ceiling.
+
+The spend-path scanner in test_model_spend_paths looks for client method calls. A module that
+builds an HTTP request to a provider host by hand is invisible to it -- visual/d_judge.py did
+exactly that, with no ceiling in code. These tests pin every file that addresses a paid
+provider host, and prove the one outside the gateway refuses before any request is built.
+"""
+from __future__ import annotations
+
+import os
+import re
+import sys
+import urllib.request
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+sys.path.insert(0, str(SRC))
+
+from brambleloop.visual import d_judge  # noqa: E402
+
+PAID_HOSTS = re.compile(
+    r"api\.openai\.com|api\.anthropic\.com|generativelanguage\.googleapis\.com|api\.bfl\.ai"
+    r"|volces\.com|fal\.run|api\.replicate\.com|api\.stability\.ai|api\.venice\.ai")
+
+# Each file allowed to address a paid provider, and what holds its ceiling. A new file here is
+# a decision about spend, made in review, not a refactor.
+DECLARED = {
+    "brambleloop/gateway/images.py": "images.generate reserves via check_budget_cad first",
+    "brambleloop/gateway/anthropic.py": "the model gateway checks check_budget_cad first",
+    # S2 (independent review SHIP b6dd73ad, 2026-11-18): the OpenAI provider in the same model
+    # gateway. Every request leaves through paid_calls.guarded after check_budget reserves on
+    # the shared estimator; off by default (per-task BRAMBLELOOP_MODEL_ROUTES + owner activation).
+    "brambleloop/gateway/openai_chat.py": "the model gateway checks check_budget_cad first; "
+                                         "owner-activated per task, paid_calls.guarded",
+    "brambleloop/visual/d_judge.py": "research judge: refuses without an operator cap (C-54)",
+    # Reviewed 2026-10-07 (W4-SPENDA F-106/F-103): GET-only reads of the providers' own
+    # cost-report endpoints, refused without an owner-supplied admin key; no billable call.
+    "brambleloop/ops/provider_accounts.py": "read-only billing settlement: GET cost reports, "
+                                            "refuses with no admin key",
+    # Reviewed 2026-10-20 (W4-CREDHEALTH; independent review INDEPENDENT_SECREVIEW_17bc373.md,
+    # "Free, budget-neutral, bounded: SAFE"): credential health only -- BFL GET /v1/credits and
+    # Anthropic POST /v1/messages/count_tokens, both documented free, no generation, a 60 s
+    # on-demand floor and the daily cadence; no billable call.
+    # Extended in W4-VENICE: Venice GET api_keys/rate_limits (and GET models), owner-enabled only
+    # (BRAMBLELOOP_PRIVATE_PROVIDER=venice); no inference. Its billing basis is recorded as
+    # UNKNOWN in credentials.VENICE_CHECK_COST_BASIS, never as free. (INTEG5/INTEG6-prep merged
+    # both entries.)
+    "brambleloop/gateway/credentials.py": "credential health: free GET /v1/credits and "
+                                          "count_tokens, Venice no-inference auth reads "
+                                          "(owner-enabled only); never generates",
+    # W4-VENICE (D-W4-PL-VENICE): Private Laura's transport. Only `laura_register._reply`
+    # calls it, after check_budget_cad reserved on `laura_private` (atomic, CA$0.50/day).
+    "brambleloop/gateway/venice.py": "Private Laura transport: laura_register reserves via "
+                                     "check_budget_cad first",
+    # INTEG7 (FMBATCH1 F-417): the adoption register names each called service's host as data
+    # (cost and footprint report). It imports no HTTP client and makes no request.
+    "brambleloop/ops/adoptions.py": "data only: provider host names in the F-417 adoption "
+                                    "register; no request",
+    # ENG-VIS-FLUX (2026-11-20): the verified FLUX 3 Image contract -- endpoint, documented
+    # fields, prices and the cited BFL documentation URLs -- held as data. It imports no HTTP
+    # client and makes no request; images.generate is still the only caller (reserving first).
+    "brambleloop/gateway/flux_contract.py": "data only: the verified BFL FLUX 3 contract and "
+                                            "its citations; no request",
+}
+
+
+def test_every_file_addressing_a_paid_provider_is_declared():
+    found = set()
+    for base, _dirs, files in os.walk(SRC):
+        for name in files:
+            if name.endswith(".py"):
+                path = Path(base) / name
+                if PAID_HOSTS.search(path.read_text(encoding="utf-8")):
+                    found.add(str(path.relative_to(SRC)))
+    assert found <= set(DECLARED), f"undeclared paid-provider callers: {sorted(found - set(DECLARED))}"
+
+
+# Integration review S-6 (carrying I16's open fix forward): the whole-file declarations of the
+# two free-check / transport modules are narrowed to an exact per-URL allowlist, so a new
+# billable endpoint added to either file fails here instead of passing under the declaration.
+URL_ALLOWLIST = {
+    "brambleloop/gateway/credentials.py": {
+        "https://api.bfl.ai/v1/credits",
+        "https://api.anthropic.com/v1/messages/count_tokens",
+        "https://api.venice.ai/api/v1/api_keys/rate_limits",
+        "https://api.venice.ai/api/v1/models?type=text",
+    },
+    "brambleloop/gateway/venice.py": {
+        "https://api.venice.ai/api/v1",
+        "https://api.venice.ai/api/v1/models",
+    },
+}
+_URL = re.compile(r"https?://(?:api\.venice\.ai|api\.anthropic\.com|api\.bfl\.ai)"
+                  r"[^\s\"'`;),]*")
+
+
+def test_free_check_and_transport_modules_address_only_their_allowlisted_urls():
+    assert len(URL_ALLOWLIST) == 2
+    for rel, allowed in URL_ALLOWLIST.items():
+        text = (SRC / rel).read_text(encoding="utf-8")
+        found = {u.rstrip(".") for u in _URL.findall(text)}
+        assert found, rel
+        assert found <= allowed, (rel, sorted(found - allowed))
+
+
+DATA_ONLY = ("brambleloop/ops/adoptions.py", "brambleloop/gateway/flux_contract.py")
+
+
+def test_the_data_only_declaration_holds_no_http_client():
+    """INTEG7: `ops/adoptions.py` is declared as data only, so it must not grow a request path.
+    ENG-VIS-FLUX: nor may the FLUX contract module (`gateway/flux_contract.py`)."""
+    for rel in DATA_ONLY:
+        text = (SRC / rel).read_text(encoding="utf-8")
+        for client in ("urllib", "urlopen", "http.client", "requests", "httpx", "socket",
+                       "Request("):
+            assert client not in text, (rel, client)
+
+
+def test_the_scan_would_see_a_new_one():
+    assert PAID_HOSTS.search('urllib.request.Request("https://api.openai.com/v1/images")')
+
+
+def _no_network(*a, **k):
+    raise AssertionError("a request was attempted")
+
+
+def test_the_research_judge_refuses_with_no_cap_before_any_request(tmp_path=None):
+    real = urllib.request.urlopen
+    urllib.request.urlopen = _no_network
+    old = os.environ.pop("BRAMBLELOOP_RESEARCH_JUDGE_CAP_USD", None)
+    try:
+        for bad in (None, "", "0", "-1", "nan", "lots"):
+            if bad is None:
+                os.environ.pop("BRAMBLELOOP_RESEARCH_JUDGE_CAP_USD", None)
+            else:
+                os.environ["BRAMBLELOOP_RESEARCH_JUDGE_CAP_USD"] = bad
+            try:
+                d_judge.see(str(ROOT / "does-not-matter.png"))
+            except d_judge.JudgeSpendRefused as e:
+                assert "refused before the call" in str(e)
+            else:
+                raise AssertionError(f"cap {bad!r} was accepted")
+    finally:
+        urllib.request.urlopen = real
+        os.environ.pop("BRAMBLELOOP_RESEARCH_JUDGE_CAP_USD", None)
+        if old is not None:
+            os.environ["BRAMBLELOOP_RESEARCH_JUDGE_CAP_USD"] = old
+
+
+def test_the_research_judge_refuses_a_call_whose_worst_case_passes_the_cap():
+    real = urllib.request.urlopen
+    urllib.request.urlopen = _no_network
+    before = d_judge._spent_usd
+    try:
+        os.environ["BRAMBLELOOP_RESEARCH_JUDGE_CAP_USD"] = "1.00"
+        d_judge._spent_usd = 1.00 - d_judge._worst_case_usd() / 2
+        try:
+            d_judge.see(str(ROOT / "does-not-matter.png"))
+        except d_judge.JudgeSpendRefused as e:
+            assert "would pass" in str(e)
+        else:
+            raise AssertionError("a call past the cap was allowed")
+    finally:
+        d_judge._spent_usd = before
+        urllib.request.urlopen = real
+        os.environ.pop("BRAMBLELOOP_RESEARCH_JUDGE_CAP_USD", None)
+
+
+if __name__ == "__main__":
+    fails = 0
+    for name, fn in sorted(globals().items()):
+        if name.startswith("test_"):
+            try:
+                fn()
+                print("OK  ", name)
+            except Exception as e:  # noqa: BLE001
+                fails += 1
+                print("FAIL", name, repr(e))
+    print(f"\n{'PASS' if not fails else 'FAIL'}: {fails} failing")
+    sys.exit(1 if fails else 0)

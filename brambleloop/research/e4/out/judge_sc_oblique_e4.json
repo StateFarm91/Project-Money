@@ -1,0 +1,81 @@
+{
+ "model": "gpt-5-2025-08-07",
+ "system": "You are a working photographer looking at an image and deciding whether it reads as a real photograph of a real object or as a computer-generated image. You are not judging whether it is attractive. Report what you can actually see, and say plainly when the image does not show you enough to tell.",
+ "prompt": "This is an image of a crochet swatch. Answer as JSON. For each key give true if the statement holds, false if it does not, and omit the key entirely if the image does not show you enough to judge it. Do not guess: an omitted key is a useful answer and a wrong one is not.\n\n  \"fabric_folds_naturally\": the fabric's bends and hang read as cloth under its own weight rather than a stiff, posed or arbitrarily warped shape\n  \"lighting_is_realistic\": the light on the object is what a real lamp or window would produce, with no contradictory or impossible illumination\n  \"shadows_are_coherent\": shadows and highlights agree with one light situation\n  \"has_ordinary_photographic_imperfection\": the frame has the ordinary imperfection of a photograph -- grain, slight unevenness of tone or focus, an unstyled detail -- rather than frictionless synthetic cleanliness\n  \"yarn_is_not_melted\": the yarn reads as twisted, plied fibre with real surface rather than a melted, smooth or plastic rope\n  \"stitch_texture_is_not_synthetic\": the stitch texture reads as hand-worked crochet fabric rather than a tiled, repeated or computer-generated pattern\n  \"not_catalogue_perfect_sterility\": the image is not sterile catalogue perfection: something in it is ordinary, imperfect or unarranged\n\nAdd \"notes\": one or two short sentences naming anything that made the image read as generated, or an empty string.",
+ "views": [
+  {
+   "image": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e4/out/gen/sc_oblique_e4.png",
+   "image_sha256": "6b2a440b6fad4d813f1fec1455a0e06144431ce8ebcc1ab6d2288dca17888c46",
+   "model": "gpt-5-2025-08-07",
+   "response_id": "chatcmpl-ESEfZtNTmdaL67hQyKoeKmqFCMeOm",
+   "seconds": 18.7,
+   "prompt_tokens": 1007,
+   "completion_tokens": 1272,
+   "reasoning_tokens": 1152,
+   "cost_usd": 0.013979,
+   "cost_cad": 0.019151,
+   "price_basis": "list, USD 1.25/M in, 10.0/M out",
+   "raw": "{\n  \"fabric_folds_naturally\": false,\n  \"lighting_is_realistic\": true,\n  \"shadows_are_coherent\": true,\n  \"has_ordinary_photographic_imperfection\": true,\n  \"yarn_is_not_melted\": false,\n  \"stitch_texture_is_not_synthetic\": false,\n  \"not_catalogue_perfect_sterility\": true,\n  \"notes\": \"The yarn looks plasticky and uniformly striped with no visible fibers, and the stitch loops are very regular and rigid.\"\n}",
+   "reading": {
+    "judged": true,
+    "checks": {
+     "fabric_folds_naturally": false,
+     "lighting_is_realistic": true,
+     "shadows_are_coherent": true,
+     "has_ordinary_photographic_imperfection": true,
+     "yarn_is_not_melted": false,
+     "stitch_texture_is_not_synthetic": false,
+     "not_catalogue_perfect_sterility": true
+    },
+    "notes": "The yarn looks plasticky and uniformly striped with no visible fibers, and the stitch loops are very regular and rigid."
+   }
+  }
+ ],
+ "items": {
+  "fabric_folds_naturally": {
+   "status": "FAIL",
+   "per_view": {
+    "sc_oblique_e4.png": false
+   }
+  },
+  "lighting_is_realistic": {
+   "status": "PASS",
+   "per_view": {
+    "sc_oblique_e4.png": true
+   }
+  },
+  "shadows_are_coherent": {
+   "status": "PASS",
+   "per_view": {
+    "sc_oblique_e4.png": true
+   }
+  },
+  "has_ordinary_photographic_imperfection": {
+   "status": "PASS",
+   "per_view": {
+    "sc_oblique_e4.png": true
+   }
+  },
+  "melted_yarn": {
+   "status": "FAIL",
+   "per_view": {
+    "sc_oblique_e4.png": false
+   }
+  },
+  "synthetic_stitch_texture": {
+   "status": "FAIL",
+   "per_view": {
+    "sc_oblique_e4.png": false
+   }
+  },
+  "catalogue_perfect_sterility": {
+   "status": "PASS",
+   "per_view": {
+    "sc_oblique_e4.png": true
+   }
+  }
+ },
+ "total_cost_usd": 0.013979,
+ "total_cost_cad": 0.019151,
+ "rule": "an item is PASS only when every authoritative view is sound on it, FAIL when any view is not, UNKNOWN when the judge could not tell on any view"
+}

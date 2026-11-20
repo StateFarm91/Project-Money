@@ -1,0 +1,210 @@
+#!/usr/bin/env python3
+"""Lease lock for unattended sessions (see AUTOMATIONS.md).
+Usage: python3 ops/lock.py acquire <session_id> [--scope LANE]   (F-462: a scoped lease)
+       python3 ops/lock.py leases
+       python3 ops/lock.py acquire <session_id>   -> exit 0 if acquired (writes ops/LOCK), 3 if another live lease exists
+       python3 ops/lock.py refresh <session_id>   -> exit 0 if the lease was extended, 3 if this session does not hold it
+       python3 ops/lock.py release <session_id>
+       python3 ops/lock.py status
+A lease older than STALE_HOURS is treated as dead and may be taken over (the takeover is noted on stdout for DAILY_LOG).
+
+Two corrections, both found while auditing what happens when several sessions run at once.
+
+`acquire` used to read the file and then write it, which is two steps and not a lock: two
+sessions that both find no lease both write one, the second overwrites the first, and both
+believe they hold it. The take is now a single `O_CREAT|O_EXCL` create, which the filesystem
+either allows once or refuses -- so the loser is told, rather than discovering it later by
+the work being done twice. Taking over a stale lease is the same create against a temporary
+name followed by an atomic rename, so the decision and the write cannot be separated by
+another session's.
+
+And a lease could be stolen from a session that was still working: `STALE_HOURS` measures
+time since the lease was *acquired*, so any session running longer than the stale window was
+declared dead while it ran. The lease now carries a heartbeat that `refresh` moves, and
+staleness is measured from the last heartbeat -- so a long session keeps its lease by saying
+it is alive, and a session that has actually died still loses it after STALE_HOURS.
+"""
+import datetime
+import json
+import os
+import pathlib
+import sys
+
+# F-462 (narrowest lease scope): `--scope NAME` takes a lease on one lane or surface only
+# (ops/LOCK.<NAME>), so a research, drafting or analysis session does not wait behind the
+# heartbeat's lease or another lane's. With no scope it is the one global heartbeat lease,
+# exactly as before. A scope name is letters, digits, '-' and '_'.
+_argv = list(sys.argv)
+SCOPE = ""
+if "--scope" in _argv:
+    _i = _argv.index("--scope")
+    SCOPE = _argv[_i + 1] if _i + 1 < len(_argv) else ""
+    del _argv[_i:_i + 2]
+    if not SCOPE or not all(c.isalnum() or c in "-_" for c in SCOPE):
+        print(f"refused: bad scope {SCOPE!r}")
+        sys.exit(2)
+_HERE = pathlib.Path(__file__).resolve().parent
+LOCK = _HERE / ("LOCK" if not SCOPE else f"LOCK.{SCOPE}")
+STALE_HOURS = 3
+now = datetime.datetime.now(datetime.timezone.utc)
+
+
+def read():
+    if not LOCK.exists():
+        return None
+    try:
+        return json.loads(LOCK.read_text())
+    except Exception:
+        return None
+
+
+def _lease(session):
+    stamp = now.isoformat()
+    return json.dumps({"session": session, "acquired_utc": stamp, "heartbeat_utc": stamp})
+
+
+def _age_hours(lease):
+    """Hours since this lease last said it was alive.
+
+    From the heartbeat, falling back to the acquisition time for a lease written by the
+    older version of this file. A malformed or missing timestamp reads as infinitely old
+    rather than raising: an unreadable lease must not be able to wedge every future session
+    out, and it must not crash the caller either -- this script's exit code is the answer.
+    """
+    for key in ("heartbeat_utc", "acquired_utc"):
+        raw = (lease or {}).get(key)
+        if not raw:
+            continue
+        try:
+            return (now - datetime.datetime.fromisoformat(raw)).total_seconds() / 3600
+        except (TypeError, ValueError):
+            continue
+    return float("inf")
+
+
+def _show_unread_lanes():
+    """Print every enrolled lane whose own evidence needs somebody, on the way into a session.
+
+    WHY A LOCK SCRIPT PRINTS A JOB BOARD.
+
+    `ops/registry.py` made a lane's verdict durable and re-derivable, and `ops/board.py`
+    computes it from the job's own terminal evidence rather than from anybody's belief.
+    Between them they close "the coordinator has to remember WHAT ran". They do not close
+    "the coordinator has to remember TO LOOK" -- and that second one is the 47-minute failure
+    exactly: no self-match, no lost list, nothing wrong with the evidence. The suite had
+    finished, the result was in the file, and nobody re-read it. A survey nobody runs is a
+    log nobody re-reads with more machinery behind it.
+
+    So the survey stops being something to remember and becomes a side effect of the one step
+    a session cannot skip. Every heartbeat begins by taking this lease; from here on, taking
+    it prints the lanes whose completion is established and unacknowledged, and the lanes
+    whose evidence cannot be established at all.
+
+    Three properties, each deliberate:
+      * It prints; it decides nothing. Acknowledging a lane is still an act, made by the
+        caller, with `registry.py ack`. A watcher that clears its own alerts is back to
+        reading completion from watcher state.
+      * It never changes this script's exit code. The lease is the answer to `acquire`, and
+        a board that cannot be built must not be able to stop a session working.
+      * It never raises. An absent, empty or corrupt registry prints one honest line.
+    """
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import registry
+
+        rows = registry.Registry().survey()["needs_attention"]
+    except Exception as exc:                                       # noqa: BLE001
+        print(f"job board unavailable ({type(exc).__name__}); lanes were NOT checked")
+        return
+    # F-344 / F-350: reliability incidents and time waste are part of the board, printed on
+    # the way in, not left in a JSONL file somebody has to remember to read.
+    for line in registry.reliability_lines():
+        print(line)
+    if not rows:
+        return
+    print(f"\n{len(rows)} lane(s) need attention before new work is started:")
+    for row in rows:
+        age = row.get("age_s")
+        age = f", {age / 60:.0f} min" if isinstance(age, (int, float)) else ""
+        print(f"  [{row.get('state')}] {row.get('job')} ({row.get('lane') or 'no lane'}{age})"
+              f"  {row.get('evidence') or row.get('why', '')}"[:160])
+    print("  read each one's evidence, then `python3 ops/registry.py ack <name>`.\n")
+
+
+def _create_exclusively(payload):
+    """Create the lock file only if it does not exist. Returns False if somebody won first."""
+    try:
+        fd = os.open(LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+    except FileExistsError:
+        return False
+    with os.fdopen(fd, "w") as fh:
+        fh.write(payload)
+    return True
+
+
+cmd = _argv[1] if len(_argv) > 1 else "status"
+sid = _argv[2] if len(_argv) > 2 else "unknown"
+cur = read()
+
+if cmd == "status":
+    print(json.dumps(cur) if cur else "no lock")
+    sys.exit(0)
+
+if cmd == "leases":
+    # Every lease held: the global heartbeat one and each scoped one.
+    out = {}
+    for f in sorted(_HERE.glob("LOCK*")):
+        if f.name == "LOCK" or (f.name.startswith("LOCK.") and ".takeover." not in f.name):
+            try:
+                out[f.name[5:] or "global"] = json.loads(f.read_text())
+            except Exception:                                          # noqa: BLE001
+                out[f.name[5:] or "global"] = "unreadable"
+    print(json.dumps(out))
+    sys.exit(0)
+
+if cmd == "acquire":
+    if _create_exclusively(_lease(sid)):
+        print("acquired")
+        _show_unread_lanes()
+        sys.exit(0)
+    cur = read()
+    if cur and cur.get("session") == sid:
+        LOCK.write_text(_lease(sid))
+        print("acquired")
+        _show_unread_lanes()
+        sys.exit(0)
+    age = _age_hours(cur)
+    if age < STALE_HOURS:
+        held = (cur or {}).get("session", "an unreadable lease")
+        print(f"held by {held} for {age:.1f}h; exiting")
+        sys.exit(3)
+    # Stale. Write beside it and rename over it, so the takeover is one filesystem step.
+    tmp = LOCK.with_suffix(f".takeover.{os.getpid()}")
+    tmp.write_text(_lease(sid))
+    os.replace(tmp, LOCK)
+    print(f"stale lease ({age:.1f}h) from {(cur or {}).get('session')} taken over")
+    # A takeover is the case where the board matters most: whatever the dead session was
+    # watching finished without it, and its evidence is sitting there.
+    _show_unread_lanes()
+    sys.exit(0)
+
+if cmd == "refresh":
+    if cur and cur.get("session") == sid:
+        lease = dict(cur)
+        lease["heartbeat_utc"] = now.isoformat()
+        LOCK.write_text(json.dumps(lease))
+        print("refreshed")
+        sys.exit(0)
+    print(f"not held by this session (held by {(cur or {}).get('session')})")
+    sys.exit(3)
+
+if cmd == "release":
+    if cur and cur.get("session") == sid:
+        LOCK.unlink()
+        print("released")
+    else:
+        print("not held by this session")
+    sys.exit(0)
+
+print(f"unknown command {cmd!r}")
+sys.exit(2)

@@ -1,0 +1,9 @@
+test_every_stitch_and_colour_once_including_all_border_rows (test_chart_tiles.ChartTiles.test_every_stitch_and_colour_once_including_all_border_rows) ... ok
+test_every_tile_meets_existing_floor_in_reserved_image_area (test_chart_tiles.ChartTiles.test_every_tile_meets_existing_floor_in_reserved_image_area) ... ok
+test_global_row_parity_and_columns_do_not_restart_on_tile (test_chart_tiles.ChartTiles.test_global_row_parity_and_columns_do_not_restart_on_tile) ... ok
+test_legend_footer_is_wrapped_inside_its_actual_image (test_chart_tiles.ChartTiles.test_legend_footer_is_wrapped_inside_its_actual_image) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 11.038s
+
+OK

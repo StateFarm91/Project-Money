@@ -1,0 +1,22 @@
+RUN ID: 20261012T020255Z-6086
+RUN STARTED: 2026-10-12T02:02:55Z
+GIT SHA: 5ad94dd8e6751752458467d23b419f2864ce92ca
+TREE: clean (0 changed paths)
+SCOPE: filtered (1 suites): tests/test_cert_claude_independence.py
+RUN RECORD: artifacts/suite_runs/20261012T020255Z-6086.json
+
+JOB: suite-20261012T020255Z-6086 enrolled in the job registry (role work)
+== tests/test_cert_claude_independence.py
+   OK   test_the_runtime_import_closure_names_no_claude_session_artefact
+   OK   test_the_deployed_image_and_start_command_carry_no_session_state
+   OK   test_production_start_command_runs_kills_and_resumes_without_this_session
+   OK   test_split_services_do_the_same_work_as_separate_processes
+   4/4 passed in 496s
+
+TOTAL PASSING: 4 ; suites failing: 0
+TMP LEAKED: 0 entries, 0 bytes across 0 suites (removed; TMPDIR was /tmp/brambleloop-run-1LYs9WtD)
+RUN FINISHED: 2026-10-12T02:11:17Z
+DURATION: 502s
+GIT SHA: 5ad94dd8e6751752458467d23b419f2864ce92ca (tree clean at start)
+RUN RECORD: artifacts/suite_runs/20261012T020255Z-6086.json (passed)
+EXIT 0

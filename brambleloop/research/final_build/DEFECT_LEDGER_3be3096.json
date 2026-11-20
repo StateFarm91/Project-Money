@@ -1,0 +1,624 @@
+{
+ "candidate": "3be3096047934302a64d56e83b72e8729782eaed",
+ "opened_at": "2026-10-06T00:40:13Z",
+ "status": "open",
+ "rule": "F-846: freeze -> independent audit -> ledger -> repair -> regression test -> full suite -> independent re-audit",
+ "defects": [
+  {
+   "source": "shadow_rehearsal",
+   "key": "search_certificate_not_pass",
+   "where": "listing_search_profiles.verdict",
+   "detail": "stored search verdict after listing.seo is 'REFUSED'; store.publish's search_certificate gate requires PASS",
+   "status": "open"
+  },
+  {
+   "source": "shadow_rehearsal",
+   "key": "grant_snapshot_refused",
+   "where": "ops/publication_authority.snapshot",
+   "detail": "ValueError: certified listing taxonomy UNKNOWN; default fallback prohibited",
+   "status": "open"
+  },
+  {
+   "source": "shadow_rehearsal",
+   "key": "past_shadow_publish_blocked",
+   "where": "runtime/pipeline.py::handle_store_publish",
+   "detail": "capability not enabled: listing export is blocked by the eight-part creative parity gate: parity is unjudged on ['hero', 'competitive_blind_review'], and unjudged is not a pass; frames not independently cleared (#61): {'1': 'unreviewed', '2': 'unreviewed', '3': 'unreviewed', '4': 'unreviewed', '5': 'unreviewed', '6': 'unreviewed', '7': 'unreviewed'}",
+   "status": "open"
+  },
+  {
+   "source": "shadow_rehearsal",
+   "key": "order_version_unmapped",
+   "where": "commerce/orders_ingest.py",
+   "detail": "the receipt's listing rehearsal-unpublished-listing did not map to cloudline-baby-blanket@1.1.0 (no draft listing id existed to sell)",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-002",
+   "where": "closure_matrix.json",
+   "detail": "CoverageReport.to_dict omits `where`, so the query->field matrix is not durable or visible",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-004",
+   "where": "closure_matrix.json",
+   "detail": "runtime/etsy_ops.py::certified_payload (called by runtime/pipeline.py::handle_store_publish, ops/publication_authority.py and ops/activation_authority.py) refuses unless the drafted ListingSearchProfile.verdict == 'PASS', but the only writer (runtime/release.py::_persist_search_profile via handle_listing_seo) calls search.search_certificate with hero=None, so the stored verdict is at best 'PENDING' -- store.publish and the owner publication preview can never build a payload at runtime (fail-closed dead end). tests/test_cert_publish_gates.py forces row.verdict='PASS' in a fixture, which hides it.",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-005",
+   "where": "closure_matrix.json",
+   "detail": "runtime/etsy_ops.py::certified_payload (called by runtime/pipeline.py::handle_store_publish, ops/publication_authority.py and ops/activation_authority.py) refuses unless the drafted ListingSearchProfile.verdict == 'PASS', but the only writer (runtime/release.py::_persist_search_profile via handle_listing_seo) calls search.search_certificate with hero=None, so the stored verdict is at best 'PENDING' -- store.publish and the owner publication preview can never build a payload at runtime (fail-closed dead end). tests/test_cert_publish_gates.py forces row.verdict='PASS' in a fixture, which hides it.",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-007",
+   "where": "closure_matrix.json",
+   "detail": "Attributes computed and 'checked' but never transmitted to Etsy -- internal completeness is a proxy with no marketplace effect",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-011",
+   "where": "closure_matrix.json",
+   "detail": "Template query set yields fewer than 13 acceptable tags and the shortfall is not detected",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-015",
+   "where": "closure_matrix.json",
+   "detail": "Template demand/competition numbers (e.g. 0.95/0.88) present as evidence without any",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-020",
+   "where": "closure_matrix.json",
+   "detail": "Template phrases enter tag selection with fabricated-looking demand numbers and no provenance",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-021",
+   "where": "closure_matrix.json",
+   "detail": "Own titles would be judged 'stuffed' by commerce/portfolio.stuffing (repeated_in_title) but the result is only audited",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-071",
+   "where": "closure_matrix.json",
+   "detail": "Residual owner-crochet wording in products/launch0.py:1240 owner_of_the_blocker",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-074",
+   "where": "closure_matrix.json",
+   "detail": "Intake dead end: physical.record requires a certified release, but certification of a new-primitive pattern requires a recorded sample (same root as F-078)",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-078",
+   "where": "closure_matrix.json",
+   "detail": "physical.record (runtime/release.py::handle_physical_record) uses _load_cir which refuses uncertified releases, so a Class C / out-of-band-gauge release cannot receive the sample that would unblock it via the runtime",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-081",
+   "where": "closure_matrix.json",
+   "detail": "physical_test_passed is never supplied by gate.certify, so the gate is fail-closed forever",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-086",
+   "where": "closure_matrix.json",
+   "detail": "products/launch0.py:1240 owner action to crochet samples",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-106",
+   "where": "closure_matrix.json",
+   "detail": "Owner-typed figures are the only 'provider side'; no discrepancy incident.",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-116",
+   "where": "closure_matrix.json",
+   "detail": "The live runtime authoring path (runtime/pipeline.concept_to_cir) hard-codes Gauge(16,14) with 'worsted acrylic' -- the very implausible gauge BUILD_STATE flagged.",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-118",
+   "where": "closure_matrix.json",
+   "detail": "gates/first_customer.py (which reports UNRESOLVED physical claims) has no runtime caller.",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-128",
+   "where": "closure_matrix.json",
+   "detail": "ops/health.py read() reports model_gateway/integrations/rendered_pages HEALTHY on env-var presence (a label, not a capability).",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-131",
+   "where": "closure_matrix.json",
+   "detail": "ops/health.read and ops/dependencies.Dependency.present still treat env-var presence as capability (see F-128).",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-160",
+   "where": "closure_matrix.json",
+   "detail": "Unwired: owner_requests() is never called by a runtime root, so the rotation card never reaches the owner",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-179",
+   "where": "closure_matrix.json",
+   "detail": "two owner-action sources coexist on the dashboard (legacy OwnerAction table + executor gate cards); nothing reconciles them against each other",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-181",
+   "where": "closure_matrix.json",
+   "detail": "approval_inbox presents cards that unblock nothing (unblocks_count 0), including 'customers' which is not an owner action at all",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-185",
+   "where": "closure_matrix.json",
+   "detail": "dashboard headline 'Dead letters' card is the misleading unsplit number the requirement names; test_dashboard_cards_equal_sql asserts that unsplit total",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-186",
+   "where": "closure_matrix.json",
+   "detail": "proxy-by-construction: the gauge criterion is never assessed, so clearance cannot become true even for a product that meets it",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-188",
+   "where": "closure_matrix.json",
+   "detail": "the creative metric measures only the legacy builder CATALOGUE yet is presented unlabeled as 'the current creative gate'",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-189",
+   "where": "closure_matrix.json",
+   "detail": "growth/weekly and release.py weekly reading still record the modelled bound under 'confidence' as a bare number",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-203",
+   "where": "closure_matrix.json",
+   "detail": "query-time as-of on blocks that summarise older snapshots (e.g. benchmark observations, last scan) can still present mixed snapshots as current",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-233",
+   "where": "closure_matrix.json",
+   "detail": "proxy-as-truth: banner/icon 'present' means a non-empty brief string (_banner_brief/_icon_brief), so the shop_complete rung and the storefront requirement pass without any image asset existing",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-238",
+   "where": "closure_matrix.json",
+   "detail": "library-only: check_grid_coherence is unreached from any runtime root",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-242",
+   "where": "closure_matrix.json",
+   "detail": "search limits (TAG_MAX_COUNT, TITLE_MAX, attribute set) are constants with no dated source, so a guidance change cannot invalidate them",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-245",
+   "where": "closure_matrix.json",
+   "detail": "portfolio.stuffing verdict is audit-only; a stuffed title is not refused",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-253",
+   "where": "closure_matrix.json",
+   "detail": "gate is correct but produces zero passing galleries: the launch path is blocked on imagery",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-258",
+   "where": "closure_matrix.json",
+   "detail": "consumer without producer: the funnel diagnosis reads a table no runtime path fills",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-259",
+   "where": "closure_matrix.json",
+   "detail": "exposure update depends on ListingOutcome, which has no producer (see F-258)",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-260",
+   "where": "closure_matrix.json",
+   "detail": "commerce/listing_tests exposure discipline is not applied by growth.conclude (two experiment paths, one unwired)",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-261",
+   "where": "closure_matrix.json",
+   "detail": "input ListingOutcome has no runtime producer (F-258)",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-263",
+   "where": "closure_matrix.json",
+   "detail": "trust.shop_complete passes on text briefs (see F-233)",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-273",
+   "where": "closure_matrix.json",
+   "detail": "offsite_ad_attributed has no producer; contribution per order ignores Offsite Ads fees",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-282",
+   "where": "closure_matrix.json",
+   "detail": "exposure input has no runtime producer (F-258)",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-289",
+   "where": "closure_matrix.json",
+   "detail": "blended 'etsy' label hides the components the requirement says must never be hidden",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-291",
+   "where": "closure_matrix.json",
+   "detail": "ads thresholds used by F-264/F-265 are not in the watched reading",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-294",
+   "where": "closure_matrix.json",
+   "detail": "tag/category/attribute edits do not invalidate the certificate",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-297",
+   "where": "closure_matrix.json",
+   "detail": "measurement plumbing incomplete (F-258) while optimisation consumers are live",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-298",
+   "where": "closure_matrix.json",
+   "detail": "stuffing verdict is not blocking (F-245)",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-300",
+   "where": "closure_matrix.json",
+   "detail": "readiness.ready gates only the owner queue and audit; no job is blocked by it",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-306",
+   "where": "closure_matrix.json",
+   "detail": "routing.cached_analysis/remember_analysis (the #225 cache) is called only by tests/test_model_access.py -- no runtime path uses it",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-311",
+   "where": "closure_matrix.json",
+   "detail": "gateway/routing.cached_analysis has no runtime caller (see F-306)",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-313",
+   "where": "closure_matrix.json",
+   "detail": "may_downgrade_for_cost is a library only tests call; routing changes are not guarded by evidence",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-321",
+   "where": "closure_matrix.json",
+   "detail": "attribution input is never produced at runtime: tests feed product-tagged CostEntry fixtures that no production writer creates",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-322",
+   "where": "closure_matrix.json",
+   "detail": "cost per usable gallery excludes judging spend (make() records only render cad)",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-324",
+   "where": "closure_matrix.json",
+   "detail": "zero (untagged) creation cost is reported as break_even_sales 0 / recovered True \u2014 a quantitative claim from missing data",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-329",
+   "where": "closure_matrix.json",
+   "detail": "fail-closed but currently un-passable: because no runtime spend writer tags product_slug, the forecast stays INSUFFICIENT_DATA ('no AI/API spend is tagged to a product') and this gate blocks launch indefinitely",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-363",
+   "where": "closure_matrix.json",
+   "detail": "intel/childrens.assess is not fed from the CIR: applied parts and ties are declared in a Concept, not extracted from the pattern",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-461",
+   "where": "closure_matrix.json",
+   "detail": "Guard exists but the actual deploy trigger (push to the production branch) does not pass through it.",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-515@v0.16",
+   "where": "closure_matrix.json",
+   "detail": "remote shop verification (assess_shop) is tested but unwired, so readiness reads the package we intend rather than the shop Etsy shows",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-524",
+   "where": "closure_matrix.json",
+   "detail": "store.publish uploads no images, so any draft it creates is unactivatable and has no first image at all",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-540",
+   "where": "closure_matrix.json",
+   "detail": "etsy.probe cadence checks only the app key (openapi-ping), not the OAuth credential",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-541",
+   "where": "closure_matrix.json",
+   "detail": "Orders-side re-authorisation owner action ('etsy.oauth.reauthorise') is silently marked done by the next launch.readiness run (reproduced), and orders_ingest.needs_owner never reopens a done action, so the owner request disappears while sales stay UNMEASURED. Also two parallel keys/incidents (P1 vs P2) for the same remedy.",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-542",
+   "where": "closure_matrix.json",
+   "detail": "runtime/pipeline.py::handle_store_publish records store.published without reading the listing back from Etsy",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-543",
+   "where": "closure_matrix.json",
+   "detail": "store.publish passes no image bytes to client.publish, so every draft it would create cannot be activated",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-547",
+   "where": "closure_matrix.json",
+   "detail": "Etsy browser-only queue (etsy_surfaces.owner_queue) is library-only",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-556",
+   "where": "closure_matrix.json",
+   "detail": "SupportCase rows have no ingestion path from Etsy messages; SLA timing starts at case creation and ends at draft_ready, which is not a buyer-facing response.",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-558",
+   "where": "closure_matrix.json",
+   "detail": "Ledger fees on each sale line are pricing.fees() model output (known incomplete: offsite/regulatory/currency unmodelled) stored as if charged; refund is a boolean only.",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-577",
+   "where": "closure_matrix.json",
+   "detail": "assess_shop's payments-onboarded check is tested but never fed a getShop reading.",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-593",
+   "where": "closure_matrix.json",
+   "detail": "etsy_surfaces.owner_queue() (15 actions incl. reauthorise_transactions_r) has no runtime writer into OwnerAction.",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-594",
+   "where": "closure_matrix.json",
+   "detail": "readiness 'etsy_integration' is hard-coded ready=False / ever_called=False instead of reading exercise breadcrumbs, so it cannot turn green after a real round trip.",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-609",
+   "where": "closure_matrix.json",
+   "detail": "Sale ledger fees_cad are modelled pricing.fees() values (unmodelled offsite/regulatory/currency fees omitted) stored without a basis flag, so they read as charged fees.",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-663",
+   "where": "closure_matrix.json",
+   "detail": "duplicate owner actions 19/20 in production (fix exists on 019ebf0, not deployed)",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-665",
+   "where": "closure_matrix.json",
+   "detail": "production shows 275 unproven artefacts; the fix is undeployed",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-674",
+   "where": "closure_matrix.json",
+   "detail": "runtime path is the superseded generative-redraw direction",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-676",
+   "where": "closure_matrix.json",
+   "detail": "generative product redraw is the superseded default (F-852)",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-677",
+   "where": "closure_matrix.json",
+   "detail": "product-truth floor is an LLM vision proxy, not deterministic Product Truth (F-856)",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-689",
+   "where": "closure_matrix.json",
+   "detail": "customer message text exposed on unauthenticated /api/support",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-696",
+   "where": "closure_matrix.json",
+   "detail": "unauthenticated read of customer support text at /api/support",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-733",
+   "where": "closure_matrix.json",
+   "detail": "approved pack fingerprint recorded only in a production audit row (left None in code)",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-734",
+   "where": "closure_matrix.json",
+   "detail": "product-truth floor is an LLM vision proxy",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-783",
+   "where": "closure_matrix.json",
+   "detail": "design provenance is optional and unconsumed: nothing refuses a release without it",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-806",
+   "where": "closure_matrix.json",
+   "detail": "proxy: visual truth rests on human attestation, honestly labelled (automated_truth_proof=false) but not measured",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-815",
+   "where": "closure_matrix.json",
+   "detail": "write-only graph: producer is live (learn.scan) but the graph exists so agents can reuse knowledge and no runtime consumer reads it",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-821",
+   "where": "closure_matrix.json",
+   "detail": "proxy: provenance is a self-declaration attested by a reviewer, not a byte-level check",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-836",
+   "where": "closure_matrix.json",
+   "detail": "honour-system: packet's evidence_class is asserted by its author, not derived",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-837",
+   "where": "closure_matrix.json",
+   "detail": "honour-system: 'direct' is asserted by the packet author",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-839",
+   "where": "closure_matrix.json",
+   "detail": "closure_matrix.json basis label is stale (says 019ebf0) while reachability is 6f9a2f7",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-843",
+   "where": "closure_matrix.json",
+   "detail": "matrix basis field says 019ebf0 though reachability/suite are 6f9a2f7",
+   "status": "open"
+  },
+  {
+   "source": "closure_matrix",
+   "key": "F-851",
+   "where": "closure_matrix.json",
+   "detail": "main-line photoreal path (publish/model_photography.py, owned_photography.py) is still generative product redraw (V1), contrary to the new default",
+   "status": "open"
+  }
+ ]
+}

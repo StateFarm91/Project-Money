@@ -1,0 +1,148 @@
+{
+ "generated_at": "2026-10-07T09:12:52+00:00",
+ "phase": "shadow",
+ "producer": "W4-CREATIVE2 (research/final_build/w4/handoff_CREATIVE2.md)",
+ "what": "catalogue creative audit (cadence persist_catalogue_audit + dashboard_truth.creative_survivors) on a scratch SQLite DB, before/after releasing the 5 Product-Truth holds whose titles W4-PIPE/PIPE3 made truthful",
+ "catalogue": {
+  "before": {
+   "label": "before (parent commit 3219a13: 5 HELD, no briefs)",
+   "audited": 11,
+   "survived": 6,
+   "survivors": [
+    "cloudline-baby-blanket",
+    "harvest-table-runner",
+    "mosaic-placemat-pair",
+    "pet-snuggle-mat",
+    "spooky-garland",
+    "valentine-heart-garland"
+   ],
+   "survivor_decisions": [
+    "needs_taste"
+   ],
+   "deaths": {
+    "emotional_appeal": 5
+   },
+   "held": [
+    "autumn-oak-mosaic-throw",
+    "cottage-wall-hanging",
+    "nordic-star-ornaments",
+    "pressed-flower-motifs",
+    "winter-village-graphghan"
+   ],
+   "cadence_persist_catalogue_audit": {
+    "deaths": {
+     "emotional_appeal": 5
+    },
+    "lesson_kept": true,
+    "lesson_why": null
+   },
+   "dashboard_truth.creative_survivors": {
+    "count": 6,
+    "audited": 11
+   },
+   "raw_generator": {
+    "survived": 0,
+    "deaths": {
+     "emotional_appeal": 11
+    }
+   }
+  },
+  "after": {
+   "label": "after (W4-CREATIVE2: HELD empty, 5 briefs validated)",
+   "audited": 11,
+   "survived": 11,
+   "survivors": [
+    "autumn-oak-mosaic-throw",
+    "cloudline-baby-blanket",
+    "cottage-wall-hanging",
+    "harvest-table-runner",
+    "mosaic-placemat-pair",
+    "nordic-star-ornaments",
+    "pet-snuggle-mat",
+    "pressed-flower-motifs",
+    "spooky-garland",
+    "valentine-heart-garland",
+    "winter-village-graphghan"
+   ],
+   "survivor_decisions": [
+    "needs_taste"
+   ],
+   "deaths": {},
+   "held": [],
+   "cadence_persist_catalogue_audit": {
+    "deaths": {},
+    "lesson_kept": false,
+    "lesson_why": "nothing died in this run, so the jury has nothing to pass on"
+   },
+   "dashboard_truth.creative_survivors": {
+    "count": 11,
+    "audited": 11
+   },
+   "raw_generator": {
+    "survived": 0,
+    "deaths": {
+     "emotional_appeal": 11
+    }
+   }
+  }
+ },
+ "formerly_held": {
+  "winter-village-graphghan": {
+   "released_title": "Winter Snowfall Relief Throw",
+   "motif": "snowfall",
+   "title_conflicts": [],
+   "validate_problems": [],
+   "recipient": "grandparent",
+   "occasion": "christmas",
+   "feeling": "heirloom",
+   "decision_after": "needs_taste"
+  },
+  "autumn-oak-mosaic-throw": {
+   "released_title": "Fir and Star Relief Throw",
+   "motif": "fir-and-star",
+   "title_conflicts": [],
+   "validate_problems": [],
+   "recipient": "self",
+   "occasion": "thanksgiving",
+   "feeling": "folkloric",
+   "decision_after": "needs_taste"
+  },
+  "nordic-star-ornaments": {
+   "released_title": "Nordic Snowflake Ornament Set (6)",
+   "motif": "snowfall",
+   "title_conflicts": [],
+   "validate_problems": [],
+   "recipient": "newlyweds",
+   "occasion": "christmas",
+   "feeling": "heirloom",
+   "decision_after": "needs_taste"
+  },
+  "pressed-flower-motifs": {
+   "released_title": "Heart Applique Motif Library (12)",
+   "motif": "heart-row",
+   "title_conflicts": [],
+   "validate_problems": [],
+   "recipient": "child",
+   "occasion": "everyday",
+   "feeling": "whimsical",
+   "decision_after": "needs_taste"
+  },
+  "cottage-wall-hanging": {
+   "released_title": "Cottage Chevron Wall Hanging",
+   "motif": "chevron-band",
+   "title_conflicts": [],
+   "validate_problems": [],
+   "recipient": "student",
+   "occasion": "back_to_school",
+   "feeling": "bold",
+   "decision_after": "needs_taste"
+  }
+ },
+ "stale_holds": [],
+ "new_candidates_vs_briefed_catalogue": {
+  "proposed": 8,
+  "survivors": 8,
+  "refused_at_brief": {}
+ },
+ "not_claimed": "needs_taste is not approval: thumbnail legibility and craft impression still need a recorded vision judgement (emotional_brief.NEEDS_TASTE_CLEARS); no listing, sale or buyer is implied by any brief"
+}

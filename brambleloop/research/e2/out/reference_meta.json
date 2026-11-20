@@ -1,0 +1,20 @@
+{
+ "views": [
+  "cardigan_front34.png",
+  "cardigan_back.png",
+  "cardigan_flatlay.png"
+ ],
+ "front_gap_cm_on_form": 7.8,
+ "cardigan_ellipse_circumference_cm": 102.6,
+ "form_semi_axes_cm": [
+  15.0,
+  10.5
+ ],
+ "pocket_placement": {
+  "above_hem_rib_cm": 6.0,
+  "centred_on_front": true,
+  "assumed": true
+ },
+ "texture": "PROCEDURAL row lines at gauge row pitch; vertical on body, lengthwise on sleeves",
+ "colour": "neutral; not derivable from the pattern text"
+}

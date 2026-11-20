@@ -1,0 +1,26 @@
+{
+  "base": "26db169",
+  "network_guard_source": "integrated e0cf403 tests/network_guard.py",
+  "diagnostic": "one25second faulthandler timeout; credential env stripped; network refused",
+  "completed_stages": [
+    "app import",
+    "TestClient lifespan",
+    "_spend_governance_html",
+    "_spend_governance_data"
+  ],
+  "blocked_stage": "GET /",
+  "trace": [
+    "dashboard._build2",
+    "closure.matrix",
+    "closure.classify",
+    "closure.proof_of",
+    "maturity._tested",
+    "maturity._tested_modules:219 ast.walk(test AST)"
+  ],
+  "nullable_audit": "variance actual_cad used only in spend_report guarded actual availability filter. App formats recorded spent/ratio fields; no actual_cad formatting consumers found. Separate SpendReservation.actual_cad model unchanged.",
+  "paid_spend": 0,
+  "harness_change": "Disable embedded workers; clear credential/authorization env before app import; install existing network guard. Isolate unrelated closure.matrix with counts UNKNOWN:1. Preserve five assertions plus mixed actual-null and page UNKNOWN controls. Dispose SQLite engine before temp cleanup.",
+  "result": "7/7 focused checks passed. Full dashboard closure scan is NOT validated; no app source change.",
+  "dependency": "tests/network_guard.py already integrated by e0cf403; local branch verifier loaded that exact file via importlib before runpy.",
+  "open_issue": "Full GET / synchronously scans Build2 test corpus on cold cache.25s stack in maturity._tested_modules. This change isolates that separate performance concern, not a production repair."
+}

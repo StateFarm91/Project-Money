@@ -1,0 +1,2883 @@
+[
+ {
+  "id": 1,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "POST /api/insights/snapshot -> InsightsSnapshot; cadence seasonal_engine -> seasonal.engine -> seasonal/daily opportunities reads InsightsSnapshot",
+  "acted_on": "feeds seasonal expected-demand scoring",
+  "test": "test_cert_growth_seasonal",
+  "gap": "none; there is no sanctioned API, so the owner-recording gate is real"
+ },
+ {
+  "id": 2,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "GET /api/arbitrage[/departments]; cadence commerce_readings -> commerce.readings -> insights_budget.allocate -> arbitrage.score_observed",
+  "acted_on": "only as an audit row and an Insights query plan",
+  "test": "test_arbitrage, test_cert_commerce_readings",
+  "gap": "nothing that selects products reads the scores. radar.scan/select_portfolio, radar.score, prospecting.choose and the tournament never call score_observed/weakness_hunt, so the 'hunt' never steers what gets made"
+ },
+ {
+  "id": 3,
+  "state": "DATA-GATED",
+  "verdict": "invalid",
+  "entry": "cadence product_tournament -> creative.tournament -> prospecting.tournament -> funnel.advance",
+  "acted_on": "tournament recorded",
+  "test": "test_prospecting",
+  "gap": "creative/funnel.may_engineer has zero callers. radar.score -> cir.draft engineers POOL seeds the tournament never carried to prototype. Wiring that gate needs no data, so the row is falsely parked"
+ },
+ {
+  "id": 4,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "GET route -> commerce/preproduction",
+  "acted_on": "on request",
+  "test": "library tests",
+  "gap": "parked on owned_surfaces, which is plausible"
+ },
+ {
+  "id": 5,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "cadence production_lanes -> gate.lanes -> lanes.route_certified (also enqueued by gate.certify)",
+  "acted_on": "a failed check_release withdraws the listing; the lane itself is only audited",
+  "test": "test_cert_preengineering",
+  "gap": "lanes.allocate/check_mix (the capacity split and both floors) are never called at runtime. The lane label drives no queue, priority or engineering capacity. route_certified hardcodes sizes=1 and pattern_count=1, so the flagship collection and size-depth path is unreachable"
+ },
+ {
+  "id": 6,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "cadence seasonal_sentinel -> seasonal.sentinel -> compression.programme; prospecting.choose/slots use priority_shares/lane_states",
+  "acted_on": "P3 incidents for late preparation; the Christmas share reserves tournament/expedition arenas",
+  "test": "test_seasonal_incidents, test_leadtime",
+  "gap": ""
+ },
+ {
+  "id": 7,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "assets.build -> publish/pdf.build_pattern_pdf -> substitution.guidance, value_stack.milestones/print_safety",
+  "acted_on": "rendered into the PDF",
+  "test": "PDF/product tests",
+  "gap": "'price the customer outcome' is not implemented. value_stack.outcome_price/value_stack() have zero callers, and pricing.position prices from seed.price_cad within CATEGORY_BANDS"
+ },
+ {
+  "id": 8,
+  "state": "DATA-GATED",
+  "verdict": "valid",
+  "entry": "listing.seo -> gates.policy.check_listing -> quality.proof.check_claim",
+  "acted_on": "claims above the proof level block the listing",
+  "test": "proof tests",
+  "gap": "rungs 4-5 need orders"
+ },
+ {
+  "id": 9,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "GET /api (growth.creators)",
+  "acted_on": "on request",
+  "test": "library",
+  "gap": ""
+ },
+ {
+  "id": 10,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "GET /api (growth.free_to_paid)",
+  "acted_on": "on request",
+  "test": "library",
+  "gap": ""
+ },
+ {
+  "id": 11,
+  "state": "DATA-GATED",
+  "verdict": "invalid",
+  "entry": "GET /api (commerce.cohorts state) only",
+  "acted_on": "none",
+  "test": "test_cohorts (library)",
+  "gap": "cohorts.record_order has zero callers and no receipt/order ingest exists anywhere (getShopReceipts is never called). The machinery cannot read orders when they arrive. The ingest can be built now; only the transactions_r grant is the owner's"
+ },
+ {
+  "id": 12,
+  "state": "DATA-GATED",
+  "verdict": "invalid",
+  "entry": "GET /api (cohorts, ladder)",
+  "acted_on": "none",
+  "test": "library",
+  "gap": "same as #11: nothing writes Order/Customer rows"
+ },
+ {
+  "id": 13,
+  "state": "DATA-GATED",
+  "verdict": "invalid",
+  "entry": "GET /api/offers -> offers.state() (static)",
+  "acted_on": "none",
+  "test": "library",
+  "gap": "offers.may_retire has zero callers. The portfolio.review retirement actions never consult it, and no cadence reads offer data"
+ },
+ {
+  "id": 14,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "GET /api (commerce.benchmarks)",
+  "acted_on": "on request",
+  "test": "library",
+  "gap": "live_listings gate is plausible"
+ },
+ {
+  "id": 15,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "cadence serp_capture -> intel.serp_capture -> serp.capture_targets/score_thumbnails",
+  "acted_on": "SerpSnapshot rows; feeds arbitrage density and learning",
+  "test": "test_serp",
+  "gap": "intel/serp.py never scores pattern+video positioning, category diversity or Brambleloop differentiation. Thumbnail composition needs image_vision, which is CLOSED, so marking the row COMPLETE overstates it"
+ },
+ {
+  "id": 16,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "GET /api (commerce.listing_tests)",
+  "acted_on": "on request",
+  "test": "library",
+  "gap": ""
+ },
+ {
+  "id": 17,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "invalid",
+  "entry": "GET /api/trust -> trust.may_scale_ads",
+  "acted_on": "none",
+  "test": "library",
+  "gap": "may_scale_ads is served only by the API. No ad path, launch.readiness or ad_authority gate consults it, and trust.record_proof has zero callers. The gate protects nothing"
+ },
+ {
+  "id": 18,
+  "state": "DATA-GATED",
+  "verdict": "invalid",
+  "entry": "GET /api/trust -> service.service_level",
+  "acted_on": "none",
+  "test": "library",
+  "gap": "support/service.record_response has zero callers (support.reply never records timings), so service_level can only ever read 'untimed'. This can be wired now"
+ },
+ {
+  "id": 19,
+  "state": "DATA-GATED",
+  "verdict": "weak",
+  "entry": "GET /api/promotion -> promotion.dependence(db)",
+  "acted_on": "on request",
+  "test": "library",
+  "gap": "incrementality/control checks never run and no cadence reads them. No promotion path exists, so parking them is plausible"
+ },
+ {
+  "id": 20,
+  "state": "DATA-GATED",
+  "verdict": "valid",
+  "entry": "launch.plan -> marketing.schedule -> growth.content.build_ecosystem",
+  "acted_on": "ContentPiece drafts per product",
+  "test": "product tests",
+  "gap": "sending needs owned surfaces; assisted-conversion tracking needs data"
+ },
+ {
+  "id": 21,
+  "state": "DATA-GATED",
+  "verdict": "valid",
+  "entry": "GET /api (growth.creators)",
+  "acted_on": "on request",
+  "test": "library",
+  "gap": ""
+ },
+ {
+  "id": 22,
+  "state": "DATA-GATED",
+  "verdict": "invalid",
+  "entry": "GET /api/replication -> replication.state() (static)",
+  "acted_on": "none",
+  "test": "library",
+  "gap": "no cadence detects winners or reallocates capacity, and nothing reads orders. The C-59 standard (the machinery runs daily on the DB) is not met"
+ },
+ {
+  "id": 23,
+  "state": "DATA-GATED",
+  "verdict": "valid",
+  "entry": "cadence commerce_readings -> kill_table.compose(runrate.observe(db))",
+  "acted_on": "audit reading",
+  "test": "test_cert_commerce_readings",
+  "gap": ""
+ },
+ {
+  "id": 24,
+  "state": "OWNER-GATED",
+  "verdict": "weak",
+  "entry": "cadence capacity_review -> ops.capacity -> weekly.solve -> runrate.per_visitor_from_db",
+  "acted_on": "operating_readings row",
+  "test": "test_cert_growth_seasonal",
+  "gap": "pricing.position/listing.seo never read contribution-per-visitor. 'Pricing agents optimize contribution economics' is unwired and could be wired now"
+ },
+ {
+  "id": 25,
+  "state": "DATA-GATED",
+  "verdict": "valid",
+  "entry": "ops.capacity -> runrate.observe/decompose/constraint",
+  "acted_on": "binding term recorded weekly",
+  "test": "test_cert_growth_seasonal, test_runrate",
+  "gap": ""
+ },
+ {
+  "id": 26,
+  "state": "DATA-GATED",
+  "verdict": "invalid",
+  "entry": "GET trajectory route -> trajectory.nightly(None)",
+  "acted_on": "none",
+  "test": "library",
+  "gap": "there is no nightly cadence. nightly() ignores db and hardcodes an empty Observed() (the C-48 defect again), and the route passes db=None"
+ },
+ {
+  "id": 27,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "ops.capacity -> confidence.probability; /api/discipline",
+  "acted_on": "capped probability recorded",
+  "test": "test_scale",
+  "gap": "QUALITATIVE_CONDITIONS are never derived from data (weekly.solve passes no conditions), so the gate can never open. The 'scenario model conservative assumptions approach target' condition is missing from the list"
+ },
+ {
+  "id": 28,
+  "state": "DATA-GATED",
+  "verdict": "valid",
+  "entry": "ops.capacity -> constraint rule -> allocation tilt / readiness.gate",
+  "acted_on": "tilt or refusal recorded",
+  "test": "test_cert_growth_seasonal",
+  "gap": ""
+ },
+ {
+  "id": 29,
+  "state": "DATA-GATED",
+  "verdict": "weak",
+  "entry": "GET /api/dependency, /api/war-room",
+  "acted_on": "on request",
+  "test": "library",
+  "gap": "no cadence or incident. The note itself says ai_provider is existential today, and nothing raises it"
+ },
+ {
+  "id": 30,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "cadence capacity_review -> ops.capacity -> allocation.allocate",
+  "acted_on": "mix recorded to audit/operating_readings only",
+  "test": "test_allocation",
+  "gap": "nothing consumes the mix: swarm.allocate sizes lanes by spend and the backlog feed ignores it. The distribution floor is never enforced on actual work"
+ },
+ {
+  "id": 31,
+  "state": "DATA-GATED",
+  "verdict": "weak",
+  "entry": "GET /api/finance -> unit_cost.unit_costs",
+  "acted_on": "on request",
+  "test": "library",
+  "gap": "validated-products-per-dollar is measurable now, but nothing acts on it or schedules it"
+ },
+ {
+  "id": 32,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "process directive",
+  "acted_on": "n/a",
+  "test": "test_build2",
+  "gap": "self-certified directive"
+ },
+ {
+  "id": 33,
+  "state": "DATA-GATED",
+  "verdict": "valid",
+  "entry": "cadence seasonal_engine -> seasonal.engine -> daily.run (engine.allocate, teams)",
+  "acted_on": "teams persisted, operating_readings",
+  "test": "test_cert_growth_seasonal",
+  "gap": ""
+ },
+ {
+  "id": 34,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "cadence thrash_sweep -> ops.thrash -> swarm.orchestrate.thrash_sweep",
+  "acted_on": "P2 incident and FAILED retries cancelled",
+  "test": "test_cert_growth_seasonal",
+  "gap": "it only observes DEAD or paid jobs, so free identical polling is ignored. There is no progress-per-dollar or per-iteration metric. A tripped loop is not suspended (the next cadence window re-enqueues it). No changed-hypothesis rule for deploy retries"
+ },
+ {
+  "id": 35,
+  "state": "EXTERNAL-BLOCKED",
+  "verdict": "valid",
+  "entry": "listing.seo -> platform_policy.classify_release/check_new_class; store.publish -> _release_classification",
+  "acted_on": "blocks listing and publish",
+  "test": "test_cert_parity_copy",
+  "gap": "only class enablement against a fresh policy reading is blocked (403)"
+ },
+ {
+  "id": 36,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "assets.build / assets.model_photography -> buyer_trust.record_gallery",
+  "acted_on": "image_provenance audit row; refusal blocks",
+  "test": "test_cert_parity_copy",
+  "gap": ""
+ },
+ {
+  "id": 37,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "cadence commerce_readings -> insights_budget.allocate",
+  "acted_on": "daily query plan",
+  "test": "test_cert_commerce_readings",
+  "gap": ""
+ },
+ {
+  "id": 38,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "cadence seasonal_engine -> daily.run -> provenance.stamp_all",
+  "acted_on": "trend_provenance rows written",
+  "test": "test_cert_growth_seasonal",
+  "gap": "no scorer reads trend_provenance.weight/usable_value (only continuity exports it). check_presentable_as_current has zero callers. 'Opportunity scores discount stale evidence' is not implemented. SERP/MJs data are not stamped"
+ },
+ {
+  "id": 39,
+  "state": "EXTERNAL-BLOCKED",
+  "verdict": "invalid",
+  "entry": "cadence policy_watch -> ops.policy_watch",
+  "acted_on": "stale/unread incidents only, created with halts_publication=False",
+  "test": "policy tests",
+  "gap": "record_snapshot computes material_change, but nothing raises a blocking incident on it (only /api echoes it). That piece is software work that can be done now, so the row is partly falsely parked. Status owner_gated also skipped closure's reachability check"
+ },
+ {
+  "id": 40,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "assets.build -> pdf renders terms; listing.seo -> seo renders terms",
+  "acted_on": "rendered from one source",
+  "test": "terms tests",
+  "gap": "terms.consistency/shop_package.surface_consistency have no runtime caller. The divergence refusal is never run on the produced PDF, listing and FAQ, and the FAQ surface is not produced by any handler"
+ },
+ {
+  "id": 41,
+  "state": "DATA-GATED",
+  "verdict": "valid",
+  "entry": "listing.seo + store.publish -> listing_disclosure_finding; cadence support_triage -> support.triage",
+  "acted_on": "blocks publish; confusion reading",
+  "test": "test_trust_wiring",
+  "gap": "case window UNKNOWN"
+ },
+ {
+  "id": 42,
+  "state": "DATA-GATED",
+  "verdict": "invalid",
+  "entry": "support.reply -> concierge.purchased_versions",
+  "acted_on": "read side only",
+  "test": "test_trust_wiring",
+  "gap": "record_order/record_sale_version have no caller and no order ingest exists. correction_notice/affected_by have zero callers, and gate.certify does not trigger them when a correcting version certifies. That can be built now"
+ },
+ {
+  "id": 43,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "gate.lanes -> testers.plan",
+  "acted_on": "quality.tester_plan audit",
+  "test": "test_cert_preengineering",
+  "gap": ""
+ },
+ {
+  "id": 44,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "cadence launch_readiness -> launch.readiness -> readiness.assess -> brand_moat.inventory",
+  "acted_on": "readiness item",
+  "test": "test_launch",
+  "gap": "moat.inventory uses hand-set exists=True/False flags rather than evidence. Recognisability on product-first listings is not measured"
+ },
+ {
+  "id": 45,
+  "state": "DATA-GATED",
+  "verdict": "valid",
+  "entry": "ops.capacity -> bundles.attribution_from_db",
+  "acted_on": "winners_declarable recorded",
+  "test": "test_cert_growth_seasonal",
+  "gap": ""
+ },
+ {
+  "id": 46,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "pricing.position -> elasticity.record_price_set",
+  "acted_on": "price point rows",
+  "test": "test_cert_growth_seasonal",
+  "gap": ""
+ },
+ {
+  "id": 47,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "invalid",
+  "entry": "cadence portfolio_review -> portfolio.review -> review_portfolio",
+  "acted_on": "PortfolioReview row",
+  "test": "test_radar",
+  "gap": "pipeline.handle_portfolio_review builds SkuMetrics with only support_cases and open_p1_incidents. Impressions, clicks, favourites and orders are never read, so the ladder can only ever say NO_EVIDENCE (called with empty inputs)"
+ },
+ {
+  "id": 48,
+  "state": "DATA-GATED",
+  "verdict": "valid",
+  "entry": "ops.capacity -> elasticity.holdout_from_db",
+  "acted_on": "fed to readiness",
+  "test": "test_cert_growth_seasonal",
+  "gap": ""
+ },
+ {
+  "id": 49,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "invalid",
+  "entry": "GET /api/discipline -> reinvestment.describe() only",
+  "acted_on": "none",
+  "test": "library",
+  "gap": "envelope()/recommend() have zero callers. Reserves are never computed from the ledger and no CFO recommendation is produced"
+ },
+ {
+  "id": 50,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "GET route -> dependencies.map_state",
+  "acted_on": "on request",
+  "test": "library",
+  "gap": "'continuously map' is not met: no cadence and nothing is raised when a recovery strategy is missing or a probe fails"
+ },
+ {
+  "id": 51,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "cadences continuity_proof/offsite_archive",
+  "acted_on": "proved export retained",
+  "test": "continuity tests",
+  "gap": "bucket credential"
+ },
+ {
+  "id": 52,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "GET /api/discipline -> velocity.from_db",
+  "acted_on": "dashboard",
+  "test": "library",
+  "gap": ""
+ },
+ {
+  "id": 53,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "invalid",
+  "entry": "none (only STOP_CATEGORIES served)",
+  "acted_on": "none",
+  "test": "library only",
+  "gap": "velocity.stop_list/review have zero callers. improve.weekly produces only agent-cell retire/merge, with no STOP list for experiments, cadences, polishing, queries or infra"
+ },
+ {
+  "id": 54,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "cadence launch_readiness -> readiness.assess",
+  "acted_on": "owner actions queued; ready flag",
+  "test": "test_launch",
+  "gap": "missing items: digital disclosure language, support knowledge, pricing/promotion plan, launch calendar, FAQ. analytics_baseline=bool(listings) and rollback_plan ready=True are hardcoded"
+ },
+ {
+  "id": 55,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "ops.capacity -> confidence.probability; /api/discipline bands",
+  "acted_on": "recorded",
+  "test": "test_scale",
+  "gap": ""
+ },
+ {
+  "id": 56,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "process directive",
+  "acted_on": "n/a",
+  "test": "test_build2",
+  "gap": "self-certified"
+ },
+ {
+  "id": 57,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "store.publish -> _release_gates -> release_gates.listing_set (ROLE_JOBS purposes, el.Candidate)",
+  "acted_on": "blocks export",
+  "test": "test_cert_publish_gates",
+  "gap": ""
+ },
+ {
+  "id": 58,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "store.publish -> listing_set -> eligibility.may_export per frame",
+  "acted_on": "blocks export",
+  "test": "test_cert_publish_gates",
+  "gap": ""
+ },
+ {
+  "id": 59,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "assets.build -> check_frame_plan -> layout_qa.inspect (hero only)",
+  "acted_on": "blocks the frames",
+  "test": "layout tests",
+  "gap": "layout_qa.inspect runs only on the hero (listing_assets.check_frame_plan skips non-hero frames). layout_qa.check_frames/report have zero callers. No bounding-box test for title truncation, chart/text collision or footer overlap on other frames"
+ },
+ {
+  "id": 60,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "store.publish -> release_gates.dimension_audit",
+  "acted_on": "blocks",
+  "test": "test_cert_publish_gates",
+  "gap": ""
+ },
+ {
+  "id": 61,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "owned/model_photography -> visual.inspect; assets.build layout/eligibility",
+  "acted_on": "blocks generated photos",
+  "test": "photography tests",
+  "gap": "independent visual review never runs on assets.build listing frames (size card, chart preview, finished-result frame). Only deterministic checks cover them"
+ },
+ {
+  "id": 62,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "assets.build -> check_frame_plan hero layout_qa + infographic refusal",
+  "acted_on": "blocks",
+  "test": "asset tests",
+  "gap": ""
+ },
+ {
+  "id": 63,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "assets.build -> brief.brief_for_release/walk",
+  "acted_on": "CREATIVE_INVENTED blocks",
+  "test": "asset tests",
+  "gap": ""
+ },
+ {
+  "id": 64,
+  "state": "OWNER-GATED",
+  "verdict": "invalid",
+  "entry": "none",
+  "acted_on": "none",
+  "test": "none",
+  "gap": "no photo intake exists and no handler (not physical.record, not the cadences) creates an upgrade task when physical photography arrives. No CTR/conversion comparison. That trigger is buildable now"
+ },
+ {
+  "id": 65,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "store.publish -> listing_set -> eligibility.check_set",
+  "acted_on": "collisions fail COMMERCIAL_QA",
+  "test": "test_cert_publish_gates",
+  "gap": ""
+ },
+ {
+  "id": 66,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "launch.plan (store_renders) / store.publish -> mobile_contexts -> mobile.qa",
+  "acted_on": "blocks",
+  "test": "test_cert_publish_gates",
+  "gap": ""
+ },
+ {
+  "id": 67,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "cadence blind_review -> creative.blind_review; store.publish -> _listing_parity",
+  "acted_on": "UNKNOWN blocks",
+  "test": "test_cert_parity_copy",
+  "gap": "image_vision closed (provider funding)"
+ },
+ {
+  "id": 68,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "assets.build -> defects.replay/capture",
+  "acted_on": "fixtures recorded",
+  "test": "test_cert_parity_copy",
+  "gap": ""
+ },
+ {
+  "id": 69,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "listing_assets 'Digital render, not a photograph' text; eligibility.honesty_label in certificate; classification disclosures in copy",
+  "acted_on": "rendered and gated",
+  "test": "eligibility tests",
+  "gap": ""
+ },
+ {
+  "id": 70,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "store.publish -> certificate_step; gate.certify -> _recheck_listing_certificates",
+  "acted_on": "invalidates or blocks",
+  "test": "test_cert_publish_gates",
+  "gap": ""
+ },
+ {
+  "id": 71,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "store.publish -> _listing_parity -> blind_review.current_review",
+  "acted_on": "blocks",
+  "test": "test_cert_parity_copy",
+  "gap": ""
+ },
+ {
+  "id": 72,
+  "state": "EXTERNAL-BLOCKED",
+  "verdict": "valid",
+  "entry": "owned_photography refuses worn forms (model_bearing_refusal)",
+  "acted_on": "refusal",
+  "test": "test_owned_photography",
+  "gap": "the provider fidelity ceiling is plausible as external"
+ },
+ {
+  "id": 73,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "cadence model_photography -> assets.model_photography -> bible",
+  "acted_on": "floor blocks",
+  "test": "test_model_photography",
+  "gap": ""
+ },
+ {
+  "id": 74,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "assets.build -> model_registry.gate_frames; owned_photography needs_no_model",
+  "acted_on": "gate",
+  "test": "test_model_identity",
+  "gap": ""
+ },
+ {
+  "id": 75,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "store.publish -> _listing_parity -> visual.parity",
+  "acted_on": "ParityRefusal after the capability gates",
+  "test": "test_cert_parity_copy",
+  "gap": ""
+ },
+ {
+  "id": 76,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "creative.blind_review -> benchmark_set.build per pod",
+  "acted_on": "thin/stale -> UNKNOWN -> blocks",
+  "test": "test_cert_parity_copy",
+  "gap": ""
+ },
+ {
+  "id": 77,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "store.publish -> parity escalation -> enqueue assets.build",
+  "acted_on": "rebuild enqueued; hold",
+  "test": "test_parity",
+  "gap": ""
+ },
+ {
+  "id": 78,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "check_frame_plan/eligibility DESIRE-first",
+  "acted_on": "blocks",
+  "test": "test_eligibility",
+  "gap": ""
+ },
+ {
+  "id": 79,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "owned/model_photography -> visual.inspect realism; parity _realism_of",
+  "acted_on": "unjudged blocks",
+  "test": "test_visual",
+  "gap": ""
+ },
+ {
+  "id": 80,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "store.publish -> release_gates -> gallery.minimum_quality",
+  "acted_on": "blocks",
+  "test": "test_cert_publish_gates",
+  "gap": ""
+ },
+ {
+  "id": 81,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "chain.rebuild -> ... launch.plan -> store.publish -> pipeline._listing_parity -> parity.assess -> gallery.escalation_plan -> enqueue assets.build",
+  "acted_on": "deterministic rung enqueues assets.build (creative.escalation_taken); release stays blocked",
+  "test": "test_cert_parity_copy::test_a_taken_deterministic_rung_enqueues_assets_build_once",
+  "gap": "gallery.RUNG_GATES hard-codes rungs 1-3 (regenerate, recompose, change tool) as gated on image_generation and rung 5 on physical_proof. escalation_plan never reads the live gate state, so those rungs are never attempted even when the gate opens."
+ },
+ {
+  "id": 82,
+  "state": "DATA-GATED",
+  "verdict": "valid",
+  "entry": "style_learning -> creative.style_learning",
+  "acted_on": "daily UNMEASURED readings",
+  "test": "cert tests",
+  "gap": ""
+ },
+ {
+  "id": 83,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "product_tournament/arena_expedition -> creative.tournament/expedition -> ideation.pre_engineering_gate -> preengineering.gate_concept -> record; also radar.score and cir.draft",
+  "acted_on": "refused -> autopsy + concept.returned_to_ideation; waiting -> not engineered",
+  "test": "test_cert_preengineering, test_cert_ideation::test_the_winner_meets_the_real_pre_engineering_gate",
+  "gap": "Refusal works. See cross-cutting defect A: a passing concept has no path to engineering."
+ },
+ {
+  "id": 84,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "product_tournament -> creative.tournament -> prospecting.tournament -> screen (sibling dedupe) + per-concept _brief_for",
+  "acted_on": "too_close_to_a_sibling kills",
+  "test": "test_prospecting",
+  "gap": "The claimed module creative/tournament.run/check_field has no runtime caller; the substance is met by prospecting.screen."
+ },
+ {
+  "id": 85,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "failure_mine -> improve.mine -> mine -> audit.creativity_director; ideation.lessons -> brief_lessons into constraints_text",
+  "acted_on": "lessons persisted and written into every model brief",
+  "test": "test_cert_ideation::test_the_tournament_reads_lessons_and_sends_them_to_the_model",
+  "gap": ""
+ },
+ {
+  "id": 86,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "gallery_analysis -> intel.gallery_analysis",
+  "acted_on": "refused before spend (image_vision/model_provider CLOSED)",
+  "test": "gallery tests",
+  "gap": "The note itself says production runs wait on funding. The row should be parked on image_vision, not COMPLETE+PROVEN."
+ },
+ {
+  "id": 87,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "gate_concept._novelty (catalogue + benchmark_comparables); prospecting.screen",
+  "acted_on": "refuses near-clones",
+  "test": "test_cert_preengineering::test_novelty_refuses...",
+  "gap": ""
+ },
+ {
+  "id": 88,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "ideation.pre_engineering_gate -> gate_concept._premise_thumbnail",
+  "acted_on": "refuses",
+  "test": "test_cert_preengineering",
+  "gap": "ideation.pre_engineering_gate calls gate(db, winner.concept) with no brief, and no generator emits thumbnail_storyboard. Every ideation winner fails 'no thumbnail storyboard' by construction; no storyboard is ever produced (verified: gate_concept on catalogue concepts -> refused on premise_thumbnail)."
+ },
+ {
+  "id": 89,
+  "state": "DATA-GATED",
+  "verdict": "valid",
+  "entry": "outcome_learning -> creative.outcome_learning",
+  "acted_on": "UNMEASURED readings",
+  "test": "cert tests",
+  "gap": ""
+ },
+ {
+  "id": 90,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "nightly_improvement/weekly_evolution/improve_* cadences",
+  "acted_on": "observes and proposes",
+  "test": "test_improve_handlers",
+  "gap": "The department can never promote anything (see #92 deadlock), so 'promotes only evidence-backed upgrades' is unreachable."
+ },
+ {
+  "id": 91,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "cells.promote -> director.detect/blocking; improve.weekly -> director.conflicts; /api/improve backlogs",
+  "acted_on": "conflict blocks promotion",
+  "test": "test_improve",
+  "gap": "Moot while #92 deadlocks promotion."
+ },
+ {
+  "id": 92,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "invalid",
+  "entry": "improve_sandbox -> improve.sandbox -> runner.run",
+  "acted_on": "nothing ever reaches TESTING",
+  "test": "test_cert_improve_autonomy (seeded rows)",
+  "gap": "runner.TRIALS holds only counterfactual_rollback, which needs a prior PROMOTED Improvement in the cell. cells.test_result's only caller is runner.py:231 and Improvement rows are only created PROPOSED (cells.py:168). So PROMOTED is unreachable: a deadlock, and every proposal waits forever."
+ },
+ {
+  "id": 93,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "promotion_monitor -> improve.monitor -> monitor.sweep",
+  "acted_on": "would revert and open an incident",
+  "test": "test_improve_handlers",
+  "gap": "Has no Improvement row to act on (#92). Only league config rollback is live, and that has no runs (#95)."
+ },
+ {
+  "id": 94,
+  "state": "DATA-GATED",
+  "verdict": "valid",
+  "entry": "capability_measure -> improve.measure.measure_product_creativity; blinded_benchmark -> creative.blinded",
+  "acted_on": "readings recorded",
+  "test": "test_measure",
+  "gap": "tournament.scorecard itself is uncalled, but survival and kill rate are measured."
+ },
+ {
+  "id": 95,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "invalid",
+  "entry": "improve_league -> improve.league -> league.cycle",
+  "acted_on": "compares nothing",
+  "test": "league tests (runs seeded)",
+  "gap": "league.record_run (the only writer of improve.league.run rows) has no runtime caller, so compare/promote/rollback never have data and no challenger is ever run."
+ },
+ {
+  "id": 96,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "improve.bootstrap.ensure (league.cycle / nightly)",
+  "acted_on": "ConfigVersion rows written",
+  "test": "league tests",
+  "gap": "Only model-routing tiers and the image-provider incumbent are versioned (bootstrap.py). Prompts, tools and decision policies are not."
+ },
+ {
+  "id": 97,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "failure_mine -> mine -> bus.publish",
+  "acted_on": "lessons routed to cell inboxes",
+  "test": "test_mine",
+  "gap": "bus.acted_on has no runtime caller. Only product_creativity consumes lessons (brief_lessons); radar, engineering, listings and support never read their inbox."
+ },
+ {
+  "id": 98,
+  "state": "DATA-GATED",
+  "verdict": "valid",
+  "entry": "serp_capture/mjs_reviews -> learning.ingest_*",
+  "acted_on": "observations stored",
+  "test": "learning tests",
+  "gap": ""
+ },
+ {
+  "id": 99,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "improvement_retrospective -> improve.retrospective -> roi.realised_benefit",
+  "acted_on": "reported",
+  "test": "test_improve",
+  "gap": "roi.prioritise() has no caller, so nothing prioritises by expected impact. No stagnation rule is applied to the Improvement Department itself."
+ },
+ {
+  "id": 100,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "weekly_evolution -> improve.weekly -> director.execute_approved; improve.retrospective",
+  "acted_on": "report written",
+  "test": "test_improve_handlers",
+  "gap": "execute_approved can never find an APPROVED row (#92), so 'executes approved low-risk improvements' never happens."
+ },
+ {
+  "id": 101,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "creative.tournament -> ideation.lessons -> bus.brief_lessons -> roi.design_provenance",
+  "acted_on": "lessons in brief",
+  "test": "test_cert_ideation",
+  "gap": "design_provenance is keyed on 'ideation:kind:event/pod' (ideation.py:117), not on the winning design. compounding_report counts runs, not designs."
+ },
+ {
+  "id": 102,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "cells.propose -> governance.check (profiles.py:380, teardown.pipeline)",
+  "acted_on": "refuses at proposal",
+  "test": "test_improve",
+  "gap": ""
+ },
+ {
+  "id": 103,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "gate.certify -> certificate -> asset_truth.check_shape_claims",
+  "acted_on": "blocks certification",
+  "test": "test_compiler/certificate tests",
+  "gap": ""
+ },
+ {
+  "id": 104,
+  "state": "DATA-GATED",
+  "verdict": "weak",
+  "entry": "improve.retrospective -> raise_plateau_defect; blinded cadence",
+  "acted_on": "plateau incident",
+  "test": "test_improve",
+  "gap": "Measurement against historical cohorts is standard.north_star, which is only ever called as north_star({}) (main.py:1235)."
+ },
+ {
+  "id": 105,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "creative.tournament/expedition -> ideation.plan.cells -> BriefingGateway.constraints_text",
+  "acted_on": "each call briefed to a cell; cells_briefed rotated",
+  "test": "test_cert_ideation::test_every_model_call_is_briefed...",
+  "gap": ""
+ },
+ {
+  "id": 106,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "prospecting.propose -> _brief_for -> _crosses_for -> invention.cross",
+  "acted_on": "briefs",
+  "test": "test_prospecting",
+  "gap": ""
+ },
+ {
+  "id": 107,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "same, TRANSFORMATIONS patterns per brief",
+  "acted_on": "briefs",
+  "test": "test_prospecting",
+  "gap": "invention.transform() (seller-name refusal) is uncalled."
+ },
+ {
+  "id": 108,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "gate_concept._silhouette",
+  "acted_on": "refuses",
+  "test": "test_cert_preengineering",
+  "gap": ""
+ },
+ {
+  "id": 109,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "remerchandising_review -> seasonal_transform -> invention.promise",
+  "acted_on": "re-merchandise only",
+  "test": "seasonal transform tests",
+  "gap": "New-concept generation (prospecting and the gate) never calls invention.promise, so a feeling with no physical execution is not refused for new concepts."
+ },
+ {
+  "id": 110,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "gate_concept._motif_grammar",
+  "acted_on": "refuses",
+  "test": "test_cert_preengineering",
+  "gap": "The brief's 'motifs' is never produced by generation or ideation, so every seasonal winner fails 'declared no motifs'. The grammar is never actually checked on a generated selection."
+ },
+ {
+  "id": 111,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "prospecting.tournament -> proposition -> family.family_test",
+  "acted_on": "no_family kill",
+  "test": "test_prospecting",
+  "gap": ""
+ },
+ {
+  "id": 112,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "jury shopping_window via expedition screen(days_to_event=arena.days_away), gate _jury",
+  "acted_on": "kills",
+  "test": "jury tests",
+  "gap": "prospecting.tournament calls screen(days_to_event=None) (prospecting.py:1223), so the weekly tournament never judges the window. family.shift_capacity is uncalled."
+ },
+ {
+  "id": 113,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "ideation.cells -> universe.cells x CONTEXTS",
+  "acted_on": "briefs",
+  "test": "test_cert_ideation",
+  "gap": ""
+ },
+ {
+  "id": 114,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "invalid",
+  "entry": "signal_review -> radar.scan -> preengineering.wave_skill_portfolio",
+  "acted_on": "NO",
+  "test": "test_cert_preengineering::test_radar_scan_measures_the_wave_skill_portfolio",
+  "gap": "The radar.skill_gap audit row (pipeline.py:199) is read by nothing; ideation never consumes the 'brief'. The wave measured is the catalogue's radar seeds."
+ },
+ {
+  "id": 115,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "gate_concept._wow",
+  "acted_on": "refuses",
+  "test": "test_cert_preengineering",
+  "gap": "No producer of wow_mechanism/wow_grounding, so every FLAGSHIP winner fails by absence."
+ },
+ {
+  "id": 116,
+  "state": "OWNER-GATED",
+  "verdict": "weak",
+  "entry": "ideation.lessons -> reference.brief (from vision observations)",
+  "acted_on": "primitives into brief when evidence exists",
+  "test": "reference tests",
+  "gap": "The image_vision gate is real. But reference.read_listing and record_reading are still uncalled even once the gate opens, and the decomposition is computed at read time, not stored as the body requires."
+ },
+ {
+  "id": 117,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "ideation.saturation (SerpSnapshot) -> excluded_forms / _ideation_arena moves arena",
+  "acted_on": "forms excluded / run blocked",
+  "test": "test_cert_ideation::test_a_crowded_form_with_no_angle...",
+  "gap": ""
+ },
+ {
+  "id": 118,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "white_space_discovery -> creative.white_space",
+  "acted_on": "hypotheses in briefs; angles unlock forms",
+  "test": "test_cert_ideation",
+  "gap": ""
+ },
+ {
+  "id": 119,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "ideation.select -> quotas",
+  "acted_on": "defers dominating survivors",
+  "test": "test_cert_ideation::test_a_value_that_would_dominate...",
+  "gap": ""
+ },
+ {
+  "id": 120,
+  "state": "DATA-GATED",
+  "verdict": "valid",
+  "entry": "ideation.transfer -> discovery.transfer",
+  "acted_on": "mechanism in brief",
+  "test": "test_cert_ideation",
+  "gap": ""
+ },
+ {
+  "id": 121,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "four_season_programme -> creative.four_season; ideation.programme",
+  "acted_on": "brief",
+  "test": "test_cert_ideation",
+  "gap": ""
+ },
+ {
+  "id": 122,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "ideation.occasions in every brief",
+  "acted_on": "brief",
+  "test": "test_cert_ideation",
+  "gap": ""
+ },
+ {
+  "id": 123,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "seasonal_sentinel -> seasonal.sentinel -> collection_calendar",
+  "acted_on": "calendar_behind incidents",
+  "test": "seasonal sentinel tests",
+  "gap": ""
+ },
+ {
+  "id": 124,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "ideation.plan -> standard.floor(history) -> select",
+  "acted_on": "cuts below floor",
+  "test": "test_cert_ideation floor tests",
+  "gap": ""
+ },
+ {
+  "id": 125,
+  "state": "OWNER-GATED",
+  "verdict": "invalid",
+  "entry": "gate_concept._top_decile",
+  "acted_on": "UNMEASURED -> waits",
+  "test": "test_cert_preengineering",
+  "gap": "Falsely parked. No code anywhere produces strength_score/strength_score_source/benchmark_scores (grep), so the check stays UNMEASURED even after model_provider opens. The scorer can be built now."
+ },
+ {
+  "id": 126,
+  "state": "OWNER-GATED",
+  "verdict": "weak",
+  "entry": "grid_tournament -> creative.grid_tournament; store.publish -> release_grid_verdict (pipeline.py:864)",
+  "acted_on": "release blocked without a clear verdict",
+  "test": "test_cert_preengineering grid tests",
+  "gap": "The release half is wired. The engineering half needs a board_image, and nothing produces one, so request_grid never fires from runtime."
+ },
+ {
+  "id": 127,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "preengineering.record -> standard.autopsy -> creativity_director -> lessons -> brief",
+  "acted_on": "lessons in ideation",
+  "test": "cert tests",
+  "gap": ""
+ },
+ {
+  "id": 128,
+  "state": "DATA-GATED",
+  "verdict": "weak",
+  "entry": "seasonal.engine -> breakout",
+  "acted_on": "capacity allocation only",
+  "test": "seasonal tests",
+  "gap": "commerce/replication is reached only by /api state(). A breakout never triggers decomposition or an adjacent-original ideation run, and that wiring can be built now."
+ },
+ {
+  "id": 129,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "jury via gate (needs_taste)",
+  "acted_on": "waits",
+  "test": "standard tests",
+  "gap": "standard.meets_standard has no caller. No taste judge exists, and nothing rewards hit quality over volume."
+ },
+ {
+  "id": 130,
+  "state": "EXTERNAL-BLOCKED",
+  "verdict": "valid",
+  "entry": "model_photography -> assets.model_photography",
+  "acted_on": "refuses",
+  "test": "model photography tests",
+  "gap": "Parking plausible (0/16, 0/7 provider draws)."
+ },
+ {
+  "id": 131,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "seasonal_engine -> seasonal.engine -> daily.takeovers -> takeover.check/plan",
+  "acted_on": "plan in operating_readings",
+  "test": "seasonal daily tests",
+  "gap": "There is no executor that applies or reverts a scheduled takeover. Plans only."
+ },
+ {
+  "id": 132,
+  "state": "DATA-GATED",
+  "verdict": "invalid",
+  "entry": "/api creative -> standard.north_star({})",
+  "acted_on": "no",
+  "test": "standard unit only",
+  "gap": "Falsely parked. north_star is only called with an empty dict (main.py:1235), so even the metrics computable today (engineering survival, novelty, grid score, defect rate) are never computed by cohort."
+ },
+ {
+  "id": 133,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "culture_sweep -> culture.sweep -> feeds.discover/sweep",
+  "acted_on": "signals and observations stored",
+  "test": "test_cert_culture_teardown",
+  "gap": ""
+ },
+ {
+  "id": 134,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "engine.run -> process_signal -> decompose",
+  "acted_on": "primitives on CultureSignal",
+  "test": "test_cert_culture_teardown",
+  "gap": ""
+ },
+ {
+  "id": 135,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "process_signal -> radar.record routing; POST /api/culture/clearance",
+  "acted_on": "lane routing",
+  "test": "test_cert_culture_teardown::test_the_clearance_lane...",
+  "gap": ""
+ },
+ {
+  "id": 136,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "process_signal -> scoring.score",
+  "acted_on": "gates tournament/rapid (is_strong/actionable)",
+  "test": "test_cert_culture_teardown",
+  "gap": ""
+ },
+ {
+  "id": 137,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "process_signal -> era_combinations -> persist_candidate",
+  "acted_on": "CultureConcept rows",
+  "test": "test_cert_culture_teardown",
+  "gap": ""
+ },
+ {
+  "id": 138,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "engine.white_space_tournament; ideation.culture -> BriefingGateway",
+  "acted_on": "candidates briefed to the generator",
+  "test": "test_cert_ideation::test_live_culture_candidates...",
+  "gap": "Subject to cross-cutting defect A."
+ },
+ {
+  "id": 139,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "listing.seo -> _quote_screen -> rights.route/check_direct_use",
+  "acted_on": "blocks RIGHTS_DIRECT_USE",
+  "test": "test_cert_parity_copy::test_a_declared_catchphrase...",
+  "gap": "engine.file_topic only ever declares WORK_TITLE/CHARACTER_NAME tokens (engine.py:225). No dialogue, lyric, slogan or catchphrase is ever recorded at runtime, so the quote class is never screened; the test injects the token by hand."
+ },
+ {
+  "id": 140,
+  "state": "DATA-GATED",
+  "verdict": "valid",
+  "entry": "culture.sweep -> demand.record; radar.findings -> lead_lag",
+  "acted_on": "series recorded",
+  "test": "culture tests",
+  "gap": ""
+ },
+ {
+  "id": 141,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "engine.run -> rapid_response -> rapid.check",
+  "acted_on": "priority rapid candidates",
+  "test": "test_cert_culture_teardown::test_a_strong_dated_signal...",
+  "gap": ""
+ },
+ {
+  "id": 142,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "ideation.themes -> brief",
+  "acted_on": "brief",
+  "test": "test_cert_ideation",
+  "gap": ""
+ },
+ {
+  "id": 143,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "engine.collection_plans -> translate.collection -> propose_ip",
+  "acted_on": "plans feed IP proposals",
+  "test": "test_cert_culture_teardown",
+  "gap": ""
+ },
+ {
+  "id": 144,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "process_signal persist/exit_signal; record_launch_outcomes",
+  "acted_on": "rows persisted",
+  "test": "test_cert_culture_teardown::test_a_launched_concept...",
+  "gap": ""
+ },
+ {
+  "id": 145,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "process_signal -> radar.exit_check -> exit_signal + withdraw_candidates",
+  "acted_on": "candidates withdrawn",
+  "test": "test_cert_culture_teardown::test_a_declining_signal_exits...",
+  "gap": ""
+ },
+ {
+  "id": 146,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "engine.propose_ip -> cast.propose",
+  "acted_on": "CultureIPElement rows",
+  "test": "test_cert_culture_teardown",
+  "gap": ""
+ },
+ {
+  "id": 147,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "culture.sweep -> radar.route_findings",
+  "acted_on": "learning 'aesthetics' domain rows",
+  "test": "culture tests",
+  "gap": "Findings go only into one learning domain. Market Radar, SEO, Content and Seasonal Planning never consume them, and the post-launch weight update is unbuilt."
+ },
+ {
+  "id": 148,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "POST /api/teardown/intake -> intake.receive",
+  "acted_on": "BenchmarkProduct + quarantine",
+  "test": "test_cert_culture_teardown::test_intake_runs_the_promise_audit...",
+  "gap": ""
+ },
+ {
+  "id": 149,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "library.retrieve (sole reader, role refusals)",
+  "acted_on": "PermissionError",
+  "test": "teardown tests",
+  "gap": ""
+ },
+ {
+  "id": 150,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "POST /api/teardown/intake (manifest)",
+  "acted_on": "BenchmarkProduct row",
+  "test": "test_cert_culture_teardown::test_the_manifest_and_clearance_routes...",
+  "gap": ""
+ },
+ {
+  "id": 151,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "intake.receive -> scorecard.promise_audit",
+  "acted_on": "alignment + audit row",
+  "test": "test_cert_culture_teardown",
+  "gap": ""
+ },
+ {
+  "id": 152,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "POST /api/teardown/audit -> lab.record_audit -> audits.observe/record",
+  "acted_on": "TeardownFinding",
+  "test": "test_cert_culture_teardown::test_the_audit_route_records_findings...",
+  "gap": ""
+ },
+ {
+  "id": 153,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "same route",
+  "acted_on": "findings -> cells.propose",
+  "test": "same",
+  "gap": "audits.publishing_requirements is only displayed at GET /api/teardown. Promoted findings become Improvement proposals that can never be tested (#92). Nothing converts winning mechanisms into an enforced publishing requirement."
+ },
+ {
+  "id": 154,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "same",
+  "acted_on": "recorded",
+  "test": "same",
+  "gap": "The 'beat the best benchmark' requirement is not enforced on our charts or PDF anywhere."
+ },
+ {
+  "id": 155,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "same",
+  "acted_on": "recorded",
+  "test": "same",
+  "gap": "Traps are not consumed by Pattern Help or PDF generation (no reference outside teardown/)."
+ },
+ {
+  "id": 156,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "same",
+  "acted_on": "recorded",
+  "test": "same",
+  "gap": "The best-experience standard is not wired into any Premium Product Standard gate."
+ },
+ {
+  "id": 157,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "same",
+  "acted_on": "recorded",
+  "test": "same",
+  "gap": "Nothing translates findings into Brambleloop video requirements."
+ },
+ {
+  "id": 158,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "same",
+  "acted_on": "recorded",
+  "test": "same",
+  "gap": "Observations do not reach explanation or validation code."
+ },
+ {
+  "id": 159,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "same",
+  "acted_on": "recorded",
+  "test": "same",
+  "gap": "The delivery bundle design does not read the packaging audit."
+ },
+ {
+  "id": 160,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "same",
+  "acted_on": "recorded",
+  "test": "same",
+  "gap": "Inconsistencies are not converted into any customer-experience change; the improvement path is stalled (#92)."
+ },
+ {
+  "id": 161,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "POST /api/teardown/finding|audit -> lab.record_finding/record_audit -> scorecard.record/audits.record",
+  "acted_on": "TeardownFinding row written and promoted",
+  "test": "test_cert_culture_teardown (route via TestClient)",
+  "gap": "The body says 'Preserve raw notes and confidence'. Neither TeardownFinding (core/models.py:1114) nor scorecard.Finding/audits.record has a confidence field; confidence is never captured."
+ },
+ {
+  "id": 162,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "GET /api/teardown -> scorecard.composite_standard",
+  "acted_on": "served on request",
+  "test": "test_cert_culture_teardown",
+  "gap": "Minor: the composite is never combined with our own engineering, and #163 never reads it."
+ },
+ {
+  "id": 163,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "invalid",
+  "entry": "pipeline.cir.compile -> gate.certify -> teardown.lab.product_qa -> check_unique_value",
+  "acted_on": "never in practice",
+  "test": "test_cert_culture_teardown/test_cert_publish_gates",
+  "gate_note": "",
+  "gap": "Tautology: lab.advantages_from_certificate always returns 'deterministic_validation' for a granted certificate. granted means no ERROR findings (gates/certificate.py:258), and compile+specification are always in stages_run, so blocks_release can never be True. Nothing compares against the purchased benchmarks or the composite. Bypass: _persist_release runs before the withhold (runtime/pipeline.py:466 vs 481), and hourly chain.rebuild (release.py:2309) drafts a listing for every certified PatternVersion that has none, ignoring gate.release_withheld."
+ },
+ {
+  "id": 164,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "teardown routes -> lab.promote_finding -> pipeline.promote -> cells.propose",
+  "acted_on": "Improvement row in PROPOSED",
+  "test": "test_cert_culture_teardown",
+  "gap": "The sandbox, regression, compare and promote steps are never reached. improve/runner.py TRIALS has only counterfactual_rollback, and trial_for() returns None for teardown proposals, so they sit forever in the waiting list of improve.sandbox."
+ },
+ {
+  "id": 165,
+  "state": "OWNER-GATED",
+  "verdict": "invalid",
+  "entry": "none",
+  "acted_on": "n/a",
+  "test": "none",
+  "gap": "Falsely parked. The owner only has to buy. Detecting a new category, a strong competitor, a new format or a market shift and raising a refresh recommendation is software, and it does not exist: there is no #165 code anywhere."
+ },
+ {
+  "id": 166,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "GET /api/benchmark-selection and teardown.intake.plan/_why_selected -> purchase_selection.select (CA$300 ceiling); intake records paid_cad",
+  "acted_on": "plan served; ceiling enforced in the selector",
+  "test": "test_purchase_selection; intake test in test_cert_culture_teardown",
+  "gap": "Minor: actual cumulative paid spend is not summed anywhere; only the expected cost is."
+ },
+ {
+  "id": 167,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "scorecard.finding/audits.observe -> library.check_derived on every write route",
+  "acted_on": "refusal (400)",
+  "test": "test_cert_culture_teardown refuses competitor text",
+  "gap": ""
+ },
+ {
+  "id": 168,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "launch_readiness -> launch.readiness.assess -> teardown.pipeline.challenge",
+  "acted_on": "readiness item blocks",
+  "test": "test_cert_benchmark_challenge",
+  "gap": "The gate is real: no purchased benchmarks yet."
+ },
+ {
+  "id": 169,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "gate.certify -> product_qa -> delight_for; teardown routes",
+  "acted_on": "audited only, nothing gates on it",
+  "test": "test_cert_culture_teardown",
+  "gap": "The drivers omit four of the named mechanisms: bonus utility, navigation, customization and confidence. For our own products the answer is always 'unanswerable', because only a manual operator POST to brambleloop:<slug> produces scores."
+ },
+ {
+  "id": 170,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "POST /api/teardown/intake -> intake.receive -> library.register + lab.write_manifest; POST /api/teardown/manifest",
+  "acted_on": "BENCHMARK_MANIFEST.md written; DB rows; teardown queue count",
+  "test": "test_cert_culture_teardown",
+  "gap": ""
+ },
+ {
+  "id": 171,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "release/pipeline handlers -> ops.artefacts.record_lineage",
+  "acted_on": "artefact_provenance rows",
+  "test": "test_artefacts",
+  "gap": "Only pdf, chart, visual_truth, listing_copy, seo, pricing, marketing_asset and certificate are ever recorded. twin, geometry_proof, reverse_result, support_knowledge and release_bundle (ARTEFACT_CLASSES, ops/artefacts.py:64) are never written, so a CIR change cannot invalidate them."
+ },
+ {
+  "id": 172,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "stale_artefact_sentinel -> ops.sentinel -> rebuild_graph.enqueue(per=product) -> chain.rebuild; store.publish/marketing.schedule -> release_gates.staleness -> publication_gate",
+  "acted_on": "job enqueued; publish blocked",
+  "test": "test_cert_publish_gates::test_a_moved_upstream...",
+  "gap": "handle_chain_rebuild (release.py:2309) never reads ctx.job.inputs. The exact artefacts, fingerprints and reason are ignored, and it rebuilds only listings, CIR redrafts and collections, so a stale marketing_asset or visual_truth is never remade. No completion evidence is written per artefact. The test asserts only that a job was enqueued."
+ },
+ {
+  "id": 173,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "stale_artefact_sentinel -> ops.sentinel -> artefacts.sweep (P1 halts_publication) -> release_gates.for_publish/for_marketing",
+  "acted_on": "incident plus audited block",
+  "test": "test_cert_publish_gates, test_artefacts",
+  "gap": "Coverage is limited by #171."
+ },
+ {
+  "id": 174,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "swarm_review -> swarm.review -> orchestrate.agent_quality",
+  "acted_on": "recommendation audit",
+  "test": "test_swarm_runtime",
+  "gap": "Agents have no declared inputs or outputs. The quality metric is one generic job_success_rate for every agent (agents/registry.py QUALITY_DEFAULTS), not a per-function quality measure."
+ },
+ {
+  "id": 175,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "invalid",
+  "entry": "swarm_allocate -> allocate; Worker.run_once -> lane_hold",
+  "acted_on": "no effective action",
+  "test": "test_swarm_runtime, test_cert_improve_autonomy",
+  "gap": "Nothing creates or activates workers. railway.json runs --workers 1 and app/runner.py starts one worker thread. _running_in_lane excludes the current job and lane_concurrency floors the limit at 1, so lane_hold can never hold in production. Allocation reads only queue depth and budget, not category, season, opportunity value or bottleneck."
+ },
+ {
+  "id": 176,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "swarm_orphans -> swarm.orphans -> resolve_orphans",
+  "acted_on": "reassign or P2 incident",
+  "test": "test_swarm_runtime",
+  "gap": "orchestrate.work_items reads only Job, Incident and Improvement. Opportunities (CoverageGap), benchmarks, listings, experiments, customer issues (SupportCase), OwnerActions and TeardownFindings have no ownership check."
+ },
+ {
+  "id": 177,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "nightly_improvement -> improve.nightly -> profiles.queue_proposals(self_review); GET /api/profiles",
+  "acted_on": "Improvement proposals",
+  "test": "platform/improve tests",
+  "gap": "Minor: the profile is derived on read rather than versioned."
+ },
+ {
+  "id": 178,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "improve.sandbox/league/weekly -> cells.promote (tiers, separation of duties)",
+  "acted_on": "refusal enforced at promote",
+  "test": "improve tests",
+  "gap": ""
+ },
+ {
+  "id": 179,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "invalid",
+  "entry": "role_* cadences -> improve.role_work",
+  "acted_on": "audit row only",
+  "test": "improve tests",
+  "gap": "handle_role_work (release.py:3257) counts rows and hard-codes roles.Activity(proposals_made=0, proposals_kept=0, realised_uplift=0.0). The meta-agents improve nothing and 'verified uplift' is a literal zero. experiment_designer reads nothing (read=found=0)."
+ },
+ {
+  "id": 180,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "invalid",
+  "entry": "improve_league -> improve.league -> league.cycle",
+  "acted_on": "never compares",
+  "test": "test_cert_improve_autonomy (injects runs)",
+  "gap": "league.record_run has zero non-test callers, so no incumbent or challenger run is ever produced. There is no replay of historical tasks or holdouts; every challenger waits forever. Only the tests call record_run."
+ },
+ {
+  "id": 181,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "railway.json uvicorn + app/runner embedded worker/scheduler",
+  "acted_on": "n/a",
+  "test": "test_deploy, test_health",
+  "gap": "Live deploy state not verified in this read-only audit."
+ },
+ {
+  "id": 182,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "same as 181",
+  "acted_on": "n/a",
+  "test": "test_deploy",
+  "gap": ""
+ },
+ {
+  "id": 183,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "GET /api/console, /ops pages",
+  "acted_on": "served",
+  "test": "test_health",
+  "gap": ""
+ },
+ {
+  "id": 184,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "queue/durable leases, idempotency keys, dead letters",
+  "acted_on": "n/a",
+  "test": "test_persistence, test_chaos",
+  "gap": ""
+ },
+ {
+  "id": 185,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "health_sweep -> ops.health -> ops/health.read/remediation",
+  "acted_on": "requeue/escalation incidents",
+  "test": "health tests",
+  "gap": ""
+ },
+ {
+  "id": 186,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "swarm_backlog -> swarm.backlog -> feed_idle",
+  "acted_on": "GREEN jobs enqueued when idle",
+  "test": "test_swarm_runtime",
+  "gap": "Minor: the backlog is mostly re-runs of existing cadences."
+ },
+ {
+  "id": 187,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "Scheduler.tick / JobQueue.enqueue -> priority_for(job_type) + aging",
+  "acted_on": "claim order",
+  "test": "test_cert_wiring, test_chaos",
+  "gap": "Priority is a static band per job type (swarm/orchestrate.py JOB_BANDS). It has no expected-business-value or deadline input: an imminent seasonal window and a distant one get the same band, and all listing work is 'proven_winner' whether proven or not."
+ },
+ {
+  "id": 188,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "finance_governor -> finance.governor -> governor.enforce",
+  "acted_on": "spike -> incident plus reservation hold",
+  "test": "test_governor, test_cert_improve_autonomy",
+  "gap": "Cost per experiment has no writer (governor.NO_WRITER). The parallelism advice can only lower a lane limit, which is inert with one worker (see #175), and never scales up."
+ },
+ {
+  "id": 189,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "built half: gallery_analysis/mjs_scan cadences (API+vision)",
+  "acted_on": "n/a",
+  "test": "test_cert_mjs",
+  "gap": "Plausible park: whether API+vision meets the 'browser' wording is an owner ruling."
+ },
+ {
+  "id": 190,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "improve.sandbox/league -> upgrades.from_improvement -> may_auto_promote or owner card; POST /api/owner/decision",
+  "acted_on": "owner card or promotion",
+  "test": "test_cert_improve_autonomy, test_cert_owner_decision",
+  "gap": "No branches, simulations or shadow deployments. Only counterfactual_rollback proposals can ever be tested, and the league never has runs (#180), so the pipeline can process almost nothing."
+ },
+ {
+  "id": 191,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "improve.nightly/weekly -> freshness.sweep",
+  "acted_on": "stale/churning flagged in audit",
+  "test": "platform suite",
+  "gap": ""
+ },
+ {
+  "id": 192,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "improve.weekly -> retirement_review -> director.route_retirements (OwnerAction, preserve lessons)",
+  "acted_on": "owner card",
+  "test": "test_cert_improve_autonomy",
+  "gap": ""
+ },
+ {
+  "id": 193,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "nightly_improvement -> improve.nightly",
+  "acted_on": "proposals queued, delta audited",
+  "test": "improve tests",
+  "gap": "The CHALLENGERS stage only counts ConfigVersion rows. 'Run challenger evaluations' never happens, because no runs exist (#180)."
+ },
+ {
+  "id": 194,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "weekly_evolution -> improve.weekly",
+  "acted_on": "retire/merge cards, execute_approved",
+  "test": "improve tests",
+  "gap": "Findings are hard-coded 0 for conversion, ads, support and cost (release.py handle_weekly_evolution). Only RETIRE and MERGE changes are generated; there is never an ADD of specialist agents and never a metric revision."
+ },
+ {
+  "id": 195,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "launch_readiness -> autonomy.launch_item",
+  "acted_on": "blocking readiness item",
+  "test": "test_cert_improve_autonomy",
+  "gap": "Real gate: deploying Build 2 for a production window is the owner's call."
+ },
+ {
+  "id": 196,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "GET /api/console, owner routes -> executor.approval_inbox",
+  "acted_on": "served",
+  "test": "executor tests",
+  "gap": ""
+ },
+ {
+  "id": 197,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "process directive",
+  "acted_on": "n/a",
+  "test": "n/a",
+  "gap": ""
+ },
+ {
+  "id": 198,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "model_tournament/model_reference_pack cadences, visual/model_registry",
+  "acted_on": "identity pack",
+  "test": "model identity tests",
+  "gap": ""
+ },
+ {
+  "id": 199,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "model_tournament -> creative.model_tournament",
+  "acted_on": "finalists; owner chose",
+  "test": "test_model_tournament",
+  "gap": ""
+ },
+ {
+  "id": 200,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "visual/freeze + model_registry select (owner approval required)",
+  "acted_on": "canonical frozen",
+  "test": "test_model_freeze",
+  "gap": ""
+ },
+ {
+  "id": 201,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "model_photography -> publish/model_photography -> identity.drift_check",
+  "acted_on": "frame blocked",
+  "test": "test_model_identity/freeze",
+  "gap": "Per-frame comparison against the pack only. The requirement's 'gradual drift across batches and over time' is not built: there is no longitudinal or batch series."
+ },
+ {
+  "id": 202,
+  "state": "EXTERNAL-BLOCKED",
+  "verdict": "valid",
+  "entry": "model_photography floors",
+  "acted_on": "n/a",
+  "test": "",
+  "gap": "Real external blocker: provider fidelity, 0/16 and 0/7 draws."
+ },
+ {
+  "id": 203,
+  "state": "OWNER-GATED",
+  "verdict": "invalid",
+  "entry": "model_photography -> planned_shots -> assets.shot_plan",
+  "acted_on": "shot plan row",
+  "test": "test_cert_parity_copy",
+  "gap": "Misclassified park. build2/executor.py:626 says the image_generation gate carries no requirement ids and has already opened. The real blocker is model_bearing_render, which is EXTERNAL, as for #202."
+ },
+ {
+  "id": 204,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "assets.model_photography / listing_asset product-first rule",
+  "acted_on": "no model forced on product-first forms",
+  "test": "test_visual, test_model_photography",
+  "gap": ""
+ },
+ {
+  "id": 205,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "boot seed + observe/benchmark_health update Benchmark row",
+  "acted_on": "registry state",
+  "test": "intel tests",
+  "gap": ""
+ },
+ {
+  "id": 206,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "mjs_benchmark_health -> intel.benchmark_health -> api_resolve/record_resolution",
+  "acted_on": "P3 incident on wrong_shop/unreachable",
+  "test": "test_cert_benchmark_health_api, test_cert_mjs",
+  "gap": ""
+ },
+ {
+  "id": 207,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "mjs_scan -> observe.scan",
+  "acted_on": "BenchmarkListing baseline; /api/mjs/coverage",
+  "test": "test_intel",
+  "gap": ""
+ },
+ {
+  "id": 208,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "mjs_scan -> gallery backfill; gallery_analysis",
+  "acted_on": "audit_state",
+  "test": "intel tests",
+  "gap": "Options/variants are not captured, although the Etsy API exposes has_variations/inventory; badges and cross-sell cues are declared gaps (etsy_public.py:369), yet the row is closed COMPLETE rather than partly parked."
+ },
+ {
+  "id": 209,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "gallery_analysis -> intel.gallery_analysis -> vision.analyse (12 OBSERVATION_FIELDS)",
+  "acted_on": "observations stored",
+  "test": "vision tests",
+  "gap": ""
+ },
+ {
+  "id": 210,
+  "state": "OWNER-GATED",
+  "verdict": "invalid",
+  "entry": "mjs.scan -> pods routing; mjs_pod_learning",
+  "acted_on": "n/a",
+  "test": "none listed",
+  "gap": "Falsely parked. The image evidence already exists (#208/#209 closed and verified live), and the repair notes name no residue that actually waits on image_vision. The stated remaining gap (per-pod opportunity maps are API-only, pod_learning served as state) is software."
+ },
+ {
+  "id": 211,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "mjs_scan -> _run_mjs_mission -> mission_runtime.process -> pods.Director",
+  "acted_on": "MjsMissionEvent, pod re-route",
+  "test": "test_cert_mjs",
+  "gap": "The ahead/parity/behind view is only catalogue_breadth; our photography_coverage is hard-coded None (_standing). It lives inside per-event step blobs with no company-level aggregate."
+ },
+ {
+  "id": 212,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "mjs_scan -> observe.scan (fingerprints, withdrawn kept)",
+  "acted_on": "rows",
+  "test": "test_intel, test_pods_routing",
+  "gap": ""
+ },
+ {
+  "id": 213,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "mjs_scan -> scan_or_explain -> adaptive_interval (+ seasonal_pressure)",
+  "acted_on": "scan deferred or run",
+  "test": "test_cert_mjs",
+  "gap": ""
+ },
+ {
+  "id": 214,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "mjs_scan -> process_listing (decompose, justifies_tournament)",
+  "acted_on": "event row; tournament enqueued",
+  "test": "test_cert_mjs",
+  "gap": ""
+ },
+ {
+  "id": 215,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "invalid",
+  "entry": "mjs_scan -> process_listing -> panel.may_enter",
+  "acted_on": "no work started",
+  "test": "test_cert_mjs",
+  "gap": "may_enter always receives the constant ENTRY_AXES/ENTRY_HOW (mission_runtime.py:104). 'entered' only moves CoverageGap to CONCEPTING and records consider_arena, and nothing in the codebase reads CONCEPTING gaps or consider_arena decisions. No same-arena original design is ever started."
+ },
+ {
+  "id": 216,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "mjs_scan -> _enqueue_breakthrough -> creative.tournament (lane breakthrough)",
+  "acted_on": "tournament job",
+  "test": "test_cert_mjs, test_cert_ideation",
+  "gap": ""
+ },
+ {
+  "id": 217,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "process_listing -> pods.lesson guard; memory.learn check_expression",
+  "acted_on": "lessons/refusals",
+  "test": "test_cert_mjs",
+  "gap": ""
+ },
+ {
+  "id": 218,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "blind_review -> creative.blind_review -> returned_to_development",
+  "acted_on": "photography job re-queued",
+  "test": "test_cert_parity_copy",
+  "gap": "Plausible park: judging our own frames needs a funded vision model."
+ },
+ {
+  "id": 219,
+  "state": "OWNER-GATED",
+  "verdict": "invalid",
+  "entry": "mjs_scan -> panel_state/mechanism_is_learnable",
+  "acted_on": "standards held",
+  "test": "test_cert_mjs",
+  "gap": "Falsely parked. Other category-leader shops can be observed now with the same sanctioned API scanner; only the purchased-products half needs the owner. There is no mechanism to discover or join a second elite seller (the registry is 'never pre-populated')."
+ },
+ {
+  "id": 220,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "mjs_scan -> apply_bar -> panel.move_bar -> CompetitiveStandard",
+  "acted_on": "row written only",
+  "test": "test_cert_mjs",
+  "gap": "No code outside mission_runtime.apply_bar reads CompetitiveStandard: no QA, gate, API or Improvement Department. No Brambleloop standard is actually re-evaluated."
+ },
+ {
+  "id": 221,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "n/a",
+  "acted_on": "n/a",
+  "test": "",
+  "gap": "Plausible: acceptance wording ruling."
+ },
+ {
+  "id": 222,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "intel_acceptance -> intel.acceptance (built half)",
+  "acted_on": "stored evidence run",
+  "test": "acceptance tests",
+  "gap": "Plausible park."
+ },
+ {
+  "id": 223,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "launch_readiness -> access.owner_requests -> OwnerAction",
+  "acted_on": "owner queue",
+  "test": "test_access",
+  "gap": ""
+ },
+ {
+  "id": 224,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "intel.mission.record -> access.accept_evidence; capability_report served",
+  "acted_on": "evidence refused",
+  "test": "access tests",
+  "gap": ""
+ },
+ {
+  "id": 225,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "gateway/routing cache; observe fingerprints; mission pending by fingerprint",
+  "acted_on": "no re-spend",
+  "test": "routing tests",
+  "gap": ""
+ },
+ {
+  "id": 226,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "mjs_pod_learning -> intel.pod_learning -> PodCapabilityReading",
+  "acted_on": "rows",
+  "test": "test_cert_mjs",
+  "gap": "The 'measurably more discerning' half and successful/failed Brambleloop responses are UNMEASURED until outcomes exist. That half is data-gated, yet the row is closed COMPLETE."
+ },
+ {
+  "id": 227,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "invalid",
+  "entry": "mjs_scan -> process_listing -> panel.ceiling_check",
+  "acted_on": "never refuses",
+  "test": "test_cert_mjs",
+  "gap": "Constant input: _run_mjs_mission passes no objective, so ceiling_check always judges the code's own default string (mission_runtime.py process_listing), which never names a competitor. No agent's real objective (tournament and expedition briefs) is ever checked."
+ },
+ {
+  "id": 228,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "POST /api/mjs/veto -> record_veto -> OwnerVeto, bus lessons",
+  "acted_on": "lessons written",
+  "test": "test_cert_mjs",
+  "gap": "OwnerVeto is read only by veto_state. A veto blocks nothing: no publish, certify or asset gate consults it, so 'the owner retains veto over flagship creative quality' is not enforced."
+ },
+ {
+  "id": 229,
+  "state": "DATA-GATED",
+  "verdict": "valid",
+  "entry": "capacity_review -> ops.capacity -> growth.weekly.solve -> target.binding_constraint",
+  "acted_on": "weekly reading",
+  "test": "test_cert_growth_seasonal",
+  "gap": "Real gate: customers."
+ },
+ {
+  "id": 230,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "growth.weekly/confidence.probability; /api served",
+  "acted_on": "capped figure",
+  "test": "scale tests",
+  "gap": ""
+ },
+ {
+  "id": 231,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "ops.capacity -> growth.weekly -> mix.report/concentration",
+  "acted_on": "reading only",
+  "test": "growth tests",
+  "gap": "'High concentration triggers diversification' is not true: the alarm lands only in the report, and mix.next_role (used by ideation) does not read concentration."
+ },
+ {
+  "id": 232,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "creative.ideation -> mix.next_role(positions_from_db)",
+  "acted_on": "brief and winner role",
+  "test": "test_cert_ideation",
+  "gap": ""
+ },
+ {
+  "id": 233,
+  "state": "DATA-GATED",
+  "verdict": "invalid",
+  "entry": "GET /api/ladder -> ladder.state() (static)",
+  "acted_on": "n/a",
+  "test": "none",
+  "gap": "The built half is unreached: ladder.shape/check_discount/movement/lifetime_value have zero runtime callers. The rung assignment over the real catalogue and the discount guard need no customers."
+ },
+ {
+  "id": 234,
+  "state": "DATA-GATED",
+  "verdict": "invalid",
+  "entry": "/api/ladder -> bundles.state(); growth.weekly -> bundles.attribution_from_db",
+  "acted_on": "measurement only",
+  "test": "none",
+  "gap": "bundles.candidates/check have zero runtime callers, so combination identification (product facts only, no customers needed) never runs or feeds collection.assemble. That half is falsely parked."
+ },
+ {
+  "id": 235,
+  "state": "DATA-GATED",
+  "verdict": "invalid",
+  "entry": "/api/promotion -> promotion.dependence only",
+  "acted_on": "n/a",
+  "test": "test_promotion (library)",
+  "gap": "The gate is plausible, but promotion.incrementality has zero callers. When orders arrive, nothing will run it."
+ },
+ {
+  "id": 236,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "POST /api/insights/snapshot; commerce_readings -> insights_budget.allocate",
+  "acted_on": "plan recorded daily",
+  "test": "test_insights_intake",
+  "gap": ""
+ },
+ {
+  "id": 237,
+  "state": "DATA-GATED",
+  "verdict": "invalid",
+  "entry": "none",
+  "acted_on": "n/a",
+  "test": "library only",
+  "gap": "commerce/attribution.parse_stats_csv/join_stats have no route or handler (only a comment in scale/leading.py). The owner-exported CSV cannot be ingested when it exists."
+ },
+ {
+  "id": 238,
+  "state": "DATA-GATED",
+  "verdict": "invalid",
+  "entry": "GET /api/benchmarks -> benchmarks.cells([])",
+  "acted_on": "n/a",
+  "test": "library only",
+  "gap": "Called with a hard-coded empty list (app/main.py api_benchmarks), so the built half never reads DB observations, even after data exists."
+ },
+ {
+  "id": 239,
+  "state": "DATA-GATED",
+  "verdict": "invalid",
+  "entry": "none for commerce.benchmarks.opportunities",
+  "acted_on": "n/a",
+  "test": "test_benchmarks (library)",
+  "gap": "commerce/benchmarks.opportunities has zero callers. Only arbitrage.state/score_observed are served."
+ },
+ {
+  "id": 240,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "listing.seo -> _diversify_tags + portfolio.diversification/stuffing",
+  "acted_on": "tags changed; audited",
+  "test": "test_cert_parity_copy",
+  "gap": "Minor: stuffing is recorded, not blocked."
+ },
+ {
+  "id": 241,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "listing.seo -> launch.plan -> growth.experiments.register_at_launch; cadence growth_experiments (experiment_steward) is the backstop",
+  "acted_on": "write-once experiment rows + audit",
+  "test": "test_cert_growth_seasonal::test_launch_pack_records_hero_variants_title_tags_and_confounders",
+  "gap": "results need live listings; the park is plausible"
+ },
+ {
+  "id": 242,
+  "state": "OWNER-GATED",
+  "verdict": "weak",
+  "entry": "none: commerce/paid_media.may_scale has zero callers",
+  "acted_on": "no",
+  "test": "library only",
+  "gap": "parking on ad authority is plausible, but no ads.campaign/ads.adjust handler is registered, so opening the gate runs nothing"
+ },
+ {
+  "id": 243,
+  "state": "OWNER-GATED",
+  "verdict": "weak",
+  "entry": "none: runrate.cac_split/allowable_cac have zero runtime callers",
+  "acted_on": "no",
+  "test": "library only",
+  "gap": "same: no ads handler; CAC split is never computed, not even in the weekly reading"
+ },
+ {
+  "id": 244,
+  "state": "OWNER-GATED",
+  "verdict": "weak",
+  "entry": "none (Order.offsite_ad_attributed column only)",
+  "acted_on": "no",
+  "test": "library only",
+  "gap": "same as 242"
+ },
+ {
+  "id": 245,
+  "state": "OWNER-GATED",
+  "verdict": "weak",
+  "entry": "none",
+  "acted_on": "no",
+  "test": "library only",
+  "gap": "same as 242"
+ },
+ {
+  "id": 246,
+  "state": "OWNER-GATED",
+  "verdict": "invalid",
+  "entry": "/api/pins -> pins.state() (static description)",
+  "acted_on": "no",
+  "test": "library only",
+  "gap": "pin set/schedule/amplify are never computed at runtime; seasonal pin planning from calendar milestones could run now without a surface"
+ },
+ {
+  "id": 247,
+  "state": "OWNER-GATED",
+  "verdict": "invalid",
+  "entry": "/api/clusters -> clusters.state() (static)",
+  "acted_on": "no",
+  "test": "library only",
+  "gap": "clusters are never built from observed complaint themes at runtime; that part needs no surface"
+ },
+ {
+  "id": 248,
+  "state": "OWNER-GATED",
+  "verdict": "invalid",
+  "entry": "/api/video -> video.state() (static)",
+  "acted_on": "no",
+  "test": "library only",
+  "gap": "video.plan/record have no runtime caller; module plans and ops/artefacts staleness never happen"
+ },
+ {
+  "id": 249,
+  "state": "DATA-GATED",
+  "verdict": "invalid",
+  "entry": "/api/creators -> creators.state() + roster()",
+  "acted_on": "no",
+  "test": "library only",
+  "gap": "creators.portfolio() is never called on the roster, so it reads nothing on the day data arrives"
+ },
+ {
+  "id": 250,
+  "state": "OWNER-GATED",
+  "verdict": "weak",
+  "entry": "none: creators.may_graduate has no caller",
+  "acted_on": "no",
+  "test": "library only",
+  "gap": "no tester exists, so the park is plausible, but no route or handler invokes the graduation check"
+ },
+ {
+  "id": 251,
+  "state": "OWNER-GATED",
+  "verdict": "weak",
+  "entry": "/api/tools -> tools.state() (static)",
+  "acted_on": "no",
+  "test": "library only",
+  "gap": "tools.check_flow/frequency have zero callers; parking plausible, but opening the gate enables nothing"
+ },
+ {
+  "id": 252,
+  "state": "DATA-GATED",
+  "verdict": "weak",
+  "entry": "/api (repeat.state -> coverage -> recommend)",
+  "acted_on": "API only",
+  "test": "tests/test_repeat.py (library)",
+  "gap": "repeat.windows (the 30/60/90/180-day arithmetic) has zero callers; nothing computes it when orders arrive; no lifetime-contribution metric wired"
+ },
+ {
+  "id": 253,
+  "state": "DATA-GATED",
+  "verdict": "invalid",
+  "entry": "cadence commerce_readings (cfo) -> commerce_readings.read -> club.research_plan, club.may_launch({})",
+  "acted_on": "audit only",
+  "test": "none on this runtime path",
+  "gap": "may_launch is hard-coded with {} so it can never read answers; check_cadence (answerable today, per the note) has zero callers, so it is falsely parked"
+ },
+ {
+  "id": 254,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "commerce_readings -> personalisation.catalogue per certified product",
+  "acted_on": "audit reading",
+  "test": "library",
+  "gap": "offering needs a listing; the park is plausible"
+ },
+ {
+  "id": 255,
+  "state": "OWNER-GATED",
+  "verdict": "weak",
+  "entry": "/api/tools -> tools.state() (static)",
+  "acted_on": "no",
+  "test": "library only",
+  "gap": "tools.check_tool has zero callers; hosting needs a surface, but the built check is unreached"
+ },
+ {
+  "id": 256,
+  "state": "DATA-GATED",
+  "verdict": "invalid",
+  "entry": "commerce_readings -> referral.outcome(attributed_customers=None, contribution_cad=None)",
+  "acted_on": "no",
+  "test": "none",
+  "gap": "inputs are hard-coded None and never read from Customer/Order, so it stays UNMEASURED forever; referral.check (mechanic gate) is never called"
+ },
+ {
+  "id": 257,
+  "state": "DATA-GATED",
+  "verdict": "invalid",
+  "entry": "commerce_readings -> reviews.distribution([]) + support-theme routing",
+  "acted_on": "audit only",
+  "test": "none",
+  "gap": "star distribution is hard-coded to []; there is no review source/model; reviews.check_support_copy (the anti-gating guard) has zero callers and support.triage/support.reply drafts are never checked"
+ },
+ {
+  "id": 258,
+  "state": "DATA-GATED",
+  "verdict": "weak",
+  "entry": "none: buyer_trust.customer_gallery/proof_lift have zero callers",
+  "acted_on": "no",
+  "test": "library only",
+  "gap": "parking plausible, but the gallery and proof-lift machinery is unreached"
+ },
+ {
+  "id": 259,
+  "state": "DATA-GATED",
+  "verdict": "invalid",
+  "entry": "none: commerce/first_hundred is imported only by growth/interviews for a constant",
+  "acted_on": "no",
+  "test": "tests/test_first_hundred.py (library)",
+  "gap": "before_the_first_customer ready/not-ready verdicts are computable now but reach no handler or route"
+ },
+ {
+  "id": 260,
+  "state": "DATA-GATED",
+  "verdict": "weak",
+  "entry": "/api -> interviews.state() (static)",
+  "acted_on": "no",
+  "test": "library",
+  "gap": "invite_gate/may_open have zero callers; parking plausible"
+ },
+ {
+  "id": 261,
+  "state": "OWNER-GATED",
+  "verdict": "invalid",
+  "entry": "/api -> friction.state() (static)",
+  "acted_on": "no",
+  "test": "library",
+  "gap": "friction.listing_audit (the 'available now, no buyer required' half) has zero callers; there is no regular audit cadence, so it is falsely parked"
+ },
+ {
+  "id": 262,
+  "state": "OWNER-GATED",
+  "verdict": "invalid",
+  "entry": "/api -> calibration.state()",
+  "acted_on": "no",
+  "test": "library",
+  "gap": "no caller passes calibration_ceiling to confidence.probability (weekly.solve, /api/scale, reinvestment all omit it), so optimistic error can never lower confidence automatically; this wiring is software work, not a gate"
+ },
+ {
+  "id": 263,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "/api/leading -> leading.dashboard(db)",
+  "acted_on": "API on request",
+  "test": "tests/test_leading.py",
+  "gap": "impressions/CTR need live listings"
+ },
+ {
+  "id": 264,
+  "state": "DATA-GATED",
+  "verdict": "weak",
+  "entry": "capacity_review -> ops.capacity -> growth.weekly.solve -> loops.constraint/reallocation",
+  "acted_on": "recorded to operating_readings only",
+  "test": "test_cert_growth_seasonal::test_capacity_solves_from_database_rows_and_records_the_reallocation",
+  "gap": "the reallocation is written down but never applied to swarm allocation or the experiment queue"
+ },
+ {
+  "id": 265,
+  "state": "DATA-GATED",
+  "verdict": "valid",
+  "entry": "growth_conclude (experiment_steward) -> growth.conclude -> conclude_all",
+  "acted_on": "experiment rows killed/concluded + audit",
+  "test": "test_cert_growth_seasonal::test_experiments_conclude_only_with_data...",
+  "gap": "results need data"
+ },
+ {
+  "id": 266,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "growth.conclude -> control_present",
+  "acted_on": "association vs causal recorded",
+  "test": "test_cert_growth_seasonal",
+  "gap": "needs data"
+ },
+ {
+  "id": 267,
+  "state": "OWNER-GATED",
+  "verdict": "weak",
+  "entry": "seasonal_engine -> seasonal.daily.run -> rollforward.roll_forward/demand_curve",
+  "acted_on": "written to operating_readings seasonal.daily, which nothing reads",
+  "test": "test_cert_growth_seasonal::test_seasonal_engine_runs_daily...",
+  "gap": "capacity is not actually shifted: the roll-forward never reaches swarm allocation or the queue"
+ },
+ {
+  "id": 268,
+  "state": "DATA-GATED",
+  "verdict": "invalid",
+  "entry": "/api/markets -> markets.lens(db)",
+  "acted_on": "API",
+  "test": "library",
+  "gap": "falsely parked as data: the note says a second-market benchmark can be observed on the credential already held; registering and scanning one is software work"
+ },
+ {
+  "id": 269,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "invalid",
+  "entry": "none: finance/currency.to_reporting/contribution have zero callers; only the ASSUMED_USD_PER_CAD constant is imported",
+  "acted_on": "no",
+  "test": "tests/test_currency.py (library)",
+  "gap": "Order has no transaction currency/rate/date columns; pricing.position (decide_price) clamps to the band and only warns on net, so pricing is not decided on net contribution"
+ },
+ {
+  "id": 270,
+  "state": "DATA-GATED",
+  "verdict": "valid",
+  "entry": "ops.capacity -> weekly.solve -> mix.report stress_test -> confidence resilience rung",
+  "acted_on": "recorded",
+  "test": "test_cert_growth_seasonal::test_stress_test_feeds_the_confidence_score",
+  "gap": "none beyond data"
+ },
+ {
+  "id": 271,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "invalid",
+  "entry": "app startup loops.seed; ops.capacity -> confidence.probability -> loops.evidence_summary(from_db)",
+  "acted_on": "read only",
+  "test": "library",
+  "gap": "growth/loops.observe (the only writer of visits/orders/cost/strength) has zero callers, so strength can never rise at runtime; there are no per-loop contribution/confidence fields"
+ },
+ {
+  "id": 272,
+  "state": "DATA-GATED",
+  "verdict": "valid",
+  "entry": "ops.capacity -> weekly.solve -> readiness.gate refuses the scale tilt",
+  "acted_on": "tilt refused + recorded",
+  "test": "test_cert_growth_seasonal::test_scale_tilt_is_refused...",
+  "gap": "launch/paid media do not call gate() (there is no ads handler)"
+ },
+ {
+  "id": 273,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "/api/scale -> target.matrix(); weekly uses target.binding_constraint",
+  "acted_on": "API on request",
+  "test": "library",
+  "gap": "/api/scale always calls matrix() with ASSUMED_CONVERSION/basis='assumed'; no caller feeds runrate's observed conversion, so the 'derive visits from observed conversion' path never runs"
+ },
+ {
+  "id": 274,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "capacity_review -> ops.capacity -> weekly.solve -> confidence.probability (min over critical rungs); also finance.reinvestment.envelope",
+  "acted_on": "operating_readings growth.weekly + audit",
+  "test": "test_cert_growth_seasonal ops.capacity tests",
+  "gap": ""
+ },
+ {
+  "id": 275,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "same as 274 -> gate_status",
+  "acted_on": "caps at 0.74",
+  "test": "test_cert_growth_seasonal",
+  "gap": "no caller passes conditions=, so QUALITATIVE_CONDITIONS are always unmet and the >=75% gate can never open; seasonal/evergreen balance, observed bundle/AOV, defect/refund severity and downside-near-target are absent from GATE; thresholds are fixed constants"
+ },
+ {
+  "id": 276,
+  "state": "DATA-GATED",
+  "verdict": "weak",
+  "entry": "/api/war-room -> war_room.board(db)",
+  "acted_on": "API only",
+  "test": "library",
+  "gap": "body says agents execute from the board continuously; no handler reads it"
+ },
+ {
+  "id": 277,
+  "state": "OWNER-GATED",
+  "verdict": "invalid",
+  "entry": "mjs.scan -> mission_runtime.process (runs without a model)",
+  "acted_on": "partial",
+  "test": "test_cert_mjs",
+  "gap": "parked on model_provider, but the missing piece is software: tournament winners are never routed to cir.draft (see 309)"
+ },
+ {
+  "id": 278,
+  "state": "OWNER-GATED",
+  "verdict": "invalid",
+  "entry": "gallery_analysis -> intel.gallery_analysis (refuses without a successful vision probe)",
+  "acted_on": "readings stored",
+  "test": "-",
+  "gap": "the note's own gap (vision observations do not reach concept generation) is software; ideation/prospecting/breakthrough never read intel.vision readings"
+ },
+ {
+  "id": 279,
+  "state": "OWNER-GATED",
+  "verdict": "invalid",
+  "entry": "remerchandising_review -> transformations -> transform/evaluate",
+  "acted_on": "audit only",
+  "test": "test_cert_growth_seasonal::test_remerchandising_handler_runs_the_transformation_engine",
+  "gap": "derive needs job-input briefs that no enqueuer supplies and no code generates, even with a model; the gate can never be sufficient"
+ },
+ {
+  "id": 280,
+  "state": "DATA-GATED",
+  "verdict": "valid",
+  "entry": "/api/colour -> colour.forecast(db, pod)",
+  "acted_on": "API",
+  "test": "library",
+  "gap": "external feed and own performance are absent and named as such"
+ },
+ {
+  "id": 281,
+  "state": "OWNER-GATED",
+  "verdict": "invalid",
+  "entry": "mjs.scan -> process_listing -> breakthrough creative.tournament",
+  "acted_on": "stops at tournament",
+  "test": "test_cert_mjs",
+  "gap": "engineer via CIR / assets / launch stages are unreachable because nothing enqueues cir.draft from a tournament winner; software, not model"
+ },
+ {
+  "id": 282,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "remerchandising_review (listing) -> handle_remerchandising_review -> remerchandising.transformations -> seasonal_transform.transform",
+  "acted_on": "audit rows only",
+  "test": "test_cert_growth_seasonal::test_remerchandising_handler_runs_the_transformation_engine",
+  "gap": "the engineered variant is always 'held' (no briefs supplied by any enqueuer); no CIR or owned photography follows; striped_cardigan_example is API-only"
+ },
+ {
+  "id": 283,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "seasonal_sentinel -> catalogue_plans; launch.plan -> release_gates.window_decision -> compile_launch",
+  "acted_on": "incidents + launch.held",
+  "test": "tests/test_leadtime.py, test_seasonal_incidents.py",
+  "gap": "skill is never passed (defaults to 'intermediate' in window_decision and catalogue_plans; the CIR has no skill level), so there is no per-skill make-time distribution"
+ },
+ {
+  "id": 284,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "same as 283; harvest.adjusted_assumptions + calibrate_from_samples recompute",
+  "acted_on": "hold/pivot",
+  "test": "test_leadtime, test_cert_publish_gates",
+  "gap": "note overclaims: recommendation()/status() use the point estimate, not the optimistic bound"
+ },
+ {
+  "id": 285,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "compile_launch -> classify lanes (sentinel, launch.plan)",
+  "acted_on": "yes",
+  "test": "test_leadtime",
+  "gap": ""
+ },
+ {
+  "id": 286,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "seasonal_engine (orchestrator) -> seasonal.engine -> daily.run -> calendar.rolling (30-365)",
+  "acted_on": "operating_readings seasonal.daily",
+  "test": "test_cert_growth_seasonal::test_seasonal_engine_runs_daily...",
+  "gap": "the reading has no reader (see cross-cutting)"
+ },
+ {
+  "id": 287,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "seasonal.engine -> teams.allocate -> daily.persist_teams -> SeasonalTeam rows",
+  "acted_on": "rows written, never read",
+  "test": "test_cert_growth_seasonal::test_a_team_whose_occasion_has_passed...",
+  "gap": "nothing reads SeasonalTeam, so team shares never drive capacity; owner_agent is hard-coded 'orchestrator'; revenue_target is UNMEASURED"
+ },
+ {
+  "id": 288,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "seasonal.sentinel -> compression.programme (DEPARTMENT_FORMS); arena_expedition/tournament -> prospecting.arenas -> benchmark_matrix department gaps",
+  "acted_on": "concept generation per department",
+  "test": "test_cert_growth_seasonal",
+  "gap": "depth_plan itself is API-only"
+ },
+ {
+  "id": 289,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "collection.assemble -> _collection_architecture (assemble/assess); seasonal.engine -> daily.collections",
+  "acted_on": "audit only",
+  "test": "test_cert_growth_seasonal::test_collection_handler_records_the_architecture_assessment",
+  "gap": "an incoherent collection is still drafted as a listing (the assessment does not block); engine collections go only to the unread reading"
+ },
+ {
+  "id": 290,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "invalid",
+  "entry": "seasonal.engine -> daily.half_lives -> culture_signals.score.half_life; used by radar/provenance staleness",
+  "acted_on": "staleness only",
+  "test": "test_cert_growth_seasonal",
+  "gap": "check_half_life runs only in fastlane.admit, over already-certified catalogue products with season-derived half-life; no pre-engineering path (radar.score -> cir.draft, expedition, tournament) refuses flagship work on a short trend"
+ },
+ {
+  "id": 291,
+  "state": "DATA-GATED",
+  "verdict": "weak",
+  "entry": "seasonal.engine -> fastlane.admit/check_release",
+  "acted_on": "unread reading only",
+  "test": "test_cert_growth_seasonal::test_fast_lane_admits...",
+  "gap": "admission enqueues or prioritises nothing"
+ },
+ {
+  "id": 292,
+  "state": "DATA-GATED",
+  "verdict": "valid",
+  "entry": "remerchandising_review -> remerchandising.review",
+  "acted_on": "audit",
+  "test": "tests/test_remerchandising.py",
+  "gap": "'proven' needs sales"
+ },
+ {
+  "id": 293,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "invalid",
+  "entry": "/api/search/intent -> intent.map_product (caller-supplied facets); arena_language only in prospecting/cycle",
+  "acted_on": "no",
+  "test": "library",
+  "gap": "the pre-launch listing path (listing.seo) builds tags from commerce/search.build_query_set templates with hard-coded demand/competition; map_product and observed buyer language never reach a launched product"
+ },
+ {
+  "id": 294,
+  "state": "OWNER-GATED",
+  "verdict": "weak",
+  "entry": "none",
+  "acted_on": "no",
+  "test": "-",
+  "gap": "no ads handler exists, so the gate opening enables nothing"
+ },
+ {
+  "id": 295,
+  "state": "OWNER-GATED",
+  "verdict": "weak",
+  "entry": "none",
+  "acted_on": "no",
+  "test": "-",
+  "gap": "same as 294; winner scaling of pins/content/cross-sell (non-ad) is also unwired"
+ },
+ {
+  "id": 296,
+  "state": "DATA-GATED",
+  "verdict": "valid",
+  "entry": "/api/seasonal -> catalogue_plans; seasonal.sentinel daily",
+  "acted_on": "incidents",
+  "test": "test_seasonal_incidents",
+  "gap": "revenue/ad status need data"
+ },
+ {
+  "id": 297,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "listing.seo -> launch.plan -> release_gates.window_decision -> launch.held / pivot re-queues listing.seo evergreen; store.publish for_publish refuses",
+  "acted_on": "yes",
+  "test": "tests/test_cert_publish_gates.py",
+  "gap": ""
+ },
+ {
+  "id": 298,
+  "state": "DATA-GATED",
+  "verdict": "valid",
+  "entry": "season_harvest -> seasonal.harvest; leadtime applies adjusted_assumptions",
+  "acted_on": "SeasonHarvest rows",
+  "test": "-",
+  "gap": "needs a season"
+ },
+ {
+  "id": 299,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "arena_expedition/product_tournament/remerchandising -> prospecting.arenas -> benchmark_matrix.matrix",
+  "acted_on": "drives arena choice",
+  "test": "-",
+  "gap": "cells carry only department, covered/absent and benchmark count; merchandising mechanisms, adaptation opportunities, our competing products, quality-gate result, launch date, traffic, conversion and revenue columns are absent"
+ },
+ {
+  "id": 300,
+  "state": "OWNER-GATED",
+  "verdict": "weak",
+  "entry": "seasonal_cycle_proof (publishing) -> seasonal.cycle_proof",
+  "acted_on": "reading",
+  "test": "test_seasonal_cycle",
+  "gap": "the note says imagery is 'no longer capability-blocked' while the row is parked on image_generation, which executor.py says carries no requirement; the paid-media part belongs on ad_authority"
+ },
+ {
+  "id": 301,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "mjs_scan -> mjs.scan -> observe.scan_or_explain -> mission.check_report",
+  "acted_on": "a non-compliant report fails",
+  "test": "test_cert_mjs",
+  "gap": ""
+ },
+ {
+  "id": 302,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "swarm_allocate -> swarm.allocate -> orchestrate:753 capacity.reserve_lane -> reserve_check",
+  "acted_on": "SwarmAllocation reserve",
+  "test": "test_cert_mjs::test_allocate_reserves_the_mission_floor...",
+  "gap": ""
+ },
+ {
+  "id": 303,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "mjs.scan -> observe/pods/market_map; /api/mjs/coverage",
+  "acted_on": "BenchmarkListing rows, gaps",
+  "test": "test_cert_mjs, test_intel",
+  "gap": "visual columns depend on image_vision (see 304)"
+ },
+ {
+  "id": 304,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "gallery_analysis (market_radar) -> intel.gallery_analysis",
+  "acted_on": "only after a successful vision.probe",
+  "test": "-",
+  "gap": "the handler refuses without a recorded vision probe, and scratchpad/api_build.json (2026-09-26) shows image_vision closed in production; the executor lists 304 under the image_vision gate, yet the row is COMPLETE"
+ },
+ {
+  "id": 305,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "assets.build -> check_assets (release.py:275); certificate.py:215",
+  "acted_on": "ASSET_COMPETITOR_SOURCE blocks",
+  "test": "asset truth tests",
+  "gap": ""
+ },
+ {
+  "id": 306,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "mjs.scan -> mission_runtime.process_listing -> response.consider_arena",
+  "acted_on": "MjsMissionEvent.steps",
+  "test": "test_cert_mjs::test_an_unproven_arena_is_considered_and_refused...",
+  "gap": ""
+ },
+ {
+  "id": 307,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "process_listing -> seasonal_target -> response.seasonalise (8 lenses)",
+  "acted_on": "ev.seasonal",
+  "test": "test_cert_mjs",
+  "gap": ""
+ },
+ {
+  "id": 308,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "process_listing -> seasonalise + breakthrough tournament",
+  "acted_on": "stops at tournament",
+  "test": "test_cert_mjs::test_owner_christmas_cardigan_is_produced_by_the_runtime...",
+  "gap": "no path engineers the Christmas cardigan (tournament winner -> cir.draft) or generates its imagery"
+ },
+ {
+  "id": 309,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "invalid",
+  "entry": "process_listing -> response.PipelineRun",
+  "acted_on": "walks 5 of 14 stages",
+  "test": "test_cert_mjs",
+  "gap": "stages after seasonal_tournament (make-time, launch dates, CIR, certification, assets, challenge, SEO/ads, launch, measurement, scaling, lessons) have no runtime; creative.tournament never enqueues cir.draft; ideation.pre_engineering_gate only records"
+ },
+ {
+  "id": 310,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "mission_runtime.seasonal_target -> compile_launch; mjs.seasonal_sentinel",
+  "acted_on": "yes",
+  "test": "test_cert_mjs",
+  "gap": ""
+ },
+ {
+  "id": 311,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "mjs_seasonal_sentinel -> mjs.seasonal_sentinel",
+  "acted_on": "P2 incident, band move, tournament enqueued, missed deferred",
+  "test": "test_cert_mjs::test_sentinel_escalates.../defers...",
+  "gap": ""
+ },
+ {
+  "id": 312,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "mjs.scan routing; mjs_pod_learning -> intel.pod_learning",
+  "acted_on": "readings",
+  "test": "test_cert_mjs",
+  "gap": ""
+ },
+ {
+  "id": 313,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "mjs_scan (2h) -> scan_or_explain -> adaptive_interval(seasonal)",
+  "acted_on": "deferral",
+  "test": "test_cert_mjs::test_seasonal_pressure_tightens_the_scan_interval_at_runtime",
+  "gap": ""
+ },
+ {
+  "id": 314,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "mjs.scan -> observe coverage.upsert; process_listing -> coverage.advance",
+  "acted_on": "gap rows",
+  "test": "test_cert_mjs",
+  "gap": "observe.py:343 scores only apparent_demand and portfolio_fit (2 of 7); seasonal timing, search opportunity (serp density) and make-time are computable now but absent; gaps never advance past 'concepting'"
+ },
+ {
+  "id": 315,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "blind_review -> creative.blind_review returns weak products to development",
+  "acted_on": "enqueue return-to-development",
+  "test": "test_blind_review",
+  "gap": "deliverable half needs purchased patterns (owner)"
+ },
+ {
+  "id": 316,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "process_listing -> memory.learn/outcome, raise_challengers -> memory.challenge/resolve; record_veto",
+  "acted_on": "PodLesson versions",
+  "test": "test_cert_mjs::test_repetition_moves_nothing...",
+  "gap": "Brambleloop launches, failures, conversion and customer outcomes never feed PodLesson; challengers only test mechanism-absence statements, not seasonal responses or commercial execution"
+ },
+ {
+  "id": 317,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "teardown intake (owner purchases)",
+  "acted_on": "-",
+  "test": "-",
+  "gap": "whole substance needs purchases; the park is plausible"
+ },
+ {
+  "id": 318,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "weak",
+  "entry": "/api/mjs -> mission_report; dashboard _mission block",
+  "acted_on": "display",
+  "test": "test_cert_benchmark_health_api",
+  "gap": "missing upcoming seasonal adaptations, MJs launch deadlines, Brambleloop comparison results, products launched, conversion/revenue, mission incidents and the top uncovered opportunities (only a gap count is shown)"
+ },
+ {
+  "id": 319,
+  "state": "COMPLETE+PROVEN",
+  "verdict": "valid",
+  "entry": "mjs.scan -> scan_or_explain -> check_report; intel.acceptance",
+  "acted_on": "a non-compliant report fails",
+  "test": "test_cert_mjs, test_acceptance",
+  "gap": ""
+ },
+ {
+  "id": 320,
+  "state": "OWNER-GATED",
+  "verdict": "valid",
+  "entry": "intel_acceptance (market_radar) -> intel.acceptance",
+  "acted_on": "graded reports",
+  "test": "tests/test_acceptance.py",
+  "gap": "production deploy and the wording ruling are the owner's"
+ }
+]

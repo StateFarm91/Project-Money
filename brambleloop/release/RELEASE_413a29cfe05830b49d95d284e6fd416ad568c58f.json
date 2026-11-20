@@ -1,0 +1,58 @@
+{
+  "deployable": {
+    "dirs": [
+      "src/"
+    ],
+    "excluded": [
+      "__pycache__/",
+      "*.pyc",
+      "*.pyo",
+      "symlinks"
+    ],
+    "files": [
+      "requirements.lock"
+    ],
+    "prefix_stripped": "brambleloop/"
+  },
+  "full_log": {
+    "note": "per-test log, outside the image; release/ holds its summary",
+    "path": "research/release_evidence/20261026T134040Z-24420.full.log",
+    "relative_to": "brambleloop/",
+    "sha256": "02d1f1055cffd42d9221f2561476600a9c67ea1392a1745bf3493917af24aa05"
+  },
+  "kind": "brambleloop.release_record",
+  "note": "commit this file, suite_runs/ and full_log on top of `sha`; the deploy guard and the runtime boot guard read it from git / the image, never from artifacts/",
+  "recorded_at": "2026-10-26T16:20:52Z",
+  "release_eligible": true,
+  "sha": "413a29cfe05830b49d95d284e6fd416ad568c58f",
+  "source_tree_sha256": "46ac33c9c0dcd3b3e0d92c5c4ab567cb3c58f1b5d4df1ae8401dc52790b5b724",
+  "suite_log": {
+    "path": "suite_runs/20261026T134040Z-24420.log",
+    "sha256": "648ec6cd4a4d931e795c802ef1ad997223ff25d54dbd75ac276ad2ec95d4cee7"
+  },
+  "suite_record": {
+    "path": "suite_runs/20261026T134040Z-24420.json",
+    "sha256": "660a2ed9d626cf59806b4a73ed98fa58223d1b5213b367b1b08ac3ed00bd8fc9"
+  },
+  "supply_chain": {
+    "change_since_deployed": {
+      "added": [],
+      "base": "15800536290bce6b3c85dbfcf460ff0b63a4329a",
+      "base_had_lock": true,
+      "hash_changed_same_version": [],
+      "material": false,
+      "removed": [],
+      "version_changed": []
+    },
+    "distributions": 35,
+    "findings": [],
+    "hashes": 1436,
+    "lock_sha256": "d7b9a8e60a47859b51f792a3da7dc85a81c19acddc2068ce3be073c98e6d07d6",
+    "ok": true,
+    "problems": [],
+    "sbom_components": 35,
+    "sbom_sha256": "11fafe76a794b772f42473ff68789c70db61d436d1184dcf7c09cb527bce2afc",
+    "status": "verified"
+  },
+  "version": 1
+}

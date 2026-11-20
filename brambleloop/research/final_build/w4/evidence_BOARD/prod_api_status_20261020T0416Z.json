@@ -1,0 +1,135 @@
+{
+    "version": "0.1.0",
+    "build": {
+        "commit": "b931d17a738d6a5bcd96580f620069b669ca5f57",
+        "commit_short": "b931d17a738d",
+        "branch": "claude/repository-setup-nc9x6o",
+        "known": true
+    },
+    "boot_guard": {
+        "enforced": true,
+        "ok": true,
+        "action": "none",
+        "record": {
+            "file": "RELEASE_324927f1003808dd07a14b0cb0bce29e5c7d7cbc.json",
+            "sha": "324927f1003808dd07a14b0cb0bce29e5c7d7cbc",
+            "suite_run": "suite_runs/20261020T011631Z-1452.json"
+        },
+        "reasons": [],
+        "tree_sha256": "31723169cba87c59a3bb9ac87f55ba7916549309157bf87061d02aa33c714673"
+    },
+    "queue": {
+        "pending": 0,
+        "running": 0,
+        "done": 24205,
+        "failed": 0,
+        "dead": 187,
+        "cancelled": 0
+    },
+    "dead_letters": 187,
+    "dead_letter_refusals": 186,
+    "dead_letter_defects": 1,
+    "dead_letter_classified_by": "queue.durable.deliberate_refusal",
+    "products": 16,
+    "certified_versions": 27,
+    "open_incidents": 511,
+    "agent_opex_cad": 141.1144,
+    "agent_opex_basis": "raw sum of cost_entries.amount_cad (all kinds); see `spend`",
+    "revenue_cad": 0.0,
+    "revenue_cad_basis": "raw sum of ledger.gross_cad, unreconciled; see `revenue`",
+    "revenue": {
+        "raw_ledger_gross_cad": 0,
+        "unreconciled_rows": 0,
+        "order_source_measured": true,
+        "why": "",
+        "state": "MEASURED",
+        "value_cad": 0,
+        "display": "CA$0.00",
+        "evidence": {
+            "source": "ledger (basis=measured, reconciliation=matched_etsy_ledger)",
+            "as_of": "2026-10-20T04:16:44+00:00",
+            "transform": "sum of gross less refunds over reconciled sales",
+            "confidence": "measured",
+            "reconciliation": "matched against the Etsy payment ledger",
+            "external_ids": []
+        }
+    },
+    "spend": {
+        "total_recorded_cad": 141.11,
+        "cost_entries_by_kind": {
+            "llm": 140.5826,
+            "image": 0.5318
+        },
+        "cost_entries_cad": 141.1144,
+        "model_cad": 140.5826,
+        "ledger_fees_cad": 0.0,
+        "ledger_expense_cad": 0.0,
+        "label": "Recorded spend (all kinds)",
+        "display": "CA$141.11",
+        "evidence": {
+            "source": "cost_entries (every kind) + ledger fees_cad + expense_cad",
+            "as_of": "2026-10-20T04:16:44+00:00",
+            "transform": "sum; recorded spend only, not an all-in opex",
+            "confidence": "recorded (not reconciled)",
+            "reconciliation": "not reconciled",
+            "external_ids": []
+        }
+    },
+    "owner_actions_open": 36,
+    "runner": {
+        "enabled": true,
+        "worker": "web-2",
+        "worker_alive": true,
+        "worker_starting": false,
+        "worker_started_at": "2026-10-20T03:48:42.556947+00:00",
+        "worker_last_tick": "2026-10-20T04:16:42.697506+00:00",
+        "worker_restarts": 0,
+        "scheduler_last_tick": "2026-10-20T04:16:21.454346+00:00",
+        "scheduler_started_at": "2026-10-20T03:48:42.558133+00:00",
+        "scheduler_last_enqueued": [],
+        "last_error": "",
+        "worker_pool": 3,
+        "worker_target": 1,
+        "worker_target_why": "1 specialist(s) granted to lanes with open work, pool of 3; the governor found added workers duplicated work, so one runs",
+        "lanes": {
+            "control": {
+                "worker": "web-2-control",
+                "job_types": [
+                    "autonomy.department_review",
+                    "autonomy.morning_handoff",
+                    "autonomy.orchestrate",
+                    "ops.health",
+                    "ops.heartbeat",
+                    "ops.queue_check"
+                ],
+                "last_tick": "2026-10-20T04:16:42.344350+00:00",
+                "restarts": 0,
+                "last_error": "",
+                "idle_seconds": 1609.5,
+                "busy_seconds": 37.7
+            }
+        },
+        "busy_seconds": 649.8,
+        "idle_seconds": 1005.3,
+        "disk": {
+            "filesystems": {
+                "tmp": {
+                    "free_gb": 1754.084,
+                    "total_gb": 3147.639,
+                    "free_share": 0.5573
+                },
+                "artifacts": {
+                    "free_gb": 1754.084,
+                    "total_gb": 3147.639,
+                    "free_share": 0.5573
+                }
+            },
+            "temp_dirs_left_behind": 0,
+            "temp_dir_prefixes": {},
+            "why_they_are_counted": "the handlers that make these run on a cadence, and until 2026-09-25 they used `tempfile.mkdtemp`, which never removes what it creates. They now scope the directory to the work, so a number that keeps climbing here is either work in flight or a new call site that forgot. Counted rather than cleaned: deleting a directory another process is writing into loses that job's work"
+        }
+    },
+    "model_providers": [
+        "anthropic"
+    ]
+}

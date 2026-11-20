@@ -1,0 +1,631 @@
+{
+ "candidate": "final-candidate-ddf9c6e",
+ "suite": "research/final_build/evidence/suite_ddf9c6e.json",
+ "rehearsal": "research/final_build/evidence/shadow_rehearsal_ddf9c6e.json",
+ "rule": "No row is COMPLETE until independent certification (lane J) of ddf9c6e reports no blocking finding against it; DEPLOYED requires presence in production (fcb982d today) \u2014 none are.",
+ "rows": [
+  {
+   "id": "F-880",
+   "title": "Cloud-Resident Always-On Runtime",
+   "lanes": [
+    "A",
+    "I"
+   ],
+   "status": "GATED: hosted always-on proof needs owner-approved deploy of the candidate + 24h PC-off soak (\u00a795)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_A.md",
+    "research/final_build/v1_1/handoff_I.md"
+   ]
+  },
+  {
+   "id": "F-881",
+   "title": "No Development-Chat Dependency",
+   "lanes": [
+    "A",
+    "I"
+   ],
+   "status": "GATED: proven locally (runtime runs without sessions; production ticks 7h after last poke) but the v1.1 orchestrator is not deployed",
+   "evidence": [
+    "research/final_build/v1_1/handoff_A.md",
+    "research/final_build/v1_1/handoff_I.md"
+   ]
+  },
+  {
+   "id": "F-882",
+   "title": "Mobile-First Owner Command Center",
+   "lanes": [
+    "C",
+    "D"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_C.md",
+    "research/final_build/v1_1/handoff_D.md"
+   ]
+  },
+  {
+   "id": "F-883",
+   "title": "PWA / Home-Screen Mode",
+   "lanes": [
+    "D"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_D.md"
+   ]
+  },
+  {
+   "id": "F-884",
+   "title": "Owner Home Brief",
+   "lanes": [
+    "C",
+    "D"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_C.md",
+    "research/final_build/v1_1/handoff_D.md"
+   ]
+  },
+  {
+   "id": "F-885",
+   "title": "Evidence-Backed Approval Inbox",
+   "lanes": [
+    "C",
+    "D"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_C.md",
+    "research/final_build/v1_1/handoff_D.md"
+   ]
+  },
+  {
+   "id": "F-886",
+   "title": "One-Tap Owner Actions",
+   "lanes": [
+    "C",
+    "D"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_C.md",
+    "research/final_build/v1_1/handoff_D.md"
+   ]
+  },
+  {
+   "id": "F-887",
+   "title": "Owner Action Authentication",
+   "lanes": [
+    "C",
+    "D"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_C.md",
+    "research/final_build/v1_1/handoff_D.md"
+   ]
+  },
+  {
+   "id": "F-888",
+   "title": "Account & Security Tab",
+   "lanes": [
+    "C",
+    "D"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_C.md",
+    "research/final_build/v1_1/handoff_D.md"
+   ]
+  },
+  {
+   "id": "F-889",
+   "title": "Emergency Controls",
+   "lanes": [
+    "A",
+    "C",
+    "D"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_A.md",
+    "research/final_build/v1_1/handoff_C.md",
+    "research/final_build/v1_1/handoff_D.md"
+   ]
+  },
+  {
+   "id": "F-890",
+   "title": "24/7 Department Agents",
+   "lanes": [
+    "A"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_A.md"
+   ]
+  },
+  {
+   "id": "F-891",
+   "title": "Agent Intelligence Standard",
+   "lanes": [
+    "A",
+    "B"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_A.md",
+    "research/final_build/v1_1/handoff_B.md"
+   ]
+  },
+  {
+   "id": "F-892",
+   "title": "Agent Role Charters",
+   "lanes": [
+    "A"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_A.md"
+   ]
+  },
+  {
+   "id": "F-893",
+   "title": "Executive Orchestrator",
+   "lanes": [
+    "A"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_A.md"
+   ]
+  },
+  {
+   "id": "F-894",
+   "title": "Work Never Waits on the Owner Without Cause",
+   "lanes": [
+    "A"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_A.md"
+   ]
+  },
+  {
+   "id": "F-895",
+   "title": "Overnight Autonomy",
+   "lanes": [
+    "A"
+   ],
+   "status": "GATED: overnight autonomy proven only in simulation; hosted overnight evidence needs deploy",
+   "evidence": [
+    "research/final_build/v1_1/handoff_A.md"
+   ]
+  },
+  {
+   "id": "F-896",
+   "title": "Morning Handoff",
+   "lanes": [
+    "A",
+    "C",
+    "D"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_A.md",
+    "research/final_build/v1_1/handoff_C.md",
+    "research/final_build/v1_1/handoff_D.md"
+   ]
+  },
+  {
+   "id": "F-897",
+   "title": "Smart Notification Policy",
+   "lanes": [
+    "C",
+    "D"
+   ],
+   "status": "GATED: in-app notifications only; external channels gated on CASL review + owner authority",
+   "evidence": [
+    "research/final_build/v1_1/handoff_C.md",
+    "research/final_build/v1_1/handoff_D.md"
+   ]
+  },
+  {
+   "id": "F-898",
+   "title": "Web Surface Uses Real Production State",
+   "lanes": [
+    "C"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_C.md"
+   ]
+  },
+  {
+   "id": "F-899",
+   "title": "Operational Drill-Down",
+   "lanes": [
+    "C",
+    "D"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_C.md",
+    "research/final_build/v1_1/handoff_D.md"
+   ]
+  },
+  {
+   "id": "F-900",
+   "title": "Remote Health & Recovery",
+   "lanes": [
+    "I"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_I.md"
+   ]
+  },
+  {
+   "id": "F-901",
+   "title": "Accountant Agent",
+   "lanes": [
+    "E"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_E.md"
+   ]
+  },
+  {
+   "id": "F-902",
+   "title": "Accounting Source of Truth",
+   "lanes": [
+    "E"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_E.md"
+   ]
+  },
+  {
+   "id": "F-903",
+   "title": "Double-Entry Ledger",
+   "lanes": [
+    "E"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_E.md"
+   ]
+  },
+  {
+   "id": "F-904",
+   "title": "Bank/Etsy/Processor Reconciliation",
+   "lanes": [
+    "E"
+   ],
+   "status": "GATED: no real bank/Etsy payment-ledger/processor feed connected; logic tested on fixtures",
+   "evidence": [
+    "research/final_build/v1_1/handoff_E.md"
+   ]
+  },
+  {
+   "id": "F-905",
+   "title": "Accrual vs Cash Views",
+   "lanes": [
+    "E"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_E.md"
+   ]
+  },
+  {
+   "id": "F-906",
+   "title": "Product & Channel Profitability",
+   "lanes": [
+    "E"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_E.md"
+   ]
+  },
+  {
+   "id": "F-907",
+   "title": "Cost Attribution",
+   "lanes": [
+    "E"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_E.md"
+   ]
+  },
+  {
+   "id": "F-908",
+   "title": "Cash & Runway Intelligence",
+   "lanes": [
+    "E"
+   ],
+   "status": "GATED: cash UNKNOWN until a bank/Etsy ledger feed exists",
+   "evidence": [
+    "research/final_build/v1_1/handoff_E.md"
+   ]
+  },
+  {
+   "id": "F-909",
+   "title": "Tax-Ready Evidence Pack",
+   "lanes": [
+    "E"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_E.md"
+   ]
+  },
+  {
+   "id": "F-910",
+   "title": "Month-End Close",
+   "lanes": [
+    "E"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_E.md"
+   ]
+  },
+  {
+   "id": "F-911",
+   "title": "Financial Anomaly Detection",
+   "lanes": [
+    "E"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_E.md"
+   ]
+  },
+  {
+   "id": "F-912",
+   "title": "Spend Governor Integration",
+   "lanes": [
+    "E",
+    "H"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_E.md",
+    "research/final_build/v1_1/handoff_H.md"
+   ]
+  },
+  {
+   "id": "F-913",
+   "title": "Financial Forecast Honesty",
+   "lanes": [
+    "E"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_E.md"
+   ]
+  },
+  {
+   "id": "F-914",
+   "title": "Owner Money Dashboard",
+   "lanes": [
+    "D",
+    "E"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_D.md",
+    "research/final_build/v1_1/handoff_E.md"
+   ]
+  },
+  {
+   "id": "F-915",
+   "title": "Financial Drill-Through",
+   "lanes": [
+    "D",
+    "E"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_D.md",
+    "research/final_build/v1_1/handoff_E.md"
+   ]
+  },
+  {
+   "id": "F-916",
+   "title": "Human Accountant Handoff",
+   "lanes": [
+    "E"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_E.md"
+   ]
+  },
+  {
+   "id": "F-917",
+   "title": "Accounting Guardrails",
+   "lanes": [
+    "E"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_E.md"
+   ]
+  },
+  {
+   "id": "F-918",
+   "title": "Department KPIs With Anti-Gaming",
+   "lanes": [
+    "A",
+    "B",
+    "G",
+    "H"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_A.md",
+    "research/final_build/v1_1/handoff_B.md",
+    "research/final_build/v1_1/handoff_G.md",
+    "research/final_build/v1_1/handoff_H.md"
+   ]
+  },
+  {
+   "id": "F-919",
+   "title": "Cross-Agent Challenge",
+   "lanes": [
+    "B",
+    "H"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_B.md",
+    "research/final_build/v1_1/handoff_H.md"
+   ]
+  },
+  {
+   "id": "F-920",
+   "title": "Persistent Company Memory",
+   "lanes": [
+    "A",
+    "B"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_A.md",
+    "research/final_build/v1_1/handoff_B.md"
+   ]
+  },
+  {
+   "id": "F-921",
+   "title": "Model/Agent Failover",
+   "lanes": [
+    "I"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_I.md"
+   ]
+  },
+  {
+   "id": "F-922",
+   "title": "Cost-Aware Intelligence Routing",
+   "lanes": [
+    "B",
+    "I"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_B.md",
+    "research/final_build/v1_1/handoff_I.md"
+   ]
+  },
+  {
+   "id": "F-923",
+   "title": "Owner Availability SLO",
+   "lanes": [
+    "I"
+   ],
+   "status": "GATED: availability SLO needs an external probe on the hosted service",
+   "evidence": [
+    "research/final_build/v1_1/handoff_I.md"
+   ]
+  },
+  {
+   "id": "F-924",
+   "title": "Production Autonomy SLO",
+   "lanes": [
+    "I"
+   ],
+   "status": "GATED: autonomy SLO needs hosted operating history",
+   "evidence": [
+    "research/final_build/v1_1/handoff_I.md"
+   ]
+  },
+  {
+   "id": "F-925",
+   "title": "No Terminal for Normal Operations",
+   "lanes": [
+    "C"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_C.md"
+   ]
+  },
+  {
+   "id": "F-926",
+   "title": "Store Preview Mode",
+   "lanes": [
+    "D",
+    "F"
+   ],
+   "status": "GATED: preview built; real Etsy shop settings need owner login",
+   "evidence": [
+    "research/final_build/v1_1/handoff_D.md",
+    "research/final_build/v1_1/handoff_F.md"
+   ]
+  },
+  {
+   "id": "F-927",
+   "title": "Company Timeline",
+   "lanes": [
+    "A",
+    "C",
+    "D"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_A.md",
+    "research/final_build/v1_1/handoff_C.md",
+    "research/final_build/v1_1/handoff_D.md"
+   ]
+  },
+  {
+   "id": "F-928",
+   "title": "Owner Search / Ask Company",
+   "lanes": [
+    "C",
+    "D"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_C.md",
+    "research/final_build/v1_1/handoff_D.md"
+   ]
+  },
+  {
+   "id": "F-929",
+   "title": "No Autonomous Hallucinated Action",
+   "lanes": [
+    "A",
+    "C",
+    "G"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_A.md",
+    "research/final_build/v1_1/handoff_C.md",
+    "research/final_build/v1_1/handoff_G.md"
+   ]
+  },
+  {
+   "id": "F-930",
+   "title": "24/7 Does Not Mean Reckless",
+   "lanes": [
+    "A",
+    "H"
+   ],
+   "status": "TESTED-LOCAL (built, wired, suite-green on ddf9c6e; certification pending)",
+   "evidence": [
+    "research/final_build/v1_1/handoff_A.md",
+    "research/final_build/v1_1/handoff_H.md"
+   ]
+  }
+ ]
+}

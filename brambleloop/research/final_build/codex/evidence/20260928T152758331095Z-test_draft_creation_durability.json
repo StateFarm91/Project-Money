@@ -1,0 +1,22 @@
+{
+  "run_id": "20260928T152758331095Z-test_draft_creation_durability",
+  "sha": "732bc6a92e06c104431b5288c1fbadd4e1c0a0b0",
+  "suite": "tests/test_draft_creation_durability.py",
+  "started": "2026-09-28T15:27:58.331095+00:00",
+  "tree_before": "",
+  "source_before": "0be16673368207c30a5ca0a73a4539975a4239f1b2f256ff2141c53a3b2320b4",
+  "dependency_roots": [
+    "C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\runtime-build2"
+  ],
+  "dependency_lock_verified": false,
+  "status": "passed",
+  "interpreter": "C:\\Users\\Jacob McKenna\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+  "font_sha256": "7da195a74c55bef988d0d48f9508bd5d849425c1770dba5d7bfc6ce9ed848954",
+  "release_eligible": false,
+  "exit_code": 0,
+  "finished": "2026-09-28T15:28:11.707450+00:00",
+  "source_after": "0be16673368207c30a5ca0a73a4539975a4239f1b2f256ff2141c53a3b2320b4",
+  "head_after": "732bc6a92e06c104431b5288c1fbadd4e1c0a0b0",
+  "log": "20260928T152758331095Z-test_draft_creation_durability.log",
+  "log_sha256": "d5dd482bb3be654db6d58977a100937f11cd8995cf7fc3f2fcc6eae5803eca3b"
+}

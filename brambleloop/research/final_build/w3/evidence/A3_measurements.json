@@ -1,0 +1,83 @@
+{
+ "candidates": {
+  "O1": {
+   "comparison_measure": {
+    "candidate": "O1",
+    "contrast_darkest_ink_40": 11.88,
+    "contrast_median_ink_40": 4.91,
+    "detail_retained_40": 0.629,
+    "ground": "#F3EEE7",
+    "header_letter_px": 14.0,
+    "ink_at_3to1_share_40": 0.655,
+    "ink_coverage_40": 0.315,
+    "ink_outside_circle": 0.0,
+    "kind": "vector",
+    "mono_edge_correlation_70": 0.993,
+    "mono_ink_kept": 0.932,
+    "stroke_survival_40": 0.673
+   },
+   "kind": "vector",
+   "label": "O1 micro-mark (production)",
+   "sizes": {
+    "40": {
+     "contrast_median": 4.91,
+     "ink_at_3to1_share": 0.655,
+     "ink_coverage": 0.315,
+     "px": 40
+    },
+    "48": {
+     "contrast_median": 5.91,
+     "ink_at_3to1_share": 0.719,
+     "ink_coverage": 0.299,
+     "px": 48
+    },
+    "70": {
+     "contrast_median": 8.11,
+     "ink_at_3to1_share": 0.834,
+     "ink_coverage": 0.272,
+     "px": 70
+    }
+   }
+  },
+  "OWNER": {
+   "comparison_measure": {
+    "candidate": "OWNER",
+    "contrast_darkest_ink_40": 7.61,
+    "contrast_median_ink_40": 2.44,
+    "detail_retained_40": 0.534,
+    "ground": "#F3EEE7",
+    "header_letter_px": 5.1,
+    "ink_at_3to1_share_40": 0.422,
+    "ink_coverage_40": 0.316,
+    "ink_outside_circle": 0.017,
+    "kind": "raster",
+    "mono_edge_correlation_70": 0.969,
+    "mono_ink_kept": 0.83,
+    "stroke_survival_40": 0.452
+   },
+   "kind": "raster",
+   "label": "Owner concept (raster, as supplied)",
+   "sizes": {
+    "40": {
+     "contrast_median": 2.44,
+     "ink_at_3to1_share": 0.422,
+     "ink_coverage": 0.316,
+     "px": 40
+    },
+    "48": {
+     "contrast_median": 2.67,
+     "ink_at_3to1_share": 0.435,
+     "ink_coverage": 0.299,
+     "px": 48
+    },
+    "70": {
+     "contrast_median": 2.99,
+     "ink_at_3to1_share": 0.498,
+     "ink_coverage": 0.281,
+     "px": 70
+    }
+   }
+  }
+ },
+ "procedure": "brand.comparison: 500 px icon -> Lanczos to px; ink = RGB distance > 0.18 from ground; WCAG ratio per ink pixel vs ground"
+}

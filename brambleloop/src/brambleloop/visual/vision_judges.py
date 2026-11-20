@@ -1,0 +1,1033 @@
+"""Blind, structured vision-judge adapters for generated listing images (W-VISNEXT; OWNERIMG E2).
+
+Every check that needs eyes is asked here, and every one follows the same three rules:
+
+1. **Blind.** The question never states the expected answer. The judge is not told the
+   reserved outfit, the pattern's palette, edging or craft, or that the person "should be"
+   Laura. Comparison questions (identity, body) show the canonical references and ask, per
+   dimension, whether two people are the same; they never say which answer is wanted.
+2. **Structured, compared in code.** The judge returns one JSON object in a closed
+   vocabulary. This module compares that reading against the certified CIR
+   (`visual.fidelity.Expectation`), the wardrobe registry (`visual.outfits`,
+   `visual.wardrobe`) or the identity rule (`visual.identity_gate.assess`). Deterministic
+   comparison decides; the judge only reports what it saw.
+3. **Budget-reserved, UNKNOWN when it cannot be asked.** The transport is the existing
+   vision judge interface, `read(prompt, images, *, system, max_tokens)` ->
+   {"answered", "reading", "why"}. In production that is `fidelity.GatewayVisionJudge`:
+   gated on `image_vision`, reserved through `gateway.anthropic.check_budget` before the
+   call and billed after it. Gate closed, budget refused, provider down or an unparseable
+   answer: the check reads UNKNOWN. UNKNOWN is never PASS.
+
+| check | images | compared against | FAIL code / category |
+|---|---|---|---|
+| identity | 3 canonical references + candidate, two independent judges | `identity_gate.assess` (conditioning receipt, judge pair, biometric floor) | identity_drift |
+| body_proportions | the same readings, morphology group | `identity._group_verdict` (bust and torso required) | body_proportion_drift |
+| outfit_consistency | candidate | the listing's reserved outfit, per slot (5 slots); the reference clothing; other listings' outfits | outfit_consistency, REFERENCE_CLOTHING_CARRYOVER, WARDROBE_REPETITION |
+| anatomy | candidate | one person in a Laura frame; five fingers on every fully visible hand; no defect | anatomy |
+| realism | candidate | `gallery.REALISM_CHECKS` defects, plus render/illustration and text | realism |
+| craft_texture | candidate | `fidelity.compare_craft` (already in `visual.fidelity`) | WRONG_CRAFT_TEXTURE |
+| anchor_consistency | anchor + candidate, each described separately | each other and the CIR (craft, edging, end bands, cables, colour count) | INVENTED_EDGING, INVENTED_END_BAND_TREATMENT, WRONG_CRAFT_TEXTURE, WRONG_COLOUR_LAYOUT |
+| product region | candidate | interior fabric patches located by the judge; the palette is then measured in code | (feeds `fidelity.verify_lifestyle` region_palette) |
+
+Independence: identity and body proportions need two readings from two *different* judges
+(different transport name or model). One judge can refuse (any drift is a FAIL) but never
+pass. Identity additionally needs the biometric floor, which no qualified embedder provides
+in this build (`identity_gate.QUALIFIED_EMBEDDERS` is empty), so identity tops out at the
+REVIEW band (UNKNOWN). That is the honest state. V3 (OA-V3-LAURA-QUALIFICATION): the floor is
+computed here from the image bytes by an embedder admitted through a validated qualification
+record (`identity_gate.measure_biometric`), never read from generator evidence. ENG-VIS-IDENTITY:
+production loads the SFace embedder when installed (`identity_gate.production_floor`) and the
+OpenAI second judge when keyed (`configured_second_transport`); identity still HOLDs until the
+owner qualifies the embedder and activates the second transport. Fixture stand-ins are labelled.
+
+Nothing here generates, publishes, or relaxes a gate.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import math
+from numbers import Real
+
+from ..creative import failure_codes as FC
+
+VERSION = "vision-judges/1.0.0"
+PASS, FAIL, UNKNOWN, NA = "PASS", "FAIL", "UNKNOWN", "NOT_APPLICABLE"
+
+SYSTEM = ("You are a careful visual inspector. Report only what the picture shows. When you "
+          "cannot tell, say so with the 'cannot_tell' or 'unclear' option. Reply with one JSON "
+          "object and nothing else.")
+
+# Answer vocabularies. Closed, so a reading cannot smuggle in a verdict.
+SAME, DIFFERENT, CANNOT_TELL = "same", "different", "cannot_tell"
+YES, NO, UNCLEAR = "yes", "no", "unclear"
+
+
+def _c(check: str, status: str, why: str, **kw) -> dict:
+    return {"check": check, "status": status, "why": str(why)[:400], "checker": VERSION, **kw}
+
+
+def _tri(v) -> bool | None:
+    """yes/true -> True, no/false -> False, anything else (unclear, missing) -> None."""
+    if isinstance(v, bool):
+        return v
+    s = str(v if v is not None else "").strip().lower()
+    if s in ("yes", "true", "y"):
+        return True
+    if s in ("no", "false", "n"):
+        return False
+    return None
+
+
+def _int(v) -> int | None:
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, int):
+        return v
+    t = str(v if v is not None else "").strip()
+    return int(t) if t.isdigit() else None
+
+
+def judge_id(judge, answer: dict | None = None) -> str:
+    """A judge's identity for independence: transport name plus the model that answered."""
+    name = str(getattr(judge, "name", "") or type(judge).__name__)
+    model = str((answer or {}).get("model") or getattr(getattr(judge, "provider", None),
+                                                          "model", "") or "")
+    return f"{name}:{model}" if model else name
+
+
+def ask(judge, task: str, prompt: str, images: list[bytes], *, max_tokens: int = 500) -> dict:
+    """One blind question through the judge transport. Never raises.
+
+    Returns {"answered": bool, "reading": dict | None, "why": str, "judge": id}. The
+    transport does the gating and the budget reservation; an unanswered read is UNKNOWN."""
+    if judge is None:
+        return {"answered": False, "reading": None, "judge": None,
+                "why": "no vision judge is configured"}
+    if not images or any(not b for b in images):
+        return {"answered": False, "reading": None, "judge": judge_id(judge),
+                "why": "an image this question needs is missing"}
+    try:
+        got = judge.read(f"Task: {task}\n" + prompt, list(images), system=SYSTEM,
+                         max_tokens=max_tokens) or {}
+    except Exception as exc:  # noqa: BLE001 - an unmade reading is UNKNOWN, never PASS
+        return {"answered": False, "reading": None, "judge": judge_id(judge),
+                "why": f"{type(exc).__name__}: {str(exc)[:200]}"}
+    if not got.get("answered"):
+        return {"answered": False, "reading": None, "judge": judge_id(judge, got),
+                "why": str(got.get("why") or "not answered")[:300]}
+    reading = got.get("reading")
+    if isinstance(reading, str):
+        try:
+            reading = json.loads(reading)
+        except ValueError:
+            reading = None
+    if not isinstance(reading, dict) or not reading or "_unread" in reading:
+        return {"answered": False, "reading": None, "judge": judge_id(judge, got),
+                "why": "the answer was not the requested JSON object"}
+    return {"answered": True, "reading": reading, "judge": judge_id(judge, got), "why": ""}
+
+
+# ---- identity and body proportions ----------------------------------------------------------
+
+def person_prompt(order: str) -> str:
+    """Per-dimension comparison of one photographed person with the reference woman.
+
+    `order` "refs_first": images 1-3 are the references, image 4 the photograph;
+    "photo_first": image 1 is the photograph, images 2-4 the references. The second judge gets
+    the other order, so a position bias cannot be shared."""
+    from . import identity
+
+    if order == "refs_first":
+        layout = ("Images 1, 2 and 3 are reference photographs of one woman (1: face portrait, "
+                  "2: torso, 3: full length). Image 4 is another photograph.")
+        other = "image 4"
+    else:
+        layout = ("Image 1 is a photograph. Images 2, 3 and 4 are reference photographs of one "
+                  "woman (2: face portrait, 3: torso, 4: full length).")
+        other = "image 1"
+    dims = ", ".join(identity.DRIFT_DIMENSIONS)
+    return (f"{layout}\nFor each dimension below, compare the person in {other} with the "
+            f"reference woman and answer exactly one of: \"same\", \"different\", "
+            f"\"cannot_tell\". Use \"cannot_tell\" whenever clothing, pose, crop, angle or "
+            f"blur hides the dimension. Clothing, make-up and expression are not identity; "
+            f"judge the person, not the outfit.\n"
+            f"Dimensions: {dims}. (stylisation: whether the person is rendered in the same "
+            f"photographic style rather than as an illustration or a different-looking "
+            f"render.)\n"
+            f"Reply with one JSON object whose keys are exactly those dimensions, plus "
+            f"\"people_in_photograph\": the number of people in {other}.")
+
+
+def _scored(reading: dict) -> dict:
+    """Closed answers to the identity vocabulary (match / drift / unmeasurable)."""
+    from . import identity
+
+    m = {SAME: identity.MATCH, DIFFERENT: identity.DRIFT}
+    out = {}
+    for d in identity.DRIFT_DIMENSIONS:
+        v = str(reading.get(d, CANNOT_TELL)).strip().lower().replace(" ", "_")
+        out[d] = m.get(v, identity.UNMEASURABLE)
+    return out
+
+
+def canonical_reference_bytes() -> dict:
+    """The current revision's three reference frames, verified by sha256 ('' if not)."""
+    from pathlib import Path
+
+    from . import canonical
+
+    out = {}
+    for frame, want in canonical.CURRENT_REFERENCE_HASHES.items():
+        path = canonical.reference_file(frame)
+        data = Path(path).read_bytes() if path else b""
+        out[frame] = data if data and hashlib.sha256(data).hexdigest() == want else b""
+    return out
+
+
+REF_ORDER = ("neutral_portrait", "torso_fit_reference", "full_length_standing")
+
+
+def person_readings(judges: list, data: bytes, refs: dict) -> list[dict]:
+    """One person reading per distinct judge (first two), alternating image order."""
+    readings, seen = [], set()
+    ref_list = [refs.get(f) or b"" for f in REF_ORDER]
+    for i, j in enumerate([j for j in judges if j is not None][:2]):
+        order = "refs_first" if i == 0 else "photo_first"
+        imgs = ref_list + [data] if order == "refs_first" else [data] + ref_list
+        got = ask(j, "identity_morphology", person_prompt(order), imgs, max_tokens=400)
+        jid = got["judge"]
+        if jid in seen:      # the same judge twice is one reading, not two
+            continue
+        seen.add(jid)
+        readings.append({**got, "order": order,
+                         "scored": _scored(got["reading"]) if got["answered"] else None})
+    return readings
+
+
+def conditioning_of(cand: dict, size_of) -> dict:
+    """The conditioning receipt for `identity_gate`, from the generator's stage receipt.
+
+    The receipt (`creative.image_stages`) names every reference sent by sha256 and whether the
+    request body was proven to carry them (`request.conditioning_proven`, measured by
+    `gateway.images.conditioning_receipt`). Byte counts are measured here from the stored
+    bytes of each named reference (`size_of(sha)`); a reference whose bytes cannot be found
+    counts 0 and the trial is invalid. Without a receipt nothing is proven."""
+    ev = dict(cand.get("identity_evidence") or {})
+    if isinstance(ev.get("conditioning"), dict):
+        return ev["conditioning"]
+    named = [r.get("sha256") for r in ev.get("references") or [] if isinstance(r, dict)]
+    proven = bool((ev.get("request") or {}).get("conditioning_proven"))
+    if not named:
+        named = [r.get("sha256") for r in cand.get("references") or []
+                 if r.get("kind") == "laura_canonical"]
+        proven = False
+    return {"references": [{"sha256": s_, "bytes": int(size_of(s_) or 0)} for s_ in named
+                           if s_], "proven": proven}
+
+
+def identity_check(cand: dict, readings: list[dict], *, size_of=lambda sha: 0,
+                   biometric: dict | None = None) -> dict:
+    """`identity_gate.assess` on the conditioning receipt and the blind judge readings.
+
+    Generator-supplied judge readings are never used (a generator does not grade itself);
+    only its conditioning receipt, which proves which reference bytes were sent. The same
+    holds for embeddings (V3): the biometric floor is the one `identity_gate.measure_biometric`
+    computed from the image bytes with a validated qualification record (`biometric`), never
+    one the generator's evidence carries. Without it the floor is UNMEASURED."""
+    from . import identity_gate
+
+    if not isinstance(biometric, dict):
+        biometric = identity_gate.measure_biometric(None, None, b"", {})
+
+    ev = dict(cand.get("identity_evidence") or {})
+    evidence = {"conditioning": conditioning_of(cand, size_of),
+                # A product chart, the anchor or the outfit reference conditions the fabric or
+                # the clothes, not the woman: exempt from "is this her reference" by the role
+                # the stage receipt recorded (or the orchestrator's declared kind).
+                "non_identity_references": ev.get("non_identity_references") or sorted(
+                    {r.get("sha256") for r in ev.get("references") or []
+                     if isinstance(r, dict) and r.get("sha256") and r.get("role")
+                     and not str(r.get("role")).startswith("laura_")}
+                    | {r.get("sha256") for r in cand.get("references") or []
+                       if r.get("kind") != "laura_canonical" and r.get("sha256")}),
+                "judges": [{"judge": r["judge"], "scored": r["scored"]} for r in readings
+                           if r.get("answered") and r.get("scored")]}
+    g = identity_gate.assess(evidence, biometric=biometric)
+    unread = [f"{r.get('judge') or 'judge'}: {r['why']}" for r in readings
+              if not r.get("answered")]
+    why = g["why"] + (f" (unanswered: {'; '.join(unread)})" if unread else "")
+    extra = {}
+    if g["status"] == FAIL:
+        extra["code"] = FC.IDENTITY_DRIFT
+    if g.get("fixture_only"):
+        # A fixture reading is a test of the wiring: labelled wherever it is recorded.
+        extra.update(fixture_only=True, certification=g["certification"])
+        why = f"[{identity_gate.CERT_FIXTURE}] " + why
+    bio = g.get("biometric") or {}
+    return _c("identity", g["status"], why, band=g.get("band"),
+              validity=(g.get("validity") or {}).get("validity"),
+              judges=[r.get("judge") for r in readings if r.get("answered")],
+              failed=g.get("failed") or [],
+              biometric={k: bio.get(k)
+                         for k in ("status", "similarity", "why", "qualification", "against",
+                                   "match_at", "refuse_below")},
+              # ENG-VIS-IDENTITY interface: consumers read `verdict` (PASS / HOLD / REFUSE).
+              verdict=g.get("verdict"), judge_agreement=g.get("judge_agreement"),
+              hold_reasons=g.get("hold_reasons") or [],
+              references=[{"sha256": r.get("sha256"), "bytes": r.get("bytes")}
+                          for r in (evidence["conditioning"].get("references") or [])],
+              conditioning_proven=bool(evidence["conditioning"].get("proven")),
+              readings=[{"judge": r.get("judge"), "order": r.get("order"),
+                         "answered": bool(r.get("answered")), "scored": r.get("scored"),
+                         "why": r.get("why", "")} for r in readings],
+              **extra)
+
+
+def body_check(readings: list[dict]) -> dict:
+    """Morphology (bust, torso, ...) against the canonical torso and full-length frames.
+
+    Any judge reading drift is a FAIL. PASS needs two distinct judges whose morphology group
+    each passes (`identity._group_verdict`: >= 3 readable dimensions, bust and torso among
+    them). Anything less is UNKNOWN."""
+    from . import identity
+
+    answered = [r for r in readings if r.get("answered") and r.get("scored")]
+    groups = [{"judge": r["judge"], **identity._group_verdict(
+        r["scored"], identity.MORPHOLOGY_DIMENSIONS, identity.MIN_MEASURABLE["morphology"],
+        identity.REQUIRED_MEASURABLE["morphology"])} for r in answered]
+    drifted = sorted({d for g in groups for d in g["drifted"]})
+    if drifted:
+        return _c("body_proportions", FAIL, f"body proportions differ from the canonical "
+                                            f"torso/full-length references on {drifted}",
+                  drifted=drifted, groups=groups)
+    if not groups:
+        why = "; ".join(r["why"] for r in readings) or "no reading"
+        return _c("body_proportions", UNKNOWN, f"not judged: {why}", groups=[])
+    unverifiable = [g["judge"] for g in groups if g["verdict"] != "pass"]
+    if unverifiable:
+        return _c("body_proportions", UNKNOWN,
+                  f"morphology not readable enough (bust and torso required, >= "
+                  f"{identity.MIN_MEASURABLE['morphology']} dimensions) for {unverifiable}",
+                  groups=groups)
+    if len(groups) < 2:
+        return _c("body_proportions", UNKNOWN, "one judge read every readable dimension as "
+                                               "the same; two independent readings are "
+                                               "required for a pass", groups=groups)
+    return _c("body_proportions", PASS, "two independent judges read bust, torso and the "
+                                        "readable morphology as the canonical woman",
+              groups=groups)
+
+
+# ---- outfit consistency (five slots) ---------------------------------------------------------
+
+def _slot_vocab():
+    from . import wardrobe as W
+
+    cats = {s: [c for c, _ in W._CATEGORIES[s]] for s in W.SLOTS}
+    return cats, sorted(W._COLOUR_FAMILY), list(W._FEATURES)
+
+
+def outfit_prompt() -> str:
+    from . import wardrobe as W
+
+    cats, colours, feats = _slot_vocab()
+    lines = []
+    for s in W.SLOTS:
+        lines.append(f"- {s}: {{\"visible\": \"yes\"|\"no\"|\"unclear\", \"garment\": one of "
+                     f"{cats[s] + ['none', 'other']}, \"colour\": one of "
+                     f"{colours + ['other', 'unclear']}, \"features\": a list chosen from "
+                     f"{feats}}}")
+    return ("Describe what the person in this image is wearing. Do not describe any crochet "
+            "or knitted item they hold or wear as part of the product; describe their "
+            "clothing. A slot hidden by crop, pose or the product is \"visible\": \"no\". "
+            "Reply with one JSON object with the key \"person_present\" (\"yes\"|\"no\") and "
+            "one key per slot:\n" + "\n".join(lines))
+
+
+def _observed_text(slot: str, obs: dict) -> str:
+    """The observed garment as wardrobe text, so `wardrobe.parse_garment` reads it back."""
+    from . import wardrobe as W
+
+    g = str(obs.get("garment") or "").strip().lower()
+    if g in ("", "none"):
+        return "none"
+    kw = dict(W._CATEGORIES[slot]).get(g)
+    noun = kw[0] if kw else g
+    colour = str(obs.get("colour") or "").strip().lower()
+    colour = colour if colour in W._COLOUR_FAMILY else ""
+    feats = [f for f in obs.get("features") or [] if f in W._FEATURES]
+    # The noun first: a feature word before it ("pleated trousers") could otherwise be read
+    # back as another category by `parse_garment`'s substring keys.
+    return " ".join([noun, colour] + feats).strip()
+
+
+def _visible_similarity(observed: dict, other: dict, visible: list[str]) -> float | None:
+    """Weighted outfit similarity over the visible slots only (renormalised)."""
+    from . import wardrobe as W
+
+    w = sum(W.WEIGHTS[s] for s in visible)
+    if w < 0.45:          # less than top + lower in view: too little to call a repeat
+        return None
+    pa, pb = W.parse_outfit(observed), W.parse_outfit(other)
+    return round(sum(W.WEIGHTS[s] * W.slot_similarity(pa[s], pb[s]) for s in visible) / w, 4)
+
+
+def compare_outfit(reading: dict, reserved: dict, *, others: list[tuple[str, dict]] = ()) -> dict:
+    """The blind clothing description against the reserved outfit, slot by slot.
+
+    FAIL REFERENCE_CLOTHING_CARRYOVER when the visible clothing is the canonical references'
+    clothing; FAIL WARDROBE_REPETITION when it is another listing's outfit; FAIL (outfit
+    consistency) when a visible slot is a different garment or colour family than reserved.
+    PASS needs the top (or dress) and, unless it is a dress, the lower garment visible and
+    matching; the other slots must match or be honestly out of view."""
+    from . import wardrobe as W
+
+    if _tri(reading.get("person_present")) is False:
+        return _c("outfit_consistency", FAIL, "no person in a frame reserved for Laura",
+                  slots={})
+    want = W.parse_outfit(reserved.get("garments") or {})
+    observed_text, slots, visible, mismatched, unclear = {}, {}, [], [], []
+    for s in W.SLOTS:
+        obs = reading.get(s) if isinstance(reading.get(s), dict) else {}
+        vis = _tri(obs.get("visible"))
+        observed_text[s] = _observed_text(s, obs) if vis else ""
+        if vis is None:
+            slots[s] = {"result": "unclear"}
+            unclear.append(s)
+            continue
+        if vis is False:
+            slots[s] = {"result": "not_shown"}
+            continue
+        got = W.parse_garment(s, observed_text[s])
+        visible.append(s)
+        cat_ok = got["category"] == want[s]["category"] or (
+            str(obs.get("garment")).lower() == "other" and want[s]["category"] == "other")
+        col = str(obs.get("colour") or "").lower()
+        if want[s]["category"] == "none" or got["category"] == "none" or \
+                not want[s]["colours"]:
+            col_ok = True       # nothing declared to contradict (or nothing worn)
+        elif col in ("", "unclear"):
+            col_ok = None
+        else:
+            col_ok = W._colour_score(got["colours"], want[s]["colours"]) > 0
+        res = ("match" if cat_ok and col_ok else "mismatch" if not cat_ok or col_ok is False
+               else "unclear")
+        slots[s] = {"result": res, "observed": observed_text[s] or "none",
+                    "reserved": want[s]["text"] or "none"}
+        if res == "mismatch":
+            mismatched.append(s)
+        elif res == "unclear":
+            unclear.append(s)
+    sim_ref = _visible_similarity(observed_text, W.REFERENCE_OUTFIT, visible)
+    if sim_ref is not None and sim_ref >= W.MAX_SIMILARITY:
+        return _c("outfit_consistency", FAIL, f"REFERENCE_CLOTHING_CARRYOVER: the visible "
+                                              f"clothing is the canonical references' clothing "
+                                              f"(similarity {sim_ref})",
+                  codes=[FC.REFERENCE_CLOTHING_CARRYOVER], slots=slots, similarity=sim_ref)
+    sim_res = _visible_similarity(observed_text, reserved.get("garments") or {}, visible)
+    for name, other in others:
+        sim = _visible_similarity(observed_text, other, visible)
+        if sim is not None and sim >= W.MAX_SIMILARITY and (sim_res is None or sim > sim_res):
+            return _c("outfit_consistency", FAIL, f"WARDROBE_REPETITION: the visible clothing "
+                                                  f"is {name}'s outfit (similarity {sim})",
+                      codes=[FC.WARDROBE_REPETITION], slots=slots, similarity=sim)
+    if mismatched:
+        return _c("outfit_consistency", FAIL, "the image does not show the reserved outfit: "
+                  + "; ".join(f"{s} is {slots[s]['observed']!r}, reserved "
+                              f"{slots[s]['reserved']!r}" for s in mismatched), slots=slots)
+    dress = want["top_or_dress"]["category"] == "dress"
+    needed = ["top_or_dress"] + ([] if dress else ["lower"])
+    missing = [s for s in needed if slots.get(s, {}).get("result") != "match"]
+    if missing or unclear:
+        return _c("outfit_consistency", UNKNOWN,
+                  f"cannot confirm the reserved outfit: {sorted(set(missing + unclear))} not "
+                  f"readable as matching", slots=slots)
+    return _c("outfit_consistency", PASS, "every visible slot shows the reserved outfit "
+                                          "(" + ", ".join(f"{s}: {slots[s]['result']}"
+                                                          for s in W.SLOTS) + ")",
+              slots=slots)
+
+
+def outfit_reference_prompt() -> str:
+    """Blind: two photographs, is the clothing in each slot the same garment? The judge is not
+    told which answer is wanted, nor that image 1 is a reference."""
+    from . import wardrobe as W
+
+    slots = ", ".join(W.SLOTS)
+    return ("Images 1 and 2 each show a person. Compare only their CLOTHING, slot by slot, "
+            "ignoring the person, pose, lighting and any crochet or knitted item held or worn "
+            "as a product. For each slot answer exactly one of \"same\" (the same garment: "
+            "same type, colour and visible details), \"different\", or \"cannot_tell\" "
+            "(hidden or cropped in either image). Reply with one JSON object whose keys are "
+            f"exactly: {slots}.")
+
+
+def compare_outfit_reference(reading: dict) -> dict:
+    """The frame's clothing against the outfit's approved reference image, slot by slot.
+
+    FAIL when any slot reads `different`. PASS needs the top (or dress) to read `same` and no
+    slot `different`. Anything else is UNKNOWN."""
+    from . import wardrobe as W
+
+    per = {s: str((reading or {}).get(s, CANNOT_TELL)).strip().lower().replace(" ", "_")
+           for s in W.SLOTS}
+    per = {s: (v if v in (SAME, DIFFERENT) else CANNOT_TELL) for s, v in per.items()}
+    diff = [s for s, v in per.items() if v == DIFFERENT]
+    if diff:
+        return _c("outfit_reference", FAIL, f"the clothing differs from the outfit's approved "
+                                            f"reference in {diff}", slots=per)
+    if per["top_or_dress"] != SAME:
+        return _c("outfit_reference", UNKNOWN, "the top or dress cannot be compared with the "
+                                               "outfit's approved reference", slots=per)
+    return _c("outfit_reference", PASS, "every comparable slot matches the outfit's approved "
+                                        "reference", slots=per)
+
+
+# ---- anatomy and realism ---------------------------------------------------------------------
+
+ANATOMY_DEFECTS = ("extra_limbs", "missing_limbs_not_explained_by_crop",
+                   "fused_or_merged_body_parts", "impossible_joints", "face_distorted",
+                   "hand_merged_with_object")
+
+
+def anatomy_prompt() -> str:
+    return ("Look at the people in this image. Reply with one JSON object with keys:\n"
+            "- people: the number of people visible (integer)\n"
+            "- hands: a list, one entry per hand you can see: {\"fully_visible\": "
+            "\"yes\"|\"no\", \"fingers_counted\": an integer or \"unclear\"}\n"
+            + "".join(f"- {d}: \"yes\"|\"no\"|\"unclear\"\n" for d in ANATOMY_DEFECTS))
+
+
+def compare_anatomy(reading: dict, *, laura: bool) -> dict:
+    people = _int(reading.get("people"))
+    problems, unclear = [], []
+    if people is None:
+        unclear.append("people count unclear")
+    elif laura and people != 1:
+        problems.append(f"{people} people in a frame of one person")
+    for d in ANATOMY_DEFECTS:
+        v = _tri(reading.get(d))
+        if v is True:
+            problems.append(d)
+        elif v is None and (people or 0) > 0:
+            unclear.append(d)
+    hands = reading.get("hands") if isinstance(reading.get("hands"), list) else None
+    if hands is None and (people or 0) > 0:
+        unclear.append("hands not reported")
+    for i, h in enumerate(hands or []):
+        h = h if isinstance(h, dict) else {}
+        if _tri(h.get("fully_visible")) is True:
+            n = _int(h.get("fingers_counted"))
+            if n is None:
+                unclear.append(f"hand {i + 1}: fingers not countable")
+            elif n != 5:
+                problems.append(f"hand {i + 1} has {n} fingers")
+    if problems:
+        return _c("anatomy", FAIL, "; ".join(problems), reading=reading)
+    if unclear:
+        return _c("anatomy", UNKNOWN, "; ".join(unclear), reading=reading)
+    if not people:
+        return _c("anatomy", PASS, "no person or hand in the frame", reading=reading)
+    return _c("anatomy", PASS, f"{people} person, every fully visible hand has five fingers, "
+                               f"no anatomical defect seen", reading=reading)
+
+
+# One observable defect per `gallery.REALISM_CHECKS` entry, phrased as what a maker would see.
+REALISM_DEFECTS = {
+    "stitch_scale_plausible": "stitches_implausibly_large_or_small_for_the_item",
+    "yarn_continuity": "yarn_strands_breaking_merging_or_ending_abruptly",
+    "edge_construction": "fabric_edges_melting_or_undefined",
+    "drape": "fabric_drape_physically_impossible",
+    "joins_make_sense": "seams_or_joins_that_could_not_be_made",
+    "hands_and_fingers": "hands_or_fingers_malformed",
+    "garment_fit": "clothing_fit_physically_impossible",
+    "shadows_consistent": "shadows_or_lighting_inconsistent",
+    "texture_not_repeating": "texture_visibly_tiled_or_copy_pasted",
+    "no_impossible_seams": "impossible_seams",
+}
+REALISM_EXTRA = ("looks_like_an_illustration_or_3d_render", "garbled_text_or_watermark")
+
+
+def realism_prompt() -> str:
+    keys = list(REALISM_DEFECTS.values()) + list(REALISM_EXTRA)
+    return ("Inspect this image for visual defects. For each key answer \"yes\" (the defect "
+            "is visible), \"no\" (it is not), \"unclear\", or \"not_applicable\" (nothing in "
+            "the image it could apply to). Reply with one JSON object with exactly these "
+            "keys:\n" + "\n".join(f"- {k}" for k in keys))
+
+
+def compare_realism(reading: dict) -> dict:
+    from .gallery import REALISM_CHECKS
+
+    failed, unclear, per = [], [], {}
+    for check in REALISM_CHECKS:
+        key = REALISM_DEFECTS[check]
+        raw = str(reading.get(key, "unclear")).strip().lower()
+        v = None if raw == "not_applicable" else _tri(raw)
+        per[check] = ("not_applicable" if raw == "not_applicable" else
+                      "defect" if v is True else "ok" if v is False else "unclear")
+        if v is True:
+            failed.append(check)
+        elif v is None and raw != "not_applicable":
+            unclear.append(check)
+    for key in REALISM_EXTRA:
+        v = _tri(reading.get(key, "unclear"))
+        per[key] = "defect" if v is True else "ok" if v is False else "unclear"
+        if v is True:
+            failed.append(key)
+        elif v is None:
+            unclear.append(key)
+    if failed:
+        return _c("realism", FAIL, f"visible defects: {failed}", checks=per)
+    if unclear:
+        return _c("realism", UNKNOWN, f"not readable: {unclear}", checks=per)
+    return _c("realism", PASS, "no realism defect seen", checks=per)
+
+
+# ---- anchor consistency (blind) and the product region ---------------------------------------
+
+ITEM_FIELDS = ("item_visible", "craft", "border_or_edging_visible", "plain_end_bands_visible",
+               "raised_cables_visible", "distinct_yarn_colours")
+
+
+def item_prompt() -> str:
+    one = ("{\"item_visible\": \"yes\"|\"no\", \"craft\": one of crochet, knitting, woven, "
+           "printed, unclear, \"border_or_edging_visible\": \"yes\"|\"no\"|\"unclear\", "
+           "\"plain_end_bands_visible\": \"yes\"|\"no\"|\"unclear\" (solid bands of one colour "
+           "across the two ends), \"raised_cables_visible\": \"yes\"|\"no\"|\"unclear\", "
+           "\"distinct_yarn_colours\": an integer or \"unclear\"}")
+    return ("Each image contains a handmade textile item. Describe the item in each image on "
+            "its own; do not compare them. Reply with one JSON object: {\"image_1\": "
+            f"{one}, \"image_2\": the same keys for image 2}}.")
+
+
+def _has_bands(exp) -> bool | None:
+    ambiguity = getattr(exp, "edge_ambiguity", None)
+    pieces = getattr(exp, "pieces", None)
+    if (ambiguity not in ("", "end_bands", "declared_edging_and_bands", "components")
+            or not isinstance(pieces, (list, tuple)) or not pieces):
+        return None
+    try:
+        for p in pieces:
+            if not isinstance(p.bands, list):
+                return None
+            for band in p.bands:
+                if not isinstance(band, dict):
+                    return None
+                rows = band.get("rows")
+                if (not isinstance(rows, (list, tuple)) or len(rows) != 2
+                        or any(type(row) is not int for row in rows)
+                        or rows[0] < 1 or rows[1] < rows[0]
+                        or not isinstance(band.get("colour"), str) or not band["colour"]
+                        or band.get("outer") not in ("top", "bottom")):
+                    return None
+        if any(p.bands for p in pieces):
+            return True
+    except (AttributeError, OverflowError, TypeError):
+        return None
+    if ambiguity in ("end_bands", "declared_edging_and_bands"):
+        # Short declared bands can be too small for a standalone pixel check.
+        return True
+    if ambiguity == "components":
+        # A different component may have bands that the main-piece model omits.
+        return None
+    return False
+
+
+def _has_cables(exp) -> bool | None:
+    # Repeated-column measurement is not a cable-presence test: a single
+    # compiled crossing (or a crossing on a smaller component) has no such
+    # measurement but is still declared in the design.
+    declared = getattr(exp, "cables_declared", None)
+    pieces = getattr(exp, "pieces", None)
+    if type(declared) is not bool or not isinstance(pieces, (list, tuple)) or not pieces:
+        return None
+    try:
+        for p in pieces:
+            repeat = p.repeat
+            if repeat is not None and (not isinstance(repeat, dict)
+                    or repeat.get("what") not in ("cable columns", "motif repeats")
+                    or type(repeat.get("n")) is not int or repeat["n"] < 1):
+                return None
+            if repeat is not None:
+                span = repeat.get("x")
+                if (not isinstance(span, (list, tuple)) or len(span) != 2
+                        or any(isinstance(x, bool) or not isinstance(x, Real) or not math.isfinite(x)
+                               for x in span) or not (0 <= span[0] < span[1] <= 1)):
+                    return None
+        return declared or any(p.repeat and "cable" in str(p.repeat.get("what", ""))
+                               for p in pieces)
+    except (AttributeError, OverflowError, TypeError):
+        return None
+
+
+def compare_items(reading: dict, exp) -> dict:
+    """Two independent descriptions (anchor, candidate) compared with each other and the CIR."""
+    if not isinstance(reading, dict):
+        return _c("anchor_consistency", UNKNOWN, "the reading did not describe both images",
+                  blocks_variant_input=True)
+    a = reading.get("image_1") if isinstance(reading.get("image_1"), dict) else None
+    b = reading.get("image_2") if isinstance(reading.get("image_2"), dict) else None
+    if a is None or b is None:
+        return _c("anchor_consistency", UNKNOWN, "the reading did not describe both images",
+                  blocks_variant_input=True)
+    if _tri(b.get("item_visible")) is not True or _tri(a.get("item_visible")) is not True:
+        return _c("anchor_consistency", UNKNOWN, "the item is not clearly visible in both "
+                                                 "images", reading=reading, blocks_variant_input=True)
+    problems, unclear = [], []
+    allowed_crafts = ("crochet", "knitting", "woven", "printed")
+    craft_b, craft_a = (str(b.get("craft", "unclear")).strip().lower(),
+                        str(a.get("craft", "unclear")).strip().lower())
+    if craft_a not in allowed_crafts:
+        unclear.append("craft unclear in the anchor")
+        craft_a = None
+    if craft_b not in allowed_crafts:
+        unclear.append("craft unclear in the candidate")
+    elif craft_b != getattr(exp, "craft", "crochet") or (craft_a is not None and
+                                                          craft_a != craft_b):
+        problems.append((FC.WRONG_CRAFT_TEXTURE, f"reads as {craft_b} (anchor {craft_a}, "
+                                                 f"pattern {getattr(exp, 'craft', '?')})"))
+    eb, ea = _tri(b.get("border_or_edging_visible")), _tri(a.get("border_or_edging_visible"))
+    edge_expected = getattr(exp, "edging_declared", "missing")
+    edge_valid = (type(edge_expected) is bool or
+                  (edge_expected is None and getattr(exp, "edge_ambiguity", None) in
+                   ("end_bands", "declared_edging_and_bands", "components")))
+    if not edge_valid:
+        unclear.append("pattern edging evidence unavailable")
+    if ea is None:
+        unclear.append("edging unclear in the anchor")
+    if eb is True and edge_valid and edge_expected is False and ea is False:
+        problems.append((FC.INVENTED_EDGING, "an edging the anchor and the pattern do not have"))
+    elif eb is None:
+        unclear.append("edging unclear")
+    elif ea is not None and eb != ea:
+        unclear.append("edging differs or is obscured between images")
+    elif edge_expected is True and (ea is not True or eb is not True):
+        unclear.append("declared edging cannot be verified in both images")
+    elif edge_expected is None and (ea is True or eb is True):
+        unclear.append("visible edging is ambiguous with declared bands or components")
+    bb, ba = _tri(b.get("plain_end_bands_visible")), _tri(a.get("plain_end_bands_visible"))
+    has_bands = _has_bands(exp)
+    if ba is None or bb is None:
+        unclear.append("end bands unclear in one or both images")
+    if bb is True and has_bands is False and ba is False:
+        problems.append((FC.INVENTED_END_BAND_TREATMENT, "end bands the pattern does not have"))
+    elif ba is not None and bb is not None and ba != bb:
+        unclear.append("end bands differ or are obscured between images")
+    elif (has_bands is True and (ba is not True or bb is not True)) or has_bands is None:
+        unclear.append("declared end bands cannot be verified in both images")
+    elif has_bands is False and (ba is True or bb is True):
+        unclear.append("anchor band reading is not supported by the pattern")
+    cb, ca = _tri(b.get("raised_cables_visible")), _tri(a.get("raised_cables_visible"))
+    has_cables = _has_cables(exp)
+    if ca is None or cb is None:
+        unclear.append("cables unclear in one or both images")
+    if cb is True and has_cables is False and ca is False:
+        problems.append((FC.WRONG_CRAFT_TEXTURE, "raised cables the pattern does not have"))
+    elif ca is not None and cb is not None and ca != cb:
+        unclear.append("cables differ or are obscured between images")
+    elif (has_cables is True and (ca is not True or cb is not True)) or has_cables is None:
+        unclear.append("declared cables cannot be verified in both images")
+    elif has_cables is False and (ca is True or cb is True):
+        unclear.append("anchor cable reading is not supported by the pattern")
+    nb, na = _int(b.get("distinct_yarn_colours")), _int(a.get("distinct_yarn_colours"))
+    if na is None or na <= 0:
+        unclear.append("colour count unclear in the anchor")
+        na = None
+    if nb is not None and nb <= 0:
+        nb = None
+    declared = len(getattr(exp, "palette_hex", []) or [])
+    try:
+        raw_shares = list(exp.expected_share)
+        if any(isinstance(value, bool) or not isinstance(value, Real) for value in raw_shares):
+            raise ValueError("non-numeric expected shares")
+        shares = [float(value) for value in raw_shares]
+        if (len(shares) != declared or not declared
+                or not all(math.isfinite(value) and value >= 0 for value in shares)
+                or not math.isclose(sum(shares), 1.0, abs_tol=1e-6, rel_tol=1e-6)):
+            raise ValueError("unusable expected shares")
+        used = sum(value > 0 for value in shares)
+        if not used:
+            raise ValueError("no used colours")
+    except (AttributeError, OverflowError, TypeError, ValueError):
+        used = None
+        unclear.append("pattern colour usage unavailable")
+    if used is not None and ((na is not None and na < used) or (nb is not None and nb < used)):
+        unclear.append("a pattern colour is not visible in one or both images")
+    if nb is not None and declared and nb > declared:
+        problems.append((FC.WRONG_COLOUR_LAYOUT, f"{nb} yarn colours; the pattern has "
+                                                 f"{declared}"))
+    elif nb is not None and na is not None and nb > na and used is not None and na >= used:
+        problems.append((FC.WRONG_COLOUR_LAYOUT, f"{nb} yarn colours; the anchor shows {na}"))
+    elif nb is not None and na is not None and nb != na:
+        unclear.append("colour counts differ between images")
+    elif nb is None:
+        unclear.append("colour count unclear")
+    if problems:
+        return _c("anchor_consistency", FAIL, "; ".join(p[1] for p in problems),
+                  code=problems[0][0], codes=sorted({p[0] for p in problems}), reading=reading)
+    if unclear:
+        return _c("anchor_consistency", UNKNOWN, "; ".join(unclear), reading=reading,
+                  blocks_variant_input=True)
+    return _c("anchor_consistency", PASS, "the candidate's item reads as the anchor's and the "
+                                          "pattern's (craft, edging, bands, cables, colours)",
+              reading=reading)
+
+
+def blind_consistency(judge, anchor_data: bytes, data: bytes, exp) -> dict:
+    """The blind anchor-consistency check `fidelity.verify_lifestyle` runs when given it."""
+    got = ask(judge, "item_description", item_prompt(), [anchor_data, data])
+    if not got["answered"]:
+        return _c("anchor_consistency", UNKNOWN, f"not judged: {got['why']}",
+                  needs="vision judge", blocks_variant_input=True)
+    out = compare_items(got["reading"], exp)
+    out["judge"] = got["judge"]
+    return out
+
+
+MAX_PATCHES = 4
+MIN_PATCH_AREA = 0.002       # of the image, per patch
+MIN_TOTAL_AREA = 0.01        # of the image, all patches together
+
+
+def region_prompt() -> str:
+    return ("Find the handmade crochet or knitted textile item in this image. Return up to "
+            f"{MAX_PATCHES} rectangles that lie ENTIRELY on the item's fabric: no skin, no "
+            "other clothing, no furniture, no background. Each rectangle is [x0, y0, x1, y1] as "
+            "fractions (0 to 1) of the image width and height. Reply with one JSON object: "
+            "{\"item_visible\": \"yes\"|\"no\"|\"unclear\", \"patches\": [rectangles]}. If you "
+            "are not sure a rectangle is only fabric, leave it out.")
+
+
+def validate_patches(reading: dict, size: tuple[int, int]) -> dict:
+    """Interior fabric patches in pixels, or why there are none. Deterministic."""
+    w, h = size
+    if _tri(reading.get("item_visible")) is not True:
+        return {"patches": [], "why": "the item is not clearly visible"}
+    raw = reading.get("patches") if isinstance(reading.get("patches"), list) else []
+    out, rejected = [], []
+    for p in raw[:MAX_PATCHES]:
+        try:
+            x0, y0, x1, y1 = (float(v) for v in p)
+        except (TypeError, ValueError):
+            rejected.append("not four numbers")
+            continue
+        if not (0.0 <= x0 < x1 <= 1.0 and 0.0 <= y0 < y1 <= 1.0):
+            rejected.append("outside the image")
+            continue
+        if (x1 - x0) * (y1 - y0) < MIN_PATCH_AREA:
+            rejected.append("too small")
+            continue
+        out.append((int(x0 * w), int(y0 * h), int(x1 * w), int(y1 * h)))
+    total = sum((b[2] - b[0]) * (b[3] - b[1]) for b in out) / float(max(w * h, 1))
+    if not out or total < MIN_TOTAL_AREA:
+        return {"patches": [], "why": f"no usable fabric patch (total {round(total, 4)} of the "
+                                      f"image; rejected {rejected})"}
+    return {"patches": out, "why": "", "area": round(total, 4), "rejected": rejected}
+
+
+def locate_product(judge, data: bytes) -> dict:
+    """The lifestyle product-region detector: the judge points at fabric, code measures colour.
+
+    The judge is never told the palette, so it cannot steer the colour check; it only says
+    where the item's fabric is. `fidelity.verify_lifestyle` then measures the palette inside
+    those patches. No patch, no region: region_palette stays UNKNOWN."""
+    from PIL import Image
+    import io
+
+    got = ask(judge, "product_region", region_prompt(), [data], max_tokens=300)
+    if not got["answered"]:
+        return {"patches": [], "why": got["why"], "judge": got["judge"]}
+    try:
+        size = Image.open(io.BytesIO(data)).size
+    except Exception as exc:  # noqa: BLE001
+        return {"patches": [], "why": f"undecodable image ({type(exc).__name__})"}
+    return {**validate_patches(got["reading"], size), "judge": got["judge"]}
+
+
+# ---- the adapter set used by candidate_gates.RealJudges --------------------------------------
+
+class Adapters:
+    """The blind adapters on one or two judge transports, with per-image caching."""
+
+    def __init__(self, db, judge, *, second=None, references: dict | None = None,
+                 embedder=None, qualification: dict | None = None,
+                 allow_fixture: bool = False):
+        self.db, self.judge, self.second = db, judge, second
+        self._refs = references
+        self._cache: dict = {}
+        # V3: the face embedder and the qualification record that admits it. Production
+        # passes neither (no embedder is funded or qualified): the floor stays UNMEASURED.
+        # `allow_fixture` admits a fixture-only record, in shadow only, labelled as such.
+        self.embedder, self.qualification = embedder, qualification
+        self.allow_fixture = bool(allow_fixture)
+
+    def refs(self) -> dict:
+        if self._refs is None:
+            try:
+                self._refs = canonical_reference_bytes()
+            except Exception:  # noqa: BLE001 - unreadable canon: no reference, UNKNOWN
+                self._refs = {}
+        return self._refs
+
+    def _data(self, cand: dict) -> bytes:
+        data = cand.get("data") or b""
+        if data or not cand.get("sha256"):
+            return data
+        try:
+            from ..core.artifacts import ArtifactStore
+
+            return ArtifactStore().get(cand["sha256"], db=self.db) or b""
+        except Exception:  # noqa: BLE001
+            return b""
+
+    def _person(self, cand: dict) -> list[dict]:
+        data = self._data(cand)
+        key = ("person", hashlib.sha256(data).hexdigest() if data else "")
+        if key not in self._cache:
+            refs = self.refs()
+            if not data:
+                self._cache[key] = [{"answered": False, "why": "no image bytes", "judge": None}]
+            elif not all(refs.get(f) for f in REF_ORDER):
+                self._cache[key] = [{"answered": False, "judge": None,
+                                     "why": "the canonical references could not be read by "
+                                            "their recorded sha256"}]
+            else:
+                self._cache[key] = person_readings([self.judge, self.second], data, refs)
+        return self._cache[key]
+
+    def _size_of(self, sha: str) -> int:
+        from . import canonical
+
+        for frame, want in canonical.CURRENT_REFERENCE_HASHES.items():
+            if want == sha and self.refs().get(frame):
+                return len(self.refs()[frame])
+        try:
+            from ..core.artifacts import ArtifactStore
+
+            return len(ArtifactStore().get(sha, db=self.db) or b"")
+        except Exception:  # noqa: BLE001 - bytes not found: not measured
+            return 0
+
+    def biometric(self, cand: dict) -> dict:
+        """The biometric floor for this frame, computed here (`identity_gate`)."""
+        from . import identity_gate
+
+        data = self._data(cand)
+        key = ("biometric", hashlib.sha256(data).hexdigest() if data else "")
+        if key not in self._cache:
+            self._cache[key] = identity_gate.measure_biometric(
+                self.embedder, self.qualification, data,
+                self.refs() if self.embedder is not None else {},
+                allow_fixture=self.allow_fixture)
+        return self._cache[key]
+
+    def identity(self, cand: dict) -> dict:
+        return identity_check(cand, self._person(cand), size_of=self._size_of,
+                              biometric=self.biometric(cand))
+
+    def body_proportions(self, cand: dict) -> dict:
+        return body_check(self._person(cand))
+
+    def outfit_consistency(self, cand: dict, outfit: dict | None) -> dict:
+        if not outfit or not outfit.get("garments"):
+            return _c("outfit_consistency", UNKNOWN, "no reserved outfit to compare against")
+        data = self._data(cand)
+        got = ask(self.judge, "outfit_description", outfit_prompt(), [data])
+        if not got["answered"]:
+            return _c("outfit_consistency", UNKNOWN, f"not judged: {got['why']}")
+        others = []
+        try:
+            from . import outfits as O
+
+            listing = cand.get("listing") or O.listing_of(cand.get("slug", ""))
+            others = [(f"{o['outfit_id']} ({o['listing']})", o["garments"])
+                      for o in O.registry(self.db)
+                      if o.get("listing") and o["listing"] != listing
+                      and o["outfit_id"] != outfit.get("outfit_id")]
+        except Exception:  # noqa: BLE001 - no registry: no repetition reading
+            others = []
+        out = compare_outfit(got["reading"], outfit, others=others)
+        out["judge"] = got["judge"]
+        out["outfit_id"] = outfit.get("outfit_id")
+        ref = str(outfit.get("approved_reference") or "")
+        if out["status"] == FAIL or not ref:
+            out["reference_check"] = None if not ref else "not run: description already FAIL"
+            return out
+        # ENG-VIS-IDENTITY: against the outfit's approved reference image too. Both must PASS.
+        rdata = self._data({"sha256": ref})
+        if not rdata or hashlib.sha256(rdata).hexdigest() != ref:
+            rc = _c("outfit_reference", UNKNOWN, "the outfit's approved reference image could "
+                                                 "not be read by its sha256")
+        else:
+            got2 = ask(self.judge, "outfit_reference", outfit_reference_prompt(), [rdata, data])
+            rc = (compare_outfit_reference(got2["reading"]) if got2["answered"] else
+                  _c("outfit_reference", UNKNOWN, f"not judged: {got2['why']}"))
+            rc["judge"] = got2["judge"]
+        out["reference_check"] = rc
+        if rc["status"] == FAIL:
+            return {**out, "status": FAIL, "why": rc["why"]}
+        if rc["status"] != PASS and out["status"] == PASS:
+            return {**out, "status": UNKNOWN, "why": "description matches; " + rc["why"]}
+        return out
+
+    def anatomy(self, cand: dict) -> dict:
+        got = ask(self.judge, "anatomy", anatomy_prompt(), [self._data(cand)])
+        if not got["answered"]:
+            return _c("anatomy", UNKNOWN, f"anatomy not judged: {got['why']}")
+        out = compare_anatomy(got["reading"], laura=bool(cand.get("laura_present")))
+        out["judge"] = got["judge"]
+        return out
+
+    def realism(self, cand: dict) -> dict:
+        got = ask(self.judge, "realism", realism_prompt(), [self._data(cand)])
+        if not got["answered"]:
+            return _c("realism", UNKNOWN, f"photographic realism not judged: {got['why']}")
+        out = compare_realism(got["reading"])
+        out["judge"] = got["judge"]
+        return out
+
+    def product_region(self, cand: dict) -> dict:
+        return locate_product(self.judge, self._data(cand))
+
+
+# ---- the second, independent judge (ENG-VIS-IDENTITY) ----------------------------------------
+
+# The second judge is a different provider AND model from the first (Anthropic, `image_vision`
+# via `fidelity.GatewayVisionJudge`): OpenAI's pinned gpt-4.1 snapshot, through the same
+# `fidelity.GatewayVisionJudge` reservation path (`gateway.check_budget` priced by model, the
+# CA$100/month ceiling, `I._bill` once) plus OpenAI's own `paid_provider_gate` activation as
+# `openai-vision`. It answers only when (a) OPENAI_API_KEY is set, (b) the `image_vision` gate is
+# open and (c) the owner has activated `openai-vision`. Otherwise every read is unanswered,
+# identity has one judge, and it HOLDs. A different provider is the point: two models of one
+# vendor share training data and blind spots.
+SECOND_JUDGE_MODEL = "gpt-4.1-2025-04-14"
+
+
+def _openai_second_judge(db):
+    from ..gateway import openai_chat
+    from .fidelity import GatewayVisionJudge
+
+    if not openai_chat.OpenAIProvider.key():
+        return None
+
+    class OpenAIVisionJudge(GatewayVisionJudge):
+        name = "image_vision_openai"
+
+    return OpenAIVisionJudge(db, provider=openai_chat.OpenAIProvider(model=SECOND_JUDGE_MODEL))
+
+
+# The production second transport factory. `configured_second_transport` returns None while no
+# OpenAI key is configured (and the transport itself refuses while unactivated), so identity
+# stays HOLD until the owner funds it. Tests replace this with a stub.
+SECOND_VISION_TRANSPORT = _openai_second_judge
+
+
+def configured_second_transport(db=None):
+    """The production second judge transport, or None while it is not configured."""
+    factory = SECOND_VISION_TRANSPORT
+    try:
+        return factory(db) if callable(factory) else None
+    except Exception:  # noqa: BLE001 - an unconstructable transport is no transport (HOLD)
+        return None

@@ -1,0 +1,49 @@
+# Lane D PWA against REAL lane C backend (claude/v11-C @ 30bcab6), fresh SQLite DB, 390x844 Chromium
+# run: 2026-10-06T06:37:05Z; D static = final working tree of claude/v11-D
+# backend served via stdlib HTTP->ASGI bridge (no uvicorn in this interpreter; bridge rewrites Origin to the app's https://testserver); outbound network blocked
+OK real: /cc/ served with strict CSP
+OK real: signed in, home rendered
+OK real home: no error state
+OK real home: no horizontal scroll
+OK real home: no console errors
+OK real approvals: no error state
+OK real approvals: no horizontal scroll
+OK real approvals: no console errors
+OK real money: no error state
+OK real money: no horizontal scroll
+OK real money: no console errors
+OK real store: no error state
+OK real store: no horizontal scroll
+OK real store: no console errors
+OK real operations: no error state
+OK real operations: no horizontal scroll
+OK real operations: no console errors
+OK real learn: no error state
+OK real learn: no horizontal scroll
+OK real learn: no console errors
+OK real insights: no error state
+OK real insights: no horizontal scroll
+OK real insights: no console errors
+OK real notifications: no error state
+OK real notifications: no horizontal scroll
+OK real notifications: no console errors
+OK real timeline: no error state
+OK real timeline: no horizontal scroll
+OK real timeline: no console errors
+OK real ask: no error state
+OK real ask: no horizontal scroll
+OK real ask: no console errors
+OK real account: no error state
+OK real account: no horizontal scroll
+OK real account: no console errors
+OK real emergency: no error state
+OK real emergency: no horizontal scroll
+OK real emergency: no console errors
+OK real more: no error state
+OK real more: no horizontal scroll
+OK real more: no console errors
+OK real money: unknown values render Unknown
+OK real money: no unknown value printed as dollars
+OK real ask: POST with CSRF+nonce accepted and answer rendered
+INFO ask status=ANSWERED
+exit=0

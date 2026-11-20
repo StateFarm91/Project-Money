@@ -1,0 +1,18 @@
+{
+ "frozen": false,
+ "sha": "7421ef6215588659da314cced213a848ffc8e567",
+ "sha7": "7421ef6",
+ "tag": "final-candidate-7421ef6",
+ "refusals": [],
+ "suite": "brambleloop/release/suite_runs/20261010T062725Z-14513.json",
+ "suite_binding": "tracked release record RELEASE_3967f405ef73c0d2b069a1f45a17cb71f31467aa.json: same deployable tree as 7421ef621558, record SHA 3967f405ef73 is an ancestor (deploy guard rule)",
+ "rehearsal": "brambleloop/research/final_build/evidence/shadow_rehearsal_7421ef6_2026-10-11T0005Z.json",
+ "rehearsal_binding": "exact",
+ "matrix": "brambleloop/research/final_build/closure_matrix.json",
+ "run": {
+  "at": "2026-10-11",
+  "script": "brambleloop/scripts/freeze_candidate.py (w4-PACKETREL, deploy-guard suite binding)",
+  "checkout": "detached worktree at 7421ef6, clean",
+  "mode": "--dry-run (freeze(..., dry_run=True)); nothing tagged or written"
+ }
+}

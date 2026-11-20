@@ -1,0 +1,23 @@
+{
+  "base": "7ab2a6f",
+  "scope": "maturity._module_of return-path normalization only",
+  "problem": "Windows native backslashes stop resolved nested modules matching dotted test-import evidence and violate existing expected canonical strings",
+  "fix": "Path.as_posix for direct token and relative Path returns; resolution order, existence and ambiguity logic unchanged",
+  "tests": {
+    "test_maturity_path_portability.py": "2/2 PASS",
+    "test_maturity.py::test_notes_that_name_a_table_rather_than_a_function_still_name_a_module": "PASS unchanged assertion"
+  },
+  "controls": [
+    "nested actual temporary package resolves slash and dotted/bare spellings canonically",
+    "resolved module matches actual parsed test import",
+    "two same-basename files still refuse bare resolution",
+    "missing module remains None",
+    "direct absolute helper argument retains historic absolute result with canonical slashes"
+  ],
+  "limits": [
+    "No full report or overall closure validation",
+    "No status or threshold changes",
+    "Absolute helper path acceptance unchanged; modules_named regex uses relative tokens"
+  ],
+  "paid_spend": 0
+}

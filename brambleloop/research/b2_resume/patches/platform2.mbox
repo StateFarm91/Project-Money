@@ -1,0 +1,3223 @@
+From f9eaba498866b710dd1952af61c6d0898d185b12 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 22:20:16 +0000
+Subject: [PATCH 1/7] C-80 defects 3+4: capacity counts
+ cir.compile/gate.certify against their lane (inputs.cir.slug) and enforces
+ the #30 mix on measured job-seconds with largest-remainder slot budgets
+
+- swarm/capacity.slug_of reads inputs.slug / product_slug / cir.slug, used at the claim, in
+  measured_lane_split and in release._lane_capacity's starved-lane boost
+- function_budgets shares the pool by largest remainder (min one slot each); share_decision
+  also holds a function that has run more than its target share of the last 24h job-seconds
+  while an under-share function has runnable work and the pool is in use
+- tests: three new handler-level tests through Worker.run_once; the gate.lanes test's
+  UNMEASURED assertion is strengthened to a measured split (the uncounted certify runs were
+  the bug)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GpoRAgr4kBWxi1752HufQh
+---
+ .../src/brambleloop/runtime/release.py        |   2 +-
+ brambleloop/src/brambleloop/swarm/capacity.py |  93 +++++++++++++++-
+ brambleloop/tests/test_cert_lanes_capacity.py | 102 +++++++++++++++++-
+ 3 files changed, 189 insertions(+), 8 deletions(-)
+
+diff --git a/brambleloop/src/brambleloop/runtime/release.py b/brambleloop/src/brambleloop/runtime/release.py
+index 3587a97..fa2f30e 100644
+--- a/brambleloop/src/brambleloop/runtime/release.py
++++ b/brambleloop/src/brambleloop/runtime/release.py
+@@ -5564,7 +5564,7 @@ def _lane_capacity(ctx: JobContext, lanes) -> dict:
+             for job in s.scalars(select(Job).where(
+                     Job.status.in_((JobStatus.PENDING, JobStatus.FAILED)),
+                     Job.job_type.in_(sorted(cap.ENGINEERING_JOB_TYPES)))):
+-                slug = str((job.inputs or {}).get("slug") or "")
++                slug = cap.slug_of(job)          # cir.compile/gate.certify carry inputs.cir
+                 if cap.product_lane(ctx.db, slug) not in starved:
+                     continue
+                 floor = max(0, priority_for(job.job_type) - LANE_STARVED_BOOST)
+diff --git a/brambleloop/src/brambleloop/swarm/capacity.py b/brambleloop/src/brambleloop/swarm/capacity.py
+index 8483567..515d726 100644
+--- a/brambleloop/src/brambleloop/swarm/capacity.py
++++ b/brambleloop/src/brambleloop/swarm/capacity.py
+@@ -114,8 +114,58 @@ def latest_mix(db, *, now: datetime | None = None) -> dict:
+ 
+ 
+ def function_budgets(mix: dict[str, float], workers: int) -> dict[str, int]:
+-    """Workers each function may hold at once: its share of the pool, at least one."""
+-    return {f: max(1, math.floor(share * workers + 1e-9)) for f, share in mix.items()}
++    """Workers each function may hold at once: the pool shared by largest remainder.
++
++    Every function keeps at least one slot (liveness: a starved function's own work must be
++    able to start), and the pool's remaining slots go to the functions whose share was most
++    under-served by the floor -- so at pool 5 the build mix reads {2, 1, 1, 1} and at pool 7
++    {3, 2, 1, 1}, where a plain floor gave every function one. At pool 3 every function still
++    holds one slot, which is why the mix is *also* enforced on measured job-seconds
++    (`function_share_window`): the slots keep the pool live, the window keeps the mix.
++    """
++    if not mix:
++        return {}
++    quotas = {f: float(share) * workers for f, share in mix.items()}
++    budgets = {f: math.floor(q + 1e-9) for f, q in quotas.items()}
++    remaining = max(0, workers - sum(budgets.values()))
++    by_remainder = sorted(mix, key=lambda f: (-(quotas[f] - budgets[f]), f))
++    for f in by_remainder[:remaining]:
++        budgets[f] += 1
++    return {f: max(1, b) for f, b in budgets.items()}
++
++
++# The rolling window over which each function's *run* share is measured at the claim (#30).
++# A slot budget cannot tell 45/20/20/15 from 30/30/30/10 with three workers; job-seconds can.
++FUNCTION_WINDOW = timedelta(hours=24)
++# A function is over its share when it has run this much more than its target share of the
++# window's job-seconds. Small enough to bind within a day, large enough not to flap.
++FUNCTION_SHARE_TOLERANCE = 0.05
++
++
++def function_share_window(db, *, now: datetime | None = None,
++                          window: timedelta = FUNCTION_WINDOW) -> dict:
++    """Job-seconds run per #30 function over the window, from finished jobs (bounded query)."""
++    from sqlalchemy import select
++
++    from ..core.models import Job, JobStatus
++
++    now = now or datetime.now(timezone.utc)
++    since = now - window
++    seconds: dict[str, float] = {}
++    with db.session() as s:
++        rows = [(j.agent, j.started_at, j.finished_at) for j in s.scalars(select(Job).where(
++            Job.status == JobStatus.DONE, Job.finished_at >= since))]
++    for agent, started, finished in rows:
++        if started is None or finished is None:
++            continue
++        f = function_of(agent)
++        seconds[f] = seconds.get(f, 0.0) + max(1.0, (_aware(finished) - _aware(started))
++                                               .total_seconds())
++    total = sum(seconds.values())
++    return {"seconds": {k: round(v, 3) for k, v in seconds.items()}, "total": round(total, 3),
++            "shares": ({k: round(v / total, 4) for k, v in seconds.items()} if total else None),
++            "hours": round(window.total_seconds() / 3600, 3),
++            "status": "MEASURED" if total else "UNMEASURED"}
+ 
+ 
+ def product_lane(db, slug: str) -> str | None:
+@@ -151,9 +201,18 @@ def lane_limits(db, engineering_workers: int) -> dict:
+             "limits": {k: max(1, math.floor(v + 1e-9)) for k, v in plan["units"].items()}}
+ 
+ 
+-def _slug(job) -> str:
++def slug_of(job) -> str:
++    """The product an engineering job works on, wherever its inputs carry it.
++
++    `cir.compile` and `gate.certify` carry the whole CIR (`inputs["cir"]["slug"]`), not a
++    bare slug; reading only `slug`/`product_slug` left both uncounted against their lane.
++    """
+     inputs = job.inputs if isinstance(job.inputs, dict) else {}
+-    return str(inputs.get("slug") or inputs.get("product_slug") or "")
++    cir = inputs.get("cir") if isinstance(inputs.get("cir"), dict) else {}
++    return str(inputs.get("slug") or inputs.get("product_slug") or cir.get("slug") or "")
++
++
++_slug = slug_of
+ 
+ 
+ def _live_running(rows, now):
+@@ -205,6 +264,28 @@ def share_decision(db, job, *, now: datetime | None = None, exempt=("swarm.",))
+                 "why": (f"{mine} already runs {held_by[mine]} of {workers} workers against a "
+                         f"share of {budgets[mine]}, while {starved} have runnable work below "
+                         f"their share (#30: the mix is enforced on work, not reported)")}
++    # The same mix on measured job-seconds: with a small pool every slot budget is one, so
++    # the mix itself binds here -- a function that has run more than its target share of the
++    # window yields to a function that has run less and has work waiting. Only while the
++    # pool is in use (another job is running): a lone worker holding its only job would be
++    # reordering a queue that priority already orders, not sharing capacity.
++    window = function_share_window(db, now=now) if running else {
++        "shares": None, "hours": FUNCTION_WINDOW.total_seconds() / 3600, "status": "IDLE"}
++    measured = window["shares"] or {}
++    out["window"] = {"shares": measured, "hours": window["hours"], "status": window["status"]}
++    if measured:
++        target = mix["mix"]
++        under = sorted(f for f in budgets if f != mine
++                       and measured.get(f, 0.0) < float(target.get(f, 0.0))
++                       and any(function_of(j.agent) == f for j in waiting))
++        over_by = measured.get(mine, 0.0) - float(target.get(mine, 0.0))
++        if over_by > FUNCTION_SHARE_TOLERANCE and under:
++            return {**out, "hold": True, "kind": "function_share",
++                    "why": (f"{mine} has run {measured.get(mine, 0.0):.0%} of the last "
++                            f"{window['hours']:g}h of job-seconds against a target share of "
++                            f"{float(target.get(mine, 0.0)):.0%}, while {under} are below "
++                            f"their share and have runnable work (#30: the mix is enforced "
++                            f"on measured work, not on a report)")}
+ 
+     if job.job_type in ENGINEERING_JOB_TYPES:
+         lane = product_lane(db, _slug(job))
+@@ -279,7 +360,9 @@ def measured_lane_split(db, *, days: int = 7, now: datetime | None = None) -> di
+                     Job.status == JobStatus.DONE, Job.finished_at >= since,
+                     Job.job_type.in_(sorted(ENGINEERING_JOB_TYPES))))]
+     for _jt, inputs, started, finished in rows:
+-        lane = product_lane(db, str(inputs.get("slug") or inputs.get("product_slug") or ""))
++        cir = inputs.get("cir") if isinstance(inputs.get("cir"), dict) else {}
++        lane = product_lane(db, str(inputs.get("slug") or inputs.get("product_slug")
++                                    or cir.get("slug") or ""))
+         if lane is None or started is None or finished is None:
+             continue
+         seconds[lane] = seconds.get(lane, 0.0) + max(
+diff --git a/brambleloop/tests/test_cert_lanes_capacity.py b/brambleloop/tests/test_cert_lanes_capacity.py
+index f31ad00..1bb61d5 100644
+--- a/brambleloop/tests/test_cert_lanes_capacity.py
++++ b/brambleloop/tests/test_cert_lanes_capacity.py
+@@ -109,6 +109,66 @@ def test_the_mix_is_work_conserving_when_nothing_else_waits():
+     assert _status(db, infra) == JobStatus.DONE
+ 
+ 
++def test_a_function_over_its_measured_share_yields_while_the_pool_is_in_use():
++    """C-80 defect 4: at pool 3 every slot budget is one, so the mix must bind on measured
++    job-seconds. Infrastructure has run the whole window; with the pool in use, its next job
++    yields to distribution's waiting work even though it holds no slot yet."""
++    db = _db()
++    _capacity_reading(db, dict(mixmod.BUILD_MIX))
++    now = utcnow()
++    with db.session() as s:
++        for i in range(3):
++            s.add(Job(agent="orchestrator", job_type="ops.dependencies", inputs={},
++                      status=JobStatus.DONE, started_at=now - timedelta(hours=i + 2),
++                      finished_at=now - timedelta(hours=i + 1)))
++    _running(db, "market_radar", "radar.scan")          # the pool is in use
++    infra = _enqueue(db, "orchestrator", "ops.queue_check", {}, 0, "infra-window")
++    dist = _enqueue(db, "support", "support.triage", {}, 50, "dist-window")
++
++    w = Worker(db, "pool-1")
++    assert w.run_once()
++    held = _held(db)
++    assert [h.job_id for h in held] == [infra], [h.detail for h in held]
++    assert held[0].detail["hold_kind"] == "function_share"
++    share = held[0].detail["share"]
++    assert share["running_by_function"]["infrastructure"] == 0, "no slot was held: the window bound"
++    assert share["window"]["status"] == "MEASURED"
++    assert share["window"]["shares"]["infrastructure"] == 1.0
++    assert "job-seconds" in held[0].detail["why"] and "distribution" in held[0].detail["why"]
++    assert _status(db, infra) == JobStatus.PENDING
++    assert w.run_once()
++    assert _status(db, dist) == JobStatus.DONE
++
++
++def test_the_measured_share_does_not_reorder_an_idle_pool():
++    """With nothing else running, the one worker runs the job priority gave it: the window
++    shares capacity, it does not replace the queue order (and a serial drain never stalls)."""
++    db = _db()
++    _capacity_reading(db, dict(mixmod.BUILD_MIX))
++    now = utcnow()
++    with db.session() as s:
++        s.add(Job(agent="orchestrator", job_type="ops.dependencies", inputs={},
++                  status=JobStatus.DONE, started_at=now - timedelta(hours=2),
++                  finished_at=now - timedelta(hours=1)))
++    infra = _enqueue(db, "orchestrator", "ops.queue_check", {}, 0, "infra-idle")
++    _enqueue(db, "support", "support.triage", {}, 50, "dist-idle")
++    assert Worker(db, "pool-1").run_once()
++    assert not _held(db)
++    assert _status(db, infra) == JobStatus.DONE
++
++
++def test_function_budgets_share_the_pool_by_largest_remainder():
++    """Slot budgets: at least one each, the rest of the pool to the most under-served share."""
++    assert cap.function_budgets(mixmod.BUILD_MIX, 3) == {
++        "product_qa": 1, "market_intelligence": 1, "distribution": 1, "infrastructure": 1}
++    # 3.15/1.4/1.4/1.05 -> floors 3/1/1/1 and the seventh slot to the largest remainder;
++    # market intelligence and distribution tie, and distribution wins the tie (#30's point)
++    assert cap.function_budgets(mixmod.BUILD_MIX, 7) == {
++        "product_qa": 3, "market_intelligence": 1, "distribution": 2, "infrastructure": 1}
++    assert cap.function_budgets(mixmod.MATURE_MIX, 10) == {
++        "product_qa": 3, "market_intelligence": 3, "distribution": 3, "infrastructure": 1}
++
++
+ # ---- #5: the production lanes split making capacity --------------------------------------
+ 
+ 
+@@ -142,6 +202,39 @@ def test_a_lane_over_its_engineering_share_is_held_while_the_other_lane_waits():
+     assert len(_held(db)) == 1
+ 
+ 
++def test_certification_jobs_carrying_the_cir_are_counted_against_their_lane():
++    """C-80 defect 3: cir.compile and gate.certify carry {"cir": {...}}, not a bare slug, and
++    were never lane-counted. A running gate.certify on a fast product fills the fast lane, and
++    the next fast cir.compile is held while flagship engineering waits."""
++    db = _db()
++    _route(db, "fast-a", "fast")
++    _route(db, "fast-b", "fast")
++    _route(db, "flag-c", "flagship")
++    running = _running(db, "quality_director", "gate.certify", {"cir": {"slug": "fast-a"}})
++    with db.session() as s:
++        assert cap.slug_of(s.get(Job, running)) == "fast-a"
++    fast_next = _enqueue(db, "crochet_engineer", "cir.compile", {"cir": {"slug": "fast-b"}},
++                         0, "fb-cir")
++    flag_next = _enqueue(db, "publishing", "assets.build", {"slug": "flag-c"}, 50, "fc-cir")
++
++    assert Worker(db, "pool-2").run_once()
++    held = _held(db)
++    assert [h.job_id for h in held] == [fast_next], [h.detail for h in held]
++    assert held[0].detail["hold_kind"] == "lane_share"
++    assert held[0].detail["share"]["lane"] == "fast"
++    assert held[0].detail["share"]["lane_running"] == 1, "the running gate.certify was counted"
++    assert _status(db, fast_next) == JobStatus.PENDING
++    Worker(db, "pool-2").run_once()
++    with db.session() as s:
++        assert s.get(Job, flag_next).attempts >= 1
++    # the measured split reads the same inputs
++    with db.session() as s:
++        s.add(Job(agent="quality_director", job_type="gate.certify",
++                  inputs={"cir": {"slug": "flag-c"}}, status=JobStatus.DONE,
++                  started_at=utcnow() - timedelta(minutes=10), finished_at=utcnow()))
++    assert cap.measured_lane_split(db)["seconds"].get("flagship", 0) > 0
++
++
+ def test_gate_lanes_counts_a_collection_from_its_certified_family_and_records_the_split():
+     from tests.test_cert_preengineering import _certify, _ctx
+ 
+@@ -161,9 +254,14 @@ def test_gate_lanes_counts_a_collection_from_its_certified_family_and_records_th
+         assert routed[slug]["profile"]["pattern_count"] == 2, routed[slug]["profile"]
+         assert routed[slug]["profile"]["sizes"] == 1
+     assert routed["autumn-oak-mosaic-throw"]["profile"]["pattern_count"] == 1
+-    # lanes.allocate's split, recorded for the claim; nothing run yet is UNMEASURED
++    # lanes.allocate's split, recorded for the claim. The three gate.certify runs above carry
++    # the CIR (inputs.cir.slug) and are now counted (C-80 defect 3), so the split run so far
++    # is measured -- strengthened from the earlier UNMEASURED, which was the uncounted bug.
+     assert capacity["shares"] == {"fast": 0.6, "flagship": 0.4}
+-    assert capacity["measured_status"] == "UNMEASURED" and capacity["boosted_jobs"] == []
++    assert capacity["measured_status"] == "measured", capacity["measured"]
++    assert capacity["measured"]["total"] > 0 and set(capacity["measured"]["seconds"]) <= {
++        "fast", "flagship"}
++    assert capacity["boosted_jobs"] == [], "nothing was queued, so nothing is moved"
+     assert out["lane_capacity"]["units"]
+ 
+ 
+-- 
+2.43.0
+
+
+From 87171cd3b9c684e1b0f1dd62694e74cb8d269ebf Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 22:30:09 +0000
+Subject: [PATCH 2/7] C-80 defects 1, 2, 5, 16, 17(part): size depth read from
+ the CIRs' own grading, thrash backoff increments only on a new unchanged
+ observation, lab provenance filtered by version, _progress bounded in SQL
+
+- cir/graded.size_run counts the certified releases in a design's size run (graded
+  concept_key siblings or size-variant titles), MEASURED, or UNMEASURED for an unreadable CIR;
+  commerce/lanes._sizes_of and teardown/lab customization read it (no phantom 'sizes' key)
+- swarm/orchestrate._free_poll_backoff stores last_counted_job_id; a sweep with no new run
+  keeps level, factor and the absolute deadline; a new unchanged run doubles and extends
+- tests/test_cert_thrash.py: the assertion that enshrined the doubling (factor 4 after a sweep
+  with nothing new) now asserts factor 2 / deadline kept, then factor 4 on a new run
+- teardown/lab: ArtefactProvenance read for slug@version only (Codex P05)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GpoRAgr4kBWxi1752HufQh
+---
+ brambleloop/src/brambleloop/cir/graded.py     | 54 +++++++++++++++++++
+ brambleloop/src/brambleloop/commerce/lanes.py | 31 +++++------
+ .../src/brambleloop/swarm/orchestrate.py      | 34 +++++++++---
+ brambleloop/src/brambleloop/teardown/lab.py   | 36 +++++++++++--
+ brambleloop/tests/test_cert_thrash.py         | 23 +++++++-
+ 5 files changed, 150 insertions(+), 28 deletions(-)
+
+diff --git a/brambleloop/src/brambleloop/cir/graded.py b/brambleloop/src/brambleloop/cir/graded.py
+index 5a60b6e..c40ce2b 100644
+--- a/brambleloop/src/brambleloop/cir/graded.py
++++ b/brambleloop/src/brambleloop/cir/graded.py
+@@ -393,3 +393,57 @@ def parse_size_table(text: str) -> list[dict]:
+             measures[key] = {"body_cm": float(body), "finished_cm": float(finished)}
+         out.append({"size": m.group(1), "measurements": measures})
+     return out
++
++
++# ---- size depth of a certified release (C-80, #5 and #169) --------------------------------
++
++GRADED_PRIMITIVE = "cir.graded"
++_SIZE_TITLE = re.compile(r"^(?P<root>.+?)\s*\((?:size\s+)?(?P<size>[^()]+)\)\s*$", re.I)
++
++
++def _design_of(cir_json: dict) -> tuple[str, str] | None:
++    """(kind, key) naming the design this stored CIR is one size of, or None if unreadable.
++
++    A graded build records its design in `provenance.concept_key` with `cir.graded` among the
++    primitives used. A stored CIR without provenance is one size of a design when its title
++    carries the size-variant suffix the builders write (`"... (size M)"`, `"... (Crib)"`);
++    otherwise the design is the release itself.
++    """
++    if not isinstance(cir_json, dict) or not cir_json.get("slug"):
++        return None
++    prov = cir_json.get("provenance")
++    if isinstance(prov, dict):
++        prims = {str(p) for p in (prov.get("primitives_used") or ())}
++        if GRADED_PRIMITIVE in prims and prov.get("concept_key"):
++            return ("graded", str(prov["concept_key"]))
++    m = _SIZE_TITLE.match(str(cir_json.get("title") or ""))
++    if m:
++        return ("titled_size", m.group("root").strip().lower())
++    return ("single", str(cir_json["slug"]))
++
++
++def size_run(cir_json: dict, catalogue: list[dict] | dict[str, dict] | None = None) -> dict:
++    """How many finished sizes a certified release is one of, read from what is stored.
++
++    Never a default. The count is the number of certified releases in the same design's
++    size run -- the CIRs sharing its graded `concept_key` (or, for a builder without
++    provenance, the same size-variant title root) -- and a design with no other certified
++    size in the catalogue is a run of one, which is a measurement of the catalogue, not a
++    constant. A CIR that cannot be read (no slug) is UNMEASURED and says so.
++    """
++    design = _design_of(cir_json)
++    if design is None:
++        return {"sizes": None, "status": "UNMEASURED", "basis": "unreadable",
++                "why": "the stored CIR carries no slug, so its size run cannot be read"}
++    rows = list(catalogue.values()) if isinstance(catalogue, dict) else list(catalogue or [])
++    run = {str(cir_json["slug"])}
++    if design[0] != "single":
++        for other in rows:
++            if _design_of(other) == design and other.get("slug"):
++                run.add(str(other["slug"]))
++    basis = {"graded": "graded run (provenance cir.graded, shared concept_key)",
++             "titled_size": "size-variant titles of one design",
++             "single": "a single release; no grading primitive recorded and no other "
++                       "certified size of this design"}[design[0]]
++    return {"sizes": len(run), "status": "MEASURED", "basis": basis, "design": design[1],
++            "run": sorted(run)}
+diff --git a/brambleloop/src/brambleloop/commerce/lanes.py b/brambleloop/src/brambleloop/commerce/lanes.py
+index 8a457f9..5e67234 100644
+--- a/brambleloop/src/brambleloop/commerce/lanes.py
++++ b/brambleloop/src/brambleloop/commerce/lanes.py
+@@ -553,20 +553,18 @@ def state() -> dict:
+     }
+ 
+ 
+-def _sizes_of(cir_json: dict) -> int:
+-    """Finished sizes a certified release carries, read from its stored CIR.
+-
+-    A graded release records its sizes (`sizes` / `graded_sizes`, a list, or `grading` with a
+-    `sizes` list); an ungraded one is one size, which is what it is -- not a default that
+-    happens to be one."""
+-    for key in ("sizes", "graded_sizes"):
+-        v = cir_json.get(key)
+-        if isinstance(v, (list, tuple)) and v:
+-            return len(v)
+-    grading = cir_json.get("grading")
+-    if isinstance(grading, dict) and isinstance(grading.get("sizes"), (list, tuple)):
+-        return max(1, len(grading["sizes"]))
+-    return 1
++def _sizes_of(cir_json: dict, catalogue: dict[str, dict] | None = None) -> int:
++    """Finished sizes a certified release is one of, read from the stored CIRs (C-80).
++
++    `cir.graded.size_run` counts the certified releases in the same design's size run -- the
++    graded siblings sharing its `provenance.concept_key`, or the size-variant titles of one
++    design -- so the number is measured from the catalogue, never a default. An unreadable
++    CIR is UNMEASURED there; here it is not routed (see `route_certified`), so it is never
++    reached with a made-up count."""
++    from ..cir.graded import size_run
++
++    run = size_run(cir_json, catalogue or {})
++    return int(run["sizes"]) if run["sizes"] is not None else 1
+ 
+ 
+ def route_certified(db, *, today=None) -> dict:
+@@ -581,6 +579,7 @@ def route_certified(db, *, today=None) -> dict:
+     """
+     from sqlalchemy import select
+ 
++    from ..cir.graded import size_run
+     from ..cir.model import CIR
+     from ..core.models import PatternVersion, Product
+     from ..creative.blind_review import pod_for
+@@ -642,7 +641,7 @@ def route_certified(db, *, today=None) -> dict:
+             slug=slug, pod=pod_for(slug, title), make_lane=make_lane_for_hours(seed.maker_hours),
+             risk_class=cir.risk_class, components=len(cir.components),
+             colours=max(1, len(cir.colors)), new_techniques=new_by_slug.get(slug, 0),
+-            sizes=_sizes_of(latest_json.get(slug) or {}),
++            sizes=_sizes_of(latest_json.get(slug) or {}, latest_json),
+             pattern_count=max(1, family_members.get(seed.family or "", 0)),
+             closed_form=cir.makes_a_closed_form,
+             # Every product in this chain is certified for a listing: gate.certify always
+@@ -665,6 +664,8 @@ def route_certified(db, *, today=None) -> dict:
+         cards.append({**base, **card, "routed": card["lane"] is not None,
+                       "profile": {"pod": profile.pod, "make_lane": profile.make_lane,
+                                   "sizes": profile.sizes,
++                                  "sizes_basis": size_run(latest_json.get(slug) or {},
++                                                          latest_json)["basis"],
+                                   "pattern_count": profile.pattern_count,
+                                   "risk_class": profile.risk_class,
+                                   "components": profile.components,
+diff --git a/brambleloop/src/brambleloop/swarm/orchestrate.py b/brambleloop/src/brambleloop/swarm/orchestrate.py
+index e4a99a5..aad339f 100644
+--- a/brambleloop/src/brambleloop/swarm/orchestrate.py
++++ b/brambleloop/src/brambleloop/swarm/orchestrate.py
+@@ -388,16 +388,20 @@ def _progress(session, *, since: datetime) -> dict:
+     from ..core.models import Job, JobStatus
+ 
+     by: dict[str, dict] = {}
+-    for job in session.scalars(select(Job).where(Job.status == JobStatus.DONE)
++    # Bounded in SQL (C-80 defect 17): this runs hourly and the DONE table grows by the day.
++    for job in session.scalars(select(Job).where(Job.status == JobStatus.DONE,
++                                                 Job.finished_at >= since)
+                                .order_by(Job.id)):
+         finished = job.finished_at
+         if finished is None or _aware(finished) < since:
+             continue
+         row = by.setdefault(job.job_type, {"iterations": 0, "cost_cad": 0.0, "states": [],
+-                                           "cadence": bool((job.inputs or {}).get("cadence"))})
++                                           "cadence": bool((job.inputs or {}).get("cadence")),
++                                           "last_job_id": None})
+         row["iterations"] += 1
+         row["cost_cad"] += float(job.cost_cad or 0.0)
+         row["states"].append(_state_of(job.outputs))
++        row["last_job_id"] = job.id
+     out = {}
+     for jt, row in by.items():
+         states = row["states"]
+@@ -411,6 +415,9 @@ def _progress(session, *, since: datetime) -> dict:
+                                     if row["cost_cad"] > 0 else None),
+             "identical_tail": (len(tail) == IDENTICAL_STATES and len(set(tail)) == 1),
+             "cadence": row["cadence"],
++            # The newest observation counted: a backoff level rises only when a *new*
++            # unchanged observation appears, never on a sweep that saw nothing new.
++            "last_job_id": row["last_job_id"],
+         }
+     return out
+ 
+@@ -437,12 +444,26 @@ def _free_poll_backoff(session, progress: dict, *, now: datetime,
+                 open_row.resolved = True
+                 lifted.append(jt)
+             continue
+-        level = int(((open_row.detail or {}).get("suspension") or {}).get("level", 0)) + 1 \
+-            if open_row is not None else 1
++        previous = ((open_row.detail or {}).get("suspension") or {}) if open_row else {}
++        last_counted = previous.get("last_counted_job_id")
++        if open_row is not None and last_counted is not None \
++                and row.get("last_job_id") == last_counted:
++            # C-80 defect 5 (Codex P07): the same tail seen again is not a new observation.
++            # The level and the absolute deadline stand exactly as they were; the sweep
++            # only restates that the backoff is still in force.
++            applied.append({"job_type": jt, "factor": previous.get("factor"),
++                            "until": previous.get("suspend_until"), "unchanged": True,
++                            "level": previous.get("level")})
++            continue
++        level = int(previous.get("level", 0)) + 1 if open_row is not None else 1
+         factor = min(MAX_BACKOFF_FACTOR, 2 ** level)
+         until = now + timedelta(seconds=period_of[jt] * factor)
++        if previous.get("suspend_until"):
++            # a new unchanged observation extends the deadline; it never pulls it earlier
++            until = max(until, datetime.fromisoformat(previous["suspend_until"]))
+         suspension = {"kind": BACKOFF, "job_type": jt, "level": level, "factor": factor,
+-                      "suspend_until": until.isoformat(), "code_commit": _commit()}
++                      "suspend_until": until.isoformat(), "code_commit": _commit(),
++                      "last_counted_job_id": row.get("last_job_id")}
+         summary = (f"{jt} observed {IDENTICAL_STATES} identical states in a row without "
+                    f"progress; polling backs off to every {factor}x its period (#34)")
+         if open_row is None:
+@@ -454,7 +475,8 @@ def _free_poll_backoff(session, progress: dict, *, now: datetime,
+                                "progress": row}
+             open_row.summary = summary
+             open_row.report_count = (open_row.report_count or 1) + 1
+-        applied.append({"job_type": jt, "factor": factor, "until": until.isoformat()})
++        applied.append({"job_type": jt, "factor": factor, "until": until.isoformat(),
++                        "unchanged": False, "level": level})
+     return {"applied": applied, "lifted": lifted}
+ 
+ 
+diff --git a/brambleloop/src/brambleloop/teardown/lab.py b/brambleloop/src/brambleloop/teardown/lab.py
+index c695b20..5816e7a 100644
+--- a/brambleloop/src/brambleloop/teardown/lab.py
++++ b/brambleloop/src/brambleloop/teardown/lab.py
+@@ -210,8 +210,16 @@ def measured_self_scores(db, slug: str) -> dict:
+         problems = s.scalar(select(AuditLog).where(
+             AuditLog.action == "assets.deliverable_problems",
+             AuditLog.artifact == f"{slug}@{pv.version}").limit(1)) is not None
++        # C-80 (Codex P05): this release's artefacts only -- a key is `slug@version...`, so a
++        # superseded version's passed FAQ or blocked frame does not score this one.
+         prov = [(r.artefact_class, r.validation_status) for r in s.scalars(
+-            select(ArtefactProvenance).where(ArtefactProvenance.product_slug == slug))]
++            select(ArtefactProvenance).where(
++                ArtefactProvenance.product_slug == slug,
++                ArtefactProvenance.artefact_key.like(f"{slug}@{pv.version}%")))]
++        catalogue = [row for row in s.scalars(select(PatternVersion.cir_json).where(
++            PatternVersion.certified.is_(True))) if isinstance(row, dict)]
++        version = pv.version
++        cir_json = dict(pv.cir_json or {})
+     stages = set(cert.get("stages_run") or [])
+     out: dict[str, dict] = {}
+ 
+@@ -244,9 +252,17 @@ def measured_self_scores(db, slug: str) -> dict:
+             "the FAQ diverges from the PDF or listing")
+         put("beginner_support", 4 if good else 2, "the FAQ states stitches, yardage and "
+             "difficulty for this release")
+-    sizes = len((pv.cir_json or {}).get("sizes") or [])
+-    put("customization", 4 if sizes > 1 else 3,
+-        f"{sizes} graded sizes" if sizes > 1 else "one size, as the listing states")
++    # C-80: the size run is read from what the CIRs carry (a graded run's shared concept key,
++    # or size-variant titles) and counted over the certified catalogue; unreadable stays
++    # unscored rather than neutral.
++    from ..cir.graded import size_run
++
++    run = size_run(cir_json, catalogue)
++    if run["sizes"] is not None:
++        put("customization", 4 if run["sizes"] > 1 else 3,
++            (f"{run['sizes']} certified sizes of one design ({run['basis']})"
++             if run["sizes"] > 1 else
++             f"one certified size ({run['basis']}), as the listing states"))
+     put("confidence", 5 if cert.get("physical_test_passed") else
+         (3 if cert.get("granted") else 1),
+         "a physical sample passed" if cert.get("physical_test_passed") else
+@@ -386,9 +402,19 @@ def _evidenced_beyond_certificate(db, slug: str) -> list[str]:
+ 
+     from ..core.models import ArtefactProvenance
+ 
++    from ..core.models import PatternVersion, Product
++
+     with db.session() as s:
++        product = s.scalar(select(Product).where(Product.slug == slug))
++        pv = s.scalar(select(PatternVersion).where(PatternVersion.product_id == product.id)
++                      .order_by(PatternVersion.id.desc())) if product is not None else None
++        if pv is None:
++            return []
++        # C-80 (Codex P05): this version's artefacts, not every version the slug ever had.
+         classes = {(r.artefact_class, r.validation_status) for r in s.scalars(
+-            select(ArtefactProvenance).where(ArtefactProvenance.product_slug == slug))}
++            select(ArtefactProvenance).where(
++                ArtefactProvenance.product_slug == slug,
++                ArtefactProvenance.artefact_key.like(f"{slug}@{pv.version}%")))}
+     out = []
+     if any(c == "support_knowledge" and v in ("passed",) for c, v in classes):
+         # a version-keyed FAQ built from this release, consistent with PDF and listing
+diff --git a/brambleloop/tests/test_cert_thrash.py b/brambleloop/tests/test_cert_thrash.py
+index d86c312..80674b8 100644
+--- a/brambleloop/tests/test_cert_thrash.py
++++ b/brambleloop/tests/test_cert_thrash.py
+@@ -88,11 +88,30 @@ def test_unchanged_free_polling_backs_off_and_progress_lifts_it():
+     out = _sweep(db)
+     applied = {a["job_type"]: a for a in out["backoff"]["applied"]}
+     assert applied["etsy.probe"]["factor"] == 2
++    first_until = applied["etsy.probe"]["until"]
+     Scheduler(db).tick()
+     assert not _enqueued(db, "etsy.probe")
+-    # still unchanged: the backoff doubles
++    # C-80 defect 5 (Codex P07): a second sweep that sees *no new run* is not a new
++    # observation. The level stays at 1, the factor at 2 and the absolute deadline exactly
++    # where the first sweep put it. (This assertion used to enshrine the defect: factor 4
++    # after a sweep with nothing new.)
+     out = _sweep(db)
+-    assert {a["job_type"]: a for a in out["backoff"]["applied"]}["etsy.probe"]["factor"] == 4
++    again = {a["job_type"]: a for a in out["backoff"]["applied"]}["etsy.probe"]
++    assert again["factor"] == 2 and again["unchanged"] is True
++    assert again["until"] == first_until, "the deadline was refreshed with no new observation"
++    with db.session() as s:
++        inc = s.scalar(select(Incident).where(
++            Incident.signature == f"{orc.BACKOFF_SIGNATURE_PREFIX}etsy.probe",
++            Incident.resolved.is_(False)))
++        assert inc.detail["suspension"]["level"] == 1
++        assert inc.detail["suspension"]["suspend_until"] == first_until
++    # a NEW run that observes the same unchanged state is the fourth identical observation:
++    # now the backoff doubles, and the deadline moves later, never earlier
++    _done(db, "etsy.probe", {"reachable": False, "checked_at": "y"}, n=1)
++    out = _sweep(db)
++    doubled = {a["job_type"]: a for a in out["backoff"]["applied"]}["etsy.probe"]
++    assert doubled["factor"] == 4 and doubled["unchanged"] is False
++    assert doubled["until"] > first_until
+     # the state changes: progress lifts the backoff
+     _done(db, "etsy.probe", {"reachable": True}, n=1)
+     out = _sweep(db)
+-- 
+2.43.0
+
+
+From 194ea41134c92a5932765cc212f20da5c03a3a58 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 22:35:53 +0000
+Subject: [PATCH 3/7] C-80 defects 6+7: frame review claims every role
+ build_frames emits, keeps unjudged unjudged, and the publish path accepts
+ only a non-empty review bound to the stored frame hashes
+
+- ROLE_CLAIMS gains whats_included, materials, collection; a role with no claim is recorded
+  UNCLAIMED and blocks the chain instead of passing against an empty claim
+- the unjudged->clear conversion is removed (Codex P06)
+- assets.frame_review records frame_shas; frame_review_state is reviewed only when frames is
+  non-empty, every frame is clear, and the sha set equals the stored ListingAsset shas
+- tests: strengthened the closed-gate test (claims cover stored roles, shas recorded), added
+  unjudged/bound/empty-review and unclaimed-role handler tests through assets.build
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GpoRAgr4kBWxi1752HufQh
+---
+ .../src/brambleloop/runtime/release.py        | 70 ++++++++++---
+ brambleloop/tests/test_cert_listing_frames.py | 97 +++++++++++++++++++
+ 2 files changed, 152 insertions(+), 15 deletions(-)
+
+diff --git a/brambleloop/src/brambleloop/runtime/release.py b/brambleloop/src/brambleloop/runtime/release.py
+index fa2f30e..d717fb8 100644
+--- a/brambleloop/src/brambleloop/runtime/release.py
++++ b/brambleloop/src/brambleloop/runtime/release.py
+@@ -322,7 +322,8 @@ def handle_assets_build(ctx: JobContext) -> dict:
+     # what the frame's role claims. It runs when the vision gate is open; otherwise every
+     # frame is recorded UNREVIEWED, which the publish path reads as not passed. A frame the
+     # review blocks stops the chain here.
+-    review = _review_frames(ctx, slug, version, frames, frame_paths)
++    review = _review_frames(ctx, slug, version, frames, frame_paths,
++                            shas={f["position"]: f["sha256"] for f in stored_frames})
+     blocking.extend(review["blocking"])
+ 
+     # #36: every listing image is stored with its provenance -- kind, physical or
+@@ -854,15 +855,22 @@ def select_incident(Incident, signature: str):
+ 
+ FRAME_REVIEW_ACTION = "assets.frame_review"
+ # What each frame's role claims, in the closed vocabulary `visual.inspect.compare` checks.
++# Every role `listing_assets.build_frames` emits has an entry (C-80 defect 6): a frame with
++# no claim would be compared against nothing and pass by having nothing to fail, so a role
++# missing here is recorded UNCLAIMED and blocks, never reviewed vacuously.
+ ROLE_CLAIMS: dict[str, dict] = {
+     "hero": {"shows_finished_object": True},
++    "whats_included": {"shows_text": True},
+     "size": {"shows_size_reference": True},
+-    "chart": {"shows_chart_preview": True},
++    "materials": {"shows_text": True},
+     "pattern_preview": {"shows_text": True},
++    "chart": {"shows_chart_preview": True},
++    "collection": {"shows_text": True},
+ }
+ 
+ 
+-def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict) -> dict:
++def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict,
++                   shas: dict[int, str] | None = None) -> dict:
+     from ..visual import inspect as inspection_mod
+     from ..visual.gallery import gates_now
+ 
+@@ -870,7 +878,15 @@ def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict
+     verdicts: dict[int, dict] = {}
+     blocking: list[str] = []
+     for frame in frames:
+-        claim = ROLE_CLAIMS.get(frame.role, {})
++        claim = ROLE_CLAIMS.get(frame.role)
++        if claim is None:
++            verdicts[frame.position] = {"role": frame.role, "verdict": "unclaimed",
++                                        "why": f"no claim is registered for role "
++                                               f"{frame.role!r}; a frame compared against "
++                                               f"nothing is not reviewed (#61)"}
++            blocking.append(f"FRAME_REVIEW_UNCLAIMED: frame {frame.position} ({frame.role}) "
++                            f"has no registered claim to be reviewed against")
++            continue
+         if not vision_open:
+             verdicts[frame.position] = {"role": frame.role, "verdict": "unreviewed",
+                                         "why": "image_vision gate closed: no model has "
+@@ -883,13 +899,12 @@ def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict
+             verdicts[frame.position] = {"role": frame.role, "verdict": "unreviewed",
+                                         "why": f"{type(exc).__name__}: {exc}"[:200]}
+             continue
+-        # A deterministic render has no realism to judge; the semantic comparison and the
+-        # marks are the review. Unmade realism on a render is not a failure of the frame.
+-        if verdict["verdict"] == "unjudged" and got.get("described"):
+-            verdict = {"verdict": "clear", "why": "described and compared; realism not "
+-                                                  "applicable to a deterministic render"}
++        # C-80 defect 6 (Codex P06): an unjudged verdict stays unjudged. Unmade checks are
++        # not passed checks, whatever kind of frame they were not made on; the publish path
++        # reads anything other than `clear` as not independently reviewed.
+         verdicts[frame.position] = {"role": frame.role, "verdict": verdict["verdict"],
+                                     "why": verdict.get("why"),
++                                    "unmade": verdict.get("unmade"),
+                                     "semantic": (got.get("semantic") or {}).get("problems")}
+         if verdict["verdict"] == "blocked":
+             blocking.append(f"FRAME_REVIEW_BLOCKED: frame {frame.position} ({frame.role}) "
+@@ -898,13 +913,23 @@ def _review_frames(ctx: JobContext, slug: str, version: str, frames, paths: dict
+     ctx.audit(FRAME_REVIEW_ACTION, artifact=f"{slug}@{version}",
+               detail={"vision_open": vision_open,
+                       "frames": {str(k): v for k, v in verdicts.items()},
++                      # the bytes this review was of (C-80 defect 7): the publish path
++                      # accepts the review only for these exact stored frames
++                      "frame_shas": {str(k): v for k, v in (shas or {}).items()},
+                       "unreviewed": sorted(k for k, v in verdicts.items()
+                                            if v["verdict"] == "unreviewed")})
+     return {"verdicts": verdicts, "blocking": blocking, "vision_open": vision_open}
+ 
+ 
+ def frame_review_state(db, slug: str, version: str) -> dict:
+-    """The latest independent review of this release's frames, for the publish path."""
++    """The latest independent review of this release's frames, for the publish path.
++
++    Reviewed only when the review judged a non-empty set of frames, every one is `clear`,
++    and the review was of exactly the frame bytes now stored for the release (the sha set
++    recorded with the review equals the stored frames' sha set). A review of an empty map,
++    of different bytes, or with any frame unreviewed / unjudged / blocked is not a review
++    of this release (C-80 defect 7, Codex P06).
++    """
+     from sqlalchemy import desc, select
+ 
+     from ..core.models import AuditLog
+@@ -913,12 +938,27 @@ def frame_review_state(db, slug: str, version: str) -> dict:
+         row = s.scalar(select(AuditLog).where(AuditLog.action == FRAME_REVIEW_ACTION,
+                                               AuditLog.artifact == f"{slug}@{version}")
+                        .order_by(desc(AuditLog.id)).limit(1))
+-    if row is None:
++        detail = dict(row.detail or {}) if row is not None else None
++    if detail is None:
+         return {"reviewed": False, "why": "no independent frame review is on record (#61)"}
+-    frames = (row.detail or {}).get("frames") or {}
+-    bad = {k: v["verdict"] for k, v in frames.items() if v.get("verdict") != "clear"}
+-    return {"reviewed": not bad, "not_clear": bad,
+-            "why": ("every frame was independently reviewed and communicates its claim"
++    frames = detail.get("frames") or {}
++    bad = {k: v.get("verdict") for k, v in frames.items() if v.get("verdict") != "clear"}
++    if not frames:
++        return {"reviewed": False, "not_clear": {}, "bound_to_stored_frames": False,
++                "why": "the frame review on record judged no frames (#61): an empty review "
++                       "is not a review"}
++    reviewed_shas = {str(k): v for k, v in (detail.get("frame_shas") or {}).items()}
++    stored = {str(f["position"]): f["sha256"] for f in _stored_frames(db, slug, version)}
++    bound = bool(reviewed_shas) and bool(stored) and reviewed_shas == stored
++    if not bound:
++        why = ("the frame review on record is not bound to the frames now stored for this "
++               "release (#61): " + ("it recorded no frame hashes" if not reviewed_shas else
++                                    "no frames are stored" if not stored else
++                                    "the stored frame bytes differ from the ones reviewed"))
++        return {"reviewed": False, "not_clear": bad, "bound_to_stored_frames": False,
++                "why": why}
++    return {"reviewed": not bad, "not_clear": bad, "bound_to_stored_frames": True,
++            "why": ("every stored frame was independently reviewed and communicates its claim"
+                     if not bad else f"frames not independently cleared (#61): {bad}")}
+ 
+ 
+diff --git a/brambleloop/tests/test_cert_listing_frames.py b/brambleloop/tests/test_cert_listing_frames.py
+index 3c68630..cfbe105 100644
+--- a/brambleloop/tests/test_cert_listing_frames.py
++++ b/brambleloop/tests/test_cert_listing_frames.py
+@@ -71,6 +71,103 @@ def test_every_frame_is_measured_and_recorded_unreviewed_when_vision_is_closed()
+         == {"unreviewed"}
+     state = release.frame_review_state(db, cir.slug, cir.version)
+     assert state["reviewed"] is False and "#61" in state["why"]
++    # C-80 defect 6: every role the builder emits has a registered claim (none is reviewed
++    # against nothing), and defect 7: the review records the bytes it was of.
++    from brambleloop.core.models import ListingAsset
++
++    with db.session() as s:
++        stored = {str(r.position): (r.role, r.sha256) for r in s.scalars(
++            select(ListingAsset).where(ListingAsset.product_slug == cir.slug,
++                                       ListingAsset.version == cir.version))}
++    assert len(stored) >= 6
++    assert {role for role, _ in stored.values()} <= set(release.ROLE_CLAIMS), (
++        {role for role, _ in stored.values()} - set(release.ROLE_CLAIMS))
++    assert review["frame_shas"] == {k: sha for k, (_r, sha) in stored.items()}
++    assert not any(v["verdict"] == "unclaimed" for v in review["frames"].values())
++
++
++def _fake_vision(unmade: list[str]):
++    from brambleloop.visual import inspect as inspection
++
++    def fake_inspect(ref, *, db=None, provider=None, claim=None):
++        chart = bool(claim and claim.get("shows_chart_preview"))
++        description = {"object_shown": "a chart" if chart else "a blanket",
++                       "chart_or_diagram": chart, "finished_or_in_progress": "finished",
++                       "object_count": "1", "clarity": "clear", "text_present": True,
++                       "third_party_marks": "none", "human_present": False}
++        return {"described": True, "description": description,
++                "realism": {}, "realism_unjudged": list(unmade),
++                "semantic": inspection.compare(description, claim or {})}
++    return fake_inspect
++
++
++def test_unjudged_stays_unjudged_and_only_a_bound_all_clear_review_opens_publication():
++    """C-80 defects 6 and 7 (Codex P06): an unjudged frame is not cleared because it was
++    described; an empty review or a review of other bytes does not count; a complete clear
++    review of exactly the stored frames does."""
++    from brambleloop.build2 import executor
++    from brambleloop.core.models import ListingAsset
++    from brambleloop.visual import inspect as inspection
++
++    db, cir = _certified()
++    gate = executor.GATE_BY_KEY["image_vision"]
++    original_check, original_inspect = gate.check, inspection.inspect_image
++    gate.check = lambda db_, env: True
++    try:
++        inspection.inspect_image = _fake_vision(["texture_not_repeating"])
++        out = _build(db, cir, "unjudged")
++        review = _review(db, cir)
++        assert set(v["verdict"] for v in review["frames"].values()) == {"unjudged"}, review
++        assert all(v["unmade"] == ["texture_not_repeating"] for v in review["frames"].values())
++        # unjudged does not stop assets.build (nothing failed) but it is not a pass at publish
++        assert out.get("ok") is not False, out
++        state = release.frame_review_state(db, cir.slug, cir.version)
++        assert state["reviewed"] is False and set(state["not_clear"].values()) == {"unjudged"}
++
++        inspection.inspect_image = _fake_vision([])
++        _build(db, cir, "clear")
++        state = release.frame_review_state(db, cir.slug, cir.version)
++        assert state["reviewed"] is True and state["bound_to_stored_frames"] is True, state
++    finally:
++        gate.check, inspection.inspect_image = original_check, original_inspect
++
++    # the same review no longer counts once the stored bytes differ
++    with db.session() as s:
++        row = s.scalar(select(ListingAsset).where(ListingAsset.product_slug == cir.slug,
++                                                  ListingAsset.position == 3))
++        row.sha256 = "0" * 64
++    state = release.frame_review_state(db, cir.slug, cir.version)
++    assert state["reviewed"] is False and state["bound_to_stored_frames"] is False
++    assert "differ" in state["why"]
++
++    # and a review that judged no frames is not a review
++    with db.session() as s:
++        s.add(AuditLog(actor="publishing", action=release.FRAME_REVIEW_ACTION,
++                       artifact=f"{cir.slug}@{cir.version}",
++                       detail={"vision_open": True, "frames": {}, "frame_shas": {}}))
++    state = release.frame_review_state(db, cir.slug, cir.version)
++    assert state["reviewed"] is False and "empty review" in state["why"]
++
++
++def test_a_frame_role_without_a_registered_claim_is_unclaimed_and_stops_the_chain():
++    db, cir = _certified()
++    real = listing_assets.build_frames
++
++    def renamed(*a, **k):
++        frames = real(*a, **k)
++        next(f for f in frames if f.role == "materials").role = "mystery"
++        return frames
++
++    release.build_frames = renamed
++    try:
++        out = _build(db, cir, "unclaimed")
++    finally:
++        release.build_frames = real
++    assert out.get("ok") is False, out
++    assert any("FRAME_REVIEW_UNCLAIMED" in p and "(mystery)" in p
++               for p in out["blocking_image_problems"]), out["blocking_image_problems"]
++    review = _review(db, cir)
++    assert any(v["verdict"] == "unclaimed" for v in review["frames"].values())
+ 
+ 
+ def test_type_over_the_chart_on_a_non_hero_frame_stops_the_chain():
+-- 
+2.43.0
+
+
+From d534a0fbda8a40efb7eb2f284f7e600bb1a977fb Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 22:40:05 +0000
+Subject: [PATCH 4/7] C-80 defect 8: escalation rungs are distinct strategies
+ with persisted results, so the #81 ladder advances (Codex P11)
+
+- visual/gallery: GENERATION_RUNGS, RUNG_BRIEFS (constrained brief / changed composition /
+  alternate tool), ESCALATION_RESULT_ACTION and escalation_progress(db, slug, version) read
+  from persisted rung results; escalation_plan reports start_attempt
+- visual/parity.assess takes start_attempt; pipeline._listing_parity passes the persisted
+  progress and enqueues the rung job with version, rung and failed
+- publish/owned_photography: prompt_for/make take rung constraints, records carry the rung,
+  rung_attempts/ordinary_attempts give rungs their own one-attempt budget
+- visual/tournament.alternate_provider for the change_tool rung
+- runtime/release: _owned_photography_rung executes the named strategy and writes
+  creative.escalation_result (attempted / not attemptable, usable, provider, composition);
+  the model path persists its rung result too; retention entry added
+- tests/test_gallery_escalation.py: the ladder walked through store.publish and the
+  photography job, rung by rung, to the deterministic rung; a rung is never repeated
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GpoRAgr4kBWxi1752HufQh
+---
+ brambleloop/src/brambleloop/ops/retention.py  |   5 +
+ .../brambleloop/publish/owned_photography.py  |  35 ++++-
+ .../src/brambleloop/runtime/pipeline.py       |  15 ++-
+ .../src/brambleloop/runtime/release.py        |  87 +++++++++++++
+ brambleloop/src/brambleloop/visual/gallery.py |  63 +++++++++
+ brambleloop/src/brambleloop/visual/parity.py  |   6 +-
+ .../src/brambleloop/visual/tournament.py      |  25 ++++
+ brambleloop/tests/test_gallery_escalation.py  | 120 +++++++++++++++++-
+ 8 files changed, 341 insertions(+), 15 deletions(-)
+
+diff --git a/brambleloop/src/brambleloop/ops/retention.py b/brambleloop/src/brambleloop/ops/retention.py
+index 108264e..b03816e 100644
+--- a/brambleloop/src/brambleloop/ops/retention.py
++++ b/brambleloop/src/brambleloop/ops/retention.py
+@@ -202,6 +202,11 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+     "assets.deliverable_problems": ("lifetime_total",
+                                     "teardown.lab.measured_self_scores reads whether a "
+                                     "release's PDF recorded problems (instruction clarity)"),
++    # C-80 (#81): the parity verdict resumes the escalation ladder from the rung results the
++    # photography job persisted; pruning one would re-run a strategy already tried.
++    "creative.escalation_result": ("lifetime_total",
++                                   "visual.gallery.escalation_progress reads every rung "
++                                   "result for a release to place the next attempt"),
+     "runtime.started": ("windowed",
+                         "ops.health.container_starts reads a 24-hour window to tell a "
+                         "restart from a deploy"),
+diff --git a/brambleloop/src/brambleloop/publish/owned_photography.py b/brambleloop/src/brambleloop/publish/owned_photography.py
+index 9289194..917dfb5 100644
+--- a/brambleloop/src/brambleloop/publish/owned_photography.py
++++ b/brambleloop/src/brambleloop/publish/owned_photography.py
+@@ -146,8 +146,12 @@ def claim_for(cir, twin) -> dict:
+     }
+ 
+ 
+-def prompt_for(cir, twin, *, occasion: str = "") -> str:
+-    """The render brief, derived from the CIR rather than written beside it."""
++def prompt_for(cir, twin, *, occasion: str = "", constraints: tuple[str, ...] = ()) -> str:
++    """The render brief, derived from the CIR rather than written beside it.
++
++    `constraints` are the #81 rung's additions (C-80 defect 8): the failed checks named for
++    a constrained regeneration, or a changed composition. They are appended, never
++    substituted, so the brief still states the certified object."""
+     # The colour *names*, not the hex values the twin renders with. `cir.colors` maps a
+     # name to a hex code, and a prompt asking for "#1A2B3C" describes nothing to a
+     # generator and nothing to a reader of this prompt either.
+@@ -166,6 +170,7 @@ def prompt_for(cir, twin, *, occasion: str = "") -> str:
+         f"crocheted fabric lies.{occasion_line} No people, no hands, no text, no logos, no "
+         f"brand marks, no packaging. The object is the entire subject of the frame. "
+         f"{FABRIC_DIRECTION}"
++        + "".join(f" {c.strip()}" for c in constraints if str(c).strip())
+     )
+ 
+ 
+@@ -231,7 +236,8 @@ def motif_sentence(cir) -> str:
+ 
+ def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
+          work_dir: str | None = None, provider_key: str = "", generator=None,
+-         inspector=None, motif_judger=None) -> dict:
++         inspector=None, motif_judger=None, rung: str = "",
++         constraints: tuple[str, ...] = ()) -> dict:
+     """Render one owned product image and judge it. Returns a record, never an assertion.
+ 
+     A caller that supplies no `work_dir` gets one for the length of the render rather than a
+@@ -247,7 +253,7 @@ def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
+         with workspace.work_dir(None, prefix="owned-asset-") as work:
+             return make(db, cir, twin, occasion=occasion, env=env, work_dir=work,
+                         provider_key=provider_key, generator=generator, inspector=inspector,
+-                        motif_judger=motif_judger)
++                        motif_judger=motif_judger, rung=rung, constraints=constraints)
+ 
+     from ..gateway import images
+     from ..visual import inspect as inspection_mod
+@@ -271,7 +277,7 @@ def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
+ 
+     from . import motif_fidelity
+ 
+-    prompt = prompt_for(cir, twin, occasion=occasion)
++    prompt = prompt_for(cir, twin, occasion=occasion, constraints=tuple(constraints))
+     claim = claim_for(cir, twin)
+ 
+     # Named explicitly, because `generate` without one falls back to
+@@ -341,6 +347,10 @@ def make(db, cir, twin, *, occasion: str = "", env: dict | None = None,
+             else (inspected.get("description") or {}).get("clarity") != "unreadable"),
+         "form": form_of(cir),
+         "occasion": occasion or None,
++        # C-80 defect 8: which #81 rung this render was, if any. A rung attempt has its own
++        # budget (`rung_attempts`) and is excluded from the ordinary per-release budget.
++        "rung": rung or None,
++        "rung_constraints": list(constraints) or None,
+         "prompt": prompt,
+         "claim": claim,
+         "image": tournament._keep(image_ref),
+@@ -433,6 +443,16 @@ def assets_for(db, *, slug: str, version: str) -> list[dict]:
+     return out
+ 
+ 
++def rung_attempts(db, *, slug: str, version: str, rung: str) -> list[dict]:
++    """The assets one #81 rung made for this release: the rung's own budget (C-80 defect 8)."""
++    return [a for a in assets_for(db, slug=slug, version=version) if a.get("rung") == rung]
++
++
++def ordinary_attempts(db, *, slug: str, version: str) -> list[dict]:
++    """The assets the daily cadence made for this release, not the escalation rungs."""
++    return [a for a in assets_for(db, slug=slug, version=version) if not a.get("rung")]
++
++
+ def usable_asset(db, *, slug: str, version: str) -> dict | None:
+     """An asset that actually cleared its checks. The only kind a listing may use."""
+     for asset in assets_for(db, slug=slug, version=version):
+@@ -503,7 +523,10 @@ def what_to_do_next(db, *, slug: str, version: str) -> dict:
+                         f"never once passed. What needs changing is the method, and a new "
+                         f"METHOD_VERSION is what tells this check the method changed")}
+ 
+-    spent = len(assets_for(db, slug=slug, version=version))
++    # C-80 defect 8: the ordinary budget counts the cadence's own attempts. A #81 rung is a
++    # different strategy with its own one-attempt budget (`rung_attempts`), so a rung is
++    # neither refused by an exhausted ordinary budget nor charged to it.
++    spent = len(ordinary_attempts(db, slug=slug, version=version))
+     if spent >= ATTEMPTS:
+         return {"render": False, "reason": "attempts_exhausted", "attempts": spent,
+                 "why": (f"{spent} assets for {slug} {version} were rendered by "
+diff --git a/brambleloop/src/brambleloop/runtime/pipeline.py b/brambleloop/src/brambleloop/runtime/pipeline.py
+index 780adab..e3ddf05 100644
+--- a/brambleloop/src/brambleloop/runtime/pipeline.py
++++ b/brambleloop/src/brambleloop/runtime/pipeline.py
+@@ -1606,13 +1606,19 @@ def _listing_parity(ctx: JobContext) -> dict:
+     # chart and twin from -- which is what `assets.build` does, free and truthful.
+     deterministic = _certified_release(ctx.db, slug, version)
+     try:
+-        from ..visual.gallery import gates_now
++        from ..visual.gallery import escalation_progress, gates_now
+ 
++        # C-80 defect 8 (Codex P11): the ladder resumes from the rung results the
++        # photography job persisted, so change_composition and change_tool are reached.
++        progress = escalation_progress(ctx.db, slug=slug, version=version)
+         verdict = parity.assess(frames, benchmark_quality=_benchmark_quality(ctx.db, slug),
+                                 deterministic_available=(
+                                     deterministic is not None
+                                     or parity._deterministic_available(frames)),
+-                                gate_open=gates_now(ctx.db))
++                                gate_open=gates_now(ctx.db),
++                                start_attempt=progress["start_attempt"])
++        if verdict.get("escalation") is not None:
++            verdict["escalation"]["rung_results"] = progress["results"]
+     except parity.ParityRefused as exc:
+         # A partial set cannot satisfy #75, and the refusal is the gate working. Reported
+         # as blocking rather than raised, so the publish attempt records why.
+@@ -1642,8 +1648,9 @@ def _listing_parity(ctx: JobContext) -> dict:
+         state = hashlib.sha256(repr(sorted(verdict.get("failed") or [])).encode()
+                                ).hexdigest()[:12]
+         job = ctx.enqueue("publishing", job_type,
+-                          {"slug": slug, "reason": f"parity_escalation:{escalation['taken']}",
+-                           "failed": verdict.get("failed")},
++                          {"slug": slug, "version": version,
++                           "reason": f"parity_escalation:{escalation['taken']}",
++                           "rung": escalation["taken"], "failed": verdict.get("failed")},
+                           idempotency_key=f"parity-rung:{slug}:{escalation['taken']}:{state}")
+         escalation["enqueued"] = {"job_type": job_type, "job_id": getattr(job, "id", None),
+                                   "already_queued": job is None}
+diff --git a/brambleloop/src/brambleloop/runtime/release.py b/brambleloop/src/brambleloop/runtime/release.py
+index d717fb8..9f788f5 100644
+--- a/brambleloop/src/brambleloop/runtime/release.py
++++ b/brambleloop/src/brambleloop/runtime/release.py
+@@ -3933,6 +3933,20 @@ def handle_model_photography(ctx: JobContext) -> dict:
+                                        if listing_asset.needs_the_model(cir) else {}))
+ 
+     ctx.audit(model_photography.ACTION, detail=record)
++    # C-80 defect 8: a model-bearing product's rung attempt is persisted too, so the ladder
++    # resumes rather than restarting (the model path carries no rung brief yet: it is the
++    # same conditioned render, recorded as such).
++    if str(ctx.job.inputs.get("reason") or "").startswith("parity_escalation:"):
++        from ..visual.gallery import ESCALATION_RESULT_ACTION
++
++        ctx.audit(ESCALATION_RESULT_ACTION, artifact=f"{slug}@{cir.version}",
++                  detail={"rung": str(ctx.job.inputs["reason"]).split(":", 1)[1],
++                          "failed": list(ctx.job.inputs.get("failed") or []),
++                          "attempted": bool(record.get("made")), "made": record.get("made"),
++                          "usable": bool(record.get("usable_as_listing_asset")),
++                          "verdict": (record.get("floors") or {}).get("verdict")
++                          if isinstance(record.get("floors"), dict) else None,
++                          "strategy": "model_path_unchanged"})
+     # #36: a generated frame is stored with its provenance -- simulated, AI-assisted, the
+     # version it depicts -- the moment it exists.
+     if record.get("made"):
+@@ -6170,6 +6184,17 @@ def handle_owned_photography(ctx: JobContext) -> dict:
+     if cir is None:
+         return {"ran": False, "reason": f"no CIR for {slug!r}"}
+ 
++    # C-80 defect 8 (Codex P11): a job enqueued as a #81 rung is a distinct strategy. It
++    # reads the rung and the failed dimensions, has its own one-attempt budget, changes what
++    # the rung says it changes (brief, composition or tool), and persists its result so the
++    # next parity verdict resumes the ladder from here instead of at the first rung.
++    rung = str(ctx.job.inputs.get("rung") or "")
++    if not rung and str(ctx.job.inputs.get("reason") or "").startswith("parity_escalation:"):
++        rung = str(ctx.job.inputs["reason"]).split(":", 1)[1]
++    failed = list(ctx.job.inputs.get("failed") or [])
++    if rung:
++        return _owned_photography_rung(ctx, cir, slug, rung, failed)
++
+     next_move = owned_photography.what_to_do_next(ctx.db, slug=slug, version=cir.version)
+     if not next_move["render"]:
+         return {"ran": False, "reason": next_move["reason"], "slug": slug,
+@@ -6198,6 +6223,68 @@ def handle_owned_photography(ctx: JobContext) -> dict:
+             "spent_cad": record.get("spent_cad", 0.0)}
+ 
+ 
++def _owned_photography_rung(ctx: JobContext, cir, slug: str, rung: str,
++                            failed: list[str]) -> dict:
++    """One #81 rung, executed as the strategy it names and recorded as attempted or not."""
++    import os
++
++    from ..cir.compiler import compile_cir
++    from ..cir.twin import build_twin
++    from ..core import workspace
++    from ..publish import owned_photography
++    from ..visual import tournament
++    from ..visual.gallery import ESCALATION_RESULT_ACTION, GENERATION_RUNGS, RUNG_BRIEFS
++
++    version = cir.version
++    key = f"{slug}@{version}"
++
++    def result(**detail):
++        ctx.audit(ESCALATION_RESULT_ACTION, artifact=key,
++                  detail={"rung": rung, "failed": failed, **detail})
++        return {"ran": bool(detail.get("attempted")), "slug": slug, "version": version,
++                "rung": rung, **detail}
++
++    if rung not in GENERATION_RUNGS:
++        return result(attempted=False, reason="not_a_generation_rung",
++                      why=f"{rung!r} is not a rung this job executes")
++    if owned_photography.rung_attempts(ctx.db, slug=slug, version=version, rung=rung):
++        return result(attempted=False, reason="rung_already_attempted",
++                      why="this rung was already attempted for this release; the ladder "
++                          "advances rather than repeating a strategy")
++    brief = RUNG_BRIEFS[rung]
++    env = dict(os.environ)
++    earlier = {a.get("provider") for a in owned_photography.assets_for(
++        ctx.db, slug=slug, version=version) if a.get("provider")}
++    provider_key = ""
++    if brief["provider"] == "alternate":
++        provider_key = tournament.alternate_provider(ctx.db, env, exclude=earlier)
++        if not provider_key:
++            return result(attempted=False, reason="no_alternate_tool",
++                          why=f"no permitted image model other than {sorted(earlier)} is "
++                              f"available in this environment; the rung cannot be executed "
++                              f"and is recorded so, not skipped")
++    constraints = tuple(brief["constraints"])
++    if rung == "regenerate_constrained":
++        constraints += (f"The previous render of this product failed these checks: "
++                        f"{', '.join(failed) or 'unnamed'}. Each must be visibly answered.",)
++    compiled = compile_cir(cir)
++    if not compiled.ok:
++        return result(attempted=False, reason="does_not_compile",
++                      why=f"{slug} does not compile, so there is nothing true to photograph")
++    with workspace.work_dir(ctx.job.inputs.get("work_dir"), prefix="owned-rung-") as work:
++        record = owned_photography.make(
++            ctx.db, cir, build_twin(cir, compiled), occasion=ctx.job.inputs.get("occasion", ""),
++            env=env, work_dir=work, provider_key=provider_key, rung=rung,
++            constraints=constraints)
++    ctx.audit(owned_photography.ACTION, detail=record)
++    return result(attempted=bool(record.get("made")), made=record.get("made"),
++                  usable=bool(record.get("usable_as_listing_asset")),
++                  verdict=record.get("verdict"), why=(record.get("why") or "")[:300],
++                  provider=record.get("provider") or provider_key or None,
++                  composition=brief["composition"], constraints=list(constraints),
++                  spent_cad=record.get("spent_cad", 0.0))
++
++
+ def _representative_slug(db) -> str:
+     """The certified product-first product that most needs an asset next.
+ 
+diff --git a/brambleloop/src/brambleloop/visual/gallery.py b/brambleloop/src/brambleloop/visual/gallery.py
+index 2645fcd..ce8699b 100644
+--- a/brambleloop/src/brambleloop/visual/gallery.py
++++ b/brambleloop/src/brambleloop/visual/gallery.py
+@@ -210,6 +210,68 @@ RUNG_EXECUTES_VIA: dict[str, str] = {
+ }
+ 
+ 
++# C-80 defect 8 (Codex P11): the three generation rungs are *different strategies*, not the
++# same job three times. Each carries what changes, and the photography job reads it.
++GENERATION_RUNGS: tuple[str, ...] = ("regenerate_constrained", "change_composition",
++                                     "change_tool")
++RUNG_BRIEFS: dict[str, dict] = {
++    "regenerate_constrained": {
++        "provider": "same",
++        "composition": "unchanged",
++        "constraints": ("The failed checks are named in the brief and the render must "
++                        "answer each one directly; the composition stays as before.",)},
++    "change_composition": {
++        "provider": "same",
++        "composition": "alternate",
++        "constraints": ("Change the composition entirely: a three-quarter overhead angle, a "
++                        "different crop that shows the whole object with a plain margin "
++                        "round it, and a different plain surface and light direction from "
++                        "any earlier render of this product.",)},
++    "change_tool": {
++        "provider": "alternate",
++        "composition": "unchanged",
++        "constraints": ("Rendered on a different permitted image model from every earlier "
++                        "attempt at this product.",)},
++}
++# The audit action the photography job writes when it has attempted a rung, with the result.
++ESCALATION_RESULT_ACTION = "creative.escalation_result"
++
++
++def escalation_progress(db, *, slug: str, version: str) -> dict:
++    """Where this release stands on the #81 ladder, from persisted rung results.
++
++    Each rung attempt the photography job completed is a `creative.escalation_result` audit
++    row for the release naming the rung and whether it produced a usable frame. The next
++    attempt is the first generation rung with no completed result; when every generation
++    rung has one, the ladder stands at the deterministic rung. A rung whose result is usable
++    ends the walk (parity is re-read from the new frame, not assumed).
++    """
++    from sqlalchemy import select
++
++    from ..core.models import AuditLog
++
++    results: dict[str, dict] = {}
++    with db.session() as s:
++        for row in s.scalars(select(AuditLog).where(
++                AuditLog.action == ESCALATION_RESULT_ACTION,
++                AuditLog.artifact == f"{slug}@{version}").order_by(AuditLog.id)):
++            d = dict(row.detail or {})
++            if d.get("rung") and d.get("attempted"):
++                results[d["rung"]] = {"usable": bool(d.get("usable")),
++                                      "verdict": d.get("verdict"), "job_id": row.job_id,
++                                      "at": row.at.isoformat() if row.at else None}
++    attempted = [r for r in GENERATION_RUNGS if r in results]
++    start_attempt = 0
++    for r in GENERATION_RUNGS:
++        if r in results and not results[r]["usable"]:
++            start_attempt += 1
++        else:
++            break
++    return {"results": results, "attempted": attempted, "start_attempt": start_attempt,
++            "usable_from": next((r for r in GENERATION_RUNGS
++                                 if results.get(r, {}).get("usable")), None)}
++
++
+ def gates_now(db, keys=("image_generation", "physical_proof")) -> dict[str, bool]:
+     """The live state of the gates the ladder's rungs wait on, read from the database."""
+     from ..build2 import executor
+@@ -273,6 +335,7 @@ def escalation_plan(failed: list[str], *, deterministic_available: bool,
+         "failed_dimensions": list(failed),
+         "rungs": rungs,
+         "taken": taken,
++        "start_attempt": start_attempt,
+         "gated": [r["action"] for r in rungs if r["status"] == "gated"],
+         "gates_read_live": gate_open is not None,
+         "outcome": ("replace the failing frame with a deterministic representation"
+diff --git a/brambleloop/src/brambleloop/visual/parity.py b/brambleloop/src/brambleloop/visual/parity.py
+index d6149a5..ad41fd9 100644
+--- a/brambleloop/src/brambleloop/visual/parity.py
++++ b/brambleloop/src/brambleloop/visual/parity.py
+@@ -112,7 +112,7 @@ def _realism_of(frame: dict) -> dict | None:
+ 
+ def assess(frames: list[dict], *, benchmark_quality: dict | None = None,
+            deterministic_available: bool | None = None,
+-           gate_open: dict[str, bool] | None = None) -> dict:
++           gate_open: dict[str, bool] | None = None, start_attempt: int = 0) -> dict:
+     """Judge all eight from evidence already gathered. Never renders, never asks again.
+ 
+     `frames` are asset records -- what `model_photography.make` and
+@@ -274,8 +274,10 @@ def assess(frames: list[dict], *, benchmark_quality: dict | None = None,
+ 
+         available = (deterministic_available if deterministic_available is not None
+                      else _deterministic_available(frames))
++        # C-80 defect 8: the walk starts where the persisted rung results left it, so a
++        # rung already attempted without a usable frame is not taken again.
+         escalation = escalation_plan(failed, deterministic_available=available,
+-                                     gate_open=gate_open)
++                                     gate_open=gate_open, start_attempt=int(start_attempt))
+ 
+     return {
+         "escalation": escalation,
+diff --git a/brambleloop/src/brambleloop/visual/tournament.py b/brambleloop/src/brambleloop/visual/tournament.py
+index c9584ef..14ef2a7 100644
+--- a/brambleloop/src/brambleloop/visual/tournament.py
++++ b/brambleloop/src/brambleloop/visual/tournament.py
+@@ -225,6 +225,31 @@ def preferred_provider(db=None, env: dict | None = None) -> str:
+     return ""
+ 
+ 
++def alternate_provider(db=None, env: dict | None = None, *, exclude=()) -> str:
++    """A verified, available provider other than the ones named (#81 change_tool rung).
++
++    The strongest measured candidate not in `exclude`, else any credentialed one not in
++    `exclude`; empty when this environment holds no other tool, which the rung records as
++    unattemptable rather than re-running the same model under a new name (C-80 defect 8).
++    """
++    from ..gateway import image_bench, images
++
++    excluded = {str(e) for e in exclude if e}
++    available = [k for k in images.available(env) if k not in excluded]
++    if not available:
++        return ""
++    if db is not None:
++        measured = [(image_bench.stored_result(db, c), c) for c in image_bench.CANDIDATES
++                    if c.key in available]
++        scored = [(r.overall() or 0.0, c.key) for r, c in measured if r is not None]
++        if scored:
++            return max(scored)[1]
++    for fallback in ("gpt-image-2", "flux-2-pro", "nano-banana-2"):
++        if fallback in available:
++            return fallback
++    return available[0]
++
++
+ # ---------------------------------------------------------------------------
+ # Generate and screen
+ 
+diff --git a/brambleloop/tests/test_gallery_escalation.py b/brambleloop/tests/test_gallery_escalation.py
+index 89701d8..83f58ee 100644
+--- a/brambleloop/tests/test_gallery_escalation.py
++++ b/brambleloop/tests/test_gallery_escalation.py
+@@ -36,7 +36,8 @@ def _frames(*, with_chart: bool) -> list[dict]:
+     return frames
+ 
+ 
+-def _publish_attempt(frames: list[dict], *, setup=None, keep_db: list | None = None) -> dict:
++def _publish_attempt(frames: list[dict], *, setup=None, keep_db: list | None = None,
++                     slug: str = SLUG) -> dict:
+     db = Database(f"sqlite:///{tempfile.mkdtemp()}/esc.sqlite")
+     db.create_all()
+     Registry(db).seed_defaults()
+@@ -46,9 +47,9 @@ def _publish_attempt(frames: list[dict], *, setup=None, keep_db: list | None = N
+         setup(db)
+     with db.session() as s:
+         s.add(AuditLog(actor="publishing", action=owned_photography.ACTION,
+-                       detail={"made": True, "slug": SLUG, "frames": frames,
++                       detail={"made": True, "slug": slug, "frames": frames,
+                                "method_version": owned_photography.METHOD_VERSION}))
+-    JobQueue(db).enqueue("store_operator", "store.publish", {"slug": SLUG, "version": "1.0.0"})
++    JobQueue(db).enqueue("store_operator", "store.publish", {"slug": slug, "version": "1.0.0"})
+     Worker(db, "w", phase=Phase.SHADOW).run_once()
+     with db.session() as s:
+         verdicts = [dict(r.detail) for r in s.scalars(select(AuditLog))
+@@ -130,6 +131,119 @@ def test_an_open_image_gate_attempts_the_first_rung_through_the_photography_job(
+         assert jobs and jobs[0].inputs["reason"] == "parity_escalation:regenerate_constrained"
+ 
+ 
++def _publish_again(db, *, job_types=("store.publish",), slug: str = SLUG) -> dict:
++    JobQueue(db).enqueue("store_operator", "store.publish", {"slug": slug, "version": "1.0.0"})
++    Worker(db, "w2", phase=Phase.SHADOW, job_types=list(job_types)).run_once()
++    with db.session() as s:
++        verdicts = [dict(r.detail) for r in s.scalars(select(AuditLog))
++                    if r.action == "listing.parity"]
++    return verdicts[-1]
++
++
++def test_the_ladder_advances_through_distinct_rungs_from_persisted_results():
++    """C-80 defect 8 (Codex P11): each generation rung is its own strategy -- constrained
++    brief, changed composition, other tool -- with its own budget; the photography job
++    persists the rung's result and the next parity verdict resumes the ladder from it, so
++    change_composition and change_tool are reached and then the deterministic rung."""
++    from brambleloop.build2 import executor
++    from brambleloop.core.models import Job, JobStatus
++    from brambleloop.gateway import images
++    from brambleloop.visual import tournament
++
++    # a catalogue product `products.builder.for_slug` can build, product-first, compiling
++    slug = "cloudline-baby-blanket"
++    calls: list[dict] = []
++
++    def fake_make(db, cir, twin, **kw):
++        calls.append(dict(kw))
++        return {"made": True, "slug": slug, "version": "1.0.0",
++                "method_version": owned_photography.METHOD_VERSION,
++                "frames": _frames(with_chart=True), "rung": kw.get("rung") or None,
++                "rung_constraints": list(kw.get("constraints") or ()),
++                "provider": kw.get("provider_key") or "gpt-image-2",
++                "usable_as_listing_asset": False, "verdict": "blocked",
++                "why": "fixture: the render failed asset truth", "spent_cad": 0.0}
++
++    gate = executor.GATE_BY_KEY["image_generation"]
++    originals = (gate.check, images.usable, owned_photography.make,
++                 tournament.alternate_provider)
++    gate.check = lambda db, env: True
++    images.usable = lambda db: True
++    owned_photography.make = fake_make
++    tournament.alternate_provider = lambda db=None, env=None, *, exclude=(): "flux-2-pro"
++    dbs: list = []
++    try:
++        verdict = _publish_attempt(_frames(with_chart=True), keep_db=dbs, slug=slug)
++        db = dbs[0]
++        assert verdict["escalation"]["taken"] == "regenerate_constrained"
++
++        def run_rung(expected_rung):
++            with db.session() as s:
++                job = next(j for j in s.scalars(select(Job).where(
++                    Job.job_type == "assets.owned_photography", Job.status == JobStatus.PENDING)))
++                assert job.inputs["rung"] == expected_rung, job.inputs
++                assert job.inputs["version"] == "1.0.0"
++                job_id = job.id
++            Worker(db, "rung", phase=Phase.SHADOW,
++                   job_types=["assets.owned_photography"]).run_once()
++            with db.session() as s:
++                row = s.get(Job, job_id)
++                assert row.status == JobStatus.DONE, row.last_error
++                return dict(row.outputs)
++
++        out = run_rung("regenerate_constrained")
++        assert out["ran"] and out["attempted"] and out["usable"] is False
++        assert any("failed these checks" in c and parity.PRODUCT_TRUTH in c
++                   for c in calls[-1]["constraints"]), calls[-1]
++        progress = gallery.escalation_progress(db, slug=slug, version="1.0.0")
++        assert progress["start_attempt"] == 1 and progress["attempted"] == [
++            "regenerate_constrained"]
++
++        verdict = _publish_again(db, slug=slug)
++        plan = verdict["escalation"]
++        assert plan["taken"] == "change_composition", plan
++        assert plan["start_attempt"] == 1 and "regenerate_constrained" in plan["rung_results"]
++        out = run_rung("change_composition")
++        assert out["composition"] == "alternate"
++        assert any("composition" in c.lower() for c in calls[-1]["constraints"])
++
++        verdict = _publish_again(db, slug=slug)
++        assert verdict["escalation"]["taken"] == "change_tool"
++        out = run_rung("change_tool")
++        assert calls[-1]["provider_key"] == "flux-2-pro" and out["provider"] == "flux-2-pro"
++
++        # every generation rung has been tried once, on its own budget: the ordinary daily
++        # budget is untouched and the ladder now takes the free deterministic rung
++        assert owned_photography.ordinary_attempts(db, slug=slug, version="1.0.0") == []
++        for rung in gallery.GENERATION_RUNGS:
++            assert len(owned_photography.rung_attempts(db, slug=slug, version="1.0.0",
++                                                       rung=rung)) == 1
++        verdict = _publish_again(db, slug=slug)
++        plan = verdict["escalation"]
++        assert plan["start_attempt"] == 3
++        assert plan["taken"] == "deterministic_representation", plan
++        by_action = {r["action"]: r for r in plan["rungs"]}
++        assert set(by_action) == {"deterministic_representation", "acquire_physical_proof",
++                                  "hold_listing"}
++        assert plan["still_blocks_release"] is True
++        # a rung is never repeated: the same job asked again records it and renders nothing
++        JobQueue(db).enqueue("publishing", "assets.owned_photography",
++                             {"slug": slug, "version": "1.0.0", "rung": "change_tool",
++                              "reason": "parity_escalation:change_tool", "failed": ["x"]},
++                             idempotency_key="repeat-rung")
++        before = len(calls)
++        Worker(db, "rung", phase=Phase.SHADOW,
++               job_types=["assets.owned_photography"]).run_once()
++        assert len(calls) == before
++        with db.session() as s:
++            last = [dict(r.detail) for r in s.scalars(select(AuditLog).where(
++                AuditLog.action == gallery.ESCALATION_RESULT_ACTION))][-1]
++        assert last["attempted"] is False and last["reason"] == "rung_already_attempted"
++    finally:
++        (gate.check, images.usable, owned_photography.make,
++         tournament.alternate_provider) = originals
++
++
+ def test_unjudged_is_not_escalated_because_nobody_looked():
+     verdict = parity.assess([])
+     assert verdict["blocks_release"] is True and verdict["escalation"] is None
+-- 
+2.43.0
+
+
+From 0b6da474e8af286b65a6f93c0b7b3451f6252af8 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 22:45:43 +0000
+Subject: [PATCH 5/7] C-80 defects 9, 11, 12, 19: railway probe from the health
+ record or UNKNOWN, structured marketing-staleness flag, rebuild completion
+ bound to the attempt, divergent listing proved through listing.seo on the
+ worker
+
+- ops/dependencies._railway_probe: UNKNOWN off Railway or before the first sweep; on Railway
+  a >120 min gap in the 24h ops.health record fails the probe (incident), continuity passes
+- publish/release_gates.staleness returns outstanding_only_marketing; for_marketing returns
+  only_own_marketing_stale; marketing.schedule reads the flag, not the '#172' literal
+- runtime/release._targeted_rebuild: completion requires the row's inputs to equal
+  fingerprints.new for every requested ref and, on verify, the row's job to be the attempt's
+  stage job or later; otherwise chain.rebuild_unbound and the artefact stays outstanding
+- tests: railway probe through ops.dependencies; flag asserted before/after the marketing
+  rebuild; unbound verify and wrong-fingerprint request refused; the divergent-listing test
+  now runs listing.seo through Worker.run_once (ok=False, halting incident, no launch.plan)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GpoRAgr4kBWxi1752HufQh
+---
+ .../src/brambleloop/ops/dependencies.py       | 61 +++++++++++-
+ brambleloop/src/brambleloop/ops/retention.py  |  3 +-
+ .../src/brambleloop/publish/release_gates.py  | 15 ++-
+ .../src/brambleloop/runtime/release.py        | 53 +++++++++--
+ brambleloop/tests/test_cert_dependencies.py   | 42 +++++++++
+ brambleloop/tests/test_cert_rebuild_chain.py  | 94 +++++++++++++++----
+ 6 files changed, 235 insertions(+), 33 deletions(-)
+
+diff --git a/brambleloop/src/brambleloop/ops/dependencies.py b/brambleloop/src/brambleloop/ops/dependencies.py
+index 1dba148..8d825aa 100644
+--- a/brambleloop/src/brambleloop/ops/dependencies.py
++++ b/brambleloop/src/brambleloop/ops/dependencies.py
+@@ -205,16 +205,69 @@ PROBE_GATES: dict[str, str] = {"model_provider": "model_provider", "etsy_account
+                                "tester_network": "tester_roster"}
+ 
+ 
+-def probe(db) -> dict:
++# The health sweep's cadence (runtime.worker CADENCES: ops.health every 15 minutes) is the
++# evidence the container is being kept running; a gap of this many minutes between sweeps in
++# the last day is an outage the host let happen.
++HEALTH_SWEEP_MINUTES = 15
++RAILWAY_MAX_GAP_MINUTES = 120
++RAILWAY_ENV_MARKERS = ("RAILWAY_ENVIRONMENT", "RAILWAY_GIT_COMMIT_SHA", "RAILWAY_SERVICE_ID",
++                       "RAILWAY_PROJECT_ID")
++
++
++def _railway_probe(session, env: dict, now) -> dict:
++    """Whether the host has kept the container running, from the health sweep's own rows.
++
++    C-80 defect 9: this was `{"ok": True, "why": "this probe is running on it"}`, a constant.
++    Now: not on Railway at all (no RAILWAY_* marker in the environment) is UNKNOWN, not
++    healthy; on Railway, the `ops.health` sweep rows of the last 24 hours are the evidence --
++    none yet is UNKNOWN, a gap longer than RAILWAY_MAX_GAP_MINUTES is a failed probe, and a
++    continuous record is ok.
++    """
++    from datetime import timedelta, timezone
++
++    from sqlalchemy import select
++
++    from ..core.models import AuditLog
++
++    markers = sorted(m for m in RAILWAY_ENV_MARKERS if (env or {}).get(m))
++    if not markers:
++        return {"ok": None, "on_railway": False,
++                "why": "no RAILWAY_* environment marker: this process is not running on "
++                       "Railway, so the host cannot be probed from here; UNKNOWN, not healthy"}
++    since = now - timedelta(hours=24)
++    stamps = sorted((r if r.tzinfo else r.replace(tzinfo=timezone.utc)) for r in
++                    session.scalars(select(AuditLog.at).where(AuditLog.action == "ops.health",
++                                                              AuditLog.at >= since)))
++    if not stamps:
++        return {"ok": None, "on_railway": True, "markers": markers, "health_rows_24h": 0,
++                "why": "on Railway, but no ops.health sweep has been recorded in 24h yet; "
++                       "UNKNOWN until the first sweep"}
++    gaps = [(b - a).total_seconds() / 60 for a, b in zip(stamps, stamps[1:])]
++    latest_age = (now - stamps[-1]).total_seconds() / 60
++    max_gap = max(gaps + [latest_age])
++    ok = max_gap <= RAILWAY_MAX_GAP_MINUTES
++    return {"ok": ok, "on_railway": True, "markers": markers, "health_rows_24h": len(stamps),
++            "max_gap_minutes": round(max_gap, 1), "latest_sweep_age_minutes": round(latest_age, 1),
++            "why": (f"the health sweep ran {len(stamps)} time(s) in 24h with no gap over "
++                    f"{RAILWAY_MAX_GAP_MINUTES} min: the host kept the container running"
++                    if ok else
++                    f"a {max_gap:.0f}-minute gap in the health sweep's 24h record (cadence "
++                    f"{HEALTH_SWEEP_MINUTES} min): the host did not keep the container running")}
++
++
++def probe(db, env: dict[str, str] | None = None) -> dict:
+     """Each dependency checked against the database: reachable, proven, or UNKNOWN."""
++    import os
+     from datetime import datetime, timedelta, timezone
+ 
+     from sqlalchemy import desc, select, text
+ 
+     from ..core.models import AuditLog, CostEntry
+ 
++    env = dict(os.environ) if env is None else env
+     now = datetime.now(timezone.utc)
+     out: dict[str, dict] = {}
++    railway = None
+     try:
+         with db.session() as s:
+             s.execute(text("select 1"))
+@@ -223,6 +276,7 @@ def probe(db) -> dict:
+             providers = sorted({(c.provider or "").strip() for c in s.scalars(
+                 select(CostEntry).where(CostEntry.at >= now - timedelta(days=30)))
+                 if (c.provider or "").strip()})
++            railway = _railway_probe(s, env, now)
+         reachable = True
+     except Exception as exc:  # noqa: BLE001 - an unreachable database is the finding
+         reachable, restore, providers = False, None, []
+@@ -237,7 +291,8 @@ def probe(db) -> dict:
+                                    "proved recently" if proved else
+                                    "reachable, but its recovery strategy has not been proved "
+                                    f"within {RESTORE_PROOF_MAX_AGE_DAYS} days")}
+-    out["railway"] = {"ok": True, "why": "this probe is running on it"}
++    out["railway"] = railway or {"ok": None, "why": "the database was unreachable, so the "
++                                                      "health record could not be read; UNKNOWN"}
+     from ..build2 import executor
+ 
+     for key, gate_key in PROBE_GATES.items():
+@@ -261,7 +316,7 @@ def sweep(db, env: dict[str, str] | None = None) -> dict:
+     from ..core.models import Incident
+ 
+     state = map_state(db, env)
+-    live = probe(db)
++    live = probe(db, env)
+     mapped = {d.key for d in DEPENDENCIES}
+     # A provider the company is paying that the map does not name is a dependency nobody
+     # planned a recovery for -- found from the cost ledger, not remembered.
+diff --git a/brambleloop/src/brambleloop/ops/retention.py b/brambleloop/src/brambleloop/ops/retention.py
+index b03816e..2f78920 100644
+--- a/brambleloop/src/brambleloop/ops/retention.py
++++ b/brambleloop/src/brambleloop/ops/retention.py
+@@ -142,7 +142,8 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+                           "a missing row reads as unproven, which blocks publication"),
+     "model.probe": ("latest", "gateway.anthropic.provider_usable reads a successful call"),
+     "model.analysis": ("windowed", "gateway.routing reads recent analyses"),
+-    "ops.health": ("latest", "runtime.release reads the last sweep"),
++    "ops.health": ("windowed", "runtime.release reads the last sweep; ops.dependencies reads "
++                               "the 24h record as the host probe (C-80)"),
+     "ops.requeued_for_commit": ("latest", "runtime.pipeline reads the last re-drive"),
+     "improve.nightly": ("latest", "runtime.release reads the last nightly"),
+     "improve.promoted": ("windowed", "improve.tiers and improve.roi read recent promotions"),
+diff --git a/brambleloop/src/brambleloop/publish/release_gates.py b/brambleloop/src/brambleloop/publish/release_gates.py
+index 8f8f3ec..597b43e 100644
+--- a/brambleloop/src/brambleloop/publish/release_gates.py
++++ b/brambleloop/src/brambleloop/publish/release_gates.py
+@@ -671,8 +671,15 @@ def staleness(db, *, slug: str) -> dict:
+                        + "; ".join(h["summary"] for h in halting[:2]))
+     if not graph["may_publish"]:
+         reasons.append(f"rebuild outstanding (#172): {graph['why']}")
++    outstanding = list(graph.get("outstanding") or [])
++    # C-80 defect 11: a structured flag for the one exception marketing.schedule may take --
++    # the only thing outstanding is marketing content and nothing halts the product -- so
++    # the caller reads a field, not the wording of a reason.
++    only_marketing = (bool(outstanding) and not halting
++                      and all(str(k).startswith("marketing_asset:") for k in outstanding))
+     return {"halted": bool(halting), "incidents": halting[:5], "rebuild": graph,
+-            "blocks": bool(reasons), "reasons": reasons}
++            "blocks": bool(reasons), "reasons": reasons,
++            "outstanding_only_marketing": only_marketing}
+ 
+ 
+ def for_publish(db, *, slug: str, version: str, today: date | None = None,
+@@ -702,4 +709,8 @@ def for_marketing(db, *, slug: str, version: str, today: date | None = None,
+     if not window["may_launch_seasonally"]:
+         reasons.append(f"missed window (#297): {window['action']} -- {window['why']}")
+     return {"slug": slug, "version": version, "blocks": bool(reasons), "reasons": reasons,
+-            "staleness": stale, "window": window}
++            "staleness": stale, "window": window,
++            # the marketing rebuild may proceed exactly when its own stale content is the
++            # only block: nothing halted, the window open, only marketing_asset outstanding
++            "only_own_marketing_stale": (stale["outstanding_only_marketing"]
++                                         and bool(window["may_launch_seasonally"]))}
+diff --git a/brambleloop/src/brambleloop/runtime/release.py b/brambleloop/src/brambleloop/runtime/release.py
+index 9f788f5..524b15d 100644
+--- a/brambleloop/src/brambleloop/runtime/release.py
++++ b/brambleloop/src/brambleloop/runtime/release.py
+@@ -1442,12 +1442,10 @@ def handle_marketing_schedule(ctx: JobContext) -> dict:
+                          today=date.fromisoformat(i["as_of"]) if i.get("as_of") else None,
+                          positioning=i.get("positioning"))
+     outstanding = list(gate["staleness"]["rebuild"]["outstanding"] or [])
+-    if (gate["blocks"] and i.get("rebuild") and outstanding
+-            and all(k.startswith("marketing_asset:") for k in outstanding)
+-            and not gate["staleness"]["halted"]
+-            and all("#172" in r for r in gate["reasons"])):
++    if gate["blocks"] and i.get("rebuild") and gate.get("only_own_marketing_stale"):
+         # C-69: the only thing outstanding is the content this rebuild exists to remake.
+         # Blocking it on its own staleness would make a stale marketing asset unrebuildable.
++        # C-80 defect 11: read from the gate's structured flag, not from reason wording.
+         gate = {**gate, "blocks": False, "reasons": [],
+                 "rebuilding": outstanding}
+     if gate["blocks"]:
+@@ -3163,7 +3161,31 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
+         return {"targeted": True, "slug": slug, "version": version, "withheld": True,
+                 "rebuilt": []}
+ 
+-    fresh = [k for k in keys if k in verdicts and verdicts[k].state == provenance.FRESH]
++    fresh_now = [k for k in keys if k in verdicts and verdicts[k].state == provenance.FRESH]
++
++    # C-80 defect 12 (Codex P10): completion evidence is bound to *this* attempt. A row counts
++    # as rebuilt only when (a) for every requested reference the row's recorded input equals
++    # the fingerprint the request said it must become, and (b) on a verify pass, the row was
++    # written by the stage job this attempt enqueued or a job enqueued after it -- never by
++    # whatever happened to leave the row fresh before the request.
++    def binding(k) -> dict:
++        facts = row_facts.get(k) or {}
++        inputs = facts.get("inputs") or {}
++        mismatched = sorted(ref for ref, fp in fingerprints.items()
++                            if isinstance(fp, dict) and fp.get("new")
++                            and inputs.get(ref) != fp["new"])
++        after = i.get("stage_job") or i.get("requested_by")
++        row_job = facts.get("job_id")
++        job_bound = (not verify) or (after is not None and row_job is not None
++                                     and int(row_job) >= int(after))
++        return {"fingerprints_match": not mismatched, "mismatched_refs": mismatched,
++                "stage_job": i.get("stage_job"), "requested_by": i.get("requested_by"),
++                "row_job": row_job, "job_bound": job_bound,
++                "bound": not mismatched and job_bound}
++
++    bindings = {k: binding(k) for k in fresh_now}
++    fresh = [k for k in fresh_now if bindings[k]["bound"]]
++    unbound = [k for k in fresh_now if not bindings[k]["bound"]]
+     stale = [k for k in keys if k not in fresh]
+ 
+     if verify:
+@@ -3171,7 +3193,14 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
+             ctx.audit("chain.rebuild_completed", artifact=k, detail={
+                 "product_slug": slug, "version": version, "reason": reason,
+                 "fingerprints": fingerprints, "evidence": row_facts.get(k),
+-                "verified_on_check": verify})
++                "bound": bindings[k], "verified_on_check": verify})
++        for k in unbound:
++            ctx.audit("chain.rebuild_unbound", artifact=k, detail={
++                "product_slug": slug, "version": version, "reason": reason,
++                "fingerprints": fingerprints, "evidence": row_facts.get(k),
++                "bound": bindings[k], "check": verify,
++                "why": "the row reads fresh but was not produced by this attempt's stage "
++                       "job, or its inputs are not the fingerprints the request named"})
+         if stale and verify < REBUILD_VERIFY_ATTEMPTS:
+             ctx.enqueue("listing", "chain.rebuild", {**i, "artefacts": stale,
+                                                      "verify": verify + 1},
+@@ -3193,9 +3222,9 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
+                 else:
+                     inc.report_count += 1
+         ctx.audit("chain.rebuild_verified", artifact=f"{slug}@{version}", detail={
+-            "completed": fresh, "outstanding": stale, "check": verify})
++            "completed": fresh, "outstanding": stale, "unbound": unbound, "check": verify})
+         return {"targeted": True, "verify": verify, "slug": slug, "completed": fresh,
+-                "outstanding": stale}
++                "outstanding": stale, "unbound": unbound}
+ 
+     classes = {k.split(":", 1)[0] for k in stale}
+     unknown = sorted(c for c in classes if c not in REBUILD_STAGE)
+@@ -3246,13 +3275,17 @@ def _targeted_rebuild(ctx: JobContext) -> dict:
+         ctx.audit("chain.rebuild_completed", artifact=k, detail={
+             "product_slug": slug, "version": version, "reason": reason,
+             "fingerprints": fingerprints, "evidence": row_facts.get(k),
+-            "already_fresh": True})
++            "bound": bindings[k], "already_fresh": True})
+     if stale:
+-        ctx.enqueue("listing", "chain.rebuild", {**i, "artefacts": stale, "verify": 1},
++        # the verify pass carries the attempt it must bind completion to
++        ctx.enqueue("listing", "chain.rebuild", {**i, "artefacts": stale, "verify": 1,
++                                                 "stage_job": getattr(stage_job, "id", None),
++                                                 "requested_by": ctx.job.id},
+                     idempotency_key=f"rebuild-verify:{slug}:{ctx.job.id}:1",
+                     run_after=utcnow() + _td(minutes=REBUILD_VERIFY_DELAY_MINUTES))
+     return {"targeted": True, "slug": slug, "version": version, "reason": reason,
+             "requested": stale, "already_fresh": fresh, "stage": stage,
++            "fresh_but_unbound": unbound,
+             "stage_job": getattr(stage_job, "id", None), "unknown_classes": unknown}
+ 
+ 
+diff --git a/brambleloop/tests/test_cert_dependencies.py b/brambleloop/tests/test_cert_dependencies.py
+index 9945777..98a3892 100644
+--- a/brambleloop/tests/test_cert_dependencies.py
++++ b/brambleloop/tests/test_cert_dependencies.py
+@@ -72,6 +72,48 @@ def test_failed_probes_and_an_unproved_recovery_are_raised_and_resolve_when_fixe
+     assert "dependency:postgres" not in _open(db, "dependency:")
+ 
+ 
++def test_the_railway_probe_reads_the_health_record_or_says_unknown():
++    """C-80 defect 9: the host probe was a constant `ok: True`. Off Railway it is UNKNOWN;
++    on Railway a gap in the ops.health record fails it and opens the incident, and a
++    continuous record resolves it -- all through the daily sweep on the worker."""
++    import os
++
++    db = _db()
++    for marker in ("RAILWAY_ENVIRONMENT", "RAILWAY_GIT_COMMIT_SHA", "RAILWAY_SERVICE_ID",
++                   "RAILWAY_PROJECT_ID"):
++        os.environ.pop(marker, None)
++    out = _run(db, "orchestrator", "ops.dependencies")
++    assert out["probes"]["railway"]["ok"] is None and "UNKNOWN" in out["probes"]["railway"]["why"]
++    assert "railway" in out["unknown"] and "dependency:railway" not in _open(db, "dependency:")
++
++    os.environ["RAILWAY_ENVIRONMENT"] = "production"
++    try:
++        # on Railway with no sweep yet: still UNKNOWN, not healthy
++        out = _run(db, "orchestrator", "ops.dependencies")
++        assert out["probes"]["railway"]["ok"] is None and out["probes"]["railway"]["on_railway"]
++        # a five-hour hole in the last day's health record: the host let the container die
++        now = utcnow()
++        with db.session() as s:
++            for minutes in (20 * 60, 19 * 60, 18 * 60, 5 * 60, 30, 10):
++                s.add(AuditLog(actor="orchestrator", action="ops.health", detail={},
++                               at=now - timedelta(minutes=minutes)))
++        out = _run(db, "orchestrator", "ops.dependencies")
++        railway = out["probes"]["railway"]
++        assert railway["ok"] is False and railway["max_gap_minutes"] >= 12 * 60, railway
++        assert "railway" in out["failing"] and "dependency:railway" in _open(db, "dependency:")
++        # a continuous record since: the probe recovers and the incident resolves
++        with db.session() as s:
++            for minutes in range(15, 20 * 60, 15):
++                s.add(AuditLog(actor="orchestrator", action="ops.health", detail={},
++                               at=now - timedelta(minutes=minutes)))
++        out = _run(db, "orchestrator", "ops.dependencies")
++        assert out["probes"]["railway"]["ok"] is True
++        assert "dependency:railway" in out["resolved"]
++        assert "dependency:railway" not in _open(db, "dependency:")
++    finally:
++        os.environ.pop("RAILWAY_ENVIRONMENT", None)
++
++
+ def test_a_billed_provider_the_map_does_not_name_is_raised():
+     db = _db()
+     with db.session() as s:
+diff --git a/brambleloop/tests/test_cert_rebuild_chain.py b/brambleloop/tests/test_cert_rebuild_chain.py
+index de484ba..d6393ee 100644
+--- a/brambleloop/tests/test_cert_rebuild_chain.py
++++ b/brambleloop/tests/test_cert_rebuild_chain.py
+@@ -170,32 +170,44 @@ def test_the_moat_is_inventoried_from_evidence_and_recognisability_is_measured()
+ 
+ 
+ def test_a_divergent_listing_is_refused_and_halts_publication():
++    """C-80 defect 19: proved through `listing.seo` on the worker, not by calling the helper.
++    The listing copy is made to omit the redistribution term the PDF and FAQ state; the job
++    completes with ok=False, opens the halting incident and enqueues nothing downstream."""
++    from brambleloop.commerce import terms
+     from brambleloop.core.models import Incident
+     from brambleloop.runtime import release
+ 
+     st = chain()
+     db, slug, version = st["db"], st["slug"], st["version"]
+-    q = JobQueue(db)
+-    from brambleloop.runtime.worker import JobContext
+-
+     with db.session() as s:
+-        built = next(dict(j.outputs) for j in s.scalars(select(Job).where(
+-            Job.job_type == "assets.build", Job.status == JobStatus.DONE)
+-            .order_by(Job.id.desc())) if (j.outputs or {}).get("pdf_sha256"))
+-    ctx = JobContext(job=q.enqueue("listing", "listing.seo", {}), db=db, queue=q,
+-                     registry=Registry(db), phase=Phase.SHADOW)
+-    from brambleloop.cir.compiler import compile_cir
+-    from brambleloop.cir.twin import build_twin
+-
+-    cir = st["cir"]
+-    twin = build_twin(cir, compile_cir(cir))
+-    out = release._support_knowledge(ctx, slug, version, built, cir=cir, twin=twin,
+-                                     listing_text="A pattern. Redistribution is fine.")
+-    assert out["divergent"] is True
++        seo_inputs = next(dict(j.inputs) for j in s.scalars(select(Job).where(
++            Job.job_type == "listing.seo", Job.status == JobStatus.DONE)
++            .order_by(Job.id.desc())))
++        launch_before = len(list(s.scalars(select(Job).where(Job.job_type == "launch.plan"))))
++    sentence = terms.BRAMBLELOOP_TERMS.sentence(terms.REDISTRIBUTION)
++    real = release.seo_mod.build_description
++
++    def divergent(*a, **k):
++        text = real(*a, **k)
++        assert sentence in text, "the fixture must diverge from a listing that carried the term"
++        return text.replace(sentence, "Redistribution is fine.")
++
++    release.seo_mod.build_description = divergent
++    try:
++        job = _run(db, "listing", "listing.seo", seo_inputs, "seo-divergent")
++    finally:
++        release.seo_mod.build_description = real
++    assert job.status == JobStatus.DONE, job.last_error
++    assert job.outputs["ok"] is False and "terms diverge" in job.outputs["blocking"][0]
++    assert any(d["surface"] == "listing" and d["axis"] == terms.REDISTRIBUTION
++               for d in job.outputs["terms"]["divergences"]), job.outputs["terms"]
+     with db.session() as s:
+         inc = s.scalar(select(Incident).where(
+-            Incident.signature == f"{release.TERMS_DIVERGENCE_SIGNATURE}:{slug}"))
++            Incident.signature == f"{release.TERMS_DIVERGENCE_SIGNATURE}:{slug}",
++            Incident.resolved.is_(False)))
+         assert inc is not None and inc.halts_publication
++        launch_after = len(list(s.scalars(select(Job).where(Job.job_type == "launch.plan"))))
++        assert launch_after == launch_before, "the divergent listing still queued its launch"
+         inc.resolved = True          # leave the shared chain clean for the other tests
+ 
+ 
+@@ -214,6 +226,12 @@ def test_a_targeted_rebuild_remakes_exactly_the_stale_marketing_and_proves_it():
+         inputs[f"cir:{slug}"] = "0" * 16
+         row.inputs = inputs
+     node = f"marketing_asset:{target}"
++    # C-80 defect 11: the marketing gate exposes the exception as a structured flag
++    from brambleloop.publish.release_gates import for_marketing
++
++    gate = for_marketing(db, slug=slug, version=st["version"])
++    assert gate["blocks"] and gate["staleness"]["outstanding_only_marketing"] is True, gate
++    assert gate["only_own_marketing_stale"] is True
+     job = _run(db, "listing", "chain.rebuild",
+                {"product_slug": slug, "artefacts": [node], "reason": "test: design moved",
+                 "fingerprints": {f"cir:{slug}": {"old": "0" * 16, "new": old}}},
+@@ -241,6 +259,48 @@ def test_a_targeted_rebuild_remakes_exactly_the_stale_marketing_and_proves_it():
+     assert completed, "no completion evidence was written for the rebuilt artefact"
+     evidence = completed[-1][1]["evidence"]
+     assert evidence["inputs"][f"cir:{slug}"] == old and evidence["job_id"] != marketing[0][2]
++    # C-80 defect 12: completion is bound to this attempt -- the row was written by the
++    # stage job (or later) and carries exactly fingerprints.new for the requested ref
++    bound = completed[-1][1]["bound"]
++    assert bound["bound"] is True and bound["fingerprints_match"] is True
++    assert bound["stage_job"] == out["stage_job"] and bound["row_job"] >= out["stage_job"]
++    # and the gate's flag clears once the marketing is remade
++    assert for_marketing(db, slug=slug, version=st["version"])["staleness"][
++        "outstanding_only_marketing"] is False
++
++
++def test_completion_is_not_claimed_for_a_row_this_attempt_did_not_produce():
++    """C-80 defect 12 (Codex P10): a row that reads FRESH is not completion evidence for an
++    attempt whose stage job did not write it, nor when its inputs are not fingerprints.new."""
++    st = chain()
++    db, slug = st["db"], st["slug"]
++    target, inputs, row_job, _parents = _rows(db, slug, "marketing_asset")[0]
++    node = f"marketing_asset:{target}"
++    current = inputs[f"cir:{slug}"]
++    with db.session() as s:
++        far_future_job = max(j.id for j in s.scalars(select(Job))) + 1000
++    # a verify pass for an attempt whose stage job is later than the row's job: unbound
++    job = _run(db, "listing", "chain.rebuild",
++               {"product_slug": slug, "artefacts": [node], "reason": "test: not mine",
++                "fingerprints": {f"cir:{slug}": {"old": "0" * 16, "new": current}},
++                "verify": 1, "stage_job": far_future_job, "requested_by": far_future_job},
++               "verify-unbound")
++    assert job.status == JobStatus.DONE, job.last_error
++    assert job.outputs["completed"] == [] and job.outputs["unbound"] == [node], job.outputs
++    assert job.outputs["outstanding"] == [node]
++    unbound = _audits(db, "chain.rebuild_unbound", node)
++    assert unbound and unbound[-1][1]["bound"]["job_bound"] is False
++    assert unbound[-1][1]["bound"]["row_job"] == row_job
++    # a request whose fingerprints.new is not what the row carries is not already-fresh either
++    job = _run(db, "listing", "chain.rebuild",
++               {"product_slug": slug, "artefacts": [node], "reason": "test: wrong new",
++                "fingerprints": {f"cir:{slug}": {"old": current, "new": "f" * 16}}},
++               "request-wrong-new")
++    assert job.outputs["already_fresh"] == [] and job.outputs["fresh_but_unbound"] == [node]
++    with db.session() as s:
++        for j in s.scalars(select(Job).where(Job.status == JobStatus.PENDING,
++                                             Job.job_type == "chain.rebuild")):
++            j.status = JobStatus.CANCELLED
+ 
+ 
+ def test_a_stale_pdf_restarts_at_assets_build_not_at_certification():
+-- 
+2.43.0
+
+
+From 720ffa36f5d7b9ef6a77f4d5f3aa89470e0ab3ab Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 22:51:13 +0000
+Subject: [PATCH 6/7] C-80 defects 13, 14, 17: experiment attribution carries
+ its basis with proxy spend in its own bucket, MJs benchmark listings are
+ stamped GLOBAL over their seen window, and the hourly/daily readers are
+ bounded in SQL
+
+- finance/governor: _experiment_of returns {experiment, basis}; spend_by rows carry basis
+  (tagged) and exploration-band spend is reported under proxy (band_proxy), reconciled
+- radar/provenance.stamp_all stamps benchmark_listings (source mjs:<key>, population GLOBAL,
+  first_seen..last_seen); evidence_for filters TrendProvenance by topic in SQL
+- finance/unit_cost.unit_costs bounds CostEntry and AuditLog to the window and the produced
+  actions; brand/moat.evidence reads only the three provenance classes it scores
+- tests: lanes-capacity attribution test strengthened to basis + proxy bucket; MJs stamping
+  proved through radar.score on the worker
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GpoRAgr4kBWxi1752HufQh
+---
+ brambleloop/src/brambleloop/brand/moat.py     |  5 +-
+ .../src/brambleloop/finance/governor.py       | 49 +++++++++++++++----
+ .../src/brambleloop/finance/unit_cost.py      |  8 ++-
+ .../src/brambleloop/radar/provenance.py       | 29 ++++++++++-
+ brambleloop/tests/test_cert_lanes_capacity.py |  9 +++-
+ brambleloop/tests/test_cert_trend_evidence.py | 25 ++++++++++
+ 6 files changed, 110 insertions(+), 15 deletions(-)
+
+diff --git a/brambleloop/src/brambleloop/brand/moat.py b/brambleloop/src/brambleloop/brand/moat.py
+index 5494e21..a0e4e98 100644
+--- a/brambleloop/src/brambleloop/brand/moat.py
++++ b/brambleloop/src/brambleloop/brand/moat.py
+@@ -146,8 +146,11 @@ def evidence(db) -> dict:
+                                PatternVersion, PhysicalTest, Product)
+ 
+     with db.session() as s:
++        # Bounded (C-80 defect 17): only the classes the signatures read, not every row daily.
+         prov = [(r.artefact_class, r.product_slug, r.validation_status)
+-                for r in s.scalars(select(ArtefactProvenance))]
++                for r in s.scalars(select(ArtefactProvenance).where(
++                    ArtefactProvenance.artefact_class.in_(
++                        ("pdf", "chart", "support_knowledge"))))]
+         listings = sorted({l.product_slug for l in s.scalars(
+             select(Listing).where(Listing.state != "withdrawn"))})
+         certs = {p.slug: dict(pv.certificate or {}) for pv, p in s.execute(
+diff --git a/brambleloop/src/brambleloop/finance/governor.py b/brambleloop/src/brambleloop/finance/governor.py
+index 103c732..e174a93 100644
+--- a/brambleloop/src/brambleloop/finance/governor.py
++++ b/brambleloop/src/brambleloop/finance/governor.py
+@@ -88,18 +88,27 @@ DETAIL_KEY_FOR: dict[str, str] = {"product": "product", "department": "departmen
+ NO_WRITER: frozenset[str] = frozenset()
+ 
+ 
+-def _experiment_of(job) -> str:
+-    """The experiment a spending job belongs to, from its inputs or its band."""
++# C-80 defect 13 (Codex P13): how an experiment attribution was read. `tagged` is a real
++# experiment record (a detail or job input naming one); `band_proxy` is spend by an
++# exploration-band job with no experiment named -- learning spend, reported in its own bucket
++# and never as an experiment key.
++BASIS_TAGGED = "tagged"
++BASIS_BAND_PROXY = "band_proxy"
++
++
++def _experiment_of(job) -> dict:
++    """The experiment a spending job belongs to, with the basis it was read on."""
+     if job is None:
+-        return ""
++        return {"experiment": "", "basis": ""}
+     inputs = job.inputs if isinstance(job.inputs, dict) else {}
+     tagged = str(inputs.get("experiment") or inputs.get("experiment_id") or "").strip()
+     if tagged:
+-        return tagged
++        return {"experiment": tagged, "basis": BASIS_TAGGED}
+     from ..swarm.orchestrate import band_for
+ 
+-    return (f"exploration:{job.job_type}"
+-            if band_for(job.job_type)["kind"] == "exploration" else "")
++    if band_for(job.job_type)["kind"] == "exploration":
++        return {"experiment": f"exploration:{job.job_type}", "basis": BASIS_BAND_PROXY}
++    return {"experiment": "", "basis": ""}
+ 
+ # Days of history before a spike means anything. Two weeks is the smallest window in which a
+ # weekday effect and a weekend both appear.
+@@ -149,9 +158,12 @@ def spend_by(db, dimension: str, *, days: int = 30, now: datetime | None = None)
+ 
+     entries, job_types = _rows(db, days=days, now=now)
+     buckets: dict[str, float] = {}
++    basis_of: dict[str, str] = {}
++    proxy: dict[str, float] = {}
+     unattributed = 0.0
+     for entry in entries:
+         detail = entry.detail or {}
++        basis = ""
+         if dimension == "task":
+             key = job_types.get(entry.job_id or -1, "")
+         else:
+@@ -159,16 +171,25 @@ def spend_by(db, dimension: str, *, days: int = 30, now: datetime | None = None)
+             key = str(getattr(entry, column, "") or "").strip() if column else ""
+             if not key:
+                 key = str(detail.get(DETAIL_KEY_FOR.get(dimension, dimension)) or "").strip()
++                if key and dimension == "experiment":
++                    basis = BASIS_TAGGED
+             if not key and dimension == "experiment":
+-                key = job_types.get(("experiment", entry.job_id or -1), "")
++                read = job_types.get(("experiment", entry.job_id or -1)) or {}
++                key, basis = read.get("experiment", ""), read.get("basis", "")
+         amount = float(entry.amount_cad or 0.0)
+-        if key:
++        if key and basis == BASIS_BAND_PROXY:
++            # C-80 defect 13: exploration-band spend with no experiment named is its own
++            # bucket -- learning spend -- not a row pretending to be an experiment.
++            proxy[key] = proxy.get(key, 0.0) + amount
++        elif key:
+             buckets[key] = buckets.get(key, 0.0) + amount
++            if basis:
++                basis_of[key] = basis
+         else:
+             unattributed += amount
+ 
+     total = round(sum(float(e.amount_cad or 0.0) for e in entries), 6)
+-    accounted = round(sum(buckets.values()) + unattributed, 6)
++    accounted = round(sum(buckets.values()) + sum(proxy.values()) + unattributed, 6)
+     if abs(total - accounted) > 1e-6:  # pragma: no cover - arithmetic guard
+         raise GovernorRefused(
+             f"attribution sums to CA${accounted} against a bill of CA${total}. A table that "
+@@ -186,8 +207,16 @@ def spend_by(db, dimension: str, *, days: int = 30, now: datetime | None = None)
+         "days": days,
+         "total_cad": round(total, 6),
+         "rows": [{"key": k, "cad": round(v, 6),
+-                  "share": round(v / total, 4) if total else None}
++                  "share": round(v / total, 4) if total else None,
++                  **({"basis": basis_of[k]} if k in basis_of else {})}
+                  for k, v in sorted(buckets.items(), key=lambda kv: -kv[1])],
++        # spend attributed by a proxy rather than a record: named as such, summed apart
++        "proxy": {"basis": BASIS_BAND_PROXY if proxy else None,
++                  "cad": round(sum(proxy.values()), 6),
++                  "rows": [{"key": k, "cad": round(v, 6)}
++                           for k, v in sorted(proxy.items(), key=lambda kv: -kv[1])],
++                  "why": ("exploration-band jobs that named no experiment: learning spend, "
++                          "reported as a proxy bucket and never as an experiment (C-80)")},
+         "unattributed_cad": round(unattributed, 6),
+         "unattributed_share": round(unattributed / total, 4) if total else None,
+         "reconciles": True,
+diff --git a/brambleloop/src/brambleloop/finance/unit_cost.py b/brambleloop/src/brambleloop/finance/unit_cost.py
+index d16db3b..79e8ccb 100644
+--- a/brambleloop/src/brambleloop/finance/unit_cost.py
++++ b/brambleloop/src/brambleloop/finance/unit_cost.py
+@@ -79,11 +79,15 @@ def unit_costs(db, *, days: int = 30, now: datetime | None = None) -> dict:
+         return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+ 
+     with db.session() as s:
++        # Bounded to the window in SQL (C-80 defect 17): this runs hourly under the governor
++        # and both tables grow by the day; every reader below filters on `>= since` anyway.
++        produced_actions = sorted({a for art in ARTEFACTS for a in art.actions})
+         costs = [(c.agent, c.amount_cad, _aware(c.at), c.job_id,
+                   float((c.detail or {}).get("latency_ms") or 0.0))
+-                 for c in s.scalars(select(CostEntry))]
++                 for c in s.scalars(select(CostEntry).where(CostEntry.at >= since))]
+         actions = [(a.action, _aware(a.at), a.job_id, a.detail or {})
+-                   for a in s.scalars(select(AuditLog))]
++                   for a in s.scalars(select(AuditLog).where(
++                       AuditLog.at >= since, AuditLog.action.in_(produced_actions)))]
+         contribution = s.scalar(select(func.coalesce(
+             func.sum(LedgerEntry.gross_cad - LedgerEntry.fees_cad
+                      - LedgerEntry.refunds_cad - LedgerEntry.expense_cad), 0.0))) or 0.0
+diff --git a/brambleloop/src/brambleloop/radar/provenance.py b/brambleloop/src/brambleloop/radar/provenance.py
+index d10c694..380783c 100644
+--- a/brambleloop/src/brambleloop/radar/provenance.py
++++ b/brambleloop/src/brambleloop/radar/provenance.py
+@@ -351,6 +351,25 @@ def stamp_all(db, *, today: date | None = None, half_lives: dict[str, str] | Non
+             stamped += 1
+             refused += int(got["refused"])
+             by_population["GLOBAL"] = by_population.get("GLOBAL", 0) + 1
++        # C-80 defect 14 (#38): the MJs benchmark listing observations are trend evidence too
++        # -- what the leading shops list, at what price, over which dates. A benchmark shop
++        # sells on the worldwide marketplace, so its population is GLOBAL (discounted as
++        # evidence about Canada); the window is the span the listing was seen over.
++        from ..core.models import BenchmarkListing
++
++        for row in s.scalars(select(BenchmarkListing).order_by(BenchmarkListing.id.desc())
++                             .limit(limit)):
++            start = row.first_seen.date().isoformat() if row.first_seen else ""
++            end = row.last_seen.date().isoformat() if row.last_seen else start
++            got = _stamp_row(s, table="benchmark_listings", row_id=row.id,
++                             topic=row.title or row.listing_ref,
++                             source=f"mjs:{row.benchmark_key}", population="GLOBAL",
++                             window_from=start, window_to=end, shape=SEASONAL,
++                             value=(float(row.price_cad) if row.price_cad else None),
++                             today=today)
++            stamped += 1
++            refused += int(got["refused"])
++            by_population["GLOBAL"] = by_population.get("GLOBAL", 0) + 1
+     return {"stamped": stamped, "refused": refused, "by_population": by_population,
+             "note": ("every trend row carries its source, window, population and freshness; "
+                      "rows whose population is unknown are stamped refused, not discounted")}
+@@ -386,11 +405,19 @@ def evidence_for(db, seed, *, today: date | None = None) -> dict:
+ 
+     from ..core.models import TrendProvenance
+ 
++    from sqlalchemy import or_
++
+     today = today or date.today()
+     terms = _terms_for(seed)
+     rows = []
++    if not terms:
++        return {"measured": False, "terms": terms, "rows": 0, "discount": 1.0,
++                "why": "the concept names no term to match evidence on; UNMEASURED"}
+     with db.session() as s:
+-        for r in s.scalars(select(TrendProvenance)):
++        # Bounded in SQL (C-80 defect 17): only rows whose topic names one of the concept's
++        # terms, not a full scan of the stamp table per radar.score job.
++        for r in s.scalars(select(TrendProvenance).where(
++                or_(*[TrendProvenance.topic.ilike(f"%{t}%") for t in terms]))):
+             topic = (r.topic or "").lower()
+             if not any(t in topic for t in terms):
+                 continue
+diff --git a/brambleloop/tests/test_cert_lanes_capacity.py b/brambleloop/tests/test_cert_lanes_capacity.py
+index 1bb61d5..9676c72 100644
+--- a/brambleloop/tests/test_cert_lanes_capacity.py
++++ b/brambleloop/tests/test_cert_lanes_capacity.py
+@@ -378,8 +378,15 @@ def test_experiment_spend_is_attributed_from_the_spending_job():
+     with db.session() as s:
+         out = governor.spend_by(s, "experiment")
+     rows = {r["key"]: r["cad"] for r in out["rows"]}
+-    assert rows == {"exp-7": 0.5, "exploration:creative.blinded": 0.25}, rows
++    # C-80 defect 13 (Codex P13): only a tagged experiment is an experiment row, and it says
++    # so; the exploration-band spend is a proxy bucket of its own, never an experiment key.
++    assert rows == {"exp-7": 0.5}, rows
++    assert {r["key"]: r["basis"] for r in out["rows"]} == {"exp-7": governor.BASIS_TAGGED}
++    assert out["proxy"]["basis"] == governor.BASIS_BAND_PROXY
++    assert {r["key"]: r["cad"] for r in out["proxy"]["rows"]} == {
++        "exploration:creative.blinded": 0.25}
+     assert abs(out["unattributed_cad"] - 0.1) < 1e-9 and out["has_writer"] is True
++    assert abs(out["total_cad"] - 0.85) < 1e-9, "rows + proxy + unattributed reconcile"
+ 
+ 
+ def test_the_new_rule_sees_the_capacity_path_live():
+diff --git a/brambleloop/tests/test_cert_trend_evidence.py b/brambleloop/tests/test_cert_trend_evidence.py
+index 15ddba5..40be350 100644
+--- a/brambleloop/tests/test_cert_trend_evidence.py
++++ b/brambleloop/tests/test_cert_trend_evidence.py
+@@ -96,6 +96,31 @@ def test_serp_captures_are_stamped_with_their_population_and_window():
+     assert stamp.weight is not None and stamp.weight < 1.0 and stamp.window_to == "2026-09-16"
+ 
+ 
++def test_mjs_benchmark_listings_are_stamped_global_over_their_seen_window_and_discount_scores():
++    """C-80 defect 14 (#38): the MJs listing observations are trend evidence, stamped GLOBAL
++    with the span they were seen over, and the scorer reads them like every other stamp."""
++    from brambleloop.core.models import BenchmarkListing
++
++    db = _db()
++    with db.session() as s:
++        s.add(BenchmarkListing(benchmark_key="mjs-1", listing_ref="L1",
++                               title="Chunky ribbed scarf crochet pattern", pod="wearables",
++                               price_cad=9.5,
++                               first_seen=datetime(2025, 5, 1, tzinfo=timezone.utc),
++                               last_seen=datetime(2025, 6, 1, tzinfo=timezone.utc)))
++    out = provenance.stamp_all(db, today=TODAY)
++    assert out["by_population"]["GLOBAL"] >= 1
++    with db.session() as s:
++        stamp = s.scalar(select(TrendProvenance).where(
++            TrendProvenance.source_table == "benchmark_listings"))
++    assert stamp is not None and stamp.population == "GLOBAL" and stamp.source == "mjs:mjs-1"
++    assert stamp.window_from == "2025-05-01" and stamp.window_to == "2025-06-01"
++    assert stamp.weight is not None and stamp.weight < 0.7, "a year-old global datum at full weight"
++    scored = _score(db, "mjs")
++    assert scored["evidence"]["measured"] and scored["evidence"]["discount"] < 1.0
++    assert scored["evidence"]["rows"] >= 1
++
++
+ if __name__ == "__main__":
+     fails = 0
+     for name, fn in list(globals().items()):
+-- 
+2.43.0
+
+
+From 5e61c5cdb052c0fbc0a38174d29be4714657c9d9 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 23:00:35 +0000
+Subject: [PATCH 7/7] C-80 defects 10, 15, 18 (+1/2/16 tests): rollback
+ rehearsed and analytics baseline from real evidence with #54 gating the
+ live-Etsy asks, recognisability labelled a proxy with the real measurement
+ gated on image_vision, every applied takeover surface rendered or refused
+
+- launch/rollback.rehearse: dry withdrawal round trip per listed release (certificate
+  retained, listing on record, PDF+frames on disk under their hashes, state round trip),
+  recorded as launch.rollback_rehearsed; launch.readiness rehearses before assessing
+- launch/readiness: analytics_baseline reads listing.query_portfolio per release and records
+  the traffic baseline UNMEASURED until an Etsy Stats export exists; rollback_plan reads the
+  latest rehearsal (aged 3 days); LAUNCH_PACKAGE_KEYS / OPENS_LIVE_ETSY_KEYS
+- runtime/release.handle_launch_readiness withholds etsy_shop/payout/listing_fees/phase
+  owner requests while a package item is BUILD-blocked and audits which; withheld rows are
+  never closed as done
+- brand/moat: per-listing basis (recognisability_proxy vs measured), measure_recognisability
+  behind image_vision (blind hero description vs the brand palette), readiness evidence
+  carries basis, by_proxy_only and the gate
+- brand/storefront renders shop_content (About seasonal copy) and featured_collection;
+  takeover._applied_problems refuses a featured collection naming nothing real
+- tests: size run via gate.lanes (graded siblings), lab customization/version filter, takeover
+  surfaces, moat measured half, readiness rehearsal + withheld asks, test_moat updated to
+  the rehearsal evidence (stronger than the restore-proof key it read)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01GpoRAgr4kBWxi1752HufQh
+---
+ brambleloop/src/brambleloop/brand/moat.py     | 119 +++++++++++++++-
+ .../src/brambleloop/brand/storefront.py       |  38 +++++-
+ brambleloop/src/brambleloop/brand/takeover.py |  27 +++-
+ .../src/brambleloop/launch/readiness.py       |  80 ++++++++---
+ .../src/brambleloop/launch/rollback.py        | 117 ++++++++++++++++
+ brambleloop/src/brambleloop/ops/retention.py  |   7 +
+ .../src/brambleloop/runtime/release.py        |  32 +++++
+ brambleloop/tests/test_cert_lanes_capacity.py |  59 ++++++++
+ brambleloop/tests/test_cert_rebuild_chain.py  | 127 +++++++++++++++++-
+ brambleloop/tests/test_cert_takeover.py       |  42 ++++++
+ brambleloop/tests/test_cert_unique_value.py   |  28 ++++
+ brambleloop/tests/test_moat.py                |   7 +-
+ 12 files changed, 645 insertions(+), 38 deletions(-)
+ create mode 100644 brambleloop/src/brambleloop/launch/rollback.py
+
+diff --git a/brambleloop/src/brambleloop/brand/moat.py b/brambleloop/src/brambleloop/brand/moat.py
+index a0e4e98..568be75 100644
+--- a/brambleloop/src/brambleloop/brand/moat.py
++++ b/brambleloop/src/brambleloop/brand/moat.py
+@@ -134,8 +134,102 @@ EVIDENCE_FOR: dict[str, str] = {
+     "measured_yardage": "a completed physical test that passed",
+ }
+ # A product-first listing is recognisable without the model when it carries at least this
+-# many built non-model signatures of its own.
++# many built non-model signatures of its own. This is a PROXY (C-80 defect 15, Codex P16): a
++# count of built artefact classes, not a judgement that the frame reads as this brand. The
++# real measurement, `measure_recognisability`, is a blind description of the product-first
++# hero frame compared with the brand bible, and it runs only while the image_vision gate is
++# open; until then it is recorded UNMEASURED beside the proxy, never as a pass.
+ RECOGNISABLE_MIN = 3
++RECOGNISABILITY_PROXY = "recognisability_proxy: count of built non-model signatures"
++RECOGNISABILITY_GATE = "image_vision"
++MEASURED_ACTION = "brand.recognisability_measured"
++# How many brand-bible palette colours a blind description of the hero must name.
++BRAND_COLOURS_MIN = 2
++# Plain-language names a describer would use for the bible's palette entries.
++PALETTE_WORDS: dict[str, tuple[str, ...]] = {
++    "pine": ("pine", "forest green", "deep green", "dark green", "evergreen"),
++    "cream": ("cream", "ivory", "off-white", "linen", "oatmeal"),
++    "ink": ("ink", "navy", "midnight", "dark blue"),
++    "gold": ("gold", "mustard", "ochre", "amber"),
++    "wine": ("wine", "burgundy", "maroon", "claret"),
++}
++
++
++def measure_recognisability(db, slug: str, version: str | None = None) -> dict:
++    """The requirement's own test, measured: does a product-first frame read as this brand?
++
++    Gated on image_vision. When the gate is open, the release's stored hero frame is described
++    blind by the vision judge (`visual.inspect.inspect_image`, which never sees the caption or
++    the brand) and deterministic code compares the description with the brand bible: at least
++    BRAND_COLOURS_MIN palette colours named, no person in the frame (product-first), and no
++    third-party mark. When the gate is closed, or the frame bytes are not on disk, the answer is
++    UNMEASURED with the gate named -- the proxy stands beside it, labelled as a proxy.
++    """
++    import tempfile
++    from pathlib import Path
++
++    from sqlalchemy import desc, select
++
++    from ..core.artifacts import ArtifactMissing, ArtifactStore
++    from ..core.models import ListingAsset
++
++    with db.session() as s:
++        q = select(ListingAsset).where(ListingAsset.product_slug == slug,
++                                       ListingAsset.role == "hero")
++        if version:
++            q = q.where(ListingAsset.version == version)
++        hero = s.scalar(q.order_by(desc(ListingAsset.id)).limit(1))
++        sha = hero.sha256 if hero is not None else None
++        hero_version = hero.version if hero is not None else None
++    if not sha:
++        return {"status": "UNMEASURED", "gated_on": None, "recognisable": None,
++                "why": "no product-first hero frame is stored for this listing"}
++    try:
++        from ..build2 import executor
++
++        vision_open = bool(executor.GATE_BY_KEY[RECOGNISABILITY_GATE].open(db))
++    except Exception:  # noqa: BLE001 - an unreadable gate is closed
++        vision_open = False
++    if not vision_open:
++        return {"status": "UNMEASURED", "gated_on": RECOGNISABILITY_GATE, "recognisable": None,
++                "frame_sha256": sha, "version": hero_version,
++                "why": "the image_vision gate is closed: no model has been proven to look at "
++                       "a picture, so the blind identification cannot run yet"}
++    try:
++        data = ArtifactStore().get(sha, db=db)
++    except ArtifactMissing as exc:
++        return {"status": "UNMEASURED", "gated_on": None, "recognisable": None,
++                "frame_sha256": sha, "version": hero_version, "why": str(exc)[:200]}
++    from ..visual import inspect as inspection_mod
++
++    with tempfile.TemporaryDirectory(prefix="moat-hero-") as work:
++        path = Path(work) / "hero.png"
++        path.write_bytes(data)
++        try:
++            got = inspection_mod.inspect_image(str(path), db=db,
++                                               claim={"shows_finished_object": True})
++        except Exception as exc:  # noqa: BLE001 - a judge that failed measured nothing
++            return {"status": "UNMEASURED", "gated_on": None, "recognisable": None,
++                    "frame_sha256": sha, "version": hero_version,
++                    "why": f"{type(exc).__name__}: {exc}"[:200]}
++    description = dict(got.get("description") or {})
++    colours = str(description.get("dominant_colours") or "").lower()
++    named = sorted(k for k, words in PALETTE_WORDS.items() if any(w in colours for w in words))
++    marks = inspection_mod.marks_found(description)
++    product_first = description.get("human_present") is False
++    recognisable = (len(named) >= BRAND_COLOURS_MIN and product_first and not marks
++                    and bool(got.get("described")))
++    return {"status": "MEASURED", "gated_on": None, "recognisable": recognisable,
++            "frame_sha256": sha, "version": hero_version,
++            "brand_colours_named": named, "product_first": product_first,
++            "third_party_marks": marks, "described": bool(got.get("described")),
++            "method": ("blind description of the stored hero frame (the judge never sees the "
++                       "brand or the caption) compared with the brand bible's palette; a "
++                       "person in the frame or a third-party mark fails it"),
++            "why": (f"{len(named)} brand colour(s) named, product-first, no marks"
++                    if recognisable else
++                    f"{len(named)} brand colour(s) named (need {BRAND_COLOURS_MIN}), "
++                    f"product_first={product_first}, marks={marks}")}
+ 
+ 
+ def evidence(db) -> dict:
+@@ -197,8 +291,17 @@ def evidence(db) -> dict:
+             ("deterministic_validation", validated(slug)),
+             ("version_aware_support", passed("support_knowledge", slug)),
+             ("photography_language", slug in photos)) if ok]
+-        per_listing[slug] = {"signatures": shown,
+-                             "recognisable_without_model": len(shown) >= RECOGNISABLE_MIN}
++        measured = measure_recognisability(db, slug)
++        proxy = len(shown) >= RECOGNISABLE_MIN
++        per_listing[slug] = {
++            "signatures": shown,
++            # the field the launch gate reads: the measurement when it exists, else the proxy
++            "recognisable_without_model": (measured["recognisable"]
++                                           if measured["status"] == "MEASURED" else proxy),
++            "basis": ("measured: blind identification of the hero frame"
++                      if measured["status"] == "MEASURED" else RECOGNISABILITY_PROXY),
++            "recognisable_by_proxy": proxy,
++            "measured": measured}
+     return {"exists": exists, "per_listing": per_listing}
+ 
+ 
+@@ -230,7 +333,15 @@ def inventory(db=None) -> dict:
+                                                if v["recognisable_without_model"]),
+                         "not_recognisable": sorted(k for k, v in rows.items()
+                                                    if not v["recognisable_without_model"]),
+-                        "min_signatures": RECOGNISABLE_MIN, "per_listing": rows}
++                        "min_signatures": RECOGNISABLE_MIN, "per_listing": rows,
++                        # C-80 defect 15: which listings are judged by the proxy only, and
++                        # what gate the real measurement waits on
++                        "by_proxy_only": sorted(k for k, v in rows.items()
++                                                if v["measured"]["status"] != "MEASURED"),
++                        "measured": sorted(k for k, v in rows.items()
++                                           if v["measured"]["status"] == "MEASURED"),
++                        "proxy": RECOGNISABILITY_PROXY,
++                        "measurement_gated_on": RECOGNISABILITY_GATE}
+     return {
+         "measured_from_evidence": measured is not None,
+         "evidence_rules": EVIDENCE_FOR,
+diff --git a/brambleloop/src/brambleloop/brand/storefront.py b/brambleloop/src/brambleloop/brand/storefront.py
+index 525466f..d63e2b7 100644
+--- a/brambleloop/src/brambleloop/brand/storefront.py
++++ b/brambleloop/src/brambleloop/brand/storefront.py
+@@ -25,6 +25,8 @@ SHOP_NAME = "Brambleloop Studio"
+ 
+ ANNOUNCEMENT_MAX = 160
+ ABOUT_MIN = 400
++# Etsy's shop story ("About") field cap, applied when seasonal copy is appended to it.
++ABOUT_MAX = 5000
+ 
+ 
+ @dataclass
+@@ -115,6 +117,10 @@ class Storefront:
+     banner_brief: str
+     icon_brief: str
+     problems: list[str] = field(default_factory=list)
++    # C-80 defect 18 (#131): the collection a live takeover pins to the front of the shop,
++    # and the seasonal copy it added to About -- rendered here, where the launch check reads.
++    featured_collection: str | None = None
++    seasonal_copy: str | None = None
+ 
+     @property
+     def ok(self) -> bool:
+@@ -124,7 +130,9 @@ class Storefront:
+         return {"shop_name": self.shop_name, "announcement": self.announcement,
+                 "about": self.about, "policies": dict(self.policies),
+                 "sections": list(self.sections), "banner_brief": self.banner_brief,
+-                "icon_brief": self.icon_brief, "problems": list(self.problems)}
++                "icon_brief": self.icon_brief, "problems": list(self.problems),
++                "featured_collection": self.featured_collection,
++                "seasonal_copy": self.seasonal_copy}
+ 
+ 
+ def _banner_brief() -> str:
+@@ -144,24 +152,37 @@ def _icon_brief() -> str:
+         f"with a shop name in it is illegible at the size it is actually shown.")
+ 
+ 
+-def build_storefront(season: str | None = None, *, db=None) -> Storefront:
+-    """The drafted storefront; with `db`, carrying any takeover the executor applied (#131)."""
++def build_storefront(season: str | None = None, *, db=None, today=None) -> Storefront:
++    """The drafted storefront; with `db`, carrying any takeover the executor applied (#131).
++
++    Every APPLIED surface that has a place on the drafted storefront is rendered: the banner
++    replaces the announcement, `shop_content` is appended to About as seasonal copy, and
++    `featured_collection` is the collection pinned to the front (C-80 defect 18).
++    """
+     announcement = ANNOUNCEMENT_TEMPLATES.get(season or "", ANNOUNCEMENT_TEMPLATES["evergreen"])
++    about, featured, seasonal_copy = ABOUT, None, None
+     if db is not None:
+         from .takeover import active
+ 
+-        live = active(db)
++        live = active(db, today=today)
+         if live.get("banner"):
+             announcement = live["banner"]["change"]
++        if live.get("shop_content"):
++            seasonal_copy = live["shop_content"]["change"]
++            about = f"{ABOUT}\n\n{seasonal_copy}"
++        if live.get("featured_collection"):
++            featured = live["featured_collection"]["change"]
+     store = Storefront(
+         shop_name=SHOP_NAME,
+         announcement=announcement,
+-        about=ABOUT,
++        about=about,
+         policies=dict(POLICIES),
+         sections=[{"name": s.name, "slug": s.slug, "categories": list(s.categories)}
+                   for s in SECTIONS],
+         banner_brief=_banner_brief(),
+         icon_brief=_icon_brief(),
++        featured_collection=featured,
++        seasonal_copy=seasonal_copy,
+     )
+     store.problems = check_storefront(store)
+     return store
+@@ -198,4 +219,11 @@ def check_storefront(store: Storefront) -> list[str]:
+     for brief, name in ((store.banner_brief, "banner"), (store.icon_brief, "icon")):
+         if not brief.strip():
+             problems.append(f"STORE_NO_{name.upper()}_BRIEF")
++    if store.featured_collection is not None and not store.featured_collection.strip():
++        problems.append("STORE_FEATURED_COLLECTION_EMPTY: a pinned collection that names "
++                        "nothing is a front page pointing at a blank")
++    if store.seasonal_copy is not None and len(store.about) > ABOUT_MAX:
++        problems.append(f"STORE_ABOUT_TOO_LONG: {len(store.about)} characters with the "
++                        f"seasonal copy; Etsy's About is capped and a truncated About is "
++                        f"a truncated sentence")
+     return problems
+diff --git a/brambleloop/src/brambleloop/brand/takeover.py b/brambleloop/src/brambleloop/brand/takeover.py
+index 75155a8..9f21b67 100644
+--- a/brambleloop/src/brambleloop/brand/takeover.py
++++ b/brambleloop/src/brambleloop/brand/takeover.py
+@@ -252,7 +252,7 @@ def execute(db, plans: list[dict], *, today: date | None = None) -> dict:
+                 state = (row.payload or {}).get("state") if row is not None else None
+                 if starts <= today < ends and state != APPLIED:
+                     change = changes.get(surface["surface"], "")
+-                    problems = _applied_problems(surface["surface"], change)
++                    problems = _applied_problems(surface["surface"], change, db=db)
+                     if problems:
+                         refused.append({"event": event, "surface": surface["surface"],
+                                         "problems": problems})
+@@ -280,18 +280,39 @@ def execute(db, plans: list[dict], *, today: date | None = None) -> dict:
+             "active": active(db, today=today)}
+ 
+ 
+-def _applied_problems(surface: str, change: str) -> list[str]:
+-    """The storefront's own checks, run on the storefront as the takeover would leave it."""
++def _applied_problems(surface: str, change: str, db=None) -> list[str]:
++    """The storefront's own checks, run on the storefront as the takeover would leave it.
++
++    C-80 defect 18: every surface the storefront renders is checked as rendered -- the banner
++    as the announcement, shop_content as seasonal copy on About, featured_collection as the
++    pinned collection, which with a database must name a collection or a product that exists;
++    a takeover that would pin nothing real is refused, not applied.
++    """
+     from . import storefront
+ 
+     store = storefront.build_storefront()
+     if surface == "banner":
+         store.announcement = change
+     elif surface == "shop_content":
++        store.seasonal_copy = change
+         store.about = f"{store.about}\n\n{change}"
++    elif surface == "featured_collection":
++        store.featured_collection = change
+     problems = storefront.check_storefront(store)
+     if not change.strip():
+         problems.append(f"TAKEOVER_SURFACE_EMPTY: {surface}")
++    if surface == "featured_collection" and db is not None and change.strip():
++        from sqlalchemy import select
++
++        from ..core.models import Collection, Product
++
++        with db.session() as s:
++            titles = {c.title for c in s.scalars(select(Collection))}
++            slugs = {p.slug for p in s.scalars(select(Product))}
++        named = {part.strip() for part in change.split(",") if part.strip()}
++        if change.strip() not in titles and not (named & slugs):
++            problems.append(f"TAKEOVER_FEATURED_COLLECTION_NAMES_NOTHING: {change[:80]!r} is "
++                            f"neither a collection title nor a product this shop has")
+     return problems
+ 
+ 
+diff --git a/brambleloop/src/brambleloop/launch/readiness.py b/brambleloop/src/brambleloop/launch/readiness.py
+index 3885e32..3a37276 100644
+--- a/brambleloop/src/brambleloop/launch/readiness.py
++++ b/brambleloop/src/brambleloop/launch/readiness.py
+@@ -671,6 +671,12 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
+         evidence={"structural": moat_state["structural_advantages"],
+                   "built": moat_state["built"], "planned": moat_state["planned"],
+                   "not_recognisable_without_model": recognisable.get("not_recognisable"),
++                  # C-80 defect 15: say which basis the recognisability rests on
++                  "recognisability_measured": recognisable.get("measured"),
++                  "recognisability_by_proxy_only": recognisable.get("by_proxy_only"),
++                  "recognisability_proxy": recognisable.get("proxy"),
++                  "recognisability_measurement_gated_on": recognisable.get(
++                      "measurement_gated_on"),
+                   "why": ("the canonical model is the most visible asset and the most "
+                           "copyable; a brand that is only the model is a brand with a "
+                           "week's lead (#44)")}))
+@@ -690,8 +696,23 @@ def assess(db, *, phase: str, providers: Iterable[str] = (),
+     return Readiness(requirements=out)
+ 
+ 
+-# How recent the continuity restore proof must be for the rollback plan to count as proved.
++# How recent the rollback rehearsal must be for the rollback plan to count as proved
++# (C-80 defect 10: a rehearsed withdrawal round trip per listing, not a database restore).
+ ROLLBACK_PROOF_MAX_AGE_DAYS = 3
++# The audit the listing stage writes per release with its search coverage at drafting: the
++# pre-launch search baseline (#54). Traffic has no pre-launch reading -- it is UNMEASURED until
++# the first Etsy Stats export is ingested (attribution.stats), and is recorded as such.
++SEARCH_BASELINE_ACTION = "listing.query_portfolio"
++TRAFFIC_BASELINE_KIND = "attribution.stats"
++# #54's package: what must be ready before the owner is asked to open live Etsy operations.
++LAUNCH_PACKAGE_KEYS: frozenset[str] = frozenset({
++    "catalogue_depth", "digital_disclosure", "support_knowledge", "faq",
++    "pricing_promotion_plan", "launch_calendar", "analytics_baseline", "rollback_plan",
++})
++# The owner requests that open or connect live Etsy operations, withheld while the package is
++# not ready (the requirement's own ordering: package first, then the ask).
++OPENS_LIVE_ETSY_KEYS: frozenset[str] = frozenset({"etsy_shop", "payout", "listing_fees",
++                                                  "phase"})
+ 
+ 
+ def _launch_package_items(db, listings) -> list[Requirement]:
+@@ -721,15 +742,21 @@ def _launch_package_items(db, listings) -> list[Requirement]:
+         fresh = {(v.artefact_class, v.artefact_key) for v in provenance.check(s, current=current)
+                  if v.state == provenance.FRESH}
+         audits: dict[str, set[str]] = {}
+-        for action in ("pricing.positioned", "launch.planned", "launch.held"):
++        for action in ("pricing.positioned", "launch.planned", "launch.held",
++                       SEARCH_BASELINE_ACTION):
+             audits[action] = {str(r.artifact or "") for r in s.scalars(
+                 select(AuditLog).where(AuditLog.action == action))}
+-        restore = s.scalar(select(AuditLog).where(AuditLog.action == "continuity.verified")
+-                           .order_by(desc(AuditLog.id)).limit(1))
+-        restore_at = aware(restore.at) if restore is not None else None
+-        baseline = s.scalar(select(OperatingReading).order_by(OperatingReading.id).limit(1))
++        traffic = s.scalar(select(OperatingReading).where(
++            OperatingReading.kind == TRAFFIC_BASELINE_KIND)
++            .order_by(desc(OperatingReading.id)).limit(1))
++        traffic_at = aware(traffic.at) if traffic is not None else None
+         certs = {p.slug: bool(pv.certificate) for pv, p in s.execute(
+             select(PatternVersion, Product).join(Product, Product.id == PatternVersion.product_id))}
++    from . import rollback as rollback_mod
++
++    rehearsals = {f"{slug}@{v}": rollback_mod.latest(db, slug=slug, version=v, now=now,
++                                                     max_age_days=ROLLBACK_PROOF_MAX_AGE_DAYS)
++                  for slug, v in releases}
+ 
+     undisclosed = [f"{slug}@{v}" for slug, v in releases
+                    if listing_disclosure_finding(db, slug=slug, version=v).get("finding")
+@@ -741,10 +768,18 @@ def _launch_package_items(db, listings) -> list[Requirement]:
+                      if l.price_cad <= 0 or l.product_slug not in audits["pricing.positioned"]]
+     uncalendared = [l.product_slug for l in listings
+                     if l.product_slug not in audits["launch.planned"]]
+-    no_baseline = [l.product_slug for l in listings if not (l.seo_score or 0) > 0]
++    # C-80 defect 10 (Codex P12): the search baseline is the per-release coverage reading the
++    # listing stage recorded at drafting, not `seo_score > 0`; the traffic baseline is the
++    # first Stats export, UNMEASURED until one exists, and said so rather than proxied.
++    no_baseline = [f"{slug}@{v}" for slug, v in releases
++                   if f"{slug}@{v}" not in audits[SEARCH_BASELINE_ACTION]]
++    traffic_status = ("MEASURED" if traffic_at is not None else
++                      "UNMEASURED: no Etsy Stats export has been ingested; before the shop "
++                      "exists there is no traffic to baseline, and the first export is the "
++                      "baseline this gate will read")
+     uncertified = [l.product_slug for l in listings if not certs.get(l.product_slug)]
+-    restore_ok = restore_at is not None and now - restore_at <= timedelta(
+-        days=ROLLBACK_PROOF_MAX_AGE_DAYS)
++    unrehearsed = [k for k, r in rehearsals.items() if r is None]
++    rehearsal_failed = [k for k, r in rehearsals.items() if r is not None and not r.get("ok")]
+ 
+     def req(key, description, bad, evidence):
+         ready = have and not bad
+@@ -766,17 +801,26 @@ def _launch_package_items(db, listings) -> list[Requirement]:
+         req("launch_calendar", "every listing has a launch date planned against its buying "
+             "window", uncalendared, {"uncalendared": uncalendared[:8]}),
+         req("analytics_baseline", "a pre-launch baseline exists: each listing's search "
+-            "coverage recorded at drafting, and a weekly operating reading taken",
+-            no_baseline + ([] if baseline is not None else ["no operating reading"]),
+-            {"listings_without_search_baseline": no_baseline[:8],
+-             "first_operating_reading": (aware(baseline.at).isoformat()
+-                                         if baseline is not None else None)}),
++            "coverage recorded at drafting (the traffic baseline is the first Stats export, "
++            "recorded UNMEASURED until it exists)",
++            no_baseline,
++            {"releases_without_search_baseline": no_baseline[:8],
++             "search_baseline_read_from": SEARCH_BASELINE_ACTION,
++             "traffic_baseline": traffic_status,
++             "traffic_baseline_at": traffic_at.isoformat() if traffic_at else None}),
+         req("rollback_plan", "a way to withdraw everything published without losing the "
+-            "evidence: every listing's certificate retained and the continuity restore proved "
+-            f"within {ROLLBACK_PROOF_MAX_AGE_DAYS} days",
+-            uncertified + ([] if restore_ok else ["continuity restore unproven"]),
++            "evidence: every listing's certificate retained and its withdrawal round trip "
++            f"rehearsed (dry) within {ROLLBACK_PROOF_MAX_AGE_DAYS} days",
++            uncertified + [f"unrehearsed:{k}" for k in unrehearsed]
++            + [f"rehearsal_failed:{k}" for k in rehearsal_failed],
+             {"without_retained_certificate": uncertified[:8],
+-             "last_restore_proof": restore_at.isoformat() if restore_at else None}),
++             "unrehearsed": unrehearsed[:8], "rehearsal_failed": rehearsal_failed[:8],
++             "rehearsals": {k: ({"ok": r.get("ok"), "at": r.get("at"),
++                                 "failed_steps": [st["step"] for st in r.get("steps", [])
++                                                  if not st["ok"]]}
++                                if r is not None else None)
++                            for k, r in sorted(rehearsals.items())[:8]},
++             "read_from": rollback_mod.ACTION}),
+     ]
+ 
+ 
+diff --git a/brambleloop/src/brambleloop/launch/rollback.py b/brambleloop/src/brambleloop/launch/rollback.py
+new file mode 100644
+index 0000000..f96a8e7
+--- /dev/null
++++ b/brambleloop/src/brambleloop/launch/rollback.py
+@@ -0,0 +1,117 @@
++"""The rollback plan, rehearsed rather than asserted (#54, C-80 defect 10).
++
++The launch gate used to call the rollback plan ready when a database restore had been proved
++recently. That proves the database can come back; it says nothing about withdrawing what was
++published without losing the evidence, which is what a rollback of a launch is. So the
++rehearsal here walks the withdrawal round trip for one listing, dry, and records what it found:
++
++1. the certificate the listing was published under is retained on the release row;
++2. a listing row exists for the release and is in a state the withdrawal path handles;
++3. every deliverable a restore would re-serve -- the PDF the last build produced and the
++   stored listing frames -- is on disk under its recorded hash, so a withdrawn listing can be
++   put back as the same bytes;
++4. the state round trip itself: the listing's state is taken to `withdrawn` and back to where
++   it was on a copy, never on the row, and the job that restores it is named (the targeted
++   chain rebuild that redraws listing copy from the retained release).
++
++Nothing here changes a listing, publishes or contacts anyone; the record is one audit row per
++release per run, which the readiness gate reads and ages.
++"""
++from __future__ import annotations
++
++from datetime import datetime, timedelta, timezone
++
++ACTION = "launch.rollback_rehearsed"
++# A rehearsal older than this no longer proves the plan; the daily readiness re-rehearses.
++MAX_AGE_DAYS = 3
++WITHDRAWN = "withdrawn"
++RESTORE_VIA = "chain.rebuild (targeted: listing_copy, seo from the retained release)"
++
++
++def rehearse(db, *, slug: str, version: str, store=None, job_id: int | None = None) -> dict:
++    """Walk the withdrawal round trip for one release, dry, and record the rehearsal."""
++    from sqlalchemy import desc, select
++
++    from ..core.artifacts import ArtifactStore
++    from ..core.models import (AuditLog, Job, JobStatus, Listing, ListingAsset,
++                               PatternVersion, Product)
++
++    store = store or ArtifactStore()
++    steps: list[dict] = []
++    with db.session() as s:
++        product = s.scalar(select(Product).where(Product.slug == slug))
++        pv = (s.scalar(select(PatternVersion).where(PatternVersion.product_id == product.id,
++                                                    PatternVersion.version == version))
++              if product is not None else None)
++        certificate = dict(pv.certificate or {}) if pv is not None else {}
++        listing = s.scalar(select(Listing).where(Listing.product_slug == slug,
++                                                 Listing.version == version)
++                           .order_by(desc(Listing.id)).limit(1))
++        state = listing.state if listing is not None else None
++        frame_shas = [r.sha256 for r in s.scalars(select(ListingAsset).where(
++            ListingAsset.product_slug == slug, ListingAsset.version == version))]
++        built = next((dict(j.outputs or {}) for j in s.scalars(
++            select(Job).where(Job.job_type == "assets.build", Job.status == JobStatus.DONE)
++            .order_by(desc(Job.id)).limit(200))
++            if (j.outputs or {}).get("slug") == slug
++            and (j.outputs or {}).get("version") == version
++            and (j.outputs or {}).get("pdf_sha256")), None)
++
++    steps.append({"step": "certificate_retained", "ok": bool(certificate.get("granted")),
++                  "why": ("the release row keeps the certificate it was published under"
++                          if certificate.get("granted") else
++                          "no granted certificate is retained for this release")})
++    steps.append({"step": "listing_on_record", "ok": listing is not None and state != WITHDRAWN,
++                  "state": state,
++                  "why": ("a listing exists in a state the withdrawal path handles"
++                          if listing is not None and state != WITHDRAWN else
++                          "no listing to withdraw" if listing is None else
++                          "the listing is already withdrawn")})
++    pdf_shas = sorted({v for v in (built or {}).get("pdf_sha256_by_terminology", {}).values()}
++                      | ({built["pdf_sha256"]} if built else set()))
++    missing = [sha for sha in pdf_shas + frame_shas if not store.exists(sha)]
++    steps.append({"step": "deliverables_restorable",
++                  "ok": bool(pdf_shas) and bool(frame_shas) and not missing,
++                  "pdf_hashes": len(pdf_shas), "frame_hashes": len(frame_shas),
++                  "missing_on_disk": [m[:12] for m in missing][:8],
++                  "why": ("every PDF and frame a restore would re-serve is on disk under its "
++                          "recorded hash" if pdf_shas and frame_shas and not missing else
++                          "no built PDF is recorded for this release" if not pdf_shas else
++                          "no stored frames are recorded for this release" if not frame_shas
++                          else f"{len(missing)} recorded artefact(s) are not on disk")})
++    # the round trip, on a copy: where the state goes and how it comes back
++    round_trip = ([state, WITHDRAWN, state] if listing is not None and state != WITHDRAWN
++                  else None)
++    steps.append({"step": "state_round_trip", "ok": round_trip is not None,
++                  "transitions": round_trip, "restore_via": RESTORE_VIA,
++                  "why": ("withdraw sets the listing to 'withdrawn' (audited listing.withdrawn) "
++                          "and the targeted rebuild restores it from the retained release"
++                          if round_trip else "nothing to round-trip")})
++    ok = all(st["ok"] for st in steps)
++    detail = {"slug": slug, "version": version, "ok": ok, "steps": steps,
++              "dry_run": True, "rehearsed_at": datetime.now(timezone.utc).isoformat()}
++    with db.session() as s:
++        s.add(AuditLog(actor="orchestrator", action=ACTION, artifact=f"{slug}@{version}",
++                       job_id=job_id, detail=detail))
++    return detail
++
++
++def latest(db, *, slug: str, version: str, now: datetime | None = None,
++           max_age_days: int = MAX_AGE_DAYS) -> dict | None:
++    """The most recent rehearsal for this release, or None when none is young enough."""
++    from sqlalchemy import desc, select
++
++    from ..core.models import AuditLog
++
++    now = now or datetime.now(timezone.utc)
++    with db.session() as s:
++        row = s.scalar(select(AuditLog).where(AuditLog.action == ACTION,
++                                              AuditLog.artifact == f"{slug}@{version}")
++                       .order_by(desc(AuditLog.id)).limit(1))
++        if row is None:
++            return None
++        at = row.at if row.at.tzinfo else row.at.replace(tzinfo=timezone.utc)
++        detail = dict(row.detail or {})
++    if now - at > timedelta(days=max_age_days):
++        return None
++    return {**detail, "at": at.isoformat()}
+diff --git a/brambleloop/src/brambleloop/ops/retention.py b/brambleloop/src/brambleloop/ops/retention.py
+index 2f78920..925a5a7 100644
+--- a/brambleloop/src/brambleloop/ops/retention.py
++++ b/brambleloop/src/brambleloop/ops/retention.py
+@@ -208,6 +208,13 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+     "creative.escalation_result": ("lifetime_total",
+                                    "visual.gallery.escalation_progress reads every rung "
+                                    "result for a release to place the next attempt"),
++    # C-80 (#54): the launch gate reads each release's search baseline at drafting and the
++    # latest rollback rehearsal (aged 3 days) per listed release.
++    "listing.query_portfolio": ("lifetime_total",
++                                "launch.readiness reads whether every listed release has a "
++                                "search-coverage baseline recorded at drafting"),
++    "launch.rollback_rehearsed": ("latest", "launch.readiness reads the latest rehearsal per "
++                                            "release, aged out after 3 days"),
+     "runtime.started": ("windowed",
+                         "ops.health.container_starts reads a 24-hour window to tell a "
+                         "restart from a deploy"),
+diff --git a/brambleloop/src/brambleloop/runtime/release.py b/brambleloop/src/brambleloop/runtime/release.py
+index 524b15d..e2ba2fd 100644
+--- a/brambleloop/src/brambleloop/runtime/release.py
++++ b/brambleloop/src/brambleloop/runtime/release.py
+@@ -2763,6 +2763,20 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
+         providers = []
+ 
+     store = ArtifactStore(ctx.job.inputs.get("artifact_dir"))
++
++    # C-80 defect 10 (#54): the rollback plan is rehearsed, per listed release, before it is
++    # assessed -- a dry withdrawal round trip that checks the retained certificate, the
++    # listing's state and that every deliverable a restore would re-serve is on disk.
++    from ..core.models import Listing
++    from ..launch import rollback as rollback_mod
++
++    with ctx.db.session() as s:
++        releases = sorted({(l.product_slug, l.version) for l in s.scalars(
++            select(Listing).where(Listing.state != "withdrawn"))})
++    rehearsed = {f"{slug}@{v}": rollback_mod.rehearse(ctx.db, slug=slug, version=v,
++                                                      store=store, job_id=ctx.job.id)["ok"]
++                 for slug, v in releases}
++
+     readiness = assess(ctx.db, phase=ctx.phase.value, providers=providers,
+                        storage_durable=store.durable)
+ 
+@@ -2779,9 +2793,20 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
+     # queues means the owner reads whichever they remember. These are capability requests
+     # (#223), not launch requirements, so they are queued but do not move `readiness.ready`.
+     from ..launch import access
++    from ..launch.readiness import LAUNCH_PACKAGE_KEYS, OPENS_LIVE_ETSY_KEYS
+ 
+     requests = list(readiness.owner_requests()) + access.owner_requests()
+ 
++    # #54 (C-80 defect 10): "before asking the owner to open/connect live Etsy operations,
++    # require ..." -- so while any item of that package is still ours to build, the requests
++    # that open live Etsy are withheld from the queue, and the audit says which items held
++    # them. The package items themselves stay in `ours_to_do`.
++    package_blocked = sorted(r.key for r in readiness.buildable if r.key in LAUNCH_PACKAGE_KEYS)
++    withheld: list[str] = []
++    if package_blocked:
++        withheld = sorted(r.key for r in requests if r.key in OPENS_LIVE_ETSY_KEYS)
++        requests = [r for r in requests if r.key not in OPENS_LIVE_ETSY_KEYS]
++
+     queued: list[str] = []
+     restated: list[str] = []
+     with ctx.db.session() as s:
+@@ -2857,6 +2882,10 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
+             for key, row in open_actions.items():
+                 if key in wanted or key in NOT_THE_READINESS_ASSESSMENTS_TO_CLOSE:
+                     continue
++                if key in withheld:
++                    # withheld is not done: the request is not being made yet, and marking
++                    # its earlier row done would read as the owner having completed it
++                    continue
+                 # The improvement pipeline's cards are decisions it raised and closes itself;
+                 # this assessment never asked for them, so it is not the one to close them.
+                 if key.startswith(OWNER_CARD_PREFIXES):
+@@ -2866,6 +2895,9 @@ def handle_launch_readiness(ctx: JobContext) -> dict:
+ 
+     ctx.audit("launch.assessed", detail={
+         "ready": ready,
++        "rollback_rehearsed": rehearsed,
++        "launch_package_blocked": package_blocked,
++        "owner_requests_withheld_until_package_ready": withheld,
+         "ready_before_off_device_proof": bool(readiness.ready),
+         "off_device_proof": {k: off_device.get(k) for k in (
+             "key", "blocking", "status", "unmet", "window_hours", "evidence", "why")},
+diff --git a/brambleloop/tests/test_cert_lanes_capacity.py b/brambleloop/tests/test_cert_lanes_capacity.py
+index 9676c72..1ee4664 100644
+--- a/brambleloop/tests/test_cert_lanes_capacity.py
++++ b/brambleloop/tests/test_cert_lanes_capacity.py
+@@ -265,6 +265,65 @@ def test_gate_lanes_counts_a_collection_from_its_certified_family_and_records_th
+     assert out["lane_capacity"]["units"]
+ 
+ 
++def test_size_depth_is_read_from_the_certified_size_run_not_a_constant():
++    """C-80 defects 1 and 2: a graded garment's size depth is the number of certified sizes of
++    its design (shared provenance concept_key, cir.graded), read by gate.lanes from the
++    catalogue; a lone release is a run of one, and the basis is recorded with the profile."""
++    from tests.test_cert_preengineering import _certify, _ctx
++
++    from brambleloop.cir.graded import size_run
++    from brambleloop.cir.model import CIR
++    from brambleloop.core.models import PatternVersion, Product
++    from brambleloop.products import garments
++
++    db = _db()
++    _certify(db, "nordic-forest-mosaic-throw")
++    design = garments.pebble_cardigan()
++    sizes = design.sourced_sizes()
++    first = CIR.from_dict({**design.build(sizes[0]).to_dict(), "slug": "cropped-cardigan"})
++    assert first.provenance is not None and "cir.graded" in first.provenance.primitives_used
++
++    def certified(cir):
++        with db.session() as s:
++            product = Product(slug=cir.slug, title=cir.title, status="certified",
++                              risk_class=cir.risk_class)
++            s.add(product)
++            s.flush()
++            s.add(PatternVersion(product_id=product.id, version=cir.version,
++                                 cir_json=cir.to_dict(), release_hash="h" * 12, certified=True,
++                                 certificate={"granted": True,
++                                              "stages_run": ["compile", "reverse"]}))
++
++    certified(first)
++    out = handlers.get("gate.lanes")(_ctx(db, "quality_director", "gate.lanes",
++                                          {"as_of": "2026-09-17"}))
++    routed = {c["slug"]: c for c in out["routing"]["products"]} if "routing" in out else None
++    with db.session() as s:
++        routed = {r.artifact.split("@")[0]: r.detail for r in s.scalars(
++            select(AuditLog).where(AuditLog.action == cap.LANE_ROUTED_ACTION))}
++    assert routed["cropped-cardigan"]["profile"]["sizes"] == 1
++    assert routed["cropped-cardigan"]["profile"]["sizes_basis"].startswith("graded run")
++    assert routed["nordic-forest-mosaic-throw"]["profile"]["sizes"] == 1
++    assert routed["nordic-forest-mosaic-throw"]["profile"]["sizes_basis"].startswith(
++        "a single release")
++
++    # a second certified size of the same design: the run is two, read from the catalogue
++    certified(design.build(sizes[1]))
++    handlers.get("gate.lanes")(_ctx(db, "quality_director", "gate.lanes",
++                                    {"as_of": "2026-09-17"}))
++    with db.session() as s:
++        latest = {}
++        for r in s.scalars(select(AuditLog).where(AuditLog.action == cap.LANE_ROUTED_ACTION)
++                           .order_by(AuditLog.id)):
++            latest[r.artifact.split("@")[0]] = r.detail
++        catalogue = [pv.cir_json for pv in s.scalars(select(PatternVersion))]
++    assert latest["cropped-cardigan"]["profile"]["sizes"] == 2, latest["cropped-cardigan"]
++    run = size_run(first.to_dict(), catalogue)
++    assert run["status"] == "MEASURED" and sorted(run["run"]) == sorted(
++        ["cropped-cardigan", design.build(sizes[1]).slug])
++    assert size_run({"title": "x"}, catalogue)["status"] == "UNMEASURED"
++
++
+ def test_a_starved_lane_has_its_queued_engineering_moved_up():
+     db = _db()
+     _route(db, "fast-a", "fast")
+diff --git a/brambleloop/tests/test_cert_rebuild_chain.py b/brambleloop/tests/test_cert_rebuild_chain.py
+index d6393ee..5401858 100644
+--- a/brambleloop/tests/test_cert_rebuild_chain.py
++++ b/brambleloop/tests/test_cert_rebuild_chain.py
+@@ -136,19 +136,86 @@ def test_launch_readiness_measures_the_launch_package_from_what_the_chain_produc
+     for key in ("digital_disclosure", "support_knowledge", "faq", "pricing_promotion_plan",
+                 "launch_calendar"):
+         assert by[key].ready is True, (key, by[key].evidence)
+-    # nothing recorded a baseline reading or proved a restore: honestly not ready
+-    assert by["analytics_baseline"].ready is False
++    # C-80 defect 10 (Codex P12): the search baseline is the coverage the listing stage
++    # recorded at drafting (the chain wrote it), and traffic is honestly UNMEASURED -- no
++    # weekly operating reading or seo_score stands in for either
++    ab = by["analytics_baseline"]
++    assert ab.ready is True and ab.evidence["releases_without_search_baseline"] == [], ab.evidence
++    assert ab.evidence["traffic_baseline"].startswith("UNMEASURED"), ab.evidence
++    # the rollback plan is a rehearsed withdrawal round trip, not a database restore proof
+     assert by["rollback_plan"].ready is False
+-    assert "continuity restore unproven" in str(by["rollback_plan"].evidence) or \
+-        by["rollback_plan"].evidence["last_restore_proof"] is None
++    assert by["rollback_plan"].evidence["unrehearsed"], by["rollback_plan"].evidence
+     with db.session() as s:
+         s.add(OperatingReading(kind="growth.weekly", period_key="2026-W39", payload={}))
+         s.add(AuditLog(actor="orchestrator", action="continuity.verified", detail={}))
+     by = {r.key: r for r in assess(db, phase="shadow").requirements}
+-    assert by["analytics_baseline"].ready is True, by["analytics_baseline"].evidence
+-    assert by["rollback_plan"].ready is True, by["rollback_plan"].evidence
+-    job = _run(db, "orchestrator", "launch.readiness", {}, "readiness-1")
++    assert by["rollback_plan"].ready is False, "a restore proof is not a rehearsed withdrawal"
++
++    # the daily assessment rehearses first: while the rehearsal fails, the package is not
++    # ready and the requests that open live Etsy are withheld from the owner queue (#54)
++    from brambleloop.core.models import OwnerAction
++    from brambleloop.launch import rollback
++
++    real = rollback.rehearse
++
++    def failing(db_, *, slug, version, store=None, job_id=None):
++        out = real(db_, slug=slug, version=version, store=store, job_id=job_id)
++        with db.session() as s:
++            row = [r for r in s.scalars(select(AuditLog).where(
++                AuditLog.action == rollback.ACTION).order_by(AuditLog.id))][-1]
++            row.detail = {**dict(row.detail), "ok": False,
++                          "steps": [{**st, "ok": False} if st["step"] == "deliverables_restorable"
++                                    else st for st in row.detail["steps"]]}
++        return {**out, "ok": False}
++
++    rollback.rehearse = failing
++    try:
++        job = _run(db, "orchestrator", "launch.readiness", {}, "readiness-1")
++    finally:
++        rollback.rehearse = real
++    assert job.status == JobStatus.DONE, job.last_error
++    assessed = _audits(db, "launch.assessed")[-1][1]
++    assert "rollback_plan" in assessed["launch_package_blocked"], assessed
++    assert set(assessed["owner_requests_withheld_until_package_ready"]) >= {"etsy_shop", "phase"}
++    with db.session() as s:
++        queued = {a.requirement_key for a in s.scalars(select(OwnerAction))}
++    assert not ({"etsy_shop", "payout", "listing_fees", "phase"} & queued), queued
++    by = {r.key: r for r in assess(db, phase="shadow").requirements}
++    assert by["rollback_plan"].ready is False and by["rollback_plan"].evidence["rehearsal_failed"]
++
++    # the real rehearsal passes on this chain (certificate retained, listing on record, every
++    # PDF and frame on disk, state round trip). The chain holds one listing, so the package's
++    # catalogue-depth item still withholds the asks; with the depth met, the asks go out.
++    job = _run(db, "orchestrator", "launch.readiness", {}, "readiness-1b")
++    assert job.status == JobStatus.DONE, job.last_error
++    assessed = _audits(db, "launch.assessed")[-1][1]
++    assert assessed["launch_package_blocked"] == ["catalogue_depth"], assessed
++    assert "etsy_shop" in assessed["owner_requests_withheld_until_package_ready"]
++    from brambleloop.launch import readiness as readiness_mod
++
++    depth = readiness_mod.MIN_LISTINGS_TO_OPEN
++    readiness_mod.MIN_LISTINGS_TO_OPEN = 1
++    try:
++        job = _run(db, "orchestrator", "launch.readiness", {}, "readiness-2")
++    finally:
++        readiness_mod.MIN_LISTINGS_TO_OPEN = depth
+     assert job.status == JobStatus.DONE, job.last_error
++    rehearsed = _audits(db, rollback.ACTION, f"{st['slug']}@")[-1][1]
++    assert rehearsed["ok"] is True and rehearsed["dry_run"] is True, rehearsed
++    assert [x["step"] for x in rehearsed["steps"]] == [
++        "certificate_retained", "listing_on_record", "deliverables_restorable",
++        "state_round_trip"]
++    assert rehearsed["steps"][3]["transitions"][1] == "withdrawn"
++    by = {r.key: r for r in assess(db, phase="shadow").requirements}
++    assert by["rollback_plan"].ready is True, by["rollback_plan"].evidence
++    assessed = _audits(db, "launch.assessed")[-1][1]
++    assert assessed["launch_package_blocked"] == [], assessed
++    assert assessed["owner_requests_withheld_until_package_ready"] == []
++    with db.session() as s:
++        queued = {a.requirement_key for a in s.scalars(select(OwnerAction))}
++        listing = s.scalar(select(Listing).where(Listing.product_slug == st["slug"]))
++        assert listing.state != "withdrawn", "the rehearsal was a dry run"
++    assert "etsy_shop" in queued and "phase" in queued, queued
+ 
+ 
+ def test_the_moat_is_inventoried_from_evidence_and_recognisability_is_measured():
+@@ -165,8 +232,54 @@ def test_the_moat_is_inventoried_from_evidence_and_recognisability_is_measured()
+     assert "canonical_model" in inv["planned"] and "measured_yardage" in inv["planned"]
+     rec = inv["recognisable_without_model"]
+     assert st["slug"] in rec["recognisable"], rec
++    # C-80 defect 15 (Codex P16): the count is labelled a proxy, and the real measurement --
++    # blind identification of the hero frame -- is recorded UNMEASURED behind image_vision
++    per = rec["per_listing"][st["slug"]]
++    assert per["basis"].startswith("recognisability_proxy") and per["recognisable_by_proxy"]
++    assert per["measured"]["status"] == "UNMEASURED"
++    assert per["measured"]["gated_on"] == "image_vision"
++    assert st["slug"] in rec["by_proxy_only"] and rec["measured"] == []
+     by = {r.key: r for r in assess(st["db"], phase="shadow").requirements}
+     assert by["brand_moat"].ready is True, by["brand_moat"].evidence
++    assert by["brand_moat"].evidence["recognisability_measurement_gated_on"] == "image_vision"
++    assert st["slug"] in by["brand_moat"].evidence["recognisability_by_proxy_only"]
++
++    # with the gate open the measurement runs on the stored hero frame and decides
++    from brambleloop.build2 import executor
++    from brambleloop.visual import inspect as inspection
++
++    gate = executor.GATE_BY_KEY["image_vision"]
++    originals = (gate.check, inspection.inspect_image)
++
++    def judge(colours):
++        def fake(ref, *, db=None, provider=None, claim=None):
++            description = {"object_shown": "a blanket", "chart_or_diagram": False,
++                           "finished_or_in_progress": "finished", "object_count": "1",
++                           "clarity": "clear", "text_present": False, "human_present": False,
++                           "dominant_colours": colours, "third_party_marks": "none"}
++            return {"described": True, "description": description, "realism": {},
++                    "realism_unjudged": [], "semantic": inspection.compare(description, claim or {})}
++        return fake
++
++    gate.check = lambda db, env: True
++    try:
++        inspection.inspect_image = judge("deep pine green, cream and a little gold")
++        measured = moat.measure_recognisability(st["db"], st["slug"])
++        assert measured["status"] == "MEASURED" and measured["recognisable"] is True, measured
++        assert set(measured["brand_colours_named"]) >= {"pine", "cream"}
++        rec = moat.inventory(st["db"])["recognisable_without_model"]
++        assert st["slug"] in rec["measured"] and rec["by_proxy_only"] == []
++        assert rec["per_listing"][st["slug"]]["basis"].startswith("measured")
++
++        inspection.inspect_image = judge("neon pink and electric blue")
++        rec = moat.inventory(st["db"])["recognisable_without_model"]
++        assert st["slug"] in rec["not_recognisable"], rec
++        assert rec["per_listing"][st["slug"]]["recognisable_by_proxy"] is True, \
++            "the proxy would have passed it; the measurement decides"
++        by = {r.key: r for r in assess(st["db"], phase="shadow").requirements}
++        assert by["brand_moat"].ready is False
++    finally:
++        gate.check, inspection.inspect_image = originals
+ 
+ 
+ def test_a_divergent_listing_is_refused_and_halts_publication():
+diff --git a/brambleloop/tests/test_cert_takeover.py b/brambleloop/tests/test_cert_takeover.py
+index e02e2b4..e374112 100644
+--- a/brambleloop/tests/test_cert_takeover.py
++++ b/brambleloop/tests/test_cert_takeover.py
+@@ -65,6 +65,48 @@ def test_the_storefront_is_rendered_with_the_live_takeover_and_still_checked():
+     assert storefront.check_storefront(store) == store.problems
+ 
+ 
++def test_every_applied_surface_is_rendered_on_the_storefront_the_launch_check_reads():
++    """C-80 defect 18: shop_content and featured_collection APPLIED rows reach the rendered
++    storefront (About seasonal copy, pinned collection), through seasonal.engine."""
++    from datetime import timedelta
++
++    db = _db()
++    _seasonal_fixture(db)
++    _run(db, "seasonal.engine", {"as_of": TODAY.isoformat()})
++    live = takeover.active(db, today=TODAY)
++    assert live.get("featured_collection"), live
++    store = storefront.build_storefront(db=db, today=TODAY)
++    assert store.featured_collection == live["featured_collection"]["change"]
++    assert store.to_dict()["featured_collection"] == store.featured_collection
++    assert storefront.check_storefront(store) == store.problems == []
++    # shop_content turns over closer to the event: a plan due today renders onto About
++    plan = takeover.plan("Test", TODAY + timedelta(days=3),
++                         {"shop_content": "A Test section holding the autumn table pieces."},
++                         today=TODAY)
++    out = takeover.execute(db, [plan], today=TODAY)
++    assert out["applied"] and not out["refused"], out
++    store = storefront.build_storefront(db=db, today=TODAY)
++    assert store.about.endswith("A Test section holding the autumn table pieces.")
++    assert store.seasonal_copy and store.problems == []
++
++
++def test_a_featured_collection_that_names_nothing_real_is_refused():
++    db = _db()
++    _seasonal_fixture(db)
++    plan = takeover.plan("Test", TODAY + timedelta_days(3),
++                         {"featured_collection": "The Imaginary Collection"}, today=TODAY)
++    out = takeover.execute(db, [plan], today=TODAY)
++    assert out["applied"] == [] and out["refused"], out
++    assert any("FEATURED_COLLECTION_NAMES_NOTHING" in p for p in out["refused"][0]["problems"])
++    assert storefront.build_storefront(db=db, today=TODAY).featured_collection is None
++
++
++def timedelta_days(n):
++    from datetime import timedelta
++
++    return timedelta(days=n)
++
++
+ def test_a_takeover_that_breaks_the_storefront_rules_is_refused_not_applied():
+     db = _db()
+     plan = takeover.plan("Test", date(2026, 10, 1), {"banner": "x" * 5000}, today=TODAY)
+diff --git a/brambleloop/tests/test_cert_unique_value.py b/brambleloop/tests/test_cert_unique_value.py
+index be2b636..e117c31 100644
+--- a/brambleloop/tests/test_cert_unique_value.py
++++ b/brambleloop/tests/test_cert_unique_value.py
+@@ -123,6 +123,34 @@ def test_delight_is_measured_from_the_products_artefacts_and_the_weakest_is_acte
+         assert again.get("already_open"), "the same weakness opens one hypothesis, not two"
+ 
+ 
++def test_customization_and_support_are_read_from_this_releases_own_artefacts():
++    """C-80 defects 2 and 16 (Codex P05): customization reads the certified size run (one
++    size here, said so, not a phantom key); provenance is this version's only, so an older
++    version's support pack neither scores nor fails the current release."""
++    from brambleloop.core.models import ArtefactProvenance
++
++    db = _db()
++    cir, out = _certify(db, "nordic-forest-mosaic-throw")
++    scores = lab.measured_self_scores(db, cir.slug)
++    assert scores["customization"]["score"] == 3
++    assert "one certified size" in scores["customization"]["evidence"]
++    assert "support_experience" not in scores, "no support pack exists for this release yet"
++    with db.session() as s:
++        s.add(ArtefactProvenance(artefact_class="support_knowledge",
++                                 artefact_key=f"{cir.slug}@0.9.0#support",
++                                 product_slug=cir.slug, inputs={}, validation_status="failed"))
++    scores = lab.measured_self_scores(db, cir.slug)
++    assert "support_experience" not in scores, "a superseded version's FAQ scored this release"
++    assert "version_aware_support" not in lab._evidenced_beyond_certificate(db, cir.slug)
++    with db.session() as s:
++        s.add(ArtefactProvenance(artefact_class="support_knowledge",
++                                 artefact_key=f"{cir.slug}@{cir.version}#support",
++                                 product_slug=cir.slug, inputs={}, validation_status="passed"))
++    scores = lab.measured_self_scores(db, cir.slug)
++    assert scores["support_experience"]["score"] == 4
++    assert "version_aware_support" in lab._evidenced_beyond_certificate(db, cir.slug)
++
++
+ if __name__ == "__main__":
+     fails = 0
+     for name, fn in list(globals().items()):
+diff --git a/brambleloop/tests/test_moat.py b/brambleloop/tests/test_moat.py
+index 4214a70..d891e6b 100644
+--- a/brambleloop/tests/test_moat.py
++++ b/brambleloop/tests/test_moat.py
+@@ -167,7 +167,12 @@ def test_the_launch_gate_carries_the_v14_additions():
+     assert assessed["brand_moat"].ready is False
+     assert assessed["brand_moat"].evidence["structural"] == []
+     assert assessed["rollback_plan"].ready is False
+-    assert assessed["rollback_plan"].evidence["last_restore_proof"] is None
++    # C-80 defect 10: the rollback plan is a rehearsed withdrawal round trip per listing, read
++    # from launch.rollback_rehearsed, not a database restore proof; with no listing there is
++    # nothing rehearsed and the traffic baseline is honestly UNMEASURED
++    assert assessed["rollback_plan"].evidence["read_from"] == "launch.rollback_rehearsed"
++    assert assessed["rollback_plan"].evidence["rehearsals"] == {}
++    assert assessed["analytics_baseline"].evidence["traffic_baseline"].startswith("UNMEASURED")
+ 
+ 
+ if __name__ == "__main__":
+-- 
+2.43.0
+

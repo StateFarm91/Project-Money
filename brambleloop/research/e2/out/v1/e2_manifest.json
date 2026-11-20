@@ -1,0 +1,41 @@
+{
+ "references": [
+  "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e2/out/cardigan_front34.png",
+  "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e2/out/cardigan_flatlay.png"
+ ],
+ "provider": "gpt-image-2 (edits)",
+ "runs": [
+  {
+   "shot": "hero",
+   "references": [
+    "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e2/out/cardigan_flatlay.png",
+    "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e2/out/cardigan_front34.png"
+   ],
+   "prompt": "Clean product photograph for a handmade marketplace listing: the cardigan laid flat, open, on white linen, shot from directly above in soft daylight, nothing else in frame. Keep the cardigan exactly as the reference images show it: the same shape, the same proportions, the same construction and the same placement of every part. Render it as a real hand-crocheted garment in real yarn with natural fibre texture. No text.",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e2/out/gen/hero.png",
+   "seconds": 12.4
+  },
+  {
+   "shot": "lifestyle",
+   "references": [
+    "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e2/out/cardigan_front34.png"
+   ],
+   "prompt": "Lifestyle photograph: the cardigan draped open over the back of a light wooden chair in a bright, calm room with a window, soft daylight. Keep the cardigan exactly as the reference images show it: the same shape, the same proportions, the same construction and the same placement of every part. Render it as a real hand-crocheted garment in real yarn with natural fibre texture. No text.",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e2/out/gen/lifestyle.png",
+   "seconds": 12.7
+  },
+  {
+   "shot": "on_model",
+   "references": [
+    "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e2/out/cardigan_front34.png"
+   ],
+   "prompt": "Full-length photograph of a woman wearing the cardigan open over a plain white t-shirt and light blue jeans, standing relaxed facing the camera, arms at her sides, in soft daylight against a plain pale wall. Keep the cardigan exactly as the reference images show it: the same shape, the same proportions, the same construction and the same placement of every part. Render it as a real hand-crocheted garment in real yarn with natural fibre texture. No text.",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e2/out/gen/on_model.png",
+   "seconds": 11.9
+  }
+ ],
+ "spent_usd_list_price": 0.09
+}

@@ -1,0 +1,49 @@
+{
+ "source": "anonymous GET https://<production>/api/verify at 2026-10-26T17:24Z (read-only, no token)",
+ "captured_file": "scratchpad prod/api_verify.json (extract: four checks, verbatim)",
+ "checks": [
+  {
+   "check": "phase_is_shadow",
+   "ok": true,
+   "evidence": {
+    "effective_phase": "shadow",
+    "BRAMBLELOOP_PHASE": "shadow",
+    "recorded_phase": "shadow",
+    "agree": true,
+    "why": "BRAMBLELOOP_PHASE=shadow agrees with the recorded phase"
+   }
+  },
+  {
+   "check": "nothing_published",
+   "ok": true,
+   "evidence": {
+    "store.published": 0,
+    "store.publish_incomplete": 0,
+    "store.publish_refused": 186,
+    "exercise_drafts_created": 0,
+    "exercise_drafts_left_on_etsy": [],
+    "listings_with_etsy_id": 0,
+    "draft_create_intents": 0,
+    "draft_create_intents_by_state": {}
+   }
+  },
+  {
+   "check": "publication_was_actually_attempted_and_refused",
+   "ok": true,
+   "evidence": {
+    "refusals": 186
+   }
+  },
+  {
+   "check": "model_spend_within_its_ceiling",
+   "ok": true,
+   "evidence": {
+    "providers": [
+     "anthropic"
+    ],
+    "spent_this_month_cad": 81.351464,
+    "monthly_ceiling_cad": 100.0
+   }
+  }
+ ]
+}

@@ -1,0 +1,25 @@
+{
+ "_meta": {
+  "lane": "w4-FMBATCH1",
+  "status": "PROPOSED: not applied; overrides.json changes only on integrator acceptance (accepted_by), F-867",
+  "dry_run": "python3 research/final_build/aggregate.py --overrides research/final_build/w4/OVERRIDES_PROPOSED_FMBATCH1_F.json --dry-run",
+  "note": "Coordinator decisions of 2026-10-26, recorded in DECISION_LOG D-W4-FMBATCH1-BUILDSIDE. Gating only; no engineering claimed."
+ },
+ "overrides": {
+  "F-483": {
+   "gate": {"kind": "owner", "key": "ci_actions_minutes",
+            "detail": "full suite ~2.5 h = ~150 runner-minutes/run; ~9,000 min/month at two integrations a day, ~4,500 min/month nightly; GitHub Actions minutes are owner spend"},
+   "reason": "F-483: CI would spend owner minutes; not built until the owner authorises them"
+  },
+  "F-463": {
+   "gate": {"kind": "external", "key": "blocked_by_design",
+            "detail": "build tooling never writes to the production database; lane state stays in repository/local registry files, which the requirement's 'without the file' excludes"},
+   "reason": "F-463: blocked by design (coordinator decision), not satisfied"
+  },
+  "F-579": {
+   "gate": {"kind": "owner", "key": "accounting_vendor_decision",
+            "detail": "QuickBooks Online / Xero / none is an owner vendor decision; no connection until then"},
+   "reason": "F-579: owner-gated vendor decision"
+  }
+ }
+}

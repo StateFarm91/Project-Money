@@ -1,0 +1,347 @@
+{
+  "captured_at_utc": "2026-09-18T13:03:57Z",
+  "catalogue_totals": {
+    "certified_patterns": 15,
+    "collections": 1,
+    "content_pieces": 134,
+    "listing_images": 94,
+    "listings": 16,
+    "products": 15
+  },
+  "commercials": {
+    "agent_opex_cad": 0.0,
+    "model_providers": [],
+    "open_incidents": 0,
+    "owner_actions_open": 7,
+    "revenue_cad": 0.0
+  },
+  "launch": {
+    "blocked_on_build": [],
+    "blocked_on_integration": [
+      "etsy_integration"
+    ],
+    "blocked_on_owner": [
+      "artifact_storage",
+      "etsy_shop",
+      "payout",
+      "listing_fees",
+      "physical_calibration",
+      "brand_clearance",
+      "phase"
+    ],
+    "ready": false,
+    "requirements": [
+      {
+        "blocked_by": null,
+        "evidence": {
+          "certified_patterns": 15,
+          "listings": 16
+        },
+        "key": "catalogue_depth",
+        "ready": true
+      },
+      {
+        "blocked_by": null,
+        "evidence": {
+          "approved_frames": 94,
+          "listings_short_of_frames": []
+        },
+        "key": "listing_imagery",
+        "ready": true
+      },
+      {
+        "blocked_by": null,
+        "evidence": {
+          "blocked": []
+        },
+        "key": "imagery_truthful",
+        "ready": true
+      },
+      {
+        "blocked_by": null,
+        "evidence": {
+          "unpriced": []
+        },
+        "key": "pricing",
+        "ready": true
+      },
+      {
+        "blocked_by": null,
+        "evidence": {
+          "content_pieces": 134,
+          "listings": 16
+        },
+        "key": "content",
+        "ready": true
+      },
+      {
+        "blocked_by": null,
+        "evidence": {
+          "problems": []
+        },
+        "key": "storefront",
+        "ready": true
+      },
+      {
+        "blocked_by": null,
+        "evidence": {
+          "open": []
+        },
+        "key": "no_open_incidents",
+        "ready": true
+      },
+      {
+        "blocked_by": null,
+        "evidence": {
+          "paused_scopes": []
+        },
+        "key": "spend_guards",
+        "ready": true
+      },
+      {
+        "blocked_by": "integration",
+        "evidence": {
+          "client_written": true,
+          "credentials_present": false,
+          "ever_called": false,
+          "note": "the client exists and is unit-tested against a fake transport, and has never been called against Etsy. Written is not connected: it refuses on phase, on owner authority and on missing credentials, and nothing here satisfies any of them"
+        },
+        "key": "etsy_integration",
+        "ready": false
+      },
+      {
+        "blocked_by": "owner",
+        "evidence": {
+          "durable": false
+        },
+        "key": "artifact_storage",
+        "ready": false
+      },
+      {
+        "blocked_by": "owner",
+        "evidence": {
+          "note": "cannot be automated: platform identity verification"
+        },
+        "key": "etsy_shop",
+        "ready": false
+      },
+      {
+        "blocked_by": "owner",
+        "evidence": {
+          "note": "banking credentials are entered by the account holder"
+        },
+        "key": "payout",
+        "ready": false
+      },
+      {
+        "blocked_by": "owner",
+        "evidence": {
+          "estimate_cad": 4.48,
+          "listings": 16
+        },
+        "key": "listing_fees",
+        "ready": false
+      },
+      {
+        "blocked_by": "owner",
+        "evidence": {
+          "completed_tests": 0
+        },
+        "key": "physical_calibration",
+        "ready": false
+      },
+      {
+        "blocked_by": "owner",
+        "evidence": {
+          "name": "Brambleloop Studio"
+        },
+        "key": "brand_clearance",
+        "ready": false
+      },
+      {
+        "blocked_by": "owner",
+        "evidence": {
+          "phase": "shadow",
+          "providers": []
+        },
+        "key": "phase",
+        "ready": false
+      }
+    ],
+    "requirements_met": 8,
+    "requirements_total": 16
+  },
+  "listing_chain_versions": [
+    "7"
+  ],
+  "note": "Read-only capture of the Build-1 production state. Every call was a GET. Nothing was published, no phase changed, no owner action performed, no spend.",
+  "owner_actions_open": {
+    "actions": [
+      {
+        "action": "Approve object storage for generated PDFs and images (Railway volume or an S3-compatible bucket), about CA$1-5 per month, within the existing CA$20 ceiling.",
+        "blocks": "reliable delivery of purchased files",
+        "consequence_of_delay": "Every asset has to be re-rendered after a deploy. Harmless in shadow mode; a broken download for a paying customer once live.",
+        "id": 1,
+        "max_cost_cad": 5.0,
+        "minutes": 10,
+        "reason": "Artifact bytes are written to a container filesystem and do not survive a restart. The hashes are durable, so nothing is silently lost and everything re-renders from the certified CIR -- but a buyer's download link cannot point at a file that is regenerated on demand from a process that may be cold."
+      },
+      {
+        "action": "Open the Etsy shop for Brambleloop Studio and complete Etsy's identity verification (name, address, government ID as Etsy requests it), then add the shop name, currency CAD and Canada as the shop location.",
+        "blocks": "publishing anything at all",
+        "consequence_of_delay": "Every finished product stays in draft. The catalogue, imagery, pricing and launch calendar are all complete and idle.",
+        "id": 2,
+        "max_cost_cad": 0.0,
+        "minutes": 25,
+        "reason": "Nothing can be published without a shop. Etsy's identity check is a legal requirement on the seller and must be completed by the person who is the seller -- automating it is both against Etsy's terms and against this system's own non-negotiables."
+      },
+      {
+        "action": "Add the payout bank account and tax details to the Etsy shop (Canadian chequing account; GST/HST number if you have one, otherwise the small-supplier declaration).",
+        "blocks": "publishing, and any revenue at all",
+        "consequence_of_delay": "Listings cannot go live even once the shop exists.",
+        "id": 3,
+        "max_cost_cad": 0.0,
+        "minutes": 15,
+        "reason": "Etsy will not open a shop to buyers without a payout method, and revenue that cannot be paid out is not revenue. Banking credentials must be entered by the account holder."
+      },
+      {
+        "action": "Confirm you accept Etsy's listing fees for the opening catalogue: US$0.20 per listing for 4 months, so about US$3.20 (about CA$4.48) for the 16 listings currently drafted, plus 6.5% transaction fee and payment processing on each sale.",
+        "blocks": "publishing",
+        "consequence_of_delay": "Publishing stays blocked on a two-minute decision.",
+        "id": 4,
+        "max_cost_cad": 6.0,
+        "minutes": 2,
+        "reason": "This is the first spend that leaves the account, and the directive is explicit that no consequential spend happens without approval. It is small, but it is not zero and it is not reversible."
+      },
+      {
+        "action": "Crochet one sample -- the 20 cm storage basket is the best candidate, about 6-8 hours -- weigh the yarn used, and measure the finished piece across and tall. Report: grams per colour, finished measurements, hook used, and anything the written instructions got wrong.",
+        "blocks": "calibrated yardage claims and any fitted garment",
+        "consequence_of_delay": "Yardage stays a tolerance rather than a figure, Class C products stay unshippable, and the first buyer becomes the tester.",
+        "id": 5,
+        "max_cost_cad": 25.0,
+        "minutes": 420,
+        "reason": "Yardage is an uncalibrated estimate carrying an explicit plus or minus 20%, and nothing but a real sample replaces that. It also calibrates every future estimate at that gauge, and it is the gate Class C products cannot pass at all. This cannot be automated: it requires hands, yarn and a hook."
+      },
+      {
+        "action": "Decide whether to run a trademark clearance search on \"Brambleloop Studio\" before launch, and whether to file. A knock-out search on the Canadian register is free; a filing is CA$458.05 for the first class.",
+        "blocks": "nothing yet; rises with volume",
+        "consequence_of_delay": "Brand equity accumulates on a name that has not been cleared. Low risk at zero sales, rising with every sale.",
+        "id": 6,
+        "max_cost_cad": 460.0,
+        "minutes": 20,
+        "reason": "The shop name goes on every listing, PDF and image. Discovering a conflict after the name is on a hundred customer documents is expensive in a way that checking first is not. Filing is a spend decision, so it is the owner's."
+      },
+      {
+        "action": "After the checks above, set BRAMBLELOOP_PHASE to staging (then limited production) to graduate out of shadow mode, one step at a time.",
+        "blocks": "the entire commercial phase",
+        "consequence_of_delay": "Everything stays drafted and nothing reaches a customer.",
+        "id": 7,
+        "max_cost_cad": 0.0,
+        "minutes": 5,
+        "reason": "Shadow mode is enforced in code and refuses to publish, message customers or spend on advertising. Only the owner moves the phase, which is the point: the system cannot promote itself."
+      }
+    ]
+  },
+  "published": false,
+  "queue": {
+    "cancelled": 0,
+    "dead": 120,
+    "done": 1119,
+    "failed": 0,
+    "pending": 0,
+    "running": 0
+  },
+  "serving_branch": "claude/repository-setup-nc9x6o",
+  "serving_commit": "94a4ad09e3f5f52a92642587b79f24003590e522",
+  "verify": {
+    "checks": {
+      "every_agent_has_a_cost_ceiling": {
+        "evidence": {
+          "agents": 15,
+          "without_ceiling": []
+        },
+        "ok": true
+      },
+      "no_model_provider_configured": {
+        "evidence": {
+          "providers": []
+        },
+        "ok": true
+      },
+      "no_paid_advertising": {
+        "evidence": {
+          "ad_spend_cad": 0.0
+        },
+        "ok": true
+      },
+      "no_revenue_claimed": {
+        "evidence": {
+          "ledger_entries": 0,
+          "revenue_cad": 0.0
+        },
+        "ok": true
+      },
+      "no_unexpected_dead_letters_in_24h": {
+        "evidence": {
+          "expected_publish_refusals": 120,
+          "historical_total": 0,
+          "historical_types": [],
+          "recent": []
+        },
+        "ok": true
+      },
+      "nothing_published": {
+        "evidence": {
+          "store.publish_refused": 120,
+          "store.published": 0
+        },
+        "ok": true
+      },
+      "phase_is_shadow": {
+        "evidence": {
+          "BRAMBLELOOP_PHASE": "shadow"
+        },
+        "ok": true
+      },
+      "publication_was_actually_attempted_and_refused": {
+        "evidence": {
+          "refusals": 120
+        },
+        "ok": true
+      },
+      "scheduler_has_ticked": {
+        "evidence": {
+          "last_tick": "2026-09-18T13:03:48.467896+00:00",
+          "starting": false
+        },
+        "ok": true
+      },
+      "spend_limits_not_breached": {
+        "evidence": {
+          "paused_scopes": []
+        },
+        "ok": true
+      },
+      "state_is_in_a_durable_database": {
+        "evidence": {
+          "audit_records": 2732,
+          "certified_versions": 15,
+          "engine": "postgresql"
+        },
+        "ok": true
+      },
+      "worker_is_alive": {
+        "evidence": {
+          "last_tick": "2026-09-18T13:03:55.617599+00:00",
+          "restarts": 0,
+          "started_at": "2026-09-18T08:41:58.824801+00:00",
+          "starting": false
+        },
+        "ok": true
+      }
+    },
+    "checks_failing": [],
+    "checks_total": 12,
+    "ok": true
+  }
+}

@@ -1,0 +1,61 @@
+{
+ "truth": {
+  "wine_rounds": [
+   44,
+   45,
+   56,
+   57
+  ],
+  "wine_heights_frac": [
+   0.435,
+   0.457,
+   0.696,
+   0.717
+  ]
+ },
+ "outputs": [
+  {
+   "file": "A0_flux-2-pro.jpg",
+   "wine_pixel_fraction": 0.0,
+   "stripes_found": 0
+  },
+  {
+   "file": "A1_flux-2-pro.jpg",
+   "wine_pixel_fraction": 0.0,
+   "stripes_found": 0
+  },
+  {
+   "file": "A2_flux-2-pro.jpg",
+   "wine_pixel_fraction": 0.002,
+   "stripes_found": 0
+  },
+  {
+   "file": "B0_flux-2-pro.jpg",
+   "wine_pixel_fraction": 0.0001,
+   "stripes_found": 0
+  },
+  {
+   "file": "B1_flux-2-pro.jpg",
+   "wine_pixel_fraction": 0.0004,
+   "stripes_found": 0
+  },
+  {
+   "file": "C0_gpt-image-2.png",
+   "wine_pixel_fraction": 0.0043,
+   "stripes_found": 0
+  },
+  {
+   "file": "C1_gpt-image-2.png",
+   "wine_pixel_fraction": 0.0088,
+   "stripes_found": 2,
+   "stripe_heights_frac_from_base": [
+    0.71,
+    0.38
+   ],
+   "extent_rows": [
+    355,
+    844
+   ]
+  }
+ ]
+}

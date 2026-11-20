@@ -1,0 +1,15 @@
+# Runtime originality repair candidate
+
+Base: 479fc67794444ccc1b9db72c20626e3c583b1bfe. Branch: codex/final-originality-01.
+
+Confirmed false PASS repaired: certificate decisions omitted the durable comparison corpus, and publishing did not reevaluate originality after certification. Actual uploaded PDFs now invoke the existing licensed quarantine reader during intake, persist wording fingerprints, and audit source SHA256/read readiness. Multiple PDFs contribute a union; unreadable replacement invalidates old wording. Unauthorized private reading remains refused. No synthetic proof_run corpus writes were added.
+
+Runtime chain: intake.receive -> licence-checked reader.read -> BenchmarkFingerprintRecord + BenchmarkProduct file hashes / audit -> pipeline.handle_certify -> certificate.certify(db) -> originality.release_findings -> certificate refusal. At store.publish, real for_publish -> originality_gate rereads certified CIR, current corpus, durable redesign ledger and consulted-source research licences -> blocks before external effects. Public general-technique research and purchased private research use distinct rights. No commercial adaptation rights are inferred.
+
+Validation: 7 new synthetic adversarial tests pass; 28 existing originality checks pass; 44 gates checks pass. See test_result.txt. Cases include actual local PDF ingestion and database reopening, post-approval new corpus, protected handler refusal (unrelated prerequisites and external Etsy boundary mocked), unreadable replacement, licence revocation, no-DB/DB-failure/missing release, and denied private analysis without extraction. One old test was corrected: an in-memory ledger plus no DB cannot grant a consulted-source release. Thresholds unchanged. All original source line endings preserved.
+
+Limitations: comparisons remain proxy similarity instruments, not legal adjudication. Standalone unconsulted certificate checks explicitly warn that durable originality evidence was unchecked. Uploaded PDFs are required to have readable wording; image-only/failed documents remain UNKNOWN. Non-PDF evidence and missing research lineage are not invented. Actual concept_to_cir provenance and brief benchmark lineage gaps from G_RUNTIME_REVIEW remain separate unresolved work. No complete live/production run, external effect, paid call, requirement-status change or certification claim occurred.
+
+Integration: coordinated edits are limited to certificate optional db, pipeline.handle_certify db threading, new release_gates.originality_gate and for_publish integration; no A/C gate logic changed. Intake source producer and old originality test expectation are additional scoped edits. Run broader integration suites after merging; new current-corpus requirements may honestly expose missing corpus in existing fixtures.
+
+Continuation: integrate/review this candidate, then address runtime author provenance/brief consulted-source lineage before claiming full G reachability. Preserve Visual V2 frozen branch untouched.

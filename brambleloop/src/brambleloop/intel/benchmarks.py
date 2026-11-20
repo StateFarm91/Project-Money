@@ -1,0 +1,440 @@
+"""The elite benchmark registry, and the one shop the owner named.
+
+Requirements 205, 206, 219, 301. The owner's mandate is unusually specific and unusually
+emphatic: *"Do not generalize this requirement into 'watch proven sellers.'"* So the anchor is
+stored as a literal, the owner-supplied URL is kept verbatim beside the short canonical route
+because #301 requires it in the registry and in acceptance evidence, and the registry is a
+table rather than a constant because a benchmark has state -- scan health, coverage freshness,
+which pods answer for it.
+
+The part worth being careful about is resolution. #206 says to validate URL health and, if
+Etsy changes its routing, resolve the shop's current canonical location **without silently
+substituting a different seller**. That is the failure this module is built around: a shop URL
+that 404s and a redirect that lands somewhere plausible are the same event to a naive
+follower, and the second one quietly re-points the entire mission at a stranger. So resolution
+succeeds only when the destination still identifies the same shop, and anything else is a
+reported problem rather than a new benchmark.
+
+Nothing here reaches the network by itself. The fetcher is injected, exactly as the Etsy
+client's transport is, so the rules are testable and so that an absent capability produces
+`unverified` rather than an invented `healthy`.
+"""
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import Callable
+
+# What a benchmark's market reads as when nobody has established it. A word rather than a
+# blank, so the state is sayable.
+UNSTATED_MARKET = "unstated"
+
+MJS_KEY = "mjs_off_the_hook_designs"
+MJS_SHOP = "MJsOffTheHookDesigns"
+
+# The short canonical route, and the exact URL the owner supplied. Both are stored; #301 says
+# the owner-supplied one must remain in the registry and in acceptance evidence, and an
+# acceptance test that quotes a tidied-up URL is not quoting the owner's.
+MJS_CANONICAL_URL = "https://www.etsy.com/ca/shop/MJsOffTheHookDesigns"
+MJS_OWNER_SUPPLIED_URL = (
+    "https://www.etsy.com/ca/shop/MJsOffTheHookDesigns?ref=shop_profile&listing;_id=1825269747")
+
+# The categories the mandate names for this shop (#210, #312). Pods are permanent for these
+# and are added as catalogue evidence requires -- never removed because a quarter was quiet.
+# Extended 2026-09-19 from the first full catalogue observation. The original eight were the
+# departments the mandate named; the live catalogue showed four more that no specialist owned:
+# kitchen and bath textiles (13 listings), soft sculpture (11), multi-pattern ebooks (12) and
+# guidebooks (2). They are added rather than substituted -- a pod is permanent (#312).
+MJS_CATEGORIES = (
+    "garments", "blankets", "stockings", "ornaments", "home_decor",
+    "bags", "hats", "seasonal_gift",
+    "kitchen_bath", "amigurumi", "collections", "education",
+)
+
+# What a URL has to contain to still be this shop. Matching on the whole URL would fail on
+# every legitimate routing change Etsy has ever made; matching on the shop segment is what
+# actually identifies the seller.
+_SHOP_SEGMENT = re.compile(r"/shop/([A-Za-z0-9_.-]+)")
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def shop_segment(url: str) -> str | None:
+    m = _SHOP_SEGMENT.search(url or "")
+    return m.group(1) if m else None
+
+
+@dataclass(frozen=True)
+class BenchmarkSpec:
+    """A benchmark as code declares it. The database row carries its observed state."""
+
+    key: str
+    shop_name: str
+    canonical_url: str
+    owner_supplied_url: str = ""
+    mandatory: bool = False
+    reason_for_inclusion: str = ""
+    categories: tuple[str, ...] = ()
+    platform: str = "etsy"
+    # Which buyer market this shop sells into, as `commerce.markets` names them. Default
+    # empty rather than "US": a benchmark whose market nobody established is not an American
+    # one, and #268's whole finding is that term frequencies get attributed to a market by
+    # assumption. An unstated market makes the attribution refuse rather than guess.
+    market: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "key": self.key, "shop_name": self.shop_name, "platform": self.platform,
+            "canonical_url": self.canonical_url,
+            "owner_supplied_url": self.owner_supplied_url,
+            "mandatory": self.mandatory,
+            "reason_for_inclusion": self.reason_for_inclusion,
+            "categories": list(self.categories),
+            "market": self.market or UNSTATED_MARKET,
+        }
+
+
+MJS = BenchmarkSpec(
+    key=MJS_KEY,
+    shop_name=MJS_SHOP,
+    canonical_url=MJS_CANONICAL_URL,
+    owner_supplied_url=MJS_OWNER_SUPPLIED_URL,
+    mandatory=True,
+    reason_for_inclusion=(
+        "Named by the owner as the primary quality and commercial reference, non-negotiable "
+        "and top priority (v1.4.3 #301). Not a stand-in for 'proven sellers': this specific "
+        "shop, by name."),
+    categories=MJS_CATEGORIES,
+    # Established rather than assumed: the shop's own Etsy location is United States, and
+    # every term frequency measured from its 438 listings therefore describes how American
+    # buyers are sold to. See `commerce.markets.whose_language_is_this`.
+    market="US",
+)
+
+# #219: the anchor is not the only teacher. The panel is deliberately empty of invented
+# entries -- a registry pre-populated with shops nobody has looked at would report a breadth
+# of coverage that does not exist. Entries join it from evidence -- or, as below, by the
+# owner naming them.
+# W4-INTELREC: the owner's permanent watchlist (directive 2026-10-26), beside the anchor and
+# never in place of it. URLs are the owner's, verbatim. Market unstated: nobody has
+# established these shops' buyer markets, and an unstated market refuses attribution rather
+# than guessing (#268). No AI-operation is assumed for any of them.
+def _watch(key: str, shop: str, url: str, role: str) -> BenchmarkSpec:
+    return BenchmarkSpec(
+        key=key, shop_name=shop, canonical_url=url, owner_supplied_url=url, mandatory=True,
+        reason_for_inclusion=(
+            f"Owner directive 2026-10-26: permanent watchlist member ({role}). Added beside "
+            f"the anchor, never in place of it. No AI-operation is assumed without evidence."))
+
+
+MADELINE = _watch("madeline_mae_co", "MadelineMaeCo",
+                  "https://www.etsy.com/shop/MadelineMaeCo", "special monitoring")
+ZKB = _watch("zkbdesigner", "ZKBDESIGNER", "https://www.etsy.com/ca/shop/ZKBDESIGNER",
+             "permanent benchmark")
+EASY = _watch("the_easy_design", "TheEasyDesign", "https://www.etsy.com/ca/shop/TheEasyDesign",
+              "permanent benchmark")
+
+# D-W4-OWNER-SEEDSHOPS (owner decision 2026-10-27): the original seed shops of
+# spec/05_Competitor_and_Market_Seeds.txt are preserved as benchmarks, never silently dropped.
+# URLs are the owner's seed URLs without their tracking query (radar.market.COMPETITORS).
+def _seed_shop(key: str, shop: str) -> BenchmarkSpec:
+    url = f"https://www.etsy.com/ca/shop/{shop}"
+    return BenchmarkSpec(
+        key=key, shop_name=shop, canonical_url=url, owner_supplied_url=url, mandatory=True,
+        reason_for_inclusion=(
+            "Owner decision 2026-10-27 (D-W4-OWNER-SEEDSHOPS): original seed shop from "
+            "spec/05_Competitor_and_Market_Seeds.txt, preserved beside the watchlist. Where an "
+            "authorized source cannot reach it, the limitation is recorded and the monitoring "
+            "job kept; an inaccessible shop is never reported as scanned."))
+
+
+HANJAN = _seed_shop("hanjan_crochet", "HanJanCrochet")
+IVYLOOP = _seed_shop("ivyloop", "IvyLoop")
+LOVEANDSTITCH = _seed_shop("loveandstitch_designs", "LoveandStitchDesigns")
+FIREFLY = _seed_shop("firefly_crochets", "FireflyCrochets")
+SEED_SHOPS: tuple[BenchmarkSpec, ...] = (HANJAN, IVYLOOP, LOVEANDSTITCH, FIREFLY)
+
+# D-OWNER-NINTH-SHOP (owner directive 2026-11-19): a ninth mandatory research shop, permanent,
+# scanned on the watchlist cadence through the same official Etsy Open API v3 public reads as
+# the others. The shop's name is spelled "Desing" -- that is the shop's own spelling, and the
+# exact-match `resolve_shop` would refuse a "corrected" one as a different seller (#206).
+# The owner-supplied URL is kept verbatim (tracking query included), the canonical one beside it.
+ARTLOVE_KEY = "artlove_desing"
+ARTLOVE_SHOP = "ArtLoveDesing"
+ARTLOVE_CANONICAL_URL = "https://www.etsy.com/ca/shop/ArtLoveDesing"
+ARTLOVE_OWNER_SUPPLIED_URL = (
+    "https://www.etsy.com/ca/shop/ArtLoveDesing?ref=shop_profile&listing_id=4427559824")
+# What the owner asked to have monitored for this shop. Each maps to a figure of
+# `watchlist.compare` (see `watchlist.MONITORING_FOCUS`); none of it reads PDF contents.
+ARTLOVE_FOCUS = ("listings", "prices", "amigurumi", "pdf_languages", "pdf_quality", "reviews",
+                 "trends")
+ARTLOVE = BenchmarkSpec(
+    key=ARTLOVE_KEY, shop_name=ARTLOVE_SHOP, canonical_url=ARTLOVE_CANONICAL_URL,
+    owner_supplied_url=ARTLOVE_OWNER_SUPPLIED_URL, mandatory=True,
+    reason_for_inclusion=(
+        "Owner directive 2026-11-19 (D-OWNER-NINTH-SHOP): ninth mandatory research shop, "
+        "permanent watchlist member, monitored for listings, prices, amigurumi, PDF languages "
+        "and quality, reviews and trends. Research source only: demand and merchandising "
+        "intelligence, never copied. Where an authorized source cannot reach it, the "
+        "limitation is recorded and the monitoring job kept; it is never reported as scanned."))
+# No categories/pods are declared: nobody has observed this shop's catalogue yet, and a pod
+# claimed before the first scan would be an assumption. Amigurumi is a monitored figure.
+# The permanent research sources the owner named after the seed shops, in the owner's order.
+OWNER_ADDED_SHOPS: tuple[BenchmarkSpec, ...] = (ARTLOVE,)
+
+REGISTRY: tuple[BenchmarkSpec, ...] = (MJS, MADELINE, ZKB, EASY) + SEED_SHOPS + OWNER_ADDED_SHOPS
+
+
+def mandatory() -> list[BenchmarkSpec]:
+    return [b for b in REGISTRY if b.mandatory]
+
+
+def spec_for(key: str) -> BenchmarkSpec | None:
+    """The registered spec for a benchmark key, or None if nothing registers it."""
+    return next((b for b in REGISTRY if b.key == key), None)
+
+
+def markets_observed(db=None) -> list[str]:
+    """Which buyer markets the registry actually covers, ignoring unstated ones.
+
+    #268 needs this: a cross-border lens built on one market is a single-market lens with a
+    cross-border name, and the count of distinct stated markets is what says which it is.
+    With a database, benchmarks the panel discovered (#219) count too -- but only those with
+    observed listings, because a registered shop nobody has read is not a market observed.
+    """
+    stated = {b.market for b in REGISTRY if b.market}
+    if db is None:
+        return sorted(stated)
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing
+
+    with db.session() as s:
+        keys = {k for (k,) in s.execute(select(BenchmarkListing.benchmark_key).distinct())}
+    return sorted({m for k in keys if (m := market_of(db, k))} | stated
+                  if keys else stated)
+
+
+def market_of(db, key: str) -> str:
+    """A benchmark's stated buyer market: the code spec's, else the discovered row's."""
+    spec = spec_for(key)
+    if spec is not None and spec.market:
+        return spec.market
+    from sqlalchemy import select
+
+    from ..core.models import Benchmark
+
+    with db.session() as s:
+        row = s.scalar(select(Benchmark).where(Benchmark.key == key))
+        return (row.market or "") if row is not None else ""
+
+
+# ---------------------------------------------------------------------------
+# Resolution and health
+
+
+UNVERIFIED = "unverified"
+HEALTHY = "healthy"
+MOVED = "moved"
+UNREACHABLE = "unreachable"
+WRONG_SHOP = "wrong_shop"
+
+
+@dataclass(frozen=True)
+class Resolution:
+    """Where a benchmark actually lives now, or why that could not be established."""
+
+    key: str
+    state: str
+    url: str
+    checked_at: datetime | None = None
+    problem: str = ""
+    detail: dict = field(default_factory=dict)
+
+    @property
+    def usable(self) -> bool:
+        """Whether the mission may point at this URL. `moved` is usable; `wrong_shop` never."""
+        return self.state in (HEALTHY, MOVED)
+
+    def to_dict(self) -> dict:
+        return {"key": self.key, "state": self.state, "url": self.url,
+                "usable": self.usable, "problem": self.problem,
+                "checked_at": self.checked_at.isoformat() if self.checked_at else None,
+                **({"detail": self.detail} if self.detail else {})}
+
+
+# A fetcher takes a URL and returns (status, final_url). Injected so this module never opens a
+# socket on its own and so the interesting cases -- a redirect to a different seller, a 404,
+# a transport that raises -- are all reachable in a test.
+Fetcher = Callable[[str], "tuple[int, str]"]
+
+
+def resolve(spec: BenchmarkSpec, fetch: Fetcher | None = None) -> Resolution:
+    """Confirm the benchmark still resolves to the shop the owner named.
+
+    Without a fetcher the answer is `unverified`, which is the honest state for a system that
+    has no browser capability yet (#224). It is deliberately not `healthy`: a registry that
+    reports health it never checked is worse than one that reports nothing, because the
+    mission dashboard is believed.
+    """
+    if fetch is None:
+        return Resolution(spec.key, UNVERIFIED, spec.canonical_url,
+                          problem="no observation capability is configured, so the URL has "
+                                  "not been checked")
+    try:
+        status, final_url = fetch(spec.canonical_url)
+    except Exception as e:  # noqa: BLE001 - a transport failure is a health result, not a crash
+        return Resolution(spec.key, UNREACHABLE, spec.canonical_url, _utcnow(),
+                          problem=f"{type(e).__name__}: {e}")
+
+    if status >= 400:
+        return Resolution(spec.key, UNREACHABLE, spec.canonical_url, _utcnow(),
+                          problem=f"HTTP {status}", detail={"status": status})
+
+    landed = shop_segment(final_url)
+    if landed is None:
+        # A redirect to a search page, a category or the marketplace home. Plausible-looking
+        # and not this shop, which is exactly the substitution #206 forbids.
+        return Resolution(spec.key, WRONG_SHOP, spec.canonical_url, _utcnow(),
+                          problem=f"resolved to {final_url!r}, which does not identify a shop",
+                          detail={"final_url": final_url})
+    if landed.lower() != spec.shop_name.lower():
+        return Resolution(spec.key, WRONG_SHOP, spec.canonical_url, _utcnow(),
+                          problem=(f"resolved to shop {landed!r}, which is not "
+                                   f"{spec.shop_name!r}. The benchmark is not re-pointed: a "
+                                   f"different seller is a different benchmark and needs the "
+                                   f"owner, not a redirect"),
+                          detail={"final_url": final_url, "landed_shop": landed})
+
+    if final_url.rstrip("/") != spec.canonical_url.rstrip("/"):
+        return Resolution(spec.key, MOVED, final_url, _utcnow(),
+                          problem="", detail={"was": spec.canonical_url})
+    return Resolution(spec.key, HEALTHY, final_url, _utcnow())
+
+
+def api_resolve(spec: BenchmarkSpec, reader) -> Resolution:
+    """#206 through the sanctioned read API rather than a rendered page (certification C-40).
+
+    `findShops` with the exact shop name, then the shop URL Etsy itself reports. The same
+    refusals as `resolve`: a near-match is a different seller, and a shop whose own URL names
+    somebody else is `wrong_shop` -- never re-pointed. Labelled with its basis so an API
+    reading is never mistaken for a page someone looked at.
+    """
+    from .etsy_public import NotConfigured, ReadFailed
+
+    basis = {"basis": "etsy_api_findShops"}
+    try:
+        shop = reader.resolve_shop(spec.shop_name)
+    except NotConfigured as e:
+        return Resolution(spec.key, UNVERIFIED, spec.canonical_url,
+                          problem=f"no read credential: {e}", detail=basis)
+    except ReadFailed as e:
+        return Resolution(spec.key, UNREACHABLE, spec.canonical_url, _utcnow(),
+                          problem=str(e)[:300], detail=basis)
+    except Exception as e:  # noqa: BLE001 - a transport failure is a health result
+        return Resolution(spec.key, UNREACHABLE, spec.canonical_url, _utcnow(),
+                          problem=f"{type(e).__name__}: {e}"[:300], detail=basis)
+    reported = str(shop.get("url") or "").split("?")[0]
+    landed = shop_segment(reported) if reported else None
+    detail = {**basis, "shop_id": shop.get("shop_id"), "reported_url": reported}
+    if landed is None or landed.lower() != spec.shop_name.lower():
+        return Resolution(spec.key, WRONG_SHOP, spec.canonical_url, _utcnow(),
+                          problem=(f"Etsy reports this shop at {reported!r}, which does not "
+                                   f"name {spec.shop_name!r}; not re-pointed"), detail=detail)
+    # Identity, not the URL string: the API reports the shop without the locale segment the
+    # registered URL carries (/ca/shop/...), and reading that difference as a move would make
+    # `record_resolution` re-point the registry for no reason. A move is a redirect question,
+    # which only a rendered fetch can answer.
+    return Resolution(spec.key, HEALTHY, spec.canonical_url, _utcnow(), detail=detail)
+
+
+# ---------------------------------------------------------------------------
+# Persistence
+
+
+def seed(db) -> list[str]:
+    """Write the declared benchmarks into the registry, reconciling what code owns.
+
+    Same discipline as the agent registry: the code is the source of truth for identity, URLs
+    and mandate, and observed state -- scan health, freshness timestamps -- belongs to the
+    running system and is never overwritten by a deploy.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Benchmark
+
+    changes: list[str] = []
+    declared = ("shop_name", "platform", "canonical_url", "owner_supplied_url",
+                "mandatory", "reason_for_inclusion")
+    with db.session() as s:
+        for spec in REGISTRY:
+            row = s.scalar(select(Benchmark).where(Benchmark.key == spec.key))
+            if row is None:
+                s.add(Benchmark(key=spec.key, shop_name=spec.shop_name,
+                                platform=spec.platform,
+                                canonical_url=spec.canonical_url,
+                                owner_supplied_url=spec.owner_supplied_url,
+                                mandatory=spec.mandatory,
+                                reason_for_inclusion=spec.reason_for_inclusion,
+                                categories=list(spec.categories),
+                                responsible_pods=list(spec.categories),
+                                scan_health={"state": UNVERIFIED}))
+                changes.append(f"created {spec.key}")
+                continue
+            for field_name in declared:
+                current, want = getattr(row, field_name), getattr(spec, field_name)
+                # A recorded `moved` resolution is observed state, not drift: the deploy must
+                # not quietly put back the URL Etsy stopped serving (#206). Only a move that
+                # still names this shop is kept; anything else reverts to the declaration.
+                if (field_name == "canonical_url" and current != want
+                        and (row.scan_health or {}).get("state") == MOVED
+                        and (shop_segment(current) or "").lower()
+                        == spec.shop_name.lower()):
+                    continue
+                if current != want:
+                    setattr(row, field_name, want)
+                    changes.append(f"{spec.key}.{field_name} updated")
+            if list(row.categories or []) != list(spec.categories):
+                row.categories = list(spec.categories)
+                changes.append(f"{spec.key}.categories updated")
+    return changes
+
+
+def record_resolution(db, resolution: Resolution) -> None:
+    from sqlalchemy import select
+
+    from ..core.models import Benchmark
+
+    with db.session() as s:
+        row = s.scalar(select(Benchmark).where(Benchmark.key == resolution.key))
+        if row is None:
+            return
+        row.scan_health = resolution.to_dict()
+        # The check time lives in `scan_health.checked_at`. It used to be written into
+        # `last_scan_at` as well, which made a URL health check read as a catalogue scan on
+        # the mission dashboard -- the one timestamp that must mean the catalogue was read.
+        # A `moved` result updates where we look. A `wrong_shop` result never does.
+        if resolution.state == MOVED:
+            row.canonical_url = resolution.url
+
+
+def fetcher_for(db, env: dict[str, str] | None = None) -> Fetcher | None:
+    """The fetcher `resolve` may use, or None when no observation capability is proven.
+
+    A rendered-page worker counts only once `intel.browser` has recorded a successful fetch;
+    an endpoint that is merely configured is the typed-string gate this company already
+    refused once. With None, `resolve` answers `unverified` -- never `healthy`.
+    """
+    from . import browser
+
+    if not (browser.configured(env) and browser.usable(db)):
+        return None
+
+    def _fetch(url: str) -> "tuple[int, str]":
+        got = browser.fetch(url, env=env)
+        return int(got.get("status") or 200), str(got.get("final_url") or url)
+
+    return _fetch

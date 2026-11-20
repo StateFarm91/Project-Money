@@ -1,0 +1,75 @@
+diff --git a/brambleloop/src/brambleloop/ops/health.py b/brambleloop/src/brambleloop/ops/health.py
+index a7edcfe..c8b17f3 100644
+--- a/brambleloop/src/brambleloop/ops/health.py
++++ b/brambleloop/src/brambleloop/ops/health.py
+@@ -505,6 +505,9 @@ TEMP_PREFIXES: tuple[str, ...] = (
+     "reference-pack-", "generated-", "motif-chart-", "brambleloop-run-",
+     "model-frame-", "cycle-proof-", "portrait-repair-", "provider-trial-",
+     "teardown-proof-", "reader-selftest-",
++    # C-80: the #81 rung render's work directory and the moat's blind hero-frame check; both
++    # are scoped to the call and removed with it, so one left behind is a died call.
++    "owned-rung-", "moat-hero-",
+     # The hand-run physically based renderer. Its directory is a TemporaryDirectory and is
+     # removed with the render, so a leftover one means the render died -- which is exactly
+     # the case the disk signal exists to show. A prefix used in `src/` and absent here is
+diff --git a/brambleloop/tests/test_cert_culture_teardown.py b/brambleloop/tests/test_cert_culture_teardown.py
+index 826bcfb..2b7f1da 100644
+--- a/brambleloop/tests/test_cert_culture_teardown.py
++++ b/brambleloop/tests/test_cert_culture_teardown.py
+@@ -461,11 +461,14 @@ def test_our_own_product_is_qa_checked_for_unique_value_and_delight():
+         "deterministic_validation", "reverse_compilation"}
+     assert by["fixture-bare"]["blocks_release"] is True             # parity is not a position
+     # C-69 (#169): our own product's delight is measured from what it has -- here only its
+-    # certificate (confidence 3: certified, no physical sample) and its one size -- and the
+-    # mechanisms with nothing to read stay unscored rather than neutral.
++    # certificate (confidence 3: certified, no physical sample) -- and the mechanisms with
++    # nothing to read stay unscored rather than neutral. C-80 defect 2: this fixture stores an
++    # empty CIR, so its size run is UNMEASURED and customization is unscored too (it used to
++    # read 3 from a `sizes` key no CIR ever carried).
+     good_delight = by["fixture-good"]["delight"]
+     assert good_delight["answerable"] is True
+-    assert good_delight["drivers"] == {"customization": 3, "confidence": 3}, good_delight
++    assert good_delight["drivers"] == {"confidence": 3}, good_delight
++    assert "customization" in good_delight["unscored"]
+     assert "bonus_utility" in good_delight["unscored"] and "navigation" in good_delight["unscored"]
+     assert by["fixture-good"]["unique_value"]["status"] == "UNMEASURED"   # no benchmark scored
+     lab.record_finding(db, "brambleloop:fixture-good", "chart_quality", 4,
+diff --git a/brambleloop/tests/test_launch.py b/brambleloop/tests/test_launch.py
+index 76f7eca..f46907f 100644
+--- a/brambleloop/tests/test_launch.py
++++ b/brambleloop/tests/test_launch.py
+@@ -381,6 +381,16 @@ def test_an_owner_action_queued_before_it_had_an_identity_is_adopted_not_duplica
+     Registry(db).seed_defaults()
+     _stock(db)
+ 
++    # C-80 (#54): while any launch-package item is still ours to build, the requests that open
++    # live Etsy (the fee approval among them) are withheld from the queue. `_stock` builds no
++    # package (no support knowledge, FAQ or launch calendar), so the adoption mechanics under
++    # test here are exercised with the package gate stood down for the test's duration; the
++    # gate itself is proved in tests/test_cert_rebuild_chain.py on a chain that built one.
++    from brambleloop.launch import readiness as readiness_mod
++
++    package_keys = readiness_mod.LAUNCH_PACKAGE_KEYS
++    readiness_mod.LAUNCH_PACKAGE_KEYS = frozenset()
++
+     def run_readiness(key: str) -> None:
+         JobQueue(db).enqueue("orchestrator", "launch.readiness", {}, idempotency_key=key)
+         worker = Worker(db, "adopt-worker")
+@@ -388,6 +398,17 @@ def test_an_owner_action_queued_before_it_had_an_identity_is_adopted_not_duplica
+             if not worker.run_once():
+                 break
+ 
++    try:
++        _adoption_round_trip(db, run_readiness, stale_fee)
++    finally:
++        readiness_mod.LAUNCH_PACKAGE_KEYS = package_keys
++
++
++def _adoption_round_trip(db, run_readiness, stale_fee) -> None:
++    from sqlalchemy import select
++
++    from brambleloop.core.models import OwnerAction
++
+     run_readiness("adopt-1")
+     with db.session() as s:
+         rows = list(s.scalars(select(OwnerAction)))

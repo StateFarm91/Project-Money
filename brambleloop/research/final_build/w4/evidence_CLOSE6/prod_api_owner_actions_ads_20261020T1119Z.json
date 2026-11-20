@@ -1,0 +1,28 @@
+{
+ "kind": "brambleloop.prod_readback",
+ "route": "GET /api/owner-actions",
+ "read_at": "20261020T1119Z",
+ "build": "b931d17",
+ "items": [
+  {
+   "id": 32,
+   "gate": null,
+   "kind": "OWNER-DECISION",
+   "requirement_key": "etsy_ads_eligibility_evidence",
+   "action": "Open Etsy Shop Manager > Marketing > Etsy Ads and record the current eligibility message and timestamp. Do not activate ads.",
+   "reason": "The stored countdown is due or evidence is stale. The audited Etsy API has no Ads eligibility collector.",
+   "max_cost_cad": 0.0,
+   "minutes": 2,
+   "consequence_of_delay": "Campaign preparation continues; eligibility remains unverified and ads remain inactive.",
+   "unblocks": [
+    "Etsy Ads eligibility verification only"
+   ],
+   "evidence": "OwnerAction #32 raised 2026-10-11T14:05:00.383670+00:00 for etsy_ads_eligibility_evidence",
+   "steps": "Open Etsy Shop Manager > Marketing > Etsy Ads and record the current eligibility message and timestamp. Do not activate ads.",
+   "why_software_cannot": null,
+   "rank": 4,
+   "urgency": "now: free, quick and unblocking",
+   "max_cost_basis": "stated"
+  }
+ ]
+}

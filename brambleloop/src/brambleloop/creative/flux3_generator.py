@@ -1,0 +1,546 @@
+"""W-OWNERIMG's `visual.image_production.Generator`, implemented on the FLUX 3 stages (their E1).
+
+The orchestrator calls two methods:
+
+    prepare_references(*, slug, version, release, cir_fingerprint) -> [{"kind", "data", "label"}]
+    generate(*, stage, role, brief, references, outfit, attempt, repair=None) -> {
+        "data", "provider", "model", "prompt", "cost_cad", "latency_s", "identity_evidence",
+        "cost_basis"}
+
+and reads `name`, `paid` and `max_cost_cad_per_call`.
+
+Two facts the protocol does not carry, and how this adapter recovers them without trusting
+anything it cannot check:
+
+- **Which release.** `generate` is not told the slug, version or release. The orchestrator
+  stores each prepared reference's `kind`, `sha256` and `label`, so the label carries the binding
+  (`"<role>|<slug>@<version>|<release>"`). On `generate`, the CIR is reloaded and its content
+  hash must equal that release, and the references are re-rendered and must hash to exactly the
+  bytes handed in. Anything else is refused.
+- **That the flat lay passed.** Lifestyle is gated on a PASS for that exact flat lay
+  (`image_stages.lifestyle`). The orchestrator only reaches lifestyle after its fidelity gate,
+  and the verdict is re-read rather than assumed: `anchor_lookup(db, slug, version, release)`
+  returns the anchor's bytes and technical status (by default from W-OWNERIMG's `_best` and the
+  artifact store). Anything but PASS is refused.
+
+Roles: `product_anchor` maps to `product_only` (the unfolded flat lay). A role with canonical Laura
+references maps to `lifestyle` with the reserved outfit. Any other role maps to a `variant` of the
+anchor (`styled_scene`, with the brief as the instruction). Repair directives add their
+negatives to the certified ones; they never remove one.
+"""
+from __future__ import annotations
+
+import hashlib
+import os
+import stat
+from contextlib import contextmanager
+from contextvars import ContextVar
+from threading import RLock, local
+import time
+from weakref import WeakValueDictionary
+from pathlib import Path
+from typing import Callable
+
+from . import image_stages as S
+from . import pattern_refs as P
+
+ANCHOR_ROLE = "product_anchor"
+# W-VISNEXT: the orchestrator sends an outfit's approved reference image only to a generator
+# that declares it can carry one (as the stage's `outfit` supplementary reference).
+ACCEPTS_OUTFIT_REFERENCE = True
+# W-VISNEXT2: stage A (identity anchor) and stage D (edit the accepted lifestyle frame).
+IDENTITY_ANCHOR_ROLE = "laura_identity_anchor"
+ACCEPTS_STAGED_METHOD = True
+VARIANT_OF_ROLE = {"size": "scale_in_hand", "colour_context": "colour_context",
+                   "angle": "second_angle", "detail": "detail_closeup"}
+_KIND_PRODUCT = "pattern_derived"
+_KIND_LAURA = "laura_canonical"
+_ROOT_LOCKS: WeakValueDictionary = WeakValueDictionary()
+_ROOT_LOCKS_GUARD = RLock()
+_HELD_ROOTS = local()
+_FD_GUARD = RLock()
+_ACTIVE_LOCK_FDS: set[int] = set()
+SCRATCH_LOCK_TIMEOUT_SECONDS = 30.0
+
+
+def _before_fork():
+    _FD_GUARD.acquire()
+
+
+def _after_fork_parent():
+    _FD_GUARD.release()
+
+
+def _after_fork_child():
+    global _ROOT_LOCKS, _ROOT_LOCKS_GUARD, _HELD_ROOTS, _FD_GUARD, _ACTIVE_LOCK_FDS
+    for fd in _ACTIVE_LOCK_FDS:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+    _ACTIVE_LOCK_FDS = set()
+    _ROOT_LOCKS, _ROOT_LOCKS_GUARD, _HELD_ROOTS, _FD_GUARD = (
+        WeakValueDictionary(), RLock(), local(), RLock())
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(before=_before_fork, after_in_parent=_after_fork_parent,
+                        after_in_child=_after_fork_child)
+
+
+def _scratch_lock(work_root: str | None):
+    if not work_root:
+        return RLock()
+    key = os.path.realpath(work_root)
+    with _ROOT_LOCKS_GUARD:
+        lock = _ROOT_LOCKS.get(key)
+        if lock is None:
+            lock = RLock()
+            _ROOT_LOCKS[key] = lock
+        return lock
+
+
+@contextmanager
+def _process_scratch_lock(work_root: str | None):
+    """Serialize cooperating processes on a stable, trusted supplied root.
+
+    The lock is advisory: the directory and lock file must not be replaced.
+    Unrelated writers are not fenced.
+    """
+    if not work_root:
+        yield
+        return
+    import fcntl
+
+    root = os.path.realpath(work_root)
+    held = getattr(_HELD_ROOTS, "roots", None)
+    if held is None:
+        held = _HELD_ROOTS.roots = set()
+    if root in held:
+        yield
+        return
+    os.makedirs(root, exist_ok=True)
+    path = os.path.join(root, ".brambleloop-flux3.lock")
+    with _FD_GUARD:
+        fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+        _ACTIVE_LOCK_FDS.add(fd)
+    owner_pid = os.getpid()
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise GeneratorRefused("scratch lock is not a regular file")
+        deadline = time.monotonic() + SCRATCH_LOCK_TIMEOUT_SECONDS
+        while True:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise TimeoutError("FLUX scratch root is busy; retry later") from None
+                time.sleep(0.1)
+        held.add(root)
+        try:
+            yield
+        finally:
+            if os.getpid() == owner_pid:
+                held.remove(root)
+                fcntl.flock(fd, fcntl.LOCK_UN)
+    finally:
+        if os.getpid() == owner_pid:
+            with _FD_GUARD:
+                _ACTIVE_LOCK_FDS.discard(fd)
+                os.close(fd)
+
+
+class GeneratorRefused(RuntimeError):
+    """The orchestrator's inputs cannot be bound to a certified release honestly."""
+
+
+def _default_cir_loader(db):
+    """The certified CIR for slug@version, as `runtime.release._load_cir` reads it: refused
+    when there is no product, no version, or the version is not certified."""
+    def load(slug: str, version: str):
+        from sqlalchemy import select
+
+        from ..cir.model import CIR
+        from ..core.models import PatternVersion, Product
+
+        with db.session() as s:
+            product = s.scalar(select(Product).where(Product.slug == slug))
+            pv = product and s.scalar(select(PatternVersion).where(
+                PatternVersion.product_id == product.id, PatternVersion.version == version))
+            if pv is None or not pv.certified:
+                raise GeneratorRefused(f"{slug}@{version} has no certified release; no "
+                                       f"references or images for an uncertified pattern")
+            return CIR.from_dict(pv.cir_json)
+    return load
+
+
+def _default_anchor_lookup(db):
+    def lookup(slug: str, version: str, release: str, run_key: str | None = None):
+        from ..visual import candidate_gates as CG
+        from ..visual import fidelity
+        from ..visual import outfits
+
+        # Apply the same identity, fidelity, owner-veto and artifact checks used
+        # by the candidate gate before reusing an anchor as a generation input.
+        bind = CG.binding(db, slug, version, release)
+        if (bind.get("status") != CG.PASS
+                or not fidelity.same_release(bind.get("release_hash"), release)):
+            return None
+        anchor, data = CG._anchor_of(
+            db, {"slug": slug, "version": version, "listing": outfits.listing_of(slug),
+                 "run_key": run_key}, release, expected_cir_fingerprint=bind.get("cir_fingerprint"))
+        if not anchor or not data:
+            return None
+        return {"data": data, "sha256": anchor["sha256"], "status": anchor["status"],
+                "checker": fidelity.CHECKER}
+    return lookup
+
+
+class Flux3Generator:
+    """FLUX 3 Image through `image_stages`: reserve before the call, every reference sent."""
+
+    name = "flux3-image-stages"
+    paid = True
+    accepts_outfit_reference = ACCEPTS_OUTFIT_REFERENCE
+    accepts_staged_method = ACCEPTS_STAGED_METHOD
+
+    @property
+    def current_run_key(self) -> str | None:
+        self._refresh_after_fork()
+        return self._run_key_context.get()
+
+    @current_run_key.setter
+    def current_run_key(self, value: str | None) -> None:
+        self._refresh_after_fork()
+        self._run_key_context.set(value)
+
+    def __init__(self, db=None, *, renderer=None, cir_loader: Callable | None = None,
+                 anchor_lookup: Callable | None = None, work_root: str | None = None,
+                 size: str = S.PRODUCT_SIZE):
+        self.db = db
+        self.renderer = renderer
+        self.cir_loader = cir_loader or _default_cir_loader(db)
+        self.anchor_lookup = anchor_lookup or _default_anchor_lookup(db)
+        # A caller-owned directory, or (None) a scratch directory per call that is removed when
+        # the call returns: every method hands back bytes, so nothing must outlive it.
+        self.work_root = work_root
+        self._process_id = os.getpid()
+        self._scratch_lock = _scratch_lock(work_root)
+        self._run_key_context = ContextVar("flux3_run_key", default=None)
+        self._generating = ContextVar("flux3_generating", default=False)
+        self._active_run_key = ContextVar("flux3_active_run_key", default=None)
+        self._root: Path | None = None
+        self.size = size
+        # A stub renderer spends nothing; the paid flag is what opens W-OWNERIMG's gate check.
+        self.paid = not isinstance(renderer, S.StubRenderer)
+        from ..gateway import images
+
+        tier_usd = images.BFL3_TIER_USD[images.bfl3_tier(size)]
+        self.max_cost_cad_per_call = round(tier_usd * images.USD_TO_CAD, 6)
+
+    @contextmanager
+    def _scratch(self):
+        from ..core import workspace
+
+        self._refresh_after_fork()
+        lock, owner_pid = self._scratch_lock, os.getpid()
+        if not lock.acquire(timeout=SCRATCH_LOCK_TIMEOUT_SECONDS):
+            raise TimeoutError("FLUX adapter scratch is busy; retry later")
+        try:
+            with _process_scratch_lock(self.work_root), workspace.work_dir(
+                    self.work_root, prefix="generated-") as root:
+                previous = self._root
+                self._root = Path(root)
+                try:
+                    yield self._root
+                finally:
+                    self._root = previous
+        finally:
+            if os.getpid() == owner_pid:
+                lock.release()
+
+    def _refresh_after_fork(self):
+        if self._process_id != os.getpid():
+            self._process_id = os.getpid()
+            self._scratch_lock = _scratch_lock(self.work_root)
+            self._root = None
+            self._run_key_context.set(None)
+            self._generating.set(False)
+            self._active_run_key.set(None)
+
+    # -- references --------------------------------------------------------------------------
+    def _release(self, slug: str, version: str, release: str) -> S.Release:
+        cir = self.cir_loader(slug, version)
+        if P.release_hash_of(cir) != release:
+            raise GeneratorRefused(f"{slug}@{version}: the stored CIR is not release "
+                                   f"{release[:12]}; references are never built for other "
+                                   f"content")
+        return S.release_from_cir(cir, release_hash=release, version=version,
+                                  out_dir=self._root / f"{slug}-{release[:12]}")
+
+    def prepare_references(self, *, slug: str, version: str, release: str,
+                           cir_fingerprint: str | None = None) -> list[dict]:
+        with self._scratch():
+            return self._prepare(slug, version, release)
+
+    def _prepare(self, slug: str, version: str, release: str) -> list[dict]:
+        rel = self._release(slug, version, release)
+        return [{"kind": _KIND_PRODUCT, "data": Path(p).read_bytes(),
+                 "label": f"{role}|{slug}@{version}|{release}"}
+                for role, p in zip(S.PRODUCT_ROLES, rel.pattern_refs)]
+
+    def _bind(self, references: list[dict]) -> tuple[S.Release, str, str, str]:
+        product = [r for r in references if r.get("kind") == _KIND_PRODUCT]
+        labels = {str(r.get("label") or "").split("|", 1)[-1] for r in product}
+        if len(product) != len(S.PRODUCT_ROLES) or len(labels) != 1 or "" in labels:
+            raise GeneratorRefused("the product references do not name one release")
+        ident, release = labels.pop().split("|")
+        slug, version = ident.rsplit("@", 1)
+        rel = self._release(slug, version, release)
+        given = [r.get("sha256") or hashlib.sha256(r["data"]).hexdigest() for r in product]
+        if given != list(rel.pattern_ref_sha256s):
+            raise GeneratorRefused("the product references handed in are not the bytes this "
+                                   "release renders; refused")
+        return rel, slug, version, release
+
+    def _laura_paths(self, references: list[dict]) -> list[str] | None:
+        laura = [r for r in references if r.get("kind") == _KIND_LAURA]
+        if not laura:
+            return None
+        out = []
+        root = self._root / "laura"
+        root.mkdir(parents=True, exist_ok=True)
+        for r in laura:
+            sha = hashlib.sha256(r["data"]).hexdigest()
+            p = root / f"{sha}.img"
+            p.write_bytes(r["data"])
+            out.append(str(p))
+        return out          # `image_stages.laura_references` validates every byte
+
+    # -- generation --------------------------------------------------------------------------
+    def generate(self, *, stage: str, role: str, brief: str, references: list[dict],
+                 outfit: dict | None, attempt: int, repair: dict | None = None) -> dict:
+        self._refresh_after_fork()
+        if self._generating.get():
+            self.current_run_key = self._active_run_key.get()
+            raise GeneratorRefused("nested generation on the same adapter is not supported")
+        token = self._generating.set(True)
+        key_token = self._active_run_key.set(self.current_run_key)
+        # P0-PAID-PROVIDER-OWNER-GATE: every render of this run is charged to its gallery (the
+        # image-production run key) against the owner's per-gallery limit.
+        from ..gateway.paid_provider_gate import gallery_scope
+
+        try:
+            with self._scratch(), gallery_scope(self.current_run_key):
+                return self._generate(stage=stage, role=role, brief=brief, references=references,
+                                      outfit=outfit, attempt=attempt, repair=repair)
+        finally:
+            self._active_run_key.reset(key_token)
+            self._generating.reset(token)
+            self.current_run_key = None
+
+    def _preflight(self, slug: str) -> None:
+        """ENG-VIS-FLUX: before any reservation. The paid renderer runs only when the BFL
+        credential is present and the owner's generation activation is on (else UNKNOWN with
+        the reason, nothing spent); and a replacement is never bought while a paid render of
+        this gallery or product awaits recovery and re-check."""
+        from ..gateway import flux_provider, images
+
+        # Keyed on the transport, not on `paid`: the preflight guards the renderer that sends a
+        # BFL request (the default `image_stages.flux3_renderer`, or any renderer naming a
+        # priced gateway provider). A stand-in renderer flagged paid to exercise a cap sends
+        # nothing to BFL, and the gateway enforces the owner gate on every real send anyway.
+        transport = getattr(self.renderer, "provider_key", None) if self.renderer else "flux-3-image"
+        if transport not in images.BY_KEY:
+            return
+        from ..gateway.paid_provider_gate import current_gallery
+
+        try:
+            flux_provider.require_ready(self.db)
+            flux_provider.require_replacement_allowed(self.db, gallery=current_gallery(),
+                                                      slug=slug)
+        except (flux_provider.FluxNotReady, flux_provider.ReplacementRefused) as exc:
+            raise GeneratorRefused(str(exc)) from exc
+
+    def _generate(self, *, stage, role, brief, references, outfit, attempt, repair) -> dict:
+        started = time.time()
+        rel, slug, version, release = self._bind(references)
+        self._preflight(slug)
+        extra = _repair_negatives(repair)
+        if extra:
+            rules = dict(rel.rules)
+            rules["negatives"] = list(rules.get("negatives") or []) + extra
+            rel = S.Release(**{**rel.__dict__, "rules": rules})
+        work = str(self._root / f"{slug}-{release[:12]}" / f"{role}-{attempt}")
+        laura = self._laura_paths(references)
+        kw = dict(renderer=self.renderer, work_dir=work, db=self.db)
+        if role == ANCHOR_ROLE:
+            cand = S.product_only(rel, size=self.size, **kw)
+        elif role == IDENTITY_ANCHOR_ROLE:
+            # Stage A (W-VISNEXT2): Laura alone in the listing's outfit; an intermediate
+            # reference at the 1k tier, with at most one proportion-correction pass.
+            if laura is None:
+                raise GeneratorRefused("the identity anchor needs the canonical Laura references")
+            o = dict(outfit or {})
+            spec = {"id": o.get("outfit_id") or o.get("id"), "description": o.get("description"),
+                    "garments": o.get("garments")}
+            img = self._outfit_reference(references, o)
+            if img:
+                spec["image"] = img
+            cand = S.identity_anchor(rel, laura, spec,
+                                     correction=tuple((repair or {}).get("correction") or ()),
+                                     size=S.IDENTITY_ANCHOR_SIZE, **kw)
+        else:
+            anchor = self._anchor(rel, slug, version, release)
+            if laura is not None:
+                o = dict(outfit or {})
+                spec = {"id": o.get("outfit_id") or o.get("id"),
+                        "description": o.get("description"), "garments": o.get("garments")}
+                img = self._outfit_reference(references, o)
+                if img:
+                    spec["image"] = img
+                ident = self._prior(references, "identity_anchor")
+                base = self._prior(references, "edit_base")
+                # OPUS2-P0 (owner §14 "Laura's Home"): every lifestyle frame is in Laura's
+                # own house, the listing's one room (`visual.laura_home`), so rooms no longer
+                # drift between generations. The outfit's free-text setting no longer decides
+                # where she is.
+                from ..visual import laura_home
+
+                home = laura_home.scene_for(slug, role=role)
+                from ..visual import room_references
+
+                room_ref = (room_references.scene_supplement(home["room"]) or [(None, None)])[0][1]
+                laura_home.check(brief or "")   # review OPUS2A F2.2: the brief too
+                scene = {"environment": home["environment"], "pose": brief or "",
+                         "framing": ""}
+                if base is not None:
+                    # Stage D (W-VISNEXT2): edit the listing's accepted lifestyle frame, so the
+                    # outfit stays identical; the canonical three still lead the request.
+                    base_cand = S.Candidate(stage="lifestyle", role="lifestyle", path=base,
+                                            sha256=hashlib.sha256(Path(base).read_bytes())
+                                            .hexdigest(), release_hash=release,
+                                            receipt={"features_laura": True})
+                    cand = S.variant(rel, base_cand, VARIANT_OF_ROLE.get(role, "styled_scene"),
+                                     (brief or "")[:S.MAX_EDIT_CHARS], outfit=spec,
+                                     scene=scene, laura_refs=laura, size=self.size,
+                                     identity_anchor=ident, scene_reference=room_ref, **kw)
+                else:
+                    cand = S.lifestyle(
+                        rel, anchor["candidate"], laura, spec,
+                        fidelity=anchor["verdict"], role=role, size=self.size,
+                        scene=scene, identity_anchor=ident, scene_reference=room_ref, **kw)
+            else:
+                # A product-only styled scene is in the same house: a short room cue leads the
+                # edit instruction, inside the stage's character cap.
+                from ..visual import laura_home
+
+                styled = laura_home.scene_for(slug)
+                room_cue = styled["cue"]
+                from ..visual import room_references
+
+                room_ref = (room_references.scene_supplement(styled["room"])
+                            or [(None, None)])[0][1]
+                laura_home.check(brief or "")
+                edit = f"{room_cue}. {brief or ''}".strip()
+                if len(edit) > S.MAX_EDIT_CHARS:
+                    # Review OPUS2A F2.2: refused, never silently cut.
+                    raise laura_home.HomeRefused(
+                        f"room cue + brief is {len(edit)} characters; the edit instruction "
+                        f"allows {S.MAX_EDIT_CHARS}")
+                cand = S.variant(rel, anchor["candidate"], "styled_scene", edit,
+                                 size=self.size, scene_reference=room_ref, **kw)
+        r = cand.receipt
+        return {"data": Path(cand.path).read_bytes(), "provider": r.get("provider"),
+                "model": r.get("model"), "prompt": r.get("prompt_ref"),
+                "cost_cad": r.get("cost_cad"), "latency_s": round(time.time() - started, 3),
+                "cost_basis": (r.get("price") or {}).get("basis") or "generator receipt",
+                "identity_evidence": r}
+
+    def _prior(self, references: list[dict], label: str) -> str | None:
+        """A stored prior candidate the orchestrator handed in under `label`, written for the
+        stage. Its bytes must hash to the sha256 it was handed with."""
+        refs = [r for r in references if r.get("kind") == "prior_candidate"
+                and r.get("label") == label]
+        if not refs:
+            return None
+        if len(refs) > 1:
+            raise GeneratorRefused(f"more than one {label} was handed in")
+        data = refs[0]["data"]
+        sha = hashlib.sha256(data).hexdigest()
+        if refs[0].get("sha256") and refs[0]["sha256"] != sha:
+            raise GeneratorRefused(f"the {label} bytes are not the ones named; refused")
+        root = self._root / label
+        root.mkdir(parents=True, exist_ok=True)
+        p = root / f"{sha}.png"
+        p.write_bytes(data)
+        return str(p)
+
+    def _outfit_reference(self, references: list[dict], outfit: dict) -> str | None:
+        """The listing outfit's approved reference image, written for the stage (W-VISNEXT).
+
+        Sent only when it is exactly the outfit's `approved_reference` (by sha256). It goes in
+        as the stage's `outfit` supplementary reference, after the canonical three and the
+        product references; the stage records it in the receipt and refuses it if it is an
+        identity reference or the request would exceed the provider limit."""
+        refs = [r for r in references if r.get("kind") == "prior_candidate"
+                and r.get("label") == "outfit_reference"]
+        if not refs:
+            return None
+        if len(refs) > 1:
+            raise GeneratorRefused("more than one outfit reference was handed in")
+        data = refs[0]["data"]
+        sha = hashlib.sha256(data).hexdigest()
+        want = str(outfit.get("approved_reference") or "")
+        if sha != want or sha != str(refs[0].get("sha256") or sha):
+            raise GeneratorRefused("the outfit reference handed in is not this outfit's "
+                                   "approved reference; refused")
+        root = self._root / "outfit"
+        root.mkdir(parents=True, exist_ok=True)
+        p = root / f"{sha}.png"
+        p.write_bytes(data)
+        return str(p)
+
+    def _anchor(self, rel: S.Release, slug: str, version: str, release: str) -> dict:
+        if self.current_run_key:
+            try:
+                got = self.anchor_lookup(slug, version, release, run_key=self.current_run_key)
+            except TypeError as exc:
+                raise GeneratorRefused("anchor lookup cannot bind the active run") from exc
+        else:
+            got = self.anchor_lookup(slug, version, release)
+        if not got or not got.get("data"):
+            raise GeneratorRefused("no product-only flat lay for this release; lifestyle and "
+                                   "other roles come after it")
+        sha = hashlib.sha256(got["data"]).hexdigest()
+        if got.get("sha256") and got["sha256"] != sha:
+            raise GeneratorRefused("the anchor's bytes are not the recorded anchor")
+        p = self._root / f"{slug}-{release[:12]}" / f"anchor-{sha[:12]}.png"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(got["data"])
+        cand = S.Candidate(stage="product_only", role="product_flat_lay", path=str(p),
+                           sha256=sha, release_hash=release,
+                           receipt={"features_laura": False})
+        status = got.get("status") or "UNKNOWN"
+        verdict = S.fidelity_verdict(cand, status=status if status in ("PASS", "FAIL")
+                                     else "UNKNOWN", checker=got.get("checker") or "unknown")
+        return {"candidate": cand, "verdict": verdict}
+
+
+def _repair_negatives(repair: dict | None) -> list[str]:
+    out: list[str] = []
+    for d in (repair or {}).get("directives") or []:
+        for n in d.get("negatives") or []:
+            if isinstance(n, str) and n not in out:
+                out.append(n)
+    return out
+
+
+def register(register_generator=None) -> None:
+    """Register with W-OWNERIMG's orchestrator: `image_production.register_generator`."""
+    if register_generator is None:
+        from ..visual import image_production as IP
+
+        register_generator = IP.register_generator
+    register_generator("flux3-image-stages", lambda db: Flux3Generator(db))

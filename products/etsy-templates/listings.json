@@ -1,0 +1,181 @@
+{
+  "listing-1": {
+    "sku": "MS-T2125-2026",
+    "title": "Canadian Bookkeeping Spreadsheet for Sole Proprietors | T2125 Tax Tracker, GST HST PST QST, Quick Method, Home Office | Excel Google Sheets",
+    "price_cad": 29.0,
+    "tags": [
+      "canadian bookkeeping",
+      "T2125 template",
+      "GST HST tracker",
+      "sole proprietor",
+      "income tracker",
+      "tax spreadsheet",
+      "google sheets",
+      "excel bookkeeping",
+      "self employed canada",
+      "home office expenses",
+      "quick method GST",
+      "freelancer canada",
+      "business expenses"
+    ],
+    "materials": [
+      "Excel",
+      "Google Sheets",
+      "PDF guide"
+    ],
+    "taxonomy_hint": "Templates",
+    "when_made": "2020_2026",
+    "description": "Built for Canadians who do their own books. Every category maps to a line on CRA Form T2125, sales tax is calculated for your province (GST, HST, PST, RST or QST), and the GST/HST sheet shows what you would owe under the regular method AND the quick method (RC4058 rates) so you can see which saves you money. Works in Microsoft Excel and Google Sheets.\n\nWHAT'S INSIDE\n• Start here: pick your province and settings; the rates fill in for you\n• Income: log every sale or invoice; GST/HST and PST/QST calculate automatically; unpaid-invoice tracker\n• Expenses: pick the T2125 category from a dropdown; meals limited to 50% automatically; ITC-eligible tax tracked\n• T2125 Summary: Part 3 income and every Part 4 expense line (8521 to 9270, 9936), net income 9369, home office 9945, net 9946, ready to copy into your tax software\n• GST-HST: regular vs quick method comparison, the 1% quick-method credit, and a $30,000 small-supplier tracker that tells you when you must register\n• Home office: T2125 Part 7 (7A to 7P) with the loss cap and carry-forward handled\n• Vehicle: logbook plus Chart A actual-cost method with business-use %\n• Dashboard: month-by-month income, expenses, net, and a tax set-aside estimate\n• Quick-start guide (PDF) and a README\n\nDETAILS\n• Tax year 2026 edition; rates and line numbers checked against CRA pages in September 2026 (sources listed in the guide)\n• 500 rows per ledger sheet; dropdowns for provinces, categories and channels\n• Formulas use only functions that work identically in Excel and Google Sheets (no macros, no add-ons)\n• Instant download: ZIP with the .xlsx, the PDF guide and README. Import the .xlsx into Google Sheets with File > Import\n\nWHO IT IS FOR\nFreelancers, consultants, Etsy and Shopify sellers, contractors, side-hustlers and any sole proprietor in any province or territory who files a T2125 with their personal return.\n\nHONEST NOTES\n• This is a bookkeeping tool, not tax, legal or accounting advice. Verify anything that affects your return with CRA or an accountant.\n• Designed and tested by a small Canadian shop with AI assistance in building and checking the formulas; every rate was cross-checked against CRA's published tables and the workbook is validated by an automated test before release.\n• Digital product, no physical item is shipped. If something does not work for you, message us: we fix it or refund it.",
+    "images": [
+      "01-hero.png",
+      "02-income.png",
+      "03-expenses.png",
+      "04-t2125.png",
+      "05-gst-hst.png",
+      "06-whats-inside.png"
+    ],
+    "files": [
+      "Canadian-Sole-Proprietor-Bookkeeping-T2125-2026.zip"
+    ]
+  },
+  "listing-2": {
+    "sku": "MS-GSTQM-2026",
+    "title": "GST HST Quick Method Calculator Canada | Regular vs Quick Method Comparison, $30,000 Small Supplier Tracker | Excel Google Sheets",
+    "price_cad": 14.0,
+    "tags": [
+      "GST HST calculator",
+      "quick method GST",
+      "small business tax",
+      "sole proprietor",
+      "self employed canada",
+      "GST HST tracker",
+      "tax spreadsheet",
+      "google sheets",
+      "excel template",
+      "freelancer canada",
+      "HST calculator",
+      "bookkeeping canada",
+      "small supplier"
+    ],
+    "materials": [
+      "Excel",
+      "Google Sheets"
+    ],
+    "taxonomy_hint": "Templates",
+    "when_made": "2020_2026",
+    "description": "Should you use the GST/HST quick method? Enter your quarterly sales and the GST/HST you paid, pick your province and business type, and this calculator shows what you would remit under the regular method and under the quick method (CRA RC4058 rates, including the 1% credit on your first $30,000 and the special rates for goods for resale). It also tracks the $30,000 small-supplier threshold and tells you when you must register, and includes a simple 'should I register voluntarily?' worksheet.\n\nWHAT'S INSIDE\n• Settings: province (all 13 provinces and territories), business type, registered or not\n• Quarterly inputs: taxable sales, ITC-eligible GST/HST paid, GST/HST on capital purchases\n• Regular method net tax by quarter and year\n• Quick method: eligible supplies, RC4058 remittance rate for your province and rate charged, 1% credit, goods credit, capital ITCs, net tax\n• Comparison: which method keeps more in your pocket and by how much; eligibility check ($400,000 limit)\n• Small-supplier tracker: highest quarter, rolling four quarters, status that turns red when you must register\n• Voluntary registration worksheet: ITCs you would recover vs the time it costs you\n\nDETAILS\n• 2026 edition; RC4058 rates and the Nova Scotia 14% HST checked against CRA in September 2026\n• Works in Excel 2016+ and Google Sheets (File > Import); no macros\n• Instant download (.xlsx). Example figures included; replace them with yours.\n\nHONEST NOTES\n• Bookkeeping tool, not tax advice. Some businesses cannot use the quick method (accountants, bookkeepers, lawyers, financial consultants, listed financial institutions and others listed in RC4058); confirm with the CRA or an accountant before electing.\n• Designed and tested by a small Canadian shop with AI assistance in building and checking the formulas; validated by an automated test before release.\n• Problems? Message us: we fix it or refund it.",
+    "images": [
+      "01-hero.png",
+      "02-quarters.png",
+      "03-whats-inside.png"
+    ],
+    "files": [
+      "GST-HST-Quick-Method-Calculator-Small-Supplier-Tracker-2026.xlsx"
+    ]
+  },
+  "listing-3": {
+    "sku": "MS-HOVEH-2026",
+    "title": "Home Office and Vehicle Expense Tracker Canada | T2125 Part 7 Business Use of Home, Chart A Mileage Log | Excel Google Sheets",
+    "price_cad": 12.0,
+    "tags": [
+      "home office tax",
+      "vehicle expense log",
+      "T2125 template",
+      "mileage log canada",
+      "sole proprietor",
+      "self employed canada",
+      "business use of home",
+      "tax spreadsheet",
+      "google sheets",
+      "excel template",
+      "freelancer canada",
+      "bookkeeping canada",
+      "logbook template"
+    ],
+    "materials": [
+      "Excel",
+      "Google Sheets"
+    ],
+    "taxonomy_hint": "Templates",
+    "when_made": "2020_2026",
+    "description": "Two of the trickiest T2125 schedules, done right: business-use-of-home (Part 7) and motor vehicle expenses (Chart A). Enter your space and yearly home costs and the sheet applies the business-use percentage, the loss cap and the carry-forward automatically. Keep your vehicle logbook and enter yearly costs, and the sheet works out the actual-cost deduction (a per-kilometre claim is not allowed on T2125 for the self-employed).\n\nWHAT'S INSIDE\n• Home office: area and time-share inputs, all seven cost lines (7A heat to 7G other), the loss cap against your net income (7N), and the carry-forward (7O) so nothing is lost\n• Vehicle: a 200-row logbook (date, from, to, purpose, km, business trip?), yearly cost inputs, and the actual-cost deduction (costs × business-use %) plus 100% business parking\n• Printable logbook page for the glovebox\n• Clear labels showing exactly which CRA line each number goes on (9945, 9281, 9936)\n\nDETAILS\n• 2026 edition; CRA Part 7 and Chart A rules checked in September 2026\n• Works in Excel 2016+ and Google Sheets (File > Import); no macros\n• Instant download (.xlsx). Example figures included; replace them with yours.\n\nHONEST NOTES\n• Bookkeeping tool, not tax advice. The home-office claim cannot create or increase a loss; verify your figures with the CRA or an accountant.\n• Designed and tested by a small Canadian shop with AI assistance in building and checking the formulas; validated by an automated test before release.\n• Problems? Message us: we fix it or refund it.",
+    "images": [
+      "01-hero.png",
+      "02-home-office.png",
+      "03-vehicle.png"
+    ],
+    "files": [
+      "Home-Office-Vehicle-Expense-Workbook-2026.xlsx"
+    ]
+  },
+  "listing-4": {
+    "sku": "MS-INSTAL-2026",
+    "title": "Self Employed Tax Set Aside Calculator Canada | Instalment Planner, CPP Estimate, All Provinces 2026 | Excel Google Sheets",
+    "price_cad": 12.0,
+    "tags": [
+      "tax set aside",
+      "instalment planner",
+      "self employed canada",
+      "CPP calculator",
+      "sole proprietor",
+      "freelancer canada",
+      "tax spreadsheet",
+      "google sheets",
+      "excel template",
+      "canadian tax tool",
+      "small business tax",
+      "bookkeeping canada",
+      "income tax estimate"
+    ],
+    "materials": [
+      "Excel",
+      "Google Sheets"
+    ],
+    "taxonomy_hint": "Templates",
+    "when_made": "2020_2026",
+    "description": "Know roughly what to set aside before the CRA bill arrives. Enter your expected net self-employment income and your province or territory, and this planner estimates your federal tax (with the basic personal amount credit and, for Quebec, the federal abatement), provincial/territorial tax, and CPP (base plus the CPP2 second tier) — then shows a monthly set-aside amount and whether the CRA's instalment rule of thumb likely applies, with the four instalment due dates.\n\nWHAT'S INSIDE\n• All 10 provinces and 3 territories, 2026 brackets\n• Federal tax with the basic personal amount credit (including the phase-out between $181,440 and $258,482)\n• Quebec's 16.5% federal abatement handled automatically\n• CPP base (11.9%) and CPP2 (8%) for the self-employed, 2026 thresholds\n• Monthly set-aside and quarterly instalment estimate\n• Instalment rule of thumb ($3,000 federally, $1,800 in Quebec) with the March 15 / June 15 / September 15 / December 15 due dates\n\nDETAILS\n• 2026 edition; federal brackets checked directly against the CRA's own rates page, provincial/territorial brackets cross-checked against a second source, in September 2026\n• Works in Excel 2016+ and Google Sheets (File > Import); no macros\n• Instant download (.xlsx)\n\nHONEST NOTES\n• This is a deliberately CONSERVATIVE estimate: it does not include your province's personal tax credits (only the federal one) or the CPP self-employment deduction, so it runs a little high — a safe amount to set aside, not your exact bill. Bookkeeping tool, not tax advice.\n• The two-of-three-years instalment test cannot be judged from one year's numbers alone; verify with the CRA or an accountant.\n• Designed and tested by a small Canadian shop with AI assistance in building and checking the formulas; validated by an automated test across three income/province scenarios before release.\n• Problems? Message us: we fix it or refund it.",
+    "images": [
+      "01-hero.png",
+      "02-breakdown.png",
+      "03-instalments.png"
+    ],
+    "files": [
+      "Self-Employed-Tax-Set-Aside-Instalment-Planner-2026.xlsx"
+    ]
+  },
+  "listing-5": {
+    "sku": "MS-BUNDLE-2026",
+    "title": "Canadian Self Employed Tax Bundle 2026 | T2125 Bookkeeping, GST HST, Home Office Vehicle, Instalment Planner | Excel Google Sheets",
+    "price_cad": 44.0,
+    "tags": [
+      "canadian bookkeeping",
+      "T2125 template",
+      "GST HST tracker",
+      "sole proprietor",
+      "self employed canada",
+      "tax bundle canada",
+      "home office tax",
+      "vehicle expense log",
+      "instalment planner",
+      "google sheets",
+      "excel bookkeeping",
+      "freelancer canada",
+      "small business tax"
+    ],
+    "materials": [
+      "Excel",
+      "Google Sheets"
+    ],
+    "taxonomy_hint": "Templates",
+    "when_made": "2020_2026",
+    "description": "All four MapleSheets 2026 tools in one download, at a discount to buying them separately (CA$67 worth for CA$44). Everything a Canadian sole proprietor needs to track the year and get ready for tax time.\n\nWHAT'S INSIDE\n1. Canadian Sole Proprietor Bookkeeping System (T2125 edition) — income, expenses, GST/HST by province, home office, vehicle, T2125 Summary, dashboard\n2. GST/HST Quick Method vs Regular Method Calculator + $30,000 Small-Supplier Tracker\n3. Home Office and Vehicle Expense Tracker — T2125 Part 7 and Chart A, loss cap and carry-forward handled, printable logbook\n4. Self-Employed Tax Set-Aside and Instalment Planner — all provinces and territories, CPP, monthly set-aside, CRA instalment due dates\n\nDETAILS\n• 2026 edition; every rate checked against CRA's own pages or cross-checked provincial sources in September 2026, with sources listed in each guide\n• Works in Microsoft Excel and Google Sheets (File > Import); no macros\n• Instant download: one ZIP with all four workbooks and a bundle README pointing you to the right file for each job\n• Formulas use only functions that behave identically in Excel and Google Sheets, validated by an automated test before release\n\nWHO IT IS FOR\nFreelancers, consultants, Etsy and Shopify sellers, contractors and any Canadian sole proprietor who wants their bookkeeping, sales tax, home office/vehicle claims and tax set-aside handled by one consistent set of spreadsheets instead of four different templates from different sellers.\n\nHONEST NOTES\n• These are bookkeeping tools, not tax, legal or accounting advice. Verify anything that affects your return with CRA or an accountant.\n• Designed and tested by a small Canadian shop with AI assistance in building and checking the formulas; every workbook is validated by an automated test before release.\n• Digital product, no physical item is shipped. If something does not work for you, message us: we fix it or refund it.",
+    "images": [
+      "01-hero.png",
+      "02-whats-inside.png",
+      "03-savings.png"
+    ],
+    "files": [
+      "MapleSheets-2026-Bundle.zip"
+    ]
+  }
+}

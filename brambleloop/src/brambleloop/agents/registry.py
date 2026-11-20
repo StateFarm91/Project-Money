@@ -1,0 +1,1084 @@
+"""Agent registry, permissions, budget ceilings and the audit log (sections 14, 26).
+
+The governance rules exist because a single over-permissive agent is how an autonomous
+company quietly does something irreversible. Listing cannot spend ad money. Marketing cannot
+alter CIR. Designer cannot publish. Support cannot silently patch canonical patterns.
+
+These are enforced here in code, not asserted in a prompt.
+"""
+from __future__ import annotations
+
+from datetime import date, datetime, timezone
+from typing import Iterable
+
+from sqlalchemy import select
+
+from ..core.db import Database, is_postgres
+from ..core.models import (
+    Agent, Authority, AuditLog, CostEntry, Job, Phase, SpendLimit, utcnow,
+)
+
+
+def _utc_date(value: datetime):
+    """The UTC calendar date of a timestamp, whether or not it carries a timezone.
+
+    SQLite hands back naive datetimes and Postgres hands back aware ones, and the naive ones
+    are UTC by construction (`utcnow` writes them). Comparing the two without saying so is
+    how a day boundary becomes a coin toss.
+    """
+    return (value if value.tzinfo else value.replace(tzinfo=timezone.utc)).astimezone(
+        timezone.utc).date()
+
+
+class PermissionDenied(Exception):
+    pass
+
+
+class BudgetExceeded(Exception):
+    pass
+
+
+# The starting organisation. Job types are explicit: an agent can only ever run what is
+# listed here, so widening authority is a visible, reviewable change.
+DEFAULT_AGENTS: list[dict] = [
+    dict(name="learn", description="Learn source gaps and approved education; no publication/spend.",
+         allowed_job_types=["learn.scan"], authority=Authority.GREEN, daily_cost_ceiling_cad=0.0),
+    dict(name="orchestrator", description="CEO/Orchestrator: sets priorities, schedules work",
+         allowed_job_types=["scale.trajectory",  # C-64 / #26: nightly scenario analysis
+                            "plan.cycle", "portfolio.review", "ops.heartbeat",
+                            "ops.queue_check", "plan.strategy", "launch.readiness",
+                            "ops.continuity", "seasonal.sentinel",
+                            # ENG-SUPPLY: capacity-aware product admission (products.supply).
+                            "supply.admit",
+                            "improve.retrospective", "ops.policy_watch", "build.tick",
+                            "ops.capacity", "ops.sentinel", "ops.health", "model.probe",
+                            "improve.nightly", "improve.weekly",
+                            # The learning loop's measure / mine / monitor stages (#90, #93,
+                            # #97) and the provenance backfill (#171): read-only against the
+                            # business, writing only their own rows.
+                            "improve.measure", "improve.mine", "improve.monitor",
+                            # #298: the post-season harvest (reads orders, writes its own row).
+                            "seasonal.harvest",
+                            # #92 / #95 / #180 / #190: sandbox trials and the challenger league.
+                            "improve.sandbox", "improve.league",
+                            # ENG-IMPROVE: champion/challenger judging, the department
+                            # loop table and engineering change requests (no code edits).
+                            "improve.self_tune",
+                            # #34 thrash sweep; #33 #38 #131 #267 #286 #287 #289-#291 engine.
+                            "ops.thrash", "seasonal.engine",
+                            # ENG-DAILY: the daily production ledger and diagnosis.
+                            "ops.daily_ledger",
+                            # C-69 (#50, #29): the daily dependency and fragility sweep.
+                            "ops.dependencies",
+                            "ops.provenance_backfill",
+                            # F-125: completion claims vs the maturity measurement.
+                            "ops.maturity_disagreements",
+                            # The three gates that stopped reading environment variables
+                            # need something to keep asking whether the capability still
+                            # works. Three reads and a fraction of a cent (B-479).
+                            "ops.capability_probes",
+                            # The off-provider half of #51. Separate from `ops.continuity`
+                            # because a local restore proving out is not an archive existing
+                            # anywhere this provider's failure would not reach (B-524).
+                            "ops.offsite_archive",
+                            # Retention (2026-09-25). Nothing pruned anything: 4,700 audit
+                            # rows a day, 900 jobs, 21 dead letters, on the database that is
+                            # the main cost under the CA$20/month infrastructure ceiling.
+                            # `ops.retention` holds the policy and refuses to run when the
+                            # code reads an audit action it has no decision about.
+                            "ops.retention",
+                            # #95 #180 #187: deterministic job replay (the league's runs);
+                            # #153-#161: teardown requirements enforced and routed.
+                            "improve.replay", "teardown.enforce",
+                            # v1.1 lane I (F-924): SLO evaluation and slo.* incidents.
+                            "ops.slo",
+                            # ENG-APPROVALS: owner-queue consolidation under the standing
+                            # authority (moves owner_actions rows; never signs or spends).
+                            "ops.owner_queue_consolidate"],
+         authority=Authority.GREEN,
+         daily_cost_ceiling_cad=3.0),
+    dict(name="market_radar", description="Discovery, category, trend and seasonality scanning",
+         allowed_job_types=["radar.scan", "radar.score", "radar.competitor_snapshot",
+                            # W5-CONCEPT: evidence-backed concept intake.
+                            "radar.concept_intake",
+                            # W4-INTELREC: the owner's permanent watchlist.
+                            "intel.watchlist_scan", "intel.watchlist_compare", "intel.benchmark_shopping",
+                            "intel.opportunity_review",
+                            "intel.acceptance",
+                            "mjs.scan", "mjs.reviews", "etsy.probe", "intel.serp_capture",
+                            # #206 / #226 / #311: MJs URL health, pod learning, deadlines.
+                            "intel.benchmark_health", "intel.pod_learning",
+                            "mjs.seasonal_sentinel",
+                            # C-60 (#219 #268): category leaders join the panel from evidence.
+                            "intel.panel_discovery", "intel.benchmark_refresh",
+                            # A free keyless sanctioned read, and the gallery backlog that
+                            # was waiting on a call nobody had written rather than on a
+                            # capability anybody had to buy (B-478, B-483).
+                            "culture.sweep", "intel.gallery_analysis",
+                            # W4-AGENTS C1: the priority baby & children's family (F-351..366).
+                            "intel.children_portfolio",
+                            # OPUS2-P0 (P0-COMPETITOR-EVIDENCE): per-shop scan evidence.
+                            "intel.scan_evidence"],
+         authority=Authority.GREEN, daily_cost_ceiling_cad=4.0),
+    # The creative side of #94: it judges this catalogue against an observed human one and
+    # records the result. It writes no product, publishes nothing and contacts nobody; the
+    # only thing it spends is model budget, which the gateway's ceiling bounds before each
+    # call. Its own daily ceiling is set low on purpose -- a capability measurement that can
+    # consume a day's whole model allowance is a measurement nobody can afford to repeat.
+    dict(name="creative_director",
+         description="Blinded creative benchmarking and product discovery (#94, #104, #3)",
+         allowed_job_types=["creative.north_star",  # C-64 / #104 #132
+                            "creative.blinded", "creative.expedition",
+                            "creative.blind_review", "creative.grid_tournament",
+                            "creative.tournament",
+                            # #82 / #89: read-only learners over recorded outcomes.
+                            "creative.style_learning", "creative.outcome_learning",
+                            # #118 / #121: white-space discovery and the four-season programme.
+                            "creative.white_space", "creative.four_season",
+                            # W4-PIPE2 wiring: concept boards + taste-gate registration
+                            "creative.candidates_file",
+                            # C-60 (#86): the creativity benchmark memory, daily.
+                            "creative.benchmark_memory",
+                            # C-60 (#116): construction readings + stored decompositions.
+                            "creative.reference_reading",
+                            # The image-provider benchmark (owner decision 2026-09-20).
+                            # It is the one job here that can spend double figures in a
+                            # sitting, which is why it carries its own daily ceiling below.
+                            "creative.image_benchmark",
+                            # The canonical-model tournament (#199). It renders a field and
+                            # stress-tests finalists; it cannot select one.
+                            "creative.model_tournament",
+                            # The reference pack built from the owner's own candidate
+                            # (2026-09-21). It renders two reference frames and the
+                            # controlled scenes and measures them; it cannot freeze an
+                            # identity either.
+                            "creative.model_reference_pack",
+                            # Freezing the pack the owner approved, and proving the gate
+                            # on it afterwards. Writes one row and spends nothing
+                            # (#200, #201; owner approval 2026-09-22).
+                            "creative.model_freeze",
+                            # Asking the photographic-realism judge whether it can pass a
+                            # photograph nobody generated. One vision call about a public
+                            # benchmark image; renders nothing and copies nothing
+                            # (2026-09-22, after two renders were blocked on checks a real
+                            # photograph might not have cleared either).
+                            "creative.photoreal_calibration",
+                            # W4-AGENTS: the Product Family Engine over the certified
+                            # catalogue (deterministic, reads own rows, CA$0).
+                            "creative.family_engine",
+                            # W4-AGENTS C3 (F-113): legacy re-gate; recommends retirement only.
+                            "creative.salvage_review",
+                            # Build 2 #94: the complete creativity capability scorecard.
+                            "creative.capability_scorecard",
+                            # W4-AGENTS W7 (F-224): photographic principles from the judged
+                            # benchmark galleries (closed shot vocabulary only), compared with
+                            # each Launch-0 shot plan. Advisory, CA$0.
+                            "creative.photo_principles"],
+         # Three cadences landing on one day: the expedition at about CA$1.02, the blinded
+         # run at CA$0.15 and the tournament at about CA$0.27. The ceiling is set above that
+         # sum rather than at it, because a ceiling a normal week touches is a ceiling that
+         # stops work rather than one that catches a runaway.
+         # Raised from 2.5 for the image benchmark, which is a one-off measurement of up to
+         # CA$25 that the owner approved as a separate budget. A ceiling that stops the very
+         # job it was raised for is the shape of guard this build keeps having to fix.
+         authority=Authority.GREEN, daily_cost_ceiling_cad=28.0),
+    dict(name="crochet_engineer", description="Authors CIR from a creative brief",
+         allowed_job_types=["cir.draft", "cir.revise",
+                            # W4-C07 F-114: legacy rescue through the release chain.
+                            "cir.reengineer"], authority=Authority.GREEN,
+         daily_cost_ceiling_cad=4.0),
+    dict(name="validator", description="Deterministic compile, twin, reverse compile",
+         allowed_job_types=["cir.compile", "cir.twin", "cir.reverse"], authority=Authority.GREEN,
+         daily_cost_ceiling_cad=1.0),
+    dict(name="quality_director", description="Owns release certificates; can veto",
+         allowed_job_types=["gate.quality", "gate.certify", "physical.record",
+                            # C-60 (#64): physical photo intake and its impact reading.
+                            "physical.photo", "physical.upgrade_impact",
+                            # C-60 (#201): identity drift as a series.
+                            "visual.identity_drift",
+                            # #5 / #43: fast/flagship lane routing and tester plan.
+                            "gate.lanes",
+                            # W4-LISTREADY: the owner's step-up launch image-review batch
+                            # (D-W4-LAUNCH-VISION-BATCH). The ceiling below is unchanged;
+                            # the batch's own caps apply only to its calls.
+                            "assets.launch_review"],
+         authority=Authority.GREEN,
+         daily_cost_ceiling_cad=1.0),
+    dict(name="asset_truth", description="Blocks imagery that misrepresents the pattern",
+         allowed_job_types=["gate.asset_truth",
+                            # OPUS2 (P0-PHOTO-ASSET-REVIEW): deterministic photo-frame review.
+                            "assets.photo_review"], authority=Authority.GREEN,
+         daily_cost_ceiling_cad=1.0),
+    dict(name="policy", description="Platform policy and compliance checks; can veto",
+         allowed_job_types=["gate.policy"], authority=Authority.GREEN,
+         daily_cost_ceiling_cad=1.0),
+    dict(name="publishing", description="Renders the PDF, charts and listing assets",
+         allowed_job_types=["assets.build", "assets.render",
+                            # C-60 (#64): a physical photograph supplements the listing.
+                            "assets.physical_upgrade",
+                            # A styled image of the finished object, generated from the
+                            # certified CIR and disclosed as an illustration (#292, #300).
+                            "assets.owned_photography",
+                            # ENG-MOTIF-BACKLOG: re-check (never re-render) paid renders
+                            # whose motif check the budget gate refused.
+                            "assets.motif_backlog",
+                            # #300's cycle run as a job, so its assets link can be closed
+                            # for the product the cycle itself engineered rather than for
+                            # whichever product was photographed last (B-611).
+                            "seasonal.cycle_proof",
+                            # A listing frame with the canonical model in it, conditioned
+                            # on the frozen pack and verified afterwards (#72, #130, #202).
+                            "assets.model_photography",
+                            # Whether the tiling blocker is specific to the incumbent image
+                            # provider. Owner-authorised 2026-09-23 up to CA$4.00 -- but
+                            # this agent's daily ceiling is CA$2.00 and is NOT raised for
+                            # it, so the binding limit is the lower of the two. A standing
+                            # spend control does not get widened to fit an experiment; the
+                            # experiment is sized to fit the control.
+                            "visual.provider_trial",
+                            # A bounded repair attempt on the approved canonical portrait,
+                            # owner-authorised 2026-09-23 inside a CA$1.00 ceiling. It
+                            # adopts nothing: the reference is replaced only on the owner's
+                            # visual approval of the side-by-side evidence.
+                            "visual.portrait_repair",
+                            # W3 lane H: the Visual R&D cycle (deterministic, CA$0; paid
+                            # challengers are only planned for the owner).
+                            "visual.rnd.cycle",
+                            # W-OWNERIMG: autonomous listing-image production, one stage
+                            # per job, inside this agent's ceiling and a per-gallery plan.
+                            "visual.image_production",
+                            # W-VISNEXT: an owner-authorised controlled experiment (frozen
+                            # definition, owner step-up, its own caps inside this ceiling).
+                            "visual.controlled_experiment",
+                            # W4-AGENTS C2 (F-744): the durable model evidence ledger.
+                            "visual.model_ledger",
+                            # WS4-5: the standing-policy issuer in shadow (signs nothing).
+                            "policy.issuer_shadow",
+                            # WS4: the standing policy's stop watch (deny-direction only).
+                            "policy.stop_watch",
+                            # WS4-8 Stage A: schedules standing store.activate jobs (for
+                            # store_operator) and asks the issuer; sends nothing itself.
+                            "policy.activation_schedule"],
+         authority=Authority.GREEN,
+         daily_cost_ceiling_cad=2.0),
+    dict(name="growth", description="Launch timing and marketing cadence. Cannot author patterns.",
+         allowed_job_types=["launch.plan", "marketing.schedule", "content.draft",
+                            # C-60: distribution planning and the buyer-journey audit (GREEN).
+                            "growth.distribution", "growth.journey",
+                            # #4: concept posts prepared and checked; nothing posted (GREEN).
+                            "growth.preproduction",
+                            # v1.1 lane H (F-686): ads eligibility re-evaluated; spends and
+                            # activates nothing (a due refresh is an owner action).
+                            "marketing.ads_readiness"],
+         authority=Authority.GREEN,
+         daily_cost_ceiling_cad=2.0),
+    dict(name="listing", description="Drafts listings and SEO. Cannot spend ad money.",
+         allowed_job_types=["seasonal.remerchandising",
+                            "listing.draft", "listing.seo", "collection.assemble",
+                            "chain.rebuild",
+                            # OPUS2-P0 (P0-CHAIN-DEADENDS): re-drive dead ends once per deploy.
+                            "chain.successors",
+                            # OPUS2 (INTEG-LISTING-JOB): owner-review listing packages.
+                            "listing.package",
+                            # F-005: read-only Etsy taxonomy snapshot, behind etsy_api.
+                            "listing.taxonomy_refresh",
+                            # F-280: launch-week Search Visibility owner card (no-op in
+                            # shadow; reads the database and writes one owner card).
+                            "listing.search_visibility_watch",
+                            # v1.1 lane G (§11): the SEO cycle -- proposals only, no Etsy
+                            # write, no spend.
+                            "seo.cycle",
+                            # W4-AGENTS C3 (F-775): the cross-sell graph (reads; CA$0).
+                            "listing.cross_sell_graph",
+                            # W4-C12 wiring: reads rows; writes a reading / incident state.
+                            "listing.search_visibility_aging", "listing.window_captures"],
+         authority=Authority.GREEN,
+         daily_cost_ceiling_cad=2.0),
+    dict(name="pricing", description="Price positioning and experiments; cannot bypass policy",
+         allowed_job_types=["pricing.position", "pricing.experiment"], authority=Authority.GREEN,
+         daily_cost_ceiling_cad=1.0),
+    dict(name="store_operator", description="Publishes to the live store",
+         allowed_job_types=["store.publish", "store.update"], authority=Authority.YELLOW,
+         daily_cost_ceiling_cad=1.0),
+    dict(name="ads", description="Paid media inside hard caps",
+         allowed_job_types=["ads.campaign", "ads.adjust"], authority=Authority.YELLOW,
+         daily_cost_ceiling_cad=1.0),
+    dict(name="support", description="Customer replies. Cannot patch canonical patterns.",
+         allowed_job_types=["support.reply", "support.triage"], authority=Authority.YELLOW,
+         daily_cost_ceiling_cad=2.0),
+    dict(name="cfo", description="Challenges spend; reconciles the ledger",
+         allowed_job_types=["finance.reconcile", "finance.challenge",
+                            # #188: the governor enforces anomalies and parallelism advice.
+                            "finance.governor",
+                            # C-59: daily readings of the gated commerce machinery (read-only).
+                            "commerce.readings",
+                            # C-64: the order ingest (behind the transactions_r gate) and
+                            # everything that reads orders.
+                            "commerce.orders_ingest", "commerce.order_readings",
+                            # W3 K3 (F-258): listing-outcome producer (read-only).
+                            "listing.outcomes",
+                            # W3 K15 (F-909/F-916): the accountant's tax + handoff pack for
+                            # the last closed month, as a memory row. Files nothing.
+                            "finance.accounting.period_pack",
+                            # The four-fifths escalation as a job rather than a page view:
+                            # `spend_policy.escalation` was computed only when somebody
+                            # fetched /api/spend-report, so a month that reached 80% with
+                            # nobody looking reached the first refusal with nobody told
+                            # (2026-09-26). Reads the ledger, writes at most one owner
+                            # action a month, spends nothing.
+                            "finance.escalation_check",
+                            # v1.1 lane E (F-901): the Accountant cycle. Rows only; moves no
+                            # money, files nothing, no network.
+                            "finance.accounting.cycle"],
+         authority=Authority.GREEN,
+         daily_cost_ceiling_cad=1.0),
+]
+
+# Capabilities no agent may hold, regardless of registry contents. Belt and braces against a
+# future session widening `allowed_job_types` without thinking.
+# The eight meta-agents of #179, generated from the roster rather than retyped, because two
+# lists of the same eight roles drift and the drift is silent: an agent here with no role in
+# `improve.roles` would have authority over nothing, and a role there with no agent would be
+# a job description nobody holds.
+#
+# All GREEN and all cheap. Each reads the rows it answers for and reports what it found; none
+# of them proposes or promotes, because proposing runs through #190's pipeline and promotion
+# through #178's tiers. The daily ceiling is nominal rather than absent: these are database
+# reads, and a meta-agent that can spend real money to decide whether somebody else should
+# have spent money is the wrong shape.
+def _meta_agents() -> list[dict]:
+    from ..improve.roles import ROLE_JOB_TYPE, ROLES
+
+    return [dict(name=role.key,
+                 description=f"Meta-agent (#179): {role.job}",
+                 allowed_job_types=[ROLE_JOB_TYPE],
+                 authority=Authority.GREEN,
+                 daily_cost_ceiling_cad=0.25)
+            for role in ROLES]
+
+
+DEFAULT_AGENTS.extend(_meta_agents())
+
+
+FORBIDDEN_COMBINATIONS: dict[str, set[str]] = {
+    "listing": {"ads.campaign", "ads.adjust"},
+    "marketing": {"cir.draft", "cir.revise"},
+    "support": {"cir.draft", "cir.revise", "store.publish"},
+    "pricing": {"gate.policy"},
+    # Publishing renders what was certified; it never decides what ships or authors a pattern.
+    "publishing": {"store.publish", "store.update", "cir.draft", "cir.revise", "gate.certify"},
+    # Growth schedules attention. Pattern content and live publication are not its business.
+    "growth": {"cir.draft", "cir.revise", "store.publish", "gate.certify"},
+}
+
+
+
+# ---------------------------------------------------------------------------
+# Two stewards, added 2026-09-27 for the swarm and experiment requirements (#174-#176, #186,
+# #187, #241, #265). Appended rather than written into the list above so no existing agent's
+# permissions move. Both GREEN and nominally budgeted: they read the database, write
+# recommendations, reassign pending work only to agents that already hold the permission,
+# and enqueue only non-spending GREEN work. Neither may author a pattern or publish.
+DEFAULT_AGENTS.extend([
+    dict(name="swarm_steward",
+         description=("Elastic capacity steward: agent quality and retirement review, lane "
+                      "allocation, orphaned work, the idle standing backlog (#174-#176, "
+                      "#186, #187). Spends nothing."),
+         allowed_job_types=["swarm.review", "swarm.allocate", "swarm.orphans",
+                            "swarm.backlog",
+                            # C-60 (#264 #267 #276 #291): the week applied to the queue.
+                            "growth.steer"],
+         authority=Authority.GREEN, daily_cost_ceiling_cad=0.25),
+    dict(name="experiment_steward",
+         description=("Pre-registers and persists each launch's experiment pack, with owner, "
+                      "expected value and the decision it can change (#241, #265). Runs "
+                      "nothing live and spends nothing."),
+         allowed_job_types=["growth.experiments",
+                            # #265 / #266: experiments concluded under the incrementality rules.
+                            "growth.conclude"],
+         authority=Authority.GREEN, daily_cost_ceiling_cad=0.25),
+])
+FORBIDDEN_COMBINATIONS.update({
+    "swarm_steward": {"cir.draft", "cir.revise", "store.publish", "store.update",
+                      "gate.certify", "ads.campaign", "ads.adjust"},
+    "experiment_steward": {"cir.draft", "cir.revise", "store.publish", "store.update",
+                           "ads.campaign", "ads.adjust", "pricing.experiment"},
+})
+
+
+# ---------------------------------------------------------------------------
+# Quality metric and retirement condition per agent (#174), as a side table.
+#
+# Kept beside DEFAULT_AGENTS rather than inside each entry so the permission entries -- which
+# `seed_defaults` reconciles into the database -- are not touched by a metadata change, and so
+# every agent has an answer, including one added tomorrow without a line here. The metric is
+# read from job outcomes by `swarm.orchestrate.agent_quality`; the condition is evaluated there
+# by the `swarm.review` handler.
+
+QUALITY_DEFAULTS: dict = {
+    "metric": "job_success_rate",
+    "reads": ("jobs table: done / (done + dead) among this agent's jobs that reached a "
+              "terminal state in the window"),
+    "window_days": 30,
+    "min_sample": 10,
+    # Below the floor the agent is watched; below `retire_below` it is a retirement (or
+    # repair) candidate. Neither acts on its own: the verdict is a recommendation.
+    "floor": 0.8,
+    "retire_below": 0.5,
+    "retire_when": ("success rate under 50% across at least 10 terminal jobs in 30 days; or "
+                    "no completed job in 21 days while none of its job types is scheduled "
+                    "or queued; or a second agent holds exactly the same job types with more "
+                    "completions (merge)"),
+    "exempt": "",
+}
+
+# Agents whose idleness is the gate working rather than the agent failing. Retiring the ads
+# agent because the owner has not authorised paid media would delete the capability the
+# authorisation is waiting for.
+QUALITY_OVERRIDES: dict[str, dict] = {
+    "store_operator": {"exempt": "live publication is owner-gated; idle is shadow mode working"},
+    "ads": {"exempt": "paid media is owner-gated; idle is the spend gate working"},
+    "support": {"exempt": "no customer exists yet; idle is the honest state, not a defect"},
+    "validator": {"floor": 0.95,
+                  "reads": ("jobs table: done / (done + dead) for cir.compile; a validator "
+                            "that dies is a gate that did not run")},
+    "quality_director": {"floor": 0.95},
+}
+
+
+# #174: each agent's declared inputs and outputs, and the quality metric of its *function* --
+# read from the rows its work produces, not from whether its jobs finished. A job-success
+# rate says the handler did not raise; a certification pass rate says the validator is any
+# good at validating. `swarm.orchestrate.function_quality` computes each one.
+_ROLE_IO = {"inputs": ["improvements", "config_versions", "lessons", "audit_log"],
+            "outputs": ["improvements (proposals)", "audit_log improve.role_work"],
+            "function_metric": "role_realised_uplift",
+            "function_reads": ("improve.roles.activity_from_db: realised uplift of the role's "
+                               "kept proposals, measured after promotion by improve.roi")}
+DECLARED_IO: dict[str, dict] = {
+    "orchestrator": {"inputs": ["jobs", "capability_points", "improvements", "audit_log"],
+                     "outputs": ["jobs (cadences)", "improvements", "incidents", "audit_log"],
+                     "function_metric": "useful_output_rate",
+                     "function_reads": "done jobs whose outputs report work done, not ran=false"},
+    "market_radar": {"inputs": ["benchmark_listings", "keywords", "coverage_gaps", "lessons"],
+                     "outputs": ["coverage_gaps", "jobs cir.draft"],
+                     "function_metric": "promotion_yield",
+                     "function_reads": "radar.score jobs whose outputs promoted the concept"},
+    "creative_director": {"inputs": ["lessons", "audit_log creative.*", "benchmark_listings"],
+                          "outputs": ["audit_log creative.tournament", "concept autopsies"],
+                          "function_metric": "useful_output_rate",
+                          "function_reads": "done creative jobs that reported work done"},
+    "crochet_engineer": {"inputs": ["jobs cir.draft inputs"],
+                         "outputs": ["jobs cir.compile"],
+                         "function_metric": "drafts_certified",
+                         "function_reads": "certified pattern versions per completed draft"},
+    "validator": {"inputs": ["CIR"], "outputs": ["jobs gate.certify"],
+                  "function_metric": "compile_pass_rate",
+                  "function_reads": "cir.compile jobs whose outputs compiled"},
+    "quality_director": {"inputs": ["CIR", "incidents", "calibration"],
+                         "outputs": ["pattern_versions certificates", "jobs listing.draft"],
+                         "function_metric": "certification_grant_rate",
+                         "function_reads": "gate.certify jobs whose outputs granted"},
+    "asset_truth": {"inputs": ["listing_assets"], "outputs": ["listing_assets approval"],
+                    "function_metric": "asset_approval_rate",
+                    "function_reads": "listing assets approved against all recorded"},
+    "policy": {"inputs": ["listings"], "outputs": ["audit_log gate.policy"],
+               "function_metric": "useful_output_rate",
+               "function_reads": "done policy jobs that reported work done"},
+    "publishing": {"inputs": ["pattern_versions", "CIR"], "outputs": ["listing_assets"],
+                   "function_metric": "asset_approval_rate",
+                   "function_reads": "listing assets approved against all recorded"},
+    "growth": {"inputs": ["listings", "pattern_versions"], "outputs": ["content_pieces"],
+               "function_metric": "content_without_problems",
+               "function_reads": "marketing.schedule jobs whose outputs carry no problems"},
+    "listing": {"inputs": ["pattern_versions", "lessons", "keywords"],
+                "outputs": ["listings"], "function_metric": "listing_seo_score",
+                "function_reads": "mean seo_score of recorded listings"},
+    "pricing": {"inputs": ["price_observations", "ledger"], "outputs": ["audit_log pricing.*"],
+                "function_metric": "useful_output_rate",
+                "function_reads": "done pricing jobs that reported work done"},
+    "store_operator": {"inputs": ["listings", "release gates"], "outputs": ["etsy listings"],
+                       "function_metric": "exempt", "function_reads": "owner-gated"},
+    "ads": {"inputs": ["cohorts", "cost_entries"], "outputs": ["ad campaigns"],
+            "function_metric": "exempt", "function_reads": "owner-gated"},
+    "support": {"inputs": ["support_cases", "pattern_versions", "lessons", "teardown findings"],
+                "outputs": ["support_cases drafts", "jobs support.reply"],
+                "function_metric": "cases_drafted",
+                "function_reads": "support cases carrying a drafted answer"},
+    "cfo": {"inputs": ["ledger", "cost_entries", "spend_reservations"],
+            "outputs": ["incidents", "spend holds"], "function_metric": "useful_output_rate",
+            "function_reads": "done finance jobs that reported work done"},
+    "swarm_steward": {"inputs": ["jobs", "agents", "work items"],
+                      "outputs": ["swarm_allocations", "incidents swarm.orphan"],
+                      "function_metric": "orphans_resolved",
+                      "function_reads": "swarm.orphan incidents resolved against raised"},
+    "experiment_steward": {"inputs": ["experiments", "cohorts"], "outputs": ["experiments"],
+                           "function_metric": "experiments_decided",
+                           "function_reads": "experiments with a recorded result"},
+}
+
+
+def stewardship(name: str) -> dict:
+    """This agent's quality metric, retirement condition, inputs, outputs and function (#174)."""
+    from ..improve.roles import BY_KEY as _ROLES
+
+    io = DECLARED_IO.get(name) or (_ROLE_IO if name in _ROLES else {
+        "inputs": [], "outputs": [], "function_metric": "useful_output_rate",
+        "function_reads": "done jobs whose outputs report work done"})
+    return {**QUALITY_DEFAULTS, **QUALITY_OVERRIDES.get(name, {}), **io}
+
+
+class Registry:
+    def __init__(self, db: Database):
+        self.db = db
+
+    # Fields DEFAULT_AGENTS owns outright. Everything else on an Agent row -- `enabled`, and
+    # any future runtime state -- belongs to the running system and is never overwritten.
+    DECLARED_FIELDS = ("description", "allowed_job_types", "authority", "phase",
+                       "daily_cost_ceiling_cad")
+
+    def seed_defaults(self) -> list[str]:
+        """Create missing agents and reconcile the declared fields of existing ones.
+
+        Insert-if-absent was not enough, and production proved it. The operational heartbeat
+        was scheduled against an agent with no permission for it; the fix added the permission
+        to DEFAULT_AGENTS, the fix deployed, and the heartbeat kept failing -- because the
+        agent row already existed and was never revisited. A permission that lives in code and
+        cannot reach the database is not a permission, it is a comment.
+
+        So permissions and ceilings are declarative: the code is the source of truth, a deploy
+        applies it, and changing an agent's authority means changing it where it can be
+        reviewed. Returns a description of what moved, which the caller logs.
+        """
+        changes: list[str] = []
+        with self.db.session() as s:
+            for spec in DEFAULT_AGENTS:
+                agent = s.scalar(select(Agent).where(Agent.name == spec["name"]))
+                if agent is None:
+                    s.add(Agent(**spec))
+                    changes.append(f"created {spec['name']}")
+                    continue
+                for field in self.DECLARED_FIELDS:
+                    if field not in spec:
+                        continue
+                    current, declared = getattr(agent, field), spec[field]
+                    if current != declared:
+                        setattr(agent, field, declared)
+                        changes.append(f"{spec['name']}.{field}: {current!r} -> {declared!r}")
+        return changes
+
+    def get(self, name: str) -> Agent:
+        with self.db.session() as s:
+            a = s.scalar(select(Agent).where(Agent.name == name))
+            if a is None:
+                raise PermissionDenied(f"unknown agent {name!r}")
+            s.expunge(a)
+            return a
+
+    def all(self) -> list[Agent]:
+        with self.db.session() as s:
+            agents = list(s.scalars(select(Agent).order_by(Agent.name)))
+            for a in agents:
+                s.expunge(a)
+            return agents
+
+    def authorize(self, agent_name: str, job_type: str) -> Agent:
+        """Raise unless this agent is allowed to run this job type right now."""
+        agent = self.get(agent_name)
+        forbidden = FORBIDDEN_COMBINATIONS.get(agent_name, set())
+        if job_type in forbidden:
+            raise PermissionDenied(
+                f"agent {agent_name!r} is structurally forbidden from {job_type!r}"
+            )
+        if not agent.may_run(job_type):
+            raise PermissionDenied(
+                f"agent {agent_name!r} may not run {job_type!r} "
+                f"(allowed: {agent.allowed_job_types})"
+            )
+        # W3 K11 (F-669, F-497, F-703): the action class. A gated class (PUBLISH, SPEND,
+        # CUSTOMER-REMEDY, LEGAL-TAX, CREDENTIALS, DEPLOY) runs only for an agent the code
+        # declares for it at a non-GREEN grade, or under an owner AuthorityPolicy; a database
+        # row widened at runtime is a silent expansion and is refused. Fails closed.
+        try:
+            from ..authority.policy import check_dispatch
+
+            refusal = check_dispatch(self.db, agent, job_type)
+        except Exception as exc:  # noqa: BLE001 - an unreadable authority check refuses
+            from ..authority.classes import is_gated
+
+            refusal = (f"authority check unavailable ({type(exc).__name__}); refusing "
+                       f"{job_type!r}") if is_gated(job_type) else None
+        if refusal:
+            raise PermissionDenied(refusal)
+        return agent
+
+    # ---- cost ceilings -------------------------------------------------
+    def spend_today(self, agent_name: str, *, now: datetime | None = None) -> float:
+        """This agent's spend on the current UTC day.
+
+        UTC, because every other timestamp in this system is and the rows being summed are
+        written with `utcnow`. `date.today()` is the host's local day, so on any host not
+        set to UTC the window being summed and the window the rows were stamped in are
+        different windows -- a ceiling that resets at the wrong hour, silently, and only on
+        some machines.
+
+        `now` was added when this became a pre-call guard rather than only a post-call one.
+        A ceiling check that takes a timestamp for one of its two numbers and the wall clock
+        for the other is asking two clocks about the same day: it agrees with itself while
+        the frozen date happens to be today and disagrees after the next UTC midnight, which
+        is a defect this repository has already had twice.
+        """
+        today = (now or utcnow()).astimezone(timezone.utc).date()
+        import math
+        with self.db.session() as s:
+            entries = s.scalars(select(CostEntry).where(CostEntry.agent == agent_name))
+            total = 0.0
+            for entry in entries:
+                if _utc_date(entry.at) != today:
+                    continue
+                try:
+                    amount = float(entry.amount_cad)
+                except (TypeError, ValueError, OverflowError):
+                    raise BudgetExceeded("agent cost ledger has an invalid amount; reconciliation required") from None
+                if not math.isfinite(amount) or amount < 0:
+                    raise BudgetExceeded("agent cost ledger has an invalid or negative amount; reconciliation required")
+                total += amount
+            return round(total, 4)
+
+    def record_cost(
+        self, agent_name: str, amount_cad: float, *, kind: str = "llm",
+        job_id: int | None = None, tokens_in: int = 0, tokens_out: int = 0,
+        detail: dict | None = None,
+    ) -> None:
+        """Write the cost row, then refuse if this agent is over its daily ceiling.
+
+        The order is the fix. This checked first and wrote second, so the one call that
+        crossed the ceiling wrote no row at all -- the spend that breached the guard was the
+        single spend the ledger did not contain. That is not a conservative failure: the
+        money had already left (this is called *after* the provider answered), and the
+        monthly ceiling in `gateway.anthropic.spent_this_month_cad` is computed from exactly
+        these rows, so a breach of the daily ceiling quietly lowered the number the monthly
+        ceiling is checked against. A guard that erases its own evidence makes the guard
+        above it wrong.
+
+        The refusal is unchanged and still raises: the caller still fails, the job still
+        dead-letters, and nothing new is permitted. What changed is that the bill is now
+        complete whether or not the ceiling held.
+        """
+        agent = self.get(agent_name)
+        with self.db.session() as s:
+            s.add(CostEntry(
+                agent=agent_name, amount_cad=amount_cad, kind=kind, job_id=job_id,
+                tokens_in=tokens_in, tokens_out=tokens_out, detail=detail or {},
+            ))
+        if self.spend_today(agent_name) > agent.daily_cost_ceiling_cad:
+            raise BudgetExceeded(
+                f"agent {agent_name!r} would exceed its daily ceiling of "
+                f"CA${agent.daily_cost_ceiling_cad:.2f}"
+            )
+
+    # ---- audit ---------------------------------------------------------
+    def audit(
+        self, actor: str, action: str, *, artifact: str | None = None,
+        job_id: int | None = None, phase: Phase | None = None,
+        model_version: str | None = None, policy_version: str | None = None,
+        detail: dict | None = None,
+    ) -> None:
+        with self.db.session() as s:
+            s.add(AuditLog(
+                actor=actor, action=action, artifact=artifact, job_id=job_id, phase=phase,
+                model_version=model_version, policy_version=policy_version,
+                detail=detail or {},
+            ))
+
+    def audit_trail(self, artifact: str | None = None, limit: int = 100) -> list[AuditLog]:
+        with self.db.session() as s:
+            q = select(AuditLog).order_by(AuditLog.id.desc()).limit(limit)
+            if artifact:
+                q = q.where(AuditLog.artifact == artifact)
+            rows = list(s.scalars(q))
+            for r in rows:
+                s.expunge(r)
+            return rows
+
+
+class SpendGuard:
+    """Hard money caps enforced before any spend, with automatic pause (section 11).
+
+    Returns/raises rather than trusting a caller to check: `authorize_spend` is the only way
+    to legitimately spend, and it refuses rather than warns.
+    """
+
+    def __init__(self, db: Database):
+        self.db = db
+
+    def set_limit(self, scope: str, daily_cap_cad: float, lifetime_cap_cad: float, *,
+                  decision_ref: int | None = None) -> None:
+        # F-582: a software subscription scope needs a recorded evaluation (capability gap,
+        # overlap checked, ROI above cost) before it can have any limit at all.
+        from ..finance import tool_decisions
+
+        tool_decisions.check_scope(self.db, scope, decision_ref)
+        with self.db.session() as s:
+            lim = s.scalar(select(SpendLimit).where(SpendLimit.scope == scope))
+            if lim is None:
+                lim = SpendLimit(scope=scope)
+                s.add(lim)
+            lim.daily_cap_cad = daily_cap_cad
+            lim.lifetime_cap_cad = lifetime_cap_cad
+            lim.day = utcnow().date().isoformat()
+
+    def _roll_day(self, lim: SpendLimit) -> None:
+        # UTC, matching every timestamp this system writes. A daily cap that rolls on the
+        # host's local midnight and is spent against rows stamped in UTC is a cap whose
+        # window depends on a container setting nobody records.
+        today = utcnow().date().isoformat()
+        if lim.day != today:
+            lim.day = today
+            lim.spent_today_cad = 0.0
+
+    def authorize_spend(self, scope: str, amount_cad: float) -> None:
+        """Refuse and pause the scope if this spend would breach a cap.
+
+        The breach is recorded and committed *before* raising. Raising inside the session
+        would roll the `paused` flag back with the transaction, so a breach would refuse one
+        spend and then quietly allow the next -- precisely the failure this guard exists to
+        prevent.
+        """
+        breach: str | None = None
+        with self.db.session() as s:
+            # Locked for the read-modify-write. Two authorisations arriving together both
+            # read the same `spent_today_cad`, both find room, and both write their own
+            # total back -- the classic lost update, and on a cap it means the second spend
+            # is authorised against a balance that does not include the first. Several
+            # agents now run in parallel against one database, so this is a live shape
+            # rather than a theoretical one. `FOR UPDATE` is a no-op on SQLite, which
+            # serialises writers anyway; it is Postgres that needs it.
+            q = select(SpendLimit).where(SpendLimit.scope == scope)
+            if is_postgres(self.db.engine):
+                q = q.with_for_update()
+            lim = s.scalar(q)
+            if lim is None:
+                breach = f"no spend limit configured for {scope!r}; refusing to spend"
+            else:
+                self._roll_day(lim)
+                if lim.paused:
+                    breach = f"spend scope {scope!r} is paused"
+                elif lim.spent_today_cad + amount_cad > lim.daily_cap_cad:
+                    lim.paused = True
+                    breach = (
+                        f"daily cap breached for {scope!r}: CA${lim.spent_today_cad:.2f} + "
+                        f"CA${amount_cad:.2f} > CA${lim.daily_cap_cad:.2f} -- scope paused"
+                    )
+                elif lim.spent_lifetime_cad + amount_cad > lim.lifetime_cap_cad:
+                    lim.paused = True
+                    breach = (
+                        f"lifetime cap breached for {scope!r}: "
+                        f"CA${lim.spent_lifetime_cad:.2f} + CA${amount_cad:.2f} > "
+                        f"CA${lim.lifetime_cap_cad:.2f} -- scope paused"
+                    )
+                else:
+                    lim.spent_today_cad += amount_cad
+                    lim.spent_lifetime_cad += amount_cad
+        if breach:
+            raise BudgetExceeded(breach)
+
+    def status(self, scope: str) -> SpendLimit | None:
+        with self.db.session() as s:
+            lim = s.scalar(select(SpendLimit).where(SpendLimit.scope == scope))
+            if lim:
+                s.expunge(lim)
+            return lim
+
+    def pause(self, scope: str) -> None:
+        with self.db.session() as s:
+            lim = s.scalar(select(SpendLimit).where(SpendLimit.scope == scope))
+            if lim:
+                lim.paused = True
+
+
+# ---------------------------------------------------------------------------
+# FB-1 cluster B (2026-09-28). Appended so no existing entry moves. The orchestrator gains the
+# three daily Etsy observation reads (credential health, shop snapshot, listing census): GREEN,
+# read-only against Etsy, writing only readings, incidents and owner-action state. The store
+# operator gains `store.activate`, which is refused in SHADOW and needs the owner's grant, a
+# per-job Launch-0 authorisation and room under its own daily ceiling for the listing fee.
+for _agent in DEFAULT_AGENTS:
+    if _agent["name"] == "orchestrator":
+        _agent["allowed_job_types"] = list(_agent["allowed_job_types"]) + [
+            "etsy.credential_health", "etsy.shop_snapshot", "etsy.listing_census",
+            "store.live_drift",
+            # WS5 E6: read-only resolution of unknown draft-create outcomes.
+            "store.draft_reconcile",
+            # W4-FM2 F-514: weekly re-verification of the Etsy surface classifications
+            # against Etsy's published OpenAPI document (GREEN, public read-only GET, CA$0).
+            "etsy.openapi_reverify",
+            # W4-CREDHEALTH: daily provider credential health (free authenticated reads).
+            "ops.provider_credentials",
+            # W4-C12 wiring (F-551): stored orders/census -> owner tasks; no Etsy call.
+            "etsy.dashboard_harvest"]
+    elif _agent["name"] == "store_operator":
+        _agent["allowed_job_types"] = list(_agent["allowed_job_types"]) + ["store.activate"]
+for _name in ("support", "publishing", "growth", "swarm_steward", "experiment_steward"):
+    FORBIDDEN_COMBINATIONS.setdefault(_name, set()).add("store.activate")
+del _agent, _name
+
+
+# ---------------------------------------------------------------------------
+# v1.1 lane A (F-890, F-892, F-893). The Executive / COO agent that runs the company loop:
+# `autonomy.orchestrate` generates missions for idle departments from durable evidence,
+# `autonomy.department_review` measures a department's KPIs and routes lessons, and
+# `autonomy.morning_handoff` writes the owner's brief. GREEN and zero-ceiling: it reads rows
+# and writes memory, timeline, idempotent jobs and deduplicated owner actions. It may never
+# hold a protected job type -- the charters' PROTECTED_JOB_TYPES are forbidden structurally,
+# so a future edit that widened its list would be refused at dispatch.
+DEFAULT_AGENTS.append(dict(
+    name="coo",
+    description=("Executive Orchestrator (F-893): keeps every department supplied with the next "
+                 "highest-value safe work, measures department KPIs, writes the morning brief. "
+                 "Publishes, activates, spends and messages nothing."),
+    allowed_job_types=["autonomy.orchestrate", "autonomy.department_review",
+                       "autonomy.morning_handoff"],
+    authority=Authority.GREEN, daily_cost_ceiling_cad=0.0))
+FORBIDDEN_COMBINATIONS["coo"] = {
+    "store.publish", "store.activate", "store.update", "ads.campaign", "ads.adjust",
+    "support.reply", "pricing.experiment", "cir.draft", "cir.revise", "gate.certify"}
+DECLARED_IO["coo"] = {"inputs": ["jobs", "company_memory", "owner_actions", "gate states"],
+                      "outputs": ["jobs (missions)", "company_memory", "company_timeline",
+                                  "owner_actions", "lessons"],
+                      "function_metric": "useful_output_rate",
+                      "function_reads": "done jobs whose outputs report work done"}
+
+
+# ---------------------------------------------------------------------------
+# Wave 3 lane D (D-FB-13): Laura, Founder/CEO. Her only job type is her executive tick; she
+# delegates through the COO's mission boundary (`autonomy.orchestrator._enqueue_mission`), so
+# every job she causes runs under the department agent that already holds it. GREEN, a
+# CA$0.50 daily model ceiling (owner, 2026-10-11), and structurally forbidden every protected
+# or truth-changing job type -- she cannot expand her own authority (the identity record is owner-controlled).
+DEFAULT_AGENTS.append(dict(
+    name="laura",
+    description=("Laura, Founder/CEO (AI person, D-FB-13): observes company state, sets "
+                 "priorities, delegates through the COO, reviews and challenges results. "
+                 "Publishes, activates, spends and messages nothing."),
+    allowed_job_types=["laura.executive_tick"],
+    # Owner decision 2026-10-11 (DECISION_LOG D-W4-LAURA1-BUDGET): CA$0.50/day of model
+    # budget for Laura's CEO-briefing synthesis (`gateway.laura_briefing`, purpose
+    # `gateway.laura_briefing.PROMPT.ref`, `laura.ceo_briefing@4` since W4-LAURAFIX), inside
+    # the unchanged monthly ceiling and the approved
+    # model-selection policy. Checked and reserved before every call; at the cap the call is
+    # refused and the deterministic briefing answers. Authority is unchanged: GREEN, and she
+    # still publishes, activates and messages nothing.
+    authority=Authority.GREEN, daily_cost_ceiling_cad=0.50))
+FORBIDDEN_COMBINATIONS["laura"] = set(FORBIDDEN_COMBINATIONS["coo"]) | {
+    "finance.accounting.cycle", "finance.reconcile", "ops.publication_authority",
+    "ops.activation_authority"}
+DECLARED_IO["laura"] = {"inputs": ["autonomy.status", "company_memory", "owner_actions",
+                                   "incidents", "jobs", "department providers"],
+                        "outputs": ["laura_priorities", "laura_decisions", "jobs (missions via "
+                                    "COO)", "owner_actions", "company_timeline", "lessons"],
+                        "function_metric": "useful_output_rate",
+                        "function_reads": "executive ticks whose work_done > 0"}
+
+# W4-PLACT (owner decision 2026-10-13, DECISION_LOG D-W4-PL-3 item 1): Laura's PRIVATE-register
+# replies are billed to their own agent, with their own CA$0.50/day ceiling, independent of
+# Business Laura's CA$0.50/day above. Both sit inside the unchanged CA$100 monthly ceiling.
+# A separate agent is what makes the separation atomic: `gateway.anthropic.check_budget_cad`
+# checks and reserves an agent's day under `budget_lock`, so private spend can never consume
+# the CEO-briefing budget, the briefing can never consume private budget, and two concurrent
+# private turns cannot both pass the cap. It runs no job type (a private reply is only ever
+# generated in a live owner request, never in a job scope -- `gateway.laura_register`
+# refuses inside one), holds no authority and is forbidden everything Laura is.
+LAURA_PRIVATE_AGENT = "laura_private"
+DEFAULT_AGENTS.append(dict(
+    name=LAURA_PRIVATE_AGENT,
+    description=("Laura's private-register replies (same Laura, owner-only context; "
+                 "D-W4-PL-1, D-W4-PL-3). A billing identity only: runs no job type, "
+                 "publishes, activates, spends on nothing else and messages nobody."),
+    allowed_job_types=[],
+    authority=Authority.GREEN, daily_cost_ceiling_cad=0.50))
+FORBIDDEN_COMBINATIONS[LAURA_PRIVATE_AGENT] = set(FORBIDDEN_COMBINATIONS["laura"])
+DECLARED_IO[LAURA_PRIVATE_AGENT] = {
+    "inputs": ["owner-private context (via app.command_center.private_context only)"],
+    "outputs": ["private reply (no-store response body; encrypted private store)"],
+    # "exempt": its output is owner-private by design, so no function-quality reading may
+    # read it (spec/07 Ruling 2: never consumed by ordinary agent logs or other departments).
+    "function_metric": "exempt",
+    "function_reads": "nothing: a billing identity; its replies are owner-private"}
+QUALITY_OVERRIDES[LAURA_PRIVATE_AGENT] = {
+    "exempt": "runs no jobs: a billing identity for owner-private replies, off by default"}
+
+
+
+# ---------------------------------------------------------------------------
+# W4-AGENTS (Master Plan v1.2 sections 6 and 16; owner directive 2026-10-21): the Storefront
+# Director, which "owns banner, icon, About, policies, sections, announcement, thumbnails and
+# grid coherence". It reads the shop state already stored, evaluates it against the brand
+# rules and Etsy's constraints, and drafts storefront content as recorded proposals
+# (`store_foundation.director`). GREEN and CA$0: deterministic, no model, no network. It can
+# never write to Etsy: applying a proposal is `store.update`, held by `store_operator`,
+# protected, and refused in SHADOW or without the owner's sealed storefront grant.
+DEFAULT_AGENTS.append(dict(
+    name="storefront_director",
+    description=("Storefront Director (Master Plan s6/s16): reviews the live shop against the "
+                 "brand rules and Etsy constraints and drafts announcement, buyer messages, "
+                 "sections and policy text as proposals. Writes, publishes, spends and "
+                 "messages nothing."),
+    allowed_job_types=["storefront.review", "content.draft"],
+    authority=Authority.GREEN, daily_cost_ceiling_cad=0.0))
+FORBIDDEN_COMBINATIONS["storefront_director"] = set(FORBIDDEN_COMBINATIONS["coo"]) | {
+    "assets.render", "assets.build", "visual.image_production"}
+DECLARED_IO["storefront_director"] = {
+    "inputs": ["operating_readings etsy.shop_snapshot / store.shop_sync",
+               "audit store.live_observation", "store_foundation copy and navigation"],
+    "outputs": ["operating_readings storefront.review / storefront.proposal",
+                "jobs content.draft", "jobs store.update (held in SHADOW)"],
+    "function_metric": "useful_output_rate",
+    "function_reads": "storefront jobs whose outputs report work done"}
+
+
+# ---------------------------------------------------------------------------
+# W4-FINHEALTH: what a CA$0 daily ceiling means, said once.
+#
+# `/api/verify`'s `every_agent_has_a_cost_ceiling` failed in production on `learn`, `coo` and
+# `laura` -- the agents DEFAULT_AGENTS then declared at CA$0 (`laura` has CA$0.50 since the
+# owner's 2026-10-11 decision) ("publishes,
+# activates, spends and messages nothing"; `autonomy.charters`: "CA$0 ceiling"). Those are not
+# missing ceilings. A ceiling of CA$0 is a permission of zero: `gateway.anthropic.check_budget`
+# refuses any call with a positive estimate before it is made, and `ModelGateway` refuses again
+# after. A red light on a deliberate, enforced refusal is a light people learn to ignore.
+#
+# What *is* a misconfiguration, and still fails the check:
+#   * a non-finite ceiling (NaN/inf compares False against every spend);
+#   * a zero or negative ceiling on an agent whose declaration is positive (or that has no
+#     declaration at all) -- a database row that drifted from the code, or a value nobody set;
+#   * a declared no-spend agent that has recorded spend today -- the refusal did not hold.
+def declared_daily_ceiling(name: str) -> float | None:
+    """The daily ceiling DEFAULT_AGENTS declares for `name`, or None if it declares none."""
+    default = Agent.__table__.c.daily_cost_ceiling_cad.default
+    fallback = float(default.arg) if default is not None else None
+    for spec in DEFAULT_AGENTS:
+        if spec["name"] == name:
+            value = spec.get("daily_cost_ceiling_cad", fallback)
+            return None if value is None else float(value)
+    return None
+
+
+def ceiling_audit(agents: Iterable[tuple[str, float | None]],
+                  spent_today: dict[str, float] | None = None) -> dict:
+    """Classify every agent's daily ceiling. Pure: rows in, verdict and evidence out."""
+    import math
+
+    spent_today = spent_today or {}
+    rows = list(agents)
+    with_ceiling, no_spend, misconfigured, spent_without_permission = [], [], [], []
+    for name, raw in rows:
+        try:
+            ceiling = float(raw) if raw is not None else float("nan")
+        except (TypeError, ValueError):
+            ceiling = float("nan")
+        declared = declared_daily_ceiling(name)
+        if not math.isfinite(ceiling):
+            misconfigured.append({
+                "agent": name, "ceiling_cad": None, "declared_cad": declared,
+                "why": "non-finite ceiling; enforcement reads it as CA$0 and refuses every "
+                       "call, but nobody declared that"})
+        elif ceiling > 0:
+            with_ceiling.append(name)
+        elif ceiling == 0 and declared == 0.0:
+            no_spend.append(name)
+            spent = float(spent_today.get(name) or 0.0)
+            if spent > 0:
+                spent_without_permission.append({"agent": name, "spent_today_cad": spent})
+        else:
+            misconfigured.append({
+                "agent": name, "ceiling_cad": ceiling, "declared_cad": declared,
+                "why": ("negative ceiling" if ceiling < 0 else
+                        "CA$0 ceiling the declaration does not give" if declared
+                        else "CA$0 ceiling on an agent DEFAULT_AGENTS does not declare")})
+    return {
+        "ok": bool(rows) and not misconfigured and not spent_without_permission,
+        "agents": len(rows),
+        "with_positive_ceiling": len(with_ceiling),
+        "declared_no_spend": sorted(no_spend),
+        "misconfigured": misconfigured,
+        "no_spend_agents_that_spent_today": spent_without_permission,
+        "zero_ceiling_means": (
+            "a permission of CA$0: gateway.anthropic.check_budget refuses any call with a "
+            "positive estimate before it is made. Declared in agents.registry.DEFAULT_AGENTS; "
+            "raising it is an owner decision"),
+    }
+
+# W4-AGENTS W3 (Final Master s44, F-401/F-429/F-436): the Research Agent. Investigates the
+# research tasks (`intel.research`) with the lowest-cost adequate method it holds -- internal
+# retrieval and the repository's research record -- and records unresolved questions with the
+# next bounded test, or flags architecture for the weekly review. CA$0: no network, no model,
+# no spend, no publication; never writes a `fact` on its own.
+DEFAULT_AGENTS.append(dict(
+    name="research_agent",
+    description=("Research Agent (Final Master s44): investigates unknowns on decision paths "
+                 "from internal evidence first, records machine-usable conclusions and flags "
+                 "contradicted assumptions for review. Spends, publishes and fetches nothing."),
+    allowed_job_types=["research.investigate", "research.sweep", "research.flag_architecture"],
+    authority=Authority.GREEN, daily_cost_ceiling_cad=0.0))
+FORBIDDEN_COMBINATIONS["research_agent"] = set(FORBIDDEN_COMBINATIONS["coo"]) | {
+    "assets.render", "assets.build", "visual.image_production"}
+DECLARED_IO["research_agent"] = {
+    "inputs": ["research_tasks", "lessons", "learning_observations",
+               "repository research/*.md (read-only)"],
+    "outputs": ["research_tasks sources/findings", "audit research.investigated / "
+                "research.architecture_flag / research.swept", "jobs research.investigate"],
+    "function_metric": "useful_output_rate",
+    "function_reads": "research jobs whose outputs report work done"}
+
+
+# W4-C07 (F-114): re-engineering a legacy pattern is authoring one. Every agent barred from
+# `cir.revise` is barred from `cir.reengineer` too.
+for _name, _types in list(FORBIDDEN_COMBINATIONS.items()):
+    if "cir.revise" in _types:
+        _types.add("cir.reengineer")
+del _name, _types
+
+# ---------------------------------------------------------------------------
+# W4-F454: focused agents for the two domains F-454 names that had none. No new department:
+# `analyst` sits in the Learn / Improvement charter, where measurement already lives
+# (`improve.measure`); `integration_steward` sits in Platform / Reliability (dependencies,
+# provider credentials) and Store / Commerce (the Etsy API surface). Both read and record
+# only: GREEN, CA$0 ceilings, and barred from authoring, certifying, publishing or spending.
+# The orchestrator keeps its permission for these job types, so nothing that ran before loses
+# a path; the cadences move to the focused agents.
+DEFAULT_AGENTS.extend([
+    dict(name="analyst",
+         description="Analytics: measures capability and outcomes from recorded rows; writes "
+                     "readings only. Cannot spend, publish or author a pattern.",
+         allowed_job_types=["improve.measure",
+                            # OPUS2-P0: measured listing performance into routed lessons.
+                            "improve.commercial_lessons",
+                            # OPUS2-P0: knowledge gaps and reference recommendations.
+                            "learning.knowledge_gaps",
+                            # ENG-LEARN: pattern + commerce learning loops (DB only).
+                            "learning.loops"],
+         authority=Authority.GREEN, daily_cost_ceiling_cad=0.0),
+    dict(name="integration_steward",
+         description="Integration: re-verifies the Etsy API surface, provider credentials "
+                     "and dependency health; read-only. Cannot publish or spend.",
+         allowed_job_types=["etsy.openapi_reverify", "ops.dependencies",
+                            "ops.provider_credentials", "etsy.credential_health"],
+         authority=Authority.GREEN, daily_cost_ceiling_cad=0.0),
+])
+for _name in ("analyst", "integration_steward"):
+    FORBIDDEN_COMBINATIONS.setdefault(_name, set()).update(
+        {"cir.draft", "cir.revise", "cir.reengineer", "gate.certify", "store.publish",
+         "store.update", "store.activate", "ads.campaign", "ads.adjust"})
+DECLARED_IO.update({
+    "analyst": {"inputs": ["capability_points", "listing_outcomes", "orders"],
+                "outputs": ["capability readings"], "function_metric": "useful_output_rate",
+                "function_reads": "improve.measure jobs whose outputs report work done"},
+    "integration_steward": {"inputs": ["etsy surface registry", "provider credentials",
+                                       "dependency locks"],
+                            "outputs": ["readings", "incidents"],
+                            "function_metric": "useful_output_rate",
+                            "function_reads": "integration checks whose outputs report work "
+                                              "done"},
+})
+del _name

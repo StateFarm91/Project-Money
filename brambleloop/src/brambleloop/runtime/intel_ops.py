@@ -1,0 +1,431 @@
+"""Market Intelligence: `radar.competitor_snapshot` (market_radar) -- W4-AGENTS batch 4.
+
+A dated, read-only snapshot of the competitor listings this company has ALREADY observed
+through its sanctioned sources (`benchmark_listings`, the living market map, #303). It is
+demand and merchandising intelligence only:
+
+* aggregates per benchmark and pod -- listing count, newly seen listings, price band
+  (min / median / max CA$), share on sale, median gallery size, seasonal mix and product
+  types -- and the change since the previous snapshot;
+* it stores NO competitor title, description, URL, image, chart or instruction (CLAUDE.md:
+  "Competitor research is for demand and merchandising intelligence only"); the payload is
+  numbers and the company's own category labels;
+* no network call, no model, CA$0; one `operating_readings` row per UTC day.
+"""
+from __future__ import annotations
+
+import statistics
+from datetime import datetime, timedelta, timezone
+
+from .worker import JobContext, handlers
+
+READING = "radar.competitor_snapshot"
+NEW_WINDOW_DAYS = 7
+# The only fields a snapshot may carry. Enforced by `_assert_no_content` and the test.
+ALLOWED_KEYS = frozenset({"benchmark", "pod", "listings", "new_7d", "price_min_cad",
+                          "price_median_cad", "price_max_cad", "on_sale_share",
+                          "median_media", "seasonal", "product_types", "delta"})
+
+
+OTHER = "other"
+
+
+def benchmark_alias(key: str) -> str:
+    """L-3 (review of a14c9ef): a benchmark key embeds a competitor shop's name, so the
+    snapshot carries a stable alias (the same key always gives the same alias, so deltas still
+    line up) and never the key itself."""
+    import hashlib
+
+    return "bm-" + hashlib.sha256(str(key or "").encode()).hexdigest()[:10]
+
+
+def _own_labels() -> tuple[frozenset, frozenset]:
+    """The only values the inner `seasonal` / `product_types` maps may carry: our own seasonal
+    event names, and Etsy taxonomy ids (digits) or our own category and pod labels."""
+    from ..brand.storefront import SECTIONS
+    from ..intel.pods import POD_KEYS
+    from ..radar.market import SEASONAL_EVENTS
+
+    seasons = frozenset(e.name for e in SEASONAL_EVENTS)
+    types = frozenset(c for sec in SECTIONS for c in sec.categories) | frozenset(POD_KEYS)
+    return seasons, types
+
+
+def _label(value: str, allowed: frozenset, *, digits: bool = False) -> str:
+    v = str(value or "")
+    if v in allowed or (digits and v.isdigit() and len(v) <= 12):
+        return v
+    return OTHER
+
+
+def _aware(v):
+    return v if v is None or v.tzinfo else v.replace(tzinfo=timezone.utc)
+
+
+def snapshot(db, *, now: datetime | None = None) -> dict:
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing
+    from ..intel.pods import POD_KEYS
+
+    now = now or datetime.now(timezone.utc)
+    since = now - timedelta(days=NEW_WINDOW_DAYS)
+    groups: dict[tuple[str, str], list] = {}
+    with db.session() as s:
+        for r in s.execute(select(BenchmarkListing.benchmark_key, BenchmarkListing.pod,
+                                  BenchmarkListing.price_cad, BenchmarkListing.on_sale,
+                                  BenchmarkListing.media_count, BenchmarkListing.seasonal,
+                                  BenchmarkListing.product_type,
+                                  BenchmarkListing.first_seen)).all():
+            groups.setdefault((r.benchmark_key, r.pod or "unclassified"), []).append(r)
+    rows = []
+    seasons, own_types = _own_labels()
+    for (bk, pod), items in sorted(groups.items()):
+        prices = [float(x.price_cad) for x in items if (x.price_cad or 0) > 0]
+        media = [int(x.media_count or 0) for x in items]
+        seasonal: dict[str, int] = {}
+        types: dict[str, int] = {}
+        for x in items:
+            if x.seasonal:
+                k = _label(x.seasonal, seasons)
+                seasonal[k] = seasonal.get(k, 0) + 1
+            if x.product_type:
+                k = _label(x.product_type, own_types, digits=True)
+                types[k] = types.get(k, 0) + 1
+        rows.append({
+            "benchmark": benchmark_alias(bk), "pod": _label(pod, frozenset(POD_KEYS)), "listings": len(items),
+            "new_7d": sum(1 for x in items if x.first_seen and _aware(x.first_seen) >= since),
+            # UNKNOWN, never 0, when no price was observed
+            "price_min_cad": round(min(prices), 2) if prices else "UNKNOWN",
+            "price_median_cad": round(statistics.median(prices), 2) if prices else "UNKNOWN",
+            "price_max_cad": round(max(prices), 2) if prices else "UNKNOWN",
+            "on_sale_share": round(sum(1 for x in items if x.on_sale) / len(items), 3),
+            "median_media": statistics.median(media) if media else "UNKNOWN",
+            "seasonal": dict(sorted(seasonal.items())),
+            "product_types": dict(sorted(types.items())),
+        })
+    return {"at": now.isoformat(), "groups": rows, "listings": sum(r["listings"] for r in rows),
+            "copies_competitor_content": False}
+
+
+def _assert_no_content(snap: dict) -> None:
+    for r in snap["groups"]:
+        extra = set(r) - ALLOWED_KEYS
+        if extra:
+            raise ValueError(f"snapshot carries non-aggregate fields {sorted(extra)}")
+    # L-3: the inner values too -- an alias, our own labels, digits or counts, nothing else.
+    seasons, own_types = _own_labels()
+    from ..intel.pods import POD_KEYS
+
+    for r in snap["groups"]:
+        if not str(r["benchmark"]).startswith("bm-"):
+            raise ValueError("snapshot carries a raw benchmark key")
+        if r["pod"] not in POD_KEYS and r["pod"] != OTHER:
+            raise ValueError("snapshot carries a pod that is not ours")
+        bad = [k for k in r["seasonal"] if k not in seasons and k != OTHER] + [
+            k for k in r["product_types"]
+            if k not in own_types and k != OTHER and not (k.isdigit() and len(k) <= 12)]
+        bad += [v for v in list(r["seasonal"].values()) + list(r["product_types"].values())
+                if not isinstance(v, int)]
+        if bad:
+            raise ValueError(f"snapshot carries values outside our own labels: {bad[:5]}")
+
+
+def _with_delta(snap: dict, prev: dict | None) -> dict:
+    # Review b199cdb I-4: a reading written before the alias holds the raw key; alias it so
+    # the first delta after the change still lines up.
+    before = {(g["benchmark"] if str(g["benchmark"]).startswith("bm-")
+               else benchmark_alias(g["benchmark"]), g["pod"]): g
+              for g in (prev or {}).get("groups") or []}
+    for g in snap["groups"]:
+        p = before.get((g["benchmark"], g["pod"]))
+        g["delta"] = None if p is None else {
+            "listings": g["listings"] - p["listings"],
+            "price_median_cad": (round(g["price_median_cad"] - p["price_median_cad"], 2)
+                                 if isinstance(g["price_median_cad"], float)
+                                 and isinstance(p.get("price_median_cad"), float)
+                                 else "UNKNOWN")}
+    return snap
+
+
+@handlers.register("radar.competitor_snapshot")
+def handle_competitor_snapshot(ctx: JobContext) -> dict:
+    from .etsy_ops import latest_reading, store_reading
+
+    prev = latest_reading(ctx.db, READING)
+    snap = _with_delta(snapshot(ctx.db), prev)
+    _assert_no_content(snap)
+    if not snap["groups"]:
+        return {"ran": False, "why": "no competitor listing has been observed yet",
+                "network_calls": 0}
+    store_reading(ctx.db, READING, snap)
+    ctx.audit(READING, detail={"groups": len(snap["groups"]), "listings": snap["listings"]})
+    return {"groups": len(snap["groups"]), "listings": snap["listings"],
+            "new_7d": sum(g["new_7d"] for g in snap["groups"]), "network_calls": 0,
+            "copies_competitor_content": False, "work_done": len(snap["groups"])}
+
+
+@handlers.register("intel.children_portfolio")
+def handle_children_portfolio(ctx: JobContext) -> dict:
+    """F-351/F-353/F-358/F-365/F-366: the priority baby & children's family, read daily from
+    our own rows and the observed listings (counts only). Writes one reading; CA$0."""
+    from ..creative import children
+    from .etsy_ops import store_reading
+
+    rep = children.portfolio(ctx.db)
+    store_reading(ctx.db, "intel.children_portfolio", rep)
+    ctx.audit("intel.children_portfolio", detail={
+        "research_gaps": [g["category"] for g in rep["coverage"]["gaps"]],
+        "children_in_launch": rep["launch_mix"]["children_in_launch"],
+        "propose_collection": rep["architecture"]["propose_collection"]})
+    return {"research_gaps": len(rep["coverage"]["gaps"]),
+            "researched": rep["coverage"]["researched"],
+            "children_in_launch": rep["launch_mix"]["children_in_launch"],
+            "propose_collection": rep["architecture"]["propose_collection"],
+            "network_calls": 0, "work_done": 1}
+
+
+# ---- the Research Agent (F-401 / F-429 / F-436; W4-AGENTS W3) -----------------------------
+
+@handlers.register("research.investigate")
+def handle_research_investigate(ctx: JobContext) -> dict:
+    """Investigate one research task (by id, or open it from the request). CA$0, no network."""
+    from ..intel import research, research_agent
+
+    i = dict(ctx.job.inputs or {})
+    tid = i.get("task_id")
+    if tid is None:
+        if not i.get("question"):
+            return {"ran": False, "why": "research.investigate needs task_id or a question"}
+        try:
+            opened = research.open_question(
+                ctx.db, question=str(i["question"]), trigger=str(i.get("trigger") or ""),
+                decision_ref=str(i.get("decision_ref") or ""), domain=str(i.get("domain") or ""),
+                query_terms=i.get("query_terms") or (),
+                # INTEG7 (breakpoint 1): FMBATCH1's F-419/F-444 fields. A requester may name
+                # them; otherwise the agent states what would answer it, its stop condition and
+                # the smallest action its method ladder cannot take.
+                evidence_needed=str(i.get("evidence_needed") or
+                                    "a held record or source that answers the question for "
+                                    f"the decision {i.get('decision_ref') or ''}"),
+                stop_condition=str(i.get("stop_condition") or
+                                   "a fact-grade finding answers it, or it is recorded "
+                                   "unresolved with why"),
+                if_unresolved=str(i.get("if_unresolved") or
+                                  research_agent.smallest_action(str(i.get("domain") or ""))))
+        except research.ResearchRefused as exc:
+            return {"ran": False, "why": f"refused: {exc}"}
+        tid = opened["task"]
+    # A4(a): a task carrying an ideation brief (opened by radar.score's coverage handoff) is
+    # answered by the deterministic ideation step from the recorded market observations; it
+    # proposes a concept to intake, or records a named outcome. Never the generic agent,
+    # whose unresolved stop would close the question before the observations arrive.
+    from ..radar import ideation
+
+    if ideation.brief_of(ctx.db, int(tid)) is not None:
+        out = ideation.investigate(ctx, int(tid))
+        ctx.audit(research_agent.INVESTIGATED, artifact=f"research_task:{tid}",
+                  detail={"method": "radar.ideation", "status": out.get("outcome")
+                          or out.get("why"), "proposed": bool(out.get("proposed")),
+                          "slug": out.get("slug")})
+        return out
+    out = research_agent.investigate(ctx.db, int(tid))
+    if out["status"] == research_agent.NOT_OPEN:
+        return {"ran": False, "task": tid, "why": "the task is not open", "work_done": 0}
+    ctx.audit(research_agent.INVESTIGATED, artifact=f"research_task:{tid}",
+              detail={**{k: out[k] for k in ("status", "confidence", "evidence",
+                                             "new_internal", "new_sources", "next_test",
+                                             "applicability")},
+                      "method": out["method"]["chosen"],
+                      "blocked_on": out["method"]["blocked_on"]})
+    return out
+
+
+@handlers.register("research.sweep")
+def handle_research_sweep(ctx: JobContext) -> dict:
+    """F-401 self-trigger: unknowns become tasks, due tasks become investigations."""
+    from ..intel import research, research_agent
+
+    # INTEG7 (breakpoint 4): detect_unknowns, expire_due and stop_overdue are FMBATCH1's
+    # learn.scan work; the sweep keeps only the agent's own: stale-domain triggers (F-404), due
+    # investigations and the daily readings.
+    stale = research_agent.stale_domains_to_research(ctx.db)          # F-404
+    found = {"opened": list(stale["opened"])}
+    reopened: list = []
+    due = research_agent.due_for_investigation(ctx.db)
+    day = datetime.now(timezone.utc).date().isoformat()
+    queued = 0
+    for tid in due[:25]:
+        job = ctx.enqueue("research_agent", "research.investigate", {"task_id": tid},
+                          idempotency_key=f"research.investigate:{tid}:{day}")
+        queued += job is not None
+    # F-444 / F-449: the escalation report and the research metrics, one reading per day each.
+    from .etsy_ops import store_reading
+
+    esc = research_agent.escalations(ctx.db)
+    store_reading(ctx.db, research_agent.ESCALATIONS, {"items": esc, "count": len(esc)})
+    store_reading(ctx.db, research_agent.METRICS, research_agent.metrics(ctx.db))
+    ctx.audit("research.swept", detail={"opened": len(found["opened"]), "escalations": len(esc),
+                                        "reopened": len(reopened), "due": len(due),
+                                        "queued": queued})
+    return {"opened": len(found["opened"]), "reopened": len(reopened), "due": len(due),
+            "queued": queued, "work_done": len(found["opened"]) + queued}
+
+
+@handlers.register("research.flag_architecture")
+def handle_research_flag(ctx: JobContext) -> dict:
+    """F-429: evidence contradicting an assumption is flagged for the weekly review."""
+    from ..intel import research, research_agent
+
+    i = dict(ctx.job.inputs or {})
+    try:
+        out = research_agent.flag_architecture(
+            ctx.db, int(i.get("task_id") or 0), assumption=str(i.get("assumption") or ""),
+            evidence_refs=i.get("evidence_refs") or (), why=str(i.get("why") or ""))
+    except (research.ResearchRefused, ValueError) as exc:
+        return {"ran": False, "why": f"refused: {exc}", "work_done": 0}
+    return {**out, "changes_nothing": True, "work_done": 1}
+
+
+# ---- W4-INTELREC: the owner's permanent watchlist -----------------------------------------
+
+@handlers.register("intel.watchlist_scan")
+def handle_watchlist_scan(ctx: JobContext) -> dict:
+    """Scan every non-anchor watchlist shop through the anchor's own scan and mission.
+
+    GREEN: official-API reads only (`intel.observe.scan`, `findShops`, `getReviewsByShop`);
+    writes observations, readings and the mission's unpaid jobs -- paid job types the mission
+    asks for are withheld and reported (`paid_work_withheld`, review M-3). Mrs J keeps
+    `mjs.scan`.
+    A per-shop outage is recorded and never fails the job (no retry loop on a refusal)."""
+    import os
+
+    from ..intel import watchlist
+
+    out = watchlist.scan_all(ctx.db, enqueue=ctx.enqueue, env=dict(os.environ),
+                             force=bool((ctx.job.inputs or {}).get("force")))
+    ctx.audit("intel.watchlist_scan", detail={
+        "ran": out["ran"], "observed": out.get("observed", 0),
+        "outages": out.get("outages", []), "reason": out.get("reason", "")[:200],
+        "shops": [{k: s.get(k) for k in ("ran", "state", "deferred", "changes",
+                                          "listings_seen")}
+                  | {"alias": watchlist.benchmark_alias_safe(s["key"])}
+                  for s in out.get("shops", [])]})
+    res = {"ran": out["ran"], "observed": out.get("observed", 0),
+           "outages": len(out.get("outages", [])), "network_calls": None,
+           "work_done": out.get("observed", 0)}
+    if out.get("credential_refused"):
+        # ENG watchlist-cadence: the thrash sweep reads this as a gated no-op that waits for
+        # etsy.probe, never as a poll without progress to back off.
+        res.update(credential_refused=True, gated_on=out.get("gated_on") or "etsy.probe")
+    return res
+
+
+@handlers.register("intel.watchlist_compare")
+def handle_watchlist_compare(ctx: JobContext) -> dict:
+    """The structured four-shop comparison (aliases, own labels, numbers); validated arenas
+    enter the coverage-gap queue. CA$0, no network."""
+    from ..intel import watchlist
+
+    got = watchlist.record_comparison(ctx.db)
+    rep = got["report"]
+    ctx.audit("intel.watchlist_compare", detail={
+        "shops": len(rep["shops"]), "validated_arenas": rep["validated_arenas"],
+        "gaps": got["gaps"]})
+    return {"shops": len(rep["shops"]), "validated_arenas": len(rep["validated_arenas"]),
+            "gaps": got["gaps"], "network_calls": 0, "work_done": 1}
+
+
+@handlers.register("intel.benchmark_shopping")
+def handle_benchmark_shopping(ctx: JobContext) -> dict:
+    """ENG-BENCHBUY: rebuild the benchmark shopping list from the scanned listings.
+
+    Reads stored rows only (CA$0, no network). Writes one dated reading and keeps ONE
+    consolidated owner card, "Buy N benchmark patterns, <= CA$X". Nothing is bought here:
+    buying is the owner's, and a purchased PDF enters only through the quarantined teardown
+    intake. `work_done` is 1 only when the list changed, so an unchanged day backs off.
+    """
+    from ..intel import benchmark_refresh
+
+    got = benchmark_refresh.refresh_shopping(ctx.db)
+    ctx.audit("intel.benchmark_shopping", detail={
+        "status": got["status"], "to_buy": got["to_buy_count"],
+        "total_with_contingency_cad": got["total_with_contingency_cad"],
+        "shops_with_picks": got["shops_with_picks"], "changed": got["changed"],
+        "card": got["card"].get("state")})
+    return {"status": got["status"], "to_buy": got["to_buy_count"],
+            "shops_with_picks": got["shops_with_picks"],
+            "total_with_contingency_cad": got["total_with_contingency_cad"],
+            "network_calls": 0, "work_done": 1 if got["changed"] else 0}
+
+
+@handlers.register("intel.opportunity_review")
+def handle_opportunity_review(ctx: JobContext) -> dict:
+    """Laura's delegated review: one durable decision per validated watchlist opportunity."""
+    from ..intel import watchlist
+
+    out = watchlist.review(ctx.db, enqueue=ctx.enqueue)
+    ctx.audit("intel.opportunity_review", detail={
+        "decisions": [{k: d.get(k) for k in ("gap", "last", "on")} for d in out["decisions"]]})
+    return {"decisions": len(out["decisions"]), "network_calls": 0,
+            "work_done": out["work_done"]}
+
+
+# ---- W5-CONCEPT: evidence-backed concept intake -------------------------------------------
+
+@handlers.register("radar.concept_intake")
+def handle_concept_intake(ctx: JobContext) -> dict:
+    """Research-approved opportunities and proven families become radar concepts as rows.
+
+    `radar.intake.run`: each concept proposal attached to an answered research task, and each
+    coordinated variation of a certified family whose orders prove demand, is proposed,
+    validated (recorded evidence and its quality, a construction `cir.draft` compiles, the
+    closed concept vocabulary, the children's product_creation pre-check, originality /
+    dedupe / anti-copy) and approved or refused -- every step audited. An approval enqueues
+    the ordinary `radar.score` (`score:<slug>:<date>`), whose pre-engineering gate decides
+    whether `cir.draft` follows. Unchanged input is never re-evaluated (fingerprint).
+    GREEN: deterministic, no model call, no network, CA$0.
+    """
+    from datetime import date as _date
+
+    from ..radar import intake
+
+    raw = (ctx.job.inputs or {}).get("as_of")
+    today = _date.fromisoformat(raw) if raw else None
+    # WS2 R5: validated watchlist gaps whose research is answered become proposals first,
+    # so intake has automatic input; intake still judges every one of them.
+    from ..radar import proposal_writer
+
+    from ..intel import watchlist, watchlist_research
+
+    # Review H3 (eng/r5-research-3): an approved watchlist concept's research is renewed from
+    # the latest fresh observations before it expires (the daily comparison renews it too),
+    # so intake's withdrawal below follows the evidence, not the comparison's timing.
+    real = datetime.now(timezone.utc)
+    at = real if today is None or today == real.date() else \
+        datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
+    renewed = watchlist.renew_approved_support(
+        ctx.db, now=at, expiring_within=watchlist_research.RENEW_AHEAD)
+    wrote = proposal_writer.write(ctx.db, today=today)
+    out = intake.run(ctx.db, audit=ctx.audit, enqueue=ctx.enqueue, today=today)
+    out["proposals_written"] = len(wrote["written"])
+    out["supports_renewed"] = sum(1 for r in renewed if r.get("renewed"))
+    # ENG-RESEARCH: every cycle ends in a recorded outcome -- the opportunities and the stage
+    # each reached (and what holds it), or "no qualifying opportunity" with its evidence.
+    from ..intel import research_flow
+
+    # Review LOW: intake has already written; a failure to record the conclusion is itself
+    # recorded (audited, outcome "conclusion_failed") rather than failing the job after it.
+    try:
+        concluded = research_flow.conclude(ctx.db, now=at, written=wrote["written"],
+                                           skipped=wrote["skipped"], intake_out=out)
+        out["research_outcome"] = concluded["outcome"]
+    except Exception as exc:  # noqa: BLE001 - recorded, never swallowed silently
+        out["research_outcome"] = research_flow.CONCLUSION_FAILED
+        ctx.audit("intel.research_conclusion_failed",
+                  detail={"error": f"{type(exc).__name__}: {str(exc)[:300]}"})
+    out["work_done"] = out.get("work_done", 0) + len(wrote["written"])
+    ctx.audit("radar.concept_intake", detail={k: out[k] for k in (
+        "candidates", "unchanged", "approved", "refused", "work_done", "as_of",
+        "proposals_written", "research_outcome")})
+    return out

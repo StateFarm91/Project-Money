@@ -1,0 +1,102 @@
+{
+ "kind": "brambleloop.defect_evidence",
+ "defect": "intel.gallery_analysis read timeouts on b931d17",
+ "read_at": "2026-10-20T11:07:11Z",
+ "how": "read-only GETs: /health, /api/queue/dead, /api/audit?action=job.failed, /api/audit?action=intel.gallery_analysis",
+ "production_build": {
+  "commit": "b931d17a738d6a5bcd96580f620069b669ca5f57",
+  "commit_short": "b931d17a738d",
+  "branch": "claude/repository-setup-nc9x6o",
+  "known": true
+ },
+ "worker_started_at": "2026-10-20T03:48:42.556947+00:00",
+ "dead_letter_groups": [
+  {
+   "job_type": "intel.gallery_analysis",
+   "error": "TimeoutError: The read operation timed out",
+   "count": 3,
+   "first_seen": "2026-10-20T04:05:50.968988+00:00",
+   "last_seen": "2026-10-20T08:06:26.645013+00:00",
+   "example_job_id": 24364
+  }
+ ],
+ "market_radar_job_failed_since_deploy": [
+  {
+   "at": "2026-10-20T08:06:26.669613+00:00",
+   "error": "The read operation timed out"
+  },
+  {
+   "at": "2026-10-20T08:04:32.406117+00:00",
+   "error": "The read operation timed out"
+  },
+  {
+   "at": "2026-10-20T08:03:26.027220+00:00",
+   "error": "The read operation timed out"
+  },
+  {
+   "at": "2026-10-20T06:05:14.342842+00:00",
+   "error": "The read operation timed out"
+  },
+  {
+   "at": "2026-10-20T06:04:09.696439+00:00",
+   "error": "The read operation timed out"
+  },
+  {
+   "at": "2026-10-20T06:01:09.211269+00:00",
+   "error": "The read operation timed out"
+  },
+  {
+   "at": "2026-10-20T04:05:50.988583+00:00",
+   "error": "The read operation timed out"
+  },
+  {
+   "at": "2026-10-20T04:04:25.629822+00:00",
+   "error": "The read operation timed out"
+  },
+  {
+   "at": "2026-10-20T04:02:49.985490+00:00",
+   "error": "The read operation timed out"
+  }
+ ],
+ "last_successful_runs_before_deploy": [
+  {
+   "at": "2026-10-20T02:01:26.668896+00:00",
+   "judged": 4,
+   "attempted": 4,
+   "cost_cad": 0.12370061
+  },
+  {
+   "at": "2026-10-20T00:12:44.583542+00:00",
+   "judged": 4,
+   "attempted": 4,
+   "cost_cad": 0.11775095
+  },
+  {
+   "at": "2026-10-20T00:12:11.905756+00:00",
+   "judged": 1,
+   "attempted": 4,
+   "cost_cad": 0.03170767
+  },
+  {
+   "at": "2026-10-20T00:11:58.049983+00:00",
+   "judged": 1,
+   "attempted": 4,
+   "cost_cad": 0.02984473
+  },
+  {
+   "at": "2026-10-20T00:11:44.728451+00:00",
+   "judged": 1,
+   "attempted": 4,
+   "cost_cad": 0.03042795
+  },
+  {
+   "at": "2026-10-20T00:11:32.355431+00:00",
+   "judged": 1,
+   "attempted": 5,
+   "cost_cad": 0.02860277
+  }
+ ],
+ "reading": "Every gallery call since the b931d17 deploy (03:48Z) timed out at the 60 s socket read timeout: 9 of 9 attempts, three jobs, all dead-lettered. The last runs on the previous build judged 4 of 4 images. REL2 B5 (da658123, first deployed in b931d17) added structured output with a 24-property all-optional schema to exactly this call; nothing else on the path changed. Billing of the timed-out calls is unknown (UNCERTAIN): the paid-call guard correctly does not resend them.",
+ "fix": "W4-CLOSE5: VISION_TIMEOUT_SECONDS=180 for vision calls only; schema fields all required (empty string = unjudgeable); ANALYSIS_RUN_SECONDS=2400 run bound under MAX_HANDLER_SECONDS=3600; guard and /api/verify unchanged",
+ "regression_test": "tests/test_w4_close5_vision_timeout.py (3 of 4 fail on the deployed tree b931d17, all 4 pass on the fix)"
+}

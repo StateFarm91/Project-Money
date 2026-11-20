@@ -1,0 +1,35 @@
+# CURRENT_STATE
+
+_Last updated: 2026-09-17T08:35Z (Day 2, heartbeat)_
+
+## One-paragraph state
+
+Day 2. Strategy selected (D-005) and amended the same evening (D-009): **Track A, MapleSheets** (Etsy shop of Canadian small-business templates, plus a print-on-demand line) is the floor; **Track B, a capped paid-social e-commerce store** (Shopify + CJ Dropshipping + Meta ads + AI creatives + AI support agent) is the owner-authorized swing with stage gates. The AODA/WCAG scanner is now a backlog option only, with a design correction logged (D-014) if it's ever revisited. **All five planned Track A listings are now built, validated and packaged**: listing 1 (bookkeeping system, CA$29), listing 2 (GST/HST calculator, CA$14), listing 3 (home-office + vehicle, CA$12), listing 4 (instalment planner, CA$12), and listing 5, the bundle (all four, CA$44). The Etsy API client and the **Printify API client** (`products/pod/printify_api.py`, for the D-008 print-on-demand line) are both written and unit-tested; neither has made a live call yet. **3 of 5 target POD designs are now built and rendered** (`products/pod/build_designs.py`: personalized mug, cottage print, hockey-family tote) — Printify natively handles buyer text personalization (confirmed via their API docs), so no custom per-order pipeline is needed, only configuring it once the shop is connected. Caught a real bug before calling the designs done: fixed-size text ran off the canvas with realistic long inputs (a hyphenated surname, "grandmother"); fixed with an auto-fit helper and a regression test, logged as LL-010. `products/README.md` and `CREDENTIALS_SETUP.md` were stale and are now corrected. Nothing is published yet because the shop does not exist: **owner Block 1 in `OWNER_ACTIONS.md` is the only blocker.** No money has been spent.
+
+## Money
+
+| Item | Value |
+|---|---|
+| Starting bankroll (authorized max) | $1,000.00 CAD |
+| Capital deployed | $0.00 |
+| Spent to date | $0.00 |
+| Gross revenue to date | $0.00 |
+| Allocation (MASTER_STRATEGY) | Track A ≤ $190; Track B ≤ $520 in two gated stages; reserve ≥ $290 |
+
+## What is running
+
+- **Mission heartbeat is live:** Routine `trig_019rtbCKLSFc8hNajuiWm9E4` fires the persistent operator session `session_01GpoRAgr4kBWxi1752HufQh` at 00:14, 08:14 and 16:14 UTC; plumbing verified by a test commit (`AUTOMATIONS.md`).
+
+## Owner-only blockers
+
+- **Block 1 (Etsy shop + API app + OAuth, optional Printify), ~45-55 min** and **Block 2 (Shopify, CJ, Cloudflare, Anthropic, Meta, fal.ai), ~2 h in three parts** — `OWNER_ACTIONS.md`. Owner confirmed on Day 1 they will do both. Until Block 1: no Etsy listings. Until Block 2A/2B/2C: no store build / support agent / ads respectively.
+
+## Exact next actions (in order)
+
+1. When the owner says the shop exists and `ETSY_KEYSTRING` is in the environment: run `products/etsy-templates/etsy_api.py auth-url`, post the link, exchange the pasted redirect URL, hand back the refresh token for the environment variable.
+2. Competitor pull: `etsy_api.py search "bookkeeping spreadsheet canada"` (and "T2125", "GST HST tracker", "canadian tax template"); write `research/etsy/competitors-<date>.json` and the keyword-neighbourhood note; adjust listing 1 title/tags if the data says so.
+3. Resolve the taxonomy id (`etsy_api.py taxonomy template`), create listing 1 as draft, upload the ZIP and six images, activate; record the listing id in `products/etsy-templates/listings.json`.
+4. Start EXP-001 (14-day visibility test): daily stats pull → `KPI_DASHBOARD.md`.
+5. Build listing 2 (quick-method calculator + small-supplier tracker) with its own tests; publish; then the bundle.
+6. **Track B:** product research done (`products/store/PRODUCT_RESEARCH.md`, D-011: cocktail smoker kit, windshield snow cover, pet brush bundle; brand Pine and Nook). Next: implement `products/store/SPEC.md` modules 0-3 with offline tests now; when Block 2A lands, verify CJ landed costs/warehouses and re-confirm or swap products; when 2B lands, trademark check → buy domain via Cloudflare API → support agent; when 2C lands, creatives → launch checklist → EXP-004.
+7. Meanwhile for Track A (no credentials needed): all five listing generators (incl. the bundle) are done; the Printify API client is done; 3 of 5 target POD designs are built (`products/pod/build_designs.py`, spec in `products/pod/DESIGN_SPEC.md`). Remaining: 2 more designs; ledger importer for Etsy Payments; `ops/status.py` Etsy extension. Once `PRINTIFY_TOKEN` exists: confirm exact blueprint pixel dimensions, configure Printify's Personalization Studio text layer, write listing copy, publish.

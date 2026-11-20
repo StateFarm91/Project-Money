@@ -1,0 +1,2174 @@
+{
+ "kind": "W3 lane D runtime proof: Laura's executive tick inside the embedded runner, shadow, temp SQLite, closed network",
+ "not_a_soak": "bounded wall-clock window; it proves the hosted loop generates and executes work by itself, not 24 h of uptime (\u00a795 lights-out remains an open certification gate)",
+ "started": "2026-10-06T16:46:40.920583+00:00",
+ "finished": "2026-10-06T16:57:41.055905+00:00",
+ "duration_seconds": 660.1,
+ "commit": "a1036898ea47677b115cb377ff56858704a12943",
+ "environment": {
+  "phase": "shadow",
+  "network": "all HTTP(S) proxies -> http://127.0.0.1:9 (closed)",
+  "credentials": "none: child env is PATH/HOME/PYTHONPATH + BRAMBLELOOP_* only",
+  "human_or_session_enqueues_after_boot": 0
+ },
+ "samples": [
+  {
+   "at": "2026-10-06T16:47:11.297327+00:00",
+   "jobs": {
+    "done": 9,
+    "pending": 102,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T16:47:02.143333+00:00",
+   "worker_restarts": 0
+  },
+  {
+   "at": "2026-10-06T16:47:41.341481+00:00",
+   "jobs": {
+    "done": 18,
+    "pending": 93,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T16:47:22.503422+00:00",
+   "worker_restarts": 0
+  },
+  {
+   "at": "2026-10-06T16:48:11.368530+00:00",
+   "jobs": {
+    "done": 37,
+    "pending": 86,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T16:48:02.690146+00:00",
+   "worker_restarts": 0
+  },
+  {
+   "at": "2026-10-06T16:48:41.465054+00:00",
+   "jobs": {
+    "done": 121,
+    "pending": 70,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T16:48:22.892487+00:00",
+   "worker_restarts": 0
+  },
+  {
+   "at": "2026-10-06T16:49:11.484043+00:00",
+   "jobs": {
+    "done": 122,
+    "pending": 70,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T16:49:04.362932+00:00",
+   "worker_restarts": 0
+  },
+  {
+   "at": "2026-10-06T16:49:41.577641+00:00",
+   "jobs": {
+    "done": 123,
+    "pending": 70,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T16:49:24.594195+00:00",
+   "worker_restarts": 0
+  },
+  {
+   "at": "2026-10-06T16:50:11.710657+00:00",
+   "jobs": {
+    "done": 124,
+    "pending": 71,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T16:50:05.128262+00:00",
+   "worker_restarts": 0
+  },
+  {
+   "at": "2026-10-06T16:50:42.670777+00:00",
+   "jobs": {
+    "done": 124,
+    "pending": 71,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T16:50:25.373606+00:00",
+   "worker_restarts": 0
+  },
+  {
+   "at": "2026-10-06T16:51:12.775179+00:00",
+   "jobs": {
+    "done": 126,
+    "pending": 70,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T16:51:06.025848+00:00",
+   "worker_restarts": 0
+  },
+  {
+   "at": "2026-10-06T16:51:42.813574+00:00",
+   "jobs": {
+    "done": 126,
+    "pending": 70,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T16:51:26.298049+00:00",
+   "worker_restarts": 0
+  },
+  {
+   "at": "2026-10-06T16:52:12.897507+00:00",
+   "jobs": {
+    "done": 127,
+    "pending": 70,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T16:52:07.029223+00:00",
+   "worker_restarts": 0
+  },
+  {
+   "at": "2026-10-06T16:52:43.013205+00:00",
+   "jobs": {
+    "done": 128,
+    "pending": 70,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T16:52:27.166012+00:00",
+   "worker_restarts": 0
+  },
+  {
+   "at": "2026-10-06T16:53:13.228584+00:00",
+   "jobs": {
+    "done": 128,
+    "pending": 70,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T16:53:07.668701+00:00",
+   "worker_restarts": 0
+  },
+  {
+   "at": "2026-10-06T16:53:43.262995+00:00",
+   "jobs": {
+    "done": 130,
+    "pending": 70,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T16:53:27.817575+00:00",
+   "worker_restarts": 0
+  },
+  {
+   "at": "2026-10-06T16:54:13.365342+00:00",
+   "jobs": {
+    "done": 131,
+    "pending": 70,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T16:54:09.134267+00:00",
+   "worker_restarts": 0
+  },
+  {
+   "at": "2026-10-06T16:54:43.401786+00:00",
+   "jobs": {
+    "done": 156,
+    "pending": 70,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T16:54:29.219027+00:00",
+   "worker_restarts": 0
+  },
+  {
+   "at": "2026-10-06T16:55:13.445489+00:00",
+   "jobs": {
+    "dead": 2,
+    "done": 178,
+    "pending": 66,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T16:55:09.441790+00:00",
+   "worker_restarts": 0
+  },
+  {
+   "at": "2026-10-06T16:55:43.463618+00:00",
+   "jobs": {
+    "dead": 3,
+    "done": 178,
+    "pending": 65,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T16:55:29.549629+00:00",
+   "worker_restarts": 0
+  },
+  {
+   "at": "2026-10-06T16:56:13.505634+00:00",
+   "jobs": {
+    "dead": 5,
+    "done": 178,
+    "pending": 63,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T16:56:09.762553+00:00",
+   "worker_restarts": 0
+  },
+  {
+   "at": "2026-10-06T16:56:41.042097+00:00",
+   "jobs": {
+    "dead": 10,
+    "done": 211,
+    "pending": 26,
+    "running": 1
+   },
+   "worker_alive": true,
+   "scheduler_last_tick": "2026-10-06T16:56:30.047455+00:00",
+   "worker_restarts": 0
+  }
+ ],
+ "jobs_total": 248,
+ "jobs_by_department": {
+  "learn": {
+   "total": 18,
+   "done": 10,
+   "useful": 4,
+   "dead": 0
+  },
+  "platform": {
+   "total": 13,
+   "done": 9,
+   "useful": 2,
+   "dead": 0
+  },
+  "intelligence": {
+   "total": 26,
+   "done": 26,
+   "useful": 13,
+   "dead": 0
+  },
+  "executive": {
+   "total": 27,
+   "done": 20,
+   "useful": 7,
+   "dead": 0
+  },
+  "finance": {
+   "total": 9,
+   "done": 7,
+   "useful": 1,
+   "dead": 0
+  },
+  "product_design": {
+   "total": 29,
+   "done": 29,
+   "useful": 0,
+   "dead": 0
+  },
+  "product_truth": {
+   "total": 38,
+   "done": 37,
+   "useful": 22,
+   "dead": 0
+  },
+  "support": {
+   "total": 2,
+   "done": 2,
+   "useful": 1,
+   "dead": 0
+  },
+  "store_commerce": {
+   "total": 50,
+   "done": 38,
+   "useful": 32,
+   "dead": 10
+  },
+  "growth": {
+   "total": 18,
+   "done": 16,
+   "useful": 10,
+   "dead": 0
+  },
+  "visual": {
+   "total": 18,
+   "done": 17,
+   "useful": 10,
+   "dead": 0
+  }
+ },
+ "jobs_by_type": {
+  "learn.scan": {
+   "done": 1
+  },
+  "ops.heartbeat": {
+   "done": 1
+  },
+  "ops.queue_check": {
+   "done": 1
+  },
+  "radar.scan": {
+   "done": 2
+  },
+  "plan.cycle": {
+   "done": 1
+  },
+  "portfolio.review": {
+   "done": 1,
+   "pending": 1
+  },
+  "finance.reconcile": {
+   "done": 1
+  },
+  "plan.strategy": {
+   "done": 1
+  },
+  "improve.nightly": {
+   "done": 1
+  },
+  "improve.weekly": {
+   "done": 1
+  },
+  "improve.measure": {
+   "done": 1
+  },
+  "improve.mine": {
+   "done": 1
+  },
+  "improve.monitor": {
+   "done": 1
+  },
+  "creative.style_learning": {
+   "done": 1
+  },
+  "creative.outcome_learning": {
+   "done": 1
+  },
+  "seasonal.harvest": {
+   "done": 1
+  },
+  "gate.lanes": {
+   "done": 11
+  },
+  "creative.white_space": {
+   "done": 1
+  },
+  "creative.four_season": {
+   "done": 1
+  },
+  "improve.sandbox": {
+   "done": 1
+  },
+  "improve.league": {
+   "done": 1
+  },
+  "finance.governor": {
+   "done": 1
+  },
+  "support.triage": {
+   "done": 1
+  },
+  "commerce.readings": {
+   "done": 1
+  },
+  "commerce.orders_ingest": {
+   "done": 1
+  },
+  "listing.taxonomy_refresh": {
+   "done": 1
+  },
+  "listing.search_visibility_watch": {
+   "pending": 1
+  },
+  "commerce.order_readings": {
+   "done": 1
+  },
+  "scale.trajectory": {
+   "done": 1
+  },
+  "creative.north_star": {
+   "done": 1
+  },
+  "ads.adjust": {
+   "done": 1
+  },
+  "growth.distribution": {
+   "done": 1
+  },
+  "growth.journey": {
+   "done": 1
+  },
+  "growth.steer": {
+   "pending": 1
+  },
+  "growth.conclude": {
+   "done": 1
+  },
+  "ops.thrash": {
+   "done": 1
+  },
+  "seasonal.engine": {
+   "done": 1
+  },
+  "swarm.review": {
+   "pending": 1
+  },
+  "swarm.allocate": {
+   "pending": 1
+  },
+  "swarm.orphans": {
+   "pending": 1
+  },
+  "swarm.backlog": {
+   "pending": 1
+  },
+  "growth.preproduction": {
+   "done": 1
+  },
+  "growth.experiments": {
+   "done": 1
+  },
+  "creative.blind_review": {
+   "done": 1
+  },
+  "creative.grid_tournament": {
+   "done": 1
+  },
+  "intel.acceptance": {
+   "done": 1
+  },
+  "ops.provenance_backfill": {
+   "pending": 1
+  },
+  "finance.escalation_check": {
+   "done": 1
+  },
+  "chain.rebuild": {
+   "done": 1
+  },
+  "launch.readiness": {
+   "done": 1
+  },
+  "ops.maturity_disagreements": {
+   "done": 1
+  },
+  "model.probe": {
+   "done": 1
+  },
+  "ops.continuity": {
+   "pending": 1
+  },
+  "ops.offsite_archive": {
+   "pending": 1
+  },
+  "creative.image_benchmark": {
+   "done": 1
+  },
+  "creative.model_tournament": {
+   "done": 1
+  },
+  "creative.model_reference_pack": {
+   "done": 1
+  },
+  "assets.owned_photography": {
+   "done": 1
+  },
+  "assets.model_photography": {
+   "done": 1
+  },
+  "seasonal.sentinel": {
+   "done": 1
+  },
+  "etsy.probe": {
+   "done": 1
+  },
+  "mjs.scan": {
+   "done": 1
+  },
+  "intel.serp_capture": {
+   "done": 1
+  },
+  "intel.benchmark_health": {
+   "done": 1
+  },
+  "intel.pod_learning": {
+   "done": 1
+  },
+  "mjs.seasonal_sentinel": {
+   "done": 1
+  },
+  "intel.panel_discovery": {
+   "done": 1
+  },
+  "intel.benchmark_refresh": {
+   "done": 1
+  },
+  "physical.upgrade_impact": {
+   "done": 1
+  },
+  "visual.identity_drift": {
+   "done": 1
+  },
+  "creative.benchmark_memory": {
+   "done": 1
+  },
+  "creative.reference_reading": {
+   "done": 1
+  },
+  "mjs.reviews": {
+   "done": 1
+  },
+  "improve.retrospective": {
+   "done": 1
+  },
+  "ops.policy_watch": {
+   "done": 1
+  },
+  "build.tick": {
+   "pending": 1
+  },
+  "creative.blinded": {
+   "done": 1
+  },
+  "creative.expedition": {
+   "done": 1
+  },
+  "creative.tournament": {
+   "done": 1
+  },
+  "seasonal.remerchandising": {
+   "done": 1
+  },
+  "seasonal.cycle_proof": {
+   "done": 1
+  },
+  "ops.capacity": {
+   "pending": 1
+  },
+  "ops.sentinel": {
+   "done": 1
+  },
+  "ops.health": {
+   "done": 1
+  },
+  "ops.capability_probes": {
+   "done": 1
+  },
+  "culture.sweep": {
+   "done": 1
+  },
+  "intel.gallery_analysis": {
+   "done": 1
+  },
+  "ops.retention": {
+   "pending": 1
+  },
+  "ops.dependencies": {
+   "pending": 1
+  },
+  "improve.replay": {
+   "done": 1
+  },
+  "teardown.enforce": {
+   "done": 1
+  },
+  "etsy.credential_health": {
+   "done": 1
+  },
+  "etsy.shop_snapshot": {
+   "done": 1
+  },
+  "etsy.listing_census": {
+   "done": 1
+  },
+  "autonomy.orchestrate": {
+   "done": 1
+  },
+  "laura.executive_tick": {
+   "done": 3
+  },
+  "listing.outcomes": {
+   "done": 1
+  },
+  "visual.rnd.cycle": {
+   "running": 1
+  },
+  "finance.accounting.period_pack": {
+   "pending": 1
+  },
+  "ops.slo": {
+   "done": 1
+  },
+  "seo.cycle": {
+   "pending": 1
+  },
+  "finance.accounting.cycle": {
+   "pending": 1
+  },
+  "marketing.ads_readiness": {
+   "pending": 1
+  },
+  "improve.role_work": {
+   "pending": 8
+  },
+  "collection.assemble": {
+   "done": 3
+  },
+  "finance.challenge": {
+   "done": 1
+  },
+  "radar.score": {
+   "done": 11
+  },
+  "cir.draft": {
+   "done": 11
+  },
+  "cir.compile": {
+   "done": 12
+  },
+  "gate.certify": {
+   "done": 12
+  },
+  "listing.draft": {
+   "done": 10
+  },
+  "assets.build": {
+   "done": 10
+  },
+  "pricing.position": {
+   "done": 10
+  },
+  "listing.seo": {
+   "done": 11
+  },
+  "launch.plan": {
+   "done": 11
+  },
+  "marketing.schedule": {
+   "done": 10
+  },
+  "store.publish": {
+   "dead": 10
+  },
+  "autonomy.department_review": {
+   "done": 1
+  }
+ },
+ "orchestrator_runs": [
+  {
+   "id": 95,
+   "status": "done",
+   "wake": "executive_orchestrator",
+   "enqueued": 1,
+   "states": {
+    "support": "GENERATED",
+    "product_truth": "BUSY",
+    "platform": "BUSY",
+    "finance": "BUSY",
+    "executive": "BUSY",
+    "learn": "BUSY",
+    "growth": "BUSY",
+    "intelligence": "BUSY",
+    "product_design": "BUSY",
+    "store_commerce": "BUSY",
+    "visual": "BUSY"
+   }
+  }
+ ],
+ "generated_by_orchestrator": {
+  "support": {
+   "jobs": [
+    {
+     "id": 228,
+     "job_type": "autonomy.department_review",
+     "status": "done",
+     "reason": "no other ready work; measure Customer Support KPIs and persist lessons (at most every 6 h)"
+    }
+   ],
+   "useful": 1
+  }
+ },
+ "missions": [
+  {
+   "id": 16,
+   "key": "autonomy:support:review:support:82930",
+   "kind": "mission",
+   "department": "support",
+   "subject": "autonomy.department_review: no other ready work; measure Customer Support KPIs and persist lessons (at most every 6 h)",
+   "state": "useful",
+   "body": {
+    "job_id": 228,
+    "job_type": "autonomy.department_review",
+    "agent": "coo",
+    "source": "review",
+    "value": 10,
+    "reason": "no other ready work; measure Customer Support KPIs and persist lessons (at most every 6 h)",
+    "evidence": [
+     "jobs:open for support=0"
+    ],
+    "created": "2026-10-06T16:54:44.620694+00:00",
+    "outcome": "useful",
+    "closed": "2026-10-06T16:55:10.298555+00:00",
+    "error": ""
+   },
+   "sources": [
+    "jobs:228",
+    "jobs:open for support=0"
+   ],
+   "created_at": "2026-10-06T16:54:44.620694+00:00",
+   "updated_at": "2026-10-06T16:55:10.298555+00:00"
+  }
+ ],
+ "kpi_snapshots": [
+  "kpi:support:autonomy:support:review:support:82930"
+ ],
+ "morning_briefs": [],
+ "dead_letters": [
+  {
+   "id": 216,
+   "job_type": "store.publish",
+   "class": "refused",
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 219,
+   "job_type": "store.publish",
+   "class": "refused",
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 224,
+   "job_type": "store.publish",
+   "class": "refused",
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 227,
+   "job_type": "store.publish",
+   "class": "refused",
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 231,
+   "job_type": "store.publish",
+   "class": "refused",
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 234,
+   "job_type": "store.publish",
+   "class": "refused",
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 237,
+   "job_type": "store.publish",
+   "class": "refused",
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 240,
+   "job_type": "store.publish",
+   "class": "refused",
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 243,
+   "job_type": "store.publish",
+   "class": "refused",
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 247,
+   "job_type": "store.publish",
+   "class": "refused",
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  }
+ ],
+ "protected_job_types_seen": {
+  "ads.adjust": {
+   "done": 1
+  },
+  "store.publish": {
+   "dead": 10
+  }
+ },
+ "protected_generated_by_orchestrator": [],
+ "owner_actions": 23,
+ "spend": {
+  "rows": 0,
+  "amount_cad": 0.0,
+  "basis": "no cost_entries rows"
+ },
+ "status_summary": {
+  "status": "OK",
+  "as_of": "2026-10-06T16:57:41.055905+00:00",
+  "basis": "measured",
+  "items": [
+   {
+    "department": "executive",
+    "name": "Executive / COO",
+    "status": "OK",
+    "orchestrator_state": "BUSY",
+    "open_jobs": 7,
+    "completed_24h": 20,
+    "useful_24h": 7,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T16:56:25.008626+00:00",
+    "next_wake": "2026-10-06T17:00:00+00:00",
+    "blockers": [],
+    "gates_unknown": false
+   },
+   {
+    "department": "intelligence",
+    "name": "Intelligence",
+    "status": "OK",
+    "orchestrator_state": "BUSY",
+    "open_jobs": 0,
+    "completed_24h": 26,
+    "useful_24h": 13,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T16:56:25.603056+00:00",
+    "next_wake": "2026-10-06T17:00:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "benchmark_observation",
+      "what": "read-only Etsy API credentials that can actually serve a request",
+      "effect": "gated capability parked; READY work continues"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "etsy_api",
+      "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "product_design",
+    "name": "Product & Design",
+    "status": "OK",
+    "orchestrator_state": "BUSY",
+    "open_jobs": 0,
+    "completed_24h": 29,
+    "useful_24h": 0,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T16:56:25.802765+00:00",
+    "next_wake": "2026-10-06T17:00:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "model_provider",
+      "what": "a model provider that can actually serve a request",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "product_truth",
+    "name": "Product Truth / QA",
+    "status": "OK",
+    "orchestrator_state": "BUSY",
+    "open_jobs": 1,
+    "completed_24h": 37,
+    "useful_24h": 22,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T16:56:25.654679+00:00",
+    "next_wake": "2026-10-06T17:00:00+00:00",
+    "blockers": [],
+    "gates_unknown": false
+   },
+   {
+    "department": "visual",
+    "name": "Visual",
+    "status": "OK",
+    "orchestrator_state": "BUSY",
+    "open_jobs": 1,
+    "completed_24h": 17,
+    "useful_24h": 10,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T16:56:25.875952+00:00",
+    "next_wake": "2026-10-06T17:00:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "image_generation",
+      "what": "an image-generation provider that conditions on reference images, because an identity lock is reference conditioning rather than a better prompt",
+      "effect": "gated capability parked; READY work continues"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "canonical_model",
+      "what": "the owner's approval of a canonical model identity, which is a decision rather than a capability -- no amount of rendering produces it",
+      "effect": "gated capability parked; READY work continues"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "image_vision",
+      "what": "a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "store_commerce",
+    "name": "Store / Commerce",
+    "status": "OK",
+    "orchestrator_state": "BUSY",
+    "open_jobs": 2,
+    "completed_24h": 38,
+    "useful_24h": 32,
+    "dead_24h": 10,
+    "last_run": "2026-10-06T16:56:26.082418+00:00",
+    "next_wake": "2026-10-06T17:00:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "etsy_api",
+      "what": "Etsy API credentials, which are what lets this system read the shop's own seller data rather than a person reading it on a screen",
+      "effect": "gated capability parked; READY work continues"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "live_listings",
+      "what": "a listing that exists on the marketplace, which shadow mode forbids by design",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "support",
+    "name": "Customer Support",
+    "status": "OK",
+    "orchestrator_state": "GENERATED",
+    "open_jobs": 0,
+    "completed_24h": 2,
+    "useful_24h": 1,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T16:46:42.238305+00:00",
+    "next_wake": "2026-10-06T17:00:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "customers",
+      "what": "real orders, which only a buyer can create -- not an owner action, and the reason this gate is in the same table as the ones that are",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "finance",
+    "name": "Finance / Accounting",
+    "status": "OK",
+    "orchestrator_state": "BUSY",
+    "open_jobs": 2,
+    "completed_24h": 7,
+    "useful_24h": 1,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T16:56:24.838232+00:00",
+    "next_wake": "2026-10-06T17:00:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "transactions_r",
+      "what": "the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "growth",
+    "name": "Growth / Marketing",
+    "status": "OK",
+    "orchestrator_state": "BUSY",
+    "open_jobs": 2,
+    "completed_24h": 16,
+    "useful_24h": 10,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T16:56:25.240518+00:00",
+    "next_wake": "2026-10-06T17:00:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "ad_authority",
+      "what": "an approved advertising budget",
+      "effect": "gated capability parked; READY work continues"
+     },
+     {
+      "kind": "owner_gate",
+      "gate": "owned_surfaces",
+      "what": "a site or a Pinterest account this company can publish to, which only the owner can create",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   },
+   {
+    "department": "learn",
+    "name": "Learn / Improvement",
+    "status": "OK",
+    "orchestrator_state": "BUSY",
+    "open_jobs": 8,
+    "completed_24h": 10,
+    "useful_24h": 4,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T16:56:26.014222+00:00",
+    "next_wake": "2026-10-06T17:00:00+00:00",
+    "blockers": [],
+    "gates_unknown": false
+   },
+   {
+    "department": "platform",
+    "name": "Platform / Reliability",
+    "status": "OK",
+    "orchestrator_state": "BUSY",
+    "open_jobs": 4,
+    "completed_24h": 9,
+    "useful_24h": 2,
+    "dead_24h": 0,
+    "last_run": "2026-10-06T16:54:44.529866+00:00",
+    "next_wake": "2026-10-06T17:00:00+00:00",
+    "blockers": [
+     {
+      "kind": "owner_gate",
+      "gate": "offsite_storage",
+      "what": "an object-storage bucket and credential outside this provider, so a copy of the continuity archive survives losing the provider itself",
+      "effect": "gated capability parked; READY work continues"
+     }
+    ],
+    "gates_unknown": false
+   }
+  ],
+  "orchestrator": {
+   "last_tick": "2026-10-06T16:54:44.620694+00:00",
+   "stale": false,
+   "stale_after_minutes": 45,
+   "last_created": 1
+  },
+  "overnight": {
+   "missions_12h": 1,
+   "by_outcome": {
+    "queued": 0,
+    "useful": 1,
+    "noop": 0,
+    "failed": 0
+   },
+   "latest_brief": null
+  },
+  "timeline": [
+   {
+    "at": "2026-10-06T16:56:22.808129+00:00",
+    "kind": "approval.open",
+    "department": "",
+    "severity": "decision",
+    "summary": "Decide the weekly review's cell recommendations, each separately: retire product_creativity: no completed work in 21 days; preserve 1 lesson(s) [46] first | retire seo_search: no completed work in 21 days; preserve 0 lesson(s) first. Nothing has been disabled; declining keeps a cell running",
+    "refs": [
+     "owner_actions:23"
+    ],
+    "source": "owner_actions"
+   },
+   {
+    "at": "2026-10-06T16:56:22.806387+00:00",
+    "kind": "approval.open",
+    "department": "",
+    "severity": "decision",
+    "summary": "Decide each: stop cadence gate.lanes: its last 7 completed runs all reported doing nothing; run it less often until what it reads exists | stop cadence launch.plan: its last 7 completed runs all reported doing nothing; run it less often until what it reads exists | stop cadence listing.seo: its last",
+    "refs": [
+     "owner_actions:22"
+    ],
+    "source": "owner_actions"
+   },
+   {
+    "at": "2026-10-06T16:56:22.728316+00:00",
+    "kind": "approval.open",
+    "department": "",
+    "severity": "decision",
+    "summary": "Decide each: add incident_steward: 42 open incident work item(s) have no accountable owner that can act on them (#176), so a steward for incident work is missing",
+    "refs": [
+     "owner_actions:21"
+    ],
+    "source": "owner_actions"
+   },
+   {
+    "at": "2026-10-06T16:56:21.536529+00:00",
+    "kind": "job.dead",
+    "department": "",
+    "severity": "warn",
+    "summary": "store.publish dead",
+    "refs": [
+     "jobs:247"
+    ],
+    "source": "jobs"
+   },
+   {
+    "at": "2026-10-06T16:56:20.840434+00:00",
+    "kind": "job.dead",
+    "department": "",
+    "severity": "warn",
+    "summary": "store.publish dead",
+    "refs": [
+     "jobs:243"
+    ],
+    "source": "jobs"
+   },
+   {
+    "at": "2026-10-06T16:56:19.623811+00:00",
+    "kind": "job.dead",
+    "department": "",
+    "severity": "warn",
+    "summary": "store.publish dead",
+    "refs": [
+     "jobs:240"
+    ],
+    "source": "jobs"
+   },
+   {
+    "at": "2026-10-06T16:56:18.548624+00:00",
+    "kind": "job.dead",
+    "department": "",
+    "severity": "warn",
+    "summary": "store.publish dead",
+    "refs": [
+     "jobs:237"
+    ],
+    "source": "jobs"
+   },
+   {
+    "at": "2026-10-06T16:56:17.320721+00:00",
+    "kind": "job.dead",
+    "department": "",
+    "severity": "warn",
+    "summary": "store.publish dead",
+    "refs": [
+     "jobs:234"
+    ],
+    "source": "jobs"
+   },
+   {
+    "at": "2026-10-06T16:56:05.165405+00:00",
+    "kind": "job.dead",
+    "department": "",
+    "severity": "warn",
+    "summary": "store.publish dead",
+    "refs": [
+     "jobs:231"
+    ],
+    "source": "jobs"
+   },
+   {
+    "at": "2026-10-06T16:55:53.400463+00:00",
+    "kind": "job.dead",
+    "department": "",
+    "severity": "warn",
+    "summary": "store.publish dead",
+    "refs": [
+     "jobs:227"
+    ],
+    "source": "jobs"
+   },
+   {
+    "at": "2026-10-06T16:55:42.920998+00:00",
+    "kind": "job.dead",
+    "department": "",
+    "severity": "warn",
+    "summary": "store.publish dead",
+    "refs": [
+     "jobs:224"
+    ],
+    "source": "jobs"
+   },
+   {
+    "id": 11,
+    "key": "laura.priority.set:priority.set:laura:provider:ads:21f81a6da387415e",
+    "at": "2026-10-06T16:55:10.298555+00:00",
+    "kind": "laura.priority.set",
+    "department": "growth",
+    "actor": "laura",
+    "severity": "info",
+    "summary": "Laura priority.set: ads reads BLOCKED -- score 60: no listing passes every ads readiness gate",
+    "refs": [
+     "laura_memory:operational:decision/898d00b9221cc63ba3e2"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 10,
+    "key": "mission.useful:autonomy:support:review:support:82930",
+    "at": "2026-10-06T16:55:10.298555+00:00",
+    "kind": "mission.useful",
+    "department": "support",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "autonomy.department_review useful; output is evidence for product_truth, learn",
+    "refs": [
+     "jobs:228",
+     "company_memory:autonomy:support:review:support:82930"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "at": "2026-10-06T16:55:09.116390+00:00",
+    "kind": "job.dead",
+    "department": "",
+    "severity": "warn",
+    "summary": "store.publish dead",
+    "refs": [
+     "jobs:219"
+    ],
+    "source": "jobs"
+   },
+   {
+    "at": "2026-10-06T16:55:08.263275+00:00",
+    "kind": "job.dead",
+    "department": "",
+    "severity": "warn",
+    "summary": "store.publish dead",
+    "refs": [
+     "jobs:216"
+    ],
+    "source": "jobs"
+   },
+   {
+    "id": 9,
+    "key": "kpi:kpi:support:autonomy:support:review:support:82930",
+    "at": "2026-10-06T16:54:44.739679+00:00",
+    "kind": "kpi.measured",
+    "department": "support",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "Customer Support: useful_completions_24h=OK:0, defect_dead_letters_24h=OK:0, cadence_freshness=OK:1.0",
+    "refs": [
+     "company_memory:kpi:support:autonomy:support:review:support:82930"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 8,
+    "key": "mission.created:autonomy:support:review:support:82930",
+    "at": "2026-10-06T16:54:44.620694+00:00",
+    "kind": "mission.created",
+    "department": "support",
+    "actor": "coo",
+    "severity": "info",
+    "summary": "Customer Support: autonomy.department_review (review) -- no other ready work; measure Customer Support KPIs and persist lessons (at most every 6 h)",
+    "refs": [
+     "jobs:228",
+     "company_memory:autonomy:support:review:support:82930"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 7,
+    "key": "laura.priority.set:priority.set:laura:owner_decisions:open:8ede938774defc45",
+    "at": "2026-10-06T16:51:04.904757+00:00",
+    "kind": "laura.priority.set",
+    "department": "executive",
+    "actor": "laura",
+    "severity": "info",
+    "summary": "Laura priority.set: 20 owner decision(s) open -- score 50: only the owner can act on these; Laura keeps them visible and current",
+    "refs": [
+     "laura_memory:operational:decision/03bbbc45814526dad621"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "id": 6,
+    "key": "laura.priority.set:priority.set:laura:provider:learn:2c5ccb8bf64a5afb",
+    "at": "2026-10-06T16:51:04.904757+00:00",
+    "kind": "laura.priority.set",
+    "department": "learn",
+    "actor": "laura",
+    "severity": "info",
+    "summary": "Laura priority.set: learn reads DEGRADED -- score 60: 5 of 5 loops are UNMEASURED (not enough observed outcomes)",
+    "refs": [
+     "laura_memory:operational:decision/b23a1931a239083197d3"
+    ],
+    "source": "company_timeline"
+   },
+   {
+    "at": "2026-10-06T16:48:32.514462+00:00",
+    "kind": "job.done",
+    "department": "",
+    "severity": "info",
+    "summary": "gate.certify done",
+    "refs": [
+     "jobs:180"
+    ],
+    "source": "jobs"
+   }
+  ],
+  "sources": [
+   "jobs",
+   "company_memory",
+   "company_timeline",
+   "worker.CADENCES",
+   "build2.executor.gate_states"
+  ]
+ },
+ "timeline_head": [
+  {
+   "at": "2026-10-06T16:56:22.808129+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "Decide the weekly review's cell recommendations, each separately: retire product_creativity: no completed work in 21 days; preserve 1 lesson(s) [46] first | retire seo_search: no completed work in 21 days; preserve 0 lesson(s) first. Nothing has been disabled; declining keeps a cell running",
+   "refs": [
+    "owner_actions:23"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-06T16:56:22.806387+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "Decide each: stop cadence gate.lanes: its last 7 completed runs all reported doing nothing; run it less often until what it reads exists | stop cadence launch.plan: its last 7 completed runs all reported doing nothing; run it less often until what it reads exists | stop cadence listing.seo: its last",
+   "refs": [
+    "owner_actions:22"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-06T16:56:22.728316+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "Decide each: add incident_steward: 42 open incident work item(s) have no accountable owner that can act on them (#176), so a steward for incident work is missing",
+   "refs": [
+    "owner_actions:21"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-06T16:56:21.536529+00:00",
+   "kind": "job.dead",
+   "department": "",
+   "severity": "warn",
+   "summary": "store.publish dead",
+   "refs": [
+    "jobs:247"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-06T16:56:20.840434+00:00",
+   "kind": "job.dead",
+   "department": "",
+   "severity": "warn",
+   "summary": "store.publish dead",
+   "refs": [
+    "jobs:243"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-06T16:56:19.623811+00:00",
+   "kind": "job.dead",
+   "department": "",
+   "severity": "warn",
+   "summary": "store.publish dead",
+   "refs": [
+    "jobs:240"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-06T16:56:18.548624+00:00",
+   "kind": "job.dead",
+   "department": "",
+   "severity": "warn",
+   "summary": "store.publish dead",
+   "refs": [
+    "jobs:237"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-06T16:56:17.320721+00:00",
+   "kind": "job.dead",
+   "department": "",
+   "severity": "warn",
+   "summary": "store.publish dead",
+   "refs": [
+    "jobs:234"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-06T16:56:05.165405+00:00",
+   "kind": "job.dead",
+   "department": "",
+   "severity": "warn",
+   "summary": "store.publish dead",
+   "refs": [
+    "jobs:231"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-06T16:55:53.400463+00:00",
+   "kind": "job.dead",
+   "department": "",
+   "severity": "warn",
+   "summary": "store.publish dead",
+   "refs": [
+    "jobs:227"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-06T16:55:42.920998+00:00",
+   "kind": "job.dead",
+   "department": "",
+   "severity": "warn",
+   "summary": "store.publish dead",
+   "refs": [
+    "jobs:224"
+   ],
+   "source": "jobs"
+  },
+  {
+   "id": 11,
+   "key": "laura.priority.set:priority.set:laura:provider:ads:21f81a6da387415e",
+   "at": "2026-10-06T16:55:10.298555+00:00",
+   "kind": "laura.priority.set",
+   "department": "growth",
+   "actor": "laura",
+   "severity": "info",
+   "summary": "Laura priority.set: ads reads BLOCKED -- score 60: no listing passes every ads readiness gate",
+   "refs": [
+    "laura_memory:operational:decision/898d00b9221cc63ba3e2"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 10,
+   "key": "mission.useful:autonomy:support:review:support:82930",
+   "at": "2026-10-06T16:55:10.298555+00:00",
+   "kind": "mission.useful",
+   "department": "support",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "autonomy.department_review useful; output is evidence for product_truth, learn",
+   "refs": [
+    "jobs:228",
+    "company_memory:autonomy:support:review:support:82930"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "at": "2026-10-06T16:55:09.116390+00:00",
+   "kind": "job.dead",
+   "department": "",
+   "severity": "warn",
+   "summary": "store.publish dead",
+   "refs": [
+    "jobs:219"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-06T16:55:08.263275+00:00",
+   "kind": "job.dead",
+   "department": "",
+   "severity": "warn",
+   "summary": "store.publish dead",
+   "refs": [
+    "jobs:216"
+   ],
+   "source": "jobs"
+  },
+  {
+   "id": 9,
+   "key": "kpi:kpi:support:autonomy:support:review:support:82930",
+   "at": "2026-10-06T16:54:44.739679+00:00",
+   "kind": "kpi.measured",
+   "department": "support",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "Customer Support: useful_completions_24h=OK:0, defect_dead_letters_24h=OK:0, cadence_freshness=OK:1.0",
+   "refs": [
+    "company_memory:kpi:support:autonomy:support:review:support:82930"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 8,
+   "key": "mission.created:autonomy:support:review:support:82930",
+   "at": "2026-10-06T16:54:44.620694+00:00",
+   "kind": "mission.created",
+   "department": "support",
+   "actor": "coo",
+   "severity": "info",
+   "summary": "Customer Support: autonomy.department_review (review) -- no other ready work; measure Customer Support KPIs and persist lessons (at most every 6 h)",
+   "refs": [
+    "jobs:228",
+    "company_memory:autonomy:support:review:support:82930"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 7,
+   "key": "laura.priority.set:priority.set:laura:owner_decisions:open:8ede938774defc45",
+   "at": "2026-10-06T16:51:04.904757+00:00",
+   "kind": "laura.priority.set",
+   "department": "executive",
+   "actor": "laura",
+   "severity": "info",
+   "summary": "Laura priority.set: 20 owner decision(s) open -- score 50: only the owner can act on these; Laura keeps them visible and current",
+   "refs": [
+    "laura_memory:operational:decision/03bbbc45814526dad621"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "id": 6,
+   "key": "laura.priority.set:priority.set:laura:provider:learn:2c5ccb8bf64a5afb",
+   "at": "2026-10-06T16:51:04.904757+00:00",
+   "kind": "laura.priority.set",
+   "department": "learn",
+   "actor": "laura",
+   "severity": "info",
+   "summary": "Laura priority.set: learn reads DEGRADED -- score 60: 5 of 5 loops are UNMEASURED (not enough observed outcomes)",
+   "refs": [
+    "laura_memory:operational:decision/b23a1931a239083197d3"
+   ],
+   "source": "company_timeline"
+  },
+  {
+   "at": "2026-10-06T16:48:32.514462+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "gate.certify done",
+   "refs": [
+    "jobs:180"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-06T16:48:31.883536+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "gate.certify done",
+   "refs": [
+    "jobs:175"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-06T16:48:31.142409+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "gate.certify done",
+   "refs": [
+    "jobs:171"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-06T16:48:30.849329+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "gate.certify done",
+   "refs": [
+    "jobs:169"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-06T16:48:30.103941+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "gate.certify done",
+   "refs": [
+    "jobs:165"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-06T16:48:29.661500+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "gate.certify done",
+   "refs": [
+    "jobs:162"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-06T16:48:29.213217+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "gate.certify done",
+   "refs": [
+    "jobs:159"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-06T16:48:28.728688+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "gate.certify done",
+   "refs": [
+    "jobs:153"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-06T16:48:28.025615+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "gate.certify done",
+   "refs": [
+    "jobs:149"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-06T16:48:27.730294+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "gate.certify done",
+   "refs": [
+    "jobs:147"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-06T16:48:27.271559+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "gate.certify done",
+   "refs": [
+    "jobs:143"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-06T16:48:26.720245+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "gate.certify done",
+   "refs": [
+    "jobs:138"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-06T16:48:09.138238+00:00",
+   "kind": "job.done",
+   "department": "",
+   "severity": "info",
+   "summary": "finance.reconcile done",
+   "refs": [
+    "jobs:7"
+   ],
+   "source": "jobs"
+  },
+  {
+   "at": "2026-10-06T16:48:08.822526+00:00",
+   "kind": "incident",
+   "department": "",
+   "severity": "P3",
+   "summary": "creative_assets for Christmas 2026 (MEDIUM) should have started 4 days ago and nothing shows it has (assets.built/assets.listing_images_built). photography and thumbnails take longer than anybody plans for A product ready on its launch date is late: indexing is not instant, and a listing nobody can ",
+   "refs": [
+    "incidents:42"
+   ],
+   "source": "incidents"
+  },
+  {
+   "at": "2026-10-06T16:48:08.821601+00:00",
+   "kind": "incident",
+   "department": "",
+   "severity": "P3",
+   "summary": "search_language for Christmas 2026 (MEDIUM) should have started 11 days ago and nothing shows it has (mjs.scanned/culture.sweep/learning.ingested). map buyer language before the copy is written, or the copy is written in ours A product ready on its launch date is late: indexing is not instant, and a",
+   "refs": [
+    "incidents:41"
+   ],
+   "source": "incidents"
+  },
+  {
+   "at": "2026-10-06T16:48:08.739836+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "Download the first monthly statement once one exists and give the finance department its fee lines and totals.",
+   "refs": [
+    "owner_actions:18"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-06T16:48:08.739836+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "Confirm Etsy message notifications reach an inbox you read daily (Shop Manager > Settings > Emails), and agree a reply window. Nothing in this system will ever see a buyer message.",
+   "refs": [
+    "owner_actions:19"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-06T16:48:08.739836+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "In the Developer Portal's Webhook portal, add an endpoint for order.paid pointing at this service's callback, and give this system the signing secret through the environment -- never through this repository.",
+   "refs": [
+    "owner_actions:20"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-06T16:48:08.739835+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "After the first listings go live, open Shop Manager > Policy Violations and confirm it is empty; check it again whenever the listing census alarm fires.",
+   "refs": [
+    "owner_actions:16"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-06T16:48:08.739835+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "Re-authorise the Brambleloop app in a browser with transactions_r added to the scope set (listings_r listings_w listings_d shops_r shops_w transactions_r). Start the flow at /api/etsy/oauth/start as before.",
+   "refs": [
+    "owner_actions:17"
+   ],
+   "source": "owner_actions"
+  },
+  {
+   "at": "2026-10-06T16:48:08.739834+00:00",
+   "kind": "approval.open",
+   "department": "",
+   "severity": "decision",
+   "summary": "Read this application's x-limit-per-second and x-limit-per-day from the Developer Portal and report both figures.",
+   "refs": [
+    "owner_actions:14"
+   ],
+   "source": "owner_actions"
+  }
+ ],
+ "laura": {
+  "identity": {
+   "status": "OK",
+   "as_of": "2026-10-06T16:47:36.866744",
+   "basis": "measured",
+   "items": [
+    {
+     "name": "Laura",
+     "role": "Founder/CEO",
+     "kind": "persistent AI person",
+     "visual_identity_id": "laura-r2-a42aeac7",
+     "public_identity": "Brambleloop's AI founder",
+     "identity_version": 2,
+     "identity_sha256": "20697b7c5c7547e4b3cef079c4a1b83066202d0b81a5132d27c94ed2bfe5e12a",
+     "rulings": [
+      "D-FB-11",
+      "D-FB-12",
+      "D-FB-13",
+      "D-FB-14"
+     ],
+     "authority_spend_ceiling_cad": 0.0,
+     "may_block_her": [
+      "finance",
+      "product_truth",
+      "security"
+     ]
+    }
+   ],
+   "sources": [
+    "laura_identity_versions:2",
+    "laura.core.identity.GENESIS",
+    "laura.core.identity.RECORDED_AMENDMENTS",
+    "visual.canonical"
+   ]
+  },
+  "coo_orchestrate_jobs": [
+   {
+    "id": 95,
+    "status": "done",
+    "created": "2026-10-06T16:46:41.625234",
+    "run_after": "2026-10-06T16:54:44.466892",
+    "started": "2026-10-06T16:54:44.538357",
+    "attempts": 1,
+    "error": ""
+   }
+  ],
+  "running_at_end": [
+   {
+    "id": 98,
+    "job_type": "visual.rnd.cycle",
+    "started": "2026-10-06T16:56:26.092014"
+   }
+  ],
+  "ticks": [
+   {
+    "job_id": 96,
+    "status": "done",
+    "trigger": "laura_executive",
+    "finished": "2026-10-06T16:47:38.958190",
+    "work_done": 5,
+    "verdict": "useful",
+    "decisions_by_kind": {
+     "priority.set": 5
+    },
+    "delegated": 0,
+    "reviewed": 0,
+    "idle": false,
+    "error": ""
+   },
+   {
+    "job_id": 196,
+    "status": "done",
+    "trigger": "laura_executive",
+    "finished": "2026-10-06T16:51:05.489151",
+    "work_done": 2,
+    "verdict": "useful",
+    "decisions_by_kind": {
+     "priority.set": 2
+    },
+    "delegated": 0,
+    "reviewed": 0,
+    "idle": false,
+    "error": ""
+   },
+   {
+    "job_id": 244,
+    "status": "done",
+    "trigger": "laura_executive",
+    "finished": "2026-10-06T16:55:12.054068",
+    "work_done": 1,
+    "verdict": "useful",
+    "decisions_by_kind": {
+     "priority.set": 1
+    },
+    "delegated": 0,
+    "reviewed": 0,
+    "idle": false,
+    "error": ""
+   }
+  ],
+  "ticks_total": 3,
+  "ticks_useful": 3,
+  "ticks_noop": 0,
+  "ticks_failed_or_open": 0,
+  "decisions_by_kind": {
+   "priority.set": 8
+  },
+  "delegation_review_outcomes": {
+   "useful": 0,
+   "noop": 0,
+   "failed": 0
+  },
+  "open_priorities": [
+   {
+    "key": "laura:owner_decisions:open",
+    "rule": "owner_decisions",
+    "department": "executive",
+    "title": "20 owner decision(s) open",
+    "reason": "only the owner can act on these; Laura keeps them visible and current",
+    "evidence": [
+     "owner_actions:20",
+     "owner_actions:19",
+     "owner_actions:18",
+     "owner_actions:17",
+     "owner_actions:16"
+    ],
+    "score": 50.0,
+    "status": "awaiting_owner",
+    "job_type": "",
+    "mission_key": "",
+    "constitution": {},
+    "closed_reason": "",
+    "created_at": "2026-10-06T16:51:04.904757+00:00",
+    "updated_at": "2026-10-06T16:55:10.298555+00:00"
+   },
+   {
+    "key": "laura:provider:visual_rnd",
+    "rule": "provider",
+    "department": "visual",
+    "title": "visual_rnd reads UNKNOWN",
+    "reason": "no image has been judged and no experiment run yet",
+    "evidence": [
+     "brambleloop.visual.rnd.status.summary:UNKNOWN"
+    ],
+    "score": 35.0,
+    "status": "in_progress",
+    "job_type": "visual.rnd.cycle",
+    "mission_key": "",
+    "constitution": {},
+    "closed_reason": "",
+    "created_at": "2026-10-06T16:47:36.836077+00:00",
+    "updated_at": "2026-10-06T16:55:10.298555+00:00"
+   },
+   {
+    "key": "laura:provider:seo",
+    "rule": "provider",
+    "department": "store_commerce",
+    "title": "seo reads UNKNOWN",
+    "reason": "no SEO proposal exists yet: seo.jobs.run_cycle has not produced one",
+    "evidence": [
+     "brambleloop.seo.status.summary:UNKNOWN"
+    ],
+    "score": 35.0,
+    "status": "in_progress",
+    "job_type": "seo.cycle",
+    "mission_key": "",
+    "constitution": {},
+    "closed_reason": "",
+    "created_at": "2026-10-06T16:47:36.836077+00:00",
+    "updated_at": "2026-10-06T16:55:10.298555+00:00"
+   },
+   {
+    "key": "laura:provider:learn",
+    "rule": "provider",
+    "department": "learn",
+    "title": "learn reads DEGRADED",
+    "reason": "5 of 5 loops are UNMEASURED (not enough observed outcomes)",
+    "evidence": [
+     "brambleloop.learn.improvement_status.summary:DEGRADED"
+    ],
+    "score": 60.0,
+    "status": "in_progress",
+    "job_type": "improve.measure",
+    "mission_key": "",
+    "constitution": {},
+    "closed_reason": "",
+    "created_at": "2026-10-06T16:47:36.836077+00:00",
+    "updated_at": "2026-10-06T16:55:10.298555+00:00"
+   },
+   {
+    "key": "laura:provider:finance",
+    "rule": "provider",
+    "department": "finance",
+    "title": "finance reads UNKNOWN",
+    "reason": "revenue is UNKNOWN: the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not ",
+    "evidence": [
+     "brambleloop.finance.accounting.dashboard.summary:UNKNOWN"
+    ],
+    "score": 35.0,
+    "status": "in_progress",
+    "job_type": "finance.accounting.cycle",
+    "mission_key": "",
+    "constitution": {},
+    "closed_reason": "",
+    "created_at": "2026-10-06T16:47:36.836077+00:00",
+    "updated_at": "2026-10-06T16:55:10.298555+00:00"
+   },
+   {
+    "key": "laura:provider:ads",
+    "rule": "provider",
+    "department": "growth",
+    "title": "ads reads BLOCKED",
+    "reason": "no listing passes every ads readiness gate",
+    "evidence": [
+     "brambleloop.growth.ads_readiness.summary:BLOCKED"
+    ],
+    "score": 60.0,
+    "status": "in_progress",
+    "job_type": "marketing.ads_readiness",
+    "mission_key": "",
+    "constitution": {},
+    "closed_reason": "",
+    "created_at": "2026-10-06T16:47:36.836077+00:00",
+    "updated_at": "2026-10-06T16:55:10.298555+00:00"
+   }
+  ],
+  "recent_decisions": [
+   {
+    "key": "priority.set:laura:provider:ads:21f81a6da387415e",
+    "at": "2026-10-06T16:55:10.298555+00:00",
+    "kind": "priority.set",
+    "department": "growth",
+    "subject": "ads reads BLOCKED",
+    "reason": "score 60: no listing passes every ads readiness gate",
+    "evidence": [
+     "brambleloop.growth.ads_readiness.summary:BLOCKED"
+    ],
+    "refs": [],
+    "cognition": {
+     "engine": "deterministic",
+     "model": null,
+     "note": "the executive tick calls no model; a model, if configured, would only narrate (via the gateway, with spend recorded)"
+    },
+    "identity_sha256": "20697b7c5c7547e4b3cef079c4a1b83066202d0b81a5132d27c94ed2bfe5e12a",
+    "memory_ref": "laura_memory:operational:decision/898d00b9221cc63ba3e2"
+   },
+   {
+    "key": "priority.set:laura:owner_decisions:open:8ede938774defc45",
+    "at": "2026-10-06T16:51:04.904757+00:00",
+    "kind": "priority.set",
+    "department": "executive",
+    "subject": "20 owner decision(s) open",
+    "reason": "score 50: only the owner can act on these; Laura keeps them visible and current",
+    "evidence": [
+     "owner_actions:20",
+     "owner_actions:19",
+     "owner_actions:18",
+     "owner_actions:17",
+     "owner_actions:16"
+    ],
+    "refs": [],
+    "cognition": {
+     "engine": "deterministic",
+     "model": null,
+     "note": "the executive tick calls no model; a model, if configured, would only narrate (via the gateway, with spend recorded)"
+    },
+    "identity_sha256": "20697b7c5c7547e4b3cef079c4a1b83066202d0b81a5132d27c94ed2bfe5e12a",
+    "memory_ref": "laura_memory:operational:decision/03bbbc45814526dad621"
+   },
+   {
+    "key": "priority.set:laura:provider:learn:2c5ccb8bf64a5afb",
+    "at": "2026-10-06T16:51:04.904757+00:00",
+    "kind": "priority.set",
+    "department": "learn",
+    "subject": "learn reads DEGRADED",
+    "reason": "score 60: 5 of 5 loops are UNMEASURED (not enough observed outcomes)",
+    "evidence": [
+     "brambleloop.learn.improvement_status.summary:DEGRADED"
+    ],
+    "refs": [],
+    "cognition": {
+     "engine": "deterministic",
+     "model": null,
+     "note": "the executive tick calls no model; a model, if configured, would only narrate (via the gateway, with spend recorded)"
+    },
+    "identity_sha256": "20697b7c5c7547e4b3cef079c4a1b83066202d0b81a5132d27c94ed2bfe5e12a",
+    "memory_ref": "laura_memory:operational:decision/b23a1931a239083197d3"
+   },
+   {
+    "key": "priority.set:laura:provider:visual_rnd:fa3f25b3f982b217",
+    "at": "2026-10-06T16:47:36.836077+00:00",
+    "kind": "priority.set",
+    "department": "visual",
+    "subject": "visual_rnd reads UNKNOWN",
+    "reason": "score 35: no image has been judged and no experiment run yet",
+    "evidence": [
+     "brambleloop.visual.rnd.status.summary:UNKNOWN"
+    ],
+    "refs": [],
+    "cognition": {
+     "engine": "deterministic",
+     "model": null,
+     "note": "the executive tick calls no model; a model, if configured, would only narrate (via the gateway, with spend recorded)"
+    },
+    "identity_sha256": "20697b7c5c7547e4b3cef079c4a1b83066202d0b81a5132d27c94ed2bfe5e12a",
+    "memory_ref": "laura_memory:operational:decision/6357c6f5a084855fe337"
+   },
+   {
+    "key": "priority.set:laura:provider:seo:e0c53683b840d0cd",
+    "at": "2026-10-06T16:47:36.836077+00:00",
+    "kind": "priority.set",
+    "department": "store_commerce",
+    "subject": "seo reads UNKNOWN",
+    "reason": "score 35: no SEO proposal exists yet: seo.jobs.run_cycle has not produced one",
+    "evidence": [
+     "brambleloop.seo.status.summary:UNKNOWN"
+    ],
+    "refs": [],
+    "cognition": {
+     "engine": "deterministic",
+     "model": null,
+     "note": "the executive tick calls no model; a model, if configured, would only narrate (via the gateway, with spend recorded)"
+    },
+    "identity_sha256": "20697b7c5c7547e4b3cef079c4a1b83066202d0b81a5132d27c94ed2bfe5e12a",
+    "memory_ref": "laura_memory:operational:decision/5912efc3feac72c22708"
+   },
+   {
+    "key": "priority.set:laura:provider:learn:30d7091a256002f2",
+    "at": "2026-10-06T16:47:36.836077+00:00",
+    "kind": "priority.set",
+    "department": "learn",
+    "subject": "learn reads UNKNOWN",
+    "reason": "score 35: no policy-loop decision, outcome or proposal has been recorded yet; the loops are built and waiting for data",
+    "evidence": [
+     "brambleloop.learn.improvement_status.summary:UNKNOWN"
+    ],
+    "refs": [],
+    "cognition": {
+     "engine": "deterministic",
+     "model": null,
+     "note": "the executive tick calls no model; a model, if configured, would only narrate (via the gateway, with spend recorded)"
+    },
+    "identity_sha256": "20697b7c5c7547e4b3cef079c4a1b83066202d0b81a5132d27c94ed2bfe5e12a",
+    "memory_ref": "laura_memory:operational:decision/6ace1b25865dddc06d8a"
+   },
+   {
+    "key": "priority.set:laura:provider:finance:e9792c0c0e865c37",
+    "at": "2026-10-06T16:47:36.836077+00:00",
+    "kind": "priority.set",
+    "department": "finance",
+    "subject": "finance reads UNKNOWN",
+    "reason": "score 35: revenue is UNKNOWN: the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not ",
+    "evidence": [
+     "brambleloop.finance.accounting.dashboard.summary:UNKNOWN"
+    ],
+    "refs": [],
+    "cognition": {
+     "engine": "deterministic",
+     "model": null,
+     "note": "the executive tick calls no model; a model, if configured, would only narrate (via the gateway, with spend recorded)"
+    },
+    "identity_sha256": "20697b7c5c7547e4b3cef079c4a1b83066202d0b81a5132d27c94ed2bfe5e12a",
+    "memory_ref": "laura_memory:operational:decision/fc8f6413eb02d5861080"
+   },
+   {
+    "key": "priority.set:laura:provider:ads:3987e2c37471a357",
+    "at": "2026-10-06T16:47:36.836077+00:00",
+    "kind": "priority.set",
+    "department": "growth",
+    "subject": "ads reads UNKNOWN",
+    "reason": "score 35: no listings on file to read for ads readiness",
+    "evidence": [
+     "brambleloop.growth.ads_readiness.summary:UNKNOWN"
+    ],
+    "refs": [],
+    "cognition": {
+     "engine": "deterministic",
+     "model": null,
+     "note": "the executive tick calls no model; a model, if configured, would only narrate (via the gateway, with spend recorded)"
+    },
+    "identity_sha256": "20697b7c5c7547e4b3cef079c4a1b83066202d0b81a5132d27c94ed2bfe5e12a",
+    "memory_ref": "laura_memory:operational:decision/665fc580af4e0959af7c"
+   }
+  ],
+  "delegated_jobs": [],
+  "delegated_protected": [],
+  "delegated_outside_safe": []
+ }
+}

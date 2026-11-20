@@ -1,0 +1,1718 @@
+"""The Etsy publishing path (Master Plan sections 14, 26).
+
+This is the last mile: the only place in the system that could put a product in front of a
+customer. It is written now, deliberately, while it cannot do that -- no credentials exist in
+this environment and the phase forbids it -- because the alternative is writing the code that
+sends real listings to a real shop for the first time on the day it matters.
+
+Three refusals sit in front of any request, checked in this order, because the order is the
+argument:
+
+1. **Phase.** SHADOW and STAGING may not publish, whatever else is true. This is checked
+   first so that a misconfigured credential can never be the thing that stops us.
+2. **Owner authority.** Publishing is a RED action in the authority matrix: it needs the
+   owner's explicit grant, which is a separate fact from having a key.
+3. **Credentials.** Read from the environment, never from the repository, and absent here.
+
+What this module does *not* do is decide whether a listing is fit to publish. That is the
+release chain's job and it has already happened by the time anything reaches here: the
+certificate, Asset Truth, the policy gate and the thumbnail check are all upstream. This maps
+a listing we already trust onto Etsy's shape, and refuses to send anything it cannot map.
+
+The payload is shaped to Etsy's v3 draft-listing API as documented. The *limits* enforced
+here -- 140-character title, 13 tags of 20 characters, 13 materials -- are the ones the
+policy gate already enforces on our side, so a listing that reaches this point should never
+fail them; the check is here anyway, because "should never" is not a guarantee and a
+rejected listing at publish time is worse than a refusal now.
+
+## 2026-09-25: the transport gap, and what those three refusals were guarding
+
+An audit found that this client could create a draft and could not finish one. Three things
+were missing and two were launch blockers:
+
+- `uploadListingImage` was called nowhere in `src/`. Etsy will not activate a listing with no
+  image, so **every draft this system could create was permanently unactivatable** -- the shop
+  would have opened with zero live listings, and every upstream gate would have passed.
+- `updateListing` was called nowhere, so nothing could change a draft or publish one.
+- Requests were serialised as JSON. Etsy lists `application/x-www-form-urlencoded` as the
+  only media type for both write operations.
+
+All three are now built, and the single publish-or-refuse gate has become three authorities
+(`Authority`): READ creates nothing, DRAFT_WRITE touches only objects no buyer can see and no
+fee attaches to, and ACTIVATE -- which publishes and charges Etsy's listing fee -- needs the
+phase, the owner's grant *and* a Launch-0 authorisation passed to the call itself.
+
+**What has been exercised, as of 2026-09-25.** Reaching Etsy: yes, `http.probe_live()` and
+Etsy answers. Every write: no. There are no Etsy credentials in this environment, so the whole
+write path is exercised against a local server built from Etsy's document
+(`tests/fake_etsy.py`) and confirmed by nothing Etsy has said. `integrations/etsy_probe.py`
+is the sequence that would confirm it, and `research/ETSY_TRANSPORT.md` records exactly which
+claims are still only readings.
+"""
+from __future__ import annotations
+
+import logging
+import os
+import urllib.parse
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Protocol
+
+from ..core.resilience import PermanentError, TransientError, classify_http
+
+log = logging.getLogger("brambleloop.etsy")
+
+# Etsy's own limits, as published. These are not our preferences.
+# Evidence (read 2026-10-06, `integrations.etsy_constraints`): TITLE_MAX, TAGS_MAX and
+# TAG_CHARS_MAX are quoted from Etsy help articles 115015628707 and 360000336307.
+# MATERIALS_MAX and DESCRIPTION_MAX have NO Etsy source on file -- neither the Open API
+# document nor any help article states them -- so they are kept as this client's own caps and
+# reported as ETSY_PUBLISHES_NONE by `etsy_constraints.reconcile()`.
+TITLE_MAX = 140
+TAGS_MAX = 13
+TAG_CHARS_MAX = 20
+MATERIALS_MAX = 13
+DESCRIPTION_MAX = 102400
+
+# A digital pattern is an instant download with unlimited stock. Quantity is a required
+# field and Etsy's maximum is 999; for a file that is copied rather than consumed, any
+# number is arbitrary, so the maximum is the least misleading choice.
+DIGITAL_QUANTITY = 999
+
+# "Patterns" under Craft Supplies & Tools. Recorded as a constant with its name so that a
+# wrong taxonomy is a visible mistake rather than an unexplained integer.
+TAXONOMY_PATTERNS = 66   # craft_supplies_and_tools.patterns
+
+PHASES_THAT_MAY_PUBLISH = ("limited_production", "production")
+
+
+class EtsyNotConfigured(PermanentError):
+    """No credentials. Not an outage: there is nothing to connect to."""
+
+
+class EtsyNotPermitted(PermanentError):
+    """The phase or the owner's authority forbids publishing. Never retried."""
+
+
+class EtsyRejected(PermanentError):
+    """Etsy refused the listing. The payload is wrong and retrying sends the same payload."""
+
+
+class OwnerGrant:
+    """rc1-AUTH D3: the owner's grant, as the client itself requires it.
+
+    The sealed grant was enforced only at the pipeline call sites; `activate` accepted any
+    non-empty string and `publish` only the phase and the environment flag, so a new caller of
+    the client could bypass the grant. Now `activate` and `publish` require an `OwnerGrant`,
+    and the client calls `refusal()` immediately before the irreversible request. `refusal`
+    does not trust the object: it re-resolves, from the database, the effective runtime phase
+    (`core.phase.effective`: environment AND the owner's recorded, chained transition) and the
+    sealed, content-bound grant (`ops.activation_authority.validate` /
+    `ops.publication_authority.validate`). An id that names no valid grant refuses.
+    """
+
+    ACTIVATE = "store.activate"
+    PUBLISH = "store.publish"
+    # J-product P-5 follow-up: a publication grant also covers *completing* the draft it
+    # created (second file, listing properties, images) -- and only that draft. Asked for
+    # with this action name; never a grant action of its own.
+    PUBLISH_COMPLETE = "store.publish.complete"
+    # W4-AGENTS: the owner's grant for ONE storefront change (updateShop text fields or a shop
+    # section), sealed and content-bound in `ops.storefront_authority`. It covers exactly the
+    # change it was approved for -- the operation and the fields/values sent -- and nothing
+    # else; a listing publication or activation grant never covers a storefront write.
+    STOREFRONT = "store.update.storefront"
+    # WS4 Stage A part 2: take ONE standing-policy listing back down (`deactivate`). Deny-
+    # direction and bounded in `ops.standing_withdrawal` (SP lineage, a stopped policy, a rate,
+    # a before-state read-back); never a grant for any other request.
+    WITHDRAW = "store.withdraw"
+
+    def __init__(self, db: Any, *, action: str, approval_id: Any, slug: str = "",
+                 version: str = "", release: str = "", listing_id: str = "",
+                 change: dict | None = None, job_id: int | None = None) -> None:
+        if action not in (self.ACTIVATE, self.PUBLISH, self.STOREFRONT, self.WITHDRAW):
+            raise ValueError(f"unknown grant action {action!r}")
+        self.db, self.action, self.approval_id = db, action, approval_id
+        # WS4 Stage A: a standing activation grant ("seg:<id>") is single use and bound to
+        # the job that consumed it, so the job is part of what is checked.
+        self.job_id = job_id
+        self.slug, self.version, self.release = slug, version, release
+        self.listing_id = str(listing_id or "")
+        self.change = dict(change) if isinstance(change, dict) else None
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return (f"OwnerGrant({self.action} {self.slug}@{self.version} "
+                f"approval={self.approval_id})")
+
+    def refusal(self, *, action: str, listing_id: str = "",
+                change: dict | None = None, remote: dict | None = None) -> str | None:
+        """Why this grant does not authorise `action` now, or None. Fails closed.
+
+        For STOREFRONT, `change` is the exact change about to be sent (operation + fields);
+        the sealed grant must have been approved for that same change."""
+        try:
+            if action == self.PUBLISH_COMPLETE and self.action == self.PUBLISH:
+                return self._completion_refusal(str(listing_id or ""))
+            if action != self.action:
+                return f"owner grant is for {self.action}, not {action}"
+            if self.db is None:
+                return "owner grant has no database to be verified against"
+            if action == self.WITHDRAW:
+                # Deny-direction: not gated on a publishing phase, because a withdrawal is
+                # most wanted right after the owner rolls the phase back.
+                if not self.listing_id or str(listing_id) != self.listing_id:
+                    return "withdrawal grant names another listing"
+                from ..ops import standing_withdrawal
+
+                return standing_withdrawal.withdraw_refusal(self.db, self.listing_id,
+                                                            remote=remote)
+            from ..core.phase import effective
+
+            live = effective(self.db)
+            if live not in PHASES_THAT_MAY_PUBLISH:
+                return (f"the effective runtime phase is {live!r} (environment and the "
+                        f"owner's recorded phase); it does not permit {action}")
+            if action == self.STOREFRONT:
+                if not isinstance(change, dict) or not change:
+                    return "a storefront grant is checked against the exact change sent"
+                if self.change is not None and self.change != change:
+                    return "owner storefront grant was approved for a different change"
+                from ..ops import storefront_authority
+
+                return storefront_authority.validate(self.db, self.approval_id, change=change)
+            if action == self.ACTIVATE:
+                if not self.listing_id or str(listing_id) != self.listing_id:
+                    return "owner activation grant names another listing"
+                from ..ops import standing_activation
+
+                if str(self.approval_id or "").startswith(standing_activation.SEG_PREFIX):
+                    return standing_activation.use_refusal(
+                        self.db, self.approval_id, slug=self.slug, version=self.version,
+                        listing_id=self.listing_id, release=self.release,
+                        job_id=self.job_id, remote=remote)
+                from ..ops import activation_authority
+
+                return activation_authority.validate(
+                    self.db, self.approval_id, slug=self.slug, version=self.version,
+                    listing_id=self.listing_id, release=self.release)
+            from ..ops import publication_authority
+
+            return publication_authority.validate(
+                self.db, self.approval_id, slug=self.slug, version=self.version,
+                release=self.release)
+        except Exception as exc:  # noqa: BLE001 - an unverifiable grant is no grant
+            return f"owner grant could not be verified: {type(exc).__name__}: {str(exc)[:200]}"
+
+
+def _completion_refusal(self, listing_id: str) -> str | None:
+    """May this publication grant complete the draft `listing_id`? Fails closed.
+
+    Re-resolved from the database at every call: the effective phase permits publication;
+    the global kill-switch is on; the listing row for this grant's slug@version is bound to
+    the grant's certified release AND records `listing_id` as the Etsy draft this publication
+    created (the `on_created` checkpoint); and the sealed grant itself is the owner's,
+    unrevoked (chained ledger), unexpired, sealed, and for this release. The content digest is
+    not re-checked here because the grant's snapshot is, by design, of the pre-creation state;
+    the binding to this exact listing id is what stops it reaching any other listing.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog, Listing
+    from ..core.phase import effective
+    from ..ops import publication_authority as pa
+
+    if self.db is None:
+        return "owner grant has no database to be verified against"
+    if not listing_id:
+        return "completing a draft needs the listing id the publication created"
+    live = effective(self.db)
+    if live not in PHASES_THAT_MAY_PUBLISH:
+        return (f"the effective runtime phase is {live!r} (environment and the owner's "
+                f"recorded phase); it does not permit {self.PUBLISH_COMPLETE}")
+    killed = pa.kill_switch_refusal()
+    if killed is not None:
+        return killed
+    with self.db.session() as s:
+        listing = s.scalar(select(Listing).where(Listing.product_slug == self.slug,
+                                                 Listing.version == self.version))
+        if listing is None or not self.release or listing.release_hash != self.release:
+            return "no drafted listing bound to this grant's certified release"
+        if str(listing.etsy_listing_id or "") != listing_id:
+            return (f"listing {listing_id} is not the draft this publication created; a "
+                    f"publication grant completes only its own draft")
+    if self.approval_id is not None:
+        try:
+            idents = [int(self.approval_id)]
+        except (TypeError, ValueError):
+            return "recorded owner publication grant required"
+    else:
+        # As `publication_authority.resolve`: the newest grant for slug@version valid now.
+        with self.db.session() as s:
+            idents = list(s.scalars(select(AuditLog.id).where(
+                AuditLog.action == pa.APPROVED,
+                AuditLog.artifact == f"{self.slug}@{self.version}")
+                .order_by(AuditLog.id.desc())))
+        if not idents:
+            return "recorded owner publication grant required"
+    first = None
+    for ident in idents:
+        why = _completion_grant_row_refusal(self, pa, ident)
+        if why is None:
+            return None
+        first = first or why
+    return first
+
+
+def _completion_grant_row_refusal(self, pa, ident: int) -> str | None:
+    """`publication_authority._check_one` without the pre-creation content digest."""
+    from datetime import datetime
+
+    from ..core.models import AuditLog
+
+    with self.db.session() as s:
+        row = s.get(AuditLog, ident)
+        if row is None or row.action != pa.APPROVED or row.actor != pa.PRINCIPAL:
+            return "recorded owner publication grant required"
+        if row.artifact != f"{self.slug}@{self.version}":
+            return "owner publication grant is for another product or version"
+        detail = dict(row.detail or {})
+    chained = pa.LEDGER.refusal(self.db, ident)
+    if chained is not None:
+        return f"owner publication grant refused: {chained}"
+    seal = detail.pop("seal", "")
+    # Review 6817118202 F1: VERIFY with the public key -- never re-sign (the worker holds no
+    # signing key, and re-signing is what let a verifier mint). F2: the signed event must be
+    # the row's own action.
+    from ..core import owner_grant_keys
+
+    if detail.get("event") != pa.APPROVED:
+        return "owner publication grant row's signed event is not an approval"
+    if owner_grant_keys.legacy_hmac_seal(seal):
+        return ("owner publication grant was sealed under the retired ops-token HMAC "
+                "(pre-WS4-0); the owner records a new grant")
+    try:
+        if not pa._verify(detail, seal):
+            return "owner publication grant invalid or signing key rotated"
+    except ValueError as exc:
+        return f"owner publication grant cannot be verified: {exc}"
+    now = pa._now()
+    try:
+        if not (datetime.fromisoformat(detail["approved_at"]) <= now
+                < datetime.fromisoformat(detail["expires_at"])):
+            return "owner publication grant expired or future-dated"
+    except (KeyError, TypeError, ValueError):
+        return "owner publication grant invalid"
+    if (detail.get("action") != pa.ACTION or detail.get("scope") != f"{self.slug}@{self.version}"
+            or detail.get("release") != self.release):
+        return "owner publication grant does not cover this release"
+    return None
+
+
+OwnerGrant._completion_refusal = _completion_refusal  # type: ignore[attr-defined]
+
+
+def _grant_refusal(grant: Any, *, action: str, listing_id: str = "",
+                   remote: dict | None = None) -> str | None:
+    if not isinstance(grant, OwnerGrant):
+        return (f"{action} needs a validated owner grant (OwnerGrant) on the call itself; a "
+                f"credential, a phase and an environment flag are not the owner's grant")
+    if remote is not None:
+        return grant.refusal(action=action, listing_id=listing_id, remote=remote)
+    return grant.refusal(action=action, listing_id=listing_id)
+
+
+def _persisting_on_refresh(db: Any, env: dict[str, str], current_token: str | None = None):
+    """The `TokenProvider.on_refresh` hook, wired to the sealed credential store.
+
+    Etsy spends the refresh token on every refresh and issues a new one, so this callback is
+    not bookkeeping: it is the difference between a system that keeps working and one that
+    needs the owner's browser after the next container replacement.
+
+    **Compare-and-set, and what happens when it loses.** The closure remembers which token it
+    believes is stored and names it on every write, so two workers refreshing at the same
+    moment cannot leave the row holding a token Etsy has already invalidated. The loser does
+    not raise: it is holding a brand-new access token that works for the next hour, and
+    turning a successful refresh into a failed Etsy call would be a worse answer than a log
+    line. What it does instead is stop claiming to own the stored value -- the next write
+    from this process adopts whatever is there rather than fighting over it.
+
+    Nothing in this function logs a token. The fingerprints are the same eight hex characters
+    every other report in this system uses for the same value.
+    """
+    from ..core import oauth_store, sealed
+
+    state = {"expected": sealed.fingerprint(current_token) if current_token else None}
+
+    def on_refresh(tokens) -> None:
+        try:
+            result = oauth_store.save_refresh_token(
+                db, tokens.refresh_token, scopes=" ".join(tokens.scopes),
+                source="refresh grant", expected_fingerprint=state["expected"], env=env)
+            state["expected"] = sealed.fingerprint(tokens.refresh_token)
+            log.info("etsy refresh token rotated to %s (rotation %s)",
+                     result["token_fingerprint"], result["rotations"])
+        except oauth_store.CredentialConflict:
+            state["expected"] = None
+            log.warning(
+                "etsy refresh token was rotated by another worker first; this process kept "
+                "its access token and did not overwrite the stored credential")
+        except Exception as exc:  # noqa: BLE001 - a storage failure must not kill the call
+            state["expected"] = None
+            log.warning("etsy refresh token could not be stored (%s); it will have to be "
+                        "granted again after the next restart", type(exc).__name__)
+
+    return on_refresh
+
+
+@dataclass(frozen=True)
+class Credentials:
+    """Read from the environment. Never stored in this repository (CLAUDE.md).
+
+    `token_provider`, when present, owns the access token: it refreshes it when it is about
+    to expire and refuses an operation whose scope Etsy did not grant. `access_token` then
+    becomes a fallback for the case where a human pasted one and no app is registered. A
+    static token is valid for one hour (Etsy's own figure), so the fallback is a way to fail
+    on day two rather than a way to run.
+    """
+
+    api_key: str
+    access_token: str
+    shop_id: str
+    shared_secret: str = ""
+    token_provider: Any = None
+
+    @staticmethod
+    def from_env(env: dict[str, str] | None = None,
+                 transport: Any = None, db: Any = None,
+                 require_shop: bool = True) -> "Credentials | None":
+        """Build credentials, preferring a refreshing token provider over a static token.
+
+        Accepts `ETSY_KEYSTRING` as well as `ETSY_API_KEY` because two documents in this
+        repository named the same value differently, and a name mismatch that presents as
+        "no credentials" is the most expensive kind of typo.
+
+        **`db` is what makes the refresh survive a restart.** Without it this function built a
+        `TokenProvider` with no `on_refresh` callback, which meant the rotated refresh token
+        Etsy returns on every refresh was read, used for an hour and then dropped: the system
+        worked until the container was replaced -- several times an hour on this platform --
+        and then presented `invalid_grant`, which looks exactly like a revoked app. With it,
+        the stored credential is preferred over `ETSY_REFRESH_TOKEN` and every rotation is
+        written back, sealed, under compare-and-set.
+
+        `ETSY_REFRESH_TOKEN` is still read, and is still how a token first arrives in a
+        deployment that has never completed the callback flow. The database wins when both
+        exist, because the environment variable is a snapshot of a chain that has since moved
+        on: an env var that was correct when it was pasted is a spent token an hour later.
+
+        **The shop id** (W4-ETSYSHOPID). `ETSY_SHOP_ID` wins when set. Otherwise, with `db`,
+        the shop bound from the owner's own grant (`integrations.etsy_shop_binding`, stored by
+        `oauth_store.save_shop_binding`) is used. `require_shop=False` returns credentials
+        with an empty `shop_id` instead of None -- only the binding resolver asks for that, to
+        make the two shop-less reads that find the shop.
+        """
+        e = env if env is not None else os.environ
+        key = (e.get("ETSY_KEYSTRING") or e.get("ETSY_API_KEY") or "").strip()
+        token = (e.get("ETSY_ACCESS_TOKEN") or "").strip()
+        shop = (e.get("ETSY_SHOP_ID") or "").strip()
+        secret = (e.get("ETSY_SHARED_SECRET") or "").strip()
+        refresh_token = (e.get("ETSY_REFRESH_TOKEN") or "").strip()
+
+        stored_token = None
+        on_refresh = None
+        if db is not None:
+            from ..core import oauth_store
+
+            stored_token = oauth_store.load_refresh_token(db, env=e)
+            if not shop:
+                from .etsy_shop_binding import bound_shop_id
+
+                shop = bound_shop_id(db)
+            # Only a token that came *from the store* may be named in a compare-and-set. One
+            # read out of the environment has no claim on the row, so its first write adopts
+            # whatever is there instead of asserting what it is replacing.
+            on_refresh = _persisting_on_refresh(db, e, current_token=stored_token)
+
+        provider = None
+        if key and (refresh_token or stored_token) and transport is not None:
+            from .etsy_oauth import TokenProvider, TokenSet
+
+            provider = TokenProvider.from_env(transport, e, on_refresh=on_refresh)
+            if provider is not None and stored_token:
+                current = provider.tokens
+                # Expiry 0.0 means "treat as already expired", which is what a stored refresh
+                # token with no live access token has to mean: one refresh at start-up rather
+                # than a call with a token of unknown age.
+                provider.tokens = TokenSet(
+                    access_token=current.access_token if current else token,
+                    refresh_token=stored_token,
+                    expires_at=current.expires_at if current else 0.0,
+                    # The scope Etsy granted is on the stored row; a provider that does not
+                    # know it refuses every scoped read as "missing" (TokenSet.missing_scopes).
+                    scopes=(current.scopes if current and current.scopes
+                            else oauth_store.stored_scopes(db)))
+
+        if not (key and (shop or not require_shop) and (token or provider is not None)):
+            return None
+        return Credentials(api_key=key, access_token=token, shop_id=shop,
+                           shared_secret=secret, token_provider=provider)
+
+    def api_key_header(self) -> str:
+        """Etsy v3 wants keystring and shared secret joined by a colon, not the keystring.
+
+        This was wrong here until the owner caught it, and it is the kind of wrong that costs
+        a diagnosis round rather than failing loudly: a keystring-only header is accepted as a
+        header and refused as a credential, so the first real call returns 401 and every
+        explanation for a 401 is plausible. Etsy's own words:
+
+            "Every request to a v3 endpoint must include an `x-api-key` header containing
+             your keystring and shared secret separated by a colon"
+
+        A credential with no secret is still sent, because a placeholder here would hide a
+        misconfiguration behind a value that looks deliberate. Etsy refuses it and says so.
+        """
+        return f"{self.api_key}:{self.shared_secret}" if self.shared_secret else self.api_key
+
+    def headers(self, *, operation: str | None = None) -> dict[str, str]:
+        """The two credential headers, and no Content-Type.
+
+        Content-Type used to be set here, to `application/json`, for every request this
+        client made -- including the two write endpoints for which Etsy lists
+        `application/x-www-form-urlencoded` as the only accepted media type. A credential
+        object is the wrong place to decide a body format: it cannot know which endpoint is
+        being called. The transport sets it from the body channel it was actually given, so
+        the header and the bytes can no longer disagree.
+
+        `operation` names the Etsy operation, so that when a `TokenProvider` is supplying the
+        token it can refuse a call whose scope Etsy never granted -- before the request,
+        rather than reading it back as a 403.
+        """
+        token = self.access_token
+        if self.token_provider is not None:
+            token = self.token_provider.token(operation=operation)
+        return {"x-api-key": self.api_key_header(),
+                "Authorization": f"Bearer {token}"}
+
+    def __repr__(self) -> str:  # pragma: no cover - keeps secrets out of logs and tracebacks
+        # The shop id stays: it is not a secret -- Etsy puts it in public listing URLs -- and
+        # it is the one field that identifies which account a failure came from. Whether it
+        # belongs in this repository is a different question, and the answer there is no.
+        return (f"Credentials(shop_id={self.shop_id!r}, api_key=***, shared_secret=***, "
+                f"access_token=***, token_provider="
+                f"{'yes' if self.token_provider else 'no'})")
+
+
+@dataclass
+class Response:
+    status: int
+    body: dict[str, Any] = field(default_factory=dict)
+    headers: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class FilePart:
+    """One binary part of a multipart body, with the field name Etsy asks for.
+
+    `field` is data rather than a constant because Etsy's two upload endpoints disagree:
+    `uploadListingImage` reads the binary from a part named `image`, `uploadListingFile` from
+    one named `file`. Sending `file` to the images endpoint -- which is what this client did
+    before, because its transport hard-coded the name -- is a request Etsy accepts the shape
+    of and finds no image in.
+    """
+
+    field: str
+    filename: str
+    data: bytes
+    content_type: str = "application/octet-stream"
+
+
+class Transport(Protocol):
+    """The seam. Tests pass a fake; production passes `http.UrllibTransport`.
+
+    Deliberately narrow: this module cannot reach the network except through something a
+    caller handed it, so a test cannot accidentally make a real request and neither can a
+    misconfigured job.
+
+    Three body channels, because Etsy uses three media types and which one is correct is a
+    property of the endpoint (`form` for createDraftListing and updateListing, `multipart`
+    for the two uploads, `json` for updateListingInventory and nothing else this client
+    sends). They are separate parameters rather than one `body` so that a call site states
+    the encoding it means and the transport never has to guess. A multipart request carries
+    its text fields in `form` alongside `multipart`: that is one body, not two.
+    """
+
+    def request(self, method: str, url: str, *, headers: dict[str, str],
+                json: dict[str, Any] | None = None,
+                form: dict[str, Any] | None = None,
+                multipart: FilePart | None = None) -> Response:
+        ...
+
+
+@dataclass
+class ListingPayload:
+    """What we would send, and nothing more."""
+
+    title: str
+    description: str
+    price: float
+    tags: list[str]
+    materials: list[str]
+    properties: list[dict] = field(default_factory=list)
+    taxonomy_id: int = TAXONOMY_PATTERNS
+    quantity: int = DIGITAL_QUANTITY
+    who_made: str = "i_did"
+    when_made: str = "made_to_order"
+    is_supply: bool = True
+    type: str = "download"
+    state: str = "draft"
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "quantity": self.quantity,
+            "title": self.title,
+            "description": self.description,
+            "price": round(self.price, 2),
+            "who_made": self.who_made,
+            "when_made": self.when_made,
+            "taxonomy_id": self.taxonomy_id,
+            "is_supply": self.is_supply,
+            "type": self.type,
+            "state": self.state,
+            "tags": list(self.tags),
+            "materials": list(self.materials),
+            # Renewal is a fee (US$0.20 every four months) that no ceiling here counts, and a
+            # Stage A activation is refused unless Etsy reads it back False
+            # (`standing_activation.use_refusal`). Every draft says so explicitly rather than
+            # inheriting Etsy's or the shop's default, and the F-542 read-back compares it
+            # like every other sent field. Not a parameter: nothing here may ask for renewal.
+            "should_auto_renew": False,
+        }
+
+
+def build_payload(*, title: str, description: str, price_cad: float, tags: list[str],
+                  materials: list[str]) -> ListingPayload:
+    """Map a listing we already trust onto Etsy's shape, refusing what cannot be mapped.
+
+    Every refusal here is a limit Etsy enforces. Truncating silently would be worse than
+    refusing: a title cut at 140 characters mid-word is a listing nobody would have approved,
+    and it would go out under a certificate that described something else.
+    """
+    problems: list[str] = []
+    if not title.strip():
+        problems.append("no title")
+    if len(title) > TITLE_MAX:
+        problems.append(f"title is {len(title)} characters; Etsy allows {TITLE_MAX}")
+    if not description.strip():
+        problems.append("no description")
+    if len(description) > DESCRIPTION_MAX:
+        problems.append(f"description is {len(description)} characters")
+    if price_cad <= 0:
+        problems.append("price must be positive")
+    if len(tags) > TAGS_MAX:
+        problems.append(f"{len(tags)} tags; Etsy allows {TAGS_MAX}")
+    over = [t for t in tags if len(t) > TAG_CHARS_MAX]
+    if over:
+        problems.append(f"tags over {TAG_CHARS_MAX} characters: {over}")
+    if len(materials) > MATERIALS_MAX:
+        problems.append(f"{len(materials)} materials; Etsy allows {MATERIALS_MAX}")
+
+    # Duplicates are collapsed rather than refused, because they are not a mistake anybody
+    # made: a CIR carries one material entry per colour, so a six-colour blanket in one yarn
+    # arrives here as that yarn six times. Etsy would accept it and the listing would read as
+    # careless, and above thirteen colours it would be refused for a reason that has nothing
+    # to do with the thirteen-material limit's purpose. Order is preserved so the first-named
+    # yarn stays first.
+    deduplicated: list[str] = []
+    for material in materials:
+        if material not in deduplicated:
+            deduplicated.append(material)
+
+    payload = ListingPayload(title=title.strip(), description=description,
+                             price=float(price_cad), tags=list(tags),
+                             materials=deduplicated)
+
+    # Etsy's character sets, from Etsy's own published API document. Additive: none of the
+    # limits above is restated there, because a limit written in two places is a limit that
+    # gets changed in one of them. This catches what length and count cannot -- a material
+    # written "100% cotton", a title with two ampersands -- which is the class of failure
+    # that is invisible until the first request is sent.
+    from ..publish.listing_schema import check_payload
+
+    problems.extend(check_payload(payload.to_dict()))
+
+    if problems:
+        raise EtsyRejected("this listing cannot be mapped to an Etsy listing: "
+                           + "; ".join(problems))
+
+    return payload
+
+
+@dataclass
+class PublishOutcome:
+    """What actually happened, including the half-done case.
+
+    `listing_id` with `file_uploaded` false is the dangerous state: a listing exists on Etsy
+    with no file attached to it. It is reported as its own outcome rather than folded into
+    success or failure, because the recovery is different -- the listing must be completed or
+    deleted, not created again.
+    """
+
+    published: bool
+    listing_id: str | None = None
+    file_uploaded: bool = False
+    state: str = "draft"
+    problems: list[str] = field(default_factory=list)
+    images_uploaded: int = 0
+
+    @property
+    def needs_completion(self) -> bool:
+        return self.listing_id is not None and not self.file_uploaded
+
+    @property
+    def activatable(self) -> bool:
+        """Whether this draft could be published at all, which is a separate question.
+
+        Etsy refuses to activate a listing with no image. Before 2026-09-25 nothing in this
+        system uploaded one, so every outcome that reported `published=True` described a draft
+        that could never go live -- and nothing said so. This property is the difference
+        between "the request succeeded" and "there is a listing here that could become a
+        product".
+        """
+        return (self.listing_id is not None and self.file_uploaded
+                and self.images_uploaded > 0)
+
+
+# ---------------------------------------------------------------------------
+# What each operation may do, and who may authorise it
+
+
+class Authority(Enum):
+    """The different things a request to Etsy can be, and they are not one gate.
+
+    The client used to have a single refusal covering everything, which was correct while it
+    could only do one thing -- publish. It is wrong now, in both directions:
+
+    - It was too strict to be useful. A shop read, a draft, an image upload and a draft
+      deletion are invisible to every buyer and cost CA$0, so refusing them in SHADOW means
+      the first time this code runs against Etsy is the day the shop opens. That is precisely
+      the risk this whole module was written to avoid.
+    - It was too loose where it mattered. `create_draft` and activation sat behind the same
+      permission, so any authority that allowed a draft allowed publishing.
+
+    So: READ creates nothing. DRAFT_WRITE creates and changes things no buyer can see and no
+    fee attaches to. ACTIVATE puts a product in front of customers and **costs money on
+    Etsy's side**, and it is the only one that needs the launch authorisation.
+    """
+
+    READ = "read"
+    DRAFT_WRITE = "draft_write"
+    ACTIVATE = "activate"
+    # Verdict 6998051067 LOW: taking a live listing down is a write, not a read. Deny-
+    # direction and unrelated to publishing authority (it is most wanted right after the owner
+    # rolls the phase back), so it needs a credential, and the withdrawal grant is the gate.
+    WITHDRAW = "withdraw"
+
+
+# Etsy charges the listing fee when a listing is *published*, not when a draft is created.
+# Kept as a constant with its currency so the refusal below can quote the number it is
+# protecting rather than say "a fee".
+LISTING_FEE_USD = 0.20
+
+# Review 6957411211 (ws5 N3): every `state` a shop listing can hold, as getListingsByShop
+# filters them. The one list: the census, manual adoption and the draft resolver all read
+# it, so a state added here is read everywhere at once instead of in one copy of three.
+LISTING_STATES = ("draft", "active", "inactive", "expired", "sold_out")
+
+# The fields `updateListing` accepts, from the operation's own request schema. A field not in
+# this set is refused here rather than sent: a listing that silently keeps its old value is
+# worse than a 400, because read-back verification would then report a mismatch whose real
+# cause is our own request.
+UPDATE_WRITABLE = frozenset({
+    "image_ids", "title", "description", "materials", "should_auto_renew",
+    "shipping_profile_id", "return_policy_id", "shop_section_id", "item_weight",
+    "item_length", "item_width", "item_height", "item_weight_unit", "item_dimensions_unit",
+    "is_taxable", "taxonomy_id", "tags", "who_made", "when_made", "featured_rank", "state",
+    "is_supply", "production_partner_ids", "type",
+})
+
+# W4-AGENTS: `updateShop`'s whole request schema, as `intel.etsy_surfaces` records it from
+# Etsy's OpenAPI document ("PUT /shops/{shop_id} accepts exactly five fields"). Being in the
+# schema is not permission: every field is put through `store_foundation.live_state.
+# write_refusal`, which refuses the owner-configured shop title outright and refuses
+# `policy_additional` for this (Canadian, non-EU) shop, so only announcement, sale_message
+# and digital_sale_message can ever be sent -- and only under a sealed storefront grant.
+SHOP_UPDATE_SCHEMA = frozenset({"title", "announcement", "sale_message",
+                                "digital_sale_message", "policy_additional"})
+# Etsy help 360000345048: "A section name can be up to 24 characters."; "up to 20 custom
+# sections" (integrations.etsy_constraints section_name_max_chars / sections_max).
+SECTION_TITLE_MAX = 24
+
+# `price` is conspicuously absent from that set, and it is the field most likely to be
+# reached for. Etsy moves price to the inventory endpoint -- `updateListingInventory`, PUT,
+# and the one Etsy write this company touches that really is `application/json`.
+PRICE_IS_ELSEWHERE = (
+    "price is not an updateListing field. Etsy's update schema has no price property; the "
+    "price of an offering lives in the listing's inventory and is written with PUT "
+    "/v3/application/listings/{listing_id}/inventory (application/json, not form-encoded). "
+    "Sending price here would be accepted as an unknown field and change nothing, which is "
+    "the worst of the three possible outcomes."
+)
+
+# How an array becomes form-encoded. Etsy's document says of `tags`: "A comma-separated list
+# of tag strings for the listing" -- while the OpenAPI default for an un-encoded form array
+# would be repeated keys (`tags=a&tags=b`). Both readings come from Etsy's own document. This
+# system sends the comma form, which is the reading the sentence supports and the decision
+# `publish/listing_schema.form_encoded` already made. `ARRAY_ENCODING` exists so the decision
+# has a name, and so that the day a real 400 settles it, one constant moves.
+#
+# **It is the only thing that moves.** `form_fields` below reads it, `http.form_body` renders
+# a list as repeated keys, and `etsy_probe`'s failure taxonomy names this constant as the
+# single change that follows a tags rejection. Both settings are exercised against
+# `tests/fake_etsy.py`, including the case that makes this dangerous: a comma-joined value
+# Etsy accepts with a 201 and stores as **one tag containing a comma**. That outcome is not
+# an error anywhere on the wire; only the read-back comparison sees it.
+ARRAY_ENCODING = "comma"
+ARRAY_ENCODINGS = ("comma", "repeat")
+
+# Etsy's alt_text limit, from the `uploadListingImage` schema: "Alt text for the listing
+# image. Max length 500 characters."
+ALT_TEXT_MAX = 500
+
+# Content types for the formats a listing image can be. Explicit rather than guessed from
+# `mimetypes`, whose answer depends on the host's /etc/mime.types.
+#
+# A subset of Etsy's own list, never a superset. Etsy (help article 115015663347, edited
+# 2026-05-04, read 2026-10-06): "All images in your shop should be one of these file types:
+# .jpg, .gif, .png, .svg, or .heic. These are the only image file types Etsy supports."
+# `.webp` was here until 2026-10-06 and is not on that list, so it was removed (lane W3-I);
+# svg and heic are Etsy-supported but nothing here produces them. See
+# `integrations.etsy_constraints` for every published image rule.
+IMAGE_CONTENT_TYPES = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
+                       ".gif": "image/gif"}
+
+
+def digital_file_refusals(filename: str, size: int) -> list[str]:
+    """Etsy's published digital-file rules this file breaks (name, type, size), as text.
+
+    From `etsy_constraints` (help article 115015628347): 70 characters of letters, digits,
+    periods, underscores or hyphens; a supported type; 20MB at most. A name Etsy cannot hold
+    is also one it cannot rename later ("We don't have a way of editing the name after
+    uploading"), so it is refused here rather than discovered on the shop.
+    """
+    from .etsy_constraints import digital_file_problems
+
+    return [f["detail"] for f in digital_file_problems([(filename, size)])
+            if f["severity"] == "fail"]
+
+
+def publish_preflight(filename: str, data: bytes, images: list | None) -> list[str]:
+    """Every refusal Etsy's published rules predict for this publish, before anything is sent.
+
+    Only rules Etsy states as requirements fail here; recommendations (2000 px, 1MB) are the
+    listing-asset gate's business and do not stop a draft.
+    """
+    from ..publish.listing_schema import MAX_IMAGES
+
+    problems = digital_file_refusals(filename, len(data or b""))
+    entries = list(images or [])
+    if len(entries) > MAX_IMAGES:
+        problems.append(f"{len(entries)} images; Etsy allows {MAX_IMAGES} per listing")
+    for rank, entry in enumerate(entries, start=1):
+        name = str(entry[0])
+        suffix = name[name.rfind("."):].lower() if "." in name else ""
+        if suffix not in IMAGE_CONTENT_TYPES:
+            problems.append(f"image {rank} ({name}) is not a format Etsy supports for listing "
+                            f"images ({sorted(IMAGE_CONTENT_TYPES)})")
+        alt = entry[2] if len(entry) > 2 else str(getattr(entry, "alt_text", "") or "")
+        if len(alt or "") > ALT_TEXT_MAX:
+            problems.append(f"image {rank} alt text is {len(alt)} characters; Etsy allows "
+                            f"{ALT_TEXT_MAX}")
+    return problems
+
+
+def form_fields(payload: dict[str, Any]) -> dict[str, Any]:
+    """Flatten a payload for a form-encoded Etsy write, honouring `ARRAY_ENCODING`.
+
+    With `"comma"` this delegates to `publish.listing_schema.form_encoded`, which is where the
+    array-encoding decision is written down, so the shape this client sends and the shape the
+    schema module documents cannot drift apart.
+
+    With `"repeat"` a list survives as a list and `http.form_body` emits repeated keys. The
+    scalar fields are still rendered by `form_encoded`, one key at a time, so the boolean and
+    number rendering cannot differ between the two settings -- if it could, flipping the
+    constant would change more than the arrays and the experiment would prove nothing.
+    """
+    from ..publish.listing_schema import form_encoded
+
+    if ARRAY_ENCODING not in ARRAY_ENCODINGS:
+        raise EtsyRejected(
+            f"ARRAY_ENCODING is {ARRAY_ENCODING!r}; Etsy's form arrays are one of "
+            f"{list(ARRAY_ENCODINGS)}. An unrecognised value would silently fall back to a "
+            f"rendering nobody chose.")
+    if ARRAY_ENCODING == "comma":
+        return dict(form_encoded(payload))
+    out: dict[str, Any] = {}
+    for key, value in payload.items():
+        if isinstance(value, (list, tuple)):
+            out[key] = [str(item) for item in value]
+        else:
+            out[key] = form_encoded({key: value})[key]
+    return out
+
+
+class EtsyClient:
+    """Talks to Etsy, or refuses to. Never decides whether a listing is fit to publish."""
+
+    BASE = "https://openapi.etsy.com/v3/application"
+
+    def __init__(self, transport: Transport, *, credentials: Credentials | None = None,
+                 phase: str = "shadow", owner_authorised: bool = False,
+                 shadow_writes_authorised: bool = False,
+                 base: str | None = None) -> None:
+        # `base` exists so a test can point this client at a local server that speaks Etsy's
+        # documented contract. It defaults to Etsy, and nothing in `src/` overrides it: a
+        # client built normally can only reach openapi.etsy.com.
+        if base:
+            self.BASE = base
+        self.transport = transport
+        self.credentials = credentials
+        self.phase = (phase or "shadow").lower()
+        self.owner_authorised = owner_authorised
+        # Draft-only writes in a non-publishing phase: the narrow permission that lets this
+        # code be exercised against the real shop without a listing ever becoming visible.
+        # A constructor argument rather than an environment read inside the client, so a call
+        # site has to state it and a test cannot acquire it by accident.
+        self.shadow_writes_authorised = shadow_writes_authorised
+        self.calls: list[dict[str, Any]] = []
+
+    # ---- the refusals ----------------------------------------------------
+
+    def refusal(self) -> str | None:
+        """Why this client may not publish, or None. Order matters: phase first.
+
+        Unchanged, and still the gate the pipeline asks about. "Publish" here means putting a
+        product in front of a customer; the narrower authorities are `refusal_for`.
+        """
+        if self.phase not in PHASES_THAT_MAY_PUBLISH:
+            return (f"BRAMBLELOOP_PHASE={self.phase} does not permit publication. Shadow and "
+                    f"staging hold the whole shop ready rather than open.")
+        if not self.owner_authorised:
+            return ("publishing is a RED action in the authority matrix and the owner has "
+                    "not granted it. A credential is not a permission.")
+        if self.credentials is None:
+            return ("no Etsy credentials in this environment. ETSY_API_KEY, "
+                    "ETSY_ACCESS_TOKEN and ETSY_SHOP_ID are read from the environment and "
+                    "are never stored in this repository.")
+        return None
+
+    def refusal_for(self, authority: Authority) -> str | None:
+        """Why this client may not do a thing of this kind, or None."""
+        no_credentials = (
+            "no Etsy credentials in this environment. ETSY_KEYSTRING (or ETSY_API_KEY), "
+            "ETSY_SHOP_ID and either ETSY_REFRESH_TOKEN or ETSY_ACCESS_TOKEN are read from "
+            "the environment and are never stored in this repository.")
+
+        if authority is Authority.READ:
+            # A read creates nothing, charges nothing and cannot be seen by a buyer. The only
+            # thing that can stop it is not having a credential.
+            return None if self.credentials is not None else no_credentials
+
+        if authority is Authority.WITHDRAW:
+            # Only `deactivate` asks this, and it also requires `OwnerGrant.WITHDRAW` on the
+            # call, re-resolved immediately before the request.
+            return None if self.credentials is not None else no_credentials
+
+        if authority is Authority.DRAFT_WRITE:
+            if self.credentials is None:
+                return no_credentials
+            if self.refusal() is None:
+                return None          # full publish authority includes drafting
+            if self.shadow_writes_authorised:
+                return None
+            # The publish refusal is quoted rather than paraphrased, because it is the real
+            # reason and there are two of them -- the phase and the owner's authority. A
+            # paraphrase here said "the phase does not permit publication" even when the
+            # phase did and the grant was what was missing.
+            return (f"draft writes are not authorised in this client: {self.refusal()} "
+                    f"Draft-only writes without publishing authority need "
+                    f"`shadow_writes_authorised` -- a deliberate, separate grant covering "
+                    f"objects no buyer can see and no fee attaches to.")
+
+        # ACTIVATE. Everything that guards publication guards this, and nothing less does.
+        reason = self.refusal()
+        if reason is not None:
+            return reason
+        if self.shadow_writes_authorised and self.phase not in PHASES_THAT_MAY_PUBLISH:
+            return ("shadow_writes_authorised permits drafts, never activation. Activation "
+                    "publishes the listing on etsy.com.")
+        return None
+
+    def _require(self, authority: Authority) -> Credentials:
+        reason = self.refusal_for(authority)
+        if reason is not None:
+            error = EtsyNotConfigured if "credentials" in reason else EtsyNotPermitted
+            raise error(reason)
+        assert self.credentials is not None
+        return self.credentials
+
+    def _require_permission(self) -> Credentials:
+        """Kept for the publish path, which asks the publish question and no other."""
+        reason = self.refusal()
+        if reason is not None:
+            error = EtsyNotConfigured if "credentials" in reason else EtsyNotPermitted
+            raise error(reason)
+        assert self.credentials is not None
+        return self.credentials
+
+    def _effective_phase(self) -> str:
+        """The phase re-resolved now (core.phase), never the constructor's string.
+
+        With a database: the environment AND the owner's recorded, chained transition, the
+        more restrictive winning. Without one: core.phase resolves an unreadable record as
+        shadow. Fails closed to shadow.
+        """
+        try:
+            from ..core.phase import DEFAULT, effective
+
+            db = getattr(self, "db", None)
+            return effective(db, record_incident=False) if db is not None else DEFAULT
+        except Exception:  # noqa: BLE001 - an unresolvable phase is no authority
+            return "shadow"
+
+    def _authorise_write(self, operation: str, grant: Any, listing_id: str = "") -> None:
+        """J-product P-5: the effect-boundary check for create/upload/delete.
+
+        Two lanes, and nothing else:
+
+        * a verified `OwnerGrant` (the same check `publish` makes: sealed, content-bound
+          publication grant AND the effective runtime phase re-resolved from the database), or
+        * the narrow draft-only lane (`shadow_writes_authorised`) -- only while the phase
+          re-resolved here is a non-publishing one, so the owner's shadow probe keeps working
+          and a publishing-phase write can never ride it.
+
+        The constructor's `phase` string and `owner_authorised` flag authorise nothing here.
+        """
+        if grant is not None:
+            # A write to a listing that already exists (image, delete) may also ride the
+            # owner's activation grant for exactly that listing; a publication grant covers
+            # draft creation (ops.publication_authority).
+            if not listing_id:
+                action = OwnerGrant.PUBLISH
+            elif isinstance(grant, OwnerGrant) and grant.action == OwnerGrant.ACTIVATE:
+                action = OwnerGrant.ACTIVATE
+            else:
+                action = OwnerGrant.PUBLISH_COMPLETE
+            reason = _grant_refusal(grant, action=action, listing_id=str(listing_id or ""))
+            if reason is not None:
+                raise EtsyNotPermitted(f"{operation} refused at the client: {reason}")
+            return
+        if self.shadow_writes_authorised:
+            live = self._effective_phase()
+            if live not in PHASES_THAT_MAY_PUBLISH:
+                return
+            raise EtsyNotPermitted(
+                f"{operation} refused at the client: the effective runtime phase is {live!r}; "
+                f"the draft-only shadow lane covers non-publishing phases only, and a write "
+                f"in a publishing phase needs the owner's verified grant (OwnerGrant)")
+        raise EtsyNotPermitted(
+            f"{operation} refused at the client: "
+            f"{_grant_refusal(None, action=OwnerGrant.PUBLISH)}. Draft-only writes without "
+            f"a grant need `shadow_writes_authorised` in a non-publishing phase.")
+
+    # ---- requests --------------------------------------------------------
+
+    def _call(self, method: str, path: str, *, operation: str,
+              authority: Authority = Authority.DRAFT_WRITE,
+              form: dict[str, Any] | None = None,
+              json: dict[str, Any] | None = None,
+              multipart: FilePart | None = None,
+              query: dict[str, Any] | None = None,
+              allow: tuple[int, ...] = ()) -> Response:
+        """One request, with the encoding the endpoint requires and nothing implicit.
+
+        `operation` is Etsy's own operationId. It is passed to the credentials so that a
+        token missing that operation's scope is refused here rather than by Etsy, and it is
+        recorded on `self.calls` so a caller -- or the probe -- can state what was sent
+        without keeping its own log. What is recorded is field *names* for a multipart
+        request: the value is the file.
+
+        `allow` names statuses that are an *answer* rather than a failure for this call. The
+        only use is checking whether a listing still exists after a delete, where a 404 is the
+        result being measured; raising on it would turn the evidence into an exception.
+        """
+        creds = self._require(authority)
+        headers = creds.headers(operation=operation)
+        url = f"{self.BASE}{path}"
+        if query:
+            url = f"{url}?{urllib.parse.urlencode(query)}"
+        response = self.transport.request(method, url, headers=headers, json=json,
+                                          form=form, multipart=multipart)
+        self.calls.append({
+            "operation": operation, "method": method, "path": path,
+            "encoding": ("multipart/form-data" if multipart is not None else
+                         "application/x-www-form-urlencoded" if form is not None else
+                         "application/json" if json is not None else "none"),
+            "status": response.status,
+            "sent": (sorted((form or {}).keys()) + [f"<binary:{multipart.field}>"]
+                     if multipart is not None else dict(form or json or {})),
+        })
+        if response.status >= 400 and response.status not in allow:
+            kind = classify_http(response.status)
+            message = (f"Etsy returned {response.status} for {method} {path} "
+                       f"({operation}): {response.body.get('error', response.body)}")
+            if kind is TransientError:
+                raise TransientError(message)
+            raise EtsyRejected(message)
+        return response
+
+    # ---- reads -----------------------------------------------------------
+
+    def get_shop(self) -> dict[str, Any]:
+        """Read the shop back. The cheapest possible proof that a credential works.
+
+        Everything else in this client depends on the shop id being right and the key being
+        live. Asking Etsy for the shop turns both into an observation instead of an
+        assumption, and it creates nothing.
+        """
+        creds = self._require(Authority.READ)
+        return self._call("GET", f"/shops/{creds.shop_id}", operation="getShop",
+                          authority=Authority.READ).body
+
+    def get_me(self) -> dict[str, Any]:
+        """Who Etsy thinks we are. Needs `shops_r`, so it also checks the OAuth token."""
+        return self._call("GET", "/users/me", operation="getMe",
+                          authority=Authority.READ).body
+
+    def get_listing(self, listing_id: str, *,
+                    includes: tuple[str, ...] = ("Images",)) -> dict[str, Any]:
+        """Read a listing back from Etsy, images included.
+
+        This is the method that turns a write into a fact. `includes=Images` is Etsy's own
+        association parameter, so one request returns the listing and the images actually
+        attached to it -- the pair that decides whether the listing could ever be activated.
+        """
+        return self._call("GET", f"/listings/{listing_id}", operation="getListing",
+                          authority=Authority.READ,
+                          query={"includes": ",".join(includes)} if includes else None).body
+
+    def get_listing_images(self, listing_id: str) -> list[dict[str, Any]]:
+        """The images Etsy holds for a listing, as Etsy reports them."""
+        body = self._call("GET", f"/listings/{listing_id}/images",
+                          operation="getListing", authority=Authority.READ).body
+        results = body.get("results")
+        return list(results) if isinstance(results, list) else []
+
+    def set_listing_property(self, listing_id: str, prop: dict, *,
+                             grant: OwnerGrant | None = None) -> dict:
+        creds = self._require(Authority.DRAFT_WRITE)
+        self._authorise_write("updateListingProperty", grant, listing_id=str(listing_id))
+        property_id = int(prop["property_id"])
+        fields = {"value_ids": list(prop.get("value_ids") or []),
+                  "values": list(prop.get("values") or [])}
+        if prop.get("scale_id") is not None:
+            fields["scale_id"] = int(prop["scale_id"])
+        return self._call("PUT", f"/shops/{creds.shop_id}/listings/{listing_id}/properties/{property_id}",
+                          operation="updateListingProperty", form=form_fields(fields)).body
+
+    def get_listing_properties(self, listing_id: str) -> list[dict]:
+        creds = self._require(Authority.READ)
+        body = self._call("GET", f"/shops/{creds.shop_id}/listings/{listing_id}/properties",
+                          operation="getListingProperties", authority=Authority.READ).body
+        if not isinstance(body, dict) or not isinstance(body.get("results"), list):
+            raise EtsyRejected("listing properties response is UNKNOWN")
+        return body["results"]
+
+    def get_listing_files(self, listing_id: str) -> list[dict[str, Any]]:
+        """The digital files Etsy holds for a listing, as Etsy reports them (F-559).
+
+        `getAllListingFiles`. This is the only authoritative answer to "which PDF will the
+        buyer download": `uploadListingFile` returning a file id says Etsy accepted one upload,
+        not that the listing now carries exactly the certified set and nothing stale beside
+        it. Etsy's ShopListingFile carries `filename` and `size_bytes`; it carries **no hash**,
+        so byte identity on Etsy's side is not observable through the API and
+        `etsy_verify.verify_files` says so rather than implying it.
+        """
+        creds = self._require(Authority.READ)
+        body = self._call("GET", f"/shops/{creds.shop_id}/listings/{listing_id}/files",
+                          operation="getAllListingFiles", authority=Authority.READ).body
+        results = body.get("results")
+        return list(results) if isinstance(results, list) else []
+
+    def listing_exists(self, listing_id: str) -> tuple[bool, str]:
+        """Whether Etsy still holds this listing, and what state it is in. Never raises a 404.
+
+        This is how a deletion is *verified* rather than assumed. `deleteListing` returning
+        204 is Etsy saying it accepted the request; only a subsequent read says the listing is
+        gone. The two are different claims and Etsy's document supports only the first, so the
+        second is one of the things the authenticated run exists to establish.
+
+        Returns `(False, "")` when Etsy answers 404, which is the outcome that means clean.
+        """
+        response = self._call("GET", f"/listings/{listing_id}", operation="getListing",
+                              authority=Authority.READ, allow=(404,))
+        if response.status == 404:
+            return False, ""
+        return True, str(response.body.get("state") or "")
+
+    def get_shop_listings(self, *, state: str = "draft", limit: int = 100,
+                          max_pages: int = 50) -> list[dict[str, Any]]:
+        """The shop's listings in one state. The read that makes a run idempotent.
+
+        A run that failed before its cleanup left a draft in a real shop. Without this, the
+        next run cannot see it, so it creates a second one and the shop accumulates test
+        artefacts that are indistinguishable from products with a mistake in them. With it,
+        the run's first act can be to sweep what a previous run left.
+
+        `getListingsByShop` is the operation; `state` is its own filter parameter, so the
+        sweep never sees an active listing and cannot act on one.
+        """
+        creds = self._require(Authority.READ)
+        # WS5 E7: paged. Etsy returns at most `limit` (<= 100) per call, so a shop with more
+        # listings in this state was silently truncated at 100 -- the census, the outcome
+        # snapshot and the stale-draft sweep each saw only the first page.
+        out: list[dict[str, Any]] = []
+        offset = 0
+        for _ in range(max(1, int(max_pages))):
+            body = self._call("GET", f"/shops/{creds.shop_id}/listings",
+                              operation="getListingsByShop", authority=Authority.READ,
+                              query={"state": state, "limit": limit,
+                                     "offset": offset}).body
+            results = body.get("results")
+            page = list(results) if isinstance(results, list) else []
+            out.extend(page)
+            offset += len(page)
+            count = body.get("count")
+            if len(page) < limit or (isinstance(count, int) and offset >= count):
+                break
+        return out
+
+    def get_shop_receipts(self, *, min_created: int | None = None, limit: int = 100,
+                          offset: int = 0,
+                          min_last_modified: int | None = None) -> list[dict[str, Any]]:
+        """The shop's receipts, newest first: the order source (C-64, #11, #12, #42).
+
+        `getShopReceipts` requires `transactions_r`; the token provider refuses the call
+        before the request when that scope was not granted, so an ungranted scope is a
+        refusal here rather than a 403 read back from Etsy. `commerce.orders_ingest` checks
+        the scope gate before it constructs this client at all.
+
+        `min_last_modified` (Etsy's own query parameter) returns receipts created *or
+        changed* after the instant, which is how a refund on an old receipt is seen;
+        `min_created` sees only new receipts.
+        """
+        creds = self._require(Authority.READ)
+        query: dict[str, Any] = {"limit": limit, "offset": offset}
+        if min_created is not None:
+            query["min_created"] = int(min_created)
+        if min_last_modified is not None:
+            query["min_last_modified"] = int(min_last_modified)
+        body = self._call("GET", f"/shops/{creds.shop_id}/receipts",
+                          operation="getShopReceipts", authority=Authority.READ,
+                          query=query).body
+        results = body.get("results")
+        return list(results) if isinstance(results, list) else []
+
+    def get_taxonomy_node(self, taxonomy_id: int = TAXONOMY_PATTERNS) -> dict[str, Any]:
+        """Find one seller taxonomy node in Etsy's tree, or return {} if it is not there.
+
+        `TAXONOMY_PATTERNS = 66` is an integer with a comment next to it. A wrong taxonomy id
+        is **not an error**: Etsy accepts the create, returns 201, and the listing sits in the
+        wrong category where nobody shopping for a crochet pattern will ever see it. So the
+        id cannot be confirmed by a successful write, and the only thing that confirms it is
+        reading Etsy's own tree and looking at the node's name.
+
+        Etsy returns the whole tree from one endpoint, so this walks it rather than asking for
+        a node by id -- there is no by-id operation in the document.
+        """
+        body = self._call("GET", "/seller-taxonomy/nodes",
+                          operation="getSellerTaxonomyNodes",
+                          authority=Authority.READ).body
+        found: dict[str, Any] = {}
+
+        def walk(nodes: Any) -> None:
+            nonlocal found
+            if not isinstance(nodes, list):
+                return
+            for node in nodes:
+                if not isinstance(node, dict):
+                    continue
+                if node.get("id") == taxonomy_id and not found:
+                    found = node
+                walk(node.get("children"))
+
+        walk(body.get("results"))
+        return found
+
+    def find_taxonomy_nodes(self, needle: str) -> list[dict[str, Any]]:
+        """Every taxonomy node whose name contains `needle`, case-insensitively.
+
+        The companion to `get_taxonomy_node`: when the id turns out to be wrong, the next
+        question is immediately "then which id is right", and a run that has already paid for
+        the tree should answer it rather than make somebody run it again.
+        """
+        body = self._call("GET", "/seller-taxonomy/nodes",
+                          operation="getSellerTaxonomyNodes",
+                          authority=Authority.READ).body
+        out: list[dict[str, Any]] = []
+        target = needle.lower()
+
+        def walk(nodes: Any) -> None:
+            if not isinstance(nodes, list):
+                return
+            for node in nodes:
+                if not isinstance(node, dict):
+                    continue
+                if target in str(node.get("name") or "").lower():
+                    out.append({"id": node.get("id"), "name": node.get("name"),
+                                "level": node.get("level")})
+                walk(node.get("children"))
+
+        walk(body.get("results"))
+        return out
+
+    def get_taxonomy_properties(self,
+                                taxonomy_id: int = TAXONOMY_PATTERNS) -> list[dict[str, Any]]:
+        """The listing properties this taxonomy node defines, and which of them are required.
+
+        Required properties must be selected by the search certificate and sent separately
+        through set_listing_property before the draft can pass read-back. That would
+        be a launch blocker discovered by a 400 on the first real product; asking Etsy first
+        costs one read.
+        """
+        body = self._call("GET", f"/seller-taxonomy/nodes/{taxonomy_id}/properties",
+                          operation="getPropertiesByTaxonomyId",
+                          authority=Authority.READ).body
+        results = body.get("results")
+        return list(results) if isinstance(results, list) else []
+
+    # ---- draft writes ----------------------------------------------------
+
+    def create_draft(self, payload: ListingPayload, *, grant: OwnerGrant | None = None) -> str:
+        """Create the listing as a draft. Draft, always: activation is a separate decision.
+
+        Form-encoded, because `application/x-www-form-urlencoded` is the only media type
+        Etsy lists for this operation. It was JSON until 2026-09-25.
+
+        `state` is **not sent**. Etsy's create schema has no state property -- the operation
+        is called createDraftListing and a created listing is a draft -- so sending one was
+        sending a field Etsy does not document accepting. Draft-ness is now asserted by
+        reading the listing back and finding `state == "draft"`, which is a fact rather than
+        a hope.
+        """
+        creds = self._require(Authority.DRAFT_WRITE)
+        self._authorise_write("createDraftListing", grant)
+        fields = payload.to_dict()
+        fields.pop("state", None)
+        response = self._call("POST", f"/shops/{creds.shop_id}/listings",
+                              operation="createDraftListing", form=form_fields(fields))
+        listing_id = response.body.get("listing_id")
+        if not listing_id:
+            raise EtsyRejected(f"Etsy accepted the request but returned no listing_id: "
+                               f"{response.body}")
+        return str(listing_id)
+
+    def upload_image(self, listing_id: str, *, filename: str, data: bytes,
+                     rank: int = 1, alt_text: str = "",
+                     overwrite: bool = False,
+                     grant: OwnerGrant | None = None) -> dict[str, Any]:
+        """Upload a listing image. The step whose absence made every draft unactivatable.
+
+        Etsy: "Setting a `draft` listing to `active` will also publish the listing on
+        etsy.com and requires that the listing have an image set." Before this method existed
+        this system generated, checked, certified and approved listing imagery and then kept
+        every byte of it on our side of the wire -- so the shop could have opened with zero
+        activatable listings and every upstream check would still have passed.
+
+        The binary goes in a part named `image`, which is Etsy's parameter name for it. The
+        old transport hard-coded `file` for every upload; an image sent that way is a request
+        Etsy accepts the shape of and finds no image in.
+        """
+        creds = self._require(Authority.DRAFT_WRITE)
+        self._authorise_write("uploadListingImage", grant, listing_id=str(listing_id))
+        return self._upload_image(listing_id, filename=filename, data=data, rank=rank,
+                                  alt_text=alt_text, overwrite=overwrite)
+
+    def _upload_image(self, listing_id: str, *, filename: str, data: bytes, rank: int = 1,
+                      alt_text: str = "", overwrite: bool = False) -> dict[str, Any]:
+        """The upload itself. Reached only through `upload_image` (boundary-checked) or from
+        inside `publish`, whose grant was verified immediately before the draft it uploads to
+        was created -- the publication grant covers that one draft and nothing after it."""
+        creds = self._require(Authority.DRAFT_WRITE)
+        if not data:
+            raise EtsyRejected(
+                f"no bytes to upload for {filename}. An image that is not there cannot be "
+                f"uploaded, and a draft with no image can never be activated, so this is a "
+                f"launch blocker rather than a cosmetic failure.")
+        if rank < 1:
+            raise EtsyRejected(f"rank must be a positive non-zero position; got {rank}.")
+        if len(alt_text) > ALT_TEXT_MAX:
+            raise EtsyRejected(f"alt text is {len(alt_text)} characters; Etsy allows "
+                               f"{ALT_TEXT_MAX}.")
+        suffix = filename[filename.rfind("."):].lower() if "." in filename else ""
+        content_type = IMAGE_CONTENT_TYPES.get(suffix)
+        if content_type is None:
+            raise EtsyRejected(
+                f"{filename!r} is not a listing-image format this client will send "
+                f"({sorted(IMAGE_CONTENT_TYPES)}). Sending an unknown type as "
+                f"application/octet-stream is how a PDF gets uploaded as a photograph.")
+        fields: dict[str, Any] = {"rank": rank}
+        if alt_text:
+            fields["alt_text"] = alt_text
+        if overwrite:
+            fields["overwrite"] = True
+        response = self._call(
+            "POST", f"/shops/{creds.shop_id}/listings/{listing_id}/images",
+            operation="uploadListingImage", form=fields,
+            multipart=FilePart(field="image", filename=filename, data=data,
+                               content_type=content_type))
+        image_id = response.body.get("listing_image_id")
+        if not image_id:
+            raise EtsyRejected(f"Etsy accepted the image upload and returned no "
+                               f"listing_image_id: {response.body}")
+        return response.body
+
+    def attach_file(self, listing_id: str, *, filename: str, data: bytes,
+                    grant: OwnerGrant | None = None) -> bool:
+        """Attach the pattern file to a draft listing.
+
+        The digital file is what the customer buys. A listing without one is a product that
+        takes money and delivers nothing, which is why the outcome distinguishes that state.
+        Etsy's own rule, from `updateListing`: "Digital listings that are not made to order
+        must have a file upload associated with it to be activated."
+
+        The bytes have to exist: artifact bytes in this system are not durable until object
+        storage is provisioned, so a process that renders a PDF, restarts, and then tries to
+        upload it has nothing to send -- the dependency the readiness report records against
+        the owner's storage decision.
+        """
+        creds = self._require(Authority.DRAFT_WRITE)
+        self._authorise_write("uploadListingFile", grant, listing_id=str(listing_id))
+        return self._attach_file(listing_id, filename=filename, data=data)
+
+    def _attach_file(self, listing_id: str, *, filename: str, data: bytes) -> bool:
+        """The upload itself: through `attach_file` (boundary-checked) or inside `publish`,
+        under the grant verified immediately before the draft was created."""
+        creds = self._require(Authority.DRAFT_WRITE)
+        refused = digital_file_refusals(filename, len(data))
+        if refused:
+            raise EtsyRejected("; ".join(refused))
+        if not data:
+            raise EtsyRejected(
+                f"no bytes to upload for {filename}: the pattern file is not available to "
+                f"this process. Artifact bytes are not durable without object storage, so "
+                f"the file has to be re-rendered from the certified CIR before publishing.")
+        response = self._call(
+            "POST", f"/shops/{creds.shop_id}/listings/{listing_id}/files",
+            operation="uploadListingFile", form={"name": filename},
+            multipart=FilePart(field="file", filename=filename, data=data,
+                               content_type="application/pdf"))
+        return bool(response.body.get("listing_file_id"))
+
+    def update_listing(self, listing_id: str, fields: dict[str, Any], *,
+                       grant: OwnerGrant | None = None) -> dict[str, Any]:
+        """Change permitted fields on a listing. PATCH, form-encoded, never activation.
+
+        `state` is refused here even though Etsy's update schema accepts it, because
+        `state=active` is the request that publishes a listing and charges a listing fee.
+        That request has one door, `activate`, and it is locked.
+        """
+        creds = self._require(Authority.DRAFT_WRITE)
+        self._authorise_write("updateListing", grant, listing_id=str(listing_id))
+        if not fields:
+            raise EtsyRejected("update_listing was called with no fields. A PATCH that "
+                               "changes nothing is a request that can only fail or mislead.")
+        if "price" in fields:
+            raise EtsyRejected(PRICE_IS_ELSEWHERE)
+        if "state" in fields:
+            raise EtsyNotPermitted(
+                "state is not updatable through update_listing. `state=active` publishes the "
+                "listing on etsy.com and incurs Etsy's listing fee; it goes through "
+                "`activate`, which requires the launch authorisation.")
+        unknown = sorted(set(fields) - UPDATE_WRITABLE)
+        if unknown:
+            raise EtsyRejected(
+                f"updateListing has no such field(s): {unknown}. Etsy's update schema lists "
+                f"{len(UPDATE_WRITABLE)} writable fields, and an unknown one is not an error "
+                f"we would see -- the listing would simply keep its old value.")
+        response = self._call("PATCH", f"/shops/{creds.shop_id}/listings/{listing_id}",
+                              operation="updateListing", form=form_fields(fields))
+        return response.body
+
+    def delete_listing(self, listing_id: str, *,
+                       expect_states: tuple[str, ...] = ("draft", "inactive"),
+                       grant: OwnerGrant | None = None) -> bool:
+        """Delete a listing, after reading it back and refusing if it is not what we expect.
+
+        The read first is the point. `deleteListing` takes an id and deletes whatever that id
+        names, including an active listing a customer is looking at. So this reads the
+        listing, refuses unless its state is one the caller said it expected, and only then
+        deletes. A wrong id then costs a refusal instead of a product.
+        """
+        self._require(Authority.DRAFT_WRITE)
+        self._authorise_write("deleteListing", grant, listing_id=str(listing_id))
+        current = self.get_listing(listing_id, includes=())
+        state = str(current.get("state", "")).lower()
+        if state not in expect_states:
+            raise EtsyNotPermitted(
+                f"refusing to delete listing {listing_id}: its state on Etsy is {state!r} and "
+                f"this call expected one of {list(expect_states)}. Deleting a listing that is "
+                f"not the one we think it is cannot be undone.")
+        response = self._call("DELETE", f"/listings/{listing_id}",
+                              operation="deleteListing")
+        return response.status in (200, 204)
+
+    # ---- the storefront (W4-AGENTS): updateShop and shop sections ---------
+    #
+    # These change what every buyer sees on the shop home, so they are never draft-lane
+    # writes: `shadow_writes_authorised` does not reach them. Each one needs, in this order,
+    # (1) a publishing phase on this client, (2) every field through the live-state write
+    # gate (`store_foundation.live_state.write_refusal`: owner-configured fields and the
+    # EU-only `policy_additional` are refused permanently), and (3) the owner's sealed,
+    # content-bound storefront grant (`OwnerGrant.STOREFRONT`, `ops.storefront_authority`),
+    # re-resolved from the database -- effective phase included -- for the exact change being
+    # sent. Only then are the credentials asked for and the request made.
+
+    def _authorise_storefront_write(self, operation: str, change: dict, fields,
+                                    grant: Any) -> Credentials:
+        if self.phase not in PHASES_THAT_MAY_PUBLISH:
+            raise EtsyNotPermitted(
+                f"{operation} refused at the client: BRAMBLELOOP_PHASE={self.phase} does not "
+                f"permit a storefront write. Shadow and staging record the change as a "
+                f"proposal; nothing is sent to Etsy.")
+        from ..store_foundation import live_state
+
+        refused = [r for r in (live_state.write_refusal(f, grant=grant, change=change)
+                               for f in fields) if r]
+        if refused:
+            raise EtsyNotPermitted(f"{operation} refused at the client: " + "; ".join(refused))
+        return self._require(Authority.READ)
+
+    def update_shop(self, fields: dict[str, Any], *,
+                    grant: OwnerGrant | None = None) -> dict[str, Any]:
+        """PUT /shops/{shop_id}, form-encoded: announcement and the two buyer messages only.
+
+        A field outside `updateShop`'s schema is refused (it would be silently ignored); the
+        shop title (owner-configured, 2026-10-06) and `policy_additional` (EU-only) are refused
+        by the live-state gate whatever grant is presented."""
+        if not fields:
+            raise EtsyRejected("update_shop was called with no fields")
+        unknown = sorted(set(fields) - SHOP_UPDATE_SCHEMA)
+        if unknown:
+            raise EtsyRejected(f"updateShop has no such field(s): {unknown}")
+        clean = {k: str(v) for k, v in fields.items()}
+        change = {"operation": "updateShop", "fields": clean}
+        creds = self._authorise_storefront_write("updateShop", change, sorted(clean), grant)
+        response = self._call("PUT", f"/shops/{creds.shop_id}", operation="updateShop",
+                              form=dict(clean))
+        return response.body
+
+    @staticmethod
+    def _section_title(title: str) -> str:
+        t = " ".join(str(title or "").split())
+        if not t:
+            raise EtsyRejected("a shop section needs a title")
+        if len(t) > SECTION_TITLE_MAX:
+            raise EtsyRejected(f"section title {t!r} is {len(t)} characters; Etsy allows "
+                               f"{SECTION_TITLE_MAX}")
+        return t
+
+    def create_shop_section(self, title: str, *,
+                            grant: OwnerGrant | None = None) -> dict[str, Any]:
+        """POST /shops/{shop_id}/sections, form-encoded `title` (shops_w)."""
+        t = self._section_title(title)
+        change = {"operation": "createShopSection", "title": t}
+        creds = self._authorise_storefront_write("createShopSection", change,
+                                                 ["shop_section"], grant)
+        return self._call("POST", f"/shops/{creds.shop_id}/sections",
+                          operation="createShopSection", form={"title": t}).body
+
+    def update_shop_section(self, shop_section_id: str, title: str, *,
+                            grant: OwnerGrant | None = None) -> dict[str, Any]:
+        """PUT /shops/{shop_id}/sections/{shop_section_id} (rename; shops_w)."""
+        t = self._section_title(title)
+        change = {"operation": "updateShopSection", "shop_section_id": str(shop_section_id),
+                  "title": t}
+        creds = self._authorise_storefront_write("updateShopSection", change,
+                                                 ["shop_section"], grant)
+        return self._call("PUT", f"/shops/{creds.shop_id}/sections/{shop_section_id}",
+                          operation="updateShopSection", form={"title": t}).body
+
+    def delete_shop_section(self, shop_section_id: str, *,
+                            grant: OwnerGrant | None = None) -> bool:
+        """DELETE /shops/{shop_id}/sections/{shop_section_id} (shops_w). The Storefront
+        Director never proposes a deletion; the method exists so the grant covers it too."""
+        change = {"operation": "deleteShopSection", "shop_section_id": str(shop_section_id)}
+        creds = self._authorise_storefront_write("deleteShopSection", change,
+                                                 ["shop_section"], grant)
+        response = self._call("DELETE", f"/shops/{creds.shop_id}/sections/{shop_section_id}",
+                              operation="deleteShopSection")
+        return response.status in (200, 204)
+
+    # ---- activation: the one that costs money ----------------------------
+
+    def activate(self, listing_id: str, *, launch_authorisation: str = "",
+                 grant: OwnerGrant | None = None) -> dict[str, Any]:
+        """Publish a listing on etsy.com. Implemented, gated, and never yet called.
+
+        This is the only method in this system that spends money and the only one whose
+        result a member of the public can see. Etsy charges its listing fee on publication,
+        not on drafts, so calling this is a purchase decision as well as a product decision.
+
+        Three things must all be true, checked in this order: the phase permits publication,
+        the owner has granted publishing authority, and a Launch-0 authorisation string was
+        passed to *this call*. The third exists because the first two are process state that
+        can drift, and a per-call argument cannot be acquired by a job that was configured
+        once and forgotten.
+
+        The pre-flight check is Etsy's own rule, checked before the request so the failure is
+        free: a draft with no image cannot be activated, and a digital listing that is not
+        made to order needs a file.
+        """
+        creds = self._require(Authority.ACTIVATE)
+        if not launch_authorisation.strip():
+            raise EtsyNotPermitted(
+                f"activation needs a Launch-0 authorisation on the call itself. Publishing "
+                f"puts a product in front of customers and Etsy charges its listing fee "
+                f"(US${LISTING_FEE_USD:.2f}) at publication, so this is a spend decision, and "
+                f"a spend decision is the owner's.")
+        # rc1-AUTH D3: the client requires the owner's validated grant itself, so no caller
+        # can reach updateListing(state=active) on the strength of a string.
+        if not isinstance(grant, OwnerGrant):
+            raise EtsyNotPermitted(_grant_refusal(grant, action=OwnerGrant.ACTIVATE,
+                                                  listing_id=str(listing_id)))
+        current = self.get_listing(listing_id)
+        images = current.get("images") or []
+        if not images:
+            raise EtsyRejected(
+                f"listing {listing_id} has no image on Etsy, so activation would be refused: "
+                f"'Setting a `draft` listing to `active` ... requires that the listing have "
+                f"an image set.' Upload an image first; nothing is spent by stopping here.")
+        # `file_data` is the ShopListing field Etsy describes as the files attached to a
+        # digital listing. It is the only file signal on the listing response, so an empty
+        # one is the closest thing available to "no download attached".
+        if (str(current.get("listing_type") or current.get("type") or "") == "download"
+                and str(current.get("when_made") or "") != "made_to_order"
+                and not str(current.get("file_data") or "").strip()):
+            raise EtsyRejected(
+                f"listing {listing_id} is a digital listing with no file attached: 'Digital "
+                f"listings that are not made to order must have a file upload associated "
+                f"with it to be activated.'")
+        # Re-resolved immediately before the one request that spends money and goes public.
+        # A standing activation grant also checks the listing as Etsy holds it (its renewal
+        # setting); an owner's per-product grant is checked exactly as before.
+        standing = str(getattr(grant, "approval_id", "") or "").startswith("seg:")
+        refused = _grant_refusal(grant, action=OwnerGrant.ACTIVATE, listing_id=str(listing_id),
+                                 remote=current if standing else None)
+        if refused is not None:
+            raise EtsyNotPermitted(f"activation refused at the client: {refused}")
+        response = self._call("PATCH", f"/shops/{creds.shop_id}/listings/{listing_id}",
+                              operation="updateListing", authority=Authority.ACTIVATE,
+                              form={"state": "active"})
+        return response.body
+
+    def deactivate(self, listing_id: str, *, grant: OwnerGrant | None = None) -> dict[str, Any]:
+        """Take a live listing down: the only request in this client that sends
+        `state=inactive` (WS4 Stage A part 2, design §5.3 v2).
+
+        It reads the listing back first and hands that reading to the grant, which refuses
+        unless the listing is this one, is `active`, and is a standing-policy listing whose
+        policy has stopped (`ops.standing_withdrawal`). After the request it reads the
+        listing back again and raises unless Etsy reports `inactive`. A credential is the
+        only client-side authority it needs: the grant is the gate, and it is checked
+        immediately before the request. Etsy does not refund the listing fee.
+        """
+        creds = self._require(Authority.WITHDRAW)
+        if not isinstance(grant, OwnerGrant) or grant.action != OwnerGrant.WITHDRAW:
+            raise EtsyNotPermitted("deactivate needs a withdrawal grant (OwnerGrant.WITHDRAW) "
+                                   "on the call itself")
+        current = self.get_listing(listing_id, includes=())
+        before = str(current.get("state") or "").lower()
+        refused = grant.refusal(action=OwnerGrant.WITHDRAW, listing_id=str(listing_id),
+                                remote=current)
+        if refused is not None:
+            raise EtsyNotPermitted(f"withdrawal refused at the client: {refused}")
+        self._call("PATCH", f"/shops/{creds.shop_id}/listings/{listing_id}",
+                   operation="updateListing", authority=Authority.WITHDRAW,
+                   form={"state": "inactive"})
+        after = str(self.get_listing(listing_id, includes=()).get("state") or "").lower()
+        if after != "inactive":
+            raise EtsyRejected(f"listing {listing_id} reads {after!r} after deactivation, "
+                               "not 'inactive'")
+        return {"listing_id": str(listing_id), "before": before, "after": after}
+
+    # ---- the publish path, unchanged in what it permits -------------------
+
+    def publish(self, *, payload: ListingPayload, filename: str, data: bytes,
+                images: list[tuple] | None = None,
+                on_created=None, before_create=None,
+                grant: OwnerGrant | None = None) -> PublishOutcome:
+        """Create the draft, attach the file and upload the images, reporting each honestly.
+
+        Still creates a draft and still stops there: activation is gated. What has changed is
+        that stopping there is now a stated position rather than the end of the code.
+
+        `images` is optional and its absence is reported as a problem rather than ignored. A
+        caller that passes none gets a draft that Etsy will never activate, which is exactly
+        the state this system was in until 2026-09-25 -- and the outcome now says so instead
+        of returning `published=True` about a listing that could not go live. **No caller in
+        this system supplies image bytes yet**: the listing imagery is a release artefact and
+        the bytes are not durable without object storage, which is an owner decision already
+        in the queue and a dependency this department does not own.
+        """
+        reason = self.refusal()
+        if reason is not None:
+            return PublishOutcome(published=False, problems=[reason])
+        # rc1-AUTH D3: the owner's sealed publication grant, required by the client itself.
+        # No grant object at all is refused before anything else (nothing sent) ...
+        if not isinstance(grant, OwnerGrant):
+            return PublishOutcome(published=False, problems=[
+                _grant_refusal(grant, action=OwnerGrant.PUBLISH)])
+
+        # W3-I: Etsy's published file and image rules, checked before the create so that a
+        # file or image Etsy would refuse cannot leave an orphan draft behind on Etsy.
+        preflight = publish_preflight(filename, data, images)
+        if preflight:
+            return PublishOutcome(published=False, problems=preflight)
+
+        if before_create is not None:
+            before_create()  # failure aborts before any create request
+        # ... and the grant is re-verified from the database (sealed grant, effective phase)
+        # immediately before the create request, after the caller's own revalidation hook.
+        reason = _grant_refusal(grant, action=OwnerGrant.PUBLISH)
+        if reason is not None:
+            raise EtsyNotPermitted(f"publication refused at the client: {reason}")
+        listing_id = self.create_draft(payload, grant=grant)
+        # A runtime caller checkpoints the irreversible remote ID before any upload.
+        # Callback failure must abort; swallowing it would reopen the duplicate-create gap.
+        if on_created is not None:
+            on_created(listing_id)
+        try:
+            uploaded = self._attach_file(listing_id, filename=filename, data=data)
+        except (TransientError, EtsyRejected) as e:
+            return PublishOutcome(published=False, listing_id=listing_id,
+                                  file_uploaded=False,
+                                  problems=[f"listing {listing_id} exists on Etsy with no "
+                                            f"file attached: {e}"])
+
+        problems = [] if uploaded else [f"listing {listing_id} exists with no file attached"]
+        images_uploaded = 0
+        for rank, entry in enumerate(images or [], start=1):
+            # (name, bytes), (name, bytes, alt_text), or a certified 2-tuple carrying
+            # `.alt_text` (runtime.etsy_ops.CertifiedImage): a disclosed render (D-FB-7)
+            # carries its disclosure in its alt text, so the alt text travels with the bytes.
+            image_name, image_bytes = entry[0], entry[1]
+            image_alt = entry[2] if len(entry) > 2 else str(getattr(entry, "alt_text", "") or "")
+            try:
+                self._upload_image(listing_id, filename=image_name, data=image_bytes,
+                                   rank=rank, alt_text=image_alt)
+                images_uploaded += 1
+            except (TransientError, EtsyRejected) as e:
+                problems.append(f"image {rank} ({image_name}) was not uploaded: {e}")
+        if not images:
+            problems.append(
+                f"listing {listing_id} has no image, so Etsy will never activate it: "
+                f"'Setting a `draft` listing to `active` ... requires that the listing have "
+                f"an image set.' No image bytes were passed to publish().")
+
+        return PublishOutcome(published=uploaded, listing_id=listing_id,
+                              file_uploaded=uploaded, images_uploaded=images_uploaded,
+                              problems=problems)

@@ -1,0 +1,203 @@
+{
+ "kind": "brambleloop.prod_readback",
+ "read_at": "20261020T1229Z",
+ "build": {
+  "commit": "b931d17a738d6a5bcd96580f620069b669ca5f57",
+  "commit_short": "b931d17a738d",
+  "branch": "claude/repository-setup-nc9x6o",
+  "known": true
+ },
+ "orders_ingest_completed": [
+  {
+   "id": 58753,
+   "at": "2026-10-20T12:02:14.846448+00:00",
+   "actor": "cfo",
+   "action": "job.completed:commerce.orders_ingest",
+   "artifact": "commerce.orders_ingest",
+   "phase": "shadow",
+   "detail": {}
+  },
+  {
+   "id": 58128,
+   "at": "2026-10-20T06:04:13.746727+00:00",
+   "actor": "cfo",
+   "action": "job.completed:commerce.orders_ingest",
+   "artifact": "commerce.orders_ingest",
+   "phase": "shadow",
+   "detail": {}
+  },
+  {
+   "id": 57391,
+   "at": "2026-10-20T00:13:08.571748+00:00",
+   "actor": "cfo",
+   "action": "job.completed:commerce.orders_ingest",
+   "artifact": "commerce.orders_ingest",
+   "phase": "shadow",
+   "detail": {}
+  },
+  {
+   "id": 56573,
+   "at": "2026-10-19T18:03:41.300711+00:00",
+   "actor": "cfo",
+   "action": "job.completed:commerce.orders_ingest",
+   "artifact": "commerce.orders_ingest",
+   "phase": "shadow",
+   "detail": {}
+  },
+  {
+   "id": 54010,
+   "at": "2026-10-19T12:07:28.701239+00:00",
+   "actor": "cfo",
+   "action": "job.completed:commerce.orders_ingest",
+   "artifact": "commerce.orders_ingest",
+   "phase": "shadow",
+   "detail": {}
+  },
+  {
+   "id": 53412,
+   "at": "2026-10-19T06:02:37.945235+00:00",
+   "actor": "cfo",
+   "action": "job.completed:commerce.orders_ingest",
+   "artifact": "commerce.orders_ingest",
+   "phase": "shadow",
+   "detail": {}
+  },
+  {
+   "id": 52726,
+   "at": "2026-10-19T00:34:30.241029+00:00",
+   "actor": "cfo",
+   "action": "job.completed:commerce.orders_ingest",
+   "artifact": "commerce.orders_ingest",
+   "phase": "shadow",
+   "detail": {}
+  },
+  {
+   "id": 51753,
+   "at": "2026-10-18T18:03:26.747693+00:00",
+   "actor": "cfo",
+   "action": "job.completed:commerce.orders_ingest",
+   "artifact": "commerce.orders_ingest",
+   "phase": "shadow",
+   "detail": {}
+  },
+  {
+   "id": 51160,
+   "at": "2026-10-18T12:02:30.455815+00:00",
+   "actor": "cfo",
+   "action": "job.completed:commerce.orders_ingest",
+   "artifact": "commerce.orders_ingest",
+   "phase": "shadow",
+   "detail": {}
+  },
+  {
+   "id": 50632,
+   "at": "2026-10-18T06:02:33.246262+00:00",
+   "actor": "cfo",
+   "action": "job.completed:commerce.orders_ingest",
+   "artifact": "commerce.orders_ingest",
+   "phase": "shadow",
+   "detail": {}
+  }
+ ],
+ "order_readings_completed": [
+  {
+   "id": 57395,
+   "at": "2026-10-20T00:13:11.970923+00:00",
+   "actor": "cfo",
+   "action": "job.completed:commerce.order_readings",
+   "artifact": "commerce.order_readings",
+   "phase": "shadow",
+   "detail": {}
+  },
+  {
+   "id": 52730,
+   "at": "2026-10-19T00:34:35.194225+00:00",
+   "actor": "cfo",
+   "action": "job.completed:commerce.order_readings",
+   "artifact": "commerce.order_readings",
+   "phase": "shadow",
+   "detail": {}
+  },
+  {
+   "id": 50011,
+   "at": "2026-10-18T01:04:38.327201+00:00",
+   "actor": "cfo",
+   "action": "job.completed:commerce.order_readings",
+   "artifact": "commerce.order_readings",
+   "phase": "shadow",
+   "detail": {}
+  },
+  {
+   "id": 46934,
+   "at": "2026-10-17T00:15:52.938822+00:00",
+   "actor": "cfo",
+   "action": "job.completed:commerce.order_readings",
+   "artifact": "commerce.order_readings",
+   "phase": "shadow",
+   "detail": {}
+  },
+  {
+   "id": 44380,
+   "at": "2026-10-16T00:09:28.175993+00:00",
+   "actor": "cfo",
+   "action": "job.completed:commerce.order_readings",
+   "artifact": "commerce.order_readings",
+   "phase": "shadow",
+   "detail": {}
+  }
+ ],
+ "orders_ingested_rows": [],
+ "gates": {
+  "transactions_r": {
+   "key": "transactions_r",
+   "what": "the owner has re-authorised the Etsy app with the transactions_r scope, so receipts can be read (C-64: the order source)",
+   "how_it_is_checked": "the stored Etsy grant lists transactions_r AND a successful etsy.probe is recorded; the scope is added only by the owner in a browser (owner action reauthorise_transactions_r), and the ingest makes no network call while closed",
+   "requirement_ids": [
+    11,
+    12
+   ],
+   "open": true
+  },
+  "customers": {
+   "key": "customers",
+   "what": "real orders, which only a buyer can create -- DATA/EXTERNAL-gated, never an owner action (closure.DATA_GATES; listed under waiting_on_data, never as an owner card)",
+   "how_it_is_checked": "at least one LedgerEntry has gross_cad > 0 and an evidence_ref -- revenue with its order, not an expense and not a phase flag saying the company is selling",
+   "requirement_ids": [
+    8,
+    18,
+    19,
+    20,
+    21,
+    25,
+    28,
+    31,
+    33,
+    41,
+    45,
+    48,
+    120,
+    147,
+    169,
+    226,
+    229,
+    235,
+    242,
+    243,
+    244,
+    245,
+    252,
+    253,
+    256,
+    257,
+    258,
+    260,
+    265,
+    270,
+    272,
+    280,
+    292
+   ],
+   "open": false
+  }
+ }
+}

@@ -1,0 +1,15 @@
+# tests/test_w4_integ3_defects.py (first version, commit c9cb9d8) run on production tree 7bbbe72 via testslot, 2026-10-12. The final version renames two tests (L1, closed-gap) after the B2CLOSE/LAURAFIX reconciliation; both still pass on the final tree.
+FAIL test_a_closed_gap_and_a_gap_past_max_id_are_not_scored: AssertionError: KeyError: 'slug'
+FAIL test_a_concept_already_queued_today_is_not_queued_twice: TypeError: 'NoneType' object is not subscriptable
+OK   test_a_concept_radar_score_is_unchanged
+FAIL test_a_configured_archive_failure_opens_one_incident_instead_of_dead_lettering: AssertionError: ['TypeError: \'kind\' is an invalid keyword argument for Incident\nTraceback (most recent call last):\n  File "/tmp/cla
+FAIL test_a_coverage_handoff_radar_score_completes_and_fans_out_per_concept: AssertionError: KeyError: 'slug'
+FAIL test_an_overlong_policy_version_is_refused_not_truncated: AssertionError: an overlong version was stored (Postgres would dead-letter)
+FAIL test_i2_the_registry_names_the_live_briefing_prompt: AssertionError: 
+FAIL test_l1_different_incidents_sharing_job_type_and_error_class_keep_their_headlines: AssertionError: 
+FAIL test_l2_an_unresolved_shop_binding_backs_off_and_a_success_resets_it: AssertionError: the second build retried inside the backoff
+OK   test_policy_watch_runs_to_done
+FAIL test_the_restore_proof_runs_where_postgres_is_required: EphemeralStorageRefused: BRAMBLELOOP_REQUIRE_POSTGRES=1, but no Postgres URL is bound. Refusing to start on ephemeral SQLite: the container would look healthy 
+FAIL test_the_seeded_policy_versions_fit_the_column_and_the_guard_matches_the_model: AttributeError: module 'brambleloop.gates.platform_policy' has no attribute 'VERSION_MAX'
+FAIL test_the_widening_migration_never_narrows_and_skips_sqlite: AttributeError: module 'brambleloop.core.migrate' has no attribute 'widen_plan'
+11 failed

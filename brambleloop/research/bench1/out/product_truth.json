@@ -1,0 +1,593 @@
+{
+ "source": {
+  "pdf": "purchased pattern PDF, 12 pages, text extracted with pypdf (not in the repository)",
+  "sample_size": "S"
+ },
+ "facts": {
+  "product_type": {
+   "value": "cardigan with pockets, open front, no closure",
+   "page": 2,
+   "how": "MINI EXPLANATION and NOTES"
+  },
+  "level": {
+   "value": "beginner",
+   "page": 2,
+   "how": "LEVEL"
+  },
+  "construction": {
+   "value": {
+    "body": "one piece worked flat side to side: first front, chained sleeve opening, back, chained sleeve opening, second front; hem ribbing worked into every body row",
+    "sleeves": "worked separately side to side, folded lengthways and seamed; sewn to the armholes",
+    "neckline_ribbing": "worked separately, sewn along the entire neckline",
+    "pockets": "worked separately, sewn to the front panels (optional, make 2)",
+    "seams": "whip stitch, right sides in, wrong side facing out"
+   },
+   "page": 2,
+   "how": "NOTES; ASSEMBLY p10-12"
+  },
+  "sample_size": {
+   "value": "S",
+   "page": 2,
+   "how": "'Sample is a size small'"
+  },
+  "model_stated": {
+   "value": {
+    "height_cm": 160.0,
+    "bust_cm": 81.3
+   },
+   "page": 2,
+   "how": "5'3\" model with a 32\" bust"
+  },
+  "yarn": {
+   "value": {
+    "line": "Lionbrand Color Theory",
+    "weight": "Aran / Worsted / 10ply / Medium (4)",
+    "put_up": "225 m / 100 g",
+    "fibre": "100% acrylic",
+    "colourway": "Stonewash",
+    "grams_by_size": [
+     520.0,
+     585.0,
+     635.0,
+     675.0,
+     725.0,
+     810.0,
+     860.0,
+     915.0,
+     970.0
+    ]
+   },
+   "page": 3,
+   "how": "MATERIALS"
+  },
+  "hook_mm": {
+   "value": 6.0,
+   "page": 3,
+   "how": "6mm (US J)"
+  },
+  "gauge": {
+   "value": {
+    "stitches_per_10cm": 14.5,
+    "rows_per_10cm": 9.5,
+    "in": "Crumpled Waffle Stitch pattern"
+   },
+   "page": 3,
+   "how": "GAUGE"
+  },
+  "stated_measurements_cm": {
+   "value": {
+    "bust_to_fit": [
+     71.0,
+     81.0,
+     91.0,
+     101.0,
+     112.0,
+     122.0,
+     132.0,
+     142.0,
+     152.0
+    ],
+    "back_width": [
+     47.0,
+     53.0,
+     58.0,
+     62.0,
+     66.0,
+     73.0,
+     77.0,
+     83.0,
+     87.0
+    ],
+    "armhole": [
+     14.0,
+     15.0,
+     16.5,
+     18.0,
+     19.0,
+     21.0,
+     22.0,
+     23.0,
+     24.0
+    ],
+    "sleeve_length": [
+     39.0,
+     39.0,
+     41.0,
+     41.0,
+     42.0,
+     42.0,
+     43.0,
+     43.0,
+     45.0
+    ],
+    "length": [
+     62.0,
+     65.0,
+     65.0,
+     65.0,
+     65.0,
+     67.0,
+     67.0,
+     67.0,
+     67.0
+    ]
+   },
+   "page": 3,
+   "how": "MEASUREMENTS"
+  },
+  "stitch_pattern": {
+   "value": {
+    "name": "Crumpled Waffle Stitch / Textured HDC",
+    "foundation": "even chain",
+    "row_1": "hdc across into back bumps",
+    "row_2": "ch1, (BLO hdc, FLO hdc) repeated, hdc in last",
+    "row_3": "ch1, (FLO hdc, BLO hdc) repeated, hdc in last",
+    "repeat": "rows 2-3"
+   },
+   "page": 4,
+   "how": "stitch pattern"
+  },
+  "body": {
+   "value": {
+    "foundation_ch": [
+     91.0,
+     95.0,
+     95.0,
+     95.0,
+     95.0,
+     99.0,
+     99.0,
+     99.0,
+     99.0
+    ],
+    "stitches": [
+     90.0,
+     94.0,
+     94.0,
+     94.0,
+     94.0,
+     98.0,
+     98.0,
+     98.0,
+     98.0
+    ],
+    "hem_rib_stitches": 10,
+    "first_front_rows": [
+     18.0,
+     20.0,
+     22.0,
+     24.0,
+     26.0,
+     28.0,
+     30.0,
+     32.0,
+     34.0
+    ],
+    "sleeve_opening_chains": [
+     27.0,
+     29.0,
+     31.0,
+     33.0,
+     35.0,
+     37.0,
+     39.0,
+     41.0,
+     43.0
+    ],
+    "back_rows": [
+     44.0,
+     50.0,
+     54.0,
+     58.0,
+     62.0,
+     68.0,
+     72.0,
+     78.0,
+     82.0
+    ],
+    "second_front_rows": [
+     18.0,
+     20.0,
+     22.0,
+     24.0,
+     26.0,
+     28.0,
+     30.0,
+     32.0,
+     34.0
+    ],
+    "final_plain_row": 1,
+    "total_rows": [
+     81.0,
+     91.0,
+     99.0,
+     107.0,
+     115.0,
+     125.0,
+     133.0,
+     143.0,
+     151.0
+    ],
+    "stated_totals": {
+     "after_back": [
+      62.0,
+      70.0,
+      76.0,
+      82.0,
+      88.0,
+      96.0,
+      102.0,
+      110.0,
+      116.0
+     ],
+     "after_second_front": [
+      80.0,
+      90.0,
+      98.0,
+      106.0,
+      114.0,
+      124.0,
+      132.0,
+      142.0,
+      150.0
+     ]
+    }
+   },
+   "page": 4,
+   "how": "BODY PANEL p4-8"
+  },
+  "sleeve": {
+   "value": {
+    "make": 2,
+    "foundation_ch": [
+     63.0,
+     63.0,
+     65.0,
+     65.0,
+     67.0,
+     67.0,
+     69.0,
+     69.0,
+     71.0
+    ],
+    "stitches": [
+     62.0,
+     62.0,
+     64.0,
+     64.0,
+     66.0,
+     66.0,
+     68.0,
+     68.0,
+     70.0
+    ],
+    "rows": [
+     26.0,
+     30.0,
+     32.0,
+     34.0,
+     36.0,
+     40.0,
+     42.0,
+     44.0,
+     46.0
+    ],
+    "cuff_stitches": 10,
+    "cuff_stitch": "slip stitch in back loop (rows B) / hdc BLO (rows A)",
+    "finish": "fold in half lengthways, whip stitch the edges together"
+   },
+   "page": 8,
+   "how": "SLEEVES p8-9"
+  },
+  "neckline_ribbing": {
+   "value": {
+    "foundation_ch": 8,
+    "stitches": 7,
+    "row": "ch1, BLO hdc 6, hdc in last",
+    "length": "the entire neckline (measured, not counted)"
+   },
+   "page": 10,
+   "how": "NECKLINE RIBBING"
+  },
+  "pocket": {
+   "value": {
+    "make": 2,
+    "optional": true,
+    "foundation_ch": 25,
+    "stitches": 24,
+    "rows": 13,
+    "top_edge": "slip-stitch edging along a row-end edge (rows run vertically on the garment)",
+    "placement": "UNKNOWN in the text: 'try on the cardigan to double-check pocket placement'; sewn through the front panel only"
+   },
+   "page": 11,
+   "how": "POCKETS p11-12"
+  },
+  "assembly_order": {
+   "value": [
+    "fronts laid on back, whip stitch shoulder seams",
+    "whip stitch top of sleeves to armholes",
+    "pin and whip stitch ribbing along neckline",
+    "pin and whip stitch pockets to the front panels",
+    "weave in ends, steam block"
+   ],
+   "page": 10,
+   "how": "ASSEMBLY p10-12"
+  }
+ },
+ "derived_cm": {
+  "size": "S",
+  "cm_per_stitch": 0.6897,
+  "cm_per_row": 1.0526,
+  "body_length_cm": 64.82758620689656,
+  "front_panel_width_cm": 21.052631578947366,
+  "back_width_cm": 52.63157894736842,
+  "body_total_width_cm": 95.78947368421052,
+  "hem_rib_height_cm": 6.8965517241379315,
+  "sleeve_length_cm": 42.758620689655174,
+  "sleeve_circumference_cm": 31.57894736842105,
+  "sleeve_folded_width_cm": 15.789473684210526,
+  "cuff_length_cm_at_hdc_gauge": 6.8965517241379315,
+  "sleeve_opening_chains": 29.0,
+  "neckband_width_cm": 4.827586206896552,
+  "back_neck_width_cm": 10.526315789473685,
+  "pocket_width_cm": 13.68421052631579,
+  "pocket_height_cm": 16.551724137931036,
+  "neckband_length_cm": 140.18148820326678,
+  "implied_chain_gauge_per_10cm": {
+   "by_size": [
+    19.7,
+    18.4,
+    18.4,
+    18.4,
+    18.5,
+    17.6,
+    17.6,
+    17.7,
+    17.8
+   ],
+   "midpoint": 18.65,
+   "DERIVED": "from armhole chains = half sleeve circumference across the nine sizes"
+  },
+  "sleeve_opening_slit_cm": 15.5,
+  "checks": [
+   {
+    "check": "stated row totals add up",
+    "status": "PASS",
+    "detail": "20.0+50.0+20.0+1 = 91.0"
+   },
+   {
+    "check": "foundation chain = stitches + 1 (body, sleeve, neckband, pocket)",
+    "status": "PASS",
+    "detail": ""
+   },
+   {
+    "check": "stated length within 5 % of stitches x gauge",
+    "status": "PASS",
+    "detail": "64.8 vs stated 65.0"
+   },
+   {
+    "check": "stated back width within 5 % of back rows x gauge",
+    "status": "PASS",
+    "detail": "52.6 vs stated 53.0"
+   },
+   {
+    "check": "stated armhole = half the sleeve circumference within 6 %",
+    "status": "PASS",
+    "detail": "15.8 vs stated 15.0"
+   },
+   {
+    "check": "stated sleeve length vs stitches x gauge (recorded, not enforced: the cuff is slip stitch and shorter than hdc gauge)",
+    "status": "PASS",
+    "detail": "42.8 vs stated 39.0 (+10%)"
+   },
+   {
+    "check": "back wider than both fronts: a back neck exists",
+    "status": "PASS",
+    "detail": "10.5 cm"
+   }
+  ],
+  "assumed": {
+   "pocket_placement": "centred on each front panel, pocket bottom 5 cm above the hem rib -- the text leaves placement to the maker",
+   "colour_rgb": "not derivable from the text; the colourway is named (Stonewash) and its appearance is taken from the seller's photograph of it, recorded in seller_photos.json"
+  }
+ },
+ "cir": {
+  "fingerprint": "ae41fcbaa652",
+  "components": [
+   "body",
+   "sleeve",
+   "neckband",
+   "pocket"
+  ],
+  "compile": {
+   "ok": true,
+   "errors": [],
+   "warnings": [
+    "WARNING ASSEMBLY_UNPLACED: assembly steps [3, 4, 5] join two different pieces without saying where on the second piece the join happens. A maker can follow every round and still not know where the ears go"
+   ]
+  },
+  "assembly": {
+   "verdict": "partially_placed",
+   "why": "2 of 5 joins do not name their edges, so the object's shape is only partly determined",
+   "silhouette_across_cm": 95.8,
+   "silhouette_up_cm": 64.8,
+   "pieces": {
+    "body": {
+     "across_cm": 95.8,
+     "up_cm": 64.8,
+     "grain": "across",
+     "copies": 1
+    },
+    "neckband": {
+     "across_cm": 2.1,
+     "up_cm": 4.8,
+     "grain": "across",
+     "copies": 1
+    },
+    "pocket": {
+     "across_cm": 13.7,
+     "up_cm": 16.6,
+     "grain": "across",
+     "copies": 2
+    },
+    "sleeve": {
+     "across_cm": 31.6,
+     "up_cm": 42.8,
+     "grain": "across",
+     "copies": 2
+    }
+   },
+   "joins": [
+    {
+     "a": "body.top",
+     "b": "body.top",
+     "length_a_cm": null,
+     "length_b_cm": null,
+     "verdict": "sound",
+     "why": "self-seam: one piece folded and closed"
+    },
+    {
+     "a": "sleeve.fold",
+     "b": "sleeve.fold",
+     "length_a_cm": null,
+     "length_b_cm": null,
+     "verdict": "sound",
+     "why": "self-seam: one piece folded and closed"
+    },
+    {
+     "a": "sleeve.top",
+     "b": "body.opening",
+     "length_a_cm": 31.6,
+     "length_b_cm": 31.1,
+     "verdict": "sound",
+     "why": "edges agree within 1.6%"
+    },
+    {
+     "a": "neckband.?",
+     "b": "body.?",
+     "length_a_cm": null,
+     "length_b_cm": null,
+     "verdict": "unchecked",
+     "why": "this join does not say which edges meet, so no length can be compared and the pieces cannot be placed relative to each other"
+    },
+    {
+     "a": "pocket.?",
+     "b": "body.?",
+     "length_a_cm": null,
+     "length_b_cm": null,
+     "verdict": "unchecked",
+     "why": "this join does not say which edges meet, so no length can be compared and the pieces cannot be placed relative to each other"
+    }
+   ]
+  },
+  "texture_signature": {
+   "body": {
+    "textured": true,
+    "cells": 752,
+    "loop_targeted_cells": 651,
+    "alternation_along_row": 0.913,
+    "offset_between_rows": 0.783,
+    "surface": "checkered",
+    "why": "the loop target changes along the row and changes again on the next row, so no column persists: the surface breaks up rather than running in ridges",
+    "orientation_is_in_fabric_axes": "along/up the rows, not up/across the worn garment. Which of those is vertical depends on the panel's grain direction, which the CIR does not carry, so this deliberately does not say"
+   },
+   "sleeve": {
+    "textured": true,
+    "cells": 496,
+    "loop_targeted_cells": 427,
+    "alternation_along_row": 0.867,
+    "offset_between_rows": 0.743,
+    "surface": "checkered",
+    "why": "the loop target changes along the row and changes again on the next row, so no column persists: the surface breaks up rather than running in ridges",
+    "orientation_is_in_fabric_axes": "along/up the rows, not up/across the worn garment. Which of those is vertical depends on the panel's grain direction, which the CIR does not carry, so this deliberately does not say"
+   },
+   "neckband": {
+    "textured": true,
+    "cells": 14,
+    "loop_targeted_cells": 6,
+    "alternation_along_row": 0.0,
+    "offset_between_rows": 0.0,
+    "surface": "ridges_along_the_rows",
+    "why": "the loop target is the same everywhere, so every row leaves its unworked loop in the same place and the rows stack into ridges: this is ribbing",
+    "orientation_is_in_fabric_axes": "along/up the rows, not up/across the worn garment. Which of those is vertical depends on the panel's grain direction, which the CIR does not carry, so this deliberately does not say"
+   },
+   "pocket": {
+    "textured": true,
+    "cells": 192,
+    "loop_targeted_cells": 161,
+    "alternation_along_row": 1.0,
+    "offset_between_rows": 0.857,
+    "surface": "checkered",
+    "why": "the loop target changes along the row and changes again on the next row, so no column persists: the surface breaks up rather than running in ridges",
+    "orientation_is_in_fabric_axes": "along/up the rows, not up/across the worn garment. Which of those is vertical depends on the panel's grain direction, which the CIR does not carry, so this deliberately does not say"
+   }
+  }
+ },
+ "cross_check_vs_cir_benchmarks": {
+  "agree": true,
+  "pairs": {
+   "benchmarks.BODY_STS": [
+    94,
+    94.0
+   ],
+   "benchmarks.FRONT_ROWS": [
+    20,
+    20.0
+   ],
+   "benchmarks.BACK_ROWS": [
+    50,
+    50.0
+   ],
+   "benchmarks.ARMHOLE_CH": [
+    29,
+    29.0
+   ],
+   "benchmarks.SLEEVE_STS": [
+    62,
+    62.0
+   ],
+   "benchmarks.SLEEVE_ROWS": [
+    30,
+    30.0
+   ],
+   "benchmarks.POCKET": [
+    [
+     24,
+     13
+    ],
+    [
+     24,
+     13
+    ]
+   ],
+   "benchmarks.NECK_RIB_STS": [
+    7,
+    7
+   ],
+   "benchmarks.reconcile.total_rows": [
+    91,
+    91.0
+   ]
+  }
+ }
+}

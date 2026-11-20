@@ -1,0 +1,85 @@
+{
+ "candidate": "7421ef6215588659da314cced213a848ffc8e567",
+ "opened_at": "2026-10-11T00:40:00Z",
+ "status": "open",
+ "rule": "F-846: freeze -> independent audit -> ledger -> repair -> regression test -> full suite -> independent re-audit",
+ "freeze_ref": "refs/heads/claude/final-candidate-7421ef6",
+ "defects": [
+  {
+   "source": "independent_reaudit",
+   "key": "D-1",
+   "severity": "MEDIUM",
+   "where": "gateway/anthropic.py:157-164,488 (monthly_ceiling_cad / _decide_and_reserve)",
+   "detail": "BRAMBLELOOP_MODEL_MONTHLY_CEILING_CAD=nan disables the monthly model ceiling: float('nan') parses, min(nan, 100.0) is nan, and committed + estimate > nan is always False. Pre-existing at fcb982d. Fix: return authorised unless math.isfinite(value); refuse a non-finite ceiling in _decide_and_reserve",
+   "evidence": "research/final_build/w4/INDEPENDENT_REAUDIT_7421ef6.md (origin/claude/w4-REAUDIT d33c43c)",
+   "status": "repair_in_flight",
+   "repair_branch": "claude/w4-AUDITFIX",
+   "repair_note": "repairs land on a successor candidate; claude/w4-AUDITFIX was not yet on origin when this ledger was opened"
+  },
+  {
+   "source": "independent_reaudit",
+   "key": "L-1",
+   "severity": "LOW",
+   "where": "app/command_center/auth.py:184-187 (verify_totp)",
+   "detail": "TOTP is optional in code: an unset BRAMBLELOOP_OWNER_TOTP_SECRET makes owner login passphrase-only, and accepted codes are not marked used, so they can be replayed within about 90 s. Confirm the production variable; consider requiring it outside local development",
+   "evidence": "research/final_build/w4/INDEPENDENT_REAUDIT_7421ef6.md (origin/claude/w4-REAUDIT d33c43c)",
+   "status": "repair_in_flight",
+   "repair_branch": "claude/w4-AUDITFIX",
+   "repair_note": "repairs land on a successor candidate; claude/w4-AUDITFIX was not yet on origin when this ledger was opened"
+  },
+  {
+   "source": "independent_reaudit",
+   "key": "L-2",
+   "severity": "LOW",
+   "where": "app/command_center/api.py:73-88 (login_throttle / verify_owner)",
+   "detail": "Login throttle is check-then-act without a lock: N concurrent logins from one client can pass the throttle before the first failure is recorded (bounded by 600k-iteration PBKDF2 and a >=12-char passphrase)",
+   "evidence": "research/final_build/w4/INDEPENDENT_REAUDIT_7421ef6.md (origin/claude/w4-REAUDIT d33c43c)",
+   "status": "repair_in_flight",
+   "repair_branch": "claude/w4-AUDITFIX",
+   "repair_note": "repairs land on a successor candidate; claude/w4-AUDITFIX was not yet on origin when this ledger was opened"
+  },
+  {
+   "source": "independent_reaudit",
+   "key": "L-3",
+   "severity": "LOW",
+   "where": "core/migrate.py:85-89 (apply)",
+   "detail": "Index creation only runs when changes is non-empty: a release adding only nullable, no-default indexed columns would not create the indexes on an existing database. No effect at 7421ef6 (the rehearsal showed no missing index). Pre-existing",
+   "evidence": "research/final_build/w4/INDEPENDENT_REAUDIT_7421ef6.md (origin/claude/w4-REAUDIT d33c43c)",
+   "status": "repair_in_flight",
+   "repair_branch": "claude/w4-AUDITFIX",
+   "repair_note": "repairs land on a successor candidate; claude/w4-AUDITFIX was not yet on origin when this ledger was opened"
+  },
+  {
+   "source": "shadow_rehearsal",
+   "key": "search_certificate_not_pass",
+   "where": "listing_search_profiles.verdict",
+   "detail": "stored search verdict after listing.seo is 'REFUSED'; store.publish's search_certificate gate requires PASS",
+   "status": "open",
+   "evidence": "brambleloop/research/final_build/evidence/shadow_rehearsal_7421ef6_2026-10-11T0005Z.json"
+  },
+  {
+   "source": "shadow_rehearsal",
+   "key": "grant_snapshot_refused",
+   "where": "ops/publication_authority.snapshot",
+   "detail": "ValueError: certified listing taxonomy UNKNOWN; default fallback prohibited",
+   "status": "open",
+   "evidence": "brambleloop/research/final_build/evidence/shadow_rehearsal_7421ef6_2026-10-11T0005Z.json"
+  },
+  {
+   "source": "shadow_rehearsal",
+   "key": "past_shadow_publish_blocked",
+   "where": "runtime/pipeline.py::handle_store_publish",
+   "detail": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review.",
+   "status": "open",
+   "evidence": "brambleloop/research/final_build/evidence/shadow_rehearsal_7421ef6_2026-10-11T0005Z.json"
+  },
+  {
+   "source": "shadow_rehearsal",
+   "key": "order_version_unmapped",
+   "where": "commerce/orders_ingest.py",
+   "detail": "the receipt's listing rehearsal-unpublished-listing did not map to cloudline-baby-blanket@1.2.0 (no draft listing id existed to sell)",
+   "status": "open",
+   "evidence": "brambleloop/research/final_build/evidence/shadow_rehearsal_7421ef6_2026-10-11T0005Z.json"
+  }
+ ]
+}

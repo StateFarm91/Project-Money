@@ -1,0 +1,59 @@
+OK   every requirement lands in exactly one state and the counts sum to 320
+OK   every executor gate is classified as owner, data or external waiting
+OK   an unclassified gate is refused rather than filed where it flatters
+OK   a covered row is COMPLETE+PROVEN only when a named module exists and is tested
+OK   covered rows without proof are OPEN, never silently complete
+     covered-without-proof: 0 []
+OK   the external blockers are stated in words with their evidence
+OK   a data-gated row is DATA-GATED only when its machinery exists, else OPEN (C-39)
+OK   a data-gated row that names no module is OPEN, not parked on missing data
+OK   a covered row naming only an unreached module is OPEN, not COMPLETE+PROVEN
+OK   the same shape of row naming a runtime-reached module is COMPLETE+PROVEN
+OK   a data-gated row whose machinery nothing runs is OPEN (C-59)
+OK   #4's commerce/preproduction.py is reached through the growth.preproduction handler
+OK   fixture precondition: growth/free_to_paid.py is still only statically imported
+OK   a covered row whose library only a static state() route touches is OPEN, and naming a runtime root beside it does not count as reach (C-65)
+OK   an owner_gated row whose built half names unreached machinery is OPEN (C-65)
+OK   the same owner_gated row naming live machinery stays OWNER-GATED
+OK   with no database the gate is reported UNCHECKED, never as verified closed (C-65)
+OK   the matrix without a database says its gates were not checked and names the rows resting on the registry's word
+OK   a partial row with no gate is OPEN (executable work owed)
+     #75: COMPLETE+PROVEN None module visual/parity.py exists and is tested
+OK   a parked row with a live built half exists to test the reopening on
+OK   an opened gate returns its requirement to OPEN rather than leaving it parked
+OK   the closeout bar is open == 0 AND gates read live; with no database it is indeterminate, never met (C-65/P03)
+     matrix: {'COMPLETE+PROVEN': 218, 'OWNER-GATED': 58, 'DATA-GATED': 37, 'EXTERNAL-BLOCKED': 7, 'OPEN': 0} closed_out: False
+C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\runtime-build2\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+OK   /api/closure serves the matrix with gates checked live
+OK   /api/closure agrees with the module on every state count except gate-opened rows
+OK   a reopened partial row the gate table still lists is OPEN, not parked
+OK   the same row explicitly parked on the owner gate is OWNER-GATED
+OK   no reopened row without an explicit park is counted as gated (the C-65/P01 twenty); a row repaired to COMPLETE+PROVEN is not a park
+
+  27 passing, 0 failing
+Traceback (most recent call last):
+  File "C:\Users\Jacob McKenna\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\shutil.py", line 633, in _rmtree_unsafe
+    os.unlink(fullname)
+PermissionError: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\JACOBM~1\\AppData\\Local\\Temp\\codex_final_suite_hum9uwl1\\tmpexpzb6i5\\app.sqlite'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Jacob McKenna\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\weakref.py", line 666, in _exitfunc
+    f()
+  File "C:\Users\Jacob McKenna\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\weakref.py", line 590, in __call__
+    return info.func(*info.args, **(info.kwargs or {}))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Jacob McKenna\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\tempfile.py", line 939, in _cleanup
+    cls._rmtree(name, ignore_errors=ignore_errors)
+  File "C:\Users\Jacob McKenna\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\tempfile.py", line 934, in _rmtree
+    _shutil.rmtree(name, onexc=onexc)
+  File "C:\Users\Jacob McKenna\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\shutil.py", line 781, in rmtree
+    return _rmtree_unsafe(path, onexc)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Jacob McKenna\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\shutil.py", line 635, in _rmtree_unsafe
+    onexc(os.unlink, fullname, err)
+  File "C:\Users\Jacob McKenna\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\Lib\tempfile.py", line 909, in onexc
+    _os.unlink(path)
+PermissionError: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\JACOBM~1\\AppData\\Local\\Temp\\codex_final_suite_hum9uwl1\\tmpexpzb6i5\\app.sqlite'

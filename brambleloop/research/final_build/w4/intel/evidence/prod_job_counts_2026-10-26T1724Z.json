@@ -1,0 +1,1024 @@
+{
+ "jobs": {
+  "ads.adjust": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11852,
+   "last_id": 32695,
+   "n": 16
+  },
+  "assets.build": {
+   "by_status": {
+    "done": 201
+   },
+   "first_id": 63,
+   "last_id": 13530,
+   "n": 201
+  },
+  "assets.model_photography": {
+   "by_status": {
+    "done": 78
+   },
+   "first_id": 2613,
+   "last_id": 33593,
+   "n": 78
+  },
+  "assets.owned_photography": {
+   "by_status": {
+    "done": 313
+   },
+   "first_id": 2305,
+   "last_id": 33592,
+   "n": 313
+  },
+  "autonomy.department_review": {
+   "by_status": {
+    "done": 649
+   },
+   "first_id": 12068,
+   "last_id": 33480,
+   "n": 649
+  },
+  "autonomy.morning_handoff": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 12271,
+   "last_id": 33407,
+   "n": 16
+  },
+  "autonomy.orchestrate": {
+   "by_status": {
+    "done": 5102
+   },
+   "first_id": 11890,
+   "last_id": 33775,
+   "n": 5102
+  },
+  "build.tick": {
+   "by_status": {
+    "done": 901
+   },
+   "first_id": 1365,
+   "last_id": 33757,
+   "n": 901
+  },
+  "chain.rebuild": {
+   "by_status": {
+    "done": 779
+   },
+   "first_id": 291,
+   "last_id": 31908,
+   "n": 779
+  },
+  "cir.compile": {
+   "by_status": {
+    "done": 90
+   },
+   "first_id": 30,
+   "last_id": 24734,
+   "n": 90
+  },
+  "cir.draft": {
+   "by_status": {
+    "done": 93
+   },
+   "first_id": 19,
+   "last_id": 24731,
+   "n": 93
+  },
+  "collection.assemble": {
+   "by_status": {
+    "done": 9
+   },
+   "first_id": 307,
+   "last_id": 11993,
+   "n": 9
+  },
+  "commerce.order_readings": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11849,
+   "last_id": 32692,
+   "n": 16
+  },
+  "commerce.orders_ingest": {
+   "by_status": {
+    "done": 62
+   },
+   "first_id": 11846,
+   "last_id": 33449,
+   "n": 62
+  },
+  "commerce.readings": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11845,
+   "last_id": 32688,
+   "n": 16
+  },
+  "creative.benchmark_memory": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11880,
+   "last_id": 32727,
+   "n": 16
+  },
+  "creative.blind_review": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11865,
+   "last_id": 32707,
+   "n": 16
+  },
+  "creative.blinded": {
+   "by_status": {
+    "done": 85
+   },
+   "first_id": 1492,
+   "last_id": 33595,
+   "n": 85
+  },
+  "creative.candidates_file": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11839,
+   "last_id": 33008,
+   "n": 16
+  },
+  "creative.expedition": {
+   "by_status": {
+    "done": 14
+   },
+   "first_id": 1509,
+   "last_id": 33596,
+   "n": 14
+  },
+  "creative.four_season": {
+   "by_status": {
+    "done": 3
+   },
+   "first_id": 11840,
+   "last_id": 26956,
+   "n": 3
+  },
+  "creative.grid_tournament": {
+   "by_status": {
+    "done": 4
+   },
+   "first_id": 11866,
+   "last_id": 26981,
+   "n": 4
+  },
+  "creative.image_benchmark": {
+   "by_status": {
+    "done": 564
+   },
+   "first_id": 2023,
+   "last_id": 32416,
+   "n": 564
+  },
+  "creative.model_freeze": {
+   "by_status": {
+    "done": 1
+   },
+   "first_id": 2563,
+   "last_id": 2563,
+   "n": 1
+  },
+  "creative.model_reference_pack": {
+   "by_status": {
+    "done": 598
+   },
+   "first_id": 2225,
+   "last_id": 33591,
+   "n": 598
+  },
+  "creative.model_tournament": {
+   "by_status": {
+    "done": 514
+   },
+   "first_id": 2162,
+   "last_id": 33590,
+   "n": 514
+  },
+  "creative.north_star": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11851,
+   "last_id": 32694,
+   "n": 16
+  },
+  "creative.outcome_learning": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11835,
+   "last_id": 32681,
+   "n": 16
+  },
+  "creative.photoreal_calibration": {
+   "by_status": {
+    "done": 3
+   },
+   "first_id": 2665,
+   "last_id": 2692,
+   "n": 3
+  },
+  "creative.reference_reading": {
+   "by_status": {
+    "done": 14
+   },
+   "first_id": 11881,
+   "last_id": 33594,
+   "n": 14
+  },
+  "creative.style_learning": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11834,
+   "last_id": 32680,
+   "n": 16
+  },
+  "creative.tournament": {
+   "by_status": {
+    "done": 191
+   },
+   "first_id": 1718,
+   "last_id": 33597,
+   "n": 191
+  },
+  "creative.white_space": {
+   "by_status": {
+    "done": 3
+   },
+   "first_id": 11838,
+   "last_id": 26955,
+   "n": 3
+  },
+  "culture.sweep": {
+   "by_status": {
+    "done": 37
+   },
+   "first_id": 1907,
+   "last_id": 32734,
+   "n": 37
+  },
+  "etsy.credential_health": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11885,
+   "last_id": 32740,
+   "n": 16
+  },
+  "etsy.listing_census": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11889,
+   "last_id": 32743,
+   "n": 16
+  },
+  "etsy.openapi_reverify": {
+   "by_status": {
+    "done": 3
+   },
+   "first_id": 11888,
+   "last_id": 27026,
+   "n": 3
+  },
+  "etsy.probe": {
+   "by_status": {
+    "done": 130
+   },
+   "first_id": 1466,
+   "last_id": 33457,
+   "n": 130
+  },
+  "etsy.shop_snapshot": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11886,
+   "last_id": 32741,
+   "n": 16
+  },
+  "finance.accounting.cycle": {
+   "by_status": {
+    "done": 165
+   },
+   "first_id": 11897,
+   "last_id": 33601,
+   "n": 165
+  },
+  "finance.accounting.period_pack": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11894,
+   "last_id": 32747,
+   "n": 16
+  },
+  "finance.challenge": {
+   "by_status": {
+    "done": 85
+   },
+   "first_id": 933,
+   "last_id": 33669,
+   "n": 85
+  },
+  "finance.escalation_check": {
+   "by_status": {
+    "done": 61
+   },
+   "first_id": 11869,
+   "last_id": 33455,
+   "n": 61
+  },
+  "finance.governor": {
+   "by_status": {
+    "done": 364
+   },
+   "first_id": 11843,
+   "last_id": 33751,
+   "n": 364
+  },
+  "finance.reconcile": {
+   "by_status": {
+    "done": 86
+   },
+   "first_id": 6,
+   "last_id": 33668,
+   "n": 86
+  },
+  "gate.certify": {
+   "by_status": {
+    "done": 102
+   },
+   "first_id": 41,
+   "last_id": 24735,
+   "n": 102
+  },
+  "gate.lanes": {
+   "by_status": {
+    "done": 27
+   },
+   "first_id": 11837,
+   "last_id": 32683,
+   "n": 27
+  },
+  "growth.conclude": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11856,
+   "last_id": 32698,
+   "n": 16
+  },
+  "growth.distribution": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11853,
+   "last_id": 32696,
+   "n": 16
+  },
+  "growth.experiments": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11864,
+   "last_id": 32706,
+   "n": 16
+  },
+  "growth.journey": {
+   "by_status": {
+    "done": 18
+   },
+   "first_id": 11854,
+   "last_id": 32697,
+   "n": 18
+  },
+  "growth.preproduction": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11863,
+   "last_id": 32705,
+   "n": 16
+  },
+  "growth.steer": {
+   "by_status": {
+    "done": 46
+   },
+   "first_id": 11855,
+   "last_id": 33450,
+   "n": 46
+  },
+  "improve.league": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11842,
+   "last_id": 32685,
+   "n": 16
+  },
+  "improve.measure": {
+   "by_status": {
+    "done": 32
+   },
+   "first_id": 11831,
+   "last_id": 32794,
+   "n": 32
+  },
+  "improve.mine": {
+   "by_status": {
+    "done": 117
+   },
+   "first_id": 11832,
+   "last_id": 33101,
+   "n": 117
+  },
+  "improve.monitor": {
+   "by_status": {
+    "done": 21
+   },
+   "first_id": 11833,
+   "last_id": 33589,
+   "n": 21
+  },
+  "improve.nightly": {
+   "by_status": {
+    "done": 37
+   },
+   "first_id": 1826,
+   "last_id": 32676,
+   "n": 37
+  },
+  "improve.replay": {
+   "by_status": {
+    "done": 23
+   },
+   "first_id": 11883,
+   "last_id": 33598,
+   "n": 23
+  },
+  "improve.retrospective": {
+   "by_status": {
+    "done": 52
+   },
+   "first_id": 1347,
+   "last_id": 33721,
+   "n": 52
+  },
+  "improve.role_work": {
+   "by_status": {
+    "done": 296
+   },
+   "first_id": 1834,
+   "last_id": 32758,
+   "n": 296
+  },
+  "improve.sandbox": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11841,
+   "last_id": 32684,
+   "n": 16
+  },
+  "improve.weekly": {
+   "by_status": {
+    "dead": 1,
+    "done": 5
+   },
+   "first_id": 1827,
+   "last_id": 26949,
+   "n": 6
+  },
+  "intel.acceptance": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11867,
+   "last_id": 32708,
+   "n": 16
+  },
+  "intel.benchmark_health": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11873,
+   "last_id": 32722,
+   "n": 16
+  },
+  "intel.benchmark_refresh": {
+   "by_status": {
+    "done": 3
+   },
+   "first_id": 11877,
+   "last_id": 27001,
+   "n": 3
+  },
+  "intel.gallery_analysis": {
+   "by_status": {
+    "done": 439
+   },
+   "first_id": 1908,
+   "last_id": 33706,
+   "n": 439
+  },
+  "intel.panel_discovery": {
+   "by_status": {
+    "done": 3
+   },
+   "first_id": 11876,
+   "last_id": 27000,
+   "n": 3
+  },
+  "intel.pod_learning": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11874,
+   "last_id": 32723,
+   "n": 16
+  },
+  "intel.serp_capture": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11872,
+   "last_id": 32721,
+   "n": 16
+  },
+  "launch.plan": {
+   "by_status": {
+    "done": 190
+   },
+   "first_id": 96,
+   "last_id": 23461,
+   "n": 190
+  },
+  "launch.readiness": {
+   "by_status": {
+    "done": 43
+   },
+   "first_id": 628,
+   "last_id": 32711,
+   "n": 43
+  },
+  "laura.executive_tick": {
+   "by_status": {
+    "done": 4351,
+    "running": 1
+   },
+   "first_id": 11891,
+   "last_id": 33776,
+   "n": 4352
+  },
+  "learn.scan": {
+   "by_status": {
+    "done": 364
+   },
+   "first_id": 11830,
+   "last_id": 33748,
+   "n": 364
+  },
+  "listing.draft": {
+   "by_status": {
+    "done": 212
+   },
+   "first_id": 52,
+   "last_id": 12208,
+   "n": 212
+  },
+  "listing.outcomes": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11892,
+   "last_id": 32746,
+   "n": 16
+  },
+  "listing.search_visibility_watch": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11848,
+   "last_id": 32691,
+   "n": 16
+  },
+  "listing.seo": {
+   "by_status": {
+    "done": 199
+   },
+   "first_id": 85,
+   "last_id": 23460,
+   "n": 199
+  },
+  "listing.taxonomy_refresh": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11847,
+   "last_id": 32690,
+   "n": 16
+  },
+  "marketing.ads_readiness": {
+   "by_status": {
+    "done": 26
+   },
+   "first_id": 11898,
+   "last_id": 33588,
+   "n": 26
+  },
+  "marketing.schedule": {
+   "by_status": {
+    "done": 171
+   },
+   "first_id": 368,
+   "last_id": 23462,
+   "n": 171
+  },
+  "mjs.reviews": {
+   "by_status": {
+    "done": 7
+   },
+   "first_id": 1705,
+   "last_id": 27005,
+   "n": 7
+  },
+  "mjs.scan": {
+   "by_status": {
+    "done": 266
+   },
+   "first_id": 1332,
+   "last_id": 33702,
+   "n": 266
+  },
+  "mjs.seasonal_sentinel": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11875,
+   "last_id": 32724,
+   "n": 16
+  },
+  "model.probe": {
+   "by_status": {
+    "done": 255
+   },
+   "first_id": 1435,
+   "last_id": 33570,
+   "n": 255
+  },
+  "ops.capability_probes": {
+   "by_status": {
+    "done": 243
+   },
+   "first_id": 1906,
+   "last_id": 33569,
+   "n": 243
+  },
+  "ops.capacity": {
+   "by_status": {
+    "done": 6
+   },
+   "first_id": 1745,
+   "last_id": 27013,
+   "n": 6
+  },
+  "ops.continuity": {
+   "by_status": {
+    "done": 42
+   },
+   "first_id": 1246,
+   "last_id": 32715,
+   "n": 42
+  },
+  "ops.dependencies": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11882,
+   "last_id": 32737,
+   "n": 16
+  },
+  "ops.health": {
+   "by_status": {
+    "done": 3653
+   },
+   "first_id": 1749,
+   "last_id": 33769,
+   "n": 3653
+  },
+  "ops.heartbeat": {
+   "by_status": {
+    "done": 3757
+   },
+   "first_id": 1,
+   "last_id": 33768,
+   "n": 3757
+  },
+  "ops.maturity_disagreements": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11870,
+   "last_id": 32712,
+   "n": 16
+  },
+  "ops.offsite_archive": {
+   "by_status": {
+    "done": 32
+   },
+   "first_id": 1995,
+   "last_id": 32716,
+   "n": 32
+  },
+  "ops.policy_watch": {
+   "by_status": {
+    "done": 40
+   },
+   "first_id": 1358,
+   "last_id": 32729,
+   "n": 40
+  },
+  "ops.provenance_backfill": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11868,
+   "last_id": 32709,
+   "n": 16
+  },
+  "ops.provider_credentials": {
+   "by_status": {
+    "done": 6
+   },
+   "first_id": 25862,
+   "last_id": 32714,
+   "n": 6
+  },
+  "ops.queue_check": {
+   "by_status": {
+    "done": 956
+   },
+   "first_id": 2,
+   "last_id": 33750,
+   "n": 956
+  },
+  "ops.retention": {
+   "by_status": {
+    "done": 32
+   },
+   "first_id": 4526,
+   "last_id": 32736,
+   "n": 32
+  },
+  "ops.sentinel": {
+   "by_status": {
+    "done": 870
+   },
+   "first_id": 1747,
+   "last_id": 33758,
+   "n": 870
+  },
+  "ops.slo": {
+   "by_status": {
+    "done": 1543
+   },
+   "first_id": 11895,
+   "last_id": 33772,
+   "n": 1543
+  },
+  "ops.thrash": {
+   "by_status": {
+    "done": 364
+   },
+   "first_id": 11857,
+   "last_id": 33753,
+   "n": 364
+  },
+  "physical.upgrade_impact": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11878,
+   "last_id": 32725,
+   "n": 16
+  },
+  "plan.cycle": {
+   "by_status": {
+    "done": 52
+   },
+   "first_id": 4,
+   "last_id": 33007,
+   "n": 52
+  },
+  "plan.strategy": {
+   "by_status": {
+    "done": 2
+   },
+   "first_id": 274,
+   "last_id": 8559,
+   "n": 2
+  },
+  "portfolio.review": {
+   "by_status": {
+    "done": 8
+   },
+   "first_id": 5,
+   "last_id": 26946,
+   "n": 8
+  },
+  "pricing.position": {
+   "by_status": {
+    "done": 198
+   },
+   "first_id": 74,
+   "last_id": 23458,
+   "n": 198
+  },
+  "radar.scan": {
+   "by_status": {
+    "done": 211
+   },
+   "first_id": 3,
+   "last_id": 33607,
+   "n": 211
+  },
+  "radar.score": {
+   "by_status": {
+    "done": 544
+   },
+   "first_id": 7,
+   "last_id": 32777,
+   "n": 544
+  },
+  "scale.trajectory": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11850,
+   "last_id": 32693,
+   "n": 16
+  },
+  "seasonal.cycle_proof": {
+   "by_status": {
+    "done": 161
+   },
+   "first_id": 2535,
+   "last_id": 33567,
+   "n": 161
+  },
+  "seasonal.engine": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11858,
+   "last_id": 32700,
+   "n": 16
+  },
+  "seasonal.harvest": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11836,
+   "last_id": 32682,
+   "n": 16
+  },
+  "seasonal.remerchandising": {
+   "by_status": {
+    "done": 8
+   },
+   "first_id": 1703,
+   "last_id": 27011,
+   "n": 8
+  },
+  "seasonal.sentinel": {
+   "by_status": {
+    "done": 41
+   },
+   "first_id": 1255,
+   "last_id": 32718,
+   "n": 41
+  },
+  "seo.cycle": {
+   "by_status": {
+    "done": 174
+   },
+   "first_id": 11896,
+   "last_id": 33712,
+   "n": 174
+  },
+  "store.live_drift": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11887,
+   "last_id": 32742,
+   "n": 16
+  },
+  "store.publish": {
+   "by_status": {
+    "dead": 186
+   },
+   "first_id": 107,
+   "last_id": 23463,
+   "n": 186
+  },
+  "support.triage": {
+   "by_status": {
+    "done": 364
+   },
+   "first_id": 11844,
+   "last_id": 33752,
+   "n": 364
+  },
+  "swarm.allocate": {
+   "by_status": {
+    "done": 364
+   },
+   "first_id": 11860,
+   "last_id": 33754,
+   "n": 364
+  },
+  "swarm.backlog": {
+   "by_status": {
+    "done": 364
+   },
+   "first_id": 11862,
+   "last_id": 33756,
+   "n": 364
+  },
+  "swarm.orphans": {
+   "by_status": {
+    "done": 364
+   },
+   "first_id": 11861,
+   "last_id": 33755,
+   "n": 364
+  },
+  "swarm.review": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11859,
+   "last_id": 32701,
+   "n": 16
+  },
+  "teardown.enforce": {
+   "by_status": {
+    "done": 16
+   },
+   "first_id": 11884,
+   "last_id": 32739,
+   "n": 16
+  },
+  "visual.identity_drift": {
+   "by_status": {
+    "done": 17
+   },
+   "first_id": 11879,
+   "last_id": 32726,
+   "n": 17
+  },
+  "visual.portrait_repair": {
+   "by_status": {
+    "done": 3
+   },
+   "first_id": 3438,
+   "last_id": 3470,
+   "n": 3
+  },
+  "visual.provider_trial": {
+   "by_status": {
+    "done": 5
+   },
+   "first_id": 3314,
+   "last_id": 3588,
+   "n": 5
+  },
+  "visual.rnd.cycle": {
+   "by_status": {
+    "done": 49
+   },
+   "first_id": 11893,
+   "last_id": 33600,
+   "n": 49
+  }
+ },
+ "max_job_id": 33776,
+ "source": "anonymous GET /api/jobs?limit=40000 on production 051dbee2 (pre-SECPATCH), captured 2026-10-26T17:24:55Z (the /api/incidents as_of in the same capture); ids only, no job inputs or outputs"
+}

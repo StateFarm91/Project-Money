@@ -1,0 +1,50 @@
+{
+ "provider": "gpt-image-2",
+ "endpoint": "images/edits (reference-conditioned)",
+ "prompt": "Product photograph for a handmade craft marketplace listing of the crocheted swatch shown in the reference image, resting exactly as it does there on the same pale ball on the same surface. Keep the piece exactly as shown: the same outline, the same proportions, the same stitches in the same places, the same colour. Photograph it as a real object made of real yarn: natural fibre texture with a little fuzz, soft window daylight from one side, a plain neutral tabletop, an ordinary camera. No text, nothing else in frame. The second image is the outline mask of the piece and the third shows its surface orientation; use them only to keep the piece's outline, position and surface placement exactly as in the first image.",
+ "package": "rgb+mask+normal",
+ "usd_list_price_per_image": 0.03,
+ "planned_usd": 0.06,
+ "cap_usd": 1.0,
+ "runs": [
+  {
+   "kind": "hdc",
+   "view": "oblique",
+   "index": 0,
+   "reference": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/d/out/hdc_draped_presentation2_oblique.png",
+   "reference_sha256": "688e70b92513bca49032d33dd54cb0164e45823934328673ba5a8ee1923da847",
+   "geometry_sha256": "3a526ea8f46fca4d46d9035f1fedb06352889ab70bded2b761f4b644e12e8868",
+   "package": "rgb+mask+normal",
+   "conditioning_sha256": [
+    "688e70b92513bca49032d33dd54cb0164e45823934328673ba5a8ee1923da847",
+    "ff1282e276f232045c33ec11c397709929086649d7258cb3dbb1a56e0bdf4564",
+    "f372c1e396b2597a505a8e716dd7a4f6dfced469349e4b590875f68d1d3aabf2"
+   ],
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e3/out/gen/hdc_oblique_pkg_0.png",
+   "output_sha256": "466b4c9cd2dff94abf0aa8448c3e948d9c963319cc83c90100270493c1c8f172",
+   "seconds": 21.9,
+   "usd_list_price": 0.03
+  },
+  {
+   "kind": "sc",
+   "view": "oblique",
+   "index": 0,
+   "reference": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/d/out/sc_draped_presentation2_oblique.png",
+   "reference_sha256": "74431f489d31bbb117ae04c0529a055d7ff53d083aa36e2c3108f8f979323c1a",
+   "geometry_sha256": "e0762cc081abbda5b602bab8c4dff097aeacbc7786891c0785108d073860c433",
+   "package": "rgb+mask+normal",
+   "conditioning_sha256": [
+    "74431f489d31bbb117ae04c0529a055d7ff53d083aa36e2c3108f8f979323c1a",
+    "1fd4dbe7aa9dcac2b0ccd5e08f288459097418979f76b0c90b02c04bab5d0cbb",
+    "644442086260152dab82dfb254dd6187519b8f1f1ce369ee31cf7e6e0c787ed9"
+   ],
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e3/out/gen/sc_oblique_pkg_0.png",
+   "output_sha256": "be934ce0c601043d53f765c5ffe34616b1558b14d8d759207a0cab30759d94c3",
+   "seconds": 11.7,
+   "usd_list_price": 0.03
+  }
+ ],
+ "spent_usd_list_price": 0.06
+}

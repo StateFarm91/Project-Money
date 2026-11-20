@@ -1,0 +1,1279 @@
+{
+  "counts": {
+    "DATA-GATED": 1,
+    "EXTERNAL-GATED": 10,
+    "NOT-APPLICABLE": 2,
+    "OWNER-GATED": 27,
+    "PROVEN": 11
+  },
+  "credentials_present": {
+    "ETSY_API_KEY": false,
+    "ETSY_KEYSTRING": false,
+    "ETSY_SHARED_SECRET": false,
+    "ETSY_SHOP_ID": false
+  },
+  "drift": {
+    "counts": {
+      "UNKNOWN": 14
+    },
+    "fields": [
+      {
+        "draft_sha": "bf524e270d2ca6a7",
+        "field": "shop_name",
+        "findings": [],
+        "label": "Shop name",
+        "live_sha": null,
+        "live_source": null,
+        "live_state": "UNKNOWN",
+        "observed_at": null,
+        "owner_configured": true,
+        "proposal": {
+          "auto_apply": false,
+          "kind": "OWNER_CONFIRM",
+          "where": "Settings > Your shop > Shop name (Etsy limits renames; never changed by software)",
+          "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+          "write_allowed": false
+        },
+        "status": "UNKNOWN",
+        "where": "Settings > Your shop > Shop name (Etsy limits renames; never changed by software)",
+        "write_refusal": "shop_name: configured by the owner on the live shop (2026-10-06); live is authoritative and software never overwrites it -- propose to the owner instead"
+      },
+      {
+        "draft_sha": "1cb6b812df24c5cb",
+        "field": "shop_icon",
+        "findings": [],
+        "label": "Logo / shop icon",
+        "live_sha": null,
+        "live_source": null,
+        "live_state": "UNKNOWN",
+        "observed_at": null,
+        "owner_configured": true,
+        "proposal": {
+          "auto_apply": false,
+          "kind": "OWNER_CONFIRM",
+          "where": "Settings > Your shop > Logo",
+          "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+          "write_allowed": false
+        },
+        "status": "UNKNOWN",
+        "where": "Settings > Your shop > Logo",
+        "write_refusal": "shop_icon: configured by the owner on the live shop (2026-10-06); live is authoritative and software never overwrites it -- propose to the owner instead"
+      },
+      {
+        "draft_sha": "819068a85a605a76",
+        "field": "shop_banner",
+        "findings": [],
+        "label": "Banner",
+        "live_sha": null,
+        "live_source": null,
+        "live_state": "UNKNOWN",
+        "observed_at": null,
+        "owner_configured": true,
+        "proposal": {
+          "auto_apply": false,
+          "kind": "OWNER_CONFIRM",
+          "where": "Shop home editor > Banner",
+          "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+          "write_allowed": false
+        },
+        "status": "UNKNOWN",
+        "where": "Shop home editor > Banner",
+        "write_refusal": "shop_banner: configured by the owner on the live shop (2026-10-06); live is authoritative and software never overwrites it -- propose to the owner instead"
+      },
+      {
+        "draft_sha": "935d13cbe6f7adb0",
+        "field": "shop_title",
+        "findings": [],
+        "label": "Shop title (tagline)",
+        "live_sha": null,
+        "live_source": null,
+        "live_state": "UNKNOWN",
+        "observed_at": null,
+        "owner_configured": true,
+        "proposal": {
+          "auto_apply": false,
+          "kind": "OWNER_CONFIRM",
+          "where": "Shop home editor > Shop title",
+          "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+          "write_allowed": false
+        },
+        "status": "UNKNOWN",
+        "where": "Shop home editor > Shop title",
+        "write_refusal": "shop_title: configured by the owner on the live shop (2026-10-06); live is authoritative and software never overwrites it -- propose to the owner instead"
+      },
+      {
+        "draft_sha": null,
+        "field": "about_headline",
+        "findings": [],
+        "label": "About headline",
+        "live_sha": null,
+        "live_source": null,
+        "live_state": "UNKNOWN",
+        "observed_at": null,
+        "owner_configured": true,
+        "proposal": {
+          "auto_apply": false,
+          "kind": "OWNER_OBSERVE",
+          "where": "Shop home editor > About > headline",
+          "why": "no API returns this field: record a dated owner observation (POST store.live_observation)",
+          "write_allowed": false
+        },
+        "status": "UNKNOWN",
+        "where": "Shop home editor > About > headline",
+        "write_refusal": "about_headline: configured by the owner on the live shop (2026-10-06); live is authoritative and software never overwrites it -- propose to the owner instead"
+      },
+      {
+        "draft_sha": "3babb79094aad7cd",
+        "field": "about_story",
+        "findings": [],
+        "label": "About story",
+        "live_sha": null,
+        "live_source": null,
+        "live_state": "UNKNOWN",
+        "observed_at": null,
+        "owner_configured": true,
+        "proposal": {
+          "auto_apply": false,
+          "kind": "OWNER_OBSERVE",
+          "where": "Shop home editor > About > story",
+          "why": "no API returns this field: record a dated owner observation (POST store.live_observation)",
+          "write_allowed": false
+        },
+        "status": "UNKNOWN",
+        "where": "Shop home editor > About > story",
+        "write_refusal": "about_story: configured by the owner on the live shop (2026-10-06); live is authoritative and software never overwrites it -- propose to the owner instead"
+      },
+      {
+        "draft_sha": null,
+        "field": "laura_member_profile",
+        "findings": [],
+        "label": "Laura shop-member profile (bio)",
+        "live_sha": null,
+        "live_source": null,
+        "live_state": "UNKNOWN",
+        "observed_at": null,
+        "owner_configured": true,
+        "proposal": {
+          "auto_apply": false,
+          "kind": "OWNER_OBSERVE",
+          "where": "Settings > Your shop > Shop team / About > Shop members",
+          "why": "no API returns this field: record a dated owner observation (POST store.live_observation)",
+          "write_allowed": false
+        },
+        "status": "UNKNOWN",
+        "where": "Settings > Your shop > Shop team / About > Shop members",
+        "write_refusal": "laura_member_profile: configured by the owner on the live shop (2026-10-06); live is authoritative and software never overwrites it -- propose to the owner instead"
+      },
+      {
+        "draft_sha": "71b32e1fd2f3724c",
+        "field": "laura_member_role",
+        "findings": [],
+        "label": "Laura shop-member role",
+        "live_sha": null,
+        "live_source": null,
+        "live_state": "UNKNOWN",
+        "observed_at": null,
+        "owner_configured": true,
+        "proposal": {
+          "auto_apply": false,
+          "kind": "OWNER_OBSERVE",
+          "where": "Settings > Your shop > Shop team",
+          "why": "no API returns this field: record a dated owner observation (POST store.live_observation)",
+          "write_allowed": false
+        },
+        "status": "UNKNOWN",
+        "where": "Settings > Your shop > Shop team",
+        "write_refusal": "laura_member_role: configured by the owner on the live shop (2026-10-06); live is authoritative and software never overwrites it -- propose to the owner instead"
+      },
+      {
+        "draft_sha": "a6f163be82adac9d",
+        "field": "announcement",
+        "findings": [],
+        "label": "Announcement",
+        "live_sha": null,
+        "live_source": null,
+        "live_state": "UNKNOWN",
+        "observed_at": null,
+        "owner_configured": false,
+        "proposal": {
+          "auto_apply": false,
+          "kind": "OWNER_CONFIRM",
+          "where": "Shop home editor > Announcement",
+          "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+          "write_allowed": false
+        },
+        "status": "UNKNOWN",
+        "where": "Shop home editor > Announcement",
+        "write_refusal": "announcement: no Etsy write authority in Shadow Mode; the drift report proposes, the owner decides"
+      },
+      {
+        "draft_sha": "b266e9a28d93aee4",
+        "field": "digital_sale_message",
+        "findings": [],
+        "label": "Message to buyers (digital items)",
+        "live_sha": null,
+        "live_source": null,
+        "live_state": "UNKNOWN",
+        "observed_at": null,
+        "owner_configured": false,
+        "proposal": {
+          "auto_apply": false,
+          "kind": "OWNER_CONFIRM",
+          "where": "Settings > Info & Appearance > Message to Buyers for Digital Items",
+          "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+          "write_allowed": false
+        },
+        "status": "UNKNOWN",
+        "where": "Settings > Info & Appearance > Message to Buyers for Digital Items",
+        "write_refusal": "digital_sale_message: no Etsy write authority in Shadow Mode; the drift report proposes, the owner decides"
+      },
+      {
+        "draft_sha": "265a870c1b3e5516",
+        "field": "policy_privacy",
+        "findings": [],
+        "label": "Privacy policy",
+        "live_sha": null,
+        "live_source": null,
+        "live_state": "UNKNOWN",
+        "observed_at": null,
+        "owner_configured": false,
+        "proposal": {
+          "auto_apply": false,
+          "kind": "OWNER_CONFIRM",
+          "where": "Settings > Policy Settings > Privacy",
+          "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+          "write_allowed": false
+        },
+        "status": "UNKNOWN",
+        "where": "Settings > Policy Settings > Privacy",
+        "write_refusal": "policy_privacy: no Etsy write authority in Shadow Mode; the drift report proposes, the owner decides"
+      },
+      {
+        "draft_sha": "42f17962442d8c64",
+        "field": "policy_refunds",
+        "findings": [],
+        "label": "Refunds / returns policy text",
+        "live_sha": null,
+        "live_source": null,
+        "live_state": "UNKNOWN",
+        "observed_at": null,
+        "owner_configured": false,
+        "proposal": {
+          "auto_apply": false,
+          "kind": "OWNER_CONFIRM",
+          "where": "Settings > Policy Settings",
+          "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+          "write_allowed": false
+        },
+        "status": "UNKNOWN",
+        "where": "Settings > Policy Settings",
+        "write_refusal": "policy_refunds: no Etsy write authority in Shadow Mode; the drift report proposes, the owner decides"
+      },
+      {
+        "draft_sha": "49ba7cbbcb5008ac",
+        "field": "policy_shipping",
+        "findings": [],
+        "label": "Delivery policy text",
+        "live_sha": null,
+        "live_source": null,
+        "live_state": "UNKNOWN",
+        "observed_at": null,
+        "owner_configured": false,
+        "proposal": {
+          "auto_apply": false,
+          "kind": "OWNER_CONFIRM",
+          "where": "Settings > Policy Settings",
+          "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+          "write_allowed": false
+        },
+        "status": "UNKNOWN",
+        "where": "Settings > Policy Settings",
+        "write_refusal": "policy_shipping: no Etsy write authority in Shadow Mode; the drift report proposes, the owner decides"
+      },
+      {
+        "draft_sha": null,
+        "field": "policy_additional",
+        "findings": [],
+        "label": "EU-only additional policy",
+        "live_sha": null,
+        "live_source": null,
+        "live_state": "UNKNOWN",
+        "observed_at": null,
+        "owner_configured": false,
+        "proposal": {
+          "auto_apply": false,
+          "kind": "OWNER_CONFIRM",
+          "where": "must stay empty for a Canadian shop (Open API)",
+          "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+          "write_allowed": false
+        },
+        "status": "UNKNOWN",
+        "where": "must stay empty for a Canadian shop (Open API)",
+        "write_refusal": "policy_additional: no Etsy write authority in Shadow Mode; the drift report proposes, the owner decides"
+      }
+    ],
+    "findings": [],
+    "generated_at": "2026-10-07T00:03:20.929978+00:00",
+    "owner_configured": [
+      "about_headline",
+      "about_story",
+      "laura_member_profile",
+      "laura_member_role",
+      "shop_banner",
+      "shop_icon",
+      "shop_name",
+      "shop_title"
+    ],
+    "proposals": [
+      {
+        "auto_apply": false,
+        "field": "shop_name",
+        "kind": "OWNER_CONFIRM",
+        "where": "Settings > Your shop > Shop name (Etsy limits renames; never changed by software)",
+        "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+        "write_allowed": false
+      },
+      {
+        "auto_apply": false,
+        "field": "shop_icon",
+        "kind": "OWNER_CONFIRM",
+        "where": "Settings > Your shop > Logo",
+        "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+        "write_allowed": false
+      },
+      {
+        "auto_apply": false,
+        "field": "shop_banner",
+        "kind": "OWNER_CONFIRM",
+        "where": "Shop home editor > Banner",
+        "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+        "write_allowed": false
+      },
+      {
+        "auto_apply": false,
+        "field": "shop_title",
+        "kind": "OWNER_CONFIRM",
+        "where": "Shop home editor > Shop title",
+        "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+        "write_allowed": false
+      },
+      {
+        "auto_apply": false,
+        "field": "about_headline",
+        "kind": "OWNER_OBSERVE",
+        "where": "Shop home editor > About > headline",
+        "why": "no API returns this field: record a dated owner observation (POST store.live_observation)",
+        "write_allowed": false
+      },
+      {
+        "auto_apply": false,
+        "field": "about_story",
+        "kind": "OWNER_OBSERVE",
+        "where": "Shop home editor > About > story",
+        "why": "no API returns this field: record a dated owner observation (POST store.live_observation)",
+        "write_allowed": false
+      },
+      {
+        "auto_apply": false,
+        "field": "laura_member_profile",
+        "kind": "OWNER_OBSERVE",
+        "where": "Settings > Your shop > Shop team / About > Shop members",
+        "why": "no API returns this field: record a dated owner observation (POST store.live_observation)",
+        "write_allowed": false
+      },
+      {
+        "auto_apply": false,
+        "field": "laura_member_role",
+        "kind": "OWNER_OBSERVE",
+        "where": "Settings > Your shop > Shop team",
+        "why": "no API returns this field: record a dated owner observation (POST store.live_observation)",
+        "write_allowed": false
+      },
+      {
+        "auto_apply": false,
+        "field": "announcement",
+        "kind": "OWNER_CONFIRM",
+        "where": "Shop home editor > Announcement",
+        "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+        "write_allowed": false
+      },
+      {
+        "auto_apply": false,
+        "field": "digital_sale_message",
+        "kind": "OWNER_CONFIRM",
+        "where": "Settings > Info & Appearance > Message to Buyers for Digital Items",
+        "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+        "write_allowed": false
+      },
+      {
+        "auto_apply": false,
+        "field": "policy_privacy",
+        "kind": "OWNER_CONFIRM",
+        "where": "Settings > Policy Settings > Privacy",
+        "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+        "write_allowed": false
+      },
+      {
+        "auto_apply": false,
+        "field": "policy_refunds",
+        "kind": "OWNER_CONFIRM",
+        "where": "Settings > Policy Settings",
+        "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+        "write_allowed": false
+      },
+      {
+        "auto_apply": false,
+        "field": "policy_shipping",
+        "kind": "OWNER_CONFIRM",
+        "where": "Settings > Policy Settings",
+        "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+        "write_allowed": false
+      },
+      {
+        "auto_apply": false,
+        "field": "policy_additional",
+        "kind": "OWNER_CONFIRM",
+        "where": "must stay empty for a Canadian shop (Open API)",
+        "why": "no live reading: run getShop after re-authorisation (Batch A1)",
+        "write_allowed": false
+      }
+    ],
+    "unknown": [
+      "shop_name",
+      "shop_icon",
+      "shop_banner",
+      "shop_title",
+      "about_headline",
+      "about_story",
+      "laura_member_profile",
+      "laura_member_role",
+      "announcement",
+      "digital_sale_message",
+      "policy_privacy",
+      "policy_refunds",
+      "policy_shipping",
+      "policy_additional"
+    ],
+    "writes_performed": 0
+  },
+  "generated_at": "2026-10-07T00:03:20.929978+00:00",
+  "items": [
+    {
+      "area": "settings",
+      "evidence": [
+        "research/final_build/w3/ETSY_SETTINGS_CHECKLIST.md"
+      ],
+      "id": "SET-A1",
+      "item": "Re-authorise the Etsy app with all scopes incl. transactions_r",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": "OA-A1",
+      "remaining_gate": "owner login to Etsy (no API writes this in Shadow Mode)",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "research/final_build/w3/ETSY_SETTINGS_CHECKLIST.md"
+      ],
+      "id": "SET-A2",
+      "item": "Report whether the shop is 'open' (title/announcement fields visible)",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": "OA-A2",
+      "remaining_gate": "owner login to Etsy (no API writes this in Shadow Mode)",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "research/final_build/w3/ETSY_SETTINGS_CHECKLIST.md"
+      ],
+      "id": "SET-B1",
+      "item": "Account public profile picture = Brambleloop logo mark (not Laura)",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": "OA-B1",
+      "remaining_gate": "owner login to Etsy (no API writes this in Shadow Mode)",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "research/final_build/w3/ETSY_SETTINGS_CHECKLIST.md"
+      ],
+      "id": "SET-B2",
+      "item": "Account preferred name = a real person's name or removed",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": "OA-B2",
+      "remaining_gate": "owner login to Etsy (no API writes this in Shadow Mode)",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "research/final_build/w3/ETSY_SETTINGS_CHECKLIST.md"
+      ],
+      "id": "SET-B3",
+      "item": "Account bio blank or one honest line",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": "OA-B3",
+      "remaining_gate": "owner login to Etsy (no API writes this in Shadow Mode)",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "research/final_build/w3/ETSY_SETTINGS_CHECKLIST.md"
+      ],
+      "id": "SET-B4",
+      "item": "Two-factor authentication on",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": "OA-B4",
+      "remaining_gate": "owner login to Etsy (no API writes this in Shadow Mode)",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "owner configured the live shop 2026-10-06 (statement)",
+        "readback route: getShop.shop_name"
+      ],
+      "id": "SET-C1",
+      "item": "Shop name kept as BrambleloopStudio",
+      "live": "UNKNOWN",
+      "note": "owner-configured: live is authoritative, never overwritten",
+      "owner_action": null,
+      "remaining_gate": "live read-back: etsy.shop_snapshot (getShop, shops_r) then store.live_drift in production",
+      "status": "EXTERNAL-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "owner configured the live shop 2026-10-06 (statement)",
+        "readback route: getShop.icon_url_fullxfull"
+      ],
+      "id": "SET-C2",
+      "item": "Logo / shop icon",
+      "live": "UNKNOWN",
+      "note": "owner-configured: live is authoritative, never overwritten",
+      "owner_action": null,
+      "remaining_gate": "live read-back: etsy.shop_snapshot (getShop, shops_r) then store.live_drift in production",
+      "status": "EXTERNAL-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "owner configured the live shop 2026-10-06 (statement)",
+        "readback route: getShop.title"
+      ],
+      "id": "SET-C3",
+      "item": "Shop title (tagline) <= 55 chars",
+      "live": "UNKNOWN",
+      "note": "owner-configured: live is authoritative, never overwritten",
+      "owner_action": null,
+      "remaining_gate": "live read-back: etsy.shop_snapshot (getShop, shops_r) then store.live_drift in production",
+      "status": "EXTERNAL-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "owner configured the live shop 2026-10-06 (statement)",
+        "readback route: getShop.image_url_760x100 + owner phone screenshot"
+      ],
+      "id": "SET-C4",
+      "item": "Banner (Big Banner) + phone-crop check in the Etsy app",
+      "live": "UNKNOWN",
+      "note": "owner-configured: live is authoritative, never overwritten",
+      "owner_action": null,
+      "remaining_gate": "live read-back: etsy.shop_snapshot (getShop, shops_r) then store.live_drift in production",
+      "status": "EXTERNAL-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "research/final_build/w3/ETSY_SETTINGS_CHECKLIST.md"
+      ],
+      "id": "SET-C5",
+      "item": "Announcement",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": "OA-C5",
+      "remaining_gate": "owner login to Etsy (no API writes this in Shadow Mode)",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "owner configured the live shop 2026-10-06 (statement)",
+        "readback route: owner observation"
+      ],
+      "id": "SET-C6",
+      "item": "About your shop (headline + story, AI disclosure)",
+      "live": "UNKNOWN",
+      "note": "owner-configured: live is authoritative, never overwritten",
+      "owner_action": null,
+      "remaining_gate": "owner records a dated observation of the live field (store_foundation.live_state.record_observation); no API returns it",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "owner configured the live shop 2026-10-06 (statement)",
+        "readback route: owner observation"
+      ],
+      "id": "SET-C7",
+      "item": "Shop team: legal owner as Owner; Laura not Owner (owner added Laura as Designer)",
+      "live": "UNKNOWN",
+      "note": "owner-configured: live is authoritative, never overwritten",
+      "owner_action": null,
+      "remaining_gate": "owner records a dated observation of the live field (store_foundation.live_state.record_observation); no API returns it",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "research/final_build/w3/ETSY_SETTINGS_CHECKLIST.md"
+      ],
+      "id": "SET-C8",
+      "item": "About featured photos (certified images only)",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": "OA-C8",
+      "remaining_gate": "owner login to Etsy (no API writes this in Shadow Mode)",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "research/final_build/w3/ETSY_SETTINGS_CHECKLIST.md"
+      ],
+      "id": "SET-C9",
+      "item": "Location = Canada (real province)",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": "OA-C9",
+      "remaining_gate": "owner login to Etsy (no API writes this in Shadow Mode)",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "research/final_build/w3/ETSY_SETTINGS_CHECKLIST.md"
+      ],
+      "id": "SET-C10",
+      "item": "Listing order = Custom",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": "OA-C10",
+      "remaining_gate": "owner login to Etsy (no API writes this in Shadow Mode)",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "research/final_build/w3/ETSY_SETTINGS_CHECKLIST.md"
+      ],
+      "id": "SET-C11",
+      "item": "Sold listings visibility off",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": "OA-C11",
+      "remaining_gate": "owner login to Etsy (no API writes this in Shadow Mode)",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "research/final_build/w3/ETSY_SETTINGS_CHECKLIST.md"
+      ],
+      "id": "SET-D1",
+      "item": "Sections: create only populated sections (D-FB-18 item 3)",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": "OA-D1",
+      "remaining_gate": "owner login to Etsy (no API writes this in Shadow Mode)",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "research/final_build/w3/ETSY_SETTINGS_CHECKLIST.md"
+      ],
+      "id": "SET-D2",
+      "item": "Featured listings (4 hero listings, once active)",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": "OA-D2",
+      "remaining_gate": "owner login to Etsy (no API writes this in Shadow Mode)",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "research/final_build/w3/ETSY_SETTINGS_CHECKLIST.md"
+      ],
+      "id": "SET-E1",
+      "item": "Message to Buyers",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": "OA-E1",
+      "remaining_gate": "owner login to Etsy (no API writes this in Shadow Mode)",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "research/final_build/w3/ETSY_SETTINGS_CHECKLIST.md"
+      ],
+      "id": "SET-E2",
+      "item": "Message to Buyers for Digital Items",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": "OA-E2",
+      "remaining_gate": "owner login to Etsy (no API writes this in Shadow Mode)",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "research/final_build/w3/ETSY_SETTINGS_CHECKLIST.md"
+      ],
+      "id": "SET-E3",
+      "item": "Order receipt banner (optional)",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": "OA-E3",
+      "remaining_gate": "owner login to Etsy (no API writes this in Shadow Mode)",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "ETSY_SETTINGS_CHECKLIST.md Batch F"
+      ],
+      "id": "SET-F1",
+      "item": "Returns & exchanges (nothing to create for digital-only)",
+      "live": "",
+      "note": "digital-only shop; nothing to configure",
+      "owner_action": null,
+      "remaining_gate": "",
+      "status": "NOT-APPLICABLE"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "research/final_build/w3/ETSY_SETTINGS_CHECKLIST.md"
+      ],
+      "id": "SET-F2",
+      "item": "Cancellations setting",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": "OA-F2",
+      "remaining_gate": "owner login to Etsy (no API writes this in Shadow Mode)",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "research/final_build/w3/ETSY_SETTINGS_CHECKLIST.md"
+      ],
+      "id": "SET-F3",
+      "item": "Privacy policy",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": "OA-F3",
+      "remaining_gate": "owner login to Etsy (no API writes this in Shadow Mode)",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "ETSY_SETTINGS_CHECKLIST.md Batch F"
+      ],
+      "id": "SET-F4",
+      "item": "Fixed policies (view only)",
+      "live": "",
+      "note": "digital-only shop; nothing to configure",
+      "owner_action": null,
+      "remaining_gate": "",
+      "status": "NOT-APPLICABLE"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "research/final_build/w3/ETSY_SETTINGS_CHECKLIST.md"
+      ],
+      "id": "SET-F5",
+      "item": "FAQ incl. pattern licence",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": "OA-F5",
+      "remaining_gate": "owner login to Etsy (no API writes this in Shadow Mode)",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "research/final_build/w3/ETSY_SETTINGS_CHECKLIST.md"
+      ],
+      "id": "SET-F6",
+      "item": "EU/Omnibus trader status (owner/legal)",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": "OA-F6",
+      "remaining_gate": "owner login to Etsy (no API writes this in Shadow Mode)",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "research/final_build/w3/ETSY_SETTINGS_CHECKLIST.md"
+      ],
+      "id": "SET-G1",
+      "item": "Options: 'Allow buyers to purchase digital prints' = Disabled",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": "OA-G1",
+      "remaining_gate": "owner login to Etsy (no API writes this in Shadow Mode)",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "research/final_build/w3/ETSY_SETTINGS_CHECKLIST.md"
+      ],
+      "id": "SET-G2",
+      "item": "Offsite Ads enrolment (owner decision; fee on sale, not spend)",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": "OA-G2",
+      "remaining_gate": "owner login to Etsy (no API writes this in Shadow Mode)",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "settings",
+      "evidence": [
+        "research/final_build/w3/ETSY_SETTINGS_CHECKLIST.md"
+      ],
+      "id": "SET-G3",
+      "item": "Etsy Ads off (no budget)",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": "OA-G3",
+      "remaining_gate": "owner login to Etsy (no API writes this in Shadow Mode)",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "live_state",
+      "evidence": [
+        "store_foundation/live_state.py snapshot()",
+        "tests/test_w4_store_live_state.py"
+      ],
+      "id": "LIVE-1",
+      "item": "Live-state snapshot record (getShop + owner observation, per-field source/freshness; unread = UNKNOWN)",
+      "live": "14/14 fields UNKNOWN here (no Etsy credential in this environment; public page 403 (DataDome CAPTCHA, not bypassed))",
+      "note": "",
+      "owner_action": null,
+      "remaining_gate": "",
+      "status": "PROVEN"
+    },
+    {
+      "area": "live_state",
+      "evidence": [
+        "live_state.drift()",
+        "tests/test_w4_store_live_state.py"
+      ],
+      "id": "LIVE-2",
+      "item": "Drift report repo draft vs live; owner fields authoritative (ADOPT_LIVE_INTO_REPO), never auto-overwrite; proposals only",
+      "live": "{\"UNKNOWN\": 14}",
+      "note": "",
+      "owner_action": null,
+      "remaining_gate": "",
+      "status": "PROVEN"
+    },
+    {
+      "area": "live_state",
+      "evidence": [
+        "commerce.shop_package.api_shop_fields",
+        "live_state.OWNER_CONFIGURED_API_FIELDS",
+        "tests/test_w4_store_live_state.py"
+      ],
+      "id": "LIVE-3",
+      "item": "Owner-field write protection (title removed from the updateShop field set; write_refusal/guard)",
+      "live": "",
+      "note": "",
+      "owner_action": null,
+      "remaining_gate": "",
+      "status": "PROVEN"
+    },
+    {
+      "area": "live_state",
+      "evidence": [
+        "runtime/etsy_ops.py handle_store_live_drift",
+        "tests/test_w4_store_live_state.py (runs via Worker)"
+      ],
+      "id": "LIVE-4",
+      "item": "Read-back/drift job on a cadence (store.live_drift)",
+      "live": "",
+      "note": "",
+      "owner_action": null,
+      "remaining_gate": "WIRING REQUEST W4-AUTO: CADENCES entry + orchestrator permission; then production getShop credential (A1)",
+      "status": "EXTERNAL-GATED"
+    },
+    {
+      "area": "live_state",
+      "evidence": [
+        "store_foundation.content.build(db) -> live_state.annotate",
+        "tests/test_w4_store_live_state.py"
+      ],
+      "id": "LIVE-5",
+      "item": "Storefront content model reports entered_on_etsy from live evidence",
+      "live": "",
+      "note": "",
+      "owner_action": null,
+      "remaining_gate": "",
+      "status": "PROVEN"
+    },
+    {
+      "area": "live_state",
+      "evidence": [
+        "{\"url\": \"https://www.etsy.com/shop/BrambleloopStudio\", \"attempted_at\": \"2026-10-07\", \"result\": \"HTTP 403 DataDome CAPTCHA\", \"bypassed\": false}"
+      ],
+      "id": "LIVE-6",
+      "item": "Public shop page read",
+      "live": "",
+      "note": "",
+      "owner_action": null,
+      "remaining_gate": "Etsy bot protection; only the API path is sanctioned (never bypass CAPTCHA)",
+      "status": "EXTERNAL-GATED"
+    },
+    {
+      "area": "taxonomy",
+      "evidence": [
+        "integrations/etsy_taxonomy.py refresh()",
+        "tests/test_v11_seo_taxonomy.py",
+        "tests/test_w3_k1_search.py",
+        "worker CADENCES etsy_taxonomy (24h)"
+      ],
+      "id": "TAX-1",
+      "item": "Seller taxonomy read (getSellerTaxonomyNodes) + crochet pattern subtree, daily listing.taxonomy_refresh",
+      "live": "TAXONOMY_PATTERNS=66 UNVERIFIED until a real read",
+      "note": "",
+      "owner_action": null,
+      "remaining_gate": "a real read needs ETSY_KEYSTRING (api-key only) or a recorded etsy.probe; gate here: ['no ETSY_KEYSTRING/ETSY_API_KEY in this environment']",
+      "status": "EXTERNAL-GATED"
+    },
+    {
+      "area": "attributes",
+      "evidence": [
+        "EtsyClient.get_taxonomy_properties",
+        "integrations/etsy_constraints.py",
+        "tests/test_etsy_property_contract.py",
+        "tests/test_w3_etsy_constraints.py"
+      ],
+      "id": "TAX-2",
+      "item": "Required attributes per taxonomy (getPropertiesByTaxonomyId) and property contract",
+      "live": "",
+      "note": "",
+      "owner_action": null,
+      "remaining_gate": "same real read as TAX-1",
+      "status": "EXTERNAL-GATED"
+    },
+    {
+      "area": "policies",
+      "evidence": [
+        "commerce.shop_package.check_package() -> 0 problems",
+        "tests/test_shop_package.py"
+      ],
+      "id": "POL-1",
+      "item": "Policy package (delivery, returns, privacy, licence FAQ, digital sale message) passes package checks",
+      "live": "",
+      "note": "",
+      "owner_action": null,
+      "remaining_gate": "",
+      "status": "PROVEN"
+    },
+    {
+      "area": "policies",
+      "evidence": [
+        "commerce/policy_consistency.py",
+        "tests/test_k8_shop_cx.py"
+      ],
+      "id": "POL-2",
+      "item": "Live policy text consistency vs canonical (policy_consistency in etsy.shop_snapshot)",
+      "live": "",
+      "note": "",
+      "owner_action": null,
+      "remaining_gate": "owner pastes Batch F; then getShop read-back",
+      "status": "EXTERNAL-GATED"
+    },
+    {
+      "area": "images",
+      "evidence": [
+        "storefront_gate.check_icon() -> 0 findings; asset a3_micro_mark",
+        "tests/test_w3_store_ux_gate.py"
+      ],
+      "id": "IMG-1",
+      "item": "Shop icon at Etsy sizes (owner-approved micro-mark, D-FB-18 item 5)",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": null,
+      "remaining_gate": "",
+      "status": "PROVEN"
+    },
+    {
+      "area": "images",
+      "evidence": [
+        "storefront_gate.check_banner() -> 6 findings: STORE_BANNER_OWNER_LAURA_PUBLICATION_STATUS_FAIL, STORE_BANNER_OWNER_LAURA_PHOTOREALISM_ANATOMY_UNKNOWN, STORE_BANNER_OWNER_AI_GENERATED_IMAGERY_DISCLOSURE_UNKNOWN, STORE_BANNER_OWNER_PRODUCT_TRUTH_UNKNOWN, STORE_BANNER_OWNER_NAV_CATEGORIES_TRUTH_FAIL, STORE_BANNER_OWNER_VISIBLE_TEXT_COMPLETE_UNKNOWN"
+      ],
+      "id": "IMG-2",
+      "item": "Banner publication gates on the canonical owner banner (D-FB-17/18)",
+      "live": "UNKNOWN",
+      "note": "",
+      "owner_action": "OA-BANNER",
+      "remaining_gate": "owner already put a banner live (2026-10-06): live is authoritative and is not replaced. The repo gates still report the findings listed; they go to the owner as findings (D-FB-17 item 2: never silently substitute)",
+      "status": "OWNER-GATED"
+    },
+    {
+      "area": "images",
+      "evidence": [
+        "runtime/etsy_ops.py certified_images/images_read_back",
+        "tests/test_etsy_readback_observe.py",
+        "tests/test_w3_etsy_upload_readback.py"
+      ],
+      "id": "IMG-3",
+      "item": "Listing image readiness: certified frames in certificate order, alt text, read-back",
+      "live": "",
+      "note": "",
+      "owner_action": null,
+      "remaining_gate": "real images need certified releases (DATA) and A1 for real upload",
+      "status": "PROVEN"
+    },
+    {
+      "area": "listings",
+      "evidence": [
+        "publish/release_gates.py",
+        "commerce/ranking_readiness.py",
+        "tests/test_ranking_readiness.py",
+        "tests/test_listing_parity_gate.py"
+      ],
+      "id": "LST-1",
+      "item": "Listing readiness (release gates, search certificate, ranking readiness)",
+      "live": "",
+      "note": "",
+      "owner_action": null,
+      "remaining_gate": "needs certified releases with listing-set + search certificates in the production DB (none in this environment)",
+      "status": "DATA-GATED"
+    },
+    {
+      "area": "listings",
+      "evidence": [
+        "populated: ['Home', 'Baby']",
+        "hidden (planned): ['Wearables', 'Gifts', 'Seasonal', 'Blankets']",
+        "store_foundation.navigation",
+        "tests/test_w3_store_ux_structure.py"
+      ],
+      "id": "LST-2",
+      "item": "Sections: only populated categories exposed (D-FB-18 item 3)",
+      "live": "",
+      "note": "",
+      "owner_action": null,
+      "remaining_gate": "",
+      "status": "PROVEN"
+    },
+    {
+      "area": "upload_readback",
+      "evidence": [
+        "integrations/etsy_verify.py",
+        "integrations/etsy_probe.py",
+        "tests/test_w3_etsy_upload_readback.py",
+        "tests/test_etsy_readback_observe.py (FakeEtsy contract)"
+      ],
+      "id": "UPL-1",
+      "item": "Draft -> image upload -> file -> read back -> delete probe, field-by-field verification",
+      "live": "",
+      "note": "",
+      "owner_action": "OA-A1",
+      "remaining_gate": "real-Etsy confirmation needs A1 re-authorisation; stays LOCALLY_TESTED until then",
+      "status": "PROVEN"
+    },
+    {
+      "area": "upload_readback",
+      "evidence": [
+        "etsy.listing_census",
+        "tests/test_etsy_readback_observe.py test_a_listing_edited_on_etsy_is_field_drift_and_is_never_overwritten"
+      ],
+      "id": "UPL-2",
+      "item": "Daily listing census + field drift (never overwrite)",
+      "live": "",
+      "note": "",
+      "owner_action": null,
+      "remaining_gate": "real census needs the production credential",
+      "status": "PROVEN"
+    },
+    {
+      "area": "analytics",
+      "evidence": [
+        "commerce/listing_outcomes.py submit_export/produce",
+        "commerce/attribution.py parse_stats_csv",
+        "tests/test_k3_listing_outcomes.py",
+        "tests/test_w3_spend_attribution.py"
+      ],
+      "id": "ANA-1",
+      "item": "Etsy Stats CSV intake (listing-level) -> ListingOutcome, strict, blank != zero",
+      "live": "",
+      "note": "",
+      "owner_action": "OA-STATS",
+      "remaining_gate": "DATA: first owner export after listings are live",
+      "status": "PROVEN"
+    },
+    {
+      "area": "analytics",
+      "evidence": [
+        "commerce/listing_outcomes.py (getListingsByShop)"
+      ],
+      "id": "ANA-2",
+      "item": "API read of views/favourites (impressions/carts stay UNKNOWN)",
+      "live": "",
+      "note": "",
+      "owner_action": null,
+      "remaining_gate": "production credential + active listings",
+      "status": "EXTERNAL-GATED"
+    },
+    {
+      "area": "publication",
+      "evidence": [
+        "runtime/pipeline.py handle_store_publish",
+        "runtime/etsy_ops.py",
+        "tests/test_etsy.py",
+        "tests/test_draft_creation_durability.py",
+        "tests/test_etsy_readback_observe.py"
+      ],
+      "id": "PUB-1",
+      "item": "Publication pipeline (store.publish drafts; store.activate only on read-back proof + owner authority at execution time)",
+      "live": "",
+      "note": "",
+      "owner_action": "OA-LAUNCH",
+      "remaining_gate": "phase stays SHADOW; activation needs owner launch authorisation + certified releases + A1",
+      "status": "OWNER-GATED"
+    }
+  ],
+  "lane": "W4-STORE",
+  "owner_actions": [
+    {
+      "action": "Re-authorise the Etsy app: Command Center GET /api/etsy/oauth/start -> Allow all scopes incl. transactions_r",
+      "id": "OA-A1",
+      "if_you_wait": "every live field stays UNKNOWN; nothing real can be verified",
+      "max_cost": "CA$0",
+      "minutes": 5,
+      "why": "the only route to a real read-back of the live shop (title, icon, banner), taxonomy, upload proof and orders"
+    },
+    {
+      "action": "Record what the live shop shows for the fields no API returns: About headline, About story, Laura's member bio and role (paste text; one dated observation)",
+      "id": "OA-OBS",
+      "if_you_wait": "About/Laura fields stay UNKNOWN; previews may show stale repo drafts",
+      "max_cost": "CA$0",
+      "minutes": 5,
+      "why": "lets the drift job treat your configuration as authoritative and check it (Laura disclosed as AI, not in the Owner role) without touching it"
+    },
+    {
+      "action": "Report whether the shop is 'open' (title/announcement editable)",
+      "id": "OA-A2",
+      "if_you_wait": "C5 stays blocked",
+      "max_cost": "CA$0",
+      "minutes": 1,
+      "why": "decides whether announcement can be set now"
+    },
+    {
+      "action": "Account settings: profile picture = logo mark, real preferred name, short bio, 2FA on (Batch B)",
+      "id": "OA-B",
+      "if_you_wait": "a persona could read as the legal owner",
+      "max_cost": "CA$0",
+      "minutes": 5,
+      "why": "the account picture/name present the legal account holder; Laura must not appear as the account holder"
+    },
+    {
+      "action": "Phone check: open the shop in the Etsy app, screenshot the banner; and decide on the banner gate findings listed in IMG-2 (nav footer shows Wearables/Gifts/Seasonal, which have no products yet; Laura publication status)",
+      "id": "OA-BANNER",
+      "if_you_wait": "crop/footer findings stay unresolved",
+      "max_cost": "CA$0",
+      "minutes": 3,
+      "why": "the live banner is yours and is not replaced; Etsy publishes no mobile crop, and the repo gates found items only you can rule on"
+    },
+    {
+      "action": "Shop settings still open: announcement (C5), location (C9), listing order Custom (C10), sold visibility off (C11)",
+      "id": "OA-C",
+      "if_you_wait": "shop snapshot keeps reporting missing trust surfaces",
+      "max_cost": "CA$0",
+      "minutes": 5,
+      "why": "trust surfaces and ordering"
+    },
+    {
+      "action": "Create sections for populated categories only (today: Home, Baby)",
+      "id": "OA-D1",
+      "if_you_wait": "listings land unsectioned",
+      "max_cost": "CA$0",
+      "minutes": 3,
+      "why": "D-FB-18 item 3: never advertise empty categories"
+    },
+    {
+      "action": "Info & Appearance: Message to Buyers + Message for Digital Items (Batch E)",
+      "id": "OA-E",
+      "if_you_wait": "first buyers get no download guidance",
+      "max_cost": "CA$0",
+      "minutes": 3,
+      "why": "the digital message is the only text every buyer receives at purchase"
+    },
+    {
+      "action": "Policy Settings: privacy policy, FAQ with licence, cancellations (Batch F)",
+      "id": "OA-F",
+      "if_you_wait": "policy_consistency stays failing",
+      "max_cost": "CA$0",
+      "minutes": 10,
+      "why": "Etsy trust surfaces; licence belongs in the FAQ for a Canadian shop"
+    },
+    {
+      "action": "Settings > Options: 'Allow buyers to purchase digital prints' = Disabled",
+      "id": "OA-G1",
+      "if_you_wait": "auto-enrolment may put a third-party product beside ours",
+      "max_cost": "CA$0",
+      "minutes": 1,
+      "why": "a third party would sell printed copies of a pattern PDF"
+    },
+    {
+      "action": "Offsite Ads: decide enrolment (15% fee on attributed sales, no fixed spend)",
+      "id": "OA-G2",
+      "if_you_wait": "default enrolment stands",
+      "max_cost": "15% of attributed orders (cap US$100/order)",
+      "minutes": 1,
+      "why": "a margin decision, recorded rather than defaulted"
+    },
+    {
+      "action": "After the first listings are live: export the listing-level Etsy Stats CSV and upload it (POST /api/attribution/stats)",
+      "id": "OA-STATS",
+      "if_you_wait": "funnel stays UNMEASURED",
+      "max_cost": "CA$0",
+      "minutes": 3,
+      "why": "impressions/carts are not in the API; the CSV is the only measurement"
+    },
+    {
+      "action": "Launch authorisation for the first listings (separate gated approval)",
+      "id": "OA-LAUNCH",
+      "if_you_wait": "the shop stays without listings",
+      "max_cost": "CA$0",
+      "minutes": 5,
+      "why": "no listing is activated without it"
+    }
+  ],
+  "phase": "SHADOW",
+  "public_page_read": {
+    "attempted_at": "2026-10-07",
+    "bypassed": false,
+    "result": "HTTP 403 DataDome CAPTCHA",
+    "url": "https://www.etsy.com/shop/BrambleloopStudio"
+  }
+}

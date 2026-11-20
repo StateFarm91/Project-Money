@@ -1,0 +1,23 @@
+{
+ "ref_flatlay.png": {
+  "product_type": "cardigan",
+  "front": "open",
+  "closure_count": 0,
+  "front_band": "ribbed_band",
+  "hem_band": "ribbed",
+  "cuffs": "ribbed",
+  "pocket_count": 2,
+  "pocket_position": "hip",
+  "sleeve_length": "long",
+  "body_length": "hip",
+  "texture": "waffle_textured",
+  "body_ridge_direction": "none",
+  "colour_count": 1,
+  "main_colour": "pink",
+  "extra_features": [
+   "none"
+  ],
+  "handmade_crochet": false,
+  "notes": "Patch pockets and a wide ribbed front and hem are visible."
+ }
+}

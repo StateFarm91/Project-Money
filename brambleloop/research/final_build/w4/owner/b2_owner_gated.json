@@ -1,0 +1,353 @@
+{
+ "source": "origin/claude/w4-B2 5241e46 brambleloop/research/final_build/w4/BUILD2_LEDGER.json (as_of 2026-10-07T00:47:10+00:00)",
+ "rows": [
+  {
+   "id": 1,
+   "title": "Etsy Marketplace Insights as First-Party Demand Oracle",
+   "gate": "insights_access",
+   "tests": 0
+  },
+  {
+   "id": 4,
+   "title": "Pre-Production Demand Validation",
+   "gate": "owned_surfaces",
+   "tests": 3
+  },
+  {
+   "id": 9,
+   "title": "Creator and Tester Distribution",
+   "gate": "tester_roster",
+   "tests": 0
+  },
+  {
+   "id": 10,
+   "title": "Free-to-Paid Acquisition Engine",
+   "gate": "owned_surfaces",
+   "tests": 0
+  },
+  {
+   "id": 11,
+   "title": "First 100 Customers Program",
+   "gate": "transactions_r",
+   "tests": 1
+  },
+  {
+   "id": 12,
+   "title": "Customer LTV and Cohorts",
+   "gate": "transactions_r",
+   "tests": 1
+  },
+  {
+   "id": 14,
+   "title": "Conversion Benchmark Engine",
+   "gate": "live_listings",
+   "tests": 0
+  },
+  {
+   "id": 15,
+   "title": "First-Page SERP Laboratory",
+   "gate": "image_vision",
+   "tests": 2
+  },
+  {
+   "id": 16,
+   "title": "Listing Experiment Discipline",
+   "gate": "live_listings",
+   "tests": 0
+  },
+  {
+   "id": 37,
+   "title": "Marketplace Insights Query Budgeter",
+   "gate": "insights_access",
+   "tests": 0
+  },
+  {
+   "id": 43,
+   "title": "Tester Capacity Marketplace",
+   "gate": "tester_roster",
+   "tests": 1
+  },
+  {
+   "id": 44,
+   "title": "Brand Moat Beyond the Model",
+   "gate": "image_vision",
+   "tests": 1
+  },
+  {
+   "id": 46,
+   "title": "Price Elasticity Memory",
+   "gate": "live_listings",
+   "tests": 1
+  },
+  {
+   "id": 51,
+   "title": "Business Continuity Export",
+   "gate": "offsite_storage",
+   "tests": 0
+  },
+  {
+   "id": 54,
+   "title": "Pre-Etsy Launch Readiness Gate",
+   "gate": "insights_access",
+   "tests": 2
+  },
+  {
+   "id": 61,
+   "title": "Visual Semantic QA",
+   "gate": "image_vision",
+   "tests": 1
+  },
+  {
+   "id": 64,
+   "title": "Physical Proof Upgrade Path",
+   "gate": "physical_proof",
+   "tests": 1
+  },
+  {
+   "id": 67,
+   "title": "Competitive Creative Benchmark",
+   "gate": "image_vision",
+   "tests": 2
+  },
+  {
+   "id": 86,
+   "title": "Creativity Benchmark Memory",
+   "gate": "image_vision",
+   "tests": 1
+  },
+  {
+   "id": 88,
+   "title": "Idea-to-Thumbnail Test",
+   "gate": "image_vision",
+   "tests": 1
+  },
+  {
+   "id": 116,
+   "title": "Creative Reference Decomposition",
+   "gate": "image_vision",
+   "tests": 1
+  },
+  {
+   "id": 126,
+   "title": "Search-Grid Blind Tournament",
+   "gate": "image_vision",
+   "tests": 1
+  },
+  {
+   "id": 163,
+   "title": "Brambleloop Must Add Unique Value",
+   "gate": "benchmark_purchases",
+   "tests": 2
+  },
+  {
+   "id": 165,
+   "title": "Benchmark Refresh Cadence",
+   "gate": "benchmark_purchases",
+   "tests": 1
+  },
+  {
+   "id": 168,
+   "title": "Pre-Launch Benchmark Challenge",
+   "gate": "benchmark_purchases",
+   "tests": 1
+  },
+  {
+   "id": 189,
+   "title": "Cloud Browser/Vision Worker Pool",
+   "gate": "acceptance_ruling",
+   "tests": 0
+  },
+  {
+   "id": 195,
+   "title": "Proof of Off-Device Autonomy",
+   "gate": "production_window",
+   "tests": 1
+  },
+  {
+   "id": 218,
+   "title": "MJs Challenge Gate",
+   "gate": "image_vision",
+   "tests": 1
+  },
+  {
+   "id": 221,
+   "title": "Mandatory Cloud Browser + Vision Capability",
+   "gate": "acceptance_ruling",
+   "tests": 0
+  },
+  {
+   "id": 222,
+   "title": "Browser/Vision Acceptance Test",
+   "gate": "acceptance_ruling",
+   "tests": 0
+  },
+  {
+   "id": 236,
+   "title": "Marketplace Insights Portfolio Allocator",
+   "gate": "insights_access",
+   "tests": 1
+  },
+  {
+   "id": 237,
+   "title": "Search-Term-to-P&L; Attribution",
+   "gate": "insights_access",
+   "tests": 1
+  },
+  {
+   "id": 238,
+   "title": "Conversion Cohort Benchmarks",
+   "gate": "live_listings",
+   "tests": 1
+  },
+  {
+   "id": 239,
+   "title": "Search Share-of-Opportunity Dashboard",
+   "gate": "live_listings",
+   "tests": 1
+  },
+  {
+   "id": 241,
+   "title": "Listing Launch Experiment Pack",
+   "gate": "live_listings",
+   "tests": 3
+  },
+  {
+   "id": 242,
+   "title": "Organic-First Proof Before Heavy Ads",
+   "gate": "ad_authority",
+   "tests": 1
+  },
+  {
+   "id": 243,
+   "title": "Paid Acquisition Allowable CAC",
+   "gate": "ad_authority",
+   "tests": 1
+  },
+  {
+   "id": 244,
+   "title": "Offsite Ads Economics Guard",
+   "gate": "ad_authority",
+   "tests": 1
+  },
+  {
+   "id": 245,
+   "title": "Share-and-Save / Direct-Link Economics",
+   "gate": "ad_authority",
+   "tests": 1
+  },
+  {
+   "id": 246,
+   "title": "Pinterest Search Factory",
+   "gate": "owned_surfaces",
+   "tests": 1
+  },
+  {
+   "id": 247,
+   "title": "Google / SEO Topic Cluster Engine",
+   "gate": "owned_surfaces",
+   "tests": 1
+  },
+  {
+   "id": 248,
+   "title": "Video Distribution Flywheel",
+   "gate": "owned_surfaces",
+   "tests": 1
+  },
+  {
+   "id": 250,
+   "title": "Tester-to-Ambassador Path",
+   "gate": "tester_roster",
+   "tests": 1
+  },
+  {
+   "id": 251,
+   "title": "Email / Owned Audience Lifecycle",
+   "gate": "owned_surfaces",
+   "tests": 1
+  },
+  {
+   "id": 254,
+   "title": "Personalization / Customization Layer",
+   "gate": "live_listings",
+   "tests": 0
+  },
+  {
+   "id": 255,
+   "title": "Free Tool Acquisition Layer",
+   "gate": "owned_surfaces",
+   "tests": 1
+  },
+  {
+   "id": 263,
+   "title": "Leading Indicator Dashboard",
+   "gate": "live_listings",
+   "tests": 0
+  },
+  {
+   "id": 266,
+   "title": "Incrementality Discipline",
+   "gate": "live_listings",
+   "tests": 1
+  },
+  {
+   "id": 277,
+   "title": "NON-NEGOTIABLE: Proven-Trend Seasonal Capture",
+   "gate": "image_vision",
+   "tests": 1
+  },
+  {
+   "id": 281,
+   "title": "MJs-to-Brambleloop Seasonal Response Pipeline",
+   "gate": "image_vision",
+   "tests": 1
+  },
+  {
+   "id": 294,
+   "title": "Pre-Season Ad Learning Window",
+   "gate": "ad_authority",
+   "tests": 1
+  },
+  {
+   "id": 295,
+   "title": "Aggressive Winner Scaling",
+   "gate": "ad_authority",
+   "tests": 1
+  },
+  {
+   "id": 304,
+   "title": "MJs Listing Photos Must Be Visually Studied",
+   "gate": "image_vision",
+   "tests": 1
+  },
+  {
+   "id": 308,
+   "title": "Owner Example - Christmas Cardigan Response",
+   "gate": "image_vision",
+   "tests": 2
+  },
+  {
+   "id": 309,
+   "title": "MJs Trend-to-Season Mission Pipeline",
+   "gate": "image_vision",
+   "tests": 1
+  },
+  {
+   "id": 315,
+   "title": "MJs Quality Challenge Is Release-Blocking",
+   "gate": "benchmark_purchases",
+   "tests": 0
+  },
+  {
+   "id": 317,
+   "title": "Ten-Pattern Benchmark Laboratory",
+   "gate": "benchmark_purchases",
+   "tests": 0
+  },
+  {
+   "id": 320,
+   "title": "MJs Mission End-to-End Acceptance Test",
+   "gate": "acceptance_ruling",
+   "tests": 0
+  }
+ ]
+}

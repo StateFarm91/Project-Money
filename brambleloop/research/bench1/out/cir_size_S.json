@@ -1,0 +1,6387 @@
+{
+ "slug": "bench1-cardigan-with-pockets",
+ "title": "benchmark: textured cardigan with pockets (purchased pattern, size S)",
+ "version": "1",
+ "construction": "flat_rows",
+ "components": [
+  {
+   "name": "body",
+   "construction": "flat_rows",
+   "rows": [
+    {
+     "index": 1,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 94,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 2,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 3,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 4,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 5,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 6,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 7,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 8,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 9,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 10,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 11,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 12,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 13,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 14,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 15,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 16,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 17,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 18,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 19,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 20,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 21,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 28,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      },
+      {
+       "stitch": "ch",
+       "count": 29,
+       "note": null,
+       "loop": "both",
+       "spans": 28
+      }
+     ],
+     "declared_count": 95,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": "chains bridge the sleeve opening",
+     "skips": 28
+    },
+    {
+     "index": 22,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": true,
+     "note": "works back across the bridge; the first chain is the turning chain",
+     "skips": 0
+    },
+    {
+     "index": 23,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 24,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 25,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 26,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 27,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 28,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 29,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 30,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 31,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 32,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 33,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 34,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 35,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 36,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 37,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 38,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 39,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 40,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 41,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 42,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 43,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 44,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 45,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 46,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 47,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 48,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 49,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 50,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 51,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 52,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 53,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 54,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 55,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 56,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 57,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 58,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 59,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 60,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 61,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 62,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 63,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 64,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 65,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 66,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 67,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 68,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 69,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 70,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 71,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 28,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      },
+      {
+       "stitch": "ch",
+       "count": 29,
+       "note": null,
+       "loop": "both",
+       "spans": 28
+      }
+     ],
+     "declared_count": 95,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": "chains bridge the sleeve opening",
+     "skips": 28
+    },
+    {
+     "index": 72,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": true,
+     "note": "works back across the bridge; the first chain is the turning chain",
+     "skips": 0
+    },
+    {
+     "index": 73,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 74,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 75,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 76,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 77,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 78,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 79,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 80,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 81,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 82,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 83,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 84,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 85,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 86,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 87,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 88,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 89,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 90,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 42,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 91,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 85,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 94,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": "final plain row",
+     "skips": 0
+    }
+   ],
+   "foundation": 94,
+   "foundation_kind": "chain",
+   "make": 1,
+   "note": null,
+   "holds": [],
+   "resumes": null,
+   "grain": "across"
+  },
+  {
+   "name": "sleeve",
+   "construction": "flat_rows",
+   "rows": [
+    {
+     "index": 1,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 62,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 2,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "slst",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "slst",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 3,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 4,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "slst",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "slst",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 5,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 6,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "slst",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "slst",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 7,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 8,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "slst",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "slst",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 9,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 10,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "slst",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "slst",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 11,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 12,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "slst",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "slst",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 13,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 14,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "slst",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "slst",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 15,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 16,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "slst",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "slst",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 17,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 18,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "slst",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "slst",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 19,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 20,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "slst",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "slst",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 21,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 22,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "slst",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "slst",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 23,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 24,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "slst",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "slst",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 25,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 26,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "slst",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "slst",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 27,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 28,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "slst",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "slst",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 29,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 30,
+     "ops": [
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        }
+       ],
+       "times": 26,
+       "note": null
+      },
+      {
+       "stitch": "slst",
+       "count": 9,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "slst",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 62,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    }
+   ],
+   "foundation": 62,
+   "foundation_kind": "chain",
+   "make": 2,
+   "note": null,
+   "holds": [],
+   "resumes": null,
+   "grain": "across"
+  },
+  {
+   "name": "neckband",
+   "construction": "flat_rows",
+   "rows": [
+    {
+     "index": 1,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 7,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 7,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 2,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 6,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 7,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": "repeat to the neckline's length",
+     "skips": 0
+    }
+   ],
+   "foundation": 7,
+   "foundation_kind": "chain",
+   "make": 1,
+   "note": null,
+   "holds": [],
+   "resumes": null,
+   "grain": "across"
+  },
+  {
+   "name": "pocket",
+   "construction": "flat_rows",
+   "rows": [
+    {
+     "index": 1,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 24,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 24,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 2,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 11,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 24,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 3,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 11,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 24,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 4,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 11,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 24,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 5,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 11,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 24,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 6,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 11,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 24,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 7,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 11,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 24,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 8,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 11,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 24,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 9,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 11,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 24,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 10,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 11,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 24,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 11,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 11,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 24,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 12,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "back",
+       "spans": 0
+      },
+      {
+       "ops": [
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "front",
+         "spans": 0
+        },
+        {
+         "stitch": "hdc",
+         "count": 1,
+         "note": null,
+         "loop": "back",
+         "spans": 0
+        }
+       ],
+       "times": 11,
+       "note": null
+      },
+      {
+       "stitch": "hdc",
+       "count": 1,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 24,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": null,
+     "skips": 0
+    },
+    {
+     "index": 13,
+     "ops": [
+      {
+       "stitch": "hdc",
+       "count": 24,
+       "note": null,
+       "loop": "both",
+       "spans": 0
+      }
+     ],
+     "declared_count": 24,
+     "turning_chain": 1,
+     "turning_chain_counts": false,
+     "color": null,
+     "into": null,
+     "allow_remainder": false,
+     "note": "plain row, then slip-stitch edging along a row-end edge",
+     "skips": 0
+    }
+   ],
+   "foundation": 24,
+   "foundation_kind": "chain",
+   "make": 2,
+   "note": null,
+   "holds": [],
+   "resumes": null,
+   "grain": "across"
+  }
+ ],
+ "gauge": {
+  "stitches_per_10cm": 14.5,
+  "rows_per_10cm": 9.5,
+  "stitch_type": "hdc",
+  "hook_mm": 6.0,
+  "yarn_weight": "worsted",
+  "chains_per_10cm": 18.65,
+  "chain_gauge_uncertainty": 0.058
+ },
+ "materials": [
+  {
+   "name": "Lionbrand Color Theory (Aran / Worsted / 10ply / Medium (4))",
+   "yarn_weight": "worsted",
+   "colorway": "Stonewash",
+   "metres_estimate": 1316.0,
+   "color_id": null,
+   "fibre_content": [
+    [
+     "acrylic",
+     100
+    ]
+   ]
+  }
+ ],
+ "colors": {},
+ "risk_class": "A",
+ "authored": "benchmark",
+ "designer_notes": null,
+ "finished_size_note": "size S: see stated_measurements_cm",
+ "assembly": [
+  {
+   "method": "whipstitch",
+   "piece_a": "body",
+   "piece_b": "body",
+   "note": "shoulder seams: fronts laid on back",
+   "stuff_before_closing": false,
+   "at_round": null,
+   "spans_rounds": 1,
+   "stitches_from_centre": null,
+   "mirrored": false,
+   "edge_a": "top",
+   "edge_b": "top"
+  },
+  {
+   "method": "whipstitch",
+   "piece_a": "sleeve",
+   "piece_b": "sleeve",
+   "note": "fold lengthways, seam the long edges",
+   "stuff_before_closing": false,
+   "at_round": null,
+   "spans_rounds": 1,
+   "stitches_from_centre": null,
+   "mirrored": false,
+   "edge_a": "fold",
+   "edge_b": "fold"
+  },
+  {
+   "method": "whipstitch",
+   "piece_a": "sleeve",
+   "piece_b": "body",
+   "note": "top of sleeve to armhole slit",
+   "stuff_before_closing": false,
+   "at_round": null,
+   "spans_rounds": 1,
+   "stitches_from_centre": null,
+   "mirrored": false,
+   "edge_a": "top",
+   "edge_b": "opening"
+  },
+  {
+   "method": "whipstitch",
+   "piece_a": "neckband",
+   "piece_b": "body",
+   "note": "along the entire neckline; the pattern states no length",
+   "stuff_before_closing": false,
+   "at_round": null,
+   "spans_rounds": 1,
+   "stitches_from_centre": null,
+   "mirrored": false,
+   "edge_a": null,
+   "edge_b": null
+  },
+  {
+   "method": "whipstitch",
+   "piece_a": "pocket",
+   "piece_b": "body",
+   "note": "to the front panel only; placement left to the maker",
+   "stuff_before_closing": false,
+   "at_round": null,
+   "spans_rounds": 1,
+   "stitches_from_centre": null,
+   "mirrored": false,
+   "edge_a": null,
+   "edge_b": null
+  }
+ ]
+}

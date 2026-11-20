@@ -1,0 +1,104 @@
+{
+  "duplicates_flagged": [
+    4,
+    5,
+    6
+  ],
+  "statement_lines": [
+    {
+      "id": 1,
+      "source": "etsy_ledger",
+      "external_id": "proof-fee-1",
+      "at": "2026-10-05T06:33:48.855473+00:00",
+      "kind": "fee",
+      "reference": "1001",
+      "amount_cad": -0.78,
+      "state": "matched",
+      "matched_to": "orders:etsy:1001:10010",
+      "duplicate_of": null
+    },
+    {
+      "id": 2,
+      "source": "etsy_ledger",
+      "external_id": "proof-refund-1",
+      "at": "2026-10-05T06:33:48.855473+00:00",
+      "kind": "refund",
+      "reference": "1005",
+      "amount_cad": -4.0,
+      "state": "matched",
+      "matched_to": "orders:etsy:1005:10050",
+      "duplicate_of": null
+    },
+    {
+      "id": 3,
+      "source": "etsy_ledger",
+      "external_id": "proof-payout-1",
+      "at": "2026-10-05T06:33:48.855473+00:00",
+      "kind": "payout",
+      "reference": "payout-A",
+      "amount_cad": -20.0,
+      "state": "unmatched",
+      "matched_to": "",
+      "duplicate_of": null
+    },
+    {
+      "id": 4,
+      "source": "etsy_ledger",
+      "external_id": "proof-fee-1-dup",
+      "at": "2026-10-05T06:33:48.855473+00:00",
+      "kind": "fee",
+      "reference": "1001",
+      "amount_cad": -0.78,
+      "state": "duplicate",
+      "matched_to": "",
+      "duplicate_of": 1
+    },
+    {
+      "id": 5,
+      "source": "etsy_ledger",
+      "external_id": "proof-refund-1-dup",
+      "at": "2026-10-05T06:33:48.855473+00:00",
+      "kind": "refund",
+      "reference": "1005",
+      "amount_cad": -4.0,
+      "state": "duplicate",
+      "matched_to": "",
+      "duplicate_of": 2
+    },
+    {
+      "id": 6,
+      "source": "etsy_ledger",
+      "external_id": "proof-payout-1-dup",
+      "at": "2026-10-05T06:33:48.855473+00:00",
+      "kind": "payout",
+      "reference": "payout-A",
+      "amount_cad": -20.0,
+      "state": "duplicate",
+      "matched_to": "",
+      "duplicate_of": 3
+    }
+  ],
+  "accrual_micros_before": {
+    "gross": 92590000,
+    "refunds": 16000000,
+    "discounts": 0,
+    "fees": 10960000,
+    "operating": 16285200,
+    "net_sales": 76590000,
+    "reserve": 9956700,
+    "contribution": 65630000,
+    "net_profit": 39388100
+  },
+  "accrual_micros_after": {
+    "gross": 92590000,
+    "refunds": 16000000,
+    "discounts": 0,
+    "fees": 10960000,
+    "operating": 16285200,
+    "net_sales": 76590000,
+    "reserve": 9956700,
+    "contribution": 65630000,
+    "net_profit": 39388100
+  },
+  "unchanged": true
+}

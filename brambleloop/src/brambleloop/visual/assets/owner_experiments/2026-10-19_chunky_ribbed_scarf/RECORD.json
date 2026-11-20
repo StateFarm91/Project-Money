@@ -1,0 +1,51 @@
+{
+ "experiment_id": "flux3-2026-10-19-chunky-ribbed-scarf",
+ "recorded_at": "2026-10-19",
+ "recorded_by": "W-OWNERIMG (VISAUTO), from the owner's description relayed by the coordinator",
+ "operator": "owner, manual, dashboard.bfl.ai",
+ "purpose": "wardrobe-diversity test case (owner wardrobe fix, 2026-10-19)",
+ "receipt_as_shown_on_dashboard": {
+  "model": "FLUX 3 Image",
+  "cost_usd": null,
+  "latency_s": null,
+  "images": null,
+  "source": "not supplied; no receipt, request id or seed captured"
+ },
+ "product": {
+  "slug": "chunky-ribbed-scarf",
+  "version": null,
+  "certified": false,
+  "certification_refusal": "uncalibrated primitives fpdc/bpdc (front/back post double crochet); physical test required",
+  "customer_ready": false
+ },
+ "references": [
+  {"n": 1, "file": "canonical neutral_portrait.jpg", "sha256": "a42aeac72ba5733e42f55f9eb527218242c50610531ec9263ffb6f3e82519bc9", "note": "owner-reported as supplied (not verified)"},
+  {"n": 2, "file": "canonical torso_fit_reference.png", "sha256": "afe6191fb4c68d0a9c61229fe822a1032ee7c54150597210888db25b0f9ef0db", "note": "owner-reported as supplied (not verified)"},
+  {"n": 3, "file": "canonical full_length_standing.png", "sha256": "f32bac686cba46c75e3ac193e72f2bcea4ba7ebc80355a102a4bed4bca3931e0", "note": "owner-reported as supplied (not verified)"}
+ ],
+ "output": {
+  "file": null,
+  "sha256": null,
+  "pixels": null,
+  "caveat": "no image bytes were supplied; nothing about the image is measured here"
+ },
+ "prompt": {"status": "MISSING"},
+ "outfit": {
+  "top_or_dress": "black fitted top",
+  "lower": "dark indigo jeans",
+  "shoes": "brown leather boots",
+  "outerwear": "camel wool coat",
+  "accessories": "none"
+ },
+ "verdict": {
+  "wardrobe": "owner-chosen outfit distinct from the reference clothing (beige trousers, ivory top, tan sandals); recorded as the scarf listing's outfit history",
+  "laura_identity": "UNKNOWN (no image bytes, no independent check)",
+  "product_truth": "UNKNOWN (no image bytes; product uncertified)",
+  "publication": "NOT ELIGIBLE (product uncertified, not customer-ready)"
+ },
+ "failure_categories": [],
+ "lessons": [
+  "a complete, clearly different outfit (dark jeans, black top, camel coat, brown boots) is the target the styling selector must reach without owner input",
+  "the reference clothing must be replaced explicitly in the prompt or FLUX carries it over"
+ ]
+}

@@ -1,0 +1,1423 @@
+{
+  "column_count": 201,
+  "schema_sha256": "47f40fe398f4d447bdb48f14d01380610f60f76e585dc11ecc6968340d7b71c5",
+  "table_count": 21,
+  "tables": {
+    "agents": {
+      "columns": {
+        "allowed_job_types": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "JSON"
+        },
+        "authority": {
+          "default": "<Authority.GREEN: 'green'>",
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(6)"
+        },
+        "created_at": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "DATETIME"
+        },
+        "daily_cost_ceiling_cad": {
+          "default": "5.0",
+          "nullable": false,
+          "primary_key": false,
+          "type": "FLOAT"
+        },
+        "description": {
+          "default": "''",
+          "nullable": false,
+          "primary_key": false,
+          "type": "TEXT"
+        },
+        "enabled": {
+          "default": "True",
+          "nullable": false,
+          "primary_key": false,
+          "type": "BOOLEAN"
+        },
+        "id": {
+          "default": null,
+          "nullable": false,
+          "primary_key": true,
+          "type": "INTEGER"
+        },
+        "max_attempts": {
+          "default": "3",
+          "nullable": false,
+          "primary_key": false,
+          "type": "INTEGER"
+        },
+        "name": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(64)"
+        },
+        "phase": {
+          "default": "<Phase.SHADOW: 'shadow'>",
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(18)"
+        }
+      },
+      "indexes": [
+        "ix_agents_name"
+      ],
+      "unique_constraints": []
+    },
+    "audit_log": {
+      "columns": {
+        "action": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(80)"
+        },
+        "actor": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(64)"
+        },
+        "artifact": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "VARCHAR(200)"
+        },
+        "at": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "DATETIME"
+        },
+        "detail": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "JSON"
+        },
+        "id": {
+          "default": null,
+          "nullable": false,
+          "primary_key": true,
+          "type": "INTEGER"
+        },
+        "job_id": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "INTEGER"
+        },
+        "model_version": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "VARCHAR(80)"
+        },
+        "phase": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "VARCHAR(18)"
+        },
+        "policy_version": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "VARCHAR(40)"
+        }
+      },
+      "indexes": [
+        "ix_audit_log_action",
+        "ix_audit_log_actor",
+        "ix_audit_log_artifact",
+        "ix_audit_log_at"
+      ],
+      "unique_constraints": []
+    },
+    "collections": {
+      "columns": {
+        "created_at": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "DATETIME"
+        },
+        "family": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(80)"
+        },
+        "id": {
+          "default": null,
+          "nullable": false,
+          "primary_key": true,
+          "type": "INTEGER"
+        },
+        "palette": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "JSON"
+        },
+        "season": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "VARCHAR(40)"
+        },
+        "slug": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(80)"
+        },
+        "story": {
+          "default": "''",
+          "nullable": false,
+          "primary_key": false,
+          "type": "TEXT"
+        },
+        "title": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(200)"
+        }
+      },
+      "indexes": [
+        "ix_collections_family",
+        "ix_collections_slug"
+      ],
+      "unique_constraints": []
+    },
+    "competitor_snapshots": {
+      "columns": {
+        "id": {
+          "default": null,
+          "nullable": false,
+          "primary_key": true,
+          "type": "INTEGER"
+        },
+        "notes": {
+          "default": "''",
+          "nullable": false,
+          "primary_key": false,
+          "type": "TEXT"
+        },
+        "observed_on": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(10)"
+        },
+        "price_high_cad": {
+          "default": "0.0",
+          "nullable": false,
+          "primary_key": false,
+          "type": "FLOAT"
+        },
+        "price_low_cad": {
+          "default": "0.0",
+          "nullable": false,
+          "primary_key": false,
+          "type": "FLOAT"
+        },
+        "shop": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(80)"
+        },
+        "signals": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "JSON"
+        }
+      },
+      "indexes": [
+        "ix_competitor_snapshots_observed_on",
+        "ix_competitor_snapshots_shop"
+      ],
+      "unique_constraints": [
+        "observed_on|shop"
+      ]
+    },
+    "content_pieces": {
+      "columns": {
+        "body": {
+          "default": "''",
+          "nullable": false,
+          "primary_key": false,
+          "type": "TEXT"
+        },
+        "channel": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(30)"
+        },
+        "created_at": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "DATETIME"
+        },
+        "detail": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "JSON"
+        },
+        "id": {
+          "default": null,
+          "nullable": false,
+          "primary_key": true,
+          "type": "INTEGER"
+        },
+        "product_slug": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(80)"
+        },
+        "scheduled_for": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "VARCHAR(10)"
+        },
+        "state": {
+          "default": "'drafted'",
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(20)"
+        },
+        "title": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "TEXT"
+        }
+      },
+      "indexes": [
+        "ix_content_pieces_channel",
+        "ix_content_pieces_product_slug",
+        "ix_content_pieces_state"
+      ],
+      "unique_constraints": []
+    },
+    "cost_entries": {
+      "columns": {
+        "agent": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(64)"
+        },
+        "amount_cad": {
+          "default": "0.0",
+          "nullable": false,
+          "primary_key": false,
+          "type": "FLOAT"
+        },
+        "at": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "DATETIME"
+        },
+        "detail": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "JSON"
+        },
+        "id": {
+          "default": null,
+          "nullable": false,
+          "primary_key": true,
+          "type": "INTEGER"
+        },
+        "job_id": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "INTEGER"
+        },
+        "kind": {
+          "default": "'llm'",
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(40)"
+        },
+        "tokens_in": {
+          "default": "0",
+          "nullable": false,
+          "primary_key": false,
+          "type": "INTEGER"
+        },
+        "tokens_out": {
+          "default": "0",
+          "nullable": false,
+          "primary_key": false,
+          "type": "INTEGER"
+        }
+      },
+      "indexes": [
+        "ix_cost_entries_agent",
+        "ix_cost_entries_at"
+      ],
+      "unique_constraints": []
+    },
+    "experiments": {
+      "columns": {
+        "arms": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "JSON"
+        },
+        "created_at": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "DATETIME"
+        },
+        "hypothesis": {
+          "default": "''",
+          "nullable": false,
+          "primary_key": false,
+          "type": "TEXT"
+        },
+        "id": {
+          "default": null,
+          "nullable": false,
+          "primary_key": true,
+          "type": "INTEGER"
+        },
+        "kind": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(30)"
+        },
+        "max_loss_cad": {
+          "default": "0.0",
+          "nullable": false,
+          "primary_key": false,
+          "type": "FLOAT"
+        },
+        "min_observations": {
+          "default": "200",
+          "nullable": false,
+          "primary_key": false,
+          "type": "INTEGER"
+        },
+        "name": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(120)"
+        },
+        "product_slug": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "VARCHAR(80)"
+        },
+        "result": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "JSON"
+        },
+        "state": {
+          "default": "'designed'",
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(20)"
+        }
+      },
+      "indexes": [
+        "ix_experiments_kind",
+        "ix_experiments_product_slug",
+        "ix_experiments_state"
+      ],
+      "unique_constraints": [
+        "name"
+      ]
+    },
+    "incidents": {
+      "columns": {
+        "at": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "DATETIME"
+        },
+        "detail": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "JSON"
+        },
+        "halts_publication": {
+          "default": "False",
+          "nullable": false,
+          "primary_key": false,
+          "type": "BOOLEAN"
+        },
+        "id": {
+          "default": null,
+          "nullable": false,
+          "primary_key": true,
+          "type": "INTEGER"
+        },
+        "product_slug": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "VARCHAR(80)"
+        },
+        "report_count": {
+          "default": "1",
+          "nullable": false,
+          "primary_key": false,
+          "type": "INTEGER"
+        },
+        "resolved": {
+          "default": "False",
+          "nullable": false,
+          "primary_key": false,
+          "type": "BOOLEAN"
+        },
+        "severity": {
+          "default": "'P2'",
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(4)"
+        },
+        "signature": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(200)"
+        },
+        "summary": {
+          "default": "''",
+          "nullable": false,
+          "primary_key": false,
+          "type": "TEXT"
+        }
+      },
+      "indexes": [
+        "ix_incidents_at",
+        "ix_incidents_product_slug",
+        "ix_incidents_severity",
+        "ix_incidents_signature"
+      ],
+      "unique_constraints": []
+    },
+    "jobs": {
+      "columns": {
+        "agent": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(64)"
+        },
+        "attempts": {
+          "default": "0",
+          "nullable": false,
+          "primary_key": false,
+          "type": "INTEGER"
+        },
+        "cost_cad": {
+          "default": "0.0",
+          "nullable": false,
+          "primary_key": false,
+          "type": "FLOAT"
+        },
+        "created_at": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "DATETIME"
+        },
+        "finished_at": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "DATETIME"
+        },
+        "id": {
+          "default": null,
+          "nullable": false,
+          "primary_key": true,
+          "type": "INTEGER"
+        },
+        "idempotency_key": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "VARCHAR(200)"
+        },
+        "inputs": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "JSON"
+        },
+        "job_type": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(64)"
+        },
+        "last_error": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "TEXT"
+        },
+        "lease_expires_at": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "DATETIME"
+        },
+        "leased_by": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "VARCHAR(80)"
+        },
+        "max_attempts": {
+          "default": "3",
+          "nullable": false,
+          "primary_key": false,
+          "type": "INTEGER"
+        },
+        "outputs": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "JSON"
+        },
+        "priority": {
+          "default": "100",
+          "nullable": false,
+          "primary_key": false,
+          "type": "INTEGER"
+        },
+        "run_after": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "DATETIME"
+        },
+        "started_at": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "DATETIME"
+        },
+        "status": {
+          "default": "<JobStatus.PENDING: 'pending'>",
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(9)"
+        }
+      },
+      "indexes": [
+        "ix_jobs_agent",
+        "ix_jobs_claimable",
+        "ix_jobs_job_type",
+        "ix_jobs_priority",
+        "ix_jobs_run_after",
+        "ix_jobs_status"
+      ],
+      "unique_constraints": [
+        "idempotency_key"
+      ]
+    },
+    "keywords": {
+      "columns": {
+        "coverage": {
+          "default": "0.0",
+          "nullable": false,
+          "primary_key": false,
+          "type": "FLOAT"
+        },
+        "covered_by": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "JSON"
+        },
+        "est_competition": {
+          "default": "0.5",
+          "nullable": false,
+          "primary_key": false,
+          "type": "FLOAT"
+        },
+        "est_demand": {
+          "default": "0.5",
+          "nullable": false,
+          "primary_key": false,
+          "type": "FLOAT"
+        },
+        "id": {
+          "default": null,
+          "nullable": false,
+          "primary_key": true,
+          "type": "INTEGER"
+        },
+        "intent": {
+          "default": "'product'",
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(30)"
+        },
+        "phrase": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(120)"
+        },
+        "updated_at": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "DATETIME"
+        }
+      },
+      "indexes": [
+        "ix_keywords_phrase"
+      ],
+      "unique_constraints": [
+        "phrase"
+      ]
+    },
+    "ledger": {
+      "columns": {
+        "at": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "DATETIME"
+        },
+        "category": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(40)"
+        },
+        "description": {
+          "default": "''",
+          "nullable": false,
+          "primary_key": false,
+          "type": "TEXT"
+        },
+        "evidence_ref": {
+          "default": "''",
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(200)"
+        },
+        "expense_cad": {
+          "default": "0.0",
+          "nullable": false,
+          "primary_key": false,
+          "type": "FLOAT"
+        },
+        "fees_cad": {
+          "default": "0.0",
+          "nullable": false,
+          "primary_key": false,
+          "type": "FLOAT"
+        },
+        "gross_cad": {
+          "default": "0.0",
+          "nullable": false,
+          "primary_key": false,
+          "type": "FLOAT"
+        },
+        "id": {
+          "default": null,
+          "nullable": false,
+          "primary_key": true,
+          "type": "INTEGER"
+        },
+        "refunds_cad": {
+          "default": "0.0",
+          "nullable": false,
+          "primary_key": false,
+          "type": "FLOAT"
+        }
+      },
+      "indexes": [
+        "ix_ledger_at",
+        "ix_ledger_category"
+      ],
+      "unique_constraints": []
+    },
+    "listing_assets": {
+      "columns": {
+        "approved": {
+          "default": "False",
+          "nullable": false,
+          "primary_key": false,
+          "type": "BOOLEAN"
+        },
+        "asset_class": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(40)"
+        },
+        "blocked_reasons": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "JSON"
+        },
+        "claims": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "JSON"
+        },
+        "created_at": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "DATETIME"
+        },
+        "id": {
+          "default": null,
+          "nullable": false,
+          "primary_key": true,
+          "type": "INTEGER"
+        },
+        "position": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "INTEGER"
+        },
+        "product_slug": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(80)"
+        },
+        "role": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(40)"
+        },
+        "sha256": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "VARCHAR(64)"
+        },
+        "version": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(20)"
+        }
+      },
+      "indexes": [
+        "ix_listing_assets_product_slug"
+      ],
+      "unique_constraints": [
+        "position|product_slug|version"
+      ]
+    },
+    "listings": {
+      "columns": {
+        "chain_version": {
+          "default": "'1'",
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(8)"
+        },
+        "created_at": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "DATETIME"
+        },
+        "description": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "TEXT"
+        },
+        "etsy_listing_id": {
+          "default": "''",
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(32)"
+        },
+        "id": {
+          "default": null,
+          "nullable": false,
+          "primary_key": true,
+          "type": "INTEGER"
+        },
+        "price_cad": {
+          "default": "0.0",
+          "nullable": false,
+          "primary_key": false,
+          "type": "FLOAT"
+        },
+        "product_slug": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(80)"
+        },
+        "release_hash": {
+          "default": "''",
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(64)"
+        },
+        "seo_score": {
+          "default": "0.0",
+          "nullable": false,
+          "primary_key": false,
+          "type": "FLOAT"
+        },
+        "state": {
+          "default": "'draft'",
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(30)"
+        },
+        "tags": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "JSON"
+        },
+        "title": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "TEXT"
+        },
+        "version": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(20)"
+        }
+      },
+      "indexes": [
+        "ix_listings_chain_version",
+        "ix_listings_etsy_listing_id",
+        "ix_listings_product_slug",
+        "ix_listings_release_hash",
+        "ix_listings_state"
+      ],
+      "unique_constraints": [
+        "product_slug|version"
+      ]
+    },
+    "motifs": {
+      "columns": {
+        "created_at": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "DATETIME"
+        },
+        "grid": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "JSON"
+        },
+        "height_rows": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "INTEGER"
+        },
+        "id": {
+          "default": null,
+          "nullable": false,
+          "primary_key": true,
+          "type": "INTEGER"
+        },
+        "name": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(120)"
+        },
+        "origin_product": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "VARCHAR(80)"
+        },
+        "slug": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(80)"
+        },
+        "validated": {
+          "default": "False",
+          "nullable": false,
+          "primary_key": false,
+          "type": "BOOLEAN"
+        },
+        "width_stitches": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "INTEGER"
+        }
+      },
+      "indexes": [
+        "ix_motifs_slug"
+      ],
+      "unique_constraints": []
+    },
+    "owner_actions": {
+      "columns": {
+        "action": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "TEXT"
+        },
+        "at": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "DATETIME"
+        },
+        "blocks": {
+          "default": "''",
+          "nullable": false,
+          "primary_key": false,
+          "type": "TEXT"
+        },
+        "consequence_of_delay": {
+          "default": "''",
+          "nullable": false,
+          "primary_key": false,
+          "type": "TEXT"
+        },
+        "done": {
+          "default": "False",
+          "nullable": false,
+          "primary_key": false,
+          "type": "BOOLEAN"
+        },
+        "id": {
+          "default": null,
+          "nullable": false,
+          "primary_key": true,
+          "type": "INTEGER"
+        },
+        "max_cost_cad": {
+          "default": "0.0",
+          "nullable": false,
+          "primary_key": false,
+          "type": "FLOAT"
+        },
+        "minutes": {
+          "default": "0",
+          "nullable": false,
+          "primary_key": false,
+          "type": "INTEGER"
+        },
+        "reason": {
+          "default": "''",
+          "nullable": false,
+          "primary_key": false,
+          "type": "TEXT"
+        },
+        "requirement_key": {
+          "default": "''",
+          "nullable": false,
+          "primary_key": false,
+          "type": "TEXT"
+        }
+      },
+      "indexes": [],
+      "unique_constraints": []
+    },
+    "pattern_versions": {
+      "columns": {
+        "certificate": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "JSON"
+        },
+        "certified": {
+          "default": "False",
+          "nullable": false,
+          "primary_key": false,
+          "type": "BOOLEAN"
+        },
+        "cir_json": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "JSON"
+        },
+        "created_at": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "DATETIME"
+        },
+        "id": {
+          "default": null,
+          "nullable": false,
+          "primary_key": true,
+          "type": "INTEGER"
+        },
+        "product_id": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "INTEGER"
+        },
+        "release_hash": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "VARCHAR(64)"
+        },
+        "version": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(20)"
+        }
+      },
+      "indexes": [
+        "ix_pattern_versions_product_id",
+        "ix_pattern_versions_release_hash"
+      ],
+      "unique_constraints": [
+        "product_id|version"
+      ]
+    },
+    "physical_tests": {
+      "columns": {
+        "completed_at": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "DATETIME"
+        },
+        "id": {
+          "default": null,
+          "nullable": false,
+          "primary_key": true,
+          "type": "INTEGER"
+        },
+        "measured": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "JSON"
+        },
+        "notes": {
+          "default": "''",
+          "nullable": false,
+          "primary_key": false,
+          "type": "TEXT"
+        },
+        "passed": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "BOOLEAN"
+        },
+        "product_slug": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(80)"
+        },
+        "requested_at": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "DATETIME"
+        },
+        "tester_ref": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(80)"
+        },
+        "version": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(20)"
+        }
+      },
+      "indexes": [
+        "ix_physical_tests_product_slug"
+      ],
+      "unique_constraints": []
+    },
+    "portfolio_reviews": {
+      "columns": {
+        "actions": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "JSON"
+        },
+        "as_of": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(10)"
+        },
+        "at": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "DATETIME"
+        },
+        "classifications": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "JSON"
+        },
+        "evidence_available": {
+          "default": "False",
+          "nullable": false,
+          "primary_key": false,
+          "type": "BOOLEAN"
+        },
+        "id": {
+          "default": null,
+          "nullable": false,
+          "primary_key": true,
+          "type": "INTEGER"
+        }
+      },
+      "indexes": [
+        "ix_portfolio_reviews_as_of",
+        "ix_portfolio_reviews_at"
+      ],
+      "unique_constraints": []
+    },
+    "products": {
+      "columns": {
+        "created_at": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "DATETIME"
+        },
+        "id": {
+          "default": null,
+          "nullable": false,
+          "primary_key": true,
+          "type": "INTEGER"
+        },
+        "risk_class": {
+          "default": "'A'",
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(1)"
+        },
+        "slug": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(80)"
+        },
+        "status": {
+          "default": "'concept'",
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(40)"
+        },
+        "title": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(200)"
+        }
+      },
+      "indexes": [
+        "ix_products_slug",
+        "ix_products_status"
+      ],
+      "unique_constraints": []
+    },
+    "spend_limits": {
+      "columns": {
+        "daily_cap_cad": {
+          "default": "0.0",
+          "nullable": false,
+          "primary_key": false,
+          "type": "FLOAT"
+        },
+        "day": {
+          "default": "''",
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(10)"
+        },
+        "id": {
+          "default": null,
+          "nullable": false,
+          "primary_key": true,
+          "type": "INTEGER"
+        },
+        "lifetime_cap_cad": {
+          "default": "0.0",
+          "nullable": false,
+          "primary_key": false,
+          "type": "FLOAT"
+        },
+        "paused": {
+          "default": "False",
+          "nullable": false,
+          "primary_key": false,
+          "type": "BOOLEAN"
+        },
+        "scope": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(64)"
+        },
+        "spent_lifetime_cad": {
+          "default": "0.0",
+          "nullable": false,
+          "primary_key": false,
+          "type": "FLOAT"
+        },
+        "spent_today_cad": {
+          "default": "0.0",
+          "nullable": false,
+          "primary_key": false,
+          "type": "FLOAT"
+        }
+      },
+      "indexes": [
+        "ix_spend_limits_scope"
+      ],
+      "unique_constraints": []
+    },
+    "support_cases": {
+      "columns": {
+        "answer": {
+          "default": "''",
+          "nullable": false,
+          "primary_key": false,
+          "type": "TEXT"
+        },
+        "at": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "DATETIME"
+        },
+        "customer_ref": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(80)"
+        },
+        "detail": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "JSON"
+        },
+        "escalated": {
+          "default": "False",
+          "nullable": false,
+          "primary_key": false,
+          "type": "BOOLEAN"
+        },
+        "id": {
+          "default": null,
+          "nullable": false,
+          "primary_key": true,
+          "type": "INTEGER"
+        },
+        "product_slug": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "VARCHAR(80)"
+        },
+        "question": {
+          "default": null,
+          "nullable": false,
+          "primary_key": false,
+          "type": "TEXT"
+        },
+        "resolved": {
+          "default": "False",
+          "nullable": false,
+          "primary_key": false,
+          "type": "BOOLEAN"
+        },
+        "sent": {
+          "default": "False",
+          "nullable": false,
+          "primary_key": false,
+          "type": "BOOLEAN"
+        },
+        "specialist": {
+          "default": "'concierge'",
+          "nullable": false,
+          "primary_key": false,
+          "type": "VARCHAR(40)"
+        },
+        "version": {
+          "default": null,
+          "nullable": true,
+          "primary_key": false,
+          "type": "VARCHAR(20)"
+        }
+      },
+      "indexes": [
+        "ix_support_cases_at",
+        "ix_support_cases_customer_ref",
+        "ix_support_cases_escalated",
+        "ix_support_cases_product_slug",
+        "ix_support_cases_specialist"
+      ],
+      "unique_constraints": []
+    }
+  }
+}

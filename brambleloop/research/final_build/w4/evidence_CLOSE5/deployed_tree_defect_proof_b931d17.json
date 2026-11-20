@@ -1,0 +1,23 @@
+{
+ "kind": "brambleloop.deployed_tree_tests",
+ "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57",
+ "src_tree_clean": true,
+ "run_at": "2026-10-20T05:56:31Z",
+ "how": "git worktree add --detach <deployed sha>; CLOSE5 test files copied into tests/ (src untouched); each file run via /home/user/bl-runs/testslot.sh with PYTHONPATH=src:tests",
+ "runs": [
+  {
+   "file": "tests/test_w4_close5_rows4.py",
+   "rc": 1,
+   "ok": 0,
+   "fail": 2,
+   "failing": [
+    "test_f487_departments_route_serves_a_backed_off_job_type_instead_of_a_500",
+    "test_f487_every_clause_is_on_each_department_row"
+   ],
+   "passed_tests": [],
+   "tail": [
+    "FAIL: 2 failing of 2"
+   ]
+  }
+ ]
+}

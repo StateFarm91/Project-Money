@@ -1,0 +1,1262 @@
+{
+ "source": "https://brambleloop-os-production.up.railway.app public GET /api/*",
+ "fetched_at": "2026-10-11T14:40Z",
+ "build": "0417f3516f30",
+ "cadences": [
+  {
+   "job_type": "learn.scan",
+   "agent": "learn",
+   "every_hours": 1.0
+  },
+  {
+   "job_type": "ops.heartbeat",
+   "agent": "orchestrator",
+   "every_hours": 0.25
+  },
+  {
+   "job_type": "ops.queue_check",
+   "agent": "orchestrator",
+   "every_hours": 1.0
+  },
+  {
+   "job_type": "radar.scan",
+   "agent": "market_radar",
+   "every_hours": 6.0
+  },
+  {
+   "job_type": "plan.cycle",
+   "agent": "orchestrator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "portfolio.review",
+   "agent": "orchestrator",
+   "every_hours": 168.0
+  },
+  {
+   "job_type": "finance.reconcile",
+   "agent": "cfo",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "plan.strategy",
+   "agent": "orchestrator",
+   "every_hours": 720.0
+  },
+  {
+   "job_type": "improve.nightly",
+   "agent": "orchestrator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "improve.weekly",
+   "agent": "orchestrator",
+   "every_hours": 168.0
+  },
+  {
+   "job_type": "improve.measure",
+   "agent": "orchestrator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "improve.mine",
+   "agent": "orchestrator",
+   "every_hours": 6.0
+  },
+  {
+   "job_type": "improve.monitor",
+   "agent": "orchestrator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "creative.style_learning",
+   "agent": "creative_director",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "creative.outcome_learning",
+   "agent": "creative_director",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "seasonal.harvest",
+   "agent": "orchestrator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "gate.lanes",
+   "agent": "quality_director",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "creative.white_space",
+   "agent": "creative_director",
+   "every_hours": 168.0
+  },
+  {
+   "job_type": "creative.candidates_file",
+   "agent": "creative_director",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "creative.four_season",
+   "agent": "creative_director",
+   "every_hours": 168.0
+  },
+  {
+   "job_type": "improve.sandbox",
+   "agent": "orchestrator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "improve.league",
+   "agent": "orchestrator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "finance.governor",
+   "agent": "cfo",
+   "every_hours": 1.0
+  },
+  {
+   "job_type": "support.triage",
+   "agent": "support",
+   "every_hours": 1.0
+  },
+  {
+   "job_type": "commerce.readings",
+   "agent": "cfo",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "commerce.orders_ingest",
+   "agent": "cfo",
+   "every_hours": 6.0
+  },
+  {
+   "job_type": "listing.taxonomy_refresh",
+   "agent": "listing",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "listing.search_visibility_watch",
+   "agent": "listing",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "commerce.order_readings",
+   "agent": "cfo",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "scale.trajectory",
+   "agent": "orchestrator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "creative.north_star",
+   "agent": "creative_director",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "ads.adjust",
+   "agent": "ads",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "growth.distribution",
+   "agent": "growth",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "growth.journey",
+   "agent": "growth",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "growth.steer",
+   "agent": "swarm_steward",
+   "every_hours": 1.0
+  },
+  {
+   "job_type": "growth.conclude",
+   "agent": "experiment_steward",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "ops.thrash",
+   "agent": "orchestrator",
+   "every_hours": 1.0
+  },
+  {
+   "job_type": "seasonal.engine",
+   "agent": "orchestrator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "swarm.review",
+   "agent": "swarm_steward",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "swarm.allocate",
+   "agent": "swarm_steward",
+   "every_hours": 1.0
+  },
+  {
+   "job_type": "swarm.orphans",
+   "agent": "swarm_steward",
+   "every_hours": 1.0
+  },
+  {
+   "job_type": "swarm.backlog",
+   "agent": "swarm_steward",
+   "every_hours": 1.0
+  },
+  {
+   "job_type": "growth.preproduction",
+   "agent": "growth",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "growth.experiments",
+   "agent": "experiment_steward",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "creative.blind_review",
+   "agent": "creative_director",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "creative.grid_tournament",
+   "agent": "creative_director",
+   "every_hours": 168.0
+  },
+  {
+   "job_type": "intel.acceptance",
+   "agent": "market_radar",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "ops.provenance_backfill",
+   "agent": "orchestrator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "finance.escalation_check",
+   "agent": "cfo",
+   "every_hours": 6.0
+  },
+  {
+   "job_type": "chain.rebuild",
+   "agent": "listing",
+   "every_hours": 1.0
+  },
+  {
+   "job_type": "launch.readiness",
+   "agent": "orchestrator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "ops.maturity_disagreements",
+   "agent": "orchestrator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "model.probe",
+   "agent": "orchestrator",
+   "every_hours": 6.0
+  },
+  {
+   "job_type": "ops.continuity",
+   "agent": "orchestrator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "ops.offsite_archive",
+   "agent": "orchestrator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "creative.image_benchmark",
+   "agent": "creative_director",
+   "every_hours": 1.0
+  },
+  {
+   "job_type": "creative.model_tournament",
+   "agent": "creative_director",
+   "every_hours": 1.0
+  },
+  {
+   "job_type": "creative.model_reference_pack",
+   "agent": "creative_director",
+   "every_hours": 1.0
+  },
+  {
+   "job_type": "assets.owned_photography",
+   "agent": "publishing",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "assets.model_photography",
+   "agent": "publishing",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "seasonal.sentinel",
+   "agent": "orchestrator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "etsy.probe",
+   "agent": "market_radar",
+   "every_hours": 6.0
+  },
+  {
+   "job_type": "mjs.scan",
+   "agent": "market_radar",
+   "every_hours": 2.0
+  },
+  {
+   "job_type": "intel.serp_capture",
+   "agent": "market_radar",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "intel.benchmark_health",
+   "agent": "market_radar",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "intel.pod_learning",
+   "agent": "market_radar",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "mjs.seasonal_sentinel",
+   "agent": "market_radar",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "intel.panel_discovery",
+   "agent": "market_radar",
+   "every_hours": 168.0
+  },
+  {
+   "job_type": "intel.benchmark_refresh",
+   "agent": "market_radar",
+   "every_hours": 168.0
+  },
+  {
+   "job_type": "physical.upgrade_impact",
+   "agent": "quality_director",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "visual.identity_drift",
+   "agent": "quality_director",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "creative.benchmark_memory",
+   "agent": "creative_director",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "creative.reference_reading",
+   "agent": "creative_director",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "mjs.reviews",
+   "agent": "market_radar",
+   "every_hours": 168.0
+  },
+  {
+   "job_type": "improve.retrospective",
+   "agent": "orchestrator",
+   "every_hours": 168.0
+  },
+  {
+   "job_type": "ops.policy_watch",
+   "agent": "orchestrator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "build.tick",
+   "agent": "orchestrator",
+   "every_hours": 1.0
+  },
+  {
+   "job_type": "creative.blinded",
+   "agent": "creative_director",
+   "every_hours": 336.0
+  },
+  {
+   "job_type": "creative.expedition",
+   "agent": "creative_director",
+   "every_hours": 168.0
+  },
+  {
+   "job_type": "creative.tournament",
+   "agent": "creative_director",
+   "every_hours": 168.0
+  },
+  {
+   "job_type": "seasonal.remerchandising",
+   "agent": "listing",
+   "every_hours": 168.0
+  },
+  {
+   "job_type": "seasonal.cycle_proof",
+   "agent": "publishing",
+   "every_hours": 168.0
+  },
+  {
+   "job_type": "ops.capacity",
+   "agent": "orchestrator",
+   "every_hours": 168.0
+  },
+  {
+   "job_type": "ops.sentinel",
+   "agent": "orchestrator",
+   "every_hours": 1.0
+  },
+  {
+   "job_type": "ops.health",
+   "agent": "orchestrator",
+   "every_hours": 0.25
+  },
+  {
+   "job_type": "ops.capability_probes",
+   "agent": "orchestrator",
+   "every_hours": 6.0
+  },
+  {
+   "job_type": "culture.sweep",
+   "agent": "market_radar",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "intel.gallery_analysis",
+   "agent": "market_radar",
+   "every_hours": 2.0
+  },
+  {
+   "job_type": "ops.retention",
+   "agent": "orchestrator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "ops.dependencies",
+   "agent": "orchestrator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "improve.replay",
+   "agent": "orchestrator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "teardown.enforce",
+   "agent": "orchestrator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "etsy.credential_health",
+   "agent": "orchestrator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "etsy.shop_snapshot",
+   "agent": "orchestrator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "store.live_drift",
+   "agent": "orchestrator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "etsy.openapi_reverify",
+   "agent": "orchestrator",
+   "every_hours": 168.0
+  },
+  {
+   "job_type": "etsy.listing_census",
+   "agent": "orchestrator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "autonomy.orchestrate",
+   "agent": "coo",
+   "every_hours": 0.25
+  },
+  {
+   "job_type": "laura.executive_tick",
+   "agent": "laura",
+   "every_hours": 0.08
+  },
+  {
+   "job_type": "listing.outcomes",
+   "agent": "cfo",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "visual.rnd.cycle",
+   "agent": "publishing",
+   "every_hours": 6.0
+  },
+  {
+   "job_type": "finance.accounting.period_pack",
+   "agent": "cfo",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "ops.slo",
+   "agent": "orchestrator",
+   "every_hours": 0.25
+  },
+  {
+   "job_type": "seo.cycle",
+   "agent": "listing",
+   "every_hours": 6.0
+  },
+  {
+   "job_type": "finance.accounting.cycle",
+   "agent": "cfo",
+   "every_hours": 6.0
+  },
+  {
+   "job_type": "marketing.ads_readiness",
+   "agent": "growth",
+   "every_hours": 1.0
+  },
+  {
+   "job_type": "improve.role_work",
+   "agent": "evaluator",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "improve.role_work",
+   "agent": "failure_miner",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "improve.role_work",
+   "agent": "experiment_designer",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "improve.role_work",
+   "agent": "prompt_tool_challenger",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "improve.role_work",
+   "agent": "cost_optimiser",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "improve.role_work",
+   "agent": "reliability_engineer",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "improve.role_work",
+   "agent": "creative_critic",
+   "every_hours": 24.0
+  },
+  {
+   "job_type": "improve.role_work",
+   "agent": "lesson_router",
+   "every_hours": 24.0
+  }
+ ],
+ "improve": {
+  "compounding": {
+   "lessons": 379,
+   "routed": 379,
+   "acted_on": 0,
+   "action_rate": 0.0,
+   "stale_unacted": [],
+   "by_subject": {
+    "defect": 369,
+    "pricing_response": 2,
+    "thumbnail": 2,
+    "creative_rejection": 2,
+    "palette": 1,
+    "seasonal_timing": 1,
+    "instruction_clarity": 1,
+    "delivery_experience": 1
+   },
+   "cells": 13,
+   "note": "Lessons exist but nothing has acted on one, so this is filing rather than compounding (#101)."
+  },
+  "improvements_by_state": {
+   "proposed": 15
+  },
+  "backlog": [
+   {
+    "id": 1,
+    "cell": "product_creativity",
+    "baseline": 3.0,
+    "hypothesis": "Raising customization on cloudline-baby-blanket from 3 to at least 4 would make the product feel better than expected after purchase (#169)"
+   },
+   {
+    "id": 2,
+    "cell": "product_creativity",
+    "baseline": 3.0,
+    "hypothesis": "Raising customization on nordic-forest-mosaic-throw from 3 to at least 4 would make the product feel better than expected after purchase (#169)"
+   },
+   {
+    "id": 3,
+    "cell": "product_creativity",
+    "baseline": 3.0,
+    "hypothesis": "Raising customization on autumn-oak-mosaic-throw from 3 to at least 4 would make the product feel better than expected after purchase (#169)"
+   },
+   {
+    "id": 4,
+    "cell": "product_creativity",
+    "baseline": 3.0,
+    "hypothesis": "Raising customization on winter-village-graphghan from 3 to at least 4 would make the product feel better than expected after purchase (#169)"
+   },
+   {
+    "id": 6,
+    "cell": "product_creativity",
+    "baseline": 3.0,
+    "hypothesis": "Raising customization on nordic-star-ornaments from 3 to at least 4 would make the product feel better than expected after purchase (#169)"
+   },
+   {
+    "id": 7,
+    "cell": "product_creativity",
+    "baseline": 3.0,
+    "hypothesis": "Raising customization on pressed-flower-motifs from 3 to at least 4 would make the product feel better than expected after purchase (#169)"
+   },
+   {
+    "id": 8,
+    "cell": "product_creativity",
+    "baseline": 3.0,
+    "hypothesis": "Raising customization on harvest-table-runner from 3 to at least 4 would make the product feel better than expected after purchase (#169)"
+   },
+   {
+    "id": 9,
+    "cell": "product_creativity",
+    "baseline": 3.0,
+    "hypothesis": "Raising customization on spooky-garland from 3 to at least 4 would make the product feel better than expected after purchase (#169)"
+   },
+   {
+    "id": 10,
+    "cell": "product_creativity",
+    "baseline": 3.0,
+    "hypothesis": "Raising customization on mosaic-placemat-pair from 3 to at least 4 would make the product feel better than expected after purchase (#169)"
+   },
+   {
+    "id": 11,
+    "cell": "product_creativity",
+    "baseline": 3.0,
+    "hypothesis": "Raising customization on pet-snuggle-mat from 3 to at least 4 would make the product feel better than expected after purchase (#169)"
+   },
+   {
+    "id": 12,
+    "cell": "product_creativity",
+    "baseline": 3.0,
+    "hypothesis": "Raising customization on valentine-heart-garland from 3 to at least 4 would make the product feel better than expected after purchase (#169)"
+   },
+   {
+    "id": 13,
+    "cell": "product_creativity",
+    "baseline": 3.0,
+    "hypothesis": "Raising customization on nordic-forest-bundle from 3 to at least 4 would make the product feel better than expected after purchase (#169)"
+   },
+   {
+    "id": 14,
+    "cell": "product_creativity",
+    "baseline": 3.0,
+    "hypothesis": "Raising customization on market-basket-trio from 3 to at least 4 would make the product feel better than expected after purchase (#169)"
+   },
+   {
+    "id": 15,
+    "cell": "product_creativity",
+    "baseline": 3.0,
+    "hypothesis": "Raising customization on hexie-coaster-set from 3 to at least 4 would make the product feel better than expected after purchase (#169)"
+   },
+   {
+    "id": 5,
+    "cell": "pattern_engineering",
+    "baseline": 2.0,
+    "hypothesis": "Raising instruction_clarity on heirloom-cable-blanket from 2 to at least 4 would make the product feel better than expected after purchase (#169)"
+   }
+  ],
+  "capability_movement": {
+   "pattern_engineering": {
+    "from": 1.0,
+    "to": 1.0,
+    "direction": "flat",
+    "metric": "certification_first_pass_rate"
+   },
+   "market_radar": {
+    "from": 0.11,
+    "to": 0.14,
+    "direction": "regressed",
+    "metric": "benchmark_evidence_freshness_hours"
+   },
+   "seo_search": {
+    "from": 21.0,
+    "to": 28.0,
+    "direction": "improved",
+    "metric": "distinct_query_clusters"
+   },
+   "runtime": {
+    "from": 0.7502,
+    "to": 0.7502,
+    "direction": "flat",
+    "metric": "dead_letters_per_day"
+   }
+  },
+  "bottleneck": "market_radar",
+  "cells_with_history": [
+   "product_creativity",
+   "pattern_engineering",
+   "quality",
+   "market_radar",
+   "creative_assets",
+   "seo_search",
+   "runtime",
+   "learn"
+  ]
+ },
+ "incidents": {
+  "open_total": 347,
+  "open_signatures": [
+   "anti-fragility:ai_provider",
+   "benchmark.url_health:mjs_off_the_hook_designs",
+   "dependency:model_provider",
+   "dependency:unmapped:flux-2-pro",
+   "first_hundred:defect_prevention",
+   "first_hundred:flawless_downloads",
+   "first_hundred:post_purchase_clarity",
+   "maturity.disagreement:build2#7",
+   "policy_stale:advertising_rules",
+   "policy_stale:children_and_baby",
+   "policy_stale:creativity_standards",
+   "policy_stale:listing_image_rules",
+   "policy_stale:seller_policy",
+   "policy_stale:shilling_and_reviews",
+   "postcondition:artefacts_rebuilt",
+   "seasonal.at_risk:market-basket-trio:Halloween",
+   "seasonal.at_risk:mosaic-placemat-pair:Halloween",
+   "seasonal.at_risk:nordic-forest-bundle:Halloween",
+   "seasonal.at_risk:nordic-forest-mosaic-throw:Christmas",
+   "seasonal.at_risk:pet-snuggle-mat:Halloween",
+   "seasonal.at_risk:pressed-flower-motifs:Halloween",
+   "seasonal.calendar_behind:Halloween",
+   "seasonal.calendar_behind:Thanksgiving (CA)",
+   "seasonal.preparation_late:LONG:search_language",
+   "seasonal.preparation_late:MEDIUM:search_language",
+   "slo.breach:department_useful_work:executive",
+   "slo.breach:department_useful_work:finance",
+   "slo.breach:department_useful_work:growth",
+   "slo.breach:department_useful_work:intelligence",
+   "slo.breach:department_useful_work:learn",
+   "slo.breach:department_useful_work:platform",
+   "slo.breach:department_useful_work:product_design",
+   "slo.breach:department_useful_work:product_truth",
+   "slo.breach:department_useful_work:support",
+   "stale-artefact:backlog",
+   "stale-artefact:certificate:autumn-oak-mosaic-throw@1.0.0",
+   "stale-artefact:certificate:cloudline-baby-blanket@1.0.0",
+   "stale-artefact:certificate:harvest-table-runner@1.0.0",
+   "stale-artefact:certificate:mosaic-placemat-pair@1.0.0",
+   "stale-artefact:certificate:nordic-forest-mosaic-throw@1.0.0",
+   "stale-artefact:certificate:nordic-star-ornaments@1.0.0",
+   "stale-artefact:certificate:pet-snuggle-mat@1.0.0",
+   "stale-artefact:certificate:pressed-flower-motifs@1.0.0",
+   "stale-artefact:certificate:spooky-garland@1.0.0",
+   "stale-artefact:certificate:valentine-heart-garland@1.0.0",
+   "stale-artefact:certificate:winter-village-graphghan@1.0.0",
+   "stale-artefact:chart:autumn-oak-mosaic-throw@1.0.0#chart",
+   "stale-artefact:chart:autumn-oak-mosaic-throw@1.0.0#legend",
+   "stale-artefact:chart:cloudline-baby-blanket@1.0.0#chart",
+   "stale-artefact:chart:cloudline-baby-blanket@1.0.0#legend",
+   "stale-artefact:chart:harvest-table-runner@1.0.0#chart",
+   "stale-artefact:chart:harvest-table-runner@1.0.0#legend",
+   "stale-artefact:chart:mosaic-placemat-pair@1.0.0#chart",
+   "stale-artefact:chart:mosaic-placemat-pair@1.0.0#legend",
+   "stale-artefact:chart:nordic-forest-mosaic-throw@1.0.0#chart",
+   "stale-artefact:chart:nordic-forest-mosaic-throw@1.0.0#legend",
+   "stale-artefact:chart:nordic-star-ornaments@1.0.0#chart",
+   "stale-artefact:chart:nordic-star-ornaments@1.0.0#legend",
+   "stale-artefact:chart:pet-snuggle-mat@1.0.0#chart",
+   "stale-artefact:chart:pet-snuggle-mat@1.0.0#legend",
+   "stale-artefact:chart:pressed-flower-motifs@1.0.0#chart",
+   "stale-artefact:chart:pressed-flower-motifs@1.0.0#legend",
+   "stale-artefact:chart:spooky-garland@1.0.0#chart",
+   "stale-artefact:chart:spooky-garland@1.0.0#legend",
+   "stale-artefact:chart:valentine-heart-garland@1.0.0#chart",
+   "stale-artefact:chart:valentine-heart-garland@1.0.0#legend",
+   "stale-artefact:chart:winter-village-graphghan@1.0.0#chart",
+   "stale-artefact:chart:winter-village-graphghan@1.0.0#legend",
+   "stale-artefact:listing_copy:autumn-oak-mosaic-throw@1.0.0",
+   "stale-artefact:listing_copy:cloudline-baby-blanket@1.0.0",
+   "stale-artefact:listing_copy:harvest-table-runner@1.0.0",
+   "stale-artefact:listing_copy:mosaic-placemat-pair@1.0.0",
+   "stale-artefact:listing_copy:nordic-forest-mosaic-throw@1.0.0",
+   "stale-artefact:listing_copy:nordic-star-ornaments@1.0.0",
+   "stale-artefact:listing_copy:pet-snuggle-mat@1.0.0",
+   "stale-artefact:listing_copy:pressed-flower-motifs@1.0.0",
+   "stale-artefact:listing_copy:pumpkin-cluster-set@1.0.0",
+   "stale-artefact:listing_copy:spooky-garland@1.0.0",
+   "stale-artefact:listing_copy:valentine-heart-garland@1.0.0",
+   "stale-artefact:listing_copy:winter-village-graphghan@1.0.0",
+   "stale-artefact:marketing_asset:autumn-oak-mosaic-throw:article:2114472a80b37127",
+   "stale-artefact:marketing_asset:autumn-oak-mosaic-throw:cal:d5c56e2e11bdaa1c",
+   "stale-artefact:marketing_asset:autumn-oak-mosaic-throw:email:63d5b29fbd6af799",
+   "stale-artefact:marketing_asset:autumn-oak-mosaic-throw:pinterest:46bec1d77aec5299",
+   "stale-artefact:marketing_asset:autumn-oak-mosaic-throw:pinterest:9b1481e3970b5978",
+   "stale-artefact:marketing_asset:autumn-oak-mosaic-throw:pinterest:9f33349957bf3907",
+   "stale-artefact:marketing_asset:autumn-oak-mosaic-throw:pinterest:e17c85cc990b6b6f",
+   "stale-artefact:marketing_asset:autumn-oak-mosaic-throw:teaser:7ddb2d9682522ca8",
+   "stale-artefact:marketing_asset:autumn-oak-mosaic-throw:video:4e94760a5f3ed342",
+   "stale-artefact:marketing_asset:cloudline-baby-blanket:article:391b9caa0dcac68c",
+   "stale-artefact:marketing_asset:cloudline-baby-blanket:cross_sell:4d42f4a5574d5fb1",
+   "stale-artefact:marketing_asset:cloudline-baby-blanket:email:7e0479f4cf0b5c50",
+   "stale-artefact:marketing_asset:cloudline-baby-blanket:pinterest:485027dd31d265d7",
+   "stale-artefact:marketing_asset:cloudline-baby-blanket:pinterest:52df6e42552515d8",
+   "stale-artefact:marketing_asset:cloudline-baby-blanket:pinterest:b6cba14fc2c8391c",
+   "stale-artefact:marketing_asset:cloudline-baby-blanket:pinterest:e17c85cc990b6b6f",
+   "stale-artefact:marketing_asset:cloudline-baby-blanket:teaser:69e18ea9ed2997a3",
+   "stale-artefact:marketing_asset:cloudline-baby-blanket:video:68a9679563752621",
+   "stale-artefact:marketing_asset:harvest-table-runner:article:e366ee0832be4b67",
+   "stale-artefact:marketing_asset:harvest-table-runner:email:80e0f6f48340595a",
+   "stale-artefact:marketing_asset:harvest-table-runner:pinterest:25ca18e6b0b0d8f3",
+   "stale-artefact:marketing_asset:harvest-table-runner:pinterest:46bc310b6683711e",
+   "stale-artefact:marketing_asset:harvest-table-runner:pinterest:e15772825dde61e5",
+   "stale-artefact:marketing_asset:harvest-table-runner:pinterest:e17c85cc990b6b6f",
+   "stale-artefact:marketing_asset:harvest-table-runner:teaser:3b897f50cd6021d1",
+   "stale-artefact:marketing_asset:harvest-table-runner:video:5253bb6aaf451964",
+   "stale-artefact:marketing_asset:hexie-coaster-set:article:235da5f66ae08509",
+   "stale-artefact:marketing_asset:hexie-coaster-set:email:9c765e013f0ba651",
+   "stale-artefact:marketing_asset:hexie-coaster-set:pinterest:635b66447b29c1e9",
+   "stale-artefact:marketing_asset:hexie-coaster-set:pinterest:9d11f3c45259e8df",
+   "stale-artefact:marketing_asset:hexie-coaster-set:pinterest:e17c85cc990b6b6f",
+   "stale-artefact:marketing_asset:hexie-coaster-set:pinterest:fffb0d6f19bb0540",
+   "stale-artefact:marketing_asset:hexie-coaster-set:teaser:d773dbe287cada4f",
+   "stale-artefact:marketing_asset:hexie-coaster-set:video:3f699f21010a2dcd",
+   "stale-artefact:marketing_asset:market-basket-trio:article:16a7c4520e180af0",
+   "stale-artefact:marketing_asset:market-basket-trio:article:e883b612fec3525e",
+   "stale-artefact:marketing_asset:market-basket-trio:email:3bea542593396559",
+   "stale-artefact:marketing_asset:market-basket-trio:email:6a9d6be29547d866",
+   "stale-artefact:marketing_asset:market-basket-trio:pinterest:1011d730ee77a344",
+   "stale-artefact:marketing_asset:market-basket-trio:pinterest:1a0ee8ae7c7d9004",
+   "stale-artefact:marketing_asset:market-basket-trio:pinterest:4d39f7d3a9058d3f",
+   "stale-artefact:marketing_asset:market-basket-trio:pinterest:7949875478dc4191",
+   "stale-artefact:marketing_asset:market-basket-trio:pinterest:e17c85cc990b6b6f",
+   "stale-artefact:marketing_asset:market-basket-trio:teaser:33da6dc2467047b6",
+   "stale-artefact:marketing_asset:market-basket-trio:teaser:6de98be48802a426",
+   "stale-artefact:marketing_asset:market-basket-trio:video:adeeba68560cc7ed",
+   "stale-artefact:marketing_asset:market-basket-trio:video:b8fdd92e3aa69b64",
+   "stale-artefact:marketing_asset:mosaic-placemat-pair:article:97b5b99f05d48e28",
+   "stale-artefact:marketing_asset:mosaic-placemat-pair:email:af290ccea6237f06",
+   "stale-artefact:marketing_asset:mosaic-placemat-pair:pinterest:2bf5b0ad995473f1",
+   "stale-artefact:marketing_asset:mosaic-placemat-pair:pinterest:7282484307b5ef7a",
+   "stale-artefact:marketing_asset:mosaic-placemat-pair:pinterest:d247cb4198c34986",
+   "stale-artefact:marketing_asset:mosaic-placemat-pair:pinterest:e17c85cc990b6b6f",
+   "stale-artefact:marketing_asset:mosaic-placemat-pair:teaser:bd93e40c9800e042",
+   "stale-artefact:marketing_asset:mosaic-placemat-pair:video:546d846a5b2f3069",
+   "stale-artefact:marketing_asset:nordic-forest-mosaic-throw:article:bd425c510ae1eba5",
+   "stale-artefact:marketing_asset:nordic-forest-mosaic-throw:cal:8fd7eac95838c1c3",
+   "stale-artefact:marketing_asset:nordic-forest-mosaic-throw:cross_sell:a405c63968d688a3",
+   "stale-artefact:marketing_asset:nordic-forest-mosaic-throw:email:9134661a19c49715",
+   "stale-artefact:marketing_asset:nordic-forest-mosaic-throw:pinterest:13ddb1195252a533",
+   "stale-artefact:marketing_asset:nordic-forest-mosaic-throw:pinterest:46bec1d77aec5299",
+   "stale-artefact:marketing_asset:nordic-forest-mosaic-throw:pinterest:e17c85cc990b6b6f",
+   "stale-artefact:marketing_asset:nordic-forest-mosaic-throw:pinterest:fc5b4e1064b086a9",
+   "stale-artefact:marketing_asset:nordic-forest-mosaic-throw:teaser:e7844214640a9acc",
+   "stale-artefact:marketing_asset:nordic-forest-mosaic-throw:video:89c69a1c4cec5b25",
+   "stale-artefact:marketing_asset:nordic-star-ornaments:article:b5d85152561faf3c",
+   "stale-artefact:marketing_asset:nordic-star-ornaments:cross_sell:93ceecbae7b2c0cd",
+   "stale-artefact:marketing_asset:nordic-star-ornaments:email:9c50b7165c3386d6",
+   "stale-artefact:marketing_asset:nordic-star-ornaments:pinterest:5784ccbd74c3d472",
+   "stale-artefact:marketing_asset:nordic-star-ornaments:pinterest:86afcab4f173fc4e",
+   "stale-artefact:marketing_asset:nordic-star-ornaments:pinterest:95a9ba14636c8b46",
+   "stale-artefact:marketing_asset:nordic-star-ornaments:pinterest:e17c85cc990b6b6f",
+   "stale-artefact:marketing_asset:nordic-star-ornaments:teaser:23b6241b9c48c701",
+   "stale-artefact:marketing_asset:nordic-star-ornaments:video:8075cc27dbf2e765",
+   "stale-artefact:marketing_asset:pet-snuggle-mat:article:3a64e4cb9438f87c",
+   "stale-artefact:marketing_asset:pet-snuggle-mat:email:95313caefe9bf513",
+   "stale-artefact:marketing_asset:pet-snuggle-mat:pinterest:060efedbd94a514d",
+   "stale-artefact:marketing_asset:pet-snuggle-mat:pinterest:1011d730ee77a344",
+   "stale-artefact:marketing_asset:pet-snuggle-mat:pinterest:1dc3e9a53a83ed53",
+   "stale-artefact:marketing_asset:pet-snuggle-mat:pinterest:e17c85cc990b6b6f",
+   "stale-artefact:marketing_asset:pet-snuggle-mat:teaser:2fdf4589e8f6f2e6",
+   "stale-artefact:marketing_asset:pet-snuggle-mat:video:75df30d8ce3b7645",
+   "stale-artefact:marketing_asset:pressed-flower-motifs:article:52260f25b1419d2c",
+   "stale-artefact:marketing_asset:pressed-flower-motifs:email:7e61b0cf5be54d26",
+   "stale-artefact:marketing_asset:pressed-flower-motifs:pinterest:555ae2d5d9b42924",
+   "stale-artefact:marketing_asset:pressed-flower-motifs:pinterest:e17c85cc990b6b6f",
+   "stale-artefact:marketing_asset:pressed-flower-motifs:pinterest:fcc1211661e12b7d",
+   "stale-artefact:marketing_asset:pressed-flower-motifs:pinterest:fffb0d6f19bb0540",
+   "stale-artefact:marketing_asset:pressed-flower-motifs:teaser:87fd44d408635009",
+   "stale-artefact:marketing_asset:pressed-flower-motifs:video:4a133e2a39c3ae1d",
+   "stale-artefact:marketing_asset:pumpkin-cluster-set:article:9739ab955b6953a7",
+   "stale-artefact:marketing_asset:pumpkin-cluster-set:email:59318d436854a8fb",
+   "stale-artefact:marketing_asset:pumpkin-cluster-set:pinterest:1011d730ee77a344",
+   "stale-artefact:marketing_asset:pumpkin-cluster-set:pinterest:3913a17fa515f66a",
+   "stale-artefact:marketing_asset:pumpkin-cluster-set:pinterest:aab4e245e2e4aa84",
+   "stale-artefact:marketing_asset:pumpkin-cluster-set:pinterest:e17c85cc990b6b6f",
+   "stale-artefact:marketing_asset:pumpkin-cluster-set:teaser:76d15d5fa3095ba6",
+   "stale-artefact:marketing_asset:pumpkin-cluster-set:video:e70a30f4340cb055",
+   "stale-artefact:marketing_asset:spooky-garland:article:fac5a8823a2f07db",
+   "stale-artefact:marketing_asset:spooky-garland:email:93e55704a84622ea",
+   "stale-artefact:marketing_asset:spooky-garland:pinterest:74b7a5d3baaa18b4",
+   "stale-artefact:marketing_asset:spooky-garland:pinterest:aab4e245e2e4aa84",
+   "stale-artefact:marketing_asset:spooky-garland:pinterest:dd277483cc62ea7b",
+   "stale-artefact:marketing_asset:spooky-garland:pinterest:e17c85cc990b6b6f",
+   "stale-artefact:marketing_asset:spooky-garland:teaser:1f9ba1adb56b2209",
+   "stale-artefact:marketing_asset:spooky-garland:video:77df4a69ace3581d",
+   "stale-artefact:marketing_asset:valentine-heart-garland:article:e2cb4e2d612817bb",
+   "stale-artefact:marketing_asset:valentine-heart-garland:email:a9109bbe5a2881f0",
+   "stale-artefact:marketing_asset:valentine-heart-garland:pinterest:529e2158b238adef",
+   "stale-artefact:marketing_asset:valentine-heart-garland:pinterest:86afcab4f173fc4e",
+   "stale-artefact:marketing_asset:valentine-heart-garland:pinterest:aab4e245e2e4aa84",
+   "stale-artefact:marketing_asset:valentine-heart-garland:pinterest:e17c85cc990b6b6f",
+   "stale-artefact:marketing_asset:valentine-heart-garland:teaser:48d3921e8dacf979",
+   "stale-artefact:marketing_asset:valentine-heart-garland:video:adbd83a9f56aa7f2",
+   "stale-artefact:marketing_asset:winter-village-graphghan:article:cddf053606573a15",
+   "stale-artefact:marketing_asset:winter-village-graphghan:cal:cf6d2c36a8a55ddf",
+   "stale-artefact:marketing_asset:winter-village-graphghan:email:fbbcf310fa257c5b",
+   "stale-artefact:marketing_asset:winter-village-graphghan:pinterest:0fab9b9805c3237d",
+   "stale-artefact:marketing_asset:winter-village-graphghan:pinterest:ccc9e9041addffa7",
+   "stale-artefact:marketing_asset:winter-village-graphghan:pinterest:e17c85cc990b6b6f",
+   "stale-artefact:marketing_asset:winter-village-graphghan:pinterest:eb31a5535042bac7",
+   "stale-artefact:marketing_asset:winter-village-graphghan:teaser:a4889208b40f81ba",
+   "stale-artefact:marketing_asset:winter-village-graphghan:video:7e1a7db0e3a0da9b",
+   "stale-artefact:pdf:autumn-oak-mosaic-throw@1.0.0#pdf-uk",
+   "stale-artefact:pdf:autumn-oak-mosaic-throw@1.0.0#pdf-us",
+   "stale-artefact:pdf:cloudline-baby-blanket@1.0.0#pdf-uk",
+   "stale-artefact:pdf:cloudline-baby-blanket@1.0.0#pdf-us",
+   "stale-artefact:pdf:harvest-table-runner@1.0.0#pdf-uk",
+   "stale-artefact:pdf:harvest-table-runner@1.0.0#pdf-us",
+   "stale-artefact:pdf:mosaic-placemat-pair@1.0.0#pdf-uk",
+   "stale-artefact:pdf:mosaic-placemat-pair@1.0.0#pdf-us",
+   "stale-artefact:pdf:nordic-forest-mosaic-throw@1.0.0#pdf-uk",
+   "stale-artefact:pdf:nordic-forest-mosaic-throw@1.0.0#pdf-us",
+   "stale-artefact:pdf:nordic-star-ornaments@1.0.0#pdf-uk",
+   "stale-artefact:pdf:nordic-star-ornaments@1.0.0#pdf-us",
+   "stale-artefact:pdf:pet-snuggle-mat@1.0.0#pdf-uk",
+   "stale-artefact:pdf:pet-snuggle-mat@1.0.0#pdf-us",
+   "stale-artefact:pdf:pressed-flower-motifs@1.0.0#pdf-uk",
+   "stale-artefact:pdf:pressed-flower-motifs@1.0.0#pdf-us",
+   "stale-artefact:pdf:spooky-garland@1.0.0#pdf-uk",
+   "stale-artefact:pdf:spooky-garland@1.0.0#pdf-us",
+   "stale-artefact:pdf:valentine-heart-garland@1.0.0#pdf-uk",
+   "stale-artefact:pdf:valentine-heart-garland@1.0.0#pdf-us",
+   "stale-artefact:pdf:winter-village-graphghan@1.0.0#pdf-uk",
+   "stale-artefact:pdf:winter-village-graphghan@1.0.0#pdf-us",
+   "stale-artefact:pricing:autumn-oak-mosaic-throw@1.0.0",
+   "stale-artefact:pricing:cloudline-baby-blanket@1.0.0",
+   "stale-artefact:pricing:harvest-table-runner@1.0.0",
+   "stale-artefact:pricing:mosaic-placemat-pair@1.0.0",
+   "stale-artefact:pricing:nordic-forest-mosaic-throw@1.0.0",
+   "stale-artefact:pricing:nordic-star-ornaments@1.0.0",
+   "stale-artefact:pricing:pet-snuggle-mat@1.0.0",
+   "stale-artefact:pricing:pressed-flower-motifs@1.0.0",
+   "stale-artefact:pricing:pumpkin-cluster-set@1.0.0",
+   "stale-artefact:pricing:spooky-garland@1.0.0",
+   "stale-artefact:pricing:valentine-heart-garland@1.0.0",
+   "stale-artefact:pricing:winter-village-graphghan@1.0.0",
+   "stale-artefact:release_bundle:cloudline-baby-blanket@1.0.0#bundle",
+   "stale-artefact:release_bundle:mosaic-placemat-pair@1.0.0#bundle",
+   "stale-artefact:release_bundle:nordic-forest-mosaic-throw@1.0.0#bundle",
+   "stale-artefact:release_bundle:nordic-star-ornaments@1.0.0#bundle",
+   "stale-artefact:release_bundle:pet-snuggle-mat@1.0.0#bundle",
+   "stale-artefact:release_bundle:pressed-flower-motifs@1.0.0#bundle",
+   "stale-artefact:release_bundle:valentine-heart-garland@1.0.0#bundle",
+   "stale-artefact:seo:autumn-oak-mosaic-throw@1.0.0",
+   "stale-artefact:seo:cloudline-baby-blanket@1.0.0",
+   "stale-artefact:seo:harvest-table-runner@1.0.0",
+   "stale-artefact:seo:mosaic-placemat-pair@1.0.0",
+   "stale-artefact:seo:nordic-forest-mosaic-throw@1.0.0",
+   "stale-artefact:seo:nordic-star-ornaments@1.0.0",
+   "stale-artefact:seo:pet-snuggle-mat@1.0.0",
+   "stale-artefact:seo:pressed-flower-motifs@1.0.0",
+   "stale-artefact:seo:pumpkin-cluster-set@1.0.0",
+   "stale-artefact:seo:spooky-garland@1.0.0",
+   "stale-artefact:seo:valentine-heart-garland@1.0.0",
+   "stale-artefact:seo:winter-village-graphghan@1.0.0",
+   "stale-artefact:support_knowledge:autumn-oak-mosaic-throw@1.0.0#support",
+   "stale-artefact:support_knowledge:cloudline-baby-blanket@1.0.0#support",
+   "stale-artefact:support_knowledge:harvest-table-runner@1.0.0#support",
+   "stale-artefact:support_knowledge:mosaic-placemat-pair@1.0.0#support",
+   "stale-artefact:support_knowledge:nordic-forest-mosaic-throw@1.0.0#support",
+   "stale-artefact:support_knowledge:nordic-star-ornaments@1.0.0#support",
+   "stale-artefact:support_knowledge:pet-snuggle-mat@1.0.0#support",
+   "stale-artefact:support_knowledge:pressed-flower-motifs@1.0.0#support",
+   "stale-artefact:support_knowledge:valentine-heart-garland@1.0.0#support",
+   "stale-artefact:visual_truth:autumn-oak-mosaic-throw@1.0.0#52",
+   "stale-artefact:visual_truth:autumn-oak-mosaic-throw@1.0.0#53",
+   "stale-artefact:visual_truth:autumn-oak-mosaic-throw@1.0.0#54",
+   "stale-artefact:visual_truth:autumn-oak-mosaic-throw@1.0.0#55",
+   "stale-artefact:visual_truth:autumn-oak-mosaic-throw@1.0.0#56",
+   "stale-artefact:visual_truth:autumn-oak-mosaic-throw@1.0.0#57",
+   "stale-artefact:visual_truth:cloudline-baby-blanket@1.0.0#27",
+   "stale-artefact:visual_truth:cloudline-baby-blanket@1.0.0#28",
+   "stale-artefact:visual_truth:cloudline-baby-blanket@1.0.0#29",
+   "stale-artefact:visual_truth:cloudline-baby-blanket@1.0.0#30",
+   "stale-artefact:visual_truth:cloudline-baby-blanket@1.0.0#31",
+   "stale-artefact:visual_truth:cloudline-baby-blanket@1.0.0#32",
+   "stale-artefact:visual_truth:cloudline-baby-blanket@1.0.0#33",
+   "stale-artefact:visual_truth:harvest-table-runner@1.0.0#34",
+   "stale-artefact:visual_truth:harvest-table-runner@1.0.0#35",
+   "stale-artefact:visual_truth:harvest-table-runner@1.0.0#36",
+   "stale-artefact:visual_truth:harvest-table-runner@1.0.0#37",
+   "stale-artefact:visual_truth:harvest-table-runner@1.0.0#38",
+   "stale-artefact:visual_truth:harvest-table-runner@1.0.0#39",
+   "stale-artefact:visual_truth:mosaic-placemat-pair@1.0.0#83",
+   "stale-artefact:visual_truth:mosaic-placemat-pair@1.0.0#84",
+   "stale-artefact:visual_truth:mosaic-placemat-pair@1.0.0#85",
+   "stale-artefact:visual_truth:mosaic-placemat-pair@1.0.0#86",
+   "stale-artefact:visual_truth:mosaic-placemat-pair@1.0.0#87",
+   "stale-artefact:visual_truth:mosaic-placemat-pair@1.0.0#88",
+   "stale-artefact:visual_truth:nordic-forest-mosaic-throw@1.0.0#10",
+   "stale-artefact:visual_truth:nordic-forest-mosaic-throw@1.0.0#11",
+   "stale-artefact:visual_truth:nordic-forest-mosaic-throw@1.0.0#12",
+   "stale-artefact:visual_truth:nordic-forest-mosaic-throw@1.0.0#13",
+   "stale-artefact:visual_truth:nordic-forest-mosaic-throw@1.0.0#14",
+   "stale-artefact:visual_truth:nordic-forest-mosaic-throw@1.0.0#8",
+   "stale-artefact:visual_truth:nordic-forest-mosaic-throw@1.0.0#9",
+   "stale-artefact:visual_truth:nordic-star-ornaments@1.0.0#64",
+   "stale-artefact:visual_truth:nordic-star-ornaments@1.0.0#65",
+   "stale-artefact:visual_truth:nordic-star-ornaments@1.0.0#66",
+   "stale-artefact:visual_truth:nordic-star-ornaments@1.0.0#67",
+   "stale-artefact:visual_truth:nordic-star-ornaments@1.0.0#68",
+   "stale-artefact:visual_truth:nordic-star-ornaments@1.0.0#69",
+   "stale-artefact:visual_truth:nordic-star-ornaments@1.0.0#70",
+   "stale-artefact:visual_truth:pet-snuggle-mat@1.0.0#77",
+   "stale-artefact:visual_truth:pet-snuggle-mat@1.0.0#78",
+   "stale-artefact:visual_truth:pet-snuggle-mat@1.0.0#79",
+   "stale-artefact:visual_truth:pet-snuggle-mat@1.0.0#80",
+   "stale-artefact:visual_truth:pet-snuggle-mat@1.0.0#81",
+   "stale-artefact:visual_truth:pet-snuggle-mat@1.0.0#82",
+   "stale-artefact:visual_truth:pressed-flower-motifs@1.0.0#58",
+   "stale-artefact:visual_truth:pressed-flower-motifs@1.0.0#59",
+   "stale-artefact:visual_truth:pressed-flower-motifs@1.0.0#60",
+   "stale-artefact:visual_truth:pressed-flower-motifs@1.0.0#61",
+   "stale-artefact:visual_truth:pressed-flower-motifs@1.0.0#62",
+   "stale-artefact:visual_truth:pressed-flower-motifs@1.0.0#63",
+   "stale-artefact:visual_truth:spooky-garland@1.0.0#40",
+   "stale-artefact:visual_truth:spooky-garland@1.0.0#41",
+   "stale-artefact:visual_truth:spooky-garland@1.0.0#42",
+   "stale-artefact:visual_truth:spooky-garland@1.0.0#43",
+   "stale-artefact:visual_truth:spooky-garland@1.0.0#44",
+   "stale-artefact:visual_truth:spooky-garland@1.0.0#45",
+   "stale-artefact:visual_truth:valentine-heart-garland@1.0.0#71",
+   "stale-artefact:visual_truth:valentine-heart-garland@1.0.0#72",
+   "stale-artefact:visual_truth:valentine-heart-garland@1.0.0#73",
+   "stale-artefact:visual_truth:valentine-heart-garland@1.0.0#74",
+   "stale-artefact:visual_truth:valentine-heart-garland@1.0.0#75",
+   "stale-artefact:visual_truth:valentine-heart-garland@1.0.0#76",
+   "stale-artefact:visual_truth:winter-village-graphghan@1.0.0#15",
+   "stale-artefact:visual_truth:winter-village-graphghan@1.0.0#16",
+   "stale-artefact:visual_truth:winter-village-graphghan@1.0.0#17",
+   "stale-artefact:visual_truth:winter-village-graphghan@1.0.0#18",
+   "stale-artefact:visual_truth:winter-village-graphghan@1.0.0#19",
+   "stale-artefact:visual_truth:winter-village-graphghan@1.0.0#20",
+   "systemic-halt:publication",
+   "thrash:backoff:assets.model_photography",
+   "thrash:backoff:assets.owned_photography",
+   "thrash:backoff:chain.rebuild",
+   "thrash:backoff:creative.image_benchmark",
+   "thrash:backoff:creative.model_reference_pack",
+   "thrash:backoff:creative.model_tournament",
+   "thrash:backoff:etsy.probe",
+   "thrash:backoff:intel.gallery_analysis",
+   "thrash:backoff:ops.capability_probes",
+   "thrash:backoff:plan.cycle",
+   "thrash:backoff:radar.scan",
+   "thrash:mjs.scan:d2a0ec9c2c74a34d1ddb71c6a5d1ba48"
+  ]
+ },
+ "dead_letters": {
+  "total": 211,
+  "groups": [
+   {
+    "job_type": "store.publish",
+    "count": 185
+   },
+   {
+    "job_type": "mjs.scan",
+    "count": 17
+   },
+   {
+    "job_type": "ops.sentinel",
+    "count": 7
+   },
+   {
+    "job_type": "creative.model_reference_pack",
+    "count": 1
+   },
+   {
+    "job_type": "listing.taxonomy_refresh",
+    "count": 1
+   }
+  ]
+ },
+ "last_outputs": {
+  "learn_gap_scan": {
+   "published": 0,
+   "metrics": {
+    "gaps_total": 20,
+    "gaps_queued": 20,
+    "gaps_covered": 0,
+    "coverage": 0.0,
+    "oldest_queued_age_hours": 575.8,
+    "queued_undated": 0,
+    "lessons_by_state": {},
+    "lessons_approved": 0,
+    "graph": {
+     "nodes": 39,
+     "edges": 175
+    },
+    "decision": "QUEUE"
+   },
+   "lesson_moves": []
+  },
+  "capability_measure": {
+   "ran": true,
+   "measured": 4,
+   "of": 13,
+   "read": 13654,
+   "skipped": {
+    "pricing": "data-gated: needs LedgerEntry revenue rows (a sale)",
+    "growth": "data-gated: needs GrowthLoop traffic evidence (visits or orders)",
+    "customer_experience": "data-gated: needs LedgerEntry revenue rows (an order)",
+    "portfolio": "data-gated: needs LedgerEntry revenue rows",
+    "finance": "data-gated: needs LedgerEntry revenue rows"
+   }
+  },
+  "failure_mine": {
+   "ran": true,
+   "read": 367,
+   "groups": 364,
+   "published": 316,
+   "reused": 48
+  },
+  "promotion_monitor": {
+   "ran": true,
+   "waiting": 0
+  },
+  "improve_sandbox": {
+   "ran": true,
+   "note": "0 sandboxed, 0 tested, 0 approved by evaluator, 0 promoted, 0 routed to the owner, 9 waiting for a trial that can evaluate them",
+   "waiting": 9
+  },
+  "improve_league": {
+   "ran": true,
+   "compared": [],
+   "waiting": 10,
+   "note": "0 comparison(s) on recorded runs, 10 challenger(s) waiting for a run, 0 promoted, 0 routed to the owner, 0 rolled back"
+  },
+  "improve_replay": {
+   "ran": true,
+   "jobs": 11958,
+   "days": 25,
+   "compared": [
+    {
+     "config_id": 32,
+     "promote": false,
+     "quality_gain": 0.0,
+     "holdout": "held",
+     "blockers": [
+      "quality gain +0.000 is within the 0.030 margin for 20 tasks; promoting on noise is how a league churns"
+     ]
+    },
+    {
+     "config_id": 33,
+     "promote": false,
+     "quality_gain": 0.0,
+     "holdout": "held",
+     "blockers": [
+      "quality gain +0.000 is within the 0.030 margin for 20 tasks; promoting on noise is how a league churns"
+     ]
+    },
+    {
+     "config_id": 34,
+     "promote": false,
+     "quality_gain": 0.0,
+     "holdout": "held",
+     "blockers": [
+      "quality gain +0.000 is within the 0.030 margin for 20 tasks; promoting on noise is how a league churns"
+     ]
+    },
+    {
+     "config_id": 35,
+     "promote": false,
+     "quality_gain": 0.0,
+     "holdout": "held",
+     "blockers": [
+      "quality gain +0.000 is within the 0.030 margin for 20 tasks; promoting on noise is how a league churns"
+     ]
+    },
+    {
+     "config_id": 36,
+     "promote": false,
+     "quality_gain": 0.0,
+     "holdout": "held",
+     "blockers": [
+      "quality gain +0.000 is within the 0.030 margin for 20 tasks; promoting on noise is how a league churns"
+     ]
+    },
+    {
+     "config_id": 37,
+     "promote": false,
+     "quality_gain": 0.0,
+     "holdout": "held",
+     "blockers": [
+      "quality gain +0.000 is within the 0.030 margin for 20 tasks; promoting on noise is how a league churns"
+     ]
+    }
+   ],
+   "retired": [
+    {
+     "config_id": 32,
+     "why": [
+      "quality gain +0.000 is within the 0.030 margin for 20 tasks; promoting on noise is how a league churns"
+     ]
+    },
+    {
+     "config_id": 33,
+     "why": [
+      "quality gain +0.000 is within the 0.030 margin for 20 tasks; promoting on noise is how a league churns"
+     ]
+    },
+    {
+     "config_id": 34,
+     "why": [
+      "quality gain +0.000 is within the 0.030 margin for 20 tasks; promoting on noise is how a league churns"
+     ]
+    },
+    {
+     "config_id": 35,
+     "why": [
+      "quality gain +0.000 is within the 0.030 margin for 20 tasks; promoting on noise is how a league churns"
+     ]
+    },
+    {
+     "config_id": 36,
+     "why": [
+      "quality gain +0.000 is within the 0.030 margin for 20 tasks; promoting on noise is how a league churns"
+     ]
+    },
+    {
+     "config_id": 37,
+     "why": [
+      "quality gain +0.000 is within the 0.030 margin for 20 tasks; promoting on noise is how a league churns"
+     ]
+    }
+   ]
+  }
+ }
+}

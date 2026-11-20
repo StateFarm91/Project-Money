@@ -1,0 +1,74 @@
+== test_cert_improve_wave
+rc=0
+0 failure(s)
+== test_improve
+rc=0
+== test_league
+rc=0
+== test_league_holdout
+rc=0
+== test_cert_publish_gates
+rc=0
+0 failed
+== test_cert_improve_autonomy
+rc=0
+OK   test_an_empty_regression_suite_is_a_failed_run_not_a_pass (0.0s)
+0 failure(s)
+== test_teardown
+rc=0
+== test_cert_unique_value
+rc=0
+PASS: 0 failing
+== test_cert_rebuild_chain
+rc=0
+PASS: 0 failing
+== test_closure
+rc=0
+  26 passing, 0 failing
+== test_reachability
+rc=0
+PASS: 0 failing
+== test_platform
+rc=0
+OK   test_permanent_failure_skips_retries
+== test_cert_orchestration
+rc=0
+0 failure(s)
+== test_cert_wiring
+rc=0
+OK   test_store_publish_walks_the_escalation_ladder_on_a_failed_parity_dimension
+OK   test_no_row_whose_wiring_failed_here_is_still_claimed_covered
+16/16 passed in 251s
+== test_capability_gates
+rc=0
+OK   test_a_model_answering_the_wrong_question_is_counted_as_a_failure
+OK   test_a_vision_probe_with_no_image_refuses_rather_than_passing
+== test_executor
+rc=0
+== test_cert_ideation
+rc=0
+OK   test_the_floor_rises_with_the_trailing_cohort_and_cuts_what_would_once_have_passed
+0 failed
+== test_cert_design_pipeline
+rc=0
+17 passing, 0 failing
+== test_cert_orders
+rc=0
+PASS: 0 failing
+== test_cert_growth_ops
+rc=0
+PASS: 0 failing
+== test_cert_intel_wave2
+rc=0
+15 passing, 0 failing
+== test_cert_takeover
+rc=0
+PASS: 0 failing
+== test_cert_listing_frames
+rc=0
+PASS: 0 failing
+== test_migrate
+missing
+== test_persistence
+rc=0
+DONE

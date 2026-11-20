@@ -1,0 +1,294 @@
+"""The cross-department lesson bus.
+
+Requirements 97 and 101. A lesson discovered in one department has to reach the others it
+affects, and the spec's own example is the shape of it: customers prefer low-sew construction,
+so Market Radar scores low-sew opportunities higher, Creativity explores low-sew concepts, and
+Pattern Engineering prefers low-sew constructions.
+
+Two failures this is built against.
+
+**A lesson nobody routed is a lesson nobody has.** Writing it down in the department that found
+it feels like learning and changes nothing anywhere else. So a lesson declares its subject, and
+the subject decides who hears it — routing is derived, not remembered.
+
+**A company that starts from generic intelligence every time is not compounding (#101).** The
+test of accumulated knowledge is not that lessons exist; it is that a later decision can be
+shown to have used one. So `acted_on` is recorded against the lesson, and a lesson nobody has
+acted on after being routed is visible as exactly that.
+"""
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+
+from .cells import BY_KEY, CELLS
+
+# Which cells care about which subject. Derived routing rather than a distribution list,
+# because a list is maintained by whoever remembers to.
+SUBJECT_ROUTING: dict[str, tuple[str, ...]] = {
+    "construction_preference": ("product_creativity", "pattern_engineering", "market_radar"),
+    "sizing": ("pattern_engineering", "quality", "customer_experience", "learn"),
+    "instruction_clarity": ("pattern_engineering", "quality", "customer_experience",
+                            "learn"),
+    "chart_quality": ("creative_assets", "quality", "customer_experience"),
+    "thumbnail": ("creative_assets", "seo_search", "product_creativity"),
+    "palette": ("product_creativity", "creative_assets"),
+    "seasonal_timing": ("market_radar", "growth", "portfolio", "product_creativity"),
+    "pricing_response": ("pricing", "portfolio", "finance"),
+    "search_language": ("seo_search", "product_creativity", "growth"),
+    "delivery_experience": ("customer_experience", "creative_assets", "quality"),
+    # W4-FMBATCH1 (F-431): a researched platform/regulatory rule reaches the cells that act on
+    # it -- listing copy and search, the catalogue, and customer experience.
+    "platform_policy": ("seo_search", "portfolio", "customer_experience", "quality"),
+    # W4-LEARN: a defect, an unclear instruction or a sizing failure is also something a
+    # learner needs help with, and Learn is the one routed department that acts on it before
+    # any sale: `learn.metrics.calendar` moves the matching gap up the editor's plan and
+    # records the lesson as acted on (`learn.runtime.handle_scan`).
+    "defect": ("quality", "pattern_engineering", "runtime", "learn"),
+    "cost": ("finance", "runtime", "growth"),
+    # #147: culture findings are useless inside the culture engine. A cultural territory that
+    # translated well is a creativity lesson, a search-language lesson and a seasonal lesson
+    # at the same time, and the one department that must not be left out is Market Radar --
+    # it is the one holding the competitive picture the territory has to survive.
+    "cultural_territory": ("product_creativity", "market_radar", "seo_search", "portfolio"),
+    "cultural_timing": ("market_radar", "growth", "portfolio", "product_creativity"),
+    # #85: jury feedback as training memory. Why concepts died is a creativity lesson first,
+    # and the same deaths tell Market Radar which arenas are crowded, Creative Assets which
+    # ideas do not survive the grid, and Search which premises read as generic.
+    "creative_rejection": ("product_creativity", "market_radar", "creative_assets",
+                           "seo_search"),
+    # OPUS2-P0 (owner P0 §16): measured own-listing performance by category reaches the cells
+    # that choose and design the next product, and Growth, which presents it.
+    "commercial_demand": ("market_radar", "product_creativity", "growth"),
+    "commercial_underperformance": ("market_radar", "product_creativity", "growth"),
+    # ENG-LEARN: a measured image lesson (a scene, camera or lighting choice that changes how
+    # often frames of one family and role pass a gate) reaches the producers and QA.
+    "image_production": ("creative_assets", "quality", "product_creativity"),
+    # ENG-LEARN: a measured engineering region (a construction family's parameter range that
+    # certifies first time significantly less often) reaches the cells that choose and design
+    # the next product. Its mirror, a proven region, is `construction_preference`.
+    "engineering_risk": ("market_radar", "pattern_engineering", "product_creativity"),
+}
+
+CONFIDENCE = ("observed", "measured", "confirmed")
+
+
+class LessonRefused(ValueError):
+    """A lesson that cannot be routed, or that is not a lesson."""
+
+
+def route_for(subject: str) -> tuple[str, ...]:
+    if subject not in SUBJECT_ROUTING:
+        raise LessonRefused(
+            f"{subject!r} has no routing. A lesson whose audience is undefined stays in the "
+            f"department that found it, which feels like learning and changes nothing")
+    return SUBJECT_ROUTING[subject]
+
+
+def publish(db, *, origin_cell: str, subject: str, statement: str,
+            evidence_ref: str = "", confidence: str = "observed") -> int:
+    """Record a lesson and route it to every cell the subject concerns.
+
+    Idempotent on `evidence_ref` + `subject`: the same evidence produces one lesson, however
+    many nights the miner re-reads it, and the existing lesson's id comes back.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Lesson
+
+    if origin_cell not in BY_KEY:
+        raise LessonRefused(f"unknown cell {origin_cell!r}")
+    if confidence not in CONFIDENCE:
+        raise LessonRefused(f"confidence must be one of {CONFIDENCE}")
+    if len(statement.split()) < 6:
+        raise LessonRefused(
+            "a lesson states what was learned and what follows from it; this is a label")
+
+    audience = [c for c in route_for(subject) if c != origin_cell]
+    with db.session() as s:
+        if evidence_ref:
+            # Idempotent by evidence. The nightly miner reads the same unresolved incident
+            # every night until somebody resolves it, and a lesson republished nightly is
+            # thirty lessons about one defect -- which reads as thirty times the learning.
+            existing = s.scalar(select(Lesson).where(
+                Lesson.evidence_ref == evidence_ref, Lesson.subject == subject,
+                Lesson.superseded_by.is_(None)).order_by(Lesson.id))
+            if existing is not None:
+                return existing.id
+        row = Lesson(origin_cell=origin_cell, subject=subject, statement=statement,
+                     evidence_ref=evidence_ref, confidence=confidence,
+                     routed_to=audience, acted_on_by=[])
+        s.add(row)
+        s.flush()
+        return row.id
+
+
+def acted_on(db, lesson_id: int, cell: str, *, how: str = "") -> list[str]:
+    """Record that a cell actually changed something because of a lesson (#101)."""
+    from ..core.models import Lesson
+
+    if cell not in BY_KEY:
+        raise LessonRefused(f"unknown cell {cell!r}")
+    with db.session() as s:
+        row = s.get(Lesson, lesson_id)
+        if row is None:
+            raise LessonRefused(f"no lesson {lesson_id}")
+        if cell not in (row.routed_to or []) and cell != row.origin_cell:
+            raise LessonRefused(
+                f"{cell!r} was not routed lesson {lesson_id}; acting on a lesson nobody sent "
+                f"it is how an audit trail stops meaning anything")
+        entries = list(row.acted_on_by or [])
+        if not any(e.get("cell") == cell for e in entries):
+            entries.append({"cell": cell, "how": how,
+                            "at": datetime.now(timezone.utc).isoformat()})
+            row.acted_on_by = entries
+        return [e["cell"] for e in entries]
+
+
+def inbox(db, cell: str, *, unacted_only: bool = True,
+          include_own: bool = False) -> list[dict]:
+    """What this cell has been told and has not yet done anything about.
+
+    `include_own` adds the lessons this cell published itself. Routing sends a lesson to the
+    *other* cells it concerns, which is right for distribution and wrong for memory: the
+    creative jury's autopsies originate in Creativity, and a brief that could not read them
+    would be a department forgetting its own rejections (#85).
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Lesson
+
+    with db.session() as s:
+        # F-605: a withdrawn claim is still on file but no longer routed to anyone.
+        rows = list(s.scalars(select(Lesson).where(Lesson.superseded_by.is_(None),
+                                                   Lesson.withdrawn_at.is_(None))))
+    out = []
+    for row in rows:
+        if cell not in (row.routed_to or []) and not (include_own
+                                                      and row.origin_cell == cell):
+            continue
+        acted = [e.get("cell") for e in (row.acted_on_by or [])]
+        if unacted_only and cell in acted:
+            continue
+        out.append({"id": row.id, "subject": row.subject, "statement": row.statement,
+                    "from": row.origin_cell, "confidence": row.confidence,
+                    "evidence_ref": row.evidence_ref,
+                    # WS5 E5: a lesson's age, so its weight can decay over cycles.
+                    "at": row.at.isoformat() if row.at is not None else None})
+    return out
+
+
+class WithdrawRefused(ValueError):
+    """A withdrawal with no reason or evidence, or of a lesson that does not exist."""
+
+
+def withdraw(db, lesson_id: int, *, reason: str, evidence_ref: str,
+             withdrawn_by: str) -> dict:
+    """F-605: mark a lesson withdrawn. Kept on file; `inbox`/`consume.matching` skip it.
+
+    A withdrawal needs the evidence that overturned the claim, because "we stopped believing
+    it" with no reference is the same unexamined move as believing it in the first place.
+    """
+    from datetime import datetime, timezone
+
+    from ..core.models import AuditLog, Lesson
+
+    if len(str(reason).split()) < 4 or not str(evidence_ref).strip():
+        raise WithdrawRefused("a withdrawal says why, and cites the evidence that overturned it")
+    with db.session() as s:
+        row = s.get(Lesson, lesson_id)
+        if row is None:
+            raise WithdrawRefused(f"no lesson {lesson_id}")
+        if row.withdrawn_at is not None:
+            return {"lesson": lesson_id, "withdrawn": False, "already": True}
+        row.withdrawn_at = datetime.now(timezone.utc)
+        row.withdrawn_reason = f"{reason.strip()} [evidence: {evidence_ref.strip()}]"
+        s.add(AuditLog(actor=(withdrawn_by or "unattributed")[:64], action="lesson.withdrawn",
+                       artifact=f"lessons:{lesson_id}",
+                       detail={"reason": reason.strip()[:400],
+                               "evidence_ref": evidence_ref.strip()[:200]}))
+        return {"lesson": lesson_id, "withdrawn": True,
+                "at": row.withdrawn_at.isoformat()}
+
+
+def compounding(db, *, stale_after_days: int = 30) -> dict:
+    """Whether knowledge is actually accumulating, or merely being filed (#101).
+
+    The measure is not how many lessons exist. It is how many reached somebody who then did
+    something, and how many have been sitting routed and untouched long enough that nobody is
+    going to.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Lesson
+
+    with db.session() as s:
+        every = list(s.scalars(select(Lesson)))
+    # W4-LEARN: a superseded lesson (a per-instance restatement folded into its family by the
+    # miner, an MJS finding replaced by a newer reading) is history, not backlog. Counting it
+    # as routed-and-unacted made 316 restatements of one pattern read as 316 ignored lessons.
+    rows = [r for r in every if r.superseded_by is None]
+
+    def _aware(value):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=stale_after_days)
+    routed = [r for r in rows if r.routed_to]
+    acted = [r for r in routed if r.acted_on_by]
+    stale = [r for r in routed if not r.acted_on_by and _aware(r.at) < cutoff]
+
+    by_subject: dict[str, int] = {}
+    for row in rows:
+        by_subject[row.subject] = by_subject.get(row.subject, 0) + 1
+
+    return {
+        "lessons": len(rows),
+        "routed": len(routed),
+        "acted_on": len(acted),
+        "action_rate": round(len(acted) / len(routed), 3) if routed else 0.0,
+        "stale_unacted": [{"id": r.id, "subject": r.subject, "from": r.origin_cell}
+                          for r in stale],
+        "by_subject": dict(sorted(by_subject.items(), key=lambda kv: -kv[1])),
+        "cells": len(CELLS),
+        "superseded": len(every) - len(rows),
+        "note": ("Lessons exist but nothing has acted on one, so this is filing rather than "
+                 "compounding (#101)."
+                 if routed and not acted else
+                 "No lesson has been recorded yet." if not rows else
+                 f"{len(acted)} of {len(routed)} routed lessons changed something in the "
+                 f"cell that received them."),
+    }
+
+
+def brief_lessons(db, *, artifact: str, cell: str = "product_creativity",
+                  limit: int = 12) -> dict:
+    """The lessons a brief is assembled with, and the provenance record that it used them.
+
+    #101's test of compounding is that a later design can be shown to have drawn on what the
+    company learned, so reading the inbox is only half of it: the other half is
+    `roi.design_provenance`, written here. Written once per distinct set of lessons rather
+    than once per read, because a brief served on every page load would otherwise record a
+    hundred designs that are one design.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+    from . import roi
+
+    lessons = inbox(db, cell, unacted_only=False, include_own=True)
+    lessons.sort(key=lambda l: -int(l["id"]))
+    chosen = lessons[:limit]
+    ids = tuple(sorted(int(l["id"]) for l in chosen))
+    with db.session() as s:
+        last = s.scalar(select(AuditLog).where(
+            AuditLog.action == "design.provenance", AuditLog.artifact == artifact)
+            .order_by(desc(AuditLog.id)).limit(1))
+        last_ids = tuple(sorted((last.detail or {}).get("lesson_ids") or ())) if last else None
+    if last_ids == ids:
+        record = {"record_id": last.id, "recorded": False,
+                  "why": "this brief already recorded drawing on exactly these lessons"}
+    else:
+        out = roi.design_provenance(db, product_slug=artifact, lesson_ids=ids,
+                                    brief=f"{cell} brief")
+        record = {"record_id": out["record_id"], "recorded": True, "note": out["note"]}
+    return {"cell": cell, "lessons": chosen, "lesson_ids": list(ids),
+            "provenance": record}

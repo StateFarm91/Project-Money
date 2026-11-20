@@ -1,0 +1,269 @@
+{
+ "cluster": "growth",
+ "branch": "claude/b2r-growth",
+ "head": "d59bdf4",
+ "rows": [
+  {
+   "id": 7,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_growth_ops.py::test_pricing_prices_the_customer_outcome_and_reads_contribution_per_visitor",
+   "note": "pricing.position calls value_stack.outcome_price on finished size, make hours and colours, anchored on the observed department median (>=5 BenchmarkListing rows) or the labelled band midpoint; the result is the proposed price. value_stack() aggregator itself still uncalled; each component has a runtime caller."
+  },
+  {
+   "id": 17,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_growth_ops.py::test_ads_adjust_reads_economics_from_rows_and_escalates_a_winner, ::test_launch_readiness_carries_the_first_customer_verdicts_and_the_trust_gate, ::test_growth_journey_audits_listings_raises_and_resolves_and_attaches_proof",
+   "note": "trust.may_scale_ads consulted by ads.adjust (blocks eligibility per product, rungs read from readiness/ListingAsset/service_level) and by launch.readiness; growth.journey proof_sweep attaches each passed PhysicalTest and sale LedgerEntry once via trust.record_proof (retention lifetime_total)."
+  },
+  {
+   "id": 18,
+   "status": "data_gated",
+   "parked_on": "customers",
+   "proof": "tests/test_cert_growth_ops.py::test_support_reply_times_the_case_and_refuses_a_gating_draft",
+   "note": "support.reply records service.record_response on the case as draft_ready (shadow holds replies) and service_level keeps drafts apart from delivered responses, feeding the #17 trust rung; whether fast support reduces refunds/repeat needs orders."
+  },
+  {
+   "id": 19,
+   "status": "data_gated",
+   "parked_on": "customers",
+   "proof": "tests/test_cert_growth_ops.py::test_growth_journey_audits_listings_raises_and_resolves_and_attaches_proof",
+   "note": "growth.journey reads every promotion Experiment against its organic control via promotion.incrementality daily, marks a non-paying one not_repeatable and opens promotion:catalogue_conditioned; no promotion has run."
+  },
+  {
+   "id": 24,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_growth_ops.py::test_pricing_prices_the_customer_outcome_and_reads_contribution_per_visitor, ::test_ads_adjust_reads_economics_from_rows_and_escalates_a_winner, ::test_stats_ingest_benchmarks_and_scale_routes_read_the_database",
+   "note": "pricing.position reads runrate.per_visitor_from_db and refuses a conversion-led cut when a higher-priced sibling earns more per visitor; ads.adjust funds eligible products in contribution-per-visitor order; listing.seo refills freed tag slots from earning-per-visit terms first."
+  },
+  {
+   "id": 27,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_growth_ops.py::test_weekly_solve_feeds_conditions_scenarios_calibration_and_cac, ::test_stats_ingest_benchmarks_and_scale_routes_read_the_database",
+   "note": "scale.evidence.derive_conditions derives all QUALITATIVE_CONDITIONS (incl. new conservative_scenario_near_target) from rows in weekly.solve (ops.capacity) and /api/scale; unmet-by-default with evidence, so the >=75% band opens only on data."
+  },
+  {
+   "id": 237,
+   "status": "owner_gated",
+   "parked_on": "insights_access",
+   "proof": "tests/test_cert_growth_ops.py::test_stats_ingest_benchmarks_and_scale_routes_read_the_database",
+   "note": "POST /api/attribution/stats (ops-token) parses the owner's Etsy Stats CSV, joins to orders (contribution rate, support/repeat per term), stores attribution.stats; listing.seo reads it and swaps vanity tags for earning terms. Real gate: the owner must export the CSV."
+  },
+  {
+   "id": 238,
+   "status": "owner_gated",
+   "parked_on": "live_listings",
+   "proof": "tests/test_cert_growth_ops.py::test_growth_journey_audits_listings_raises_and_resolves_and_attaches_proof, ::test_stats_ingest_benchmarks_and_scale_routes_read_the_database",
+   "note": "growth.journey and /api/benchmarks build cells from ListingOutcome/Order/SupportCase rows, diagnose each listing against its own cell and open/reconcile benchmark:<slug>:below_cohort incidents naming factors to test; UNMEASURED until live listings have traffic."
+  },
+  {
+   "id": 239,
+   "status": "owner_gated",
+   "parked_on": "live_listings",
+   "proof": "tests/test_cert_growth_ops.py::test_growth_journey_audits_listings_raises_and_resolves_and_attaches_proof",
+   "note": "benchmarks.opportunities now called daily from growth.journey with markets from arbitrage.score_observed demand plus our impressions/CTR/conversion per department; ranked list in the reading; needs our traffic to rank on."
+  },
+  {
+   "id": 242,
+   "status": "owner_gated",
+   "parked_on": "ad_authority",
+   "proof": "tests/test_cert_growth_ops.py::test_ads_are_refused_without_the_owner_gate_and_planned_never_spent_with_it, ::test_ads_adjust_reads_economics_from_rows_and_escalates_a_winner",
+   "note": "ads.adjust daily applies paid_media.organic_first_gate from organic ListingOutcome periods and blocks the product; ads.campaign is dead-lettered without the owner's SpendLimit, capped in code with it, spends nothing."
+  },
+  {
+   "id": 243,
+   "status": "owner_gated",
+   "parked_on": "ad_authority",
+   "proof": "tests/test_cert_growth_ops.py::test_ads_adjust_reads_economics_from_rows_and_escalates_a_winner, ::test_weekly_solve_feeds_conditions_scenarios_calibration_and_cac",
+   "note": "risk-adjusted allowable CAC from listed price, fees and measured refund rate (refused under 20 orders) gates ads.adjust; new-customer/blended CAC and contribution-after-ads computed from Customer/Order/Ledger in scale.evidence.cac, in the weekly reading and the ads plan."
+  },
+  {
+   "id": 244,
+   "status": "owner_gated",
+   "parked_on": "ad_authority",
+   "proof": "tests/test_cert_growth_ops.py::test_ads_adjust_reads_economics_from_rows_and_escalates_a_winner",
+   "note": "ads.adjust computes offsite_ads_forecast from Order.offsite_ad_attributed and trailing-365 sales on the policy reading's terms; UNMEASURED with no orders."
+  },
+  {
+   "id": 245,
+   "status": "owner_gated",
+   "parked_on": "ad_authority",
+   "proof": "tests/test_cert_growth_ops.py::test_ads_are_refused_without_the_owner_gate_and_planned_never_spent_with_it",
+   "note": "ads.adjust asks paid_media.share_and_save daily; with no official fee-benefit rate recorded it reports UNMEASURED by name rather than a guess."
+  },
+  {
+   "id": 246,
+   "status": "owner_gated",
+   "parked_on": "owned_surfaces",
+   "proof": "tests/test_cert_growth_ops.py::test_growth_distribution_plans_from_rows_amplifies_a_winner_and_stops_a_weak_creator",
+   "note": "growth.distribution plans a pin set per certified product from calendar milestones (pins.schedule/check_set), destination = published listing, and grows a war-room winner by one new angle via pins.amplify; no Pinterest surface exists to post to."
+  },
+  {
+   "id": 247,
+   "status": "owner_gated",
+   "parked_on": "owned_surfaces",
+   "proof": "tests/test_cert_growth_ops.py::test_growth_distribution_plans_from_rows_amplifies_a_winner_and_stops_a_weak_creator",
+   "note": "clusters built daily per department from counted complaint themes (LearningObservation customer_pain + SupportCase themes) ending on a certified product; no owned site to host them."
+  },
+  {
+   "id": 248,
+   "status": "owner_gated",
+   "parked_on": "owned_surfaces",
+   "proof": "tests/test_cert_growth_ops.py::test_growth_distribution_plans_from_rows_amplifies_a_winner_and_stops_a_weak_creator",
+   "note": "video.plan per flagship (>=20 maker hours) with troubleshooting seeded from themes; when release_hash moves every module is re-planned as stale. Recording/hosting needs a surface."
+  },
+  {
+   "id": 249,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_growth_ops.py::test_growth_distribution_plans_from_rows_amplifies_a_winner_and_stops_a_weak_creator",
+   "note": "creators.portfolio runs daily on Collaboration rows with contribution from creator:<ref>-attributed orders; measured-weak active collaborations are set to stopped; empty roster reads UNMEASURED."
+  },
+  {
+   "id": 250,
+   "status": "owner_gated",
+   "parked_on": "tester_roster",
+   "proof": "tests/test_cert_growth_ops.py::test_growth_distribution_plans_from_rows_amplifies_a_winner_and_stops_a_weak_creator",
+   "note": "may_graduate runs daily per tester on PhysicalTest reliability and CreatorProfile advocate consent; a cleared tester becomes one zero-cost OwnerAction creators.graduate:<ref> (not duplicated). No tester exists."
+  },
+  {
+   "id": 251,
+   "status": "owner_gated",
+   "parked_on": "owned_surfaces",
+   "proof": "tests/test_cert_growth_ops.py::test_growth_distribution_plans_from_rows_amplifies_a_winner_and_stops_a_weak_creator",
+   "note": "tools.check_flow for every FLOW and tools.frequency cap over CASL-consenting customers run daily; sends=0 with the reason. No sending capability."
+  },
+  {
+   "id": 253,
+   "status": "data_gated",
+   "parked_on": "customers",
+   "proof": "tests/test_cert_growth_ops.py::test_commerce_readings_read_stars_club_answers_and_referral_and_act",
+   "note": "commerce.readings answers cadence today from median gap between certified releases (club.check_cadence), demand/support from Customer/SupportCase when >=20 customers; club.may_launch reads those answers and a yes becomes an owner card."
+  },
+  {
+   "id": 255,
+   "status": "owner_gated",
+   "parked_on": "owned_surfaces",
+   "proof": "tests/test_cert_growth_ops.py::test_growth_distribution_plans_from_rows_amplifies_a_winner_and_stops_a_weak_creator",
+   "note": "tools.check_tool runs daily for every TOOL against the certified product it leads to; hostable list in the reading; hosting needs a surface."
+  },
+  {
+   "id": 257,
+   "status": "data_gated",
+   "parked_on": "customers",
+   "proof": "tests/test_cert_growth_ops.py::test_commerce_readings_read_stars_club_answers_and_referral_and_act, ::test_support_reply_times_the_case_and_refuses_a_gating_draft",
+   "note": "stars read from Order.reviewed detail; listing-routed themes open review_route:<theme> incidents; reviews.check_support_copy runs on every support.reply draft and a gating phrase empties the answer, escalates and audits."
+  },
+  {
+   "id": 258,
+   "status": "data_gated",
+   "parked_on": "customers",
+   "proof": "tests/test_cert_growth_ops.py::test_growth_distribution_plans_from_rows_amplifies_a_winner_and_stops_a_weak_creator",
+   "note": "gallery built daily from stored image-provenance rows per product and proof_lift measured across gallery/no-gallery outcome arms; no permissioned customer project exists."
+  },
+  {
+   "id": 259,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_growth_ops.py::test_growth_journey_audits_listings_raises_and_resolves_and_attaches_proof, ::test_launch_readiness_carries_the_first_customer_verdicts_and_the_trust_gate",
+   "note": "before_the_first_customer verdicts open/reconcile first_hundred:<priority> incidents daily and are launch items in launch.readiness outstanding."
+  },
+  {
+   "id": 260,
+   "status": "data_gated",
+   "parked_on": "customers",
+   "proof": "tests/test_cert_growth_ops.py::test_growth_distribution_plans_from_rows_amplifies_a_winner_and_stops_a_weak_creator",
+   "note": "interviews.may_open and invite_gate with CASL consent basis run daily over customers/first orders; sent=0."
+  },
+  {
+   "id": 261,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_growth_ops.py::test_growth_journey_audits_listings_raises_and_resolves_and_attaches_proof",
+   "note": "friction.listing_audit on every stored listing daily; each defect a friction:<slug>:<confusion> incident, resolved when the listing answers it."
+  },
+  {
+   "id": 262,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_growth_ops.py::test_weekly_solve_feeds_conditions_scenarios_calibration_and_cac",
+   "note": "ops.capacity records next week's forecast before the week; evidence.calibration scores ended weeks against orders/outcomes and passes calibration_ceiling into confidence.probability in weekly.solve and /api/scale."
+  },
+  {
+   "id": 264,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_growth_ops.py::test_growth_steer_moves_the_queue_and_orders_the_experiment_queue",
+   "note": "growth.steer hourly reads the weekly reallocation, raises pending jobs for the constraint's owners by a bounded credit once, and ranks RegisteredExperiments on the constraint's levers (war_room board sorts by steer_rank)."
+  },
+  {
+   "id": 267,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_growth_ops.py::test_growth_steer_moves_the_queue_and_orders_the_experiment_queue",
+   "note": "seasonal roll-forward moves from the daily reading raise jobs for the occasion gaining capacity and lower the one losing it, in the queue."
+  },
+  {
+   "id": 273,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_growth_ops.py::test_weekly_solve_feeds_conditions_scenarios_calibration_and_cac, ::test_stats_ingest_benchmarks_and_scale_routes_read_the_database",
+   "note": "evidence.scenarios runs target.matrix on runrate's observed conversion when one exists (basis observed, labelled), assumed only otherwise; used by weekly.solve and /api/scale."
+  },
+  {
+   "id": 275,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_growth_ops.py::test_weekly_solve_feeds_conditions_scenarios_calibration_and_cac",
+   "note": "seasonal_evergreen_balance, observed_bundle_aov, low_defect_refund_severity, downside_near_target added to QUALITATIVE_CONDITIONS and derived from rows; meaningful-sample threshold adapts to the observed rate; conditions passed to the gate."
+  },
+  {
+   "id": 276,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_growth_ops.py::test_growth_steer_moves_the_queue_and_orders_the_experiment_queue",
+   "note": "growth.steer reads war_room.board hourly: winners move up the queue and experiment ranking; primary constraint recorded; ads.adjust reads winner_alerts for escalation."
+  },
+  {
+   "id": 291,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_growth_ops.py::test_growth_steer_moves_the_queue_and_orders_the_experiment_queue",
+   "note": "fast-lane admitted slugs from the seasonal reading get -20 priority and an unlisted admitted product gets a chain.rebuild enqueued at the seasonal_deadline band."
+  },
+  {
+   "id": 294,
+   "status": "owner_gated",
+   "parked_on": "ad_authority",
+   "proof": "tests/test_cert_growth_ops.py::test_ads_adjust_reads_economics_from_rows_and_escalates_a_winner",
+   "note": "ads.adjust computes each seasonal product's pre-season learning window from calendar milestones (opens at indexing, must be running by promotional ramp) and blocks outside it."
+  },
+  {
+   "id": 295,
+   "status": "owner_gated",
+   "parked_on": "ad_authority",
+   "proof": "tests/test_cert_growth_ops.py::test_ads_adjust_reads_economics_from_rows_and_escalates_a_winner, ::test_growth_distribution_plans_from_rows_amplifies_a_winner_and_stops_a_weak_creator",
+   "note": "non-ad scaling runs: winners get a new pin angle and queue priority; a budget increase beyond the 25% band becomes an OwnerAction ads.scale:<slug> with exact economics. Spend itself is the owner's."
+  }
+ ],
+ "tests": {
+  "test_cert_growth_ops": "12/12",
+  "test_roles": "35/0",
+  "test_closure": "16/0",
+  "test_platform": "22/0",
+  "test_cert_orchestration": "20/0",
+  "test_capability_gates": "22/0",
+  "test_cert_commerce_readings": "2/0",
+  "test_cert_growth_seasonal": "24/0",
+  "test_cert_improve_autonomy": "20/0",
+  "test_cost_governance_wave2": "39/0",
+  "test_cert_wiring": "14 OK 2 FAIL (C-73 pre-existing at base)"
+ },
+ "notes": [
+  "growth.steer moves pending jobs -10 credit once for the constraint's owners and fast-lane admitted slugs -20: cross-band moves to reconcile with the #187 band test at merge",
+  "value_stack() aggregator itself has no runtime caller; its three parts do"
+ ]
+}

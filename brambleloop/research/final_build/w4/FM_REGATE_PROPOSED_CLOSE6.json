@@ -1,0 +1,34 @@
+{
+ "_meta": {
+  "status": "ACCEPTED by the coordinator 2026-10-20 (D-W4-CLOSE6-FMREGATE). Applied on claude/w4-CLOSE6 in research/final_build/w4/close5.py batch 5 (mapping s4/s6); recorded here retroactively under the new policy that every Final Master re-gate to a data gate is proposed first.",
+  "policy": "from 2026-10-20: a Final Master row is re-gated to `customers` only as a PROPOSED entry the coordinator accepts; unfinished engineering is never labelled customer-dependent",
+  "accepted_by": "coordinator (operator session) 2026-10-20"
+ },
+ "rows": {
+  "F-273": {
+   "gate": {
+    "from": "owner:transactions_r",
+    "to": "data:customers"
+   },
+   "evidence": [
+    "finance/reconcile.py::apply sets offsite_ad_attributed from offsite_ads_fee ledger entries and deducts the fee (tests/test_money_truth.py::test_charged_fees_replace_the_model_and_an_offsite_fee_is_deducted_and_attributed)",
+    "commerce/orders_ingest.py::_reconcile_fees reads getShopPaymentAccountLedgerEntries on every receipt read (test_the_production_reader_reads_the_ledger_through_the_client_transport)",
+    "research/final_build/w4/evidence_CLOSE6/prod_api_orders_ingested_20261020T1321Z.json: transactions_r open, ingest measured on every run since 2026-10-13, 0 receipts"
+   ],
+   "remaining": "a real offsite-attributed sale and the owner-recorded ledger mapping verification",
+   "acceptance_rationale": "the reconcile code is live and reached; only a real settlement is missing"
+  },
+  "F-538": {
+   "gate": {
+    "from": "owner:transactions_r",
+    "to": "data:customers"
+   },
+   "evidence": [
+    "finance/reconcile.py: explicit allow-list for fees and refunds, unknown ledger types reported and never counted, fees 'unverified' until an owner-recorded mapping verification (tests/test_money_truth.py fee/incident/idempotency tests)",
+    "research/final_build/w4/evidence_CLOSE6/prod_api_orders_ingested_20261020T1321Z.json"
+   ],
+   "remaining": "first real settlement; classify tax/remittance, credit and subscription ledger types once seen",
+   "acceptance_rationale": "the reconcile code is live and reached; only a real settlement is missing"
+  }
+ }
+}

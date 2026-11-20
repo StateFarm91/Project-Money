@@ -1,0 +1,177 @@
+{
+ "cluster": "design",
+ "branch": "claude/b2r-design",
+ "head": "f76d277",
+ "rows": [
+  {
+   "id": 3,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_design_pipeline.py::test_a_carried_judged_winner_is_queued_drafted_and_compiled_3_277_281, ::test_a_winner_the_funnel_did_not_carry_is_never_engineered_3; tests/test_cert_preengineering.py::test_a_passed_concept_enqueued_directly_is_refused_by_the_funnel",
+   "note": "creative.tournament records funnel_rounds and creative.intake asks funnel.may_engineer of that run before queuing cir.draft; cir.draft re-asks it from the winner intake row (verify_funnel) so a direct enqueue is refused by name. A not-carried winner is never re-opened by a judgement."
+  },
+  {
+   "id": 88,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_design_pipeline.py::test_winner_brief_is_generated_and_the_gate_reads_it_88_110_115, ::test_a_held_winner_is_judged_the_day_its_board_and_a_vision_model_exist_88_277",
+   "note": "intake.storyboard_for derives the thumbnail storyboard from the concept (framed by judged competitor hero shots when any exist); the gate reads it and premise_thumbnail no longer fails by absence. The mobile-grid judgement itself waits honestly on image_vision (external board + model_provider); regate_held now judges it via provider.see the day a board is filed and the vision probe passes, and records concept.judged with the judge's name."
+  },
+  {
+   "id": 101,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_design_pipeline.py::test_design_provenance_is_keyed_on_the_winning_design_101",
+   "note": "intake records roi.design_provenance keyed on the stable design slug of the winning design with the plan's lesson_ids; compounding_report counts designs (latest record per design) and reports ideation briefs separately as briefs_recorded."
+  },
+  {
+   "id": 109,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_design_pipeline.py::test_copy_language_premises_are_refused_at_generation_109",
+   "note": "prospecting.propose calls preengineering.promise_for (invention.promise with execution read from the premise) on every generated concept and refuses listing-copy premises at generation; the gate carries an emotional_promise check (#109) and the brief records the promise."
+  },
+  {
+   "id": 110,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_design_pipeline.py::test_winner_brief_is_generated_and_the_gate_reads_it_88_110_115",
+   "note": "intake.motifs_for produces the winner's motifs from its own words found in the season's MOTIF_GRAMMAR (with synonyms); the gate's motif_grammar check runs on that real selection and passes on a stockings winner, fails honestly when a concept names nothing from the grammar."
+  },
+  {
+   "id": 112,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_design_pipeline.py::test_the_tournament_judges_the_real_window_and_plans_make_time_per_skill_112_283",
+   "note": "prospecting.tournament screens at the arena's real days_to_event and calls family.shift_capacity over research survivors; ideation.select prefers survivors the window says a buyer can still comfortably finish (hurry deferred, recorded as window_deferred)."
+  },
+  {
+   "id": 114,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_design_pipeline.py::test_the_radar_skill_gap_brief_is_consumed_by_ideation_114; tests/test_cert_preengineering.py::test_radar_scan_measures_the_wave_skill_portfolio_and_writes_the_gap_as_a_brief",
+   "note": "ideation.skill_gap reads the latest radar.skill_gap row into the plan; constraints_text puts the missing level in every model brief and select prefers a winner that fills it (fills_skill_gap)."
+  },
+  {
+   "id": 115,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_design_pipeline.py::test_a_flagship_carries_a_wow_from_its_own_words_and_one_without_fails_115_290",
+   "note": "intake.wow_for reads the WOW mechanism from the premise's words or the construction with its grounding; the gate's wow check passes a grounded flagship and fails a flagship whose words carry none."
+  },
+  {
+   "id": 277,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_design_pipeline.py::test_a_carried_judged_winner_is_queued_drafted_and_compiled_3_277_281, ::test_a_held_winner_is_judged_the_day_its_board_and_a_vision_model_exist_88_277",
+   "note": "Software half built: tournament winners route through intake to cir.draft \u2192 cir.compile \u2192 gate.certify. Live shadow winners wait, unpassed, on the vision judgement (board = external image generation; judge = model_provider); the cadence names both and performs the judgement the day both exist."
+  },
+  {
+   "id": 278,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_design_pipeline.py::test_vision_readings_reach_the_briefs_and_the_storyboard_278",
+   "note": "ideation.plan reads gallery_image_observation rows per pod (intake.vision_readings); attributes reach every generator brief and frame the storyboard; with none the plan states UNMEASURED."
+  },
+  {
+   "id": 279,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_design_pipeline.py::test_seasonal_transformations_are_derived_on_cadence_and_judged_by_the_funnel_279_282; tests/test_cert_growth_seasonal.py::test_remerchandising_handler_runs_the_transformation_engine, ::test_evergreen_concepts_are_transformed_and_only_a_promised_brief_derives",
+   "note": "seasonal.remerchandising (weekly) generates the object-changing brief from every certified evergreen parent (transformation_brief), derives the child and records it; creative.tournament seeds those children into its field and the funnel judges them, recording each fate. Presentation layers still route to re-merchandising."
+  },
+  {
+   "id": 281,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_design_pipeline.py::test_mjs_response_is_walked_from_listing_to_engineering_309, ::test_a_carried_judged_winner_is_queued_drafted_and_compiled_3_277_281",
+   "note": "mjs.scan \u2192 sentinel-queued creative.tournament (seasonal_target) \u2192 intake \u2192 cir.draft \u2192 cir.compile \u2192 gate.certify; later stages (assets, launch) are read by advance_pipeline from their rows and stop honestly where owner/external gates hold (image generation, publishing)."
+  },
+  {
+   "id": 282,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_design_pipeline.py::test_seasonal_transformations_are_derived_on_cadence_and_judged_by_the_funnel_279_282, ::test_christmas_cardigan_path_runs_to_the_gate_that_stops_it_308",
+   "note": "The engineered variant is no longer 'held': a brief is generated per parent and the child enters the funnel; a fitted-garment winner would be authored by creative.prototype.author/garment_design in cir.draft. Owned photography remains external (model_bearing_render) and is read from asset rows by the pipeline walker."
+  },
+  {
+   "id": 283,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_design_pipeline.py::test_the_tournament_judges_the_real_window_and_plans_make_time_per_skill_112_283, ::test_launch_path_uses_observed_buyer_language_and_the_patterns_own_skill_293_283",
+   "note": "intake.make_time_for plans per MAKER_SKILLS with launch dates for the skill the lane is written for; launch.plan window_decision and catalogue_plans use leadtime.maker_skill_for (printed difficulty \u2192 maker skill) and record make_time_by_skill."
+  },
+  {
+   "id": 290,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_design_pipeline.py::test_a_flagship_carries_a_wow_from_its_own_words_and_one_without_fails_115_290",
+   "note": "The pre-engineering gate carries a half_life check: trend domain from the culture signal (or occasion/evergreen) classified and check_half_life applied to the make lane; a FLAGSHIP from a film-moment trend is refused before engineering."
+  },
+  {
+   "id": 293,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_design_pipeline.py::test_launch_path_uses_observed_buyer_language_and_the_patterns_own_skill_293_283",
+   "note": "listing.seo calls commerce.intent.listing_language (six-facet map from the product's own facts or its winning concept, phrases observed in benchmark titles, competition from SerpSnapshot or UNMEASURED); observed phrases join the query set and must_include tags."
+  },
+  {
+   "id": 308,
+   "status": "partial",
+   "parked_on": null,
+   "proof": "tests/test_cert_design_pipeline.py::test_christmas_cardigan_path_runs_to_the_gate_that_stops_it_308",
+   "note": "The MJs cropped-cardigan listing runs end to end into a Christmas/garments tournament with cardigan concepts; the funnel's proposition stage applies #111's family test, which no fitted-garment construction passes (no quick companion form is built by those constructions), so no cardigan is carried to prototype and none is engineered \u2014 recorded as the stop, not bypassed. Resolving this is an owner-rule question (#111 vs #308), not a wiring gap; I did not weaken the family test."
+  },
+  {
+   "id": 309,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_design_pipeline.py::test_mjs_response_is_walked_from_listing_to_engineering_309",
+   "note": "mission_runtime.advance_pipeline re-walks all fourteen stages from the rows each stage writes, on mjs.seasonal_sentinel daily and after each targeted tournament; completes through cir_engineering in shadow, stops at certification/assets/launch with the evidence, and moves the coverage gap accordingly."
+  },
+  {
+   "id": 314,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_design_pipeline.py::test_gap_queue_scores_timing_search_and_make_time_and_advances_314",
+   "note": "observe.gap_components scores seasonal_timing, search_opportunity and make_time from rows (contribution/creative potential stay absent); intake/regate/advance_pipeline move the pod's gap concepting \u2192 engineering \u2192 certified \u2192 launched."
+  },
+  {
+   "id": 316,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_design_pipeline.py::test_pod_memory_is_fed_by_brambleloop_responses_and_challenged_316",
+   "note": "intake.response_lesson records the pod's response interpretation; intel.pod_learning runs mission_runtime.response_outcomes (orders \u2192 launch_sold, 60-day no-sale \u2192 launch_failed, escalated cases \u2192 complaint) and raises a commercial-execution challenger when contradicted; UNMEASURED with nothing launched."
+  },
+  {
+   "id": 318,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_design_pipeline.py::test_mission_report_carries_every_318_field_from_rows",
+   "note": "mission.mission_status computes last scan, changed/new, pod assignments, top uncovered, seasonal adaptations, launch deadlines, comparison results, products launched, conversion/revenue, incidents from rows; the / dashboard renders them."
+  }
+ ],
+ "tests": {
+  "test_cert_design_pipeline": "17/17",
+  "test_cert_growth_seasonal": "24/24 (2 strengthened)",
+  "test_remerchandising": "25/25",
+  "test_seasonal_transform": "19/19",
+  "test_prospecting": "72/72",
+  "test_cert_ideation": "25/25",
+  "test_cert_preengineering": "19/19",
+  "test_cert_mjs": "19/19",
+  "test_closure": "16/16",
+  "test_platform": "22/22",
+  "test_cert_orchestration": "20/20",
+  "test_capability_gates": "22/22",
+  "test_cost_governance_wave2": "39/39",
+  "test_model_spend_paths": "12/12",
+  "test_etsy_oauth_callback": "41/41",
+  "test_cert_wiring": "14/16 (C-73 base failures)",
+  "test_executor": "40/44 (known image_generation parks)"
+ },
+ "notes": [
+  "#308 partial: fitted-garment constructions fail #111's family test at the proposition stage, so no cardigan is engineered; owner-rule question #111 vs #308, not weakened",
+  "held winners judged via provider.see only when a board is filed and vision_usable; otherwise waiting_on named"
+ ]
+}

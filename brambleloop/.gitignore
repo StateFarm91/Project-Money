@@ -1,0 +1,18 @@
+.venv/
+*.db
+*.sqlite
+__pycache__/
+*.pyc
+backups/
+reports/shadow_release/_store/
+artifacts/
+*.db-shm
+*.db-wal
+
+# Purchased competitor benchmark files (#149). These are somebody else's copyrighted work,
+# bought for study. They are never committed, never served, and never reachable by pattern
+# generation -- the directory is quarantined in code as well as here, because an ignore rule
+# only stops the accident it happens to match.
+benchmark_library/
+research/d/out/*.png
+research/e3/out/*.npy

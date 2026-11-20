@@ -1,0 +1,356 @@
+{
+ "generated_at": "2026-10-06T06:34:43.132840+00:00",
+ "commit": "5d397d03cd694e9d3a8f4348707fb527ff12b7c2",
+ "phase": "shadow (scratch sqlite; no network, no spend, no Etsy)",
+ "empty_summary": {
+  "status": "UNKNOWN",
+  "reason": "no policy-loop decision, outcome or proposal has been recorded yet; the loops are built and waiting for data",
+  "as_of": null,
+  "basis": "unknown"
+ },
+ "before": {
+  "active": {
+   "loop": "seo_lesson_match",
+   "param": "min_shared",
+   "value": 2,
+   "config_id": null,
+   "version": null,
+   "source": "code_default"
+  },
+  "two_word_match_applies": true
+ },
+ "improve.sandbox": {
+  "sandboxed": [
+   {
+    "improvement": 1,
+    "cell": "seo_search",
+    "trial": "policy_loop",
+    "baseline": 0.066316,
+    "result": 0.092308,
+    "state": "testing"
+   }
+  ],
+  "tested": [
+   {
+    "improvement": 1,
+    "regression": true,
+    "adversarial": true,
+    "why": [
+     "every captured defect is still caught",
+     "every attempt to break the claim failed"
+    ],
+    "config_runs_recorded": 2
+   }
+  ],
+  "approved": [
+   1
+  ],
+  "promoted": [
+   {
+    "route": "promoted",
+    "improvement": 1,
+    "tier": "scoring",
+    "by": "evaluator",
+    "owner_approved": false
+   }
+  ],
+  "executed": [
+   {
+    "improvement": 1,
+    "trial": "policy_loop",
+    "executed": "registry incumbent",
+    "implements": "seo_lesson_match",
+    "changes_artifact": false,
+    "consumer": "improve.consume.matching(cell='seo_search'), called by runtime.release listing.seo to give lesson-matched queries a tag ",
+    "active_value": 3,
+    "config_id": 2,
+    "kind": "scoring",
+    "key": "learn.seo_lesson_match",
+    "version": 2,
+    "incumbent": true
+   }
+  ],
+  "note": "1 sandboxed, 1 tested, 1 approved by evaluator, 1 promoted, 0 routed to the owner, 0 waiting for a trial that can evaluate them"
+ },
+ "after_promotion": {
+  "active": {
+   "loop": "seo_lesson_match",
+   "param": "min_shared",
+   "value": 3,
+   "config_id": 2,
+   "version": 2,
+   "source": "registry"
+  },
+  "two_word_match_applies": false,
+  "four_word_match_applies": true
+ },
+ "improve.monitor": {
+  "reverted": [
+   1
+  ],
+  "trial_monitoring": {
+   "judged": 0,
+   "reverted": [
+    {
+     "improvement": 1,
+     "state": "reverted",
+     "action": "reverted",
+     "attempts": 1,
+     "observed": 0.005,
+     "rollback": {
+      "rolled_back": true,
+      "kind": "scoring",
+      "key": "learn.seo_lesson_match",
+      "config_id": 1,
+      "version": 1,
+      "from_config_id": 2,
+      "why": "seo_lesson_match: 0.005 on 8 post-promotion decisions against 0.066316, worse by more than 0.02"
+     },
+     "verification": {
+      "verified": true,
+      "check": "policy_loop.rollback",
+      "active": {
+       "loop": "seo_lesson_match",
+       "param": "min_shared",
+       "value": 2,
+       "config_id": 1,
+       "version": 1,
+       "source": "registry"
+      },
+      "expected_config_id": 1,
+      "why": "the consumer reads the replaced version"
+     },
+     "incident": "improve-rollback:1"
+    }
+   ],
+   "waiting": 0
+  },
+  "rollback_pending": []
+ },
+ "after_rollback": {
+  "active": {
+   "loop": "seo_lesson_match",
+   "param": "min_shared",
+   "value": 2,
+   "config_id": 1,
+   "version": 1,
+   "source": "registry"
+  },
+  "two_word_match_applies": true
+ },
+ "refused_protected": {
+  "proposal": 2,
+  "state": "REFUSED",
+  "refusals": [
+   {
+    "ok": false,
+    "param": "daily_cost_ceiling_cad",
+    "invariant": "spend_controls",
+    "reason": "'daily_cost_ceiling_cad' is on the protected invariant 'spend_controls' (budget ceilings and spend limits enforced in code). Self-improvement may never change it, in either direction, without the owner changing the code"
+   }
+  ]
+ },
+ "summary": {
+  "status": "DEGRADED",
+  "reason": "4 of 5 loops are UNMEASURED (not enough observed outcomes)",
+  "as_of": "2026-10-06T06:34:45.572375+00:00",
+  "basis": "measured",
+  "seo_item": {
+   "loop": "seo_lesson_match",
+   "title": "Listing / SEO lesson tag slots",
+   "cell": "seo_search",
+   "family": "replay",
+   "param": "min_shared",
+   "active": {
+    "loop": "seo_lesson_match",
+    "param": "min_shared",
+    "value": 2,
+    "config_id": 1,
+    "version": 1,
+    "source": "registry"
+   },
+   "reading": "measured",
+   "why_unmeasured": null,
+   "decisions_logged": 36,
+   "decisions_with_outcome": 32,
+   "metric": "listing click-through (visits / impressions) after the decision",
+   "guardrail": "conversion (orders / visits) where orders are observed",
+   "last_evaluation": {
+    "proposal": 1,
+    "at": "2026-10-06T06:34:45.082120+00:00",
+    "state": "ROLLED_BACK",
+    "params_from": {
+     "min_shared": 2
+    },
+    "params_to": {
+     "min_shared": 3
+    },
+    "baseline": 0.066316,
+    "result": 0.092308,
+    "basis": "measured (replay estimator on logged decisions)"
+   },
+   "proposals_by_state": {
+    "ROLLED_BACK": 1
+   },
+   "promotions": [
+    {
+     "proposal": 1,
+     "improvement": 1,
+     "params_from": {
+      "min_shared": 2
+     },
+     "params_to": {
+      "min_shared": 3
+     },
+     "baseline": 0.066316,
+     "result": 0.092308,
+     "decided_at": "2026-10-06T06:34:45.525588+00:00"
+    }
+   ],
+   "rollbacks": [
+    {
+     "proposal": 1,
+     "improvement": 1,
+     "params_to": {
+      "min_shared": 3
+     },
+     "monitoring": {
+      "active": {
+       "loop": "seo_lesson_match",
+       "param": "min_shared",
+       "value": 2,
+       "config_id": 1,
+       "version": 1,
+       "source": "registry"
+      },
+      "why": "monitor"
+     },
+     "decided_at": "2026-10-06T06:34:45.525588+00:00"
+    }
+   ],
+   "refusals": 0,
+   "consumer": "improve.consume.matching(cell='seo_search'), called by runtime.release listing.seo to give lesson-matched queries a tag slot",
+   "consumer_status": "live: release.py reads it now; decision logging needs WIRING REQUEST W-B1 (pass subject=slug)",
+   "proposer": "experiment_designer",
+   "challenger": "quality"
+  },
+  "pipeline": {
+   "improvements_by_trial_and_state": {
+    "policy_loop": {
+     "reverted": 1
+    }
+   },
+   "rollback_pending": [],
+   "closed_loops": [
+    "league_replay (job priority -> swarm.orchestrate.priority_for)",
+    "self_audit (standard floor -> release gate)",
+    "policy_loop (five launch loops -> consumers above)"
+   ]
+  },
+  "lessons": [
+   {
+    "id": 3,
+    "at": "2026-10-06T06:34:45.572375+00:00",
+    "loop": "release_cost_watch",
+    "kind": "refused",
+    "params": {
+     "daily_cost_ceiling_cad": 500.0
+    },
+    "statement": "proposal 2 to set {'daily_cost_ceiling_cad': 500.0} on release_cost_watch was refused by the protected invariant guard: 'daily_cost_ceiling_cad' is on the protected invariant 'spend_controls' (budget ceilings and spend limits enforced in code). Self-improvement may never change it, in either direction, without the owner changing the code",
+    "evidence_ref": "learn_proposal:2",
+    "metric_delta": null
+   },
+   {
+    "id": 2,
+    "at": "2026-10-06T06:34:45.532003+00:00",
+    "loop": "seo_lesson_match",
+    "kind": "rolled_back",
+    "params": {
+     "min_shared": 3
+    },
+    "statement": "seo_lesson_match: {'min_shared': 3} was rolled back to {'min_shared': 2} after post-change outcomes regressed; not to be re-proposed for 30 days without new evidence",
+    "evidence_ref": "improvement:1:rollback",
+    "metric_delta": null
+   },
+   {
+    "id": 1,
+    "at": "2026-10-06T06:34:45.160989+00:00",
+    "loop": "seo_lesson_match",
+    "kind": "promoted",
+    "params": {
+     "min_shared": 3
+    },
+    "statement": "seo_lesson_match: {'min_shared': 2} -> {'min_shared': 3} promoted after the shadow replay beat the baseline; consumers (improve.consume.matching(cell='seo_search')) read it from now",
+    "evidence_ref": "improvement:1:promoted",
+    "metric_delta": null
+   }
+  ],
+  "guardrail": {
+   "protected_invariants": [
+    "product_truth",
+    "customer_safety",
+    "accounting_truth",
+    "authorization",
+    "security",
+    "spend_controls",
+    "evidence_requirements",
+    "protected_gates"
+   ],
+   "refusals_total": 1
+  }
+ },
+ "next_work": [
+  {
+   "kind": "learn.instrument_loop",
+   "key": "instrument:pattern_defect_watch",
+   "priority": 20,
+   "reason": "Pattern quality defect watch: 0 observed outcome(s), needs 12. live via next_work (lane A enqueues); release-gate read needs WIRING REQUEST W-B3",
+   "evidence": {
+    "loop": "pattern_defect_watch",
+    "observed": 0,
+    "outcome_source": "pattern_versions x incidents / troubleshooter support_cases per product"
+   },
+   "department": "learn",
+   "job_type": null
+  },
+  {
+   "kind": "learn.instrument_loop",
+   "key": "instrument:release_cost_watch",
+   "priority": 20,
+   "reason": "Cost per release watch: 0 observed outcome(s), needs 12. live via next_work (lane A enqueues). Flags only: never raises or lowers a spend ceiling (spend controls are a protected invariant)",
+   "evidence": {
+    "loop": "release_cost_watch",
+    "observed": 0,
+    "outcome_source": "cost_entries (amount_cad, actual only) per product_slug"
+   },
+   "department": "learn",
+   "job_type": null
+  },
+  {
+   "kind": "learn.instrument_loop",
+   "key": "instrument:support_lesson_match",
+   "priority": 20,
+   "reason": "Support lessons attached to cases: 0 observed outcome(s), needs 12. live: release.py reads it now; decision logging needs WIRING REQUEST W-B1 (pass subject='support_case:<id>')",
+   "evidence": {
+    "loop": "support_lesson_match",
+    "observed": 0,
+    "outcome_source": "support_cases (resolved, escalated)"
+   },
+   "department": "learn",
+   "job_type": null
+  },
+  {
+   "kind": "learn.instrument_loop",
+   "key": "instrument:visual_gate_precheck",
+   "priority": 20,
+   "reason": "Visual gate pre-check: 0 observed outcome(s), needs 12. live via next_work (lane A enqueues); render-path read needs WIRING REQUEST W-B4",
+   "evidence": {
+    "loop": "visual_gate_precheck",
+    "observed": 0,
+    "outcome_source": "listing_assets (approved, blocked_reasons) by asset_class/role"
+   },
+   "department": "learn",
+   "job_type": null
+  }
+ ]
+}

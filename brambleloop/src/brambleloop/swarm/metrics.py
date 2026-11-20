@@ -1,0 +1,291 @@
+"""Swarm measurements: starved READY work, untouched opportunities, parallelism, agents.
+
+Final Master F-655 (24/7 Valuable Work), F-730 (No Downtime Means No Lost Opportunity),
+F-489 (Parallelism Efficiency) and F-487 (Department Health). Each is a reading over durable
+rows (plus the runner's own process counters where the row says so), with UNKNOWN where the
+input does not exist -- never a zero standing in for "not measured".
+
+* ``starved_ready`` -- runnable PENDING jobs older than their band's READY SLA **while the
+  pool has idle capacity** (running < the allocation's worker target). Work waiting because
+  every worker is busy is queueing; work waiting while a worker is idle is the defect.
+* ``untouched_opportunities`` -- coverage gaps still UNCOVERED after ``UNTOUCHED_AFTER``,
+  value-weighted by their score. Opportunity discovery is cadence-based; this measures
+  whether discovered opportunity is acted on.
+* ``parallelism`` -- busy vs idle seconds of the pool (runner STATE), duplicate work avoided
+  (queue idempotency refusals, `queue.durable.DEDUPE_HITS`) and claim concurrency.
+* ``agents_view`` -- one row per agent: running job, pending and deferred counts, parked job
+  types (suspended by the thrash breaker), last completion, month spend, idle flag.
+"""
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+
+# How long a runnable job of each band may wait before it is starved, in seconds. Ordered like
+# the bands: a customer incident waits minutes, housekeeping waits days. Named so the reading
+# says which promise was broken rather than "the queue is old".
+BAND_READY_SLA_S: dict[str, int] = {
+    "customer_incident": 15 * 60,
+    "truth_defect": 30 * 60,
+    "seasonal_deadline": 2 * 3600,
+    "proven_winner": 6 * 3600,
+    "benchmark_change": 12 * 3600,
+    "new_opportunity": 24 * 3600,
+    "exploration": 48 * 3600,
+    "housekeeping": 72 * 3600,
+}
+UNTOUCHED_AFTER = timedelta(days=7)
+
+
+def _aware(v):
+    if v is None:
+        return None
+    return v if v.tzinfo else v.replace(tzinfo=timezone.utc)
+
+
+def starved_ready(db, *, worker_target: int | None, now: datetime | None = None) -> dict:
+    """F-655: READY work past its band SLA while capacity sat idle."""
+    from sqlalchemy import func, select
+
+    from ..core.models import Job, JobStatus
+    from .orchestrate import band_for
+
+    now = now or datetime.now(timezone.utc)
+    with db.session() as s:
+        running = int(s.scalar(select(func.count()).select_from(Job).where(
+            Job.status == JobStatus.RUNNING)) or 0)
+        pending = list(s.execute(select(Job.id, Job.job_type, Job.created_at, Job.run_after)
+                                 .where(Job.status == JobStatus.PENDING)).all())
+    late, by_band = [], {}
+    for jid, jt, created, run_after in pending:
+        ready_at = max(_aware(created), _aware(run_after) or _aware(created))
+        if ready_at > now:
+            continue  # deferred, not ready
+        kind = band_for(jt)["kind"]
+        sla = BAND_READY_SLA_S.get(kind)
+        waited = (now - ready_at).total_seconds()
+        if sla is not None and waited > sla:
+            late.append({"job": f"jobs:{jid}", "job_type": jt, "band": kind,
+                         "waited_s": round(waited), "sla_s": sla})
+            by_band[kind] = by_band.get(kind, 0) + 1
+    if worker_target is None:
+        idle = None
+    else:
+        idle = running < int(worker_target)
+    starved = len(late) if idle else 0
+    return {
+        "reading": ("UNKNOWN" if idle is None and late else
+                    "starved" if idle and late else
+                    "queueing" if late else "ok"),
+        "starved": starved if idle is not None else None,
+        "late_ready": len(late),
+        "late_by_band": by_band,
+        "capacity_idle": idle, "running": running, "worker_target": worker_target,
+        "oldest": sorted(late, key=lambda r: -r["waited_s"])[:5],
+        "sla_s": BAND_READY_SLA_S,
+        "why": ("worker target unknown, so whether late work waited behind idle capacity "
+                "cannot be said" if idle is None and late else
+                "late READY work while the pool had idle capacity: valuable work untouched "
+                "for no reason" if idle and late else
+                "late work is queueing behind a full pool" if late else
+                "no READY work is past its band SLA"),
+    }
+
+
+def untouched_opportunities(db, *, now: datetime | None = None) -> dict:
+    """F-730 / F-719: discovered opportunity still uncovered after UNTOUCHED_AFTER."""
+    from sqlalchemy import select
+
+    from ..core.models import CoverageGap
+    from ..intel import coverage
+
+    now = now or datetime.now(timezone.utc)
+    with db.session() as s:
+        rows = list(s.scalars(select(CoverageGap)))
+    if not rows:
+        return {"reading": "UNKNOWN", "untouched": None, "value_weighted": None,
+                "why": "no coverage gap has been discovered, so nothing can be untouched yet"}
+    stale = [r for r in rows if r.state == coverage.UNCOVERED
+             and now - _aware(r.updated_at or r.created_at) > UNTOUCHED_AFTER]
+    top = sorted(stale, key=lambda r: -(r.score or 0.0))[:5]
+    return {"reading": "untouched" if stale else "ok", "untouched": len(stale),
+            "of_gaps": len(rows),
+            "value_weighted": round(sum(float(r.score or 0.0) for r in stale), 4),
+            "after_days": UNTOUCHED_AFTER.days,
+            "top": [{"arena": r.arena, "pod": r.pod, "score": r.score,
+                     "uncovered_since": _aware(r.created_at).isoformat()} for r in top],
+            "why": (f"{len(stale)} discovered gap(s) left uncovered over "
+                    f"{UNTOUCHED_AFTER.days} days" if stale else
+                    "every discovered gap was acted on within the window")}
+
+
+def parallelism(runner_state: dict | None) -> dict:
+    """F-489: utilisation of the pool and duplicate work avoided (process-local counters)."""
+    from ..queue import durable
+
+    rs = runner_state or {}
+    busy, idle = rs.get("busy_seconds"), rs.get("idle_seconds")
+    measured = isinstance(busy, (int, float)) and isinstance(idle, (int, float)) \
+        and (busy + idle) > 0
+    lanes = {k: {"busy_seconds": v.get("busy_seconds"), "idle_seconds": v.get("idle_seconds")}
+             for k, v in (rs.get("lanes") or {}).items()}
+    return {
+        "busy_seconds": busy if measured else None,
+        "idle_seconds": idle if measured else None,
+        "utilisation": round(busy / (busy + idle), 4) if measured else None,
+        "lanes": lanes,
+        "worker_pool": rs.get("worker_pool"), "worker_target": rs.get("worker_target"),
+        "dedupe_hits": dict(durable.DEDUPE_HITS),
+        "dedupe_hits_total": sum(durable.DEDUPE_HITS.values()),
+        "dedupe_since": durable.DEDUPE_SINCE.isoformat(),
+        "basis": ("process-local counters since this process started (runner STATE, queue "
+                  "idempotency refusals); a restart resets them" if measured else
+                  "UNKNOWN: this process has no pool counters (not the worker process, or "
+                  "nothing has run yet)"),
+        "merge_delay": "dev-lane merge delay is measured by ops/registry.py "
+                       "(`merge_delay`), outside the deployed tree",
+    }
+
+
+#: F-489 (W4-FMBATCH1): last_error markers of a job that lost to concurrent work rather than
+#: failing on its own merits -- a lease taken over, a lost race, a lock or a unique clash.
+CONFLICT_MARKERS = ("lease", "lost the race", "lost a race", "deadlock", "database is locked",
+                    "could not serialize", "UniqueViolation", "IntegrityError",
+                    "DuplicateJob", "already held")
+
+
+def parallel_window(db, *, hours: int = 24, now: datetime | None = None) -> dict:
+    """F-489, read from durable job rows (survives restarts, unlike the process counters).
+
+    * wall_clock_compression: summed job run-time over the wall-clock span those jobs
+      occupied. 1.0 is serial; 2.0 means two hours of work done per hour of clock.
+    * useful_parallel_seconds: run-time that overlapped another running job -- throughput
+      attributable to running in parallel.
+    * conflict_rate: share of attempts in the window whose error shows they collided with
+      concurrent work (CONFLICT_MARKERS), over all finished or failed attempts.
+    None, with the reason, when the window holds no finished job.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus
+
+    now = now or datetime.now(timezone.utc)
+    since = now - timedelta(hours=hours)
+    spans, conflicts, attempts = [], 0, 0
+    with db.session() as s:
+        for j in s.scalars(select(Job).where(Job.finished_at.is_not(None),
+                                             Job.finished_at >= since)):
+            if j.started_at is None:
+                continue
+            a, b = _aware(j.started_at), _aware(j.finished_at)
+            if b > a:
+                spans.append((a, b))
+            attempts += max(1, int(j.attempts or 1))
+            err = j.last_error or ""
+            if j.status in (JobStatus.FAILED, JobStatus.DEAD, JobStatus.DONE) and any(
+                    m.lower() in err.lower() for m in CONFLICT_MARKERS):
+                conflicts += 1
+    if not spans:
+        return {"wall_clock_compression": None, "useful_parallel_seconds": None,
+                "conflict_rate": None, "window_hours": hours,
+                "why": "no job finished in the window: nothing to measure"}
+    work = sum((b - a).total_seconds() for a, b in spans)
+    events = sorted([(a, 1) for a, _ in spans] + [(b, -1) for _, b in spans])
+    running, last, covered, overlapped = 0, None, 0.0, 0.0
+    for t, d in events:
+        if last is not None and running > 0:
+            dt = (t - last).total_seconds()
+            covered += dt
+            if running > 1:
+                overlapped += dt * running
+        running += d
+        last = t
+    return {"wall_clock_compression": round(work / covered, 3) if covered else None,
+            "useful_parallel_seconds": round(overlapped, 1),
+            "work_seconds": round(work, 1), "busy_wall_seconds": round(covered, 1),
+            "conflict_rate": round(conflicts / attempts, 4) if attempts else None,
+            "conflicts": conflicts, "attempts": attempts, "window_hours": hours,
+            "basis": "durable job rows (started_at/finished_at, attempts, last_error)"}
+
+
+def _parked_why(entry: dict) -> str:
+    """Why a job type is parked, for either kind of suspension (#34): a suspended paid loop
+    says why; an unchanged poll in backoff is described by its backoff."""
+    why = entry.get("why")
+    if why:
+        return str(why)
+    if entry.get("until"):
+        factor = entry.get("factor")
+        return (f"backing off until {entry['until']}"
+                + (f" (x{factor} its cadence)" if factor else "")
+                + "; an unchanged poll waits rather than repeating itself")
+    return f"parked ({entry.get('kind') or 'unknown kind'})"
+
+
+def agents_view(db, *, now: datetime | None = None) -> dict:
+    """F-487: per agent -- running job, pending, parked job types, last completion, spend."""
+    from sqlalchemy import func, select
+
+    from ..core.models import Agent, Job, JobStatus
+    from ..finance import spend_report
+    from .orchestrate import suspended_job_types
+
+    now = now or datetime.now(timezone.utc)
+    try:
+        parked = suspended_job_types(db, now=now)
+    except Exception as exc:  # noqa: BLE001
+        parked, parked_err = {}, f"unreadable: {type(exc).__name__}"
+    else:
+        parked_err = None
+    try:
+        spend = spend_report.what_it_bought(db, now=now).get("by_agent") or {}
+        spend_err = None
+    except Exception as exc:  # noqa: BLE001
+        spend, spend_err = None, f"unreadable: {type(exc).__name__}"
+    with db.session() as s:
+        agents = [(a.name, a.enabled, list(a.allowed_job_types or []))
+                  for a in s.scalars(select(Agent).order_by(Agent.name))]
+        running = {}
+        for jid, agent, jt, started in s.execute(
+                select(Job.id, Job.agent, Job.job_type, Job.started_at)
+                .where(Job.status == JobStatus.RUNNING)).all():
+            running.setdefault(agent, {"job": f"jobs:{jid}", "job_type": jt,
+                                       "started_at": _aware(started).isoformat()
+                                       if started else None})
+        pend = {}
+        for agent, run_after in s.execute(select(Job.agent, Job.run_after).where(
+                Job.status == JobStatus.PENDING)).all():
+            p = pend.setdefault(agent, {"ready": 0, "deferred": 0})
+            p["deferred" if run_after and _aware(run_after) > now else "ready"] += 1
+        last = dict(s.execute(select(Job.agent, func.max(Job.finished_at)).where(
+            Job.status == JobStatus.DONE).group_by(Job.agent)).all())
+        # F-487 "output/evidence": the agent's newest finished job, as a pointer to its
+        # durable output (the job row's outputs and the audit rows that cite it).
+        last_job: dict[str, dict] = {}
+        for jid, agent, jt, fin in s.execute(
+                select(Job.id, Job.agent, Job.job_type, Job.finished_at)
+                .where(Job.status == JobStatus.DONE)
+                .order_by(Job.finished_at.desc(), Job.id.desc())).all():
+            if agent not in last_job:
+                last_job[agent] = {"job": f"jobs:{jid}", "job_type": jt}
+    rows = []
+    for name, enabled, types in agents:
+        p = pend.get(name, {"ready": 0, "deferred": 0})
+        lf = _aware(last.get(name))
+        rows.append({
+            "agent": name, "enabled": bool(enabled),
+            "running_job": running.get(name),
+            "pending_ready": p["ready"], "pending_deferred": p["deferred"],
+            # CLOSE5: a backoff entry carries `until`/`factor`, not `why`; indexing ["why"]
+            # raised KeyError and served GET /api/departments as a 500 in production b931d17.
+            "parked_job_types": {t: _parked_why(parked[t]) for t in types if t in parked},
+            "last_completion": lf.isoformat() if lf else None,
+            "last_output": last_job.get(name),
+            "month_spend_cad": (None if spend is None else
+                                round(float((spend.get(name) or {}).get("cad") or 0.0), 6)),
+            "idle": bool(enabled) and name not in running and p["ready"] == 0,
+        })
+    return {"as_of": now.isoformat(), "agents": rows,
+            "spend_basis": spend_err or "finance.spend_report.what_it_bought (this month, "
+                                        "recorded rows; an agent with no row spent nothing "
+                                        "recorded)",
+            "parked_basis": parked_err or "swarm.orchestrate.suspended_job_types"}

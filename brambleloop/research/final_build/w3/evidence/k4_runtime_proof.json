@@ -1,0 +1,244 @@
+{
+ "generated_at": "2026-10-06T16:35:32.952756+00:00",
+ "db": "fresh temporary SQLite (hermetic; not production data)",
+ "GET /api/owner/phase/verdict": {
+  "recorded_phase": "shadow",
+  "next": "staging",
+  "verdict": {
+   "ready": false,
+   "evaluated_at": "2026-10-06T16:35:28.104597+00:00",
+   "evaluator": "launch.readiness.transition_verdict",
+   "assessed_at_phase": "staging",
+   "questions": {
+    "findable": {
+     "pass": false,
+     "failing": [
+      "catalogue_depth",
+      "launch_calendar",
+      "analytics_baseline"
+     ]
+    },
+    "clickable": {
+     "pass": false,
+     "failing": [
+      "listing_imagery",
+      "listing_photography",
+      "opening_grid",
+      "storefront_preview"
+     ]
+    },
+    "converts_honestly": {
+     "pass": false,
+     "failing": [
+      "pricing",
+      "content",
+      "digital_disclosure",
+      "faq",
+      "pricing_promotion_plan",
+      "sustainable_economics"
+     ]
+    },
+    "pattern_makes_what_is_shown": {
+     "pass": false,
+     "failing": [
+      "imagery_truthful",
+      "physical_calibration",
+      "benchmark_challenge"
+     ]
+    },
+    "shop_trustworthy": {
+     "pass": false,
+     "failing": [
+      "seller_identity",
+      "etsy_shop",
+      "payout",
+      "brand_clearance",
+      "brand_moat",
+      "support_knowledge"
+     ]
+    },
+    "ads_measurable_bounded": {
+     "pass": false,
+     "failing": [
+      "rollback_plan",
+      "analytics_baseline"
+     ]
+    },
+    "other_hard_gates": {
+     "pass": false,
+     "failing": [
+      "etsy_integration",
+      "artifact_storage",
+      "listing_fees",
+      "model_credits",
+      "final_master_closure",
+      "off_device_autonomy_proof"
+     ]
+    }
+   },
+   "failing": [
+    "findable:catalogue_depth",
+    "findable:launch_calendar",
+    "findable:analytics_baseline",
+    "clickable:listing_imagery",
+    "clickable:listing_photography",
+    "clickable:opening_grid",
+    "clickable:storefront_preview",
+    "converts_honestly:pricing",
+    "converts_honestly:content",
+    "converts_honestly:digital_disclosure",
+    "converts_honestly:faq",
+    "converts_honestly:pricing_promotion_plan",
+    "converts_honestly:sustainable_economics",
+    "pattern_makes_what_is_shown:imagery_truthful",
+    "pattern_makes_what_is_shown:physical_calibration",
+    "pattern_makes_what_is_shown:benchmark_challenge",
+    "shop_trustworthy:seller_identity",
+    "shop_trustworthy:etsy_shop",
+    "shop_trustworthy:payout",
+    "shop_trustworthy:brand_clearance",
+    "shop_trustworthy:brand_moat",
+    "shop_trustworthy:support_knowledge",
+    "ads_measurable_bounded:rollback_plan",
+    "ads_measurable_bounded:analytics_baseline",
+    "other_hard_gates:etsy_integration",
+    "other_hard_gates:artifact_storage",
+    "other_hard_gates:listing_fees",
+    "other_hard_gates:model_credits",
+    "other_hard_gates:final_master_closure",
+    "other_hard_gates:off_device_autonomy_proof",
+    "demand_capture_plan:"
+   ],
+   "excluded": {
+    "phase": "'the phase allows publishing' is what this transition decides; it cannot be a precondition of itself"
+   },
+   "off_device_autonomy_proof": "NOT PROVEN",
+   "demand_capture": {
+    "complete": false,
+    "products": 0,
+    "gaps": []
+   }
+  },
+  "rule": "a move up is recorded only when this verdict is ready (F-300)"
+ },
+ "POST transition shadow->staging": {
+  "status": 409,
+  "body": {
+   "detail": "launch readiness is not ready at transition time; a move to 'staging' requires readiness.ready (failing: findable:catalogue_depth, findable:launch_calendar, findable:analytics_baseline, clickable:listing_imagery, clickable:listing_photography, clickable:opening_grid, clickable:storefront_preview, converts_honestly:pricing, converts_honestly:content, converts_honestly:digital_disclosure, converts_honestly:faq, converts_honestly:pricing_promotion_plan)"
+  }
+ },
+ "POST transition to shadow (rollback, no readiness)": {
+  "status": 200,
+  "direction": "reaffirm",
+  "readiness_at_transition": null
+ },
+ "visibility.summary": {
+  "status": "UNKNOWN",
+  "basis": "measured",
+  "items": [
+   {
+    "key": "launch_verdict",
+    "label": "Launch verdict (six questions)",
+    "state": "UNKNOWN",
+    "why": "the newest launch.assessed row is synthetic test evidence"
+   },
+   {
+    "key": "storefront_completion",
+    "label": "Storefront completion",
+    "state": "FAIL",
+    "why": null
+   },
+   {
+    "key": "search_visibility_issues",
+    "label": "Search Visibility issues",
+    "state": "UNMEASURED",
+    "why": null
+   },
+   {
+    "key": "search_readiness",
+    "label": "Search readiness",
+    "state": "UNMEASURED",
+    "why": null
+   },
+   {
+    "key": "search_terms",
+    "label": "Search terms",
+    "state": "UNMEASURED",
+    "why": "no Etsy Stats export has been ingested"
+   },
+   {
+    "key": "funnel",
+    "label": "Impressions, clicks, conversion",
+    "state": "UNMEASURED",
+    "why": null
+   },
+   {
+    "key": "traffic_sources",
+    "label": "Traffic sources (never blended)",
+    "state": "UNMEASURED",
+    "why": null
+   },
+   {
+    "key": "etsy_ads",
+    "label": "Etsy Ads",
+    "state": "UNKNOWN",
+    "why": null
+   },
+   {
+    "key": "offsite_ads",
+    "label": "Offsite Ads",
+    "state": "UNMEASURED",
+    "why": null
+   },
+   {
+    "key": "seasonal_readiness",
+    "label": "Seasonal readiness (Christmas)",
+    "state": "TRACKED",
+    "why": null
+   },
+   {
+    "key": "demand_capture",
+    "label": "Demand-capture plan",
+    "state": "FAIL",
+    "why": "no opening product has a listing yet"
+   },
+   {
+    "key": "learning_plan",
+    "label": "First-30-day learning plan",
+    "state": "TRACKED",
+    "why": null
+   },
+   {
+    "key": "launch_success",
+    "label": "Launch success (multi-signal)",
+    "state": "UNMEASURED",
+    "why": null
+   },
+   {
+    "key": "recommendations",
+    "label": "Actionable recommendations",
+    "state": "UNMEASURED",
+    "why": "no Etsy Stats export has been ingested (/api/attribution/stats)"
+   },
+   {
+    "key": "owner_actions",
+    "label": "Owner actions",
+    "state": "NONE",
+    "why": null
+   }
+  ],
+  "sources": [
+   "audit_log:launch.assessed",
+   "operating_readings:attribution.stats",
+   "finance.sources.table",
+   "growth.ads_readiness.summary",
+   "commerce.search_visibility.state",
+   "brand.storefront",
+   "owner_actions",
+   "launch.demand",
+   "launch.success",
+   "launch.recommendations"
+  ],
+  "reason": "launch.readiness has never run"
+ }
+}

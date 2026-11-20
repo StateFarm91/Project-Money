@@ -1,0 +1,219 @@
+{
+  "captured_at": "2026-09-17T16:15:15.404747+00:00",
+  "cir": {
+    "colors": {
+      "cream": "#FAF6EB"
+    },
+    "components": [
+      {
+        "construction": "spiral_rounds",
+        "foundation": 0,
+        "foundation_kind": "magic_ring",
+        "make": 1,
+        "name": "body",
+        "note": null,
+        "rows": [
+          {
+            "allow_remainder": false,
+            "color": "cream",
+            "declared_count": 6,
+            "index": 1,
+            "into": null,
+            "note": "6 sc in magic ring",
+            "ops": [
+              {
+                "count": 6,
+                "note": null,
+                "stitch": "sc"
+              }
+            ],
+            "turning_chain": 0,
+            "turning_chain_counts": false
+          },
+          {
+            "allow_remainder": false,
+            "color": "cream",
+            "declared_count": 12,
+            "index": 2,
+            "into": null,
+            "note": null,
+            "ops": [
+              {
+                "note": null,
+                "ops": [
+                  {
+                    "count": 1,
+                    "note": null,
+                    "stitch": "inc"
+                  }
+                ],
+                "times": 6
+              }
+            ],
+            "turning_chain": 0,
+            "turning_chain_counts": false
+          },
+          {
+            "allow_remainder": false,
+            "color": "cream",
+            "declared_count": 18,
+            "index": 3,
+            "into": null,
+            "note": null,
+            "ops": [
+              {
+                "note": null,
+                "ops": [
+                  {
+                    "count": 1,
+                    "note": null,
+                    "stitch": "sc"
+                  },
+                  {
+                    "count": 1,
+                    "note": null,
+                    "stitch": "inc"
+                  }
+                ],
+                "times": 6
+              }
+            ],
+            "turning_chain": 0,
+            "turning_chain_counts": false
+          },
+          {
+            "allow_remainder": false,
+            "color": "cream",
+            "declared_count": 24,
+            "index": 4,
+            "into": null,
+            "note": null,
+            "ops": [
+              {
+                "note": null,
+                "ops": [
+                  {
+                    "count": 2,
+                    "note": null,
+                    "stitch": "sc"
+                  },
+                  {
+                    "count": 1,
+                    "note": null,
+                    "stitch": "inc"
+                  }
+                ],
+                "times": 6
+              }
+            ],
+            "turning_chain": 0,
+            "turning_chain_counts": false
+          },
+          {
+            "allow_remainder": false,
+            "color": "cream",
+            "declared_count": 30,
+            "index": 5,
+            "into": null,
+            "note": null,
+            "ops": [
+              {
+                "note": null,
+                "ops": [
+                  {
+                    "count": 3,
+                    "note": null,
+                    "stitch": "sc"
+                  },
+                  {
+                    "count": 1,
+                    "note": null,
+                    "stitch": "inc"
+                  }
+                ],
+                "times": 6
+              }
+            ],
+            "turning_chain": 0,
+            "turning_chain_counts": false
+          },
+          {
+            "allow_remainder": false,
+            "color": "cream",
+            "declared_count": 34,
+            "index": 6,
+            "into": null,
+            "note": null,
+            "ops": [
+              {
+                "count": 34,
+                "note": null,
+                "stitch": "sc"
+              }
+            ],
+            "turning_chain": 0,
+            "turning_chain_counts": false
+          },
+          {
+            "allow_remainder": false,
+            "color": "cream",
+            "declared_count": 24,
+            "index": 7,
+            "into": null,
+            "note": null,
+            "ops": [
+              {
+                "note": null,
+                "ops": [
+                  {
+                    "count": 3,
+                    "note": null,
+                    "stitch": "sc"
+                  },
+                  {
+                    "count": 1,
+                    "note": null,
+                    "stitch": "dec"
+                  }
+                ],
+                "times": 6
+              }
+            ],
+            "turning_chain": 0,
+            "turning_chain_counts": false
+          }
+        ]
+      }
+    ],
+    "construction": "spiral_rounds",
+    "designer_notes": null,
+    "finished_size_note": null,
+    "gauge": {
+      "hook_mm": 3.5,
+      "rows_per_10cm": 22,
+      "stitch_type": "sc",
+      "stitches_per_10cm": 20,
+      "yarn_weight": null
+    },
+    "materials": [
+      {
+        "color_id": "cream",
+        "colorway": null,
+        "metres_estimate": null,
+        "name": "worsted cotton",
+        "yarn_weight": "worsted"
+      }
+    ],
+    "risk_class": "B",
+    "slug": "test-sphere",
+    "title": "Test Sphere",
+    "version": "1.0.0"
+  },
+  "expected_codes": [
+    "OVERRUN",
+    "UNDERRUN"
+  ],
+  "note": "deliberate defect from tests/fixtures.py::broken_overrun",
+  "slug": "test-sphere",
+  "source": "suite-broken_overrun"
+}

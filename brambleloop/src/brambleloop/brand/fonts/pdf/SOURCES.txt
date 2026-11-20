@@ -1,0 +1,7 @@
+Static TrueType instances embedded (subset) in the customer pattern PDF.
+All are SIL Open Font License 1.1; the licence texts are in ../ (Lora-OFL.txt,
+CormorantGaramond-OFL.txt, WorkSans-OFL.txt). Fetched 2026-10-27 from the Fontsource
+mirror of Google Fonts, pinned version 5.1.0, latin subset:
+  https://cdn.jsdelivr.net/fontsource/fonts/<family>@5.1.0/latin-<weight>-<style>.ttf
+Families are the brand identity's (brand.identity_system.TYPOGRAPHY): Cormorant Garamond
+(display), Lora (body), Work Sans (UI labels). SHA256SUMS pins the exact bytes.

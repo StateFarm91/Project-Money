@@ -1,0 +1,18 @@
+{
+  "run_id": "20260928T151054909480Z-test_final_visual_authority",
+  "sha": "e0cf403e1c7943c67a37bd0ec2f7fa0b3af6dea8",
+  "suite": "tests/test_final_visual_authority.py",
+  "started": "2026-09-28T15:10:54.909480+00:00",
+  "tree_before": "",
+  "source_before": "dd1eda28094384d9bc125db0f4d15b9c325196dea0ae17da903d873ccf2681f7",
+  "status": "failed",
+  "interpreter": "C:\\Users\\Jacob McKenna\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+  "font_sha256": "7da195a74c55bef988d0d48f9508bd5d849425c1770dba5d7bfc6ce9ed848954",
+  "release_eligible": false,
+  "exit_code": 1,
+  "finished": "2026-09-28T15:10:56.006174+00:00",
+  "source_after": "dd1eda28094384d9bc125db0f4d15b9c325196dea0ae17da903d873ccf2681f7",
+  "head_after": "e0cf403e1c7943c67a37bd0ec2f7fa0b3af6dea8",
+  "log": "20260928T151054909480Z-test_final_visual_authority.log",
+  "log_sha256": "7fa50eb9aa53acea5a7ee0c437e86124a7e111554e9fbdda0f0e62ddd82c7695"
+}

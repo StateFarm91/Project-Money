@@ -1,0 +1,122 @@
+{
+ "radar": {
+  "watched": [
+   {
+    "domain": "aesthetics",
+    "what": "palettes, styling and visual language",
+    "observations": 260,
+    "fresh": 260,
+    "newest_age_days": 0,
+    "fresh_for_days": 180,
+    "why": "aesthetic language moves seasonally, roughly twice a year"
+   },
+   {
+    "domain": "seasonal_behaviour",
+    "what": "how buyers behave around an occasion",
+    "observations": 18,
+    "fresh": 18,
+    "newest_age_days": 4,
+    "fresh_for_days": 400,
+    "why": "one full cycle: last January's Christmas observation is about to be current"
+   },
+   {
+    "domain": "media_capability",
+    "what": "image, video and listing-media capabilities",
+    "observations": 18,
+    "fresh": 18,
+    "newest_age_days": 4,
+    "fresh_for_days": 120,
+    "why": "capability changes are announced and then take months to matter"
+   },
+   {
+    "domain": "competitor_positioning",
+    "what": "how other shops present and price themselves",
+    "observations": 18,
+    "fresh": 18,
+    "newest_age_days": 4,
+    "fresh_for_days": 90,
+    "why": "positioning is a quarter-scale thing; a shop does not re-found itself monthly"
+   },
+   {
+    "domain": "customer_pain",
+    "what": "what buyers complain about in this category",
+    "observations": 1,
+    "fresh": 1,
+    "newest_age_days": 10,
+    "fresh_for_days": 180,
+    "why": "complaints are durable: the same six problems recur for years"
+   }
+  ],
+  "stale": [],
+  "unobserved": [
+   {
+    "domain": "techniques",
+    "what": "new or revived crochet techniques",
+    "why_it_matters": "a stitch technique does not expire; it is either known here or it is not"
+   },
+   {
+    "domain": "marketplace_policy",
+    "what": "seller policy, listing rules, advertising rules",
+    "why_it_matters": "a policy read three weeks ago may already be the wrong policy, and acting on the old one is the kind of mistake that closes a shop"
+   },
+   {
+    "domain": "search_behaviour",
+    "what": "how the platform's search and ranking behave",
+    "why_it_matters": "search behaviour changes without announcement and old observations mislead most exactly where they are most useful"
+   }
+  ],
+  "observations": 315,
+  "note": "5 domain(s) carry fresh observations, 0 have gone stale, and 3 have never been looked at -- which is a different thing from quiet"
+ },
+ "domains": [
+  {
+   "domain": "techniques",
+   "what": "new or revived crochet techniques",
+   "fresh_for_days": 365,
+   "why": "a stitch technique does not expire; it is either known here or it is not"
+  },
+  {
+   "domain": "aesthetics",
+   "what": "palettes, styling and visual language",
+   "fresh_for_days": 180,
+   "why": "aesthetic language moves seasonally, roughly twice a year"
+  },
+  {
+   "domain": "seasonal_behaviour",
+   "what": "how buyers behave around an occasion",
+   "fresh_for_days": 400,
+   "why": "one full cycle: last January's Christmas observation is about to be current"
+  },
+  {
+   "domain": "marketplace_policy",
+   "what": "seller policy, listing rules, advertising rules",
+   "fresh_for_days": 21,
+   "why": "a policy read three weeks ago may already be the wrong policy, and acting on the old one is the kind of mistake that closes a shop"
+  },
+  {
+   "domain": "search_behaviour",
+   "what": "how the platform's search and ranking behave",
+   "fresh_for_days": 60,
+   "why": "search behaviour changes without announcement and old observations mislead most exactly where they are most useful"
+  },
+  {
+   "domain": "media_capability",
+   "what": "image, video and listing-media capabilities",
+   "fresh_for_days": 120,
+   "why": "capability changes are announced and then take months to matter"
+  },
+  {
+   "domain": "competitor_positioning",
+   "what": "how other shops present and price themselves",
+   "fresh_for_days": 90,
+   "why": "positioning is a quarter-scale thing; a shop does not re-found itself monthly"
+  },
+  {
+   "domain": "customer_pain",
+   "what": "what buyers complain about in this category",
+   "fresh_for_days": 180,
+   "why": "complaints are durable: the same six problems recur for years"
+  }
+ ],
+ "note": "Nothing fetches these yet. The spine, the freshness model and the signal/evidence boundary exist and are tested; retrieval is not connected, and the radar says so by reporting every domain unobserved."
+}

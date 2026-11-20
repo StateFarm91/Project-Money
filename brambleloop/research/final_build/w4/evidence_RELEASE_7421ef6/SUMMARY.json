@@ -1,0 +1,51 @@
+{
+ "kind": "release_evidence",
+ "candidate": "7421ef6215588659da314cced213a848ffc8e567",
+ "validated_code": "3967f405ef73c0d2b069a1f45a17cb71f31467aa",
+ "candidate_vs_code": "7421ef6 = 3967f40 + release/RELEASE_3967f40...json and suite_runs only",
+ "generated_at": "2026-10-11",
+ "conditions": "offline; scratch sqlite + artifact dir; BRAMBLELOOP_PHASE=shadow; no Etsy calls; no spend",
+ "commands": {
+  "final_proof": "PYTHONPATH=src python -m brambleloop.build2.final_proof --matrix research/final_build/closure_matrix.json --packets research/final_build/w4/evidence_RELEASE_7421ef6/runtime_packets_7421ef6.json --head <sha> --artifacts . --reachability research/final_build/module_reachability.json --output .../final_proof_<sha7>.json",
+  "launch_packet": "PYTHONPATH=src python scripts/launch_packet.py --db sqlite:///<scratch>/packet.sqlite --sha 7421ef6215588659da314cced213a848ffc8e567 --out research/final_build/w4/evidence_RELEASE_7421ef6",
+  "shadow_rehearsal": "PYTHONPATH=src python scripts/shadow_rehearsal.py --out research/final_build/w4/evidence_RELEASE_7421ef6/shadow_rehearsal_7421ef6.json"
+ },
+ "results": {
+  "final_proof": {
+   "7421ef6": "917/917 BLOCKED, certified false (exit 1)",
+   "3967f40": "917/917 BLOCKED, certified false (exit 1)",
+   "packets": 0
+  },
+  "launch_packet": {
+   "verdict": "UNKNOWN",
+   "products_unknown": 7,
+   "phase": "shadow (agree)",
+   "recorded_suite": "UNKNOWN (quotes RUN_6f9a2f7, not release/RELEASE_3967f40)"
+  },
+  "shadow_rehearsal": {
+   "complete": false,
+   "exit": 2,
+   "refused_as_expected": [
+    "store.publish[shadow]"
+   ],
+   "blocked": [
+    "owner_publication_grant",
+    "store.publish[past-shadow]"
+   ],
+   "defects": [
+    "search_certificate_not_pass",
+    "grant_snapshot_refused",
+    "past_shadow_publish_blocked",
+    "order_version_unmapped"
+   ]
+  }
+ },
+ "files": {
+  "final_proof_3967f40.json": "80fae29632d64e2e731b1d6d59c0e9c29c41946ef18850be5e062d3372bd2bb4",
+  "final_proof_7421ef6.json": "89ef15ccb1f60887117d68291a27a188a78fbc4bf84e5447dcf87e330e3db617",
+  "launch_packet_7421ef621558_20261011T001157Z.json": "87f2fd2da09be621c974a4ff53e4fa22390dc5d7b5015f14c7e5bd169b97faec",
+  "launch_packet_7421ef621558_20261011T001157Z.md": "da110dc36e497e6ba6b12c659b62191d945d2b4f399db8667323a5998d77cb70",
+  "runtime_packets_7421ef6.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+  "shadow_rehearsal_7421ef6.json": "7958f345218c89cb10060ac7bb3a770c731e5266c15de237d72f077446c511a7"
+ }
+}

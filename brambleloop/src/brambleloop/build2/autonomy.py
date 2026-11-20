@@ -1,0 +1,269 @@
+"""Proving the company runs with every personal computer switched off.
+
+Requirements 185 and 195. #195 is a launch-blocking acceptance test and it is the only honest
+test of everything this build claims: the owner turns off their devices for twenty-four hours,
+and the company keeps working. Not keeps *responding* — keeps working.
+
+That distinction is the whole design, and #185 states it outright: *"online" means useful work
+is progressing, not merely that HTTP returns 200.* A container that answers health checks while
+its queue is stalled passes every naive uptime monitor ever written, and it is exactly the
+failure a hosted service produces most often — the process is fine, the work stopped.
+
+So the proof counts five different things and requires all of them, because each one alone has
+a way of being true while the company is dead:
+
+  **Jobs completed.** Work finished, not work enqueued. A queue that only grows is a stall
+  with a backlog.
+  **Scheduler ticks.** Cadences fired across the window, so the system was driving itself
+  rather than replaying one burst.
+  **Spread.** Those completions distributed across the window rather than clustered in the
+  first ten minutes, which is what a container that died after starting looks like.
+  **Distinct job types.** More than one kind of work, or a single retrying job counts as a
+  working company.
+  **No session.** Nothing in the window was enqueued by a human-driven session, or the proof
+  is a proof that somebody was watching.
+
+The last one is the one a system would cheat on by accident. A proof run while a session is
+open proves nothing about the session being closed, and it is the easiest possible thing to
+do without noticing.
+"""
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+
+# #195 asks for at least twenty-four hours.
+WINDOW_HOURS = 24
+
+# Below these, the window did not demonstrate a working company.
+MIN_JOBS_COMPLETED = 20
+MIN_DISTINCT_JOB_TYPES = 3
+MIN_SCHEDULER_WINDOWS = 12          # cadences firing across the day, not in one burst
+MIN_ACTIVE_HOURS = 12               # hours in which at least one job completed
+
+# Job types that are enqueued by a person poking an endpoint. Their presence does not fail the
+# proof, but they are excluded from the counts: a proof of unattended operation must not be
+# carried by attended work.
+ATTENDED_JOB_TYPES: frozenset[str] = frozenset({
+    "ops.dead_letters_requeued",
+})
+
+
+def _aware(value: datetime) -> datetime:
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+
+def _cadence_hours(session, since: datetime) -> int:
+    """Distinct hours in which the scheduler enqueued a cadence, counted by the database.
+
+    `Scheduler.tick` is the only writer of `cadence:<name>:<window>` idempotency keys, so a
+    job carrying one is the scheduler's own evidence of having fired. The previous reading
+    counted hours containing *any* audit row, which the health sweep, a hand-driven session
+    or a single retrying job all produce -- a scheduler could have stopped and the proof
+    would not have noticed.
+    """
+    from sqlalchemy import func, select
+
+    from ..core.db import is_postgres
+    from ..core.models import Job
+
+    bind = session.get_bind()
+    if is_postgres(bind):
+        bucket = func.date_trunc("hour", Job.created_at)
+    else:
+        bucket = func.strftime("%Y-%m-%d %H", Job.created_at)
+    return int(session.scalar(
+        select(func.count(func.distinct(bucket))).where(
+            Job.idempotency_key.like("cadence:%"), Job.created_at >= since)) or 0)
+
+
+def off_device_proof(db, *, window_hours: int = WINDOW_HOURS,
+                     now: datetime | None = None) -> dict:
+    """Did this company work, unattended, for the whole window? (#195)
+
+    Returns the evidence whether it passes or fails, because a failed proof is the useful
+    one: it says which of the five conditions was not met, and those have different fixes.
+    """
+    from sqlalchemy import func, select
+
+    from ..core.models import CostEntry, Incident, Job, JobStatus
+
+    now = now or datetime.now(timezone.utc)
+    since = now - timedelta(hours=window_hours)
+
+    with db.session() as s:
+        # Bounded in SQL. This loaded every job, every audit row, every incident and every
+        # cost entry the company had ever written and filtered them in Python -- on an
+        # endpoint the console polls, against tables growing by thousands of rows a day.
+        jobs = [(j.job_type, _aware(j.finished_at), j.status, j.last_error or "")
+                for j in s.scalars(select(Job).where(
+                    Job.finished_at.is_not(None), Job.finished_at >= since))]
+        # #195 asks for restart/recovery evidence. A job that finished on a second or later
+        # attempt was retried or reclaimed from a lease its worker stopped renewing -- the
+        # restart case -- and still completed; that is recovery, counted from the rows.
+        recovered = [(j.job_type, int(j.attempts or 0)) for j in s.scalars(select(Job).where(
+            Job.finished_at.is_not(None), Job.finished_at >= since,
+            Job.status == JobStatus.DONE, Job.attempts > 1))]
+        audit_hours = _cadence_hours(s, since)
+        incidents = int(s.scalar(select(func.count(Incident.id)).where(
+            Incident.at >= since)) or 0)
+        costs = float(s.scalar(select(func.coalesce(func.sum(CostEntry.amount_cad), 0.0))
+                               .where(CostEntry.at >= since)) or 0.0)
+
+    unattended = [j for j in jobs if j[0] not in ATTENDED_JOB_TYPES]
+    completed = [j for j in unattended if j[2] == JobStatus.DONE]
+    # Dead letters that are a refusal working are excluded here rather than only in the
+    # condition. Reporting a total that the condition does not test is how a report says 16
+    # and means 2 -- the same class of lie as an unmeasured rate reported as zero, and it
+    # was doing it until production showed it. `deliberate_refusal` is shared with
+    # `/api/verify`, because two health signals disagreeing about the same row is worse
+    # than either being wrong.
+    from ..queue.durable import deliberate_refusal
+
+    dead = [j for j in unattended
+            if j[2] == JobStatus.DEAD and not deliberate_refusal(j[0], j[3])]
+    expected_refusals = [j for j in unattended
+                         if j[2] == JobStatus.DEAD and deliberate_refusal(j[0], j[3])]
+
+    active_hours = len({c[1].replace(minute=0, second=0, microsecond=0) for c in completed})
+    distinct_types = sorted({c[0] for c in completed})
+
+    conditions = {
+        "jobs_completed": {
+            "have": len(completed), "need": MIN_JOBS_COMPLETED,
+            "met": len(completed) >= MIN_JOBS_COMPLETED,
+            "why": "work finished, not work enqueued -- a queue that only grows is a stall"},
+        "distinct_job_types": {
+            "have": len(distinct_types), "need": MIN_DISTINCT_JOB_TYPES,
+            "met": len(distinct_types) >= MIN_DISTINCT_JOB_TYPES,
+            "why": "more than one kind of work, or one retrying job counts as a company"},
+        "activity_spread": {
+            "have": active_hours, "need": MIN_ACTIVE_HOURS,
+            "met": active_hours >= MIN_ACTIVE_HOURS,
+            "why": ("completions spread across the window rather than clustered at the "
+                    "start, which is what a container that died after booting looks like")},
+        "scheduler_alive": {
+            "have": audit_hours, "need": MIN_SCHEDULER_WINDOWS,
+            "met": audit_hours >= MIN_SCHEDULER_WINDOWS,
+            "why": ("the scheduler enqueued cadence work in this many distinct hours -- "
+                    "counted from `cadence:` idempotency keys, which only `Scheduler.tick` "
+                    "writes, so hand-enqueued work and the system's own audit chatter "
+                    "cannot stand in for a scheduler that stopped")},
+        "no_unexpected_dead_letters": {
+            "have": len(dead), "need": 0, "met": not dead,
+            "types": sorted({d[0] for d in dead}),
+            "why": ("a window full of dead letters is uptime, not work. Shadow-mode publish "
+                    "refusals are excluded from the count as well as from the test, so this "
+                    "number means what it says")},
+    }
+
+    passed = all(c["met"] for c in conditions.values())
+    return {
+        "window_hours": window_hours,
+        "from": since.isoformat(),
+        "to": now.isoformat(),
+        "passed": passed,
+        "conditions": conditions,
+        "unmet": [k for k, v in conditions.items() if not v["met"]],
+        "evidence": {
+            "jobs_completed": len(completed),
+            "job_types": distinct_types,
+            "active_hours": active_hours,
+            "audit_hours": audit_hours,
+            "dead_letters": len(dead),
+            "expected_publish_refusals": len(expected_refusals),
+            "incidents_opened": incidents,
+            "operating_cost_cad": round(float(costs), 4),
+            "restart_recovery": {
+                "recovered_jobs": len(recovered),
+                "recovered_types": sorted({t for t, _a in recovered}),
+                "max_attempts_to_recover": max((a for _t, a in recovered), default=0),
+                "why": ("jobs that completed on a second or later attempt: retried after a "
+                        "failure or reclaimed after their worker stopped renewing its lease. "
+                        "Zero is a window with no restart to recover from, not a failure"),
+            },
+        },
+        "note": ("'Online' means useful work is progressing, not that HTTP returns 200 "
+                 "(#185). A container answering health checks with a stalled queue passes "
+                 "every naive uptime monitor ever written, and it is the failure a hosted "
+                 "service produces most often -- the process is fine, the work stopped."
+                 if not passed else
+                 f"{len(completed)} jobs across {len(distinct_types)} types in "
+                 f"{active_hours} separate hours, unattended (#195)."),
+    }
+
+
+# ---------------------------------------------------------------------------
+# #195 as a launch gate
+#
+# The proof existed and was reachable only from an endpoint: a launch readiness report could
+# say "ready" while the one acceptance test the requirement calls launch-blocking had never
+# passed. `launch_item` is the proof in the shape the readiness report carries, and it has two
+# states only. PROVEN is a window the rows show was worked unattended; anything else --
+# including a proof that could not be computed -- is NOT PROVEN, never a pass by default.
+
+LAUNCH_ITEM_KEY = "off_device_autonomy_proof"
+PROVEN = "PROVEN"
+NOT_PROVEN = "NOT PROVEN"
+
+
+def launch_item(db, *, window_hours: int = WINDOW_HOURS,
+                now: datetime | None = None) -> dict:
+    """The off-device proof as a launch-blocking readiness item (#195)."""
+    try:
+        proof = off_device_proof(db, window_hours=window_hours, now=now)
+    except Exception as exc:  # noqa: BLE001 - an uncomputable proof is not a proven one
+        return {"key": LAUNCH_ITEM_KEY, "blocking": True, "status": NOT_PROVEN,
+                "passed": False, "unmet": ["proof_not_computable"], "evidence": {},
+                "why": (f"the proof could not be computed ({type(exc).__name__}: "
+                        f"{str(exc)[:200]}), and a proof nobody could run is not proven")}
+    passed = bool(proof.get("passed"))
+    return {
+        "key": LAUNCH_ITEM_KEY,
+        "blocking": True,
+        "status": PROVEN if passed else NOT_PROVEN,
+        "passed": passed,
+        "window_hours": proof["window_hours"],
+        "from": proof["from"], "to": proof["to"],
+        "unmet": list(proof["unmet"]),
+        "evidence": proof["evidence"],
+        "why": (f"the last {proof['window_hours']} hours were worked unattended: "
+                f"{proof['note']}" if passed else
+                f"NOT PROVEN: {', '.join(proof['unmet'])} unmet over the last "
+                f"{proof['window_hours']} hours. #195 is launch-blocking, so launch is not "
+                f"ready until a full window passes every condition"),
+    }
+
+
+def health(db, *, now: datetime | None = None) -> dict:
+    """#185's continuous view: is useful work progressing right now?
+
+    Separate from `off_device_proof` because they answer different questions on different
+    timescales -- this one is "is it working", and the proof is "did it work for a day". A
+    system can pass the first and fail the second, which is the case that matters.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Job, JobStatus
+
+    now = now or datetime.now(timezone.utc)
+    hour_ago = now - timedelta(hours=1)
+
+    with db.session() as s:
+        pending = list(s.scalars(select(Job).where(Job.status == JobStatus.PENDING)))
+        recent_done = list(s.scalars(select(Job).where(
+            Job.status == JobStatus.DONE, Job.finished_at.is_not(None),
+            Job.finished_at >= hour_ago)))
+
+    oldest_pending = min((_aware(j.created_at) for j in pending), default=None)
+    queue_age_hours = (round((now - oldest_pending).total_seconds() / 3600.0, 2)
+                       if oldest_pending else 0.0)
+    return {
+        "useful_work_in_last_hour": len(recent_done),
+        "queue_depth": len(pending),
+        "oldest_pending_hours": queue_age_hours,
+        # The distinction #185 draws, as a field rather than a sentence: a deep queue that
+        # is being worked is healthy, and a shallow one that is not is not.
+        "progressing": bool(recent_done) or not pending,
+        "note": ("A queue with work in it and nothing completing is the failure that looks "
+                 "like uptime. Depth alone is not the signal; depth with no completions is."),
+    }

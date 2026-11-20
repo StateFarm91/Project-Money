@@ -1,0 +1,22 @@
+{
+  "run_id": "20260928T154555348700Z-test_exact_coverage_origin",
+  "sha": "7fd49e89e4fc254ed954afe9aa10079845916c4c",
+  "suite": "tests/test_exact_coverage_origin.py",
+  "started": "2026-09-28T15:45:55.348700+00:00",
+  "tree_before": "?? brambleloop/research/final_build/codex/evidence/20260928T154407608215Z-test_cert_parity_copy.json\n?? brambleloop/research/final_build/codex/evidence/20260928T154407608215Z-test_cert_parity_copy.log",
+  "source_before": "164d44c459f461c5041f31b2ee8e54a7f8599d6798a10fea0ba459abb12a5cd0",
+  "dependency_roots": [
+    "C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\runtime-build2"
+  ],
+  "dependency_lock_verified": false,
+  "status": "passed",
+  "interpreter": "C:\\Users\\Jacob McKenna\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+  "font_sha256": "7da195a74c55bef988d0d48f9508bd5d849425c1770dba5d7bfc6ce9ed848954",
+  "release_eligible": false,
+  "exit_code": 0,
+  "finished": "2026-09-28T15:45:58.258466+00:00",
+  "source_after": "164d44c459f461c5041f31b2ee8e54a7f8599d6798a10fea0ba459abb12a5cd0",
+  "head_after": "7fd49e89e4fc254ed954afe9aa10079845916c4c",
+  "log": "20260928T154555348700Z-test_exact_coverage_origin.log",
+  "log_sha256": "d281e71668bbb38ea78fcb13b61f3738ed47016ef22d03e6ea855e800630a102"
+}

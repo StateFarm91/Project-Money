@@ -1,0 +1,113 @@
+{
+ "_meta": {
+  "lane": "w4-FMBATCH1",
+  "status": "PROPOSED: not applied; overrides.json changes only on integrator acceptance (accepted_by), F-867",
+  "what": "window rows read against the production 24 h off-device proof on b997efd (2026-10-26)",
+  "dry_run": "python3 research/final_build/aggregate.py --overrides research/final_build/w4/OVERRIDES_PROPOSED_FMBATCH1_WINDOW.json --dry-run",
+  "not_proposed": {
+   "F-495": "the window shows many departments working, but the criterion is independence 'while other departments are blocked, sleeping, rendering or waiting on external systems'; no department was recorded blocked in the window (departments read 2026-10-26: parked_job_types empty), so independence under blockage is not shown by this proof",
+   "F-880": "criterion names grading the 24 h soak with ops/slo soak grading; that reading is GET /api/cc/operations/soak?start=2026-10-25T01:03:35Z, operator-credentialed -- not readable by this lane",
+   "F-881": "needs the same ops/slo soak grade ('no development session drives work'); operator-credentialed read",
+   "F-895": "needs ops/slo department useful-work for one unattended night per department; operator-credentialed read",
+   "F-923": "needs the external watchdog availability reading (ops/slo.availability from external probe rows); not in the public readings",
+   "F-924": "needs the SLO error budgets from hosted history (slo_check); operator-credentialed read"
+  },
+  "operator_read_needed": "one operator-credentialed GET /api/cc/operations/soak?start=2026-10-25T01:03:35Z (and the Operations tab SLO card) would evidence F-880/F-881/F-895/F-923/F-924"
+ },
+ "overrides": {
+  "F-371": {
+   "coverage": "FULL",
+   "missing_part": "",
+   "gate": {
+    "kind": "none",
+    "key": null,
+    "detail": "production_window satisfied: the 24 h unattended proof passed on the deployed build"
+   },
+   "next_action": "none -- read against production b997efd 2026-10-26",
+   "evidence": [
+    "research/final_build/w4/evidence_FMBATCH1/prod_api_build_20261026T0103Z.json (production b997efd, /health 15800536): autonomy.off_device_proof passed=true, window 2026-10-25T01:03:35Z..2026-10-26T01:03:35Z, jobs_completed 1417 of 97 job types, completions in 25 distinct hours, scheduler alive in 25 hours (cadence: keys), 0 unexpected dead letters, 26 incidents opened, operating cost CA$0.1698, restart_recovery: 0 recoveries needed (no restart in the window)",
+    "research/final_build/w4/evidence_FMBATCH1/prod_api_verify_20261026T0103Z.json: /api/verify ok=true on the deployed b997efd"
+   ],
+   "reason": "Criterion: 'Production workers, scheduler/cadences, durable queues, observation, incident detection, spend governance and authorized business operations continue in cloud infrastructure while the owner PC is completely off.' In the window: workers and scheduler ran (25 h each), queues completed 1417 jobs, observation (ops.health, ops.slo, ops.heartbeat), incident detection (26 opened), spend governance (finance.governor, finance.escalation_check), authorized business operations (commerce.orders_ingest, etsy.shop_snapshot, etsy.listing_census, ads.adjust). Publication is not authorized (SHADOW), so it is correctly absent."
+  },
+  "F-654": {
+   "coverage": "FULL",
+   "missing_part": "",
+   "gate": {
+    "kind": "none",
+    "key": null,
+    "detail": "production_window satisfied: the 24 h unattended proof passed on the deployed build"
+   },
+   "next_action": "none -- read against production b997efd 2026-10-26",
+   "evidence": [
+    "research/final_build/w4/evidence_FMBATCH1/prod_api_build_20261026T0103Z.json (production b997efd, /health 15800536): autonomy.off_device_proof passed=true, window 2026-10-25T01:03:35Z..2026-10-26T01:03:35Z, jobs_completed 1417 of 97 job types, completions in 25 distinct hours, scheduler alive in 25 hours (cadence: keys), 0 unexpected dead letters, 26 incidents opened, operating cost CA$0.1698, restart_recovery: 0 recoveries needed (no restart in the window)",
+    "research/final_build/w4/evidence_FMBATCH1/prod_api_verify_20261026T0103Z.json: /api/verify ok=true on the deployed b997efd"
+   ],
+   "reason": "Criterion: 'owner PC/browser/phone/tablet may all be off without pausing the company. Production queues, events, schedules, accounting, monitoring and safe autonomous work remain live.' Window shows queues, schedules (25 h), accounting (finance.accounting.cycle, finance.reconcile, period_pack), monitoring (ops.health, ops.slo, ops.sentinel) and autonomous work (autonomy.orchestrate, swarm.*) live with no owner action recorded."
+  },
+  "F-701": {
+   "coverage": "FULL",
+   "missing_part": "",
+   "gate": {
+    "kind": "none",
+    "key": null,
+    "detail": "production_window satisfied: the 24 h unattended proof passed on the deployed build"
+   },
+   "next_action": "none -- read against production b997efd 2026-10-26",
+   "evidence": [
+    "research/final_build/w4/evidence_FMBATCH1/prod_api_build_20261026T0103Z.json (production b997efd, /health 15800536): autonomy.off_device_proof passed=true, window 2026-10-25T01:03:35Z..2026-10-26T01:03:35Z, jobs_completed 1417 of 97 job types, completions in 25 distinct hours, scheduler alive in 25 hours (cadence: keys), 0 unexpected dead letters, 26 incidents opened, operating cost CA$0.1698, restart_recovery: 0 recoveries needed (no restart in the window)",
+    "research/final_build/w4/evidence_FMBATCH1/prod_api_verify_20261026T0103Z.json: /api/verify ok=true on the deployed b997efd"
+   ],
+   "reason": "Criterion: 'The company must continue initiating safe useful work without owner prompting, including research, build, test, QA, finance, marketing preparation, monitoring and improvement.' Window job types: research (radar.scan, culture.sweep, mjs.scan, learn.scan, intel.*), build (build.tick, chain.rebuild), test/QA (gate.lanes, intel.acceptance, creative.blind_review, teardown.enforce), finance (finance.*), marketing preparation (marketing.ads_readiness, growth.*), monitoring (ops.*), improvement (improve.*) -- all cadence-initiated."
+  },
+  "F-849": {
+   "coverage": "FULL",
+   "missing_part": "",
+   "gate": {
+    "kind": "none",
+    "key": null,
+    "detail": "production_window satisfied: the 24 h unattended proof passed on the deployed build"
+   },
+   "next_action": "none -- read against production b997efd 2026-10-26",
+   "evidence": [
+    "research/final_build/w4/evidence_FMBATCH1/prod_api_build_20261026T0103Z.json (production b997efd, /health 15800536): autonomy.off_device_proof passed=true, window 2026-10-25T01:03:35Z..2026-10-26T01:03:35Z, jobs_completed 1417 of 97 job types, completions in 25 distinct hours, scheduler alive in 25 hours (cadence: keys), 0 unexpected dead letters, 26 incidents opened, operating cost CA$0.1698, restart_recovery: 0 recoveries needed (no restart in the window)",
+    "research/final_build/w4/evidence_FMBATCH1/prod_api_verify_20261026T0103Z.json: /api/verify ok=true on the deployed b997efd",
+    "release record for b997efd (commit f19b264e on the production branch): full suite 20261021T002000Z-11418, 674 suites, 9025 tests passing, 0 failing -- including tests/test_cert_claude_independence.py; evidence_FMBATCH1/test_cert_claude_independence_be3fdd6a.txt re-ran it 4/4 on b997efd + this branch"
+   ],
+   "reason": "Criterion: 'Launch certification proves persistent runtime execution does not depend on an active Claude/Codex/Fable/ChatGPT development conversation.' The deployed release's own certification suite passed with test_cert_claude_independence (production start command run, killed and resumed with no session; no session artefact in the image or import closure), and production then ran 24 h unattended.",
+   "consumer": "src/brambleloop/app/runner.py (embedded worker + scheduler the deployed start command launches; app/main.py::_startup) -- the runtime whose unattended 24 h is the proof"
+  },
+  "F-396": {
+   "coverage": "FULL",
+   "missing_part": "",
+   "gate": {
+    "kind": "none",
+    "key": null,
+    "detail": "production_window satisfied: the 24 h unattended proof passed on the deployed build"
+   },
+   "next_action": "none -- read against production b997efd 2026-10-26",
+   "evidence": [
+    "research/final_build/w4/evidence_FMBATCH1/prod_api_build_20261026T0103Z.json (production b997efd, /health 15800536): autonomy.off_device_proof passed=true, window 2026-10-25T01:03:35Z..2026-10-26T01:03:35Z, jobs_completed 1417 of 97 job types, completions in 25 distinct hours, scheduler alive in 25 hours (cadence: keys), 0 unexpected dead letters, 26 incidents opened, operating cost CA$0.1698, restart_recovery: 0 recoveries needed (no restart in the window)",
+    "research/final_build/w4/evidence_FMBATCH1/prod_api_verify_20261026T0103Z.json: /api/verify ok=true on the deployed b997efd",
+    "research/final_build/w4/evidence_FMBATCH1/prod_api_continuity_20261026T0130Z.json and prod_api_offsite_20261026T0130Z.json: nightly continuity proof ok (132 tables, 193817 rows, round-trip digest == source digest), retained archives 10-24/25/26, off-provider encrypted archive 2026-10-26T00:02Z complete with 132 tables restored; survives container replacement, redeploy and provider loss"
+   ],
+   "reason": "Criterion: 'Cloud-resident learning/observation continues with HQ offline... production-required observation, evidence capture and bounded improvement orchestration cannot require the owner PC.' Window: improve.mine/measure/monitor/nightly/replay/retrospective/sandbox/league, learn.scan, ops observation, and evidence capture (ops.continuity, ops.offsite_archive) all ran unattended."
+  },
+  "F-628": {
+   "coverage": "FULL",
+   "missing_part": "",
+   "gate": {
+    "kind": "none",
+    "key": null,
+    "detail": "production_window satisfied: the 24 h unattended proof passed on the deployed build"
+   },
+   "next_action": "none -- read against production b997efd 2026-10-26",
+   "evidence": [
+    "research/final_build/w4/evidence_FMBATCH1/prod_api_build_20261026T0103Z.json (production b997efd, /health 15800536): autonomy.off_device_proof passed=true, window 2026-10-25T01:03:35Z..2026-10-26T01:03:35Z, jobs_completed 1417 of 97 job types, completions in 25 distinct hours, scheduler alive in 25 hours (cadence: keys), 0 unexpected dead letters, 26 incidents opened, operating cost CA$0.1698, restart_recovery: 0 recoveries needed (no restart in the window)",
+    "research/final_build/w4/evidence_FMBATCH1/prod_api_verify_20261026T0103Z.json: /api/verify ok=true on the deployed b997efd",
+    "research/final_build/w4/evidence_FMBATCH1/prod_api_continuity_20261026T0130Z.json and prod_api_offsite_20261026T0130Z.json: nightly continuity proof ok (132 tables, 193817 rows, round-trip digest == source digest), retained archives 10-24/25/26, off-provider encrypted archive 2026-10-26T00:02Z complete with 132 tables restored; survives container replacement, redeploy and provider loss"
+   ],
+   "reason": "Criterion: 'Monitoring, research, accounting imports, event handling and safe recurring operations continue without the owner's PC on. Jobs, ledger, experiments, evidence, credentials and critical artifacts survive restarts.' Continuation: the window. Survival: the nightly continuity round trip and the off-provider encrypted archive restore 132 tables (jobs, ledger, experiments, evidence, sealed credentials) and are recorded to survive container replacement, redeploy and provider loss; the b997efd deploy (2026-10-21) itself replaced the container and the proof passed after it."
+  }
+ }
+}

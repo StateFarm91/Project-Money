@@ -1,0 +1,336 @@
+[
+ {
+  "uid": "F-514@v0.16",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "Marketplace compliance / truthful owner visibility of what the system can and cannot observe on Etsy.",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/intel/etsy_surfaces.py::surfaces / coverage / owner_queue",
+  "durable_state": "owner_actions (etsy surface queue rows); operating_readings (shop/census)",
+  "consumer": "src/brambleloop/launch/readiness.py::unknowns (dashboard); src/brambleloop/runtime/etsy_ops.py::seed_owner_queue (called by runtime/release.py launch.readiness handler)",
+  "protected_effect": "surface unknowns appear as readiness unknowns; owner-only surfaces become one idempotent owner queue closed only on evidence",
+  "tests": [
+   "tests/test_etsy_readback_observe.py::test_launch_readiness_seeds_the_etsy_queue_and_does_not_close_it",
+   "tests/test_etsy_readback_observe.py::test_the_etsy_owner_queue_is_seeded_once_by_key_with_its_closing_evidence",
+   "tests/test_etsy_surfaces.py::test_every_surface_the_brief_named_is_classified_exactly_once",
+   "tests/test_etsy_surfaces.py::test_unsupported_and_not_applicable_are_never_the_same_verdict",
+   "tests/test_k8_shop_cx.py::test_the_inventory_is_served_with_a_channel_per_surface_and_every_named_surface",
+   "tests/test_launch.py::test_the_launch_report_names_its_unknowns_and_the_register_is_not_empty_today",
+   "tests/test_w4_auto_status.py::test_fm2_openapi_reverify_is_scheduled_authorised_banded_and_judged",
+   "tests/test_w4_fm2_surface_reverify.py::test_a_removed_operation_names_the_surface_that_cites_it",
+   "tests/test_w4_fm2_surface_reverify.py::test_an_ads_api_appearing_names_the_unsupported_surfaces",
+   "tests/test_w4_fm2_surface_reverify.py::test_the_job_stores_the_reading_opens_and_resolves_drift_and_reuses_a_fresh_reading",
+   "tests/test_w4_fm2_surface_reverify.py::test_the_served_inventory_reports_the_classification_state"
+  ],
+  "evidence": [
+   "module_reachability: intel/etsy_surfaces.py reached via dashboard -> launch/readiness.assess -> unknowns",
+   "fcb982d launch/readiness.py has no etsy_surfaces reference -> not DEPLOYED",
+   "coverage()['unknowns'] keys today: orders, search_visibility, share_and_save, taxonomy_and_attributes, webhooks",
+   "w4-FM close on w4-FM2 (FM2): served at GET /api/etsy/surfaces (commerce/estate_api -> surface_inventory.served + summary, channel per surface); unknowns include every Evidence(UNKNOWN) (F-588); re-verified daily against held scopes and collector freshness (surface_inventory.reverify inside etsy.shop_snapshot); and now re-verified against Etsy's current OpenAPI document (etsy_surfaces.openapi_reverify + etsy_ops.reverify_openapi, job etsy.openapi_reverify, drift incident) with the classification state per surface on the served inventory. The job has no cadence yet (runtime/worker.py is lane AUTO's): until wired, the served inventory reports 'classification: never re-verified' -- honest, not green",
+   "w4-FM close on w4-FMLEDGER (FMLEDGER): W4-AUTO wired the WIRING REQUEST: runtime/worker.py CADENCES ('etsy_openapi_reverify', 'orchestrator', 'etsy.openapi_reverify', weekly) and agents/registry.py orchestrator allow-list carries 'etsy.openapi_reverify'; the reverify job is now scheduled, authorised, banded and judged"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none: weekly etsy.openapi_reverify keeps the surface classification current; deploy carries it",
+  "confidence": "HIGH",
+  "searched": " | w4-FM2 close | w4-FMLEDGER close"
+ },
+ {
+  "uid": "F-098",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "prevents a weaker/absent model silently passing quality gates during an outage (product truth, no silent downgrade)",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/runtime/worker.py::park_if_model_down / model_provider_down (+ ops/funding.py::note, gateway circuit breaker)",
+  "durable_state": "audit_log (ai.parked; ops.funding_exhausted); jobs.status/run_after (parked pending); owner_actions",
+  "consumer": "src/brambleloop/runtime/worker.py::Worker.run_once (every claimed job)",
+  "protected_effect": "spent balance stops spending and raises one owner action; AI gates park dependent build work; no model verdict replaces deterministic validation",
+  "tests": [
+   "tests/test_access.py::test_evidence_labelled_as_observation_is_downgraded_when_nothing_observed_it",
+   "tests/test_funding.py::test_a_spent_balance_stops_the_spending_it_cannot_check",
+   "tests/test_gateway.py::test_a_provider_that_is_down_opens_its_circuit_and_is_skipped",
+   "tests/test_spend_policy.py::test_a_downgrade_argued_from_cost_is_refused_by_name",
+   "tests/test_w4_auto_spend_wiring.py::test_failed_probe_and_spent_balance_are_outage_evidence",
+   "tests/test_w4_auto_spend_wiring.py::test_long_parked_job_runs_and_reports_its_own_refusal",
+   "tests/test_w4_auto_spend_wiring.py::test_model_job_parks_while_the_provider_is_down",
+   "tests/test_w4_auto_spend_wiring.py::test_non_model_job_is_never_parked",
+   "tests/test_w4_auto_spend_wiring.py::test_unprobed_provider_is_unknown_not_down_and_parks_nothing"
+  ],
+  "evidence": [
+   "ops/funding.py (found live 2026-09-21: vision credit exhausted; image providers kept working)",
+   "gateway/model_gateway.py require_deterministic",
+   "launch/access.py accept_evidence (No Silent Downgrade #224)",
+   "ops/funding.py in production fcb982d",
+   "w4-FM close on w4-FMLEDGER (FMLEDGER): W4-AUTO: runtime/worker.py::park_if_model_down / model_provider_down is called by Worker.run_once before every handler; a MODEL_JOB_TYPES job is parked (pending, attempt not counted, audited ai.parked) only on outage evidence (failover DOWN, open Anthropic funding action, failed probe); an unprobed provider is UNKNOWN and parks nothing; a non-model job always runs; a job parked >24h runs and reports its own refusal (no substitute verdict)"
+  ],
+  "build2_rows": [
+   "#224 COMPLETE+PROVEN",
+   "#50 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none: deploy carries the outage mode (fcb982d does not)",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FMLEDGER close"
+ },
+ {
+  "uid": "F-310",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority addendum-P0-launch-critical (pricing/economics integrity, spend controls)",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/swarm/orchestrate.py::_progress / thrash_sweep",
+  "durable_state": "jobs.outputs; audit_log (new evidence rows); incidents",
+  "consumer": "src/brambleloop/runtime/worker.py::Scheduler.tick",
+  "protected_effect": "a stalled paid cadence is not re-enqueued",
+  "tests": [
+   "tests/test_cert_thrash.py::test_a_paid_loop_is_suspended_until_the_hypothesis_changes",
+   "tests/test_w4_auto_spend_wiring.py::test_bookkeeping_audits_are_not_evidence",
+   "tests/test_w4_auto_spend_wiring.py::test_progress_counts_new_evidence_rows_and_ignores_restatements"
+  ],
+  "evidence": [
+   "thrash_sweep not in fcb982d orchestrate.py",
+   "w4-FM close on w4-FMLEDGER (FMLEDGER): W4-AUTO: swarm/orchestrate.py::_progress counts new content-distinct durable audit rows per job type (new_evidence_rows; bookkeeping prefixes job./ai.parked/paid_call.replayed excluded) and folds them into the state sequence, so identical outputs with a new observation are progress and a restated row is not; thrash_sweep (ops.thrash, hourly cadence) reads it for backoff"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none: deploy carries the durable-evidence progress measure",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FMLEDGER close"
+ },
+ {
+  "uid": "F-659",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "runtime durability, recovery and idempotence",
+  "maturity": "INTEGRATED",
+  "coverage": "FULL",
+  "missing_part": null,
+  "producer": "src/brambleloop/queue/checkpoints.py::save / load (JobQueue.checkpoint/restore; JobContext.checkpoint/restore)",
+  "durable_state": "job_checkpoints; jobs table: idempotency_key unique, lease_expires_at, lease_token, attempts, status DEAD",
+  "consumer": "src/brambleloop/runtime/release.py::handle_model_photography / handle_seasonal_cycle_proof (via runtime/worker.py::Worker)",
+  "protected_effect": "no duplicate execution; crashed jobs reclaimed; failing jobs dead-letter",
+  "tests": [
+   "tests/test_cert_orchestration.py::test_crash_mid_handler_is_reclaimed_and_completed_exactly_once",
+   "tests/test_cert_orchestration.py::test_retries_back_off_exponentially_then_dead_letter",
+   "tests/test_chaos.py::test_a_reclaimed_jobs_original_worker_cannot_complete_it",
+   "tests/test_chaos.py::test_duplicate_spend_job_cannot_double_charge",
+   "tests/test_persistence.py::test_sigkilled_worker_loses_no_work_and_another_finishes_it",
+   "tests/test_w4_auto_spend_wiring.py::test_checkpoint_resumes_after_reclaim_without_repeating_steps",
+   "tests/test_w4_auto_spend_wiring.py::test_stale_worker_cannot_overwrite_a_checkpoint",
+   "tests/test_w4_fml_checkpoint_adoption.py::test_a_direct_call_without_a_queued_job_still_runs_the_step",
+   "tests/test_w4_fml_checkpoint_adoption.py::test_cycle_proof_resumes_from_the_checkpointed_report",
+   "tests/test_w4_fml_checkpoint_adoption.py::test_model_photography_resumes_without_rendering_again"
+  ],
+  "evidence": [
+   "BUILD_STATE.md 'Current phase': production (fcb982d) deployed on Railway and running 24/7; research/BUILD2_CLOSEOUT_REPORT.md S: queue done 5,399 / dead 166, /api/verify 12/12",
+   "BUILD_STATE: POST /api/queue/requeue re-drives dead letters in production",
+   "src/brambleloop/queue/durable.py claim/heartbeat in fcb982d; classify_dead_letter post-fcb982d",
+   "w4-FM close on w4-FMLEDGER (FMLEDGER): W4-AUTO: queue/checkpoints.py (job_checkpoints; fenced to the lease token; cleared on completion; kept on dead letter) via JobQueue.checkpoint/restore and JobContext.checkpoint/restore; W4-FMLEDGER adopted it in the longest handlers: runtime/release.py handle_model_photography (render step 'render:<slug>@<version>') and handle_seasonal_cycle_proof ('cycle_report'), so a worker that dies after the long step resumes without repeating it. queue/checkpoints.py is reached on 2f36fe0 (module_reachability regenerated here: load is live via queue/durable.py:JobQueue.restore). Lease fencing/renewal and the dead-letter classifier are on this head; production fcb982d predates them (deploy pending, owner production window)"
+  ],
+  "build2_rows": [
+   "#184 COMPLETE+PROVEN",
+   "#185 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "none",
+   "detail": "no external/owner/data gate on the remaining step"
+  },
+  "defect": null,
+  "next_action": "none: deploy carries checkpoints, fencing and renewal",
+  "confidence": "HIGH",
+  "searched": " | w4-FMLEDGER close"
+ },
+ {
+  "uid": "F-030",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "master_priority P0-before-launch (source-stated launch-critical)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "LIFESTYLE frames for the Launch-0 listings (owner VB-1 P2 paid composites or physical sample photographs); CONTENTS is certified on every renderable Launch-0 release",
+  "producer": "src/brambleloop/publish/listing_assets.py::check_frame_plan + publish/release_gates.py::listing_set (ROLE_JOBS)",
+  "durable_state": "listing_assets",
+  "consumer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+  "protected_effect": "missing frame blocks",
+  "tests": [
+   "tests/test_brand.py (MISSING_FRAME)",
+   "tests/test_listing_set.py::test_the_frame_order_is_recorded_by_position",
+   "tests/test_w4_visual2.py::test_contents_frame_is_the_certified_pdf_and_verifies_only_on_it",
+   "tests/test_w4_visual2.py::test_contents_is_certified_through_the_supplement_path_with_the_preview_label",
+   "tests/test_w4_visual_certified_gallery.py::test_every_launch0_primary_is_offered_its_verified_applicable_jobs",
+   "tests/test_w4_visual_certified_gallery.py::test_the_certificate_takes_supplements_only_in_order_with_readings_and_distinct_jobs"
+  ],
+  "evidence": [
+   "BUILD_STATE.md:315 production 2026-09-18 holds 16 listings / 94 images built by the release chain (listing.seo, assets.build ran in production); production /api/verify 12/12 heartbeats; function present in fcb982d",
+   "w4-FM close on 8b67414 (FOLD): the frame-job reading is complete (eligibility JOBS gains ANGLE, CONSTRUCTION, COLOUR_CONTEXT, FIT, LIFESTYLE; gallery_jobs_for/gallery_architecture list applicable and missing jobs; search_evidence.gallery feeds the conversion_readiness rung). The frames themselves are missing",
+   "w4-FM close on w4-FM2 (FM2): VISUAL/VISUAL2: drawable gallery jobs certified on every Launch-0 release; CONTENTS producer (visual/contents_frame.py) certified on 3 of 5 Launch-0 releases (w4/visual/certified_gallery_proof_launch0_new_2026-10-07.json, contents_gallery_proof_coasters_2026-10-07.json)",
+   "w4-FM close on w4-FMLEDGER (FMLEDGER): W4-VISUAL2 runtime proof research/final_build/w4/visual/contents_gallery_proof_all_2026-10-07.json (a68db01): listing-set certificate valid with CONTENTS certified on cloudline-baby-blanket 1.2.0 and market-basket-small/medium/large 1.2.0 (the nursery-nesting-baskets Launch-0 sizes, products/launch0.py superseded_by), first_customer_imagery PASS; search_evidence_gallery missing only LIFESTYLE; the only gallery job not produced is LIFESTYLE, which needs paid image generation or photographs"
+  ],
+  "build2_rows": [
+   "#65 COMPLETE+PROVEN",
+   "#80 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "visual_paid_generation",
+   "detail": "OWNER_ACTIONS batch 'visual' (Paid image generation): VB-1 P2 LIFESTYLE protected composites for the Launch-0 listings (max CA$2.00 of the CA$4.01 batch; VISUAL_STATUS ceiling CA$4.76 incl. V0), or the no-API alternative: physical sample photographs"
+  },
+  "defect": null,
+  "next_action": "owner: approve OWNER_ACTIONS 'visual' / visual_paid_generation (P2 max CA$2.00) or supply sample photos; then the visual lane certifies LIFESTYLE through the supplement path",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FM close on 8b67414 (FOLD) | w4-FM2 close | w4-FMLEDGER close"
+ },
+ {
+  "uid": "F-254",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "source-stated addendum-P0-launch-critical (v0.8 Etsy launch OS)",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "LIFESTYLE frames for the Launch-0 listings (owner VB-1 P2 paid composites or physical sample photographs); CONTENTS is certified on every renderable Launch-0 release",
+  "producer": "src/brambleloop/publish/eligibility.py::check_set",
+  "durable_state": "ListingAsset frame roles",
+  "consumer": "src/brambleloop/runtime/pipeline.py::_release_gates -> store.publish_blocked",
+  "protected_effect": "a gallery with job collisions or no DESIRE hero fails COMMERCIAL_QA and cannot export",
+  "tests": [
+   "tests/test_cert_publish_gates.py::test_a_filler_frame_with_no_job_is_refused_and_blocks_export",
+   "tests/test_eligibility.py::test_frame_one_must_be_the_hero_doing_desire",
+   "tests/test_eligibility.py::test_two_frames_doing_one_job_is_the_defect_not_two_similar_images",
+   "tests/test_w4_visual2.py::test_contents_frame_is_the_certified_pdf_and_verifies_only_on_it",
+   "tests/test_w4_visual2.py::test_contents_is_certified_through_the_supplement_path_with_the_preview_label",
+   "tests/test_w4_visual_certified_gallery.py::test_every_launch0_primary_is_offered_its_verified_applicable_jobs",
+   "tests/test_w4_visual_certified_gallery.py::test_the_certificate_takes_supplements_only_in_order_with_readings_and_distinct_jobs"
+  ],
+  "evidence": [
+   "eligibility.check_set wiring is post-production (B2 #65 repair)",
+   "w4-FM close on 8b67414 (FOLD): same reading as F-030 (wave-3 K1): the vocabulary is complete, frames missing",
+   "w4-FM close on w4-FM2 (FM2): VISUAL/VISUAL2: drawable gallery jobs certified on every Launch-0 release; CONTENTS producer (visual/contents_frame.py) certified on 3 of 5 Launch-0 releases (w4/visual/certified_gallery_proof_launch0_new_2026-10-07.json, contents_gallery_proof_coasters_2026-10-07.json)",
+   "w4-FM close on w4-FMLEDGER (FMLEDGER): W4-VISUAL2 runtime proof research/final_build/w4/visual/contents_gallery_proof_all_2026-10-07.json (a68db01): listing-set certificate valid with CONTENTS certified on cloudline-baby-blanket 1.2.0 and market-basket-small/medium/large 1.2.0 (the nursery-nesting-baskets Launch-0 sizes, products/launch0.py superseded_by), first_customer_imagery PASS; search_evidence_gallery missing only LIFESTYLE; eligibility.check_set passes the certified sets; LIFESTYLE is the only missing gallery job"
+  ],
+  "build2_rows": [
+   "#65 COMPLETE+PROVEN",
+   "#80 COMPLETE+PROVEN",
+   "#78 COMPLETE+PROVEN"
+  ],
+  "gate": {
+   "kind": "owner",
+   "key": "visual_paid_generation",
+   "detail": "OWNER_ACTIONS batch 'visual' (Paid image generation): VB-1 P2 LIFESTYLE protected composites for the Launch-0 listings (max CA$2.00 of the CA$4.01 batch; VISUAL_STATUS ceiling CA$4.76 incl. V0), or the no-API alternative: physical sample photographs"
+  },
+  "defect": null,
+  "next_action": "owner: approve OWNER_ACTIONS 'visual' / visual_paid_generation (P2 max CA$2.00) or supply sample photos; then the visual lane certifies LIFESTYLE through the supplement path",
+  "confidence": "HIGH",
+  "searched": " | w4-FM close on 8b67414 (FOLD) | w4-FM2 close | w4-FMLEDGER close"
+ },
+ {
+  "uid": "F-839",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "no frozen launch candidate (F-845), so the function-level re-audit has not been run on that exact SHA by an independent session",
+  "producer": "src/brambleloop/build2/reachability.py",
+  "durable_state": "research/final_build/module_reachability.json (basis 'HEAD 6f9a2f7')",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_final_proof.py::test_mutations_refused",
+   "tests/test_reachability.py::test_a_module_called_from_a_scheduled_handler_is_reached"
+  ],
+  "evidence": [
+   "research/final_build/module_reachability.json basis HEAD 6f9a2f7",
+   "research/final_build/RUN_6f9a2f7_full_suite.json (release_eligible, 5,653 passing, 0 failing, clean tree)",
+   "w4-FM close on w4-FMLEDGER (FMLEDGER): the recorded defect (closure_matrix basis label stale) no longer holds: the basis now records the mapping base, every remap SHA and per-row mapped_on, and module_reachability.json was regenerated on 2f36fe0 (W4-FMLEDGER: 654 modules, 560 reached, none lost vs 8b67414). The final-head audit itself still needs a frozen candidate"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "END-STAGE: freeze the RC (F-845), regenerate reachability on it, re-run aggregate.py and the function-level audit there by an independent session, commit the verdict",
+  "confidence": "HIGH",
+  "searched": " | w4-FMLEDGER close"
+ },
+ {
+  "uid": "F-848",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "F-831..F-850 certification contract",
+  "maturity": "TESTED",
+  "coverage": "PARTIAL",
+  "missing_part": "no complete recorded rehearsal: the latest run (ddf9c6e) stops at the owner publication grant (search certificate REFUSED; taxonomy UNKNOWN) and none has run on a frozen candidate",
+  "producer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+  "durable_state": "jobs / audit_log",
+  "consumer": null,
+  "protected_effect": null,
+  "tests": [
+   "tests/test_cert_claude_independence.py::test_production_start_command_runs_kills_and_resumes_without_this_session",
+   "tests/test_shadow.py::test_full_product_runs_end_to_end_without_intervention",
+   "tests/test_shadow.py::test_shadow_mode_refuses_to_publish"
+  ],
+  "evidence": [
+   "FINAL_BUILD_RESUME_MANIFEST.md cluster J: shadow rehearsal UNSTARTED",
+   "w4-FM close on w4-FMLEDGER (FMLEDGER): scripts/shadow_rehearsal.py exists (boot of the production start command on a fresh DB, shadow chain to store.publish refusal, simulated past-shadow publish against tests/fake_etsy, orders/support/ledger) and has run four times (research/final_build/evidence/shadow_rehearsal_{d85ee19,1dddb9d,3be3096,ddf9c6e}*.json); the latest (ddf9c6e) is complete:false, blocked by search_certificate_not_pass, grant_snapshot_refused (taxonomy UNKNOWN) and past_shadow_publish_blocked"
+  ],
+  "build2_rows": [],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "END-STAGE: on the frozen RC run scripts/shadow_rehearsal.py and commit the evidence JSON; each not_complete_because item must be fixed or carry its recorded gate",
+  "confidence": "HIGH",
+  "searched": " | w4-FMLEDGER close"
+ },
+ {
+  "uid": "F-878",
+  "launch_class": "LAUNCH-CRITICAL",
+  "launch_class_reason": "owner needs a truthful launch packet",
+  "maturity": "INTEGRATED",
+  "coverage": "PARTIAL",
+  "missing_part": "the packet is operator tooling only (launch/packet.py not reached from a runtime root) and no packet exists for a frozen candidate",
+  "producer": "src/brambleloop/launch/readiness.py::assess; launch/readiness.py::_launch_package_items; launch/rollback.py::latest",
+  "durable_state": "audit_log; operating readings",
+  "consumer": "app/main.py dashboard",
+  "protected_effect": null,
+  "tests": [
+   "tests/test_launch.py::test_shadow_mode_can_never_be_launch_ready",
+   "tests/test_launch.py::test_the_owner_queue_carries_everything_the_directive_asks_for"
+  ],
+  "evidence": [
+   "launch/rollback.py not in fcb982d",
+   "w4-FM close on w4-FMLEDGER (FMLEDGER): launch/packet.py::build assembles candidate SHA, recorded suite, phase, every Launch-0 product's certification/listing/search/price/economics, owner queue, spend limits, rollback path and activation steps (UNKNOWN never shown as pass); scripts/launch_packet.py writes it; tests test_fb4_launch / test_rc1_own_packet. It is not reached from a runtime root and no packet has been generated for a candidate"
+  ],
+  "build2_rows": [
+   "#54 OWNER-GATED",
+   "#195 OWNER-GATED"
+  ],
+  "gate": {
+   "kind": "none",
+   "key": "",
+   "detail": "remaining work is software"
+  },
+  "defect": null,
+  "next_action": "CC lane (WIRING REQUEST): serve packet.build(db, sha=build.commit()) on an operator-gated GET (security.OPERATOR_GET_ROUTES); END-STAGE: run scripts/launch_packet.py on the frozen RC and commit the packet",
+  "confidence": "MEDIUM",
+  "searched": " | w4-FMLEDGER close"
+ }
+]

@@ -1,0 +1,2583 @@
+"""Launch-0: the smallest catalogue this company can currently defend, and what it rests on.
+
+Research behind the children's half of this: `research/CHILDRENS_CATEGORY.md` (2026-09-24).
+The plan itself: `research/LAUNCH0_CATALOGUE.md`.
+
+The owner's rule for this module is one sentence -- *do not manufacture catalogue completion
+ahead of Product Truth* -- and the whole design follows from taking it literally. A product is
+not in Launch-0 because it would sell. It is in Launch-0 when a CIR exists, compiles clean,
+measures the object the title promises, and the deliverable is makeable.
+
+So nothing here asserts that a product is ready. Every readiness claim is **computed from the
+CIR at call time** by compiling it and measuring its twin. The assortment is a list of
+candidates and a set of gates; `launch0()` is what survives the gates, and it can shrink.
+
+Three gates, and each one exists because a product in the generated catalogue fails it.
+
+**A count in the title has to be backed by pieces in the CIR.** `vessels.py` was written
+because "Market Basket Trio" was one flat panel. The same defect is still live in three more
+products: `Component.make` exists, the generic builder never sets it, and so "Nordic Star
+Ornament Set (6)" is one 7.5 x 11.7 cm rectangle. The gate is generic rather than a list of
+those four, because the next product generated from the same builder will fail it the same way.
+
+**A form that needs assembly has to have assembly in the CIR.** A garland is pennants on a
+cord. A wall hanging hangs from something. Three products name such a form and carry an empty
+`assembly`, which is the same failure one layer along: the CIR is a panel and the name is an
+object.
+
+**A fabric claim has to be expressible in the CIR at all.** This is the gate that cost the most
+to write and it is the one that matters. `Row.color` is a single value and `Op` has no colour
+field, so **the CIR cannot express more than one colour in a row.** Every "mosaic", "overlay"
+and "graphghan" product in the catalogue is therefore a one-row stripe with a raised sc/dc
+relief -- count-perfect, compiles clean, certifies, and is not the fabric the name describes.
+The gate measures the colours actually present per row rather than arguing about what overlay
+mosaic means, because the measurement is decidable and the argument is not.
+
+What this module deliberately does not do:
+
+  * It does not fix those products. The root cause is in `cir/**`, which another department
+    owns, and a title edited to match a weaker fabric is a merchandising decision somebody
+    should make on purpose rather than a side effect of a planning module.
+  * It does not carry a demand or velocity score. `intel/childrens.py` refuses those for the
+    same reason and a test there asserts the refusal; a number nobody measured sitting beside
+    a compiled measurement borrows its credibility.
+  * It does not claim calibration. `twin.calibrated` is False catalogue-wide -- nothing has
+    been checked against a physically worked sample -- so every finished measurement here is
+    arithmetic from a stated gauge, and `product_truth()` says so in the same dict that
+    reports the numbers rather than in a footnote.
+"""
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, fields
+from datetime import date
+
+from ..cir.compiler import compile_cir
+from ..cir.model import CIR, Op
+from ..cir.twin import build_twin
+from ..intel import childrens as ch
+from . import builder as flat
+from . import vessels
+
+SNAPSHOT_DATE = "2026-09-25"
+
+# ---- evidence labels -------------------------------------------------------
+#
+# Same vocabulary the children's research uses, for the same reason: a plan that mixes a
+# compiled measurement with a hunch and prints them in the same typeface is a plan whose
+# reader cannot tell which is which.
+
+SOURCED = "SOURCED"        # a figure read from a cited source, quoted
+DERIVED = "DERIVED"        # arithmetic performed here on sourced numbers, shown
+ESTIMATED = "ESTIMATED"    # a judgement with no measurement behind it, said so
+UNKNOWN = "UNKNOWN"        # not established. Not filled in with a plausible number
+
+LABELS: tuple[str, ...] = (SOURCED, DERIVED, ESTIMATED, UNKNOWN)
+
+
+# ---- what the CIR can and cannot say --------------------------------------
+
+def per_stitch_colour_expressible() -> bool:
+    """Whether the CIR can put two colours in one row.
+
+    Measures: the presence of a colour field on `Op`, which is the only place a per-stitch
+    colour could live. Colour is a field of `Row`, so today the answer is no.
+    Why: this is measured rather than stated because it is the fact the whole colourwork half
+    of the catalogue depends on, and a sentence in a docstring would go stale silently. When
+    somebody adds `Op.color`, this flips to True on its own and the gates below re-open
+    without anybody editing a list.
+    """
+    return any(f.name in ("color", "colour") for f in fields(Op))
+
+
+def per_stitch_reach_down_expressible() -> bool:
+    """Whether the CIR can work one stitch into a row other than the one below it.
+
+    Measures: the presence of a per-op row target on `Op`. `Row.into` retargets a whole row,
+    which is not the same primitive.
+    Why: overlay mosaic is defined by individual stitches reaching past the previous row. With
+    no per-op target the technique is not expressible, so a pattern claiming it is claiming a
+    fabric no compiled CIR in this repository can specify.
+    """
+    return any(f.name in ("into", "row_below", "below") for f in fields(Op))
+
+
+# Fabric claims, and what each one needs to be true. A closed vocabulary on purpose: an
+# open-ended claim detector reads "beautiful texture" as a testable promise and then argues
+# with prose. These are technique names, which mean something specific.
+COLOURWORK_CLAIMS: tuple[str, ...] = (
+    "mosaic", "overlay", "graphghan", "colourwork", "colorwork", "intarsia", "tapestry",
+    "fair isle", "fairisle",
+)
+
+# Stitches that make a relief a reader can feel. `loop` other than "both" counts too: a hdc
+# worked in the back loop leaves a bar on the surface, which is the whole point of it.
+TEXTURE_STITCHES: frozenset[str] = frozenset((
+    "fpdc", "bpdc", "bob", "cable2x2", "cable1x1",
+    "beg_star_st", "star_st", "end_star_st",
+))
+
+# Forms that are more than one piece of fabric by definition, and therefore need `assembly`.
+ASSEMBLED_FORMS: tuple[str, ...] = (
+    "garland", "bunting", "wall hanging", "mobile", "wreath",
+    # W4-PIPE: forms that cannot be one flat panel either -- a pillow cover has a back and a
+    # closing seam, a cosy/pouch/stocking is a closed shape, a pencil roll has a folded pocket
+    # row and a tie. A flat-panel CIR under these names promises a make it does not contain.
+    "pillow", "cushion", "cosy", "cozy", "pouch", "pencil roll", "stocking",
+)
+
+# Words that promise more than one finished piece without giving a number.
+PLURAL_MARKERS: tuple[str, ...] = (
+    "set", "pair", "trio", "duo", "library", "collection", "bundle",
+)
+
+_COUNT_WORDS: dict[str, int] = {"pair": 2, "duo": 2, "trio": 3, "quartet": 4}
+
+
+def finished_objects(cir: CIR) -> int:
+    """How many finished objects the CIR makes: not how many pieces it works.
+
+    Review OPUS2EF2 EF2-1 (the root of review E's E1 and OPUS2C N3.1): summing
+    `Component.make` counts a tote's two straps as two more bags, so "Tote Bag Bundle" read as
+    backed. Pieces joined by `cir.assembly` are one object: components connected by any seam
+    form a group, and a group yields as many objects as its scarcest piece is worked (two
+    straps on one body is one bag; four straps on two bodies is two). An unjoined component
+    is its own group, so a set of six coasters is still six.
+    """
+    names = [c.name for c in cir.components]
+    parent = {n: n for n in names}
+
+    def root(n):
+        while parent[n] != n:
+            parent[n] = parent[parent[n]]
+            n = parent[n]
+        return n
+
+    for seam in cir.assembly or []:
+        if seam.piece_a in parent and seam.piece_b in parent:
+            parent[root(seam.piece_a)] = root(seam.piece_b)
+    groups: dict[str, int] = {}
+    for c in cir.components:
+        r = root(c.name)
+        groups[r] = min(groups.get(r, c.make), c.make)
+    return sum(groups.values())
+
+
+def title_promise(cir: CIR) -> dict:
+    """How many finished pieces the name claims, against how many the CIR makes.
+
+    Measures: a numeral or counting word in the title against `finished_objects` (pieces
+    joined by `cir.assembly` count once; EF2-1), with the worked-piece sum reported beside it.
+    Why: `Component.make` is how the CIR says "work four of these", `vessels.py` uses it, and
+    the generic builder in `builder.py` has no field for it -- so a title is currently the only
+    place a multiplicity claim lives, and nothing checked it against the pattern.
+    """
+    lowered = cir.title.lower()
+    claimed: int | None = None
+    for token in re.findall(r"[a-z]+|\d+", lowered):
+        if token.isdigit():
+            claimed = max(claimed or 0, int(token))
+        elif token in _COUNT_WORDS:
+            claimed = max(claimed or 0, _COUNT_WORDS[token])
+    plural = [w for w in PLURAL_MARKERS if w in lowered]
+    makes = finished_objects(cir)
+
+    if claimed is not None:
+        backed = makes >= claimed
+        why = f"the title claims {claimed} pieces and the CIR makes {makes}"
+    elif plural:
+        backed = makes > 1
+        why = (f"the title says {plural[0]!r}, which promises more than one piece, and the CIR "
+               f"makes {makes}")
+    else:
+        backed = True
+        why = "the title makes no multiplicity claim, so there is nothing to contradict"
+    return {"claimed": claimed, "plural_markers": tuple(plural), "makes": makes,
+            "pieces": sum(c.make for c in cir.components), "backed": backed, "why": why}
+
+
+# ---- motif words (owner directive 2026-10-19, W4-PRODREADY) -------------------------------
+#
+# A title or a line of copy that names a depicted motif -- a snowflake, a star, a diamond, a
+# lattice -- promises the buyer a shape. The CIR declares its motif in its provenance
+# (`primitives_used`, e.g. "products.motifs:snowfall"), and this table states, per declared
+# motif, which motif words it backs and how it shows them. Every Launch-0 motif is a RELIEF
+# (one colour per row; the shape is raised stitches), so a title-like text naming it must also
+# say so (raised / relief / textured / texture). A motif the table does not know backs nothing.
+MOTIF_WORDS: frozenset[str] = frozenset({
+    "snowflake", "snowflakes", "snow", "snowfall", "star", "stars", "diamond", "diamonds",
+    "lattice", "fir", "firs", "tree", "trees", "forest", "heart", "hearts", "pumpkin",
+    "pumpkins", "chevron", "chevrons", "basketweave", "cable", "cables", "flower", "flowers",
+    "floral", "leaf", "leaves", "oak", "acorn", "acorns", "village", "house", "houses",
+    "deer", "reindeer", "bird", "birds", "cloud", "clouds", "ghost", "ghosts", "bat", "bats",
+})
+RELIEF = "relief"
+RELIEF_QUALIFIERS: frozenset[str] = frozenset({"raised", "relief", "textured", "texture"})
+MOTIF_DECLARATIONS: dict[str, dict] = {
+    "products.motifs:diamond-lattice": {"backs": frozenset({"diamond", "diamonds", "lattice"}),
+                                        "medium": RELIEF},
+    # Scattered 3 x 3 raised crosses on a 12-stitch repeat: snowfall, not a snowflake outline.
+    "products.motifs:snowfall": {"backs": frozenset({"snow", "snowfall"}), "medium": RELIEF},
+    "products.motifs:chevron-band": {"backs": frozenset({"chevron", "chevrons"}),
+                                     "medium": RELIEF},
+    "products.motifs:basketweave": {"backs": frozenset({"basketweave"}), "medium": RELIEF},
+    "products.nordic_forest.MOTIF": {"backs": frozenset({"fir", "firs", "star", "stars", "tree",
+                                                         "trees", "forest"}),
+                                     "medium": RELIEF},
+}
+
+
+# ENG-COLOURWORK: each library motif backs its own words, in colour (not relief).
+from ..creative.colourwork import motif_declarations as _colourwork_motifs  # noqa: E402
+
+MOTIF_DECLARATIONS.update(_colourwork_motifs())
+
+
+def declared_motifs(cir: CIR) -> list[str]:
+    """The motif primitives the CIR's provenance declares (`primitives_used`)."""
+    prov = getattr(cir, "provenance", None)
+    used = getattr(prov, "primitives_used", None) or ()
+    return [u for u in used if u in MOTIF_DECLARATIONS or u.startswith("products.motifs:")
+            or u.endswith(".MOTIF")]
+
+
+def motif_promise(cir: CIR, texts: dict[str, str] | None = None, *,
+                  tags: dict[str, list[str]] | None = None) -> dict:
+    """Whether every motif word in the title and copy is backed by the CIR's declared motif.
+
+    `texts` are title-like sentences ({where: text}); the CIR's own title is always one. A
+    motif word there needs the CIR to declare a motif that backs it, and, when that motif is a
+    relief, a relief qualifier in the same text. `tags` are short phrases ({where: [phrases]})
+    where only the backing is required. Deterministic: names, never pixels or a model.
+    """
+    texts = {"cir.title": cir.title, **(texts or {})}
+    declared = declared_motifs(cir)
+    backs: set[str] = set()
+    relief = False
+    for d in declared:
+        dec = MOTIF_DECLARATIONS.get(d)
+        if dec:
+            backs |= dec["backs"]
+            relief = relief or dec["medium"] == RELIEF
+    problems = []
+    for where, text in texts.items():
+        found = [w for w in re.findall(r"[a-z]+", str(text or "").lower()) if w in MOTIF_WORDS]
+        for w in sorted(set(found) - backs):
+            problems.append(f"{where}: {w!r} is a motif word the CIR's declared motif "
+                            f"{declared or 'none'} does not back")
+        backed_here = sorted(set(found) & backs)
+        if backed_here and relief and not (set(re.findall(r"[a-z]+", str(text).lower()))
+                                           & RELIEF_QUALIFIERS):
+            problems.append(f"{where}: {backed_here} exist only as raised stitches, and the "
+                            f"text does not say so (raised / relief / texture)")
+    for where, phrases in (tags or {}).items():
+        for ph in phrases:
+            for w in sorted({w for w in re.findall(r"[a-z]+", ph.lower()) if w in MOTIF_WORDS}
+                            - backs):
+                problems.append(f"{where}: {ph!r} names {w!r}, which the CIR does not back")
+    return {"declared": declared, "backs": sorted(backs), "relief": relief,
+            "backed": not problems, "problems": problems,
+            "why": ("every motif word in the title and copy is backed by the CIR's declared "
+                    "motif" if not problems else "; ".join(problems)[:600])}
+
+
+def _copy_texts(slug: str) -> tuple[dict[str, str], dict[str, list[str]]]:
+    """The listing title, description lead and keyword phrases written for `slug`."""
+    try:
+        from ..seo import strategy as S
+    except Exception:  # noqa: BLE001 - no copy module, no copy to check
+        return {}, {}
+    texts, tags = {}, {}
+    if slug in getattr(S, "TITLES", {}):
+        texts["seo.TITLES"] = S.TITLES[slug]
+    for name in ("FAMILIES", "TAGS"):
+        pool = getattr(S, name, None)
+        if isinstance(pool, dict) and isinstance(pool.get(slug), list):
+            tags[f"seo.{name}"] = [q for p in pool[slug]
+                                   for q in ([p] if isinstance(p, str) else p.get("phrases", []))]
+    return texts, tags
+
+
+def assembly_promise(cir: CIR) -> dict:
+    """Whether a name that describes an assembled object has assembly behind it.
+
+    Measures: an assembled-form word in the title against the length of `cir.assembly`.
+    Why: a garland is pennants joined to a cord. A CIR with one panel and no seams is a panel,
+    and the buyer who paid for a garland has to invent the part that makes it one.
+    """
+    lowered = cir.title.lower()
+    named = [f for f in ASSEMBLED_FORMS if f in lowered]
+    seams = len(cir.assembly or [])
+    pieces = sum(c.make for c in cir.components)
+    # W4-PIPE (2026-10-07): only seams back an assembled form. "pieces > 1" used to back it
+    # too, so five loose pennants with no cord and no join passed as a "garland" -- several
+    # pieces are a kit, and the join is what makes them the object the name promises.
+    # A piece worked on from stitches another piece holds (`Component.resumes` naming a
+    # `Hold`) is joined by construction -- continuous fabric, no seam to sew -- e.g. a tea
+    # cosy whose skirts are worked down from the held halves of its body. Loose pieces with
+    # neither a seam nor a held-stitch continuation are still a kit, not the object.
+    holds = {h.name for c in cir.components for h in (getattr(c, "holds", None) or [])}
+    worked_on = sum(1 for c in cir.components
+                    if getattr(c, "resumes", None) and c.resumes in holds)
+    backed = (not named) or seams > 0 or worked_on > 0
+    return {"forms_named": tuple(named), "seams": seams, "worked_on_joins": worked_on,
+            "pieces": pieces, "backed": backed,
+            "why": ("the title names no assembled form" if not named else
+                    f"the title names {named[0]!r}; the CIR carries {seams} seams, "
+                    f"{worked_on} worked-on joins and {pieces} pieces")}
+
+
+_SIZE_FIGURE = re.compile(
+    r"(\d+(?:\.\d+)?)\s*(?:x\s*(\d+(?:\.\d+)?)\s*)?cm"
+    r"(?:\s+(across the points|across the flats|across|tall|wide|long))?")
+
+
+def size_label_backed(label: str, width_cm: float | None, height_cm: float | None,
+                      twin=None) -> dict:
+    """Every centimetre figure a customer reads in a size label is what the twin measures, to
+    the precision the label is written in ("24 cm" to the nearest cm, "9.7 cm" to the mm), and
+    in the convention the label names.
+
+    PT-10 (2026-10-06): a stacked-increase piece is a polygon with two "across" measurements
+    -- across the points and across the flats -- and a bare "15 cm across" on a hexagon is the
+    size of no measurement a maker can take. When the twin is a polygon every figure must name
+    its convention ("across the points", "across the flats", "tall"), and each is checked
+    against the span the twin computes from the perimeter. Without a twin the figures are
+    matched as before: "W x H cm", "across"/"wide" to the width, "tall"/"long" to the height,
+    an unlabelled figure in order against width then height."""
+    if twin is not None:
+        width_cm, height_cm = twin.width_cm, twin.height_cm
+    polygon = bool(twin is not None and getattr(twin, "sides", None)
+                   and twin.sides >= 3 and getattr(twin, "across_points_cm", None))
+    measured_in_order = [m for m in (width_cm, height_cm) if m is not None]
+    figures = []                    # (stated text, convention)
+    for m in _SIZE_FIGURE.finditer(label):
+        first, second, conv = m.group(1), m.group(2), m.group(3)
+        if second:
+            figures += [(first, "width"), (second, "height")]
+        else:
+            figures.append((first, conv or ""))
+    if not figures or not measured_in_order:
+        return {"backed": False, "why": "no centimetre figure or no measurement", "label": label}
+    wrong, unordered = [], 0
+    for text, conv in figures:
+        if polygon and conv not in ("across the points", "across the flats", "tall"):
+            wrong.append({"stated": text, "convention": conv or "unstated",
+                          "why": f"a {twin.sides}-sided piece has two 'across' measurements; "
+                                 f"the label must say across the points or across the flats"})
+            continue
+        value = {"across the points": (twin.across_points_cm if polygon else width_cm),
+                 "across the flats": (twin.across_flats_cm if polygon else None),
+                 "across": width_cm, "wide": width_cm, "width": width_cm,
+                 "tall": height_cm, "long": height_cm, "height": height_cm}.get(conv)
+        if conv == "":
+            value = measured_in_order[min(unordered, len(measured_in_order) - 1)]
+            unordered += 1
+        if value is None:
+            wrong.append({"stated": text, "convention": conv,
+                          "why": "the twin has no measurement in that convention"})
+            continue
+        places = len(text.split(".")[1]) if "." in text else 0
+        if round(value, places) != float(text):
+            wrong.append({"stated": text, "convention": conv or "in order",
+                          "measured": round(value, 2)})
+    return {"backed": not wrong, "wrong": wrong, "label": label}
+
+
+# Review OPUS2H H2-1: each colourwork claim is backed by its own technique, never by "some
+# row has two colours". Overlay mosaic is defined by stitches reaching past the previous row,
+# which per-stitch colour does not give; graphghan claims follow the mosaic rule; intarsia is
+# colour blocks with no carried strand, which the CIR does not model. Those stay refused
+# until the primitive exists. Tapestry, fair isle and colourwork need a motif of measurable
+# extent. The thresholds are a stated design rule (not a sourced standard), pinned by tests.
+COLOURWORK_MIN_ROWS = 3              # rows holding two or more colours
+COLOURWORK_MIN_ROW_SHARE = 0.20      # ...as a share of all rows
+COLOURWORK_MIN_MINORITY_SHARE = 0.10  # the minority colour's share of each such row
+COLOURWORK_MIN_RUN = 2               # OPUS2I I-7: adjacent contrast stitches, so dots are not a motif
+_NEEDS_REACH_DOWN = ("mosaic", "overlay", "graphghan")
+_NEEDS_BOBBINS = ("intarsia",)
+_MOTIF_TECHNIQUES = ("tapestry", "fair isle", "fairisle", "colourwork", "colorwork")
+
+
+# Review OPUS2J J-6: spelling variants and synonyms are the same claim. Text is folded
+# ("Fair-Isle", "Colour_Work", "two  colour" -> "fair isle", "colour work", "two colour") before
+# matching, and each variant maps to the technique whose rule judges it.
+_CLAIM_VARIANTS: dict[str, str] = {
+    "colour work": "colourwork", "color work": "colourwork",
+    "stranded": "fair isle", "jacquard": "fair isle",
+    # W5-INTEG1: "two colour" is a colour-count claim, judged by the colours the fabric
+    # actually uses, not the in-row motif rule: a striped two-colour blanket is truthfully "two
+    # colour crochet" (cloudline-baby-blanket's tag), while one-colour fabric stays refused.
+    "two colour": "two colours", "two color": "two colours",
+    "duplicate stitch": "intarsia",     # embroidered blocks: not modelled, refused like intarsia
+}
+
+
+def colourwork_claims(text: str) -> tuple[str, ...]:
+    """Every colourwork technique the text claims, spelling variants folded (OPUS2J J-6)."""
+    folded = " " + re.sub(r"[\s_\-]+", " ", str(text or "").lower()) + " "
+    found: list[str] = [c for c in COLOURWORK_CLAIMS if c in folded]
+    found += [canon for variant, canon in _CLAIM_VARIANTS.items()
+              if re.search(rf"\b{re.escape(variant)}\b", folded)]
+    return tuple(dict.fromkeys(found))
+
+
+TWO_COLOUR_MIN_SHARE = 0.10   # INTEG5G-1: the minority colour's share of all worked stitches
+
+
+def _colour_shares(rows) -> dict:
+    total = sum(len(r) for r in rows)
+    counts: dict[str, int] = {}
+    for row in rows:
+        for c in row:
+            counts[c] = counts.get(c, 0) + 1
+    return {c: round(n / total, 4) for c, n in sorted(counts.items())} if total else {}
+
+
+def colourwork_motif(grid) -> dict:
+    """How much of the fabric is two-colour, measured from the twin's colour grid."""
+    rows = [[c for c in row if c] for row in grid]
+    rows = [r for r in rows if r]
+    multi = []
+    runs = []
+    for row in rows:
+        counts: dict[str, int] = {}
+        for c in row:
+            counts[c] = counts.get(c, 0) + 1
+        if len(counts) >= 2:
+            multi.append(min(counts.values()) / len(row))
+            main = max(counts, key=counts.get)
+            longest = current = 0
+            for c in row:
+                current = current + 1 if c != main else 0
+                longest = max(longest, current)
+            runs.append(longest)
+    return {"rows": len(rows), "two_colour_rows": len(multi),
+            "colours_used": len({c for row in rows for c in row}),
+            # INTEG5G-1: each colour's share of all worked stitches, for the two-colour claim.
+            "colour_shares": _colour_shares(rows),
+            "two_colour_row_share": round(len(multi) / len(rows), 3) if rows else 0.0,
+            "min_minority_share": round(min(multi), 3) if multi else 0.0,
+            "min_contrast_run": min(runs) if runs else 0}
+
+
+def technique_backed(claim: str, motif: dict) -> tuple[bool, str]:
+    """(backed, why) for one colourwork technique claim against the measured motif."""
+    if claim in _NEEDS_REACH_DOWN:
+        if per_stitch_reach_down_expressible():
+            return False, "reach-down is expressible but no rule judges it yet"
+        return False, ("needs stitches that reach past the previous row, which no CIR can "
+                       "express (per-stitch colour alone is not mosaic)")
+    if claim in _NEEDS_BOBBINS:
+        return False, "needs separate colour blocks with no carried strand, not modelled"
+    if claim == "two colours":
+        # INTEG5G-1: exactly two colours worked, and the minority colour is a real part of the
+        # fabric (>= TWO_COLOUR_MIN_SHARE of all stitches) -- not one contrast stitch, one trim
+        # row, or a third colour hidden under the word "two".
+        shares = motif.get("colour_shares") or {}
+        used = len(shares) or motif.get("colours_used", 0)
+        minority = min(shares.values()) if shares else 0.0
+        ok = used == 2 and minority >= TWO_COLOUR_MIN_SHARE
+        return ok, (f"the fabric works {used} colour(s), the minority colour is "
+                    f"{minority:.0%} of stitches (a two-colour claim needs exactly 2, the "
+                    f"minority >= {TWO_COLOUR_MIN_SHARE:.0%})")
+    if claim in _MOTIF_TECHNIQUES:
+        ok = (motif["two_colour_rows"] >= COLOURWORK_MIN_ROWS
+              and motif["two_colour_row_share"] >= COLOURWORK_MIN_ROW_SHARE
+              and motif["min_minority_share"] >= COLOURWORK_MIN_MINORITY_SHARE
+              and motif.get("min_contrast_run", 0) >= COLOURWORK_MIN_RUN)
+        return ok, (f"{motif['two_colour_rows']} of {motif['rows']} rows carry two colours "
+                    f"(needs >= {COLOURWORK_MIN_ROWS} and >= "
+                    f"{COLOURWORK_MIN_ROW_SHARE:.0%}), the scarcest colour is "
+                    f"{motif['min_minority_share']:.0%} of such a row (needs >= "
+                    f"{COLOURWORK_MIN_MINORITY_SHARE:.0%}), the shortest contrast run is "
+                    f"{motif.get('min_contrast_run', 0)} st (needs >= {COLOURWORK_MIN_RUN})")
+    return False, "an unrecognised colourwork claim backs nothing"
+
+
+def fabric_truth(cir: CIR, twin) -> dict:
+    """What the fabric actually does, and whether the name's technique claim is expressible.
+
+    Measures: the maximum number of distinct colours in any single row of the twin, whether any
+    relief stitch or non-both loop target is used, and whether the title or designer notes make
+    a colourwork claim.
+    Why: this is the gate that stops a count-perfect pattern shipping under the name of a
+    fabric it does not make. A two-colour picture needs two colours in one row. Every product
+    generated by `builder.py` and by `nordic_forest.py` puts one colour on a whole row and
+    varies sc against dc within it, which is a stripe with a relief -- so the motif is a
+    height difference inside a colour band, not a shape drawn in two colours.
+    """
+    grid = twin.color_grid()
+    colours_per_row = max((len({c for c in row}) for row in grid), default=0)
+    loops = {cell for row in twin.loop_grid() for cell in row}
+    relief = bool(twin.stitch_types_used & TEXTURE_STITCHES) or bool(loops - {"both"})
+    heights = twin.stitch_types_used
+    mixed_heights = len(heights) > 1
+
+    text = f"{cir.title} {cir.designer_notes or ''}".lower()
+    claims = colourwork_claims(text)
+    motif = colourwork_motif(grid)
+    verdicts = {c: technique_backed(c, motif) for c in claims}
+    backed = (not claims) or all(ok for ok, _why in verdicts.values())
+    return {
+        "max_colours_in_one_row": colours_per_row,
+        "colours_declared": sorted((cir.colors or {}).keys()),
+        "relief_stitches_used": relief,
+        "mixed_stitch_heights": mixed_heights,
+        "stitches_used": sorted(heights),
+        "colourwork_claims": claims,
+        "backed": backed,
+        "why": ("no colourwork technique is claimed, so the fabric is whatever the stitches "
+                "make" if not claims else
+                "; ".join(f"{c!r}: {why}" for c, (_ok, why) in verdicts.items())),
+        "colourwork_motif": motif,
+        "cir_can_express_per_stitch_colour": per_stitch_colour_expressible(),
+        "cir_can_express_per_stitch_reach_down": per_stitch_reach_down_expressible(),
+    }
+
+
+# ---- the candidate set -----------------------------------------------------
+
+@dataclass(frozen=True)
+class PriceBand:
+    """A price with the evidence behind the band, or the admission that there is none."""
+
+    low_cad: float
+    high_cad: float
+    proposed_cad: float
+    basis: str            # one of LABELS
+    why: str
+
+    def __post_init__(self) -> None:
+        if self.basis not in LABELS:
+            raise ValueError(f"price basis must be one of {LABELS}: {self.basis!r}")
+        if self.low_cad > self.high_cad:
+            raise ValueError(f"band is inverted: {self.low_cad} > {self.high_cad}")
+
+
+@dataclass(frozen=True)
+class Variant:
+    """One finished size inside one listing, and the builder that makes it."""
+
+    key: str
+    label: str
+    build: str            # a key into BUILDERS
+
+
+@dataclass(frozen=True)
+class ListingIdentity:
+    """What a Launch-0 listing says the product IS, held on the product's own record.
+
+    PT-01: the listing chain used to look a product up in the radar's concept pool by slug
+    prefix, and when no seed matched -- `market-basket-small` is not `market-basket-trio`,
+    `hexagon-coaster-set` is not `hexie-coaster-set` -- it fell back to `mosaic_blanket`. A
+    basket pattern was titled "Market Mosaic Blanket", tagged "mosaic blanket", priced from the
+    blanket band and filed under Blankets & Afghans, and every gate passed it. There is no
+    default product type any more: a Launch-0 product names its own kind, its Etsy category
+    intent and the words its listing may use, and a product nobody described is refused.
+
+    `kind` is the product noun ("basket"). `etsy_category` is the `commerce.category` key
+    whose node terms decide the taxonomy node. `nouns` are the product-type words the title
+    and tags may use, and every one of them must appear in the CIR the listing sells
+    (`gates.first_customer.product_type_words_in_cir`). `qualifiers` replace the slug-derived
+    "motifs" (a size word like "small" is not a motif). `techniques` gate the technique tag
+    families, and are only what the fabric actually does.
+    """
+
+    kind: str
+    etsy_category: str
+    nouns: tuple[str, ...]
+    qualifiers: tuple[str, ...] = ()
+    techniques: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.kind or not self.etsy_category:
+            raise ValueError("a listing identity with no kind or no category is a default")
+        if self.kind not in self.nouns:
+            raise ValueError(f"the kind {self.kind!r} must be one of its own nouns {self.nouns}")
+
+
+@dataclass(frozen=True)
+class Candidate:
+    """A product proposed for Launch-0, described so that the gates can be run on it.
+
+    Note what is absent: any readiness flag. Whether this is publishable is computed, never
+    declared, because a declared flag is a thing somebody sets while looking at the wrong
+    version of the pattern.
+    """
+
+    slug: str
+    title: str
+    what_it_is: str
+    why_at_launch: str
+    variants: tuple[Variant, ...]
+    pod: str
+    price: PriceBand
+    disqualifiers: tuple[str, ...]
+    aspiration: tuple[str, ...]
+    # Children's audience, when the product is for a child. None means "not a children's
+    # product", stated rather than left as an omission -- the same discipline as the
+    # `over_twelve` age band existing at all.
+    subcategory: str | None = None
+    audience: str | None = None
+    # Statements we commit the deliverable to carrying. Held separately from what it carries
+    # today, which is nothing, so the gap is visible instead of assumed away.
+    committed_statements: tuple[str, ...] = ()
+    # PT-01: what the listing says this product is. None is refused by the listing chain --
+    # never filled in with somebody else's product type.
+    listing: ListingIdentity | None = None
+
+
+def _v(version: str | None) -> dict:
+    return {} if version is None else {"version": version}
+
+
+# Each builder takes an optional `version` (PT-11: the planner re-drafts a Launch-0 product at
+# its stored release number, as it does every engineered design). No version is the builder's
+# own released version.
+BUILDERS: dict[str, object] = {
+    "basket_small": lambda version=None: vessels.build_basket("small", **_v(version)),
+    "basket_medium": lambda version=None: vessels.build_basket("medium", **_v(version)),
+    "basket_large": lambda version=None: vessels.build_basket("large", **_v(version)),
+    "hexagon_coasters": lambda version=None: vessels.build_hexagon_coaster(**_v(version)),
+    "cloudline_blanket": lambda version=None: flat.for_slug("cloudline-baby-blanket",
+                                                            **_v(version)),
+    "harvest_runner": lambda version=None: flat.for_slug("harvest-table-runner",
+                                                         **_v(version)),
+    "snowflake_ornaments": lambda version=None: flat.for_slug("nordic-star-ornaments",
+                                                              **_v(version)),
+    "snowfall_throw": lambda version=None: flat.for_slug("winter-village-graphghan",
+                                                         **_v(version)),
+}
+
+# W4-PRODUCT (2026-10-11): the builders of the catalogue-floor PROPOSAL (see
+# `CATALOGUE_FLOOR_APPROVED` below). Buildable now -- `cir_for` resolves them, so every gate can
+# be measured on them -- but kept out of BUILDERS, which the Launch-0 consumers iterate, until
+# the owner approves raising the Launch-0 cap.
+PROPOSED_BUILDERS: dict[str, object] = {
+    "nordic_forest_baby": lambda version=None: _nordic_forest("baby", version),
+    "key_basket": lambda version=None: _moment("housewarming_key_basket", version),
+    "placemat_pair": lambda version=None: flat.for_slug("mosaic-placemat-pair",
+                                                        **_v(version)),
+}
+
+
+def _nordic_forest(size: str, version: str | None) -> CIR:
+    """One Nordic Forest size under its own size slug (the baby blanket is the proposed one)."""
+    from . import nordic_forest
+
+    return nordic_forest.build(size, **_v(version))
+
+
+def _moment(function: str, version: str | None) -> CIR:
+    from . import moment_candidates
+
+    return getattr(moment_candidates, function)(**_v(version))
+
+
+def cir_for(build_key: str, version: str | None = None) -> CIR:
+    """The CIR a variant names, built fresh.
+
+    Measures: nothing. Why it exists: the registry is a dict of explicit callables rather than
+    a dotted string resolved at runtime, so a variant naming a builder that does not exist is a
+    KeyError here and not a plausible-looking empty product downstream.
+    """
+    fn = BUILDERS.get(build_key) or PROPOSED_BUILDERS.get(build_key)
+    if fn is None:
+        raise KeyError(f"no builder named {build_key!r}; have {sorted(BUILDERS)}")
+    return fn(version)          # type: ignore[operator]
+
+
+def build_key_for(cir_slug: str) -> str | None:
+    """The builder key whose CIR carries this slug, for the Launch-0 variants only."""
+    for slug in LAUNCH0_SLUGS:
+        for v in candidate(slug).variants:
+            if cir_for(v.build).slug == cir_slug:
+                return v.build
+    return None
+
+
+# PT-11: the radar concepts whose engineered pattern IS a Launch-0 variant under another slug.
+# `market-basket-trio` was `vessels.build("medium")` -- the medium nesting basket -- and
+# `hexie-coaster-set` was `vessels.build_hexagon_coaster()` -- the Launch-0 coaster set --
+# published under the concept's slug, outside Launch-0 scope: no first-customer gate, no
+# disclosed imagery, and the same pattern listed twice. They are retired as products: the
+# planner routes them to the Launch-0 slugs below and publication refuses them by name.
+LEGACY_DUPLICATES: dict[str, dict] = {
+    "market-basket-trio": {
+        "candidate": "nursery-nesting-baskets",
+        "superseded_by": ("market-basket-small", "market-basket-medium",
+                          "market-basket-large"),
+        "why": ("the engineered 'market-basket-trio' design is the medium Launch-0 basket "
+                "under a concept slug; the baskets are sold as the Launch-0 nesting baskets"),
+        "retired_on": "2026-10-06",
+    },
+    "hexie-coaster-set": {
+        "candidate": "hexagon-coaster-set",
+        "superseded_by": ("hexagon-coaster-set",),
+        "why": ("the engineered 'hexie-coaster-set' design is the Launch-0 hexagon coaster set "
+                "under a concept slug; the coasters are sold as hexagon-coaster-set"),
+        "retired_on": "2026-10-06",
+    },
+}
+
+
+def radar_concept_for(cir_slug: str) -> str | None:
+    """The retired radar concept a Launch-0 product was scored as, or None (D-W5-7).
+
+    Measures: LEGACY_DUPLICATES, exactly (no prefix match: PT-01). Why: the radar scores the
+    baskets and the coaster set as `market-basket-trio` / `hexie-coaster-set`, Launch-0 sells
+    them as `market-basket-*` / `hexagon-coaster-set`. PT-11 routed the radar to the Launch-0
+    slugs; this is the way back, so a reader keyed on the product (the teardown product class,
+    the #168 benchmark challenge, a storefront tile's prior strength) finds the opportunity
+    the product was promoted on instead of reading it as uncategorised or unscored.
+    """
+    for alias, rec in LEGACY_DUPLICATES.items():
+        if cir_slug == rec["candidate"] or cir_slug in rec["superseded_by"]:
+            return alias
+    return SIZE_OF_RADAR_CONCEPT.get(cir_slug)
+
+
+# A Launch-0 product that is one size of a radar concept, sold under its own size slug: its
+# opportunity is the concept's (the radar scores "nordic-forest-mosaic-throw" as a product
+# with sizes; CAP-1 launches the baby size). Exact, never a prefix (PT-01).
+SIZE_OF_RADAR_CONCEPT: dict[str, str] = {
+    "nordic-forest-mosaic-throw-baby": "nordic-forest-mosaic-throw",
+}
+
+# Launch-0 products with no radar opportunity at all, and where their opportunity came from
+# instead. Recorded so "no radar seed" reads as a known origin, never as a missing link.
+NO_RADAR_CONCEPT: dict[str, str] = {
+    "housewarming-key-basket": (
+        "a moment-first creative candidate (W4-PIPE2, products.moment_candidates): its "
+        "opportunity is the housewarming brief, not a radar score; its own demand is UNKNOWN"),
+}
+
+
+# The observed price evidence, from `radar/market.py`, which recorded it on 2026-09-17 against
+# named shops. Quoted rather than re-derived so that the source of a band is one hop away.
+_BLANKET_BAND = (8.47, 11.65)
+_CLUSTER_BAND = (4.00, 12.00)
+
+_BABY_BLANKET_STATEMENTS = ch.required_statements("baby_blanket", ch.UNDER_3)
+_NURSERY_STATEMENTS = ch.required_statements("nursery_decor", ch.UNDER_3)
+
+
+_BASE_CANDIDATES: tuple[Candidate, ...] = (
+    # D-W4-OWNER-BASKET-IDENTITY (owner, 2026-10-27): "I approve positioning the Hexagonal
+    # Bread Basket 1.2.0 as a kitchen and home product. The first listing sells the small
+    # basket only. Remove inaccurate nursery, baby-product and three-size nesting-basket
+    # claims from its listing package and customer PDF. Preserve the existing larger basket
+    # family for separately verified future releases. Keep the proposed CA$6.50 price pending
+    # final pricing verification."
+    #
+    # The small basket (CIR `market-basket-small`, unchanged: same builder, same version, same
+    # instructions and content hash) is therefore its own Launch-0 product: one size, kitchen
+    # and home, not merchandised to a child. The three-size nursery family below is kept
+    # verbatim as a reserve candidate for separately verified future releases; it no longer
+    # claims the small CIR while a launched product sells it (`candidate_for_cir`).
+    Candidate(
+        slug="hexagonal-bread-basket",
+        title="Hexagonal Bread Basket",
+        what_it_is=(
+            "One hexagonal basket worked in the round from a flat base into straight walls: "
+            "16.0 cm across the points, 13.9 cm across the flats and about 9 cm tall at the "
+            "stated gauge, in cream with wine bands, for the kitchen and the table."),
+        why_at_launch=(
+            "The owner's decision of 2026-10-27 (D-W4-OWNER-BASKET-IDENTITY): the CIR is "
+            "already titled a bread basket, it is the smallest and cheapest basket to sample "
+            "(the only one with a tester kit bound to its content hash), and a basket's "
+            "geometry is the kind `cir.geometry` measures exactly: the base disc sets how "
+            "wide, the wall rounds set how tall. Sold alone, in one size, as a kitchen and "
+            "home product."),
+        variants=(
+            Variant("small", "16.0 cm across the points, 13.9 cm across the flats, "
+                             "9 cm tall", "basket_small"),
+        ),
+        pod="home_decor",
+        listing=ListingIdentity(kind="basket", etsy_category="basket", nouns=("basket",)),
+        # Not a children's product: stated, not left as an omission.
+        subcategory=None,
+        audience=None,
+        price=PriceBand(
+            *_CLUSTER_BAND, proposed_cad=6.50, basis=SOURCED,
+            why=("the band is the CA$4-12 crochet-pattern cluster recorded in "
+                 "radar/market.py OBSERVATIONS. A basket-specific observed price is UNKNOWN: "
+                 "no profiled shop's basket price was captured, so the proposal sits mid-band "
+                 "rather than pretending to a comparable. CA$6.50 is the owner's proposed "
+                 "price, kept pending final pricing verification "
+                 "(D-W4-OWNER-BASKET-IDENTITY)")),
+        disqualifiers=(
+            "a worked sample whose walls slump at the stated gauge, which would make the "
+            "stated height a number rather than a basket",
+            "a base disc that does not lie flat, which the increase arithmetic predicts and "
+            "only a sample confirms",
+        ),
+        aspiration=(
+            "every finished measurement is arithmetic from the stated gauge; twin.calibrated "
+            "is False and no basket has been crocheted",
+            "the firm cotton gauge that makes a basket stand up is asserted by the CIR and "
+            "unverified in fabric",
+        ),
+    ),
+    # Reserve since D-W4-OWNER-BASKET-IDENTITY (2026-10-27): the three-size nursery family,
+    # preserved unchanged for separately verified future releases. Not in LAUNCH0_SLUGS.
+    Candidate(
+        slug="nursery-nesting-baskets",
+        title="Nesting Baskets, three sizes",
+        what_it_is=(
+            "One pattern, three hexagonal baskets worked in the round from a flat base into "
+            "straight walls: 16.0, 20.8 and 25.6 cm across the points (13.9, 18.0 and 22.2 cm "
+            "across the flats) at the stated gauge."),
+        why_at_launch=(
+            "The children's research puts nursery decor first on obligation and "
+            "verifiability, not on demand, and a basket is the only nursery-decor object in "
+            "this repository that a compiled CIR already makes. The child does not handle it, "
+            "nothing is applied to it, and the geometry is the kind `cir.geometry` measures "
+            "exactly: the base disc sets how wide, the wall rounds set how tall."),
+        variants=(
+            Variant("small", "16.0 cm across the points, 13.9 cm across the flats, "
+                             "9 cm tall", "basket_small"),
+            Variant("medium", "20.8 cm across the points, 18.0 cm across the flats, "
+                              "16 cm tall", "basket_medium"),
+            Variant("large", "25.6 cm across the points, 22.2 cm across the flats, "
+                             "23 cm tall", "basket_large"),
+        ),
+        pod="home_decor",
+        listing=ListingIdentity(kind="basket", etsy_category="basket", nouns=("basket",),
+                                qualifiers=("nursery",)),
+        subcategory="nursery_decor",
+        audience=ch.UNDER_3,
+        committed_statements=_NURSERY_STATEMENTS,
+        price=PriceBand(
+            *_CLUSTER_BAND, proposed_cad=6.50, basis=SOURCED,
+            why=("the band is the CA$4-12 crochet-pattern cluster recorded in "
+                 "radar/market.py OBSERVATIONS. A basket-specific observed price is UNKNOWN: "
+                 "no profiled shop's basket price was captured, so the proposal sits mid-band "
+                 "rather than pretending to a comparable")),
+        disqualifiers=(
+            "a worked sample whose walls slump at the stated gauge, which would make the "
+            "stated height a number rather than a basket",
+            "a base disc that does not lie flat, which the increase arithmetic predicts and "
+            "only a sample confirms",
+            "any decision to add an applied trim, which turns a nursery object the child does "
+            "not handle into one that can shed a part",
+        ),
+        aspiration=(
+            "every finished measurement is arithmetic from the stated gauge; twin.calibrated "
+            "is False and no basket has been crocheted",
+            "the firm cotton gauge that makes a basket stand up is asserted by the CIR and "
+            "unverified in fabric",
+        ),
+    ),
+    Candidate(
+        slug="cloudline-baby-blanket",
+        title="Cloudline Baby Blanket",
+        what_it_is=(
+            "A 79.2 x 96.4 cm baby blanket in two colours, worked flat. The colour changes "
+            "every two rows, so the colour not in use is carried up one side edge, with six "
+            "plain cream rows at each end, and a raised diamond lattice is worked in double "
+            "crochet against a single-crochet ground, so the fabric is a two-row stripe with "
+            "a relief."),
+        why_at_launch=(
+            "Keepsake and baby blankets are the research's other first-entry sub-category, and "
+            "this is the only blanket in the catalogue whose name does not claim a colourwork "
+            "fabric the CIR cannot express. Class A geometry, no fitted sizing, no applied "
+            "parts, and the largest single make in Launch-0, which is what carries the price."),
+        variants=(Variant("one_size", "79.2 x 96.4 cm", "cloudline_blanket"),),
+        pod="blankets",
+        listing=ListingIdentity(kind="blanket", etsy_category="baby", nouns=("blanket",),
+                                qualifiers=("cloudline", "baby"), techniques=("texture",)),
+        subcategory="baby_blanket",
+        audience=ch.UNDER_3,
+        committed_statements=_BABY_BLANKET_STATEMENTS,
+        price=PriceBand(
+            *_BLANKET_BAND, proposed_cad=7.50, basis=SOURCED,
+            why=("the band is the premium mosaic-blanket band observed on HanJanCrochet "
+                 "(CA$8.47-11.65) and MJsOffTheHookDesigns (CA$8.47-11.64) in "
+                 "radar/market.py. We propose below its floor on purpose: those listings "
+                 "advertise PATTERN + VIDEO, which radar/market.py records as table stakes "
+                 "rather than a premium, and we have neither a video nor a review history")),
+        disqualifiers=(
+            "listing copy or imagery that shows a two-colour lattice picture: the fabric is "
+            "one colour per row and a render showing otherwise is the motif-fidelity failure "
+            "publish/motif_fidelity.py exists to block",
+            "any copy implying a carried-float colourwork fabric this pattern does not make. "
+            "The designer note said 'no long floats for small fingers to catch' -- true, and "
+            "still a description of stranded colourwork, offered as reassurance about a "
+            "child's safety for a hazard the product does not have. The note is corrected in "
+            "products/builder.py and gates.asset_truth now refuses the claim wherever it "
+            "appears in the title or the designer notes, so this survives as a listing-copy "
+            "risk rather than a pattern one",
+            "a worked sample whose drape at the stated gauge is stiff enough that the object "
+            "is not a baby blanket",
+        ),
+        aspiration=(
+            "79.2 x 96.4 cm is computed from the stated gauge with the stitch-weighted row "
+            "height rule (cir.geometry.HEIGHT_RULE); twin.calibrated is False",
+            "the children's statement set is rendered by publish/pdf.py and read back out of "
+            "the PDF (2026-09-25), so this product now states what it must state. What is "
+            "still not stated is a fibre CONTENT: cir.model.Material has no fibre field, so "
+            "the block names the fibre the pattern was written for -- read from the yarn "
+            "name -- and leaves the composition of the finished item to the maker's ball "
+            "band. See research/CHILDRENS_STATEMENTS.md section 5",
+        ),
+    ),
+    Candidate(
+        slug="hexagon-coaster-set",
+        title="Hexagon Coaster Set (4)",
+        what_it_is=(
+            "Four hexagonal coasters, about 9.7 cm across the points and 8.4 cm across the "
+            "flats, worked in joined rounds "
+            "with the increases stacked at six corners and a contrast round one in from the "
+            "edge."),
+        why_at_launch=(
+            "Not a children's product, and it is in Launch-0 for two jobs neither children's "
+            "entry can do. It is the floor of the price ladder, and it is the cheapest honest "
+            "way to exercise the whole Etsy listing path end to end -- a four-piece make with "
+            "`Component.make` set correctly, a geometry the twin resolves as a disc, and no "
+            "safety statement set in the way. Its merchandising value is review velocity and "
+            "price structure, not distinctiveness, and saying so is more useful than dressing "
+            "it up."),
+        variants=(Variant("set_of_four", "4 pieces, 9.7 cm across the points, 8.4 cm across "
+                                         "the flats", "hexagon_coasters"),),
+        pod="home_decor",
+        listing=ListingIdentity(kind="coaster", etsy_category="coaster", nouns=("coaster",),
+                                qualifiers=("hexagon",)),
+        price=PriceBand(
+            *_CLUSTER_BAND, proposed_cad=4.00, basis=SOURCED,
+            why=("the CA$4-12 cluster from radar/market.py OBSERVATIONS, at its floor. "
+                 "commerce/pricing.fees shows what this leaves after Etsy's cut, and the "
+                 "answer is that this listing earns its place through reviews and cross-sell "
+                 "rather than margin")),
+        disqualifiers=(
+            "a worked sample that does not lie flat, which is the one thing a coaster must do "
+            "and the one thing the increase-per-round arithmetic cannot prove",
+            "a price that has to rise above the cluster floor to clear fees, since the whole "
+            "point of this listing is the bottom of the ladder",
+        ),
+        aspiration=(
+            "9.7 cm across the points is arithmetic from the stated gauge; twin.calibrated "
+            "is False",
+            "flatness is predicted by the increase rate and unverified in fabric",
+        ),
+    ),
+    # W4-PIPE (2026-10-07, owner directive "move the strongest products to the final
+    # publication gate"): the two strongest truthful products outside Launch-0 by measurement.
+    # Each was retitled to what its CIR makes (creative HELD), certifies under the current
+    # gauge standard, and -- the measured reason these two and not the others -- its disclosed
+    # render set verifies against the certified CIR from the pixels and passes the listing QA
+    # (scratch run 2026-10-07: 3/3 frames structural PASS, usable_as_listing_asset True). The
+    # pet mat and the harvest runner are refused by the renderer (palette too close to a
+    # contract colour), the wall hanging fails 340 px legibility (22% fill), so none of them
+    # can carry truthful imagery yet. Both are winter products, and October is the window.
+    Candidate(
+        slug="nordic-star-ornaments",
+        # W4-PRODREADY (owner directive 2026-10-19): retitled from "Nordic Snowflake Ornament
+        # Set (6)" -- the CIR draws striped pieces with scattered raised crosses and no
+        # snowflake outline, and `motif_promise` refuses a motif word the CIR does not declare.
+        title="Textured Stripe Ornament Set (6)",
+        what_it_is=(
+            "Six flat ornaments, about 9.6 x 10.2 cm each at the stated gauge, worked in rows "
+            "in two colours that alternate every row (a stripe), with small raised "
+            "double-crochet crosses scattered over a single-crochet ground."),
+        why_at_launch=(
+            "The only seasonal product whose window is open now: a buyer who purchases in "
+            "October has time to make six small pieces before the holiday. It is the small, "
+            "quick make in the price ladder above the coasters, and a set of six is the "
+            "multiplicity the pattern actually makes (Component.make = 6)."),
+        variants=(Variant("set_of_six", "6 pieces, 9.6 x 10.2 cm each", "snowflake_ornaments"),),
+        pod="ornaments",
+        listing=ListingIdentity(kind="ornament", etsy_category="ornament",
+                                nouns=("ornament",), qualifiers=("stripe", "textured"),
+                                techniques=("texture",)),
+        price=PriceBand(
+            *_CLUSTER_BAND, proposed_cad=4.50, basis=SOURCED,
+            why=("the CA$4-12 crochet-pattern cluster from radar/market.py OBSERVATIONS, near "
+                 "its floor: a small seasonal make. An ornament-specific observed price is "
+                 "UNKNOWN; no profiled shop's ornament price was captured")),
+        disqualifiers=(
+            "copy, tags or imagery that call the raised crosses snowflakes or stars: the CIR "
+            "declares a scattered relief, not a snowflake outline (motif_promise)",
+            "a hanging loop or applied trim added without a CIR step for it",
+        ),
+        aspiration=(
+            "9.6 x 10.2 cm is arithmetic from the stated gauge; twin.calibrated is False",
+        ),
+    ),
+    Candidate(
+        slug="winter-village-graphghan",
+        title="Winter Snowfall Relief Throw",
+        what_it_is=(
+            "An 86.4 x 91.8 cm throw worked flat in two colours, one colour per row, with a "
+            "sparse snowfall relief in double crochet against a single-crochet ground."),
+        why_at_launch=(
+            "The winter throw in the catalogue whose name now says what the fabric does (a "
+            "relief, not a graphghan or a village picture). It is the second large make next "
+            "to the baby blanket, for an adult home rather than a nursery, which is the price "
+            "tier the cluster band cannot reach."),
+        variants=(Variant("one_size", "86.4 x 91.8 cm", "snowfall_throw"),),
+        pod="blankets",
+        # kind is the product-type FAMILY (gates.first_customer): a throw is a blanket.
+        listing=ListingIdentity(kind="blanket", etsy_category="blanket",
+                                nouns=("blanket", "throw"), qualifiers=("snowfall", "winter"),
+                                techniques=("texture",)),
+        price=PriceBand(
+            *_BLANKET_BAND, proposed_cad=7.50, basis=SOURCED,
+            why=("the premium blanket band observed on HanJanCrochet and MJsOffTheHookDesigns "
+                 "(CA$8.47-11.65) in radar/market.py, proposed below its floor for the same "
+                 "reason as the baby blanket: no video and no review history")),
+        disqualifiers=(
+            "listing copy or imagery that shows a picture throw or a two-colour flake: the "
+            "fabric is one colour per row",
+            "a worked sample whose relief is too sparse to read at blanket scale",
+        ),
+        aspiration=(
+            "86.4 x 91.8 cm is computed from the stated gauge; twin.calibrated is False",
+        ),
+    ),
+    # First reserve. Gate-clean and deliberately not in Launch-0: it is the same flat fabric as
+    # the blanket, it serves neither the children's entry order nor the price ladder, and small
+    # is the feature. Named rather than omitted so that "why only three" has an answer.
+    Candidate(
+        slug="harvest-table-runner",
+        title="Harvest Table Runner",
+        what_it_is="A 32 x 122 cm two-colour runner, worked flat with a chevron relief band.",
+        why_at_launch=(
+            "RESERVE, not launched. It passes every gate and adds no position: it repeats the "
+            "blanket's construction, it is not a children's product, and Launch-0 is small on "
+            "purpose. It is the first thing to add once there is evidence to add against."),
+        variants=(Variant("one_size", "32 x 122 cm", "harvest_runner"),),
+        pod="home_decor",
+        listing=ListingIdentity(kind="runner", etsy_category="runner", nouns=("runner",),
+                                qualifiers=("harvest",)),
+        price=PriceBand(*_CLUSTER_BAND, proposed_cad=5.50, basis=SOURCED,
+                        why="the CA$4-12 cluster from radar/market.py OBSERVATIONS"),
+        disqualifiers=("nothing measured; it is held back on assortment grounds rather than "
+                       "on truth grounds",),
+        aspiration=("every measurement is arithmetic from the stated gauge; twin.calibrated "
+                    "is False",),
+    ),
+)
+
+# The slugs Launch-0 actually launches, in listing order. The reserve is in CANDIDATES and not
+# here, so the gate results for it are still computed and reported.
+# D-W4-OWNER-BASKET-IDENTITY (2026-10-27): the first basket listing is the small Hexagonal
+# Bread Basket alone; `nursery-nesting-baskets` is a reserve candidate (CANDIDATES only).
+_CORE_LAUNCH0_SLUGS: tuple[str, ...] = (
+    "hexagonal-bread-basket", "cloudline-baby-blanket", "hexagon-coaster-set",
+    "nordic-star-ornaments", "winter-village-graphghan",
+)
+
+# ---- the catalogue-floor proposal (OWNER DECISION, not made) ----------------
+#
+# `launch.readiness.catalogue_depth` asks for MIN_LISTINGS_TO_OPEN = 8 products; Launch-0 is
+# capped at 5 by its tests, and D-FB-9 records the choice between the two as the owner's
+# (keep 8, or set a Launch-0 depth). W4-LAUNCHREADY engineered three gate-clean products to
+# reach the floor and raised the cap on its branch; that is the owner's decision to make, so
+# here the three are PREPARED and NOT launched. Approval is this one line becoming True (plus
+# the cap assertions in the tests the decision rewrites; research/final_build/w4/
+# PRODUCT_FIX.md lists them). Until then they are buildable through `cir_for`, measurable
+# through `proposed_candidate`, and outside every Launch-0 scope.
+CATALOGUE_FLOOR_APPROVED = True
+
+PROPOSED_CANDIDATES: tuple[Candidate, ...] = (
+    # W4-LAUNCHREADY (2026-10-11): three products engineered so the opening catalogue could
+    # reach the launch.readiness floor (MIN_LISTINGS_TO_OPEN = 8 products). Chosen from the
+    # repository's own demand evidence (radar.opportunity.score_concept on 2026-10-11, the
+    # radar POOL families and the seasonal calendar) among designs that already compile clean, pass every
+    # Launch-0 gate and survive the creative gate; each then had to clear the same release
+    # chain (certification, first-customer nine areas, disclosed imagery, listing set) as the
+    # first five, with nothing relaxed. Demand intelligence only: no competitor instructions,
+    # charts or photographs informed any of them.
+    #
+    # Tried and dropped on a gate, never by tuning it (scratch shadow chain, 2026-10-11):
+    # pet-snuggle-mat (its CIR names no product-type family, LISTING_PRODUCT_TYPE_UNSUPPORTED);
+    # spooky-garland (#297 missed window: pivot_to_evergreen; and the renderer cannot draw an
+    # assembled garland); valentine-heart-garland (same renderer refusal: "an assembled front
+    # view of repeated loose pieces is not drawable here"); cottage-wall-hanging (340 px
+    # legibility, 22% fill); the Nordic Forest throw (scale frame: cream not visible at 340
+    # px) and large size (#297: simplify to a quick make); harvest-table-runner (Thanksgiving
+    # (CA) is 2026-10-12, so its window is gone).
+    Candidate(
+        slug="nordic-forest-mosaic-throw-baby",
+        title="Nordic Forest Relief Baby Blanket",
+        what_it_is=(
+            "A 57.6 x 67.8 cm baby blanket worked flat in forest and cream, one colour per "
+            "row, the 12-stitch fir-and-star motif a double-crochet relief standing above a "
+            "single-crochet ground."),
+        why_at_launch=(
+            "The Nordic Forest concept is the highest-scoring in the radar pool on 2026-10-11 "
+            "(0.761; only its own bundle scores higher), it shares the nordic-forest family "
+            "with the snowflake ornaments, and the Christmas window is open for the baby "
+            "size. The throw and large sizes were tried and dropped: the throw's scale frame "
+            "fails the unchanged 340 px legibility check, and the large size misses the "
+            "#297 Christmas window (simplify to a quick make)."),
+        variants=(Variant("baby", "57.6 x 67.8 cm", "nordic_forest_baby"),),
+        pod="blankets",
+        subcategory="baby_blanket", audience=ch.UNDER_3,
+        committed_statements=_BABY_BLANKET_STATEMENTS,
+        listing=ListingIdentity(kind="blanket", etsy_category="baby",
+                                nouns=("blanket",),
+                                qualifiers=("nordic", "forest", "fir", "star"),
+                                techniques=("texture",)),
+        price=PriceBand(
+            *_BLANKET_BAND, proposed_cad=7.50, basis=SOURCED,
+            why=("the premium blanket band observed on HanJanCrochet and "
+                 "MJsOffTheHookDesigns (CA$8.47-11.65) in radar/market.py, proposed below its "
+                 "floor for the same reason as the Cloudline baby blanket: no video and no "
+                 "review history")),
+        disqualifiers=(
+            "listing copy or imagery that shows a two-colour fir or star in one row: the "
+            "fabric is one colour per row",
+            "a worked sample whose fir-and-star relief does not read at baby-blanket size",
+        ),
+        aspiration=(
+            "57.6 x 67.8 cm is arithmetic from the stated gauge; twin.calibrated is False",
+        ),
+    ),
+    Candidate(
+        slug="mosaic-placemat-pair",
+        # W4-PRODREADY: "Raised" because the lattice exists only as raised stitches.
+        title="Raised Diamond Lattice Placemat Pair",
+        what_it_is=(
+            "Two placemats, each 28.8 x 47.7 cm at the stated gauge, worked flat in cream and "
+            "wine, one colour per row, with a raised diamond lattice in double crochet "
+            "against a single-crochet ground."),
+        why_at_launch=(
+            "The table-setting partner to the hexagon coaster set in the same cream and wine "
+            "palette (radar score 0.621, evergreen, a housewarming gift), so the two make a "
+            "natural table-set pairing at the cluster price; a pair is the multiplicity the "
+            "pattern makes (Component.make = 2)."),
+        variants=(Variant("pair", "2 pieces, 28.8 x 47.7 cm each", "placemat_pair"),),
+        pod="home_decor",
+        listing=ListingIdentity(kind="placemat", etsy_category="placemat",
+                                nouns=("placemat",), qualifiers=("diamond", "lattice"),
+                                techniques=("texture",)),
+        price=PriceBand(
+            *_CLUSTER_BAND, proposed_cad=5.00, basis=SOURCED,
+            why=("the CA$4-12 crochet-pattern cluster from radar/market.py OBSERVATIONS, in "
+                 "its lower half, one rung above the coaster set it pairs with")),
+        disqualifiers=(
+            "copy or imagery implying a two-colour lattice in one row: the fabric is one "
+            "colour per row",
+            "a worked sample that does not lie flat under a plate, which only fabric confirms",
+        ),
+        aspiration=(
+            "28.8 x 47.7 cm is arithmetic from the stated gauge; twin.calibrated is False",
+        ),
+    ),
+    Candidate(
+        slug="housewarming-key-basket",
+        title="Housewarming Key Basket",
+        what_it_is=(
+            "A round catch-all basket about 18.3 cm across and 11.1 cm tall at the stated "
+            "gauge, worked in one piece from the centre of a staggered-increase cream base "
+            "into pine and cream basketweave relief walls, one colour per round."),
+        why_at_launch=(
+            "The moment-first housewarming candidate (W4-PIPE2) with the engineered CIR, in "
+            "the basket category whose observed demand put the nesting baskets in Launch-0. "
+            "A gift for a first home, it pairs with the coaster set and the placemat pair "
+            "as the shop's housewarming table-and-hall set."),
+        variants=(Variant("one_size", "18.3 x 11.1 cm", "key_basket"),),
+        pod="home_decor",
+        listing=ListingIdentity(kind="basket", etsy_category="basket", nouns=("basket",),
+                                qualifiers=("housewarming", "basketweave"),
+                                techniques=("texture",)),
+        price=PriceBand(
+            *_CLUSTER_BAND, proposed_cad=5.50, basis=SOURCED,
+            why=("the CA$4-12 crochet-pattern cluster from radar/market.py OBSERVATIONS, "
+                 "below the nesting baskets' three-size price. A key-basket-specific observed "
+                 "price is UNKNOWN")),
+        disqualifiers=(
+            "a worked sample whose walls slump at the stated gauge: nothing is claimed about "
+            "stiffness until a sample is made",
+            "a base that does not lie flat, which only a sample confirms",
+        ),
+        aspiration=(
+            "18.3 x 11.1 cm is arithmetic from the stated gauge; twin.calibrated is False",
+        ),
+    ),
+)
+PROPOSED_SLUGS: tuple[str, ...] = tuple(c.slug for c in PROPOSED_CANDIDATES)
+
+CANDIDATES: tuple[Candidate, ...] = (
+    _BASE_CANDIDATES + (PROPOSED_CANDIDATES if CATALOGUE_FLOOR_APPROVED else ()))
+LAUNCH0_SLUGS: tuple[str, ...] = (
+    _CORE_LAUNCH0_SLUGS + (PROPOSED_SLUGS if CATALOGUE_FLOOR_APPROVED else ()))
+if CATALOGUE_FLOOR_APPROVED:
+    BUILDERS.update(PROPOSED_BUILDERS)
+
+# D-W4-OWNER-BASKET-IDENTITY (2026-10-27): reserve candidates the owner preserved "for
+# separately verified future releases". They are not launched (not in LAUNCH0_SLUGS), but their
+# CIRs stay in `launch_scope_slugs`, so every Launch-0 gate (first-customer, plan price,
+# children's statements) still applies to them; a CIR a launched candidate sells is that
+# candidate's, never the reserve's (`candidate_for_cir`).
+HELD_FOR_VERIFICATION: tuple[str, ...] = ("nursery-nesting-baskets",)
+
+
+def proposed_candidate(slug: str) -> Candidate:
+    """A catalogue-floor proposal candidate, whether or not the owner has approved it."""
+    for c in PROPOSED_CANDIDATES:
+        if c.slug == slug:
+            return c
+    raise KeyError(f"no proposed Launch-0 candidate {slug!r}")
+
+
+_LAUNCH_SCOPE: frozenset[str] | None = None
+
+
+def launch_scope_slugs() -> frozenset[str]:
+    """Every slug that is Launch-0: the candidate slugs and each variant's own CIR slug.
+
+    Measures: the variants' CIRs, built once. Why: a basket variant is published under its
+    CIR's slug (`market-basket-small`), not the candidate's (`nursery-nesting-baskets`), and a
+    quarantine keyed on only one of the two would refuse the product it exists to let through
+    or admit one it exists to hold back (F-111, F-119, F-120).
+    """
+    global _LAUNCH_SCOPE
+    if _LAUNCH_SCOPE is None:
+        slugs = set(LAUNCH0_SLUGS)
+        # D-W4-OWNER-BASKET-IDENTITY: a family held for separately verified future releases
+        # stays inside the quarantine. Leaving it would let a re-certified medium or large
+        # basket skip the first-customer gate (`publish.eligibility.legacy_status`), which is
+        # the opposite of "separately verified".
+        for slug in LAUNCH0_SLUGS + HELD_FOR_VERIFICATION:
+            for v in candidate(slug).variants:
+                slugs.add(cir_for(v.build).slug)
+        slugs.update(HELD_FOR_VERIFICATION)
+        _LAUNCH_SCOPE = frozenset(slugs)
+    return _LAUNCH_SCOPE
+
+
+_CANDIDATE_OF_CIR: dict[str, str] | None = None
+
+
+def candidate_for_cir(slug: str) -> Candidate | None:
+    """The Launch-0 candidate a CIR slug (or a candidate slug) belongs to, or None.
+
+    Measures: every candidate's variant CIR slugs, built once. Why: the listing chain works on
+    CIR slugs (`market-basket-small`) and the merchandising facts live on the candidate
+    (`nursery-nesting-baskets`); a prefix match against the radar pool is what produced the
+    "Market Mosaic Blanket" basket (PT-01), so the mapping is exact or it is nothing.
+    """
+    global _CANDIDATE_OF_CIR
+    if _CANDIDATE_OF_CIR is None:
+        out: dict[str, str] = {}
+        # A CIR that a launched candidate sells belongs to that candidate: a reserve
+        # candidate that also lists it (the preserved nursery family's small basket,
+        # D-W4-OWNER-BASKET-IDENTITY) never re-claims it. Launched candidates go first and
+        # nothing overwrites a claim.
+        ordered = (sorted(CANDIDATES, key=lambda c: c.slug not in LAUNCH0_SLUGS))
+        for cand in ordered:
+            out.setdefault(cand.slug, cand.slug)
+            for v in cand.variants:
+                out.setdefault(cir_for(v.build).slug, cand.slug)
+        _CANDIDATE_OF_CIR = out
+    key = _CANDIDATE_OF_CIR.get(slug)
+    return candidate(key) if key else None
+
+
+def listing_identity(slug: str) -> ListingIdentity | None:
+    """The product's own listing identity for a Launch-0 CIR slug, or None outside Launch-0.
+
+    A Launch-0 candidate with no identity raises: inside Launch-0 an undescribed product is a
+    defect in this module, not a reason to borrow another product's type (PT-01).
+    """
+    cand = candidate_for_cir(slug)
+    if cand is None:
+        return None
+    if cand.listing is None and cand.slug in LAUNCH0_SLUGS:
+        raise KeyError(f"Launch-0 candidate {cand.slug!r} declares no listing identity; the "
+                       f"listing chain refuses rather than defaulting a product type")
+    return cand.listing
+
+
+def make_hours(cir_slug: str) -> float | None:
+    """The estimated make hours of one Launch-0 variant, from `make_time` (ESTIMATED).
+
+    PT-11: once the Launch-0 variants are the engineered designs under their own slugs, the
+    lane router needs a make time for them that is not a radar seed's; this is the twin's
+    stitch count at the assumed rate, labelled as such by `make_time`.
+    """
+    cand = candidate_for_cir(cir_slug)
+    if cand is None:
+        return None
+    for v in cand.variants:
+        if cir_for(v.build).slug == cir_slug:
+            row = next((r for r in make_time(cand)["variants"] if r["variant"] == v.key), None)
+            return None if row is None else row.get("hours_total")
+    return None
+
+
+def launch_price(slug: str) -> dict | None:
+    """The Launch-0 price for a CIR slug, from its own candidate's plan, with its basis (PT-04).
+
+    Measures: `price_plan(candidate)`, which runs the candidate's own band and proposal through
+    `commerce.pricing.decide_price`. Why: `pricing.position` used to read the radar pool's
+    category band, and a Launch-0 product the pool did not name priced from `mosaic_blanket`
+    (CA$14 for a coaster set planned at CA$4). None outside Launch-0.
+    """
+    cand = candidate_for_cir(slug)
+    if cand is None or slug not in launch_scope_slugs():
+        return None
+    plan = price_plan(cand)
+    low, high = plan["band_cad"]
+    # Inside the candidate's band, or below its floor only where the plan itself proposed
+    # that price on purpose (the blanket's CA$7.50, recorded in its PriceBand.why).
+    price = plan["price_cad"]
+    within = price <= high and (price >= low or price == plan["proposed_cad"])
+    return {**plan, "candidate": cand.slug, "cir_slug": slug, "within_plan_band": within,
+            "basis": (f"products.launch0.price_plan({cand.slug}): band "
+                      f"CA${low:.2f}-{high:.2f} ({plan['band_basis']}), proposal "
+                      f"CA${plan['proposed_cad']:.2f}, decided by commerce.pricing")}
+
+
+def candidate(slug: str) -> Candidate:
+    for c in CANDIDATES:
+        if c.slug == slug:
+            return c
+    raise KeyError(f"no Launch-0 candidate {slug!r}")
+
+
+# ---- which CIRs are children's products ------------------------------------
+#
+# A candidate carries the audience; a CIR does not, and should not. The same fabric is a lap
+# blanket or a baby blanket depending on how it is sold, so the audience is a merchandising
+# decision and it lives here with the rest of them. `publish/pdf.py` asks this before it
+# decides whether to set a safety block.
+#
+# Computed from CANDIDATES rather than declared as a second list, and cached because
+# resolving it builds every variant's CIR. A declared list would be a copy of the assignment
+# that goes stale when a variant's builder changes, which is the failure this whole module
+# was written about.
+_CIR_AUDIENCE: dict[str, tuple[str, str]] | None = None
+
+
+# Children's assignments for CIRs that are not Launch-0 candidate variants.
+#
+# `nordic-forest-mosaic-throw-baby` is the one that made this table necessary. Its title is
+# "Nordic Forest Overlay Mosaic Blanket (Baby)", nothing in the catalogue assigned it an
+# audience, and so it would have rendered with no safety block while every other gate passed.
+# It does not ship today only because it fails the colourwork gate -- luck, not design.
+#
+# Assigned rather than declared exempt, because a baby blanket is a baby blanket: the title is
+# the merchandising decision, already made by whoever wrote it. The conservative reading is
+# also the honest one here.
+EXTRA_CHILDRENS_ASSIGNMENTS: dict[str, tuple[str, str]] = {
+    "nordic-forest-mosaic-throw-baby": ("baby_blanket", ch.UNDER_3),
+}
+
+# Slugs whose title carries a child word and which are deliberately NOT merchandised to a
+# child, each with the reason. Empty today, and it is meant to stay small: the point is that
+# an exemption has to be written down by somebody, because the alternative reading of silence
+# is "nobody looked".
+NOT_MERCHANDISED_TO_A_CHILD: dict[str, str] = {
+    # A1-R (owner directive 2026-11-02): every closed stuffed form needs a written decision;
+    # the implicit "the candidate declares no sub-category" is not one. These two are the
+    # catalogue's stuffed pieces, decided here with their reasons.
+    "heart-row-ring-pillow": ("a wedding ring-bearer pillow: wedding decor that holds the "
+                              "rings, not a plaything; it is not merchandised, sized or "
+                              "described for a child"),
+    "spring-garden-kneeler": ("a garden kneeling pad: an adult gardening accessory, not "
+                              "merchandised, sized or described for a child"),
+}
+
+# A1R-6: the record behind each written exemption -- who decided, when, and the decision log
+# entry. Recorded by opus2 under the owner's A1-R directive of 2026-11-02; the owner's own
+# ratification is an open owner decision, said here rather than implied.
+NOT_MERCHANDISED_DECISIONS: dict[str, dict[str, str]] = {
+    slug: {"decided_by": "opus2 (A1-R), under the owner's 2026-11-02 directive; "
+                         "owner ratification pending",
+           "decided_on": "2026-11-02", "decision_log": "D-A1R-STUFFED-EXEMPTIONS",
+           "reason": why}
+    for slug, why in NOT_MERCHANDISED_TO_A_CHILD.items()}
+
+# The recorded reasons describe these exact repository designs, not every future
+# use of the same slug. Versions are included; a revision needs a new decision.
+# These bind existing decisions only; owner ratification remains pending.
+_STUFFED_DECISION_CIR_SHA256 = {
+    "heart-row-ring-pillow": "5243ba1417936102e3fdba0e7950f9d9880b1dc097a2702fba29f7d6511bba7b",
+    "spring-garden-kneeler": "2eb7387e6def9659b88f8c6d8226111df413e2b55863067d3aac5d8aa03107da",
+}
+
+
+# Bind existing child assignments to the exact authored design and version.
+# A different or revised CIR needs an explicit, independently authorized decision.
+_ASSIGNED_DECISION_CIR_SHA256 = {
+    "market-basket-medium": "d5628dde96e01e2779c54c729a9f4b99bcdbbb0ecb44446ff6015fad15b20a64",
+    "market-basket-large": "5d31d68b153fdba95e7dd29e76407f1e9fc39581e6326d18521289b30e1ef0cf",
+    "cloudline-baby-blanket": "06edf77343fa3836f99cbf3ca2679c69737963856372a61697fcef93088b03d5",
+    "nordic-forest-mosaic-throw-baby": "8f98e58d975613e2db613001b780d52a615ba23f50c7e479d979ad4779e12fc7",
+}
+
+
+def _cir_decision_digest(cir) -> str | None:
+    import hashlib
+    import json
+
+    try:
+        content = json.dumps(cir.to_dict(), sort_keys=True, separators=(",", ":"),
+                             allow_nan=False).encode("utf-8")
+        return hashlib.sha256(content).hexdigest()
+    except Exception:  # noqa: BLE001 - unreadable content is not an authorization
+        return None
+
+
+def _assigned_decision_matches(cir) -> bool:
+    expected = _ASSIGNED_DECISION_CIR_SHA256.get(getattr(cir, "slug", ""))
+    return expected is not None and _cir_decision_digest(cir) == expected
+
+
+def _stuffed_decision_matches(cir) -> bool:
+    expected = _STUFFED_DECISION_CIR_SHA256.get(getattr(cir, "slug", ""))
+    return expected is not None and _cir_decision_digest(cir) == expected
+
+
+# The three answers to "is this for a child", which used to be two.
+ASSIGNED = "assigned"
+NOT_FOR_CHILDREN = "not_for_children"
+UNDECIDED = "undecided"
+
+
+def _cir_audience_map() -> dict[str, tuple[str, str]]:
+    global _CIR_AUDIENCE
+    if _CIR_AUDIENCE is None:
+        out: dict[str, tuple[str, str]] = {}
+        for cand in CANDIDATES:
+            if cand.subcategory is None:
+                continue
+            for v in cand.variants:
+                slug = cir_for(v.build).slug
+                # The audience is the merchandising decision of the candidate that sells the
+                # CIR, never of a reserve that also lists it (D-W4-OWNER-BASKET-IDENTITY).
+                owner = candidate_for_cir(slug)
+                if owner is not None and owner.slug != cand.slug:
+                    continue
+                out[slug] = (cand.subcategory, cand.audience or ch.UNDER_3)
+        for slug, pair in EXTRA_CHILDRENS_ASSIGNMENTS.items():
+            if slug in out and out[slug] != pair:
+                raise ValueError(
+                    f"{slug} is assigned {out[slug]} by a candidate and {pair} by "
+                    f"EXTRA_CHILDRENS_ASSIGNMENTS; one product cannot have two audiences")
+            out[slug] = pair
+        _CIR_AUDIENCE = out
+    return _CIR_AUDIENCE
+
+
+def _decided_not_for_children() -> dict[str, str]:
+    """Slugs a candidate has explicitly placed outside the children's category, with why."""
+    out = dict(NOT_MERCHANDISED_TO_A_CHILD)
+    for cand in CANDIDATES:
+        if cand.subcategory is not None:
+            continue
+        for v in cand.variants:
+            out.setdefault(cir_for(v.build).slug,
+                           "the candidate declares no children's sub-category")
+    return out
+
+
+# A1-R: what makes a closed stuffed form. A stuffed seam (the risk matrix's closed_3d_form),
+# or a stuffing material in a CIR whose pieces are closed by any seam. Never a title word and
+# never an optional placement field.
+# A1R-1: the stuffing vocabulary, read through the one fold (so "Fiber-Fill", "fibre-fill",
+# "fiberfil" and look-alike spellings are the same word). A vocabulary of what goes INSIDE a
+# closed piece -- not a narrow product regex -- and any non-yarn material counts as well.
+STUFFING_WORDS = re.compile(
+    r"(?:fib(?:re|er)\s*-?\s*fill?|poly\s*-?\s*fill?|polyester\s+fill|\bfill(?:ing|er)?\b|"
+    r"\bstuff(?:ing|ed)?\b|kapok|pellets?\b|\bbeans?\b|roving|wadding|batting|\bfoam\b|"
+    r"\binsert\b|pillow\s+form|cushion\s+pad|\bpad\b|buckwheat|hulls?\b|beads?\b|"
+    r"\bfluff\b|filler|down\s+feather|feathers?\b)", re.I)
+# Only these words count when they appear in free text (designer or seam notes): the words a
+# maker writes when a piece is stuffed. "insert"/"pad" alone in a note are too common
+# ("insert the dowel") to read as stuffing; in a material name they count.
+STUFFING_NOTE_WORDS = re.compile(
+    r"(?:fib(?:re|er)\s*-?\s*fill?|poly\s*-?\s*fill?|polyester\s+fill|\bstuff(?:ing|ed)?\b|"
+    r"kapok|pellets?\b|\bbeans\b|roving|wadding|batting|\bfoam\b|pillow\s+form|"
+    r"cushion\s+pad|buckwheat|\bfilling\b|\bfill\s+(?:firmly|lightly|with)\b|"
+    r"\bfill\s+(?:the\s+)?(?:body|head|piece|form|toy|ball|cushion)\b)", re.I)
+# A rounds piece whose last round is at most this many stitches after decreasing from a
+# wider round has closed on itself (a ball, a head, an egg): a closed 3-D form.
+CLOSURE_MAX_STITCHES = 12
+ROUNDS = ("joined_rounds", "spiral_rounds")
+
+
+def _folded(text) -> str:
+    from .text_fold import fold
+
+    return fold(str(text or ""))
+
+
+def _closes_on_itself(component) -> bool:
+    """A rounds piece that widens and then decreases back to a small closing round."""
+    if getattr(component, "construction", None) not in ROUNDS:
+        return False
+    counts = [r.declared_count for r in (component.rows or []) if r.declared_count]
+    if len(counts) < 3:
+        return False
+    return counts[-1] < max(counts) and counts[-1] <= CLOSURE_MAX_STITCHES
+
+
+def stuffed_form_reasons(cir) -> list[str]:
+    """Why this CIR is (or must be treated as) a closed stuffed form; [] when it is not.
+
+    A1R-1, fail closed. A closed construction -- any seam, or a rounds piece that closes on
+    itself -- together with ANY of: a seam stuffed before closing, a stuffing word in a
+    material name, a material that is not a yarn (no yarn weight), or a stuffing word in the
+    designer or seam notes. A seam stuffed before closing is enough on its own. Whatever
+    cannot be read is a reason, so it holds."""
+    try:
+        seams = list(getattr(cir, "assembly", None) or [])
+        out = [f"seam {s.piece_a}+{s.piece_b} is stuffed before closing"
+               for s in seams if getattr(s, "stuff_before_closing", False)]
+        components = list(cir.components or [])
+        closing = [c.name for c in components if _closes_on_itself(c)]
+        closed = bool(seams) or bool(closing)
+        how = (f"seamed ({len(seams)} seam{'s' if len(seams) != 1 else ''})" if seams
+               else f"{', '.join(closing)} closes on itself" if closing
+               else "closure cannot be established from stitch counts")
+        # Explicit filling is safety-relevant even when the final stitch count is
+        # greater than twelve or the maker closes the opening using a free-text note.
+        for m in getattr(cir, "materials", None) or []:
+            name = _folded(getattr(m, "name", ""))
+            if STUFFING_WORDS.search(name):
+                out.append(f"{how}, with stuffing material {getattr(m, 'name', '')!r}")
+            elif closed and not getattr(m, "yarn_weight", None):
+                out.append(f"{how}, with a non-yarn material {getattr(m, 'name', '')!r} "
+                           f"(UNKNOWN filling: held)")
+        notes = " ".join([str(getattr(cir, "designer_notes", "") or "")]
+                         + [str(getattr(seam, "note", "") or "") for seam in seams]
+                         + [str(getattr(component, "note", "") or "")
+                            for component in components]
+                         + [str(getattr(row, "note", "") or "") for component in components
+                            for row in (getattr(component, "rows", None) or [])])
+        if STUFFING_NOTE_WORDS.search(_folded(notes)):
+            out.append(f"{how}, and the notes say it is stuffed")
+        return out
+    except Exception as exc:  # noqa: BLE001 - unreadable construction is UNKNOWN: held
+        return [f"construction unreadable ({type(exc).__name__}): UNKNOWN, held"]
+
+
+def closed_stuffed_form(cir) -> bool:
+    """A1-R / A1R-1: the construction, not the title, decides; UNKNOWN reads as True."""
+    return bool(stuffed_form_reasons(cir))
+
+
+def childrens_decision_for(cir, *, listing=None) -> tuple[str, object]:
+    """`childrens_decision` for this CIR, read with its construction (A1-R).
+
+    For a closed stuffed form only an explicit decision counts: an assignment, or a written,
+    reasoned entry in NOT_MERCHANDISED_TO_A_CHILD. The implicit exemption a candidate gets for
+    declaring no children's sub-category is not accepted for one -- nobody wrote that decision
+    for a stuffed form -- so it reads UNDECIDED and the renderer holds it."""
+    state, why = childrens_decision(cir.slug)
+    if state == ASSIGNED and not _assigned_decision_matches(cir):
+        return (UNDECIDED, None)
+    if listing is not None:
+        try:
+            listing_words = child_words_in_listing(listing)
+        except ValueError:
+            return (UNDECIDED, None)  # uncheckable copy is not a safety decision
+        if listing_words and state != ASSIGNED:
+            return (UNDECIDED, None)
+    # A legacy no-subcategory decision says nothing about newly introduced child
+    # audience words on this design. A contradictory name requires a decision.
+    if state == NOT_FOR_CHILDREN and child_words_in(cir.title, cir.slug):
+        return (UNDECIDED, None)
+    if closed_stuffed_form(cir) and state == NOT_FOR_CHILDREN \
+            and (cir.slug not in NOT_MERCHANDISED_TO_A_CHILD
+                 or not _stuffed_decision_matches(cir)):
+        return (UNDECIDED, None)
+    return (state, why)
+
+
+def childrens_decision(cir_slug: str) -> tuple[str, object]:
+    """Whether this product is merchandised to a child, or whether nobody has said.
+
+    Measures: the candidate assignments, the extra assignments, and the explicit exemptions.
+    Why: `childrens_assignment` returns None for two different states -- "a candidate declared
+    no children's sub-category", which is a decision, and "this slug is in no candidate at
+    all", which is an omission. One value meaning both is why a product titled "(Baby)" could
+    reach a customer with no safety block and no gate able to say so: the renderer asked a
+    question whose "no" and whose "nobody looked" were the same answer.
+
+    Returns `(ASSIGNED, (subcategory, audience))`, `(NOT_FOR_CHILDREN, reason)`, or
+    `(UNDECIDED, None)`.
+    """
+    pair = _cir_audience_map().get(cir_slug)
+    if pair is not None:
+        return (ASSIGNED, pair)
+    exempt = _decided_not_for_children().get(cir_slug)
+    if exempt is not None:
+        return (NOT_FOR_CHILDREN, exempt)
+    return (UNDECIDED, None)
+
+
+def child_words_in(*texts: str) -> tuple[str, ...]:
+    """Which child-audience words appear as whole words in this text.
+
+    Shared by the survey and by the renderer's refusal, so a word added here cannot start
+    being reported without also starting to block.
+    """
+    from .text_fold import fold
+
+    # A1-R: one fold (NFKC, invisible characters, look-alike letters) for every reader.
+    text = fold(" ".join(t or "" for t in texts))
+    words = set(re.findall(r"[a-z]+", text))
+    found = [w for w in CHILD_AUDIENCE_WORDS if w in words]
+    if {"toy", "toys"} & set(found) and not re.search(
+            r"\btoys?\b", _PET_TOY.sub(" ", text)):
+        found = [w for w in found if w not in ("toy", "toys")]
+    if _BABY_MONTH_SIZE.search(text):
+        found.append("baby_month_size")
+    # Explicit ages are not an audience decision. Treat an under-18 lower
+    # bound as a child claim; this is conservative, not a general NLP classifier.
+    ages = (int(m.group(1)) for m in re.finditer(r"\b(?:age|ages|aged)\s*:?\s*(\d{1,3})\b", text))
+    numeric = any(age < 18 for age in ages)
+    for m in re.finditer(r"\b(\d{1,3})(?:\s*(?:-|–|—|to)\s*(\d{1,3}))?\s*"
+                         r"(months?|mos?|years?|yrs?)\b", text):
+        lower = min(int(m.group(1)), int(m.group(2)) if m.group(2) else int(m.group(1)))
+        if lower < (216 if m.group(3).startswith(("month", "mo")) else 18):
+            numeric = True
+            break
+    spelled = ("zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
+               "thirteen|fourteen|fifteen|sixteen|seventeen")
+    if re.search(rf"\b(?:age|ages|aged)\s+(?:{spelled})\b", text) or re.search(
+            rf"\b(?:{spelled})\s+(?:years?|months?)\s+olds?\b", text):
+        numeric = True
+    if numeric:
+        found.append("age_under_18")
+    if re.search(r"\byoung\s+ones\b", text):
+        found.append("young ones")
+    return tuple(found)
+
+
+def child_words_in_listing(listing) -> tuple[str, ...]:
+    """Read customer-facing title, description and tags with the shared fold."""
+    if not isinstance(listing, dict):
+        raise ValueError("listing copy is not a mapping")
+    raw_tags = listing.get("tags")
+    tags = [] if raw_tags is None else raw_tags
+    if not isinstance(tags, (list, tuple)) or any(not isinstance(t, str) for t in tags):
+        raise ValueError("listing tags cannot be checked")
+    texts = ["" if listing.get(key) is None else listing.get(key)
+             for key in ("title", "description")] + list(tags)
+    if any(not isinstance(t, str) for t in texts):
+        raise ValueError("listing copy cannot be checked")
+    return child_words_in(*texts)
+
+
+def stuffed_figure(cir) -> bool:
+    """OPUS2T-4: whether the CIR's own construction is a stuffed figure -- a stuffed, closed
+    body with a piece sewn onto it at a stated place (ears, limbs). That is the shape of a toy
+    whatever its title says, so the children's-decision gate reads it, not only title words.
+    A stuffed cushion or kneeler (panels or a disc closing a stuffed shape, nothing placed on
+    it) is not one."""
+    seams = list(getattr(cir, "assembly", None) or [])
+    # ENG-PLUSH: a piece stated to be stuffed (`Component.stuff_at_round`) is stuffed too.
+    stuffed = any(getattr(s, "stuff_before_closing", False) for s in seams) or any(
+        getattr(c, "stuff_at_round", None) is not None for c in (cir.components or []))
+    placed = any(getattr(s, "stitches_from_centre", None) is not None for s in seams)
+    return stuffed and placed
+
+
+def childrens_assignment(cir_slug: str) -> tuple[str, str] | None:
+    """The children's sub-category and age band a CIR slug is merchandised into, or None.
+
+    Measures: the slug of every variant CIR of every candidate that declares a sub-category,
+    plus `EXTRA_CHILDRENS_ASSIGNMENTS`.
+    Why: the renderer needs one answer to "is this for a child", and the honest place for it
+    is the catalogue rather than the pattern.
+
+    None here still means "no children's block", which is what a renderer needs. It does NOT
+    distinguish a decision from an omission -- ask `childrens_decision` for that, which is
+    what `publish.pdf` refuses on.
+    """
+    return _cir_audience_map().get(cir_slug)
+
+
+# Review U6 / A1 F3: product nouns for objects made for babies and small children. "toy" and
+# "toys" also name pet products; a pet-qualified toy ("cat toy", "dog toys") is not a child
+# claim (`_PET_TOY`), and every other toy is held for an explicit decision.
+INFANT_PRODUCT_WORDS: tuple[str, ...] = (
+    "pacifier", "pacifiers", "binky", "binkies", "binkie", "soother", "soothers",
+    "teether", "teethers", "teething", "rattle", "rattles", "bib", "bibs",
+    "stroller", "strollers", "pram", "prams", "pushchair", "pushchairs", "bassinet",
+    "bassinets", "layette", "layettes", "onesie", "onesies", "bootie", "booties",
+    "swaddle", "swaddles", "toy", "toys", "plushie", "plushies", "stuffie", "stuffies",
+    "doll", "dolls", "playmat", "playmats",
+    # OPUS2P-1 (ENG-PLUSH port): nouns that name only a stuffed toy. "bear", "bunny" and
+    # "rabbit" are deliberately NOT here: they also name pets (`_PET_TOY`) and motifs, and every
+    # stuffed toy is caught by its construction (`closed_stuffed_form`) whatever it is called.
+    "plush", "plushes", "softie", "softies", "teddy", "teddies",
+)
+_PET_TOY = re.compile(r"\b(?:cat|cats|kitten|kittens|kitty|dog|dogs|puppy|puppies|pet|pets|"
+                      r"catnip|ferret|rabbit|bunny)\s+toys?\b")
+# Review U6 / A1 F3: standard baby garment sizes ("12M Hat", "0-3m", "6-12 m"). Only the
+# month sizes that baby clothing uses, so yarn lengths ("200m") are not read as ages.
+_BABY_MONTH_SIZE = re.compile(r"\b(?:(?:0|3|6|9|12|18)\s*(?:-|–|—|to)\s*)?"
+                              r"(?:0|3|6|9|12|18|24)\s*m\b")
+# Words in a product's own title that say it is for a child. Used by
+# `childrens_titles_without_an_assignment`, and kept narrow: these are words a merchandiser
+# chose, not a classifier's guess at a fabric.
+CHILD_AUDIENCE_WORDS: tuple[str, ...] = (
+    "baby", "babies", "infant", "infants", "newborn", "newborns", "nursery", "nurseries",
+    "toddler", "toddlers", "child", "children", "kid", "kids", "crib", "cribs",
+    "cot", "cots", "lovey", "loveys", "amigurumi", "tot", "tots", "preemie", "preemies",
+    "preschool", "preschooler", "preschoolers", "kiddo", "kiddos", "tween", "tweens", "youth",
+    "boy", "boys", "girl", "girls", "teen", "teens", "teenager", "teenagers",
+    # Review U6 / A1 F3: infant-only product nouns. These name an object made for a baby or
+    # small child even when no audience word appears ("Pacifier Clip", "Teething Ring").
+    *INFANT_PRODUCT_WORDS,
+)
+
+
+def childrens_titles_without_an_assignment() -> list[dict]:
+    """CIRs whose own title says "child" and which no candidate assigns an audience to.
+
+    Measures: `CHILD_AUDIENCE_WORDS` as whole words in the title of every CIR this repository
+    can build, against `childrens_assignment`.
+    Why: the safety block is keyed on the assignment, so a product that is a children's
+    product and has no assignment gets no safety block -- silently, and with every other gate
+    passing. That is the exact shape of failure `intel.childrens` exists to prevent, one
+    layer up from where it can see. This does not block: whether a product is merchandised to
+    a child is a decision, and a title word is evidence for it rather than the decision
+    itself. It is reported so the decision gets made on purpose.
+    """
+    from . import nordic_forest
+
+    makers: dict[str, object] = {}
+    for slug in flat.CATALOGUE:
+        makers[slug] = (lambda s=slug: flat.for_slug(s))
+    for size in nordic_forest.SIZES:
+        makers[f"nordic-forest-{size}"] = (lambda s=size: nordic_forest.build(s))
+    for size in ("small", "medium", "large"):
+        makers[f"market-basket-{size}"] = (lambda s=size: vessels.build_basket(s))
+    makers["hexagon-coaster-set"] = vessels.build_hexagon_coaster
+    # A1-7: every engineered catalogue CIR too (the kneeler and ring pillow are moment
+    # candidates, not flat or vessel builds), so the survey covers what the renderer holds.
+    from . import inventory
+
+    for slug in inventory.universe():
+        if slug not in makers:
+            makers[slug] = (lambda s=slug: inventory._engineered(s))
+
+    out = []
+    for key in sorted(makers):
+        cir = makers[key]()                               # type: ignore[operator]
+        if cir is None:
+            continue
+        hits = child_words_in(cir.title, cir.slug)
+        state, _why = childrens_decision_for(cir)
+        # A1-7: the survey reads what the renderer refuses on -- words or the construction.
+        if (hits or closed_stuffed_form(cir)) and state == UNDECIDED:
+            out.append({"slug": cir.slug, "title": cir.title, "words": hits,
+                        "why": ("the title reads as a children's product and nothing has "
+                                "decided either way -- not an assignment and not an "
+                                "exemption. `publish.pdf.build_pattern_pdf` refuses to "
+                                "render it, so this list is what has to be decided rather "
+                                "than what has already gone out")})
+    return out
+
+
+# ---- what is certified, per product ----------------------------------------
+
+def product_truth(cand: Candidate) -> dict:
+    """Compile every variant of a candidate and report what is established about it.
+
+    Measures: per variant -- whether the CIR compiles with no errors, how many warnings, the
+    finished dimensions its twin computes, and whether that twin is calibrated.
+    Why: this is the module's reason to exist. A plan that says "certified" is a sentence; a
+    plan that compiles the pattern while you read it is a measurement, and the two differ
+    exactly when somebody edits the design and not the plan.
+    """
+    variants = []
+    for v in cand.variants:
+        cir = cir_for(v.build)
+        result = compile_cir(cir)
+        row: dict = {
+            "variant": v.key, "label": v.label, "slug": cir.slug, "title": cir.title,
+            "compiles": result.ok, "errors": [str(f) for f in result.errors],
+            "warnings": [str(f) for f in result.warnings],
+            "components": len(cir.components),
+            "pieces": sum(c.make for c in cir.components),
+            "title_promise": title_promise(cir),
+            "assembly_promise": assembly_promise(cir),
+            "motif_promise": motif_promise(
+                cir, {"candidate.title": cand.title, "candidate.what_it_is": cand.what_it_is,
+                      **_copy_texts(cand.slug)[0]}, tags=_copy_texts(cand.slug)[1]),
+        }
+        if result.ok:
+            twin = build_twin(cir, result)
+            row.update({
+                "width_cm": twin.width_cm, "height_cm": twin.height_cm,
+                "shape": twin.shape, "outline": twin.outline,
+                "stitches": twin.stitch_total,
+                "calibrated": twin.calibrated,
+                "fabric_truth": fabric_truth(cir, twin),
+                "size_label": size_label_backed(v.label, twin.width_cm, twin.height_cm,
+                                                 twin=twin),
+            })
+        variants.append(row)
+
+    gates = {
+        "compiles_clean": all(v["compiles"] and not v["warnings"] for v in variants),
+        "title_promise_backed": all(v["title_promise"]["backed"] for v in variants),
+        "assembly_promise_backed": all(v["assembly_promise"]["backed"] for v in variants),
+        # W4-PRODREADY: a motif word in the title or copy is backed by the CIR's declared motif.
+        "motif_promise_backed": all(v["motif_promise"]["backed"] for v in variants),
+        "fabric_claim_backed": all(v.get("fabric_truth", {}).get("backed", False)
+                                   for v in variants),
+        "size_label_backed": all(v.get("size_label", {}).get("backed", False)
+                                 for v in variants),
+    }
+    calibrated = all(v.get("calibrated") for v in variants)
+    return {
+        "slug": cand.slug,
+        "variants": variants,
+        "gates": gates,
+        "passes_gates": all(gates.values()),
+        "certified": {
+            "a_cir_exists": True,
+            "compiles_with_no_errors": all(v["compiles"] for v in variants),
+            "compiles_with_no_warnings": all(not v["warnings"] for v in variants),
+            "finished_measurements_computed": all(v.get("width_cm") is not None
+                                                  for v in variants),
+            "name_matches_what_the_cir_makes": (gates["title_promise_backed"]
+                                                and gates["assembly_promise_backed"]
+                                                and gates["fabric_claim_backed"]
+                                                and gates["motif_promise_backed"]),
+        },
+        "aspiration": {
+            "physically_calibrated": calibrated,
+            "why_not": ("" if calibrated else
+                        "twin.calibrated is False: every measurement above is arithmetic from "
+                        "the gauge the CIR states, and no sample has been worked. This is the "
+                        "largest unmeasured risk in the product and it is the same for every "
+                        "item in the catalogue."),
+            "stated_by_the_candidate": cand.aspiration,
+        },
+        "disqualifiers": cand.disqualifiers,
+    }
+
+
+def make_time(cand: Candidate) -> dict:
+    """Customer make-hours per variant, for the whole object the buyer receives.
+
+    Measures: `seasonal.leadtime.estimate_for`, which reads `Component.make` from the CIR.
+    Why: a twin holds *one* instance of a component however many the pattern says to make, so
+    the estimator used to report 1.1 hours for a set of four coasters that takes about four and
+    a half -- a quarter of the truth, in the number a listing quotes to a buyer. This function
+    used to correct for it locally, on the grounds that `seasonal/**` belonged to another
+    department, and the local correction was wrong in its own way: it built a twin for the
+    *first* component only and multiplied that by the total piece count, so a body-plus-two-ears
+    product had the body counted three times and the ears not at all. Two copies of one value,
+    both wrong, is the shape of the defect this codebase keeps meeting. The multiplicity now
+    lives in the estimator, `estimate_for` builds one twin per component, and this reports what
+    it returns.
+    """
+    from ..seasonal import leadtime
+
+    rows = []
+    for v in cand.variants:
+        cir = cir_for(v.build)
+        result = compile_cir(cir)
+        if not result.ok:                                    # pragma: no cover - gated above
+            rows.append({"variant": v.key, "hours": None,
+                         "why": "does not compile, so no twin and no estimate"})
+            continue
+        est = leadtime.estimate_for(cir, result)
+        each = ", ".join(f"{c['make']}x {c['component']} at {c['hours_each']} h"
+                         for c in est.per_component)
+        rows.append({
+            "variant": v.key, "pieces": est.pieces,
+            "hours_total": est.hours, "lane_total": est.lane,
+            "per_component": [dict(c) for c in est.per_component],
+            "evidence": est.evidence,
+            "why": (f"{est.hours} h for the whole make, from {est.stitches} stitches across "
+                    f"{est.pieces} piece(s): {each}"),
+        })
+    return {"slug": cand.slug, "variants": rows, "label": ESTIMATED,
+            "basis": ("derived from the twin's stitch count at an assumed 700 stitches an "
+                      "hour. leadtime reports that rate as assumed, not measured, and it stays "
+                      "assumed until a sample is worked")}
+
+
+def launch0() -> list[dict]:
+    """The products that are actually in Launch-0, with their measured truth.
+
+    Measures: the gate results for each listed slug.
+    Why: a function rather than a constant, so the set can shrink. If a design changes under a
+    product until its name stops describing what it makes, that product leaves Launch-0 here
+    rather than being carried by a list somebody forgot to edit.
+    """
+    return [product_truth(candidate(s)) for s in LAUNCH0_SLUGS]
+
+
+def price_plan(cand: Candidate) -> dict:
+    """The candidate's price, put through the pricing module rather than asserted.
+
+    Measures: `commerce.pricing.decide_price` against the observed band, which enforces the
+    CA$3.00 floor, refuses a price above the band top while we have no review history, and
+    reports what is left after Etsy's fee stack.
+    Why: a price typed into a plan is a number somebody liked. A price that survived
+    `decide_price` is a number that cleared the floor, the ceiling and the fee arithmetic, and
+    the reasons it gives are the ones that belong in the listing decision record.
+    """
+    from ..commerce import pricing
+
+    band = (cand.price.low_cad, cand.price.high_cad)
+    decision = pricing.decide_price(cand.slug, category_band_cad=band,
+                                    proposed_cad=cand.price.proposed_cad,
+                                    sizes_offered=len(cand.variants))
+    return {
+        "slug": cand.slug,
+        "band_cad": band,
+        "band_basis": cand.price.basis,
+        "band_why": cand.price.why,
+        "proposed_cad": cand.price.proposed_cad,
+        "price_cad": decision.price_cad,
+        "net_cad_after_fees": decision.net_cad,
+        "take_rate": round(decision.take_rate, 4),
+        "reasons": decision.reasons,
+        "warnings": decision.warnings,
+        "held_at_proposal": decision.price_cad == cand.price.proposed_cad,
+    }
+
+
+def launch0_is_all_gate_clean() -> bool:
+    """Whether everything listed for launch passes every gate.
+
+    Measures: the conjunction of `passes_gates` over the listed slugs.
+    Why: the hard rule, as one boolean. This is the assertion the plan document is allowed to
+    make, and it is the only one.
+    """
+    return all(p["passes_gates"] for p in launch0())
+
+
+# ---- the children's view ---------------------------------------------------
+
+def childrens_view(cand: Candidate) -> dict:
+    """What `intel.childrens` says about a candidate, assessed twice.
+
+    Measures: `childrens.assess` on the candidate as the deliverable stands today -- with
+    the statements **read out of the rendered PDF**, not assumed -- and as planned (the
+    committed statement set present).
+    Why: the two answers are different questions and collapsing them is how a refusal turns
+    into a to-do. `as_built` is the honest status of the product now; `as_planned` is what it
+    becomes when every committed statement is present. Neither is inferred -- both are
+    computed by the module that holds the regulations.
+
+    `as_built` used to pass `()`: nothing was rendered, so nothing was stated, and hard-coding
+    the empty tuple was the honest answer to a question with one answer. It is not the honest
+    answer now that `publish/pdf.py` renders the block, because a hard-coded `()` would keep
+    saying "no statements" after they were written and a hard-coded full set would keep
+    saying "all of them" after somebody broke the renderer. So it reads the document. The
+    smallest variant is read rather than all of them, because `build_pattern_pdf` refuses an
+    incomplete children's document per render -- a variant that could not state its set could
+    not have produced a PDF to read.
+    """
+    if cand.subcategory is None:
+        return {"is_a_childrens_product": False,
+                "why": ("stated rather than omitted: this product is not merchandised to a "
+                        "child, so no audience constraint attaches to it")}
+
+    sub = ch.SUBCATEGORIES[cand.subcategory]
+    required = ch.required_statements(cand.subcategory, cand.audience or ch.UNDER_3)
+
+    # F-363: the parts and ties are read off every variant's pattern, not declared empty.
+    derived = [ch.concept_from_cir(cir_for(v.build), subcategory=cand.subcategory,
+                                   audience=cand.audience or ch.UNDER_3)
+               for v in cand.variants]
+    parts = tuple(sorted({p for c in derived for p in c.applied_parts}))
+    neck_tie = any(c.neck_or_hood_drawstring for c in derived)
+
+    def run(stated: tuple[str, ...]) -> dict:
+        concept = ch.Concept(subject=cand.title, subcategory=cand.subcategory,
+                             audience=cand.audience or ch.UNDER_3,
+                             applied_parts=parts, neck_or_hood_drawstring=neck_tie,
+                             stated_statements=stated)
+        findings = ch.assess(concept)
+        missing = sorted(f.detail for f in findings if f.code == "STATEMENT_MISSING")
+        return {
+            # Two different questions, kept apart because collapsing them is how a refusal
+            # turns into a to-do. `publishable` is "is this subject allowed at all"; a missing
+            # statement is a REQUIRE_STATEMENT, so a product can be allowed and not yet
+            # shippable, which is exactly the state `as_built` is in.
+            "subject_is_allowed": ch.publishable(concept),
+            "ready_to_ship": ch.publishable(concept) and not missing,
+            "refusals": [f.code for f in findings if f.severity == ch.REFUSE],
+            "statements_missing": missing,
+            "findings": len(findings),
+        }
+
+    as_built_statements = tuple(
+        rendered_statement_audit(cand.variants[0].build)["present"])
+
+    return {
+        "is_a_childrens_product": True,
+        "subcategory": sub.slug,
+        "label": sub.label,
+        "form_pod": sub.pod,
+        "verdict": sub.verdict,
+        "why": sub.why,
+        "audience": cand.audience,
+        "audience_label": ch.AGE_BANDS[cand.audience or ch.UNDER_3].label,
+        "required_statements": required,
+        "committed_statements": cand.committed_statements,
+        "commitment_covers_requirement": set(required) <= set(cand.committed_statements),
+        "as_built": run(as_built_statements),
+        "as_built_statements": as_built_statements,
+        "as_built_measured_on": ("the text extracted from the rendered customer PDF for "
+                                 f"variant {cand.variants[0].key!r}"),
+        "as_planned": run(cand.committed_statements),
+        # Read off the patterns (F-363), so "none" is a measurement of every variant's
+        # materials, pieces and notes rather than an assertion about them.
+        "applied_parts": parts,
+        "neck_or_hood_tie": neck_tie,
+        "applied_parts_measured_on": ("intel.childrens.concept_from_cir over every "
+                                      "variant's CIR"),
+        "applied_parts_why": (
+            ("none, by design. Under 36 months a detachable applied part is refused rather "
+             "than warned about, so the Brambleloop default is an integral surface: nothing "
+             "on any Launch-0 product is held on by friction, a washer or glue.")
+            if not parts else
+            f"the patterns name {list(parts)}; the assessment above rules on each"),
+    }
+
+
+def _source_grep_mentions() -> list[str]:
+    """The old instrument, kept so the measurement it made is not lost.
+
+    It searched `publish/*.py`, `cir/*.py` and `commerce/*.py` for the distinctive words of a
+    statement and reported the files that contained one. On 2026-09-25 it found zero, which
+    was true and was the right alarm to raise.
+
+    It is **not** an answer to the question it was standing in for. "Does a source file
+    mention choking" and "does the customer's PDF carry the choking statement" are different
+    questions, and the first can be satisfied by a comment, a variable name, or a docstring
+    explaining that the statement is missing. Now that `publish/pdf.py` renders the block,
+    this function would report success for a build in which the section was laid out off the
+    bottom of the last page and never reached a reader. Kept as a secondary reading with its
+    limitation named; the headline number comes from the document.
+    """
+    import pathlib
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    needles = ("safe sleep", "safe_sleep", "supervised", "choking", "unsupervised sleep")
+    hits: list[str] = []
+    for package in ("publish", "cir", "commerce"):
+        for path in sorted((root / package).glob("*.py")):
+            text = path.read_text(encoding="utf-8").lower()
+            if any(n in text for n in needles):
+                hits.append(f"{package}/{path.name}")
+    return hits
+
+
+# Rendered statement audits, cached. Building the customer's PDF twice per terminology per
+# variant is the expensive part of every function below, and it is deterministic for a fixed
+# release date -- which `tests/test_deliverable_qa.py` proves separately, so caching it
+# cannot hide a difference between two renders.
+_RENDERED: dict[tuple[str, str], dict] = {}
+
+
+def rendered_statement_audit(build_key: str, terminology: str = "US") -> dict:
+    """What the customer's PDF for this variant actually carries, read out of the PDF.
+
+    Measures: `publish.pdf.childrens_statements_in` on the bytes of the rendered document --
+    each required statement's marker phrase against the text a PDF extractor recovers.
+    Why: the artefact is the evidence. Every other answer to "does this product carry its
+    statements" is a reading of something upstream of the file the buyer downloads.
+    """
+    key = (build_key, terminology)
+    if key not in _RENDERED:
+        from ..publish.pdf import build_pattern_pdf, childrens_statements_in
+
+        cir = cir_for(build_key)
+        assignment = childrens_assignment(cir.slug)
+        if assignment is None:
+            _RENDERED[key] = {"slug": cir.slug, "is_a_childrens_product": False,
+                              "required": (), "present": (), "missing": (),
+                              "complete": True}
+        else:
+            # `build_pattern_pdf` refuses an incomplete children's document, so reaching the
+            # audit at all already means the set is complete. The audit is still run and
+            # reported rather than inferred from the absence of an exception: a refusal is
+            # the gate, and this is the measurement, and a measurement that is really a
+            # restatement of its own gate is the defect `licence_paragraphs` describes.
+            doc = build_pattern_pdf(cir, terminology=terminology,
+                                    released_on=date(2026, 9, 25))
+            audit = childrens_statements_in(doc.pdf_bytes, assignment)
+            _RENDERED[key] = {"slug": cir.slug, "is_a_childrens_product": True,
+                              "pages": doc.pages, **audit}
+    return _RENDERED[key]
+
+
+def statement_rendering_gap(terminologies: tuple[str, ...] = ("US", "UK")) -> dict:
+    """Whether the document the customer receives carries the statements it must carry.
+
+    Measures: for every Launch-0 children's variant, in every terminology sold, the required
+    statement set against the text extracted from the rendered PDF.
+
+    Why the instrument changed. This function used to grep `publish/*.py`, `cir/*.py` and
+    `commerce/*.py` for a statement's distinctive words and report the files that matched.
+    That was the right alarm at the time -- it found zero files, and zero files means nothing
+    can print the set -- but it is the wrong instrument for the question, and it would have
+    started reporting the gap closed the moment somebody wrote the word "choking" into a
+    comment, which is a false pass on a safety measurement rather than a missed one. The
+    question is about a document, so it is now answered by reading the document. The old
+    reading is kept under `source_grep` with its limitation, because throwing away a
+    measurement is how the next reader loses the history of one.
+    """
+    variants: list[dict] = []
+    for slug in LAUNCH0_SLUGS:
+        cand = candidate(slug)
+        if cand.subcategory is None:
+            continue
+        for v in cand.variants:
+            for terminology in terminologies:
+                row = dict(rendered_statement_audit(v.build, terminology))
+                row.update({"product": slug, "variant": v.key,
+                            "terminology": terminology})
+                variants.append(row)
+
+    unassigned = childrens_titles_without_an_assignment()
+    return {
+        "measured_on": "the text extracted from the rendered customer PDF",
+        "terminologies": terminologies,
+        "variants": variants,
+        "can_render_the_statement_set": bool(variants) and all(v["complete"]
+                                                               for v in variants),
+        "statements_rendered": sorted({k for v in variants for k in v["present"]}),
+        "statements_missing": sorted({k for v in variants for k in v["missing"]}),
+        "gated": ("publish.pdf.build_pattern_pdf refuses to return a document for a "
+                  "children's product whose rendered text is missing a required statement, "
+                  "so an incomplete deliverable cannot reach the release chain at all"),
+        "childrens_titles_without_an_assignment": unassigned,
+        "source_grep": {
+            "searched": ["publish/*.py", "cir/*.py", "commerce/*.py"],
+            "files_mentioning_a_statement": _source_grep_mentions(),
+            "why_it_is_not_the_answer": (
+                "it measures whether a source file mentions the topic, which a comment "
+                "satisfies. The headline above measures the artefact"),
+        },
+        # Kept at the top level under its original name because callers and the build record
+        # read it, and it now means what it says: files that mention a statement.
+        "files_mentioning_a_statement": _source_grep_mentions(),
+    }
+
+
+# ---- seasonality: the counter-seasonal pairing, re-derived -----------------
+#
+# Wikimedia pageviews, en.wikipedia, `user` agent class, monthly, 2025-09 -> 2026-08, pulled
+# 2026-09-24 by the research in `research/CHILDRENS_CATEGORY.md` section 3.1. SOURCED:
+# https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/user/Amigurumi/monthly/2025090100/2026083100
+# and the same URL with `Baby_shower`. Encyclopaedia reading is a proxy for interest and not
+# for purchase intent; it is English Wikipedia, so the population is closest to GLOBAL/US
+# rather than CA; and it is one year, n=12. Carried here because the pipeline's order is a
+# consequence of it and a sequence whose evidence lives in another document is a sequence
+# somebody will reorder.
+
+MONTHS: tuple[str, ...] = (
+    "2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02",
+    "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08",
+)
+
+PAGEVIEWS: dict[str, tuple[int, ...]] = {
+    "Amigurumi": (6247, 6519, 6848, 7676, 6017, 4745, 4636, 4261, 4472, 3997, 4322, 4340),
+    "Baby_shower": (11077, 10141, 9026, 6914, 8402, 7492, 8638, 8232, 9441, 9760, 7786, 7325),
+}
+
+PAGEVIEWS_SOURCE = (
+    "https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/"
+    "all-access/user/{article}/monthly/2025090100/2026083100")
+
+
+def _swing(series) -> dict:
+    values = list(series)
+    peak, trough = max(values), min(values)
+    return {
+        "mean": round(sum(values) / len(values), 1),
+        "peak_over_trough": round(peak / trough, 3),
+        "peak_month": MONTHS[values.index(peak)],
+        "trough_month": MONTHS[values.index(trough)],
+    }
+
+
+def seasonality(amigurumi_share: float = 0.5) -> dict:
+    """The swing of each series, and of a portfolio that holds both.
+
+    Measures: peak/trough ratio of each series, and of a mean-normalised blend at the given
+    weight.
+    Why: the research measured that the two series are counter-seasonal -- amigurumi's annual
+    maximum lands in the same month as baby-shower's annual minimum -- and asserted that a
+    portfolio holding both should be flatter. That is arithmetic, so it is done here rather
+    than believed. Normalising each series to its own mean before blending is the point: the
+    two have different absolute levels and a raw sum would weight baby-shower 1.6x simply for
+    being the more-read article, which is not a portfolio decision anybody made.
+    """
+    if not 0.0 <= amigurumi_share <= 1.0:
+        raise ValueError(f"share must be between 0 and 1: {amigurumi_share}")
+    per_series = {name: _swing(s) for name, s in PAGEVIEWS.items()}
+
+    def normalised(name: str) -> list[float]:
+        s = PAGEVIEWS[name]
+        mean = sum(s) / len(s)
+        return [v / mean for v in s]
+
+    ami, baby = normalised("Amigurumi"), normalised("Baby_shower")
+    blend = [amigurumi_share * a + (1 - amigurumi_share) * b for a, b in zip(ami, baby)]
+    blended = _swing(blend)
+
+    worst = max(v["peak_over_trough"] for v in per_series.values())
+    best_single = min(v["peak_over_trough"] for v in per_series.values())
+    return {
+        "series": per_series,
+        "source": PAGEVIEWS_SOURCE,
+        "label": SOURCED,
+        "amigurumi_share": amigurumi_share,
+        "blended": blended,
+        "blend_label": DERIVED,
+        "counter_seasonal": (per_series["Amigurumi"]["peak_month"]
+                            == per_series["Baby_shower"]["trough_month"]),
+        "flatter_than_either_alone": blended["peak_over_trough"] < best_single,
+        "why": (f"amigurumi alone swings {per_series['Amigurumi']['peak_over_trough']}x and "
+                f"baby-occasion alone {per_series['Baby_shower']['peak_over_trough']}x; a "
+                f"{amigurumi_share:.0%}/{1 - amigurumi_share:.0%} blend swings "
+                f"{blended['peak_over_trough']}x, which is flatter than either, because the "
+                f"one peaks in the month the other troughs. The worst single-category swing "
+                f"available is {worst}x."),
+        "caveats": (
+            "pageviews are a proxy for interest, not for purchase intent",
+            "en.wikipedia, so the population is closest to GLOBAL/US rather than CA",
+            "one year, n=12, and no confidence interval is claimed",
+        ),
+    }
+
+
+# ---- the pipeline ----------------------------------------------------------
+#
+# Held in a separate structure from CANDIDATES on purpose. A pipeline entry has no CIR, and the
+# single easiest way to manufacture catalogue completion is to keep aspirations in the same
+# list as products and let a later reader lose track of which column meant what.
+
+@dataclass(frozen=True)
+class PipelineEntry:
+    """Something we intend to build, with the reason it is not in Launch-0."""
+
+    slug: str
+    title: str
+    wave: int
+    subcategory: str | None
+    what_it_is: str
+    why_this_position: str
+    blocked_on: tuple[str, ...]
+    owner_of_the_blocker: str
+    # The event this is timed against, when it is timed against one at all.
+    event: str = ""
+    event_date: str = ""
+    make_hours: float = 0.0
+
+
+PIPELINE: tuple[PipelineEntry, ...] = (
+    PipelineEntry(
+        slug="catalogue-hygiene",
+        title="Retire or rename the eleven CIRs whose names their patterns do not make",
+        wave=1,
+        subcategory=None,
+        what_it_is=(
+            "Eleven CIRs fail a gate in this module: winter-village-graphghan, "
+            "autumn-oak-mosaic-throw and mosaic-placemat-pair claim a colourwork fabric the "
+            "CIR cannot express; nordic-star-ornaments, mosaic-placemat-pair and "
+            "pressed-flower-motifs claim a piece count the CIR does not make; spooky-garland, "
+            "valentine-heart-garland and cottage-wall-hanging name an assembled object with no "
+            "assembly. The three nordic_forest sizes fail the colourwork gate too."),
+        why_this_position=(
+            "First, and before any new product, because these are the reason the catalogue "
+            "looks larger than it is. Every one of them compiles clean and certifies, which is "
+            "precisely why a name-versus-fabric gate had to exist."),
+        blocked_on=("a merchandising decision: rename to what the fabric does, or hold the "
+                    "product until the CIR can express the fabric",),
+        owner_of_the_blocker="product planning, with the visual department on the renders",
+    ),
+    PipelineEntry(
+        slug="per-stitch-colour",
+        title="Per-stitch colour in the CIR",
+        wave=1,
+        subcategory=None,
+        what_it_is=(
+            "`Row.color` is one value per row and `Op` has no colour field, so no compiled "
+            "pattern in this repository can put two colours in one row. That single absence "
+            "rules out mosaic, overlay mosaic, graphghan, intarsia, tapestry crochet and any "
+            "keepsake blanket with a name or a date worked into it."),
+        why_this_position=(
+            "It is the highest-value unbuilt capability in the product, measured by what it "
+            "unblocks: the entire colourwork half of the intended catalogue, and the "
+            "keepsake sub-category the research identified as having the audience's highest "
+            "price tolerance."),
+        blocked_on=("`cir/**` is owned by another department and this module does not edit it",),
+        owner_of_the_blocker="whoever owns cir/model.py, compiler.py, twin.py and writer.py",
+    ),
+    PipelineEntry(
+        slug="keepsake-milestone-blanket",
+        title="Milestone and keepsake baby blanket",
+        wave=2,
+        subcategory="keepsake_blanket",
+        what_it_is=(
+            "A blanket with a name, a birth date or monthly milestone markers worked in. The "
+            "research's highest-price-tolerance children's sub-category and a LEAD verdict in "
+            "intel.childrens."),
+        why_this_position=(
+            "Second rather than first because it needs two things that do not exist: per-stitch "
+            "colour, and a validated glyph set. `products/motifs.LIBRARY` holds eight motifs "
+            "and no alphabet or numerals, so a name cannot be charted at all today."),
+        blocked_on=(
+            "per-stitch colour in the CIR (see per-stitch-colour)",
+            "an alphabet and numeral motif set validated at blanket gauge and density",
+            "personalisation.py routes a construction-level customisation to its own compile "
+            "and certificate, which means a named blanket is a product per name -- the "
+            "economics of that need deciding before it is built, not after",
+        ),
+        owner_of_the_blocker="cir/** for the colour primitive; product planning for the glyphs",
+        event="baby_shower_season",
+        event_date="2027-09-01",
+    ),
+    PipelineEntry(
+        slug="amigurumi-lovey-embroidered-face",
+        title="Lovey with an embroidered face",
+        wave=2,
+        subcategory="lovey",
+        what_it_is=(
+            "A small soft comforter: a head worked in the round from a magic ring with "
+            "increase and decrease shaping, an integral embroidered face, and a small "
+            "blanket-weight body. No safety eyes, no applied parts, nothing held on by a "
+            "washer."),
+        why_this_position=(
+            "The counter-seasonal half of the portfolio, and it is genuinely buildable: "
+            "`vessels.py` already works discs and walls in the round from a magic ring, and "
+            "`cir.stitches` carries inc, dec, dc_inc and dc_dec, so sphere shaping needs no new "
+            "primitive. An embroidered face needs no primitive at all -- it is a finishing "
+            "instruction, which is exactly why the research made it the default rather than a "
+            "caveat."),
+        blocked_on=(
+            "a stuffing-containment check: intel.childrens names construction integrity as a "
+            "required statement and nothing measures whether the stated gauge is tight enough "
+            "that stuffing cannot migrate through the fabric",
+            "no longer the statement block itself: publish/pdf.py renders the children's set "
+            "and refuses a document missing one (2026-09-25). A lovey needs two statements "
+            "this blanket does not -- face_construction and construction_integrity -- and "
+            "both render from the same table, so what is left here is the CIR",
+        ),
+        owner_of_the_blocker="product planning can build the CIR; publish/** owns the statements",
+        event="december_gifting",
+        event_date="2026-12-15",
+        make_hours=5.0,
+    ),
+    PipelineEntry(
+        slug="baby-wearables",
+        title="Baby and child hats, booties and mittens",
+        wave=3,
+        subcategory="baby_wearables",
+        what_it_is=(
+            "Sub-four-hour makes graded by head circumference. A BUILD verdict in "
+            "intel.childrens and the fastest review accumulator available to us."),
+        why_this_position=(
+            "Third because grading needs a table we do not carry: intel.childrens holds the "
+            "CYC chest measurements and head circumference is a different published chart. "
+            "Cheap to unblock and not yet done, so it is honest to put it behind the lovey."),
+        blocked_on=("the CYC head-circumference table, read and landed as data with its source",),
+        owner_of_the_blocker="product planning",
+    ),
+    PipelineEntry(
+        slug="childrens-fitted-garments",
+        title="Children's cardigans, dresses and sweaters",
+        wave=4,
+        subcategory="childrens_garment",
+        what_it_is=(
+            "Graded fitted garments for 3 months to 16 years. A CAREFUL verdict in "
+            "intel.childrens: the CYC tables make grading arithmetic, and fit is not "
+            "verifiable by compiler."),
+        why_this_position=(
+            "Last, which is where the research puts it and where the repository's own Class C "
+            "verifiability model puts it. It is the only sub-category here whose correctness "
+            "genuinely requires physical test-crocheting in every size."),
+        blocked_on=(
+            "physical samples, which twin.calibrated being False makes a prerequisite rather "
+            "than a nicety",
+            "the drawstring rule, which intel.childrens.assess already enforces: no neck or "
+            "hood tie on children's upper outerwear 2T-12, and no toggle or knot on a waist "
+            "tie's free end",
+        ),
+        # F-071 / F-086: the owner is not the tester. Physical validation is delegated to an
+        # independent tester or contract crocheter through the tester roster; this line used
+        # to name "an owner action to crochet samples", which the owner has twice declined
+        # and the Master forbids any launch requirement from needing.
+        owner_of_the_blocker=("independent tester route: quality/testers.py plan, the "
+                              "`tester_roster` gate, and quality/physical.py to record the "
+                              "sample"),
+    ),
+)
+
+# Sub-categories we do not publish instructions for, resolved from the module that holds the
+# reasons rather than restated here. Kept as a function because the source of truth is theirs.
+
+
+def never_published() -> tuple[dict, ...]:
+    """The children's sub-categories whose patterns we refuse, and why, from intel.childrens.
+
+    Measures: the sub-categories whose verdict is NEVER or AVOID.
+    Why: a pipeline that lists only what we will build reads as though everything else is
+    merely later. These are not later.
+    """
+    out = []
+    for sub in ch.SUBCATEGORIES.values():
+        if sub.verdict in (ch.NEVER, ch.AVOID):
+            out.append({"slug": sub.slug, "label": sub.label, "verdict": sub.verdict,
+                        "why": sub.why, "constraints": sub.constraints})
+    return tuple(out)
+
+
+def pipeline_is_not_catalogue() -> bool:
+    """Whether any pipeline entry has leaked into the launch set.
+
+    Measures: the intersection of pipeline slugs and candidate slugs.
+    Why: the hard rule's failure mode has a shape. Somebody adds a promising aspiration to the
+    product list "so it is not forgotten", and three weeks later it is in a listing draft. The
+    two structures are separate types and this asserts they stay separate populations.
+    """
+    return not ({e.slug for e in PIPELINE} & {c.slug for c in CANDIDATES})
+
+
+def pipeline_plan(today: date | None = None) -> list[dict]:
+    """The pipeline in order, with a launch date computed for the entries that have an event.
+
+    Measures: `seasonal.leadtime.compile_launch` for each entry that names an event date and a
+    make time -- the backward chain from the event through the customer's own crochet hours.
+    Why: the sequence is the deliverable, and the interesting part of a seasonal sequence is
+    the date by which the work must already be finished. That date is arithmetic over stated
+    assumptions, every one of which leadtime reports as assumed rather than measured.
+    """
+    from ..seasonal import leadtime
+
+    today = today or date.today()
+    out = []
+    for entry in sorted(PIPELINE, key=lambda e: (e.wave, e.slug)):
+        row = {
+            "slug": entry.slug, "title": entry.title, "wave": entry.wave,
+            "subcategory": entry.subcategory, "what_it_is": entry.what_it_is,
+            "why_this_position": entry.why_this_position,
+            "blocked_on": entry.blocked_on,
+            "owner_of_the_blocker": entry.owner_of_the_blocker,
+            "has_a_cir": False,
+        }
+        if entry.subcategory:
+            sub = ch.SUBCATEGORIES[entry.subcategory]
+            row["childrens_verdict"] = sub.verdict
+            row["required_statements"] = ch.required_statements(entry.subcategory, ch.UNDER_3)
+        if entry.event_date and entry.make_hours:
+            plan = leadtime.compile_launch(
+                entry.event, date.fromisoformat(entry.event_date),
+                make_hours=entry.make_hours)
+            row["launch_timing"] = {
+                "event": entry.event, "event_date": entry.event_date,
+                "lane": plan.lane,
+                "latest_effective_launch": plan.latest_effective_launch.isoformat(),
+                "preferred_launch": plan.preferred_launch.isoformat(),
+                "work_must_start_by": plan.work_must_start_by.isoformat(),
+                "status": plan.status(today),
+                "recommendation": plan.recommendation(today),
+                "every_assumption_measured": plan.assumptions.fully_measured,
+            }
+        out.append(row)
+    return out
+
+
+# ---- the whole picture -----------------------------------------------------
+
+def excluded_from_launch0() -> list[dict]:
+    """Every product with a CIR that is not in Launch-0, and the measured reason.
+
+    Measures: the gates, run over the whole generated catalogue, the nordic_forest sizes and
+    the vessel family.
+    Why: the exclusions are the load-bearing part of a small assortment. Listing three products
+    without saying what was left out and on what evidence is indistinguishable from having only
+    built three, and the difference matters: these fourteen exist, compile and certify.
+    """
+    from . import nordic_forest
+
+    everything: dict[str, object] = {}
+    for slug in flat.CATALOGUE:
+        everything[slug] = (lambda s=slug: flat.for_slug(s))
+    for size in nordic_forest.SIZES:
+        everything[f"nordic-forest-{size}"] = (lambda s=size: nordic_forest.build(s))
+    for size in ("small", "medium", "large"):
+        everything[f"market-basket-{size}"] = (lambda s=size: vessels.build_basket(s))
+    everything["hexagon-coaster-set"] = vessels.build_hexagon_coaster
+
+    launched: set[str] = set()
+    for slug in LAUNCH0_SLUGS:
+        for v in candidate(slug).variants:
+            launched.add(cir_for(v.build).slug)
+
+    out = []
+    for key, make in sorted(everything.items()):
+        cir = make()                                    # type: ignore[operator]
+        result = compile_cir(cir)
+        if not result.ok:
+            out.append({"key": key, "title": cir.title, "compiles": False,
+                        "reasons": [str(f) for f in result.errors]})
+            continue
+        twin = build_twin(cir, result)
+        t, a, f = title_promise(cir), assembly_promise(cir), fabric_truth(cir, twin)
+        reasons = []
+        if not t["backed"]:
+            reasons.append(f"title promise: {t['why']}")
+        if not a["backed"]:
+            reasons.append(f"assembly promise: {a['why']}")
+        if not f["backed"]:
+            reasons.append(f"fabric claim: {f['why']}")
+        row = {"key": key, "slug": cir.slug, "title": cir.title, "compiles": True,
+               "in_launch0": cir.slug in launched, "gate_reasons": reasons,
+               "gate_clean": not reasons}
+        if cir.slug not in launched and not reasons:
+            row["held_back_on"] = ("assortment, not truth: it passes every gate and adds no "
+                                  "position Launch-0 needs")
+        out.append(row)
+    return out
+
+
+def report(today: date | None = None) -> dict:
+    """Everything this module knows, computed.
+
+    Measures: all of the above.
+    Why: one call that the plan document and any later session can diff against. A planning
+    document whose numbers were typed by hand goes stale the first time a design changes; one
+    whose numbers come from here goes stale visibly.
+    """
+    return {
+        "snapshot": SNAPSHOT_DATE,
+        "launch0": launch0(),
+        "launch0_is_all_gate_clean": launch0_is_all_gate_clean(),
+        "childrens": {s: childrens_view(candidate(s)) for s in LAUNCH0_SLUGS},
+        "prices": [price_plan(candidate(s)) for s in LAUNCH0_SLUGS],
+        "make_time": [make_time(candidate(s)) for s in LAUNCH0_SLUGS],
+        "statement_rendering_gap": statement_rendering_gap(),
+        "seasonality": seasonality(),
+        "pipeline": pipeline_plan(today),
+        "pipeline_is_not_catalogue": pipeline_is_not_catalogue(),
+        "never_published": never_published(),
+        "excluded": excluded_from_launch0(),
+        "cir_capability": {
+            "per_stitch_colour": per_stitch_colour_expressible(),
+            "per_stitch_reach_down": per_stitch_reach_down_expressible(),
+            "why_it_matters": ("with neither, a colourwork or mosaic fabric is not "
+                               "expressible, so a pattern claiming one is claiming a fabric no "
+                               "compiled CIR here can specify"),
+        },
+        "calibration": {
+            "any_product_calibrated": False,
+            "why": ("twin.calibrated is False catalogue-wide. Every finished measurement in "
+                    "this report is arithmetic from a stated gauge and none has been checked "
+                    "against a worked sample."),
+        },
+    }

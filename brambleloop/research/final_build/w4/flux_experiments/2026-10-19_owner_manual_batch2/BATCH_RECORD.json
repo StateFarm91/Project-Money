@@ -1,0 +1,127 @@
+{
+ "recorded_at": "2026-10-19",
+ "recorded_by": "W-WRAPTEST",
+ "method": "owner_manual",
+ "operator": "owner, manual, dashboard.bfl.ai",
+ "status": "LEARNING EVIDENCE ONLY. None of these is proof of product accuracy; none carries a provider task id or seed; prompts are truncated in the screenshots (full prompt text MISSING).",
+ "codes_note": "WRONG_CRAFT_TEXTURE and INVENTED_EDGING are creative.failure_codes codes; REFERENCE_CLOTHING_CARRYOVER is W-VISAUTO's wardrobe code, recorded here by name",
+ "records": [
+  {
+   "file": "320c28d1-image.jpg",
+   "kind": "dashboard screenshot",
+   "product": "chunky-ribbed-scarf",
+   "receipt_as_shown": {
+    "model": "FLUX 3 Image",
+    "cost_usd": 0.048,
+    "latency_s": 67.77,
+    "images": 1
+   },
+   "observations": [
+    "the scarf shows a waffle/bubble (grid) texture, NOT the vertical fpdc2/bpdc2 post-stitch ribs the pattern specifies",
+    "wardrobe distinct from the canonical references: dark indigo jeans, black top, camel coat, brown boots"
+   ],
+   "failure_codes": [
+    "WRONG_CRAFT_TEXTURE"
+   ],
+   "wardrobe": "DISTINCT (owner observation)",
+   "sha256": "c54485d0a8ee0c6f3d0896a8493eaf205501faea321284ffde8e0b22f545b0cb",
+   "pixels": [
+    1080,
+    2340
+   ]
+  },
+  {
+   "file": "062c4af0-image.jpg",
+   "kind": "dashboard screenshot",
+   "product": "cloudline-baby-blanket (lifestyle)",
+   "receipt_as_shown": {
+    "model": "FLUX 3 Image",
+    "cost_usd": 0.048,
+    "latency_s": 168.46,
+    "images": 1,
+    "prompt_prefix": "BRAMBLELOOP \u2014 LAURA WARDROBE CONSISTENC..."
+   },
+   "observations": [
+    "sage cardigan over a cream tee is new, but the cream/beige trousers are carried over from the identity references"
+   ],
+   "failure_codes": [
+    "REFERENCE_CLOTHING_CARRYOVER"
+   ],
+   "sha256": "253319fd22b31daf860a6815f8421a1f3f8fcaea17800cbd905e386dcde487ea",
+   "pixels": [
+    1080,
+    2340
+   ]
+  },
+  {
+   "file": "4a71d592-image.png",
+   "kind": "image (as uploaded through chat)",
+   "product": "cloudline-baby-blanket (lifestyle)",
+   "observations": [
+    "owner grouped this with the sage-cardigan image; on inspection these bytes show the IVORY TANK + BEIGE TROUSERS frame (the frame at the top of 41dee593), i.e. exactly the canonical reference clothing",
+    "the blanket shows a cream border along its sides (see 41dee593)"
+   ],
+   "failure_codes": [
+    "REFERENCE_CLOTHING_CARRYOVER"
+   ],
+   "discrepancy": "owner caption said sage cardigan; recorded as observed, not re-labelled",
+   "sha256": "34092d4befc4a64fff781e898891dd994004b2f4e205a621e9c37c6829dacd68",
+   "pixels": [
+    912,
+    1152
+   ]
+  },
+  {
+   "file": "41dee593-image.jpg",
+   "kind": "dashboard screenshot (two generations)",
+   "product": "cloudline-baby-blanket",
+   "receipt_as_shown": {
+    "model": "FLUX 3 Image",
+    "cost_usd": 0.048,
+    "latency_s": 37.34,
+    "images": 1,
+    "prompt_prefix": "BRAMBLELOOP STUDIO \u2014 PREMIUM CLOUDLINE LI..."
+   },
+   "observations": [
+    "lifestyle: ivory tank and beige trousers, exactly the canonical reference clothing",
+    "product-accuracy flat lay (prompt 'BRAMBLELOOP \u2014 CLOUDLINE FLUX 3 PRODUCT AC...'): a cream border runs along the long side edges; the Cloudline pattern has no side border"
+   ],
+   "failure_codes": [
+    "REFERENCE_CLOTHING_CARRYOVER",
+    "INVENTED_EDGING (suspected)"
+   ],
+   "sha256": "b5e603b56e8e9916f831ce145e368ef3cb4a592e9edd21f14d749b0421b8a8be",
+   "pixels": [
+    1080,
+    3212
+   ]
+  },
+  {
+   "file": "11dfc567-image.jpg",
+   "kind": "dashboard screenshot (two generations)",
+   "product": "none (Laura identity / body-proportion tests)",
+   "receipt_as_shown": {
+    "model": "FLUX 3 Image",
+    "cost_usd": 0.048,
+    "latency_s": 67.08,
+    "images": 1
+   },
+   "observations": [
+    "identity tests: the clothing (ivory/cream top, beige trousers) carries over from the canonical references in both frames"
+   ],
+   "failure_codes": [
+    "REFERENCE_CLOTHING_CARRYOVER"
+   ],
+   "sha256": "c58be91bc5c3ee864c11c57e9cd19ae7e233f2e72df6e5f649e3b0755bf7cd2d",
+   "pixels": [
+    1080,
+    3221
+   ]
+  }
+ ],
+ "lessons": [
+  "post-stitch ribbing is rendered as a waffle grid: verify texture on a product-only image before any lifestyle",
+  "identity references carry their clothing into lifestyle images: the outfit must be stated and checked (outfit_consistency)",
+  "flat lays invent borders the pattern lacks: INVENTED_EDGING negative plus a side-edge check on the fidelity gate"
+ ]
+}

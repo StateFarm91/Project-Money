@@ -1,0 +1,4 @@
+PASS test_variance_unknown_is_not_actual_and_still_detects_exposure_drift
+PASS test_variance_measured_positive_and_unknown_offsets
+PASS test_unit_cost_and_maintenance_preserve_unknown_and_measured_controls
+3 passed

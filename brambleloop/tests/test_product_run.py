@@ -1,0 +1,959 @@
+"""The flagship product, end to end, and then deliberately attacked.
+
+Two halves. The first runs one real product from a market scan to a finished PDF, a price, a
+listing and a launch plan, unattended, and checks the artefacts rather than the job statuses:
+a green pipeline that produced a 26 cm "throw" is a green pipeline that failed.
+
+The second half is the part that matters more. A release chain nobody has attacked is a
+release chain nobody has tested. Each attack below is something a real system does to itself
+eventually -- a transcription slip in a motif, a stale chart, a listing claim that drifted
+from the pattern, a support agent trying to be helpful -- and each one must be rejected by
+construction rather than by a reviewer noticing.
+"""
+from __future__ import annotations
+
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
+import os
+import sys
+import tempfile
+from datetime import date
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT))
+
+_ART = tempfile.TemporaryDirectory()
+os.environ["BRAMBLELOOP_ARTIFACT_DIR"] = _ART.name
+
+# W6 cert-fix (2026-11-12): this file's whole run is a calendar scenario anchored on TODAY
+# (2026-09-17): the flagship Christmas throw's buying window closes 2026-11-18. The cycle is
+# enqueued with as_of=TODAY, but the downstream launch.plan job reads date.today(), so on the
+# wall clock the scenario stopped existing on 2026-11-12 (today + 7-day build lead > window
+# close). Run it at its stated date with the same pinned, ticking clock as the other calendar
+# suites. No assertion and no rule changed. See tests/pinned_clock.py.
+import pinned_clock  # noqa: E402
+pinned_clock.install("2026-09-17T12:00:00+00:00")
+from datetime import date  # noqa: E402,F811 - rebind to the pinned classes
+
+from sqlalchemy import select  # noqa: E402
+
+from brambleloop.agents.registry import PermissionDenied, Registry  # noqa: E402
+from brambleloop.cir.compiler import compile_cir  # noqa: E402
+from brambleloop.cir.model import CIR, Op, Row  # noqa: E402
+from brambleloop.cir.reverse import compare  # noqa: E402
+from brambleloop.cir.twin import build_twin  # noqa: E402
+from brambleloop.cir.writer import write_pattern  # noqa: E402
+from brambleloop.commerce import pricing as pricing_mod  # noqa: E402
+from brambleloop.commerce import seo as seo_mod  # noqa: E402
+from brambleloop.core.artifacts import ArtifactMissing, ArtifactStore  # noqa: E402
+from brambleloop.core.db import Database  # noqa: E402
+from brambleloop.core.models import AuditLog, Job, JobStatus, Product  # noqa: E402
+from brambleloop.gates.asset_truth import (  # noqa: E402
+    Asset, AssetClass, Claims, Provenance, check_assets,
+)
+from brambleloop.products import nordic_forest as nf  # noqa: E402
+from brambleloop.publish.pdf import build_pattern_pdf  # noqa: E402
+from brambleloop.queue.durable import JobQueue  # noqa: E402
+from brambleloop.runtime import pipeline  # noqa: F401,E402
+from brambleloop.runtime.worker import Worker  # noqa: E402
+from brambleloop.support.concierge import (  # noqa: E402
+    Concierge, SupportCannotAmendPatterns,
+)
+
+FLAGSHIP = "nordic-forest-mosaic-throw"
+TODAY = date(2026, 9, 17)
+
+_RUN: dict = {}
+
+
+def _run_once() -> dict:
+    """One full unattended cycle, cached so the suite is not twelve identical pipelines."""
+    if _RUN:
+        return _RUN
+    tmp = tempfile.mkdtemp()
+    db = Database(f"sqlite:///{tmp}/run.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+    JobQueue(db).enqueue("orchestrator", "plan.cycle", {"as_of": TODAY.isoformat()})
+    w = Worker(db, "run-worker")
+    for _ in range(900):
+        if not w.run_once():
+            break
+    _RUN["db"] = db
+    return _RUN
+
+
+def _outputs(db: Database, job_type: str) -> list[dict]:
+    with db.session() as s:
+        return [j.outputs for j in s.scalars(select(Job))
+                if j.job_type == job_type and j.status == JobStatus.DONE and j.outputs]
+
+
+def _flagship(db: Database, job_type: str) -> dict:
+    rows = [o for o in _outputs(db, job_type) if o.get("slug") == FLAGSHIP]
+    assert rows, f"no completed {job_type} for {FLAGSHIP}"
+    return rows[0]
+
+
+# ---- the full run ---------------------------------------------------------
+
+
+def test_the_whole_chain_runs_unattended_with_no_unexpected_failures():
+    db = _run_once()["db"]
+    with db.session() as s:
+        broken = [(j.job_type, (j.last_error or "")[:120]) for j in s.scalars(select(Job))
+                  if j.status in (JobStatus.FAILED, JobStatus.DEAD)
+                  and j.job_type != "store.publish"]
+    assert not broken, broken
+    # Every publish attempt is refused, and refusal is the designed outcome in shadow mode.
+    with db.session() as s:
+        refused = [j for j in s.scalars(select(Job))
+                   if j.job_type == "store.publish" and j.status == JobStatus.DEAD]
+    assert refused, "nothing even tried to publish, so the refusal proved nothing"
+
+
+def test_the_flagship_uses_the_engineered_design_not_the_template():
+    db = _run_once()["db"]
+    with db.session() as s:
+        drafted = [a for a in s.scalars(select(AuditLog))
+                   if a.action == "cir.drafted" and a.artifact
+                   and a.artifact.startswith(FLAGSHIP)]
+    assert drafted, "the flagship was never drafted"
+    assert any(a.detail.get("source") == "engineered design" for a in drafted), \
+        "the flagship shipped the generic striped-panel template"
+
+
+def test_the_flagship_is_a_plausible_physical_object():
+    """The arithmetic can be internally consistent and still describe something absurd."""
+    db = _run_once()["db"]
+    assets = _flagship(db, "assets.build")
+    w, h = assets["finished_size_cm"]
+    assert 70 <= w <= 140, f"a throw {w} cm wide is not a throw"
+    assert 100 <= h <= 200, f"a throw {h} cm long is not a throw"
+    total_m = sum(assets["yardage"].values())
+    assert 500 <= total_m <= 2500, f"{total_m:.0f} m of yarn for a throw is not credible"
+    assert assets["calibrated"] is False, "nothing has been physically tested yet"
+    assert assets["tolerance"] >= 0.2, "an uncalibrated estimate needs a stated tolerance"
+
+
+def test_the_pdf_is_real_and_hashed():
+    db = _run_once()["db"]
+    assets = _flagship(db, "assets.build")
+    assert assets["pages"] >= 5
+    assert len(assets["pdf_sha256"]) == 64
+    store = ArtifactStore()
+    data = store.get(assets["pdf_sha256"])
+    assert data.startswith(b"%PDF"), "the stored artifact is not a PDF"
+    assert len(data) > 10_000
+
+
+def test_storage_is_honest_that_it_is_not_durable():
+    """No object storage is provisioned. The system must say so, not imply otherwise."""
+    db = _run_once()["db"]
+    with db.session() as s:
+        warned = [a for a in s.scalars(select(AuditLog))
+                  if a.action == "assets.storage_not_durable"]
+    assert warned, "an ephemeral artifact store must announce itself"
+    assert _flagship(db, "assets.build")["pdf_sha256"], "the hash is the durable part"
+
+
+def test_pricing_survives_etsy_fees_and_carries_no_fake_discount():
+    db = _run_once()["db"]
+    price = [o for o in _outputs(db, "pricing.position") if o.get("slug") == FLAGSHIP][0]
+    assert 8.5 <= price["price_cad"] <= 14.0, price
+    assert price["net_cad"] < price["price_cad"], "fees were not deducted at all"
+    assert price["take_rate"] > 0.09, "Etsy's take is roughly 10%; this understates it"
+    assert price["net_cad"] > 9.0
+
+
+def test_a_childrens_listing_carries_its_statements_through_the_real_chain():
+    """The caller, not the generator: `build_description` takes the statements and
+    `childrens_listing_audit` checks the finished text for them, and `handle_listing_seo`
+    passed neither.
+
+    So the live chain would have assembled a children's listing with no safety section, and
+    the auditor built to catch exactly that would have failed it at the END of a release
+    rather than at the start. Checked here, on a listing the real pipeline produced, because
+    the defect was in the wiring and a unit test of either end would have passed throughout.
+    """
+    from brambleloop.commerce import seo as seo_module
+    from brambleloop.products import launch0 as l0
+    from brambleloop.publish import pdf as pdf_module
+
+    db = _run_once()["db"]
+    rows = [(o, l0.childrens_assignment(o.get("slug", "")))
+            for o in _outputs(db, "listing.seo")]
+    childrens = [(o, a) for o, a in rows if a is not None]
+    assert childrens, (
+        "this run produced no children's listing, so this check cannot fail and is not "
+        "evidence of anything: " + str(sorted(o.get("slug") for o, _ in rows)))
+
+    from brambleloop.core.models import PatternVersion
+
+    for out, assignment in childrens:
+        with db.session() as sess:
+            product = sess.scalar(select(Product).where(Product.slug == out["slug"]))
+            version = sess.scalar(select(PatternVersion).where(
+                PatternVersion.product_id == product.id))
+            # The CIR the chain itself used, read back from the warehouse rather than
+            # rebuilt, so the check cannot agree with a listing built from something else.
+            cir = CIR.from_dict(version.cir_json)
+        result = compile_cir(cir)
+        twin = build_twin(cir, result)
+        rendered = pdf_module.childrens_statements(cir, twin, assignment)
+        audit = seo_module.childrens_listing_audit(out["listing"]["description"], rendered)
+        assert audit["complete"], (out["slug"], audit)
+
+
+def test_the_listing_only_claims_what_the_pattern_can_support():
+    db = _run_once()["db"]
+    listing = _flagship(db, "listing.seo")["listing"]
+    assets = _flagship(db, "assets.build")
+
+    assert listing["title"].lower().count("pattern") >= 1
+    assert len(listing["title"]) <= seo_mod.TITLE_MAX
+    assert len(listing["tags"]) <= seo_mod.TAG_MAX_COUNT
+    assert all(len(t) <= seo_mod.TAG_MAX_CHARS for t in listing["tags"])
+    assert all(len(t.split(" ")) >= 2 for t in listing["tags"]), \
+        f"single-word tags cannot rank for a new shop: {listing['tags']}"
+
+    body = listing["description"]
+    assert assets["size_label"] in body, "the listing must quote the computed finished size"
+    assert "estimates" in body and "range" in body, "yardage must be framed as an estimate"
+    assert "not a finished item" in body, "a pattern listing must say it is a pattern"
+    assert "AI assistance" in body, "AI involvement is disclosed, not buried"
+
+
+def test_the_launch_plan_is_anchored_on_the_buying_window_not_the_holiday():
+    db = _run_once()["db"]
+    plan = [o for o in _outputs(db, "launch.plan") if o.get("slug") == FLAGSHIP][0]
+    assert plan["window_opens"] < "2026-10-01", plan
+    assert plan["window_closes"] < "2026-12-01", "the window must close before Christmas"
+    assert plan["launch_on"] <= plan["window_closes"]
+    assert plan["compressed"] is True
+    assert any("window opened" in w for w in plan["warnings"]), plan["warnings"]
+
+
+def test_support_answers_from_the_released_version():
+    db = _run_once()["db"]
+    with db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == FLAGSHIP))
+        assert product is not None
+    q = JobQueue(db)
+    job = q.enqueue("support", "support.reply", {
+        "slug": FLAGSHIP, "version": nf.build().version,
+        "question": "how many stitches should I have at the end of row 12?"})
+    assert Worker(db, "support-worker").run_once() is True
+    out = q.get(job.id).outputs
+    assert out["cited_version"] == f"{FLAGSHIP}@{nf.build().version}"
+    assert out["cited_rows"] == [12]
+    # The throw's width is whatever the released design makes at its yarn-derived gauge
+    # (108 since the D-FB-6 re-derivation; 144 at the old typed gauge), so the expected count
+    # is read from the design rather than typed beside it.
+    assert f"{nf.SIZES['throw'][0]} stitches" in out["body"], out["body"]
+    assert out["sent"] is False, "shadow mode drafted a reply and marked it sent"
+
+
+# ---- attacks --------------------------------------------------------------
+
+
+def test_attack_a_single_wrong_stitch_in_the_motif_is_caught():
+    """One transcription slip in one row. This is the realistic failure, not a total fiction."""
+    cir = nf.build("throw")
+    victim = cir.components[0].rows[40]
+    # Rows are a repeat of the motif's runs, so the slip goes inside the repeat -- which is
+    # exactly where a real transcription error lands, and where it is multiplied twelve times.
+    unit = victim.ops[0].ops
+    idx = next(i for i, op in enumerate(unit) if op.count >= 2)
+    unit[idx] = Op(unit[idx].stitch, unit[idx].count - 1)
+
+    result = compile_cir(cir)
+    assert not result.ok, "a row that is one stitch short compiled clean"
+    codes = {f.code for f in result.errors}
+    assert codes & {"COUNT_MISMATCH", "UNDERRUN"}, codes
+
+
+def test_attack_a_wrong_pattern_cannot_become_a_pdf():
+    cir = nf.build("baby")
+    cir.components[0].rows[5].declared_count = 999
+    try:
+        build_pattern_pdf(cir)
+    except ValueError as e:
+        assert "fails compilation" in str(e)
+    else:
+        raise AssertionError("a PDF was rendered for a pattern that does not compile")
+
+
+def test_attack_customer_text_that_drifts_from_the_pattern_is_caught():
+    """The written instructions are what the customer follows; they must match the source."""
+    cir = nf.build("baby")
+    result = compile_cir(cir)
+    text = write_pattern(cir, result)
+    assert compare(cir, text, "US") == [], "the honest text already disagreed"
+
+    # A plausible edit: someone "tidies" a row and changes what it says.
+    tampered = text.replace("sc in next 5 sts", "sc in next 6 sts", 1)
+    assert tampered != text, "the tamper did not apply; the test proves nothing"
+    findings = compare(cir, tampered, "US")
+    assert findings, "edited customer text passed reverse compilation unchallenged"
+
+
+def test_attack_a_chart_from_a_different_size_cannot_pass_as_this_one():
+    """A stale asset is the easiest mistake to make and the hardest to see."""
+    baby = nf.build("baby")
+    large = nf.build("large")
+    baby_twin = build_twin(baby, compile_cir(baby))
+    large_twin = build_twin(large, compile_cir(large))
+    assert baby_twin.chart_grid() != large_twin.chart_grid()
+    assert baby_twin.width_cm != large_twin.width_cm
+
+    store = ArtifactStore()
+    import io
+
+    from brambleloop.publish.charts import render_chart
+
+    buf = io.BytesIO()
+    render_chart(large, large_twin).save(buf, format="PNG")
+    stored = store.put("k", buf.getvalue(), "image/png")
+    # The hash recorded for the large chart cannot vouch for the baby chart's bytes.
+    buf2 = io.BytesIO()
+    render_chart(baby, baby_twin).save(buf2, format="PNG")
+    other = store.put("k", buf2.getvalue(), "image/png")
+    assert stored.sha256 != other.sha256
+
+
+def test_attack_a_size_claim_the_pattern_does_not_support_is_blocked():
+    cir = nf.build("baby")
+    twin = build_twin(cir, compile_cir(cir))
+    lying = Asset(
+        asset_id="hero", asset_class=AssetClass.DIGITAL_TWIN_RENDER,
+        provenance=Provenance(source="twin", created_by="asset_truth", tool="twin@1"),
+        depicts_stitches=sorted(twin.stitch_types_used),
+        depicts_colors=sorted(c for c in twin.colors_used if c), is_hero=True,
+        claims=Claims(finished_width_cm=220.0, finished_height_cm=240.0),
+    )
+    findings = check_assets([lying], cir, twin)
+    assert any(f.code.startswith("CLAIM_SIZE") for f in findings), findings
+
+
+def test_attack_a_motif_the_pattern_does_not_contain_is_blocked():
+    cir = nf.build("baby")
+    twin = build_twin(cir, compile_cir(cir))
+    invented = Asset(
+        asset_id="hero", asset_class=AssetClass.DIGITAL_TWIN_RENDER,
+        provenance=Provenance(source="twin", created_by="asset_truth", tool="twin@1"),
+        depicts_stitches=sorted(twin.stitch_types_used) + ["tr"],
+        depicts_colors=sorted(c for c in twin.colors_used if c) + ["gold"],
+        is_hero=True, claims=Claims(),
+    )
+    findings = check_assets([invented], cir, twin)
+    codes = {f.code for f in findings}
+    assert codes & {"ASSET_MOTIF_ABSENT", "ASSET_COLOR_ABSENT"}, codes
+
+
+def test_the_chart_is_published_as_a_readable_repeat_not_a_pixel_field():
+    """A 144 x 120 chart on one page gives each stitch about a pixel. That is not a chart."""
+    from brambleloop.publish.charts import crop_grids, detect_repeat, render_chart
+
+    cir = nf.build("throw")
+    twin = build_twin(cir, compile_cir(cir))
+    grid, colour_grid = twin.chart_grid(), twin.color_grid()
+    cols, rows = detect_repeat(grid, colour_grid)
+    assert (cols, rows) == (nf.MOTIF_WIDTH, len(nf.MOTIF)), (cols, rows)
+
+    grids = crop_grids(grid, colour_grid, cols, rows)
+    img = render_chart(cir, twin, grids=grids, caption="one repeat")
+    # Every cell must be big enough to carry a legible glyph.
+    assert img.width / cols >= 16, f"{img.width / cols:.1f} px per stitch is unreadable"
+
+
+def test_the_detected_repeat_is_the_real_one_not_a_convenient_one():
+    """Claiming a repeat the fabric does not have would mislabel the whole chart."""
+    from brambleloop.publish.charts import detect_repeat
+
+    cir = nf.build("baby")
+    twin = build_twin(cir, compile_cir(cir))
+    grid, colour_grid = twin.chart_grid(), twin.color_grid()
+    cols, rows = detect_repeat(grid, colour_grid)
+    assert grid and all(row for row in grid), "an empty chart grid proves no repeat"
+    for i, row in enumerate(grid):
+        for j, cell in enumerate(row):
+            assert cell == grid[i % rows][j % cols], f"repeat lies at row {i}, column {j}"
+            assert colour_grid[i][j] == colour_grid[i % rows][j % cols]
+
+
+def test_a_pipeline_upgrade_reaches_products_that_already_shipped():
+    """Found in production, not in a test.
+
+    Fifteen products were certified before listing imagery, search coverage and the content
+    ecosystem existed. The next cycle ran, reported success, and produced nothing: the
+    downstream idempotency keys were already taken, so every stage after certification
+    collapsed silently. Certification is correctly once-per-version; everything after it has
+    to be reachable again when the code that does it changes.
+    """
+    import tempfile as _tempfile
+
+    from sqlalchemy import select as _select
+
+    from brambleloop.agents.registry import Registry as _Registry
+    from brambleloop.core.db import Database as _Database
+    from brambleloop.core.models import Collection, ContentPiece, Listing, ListingAsset
+    from brambleloop.queue.durable import JobQueue as _JobQueue
+    from brambleloop.runtime.release import CHAIN_VERSION, chain_key
+    from brambleloop.runtime.worker import Worker as _Worker
+
+    assert chain_key("assets", "s", "1.0.0").endswith(f":c{CHAIN_VERSION}")
+
+    tmp = _tempfile.mkdtemp()
+    os.environ["BRAMBLELOOP_ARTIFACT_DIR"] = f"{tmp}/art"
+    db = _Database(f"sqlite:///{tmp}/upgrade.sqlite")
+    db.create_all()
+    _Registry(db).seed_defaults()
+    q = _JobQueue(db)
+    q.enqueue("orchestrator", "plan.cycle", {"as_of": TODAY.isoformat()})
+    w = _Worker(db, "upgrade")
+    for _ in range(2500):
+        if not w.run_once():
+            break
+
+    # Reproduce "certified under an older chain": keep the certificates, remove everything the
+    # current chain produces, and strip the current chain's keys.
+    with db.session() as s:
+        for table in (Listing, ListingAsset, ContentPiece, Collection):
+            for row in list(s.scalars(_select(table))):
+                s.delete(row)
+        for job in s.scalars(_select(Job)):
+            if job.idempotency_key and f":c{CHAIN_VERSION}" in job.idempotency_key:
+                job.idempotency_key = job.idempotency_key.replace(f":c{CHAIN_VERSION}", "")
+
+    q.enqueue("listing", "chain.rebuild", {})
+    for _ in range(3000):
+        if not w.run_once():
+            break
+
+    with db.session() as s:
+        listings = list(s.scalars(_select(Listing)))
+        images = list(s.scalars(_select(ListingAsset)))
+        content = list(s.scalars(_select(ContentPiece)))
+        collections = list(s.scalars(_select(Collection)))
+        broken = [(j.job_type, (j.last_error or "")[:80]) for j in s.scalars(_select(Job))
+                  if j.status in (JobStatus.DEAD, JobStatus.FAILED)
+                  and j.job_type != "store.publish"]
+        # The collection stage is reached either way; what it produces depends on the
+        # catalogue. #289 (C-71) refuses a two-member "collection" as a product and its
+        # accessory, and this warehouse certifies exactly two nordic-forest members, so the
+        # stage's evidence is the assessment and the refusal, not a Collection row.
+        from brambleloop.core.models import AuditLog as _AuditLog
+        collection_stage = [a for a in s.scalars(_select(_AuditLog)) if a.action in (
+            "collection.assessed", "collection.refused", "collection.assembled")]
+        certified = {p.slug for p in s.scalars(_select(Product))
+                     if p.status == "certified"}
+    assert not broken, broken
+    # Every product that had shipped is reached again -- the property under test. This read
+    # ">= 10 listings" when fifteen products certified; under the strict gauge gate (6747ddd)
+    # and the primitive-calibration gate this cycle's portfolio certifies eight (the cable
+    # throw waits on a physical test, autumn-oak is the held legacy record), so the count is
+    # read from what certified rather than typed.
+    assert len(certified) >= 5, f"only {sorted(certified)} certified; the test proves little"
+    reached = {l.product_slug for l in listings}
+    assert certified <= reached, \
+        f"the rebuild reached only {len(listings)} listings; missing {sorted(certified - reached)}"
+    assert images and content
+    assert collections or collection_stage, "the rebuild never reached the collection stage"
+    assert {l.chain_version for l in listings} == {CHAIN_VERSION}
+
+
+def test_a_stale_listing_is_rebuilt_not_only_a_missing_one():
+    """The first rebuild looked only for *missing* listings.
+
+    So a copy fix reached nothing: every shipped product kept its old listing through two
+    deploys, because a stale listing is present and the check only asked whether one existed.
+    """
+    import tempfile as _tempfile
+
+    from sqlalchemy import select as _select
+
+    from brambleloop.agents.registry import Registry as _Registry
+    from brambleloop.core.db import Database as _Database
+    from brambleloop.core.models import Listing
+    from brambleloop.queue.durable import JobQueue as _JobQueue
+    from brambleloop.runtime.release import CHAIN_VERSION
+    from brambleloop.runtime.worker import Worker as _Worker
+
+    tmp = _tempfile.mkdtemp()
+    os.environ["BRAMBLELOOP_ARTIFACT_DIR"] = f"{tmp}/art"
+    db = _Database(f"sqlite:///{tmp}/stale.sqlite")
+    db.create_all()
+    _Registry(db).seed_defaults()
+    q = _JobQueue(db)
+    q.enqueue("orchestrator", "plan.cycle", {"as_of": TODAY.isoformat()})
+    w = _Worker(db, "stale")
+    for _ in range(2500):
+        if not w.run_once():
+            break
+
+    with db.session() as s:
+        listings = list(s.scalars(_select(Listing)))
+        assert listings and all(l.chain_version == CHAIN_VERSION for l in listings)
+        # Age every listing, and free the keys the way a chain bump would.
+        for l in listings:
+            l.chain_version = "0"
+        for job in s.scalars(_select(Job)):
+            if job.idempotency_key and f":c{CHAIN_VERSION}" in job.idempotency_key:
+                job.idempotency_key = job.idempotency_key.replace(f":c{CHAIN_VERSION}", ":c0")
+
+    q.enqueue("listing", "chain.rebuild", {})
+    for _ in range(3000):
+        if not w.run_once():
+            break
+
+    with db.session() as s:
+        after = list(s.scalars(_select(Listing)))
+        broken = [(j.job_type, (j.last_error or "")[:80]) for j in s.scalars(_select(Job))
+                  if j.status in (JobStatus.DEAD, JobStatus.FAILED)
+                  and j.job_type != "store.publish"]
+    assert not broken, broken
+    assert after and all(l.chain_version == CHAIN_VERSION for l in after), \
+        sorted({l.chain_version for l in after})
+
+
+def test_attack_a_fake_was_price_is_refused():
+    """The whole category runs a permanent fake sale. It is still not available to us."""
+    try:
+        pricing_mod.check_no_fake_discount(11.65, 23.30, ever_charged=False)
+    except pricing_mod.DeceptivePricing as e:
+        assert "never been sold" in str(e)
+    else:
+        raise AssertionError("a was-price we never charged was accepted")
+
+
+def test_attack_a_bundle_that_is_not_actually_cheaper_is_refused():
+    try:
+        pricing_mod.decide_price("b", category_band_cad=(8.0, 26.0), proposed_cad=26.0,
+                                 is_bundle=True, bundle_members_cad=[12.5, 5.5, 7.5])
+    except pricing_mod.DeceptivePricing as e:
+        assert "not cheaper" in str(e)
+    else:
+        raise AssertionError("a bundle priced above its members was accepted")
+
+
+def test_attack_an_unsupportable_listing_claim_is_blocked():
+    copy = seo_mod.ListingCopy(
+        title="Guaranteed Easiest Crochet Pattern",
+        tags=["a b", "c d"],
+        description="x" * 400,
+        materials=["worsted acrylic"], price_cad=12.5)
+    problems = seo_mod.check_listing_limits(copy)
+    assert any(p.startswith("LISTING_UNSUPPORTABLE_CLAIM") for p in problems), problems
+
+
+def test_attack_a_listing_that_hides_it_is_a_pattern_is_blocked():
+    copy = seo_mod.ListingCopy(title="Nordic Forest Throw Blanket", tags=["a b"],
+                               description="x" * 400, materials=[], price_cad=12.5)
+    problems = seo_mod.check_listing_limits(copy)
+    assert any(p.startswith("LISTING_AMBIGUOUS_PRODUCT") for p in problems), problems
+
+
+def test_attack_support_cannot_edit_the_pattern():
+    c = Concierge(nf.build("baby"))
+    try:
+        c.amend(row=4, count=41)
+    except SupportCannotAmendPatterns as e:
+        assert "incident" in str(e)
+    else:
+        raise AssertionError("support amended a released pattern")
+
+
+def test_attack_support_will_not_guess_when_it_does_not_know():
+    c = Concierge(nf.build("baby"))
+    answer = c.answer("can I use this as a car seat cover for a newborn?")
+    assert answer.escalated and not answer.confident
+    assert "human" in answer.answer
+
+
+def test_attack_an_agent_cannot_reach_outside_its_permissions():
+    db = Database("sqlite://")
+    db.create_all()
+    reg = Registry(db)
+    reg.seed_defaults()
+    for agent, job_type in (("support", "cir.draft"), ("publishing", "store.publish"),
+                            ("growth", "gate.certify"), ("listing", "ads.campaign"),
+                            ("pricing", "gate.policy")):
+        try:
+            reg.authorize(agent, job_type)
+        except PermissionDenied:
+            continue
+        raise AssertionError(f"{agent} was allowed to run {job_type}")
+
+
+def test_attack_a_missing_artifact_is_reported_not_silently_substituted():
+    store = ArtifactStore(tempfile.mkdtemp())
+    stored = store.put("k", b"%PDF-1.4 real", "application/pdf")
+    Path(stored.path).unlink()
+    try:
+        store.get(stored.sha256)
+    except ArtifactMissing as e:
+        assert "not on disk" in str(e)
+    else:
+        raise AssertionError("a deleted artifact was served as if present")
+
+
+def test_attack_a_corrupted_artifact_is_detected():
+    store = ArtifactStore(tempfile.mkdtemp())
+    stored = store.put("k", b"%PDF-1.4 real", "application/pdf")
+    Path(stored.path).write_bytes(b"%PDF-1.4 tampered")
+    try:
+        store.get(stored.sha256)
+    except ArtifactMissing as e:
+        assert "corrupt" in str(e)
+    else:
+        raise AssertionError("a tampered artifact passed its integrity check")
+
+
+
+def _placemat_sized(cir: dict) -> dict:
+    """The wall hanging cut to 44 rows (25.6 x 44.7 cm): a placemat-sized stale design.
+
+    The full hanging is 57 cm long, and certification now refuses a title naming a placemat
+    at that size (OBJECT_SIZE_OUT_OF_BAND), so the stale design would never certify. Cut, it
+    is still different fabric from the 48-row mosaic design.
+    """
+    first = {**cir["components"][0], "rows": cir["components"][0]["rows"][:44]}
+    return {**cir, "components": [first, *cir["components"][1:]]}
+
+
+def test_a_redesigned_product_re_enters_the_chain():
+    """The defect that broke the previous four "code changed, database didn't" fixes.
+
+    `cir.draft` was keyed `draft:{slug}` -- once per slug, forever. So when two products were
+    re-engineered from flat rectangles into round-worked pieces, the new designs could never
+    enter the chain: the draft was done, the compile key was taken, certification never
+    re-ran, and production kept serving the old design under the old title while the
+    repository held the corrected one. The keys now carry the design's own fingerprint, and
+    the hourly rebuild compares the stored design against the one the code produces.
+    """
+    from sqlalchemy import select
+
+    from brambleloop.core.models import PatternVersion, Product
+    from brambleloop.products.builder import CATALOGUE, build
+    from brambleloop.runtime.pipeline import _engineered_cir
+
+    tmp = tempfile.mkdtemp()
+    db = Database(f"sqlite:///{tmp}/redesign.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+
+    def drain_all() -> None:
+        w = Worker(db, "redesign-worker")
+        for _ in range(400):
+            if not w.run_once():
+                break
+
+    slug = "mosaic-placemat-pair"
+    fresh = _engineered_cir(slug)
+
+    # Certify a *different* design under this slug, the way a product looks after it has been
+    # re-engineered: same slug, an older version, different fabric.
+    stale = build(CATALOGUE["cottage-wall-hanging"])
+    # PT-03: an older release. Different fabric under the SAME version is now refused at
+    # certification (tests/test_version_immutability.py); a redesign ships as a new version.
+    stale = CIR.from_dict({**_placemat_sized(stale.to_dict()), "slug": slug,
+                           "title": fresh.title, "version": "0.9.0"})
+    assert stale.fingerprint != fresh.fingerprint
+    JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": stale.to_dict()})
+    drain_all()
+
+    with db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        assert product is not None, "the stale design did not certify; the test proves nothing"
+        pv = s.scalar(select(PatternVersion).where(PatternVersion.product_id == product.id))
+        stored_rows = len(pv.cir_json["components"][0]["rows"])
+        assert stored_rows == len(stale.components[0].rows)
+        assert stored_rows != len(fresh.components[0].rows), \
+            "the two designs are indistinguishable; pick a different pair"
+
+    # The hourly rebuild has to notice that the stored design is not the one the code makes.
+    JobQueue(db).enqueue("listing", "chain.rebuild", {})
+    drain_all()
+
+    with db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        pv = s.scalar(select(PatternVersion).where(
+            PatternVersion.product_id == product.id,
+            PatternVersion.version == fresh.version))
+        assert len(pv.cir_json["components"][0]["rows"]) == len(fresh.components[0].rows), \
+            "the redesigned product never reached the database"
+        assert pv.certificate.get("doc_version"), "no document version recorded"
+
+
+
+def test_a_recertified_release_rebuilds_its_listing():
+    """The same collision one stage lower, found in production minutes after the first fix.
+
+    Certification re-ran and produced a new release hash, then found `listing:{slug}:{version}
+    :c{chain}` already taken by the previous rebuild -- so the corrected design certified and
+    the old listing stayed exactly where it was. The post-certification chain has to be keyed
+    on *what was certified*, not merely on which product.
+    """
+    from sqlalchemy import select
+
+    from brambleloop.core.models import Listing, PatternVersion, Product
+    from brambleloop.products.builder import CATALOGUE, build
+    from brambleloop.runtime.pipeline import _engineered_cir
+
+    tmp = tempfile.mkdtemp()
+    db = Database(f"sqlite:///{tmp}/relisting.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+
+    def drain_all() -> None:
+        w = Worker(db, "relisting-worker")
+        for _ in range(600):
+            if not w.run_once():
+                break
+
+    slug = "mosaic-placemat-pair"
+    fresh = _engineered_cir(slug)
+    stale = build(CATALOGUE["cottage-wall-hanging"])
+    # PT-03: an older release. Different fabric under the SAME version is now refused at
+    # certification (tests/test_version_immutability.py); a redesign ships as a new version.
+    stale = CIR.from_dict({**_placemat_sized(stale.to_dict()), "slug": slug,
+                           "title": fresh.title, "version": "0.9.0"})
+
+    JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": stale.to_dict()})
+    drain_all()
+    with db.session() as s:
+        first = s.scalar(select(Listing).where(Listing.product_slug == slug))
+        assert first is not None, "the stale design produced no listing"
+        stale_release = first.release_hash
+        assert stale_release, "the listing does not record which release produced it"
+
+    JobQueue(db).enqueue("listing", "chain.rebuild", {})
+    drain_all()
+
+    with db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        pv = s.scalar(select(PatternVersion).where(
+            PatternVersion.product_id == product.id,
+            PatternVersion.version == fresh.version))
+        # The redesign is a new version, so it gets its own listing row (PT-03).
+        listing = s.scalar(select(Listing).where(Listing.product_slug == slug,
+                                                 Listing.version == fresh.version))
+        assert listing.release_hash != stale_release, \
+            "the listing was never rebuilt for the new release"
+        assert listing.release_hash == pv.release_hash, \
+            "the listing and the certificate disagree about which release shipped"
+
+
+def test_a_stale_listing_is_rebuilt_even_when_its_release_is_unchanged():
+    """Production's exact state, and the third layer of the same bug.
+
+    The listing existed, built by this chain, from a release that had since been superseded.
+    Both earlier fixes fired correctly -- the design was re-drafted, the certificate was
+    replaced -- and the listing still did not move, because `listing.draft` and then
+    `assets.build` had already run for that product and their keys were taken. A rebuild
+    exists for exactly the case where the work already ran and its result is no longer
+    right, so the trigger has to be part of the key and has to ride the whole chain.
+    """
+    from sqlalchemy import select
+
+    from brambleloop.core.models import AuditLog, Listing, PatternVersion
+    from brambleloop.products.builder import CATALOGUE, build
+
+    tmp = tempfile.mkdtemp()
+    db = Database(f"sqlite:///{tmp}/stale.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+
+    def drain_all() -> None:
+        w = Worker(db, "stale-worker")
+        for _ in range(600):
+            if not w.run_once():
+                break
+
+    cir = build(CATALOGUE["mosaic-placemat-pair"])
+    JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()})
+    drain_all()
+
+    with db.session() as s:
+        listing = s.scalar(select(Listing))
+        assert listing is not None
+        listing.release_hash = ""
+        listing.title = "OLD TITLE FROM A PREVIOUS DESIGN"
+
+    JobQueue(db).enqueue("listing", "chain.rebuild", {})
+    drain_all()
+
+    with db.session() as s:
+        listing = s.scalar(select(Listing))
+        pv = s.scalar(select(PatternVersion))
+        assert listing.title != "OLD TITLE FROM A PREVIOUS DESIGN", \
+            "the stale listing was never rebuilt"
+        assert (listing.release_hash or "") == pv.release_hash, \
+            "the listing and the certificate disagree about which release shipped"
+
+    # And it settles: a rebuild that finds nothing stale must enqueue nothing, or the hourly
+    # cadence becomes a rebuild loop.
+    JobQueue(db).enqueue("listing", "chain.rebuild", {"n": 2})
+    drain_all()
+    with db.session() as s:
+        detail = [r.detail for r in s.scalars(
+            select(AuditLog).where(AuditLog.action == "chain.rebuilt"))][-1]
+    assert detail["restarted"] == [], detail
+    assert detail["redrafted"] == [], detail
+
+
+def test_the_rebuild_explains_its_decision():
+    """A rebuild that reports "nothing to do" without showing its reasoning is
+    unfalsifiable from outside the process, and this decision has been wrong three times."""
+    from sqlalchemy import select
+
+    from brambleloop.core.models import AuditLog
+    from brambleloop.products.builder import CATALOGUE, build
+
+    tmp = tempfile.mkdtemp()
+    db = Database(f"sqlite:///{tmp}/explain.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+    cir = build(CATALOGUE["hexie-coaster-set"]) if "hexie-coaster-set" in CATALOGUE \
+        else build(CATALOGUE["mosaic-placemat-pair"])
+    JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()})
+    JobQueue(db).enqueue("listing", "chain.rebuild", {})
+    w = Worker(db, "explain-worker")
+    for _ in range(600):
+        if not w.run_once():
+            break
+
+    with db.session() as s:
+        detail = [r.detail for r in s.scalars(
+            select(AuditLog).where(AuditLog.action == "chain.rebuilt"))][-1]
+    assert "listings" in detail, detail
+    assert detail["listings"], "the rebuild recorded no reasoning at all"
+    for slug, reason in detail["listings"].items():
+        assert reason == "current" or "->" in reason, (slug, reason)
+
+
+def test_a_rebuild_that_has_already_been_refused_says_so_instead_of_looking_untried():
+    """Found in production, and the reason it took a cross-reference to find.
+
+    The cable throw's listing was stale, the rebuild detected it correctly, enqueued
+    `listing.draft`, and `assets.build` refused the release because the imagery was blocked
+    -- which is the system working. But the listing then stayed stale, the transition string
+    stayed the same, so the token and therefore the idempotency key stayed the same, and
+    every later rebuild reported the identical "stale" line while enqueueing nothing. From
+    the audit record alone, a product whose rebuild had already run twice and been refused
+    downstream was indistinguishable from one nobody had tried.
+
+    The reason now says which of the two it is. That does not make the rebuild able to fix
+    it -- only a code change can, arriving as a CHAIN_VERSION bump -- but it makes the
+    difference visible from outside the process, which is the whole point of B-073.
+    """
+    from sqlalchemy import select
+
+    from brambleloop.core.models import AuditLog, Listing
+    from brambleloop.products.builder import CATALOGUE, build
+
+    tmp = tempfile.mkdtemp()
+    db = Database(f"sqlite:///{tmp}/refused.sqlite")
+    db.create_all()
+    Registry(db).seed_defaults()
+
+    def drain_all() -> None:
+        w = Worker(db, "refused-worker")
+        for _ in range(600):
+            if not w.run_once():
+                break
+
+    cir = build(CATALOGUE["mosaic-placemat-pair"])
+    JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()})
+    drain_all()
+
+    # Age the listing so the rebuild sees a transition to make. The first rebuild enqueues
+    # the work and says so.
+    with db.session() as s:
+        s.scalar(select(Listing)).release_hash = "a-release-that-no-longer-exists"
+    JobQueue(db).enqueue("listing", "chain.rebuild", {"n": 1})
+    drain_all()
+
+    # Now put it back into exactly the production state: still stale, same transition, so
+    # the key from that first rebuild is taken. Nothing more can be enqueued for it.
+    with db.session() as s:
+        s.scalar(select(Listing)).release_hash = "a-release-that-no-longer-exists"
+    JobQueue(db).enqueue("listing", "chain.rebuild", {"n": 2})
+    drain_all()
+
+    with db.session() as s:
+        rebuilds = [r.detail for r in s.scalars(
+            select(AuditLog).where(AuditLog.action == "chain.rebuilt"))]
+
+    last = rebuilds[-1]
+    stale = {slug: why for slug, why in last["listings"].items() if why != "current"}
+    assert stale, "the rebuild stopped seeing a listing that is still stale"
+    assert last["restarted"] == [], \
+        "the key should be taken by the first rebuild's attempt"
+    for slug, why in stale.items():
+        assert "already attempted" in why, (slug, why)
+
+    # And the first rebuild -- the one that did enqueue the work -- must not say that.
+    first_stale = [why for slug, why in rebuilds[0]["listings"].items() if why != "current"]
+    assert first_stale, "the first rebuild saw nothing to do"
+    for why in first_stale:
+        assert "already attempted" not in why, why
+        assert "restarted" in why, why
+
+
+def test_a_chain_bump_is_what_unblocks_a_refused_rebuild():
+    """The bump is the mechanism, so it has to actually change the key.
+
+    A rebuild cannot deliver a transition a downstream stage refuses; only changed code can,
+    and changed code reaches shipped products by bumping the chain version. If the bump did
+    not change the transition string it would not change the token or the key either, and
+    the refused product would stay unreachable through every future deploy.
+    """
+    from brambleloop.runtime import release as rel
+
+    before = rel.chain_key("listing", "s", "1.0.0", "rel", "tok")
+    original = rel.CHAIN_VERSION
+    try:
+        rel.CHAIN_VERSION = "999"
+        after = rel.chain_key("listing", "s", "1.0.0", "rel", "tok")
+    finally:
+        rel.CHAIN_VERSION = original
+    assert before != after, "a chain bump does not change the key it is meant to free"
+
+
+def test_the_same_certified_pattern_renders_the_same_file_every_time():
+    """Found in production: two renders of one release, minutes apart, audited under two
+    different hashes.
+
+    Reportlab stamps the current time and a random document id into every render unless told
+    not to. That matters because artifact bytes are not durable until object storage exists,
+    so a purchased file is re-rendered on demand -- and if every render differs, the stored
+    hash proves only that *a* render happened, not that the file a customer downloads is the
+    one that passed the gates. Which is precisely what `assets.build` claims it proves.
+    """
+    import hashlib
+
+    from brambleloop.products import nordic_forest as nf
+    from brambleloop.products.texture import build_cable_throw
+    from brambleloop.publish.pdf import build_pattern_pdf
+
+    for cir in (nf.build("throw"), build_cable_throw()):
+        result = compile_cir(cir)
+        twin = build_twin(cir, result)
+        hashes = {hashlib.sha256(build_pattern_pdf(cir, twin=twin).pdf_bytes).hexdigest()
+                  for _ in range(3)}
+        assert len(hashes) == 1, f"{cir.slug} rendered {len(hashes)} different files"
+
+if __name__ == "__main__":
+    fails = 0
+    for name, fn in sorted(globals().items()):
+        if name.startswith("test_"):
+            try:
+                fn()
+                print("OK  ", name)
+            except Exception as e:  # noqa: BLE001
+                fails += 1
+                print("FAIL", name, repr(e))
+    sys.exit(1 if fails else 0)

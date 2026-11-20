@@ -1,0 +1,1153 @@
+"""Evidence-backed approval inbox (F-885) and one-tap owner actions (F-886).
+
+The inbox is not a second queue. It is the existing single owner queue
+(`build2.executor.approval_inbox`, which already merges executor gates with `OwnerAction`
+rows) re-shaped into the F-885 card, plus the protected-authority candidates the launch packet
+already evaluates (`ops.publication_authority.evidence`).
+
+Executing an action never bypasses an authority mechanism: each action calls the *same*
+function the operator-token route calls (`publication_authority.approve`,
+`activation_authority.approve`, `cells.record_owner_approval`, `league.record_owner_decision`),
+with the server-held operator credential, on behalf of an owner session that has passed
+session + CSRF + nonce + step-up checks. The grant that results is the existing sealed,
+chained, expiring, revocable grant and is re-validated at the execution boundary, so a
+revocation recorded before execution makes the protected action refuse (§95).
+"""
+from __future__ import annotations
+
+import logging
+import os
+
+from sqlalchemy import select
+
+from ...core import opsauth
+from ...core.models import AuditLog, Incident, OwnerAction
+
+# action -> (requires step-up, description)
+ACTIONS: dict[str, tuple[bool, str]] = {
+    "publication.preview": (False, "read the exact content and evidence a grant would bind"),
+    "publication.approve": (True, "record a sealed 24 h owner publication grant"),
+    "publication.revoke": (False, "revoke a publication grant (tightens)"),
+    "activation.preview": (False, "read the exact content an activation grant would bind"),
+    "activation.approve": (True, "record a sealed 24 h owner activation grant"),
+    "activation.revoke": (False, "revoke an activation grant (tightens)"),
+    # ENG-FIRSTLIST: a grant alone caused nothing (the launch-time store.publish died in SHADOW
+    # and is never re-driven; nothing put an activation approval id on a store.activate job).
+    # These queue that one job for a grant valid now, in a phase that may publish; the
+    # handler re-checks everything at its own boundary (`ops.owner_execution`).
+    "publication.execute": (True, "queue the store.publish that creates the Etsy draft for "
+                                  "a valid publication grant (inactive draft; no fee)"),
+    "activation.execute": (True, "queue the store.activate that makes a verified draft "
+                                 "public for a valid activation grant (Etsy fee US$0.20)"),
+    # WS4-0a: grant chains are Ed25519-signed in this request context only; a chain holding
+    # rows sealed under the retired ops-token HMAC is re-anchored here once by the owner.
+    "publication.rebase": (True, "re-anchor the publication grant chain (voids earlier grants)"),
+    "activation.rebase": (True, "re-anchor the activation grant chain (voids earlier grants)"),
+    "improvement.approve": (True, "record the owner's approval of a gate-tier improvement"),
+    "challenger.approve": (True, "record the owner's decision to promote a challenger"),
+    "incident.acknowledge": (False, "acknowledge an incident (does not resolve it)"),
+    "owner_action.defer": (False, "note that a decision is deferred (the gate stays computed)"),
+    # W4-B2GATES: two owner gates read a record that no door in the running system could
+    # write, so they could never open. These are those doors; each records only.
+    "acceptance.rule": (True, "record the owner's ruling on the API+vision acceptance wording"),
+    "ads.set_limit": (True, "set the owner's ads SpendLimit (capped at the conservative caps)"),
+    # W4-AGENTS M-1: storefront grants (announcement, buyer messages, sections). Owner session,
+    # CSRF/nonce and a fresh step-up for approve and rebase; preview reads; revoke tightens.
+    "storefront.preview": (False, "read the exact storefront change a grant would bind"),
+    "storefront.approve": (True, "record a signed 24 h owner storefront grant"),
+    "storefront.revoke": (False, "revoke a storefront grant (tightens)"),
+    "storefront.rebase": (True, "re-anchor the storefront grant chain (voids earlier grants)"),
+    # WS4-3 (design §1.7): the standing publication policy. Preview reads (an agent may only
+    # pre-fill it). Approve, activate, resume and rebase are owner acts under a fresh step-up,
+    # signed inside the owner request. Revoke and suspend only tighten.
+    "standing_policy.preview": (False, "read the exact standing policy statement and digest"),
+    "standing_policy.approve": (True, "sign a standing publication policy version"),
+    "standing_policy.activate": (True, "activate an approved standing policy (separate day)"),
+    "standing_policy.revoke": (False, "revoke a standing policy version (tightens)"),
+    "standing_policy.suspend": (False, "suspend the standing policy (tightens)"),
+    "standing_policy.resume": (True, "resume a suspended standing policy"),
+    "standing_policy.rebase": (True, "re-anchor the standing policy chain (voids earlier rows)"),
+
+    # W4-PRODFIX: `platform_policy.unreviewed_changes` blocks publishing (and the marketing
+    # rebuild) until a material Etsy policy change is reviewed and re-tested, and nothing in
+    # the running system could record that review (`review_change` had no caller). The
+    # preview shows the change; the review records exactly what the owner confirmed.
+    "policy.review_preview": (False, "read a material platform-policy change before review"),
+    "policy.review": (True, "record the owner's review and re-test of a policy change"),
+    # W4-C04 (F-576): Etsy has no statement endpoint, so the owner archives the monthly
+    # statement here -- the original file (kept by hash) and its totals, reconciled against
+    # the ledger. Records evidence only; moves nothing.
+    "finance.statement_archive": (False, "archive an Etsy monthly statement and its totals"),
+    # W4-LAUNCHFIX D2: the two launch-readiness rows that were hard-coded unready read the
+    # owner's sealed decision (ops.launch_decisions). Preview reads; record seals under step-up;
+    # revoke only tightens.
+    "launch_decision.preview": (False, "read the exact content a launch decision would bind"),
+    "launch_decision.record": (True, "record a sealed owner launch decision (fees / trademark)"),
+    "launch_decision.revoke": (False, "revoke a launch decision (tightens)"),
+    # W4-LAUNCHFIX review F-7: the owner attests a sample photograph unedited here, never
+    # through the operator-token photo intake.
+    "physical_photo.attest_unedited": (True, "attest a sample photograph is unedited"),
+    # PHYSFIX integrator decision (SECREVIEW 8da830d R28): a physical size halt is
+    # product-wide and only the owner lifts it, on a passed full make of a re-released
+    # version by an independent tester whose size agrees (`runtime.release.lift_size_halt`).
+    "physical_size.lift": (True, "lift a product-wide physical size halt on qualifying "
+                                 "evidence (a passed independent full make of a re-release)"),
+    # W-ADOPT (E-4): link a listing the owner made by hand in Shop Manager to its certified
+    # release. Reads Etsy (never writes), records the verification and blocks a duplicate
+    # automated create. Step-up: it binds a live listing to a release's records.
+    "listing.adopt_manual": (True, "adopt a hand-made Etsy listing as a certified release's "
+                                   "listing (reads Etsy; never writes)"),
+    # W-ADOPT-2: the owner accepts an adopted listing's live copy as its census baseline, so
+    # hand edits stop raising the halting drift incident. Preview reads Etsy and shows the
+    # Product Truth / disclosure checks and the digest; accept binds that digest (step-up).
+    "listing.baseline_preview": (False, "read an adopted listing's live copy and the checks "
+                                        "an accepted baseline must pass"),
+    "listing.accept_baseline": (True, "accept an adopted listing's live copy as its census "
+                                      "baseline (refused if it contradicts Product Truth)"),
+}
+
+#: The readiness rows each launch decision answers (their OwnerAction requirement keys).
+LAUNCH_DECISION_BY_KEY = {"listing_fees": ("listing_fees",),
+                          "brand_clearance": ("brand_risk_acceptance", "trademark_registration")}
+
+#: The words the owner confirms, verbatim. Anything else is refused.
+POLICY_REVIEW_CONFIRMATION = "reviewed and tested"
+
+#: The two answers the `acceptance_ruling` gate asks for (#189/#221/#222/#320). Either opens
+#: the gate: what changes is which remaining work the rows hold.
+ACCEPTANCE_RULINGS = {
+    "api_vision_satisfies": ("an API+vision traversal satisfies the browser/vision wording"),
+    "browser_required": ("a rendered-browser traversal is required; API+vision does not "
+                         "satisfy the wording"),
+}
+
+
+class ActionRefused(ValueError):
+    """The underlying authority (or input validation) refused; message says why.
+
+    The message is owner-facing and stable; `detail` (raw exception text, if any) goes only to
+    the server log and the security-event audit row, never to the response (audit L3)."""
+
+    def __init__(self, message: str, *, detail: dict | None = None):
+        super().__init__(message)
+        self.detail = detail
+
+
+class ActionNotFound(ActionRefused):
+    """The thing the action names does not exist (HTTP 404)."""
+
+
+log = logging.getLogger("brambleloop.cc.approvals")
+
+# Refusal texts the authorities raise deliberately; these reach the owner verbatim. Any other
+# exception text (e.g. "invalid literal for int()") is replaced by a stable message.
+_AUTHORITY_MESSAGES = (
+    "owner decision reason required",
+    "approval preview changed; review the current content",
+    "slug, version and certified release hash are required",
+    "no certified release with that hash for this version",
+    "no drafted listing bound to that certified release",
+    "already on Etsy; publication grants cover draft creation only",
+    "no inactive recorded listing/release",
+    "certified frames and verified publication files required",
+    "owner credential unavailable",
+)
+_AUTHORITY_PREFIXES = ("the owner publication grant chain does not verify",
+                       "the owner activation approval chain does not verify",
+                       # W4-LAUNCHFIX D2 (ops.launch_decisions refusals)
+                       "no valid knock-out search on record", "choice must be one of",
+                       "decision must be one of", "the listing-fee decision takes no choice",
+                       "the owner launch decision chain does not verify")
+
+
+def _owner_message(exc: Exception) -> str:
+    text = str(exc).strip()
+    if type(exc).__name__ in ("ImprovementRefused", "LeagueRefused"):
+        return text[:500] or "refused by the improvement authority"
+    if text in _AUTHORITY_MESSAGES or text.startswith(_AUTHORITY_PREFIXES):
+        return text[:500]
+    return "refused: the request was malformed or named something that is not valid"
+
+
+def _int(body: dict, key: str) -> int:
+    value = body.get(key)
+    if isinstance(value, bool):
+        raise ActionRefused(f"{key} must be an integer")
+    try:
+        return int(value)
+    except (TypeError, ValueError, OverflowError):
+        raise ActionRefused(f"{key} must be an integer") from None
+
+
+def _ops_token() -> str:
+    if not opsauth.configured():
+        raise ActionRefused("operator credential not configured")
+    return os.environ[opsauth.TOKEN_VAR].strip()
+
+
+def _ev(label, state, why, source) -> dict:
+    return {"label": label, "state": state, "why": str(why or "")[:400], "source": source}
+
+
+def _gate_card(c: dict) -> dict:
+    key = c.get("gate")
+    oa = c.get("owner_action_id")
+    card_id = f"gate:{key}" if key else f"owner_action:{oa}"
+    rk = str(c.get("requirement_key") or "")
+    actions = []
+    reason = None
+    kind = "GATE" if key else "OWNER-DECISION"
+    if rk.startswith("improve.upgrade:") and rk.split(":", 1)[1].isdigit():
+        kind = "IMPROVEMENT"
+        actions.append({"action": "improvement.approve", "requires_step_up": True,
+                        "params": {"id": int(rk.split(":", 1)[1])}})
+    elif rk.startswith("improve.league:") and rk.split(":", 1)[1].isdigit():
+        kind = "CHALLENGER"
+        actions.append({"action": "challenger.approve", "requires_step_up": True,
+                        "params": {"id": int(rk.split(":", 1)[1])}})
+    else:
+        reason = ("completed outside this app (an account, purchase or credential at the "
+                  "provider); the gate re-checks reality and closes this card itself: "
+                  + str(c.get("how_it_is_checked") or "")[:300])
+    if key in ("acceptance_ruling", "ad_authority"):
+        reason = ("recorded here by the owner (step-up); the gate re-checks the record: "
+                  + str(c.get("how_it_is_checked") or "")[:300])
+    if key == "acceptance_ruling":
+        for ruling, text in ACCEPTANCE_RULINGS.items():
+            actions.append({"action": "acceptance.rule", "requires_step_up": True,
+                            "label": "Rule: " + text.split(";")[0], "params": {"ruling": ruling}})
+    elif key == "ad_authority":
+        from ...commerce.paid_media import CONSERVATIVE_CAPS as _caps
+
+        actions.append({"action": "ads.set_limit", "requires_step_up": True,
+                        "label": (f"Set ads limit CA${_caps.daily_cad:.2f}/day, "
+                                  f"CA${_caps.campaign_cad:.2f} lifetime"),
+                        "params": {"daily_cap_cad": _caps.daily_cad,
+                                   "lifetime_cap_cad": _caps.campaign_cad}})
+    if rk in LAUNCH_DECISION_BY_KEY:
+        from ...ops import launch_decisions as _ld
+
+        reason = ("recorded here by the owner (step-up), sealed and bound to the previewed "
+                  "content; launch readiness re-checks the record")
+        for decision in LAUNCH_DECISION_BY_KEY[rk]:
+            actions.append({"action": "launch_decision.preview", "requires_step_up": False,
+                            "params": {"decision": decision}})
+            for choice in sorted(_ld.CHOICES[decision]):
+                actions.append({"action": "launch_decision.record", "requires_step_up": True,
+                                "label": f"{decision}: {choice}",
+                                "params": {"decision": decision, "choice": choice,
+                                           "expected_digest": "<from launch_decision.preview>"}})
+    if oa:
+        actions.append({"action": "owner_action.defer", "requires_step_up": False,
+                        "params": {"owner_action_id": oa}})
+    sources = ["build2.executor.approval_inbox"]
+    sources += [f"owner_actions:{i}" for i in (c.get("merged_owner_action_ids") or [])]
+    unblocks = c.get("unblocks_count") or 0
+    max_spend = c.get("max_spend_cad")
+    return {
+        "card_id": card_id, "kind": kind, "title": c.get("what") or c.get("action"),
+        # ENG-APPROVALS: the requirement the card stands for (the standing-authority batch
+        # classifies by it; `ops.owner_queue_consolidate.card_verdict`).
+        "requirement_key": rk or None,
+        "proposed_action": c.get("action"),
+        "recommendation": (f"Recommended when convenient: it un-parks {unblocks} parked "
+                           f"requirement(s); nothing else waits on it" if unblocks else
+                           "No requirement is parked on this; low priority"),
+        "evidence": [_ev("gate check", "FAIL" if key else "OPEN",
+                         c.get("evidence") or c.get("how_it_is_checked"),
+                         f"executor gate {key}" if key else f"owner_actions:{oa}")],
+        "uncertainty": c.get("risk") or "not described",
+        "expected_benefit": c.get("capability_unlocked") or "",
+        "downside": c.get("risk") or "not described",
+        "max_spend_cad": (float(max_spend) if isinstance(max_spend, (int, float)) else None),
+        "monthly_ceiling_cad": c.get("monthly_ceiling_cad"),
+        "minutes": c.get("minutes"),
+        "reversibility": c.get("rollback") or "not described",
+        "deadline": None,
+        "consequence_of_no_action": c.get("consequence_of_waiting") or "not stated",
+        "continues_regardless": c.get("continues_regardless"),
+        "unblocks": c.get("unblocks") or [],
+        "executable": any(a["action"] != "owner_action.defer" for a in actions),
+        "actions": actions, "not_executable_reason": reason,
+        "sources": sources,
+        # F-870 / F-623 / F-197 / F-180 (K7): the packet, the rank and the tester route.
+        "why_software_cannot": c.get("why_software_cannot"),
+        "requirement_kind": c.get("requirement_kind"),
+        "packet_missing": c.get("packet_missing") or [],
+        "rank": c.get("rank"), "urgency": c.get("urgency"),
+        "steps": c.get("steps"), "state": c.get("state"),
+        **({"tester_route": c["tester_route"]} if c.get("tester_route") else {}),
+    }
+
+
+def _publication_cards(db, limit: int = 20) -> list[dict]:
+    """Certified releases with a stored listing and no live grant: publication candidates."""
+    from ...core.models import Listing, PatternVersion, Product
+    from ...ops import publication_authority as pa
+
+    out = []
+    with db.session() as s:
+        rows = list(s.execute(
+            select(Product.slug, PatternVersion.version, PatternVersion.release_hash,
+                   PatternVersion.id, Listing.id, Listing.state, Listing.etsy_listing_id)
+            .join(PatternVersion, PatternVersion.product_id == Product.id)
+            .join(Listing, (Listing.product_slug == Product.slug)
+                  & (Listing.version == PatternVersion.version))
+            .where(PatternVersion.certified == True)  # noqa: E712
+            .order_by(PatternVersion.id.desc()).limit(limit)))
+    seen = set()
+    for slug, version, release, pv_id, listing_id, listing_state, etsy_id in rows:
+        if (slug, version) in seen or listing_state == "active":
+            continue
+        if etsy_id:
+            # ENG-FIRSTLIST: already on Etsy. A publication grant covers draft creation only
+            # (`publication_authority.snapshot` refuses), so the activation card takes over.
+            seen.add((slug, version))
+            continue
+        seen.add((slug, version))
+        try:
+            ev = pa.evidence(db, slug, version, release or "")
+        except Exception as exc:  # noqa: BLE001
+            ev = {"summary": {"all_gated_sections_pass": False,
+                              "not_passing": list(pa.GATED_SECTIONS)},
+                  **{k: {"state": "UNKNOWN", "why": f"unreadable: {type(exc).__name__}"}
+                     for k in pa.GATED_SECTIONS + ("economics",)}}
+        display = pa.display(ev)
+        ready = bool(ev["summary"]["all_gated_sections_pass"])
+        econ = ev.get("economics") or {}
+        out.append({
+            "card_id": f"publication:{slug}@{version}", "kind": "PUBLICATION",
+            "title": f"Create the Etsy draft for {slug} v{version}",
+            "proposed_action": ("record a sealed 24 h publication grant bound to this exact "
+                                "certified release and listing content"),
+            "recommendation": ("Ready: every gated section passes" if ready else
+                               "Not ready: " + ", ".join(ev["summary"]["not_passing"])
+                               + " not passing"),
+            "evidence": [_ev(r["section"], r["state"], r["why"],
+                             f"ops.publication_authority.evidence[{r['section']}]")
+                         for r in display],
+            "uncertainty": ("UNKNOWN sections: " + ", ".join(ev["summary"].get("unknown") or [])
+                            if ev["summary"].get("unknown") else "none reported"),
+            "expected_benefit": "the product can be drafted on Etsy (still inactive)",
+            "downside": "a draft listing exists on Etsy; activation is a separate grant",
+            "max_spend_cad": None,
+            "economics": {"state": econ.get("state", "UNKNOWN"), "why": econ.get("why", "")},
+            "reversibility": "the grant is revocable until used; the draft can be deleted",
+            "deadline": None,
+            "consequence_of_no_action": "the release stays unpublished; nothing else waits",
+            "executable": ready,
+            "actions": ([{"action": "publication.preview", "requires_step_up": False,
+                          "params": {"slug": slug, "version": version,
+                                     "release": release or ""}},
+                         {"action": "publication.approve", "requires_step_up": True,
+                          "params": {"slug": slug, "version": version,
+                                     "release": release or "",
+                                     "expected_digest": "<from publication.preview>"}}]
+                        + _execute_action("publication.execute", slug, version, release or "",
+                                          _live_publication_grant(db, slug, version,
+                                                                  release or ""),
+                                          "Create the Etsy draft now")
+                        if ready else []),
+            "not_executable_reason": (None if ready else
+                                      "gated sections do not all pass (Product Truth first)"),
+            "sources": [f"pattern_versions:{pv_id}", f"listings:{listing_id}",
+                        "ops.publication_authority.evidence"]})
+    return out
+
+
+def _live_publication_grant(db, slug, version, release) -> int | None:
+    """The newest publication grant valid now for this release, or None (never raises)."""
+    from ...ops import publication_authority as pa
+
+    try:
+        refusal, grant = pa.resolve(db, slug=slug, version=version, release=release)
+    except Exception:  # noqa: BLE001 - unreadable is no grant
+        return None
+    return grant if refusal is None else None
+
+
+def _live_activation_grant(db, slug, version, release, listing_id) -> int | None:
+    """The newest activation grant valid now for this listing, or None (never raises)."""
+    from ...ops import activation_authority as aa
+
+    try:
+        with db.session() as s:
+            ids = list(s.scalars(select(AuditLog.id).where(
+                AuditLog.action == aa.APPROVED, AuditLog.artifact == f"{slug}@{version}")
+                .order_by(AuditLog.id.desc()).limit(10)))
+        for ident in ids:
+            if aa.validate(db, ident, slug=slug, version=version, listing_id=listing_id,
+                           release=release) is None:
+                return ident
+    except Exception:  # noqa: BLE001 - unreadable is no grant
+        return None
+    return None
+
+
+def _execute_action(action, slug, version, release, grant, label) -> list[dict]:
+    """ENG-FIRSTLIST: the button that queues the job a live grant authorises, or nothing."""
+    if grant is None:
+        return []
+    return [{"action": action, "requires_step_up": True, "label": label,
+             "params": {"slug": slug, "version": version, "release": release,
+                        "approval_id": grant}}]
+
+
+def _activation_cards(db, limit: int = 20) -> list[dict]:
+    """ENG-FIRSTLIST: verified Etsy drafts (state core.listing_state.PUBLISHED, not active): activation
+    candidates. Before this there was no card, so `activation.approve` had no button."""
+    from ...core import listing_state as _ls
+    from ...core.models import Listing
+
+    out = []
+    with db.session() as s:
+        rows = list(s.execute(
+            select(Listing.product_slug, Listing.version, Listing.release_hash,
+                   Listing.etsy_listing_id, Listing.id)
+            .where(Listing.state == _ls.PUBLISHED, Listing.etsy_listing_id != "")
+            .order_by(Listing.id.desc()).limit(limit)))
+    for slug, version, release, listing_id, row_id in rows:
+        if not listing_id:
+            continue
+        release = release or ""
+        grant = _live_activation_grant(db, slug, version, release, str(listing_id))
+        out.append({
+            "card_id": f"activation:{slug}@{version}", "kind": "ACTIVATION",
+            "title": f"Make Etsy listing {listing_id} public ({slug} v{version})",
+            "proposed_action": ("record a sealed 24 h activation grant bound to this verified "
+                                "draft, then queue store.activate, which reads the draft back "
+                                "and re-checks every gate before activating"),
+            "recommendation": ("A grant is live: queue the activation" if grant else
+                               "Preview, then approve: the draft read back as the certified "
+                               "listing"),
+            "evidence": [_ev("draft", "PASS", f"Etsy listing {listing_id} read back as the "
+                                              "certified draft (store.published)",
+                             f"listings:{row_id}")],
+            "uncertainty": "store.activate reads the draft back again before activating",
+            "expected_benefit": "the product becomes visible and purchasable on Etsy",
+            "downside": "a public listing; Etsy charges its US$0.20 listing fee at activation",
+            "max_spend_cad": 0.29,
+            "reversibility": ("deactivate in Etsy Shop Manager (no automated deactivation job "
+                              "exists); the listing fee is not refunded"),
+            "deadline": None,
+            "consequence_of_no_action": "the draft stays invisible to buyers; nothing is spent",
+            "executable": True,
+            "actions": ([{"action": "activation.preview", "requires_step_up": False,
+                          "params": {"slug": slug, "version": version, "release": release}},
+                         {"action": "activation.approve", "requires_step_up": True,
+                          "params": {"slug": slug, "version": version, "release": release,
+                                     "expected_digest": "<from activation.preview>"}}]
+                        + _execute_action("activation.execute", slug, version, release,
+                                          grant, "Make it public now")),
+            "not_executable_reason": None,
+            "sources": [f"listings:{row_id}", "ops.activation_authority"]})
+    return out
+
+
+def _standing_policy_cards(db) -> list[dict]:
+    """WS4-3: one card while any standing policy row exists. It states what the policy is
+    allowed to do right now (`effective()`), shows the owner statement, and names the next
+    owner act. Nothing on it widens authority by itself: every act goes through `execute`."""
+    from ...ops import standing_policy as sp
+
+    with db.session() as s:
+        latest = s.scalar(select(AuditLog).where(AuditLog.action == sp.APPROVED,
+                                                 AuditLog.actor == sp.PRINCIPAL)
+                          .order_by(AuditLog.id.desc()))
+        if latest is None:
+            return []
+        latest_id, latest_detail = latest.id, dict(latest.detail or {})
+    eff = sp.effective(db)
+    content = eff.get("content") or latest_detail.get("content") or {}
+    policy_id = content.get("policy_id")
+    try:
+        statement = sp.render_statement(content) if not sp.ceiling_refusals(content) else None
+    except Exception:  # noqa: BLE001
+        statement = None
+    state = eff["state"]
+    actions: list[dict] = []
+    not_executable = None
+    if state == sp.BROKEN:
+        actions = [{"action": "standing_policy.rebase", "requires_step_up": True,
+                    "params": {"reason": "<why the chain is re-anchored>"}}]
+    elif state == sp.SUSPENDED_STATE:
+        actions = [{"action": "standing_policy.resume", "requires_step_up": True,
+                    "params": {"policy_id": policy_id}},
+                   {"action": "standing_policy.revoke", "requires_step_up": False,
+                    "params": {"approval_id": eff["approval_id"]}}]
+    elif state in (sp.EFFECTIVE, sp.ISSUE_PAUSED, sp.NOT_YET):
+        actions = [{"action": "standing_policy.suspend", "requires_step_up": False,
+                    "params": {"policy_id": policy_id, "reason": "<why>"}},
+                   {"action": "standing_policy.revoke", "requires_step_up": False,
+                    "params": {"approval_id": eff["approval_id"]}}]
+    else:
+        why = sp.activation_refusals(db, latest_id)
+        not_executable = "; ".join(why) if why else None
+        if not why:
+            actions = [{"action": "standing_policy.activate", "requires_step_up": True,
+                        "params": {"approval_id": latest_id}}]
+        actions.append({"action": "standing_policy.revoke", "requires_step_up": False,
+                        "params": {"approval_id": latest_id}})
+    return [{
+        "card_id": f"standing_policy:{policy_id}", "kind": "STANDING_POLICY",
+        "title": (f"Standing publication policy {policy_id} v{content.get('version')}: "
+                  f"{state}"),
+        "what": eff.get("why") or "effective: Etsy drafts within this policy need no "
+                                  "per-product approval",
+        "statement": statement,
+        "digest": sp.statement_digest(content) if statement else None,
+        "deployment_mode": sp.deployment_mode(db),
+        "key_health": sp.key_health(),
+        "proposed_action": "review the policy's state and act on it",
+        "downside": "a standing policy can create Etsy drafts without asking per product",
+        "reversibility": "suspend or revoke at any time; either takes effect at the next check",
+        "max_spend_cad": 0.0,
+        "executable": bool(actions) and not_executable is None,
+        "not_executable_reason": not_executable,
+        "actions": actions,
+        "sources": [f"audit_log:{latest_id}", "ops.standing_policy.effective"]}]
+
+
+def inbox(db) -> dict:
+    from . import readers
+
+    try:
+        raw = readers.owner_inbox(db)
+        cards = [_gate_card(c) for c in raw.get("cards") or []]
+        status, reason = "OK", None
+    except Exception as exc:  # noqa: BLE001
+        raw, cards = {}, []
+        status, reason = "UNKNOWN", f"owner queue unreadable: {type(exc).__name__}"
+    try:
+        pub = _publication_cards(db)
+    except Exception as exc:  # noqa: BLE001
+        pub = []
+        reason = (reason + "; " if reason else "") + (
+            f"publication candidates unreadable: {type(exc).__name__}")
+        status = "DEGRADED" if status == "OK" else status
+    cards = cards + pub
+    try:
+        cards = cards + _activation_cards(db)
+    except Exception as exc:  # noqa: BLE001
+        reason = (reason + "; " if reason else "") + (
+            f"activation candidates unreadable: {type(exc).__name__}")
+        status = "DEGRADED" if status == "OK" else status
+    # WS4-3: the standing publication policy card (state, statement, and the next owner act).
+    try:
+        cards = cards + _standing_policy_cards(db)
+    except Exception as exc:  # noqa: BLE001
+        reason = (reason + "; " if reason else "") + (
+            f"standing policy unreadable: {type(exc).__name__}")
+        status = "DEGRADED" if status == "OK" else status
+    # W4-PRODFIX: each unreviewed material policy change is a card (it blocks publishing).
+    try:
+        from ...gates import platform_policy
+
+        cards = cards + [{
+            "card_id": f"policy:{c['source']}", "kind": "policy_review",
+            "title": f"Etsy policy changed: {c['source']}",
+            "what": (f"{c['source']} changed materially (reading {c['checked_on']}); "
+                     f"{', '.join(c['affects'])} are blocked until it is reviewed and "
+                     f"re-tested"
+                     + ("" if "product_creation" in (c.get("affects") or ()) else
+                        ". Internal rebuilds and re-certification continue under the "
+                        "reviewed rules; publication stays held until you review it")),
+            "executable": True,
+            "actions": [{"action": "policy.review_preview", "requires_step_up": False,
+                         "params": {"source": c["source"]}},
+                        {"action": "policy.review", "requires_step_up": True,
+                         "params": {"source": c["source"],
+                                    "confirm": POLICY_REVIEW_CONFIRMATION,
+                                    "tested": "<what you re-tested>",
+                                    "expected_digest": "<from policy.review_preview>"}}],
+            "sources": [f"policy_snapshots:{c['snapshot_id']}"]}
+            for c in platform_policy.unreviewed_changes(db)]
+    except Exception as exc:  # noqa: BLE001
+        reason = (reason + "; " if reason else "") + (
+            f"policy changes unreadable: {type(exc).__name__}")
+        status = "DEGRADED" if status == "OK" else status
+    # W4-CCREL: the release approval card. The deploy decision (gate production_window)
+    # carries the candidate SHA, suite result, security review and rollback target; with no
+    # deploy decision open, a pending candidate gets its own read-only card.
+    from . import release_card as release_mod
+
+    try:
+        rc = release_mod.candidate()
+    except Exception as exc:  # noqa: BLE001 - unreadable release evidence is UNKNOWN
+        rc = {"pending": False, "why": f"release evidence unreadable: {type(exc).__name__}"}
+    deploy = next((c for c in cards if c.get("card_id") == f"gate:{release_mod.DEPLOY_GATE}"),
+                  None)
+    if rc.get("pending") and deploy is not None:
+        deploy.update(release_mod.card_fields(rc))
+        deploy["evidence"] = list(deploy.get("evidence") or []) + release_mod.evidence(rc)
+        deploy["sources"] = list(deploy.get("sources") or []) + [rc["record"]]
+    elif rc.get("pending"):
+        cards = cards + [release_mod.standalone_card(rc)]
+    from . import company as company_mod
+    from .providers import guard
+
+    batches = guard("decision_batches", lambda: company_mod.owner_decision_batches(raw))
+    # ENG-APPROVALS (D-OWNER-STANDING-INTERNAL): the ONE concise owner batch -- only the
+    # genuine exceptions, grouped by class; everything covered by the standing authority is
+    # counted, never asked. Read-only: it signs, approves and publishes nothing.
+    from ...ops import owner_queue_consolidate as _oqc
+
+    exceptions = guard("owner_exceptions", lambda: _oqc.exception_batch(cards))
+    return {"status": status, "reason": reason, "cards": cards, "open": len(cards),
+            "release": release_mod.envelope_for(rc),
+            # W4-OWNER: the consolidated decision packet, batch first.
+            "decision_batches": batches,
+            "owner_exceptions": exceptions,
+            # F-204 (K7): an empty queue is proven only by a fresh assessment + live gates.
+            "empty_state": raw.get("empty_state"),
+            "parked_owner_actions": raw.get("parked_owner_actions") or [],
+            "waiting_on_data": raw.get("waiting_on_data") or [],
+            "external_capability_unavailable": raw.get("external_capability_unavailable")
+            or [],
+            # W4-GATESB: decisions the owner cannot usefully answer yet, each with what makes
+            # it askable. `customers` is data, never an owner card.
+            "not_yet_askable": _not_yet_askable(raw),
+            "note": raw.get("note"),
+            "sources": ["build2.executor.approval_inbox", "owner_actions",
+                        "ops.publication_authority.evidence"]}
+
+
+NEVER_OWNER_CARD = frozenset({"customers"})
+
+
+def _not_yet_askable(raw: dict) -> dict:
+    items = raw.get("not_yet_askable") if isinstance(raw, dict) else None
+    if not isinstance(items, list):
+        return {"status": "UNKNOWN", "items": [], "basis": "unknown",
+                "reason": "this build's approval inbox does not report not-yet-askable "
+                          "decisions", "sources": ["build2.executor.approval_inbox"]}
+    out = []
+    for it in items:
+        if not isinstance(it, dict) or it.get("gate") in NEVER_OWNER_CARD:
+            continue
+        pre = it.get("precondition")
+        out.append({"gate": it.get("gate"), "what": it.get("what"),
+                    "askable_when": (pre if isinstance(pre, str) else
+                                     (pre or {}).get("what") or (pre or {}).get("why")
+                                     if isinstance(pre, dict) else None) or "UNKNOWN",
+                    "precondition": pre, "unblocks_count": len(it.get("unblocks") or []),
+                    "owner_action_ids": it.get("owner_action_ids") or []})
+    return {"status": "OK", "items": out, "basis": "measured",
+            "sources": ["build2.executor.approval_inbox", "build2.gate_clearance.prerequisite"]}
+
+
+def card(db, card_id: str) -> dict | None:
+    for c in inbox(db)["cards"]:
+        if c["card_id"] == card_id:
+            return c
+    return None
+
+
+def _audit(db, actor: str, action: str, artifact: str, detail: dict) -> int:
+    with db.session() as s:
+        row = AuditLog(actor=actor[:64], action=action[:80], artifact=artifact[:200],
+                       detail=detail)
+        s.add(row)
+        s.flush()
+        return row.id
+
+
+def _require_publication_evidence(db, body: dict) -> None:
+    """Server-side evidence gate for publication.approve (audit ddf9c6e L1).
+
+    The inbox card is only `executable` when every gated section of the approval packet
+    passes; the server enforces the same rule rather than trusting the UI. FAIL and UNKNOWN
+    both refuse (UNKNOWN is never PASS); an unreadable packet refuses."""
+    from ...ops import publication_authority as pub
+
+    try:
+        ev = pub.evidence(db, body.get("slug"), body.get("version"), body.get("release", ""))
+        summary = ev["summary"]
+        ready = summary.get("all_gated_sections_pass") is True
+        not_passing = [str(x) for x in summary.get("not_passing") or []]
+    except Exception as exc:  # noqa: BLE001 - fail closed
+        log.info("publication evidence unreadable: %s: %s", type(exc).__name__, exc)
+        raise ActionRefused("evidence not ready: the approval packet could not be read",
+                            detail={"exception": type(exc).__name__}) from None
+    if not ready:
+        raise ActionRefused("evidence not ready: " + (", ".join(not_passing) or "unknown")
+                            + " not passing; a publication grant needs every gated section "
+                            "to pass (Product Truth first)",
+                            detail={"not_passing": not_passing})
+
+
+def _record_acceptance_ruling(db, ruling: str, reason: str, *, actor: str) -> dict:
+    """The door the `acceptance_ruling` gate reads: a done OwnerAction under its key."""
+    from ...build2 import executor
+    from ...ops import owner_queue
+
+    if ruling not in ACCEPTANCE_RULINGS:
+        raise ActionRefused(f"ruling must be one of {sorted(ACCEPTANCE_RULINGS)}")
+    if not reason:
+        raise ActionRefused("owner decision reason required")
+    with db.session() as s:
+        # Review OPUS2G D-2: `ensure` returns the stored open row (inserted, or the existing
+        # open row restated), so the SATISFIED transition below lands on the row the gate
+        # reads -- never on a detached copy the owner-queue guard merged away.
+        row = owner_queue.ensure(
+            s, executor.ACCEPTANCE_RULING_KEY,
+            action=f"Acceptance ruling ({ruling}): {ACCEPTANCE_RULINGS[ruling]}",
+            reason=reason[:2000], max_cost_cad=0.0, minutes=2, blocks="#189 #221 #222 #320")
+        owner_queue.transition(s, row, owner_queue.SATISFIED,
+                               f"owner ruled {ruling}: {reason}"[:1000], actor=actor)
+        oid = row.id
+    return {"ruling": ruling, "owner_action_id": oid, "gate": "acceptance_ruling",
+            "note": "the gate re-checks this record; the four rows un-park on its next read"}
+
+
+def _set_ads_limit(db, body: dict, reason: str) -> dict:
+    """The door the `ad_authority` gate reads: SpendLimit('ads'), never above the caps the
+    code already enforces (commerce.paid_media.CONSERVATIVE_CAPS). Sets authority only:
+    nothing is spent here, and SpendGuard still refuses any spend over the cap."""
+    from ...agents.registry import SpendGuard
+    from ...commerce.paid_media import CONSERVATIVE_CAPS as caps
+
+    if not reason:
+        raise ActionRefused("owner decision reason required")
+    try:
+        daily = float(body.get("daily_cap_cad"))
+        lifetime = float(body.get("lifetime_cap_cad"))
+    except (TypeError, ValueError):
+        raise ActionRefused("daily_cap_cad and lifetime_cap_cad must be numbers") from None
+    if not (0 < daily <= caps.daily_cad):
+        raise ActionRefused(f"daily_cap_cad must be > 0 and <= CA${caps.daily_cad:.2f} "
+                            "(the conservative cap enforced in code)")
+    if not (daily <= lifetime <= caps.campaign_cad):
+        raise ActionRefused(f"lifetime_cap_cad must be between the daily cap and "
+                            f"CA${caps.campaign_cad:.2f}")
+    SpendGuard(db).set_limit("ads", daily, lifetime)
+    return {"scope": "ads", "daily_cap_cad": daily, "lifetime_cap_cad": lifetime,
+            "spent": 0.0, "note": "authority only; nothing was spent"}
+
+
+def _policy_change(db, source: str) -> dict:
+    """The newest unreviewed material change of `source`, the reading before it, and the
+    digest binding what the owner is shown (so a review cannot confirm text it never saw)."""
+    import hashlib
+    import json as _json
+
+    from ...core.models import PolicySnapshot
+    from ...gates import platform_policy
+
+    pending = {c["source"]: c for c in platform_policy.unreviewed_changes(db)}
+    if source not in pending:
+        raise ActionNotFound(f"no unreviewed material change for policy source {source!r}")
+    with db.session() as s:
+        row = s.get(PolicySnapshot, pending[source]["snapshot_id"])
+        before = s.scalars(select(PolicySnapshot).where(
+            PolicySnapshot.source == source, PolicySnapshot.id < row.id)
+            .order_by(PolicySnapshot.id.desc())).first()
+        shown = {
+            "source": source, "snapshot_id": row.id,
+            "changed": {"version": row.version, "checked_on": row.checked_on,
+                        "digest": row.digest, "summary": row.summary or "",
+                        "url": row.url or "", "affects": list(pending[source]["affects"])},
+            "before": ({"snapshot_id": before.id, "version": before.version,
+                        "checked_on": before.checked_on, "digest": before.digest,
+                        "summary": before.summary or ""} if before is not None else None),
+        }
+    shown["review_digest"] = hashlib.sha256(
+        _json.dumps(shown, sort_keys=True, default=str).encode()).hexdigest()
+    shown["confirm_with"] = POLICY_REVIEW_CONFIRMATION
+    return shown
+
+
+def _review_policy_change(db, body: dict, *, actor: str) -> dict:
+    from ...gates import platform_policy
+
+    source = str(body.get("source") or "").strip()
+    shown = _policy_change(db, source)
+    confirmed = str(body.get("confirm") or "").strip()
+    tested = str(body.get("tested") or "").strip()
+    if confirmed != POLICY_REVIEW_CONFIRMATION:          # verbatim (review F9)
+        raise ActionRefused(f"confirm must be exactly {POLICY_REVIEW_CONFIRMATION!r}")
+    if not tested:
+        raise ActionRefused("tested must say what was re-tested against the changed policy")
+    if body.get("expected_digest") != shown["review_digest"]:
+        raise ActionRefused("approval preview changed; review the current content")
+    try:
+        out = platform_policy.review_change(db, source, reviewed_by="owner:command-center",
+                                            tested=tested, snapshot_id=shown["snapshot_id"])
+    except platform_policy.PolicyRefused as exc:
+        if "newer change arrived" in str(exc):
+            raise ActionRefused("approval preview changed; review the current content") \
+                from None
+        raise ActionRefused(str(exc)[:500]) from None
+    record = {"source": source, "snapshot_id": shown["snapshot_id"],
+              "confirmed": confirmed, "tested": tested[:2000],
+              "review_digest": shown["review_digest"], "shown": shown, "session": actor,
+              "reviewed_by": "owner:command-center"}
+    audit_id = _audit(db, actor, "policy.change_reviewed", f"policy:{source}", record)
+    return {**out, "review_audit_id": audit_id, "confirmed": confirmed}
+
+
+def execute(db, action: str, body: dict, *, actor: str) -> dict:
+    """Run one owner action through its existing mechanism. Raises ActionRefused."""
+    from ...laura.private.firewall import reject_private
+
+    # PRIV Step 4 (spec/07 Ruling 2): owner-private input never reaches this protected path.
+    reject_private((action, body, actor), context="security")
+    from ...ops import activation_authority as act
+    from ...ops import publication_authority as pub
+
+    if action not in ACTIONS:
+        raise ActionRefused(f"unknown action {action!r}")
+    body = body if isinstance(body, dict) else {}
+    reason = str(body.get("reason") or "").strip()
+    tagged = f"{reason} [owner via command center {actor}]" if reason else ""
+    try:
+        if action in ("publication.preview", "activation.preview"):
+            mod = pub if action.startswith("publication") else act
+            content = mod.snapshot(db, body.get("slug"), body.get("version"),
+                                   body.get("release", ""))
+            out = {"content": content, "digest": mod.digest(content)}
+            if mod is pub:
+                ev = pub.evidence(db, body.get("slug"), body.get("version"),
+                                  body.get("release", ""))
+                out["display"] = pub.display(ev)
+            return {"result": out, "audit_id": None}  # a read: nothing to audit
+        if action in ("publication.approve", "activation.approve"):
+            mod = pub if action.startswith("publication") else act
+            if not reason:
+                raise ActionRefused("owner decision reason required")
+            if mod is pub:
+                _require_publication_evidence(db, body)
+            kwargs = dict(authorization=_ops_token(), slug=body.get("slug"),
+                          version=body.get("version"), release=body.get("release", ""),
+                          expected_digest=body.get("expected_digest"), reason=tagged)
+            result = mod.approve(db, **kwargs)
+        elif action in ("publication.execute", "activation.execute"):
+            from ...ops import owner_execution as oe
+
+            if not reason:
+                raise ActionRefused("owner decision reason required")
+            fn = oe.queue_publication if action == "publication.execute" else \
+                oe.queue_activation
+            try:
+                result = fn(db, slug=str(body.get("slug") or ""),
+                            version=str(body.get("version") or ""),
+                            release=str(body.get("release") or ""),
+                            approval_id=_int(body, "approval_id"), actor=actor)
+            except oe.ExecutionRefused as exc:
+                raise ActionRefused(str(exc)[:500]) from None
+        elif action in ("publication.rebase", "activation.rebase"):
+            mod = pub if action.startswith("publication") else act
+            if not reason:
+                raise ActionRefused("owner decision reason required")
+            result = mod.rebase(db, authorization=_ops_token(), reason=tagged)
+        elif action in ("publication.revoke", "activation.revoke"):
+            mod = pub if action.startswith("publication") else act
+            ident = _int(body, "approval_id")
+            with db.session() as s:
+                row = s.get(AuditLog, ident)
+                is_grant = (row is not None and row.action == mod.APPROVED
+                            and row.actor == mod.PRINCIPAL)
+            if not is_grant:
+                # Never seal a revocation for an id that is not a grant of this ledger: it
+                # would report success for nothing and pre-revoke a future id (audit L2).
+                raise ActionNotFound(f"no {action.split('.')[0]} grant {ident}")
+            result = mod.revoke(db, authorization=_ops_token(), approval_id=ident)
+        elif action.startswith("storefront."):
+            from ...ops import storefront_authority as sfa
+
+            if action == "storefront.preview":
+                content = sfa.snapshot(db, body.get("proposal"))
+                return {"result": {"content": content, "digest": sfa.digest(content)},
+                        "audit_id": None}
+            if action == "storefront.approve":
+                if not reason:
+                    raise ActionRefused("owner decision reason required")
+                # Only reached after the route's require_stepup (ACTIONS[...][0] is True).
+                result = sfa.approve(db, actor=actor, proposal=body.get("proposal"),
+                                     expected_digest=body.get("expected_digest"),
+                                     reason=tagged, stepped_up=True)
+            elif action == "storefront.revoke":
+                ident = _int(body, "approval_id")
+                with db.session() as s:
+                    row = s.get(AuditLog, ident)
+                    if row is None or row.action != sfa.APPROVED:
+                        raise ActionNotFound(f"no storefront grant {ident}")
+                result = sfa.revoke(db, approval_id=ident, actor=actor)
+            else:
+                if not reason:
+                    raise ActionRefused("owner decision reason required")
+                result = sfa.rebase(db, actor=actor, reason=reason, stepped_up=True)
+        elif action.startswith("standing_policy."):
+            out = _standing_policy(db, action, body, tagged, actor=actor)
+            if action == "standing_policy.preview":
+                return {"result": out, "audit_id": None}  # a read: nothing to audit
+            result = out
+        elif action == "improvement.approve":
+            from ...improve import cells
+
+            result = cells.record_owner_approval(db, _int(body, "id"), approved_by="owner",
+                                                 why=str(body.get("why") or reason))
+        elif action == "challenger.approve":
+            from ...improve import league
+
+            result = league.record_owner_decision(db, _int(body, "id"),
+                                                  approved_by="owner",
+                                                  why=str(body.get("why") or reason))
+        elif action == "incident.acknowledge":
+            iid = _int(body, "incident_id")
+            with db.session() as s:
+                if s.get(Incident, iid) is None:
+                    raise ActionRefused(f"no incident {iid}")
+            result = {"acknowledged": iid, "resolved": False,
+                      "note": str(body.get("note") or "")[:500]}
+        elif action == "owner_action.defer":
+            oid = _int(body, "owner_action_id")
+            with db.session() as s:
+                # Package record/invalidation uses this same lock before
+                # reading or changing the owner question. Re-read only after
+                # taking it so a superseded question cannot be re-parked from
+                # an earlier snapshot.
+                from ...runtime.release import _serialise_owner_queue
+                _serialise_owner_queue(s, db)
+                row = s.scalar(select(OwnerAction).where(OwnerAction.id == oid).with_for_update())
+                if row is None:
+                    raise ActionRefused(f"no owner action {oid}")
+                # F-180 (K7): a deferral is the owner parking the action -- it leaves the
+                # active queue with a timestamp and reason; the row and its history stay.
+                from ...ops import owner_queue
+
+                note = str(body.get("note") or "")[:500]
+                # Do not normalize an inconsistent closed state into OPEN:
+                # owner_queue.effective_state is a display compatibility rule,
+                # not authority to revive a superseded question.
+                state = row.state or owner_queue.OPEN
+                if row.done:
+                    raise ActionRefused(f"owner action {oid} is closed, not open for deferral")
+                changed = False
+                if state == owner_queue.OPEN:
+                    owner_queue.transition(s, row, owner_queue.PARKED,
+                                           note or "deferred by the owner", actor=actor)
+                    changed = True
+                elif state != owner_queue.PARKED:
+                    raise ActionRefused(f"owner action {oid} is {state}, not open for deferral")
+                actual_note = row.state_reason or ""
+            result = {"deferred": oid, "note": actual_note, "state": owner_queue.PARKED,
+                      "changed": changed}
+        elif action == "acceptance.rule":
+            result = _record_acceptance_ruling(db, str(body.get("ruling") or ""), tagged,
+                                               actor=actor)
+        elif action == "ads.set_limit":
+            result = _set_ads_limit(db, body, tagged)
+        elif action == "policy.review_preview":
+            return {"result": _policy_change(db, str(body.get("source") or "").strip()),
+                    "audit_id": None}  # a read: nothing to audit
+        elif action == "policy.review":
+            result = _review_policy_change(db, body, actor=actor)
+        elif action == "finance.statement_archive":
+            result = _archive_statement(db, body, actor=actor)
+        elif action == "physical_photo.attest_unedited":
+            from ...publish import physical_upgrade as _pu
+
+            try:
+                result = _pu.attest_unedited(db, _int(body, "photo_id"), actor=actor,
+                                             confirm=str(body.get("confirm") or ""))
+            except _pu.UpgradeRefused as exc:
+                raise ActionRefused(str(exc)[:300]) from None
+        elif action == "physical_size.lift":
+            from ...runtime import release as _rel
+
+            try:
+                # Only reached after the route's require_stepup (ACTIONS[...][0] is True).
+                result = _rel.lift_size_halt(db, incident_id=_int(body, "incident_id"),
+                                             physical_test_id=_int(body, "physical_test_id"),
+                                             actor=actor, stepped_up=True, reason=reason,
+                                             same_design_confirmed=(
+                                                 body.get("same_design_confirmed") is True))
+            except _rel.SizeHaltLiftRefused as exc:
+                raise ActionRefused(str(exc)[:400]) from None
+        elif action.startswith("launch_decision."):
+            from ...ops import launch_decisions as ld
+
+            if action == "launch_decision.preview":
+                content = ld.snapshot(db, str(body.get("decision") or ""))
+                return {"result": {"content": content, "digest": ld.digest(content)},
+                        "audit_id": None}  # a read: nothing to audit
+            if action == "launch_decision.record":
+                if not reason:
+                    raise ActionRefused("owner decision reason required")
+                result = ld.record(db, authorization=_ops_token(),
+                                   decision=str(body.get("decision") or ""),
+                                   expected_digest=body.get("expected_digest"),
+                                   reason=tagged, choice=body.get("choice"))
+            else:
+                ident = _int(body, "approval_id")
+                with db.session() as s:
+                    row = s.get(AuditLog, ident)
+                    if row is None or row.action != ld.APPROVED:
+                        raise ActionNotFound(f"no launch decision {ident}")
+                result = ld.revoke(db, authorization=_ops_token(), approval_id=ident)
+        elif action == "listing.adopt_manual":
+            result = _adopt_manual(db, body, reason, actor=actor)
+        elif action == "listing.baseline_preview":
+            return {"result": _baseline(db, body, reason, actor=actor, preview=True),
+                    "audit_id": None}  # a read of Etsy: nothing recorded here
+        elif action == "listing.accept_baseline":
+            result = _baseline(db, body, reason, actor=actor, preview=False)
+        else:  # pragma: no cover - ACTIONS is exhaustive
+            raise ActionRefused(action)
+    except ActionRefused:
+        raise
+    except opsauth.OpsAuthUnavailable as exc:
+        raise ActionRefused("operator credential not configured",
+                            detail={"exception": type(exc).__name__}) from exc
+    except Exception as exc:  # noqa: BLE001 - the authority's refusal, mapped to stable text
+        name = type(exc).__name__
+        if name in ("ValueError", "KeyError", "TypeError", "ImprovementRefused",
+                    "LeagueRefused", "PermissionError", "OpsAuthRefused",
+                    "StatementRefused"):
+            raw = str(exc)[:500]
+            log.info("command-center action %s refused: %s: %s", action, name, raw)
+            raise ActionRefused(_owner_message(exc),
+                                detail={"exception": name, "message": raw}) from exc
+        raise
+    audit_id = _audit(db, actor, f"cc.owner_action.{action}",
+                      str(body.get("slug") or body.get("source") or body.get("id")
+                          or body.get("approval_id")
+                          or body.get("incident_id") or body.get("owner_action_id") or ""),
+                      {"action": action, "via": "command_center", "session": actor,
+                       "reason": reason[:300],
+                       "result": {k: v for k, v in (result or {}).items()
+                                  if k in ("approval_id", "revoked", "digest", "expires_at",
+                                           "improvement", "owner_approved", "acknowledged",
+                                           "deferred", "source", "snapshot_id",
+                                           "reviewed", "review_audit_id", "confirmed",
+                                           "period", "sha256", "version", "archived",
+                                           "decision", "choice", "photo_id",
+                                           "attested", "lifted", "incident",
+                                           "physical_test_id", "withheld", "same_geometry",
+                                           "etsy_listing_id", "verification", "repeat",
+                                           "audit_id", "review_incident_id",
+                                           "accepted", "incidents_resolved")}})
+    return {"result": result, "audit_id": audit_id}
+
+
+def _archive_statement(db, body: dict, *, actor: str) -> dict:
+    """F-576: the owner's monthly statement -- original bytes (base64) plus its totals."""
+    import base64
+    import binascii
+
+    from ...finance.accounting import statements
+
+    try:
+        raw = base64.b64decode(str(body.get("content_base64") or ""), validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise ActionRefused("content_base64 is not valid base64") from exc
+    return statements.archive(db, period=str(body.get("period") or ""), original=raw,
+                              content_type=str(body.get("content_type") or "application/pdf"),
+                              totals=body.get("totals") if isinstance(body.get("totals"), dict)
+                              else {}, recorded_by=f"owner:{actor}"[:64])
+
+
+
+def _standing_policy(db, action: str, body: dict, reason: str, *, actor: str) -> dict:
+    """WS4-3: the standing policy's owner acts (design §1.7). The route has already checked
+    the session, CSRF/nonce and, for approve/activate/resume/rebase, a fresh step-up, and
+    entered the owner request for exactly those four."""
+    from ...ops import standing_policy as sp
+
+    content = body.get("content")
+    try:
+        if action == "standing_policy.preview":
+            if not isinstance(content, dict):
+                raise ActionRefused("content must be the policy fields to preview")
+            prev = sp.preview(db, content)
+            return {**prev, "deployment_mode": sp.deployment_mode(db),
+                    "key_health": sp.key_health()}
+        if action == "standing_policy.approve":
+            if not reason:
+                raise ActionRefused("owner decision reason required")
+            if not isinstance(content, dict):
+                raise ActionRefused("content must be the policy fields shown in the preview")
+            ident = sp.approve(db, content, digest=str(body.get("expected_digest") or ""),
+                               typed_confirmation=str(body.get("confirmation") or ""),
+                               stepped_up=True, owner_session=actor, actor=actor,
+                               reason=reason)
+            return {"approval_id": ident, "digest": sp.statement_digest(content),
+                    "version": content.get("version")}
+        if action == "standing_policy.activate":
+            ident = _sp_approval(db, sp, _int(body, "approval_id"))
+            return {"approval_id": ident,
+                    "audit_id": sp.activate(db, ident, stepped_up=True, owner_session=actor,
+                                            actor=actor)}
+        if action == "standing_policy.revoke":
+            ident = _sp_approval(db, sp, _int(body, "approval_id"))
+            return {"approval_id": ident, "revoked": sp.revoke(db, ident)}
+        if action == "standing_policy.suspend":
+            if not reason:
+                raise ActionRefused("a suspension names its reason")
+            policy_id = _sp_policy_id(db, sp, body)
+            return {"audit_id": sp.suspend(db, policy_id, reason=reason, by=actor)}
+        if action == "standing_policy.resume":
+            policy_id = _sp_policy_id(db, sp, body)
+            return {"audit_id": sp.resume(db, policy_id, stepped_up=True,
+                                          owner_session=actor, actor=actor)}
+        if action == "standing_policy.rebase":
+            if not reason:
+                raise ActionRefused("owner decision reason required")
+            return {"audit_id": sp.rebase(db, reason, stepped_up=True)}
+    except ActionRefused:       # ActionNotFound included: keep its own status
+        raise
+    except ValueError as exc:
+        raise ActionRefused(str(exc)[:500]) from None
+    raise ActionRefused(action)  # pragma: no cover - the ACTIONS keys are exhaustive
+
+
+def _sp_approval(db, sp, ident: int) -> int:
+    with db.session() as s:
+        row = s.get(AuditLog, ident)
+        if row is None or row.action != sp.APPROVED or row.actor != sp.PRINCIPAL:
+            raise ActionNotFound(f"no standing policy approval {ident}")
+    return ident
+
+
+def _sp_policy_id(db, sp, body: dict) -> str:
+    policy_id = str(body.get("policy_id") or "")
+    with db.session() as s:
+        known = s.scalar(select(AuditLog.id).where(AuditLog.action == sp.APPROVED,
+                                                   AuditLog.artifact == policy_id))
+    if known is None:
+        raise ActionNotFound(f"no standing policy {policy_id!r}")
+    return policy_id
+
+
+def _adopt_manual(db, body: dict, reason: str, *, actor: str) -> dict:
+    """W-ADOPT: `publish.manual_adoption.adopt`, behind session + CSRF + nonce + step-up."""
+    from ...publish import manual_adoption
+
+    if not reason:
+        raise ActionRefused("owner decision reason required")
+    try:
+        return manual_adoption.adopt(
+            db, etsy_listing_id=body.get("etsy_listing_id"), slug=str(body.get("slug") or ""),
+            version=str(body.get("version") or ""), release=str(body.get("release") or ""),
+            actor=f"owner:{actor}"[:64], reason=reason)
+    except manual_adoption.AdoptionRefused as exc:
+        raise ActionRefused(str(exc)[:500]) from None
+
+
+def _baseline(db, body: dict, reason: str, *, actor: str, preview: bool) -> dict:
+    """W-ADOPT-2: preview, or accept (step-up, digest-bound), an adopted listing's baseline."""
+    from ...publish import manual_adoption
+
+    kw = dict(slug=str(body.get("slug") or ""), version=str(body.get("version") or ""),
+              etsy_listing_id=body.get("etsy_listing_id"))
+    try:
+        if preview:
+            return manual_adoption.baseline_preview(db, **kw)
+        if not reason:
+            raise ActionRefused("owner decision reason required")
+        return manual_adoption.accept_baseline(
+            db, **kw, expected_digest=str(body.get("expected_digest") or ""),
+            actor=f"owner:{actor}"[:64], reason=reason)
+    except manual_adoption.AdoptionRefused as exc:
+        raise ActionRefused(str(exc)[:500]) from None

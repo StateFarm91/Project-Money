@@ -1,0 +1,180 @@
+{
+  "_note": "W-VISNEXT recorded judge answers. Hand-written in the exact JSON shape each blind prompt asks for (vision_judges.*_prompt); no paid call was made to produce them. Each scenario is the answer a judge would give to the named task. Keyed by task, the first line of every prompt ('Task: <task>').",
+  "laura_match_a": {
+    "identity_morphology": {"face": "same", "hair": "same", "eyes": "same", "age": "same",
+                            "stylisation": "same", "stature": "same", "build": "same",
+                            "shoulders": "same", "torso": "same", "bust": "same",
+                            "waist": "same", "hips": "cannot_tell", "limbs": "same",
+                            "people_in_photograph": 1}
+  },
+  "laura_match_b": {
+    "identity_morphology": {"face": "same", "hair": "same", "eyes": "same", "age": "same",
+                            "stylisation": "same", "stature": "cannot_tell", "build": "same",
+                            "shoulders": "same", "torso": "same", "bust": "same",
+                            "waist": "same", "hips": "same", "limbs": "cannot_tell",
+                            "people_in_photograph": 1}
+  },
+  "bust_drift": {
+    "identity_morphology": {"face": "same", "hair": "same", "eyes": "same", "age": "same",
+                            "stylisation": "same", "stature": "same", "build": "same",
+                            "shoulders": "same", "torso": "same", "bust": "different",
+                            "waist": "same", "hips": "same", "limbs": "same",
+                            "people_in_photograph": 1}
+  },
+  "face_drift": {
+    "identity_morphology": {"face": "different", "hair": "same", "eyes": "different",
+                            "age": "same", "stylisation": "same", "stature": "same",
+                            "build": "same", "shoulders": "same", "torso": "same",
+                            "bust": "same", "waist": "same", "hips": "same", "limbs": "same",
+                            "people_in_photograph": 1}
+  },
+  "torso_hidden": {
+    "identity_morphology": {"face": "same", "hair": "same", "eyes": "same", "age": "same",
+                            "stylisation": "same", "stature": "same", "build": "cannot_tell",
+                            "shoulders": "same", "torso": "cannot_tell", "bust": "cannot_tell",
+                            "waist": "cannot_tell", "hips": "cannot_tell", "limbs": "same",
+                            "people_in_photograph": 1}
+  },
+  "outfit_sage_match": {
+    "outfit_description": {"person_present": "yes",
+      "top_or_dress": {"visible": "yes", "garment": "cardigan", "colour": "sage", "features": []},
+      "lower": {"visible": "yes", "garment": "jeans", "colour": "indigo", "features": ["straight-leg"]},
+      "shoes": {"visible": "no", "garment": "other", "colour": "unclear", "features": []},
+      "outerwear": {"visible": "yes", "garment": "none", "colour": "unclear", "features": []},
+      "accessories": {"visible": "yes", "garment": "earrings", "colour": "gold", "features": []}}
+  },
+  "outfit_reference_carryover": {
+    "outfit_description": {"person_present": "yes",
+      "top_or_dress": {"visible": "yes", "garment": "top", "colour": "ivory", "features": []},
+      "lower": {"visible": "yes", "garment": "casual_trousers", "colour": "beige", "features": []},
+      "shoes": {"visible": "yes", "garment": "sandals", "colour": "tan", "features": []},
+      "outerwear": {"visible": "yes", "garment": "none", "colour": "unclear", "features": []},
+      "accessories": {"visible": "no", "garment": "none", "colour": "unclear", "features": []}}
+  },
+  "outfit_other_listing": {
+    "outfit_description": {"person_present": "yes",
+      "top_or_dress": {"visible": "yes", "garment": "jumper", "colour": "oatmeal", "features": []},
+      "lower": {"visible": "yes", "garment": "casual_trousers", "colour": "camel", "features": ["wide-leg"]},
+      "shoes": {"visible": "yes", "garment": "boots", "colour": "brown", "features": ["ankle"]},
+      "outerwear": {"visible": "yes", "garment": "none", "colour": "unclear", "features": []},
+      "accessories": {"visible": "yes", "garment": "necklace", "colour": "gold", "features": []}}
+  },
+  "outfit_shoes_wrong": {
+    "outfit_description": {"person_present": "yes",
+      "top_or_dress": {"visible": "yes", "garment": "cardigan", "colour": "sage", "features": []},
+      "lower": {"visible": "yes", "garment": "jeans", "colour": "indigo", "features": []},
+      "shoes": {"visible": "yes", "garment": "sneakers", "colour": "white", "features": []},
+      "outerwear": {"visible": "yes", "garment": "none", "colour": "unclear", "features": []},
+      "accessories": {"visible": "no", "garment": "none", "colour": "unclear", "features": []}}
+  },
+  "outfit_lower_hidden": {
+    "outfit_description": {"person_present": "yes",
+      "top_or_dress": {"visible": "yes", "garment": "cardigan", "colour": "sage", "features": []},
+      "lower": {"visible": "no", "garment": "other", "colour": "unclear", "features": []},
+      "shoes": {"visible": "no", "garment": "other", "colour": "unclear", "features": []},
+      "outerwear": {"visible": "yes", "garment": "none", "colour": "unclear", "features": []},
+      "accessories": {"visible": "unclear", "garment": "other", "colour": "unclear", "features": []}}
+  },
+  "anatomy_ok": {
+    "anatomy": {"people": 1, "hands": [{"fully_visible": "yes", "fingers_counted": 5},
+                                        {"fully_visible": "no", "fingers_counted": "unclear"}],
+                "extra_limbs": "no", "missing_limbs_not_explained_by_crop": "no",
+                "fused_or_merged_body_parts": "no", "impossible_joints": "no",
+                "face_distorted": "no", "hand_merged_with_object": "no"}
+  },
+  "anatomy_six_fingers": {
+    "anatomy": {"people": 1, "hands": [{"fully_visible": "yes", "fingers_counted": 6}],
+                "extra_limbs": "no", "missing_limbs_not_explained_by_crop": "no",
+                "fused_or_merged_body_parts": "no", "impossible_joints": "no",
+                "face_distorted": "no", "hand_merged_with_object": "no"}
+  },
+  "anatomy_unclear": {
+    "anatomy": {"people": 1, "hands": [{"fully_visible": "yes", "fingers_counted": "unclear"}],
+                "extra_limbs": "no", "missing_limbs_not_explained_by_crop": "unclear",
+                "fused_or_merged_body_parts": "no", "impossible_joints": "no",
+                "face_distorted": "no", "hand_merged_with_object": "no"}
+  },
+  "realism_ok": {
+    "realism": {"stitches_implausibly_large_or_small_for_the_item": "no",
+                "yarn_strands_breaking_merging_or_ending_abruptly": "no",
+                "fabric_edges_melting_or_undefined": "no",
+                "fabric_drape_physically_impossible": "no",
+                "seams_or_joins_that_could_not_be_made": "not_applicable",
+                "hands_or_fingers_malformed": "no", "clothing_fit_physically_impossible": "no",
+                "shadows_or_lighting_inconsistent": "no",
+                "texture_visibly_tiled_or_copy_pasted": "no", "impossible_seams": "no",
+                "looks_like_an_illustration_or_3d_render": "no",
+                "garbled_text_or_watermark": "no"}
+  },
+  "realism_tiled": {
+    "realism": {"stitches_implausibly_large_or_small_for_the_item": "no",
+                "yarn_strands_breaking_merging_or_ending_abruptly": "no",
+                "fabric_edges_melting_or_undefined": "no",
+                "fabric_drape_physically_impossible": "no",
+                "seams_or_joins_that_could_not_be_made": "no",
+                "hands_or_fingers_malformed": "no", "clothing_fit_physically_impossible": "no",
+                "shadows_or_lighting_inconsistent": "no",
+                "texture_visibly_tiled_or_copy_pasted": "yes", "impossible_seams": "no",
+                "looks_like_an_illustration_or_3d_render": "no",
+                "garbled_text_or_watermark": "no"}
+  },
+  "realism_partial": {
+    "realism": {"stitches_implausibly_large_or_small_for_the_item": "unclear"}
+  },
+  "item_same": {
+    "item_description": {
+      "image_1": {"item_visible": "yes", "craft": "crochet", "border_or_edging_visible": "no",
+                  "plain_end_bands_visible": "yes", "raised_cables_visible": "no",
+                  "distinct_yarn_colours": 2},
+      "image_2": {"item_visible": "yes", "craft": "crochet", "border_or_edging_visible": "no",
+                  "plain_end_bands_visible": "yes", "raised_cables_visible": "no",
+                  "distinct_yarn_colours": 2}}
+  },
+  "item_border_invented": {
+    "item_description": {
+      "image_1": {"item_visible": "yes", "craft": "crochet", "border_or_edging_visible": "no",
+                  "plain_end_bands_visible": "yes", "raised_cables_visible": "no",
+                  "distinct_yarn_colours": 2},
+      "image_2": {"item_visible": "yes", "craft": "crochet", "border_or_edging_visible": "yes",
+                  "plain_end_bands_visible": "yes", "raised_cables_visible": "no",
+                  "distinct_yarn_colours": 2}}
+  },
+  "item_knitted": {
+    "item_description": {
+      "image_1": {"item_visible": "yes", "craft": "crochet", "border_or_edging_visible": "no",
+                  "plain_end_bands_visible": "yes", "raised_cables_visible": "no",
+                  "distinct_yarn_colours": 2},
+      "image_2": {"item_visible": "yes", "craft": "knitting", "border_or_edging_visible": "no",
+                  "plain_end_bands_visible": "yes", "raised_cables_visible": "no",
+                  "distinct_yarn_colours": 2}}
+  },
+  "item_extra_colour": {
+    "item_description": {
+      "image_1": {"item_visible": "yes", "craft": "crochet", "border_or_edging_visible": "no",
+                  "plain_end_bands_visible": "yes", "raised_cables_visible": "no",
+                  "distinct_yarn_colours": 2},
+      "image_2": {"item_visible": "yes", "craft": "crochet", "border_or_edging_visible": "no",
+                  "plain_end_bands_visible": "yes", "raised_cables_visible": "no",
+                  "distinct_yarn_colours": 4}}
+  },
+  "item_hidden": {
+    "item_description": {
+      "image_1": {"item_visible": "yes", "craft": "crochet", "border_or_edging_visible": "no",
+                  "plain_end_bands_visible": "yes", "raised_cables_visible": "no",
+                  "distinct_yarn_colours": 2},
+      "image_2": {"item_visible": "no", "craft": "unclear", "border_or_edging_visible": "unclear",
+                  "plain_end_bands_visible": "unclear", "raised_cables_visible": "unclear",
+                  "distinct_yarn_colours": "unclear"}}
+  },
+  "region_ok": {
+    "product_region": {"item_visible": "yes",
+                       "patches": [[0.30, 0.30, 0.45, 0.45], [0.55, 0.55, 0.70, 0.70]]}
+  },
+  "region_bad": {
+    "product_region": {"item_visible": "yes",
+                       "patches": [[0.9, 0.9, 0.2, 0.2], [0.1, 0.1, 0.101, 0.101], "x"]}
+  },
+  "region_none": {
+    "product_region": {"item_visible": "unclear", "patches": []}
+  }
+}

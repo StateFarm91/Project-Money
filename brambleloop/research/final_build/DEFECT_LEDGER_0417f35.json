@@ -1,0 +1,64 @@
+{
+ "candidate": "0417f3516f30bb7c52926187fc475a0f46536e86",
+ "opened_at": "2026-10-11T14:55:47Z",
+ "status": "open",
+ "rule": "F-846: freeze -> independent audit -> ledger -> repair -> regression test -> full suite -> independent re-audit",
+ "defects": [
+  {
+   "source": "shadow_rehearsal",
+   "key": "search_certificate_not_pass",
+   "where": "listing_search_profiles.verdict",
+   "detail": "stored search verdict after listing.seo is 'REFUSED'; store.publish's search_certificate gate requires PASS",
+   "status": "open"
+  },
+  {
+   "source": "shadow_rehearsal",
+   "key": "owner_phase_transition_refused",
+   "where": "core/phase.py::record_transition",
+   "detail": "ValueError: launch readiness is not ready at transition time; a move to 'staging' requires readiness.ready (failing: findable:catalogue_depth, clickable:listing_photography, clickable:storefront_preview, converts_honestly:sustainable_economics, pattern_makes_what_is_shown:physical_calibration, pattern_makes_what_is_shown:benchmark_challenge, shop_trustworthy:storefront, shop_trustworthy:seller_identity, shop_trustworthy:etsy_shop, shop_trustworthy:payout, shop_trustworthy:brand_clearance, other_hard_gates:etsy_integration)",
+   "status": "open"
+  },
+  {
+   "source": "shadow_rehearsal",
+   "key": "grant_snapshot_refused",
+   "where": "ops/publication_authority.snapshot",
+   "detail": "ValueError: certified listing taxonomy UNKNOWN; default fallback prohibited",
+   "status": "open"
+  },
+  {
+   "source": "shadow_rehearsal",
+   "key": "past_shadow_publish_blocked",
+   "where": "runtime/pipeline.py::handle_store_publish",
+   "detail": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review.",
+   "status": "open"
+  },
+  {
+   "source": "shadow_rehearsal",
+   "key": "order_version_unmapped",
+   "where": "commerce/orders_ingest.py",
+   "detail": "the receipt's listing rehearsal-unpublished-listing did not map to cloudline-baby-blanket@1.2.0 (no draft listing id existed to sell)",
+   "status": "open"
+  },
+  {
+   "source": "production_readback",
+   "key": "ops_sentinel_idempotency_key_truncation",
+   "where": "ops/rebuild_graph.py::enqueue",
+   "detail": "production 0417f35 /api/queue/dead: ops.sentinel DataError StringDataRightTruncation varchar(200) x7 since 2026-10-11T14:27Z (chain.rebuild idempotency key built from every moved ref)",
+   "status": "repaired on successor branch claude/w4-FMGATE (rebuild_graph.job_key; tests/test_w4_fmgate_rebuild_key.py); needs full suite + deploy"
+  },
+  {
+   "source": "production_readback",
+   "key": "taxonomy_refresh_credential_refusal_dead_letter",
+   "where": "integrations/etsy_taxonomy.py::refresh",
+   "detail": "production 0417f35 /api/queue/dead: listing.taxonomy_refresh EtsyRejected 403 on the API-key-only path, 2026-10-11T14:05Z; an owner-held credential refusal dead-lettered and fails /api/verify no_unexpected_dead_letters_in_24h",
+   "status": "repaired on successor branch claude/w4-FMGATE (credential refusal reported, not retried; tests/test_w4_fmgate_taxonomy_refusal.py); the 403 itself is owner gate etsy_api"
+  },
+  {
+   "source": "production_readback",
+   "key": "verify_every_agent_has_a_cost_ceiling",
+   "where": "app/main.py::api_verify / agents/registry.py",
+   "detail": "production 0417f35 /api/verify ok:false: agents learn, coo, laura have daily_cost_ceiling_cad 0.0, which the check counts as no ceiling (fcb982d read 12/12)",
+   "status": "open: not changed by this lane (brief forbids changing any spend ceiling); integrator/owner decide whether a 0.0 ceiling on a non-spending agent is a ceiling or set one"
+  }
+ ]
+}

@@ -1,0 +1,38 @@
+{
+    "keystring_set": true,
+    "shared_secret_set": true,
+    "usable": true,
+    "variables": [
+        "ETSY_API_KEY",
+        "ETSY_SHARED_SECRET"
+    ],
+    "reason": "",
+    "scopes_requested": "none \u2014 every endpoint used is served by the API key alone",
+    "last_probe": {
+        "at": "2026-10-20T00:06:31.034738+00:00",
+        "endpoint": "ping",
+        "ok": true,
+        "reason": "",
+        "application_id": 1516181443672
+    },
+    "demonstrated": true,
+    "note": "a real sanctioned read succeeded, so the mission can observe",
+    "webhooks": {
+        "configured": false,
+        "reading": "not_configured",
+        "received": 0,
+        "by_event": {},
+        "duplicates": 0,
+        "woken_jobs": {},
+        "refused": {},
+        "last": null,
+        "events_supported": [
+            "order.paid",
+            "order.canceled",
+            "order.shipped",
+            "order.delivered"
+        ],
+        "docs": "https://developers.etsy.com/documentation/essentials/webhooks",
+        "note": "deliveries are wakes: orders come only from the authenticated receipt read. Registering the endpoint is an owner Developer Portal action."
+    }
+}

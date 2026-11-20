@@ -1,0 +1,257 @@
+"""When the account runs out of money, say so to the one person who can fix it.
+
+Found live on 2026-09-21: the reference-pack build rendered its images, spent CA$0.08, and
+died at the first vision call with *"Your credit balance is too low to access the Anthropic
+API"*. Every part of the system behaved correctly. The gateway classified it as permanent
+rather than retrying it, the handler recorded the reason, the job completed with an honest
+`built: false`, and the endpoint reported the attempt and its stage.
+
+And nobody was told. The only person who can buy credit is the owner, the owner's queue is
+the one place this build puts things that need them, and a funding failure went to a JSON
+field instead. A capability that cannot be routed around and cannot be fixed from inside is
+the definition of an owner action.
+
+Two distinctions this makes, because both were live at the time:
+
+**Out of money is not over budget.** The monthly ceiling is a policy this system enforces on
+itself and was nowhere near breached -- CA$45 of CA$100. The account balance is money that
+exists or does not. Reporting the first when the second is true sends somebody to the wrong
+screen.
+
+**Out of money is per provider.** Image generation is prepaid at OpenAI and Black Forest
+Labs and kept working; the judging and vision calls are Anthropic and stopped. Saying "the
+model provider is down" would be wrong twice: it is not down and it is not all of them.
+"""
+from __future__ import annotations
+
+ACTION = "ops.funding_exhausted"
+
+REQUIREMENT_KEY = "model_provider_balance"
+
+# What a spent balance says, as each provider says it. Matched case-insensitively against
+# whatever the failure text was, because these arrive as a provider's prose inside an HTTP
+# body and nothing about them is structured.
+MARKERS: tuple[str, ...] = (
+    "credit balance is too low",
+    "insufficient credit",
+    "insufficient_quota",
+    "billing_hard_limit_reached",
+    "exceeded your current quota",
+    "payment required",
+)
+
+# Which provider a message is about, where it can be told. A funding failure names the
+# account to top up, and "a provider" is not an actionable sentence.
+PROVIDERS: tuple[tuple[str, str], ...] = (
+    ("anthropic", "Anthropic (judging, vision, all text calls)"),
+    ("openai", "OpenAI (image generation; gateway text and vision)"),
+    ("bfl", "Black Forest Labs (image generation)"),
+    ("x-key", "Black Forest Labs (image generation)"),
+)
+
+
+def detect(text: str) -> bool:
+    """Whether this failure is a spent balance rather than an outage or a bug."""
+    low = (text or "").lower()
+    return any(marker in low for marker in MARKERS)
+
+
+def provider_in(text: str) -> str:
+    low = (text or "").lower()
+    for needle, name in PROVIDERS:
+        if needle in low:
+            return name
+    return "a model provider named in the error"
+
+
+def note(db, text: str) -> dict:
+    """Raise the owner action, once, and record that the balance is the blocker.
+
+    Idempotent on the requirement key: a spent balance fails every call that follows it, and
+    an owner queue with forty copies of one action is a queue nobody reads.
+    """
+    if db is None or not detect(text):
+        return {"raised": False}
+
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    provider = provider_in(text)
+    # F-871 (W4-FUNDING): the ask carries its prepared packet -- what the credit buys, the
+    # ceiling the gateway enforces whatever the balance, and the measured run rate -- so the
+    # owner funds a bounded experiment, not an open account. Unreadable stays unsaid, never 0.
+    prepared = ""
+    try:
+        from ..finance.funding_packet import credit_packet
+
+        pk = credit_packet(db, next((n for n, nm in PROVIDERS if nm == provider), "anthropic"))
+        ms = pk["max_spend"]
+        rate = pk["measured_run_rate_cad_per_day"]
+        prepared = (f" Prepared packet (finance.funding_packet, GET /api/funding/packets): "
+                    f"monthly ceiling CA${ms['monthly_ceiling_cad']:.2f}, spent this month "
+                    f"CA${ms['spent_this_month_cad']:.2f}, headroom "
+                    f"CA${ms['headroom_cad']:.2f}; measured run rate "
+                    + (f"CA${rate:.2f}/day." if rate is not None else "unmeasured."))
+    except Exception:  # noqa: BLE001 - the action is raised regardless; the packet is extra
+        prepared = ""
+    with db.session() as s:
+        open_row = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == REQUIREMENT_KEY,
+            OwnerAction.done == False))  # noqa: E712
+        if open_row is not None:
+            return {"raised": False, "reason": "already open", "provider": provider}
+        s.add(OwnerAction(
+            requirement_key=REQUIREMENT_KEY,
+            action=(f"Add credit to the {provider} account. Anthropic: console.anthropic.com "
+                    f"-> Plans & Billing. OpenAI: platform.openai.com -> Billing. Black "
+                    f"Forest Labs: the dashboard the key was issued from."),
+            reason=(f"{provider} refused a call because the account balance is spent. This "
+                    f"is not the monthly ceiling -- that is a policy this system enforces on "
+                    f"itself and it is not breached. It is money in the account, which only "
+                    f"you can add." + prepared),
+            max_cost_cad=25.0,
+            minutes=5,
+            consequence_of_delay=(
+                "Every call to that provider fails until it is topped up. For Anthropic "
+                "that is all judging and vision: the canonical-model identity measurements, "
+                "the asset-truth checks on generated imagery, and the MJs gallery "
+                "analysis. Image rendering is prepaid elsewhere and continues, which is why "
+                "renders succeed and the checks on them do not."),
+            blocks="all model judgement: identity measurement, asset truth, gallery analysis"))
+
+    return {"raised": True, "provider": provider, "requirement_key": REQUIREMENT_KEY}
+
+
+def blocked(db) -> dict:
+    """Whether a provider balance is currently known to be spent.
+
+    Read from the open owner action rather than from the six-hourly probe, because the
+    probe is the stale half of this pair: the balance emptied at 19:21 and the last
+    successful probe was 12:00, so `usable()` said yes for seven hours after the money ran
+    out. The owner action is the fresher fact and it is the one a person clears.
+    """
+    if db is None:
+        return {"blocked": False}
+
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    with db.session() as s:
+        row = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == REQUIREMENT_KEY,
+            OwnerAction.done == False))  # noqa: E712
+        if row is None:
+            return {"blocked": False}
+        return {"blocked": True, "since": str(getattr(row, "raised_at", "") or ""),
+                "action": row.action,
+                "why_this_stops_spending": (
+                    "rendering an asset whose truth check cannot run is spending money to "
+                    "produce something unusable. The render is prepaid elsewhere and would "
+                    "succeed; what it produces could not be judged, disclosed or shipped")}
+
+
+def cleared(db) -> dict:
+    """Close the action when a real call succeeds again.
+
+    The other direction of the same staleness. An owner action that stays open after the
+    owner has done the thing is how a queue stops being read -- and this one is cleared by
+    evidence rather than by somebody ticking it: a probe that actually got an answer.
+    """
+    if db is None:
+        return {"cleared": False}
+
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    with db.session() as s:
+        row = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == REQUIREMENT_KEY,
+            OwnerAction.done == False))  # noqa: E712
+        if row is None:
+            return {"cleared": False, "reason": "nothing was open"}
+        from . import owner_queue
+        owner_queue.close(row, owner_queue.SATISFIED, "funding recorded on file")
+        s.flush()
+    return {"cleared": True, "requirement_key": REQUIREMENT_KEY,
+            "by": "a real model call succeeded, so the balance is no longer the blocker"}
+
+
+# ---- S2: a per-provider HOLD for gateway providers other than Anthropic ----------------------
+#
+# The shared action above is one row for every provider: while Anthropic's is open, an OpenAI
+# balance running out is "already open" and unrecorded, and clearing one clears the other. A
+# gateway provider that is not Anthropic therefore holds on its own row, keyed
+# `model_provider_balance:<provider>`. The shared row and its readers are unchanged.
+
+def provider_key(provider: str) -> str:
+    return f"{REQUIREMENT_KEY}:{provider}"
+
+
+def note_provider(db, provider: str, text: str) -> dict:
+    """Open `provider`'s HOLD, once, when `text` is a spent-balance refusal."""
+    if db is None or not detect(text):
+        return {"raised": False}
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    key = provider_key(provider)
+    label = next((nm for n, nm in PROVIDERS if n == provider), provider)
+    with db.session() as s:
+        if s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == key,
+                                              OwnerAction.done == False)) is not None:  # noqa: E712
+            return {"raised": False, "reason": "already open", "provider": provider}
+        s.add(OwnerAction(
+            requirement_key=key,
+            action=(f"Add credit to the {label} account ({provider}). OpenAI: "
+                    f"platform.openai.com -> Billing."),
+            reason=(f"{label} refused a call because the account has no usable credit. Calls "
+                    f"to it are on HOLD until credit is added. This is not the monthly ceiling, "
+                    f"which this system enforces on itself and is not breached."),
+            # S2 review 6957356475 (LOW): how much credit to add is the owner's choice; no
+            # figure here is a real ceiling, so it is UNKNOWN (rendered as such), not CA$25.
+            max_cost_cad=0.0, max_cost_basis="UNKNOWN", minutes=5,
+            consequence_of_delay=(f"Every task routed to {provider} is held; other providers "
+                                  f"are unaffected."),
+            blocks=f"model calls routed to {provider}"))
+    return {"raised": True, "provider": provider, "requirement_key": key}
+
+
+def blocked_provider(db, provider: str) -> dict:
+    """Whether `provider` is on HOLD (its own balance action is open)."""
+    if db is None:
+        return {"blocked": False}
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    with db.session() as s:
+        row = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == provider_key(provider),
+            OwnerAction.done == False))  # noqa: E712
+        if row is None:
+            return {"blocked": False}
+        return {"blocked": True, "provider": provider, "action": row.action}
+
+
+def cleared_provider(db, provider: str) -> dict:
+    """Close `provider`'s HOLD when one of its calls succeeds again."""
+    if db is None:
+        return {"cleared": False}
+    from sqlalchemy import select
+
+    from ..core.models import OwnerAction
+
+    with db.session() as s:
+        row = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == provider_key(provider),
+            OwnerAction.done == False))  # noqa: E712
+        if row is None:
+            return {"cleared": False, "reason": "nothing was open"}
+        from . import owner_queue
+        owner_queue.close(row, owner_queue.SATISFIED, f"a {provider} call succeeded")
+        s.flush()
+    return {"cleared": True, "requirement_key": provider_key(provider)}

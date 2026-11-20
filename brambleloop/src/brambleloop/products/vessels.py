@@ -1,0 +1,272 @@
+"""Pieces worked in the round: baskets, bowls and flat polygons (sections 2, 16).
+
+Two products in the catalogue were named for shapes their patterns did not make. "Market
+Basket Trio" was a single flat rectangle whose own designer note admitted it was "the side
+panel, seamed into the basket" -- with no seaming instructions anywhere in the document. A
+buyer would have paid for three baskets and received one panel. "Hexagon Coaster Set" was a
+rectangle with a colourwork motif on it.
+
+Both are now generated here, worked in the round, from arithmetic that the compiler checks
+and `cir.geometry` measures. A basket is a disc of base rounds and then straight walls, which
+is a shape the surface model measures exactly: the base sets how wide it is, the walls set
+how tall. A hexagon is six columns of stacked increases, which `geometry.corners` can see in
+the stitch positions rather than take on trust.
+
+Sizes are derived from the finished size wanted, not chosen to look tidy: a target
+circumference becomes a stitch count the motif and the gauge both allow, and the stitch count
+becomes the diameter that goes on the listing.
+"""
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass, replace
+
+from ..cir.model import CIR, Component, Gauge, Material, Op, Repeat, Row
+from ..gates.originality import catalogue_provenance
+
+# D-FB-6: derive from the existing declared yarn, never relabel yarn to fit old counts.
+# These are published-band starting assumptions, not physical stiffness calibration.
+from ..creative.prototype import gauge_for
+COTTON_GAUGE = gauge_for("worsted")
+COASTER_GAUGE = gauge_for("dk")
+
+PALETTE = {"cream": "#FAF6EB", "wine": "#6E1F2A"}
+
+# 1.2.0 (2026-10-06): PT-07 yardage (increases were counted twice), PT-10 shape and size
+# conventions -- the stacked increases make a hexagon, so the name says so and the size is
+# quoted across the points AND across the flats of that hexagon, computed from the perimeter
+# the stitch count makes rather than from the circle formula (which is neither).
+# 1.2.1 (2026-10-31): text only -- the written pattern's colour-change and ends wording (F2),
+# "the ch 1 does not count as a stitch" (F3); stitches, counts and geometry unchanged. The
+# design itself is untouched (the base-to-wall change N4 is on hold for a construction review).
+RELEASE_VERSION = "1.2.1"
+# 1.3.0 (2026-10-31), SMALL basket only (owner decision D-W4-OWNER-BASKET-1.3.0): the first
+# wall round is worked in the back loop only, so the base turns into the wall at a defined
+# edge -- the fold the twin and the renders already draw -- instead of the soft curve a
+# both-loops round makes (CONSTRUCTION_REVIEW_basket_small_1.2.0 §4). Counts, geometry and
+# yarn are unchanged. The medium and large baskets are a held family outside that approval
+# and stay at RELEASE_VERSION with both-loops walls.
+SMALL_BASKET_VERSION = "1.3.0"
+DEFINED_EDGE_SIZES = ("small",)
+
+
+def hexagon_spans_cm(stitches: int, gauge: Gauge) -> tuple[float, float]:
+    """(across the points, across the flats) of the hexagon a round of `stitches` makes."""
+    from ..cir.geometry import polygon_spans_cm
+
+    return polygon_spans_cm(stitches / gauge.stitches_per_10cm * 10.0, 6)
+
+
+@dataclass(frozen=True)
+class BasketSize:
+    """A basket described by the object, not by its row count."""
+
+    key: str
+    label: str
+    across_cm: float
+    tall_cm: float
+
+
+# OPUS2 (reviews OPUS2J J-11, OPUS2K K-9): the one pet basket bed size, from published cat-bed
+# sizing guidance: "internal diameter of roughly 16-20 inches (40-50 cm) for round beds" for an
+# average adult domestic cat (https://thetoolstrunk.com/how-big-should-a-cat-bed-be/, retrieved
+# 2026-11-01, re-fetched by review OPUS2K 2026-11-02). Secondary guidance from one blog, not a
+# measured standard or a worked sample. 48 cm is the requested OUTSIDE size; the compiled bed
+# rounds up to a whole number of wedges and measures about 51.2 cm across the points and 44.3 cm
+# across the flats (OPUS2N-5), so the flats sit inside the cited 40-50 cm and the points a little
+# over it. The listing prints the computed figures, never 48. A cat size only;
+# no dog or other animal size is sourced, so those stay refused.
+PET_BED_SIZE_SOURCE = ("published cat-bed sizing guidance (secondary, one source), retrieved "
+                       "2026-11-01: an average adult cat's round bed has an internal diameter of "
+                       "about 40-50 cm -- https://thetoolstrunk.com/how-big-should-a-cat-bed-be/")
+
+BASKET_SIZES = (
+    BasketSize("small", "bread basket", across_cm=15.0, tall_cm=9.0),
+    BasketSize("medium", "storage basket", across_cm=20.0, tall_cm=16.0),
+    BasketSize("large", "market basket", across_cm=25.0, tall_cm=23.0),
+)
+
+
+PET_BED_SIZE = BasketSize("pet_bed", "cat basket bed", across_cm=48.0, tall_cm=10.0)
+
+
+def diameter_cm(stitches: int, gauge: Gauge) -> float:
+    """The diameter a round of `stitches` actually makes at this gauge.
+
+    The inverse of `base_stitches_for`, and the reason it exists: that function rounds the
+    wanted size to a multiple of `wedges` and floors it at two rounds' worth, so the size
+    asked for and the size made are two different numbers. This module's own docstring says
+    "the stitch count becomes the diameter that goes on the listing" -- that is this, and the
+    listings are built from it rather than from the request.
+    """
+    return (stitches / gauge.stitches_per_10cm * 10.0) / math.pi
+
+
+def base_stitches_for(across_cm: float, gauge: Gauge, wedges: int = 6) -> int:
+    """The base stitch count that lands nearest the wanted diameter.
+
+    A flat disc's circumference is its diameter times pi, and one round of the standard
+    increase adds `wedges` stitches, so the count has to be a multiple of `wedges` -- an
+    off-multiple base leaves one wedge short and the disc cups on one side.
+
+    The count that comes back is therefore not the size asked for: it is rounded to a whole
+    number of wedges, and floored at `wedges * 2` because one increase round is not a disc.
+    Feed it back through `diameter_cm` to find out what was actually made. The floor is the
+    one that matters -- below about 7 cm at a coaster gauge it discards the request entirely
+    and the piece comes out nearly twice the size asked for.
+    """
+    circumference = across_cm * math.pi
+    stitches = circumference * gauge.stitches_per_10cm / 10.0
+    return max(wedges * 2, int(round(stitches / wedges)) * wedges)
+
+
+def _disc_rounds(base_count: int, color: str, wedges: int = 6,
+                 start: int = 1) -> list[Row]:
+    """Increase rounds from a magic ring to `base_count`, keeping the increases stacked.
+
+    The increase falls at the end of every wedge, which puts it into the stitch the previous
+    round's increase made. Stacked increases turn a corner in the same places each round,
+    which is what makes a hexagon rather than a circle -- and `geometry.corners` reads that
+    back out of the stitch positions.
+    """
+    if base_count % wedges:
+        raise ValueError(f"{base_count} stitches is not a multiple of {wedges} wedges")
+    rows = [Row(index=start, ops=[Op("sc", wedges)], declared_count=wedges, color=color)]
+    index = start
+    count = wedges
+    while count < base_count:
+        index += 1
+        per_wedge = count // wedges
+        body: list = [Op("sc", per_wedge - 1), Op("inc")] if per_wedge > 1 else [Op("inc")]
+        count += wedges
+        rows.append(Row(index=index, ops=[Repeat(body, times=wedges)],
+                        declared_count=count, color=color))
+    return rows
+
+
+def build_basket(size: str = "medium", version: str | None = None) -> CIR:
+    """A basket: a flat disc base, then straight walls at the base's stitch count."""
+    if version is None:
+        version = SMALL_BASKET_VERSION if size in DEFINED_EDGE_SIZES else RELEASE_VERSION
+    spec = next((s for s in BASKET_SIZES if s.key == size), None)
+    if spec is None:
+        raise KeyError(f"unknown basket size {size!r}; have "
+                       f"{[s.key for s in BASKET_SIZES]}")
+
+    base_count = base_stitches_for(spec.across_cm, COTTON_GAUGE)
+    rows = _disc_rounds(base_count, "cream")
+    row_cm = 10.0 / COTTON_GAUGE.rows_per_10cm
+    wall_rounds = max(6, int(round(spec.tall_cm / row_cm)))
+
+    # Two contrast bands up the wall, placed by thirds so they read as deliberate at any
+    # size rather than landing wherever the loop happened to stop.
+    band_rounds = {int(wall_rounds * 0.45), int(wall_rounds * 0.45) + 1,
+                   int(wall_rounds * 0.7), int(wall_rounds * 0.7) + 1}
+    index = rows[-1].index
+    for w in range(1, wall_rounds + 1):
+        index += 1
+        # No per-round turning chain: the component's construction line already tells the
+        # maker to ch 1 after joining, and saying it twice in two places is how the two end
+        # up disagreeing.
+        # The first wall round of a defined-edge size goes into the back loop only: the
+        # unworked front loops make the crease the base folds along.
+        loop = "back" if (w == 1 and spec.key in DEFINED_EDGE_SIZES) else "both"
+        op = Op("sc", base_count, loop="back") if loop == "back" else Op("sc", base_count)
+        rows.append(Row(index=index, ops=[op], declared_count=base_count,
+                        color="wine" if w in band_rounds else "cream",
+                        note=("back loop only: the unworked front loops make the edge the "
+                              "base folds up along" if loop == "back" else None)))
+
+    return CIR(
+        slug=f"market-basket-{spec.key}",
+        title=f"Crochet Hexagonal {spec.label.title()}",
+        version=version,
+        construction="joined_rounds",
+        risk_class="B",
+        colors=dict(PALETTE),
+        # SECREVIEW 33cbfc5 R32: each CIR gets its own copy, never the shared module object.
+        gauge=replace(COTTON_GAUGE),
+        materials=[
+            Material(name="worsted cotton", yarn_weight="worsted", colorway="cream",
+                     color_id="cream"),
+            Material(name="worsted cotton", yarn_weight="worsted", colorway="wine",
+                     color_id="wine"),
+        ],
+        components=[Component(name="basket", construction="joined_rounds", rows=rows,
+                              foundation=0, foundation_kind="magic_ring",
+                              note=("Worked in one piece from the centre of the base. Work "
+                                    "each increase into the second stitch of the previous "
+                                    "round's increase, so the increases stack into six "
+                                    "corners and the base is a hexagon."))],
+        designer_notes=(
+            "Class B: the arithmetic is verifiable and the geometry is measurable, but how "
+            "firmly it stands up depends on the yarn and the maker's tension, so nothing is "
+            "claimed about that until a physical sample says so."),
+        finished_size_note=(
+            f"A hexagonal basket: the increases stack at six corners, so the base is a "
+            f"hexagon about {hexagon_spans_cm(base_count, COTTON_GAUGE)[0]:.1f} cm across the "
+            f"points and {hexagon_spans_cm(base_count, COTTON_GAUGE)[1]:.1f} cm across the "
+            f"flats, and the walls stand about {wall_rounds * row_cm:.0f} cm tall, at the "
+            f"stated gauge. Computed, not yet measured on a worked sample."),
+        # F-783: a disc base from this module's wedge arithmetic and straight walls.
+        provenance=catalogue_provenance(
+            "market-basket-trio",
+            {"builder": "products.vessels.build_basket", "size": spec.key,
+             "across_cm": spec.across_cm, "tall_cm": spec.tall_cm,
+             "gauge": dict(vars(COTTON_GAUGE))},
+            ("products.vessels", "products.vessels._disc_rounds", "joined_rounds")),
+    )
+
+
+def build_hexagon_coaster(across_cm: float = 9.6, make: int = 4,
+                          version: str = RELEASE_VERSION) -> CIR:
+    """A six-sided coaster, worked in joined rounds with the increases stacked at the corners."""
+    count = base_stitches_for(across_cm, COASTER_GAUGE)
+    # The size on the listing is the size the stitch count makes, not the size that was
+    # asked for. `base_stitches_for` rounds to a whole wedge and floors at twelve stitches,
+    # so `across_cm` is a request and `diameter_cm(count, ...)` is the answer -- and the
+    # listing has to carry the answer. Printing the request made the note independent of
+    # every number under it: `build_hexagon_coaster(across_cm=1.0)` produced a 1.9 cm coaster
+    # and told the buyer it was 1 cm, and no test could see it because the only round pieces
+    # anything measures are the three BASKET_SIZES, whose rounding is under half a
+    # centimetre.
+    rows = _disc_rounds(count, "cream")
+    # A contrast round one in from the edge reads as a border without a second yarn join on
+    # every round.
+    rows[-2].color = "wine"
+
+    return CIR(
+        slug="hexagon-coaster-set",
+        title="Hexagon Coaster Set",
+        version=version,
+        construction="joined_rounds",
+        risk_class="A",
+        colors=dict(PALETTE),
+        gauge=replace(COASTER_GAUGE),
+        materials=[
+            Material(name="dk cotton", yarn_weight="dk", colorway="cream", color_id="cream"),
+            Material(name="dk cotton", yarn_weight="dk", colorway="wine", color_id="wine"),
+        ],
+        components=[Component(name="coaster", construction="joined_rounds", rows=rows,
+                              foundation=0, foundation_kind="magic_ring", make=make,
+                              note=("Six wedges. Work each increase into the second "
+                                    "stitch of the previous round's increase, so the "
+                                    "increases stack into six corners."))],
+        finished_size_note=(
+            f"A hexagon about {hexagon_spans_cm(count, COASTER_GAUGE)[0]:.1f} cm across "
+            f"the points and {hexagon_spans_cm(count, COASTER_GAUGE)[1]:.1f} cm across the "
+            f"flats at the stated gauge. Lies flat: the radius grows at one row height per "
+            f"round, which is what makes a flat piece. Computed, not yet measured on a "
+            f"worked sample."),
+        # F-783: the same wedge arithmetic, six increases stacked at the corners.
+        provenance=catalogue_provenance(
+            "hexie-coaster-set",
+            {"builder": "products.vessels.build_hexagon_coaster", "across_cm": across_cm,
+             "make": make, "gauge": dict(vars(COASTER_GAUGE))},
+            ("products.vessels", "products.vessels._disc_rounds", "joined_rounds")),
+    )
+
+
+def build(version: str = RELEASE_VERSION) -> CIR:
+    """The headline basket, for the engineered-design registry."""
+    return build_basket("medium", version=version)

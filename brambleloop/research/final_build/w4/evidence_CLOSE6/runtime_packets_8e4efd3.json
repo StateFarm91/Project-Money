@@ -1,0 +1,530 @@
+[
+ {
+  "uid": "F-048",
+  "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+  "evidence_class": "runtime",
+  "direct": true,
+  "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+  "implementer": "w4-FMEND scripts/emit_runtime_packets.py",
+  "artifacts": {
+   "rehearsal": {
+    "path": "research/final_build/w4/evidence_CLOSE6/shadow_rehearsal_8e4efd3.json",
+    "sha256": "3937b292461d17543bf578cd435fd1d6e7a053482490faa82ef58159ea976e0d"
+   }
+  },
+  "chain": {
+   "producer": {
+    "artifact": "rehearsal",
+    "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+    "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+    "observed": true,
+    "identity": "src/brambleloop/runtime/pipeline.py::_release_gates + runtime/release.py::handle_listing_seo",
+    "job_type": "listing.seo",
+    "handler": "runtime/release.py::handle_listing_seo",
+    "job": 316,
+    "rehearsal_step": "listing.seo",
+    "outcome": "PASS"
+   },
+   "durable_state": {
+    "artifact": "rehearsal",
+    "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+    "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+    "observed": true,
+    "identity": "listings:11",
+    "input": "src/brambleloop/runtime/pipeline.py::_release_gates + runtime/release.py::handle_listing_seo",
+    "written_by_job": 316,
+    "audit": "audit_log:1324"
+   },
+   "consumer": {
+    "artifact": "rehearsal",
+    "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+    "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+    "observed": true,
+    "identity": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+    "input": "listings:11",
+    "job_type": "store.publish",
+    "handler": "runtime/pipeline.py::handle_store_publish",
+    "job": 352,
+    "reads": {
+     "audit": "audit_log:1401",
+     "slug": "cloudline-baby-blanket",
+     "version": "1.2.0",
+     "same_version": true,
+     "idempotency_key": "publish:cloudline-baby-blanket:1.2.0:7c63dbdd501f:c8",
+     "same_release": true,
+     "listing_same_release": true
+    }
+   },
+   "decision": {
+    "artifact": "rehearsal",
+    "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+    "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+    "observed": true,
+    "identity": "store.publish job 352: refused (shadow mode: no live publication); release gates would block=True",
+    "input": "src/brambleloop/runtime/pipeline.py::handle_store_publish"
+   },
+   "effect": {
+    "artifact": "rehearsal",
+    "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+    "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+    "observed": true,
+    "identity": "audit_log:1402 store.publish_refused",
+    "input": "store.publish job 352: refused (shadow mode: no live publication); release gates would block=True"
+   },
+   "result": {
+    "artifact": "rehearsal",
+    "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+    "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+    "observed": true,
+    "identity": "store.published rows=0; listings:11 etsy_listing_id=''",
+    "input": "audit_log:1402 store.publish_refused"
+   }
+  },
+  "live_root": {
+   "artifact": "rehearsal",
+   "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+   "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+   "observed": true,
+   "kind": "worker",
+   "producer": "src/brambleloop/runtime/pipeline.py::_release_gates + runtime/release.py::handle_listing_seo",
+   "process": "the production start command's embedded worker (uvicorn brambleloop.app.main:app)"
+  },
+  "not_observed": {},
+  "missing_by_design": [
+   "independent_review: the emitter is the implementer",
+   "suite: no full-suite record for this head was given"
+  ]
+ },
+ {
+  "uid": "F-084",
+  "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+  "evidence_class": "runtime",
+  "direct": true,
+  "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+  "implementer": "w4-FMEND scripts/emit_runtime_packets.py",
+  "artifacts": {
+   "rehearsal": {
+    "path": "research/final_build/w4/evidence_CLOSE6/shadow_rehearsal_8e4efd3.json",
+    "sha256": "3937b292461d17543bf578cd435fd1d6e7a053482490faa82ef58159ea976e0d"
+   }
+  },
+  "chain": {
+   "producer": {
+    "artifact": "rehearsal",
+    "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+    "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+    "observed": true,
+    "identity": "src/brambleloop/cir/twin.py (YARDAGE_TOLERANCE 0.20) + runtime/release.py::handle_listing_seo yardage_lines",
+    "job_type": "listing.seo",
+    "handler": "runtime/release.py::handle_listing_seo",
+    "job": 316,
+    "rehearsal_step": "listing.seo",
+    "outcome": "PASS"
+   }
+  },
+  "live_root": {
+   "artifact": "rehearsal",
+   "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+   "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+   "observed": true,
+   "kind": "worker",
+   "producer": "src/brambleloop/cir/twin.py (YARDAGE_TOLERANCE 0.20) + runtime/release.py::handle_listing_seo yardage_lines",
+   "process": "the production start command's embedded worker (uvicorn brambleloop.app.main:app)"
+  },
+  "not_observed": {
+   "durable_state": "the rehearsal records job outcomes, not this row's durable_state",
+   "consumer": "the rehearsal records job outcomes, not this row's consumer",
+   "decision": "the rehearsal records job outcomes, not this row's decision",
+   "effect": "the rehearsal records job outcomes, not this row's effect",
+   "result": "the rehearsal records job outcomes, not this row's result"
+  },
+  "missing_by_design": [
+   "independent_review: the emitter is the implementer",
+   "suite: no full-suite record for this head was given"
+  ]
+ },
+ {
+  "uid": "F-243",
+  "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+  "evidence_class": "runtime",
+  "direct": true,
+  "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+  "implementer": "w4-FMEND scripts/emit_runtime_packets.py",
+  "artifacts": {
+   "rehearsal": {
+    "path": "research/final_build/w4/evidence_CLOSE6/shadow_rehearsal_8e4efd3.json",
+    "sha256": "3937b292461d17543bf578cd435fd1d6e7a053482490faa82ef58159ea976e0d"
+   }
+  },
+  "chain": {
+   "producer": {
+    "artifact": "rehearsal",
+    "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+    "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+    "observed": true,
+    "identity": "src/brambleloop/runtime/release.py::handle_listing_seo (seo.build_title, search.choose_tags, seo.build_description, search.listing_attributes)",
+    "job_type": "listing.seo",
+    "handler": "runtime/release.py::handle_listing_seo",
+    "job": 316,
+    "rehearsal_step": "listing.seo",
+    "outcome": "PASS"
+   }
+  },
+  "live_root": {
+   "artifact": "rehearsal",
+   "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+   "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+   "observed": true,
+   "kind": "worker",
+   "producer": "src/brambleloop/runtime/release.py::handle_listing_seo (seo.build_title, search.choose_tags, seo.build_description, search.listing_attributes)",
+   "process": "the production start command's embedded worker (uvicorn brambleloop.app.main:app)"
+  },
+  "not_observed": {
+   "durable_state": "the rehearsal records job outcomes, not this row's durable_state",
+   "consumer": "the rehearsal records job outcomes, not this row's consumer",
+   "decision": "the rehearsal records job outcomes, not this row's decision",
+   "effect": "the rehearsal records job outcomes, not this row's effect",
+   "result": "the rehearsal records job outcomes, not this row's result"
+  },
+  "missing_by_design": [
+   "independent_review: the emitter is the implementer",
+   "suite: no full-suite record for this head was given"
+  ]
+ },
+ {
+  "uid": "F-252",
+  "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+  "evidence_class": "runtime",
+  "direct": true,
+  "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+  "implementer": "w4-FMEND scripts/emit_runtime_packets.py",
+  "artifacts": {
+   "rehearsal": {
+    "path": "research/final_build/w4/evidence_CLOSE6/shadow_rehearsal_8e4efd3.json",
+    "sha256": "3937b292461d17543bf578cd435fd1d6e7a053482490faa82ef58159ea976e0d"
+   }
+  },
+  "chain": {
+   "producer": {
+    "artifact": "rehearsal",
+    "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+    "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+    "observed": true,
+    "identity": "src/brambleloop/runtime/release.py::handle_assets_build (commerce/thumbnail.evaluate_thumbnail, publish/listing_assets.check_frame_plan)",
+    "job_type": "assets.build",
+    "handler": "runtime/release.py::handle_assets_build",
+    "job": 249,
+    "rehearsal_step": "assets.build",
+    "outcome": "PASS"
+   }
+  },
+  "live_root": {
+   "artifact": "rehearsal",
+   "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+   "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+   "observed": true,
+   "kind": "worker",
+   "producer": "src/brambleloop/runtime/release.py::handle_assets_build (commerce/thumbnail.evaluate_thumbnail, publish/listing_assets.check_frame_plan)",
+   "process": "the production start command's embedded worker (uvicorn brambleloop.app.main:app)"
+  },
+  "not_observed": {
+   "durable_state": "the rehearsal records job outcomes, not this row's durable_state",
+   "consumer": "the rehearsal records job outcomes, not this row's consumer",
+   "decision": "the rehearsal records job outcomes, not this row's decision",
+   "effect": "the rehearsal records job outcomes, not this row's effect",
+   "result": "the rehearsal records job outcomes, not this row's result"
+  },
+  "missing_by_design": [
+   "independent_review: the emitter is the implementer",
+   "suite: no full-suite record for this head was given"
+  ]
+ },
+ {
+  "uid": "F-298",
+  "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+  "evidence_class": "runtime",
+  "direct": true,
+  "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+  "implementer": "w4-FMEND scripts/emit_runtime_packets.py",
+  "artifacts": {
+   "rehearsal": {
+    "path": "research/final_build/w4/evidence_CLOSE6/shadow_rehearsal_8e4efd3.json",
+    "sha256": "3937b292461d17543bf578cd435fd1d6e7a053482490faa82ef58159ea976e0d"
+   }
+  },
+  "chain": {
+   "producer": {
+    "artifact": "rehearsal",
+    "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+    "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+    "observed": true,
+    "identity": "src/brambleloop/runtime/release.py::handle_listing_seo (check_listing, _quote_screen, platform_policy.classify_release, check_listing_limits)",
+    "job_type": "listing.seo",
+    "handler": "runtime/release.py::handle_listing_seo",
+    "job": 316,
+    "rehearsal_step": "listing.seo",
+    "outcome": "PASS"
+   }
+  },
+  "live_root": {
+   "artifact": "rehearsal",
+   "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+   "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+   "observed": true,
+   "kind": "worker",
+   "producer": "src/brambleloop/runtime/release.py::handle_listing_seo (check_listing, _quote_screen, platform_policy.classify_release, check_listing_limits)",
+   "process": "the production start command's embedded worker (uvicorn brambleloop.app.main:app)"
+  },
+  "not_observed": {
+   "durable_state": "the rehearsal records job outcomes, not this row's durable_state",
+   "consumer": "the rehearsal records job outcomes, not this row's consumer",
+   "decision": "the rehearsal records job outcomes, not this row's decision",
+   "effect": "the rehearsal records job outcomes, not this row's effect",
+   "result": "the rehearsal records job outcomes, not this row's result"
+  },
+  "missing_by_design": [
+   "independent_review: the emitter is the implementer",
+   "suite: no full-suite record for this head was given"
+  ]
+ },
+ {
+  "uid": "F-477",
+  "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+  "evidence_class": "runtime",
+  "direct": true,
+  "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+  "implementer": "w4-FMEND scripts/emit_runtime_packets.py",
+  "artifacts": {
+   "rehearsal": {
+    "path": "research/final_build/w4/evidence_CLOSE6/shadow_rehearsal_8e4efd3.json",
+    "sha256": "3937b292461d17543bf578cd435fd1d6e7a053482490faa82ef58159ea976e0d"
+   }
+  },
+  "chain": {
+   "producer": {
+    "artifact": "rehearsal",
+    "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+    "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+    "observed": true,
+    "identity": "src/brambleloop/runtime/pipeline.py::handle_certify",
+    "job_type": "gate.certify",
+    "handler": "runtime/pipeline.py::handle_certify",
+    "job": 122,
+    "rehearsal_step": "gate.certify",
+    "outcome": "PASS"
+   },
+   "durable_state": {
+    "artifact": "rehearsal",
+    "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+    "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+    "observed": true,
+    "identity": "pattern_versions:11#certified:7c63dbdd501fa6b1ec89a12b29ad50ad26f52091884b5d60893fafa4a27d9684",
+    "input": "src/brambleloop/runtime/pipeline.py::handle_certify",
+    "written_by_job": 122,
+    "audit": "audit_log:424"
+   },
+   "consumer": {
+    "artifact": "rehearsal",
+    "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+    "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+    "observed": true,
+    "identity": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+    "input": "pattern_versions:11#certified:7c63dbdd501fa6b1ec89a12b29ad50ad26f52091884b5d60893fafa4a27d9684",
+    "job_type": "store.publish",
+    "handler": "runtime/pipeline.py::handle_store_publish",
+    "job": 352,
+    "reads": {
+     "audit": "audit_log:1401",
+     "slug": "cloudline-baby-blanket",
+     "version": "1.2.0",
+     "same_version": true,
+     "idempotency_key": "publish:cloudline-baby-blanket:1.2.0:7c63dbdd501f:c8",
+     "same_release": true,
+     "listing_same_release": true
+    }
+   },
+   "decision": {
+    "artifact": "rehearsal",
+    "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+    "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+    "observed": true,
+    "identity": "store.publish job 352: refused (shadow mode: no live publication); release gates would block=True",
+    "input": "src/brambleloop/runtime/pipeline.py::handle_store_publish"
+   },
+   "effect": {
+    "artifact": "rehearsal",
+    "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+    "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+    "observed": true,
+    "identity": "audit_log:1402 store.publish_refused",
+    "input": "store.publish job 352: refused (shadow mode: no live publication); release gates would block=True"
+   },
+   "result": {
+    "artifact": "rehearsal",
+    "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+    "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+    "observed": true,
+    "identity": "store.published rows=0; listings:11 etsy_listing_id=''",
+    "input": "audit_log:1402 store.publish_refused"
+   }
+  },
+  "live_root": {
+   "artifact": "rehearsal",
+   "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+   "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+   "observed": true,
+   "kind": "worker",
+   "producer": "src/brambleloop/runtime/pipeline.py::handle_certify",
+   "process": "the production start command's embedded worker (uvicorn brambleloop.app.main:app)"
+  },
+  "not_observed": {},
+  "missing_by_design": [
+   "independent_review: the emitter is the implementer",
+   "suite: no full-suite record for this head was given"
+  ]
+ },
+ {
+  "uid": "F-543",
+  "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+  "evidence_class": "runtime",
+  "direct": true,
+  "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+  "implementer": "w4-FMEND scripts/emit_runtime_packets.py",
+  "artifacts": {
+   "rehearsal": {
+    "path": "research/final_build/w4/evidence_CLOSE6/shadow_rehearsal_8e4efd3.json",
+    "sha256": "3937b292461d17543bf578cd435fd1d6e7a053482490faa82ef58159ea976e0d"
+   }
+  },
+  "chain": {
+   "producer": {
+    "artifact": "rehearsal",
+    "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+    "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+    "observed": true,
+    "identity": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+    "job_type": "store.publish",
+    "handler": "runtime/pipeline.py::handle_store_publish",
+    "job": 352,
+    "rehearsal_step": "store.publish[shadow]",
+    "outcome": "REFUSED_AS_EXPECTED"
+   }
+  },
+  "live_root": {
+   "artifact": "rehearsal",
+   "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+   "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+   "observed": true,
+   "kind": "worker",
+   "producer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+   "process": "the production start command's embedded worker (uvicorn brambleloop.app.main:app)"
+  },
+  "not_observed": {
+   "durable_state": "the rehearsal records job outcomes, not this row's durable_state",
+   "consumer": "the rehearsal records job outcomes, not this row's consumer",
+   "decision": "the rehearsal records job outcomes, not this row's decision",
+   "effect": "the rehearsal records job outcomes, not this row's effect",
+   "result": "the rehearsal records job outcomes, not this row's result"
+  },
+  "missing_by_design": [
+   "independent_review: the emitter is the implementer",
+   "suite: no full-suite record for this head was given"
+  ]
+ },
+ {
+  "uid": "F-835",
+  "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+  "evidence_class": "runtime",
+  "direct": true,
+  "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+  "implementer": "w4-FMEND scripts/emit_runtime_packets.py",
+  "artifacts": {
+   "rehearsal": {
+    "path": "research/final_build/w4/evidence_CLOSE6/shadow_rehearsal_8e4efd3.json",
+    "sha256": "3937b292461d17543bf578cd435fd1d6e7a053482490faa82ef58159ea976e0d"
+   }
+  },
+  "chain": {
+   "producer": {
+    "artifact": "rehearsal",
+    "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+    "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+    "observed": true,
+    "identity": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+    "job_type": "store.publish",
+    "handler": "runtime/pipeline.py::handle_store_publish",
+    "job": 352,
+    "rehearsal_step": "store.publish[shadow]",
+    "outcome": "REFUSED_AS_EXPECTED"
+   }
+  },
+  "live_root": {
+   "artifact": "rehearsal",
+   "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+   "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+   "observed": true,
+   "kind": "worker",
+   "producer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+   "process": "the production start command's embedded worker (uvicorn brambleloop.app.main:app)"
+  },
+  "not_observed": {
+   "durable_state": "the rehearsal records job outcomes, not this row's durable_state",
+   "consumer": "the rehearsal records job outcomes, not this row's consumer",
+   "decision": "the rehearsal records job outcomes, not this row's decision",
+   "effect": "the rehearsal records job outcomes, not this row's effect",
+   "result": "the rehearsal records job outcomes, not this row's result"
+  },
+  "missing_by_design": [
+   "independent_review: the emitter is the implementer",
+   "suite: no full-suite record for this head was given"
+  ]
+ },
+ {
+  "uid": "F-848",
+  "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+  "evidence_class": "runtime",
+  "direct": true,
+  "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+  "implementer": "w4-FMEND scripts/emit_runtime_packets.py",
+  "artifacts": {
+   "rehearsal": {
+    "path": "research/final_build/w4/evidence_CLOSE6/shadow_rehearsal_8e4efd3.json",
+    "sha256": "3937b292461d17543bf578cd435fd1d6e7a053482490faa82ef58159ea976e0d"
+   }
+  },
+  "chain": {
+   "producer": {
+    "artifact": "rehearsal",
+    "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+    "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+    "observed": true,
+    "identity": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+    "job_type": "store.publish",
+    "handler": "runtime/pipeline.py::handle_store_publish",
+    "job": 352,
+    "rehearsal_step": "store.publish[shadow]",
+    "outcome": "REFUSED_AS_EXPECTED"
+   }
+  },
+  "live_root": {
+   "artifact": "rehearsal",
+   "head": "8e4efd39ea7a56e51c55d8cdad58f3f57c6aa4f1",
+   "run_id": "shadow_rehearsal:8e4efd3:2026-10-20T12:38:47.718568+00:00",
+   "observed": true,
+   "kind": "worker",
+   "producer": "src/brambleloop/runtime/pipeline.py::handle_store_publish",
+   "process": "the production start command's embedded worker (uvicorn brambleloop.app.main:app)"
+  },
+  "not_observed": {
+   "durable_state": "the rehearsal records job outcomes, not this row's durable_state",
+   "consumer": "the rehearsal records job outcomes, not this row's consumer",
+   "decision": "the rehearsal records job outcomes, not this row's decision",
+   "effect": "the rehearsal records job outcomes, not this row's effect",
+   "result": "the rehearsal records job outcomes, not this row's result"
+  },
+  "missing_by_design": [
+   "independent_review: the emitter is the implementer",
+   "suite: no full-suite record for this head was given"
+  ]
+ }
+]

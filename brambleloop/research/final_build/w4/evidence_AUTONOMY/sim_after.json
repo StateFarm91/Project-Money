@@ -1,0 +1,75 @@
+{
+ "ticks": [
+  {
+   "states": {
+    "product_design": "GENERATED",
+    "intelligence": "GENERATED",
+    "visual": "GENERATED"
+   },
+   "missions": {
+    "intelligence": "intel.pod_learning",
+    "product_design": "creative.outcome_learning",
+    "visual": "visual.rnd.cycle"
+   },
+   "worker_claims": 11
+  },
+  {
+   "states": {
+    "product_design": "GENERATED",
+    "intelligence": "GENERATED",
+    "visual": "GENERATED"
+   },
+   "missions": {
+    "intelligence": "intel.benchmark_refresh",
+    "product_design": "seasonal.sentinel",
+    "visual": "visual.identity_drift"
+   },
+   "worker_claims": 12
+  },
+  {
+   "states": {
+    "product_design": "GENERATED",
+    "intelligence": "GENERATED",
+    "visual": "GENERATED"
+   },
+   "missions": {
+    "intelligence": "autonomy.department_review",
+    "product_design": "autonomy.department_review",
+    "visual": "autonomy.department_review"
+   },
+   "worker_claims": 10
+  }
+ ],
+ "rule1": {
+  "product_design": {
+   "done": 2,
+   "useful": 0,
+   "noop": 2,
+   "dead": 0,
+   "useful_types": {},
+   "idle_at_end": true,
+   "rule1_defect": false
+  },
+  "intelligence": {
+   "done": 2,
+   "useful": 0,
+   "noop": 2,
+   "dead": 0,
+   "useful_types": {},
+   "idle_at_end": true,
+   "rule1_defect": false
+  },
+  "visual": {
+   "done": 2,
+   "useful": 1,
+   "noop": 1,
+   "dead": 0,
+   "useful_types": {
+    "visual.rnd.cycle": 1
+   },
+   "idle_at_end": true,
+   "rule1_defect": false
+  }
+ },
+ "parked_still_pending": 7
+}

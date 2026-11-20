@@ -1,0 +1,703 @@
+"""OPUS2: the automatic listing package -- what the owner reviews before any listing goes live.
+
+W-LISTING writes `research/final_build/w4/manual_listings/<slug>-<version>/LISTING_PACKAGE.md`
+by hand from a SHADOW chain run. This module assembles the same package for every certified
+release automatically (integrator item INTEG-LISTING-JOB), and it invents nothing: every
+field is read from what the release chain itself stored, through the functions publication
+uses.
+
+* **Copy, price, taxonomy and properties** come from `runtime.etsy_ops.certified_payload`,
+  "the Etsy payload for a certified release, built exactly as store.publish builds it". Where
+  it refuses, its reason is a blocker and no copy is guessed.
+* **Gallery** comes from `etsy_ops.certified_frames`: the valid listing-set certificate's
+  frames in certificate order, each with its disclosure label.
+* **Files** come from the latest completed `assets.build` for this exact release: the PDF
+  hash per terminology, the page count and the size label.
+* **Blockers** come from `release_gates.for_publish(read_only=True, stage="activation")`:
+  every reason a buyer-facing publication would refuse, gathered once.
+* **Identity** comes from the certified pattern version and `products.launch0`: the risk class,
+  the children's decision and Product Truth where the release is a Launch-0 candidate.
+
+A package with no blocker is `ready_for_owner_review`, and only then does it raise one owner
+action asking the owner to review it. Publishing stays the owner's, by hand or through the
+publish gates. Otherwise it is `blocked` with every reason listed. Packages are idempotent:
+the fingerprint is computed over the content, and an unchanged package is not rewritten.
+Nothing here publishes, calls Etsy, a model or the network, or spends. It does write
+internally (review OPUS2F A-6): the package reading, its Markdown artefact, the owner's review
+request, and -- through `for_publish` -- the listing-set certificate, hero verdict and
+withholding reconciliation that `store.publish` would also write. Hence action class B, like
+`chain.rebuild`, not OBSERVE.
+
+There is one current package per `slug@version`, fingerprinted over the release hash and every
+field, so a new release, new copy or new frames is a new package (A-7). Once integrated, this
+automatic package is the canonical one for a release; the hand-written
+`manual_listings/*/LISTING_PACKAGE.md` files are W-LISTING's historical record.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+from datetime import datetime, timezone
+
+KIND = "listing.package"
+ACTION_PREFIX = "listing_package:"
+READY = "ready_for_owner_review"
+BLOCKED = "blocked"
+
+
+def _try(fn, *a, **k):
+    from ..queue.effects import LeaseLost
+    try:
+        return fn(*a, **k), None
+    except LeaseLost:
+        raise
+    except Exception as exc:  # noqa: BLE001 - a reader that cannot answer is a blocker
+        return None, f"{type(exc).__name__}: {str(exc)[:300]}"
+
+
+def _release_source_digest(cir, listing, certificate) -> str | None:
+    """Fingerprint the stored release design and listing fields we read."""
+    if not isinstance(cir, dict) or not isinstance(certificate, dict) or listing is None:
+        return None
+    names = ("product_slug", "version", "title", "description", "tags", "price_cad",
+             "state", "seo_score", "chain_version", "release_hash", "etsy_listing_id")
+    try:
+        body = {"cir": cir, "certificate": certificate,
+                "listing": {name: getattr(listing, name) for name in names}}
+        return hashlib.sha256(json.dumps(body, sort_keys=True, ensure_ascii=True,
+                                         separators=(",", ":"), allow_nan=False)
+                              .encode("utf-8")).hexdigest()
+    except (TypeError, ValueError, AttributeError):
+        return None
+
+
+def _listing_material_digest(listing) -> str | None:
+    """Bind the listing content independently of transient certificate state."""
+    names = ("product_slug", "version", "title", "description", "tags", "price_cad",
+             "chain_version", "release_hash")
+    try:
+        body = {name: getattr(listing, name) for name in names}
+        return hashlib.sha256(json.dumps(body, sort_keys=True, ensure_ascii=True,
+                                         separators=(",", ":"), allow_nan=False)
+                              .encode("utf-8")).hexdigest()
+    except (TypeError, ValueError, AttributeError):
+        return None
+
+
+def _release(db, slug: str, version: str) -> dict | None:
+    from sqlalchemy import select
+
+    from ..core.models import Listing, PatternVersion, Product
+
+    with db.session() as s:
+        product = s.scalar(select(Product).where(Product.slug == slug))
+        pv = (s.scalar(select(PatternVersion).where(PatternVersion.product_id == product.id,
+                                                    PatternVersion.version == version))
+              if product is not None else None)
+        if pv is None or not pv.certified:
+            return None
+        listings = list(s.scalars(select(Listing).where(Listing.product_slug == slug,
+                                                        Listing.version == version)
+                                  .order_by(Listing.id.desc())))
+        listing = listings[0] if listings else None
+        return {"release_hash": pv.release_hash or "", "cir": dict(pv.cir_json or {}),
+                "listing_state": listing.state if listing is not None else None,
+                "source_snapshot_sha256": _release_source_digest(pv.cir_json, listing, pv.certificate),
+                "listing_copy": ({"title": listing.title, "description": listing.description,
+                                  "tags": listing.tags} if listing is not None else None),
+                "listing_release": (listing.release_hash or "") if listing is not None else ""}
+
+
+def _files(db, slug: str, version: str, release: str) -> dict | None:
+    """The PDFs certified for exactly this release, or None (review OPUS2F A-1).
+
+    The hashes come from `pipeline._certified_pdf_hashes`, the canonical reader: it requires the
+    job's own release to equal this one. An empty release is never a wildcard: it binds nothing.
+    The descriptive fields come only from an `assets.build` job that names this same release.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import Job, JobStatus
+    from ..runtime import pipeline
+
+    if not release:
+        return None
+    hashes = pipeline._certified_pdf_hashes(db, slug, version, release)
+    if not hashes:
+        return None
+    meta: dict = {}
+    with db.session() as s:
+        for job in s.scalars(select(Job).where(Job.job_type == "assets.build",
+                                               Job.status == JobStatus.DONE)
+                             .order_by(desc(Job.id))):
+            i, o = dict(job.inputs or {}), dict(job.outputs or {})
+            if (i.get("slug"), i.get("version")) == (slug, version) and \
+                    (i.get("release") or o.get("release") or "") == release:
+                meta = {"pages": o.get("pages"), "size_label": o.get("size_label"),
+                        "finished_size_cm": o.get("finished_size_cm"),
+                        "calibrated": o.get("calibrated"), "assets_job": job.id}
+                break
+    return {"pdf_sha256_by_terminology": dict(hashes), **meta}
+
+
+def listing_copy_digest(copy) -> str | None:
+    """Bind the precise listing text and tag order, or return None when uncheckable."""
+    if not isinstance(copy, dict):
+        return None
+    title, description, tags = copy.get("title"), copy.get("description"), copy.get("tags")
+    if (not isinstance(title, str) or not isinstance(description, str)
+            or not isinstance(tags, (list, tuple))
+            or any(not isinstance(tag, str) for tag in tags)):
+        return None
+    body = {"title": title, "description": description, "tags": list(tags)}
+    return hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":"),
+                                     ensure_ascii=True).encode("utf-8")).hexdigest()
+
+
+def _identity(slug: str, cir: dict, listing=None) -> dict:
+    from ..products import launch0
+
+    out = {"risk_class": cir.get("risk_class"), "title_in_pattern": cir.get("title"),
+           "childrens_decision": None, "product_truth": None}
+    # A1R-6: the construction-aware decision the renderer holds on, never the raw one, so a
+    # listing cannot say "not_for_children" for a stuffed form whose documents are held.
+    def _decision(slug_):
+        from ..cir.model import CIR
+
+        return (launch0.childrens_decision_for(CIR.from_dict(cir), listing=listing) if cir
+                else launch0.childrens_decision(slug_))
+    decision, err = _try(_decision, slug)
+    out["childrens_decision"] = (list(decision) if isinstance(decision, tuple)
+                                 else (decision if err is None else f"UNKNOWN: {err}"))
+    cand = next((c for c in launch0.CANDIDATES
+                 if any(getattr(v, "slug", None) == slug or getattr(v, "cir_slug", None) == slug
+                        for v in getattr(c, "variants", ()))
+                 or c.slug == slug), None)
+    if cand is not None:
+        truth, err = _try(launch0.product_truth, cand)
+        out["product_truth"] = ({"candidate": cand.slug,
+                                 "passes_gates": bool((truth or {}).get("passes_gates"))}
+                                if err is None else f"UNKNOWN: {err}")
+    return out
+
+
+def assemble(db, slug: str, version: str) -> dict | None:
+    """The listing package for one certified release, or None if it is not certified."""
+    from ..publish import release_gates
+    from ..runtime import etsy_ops
+
+    rel = _release(db, slug, version)
+    if rel is None:
+        return None
+    release = rel["release_hash"]
+    blockers: list[dict] = []
+
+    # The publication gates run FIRST: they settle the listing-set certificate the gallery is
+    # read from, so the package reads one consistent state and an unchanged chain yields an
+    # unchanged package.
+    gate, err = _try(release_gates.for_publish, db, slug=slug, version=version,
+                     read_only=True, stage=release_gates.STAGE_ACTIVATION)
+    if err is not None:
+        blockers.append({"source": "release_gates.for_publish", "why": err})
+    else:
+        for reason in gate.get("reasons") or []:
+            blockers.append({"source": "release_gates.for_publish", "why": str(reason)[:300]})
+
+    payload, err = _try(etsy_ops.certified_payload, db, slug, version)
+    copy = None
+    if err is not None:
+        blockers.append({"source": "certified_payload", "why": err})
+    else:
+        fields, ferr = _try(etsy_ops.sent_fields, payload)
+        copy = fields if ferr is None else None
+        if ferr is not None:
+            blockers.append({"source": "certified_payload", "why": ferr})
+
+    framed, err = _try(etsy_ops.certified_frames, db, slug, version, release=release)
+    frames = []
+    if err is not None:
+        blockers.append({"source": "certified_frames", "why": err})
+    else:
+        for problem in framed.get("problems") or []:
+            blockers.append({"source": "certified_frames", "why": str(problem)[:300]})
+        frames = [{"position": f.get("position"), "kind": f.get("kind"),
+                   "sha256": f.get("sha256"), "honesty_label": f.get("honesty_label"),
+                   "alt_text": f.get("alt_text")} for f in framed.get("frames") or []]
+
+    files = _files(db, slug, version, release)
+    if not release:
+        blockers.append({"source": "release", "why": "the certified release has no release "
+                                                     "hash, so no file can be bound to it"})
+    if files is None or not files.get("pdf_sha256_by_terminology"):
+        blockers.append({"source": "assets.build",
+                         "why": "no assets.build certifies PDFs for exactly this release"})
+    # Review OPUS2F A-4: the copy must belong to this release. (One row per slug@version is
+    # already a database constraint, `listings (product_slug, version)` unique, so the row this
+    # reads is the row `certified_payload` reads.)
+    if rel["listing_release"] and release and rel["listing_release"] != release:
+        blockers.append({"source": "listing", "why": (
+            f"the drafted listing was written for release {rel['listing_release'][:12]}, not "
+            f"the certified {release[:12]}")})
+
+
+    snapshot = rel["listing_copy"]
+    snapshot_digest = listing_copy_digest(snapshot)
+    emitted_digest = listing_copy_digest(copy) if copy is not None else None
+    if snapshot is not None and snapshot_digest is None:
+        blockers.append({"source": "listing_snapshot", "why": "listing copy cannot be checked"})
+    if copy is not None and (emitted_digest is None or emitted_digest != snapshot_digest):
+        blockers.append({"source": "listing_snapshot", "why":
+                         "emitted listing copy differs from the stored listing snapshot"})
+    # Evaluate the exact emitted copy AND the initial snapshot. A concurrent change
+    # must neither escape the hold nor retain an adult-only package identity.
+    identity = _identity(slug, rel["cir"], copy if copy is not None else snapshot)
+    for observed in (snapshot, copy):
+        if observed is None:
+            continue
+        try:
+            from ..products import launch0
+
+            listing_words = launch0.child_words_in_listing(observed)
+            decision = _identity(slug, rel["cir"], observed).get("childrens_decision") or []
+            if listing_words and (not isinstance(decision, list) or not decision
+                                  or decision[0] != launch0.ASSIGNED):
+                identity["childrens_decision"] = [launch0.UNDECIDED, None]
+                blockers.append({"source": "childrens_decision", "why":
+                    "listing copy names a child audience without an explicit assignment"})
+                break
+        except (TypeError, ValueError):
+            identity["childrens_decision"] = ["undecided", None]
+            blockers.append({"source": "childrens_decision", "why":
+                             "listing child audience cannot be checked"})
+            break
+
+    package = {
+        "slug": slug, "version": version, "release_hash": release,
+        "state": READY if not blockers else BLOCKED,
+        "identity": identity,
+        "listing_state": rel["listing_state"],
+        "listing_snapshot_sha256": snapshot_digest,
+        "source_snapshot_sha256": rel["source_snapshot_sha256"],
+        "copy": copy,
+        "gallery": frames,
+        "disclosures": sorted({f["honesty_label"] for f in frames if f.get("honesty_label")}),
+        "files": files,
+        "blockers": blockers,
+        "publishes": False,
+        "sources": {"copy": "runtime.etsy_ops.certified_payload",
+                    "gallery": "runtime.etsy_ops.certified_frames",
+                    "files": "assets.build job outputs",
+                    "blockers": "publish.release_gates.for_publish(stage=activation)"},
+    }
+    package["fingerprint"] = hashlib.sha256(
+        json.dumps(package, sort_keys=True, default=str).encode()).hexdigest()
+    return package
+
+
+def render(package: dict) -> str:
+    """The package as the Markdown an owner reads (same sections as the manual packages)."""
+    p, copy = package, package.get("copy") or {}
+    lines = [f"# Listing package: `{p['slug']}@{p['version']}`", "",
+             f"**State: {p['state'].replace('_', ' ').upper()}.** Assembled automatically from "
+             f"the release chain's stored outputs. Nothing was published.", "",
+             f"- Release hash: `{p['release_hash']}`",
+             f"- Risk class: {p['identity'].get('risk_class')}",
+             f"- Children's decision: {p['identity'].get('childrens_decision')}",
+             f"- Product Truth: {p['identity'].get('product_truth')}", "",
+             "## 1. Title", "", "```", str(copy.get("title") or "UNKNOWN: no certified copy"),
+             "```", "", "## 2. Description", "", "```",
+             str(copy.get("description") or "UNKNOWN: no certified copy"), "```", "",
+             "## 3. Category and attributes", "",
+             f"- Taxonomy id: {copy.get('taxonomy_id', 'UNKNOWN')}",
+             f"- Properties: {json.dumps(copy.get('properties'), sort_keys=True)}", "",
+             "## 4. Tags", "", ", ".join(copy.get("tags") or []) or "UNKNOWN", "",
+             "## 5. Price", "", f"{copy.get('price', 'UNKNOWN')}", "",
+             "## 6. Digital files", ""]
+    files = p.get("files") or {}
+    for term, sha in sorted((files.get("pdf_sha256_by_terminology") or {}).items()):
+        lines.append(f"- {term} PDF: `{sha}`")
+    lines += [f"- Pages: {files.get('pages')}; size: {files.get('size_label')}", "",
+              "## 7. Disclosures", ""]
+    lines += [f"- {d}" for d in p.get("disclosures") or []] or ["- none recorded"]
+    lines += ["", "## 8. Gallery (certificate order)", ""]
+    lines += [(f"{f['position']}. {f.get('kind')} `{str(f.get('sha256'))[:16]}` "
+               f"{f.get('honesty_label') or ''}".rstrip()
+               + (f"\n   Alt text: {f['alt_text']}" if f.get("alt_text") else ""))
+              for f in p.get("gallery") or []] or ["UNKNOWN: no certified gallery"]
+    lines += ["", "## 9. Outstanding publication requirements", ""]
+    lines += [f"- [{b['source']}] {b['why']}" for b in p.get("blockers") or []] \
+        or ["- none: ready for the owner's review"]
+    return "\n".join(lines) + "\n"
+
+
+def _owner_closed() -> frozenset:
+    from ..ops import owner_queue
+
+    return frozenset({owner_queue.SATISFIED, owner_queue.WITHDRAWN})
+
+
+_UNSPECIFIED = object()
+
+
+def record(db, package: dict, *, now: datetime | None = None,
+           expected_fingerprint=_UNSPECIFIED) -> dict:
+    """Store the package durably (one reading per release, rewritten only when it changed) and
+    keep the owner's review request in step with its state."""
+    from sqlalchemy import or_, select
+
+    from ..core.artifacts import ArtifactStore
+    from ..core.models import OperatingReading, OwnerAction
+    from ..ops import owner_queue
+
+    from ..authority import standing_internal as _si
+
+    _OWNER_CLOSED = _owner_closed()
+
+    now = now or datetime.now(timezone.utc)
+    key = f"{package['slug']}@{package['version']}"
+    action_key = f"{ACTION_PREFIX}{key}"
+    with db.session() as s:
+        row = s.scalar(select(OperatingReading).where(OperatingReading.kind == KIND,
+                                                      OperatingReading.period_key == key))
+        observed = (row.payload or {}).get("fingerprint") if row is not None else None
+        changed = observed != package["fingerprint"]
+    if expected_fingerprint is _UNSPECIFIED:
+        expected_fingerprint = observed
+    # The owner must be able to retrieve the exact review document after a
+    # restart. Keep it in the durable store before requesting any review.
+    stored, err = _try(ArtifactStore().put,
+                       f"listing_packages/{package['slug']}/{package['version']}/"
+                       f"{package['fingerprint'][:16]}.md",
+                       render(package).encode(), "text/markdown", db=db,
+                       keep="owner review listing package")
+    md_sha = stored.sha256 if stored is not None and stored.durable else None
+    from ..runtime.release import _serialise_owner_queue
+
+    with db.session() as s:
+        # The owner-queue lock is the transaction's first statement (SQLite: BEGIN IMMEDIATE
+        # cannot start inside a transaction a read already began).
+        _serialise_owner_queue(s, db)
+        row = s.scalar(select(OperatingReading).where(OperatingReading.kind == KIND,
+                                                      OperatingReading.period_key == key))
+        current_fingerprint = (row.payload or {}).get("fingerprint") if row is not None else None
+        if current_fingerprint != expected_fingerprint:
+            # Another event or the sweep won after this reading began. It is
+            # unsafe to replace its owner request with this older snapshot.
+            return {"key": key, "state": "STALE", "changed": False,
+                    "retry": True, "blockers": 0, "review_requested": False}
+        # Lock the actual evidence rows while checking and recording this
+        # review request. An older assembled copy cannot regain authority.
+        from ..core.models import Listing, PatternVersion, Product
+
+        product = s.scalar(select(Product).where(Product.slug == package["slug"]).with_for_update())
+        pv = (s.scalar(select(PatternVersion).where(
+            PatternVersion.product_id == product.id,
+            PatternVersion.version == package["version"]).with_for_update())
+              if product is not None else None)
+        listing = s.scalar(select(Listing).where(
+            Listing.product_slug == package["slug"],
+            Listing.version == package["version"]).with_for_update())
+        current_copy = ({"title": listing.title, "description": listing.description,
+                         "tags": listing.tags} if listing is not None else None)
+        digest = listing_copy_digest(current_copy)
+        expected_digest = package.get("listing_snapshot_sha256")
+        release_hash = package.get("release_hash")
+        # A BLOCKED package may report unavailable evidence; it grants no owner
+        # review authority. READY requires every bound source to verify now.
+        if package.get("state") == READY and (
+                pv is None or not pv.certified or not isinstance(pv.certificate, dict)
+                or pv.certificate.get("granted") is not True or not release_hash
+                or pv.release_hash != release_hash or listing is None
+                or listing.release_hash != release_hash or not digest
+                or digest != expected_digest
+                or listing_copy_digest(package.get("copy")) != digest
+                or not package.get("source_snapshot_sha256")
+                or _release_source_digest(pv.cir_json, listing, pv.certificate) != package["source_snapshot_sha256"]):
+            result = _invalidate_locked(s, package["slug"], package["version"],
+                                        "listing or certified release changed or is unavailable")
+            return {**result, "retry": True}
+        if md_sha is None:
+            result = _invalidate_locked(s, package["slug"], package["version"],
+                                        "review document could not be stored durably")
+            return {**result, "retry": True}
+        current = f"{action_key}:{package['fingerprint'][:16]}"
+        escaped_action_key = (action_key.replace("\\", "\\\\")
+                              .replace("%", "\\%").replace("_", "\\_"))
+        rows = list(s.scalars(select(OwnerAction).where(or_(
+            OwnerAction.requirement_key.like(escaped_action_key + ":%", escape="\\"),
+            OwnerAction.requirement_key == action_key))))
+        parked = [r for r in rows if not r.done and r.state == owner_queue.PARKED]
+        previous_question = (row.payload or {}).get("owner_question_sha256") if row else None
+        same_parked = False
+        if package["state"] == READY and parked:
+            if len(parked) != 1:
+                result = _invalidate_locked(s, package["slug"], package["version"],
+                                            "multiple parked review questions require reconciliation")
+                return {**result, "retry": False}
+            if parked[0].requirement_key == current:
+                same_parked = True
+            elif not isinstance(previous_question, str) or not re.fullmatch(r"[0-9a-f]{64}", previous_question):
+                result = _invalidate_locked(s, package["slug"], package["version"],
+                                            "parked review question identity is unavailable")
+                return {**result, "retry": False}
+            else:
+                same_parked = previous_question == md_sha
+        if changed:
+            body = {**package, "markdown_sha256": md_sha, "assembled_at": now.isoformat()}
+            if package["state"] == READY:
+                body["listing_material_sha256"] = _listing_material_digest(listing)
+                body["owner_question_sha256"] = md_sha
+            elif previous_question:
+                body["owner_question_sha256"] = previous_question
+            if row is None:
+                s.add(OperatingReading(kind=KIND, period_key=key, payload=body))
+            else:
+                row.payload = body
+        # Review OPUS2F A-2/A-3: the review request names the content it asks about. A
+        # request the owner already closed for THIS content is never raised again; a request
+        # for older content is superseded when the content changes or is blocked again.
+        # Review OPUS2EF2 EF2-5: the unfingerprinted key from the first version of this job
+        # (exactly `action_key`) is matched too, so a request left under it is superseded
+        # rather than orphaned beside the fingerprinted one.
+        raised = closed = False
+        for stale in rows:
+            # Review OPUS2G L5-1: a request the owner PARKED (deferred) is the owner's answer;
+            # a transient block leaves it parked. Changed content still supersedes it, because
+            # new content is a new question.
+            owner_parked = (stale.state or "") == owner_queue.PARKED
+            if owner_parked and (package["state"] != READY or same_parked):
+                continue
+            if not stale.done and (package["state"] != READY
+                                   or stale.requirement_key != current):
+                why = ("the listing package is blocked again: "
+                       + "; ".join(b["why"] for b in package["blockers"][:2])
+                       if package["state"] != READY
+                       else "the listing package changed; a request for the new content "
+                            "replaces this one")
+                owner_queue.close(stale, owner_queue.SUPERSEDED, why[:400], now=now)
+                closed = True
+        # Review OPUS2EF2 EF2-4: only an open request, or one the OWNER closed (satisfied or
+        # withdrawn), stands for this content. A request this job superseded itself (the
+        # package was blocked for a while, then came back unchanged) is not the owner's answer,
+        # so the owner is asked again rather than never.
+        already = same_parked or any(r.requirement_key == current
+                      and (not r.done or _si.owner_closed(s, r, _OWNER_CLOSED))
+                      for r in rows)
+        if package["state"] == READY and not already:
+            title = ((package.get("copy") or {}).get("title") or key)[:90]
+            s.add(OwnerAction(
+                requirement_key=current,
+                action=f"Review the listing package for {title!r} ({key}) before publication",
+                reason=(f"Every publication gate passes for release "
+                        f"{package['release_hash'][:12]} (package "
+                        f"{package['fingerprint'][:12]}); the package (copy, gallery, files, "
+                        f"disclosures) is assembled from the certified chain for your review. "
+                        f"Publishing remains your decision."),
+                max_cost_cad=0.0, minutes=15,
+                consequence_of_delay="the release stays unpublished; nothing else waits on it",
+                blocks="INTEG-LISTING-JOB"))
+            raised = True
+    return {"key": key, "state": package["state"], "changed": changed,
+            "blockers": len(package["blockers"]), "markdown_sha256": md_sha,
+            "review_requested": raised, "review_withdrawn": closed}
+
+
+def _invalidate_locked(session, slug: str, version: str, reason: str, *,
+                       supersede_parked: bool = False) -> dict:
+    """Withdraw stale review authority in the owner-queue transaction."""
+    from sqlalchemy import or_, select
+    from ..core.models import OperatingReading, OwnerAction
+    from ..ops import owner_queue
+
+    key = f"{slug}@{version}"
+    reading = session.scalar(select(OperatingReading).where(
+        OperatingReading.kind == KIND, OperatingReading.period_key == key))
+    changed = False
+    if reading is not None:
+        body = dict(reading.payload or {})
+        old_reason = body.get("invalid_reason")
+        if body.get("state") != BLOCKED or old_reason != reason:
+            body.update({"state": BLOCKED, "invalid_reason": reason,
+                         "blockers": [{"source": "eligibility", "why": reason}],
+                         "markdown_sha256": None})
+            body.pop("fingerprint", None)
+            body["fingerprint"] = hashlib.sha256(json.dumps(
+                body, sort_keys=True, default=str).encode()).hexdigest()
+            reading.payload = body
+            changed = True
+    action_key = f"{ACTION_PREFIX}{key}"
+    escaped = action_key.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    actions = session.scalars(select(OwnerAction).where(or_(
+        OwnerAction.requirement_key == action_key,
+        OwnerAction.requirement_key.like(escaped + ":%", escape="\\"))))
+    closed = False
+    for action in actions:
+        if not action.done and (supersede_parked or action.state != owner_queue.PARKED):
+            owner_queue.close(action, owner_queue.SUPERSEDED, reason[:400])
+            closed = True
+    return {"key": key, "state": BLOCKED, "changed": changed or closed,
+            "review_requested": False, "review_withdrawn": closed, "blockers": 1}
+
+
+def _reconcile_ineligible(db, slug: str, version: str) -> dict:
+    """Recheck eligibility under the same lock used to update owner actions."""
+    from sqlalchemy import select
+    from ..core.models import Listing, PatternVersion, Product
+    from ..runtime.release import _serialise_owner_queue
+
+    with db.session() as session:
+        _serialise_owner_queue(session, db)
+        product = session.scalar(select(Product).where(Product.slug == slug).with_for_update())
+        pv = (session.scalar(select(PatternVersion).where(
+            PatternVersion.product_id == product.id, PatternVersion.version == version)
+            .with_for_update()) if product is not None else None)
+        listing = session.scalar(select(Listing).where(
+            Listing.product_slug == slug, Listing.version == version).with_for_update())
+        if pv is not None and pv.certified and listing is not None:
+            return {"key": f"{slug}@{version}", "became_eligible": True}
+        return _invalidate_locked(session, slug, version,
+                                  "release is not certified or its listing is missing")
+
+
+def certified_releases(db) -> list[tuple[str, str]]:
+    from sqlalchemy import select
+
+    from ..core.models import Listing, PatternVersion, Product
+
+    with db.session() as s:
+        listed = {(r.product_slug, r.version) for r in s.scalars(select(Listing))}
+        out = []
+        for product, pv in s.execute(select(Product, PatternVersion).join(
+                PatternVersion, PatternVersion.product_id == Product.id).where(
+                PatternVersion.certified == True)):  # noqa: E712
+            if (product.slug, pv.version) in listed:
+                out.append((product.slug, pv.version))
+    return sorted(set(out))
+
+
+def _package_one(db, slug: str, version: str, *, expected_release: str = "") -> dict:
+    # Snapshot the package generation before reading source evidence. Any
+    # competing event which commits during assembly makes this attempt stale.
+    for _ in range(3):
+        previous = latest(db, slug, version)
+        expected = (previous or {}).get("fingerprint")
+        package, err = _try(assemble, db, slug, version)
+        if err is not None:
+            return {"key": f"{slug}@{version}", "error": err, "retry": True,
+                    "error_class": _error_class(err)}
+        if package is None:
+            # Certification may have disappeared after the initial eligibility
+            # check. Reconcile any previous owner request, not just this job.
+            result = _reconcile_ineligible(db, slug, version)
+            if result.get("became_eligible"):
+                continue
+            return result
+        if expected_release and package.get("release_hash") != expected_release:
+            # A delayed event for an older release must not build or replace a
+            # review for a different release under the same slug/version.
+            return {"key": f"{slug}@{version}", "state": "STALE", "changed": False,
+                    "review_requested": False, "blockers": 0,
+                    "refused": "event_release_mismatch"}
+        recorded, rerr = _try(record, db, package, expected_fingerprint=expected)
+        if rerr is not None:
+            # No READY verdict exists until the record transaction commits.
+            return {"key": f"{slug}@{version}", "error": rerr, "retry": True,
+                    "error_class": _error_class(rerr)}
+        if not recorded.get("retry"):
+            return recorded
+    return {"key": f"{slug}@{version}", "state": "STALE", "retry": True,
+            "error": "package changed repeatedly while assembling",
+            "error_class": CHANGED_REPEATEDLY}
+
+
+# Review of 56f92eb9 M4: what a retryable per-release result failed with, by class only (an
+# exception's text can carry database or provider detail and is not recorded durably).
+class PackageChangedRepeatedly(RuntimeError):
+    """A release's package kept changing while it was assembled (never raised; its name is the
+    recorded error class, and being a real exception class lets `ops.production_evidence`
+    name it on a dead letter or a degraded sweep in any process)."""
+
+
+CHANGED_REPEATEDLY = PackageChangedRepeatedly.__name__
+
+
+def _error_class(err) -> str:
+    head = str(err or "").split(":", 1)[0].strip()
+    return head if head.isidentifier() else "UnknownError"
+
+
+def _summary(results: list[dict]) -> dict:
+    return {"releases": len(results), "results": results,
+            "ready": sum(1 for r in results if r.get("state") == READY),
+            "changed": sum(1 for r in results if r.get("changed"))}
+
+
+def sweep(db) -> dict:
+    """Package eligible releases and close stale reviews for ineligible releases."""
+    from sqlalchemy import select
+    from ..core.models import OperatingReading
+
+    eligible = set(certified_releases(db))
+    with db.session() as session:
+        keys = [r.period_key for r in session.scalars(
+            select(OperatingReading).where(OperatingReading.kind == KIND))]
+    results = []
+    def run_one(slug, version, *, reconcile=False):
+        from ..queue.effects import LeaseLost
+        try:
+            if reconcile:
+                result = _reconcile_ineligible(db, slug, version)
+                if not result.get("became_eligible"):
+                    return result
+            return _package_one(db, slug, version)
+        except LeaseLost:
+            raise
+        except Exception as exc:
+            # Individual failures must not starve other releases. The handler
+            # retries the job if any result requests it; omit exception text,
+            # which can contain sensitive database or provider details.
+            return {"key": f"{slug}@{version}", "changed": False,
+                    "retry": True, "error": f"{type(exc).__name__} processing release",
+                    "error_class": type(exc).__name__}
+
+    for slug, version in sorted(eligible):
+        results.append(run_one(slug, version))
+    for key in keys:
+        if not isinstance(key, str) or "@" not in key:
+            continue
+        slug, version = key.rsplit("@", 1)
+        if (slug, version) in eligible:
+            continue
+        results.append(run_one(slug, version, reconcile=True))
+    return _summary(results)
+
+
+def for_release(db, slug: str, version: str, *, expected_release: str = "") -> dict:
+    """W5-A9 (P0-PACKAGE-EVENT): the package of ONE release, as the sweep would make it.
+
+    The event path: `launch.plan` enqueues this as soon as the chain has stored everything the
+    package reads, so the owner's review request does not wait up to six hours for the sweep.
+    Eligibility is exactly the sweep's (`certified_releases`), and the work is the sweep's own
+    per-release step, so the event and the sweep write the same `slug@version` reading and the
+    same fingerprinted owner request -- whichever runs second finds it unchanged and writes
+    nothing. A release that is not (or no longer) eligible is reported and left to the sweep.
+    """
+    if (slug, version) not in set(certified_releases(db)):
+        result = _reconcile_ineligible(db, slug, version)
+        if result.get("became_eligible"):
+            return {**_summary([_package_one(db, slug, version, expected_release=expected_release)]), "eligible": True}
+        return {**_summary([result] if result.get("changed") else []), "eligible": False}
+    return {**_summary([_package_one(db, slug, version, expected_release=expected_release)]), "eligible": True}
+
+
+def latest(db, slug: str, version: str) -> dict | None:
+    from sqlalchemy import select
+
+    from ..core.models import OperatingReading
+
+    with db.session() as s:
+        row = s.scalar(select(OperatingReading).where(OperatingReading.kind == KIND,
+                                                      OperatingReading.period_key ==
+                                                      f"{slug}@{version}"))
+        return dict(row.payload or {}) if row is not None else None

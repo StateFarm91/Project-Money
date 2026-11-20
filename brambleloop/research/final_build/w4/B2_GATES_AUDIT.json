@@ -1,0 +1,2724 @@
+[
+ {
+  "id": 1,
+  "title": "Etsy Marketplace Insights as First-Party Demand Oracle",
+  "state": "OWNER-GATED",
+  "registry": "owner_gated",
+  "parked_on": "",
+  "gate": "insights_access",
+  "table_gate": "insights_access",
+  "who": "insights_reading",
+  "modules": [
+   "intel/insights.py",
+   "build2/executor.py"
+  ],
+  "tested": [
+   "intel/insights.py",
+   "build2/executor.py"
+  ],
+  "tests": [
+   "tests/test_insights_intake.py"
+  ],
+  "reached": [
+   "intel/insights.py",
+   "build2/executor.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 4,
+  "title": "Pre-Production Demand Validation",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "owned_surfaces",
+  "gate": "owned_surfaces",
+  "table_gate": "owned_surfaces",
+  "who": "owned_surfaces",
+  "modules": [
+   "commerce/preproduction.py",
+   "runtime/release.py",
+   "agents/registry.py",
+   "swarm/orchestrate.py",
+   "commerce/preproduction_cycle.py",
+   "creative/ideation.py"
+  ],
+  "tested": [
+   "commerce/preproduction.py",
+   "runtime/release.py",
+   "agents/registry.py",
+   "swarm/orchestrate.py",
+   "commerce/preproduction_cycle.py",
+   "creative/ideation.py"
+  ],
+  "tests": [
+   "tests/test_cert_residue.py",
+   "tests/test_closure.py",
+   "tests/test_reachability.py"
+  ],
+  "reached": [
+   "commerce/preproduction.py",
+   "agents/registry.py",
+   "swarm/orchestrate.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 8,
+  "title": "Proof Stack",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "quality/proof.py"
+  ],
+  "tested": [
+   "quality/proof.py"
+  ],
+  "tests": [],
+  "reached": [
+   "quality/proof.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 9,
+  "title": "Creator and Tester Distribution",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "tester_roster",
+  "gate": "tester_roster",
+  "table_gate": "tester_roster",
+  "who": "tester_outreach",
+  "modules": [
+   "growth/creators.py",
+   "growth/owned.py"
+  ],
+  "tested": [
+   "growth/creators.py",
+   "growth/owned.py"
+  ],
+  "tests": [
+   "tests/test_creators.py",
+   "tests/test_w4_gatesb.py"
+  ],
+  "reached": [
+   "growth/creators.py",
+   "growth/owned.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 10,
+  "title": "Free-to-Paid Acquisition Engine",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "owned_surfaces",
+  "gate": "owned_surfaces",
+  "table_gate": "owned_surfaces",
+  "who": "owned_surfaces",
+  "modules": [
+   "growth/free_to_paid.py",
+   "growth/owned.py",
+   "growth/free_assets.py",
+   "runtime/growth_ops.py"
+  ],
+  "tested": [
+   "growth/free_to_paid.py",
+   "growth/owned.py",
+   "growth/free_assets.py",
+   "runtime/growth_ops.py"
+  ],
+  "tests": [
+   "tests/test_free_to_paid.py",
+   "tests/test_w4_b2close.py"
+  ],
+  "reached": [
+   "growth/free_to_paid.py",
+   "growth/owned.py",
+   "growth/free_assets.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 11,
+  "title": "First 100 Customers Program",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "transactions_r",
+  "gate": "transactions_r",
+  "table_gate": "transactions_r",
+  "who": "transactions_scope",
+  "modules": [
+   "commerce/cohorts.py"
+  ],
+  "tested": [
+   "commerce/cohorts.py"
+  ],
+  "tests": [
+   "tests/test_cert_orders.py"
+  ],
+  "reached": [
+   "commerce/cohorts.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 12,
+  "title": "Customer LTV and Cohorts",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "transactions_r",
+  "gate": "transactions_r",
+  "table_gate": "transactions_r",
+  "who": "transactions_scope",
+  "modules": [
+   "commerce/cohorts.py",
+   "commerce/ladder.py"
+  ],
+  "tested": [
+   "commerce/cohorts.py",
+   "commerce/ladder.py"
+  ],
+  "tests": [
+   "tests/test_cert_orders.py"
+  ],
+  "reached": [
+   "commerce/cohorts.py",
+   "commerce/ladder.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 14,
+  "title": "Conversion Benchmark Engine",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "live_listings",
+  "gate": "live_listings",
+  "table_gate": "live_listings",
+  "who": "leave_shadow",
+  "modules": [
+   "commerce/benchmarks.py"
+  ],
+  "tested": [
+   "commerce/benchmarks.py"
+  ],
+  "tests": [
+   "tests/test_benchmarks.py"
+  ],
+  "reached": [
+   "commerce/benchmarks.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 15,
+  "title": "First-Page SERP Laboratory",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "image_vision",
+  "gate": "image_vision",
+  "table_gate": "image_vision",
+  "who": "fund_model",
+  "modules": [
+   "intel/serp.py",
+   "intel/etsy_public.py",
+   "runtime/release.py"
+  ],
+  "tested": [
+   "intel/serp.py",
+   "intel/etsy_public.py",
+   "runtime/release.py"
+  ],
+  "tests": [
+   "tests/test_cert_intel_wave.py",
+   "tests/test_serp.py"
+  ],
+  "reached": [
+   "intel/serp.py",
+   "intel/etsy_public.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 16,
+  "title": "Listing Experiment Discipline",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "live_listings",
+  "gate": "live_listings",
+  "table_gate": "live_listings",
+  "who": "leave_shadow",
+  "modules": [
+   "commerce/listing_tests.py",
+   "growth/experiments.py"
+  ],
+  "tested": [
+   "commerce/listing_tests.py",
+   "growth/experiments.py"
+  ],
+  "tests": [
+   "tests/test_listing_tests.py"
+  ],
+  "reached": [
+   "commerce/listing_tests.py",
+   "growth/experiments.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 18,
+  "title": "Customer-Service Conversion Advantage",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "support/service.py"
+  ],
+  "tested": [
+   "support/service.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_ops.py"
+  ],
+  "reached": [
+   "support/service.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 19,
+  "title": "Promotional Science",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "commerce/promotion.py"
+  ],
+  "tested": [
+   "commerce/promotion.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_ops.py"
+  ],
+  "reached": [
+   "commerce/promotion.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 20,
+  "title": "Owned-Audience Compounding",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "growth/owned.py",
+   "growth/content.py",
+   "culture/rights.py"
+  ],
+  "tested": [
+   "growth/owned.py",
+   "growth/content.py",
+   "culture/rights.py"
+  ],
+  "tests": [],
+  "reached": [
+   "growth/owned.py",
+   "growth/content.py",
+   "culture/rights.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 21,
+  "title": "Creator Micro-Seeding",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "growth/creators.py"
+  ],
+  "tested": [
+   "growth/creators.py"
+  ],
+  "tests": [],
+  "reached": [
+   "growth/creators.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 23,
+  "title": "Numeric Scale/Kill Framework",
+  "state": "DATA-GATED",
+  "registry": "data_gated",
+  "parked_on": "",
+  "gate": null,
+  "table_gate": null,
+  "who": null,
+  "modules": [
+   "commerce/kill_table.py"
+  ],
+  "tested": [
+   "commerce/kill_table.py"
+  ],
+  "tests": [],
+  "reached": [
+   "commerce/kill_table.py"
+  ],
+  "issues": [
+   "A: gate unnamed (registry data_gated, generic 'customers/orders/traffic')"
+  ]
+ },
+ {
+  "id": 25,
+  "title": "$3K Run-Rate Decomposition",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "scale/runrate.py",
+   "growth/weekly.py",
+   "runtime/release.py"
+  ],
+  "tested": [
+   "scale/runrate.py",
+   "growth/weekly.py",
+   "runtime/release.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_seasonal.py",
+   "tests/test_runrate.py"
+  ],
+  "reached": [
+   "scale/runrate.py",
+   "growth/weekly.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 28,
+  "title": "Conditional Scale Rules",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "scale/runrate.py",
+   "scale/readiness.py",
+   "growth/weekly.py",
+   "runtime/release.py"
+  ],
+  "tested": [
+   "scale/runrate.py",
+   "scale/readiness.py",
+   "growth/weekly.py",
+   "runtime/release.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_seasonal.py"
+  ],
+  "reached": [
+   "scale/runrate.py",
+   "scale/readiness.py",
+   "growth/weekly.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 31,
+  "title": "Cost-to-Create and Profitable Throughput",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "finance/unit_cost.py",
+   "finance/governor.py"
+  ],
+  "tested": [
+   "finance/unit_cost.py",
+   "finance/governor.py"
+  ],
+  "tests": [
+   "tests/test_cert_dependencies.py"
+  ],
+  "reached": [
+   "finance/unit_cost.py",
+   "finance/governor.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 33,
+  "title": "Replace the narrow Christmas Strike Team with a permanent 365-Day",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "seasonal/engine.py",
+   "seasonal/daily.py",
+   "intel/serp.py",
+   "runtime/release.py",
+   "seasonal/compression.py"
+  ],
+  "tested": [
+   "seasonal/engine.py",
+   "seasonal/daily.py",
+   "intel/serp.py",
+   "runtime/release.py",
+   "seasonal/compression.py"
+  ],
+  "tests": [
+   "tests/test_cert_competitive_weakness.py",
+   "tests/test_cert_growth_seasonal.py"
+  ],
+  "reached": [
+   "seasonal/engine.py",
+   "seasonal/daily.py",
+   "intel/serp.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 35,
+  "title": "Etsy Creativity / AI Disclosure Gate",
+  "state": "EXTERNAL-GATED",
+  "registry": "partial",
+  "parked_on": "rendered_pages",
+  "gate": "rendered_pages",
+  "table_gate": "rendered_pages",
+  "who": null,
+  "modules": [
+   "gates/platform_policy.py",
+   "runtime/release.py",
+   "runtime/pipeline.py"
+  ],
+  "tested": [
+   "gates/platform_policy.py",
+   "runtime/release.py",
+   "runtime/pipeline.py"
+  ],
+  "tests": [
+   "tests/test_cert_parity_copy.py"
+  ],
+  "reached": [
+   "gates/platform_policy.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 37,
+  "title": "Marketplace Insights Query Budgeter",
+  "state": "OWNER-GATED",
+  "registry": "owner_gated",
+  "parked_on": "",
+  "gate": "insights_access",
+  "table_gate": "insights_access",
+  "who": "insights_reading",
+  "modules": [
+   "intel/insights_budget.py",
+   "build2/executor.py"
+  ],
+  "tested": [
+   "intel/insights_budget.py",
+   "build2/executor.py"
+  ],
+  "tests": [
+   "tests/test_insights_budget.py"
+  ],
+  "reached": [
+   "intel/insights_budget.py",
+   "build2/executor.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 39,
+  "title": "Policy Freshness Watch",
+  "state": "EXTERNAL-GATED",
+  "registry": "partial",
+  "parked_on": "rendered_pages",
+  "gate": "rendered_pages",
+  "table_gate": "rendered_pages",
+  "who": null,
+  "modules": [
+   "gates/platform_policy.py"
+  ],
+  "tested": [
+   "gates/platform_policy.py"
+  ],
+  "tests": [
+   "tests/test_cert_intel_wave2.py",
+   "tests/test_platform_policy.py"
+  ],
+  "reached": [
+   "gates/platform_policy.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 41,
+  "title": "Refund / Chargeback / Case Prevention",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "commerce/buyer_trust.py",
+   "support/department.py",
+   "runtime/release.py",
+   "runtime/pipeline.py",
+   "runtime/worker.py"
+  ],
+  "tested": [
+   "commerce/buyer_trust.py",
+   "support/department.py",
+   "runtime/release.py",
+   "runtime/pipeline.py",
+   "runtime/worker.py"
+  ],
+  "tests": [
+   "tests/test_cert_improve_autonomy.py",
+   "tests/test_cert_parity_copy.py",
+   "tests/test_cert_wiring.py"
+  ],
+  "reached": [
+   "commerce/buyer_trust.py",
+   "support/department.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 43,
+  "title": "Tester Capacity Marketplace",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "tester_roster",
+  "gate": "tester_roster",
+  "table_gate": "tester_roster",
+  "who": "tester_outreach",
+  "modules": [
+   "quality/testers.py",
+   "runtime/release.py"
+  ],
+  "tested": [
+   "quality/testers.py",
+   "runtime/release.py"
+  ],
+  "tests": [
+   "tests/test_cert_preengineering.py"
+  ],
+  "reached": [
+   "quality/testers.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 44,
+  "title": "Brand Moat Beyond the Model",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "image_vision",
+  "gate": "image_vision",
+  "table_gate": "image_vision",
+  "who": "fund_model",
+  "modules": [
+   "brand/moat.py"
+  ],
+  "tested": [
+   "brand/moat.py"
+  ],
+  "tests": [
+   "tests/test_cert_rebuild_chain.py"
+  ],
+  "reached": [
+   "brand/moat.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 45,
+  "title": "Product Cannibalization / Bundle Attribution",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "commerce/attribution.py",
+   "commerce/bundles.py",
+   "growth/weekly.py"
+  ],
+  "tested": [
+   "commerce/attribution.py",
+   "commerce/bundles.py",
+   "growth/weekly.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_seasonal.py"
+  ],
+  "reached": [
+   "commerce/attribution.py",
+   "commerce/bundles.py",
+   "growth/weekly.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 46,
+  "title": "Price Elasticity Memory",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "live_listings",
+  "gate": "live_listings",
+  "table_gate": "live_listings",
+  "who": "leave_shadow",
+  "modules": [
+   "commerce/elasticity.py",
+   "runtime/release.py"
+  ],
+  "tested": [
+   "commerce/elasticity.py",
+   "runtime/release.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_seasonal.py"
+  ],
+  "reached": [
+   "commerce/elasticity.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 48,
+  "title": "Launch Cohort Holdout",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "commerce/elasticity.py",
+   "growth/weekly.py",
+   "scale/readiness.py"
+  ],
+  "tested": [
+   "commerce/elasticity.py",
+   "growth/weekly.py",
+   "scale/readiness.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_seasonal.py"
+  ],
+  "reached": [
+   "commerce/elasticity.py",
+   "growth/weekly.py",
+   "scale/readiness.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 51,
+  "title": "Business Continuity Export",
+  "state": "OWNER-GATED",
+  "registry": "owner_gated",
+  "parked_on": "",
+  "gate": "offsite_storage",
+  "table_gate": "offsite_storage",
+  "who": "storage_offsite",
+  "modules": [
+   "core/continuity.py"
+  ],
+  "tested": [
+   "core/continuity.py"
+  ],
+  "tests": [
+   "tests/test_continuity.py"
+  ],
+  "reached": [
+   "core/continuity.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 54,
+  "title": "Pre-Etsy Launch Readiness Gate",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "insights_access",
+  "gate": "insights_access",
+  "table_gate": "insights_access",
+  "who": "insights_reading",
+  "modules": [
+   "launch/readiness.py"
+  ],
+  "tested": [
+   "launch/readiness.py"
+  ],
+  "tests": [
+   "tests/test_cert_rebuild_chain.py",
+   "tests/test_launch.py"
+  ],
+  "reached": [
+   "launch/readiness.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 61,
+  "title": "Visual Semantic QA",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "image_vision",
+  "gate": "image_vision",
+  "table_gate": "image_vision",
+  "who": "fund_model",
+  "modules": [
+   "publish/layout_qa.py",
+   "publish/eligibility.py",
+   "visual/inspect.py",
+   "runtime/release.py"
+  ],
+  "tested": [
+   "publish/layout_qa.py",
+   "publish/eligibility.py",
+   "visual/inspect.py",
+   "runtime/release.py"
+  ],
+  "tests": [
+   "tests/test_cert_listing_frames.py"
+  ],
+  "reached": [
+   "publish/layout_qa.py",
+   "publish/eligibility.py",
+   "visual/inspect.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 64,
+  "title": "Physical Proof Upgrade Path",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "physical_proof",
+  "gate": "physical_proof",
+  "table_gate": "physical_proof",
+  "who": "tester_outreach",
+  "modules": [
+   "publish/eligibility.py",
+   "publish/listing_set.py"
+  ],
+  "tested": [
+   "publish/eligibility.py",
+   "publish/listing_set.py"
+  ],
+  "tests": [
+   "tests/test_cert_intel_wave2.py",
+   "tests/test_w4_gatesb.py"
+  ],
+  "reached": [
+   "publish/eligibility.py",
+   "publish/listing_set.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 67,
+  "title": "Competitive Creative Benchmark",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "image_vision",
+  "gate": "image_vision",
+  "table_gate": "image_vision",
+  "who": "fund_model",
+  "modules": [
+   "intel/benchmark_set.py",
+   "creative/blind_review.py",
+   "runtime/release.py"
+  ],
+  "tested": [
+   "intel/benchmark_set.py",
+   "creative/blind_review.py",
+   "runtime/release.py"
+  ],
+  "tests": [
+   "tests/test_blind_review.py",
+   "tests/test_cert_parity_copy.py"
+  ],
+  "reached": [
+   "intel/benchmark_set.py",
+   "creative/blind_review.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 72,
+  "title": "Mandatory Brambleloop Model for Applicable Products",
+  "state": "EXTERNAL-GATED",
+  "registry": "partial",
+  "parked_on": "model_bearing_render",
+  "gate": "model_bearing_render",
+  "table_gate": "model_bearing_render",
+  "who": null,
+  "modules": [
+   "visual/identity.py",
+   "publish/model_photography.py"
+  ],
+  "tested": [
+   "visual/identity.py",
+   "publish/model_photography.py"
+  ],
+  "tests": [
+   "tests/test_canon_manifest.py",
+   "tests/test_cert_parity_copy.py"
+  ],
+  "reached": [
+   "visual/identity.py",
+   "publish/model_photography.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 82,
+  "title": "Creative Performance Learning",
+  "state": "DATA-GATED",
+  "registry": "data_gated",
+  "parked_on": "",
+  "gate": null,
+  "table_gate": null,
+  "who": null,
+  "modules": [
+   "creative/style_learning.py",
+   "runtime/release.py"
+  ],
+  "tested": [
+   "creative/style_learning.py",
+   "runtime/release.py"
+  ],
+  "tests": [
+   "tests/test_style_learning.py"
+  ],
+  "reached": [
+   "creative/style_learning.py"
+  ],
+  "issues": [
+   "A: gate unnamed (registry data_gated, generic 'customers/orders/traffic')"
+  ]
+ },
+ {
+  "id": 86,
+  "title": "Creativity Benchmark Memory",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "image_vision",
+  "gate": "image_vision",
+  "table_gate": "image_vision",
+  "who": "fund_model",
+  "modules": [
+   "intel/vision.py",
+   "intel/mechanisms.py",
+   "intel/learning.py"
+  ],
+  "tested": [
+   "intel/vision.py",
+   "intel/mechanisms.py",
+   "intel/learning.py"
+  ],
+  "tests": [
+   "tests/test_cert_intel_wave2.py"
+  ],
+  "reached": [
+   "intel/vision.py",
+   "intel/mechanisms.py",
+   "intel/learning.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 88,
+  "title": "Idea-to-Thumbnail Test",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "image_vision",
+  "gate": "image_vision",
+  "table_gate": "image_vision",
+  "who": "fund_model",
+  "modules": [
+   "creative/concept.py",
+   "creative/preengineering.py",
+   "runtime/pipeline.py"
+  ],
+  "tested": [
+   "creative/concept.py",
+   "creative/preengineering.py",
+   "runtime/pipeline.py"
+  ],
+  "tests": [
+   "tests/test_cert_design_pipeline.py"
+  ],
+  "reached": [
+   "creative/concept.py",
+   "creative/preengineering.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 89,
+  "title": "Creativity Outcome Learning",
+  "state": "DATA-GATED",
+  "registry": "data_gated",
+  "parked_on": "",
+  "gate": null,
+  "table_gate": null,
+  "who": null,
+  "modules": [
+   "creative/outcome_learning.py",
+   "runtime/release.py"
+  ],
+  "tested": [
+   "creative/outcome_learning.py",
+   "runtime/release.py"
+  ],
+  "tests": [
+   "tests/test_outcome_learning.py"
+  ],
+  "reached": [
+   "creative/outcome_learning.py"
+  ],
+  "issues": [
+   "A: gate unnamed (registry data_gated, generic 'customers/orders/traffic')"
+  ]
+ },
+ {
+  "id": 94,
+  "title": "Creativity Capability Scorecard",
+  "state": "DATA-GATED",
+  "registry": "data_gated",
+  "parked_on": "",
+  "gate": null,
+  "table_gate": "model_provider",
+  "who": null,
+  "modules": [
+   "creative/blinded.py"
+  ],
+  "tested": [
+   "creative/blinded.py"
+  ],
+  "tests": [],
+  "reached": [
+   "creative/blinded.py"
+  ],
+  "issues": [
+   "A: gate unnamed (registry data_gated, generic 'customers/orders/traffic')",
+   "A: executor gate table says model_provider, row has no gate"
+  ]
+ },
+ {
+  "id": 98,
+  "title": "External Learning Radar",
+  "state": "DATA-GATED",
+  "registry": "data_gated",
+  "parked_on": "",
+  "gate": null,
+  "table_gate": null,
+  "who": null,
+  "modules": [
+   "intel/learning.py",
+   "intel/serp.py",
+   "runtime/release.py"
+  ],
+  "tested": [
+   "intel/learning.py",
+   "intel/serp.py",
+   "runtime/release.py"
+  ],
+  "tests": [
+   "tests/test_serp.py"
+  ],
+  "reached": [
+   "intel/learning.py",
+   "intel/serp.py"
+  ],
+  "issues": [
+   "A: gate unnamed (registry data_gated, generic 'customers/orders/traffic')"
+  ]
+ },
+ {
+  "id": 116,
+  "title": "Creative Reference Decomposition",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "image_vision",
+  "gate": "image_vision",
+  "table_gate": "image_vision",
+  "who": "fund_model",
+  "modules": [
+   "creative/reference.py"
+  ],
+  "tested": [
+   "creative/reference.py"
+  ],
+  "tests": [
+   "tests/test_cert_intel_wave2.py"
+  ],
+  "reached": [
+   "creative/reference.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 120,
+  "title": "Holiday-to-Holiday Learning Transfer",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "creative/discovery.py",
+   "creative/ideation.py",
+   "runtime/release.py"
+  ],
+  "tested": [
+   "creative/discovery.py",
+   "creative/ideation.py",
+   "runtime/release.py"
+  ],
+  "tests": [
+   "tests/test_cert_ideation.py"
+  ],
+  "reached": [
+   "creative/discovery.py",
+   "creative/ideation.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 126,
+  "title": "Search-Grid Blind Tournament",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "image_vision",
+  "gate": "image_vision",
+  "table_gate": "image_vision",
+  "who": "fund_model",
+  "modules": [
+   "creative/board.py",
+   "creative/blinded.py",
+   "creative/preengineering.py",
+   "runtime/release.py",
+   "runtime/pipeline.py"
+  ],
+  "tested": [
+   "creative/board.py",
+   "creative/blinded.py",
+   "creative/preengineering.py",
+   "runtime/release.py",
+   "runtime/pipeline.py"
+  ],
+  "tests": [
+   "tests/test_cert_intel_wave2.py"
+  ],
+  "reached": [
+   "creative/board.py",
+   "creative/blinded.py",
+   "creative/preengineering.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 130,
+  "title": "Model-Led Brand Storytelling",
+  "state": "EXTERNAL-GATED",
+  "registry": "partial",
+  "parked_on": "model_bearing_render",
+  "gate": "model_bearing_render",
+  "table_gate": "model_bearing_render",
+  "who": null,
+  "modules": [
+   "visual/identity.py",
+   "publish/model_photography.py"
+  ],
+  "tested": [
+   "visual/identity.py",
+   "publish/model_photography.py"
+  ],
+  "tests": [
+   "tests/test_canon_manifest.py",
+   "tests/test_cert_parity_copy.py"
+  ],
+  "reached": [
+   "visual/identity.py",
+   "publish/model_photography.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 140,
+  "title": "Cultural Demand Lead-Lag Model",
+  "state": "DATA-GATED",
+  "registry": "data_gated",
+  "parked_on": "",
+  "gate": null,
+  "table_gate": "culture_feed",
+  "who": null,
+  "modules": [
+   "culture/feeds.py",
+   "culture/demand.py"
+  ],
+  "tested": [
+   "culture/feeds.py",
+   "culture/demand.py"
+  ],
+  "tests": [],
+  "reached": [
+   "culture/feeds.py",
+   "culture/demand.py"
+  ],
+  "issues": [
+   "A: gate unnamed (registry data_gated, generic 'customers/orders/traffic')",
+   "A: executor gate table says culture_feed, row has no gate"
+  ]
+ },
+ {
+  "id": 147,
+  "title": "Culture Radar Feeds Continuous Improvement",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "seasonal/daily.py",
+   "growth/content.py",
+   "culture/radar.py"
+  ],
+  "tested": [
+   "seasonal/daily.py",
+   "growth/content.py",
+   "culture/radar.py"
+  ],
+  "tests": [
+   "tests/test_cert_improve_wave.py",
+   "tests/test_w4_b2_culture_consumers.py"
+  ],
+  "reached": [
+   "seasonal/daily.py",
+   "growth/content.py",
+   "culture/radar.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 163,
+  "title": "Brambleloop Must Add Unique Value",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "benchmark_purchases",
+  "gate": "benchmark_purchases",
+  "table_gate": "benchmark_purchases",
+  "who": "benchmark_purchase",
+  "modules": [
+   "gates/certificate.py",
+   "runtime/pipeline.py",
+   "runtime/release.py",
+   "teardown/lab.py",
+   "teardown/scorecard.py"
+  ],
+  "tested": [
+   "gates/certificate.py",
+   "runtime/pipeline.py",
+   "runtime/release.py",
+   "teardown/lab.py",
+   "teardown/scorecard.py"
+  ],
+  "tests": [
+   "tests/test_cert_rebuild_chain.py",
+   "tests/test_cert_unique_value.py"
+  ],
+  "reached": [
+   "gates/certificate.py",
+   "teardown/lab.py",
+   "teardown/scorecard.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 165,
+  "title": "Benchmark Refresh Cadence",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "benchmark_purchases",
+  "gate": "benchmark_purchases",
+  "table_gate": "benchmark_purchases",
+  "who": "benchmark_purchase",
+  "modules": [
+   "intel/benchmark_refresh.py",
+   "runtime/release.py"
+  ],
+  "tested": [
+   "runtime/release.py"
+  ],
+  "tests": [
+   "tests/test_cert_intel_wave.py"
+  ],
+  "reached": [
+   "intel/benchmark_refresh.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 168,
+  "title": "Pre-Launch Benchmark Challenge",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "benchmark_purchases",
+  "gate": "benchmark_purchases",
+  "table_gate": "benchmark_purchases",
+  "who": "benchmark_purchase",
+  "modules": [
+   "launch/readiness.py",
+   "teardown/pipeline.py"
+  ],
+  "tested": [
+   "launch/readiness.py",
+   "teardown/pipeline.py"
+  ],
+  "tests": [
+   "tests/test_cert_benchmark_challenge.py"
+  ],
+  "reached": [
+   "launch/readiness.py",
+   "teardown/pipeline.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 169,
+  "title": "Post-Purchase Delight Metric",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "teardown/lab.py",
+   "teardown/scorecard.py",
+   "runtime/pipeline.py"
+  ],
+  "tested": [
+   "teardown/lab.py",
+   "teardown/scorecard.py",
+   "runtime/pipeline.py"
+  ],
+  "tests": [
+   "tests/test_cert_unique_value.py"
+  ],
+  "reached": [
+   "teardown/lab.py",
+   "teardown/scorecard.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 189,
+  "title": "Cloud Browser/Vision Worker Pool",
+  "state": "OWNER-GATED",
+  "registry": "owner_gated",
+  "parked_on": "",
+  "gate": "acceptance_ruling",
+  "table_gate": "acceptance_ruling",
+  "who": "acceptance_ruling",
+  "modules": [
+   "intel/browser.py",
+   "build2/executor.py"
+  ],
+  "tested": [
+   "intel/browser.py",
+   "build2/executor.py"
+  ],
+  "tests": [
+   "tests/test_capability_gates.py"
+  ],
+  "reached": [
+   "intel/browser.py",
+   "build2/executor.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 195,
+  "title": "Proof of Off-Device Autonomy",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "production_window",
+  "gate": "production_window",
+  "table_gate": "production_window",
+  "who": "production_window",
+  "modules": [
+   "build2/autonomy.py",
+   "build2/executor.py",
+   "runtime/release.py"
+  ],
+  "tested": [
+   "build2/autonomy.py",
+   "build2/executor.py",
+   "runtime/release.py"
+  ],
+  "tests": [
+   "tests/test_cert_improve_autonomy.py"
+  ],
+  "reached": [
+   "build2/autonomy.py",
+   "build2/executor.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 202,
+  "title": "Appropriate Product-First Styling",
+  "state": "EXTERNAL-GATED",
+  "registry": "partial",
+  "parked_on": "model_bearing_render",
+  "gate": "model_bearing_render",
+  "table_gate": "model_bearing_render",
+  "who": null,
+  "modules": [
+   "visual/brief.py"
+  ],
+  "tested": [
+   "visual/brief.py"
+  ],
+  "tests": [
+   "tests/test_canon_manifest.py"
+  ],
+  "reached": [
+   "visual/brief.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 203,
+  "title": "Model Merchandising Shot System",
+  "state": "EXTERNAL-GATED",
+  "registry": "partial",
+  "parked_on": "model_bearing_render",
+  "gate": "model_bearing_render",
+  "table_gate": "model_bearing_render",
+  "who": null,
+  "modules": [
+   "build2/executor.py",
+   "publish/model_photography.py",
+   "visual/identity.py",
+   "runtime/release.py"
+  ],
+  "tested": [
+   "build2/executor.py",
+   "publish/model_photography.py",
+   "visual/identity.py",
+   "runtime/release.py"
+  ],
+  "tests": [
+   "tests/test_cert_parity_copy.py"
+  ],
+  "reached": [
+   "build2/executor.py",
+   "publish/model_photography.py",
+   "visual/identity.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 218,
+  "title": "MJs Challenge Gate",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "image_vision",
+  "gate": "image_vision",
+  "table_gate": "image_vision",
+  "who": "fund_model",
+  "modules": [
+   "creative/blind_review.py",
+   "runtime/release.py"
+  ],
+  "tested": [
+   "creative/blind_review.py",
+   "runtime/release.py"
+  ],
+  "tests": [
+   "tests/test_cert_parity_copy.py"
+  ],
+  "reached": [
+   "creative/blind_review.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 221,
+  "title": "Mandatory Cloud Browser + Vision Capability",
+  "state": "OWNER-GATED",
+  "registry": "owner_gated",
+  "parked_on": "",
+  "gate": "acceptance_ruling",
+  "table_gate": "acceptance_ruling",
+  "who": "acceptance_ruling",
+  "modules": [
+   "intel/browser.py",
+   "build2/executor.py"
+  ],
+  "tested": [
+   "intel/browser.py",
+   "build2/executor.py"
+  ],
+  "tests": [
+   "tests/test_capability_gates.py"
+  ],
+  "reached": [
+   "intel/browser.py",
+   "build2/executor.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 222,
+  "title": "Browser/Vision Acceptance Test",
+  "state": "OWNER-GATED",
+  "registry": "owner_gated",
+  "parked_on": "",
+  "gate": "acceptance_ruling",
+  "table_gate": "acceptance_ruling",
+  "who": "acceptance_ruling",
+  "modules": [
+   "intel/acceptance.py",
+   "build2/executor.py"
+  ],
+  "tested": [
+   "intel/acceptance.py",
+   "build2/executor.py"
+  ],
+  "tests": [
+   "tests/test_acceptance.py"
+  ],
+  "reached": [
+   "intel/acceptance.py",
+   "build2/executor.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 226,
+  "title": "Specialist Pod Continuous Learning",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "intel/pod_learning.py",
+   "intel/mission_runtime.py",
+   "runtime/release.py",
+   "improve/cells.py"
+  ],
+  "tested": [
+   "intel/pod_learning.py",
+   "intel/mission_runtime.py",
+   "runtime/release.py",
+   "improve/cells.py"
+  ],
+  "tests": [
+   "tests/test_cert_intel_wave2.py"
+  ],
+  "reached": [
+   "intel/pod_learning.py",
+   "intel/mission_runtime.py",
+   "improve/cells.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 229,
+  "title": "CA$5K/Month Becomes the Primary Commercial Scale Target",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "scale/target.py",
+   "growth/weekly.py",
+   "runtime/release.py"
+  ],
+  "tested": [
+   "scale/target.py",
+   "growth/weekly.py",
+   "runtime/release.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_seasonal.py",
+   "tests/test_scale.py"
+  ],
+  "reached": [
+   "scale/target.py",
+   "growth/weekly.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 235,
+  "title": "Etsy Targeted-Offer Optimizer",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "commerce/promotion.py"
+  ],
+  "tested": [
+   "commerce/promotion.py"
+  ],
+  "tests": [
+   "tests/test_cert_orders.py"
+  ],
+  "reached": [
+   "commerce/promotion.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 236,
+  "title": "Marketplace Insights Portfolio Allocator",
+  "state": "OWNER-GATED",
+  "registry": "owner_gated",
+  "parked_on": "",
+  "gate": "insights_access",
+  "table_gate": "insights_access",
+  "who": "insights_reading",
+  "modules": [
+   "intel/insights.py",
+   "intel/insights_budget.py",
+   "app/main.py",
+   "build2/executor.py"
+  ],
+  "tested": [
+   "intel/insights.py",
+   "intel/insights_budget.py",
+   "app/main.py",
+   "build2/executor.py"
+  ],
+  "tests": [
+   "tests/test_insights_intake.py"
+  ],
+  "reached": [
+   "intel/insights.py",
+   "intel/insights_budget.py",
+   "build2/executor.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 237,
+  "title": "Search-Term-to-P&L; Attribution",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "insights_access",
+  "gate": "insights_access",
+  "table_gate": "insights_access",
+  "who": "insights_reading",
+  "modules": [
+   "commerce/attribution.py",
+   "scale/leading.py"
+  ],
+  "tested": [
+   "commerce/attribution.py",
+   "scale/leading.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_ops.py"
+  ],
+  "reached": [
+   "commerce/attribution.py",
+   "scale/leading.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 238,
+  "title": "Conversion Cohort Benchmarks",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "live_listings",
+  "gate": "live_listings",
+  "table_gate": "live_listings",
+  "who": "leave_shadow",
+  "modules": [
+   "commerce/benchmarks.py",
+   "app/main.py"
+  ],
+  "tested": [
+   "commerce/benchmarks.py",
+   "app/main.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_ops.py"
+  ],
+  "reached": [
+   "commerce/benchmarks.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 239,
+  "title": "Search Share-of-Opportunity Dashboard",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "live_listings",
+  "gate": "live_listings",
+  "table_gate": "live_listings",
+  "who": "leave_shadow",
+  "modules": [
+   "commerce/benchmarks.py",
+   "radar/arbitrage.py"
+  ],
+  "tested": [
+   "commerce/benchmarks.py",
+   "radar/arbitrage.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_ops.py"
+  ],
+  "reached": [
+   "commerce/benchmarks.py",
+   "radar/arbitrage.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 241,
+  "title": "Listing Launch Experiment Pack",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "live_listings",
+  "gate": "live_listings",
+  "table_gate": "live_listings",
+  "who": "leave_shadow",
+  "modules": [
+   "growth/experiments.py",
+   "runtime/release.py"
+  ],
+  "tested": [
+   "growth/experiments.py",
+   "runtime/release.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_seasonal.py",
+   "tests/test_cert_publish_gates.py",
+   "tests/test_experiment_persistence.py"
+  ],
+  "reached": [
+   "growth/experiments.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 242,
+  "title": "Organic-First Proof Before Heavy Ads",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "commerce/paid_media.py"
+  ],
+  "tested": [
+   "commerce/paid_media.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_ops.py"
+  ],
+  "reached": [
+   "commerce/paid_media.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 243,
+  "title": "Paid Acquisition Allowable CAC",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "scale/runrate.py"
+  ],
+  "tested": [
+   "scale/runrate.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_ops.py"
+  ],
+  "reached": [
+   "scale/runrate.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 244,
+  "title": "Offsite Ads Economics Guard",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "commerce/paid_media.py",
+   "runtime/growth_ops.py"
+  ],
+  "tested": [
+   "commerce/paid_media.py",
+   "runtime/growth_ops.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_ops.py"
+  ],
+  "reached": [
+   "commerce/paid_media.py",
+   "runtime/growth_ops.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 245,
+  "title": "Share-and-Save / Direct-Link Economics",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "commerce/paid_media.py",
+   "runtime/growth_ops.py"
+  ],
+  "tested": [
+   "commerce/paid_media.py",
+   "runtime/growth_ops.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_ops.py"
+  ],
+  "reached": [
+   "commerce/paid_media.py",
+   "runtime/growth_ops.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 246,
+  "title": "Pinterest Search Factory",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "owned_surfaces",
+  "gate": "owned_surfaces",
+  "table_gate": "owned_surfaces",
+  "who": "owned_surfaces",
+  "modules": [
+   "growth/pins.py",
+   "seasonal/calendar.py"
+  ],
+  "tested": [
+   "growth/pins.py",
+   "seasonal/calendar.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_ops.py"
+  ],
+  "reached": [
+   "growth/pins.py",
+   "seasonal/calendar.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 247,
+  "title": "Google / SEO Topic Cluster Engine",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "owned_surfaces",
+  "gate": "owned_surfaces",
+  "table_gate": "owned_surfaces",
+  "who": "owned_surfaces",
+  "modules": [
+   "growth/clusters.py",
+   "intel/observe.py",
+   "growth/free_to_paid.py"
+  ],
+  "tested": [
+   "growth/clusters.py",
+   "intel/observe.py",
+   "growth/free_to_paid.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_ops.py"
+  ],
+  "reached": [
+   "growth/clusters.py",
+   "intel/observe.py",
+   "growth/free_to_paid.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 248,
+  "title": "Video Distribution Flywheel",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "owned_surfaces",
+  "gate": "owned_surfaces",
+  "table_gate": "owned_surfaces",
+  "who": "owned_surfaces",
+  "modules": [
+   "growth/video.py",
+   "ops/artefacts.py",
+   "growth/clusters.py"
+  ],
+  "tested": [
+   "growth/video.py",
+   "ops/artefacts.py",
+   "growth/clusters.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_ops.py"
+  ],
+  "reached": [
+   "growth/video.py",
+   "ops/artefacts.py",
+   "growth/clusters.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 250,
+  "title": "Tester-to-Ambassador Path",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "tester_roster",
+  "gate": "tester_roster",
+  "table_gate": "tester_roster",
+  "who": "tester_outreach",
+  "modules": [
+   "growth/creators.py"
+  ],
+  "tested": [
+   "growth/creators.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_ops.py",
+   "tests/test_creators.py",
+   "tests/test_w4_gatesb.py"
+  ],
+  "reached": [
+   "growth/creators.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 251,
+  "title": "Email / Owned Audience Lifecycle",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "owned_surfaces",
+  "gate": "owned_surfaces",
+  "table_gate": "owned_surfaces",
+  "who": "owned_surfaces",
+  "modules": [
+   "growth/tools.py",
+   "growth/experiments.py",
+   "growth/owned.py"
+  ],
+  "tested": [
+   "growth/tools.py",
+   "growth/experiments.py",
+   "growth/owned.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_ops.py"
+  ],
+  "reached": [
+   "growth/tools.py",
+   "growth/experiments.py",
+   "growth/owned.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 252,
+  "title": "Repeat Purchase Engine",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "commerce/repeat.py"
+  ],
+  "tested": [
+   "commerce/repeat.py"
+  ],
+  "tests": [
+   "tests/test_cert_orders.py"
+  ],
+  "reached": [
+   "commerce/repeat.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 253,
+  "title": "Collection Subscription / Club Research Lane",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "commerce/club.py"
+  ],
+  "tested": [
+   "commerce/club.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_ops.py"
+  ],
+  "reached": [
+   "commerce/club.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 254,
+  "title": "Personalization / Customization Layer",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "live_listings",
+  "gate": "live_listings",
+  "table_gate": "live_listings",
+  "who": "leave_shadow",
+  "modules": [
+   "products/personalisation.py"
+  ],
+  "tested": [
+   "products/personalisation.py"
+  ],
+  "tests": [
+   "tests/test_personalisation.py"
+  ],
+  "reached": [
+   "products/personalisation.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 255,
+  "title": "Free Tool Acquisition Layer",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "owned_surfaces",
+  "gate": "owned_surfaces",
+  "table_gate": "owned_surfaces",
+  "who": "owned_surfaces",
+  "modules": [
+   "growth/tools.py",
+   "publish/substitution.py"
+  ],
+  "tested": [
+   "growth/tools.py",
+   "publish/substitution.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_ops.py"
+  ],
+  "reached": [
+   "growth/tools.py",
+   "publish/substitution.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 256,
+  "title": "Product-Led Referral Research",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "commerce/referral.py",
+   "commerce/reviews.py",
+   "runtime/commerce_readings.py"
+  ],
+  "tested": [
+   "commerce/referral.py",
+   "commerce/reviews.py",
+   "runtime/commerce_readings.py"
+  ],
+  "tests": [
+   "tests/test_cert_commerce_readings.py",
+   "tests/test_cert_orders.py"
+  ],
+  "reached": [
+   "commerce/referral.py",
+   "commerce/reviews.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 257,
+  "title": "Review-to-Conversion Learning",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "commerce/reviews.py",
+   "intel/observe.py",
+   "commerce/buyer_trust.py"
+  ],
+  "tested": [
+   "commerce/reviews.py",
+   "intel/observe.py",
+   "commerce/buyer_trust.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_ops.py"
+  ],
+  "reached": [
+   "commerce/reviews.py",
+   "intel/observe.py",
+   "commerce/buyer_trust.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 258,
+  "title": "Customer Project Gallery",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "commerce/buyer_trust.py",
+   "growth/experiments.py"
+  ],
+  "tested": [
+   "commerce/buyer_trust.py",
+   "growth/experiments.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_ops.py"
+  ],
+  "reached": [
+   "commerce/buyer_trust.py",
+   "growth/experiments.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 260,
+  "title": "First-100-Customer Interview Sampling",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "growth/interviews.py"
+  ],
+  "tested": [
+   "growth/interviews.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_ops.py"
+  ],
+  "reached": [
+   "growth/interviews.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 263,
+  "title": "Leading Indicator Dashboard",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "live_listings",
+  "gate": "live_listings",
+  "table_gate": "live_listings",
+  "who": "leave_shadow",
+  "modules": [
+   "scale/leading.py"
+  ],
+  "tested": [
+   "scale/leading.py"
+  ],
+  "tests": [
+   "tests/test_leading.py"
+  ],
+  "reached": [
+   "scale/leading.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 265,
+  "title": "Growth Experiment Portfolio",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "growth/experiments.py",
+   "runtime/release.py",
+   "runtime/worker.py"
+  ],
+  "tested": [
+   "growth/experiments.py",
+   "runtime/release.py",
+   "runtime/worker.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_seasonal.py"
+  ],
+  "reached": [
+   "growth/experiments.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 266,
+  "title": "Incrementality Discipline",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "live_listings",
+  "gate": "live_listings",
+  "table_gate": "live_listings",
+  "who": "leave_shadow",
+  "modules": [
+   "growth/experiments.py",
+   "runtime/release.py",
+   "runtime/worker.py"
+  ],
+  "tested": [
+   "growth/experiments.py",
+   "runtime/release.py",
+   "runtime/worker.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_seasonal.py"
+  ],
+  "reached": [
+   "growth/experiments.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 270,
+  "title": "Revenue Concentration Stress Test",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "growth/mix.py",
+   "scale/confidence.py",
+   "growth/weekly.py"
+  ],
+  "tested": [
+   "growth/mix.py",
+   "scale/confidence.py",
+   "growth/weekly.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_seasonal.py"
+  ],
+  "reached": [
+   "growth/mix.py",
+   "scale/confidence.py",
+   "growth/weekly.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 272,
+  "title": "Scale Readiness Gate",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "scale/readiness.py",
+   "growth/weekly.py"
+  ],
+  "tested": [
+   "scale/readiness.py",
+   "growth/weekly.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_seasonal.py"
+  ],
+  "reached": [
+   "scale/readiness.py",
+   "growth/weekly.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 277,
+  "title": "NON-NEGOTIABLE: Proven-Trend Seasonal Capture",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "image_vision",
+  "gate": "image_vision",
+  "table_gate": "image_vision",
+  "who": "fund_model",
+  "modules": [
+   "creative/intake.py",
+   "runtime/pipeline.py",
+   "runtime/release.py"
+  ],
+  "tested": [
+   "creative/intake.py",
+   "runtime/pipeline.py",
+   "runtime/release.py"
+  ],
+  "tests": [
+   "tests/test_cert_design_pipeline.py"
+  ],
+  "reached": [
+   "creative/intake.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 280,
+  "title": "Colour-Forecast Layer",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "seasonal/colour.py",
+   "culture/feeds.py"
+  ],
+  "tested": [
+   "seasonal/colour.py",
+   "culture/feeds.py"
+  ],
+  "tests": [
+   "tests/test_colour.py",
+   "tests/test_w4_b2_build2_ledger.py"
+  ],
+  "reached": [
+   "seasonal/colour.py",
+   "culture/feeds.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 281,
+  "title": "MJs-to-Brambleloop Seasonal Response Pipeline",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "image_vision",
+  "gate": "image_vision",
+  "table_gate": "image_vision",
+  "who": "fund_model",
+  "modules": [
+   "creative/intake.py",
+   "runtime/pipeline.py",
+   "runtime/release.py"
+  ],
+  "tested": [
+   "creative/intake.py",
+   "runtime/pipeline.py",
+   "runtime/release.py"
+  ],
+  "tests": [
+   "tests/test_cert_design_pipeline.py"
+  ],
+  "reached": [
+   "creative/intake.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 292,
+  "title": "Evergreen-to-Seasonal Multiplier",
+  "state": "DATA-GATED",
+  "registry": "partial",
+  "parked_on": "customers",
+  "gate": "customers",
+  "table_gate": "customers",
+  "who": null,
+  "modules": [
+   "seasonal/remerchandising.py"
+  ],
+  "tested": [
+   "seasonal/remerchandising.py"
+  ],
+  "tests": [],
+  "reached": [
+   "seasonal/remerchandising.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 294,
+  "title": "Pre-Season Ad Learning Window",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "ad_authority",
+  "gate": "ad_authority",
+  "table_gate": "ad_authority",
+  "who": "ad_budget",
+  "modules": [
+   "runtime/growth_ops.py"
+  ],
+  "tested": [
+   "runtime/growth_ops.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_ops.py"
+  ],
+  "reached": [
+   "runtime/growth_ops.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 295,
+  "title": "Aggressive Winner Scaling",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "ad_authority",
+  "gate": "ad_authority",
+  "table_gate": "ad_authority",
+  "who": "ad_budget",
+  "modules": [
+   "runtime/growth_ops.py"
+  ],
+  "tested": [
+   "runtime/growth_ops.py"
+  ],
+  "tests": [
+   "tests/test_cert_growth_ops.py"
+  ],
+  "reached": [
+   "runtime/growth_ops.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 296,
+  "title": "Seasonal Revenue War Room",
+  "state": "DATA-GATED",
+  "registry": "data_gated",
+  "parked_on": "",
+  "gate": null,
+  "table_gate": null,
+  "who": null,
+  "modules": [
+   "seasonal/leadtime.py",
+   "app/main.py"
+  ],
+  "tested": [
+   "seasonal/leadtime.py",
+   "app/main.py"
+  ],
+  "tests": [
+   "tests/test_leadtime.py"
+  ],
+  "reached": [
+   "seasonal/leadtime.py"
+  ],
+  "issues": [
+   "A: gate unnamed (registry data_gated, generic 'customers/orders/traffic')"
+  ]
+ },
+ {
+  "id": 298,
+  "title": "Post-Season Learning Harvest",
+  "state": "DATA-GATED",
+  "registry": "data_gated",
+  "parked_on": "",
+  "gate": null,
+  "table_gate": null,
+  "who": null,
+  "modules": [
+   "seasonal/harvest.py",
+   "seasonal/leadtime.py",
+   "runtime/release.py"
+  ],
+  "tested": [
+   "seasonal/harvest.py",
+   "seasonal/leadtime.py",
+   "runtime/release.py"
+  ],
+  "tests": [
+   "tests/test_harvest.py"
+  ],
+  "reached": [
+   "seasonal/harvest.py",
+   "seasonal/leadtime.py"
+  ],
+  "issues": [
+   "A: gate unnamed (registry data_gated, generic 'customers/orders/traffic')"
+  ]
+ },
+ {
+  "id": 300,
+  "title": "Seasonal System Acceptance Test",
+  "state": "EXTERNAL-GATED",
+  "registry": "partial",
+  "parked_on": "model_bearing_render",
+  "gate": "model_bearing_render",
+  "table_gate": "model_bearing_render",
+  "who": null,
+  "modules": [
+   "seasonal/cycle.py",
+   "build2/executor.py"
+  ],
+  "tested": [
+   "seasonal/cycle.py",
+   "build2/executor.py"
+  ],
+  "tests": [
+   "tests/test_seasonal_cycle.py"
+  ],
+  "reached": [
+   "seasonal/cycle.py",
+   "build2/executor.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 304,
+  "title": "MJs Listing Photos Must Be Visually Studied",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "image_vision",
+  "gate": "image_vision",
+  "table_gate": "image_vision",
+  "who": "fund_model",
+  "modules": [
+   "intel/vision.py",
+   "intel/observe.py"
+  ],
+  "tested": [
+   "intel/vision.py",
+   "intel/observe.py"
+  ],
+  "tests": [
+   "tests/test_serp.py"
+  ],
+  "reached": [
+   "intel/vision.py",
+   "intel/observe.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 308,
+  "title": "Owner Example - Christmas Cardigan Response",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "image_vision",
+  "gate": "image_vision",
+  "table_gate": "image_vision",
+  "who": "fund_model",
+  "modules": [
+   "creative/family.py",
+   "intel/response.py",
+   "intel/mission_runtime.py",
+   "runtime/release.py",
+   "creative/prospecting.py"
+  ],
+  "tested": [
+   "creative/family.py",
+   "intel/response.py",
+   "intel/mission_runtime.py",
+   "runtime/release.py",
+   "creative/prospecting.py"
+  ],
+  "tests": [
+   "tests/test_cert_design_pipeline.py",
+   "tests/test_prospecting.py"
+  ],
+  "reached": [
+   "creative/family.py",
+   "intel/response.py",
+   "intel/mission_runtime.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 309,
+  "title": "MJs Trend-to-Season Mission Pipeline",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "image_vision",
+  "gate": "image_vision",
+  "table_gate": "image_vision",
+  "who": "fund_model",
+  "modules": [
+   "intel/response.py",
+   "intel/mission_runtime.py",
+   "runtime/release.py"
+  ],
+  "tested": [
+   "intel/response.py",
+   "intel/mission_runtime.py",
+   "runtime/release.py"
+  ],
+  "tests": [
+   "tests/test_cert_design_pipeline.py"
+  ],
+  "reached": [
+   "intel/response.py",
+   "intel/mission_runtime.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 315,
+  "title": "MJs Quality Challenge Is Release-Blocking",
+  "state": "OWNER-GATED",
+  "registry": "partial",
+  "parked_on": "benchmark_purchases",
+  "gate": "benchmark_purchases",
+  "table_gate": "benchmark_purchases",
+  "who": "benchmark_purchase",
+  "modules": [
+   "teardown/audits.py"
+  ],
+  "tested": [
+   "teardown/audits.py"
+  ],
+  "tests": [
+   "tests/test_teardown_audits.py"
+  ],
+  "reached": [
+   "teardown/audits.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 317,
+  "title": "Ten-Pattern Benchmark Laboratory",
+  "state": "OWNER-GATED",
+  "registry": "owner_gated",
+  "parked_on": "",
+  "gate": "benchmark_purchases",
+  "table_gate": "benchmark_purchases",
+  "who": "benchmark_purchase",
+  "modules": [
+   "intel/purchase_selection.py",
+   "teardown/lab.py"
+  ],
+  "tested": [
+   "intel/purchase_selection.py",
+   "teardown/lab.py"
+  ],
+  "tests": [
+   "tests/test_purchase_selection.py"
+  ],
+  "reached": [
+   "intel/purchase_selection.py",
+   "teardown/lab.py"
+  ],
+  "issues": []
+ },
+ {
+  "id": 320,
+  "title": "MJs Mission End-to-End Acceptance Test",
+  "state": "OWNER-GATED",
+  "registry": "owner_gated",
+  "parked_on": "",
+  "gate": "acceptance_ruling",
+  "table_gate": "acceptance_ruling",
+  "who": "acceptance_ruling",
+  "modules": [
+   "intel/acceptance.py",
+   "build2/executor.py"
+  ],
+  "tested": [
+   "intel/acceptance.py",
+   "build2/executor.py"
+  ],
+  "tests": [
+   "tests/test_acceptance.py"
+  ],
+  "reached": [
+   "intel/acceptance.py",
+   "build2/executor.py"
+  ],
+  "issues": []
+ }
+]

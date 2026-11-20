@@ -1,0 +1,499 @@
+"""Customer cohorts, and the floor beneath which a cohort is a list of people (#11, #12).
+
+Requirement 11 says to treat the first hundred legitimate buyers as a deliberate validation
+cohort and to track where each came from, what they searched, what they bought, what it cost
+to support them and whether they came back. Requirement 12 says to track the first product,
+subsequent purchases, category affinity, time to repeat, order value and lifetime
+contribution, and to optimise the last of those rather than single-listing revenue.
+
+Both have said "schema and cohort machinery buildable now" since v1.3, and until this module
+nothing existed: `core.models.Cohort` is a *launch* cohort -- an organic or promoted arm of a
+listing test (#48) -- and has nothing to do with a person who bought something. The three
+tables this module writes (`Customer`, `Order`, `CohortMembership`) are the customer half.
+
+Three rules, and the third is the one that will be argued with.
+
+**A customer is a reference, not a person.** `customer_ref` is whatever the order source
+gives us that is stable across orders -- on Etsy, the buyer user id -- and never a name or an
+email. Nothing #11 asks to learn needs either.
+
+**A cohort is one axis.** First product, first category, first season, acquisition source. A
+customer belongs to one value on each axis and is a row per axis, so a repeat rate is a query
+and not a recomputation, and so "buyers whose first product was the mosaic blanket" and
+"buyers who arrived from Pinterest" are two cohorts a reader cannot accidentally merge.
+
+**Below `MIN_COHORT_N` a cohort metric is not produced.** Thirty is a stated floor, not a
+learned one: with fewer, a single buyer moves the repeat rate by more than three points on
+their own, and a rate one person can move is a fact about that person. The metric reports
+UNMEASURED with the reason and the shortfall, and never a number with a caveat, because the
+caveat is what gets dropped when the number is quoted.
+
+Today every table is empty. This company has no shop, no listing and no order, and reading
+Etsy's transaction history into these tables needs the `transactions_r` OAuth scope, which
+the owner has not granted and which this module does not request: it is OWNER-GATED, stated
+in `TRANSACTIONS_SCOPE`, and the schema is ready for the day it is.
+"""
+from __future__ import annotations
+
+from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
+
+from sqlalchemy import func, select
+
+from ..core.models import CohortMembership, Customer, Order, utcnow
+from . import ladder
+
+# Below this many customers a cohort metric is a fact about the people in it. One buyer
+# changing their mind moves a rate over 29 by 3.4 points; that is the arithmetic behind
+# the number, and it is a floor rather than a learned threshold.
+MIN_COHORT_N = 30
+
+# The first hundred are the validation cohort (#11). The number is the requirement's own.
+VALIDATION_COHORT_SIZE = 100
+
+AXES: tuple[str, ...] = ("first_product", "first_category", "first_season",
+                         "acquisition_source", "validation")
+
+# The scope that would fill these tables from Etsy, and why it is not requested here.
+TRANSACTIONS_SCOPE = {
+    "scope": "transactions_r",
+    "status": "OWNER-GATED",
+    "why": ("reading a shop's receipts is the one read scope that exposes buyer identities, "
+            "and widening the OAuth grant is the owner's decision under the authority "
+            "matrix, not this module's. Nothing here requests it; the schema is ready for "
+            "the day it is granted"),
+}
+
+
+class CohortRefused(ValueError):
+    """An axis nobody named, an order for nobody, or a metric claimed beneath the floor."""
+
+
+def _check_axis(axis: str) -> None:
+    if axis not in AXES:
+        raise CohortRefused(f"{axis!r} is not a cohort axis: {list(AXES)}")
+
+
+def _aware(at: datetime | None) -> datetime:
+    if at is None:
+        return utcnow()
+    return at if at.tzinfo else at.replace(tzinfo=timezone.utc)
+
+
+# ---------------------------------------------------------------------------
+# Writing. Called by `commerce.orders_ingest` for every receipt line it reads (C-64).
+#
+# Every writer takes an optional `session`. The order source writes a receipt line's
+# customer, order, version map and ledger entry inside ONE transaction (CB2-O05), so a crash
+# between them rolls the whole line back and the next run writes it exactly once; without a
+# session each writer is its own transaction, as before.
+
+
+@contextmanager
+def use_session(db, session=None):
+    """The caller's session (the caller commits) or a fresh one committed on exit."""
+    if session is not None:
+        yield session
+        return
+    with db.session() as s:
+        yield s
+
+
+def record_customer(db, customer_ref: str, *, at: datetime | None = None,
+                    acquisition_source: str = "unknown", search_term: str = "",
+                    first_product_slug: str = "", first_category: str = "",
+                    first_season: str = "none", casl_consent: bool = False,
+                    session=None) -> dict:
+    """A buyer's first appearance, and their membership on every axis at once.
+
+    The first-purchase facts written here are provisional: `reconcile_customer` re-derives
+    them from the buyer's earliest paid order whenever an order of theirs is written, so
+    they do not depend on the order receipts happened to arrive in (CB2-O04).
+    """
+    if not customer_ref or not customer_ref.strip():
+        raise CohortRefused("a customer needs a stable reference; an empty one is nobody")
+    if "@" in customer_ref:
+        raise CohortRefused(
+            "a customer reference may not be an email address: the reference is the "
+            "platform's stable id, never personal data")
+
+    when = _aware(at)
+    with use_session(db, session) as s:
+        existing = s.scalar(select(Customer).where(Customer.customer_ref == customer_ref))
+        if existing is not None:
+            return {"customer_id": existing.id, "created": False}
+
+        rank = s.scalar(select(func.count(Customer.id))) or 0
+        customer = Customer(
+            customer_ref=customer_ref, first_seen_at=when,
+            acquisition_source=acquisition_source, search_term=search_term,
+            first_product_slug=first_product_slug, first_category=first_category,
+            first_season=first_season or "none", casl_consent=casl_consent,
+            interests=[first_category] if first_category else [],
+        )
+        s.add(customer)
+        s.flush()
+        memberships = {
+            "first_product": first_product_slug or "unknown",
+            "first_category": first_category or "unknown",
+            "first_season": first_season or "none",
+            "acquisition_source": acquisition_source or "unknown",
+        }
+        if rank < VALIDATION_COHORT_SIZE:
+            memberships["validation"] = "first_hundred"
+        for axis, value in memberships.items():
+            s.add(CohortMembership(customer_id=customer.id, axis=axis, value=value,
+                                   joined_at=when))
+        s.flush()
+        return {"customer_id": customer.id, "created": True,
+                "memberships": memberships}
+
+
+def record_order(db, customer_ref: str, external_ref: str, *, product_slug: str,
+                 at: datetime | None = None, version: str = "", category: str = "",
+                 price_cad: float = 0.0, revenue_cad: float | None = None,
+                 contribution_cad: float = 0.0, acquisition_source: str = "unknown",
+                 search_term: str = "", offsite_ad_attributed: bool = False,
+                 cross_sell_of: str = "", refunded: bool = False,
+                 currency: str = "CAD", amount_original: float | None = None,
+                 fx_usd_per_cad: float | None = None, fx_taken_on: str = "",
+                 fx_measured: bool = False, fees_cad: float = 0.0,
+                 offer: str = "single_pattern", source: str = "",
+                 detail: dict | None = None, session=None) -> dict:
+    """One order against a recorded customer. Refuses an order for nobody.
+
+    A negative contribution is a loss and is kept as one (CB2-O07): a refunded order still
+    paid its processing fee. What is refused is a contribution above the order's own money.
+    An order that already exists is not written twice, but its dependent version row is
+    still ensured, so a run that died between the order and the version converges (CB2-O05).
+    """
+    if price_cad < 0 or contribution_cad > max(price_cad, revenue_cad or 0.0) + 1e-9:
+        raise CohortRefused(
+            f"contribution CA${contribution_cad:.2f} above the order's own revenue is a "
+            f"bookkeeping fault, not a remarkable margin")
+    when = _aware(at)
+    with use_session(db, session) as s:
+        customer = s.scalar(select(Customer).where(Customer.customer_ref == customer_ref))
+        if customer is None:
+            raise CohortRefused(
+                f"no customer {customer_ref!r}: an order belongs to a buyer, and recording "
+                f"the order first is how a cohort ends up counting orders it cannot place")
+        existing = s.scalar(select(Order).where(Order.external_ref == external_ref))
+        if existing is not None:
+            result = {"created": False, "external_ref": external_ref, "order_id": existing.id,
+                      "is_repeat": bool(existing.is_repeat)}
+            if version:
+                from . import buyer_trust
+
+                result["version_recorded"] = buyer_trust.record_sale_version(
+                    db, order_ref=external_ref, product_slug=product_slug, version=version,
+                    sold_at=when, session=s)
+            return result
+        prior = s.scalar(select(func.count(Order.id)).where(Order.customer_id == customer.id))
+        order = Order(
+            customer_id=customer.id, external_ref=external_ref, at=when,
+            product_slug=product_slug, version=version, category=category,
+            price_cad=price_cad,
+            revenue_cad=price_cad if revenue_cad is None else revenue_cad,
+            contribution_cad=contribution_cad, acquisition_source=acquisition_source,
+            search_term=search_term, offsite_ad_attributed=offsite_ad_attributed,
+            is_repeat=bool(prior), cross_sell_of=cross_sell_of, refunded=refunded,
+            currency=(currency or "CAD").upper(),
+            amount_original=price_cad if amount_original is None else amount_original,
+            fx_usd_per_cad=fx_usd_per_cad, fx_taken_on=fx_taken_on, fx_measured=fx_measured,
+            fees_cad=fees_cad, offer=offer or "single_pattern", source=source,
+            detail=dict(detail or {}),
+        )
+        s.add(order)
+        if category and category not in (customer.interests or []):
+            customer.interests = list(customer.interests or []) + [category]
+        s.flush()
+        result = {"created": True, "order_id": order.id, "is_repeat": order.is_repeat}
+        # #42: which version this buyer received, written at sale time -- the one record
+        # that cannot be reconstructed later. Only when the order names a version; an order
+        # that does not is recorded as bought-version-unknown by the absence of a row, never
+        # guessed. Same transaction as the order (CB2-O05).
+        if version:
+            from . import buyer_trust
+
+            result["version_recorded"] = buyer_trust.record_sale_version(
+                db, order_ref=external_ref, product_slug=product_slug, version=version,
+                sold_at=when, session=s)
+    return result
+
+
+# Orders in these states were paid for: they decide who a buyer's first purchase was even if
+# the money later went back (the purchase happened; the refund is a later event).
+PAID_STATES: frozenset[str] = frozenset({"paid", "partially_refunded", "fully_refunded"})
+
+
+def _paid(o) -> bool:
+    state = ((o.detail or {}).get("state") or "paid")
+    return state in PAID_STATES
+
+
+def _first_key(o) -> tuple:
+    return (_aware(o.at), o.external_ref)
+
+
+def reconcile_customer(db, customer_ref: str, *, session=None) -> dict:
+    """Re-derive a buyer's first-purchase facts and repeat flags from their orders (CB2-O04).
+
+    The earliest *paid* order by (time, reference) is the first purchase, whatever order the
+    receipts arrived in and however many times they are re-read. `first_product`,
+    `first_category`, `first_season`, `first_seen_at` and the buyer's memberships on those
+    axes follow it; every later paid order is a repeat and the first is not. The acquisition
+    axis is left as recorded: it is an attribution fact, not a derived one.
+    """
+    with use_session(db, session) as s:
+        customer = s.scalar(select(Customer).where(Customer.customer_ref == customer_ref))
+        if customer is None:
+            raise CohortRefused(f"no customer {customer_ref!r} to reconcile")
+        orders = list(s.scalars(select(Order).where(Order.customer_id == customer.id)))
+        paid = sorted((o for o in orders if _paid(o)), key=_first_key)
+        changed: list[str] = []
+        if not paid:
+            for o in orders:
+                if o.is_repeat:
+                    o.is_repeat = False
+                    changed.append(f"{o.external_ref}.is_repeat")
+            return {"customer_ref": customer_ref, "first_order": None, "changed": changed}
+        first = paid[0]
+        for o in orders:
+            want = _paid(o) and o is not first
+            if bool(o.is_repeat) != want:
+                o.is_repeat = want
+                changed.append(f"{o.external_ref}.is_repeat")
+        season = ((first.detail or {}).get("season") or "none")
+        facts = {"first_product_slug": first.product_slug or "",
+                 "first_category": first.category or "",
+                 "first_season": season}
+        for name, value in facts.items():
+            if getattr(customer, name) != value:
+                setattr(customer, name, value)
+                changed.append(name)
+        if _aware(customer.first_seen_at) != _aware(first.at):
+            customer.first_seen_at = _aware(first.at)
+            changed.append("first_seen_at")
+        wanted = {"first_product": facts["first_product_slug"] or "unknown",
+                  "first_category": facts["first_category"] or "unknown",
+                  "first_season": facts["first_season"] or "none"}
+        rows = {m.axis: m for m in s.scalars(select(CohortMembership).where(
+            CohortMembership.customer_id == customer.id))}
+        for axis, value in wanted.items():
+            row = rows.get(axis)
+            if row is None:
+                s.add(CohortMembership(customer_id=customer.id, axis=axis, value=value,
+                                       joined_at=_aware(first.at)))
+                changed.append(f"membership.{axis}")
+            elif row.value != value:
+                row.value = value
+                changed.append(f"membership.{axis}")
+        s.flush()
+        return {"customer_ref": customer_ref, "first_order": first.external_ref,
+                "changed": changed}
+
+
+def reconcile_validation_cohort(db, *, session=None) -> dict:
+    """The first hundred buyers by earliest paid order, not by the order rows were inserted.
+
+    A backfill that reads old receipts after new ones would otherwise put a buyer from last
+    spring outside the validation cohort because a buyer from yesterday was written first.
+    """
+    with use_session(db, session) as s:
+        customers = list(s.scalars(select(Customer)))
+        firsts: dict[int, datetime] = {}
+        for o in s.scalars(select(Order)):
+            if _paid(o):
+                at = _aware(o.at)
+                if o.customer_id not in firsts or at < firsts[o.customer_id]:
+                    firsts[o.customer_id] = at
+        ranked = sorted(customers, key=lambda c: (firsts.get(c.id) or _aware(c.first_seen_at),
+                                                  c.customer_ref))
+        member_ids = {c.id for c in ranked[:VALIDATION_COHORT_SIZE]}
+        rows = {m.customer_id: m for m in s.scalars(select(CohortMembership).where(
+            CohortMembership.axis == "validation"))}
+        added = removed = 0
+        for c in customers:
+            row = rows.get(c.id)
+            if c.id in member_ids and row is None:
+                s.add(CohortMembership(customer_id=c.id, axis="validation",
+                                       value="first_hundred",
+                                       joined_at=firsts.get(c.id) or _aware(c.first_seen_at)))
+                added += 1
+            elif c.id not in member_ids and row is not None:
+                s.delete(row)
+                removed += 1
+        s.flush()
+        return {"members": len(member_ids), "added": added, "removed": removed}
+
+
+# ---------------------------------------------------------------------------
+# Reading.
+
+
+def members(db, axis: str, value: str) -> list[dict]:
+    """Every customer in one cohort, with their orders folded in."""
+    _check_axis(axis)
+    with db.session() as s:
+        rows = s.execute(
+            select(Customer).join(CohortMembership,
+                                  CohortMembership.customer_id == Customer.id)
+            .where(CohortMembership.axis == axis, CohortMembership.value == value)
+            .order_by(Customer.first_seen_at)).scalars().all()
+        from . import orders_ingest
+
+        held = orders_ingest.held_refs(s)
+        out = []
+        for c in rows:
+            # rc1-ORD2: one shared predicate. An unreconciled or held order (revenue UNKNOWN)
+            # is in none of these figures; a voided one is not an order and carries no
+            # revenue, and only its retained-fee loss stays in contribution (CB2-O07).
+            orders = [o for o in s.execute(select(Order).where(Order.customer_id == c.id)
+                                           .order_by(Order.at)).scalars().all()
+                      if orders_ingest.in_books(o, held)]
+            kept = [o for o in orders if orders_ingest.countable(o, held)]
+            first_at = kept[0].at if kept else None
+            second_at = kept[1].at if len(kept) > 1 else None
+            # Contribution is summed over every order, refunded ones included: a refunded
+            # order's contribution is its retained fees, a loss, and a lifetime contribution
+            # that dropped the losses would flatter every cohort (CB2-O07). Revenue is net of
+            # refunds on the row itself; it is summed over countable orders only (a voided row's is 0).
+            out.append({
+                "customer_ref": c.customer_ref,
+                "first_seen_at": _aware(c.first_seen_at).isoformat(),
+                "orders": len(kept),
+                "refunded_orders": len(orders) - len(kept),
+                "contribution_cad": round(sum(o.contribution_cad for o in orders), 2),
+                "revenue_cad": round(sum(o.revenue_cad for o in kept), 2),
+                "first_order_at": _aware(first_at) if first_at else None,
+                "second_order_at": _aware(second_at) if second_at else None,
+                "categories": sorted({o.category for o in kept if o.category}),
+            })
+        return out
+
+
+def _unmeasured(why: str, **extra) -> dict:
+    return {"measurable": False, "value": None, "status": "UNMEASURED", "why": why, **extra}
+
+
+def repeat_rate(rows: list[dict], *, horizon_days: int, as_of: datetime | None = None) -> dict:
+    """The share of a cohort that bought again within `horizon_days` of its first order.
+
+    Right-censored on purpose: a customer whose first order was twenty days ago cannot have
+    failed to repeat within thirty, so they are not in the denominator yet. Counting them
+    would read a young cohort as a disloyal one.
+    """
+    if horizon_days <= 0:
+        raise CohortRefused("a repeat horizon needs to be a positive number of days")
+    now = _aware(as_of)
+    eligible = [r for r in rows if r["first_order_at"] is not None
+                and now - r["first_order_at"] >= timedelta(days=horizon_days)]
+    if len(eligible) < MIN_COHORT_N:
+        return _unmeasured(
+            f"{len(eligible)} customer(s) have had {horizon_days} days to repeat, against a "
+            f"floor of {MIN_COHORT_N}. One buyer moves a rate over this few by more than "
+            f"three points, and a rate one person can move is a fact about that person",
+            eligible=len(eligible), floor=MIN_COHORT_N, horizon_days=horizon_days,
+            needs=f"{MIN_COHORT_N - len(eligible)} more customer(s) past the horizon")
+    repeated = [r for r in eligible if r["second_order_at"] is not None
+                and r["second_order_at"] - r["first_order_at"] <= timedelta(days=horizon_days)]
+    return {"measurable": True, "status": "measured",
+            "value": round(len(repeated) / len(eligible), 4),
+            "repeated": len(repeated), "eligible": len(eligible),
+            "horizon_days": horizon_days, "floor": MIN_COHORT_N}
+
+
+def time_to_repeat(rows: list[dict]) -> dict:
+    """Median days from first to second order, over the customers who have a second."""
+    gaps = sorted((r["second_order_at"] - r["first_order_at"]).days
+                  for r in rows if r["second_order_at"] is not None)
+    if len(gaps) < MIN_COHORT_N:
+        return _unmeasured(
+            f"{len(gaps)} repeat buyer(s) against a floor of {MIN_COHORT_N}: a median over "
+            f"this few is whichever buyer happened to be in the middle",
+            repeat_buyers=len(gaps), floor=MIN_COHORT_N)
+    mid = len(gaps) // 2
+    median = gaps[mid] if len(gaps) % 2 else (gaps[mid - 1] + gaps[mid]) / 2
+    return {"measurable": True, "status": "measured", "value": median,
+            "repeat_buyers": len(gaps), "floor": MIN_COHORT_N}
+
+
+def average_order_value(rows: list[dict]) -> dict:
+    orders = sum(r["orders"] for r in rows)
+    if len(rows) < MIN_COHORT_N or not orders:
+        return _unmeasured(
+            f"{len(rows)} customer(s) and {orders} order(s) against a floor of "
+            f"{MIN_COHORT_N} customers", customers=len(rows), floor=MIN_COHORT_N)
+    revenue = sum(r["revenue_cad"] for r in rows)
+    return {"measurable": True, "status": "measured", "value": round(revenue / orders, 2),
+            "orders": orders, "floor": MIN_COHORT_N}
+
+
+def metrics(db, axis: str, value: str, *, as_of: datetime | None = None) -> dict:
+    """Everything #12 asks of one cohort, each metric measured or UNMEASURED with its reason."""
+    rows = members(db, axis, value)
+    ltv = ladder.lifetime_value(
+        [{"orders": r["orders"], "contribution_cad": r["contribution_cad"]} for r in rows],
+        min_buyers=MIN_COHORT_N)
+    if not ltv["measurable"]:
+        ltv = {**ltv, "status": "UNMEASURED", "value": None}
+    else:
+        ltv = {**ltv, "status": "measured", "value": ltv["contribution_per_buyer_cad"]}
+
+    affinity: dict[str, int] = {}
+    for r in rows:
+        for c in r["categories"]:
+            affinity[c] = affinity.get(c, 0) + 1
+
+    return {
+        "axis": axis, "value": value, "customers": len(rows), "floor": MIN_COHORT_N,
+        "readable": len(rows) >= MIN_COHORT_N,
+        "repeat_rate": {f"{h}d": repeat_rate(rows, horizon_days=h, as_of=as_of)
+                        for h in (30, 60, 90, 180)},
+        "time_to_repeat_days": time_to_repeat(rows),
+        "aov_cad": average_order_value(rows),
+        "lifetime_contribution": ltv,
+        "category_affinity": (dict(sorted(affinity.items(), key=lambda kv: -kv[1]))
+                              if len(rows) >= MIN_COHORT_N else
+                              _unmeasured("affinity over fewer than the floor is a list of "
+                                          "what a few people bought", floor=MIN_COHORT_N)),
+        "note": ("" if len(rows) >= MIN_COHORT_N else
+                 f"{len(rows)} customer(s) in this cohort. Below {MIN_COHORT_N} every metric "
+                 f"here is UNMEASURED with its reason, and none is produced as a number with "
+                 f"a caveat, because the caveat is what gets dropped when the number is quoted"),
+    }
+
+
+def state(db) -> dict:
+    """What the customer tables hold, which cohorts exist, and what is gated on the owner."""
+    with db.session() as s:
+        customers = s.scalar(select(func.count(Customer.id))) or 0
+        from . import orders_ingest
+
+        orders = len(orders_ingest.countable_orders(s))
+        occupied = s.execute(
+            select(CohortMembership.axis, CohortMembership.value,
+                   func.count(CohortMembership.id))
+            .group_by(CohortMembership.axis, CohortMembership.value)).all()
+    cohorts = [{"axis": a, "value": v, "customers": n, "readable": n >= MIN_COHORT_N}
+               for a, v, n in sorted(occupied)]
+    return {
+        "customers": customers,
+        "orders": orders,
+        "validation_cohort": {"size": VALIDATION_COHORT_SIZE,
+                              "filled": min(customers, VALIDATION_COHORT_SIZE),
+                              "complete": customers >= VALIDATION_COHORT_SIZE},
+        "axes": list(AXES),
+        "floor": MIN_COHORT_N,
+        "cohorts": cohorts,
+        "readable_cohorts": sum(1 for c in cohorts if c["readable"]),
+        "source": TRANSACTIONS_SCOPE,
+        "note": ("no customer exists. The tables, the axes and the floor are built; every "
+                 "metric they would carry is UNMEASURED, which is different from zero and is "
+                 "reported as the first. Filling them from Etsy needs the transactions_r "
+                 "scope, which is the owner's decision (#11, #12)"
+                 if not customers else
+                 f"{customers} customer(s), {orders} order(s), "
+                 f"{sum(1 for c in cohorts if c['readable'])} cohort(s) above the floor"),
+    }

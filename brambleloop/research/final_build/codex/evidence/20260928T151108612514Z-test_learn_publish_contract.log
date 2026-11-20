@@ -1,0 +1,6 @@
+PASS test_both_runtime_pdf_render_sites_pass_same_learn_resolver
+PASS test_approved_links_repeat_exact_bytes_and_changed_approval_trips_hash_gate
+C:\Users\Jacob McKenna\Documents\Codex\2026-09-27\visual-v2-independent-architecture-r-d\runtime-build2\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+PASS test_omitted_revision_serves_only_current_reviewed_spec_never_stale_pdf_target
+3/3 passing

@@ -1,0 +1,16 @@
+OK   test_a_bundle_has_no_engineered_pattern_of_its_own
+OK   test_a_class_b_design_is_marked_class_b
+OK   test_a_motif_is_identified_by_its_content
+OK   test_a_motif_of_something_other_than_ones_and_zeros_is_refused
+OK   test_a_ragged_motif_is_refused
+OK   test_a_width_the_motif_cannot_tile_is_refused
+OK   test_an_unknown_palette_is_refused
+OK   test_every_design_compiles
+OK   test_every_design_is_a_plausible_physical_object
+OK   test_every_design_survives_independent_reverse_compilation
+OK   test_every_motif_is_well_formed_and_distinct
+OK   test_motif_density_is_inside_the_band_that_makes_fabric
+OK   test_rows_are_emitted_as_repeats_not_flattened
+OK   test_the_catalogue_covers_the_release_candidates
+OK   test_the_flagship_certifies_end_to_end
+OK   test_two_designs_sharing_a_motif_are_still_different_products

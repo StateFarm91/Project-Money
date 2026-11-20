@@ -1,0 +1,2227 @@
+"""Intelligence warehouse tables (Master Plan section 15).
+
+Only the tables something actually writes to today are defined here. Modelling the full
+warehouse up front would create dozens of tables no code touches, which rots. Tables are added
+as their systems are built.
+"""
+from __future__ import annotations
+
+import enum
+from datetime import datetime, timezone
+
+from sqlalchemy import (
+    JSON, Boolean, DateTime, Enum, Float, ForeignKey, Index, Integer, LargeBinary,
+    String, Text, UniqueConstraint, text,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
+
+from .db import Base
+
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+class JobStatus(str, enum.Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    DONE = "done"
+    FAILED = "failed"      # will retry
+    DEAD = "dead"          # exhausted retries -> dead-letter
+    CANCELLED = "cancelled"
+
+
+# Statuses of a job that can still run: FAILED means "will retry" in this queue (the claim in
+# queue/durable.py takes PENDING and FAILED). Anything counting in-flight work uses this set.
+LIVE_JOB_STATUSES = (JobStatus.PENDING, JobStatus.RUNNING, JobStatus.FAILED)
+
+
+class Authority(str, enum.Enum):
+    """Master Plan section 26 authority matrix."""
+
+    GREEN = "green"    # autonomous, reversible, no spend
+    YELLOW = "yellow"  # bounded customer/spend actions inside explicit limits
+    RED = "red"        # owner-only: KYC, legal acceptance, banking, consequential spend
+
+
+class Phase(str, enum.Enum):
+    SHADOW = "shadow"
+    STAGING = "staging"
+    LIMITED_PRODUCTION = "limited_production"
+    PRODUCTION = "production"
+
+
+class Job(Base):
+    """A unit of durable work.
+
+    `idempotency_key` is the guard that makes duplicate execution safe: two jobs that would
+    publish the same listing or spend the same budget cannot both exist (Gate A).
+    """
+
+    __tablename__ = "jobs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    agent: Mapped[str] = mapped_column(String(64), index=True)
+    job_type: Mapped[str] = mapped_column(String(64), index=True)
+    inputs: Mapped[dict] = mapped_column(JSON, default=dict)
+    outputs: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    priority: Mapped[int] = mapped_column(Integer, default=100, index=True)
+    status: Mapped[JobStatus] = mapped_column(
+        Enum(JobStatus, native_enum=False), default=JobStatus.PENDING, index=True
+    )
+    idempotency_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    run_after: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    leased_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    # v1.1 lane A (ported from Codex 8877f05): a fresh token per claim. Completion, failure
+    # and renewal that present a token must present the current one, so a stale attempt is
+    # fenced off even when two workers share a name (two containers with the same PID during
+    # an overlapping deploy). Nullable and additive: `core.migrate` adds it in place.
+    lease_token: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cost_cad: Mapped[float] = mapped_column(Float, default=0.0)
+
+    __table_args__ = (
+        UniqueConstraint("idempotency_key", name="uq_jobs_idempotency_key"),
+        Index("ix_jobs_claimable", "status", "run_after", "priority"),
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debugging aid
+        return f"<Job {self.id} {self.agent}/{self.job_type} {self.status.value}>"
+
+
+class Agent(Base):
+    """Agent registry: explicit tools, budgets and financial authority (section 14)."""
+
+    __tablename__ = "agents"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    allowed_job_types: Mapped[list] = mapped_column(JSON, default=list)
+    authority: Mapped[Authority] = mapped_column(
+        Enum(Authority, native_enum=False), default=Authority.GREEN
+    )
+    daily_cost_ceiling_cad: Mapped[float] = mapped_column(Float, default=5.0)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    phase: Mapped[Phase] = mapped_column(
+        Enum(Phase, native_enum=False), default=Phase.SHADOW
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    def may_run(self, job_type: str) -> bool:
+        return self.enabled and job_type in (self.allowed_job_types or [])
+
+
+class AuditLog(Base):
+    """Append-only. Every production action records actor, action, artifact and time.
+
+    Nothing in the codebase updates or deletes rows here; the gates rely on it being a
+    faithful record rather than a mutable convenience table.
+    """
+
+    __tablename__ = "audit_log"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    actor: Mapped[str] = mapped_column(String(64), index=True)
+    action: Mapped[str] = mapped_column(String(80), index=True)
+    artifact: Mapped[str | None] = mapped_column(String(200), nullable=True, index=True)
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id"), nullable=True)
+    phase: Mapped[Phase | None] = mapped_column(
+        Enum(Phase, native_enum=False), nullable=True
+    )
+    model_version: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    policy_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class CostEntry(Base):
+    """Per-agent operating cost, so throughput can be measured in dollars (section 34).
+
+    The five columns below `detail` were added 2026-09-20 on the owner's spend-accounting
+    instruction: track every billable call by provider, model, agent, department, product and
+    purpose. They lived in the JSON blob before, inconsistently and only where somebody
+    remembered, so "what did the money produce" was a question nobody could answer with a
+    query. A dimension that has to be grepped out of a JSON field is a dimension nobody
+    reports on.
+
+    `estimated_cad` is the other half of the same instruction: the pre-call reservation, kept
+    beside what the call actually cost. An estimate nobody compares against the bill is an
+    estimate that can drift by a factor of three and did -- the deep tier was priced at a
+    third of its rate for a whole session, and every ceiling check in that session was
+    computed against the wrong number.
+    """
+
+    __tablename__ = "cost_entries"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    agent: Mapped[str] = mapped_column(String(64), index=True)
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id"), nullable=True)
+    kind: Mapped[str] = mapped_column(String(40), default="llm")  # llm | api | hosting | ads
+    amount_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    tokens_in: Mapped[int] = mapped_column(Integer, default=0)
+    tokens_out: Mapped[int] = mapped_column(Integer, default=0)
+    provider: Mapped[str] = mapped_column(String(40), default="", index=True)
+    model: Mapped[str] = mapped_column(String(80), default="", index=True)
+    department: Mapped[str] = mapped_column(String(40), default="", index=True)
+    product_slug: Mapped[str] = mapped_column(String(80), default="", index=True)
+    purpose: Mapped[str] = mapped_column(String(60), default="", index=True)
+    estimated_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+    # F-304 (W4-SPENDA, integrator-authorised additive columns; `core.migrate` adds them to an
+    # existing table). NULL is UNKNOWN, never 0: a listing not yet made, an image count nobody
+    # proved, a provider bill not yet read. `observed_cad` is only ever a provider-reported
+    # figure (settlement, `ops.provider_accounts.settle`), never this system's own estimate;
+    # `amount_cad` stays the recorded exposure at assumed prices. How each was obtained is in
+    # `finance.cost_attribution.CostAttribution`.
+    listing_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    image_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    observed_cad: Mapped[float | None] = mapped_column(Float, nullable=True)
+    evidence_ref: Mapped[str | None] = mapped_column(String(200), nullable=True, default="")
+
+
+class LedgerEntry(Base):
+    """Financial ledger: actual money events only, each with an evidence reference."""
+
+    __tablename__ = "ledger"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    category: Mapped[str] = mapped_column(String(40), index=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    gross_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    fees_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    refunds_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    expense_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    evidence_ref: Mapped[str] = mapped_column(String(200), default="")
+    # F-609 (Auditable Ledger): every row says where it came from, which external object it
+    # is, the currency and amount as that object stated them, what kind of money it is, how
+    # each figure was obtained and whether it has been reconciled. Additive columns
+    # (core/migrate.py backfills the literal defaults), so a row written before them reads
+    # as `unknown` / `unreconciled` -- never as measured.
+    #
+    # `basis` is how the gross/expense amount was obtained and `fees_basis` how `fees_cad`
+    # was: a sale's price is read off the receipt (measured) while its fees, until Etsy's
+    # payment-account ledger is read, are `commerce.pricing.fees()` output (modelled). One
+    # flag for both would either call a modelled fee charged or a measured price a guess.
+    source: Mapped[str] = mapped_column(String(40), default="", index=True)
+    external_id: Mapped[str] = mapped_column(String(120), default="", index=True)
+    currency: Mapped[str] = mapped_column(String(3), default="CAD")
+    amount_original: Mapped[float | None] = mapped_column(Float, nullable=True)
+    classification: Mapped[str] = mapped_column(String(40), default="")
+    basis: Mapped[str] = mapped_column(String(12), default="unknown")
+    fees_basis: Mapped[str] = mapped_column(String(12), default="unknown")
+    reconciliation_state: Mapped[str] = mapped_column(String(24), default="unreconciled",
+                                                      index=True)
+
+    @property
+    def net_cad(self) -> float:
+        return self.gross_cad - self.fees_cad - self.refunds_cad - self.expense_cad
+
+
+class SpendLimit(Base):
+    """Hard budget ceilings enforced in code, not in a prompt (section 11)."""
+
+    __tablename__ = "spend_limits"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    scope: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    daily_cap_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    lifetime_cap_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    spent_today_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    spent_lifetime_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    paused: Mapped[bool] = mapped_column(Boolean, default=False)
+    day: Mapped[str] = mapped_column(String(10), default="")
+
+
+class SpendReservation(Base):
+    """Money a caller is about to spend, written down before the call and released after it.
+
+    The gap this closes was the last unbounded overshoot in the monthly model ceiling.
+    `gateway.anthropic.check_budget` reads the month from `cost_entries`, decides, and
+    returns; the provider call then runs for seconds, and only afterwards is a cost row
+    written. Two callers in two processes both read CA$99 of a CA$100 month, both find room,
+    and both spend. Nothing anywhere was written down in between: `spend_report`'s docstring
+    said "the reservation and the bill are kept side by side", and the reservation was a local
+    variable in one module and an `estimated_cad` column filled in *after* the fact. So the
+    overshoot was bounded only by (concurrent callers) x (largest single estimate), and the
+    image benchmark can estimate double figures in one call.
+
+    **A reservation must expire, or it becomes a phantom charge.** A holder that dies between
+    reserving and releasing would otherwise hold budget for the rest of the month against a
+    call that never happened -- and the container is replaced several times an hour, so this
+    is the normal case rather than the unlucky one. `expires_at` is set from the caller's own
+    bound on how long its call can take, and a reservation past it counts for nothing. That
+    makes the failure mode a brief over-reservation instead of a permanent one.
+
+    Rows are kept after release rather than deleted, because a reservation beside the bill it
+    turned into is the reconciliation the spend policy asked for and could not have. Retention
+    prunes them once both numbers are in the ledger.
+    """
+
+    __tablename__ = "spend_reservations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    # Who is holding it: host, process and thread. Deliberately not an agent name -- the
+    # question this answers is "is the thing that took this still alive", and two threads of
+    # one process are two callers racing each other.
+    holder: Mapped[str] = mapped_column(String(120), default="", index=True)
+    agent: Mapped[str] = mapped_column(String(64), default="", index=True)
+    purpose: Mapped[str] = mapped_column(String(60), default="", index=True)
+    model: Mapped[str] = mapped_column(String(80), default="")
+    amount_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True)
+    released_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True)
+    # What the call actually cost, when the caller knew. Null means released without a figure,
+    # which is not the same as free and is reported as such.
+    actual_cad: Mapped[float | None] = mapped_column(Float, nullable=True)
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id"), nullable=True)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    __table_args__ = (
+        Index("ix_spend_reservations_live", "released_at", "expires_at"),
+    )
+
+
+class Product(Base):
+    __tablename__ = "products"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    slug: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    status: Mapped[str] = mapped_column(String(40), default="concept", index=True)
+    risk_class: Mapped[str] = mapped_column(String(1), default="A")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    versions: Mapped[list["PatternVersion"]] = relationship(back_populates="product")
+
+
+class PatternVersion(Base):
+    """An immutable CIR release. `release_hash` makes a shipped pattern identifiable."""
+
+    __tablename__ = "pattern_versions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), index=True)
+    version: Mapped[str] = mapped_column(String(20))
+    cir_json: Mapped[dict] = mapped_column(JSON)
+    release_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    certified: Mapped[bool] = mapped_column(Boolean, default=False)
+    certificate: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    product: Mapped[Product] = relationship(back_populates="versions")
+
+    __table_args__ = (UniqueConstraint("product_id", "version", name="uq_product_version"),)
+
+
+class CultureConcept(Base):
+    """One original product idea translated from a cultural signal (#134, #137, #138, #144).
+
+    A candidate for creative development, never an engineering job: the concept tournament,
+    the jury and the CIR still stand between this row and a pattern. Rejected and withdrawn
+    ideas are kept with their reason, because the reason is what next year's agent needs.
+    """
+
+    __tablename__ = "culture_concepts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    signal_key: Mapped[str] = mapped_column(String(80), index=True)
+    slug: Mapped[str] = mapped_column(String(160), unique=True, index=True)
+    family: Mapped[str] = mapped_column(String(30), default="")
+    premise: Mapped[str] = mapped_column(Text, default="")
+    era: Mapped[str] = mapped_column(String(40), default="")
+    theme: Mapped[str] = mapped_column(String(40), default="")
+    lane: Mapped[str] = mapped_column(String(30), default="original_concept")
+    origin: Mapped[str] = mapped_column(String(30), default="era_combination", index=True)
+    status: Mapped[str] = mapped_column(String(20), default="candidate", index=True)
+    stage: Mapped[str] = mapped_column(String(30), default="creative_development")
+    priority: Mapped[str] = mapped_column(String(20), default="standard")
+    reason: Mapped[str] = mapped_column(Text, default="")
+    product_slug: Mapped[str] = mapped_column(String(80), default="")
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class CultureIPElement(Base):
+    """A Brambleloop-owned character, motif, joke, tradition or world, as proposed (#146).
+
+    `proposed` until it has appeared in enough releases across enough seasons; nothing here
+    promotes it by assertion.
+    """
+
+    __tablename__ = "culture_ip_elements"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    kind: Mapped[str] = mapped_column(String(30), index=True)
+    name: Mapped[str] = mapped_column(String(160), default="")
+    about: Mapped[str] = mapped_column(Text, default="")
+    derived_from: Mapped[dict] = mapped_column(JSON, default=dict)
+    signals: Mapped[list] = mapped_column(JSON, default=list)
+    status: Mapped[str] = mapped_column(String(20), default="proposed", index=True)
+    appearances: Mapped[list] = mapped_column(JSON, default=list)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class OperatingReading(Base):
+    """One recorded reading of a recurring decision job, keyed by its period (W6 repair).
+
+    The weekly growth solve (#25, #28, #229, #264, #270, #272) and the daily seasonal plan
+    (#33, #131, #267, #286, #289, #291) write here so what they decided is a row rather than a
+    log line. A quantity with no source is stored as the string UNMEASURED, never as zero.
+    """
+
+    __tablename__ = "operating_readings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    kind: Mapped[str] = mapped_column(String(60), index=True)
+    # Some readings are keyed by a release: an 80-character product slug,
+    # '@', and a 20-character version cannot fit the former VARCHAR(20).
+    # core.migrate.widen upgrades existing PostgreSQL columns at startup.
+    period_key: Mapped[str] = mapped_column(String(200), index=True)
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    __table_args__ = (UniqueConstraint("kind", "period_key", name="uq_operating_reading"),)
+
+
+class SeasonalTeam(Base):
+    """One event's strike team, persisted with what it owns (#287).
+
+    A team is capacity or it is a name: the share is the allocation `seasonal.teams` granted,
+    `owns` holds the opportunity map, product gaps, colour and motif language, deadlines,
+    benchmark changes and revenue target (UNMEASURED until sales exist), and a team whose
+    occasion has passed its last practical make date is recorded `disbanded`, not deleted.
+    """
+
+    __tablename__ = "seasonal_teams"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    event: Mapped[str] = mapped_column(String(60), index=True)
+    year: Mapped[int] = mapped_column(Integer, index=True)
+    state: Mapped[str] = mapped_column(String(20), default="active", index=True)
+    share: Mapped[float | None] = mapped_column(Float, nullable=True)
+    standing: Mapped[bool] = mapped_column(Boolean, default=False)
+    owner_agent: Mapped[str] = mapped_column(String(64), default="", index=True)
+    products: Mapped[list] = mapped_column(JSON, default=list)
+    owns: Mapped[dict] = mapped_column(JSON, default=dict)
+    reason: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (UniqueConstraint("event", "year", name="uq_seasonal_team"),)
+
+
+class TrendProvenance(Base):
+    """Source, window, population and freshness stamped on one trend datum (#38).
+
+    One row per trend/search row (`culture_observations`, `insights_snapshots`). A datum that
+    cannot say whom it measured is stamped `refused` with the reason rather than discounted,
+    and `usable_value` is the figure after the population and staleness discount.
+    """
+
+    __tablename__ = "trend_provenance"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source_table: Mapped[str] = mapped_column(String(40), index=True)
+    row_id: Mapped[int] = mapped_column(Integer, index=True)
+    topic: Mapped[str] = mapped_column(Text, default="")
+    source: Mapped[str] = mapped_column(Text, default="")
+    population: Mapped[str] = mapped_column(String(20), default="UNKNOWN", index=True)
+    window_from: Mapped[str] = mapped_column(String(10), default="")
+    window_to: Mapped[str] = mapped_column(String(10), default="")
+    shape: Mapped[str] = mapped_column(String(20), default="")
+    raw_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    weight: Mapped[float | None] = mapped_column(Float, nullable=True)
+    usable_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    freshness: Mapped[float | None] = mapped_column(Float, nullable=True)
+    refused_reason: Mapped[str] = mapped_column(Text, default="")
+    stamped_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (UniqueConstraint("source_table", "row_id", name="uq_trend_provenance"),)
+
+
+class MjsMissionEvent(Base):
+    """One new or changed benchmark listing, carried through the mission pipeline (#214, #309).
+
+    One row per listing *content* (the scan's own fingerprint), so an unchanged listing is
+    never re-reasoned over and a restart does not reprocess the catalogue. Every step's result
+    is stored beside the decision it produced, because a pipeline that records only its
+    conclusion cannot be audited for the step that quietly became optional.
+    """
+
+    __tablename__ = "mjs_mission_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    benchmark_key: Mapped[str] = mapped_column(String(60), index=True)
+    listing_ref: Mapped[str] = mapped_column(String(80), index=True)
+    fingerprint: Mapped[str] = mapped_column(String(64), default="", index=True)
+    event_fingerprint: Mapped[str] = mapped_column(String(64), default="", index=True)
+    observation_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    what: Mapped[str] = mapped_column(String(30), default="")
+    pod: Mapped[str] = mapped_column(String(40), default="", index=True)
+    arena: Mapped[str] = mapped_column(String(40), default="", index=True)
+    proven: Mapped[bool] = mapped_column(Boolean, default=False)
+    decision: Mapped[str] = mapped_column(String(30), default="", index=True)
+    entered: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    gap_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    tournament_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    seasonal: Mapped[dict] = mapped_column(JSON, default=dict)
+    steps: Mapped[dict] = mapped_column(JSON, default=dict)
+    pipeline: Mapped[dict] = mapped_column(JSON, default=dict)
+    sentinel: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    __table_args__ = (UniqueConstraint("benchmark_key", "listing_ref", "fingerprint",
+                                       name="uq_mjs_event_content"),)
+
+
+class OwnerVeto(Base):
+    """One owner ruling on flagship creative or canonical identity, kept countable (#228).
+
+    `owner_vetoed` is False for a ruling that let the thing through: alignment is scored on
+    both kinds, and an evaluator graded only on refusals would learn that refusing is right.
+    The prediction columns hold what an evaluator said *before* the ruling, or nothing.
+    """
+
+    __tablename__ = "owner_vetoes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    subject_ref: Mapped[str] = mapped_column(String(120), index=True)
+    scope: Mapped[str] = mapped_column(String(40), index=True)
+    reason: Mapped[str] = mapped_column(String(40), default="", index=True)
+    note: Mapped[str] = mapped_column(Text, default="")
+    owner_vetoed: Mapped[bool] = mapped_column(Boolean, default=True)
+    predicted_veto: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    predicted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                          nullable=True)
+    recorded_by: Mapped[str] = mapped_column(String(40), default="owner")
+
+
+class CompetitiveStandard(Base):
+    """A standard this shop holds that a benchmark may raise and never lower (#220)."""
+
+    __tablename__ = "competitive_standards"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(60), unique=True, index=True)
+    value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    higher_is_better: Mapped[bool] = mapped_column(Boolean, default=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # Every raise, hold and refused lowering, with the observation that prompted it.
+    history: Mapped[list] = mapped_column(JSON, default=list)
+
+
+class PodCapabilityReading(Base):
+    """A pod's discernment and creativity, computed from rows and never folded into one (#226)."""
+
+    __tablename__ = "pod_capability_readings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    pod: Mapped[str] = mapped_column(String(40), index=True)
+    measured: Mapped[bool] = mapped_column(Boolean, default=False)
+    discernment: Mapped[dict] = mapped_column(JSON, default=dict)
+    creativity: Mapped[dict] = mapped_column(JSON, default=dict)
+    balance: Mapped[dict] = mapped_column(JSON, default=dict)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class ListingSetCertificateRecord(Base):
+    """A listing-set release certificate (#70), and whether it still describes the product.
+
+    `publish.listing_set.certify` issues it at export time from the four-gate readings; its
+    validity is recomputed from the fingerprints on every publish attempt and on every
+    re-certification of the pattern, never read from `state` alone -- `state` records the
+    last recomputation so an invalidation is visible without re-running it.
+    """
+
+    __tablename__ = "listing_set_certificates"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_slug: Mapped[str] = mapped_column(String(80), index=True)
+    version: Mapped[str] = mapped_column(String(20))
+    release_hash: Mapped[str] = mapped_column(String(64), default="")
+    certificate: Mapped[dict] = mapped_column(JSON, default=dict)
+    geometry_fingerprint: Mapped[str] = mapped_column(String(32), default="")
+    claims_fingerprint: Mapped[str] = mapped_column(String(32), default="")
+    policy_version: Mapped[str] = mapped_column(String(40), default="")
+    state: Mapped[str] = mapped_column(String(20), default="valid", index=True)
+    invalidated_by: Mapped[list] = mapped_column(JSON, default=list)
+    issued_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    invalidated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                            nullable=True)
+
+
+class Incident(Base):
+    """A correlated quality problem (Gate E). P0/P1 can halt publication."""
+
+    __tablename__ = "incidents"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    severity: Mapped[str] = mapped_column(String(4), default="P2", index=True)
+    product_slug: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
+    signature: Mapped[str] = mapped_column(String(200), index=True)
+    summary: Mapped[str] = mapped_column(Text, default="")
+    report_count: Mapped[int] = mapped_column(Integer, default=1)
+    halts_publication: Mapped[bool] = mapped_column(Boolean, default=False)
+    resolved: Mapped[bool] = mapped_column(Boolean, default=False)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class ListingOutcome(Base):
+    """One listing's measured performance over one period, with where the numbers came from.
+
+    The outcome table #82 and #89 read. Nothing writes it until a listing is live and a Stats
+    export (or the API) says what happened, and that is deliberate: a style or concept
+    verdict computed from an empty table is the one number this company must never print.
+    `hero_style` is tagged when the row is written, from the listing's own frame record, so
+    the style a period is credited to is the style that was actually shown during it.
+    """
+
+    __tablename__ = "listing_outcomes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    product_slug: Mapped[str] = mapped_column(String(80), index=True)
+    version: Mapped[str] = mapped_column(String(20), default="")
+    period_start: Mapped[str] = mapped_column(String(10), index=True)
+    period_end: Mapped[str] = mapped_column(String(10), index=True)
+    impressions: Mapped[int] = mapped_column(Integer, default=0)
+    visits: Mapped[int] = mapped_column(Integer, default=0)
+    favourites: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    first_frame_views: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    first_frame_engagements: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    orders: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    hero_style: Mapped[str] = mapped_column(String(120), default="", index=True)
+    styles: Mapped[list] = mapped_column(JSON, default=list)
+    test_key: Mapped[str] = mapped_column(String(80), default="", index=True)
+    source: Mapped[str] = mapped_column(String(200))
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    __table_args__ = (UniqueConstraint("product_slug", "period_start", "period_end",
+                                       name="uq_listing_outcome_period"),)
+
+
+class BrandKnowledge(Base):
+    """A creative pattern promoted to brand knowledge on measured evidence (#82).
+
+    Knowledge, never law: a row here may state a preference among honest choices and may not
+    change what a product is, what policy allows, or who the brand is. The promotion function
+    refuses those before a row can exist, so this table only ever holds preferences.
+    """
+
+    __tablename__ = "brand_knowledge"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    kind: Mapped[str] = mapped_column(String(40), index=True)
+    key: Mapped[str] = mapped_column(String(160), index=True)
+    statement: Mapped[str] = mapped_column(Text)
+    rule: Mapped[dict] = mapped_column(JSON, default=dict)
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+
+    __table_args__ = (UniqueConstraint("kind", "key", name="uq_brand_knowledge_key"),)
+
+
+class SeasonHarvest(Base):
+    """What one occurrence of one seasonal event taught, written after it passed (#298).
+
+    One row per (event, occurrence). A refused harvest is stored too, with its reason, so
+    "nothing was learned from Halloween" is distinguishable from "nobody looked".
+    """
+
+    __tablename__ = "season_harvests"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    event: Mapped[str] = mapped_column(String(80), index=True)
+    occurrence: Mapped[str] = mapped_column(String(10), index=True)
+    status: Mapped[str] = mapped_column(String(20), index=True)
+    reason: Mapped[str] = mapped_column(Text, default="")
+    result: Mapped[dict] = mapped_column(JSON, default=dict)
+    timing: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    __table_args__ = (UniqueConstraint("event", "occurrence", name="uq_season_harvest"),)
+
+
+class OrderVersion(Base):
+    """Which released version one order bought, written at sale time (#42).
+
+    It cannot be reconstructed afterwards: once a listing has moved to 1.2.0 nothing says who
+    bought 1.1.0 unless this row was written when they did. `current_safe_version` is the
+    version support should point the buyer at now, and `correction_notice_sent_at` stays null
+    until a notice has actually been sent -- shadow mode prepares notices and never sends.
+    """
+
+    __tablename__ = "order_versions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    order_ref: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    product_slug: Mapped[str] = mapped_column(String(80), index=True)
+    version: Mapped[str] = mapped_column(String(20), index=True)
+    release_hash: Mapped[str] = mapped_column(String(64), default="")
+    sold_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow,
+                                              index=True)
+    current_safe_version: Mapped[str] = mapped_column(String(20), default="")
+    correction_notice_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class RegisteredExperiment(Base):
+    """A pre-registered growth experiment, persisted rather than held in a dict (#241, #265).
+
+    Separate from `experiments` (section 9's price/creative arms) because this row carries
+    what #241 asks to be fixed before a test starts -- thresholds, sample, stop date -- and
+    what #265 asks of every experiment: an owner, an expected value, and the decision it can
+    change. An experiment that cannot change a decision is killed rather than run.
+    """
+
+    __tablename__ = "registered_experiments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(160), unique=True, index=True)
+    product_slug: Mapped[str] = mapped_column(String(80), default="", index=True)
+    hypothesis: Mapped[str] = mapped_column(Text, default="")
+    metric: Mapped[str] = mapped_column(String(80), default="")
+    design: Mapped[str] = mapped_column(String(30), default="")
+    success_threshold: Mapped[float] = mapped_column(Float, default=0.0)
+    failure_threshold: Mapped[float] = mapped_column(Float, default=0.0)
+    minimum_sample: Mapped[int] = mapped_column(Integer, default=0)
+    higher_is_better: Mapped[bool] = mapped_column(Boolean, default=True)
+    stop_on: Mapped[str] = mapped_column(String(10), default="")
+    cost_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    owner: Mapped[str] = mapped_column(String(64), default="", index=True)
+    expected_value_cad: Mapped[float | None] = mapped_column(Float, nullable=True)
+    decision: Mapped[str] = mapped_column(Text, default="")
+    gated_on: Mapped[str] = mapped_column(String(60), default="", index=True)
+    state: Mapped[str] = mapped_column(String(20), default="registered", index=True)
+    observed: Mapped[float | None] = mapped_column(Float, nullable=True)
+    sample: Mapped[int] = mapped_column(Integer, default=0)
+    killed_reason: Mapped[str] = mapped_column(Text, default="")
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class SwarmAllocation(Base):
+    """One capacity decision: which lanes are active and how much each may take (#175).
+
+    Written by `swarm.allocate` and read by the idle-backlog handler, so the fan-out number
+    decides something instead of being reported. Never raises spend: every lane's batch is
+    bounded by `finance.spend_policy.work_that_fits` against ceilings that already exist.
+    """
+
+    __tablename__ = "swarm_allocations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    open_work: Mapped[int] = mapped_column(Integer, default=0)
+    granted: Mapped[int] = mapped_column(Integer, default=0)
+    lanes: Mapped[dict] = mapped_column(JSON, default=dict)
+    backlog_batch: Mapped[int] = mapped_column(Integer, default=0)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+MAX_COST_UNKNOWN = "UNKNOWN"
+
+
+class OwnerAction(Base):
+    """The single consolidated owner queue (section 14)."""
+
+    __tablename__ = "owner_actions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # Which requirement this action belongs to, and therefore the action's identity. The
+    # queue de-duplicates on this rather than on the action's wording: an action that
+    # derives a figure from the catalogue changes its text when the catalogue changes, and
+    # comparing text gave the owner two entries for one decision.
+    requirement_key: Mapped[str] = mapped_column(Text, default="")
+    action: Mapped[str] = mapped_column(Text)
+    reason: Mapped[str] = mapped_column(Text, default="")
+    max_cost_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    minutes: Mapped[int] = mapped_column(Integer, default=0)
+    consequence_of_delay: Mapped[str] = mapped_column(Text, default="")
+    blocks: Mapped[str] = mapped_column(Text, default="")
+    done: Mapped[bool] = mapped_column(Boolean, default=False)
+    # F-180 (wave-3 K7, additive): the lifecycle beside the boolean. `done` stays the active-
+    # queue flag every producer already reads; `state` says *why* a row left the queue
+    # (`ops.owner_queue.STATES`), with when and the reason. A row closed by a producer that
+    # only flips `done` is stamped `closed_unclassified` by the validator below rather than
+    # being given a reason it never had.
+    state: Mapped[str] = mapped_column(String(24), default="open")
+    state_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    state_reason: Mapped[str] = mapped_column(Text, default="")
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # F-870: why software cannot do this itself (KYC, legal acceptance, a browser-only page...).
+    why_software_cannot: Mapped[str] = mapped_column(Text, default="")
+    # W3-F wiring 5 (W3-WIRE4): the basis of `max_cost_cad`. "stated" (the default, every
+    # existing row) means the figure is the owner's real ceiling. "UNKNOWN" means nobody can
+    # state a ceiling yet (e.g. a provider not chosen): the stored 0.0 is a placeholder that
+    # every reader must render as UNKNOWN and no spend path may treat as free or uncapped.
+    max_cost_basis: Mapped[str] = mapped_column(String(16), default="stated")
+
+    # OPUS2 B-5 (review OPUS2EF2: an integration blocker before production/Postgres): the
+    # database itself holds one open action per requirement. Partial, so closed rows and
+    # keyless rows are untouched. `core.migrate` creates it on an existing database only when
+    # no duplicate open keys remain; closing those is `ops.owner_queue_dedupe`'s explicit job.
+    __table_args__ = (
+        Index("uq_owner_actions_open_requirement", "requirement_key", unique=True,
+              sqlite_where=text("done = 0 AND requirement_key != ''"),
+              postgresql_where=text("done = false AND requirement_key <> ''"),
+              info={"requires_clean": "brambleloop.ops.owner_queue_dedupe"}),
+    )
+
+    @property
+    def max_cost_known(self) -> float | None:
+        """`max_cost_cad`, or None when its basis is UNKNOWN (never CA$0.00)."""
+        if (self.max_cost_basis or "stated") == MAX_COST_UNKNOWN:
+            return None
+        return float(self.max_cost_cad or 0.0)
+
+    @validates("done")
+    def _lifecycle_on_done(self, _key, value):
+        state = self.state or "open"
+        if value and state in ("open", "parked"):
+            self.state = "closed_unclassified"
+            self.state_at = utcnow()
+            self.state_reason = self.state_reason or (
+                "closed by a producer that set done without naming a lifecycle state")
+        elif not value and state not in ("open", "parked"):
+            self.state = "open"
+            self.state_at = utcnow()
+        return value
+
+
+# ---------------------------------------------------------------------------
+# Commercial warehouse (section 15).
+#
+# Added as their systems were built, not speculatively. Each table below has code that
+# writes to it; the ones section 15 lists that are still absent -- SALES, REVIEWS,
+# CAMPAIGNS -- stay absent until something real produces the rows, because a table full of
+# nothing is indistinguishable from a table full of fiction.
+# ---------------------------------------------------------------------------
+
+
+class Collection(Base):
+    """A named family of products sold as one visual idea (sections 6, 16)."""
+
+    __tablename__ = "collections"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    slug: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    family: Mapped[str] = mapped_column(String(80), index=True)
+    season: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    palette: Mapped[dict] = mapped_column(JSON, default=dict)
+    story: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Motif(Base):
+    """A reusable, original, validated design element (section 5).
+
+    The library is inventory. A motif that compiled inside one product can be reused in
+    another without re-earning its arithmetic, which is the only way a catalogue grows
+    without the defect rate growing with it.
+    """
+
+    __tablename__ = "motifs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    slug: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    width_stitches: Mapped[int] = mapped_column(Integer)
+    height_rows: Mapped[int] = mapped_column(Integer)
+    grid: Mapped[list] = mapped_column(JSON)
+    origin_product: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    validated: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ModelIdentity(Base):
+    """One canonical-model candidate, or the frozen canonical pack (#200).
+
+    Durable because the identity lock is a promise across seasons: a pack held in memory is
+    a pack that is gone after the next deploy, and a canonical model who disappears on a
+    redeploy is not locked to anything.
+    """
+
+    __tablename__ = "model_identities"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    # candidate | canonical | retired. Only the owner moves a row to canonical.
+    state: Mapped[str] = mapped_column(String(20), default="candidate", index=True)
+    version: Mapped[int] = mapped_column(Integer, default=0)
+    fields: Mapped[dict] = mapped_column(JSON, default=dict)
+    approved_by_owner_at: Mapped[str] = mapped_column(String(40), default="")
+    # Where the face lives. Reference conditioning needs the bytes, so a pack whose images
+    # are gone is a pack that cannot lock anything.
+    image_refs: Mapped[list] = mapped_column(JSON, default=list)
+    note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # Set when the owner replaces her (`model_registry.replace_canonical`). A retired row is
+    # kept, never deleted: it is the evidence of who she was, and the new row's
+    # `predecessor_key` points back at it so the lineage reads in both directions. Nullable
+    # so `core.migrate` can add both columns to a table that already has rows.
+    retired_at: Mapped[str | None] = mapped_column(String(40), nullable=True, default=None)
+    predecessor_key: Mapped[str | None] = mapped_column(String(80), nullable=True,
+                                                       default=None)
+
+
+class ListingAsset(Base):
+    """One image in a listing's ordered frame plan (section 7)."""
+
+    __tablename__ = "listing_assets"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_slug: Mapped[str] = mapped_column(String(80), index=True)
+    version: Mapped[str] = mapped_column(String(20))
+    position: Mapped[int] = mapped_column(Integer)
+    asset_class: Mapped[str] = mapped_column(String(40))
+    role: Mapped[str] = mapped_column(String(40))
+    sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    claims: Mapped[dict] = mapped_column(JSON, default=dict)
+    approved: Mapped[bool] = mapped_column(Boolean, default=False)
+    blocked_reasons: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("product_slug", "version", "position", name="uq_asset_slot"),
+    )
+
+
+class Listing(Base):
+    """A drafted (never published, in shadow) storefront listing."""
+
+    __tablename__ = "listings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_slug: Mapped[str] = mapped_column(String(80), index=True)
+    version: Mapped[str] = mapped_column(String(20))
+    title: Mapped[str] = mapped_column(Text)
+    description: Mapped[str] = mapped_column(Text)
+    tags: Mapped[list] = mapped_column(JSON, default=list)
+    price_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    state: Mapped[str] = mapped_column(String(30), default="draft", index=True)
+    seo_score: Mapped[float] = mapped_column(Float, default=0.0)
+    # Which release chain produced this listing. A rebuild that only looked for *missing*
+    # listings left every stale one in place, so staleness has to be visible.
+    chain_version: Mapped[str] = mapped_column(String(8), default="1", index=True)
+    # And which *certified release* produced it. The chain version catches a code change;
+    # this catches a design change, which the chain version cannot see: a re-engineered
+    # product keeps its slug and its version and gets a new release hash.
+    release_hash: Mapped[str] = mapped_column(String(64), default="", index=True)
+    # The Etsy listing this became, once it becomes one. Recorded so that publishing twice
+    # updates a listing rather than creating a second one, and so a listing that exists on
+    # Etsy with no file attached can be found again and completed.
+    etsy_listing_id: Mapped[str] = mapped_column(String(32), default="", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("product_slug", "version", name="uq_listing_version"),
+    )
+
+
+class Keyword(Base):
+    """A query we are trying to cover, and how well we currently cover it (section 8)."""
+
+    __tablename__ = "keywords"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    phrase: Mapped[str] = mapped_column(String(120), index=True)
+    intent: Mapped[str] = mapped_column(String(30), default="product")
+    est_competition: Mapped[float] = mapped_column(Float, default=0.5)
+    est_demand: Mapped[float] = mapped_column(Float, default=0.5)
+    covered_by: Mapped[list] = mapped_column(JSON, default=list)
+    coverage: Mapped[float] = mapped_column(Float, default=0.0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (UniqueConstraint("phrase", name="uq_keyword_phrase"),)
+
+
+class CompetitorSnapshot(Base):
+    """A dated observation of a competitor. Longitudinal by construction (section 4)."""
+
+    __tablename__ = "competitor_snapshots"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop: Mapped[str] = mapped_column(String(80), index=True)
+    observed_on: Mapped[str] = mapped_column(String(10), index=True)
+    price_low_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    price_high_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    signals: Mapped[dict] = mapped_column(JSON, default=dict)
+    notes: Mapped[str] = mapped_column(Text, default="")
+
+    __table_args__ = (UniqueConstraint("shop", "observed_on", name="uq_shop_observation"),)
+
+
+class SupportCase(Base):
+    """A customer conversation, with the pattern version it was answered from (section 10)."""
+
+    __tablename__ = "support_cases"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    customer_ref: Mapped[str] = mapped_column(String(80), index=True)
+    product_slug: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
+    version: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    question: Mapped[str] = mapped_column(Text)
+    answer: Mapped[str] = mapped_column(Text, default="")
+    specialist: Mapped[str] = mapped_column(String(40), default="concierge", index=True)
+    escalated: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    resolved: Mapped[bool] = mapped_column(Boolean, default=False)
+    sent: Mapped[bool] = mapped_column(Boolean, default=False)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class Experiment(Base):
+    """A price or creative test with its stopping rule fixed before it starts (section 9)."""
+
+    __tablename__ = "experiments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), unique=True)
+    kind: Mapped[str] = mapped_column(String(30), index=True)
+    product_slug: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
+    hypothesis: Mapped[str] = mapped_column(Text, default="")
+    arms: Mapped[list] = mapped_column(JSON, default=list)
+    min_observations: Mapped[int] = mapped_column(Integer, default=200)
+    max_loss_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    state: Mapped[str] = mapped_column(String(20), default="designed", index=True)
+    result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class PortfolioReview(Base):
+    """A dated classification of every SKU (section 12)."""
+
+    __tablename__ = "portfolio_reviews"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    as_of: Mapped[str] = mapped_column(String(10), index=True)
+    classifications: Mapped[dict] = mapped_column(JSON, default=dict)
+    actions: Mapped[list] = mapped_column(JSON, default=list)
+    evidence_available: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class ContentPiece(Base):
+    """One item in a product's content ecosystem (section 11)."""
+
+    __tablename__ = "content_pieces"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_slug: Mapped[str] = mapped_column(String(80), index=True)
+    channel: Mapped[str] = mapped_column(String(30), index=True)
+    title: Mapped[str] = mapped_column(Text)
+    body: Mapped[str] = mapped_column(Text, default="")
+    scheduled_for: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    state: Mapped[str] = mapped_column(String(20), default="drafted", index=True)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class PhysicalTest(Base):
+    """A real person crocheting a real sample. Calibration data, not a formality."""
+
+    __tablename__ = "physical_tests"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_slug: Mapped[str] = mapped_column(String(80), index=True)
+    version: Mapped[str] = mapped_column(String(20))
+    tester_ref: Mapped[str] = mapped_column(String(80))
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    passed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    measured: Mapped[dict] = mapped_column(JSON, default=dict)
+    notes: Mapped[str] = mapped_column(Text, default="")
+
+
+class PhysicalPhoto(Base):
+    """A photograph of a finished Brambleloop object somebody actually made (#64).
+
+    Only the hash, who took it, the rights basis it may be used under and what it became are
+    kept; the bytes live wherever the intake put them. A photo with no rights basis is
+    received and never used -- "where rights permit" is the requirement's own condition.
+    """
+
+    __tablename__ = "physical_photos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_slug: Mapped[str] = mapped_column(String(80), index=True)
+    version: Mapped[str] = mapped_column(String(20), default="")
+    source: Mapped[str] = mapped_column(String(20), default="tester")
+    sha256: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    rights_basis: Mapped[str] = mapped_column(String(40), default="")
+    taken_by: Mapped[str] = mapped_column(String(120), default="")
+    physical_test_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    state: Mapped[str] = mapped_column(String(20), default="received", index=True)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+# ---------------------------------------------------------------------------
+# Benchmark intelligence (v1.4.3 sections 205-220 and 300-320).
+#
+# The owner named one shop and forbade generalising it into "watch proven sellers", so the
+# registry is a table rather than a constant: a benchmark has scan health, freshness and an
+# owner-supplied URL that has to survive Etsy changing its routing. What the tables below
+# deliberately do *not* hold is any competitor's protected expression -- no pattern text, no
+# chart, no downloaded image. They hold observations about merchandising, and the mechanism
+# lessons drawn from them.
+
+
+class Benchmark(Base):
+    """One elite benchmark shop, with the evidence to say how fresh its coverage is (#205)."""
+
+    __tablename__ = "benchmarks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(60), unique=True, index=True)
+    shop_name: Mapped[str] = mapped_column(String(120))
+    platform: Mapped[str] = mapped_column(String(30), default="etsy")
+    canonical_url: Mapped[str] = mapped_column(Text)
+    # Kept alongside the short route because #301 requires the owner-supplied URL to remain
+    # in the registry and in acceptance evidence, verbatim.
+    owner_supplied_url: Mapped[str] = mapped_column(Text, default="")
+    mandatory: Mapped[bool] = mapped_column(Boolean, default=False)
+    reason_for_inclusion: Mapped[str] = mapped_column(Text, default="")
+    categories: Mapped[list] = mapped_column(JSON, default=list)
+    responsible_pods: Mapped[list] = mapped_column(JSON, default=list)
+    scan_health: Mapped[dict] = mapped_column(JSON, default=dict)
+    last_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                          nullable=True)
+    last_baseline_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                              nullable=True)
+    last_change_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                            nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # The buyer market this shop sells into (`commerce.markets` keys), established from the
+    # shop's own Etsy location when the panel discovered it (#219, #268). Empty is unstated,
+    # never assumed American. Code-declared benchmarks keep theirs on the spec.
+    market: Mapped[str] = mapped_column(String(12), default="")
+
+
+class BenchmarkListing(Base):
+    """A listing observed in a benchmark catalogue: the living market map (#303)."""
+
+    __tablename__ = "benchmark_listings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    benchmark_key: Mapped[str] = mapped_column(String(60), index=True)
+    listing_ref: Mapped[str] = mapped_column(String(80), index=True)
+    title: Mapped[str] = mapped_column(Text, default="")
+    url: Mapped[str] = mapped_column(Text, default="")
+    pod: Mapped[str] = mapped_column(String(40), default="", index=True)
+    product_type: Mapped[str] = mapped_column(String(60), default="")
+    # The fingerprint is what makes change detection cheap (#212): unchanged content is not
+    # paid for twice.
+    fingerprint: Mapped[str] = mapped_column(String(64), default="", index=True)
+    price_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    on_sale: Mapped[bool] = mapped_column(Boolean, default=False)
+    media_count: Mapped[int] = mapped_column(Integer, default=0)
+    seasonal: Mapped[str] = mapped_column(String(40), default="")
+    audit_state: Mapped[str] = mapped_column(String(30), default="discovered", index=True)
+    evidence_grade: Mapped[str] = mapped_column(String(20), default="supporting")
+    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    __table_args__ = (UniqueConstraint("benchmark_key", "listing_ref",
+                                       name="uq_benchmark_listing"),)
+
+
+class BenchmarkObservation(Base):
+    """One dated piece of benchmark evidence, with what it was allowed to do (#209, #319)."""
+
+    __tablename__ = "benchmark_observations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    benchmark_key: Mapped[str] = mapped_column(String(60), index=True)
+    listing_ref: Mapped[str] = mapped_column(String(80), default="", index=True)
+    kind: Mapped[str] = mapped_column(String(40), index=True)
+    grade: Mapped[str] = mapped_column(String(20), default="supporting", index=True)
+    satisfies_mandate: Mapped[bool] = mapped_column(Boolean, default=False)
+    pods_notified: Mapped[list] = mapped_column(JSON, default=list)
+    mechanisms: Mapped[list] = mapped_column(JSON, default=list)
+    actions: Mapped[list] = mapped_column(JSON, default=list)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class CoverageGap(Base):
+    """A benchmark arena with no competitive Brambleloop answer yet (#314)."""
+
+    __tablename__ = "coverage_gaps"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    benchmark_key: Mapped[str] = mapped_column(String(60), index=True)
+    arena: Mapped[str] = mapped_column(String(80), index=True)
+    pod: Mapped[str] = mapped_column(String(40), index=True)
+    state: Mapped[str] = mapped_column(String(30), default="uncovered", index=True)
+    # A queue that lets an item leave without saying why is a queue that shrinks by
+    # forgetting. "not_pursuing" requires this field (#314).
+    reason: Mapped[str] = mapped_column(Text, default="")
+    score: Mapped[float] = mapped_column(Float, default=0.0)
+    components: Mapped[dict] = mapped_column(JSON, default=dict)
+    product_slug: Mapped[str] = mapped_column(String(80), default="")
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (UniqueConstraint("benchmark_key", "arena", name="uq_benchmark_arena"),)
+
+
+# ---------------------------------------------------------------------------
+# Competitive product teardown laboratory (v1.4.3 sections 148-170).
+#
+# What these tables hold is the distinction the whole laboratory turns on: observations about
+# a purchased competitor product, and never the product. No row here stores pattern text, a
+# chart, an image or a transcription. The files themselves live outside the repository in a
+# quarantined directory, and `teardown/library.py` is the only thing that may look at them.
+
+
+class BenchmarkProduct(Base):
+    """One purchased competitor product, as a manifest entry (#150)."""
+
+    __tablename__ = "benchmark_products"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ref: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    seller: Mapped[str] = mapped_column(String(120), index=True)
+    title: Mapped[str] = mapped_column(Text, default="")
+    category: Mapped[str] = mapped_column(String(60), default="")
+    pod: Mapped[str] = mapped_column(String(40), default="", index=True)
+    listing_ref: Mapped[str] = mapped_column(String(80), default="")
+    purchased_on: Mapped[str] = mapped_column(String(10), default="")
+    paid_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    on_sale: Mapped[bool] = mapped_column(Boolean, default=False)
+    why_selected: Mapped[str] = mapped_column(Text, default="")
+    listing_promises: Mapped[dict] = mapped_column(JSON, default=dict)
+    # Filenames, sizes and hashes only. The contents stay in the quarantined library.
+    files: Mapped[list] = mapped_column(JSON, default=list)
+    dimensions: Mapped[list] = mapped_column(JSON, default=list)
+    teardown_state: Mapped[str] = mapped_column(String(30), default="queued", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class TeardownFinding(Base):
+    """One scored observation about a purchased benchmark (#153-#161)."""
+
+    __tablename__ = "teardown_findings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    benchmark_ref: Mapped[str] = mapped_column(String(80), index=True)
+    dimension: Mapped[str] = mapped_column(String(40), index=True)
+    score: Mapped[float] = mapped_column(Float, default=0.0)
+    mechanism: Mapped[str] = mapped_column(Text, default="")
+    # What Brambleloop should do about it. A teardown that produces no action is a review.
+    improvement: Mapped[str] = mapped_column(Text, default="")
+    promoted: Mapped[bool] = mapped_column(Boolean, default=False)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+    # #161: "preserve raw notes and confidence". The analyst's own confidence in the score,
+    # 0-1, and the verbatim notes the score was drawn from (derived observations only --
+    # `check_derived` refuses purchased content). A finding recorded without a confidence is
+    # NULL rather than a default, because an unstated confidence is not a high one.
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    raw_notes: Mapped[str] = mapped_column(Text, default="")
+
+
+# ---------------------------------------------------------------------------
+# The IP firewall's durable records (Master v1.0 v0.23 s78-79; F-786..F-788, F-794, F-795).
+# New tables only: `create_all` makes them on an existing database and nothing is altered.
+
+
+class BenchmarkLicence(Base):
+    """The machine-readable terms of one benchmark source (F-786, F-787, F-788).
+
+    One row per purchased benchmark *and* per public source (a blog post, a video): a creator
+    publishing instructions for free grants no right to republish them (F-787), so the same
+    record -- with `pattern_rights` "none" -- is what makes that refusal mechanical. Finished-
+    item rights and pattern rights are separate columns because they are separate rights
+    (F-788): permission to sell what you make is not permission to sell, adapt or redistribute
+    the instructions.
+    """
+
+    __tablename__ = "benchmark_licences"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source_ref: Mapped[str] = mapped_column(String(160), unique=True, index=True)
+    # "purchased" | "public_web" | "public_video" | "owner_supplied"
+    source_kind: Mapped[str] = mapped_column(String(30), default="purchased", index=True)
+    source_url: Mapped[str] = mapped_column(Text, default="")
+    # Where the terms were read: a listing section, a page of the PDF, the owner, or
+    # "unstated" -- in which case the defaults below are the conservative reading.
+    terms_source: Mapped[str] = mapped_column(Text, default="")
+    allowed_uses: Mapped[list] = mapped_column(JSON, default=list)
+    prohibited_uses: Mapped[list] = mapped_column(JSON, default=list)
+    attribution: Mapped[str] = mapped_column(Text, default="")
+    finished_item_rights: Mapped[str] = mapped_column(String(40), default="unknown")
+    pattern_rights: Mapped[str] = mapped_column(String(40), default="none")
+    notes: Mapped[str] = mapped_column(Text, default="")
+    recorded_by: Mapped[str] = mapped_column(String(60), default="")
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class DesignDifferenceLedger(Base):
+    """One benchmark's line in a competitor-informed concept's design ledger (F-794)."""
+
+    __tablename__ = "design_difference_ledgers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    concept_key: Mapped[str] = mapped_column(String(120), index=True)
+    benchmark_ref: Mapped[str] = mapped_column(String(160), index=True)
+    learned: Mapped[str] = mapped_column(Text, default="")
+    changed: Mapped[list] = mapped_column(JSON, default=list)
+    why_better: Mapped[str] = mapped_column(Text, default="")
+    independent_aspects: Mapped[list] = mapped_column(JSON, default=list)
+    # The meaningful-redesign gate's reading of this entry (F-791), recomputable from the
+    # fields above; stored so the owner can see what was judged superficial.
+    verdict: Mapped[dict] = mapped_column(JSON, default=dict)
+    passed: Mapped[bool] = mapped_column(Boolean, default=False)
+    recorded_by: Mapped[str] = mapped_column(String(60), default="")
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (UniqueConstraint("concept_key", "benchmark_ref",
+                                       name="uq_design_ledger_concept_benchmark"),)
+
+
+class BenchmarkFingerprintRecord(Base):
+    """What the similarity review compares a candidate against (F-795).
+
+    Hashes, numbers and vocabulary keys. `wording_shingles` are salted truncated hashes of
+    word 6-grams (`gates.originality.shingles`): they measure shared phrasing and cannot be
+    turned back into a sentence, so no competitor text is stored.
+    """
+
+    __tablename__ = "benchmark_fingerprints"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    benchmark_ref: Mapped[str] = mapped_column(String(160), unique=True, index=True)
+    title: Mapped[str] = mapped_column(Text, default="")
+    wording_shingles: Mapped[list] = mapped_column(JSON, default=list)
+    features: Mapped[list] = mapped_column(JSON, default=list)
+    construction: Mapped[list] = mapped_column(JSON, default=list)
+    size_sequences: Mapped[dict] = mapped_column(JSON, default=dict)
+    piece_numbers: Mapped[dict] = mapped_column(JSON, default=dict)
+    source: Mapped[str] = mapped_column(String(40), default="teardown")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Continuous improvement (v1.4.3 sections 90-104).
+
+
+class Improvement(Base):
+    """One hypothesis, its evidence, and the way back (#92, #93)."""
+
+    __tablename__ = "improvements"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    cell: Mapped[str] = mapped_column(String(40), index=True)
+    metric: Mapped[str] = mapped_column(String(60), index=True)
+    hypothesis: Mapped[str] = mapped_column(Text)
+    state: Mapped[str] = mapped_column(String(20), default="proposed", index=True)
+    # Captured before anything changes. An improvement measured against a baseline recorded
+    # afterwards is measured against itself.
+    baseline_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    baseline_ref: Mapped[str] = mapped_column(String(80), default="")
+    result_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    expected_effect: Mapped[str] = mapped_column(Text, default="")
+    rollback_ref: Mapped[str] = mapped_column(String(200), default="")
+    cost_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict)
+    promoted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                         nullable=True)
+    reverted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                         nullable=True)
+    # F-398 (audit trail): set when the change is promoted. `build_sha` is the commit the
+    # running image was built from (None when the platform does not say -- never a guess);
+    # `spend_cad` is recorded spend attributed to this improvement (cost rows carrying
+    # detail.improvement_id), None when none is attributed rather than a CA$0.00 claim.
+    build_sha: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    spend_cad: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
+class Lesson(Base):
+    """Something learned once, routed to everyone it affects (#97, #101)."""
+
+    __tablename__ = "lessons"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    origin_cell: Mapped[str] = mapped_column(String(40), index=True)
+    subject: Mapped[str] = mapped_column(String(80), index=True)
+    statement: Mapped[str] = mapped_column(Text)
+    evidence_ref: Mapped[str] = mapped_column(String(200), default="")
+    confidence: Mapped[str] = mapped_column(String(20), default="observed")
+    routed_to: Mapped[list] = mapped_column(JSON, default=list)
+    acted_on_by: Mapped[list] = mapped_column(JSON, default=list)
+    superseded_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # F-605: a claim the company no longer stands behind, kept (never deleted) with why.
+    withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                          nullable=True)
+    withdrawn_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class CapabilityPoint(Base):
+    """One measurement of one cell's capability, so improvement is checkable (#94, #95)."""
+
+    __tablename__ = "capability_history"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    cell: Mapped[str] = mapped_column(String(40), index=True)
+    metric: Mapped[str] = mapped_column(String(60), index=True)
+    value: Mapped[float] = mapped_column(Float)
+    sample: Mapped[int] = mapped_column(Integer, default=0)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class GrowthLoop(Base):
+    """One acquisition mechanism and the traffic it has actually produced (#271)."""
+
+    __tablename__ = "growth_loops"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    strength: Mapped[str] = mapped_column(String(20), default="untested", index=True)
+    visits: Mapped[int] = mapped_column(Integer, default=0)
+    orders: Mapped[int] = mapped_column(Integer, default=0)
+    cost_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    latency_days: Mapped[int] = mapped_column(Integer, default=0)
+    scalable: Mapped[bool] = mapped_column(Boolean, default=True)
+    note: Mapped[str] = mapped_column(Text, default="")
+    # #271: what the loop's orders left after fees, read from the orders it brought.
+    contribution_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Culture and nostalgia (v1.4.3 sections 133-147).
+
+
+class CultureSignal(Base):
+    """One thing people are emotionally engaging with, and what it is allowed to become.
+
+    The protected tokens are stored on the signal rather than worked out downstream, because
+    a token declared at the point of observation is one every later step can be checked
+    against -- and a token nobody declared is one nobody can be checked against (#135, #139).
+    """
+
+    __tablename__ = "culture_signals"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    topic: Mapped[str] = mapped_column(Text, default="")
+    domain: Mapped[str] = mapped_column(String(30), index=True)
+    first_seen: Mapped[str] = mapped_column(String(10), default="")
+    lane: Mapped[str] = mapped_column(String(30), default="original_concept", index=True)
+    # Declared at observation time. Filenames-and-hashes discipline, applied to rights.
+    protected_tokens: Mapped[list] = mapped_column(JSON, default=list)
+    basis: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    primitives: Mapped[dict] = mapped_column(JSON, default=dict)
+    score: Mapped[dict] = mapped_column(JSON, default=dict)
+    state: Mapped[str] = mapped_column(String(20), default="observed", index=True)
+    exit_reason: Mapped[str] = mapped_column(Text, default="")
+    outcome: Mapped[dict] = mapped_column(JSON, default=dict)
+    sources: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class CultureObservation(Base):
+    """One momentum reading for one signal, so decay is measured rather than felt (#140, #145)."""
+
+    __tablename__ = "culture_observations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    signal_key: Mapped[str] = mapped_column(String(80), index=True)
+    channel: Mapped[str] = mapped_column(String(30), index=True)
+    observed_on: Mapped[str] = mapped_column(String(10), default="")
+    interest: Mapped[float] = mapped_column(Float, default=0.0)
+    competitor_listings: Mapped[int] = mapped_column(Integer, default=0)
+    source: Mapped[str] = mapped_column(Text, default="")
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class PolicySnapshot(Base):
+    """One reading of one external platform policy, with its date (#39).
+
+    A policy is not a constant. Storing the snapshot -- rather than encoding the rule in code
+    and forgetting when it was true -- is what lets a release certificate say which version of
+    Etsy's rules it was certified against, and what lets the freshness watch tell the
+    difference between a policy that has not changed and one nobody has looked at.
+    """
+
+    __tablename__ = "policy_snapshots"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    source: Mapped[str] = mapped_column(String(40), index=True)
+    url: Mapped[str] = mapped_column(Text, default="")
+    checked_on: Mapped[str] = mapped_column(String(10), default="")
+    # INTEG3: was String(40). The repository seed's version is "<read_on>:<basis>" (49 chars
+    # for "search_engine_excerpt_of_official_page"), so ops.policy_watch dead-lettered on
+    # Postgres. Widened by `migrate.widen` on existing databases; never truncated.
+    version: Mapped[str] = mapped_column(String(120), default="")
+    digest: Mapped[str] = mapped_column(String(64), default="", index=True)
+    summary: Mapped[str] = mapped_column(Text, default="")
+    material_change: Mapped[bool] = mapped_column(Boolean, default=False)
+    affects: Mapped[list] = mapped_column(JSON, default=list)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class PriceObservation(Base):
+    """One price point held for a period, with everything that could confound it (#46).
+
+    The confounders are columns rather than notes because the whole value of an elasticity
+    memory is being able to ask "was this a price effect or was it December", and a note
+    cannot be filtered on.
+    """
+
+    __tablename__ = "price_observations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    product_slug: Mapped[str] = mapped_column(String(80), index=True)
+    category: Mapped[str] = mapped_column(String(60), default="", index=True)
+    price_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    on_sale: Mapped[bool] = mapped_column(Boolean, default=False)
+    regular_price_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    traffic_source: Mapped[str] = mapped_column(String(40), default="", index=True)
+    season: Mapped[str] = mapped_column(String(40), default="", index=True)
+    from_date: Mapped[str] = mapped_column(String(10), default="")
+    to_date: Mapped[str] = mapped_column(String(10), default="")
+    visits: Mapped[int] = mapped_column(Integer, default=0)
+    orders: Mapped[int] = mapped_column(Integer, default=0)
+    revenue_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    contribution_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class Cohort(Base):
+    """One launch cohort, organic or promoted, kept apart so the two can be compared (#48)."""
+
+    __tablename__ = "cohorts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    key: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    product_slug: Mapped[str] = mapped_column(String(80), index=True)
+    arm: Mapped[str] = mapped_column(String(20), default="organic", index=True)
+    from_date: Mapped[str] = mapped_column(String(10), default="")
+    to_date: Mapped[str] = mapped_column(String(10), default="")
+    visits: Mapped[int] = mapped_column(Integer, default=0)
+    orders: Mapped[int] = mapped_column(Integer, default=0)
+    revenue_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    spend_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    assisted: Mapped[int] = mapped_column(Integer, default=0)
+    direct: Mapped[int] = mapped_column(Integer, default=0)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+# ---------------------------------------------------------------------------
+# The autonomous build executor (v1.4.3 master intent: never-idle development).
+
+
+class BuildTask(Base):
+    """One Build-2 requirement as a schedulable unit of work, with its readiness derived.
+
+    The registry in `build2/requirements.json`, which lives inside the package, says what
+    each requirement *is*. This says what can be worked on *now*, and it lives in Postgres
+    rather than in a session's head -- which is the whole point. A build loop that exists
+    only while a conversation is open is not autonomy; it is a person with extra steps.
+    """
+
+    __tablename__ = "build_tasks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    requirement_id: Mapped[int] = mapped_column(Integer, unique=True, index=True)
+    title: Mapped[str] = mapped_column(Text, default="")
+    section: Mapped[str] = mapped_column(String(120), default="", index=True)
+    # Mirrors the registry status at the time of the last sync, so drift is detectable.
+    status: Mapped[str] = mapped_column(String(20), default="missing", index=True)
+    # ready | parked | blocked | in_progress | done
+    state: Mapped[str] = mapped_column(String(20), default="ready", index=True)
+    priority: Mapped[float] = mapped_column(Float, default=100.0, index=True)
+    # Requirement ids that must be done first. A cycle here is refused at sync time.
+    depends_on: Mapped[list] = mapped_column(JSON, default=list)
+    # The capability key this is parked on, if any. Checkable, never free text: an unpark
+    # condition nothing can make true is a refusal dressed as a wait.
+    parked_on: Mapped[str | None] = mapped_column(String(60), nullable=True, index=True)
+    parked_reason: Mapped[str] = mapped_column(Text, default="")
+    parked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    claimed_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                          nullable=True)
+    # What proved it done: suite name, test count, commit. Evidence, not a checkbox.
+    evidence: Mapped[dict] = mapped_column(JSON, default=dict)
+    note: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class BuildEvent(Base):
+    """Append-only record of the executor's own decisions.
+
+    Separate from the audit log because the question it answers is different: the audit log
+    says what the company did, and this says why the build loop chose it -- which is the only
+    way to tell a loop that is working from one that is turning over.
+    """
+
+    __tablename__ = "build_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    kind: Mapped[str] = mapped_column(String(30), index=True)
+    requirement_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    actor: Mapped[str] = mapped_column(String(80), default="executor")
+    summary: Mapped[str] = mapped_column(Text, default="")
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class PodLesson(Base):
+    """One versioned interpretation a specialist pod holds, and what it survived (#316).
+
+    Versioned rather than mutable because the useful question next year is not what the pod
+    believes, it is what it used to believe and what changed its mind. A lesson overwritten
+    in place answers neither.
+    """
+
+    __tablename__ = "pod_lessons"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    pod: Mapped[str] = mapped_column(String(40), index=True)
+    subject: Mapped[str] = mapped_column(String(60), index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    statement: Mapped[str] = mapped_column(Text, default="")
+    mechanism: Mapped[str] = mapped_column(String(40), default="")
+    # Only outcomes move this. Repetition does not.
+    supported_by: Mapped[list] = mapped_column(JSON, default=list)
+    contradicted_by: Mapped[list] = mapped_column(JSON, default=list)
+    superseded_by: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    origin: Mapped[str] = mapped_column(String(30), default="observation")
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class ConfigVersion(Base):
+    """One version of a material prompt, model, tool or decision policy (#96).
+
+    Versioned with *why* rather than only what: a registry that records the change and not
+    the reason answers "what is running" and never "should it still be". The second question
+    is the one somebody asks six months later, usually while something is wrong.
+    """
+
+    __tablename__ = "config_versions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    kind: Mapped[str] = mapped_column(String(20), index=True)   # prompt | model | tool | policy
+    key: Mapped[str] = mapped_column(String(80), index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    digest: Mapped[str] = mapped_column(String(64), default="", index=True)
+    why_changed: Mapped[str] = mapped_column(Text, default="")
+    # C-82: two different facts that one column used to conflate. `tests_declared` is the
+    # coverage the registering code names (test files that exercise this configuration); it
+    # is a claim about what *could* be run. `tests_run` holds only observed run records --
+    # each with the run id and the digest of the source it ran against -- appended by
+    # `league.record_test_run` when a run actually happened. Registration never writes it.
+    tests_declared: Mapped[list] = mapped_column(JSON, default=list)
+    tests_run: Mapped[list] = mapped_column(JSON, default=list)
+    cost_per_call_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    affected_departments: Mapped[list] = mapped_column(JSON, default=list)
+    measured_outcome: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    incumbent: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    retired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                        nullable=True)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class ContinuityArchive(Base):
+    """A retained continuity export, held where it survives the container it was made in.
+
+    Requirement 51. The proof that an export restores was already run daily, but the archive
+    itself was written to ephemeral container storage, so the company was proving a restore
+    of a file that no longer existed an hour later. Holding the bytes here means the export
+    survives a container replacement, a redeploy and a crash.
+
+    It does not survive the provider disappearing, which is the other half of #51 and is the
+    reason an off-provider copy is an owner item rather than a claim made here. The row says
+    so itself rather than leaving a reader to assume.
+    """
+
+    __tablename__ = "continuity_archives"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    format: Mapped[int] = mapped_column(Integer, default=1)
+    digest: Mapped[str] = mapped_column(String(64), index=True)
+    # sha256 of the compressed bytes as stored. A payload that does not hash to this is
+    # refused on read: a corrupt archive that restores half a company is worse than none.
+    payload_sha256: Mapped[str] = mapped_column(String(64))
+    payload: Mapped[bytes] = mapped_column(LargeBinary)
+    raw_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    stored_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    total_rows: Mapped[int] = mapped_column(Integer, default=0)
+    source: Mapped[str] = mapped_column(String(200), default="")
+    manifest: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class LearningObservation(Base):
+    """Something noticed outside this company, with where and when it was noticed (#98).
+
+    Deliberately a different table from the internal record of what this company has
+    *established*. An observation is that somebody said something, somewhere, on a date. A
+    lesson is that Brambleloop measured something and knows why. They are both useful and
+    they are not the same kind of thing, and the single place they get confused is the
+    sentence where an observation becomes the reason for a decision.
+    """
+
+    __tablename__ = "learning_observations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    domain: Mapped[str] = mapped_column(String(40), index=True)
+    source: Mapped[str] = mapped_column(String(120), index=True)
+    citation: Mapped[str] = mapped_column(String(400))
+    observed_on: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    summary: Mapped[str] = mapped_column(Text)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class CreatorProfile(Base):
+    """One person on the seeding roster (#9).
+
+    A reference rather than a name, an address or a handle: this table records that somebody
+    exists, what they work in and what they have delivered, and it is not a contact list. The
+    address itself lives where consent lives, so a roster export cannot become a mailing list
+    by being copied.
+
+    `audience_stated` keeps their own number and `audience_evidence` keeps where it came
+    from, because a follower count is a claim and stays one. There is deliberately no column
+    for a projected reach: the moment a claim is multiplied by a rate it reads as measured,
+    which is how fabricated engagement usually arrives.
+    """
+
+    __tablename__ = "creator_profiles"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ref: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    specialties: Mapped[list] = mapped_column(JSON, default=list)
+    audience_stated: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    audience_evidence: Mapped[str] = mapped_column(String(200), default="")
+    engagement_observed: Mapped[float | None] = mapped_column(Float, nullable=True)
+    observed_on: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    invited: Mapped[int] = mapped_column(Integer, default=0)
+    delivered: Mapped[int] = mapped_column(Integer, default=0)
+    address_published: Mapped[bool] = mapped_column(Boolean, default=False)
+    address_refuses_unsolicited: Mapped[bool] = mapped_column(Boolean, default=False)
+    permissions: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class Collaboration(Base):
+    """One agreed piece of work with one creator, and what it produced (#9, #21).
+
+    `deliverables` can only hold the closed vocabulary in `growth.creators`, which contains
+    no opinion: a review is not storable here because it is not askable there. The outcome
+    columns are nullable on purpose -- an unmeasured result is null rather than zero, since a
+    zero would average into a verdict and a null refuses to.
+    """
+
+    __tablename__ = "collaborations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    creator_ref: Mapped[str] = mapped_column(String(80), index=True)
+    pod: Mapped[str] = mapped_column(String(40), index=True)
+    deliverables: Mapped[list] = mapped_column(JSON, default=list)
+    fee_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    affiliate: Mapped[bool] = mapped_column(Boolean, default=False)
+    disclosure_in_post: Mapped[str] = mapped_column(Text, default="")
+    state: Mapped[str] = mapped_column(String(20), default="proposed", index=True)
+    usable_assets: Mapped[int] = mapped_column(Integer, default=0)
+    attributable_sessions: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    conversions: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    support_cases: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    measured_on: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ListingMemory(Base):
+    """One thing established by a listing test, where it applies and what proved it (#16).
+
+    The memory has to outlive the process or it is not a memory -- "we tried that last year"
+    is precisely the knowledge a restart loses. `context` is the composed key rather than
+    four columns because it is only ever matched whole, and `exposure` is stored beside the
+    verdict so a reader can see how many people actually saw the thing that was decided.
+    """
+
+    __tablename__ = "listing_memory"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    idea: Mapped[str] = mapped_column(String(120), index=True)
+    context: Mapped[str] = mapped_column(String(200), index=True)
+    outcome: Mapped[str] = mapped_column(String(20), index=True)
+    test_key: Mapped[str] = mapped_column(String(80), index=True)
+    on: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    exposure: Mapped[int] = mapped_column(Integer, default=0)
+    note: Mapped[str] = mapped_column(Text, default="")
+
+    __table_args__ = (UniqueConstraint("test_key", "idea", name="uq_listing_memory_test"),)
+
+
+class ArtefactProvenance(Base):
+    """One derived artefact, tied to fingerprints of the evidence that made it (#171).
+
+    `inputs` maps an upstream reference ("cir:hex-coaster") to the fingerprint it held when
+    this artefact was built. A fingerprint rather than a version string: a version string
+    compares equal to itself forever, which is exactly how a rebuilt design keeps its old
+    PDF under the same stable slug.
+
+    The absence of a row here is meaningful and is the point of the table. An artefact with
+    no provenance has no mismatch to report, so a sweep that only compares recorded rows
+    would call it fresh -- which is why `provenance.check` takes the list of artefacts known
+    to exist and reports the ones with no row as unproven.
+    """
+
+    __tablename__ = "artefact_provenance"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    artefact_class: Mapped[str] = mapped_column(String(40), index=True)
+    artefact_key: Mapped[str] = mapped_column(String(200), index=True)
+    product_slug: Mapped[str] = mapped_column(String(80), default="", index=True)
+    inputs: Mapped[dict] = mapped_column(JSON, default=dict)
+    chain_version: Mapped[str] = mapped_column(String(20), default="")
+    built_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    # Lineage (2026-09-26). The production estate held 275 derived artefacts and 275 of them
+    # carried no row here: only the video planner ever called `record`, and every chain
+    # handler wrote its listing, frame, certificate and content piece with nothing tying it
+    # to a job, a commit, a model or a cost. These columns are what a row has to say about
+    # *who made it and under what authority*, beside `inputs`, which says what it was made
+    # from. Every scalar has a default so the additive migration can backfill it; the two
+    # JSON columns are left NULL by the migration and read with `or {}`.
+    #
+    # `source` separates a row the write path recorded at build time from one the backfill
+    # derived afterwards from evidence already on file (a job's outputs, an audit row, a
+    # certificate's own release hash). A backfilled row cites that evidence in `evidence`
+    # and carries `code_commit="unknown"`, because the commit that built it was never
+    # recorded and inventing one would be worse than admitting that.
+    created_by: Mapped[str] = mapped_column(String(64), default="")
+    job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    code_commit: Mapped[str] = mapped_column(String(40), default="unknown")
+    provider: Mapped[str] = mapped_column(String(40), default="")
+    model: Mapped[str] = mapped_column(String(80), default="")
+    cost_cad: Mapped[float | None] = mapped_column(Float, nullable=True)
+    sha256: Mapped[str] = mapped_column(String(64), default="")
+    parents: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    validation_status: Mapped[str] = mapped_column(String(20), default="unknown")
+    publication_authority: Mapped[str] = mapped_column(String(20), default="shadow")
+    source: Mapped[str] = mapped_column(String(12), default="recorded")
+    evidence: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    __table_args__ = (UniqueConstraint("artefact_class", "artefact_key",
+                                       name="uq_artefact_provenance"),)
+
+
+class DurableArtifact(Base):
+    """The bytes of an artifact that must outlive a container restart.
+
+    The artifact store writes to a local directory, which is ephemeral on this platform,
+    and says so honestly: the hash is durable and the file is not. That is the right
+    trade-off for a catalogue of regenerable PDFs -- object storage is an owner action, the
+    store's own docstring names it, and putting every render in Postgres would be a
+    database growing without a bound.
+
+    It is the wrong trade-off for exactly one thing. The canonical model's reference pack
+    is a *brand identity*: it cannot be regenerated, because regenerating it produces a
+    different woman, and the owner is asked to look at those specific images and approve
+    them. On 2026-09-22 they were 404 within the hour -- eight images the owner had been
+    asked to approve, gone in a redeploy, with only their hashes left to prove what had
+    been measured.
+
+    So a caller may ask for bytes to be kept, and the few that do go here. Object storage
+    is still the right answer for the catalogue and is still an owner action; this is the
+    answer for the handful of files whose whole purpose is to be the same file tomorrow.
+    """
+
+    __tablename__ = "durable_artifacts"
+
+    sha256: Mapped[str] = mapped_column(String(64), primary_key=True)
+    content_type: Mapped[str] = mapped_column(String(80), default="application/octet-stream")
+    bytes_len: Mapped[int] = mapped_column(Integer, default=0)
+    payload: Mapped[bytes] = mapped_column(LargeBinary)
+    why_kept: Mapped[str] = mapped_column(String(200), default="")
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class OAuthHandshake(Base):
+    """One browser round trip of an OAuth authorization-code flow, held across it.
+
+    PKCE has a shape that process memory cannot satisfy. The verifier is generated when the
+    authorize URL is built, and it is needed again minutes later, in a *different request*,
+    on whichever container happens to receive the redirect -- and this platform rolls
+    containers, so "the same process" cannot be relied on even for one minute.
+    `etsy_oauth`'s own note says the verifier is "held in the calling process only", which is
+    why the callback the owner was told to use could not have existed: there was nowhere for
+    the two halves of the flow to meet. This table is that place.
+
+    Four properties, each of which is a rejection the callback has to be able to make:
+
+    * **Unpredictable.** The state is 32 bytes from `secrets`, so it cannot be guessed by
+      somebody who wants the callback to exchange a code on their behalf.
+    * **Single-use.** `consumed_at` is set by a conditional UPDATE only one caller can win,
+      so a replayed callback is refused by the database rather than by a check two concurrent
+      requests could both pass.
+    * **Expiring.** `expires_at` bounds how long an unfinished flow stays usable. Etsy's own
+      words: state is "a single-use token generated specifically for a given request".
+    * **Recoverable evidence.** A consumed row is kept, not deleted, so a replay is answerable
+      with "this state was already used" instead of "no such state". Those are different
+      facts and an operator staring at a browser deserves the right one.
+
+    **Neither secret in this flow is stored in the clear.** The state is stored as its
+    SHA-256 only -- the row is found by hashing what the callback presented, so the database
+    never holds a value that could be replayed out of it -- and the PKCE verifier is sealed
+    by `core.sealed`, whose key is an environment variable. A database dump is not a flow
+    somebody else can finish.
+    """
+
+    __tablename__ = "oauth_handshakes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    provider: Mapped[str] = mapped_column(String(40), default="etsy", index=True)
+    # SHA-256 of the state, never the state. Unique, so two handshakes cannot collide and a
+    # lookup is one indexed read.
+    state_sha256: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    # A short, non-reversible handle for logs, reports and audit rows.
+    state_fingerprint: Mapped[str] = mapped_column(String(16), default="")
+    # The PKCE code verifier, sealed. The one value here whose disclosure would matter after
+    # the fact, and the reason `core.sealed` exists.
+    verifier_sealed: Mapped[str] = mapped_column(Text, default="")
+    # Recorded so the exchange sends back exactly the redirect_uri the authorization used.
+    # Etsy: "when present, it must exactly match".
+    redirect_uri: Mapped[str] = mapped_column(String(400), default="")
+    scopes: Mapped[str] = mapped_column(String(300), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow,
+                                                 index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow,
+                                                 index=True)
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                         nullable=True, index=True)
+    # What happened to this handshake, in the vocabulary `core.oauth_store.Verdict` uses.
+    # Never a code, a token, a verifier or an Etsy error body.
+    outcome: Mapped[str] = mapped_column(String(40), default="open", index=True)
+    # How many callbacks arrived carrying a state that was already spent. Above zero is worth
+    # an operator's attention and is not, by itself, an incident.
+    replays: Mapped[int] = mapped_column(Integer, default=0)
+    started_by: Mapped[str] = mapped_column(String(40), default="operator")
+
+    __table_args__ = (
+        Index("ix_oauth_handshakes_live", "provider", "consumed_at", "expires_at"),
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - keeps secrets out of tracebacks
+        return (f"<OAuthHandshake {self.provider} ***{self.state_fingerprint} "
+                f"{self.outcome} verifier=***>")
+
+
+class OAuthCredential(Base):
+    """The long-lived half of an OAuth grant: one row per provider, sealed.
+
+    Etsy's refresh token lasts 90 days **and rotates on every refresh**, which makes it the
+    only credential in this company that the software itself has to be able to write. Every
+    other secret is set once by a human in the deployment's environment; this one changes
+    roughly hourly and cannot be, because a process cannot rewrite the environment it was
+    started with. `core.sealed`'s docstring works through the alternatives; the short version
+    is that this is the only durable store the running service can update, and the value in
+    it is encrypted under a key that never leaves the environment, so the row is not a
+    credential on its own.
+
+    **Rotation is a compare-and-set, not a write.** `token_fingerprint` identifies the token
+    currently stored and a rotation names the fingerprint it believes it is replacing, so two
+    workers refreshing at the same moment cannot interleave into a row holding a token Etsy
+    has already spent. The write that loses is refused, and the caller that lost is holding a
+    dead token -- a fact worth knowing rather than one to overwrite.
+
+    Nothing here is ever returned by an API, written to a log, put in an audit `detail` or
+    included in a continuity export. The fingerprint is what appears in all four.
+    """
+
+    __tablename__ = "oauth_credentials"
+
+    provider: Mapped[str] = mapped_column(String(40), primary_key=True)
+    refresh_token_sealed: Mapped[str] = mapped_column(Text, default="")
+    # SHA-256[:8] of the plaintext token: the identity of the credential without the
+    # credential. It is what compare-and-set matches on and what every report prints.
+    token_fingerprint: Mapped[str] = mapped_column(String(16), default="", index=True)
+    # The fingerprint of the sealing key this row was sealed under, so "the key changed" is
+    # diagnosable without decrypting and without revealing either value.
+    key_fingerprint: Mapped[str] = mapped_column(String(16), default="")
+    scopes: Mapped[str] = mapped_column(String(300), default="")
+    # Times the token has rotated since it was granted. Also the optimistic concurrency
+    # counter.
+    rotations: Mapped[int] = mapped_column(Integer, default=0)
+    obtained_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow,
+                                                 index=True)
+    # Where this came from -- "authorization-code grant", "refresh grant". Never anything
+    # about its value.
+    source: Mapped[str] = mapped_column(String(80), default="")
+
+    def __repr__(self) -> str:  # pragma: no cover - keeps secrets out of tracebacks
+        return (f"<OAuthCredential {self.provider} ***{self.token_fingerprint} "
+                f"rotations={self.rotations}>")
+
+
+# ---------------------------------------------------------------------------
+# Customers and orders (#11, #12, #252). Added last, and empty on purpose.
+#
+# These three tables exist so that the first hundred buyers can be a validation cohort from
+# customer one rather than reconstructed later from Etsy's CSV. Nothing writes to them today:
+# there is no shop, no listing and no order, and `commerce.cohorts` says so rather than
+# computing a repeat rate over an empty table. Reading Etsy's transaction history into them
+# needs the `transactions_r` OAuth scope, which is an owner decision (#11 note), so the
+# schema is here and the pipe is not.
+
+
+class Customer(Base):
+    """One legitimate buyer, keyed on a stable reference rather than on personal data.
+
+    `customer_ref` is whatever the order source gives us that is stable across orders -- on
+    Etsy, the buyer user id -- never a name or an email. The columns are the things #11
+    asks to learn about the first hundred: where they came from, what they searched, what
+    they bought first, and whether they came back. What they are called is not one of them.
+    """
+
+    __tablename__ = "customers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    customer_ref: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow,
+                                                    index=True)
+    acquisition_source: Mapped[str] = mapped_column(String(40), default="unknown", index=True)
+    search_term: Mapped[str] = mapped_column(String(200), default="")
+    first_product_slug: Mapped[str] = mapped_column(String(80), default="", index=True)
+    first_category: Mapped[str] = mapped_column(String(40), default="", index=True)
+    first_season: Mapped[str] = mapped_column(String(40), default="none", index=True)
+    # Owned-audience segmentation by demonstrated interest (#12). A list of pod keys the
+    # buyer has actually bought from, never an inferred taste.
+    interests: Mapped[list] = mapped_column(JSON, default=list)
+    # Consent for commercial electronic messages is a CASL fact, recorded or absent.
+    casl_consent: Mapped[bool] = mapped_column(Boolean, default=False)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class Order(Base):
+    """One order, with the context #11 says to track and the money #12 says to sum.
+
+    `contribution_cad` is what the order left after fees and cost of sale, not its price:
+    lifetime *contribution* is the metric, and revenue would flatter every bundle.
+    """
+
+    __tablename__ = "orders"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), index=True)
+    external_ref: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    product_slug: Mapped[str] = mapped_column(String(80), index=True)
+    version: Mapped[str] = mapped_column(String(20), default="")
+    category: Mapped[str] = mapped_column(String(40), default="", index=True)
+    price_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    revenue_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    contribution_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    acquisition_source: Mapped[str] = mapped_column(String(40), default="unknown", index=True)
+    search_term: Mapped[str] = mapped_column(String(200), default="")
+    # Offsite Ads attribution changes the fee, so it is a column and not a note (#244).
+    offsite_ad_attributed: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    is_repeat: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    cross_sell_of: Mapped[str] = mapped_column(String(80), default="")
+    refunded: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    support_case_id: Mapped[int | None] = mapped_column(ForeignKey("support_cases.id"),
+                                                        nullable=True)
+    reviewed: Mapped[bool] = mapped_column(Boolean, default=False)
+    # #269: the transaction as it happened, preserved beside its CAD normalisation. The
+    # currency and amount are the receipt's own; the rate carries the date it was taken and
+    # whether it was measured (a settlement) or assumed, because a converted figure whose
+    # rate is invisible is indistinguishable from a measured one.
+    currency: Mapped[str] = mapped_column(String(3), default="CAD")
+    amount_original: Mapped[float] = mapped_column(Float, default=0.0)
+    fx_usd_per_cad: Mapped[float | None] = mapped_column(Float, nullable=True)
+    fx_taken_on: Mapped[str] = mapped_column(String(10), default="")
+    fx_measured: Mapped[bool] = mapped_column(Boolean, default=False)
+    fees_cad: Mapped[float] = mapped_column(Float, default=0.0)
+    # F-609/F-558: whether `fees_cad` is what Etsy charged (`measured`, read from the payment
+    # account ledger) or `commerce.pricing.fees()` output (`modelled`). A modelled fee is
+    # never presented as charged. `unknown` for rows written before the column existed.
+    fees_basis: Mapped[str] = mapped_column(String(12), default="unknown")
+    # F-273: the Offsite Ads fee Etsy charged on this order, read from its ledger. None means
+    # not read (unknown), which is different from 0.0 (read, and no Offsite Ads fee).
+    offsite_ads_fee_cad: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # #13: which offer shape this order bought (commerce.offers keys).
+    offer: Mapped[str] = mapped_column(String(40), default="single_pattern", index=True)
+    # Where the row came from ("etsy_receipts"), so an ingested order is never confused with
+    # a hand-entered one.
+    source: Mapped[str] = mapped_column(String(40), default="", index=True)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class CohortMembership(Base):
+    """Which validation cohort a customer belongs to, by which axis (#11, #12, #252).
+
+    A customer is in several cohorts at once -- by first product, by first category, by
+    first season, by acquisition source -- and each is a row here, so a repeat rate is a
+    query over one axis rather than a recomputation of all of them.
+    """
+
+    __tablename__ = "cohort_memberships"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), index=True)
+    axis: Mapped[str] = mapped_column(String(40), index=True)
+    value: Mapped[str] = mapped_column(String(80), index=True)
+    joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (UniqueConstraint("customer_id", "axis", name="uq_cohort_axis"),)
+
+
+class SerpSnapshot(Base):
+    """One ranked read of the API's marketplace search for one query (#15, #2, #98).
+
+    `basis` is always `api_index_score_sort`: the ranking is Etsy's `findAllListingsActive`
+    ordered by `sort_on=score`, and `total_count` is that index's result count. Neither is
+    the rendered etsy.com search page, and rank is treated as directional evidence only.
+    """
+
+    __tablename__ = "serp_snapshots"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    query: Mapped[str] = mapped_column(String(200), index=True)
+    taxonomy_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow,
+                                                  index=True)
+    # [{rank, listing_id, price, currency, has_sale, image_count, favourites}, ...]
+    rank_list: Mapped[list] = mapped_column(JSON, default=list)
+    total_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    basis: Mapped[str] = mapped_column(String(40), default="api_index_score_sort")
+    # Thumbnail observations for the top-N, when a vision run was budgeted and allowed.
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class InsightsSnapshot(Base):
+    """One Marketplace Insights reading, recorded by the owner from Shop Manager (#236, #37).
+
+    Marketplace Insights has no API; these rows are what a person read on the rendered
+    Shop Manager page and typed in. `basis` says so on every row, and nothing merges them
+    into anything that reads as measured by this company.
+    """
+
+    __tablename__ = "insights_snapshots"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    keyword: Mapped[str] = mapped_column(String(200), index=True)
+    search_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    listing_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    related_terms: Mapped[list] = mapped_column(JSON, default=list)
+    trend_direction: Mapped[str] = mapped_column(String(20), default="")
+    geography: Mapped[str] = mapped_column(String(40), default="")
+    observed_on: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    recorded_by: Mapped[str] = mapped_column(String(80), default="")
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    basis: Mapped[str] = mapped_column(String(40), default="owner_recorded_shop_manager")
+
+
+class EtsyTaxonomySnapshot(Base):
+    """One read of Etsy's seller taxonomy and the pattern subtree's property schemas (F-005).
+
+    Written only by `integrations.etsy_taxonomy.refresh`, from `getSellerTaxonomyNodes` and
+    `getPropertiesByTaxonomyId` through the ordinary Etsy client, and only when the `etsy_api`
+    gate is open. A database with no row here has **no** category knowledge: the category
+    chooser reads UNKNOWN and search certification refuses, rather than falling back to a
+    remembered integer. `nodes` is the flattened tree (id, name, level, parent_id, path);
+    `properties` maps a node id (as a string, JSON keys) to that node's property list exactly
+    as Etsy returned it. `sha256` fingerprints both, so an unchanged tree is confirmed rather
+    than stored twice.
+    """
+
+    __tablename__ = "etsy_taxonomy_snapshots"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow,
+                                                 index=True)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True),
+                                                          nullable=True)
+    source: Mapped[str] = mapped_column(String(60), default="etsy_open_api_v3")
+    sha256: Mapped[str] = mapped_column(String(64), index=True)
+    node_count: Mapped[int] = mapped_column(Integer, default=0)
+    nodes: Mapped[list] = mapped_column(JSON, default=list)
+    properties: Mapped[dict] = mapped_column(JSON, default=dict)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class ListingSearchProfile(Base):
+    """The search-truth reading of one drafted listing: category, attributes, certificate.
+
+    Written by `listing.seo`; read by `publish.release_gates` (the search verdict and the
+    claims fingerprint) and handed to the publish path as the property payload. One row per
+    listing version, overwritten on every draft, because the certificate on it is only ever
+    about the copy currently on the `listings` row -- `fingerprint` is what proves that.
+    """
+
+    __tablename__ = "listing_search_profiles"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    product_slug: Mapped[str] = mapped_column(String(80), index=True)
+    version: Mapped[str] = mapped_column(String(20))
+    snapshot_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    category_status: Mapped[str] = mapped_column(String(20), default="UNKNOWN")
+    taxonomy_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    taxonomy_path: Mapped[list] = mapped_column(JSON, default=list)
+    attributes: Mapped[dict] = mapped_column(JSON, default=dict)
+    properties: Mapped[list] = mapped_column(JSON, default=list)
+    filters: Mapped[dict] = mapped_column(JSON, default=dict)
+    coverage_matrix: Mapped[list] = mapped_column(JSON, default=list)
+    tag_provenance: Mapped[list] = mapped_column(JSON, default=list)
+    tag_limitation: Mapped[str] = mapped_column(Text, default="")
+    verdict: Mapped[str] = mapped_column(String(20), default="REFUSED", index=True)
+    certificate: Mapped[dict] = mapped_column(JSON, default=dict)
+    fingerprint: Mapped[str] = mapped_column(String(64), default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("product_slug", "version", name="uq_search_profile_version"),
+    )

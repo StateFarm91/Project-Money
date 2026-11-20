@@ -1,0 +1,99 @@
+{
+  "branch": "codex/final-b-owner-auth",
+  "base": "449ce602b7cecd06aa37e38841e3e16a7a4343ed",
+  "implementation_commit": "f134a9a",
+  "requirements": [
+    "F-543",
+    "F-703",
+    "F-835"
+  ],
+  "verdict": "REPAIR CANDIDATE; router registration and integrated verification required; no certification",
+  "defect": "store.activate trusted arbitrary nonempty launch_authorisation queued string",
+  "runtime_chain": {
+    "producer": "authenticated POST /api/owner/activation/approve (router factory; integration registration pending)",
+    "durable_state": "signed append-only AuditLog owner.activation.approved and owner.activation.revoked; actor owner:ops-token, approved_at, expires_at, content digest and reason",
+    "consumer": "runtime.pipeline.handle_store_activate via registered store.activate job",
+    "decision": "re-read grant, signature, expiry, revocation, exact current snapshot, publish env grant and release/parity gates immediately before effect",
+    "effect": "EtsyClient.activate; audited authority id then existing remote active-state read-back"
+  },
+  "binding": [
+    "action",
+    "slug",
+    "version",
+    "listing_id",
+    "release argument",
+    "CIR",
+    "certified payload",
+    "certified frame record/order/hashes",
+    "verified published file expectations"
+  ],
+  "tests_run": [
+    {
+      "file": "tests/test_activation_authority.py",
+      "passing": 2,
+      "failing": 0,
+      "basis": "two grouped adversarial tests, final implementation"
+    },
+    {
+      "file": "tests/test_etsy_readback_observe.py",
+      "passing": 37,
+      "failing": 0,
+      "basis": "clean separate process before final no-semantics-loosening reorder; positive activation control rerun after final change"
+    },
+    {
+      "file": "tests/test_etsy_readback_observe.py::test_with_every_proof_and_authority_present_the_listing_goes_live_and_is_read_back",
+      "passing": 1,
+      "failing": 0,
+      "basis": "final implementation"
+    }
+  ],
+  "adversarial_cases": [
+    "unauthenticated API",
+    "magic queued string",
+    "missing grant",
+    "tampered record",
+    "expired grant",
+    "revocation",
+    "credential rotation",
+    "action/listing/release/frame substitution",
+    "database accessor restart",
+    "real worker rejects invented authority",
+    "revocation during execution budget check",
+    "actual listing title mutation"
+  ],
+  "tests_changed": [
+    {
+      "test": "test_etsy_readback_observe::test_with_every_proof_and_authority_present_the_listing_goes_live_and_is_read_back",
+      "why": "F-703/F-835 make magic-string approval objectively invalid; positive fixture now calls authenticated durable producer; assertions unchanged"
+    }
+  ],
+  "initial_failures": [
+    "in-memory SQLite did not span TestClient thread; fixture uses temporary file-backed DB",
+    "combined-process test execution contaminated pre-existing artifact-store fixture; clean standalone process 37/37",
+    "legacy missing-authority message asserted Launch-0; retained term, no assertion relaxed"
+  ],
+  "integration_required": [
+    "app/main.py after app and db initialization: from .activation_authority_api import make_router as activation_authority_router; app.include_router(activation_authority_router(db))",
+    "new caller input owner_activation_approval_id replaces launch_authorisation; caller must preview and explicitly approve exact digest",
+    "run integrated API registration and affected broad suites"
+  ],
+  "remaining": [
+    "shared ops credential identifies its holder, not an independently verified named human",
+    "low-level EtsyClient.activate retains legacy string interface; direct callers remain outside this worker repair",
+    "does not make remote Etsy writes transactional with database or provide multi-worker exactly-once activation",
+    "approval valid for 24h for same action/content; not single-use; local active-state guard remains",
+    "remote pixel/hash verification limitations of existing read-back remain; approval binding does not fix those",
+    "no live Etsy or production evidence; no full suite run"
+  ],
+  "files_touched": [
+    "CODEX_SCOPE.md",
+    "brambleloop/src/brambleloop/ops/activation_authority.py",
+    "brambleloop/src/brambleloop/app/activation_authority_api.py",
+    "brambleloop/src/brambleloop/runtime/pipeline.py",
+    "brambleloop/tests/test_activation_authority.py",
+    "brambleloop/tests/test_etsy_readback_observe.py"
+  ],
+  "migrations": [],
+  "paid_spend": 0,
+  "requirement_statuses_changed": false
+}

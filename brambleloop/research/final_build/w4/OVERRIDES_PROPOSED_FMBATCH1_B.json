@@ -1,0 +1,20 @@
+{
+ "_meta": {
+  "lane": "w4-FMBATCH1",
+  "status": "PROPOSED: not applied; overrides.json changes only on integrator acceptance (accepted_by), F-867",
+  "dry_run": "python3 research/final_build/aggregate.py --overrides research/final_build/w4/OVERRIDES_PROPOSED_FMBATCH1_B.json --dry-run"
+ },
+ "overrides": {
+  "F-457": {
+   "completion_target": "TESTED",
+   "producer": "ops/registry.py",
+   "tests": [
+    "tests/test_w4_swarmcontrol.py::test_overlapping_live_lane_manifests_are_refused_at_enrolment"
+   ],
+   "reason": "F-457 Ownership Boundaries: W4-SWARMCONTROL enforces build-lane module ownership in code (ops/registry.py refuses overlapping live lane manifests at enrolment; tests/test_w4_swarmcontrol.py green on this branch, 2026-10-26). The producer is repo-root operator tooling no runtime root imports, so INTEGRATED is unreachable by construction and TESTED is its ceiling (aggregate.structural_producer) -- the structural-target decision CLOSE5 left for the integrator, same basis as F-843/F-845/F-846.",
+   "maturity": "TESTED",
+   "coverage": "FULL",
+   "missing_part": ""
+  }
+ }
+}

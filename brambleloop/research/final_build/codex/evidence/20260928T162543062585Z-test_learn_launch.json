@@ -1,0 +1,22 @@
+{
+  "run_id": "20260928T162543062585Z-test_learn_launch",
+  "sha": "610a8adfe568d6a6e503ab5104b7ba8ce00c4640",
+  "suite": "tests/test_learn_launch.py",
+  "started": "2026-09-28T16:25:43.062585+00:00",
+  "tree_before": "",
+  "source_before": "5a5a2b6a1074e8059506d6cf4c1113096e6360c6a4bf2206a085b105155b7979",
+  "dependency_roots": [
+    "C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\runtime-build2"
+  ],
+  "dependency_lock_verified": false,
+  "status": "passed",
+  "interpreter": "C:\\Users\\Jacob McKenna\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+  "font_sha256": "7da195a74c55bef988d0d48f9508bd5d849425c1770dba5d7bfc6ce9ed848954",
+  "release_eligible": false,
+  "exit_code": 0,
+  "finished": "2026-09-28T16:25:53.999525+00:00",
+  "source_after": "5a5a2b6a1074e8059506d6cf4c1113096e6360c6a4bf2206a085b105155b7979",
+  "head_after": "610a8adfe568d6a6e503ab5104b7ba8ce00c4640",
+  "log": "20260928T162543062585Z-test_learn_launch.log",
+  "log_sha256": "52e4e40c941562aa45a4a01c8e51c8e93c58d121bad0b4b184ce87c80c2514fb"
+}

@@ -1,0 +1,1057 @@
+{
+ "generated_at": "2026-10-11T15:37:18Z",
+ "generated_by": "research/final_build/w4/visualseo_launch0_proof.py (real chain, shadow, scratch SQLite, sockets refused, no taxonomy snapshot)",
+ "chain_not_done": [],
+ "listing_seo_blocked": {},
+ "products": {
+  "market-basket-small": {
+   "version": "1.2.0",
+   "frames": 3,
+   "frame_kinds": [
+    "disclosed_render"
+   ],
+   "listing_set": {
+    "blocks_release": false,
+    "reasons": [],
+    "certificate_valid": true
+   },
+   "search_certificate": {
+    "verdict": "REFUSED",
+    "failed": [
+     "category",
+     "attributes"
+    ],
+    "pending": [],
+    "checks": {
+     "category": {
+      "ok": false,
+      "why": "no Etsy taxonomy snapshot is stored: the tree has never been read, so no category can be chosen and none is assumed (taxonomy 66 was never verified)"
+     },
+     "attributes": {
+      "ok": false,
+      "why": "no category, so no property schema to be complete against"
+     },
+     "copy": {
+      "ok": true,
+      "why": ""
+     },
+     "tags": {
+      "ok": true,
+      "why": ""
+     },
+     "description": {
+      "ok": true,
+      "why": ""
+     },
+     "hero": {
+      "ok": true,
+      "why": "frame 1 passed all four gates on certified listing set 1"
+     }
+    },
+    "standing": {
+     "verdict": "REFUSED",
+     "current": true,
+     "category_status": "UNKNOWN",
+     "why": "the certificate covers the listing as it stands"
+    }
+   },
+   "search_hero_audit": {
+    "judged": true,
+    "verdict": "REFUSED",
+    "hero": {
+     "ok": true,
+     "why": "frame 1 passed all four gates on certified listing set 1",
+     "evidence": {
+      "listing_set_record_id": 1,
+      "release_hash": "1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991",
+      "frame_1_sha256": "a16ae6095d757310939d7e132035ca5128522d1dc9af36c0d5e0147651cef13f",
+      "frame_1_asset_id": "market-basket-small-disclosed-hero",
+      "frame_1_kind": "disclosed_render"
+     }
+    },
+    "evidence": {
+     "listing_set_record_id": 1,
+     "release_hash": "1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991",
+     "frame_1_sha256": "a16ae6095d757310939d7e132035ca5128522d1dc9af36c0d5e0147651cef13f",
+     "frame_1_asset_id": "market-basket-small-disclosed-hero",
+     "frame_1_kind": "disclosed_render"
+    },
+    "gate_ok": false,
+    "reasons": [
+     "category: no Etsy taxonomy snapshot is stored: the tree has never been read, so no category can be chosen and none is assumed (taxonomy 66 was never verified)",
+     "attributes: no category, so no property schema to be complete against",
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+    ]
+   },
+   "parity": {
+    "verdict": "unjudged",
+    "failed": [],
+    "unjudged": [
+     "hero",
+     "competitive_blind_review"
+    ],
+    "dimensions": {
+     "identity": {
+      "verdict": "pass",
+      "why": "no frame carries the model, so there is no identity to be wrong",
+      "waits_on_closed_gates": []
+     },
+     "product_truth": {
+      "verdict": "pass",
+      "why": "all exported frames independently structurally verified",
+      "waits_on_closed_gates": []
+     },
+     "hero": {
+      "verdict": "unjudged",
+      "why": "the hero frame was never described",
+      "waits_on_closed_gates": [
+       "image_vision"
+      ]
+     },
+     "mobile_grid": {
+      "verdict": "pass",
+      "why": "every frame reads at grid scale",
+      "waits_on_closed_gates": []
+     },
+     "lifestyle_quality": {
+      "verdict": "pass",
+      "why": "3 verified disclosed render(s) pass every presentation check ['layout_qa', 'mobile_contexts', 'hero_thumbnail', 'legibility_340', 'disclosure_in_image', 'disclosure_in_alt_text', 'disclosure_in_copy']",
+      "waits_on_closed_gates": []
+     },
+     "gallery": {
+      "verdict": "pass",
+      "why": "3 frames, each doing a declared job",
+      "waits_on_closed_gates": []
+     },
+     "brand": {
+      "verdict": "pass",
+      "why": "a product-only set is Brambleloop by its pattern and its chart",
+      "waits_on_closed_gates": []
+     },
+     "competitive_blind_review": {
+      "verdict": "unjudged",
+      "why": "no benchmark comparison has been made, and assuming this company compares well is the one answer nobody has evidence for",
+      "waits_on_closed_gates": [
+       "image_vision",
+       "benchmark_observation"
+      ]
+     }
+    }
+   },
+   "presentation_quality": [
+    {
+     "verdict": "pass",
+     "failed": [],
+     "unknown": []
+    },
+    {
+     "verdict": "pass",
+     "failed": [],
+     "unknown": []
+    },
+    {
+     "verdict": "pass",
+     "failed": [],
+     "unknown": []
+    }
+   ],
+   "gallery": {
+    "status": "FAIL",
+    "covered": [
+     "ANGLE",
+     "COLOUR_CONTEXT",
+     "CONSTRUCTION",
+     "CONTENTS",
+     "DESIRE",
+     "DETAIL",
+     "MATERIALS",
+     "SCALE",
+     "SIZING"
+    ],
+    "missing": [
+     "LIFESTYLE"
+    ],
+    "why": null
+   },
+   "gates": {
+    "image_vision": false,
+    "benchmark_observation": false
+   },
+   "search_rungs": {
+    "truthful_query_coverage": {
+     "verdict": "FAIL",
+     "why": "certificate REFUSED; match rate 0.9; stored search verdict is REFUSED"
+    },
+    "competitive_thumbnail": {
+     "verdict": "PASS",
+     "why": "frame 1 is certified for export"
+    },
+    "conversion_readiness": {
+     "verdict": "FAIL",
+     "why": "failed: first_customer: not ready: ['flawless_downloads']; gallery: ['LIFESTYLE']"
+    },
+    "no_unresolved_first_party_warning": {
+     "verdict": "UNMEASURED",
+     "why": "no Search Visibility reading is on file (owner intake: POST /api/search-visibility; needs a live shop)"
+    }
+   },
+   "search_package": {
+    "readiness": {
+     "state": "EXTERNAL_GATED",
+     "gate": "etsy_taxonomy_read: listing.taxonomy_refresh needs the app keystring (ETSY_KEYSTRING / ETSY_API_KEY, read-only GET /seller-taxonomy/*); no Etsy taxonomy snapshot is stored, so no category id is chosen and none is assumed",
+     "why": [
+      "category: no Etsy taxonomy snapshot is stored: the tree has never been read, so no category can be chosen and none is assumed (taxonomy 66 was never verified)",
+      "attributes: no category, so no property schema to be complete against"
+     ]
+    },
+    "title": "Hexagonal Bread Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
+    "tag_basis": {
+     "measured": 0,
+     "observed": 0,
+     "modelled": 13
+    }
+   }
+  },
+  "market-basket-medium": {
+   "version": "1.2.0",
+   "frames": 3,
+   "frame_kinds": [
+    "disclosed_render"
+   ],
+   "listing_set": {
+    "blocks_release": false,
+    "reasons": [],
+    "certificate_valid": true
+   },
+   "search_certificate": {
+    "verdict": "REFUSED",
+    "failed": [
+     "category",
+     "attributes"
+    ],
+    "pending": [],
+    "checks": {
+     "category": {
+      "ok": false,
+      "why": "no Etsy taxonomy snapshot is stored: the tree has never been read, so no category can be chosen and none is assumed (taxonomy 66 was never verified)"
+     },
+     "attributes": {
+      "ok": false,
+      "why": "no category, so no property schema to be complete against"
+     },
+     "copy": {
+      "ok": true,
+      "why": ""
+     },
+     "tags": {
+      "ok": true,
+      "why": ""
+     },
+     "description": {
+      "ok": true,
+      "why": ""
+     },
+     "hero": {
+      "ok": true,
+      "why": "frame 1 passed all four gates on certified listing set 2"
+     }
+    },
+    "standing": {
+     "verdict": "REFUSED",
+     "current": true,
+     "category_status": "UNKNOWN",
+     "why": "the certificate covers the listing as it stands"
+    }
+   },
+   "search_hero_audit": {
+    "judged": true,
+    "verdict": "REFUSED",
+    "hero": {
+     "ok": true,
+     "why": "frame 1 passed all four gates on certified listing set 2",
+     "evidence": {
+      "listing_set_record_id": 2,
+      "release_hash": "00182234041c441c762edf15f40165cf1e6b3ecd8d367147bddf5f97d03bcfca",
+      "frame_1_sha256": "2853edb459191a8d65a4adaa4ee5782b06c4a33d5340f215ad169a817b55a48a",
+      "frame_1_asset_id": "market-basket-medium-disclosed-hero",
+      "frame_1_kind": "disclosed_render"
+     }
+    },
+    "evidence": {
+     "listing_set_record_id": 2,
+     "release_hash": "00182234041c441c762edf15f40165cf1e6b3ecd8d367147bddf5f97d03bcfca",
+     "frame_1_sha256": "2853edb459191a8d65a4adaa4ee5782b06c4a33d5340f215ad169a817b55a48a",
+     "frame_1_asset_id": "market-basket-medium-disclosed-hero",
+     "frame_1_kind": "disclosed_render"
+    },
+    "gate_ok": false,
+    "reasons": [
+     "category: no Etsy taxonomy snapshot is stored: the tree has never been read, so no category can be chosen and none is assumed (taxonomy 66 was never verified)",
+     "attributes: no category, so no property schema to be complete against",
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+    ]
+   },
+   "parity": {
+    "verdict": "unjudged",
+    "failed": [],
+    "unjudged": [
+     "hero",
+     "competitive_blind_review"
+    ],
+    "dimensions": {
+     "identity": {
+      "verdict": "pass",
+      "why": "no frame carries the model, so there is no identity to be wrong",
+      "waits_on_closed_gates": []
+     },
+     "product_truth": {
+      "verdict": "pass",
+      "why": "all exported frames independently structurally verified",
+      "waits_on_closed_gates": []
+     },
+     "hero": {
+      "verdict": "unjudged",
+      "why": "the hero frame was never described",
+      "waits_on_closed_gates": [
+       "image_vision"
+      ]
+     },
+     "mobile_grid": {
+      "verdict": "pass",
+      "why": "every frame reads at grid scale",
+      "waits_on_closed_gates": []
+     },
+     "lifestyle_quality": {
+      "verdict": "pass",
+      "why": "3 verified disclosed render(s) pass every presentation check ['layout_qa', 'mobile_contexts', 'hero_thumbnail', 'legibility_340', 'disclosure_in_image', 'disclosure_in_alt_text', 'disclosure_in_copy']",
+      "waits_on_closed_gates": []
+     },
+     "gallery": {
+      "verdict": "pass",
+      "why": "3 frames, each doing a declared job",
+      "waits_on_closed_gates": []
+     },
+     "brand": {
+      "verdict": "pass",
+      "why": "a product-only set is Brambleloop by its pattern and its chart",
+      "waits_on_closed_gates": []
+     },
+     "competitive_blind_review": {
+      "verdict": "unjudged",
+      "why": "no benchmark comparison has been made, and assuming this company compares well is the one answer nobody has evidence for",
+      "waits_on_closed_gates": [
+       "image_vision",
+       "benchmark_observation"
+      ]
+     }
+    }
+   },
+   "presentation_quality": [
+    {
+     "verdict": "pass",
+     "failed": [],
+     "unknown": []
+    },
+    {
+     "verdict": "pass",
+     "failed": [],
+     "unknown": []
+    },
+    {
+     "verdict": "pass",
+     "failed": [],
+     "unknown": []
+    }
+   ],
+   "gallery": {
+    "status": "FAIL",
+    "covered": [
+     "ANGLE",
+     "COLOUR_CONTEXT",
+     "CONSTRUCTION",
+     "CONTENTS",
+     "DESIRE",
+     "DETAIL",
+     "MATERIALS",
+     "SCALE"
+    ],
+    "missing": [
+     "LIFESTYLE"
+    ],
+    "why": null
+   },
+   "gates": {
+    "image_vision": false,
+    "benchmark_observation": false
+   },
+   "search_rungs": {
+    "truthful_query_coverage": {
+     "verdict": "FAIL",
+     "why": "certificate REFUSED; match rate 0.8; stored search verdict is REFUSED"
+    },
+    "competitive_thumbnail": {
+     "verdict": "PASS",
+     "why": "frame 1 is certified for export"
+    },
+    "conversion_readiness": {
+     "verdict": "FAIL",
+     "why": "failed: first_customer: not ready: ['flawless_downloads']; gallery: ['LIFESTYLE']"
+    },
+    "no_unresolved_first_party_warning": {
+     "verdict": "UNMEASURED",
+     "why": "no Search Visibility reading is on file (owner intake: POST /api/search-visibility; needs a live shop)"
+    }
+   },
+   "search_package": {
+    "readiness": {
+     "state": "EXTERNAL_GATED",
+     "gate": "etsy_taxonomy_read: listing.taxonomy_refresh needs the app keystring (ETSY_KEYSTRING / ETSY_API_KEY, read-only GET /seller-taxonomy/*); no Etsy taxonomy snapshot is stored, so no category id is chosen and none is assumed",
+     "why": [
+      "category: no Etsy taxonomy snapshot is stored: the tree has never been read, so no category can be chosen and none is assumed (taxonomy 66 was never verified)",
+      "attributes: no category, so no property schema to be complete against"
+     ]
+    },
+    "title": "Hexagonal Storage Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
+    "tag_basis": {
+     "measured": 0,
+     "observed": 0,
+     "modelled": 13
+    }
+   }
+  },
+  "market-basket-large": {
+   "version": "1.2.0",
+   "frames": 3,
+   "frame_kinds": [
+    "disclosed_render"
+   ],
+   "listing_set": {
+    "blocks_release": false,
+    "reasons": [],
+    "certificate_valid": true
+   },
+   "search_certificate": {
+    "verdict": "REFUSED",
+    "failed": [
+     "category",
+     "attributes"
+    ],
+    "pending": [],
+    "checks": {
+     "category": {
+      "ok": false,
+      "why": "no Etsy taxonomy snapshot is stored: the tree has never been read, so no category can be chosen and none is assumed (taxonomy 66 was never verified)"
+     },
+     "attributes": {
+      "ok": false,
+      "why": "no category, so no property schema to be complete against"
+     },
+     "copy": {
+      "ok": true,
+      "why": ""
+     },
+     "tags": {
+      "ok": true,
+      "why": ""
+     },
+     "description": {
+      "ok": true,
+      "why": ""
+     },
+     "hero": {
+      "ok": true,
+      "why": "frame 1 passed all four gates on certified listing set 3"
+     }
+    },
+    "standing": {
+     "verdict": "REFUSED",
+     "current": true,
+     "category_status": "UNKNOWN",
+     "why": "the certificate covers the listing as it stands"
+    }
+   },
+   "search_hero_audit": {
+    "judged": true,
+    "verdict": "REFUSED",
+    "hero": {
+     "ok": true,
+     "why": "frame 1 passed all four gates on certified listing set 3",
+     "evidence": {
+      "listing_set_record_id": 3,
+      "release_hash": "cc698c1b14984eeb68a7c8f69982e96321275f3908b0cbca6c5c4f97079892cf",
+      "frame_1_sha256": "e4de773ba6b2401ed5b8322feea81563993c23194d0fcab3b957dce005ef2aba",
+      "frame_1_asset_id": "market-basket-large-disclosed-hero",
+      "frame_1_kind": "disclosed_render"
+     }
+    },
+    "evidence": {
+     "listing_set_record_id": 3,
+     "release_hash": "cc698c1b14984eeb68a7c8f69982e96321275f3908b0cbca6c5c4f97079892cf",
+     "frame_1_sha256": "e4de773ba6b2401ed5b8322feea81563993c23194d0fcab3b957dce005ef2aba",
+     "frame_1_asset_id": "market-basket-large-disclosed-hero",
+     "frame_1_kind": "disclosed_render"
+    },
+    "gate_ok": false,
+    "reasons": [
+     "category: no Etsy taxonomy snapshot is stored: the tree has never been read, so no category can be chosen and none is assumed (taxonomy 66 was never verified)",
+     "attributes: no category, so no property schema to be complete against",
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+    ]
+   },
+   "parity": {
+    "verdict": "unjudged",
+    "failed": [],
+    "unjudged": [
+     "hero",
+     "competitive_blind_review"
+    ],
+    "dimensions": {
+     "identity": {
+      "verdict": "pass",
+      "why": "no frame carries the model, so there is no identity to be wrong",
+      "waits_on_closed_gates": []
+     },
+     "product_truth": {
+      "verdict": "pass",
+      "why": "all exported frames independently structurally verified",
+      "waits_on_closed_gates": []
+     },
+     "hero": {
+      "verdict": "unjudged",
+      "why": "the hero frame was never described",
+      "waits_on_closed_gates": [
+       "image_vision"
+      ]
+     },
+     "mobile_grid": {
+      "verdict": "pass",
+      "why": "every frame reads at grid scale",
+      "waits_on_closed_gates": []
+     },
+     "lifestyle_quality": {
+      "verdict": "pass",
+      "why": "3 verified disclosed render(s) pass every presentation check ['layout_qa', 'mobile_contexts', 'hero_thumbnail', 'legibility_340', 'disclosure_in_image', 'disclosure_in_alt_text', 'disclosure_in_copy']",
+      "waits_on_closed_gates": []
+     },
+     "gallery": {
+      "verdict": "pass",
+      "why": "3 frames, each doing a declared job",
+      "waits_on_closed_gates": []
+     },
+     "brand": {
+      "verdict": "pass",
+      "why": "a product-only set is Brambleloop by its pattern and its chart",
+      "waits_on_closed_gates": []
+     },
+     "competitive_blind_review": {
+      "verdict": "unjudged",
+      "why": "no benchmark comparison has been made, and assuming this company compares well is the one answer nobody has evidence for",
+      "waits_on_closed_gates": [
+       "image_vision",
+       "benchmark_observation"
+      ]
+     }
+    }
+   },
+   "presentation_quality": [
+    {
+     "verdict": "pass",
+     "failed": [],
+     "unknown": []
+    },
+    {
+     "verdict": "pass",
+     "failed": [],
+     "unknown": []
+    },
+    {
+     "verdict": "pass",
+     "failed": [],
+     "unknown": []
+    }
+   ],
+   "gallery": {
+    "status": "FAIL",
+    "covered": [
+     "ANGLE",
+     "COLOUR_CONTEXT",
+     "CONSTRUCTION",
+     "CONTENTS",
+     "DESIRE",
+     "DETAIL",
+     "MATERIALS",
+     "SCALE"
+    ],
+    "missing": [
+     "LIFESTYLE"
+    ],
+    "why": null
+   },
+   "gates": {
+    "image_vision": false,
+    "benchmark_observation": false
+   },
+   "search_rungs": {
+    "truthful_query_coverage": {
+     "verdict": "FAIL",
+     "why": "certificate REFUSED; match rate 0.9; stored search verdict is REFUSED"
+    },
+    "competitive_thumbnail": {
+     "verdict": "PASS",
+     "why": "frame 1 is certified for export"
+    },
+    "conversion_readiness": {
+     "verdict": "FAIL",
+     "why": "failed: first_customer: not ready: ['flawless_downloads']; gallery: ['LIFESTYLE']"
+    },
+    "no_unresolved_first_party_warning": {
+     "verdict": "UNMEASURED",
+     "why": "no Search Visibility reading is on file (owner intake: POST /api/search-visibility; needs a live shop)"
+    }
+   },
+   "search_package": {
+    "readiness": {
+     "state": "EXTERNAL_GATED",
+     "gate": "etsy_taxonomy_read: listing.taxonomy_refresh needs the app keystring (ETSY_KEYSTRING / ETSY_API_KEY, read-only GET /seller-taxonomy/*); no Etsy taxonomy snapshot is stored, so no category id is chosen and none is assumed",
+     "why": [
+      "category: no Etsy taxonomy snapshot is stored: the tree has never been read, so no category can be chosen and none is assumed (taxonomy 66 was never verified)",
+      "attributes: no category, so no property schema to be complete against"
+     ]
+    },
+    "title": "Hexagonal Market Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
+    "tag_basis": {
+     "measured": 0,
+     "observed": 0,
+     "modelled": 13
+    }
+   }
+  },
+  "cloudline-baby-blanket": {
+   "version": "1.2.0",
+   "frames": 3,
+   "frame_kinds": [
+    "disclosed_render"
+   ],
+   "listing_set": {
+    "blocks_release": false,
+    "reasons": [],
+    "certificate_valid": true
+   },
+   "search_certificate": {
+    "verdict": "REFUSED",
+    "failed": [
+     "category",
+     "attributes"
+    ],
+    "pending": [],
+    "checks": {
+     "category": {
+      "ok": false,
+      "why": "no Etsy taxonomy snapshot is stored: the tree has never been read, so no category can be chosen and none is assumed (taxonomy 66 was never verified)"
+     },
+     "attributes": {
+      "ok": false,
+      "why": "no category, so no property schema to be complete against"
+     },
+     "copy": {
+      "ok": true,
+      "why": ""
+     },
+     "tags": {
+      "ok": true,
+      "why": ""
+     },
+     "description": {
+      "ok": true,
+      "why": ""
+     },
+     "hero": {
+      "ok": true,
+      "why": "frame 1 passed all four gates on certified listing set 4"
+     }
+    },
+    "standing": {
+     "verdict": "REFUSED",
+     "current": true,
+     "category_status": "UNKNOWN",
+     "why": "the certificate covers the listing as it stands"
+    }
+   },
+   "search_hero_audit": {
+    "judged": true,
+    "verdict": "REFUSED",
+    "hero": {
+     "ok": true,
+     "why": "frame 1 passed all four gates on certified listing set 4",
+     "evidence": {
+      "listing_set_record_id": 4,
+      "release_hash": "7c63dbdd501fa6b1ec89a12b29ad50ad26f52091884b5d60893fafa4a27d9684",
+      "frame_1_sha256": "bf30686b90bff8e07e276da02650da258531d2710d152cf10e08c967e82aeba6",
+      "frame_1_asset_id": "cloudline-baby-blanket-disclosed-hero",
+      "frame_1_kind": "disclosed_render"
+     }
+    },
+    "evidence": {
+     "listing_set_record_id": 4,
+     "release_hash": "7c63dbdd501fa6b1ec89a12b29ad50ad26f52091884b5d60893fafa4a27d9684",
+     "frame_1_sha256": "bf30686b90bff8e07e276da02650da258531d2710d152cf10e08c967e82aeba6",
+     "frame_1_asset_id": "cloudline-baby-blanket-disclosed-hero",
+     "frame_1_kind": "disclosed_render"
+    },
+    "gate_ok": false,
+    "reasons": [
+     "category: no Etsy taxonomy snapshot is stored: the tree has never been read, so no category can be chosen and none is assumed (taxonomy 66 was never verified)",
+     "attributes: no category, so no property schema to be complete against",
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+    ]
+   },
+   "parity": {
+    "verdict": "unjudged",
+    "failed": [],
+    "unjudged": [
+     "hero",
+     "competitive_blind_review"
+    ],
+    "dimensions": {
+     "identity": {
+      "verdict": "pass",
+      "why": "no frame carries the model, so there is no identity to be wrong",
+      "waits_on_closed_gates": []
+     },
+     "product_truth": {
+      "verdict": "pass",
+      "why": "all exported frames independently structurally verified",
+      "waits_on_closed_gates": []
+     },
+     "hero": {
+      "verdict": "unjudged",
+      "why": "the hero frame was never described",
+      "waits_on_closed_gates": [
+       "image_vision"
+      ]
+     },
+     "mobile_grid": {
+      "verdict": "pass",
+      "why": "every frame reads at grid scale",
+      "waits_on_closed_gates": []
+     },
+     "lifestyle_quality": {
+      "verdict": "pass",
+      "why": "3 verified disclosed render(s) pass every presentation check ['layout_qa', 'mobile_contexts', 'hero_thumbnail', 'legibility_340', 'disclosure_in_image', 'disclosure_in_alt_text', 'disclosure_in_copy']",
+      "waits_on_closed_gates": []
+     },
+     "gallery": {
+      "verdict": "pass",
+      "why": "3 frames, each doing a declared job",
+      "waits_on_closed_gates": []
+     },
+     "brand": {
+      "verdict": "pass",
+      "why": "a product-only set is Brambleloop by its pattern and its chart",
+      "waits_on_closed_gates": []
+     },
+     "competitive_blind_review": {
+      "verdict": "unjudged",
+      "why": "no benchmark comparison has been made, and assuming this company compares well is the one answer nobody has evidence for",
+      "waits_on_closed_gates": [
+       "image_vision",
+       "benchmark_observation"
+      ]
+     }
+    }
+   },
+   "presentation_quality": [
+    {
+     "verdict": "pass",
+     "failed": [],
+     "unknown": []
+    },
+    {
+     "verdict": "pass",
+     "failed": [],
+     "unknown": []
+    },
+    {
+     "verdict": "pass",
+     "failed": [],
+     "unknown": []
+    }
+   ],
+   "gallery": {
+    "status": "FAIL",
+    "covered": [
+     "COLOUR_CONTEXT",
+     "CONTENTS",
+     "DESIRE",
+     "DETAIL",
+     "MATERIALS",
+     "SCALE"
+    ],
+    "missing": [
+     "LIFESTYLE"
+    ],
+    "why": null
+   },
+   "gates": {
+    "image_vision": false,
+    "benchmark_observation": false
+   },
+   "search_rungs": {
+    "truthful_query_coverage": {
+     "verdict": "FAIL",
+     "why": "certificate REFUSED; match rate 0.8333; stored search verdict is REFUSED"
+    },
+    "competitive_thumbnail": {
+     "verdict": "PASS",
+     "why": "frame 1 is certified for export"
+    },
+    "conversion_readiness": {
+     "verdict": "FAIL",
+     "why": "failed: first_customer: not ready: ['flawless_downloads']; gallery: ['LIFESTYLE']"
+    },
+    "no_unresolved_first_party_warning": {
+     "verdict": "UNMEASURED",
+     "why": "no Search Visibility reading is on file (owner intake: POST /api/search-visibility; needs a live shop)"
+    }
+   },
+   "search_package": {
+    "readiness": {
+     "state": "EXTERNAL_GATED",
+     "gate": "etsy_taxonomy_read: listing.taxonomy_refresh needs the app keystring (ETSY_KEYSTRING / ETSY_API_KEY, read-only GET /seller-taxonomy/*); no Etsy taxonomy snapshot is stored, so no category id is chosen and none is assumed",
+     "why": [
+      "category: no Etsy taxonomy snapshot is stored: the tree has never been read, so no category can be chosen and none is assumed (taxonomy 66 was never verified)",
+      "attributes: no category, so no property schema to be complete against"
+     ]
+    },
+    "title": "Cloudline Textured Baby Blanket | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
+    "tag_basis": {
+     "measured": 0,
+     "observed": 0,
+     "modelled": 13
+    }
+   }
+  },
+  "hexagon-coaster-set": {
+   "version": "1.2.0",
+   "frames": 3,
+   "frame_kinds": [
+    "disclosed_render"
+   ],
+   "listing_set": {
+    "blocks_release": false,
+    "reasons": [],
+    "certificate_valid": true
+   },
+   "search_certificate": {
+    "verdict": "REFUSED",
+    "failed": [
+     "category",
+     "attributes"
+    ],
+    "pending": [],
+    "checks": {
+     "category": {
+      "ok": false,
+      "why": "no Etsy taxonomy snapshot is stored: the tree has never been read, so no category can be chosen and none is assumed (taxonomy 66 was never verified)"
+     },
+     "attributes": {
+      "ok": false,
+      "why": "no category, so no property schema to be complete against"
+     },
+     "copy": {
+      "ok": true,
+      "why": ""
+     },
+     "tags": {
+      "ok": true,
+      "why": ""
+     },
+     "description": {
+      "ok": true,
+      "why": ""
+     },
+     "hero": {
+      "ok": true,
+      "why": "frame 1 passed all four gates on certified listing set 5"
+     }
+    },
+    "standing": {
+     "verdict": "REFUSED",
+     "current": true,
+     "category_status": "UNKNOWN",
+     "why": "the certificate covers the listing as it stands"
+    }
+   },
+   "search_hero_audit": {
+    "judged": true,
+    "verdict": "REFUSED",
+    "hero": {
+     "ok": true,
+     "why": "frame 1 passed all four gates on certified listing set 5",
+     "evidence": {
+      "listing_set_record_id": 5,
+      "release_hash": "3754ed17a63b790dc2c04b0f744de3fad34e5893ca69c0ff9f0c7cb41090937b",
+      "frame_1_sha256": "dde60f6bbe780d18501942ae4fd54753fac7aa3de34f661ac9efc136bc2c4f71",
+      "frame_1_asset_id": "hexagon-coaster-set-disclosed-hero",
+      "frame_1_kind": "disclosed_render"
+     }
+    },
+    "evidence": {
+     "listing_set_record_id": 5,
+     "release_hash": "3754ed17a63b790dc2c04b0f744de3fad34e5893ca69c0ff9f0c7cb41090937b",
+     "frame_1_sha256": "dde60f6bbe780d18501942ae4fd54753fac7aa3de34f661ac9efc136bc2c4f71",
+     "frame_1_asset_id": "hexagon-coaster-set-disclosed-hero",
+     "frame_1_kind": "disclosed_render"
+    },
+    "gate_ok": false,
+    "reasons": [
+     "category: no Etsy taxonomy snapshot is stored: the tree has never been read, so no category can be chosen and none is assumed (taxonomy 66 was never verified)",
+     "attributes: no category, so no property schema to be complete against",
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+    ]
+   },
+   "parity": {
+    "verdict": "unjudged",
+    "failed": [],
+    "unjudged": [
+     "hero",
+     "competitive_blind_review"
+    ],
+    "dimensions": {
+     "identity": {
+      "verdict": "pass",
+      "why": "no frame carries the model, so there is no identity to be wrong",
+      "waits_on_closed_gates": []
+     },
+     "product_truth": {
+      "verdict": "pass",
+      "why": "all exported frames independently structurally verified",
+      "waits_on_closed_gates": []
+     },
+     "hero": {
+      "verdict": "unjudged",
+      "why": "the hero frame was never described",
+      "waits_on_closed_gates": [
+       "image_vision"
+      ]
+     },
+     "mobile_grid": {
+      "verdict": "pass",
+      "why": "every frame reads at grid scale",
+      "waits_on_closed_gates": []
+     },
+     "lifestyle_quality": {
+      "verdict": "pass",
+      "why": "3 verified disclosed render(s) pass every presentation check ['layout_qa', 'mobile_contexts', 'hero_thumbnail', 'legibility_340', 'disclosure_in_image', 'disclosure_in_alt_text', 'disclosure_in_copy']",
+      "waits_on_closed_gates": []
+     },
+     "gallery": {
+      "verdict": "pass",
+      "why": "3 frames, each doing a declared job",
+      "waits_on_closed_gates": []
+     },
+     "brand": {
+      "verdict": "pass",
+      "why": "a product-only set is Brambleloop by its pattern and its chart",
+      "waits_on_closed_gates": []
+     },
+     "competitive_blind_review": {
+      "verdict": "unjudged",
+      "why": "no benchmark comparison has been made, and assuming this company compares well is the one answer nobody has evidence for",
+      "waits_on_closed_gates": [
+       "image_vision",
+       "benchmark_observation"
+      ]
+     }
+    }
+   },
+   "presentation_quality": [
+    {
+     "verdict": "pass",
+     "failed": [],
+     "unknown": []
+    },
+    {
+     "verdict": "pass",
+     "failed": [],
+     "unknown": []
+    },
+    {
+     "verdict": "pass",
+     "failed": [],
+     "unknown": []
+    }
+   ],
+   "gallery": {
+    "status": "FAIL",
+    "covered": [
+     "COLOUR_CONTEXT",
+     "CONTENTS",
+     "DESIRE",
+     "DETAIL",
+     "MATERIALS",
+     "SCALE"
+    ],
+    "missing": [
+     "LIFESTYLE"
+    ],
+    "why": null
+   },
+   "gates": {
+    "image_vision": false,
+    "benchmark_observation": false
+   },
+   "search_rungs": {
+    "truthful_query_coverage": {
+     "verdict": "FAIL",
+     "why": "certificate REFUSED; match rate 0.85; stored search verdict is REFUSED"
+    },
+    "competitive_thumbnail": {
+     "verdict": "PASS",
+     "why": "frame 1 is certified for export"
+    },
+    "conversion_readiness": {
+     "verdict": "FAIL",
+     "why": "failed: first_customer: not ready: ['flawless_downloads']; gallery: ['LIFESTYLE']"
+    },
+    "no_unresolved_first_party_warning": {
+     "verdict": "UNMEASURED",
+     "why": "no Search Visibility reading is on file (owner intake: POST /api/search-visibility; needs a live shop)"
+    }
+   },
+   "search_package": {
+    "readiness": {
+     "state": "EXTERNAL_GATED",
+     "gate": "etsy_taxonomy_read: listing.taxonomy_refresh needs the app keystring (ETSY_KEYSTRING / ETSY_API_KEY, read-only GET /seller-taxonomy/*); no Etsy taxonomy snapshot is stored, so no category id is chosen and none is assumed",
+     "why": [
+      "category: no Etsy taxonomy snapshot is stored: the tree has never been read, so no category can be chosen and none is assumed (taxonomy 66 was never verified)",
+      "attributes: no category, so no property schema to be complete against"
+     ]
+    },
+    "title": "Hexagon Coaster Set | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
+    "tag_basis": {
+     "measured": 0,
+     "observed": 0,
+     "modelled": 13
+    }
+   }
+  }
+ },
+ "supremacy_gate": {
+  "cleared": false,
+  "failed": [
+   "conversion_readiness",
+   "truthful_query_coverage"
+  ],
+  "unmeasured": [
+   "no_unresolved_first_party_warning"
+  ],
+  "why": "search rungs failed ['conversion_readiness', 'truthful_query_coverage'], unmeasured ['no_unresolved_first_party_warning']"
+ },
+ "seconds": 432.0
+}

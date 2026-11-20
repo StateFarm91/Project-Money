@@ -1,0 +1,1090 @@
+{
+ "bars": {
+  "row_pair_scale": 0.35,
+  "star_pitch_scale": 0.35,
+  "pitch_over_pair": [
+   0.39,
+   0.72
+  ],
+  "lattice_peak": 0.1,
+  "column_offset": 0.3,
+  "blob_isotropy": 0.55,
+  "diagonal_fraction": 0.3,
+  "return_row_contrast": 1.25
+ },
+ "why": {
+  "row_pair_scale": "CHOSEN: +-35 %, the same generator-fuzz tolerance Bench1 used for stitch scale",
+  "star_pitch_scale": "CHOSEN: +-35 %, as above",
+  "pitch_over_pair": "DERIVED: a star spans 2 sts (2 x 4/18 in) and a row pair spans 2 rows (2 x 4/10 in): 0.556, accepted +-30 %",
+  "lattice_peak": "CHOSEN a priori: the eye map's normalised autocorrelation must show the along-row peak (star pitch) and the next-star-row peak at >= 0.10 of the origin",
+  "column_offset": "DERIVED from the stitch: each star of the next row is worked into the two hdc that sit over one eye, so its eye forms over that eye shifted by about half an hdc (a quarter star) in the working direction, alternating each row pair; the eyes stack in near-vertical columns. Accepted |offset| <= 0.30 star. A half-star offset is a checker (seed, waffle, bobble lattices) and fails",
+  "blob_isotropy": "CHOSEN a priori: the detected dark features must be round holes (curvature ratio >= 0.55 on average), not bars, posts or valleys",
+  "diagonal_fraction": "CHOSEN a priori: the five legs of each star fan into the eye, so at least 0.30 of gradient energy lies 20-70 degrees off the row direction; plain hdc rows (posts and row lines) and ribbed/waffle grids sit near 0 and 90 degrees",
+  "return_row_contrast": "DERIVED from the stitch: every row pair has a thin return row of hdc between the star rows, so across-row edge energy folded by the pair must concentrate in one phase band (peak bin >= 1.25 x the mean of 8 bins). Bump lattices (seed, bobble, puff) with the same eye lattice have no such row"
+ },
+ "results": {
+  "truth_star": {
+   "star_pitch_px": 24.0,
+   "row_pair_px": 43.0,
+   "pitch_over_pair": 0.558,
+   "row_peak": 0.997,
+   "next_row_peak": 0.511,
+   "column_offset_star": 0.125,
+   "row_angle_deg": 0.0,
+   "blob_isotropy": 0.591,
+   "diagonal_fraction": 0.386,
+   "return_row_contrast": 4.059,
+   "eye_sigma": 2.4000000000000004,
+   "peaks": [
+    [
+     96,
+     0,
+     0.997
+    ],
+    [
+     192,
+     0,
+     0.997
+    ],
+    [
+     48,
+     0,
+     0.997
+    ],
+    [
+     72,
+     0,
+     0.997
+    ],
+    [
+     120,
+     0,
+     0.997
+    ],
+    [
+     144,
+     0,
+     0.997
+    ],
+    [
+     168,
+     0,
+     0.997
+    ],
+    [
+     216,
+     0,
+     0.997
+    ]
+   ],
+   "tests": {
+    "row_peak": true,
+    "next_row_peak": true,
+    "column_offset": true,
+    "pitch_over_pair": true,
+    "blob_isotropy": true,
+    "diagonal_fraction": true,
+    "return_row_contrast": true
+   },
+   "identity": "PASS",
+   "failed": [],
+   "gauge": {
+    "row_pair_ratio": 1.0,
+    "star_pitch_ratio": 1.0,
+    "status": "PASS"
+   },
+   "status": "PASS"
+  },
+  "truth_star_phase": {
+   "star_pitch_px": 24.0,
+   "row_pair_px": 43.0,
+   "pitch_over_pair": 0.558,
+   "row_peak": 0.998,
+   "next_row_peak": 0.471,
+   "column_offset_star": 0.083,
+   "row_angle_deg": 0.0,
+   "blob_isotropy": 0.574,
+   "diagonal_fraction": 0.385,
+   "return_row_contrast": 4.036,
+   "eye_sigma": 2.4000000000000004,
+   "peaks": [
+    [
+     48,
+     0,
+     0.998
+    ],
+    [
+     72,
+     0,
+     0.998
+    ],
+    [
+     96,
+     0,
+     0.998
+    ],
+    [
+     120,
+     0,
+     0.998
+    ],
+    [
+     144,
+     0,
+     0.998
+    ],
+    [
+     192,
+     0,
+     0.998
+    ],
+    [
+     216,
+     0,
+     0.998
+    ],
+    [
+     168,
+     0,
+     0.998
+    ]
+   ],
+   "tests": {
+    "row_peak": true,
+    "next_row_peak": true,
+    "column_offset": true,
+    "pitch_over_pair": true,
+    "blob_isotropy": true,
+    "diagonal_fraction": true,
+    "return_row_contrast": true
+   },
+   "identity": "PASS",
+   "failed": [],
+   "gauge": {
+    "row_pair_ratio": 1.0,
+    "star_pitch_ratio": 1.0,
+    "status": "PASS"
+   },
+   "status": "PASS"
+  },
+  "truth_star_2x_scale(gauge_must_fail)": {
+   "star_pitch_px": 48.0,
+   "row_pair_px": 86.0,
+   "pitch_over_pair": 0.558,
+   "row_peak": 0.994,
+   "next_row_peak": 0.436,
+   "column_offset_star": 0.042,
+   "row_angle_deg": 0.0,
+   "blob_isotropy": 0.602,
+   "diagonal_fraction": 0.422,
+   "return_row_contrast": 3.191,
+   "eye_sigma": 4.800000000000001,
+   "peaks": [
+    [
+     96,
+     0,
+     0.994
+    ],
+    [
+     144,
+     0,
+     0.994
+    ],
+    [
+     192,
+     0,
+     0.994
+    ],
+    [
+     48,
+     0,
+     0.994
+    ],
+    [
+     239,
+     0,
+     0.984
+    ],
+    [
+     0,
+     172,
+     0.546
+    ],
+    [
+     48,
+     172,
+     0.543
+    ],
+    [
+     -240,
+     172,
+     0.543
+    ]
+   ],
+   "tests": {
+    "row_peak": true,
+    "next_row_peak": true,
+    "column_offset": true,
+    "pitch_over_pair": true,
+    "blob_isotropy": true,
+    "diagonal_fraction": true,
+    "return_row_contrast": true
+   },
+   "identity": "PASS",
+   "failed": [],
+   "gauge": {
+    "row_pair_ratio": 2.0,
+    "star_pitch_ratio": 2.0,
+    "status": "FAIL"
+   },
+   "status": "FAIL"
+  },
+  "control_star_half_offset(first_model)": {
+   "star_pitch_px": 24.0,
+   "row_pair_px": 43.0,
+   "pitch_over_pair": 0.558,
+   "row_peak": 1.0,
+   "next_row_peak": 0.888,
+   "column_offset_star": 0.5,
+   "row_angle_deg": 0.0,
+   "blob_isotropy": 0.59,
+   "diagonal_fraction": 0.38,
+   "return_row_contrast": 4.079,
+   "eye_sigma": 2.4000000000000004,
+   "peaks": [
+    [
+     96,
+     0,
+     1.0
+    ],
+    [
+     192,
+     0,
+     1.0
+    ],
+    [
+     48,
+     0,
+     1.0
+    ],
+    [
+     72,
+     0,
+     1.0
+    ],
+    [
+     120,
+     0,
+     1.0
+    ],
+    [
+     144,
+     0,
+     1.0
+    ],
+    [
+     168,
+     0,
+     1.0
+    ],
+    [
+     216,
+     0,
+     1.0
+    ]
+   ],
+   "tests": {
+    "row_peak": true,
+    "next_row_peak": true,
+    "column_offset": false,
+    "pitch_over_pair": true,
+    "blob_isotropy": true,
+    "diagonal_fraction": true,
+    "return_row_contrast": true
+   },
+   "identity": "FAIL",
+   "failed": [
+    "column_offset"
+   ],
+   "gauge": {
+    "row_pair_ratio": 1.0,
+    "star_pitch_ratio": 1.0,
+    "status": "PASS"
+   },
+   "status": "FAIL"
+  },
+  "control_hdc_rows": {
+   "star_pitch_px": 12.0,
+   "row_pair_px": 22.0,
+   "pitch_over_pair": 0.545,
+   "row_peak": 0.984,
+   "next_row_peak": 0.895,
+   "column_offset_star": 0.0,
+   "row_angle_deg": 0.0,
+   "blob_isotropy": 0.585,
+   "diagonal_fraction": 0.146,
+   "return_row_contrast": 3.246,
+   "eye_sigma": 1.5,
+   "peaks": [
+    [
+     12,
+     0,
+     0.984
+    ],
+    [
+     72,
+     0,
+     0.984
+    ],
+    [
+     84,
+     0,
+     0.984
+    ],
+    [
+     96,
+     0,
+     0.984
+    ],
+    [
+     108,
+     0,
+     0.984
+    ],
+    [
+     168,
+     0,
+     0.984
+    ],
+    [
+     180,
+     0,
+     0.984
+    ],
+    [
+     192,
+     0,
+     0.984
+    ]
+   ],
+   "tests": {
+    "row_peak": true,
+    "next_row_peak": true,
+    "column_offset": true,
+    "pitch_over_pair": true,
+    "blob_isotropy": true,
+    "diagonal_fraction": false,
+    "return_row_contrast": true
+   },
+   "identity": "FAIL",
+   "failed": [
+    "diagonal_fraction"
+   ],
+   "gauge": {
+    "row_pair_ratio": 0.512,
+    "star_pitch_ratio": 0.5,
+    "status": "FAIL"
+   },
+   "status": "FAIL"
+  },
+  "control_seed": {
+   "star_pitch_px": 24.0,
+   "row_pair_px": null,
+   "pitch_over_pair": null,
+   "row_peak": 0.993,
+   "next_row_peak": 0.0,
+   "column_offset_star": 0.5,
+   "row_angle_deg": 0.0,
+   "blob_isotropy": 0.688,
+   "diagonal_fraction": 0.554,
+   "return_row_contrast": null,
+   "eye_sigma": 2.4000000000000004,
+   "peaks": [
+    [
+     24,
+     0,
+     0.993
+    ],
+    [
+     96,
+     0,
+     0.993
+    ],
+    [
+     192,
+     0,
+     0.993
+    ],
+    [
+     120,
+     0,
+     0.993
+    ],
+    [
+     216,
+     0,
+     0.993
+    ],
+    [
+     48,
+     0,
+     0.993
+    ],
+    [
+     72,
+     0,
+     0.993
+    ],
+    [
+     144,
+     0,
+     0.993
+    ]
+   ],
+   "tests": {
+    "row_peak": true,
+    "next_row_peak": false,
+    "column_offset": false,
+    "pitch_over_pair": false,
+    "blob_isotropy": true,
+    "diagonal_fraction": true,
+    "return_row_contrast": false
+   },
+   "identity": "FAIL",
+   "failed": [
+    "next_row_peak",
+    "column_offset",
+    "pitch_over_pair",
+    "return_row_contrast"
+   ],
+   "gauge": {
+    "status": "UNKNOWN",
+    "why": "no row pair measured"
+   },
+   "status": "FAIL"
+  },
+  "control_knit": {
+   "star_pitch_px": 12.0,
+   "row_pair_px": 22.0,
+   "pitch_over_pair": 0.545,
+   "row_peak": 0.97,
+   "next_row_peak": 0.851,
+   "column_offset_star": 0.0,
+   "row_angle_deg": 0.0,
+   "blob_isotropy": 0.435,
+   "diagonal_fraction": 0.31,
+   "return_row_contrast": 1.535,
+   "eye_sigma": 1.5,
+   "peaks": [
+    [
+     24,
+     0,
+     0.97
+    ],
+    [
+     36,
+     0,
+     0.97
+    ],
+    [
+     48,
+     0,
+     0.97
+    ],
+    [
+     60,
+     0,
+     0.97
+    ],
+    [
+     72,
+     0,
+     0.97
+    ],
+    [
+     84,
+     0,
+     0.97
+    ],
+    [
+     96,
+     0,
+     0.97
+    ],
+    [
+     108,
+     0,
+     0.97
+    ]
+   ],
+   "tests": {
+    "row_peak": true,
+    "next_row_peak": true,
+    "column_offset": true,
+    "pitch_over_pair": true,
+    "blob_isotropy": false,
+    "diagonal_fraction": true,
+    "return_row_contrast": true
+   },
+   "identity": "FAIL",
+   "failed": [
+    "blob_isotropy"
+   ],
+   "gauge": {
+    "row_pair_ratio": 0.512,
+    "star_pitch_ratio": 0.5,
+    "status": "FAIL"
+   },
+   "status": "FAIL"
+  },
+  "control_bench1_waffle_reference": {
+   "star_pitch_px": 22.0,
+   "row_pair_px": 36.0,
+   "pitch_over_pair": 0.611,
+   "row_peak": 0.72,
+   "next_row_peak": 0.636,
+   "column_offset_star": 0.5,
+   "row_angle_deg": 0.0,
+   "blob_isotropy": 0.793,
+   "diagonal_fraction": 0.228,
+   "return_row_contrast": 1.459,
+   "eye_sigma": 2.2,
+   "peaks": [
+    [
+     0,
+     14,
+     0.83
+    ],
+    [
+     -11,
+     7,
+     0.767
+    ],
+    [
+     11,
+     7,
+     0.763
+    ],
+    [
+     0,
+     29,
+     0.752
+    ],
+    [
+     22,
+     0,
+     0.72
+    ],
+    [
+     0,
+     43,
+     0.719
+    ],
+    [
+     -11,
+     22,
+     0.676
+    ],
+    [
+     0,
+     58,
+     0.668
+    ]
+   ],
+   "tests": {
+    "row_peak": true,
+    "next_row_peak": true,
+    "column_offset": false,
+    "pitch_over_pair": true,
+    "blob_isotropy": true,
+    "diagonal_fraction": false,
+    "return_row_contrast": true
+   },
+   "identity": "FAIL",
+   "failed": [
+    "column_offset",
+    "diagonal_fraction"
+   ],
+   "status": "FAIL"
+  },
+  "control_bench1_hero_photo(seed-like)": {
+   "star_pitch_px": 13.89,
+   "row_pair_px": null,
+   "pitch_over_pair": null,
+   "row_peak": 0.198,
+   "next_row_peak": 0.0,
+   "column_offset_star": 0.472,
+   "row_angle_deg": -30.3,
+   "blob_isotropy": 0.572,
+   "diagonal_fraction": 0.568,
+   "return_row_contrast": null,
+   "eye_sigma": 2.2,
+   "peaks": [
+    [
+     0,
+     13,
+     0.492
+    ],
+    [
+     0,
+     43,
+     0.371
+    ],
+    [
+     0,
+     31,
+     0.334
+    ],
+    [
+     0,
+     55,
+     0.318
+    ],
+    [
+     0,
+     85,
+     0.289
+    ],
+    [
+     0,
+     96,
+     0.266
+    ],
+    [
+     0,
+     73,
+     0.262
+    ],
+    [
+     0,
+     160,
+     0.252
+    ]
+   ],
+   "tests": {
+    "row_peak": true,
+    "next_row_peak": false,
+    "column_offset": false,
+    "pitch_over_pair": false,
+    "blob_isotropy": true,
+    "diagonal_fraction": true,
+    "return_row_contrast": false
+   },
+   "identity": "FAIL",
+   "failed": [
+    "next_row_peak",
+    "column_offset",
+    "pitch_over_pair",
+    "return_row_contrast"
+   ],
+   "status": "FAIL"
+  },
+  "real_photo:cover_flatlay_brown_right": {
+   "star_pitch_px": 14.32,
+   "row_pair_px": 25.46,
+   "pitch_over_pair": 0.562,
+   "row_peak": 0.479,
+   "next_row_peak": 0.375,
+   "column_offset_star": 0.202,
+   "row_angle_deg": 12.1,
+   "blob_isotropy": 0.571,
+   "diagonal_fraction": 0.54,
+   "return_row_contrast": 1.514,
+   "eye_sigma": 2.863564212655271,
+   "peaks": [
+    [
+     28,
+     6,
+     0.479
+    ],
+    [
+     -5,
+     51,
+     0.375
+    ],
+    [
+     17,
+     107,
+     0.369
+    ],
+    [
+     -11,
+     102,
+     0.368
+    ],
+    [
+     23,
+     57,
+     0.341
+    ],
+    [
+     -34,
+     46,
+     0.338
+    ],
+    [
+     57,
+     11,
+     0.334
+    ],
+    [
+     -40,
+     96,
+     0.329
+    ]
+   ],
+   "tests": {
+    "row_peak": true,
+    "next_row_peak": true,
+    "column_offset": true,
+    "pitch_over_pair": true,
+    "blob_isotropy": true,
+    "diagonal_fraction": true,
+    "return_row_contrast": true
+   },
+   "identity": "PASS",
+   "failed": [],
+   "status": "PASS"
+  },
+  "real_photo:cover_flatlay_brown_left": {
+   "star_pitch_px": 14.22,
+   "row_pair_px": 25.05,
+   "pitch_over_pair": 0.568,
+   "row_peak": 0.453,
+   "next_row_peak": 0.295,
+   "column_offset_star": 0.136,
+   "row_angle_deg": 10.1,
+   "blob_isotropy": 0.583,
+   "diagonal_fraction": 0.524,
+   "return_row_contrast": 1.436,
+   "eye_sigma": 2.8442925306655784,
+   "peaks": [
+    [
+     28,
+     5,
+     0.453
+    ],
+    [
+     55,
+     9,
+     0.338
+    ],
+    [
+     23,
+     55,
+     0.295
+    ],
+    [
+     -5,
+     51,
+     0.294
+    ],
+    [
+     -39,
+     98,
+     0.274
+    ],
+    [
+     -11,
+     103,
+     0.272
+    ],
+    [
+     -33,
+     47,
+     0.272
+    ],
+    [
+     -66,
+     93,
+     0.269
+    ]
+   ],
+   "tests": {
+    "row_peak": true,
+    "next_row_peak": true,
+    "column_offset": true,
+    "pitch_over_pair": true,
+    "blob_isotropy": true,
+    "diagonal_fraction": true,
+    "return_row_contrast": true
+   },
+   "identity": "PASS",
+   "failed": [],
+   "status": "PASS"
+  },
+  "real_photo:cover_flatlay_cream_right": {
+   "star_pitch_px": 15.23,
+   "row_pair_px": 29.87,
+   "pitch_over_pair": 0.51,
+   "row_peak": 0.461,
+   "next_row_peak": 0.295,
+   "column_offset_star": 0.159,
+   "row_angle_deg": -23.2,
+   "blob_isotropy": 0.575,
+   "diagonal_fraction": 0.481,
+   "return_row_contrast": 1.36,
+   "eye_sigma": 3.0463092423455636,
+   "peaks": [
+    [
+     -28,
+     12,
+     0.461
+    ],
+    [
+     27,
+     54,
+     0.363
+    ],
+    [
+     -1,
+     67,
+     0.346
+    ],
+    [
+     -56,
+     25,
+     0.336
+    ],
+    [
+     56,
+     41,
+     0.295
+    ],
+    [
+     84,
+     28,
+     0.279
+    ],
+    [
+     -29,
+     79,
+     0.262
+    ],
+    [
+     -85,
+     39,
+     0.251
+    ]
+   ],
+   "tests": {
+    "row_peak": true,
+    "next_row_peak": true,
+    "column_offset": true,
+    "pitch_over_pair": true,
+    "blob_isotropy": true,
+    "diagonal_fraction": true,
+    "return_row_contrast": true
+   },
+   "identity": "PASS",
+   "failed": [],
+   "status": "PASS"
+  },
+  "real_photo:cover_flatlay_cream_left": {
+   "star_pitch_px": 16.12,
+   "row_pair_px": 29.09,
+   "pitch_over_pair": 0.554,
+   "row_peak": 0.335,
+   "next_row_peak": 0.211,
+   "column_offset_star": 0.031,
+   "row_angle_deg": -29.7,
+   "blob_isotropy": 0.576,
+   "diagonal_fraction": 0.577,
+   "return_row_contrast": 2.065,
+   "eye_sigma": 3.2249030993194197,
+   "peaks": [
+    [
+     -28,
+     16,
+     0.335
+    ],
+    [
+     -56,
+     32,
+     0.252
+    ],
+    [
+     56,
+     36,
+     0.233
+    ],
+    [
+     0,
+     67,
+     0.211
+    ],
+    [
+     28,
+     52,
+     0.208
+    ],
+    [
+     83,
+     19,
+     0.187
+    ],
+    [
+     -4,
+     25,
+     0.182
+    ],
+    [
+     -83,
+     48,
+     0.172
+    ]
+   ],
+   "tests": {
+    "row_peak": true,
+    "next_row_peak": true,
+    "column_offset": true,
+    "pitch_over_pair": true,
+    "blob_isotropy": true,
+    "diagonal_fraction": true,
+    "return_row_contrast": true
+   },
+   "identity": "PASS",
+   "failed": [],
+   "status": "PASS"
+  },
+  "real_photo:gallery_baby_worn_body": {
+   "star_pitch_px": 32.04,
+   "row_pair_px": null,
+   "pitch_over_pair": null,
+   "row_peak": 0.2,
+   "next_row_peak": 0.0,
+   "column_offset_star": 0.391,
+   "row_angle_deg": 2.7,
+   "blob_isotropy": 0.578,
+   "diagonal_fraction": 0.526,
+   "return_row_contrast": null,
+   "eye_sigma": 6.4070273918565395,
+   "peaks": [
+    [
+     -15,
+     29,
+     0.29
+    ],
+    [
+     35,
+     65,
+     0.218
+    ],
+    [
+     64,
+     3,
+     0.2
+    ],
+    [
+     -17,
+     85,
+     0.193
+    ],
+    [
+     -28,
+     62,
+     0.158
+    ],
+    [
+     98,
+     66,
+     0.157
+    ],
+    [
+     49,
+     31,
+     0.138
+    ],
+    [
+     -83,
+     85,
+     0.103
+    ]
+   ],
+   "tests": {
+    "row_peak": true,
+    "next_row_peak": false,
+    "column_offset": false,
+    "pitch_over_pair": false,
+    "blob_isotropy": true,
+    "diagonal_fraction": true,
+    "return_row_contrast": false
+   },
+   "identity": "FAIL",
+   "failed": [
+    "next_row_peak",
+    "column_offset",
+    "pitch_over_pair",
+    "return_row_contrast"
+   ],
+   "status": "FAIL"
+  },
+  "real_photo:gallery_toddler_worn_body": {
+   "star_pitch_px": 12.17,
+   "row_pair_px": 25.56,
+   "pitch_over_pair": 0.476,
+   "row_peak": 0.183,
+   "next_row_peak": 0.104,
+   "column_offset_star": 0.142,
+   "row_angle_deg": 9.5,
+   "blob_isotropy": 0.582,
+   "diagonal_fraction": 0.569,
+   "return_row_contrast": 1.378,
+   "eye_sigma": 2.137755832643195,
+   "peaks": [
+    [
+     -4,
+     53,
+     0.256
+    ],
+    [
+     24,
+     4,
+     0.183
+    ],
+    [
+     -11,
+     11,
+     0.15
+    ],
+    [
+     -1,
+     25,
+     0.145
+    ],
+    [
+     18,
+     57,
+     0.133
+    ],
+    [
+     12,
+     16,
+     0.124
+    ],
+    [
+     -29,
+     47,
+     0.104
+    ],
+    [
+     14,
+     4,
+     0.102
+    ]
+   ],
+   "tests": {
+    "row_peak": true,
+    "next_row_peak": true,
+    "column_offset": true,
+    "pitch_over_pair": true,
+    "blob_isotropy": true,
+    "diagonal_fraction": true,
+    "return_row_contrast": true
+   },
+   "identity": "PASS",
+   "failed": [],
+   "status": "PASS"
+  }
+ }
+}

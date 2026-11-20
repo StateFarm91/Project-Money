@@ -1,0 +1,81 @@
+{
+ "model": "gpt-5-2025-08-07",
+ "system": "You are a working photographer looking at an image and deciding whether it reads as a real photograph of a real object or as a computer-generated image. You are not judging whether it is attractive. Report what you can actually see, and say plainly when the image does not show you enough to tell.",
+ "prompt": "This is an image of a crochet swatch. Answer as JSON. For each key give true if the statement holds, false if it does not, and omit the key entirely if the image does not show you enough to judge it. Do not guess: an omitted key is a useful answer and a wrong one is not.\n\n  \"fabric_folds_naturally\": the fabric's bends and hang read as cloth under its own weight rather than a stiff, posed or arbitrarily warped shape\n  \"lighting_is_realistic\": the light on the object is what a real lamp or window would produce, with no contradictory or impossible illumination\n  \"shadows_are_coherent\": shadows and highlights agree with one light situation\n  \"has_ordinary_photographic_imperfection\": the frame has the ordinary imperfection of a photograph -- grain, slight unevenness of tone or focus, an unstyled detail -- rather than frictionless synthetic cleanliness\n  \"yarn_is_not_melted\": the yarn reads as twisted, plied fibre with real surface rather than a melted, smooth or plastic rope\n  \"stitch_texture_is_not_synthetic\": the stitch texture reads as hand-worked crochet fabric rather than a tiled, repeated or computer-generated pattern\n  \"not_catalogue_perfect_sterility\": the image is not sterile catalogue perfection: something in it is ordinary, imperfect or unarranged\n\nAdd \"notes\": one or two short sentences naming anything that made the image read as generated, or an empty string.",
+ "views": [
+  {
+   "image": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/bench1/out/gen/oa15_hifi_9.png",
+   "image_sha256": "fddfaab294f72256c59841f2a4972c26d7df5f75c8890f8b2545f63e98b8a264",
+   "model": "gpt-5-2025-08-07",
+   "response_id": "chatcmpl-ESNhs5LsD8KsSmw6ALwKkgHefmI1V",
+   "seconds": 12.9,
+   "prompt_tokens": 1287,
+   "completion_tokens": 737,
+   "reasoning_tokens": 640,
+   "cost_usd": 0.008979,
+   "cost_cad": 0.012301,
+   "price_basis": "list, USD 1.25/M in, 10.0/M out",
+   "raw": "{\n  \"fabric_folds_naturally\": true,\n  \"lighting_is_realistic\": true,\n  \"shadows_are_coherent\": true,\n  \"has_ordinary_photographic_imperfection\": true,\n  \"yarn_is_not_melted\": true,\n  \"stitch_texture_is_not_synthetic\": true,\n  \"not_catalogue_perfect_sterility\": true,\n  \"notes\": \"\"\n}",
+   "reading": {
+    "judged": true,
+    "checks": {
+     "fabric_folds_naturally": true,
+     "lighting_is_realistic": true,
+     "shadows_are_coherent": true,
+     "has_ordinary_photographic_imperfection": true,
+     "yarn_is_not_melted": true,
+     "stitch_texture_is_not_synthetic": true,
+     "not_catalogue_perfect_sterility": true
+    },
+    "notes": ""
+   }
+  }
+ ],
+ "items": {
+  "fabric_folds_naturally": {
+   "status": "PASS",
+   "per_view": {
+    "oa15_hifi_9.png": true
+   }
+  },
+  "lighting_is_realistic": {
+   "status": "PASS",
+   "per_view": {
+    "oa15_hifi_9.png": true
+   }
+  },
+  "shadows_are_coherent": {
+   "status": "PASS",
+   "per_view": {
+    "oa15_hifi_9.png": true
+   }
+  },
+  "has_ordinary_photographic_imperfection": {
+   "status": "PASS",
+   "per_view": {
+    "oa15_hifi_9.png": true
+   }
+  },
+  "melted_yarn": {
+   "status": "PASS",
+   "per_view": {
+    "oa15_hifi_9.png": true
+   }
+  },
+  "synthetic_stitch_texture": {
+   "status": "PASS",
+   "per_view": {
+    "oa15_hifi_9.png": true
+   }
+  },
+  "catalogue_perfect_sterility": {
+   "status": "PASS",
+   "per_view": {
+    "oa15_hifi_9.png": true
+   }
+  }
+ },
+ "total_cost_usd": 0.008979,
+ "total_cost_cad": 0.012301,
+ "rule": "an item is PASS only when every authoritative view is sound on it, FAIL when any view is not, UNKNOWN when the judge could not tell on any view"
+}

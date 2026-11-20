@@ -1,0 +1,39 @@
+{
+ "_meta": {
+  "lane": "w4-FMBATCH1",
+  "status": "PROPOSED: not applied; overrides.json changes only on integrator acceptance (accepted_by), F-867",
+  "dry_run": "python3 research/final_build/aggregate.py --overrides research/final_build/w4/OVERRIDES_PROPOSED_FMBATCH1_D.json --dry-run",
+  "note": "Stale matrix text: F-147 and F-148 were built by W3-HYG before the matrix was mapped; F-607's remaining gap is an agent identity split blocked on pinned cadence wiring in another lane. Engineering is not re-claimed beyond the cited tests."
+ },
+ "overrides": {
+  "F-147": {
+   "producer": "run_tests.sh (per-suite TMPDIR and leak census, TMP_LEAK_STRICT)",
+   "tests": [
+    "tests/test_w3_tmp_hygiene.py::test_the_harness_reports_each_suites_leak_and_removes_its_run_tmpdir_on_failure",
+    "tests/test_w3_tmp_hygiene.py::test_tmp_leak_strict_makes_a_passing_but_leaking_suite_fail",
+    "tests/test_w3_tmp_hygiene.py::test_a_run_killed_with_sigkill_is_swept_by_the_next_run"
+   ],
+   "missing_part": "none for the software: run_tests.sh records each suite's leftover entries and bytes (tmp_leak_entries/tmp_leak_bytes/tmp_leaking_suites in the run record) and TMP_LEAK_STRICT fails a passing but leaking suite",
+   "reason": "F-147: the matrix says run_tests.sh does not verify leftover scratch after a run; the W3-HYG leak census does, with tests"
+  },
+  "F-148": {
+   "producer": "tests/_tmp.py::install",
+   "tests": [
+    "tests/test_w3_tmp_hygiene.py::test_every_test_file_that_creates_temp_files_installs_the_sandbox_first",
+    "tests/test_w3_tmp_hygiene.py::test_a_child_that_raises_half_way_leaves_nothing",
+    "tests/test_w3_tmp_hygiene.py::test_a_child_terminated_by_sigterm_or_interrupted_leaves_nothing"
+   ],
+   "missing_part": "none for the software: tests/_tmp.py gives every direct `python tests/x.py` run a per-process sandbox removed at exit and on signals, and a test fails any test file that creates temp files without installing it first",
+   "reason": "F-148: the matrix says direct test runs get no scoped TMPDIR; tests/_tmp.py and its enforcement test exist"
+  },
+  "F-607": {
+   "producer": "src/brambleloop/finance/accounting/controller.py::run_cycle",
+   "tests": [
+    "tests/test_v11_wiring.py",
+    "tests/test_v11_accounting_ledger.py"
+   ],
+   "missing_part": "the Accountant cycle exists (F-901: reconciliation, close with locks, handoff pack, guardrails that cannot pay/file/approve spend) but runs under the `cfo` agent; a separate `accountant` agent identity needs the cadence agent changed in runtime/worker.py, which tests/test_v11_wiring.py and the Laura-lane tests/test_w3_laura_core_wiring.py pin to `cfo`",
+   "reason": "F-607: the controller is built; what remains is an agent-identity split that touches another lane's pinned wiring, so it is proposed for the integrator rather than changed here"
+  }
+ }
+}

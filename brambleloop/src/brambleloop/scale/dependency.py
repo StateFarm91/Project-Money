@@ -1,0 +1,463 @@
+"""Which single thing failing would end this company, and whether that is a risk yet.
+
+Requirement 29. The rule has two halves and they pull in opposite directions: *do not allow
+one SKU, one holiday, one traffic source, one AI provider or one marketplace to become an
+existential dependency* -- and *diversify after a channel or product is understood, without
+spreading resources so thin that nothing gets enough focus*.
+
+A module that only implemented the first half would tell a company with eleven products and
+no customers to open a second marketplace, which is how a pre-revenue business turns its one
+real advantage -- focus -- into five half-built ones. So concentration alone is not a finding
+here. A dependency becomes *existential* when it is concentrated **and load-bearing**, and
+before it carries anything it is a plan.
+
+That distinction is the whole module, and it is why every axis reports three things rather
+than one: how concentrated it is, whether it currently carries value, and which of those two
+facts decides the verdict.
+
+**Concentration is counted, never estimated.** Each axis reads rows -- products by department,
+products by occasion, configured model providers, marketplaces with a listing, recorded
+traffic sources. An axis with nothing in it reports `unmeasurable` with the reason rather
+than a comfortable zero, because "no traffic source is dominant" is true of a company with no
+traffic and is not the sentence anybody should read.
+
+**The uncomfortable ones are real.** Today four of the five axes sit at 100% concentration:
+one model provider, one marketplace, one department and one make lane. Three of those are not
+yet load-bearing, which is the honest verdict and not an excuse -- the module says which, and
+says what would make them count.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+# Above this share of an axis held by one thing, the axis is concentrated. Not a target to
+# engineer down: a two-product company is 50% concentrated by arithmetic and that is fine.
+CONCENTRATED_ABOVE = 0.60
+
+# Below this many distinct holders, an axis cannot be anything but concentrated, and saying
+# so is more useful than a percentage.
+TOO_FEW_TO_SPREAD = 2
+
+# The other half of the rule. More live holders than this per validated product and the
+# company is spreading a thin thing thinner rather than diversifying something understood.
+HOLDERS_PER_PRODUCT_CEILING = 1.0
+
+UNMEASURABLE, PLAN, EXISTENTIAL, SOUND = (
+    "unmeasurable", "concentrated_but_not_load_bearing", "existential", "sound")
+
+
+@dataclass(frozen=True)
+class Axis:
+    key: str
+    what: str
+    why_it_ends_the_company: str
+    load_bearing_when: str
+
+
+AXES: tuple[Axis, ...] = (
+    Axis("sku", "how much of the catalogue is one product or one department",
+         "a catalogue that is one idea fails entirely when that idea stops selling",
+         "a product is selling"),
+    Axis("occasion", "how much of the catalogue depends on one occasion",
+         "a year's revenue arriving in six weeks is a year that can be missed once",
+         "an occasion has produced revenue"),
+    Axis("traffic_source", "how much of the demand arrives through one route",
+         "a channel that changes its ranking overnight takes the whole quarter with it",
+         "traffic has been recorded"),
+    Axis("ai_provider", "how much of the system's judgement runs on one provider",
+         "a provider outage or a price change stops every agent at once",
+         "the system depends on model calls to operate"),
+    # W4-FMBATCH1 (F-092): image generation is a different workload from judgement and vision
+    # and is reported on its own axis, so a billed image provider can never read as a second
+    # judgement provider.
+    Axis("image_generation", "how much of the image generation runs on one provider",
+         "an image provider outage stops new renders, not the judgement the company runs on",
+         "images have been generated and paid for in the window"),
+    Axis("marketplace", "how much of the business lives on one platform",
+         "a policy change or a suspension is the end, and there is no appeal worth having",
+         "a listing is live and earning"),
+)
+
+AXIS_BY_KEY: dict[str, Axis] = {a.key: a for a in AXES}
+
+
+def _concentration(holders: dict[str, int | float]) -> dict:
+    """The share held by the largest holder, and how many holders there are."""
+    total = sum(holders.values())
+    if not holders or total <= 0:
+        return {"holders": 0, "largest": None, "share": None}
+    largest = max(holders.items(), key=lambda kv: kv[1])
+    return {"holders": len(holders), "largest": largest[0],
+            "share": round(largest[1] / total, 3)}
+
+
+def assess(axis_key: str, holders: dict[str, int | float], *, load_bearing: bool,
+           reason: str = "") -> dict:
+    """One axis: how concentrated, whether it carries anything, and what that means.
+
+    The verdict is the point. `existential` requires both concentration and load: a single
+    provider the company genuinely runs on is a risk, and a single marketplace it has never
+    sold on is a plan. Calling the second one existential would be alarming and wrong, and a
+    risk report nobody believes is a risk report nobody reads.
+    """
+    axis = AXIS_BY_KEY.get(axis_key)
+    if axis is None:
+        raise KeyError(f"{axis_key!r} is not a dependency axis: {sorted(AXIS_BY_KEY)}")
+
+    counts = _concentration(holders)
+    if not counts["holders"]:
+        return {
+            "axis": axis.key, "what": axis.what, "verdict": UNMEASURABLE,
+            "load_bearing": load_bearing, **counts,
+            "why": (reason or f"nothing has been recorded on this axis, so whether it is "
+                              f"concentrated is unknown -- which is not the same as spread"),
+            "would_count_when": axis.load_bearing_when,
+        }
+
+    concentrated = (counts["holders"] < TOO_FEW_TO_SPREAD
+                    or (counts["share"] or 0) > CONCENTRATED_ABOVE)
+    if not concentrated:
+        verdict, why = SOUND, (
+            f"the largest holder is {counts['share']:.0%} of {counts['holders']}, under "
+            f"{CONCENTRATED_ABOVE:.0%}")
+    elif load_bearing:
+        verdict, why = EXISTENTIAL, (
+            f"{counts['largest']!r} holds {counts['share']:.0%} of this axis and the axis "
+            f"carries real weight: {axis.why_it_ends_the_company}")
+    else:
+        verdict, why = PLAN, (
+            f"{counts['largest']!r} holds {counts['share']:.0%} of this axis, and the axis "
+            f"is not carrying anything yet. Diversifying it now would spread a thin thing "
+            f"thinner -- the rule says diversify *after* a channel is understood")
+    return {
+        "axis": axis.key, "what": axis.what, "verdict": verdict,
+        "load_bearing": load_bearing, **counts, "why": why,
+        "would_count_when": axis.load_bearing_when,
+    }
+
+
+def report(db) -> dict:
+    """Every axis, read from rows, with the two halves of #29 both applied."""
+    from sqlalchemy import select
+
+    from ..core.models import LedgerEntry, Listing, Product
+    from ..creative.audit import catalogue_concepts
+    from ..gateway.model_gateway import available_providers
+
+    with db.session() as s:
+        products = list(s.scalars(select(Product)))
+        listings = list(s.scalars(select(Listing)))
+        earning = bool(s.scalar(select(LedgerEntry.id).limit(1)))
+
+    concepts = catalogue_concepts()
+    by_pod: dict[str, int] = {}
+    by_occasion: dict[str, int] = {}
+    for concept in concepts:
+        by_pod[concept.pod] = by_pod.get(concept.pod, 0) + 1
+        by_occasion[concept.occasion] = by_occasion.get(concept.occasion, 0) + 1
+
+    # C-69 (#29): the providers the company actually runs on are the ones it pays, read from
+    # the cost ledger (model spend by provider over 30 days); configuration is the fallback
+    # when nothing has been spent yet.
+    from datetime import datetime, timedelta, timezone
+
+    from ..core.models import CostEntry
+
+    since = datetime.now(timezone.utc) - timedelta(days=30)
+    with db.session() as s:
+        spent: dict[str, float] = {}
+        image_spent: dict[str, float] = {}
+        for c in s.scalars(select(CostEntry).where(CostEntry.at >= since)):
+            name = (c.provider or "").strip()
+            kind = c.kind or "llm"
+            if name and kind in JUDGEMENT_KINDS:
+                spent[name] = spent.get(name, 0.0) + float(c.amount_cad or 0.0)
+            elif name and kind in IMAGE_KINDS:
+                image_spent[name] = image_spent.get(name, 0.0) + float(c.amount_cad or 0.0)
+    providers = ({k: v for k, v in spent.items() if v > 0}
+                 or {name: 1 for name in available_providers()})
+    images = {k: v for k, v in image_spent.items() if v > 0}
+    # A marketplace counts once a listing exists for it, drafted or live. Etsy is the only
+    # integration this company has, so this reads one by construction today -- and saying so
+    # from a count rather than from a constant is what makes it change by itself later.
+    marketplaces: dict[str, int] = {}
+    if listings:
+        marketplaces["etsy"] = len(listings)
+
+    axes = [
+        assess("sku", by_pod, load_bearing=earning),
+        assess("occasion", by_occasion, load_bearing=earning),
+        assess("traffic_source", {}, load_bearing=False,
+               reason=("no traffic has been recorded, because nothing is published. An "
+                       "empty traffic mix is not a diversified one")),
+        # The one axis that is load-bearing today. Nothing in this system operates without
+        # model calls, and there is exactly one provider configured.
+        assess("ai_provider", providers, load_bearing=True,
+               reason=("no model provider is configured, so nothing in this system that "
+                       "needs judgement can run at all. That is a different state from a "
+                       "diversified one and a worse one")),
+        assess("image_generation", images, load_bearing=bool(images),
+               reason="no image generation was paid for in the window"),
+        assess("marketplace", marketplaces, load_bearing=earning),
+    ]
+    # F-093: a second judgement provider clears the existential verdict only with a tested
+    # fallback -- a recorded drill that passed recently. Spread by billing is not resilience.
+    drill = latest_fallback_drill(db)
+    for a in axes:
+        if a["axis"] == "ai_provider" and a["verdict"] == SOUND and not drill["fresh"]:
+            a.update(verdict=EXISTENTIAL, untested_fallback=True,
+                     why=(f"{a['holders']} judgement providers are billed but no fallback "
+                          f"drill has passed in {FALLBACK_DRILL_MAX_AGE_DAYS} days "
+                          f"({drill['why']}): an untested second provider is not a "
+                          "fallback (F-093)"))
+        if a["axis"] == "ai_provider":
+            a["fallback_drill"] = drill
+
+    live = [a for a in axes if a["verdict"] == EXISTENTIAL]
+    plans = [a for a in axes if a["verdict"] == PLAN]
+
+    # The counter-rule, checked rather than remembered. Diversifying an axis before the
+    # catalogue can carry it is the failure the requirement's second clause names.
+    validated = len(products)
+    spread = sum(a["holders"] or 0 for a in axes)
+    # With no validated product the ratio is undefined, and returning False for it would
+    # read as "the spread is fine" for a company carrying seven holders and nothing to put
+    # on them -- the most spread-too-thin a company can be. Undefined is reported as
+    # undefined, which is the rule this module applies to every other absent number.
+    too_thin = (None if not validated
+                else spread / validated > HOLDERS_PER_PRODUCT_CEILING)
+
+    return {
+        "axes": axes,
+        "existential": [a["axis"] for a in live],
+        "not_load_bearing_yet": [a["axis"] for a in plans],
+        "unmeasurable": [a["axis"] for a in axes if a["verdict"] == UNMEASURABLE],
+        "focus": {
+            "validated_products": validated,
+            "distinct_holders_across_axes": spread,
+            "spread_too_thin": too_thin,
+            "ceiling": HOLDERS_PER_PRODUCT_CEILING,
+            "why": (
+                f"no validated product exists, so holders-per-product is undefined. "
+                f"{spread} holders and nothing to carry on them is not a spread that is "
+                f"fine, it is a spread that has not been tested" if too_thin is None else
+                "more distinct holders than validated products means the company is "
+                "spreading a thin thing thinner rather than diversifying something it "
+                "understands, which is the half of #29 that a concentration report usually "
+                "forgets" if too_thin else
+                "the spread the company carries is within what its catalogue supports"),
+        },
+        "note": ("Concentration alone is not a finding. A dependency is existential when it "
+                 "is concentrated *and* load-bearing; before it carries anything it is a "
+                 "plan, and telling a pre-revenue company to open a second marketplace is "
+                 "how its one real advantage becomes five half-built ones (#29)."),
+    }
+
+
+ANTI_FRAGILITY_SIGNATURE = "anti-fragility"
+
+# ---- W4-FMBATCH1: F-092 register, F-093 drill rule, F-094 diversification trigger -------------
+
+JUDGEMENT_KINDS = ("llm", "model", "vision", "api")
+IMAGE_KINDS = ("image",)
+#: F-097's evidence row: written by whoever runs a provider fallback drill, never assumed.
+FALLBACK_DRILL_ACTION = "provider.fallback_drill"
+FALLBACK_DRILL_MAX_AGE_DAYS = 30
+#: Gates whose requirements stop when the judgement/vision provider is down.
+OUTAGE_GATES = {"judgement_vision": ("model_provider", "image_vision"),
+                "image_generation": ("image_generation",)}
+TRIGGER_PROBE_FAILURE_SHARE = 0.20
+TRIGGER_PARKED_JOBS = 10
+TRIGGER_CEILING_SHARE = 0.80
+TRIGGER_REVENUE_SHARE = 0.90
+
+
+def latest_fallback_drill(db, *, now=None) -> dict:
+    """F-093: the newest recorded fallback drill and whether it passed recently enough."""
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    now = now or datetime.now(timezone.utc)
+    with db.session() as s:
+        row = s.scalar(select(AuditLog).where(AuditLog.action == FALLBACK_DRILL_ACTION)
+                       .order_by(desc(AuditLog.id)).limit(1))
+        if row is None:
+            return {"fresh": False, "why": "no fallback drill has ever been recorded"}
+        at = row.at if row.at.tzinfo else row.at.replace(tzinfo=timezone.utc)
+        passed = bool((row.detail or {}).get("passed"))
+        fresh = passed and now - at <= timedelta(days=FALLBACK_DRILL_MAX_AGE_DAYS)
+        return {"fresh": fresh, "at": at.isoformat(), "passed": passed,
+                "workload": (row.detail or {}).get("workload"),
+                "why": ("passed recently" if fresh else
+                        "the last drill failed" if not passed else
+                        f"the last passing drill is older than {FALLBACK_DRILL_MAX_AGE_DAYS} "
+                        "days")}
+
+
+def register(db, *, now=None) -> dict:
+    """F-092: provider concentration by calls, spend, critical workflows and what stops.
+
+    Per provider, from the cost ledger over 30 days: spend, calls (cost rows), the workload it
+    carries (judgement_vision or image_generation, from the row kind), and its critical
+    workflows (the purposes it is billed for, by spend). Per workload, the Build 2
+    requirements that stop while it is down: those whose gate is that workload's provider gate
+    (build2.executor GATES), read from the table rather than remembered.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import CostEntry
+
+    now = now or datetime.now(timezone.utc)
+    since = now - timedelta(days=30)
+    rows: dict[str, dict] = {}
+    with db.session() as s:
+        for c in s.scalars(select(CostEntry).where(CostEntry.at >= since)):
+            name = (c.provider or "").strip()
+            kind = c.kind or "llm"
+            if not name or kind not in JUDGEMENT_KINDS + IMAGE_KINDS:
+                continue
+            workload = "image_generation" if kind in IMAGE_KINDS else "judgement_vision"
+            r = rows.setdefault((name, workload), {"provider": name, "workload": workload,
+                                                   "spend_cad": 0.0, "calls": 0,
+                                                   "purposes": {}})
+            amt = float(c.amount_cad or 0.0)
+            r["spend_cad"] += amt
+            r["calls"] += 1
+            p = (c.purpose or "").strip() or "unattributed"
+            r["purposes"][p] = r["purposes"].get(p, 0.0) + amt
+    try:
+        from ..build2 import executor
+
+        lost = {w: sorted({rid for g in gates if g in executor.GATE_BY_KEY
+                           for rid in executor.GATE_BY_KEY[g].requirement_ids})
+                for w, gates in OUTAGE_GATES.items()}
+        lost_why = "build2.executor GATES requirement_ids for each workload's provider gates"
+    except Exception as exc:  # noqa: BLE001 - unknown, never "nothing lost"
+        lost, lost_why = {w: None for w in OUTAGE_GATES}, f"unreadable: {type(exc).__name__}"
+    by_workload: dict[str, dict] = {}
+    for r in rows.values():
+        r["spend_cad"] = round(r["spend_cad"], 4)
+        r["critical_workflows"] = [k for k, _v in sorted(r.pop("purposes").items(),
+                                                         key=lambda kv: -kv[1])][:10]
+        w = by_workload.setdefault(r["workload"], {"spend_cad": 0.0, "calls": 0,
+                                                   "providers": []})
+        w["spend_cad"] = round(w["spend_cad"] + r["spend_cad"], 4)
+        w["calls"] += r["calls"]
+        w["providers"].append(r["provider"])
+    out_rows = sorted(rows.values(), key=lambda r: (r["workload"], -r["spend_cad"]))
+    for r in out_rows:
+        w = by_workload[r["workload"]]
+        r["spend_share"] = round(r["spend_cad"] / w["spend_cad"], 4) if w["spend_cad"] else None
+        r["call_share"] = round(r["calls"] / w["calls"], 4) if w["calls"] else None
+    return {"window_days": 30, "providers": out_rows, "workloads": by_workload,
+            "requirements_lost_if_down": lost, "requirements_lost_basis": lost_why,
+            "measured": bool(out_rows),
+            "why": None if out_rows else "no billed model or image call in 30 days: unmeasured"}
+
+
+def diversification_trigger(db, *, now=None, provider: str = "anthropic") -> dict:
+    """F-094: diversify only when outage, price/terms, volume, revenue dependence or downtime
+    cost justifies it -- never for symmetry. Each reason is a measured threshold."""
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import func, select
+
+    from ..core.models import AuditLog, LedgerEntry
+
+    now = now or datetime.now(timezone.utc)
+    since = now - timedelta(days=30)
+    reasons, unmeasured = [], []
+    try:
+        from ..finance.funding_packet import _outage
+
+        o = _outage(db, since, provider)
+    except Exception as exc:  # noqa: BLE001
+        o = {"probe_failure_share": None, "model_jobs_parked": None,
+             "why_null": f"unreadable: {type(exc).__name__}"}
+    share = o.get("probe_failure_share")
+    if share is None:
+        unmeasured.append(f"outage: {o.get('why_null')}")
+    elif share >= TRIGGER_PROBE_FAILURE_SHARE:
+        reasons.append({"kind": "outage", "value": share,
+                        "why": f"{share:.0%} of model probes failed in 30 days "
+                               f"(threshold {TRIGGER_PROBE_FAILURE_SHARE:.0%})"})
+    parked = o.get("model_jobs_parked")
+    if parked is not None and parked >= TRIGGER_PARKED_JOBS:
+        reasons.append({"kind": "downtime_cost", "value": parked,
+                        "why": f"{parked} model jobs parked in 30 days waiting on the provider "
+                               f"(threshold {TRIGGER_PARKED_JOBS})"})
+    with db.session() as s:
+        changes = s.scalar(select(func.count()).select_from(AuditLog).where(
+            AuditLog.action == "gateway.provider_change", AuditLog.at >= since)) or 0
+        revenue = float(s.scalar(select(func.coalesce(func.sum(LedgerEntry.gross_cad), 0.0))
+                                 .where(LedgerEntry.gross_cad > 0)) or 0.0)
+    if changes:
+        reasons.append({"kind": "price_or_terms", "value": changes,
+                        "why": f"{changes} provider price/availability change(s) recorded in "
+                               "30 days (gateway.provider_watch)"})
+    try:
+        from ..gateway.providers import monthly_ceiling_cad, spent_this_month_cad
+
+        ceiling, month = float(monthly_ceiling_cad()), float(spent_this_month_cad(db))
+        if ceiling and month / ceiling >= TRIGGER_CEILING_SHARE:
+            reasons.append({"kind": "volume", "value": round(month / ceiling, 4),
+                            "why": f"CA${month:.2f} of the CA${ceiling:.2f} monthly ceiling "
+                                   f"spent (threshold {TRIGGER_CEILING_SHARE:.0%})"})
+    except Exception as exc:  # noqa: BLE001
+        unmeasured.append(f"volume: {type(exc).__name__}")
+    reg = register(db, now=now)
+    jv = [r for r in reg["providers"] if r["workload"] == "judgement_vision"]
+    top = max(jv, key=lambda r: r["spend_cad"]) if jv else None
+    if not revenue:
+        unmeasured.append("revenue dependence: no revenue recorded, so a provider cannot "
+                          "yet be what revenue depends on")
+    elif top and (top["spend_share"] or 0) >= TRIGGER_REVENUE_SHARE:
+        reasons.append({"kind": "revenue_dependence", "value": top["spend_share"],
+                        "why": f"revenue exists and {top['provider']} carries "
+                               f"{top['spend_share']:.0%} of the judgement it depends on"})
+    return {"triggered": bool(reasons), "reasons": reasons, "unmeasured": unmeasured,
+            "rule": ("concentration or symmetry alone never triggers diversification "
+                     "(F-094); only a measured outage, downtime cost, price/terms change, "
+                     "volume or revenue dependence does")}
+
+
+def act(db) -> dict:
+    """#29 on a cadence: every existential axis is raised as an incident, and one that is no
+    longer existential is resolved. A plan-stage concentration raises nothing -- the rule's
+    second half is that diversifying before a channel is understood is its own failure."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+
+    rep = report(db)
+    opened, resolved = [], []
+    with db.session() as s:
+        open_rows = {i.signature: i for i in s.scalars(select(Incident).where(
+            Incident.resolved.is_(False),
+            Incident.signature.like(f"{ANTI_FRAGILITY_SIGNATURE}:%")))}
+        live = {f"{ANTI_FRAGILITY_SIGNATURE}:{a['axis']}": a for a in rep["axes"]
+                if a["verdict"] == EXISTENTIAL}
+        for sig, axis in live.items():
+            row = open_rows.get(sig)
+            summary = (f"existential dependency on the {axis['axis']} axis: {axis['why']} "
+                       f"(#29)")
+            if row is None:
+                s.add(Incident(severity="P2", signature=sig, summary=summary[:500],
+                               halts_publication=False, detail={"axis": axis}))
+                opened.append(sig)
+            else:
+                row.report_count = (row.report_count or 1) + 1
+                row.detail = {"axis": axis}
+        for sig, row in open_rows.items():
+            if sig not in live:
+                row.resolved = True
+                resolved.append(sig)
+    return {"existential": rep["existential"], "focus": rep["focus"],
+            "incidents_opened": opened, "incidents_resolved": resolved,
+            "axes": {a["axis"]: {k: a.get(k) for k in ("verdict", "largest", "share",
+                                                       "holders")} for a in rep["axes"]}}

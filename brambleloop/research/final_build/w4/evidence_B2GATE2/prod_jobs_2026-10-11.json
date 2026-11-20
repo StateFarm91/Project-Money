@@ -1,0 +1,404 @@
+{
+ "jobs": [
+  {
+   "id": 12164,
+   "agent": "orchestrator",
+   "type": "ops.sentinel",
+   "status": "dead",
+   "attempts": 3,
+   "error": "DataError: (psycopg2.errors.StringDataRightTruncation) value too long for type character varying(200)\n\n[SQL: INSERT INTO jobs (agent, job_type, inputs, priority, status, idempotency_key, attempts, max"
+  },
+  {
+   "id": 12163,
+   "agent": "orchestrator",
+   "type": "ops.sentinel",
+   "status": "dead",
+   "attempts": 3,
+   "error": "DataError: (psycopg2.errors.StringDataRightTruncation) value too long for type character varying(200)\n\n[SQL: INSERT INTO jobs (agent, job_type, inputs, priority, status, idempotency_key, attempts, max"
+  },
+  {
+   "id": 12162,
+   "agent": "orchestrator",
+   "type": "ops.sentinel",
+   "status": "dead",
+   "attempts": 3,
+   "error": "DataError: (psycopg2.errors.StringDataRightTruncation) value too long for type character varying(200)\n\n[SQL: INSERT INTO jobs (agent, job_type, inputs, priority, status, idempotency_key, attempts, max"
+  },
+  {
+   "id": 12161,
+   "agent": "laura",
+   "type": "laura.executive_tick",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12160,
+   "agent": "orchestrator",
+   "type": "ops.sentinel",
+   "status": "dead",
+   "attempts": 3,
+   "error": "DataError: (psycopg2.errors.StringDataRightTruncation) value too long for type character varying(200)\n\n[SQL: INSERT INTO jobs (agent, job_type, inputs, priority, status, idempotency_key, attempts, max"
+  },
+  {
+   "id": 12159,
+   "agent": "orchestrator",
+   "type": "ops.sentinel",
+   "status": "dead",
+   "attempts": 3,
+   "error": "DataError: (psycopg2.errors.StringDataRightTruncation) value too long for type character varying(200)\n\n[SQL: INSERT INTO jobs (agent, job_type, inputs, priority, status, idempotency_key, attempts, max"
+  },
+  {
+   "id": 12158,
+   "agent": "orchestrator",
+   "type": "ops.sentinel",
+   "status": "dead",
+   "attempts": 3,
+   "error": "DataError: (psycopg2.errors.StringDataRightTruncation) value too long for type character varying(200)\n\n[SQL: INSERT INTO jobs (agent, job_type, inputs, priority, status, idempotency_key, attempts, max"
+  },
+  {
+   "id": 12157,
+   "agent": "listing",
+   "type": "seasonal.remerchandising",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12156,
+   "agent": "growth",
+   "type": "growth.journey",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12155,
+   "agent": "orchestrator",
+   "type": "improve.retrospective",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12154,
+   "agent": "coo",
+   "type": "autonomy.department_review",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12153,
+   "agent": "coo",
+   "type": "autonomy.department_review",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12152,
+   "agent": "orchestrator",
+   "type": "ops.slo",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12151,
+   "agent": "laura",
+   "type": "laura.executive_tick",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12150,
+   "agent": "coo",
+   "type": "autonomy.orchestrate",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12149,
+   "agent": "orchestrator",
+   "type": "ops.health",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12148,
+   "agent": "orchestrator",
+   "type": "ops.heartbeat",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12147,
+   "agent": "listing",
+   "type": "listing.seo",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12146,
+   "agent": "pricing",
+   "type": "pricing.position",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12145,
+   "agent": "store_operator",
+   "type": "store.publish",
+   "status": "dead",
+   "attempts": 1,
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 12144,
+   "agent": "growth",
+   "type": "marketing.schedule",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12143,
+   "agent": "growth",
+   "type": "launch.plan",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12142,
+   "agent": "listing",
+   "type": "listing.seo",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12141,
+   "agent": "pricing",
+   "type": "pricing.position",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12140,
+   "agent": "laura",
+   "type": "laura.executive_tick",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12139,
+   "agent": "store_operator",
+   "type": "store.publish",
+   "status": "dead",
+   "attempts": 1,
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 12138,
+   "agent": "growth",
+   "type": "marketing.schedule",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12137,
+   "agent": "growth",
+   "type": "launch.plan",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12136,
+   "agent": "listing",
+   "type": "listing.seo",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12135,
+   "agent": "pricing",
+   "type": "pricing.position",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12134,
+   "agent": "store_operator",
+   "type": "store.publish",
+   "status": "dead",
+   "attempts": 1,
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 12133,
+   "agent": "growth",
+   "type": "marketing.schedule",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12132,
+   "agent": "growth",
+   "type": "launch.plan",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12131,
+   "agent": "listing",
+   "type": "listing.seo",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12130,
+   "agent": "pricing",
+   "type": "pricing.position",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12129,
+   "agent": "store_operator",
+   "type": "store.publish",
+   "status": "dead",
+   "attempts": 1,
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 12128,
+   "agent": "growth",
+   "type": "marketing.schedule",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12127,
+   "agent": "growth",
+   "type": "launch.plan",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12126,
+   "agent": "listing",
+   "type": "listing.seo",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12125,
+   "agent": "pricing",
+   "type": "pricing.position",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12124,
+   "agent": "store_operator",
+   "type": "store.publish",
+   "status": "dead",
+   "attempts": 1,
+   "error": "capability not enabled: store.publish is a production capability; the system is in SHADOW mode and has no live Etsy connection. Draft retained for review."
+  },
+  {
+   "id": 12123,
+   "agent": "growth",
+   "type": "marketing.schedule",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12122,
+   "agent": "growth",
+   "type": "launch.plan",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12121,
+   "agent": "listing",
+   "type": "listing.seo",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12120,
+   "agent": "pricing",
+   "type": "pricing.position",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12119,
+   "agent": "listing",
+   "type": "listing.seo",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12118,
+   "agent": "pricing",
+   "type": "pricing.position",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12117,
+   "agent": "listing",
+   "type": "listing.seo",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12116,
+   "agent": "pricing",
+   "type": "pricing.position",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  },
+  {
+   "id": 12115,
+   "agent": "growth",
+   "type": "launch.plan",
+   "status": "done",
+   "attempts": 1,
+   "error": ""
+  }
+ ]
+}

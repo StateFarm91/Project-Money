@@ -1,0 +1,144 @@
+{
+ "lane": "w4-FMLEDGER",
+ "written": [
+  {
+   "uid": "F-514@v0.16",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "W4-AUTO wired the WIRING REQUEST: runtime/worker.py CADENCES ('etsy_openapi_reverify', 'orchestrator', 'etsy.openapi_reverify', weekly) and agents/registry.py orchestrator allow-list carries 'etsy.openapi_reverify'; the reverify job is now scheduled, authorised, banded and judged",
+   "test_files": [
+    "tests/test_etsy_readback_observe.py",
+    "tests/test_etsy_surfaces.py",
+    "tests/test_k8_shop_cx.py",
+    "tests/test_launch.py",
+    "tests/test_w4_auto_status.py",
+    "tests/test_w4_fm2_surface_reverify.py"
+   ]
+  },
+  {
+   "uid": "F-098",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "W4-AUTO: runtime/worker.py::park_if_model_down / model_provider_down is called by Worker.run_once before every handler; a MODEL_JOB_TYPES job is parked (pending, attempt not counted, audited ai.parked) only on outage evidence (failover DOWN, open Anthropic funding action, failed probe); an unprobed provider is UNKNOWN and parks nothing; a non-model job always runs; a job parked >24h runs and reports its own refusal (no substitute verdict)",
+   "test_files": [
+    "tests/test_access.py",
+    "tests/test_funding.py",
+    "tests/test_gateway.py",
+    "tests/test_spend_policy.py",
+    "tests/test_w4_auto_spend_wiring.py"
+   ]
+  },
+  {
+   "uid": "F-310",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "W4-AUTO: swarm/orchestrate.py::_progress counts new content-distinct durable audit rows per job type (new_evidence_rows; bookkeeping prefixes job./ai.parked/paid_call.replayed excluded) and folds them into the state sequence, so identical outputs with a new observation are progress and a restated row is not; thrash_sweep (ops.thrash, hourly cadence) reads it for backoff",
+   "test_files": [
+    "tests/test_cert_thrash.py",
+    "tests/test_w4_auto_spend_wiring.py"
+   ]
+  },
+  {
+   "uid": "F-659",
+   "verdict": "COMPLETE",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "W4-AUTO: queue/checkpoints.py (job_checkpoints; fenced to the lease token; cleared on completion; kept on dead letter) via JobQueue.checkpoint/restore and JobContext.checkpoint/restore; W4-FMLEDGER adopted it in the longest handlers: runtime/release.py handle_model_photography (render step 'render:<slug>@<version>') and handle_seasonal_cycle_proof ('cycle_report'), so a worker that dies after the long step resumes without repeating it. queue/checkpoints.py is reached on 2f36fe0 (module_reachability regenerated here: load is live via queue/durable.py:JobQueue.restore). Lease fencing/renewal and the dead-letter classifier are on this head; production fcb982d predates them (deploy pending, owner production window)",
+   "test_files": [
+    "tests/test_cert_orchestration.py",
+    "tests/test_chaos.py",
+    "tests/test_persistence.py",
+    "tests/test_w4_auto_spend_wiring.py",
+    "tests/test_w4_fml_checkpoint_adoption.py"
+   ]
+  },
+  {
+   "uid": "F-030",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "owner",
+    "key": "visual_paid_generation",
+    "detail": "OWNER_ACTIONS batch 'visual' (Paid image generation): VB-1 P2 LIFESTYLE protected composites for the Launch-0 listings (max CA$2.00 of the CA$4.01 batch; VISUAL_STATUS ceiling CA$4.76 incl. V0), or the no-API alternative: physical sample photographs"
+   },
+   "checked": "W4-VISUAL2 runtime proof research/final_build/w4/visual/contents_gallery_proof_all_2026-10-07.json (a68db01): listing-set certificate valid with CONTENTS certified on cloudline-baby-blanket 1.2.0 and market-basket-small/medium/large 1.2.0 (the nursery-nesting-baskets Launch-0 sizes, products/launch0.py superseded_by), first_customer_imagery PASS; search_evidence_gallery missing only LIFESTYLE; the only gallery job not produced is LIFESTYLE, which needs paid image generation or photographs",
+   "test_files": [
+    "tests/test_brand.py (MISSING_FRAME)",
+    "tests/test_listing_set.py",
+    "tests/test_w4_visual2.py",
+    "tests/test_w4_visual_certified_gallery.py"
+   ]
+  },
+  {
+   "uid": "F-254",
+   "verdict": "GATED",
+   "refresh": false,
+   "maturity": "INTEGRATED",
+   "gate": {
+    "kind": "owner",
+    "key": "visual_paid_generation",
+    "detail": "OWNER_ACTIONS batch 'visual' (Paid image generation): VB-1 P2 LIFESTYLE protected composites for the Launch-0 listings (max CA$2.00 of the CA$4.01 batch; VISUAL_STATUS ceiling CA$4.76 incl. V0), or the no-API alternative: physical sample photographs"
+   },
+   "checked": "W4-VISUAL2 runtime proof research/final_build/w4/visual/contents_gallery_proof_all_2026-10-07.json (a68db01): listing-set certificate valid with CONTENTS certified on cloudline-baby-blanket 1.2.0 and market-basket-small/medium/large 1.2.0 (the nursery-nesting-baskets Launch-0 sizes, products/launch0.py superseded_by), first_customer_imagery PASS; search_evidence_gallery missing only LIFESTYLE; eligibility.check_set passes the certified sets; LIFESTYLE is the only missing gallery job",
+   "test_files": [
+    "tests/test_cert_publish_gates.py",
+    "tests/test_eligibility.py",
+    "tests/test_w4_visual2.py",
+    "tests/test_w4_visual_certified_gallery.py"
+   ]
+  },
+  {
+   "uid": "F-839",
+   "verdict": "OPEN",
+   "refresh": true,
+   "maturity": "TESTED",
+   "gate": null,
+   "checked": "the recorded defect (closure_matrix basis label stale) no longer holds: the basis now records the mapping base, every remap SHA and per-row mapped_on, and module_reachability.json was regenerated on 2f36fe0 (W4-FMLEDGER: 654 modules, 560 reached, none lost vs 8b67414). The final-head audit itself still needs a frozen candidate",
+   "test_files": [
+    "tests/test_final_proof.py",
+    "tests/test_reachability.py"
+   ]
+  },
+  {
+   "uid": "F-848",
+   "verdict": "OPEN",
+   "refresh": true,
+   "maturity": "TESTED",
+   "gate": null,
+   "checked": "scripts/shadow_rehearsal.py exists (boot of the production start command on a fresh DB, shadow chain to store.publish refusal, simulated past-shadow publish against tests/fake_etsy, orders/support/ledger) and has run four times (research/final_build/evidence/shadow_rehearsal_{d85ee19,1dddb9d,3be3096,ddf9c6e}*.json); the latest (ddf9c6e) is complete:false, blocked by search_certificate_not_pass, grant_snapshot_refused (taxonomy UNKNOWN) and past_shadow_publish_blocked",
+   "test_files": [
+    "tests/test_cert_claude_independence.py",
+    "tests/test_shadow.py"
+   ]
+  },
+  {
+   "uid": "F-878",
+   "verdict": "OPEN",
+   "refresh": true,
+   "maturity": "INTEGRATED",
+   "gate": null,
+   "checked": "launch/packet.py::build assembles candidate SHA, recorded suite, phase, every Launch-0 product's certification/listing/search/price/economics, owner queue, spend limits, rollback path and activation steps (UNKNOWN never shown as pass); scripts/launch_packet.py writes it; tests test_fb4_launch / test_rc1_own_packet. It is not reached from a runtime root and no packet has been generated for a candidate",
+   "test_files": [
+    "tests/test_launch.py"
+   ]
+  }
+ ],
+ "kept_open": [],
+ "counts": {
+  "written": 9,
+  "kept": 0,
+  "by_verdict": {
+   "COMPLETE": 4,
+   "GATED": 2,
+   "OPEN": 3
+  }
+ }
+}

@@ -1,0 +1,132 @@
+{
+  "captured_at": "2026-09-17T16:15:15.408714+00:00",
+  "cir": {
+    "colors": {
+      "forest": "#244A3A",
+      "wine": "#6E1F2A"
+    },
+    "components": [
+      {
+        "construction": "flat_rows",
+        "foundation": 40,
+        "foundation_kind": "chain",
+        "make": 1,
+        "name": "panel",
+        "note": null,
+        "rows": [
+          {
+            "allow_remainder": false,
+            "color": "forest",
+            "declared_count": 40,
+            "index": 1,
+            "into": null,
+            "note": null,
+            "ops": [
+              {
+                "count": 40,
+                "note": null,
+                "stitch": "sc"
+              }
+            ],
+            "turning_chain": 1,
+            "turning_chain_counts": false
+          },
+          {
+            "allow_remainder": false,
+            "color": "chartreuse",
+            "declared_count": 40,
+            "index": 2,
+            "into": null,
+            "note": null,
+            "ops": [
+              {
+                "note": null,
+                "ops": [
+                  {
+                    "count": 3,
+                    "note": null,
+                    "stitch": "sc"
+                  },
+                  {
+                    "count": 1,
+                    "note": null,
+                    "stitch": "dc"
+                  }
+                ],
+                "times": null
+              }
+            ],
+            "turning_chain": 1,
+            "turning_chain_counts": false
+          },
+          {
+            "allow_remainder": false,
+            "color": "forest",
+            "declared_count": 40,
+            "index": 3,
+            "into": null,
+            "note": null,
+            "ops": [
+              {
+                "count": 40,
+                "note": null,
+                "stitch": "sc"
+              }
+            ],
+            "turning_chain": 1,
+            "turning_chain_counts": false
+          },
+          {
+            "allow_remainder": false,
+            "color": "wine",
+            "declared_count": 40,
+            "index": 4,
+            "into": null,
+            "note": null,
+            "ops": [
+              {
+                "note": null,
+                "ops": [
+                  {
+                    "count": 1,
+                    "note": null,
+                    "stitch": "dc"
+                  },
+                  {
+                    "count": 3,
+                    "note": null,
+                    "stitch": "sc"
+                  }
+                ],
+                "times": null
+              }
+            ],
+            "turning_chain": 1,
+            "turning_chain_counts": false
+          }
+        ]
+      }
+    ],
+    "construction": "flat_rows",
+    "designer_notes": null,
+    "finished_size_note": null,
+    "gauge": {
+      "hook_mm": 5.0,
+      "rows_per_10cm": 14,
+      "stitch_type": "sc",
+      "stitches_per_10cm": 16,
+      "yarn_weight": null
+    },
+    "materials": [],
+    "risk_class": "A",
+    "slug": "test-mosaic",
+    "title": "Test Mosaic Panel",
+    "version": "1.0.0"
+  },
+  "expected_codes": [
+    "UNKNOWN_COLOR"
+  ],
+  "note": "deliberate defect from tests/fixtures.py::broken_unknown_color",
+  "slug": "test-mosaic",
+  "source": "suite-broken_unknown_color"
+}

@@ -1,0 +1,18 @@
+# Batch 2 413a29cf vs production 051dbee2, 2026-10-26T16:22:55Z, local PostgreSQL 16 (port 5433), full lazy surface
+## 051dbee2 reset
+reset tables: 145 create_all changes: [] | modules that failed to import: 0 []
+## 413a29cf boot
+boot tables: 147 create_all changes: [] | modules that failed to import: 0 []
+added tables: ['laura_boundary_crossings', 'laura_cost_events']
+removed tables: []
+changed existing tables: none
+## second boot
+boot tables: 147 create_all changes: [] | modules that failed to import: 0 []
+added tables: []
+removed tables: []
+changed existing tables: none
+## rollback 051dbee2
+boot tables: 147 create_all changes: [] | modules that failed to import: 0 []
+added tables: []
+removed tables: []
+changed existing tables: none

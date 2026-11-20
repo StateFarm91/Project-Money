@@ -1,0 +1,30 @@
+{
+ "references": [
+  "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e2/out/cardigan_front34.png",
+  "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e2/out/cardigan_flatlay.png"
+ ],
+ "provider": "gpt-image-2 (edits)",
+ "runs": [
+  {
+   "shot": "lifestyle",
+   "references": [
+    "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e2/out/cardigan_front34.png"
+   ],
+   "prompt": "Lifestyle photograph: the cardigan draped open over the back of a light wooden chair in a bright, calm room with a window, soft daylight. Keep the cardigan exactly as the reference images show it: the same shape, the same proportions, the same construction and the same placement of every part. Render it as a real hand-crocheted garment in real yarn with natural fibre texture. No text.",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e2/out/gen/lifestyle.png",
+   "seconds": 16.6
+  },
+  {
+   "shot": "on_model",
+   "references": [
+    "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e2/out/cardigan_front34.png"
+   ],
+   "prompt": "Full-length photograph of a woman wearing the cardigan open over a plain white t-shirt and light blue jeans, standing relaxed facing the camera, arms at her sides, in soft daylight against a plain pale wall. Keep the cardigan exactly as the reference images show it: the same shape, the same proportions, the same construction and the same placement of every part. Render it as a real hand-crocheted garment in real yarn with natural fibre texture. No text.",
+   "ok": true,
+   "path": "/home/user/Project-Money/.claude/worktrees/visual-investigation/brambleloop/research/e2/out/gen/on_model.png",
+   "seconds": 14.5
+  }
+ ],
+ "spent_usd_list_price": 0.06
+}

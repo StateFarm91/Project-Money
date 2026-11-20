@@ -1,0 +1,29 @@
+{
+ "_meta": {
+  "lane": "w4-FMBATCH1",
+  "status": "PROPOSED: not applied; overrides.json changes only on integrator acceptance (accepted_by), F-867",
+  "dry_run": "python3 research/final_build/aggregate.py --overrides research/final_build/w4/OVERRIDES_PROPOSED_FMBATCH1_C.json --dry-run",
+  "note": "Corrects stale matrix missing_part text: the reader and reconciliation the rows ask for exist in the deployed tree (b997efd); what remains is the owner gate transactions_r and a real settlement. Engineering is not re-claimed beyond the cited tests."
+ },
+ "overrides": {
+  "F-538": {
+   "producer": "src/brambleloop/finance/reconcile.py::apply",
+   "tests": [
+    "tests/test_money_truth.py::test_charged_fees_replace_the_model_and_an_offsite_fee_is_deducted_and_attributed",
+    "tests/test_money_truth.py::test_an_etsy_fee_for_an_order_we_do_not_have_opens_one_reconciliation_incident",
+    "tests/test_money_truth.py::test_fee_reconciliation_is_idempotent_and_adds_a_late_fee_incrementally",
+    "tests/test_money_truth.py::test_a_receipt_level_fee_is_shared_across_its_lines_by_price"
+   ],
+   "missing_part": "the payment-account ledger reader and per-receipt reconciliation exist (finance/reconcile.py, finance/accounting/reconciliation.import_etsy_ledger; unknown ledger types stay unclassified and open an incident); no transactions_r grant, so no real Etsy entry has been read and the ledger_type mapping is unverified until the first real settlement",
+   "reason": "F-538: the matrix text says no reader exists; finance/reconcile.py (in b997efd) reads getShopPaymentAccountLedgerEntries entries, matches them per receipt and keeps unknown fee behaviour explicit (unclassified, never counted). Gate stays owner:transactions_r; acceptance waits on a real settlement."
+  },
+  "F-273": {
+   "producer": "src/brambleloop/finance/reconcile.py::apply",
+   "tests": [
+    "tests/test_money_truth.py::test_charged_fees_replace_the_model_and_an_offsite_fee_is_deducted_and_attributed"
+   ],
+   "missing_part": "Order.offsite_ad_attributed IS set by finance/reconcile.py from an Offsite Ads fee ledger entry (and finance/sources.py), deducted from contribution and attributed; no real ledger entry has been read (transactions_r)",
+   "reason": "F-273: the matrix text says offsite_ad_attributed is never set; finance/reconcile.py:484 sets it from the Offsite Ads fee entry and the cited test proves the deduction and attribution. Gate stays owner:transactions_r."
+  }
+ }
+}

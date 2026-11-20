@@ -1,0 +1,500 @@
+{
+  "group": "app-stores / ai-productized-services / micro-utilities",
+  "searches_run": 15,
+  "pages_read": 1,
+  "market_notes": "APP STORES: Evidence shows small extensions/plugins earn side-hustle money ($500-3,000 MRR) but slowly; conversion free-to-paid is typically <1% (chromegoldmine benchmarks; Freemius/mktclarity for WP). Store timelines: WordPress.org manual review 1-10 days (Freemius guide); Chrome Web Store $5 fee, tighter 2025 policies, no published SLA (typically days); Google Workspace Marketplace requires OAuth verification plus Marketplace review, budget 2-3 weeks and community reports of 8+ week stalls, which pushes first revenue toward Day 35-50 and makes it the riskiest store for this competition. ExtensionPay (5% + $0.30) and Freemius let the operator sell without building billing. Distribution inside stores is search-driven, so revenue within 90 days depends on picking a query with existing intent, not on novelty.\nAI-FULFILLED PRODUCTIZED SERVICES: Fiverr takes 20% from sellers plus a 5.5% buyer fee; Upwork freelancer fee is variable 0-15% (since May 2025) plus a client contract-initiation fee. Fiverr openly promotes AI-assisted work (Fiverr Go, AI Video Hub, 2025-2026) but has no crisp disclosure rule; transcription/show-notes gigs are commoditised to $5-15 per 10 minutes, so pure-AI deliverables only pay if there is a compliance or specialist angle. The strongest 2026 angle found is Quebec Bill 96 (fully in force 1 June 2025, $3,000-30,000 per violation, applies to any store selling to Quebec regardless of size), which creates urgent, non-optional demand for French web/catalogue content from small Canadian e-commerce merchants. No time-to-first-order data for new sellers was found; assume 2-4 weeks with zero reviews (assumption).\nMICRO-UTILITIES: Small tools with intent do earn: FreeConvert ~US$1M/yr (ads), SocialKit ~$3.5k/mo, PostPeer ~$2.9k/mo including one-time payments (Indie Hackers/ideaproof). Verified paid niches: bank-statement PDF-to-CSV (CapyParse $5 for 20 pages, MoneyThumb $24.95/mo), WhatsApp chat-to-court-PDF (ChatToPDF from $7, ChatToCourt $29, ProofSnap $59.99), SRT translation (editingtools.io ~$0.08 per 800 characters; OpenL from $17/mo). All three have free or freemium alternatives, including ChatGPT/Claude uploads, so the paid wedge must be format fidelity, privacy (client-side processing), batch volume or an evidence-grade output, not the AI itself. Search-volume numbers were not verified with a keyword tool (not found); demand is inferred from the number of competing paid tools and comparison articles dated 2025-2026.",
+  "candidates": [
+    {
+      "lens": "APP STORES",
+      "name": "Loi 25 Consent for WordPress (Freemius)",
+      "one_liner": "Quebec Law 25 cookie-consent and script-blocking WordPress plugin with bilingual FR/EN banner and consent log, free on WordPress.org, Pro via Freemius.",
+      "model_type": "freemium plugin, annual licence",
+      "target_customer": "Quebec and Canadian small businesses and their web agencies running WordPress/WooCommerce sites that collect Quebec residents' data",
+      "problem": "Law 25 requires opt-in consent and script blocking with fines from $15,000 up to $25M / 4% turnover; generic CMPs (CookieYes, CookieHub) are subscription SaaS and not Quebec-first, and the only Quebec-specific WP plugin found is a free SourceForge project with no support.",
+      "offer_and_pricing": "Free: banner + Vault script blocking. Pro CAD $59/yr per site, CAD $149/yr agency 10 sites: consent-record export (proof for CAI), Google Consent Mode v2, geo-target Quebec only, FR/EN privacy-policy generator.",
+      "first_10_customers": "WordPress.org search for 'loi 25' / 'law 25' (plugin listing ranks for exact-match niche terms within days of approval); r/Quebec and r/montreal small-business threads answering compliance questions within community rules; a bilingual comparison post 'Law 25 cookie plugins compared' on the product site.",
+      "first_100_customers": "WP.org install base converting at ~1% (needs ~5-10k installs, unrealistic by Day 90; expect 30-60 Pro sales), agency bundle pricing, listing on Freemius marketplace and WP plugin directories, bilingual SEO content on Law 25 updates.",
+      "why_over_alternatives": "Only Quebec-first, bilingual, one-time-per-year price versus CookieYes-style monthly SaaS; agency multi-site licence; installs from the trusted WP.org directory rather than a foreign SaaS.",
+      "evidence": [
+        {
+          "claim": "Law 25 fines range $15,000 to $25M or 4% of worldwide turnover; opt-in consent required for cookies, applies to any org handling Quebec residents' data",
+          "source_url": "https://www.cookiehub.com/quebec-law-25",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Only one free open-source WordPress plugin claims full Law 25 compliance (script Vault blocking), hosted on SourceForge, signalling a thin niche",
+          "source_url": "https://sourceforge.net/projects/loi-25-quebec/",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "WordPress.org plugin review is manual, 1-10 days; Freemius SDK is WP.org-compliant and hundreds of products use it",
+          "source_url": "https://freemius.com/blog/submit-plugin-wordpress-repository/",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Free-to-paid conversion for most WP plugins has dropped below 1%",
+          "source_url": "https://mktclarity.com/blogs/news/wordpress-plugin-worth-it",
+          "recency": "2025",
+          "kind": "evidence"
+        }
+      ],
+      "est_capital_cad": 60,
+      "est_days_to_first_revenue": 25,
+      "est_day90_revenue_base_cad": 900,
+      "gross_margin_est": "85-90% after Freemius 7% + payment fees",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "Owner creates WordPress.org and Freemius accounts (Freemius payouts need identity/PayPal or bank) in the setup block; operator handles code, listing, support forum replies on its schedule.",
+      "automation_potential": "high",
+      "competition_intensity": "medium",
+      "biggest_failure_reason": "Sub-1% conversion means Pro revenue needs thousands of installs that a new listing will not accumulate in 90 days; big CMPs already cover Law 25 in marketing.",
+      "key_risks": [
+        "WP.org review rejection or delay",
+        "Legal-adjacent product needs careful 'not legal advice' framing",
+        "Support burden from consent-mode edge cases",
+        "Free plugin cannibalises Pro"
+      ],
+      "why_now_2026": "Law 25 fully in force since Sept 2024 and enforcement/awareness rising in 2025-2026; Google Consent Mode v2 pressure; Quebec businesses want a FR-first, one-time licence rather than monthly SaaS.",
+      "day180_asset_potential": "medium",
+      "confidence": "medium"
+    },
+    {
+      "lens": "APP STORES",
+      "name": "MeetRoll: Google Meet attendance and chat exporter (Chrome, ExtensionPay)",
+      "one_liner": "One-click Chrome extension that exports Google Meet attendance (join/leave times), chat and reactions to CSV/PDF for teachers, trainers and HR.",
+      "model_type": "freemium Chrome extension, ExtensionPay one-time + annual",
+      "target_customer": "Teachers, corporate trainers, tutoring businesses and compliance-bound HR teams on Google Workspace who must document attendance",
+      "problem": "Native Meet attendance reports require Workspace Business Standard+ and arrive by email; free tier and Education Fundamentals users have no reliable attendance export, and existing extensions are abandoned or ad-laden.",
+      "offer_and_pricing": "Free: attendance list for meetings under 30 min. Pro CAD $19 one-time or CAD $29/yr: unlimited, join/leave timestamps, chat log, auto-save to Drive, PDF certificate of attendance.",
+      "first_10_customers": "Chrome Web Store search for 'google meet attendance' (established intent; prior extensions had tens of thousands of users), r/Teachers and r/googleworkspace answers within rules, a demo GIF on the listing.",
+      "first_100_customers": "Store search plus SEO page 'Google Meet attendance report without Business plan', education Facebook groups where permitted, Product Hunt launch; expect 2-5k installs converting ~1-2% on a low one-time price.",
+      "why_over_alternatives": "Cheaper than upgrading Workspace tiers, works on free Gmail accounts, client-side (no data leaves browser), maintained and Manifest V3 compliant while older competitors were removed in 2025 policy purges.",
+      "evidence": [
+        {
+          "claim": "Google Meet niche extension Blue Dot reports ~$3,000 MRR; indie extensions typically earn $500-2,000 MRR side-hustle tier; ~112k active extensions after 18.5% purge; $5 listing fee; 2025 policy tightening removed many extensions",
+          "source_url": "https://chromegoldmine.com/blog/profitable-chrome-extension-niches/",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "ExtensionPay charges 5% + $0.30 per transaction with no backend required; suited to validation-stage extensions",
+          "source_url": "https://addonews.com/extensionpay-review-scale/",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Reddit-reported benchmark: 50,000 users yielded ~$21K ARR, implying sub-1% conversion",
+          "source_url": "https://chromegoldmine.com/blog/chrome-extension-monetization/chrome-extension-revenue-benchmarks/",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Teachers and trainers on free/Education Fundamentals tiers lack attendance export; assumption based on Google plan feature gating",
+          "source_url": "https://chromegoldmine.com/blog/profitable-chrome-extension-niches/",
+          "recency": "2026",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 40,
+      "est_days_to_first_revenue": 18,
+      "est_day90_revenue_base_cad": 700,
+      "gross_margin_est": "~90% (ExtensionPay 5% + Stripe)",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "Owner registers Chrome Web Store developer account ($5, identity) and ExtensionPay/Stripe once; operator ships updates and answers store reviews.",
+      "automation_potential": "high",
+      "competition_intensity": "medium",
+      "biggest_failure_reason": "Chrome review rejection or Meet DOM changes breaking scraping; Google could ship attendance to more tiers, erasing the gap.",
+      "key_risks": [
+        "Meet UI changes break the extension between scheduled runs",
+        "Store review delays (days to weeks) with no SLA",
+        "Low willingness to pay among teachers",
+        "Policy risk around reading meeting content"
+      ],
+      "why_now_2026": "2025 Chrome policy purge cleared out abandoned Meet extensions; Manifest V3 raised the bar; hybrid teaching/training remains standard and attendance documentation is still gated behind paid Workspace tiers.",
+      "day180_asset_potential": "medium",
+      "confidence": "medium"
+    },
+    {
+      "lens": "APP STORES",
+      "name": "Canadian Sales Tax Invoicer for Google Sheets (Workspace Marketplace)",
+      "one_liner": "Google Sheets add-on that applies correct GST/HST/PST/QST by province, generates numbered bilingual PDF invoices and a CRA-ready tax summary.",
+      "model_type": "Workspace add-on, freemium with annual licence (Stripe via own site)",
+      "target_customer": "Canadian freelancers and micro-businesses invoicing from Google Sheets who are GST-registered but too small for QuickBooks",
+      "problem": "Provincial tax rules (13% HST vs 5% GST + PST/QST) are error-prone; invoicing apps cost CAD $20-40/mo; Sheets users hand-build invoices and mis-tax out-of-province clients.",
+      "offer_and_pricing": "Free: tax calculator for one province. Pro CAD $39/yr: all provinces, invoice numbering, PDF/email from Sheets, quarterly GST/HST return summary, French templates.",
+      "first_10_customers": "Workspace Marketplace search for 'invoice Canada' / 'GST HST', r/PersonalFinanceCanada and r/smallbusinesscanada self-employed threads (answering, not spamming), SEO page 'GST HST invoice template Google Sheets'.",
+      "first_100_customers": "Marketplace ranking on Canadian tax keywords, a free public Sheets template funnel that upsells the add-on, cross-promotion with Canadian bookkeeping content.",
+      "why_over_alternatives": "Lives in the tool they already use; one-time annual price versus monthly invoicing SaaS; Canada-specific tax logic and bilingual output that generic invoice add-ons lack.",
+      "evidence": [
+        {
+          "claim": "Workspace add-ons need OAuth verification plus Marketplace review; budget 2-3 weeks, with separate branding/scope checks",
+          "source_url": "https://medium.com/@info.brightconstruct/the-real-google-workspace-marketplace-app-review-journey-what-they-actually-check-2c3918aabc61",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Developer reports OAuth verification stuck 8+ weeks due to submission volume",
+          "source_url": "https://security.googlecloudcommunity.com/security-validation-5/oauth-verification-for-workspace-add-on-stuck-for-8-weeks-client-critical-6543",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Google's own guidance: allot at least one week for OAuth verification before listing publishes",
+          "source_url": "https://developers.google.com/workspace/marketplace/about-app-review",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Demand for Canada-specific Sheets invoicing is inferred from freelancer volume and tax complexity; no keyword volume verified",
+          "source_url": "https://developers.google.com/workspace/marketplace/about-app-review",
+          "recency": "2026",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 50,
+      "est_days_to_first_revenue": 40,
+      "est_day90_revenue_base_cad": 400,
+      "gross_margin_est": "~90% (Stripe fees only)",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "Owner must own the Google Cloud project, complete OAuth consent screen and possibly a verification video; operator does the rest. Review timeline is the main owner-independent blocker.",
+      "automation_potential": "high",
+      "competition_intensity": "medium",
+      "biggest_failure_reason": "OAuth/Marketplace verification slips past Day 45, leaving too little selling time; can be mitigated by distributing a Sheets template with Apps Script directly while awaiting listing.",
+      "key_risks": [
+        "Review delays of weeks",
+        "Restricted-scope review if Drive/Gmail scopes are needed",
+        "Tax-rule changes require maintenance",
+        "Free templates satisfy most users"
+      ],
+      "why_now_2026": "More Canadian solo workers registered for GST/HST as thresholds bite; Google pushed Sheets AI features increasing add-on discovery; Bill 96 makes bilingual invoices relevant for Quebec clients.",
+      "day180_asset_potential": "medium",
+      "confidence": "low"
+    },
+    {
+      "lens": "AI-FULFILLED PRODUCTIZED SERVICES",
+      "name": "Bill 96 French Storefront Pack (Shopify/WooCommerce catalogue translation)",
+      "one_liner": "Fixed-price, 72-hour French-Canadian translation of an online store's product catalogue, policies and checkout strings, delivered as import-ready CSV plus a compliance checklist.",
+      "model_type": "productized service, landing page (Stripe) + Fiverr gig",
+      "target_customer": "English-only Canadian and US Shopify/WooCommerce merchants selling into Quebec with 50-500 SKUs",
+      "problem": "Bill 96 (in force 1 June 2025) requires French web content on terms no less favourable than English, applies regardless of company size, with $3,000-30,000 per-violation penalties; translation agencies quote per word and Weglot-style SaaS costs monthly forever.",
+      "offer_and_pricing": "Starter CAD $149 (up to 50 products + policies/checkout), Growth CAD $349 (up to 250 products), Pro CAD $699 (up to 750 products); add-on CAD $49 monthly delta translation for new SKUs. Fulfilled by LLM pipeline with glossary, fr-CA style rules and automated QA; human spot-check optional add-on.",
+      "first_10_customers": "Fiverr gig in Translation > Website localisation (search 'Bill 96', 'French Canadian Shopify'); Shopify Community and r/shopify threads asking about Bill 96 (answer with the checklist); SEO page 'Bill 96 Shopify checklist' targeting merchants Googling compliance.",
+      "first_100_customers": "Ranking for Bill 96 long-tail terms, Shopify Partner directory listing (after owner creates partner account), referrals from Canadian Shopify agencies who do not want small translation jobs, repeat delta orders.",
+      "why_over_alternatives": "10x cheaper than agencies ($0.15-0.25/word), no monthly SaaS, fr-CA not fr-FR, delivered as CSV that imports cleanly rather than JS overlay; includes compliance checklist that translators do not provide.",
+      "evidence": [
+        {
+          "claim": "Bill 96 fully in effect 1 June 2025; websites, e-commerce, catalogues must be available in French on terms no less favourable; penalties $3,000-$30,000 per violation; applies regardless of employee count",
+          "source_url": "https://www.weglot.com/blog/bill-96-explained",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "CFIB guidance confirms Law 14 (Bill 96) obligations reach small businesses; francisation threshold dropped to 25 employees June 2025",
+          "source_url": "https://www.cfib-fcei.ca/en/site/qc-law-14-bill-96",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Fiverr seller fee is 20% plus 5.5% buyer fee; Fiverr actively promotes AI-assisted fulfilment (Fiverr Go, AI Video Hub)",
+          "source_url": "https://www.fastlancer.org/en/fastlancer-blog/fiverr-review/",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Agency per-word rates and time-to-first-order for a new seller were not found; assume 2-4 weeks on Fiverr, faster via SEO/community inbound",
+          "source_url": "https://www.weglot.com/blog/bill-96-explained",
+          "recency": "2026",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 120,
+      "est_days_to_first_revenue": 16,
+      "est_day90_revenue_base_cad": 2400,
+      "gross_margin_est": "75-85% direct (LLM cost ~CAD $2-8 per order); ~60% via Fiverr after 20%",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "Owner creates Fiverr seller account and Stripe once; operator runs the pipeline per order on its schedule (72-h SLA fits a few runs per day). Optional native-speaker spot check would need a contractor, initially skipped and disclosed.",
+      "automation_potential": "high",
+      "competition_intensity": "medium",
+      "biggest_failure_reason": "Merchants treat Bill 96 as low-enforcement and defer; AI-translation quality complaints (fr-CA nuance, product jargon) trigger refunds without a human reviewer.",
+      "key_risks": [
+        "Quality perception of AI translation",
+        "Fiverr new-seller invisibility",
+        "Shopify Translate & Adapt free app covers basic needs",
+        "OQLF enforcement pace uncertain"
+      ],
+      "why_now_2026": "First full year of Bill 96 enforcement with the June 2025 deadline behind us; OQLF complaints process is live; LLM fr-CA quality is good enough for catalogue text at near-zero marginal cost.",
+      "day180_asset_potential": "medium",
+      "confidence": "medium"
+    },
+    {
+      "lens": "AI-FULFILLED PRODUCTIZED SERVICES",
+      "name": "Podcast Episode Kit (transcript, chapters, show notes, clips list)",
+      "one_liner": "Fixed-price per-episode package: accurate transcript, timestamped chapters, SEO show notes, quote pulls and social captions, delivered in 24 hours.",
+      "model_type": "productized service on Fiverr + landing page subscriptions",
+      "target_customer": "Independent podcasters and YouTube creators publishing weekly who lack an editor or VA",
+      "problem": "Show notes, chapters and clips are tedious weekly chores; Fiverr transcription gigs are cheap but deliver raw text only, and creators still have to write notes and chapters.",
+      "offer_and_pricing": "Fiverr: CAD $25 per 60-min episode basic (transcript + chapters), CAD $49 standard (+ show notes, titles, captions), CAD $89 premium (+ 10 clip timestamps, newsletter blurb, guest bio). Landing page: CAD $79/mo for 4 episodes via Stripe.",
+      "first_10_customers": "Fiverr search in Podcast Editing / Podcast Transcript categories (24+ listed gigs show buyer traffic), r/podcasting weekly promo threads, Podcast Movement community forums within rules.",
+      "first_100_customers": "Fiverr level progression, bundling with hosting-platform communities (Buzzsprout/Transistor forums), SEO 'podcast show notes service' page, repeat monthly buyers converting to subscription.",
+      "why_over_alternatives": "Full kit not raw transcript; 24-h turnaround; cheaper than VA agencies; consistent house style per show maintained across episodes; Descript/Riverside AI features exist but many creators still buy done-for-you.",
+      "evidence": [
+        {
+          "claim": "Fiverr transcription rates $5-15 per 10 minutes; top sellers using AI capture most revenue; podcasters buy for accessibility and SEO",
+          "source_url": "https://medium.com/write-a-catalyst/top-5-fiverr-gigs-of-2025-ba88427031df",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Fiverr lists dedicated 'podcast transcript' gig category with 24 best-seller results, indicating active buyer demand",
+          "source_url": "https://www.fiverr.com/gigs/podcast-transcript",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Competing gigs offer chapters + timestamps + transcription from $5, evidencing price compression",
+          "source_url": "https://www.fiverr.com/shabir355666/do-youtube-video-chapters-timestamps-podcast-transcription",
+          "recency": "2026",
+          "kind": "evidence"
+        }
+      ],
+      "est_capital_cad": 80,
+      "est_days_to_first_revenue": 14,
+      "est_day90_revenue_base_cad": 900,
+      "gross_margin_est": "65-75% after Fiverr 20% and ~CAD $0.50-1.50 LLM/ASR cost per episode",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "Owner creates Fiverr account; operator processes orders via Whisper/LLM pipeline a few times daily, which fits 24-h delivery. Human touch: none unavoidable beyond reading a revision request.",
+      "automation_potential": "high",
+      "competition_intensity": "extreme",
+      "biggest_failure_reason": "Race to the bottom: $5 competitors and free built-in AI in Descript/Spotify for Creators/YouTube make paid kits hard to sell above cost.",
+      "key_risks": [
+        "New-seller invisibility on Fiverr",
+        "Refunds on transcript accuracy for poor audio",
+        "Platform AI features keep improving",
+        "Low order values"
+      ],
+      "why_now_2026": "Hosting platforms added AI transcripts but not editorial show notes; video podcasting growth increases clip demand; ASR costs near zero make 24-h fixed-price delivery profitable.",
+      "day180_asset_potential": "low",
+      "confidence": "medium"
+    },
+    {
+      "lens": "AI-FULFILLED PRODUCTIZED SERVICES",
+      "name": "CleanList: CRM/CSV deduplication and standardisation (Upwork Project Catalog)",
+      "one_liner": "Fixed-price cleanup of messy contact or product lists: dedupe, normalise names/phones/addresses to Canadian/US formats, flag invalid emails, return import-ready CSV plus a change report.",
+      "model_type": "productized service on Upwork Project Catalog + landing page",
+      "target_customer": "Small businesses and nonprofits migrating between CRMs (HubSpot, Mailchimp, Salesforce) or cleaning e-commerce catalogues",
+      "problem": "Duplicate and malformed records break CRM imports and email deliverability; freelancers price by hour and take days; buyers want a fixed scope and fast turnaround.",
+      "offer_and_pricing": "CAD $79 up to 2,000 rows, CAD $199 up to 20,000 rows, CAD $449 up to 100,000 rows; add-ons: email syntax/MX validation, postal-code and province standardisation, fuzzy dedupe report. 48-h delivery.",
+      "first_10_customers": "Upwork Project Catalog listings under Data Cleaning (multiple active catalog products show buyer traffic), plus Fiverr data-cleaning category; r/CRM and r/hubspot help threads answered with a free 'dedupe check' sample.",
+      "first_100_customers": "Catalog ranking via reviews, an SEO page 'clean CSV before HubSpot import', repeat jobs from agencies handling migrations, referral from bookkeepers already in the operator's network of products.",
+      "why_over_alternatives": "Deterministic script + LLM classification gives auditable change logs that hourly freelancers rarely provide; fixed price and 48-h SLA; Canadian data-format expertise (postal codes, provinces, bilingual fields).",
+      "evidence": [
+        {
+          "claim": "Multiple Upwork Project Catalog products exist for CRM data cleanup and deduplication, including 'up to 500 records' scoped packages",
+          "source_url": "https://www.upwork.com/services/product/development-it-crm-data-cleanup-deduplication-expert-1943509675379725300",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Upwork freelancer fee is variable 0-15% since May 2025 (most pay ~10%); clients pay 5% marketplace fee and a $0.99-14.99 contract initiation fee",
+          "source_url": "https://golance.com/blogs/upwork-fees-explained-2026",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Specific price points and time-to-first-order for new catalog sellers were not found; CAD $79-449 tiers are an assumption benchmarked against existing catalog scoping",
+          "source_url": "https://www.upwork.com/services/data-entry/get/data-cleansing",
+          "recency": "2026",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 60,
+      "est_days_to_first_revenue": 21,
+      "est_day90_revenue_base_cad": 800,
+      "gross_margin_est": "85% after Upwork ~10%; negligible compute",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "Owner creates Upwork profile (identity verification) once; operator fulfils via scripts; unavoidable human touch is clarifying ambiguous merge rules, handled asynchronously in order messages.",
+      "automation_potential": "high",
+      "competition_intensity": "high",
+      "biggest_failure_reason": "New Upwork profile with no reviews gets no catalog visibility; buyers default to cheap offshore hourly freelancers.",
+      "key_risks": [
+        "Handling customer PII (need privacy statement, delete-after-delivery)",
+        "Scope creep on 'messy' data",
+        "Upwork identity verification friction",
+        "Low repeat rate"
+      ],
+      "why_now_2026": "CRM consolidation and AI-sales-tool adoption forces clean data imports; Upwork fee cut (0-15%) improved seller economics in 2025; LLM-assisted fuzzy matching makes 48-h fixed-price delivery feasible.",
+      "day180_asset_potential": "low",
+      "confidence": "low"
+    },
+    {
+      "lens": "MICRO-UTILITIES WITH INTENT",
+      "name": "StatementCSV: bank/credit-card statement PDF to CSV with credit packs",
+      "one_liner": "Browser tool that converts Canadian bank and credit-card statement PDFs (RBC, TD, Scotia, BMO, CIBC, Tangerine) to clean CSV/QBO for bookkeepers, sold as one-time page-credit packs.",
+      "model_type": "web tool, one-time credit packs via Stripe Managed Payments",
+      "target_customer": "Bookkeepers, sole proprietors and tax preparers reconciling year-end when bank feeds are missing or the account is closed",
+      "problem": "Bank CSV exports are limited to 90 days-2 years; year-end and CRA reviews need older transactions locked in PDFs; existing converters are US-centric and subscription-priced.",
+      "offer_and_pricing": "3 free pages; CAD $9 for 30 pages, CAD $29 for 150 pages, CAD $79 for 600 pages; no subscription. Templates tuned for Canadian bank layouts; QBO/Xero CSV presets; client-side PDF parsing where possible, otherwise server with immediate deletion.",
+      "first_10_customers": "Google/Bing searches 'convert RBC statement to CSV', 'TD statement pdf to excel' (many paid competitors and 2026 comparison posts evidence intent); r/cantax and r/Bookkeeping answers; listing on tool directories (AlternativeTo, ToolPilot).",
+      "first_100_customers": "Long-tail SEO pages per bank and per software (QuickBooks, Wave, Xero), a free Google Workspace/Sheets integration later, bookkeeping Facebook groups within rules, Canadian tax-season peak (Jan-Apr) beyond Day 90.",
+      "why_over_alternatives": "Canadian-bank templates and CAD one-time pricing versus CapyParse/MoneyThumb monthly plans; ChatGPT can parse statements but mis-orders columns and users distrust uploading financial data to a chat.",
+      "evidence": [
+        {
+          "claim": "Competitors price CapyParse $29/mo (150 pages) with $5/20-page one-time packs; MoneyThumb $24.95-$99.95/mo; evidence of willingness to pay per page",
+          "source_url": "https://capyparse.com/blog/bank-statement-converter-pricing-comparison",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "At least 10 competing converters reviewed in a 2026 roundup, indicating sustained search demand and a crowded but validated niche",
+          "source_url": "https://capyparse.com/blog/best-bank-statement-to-csv-converters-2026",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "An Apify pay-per-page actor for bank statement to CSV exists, evidencing developer-side demand too",
+          "source_url": "https://apify.com/eastwoodapps/bank-statement-to-csv",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Search volume for bank-specific Canadian queries not verified with a keyword tool",
+          "source_url": "https://capyparse.com/blog/bank-statement-converter-pricing-comparison",
+          "recency": "2026",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 90,
+      "est_days_to_first_revenue": 24,
+      "est_day90_revenue_base_cad": 600,
+      "gross_margin_est": "85-90% (Stripe MoR fee, small OCR/LLM cost per page)",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "Owner sets up Stripe Managed Payments and domain; operator builds parser, SEO pages and monitors accuracy tickets on its schedule.",
+      "automation_potential": "high",
+      "competition_intensity": "high",
+      "biggest_failure_reason": "SEO for 'bank statement converter' is dominated by incumbents; without ranking, traffic is too low by Day 90, and financial-data trust favours established brands.",
+      "key_risks": [
+        "Parsing accuracy across bank layouts",
+        "Privacy/security expectations for financial docs",
+        "Seasonality (peak Jan-Apr, after Day 90)",
+        "Free ChatGPT/Claude alternatives"
+      ],
+      "why_now_2026": "Open banking in Canada still not live for small business, so PDFs remain the source of truth; LLM+OCR make multi-layout parsing cheap; bookkeepers increasingly self-serve tools instead of staff.",
+      "day180_asset_potential": "medium",
+      "confidence": "low"
+    },
+    {
+      "lens": "MICRO-UTILITIES WITH INTENT",
+      "name": "ChatExhibit: WhatsApp/iMessage export to court-ready PDF",
+      "one_liner": "Client-side web tool that turns a WhatsApp or SMS chat export (.txt/.zip) into a paginated, timestamped, hash-certified PDF exhibit for family, small-claims and employment disputes.",
+      "model_type": "web tool, one-time payment via Stripe Managed Payments",
+      "target_customer": "Self-represented litigants, paralegals and small law firms in Canada/US/UK needing readable message evidence",
+      "problem": "Screenshots are rejected or unreadable; WhatsApp's export is a raw text file with media in a zip; existing tools are Android apps or US-only services, and users fear uploading private chats.",
+      "offer_and_pricing": "Free preview (first 50 messages watermarked). CAD $12 per chat export PDF; CAD $29 bundle of 5; add-on CAD $9 SHA-256 integrity page and date-range filtering. All processing in-browser (no upload), which is the trust wedge.",
+      "first_10_customers": "Google searches 'whatsapp chat to pdf for court' (multiple paid competitors and 2025 legal-guide content prove intent), r/legaladvicecanada and r/FamilyLaw style questions where linking is allowed, tool directories (AlternativeTo lists ChatToCourt).",
+      "first_100_customers": "SEO articles per jurisdiction ('WhatsApp evidence Ontario small claims'), paralegal association newsletters, Google Ads on exact-match terms once unit economics known (cap CAD $150 test), repeat buys from paralegals.",
+      "why_over_alternatives": "In-browser privacy vs upload services; cheaper than ProofSnap ($59.99) and ChatToCourt ($29 licence); exhibit formatting (numbered pages, participant header, date filters) that ChatGPT cannot produce reliably for 5,000-message files.",
+      "evidence": [
+        {
+          "claim": "Paid competitors: ChatToPDF from $7, ChatToCourt $29 one-time, ProofSnap certified transcript $59.99 with 24-h delivery; Android apps sell one-time premium unlocks",
+          "source_url": "https://getproofsnap.com/whatsapp-chat-evidence.html",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Multiple 2025 legal-guide pages (Decipher Tools, PrintChat) target 'save WhatsApp messages for court', evidencing search intent",
+          "source_url": "https://deciphertools.com/blog/how-to-save-whatsapp-messages-for-court/",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "ChatToPDF markets a 30-second legal export flow, confirming a self-serve web format works",
+          "source_url": "https://chattopdf.app/legal",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Keyword volumes not verified; iMessage export path requires desktop steps the user does themselves (assumption)",
+          "source_url": "https://chattopdf.app/legal",
+          "recency": "2026",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 70,
+      "est_days_to_first_revenue": 20,
+      "est_day90_revenue_base_cad": 700,
+      "gross_margin_est": "~92% (Stripe MoR fees only; no server compute)",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "Owner sets up Stripe Managed Payments and domain; operator builds static tool on Cloudflare, writes SEO pages, answers email support asynchronously.",
+      "automation_potential": "high",
+      "competition_intensity": "medium",
+      "biggest_failure_reason": "Traffic: a new domain needs months to rank for the legal long-tail; without ranking or ads, orders are a trickle.",
+      "key_risks": [
+        "Must avoid implying legal admissibility (disclaimer)",
+        "WhatsApp export format changes",
+        "Chargebacks from emotionally charged buyers",
+        "Competitors copy privacy angle"
+      ],
+      "why_now_2026": "Courts increasingly accept chat evidence with formatting expectations; privacy concern about uploading chats is high; browser-side PDF generation is mature so no server costs.",
+      "day180_asset_potential": "medium",
+      "confidence": "medium"
+    },
+    {
+      "lens": "MICRO-UTILITIES WITH INTENT",
+      "name": "SubTranslate: pay-per-file SRT/VTT subtitle translator with fr-CA and timing preservation",
+      "one_liner": "Upload an SRT/VTT, get it translated into up to 10 languages with line-length and timing rules preserved, priced per file rather than per month.",
+      "model_type": "web tool, credits via Stripe Managed Payments, LLM-fulfilled",
+      "target_customer": "Small video producers, course creators and Canadian organisations that must publish FR/EN captions (bilingual requirements, accessibility)",
+      "problem": "Subtitle SaaS forces $17-29/mo subscriptions for occasional use; free translators break timing, exceed 42-char lines and mistranslate fr-CA; ChatGPT chokes on long SRT files and drops cue numbers.",
+      "offer_and_pricing": "First 200 cues free. CAD $4 per file per language up to 1,000 cues, CAD $15 for 5 files, CAD $49 for 25; glossary upload and fr-CA/es-MX/pt-BR variants; batch zip processing.",
+      "first_10_customers": "Google searches 'translate srt file', 'srt translator french canadian' (2026 roundups list 9-12 competitors: proven intent); r/VideoEditing and r/Subtitles help threads; tool directories.",
+      "first_100_customers": "SEO per language pair and per platform ('translate YouTube captions to French'), Canadian e-learning and municipal comms teams (bilingual obligations), integration listing on Descript/CapCut community pages, repeat batch buyers.",
+      "why_over_alternatives": "Per-file pricing vs OpenL/Vmake subscriptions; cheaper than editingtools.io credits for typical 60-min video (~7k chars ≈ $0.70 there vs $4 flat but with QA checks on timing/line length); handles fr-CA variant explicitly.",
+      "evidence": [
+        {
+          "claim": "Editingtools.io charges ~1 credit per 800 characters (~$0.08); OpenL $17-89/mo; Kapwing from $12 per 60 min; Vmake Pro $24/mo: market has both credit and subscription pricing",
+          "source_url": "https://blog.openl.io/best-subtitle-translators-2026/",
+          "recency": "2026",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Bluente and Maestra roundups list 9-12 competing SRT translators (free and paid), evidencing search demand and crowding",
+          "source_url": "https://www.bluente.com/blog/best-srt-file-translators",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Subtitle translation agency rates are far higher than tool pricing, leaving room for a mid-priced automated tier",
+          "source_url": "https://golocalise.com/blog/subtitling-rates-guide/",
+          "recency": "2025",
+          "kind": "evidence"
+        },
+        {
+          "claim": "Willingness to pay CAD $4 per file over free options is an assumption; no founder revenue report found for a small SRT tool",
+          "source_url": "https://blog.openl.io/best-subtitle-translators-2026/",
+          "recency": "2026",
+          "kind": "assumption"
+        }
+      ],
+      "est_capital_cad": 80,
+      "est_days_to_first_revenue": 22,
+      "est_day90_revenue_base_cad": 400,
+      "gross_margin_est": "80-85% (LLM cost ~CAD $0.05-0.20 per file plus Stripe MoR)",
+      "owner_involvement": "low",
+      "owner_involvement_notes": "Owner sets up Stripe and domain; operator deploys Cloudflare Worker + Haiku pipeline, handles quality tickets asynchronously.",
+      "automation_potential": "high",
+      "competition_intensity": "high",
+      "biggest_failure_reason": "Free alternatives (YouTube auto-translate, CapCut, ChatGPT) are good enough for most casual users; paid conversion depends on professional buyers a new site cannot reach quickly.",
+      "key_risks": [
+        "Crowded SERP",
+        "LLM translation quality complaints",
+        "Low ticket size requires volume",
+        "Subtitle format edge cases"
+      ],
+      "why_now_2026": "LLM translation quality for subtitles jumped in 2025-2026 while incumbents kept subscription pricing; Canadian accessibility and bilingual obligations increase caption translation volume; Haiku-class pricing makes CAD $4/file profitable.",
+      "day180_asset_potential": "low",
+      "confidence": "low"
+    }
+  ]
+}

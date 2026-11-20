@@ -1,0 +1,22 @@
+{
+  "run_id": "20260928T163508944962Z-test_maturity_request_snapshot",
+  "sha": "b7fecd93fb92bfdbdfa70b9a8454875952880d1a",
+  "suite": "tests/test_maturity_request_snapshot.py",
+  "started": "2026-09-28T16:35:08.944962+00:00",
+  "tree_before": "",
+  "source_before": "eb0c857d4623356e0d1eedb6e962d4c8bc4964643aa99fc0ec2ca635079d5e9c",
+  "dependency_roots": [
+    "C:\\Users\\Jacob McKenna\\Documents\\Codex\\2026-09-27\\visual-v2-independent-architecture-r-d\\runtime-build2"
+  ],
+  "dependency_lock_verified": false,
+  "status": "passed",
+  "interpreter": "C:\\Users\\Jacob McKenna\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+  "font_sha256": "7da195a74c55bef988d0d48f9508bd5d849425c1770dba5d7bfc6ce9ed848954",
+  "release_eligible": false,
+  "exit_code": 0,
+  "finished": "2026-09-28T16:35:16.313271+00:00",
+  "source_after": "eb0c857d4623356e0d1eedb6e962d4c8bc4964643aa99fc0ec2ca635079d5e9c",
+  "head_after": "b7fecd93fb92bfdbdfa70b9a8454875952880d1a",
+  "log": "20260928T163508944962Z-test_maturity_request_snapshot.log",
+  "log_sha256": "5b959b4cbe53695a6b56fda27fb7c48285ec46cc96c0753f7b0cf9da82d12d5d"
+}

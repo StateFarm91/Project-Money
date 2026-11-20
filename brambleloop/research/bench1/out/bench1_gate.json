@@ -1,0 +1,3357 @@
+{
+ "oa15_hifi_4": {
+  "mode": "oa15_hifi",
+  "draw": 4,
+  "prompt_version": "v2",
+  "output_sha256": "87d9ea0b74a8d340444641e1fa8c2e3572707d706c418586769cc57f898f3c46",
+  "usd_generation": 0.18777,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.946,
+      "alignment": {
+       "scale": 0.8574917290751244,
+       "shift_px": [
+        48.14360786899567,
+        74.70258355150594
+       ],
+       "iou": 0.9458543477932931
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 0.531,
+      "aspect_gen": 0.566,
+      "drift": 0.066
+     }
+    },
+    "sleeve_span": {
+     "status": "PASS",
+     "evidence": {
+      "widest_row_over_height_ref": 1.74,
+      "gen": 1.665,
+      "drift": 0.043
+     }
+    },
+    "stitch_scale": {
+     "status": "FAIL",
+     "evidence": {
+      "period_px_reference": 8.72,
+      "period_px_candidate_aligned": 18.75,
+      "ratio": 2.15,
+      "reference_cell_px": {
+       "stitch": 4.48,
+       "row": 6.84
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "PASS",
+    "got": "cardigan",
+    "expected": [
+     "cardigan"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front": {
+    "status": "PASS",
+    "got": "open",
+    "expected": [
+     "open",
+     "overlapping"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "closure_count": {
+    "status": "PASS",
+    "got": 0,
+    "expected": [
+     "0"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front_band": {
+    "status": "PASS",
+    "got": "ribbed_band",
+    "expected": [
+     "plain_band",
+     "ribbed_band"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hem_band": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "plain",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cuffs": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "gathered",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_count": {
+    "status": "PASS",
+    "got": 2,
+    "expected": [
+     "2"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_position": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "sleeve_length": {
+    "status": "PASS",
+    "got": "long",
+    "expected": [
+     "long"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_length": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip",
+     "mid_thigh"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "other",
+    "expected": [
+     "other",
+     "ribbed_all_over",
+     "waffle_textured"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_ridge_direction": {
+    "status": "FAIL",
+    "got": "none",
+    "expected": [
+     "vertical"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "cardigan",
+   "front": "open",
+   "closure_count": 0,
+   "front_band": "ribbed_band",
+   "hem_band": "ribbed",
+   "cuffs": "ribbed",
+   "pocket_count": 2,
+   "pocket_position": "hip",
+   "sleeve_length": "long",
+   "body_length": "hip",
+   "texture": "other",
+   "body_ridge_direction": "none",
+   "colour_count": 1,
+   "main_colour": "pink",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": true,
+   "notes": "Two patch pockets on the front; appears to be a small child\u2019s size."
+  },
+  "judge": {
+   "fabric_folds_naturally": "UNKNOWN",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "stitch_scale"
+   ],
+   "unknown_material": [],
+   "judge_failures": [
+    "fabric_folds_naturally"
+   ],
+   "rule": "PASS only when every material property and every deterministic measure PASS and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes"
+  }
+ },
+ "oa15_hifi_5": {
+  "mode": "oa15_hifi",
+  "draw": 5,
+  "prompt_version": "v2",
+  "output_sha256": "bd4307895bf2d39da53b1e967c4c604136b0355661a0d02245db263f679a4635",
+  "usd_generation": 0.18637,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.911,
+      "alignment": {
+       "scale": 0.8473654547981199,
+       "shift_px": [
+        60.823400645805805,
+        81.26502591199159
+       ],
+       "iou": 0.9113160557241808
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 0.531,
+      "aspect_gen": 0.577,
+      "drift": 0.086
+     }
+    },
+    "sleeve_span": {
+     "status": "PASS",
+     "evidence": {
+      "widest_row_over_height_ref": 1.74,
+      "gen": 1.67,
+      "drift": 0.04
+     }
+    },
+    "stitch_scale": {
+     "status": "FAIL",
+     "evidence": {
+      "period_px_reference": 8.72,
+      "period_px_candidate_aligned": 17.05,
+      "ratio": 1.955,
+      "reference_cell_px": {
+       "stitch": 4.48,
+       "row": 6.84
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "PASS",
+    "got": "cardigan",
+    "expected": [
+     "cardigan"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front": {
+    "status": "PASS",
+    "got": "open",
+    "expected": [
+     "open",
+     "overlapping"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "closure_count": {
+    "status": "PASS",
+    "got": 0,
+    "expected": [
+     "0"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front_band": {
+    "status": "PASS",
+    "got": "ribbed_band",
+    "expected": [
+     "plain_band",
+     "ribbed_band"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hem_band": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "plain",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cuffs": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "gathered",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_count": {
+    "status": "PASS",
+    "got": 2,
+    "expected": [
+     "2"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_position": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "sleeve_length": {
+    "status": "PASS",
+    "got": "long",
+    "expected": [
+     "long"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_length": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip",
+     "mid_thigh"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "other",
+    "expected": [
+     "other",
+     "ribbed_all_over",
+     "waffle_textured"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_ridge_direction": {
+    "status": "FAIL",
+    "got": "none",
+    "expected": [
+     "vertical"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "cardigan",
+   "front": "open",
+   "closure_count": 0,
+   "front_band": "ribbed_band",
+   "hem_band": "ribbed",
+   "cuffs": "ribbed",
+   "pocket_count": 2,
+   "pocket_position": "hip",
+   "sleeve_length": "long",
+   "body_length": "hip",
+   "texture": "other",
+   "body_ridge_direction": "none",
+   "colour_count": 1,
+   "main_colour": "pink",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": true,
+   "notes": "Child-sized crochet cardigan with ribbed trims and patch pockets."
+  },
+  "judge": {
+   "fabric_folds_naturally": "UNKNOWN",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "stitch_scale"
+   ],
+   "unknown_material": [],
+   "judge_failures": [
+    "fabric_folds_naturally"
+   ],
+   "rule": "PASS only when every material property and every deterministic measure PASS and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes"
+  }
+ },
+ "oa15_hifi_6": {
+  "mode": "oa15_hifi",
+  "draw": 6,
+  "prompt_version": "v2",
+  "output_sha256": "66c13095b32bdb03169936c28be9bb32f295f9e5a3d2ea1d9721892e6b7214a4",
+  "usd_generation": 0.18661,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.936,
+      "alignment": {
+       "scale": 0.8526898044878746,
+       "shift_px": [
+        60.300881360229596,
+        76.15397546984775
+       ],
+       "iou": 0.9362213115984449
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 0.531,
+      "aspect_gen": 0.566,
+      "drift": 0.066
+     }
+    },
+    "sleeve_span": {
+     "status": "PASS",
+     "evidence": {
+      "widest_row_over_height_ref": 1.74,
+      "gen": 1.685,
+      "drift": 0.032
+     }
+    },
+    "stitch_scale": {
+     "status": "FAIL",
+     "evidence": {
+      "period_px_reference": 8.72,
+      "period_px_candidate_aligned": 17.86,
+      "ratio": 2.048,
+      "reference_cell_px": {
+       "stitch": 4.48,
+       "row": 6.84
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "PASS",
+    "got": "cardigan",
+    "expected": [
+     "cardigan"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front": {
+    "status": "PASS",
+    "got": "open",
+    "expected": [
+     "open",
+     "overlapping"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "closure_count": {
+    "status": "PASS",
+    "got": 0,
+    "expected": [
+     "0"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front_band": {
+    "status": "PASS",
+    "got": "ribbed_band",
+    "expected": [
+     "plain_band",
+     "ribbed_band"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hem_band": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "plain",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cuffs": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "gathered",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_count": {
+    "status": "PASS",
+    "got": 2,
+    "expected": [
+     "2"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_position": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "sleeve_length": {
+    "status": "PASS",
+    "got": "long",
+    "expected": [
+     "long"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_length": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip",
+     "mid_thigh"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "other",
+    "expected": [
+     "other",
+     "ribbed_all_over",
+     "waffle_textured"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_ridge_direction": {
+    "status": "FAIL",
+    "got": "none",
+    "expected": [
+     "vertical"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "handmade_crochet": {
+    "status": "FAIL",
+    "got": false,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "cardigan",
+   "front": "open",
+   "closure_count": 0,
+   "front_band": "ribbed_band",
+   "hem_band": "ribbed",
+   "cuffs": "ribbed",
+   "pocket_count": 2,
+   "pocket_position": "hip",
+   "sleeve_length": "long",
+   "body_length": "hip",
+   "texture": "other",
+   "body_ridge_direction": "none",
+   "colour_count": 1,
+   "main_colour": "pink",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": false,
+   "notes": "Seed-stitch body with ribbed bands and patch pockets."
+  },
+  "judge": {
+   "fabric_folds_naturally": "PASS",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "stitch_scale"
+   ],
+   "unknown_material": [],
+   "judge_failures": [],
+   "rule": "PASS only when every material property and every deterministic measure PASS and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes"
+  }
+ },
+ "g3pro_1": {
+  "mode": "g3pro",
+  "draw": 1,
+  "prompt_version": "v2",
+  "output_sha256": "82325c19540278ff3417b132f051855d254817af8ee944ab9058d1298d4fc439",
+  "usd_generation": 0.134,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "FAIL",
+     "evidence": {
+      "iou_aligned": 0.746,
+      "alignment": {
+       "scale": 0.7286376170526108,
+       "shift_px": [
+        124.04908570643602,
+        118.46451530275192
+       ],
+       "iou": 0.746288823645266
+      }
+     }
+    },
+    "proportions": {
+     "status": "FAIL",
+     "evidence": {
+      "aspect_ref": 0.531,
+      "aspect_gen": 1.022,
+      "drift": 0.924
+     }
+    },
+    "sleeve_span": {
+     "status": "FAIL",
+     "evidence": {
+      "widest_row_over_height_ref": 1.74,
+      "gen": 0.915,
+      "drift": 0.474
+     }
+    },
+    "stitch_scale": {
+     "status": "FAIL",
+     "evidence": {
+      "period_px_reference": 8.72,
+      "period_px_candidate_aligned": 15.0,
+      "ratio": 1.72,
+      "reference_cell_px": {
+       "stitch": 4.48,
+       "row": 6.84
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "PASS",
+    "got": "cardigan",
+    "expected": [
+     "cardigan"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front": {
+    "status": "PASS",
+    "got": "open",
+    "expected": [
+     "open",
+     "overlapping"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "closure_count": {
+    "status": "PASS",
+    "got": 0,
+    "expected": [
+     "0"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front_band": {
+    "status": "PASS",
+    "got": "ribbed_band",
+    "expected": [
+     "plain_band",
+     "ribbed_band"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hem_band": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "plain",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cuffs": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "gathered",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_count": {
+    "status": "PASS",
+    "got": 2,
+    "expected": [
+     "2"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_position": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "sleeve_length": {
+    "status": "PASS",
+    "got": "long",
+    "expected": [
+     "long"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_length": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip",
+     "mid_thigh"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "other",
+    "expected": [
+     "other",
+     "ribbed_all_over",
+     "waffle_textured"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_ridge_direction": {
+    "status": "FAIL",
+    "got": "horizontal",
+    "expected": [
+     "vertical"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "cardigan",
+   "front": "open",
+   "closure_count": 0,
+   "front_band": "ribbed_band",
+   "hem_band": "ribbed",
+   "cuffs": "ribbed",
+   "pocket_count": 2,
+   "pocket_position": "hip",
+   "sleeve_length": "long",
+   "body_length": "hip",
+   "texture": "other",
+   "body_ridge_direction": "horizontal",
+   "colour_count": 1,
+   "main_colour": "pink",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": true,
+   "notes": "Patch pockets and wide ribbed bands at the front opening, hem, and cuffs are visible."
+  },
+  "judge": {
+   "fabric_folds_naturally": "PASS",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "silhouette",
+    "proportions",
+    "sleeve_span",
+    "stitch_scale"
+   ],
+   "unknown_material": [],
+   "judge_failures": [],
+   "rule": "PASS only when every material property and every deterministic measure PASS and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes"
+  }
+ },
+ "g3pro_2": {
+  "mode": "g3pro",
+  "draw": 2,
+  "prompt_version": "v2",
+  "output_sha256": "85c82d2d926fa3e56df77e29c364bc0a28643968c2f233e1f5303b7b4e0b4444",
+  "usd_generation": 0.134,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "FAIL",
+     "evidence": {
+      "iou_aligned": 0.7,
+      "alignment": {
+       "scale": 0.7200203583957953,
+       "shift_px": [
+        153.91867108161938,
+        136.2416346301078
+       ],
+       "iou": 0.7
+      }
+     }
+    },
+    "proportions": {
+     "status": "FAIL",
+     "evidence": {
+      "aspect_ref": 0.531,
+      "aspect_gen": 0.796,
+      "drift": 0.5
+     }
+    },
+    "sleeve_span": {
+     "status": "FAIL",
+     "evidence": {
+      "widest_row_over_height_ref": 1.74,
+      "gen": 1.198,
+      "drift": 0.311
+     }
+    },
+    "stitch_scale": {
+     "status": "FAIL",
+     "evidence": {
+      "period_px_reference": 8.72,
+      "period_px_candidate_aligned": 31.25,
+      "ratio": 3.583,
+      "reference_cell_px": {
+       "stitch": 4.48,
+       "row": 6.84
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "PASS",
+    "got": "cardigan",
+    "expected": [
+     "cardigan"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front": {
+    "status": "PASS",
+    "got": "open",
+    "expected": [
+     "open",
+     "overlapping"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "closure_count": {
+    "status": "PASS",
+    "got": 0,
+    "expected": [
+     "0"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front_band": {
+    "status": "PASS",
+    "got": "ribbed_band",
+    "expected": [
+     "plain_band",
+     "ribbed_band"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hem_band": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "plain",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cuffs": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "gathered",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_count": {
+    "status": "PASS",
+    "got": 2,
+    "expected": [
+     "2"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_position": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "sleeve_length": {
+    "status": "PASS",
+    "got": "long",
+    "expected": [
+     "long"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_length": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip",
+     "mid_thigh"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "waffle_textured",
+    "expected": [
+     "other",
+     "ribbed_all_over",
+     "waffle_textured"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_ridge_direction": {
+    "status": "FAIL",
+    "got": "none",
+    "expected": [
+     "vertical"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "cardigan",
+   "front": "open",
+   "closure_count": 0,
+   "front_band": "ribbed_band",
+   "hem_band": "ribbed",
+   "cuffs": "ribbed",
+   "pocket_count": 2,
+   "pocket_position": "hip",
+   "sleeve_length": "long",
+   "body_length": "hip",
+   "texture": "waffle_textured",
+   "body_ridge_direction": "none",
+   "colour_count": 1,
+   "main_colour": "pink",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": true,
+   "notes": "Patch pockets and ribbed trims are visible."
+  },
+  "judge": {
+   "fabric_folds_naturally": "PASS",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "silhouette",
+    "proportions",
+    "sleeve_span",
+    "stitch_scale"
+   ],
+   "unknown_material": [],
+   "judge_failures": [],
+   "rule": "PASS only when every material property and every deterministic measure PASS and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes"
+  }
+ },
+ "oa15_hifi_7": {
+  "mode": "oa15_hifi",
+  "draw": 7,
+  "prompt_version": "v2",
+  "reference_version": "ref2",
+  "output_sha256": "2eb865b3caa249c29312a8ff37626ed1b24506e0860d38014c6fdc6992316f0e",
+  "usd_generation": 0.27309,
+  "deterministic": {
+   "status": "PASS",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.97,
+      "alignment": {
+       "scale": 0.9958540906664547,
+       "shift_px": [
+        -4.71912360654693,
+        6.921747347341579
+       ],
+       "iou": 0.9697545165404672
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 0.597,
+      "aspect_gen": 0.61,
+      "drift": 0.022
+     }
+    },
+    "sleeve_span": {
+     "status": "PASS",
+     "evidence": {
+      "widest_row_over_height_ref": 1.504,
+      "gen": 1.546,
+      "drift": 0.027
+     }
+    },
+    "stitch_scale": {
+     "status": "PASS",
+     "evidence": {
+      "period_px_reference": 14.05,
+      "period_px_candidate_aligned": 14.05,
+      "ratio": 1.0,
+      "reference_cell_px": {
+       "stitch": 7.2,
+       "row": 10.98
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "PASS",
+    "got": "cardigan",
+    "expected": [
+     "cardigan"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front": {
+    "status": "PASS",
+    "got": "open",
+    "expected": [
+     "open",
+     "overlapping"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "closure_count": {
+    "status": "PASS",
+    "got": 0,
+    "expected": [
+     "0"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front_band": {
+    "status": "PASS",
+    "got": "ribbed_band",
+    "expected": [
+     "plain_band",
+     "ribbed_band"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hem_band": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "plain",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cuffs": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "gathered",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_count": {
+    "status": "PASS",
+    "got": 2,
+    "expected": [
+     "2"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_position": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "sleeve_length": {
+    "status": "FAIL",
+    "got": "three_quarter",
+    "expected": [
+     "long"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_length": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip",
+     "mid_thigh"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "other",
+    "expected": [
+     "other",
+     "ribbed_all_over",
+     "waffle_textured"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_ridge_direction": {
+    "status": "FAIL",
+    "got": "none",
+    "expected": [
+     "vertical"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "cardigan",
+   "front": "open",
+   "closure_count": 0,
+   "front_band": "ribbed_band",
+   "hem_band": "ribbed",
+   "cuffs": "ribbed",
+   "pocket_count": 2,
+   "pocket_position": "hip",
+   "sleeve_length": "three_quarter",
+   "body_length": "hip",
+   "texture": "other",
+   "body_ridge_direction": "none",
+   "colour_count": 1,
+   "main_colour": "pink",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": true,
+   "notes": "Wide ribbed front band and unusual ribbed inserts at the upper sleeves with deep ribbed cuffs."
+  },
+  "judge": {
+   "fabric_folds_naturally": "PASS",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "sleeve_length"
+   ],
+   "unknown_material": [],
+   "judge_failures": [],
+   "rule": "PASS only when every material property and every deterministic measure PASS and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes"
+  }
+ },
+ "oa15_hifi_8": {
+  "mode": "oa15_hifi",
+  "draw": 8,
+  "prompt_version": "v2",
+  "reference_version": "ref2",
+  "output_sha256": "e4910fd0205a3351e65c49d8552632ab19d3b36b42a307bcd84798fbe4c2365f",
+  "usd_generation": 0.27344,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.94,
+      "alignment": {
+       "scale": 0.9520155170374296,
+       "shift_px": [
+        -10.112829851968797,
+        41.67846143716929
+       ],
+       "iou": 0.9396963839704736
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 0.597,
+      "aspect_gen": 0.593,
+      "drift": 0.006
+     }
+    },
+    "sleeve_span": {
+     "status": "PASS",
+     "evidence": {
+      "widest_row_over_height_ref": 1.504,
+      "gen": 1.564,
+      "drift": 0.04
+     }
+    },
+    "stitch_scale": {
+     "status": "FAIL",
+     "evidence": {
+      "period_px_reference": 14.05,
+      "period_px_candidate_aligned": 22.37,
+      "ratio": 1.593,
+      "reference_cell_px": {
+       "stitch": 7.2,
+       "row": 10.98
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "PASS",
+    "got": "cardigan",
+    "expected": [
+     "cardigan"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front": {
+    "status": "PASS",
+    "got": "open",
+    "expected": [
+     "open",
+     "overlapping"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "closure_count": {
+    "status": "PASS",
+    "got": 0,
+    "expected": [
+     "0"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front_band": {
+    "status": "PASS",
+    "got": "ribbed_band",
+    "expected": [
+     "plain_band",
+     "ribbed_band"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hem_band": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "plain",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cuffs": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "gathered",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_count": {
+    "status": "PASS",
+    "got": 2,
+    "expected": [
+     "2"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_position": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "sleeve_length": {
+    "status": "PASS",
+    "got": "long",
+    "expected": [
+     "long"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_length": {
+    "status": "PASS",
+    "got": "mid_thigh",
+    "expected": [
+     "hip",
+     "mid_thigh"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "other",
+    "expected": [
+     "other",
+     "ribbed_all_over",
+     "waffle_textured"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_ridge_direction": {
+    "status": "FAIL",
+    "got": "none",
+    "expected": [
+     "vertical"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "cardigan",
+   "front": "open",
+   "closure_count": 0,
+   "front_band": "ribbed_band",
+   "hem_band": "ribbed",
+   "cuffs": "ribbed",
+   "pocket_count": 2,
+   "pocket_position": "hip",
+   "sleeve_length": "long",
+   "body_length": "mid_thigh",
+   "texture": "other",
+   "body_ridge_direction": "none",
+   "colour_count": 1,
+   "main_colour": "pink",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": true,
+   "notes": "Ribbed panels appear at the upper sleeves in addition to the ribbed bands and cuffs."
+  },
+  "judge": {
+   "fabric_folds_naturally": "PASS",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "stitch_scale"
+   ],
+   "unknown_material": [],
+   "judge_failures": [],
+   "rule": "PASS only when every material property and every deterministic measure PASS and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes"
+  }
+ },
+ "oa15_hifi_9": {
+  "mode": "oa15_hifi",
+  "draw": 9,
+  "prompt_version": "v2",
+  "reference_version": "ref2",
+  "output_sha256": "fddfaab294f72256c59841f2a4972c26d7df5f75c8890f8b2545f63e98b8a264",
+  "usd_generation": 0.27492,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.969,
+      "alignment": {
+       "scale": 0.9893007144872352,
+       "shift_px": [
+        -8.937308384436449,
+        10.295847868451233
+       ],
+       "iou": 0.9690629819008197
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 0.597,
+      "aspect_gen": 0.61,
+      "drift": 0.022
+     }
+    },
+    "sleeve_span": {
+     "status": "PASS",
+     "evidence": {
+      "widest_row_over_height_ref": 1.504,
+      "gen": 1.555,
+      "drift": 0.033
+     }
+    },
+    "stitch_scale": {
+     "status": "FAIL",
+     "evidence": {
+      "period_px_reference": 14.05,
+      "period_px_candidate_aligned": 30.2,
+      "ratio": 2.15,
+      "reference_cell_px": {
+       "stitch": 7.2,
+       "row": 10.98
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "PASS",
+    "got": "cardigan",
+    "expected": [
+     "cardigan"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front": {
+    "status": "PASS",
+    "got": "open",
+    "expected": [
+     "open",
+     "overlapping"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "closure_count": {
+    "status": "PASS",
+    "got": 0,
+    "expected": [
+     "0"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front_band": {
+    "status": "PASS",
+    "got": "ribbed_band",
+    "expected": [
+     "plain_band",
+     "ribbed_band"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hem_band": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "plain",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cuffs": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "gathered",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_count": {
+    "status": "PASS",
+    "got": 2,
+    "expected": [
+     "2"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_position": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "sleeve_length": {
+    "status": "PASS",
+    "got": "long",
+    "expected": [
+     "long"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_length": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip",
+     "mid_thigh"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "waffle_textured",
+    "expected": [
+     "other",
+     "ribbed_all_over",
+     "waffle_textured"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_ridge_direction": {
+    "status": "FAIL",
+    "got": "none",
+    "expected": [
+     "vertical"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "cardigan",
+   "front": "open",
+   "closure_count": 0,
+   "front_band": "ribbed_band",
+   "hem_band": "ribbed",
+   "cuffs": "ribbed",
+   "pocket_count": 2,
+   "pocket_position": "hip",
+   "sleeve_length": "long",
+   "body_length": "hip",
+   "texture": "waffle_textured",
+   "body_ridge_direction": "none",
+   "colour_count": 1,
+   "main_colour": "pink",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": true,
+   "notes": ""
+  },
+  "judge": {
+   "fabric_folds_naturally": "PASS",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "stitch_scale"
+   ],
+   "unknown_material": [],
+   "judge_failures": [],
+   "rule": "PASS only when every material property and every deterministic measure PASS and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes"
+  }
+ },
+ "oa15_hifi_10": {
+  "mode": "oa15_hifi",
+  "draw": 10,
+  "prompt_version": "v2",
+  "reference_version": "ref3",
+  "output_sha256": "1879561f02f1fc8b5fff9a1b267e17bf51174341b24a33c032c496799b636b3f",
+  "usd_generation": 0.2736,
+  "deterministic": {
+   "status": "PASS",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.967,
+      "alignment": {
+       "scale": 0.9855115638881686,
+       "shift_px": [
+        2.7686052179005856,
+        13.7073183031506
+       ],
+       "iou": 0.9671552430173119
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 0.597,
+      "aspect_gen": 0.612,
+      "drift": 0.025
+     }
+    },
+    "sleeve_span": {
+     "status": "PASS",
+     "evidence": {
+      "widest_row_over_height_ref": 1.504,
+      "gen": 1.547,
+      "drift": 0.028
+     }
+    },
+    "stitch_scale": {
+     "status": "PASS",
+     "evidence": {
+      "period_px_reference": 14.05,
+      "period_px_candidate_aligned": 18.3,
+      "ratio": 1.303,
+      "reference_cell_px": {
+       "stitch": 7.2,
+       "row": 10.98
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "PASS",
+    "got": "cardigan",
+    "expected": [
+     "cardigan"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front": {
+    "status": "PASS",
+    "got": "open",
+    "expected": [
+     "open",
+     "overlapping"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "closure_count": {
+    "status": "PASS",
+    "got": 0,
+    "expected": [
+     "0"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front_band": {
+    "status": "PASS",
+    "got": "ribbed_band",
+    "expected": [
+     "plain_band",
+     "ribbed_band"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hem_band": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "plain",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cuffs": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "gathered",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_count": {
+    "status": "PASS",
+    "got": 2,
+    "expected": [
+     "2"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_position": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "sleeve_length": {
+    "status": "PASS",
+    "got": "long",
+    "expected": [
+     "long"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_length": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip",
+     "mid_thigh"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "other",
+    "expected": [
+     "other",
+     "ribbed_all_over",
+     "waffle_textured"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_ridge_direction": {
+    "status": "FAIL",
+    "got": "none",
+    "expected": [
+     "vertical"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "cardigan",
+   "front": "open",
+   "closure_count": 0,
+   "front_band": "ribbed_band",
+   "hem_band": "ribbed",
+   "cuffs": "ribbed",
+   "pocket_count": 2,
+   "pocket_position": "hip",
+   "sleeve_length": "long",
+   "body_length": "hip",
+   "texture": "other",
+   "body_ridge_direction": "none",
+   "colour_count": 1,
+   "main_colour": "pink",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": true,
+   "notes": "Patch pockets and wide ribbed bands; no closures."
+  },
+  "judge": {
+   "fabric_folds_naturally": "PASS",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "",
+  "verdict": {
+   "status": "PASS",
+   "material_failures": [],
+   "unknown_material": [],
+   "judge_failures": [],
+   "rule": "PASS only when every material property and every deterministic measure PASS and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes"
+  }
+ },
+ "oa15_hifi_11": {
+  "mode": "oa15_hifi",
+  "draw": 11,
+  "prompt_version": "v2",
+  "reference_version": "ref3",
+  "output_sha256": "f4d2e1916966ddfc18f22e79e64c5ec366891d1eee9718798736505d2b3cebd6",
+  "usd_generation": 0.27444,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.967,
+      "alignment": {
+       "scale": 0.9346016356240121,
+       "shift_px": [
+        24.494547934741888,
+        47.35252169301293
+       ],
+       "iou": 0.9672198951393479
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 0.597,
+      "aspect_gen": 0.612,
+      "drift": 0.026
+     }
+    },
+    "sleeve_span": {
+     "status": "PASS",
+     "evidence": {
+      "widest_row_over_height_ref": 1.504,
+      "gen": 1.549,
+      "drift": 0.029
+     }
+    },
+    "stitch_scale": {
+     "status": "FAIL",
+     "evidence": {
+      "period_px_reference": 14.05,
+      "period_px_candidate_aligned": 31.79,
+      "ratio": 2.263,
+      "reference_cell_px": {
+       "stitch": 7.2,
+       "row": 10.98
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "PASS",
+    "got": "cardigan",
+    "expected": [
+     "cardigan"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front": {
+    "status": "PASS",
+    "got": "open",
+    "expected": [
+     "open",
+     "overlapping"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "closure_count": {
+    "status": "PASS",
+    "got": 0,
+    "expected": [
+     "0"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front_band": {
+    "status": "PASS",
+    "got": "ribbed_band",
+    "expected": [
+     "plain_band",
+     "ribbed_band"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hem_band": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "plain",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cuffs": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "gathered",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_count": {
+    "status": "PASS",
+    "got": 2,
+    "expected": [
+     "2"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_position": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "sleeve_length": {
+    "status": "PASS",
+    "got": "long",
+    "expected": [
+     "long"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_length": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip",
+     "mid_thigh"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "waffle_textured",
+    "expected": [
+     "other",
+     "ribbed_all_over",
+     "waffle_textured"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_ridge_direction": {
+    "status": "FAIL",
+    "got": "none",
+    "expected": [
+     "vertical"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "cardigan",
+   "front": "open",
+   "closure_count": 0,
+   "front_band": "ribbed_band",
+   "hem_band": "ribbed",
+   "cuffs": "ribbed",
+   "pocket_count": 2,
+   "pocket_position": "hip",
+   "sleeve_length": "long",
+   "body_length": "hip",
+   "texture": "waffle_textured",
+   "body_ridge_direction": "none",
+   "colour_count": 1,
+   "main_colour": "pink",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": true,
+   "notes": "Raglan sleeve shaping is visible."
+  },
+  "judge": {
+   "fabric_folds_naturally": "PASS",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "stitch_scale"
+   ],
+   "unknown_material": [],
+   "judge_failures": [],
+   "rule": "PASS only when every material property and every deterministic measure PASS and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes"
+  }
+ },
+ "oa15_hifi_12": {
+  "mode": "oa15_hifi",
+  "draw": 12,
+  "prompt_version": "v2",
+  "reference_version": "ref3",
+  "output_sha256": "cf4ce17b353be8290a7169b74e3ba8e1424081701be50af3b388a15fadf64bb1",
+  "usd_generation": 0.27416,
+  "deterministic": {
+   "status": "PASS",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.928,
+      "alignment": {
+       "scale": 0.9768964397496716,
+       "shift_px": [
+        -4.042149157246172,
+        22.561106593626278
+       ],
+       "iou": 0.9277651276585437
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 0.597,
+      "aspect_gen": 0.617,
+      "drift": 0.034
+     }
+    },
+    "sleeve_span": {
+     "status": "PASS",
+     "evidence": {
+      "widest_row_over_height_ref": 1.504,
+      "gen": 1.569,
+      "drift": 0.043
+     }
+    },
+    "stitch_scale": {
+     "status": "PASS",
+     "evidence": {
+      "period_px_reference": 14.05,
+      "period_px_candidate_aligned": 15.89,
+      "ratio": 1.132,
+      "reference_cell_px": {
+       "stitch": 7.2,
+       "row": 10.98
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "PASS",
+    "got": "cardigan",
+    "expected": [
+     "cardigan"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front": {
+    "status": "PASS",
+    "got": "open",
+    "expected": [
+     "open",
+     "overlapping"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "closure_count": {
+    "status": "PASS",
+    "got": 0,
+    "expected": [
+     "0"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front_band": {
+    "status": "PASS",
+    "got": "ribbed_band",
+    "expected": [
+     "plain_band",
+     "ribbed_band"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hem_band": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "plain",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cuffs": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "gathered",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_count": {
+    "status": "PASS",
+    "got": 2,
+    "expected": [
+     "2"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_position": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "sleeve_length": {
+    "status": "FAIL",
+    "got": "three_quarter",
+    "expected": [
+     "long"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_length": {
+    "status": "PASS",
+    "got": "mid_thigh",
+    "expected": [
+     "hip",
+     "mid_thigh"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "other",
+    "expected": [
+     "other",
+     "ribbed_all_over",
+     "waffle_textured"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_ridge_direction": {
+    "status": "FAIL",
+    "got": "none",
+    "expected": [
+     "vertical"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "cardigan",
+   "front": "open",
+   "closure_count": 0,
+   "front_band": "ribbed_band",
+   "hem_band": "ribbed",
+   "cuffs": "ribbed",
+   "pocket_count": 2,
+   "pocket_position": "hip",
+   "sleeve_length": "three_quarter",
+   "body_length": "mid_thigh",
+   "texture": "other",
+   "body_ridge_direction": "none",
+   "colour_count": 1,
+   "main_colour": "pink",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": true,
+   "notes": "Patch pockets and three-quarter sleeves; no fasteners."
+  },
+  "judge": {
+   "fabric_folds_naturally": "PASS",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "sleeve_length"
+   ],
+   "unknown_material": [],
+   "judge_failures": [],
+   "rule": "PASS only when every material property and every deterministic measure PASS and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes"
+  }
+ },
+ "oa15_hifi_1": {
+  "mode": "oa15_hifi",
+  "draw": 1,
+  "prompt_version": "v1",
+  "reference_version": "ref",
+  "output_sha256": "42201cae39c68767ebc9192c215eb3ce032a1dce865a0b76ef72e062972ff774",
+  "usd_generation": 0.18665,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.939,
+      "alignment": {
+       "scale": 0.8535112088878348,
+       "shift_px": [
+        48.03843319999987,
+        72.89822140769644
+       ],
+       "iou": 0.9392586978094036
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 0.531,
+      "aspect_gen": 0.56,
+      "drift": 0.055
+     }
+    },
+    "sleeve_span": {
+     "status": "PASS",
+     "evidence": {
+      "widest_row_over_height_ref": 1.74,
+      "gen": 1.726,
+      "drift": 0.008
+     }
+    },
+    "stitch_scale": {
+     "status": "FAIL",
+     "evidence": {
+      "period_px_reference": 8.72,
+      "period_px_candidate_aligned": 31.25,
+      "ratio": 3.583,
+      "reference_cell_px": {
+       "stitch": 4.48,
+       "row": 6.84
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "PASS",
+    "got": "cardigan",
+    "expected": [
+     "cardigan"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front": {
+    "status": "PASS",
+    "got": "open",
+    "expected": [
+     "open",
+     "overlapping"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "closure_count": {
+    "status": "PASS",
+    "got": 0,
+    "expected": [
+     "0"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front_band": {
+    "status": "PASS",
+    "got": "ribbed_band",
+    "expected": [
+     "plain_band",
+     "ribbed_band"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hem_band": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "plain",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cuffs": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "gathered",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_count": {
+    "status": "PASS",
+    "got": 2,
+    "expected": [
+     "2"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_position": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "sleeve_length": {
+    "status": "PASS",
+    "got": "long",
+    "expected": [
+     "long"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_length": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip",
+     "mid_thigh"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "other",
+    "expected": [
+     "other",
+     "ribbed_all_over",
+     "waffle_textured"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_ridge_direction": {
+    "status": "FAIL",
+    "got": "none",
+    "expected": [
+     "vertical"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "handmade_crochet": {
+    "status": "FAIL",
+    "got": false,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "cardigan",
+   "front": "open",
+   "closure_count": 0,
+   "front_band": "ribbed_band",
+   "hem_band": "ribbed",
+   "cuffs": "ribbed",
+   "pocket_count": 2,
+   "pocket_position": "hip",
+   "sleeve_length": "long",
+   "body_length": "hip",
+   "texture": "other",
+   "body_ridge_direction": "none",
+   "colour_count": 1,
+   "main_colour": "pink",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": false,
+   "notes": "Patch pockets and a seed-stitch style texture with ribbed bands."
+  },
+  "judge": {
+   "fabric_folds_naturally": "PASS",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "FAIL"
+  },
+  "judge_notes": "Very clean, symmetrical laydown and near-perfect edges give a slightly render-like, catalog feel.",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "stitch_scale"
+   ],
+   "unknown_material": [],
+   "judge_failures": [
+    "catalogue_perfect_sterility"
+   ],
+   "rule": "PASS only when every material property and every deterministic measure PASS and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes"
+  }
+ },
+ "oa15_hifi_2": {
+  "mode": "oa15_hifi",
+  "draw": 2,
+  "prompt_version": "v1",
+  "reference_version": "ref",
+  "output_sha256": "64474fe5b307a1812f591ccb4e9a6b2083710e21a0e65c04b3ff254b992b94ac",
+  "usd_generation": 0.18737,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.943,
+      "alignment": {
+       "scale": 0.8454787947992461,
+       "shift_px": [
+        56.048939339960214,
+        79.27055243640734
+       ],
+       "iou": 0.9427497888967168
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 0.531,
+      "aspect_gen": 0.561,
+      "drift": 0.057
+     }
+    },
+    "sleeve_span": {
+     "status": "PASS",
+     "evidence": {
+      "widest_row_over_height_ref": 1.74,
+      "gen": 1.703,
+      "drift": 0.022
+     }
+    },
+    "stitch_scale": {
+     "status": "FAIL",
+     "evidence": {
+      "period_px_reference": 8.72,
+      "period_px_candidate_aligned": 22.06,
+      "ratio": 2.529,
+      "reference_cell_px": {
+       "stitch": 4.48,
+       "row": 6.84
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "PASS",
+    "got": "cardigan",
+    "expected": [
+     "cardigan"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front": {
+    "status": "PASS",
+    "got": "open",
+    "expected": [
+     "open",
+     "overlapping"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "closure_count": {
+    "status": "PASS",
+    "got": 0,
+    "expected": [
+     "0"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front_band": {
+    "status": "PASS",
+    "got": "ribbed_band",
+    "expected": [
+     "plain_band",
+     "ribbed_band"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hem_band": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "plain",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cuffs": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "gathered",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_count": {
+    "status": "PASS",
+    "got": 2,
+    "expected": [
+     "2"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_position": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "sleeve_length": {
+    "status": "PASS",
+    "got": "long",
+    "expected": [
+     "long"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_length": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip",
+     "mid_thigh"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "other",
+    "expected": [
+     "other",
+     "ribbed_all_over",
+     "waffle_textured"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_ridge_direction": {
+    "status": "FAIL",
+    "got": "none",
+    "expected": [
+     "vertical"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "cardigan",
+   "front": "open",
+   "closure_count": 0,
+   "front_band": "ribbed_band",
+   "hem_band": "ribbed",
+   "cuffs": "ribbed",
+   "pocket_count": 2,
+   "pocket_position": "hip",
+   "sleeve_length": "long",
+   "body_length": "hip",
+   "texture": "other",
+   "body_ridge_direction": "none",
+   "colour_count": 1,
+   "main_colour": "pink",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": true,
+   "notes": "Child-sized open cardigan with patch pockets and ribbed trims."
+  },
+  "judge": {
+   "fabric_folds_naturally": "UNKNOWN",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "PASS"
+  },
+  "judge_notes": "Highly symmetrical, very clean flat-lay; the stitches and edges are extremely uniform, which can read a bit CG.",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "stitch_scale"
+   ],
+   "unknown_material": [],
+   "judge_failures": [
+    "fabric_folds_naturally"
+   ],
+   "rule": "PASS only when every material property and every deterministic measure PASS and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes"
+  }
+ },
+ "oa15_hifi_3": {
+  "mode": "oa15_hifi",
+  "draw": 3,
+  "prompt_version": "v1",
+  "reference_version": "ref",
+  "output_sha256": "82bfebba5590b5a97f9c3a7a75062152d8cf008dd3c752be12cbaa3153dc0739",
+  "usd_generation": 0.1886,
+  "deterministic": {
+   "status": "FAIL",
+   "items": {
+    "silhouette": {
+     "status": "PASS",
+     "evidence": {
+      "iou_aligned": 0.951,
+      "alignment": {
+       "scale": 0.8879826804219991,
+       "shift_px": [
+        33.117961697531996,
+        56.49559683866602
+       ],
+       "iou": 0.9512247766288525
+      }
+     }
+    },
+    "proportions": {
+     "status": "PASS",
+     "evidence": {
+      "aspect_ref": 0.531,
+      "aspect_gen": 0.558,
+      "drift": 0.05
+     }
+    },
+    "sleeve_span": {
+     "status": "PASS",
+     "evidence": {
+      "widest_row_over_height_ref": 1.74,
+      "gen": 1.716,
+      "drift": 0.014
+     }
+    },
+    "stitch_scale": {
+     "status": "FAIL",
+     "evidence": {
+      "period_px_reference": 8.72,
+      "period_px_candidate_aligned": 15.0,
+      "ratio": 1.72,
+      "reference_cell_px": {
+       "stitch": 4.48,
+       "row": 6.84
+      }
+     }
+    }
+   }
+  },
+  "properties": {
+   "product_type": {
+    "status": "PASS",
+    "got": "cardigan",
+    "expected": [
+     "cardigan"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front": {
+    "status": "PASS",
+    "got": "open",
+    "expected": [
+     "open",
+     "overlapping"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "closure_count": {
+    "status": "PASS",
+    "got": 0,
+    "expected": [
+     "0"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "front_band": {
+    "status": "PASS",
+    "got": "ribbed_band",
+    "expected": [
+     "plain_band",
+     "ribbed_band"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "hem_band": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "plain",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "cuffs": {
+    "status": "PASS",
+    "got": "ribbed",
+    "expected": [
+     "gathered",
+     "ribbed"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_count": {
+    "status": "PASS",
+    "got": 2,
+    "expected": [
+     "2"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "pocket_position": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "sleeve_length": {
+    "status": "PASS",
+    "got": "long",
+    "expected": [
+     "long"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_length": {
+    "status": "PASS",
+    "got": "hip",
+    "expected": [
+     "hip",
+     "mid_thigh"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "texture": {
+    "status": "PASS",
+    "got": "other",
+    "expected": [
+     "other",
+     "ribbed_all_over",
+     "waffle_textured"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "body_ridge_direction": {
+    "status": "FAIL",
+    "got": "none",
+    "expected": [
+     "vertical"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   },
+   "colour_count": {
+    "status": "PASS",
+    "got": 1,
+    "expected": [
+     "1"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "extra_features": {
+    "status": "PASS",
+    "got": "none",
+    "expected": [
+     "none"
+    ],
+    "material": true,
+    "reader_saw_it_on_reference": true
+   },
+   "handmade_crochet": {
+    "status": "PASS",
+    "got": true,
+    "expected": [
+     "True"
+    ],
+    "material": false,
+    "reader_saw_it_on_reference": true
+   }
+  },
+  "reader_answers": {
+   "product_type": "cardigan",
+   "front": "open",
+   "closure_count": 0,
+   "front_band": "ribbed_band",
+   "hem_band": "ribbed",
+   "cuffs": "ribbed",
+   "pocket_count": 2,
+   "pocket_position": "hip",
+   "sleeve_length": "long",
+   "body_length": "hip",
+   "texture": "other",
+   "body_ridge_direction": "none",
+   "colour_count": 1,
+   "main_colour": "pink",
+   "extra_features": [
+    "none"
+   ],
+   "handmade_crochet": true,
+   "notes": "Two patch pockets are visible on the front."
+  },
+  "judge": {
+   "fabric_folds_naturally": "PASS",
+   "lighting_is_realistic": "PASS",
+   "shadows_are_coherent": "PASS",
+   "has_ordinary_photographic_imperfection": "PASS",
+   "melted_yarn": "PASS",
+   "synthetic_stitch_texture": "PASS",
+   "catalogue_perfect_sterility": "FAIL"
+  },
+  "judge_notes": "",
+  "verdict": {
+   "status": "FAIL",
+   "material_failures": [
+    "stitch_scale"
+   ],
+   "unknown_material": [],
+   "judge_failures": [
+    "catalogue_perfect_sterility"
+   ],
+   "rule": "PASS only when every material property and every deterministic measure PASS and every judge item PASS; any material FAIL is FAIL; UNKNOWN never passes"
+  }
+ }
+}

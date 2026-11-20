@@ -1,0 +1,572 @@
+"""The culture radar: recording signals, remembering them, and knowing when to stop.
+
+Requirements 133, 140, 144, 145, 147. The radar's hardest requirement is not finding signals —
+it is #144, remembering them, because the value of a culture radar is almost entirely in its
+second and third years. A radar with no memory rediscovers that retro Halloween recurs every
+autumn, every autumn, and it pays full research cost each time to learn something it already
+knew.
+
+**A signal is recorded with its protected tokens declared.** Not discovered downstream. The
+routing decision is made once, at observation, and every later step is checked against it.
+
+**Momentum is a series, not a number.** #140 asks whether cultural interest leads or lags Etsy
+demand, and #145 asks when a window has closed. Both are questions about a curve, so the radar
+stores observations over time and derives direction from them rather than storing a mood.
+
+**The exit is as important as the entry (#145).** A trend that is still being produced into
+after the window closed costs twice: the work, and the capacity that should have gone to the
+next wave. Four independent exit conditions, any one of which is sufficient, because a trend
+dies in several different ways and waiting for all of them is waiting.
+
+**No feed is not a quiet radar.** With nothing connected, `sweep()` reports that it has no
+source. A culture radar that returns an empty list of trends is indistinguishable from a world
+with no culture in it, and the second reading is the one an absent owner would take.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta, timezone
+
+from .rights import DIRECT, ORIGINAL, Basis, ProtectedToken, route
+
+# Where a signal came from (#133's own list).
+DOMAINS: tuple[str, ...] = (
+    "film", "television", "meme", "nostalgia_era", "seasonal_tradition", "viral_aesthetic",
+    "music", "sports_culture", "celebrity_aesthetic", "internet_moment")
+
+# Signal lifecycle. `exited` is a real state with a recorded reason, not a deletion, because
+# the reason is the thing worth having next year.
+OBSERVED = "observed"
+TRANSLATED = "translated"
+IN_PRODUCTION = "in_production"
+LAUNCHED = "launched"
+EXITED = "exited"
+
+STATES: tuple[str, ...] = (OBSERVED, TRANSLATED, IN_PRODUCTION, LAUNCHED, EXITED)
+
+# Exit conditions (#145). Any one is sufficient: a trend dies in several different ways and
+# waiting for all four is how capacity stays committed to last month's wave.
+DECLINE_THRESHOLD = -0.25       # interest down a quarter from its peak
+COPYCAT_DENSITY = 3.0           # competitor listings tripled since the baseline observation
+MIN_CONVERSION = 0.01           # measured, never assumed
+MIN_WINDOW_DAYS = 21            # below this, a customer cannot finish anything substantial
+
+
+class RadarRefused(Exception):
+    """A signal that cannot be recorded, or an exit with no evidence."""
+
+
+@dataclass(frozen=True)
+class Signal:
+    key: str
+    topic: str
+    domain: str
+    tokens: tuple[ProtectedToken, ...] = ()
+    sources: tuple[str, ...] = ()
+    first_seen: str = ""
+
+    def __post_init__(self) -> None:
+        if self.domain not in DOMAINS:
+            raise RadarRefused(
+                f"{self.domain!r} is not a culture domain: {sorted(DOMAINS)}")
+        if not self.sources:
+            raise RadarRefused(
+                f"{self.key}: a signal with no source is a hunch. Next year's agent needs to "
+                f"know where this was seen to judge whether it means anything (#144)")
+
+
+def record(db, signal: Signal, *, basis: Basis | None = None) -> dict:
+    """Record a signal and decide, once, what it is allowed to become."""
+    from sqlalchemy import select
+
+    from ..core.models import CultureSignal
+
+    routing = route(list(signal.tokens), basis=basis)
+    with db.session() as s:
+        row = s.scalar(select(CultureSignal).where(CultureSignal.key == signal.key))
+        if row is None:
+            row = CultureSignal(key=signal.key, first_seen=signal.first_seen
+                                or date.today().isoformat())
+            s.add(row)
+        row.topic = signal.topic
+        row.domain = signal.domain
+        row.lane = routing.lane
+        row.protected_tokens = [t.to_dict() for t in signal.tokens]
+        row.basis = routing.basis.to_dict() if routing.basis else None
+        row.sources = list(signal.sources)
+        row.updated_at = datetime.now(timezone.utc)
+        s.flush()
+        signal_id = row.id
+    return {"id": signal_id, "key": signal.key, "routing": routing.to_dict()}
+
+
+def observe(db, signal_key: str, *, channel: str, interest: float,
+            competitor_listings: int = 0, observed_on: str = "", source: str = "") -> int:
+    """Record one momentum reading. A series, because direction is the useful part."""
+    from ..core.models import CultureObservation
+
+    if not 0.0 <= interest <= 1.0:
+        raise RadarRefused(f"interest {interest!r} is outside 0.0-1.0")
+    with db.session() as s:
+        row = CultureObservation(
+            signal_key=signal_key, channel=channel, interest=float(interest),
+            competitor_listings=int(competitor_listings),
+            observed_on=observed_on or date.today().isoformat(), source=source)
+        s.add(row)
+        s.flush()
+        return row.id
+
+
+def _series(db, signal_key: str) -> list[dict]:
+    from sqlalchemy import select
+
+    from ..core.models import CultureObservation
+
+    with db.session() as s:
+        rows = list(s.scalars(select(CultureObservation).where(
+            CultureObservation.signal_key == signal_key).order_by(
+                CultureObservation.observed_on, CultureObservation.id)))
+        return [{"on": r.observed_on, "channel": r.channel, "interest": r.interest,
+                 "listings": r.competitor_listings} for r in rows]
+
+
+def momentum(db, signal_key: str, *, channel: str | None = None) -> dict:
+    """Direction and distance from peak, from the readings rather than from a feeling.
+
+    `channel` restricts the series to one source. The reference feed and the marketplace
+    series are on different scales, and a peak taken across both compares a pageview ratio
+    with a weekly listing share -- so the exit check passes the channel it is judging.
+    """
+    series = _series(db, signal_key)
+    if channel:
+        series = [p for p in series if p["channel"] == channel]
+    if len(series) < 2:
+        return {"measurable": False, "observations": len(series),
+                "reason": ("one reading is a level, not a momentum. Direction needs two "
+                           "points and the whole question here is direction")}
+    peak = max(p["interest"] for p in series)
+    latest = series[-1]["interest"]
+    first_listings = next((p["listings"] for p in series if p["listings"]), 0)
+    latest_listings = series[-1]["listings"]
+    return {
+        "measurable": True,
+        "observations": len(series),
+        "peak": peak,
+        "latest": latest,
+        "from_peak": round((latest - peak) / peak, 3) if peak else 0.0,
+        "direction": ("rising" if latest > series[-2]["interest"]
+                      else "falling" if latest < series[-2]["interest"] else "flat"),
+        "copycat_multiple": (round(latest_listings / first_listings, 2)
+                             if first_listings else None),
+        "series": series,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Lead and lag (#140)
+
+
+# A maximum reached on this many distinct dates or more is a plateau, not a peak (#140).
+PLATEAU_MIN_DATES = 3
+
+
+def lead_lag(db, signal_key: str, *, culture_channel: str = "reference",
+             demand_channel: str = "etsy") -> dict:
+    """Does cultural interest move before Etsy demand, or after it?
+
+    The whole commercial value of a culture radar rests on the answer being *before*. If a
+    topic's cultural peak arrives after its marketplace peak, the radar is reporting the news
+    and entering on it is entering at saturation — which is the failure #140 exists to name,
+    and it is invisible without both series.
+
+    The culture channel defaults to `reference` rather than `search`, because that is what
+    the connected feed actually writes: Wikimedia pageviews measure how many people looked a
+    topic up. The default said `search` while this function was unreachable for want of a
+    feed, and would have silently found zero culture readings on the day one arrived — a
+    lead-lag model reporting "not measurable" against a database full of measurements.
+    """
+    series = _series(db, signal_key)
+    culture = [p for p in series if p["channel"] == culture_channel]
+    demand = [p for p in series if p["channel"] == demand_channel]
+    if len(culture) < 2 or len(demand) < 2:
+        return {"measurable": False,
+                "reason": (f"lead-lag needs both series: {len(culture)} {culture_channel} "
+                           f"and {len(demand)} {demand_channel} readings. One series cannot "
+                           f"lead anything"),
+                "culture_readings": len(culture), "demand_readings": len(demand)}
+
+    # W4-B2GATE2, 2026-10-11: a maximum held on PLATEAU_MIN_DATES or more distinct dates is
+    # a level, not a peak. `max()` then returns whichever of the tied readings came first,
+    # which is the day observation started -- so the "peak" measures when the scanner began,
+    # not when demand peaked. Production (GET /api/culture at 0417f35, read 2026-10-11)
+    # showed exactly that: the etsy series of crochet, crochet_hook and granny_square sit at
+    # 1.0 from 2026-09-13 to 2026-09-19 (the single-pass catalogue baseline), and halloween's
+    # reference series holds 1.0 on nine dates (a rising topic re-normalised to its own window
+    # each day), so all four lead_days measured when observation began. That is refused by
+    # name rather than reported as a lag.
+    for name, points in (("culture", culture), ("demand", demand)):
+        top_value = max(p["interest"] for p in points)
+        tied = sorted({str(p["on"]) for p in points if p["interest"] == top_value})
+        if len(tied) >= PLATEAU_MIN_DATES:
+            return {"measurable": False,
+                    "reason": (f"the {name} series holds its maximum ({top_value}) on "
+                               f"{len(tied)} dates ({tied[0]} .. {tied[-1]}): a plateau has "
+                               f"no peak date, and taking its first day would measure when "
+                               f"observation began, not when interest peaked"),
+                    "culture_readings": len(culture), "demand_readings": len(demand),
+                    "plateau": {"series": name, "value": top_value, "dates": len(tied),
+                                "from": tied[0], "to": tied[-1]}}
+
+    def peak_date(points):
+        top = max(points, key=lambda p: p["interest"])
+        return date.fromisoformat(top["on"])
+
+    culture_peak, demand_peak = peak_date(culture), peak_date(demand)
+    days = (demand_peak - culture_peak).days
+    return {
+        "measurable": True,
+        "culture_peak": culture_peak.isoformat(),
+        "demand_peak": demand_peak.isoformat(),
+        "lead_days": days,
+        "is_a_leading_indicator": days > 0,
+        "note": (f"cultural interest peaked {days} days before marketplace demand, so this "
+                 f"channel is worth entering on"
+                 if days > 0 else
+                 f"cultural interest peaked {abs(days)} days *after* demand: on this topic "
+                 f"the radar is reporting the news, and entering on it is entering at "
+                 f"saturation (#140)"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Saturation and exit (#145)
+
+
+def exit_check(db, signal_key: str, *, days_to_event: int | None = None,
+               conversion: float | None = None, channel: str | None = None) -> dict:
+    """Should capacity move to the next wave? Any one condition is sufficient.
+
+    Conversion is passed rather than assumed, and `None` means unmeasured rather than bad:
+    this company has no conversion data, and a check that read that as failure would exit
+    every trend on day one.
+    """
+    reasons: list[dict] = []
+    m = momentum(db, signal_key, channel=channel)
+
+    if m["measurable"] and m["from_peak"] <= DECLINE_THRESHOLD:
+        reasons.append({"condition": "declining_interest", "from_peak": m["from_peak"],
+                        "threshold": DECLINE_THRESHOLD})
+    if m.get("copycat_multiple") and m["copycat_multiple"] >= COPYCAT_DENSITY:
+        reasons.append({"condition": "copycat_density",
+                        "multiple": m["copycat_multiple"], "threshold": COPYCAT_DENSITY})
+    if conversion is not None and conversion < MIN_CONVERSION:
+        reasons.append({"condition": "poor_conversion", "conversion": conversion,
+                        "threshold": MIN_CONVERSION})
+    if days_to_event is not None and days_to_event < MIN_WINDOW_DAYS:
+        reasons.append({"condition": "insufficient_make_time", "days": days_to_event,
+                        "threshold": MIN_WINDOW_DAYS})
+
+    return {
+        "signal": signal_key,
+        "should_exit": bool(reasons),
+        "reasons": reasons,
+        "momentum": m,
+        "unmeasured": [k for k, v in (("conversion", conversion),
+                                      ("days_to_event", days_to_event)) if v is None],
+        "note": ("Any one condition is sufficient. A trend dies in several different ways "
+                 "and waiting for all four is how capacity stays committed to last month's "
+                 "wave (#145)." if reasons else
+                 "no exit condition is met; the window is still open on the evidence there is"),
+    }
+
+
+def exit_signal(db, signal_key: str, reason: str, *, lesson: str = "") -> dict:
+    """Record the exit, keeping the reason. The reason is the asset (#144, #145)."""
+    from sqlalchemy import select
+
+    from ..core.models import CultureSignal
+
+    if len(reason.strip()) < 20:
+        raise RadarRefused(
+            "an exit with no recorded reason teaches next year's agent nothing, which makes "
+            "this the same amount of work again in twelve months")
+    with db.session() as s:
+        row = s.scalar(select(CultureSignal).where(CultureSignal.key == signal_key))
+        if row is None:
+            raise RadarRefused(f"no signal {signal_key!r}")
+        row.state = EXITED
+        row.exit_reason = reason.strip()
+        row.outcome = {**(row.outcome or {}), "lesson": lesson.strip(),
+                       "exited_on": date.today().isoformat()}
+        row.updated_at = datetime.now(timezone.utc)
+    return {"signal": signal_key, "state": EXITED, "reason": reason.strip()}
+
+
+# ---------------------------------------------------------------------------
+# Memory (#144) and the honest empty state (#133)
+
+
+# A second sighting counts toward recurrence only this long after the first: far enough that
+# it is the next occurrence of the thing rather than the same autumn seen twice.
+RECURRENCE_MIN_GAP_DAYS = 300
+
+
+def memory(db, *, recurring_within_days: int = 400) -> dict:
+    """What the radar knows, as distinct from what it can currently see.
+
+    The recurrence answer is the one that compounds: a signal first seen roughly a year ago
+    and **seen again** is an annual territory, and knowing that is the difference between
+    researching retro Halloween once and researching it every autumn forever.
+
+    Seen again is the whole condition. This used to mark a signal recurring from the age of
+    its `first_seen` alone, so a one-week fad recorded last October became an "annual
+    territory" this October without anybody having seen it since (#144, proof audit
+    2026-09-26). Now a signal recurs only with a sighting -- a momentum reading -- in a later
+    calendar year than its first, at least RECURRENCE_MIN_GAP_DAYS after it, and no more than
+    `recurring_within_days` after the sighting before it, so a gap of years reads as a
+    revival rather than a rhythm.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import CultureObservation, CultureSignal
+
+    with db.session() as s:
+        rows = list(s.scalars(select(CultureSignal)))
+        sightings: dict[str, list[str]] = {}
+        for obs in s.scalars(select(CultureObservation)):
+            if obs.observed_on:
+                sightings.setdefault(obs.signal_key, []).append(obs.observed_on)
+        signals = [{"key": r.key, "topic": r.topic, "domain": r.domain, "lane": r.lane,
+                    "state": r.state, "first_seen": r.first_seen,
+                    "protected": len(r.protected_tokens or []),
+                    "exit_reason": r.exit_reason,
+                    "lesson": (r.outcome or {}).get("lesson", "")} for r in rows]
+
+    recurring, evidence = [], {}
+    for sig in signals:
+        if not sig["first_seen"]:
+            continue
+        first = date.fromisoformat(sig["first_seen"])
+        seen = sorted({first, *(date.fromisoformat(d)
+                                for d in sightings.get(sig["key"], []))})
+        for earlier, later in zip(seen, seen[1:]):
+            gap = (later - earlier).days
+            if (later.year > first.year and (later - first).days >= RECURRENCE_MIN_GAP_DAYS
+                    and gap <= recurring_within_days):
+                recurring.append(sig["key"])
+                evidence[sig["key"]] = {"first_seen": first.isoformat(),
+                                        "seen_again": later.isoformat()}
+                break
+
+    by_lane = {ORIGINAL: 0, DIRECT: 0}
+    for sig in signals:
+        by_lane[sig["lane"]] = by_lane.get(sig["lane"], 0) + 1
+
+    return {
+        "signals": len(signals),
+        "by_state": {st: sum(1 for x in signals if x["state"] == st) for st in STATES},
+        "by_lane": by_lane,
+        "recurring_annually": recurring,
+        "recurrence_evidence": evidence,
+        "exited_with_a_lesson": [x["key"] for x in signals if x["exit_reason"]],
+        "all": signals,
+        "note": ("The value of a culture radar is almost entirely in its second year. A "
+                 "radar with no memory rediscovers that retro Halloween recurs every autumn, "
+                 "every autumn, at full research cost (#144)."),
+    }
+
+
+def sweep(db, *, feeds: list | None = None) -> dict:
+    """What the radar can currently see, and an honest answer when that is nothing.
+
+    An empty list of trends is indistinguishable from a world with no culture in it, and the
+    second reading is the one an absent owner would take from a dashboard.
+    """
+    if not feeds:
+        return {
+            "scanned": False,
+            "reason": ("no culture feed is connected, so nothing was scanned. This is not a "
+                       "quiet week: a radar with no source reporting no trends looks exactly "
+                       "like a radar with a source and nothing to report"),
+            "domains": list(DOMAINS),
+            "unmet_requirements": [133, 140],
+            "what_would_connect_it": ("a search-interest source and a marketplace demand "
+                                      "source, so the lead-lag model has two series rather "
+                                      "than one"),
+            "memory": memory(db),
+        }
+    return {"scanned": True, "feeds": [str(f) for f in feeds], "memory": memory(db)}
+
+
+def ages_out(first_seen: str, *, today: date | None = None) -> timedelta:
+    today = today or date.today()
+    return timedelta(days=(today - date.fromisoformat(first_seen)).days)
+
+
+# ---------------------------------------------------------------------------
+# Where a finding goes (#147)
+
+
+# Which department a cultural finding is worth telling, and what it changes there. A finding
+# that reaches nobody is a finding nobody acts on, and the failure is silent: the radar looks
+# busy and the catalogue does not move.
+ROUTES: dict[str, str] = {
+    "market_radar": "a rising topic becomes a micro-market worth scoring",
+    "creative": "a topic with clear rights becomes a concept brief rather than a motif",
+    "seo": "the words a topic is discussed in are the words a listing is searched in",
+    "content": "a rising topic is what an owned-audience post is about this week",
+    "seasonal": "a topic peaking before an occasion changes what that occasion leads with",
+    "improvement": "whether the last topic acted on converted is how the weights move",
+}
+
+# What must be true before a finding is routed anywhere. Trending is not permission and it is
+# not commercial relevance; both are separate decisions made elsewhere, and routing a topic
+# does not make either of them.
+ROUTE_REFUSES: tuple[str, ...] = (
+    "a topic flagged sensitive, whatever its momentum",
+    "a topic whose rights are unresolved, which goes to culture.rights and not to creative",
+    "a topic with no momentum reading, since a name is not a signal",
+)
+
+
+def findings(db, *, limit: int = 20) -> dict:
+    """Cultural findings, and the departments each one is worth telling (#147).
+
+    The weight-updating half of #147 -- post-launch outcomes making the radar better at
+    telling useful signals from noise -- needs launches and outcomes, and this company has
+    neither. That half is named as unmeasured rather than approximated with a placeholder
+    weight that would look like learning.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import CultureObservation
+    from . import classify
+
+    with db.session() as s:
+        keys = [k for (k,) in s.execute(
+            select(CultureObservation.signal_key).distinct()
+            .order_by(desc(CultureObservation.signal_key)).limit(limit * 3))]
+
+    out = []
+    for key in keys[:limit]:
+        moment = momentum(db, key)
+        if not moment.get("measurable"):
+            continue
+        lag = lead_lag(db, key)
+        out.append({
+            "signal": key,
+            "momentum": moment,
+            "lead_lag": lag,
+            "sensitive": classify.sensitive(key),
+            "routes_to": ([] if classify.sensitive(key)
+                          else sorted(ROUTES)),
+        })
+
+    return {
+        "findings": out,
+        "routes": dict(ROUTES),
+        "refuses": list(ROUTE_REFUSES),
+        "weights_learn_from": "post-launch outcomes",
+        "weights_measurable": False,
+        "why_weights_are_unmeasured": (
+            "#147 asks that outcomes update the cultural scoring weights so the system gets "
+            "better at telling useful signals from noise. That needs launches and their "
+            "results. Nothing has launched, so the weights are the ones the build started "
+            "with -- said plainly rather than approximated, because a weight that moved for "
+            "no reason looks exactly like a weight that learned"),
+    }
+
+
+# Which learning domain a cultural finding is evidence about. `aesthetics` rather than a new
+# domain of its own: the improvement system already has a freshness clock for aesthetic
+# language -- roughly twice a year -- and a second domain with its own clock would let two
+# halves of the same subject go stale at different rates.
+LEARNING_DOMAIN = "aesthetics"
+
+
+def route_findings(db, *, today=None, limit: int = 20) -> dict:
+    """Deliver cultural findings into the improvement system (#147).
+
+    Listing the departments a finding is worth telling is not telling them. #147 says the
+    radar's findings *flow into* Market Radar, Creativity, SEO, Content, Seasonal Planning
+    and the Improvement Department, and a `routes_to` field that nothing reads is the shape
+    a finding takes when it reaches nobody: the radar looks busy and the catalogue does not
+    move.
+
+    Every record carries its source and the day it was observed, because `learning.record`
+    refuses an observation that cannot say where it came from -- an observation without a
+    source is a belief, and this is the path a belief would most plausibly enter by.
+    """
+    from datetime import date as _date
+
+    from ..intel import learning
+
+    today = today or _date.today()
+    found = findings(db, limit=limit)
+    recorded, skipped = [], []
+
+    for finding in found["findings"]:
+        signal = finding["signal"]
+        if finding["sensitive"]:
+            skipped.append({"signal": signal, "why": "sensitive: never routed anywhere"})
+            continue
+        moment = finding["momentum"]
+        lag = finding["lead_lag"]
+        direction = moment.get("direction") or "unknown"
+        summary = (
+            f"cultural reference interest in {signal} is {direction}"
+            + (f", peaking {lag['lead_days']} days before this benchmark published into it"
+               if lag.get("measurable") and lag.get("lead_days", 0) > 0 else
+               f", peaking {abs(lag['lead_days'])} days *after* the benchmark published into "
+               f"it, so entering on it now is entering at saturation"
+               if lag.get("measurable") else
+               ", with no marketplace series to compare against yet"))
+        try:
+            learning.record(
+                db, domain=LEARNING_DOMAIN,
+                source="culture.radar via wikimedia_pageviews",
+                citation=f"signal:{signal}", summary=summary, observed_on=today,
+                detail={"momentum": moment, "lead_lag": lag,
+                        "routes": sorted(ROUTES)})
+        except learning.LearningRefused as exc:
+            skipped.append({"signal": signal, "why": str(exc)[:200]})
+            continue
+        recorded.append({"signal": signal, "summary": summary})
+        # ...and onto the lesson bus, whose subjects route to the departments #147 names:
+        # a territory to Market Radar, Creativity, SEO and Portfolio; its timing to Market
+        # Radar, Growth (content), Portfolio and Creativity. Those departments read their
+        # inboxes where they decide (radar.score, listing.seo, seasonal.engine via
+        # seasonal.daily.culture_lessons, marketing.schedule via
+        # growth.content.apply_cultural_timing), and record
+        # acting on it; idempotent per signal and direction.
+        from ..improve import bus
+
+        words = signal.replace("_", " ").replace("-", " ")
+        try:
+            bus.publish(db, origin_cell="product_creativity", subject="cultural_territory",
+                        statement=(f"cultural territory {words} ({words} crochet) is "
+                                   f"{direction} in public interest and worth pursuing where "
+                                   f"it fits the catalogue"),
+                        evidence_ref=f"culture:{signal}:{direction}", confidence="observed")
+            if lag.get("measurable"):
+                bus.publish(db, origin_cell="product_creativity", subject="cultural_timing",
+                            statement=(f"{words} interest peaks {lag.get('lead_days')} days "
+                                       f"relative to the benchmark's entry; time {words} "
+                                       f"launches and content to that lead"),
+                            evidence_ref=f"culture_timing:{signal}:{lag.get('lead_days')}",
+                            confidence="measured")
+        except bus.LessonRefused as exc:
+            skipped.append({"signal": signal, "why": f"bus: {str(exc)[:160]}"})
+
+    return {
+        "recorded": len(recorded),
+        "skipped": skipped,
+        "domain": LEARNING_DOMAIN,
+        "findings_seen": len(found["findings"]),
+        "routes": dict(ROUTES),
+        "note": ("a `routes_to` field nothing reads is the shape a finding takes when it "
+                 "reaches nobody. These are written into the improvement system's aesthetics "
+                 "domain, which already has a freshness clock for aesthetic language"),
+        "weights_measurable": found["weights_measurable"],
+        "why_weights_are_unmeasured": found["why_weights_are_unmeasured"],
+    }

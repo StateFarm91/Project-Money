@@ -1,0 +1,4 @@
+ok test_plan_has_goals_path_priorities_and_decisions
+ok test_allocation_boosts_only_critical_lanes_with_open_work
+ok test_no_plan_is_no_boost
+AssertionError: {'key': 'first_sale', 'statement': 'the first real sale', 'reading': 0, 'met': False, 'source': 'orders'}

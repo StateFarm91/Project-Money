@@ -1,0 +1,18 @@
+{
+  "run_id": "20260928T150300808467Z-test_final_proof",
+  "sha": "e70e9e62f7ef1071c110ed47ef3836b8623677a3",
+  "suite": "tests/test_final_proof.py",
+  "started": "2026-09-28T15:03:00.808467+00:00",
+  "tree_before": "?? brambleloop/research/final_build/codex/evidence/20260928T150232908165Z-test_launch0_gauge.json\n?? brambleloop/research/final_build/codex/evidence/20260928T150232908165Z-test_launch0_gauge.log",
+  "source_before": "0a8d9715ee07817fdcc092f7e9a3eeba8827bc35933f48afb3d657bdee57f3f6",
+  "status": "passed",
+  "interpreter": "C:\\Users\\Jacob McKenna\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+  "font_sha256": "7da195a74c55bef988d0d48f9508bd5d849425c1770dba5d7bfc6ce9ed848954",
+  "release_eligible": false,
+  "exit_code": 0,
+  "finished": "2026-09-28T15:03:01.632590+00:00",
+  "source_after": "0a8d9715ee07817fdcc092f7e9a3eeba8827bc35933f48afb3d657bdee57f3f6",
+  "head_after": "e70e9e62f7ef1071c110ed47ef3836b8623677a3",
+  "log": "20260928T150300808467Z-test_final_proof.log",
+  "log_sha256": "075dcf9d197828ef75518e3f09025d14b6e5f8eabdce930fe47b7457677e8f63"
+}

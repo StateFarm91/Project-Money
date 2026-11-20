@@ -1,0 +1,1807 @@
+"""Product discovery that starts from a proven market rather than from what compiles.
+
+The owner's instruction after the first blinded run: *"take a real MJs-proven arena with no
+current Brambleloop answer and produce genuinely compelling Brambleloop concepts capable of
+surviving the Creative Supremacy gates"*, and explicitly *"avoid the failure mode where every
+concept becomes another throw, runner, garland or geometric object simply because the
+compiler already understands those forms."*
+
+That failure mode is not hypothetical and it is not a matter of taste. It is measured. All
+eleven products in this catalogue are `home_decor`; `pod`, `feeling` and `make_lane` each hold
+exactly one distinct value across the whole of it; and 0 of those 11 share a pod *and* a form
+with any of the 438 observed benchmark listings, so the blinded comparison has nothing
+like-for-like to judge. A generator left to its own preferences returns to the shape its
+compiler is fluent in, every time, and the result looks like a catalogue and behaves like one
+product.
+
+So the direction of travel is inverted. Discovery does not start with a brief and look for a
+market; it starts with a market the benchmark has *proven*, in a department this catalogue
+does *not* answer, and asks what would have to be built. Three consequences, and each is a
+refusal somewhere below:
+
+**The arena picks the form, not the engine.** An expedition into `hats` produces hats. The
+forms it may target are counted from the observed listings in that pod, so the vocabulary
+comes from what the market actually contains rather than from what this compiler finds easy.
+
+**A form the engine cannot yet build is an engineering requirement, not a rejection.** The
+CIR speaks three constructions. Dropping every concept that needs a fourth is precisely how a
+catalogue converges on flat panels while believing it is being selective, so an unbuildable
+slot is *reported* with the construction it needs and the concept is carried to the point
+where that becomes a decision somebody makes on purpose.
+
+**A form this catalogue is already saturated with has to earn its place.** Another rectangle
+throw is not discovery, whatever its motif.
+
+What this module does not do is decide whether a concept is good. That is the jury's job and
+the jury is adversarial and deterministic. This module decides *what to point the jury at*,
+and then reports honestly how little survived.
+"""
+from __future__ import annotations
+
+import hashlib
+import math
+from dataclasses import dataclass, field
+from datetime import date
+
+from ..intel import benchmarks
+from .concept import CONSTRUCTIONS, FORMS, Concept
+from .family import FORM_CONSTRUCTIONS
+
+# The CIR's own construction vocabulary. Three, and every concept-level construction has to
+# land on one of them or be built first. Read from the model rather than restated, so the map
+# below cannot drift away from what the compiler actually accepts.
+CIR_CONSTRUCTIONS: tuple[str, ...] = ("flat_rows", "joined_rounds", "spiral_rounds")
+
+# How each concept construction reaches the compiler. `None` means no route exists yet: the
+# construction is a real thing a maker does and the engine has not been taught it. That is a
+# build item with a name, which is the only useful form for it to take.
+ENGINE_ROUTE: dict[str, str | None] = {
+    "flat_rows": "flat_rows",
+    "in_the_round": "joined_rounds",
+    "seamless_tube": "joined_rounds",
+    "amigurumi_shaping": "spiral_rounds",
+    "side_to_side": "flat_rows",
+    "corner_to_corner": "flat_rows",
+    "tapestry": "flat_rows",
+    "mosaic_overlay": "flat_rows",
+    "cable_panel": "flat_rows",
+    "granny_square": "flat_rows",
+    "motif_join": "flat_rows",
+    "modular_panels": "flat_rows",
+    # Garment shaping. Unblocked 2026-09-20 by the armhole division: `Row.skips` and
+    # `Component.holds`/`resumes`. A yoke worked in rounds splits, the sleeve stitches go on
+    # hold, and the body continues over the rest -- and every hold is checked to be resumed
+    # exactly once, by a piece that picks up exactly the held count.
+    "top_down_yoke": "joined_rounds",
+    "bottom_up": "joined_rounds",
+}
+
+# Kept as a record rather than deleted. It was the named build item that blocked the deepest
+# proven arena, it was implemented on 2026-09-20, and a gap list that only ever shows what is
+# still missing loses the evidence that naming a gap precisely is what closes it.
+CLOSED_PRIMITIVES: tuple[dict, ...] = (
+    {
+        "name": "partial-row work (the armhole division)",
+        "closed_on": "2026-09-20",
+        "how": ("Row.skips narrows what a row may work; Component.holds declares the set-"
+                "aside stitches and Component.resumes picks them up. Every hold must be "
+                "resumed exactly once by a piece that starts on exactly the held count, and "
+                "the writer states the division where it happens"),
+        "unblocked": ("top_down_yoke and bottom_up, and with them the garments pod -- 140 "
+                      "of the 438 observed benchmark listings"),
+    },
+)
+
+MISSING_PRIMITIVE = None
+
+# Above this share of the catalogue, a form is not a house style, it is the rut. Matches the
+# theme-fatigue threshold, because they are the same judgement about the same evidence.
+SATURATED_FORM_SHARE = 0.34
+
+# An expedition below this many viable slots is not a breadth exercise, it is a preference.
+MIN_SLOTS = 3
+
+
+class ProspectingRefused(ValueError):
+    """An expedition that would not have discovered anything."""
+
+
+def _ideation_floor() -> int:
+    """The tournament's own view of how small a field stops being a selection.
+
+    Read from `funnel.STAGES` rather than restated, so an expedition cannot quietly disagree
+    with the funnel about what counts as a choice.
+    """
+    from .funnel import STAGE_BY_KEY
+
+    return STAGE_BY_KEY["ideation"].floor_in
+
+
+# ---------------------------------------------------------------------------
+# What a pod is actually made of
+
+
+def arena_forms(db, pod: str, *, benchmark_key: str = "") -> dict:
+    """Which forms this pod contains, counted from listings somebody actually observed.
+
+    Evidence rather than a table: a table of "what a hat pod contains" is this system's
+    opinion about hats, and the point of having a benchmark is to stop needing one.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing
+    from . import blinded
+
+    benchmark_key = benchmark_key or benchmarks.MJS_KEY
+    with db.session() as s:
+        rows = list(s.scalars(select(BenchmarkListing).where(
+            BenchmarkListing.benchmark_key == benchmark_key,
+            BenchmarkListing.pod == pod)))
+
+    counts: dict[str, int] = {}
+    unreadable = 0
+    for row in rows:
+        # Only the form, not a whole comparison card. A card needs a feeling as well, and a
+        # listing with no mood word in its title is perfectly readable as a cardigan -- it is
+        # just not describable as an opponent. Reading the form through the card was costing
+        # whole departments: every garments listing in a plainly-titled pod read as
+        # unreadable and the pod reported as containing no forms at all.
+        form = blinded.form_of({
+            "listing_ref": row.listing_ref, "title": row.title, "pod": row.pod,
+            "product_type": row.product_type, "price_cad": row.price_cad})
+        if not form:
+            unreadable += 1
+            continue
+        counts[form] = counts.get(form, 0) + 1
+
+    return {
+        "pod": pod,
+        "listings": len(rows),
+        "readable": len(rows) - unreadable,
+        "forms": dict(sorted(counts.items(), key=lambda kv: -kv[1])),
+        "note": ("Counted from observed listings. A pod whose forms are unknown is a pod "
+                 "nobody has looked at, which is not the same as a pod with one form in it."),
+    }
+
+
+def saturated_forms(concepts: list[Concept]) -> dict[str, float]:
+    """Forms this catalogue already over-uses. Another one of those is not discovery."""
+    if not concepts:
+        return {}
+    counts: dict[str, int] = {}
+    for concept in concepts:
+        counts[concept.form] = counts.get(concept.form, 0) + 1
+    return {form: round(n / len(concepts), 4)
+            for form, n in counts.items() if n / len(concepts) > SATURATED_FORM_SHARE}
+
+
+# ---------------------------------------------------------------------------
+# The arena
+
+
+@dataclass(frozen=True)
+class Arena:
+    """A market the benchmark proved and this catalogue does not answer."""
+
+    event: str
+    pod: str
+    benchmark_listings: int
+    days_away: int
+    forms: dict = field(default_factory=dict)
+    # C-60 (#2): the department's observed market score, where it is rankable; None where it
+    # is not, which sorts after every scored arena rather than as a middling score.
+    arbitrage: float | None = None
+
+    def to_dict(self) -> dict:
+        return {"event": self.event, "pod": self.pod, "days_away": self.days_away,
+                "benchmark_listings": self.benchmark_listings, "forms": self.forms,
+                "arbitrage": self.arbitrage}
+
+
+class NoArenasContradictsEvidence(RuntimeError):
+    """No proven gaps, against a benchmark that has been observed selling.
+
+    Deliberately an exception rather than an empty list. "No proven-and-unserved arena is
+    observed" is a legitimate state when nobody has looked, and a defect signature when 438
+    listings have been read and the matrix reports twenty-seven gaps -- and the two are
+    indistinguishable from a caller's side. The first version of this returned empty on a
+    wrong dictionary key, the weekly discovery cadence recorded the no-op as a success, and
+    it consumed its window for seven days.
+    """
+
+
+def arenas(db, *, today: date | None = None, limit: int = 12,
+           covered: dict | None = None) -> list[Arena]:
+    """Proven-and-unserved pairs, deepest and soonest first, with each pod's real forms.
+
+    The ordering is the matrix's own: how many listings the benchmark was observed to carry,
+    then how soon the occasion is. A deep market six weeks out beats a shallow one in March,
+    and both beat a market nobody has looked at -- which does not appear here at all, because
+    `proven_and_unserved` requires an observation and an unobserved market renders as an
+    empty cell exactly like an empty one.
+    """
+    from ..seasonal import benchmark_matrix
+
+    report = benchmark_matrix.matrix(db, today=today, covered=covered)
+    # `proven_and_unserved`, which is the key the matrix returns -- not `proven_gaps`, which
+    # is the name of the local variable that builds it. Reading the wrong key here returned
+    # an empty list, and an empty list of gaps is indistinguishable from a catalogue that
+    # answers every proven market. Production reported "no arenas" against a matrix holding
+    # 27 of them, which is the second time today a reader and a writer disagreed about a key
+    # and the wrong answer was the comfortable one.
+    gaps = report.get(benchmark_matrix.PROVEN_KEY) or []
+    if not gaps and report.get("benchmark_observed_listings"):
+        raise NoArenasContradictsEvidence(
+            f'the matrix reports no proven-and-unserved department against '
+            f'{report["benchmark_observed_listings"]} observed benchmark listings. Either '
+            f'this catalogue answers every market the benchmark sells in -- which it does '
+            f'not -- or a reader is looking in the wrong place')
+
+    from ..radar import arbitrage
+
+    steer = arbitrage.steering(db)
+    out: list[Arena] = []
+    for gap in gaps[:limit]:
+        out.append(Arena(
+            event=gap["event"], pod=gap["department"],
+            benchmark_listings=gap["benchmark_listings"] or 0,
+            days_away=gap["days_away"],
+            forms=arena_forms(db, gap["department"])["forms"],
+            arbitrage=(steer.get(gap["department"]) or {}).get("score")))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Slots: what an expedition is actually allowed to try
+
+
+@dataclass(frozen=True)
+class Slot:
+    """One thing to invent: a form the market contains, in a lane that still has runway."""
+
+    arena: Arena
+    form: str
+    make_lane: str
+    benchmark_examples: int
+    constructions: tuple[str, ...]
+    engine_ready: bool
+    needs_engineering: tuple[str, ...]
+
+    def to_dict(self) -> dict:
+        return {"event": self.arena.event, "pod": self.arena.pod, "form": self.form,
+                "make_lane": self.make_lane, "days_away": self.arena.days_away,
+                "benchmark_examples": self.benchmark_examples,
+                "constructions": list(self.constructions),
+                "engine_ready": self.engine_ready,
+                "needs_engineering": list(self.needs_engineering)}
+
+
+# The fastest lane a form can honestly be made in. This is a *floor*, not a bracket: a beanie
+# can be a QUICK make and a throw cannot, however short the runway is.
+#
+# Deriving it from physical size alone -- which is what the first version did -- filed a hat
+# as SHORT and then dropped Halloween/hats for want of runway at 42 days, when a beanie is
+# exactly the product the compression doctrine says to reach for as an occasion closes. Size
+# and make time are correlated and not the same thing: a lace shawl is light and slow, a
+# bulky stocking is bigger and fast.
+FORM_MIN_LANE: dict[str, str] = {
+    "coaster": "QUICK", "ornament": "QUICK", "toy": "QUICK", "pouch": "QUICK",
+    "garland": "QUICK", "wreath": "QUICK", "sphere": "QUICK", "cone": "QUICK",
+    "hat": "QUICK", "stocking": "QUICK", "tube": "QUICK", "round_disc": "QUICK",
+    "basket": "SHORT", "bag": "SHORT", "pillow": "SHORT", "flat_panel": "SHORT",
+    "scarf": "SHORT", "runner": "SHORT", "wall_hanging": "SHORT",
+    "rectangle_throw": "MEDIUM", "draped_garment": "MEDIUM", "fitted_garment": "MEDIUM",
+}
+
+LANE_SPEED: tuple[str, ...] = ("QUICK", "SHORT", "MEDIUM", "LONG", "FLAGSHIP")
+
+
+def _lane_for(form: str, viable_lanes: tuple[str, ...]) -> str | None:
+    """The fastest viable lane this form can be made in, or None if none is.
+
+    Fastest rather than natural, because the compression doctrine is that a shrinking runway
+    changes the product mix rather than cancelling the occasion. A slower lane cannot rescue
+    a form whose floor is already infeasible: lanes close in order, so if the floor is shut
+    everything above it is too.
+    """
+    floor = FORM_MIN_LANE.get(form, "MEDIUM")
+    for lane in LANE_SPEED[LANE_SPEED.index(floor):]:
+        if lane in viable_lanes:
+            return lane
+    return None
+
+
+def slots(arena: Arena, *, catalogue: list[Concept] | None = None,
+          today: date | None = None, viable_lanes: tuple[str, ...] | None = None) -> dict:
+    """Every form worth attempting in this arena, and why the others were left out.
+
+    The refusals are the interesting output. A slot dropped for saturation says this
+    catalogue already leans on that shape; a slot dropped for runway says the occasion is too
+    close to start it; a slot kept but not engine-ready says the market wants something this
+    compiler cannot build yet, which is a build item rather than a reason to make a throw.
+    """
+    from ..seasonal.compression import lane_states
+
+    today = today or date.today()
+    if viable_lanes is None:
+        states = lane_states(arena.days_away, today=today)
+        viable_lanes = tuple(s.lane for s in states if s.verdict != "infeasible")
+
+    saturated = saturated_forms(catalogue or [])
+    kept: list[Slot] = []
+    dropped: list[dict] = []
+
+    for form, examples in arena.forms.items():
+        if form not in FORMS:
+            dropped.append({"form": form, "why": "not in the concept form vocabulary"})
+            continue
+        if form in saturated:
+            dropped.append({"form": form, "why": "saturated in this catalogue",
+                            "share": saturated[form],
+                            "detail": ("another one of these is not discovery, whatever its "
+                                       "motif")})
+            continue
+        lane = _lane_for(form, tuple(viable_lanes))
+        if lane is None:
+            floor = FORM_MIN_LANE.get(form, "MEDIUM")
+            dropped.append({"form": form, "why": "no runway", "lane": floor,
+                            "detail": (f"the fastest honest {form} is a {floor} make and "
+                                       f"that lane cannot reach {arena.event} in "
+                                       f"{arena.days_away} days")})
+            continue
+        constructions = tuple(sorted(FORM_CONSTRUCTIONS.get(form, frozenset())))
+        missing = tuple(c for c in constructions if ENGINE_ROUTE.get(c) is None)
+        kept.append(Slot(
+            arena=arena, form=form, make_lane=lane, benchmark_examples=examples,
+            constructions=constructions,
+            engine_ready=bool(constructions) and len(missing) < len(constructions),
+            needs_engineering=missing))
+
+    kept.sort(key=lambda s: -s.benchmark_examples)
+    return {
+        "arena": arena.to_dict(),
+        "viable_lanes": list(viable_lanes),
+        "slots": [s.to_dict() for s in kept],
+        "slot_objects": kept,
+        "dropped": dropped,
+        "enough": len(kept) >= MIN_SLOTS,
+        "engineering_required": sorted({c for s in kept for c in s.needs_engineering}),
+        "note": ("Forms are counted from observed listings in this pod, so the vocabulary "
+                 "comes from the market rather than from what this compiler finds easy. A "
+                 "form the engine cannot build is reported, not dropped: dropping it is how "
+                 "a catalogue converges on flat panels while believing it is being "
+                 "selective."),
+    }
+
+
+def engine_gaps() -> dict:
+    """Which constructions a maker uses that this compiler has never been taught.
+
+    Separate from any expedition, because the answer does not depend on one: it is a standing
+    statement of what the product universe is currently unable to contain.
+    """
+    missing = sorted(c for c in CONSTRUCTIONS if ENGINE_ROUTE.get(c) is None)
+    # Both failure shapes, because they look identical from outside and are not. A form whose
+    # every construction is unrouted needs engine work. A form absent from the map has no
+    # construction at all, so nothing will ever propose it -- which is how a Christmas
+    # stocking went unbuildable in a system that names Christmas a top priority.
+    unroutable_forms = sorted(
+        form for form, allowed in FORM_CONSTRUCTIONS.items()
+        if allowed and all(ENGINE_ROUTE.get(c) is None for c in allowed))
+    unmapped_forms = sorted(f for f in FORMS if not FORM_CONSTRUCTIONS.get(f))
+    return {
+        "cir_constructions": list(CIR_CONSTRUCTIONS),
+        "concept_constructions": len(CONSTRUCTIONS),
+        "routed": len(CONSTRUCTIONS) - len(missing),
+        "needs_engineering": missing,
+        "forms_with_no_buildable_construction": unroutable_forms,
+        "forms_absent_from_the_buildability_map": unmapped_forms,
+        "missing_primitive": MISSING_PRIMITIVE if missing else None,
+        "closed_primitives": list(CLOSED_PRIMITIVES),
+        "note": ("A construction with no route is a real thing a maker does that this engine "
+                 "has not been taught. Naming it is the useful form; silently never "
+                 "proposing products that need it is how the catalogue stayed flat."),
+    }
+
+
+# ---------------------------------------------------------------------------
+# The expedition: a slot in, survivors out
+#
+# Every gate below is deterministic and adversarial, and each one is allowed to empty the
+# field. A run that returns nothing from a proven arena is a real answer -- it says this
+# system could not yet invent something worth selling there -- and it is a far more useful
+# answer than a survivor that only survived because the gauntlet was tuned until something
+# did.
+
+# A concept must sit at least this far from everything already in the catalogue and from
+# every sibling in its own field. Below it, the field is one idea with variations, which is
+# the exact shape the existing catalogue has.
+MIN_NOVELTY = 0.45
+
+# The share of a field that may survive before the gauntlet is suspected of being decorative.
+# Not a cap -- nothing is failed to hit it -- but a reported signal, because a gate that
+# passes four fifths of what enters is a formality with a rejection message.
+SUSPICIOUS_SURVIVAL = 0.60
+
+
+@dataclass
+class Candidate:
+    """A concept with the record of what it survived, and what it did not."""
+
+    concept: Concept
+    slot: Slot
+    killed_by: str = ""
+    detail: str = ""
+    nearest_key: str = ""
+    nearest_distance: float = 1.0
+    findings: list = field(default_factory=list)
+    # #111 / #308: how the proposition stage carried this concept. "" until that stage runs;
+    # "family_seed" when the hero's construction seeds a family; "single_product" when it
+    # does not -- a legitimate thing to build, carried and recorded as such, never killed.
+    carried_as: str = ""
+    family_verdict: str = ""
+
+    @property
+    def survives(self) -> bool:
+        return not self.killed_by
+
+    def to_dict(self) -> dict:
+        return {
+            "key": self.concept.key, "title": self.concept.title,
+            "pod": self.concept.pod, "form": self.concept.form,
+            "construction": self.concept.construction, "motif": self.concept.motif,
+            "occasion": self.concept.occasion, "recipient": self.concept.recipient,
+            "feeling": self.concept.feeling, "make_lane": self.concept.make_lane,
+            "premise": self.concept.premise,
+            "survives": self.survives, "killed_by": self.killed_by, "detail": self.detail,
+            "carried_as": self.carried_as, "family_verdict": self.family_verdict,
+            "nearest": self.nearest_key, "novelty_distance": self.nearest_distance,
+            "findings": [f.to_dict() if hasattr(f, "to_dict") else f for f in self.findings],
+            "engine_ready": self.concept.construction in ENGINE_ROUTE
+                            and ENGINE_ROUTE[self.concept.construction] is not None,
+        }
+
+
+def benchmark_comparables(db, *, pod: str = "", benchmark_key: "str | tuple" = "") -> list:
+    """Observed listings as comparable cards, for the "is this theirs?" check.
+
+    Named apart from `blinded.benchmark_cards`, which returns listing rows rather than cards.
+    Two functions with one name in one package is a reading hazard, and this file is new
+    enough that renaming it costs nothing.
+
+    Deliberately cards rather than concepts. A `Concept` carries construction, motif and
+    function, none of which a title states, and inventing them to make `distance()` work
+    would produce a derivative check measuring fabricated fields. So the comparison runs on
+    the five things both sides genuinely state, and its limit is reported rather than
+    implied: this catches a concept indistinguishable from a listing on everything visible
+    from outside. Catching a borrowed *execution* needs a product in hand, which is the
+    `benchmark_purchases` gate.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing
+    from . import blinded
+
+    keys = ((benchmark_key,) if isinstance(benchmark_key, str) else tuple(benchmark_key)) \
+        if benchmark_key else (benchmarks.MJS_KEY,)
+    with db.session() as s:
+        query = select(BenchmarkListing).where(BenchmarkListing.benchmark_key.in_(keys))
+        if pod:
+            query = query.where(BenchmarkListing.pod == pod)
+        rows = list(s.scalars(query))
+
+    out = []
+    for row in rows:
+        try:
+            out.append(blinded.from_listing({
+                "listing_ref": row.listing_ref, "title": row.title, "pod": row.pod,
+                "product_type": row.product_type, "price_cad": row.price_cad}))
+        except (blinded.Unreadable, blinded.NotComparable):
+            continue
+    return out
+
+
+def watchlist_comparables(db, *, pod: str = "") -> list:
+    """ENG-RESEARCH: the anti-clone cards of EVERY owner watchlist shop (the anchor included).
+
+    A concept the watchlist comparison inspired must be checked against the listings of the
+    shops that corroborated it, not only the anchor's: an arena only other watchlist shops
+    occupy otherwise left the "is this theirs?" check unmeasured, or measured against nobody.
+    More shops can only add twins to refuse; it never removes one."""
+    from ..intel.watchlist import WATCHLIST
+
+    return benchmark_comparables(db, pod=pod, benchmark_key=tuple(m.key for m in WATCHLIST))
+
+
+def _matches_a_listing(concept: Concept, cards: list) -> str:
+    """The listing this concept is indistinguishable from, on everything either side states."""
+    from . import blinded
+
+    try:
+        ours = blinded.from_concept(concept)
+    except Exception:  # noqa: BLE001 - an unmappable concept simply cannot be compared
+        return ""
+    mine = ours.presented()
+    for card in cards:
+        if card.presented() == mine:
+            return card.ref
+    return ""
+
+
+def screen(candidates: list[Candidate], *, catalogue: list[Concept] | None = None,
+           benchmark: list | None = None,
+           days_to_event: int | None = None, min_novelty: float = MIN_NOVELTY) -> dict:
+    """Run the gauntlet. Order matters: cheap structural refusals before the expensive jury.
+
+    The gates, in the order the owner named them:
+
+      buildable form → jury (emotional, thumbnail, sameness, genericness, derivative,
+      complexity, shopping window) → novelty against the catalogue → novelty against its own
+      siblings → engineering feasibility.
+
+    Feasibility is last and is *not* a kill. A concept the engine cannot build yet is marked
+    and carried, because the alternative is a discovery process that can only ever discover
+    what already compiles.
+    """
+    from .concept import distance, nearest
+    from .jury import Context, judge
+
+    catalogue = list(catalogue or [])
+    alive: list[Candidate] = []
+
+    for candidate in candidates:
+        concept = candidate.concept
+        allowed = FORM_CONSTRUCTIONS.get(concept.form) or frozenset()
+        if allowed and concept.construction not in allowed:
+            candidate.killed_by = "unbuildable"
+            candidate.detail = (
+                f"{concept.construction!r} does not build a {concept.form!r}: "
+                f"{sorted(allowed)}")
+            continue
+        twin_ref = _matches_a_listing(concept, benchmark or [])
+        if twin_ref:
+            candidate.killed_by = "indistinguishable_from_a_benchmark_listing"
+            candidate.detail = (
+                f"listing {twin_ref} states the same pod, form, occasion, recipient and "
+                f"feeling. Entering their arena is allowed; arriving as one of their "
+                f"listings is not")
+            continue
+        verdict = judge(concept, Context(catalogue=catalogue, techniques=1,
+                                         days_to_event=days_to_event))
+        candidate.findings = list(verdict.findings)
+        if not verdict.survives:
+            candidate.killed_by = "jury"
+            candidate.detail = "; ".join(f.problem for f in verdict.findings)[:400]
+            continue
+        _, gap = nearest(concept, catalogue) if catalogue else (None, 1.0)
+        if catalogue:
+            other, gap = nearest(concept, catalogue)
+            candidate.nearest_key = other.key if other else ""
+            candidate.nearest_distance = gap
+            if gap < min_novelty:
+                candidate.killed_by = "too_close_to_the_catalogue"
+                candidate.detail = (
+                    f"{gap} from {candidate.nearest_key!r}, below {min_novelty}")
+                continue
+        alive.append(candidate)
+
+    # Siblings last, and pairwise, because a field can pass every individual gate and still
+    # be one idea submitted five times -- which is what a generator does when the brief is
+    # narrow and nobody checks the field against itself.
+    survivors: list[Candidate] = []
+    for candidate in alive:
+        clash = None
+        for kept in survivors:
+            gap = distance(candidate.concept, kept.concept)
+            if gap < min_novelty:
+                clash = (kept.concept.key, gap)
+                break
+        if clash:
+            candidate.killed_by = "too_close_to_a_sibling"
+            candidate.detail = f"{clash[1]} from {clash[0]!r}, below {min_novelty}"
+            continue
+        survivors.append(candidate)
+
+    # How many candidates the catalogue could actually judge. A novelty gate measured
+    # against a catalogue containing nothing like the candidate cannot fail: every garment
+    # concept scores 1.0 against eleven home-decor products, and the jury's `sameness`
+    # critic never fires for the same reason. The first expedition into any new pod will
+    # therefore survive at 100%, and that number means "we have never made one of these",
+    # not "these are good". Reported rather than left to be inferred from a rate.
+    comparable = sum(1 for c in candidates
+                     if any(existing.pod == c.concept.pod for existing in catalogue))
+
+    entered = len(candidates)
+    causes: dict[str, int] = {}
+    for candidate in candidates:
+        if candidate.killed_by:
+            causes[candidate.killed_by] = causes.get(candidate.killed_by, 0) + 1
+
+    rate = round(len(survivors) / entered, 4) if entered else 0.0
+    return {
+        "entered": entered,
+        "survivors": [c.to_dict() for c in survivors],
+        "survivor_objects": survivors,
+        "killed": [c.to_dict() for c in candidates if c.killed_by],
+        "survival_rate": rate,
+        "causes": dict(sorted(causes.items(), key=lambda kv: -kv[1])),
+        "gauntlet_suspicious": rate > SUSPICIOUS_SURVIVAL,
+        "novelty_comparable": comparable,
+        "novelty_measurable": bool(comparable),
+        "survival_rate_means": (
+            f"{rate:.0%} of a field the existing catalogue could not judge: no product in it "
+            f"shares a pod with any of these, so the novelty gate and the jury's sameness "
+            f"critic had nothing to measure against and could not fail. This is a statement "
+            f"that we have never made one of these, not that they are good"
+            if not comparable else
+            f"{rate:.0%} of a field measured against {comparable} candidate(s) with a "
+            f"same-pod product already in the catalogue"),
+        "min_novelty": min_novelty,
+        "benchmark_compared": len(benchmark or []),
+        "benchmark_check_strength": (
+            "title-level: it catches a concept indistinguishable from an observed listing "
+            "on everything either side states. Catching a borrowed execution needs a "
+            "product in hand, which is the benchmark_purchases gate"),
+        "note": ("An empty field is a real answer: it says this system could not yet invent "
+                 "something worth selling here. It is a better answer than a survivor that "
+                 "only survived because the gauntlet was loosened until one did."),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Generation
+
+GENERATION_TASK = "concept_generation"
+# The tournament's wide first stage uses the same prompt at a cheaper tier. #3 asks for
+# "inexpensive" concepts by name, and the funnel's whole shape is to spend little on a wide
+# field and concentrate cost only after it has been cut.
+IDEATION_TASK = "concept_ideation"
+# REL2: version 3 names the season's motif grammar (#110) and the silhouette qualifiers
+# (#108) the winner is gated on, so the field is not paid for and then refused for free.
+PROMPT = "creative.concept_field@3"
+FIELD_SIZE = 6
+
+# What one concept costs in output tokens: nine fields, one of them a sentence. Measured
+# from the first live run, which truncated at six concepts inside a 2000-token budget.
+# Stated so the prompt's budget can be checked against the field it is asked for, rather
+# than discovered as "the provider returned invalid JSON" twice in a row.
+TOKENS_PER_CONCEPT = 180
+JSON_OVERHEAD_TOKENS = 200
+
+# The occasion each event maps to in the concept vocabulary. An event the vocabulary cannot
+# express is not silently turned into `everyday`, because `everyday` is the value a Christmas
+# product gets when nobody was paying attention.
+EVENT_OCCASION: dict[str, str] = {
+    "Christmas": "christmas", "Halloween": "halloween", "Easter": "easter",
+    # The calendar (`radar.market.SEASONAL_EVENTS`, and so every arena the matrix returns)
+    # names this event "Valentine's"; "Valentine's Day" is kept as the spelling older callers
+    # use. Production, 2026-11: the vocabulary knew only the long form, so the one arena the
+    # wheel picked at cycle 0 refused in `propose` and `seasonal.cycle_proof` dead-lettered on
+    # every run. A guard test now requires every calendar event to have an entry here.
+    "Valentine's": "valentines", "Valentine's Day": "valentines",
+    "Thanksgiving (CA)": "thanksgiving",
+    "Thanksgiving": "thanksgiving", "Mother's Day": "mothers_day",
+    "Father's Day": "fathers_day", "Back to School": "back_to_school",
+}
+
+
+def occasion_for(event: str) -> str:
+    occasion = EVENT_OCCASION.get(event)
+    if occasion is None:
+        raise ProspectingRefused(
+            f"{event!r} has no value in the concept occasion vocabulary. Defaulting it to "
+            f"`everyday` would file a seasonal product as a year-round one, which is how a "
+            f"Christmas concept misses Christmas")
+    return occasion
+
+
+def _stable_index(*parts: str) -> int:
+    """A reproducible index from strings.
+
+    `hash()` on a str is salted per process unless PYTHONHASHSEED is set, so a brief chosen
+    with it is a different brief on every worker restart -- while the docstring promised that
+    the same arena always asks the same question. A schedule that silently changes between
+    deploys makes every comparison between two runs unreadable: the field moved and nothing
+    recorded that it had.
+    """
+    digest = hashlib.blake2b("\x00".join(parts).encode("utf-8"), digest_size=8).hexdigest()
+    return int(digest, 16)
+
+
+def _crosses_for(slot: Slot, count: int, *, offset: int = 0) -> list[tuple[str, str, str]]:
+    """`count` structurally different invention briefs for one slot.
+
+    The single most expensive lesson of the first tournament at scale: research killed 78 of
+    80 and 58 of those deaths were `sameness`. That is not a harsh jury, it is one brief
+    asked twelve times. Twelve concepts from one question are siblings by construction, and
+    no amount of asking a model for variety changes what it was asked for.
+
+    So the brief varies per concept rather than per field. #106's named pairs crossed with
+    #107's transformation patterns give 81 structurally distinct questions, walked by a
+    co-prime stride so consecutive concepts never share a pair, and indexed from the slot so
+    the same arena asks the same questions every time.
+    """
+    from .invention import DIMENSIONS, NAMED_PAIRS, TRANSFORMATIONS, cross
+
+    patterns = sorted(TRANSFORMATIONS)
+    total = len(NAMED_PAIRS) * len(patterns)
+    start = _stable_index(slot.arena.event, slot.arena.pod, slot.form) % total
+    # A stride co-prime with both factors walks every combination before repeating any, and
+    # moves the pair on every step rather than exhausting one pair's transformations first.
+    stride = len(patterns) + 1
+    out: list[tuple[str, str, str]] = []
+    for i in range(count):
+        at = (start + (offset + i) * stride) % total
+        a, b = NAMED_PAIRS[at % len(NAMED_PAIRS)]
+        pattern = patterns[(at // len(NAMED_PAIRS)) % len(patterns)]
+        premise = (f"a {slot.form.replace('_', ' ')} for {slot.arena.event} where "
+                   f"{DIMENSIONS[a]} and {DIMENSIONS[b]} are the same decision rather than "
+                   f"two separate features of the object, and where {TRANSFORMATIONS[pattern]}")
+        # Built through cross() so the near-synonym and one-dimension refusals still apply:
+        # the variety is generated, and it is still checked.
+        cross(a, b, season=slot.arena.event, premise=premise)
+        out.append((a, b, pattern))
+    return out
+
+
+def _brief_for(slot: Slot, count: int = 1, *, offset: int = 0) -> str:
+    """The brief for one batch: `count` numbered crosses, one per concept.
+
+    Deterministic in the slot, so the same arena always asks the same questions and a change
+    in the field is a change in the answer rather than in the prompt.
+    """
+    from .invention import DIMENSIONS, TRANSFORMATIONS
+
+    crosses = _crosses_for(slot, max(1, count), offset=offset)
+    if len(crosses) == 1:
+        a, b, pattern = crosses[0]
+        return (f"a {slot.form.replace('_', ' ')} for {slot.arena.event} where "
+                f"{DIMENSIONS[a]} and {DIMENSIONS[b]} are the same decision rather than two "
+                f"separate features of the object, and where {TRANSFORMATIONS[pattern]}")
+    lines = [
+        f"{i + 1}. {DIMENSIONS[a]} and {DIMENSIONS[b]} are the same decision rather than "
+        f"two separate features, and {TRANSFORMATIONS[pattern]}"
+        for i, (a, b, pattern) in enumerate(crosses)]
+    return (
+        f"Return exactly {len(crosses)} concepts for a {slot.form.replace('_', ' ')} for "
+        f"{slot.arena.event}. Concept N must execute pairing N below and no other -- these "
+        f"are different objects, not variations of one. Do not carry a motif, a palette or a "
+        f"structural idea from one to the next.\n" + "\n".join(lines))
+
+
+# ---------------------------------------------------------------------------
+# REL2: where each arena's brief walk stopped, kept across runs
+#
+# `_crosses_for` walks 81 distinct questions per slot, but the walk restarted at offset 0 in
+# every run, so a slot visited once a day asked the same twelve questions every day and the
+# field it bought was the one it had bought yesterday. The offset now persists per
+# (event, pod, form) and every run continues where the last one stopped.
+
+_CURSOR_FLAG = "_brambleloop_brief_cursor_ready"
+
+
+from sqlalchemy import DateTime as _DateTime, Integer as _Integer, String as _String  # noqa: E402
+from sqlalchemy.orm import Mapped as _Mapped, mapped_column as _mapped_column  # noqa: E402
+
+from ..core.db import Base as _Base  # noqa: E402
+from ..core.models import utcnow as _utcnow  # noqa: E402
+
+
+class BriefCursor(_Base):
+    """REL2: one row per (event, pod, form): how far its brief walk has gone."""
+
+    __tablename__ = "prospecting_brief_cursors"
+
+    event: _Mapped[str] = _mapped_column(_String(80), primary_key=True)
+    pod: _Mapped[str] = _mapped_column(_String(80), primary_key=True)
+    form: _Mapped[str] = _mapped_column(_String(60), primary_key=True)
+    offset: _Mapped[int] = _mapped_column(_Integer, default=0)
+    updated_at: _Mapped[object] = _mapped_column(_DateTime(timezone=True), default=_utcnow,
+                                                 onupdate=_utcnow)
+
+
+def _cursor_table(db):
+    model = BriefCursor
+    engine = db.engine
+    if not getattr(engine, _CURSOR_FLAG, False):
+        model.__table__.create(engine, checkfirst=True)
+        setattr(engine, _CURSOR_FLAG, True)
+    return model
+
+
+def _cursor_id(slot: Slot) -> tuple[str, str, str]:
+    return (slot.arena.event[:80], slot.arena.pod[:80], slot.form[:60])
+
+
+def brief_offset(db, slot: Slot) -> int:
+    """Where this slot's brief walk stopped last run (0 for a slot never asked)."""
+    model = _cursor_table(db)
+    with db.session() as s:
+        row = s.get(model, _cursor_id(slot))
+        return int(row.offset or 0) if row is not None else 0
+
+
+def advance_brief_offset(db, slot: Slot, by: int) -> int:
+    """Record that `by` more questions of this slot's walk were asked. Returns the new offset."""
+    from sqlalchemy import update
+    from sqlalchemy.exc import IntegrityError
+
+    model = _cursor_table(db)
+    event, pod, form = _cursor_id(slot)
+    bump = (update(model).where(model.event == event, model.pod == pod, model.form == form)
+            .values(offset=model.offset + int(by)))
+    with db.session() as s:
+        hit = s.execute(bump).rowcount
+    if not hit:
+        try:
+            with db.session() as s:
+                s.add(model(event=event, pod=pod, form=form, offset=int(by)))
+        except IntegrityError:
+            with db.session() as s:
+                s.execute(bump)
+    return brief_offset(db, slot)
+
+
+def motif_grammar_text(slot: Slot) -> str:
+    """#110 for the prompt: the season's grammar the winner's own words are read against, or
+    a plain statement that none applies. Words, not codes: `motifs_for` reads the concept's
+    text, so `post_box` is asked for as "post box"."""
+    from ..seasonal.remerchandising import MOTIF_SEASON
+    from .invention import MOTIF_GRAMMAR, SATURATED
+    from .preengineering import GRAMMAR_SEASON
+
+    season = (GRAMMAR_SEASON.get(EVENT_OCCASION.get(slot.arena.event, ""))
+              or MOTIF_SEASON.get(slot.arena.event))
+    if not season or season not in MOTIF_GRAMMAR:
+        return "none applies to this occasion"
+    saturated = SATURATED.get(season, frozenset())
+    fresh = [m.replace("_", " ") for m in MOTIF_GRAMMAR[season] if m not in saturated]
+    cliche = [m.replace("_", " ") for m in MOTIF_GRAMMAR[season] if m in saturated]
+    return (f"every concept names, in its motif field and its premise, at least one of these "
+            f"{season} motifs spelled exactly so: {', '.join(fresh)}"
+            + (f". These are clichés and never count on their own: {', '.join(cliche)}"
+               if cliche else ""))
+
+
+def qualifier_constructions_for(slot: Slot) -> dict[str, str]:
+    """#108: the slot's buildable, engine-routed constructions that carry a silhouette
+    qualifier by themselves."""
+    from .intake import qualifier_constructions
+
+    buildable = slot.constructions or tuple(FORM_CONSTRUCTIONS.get(slot.form) or ())
+    return {c: q for c, q in qualifier_constructions(buildable).items()
+            if ENGINE_ROUTE.get(c) is not None}
+
+
+def qualifier_possible(slot: Slot) -> bool:
+    """REL2/#108: can a concept in this slot carry a silhouette qualifier the code can read?
+
+    A recognisable outline needs none. A generic form (a disc, a tube, a panel) survives the
+    gate only with a qualifier, and the only qualifier this company can guarantee before
+    paying for a field is a buildable construction that carries one; a slot with none is a
+    field of concepts the free #108 gate will refuse."""
+    from .invention import GENERIC_FORMS
+
+    return slot.form not in GENERIC_FORMS or bool(qualifier_constructions_for(slot))
+
+
+def silhouette_text(slot: Slot) -> str:
+    """#108 for the prompt: what a generic form needs to read as a distinct object."""
+    from .intake import qualifier_words
+    from .invention import GENERIC_FORMS, QUALIFIERS
+
+    if slot.form not in GENERIC_FORMS:
+        return "this form is a recognisable outline; no silhouette qualifier is required"
+    by_construction = qualifier_constructions_for(slot)
+    words = qualifier_words()
+    parts = [f"{q} ({QUALIFIERS[q]}): say {', '.join(words[q][:5])}"
+             for q in sorted(QUALIFIERS) if q in words]
+    return (f"a {slot.form.replace('_', ' ')} is a generic shape that every listing shares, "
+            f"so each concept must carry a silhouette qualifier: either use one of these "
+            f"constructions, "
+            + ", ".join(f"{c} ({q})" for c, q in by_construction.items())
+            + ", or name the mechanism in the premise with one of these words -- "
+            + "; ".join(parts))
+
+
+def propose(slot: Slot, *, gateway, count: int = FIELD_SIZE,
+            agent: str = "creative_director", brief_offset: int = 0,
+            key_prefix: str = "") -> tuple[list[Candidate], list[str]]:
+    """Ask for a field of concepts for one slot, and refuse everything malformed.
+
+    Returns the candidates that parsed into valid Concepts and the reasons the rest did not.
+    A model value outside a closed vocabulary is a structural rejection here rather than a
+    plausible concept nothing downstream can check -- the vocabularies exist precisely so
+    that a confident wrong answer fails loudly.
+    """
+    from .concept import CONSTRUCTIONS, FEELINGS, OCCASIONS, RECIPIENTS, ConceptRefused
+    from .invention import InventionRefused
+    from .preengineering import promise_for
+
+    occasion = occasion_for(slot.arena.event)
+    buildable = sorted(FORM_CONSTRUCTIONS.get(slot.form) or CONSTRUCTIONS)
+    answer = gateway.complete_json(
+        PROMPT, agent=agent,
+        values={
+            "form": slot.form.replace("_", " "),
+            "occasion": slot.arena.event,
+            "make_lane": slot.make_lane,
+            "evidence": (f"{slot.benchmark_examples} listings of this form were observed in "
+                         f"a shop that sells in this department, {slot.arena.days_away} days "
+                         f"before the occasion"),
+            "constructions": ", ".join(buildable),
+            "feelings": ", ".join(FEELINGS),
+            "recipients": ", ".join(RECIPIENTS),
+            "occasions": ", ".join(OCCASIONS),
+            "motif_grammar": motif_grammar_text(slot),
+            "silhouette": silhouette_text(slot),
+            "brief": _brief_for(slot, count, offset=brief_offset),
+            "count": count,
+        },
+        required=("concepts",))
+
+    out: list[Candidate] = []
+    refused: list[str] = []
+    for i, row in enumerate(answer.get("concepts") or []):
+        if not isinstance(row, dict):
+            refused.append(f"entry {i} is not an object")
+            continue
+        key = f"{key_prefix}{slot.arena.pod}-{slot.form}-{i}"
+        try:
+            concept = Concept(
+                key=key,
+                title=str(row.get("title") or "").strip(),
+                premise=str(row.get("premise") or "").strip(),
+                pod=slot.arena.pod,
+                form=slot.form,
+                construction=str(row.get("construction") or "").strip(),
+                motif=str(row.get("motif") or "").strip(),
+                palette_story=str(row.get("palette_story") or "").strip(),
+                recipient=str(row.get("recipient") or "").strip(),
+                occasion=str(row.get("occasion") or occasion).strip(),
+                feeling=str(row.get("feeling") or "").strip(),
+                function=str(row.get("function") or "").strip(),
+                make_lane=slot.make_lane,
+                provenance=f"prospecting:{slot.arena.event}/{slot.arena.pod}/{slot.form}",
+                notes=str(row.get("wow") or "").strip()[:300])
+        except ConceptRefused as e:
+            refused.append(f"{key}: {e}"[:220])
+            continue
+        # #109: the emotional promise has to be executed in the object. A premise that
+        # delivers its feeling only as listing copy is refused here, at generation, like any
+        # other structural failure -- not left for a later stage to notice.
+        try:
+            promise_for(concept)
+        except InventionRefused as e:
+            refused.append(f"{key}: no emotional promise in the object: {e}"[:220])
+            continue
+        out.append(Candidate(concept=concept, slot=slot))
+    return out, refused
+
+
+def expedition(db, arena: Arena, *, gateway, catalogue: list[Concept] | None = None,
+               today: date | None = None, count: int = FIELD_SIZE,
+               max_slots: int = 4, agent: str = "creative_director") -> dict:
+    """One arena, end to end: slots, a field per slot, the gauntlet, and what is left.
+
+    Budget is checked before each field rather than after the run, and a field that would
+    cross the ceiling is not attempted -- the expedition returns what it bought and says it
+    stopped, because a discovery run that consumes the month's model allowance is a worse
+    outcome than a shorter one that can be repeated.
+    """
+    from ..gateway import providers as gw
+    from ..gateway import routing
+
+    catalogue = list(catalogue or [])
+    plan = slots(arena, catalogue=catalogue, today=today)
+    # REL2/#108: skip a generic form no buildable construction can qualify (see `field`).
+    chosen = [s for s in plan["slot_objects"] if qualifier_possible(s)][:max_slots]
+    if not chosen:
+        raise ProspectingRefused(
+            f"no slot survives in {arena.event}/{arena.pod}: "
+            + "; ".join(f'{d["form"]} ({d["why"]})' for d in plan["dropped"][:6]))
+
+    started = routing.spent_this_month(db)
+    candidates: list[Candidate] = []
+    refusals: list[str] = []
+    stopped = False
+    for slot in chosen:
+        try:
+            # The one mechanism -- month, agent permission, live reservations -- in place of
+            # `routing.check`'s month-only arithmetic; the gateway reserves when it calls.
+            task, tier = routing.route(GENERATION_TASK)
+            gw.check_budget(db, model=tier.model, input_tokens=task.typical_input_tokens,
+                            max_tokens=task.max_output_tokens, agent=agent,
+                            purpose=GENERATION_TASK, reserve=False)
+        except gw.BudgetExceeded as e:
+            stopped = True
+            refusals.append(str(e)[:200])
+            break
+        try:
+            try:
+                offset = brief_offset(db, slot)
+            except Exception:  # noqa: BLE001 - an unreadable cursor restarts the walk
+                offset = 0
+            field_, refused = propose(slot, gateway=gateway, count=count, agent=agent,
+                                      brief_offset=offset)
+            try:
+                advance_brief_offset(db, slot, count)
+            except Exception:  # noqa: BLE001 - the field stands; the cursor is advisory
+                pass
+        except Exception as e:  # noqa: BLE001 - one failed field is not a failed expedition
+            refusals.append(f"{slot.form}: {type(e).__name__}: {e}"[:220])
+            continue
+        candidates.extend(field_)
+        refusals.extend(refused)
+
+    result = screen(candidates, catalogue=catalogue,
+                    benchmark=benchmark_comparables(db, pod=arena.pod),
+                    days_to_event=arena.days_away)
+    forms = sorted({c.concept.form for c in result["survivor_objects"]})
+    return {
+        "arena": arena.to_dict(),
+        "plan": {k: v for k, v in plan.items() if k != "slot_objects"},
+        "slots_attempted": [s.to_dict() for s in chosen],
+        "proposed": len(candidates),
+        "malformed": refusals,
+        "stopped_on_ceiling": stopped,
+        "cost_cad": round(routing.spent_this_month(db) - started, 6),
+        "forms_discovered": forms,
+        # Said rather than left for somebody to notice. The funnel's ideation stage sets a
+        # floor because "fewer entrants than this and the stage is not a selection", and an
+        # expedition proposes a couple of dozen. That does not make the pass worthless -- it
+        # makes it prospecting into one arena rather than the tournament. Generating enough
+        # per arena to clear the threshold would be optimising for volume, which is the one
+        # thing the owner explicitly said not to do.
+        "is_a_tournament": len(candidates) >= _ideation_floor(),
+        "ideation_floor": _ideation_floor(),
+        # The headline the owner asked for: not a win rate, but whether a proven arena with
+        # no Brambleloop answer produced something that survived everything thrown at it.
+        "answered_the_arena": bool(result["survivors"]),
+        "what_this_is": (
+            "a prospecting pass into one proven arena, not the full tournament. The "
+            "tournament's ideation stage wants at least "
+            f"{_ideation_floor()} entrants before a cut counts as a selection; generating "
+            "that many per arena to clear the threshold would be optimising for volume"),
+        **{k: v for k, v in result.items() if k != "survivor_objects"},
+        "survivor_objects": result["survivor_objects"],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Memory
+#
+# Survivors are kept and fed back as catalogue on the next run. Without that, every
+# expedition re-invents last week's field and the novelty gate has nothing to measure
+# against -- a discovery process with no memory rediscovers its favourite idea forever.
+
+ACTION = "creative.expedition"
+
+
+def store(db, result: dict) -> None:
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        s.add(AuditLog(actor="creative_director", action=ACTION,
+                       artifact=f'{result["arena"]["event"]}/{result["arena"]["pod"]}',
+                       detail={k: v for k, v in result.items()
+                               if k not in ("survivor_objects",)}))
+
+
+def discovered(db, *, limit: int = 40) -> list[Concept]:
+    """Every survivor a past expedition kept, rebuilt as concepts.
+
+    Rebuilt rather than stored as objects, so a change to the concept vocabulary invalidates
+    the old row loudly instead of resurrecting a shape the schema no longer allows.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+    from .concept import ConceptRefused
+
+    with db.session() as s:
+        rows = list(s.scalars(select(AuditLog).where(AuditLog.action == ACTION)
+                              .order_by(desc(AuditLog.id)).limit(limit)))
+    out: list[Concept] = []
+    for row in rows:
+        for entry in (row.detail or {}).get("survivors") or []:
+            try:
+                out.append(Concept(
+                    key=entry["key"], title=entry.get("title", ""),
+                    premise=entry.get("premise", ""), pod=entry["pod"], form=entry["form"],
+                    construction=entry["construction"], motif=entry.get("motif", ""),
+                    palette_story=entry.get("palette_story", ""),
+                    recipient=entry["recipient"], occasion=entry["occasion"],
+                    feeling=entry["feeling"], function=entry.get("function", "carried"),
+                    make_lane=entry["make_lane"], provenance="prospecting:stored"))
+            except (KeyError, ConceptRefused):
+                continue
+    return out
+
+
+def history(db, *, limit: int = 10) -> dict:
+    """What discovery has actually produced, including the runs that produced nothing."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        rows = list(s.scalars(select(AuditLog).where(AuditLog.action == ACTION)
+                              .order_by(desc(AuditLog.id)).limit(limit)))
+    runs = [{
+        "at": r.at.isoformat() if getattr(r, "at", None) else "",
+        "arena": r.artifact,
+        "proposed": (r.detail or {}).get("proposed", 0),
+        "survivors": len(((r.detail or {}).get("survivors") or [])),
+        "survival_rate": (r.detail or {}).get("survival_rate"),
+        "forms": (r.detail or {}).get("forms_discovered") or [],
+        "causes": (r.detail or {}).get("causes") or {},
+        "cost_cad": (r.detail or {}).get("cost_cad"),
+        "answered_the_arena": (r.detail or {}).get("answered_the_arena"),
+        # Surfaced because the first live run proposed nothing and cost nothing, and the
+        # reason was already stored and simply not shown. A history that records only the
+        # outcome of a run cannot explain a run that had no outcome.
+        "malformed": ((r.detail or {}).get("malformed") or [])[:6],
+        # The headline number needs its caveat carried with it, and the survivors are the
+        # actual deliverable: a run that says "18 survived" and cannot say what they are is
+        # a statistic about a process rather than a set of products.
+        "gauntlet_suspicious": (r.detail or {}).get("gauntlet_suspicious"),
+        "novelty_measurable": (r.detail or {}).get("novelty_measurable"),
+        "survival_rate_means": (r.detail or {}).get("survival_rate_means"),
+        "survivor_titles": [s.get("title") for s in
+                            ((r.detail or {}).get("survivors") or [])][:24],
+        "stopped_on_ceiling": (r.detail or {}).get("stopped_on_ceiling"),
+        "slots_attempted": [s.get("form") for s in
+                            ((r.detail or {}).get("slots_attempted") or [])],
+    } for r in rows]
+    return {
+        "runs": runs,
+        "arenas_answered": sorted({r["arena"] for r in runs if r["answered_the_arena"]}),
+        "arenas_attempted": sorted({r["arena"] for r in runs}),
+        "forms_discovered": sorted({f for r in runs for f in r["forms"]}),
+        "total_cost_cad": round(sum(r["cost_cad"] or 0 for r in runs), 6),
+        "note": ("Runs that produced nothing are kept. An expedition into a proven arena "
+                 "that came back empty is evidence about this system's creative reach, and "
+                 "deleting it would leave only the flattering half of the record."),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Which arena an expedition goes to
+
+
+def choose(found: list[Arena], *, cycle: int, today: date | None = None,
+           shares: dict[str, float] | None = None) -> Arena:
+    """Pick this cycle's arena, honouring the priority programme's reservation.
+
+    Plain round-robin over twelve arenas gives Christmas one expedition in twelve, which is
+    a rotation that treats a named priority programme exactly like every other occasion.
+    `compression.priority_shares()` already says which occasion holds engineering
+    capacity and that the share has a floor it may never fall below; discovery is
+    engineering capacity, so it obeys the same number rather than a second one invented
+    here.
+
+    The mechanism is a repeating schedule rather than a random draw: with a 0.45 share,
+    roughly nine of every twenty cycles are Christmas and the rest rotate through everything
+    else, and the same cycle number always produces the same arena, so a run is reproducible
+    and a change in the answer is a change in the evidence.
+    """
+    from ..seasonal.compression import (MIN_PRIORITY_SHARE, priority_shares,
+                                        lane_states, reservation)
+
+    if not found:
+        raise ProspectingRefused("nothing to choose from")
+
+    # An arena with no viable slot is dead for this cycle, and picking it burns the slot: the
+    # wheel is deterministic in the cycle number, so every retry re-picks the same dead arena
+    # until the cycle turns. Production picked Halloween/bags at 42 days -- a bag's fastest
+    # honest lane is SHORT and only QUICK was open -- and returned "no slot survives" on every
+    # attempt. Reachability is checked here rather than discovered downstream.
+    reachable = [a for a in found if slots(a, today=today)["slots"]]
+    if not reachable:
+        raise ProspectingRefused(
+            f"none of {len(found)} proven arena(s) has a form that can still be made in time. "
+            f"That is a statement about the calendar, not about the catalogue")
+    found = reachable
+
+    # Soonest first within each half. The first live run went to Mother's Day at 231 days
+    # while Christmas sat at 96 and Halloween at 41, because the wheel indexed the list in
+    # whatever order the matrix returned it. A discovery run aimed at the occasion furthest
+    # away is the one whose runway was least in danger.
+    # C-60 (#287): with persisted strike teams, their shares are the reservation -- the
+    # occasions that hold a team are the priority half, and the slice of the wheel they get
+    # is the capacity the teams were granted, not the compression seed's figure.
+    reserved = dict(shares) if shares else priority_shares()["shares"]
+    # C-60 (#2): within an occasion, the department the weakness hunt scored most open goes
+    # first; an arena with no rankable market score follows every scored one.
+    def _order(a):
+        arb = getattr(a, "arbitrage", None)
+        return (a.days_away, 1 if arb is None else 0, -(arb or 0.0),
+                -a.benchmark_listings, a.pod)
+
+    priority = sorted((a for a in found if a.event in reserved), key=_order)
+    others = sorted((a for a in found if a.event not in reserved), key=_order)
+    if not priority or not others:
+        if any(getattr(a, "arbitrage", None) is not None for a in found):
+            found = sorted(found, key=_order)
+        return found[cycle % len(found)]
+
+    # The reservation the programme actually holds today, which falls as its lanes close and
+    # never below the floor.
+    soonest = min(priority, key=lambda a: a.days_away)
+    held = reservation(soonest.event,
+                       lane_states(soonest.days_away, today=today or date.today()))
+    share = max(held.get("share", 0.0), MIN_PRIORITY_SHARE)
+    if shares:
+        share = max(MIN_PRIORITY_SHARE, min(0.75, sum(
+            float(shares.get(e, 0.0)) for e in {a.event for a in priority})))
+
+    # A wheel no longer than the programme's own runway, with its slots *spread* rather than
+    # blocked at the front.
+    #
+    # Both halves of that were wrong, and production showed it. The wheel was twenty slots
+    # with the first nine reserved, and the position was `cycle % 20` where `cycle` is a week
+    # number counted from the Unix epoch -- so where the turn started was arbitrary. The
+    # first live tournament landed at a non-priority position with Christmas 96 days out:
+    # thirteen cycles of runway left and the next Christmas slot eight cycles away. A
+    # reservation that a phase offset can push outside the runway is not a reservation.
+    #
+    # So the turn is capped at the runway, and the priority slots are distributed across it
+    # by the same integer-error rule a line-drawing algorithm uses. Whatever the phase, the
+    # gap between two priority cycles is at most one more than the share implies, and the
+    # programme cannot be starved by where the epoch happened to fall.
+    runway_cycles = max(1, int(math.ceil(soonest.days_away / 7.0)))
+    wheel = max(2, min(20, runway_cycles))
+    priority_slots = max(1, min(wheel - 1, round(share * wheel)))
+    position = cycle % wheel
+    taken = (position * priority_slots) // wheel
+    is_priority = ((position + 1) * priority_slots) // wheel > taken
+    if is_priority:
+        return priority[taken % len(priority)]
+    return others[(position - taken) % len(others)]
+
+
+# ---------------------------------------------------------------------------
+# The tournament's wide first stage (#3)
+#
+# "Do not fully engineer the first ideas. Generate roughly 75-100 inexpensive concepts ->
+# research about 40 -> develop about 20 -> prototype 10-15 -> release 5-10."
+#
+# The funnel that enforces that shape has existed since Build 2 opened and has never been
+# run at scale, because a wide field needs a model. It needs a *cheap* model: the point of
+# the shape is that engineering cost is concentrated after the field has been cut, and a
+# hundred concepts at the deep tier spends the saving before the first gate.
+
+IDEATION_BATCH = 12
+
+
+def field(db, *, gateway, target: int = 80, today: date | None = None,
+          catalogue: list[Concept] | None = None, only: tuple[str, str] | None = None,
+          agent: str = "creative_director", exclude_forms: tuple[str, ...] = ()) -> dict:
+    """A wide, cheap field drawn from every reachable proven arena.
+
+    Across arenas rather than within one, because the tournament is choosing what this
+    company should make next and a field drawn from a single department can only answer
+    "which of these garments" -- which is a smaller question than the one #3 asks.
+
+    `only` narrows the draw to one (event, pod). That is a deliberately different question --
+    "is there a Brambleloop answer to *this* proven arena" -- and the breadth then comes from
+    the wheel rotating the arena between cycles rather than from one field spanning
+    everything. Depth within an arena is what makes a benchmark comparison possible at all:
+    a field spread over twelve departments puts two or three concepts against each of them.
+    """
+    from ..gateway import providers as gw
+    from ..gateway import routing
+
+    found = arenas(db, today=today)
+    if only is not None:
+        event, pod = only
+        found = [a for a in found if a.event == event and a.pod == pod]
+        if not found:
+            raise ProspectingRefused(
+                f"{event}/{pod} is not a proven-and-unserved arena today. Narrowing a field "
+                f"to an arena the evidence does not name would be inventing the market it "
+                f"was supposed to draw from")
+    reachable: list[Slot] = []
+    for arena in found:
+        plan = slots(arena, catalogue=catalogue, today=today)
+        # #117: a form the saturation detector excluded (crowded, no named unmet angle) is
+        # not drawn from, however many listings prove it sells.
+        reachable.extend(s for s in plan["slot_objects"] if s.form not in exclude_forms)
+    # REL2/#108: a generic form no buildable construction can qualify is a field the free
+    # silhouette gate refuses after it has been paid for; it is skipped, and said so.
+    skipped_generic = [s.to_dict() for s in reachable if not qualifier_possible(s)]
+    reachable = [s for s in reachable if qualifier_possible(s)]
+    if not reachable:
+        raise ProspectingRefused(
+            "no proven arena has a form that can still be made in time, so a tournament "
+            "field would be drawn from nothing")
+
+    started = routing.spent_this_month(db)
+    candidates: list[Candidate] = []
+    problems: list[str] = []
+    stopped = False
+
+    # Round-robin across slots so the field is wide by construction rather than by luck: a
+    # field that took the first slot to target would be one department again.
+    index = 0
+    # REL2: each slot's walk resumes where the last run stopped (persisted per arena/form).
+    asked: dict[int, int] = {}
+    for s_ in reachable:
+        try:
+            asked[id(s_)] = brief_offset(db, s_)
+        except Exception as e:  # noqa: BLE001 - an unreadable cursor restarts the walk
+            problems.append(f"brief cursor unread for {s_.form}: {type(e).__name__}"[:200])
+    while len(candidates) < target:
+        slot = reachable[index % len(reachable)]
+        index += 1
+        if index > len(reachable) * 12:
+            break
+        try:
+            task, tier = routing.route(IDEATION_TASK)
+            gw.check_budget(db, model=tier.model, input_tokens=task.typical_input_tokens,
+                            max_tokens=task.max_output_tokens, agent=agent,
+                            purpose=IDEATION_TASK, reserve=False)
+        except gw.BudgetExceeded as e:
+            stopped = True
+            problems.append(str(e)[:200])
+            break
+        want = min(IDEATION_BATCH, target - len(candidates))
+        try:
+            # Each batch continues where this slot's last one stopped, so a slot visited
+            # seven times asks eighty-four different questions rather than the same twelve
+            # seven times over.
+            batch, refused = propose(slot, gateway=gateway, count=want, agent=agent,
+                                     brief_offset=asked.get(id(slot), 0),
+                                     key_prefix=f"t{index}-")
+            asked[id(slot)] = asked.get(id(slot), 0) + want
+            try:
+                advance_brief_offset(db, slot, want)
+            except Exception as e:  # noqa: BLE001 - the field stands; the cursor is advisory
+                problems.append(f"brief cursor not saved for {slot.form}: "
+                                f"{type(e).__name__}"[:200])
+        except Exception as e:  # noqa: BLE001 - one failed batch is not a failed field
+            problems.append(f"{slot.form}: {type(e).__name__}: {e}"[:200])
+            continue
+        candidates.extend(batch)
+        problems.extend(refused)
+
+    forms = sorted({c.concept.form for c in candidates})
+    pods_seen = sorted({c.concept.pod for c in candidates})
+    return {
+        "target": target,
+        "generated": len(candidates),
+        "candidates": candidates,
+        "slots": len(reachable),
+        "forms": forms,
+        "pods": pods_seen,
+        "stopped_on_ceiling": stopped,
+        "skipped_generic_slots": skipped_generic,
+        "cost_cad": round(routing.spent_this_month(db) - started, 6),
+        "problems": problems[:12],
+        "wide_enough": len(candidates) >= _ideation_floor(),
+        "ideation_floor": _ideation_floor(),
+        "note": ("Drawn across every reachable proven arena rather than within one. A field "
+                 "from a single department can only answer 'which of these', which is a "
+                 "smaller question than what this company should make next (#3)."),
+    }
+
+
+# Which screen() kill cause is which funnel kill cause. Mapped rather than renamed, because
+# the funnel's vocabulary is closed on purpose -- a cause outside it aggregates to nothing --
+# and the gauntlet's causes are about *why the gate fired*, which is not always the same word.
+SCREEN_TO_FUNNEL: dict[str, str] = {
+    "unbuildable": "unverifiable",
+    "too_close_to_the_catalogue": "sameness",
+    "too_close_to_a_sibling": "sameness",
+    "indistinguishable_from_a_benchmark_listing": "derivative",
+}
+
+
+def _fate(run, key: str) -> str:
+    """Where one entrant's run ended: `killed at <stage>: <cause>` or `carried to <stage>`."""
+    carried = None
+    for r in run.rounds:
+        if key in r.killed:
+            return f"killed at {r.stage}: {r.killed[key]}"
+        if key in r.survived:
+            carried = r.stage
+    return f"carried to {carried}" if carried else "entered"
+
+
+def tournament(db, *, gateway, target: int = 80, today: date | None = None,
+               catalogue: list[Concept] | None = None, only: tuple[str, str] | None = None,
+               agent: str = "creative_director", exclude_forms: tuple[str, ...] = (),
+               seeded: list[Concept] | None = None) -> dict:
+    """A real staged tournament: a wide cheap field, cut by the gates that already exist.
+
+    Only the two stages this system can honestly run today. `ideation` is the structural
+    refusal -- a concept that does not parse into the closed vocabulary never becomes one --
+    and `research` is the jury, the catalogue, the field and the calendar, which is exactly
+    what `funnel.STAGES` says that stage applies.
+
+    The three stages after it are not simulated. `proposition` needs a margin and an unmet
+    angle, `prototype` needs a compile and a twin, `release` needs the gates; running them
+    with placeholder verdicts would produce a five-stage funnel that had cut nothing twice.
+
+    `seeded` concepts (#279: the seasonal transformations of certified catalogue products
+    derived on cadence) enter the field as entrants beside the generated ones. They face
+    every stage the generated field faces -- a transformation too close to its parent dies
+    at research as sameness, which is the honest verdict on a recolour -- and nothing about
+    being seeded carries a concept further.
+    """
+    from .funnel import Tournament, advance
+
+    drawn = field(db, gateway=gateway, target=target, today=today, catalogue=catalogue,
+                  only=only, agent=agent, exclude_forms=tuple(exclude_forms))
+    candidates = drawn["candidates"]
+    seeded_keys = []
+    for concept in seeded or []:
+        if concept.form in exclude_forms or any(c.concept.key == concept.key
+                                                for c in candidates):
+            continue
+        candidates.append(Candidate(concept=concept, slot=None))
+        seeded_keys.append(concept.key)
+    if not candidates:
+        raise ProspectingRefused(
+            "the field is empty, so there is nothing to run a tournament on. "
+            + "; ".join(drawn["problems"][:3]))
+
+    where = f"{only[0]}/{only[1]}" if only else "proven arenas"
+    run = Tournament(opportunity=f"{where} @ {(today or date.today()).isoformat()}")
+
+    # Ideation: everything that reached a valid Concept survived the structural gate by
+    # definition, and everything that did not never became an entrant. The refused ones are
+    # counted here so the stage has a real kill list rather than a perfect one.
+    malformed = [p for p in drawn["problems"] if ":" in p]
+    entrants = [c.concept.key for c in candidates] + [f"malformed-{i}"
+                                                      for i in range(len(malformed))]
+    advance(run, stage="ideation", entrants=entrants,
+            survived=[c.concept.key for c in candidates],
+            killed={f"malformed-{i}": "unverifiable" for i in range(len(malformed))},
+            # The structural gate runs during generation, on every returned entry. When a
+            # generator returns nothing malformed it rejects nothing, which is a result
+            # rather than a skipped stage.
+            examined=len(entrants))
+
+    # #112: the research jury judges the window at the arena's real distance to its event,
+    # so a make the buyer can no longer finish dies here as `shopping_window`.
+    days_to_event = None
+    if only is not None:
+        match = [a for a in arenas(db, today=today) if (a.event, a.pod) == tuple(only)]
+        days_to_event = match[0].days_away if match else None
+    screened = screen(candidates, catalogue=catalogue,
+                      benchmark=benchmark_comparables(db),
+                      days_to_event=days_to_event)
+    # ... and shifts late-window capacity toward the makes a buyer can still finish: the
+    # survivors are graded against the window and ideation's selection prefers the ones
+    # that continue over the ones that need a hurry.
+    window = None
+    if days_to_event is not None and screened["survivor_objects"]:
+        from ..seasonal.uncertainty import sample_count
+        from .family import shift_capacity
+
+        window = shift_capacity([c.concept for c in screened["survivor_objects"]],
+                                days_to_event=days_to_event, samples=sample_count(db),
+                                today=today)
+    survivors = [c.concept.key for c in screened["survivor_objects"]]
+    killed = {}
+    for candidate in candidates:
+        if not candidate.killed_by:
+            continue
+        cause = candidate.killed_by
+        if cause == "jury" and candidate.findings:
+            cause = candidate.findings[0].critic
+        killed[candidate.concept.key] = SCREEN_TO_FUNNEL.get(cause, cause)
+
+    research = advance(run, stage="research",
+                       entrants=[c.concept.key for c in candidates],
+                       survived=survivors, killed=killed)
+
+    # Stage three, on the survivors research kept. The stage's own floor is not pre-checked
+    # here: `advance` owns it, and asking permission first would be the funnel agreeing with
+    # itself in private. A refusal is caught and *reported* rather than swallowed -- "the
+    # field was too narrow to reach stage three" is the finding, and it points at the field
+    # rather than at the gate.
+    from .certification import release
+    from .funnel import FunnelRefused
+    from .prototype import prototype
+
+    kept = screened["survivor_objects"]
+    proposed: dict = {"ran": False, "reason": "research left nothing to develop"}
+    if kept:
+        attempt = proposition(db, kept, pod=kept[0].concept.pod)
+        try:
+            advance(run, stage="proposition",
+                    entrants=[c.concept.key for c in kept],
+                    survived=[c.concept.key for c in attempt["survivors"]],
+                    killed=attempt["killed"],
+                    examined=len(kept))
+        except FunnelRefused as e:
+            proposed = {k: v for k, v in attempt.items() if k != "survivors"}
+            proposed["ran"] = False
+            proposed["refused"] = str(e)
+            proposed["survivors"] = kept
+        else:
+            proposed = attempt
+            proposed["ran"] = True
+
+    developed = proposed["survivors"] if proposed.get("ran") else kept
+
+    # Stage four: author a CIR, compile it, and ask the twin whether the object it describes
+    # is the one that was asked for. No model is consulted -- the gate this stage names is
+    # deterministic validation, and a model that disagrees with the compiler is noise.
+    built: dict = {"ran": False,
+                   "reason": ("proposition did not run, and a concept engineered without "
+                              "having been developed is the thing the stage order exists to "
+                              "prevent" if not proposed.get("ran") else
+                              "nothing reached the prototype stage")}
+    # Only attempted when proposition actually ran. The funnel refuses an out-of-order stage
+    # anyway, and catching that refusal and reporting it would bury the real finding -- which
+    # is the stage *before* it -- under a complaint about ordering.
+    if developed and proposed.get("ran"):
+        attempt = prototype(developed)
+        try:
+            advance(run, stage="prototype",
+                    entrants=[c.concept.key for c in developed],
+                    survived=[c.concept.key for c in attempt["survivors"]],
+                    killed=attempt["killed"],
+                    examined=len(developed))
+        except FunnelRefused as e:
+            built = {k: v for k, v in attempt.items() if k != "survivors"}
+            built["ran"] = False
+            built["refused"] = str(e)
+            built["survivors"] = developed
+        else:
+            built = attempt
+            built["ran"] = True
+
+    engineered = built["survivors"] if built.get("ran") else developed
+
+    # Stage five: the release gates, run rather than named. Only attempted when prototype
+    # ran, for the reason prototype is only attempted when proposition ran -- an out-of-order
+    # refusal buries the real finding under a complaint about ordering.
+    shipped: dict = {"ran": False,
+                     "reason": ("prototype did not run, and certifying a pattern nobody "
+                                "compiled is the thing the stage order exists to prevent"
+                                if not built.get("ran") else
+                                "nothing reached the release stage")}
+    if engineered and built.get("ran"):
+        attempt = release(db, engineered)
+        try:
+            advance(run, stage="release",
+                    entrants=[c.concept.key for c in engineered],
+                    survived=[c.concept.key for c in attempt["survivors"]],
+                    killed=attempt["killed"],
+                    examined=len(engineered))
+        except FunnelRefused as e:
+            shipped = {k: v for k, v in attempt.items() if k != "survivors"}
+            shipped["ran"] = False
+            shipped["refused"] = str(e)
+            shipped["survivors"] = engineered
+        else:
+            shipped = attempt
+            shipped["ran"] = True
+
+    final = shipped["survivors"] if shipped.get("ran") else engineered
+
+    return {
+        "arena": f"{only[0]}/{only[1]}" if only else "",
+        "days_to_event": days_to_event,
+        "window": window,
+        # #279: the seeded transformations and what the funnel did with each of them --
+        # the stage and cause that killed it, or the last stage that carried it.
+        "seeded": {k: _fate(run, k) for k in seeded_keys},
+        # #3: the funnel as it ran, with each stage's survivors by key, so `may_engineer`
+        # can be asked of this exact run later -- by `creative.intake` before it queues a
+        # CIR, and by `cir.draft` before it drafts one. The object itself is never stored.
+        "funnel_objects": run,
+        "funnel_rounds": [{"stage": r.stage, "survived": list(r.survived),
+                           "killed": dict(r.killed), "examined": r.examined,
+                           "entered": r.entered} for r in run.rounds],
+        "proposition": {k: v for k, v in proposed.items() if k != "survivors"},
+        "prototype": {k: v for k, v in built.items() if k != "survivors"},
+        "release": {k: v for k, v in shipped.items() if k != "survivors"},
+        "field": {k: v for k, v in drawn.items() if k != "candidates"},
+        "rounds": [r.to_dict() for r in run.rounds],
+        "survivors": [c.to_dict() for c in final],
+        "survivor_objects": final,
+        # The whole field as objects, for the per-axis diversity measurement (#119). Like
+        # `survivor_objects`, never stored: the handler drops every `*_objects` key.
+        "candidate_objects": candidates,
+        "research_survivors": [c.to_dict() for c in screened["survivor_objects"]],
+        "research_kill_rate": research.kill_rate,
+        "causes": screened["causes"],
+        "novelty_measurable": screened["novelty_measurable"],
+        "survival_rate_means": screened["survival_rate_means"],
+        "cost_cad": drawn["cost_cad"],
+        "stages_run": [r.stage for r in run.rounds],
+        "stages_not_run": (([] if proposed.get("ran") else ["proposition"])
+                           + ([] if built.get("ran") else ["prototype"])
+                           + ([] if shipped.get("ran") else ["release"])),
+        # A stage that did not run always says why, whether the funnel refused it or it had
+        # nothing to work on. An empty string here would mean "no reason recorded", which is
+        # the one thing a skipped stage must never be able to say.
+        "proposition_refused": proposed.get("refused") or proposed.get("reason", ""),
+        "prototype_refused": built.get("refused") or built.get("reason", ""),
+        "release_refused": shipped.get("refused") or shipped.get("reason", ""),
+        "note": ("All five stages exist and run when the field reaches them. proposition "
+                 "runs the two of its three checks that "
+                 "observation supports -- the family test and whether the concept arrives "
+                 "speaking the department's own language -- and names margin as not applied, "
+                 "because contribution after fees passes every concept when the marginal "
+                 "cost of a digital file is zero and the cost to create it is #31. prototype "
+                 "authors a CIR from the concept's form and construction, compiles it and "
+                 "asks the twin whether the object it describes is the one that was asked "
+                 "for. release presents each survivor to the certificate chain -- quality, "
+                 "asset truth and policy -- and keeps what it grants; a refusal there is the "
+                 "chain working rather than the stage failing, because a tournament that "
+                 "certified its own survivors would be marking its own homework (#3)."),
+    }
+
+
+# ---------------------------------------------------------------------------
+# The proposition stage (#3, stage three)
+#
+# The funnel's own words for this gate: "does it seed a family, does it have an unmet angle,
+# does the margin survive". Two of those three are computable from what this company has
+# observed, and the third is not, so the third is named and not applied. A stage that quietly
+# scored the half it could not measure would be the neutral-default failure at a different
+# altitude, and this funnel refuses that shape everywhere else.
+
+# A word used by more than this share of a department's observed listings is that
+# department's own language, not an angle. Matched to the fatigue threshold, because it is
+# the same judgement about the same kind of evidence.
+CROWDED_TERM_SHARE = 0.34
+
+PROPOSITION_CHECKS: dict[str, str] = {
+    "family": "does the hero seed a coherent family, or would the family be forced (#111)",
+    "angle": "is the concept's own language already this department's language",
+    "margin": "does the contribution survive platform fees at a plausible price",
+}
+
+
+def _crowded_terms(db, pod: str, *, benchmark_key: str = "") -> dict:
+    """Words this department already says about itself, with the share of listings saying it.
+
+    Read from observed titles. Marketplace furniture -- "pattern", "pdf", "crochet" -- is
+    excluded by `arena_language` before it gets here, because those words describe nothing
+    and every listing carries them: counting them would make every concept crowded.
+    """
+    from ..commerce.intent import arena_language
+
+    language = arena_language(db, pod=pod, benchmark_key=benchmark_key)
+    if not language.get("measurable"):
+        return {"measurable": False, "reason": language.get("reason", ""), "terms": {}}
+    terms: dict[str, float] = {}
+    for rows in (language.get("by_facet") or {}).values():
+        for row in rows:
+            terms[row["word"]] = max(terms.get(row["word"], 0.0), row["share"])
+    for row in language.get("unclassified") or []:
+        terms[row["word"]] = max(terms.get(row["word"], 0.0), row["share"])
+    return {"measurable": True, "listings": language["listings"], "terms": terms}
+
+
+def angle_verdict(concept: Concept, crowded: dict) -> dict:
+    """Whether this concept arrives speaking the department's own language.
+
+    Deliberately one-sided. A concept whose distinctive words are all above the crowding
+    share is arriving as one more of what is already there, and that is a kill. A concept
+    whose words do not appear at all is *not* thereby proved to have found an opening -- an
+    absent word is absence of evidence, and the standing rule here is that absent is not
+    inferred. So this gate can refuse and cannot endorse, and says which it did.
+    """
+    if not crowded.get("measurable"):
+        return {"crowded": False, "measurable": False, "words": [],
+                "why": crowded.get("reason", "the department's language has not been read")}
+    words = [w for w in (concept.motif, concept.function, concept.feeling) if w]
+    tokens = sorted({t for word in words for t in str(word).lower().split()
+                     if len(t) >= 3})
+    if not tokens:
+        return {"crowded": False, "measurable": True, "words": [],
+                "why": "the concept states no distinctive word to check"}
+    shares = {t: crowded["terms"].get(t) for t in tokens}
+    observed = {t: v for t, v in shares.items() if v is not None}
+    if not observed:
+        return {"crowded": False, "measurable": True, "words": tokens, "shares": {},
+                "why": ("none of this concept's words appears in the department's observed "
+                        "titles, which is absence of evidence rather than evidence of an "
+                        "opening")}
+    crowded_now = {t: v for t, v in observed.items() if v > CROWDED_TERM_SHARE}
+    return {
+        "crowded": len(crowded_now) == len(observed),
+        "measurable": True,
+        "words": tokens,
+        "shares": observed,
+        "why": (f"every word of this concept that the department uses at all is used by more "
+                f"than {CROWDED_TERM_SHARE:.0%} of its listings: {sorted(crowded_now)}"
+                if len(crowded_now) == len(observed) and crowded_now else
+                "at least one of this concept's words is not this department's own language"),
+    }
+
+
+def proposition(db, survivors: list[Candidate], *, pod: str,
+                benchmark_key: str = "") -> dict:
+    """Stage three: develop the research survivors, and cut the ones that cannot carry.
+
+    Runs the two checks that are computable from observation and names the third.
+
+    **Family (#111)** is deterministic and already built: `family_test` asks whether the
+    hero's construction reaches enough roles, including a cheap one, or whether the
+    collection would have to be forced after the hero exists -- which is exactly when the
+    answer is always yes. Its verdict decides *what* is carried, not *whether*: #111's own
+    rule is that a concept which fails the family test is reported as a single product, not
+    refused, and a bundle is derived from two viable roles rather than asserted. Killing
+    here was a wiring defect (#308): every fitted-garment construction fails the quick-
+    companion role, so no cardigan could ever reach the compiler, and the owner's Christmas
+    cardigan example was being refused by a check whose own note says it must not refuse.
+    A single product is carried with `carried_as="single_product"`, recorded by name in the
+    stage's result, and downstream nothing derives a collection from it.
+
+    **Angle** is one-sided on purpose. It refuses a concept arriving in the department's own
+    vocabulary, and it does not endorse one whose words simply do not appear: an absent word
+    is absence of evidence.
+
+    **Margin is not applied.** The contribution after platform fees is computable and would
+    pass every concept, because the marginal cost of a digital file is zero -- what decides a
+    pattern's margin is the cost to create it, and that is #31, which does not exist yet.
+    Applying the half that always passes and calling the gate "margin" would report a check
+    that ran and decided nothing, which is the shape this funnel refuses everywhere else.
+    """
+    from ..commerce.pricing import contribution
+    from .family import family_test
+
+    crowded = _crowded_terms(db, pod, benchmark_key=benchmark_key)
+    kept: list[Candidate] = []
+    killed: dict[str, str] = {}
+    detail: dict[str, dict] = {}
+    single_products: dict[str, str] = {}
+    family_seeds: list[str] = []
+
+    for candidate in survivors:
+        concept = candidate.concept
+        fam = family_test(concept)
+        angle = angle_verdict(concept, crowded)
+        detail[concept.key] = {"family": fam["verdict"], "angle": angle,
+                               "bundle_possible": fam["bundle_possible"],
+                               "viable_roles": [v["role"] for v in fam["viable_roles"]]}
+        if angle["crowded"]:
+            killed[concept.key] = "saturation"
+            candidate.killed_by = "saturation"
+            candidate.detail = angle["why"][:400]
+            continue
+        candidate.family_verdict = fam["verdict"]
+        if fam["seeds_a_family"]:
+            candidate.carried_as = "family_seed"
+            family_seeds.append(concept.key)
+        else:
+            # Reported as a single product, not refused (#111's own rule; #308). The record
+            # is what stops a collection being forced out of it later: `bundle_possible`
+            # stays whatever the family test said, and a bundle is derived from two viable
+            # roles or not at all.
+            candidate.carried_as = "single_product"
+            single_products[concept.key] = fam["verdict"]
+        kept.append(candidate)
+
+    return {
+        "checks": PROPOSITION_CHECKS,
+        "applied": ["family", "angle"],
+        "single_products": single_products,
+        "family_seeds": family_seeds,
+        "family_rule": ("a concept that fails the family test is carried as a single "
+                        "product, never refused (#111); the angle check is the stage's only "
+                        "kill"),
+        "not_applied": {
+            "margin": ("contribution after platform fees is computable and would pass every "
+                       "concept, because a digital file has no marginal cost. What decides a "
+                       "pattern's margin is the cost to create it, which is #31 and does not "
+                       "exist. A check that always passes is not a gate"),
+        },
+        "margin_shape": contribution(9.0, 1),
+        "language": {"measurable": crowded.get("measurable", False),
+                     "listings": crowded.get("listings"),
+                     "why": crowded.get("reason", "")},
+        "survivors": kept,
+        "killed": killed,
+        "detail": detail,
+    }

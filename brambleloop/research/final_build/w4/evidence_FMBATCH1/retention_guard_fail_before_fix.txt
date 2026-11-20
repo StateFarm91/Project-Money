@@ -1,0 +1,3 @@
+test_the_guard_reports_every_unclassified_read_and_fails_closed_on_the_unresolvable FAILS before fix: AssertionError []
+test_every_action_the_real_code_reads_is_classified FAILS before fix: AssertionError 
+test_a_protected_prefix_survives_the_horizon FAILS before fix: AssertionError {'table': 'audit_log', 'total_rows': 10, 'deletable': 6, 'deletable_ids': [6, 5, 4, 3, 2, 1], 'kept_because_protected': 0, 'kept_because_recent_for_their_action': 4, 'horizon_days': 90, 'cutoff': '2026-07-28T10:17:02.712772+00:00', 'protect

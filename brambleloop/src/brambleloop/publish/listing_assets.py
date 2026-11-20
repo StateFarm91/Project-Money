@@ -1,0 +1,794 @@
+"""The listing image system (Master Plan section 7).
+
+Section 7 is specific about what listing imagery is for: the first image exists to win the
+click, and every frame after it answers a question that would otherwise stop a purchase. So
+the frame plan here is not decoration, it is an ordered argument -- what it looks like, what
+you get, how big it is, what it takes, what the pattern actually reads like, what else is in
+the collection.
+
+Two rules make this system different from writing the same thing by hand.
+
+Every frame is rendered from the digital twin, so the sizes, colours, stitches, yardage and
+row counts on an infographic are the compiled pattern's own numbers. There is no path by
+which a listing image and the pattern disagree, because there is no second source.
+
+And every frame declares its asset class and its claims, so Asset Truth checks the images the
+way it checks anything else. A render may never present itself as a photograph of a finished
+object, and an AI lifestyle concept may never be the hero -- a picture of a thing nobody has
+made is not evidence the thing exists.
+"""
+from __future__ import annotations
+
+import io
+from dataclasses import dataclass, field
+
+from PIL import Image, ImageDraw, ImageFont
+
+from ..brand import bible
+from ..cir.model import CIR
+from ..cir.twin import TwinModel
+from ..cir.writer import collapses_rows
+from ..gates.asset_truth import Asset, AssetClass, Claims, Provenance
+from .charts import (
+    ChartSpec, _font, _hex_to_rgb, cell_size, crop_grids, detect_repeat, is_round,
+    render_chart, render_fabric, render_round_chart, render_round_fabric, round_block,
+    round_chart_size, row_block, wedge_count,
+)
+
+CANVAS = 2000            # Etsy recommends 2000px on the short edge for listing images
+INK = _hex_to_rgb(bible.PALETTE["ink"])
+PINE = _hex_to_rgb(bible.PALETTE["pine"])
+CREAM = _hex_to_rgb(bible.PALETTE["cream"])
+GOLD = _hex_to_rgb(bible.PALETTE["gold"])
+LINE = _hex_to_rgb(bible.PALETTE["line"])
+MUTED = _hex_to_rgb(bible.PALETTE["muted"])
+
+
+@dataclass
+class Frame:
+    """One listing image: its job, its class, and what it is allowed to claim."""
+
+    position: int
+    role: str
+    asset_class: AssetClass
+    caption: str
+    image: Image.Image | None = None
+    claims: Claims = field(default_factory=Claims)
+    depicts_stitches: list[str] = field(default_factory=list)
+    depicts_colors: list[str] = field(default_factory=list)
+    # Hero only: the fabric render had no internal contrast, so the image is blank whatever
+    # the typography drawn over it might suggest to a check that measures the whole frame.
+    fabric_is_flat: bool = False
+    # Size card only (#61 "a size card must communicate scale clearly"): what the card drew
+    # to give the size a scale -- "reference" (the piece to scale beside a named reference
+    # object, with its measured label), "circumference" (the measured round, stated) -- or
+    # "" when it drew no measurement at all. Set by `_size_frame`; read by
+    # `check_frame_plan`, which refuses a rendered size card that shows no scale.
+    scale_shown: str = ""
+
+    @property
+    def is_hero(self) -> bool:
+        return self.position == 1
+
+    def to_asset(self, slug: str) -> Asset:
+        return Asset(
+            asset_id=f"{slug}-frame-{self.position}",
+            asset_class=self.asset_class,
+            provenance=Provenance(source="twin", created_by="publishing",
+                                  tool="listing_assets@1"),
+            depicts_stitches=sorted(self.depicts_stitches),
+            depicts_colors=sorted(self.depicts_colors),
+            is_hero=self.is_hero,
+            claims=self.claims,
+        )
+
+    def png(self) -> bytes:
+        if self.image is None:
+            raise ValueError(f"frame {self.position} ({self.role}) has no image")
+        buf = io.BytesIO()
+        self.image.save(buf, format="PNG")
+        return buf.getvalue()
+
+
+# ---- drawing helpers -------------------------------------------------------
+
+
+class _RecordingDraw(ImageDraw.ImageDraw):
+    """A draw that writes down where every line of type landed (C-69, #59).
+
+    Layout QA measures boxes, not pixels, for the rules only boxes can decide: a title that
+    ran past the safe area, a label drawn over the chart, a footer overlapping the line above
+    it. The boxes are the renderer's own, recorded as it draws, onto the image's `info`."""
+
+    def __init__(self, im):
+        super().__init__(im)
+        self._im = im
+        im.info.setdefault("layout", [])
+
+    def text(self, xy, text, fill=None, font=None, *args, slot: str | None = None,
+             **kwargs):  # noqa: D401
+        # `slot` names what the line is in the frame plan (title, disclosure, row label...).
+        # `visual.frame_role.text_tier` reads it to decide, deterministically, whether the
+        # line is essential (must be legible at its real display size) or secondary
+        # (reported). A line drawn with no slot is classified essential, the strict rule.
+        out = super().text(xy, text, fill, font, *args, **kwargs)
+        try:
+            box = self.textbbox(xy, text, font=font, anchor=kwargs.get("anchor"))
+            size = getattr(font, "size", None)
+            self._im.info["layout"].append({"kind": "text", "box": list(box),
+                                            "text": str(text)[:60], "pt": size,
+                                            "slot": slot})
+        except Exception:  # noqa: BLE001 - measuring must never stop a render
+            pass
+        return out
+
+
+def _paste(img: Image.Image, part: Image.Image, xy: tuple[int, int], kind: str) -> None:
+    """Paste a graphic and record its box, so type drawn over it is a measured collision."""
+    img.paste(part, xy)
+    img.info.setdefault("layout", []).append(
+        {"kind": kind, "box": [xy[0], xy[1], xy[0] + part.width, xy[1] + part.height]})
+
+
+def _canvas(size: int = CANVAS) -> tuple[Image.Image, ImageDraw.ImageDraw]:
+    img = Image.new("RGB", (size, size), CREAM)
+    return img, _RecordingDraw(img)
+
+
+def _safe(size: int = CANVAS) -> int:
+    """Nothing meaningful inside the outer margin -- Etsy's grid crops without asking."""
+    return int(size * bible.CROP_RULES["safe_margin_pct"])
+
+
+def _wrap(d: ImageDraw.ImageDraw, text: str, font, max_w: int) -> list[str]:
+    out, line = [], ""
+    for word in text.split():
+        trial = f"{line} {word}".strip()
+        if d.textlength(trial, font=font) <= max_w:
+            line = trial
+        else:
+            if line:
+                out.append(line)
+            line = word
+    if line:
+        out.append(line)
+    return out
+
+
+def _fit_text(d: ImageDraw.ImageDraw, text: str, x: int, y: int, max_w: int,
+              start_pt: int, color, *, slot: str | None = None, min_pt: int = 14,
+              leading: float = 1.22) -> int:
+    """Shrink until it fits rather than letting a long title run off the canvas.
+
+    A title clipped mid-word is the single clearest signal that a listing was machine-made
+    without anyone looking at it, which is the opposite of what this brand is selling.
+
+    Shrinking stops at `min_pt`, the size the line must keep to stay legible where it is
+    actually shown (`min_pt_for`). A line still too wide there wraps onto further lines at
+    that size instead of shrinking into decoration. Returns the y below the last line.
+    """
+    pt = start_pt
+    while pt > max(14, min_pt):
+        font = _font(pt)
+        if d.textlength(text, font=font) <= max_w:
+            break
+        pt = max(int(pt * 0.94), min_pt)
+    font = _font(pt)
+    lines = [text] if d.textlength(text, font=font) <= max_w else _wrap(d, text, font, max_w)
+    for line in lines:
+        d.text((x, y), line, font=font, fill=color, slot=slot)
+        y += int(pt * leading)
+    return y
+
+
+def min_pt_for(slot: str, size: int = CANVAS, role: str = "") -> int:
+    """The smallest face a line in `slot` may be set in on a `size`-px frame and still clear
+    `thumbnail.MIN_LEGIBLE_TEXT_PX` at the size it is really displayed (D-W4-VISROLE, owner
+    ruling 2026-10-19). Secondary lines have no floor beyond layout QA's minimum face."""
+    import math
+
+    from ..commerce.thumbnail import MIN_LEGIBLE_TEXT_PX
+    from ..visual.frame_role import text_tier
+
+    tier = text_tier(role, slot)
+    if not tier["essential"]:
+        return 14
+    return math.ceil(MIN_LEGIBLE_TEXT_PX * size / tier["display_px"])
+
+
+def _title_block(d: ImageDraw.ImageDraw, text: str, y: int, size: int = CANVAS,
+                 color=PINE) -> int:
+    font = _font(int(size * 0.052))
+    m = _safe(size)
+    for line in _wrap(d, text, font, size - 2 * m):
+        d.text((m, y), line, font=font, fill=color, slot="headline")
+        y += int(size * 0.062)
+    d.line([(m, y + 10), (m + int(size * 0.09), y + 10)], fill=GOLD, width=4)
+    return y + int(size * 0.05)
+
+
+def _rows(d: ImageDraw.ImageDraw, pairs: list[tuple[str, str]], y: int,
+          size: int = CANVAS) -> int:
+    """Label/value rows. The whole point of these frames is legibility at thumbnail size.
+
+    Both halves are essential text (a label names the deliverable or the requirement it
+    introduces), so the label face is the listing-view floor, not a smaller caption face: at
+    the old 2.6% it rendered at 10.1 px in a 390 px phone gallery."""
+    label_font = _font(max(int(size * 0.029), min_pt_for("row_label", size)))
+    value_font = _font(max(int(size * 0.034), min_pt_for("row_value", size)))
+    m = _safe(size)
+    for label, value in pairs:
+        d.text((m, y), label.upper(), font=label_font, fill=MUTED, slot="row_label")
+        y += int(size * 0.036)
+        for line in _wrap(d, value, value_font, size - 2 * m):
+            d.text((m, y), line, font=value_font, fill=INK, slot="row_value")
+            y += int(size * 0.045)
+        y += int(size * 0.022)
+    return y
+
+
+# ---- the frames ------------------------------------------------------------
+
+
+# The hero's inner margin: the marketplace's title-safe band (`mobile.TITLE_SAFE_MARGIN`, 8%
+# at thumbnail size) plus room for resampling. Defined here rather than imported because
+# `publish.mobile` sits above this module; a test pins the two together.
+HERO_TITLE_SAFE = 0.095
+
+
+def _hero(cir: CIR, twin: TwinModel) -> Frame:
+    """A clean finished-result hero, not a cluttered collage (section 7).
+
+    Until a physical sample exists this is a digital twin render, and it says so on the
+    image. Section 7's asset classes exist precisely so a render cannot quietly do a
+    photograph's job.
+    """
+    size = CANVAS
+    img, d = _canvas(size)
+    # Certification C-58. The hero is the one frame shown at search-grid size, where the
+    # marketplace overlays its own interface on an 8% band at every edge
+    # (`mobile.TITLE_SAFE_MARGIN`). The earlier layout put the fabric at 96% of the width, the
+    # brand line at 7% from the top and the render disclosure at 94% -- 4.7% of the band
+    # carried ink, so the disclosure that says "not a photograph" was the first thing the
+    # overlay hid. Everything now sits inside the band, with a margin for thumbnail
+    # resampling.
+    m = int(size * HERO_TITLE_SAFE)
+
+    # The fabric gets most of what is left. Thumbnail Warfare measures subject coverage at
+    # search-grid size, and a hero that is mostly cream background loses the click to one
+    # that is not -- an earlier layout sat barely above the floor at 36%.
+    top = int(size * 0.195)
+    # 0.775, not 0.805: the product-type line and the two-line disclosure under the fabric are
+    # essential text and are set at the listing-view floor (`min_pt_for`), which needs more
+    # height than the old 2.5% faces did, and all of it must stay inside the title-safe band.
+    bottom = int(size * 0.775)
+    box_w, box_h = size - 2 * m, bottom - top
+    round_worked = is_round(cir, twin)
+    hero_fabric_flat = False
+    if round_worked:
+        # A round piece has no rectangle of fabric to show. The twin knows it as rounds, so
+        # the hero is the object from above -- which is honest, and says so on the image.
+        fabric = render_round_fabric(cir, twin, ChartSpec(cell_px=26))
+    else:
+        grid, colour_grid = twin.chart_grid(), twin.color_grid()
+        cols, rows = detect_repeat(grid, colour_grid)
+        grids = crop_grids(grid, colour_grid,
+                           min(cols * 4, max(len(r) for r in grid)),
+                           min(rows * 3, len(grid)))
+        fabric = render_fabric(cir, twin, cell_px=24, grids=grids)
+    # Is there anything to look at? A single-colour textured fabric is *all* relief, and
+    # rendering it by row colour produced a blank cream rectangle -- the rebuilt cable
+    # throw's hero was literally empty. The frame-level thumbnail check could not catch it,
+    # because the title text is non-background too and counted as the subject. So the fabric
+    # is judged on its own, before any typography is drawn over it.
+    shades = fabric.convert("RGB").getcolors(maxcolors=100_000) or []
+    span = 0
+    if shades:
+        lums = [0.299 * r + 0.587 * g + 0.114 * b for _, (r, g, b) in shades]
+        span = max(lums) - min(lums)
+    hero_fabric_flat = len(shades) < 3 or span < 12.0
+
+    scale = min(box_w / fabric.width, box_h / fabric.height)
+    fabric = fabric.resize((max(1, int(fabric.width * scale)),
+                            max(1, int(fabric.height * scale))), Image.LANCZOS)
+    _paste(img, fabric, ((size - fabric.width) // 2, top + (box_h - fabric.height) // 2),
+           "fabric")
+
+    d.text((m, int(size * 0.095)), "BRAMBLELOOP STUDIO", font=_font(int(size * 0.024)),
+           fill=MUTED, slot="brand")
+    _fit_text(d, cir.title, m, int(size * 0.125), size - 2 * m, int(size * 0.052), PINE,
+              slot="title", min_pt=min_pt_for("title", size, "hero"))
+
+    # Fitted to the inner width like the title: the disclosure line at full size ran past the
+    # right edge of the title-safe band, which is the one place it must never be hidden.
+    # Both lines are essential (what is sold; that the picture is not a photograph), so they
+    # never shrink below the listing-view floor: at 2.5% the disclosure was fitted down to
+    # 8.0 px in a 390 px phone gallery. The disclosure is drawn as two lines split after the
+    # comma, so "not a photograph" is always whole on one line.
+    floor = min_pt_for("disclosure", size, "hero")
+    y = _fit_text(d, "CROCHET PATTERN · PDF · CHART + WRITTEN", m, int(size * 0.79),
+                  size - 2 * m, max(int(size * 0.029), floor), GOLD, slot="product_type",
+                  min_pt=min_pt_for("product_type", size, "hero"))
+    first = "Digital render from above," if round_worked else "Digital pattern render,"
+    for part in (first, "not a photograph of a finished item"):
+        y = _fit_text(d, part, m, y, size - 2 * m, floor, MUTED, slot="disclosure",
+                      min_pt=floor)
+    return Frame(position=1, role="hero", asset_class=AssetClass.DIGITAL_TWIN_RENDER,
+                 caption="clean finished-result hero", image=img,
+                 fabric_is_flat=hero_fabric_flat,
+                 depicts_stitches=sorted(twin.stitch_types_used),
+                 depicts_colors=sorted(c for c in twin.colors_used if c),
+                 claims=Claims(colors=sorted(c for c in twin.colors_used if c)))
+
+
+def _whats_included(cir: CIR, twin: TwinModel, pages: int | None,
+                    collapsed_repeats: bool = False) -> Frame:
+    size = CANVAS
+    img, d = _canvas(size)
+    y = _title_block(d, "What you get", int(size * 0.10), size)
+    items = [
+        ("Written pattern",
+         "Row by row with a stitch count on each; the repeat written once"
+         if collapsed_repeats else "Every row, with a stitch count on each"),
+        ("Colour chart", "Generated from the same data as the words, so they cannot disagree"),
+        ("Terminology", "US terms, with the UK equivalent in the stitch key"),
+    ]
+    if pages:
+        items.append(("Format", f"{pages}-page PDF, instant download, readable on a phone"))
+    _rows(d, items, y, size)
+    return Frame(position=2, role="whats_included", asset_class=AssetClass.INFOGRAPHIC,
+                 caption="what is included", image=img)
+
+
+# The object the size card draws beside the piece, and what it is called on the card.
+SCALE_REFERENCE_CM = 180.0
+SCALE_REFERENCE_OBJECT = "adult"
+ROUND_SHAPES = ("vessel", "disc", "tube", "cone", "dome")
+
+
+def size_frame_displays(*, width_cm: float | None, height_cm: float | None,
+                        shape: str | None = None) -> dict:
+    """Every number the size card shows, with what it traces to (#60).
+
+    The card draws its labels from this, and the dimensional auditor reads the same list, so
+    the audited numbers are the drawn ones rather than a second description of them.
+    """
+    if not (width_cm and height_cm):
+        return {"label": "", "reference_label": "", "measurements": [], "references": []}
+    rounded = shape in ROUND_SHAPES
+    w, h = float(f"{width_cm:.0f}"), float(f"{height_cm:.0f}")
+    label = (f"{width_cm:.0f} cm across × {height_cm:.0f} cm tall" if rounded
+             else f"{width_cm:.0f} × {height_cm:.0f} cm")
+    reference_label = f"{SCALE_REFERENCE_CM:.0f} cm {SCALE_REFERENCE_OBJECT}"
+    return {
+        "label": label, "reference_label": reference_label,
+        "measurements": [
+            {"where": "size frame", "value_cm": w, "traces_to": "finished.width"},
+            {"where": "size frame", "value_cm": h, "traces_to": "finished.length"},
+        ],
+        "references": [{"where": "size frame", "value_cm": SCALE_REFERENCE_CM,
+                        "names": SCALE_REFERENCE_OBJECT, "label": reference_label}],
+    }
+
+
+def _size_frame(cir: CIR, twin: TwinModel) -> Frame:
+    """Finished size, drawn to scale against a known reference object."""
+    size = CANVAS
+    img, d = _canvas(size)
+    y = _title_block(d, "Finished size", int(size * 0.10), size)
+
+    if twin.width_cm and twin.height_cm:
+        # Draw the piece against a 180cm human silhouette bar, so scale is felt not read.
+        ref_cm = SCALE_REFERENCE_CM
+        area_h = int(size * 0.46)
+        px_per_cm = area_h / ref_cm
+        top = y + int(size * 0.04)
+        left = _safe(size)
+        w_px = int(twin.width_cm * px_per_cm)
+        h_px = int(twin.height_cm * px_per_cm)
+        d.rectangle([left, top, left + w_px, top + h_px], fill=PINE, outline=PINE)
+        img.info["layout"].append({"kind": "piece", "box": [left, top, left + w_px,
+                                                             top + h_px]})
+        # A vessel's two numbers are a diameter and a height, and "26 × 23 cm" beside a solid
+        # block reads as a flat rectangle 26 cm by 23 cm. The drawing is right -- the side
+        # profile of a cylinder is that rectangle -- and the label was the part that made a
+        # shopper picture the wrong object. The catalogue's own words for a basket are
+        # "25 cm across, 23 cm tall"; the listing image now uses them too.
+        shown = size_frame_displays(width_cm=twin.width_cm, height_cm=twin.height_cm,
+                                    shape=getattr(twin, "shape", None))
+        label = shown["label"]
+        # Centred under the piece, but kept inside the safe area. A small piece (a 10 cm
+        # coaster is 26 px wide on this card) centred its label on a point 26 px from the
+        # margin, so "10 cm across × 8 cm tall" started 290 px off the left edge of the image:
+        # the measurement was cut off. The recorder measured the box without the anchor, so
+        # layout QA saw a box that was not where the text was; both are fixed.
+        label_font = _font(max(int(size * 0.030), min_pt_for("size_label", size, "size")))
+        label_w = d.textlength(label, font=label_font)
+        label_x = int(min(max(left + w_px // 2 - label_w / 2, left),
+                          size - _safe(size) - label_w))
+        d.text((label_x, top + h_px + 18), label, font=label_font, fill=INK,
+               slot="size_label")
+        # Right of the piece AND of its label: beside a small piece the label is wider than
+        # the piece, and a bar placed from the piece's edge alone ran through the label.
+        ref_x = max(left + w_px + int(size * 0.10), int(label_x + label_w) + int(size * 0.05))
+        d.rectangle([ref_x, top, ref_x + int(size * 0.035), top + area_h], outline=LINE,
+                    width=4)
+        img.info["layout"].append({"kind": "scale_bar", "box": [
+            ref_x, top, ref_x + int(size * 0.035), top + area_h]})
+        # Named, not bare: "180 cm" alone beside the card is the unexplained marker #60
+        # names by example, and it reads as a second size of the product.
+        d.text((ref_x + int(size * 0.018), top + area_h + 18), shown["reference_label"],
+               font=_font(max(int(size * 0.026), min_pt_for("scale_reference", size, "size"))),
+               fill=MUTED, anchor="ma", slot="scale_reference")
+        _rows(d, [("Worked at", "the gauge in the pattern — your gauge changes the size "
+                                "in the same proportion")],
+              top + area_h + int(size * 0.09), size)
+    elif twin.circumference_cm:
+        # A closed shaped piece has a circumference that is arithmetic and a height that is
+        # not. Saying so is better than drawing a rectangle nobody measured.
+        _rows(d, [("Around at the widest round", f"{twin.circumference_cm:.0f} cm"),
+                  ("Finished height", "measured from a physical sample, not computed: "
+                                     "stuffing and tension set the final shape")],
+              y + int(size * 0.06), size)
+    claims = Claims(finished_width_cm=twin.width_cm, finished_height_cm=twin.height_cm)
+    scale_shown = ("reference" if (twin.width_cm and twin.height_cm) else
+                   "circumference" if twin.circumference_cm else "")
+    return Frame(position=3, role="size", asset_class=AssetClass.INFOGRAPHIC,
+                 caption="finished size to scale", image=img, claims=claims,
+                 scale_shown=scale_shown)
+
+
+def _materials_frame(cir: CIR, twin: TwinModel, difficulty: str) -> Frame:
+    size = CANVAS
+    img, d = _canvas(size)
+    y = _title_block(d, "What it takes", int(size * 0.10), size)
+    tol = int(twin.yardage_tolerance * 100)
+    yarn = "; ".join(
+        f"{name} about {m * (1 - twin.yardage_tolerance):.0f}–"
+        f"{m * (1 + twin.yardage_tolerance):.0f} m"
+        for name, m in sorted(twin.yarn_metres_by_color.items())) or "see the pattern"
+    pairs = [
+        ("Difficulty", difficulty),
+        ("Stitches used", ", ".join(sorted(twin.stitch_types_used))),
+        ("Yarn", f"{yarn} (estimate, ±{tol}%, not a measurement)"),
+    ]
+    if cir.gauge:
+        pairs.insert(1, ("Hook", f"{cir.gauge.hook_mm:g} mm"))
+        pairs.append(("Gauge", f"{cir.gauge.stitches_per_10cm} sts × "
+                               f"{cir.gauge.rows_per_10cm} rows = 10 cm"))
+    y = _rows(d, pairs, y, size)
+
+    m = _safe(size)
+    for i, (name, hexv) in enumerate(sorted(cir.colors.items())):
+        x = m + i * int(size * 0.13)
+        d.rectangle([x, y, x + int(size * 0.10), y + int(size * 0.10)],
+                    fill=_hex_to_rgb(hexv), outline=LINE, width=3)
+        d.text((x, y + int(size * 0.11)), name,
+               font=_font(max(int(size * 0.024), min_pt_for("colour_name", size, "materials"))),
+               fill=MUTED, slot="colour_name")
+    return Frame(position=4, role="materials", asset_class=AssetClass.INFOGRAPHIC,
+                 caption="materials and difficulty", image=img,
+                 depicts_colors=sorted(c for c in twin.colors_used if c),
+                 claims=Claims(difficulty=difficulty,
+                               materials=[mat.name for mat in cir.materials],
+                               colors=sorted(cir.colors)))
+
+
+def _pattern_preview(cir: CIR, twin: TwinModel, pattern_text: str) -> Frame:
+    """A genuine excerpt. A preview that shows nothing real is a preview of nothing."""
+    size = CANVAS
+    img, d = _canvas(size)
+    y = _title_block(d, "A look inside", int(size * 0.10), size)
+    body = _font(int(size * 0.024))
+    m = _safe(size)
+    lines = [ln for ln in pattern_text.split("\n") if ln.strip()][:14]
+    for line in lines:
+        for wrapped in _wrap(d, line, body, size - 2 * m):
+            d.text((m, y), wrapped, font=body, fill=INK, slot="excerpt")
+            y += int(size * 0.031)
+            if y > size * 0.86:
+                break
+        if y > size * 0.86:
+            break
+    d.text((m, int(size * 0.905)), "Actual pattern text from this release",
+           font=_font(max(int(size * 0.024), min_pt_for("caption", size, "pattern_preview"))),
+           fill=MUTED, slot="caption")
+    return Frame(position=5, role="pattern_preview", asset_class=AssetClass.PATTERN_PREVIEW,
+                 caption="real excerpt from the released pattern", image=img,
+                 depicts_stitches=sorted(twin.stitch_types_used))
+
+
+def _chart_frame(cir: CIR, twin: TwinModel) -> Frame:
+    """The chart a shopper is shown, drawn the way the document they will download draws it.
+
+    This frame carried both of the defects `publish/pdf.py` had already been corrected for,
+    one module over, and both of them are visible on the Launch-0 flagship.
+
+    **The round branch asked for the whole piece.** `render_round_chart` with no block and no
+    wedge draws every round as a concentric ring, and the nesting baskets have seventy of
+    them -- twenty-four of base and forty-six of straight side wall. Measured on the rendered
+    frame: **8.2 pixels per ring on a 2000-pixel image**, 0.41% of the frame width, which is
+    about two pixels at the width Etsy shows a listing image. It was captioned "every round,
+    from the centre out" on a product that is a base with a wall standing on it, so the
+    shopper's picture of a basket was a flat seventy-ring disc. `charts.round_block` and
+    `charts.wedge_count` are the two measurements the document already uses for exactly this,
+    and this frame now uses them.
+
+    **The flat branch asked the wrong repeat detector.** `detect_repeat` wants a row period
+    that divides the row count and starts at row 1, and eight of the sixteen shippable
+    designs satisfy neither; `charts.row_block` reads `cir.rowcycle`, which is the detector
+    the written instructions themselves collapse to. The cabled throw's frame said "one
+    repeat - 8 sts x 121 rows" while its PDF chart says rows 2-5 worked 29 times more, so the
+    shopper compared a listing image with the pattern they bought and found two charts.
+
+    A chart that shows part of a piece has to say so, which is the rule the document's
+    caption already follows, so the caption states what was cropped in the numbers the
+    written instructions use.
+    """
+    size = CANVAS
+    img, d = _canvas(size)
+    y = _title_block(d, "The chart", int(size * 0.10), size)
+    if is_round(cir, twin):
+        block = round_block(twin)
+        wedges = wedge_count(twin)
+        rounds = (block.first, block.last) if block else None
+        shown = (f"rounds {block.first}-{block.last} of {block.tail[-1]}"
+                 if block else "every round")
+        wedge_note = f", one of {wedges} identical wedges" if wedges > 1 else ""
+        chart = render_round_chart(
+            cir, twin, ChartSpec(cell_px=30, margin_px=40, max_width_px=size),
+            caption=f"{shown}, from the centre out{wedge_note}",
+            rounds=rounds, wedges=wedges if wedges > 1 else None)
+        caption = "the round chart"
+    else:
+        grid, colour_grid = twin.chart_grid(), twin.color_grid()
+        cols, rep_rows = detect_repeat(grid, colour_grid)
+        block = row_block(cir, twin)
+        rows = min(rep_rows, block[1]) if block else rep_rows
+        grids = crop_grids(grid, colour_grid, cols, rows)
+        if block and block[1] == rows:
+            shown = f"rows 1-{rows}, then rows {block[0]}-{block[1]} again"
+        else:
+            shown = f"one repeat · {rows} rows"
+        chart = render_chart(cir, twin,
+                             ChartSpec(cell_px=48, margin_px=40, max_width_px=size),
+                             grids=grids,
+                             caption=f"{cols} sts × {shown}")
+        caption = "one chart repeat"
+    box = int(size * 0.74)
+    scale = min(box / chart.width, (size * 0.62) / chart.height)
+    chart = chart.resize((int(chart.width * scale), int(chart.height * scale)),
+                         Image.LANCZOS)
+    _paste(img, chart, ((size - chart.width) // 2, y), "chart")
+    return Frame(position=6, role="chart", asset_class=AssetClass.DIGITAL_TWIN_RENDER,
+                 caption=caption, image=img,
+                 depicts_stitches=sorted(twin.stitch_types_used),
+                 depicts_colors=sorted(c for c in twin.colors_used if c))
+
+
+def chart_frame_unit_px(cir: CIR, twin: TwinModel) -> float:
+    """How wide the chart's readable unit lands **on the finished 2000-pixel frame**.
+
+    A ring for a round chart and a cell for a flat one, after the rescale `_chart_frame`
+    applies -- which is the only number that describes what a shopper is shown, because the
+    unit is a property of neither the chart nor the frame alone. This is the listing's
+    counterpart of `pdf._on_page_cell_mm`, and it exists for the same reason: the previous
+    audit could not see that the basket's listing chart was 8.2 pixels per ring, because
+    nothing measured the size the unit reached on the image.
+
+    It re-derives rather than re-renders, so asking is cheap.
+    """
+    size = CANVAS
+    if is_round(cir, twin):
+        block = round_block(twin)
+        wedges = wedge_count(twin)
+        spec = ChartSpec(cell_px=30, margin_px=40, max_width_px=size)
+        unit, w, h = round_chart_size(
+            twin, spec, rounds=(block.first, block.last) if block else None,
+            wedges=wedges if wedges > 1 else None)
+        chart = render_round_chart(
+            cir, twin, spec, caption="measurement",
+            rounds=(block.first, block.last) if block else None,
+            wedges=wedges if wedges > 1 else None)
+    else:
+        grid, colour_grid = twin.chart_grid(), twin.color_grid()
+        cols, rep_rows = detect_repeat(grid, colour_grid)
+        block = row_block(cir, twin)
+        rows = min(rep_rows, block[1]) if block else rep_rows
+        grids = crop_grids(grid, colour_grid, cols, rows)
+        spec = ChartSpec(cell_px=48, margin_px=40, max_width_px=size)
+        unit = cell_size(twin, spec, grids)
+        chart = render_chart(cir, twin, spec, grids=grids, caption="measurement")
+    scale = min(int(size * 0.74) / chart.width, (size * 0.62) / chart.height)
+    return unit * scale
+
+
+def _collection_frame(cir: CIR, siblings: list[str]) -> Frame | None:
+    if not siblings:
+        return None
+    size = CANVAS
+    img, d = _canvas(size)
+    y = _title_block(d, "Part of a collection", int(size * 0.10), size)
+    _rows(d, [("Also in this collection", ", ".join(siblings)),
+              ("Bundle", "The collection is also sold together, at a real saving against "
+                         "buying each pattern separately")], y, size)
+    return Frame(position=7, role="collection", asset_class=AssetClass.INFOGRAPHIC,
+                 caption="collection cross-sell", image=img)
+
+
+# ---- the plan --------------------------------------------------------------
+
+
+# The whitespace floor for a text frame (#59): below this share of ink the frame is empty.
+TEXT_FRAME_MIN_INK = 0.005
+
+
+def build_frames(cir: CIR, twin: TwinModel, *, pattern_text: str,
+                 difficulty: str, pages: int | None = None,
+                 siblings: list[str] | None = None) -> list[Frame]:
+    """The ordered argument a listing makes, rendered.
+
+    Order is the decision. The hero wins the click; frames two to four remove the reasons a
+    buyer hesitates -- what am I getting, how big is it, what will it cost me in yarn and
+    hours; frames five and six prove the thing is real; frame seven sells the next one.
+    """
+    # The render-degradation flags describe *this* product's imagery, so they are cleared
+    # first. Leaving them sticky would make one chart that could not carry a colour cue
+    # block every product rendered after it in the same worker process, which is a false
+    # accusation -- and the opposite mistake, never clearing them, is how a check becomes
+    # noise that gets ignored.
+    from . import charts as charts_mod
+
+    charts_mod.reset_render_flags()
+
+    frames = [
+        _hero(cir, twin),
+        _whats_included(cir, twin, pages, collapses_rows(cir)),
+        _size_frame(cir, twin),
+        _materials_frame(cir, twin, difficulty),
+        _pattern_preview(cir, twin, pattern_text),
+        _chart_frame(cir, twin),
+    ]
+    extra = _collection_frame(cir, siblings or [])
+    if extra:
+        frames.append(extra)
+    return frames
+
+
+def check_frame_plan(frames: list[Frame]) -> list[str]:
+    """Structural rules a listing's imagery must satisfy before Asset Truth even runs."""
+    problems: list[str] = []
+
+    # Pillow falls back to a bitmap face a few pixels tall when it cannot find a TrueType
+    # file. On a 2000px listing image that is invisible, so the images looked right on a
+    # machine with DejaVu installed and shipped from a container without it with no legible
+    # text at all. Silence is what let that happen, so it is a blocking problem now.
+    from . import charts as charts_mod
+
+    if charts_mod.FONT_FALLBACK_IN_USE:
+        problems.append(
+            "LISTING_NO_FONT: no TrueType face was available, so every label on these "
+            "images is a few pixels tall. The container needs fonts installed; rendering "
+            "illegible imagery is worse than rendering none")
+
+    # Master Plan section 31: colour-independent cues where practical. In overlay mosaic the
+    # colour *is* the motif, so a chart that separates two yarns by hue alone is unreadable
+    # to a maker with a colour vision deficiency -- and unlike a sighted maker they cannot
+    # recover it by looking harder.
+    if charts_mod.COLOR_CUE_MISSING:
+        problems.append(
+            "LISTING_CHART_COLOR_ONLY: this chart distinguishes its yarns by colour alone, "
+            "because the cells are too small to carry the colour's letter. Publish the "
+            "repeat rather than the whole fabric, or raise the cell size")
+
+    for f in frames:
+        if f.is_hero and f.fabric_is_flat:
+            problems.append(
+                "LISTING_HERO_FABRIC_FLAT: the hero's fabric render has almost no internal "
+                "contrast, so the image is effectively blank. A single-colour textured "
+                "pattern is all relief, and relief has to be drawn or there is nothing to "
+                "look at")
+
+    # #62: the hero's job is desire and instant comprehension at the size a shopper first
+    # sees it, which is a search grid on a phone. Everything else in this function checks
+    # that the hero is *truthful*; this checks that it is legible, and the two fail
+    # independently -- Build 1's hero was entirely truthful and entirely invisible.
+    for f in frames:
+        if not f.is_hero or f.image is None:
+            continue
+        from . import layout_qa
+
+        measured = layout_qa.inspect(f.image, position=f.position)
+        for problem in measured.problems:
+            problems.append(f"LISTING_HERO_{problem}")
+        if f.asset_class is AssetClass.INFOGRAPHIC:
+            problems.append(
+                "LISTING_HERO_IS_AN_INFOGRAPHIC: charts, stitch maps and size cards belong "
+                "later in the gallery. The hero answers 'what will I have made', and a "
+                "diagram answers 'how' to somebody who has not decided to care yet")
+
+    # #59 on every frame, not only the hero (C-69). The pixel rules run on each rendered
+    # frame at listing and thumbnail scale, and the box rules on the layout the renderer
+    # recorded -- title past the safe area, type over the chart, a footer over the line above
+    # it, type set too small. A text frame is mostly paper by design, so the hero's
+    # one-colour rule is replaced there by the whitespace rule: a frame with almost no ink.
+    from . import layout_qa as _lq
+
+    rendered = [f for f in frames if f.image is not None]
+    for f in rendered:
+        if not f.is_hero:
+            measured = _lq.inspect(f.image, position=f.position, expect_text=True)
+            for problem in measured.problems:
+                if problem.startswith("FRAME_FLAT") and measured.ink_share >= TEXT_FRAME_MIN_INK:
+                    continue
+                problems.append(f"LISTING_FRAME_{f.position}_{problem}")
+            if measured.ink_share < TEXT_FRAME_MIN_INK:
+                problems.append(
+                    f"LISTING_FRAME_{f.position}_FRAME_EMPTY: {measured.ink_share:.2%} ink; a "
+                    f"frame this empty says nothing at any size")
+        for problem in _lq.check_layout(f.image, position=f.position):
+            problems.append(f"LISTING_{problem}")
+    # Owner ruling 2026-10-19 (D-W4-VISROLE): essential customer-facing text must be readable
+    # at the size it is actually displayed. Each recorded line is classified from the frame
+    # plan (`frame_role.text_tier`, by slot); an essential line under
+    # `thumbnail.MIN_LEGIBLE_TEXT_PX` at its display size blocks. Secondary lines are
+    # reported by `frame_role.legibility`, not here.
+    from ..visual import frame_role as _fr
+
+    for f in rendered:
+        leg = _fr.legibility(f)
+        if leg is None:
+            continue    # LAYOUT_UNRECORDED is already reported by check_layout above
+        for ln in leg["essential_failing"]:
+            problems.append(
+                f"LISTING_FRAME_{f.position}_ESSENTIAL_TEXT_ILLEGIBLE: {ln['text']!r} "
+                f"({ln['slot']}) renders at {ln['px']}px at its {ln['display_px']}px display "
+                f"size; essential text must reach {leg['floor_px']}px")
+    # #61: "A size card must communicate scale clearly." Deterministic half: the card the
+    # renderer drew must carry a measurement -- the piece to scale beside a named reference,
+    # or the stated circumference. A rendered card titled "Finished size" with nothing under
+    # it communicates no scale, whatever an independent reviewer later says it looks like.
+    for f in rendered:
+        if f.role == "size" and not f.scale_shown:
+            problems.append(
+                f"LISTING_SIZE_CARD_NO_SCALE: frame {f.position} is a size card that draws no "
+                f"measurement and no scale reference (#61)")
+    ratios = {round(f.image.size[0] / f.image.size[1], 2) for f in rendered if f.image.size[1]}
+    if len(ratios) > 1:
+        problems.append(f"LISTING_FRAME_RATIOS_DISAGREE: {sorted(ratios)}")
+
+    if not frames:
+        # Appended rather than returned alone: a render that failed *and* produced no frames
+        # should report both reasons, and an early return here would throw away whatever the
+        # renderer had already recorded about why the images are unusable.
+        problems.append("LISTING_NO_IMAGES: a listing with no imagery cannot be published")
+        return problems
+    heroes = [f for f in frames if f.is_hero]
+    if len(heroes) != 1:
+        problems.append(f"LISTING_HERO_COUNT: expected exactly one hero, got {len(heroes)}")
+    elif heroes[0].asset_class is AssetClass.AI_LIFESTYLE_CONCEPT:
+        problems.append(
+            "LISTING_HERO_IS_A_CONCEPT: an AI lifestyle concept may not be the hero. A "
+            "picture of a thing nobody has made is not evidence the thing exists.")
+    positions = [f.position for f in frames]
+    if positions != sorted(positions) or len(set(positions)) != len(positions):
+        problems.append(f"LISTING_FRAME_ORDER: positions are not a clean sequence: {positions}")
+    if len(frames) > 10:
+        problems.append(f"LISTING_TOO_MANY_IMAGES: {len(frames)} exceeds Etsy's 10 slots")
+    roles = {f.role for f in frames}
+    for required in ("hero", "whats_included", "size", "materials"):
+        if required not in roles:
+            problems.append(f"LISTING_MISSING_FRAME: no {required!r} frame; section 7 "
+                            f"requires the listing to answer this before a buyer asks")
+    for f in frames:
+        if f.image is None:
+            problems.append(f"LISTING_FRAME_EMPTY: frame {f.position} ({f.role}) has no image")
+            continue
+        if f.image.width != f.image.height:
+            problems.append(
+                f"LISTING_FRAME_NOT_SQUARE: frame {f.position} is "
+                f"{f.image.width}x{f.image.height}; Etsy's grid crops to square")
+        if f.image.width < 1000:
+            problems.append(f"LISTING_FRAME_LOW_RES: frame {f.position} is "
+                            f"{f.image.width}px on the short edge")
+    return problems

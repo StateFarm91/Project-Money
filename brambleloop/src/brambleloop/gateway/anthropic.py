@@ -1,0 +1,1487 @@
+"""The real model provider, the ceiling that stands in front of it, and an honest gate.
+
+The owner supplied an Anthropic key on 2026-09-19. Three things had to be true before the
+system was allowed to treat that as "the model provider exists", and only the first is
+obvious.
+
+**A key is not a capability.** The first call this key made returned, verbatim, "Your credit
+balance is too low to access the Anthropic API." The key authenticates; the account cannot
+serve a request. A gate that checks whether an environment variable is set would have
+reported the model provider available and un-parked four requirements onto work that cannot
+run -- the queue advertising work nobody can start, which is the failure the build executor
+exists to prevent. So the gate reads a recorded *successful call*, not a variable, and
+`probe()` is what records one. When credits arrive the next probe succeeds and the gate opens
+with nobody having to remember.
+
+**The ceiling is enforced before the call, not discovered on the invoice.** The owner's
+standing ceiling is read from `finance.spend_policy` -- CA$100 a month since
+2026-09-20, raised from CA$25. It is checked from CostEntry rows -- the same
+rows-not-arguments rule used everywhere else -- and the estimate is deliberately pessimistic,
+because a ceiling that relies on an optimistic cost estimate is a ceiling that is crossed
+before anybody notices.
+
+**Prices are an assumption and are labelled one.** The per-token figures below are the
+provider's published list prices read at build time, converted at an assumed exchange rate.
+They are not a measurement of this account's billing, so every ledger row carries
+`price_basis: assumed` and the ceiling is compared against the padded estimate.
+"""
+from __future__ import annotations
+
+import json
+import math
+import os
+import threading
+import time
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
+
+from ..core.resilience import PermanentError, TransientError
+from .model_gateway import ModelResponse
+
+# Published list prices, USD per million tokens, read 2026-09-19. An assumption, labelled as
+# one on every row it produces.
+# The one price table. `routing.Tier` used to restate these and the two disagreed by a factor
+# of three on the deep tier, so every estimate in the system was a third of what the call
+# actually billed -- the expedition estimated CA$0.15 and cost CA$1.02. A price restated in a
+# second place is a price that will drift, and the one that bills is the one that is true.
+PRICES_USD_PER_MTOK: dict[str, tuple[float, float]] = {
+    "claude-opus-5": (15.0, 75.0),
+    "claude-sonnet-5": (3.0, 15.0),
+    # Both the alias the router uses and the dated identifier. The router asked for
+    # "claude-haiku-4-5", this table only held the dated form, and `.get(model, (0.0, 0.0))`
+    # priced every cheap-tier call at nothing: 80 concepts generated, CA$0.00 recorded,
+    # and a monthly ceiling that cheap work could never reach.
+    "claude-haiku-4-5": (1.0, 5.0),
+    "claude-haiku-4-5-20251001": (1.0, 5.0),
+}
+DEFAULT_MODEL = "claude-sonnet-5"
+
+# Assumed, not fetched. A rate this company does not control and does not measure.
+# Single source (core.fx): the reciprocal of the USD/CAD the ceiling check uses.
+from ..core.fx import ASSUMED_CAD_PER_USD as USD_TO_CAD  # noqa: E402
+
+# Applied to every estimate before it is checked against the ceiling. A ceiling that trusts an
+# optimistic estimate is crossed before anybody notices.
+ESTIMATE_PADDING = 1.25
+
+# The owner's standing ceiling, read from the policy rather than restated. It was written
+# here *and* in `routing`, which is the defect this file's own price comment names: a number
+# written twice is a number that will drift. Overridable downward by environment so it can be
+# lowered without a deploy, never raised silently past the authorised figure.
+def _policy_ceiling() -> float:
+    from ..finance.spend_policy import ceiling_cad
+
+    return ceiling_cad()
+
+# What one gallery image costs to look at, in input tokens. This number is used to refuse a
+# call before it is made, so it has to be no *smaller* than the truth -- an optimistic
+# estimate turns a ceiling into a suggestion.
+#
+# Wrong twice in the dangerous direction, and the second time is the instructive one.
+#
+# It was 800, from the provider's (width x height) / 750 rule against Etsy's 570-wide gallery
+# variant. The first production probe measured 1,562 for one image and a thirty-token prompt,
+# because what `observe.py` stores is `il_fullxfull` -- the full-size original, not the
+# thumbnail the arithmetic assumed. Raised to 2,000 from that measurement, which looked like
+# room above it.
+#
+# The first real analysis run then billed 126,518 input tokens for 25 images: about **5,000
+# tokens an image**, two and a half times the corrected figure. A single probe measured one
+# small image and generalised; the catalogue's galleries are larger than the one that
+# happened to be first. Both errors were the same shape -- an estimate derived from a rule
+# or a sample rather than from the workload -- and both went under, which is the direction
+# that turns a ceiling into a suggestion.
+#
+# 6,000 is the measured mean with a fifth above it, and it was found by the
+# reservation-versus-bill reconciliation the owner's spend policy asked for, on the first
+# run after that reconciliation existed. Three ways of being wrong about this number have now
+# been tried; the one that worked was measuring the actual work.
+IMAGE_TOKENS_ESTIMATE = 6000
+
+# One refusal should not lose a batch of observations. Also the practical limit on how much
+# of one listing's gallery is worth judging in a single question.
+MAX_IMAGES_PER_CALL = 8
+
+# W4-CLOSE5 (2026-10-20): the socket read timeout for one vision call. Text calls keep the
+# 60-second default; a vision call was given the same 60 seconds and, once REL2 (da658123)
+# asked for structured output, every `intel.gallery_analysis` attempt on b931d17 ran past it
+# ("TimeoutError: The read operation timed out", 9 of 9 attempts 2026-10-20 04:02-08:06Z, three
+# dead letters; the same cadence judged 4 images per run on 0417f35 without the schema). The API
+# fetches the image by URL, compiles the output schema's grammar on first use, and reasons
+# before it answers: a vision call's wait is legitimately longer than a text call's. The
+# official SDKs default to a 10-minute timeout; this is bounded tighter, and a run of calls is
+# bounded again by `intel.vision.ANALYSIS_RUN_SECONDS` so a batch stays inside the worker's
+# lease-renewal cap (`runtime.worker.MAX_HANDLER_SECONDS`).
+VISION_TIMEOUT_SECONDS = 180.0
+
+API_URL = "https://api.anthropic.com/v1/messages"
+API_VERSION = "2023-06-01"
+
+
+from ..agents.registry import BudgetExceeded as _LedgerBudgetExceeded  # noqa: E402
+
+
+class BudgetExceeded(PermanentError, _LedgerBudgetExceeded):
+    """The monthly model ceiling would be crossed by this call.
+
+    Also a `agents.registry.BudgetExceeded`, deliberately. Two unrelated classes of the same
+    name meant a caller written against the ledger's refusal (the worker, every gateway
+    caller, the runaway-loop guard) did not catch the pre-call refusal once the model gateway
+    started checking before the call on 2026-09-26: the control fired and the exception
+    escaped the handler built to stop on it. One refusal, one hierarchy.
+    """
+
+
+class AgentCeilingExceeded(BudgetExceeded):
+    """This agent's daily permission is spent. The month may still have room.
+
+    A subclass so every `except BudgetExceeded` already in the codebase keeps refusing, and so
+    the two can be told apart where the difference matters -- because they are different
+    facts. The monthly ceiling is the authorised budget and crossing it stops the company. An
+    agent's daily ceiling is a *permission*: the owner's ruling of 2026-09-25 is explicit that
+    per-agent ceilings are permissions rather than additive allocations, which is why
+    twenty-four agents declaring about CA$57 a day against a CA$100 month is not an
+    over-commitment. Hitting one means this agent is finished for today and the work resumes at
+    the next UTC day, so it is a pause rather than a defect, and the message says which
+    ceiling and what to do.
+    """
+
+
+class ProviderUnusable(PermanentError):
+    """The key authenticates and the account cannot serve a request."""
+
+
+class VisionGateRefused(ProviderUnusable):
+    """Refused by the owner activation gate (`paid_provider_gate`) before any network I/O.
+    `.code` names the reason (`not_activated_by_owner`, `no_budget_reservation`, ...)."""
+
+    def __init__(self, message: str, code: str = ""):
+        super().__init__(message)
+        self.code = code
+
+
+def provider_for(task_key: str, **kw) -> "AnthropicProvider":
+    """A provider on the tier the declared task routes to.
+
+    Added 2026-09-20 when reconciling routing against the owner's quality-first policy.
+    Four call sites were constructing providers with a hardcoded cheap model and never
+    consulting `routing.TASKS` at all -- so the declared tier for gallery observation said
+    `standard` and the code that made the call used `cheap`, for a day, on the owner's
+    second-highest spending priority. A table nothing reads is documentation.
+    """
+    from . import routing
+
+    _, tier = routing.route(task_key)
+    return AnthropicProvider(model=tier.model, **kw)
+
+
+def monthly_ceiling_cad() -> float:
+    """The ceiling in force. Environment may lower it; nothing may raise it.
+
+    Re-audit D-1: `float("nan")` parses and `min(nan, authorised)` is `nan`, against which
+    every comparison is False -- a NaN in the environment removed the ceiling altogether.
+    A value that is not a finite, positive amount is not a lowering anyone can have meant,
+    so it falls back to the authorised ceiling rather than disabling it.
+    """
+    import math
+
+    authorised = _policy_ceiling()
+    raw = (os.environ.get("BRAMBLELOOP_MODEL_MONTHLY_CEILING_CAD") or "").strip()
+    if not raw:
+        return authorised
+    try:
+        value = float(raw)
+    except ValueError:
+        return authorised
+    if not math.isfinite(value) or value <= 0:
+        return authorised
+    return min(value, authorised)
+
+
+def spent_this_month_cad(db, *, now: datetime | None = None) -> float:
+    """Ceiling-governed spend for the calendar month, counted from ledger rows.
+
+    Every kind the monthly ceiling governs (`routing.counts_against_monthly_ceiling`): model,
+    vision and image renders alike, plus any kind not explicitly assigned to another ceiling.
+    It read only `routing.COST_KIND` rows, so image renders -- which the policy puts inside this same
+    CA$ month -- were invisible to it (RC1 audit B2).
+    """
+    from sqlalchemy import select
+
+    from ..core.models import CostEntry
+    from . import routing
+
+    now = now or datetime.now(timezone.utc)
+    with db.session() as s:
+        rows = list(s.scalars(select(CostEntry).where(routing.ceiling_kind_filter())))
+    total = 0.0
+    for row in rows:
+        at = row.at if row.at.tzinfo else row.at.replace(tzinfo=timezone.utc)
+        if (at.year, at.month) == (now.year, now.month):
+            try:
+                amount = float(row.amount_cad)
+            except (TypeError, ValueError, OverflowError):
+                raise BudgetExceeded("company cost ledger has an invalid amount; reconciliation required") from None
+            if not math.isfinite(amount) or amount < 0:
+                raise BudgetExceeded("company cost ledger has an invalid or negative amount; reconciliation required")
+            total += amount
+    return round(total, 6)
+
+
+def _price_table(model: str) -> tuple[str, tuple[float, float]] | None:
+    """(provider, (in, out) US$/Mtok) for a priced model of ANY routed provider, or None.
+
+    S2 review 6957356475: the ceiling ledger prices each call by the provider that serves it.
+    Before, only this module's table was read, so an OpenAI model was refused as unpriced and
+    logged as `anthropic`."""
+    if model in PRICES_USD_PER_MTOK:
+        return "anthropic", PRICES_USD_PER_MTOK[model]
+    from . import openai_chat
+
+    if model in openai_chat.PRICES_USD_PER_MTOK:
+        return openai_chat.NAME, openai_chat.PRICES_USD_PER_MTOK[model]
+    return None
+
+
+def provider_of_model(model: str) -> str | None:
+    """The provider whose price table holds `model`, or None for an unpriced model."""
+    found = _price_table(model)
+    return found[0] if found else None
+
+
+def estimate_cad(model: str, *, input_tokens: int, output_tokens: int) -> float:
+    """What a call of this shape is expected to cost, padded on purpose."""
+    found = _price_table(model)
+    prices = found[1] if found else None
+    if prices is None:
+        raise BudgetExceeded(
+            f"{model!r} has no price on file, so its cost cannot be checked against the "
+            f"ceiling. An unpriced call is an unbounded one")
+    in_usd, out_usd = prices
+    usd = (input_tokens / 1_000_000) * in_usd + (output_tokens / 1_000_000) * out_usd
+    return round(usd * USD_TO_CAD * ESTIMATE_PADDING, 6)
+
+
+def agent_daily_ceiling(db, agent: str, *, now: datetime | None = None) -> dict | None:
+    """This agent's daily permission and what it has spent against it today.
+
+    `None` when the name has no `Agent` row. That is not a ceiling of zero and it is not a
+    ceiling of infinity -- it is a spender the registry has never heard of, which production
+    has four of (`gateway`, `publishing`, `intel`, and whatever gets added next). Inventing a
+    ceiling for them here would be enforcing a number nobody authorised; reporting the absence
+    is what `spend_report.per_agent_today` already does, under
+    `spenders_with_no_agent_row`.
+    """
+    from ..agents.registry import PermissionDenied, Registry
+
+    if not agent:
+        return None
+    registry = Registry(db)
+    try:
+        row = registry.get(agent)
+    except PermissionDenied:
+        return None
+    ceiling = float(row.daily_cost_ceiling_cad or 0.0)
+    if not math.isfinite(ceiling):
+        # Re-audit D-1 (same pattern): a NaN or infinite permission compares False against
+        # every spend, which would grant unlimited spend. Nobody authorised that, so the
+        # permission reads as zero and every call from this agent is refused.
+        return {"agent": agent, "daily_ceiling_cad": 0.0,
+                "spent_today_cad": registry.spend_today(agent, now=now)}
+    if ceiling <= 0:
+        # W4-FINHEALTH: a registered agent declared at CA$0 (`learn`, `coo`, `laura`) holds a
+        # permission of zero, not no permission. This returned `None` -- the "never heard of
+        # this agent" answer -- so `check_budget` skipped the agent check entirely and a
+        # zero-ceiling agent's first call was made and billed, refused only afterwards by
+        # `ModelGateway`'s post-hoc check (and not at all on `spend_report.record` paths).
+        # `/api/verify` calls a CA$0 ceiling "refused, safe"; this is what makes that true:
+        # any call with a positive estimate is refused before it is made. Not a ceiling
+        # change -- the declared value is unchanged; only its enforcement now matches it.
+        return {"agent": agent, "daily_ceiling_cad": 0.0,
+                "spent_today_cad": registry.spend_today(agent, now=now)}
+    return {"agent": agent, "daily_ceiling_cad": ceiling,
+            "spent_today_cad": registry.spend_today(agent, now=now)}
+
+
+def check_budget(db, *, model: str, input_tokens: int, max_tokens: int,
+                 now: datetime | None = None, uncommitted_cad: float = 0.0,
+                 agent: str = "", purpose: str = "", job_id: int | None = None,
+                 reserve: bool = True, holder: str | None = None,
+                 ttl_seconds: int | None = None, product_slug: str = "",
+                 evidence_ref: str = "") -> dict:
+    """Refuse a call that would cross the ceiling, before it is made.
+
+    Assumes the model writes its entire output allowance. It usually does not, and budgeting
+    for the usual case is how a ceiling becomes a target.
+
+    Three things are checked, in the order the owner's ruling of 2026-09-25 puts them in:
+
+    1. **The authorised monthly ceiling**, which is the budget. It counts the billed month,
+       this caller's own unbilled spend, and every *other* caller's live reservation.
+    2. **This agent's daily ceiling**, which is a permission rather than a share of the
+       budget. `AgentCeilingExceeded` says which ceiling and that the work resumes tomorrow.
+    3. Nothing else. A purpose's monthly allocation is `spend_policy.may_spend`'s job and is
+       asked once per batch by the handler, not once per call.
+
+    `uncommitted_cad` is money this caller has already spent and has not yet written to a
+    cost row. It exists because the ceiling is read from rows and the callers that spend the
+    most write one row per *run*, not one per call: `intel.vision` judges up to a page of
+    gallery images in a loop and bills once at the end, and `visual.inspect` makes two vision
+    calls and bills once. Every call after the first in those loops was therefore checked
+    against the month as it stood before the loop began -- so a guard whose whole purpose is
+    to refuse before the call was, in practice, refusing only the first call of each batch.
+    Production ran about twenty-one vision calls behind one ledger row on 2026-09-24.
+
+    A caller that passes nothing gets the old behaviour, which is correct for a caller that
+    bills each call. A caller that batches must pass what it is holding, and the amount is
+    its running *actual* spend plus what it has estimated for calls still unbilled -- the
+    same pessimism the padding applies, for the same reason.
+
+    **The cross-process half is now closed too, and it is a row rather than an argument.** A
+    live reservation from another holder is counted against the month, and this call writes
+    one of its own before returning, which the caller releases when it bills
+    (`release_reservation`). An unreleased reservation expires, so a holder that dies holds
+    budget for its TTL rather than for the rest of the month -- `finance.reservations` has the
+    reasoning. `reserve=False` is for a caller that only wants the arithmetic, and it is not
+    what a caller about to spend money should pass.
+
+    This is the token-priced front door. The arithmetic lives in `check_budget_cad`, which
+    takes an estimate in dollars, so a purchase that is not priced per token -- an image, at
+    `ImageProvider.cad_per_image` -- passes through the same ceiling, the same permission and
+    the same reservation table rather than through a second mechanism beside them.
+    """
+    try:
+        estimate = estimate_cad(model, input_tokens=input_tokens, output_tokens=max_tokens)
+    except BudgetExceeded as exc:
+        from ..finance import spend_report
+
+        spend_report.record_refusal(
+            db, agent=agent, ceiling_cad=monthly_ceiling_cad(), estimate_cad=0.0,
+            committed_cad=0.0, which="unpriced_model", why=str(exc), purpose=purpose,
+            now=now, detail={"model": model, "provider": "unpriced", "job_id": job_id})
+        raise
+    return check_budget_cad(db, estimate_cad=estimate, model=model,
+                            provider=provider_of_model(model) or "anthropic",
+                            now=now, uncommitted_cad=uncommitted_cad, agent=agent,
+                            purpose=purpose, job_id=job_id, reserve=reserve, holder=holder,
+                            ttl_seconds=ttl_seconds, product_slug=product_slug,
+                            evidence_ref=evidence_ref)
+
+
+class NoQuestionRefused(BudgetExceeded):
+    """F-328: a paid call that names neither the question it answers nor the evidence it
+    serves. Money spent to look busy is refused at any budget (`spend_policy.WASTE`)."""
+
+
+class SystematicFailureRefused(BudgetExceeded):
+    """F-309: this handler's current method has a floor that failed every time it was asked.
+    A `BudgetExceeded`, so every caller already built to stop a run on a refusal stops."""
+
+
+def check_budget_cad(db, *, estimate_cad: float, agent: str = "", purpose: str = "",
+                     job_id: int | None = None, uncommitted_cad: float = 0.0,
+                     holder: str | None = None, ttl_seconds: int | None = None,
+                     now: datetime | None = None, reserve: bool = True,
+                     model: str = "", provider: str = "", product_slug: str = "",
+                     evidence_ref: str = "", agent_daily_cap_cad: float | None = None) -> dict:
+    """The ceiling check itself, on an estimate already expressed in dollars.
+
+    Factored out of `check_budget` on 2026-09-26 so that image generation could stop being
+    "outside this mechanism" (`tests/test_model_spend_paths.py` pinned nine render sites as
+    exactly that). The order and the meaning of the checks are unchanged:
+
+    1. the authorised month (billed + this caller's unbilled + others' live reservations);
+    2. a provider's own ceiling, when the owner has set one in
+       `spend_policy.PROVIDER_CEILINGS_CAD` -- an empty table binds nothing and says so;
+    3. this agent's daily permission;
+    4. a reservation written down before the call.
+
+    **Atomic (RC1 audit B4).** Steps 1-4 run under `budget_lock` -- a process lock plus a
+    Postgres advisory transaction lock or the SQLite write lock -- and the reservation is
+    inserted through the locked session, so no two holders can both read room that only one
+    of them fits in. **Own reservations count (B5):** the holder's own open reservations are
+    added to `uncommitted_cad`.
+
+    **`agent_daily_cap_cad` (W4-PLACT)** can only TIGHTEN step 3: the agent's day is checked
+    against min(its registry ceiling, this cap), inside the same lock as the reservation. It
+    exists for an owner authorisation narrower than an agent's ceiling (Private Laura's
+    `BRAMBLELOOP_LAURA_PRIVATE_DAILY_CAD` on agent `laura_private`), which was read and then
+    reserved separately (security review L1). A non-finite or negative cap reads as CA$0, and
+    with a cap given an agent that has no registry row is refused rather than unchecked.
+
+    **Every refusal leaves a row.** Each raise path writes `spend.refused` to the audit log
+    with the ceiling, the estimate and what was committed, because a guard whose refusals
+    cannot be counted is a guard nobody can tell from one that never fires.
+    """
+    from ..laura.private.firewall import reject_private
+
+    # PRIV (spec/07 Ruling 2; PRIVATE_LAURA_TRACE Step 4): owner-private values never steer a
+    # spend decision. Stdlib-only firewall; refuses tagged input, carries no content.
+    reject_private((agent, purpose, evidence_ref, product_slug, model, provider, job_id,
+                    holder), context="spend")
+
+    from ..finance import reservations
+
+    if reserve and not (str(purpose or "").strip() or str(evidence_ref or "").strip()):
+        # F-328 (No Spend To Look Busy): every reservation -- i.e. every call about to spend
+        # -- names the question it answers (`purpose`: a declared task or pinned prompt) or the
+        # evidence it serves (`evidence_ref`). A call with neither is refused before any money
+        # moves, and the refusal is recorded like every other.
+        from ..finance import spend_report
+
+        why = ("a paid call must name the question it answers (purpose) or the evidence it "
+               "serves (evidence_ref); this one named neither, so it is spend with nothing "
+               "on the other side of it and is refused at any budget")
+        spend_report.record_refusal(
+            db, agent=agent, ceiling_cad=monthly_ceiling_cad(), estimate_cad=estimate_cad,
+            committed_cad=0.0, which="no_question", why=why, purpose="", now=now,
+            detail={"model": model, "provider": provider, "job_id": job_id})
+        raise NoQuestionRefused(why)
+    if reserve:
+        # F-309: the shared systematic-failure breaker. A handler whose current method has a
+        # floor that never once passed is refused before the reservation, like any ceiling.
+        from ..finance import systematic
+
+        blocked = systematic.refusal(db, purpose)
+        if blocked:
+            from ..finance import spend_report
+
+            spend_report.record_refusal(
+                db, agent=agent, ceiling_cad=monthly_ceiling_cad(),
+                estimate_cad=estimate_cad, committed_cad=0.0, which="systematic_failure",
+                why=blocked, purpose=purpose, now=now,
+                detail={"model": model, "provider": provider, "job_id": job_id})
+            raise SystematicFailureRefused(blocked)
+    me = holder or reservations.holder_id()
+    decided: dict = {}
+    # RC1 audit B4: the read of what is committed and the write of this call's claim are one
+    # atomic step under `budget_lock`. They were two -- `outstanding()` then `reserve()` --
+    # and two holders that both read CA$40 committed of a CA$100 month both reserved CA$60.
+    # The lock is never held across a provider call: only across this arithmetic and one
+    # INSERT. A refusal is *recorded* after the lock is released (its audit row is a write,
+    # and on SQLite a second writer inside the lock would wait on the lock itself).
+    with budget_lock(db) as locked_session:
+        decided = _decide_and_reserve(
+            db, locked_session, me=me, estimate_cad=estimate_cad, agent=agent,
+            purpose=purpose, job_id=job_id, uncommitted_cad=uncommitted_cad,
+            ttl_seconds=ttl_seconds, now=now, reserve=reserve, model=model,
+            provider=provider, product_slug=product_slug,
+            agent_daily_cap_cad=agent_daily_cap_cad)
+    refusal = decided.pop("_refusal", None)
+    if refusal is not None:
+        from ..finance import spend_report
+
+        exc_type, record = refusal
+        spend_report.record_refusal(db, now=now, **record)
+        raise exc_type(record["why"])
+    if reserve:
+        # F-307: the next paid call in this job scope was allowed on this estimate; if its
+        # worker dies mid-call, that is what the orphan is counted at (never zero).
+        from . import paid_calls, paid_provider_gate
+
+        paid_calls.note_reservation(decided)
+        # P0-PAID-PROVIDER-OWNER-GATE: the accounting evidence a paid vision call in this
+        # context is allowed on (`AnthropicProvider.see` consumes it at the gate).
+        paid_provider_gate.note_budget(db, decided)
+    return decided
+
+
+# The budget lock (RC1 audit B4). One process-wide re-entrant lock serialises threads of this
+# process, and a database lock serialises processes: a transaction-scoped Postgres advisory
+# lock, or SQLite's write lock (`BEGIN IMMEDIATE`) on a file database. An in-memory SQLite
+# database is private to this process, so the process lock is the whole of it there. A
+# dialect with neither is refused rather than checked without a lock: an unserialised
+# ceiling is the defect this exists to close.
+BUDGET_LOCK_KEY = 734543611
+_PROCESS_BUDGET_LOCK = threading.RLock()
+_BUDGET_LOCK_ACTIVE: ContextVar[bool] = ContextVar("budget_lock_active", default=False)
+
+
+def budget_lock_held() -> bool:
+    """Whether this execution context already owns a budget transaction."""
+    return _BUDGET_LOCK_ACTIVE.get()
+
+
+def _sqlite_in_memory(engine) -> bool:
+    database = str(engine.url.database or "")
+    return database in ("", ":memory:") or "mode=memory" in str(engine.url)
+
+
+@contextmanager
+def budget_lock(db):
+    """Hold the spend ceiling's lock for one check-and-reserve. Yields the locked session."""
+    from sqlalchemy import text
+
+    if budget_lock_held():
+        raise BudgetExceeded("nested budget transaction refused; retry outside the existing lock")
+    with _PROCESS_BUDGET_LOCK:
+        token = _BUDGET_LOCK_ACTIVE.set(True)
+        try:
+            with db.session() as session:
+                engine = session.get_bind()
+                dialect = engine.dialect.name
+                if dialect == "postgresql":
+                    session.execute(text("SELECT pg_advisory_xact_lock(:key)"),
+                                    {"key": BUDGET_LOCK_KEY})
+                elif dialect == "sqlite":
+                    if not _sqlite_in_memory(engine):
+                        session.execute(text("BEGIN IMMEDIATE"))
+                else:
+                    raise BudgetExceeded(
+                        f"the spend ceiling has no lock for the {dialect!r} dialect, so a check "
+                        f"and its reservation cannot be made atomic. Refused rather than checked "
+                        f"without one")
+                yield session
+        finally:
+            _BUDGET_LOCK_ACTIVE.reset(token)
+
+
+def _decide_and_reserve(db, locked_session, *, me: str, estimate_cad, agent: str,
+                        purpose: str, job_id, uncommitted_cad, ttl_seconds, now, reserve: bool,
+                        model: str, provider: str, product_slug: str,
+                        agent_daily_cap_cad: float | None = None) -> dict:
+    """The four checks and the reservation, run while `budget_lock` is held.
+
+    Returns the budget dict, or a dict carrying `_refusal` -- (exception type, record) --
+    that the caller records and raises once the lock is released.
+    """
+    from ..finance import reservations, spend_policy, spend_report
+
+    import math
+
+    spent = spent_this_month_cad(db, now=now)
+    held = reservations.outstanding(db, exclude_holder=me, now=now)
+    # RC1 audit B5: this holder's *own* live reservations count too. They were excluded on
+    # the theory that a caller declares its in-flight spend through `uncommitted_cad`, so a
+    # caller that did not -- a loop that reserved and released late -- was granted
+    # CA$40 ten times against a CA$100 month. Counting them can only refuse more, never less.
+    own_open = float(held.get("own_holder_cad") or 0.0)
+    mine = round(max(0.0, float(uncommitted_cad or 0.0)) + own_open, 6)
+    others = held
+    # A crashed, released or expired image/vision attempt may still be billable.
+    # Until it can be reconciled to the ledger, retain its uncovered estimate even
+    # when that conservatively counts a booked call twice.
+    from .paid_provider_gate import uncovered_company_exposure
+    orphan_exposure = uncovered_company_exposure(locked_session, now=now)
+    committed = round(spent + mine + others["cad"] + orphan_exposure, 6)
+    ceiling = monthly_ceiling_cad()
+
+    def _refusal(exc_type, which: str, message: str, *, estimate: float, **extra) -> dict:
+        record = {"agent": agent, "ceiling_cad": extra.pop("ceiling", ceiling),
+                  "estimate_cad": estimate,
+                  "committed_cad": extra.pop("committed", committed),
+                  "which": which, "why": message, "purpose": purpose,
+                  "detail": {"model": model, "provider": provider, "job_id": job_id,
+                             "uncovered_paid_exposure_cad": orphan_exposure, **extra}}
+        return {"_refusal": (exc_type, record)}
+
+    try:
+        raw_estimate = float(estimate_cad)
+    except (TypeError, ValueError):
+        raw_estimate = float("nan")
+    # Certification C-36: NaN compares False against every ceiling and a negative estimate
+    # subtracts from what is committed, so either would pass a spent month. Refused, with
+    # the refusal recorded like every other (the raw value in detail, 0 in the number).
+    if not math.isfinite(raw_estimate) or raw_estimate < 0:
+        message = (f"the estimate {estimate_cad!r} is not a finite, non-negative amount, so "
+                   f"it cannot be checked against any ceiling. Refused rather than read as "
+                   f"free")
+        return _refusal(BudgetExceeded, "invalid_estimate", message, estimate=0.0,
+                        raw_estimate=repr(estimate_cad)[:40])
+    estimate = round(raw_estimate, 6)
+    # Re-audit D-1: a ceiling that is not a finite, positive number compares False against
+    # every committed amount. `monthly_ceiling_cad` already falls back to the authorised
+    # figure; this refuses outright should anything else ever hand this check a bad ceiling.
+    if not isinstance(ceiling, (int, float)) or not math.isfinite(ceiling) or ceiling <= 0:
+        return _refusal(BudgetExceeded, "invalid_ceiling",
+                        f"the monthly ceiling {ceiling!r} is not a finite, positive amount, so "
+                        f"no call can be checked against it. Refused rather than read as no "
+                        f"ceiling", estimate=estimate, ceiling=0.0)
+    # Other holders' live claims, by the dimension each ceiling is about (C-32/C-33). The
+    # monthly step already counted them; the agent and provider steps read only billed rows
+    # plus this caller's own, so two concurrent holders each fit and together overshot.
+    others_agent_cad = round(sum(r["amount_cad"] for r in others["reservations"]
+                                 if agent and r.get("agent") == agent), 6)
+    others_provider_cad = round(sum(r["amount_cad"] for r in others["reservations"]
+                                    if provider and r.get("provider") == provider), 6)
+
+    # 1. The authorised month. This is the budget, and it is the one that stops the company.
+    if committed + estimate > ceiling:
+        return _refusal(
+            BudgetExceeded, "monthly_ceiling",
+            f"this call is estimated at CA${estimate:.4f} against CA${committed:.4f} "
+            f"already committed this month (CA${spent:.4f} billed, "
+            f"CA${mine:.4f} spent or reserved by this caller and not yet billed "
+            f"(CA${own_open:.4f} of it in this holder's own open reservations), "
+            f"CA${others['cad']:.4f} reserved right now by {others['count']} other "
+            f"caller(s), and CA${orphan_exposure:.4f} in uncovered paid attempts; "
+            f"some of these may also be booked) and a ceiling of CA${ceiling:.2f}. Refused before the call rather "
+            f"than found on the invoice. The way past this is the owner raising the ceiling "
+            f"with measured usage attached, not a cheaper model", estimate=estimate)
+
+    # 2. A provider's own ceiling, if the owner has set one. Read from this month's ledger by
+    #    provider; an empty table is no cap rather than a cap of zero.
+    provider_ceiling = spend_policy.PROVIDER_CEILINGS_CAD.get(provider) if provider else None
+    provider_spent = None
+    if provider_ceiling is not None:
+        by_provider = spend_report.what_it_bought(db, now=now)["by_provider"]
+        provider_spent = float((by_provider.get(provider) or {}).get("cad") or 0.0)
+        if provider_spent + mine + others_provider_cad + estimate > provider_ceiling:
+            return _refusal(
+                BudgetExceeded, "provider_ceiling",
+                f"provider {provider!r} has spent CA${provider_spent:.4f} of its "
+                f"CA${provider_ceiling:.2f} monthly ceiling (spend_policy."
+                f"PROVIDER_CEILINGS_CAD), other callers hold CA${others_provider_cad:.4f} "
+                f"in live reservations against it, and this call is estimated at "
+                f"CA${estimate:.4f}. "
+                f"Refused before the call. The monthly ceiling still has "
+                f"CA${round(ceiling - committed, 2):.2f}; this is the owner's cap on this "
+                f"provider, not the budget", estimate=estimate,
+                ceiling=provider_ceiling,
+                committed=round(provider_spent + mine + others_provider_cad, 6))
+
+    # 2b. W4-LISTREADY (D-W4-LAUNCH-VISION-BATCH): the owner's batch-scoped authorisation of
+    #     the Launch-0 image review. None unless this call is one of that batch's own review
+    #     calls (`finance.launch_review.grant_in`); then the batch's total cap, daily cap,
+    #     open/expiry state and frame scope are read here, under this lock, in the step that
+    #     writes the reservation. The month above is unchanged and still checked first.
+    from ..finance import launch_review
+
+    review_grant = launch_review.grant_in(locked_session, agent=agent, purpose=purpose,
+                                          estimate=estimate, now=now)
+    if review_grant is not None and review_grant.get("refused"):
+        return _refusal(BudgetExceeded, "launch_review_batch",
+                        f"{review_grant['refused']}. Refused before the call; nothing was "
+                        f"sent", estimate=estimate)
+
+    # 3. This agent's daily permission. After the month, because the month is authoritative
+    #    and a per-agent ceiling is a permission rather than a slice of it.
+    permission = agent_daily_ceiling(db, agent, now=now)
+    agent_which = "agent_daily_ceiling"
+    if review_grant is not None and permission is not None:
+        # This call only: the agent's day is held to the batch's daily cap instead of its
+        # registry ceiling. The registry value is untouched; every other call reads it.
+        permission = {**permission, "daily_ceiling_cad": review_grant["daily_cap_cad"],
+                      "agent_ceiling_cad": permission["daily_ceiling_cad"],
+                      "raised_by": f"{review_grant['batch_id']} (owner, batch-scoped)"}
+        agent_which = "launch_review_batch_daily"
+    if agent_daily_cap_cad is not None:
+        # W4-PLACT: an owner authorisation narrower than the agent's ceiling, enforced here,
+        # under the lock, so the check and the reservation are one step (security review L1).
+        try:
+            cap = float(agent_daily_cap_cad)
+        except (TypeError, ValueError):
+            cap = 0.0
+        if not math.isfinite(cap) or cap < 0:
+            cap = 0.0
+        if permission is None:
+            permission = {"agent": agent, "daily_ceiling_cad": 0.0, "spent_today_cad": 0.0,
+                          "unregistered": True}
+        if cap < permission["daily_ceiling_cad"]:
+            permission = {**permission, "daily_ceiling_cad": round(cap, 6),
+                          "agent_ceiling_cad": permission["daily_ceiling_cad"],
+                          "tightened_by": "owner_daily_authorisation"}
+            agent_which = "purpose_daily_authorisation"
+    if permission is not None:
+        today = permission["spent_today_cad"]
+        allowed = permission["daily_ceiling_cad"]
+        if today + mine + others_agent_cad + estimate > allowed:
+            return _refusal(
+                AgentCeilingExceeded, agent_which,
+                f"agent {agent!r} may spend CA${allowed:.2f} a day and has committed "
+                f"CA${today + mine + others_agent_cad:.4f} of it; this call is estimated "
+                f"at CA${estimate:.4f}. Refused before the call (CA${today:.4f} billed, "
+                f"CA${mine:.4f} unbilled in this run, CA${others_agent_cad:.4f} reserved "
+                f"by other callers for this agent). This is a daily permission, not the "
+                f"budget -- the month still "
+                f"has CA${round(ceiling - committed, 2):.2f} of headroom -- so this agent's "
+                f"work resumes at the next UTC day. To do more today, either lower the work "
+                f"this agent asks for (the cadence is derived from this ceiling, so it will "
+                f"follow) or have the owner raise the agent's ceiling in "
+                f"`agents.registry.DEFAULT_AGENTS`", estimate=estimate,
+                ceiling=allowed, committed=round(today + mine + others_agent_cad, 6))
+
+    # 4. Written down before the call -- and before the lock is released -- so the next
+    #    holder to take the lock reads it.
+    reservation_id = None
+    if reserve:
+        # `now` is threaded through deliberately. Without it the row's expiry is stamped from
+        # the wall clock while every reader of it is asking about `now`, so a caller that
+        # supplies a timestamp writes a reservation that reads as already expired -- a
+        # reservation that protects nothing, in exactly the callers that are most careful
+        # about which instant they mean.
+        # The product this reservation is held for (F-321): the caller's slug, else the
+        # running job's (`spend_report.attributed_to`), else shared. `SpendReservation` has no
+        # product column, so it rides in the detail beside the provider.
+        held_for, held_detail = spend_report.attribution(
+            product_slug, {"provider": provider} if provider else None)
+        held_detail["product_slug"] = held_for
+        reservation_id = reservations.reserve_in(
+            locked_session, amount_cad=estimate, holder=me, agent=agent, purpose=purpose,
+            model=model, job_id=job_id, now=now, detail=held_detail,
+            ttl_seconds=(reservations.DEFAULT_TTL_SECONDS if ttl_seconds is None
+                         else ttl_seconds))
+    if review_grant is not None and reserve:
+        # Counted against the batch in the same locked step, at the padded estimate, whether
+        # or not the call is ever billed: a bill-unknown call is never counted at less.
+        launch_review.record_in(locked_session, review_grant, estimate=estimate,
+                                reservation_id=reservation_id, now=now)
+
+    return {"spent_cad": spent, "committed_cad": committed, "ceiling_cad": ceiling,
+            "estimate_cad": estimate,
+            "headroom_cad": round(ceiling - committed - estimate, 6),
+            "uncommitted_cad": round(mine, 6),
+            "own_open_reservations_cad": round(own_open, 6),
+            "reserved_by_others_cad": others["cad"],
+            "reserved_by_others_count": others["count"],
+            "expired_unreleased_cad": others["expired_unreleased_cad"],
+            "agent_permission": permission,
+            "provider": provider,
+            "provider_ceiling_cad": provider_ceiling,
+            "provider_spent_cad": provider_spent,
+            "holder": me,
+            "reservation_id": reservation_id}
+
+
+def release_reservation(db, reservation_id: int | None, *,
+                        actual_cad: float | None = None,
+                        now: datetime | None = None) -> bool:
+    """Give back what `check_budget` reserved, with the bill when the caller has it.
+
+    Called in a `finally`, or immediately after the provider answers. A caller that forgets
+    is not a leak that lasts: the reservation expires. It is, though, a caller that holds
+    budget nobody is spending for up to five minutes, which is why
+    `reservations.sweep` records the abandonment instead of quietly tidying it away.
+
+    `now` exists because it did not, and the asymmetry was a defect rather than an omission.
+    `check_budget` takes an instant and stamps the reservation's `expires_at` from it; this
+    function could not take one, so it always compared against the wall clock. A caller that
+    reasons about a fixed instant -- a deterministic replay, a backfill, or a test -- wrote a
+    reservation at that instant and then released it against a different one, and
+    `reservations.release` correctly answered False: relative to the real clock the claim had
+    already expired. One quantity, time, living on two paths where only one of them could be
+    told which instant was meant.
+
+    In production nothing passes `now` and both paths read the same wall clock, which is why
+    the reservation signal has read zero since it deployed. That is the shape of this defect
+    family: right in the configuration everybody runs, wrong in the one that reasons about
+    time, and invisible until the two instants drift far enough apart.
+    """
+    from ..finance import reservations
+
+    return reservations.release(db, reservation_id, actual_cad=actual_cad, now=now)
+
+
+@dataclass
+class AnthropicProvider:
+    """A real provider, used only where a key exists and the ceiling has been checked."""
+
+    name: str = "anthropic"
+    model: str = DEFAULT_MODEL
+    timeout_seconds: float = 60.0      # text calls; a vision call uses VISION_TIMEOUT_SECONDS
+    cost_per_1k_input_cad: float = field(default=0.0)
+    cost_per_1k_output_cad: float = field(default=0.0)
+
+    def __post_init__(self) -> None:
+        # Refused rather than defaulted to zero. `_cost_for` below already says it -- "an
+        # unpriced call is an unbounded one" -- and this path silently disagreed with it,
+        # which is how a model the price table did not know billed CA$0.00 against a ceiling
+        # that counts dollars. Two code paths for one rule, and the silent one was the one
+        # the gateway actually used.
+        prices = PRICES_USD_PER_MTOK.get(self.model)
+        if prices is None:
+            raise BudgetExceeded(
+                f"{self.model!r} has no price on file, so what it spends cannot be counted "
+                f"against the ceiling. An unpriced call is an unbounded one")
+        in_usd, out_usd = prices
+        self.cost_per_1k_input_cad = round(in_usd / 1000 * USD_TO_CAD, 8)
+        self.cost_per_1k_output_cad = round(out_usd / 1000 * USD_TO_CAD, 8)
+
+    @staticmethod
+    def key() -> str:
+        return (os.environ.get("ANTHROPIC_API_KEY") or "").strip()
+
+    def complete(self, system: str, user: str, *, max_tokens: int) -> ModelResponse:
+        key = self.key()
+        if not key:
+            raise ProviderUnusable("no ANTHROPIC_API_KEY in this environment")
+
+        payload = json.dumps({
+            "model": self.model, "max_tokens": max_tokens,
+            **({"system": system} if system else {}),
+            "messages": [{"role": "user", "content": user}],
+        }).encode()
+        return self._guarded(payload, key, "anthropic.messages")
+
+    def see(self, system: str, prompt: str, image_urls: list[str], *,
+            max_tokens: int, json_schema: dict | None = None) -> ModelResponse:
+        """The same call with pictures in it. A model with eyes, not a browser.
+
+        This is the half of the old `browser_vision` gate that never needed a browser. The
+        sanctioned Etsy endpoint `listing_images` already returns every gallery image's URL,
+        so the thing standing between this company and image-level competitive evidence was
+        never infrastructure -- it was that nobody had written the call. Conflating the two
+        under one capability name kept twelve requirements parked behind a cloud browser
+        nobody had bought, when what they needed was already paid for.
+
+        The API takes the image by URL, so nothing is downloaded, re-hosted or stored here:
+        the observation is stored and the picture is not, which is also what keeps this on
+        the right side of "never copy a competitor's expression".
+        """
+        from . import paid_provider_gate as owner_gate
+        if owner_gate.current_call_scope(owner_gate.VISION) == owner_gate.PROBE and (
+                system or prompt != VISION_PROBE_PROMPT or len(image_urls) != 1
+                or self.model != VISION_PROBE_MODEL or json_schema is not None
+                or max_tokens != VISION_PROBE_MAX_TOKENS):
+            raise VisionGateRefused("probe activation covers only the fixed diagnostic request",
+                                    "probe_scope_mismatch")
+        key = self.key()
+        if not key:
+            raise ProviderUnusable("no ANTHROPIC_API_KEY in this environment")
+        if not image_urls:
+            raise ProviderUnusable(
+                "a vision call with no image is a text call that thinks it looked at "
+                "something, which is exactly the observation this system refuses to record")
+        if len(image_urls) > MAX_IMAGES_PER_CALL:
+            raise ProviderUnusable(
+                f"{len(image_urls)} images in one call, against a limit of "
+                f"{MAX_IMAGES_PER_CALL}. Batching past this makes one refusal lose every "
+                f"observation in the batch")
+
+        content: list[dict] = [_image_block(ref) for ref in image_urls]
+        content.append({"type": "text", "text": prompt})
+
+        # REL2: `json_schema` asks the API for structured output (`output_config.format`), so
+        # the answer is one JSON object of that schema rather than prose a parser refuses
+        # after the image has been paid for. (Assistant prefill is rejected by current models.)
+        payload = json.dumps({
+            "model": self.model, "max_tokens": max_tokens,
+            **({"system": system} if system else {}),
+            **({"output_config": {"format": {"type": "json_schema", "schema": json_schema}}}
+               if json_schema else {}),
+            "messages": [{"role": "user", "content": content}],
+        }).encode()
+        return self._guarded(payload, key, "anthropic.vision",
+                             timeout=max(self.timeout_seconds, VISION_TIMEOUT_SECONDS),
+                             gate=self._vision_gate(image_urls, max_tokens,
+                                                    prompt=prompt, system=system))
+
+    def _vision_gate(self, image_urls: list[str], max_tokens: int, *, prompt: str = "",
+                     system: str = ""):
+        """P0-PAID-PROVIDER-OWNER-GATE: every paid vision request passes
+        `paid_provider_gate.enforce` immediately before it is sent. The budget evidence is the
+        reservation `check_budget_cad` noted in this context (consumed here: one reservation,
+        one call); with none, the call is refused for want of accounting evidence."""
+        from . import paid_calls, paid_provider_gate as gate
+
+        db, held = gate.take_budget()
+        if db is None:
+            db = paid_calls.current_db()
+        held = held or {}
+        # Review U7 F1: this request's own worst case, computed here, never only the noted
+        # reservation's estimate (which may belong to an unrelated, smaller call). The gate
+        # then refuses a reservation smaller than the call (`reservation_underfunded`).
+        import math as _math
+
+        own = estimate_cad(
+            self.model,
+            # The same costing every production caller reserves with
+            # (`len(prompt) // 4 + IMAGE_TOKENS_ESTIMATE` per image, visual/inspect.py etc.).
+            input_tokens=(IMAGE_TOKENS_ESTIMATE * max(1, len(image_urls))
+                          + len(prompt or "") // 4),
+            output_tokens=max_tokens)
+        try:
+            noted = float(held.get("estimate_cad") or 0.0)
+        except (TypeError, ValueError):
+            noted = 0.0
+        estimate = max(own, noted) if _math.isfinite(noted) else own
+        scope = gate.current_call_scope(gate.VISION)
+        if scope == gate.PROBE:
+            try:
+                known = _a_known_image(db) if db is not None else ""
+            except Exception:  # noqa: BLE001 - an unreadable source is not authorized
+                known = ""
+            if not known or image_urls != [known]:
+                raise VisionGateRefused("probe requires the current audited diagnostic image",
+                                        "probe_scope_mismatch")
+        provider = self
+
+        def wrap(send, fp):
+            def gated():
+                def actual(r: ModelResponse) -> float:
+                    return round(r.input_tokens * provider.cost_per_1k_input_cad / 1000
+                                 + r.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+
+                def classify(exc: BaseException) -> str:
+                    # The HTTP transport may have sent work before a wrapped error.
+                    # No exception here proves the provider did not charge.
+                    return gate.UNCERTAIN
+                try:
+                    return gate.enforce(db, provider=gate.ANTHROPIC_VISION, scope=scope,
+                                        estimate_cad=estimate, fingerprint=fp,
+                                        reservation_id=held.get("reservation_id"), call=send,
+                                        classify=classify, actual=actual,
+                                        purpose="anthropic.vision")
+                except gate.PaidCallRefused as exc:
+                    raise VisionGateRefused(str(exc), exc.code) from None
+            return gated
+        return wrap
+
+    def _guarded(self, payload: bytes, key: str, effect: str, *,
+                 timeout: float | None = None, gate=None) -> ModelResponse:
+        """The one place a paid model request leaves the process (F-307/F-339).
+
+        Inside a job, `paid_calls.guarded` keys the request by job + request bytes +
+        occurrence, so a reclaimed or retried attempt replays the answer it already paid for
+        instead of paying again; outside a job it is a plain call."""
+        from . import paid_calls, routing
+
+        fp = paid_calls.fingerprint(effect, payload.decode("utf-8", "replace"))
+        send = ((lambda: self._send(payload, key)) if timeout is None
+                else (lambda: self._send(payload, key, timeout=timeout)))
+        return paid_calls.guarded(
+            effect, fp, gate(send, fp) if gate is not None else send,
+            encode=_encode_response, decode=_decode_response, classify=_classify_failure,
+            cost_kind=routing.COST_KIND, provider=self.name, model=self.model)
+
+    def _send(self, payload: bytes, key: str, *, timeout: float | None = None) -> ModelResponse:
+        """The HTTP request itself. Tests replace this; no test reaches the network.
+
+        `timeout` is the socket read timeout for this call (default `timeout_seconds`)."""
+        import urllib.error
+        import urllib.request
+
+        request = urllib.request.Request(API_URL, data=payload, method="POST")
+        request.add_header("x-api-key", key)
+        request.add_header("anthropic-version", API_VERSION)
+        request.add_header("content-type", "application/json")
+
+        started = time.time()
+        try:
+            # Delta review N-9: the keyed request never follows a redirect (the x-api-key
+            # header would be re-sent to the new location); a 3xx comes back as HTTPError.
+            from .venice import no_redirect_opener
+
+            with no_redirect_opener().open(
+                    request, timeout=timeout or self.timeout_seconds) as response:
+                body = json.loads(response.read().decode())
+        except urllib.error.HTTPError as exc:  # noqa: PERF203 - each status means something
+            detail = exc.read().decode(errors="replace")[:400]
+            if exc.code in (429, 500, 502, 503, 529):
+                raise TransientError(f"anthropic {exc.code}: {detail}") from exc
+            # 400 with a billing message is the state this account is actually in, and it is
+            # permanent until somebody buys credits. Retrying it is spend on nothing.
+            raise ProviderUnusable(f"anthropic {exc.code}: {detail}") from exc
+        except urllib.error.URLError as exc:
+            raise TransientError(f"anthropic unreachable: {exc.reason}") from exc
+
+        return self._read(body, started)
+
+    def _read(self, body: dict, started: float) -> ModelResponse:
+        text = "".join(block.get("text", "") for block in body.get("content", [])
+                       if block.get("type") == "text")
+        usage = body.get("usage")
+        if (not isinstance(usage, dict)
+                or type(usage.get("input_tokens")) is not int
+                or type(usage.get("output_tokens")) is not int
+                or usage["input_tokens"] < 0 or usage["output_tokens"] < 0
+                or usage["input_tokens"] + usage["output_tokens"] <= 0):
+            # The response arrived after transmission, but its cost is unknown.
+            # Do not coerce booleans, floats or strings into understated usage.
+            raise ValueError("anthropic response has invalid or missing usage")
+        return ModelResponse(
+            text=text, provider=self.name, model=body.get("model", self.model),
+            input_tokens=usage["input_tokens"],
+            output_tokens=usage["output_tokens"],
+            latency_ms=round((time.time() - started) * 1000, 2),
+            stop_reason=str(body.get("stop_reason") or ""))
+
+
+def _encode_response(r: ModelResponse) -> dict:
+    return {"text": r.text, "provider": r.provider, "model": r.model,
+            "input_tokens": int(r.input_tokens), "output_tokens": int(r.output_tokens),
+            "latency_ms": float(r.latency_ms), "stop_reason": str(r.stop_reason or "")}
+
+
+def _decode_response(d: dict) -> ModelResponse:
+    """A replayed answer: the text already paid for, with zero tokens because nothing was
+    sent. `replayed=True` is what keeps it from being billed or counted at an estimate."""
+    return ModelResponse(text=str(d.get("text") or ""), provider=str(d.get("provider") or ""),
+                         model=str(d.get("model") or ""), input_tokens=0, output_tokens=0,
+                         latency_ms=0.0, replayed=True,
+                         stop_reason=str(d.get("stop_reason") or ""))
+
+
+def _classify_failure(exc: BaseException) -> str:
+    """DECLINED when the provider refused before doing work (it did not bill: HTTP status,
+    unreachable); UNCERTAIN for a timeout or an unreadable 200 (whether it billed is
+    unknown). The same split `ModelGateway._billing` bills on."""
+    from . import paid_calls
+
+    if isinstance(exc, (TransientError, PermanentError)) and not isinstance(
+            exc, TimeoutError) and not getattr(exc, "billed_usage", None):
+        return paid_calls.DECLINED
+    return paid_calls.UNCERTAIN
+
+
+# ---------------------------------------------------------------------------
+# The probe: what makes the gate honest
+
+
+PROBE_PROMPT = "Reply with the single word: ok"
+PROBE_MAX_TOKENS = 8
+PROBE_MODEL = "claude-haiku-4-5-20251001"
+# The probe's recorded reason when it could not try at all (no key is configured). Read by
+# `runtime.worker.model_provider_down`: not an outage, so model jobs are not parked for it.
+NO_KEY_REASON = "no ANTHROPIC_API_KEY in this environment"
+
+
+def key_fingerprint(key: str | None = None) -> str | None:
+    """A non-secret tag for the configured key: the first 8 hex of its SHA-256, or None when
+    no key is set. Never the key; it only lets a reused probe prove it was made with the key
+    in force now (review M-D of 4b683993).
+
+    Persisted (review LOW of 0d2e6cbc, accepted as non-secret): `key_fp` is written to the
+    `model.probe` audit rows, which are retained and readable by operators. 32 bits of an
+    unsalted SHA-256 of a high-entropy API key reveal nothing usable about the key -- it
+    cannot be inverted or used to authenticate -- and tell the reader only whether two probes
+    were made with the same key. Do not lengthen it, salt-and-store it elsewhere, or record
+    any other part of the key."""
+    import hashlib
+
+    key = AnthropicProvider.key() if key is None else (key or "").strip()
+    return hashlib.sha256(key.encode()).hexdigest()[:8] if key else None
+
+
+def probe(db, *, provider: AnthropicProvider | None = None,
+          now: datetime | None = None, job_id: int | None = None) -> dict:
+    """Make the smallest possible real call and record whether it worked.
+
+    This is the difference between "a key is configured" and "a model provider exists". The
+    result is a row, so the gate reads evidence rather than an environment variable, and the
+    reason for a failure is recorded in the words the provider used rather than in a
+    paraphrase somebody will later argue with.
+    """
+    from ..core.models import AuditLog, CostEntry
+    from . import routing
+
+    provider = provider or AnthropicProvider(model=PROBE_MODEL)
+    record: dict = {"at": (now or datetime.now(timezone.utc)).isoformat(),
+                    "model": provider.model, "ok": False, "reason": "",
+                    "key_fp": key_fingerprint(provider.key())}
+
+    if not provider.key():
+        record["reason"] = NO_KEY_REASON
+    else:
+        budget: dict = {}
+        try:
+            budget = check_budget(db, model=provider.model,
+                                  input_tokens=len(PROBE_PROMPT) // 4,
+                                  max_tokens=PROBE_MAX_TOKENS, now=now,
+                                  agent="gateway", purpose="model.probe", job_id=job_id)
+            response = provider.complete("", PROBE_PROMPT, max_tokens=PROBE_MAX_TOKENS)
+        except BudgetExceeded as exc:
+            record["reason"] = f"budget: {exc}"
+        except (ProviderUnusable, TransientError) as exc:
+            # The provider's own words. A key that authenticates and an account that cannot
+            # serve a request are different failures, and only the message distinguishes them.
+            record["reason"] = str(exc)[:400]
+            from ..ops import funding
+
+            record["funding"] = funding.note(db, record["reason"])
+        else:
+            cost = round(
+                response.input_tokens * provider.cost_per_1k_input_cad / 1000
+                + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+            record.update({"ok": True, "reason": "",
+                           "input_tokens": response.input_tokens,
+                           "output_tokens": response.output_tokens,
+                           "cost_cad": cost, "headroom_cad": budget["headroom_cad"]})
+            # Through the accounting writer, so the probe's spend carries the same six
+            # dimensions as everything else. It wrote a bare CostEntry with the purpose in
+            # a JSON blob, which is how twenty-four of the first twenty-five rows in the
+            # live ledger came back `unattributed`.
+            from ..finance import spend_report
+
+            spend_report.record(
+                db, agent="gateway", amount_cad=cost, estimated_cad=budget["estimate_cad"],
+                purpose="model.probe", provider="anthropic", model=response.model,
+                department="gateway", job_id=job_id, kind=routing.COST_KIND,
+                tokens_in=response.input_tokens, tokens_out=response.output_tokens,
+                detail={"price_basis": "assumed", "latency_ms": record.get("latency_ms"),
+                        "attribution": "shared"})
+
+            # A call that got an answer is evidence the balance is no longer the blocker,
+            # which is the only honest way to close an owner action about money: by the
+            # thing working again rather than by somebody ticking it.
+            from ..ops import funding
+
+            record["funding"] = funding.cleared(db)
+        finally:
+            # Released whichever way the call went. A probe that failed still took the
+            # reservation, and a reservation nobody gives back holds budget until it expires.
+            release_reservation(db, budget.get("reservation_id"),
+                               actual_cad=record.get("cost_cad"))
+
+    with db.session() as s:
+        s.add(AuditLog(actor="orchestrator", action="model.probe", artifact=provider.model,
+                       detail=record))
+    return record
+
+
+def _image_block(reference: str) -> dict:
+    """One image content block, from a URL or from a file on this disk.
+
+    Competitor evidence arrives as URLs the sanctioned Etsy endpoint returns, and nothing is
+    downloaded or re-hosted: the observation is stored and the picture is not, which is also
+    what keeps benchmark study on the right side of "never copy a competitor's expression".
+
+    This company's *own* rendered assets are files, and #61 and #79 are checks on those. They
+    are read and sent inline rather than published somewhere first, because putting an
+    unreleased listing asset on a public URL to have it judged would be a release.
+    """
+    import base64
+    import mimetypes
+    from pathlib import Path
+
+    if reference.startswith(("http://", "https://")):
+        return {"type": "image", "source": {"type": "url", "url": reference}}
+
+    path = Path(reference)
+    if not path.is_file():
+        raise ProviderUnusable(
+            f"{reference!r} is neither a URL nor a file on this disk. An image reference "
+            f"that resolves to nothing would be sent as a question about no picture")
+    data = path.read_bytes()
+    media_type = _sniff(data) or mimetypes.guess_type(path.name)[0]
+    if media_type not in ("image/png", "image/jpeg", "image/gif", "image/webp"):
+        raise ProviderUnusable(
+            f"{reference!r} is not an image format the provider accepts "
+            f"(png, jpeg, gif, webp); its bytes read as {media_type or 'nothing known'}")
+    return {"type": "image",
+            "source": {"type": "base64", "media_type": media_type,
+                       "data": base64.standard_b64encode(data).decode()}}
+
+
+# The four formats' magic numbers, because a filename is not evidence about bytes.
+_MAGIC: tuple[tuple[bytes, str], ...] = (
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"GIF87a", "image/gif"),
+    (b"GIF89a", "image/gif"),
+)
+
+
+def _sniff(data: bytes) -> str | None:
+    """What this file actually is, from its first bytes rather than from its name.
+
+    The artifact store is content-addressed, so its files are named for their sha256 and
+    have no extension at all -- and `guess_type` on such a name returns nothing. Defaulting
+    that to `image/png` is a guess wearing a fact's clothes, and on 2026-09-22 it cost the
+    identity floor: the canonical portrait is a JPEG, it was recovered from the store as an
+    extensionless file, sent to the provider labelled `image/png`, refused, and the face
+    comparison came back `unmeasurable` on all five dimensions. The body reference happened
+    to be a PNG and worked, so half the identity check passed and half silently did not.
+
+    Sniffing is authoritative and the filename is the fallback, never the other way round.
+    A file whose bytes say nothing recognisable is refused rather than assumed.
+    """
+    for magic, media_type in _MAGIC:
+        if data.startswith(magic):
+            return media_type
+    # WEBP is RIFF....WEBP, so the tag is not at offset zero.
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
+# The probe image and what it asks. A picture whose answer is checkable without a model:
+# a 1x1 PNG is not usable as a URL source, so the probe uses the benchmark's own gallery
+# when one is known and refuses to claim vision otherwise. Set by `vision_probe`.
+VISION_PROBE_PROMPT = (
+    "Answer with one lowercase word and nothing else. Is this image a photograph or a "
+    "diagram? If you cannot see any image at all, answer: none")
+VISION_PROBE_MAX_TOKENS = 8
+VISION_PROBE_MODEL = "claude-haiku-4-5-20251001"
+VISION_PROBE_ACTION = "vision.probe"
+
+
+def vision_probe(db, *, image_url: str = "", provider: AnthropicProvider | None = None,
+                 now: datetime | None = None, job_id: int | None = None) -> dict:
+    """Look at one real picture and record whether that worked.
+
+    Separate from `probe()` on purpose. A text call succeeding says the account can serve a
+    request; it says nothing about whether this code can put an image in front of the model
+    and get an answer back, and those failed differently in practice -- a URL the provider
+    cannot fetch, an image format it refuses, a payload shape that is subtly wrong. A gate
+    that opened on the text probe would have advertised twelve requirements as startable on
+    the strength of a call that never carried a picture.
+
+    The answer is checked rather than merely received. "none" is the reply this prompt asks
+    for when no image arrived, and a reply of "none" is recorded as a failure with that as
+    the reason -- because a 200 response containing a model's apology is the shape a broken
+    vision path actually takes, and counting it as success is how an empty capability
+    reports itself available.
+    """
+    from ..core.models import AuditLog, CostEntry
+    from . import routing
+
+    provider = provider or AnthropicProvider(model=VISION_PROBE_MODEL)
+    image_url = image_url or _a_known_image(db)
+    record: dict = {"at": (now or datetime.now(timezone.utc)).isoformat(),
+                    "model": provider.model, "ok": False, "reason": "",
+                    "image_url": image_url}
+
+    # P0-PAID-PROVIDER-OWNER-GATE: no paid vision probe without the owner's activation of
+    # vision; a key is not one. Recorded as a named state, nothing sent.
+    from . import paid_provider_gate as gate
+
+    activation = gate.activation_state(db, gate.ANTHROPIC_VISION, gate.PROBE, now=now)
+    if not provider.key():
+        record["reason"] = "no ANTHROPIC_API_KEY in this environment"
+    elif not activation["active"]:
+        record.update(state=activation["reason"],
+                      reason=f"{activation['reason']}: {gate.KEY_IS_NOT_ACTIVATION}")
+    elif not image_url:
+        record["reason"] = (
+            "no image to look at. Nothing has been observed that carries a gallery URL, so "
+            "there is no picture in this system to prove the capability against -- and a "
+            "vision probe with no image is the thing it exists to refuse")
+    else:
+        budget: dict = {}
+        record["activation_id"] = activation["activation"]["id"]
+        try:
+            budget = check_budget(
+                db, model=provider.model,
+                input_tokens=len(VISION_PROBE_PROMPT) // 4 + IMAGE_TOKENS_ESTIMATE,
+                max_tokens=VISION_PROBE_MAX_TOKENS, now=now,
+                agent="gateway", purpose=VISION_PROBE_ACTION, job_id=job_id)
+            with gate.call_scope(gate.PROBE):
+                response = provider.see("", VISION_PROBE_PROMPT, [image_url],
+                                        max_tokens=VISION_PROBE_MAX_TOKENS)
+        except BudgetExceeded as exc:
+            record["reason"] = f"budget: {exc}"
+        except (ProviderUnusable, TransientError) as exc:
+            record["reason"] = str(exc)[:400]
+            if getattr(exc, "code", ""):
+                record["state"] = exc.code
+        else:
+            answer = (response.text or "").strip().lower().strip(".")
+            cost = round(
+                response.input_tokens * provider.cost_per_1k_input_cad / 1000
+                + response.output_tokens * provider.cost_per_1k_output_cad / 1000, 8)
+            record.update({"answer": answer,
+                           "input_tokens": response.input_tokens,
+                           "output_tokens": response.output_tokens,
+                           "cost_cad": cost, "headroom_cad": budget["headroom_cad"]})
+            if answer in ("photograph", "diagram"):
+                record["ok"] = True
+            else:
+                record["reason"] = (
+                    f"the call succeeded and the model did not describe an image: "
+                    f"{answer!r}. A 200 carrying an apology is what a broken vision path "
+                    f"looks like from here")
+            from ..finance import spend_report
+
+            spend_report.record(
+                db, agent="gateway", amount_cad=cost, estimated_cad=budget["estimate_cad"],
+                purpose=VISION_PROBE_ACTION, provider="anthropic", model=response.model,
+                department="gateway", job_id=job_id, kind=routing.COST_KIND,
+                tokens_in=response.input_tokens, tokens_out=response.output_tokens,
+                detail={"price_basis": "assumed", "attribution": "shared"})
+
+            # This call got an answer, so the balance is no longer the blocker.
+            #
+            # `funding.cleared` was reached only from `model.probe`, and the funding action
+            # is the only thing `funding.blocked` reads -- so a successful *vision* probe
+            # proved the credential worked and changed nothing. Live, 2026-09-23: the
+            # vision probe came back working at 20:37Z while the funding action stayed open
+            # on an 18:00Z `model.probe` failure, and both owner-authorised experiments
+            # went on refusing for three and a half hours with the evidence to unblock them
+            # already on file.
+            #
+            # A gate reading one specific probe rather than the thing the probe is evidence
+            # of. The clear belongs to any real call that got an answer, which is exactly
+            # what `funding.cleared`'s own docstring says it is for.
+            from ..ops import funding
+
+            record["funding"] = funding.cleared(db)
+        finally:
+            release_reservation(db, budget.get("reservation_id"),
+                               actual_cad=record.get("cost_cad"))
+
+    with db.session() as s:
+        s.add(AuditLog(actor="orchestrator", action=VISION_PROBE_ACTION,
+                       artifact=provider.model, detail=record))
+    return record
+
+
+def _a_known_image(db) -> str:
+    """One gallery image URL this system has actually observed, or "".
+
+    Deliberately reads observed evidence rather than carrying a URL as a constant: a probe
+    against a hardcoded picture proves the provider works and not that it works on the
+    images this company will actually ask it about.
+    """
+    from sqlalchemy import desc, select
+
+    from ..core.models import BenchmarkListing
+
+    with db.session() as s:
+        rows = list(s.scalars(
+            select(BenchmarkListing)
+            .where(BenchmarkListing.audit_state == "audited")
+            .order_by(desc(BenchmarkListing.last_seen)).limit(40)))
+        for row in rows:
+            for url in (row.detail or {}).get("image_urls") or []:
+                if url:
+                    return url
+    return ""
+
+
+def last_vision_probe(db) -> dict | None:
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        rows = list(s.scalars(select(AuditLog).where(
+            AuditLog.action == VISION_PROBE_ACTION)
+            .order_by(desc(AuditLog.id)).limit(1)))
+    return dict(rows[0].detail or {}) if rows else None
+
+
+def vision_usable(db) -> bool:
+    """The `image_vision` gate's condition: the owner has activated paid vision AND the latest
+    vision probe succeeded under an activation still in force (P0-PAID-PROVIDER-OWNER-GATE).
+    A key, or an old successful probe row, alone never opens it."""
+    from . import paid_provider_gate as gate
+
+    try:
+        state = last_vision_probe(db)
+    except Exception:  # noqa: BLE001 - unreadable evidence is a closed gate
+        return False
+    return gate.probe_activation_open(db, state, gate.ANTHROPIC_VISION, gate.VISION)
+
+
+# eng/stale-rebuild-loop (production ea3aacc7, paid_call_dedupe): the 6-hourly `model.probe`
+# cadence billed the identical request (fingerprint beff7c26565a) four times a day. The
+# paid-call store replays within one job only (`paid_calls`: key is per job), so a new cadence
+# job is a new question by construction -- the waste is asking a question already answered.
+# A successful probe younger than this is reused (an audited `model.probe` row marked
+# `reused`, nothing billed) unless something since contradicts it.
+MODEL_PROBE_REUSE = timedelta(hours=24)
+_CONTRADICTS = ("DECLINED", "FAILED_BILLED", "UNCERTAIN")
+
+
+def _probe_at(record: dict) -> datetime | None:
+    try:
+        at = datetime.fromisoformat(str(record.get("reused_from_at") or record.get("at")))
+    except (TypeError, ValueError):
+        return None
+    return at if at.tzinfo else at.replace(tzinfo=timezone.utc)
+
+
+def _contradicted_since(db, since: datetime) -> list[str]:
+    """Evidence after `since` that the provider may no longer serve: an open funding action,
+    or an Anthropic paid call that failed. Unreadable evidence counts as a contradiction."""
+    why: list[str] = []
+    try:
+        from ..ops import funding
+
+        if funding.blocked(db).get("blocked"):
+            why.append("funding: the Anthropic balance is recorded as spent")
+    except Exception:  # noqa: BLE001
+        why.append("funding state unreadable")
+    try:
+        from sqlalchemy import func, select
+
+        from .paid_calls import PaidCallRecord
+
+        with db.session() as s:
+            failed = int(s.scalar(select(func.count()).select_from(PaidCallRecord).where(
+                PaidCallRecord.effect.like("anthropic.%"),
+                PaidCallRecord.outcome.in_(_CONTRADICTS),
+                PaidCallRecord.at >= since)) or 0)
+        if failed:
+            why.append(f"{failed} Anthropic paid call(s) failed since the last probe")
+    except Exception:  # noqa: BLE001
+        why.append("paid-call record unreadable")
+    return why
+
+
+def probe_if_due(db, *, job_id: int | None = None, now: datetime | None = None,
+                 force: bool = False, **kw) -> dict:
+    """`probe`, unless a successful probe younger than MODEL_PROBE_REUSE is on file and
+    nothing since contradicts it -- then that answer is restated (audited, `reused`, CA$0).
+
+    `force` (an owner's on-demand run) always asks the provider. A failed or absent probe is
+    always re-asked: only a success is reused, so the gate never opens on a reuse."""
+    now = now or datetime.now(timezone.utc)
+    last = last_probe(db)
+    # Review M-D of 4b683993 (mirrors images.probe_if_due's activation-tied reuse): a success
+    # is reused only for the probe model, while a key is configured, and when that key is the
+    # one the success was made with (non-secret fingerprint). Otherwise the provider is asked
+    # -- with no key, `probe` records NO_KEY_REASON and the gate closes.
+    fp = key_fingerprint()
+    if not force and last and last.get("ok") and last.get("model") == PROBE_MODEL \
+            and fp is not None and last.get("key_fp") == fp:
+        at = _probe_at(last)
+        if at is not None and timedelta(0) <= now - at < MODEL_PROBE_REUSE \
+                and not _contradicted_since(db, at):
+            record = {k: v for k, v in last.items() if k not in ("why", "checked_at")}
+            record.update({
+                "reused": True, "reused_from_at": at.isoformat(),
+                "checked_at": now.isoformat(), "cost_cad": 0.0,
+                "why": (f"a successful probe at {at.isoformat()} is under "
+                        f"{int(MODEL_PROBE_REUSE.total_seconds() // 3600)} h old and nothing "
+                        f"since contradicts it; not re-billed")})
+            from ..core.models import AuditLog
+
+            with db.session() as s:
+                s.add(AuditLog(actor="orchestrator", action="model.probe",
+                               artifact=str(record.get("model") or PROBE_MODEL),
+                               detail=record))
+            return record
+    return probe(db, job_id=job_id, now=now, **kw)
+
+
+def last_probe(db) -> dict | None:
+    """The most recent probe result, or None if nobody has ever tried."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog
+
+    with db.session() as s:
+        rows = list(s.scalars(select(AuditLog).where(AuditLog.action == "model.probe")
+                              .order_by(desc(AuditLog.id)).limit(1)))
+    return dict(rows[0].detail or {}) if rows else None
+
+
+def usable(db) -> bool:
+    """Whether a real model call has actually succeeded. The gate's condition."""
+    state = last_probe(db)
+    return bool(state and state.get("ok"))
+
+
+def state(db) -> dict:
+    """What the model provider's situation actually is, in one readable object."""
+    probe_state = last_probe(db)
+    return {
+        "key_present": bool(AnthropicProvider.key()),
+        "last_probe": probe_state,
+        "usable": bool(probe_state and probe_state.get("ok")),
+        "spent_this_month_cad": spent_this_month_cad(db),
+        "monthly_ceiling_cad": monthly_ceiling_cad(),
+        "price_basis": "assumed: provider list prices read at build time, USD converted at "
+                       f"an assumed {USD_TO_CAD:.4f} CAD/USD and padded "
+                       f"{ESTIMATE_PADDING}x before any ceiling check",
+        "note": ("no probe has been run, so whether this key can serve a request is unknown "
+                 "-- which is not the same as unavailable"
+                 if probe_state is None else
+                 "a real call succeeded, so the provider exists" if probe_state.get("ok")
+                 else f"the key is configured and the last call failed: "
+                      f"{probe_state.get('reason', '')[:200]}"),
+    }

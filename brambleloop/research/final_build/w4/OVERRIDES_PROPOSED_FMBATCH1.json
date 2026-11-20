@@ -1,0 +1,124 @@
+{
+ "_meta": {
+  "lane": "w4-FMBATCH1",
+  "status": "PROPOSED: not applied. overrides.json is changed only on integrator acceptance (accepted_by); a worker cannot certify itself (F-867)",
+  "how_to_accept": "Copy an accepted entry into research/final_build/overrides.json with accepted_by set; re-run aggregate.py and the board; run tests/test_final_closure_matrix.py, test_w3_final_master_gate.py, test_w3_overrides_proposed.py.",
+  "dry_run": "python3 research/final_build/aggregate.py --overrides research/final_build/w4/OVERRIDES_PROPOSED_FMBATCH1.json --dry-run",
+  "two_kinds": "F-540 and F-100 are proposed on production evidence of the deployed b931d17. F-010, F-380 and F-381 are dev-proven on claude/w4-FMBATCH1 only: if accepted they are implemented_unverified until a release carrying them is deployed (the board's own rule), never verified_complete on this branch.",
+  "dry_run_result": "2026-10-21 on claude/w4-FMBATCH1: problems []; F-540, F-380, F-381 adjudicate COMPLETE; F-100 COMPLETE only through the claimed maturity, capped by the evidence rules (aggregate.cap); F-010 stays OPEN at TESTED because integrations/taxonomy_drift.py is not yet in module_reachability.json (generated on an earlier head) -- it becomes adjudicable when the integrator regenerates reachability on a head that contains it. The cap is the honest reading; nothing here raises it."
+ },
+ "overrides": {
+  "F-540": {
+   "coverage": "FULL",
+   "missing_part": "",
+   "gate": {
+    "kind": "none",
+    "key": null,
+    "detail": "etsy_api OPEN in production; the rotation is proven on the deployed build"
+   },
+   "next_action": "none -- the daily credential-health cadence runs in production and refresh-token rotation is proven and persisted there",
+   "evidence": [
+    "research/final_build/w4/evidence_FMBATCH1/prod_api_audit_credential_health_20261021T0242Z.json (production b931d17, read-only GET /api/audit?action=etsy.credential_health): 10 daily readings 2026-10-12..2026-10-21; from 2026-10-13T03:25Z every one is status HEALTHY, stored+openable under the current sealing key, scopes listings_d/r/w, shops_r/w, transactions_r with missing_scopes [], and a live refresh attempted+ok whose rotations_before -> rotations_after advanced (0->1 on 10-13 ... 73->74 on 10-21) with updated_at persisted; values never shown (token_fingerprint only, exposes_credentials false). 2026-10-12 read UNKNOWN (no live attempt) -- the reading before the grant, kept, not a pass",
+    "src/brambleloop/runtime/worker.py CADENCES ('etsy_credential_health', 'orchestrator', 'etsy.credential_health', 86400) -> runtime/etsy_ops.handle_credential_health -> core/oauth_store.credential_health"
+   ],
+   "tests": [
+    "tests/test_etsy_readback_observe.py::test_credential_health_refreshes_rotates_and_persists_and_closes_a_reauth_action",
+    "tests/test_etsy_readback_observe.py::test_scope_drift_on_the_stored_credential_is_an_incident",
+    "tests/test_etsy_oauth_callback.py::test_a_rotation_replaces_the_stored_token_and_counts_itself",
+    "tests/test_etsy_oauth_callback.py::test_a_rotation_that_lost_a_race_is_refused_rather_than_overwriting_a_live_token"
+   ],
+   "reason": "Criterion: 'Continuously monitor stored/openable Etsy credential status, granted scopes, expiry and refresh health without exposing values. Refresh-token rotation must be proven in production and persisted atomically.' The matrix's missing_part ('nothing monitors it on a cadence ... rotations: 0') is stale: the cadence is deployed and production shows 9 consecutive daily HEALTHY readings with a successful live rotation each day, persisted (rotations 74, updated_at advancing), values never exposed. Atomic persistence is pinned by the race test (a rotation that lost the race is refused). test_etsy_readback_observe 37/37 and test_etsy_oauth_callback green on this branch (FMBATCH1.md)."
+  },
+  "F-100": {
+   "coverage": "FULL",
+   "missing_part": "",
+   "gate": {
+    "kind": "none",
+    "key": null,
+    "detail": "funding a second provider stays the owner's decision; the requirement is that the decision is owner-held and backed by the measured value, which production serves"
+   },
+   "next_action": "none for the requirement; the owner's decision itself is the packet's owner_action (no spend is implied by closing the row)",
+   "evidence": [
+    "research/final_build/w4/evidence_BOARD/prod_api_funding_packets_20261020T0612Z.json (production b931d17): packet 'provider_diversification' (requirement F-100) carries the measured concentration (anthropic 97.8% of the ai_provider axis, verdict existential), the measured resilience value (probe_failure_share 0.6996, 86 model jobs parked, 0 funding-exhaustion events over 30 days), a one-off bounded experiment (max CA$10), the owner action, and approves_itself false",
+    "gateway refuses an unregistered provider before any request (tests/test_cert_cost.py::test_unknown_image_providers_are_refused_before_any_request); a provider's key exists only when the owner sets it in the hosting environment"
+   ],
+   "tests": [
+    "tests/test_w4_funding.py::test_the_diversification_packet_carries_measured_resilience_value_and_a_bound",
+    "tests/test_w4_funding.py::test_an_empty_ledger_is_unmeasured_never_zero",
+    "tests/test_w4_funding.py::test_the_packets_route_is_registered",
+    "tests/test_cert_cost.py::test_unknown_image_providers_are_refused_before_any_request"
+   ],
+   "reason": "Criterion: 'Funding/connecting another provider requires owner approval backed by measured resilience value.' The missing_part ('No diversification approval record/card carrying measured resilience value') is stale: finance/funding_packet.diversification_packet is deployed and served at GET /api/funding/packets with the measured value and bound, and approval stays the owner's act. JUDGEMENT FOR THE INTEGRATOR: the matrix also suggested refusing provider registration in gateway routing without an approved row; this proposal holds that the criterion is met without it (connection already needs code registration plus an owner-set key), and does not add it because a second model provider (Venice) is being wired in the W-LAURAONE lane. Reject this entry if the integrator reads the criterion as requiring a recorded approval row.",
+   "producer": "src/brambleloop/finance/funding_packet.py::diversification_packet",
+   "consumer": "src/brambleloop/app/main.py::api_funding_packets (GET /api/funding/packets) and ops/funding.py (the owner funding card carries the prepared packet)",
+   "maturity": "DEPLOYED"
+  },
+  "F-010": {
+   "coverage": "FULL",
+   "missing_part": "",
+   "gate": {
+    "kind": "none",
+    "key": null,
+    "detail": "the daily schema read runs in production (etsy_api OPEN); the drift consumer is on claude/w4-FMBATCH1"
+   },
+   "producer": "src/brambleloop/integrations/taxonomy_drift.py::after_refresh",
+   "consumer": "src/brambleloop/runtime/release.py::handle_taxonomy_refresh (daily listing.taxonomy_refresh cadence) -> halting P1 taxonomy-drift:<slug> + listing.seo re-queue; release.py::_persist_search_profile resolves it",
+   "next_action": "release: deploy a build carrying claude/w4-FMBATCH1; production then diffs every new snapshot (the first property-schema read on the next release is itself such a change and re-queues the UNKNOWN Launch-0 profiles)",
+   "tests": [
+    "tests/test_w4_fmbatch1_drift.py::test_a_changed_schema_halts_the_listing_requeues_seo_and_resolves_on_rebuild",
+    "tests/test_w4_fmbatch1_drift.py::test_a_change_elsewhere_in_the_tree_leaves_a_valid_listing_alone",
+    "tests/test_w4_fmbatch1_drift.py::test_drift_with_nothing_to_rerun_is_reported_and_never_halts_certification",
+    "tests/test_w4_fmbatch1_drift.py::test_a_removed_node_and_a_re_required_property_are_drift",
+    "tests/test_w4_fmbatch1_drift.py::test_a_renamed_parent_moves_every_node_under_it"
+   ],
+   "reason": "Criterion: 'Periodically re-check category/attribute schemas for platform changes.' The re-check ran daily but nothing consumed a change. integrations/taxonomy_drift.py diffs each new snapshot against its predecessor (nodes removed/added/moved/renamed, per-node property changes, a node gaining a child), opens a halting P1 for each product whose CHOSEN node changed, re-queues its listing.seo once per snapshot, and resolves when the profile is rebuilt on the new snapshot; UNKNOWN profiles are re-queued without an incident. 9/9 tests; disabling the hook fails the 3 runtime tests (mutation check, FMBATCH1.md). Dev-proven only.",
+   "maturity": "INTEGRATED"
+  },
+  "F-381": {
+   "coverage": "FULL",
+   "missing_part": "",
+   "gate": {
+    "kind": "none",
+    "key": null,
+    "detail": "not a 24h-window requirement: the board's production_window label was inherited from a shared mapping note"
+   },
+   "consumer": "ops/deploy.sh: readback failure -> ops/rollback_decision.py -> exit 6 + guarded rollback (deploy.sh --rollback-to <predecessor>) on P0, exit 5 fix-forward on P1",
+   "next_action": "release: the next deploy through ops/deploy.sh carries the severity rule",
+   "tests": [
+    "tests/test_w4_fmbatch1_rollback.py::test_deploy_sh_rolls_a_p0_regression_back_to_the_predecessor",
+    "tests/test_w4_fmbatch1_rollback.py::test_deploy_sh_fixes_a_p1_regression_forward_and_keeps_the_candidate",
+    "tests/test_w4_fmbatch1_rollback.py::test_unknown_is_never_a_pass_on_a_p0_feature_or_an_unreachable_production",
+    "tests/test_w4_fmbatch1_rollback.py::test_a_rollback_that_itself_regresses_is_not_rolled_back_again",
+    "tests/test_w4_rollback_rehearsal.py::test_a_candidate_that_preserves_its_predecessor_has_an_executable_rollback",
+    "tests/test_w4_rollback_rehearsal.py::test_deploy_sh_rehearses_after_the_guard_and_before_its_only_push"
+   ],
+   "evidence": [
+    "brambleloop/release/DEPLOYED_HISTORY.json: every production commit since fcb982d recorded (b931d17 2026-10-20T03:49Z with pre-deploy backup restore_ok); research/final_build/w4/evidence_ROLLBACK/rehearse_rollback_*.json"
+   ],
+   "reason": "Criterion: 'Every material autonomous deployment preserves a known-good predecessor and an executable rollback/recovery path. Detected regression triggers containment and rollback according to severity.' The predecessor and the executable path were already proven (W4-ROLLBACK). The missing half was severity: a failed readback ended in exit 5 whatever failed. ops/rollback_decision.py classifies readback failures (P0: shadow phase, nothing published, refusals recorded, catalogue unpublished, cost ceilings, boot guard, worker alive, release identity; FAIL or UNKNOWN; production unreachable) and deploy.sh rolls a P0 back to the predecessor through the guarded rollback path, fixes a P1 forward, never rolls back a rollback. Run end to end against a local bare remote. Dev-proven only."
+  },
+  "F-380": {
+   "gate": {
+    "kind": "none",
+    "key": null,
+    "detail": "not a 24h-window requirement: the board's production_window label was inherited from a shared mapping note"
+   },
+   "coverage": "FULL",
+   "missing_part": "",
+   "next_action": "release: deploy carrying F-381's severity rule (post-deploy observation proportional to blast radius)",
+   "evidence": [
+    "ops/deploy.sh is the one sanctioned deploy: deploy_guard check (descendant of production + green release-eligible suite record for the exact sha, tracked RELEASE_<sha>.json), rehearse-rollback, push, verify_deploy, per-feature readback (ops/readback.py)",
+    "brambleloop/release/DEPLOYED_HISTORY.json b931d17 entry: owner-approved, pre-deploy backup restore_ok, ops/deploy.sh pushed 1b21e81..b931d17, boot_guard record RELEASE_324927f..., readback run",
+    "ops/hooks/pre-push routes any push to the production branch through the same guard (tests/test_deploy_path.py)"
+   ],
+   "tests": [
+    "tests/test_deploy_guard.py",
+    "tests/test_deploy_path.py::test_deploy_sh_runs_the_guard_before_its_only_push",
+    "tests/test_w4_rollback_rehearsal.py::test_deploy_sh_rehearses_after_the_guard_and_before_its_only_push",
+    "tests/test_w4_fmbatch1_rollback.py::test_deploy_sh_rolls_a_p0_regression_back_to_the_predecessor",
+    "tests/test_w4_smoke.py"
+   ],
+   "reason": "Criterion: 'Autonomous code changes require tests, version control, deploy evidence, rollback capability and post-deploy observation appropriate to their blast radius. Production self-modification is never an unversioned live edit.' The matrix next_action (a deploy gate that refuses a deploy unless the suite passed on the sha, then records deploy sha + verify result) exists as ops/deploy.sh + ops/deploy_guard.py and was used for b931d17; production code only changes by a push to the production branch, which the pre-push hook guards. The 'appropriate to blast radius' half lands with F-381 on this branch, so this entry is dev-proven until that release."
+  }
+ }
+}

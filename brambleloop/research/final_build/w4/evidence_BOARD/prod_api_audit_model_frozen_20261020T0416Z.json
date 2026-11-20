@@ -1,0 +1,156 @@
+{
+    "audit": [
+        {
+            "id": 5693,
+            "at": "2026-09-22T03:52:53.599565+00:00",
+            "actor": "creative_director",
+            "action": "model.frozen",
+            "artifact": null,
+            "phase": "shadow",
+            "detail": {
+                "freeze": {
+                    "frozen": true,
+                    "key": "brambleloop-canonical",
+                    "version": 1,
+                    "approved_at": "2026-09-22T03:52:53.589208+00:00",
+                    "pack_version": "v15-the-revised-dimension-is-judged-by-the-frame-whose-job-it-is",
+                    "built_at": "2026-09-22 01:02:49.610283+00:00",
+                    "candidate_fingerprint": "914ee7da716baef7",
+                    "fields": {
+                        "facial_geometry": "oval face with defined cheekbones, light freckling across nose and cheeks, smiling with visible teeth",
+                        "hair": "long wavy hair with brown base and lighter balayage/highlights, center part, falling past shoulders",
+                        "eyes": "light green/hazel eyes, dark eyebrows",
+                        "age_band": "appears mid-30s",
+                        "representative_expressions": "photorealistic image",
+                        "stature": "tall, slim proportions based on visible leg-to-torso ratio",
+                        "overall_build": "slender, toned arms visible",
+                        "shoulder_proportions": "narrow to average width, visible collarbone",
+                        "torso_length": "slim torso, visible in fitted top",
+                        "bust_proportions": "medium, visible under fitted tank top",
+                        "waist_proportions": "narrow, visible waistline above trousers",
+                        "hip_proportions": "hips slightly wider than waist, proportionate to frame",
+                        "limb_proportions": "long, slender arms and legs with visible toned muscle definition",
+                        "complexion": "light with a warm sun-warmed undertone, natural skin texture, visible pores, light freckling across the nose and cheeks",
+                        "representative_angles": "neutral_portrait, torso_fit_reference, full_length_standing",
+                        "reference_image": "/app/src/brambleloop/visual/assets/identity_portrait.jpg"
+                    },
+                    "skipped_newer": [
+                        {
+                            "pack_version": "v16-the-fallback-provider-has-time-to-render",
+                            "why_not": "['bust_proportions'] could not be read off this pack's frames. A frozen identity with an unstated dimension is a dimension that can never drift again, which is the owner's unmeasurable-is-never-pass rule made permanent rather than broken once",
+                            "missing": [
+                                "bust_proportions"
+                            ]
+                        }
+                    ],
+                    "why_those_were_skipped": "a newer build that could not state a required dimension is not a newer identity, it is an unusable one. Naming them keeps the choice auditable rather than looking like the newest pack was taken",
+                    "superseded_stay_evidence": "the pre-revision body pack and the five rejected tournament finalists remain in the audit log and cannot be promoted: nothing selects them, and `select_canonical` refuses a second canonical outright"
+                },
+                "enforcement": {
+                    "proved": true,
+                    "canonical_version": 1,
+                    "approved_at": "2026-09-22T03:52:53.589208+00:00",
+                    "checks": [
+                        {
+                            "check": "the_revised_pack_is_what_loads",
+                            "holds": true,
+                            "evidence": {
+                                "identity_fields_present": 15,
+                                "of": 15,
+                                "blank": [],
+                                "bust_proportions": "medium, visible under fitted tank top",
+                                "torso_length": "slim torso, visible in fitted top",
+                                "reference_image_present": true,
+                                "approved_at": "2026-09-22T03:52:53.589208+00:00"
+                            },
+                            "why_it_matters": "a pack read back with a blank field is a dimension that can never drift again, and one with no reference image is a description of a woman nobody can produce or check against"
+                        },
+                        {
+                            "check": "facial_identity_is_enforced",
+                            "holds": true,
+                            "evidence": {
+                                "face": "fail",
+                                "morphology": "pass",
+                                "overall": "fail",
+                                "blocks": true
+                            },
+                            "why_it_matters": "a different face on the right body is a different woman"
+                        },
+                        {
+                            "check": "morphology_is_enforced_separately",
+                            "holds": true,
+                            "evidence": {
+                                "face": "pass",
+                                "morphology": "fail",
+                                "overall": "fail"
+                            },
+                            "why_it_matters": "two independent floors, reported independently or they average"
+                        },
+                        {
+                            "check": "bust_and_torso_are_hard_dimensions",
+                            "holds": true,
+                            "evidence": {
+                                "bust": {
+                                    "morphology": "unverifiable",
+                                    "blocks": true
+                                },
+                                "torso": {
+                                    "morphology": "unverifiable",
+                                    "blocks": true
+                                }
+                            },
+                            "why_it_matters": "the owner named chest/bust and torso as hard floors; a set that cannot see them has not checked the body"
+                        },
+                        {
+                            "check": "unmeasurable_never_becomes_pass",
+                            "holds": true,
+                            "evidence": {
+                                "face": "unverifiable",
+                                "morphology": "unverifiable",
+                                "overall": "unverifiable",
+                                "blocks": true
+                            },
+                            "why_it_matters": "a frame nobody could read is the case a blended score waves through"
+                        },
+                        {
+                            "check": "a_face_match_cannot_compensate_for_body_drift",
+                            "holds": true,
+                            "evidence": {
+                                "face": "pass",
+                                "morphology": "fail",
+                                "overall": "fail",
+                                "drifted": [
+                                    "torso",
+                                    "bust"
+                                ]
+                            },
+                            "why_it_matters": "the exact failure the owner named: a familiar face stops anybody looking further down the frame"
+                        },
+                        {
+                            "check": "model_bearing_assets_cannot_bypass_the_gate",
+                            "holds": true,
+                            "evidence": {
+                                "model_bearing": "fail",
+                                "blocking": [
+                                    "listing-hero: only 0 face dimensions were readable, below the floor of 3; ['bust', 'torso'] could not be read, and chest/bust and torso continuity are hard-floor dimensions rather than two of eight to be counted in with the rest. Unmeasurable is not a pass"
+                                ],
+                                "checked": 1,
+                                "product_only": "not_applicable"
+                            },
+                            "why_it_matters": "an unjudged model frame must block, and a product-only frame must not be held up by a check that does not apply to it"
+                        }
+                    ],
+                    "failed": [],
+                    "note": "Run against the pack read back out of the database, because the question is whether the identity that survived persistence is the one being enforced. The observations are synthetic and that is the point: a drifted body under a matching face is not something a generator produces on request, and waiting for one would mean never checking it."
+                },
+                "approval": {
+                    "at": "2026-09-22",
+                    "decision": "approve and freeze the revised canonical Brambleloop model reference pack",
+                    "includes": "the revised torso/full-length morphology and bust/chest proportion",
+                    "superseded": "the pre-revision body pack and the rejected tournament finalists remain historical evidence and are never eligible for automatic selection",
+                    "does_not_authorise": "Etsy publication, advertising, customer communication or any other live launch action. Shadow Mode stands"
+                }
+            }
+        }
+    ]
+}

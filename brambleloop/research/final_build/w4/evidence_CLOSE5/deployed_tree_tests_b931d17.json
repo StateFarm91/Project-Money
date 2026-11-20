@@ -1,0 +1,843 @@
+{
+ "kind": "brambleloop.deployed_tree_tests",
+ "deployed_commit": "b931d17a738d6a5bcd96580f620069b669ca5f57",
+ "src_tree_clean": true,
+ "run_at": "2026-10-20T06:42:32Z",
+ "how": "git worktree add --detach <deployed sha>; CLOSE5 test files copied into tests/ (src untouched); each file run via /home/user/bl-runs/testslot.sh with PYTHONPATH=src:tests",
+ "runs": [
+  {
+   "file": "tests/test_continuity.py",
+   "rc": 0,
+   "ok": 15,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_a_corrupt_archive_is_refused_rather_than_half_restored",
+    "test_a_proved_export_is_retained_where_it_outlives_the_container",
+    "test_a_retained_archive_restores_a_working_database",
+    "test_a_truncated_export_is_refused_rather_than_half_restored",
+    "test_a_wrong_or_short_credential_is_refused",
+    "test_an_export_does_not_carry_the_previous_exports",
+    "test_an_export_from_a_future_format_is_refused",
+    "test_an_export_restores_into_an_empty_database_and_hashes_identically",
+    "test_no_connection_string_ever_reaches_the_export_or_its_manifest",
+    "test_no_credential_reaches_a_retained_archive_manifest",
+    "test_only_the_newest_archives_are_kept",
+    "test_the_export_endpoint_is_closed_when_no_credential_is_configured",
+    "test_the_export_is_portable_rather_than_engine_native",
+    "test_the_restore_proof_runs_where_ephemeral_sqlite_is_refused",
+    "test_token_health_never_reveals_the_token"
+   ],
+   "tail": [
+    "OK   test_token_health_never_reveals_the_token"
+   ]
+  },
+  {
+   "file": "tests/test_etsy_readback_observe.py",
+   "rc": 0,
+   "ok": 37,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_file_read_back_matches_name_and_exact_size_and_says_etsy_exposes_no_hash",
+    "test_a_stale_file_beside_the_certified_one_fails_file_read_back",
+    "test_a_same_named_file_of_another_size_or_uncertified_bytes_fails",
+    "test_an_unread_file_list_is_unverified_rather_than_clean",
+    "test_the_client_reads_a_listings_files_through_get_all_listing_files",
+    "test_publish_sends_the_certified_image_bytes_in_certificate_order_and_reads_back",
+    "test_a_missing_frame_refuses_before_anything_is_created_on_etsy",
+    "test_a_write_etsy_silently_changed_is_caught_by_read_back_and_halts_the_product",
+    "test_uploaded_bytes_that_are_not_the_certified_release_fail_file_read_back",
+    "test_invalid_grant_on_publish_becomes_one_owner_action_and_one_incident",
+    "test_revoked_access_on_publish_is_an_owner_action_too",
+    "test_a_scope_the_grant_lacks_is_refused_before_the_request_and_queued_for_the_owner",
+    "test_the_classifier_names_every_failure_class_f541_lists",
+    "test_activation_in_shadow_is_refused_before_any_etsy_read",
+    "test_activation_verifies_the_draft_and_without_a_launch_authorisation_does_not_activate",
+    "test_the_owner_grant_is_read_when_activation_runs_not_when_it_was_planned",
+    "test_a_draft_edited_on_etsy_is_not_activated_and_says_which_field",
+    "test_a_failing_release_gate_at_execution_blocks_activation",
+    "test_with_every_proof_and_authority_present_the_listing_goes_live_and_is_read_back",
+    "test_the_census_is_a_daily_cadence_on_a_permitted_agent",
+    "test_the_census_stores_the_estate_and_a_vanished_listing_is_a_suspected_takedown",
+    "test_a_listing_edited_on_etsy_is_field_drift_and_is_never_overwritten",
+    "test_a_listing_nobody_here_created_is_reported",
+    "test_a_census_that_could_not_read_resolves_nothing_and_a_restored_listing_resolves",
+    "test_a_complete_shop_is_stored_and_closes_the_owner_actions_it_evidences",
+    "test_vacation_mode_and_a_foreign_currency_open_halting_incidents",
+    "test_payments_going_from_onboarded_to_not_is_an_incident_and_reopens_the_action",
+    "test_missing_trust_surfaces_cannot_pass_silently",
+    "test_no_credentials_means_no_reading_not_an_empty_shop",
+    "test_credential_health_refreshes_rotates_and_persists_and_closes_a_reauth_action",
+    "test_a_credential_sealed_under_another_key_is_unhealthy_and_queued_for_the_owner",
+    "test_scope_drift_on_the_stored_credential_is_an_incident",
+    "test_the_etsy_owner_queue_is_seeded_once_by_key_with_its_closing_evidence",
+    "test_a_seeded_action_closed_on_evidence_is_not_asked_again",
+    "test_launch_readiness_seeds_the_etsy_queue_and_does_not_close_it",
+    "test_etsy_integration_turns_ready_only_on_a_live_full_round_trip_with_nothing_left",
+    "test_the_readiness_item_needs_credentials_as_well_as_the_proof"
+   ],
+   "tail": [
+    "37 passed, 0 failed"
+   ]
+  },
+  {
+   "file": "tests/test_etsy_surfaces.py",
+   "rc": 0,
+   "ok": 53,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_a_boolean_check_will_not_accept_something_merely_truthy",
+    "test_a_capability_being_withdrawn_is_reported_too",
+    "test_a_collector_that_has_never_run_is_not_the_same_as_a_clean_run",
+    "test_a_correct_and_current_shop_is_the_only_thing_that_reads_green",
+    "test_a_listing_deactivated_behind_our_back_is_drift_too",
+    "test_a_listing_nobody_here_created_is_reported",
+    "test_a_listing_that_has_vanished_raises_an_alarm_and_refuses_to_say_why",
+    "test_a_manual_action_this_registry_still_maps_but_shop_package_dropped_is_reported",
+    "test_a_matching_current_census_is_green",
+    "test_a_policy_etsy_returned_as_null_is_a_failure_not_an_unknown",
+    "test_a_price_decision_says_out_loud_that_its_take_rate_is_a_floor",
+    "test_a_secondary_claim_names_a_source_this_environment_could_not_read",
+    "test_a_surface_with_no_collector_says_so_rather_than_saying_fine",
+    "test_a_take_rate_carries_the_fees_it_does_not_include",
+    "test_an_ads_api_appearing_is_reported_rather_than_aged_into_a_lie",
+    "test_an_empty_shop_body_is_no_evidence_on_every_check_and_never_green",
+    "test_an_eu_only_policy_field_set_on_a_canadian_shop_is_a_failure",
+    "test_an_old_census_is_not_a_current_one",
+    "test_an_old_reading_describes_the_shop_as_it_was_and_is_not_green",
+    "test_every_manual_action_shop_package_lists_has_a_surface_that_owns_it",
+    "test_every_owner_action_is_actionable_and_closes_on_evidence",
+    "test_every_surface_the_brief_named_is_classified_exactly_once",
+    "test_every_unsupported_verdict_names_a_counted_absence",
+    "test_every_verdict_rests_on_at_least_one_document_this_build_read",
+    "test_holding_no_record_of_our_own_listings_is_not_a_clean_census",
+    "test_injected_defect_a_field_nobody_read_must_not_read_as_a_pass",
+    "test_injected_defect_a_first_sale_blocker_filed_as_post_launch_work",
+    "test_injected_defect_a_manual_action_with_no_surface_is_reported",
+    "test_injected_defect_an_endpoint_that_does_not_exist_is_refused",
+    "test_injected_defect_an_owner_only_surface_with_nothing_asked_of_the_owner",
+    "test_injected_defect_an_unread_census_must_not_read_as_no_drift",
+    "test_injected_defect_an_unsupported_verdict_with_no_absence_probe_is_refused",
+    "test_no_ad_spend_ceiling_can_be_enforced_in_code_and_the_registry_admits_it",
+    "test_no_owner_action_pretends_software_could_have_done_it",
+    "test_no_snapshot_at_all_is_no_evidence_and_says_which_kind_of_nothing",
+    "test_no_surface_claims_a_scope_etsy_does_not_publish",
+    "test_the_absence_probes_reproduce_against_a_document_that_matches_them",
+    "test_the_document_the_registry_was_read_from_is_identified_by_hash",
+    "test_the_first_sale_blockers_are_the_ones_a_shop_cannot_open_without",
+    "test_the_first_sale_blockers_come_first_and_are_the_ones_that_block",
+    "test_the_orders_surface_is_a_read_this_shop_is_not_authorised_to_make",
+    "test_the_owner_actions_that_close_on_a_reading_actually_have_one",
+    "test_the_registry_and_the_fee_model_agree_about_why_this_is_unmodelled",
+    "test_the_registry_passes_its_own_invariants",
+    "test_the_rendered_registry_reports_its_own_problems_rather_than_hiding_them",
+    "test_the_scope_re_authorisation_is_an_owner_action_rather_than_a_build_task",
+    "test_the_settings_that_silently_stop_every_sale_are_checked",
+    "test_the_unmodelled_fees_are_labelled_secondary_because_etsy_refuses_to_be_read",
+    "test_the_work_plan_uses_all_four_classes_and_keeps_a_for_real_blockers",
+    "test_the_worst_case_is_materially_worse_and_that_is_the_point",
+    "test_unsupported_and_not_applicable_are_never_the_same_verdict",
+    "test_what_is_still_unknown_is_recorded_rather_than_filled_in",
+    "test_widening_the_grant_closes_the_gaps_and_nothing_else"
+   ],
+   "tail": [
+    "OK   test_widening_the_grant_closes_the_gaps_and_nothing_else"
+   ]
+  },
+  {
+   "file": "tests/test_etsy_transport.py",
+   "rc": 0,
+   "ok": 44,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_a_comma_joined_tag_list_etsy_misreads_is_caught_by_the_read_back_and_nothing_else",
+    "test_a_delete_etsy_accepts_and_does_not_perform_is_caught_by_step_eight",
+    "test_a_delete_that_fails_names_the_listing_for_shop_manager_and_blames_the_right_thing",
+    "test_a_field_etsy_never_returns_is_unverifiable_rather_than_verified",
+    "test_a_green_run_against_the_fake_cannot_promote_anything_to_verified_against_etsy",
+    "test_a_json_body_on_a_form_endpoint_is_refused_which_is_the_defect_we_had",
+    "test_a_listing_image_is_uploaded_and_etsy_holds_it",
+    "test_a_report_from_a_failed_run_still_says_what_is_left_in_the_shop",
+    "test_a_response_body_carrying_a_token_is_redacted_before_it_reaches_the_report",
+    "test_a_spent_refresh_token_becomes_an_owner_action_rather_than_a_retry",
+    "test_a_taxonomy_that_requires_a_listing_property_refuses_every_create",
+    "test_a_test_draft_says_what_it_is_in_its_own_title",
+    "test_a_token_set_never_prints_itself",
+    "test_a_token_without_the_write_scope_refuses_before_sending_anything",
+    "test_a_transient_failure_is_the_environment_and_settles_nothing",
+    "test_a_write_the_server_ignored_returns_200_and_fails_read_back",
+    "test_a_wrong_taxonomy_id_is_found_by_reading_the_node_back_and_not_by_a_status",
+    "test_activation_refuses_a_listing_with_no_image_before_spending_anything",
+    "test_activation_refuses_without_a_launch_authorisation_even_when_everything_else_is_true",
+    "test_activation_works_when_it_is_authorised_which_is_why_the_gates_matter",
+    "test_an_expired_access_token_is_refreshed_and_the_new_refresh_token_is_handed_back",
+    "test_an_image_etsy_refuses_is_a_finding_about_the_fixture_not_about_the_transport",
+    "test_an_image_sent_in_a_part_named_file_is_refused",
+    "test_an_image_that_does_not_exist_is_refused_as_a_launch_blocker",
+    "test_an_outcome_the_taxonomy_does_not_carry_says_so_instead_of_guessing",
+    "test_every_taxonomy_entry_names_a_cause_and_a_single_change",
+    "test_flipping_array_encoding_changes_the_bytes_and_nothing_else",
+    "test_form_and_multipart_encoders_produce_what_a_form_parser_reads_back",
+    "test_one_request_carries_one_body_so_the_content_type_cannot_lie",
+    "test_permitted_draft_fields_update_and_read_back_changed",
+    "test_pkce_matches_the_published_rfc_7636_test_vector",
+    "test_price_and_state_and_unknown_fields_are_refused_before_a_request_is_sent",
+    "test_read_back_reports_a_listing_that_is_no_longer_a_draft",
+    "test_read_back_verifies_every_field_including_the_ones_etsy_transforms",
+    "test_running_twice_leaves_one_shop_rather_than_two",
+    "test_the_authorize_url_is_the_owner_action_and_carries_no_secret_in_the_report",
+    "test_the_create_request_is_form_encoded_because_etsy_accepts_nothing_else",
+    "test_the_exercise_report_carries_no_credential",
+    "test_the_probe_refuses_to_write_without_an_explicit_operator_grant",
+    "test_the_redactor_catches_a_secret_by_value_and_by_key_and_leaves_ordinary_fields_alone",
+    "test_the_run_never_activates_anything_whatever_goes_wrong",
+    "test_the_shadow_safe_exercise_runs_end_to_end_and_leaves_nothing_behind",
+    "test_the_three_authorities_are_separate_gates",
+    "test_the_three_states_are_reported_in_the_code_the_report_and_the_gap_list"
+   ],
+   "tail": [
+    "OK   test_the_three_states_are_reported_in_the_code_the_report_and_the_gap_list"
+   ]
+  },
+  {
+   "file": "tests/test_fb4_launch.py",
+   "rc": 0,
+   "ok": 9,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_preview_carries_every_evidence_section_and_unknown_never_displays_as_passing",
+    "test_an_unreadable_or_malformed_section_is_unknown_not_pass",
+    "test_a_change_in_any_bound_evidence_element_voids_the_grant",
+    "test_env_alone_saying_limited_production_runs_as_shadow_with_an_incident",
+    "test_recorded_transitions_and_env_agree_then_that_phase_applies_and_rows_are_audited",
+    "test_a_forged_or_edited_transition_row_is_not_authority",
+    "test_store_publish_refuses_when_env_says_production_but_nothing_is_recorded",
+    "test_launch_packet_on_a_fresh_shadow_db_with_launch0_certified_is_honest",
+    "test_launch_packet_script_writes_json_and_markdown"
+   ],
+   "tail": [
+    "  9 passing, 0 failing"
+   ]
+  },
+  {
+   "file": "tests/test_k8_shop_cx.py",
+   "rc": 0,
+   "ok": 17,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_policy_text_matching_its_canonical_source_is_consistent",
+    "test_a_contradiction_in_live_text_is_named_against_its_fact_and_owner",
+    "test_the_shop_snapshot_opens_and_closes_the_policy_incident_on_readings",
+    "test_options_registry_judges_api_controls_and_reports_browser_only_as_unobserved",
+    "test_an_observation_must_be_dated_complete_and_shaped",
+    "test_an_empty_apps_reading_closes_its_owner_action_and_a_listed_app_reopens_it",
+    "test_policy_violation_items_become_ranked_incidents_with_escalation_and_closure_proof",
+    "test_a_violation_past_its_deadline_is_restated_overdue_with_an_owner_action",
+    "test_security_posture_flags_unexpected_scopes_and_a_credential_replaced_outside_refresh",
+    "test_credential_health_carries_the_posture_and_opens_its_incident",
+    "test_the_inventory_is_served_with_a_channel_per_surface_and_every_named_surface",
+    "test_refund_reasons_are_captured_at_ingest",
+    "test_every_refund_and_case_gets_a_code_and_owner_and_repetition_opens_an_investigation",
+    "test_the_daily_order_readings_carry_the_root_cause_reading",
+    "test_the_workspace_joins_messages_orders_reviews_and_refunds_per_buyer",
+    "test_support_mining_carries_the_workspace_summary",
+    "test_routes_guard_customer_content_and_writes_with_the_operator_credential"
+   ],
+   "tail": [
+    "17 passed, 0 failed"
+   ]
+  },
+  {
+   "file": "tests/test_money_truth.py",
+   "rc": 0,
+   "ok": 18,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_a_cancelled_receipt_keeps_no_revenue",
+    "test_a_receipt_level_fee_is_shared_across_its_lines_by_price",
+    "test_an_acquisition_source_without_evidence_is_refused",
+    "test_an_auth_failure_never_reopens_an_action_the_owner_closed",
+    "test_an_etsy_fee_for_an_order_we_do_not_have_opens_one_reconciliation_incident",
+    "test_break_even_and_maintenance_split_creation_from_recurring_cost",
+    "test_charged_fees_replace_the_model_and_an_offsite_fee_is_deducted_and_attributed",
+    "test_each_auth_failure_class_raises_one_idempotent_owner_action_and_incident",
+    "test_fee_reconciliation_is_idempotent_and_adds_a_late_fee_incrementally",
+    "test_ingest_writes_unknown_source_and_a_modelled_fee_never_presented_as_charged",
+    "test_launch_readiness_carries_the_sustainable_economics_requirement",
+    "test_the_books_measure_sales_only_after_a_connected_source_was_read",
+    "test_the_first_sale_is_recorded_once_with_source_evidence_and_the_scale_caveat",
+    "test_the_forecast_names_low_base_high_and_the_gate_blocks_unsustainable_cost",
+    "test_the_forecast_refuses_on_thin_data_and_shows_only_a_floor",
+    "test_the_ledger_columns_are_added_to_an_existing_table_without_touching_its_rows",
+    "test_the_production_reader_reads_the_ledger_through_the_client_transport",
+    "test_the_traffic_table_shows_every_channel_and_an_explicit_unattributed_bucket"
+   ],
+   "tail": [
+    "PASS: 0 failing"
+   ]
+  },
+  {
+   "file": "tests/test_offsite.py",
+   "rc": 0,
+   "ok": 20,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_a_complete_round_trip_restores_the_company",
+    "test_a_half_configured_destination_is_refused_rather_than_guessed",
+    "test_a_key_that_cannot_delete_leaves_archives_and_says_so",
+    "test_a_sealed_archive_round_trips",
+    "test_a_stored_ciphertext_that_changed_is_caught_before_decrypting",
+    "test_an_archive_is_never_written_unencrypted",
+    "test_an_archive_that_comes_back_different_is_not_a_backup",
+    "test_an_unconfigured_archive_records_a_failure_rather_than_skipping",
+    "test_an_unset_destination_is_not_configured",
+    "test_an_upload_the_store_refused_is_named_as_a_credential_problem",
+    "test_one_flipped_bit_is_refused_rather_than_decrypted",
+    "test_pruning_deletes_from_our_own_record_not_the_store_listing",
+    "test_the_authorization_header_carries_the_payload_hash_it_signed",
+    "test_the_bytes_the_bucket_receives_are_ciphertext",
+    "test_the_default_transport_puts_ciphertext_on_the_wire",
+    "test_the_signing_key_matches_the_vector_aws_publishes",
+    "test_the_state_reports_the_last_real_round_trip_not_the_variables",
+    "test_the_state_says_archives_are_refused_without_the_key",
+    "test_the_wrong_passphrase_does_not_decrypt",
+    "test_without_a_key_nothing_is_uploaded_and_the_variable_is_named"
+   ],
+   "tail": [
+    "OK   test_without_a_key_nothing_is_uploaded_and_the_variable_is_named"
+   ]
+  },
+  {
+   "file": "tests/test_ranking_readiness.py",
+   "rc": 0,
+   "ok": 7,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_an_empty_shop_is_unmeasured_not_passed_and_never_blended",
+    "test_dimensions_are_independent",
+    "test_a_stale_certificate_fails_listing_quality_and_shows_stale",
+    "test_a_measured_failure_outranks_an_unmeasured_component",
+    "test_service_quality_is_measured_only_from_sent_responses",
+    "test_launch_plan_calls_the_profile",
+    "test_the_catalogue_shows_the_certificate_verdict_not_the_proxy"
+   ],
+   "tail": [
+    "OK   test_the_catalogue_shows_the_certificate_verdict_not_the_proxy"
+   ]
+  },
+  {
+   "file": "tests/test_rc1_auth.py",
+   "rc": 0,
+   "ok": 11,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_A1_deployed_workers_are_built_live",
+    "test_A1_live_worker_reresolves_the_phase_per_job_and_protected_phase_is_restrictive",
+    "test_A1_owner_rollback_recorded_after_boot_stops_store_activate",
+    "test_A1_rollback_between_reservation_and_request_is_honoured_at_the_effect_boundary",
+    "test_D1_deleted_inserted_and_copied_rows_break_the_chain",
+    "test_D1_replayed_old_sealed_production_row_does_not_restore_production",
+    "test_D2_an_unsealed_inserted_revocation_revokes_and_is_reported_as_tampering",
+    "test_D2_chain_rows_are_protected_from_retention",
+    "test_D2_deleting_a_revocation_does_not_revive_the_grant_and_opens_an_incident",
+    "test_D3_client_activate_requires_a_validated_grant_object",
+    "test_D4_upward_evidence_refs_must_resolve_to_real_recent_passing_records"
+   ],
+   "tail": [
+    "11 passed, 0 failed"
+   ]
+  },
+  {
+   "file": "tests/test_specification.py",
+   "rc": 0,
+   "ok": 24,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_a_back_neck_wider_than_the_cross_back_is_refused_when_the_body_is_known",
+    "test_a_benchmark_may_be_as_incomplete_as_its_source",
+    "test_a_brambleloop_design_must_state_its_join_targets",
+    "test_a_brambleloop_design_must_state_panel_orientation",
+    "test_a_bridging_chain_needs_no_chain_gauge_because_it_adds_no_width",
+    "test_a_design_with_width_adding_chains_must_state_a_chain_gauge",
+    "test_a_plain_rectangle_of_the_benchmark_sleeves_width_is_not_a_match",
+    "test_a_raglan_whose_neck_is_most_of_its_chest_is_refused",
+    "test_any_one_identifying_benchmark_piece_is_refused_on_its_own",
+    "test_authorship_defaults_to_being_held_to_the_standard",
+    "test_certification_and_grading_refuse_a_template_that_ships_a_wide_neck",
+    "test_every_existing_catalogue_product_is_reconstructible",
+    "test_no_catalogue_product_matches_a_benchmark",
+    "test_no_genuine_brambleloop_design_is_a_false_positive",
+    "test_renaming_the_pieces_does_not_launder_the_counts",
+    "test_the_benchmark_itself_passes_because_it_is_what_it_says_it_is",
+    "test_the_benchmark_relabelled_as_brambleloop_is_refused_at_every_size",
+    "test_the_benchmarks_gaps_are_exactly_the_two_its_pattern_leaves_to_a_photograph",
+    "test_the_counts_tier_survives_relabelling_the_stitch",
+    "test_the_firewall_thresholds_are_stated",
+    "test_the_gate_refuses_an_underspecified_brambleloop_design",
+    "test_the_neck_derivation_walks_real_increases_back_to_the_neck",
+    "test_the_same_design_authored_by_brambleloop_is_refused",
+    "test_trimming_or_padding_a_few_rows_does_not_evade_the_firewall"
+   ],
+   "tail": [
+    "PASS: 0 failing"
+   ]
+  },
+  {
+   "file": "tests/test_storefront_fb4.py",
+   "rc": 0,
+   "ok": 17,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_the_drafted_storefront_passes_its_seo_check",
+    "test_a_stuffed_tagline_fails",
+    "test_a_category_silent_tagline_fails",
+    "test_a_keyword_stuffed_about_fails_and_readiness_reads_it",
+    "test_the_opening_grid_refuses_uncleared_and_legacy_filler",
+    "test_season_first_then_strongest_first_with_the_basis_labelled",
+    "test_the_first_screen_shows_more_than_one_price_rung",
+    "test_an_empty_grid_and_an_unjudgeable_grid_are_not_ready",
+    "test_grid_coherence_is_run_on_the_visible_window",
+    "test_readiness_registers_the_new_storefront_requirements",
+    "test_the_simulated_icon_is_legible_at_40_and_70_px",
+    "test_a_wordmark_at_the_left_edge_is_cut_by_the_phone_crop",
+    "test_the_announcement_opening_must_fit_a_phone",
+    "test_the_preview_uses_certified_frames_and_never_claims_live_inspection",
+    "test_legal_identity_is_unknown_and_never_invented",
+    "test_an_unsourced_difference_is_refused_and_a_cited_one_must_be_on_file",
+    "test_the_storefront_check_refuses_a_stale_identity"
+   ],
+   "tail": [
+    "OK   test_the_storefront_check_refuses_a_stale_identity"
+   ]
+  },
+  {
+   "file": "tests/test_w3_k4_launch_verdict.py",
+   "rc": 0,
+   "ok": 16,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_F275_demand_capture_plan_names_every_gap_and_gates_the_transition",
+    "test_F276_christmas_checkpoints_compress_never_relax",
+    "test_F281_learning_plan_is_predefined_and_reviews_snapshot_once",
+    "test_F286_success_needs_every_signal_not_live",
+    "test_F288_recommendations_refuse_vague_and_incomplete",
+    "test_F288_routing_follows_the_acceptance_tests_and_from_stats_is_validated",
+    "test_F289_F287_visibility_provider_contract_and_separate_sources",
+    "test_F300_every_upward_step_requires_ready_and_ready_must_be_true",
+    "test_F300_owner_authority_and_cheap_checks_run_before_readiness",
+    "test_F300_phase_changed_during_evaluation_is_refused",
+    "test_F300_real_readiness_evaluated_at_transition_refuses_shadow_to_staging",
+    "test_F300_rollback_to_shadow_never_requires_readiness",
+    "test_F300_six_questions_group_without_changing_the_verdict",
+    "test_F300_verdict_is_sealed_into_the_chain",
+    "test_packet_renders_the_six_questions",
+    "test_routes_are_owner_only_and_registered_operator_gets"
+   ],
+   "tail": [
+    "16 passed, 0 failed"
+   ]
+  },
+  {
+   "file": "tests/test_w4_ccfm1.py",
+   "rc": 0,
+   "ok": 8,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_bar_chart_draws_unknown_as_a_gap_and_uses_no_html_sink",
+    "test_completed_trend_is_measured_per_department_and_day",
+    "test_customers_are_aggregates_unknown_until_orders_are_read",
+    "test_department_spend_is_recorded_zero_only_when_nothing_was_spent",
+    "test_departments_carry_objective_spend_and_trend",
+    "test_every_named_owner_area_has_a_route_and_an_api",
+    "test_f670_light_dark_tokens_chart_and_drill_down",
+    "test_spend_trend_sums_recorded_spend_per_day"
+   ],
+   "tail": [
+    "8/8 passing"
+   ]
+  },
+  {
+   "file": "tests/test_w4_ccgrow.py",
+   "rc": 0,
+   "ok": 4,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_api_experiments_reports_effect_decision_and_superseded",
+    "test_attribution_retains_only_a_causal_success",
+    "test_supersede_refuses_without_a_reason_or_a_registered_successor",
+    "test_supersede_retains_the_row_and_leaves_every_aggregate"
+   ],
+   "tail": [
+    "4/4 passing"
+   ]
+  },
+  {
+   "file": "tests/test_w4_close5_audit.py",
+   "rc": 0,
+   "ok": 5,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_b2_219_a_purchased_library_product_puts_its_seller_on_the_panel",
+    "test_f057_a_material_the_pattern_does_not_use_is_refused_and_the_strategy_blocks_it",
+    "test_f073_a_new_construction_primitive_raises_the_class_until_calibrated",
+    "test_f073_a_novel_assembly_raises_the_class_and_a_short_one_does_not",
+    "test_f251_a_foreign_language_title_is_refused_unless_a_deliberate_translation"
+   ],
+   "tail": [
+    "PASS: 0 failing of 5"
+   ]
+  },
+  {
+   "file": "tests/test_w4_close5_rows.py",
+   "rc": 0,
+   "ok": 8,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_f152_continuity_evidence_outlives_its_scratch_directory",
+    "test_f152_each_classified_home_really_writes_or_hands_over_the_evidence",
+    "test_f152_every_scratch_site_is_classified",
+    "test_f152_offsite_evidence_outlives_its_scratch_directory",
+    "test_f299_ad_spend_follows_the_recorded_owner_transition_not_the_environment",
+    "test_f299_the_staging_step_cannot_be_skipped_and_needs_the_owner",
+    "test_f718_the_owner_approval_is_a_repository_object_matching_the_database",
+    "test_f718_the_runtime_reads_no_dev_lane_or_session_state"
+   ],
+   "tail": [
+    "PASS: 0 failing of 8"
+   ]
+  },
+  {
+   "file": "tests/test_w4_close5_rows2.py",
+   "rc": 0,
+   "ok": 2,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_f558_an_unknown_version_is_a_problem_never_a_pass",
+    "test_f558_item_version_is_named_with_its_basis_and_a_cancellation_reaches_the_row"
+   ],
+   "tail": [
+    "PASS: 0 failing of 2"
+   ]
+  },
+  {
+   "file": "tests/test_w4_close5_rows3.py",
+   "rc": 0,
+   "ok": 3,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_f542_a_rollback_etsy_accepted_but_did_not_apply_is_not_recorded_restored",
+    "test_f542_an_activation_etsy_accepted_but_did_not_apply_is_not_recorded_live",
+    "test_f542_every_customer_affecting_etsy_mutation_is_followed_by_a_readback"
+   ],
+   "tail": [
+    "PASS: 0 failing of 3"
+   ]
+  },
+  {
+   "file": "tests/test_w4_close5_rows5.py",
+   "rc": 0,
+   "ok": 1,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_f491_a_dead_letter_neither_rolls_back_nor_blocks_independent_work"
+   ],
+   "tail": [
+    "PASS: 0 failing of 1"
+   ]
+  },
+  {
+   "file": "tests/test_w4_close5_rows6.py",
+   "rc": 0,
+   "ok": 5,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_f019_a_surviving_plural_pair_blocks_in_the_release_gate",
+    "test_f019_plural_and_singular_fold_to_one_root_and_ss_is_not_a_plural",
+    "test_f019_tag_selection_never_spends_two_slots_on_one_root",
+    "test_f046_ad_and_etsy_plus_spend_leave_every_ranking_dimension_unchanged",
+    "test_f046_no_organic_ranking_module_reads_a_paid_media_input"
+   ],
+   "tail": [
+    "PASS: 0 failing of 5"
+   ]
+  },
+  {
+   "file": "tests/test_w4_etsysurf.py",
+   "rc": 0,
+   "ok": 8,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_an_unobserved_shop_lists_every_first_sale_surface_and_waits_on_the_owner",
+    "test_a_fresh_passing_shop_still_names_what_no_collector_can_observe",
+    "test_a_failing_shop_check_is_named",
+    "test_the_requirement_is_part_of_readiness_and_never_blocks_on_build",
+    "test_surfaces_api_exposes_coverage_work_plan_and_the_launch_list",
+    "test_openapi_watch_is_already_a_weekly_cadence",
+    "test_openapi_watch_fingerprints_the_document_and_reports_a_change",
+    "test_dashboard_shows_the_surface_registry"
+   ],
+   "tail": [
+    "8 passed, 0 failed"
+   ]
+  },
+  {
+   "file": "tests/test_w4_f660_zero_credit.py",
+   "rc": 0,
+   "ok": 2,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_the_dispatch_path_does_not_read_the_credit_wallet",
+    "test_three_agents_work_concurrently_with_zero_cloud_credit"
+   ],
+   "tail": [
+    "2/2 passing"
+   ]
+  },
+  {
+   "file": "tests/test_w4_failmem.py",
+   "rc": 0,
+   "ok": 10,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_the_same_failed_improvement_months_later_is_refused",
+    "test_new_evidence_or_a_changed_premise_reopens_the_question",
+    "test_a_refusal_or_first_measurement_is_not_a_failure",
+    "test_a_reverted_promotion_is_remembered",
+    "test_digits_are_kept_so_new_measurements_are_a_new_claim",
+    "test_scope_blocks_only_inside_the_observed_conditions",
+    "test_generalisation_beyond_scope_needs_new_evidence",
+    "test_records_need_evidence_and_scope",
+    "test_decision_log_dead_ends_are_seeded_and_enforced",
+    "test_failure_memory_is_a_non_rederivable_record"
+   ],
+   "tail": [
+    "10 passed, 0 failed"
+   ]
+  },
+  {
+   "file": "tests/test_w4_fmclose_etsy.py",
+   "rc": 0,
+   "ok": 20,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_f283_the_owner_attributes_an_order_with_evidence_and_the_first_sale_follows",
+    "test_f501_verified_events_feed_the_idempotent_order_layer",
+    "test_f512_a_storage_failure_answers_5xx_so_etsy_retries",
+    "test_f512_idempotent_storage_duplicate_protection_and_observability",
+    "test_f512_multiple_signature_entries_accept_if_any_matches",
+    "test_f512_route_is_public_signed_and_reported_on_api_etsy",
+    "test_f512_validation_refuses_every_unprovable_delivery_before_writing",
+    "test_f558_every_order_reconciles_six_parts_and_names_what_does_not",
+    "test_f570_ads_plan_reports_unknown_attribution_and_the_threshold_status",
+    "test_f570_ledger_read_measures_attribution_fee_and_recomputed_margin",
+    "test_f570_unread_attribution_is_unmeasured_never_a_zero_share",
+    "test_f574_channels_compared_per_listing_and_family_one_credit_per_order",
+    "test_f575_unexplained_ledger_movements_are_incidents_and_shown_to_the_owner",
+    "test_f590_inventory_names_effects_and_an_unreadied_channel_is_an_incident",
+    "test_f595_a_later_refund_reaches_the_record_and_the_cohort_closes_at_ten",
+    "test_f595_each_of_the_first_ten_sales_gets_an_inspection_record",
+    "test_f657_each_business_event_wakes_its_team_once",
+    "test_f657_the_orchestrate_tick_runs_the_event_scan",
+    "test_f682_activity_shows_reconciliation_discrepancies_close_and_alerts_never_zeroed",
+    "test_f682_threshold_alert_approaches_and_crosses"
+   ],
+   "tail": [
+    "PASS: 0 failing"
+   ]
+  },
+  {
+   "file": "tests/test_w4_funding.py",
+   "rc": 0,
+   "ok": 5,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_an_empty_ledger_is_unmeasured_never_zero",
+    "test_the_credit_packet_names_what_the_credit_buys_and_its_bound",
+    "test_the_diversification_packet_carries_measured_resilience_value_and_a_bound",
+    "test_the_owner_funding_action_carries_the_prepared_packet",
+    "test_the_packets_route_is_registered"
+   ],
+   "tail": [
+    "OK   test_the_packets_route_is_registered"
+   ]
+  },
+  {
+   "file": "tests/test_w4_improvemetrics.py",
+   "rc": 0,
+   "ok": 9,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_launch_blockers_lead_and_reversibility_breaks_ties",
+    "test_old_ordering_is_unchanged_without_the_new_fields",
+    "test_a_blocker_flag_must_name_its_readiness_item_and_tiers_must_exist",
+    "test_promotion_stamps_build_and_attributed_spend",
+    "test_unknown_build_and_unattributed_spend_stay_unknown",
+    "test_learning_health_rates_are_none_until_a_verdict",
+    "test_learning_health_measures_adoption_rejection_regressions_and_cost",
+    "test_a_withdrawn_lesson_is_kept_but_no_longer_matched",
+    "test_api_improve_carries_history"
+   ],
+   "tail": [
+    "9 passed, 0 failed"
+   ]
+  },
+  {
+   "file": "tests/test_w4_mjscount.py",
+   "rc": 0,
+   "ok": 5,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_every_counter_comes_from_one_snapshot_and_reconciles",
+    "test_the_backlog_count_no_longer_saturates_at_a_page",
+    "test_a_broken_identity_is_reported_not_corrected",
+    "test_forecast_is_measured_or_unknown_never_zero",
+    "test_dashboard_mission_shows_scan_health_detail_reconciliation_and_forecast"
+   ],
+   "tail": [
+    "5 passed, 0 failed"
+   ]
+  },
+  {
+   "file": "tests/test_w4_packetrel.py",
+   "rc": 0,
+   "ok": 6,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_record_only_commit_cites_its_release_record_by_tree_digest",
+    "test_the_suite_commit_itself_binds_by_exact_sha",
+    "test_a_changed_tree_has_no_record_and_is_unknown",
+    "test_no_record_and_unknown_sha_are_unknown_never_invented",
+    "test_a_tampered_or_ineligible_record_is_fail_with_its_problems",
+    "test_markdown_shows_the_release_record"
+   ],
+   "tail": [
+    "6/6 passed in 2s"
+   ]
+  },
+  {
+   "file": "tests/test_w4_provenance.py",
+   "rc": 0,
+   "ok": 6,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_a_drifted_database_row_is_mismatch_and_names_the_field",
+    "test_a_matching_database_row_is_match",
+    "test_no_freeze_row_is_no_row_never_match",
+    "test_the_model_identity_route_serves_the_comparison",
+    "test_the_record_carries_no_identity_description",
+    "test_the_record_pins_the_pack_the_code_approval_names"
+   ],
+   "tail": [
+    "OK   test_the_record_pins_the_pack_the_code_approval_names"
+   ]
+  },
+  {
+   "file": "tests/test_w4_research.py",
+   "rc": 0,
+   "ok": 10,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_unknowns_on_decision_paths_open_research_questions_once",
+    "test_an_observed_domain_is_no_longer_an_unknown",
+    "test_internal_evidence_is_searched_first",
+    "test_claim_classes_are_enforced",
+    "test_claims_and_guesses_cannot_close_a_task",
+    "test_answers_expire_by_their_domain_and_mathematical_never_does",
+    "test_tasks_need_a_decision_and_spend_nothing_by_default",
+    "test_learning_observations_carry_class_terms_and_decision",
+    "test_learn_scan_routes_unknowns",
+    "test_research_tasks_are_a_non_rederivable_record"
+   ],
+   "tail": [
+    "10 passed, 0 failed"
+   ]
+  },
+  {
+   "file": "tests/test_w4_size_shape_intent.py",
+   "rc": 0,
+   "ok": 5,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_a_shape_word_that_contradicts_the_twin_is_refused",
+    "test_every_launch0_curated_tag_set_agrees_with_its_twin",
+    "test_no_shape_family_without_a_measured_shape",
+    "test_the_family_adds_shape_and_graded_size_phrases_only",
+    "test_the_shape_is_read_from_the_twin"
+   ],
+   "tail": [
+    "OK test_the_shape_is_read_from_the_twin"
+   ]
+  },
+  {
+   "file": "tests/test_w4_swarmcontrol.py",
+   "rc": 0,
+   "ok": 8,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_memory_or_cpu_pressure_saturates_and_host_load_never_does",
+    "test_unreadable_resources_are_unknown_not_healthy",
+    "test_worker_target_returns_to_one_worker_while_saturated",
+    "test_health_carries_the_resources_signal",
+    "test_preemption_wanted_only_behind_a_full_pool_for_better_waiting_work",
+    "test_a_yielding_handler_is_requeued_uncounted_with_its_checkpoint",
+    "test_gallery_analysis_yields_between_images",
+    "test_overlapping_live_lane_manifests_are_refused_at_enrolment"
+   ],
+   "tail": [
+    "8 passed, 0 failed"
+   ]
+  },
+  {
+   "file": "tests/test_w4_swarmmetrics.py",
+   "rc": 0,
+   "ok": 8,
+   "fail": 0,
+   "failing": [],
+   "passed_tests": [
+    "test_late_ready_work_with_idle_capacity_is_starved",
+    "test_health_reports_starved_ready_as_a_signal",
+    "test_untouched_opportunities_are_counted_and_value_weighted",
+    "test_parallelism_reads_pool_counters_and_dedupe_hits",
+    "test_runner_state_carries_busy_and_idle_seconds",
+    "test_merge_delay_is_read_from_git",
+    "test_agents_view_composes_running_pending_parked_completion_and_spend",
+    "test_api_routes_expose_the_metrics"
+   ],
+   "tail": [
+    "8 passed, 0 failed"
+   ]
+  }
+ ]
+}

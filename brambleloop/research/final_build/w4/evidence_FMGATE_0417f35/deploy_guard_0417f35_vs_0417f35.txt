@@ -1,0 +1,26 @@
+{
+  "candidate": "0417f3516f30bb7c52926187fc475a0f46536e86",
+  "deployed": "0417f3516f30bb7c52926187fc475a0f46536e86",
+  "mode": "forward",
+  "note": "verdict only; this script never deploys (F-461)",
+  "reasons": [],
+  "release_record": {
+    "file": "brambleloop/release/RELEASE_5dfd1ac56ba4a5e64c3cd29fd92212d9cdfadd8c.json",
+    "sha": "5dfd1ac56ba4a5e64c3cd29fd92212d9cdfadd8c",
+    "tree_sha256": "30a4dc9314ceaf6c9ed6c841e098355e208c6a8cdd99eee5278dd547541c8cea"
+  },
+  "suite_run": {
+    "finished_utc": "2026-10-11T09:56:52Z",
+    "git_sha": "5dfd1ac56ba4a5e64c3cd29fd92212d9cdfadd8c",
+    "log": "artifacts/suite_runs/20261011T083839Z-21062.log",
+    "release_eligible": true,
+    "run_id": "20261011T083839Z-21062",
+    "scope": "full",
+    "status": "passed",
+    "suites_failing": 0,
+    "tests_passing": 7877,
+    "tree": "clean"
+  },
+  "verdict": "ALLOW"
+}
+exit 0

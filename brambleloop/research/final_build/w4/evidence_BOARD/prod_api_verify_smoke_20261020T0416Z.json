@@ -1,0 +1,102 @@
+{
+    "verdict": "PASS",
+    "as_of": "2026-10-20T04:16:47.987479+00:00",
+    "checks": [
+        {
+            "check": "probe_ran:model.probe",
+            "verdict": "PASS",
+            "why": "model.probe ran 1572 s ago",
+            "evidence": {
+                "cadence": "model_probe",
+                "period_s": 21600,
+                "allowed_age_s": 45000,
+                "last_at": "2026-10-20T03:50:35.729094+00:00",
+                "age_s": 1572,
+                "provider_answered_ok": true,
+                "provider_reason": null
+            },
+            "requirement": "F-171"
+        },
+        {
+            "check": "probe_ran:vision.probe",
+            "verdict": "PASS",
+            "why": "vision.probe ran 1582 s ago",
+            "evidence": {
+                "cadence": "capability_probes",
+                "period_s": 21600,
+                "allowed_age_s": 45000,
+                "last_at": "2026-10-20T03:50:25.525475+00:00",
+                "age_s": 1582,
+                "provider_answered_ok": true,
+                "provider_reason": null
+            },
+            "requirement": "F-171"
+        },
+        {
+            "check": "probe_ran:etsy.probe",
+            "verdict": "PASS",
+            "why": "etsy.probe ran 15017 s ago",
+            "evidence": {
+                "cadence": "etsy_probe",
+                "period_s": 21600,
+                "allowed_age_s": 45000,
+                "last_at": "2026-10-20T00:06:31.193529+00:00",
+                "age_s": 15017,
+                "provider_answered_ok": true,
+                "provider_reason": null
+            },
+            "requirement": "F-171"
+        },
+        {
+            "check": "continuity_restore_proven",
+            "verdict": "PASS",
+            "why": "an export was restored into an empty database and hashed identically",
+            "evidence": {
+                "last_verified_at": "2026-10-20T00:01:05.481633+00:00",
+                "last_failed_at": null,
+                "allowed_age_s": 174600
+            },
+            "requirement": "F-171"
+        },
+        {
+            "check": "cadence_coverage",
+            "verdict": "PASS",
+            "why": "100/100 cadences fresh",
+            "evidence": {
+                "reason": "100/100 cadences fresh",
+                "fresh": 100,
+                "stale_count": 0,
+                "stale": [],
+                "not_yet_judged": 14,
+                "target": 0.95
+            },
+            "requirement": "F-171"
+        },
+        {
+            "check": "queue_round_trip",
+            "verdict": "PASS",
+            "why": "jobs are enqueued, claimed and completed within the hour",
+            "evidence": {
+                "done_in_last_hour": 76,
+                "oldest_due_pending_wait_s": null,
+                "max_wait_s": 3600
+            },
+            "requirement": "F-171"
+        },
+        {
+            "check": "search_intelligence_captured",
+            "verdict": "PASS",
+            "why": "intel.serp_capture completed 14316 s ago",
+            "evidence": {
+                "job_type": "intel.serp_capture",
+                "last_done_at": "2026-10-20T00:18:12.128962+00:00",
+                "age_s": 14316,
+                "allowed_age_s": 174600
+            },
+            "requirement": "F-171"
+        }
+    ],
+    "failing": [],
+    "unknown": [],
+    "rule": "FAIL if any check fails; UNKNOWN if none fails and any cannot be judged yet; PASS only when every check passes. Read from rows the runtime wrote, never from configuration"
+}

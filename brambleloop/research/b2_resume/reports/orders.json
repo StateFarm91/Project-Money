@@ -1,0 +1,138 @@
+{
+ "cluster": "orders",
+ "branch": "claude/b2r-orders",
+ "head": "596019d",
+ "rows": [
+  {
+   "id": 11,
+   "status": "data_gated",
+   "parked_on": "owner: transactions_r re-authorisation (OWNER_ACTION reauthorise_transactions_r) + data: no order yet",
+   "proof": "tests/test_cert_orders.py::test_gate_closed_records_unmeasured_and_never_touches_the_reader, ::test_gate_open_ingest_writes_customers_orders_versions_and_ledger, ::test_order_readings_drive_every_downstream_reader",
+   "note": "commerce.orders_ingest (cfo, 6h cadence) reads the transactions_r gate from oauth_credentials.scopes + etsy.probe; closed -> UNMEASURED, zero network calls; open -> EtsyClient.get_shop_receipts pages receipts into cohorts.record_customer/record_order (Etsy user id only, no PII) and sale LedgerEntry rows, then enqueues commerce.order_readings. cohort_block computes cohorts.metrics per axis and validation-cohort lifetime contribution, which is the reward ceiling referral.check reads. Real gate: only the owner can grant the scope in a browser."
+  },
+  {
+   "id": 12,
+   "status": "data_gated",
+   "parked_on": "same gate as #11",
+   "proof": "tests/test_cert_orders.py::test_gate_open_ingest_writes_customers_orders_versions_and_ledger",
+   "note": "Customer and Order rows are written by the ingest on cadence (idempotent on etsy:<receipt>:<transaction>; 44 orders/43 customers from the fake feed, second run adds nothing; refused line recorded not fatal). With no orders the readings say UNMEASURED, never zero-as-measured."
+  },
+  {
+   "id": 13,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_orders.py::test_portfolio_review_reads_exposure_and_consults_offers_before_retiring",
+   "note": "order_readings.offer_results builds offers.Result per (design, offer) from Order.offer (set at ingest); handle_portfolio_review calls offers.may_retire for every RETIRE/REWORK/APPEAL_PROBLEM classification and, on refusal, replaces the discard intervention with the next untried offer and records it in review.actions and the portfolio.reviewed audit (offer_guard)."
+  },
+  {
+   "id": 22,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_orders.py::test_order_readings_drive_every_downstream_reader",
+   "note": "winner_block runs daily: Sku metrics from Listings+Orders, replication.is_winner on the top seller, a credible winner opens a bounded replication.study (operating_readings kind replication.study, capacity_share <= MAX_CAPACITY_SHARE); ideation.plan reads directives()['replication'] and constraints_text gives the study its capacity share of briefs as adjacent experiments (asserted 0 < n < all). UNMEASURED with no selling product."
+  },
+  {
+   "id": 42,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_orders.py::test_a_correcting_version_prepares_the_notice_for_its_buyers (+ test_cert_wiring::test_record_order_writes_the_bought_version)",
+   "note": "Ingest calls cohorts.record_order which writes OrderVersion at sale time (buyer_trust.record_sale_version); pipeline.handle_certify calls buyer_trust.on_certified after a granted certificate: affected_orders/correction_notice over older versions (or same version, changed release hash), moves current_safe_version, stores the notice on each row (sent=False) and raises one OwnerAction correction_notice:<slug>@<version>; audits buyer_trust.correction_prepared. Sending stays owner-approved."
+  },
+  {
+   "id": 47,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_orders.py::test_portfolio_review_reads_exposure_and_consults_offers_before_retiring",
+   "note": "handle_portfolio_review builds SkuMetrics from ListingOutcome (impressions, visits->clicks, favourites), Order (orders, revenue, refunds) and published Listing.created_at (days_live); the ladder now diagnoses APPEAL_PROBLEM on real exposure instead of NO_EVIDENCE from empty inputs; exposure_read recorded in the audit."
+  },
+  {
+   "id": 49,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_orders.py::test_reinvestment_raises_an_owner_action_when_the_envelope_is_non_zero",
+   "note": "reinvestment_block (daily via commerce.order_readings) sums trailing-30-day sale LedgerEntry rows and calls finance.reinvestment.recommend(db, gross_cad=...) (envelope from reserves + confidence ladder); a non-zero recommended_cad upserts an OwnerAction reinvestment:<YYYY-MM> with max_cost_cad = the recommendation. Zero confidence today -> honest CA$0 recommendation, no action."
+  },
+  {
+   "id": 104,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_orders.py::test_north_star_is_computed_by_cohort_and_a_regression_is_a_defect, ::test_the_route_reads_the_database_not_an_empty_dict",
+   "note": "standard.north_star_cohorts reads monthly cohorts from creative.tournament/expedition/grid_tournament audit rows, products, listings, incidents, listing outcomes and orders; north_star_from_db replaces north_star({}) both in /api/invention and in the daily creative.north_star handler. Metrics with no rows are absent (unmeasured), never zero."
+  },
+  {
+   "id": 132,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_orders.py::test_north_star_is_computed_by_cohort_and_a_regression_is_a_defect",
+   "note": "creative.north_star (creative_director, daily) stores the reading per day and, when >=2 metrics regress cohort-on-cohort and regressions outnumber improvements, opens a P2 Incident creative.north_star_regression (non-halting), updates it while it persists, resolves it when it stops. LOWER_IS_BETTER handles creative_defect_rate direction."
+  },
+  {
+   "id": 233,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_orders.py::test_order_readings_drive_every_downstream_reader (ladder measured, value-ladder gap reaches ideation briefs); pricing guard path in handle_pricing_position",
+   "note": "ladder_block runs daily: ladder.shape over priced Listings placed on rungs, ladder.check_discount over PriceObservation sale history (measured against the reading's date), ladder.movement from buyers' first/later tiers, ladder.lifetime_value per customer (min cohort floor). Acted on: directives()['ladder_gaps'] becomes an ideation brief constraint; discount_refused makes handle_pricing_position append full-price-only."
+  },
+  {
+   "id": 234,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_orders.py::test_bundle_pairs_come_from_certified_product_facts",
+   "note": "bundle_items builds bundles.Item from certified products' concept facts (pod/form/occasion/weight/family) and bundles.candidates runs daily with no customers needed (autumn-oak + harvest-table pair found; incoherent pair excluded); handle_collection_assemble runs bundles.check on its members and refuses to assemble a set that fails pair affinity / spans departments (collection.bundle_check audit)."
+  },
+  {
+   "id": 235,
+   "status": "data_gated",
+   "parked_on": "data: no promotion has run beside a full-price arm",
+   "proof": "tests/test_cert_orders.py::test_promotion_verdicts_reach_pricing",
+   "note": "promotion_block runs daily: sale-window PriceObservation rows paired with Cohort organic/promoted arms through promotion.incrementality; do_not_repeat verdicts are read by handle_pricing_position (full price only). With no arms it records UNMEASURED and lists which promotions lack a full-price arm."
+  },
+  {
+   "id": 252,
+   "status": "data_gated",
+   "parked_on": "data: no orders yet (same order source gate as #11)",
+   "proof": "tests/test_cert_orders.py::test_order_readings_drive_every_downstream_reader",
+   "note": "repeat_block runs daily: repeat.windows (30/60/90/180) per first_product/first_category/first_season cohort from Order rows, lifetime contribution per buyer per cohort, repeat.recommend next projects; cohort lifetime contribution also feeds referral.check. UNMEASURED with no rows."
+  },
+  {
+   "id": 256,
+   "status": "data_gated",
+   "parked_on": "data: no attributed customers yet",
+   "proof": "tests/test_cert_orders.py::test_order_readings_drive_every_downstream_reader; tests/test_cert_commerce_readings.py (commerce.readings block)",
+   "note": "referral_block reads attributed customers (acquisition_source in REFERRAL_SOURCES) and their contribution from Order rows, reward spend from referral_reward LedgerEntry rows, gates measurability on runrate.orders_source_live; referral.check runs over referral.DECLARED mechanics against the measured lifetime contribution per buyer (may_run list). Also wired into runtime/commerce_readings.py replacing the hard-coded None inputs."
+  },
+  {
+   "id": 269,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_orders.py::test_pricing_decides_on_net_contribution_with_currency_normalised, ::test_gate_open_ingest_writes_customers_orders_versions_and_ledger (USD order keeps currency/amount_original/fx rate/date/measured flag)",
+   "note": "Order gained currency, amount_original, fx_usd_per_cad, fx_taken_on, fx_measured, fees_cad, offer, source (additive migration). pricing.decide_price now decides on net contribution: best measured contribution-per-visitor price point wins, MIN_NET_CONTRIBUTION_CAD floor is binding within the band; handle_pricing_position feeds it foreign_share and the last measured settlement rate from Order rows plus this product's PriceObservation points via release._pricing_net_inputs."
+  },
+  {
+   "id": 271,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_orders.py::test_order_readings_drive_every_downstream_reader (etsy_organic loop orders==43, contribution>0)",
+   "note": "loop_block runs daily: loops.seed, then loops.observe per loop with the delta between recorded visits/orders (ListingOutcome visits, Order acquisition_source via SOURCE_TO_LOOP) and the row, so strength moves at runtime; GrowthLoop.contribution_cad column and Loop.confidence property added and surfaced in to_dict/evidence_summary."
+  },
+  {
+   "id": 26,
+   "status": "covered",
+   "parked_on": null,
+   "proof": "tests/test_cert_orders.py::test_trajectory_runs_nightly_from_the_database, ::test_the_route_reads_the_database_not_an_empty_dict",
+   "note": "scale.trajectory (orchestrator, nightly cadence): trajectory.observed_terms reads runrate.observe + releases/listings into observed Values, ASSUMED terms carry their basis, run() produces assumption_space (no probability) below the observed-share floor or a forecast above it, primary constraint from the observed funnel; stored per day in operating_readings and a changed binding constraint enqueues ops.capacity. /api/trajectory passes the real db and returns last_nightly."
+  }
+ ],
+ "tests": {
+  "test_cert_orders": "14/14",
+  "test_closure": "16 passing",
+  "test_platform": "22 OK",
+  "test_cert_orchestration": "20 OK",
+  "test_capability_gates": "22 OK",
+  "test_cert_wiring": "14 OK, 2 FAIL (both C-73 pre-existing at base; fixed by lead in b90e7e1)",
+  "test_cert_commerce": "13 OK",
+  "test_cert_commerce_readings": "2 OK",
+  "test_cost_governance_wave2": "39 OK"
+ },
+ "owner_action": "reauthorise_transactions_r (Etsy app scope; CA$0; ~3 min)"
+}

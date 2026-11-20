@@ -1,0 +1,10549 @@
+> **2026-11-20 — ENG-DAILY-FIX (`eng/daily`, NOT merged, NOT deployed; production unchanged).** Fixes every Unit B
+> finding of the independent review of a795be17 (BLOCK). Merged `origin/claude/w6-INTEG4` (259e47c4) first, so
+> learn and improve with `improve.ecr` are present; change requests now go through `ecr.file`. (1) BLOCKER: a
+> `daily_ledger` row in `ops/readback.py` `EVIDENCE_ITEMS`, judged advisory (PASS/WARN; UNKNOWN when unreadable;
+> never PASS on UNKNOWN); readback items 18 -> 19. (2) HIGH: a stage is zero-output only when >= 6 h into the UTC
+> day, expected-by-now >= 1 from its historical rate, and today <= 0.2 x expected; otherwise `not_yet_due` (never
+> DEGRADED) or UNKNOWN (D-ENG-DAILY-ZERO-RULE). Change requests need a zero last-24-h window and are deduplicated by
+> fingerprint per stage per UTC day, on `ecr.file` and on the `ops.ecr_pending` fallback. Tests: the 00:30 UTC run
+> diagnoses nothing and files nothing; repeated runs file one request (both paths). (3) `concepts_held` is UNKNOWN on
+> a day no `radar.scan` completed. (4) Daily panel pills: Failures and Dead letters invert, Spend is neutral, stage
+> rows follow their reading. (5) the retention-horizon day is UNKNOWN (`<=`). (6) the review request carries its
+> run table. `sw.js` `cc-shell-v43`; autonomy map regenerated (148 cadences / 180 handlers). Bundle: INTEG4 plus the Daily view came to 403,169 bytes (over 400 KB); the two PWA icons were re-encoded with zopfli, pixel-identical (verified), the Daily row labels are served with the panel and sw.js drops its per-version changelog (in git): 393,345 bytes. Results:
+> `research/final_build/w6/review_requests/ENG-DAILY-FIX.md`.
+
+> **2026-11-20 — ENG-DAILY slice 1 (`eng/daily`, NOT merged, NOT deployed; production unchanged).** The owner's P0
+> daily counts. `ops/daily_ledger.py` gives per-UTC-day counts for 14 days from persisted rows only: the 9 shops'
+> scans, concepts, products started and advanced, certifications, US/UK PDFs, images, galleries, listing packages,
+> Etsy drafts and live ids, lessons, failures and dead letters, and CA$ spend. UNKNOWN is never 0: an unreadable
+> source, a day before the first job, a day past retention or an unregistered shop.
+> - Zero-output diagnosis covers suspended loops, an empty upstream queue, a refusing gate (top reasons), a budget
+>   refusal, and policy or owner holds. It records an `ops.zero_output` row per day and stage.
+> - Safe free actions only: re-arm through `rearm_probe` under the cadence key, and one supply re-offer when
+>   admission is clear. A cause that needs code files an ECR: through `improve.ecr` once ENG-IMPROVE lands,
+>   `ops.ecr_pending` until then. No gate, ceiling or owner exception is changed.
+> - Owner-only `GET /api/cc/daily` and the `#/daily` view (`cc-shell-v42`, bundle 388,682 bytes); readback
+>   section `daily_ledger` (spend withheld). Not measured against production: no production reading was taken.
+> - Honest gaps (no per-event timestamp exists for these, so each counts the nearest row): stage moves, the moment
+>   an Etsy id is set, image verification time, "image recovered". Details:
+>   `research/final_build/w6/review_requests/daily_slice1.md`.
+
+> **2026-11-20 — ENG-VIS-IDENTITY slice 2 (`eng/vis-identity`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
+> - Review fixes: F1 v3 production test no longer assumes the models are absent; F2 calibration now fixes thresholds on a calibration subset and measures FAR/FRR (exact 95% bounds) only on a disjoint held-out subset, floors apply to held-out counts, `qualification()` refuses in-sample evidence; F3 outfit race settles to exactly one outfit per listing (a loser with uses is retired, never orphaning frames); F4 vision reads reserved at the provider's own image figure (OpenAI read CA$0.092 -> CA$0.029 reserved, equal to the gate's own estimate); F5 unused `transports_independent` removed.
+> - Re-measured held-out (evidence sha 1854ae98): **held-out FAR 2/6 (upper bound 72.9%)**, FRR 0/10. The slice-1 "FAR 0/10" was in-sample and is withdrawn. Still NOT production-ready; needs ~450 impostor faces and >=36 genuine in total.
+> - Deploy path: `onnxruntime==1.29.0` in the hash-pinned lock; Dockerfile fetches the sha-pinned models best-effort. Image built and booted in this session (models verified, `/health` ok, floor loads embedder with no qualification -> HOLD; tampered model refused). ~110 MB RAM over the worker.
+> - Decision 2 tooling: `visual/identity_labelling.py` + `scripts/identity_contact_sheet.py` (24 frames on all three references, US$1.16 cap, refuses without BFL key + owner activation; owner labelling page/command). Nothing generated or spent.
+> **2026-11-20 — ENG-VIS-IDENTITY slice 1 (`eng/vis-identity`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
+> - Built: `visual/face_embedder.py` (YuNet+SFace ONNX on CPU, Apache-2.0/MIT, weights pinned by sha256), `visual/identity_calibration.py` (measured thresholds, FAR/FRR with exact 95% bounds, production floors >=30 genuine / >=300 impostors / FAR-UB <=1% / FRR <=10%), `visual/identity_records.py` (durable per-image identity records), `outfits.claim` (idempotent compare-and-set outfit claim), blind outfit-vs-approved-reference check, OpenAI gpt-4.1 second judge via the existing `GatewayVisionJudge` reservation path, `identity_gate.assess` consumer `verdict` PASS/HOLD/REFUSE and all-three-references rule.
+> - Measured (committed evidence, sha 6884612e): Laura worst 0.696 vs best look-alike 0.582; FAR 0/10, FRR 0/12; **FAR 95% upper bound 25.9% -> NOT production-ready**. 0.08 CPU-s/frame, ~120 MB RAM.
+> - Honest state: `PRODUCTION_QUALIFICATIONS` still empty, so Laura identity HOLDs in production. Needs: ~306 generated impostor faces (US$1.63, standing authority; not run: no BFL key in this session), 18+ owner-confirmed genuine frames, OpenAI key + `openai-vision` activation, owner decisions in `research/final_build/w6/IDENTITY_OWNER_DECISIONS.md`. Nothing generated or spent in this session.
+> **2026-11-19 — ENG-VISUAL (branch `eng/visual-factory`, not deployed).**
+> - Audit: `research/final_build/w6/visual_factory_audit.md`, covering every stage from certified pattern to Etsy read-back, with file:line and blockers.
+> - Read-only evidence: the `visual_pipeline` section on `/api/readback/evidence`, plus an advisory readback row. Unreadable parts are UNKNOWN, never 0.
+> - S2:
+>   - the seven-frame campaign standard is enforced at gallery readiness;
+>   - `eng/motif-reservation` is merged;
+>   - an E2E (`tests/test_visual_factory_e2e.py`) runs on FakeEtsy with both PDFs and every image read back. The generated-gallery certification blocker is pinned.
+> - Production numbers are UNKNOWN until this branch is deployed and read.
+> - Owner exceptions: (1) the identity-verification method — embedder qualification plus a second vision transport; (2) activating `image_generation` and `image_vision`.
+
+> **2026-11-20 — ENG-LEARN slices 1-4 (`eng/learn`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
+> The owner directive: the learning department must make the company measurably better with experience.
+> - **Images (`learning.image_lessons`).**
+>   - Every judged `image_candidates` frame becomes one structured observation.
+>   - Measured scene lessons are derived per family:role, Bonferroni-corrected, and published as bus subject
+>     `image_production`.
+>   - Prompt templates compete champion/challenger. The challenger share is 15%, capped at 20%. Promotion needs p < 0.002,
+>     40+ frames per arm and +8pt, or a significant cost win. Harm stop and demotion apply, and every change is a
+>     `learning_decisions` row.
+>   - Contract `image_lessons/1` is posted to #28 for ENG-VIS-GALLERY and ENG-VIS-FLUX.
+> - **Patterns (`learning.pattern_lessons`).**
+>   - Finished `cir.draft`/`cir.compile`/`gate.certify` jobs become defect observations by construction family, category
+>     and binned parameters.
+>   - Fisher-exact region lessons go to `engineering_risk` (new, disfavoured) and `construction_preference`, which
+>     `radar.score` already consumes.
+>   - `cir.draft` records `learning_advice`, which is advice and never a refusal. The metric is first-pass certification
+>     per family.
+> - **Suspended learners.** All five were parked by the backoff (identical states), with no upstream lift and, for
+>   `creative.*`/`visual.*`, no release probe. Each now has a real upstream input, and
+>   `made_progress` judges declared WORK_KEYS.
+>   - `creative.image_benchmark`'s superseded branch runs the image loop.
+>   - `visual.rnd.cycle` counts hero work.
+>   - `improve.monitor` no longer counts a standing `promoted` as work.
+>   - No spend classification changed.
+> - **New free job `learning.loops`** runs the pattern and commerce loops daily.
+> - **Proof.** `learning.progress` feeds Mission Control (LEARN tab) and the readback (`learning` section). Windows,
+>   trends and lessons acted on are UNKNOWN below the minimum sample. Service worker `cc-shell-v40`.
+> - **Commerce.** Only real-provenance outcomes and orders feed lessons. There are none today, so it reads UNMEASURED.
+> - **Honest status.**
+>   - Nothing has run against production, so every real trend is UNKNOWN.
+>   - No producer calls `prompt_for` yet, so no arm has production evidence.
+>   - Review notes: `research/final_build/w6/review_requests/learn_slice{1,2,3}.md`.
+> **2026-11-20 — ENG-IMPROVE slice 1 (`eng/improve` from w6-INTEG3 39b92619; NOT reviewed, NOT integrated, NOT deployed).**
+> Owner directive: every department improves with experience; a lesson counts only if it changes behaviour.
+> - **Department loops.** `improve.department_loops` covers 11 departments, each with a KPI (useful yield from `jobs` rows,
+>   UNKNOWN below 20 runs), lessons (learned, verified, applied) and a consumer checked statically and live. A department
+>   with no consumer, or a dormant one, is a FINDING that files an ECR. Table: `research/final_build/w6/self_improvement_table.md`.
+>   Structural findings: **Pricing and Ops have no lesson consumer.**
+> - **Live tuning.** `improve.tuning` is champion/challenger over a hard-coded allowlist of 13 keys, re-checked by
+>   `improve.invariants`. Challengers are capped by share (20%) and spend (CA$5). Promotion happens only at fixed looks
+>   (z >= 2.807 and +3 points). A promotion is watched against a holdback and rolled back automatically on regression.
+>   Everything is audited. **No reader calls `tuning.value()` yet, so no challenger can run in production (slice 2).**
+> - **ECRs.** `improve.ecr` adds EngineeringChangeRequest rows: deduplicated, related requests linked, lifecycle
+>   FILED -> BUILDING -> REVIEWED -> DEPLOYED -> VERIFIED or REOPENED. A request closes only on a KPI verified after deploy.
+>   Open requests are served read-only at `GET /api/readback/ecrs` (readback token only). There is no transition route
+>   yet. Production never edits code.
+> - **Daily job.** `improve.self_tune` (free, GREEN, daily) judges trials, files and verifies ECRs, and files `failing_loop`
+>   ECRs for improve.* loops parked at 32x.
+> - **Panel.** Mission Control -> Autonomy -> "Self-improvement (per department)". SW `cc-shell-v41`.
+> - **Parked improve.* loops diagnosed.** `improve.monitor`, `improve.sandbox` and `improve.league` read rows, not job
+>   outputs. Idle, they correctly back off to 32x, but nothing lifted the backoff when a promotion, proposal or config
+>   arrived. A promotion could wait up to 32 days for its rollback monitor. `orchestrate.INPUT_PROBES` now lift it.
+>   This was derived from code: the production suspension list was not readable from this session.
+> - Review: `research/final_build/w6/review_requests/improve_slice1.md`.
+> **2026-11-20 — ENG-VIS-FLUX slice 1 (`eng/vis-flux`, builder branch; NOT reviewed, NOT integrated, NOT deployed; no BFL request made).**
+> - The FLUX 3 Image contract was verified against BFL's official docs on 2026-11-20: the OpenAPI schema, the API reference, pricing, the integration guide and the errors page.
+>   - It is held as data in `gateway/flux_contract.py`, with citations.
+>   - The audit is in `research/final_build/w6/flux_integration_audit.md`.
+>   - Findings: `BFL3_FIELDS` was stale (it lacked `user`, `width` and `height`). There was no whole-body range check: `safety_tolerance` must be 0–4. FLUX 3 Image has **no seed** field.
+> - New gateway pieces:
+>   - `flux_qc`: a listing frame is rejected at generation (billed, bytes kept) when it is under 2000 px, has the wrong aspect, is not PNG/JPEG, is transparent, or is still corrupt after up to 2 free re-fetches.
+>   - `flux_provenance`: the D-W4-F852-AMEND item 7 record, with `missing()`.
+>   - `flux_provider`: READY/UNKNOWN readiness that reads the key name only, and the replacement guard. The guard re-checks paid rejects and reads ENG-MOTIF-BACKLOG's `motif_recovery` when present.
+>   - Code image caps inside the gate, lower-only via environment: 60 images per day, 16 images and CA$2.50 per gallery. `gallery_spend()` reports cost per gallery.
+> - `Flux3Generator` refuses before reserving when the key or the owner's activation is missing, or when a paid render awaits recovery.
+> - The suite is `tests/test_eng_vis_flux.py`: a no-network contract test against recorded schema shapes, plus mutations on each guard.
+> - Owner actions are in `research/final_build/w6/FLUX_OWNER_DECISIONS.md`:
+>   - confirm or add `BRAMBLELOOP_IMAGE_KEY_BFL` in Railway;
+>   - activate `flux-3-image` for generation with ceilings of CA$9/day, CA$60/month and CA$2.50/gallery.
+>   - Cost: CA$0.142 per 2k frame; about CA$1.06 per Laura gallery; about CA$53–70/month at 50 galleries.
+> - Open: no live render yet. It is UNKNOWN whether the 2k tier at 1:1 delivers exactly 2048 px, and whether 4:5 at 4k works with references.
+> - Also fixed: this branch's own merge commit (439d17e5) left conflict markers at the top of this file. They are now resolved, and both entries are kept.
+> **2026-11-20 — ENG-PDF-PREMIUM slice 1 (`eng/pdf-premium`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
+> - `publish.pdf_standard`: family-aware premium standard (small home goods, blanket, basket, garment, pillow, amigurumi),
+>   22 rules + running header/footer, audited on the finished PDF bytes; `build_pattern_pdf` refuses a PDF that fails
+>   (`PremiumStandardRefused`). D-ENG-PDF-PREMIUM-1.
+> - Renderer gaps closed: CYC number and US hook size, "or size to obtain gauge", yarn per colour in 100 g balls and
+>   yd (US) / m (UK), length-per-gram substitution, RS/WS row labels, own licence with designer credit plus a
+>   disclaimer, "About Brambleloop Studio" (never Laura), schematic measurements as text, schematic cover hero for
+>   designs the stitch renderer cannot draw. Fixed buyer-facing defects: "Makes 4 bodys" (pullover) and "Makes 3 pillows"
+>   (one ring pillow of 3 pieces).
+> - Measured: all 13 catalogue documents (11 Launch-0/proposed + a garment size + a pillow) pass in US and UK.
+> - NOT built: one multi-size garment edition with sizes in parentheses (each size is still its own PDF); garment
+>   inline diagrams; amigurumi (no engine exists). Review request: `research/final_build/w6/review_requests/pdf_premium_slice1.md`.
+> **2026-11-20 — ENG-WARDROBE-SCENES slice 1 (`eng/wardrobe-scenes`, NOT reviewed, NOT merged, NOT deployed; no provider called).**
+> - **Built, new files only:**
+>   - `visual/outfit_library.py`: 63 outfits, pairwise distinct (max 0.598 < 0.60), with harmony, family compatibility and a durable claim through `outfits.reserve`;
+>   - `visual/scene_library.py`: 59 scenes, 16 of them outdoor, 36 props, and the misleading-prop rule;
+>   - `visual/prompt_assembly.py`: versioned `ws.<role>@1` templates, the ENG-LEARN `image_lessons/1` interface and a CIR product block;
+>   - `visual/gallery_planner.py`: 7 or 8 distinct frames per listing, one outfit, an invariant product, and refusal of filler.
+> - **Decisions:** D-ENG-WARDROBE-1..4.
+> - **Tests:** `tests/test_wardrobe_scenes.py`, 34 OK, including 8 rule mutations, all killed. Review request: `research/final_build/w6/review_requests/wardrobe_scenes_slice1.md`.
+> - **Not done or not verified:**
+>   - Not wired into the image producer or ENG-VIS-GALLERY's FLUX route (slice 2).
+>   - No outfit reference image exists: they are HELD until the owner's FLUX activation.
+>   - Library outfits are approved by code, not by the owner.
+>   - The cream + ink palette admits only 5 outfits.
+> **2026-11-19 — ENG-APPROVALS slice 1 (`eng/approvals`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
+> - The owner directive `D-OWNER-STANDING-INTERNAL` is recorded in DECISION_LOG.
+> - Code: `authority.standing_internal` (classifier and directive), `ops.owner_queue_consolidate` (idempotent sweep, the one
+>   exception batch, P0 board counts) and the hourly job `ops.owner_queue_consolidate` (fully registered).
+> - The CA$6 opening-catalogue listing-fee budget is enforced in `finance.listing_costs.reserve` and in store.activate.
+> - The classification of every owner-card kind is in `research/final_build/w6/owner_queue_classification.md`.
+> - Honest status:
+>   - The sweep has not run against production, so the real count of open cards versus genuine exceptions is not yet
+>     measured.
+>   - The listing-package preparation path that a publication-only policy hold still stops (`_judge_search_hero`'s
+>     listing-set issuance) is slice 2.
+
+> **2026-11-20 — ENG-BENCHBUY (`eng/benchbuy`, NOT merged, NOT deployed; production unchanged, SHADOW).** The benchmark shopping list across all nine watchlist shops.
+> - **Built.** `purchase_selection.shopping_list`: pattern digital downloads only, quota 3 per shop (MadelineMaeCo 5), capability-gap facet then owner-demand facet (baby, stuffed animal, pillow), favourites as a tie-break only, no pick without a new facet. Budget in code: `SET_BUDGET_CAD` less recorded BenchmarkProduct spend, every price at x1.158. Owned items (both MJ benchmarks, any BenchmarkProduct) never offered. Empty or never-scanned shops are listed with their reason; no scan data is UNKNOWN.
+> - **Wiring.** New daily loop `intel.benchmark_shopping` (free, after the scans, thrash/backoff via upstream inputs; autonomy_map regenerated, 144 cadences / 176 handlers). Mission Control: Insights tab gets the "Benchmark shopping list" panel grouped by shop, plus one owner card "Buy N benchmark patterns, ≤ CA$X". `sw.js` untouched.
+> - **Safety.** Nothing buys: no purchase path, no buy control, metadata only. Intake (`teardown.intake.receive`) now accepts a pick from any watchlist shop into the quarantined library.
+> - **Not verified.** Nothing here ran against production scan data (this checkout has no production database), so the real number of picks, shops with picks and total are UNKNOWN until the first production run. Whether the observed listings carry `options.listing_type` for every shop is also UNKNOWN: listings without it are excluded and counted as `digital_status_unknown`.
+> - Tests: `tests/test_benchbuy.py`, the benchbuy check in `check.mjs`. Review request: `research/final_build/w6/review_requests/benchbuy.md`.
+> **2026-11-20 — ENG-GARMENT slices 2-3 (`eng/garment`, NOT merged, NOT deployed).**
+> - Slice 2, `publish/garment_pdf.py` + `publish/garment_schematic.py`: one PDF per edition (US, UK) for all sizes,
+>   with:
+>   - overview table, supplies with balls per size and a gauge for each fabric;
+>   - construction narrative, size chart (body vs finished, ease, balls/yards/metres), schematic SVG from the rows;
+>   - tips, abbreviations, multi-size pattern, finishing with pick-up rates, child-safety section where it applies;
+>   - yarn substitution, our own licence (commerce.terms), About.
+>
+>   The PDF refuses itself if its text does not read back to the compiler or the twin. 5 designs x 2 editions render.
+> - Slice 3, routing: `construction_families` garment families. PAIR_PROOFS cover only (raglan, cardigan/adult),
+>   (raglan, baby/baby) and (one_piece, sweater/child). `cir.draft` drafts a garment as one release and sends
+>   every size through compile -> certify; intake refuses a garment title naming one size.
+>   End to end with real handlers: adult cardigan (9 sizes), child sweater (6), baby cardigan (5), each
+>   concept -> all sizes granted -> US/UK PDF with schematic and size chart.
+> - Follow-up: `products/garments.drop_shoulder_flat` seam notes lack "through both loops" (Harbour text change +
+>   version bump), so child-table tournament drop-shoulder garments are held by the child gate.
+> - NOT done: no garment physically made, no photos, side-to-side/drop-shoulder not admitted at intake, no
+>   listing/product-row work for a multi-size release beyond the per-size certified releases.
+> **2026-11-20 — ENG-GARMENT slice 1 (`eng/garment`, NOT merged, NOT deployed).** Garments as a family that
+> certifies end to end, every size. Built on INTEG2 64146306 + eng/plush d4aaf9b6 (which carries eng/families).
+> - `products/garment_families.py`: four constructions (top-down raglan, flat one-piece with built-in sleeves,
+>   side-to-side, drop-shoulder panels) over a recorded step list; back-loop bands at hems and cuffs; picked-up
+>   front bands with buttonholes, cuffs and neckbands; balls and yards per size from the twin.
+> - `cir/graded.py`: the CYC baby table (3-24 months, read 2026-11-20), so baby sizes are sourced, never invented.
+> - Five original designs (`products/garment_release.DESIGNS`): Fernhollow raglan cardigan (adult, 9 sizes,
+>   buttons), Brookside kids sweater (child 2-12, one-piece), Little Wren baby cardigan (3-24 m, no buttons),
+>   Driftline side-to-side vest (adult, 9), Kestrel drop-shoulder pullover (adult, 9). **Every size of all five is
+>   granted by the unchanged release chain** and passes `gates/garment_fit.py` (stitch counts, shaping, seam match,
+>   pick-up rates, neck and armhole fit, finished vs target, ease band, yardage and size-chart claims).
+> - `publish/garment_writer.py`: one text for every size, smallest first, others in parentheses, a stitch count
+>   after every row line, US and UK; read back per size by `garment_fit.multi_size_problems` (0 problems on all 10).
+> - `gates/child_safety.py`: child/baby garments in scope; GARMENT_CLOSURES (no buttonholes under 3); picked-up
+>   bands measured, not "sewn"; worked-into chains are fabric. Nothing that failed before passes now.
+> - NOT yet: the garment PDF (schematic, size chart, licence page), concept intake routing (PAIR_PROOFS) - slices 2-3.
+>   No real garment has been made; physical fit is unproven (class B relaxed designs only; fitted is refused).
+
+> **2026-11-19 — ENG-RECOVERY fix round 1 (`eng/recovery`, NOT merged, NOT deployed).** Main's review was DO NOT SHIP.
+> - H1: the spend classifier now FAILS CLOSED. `swarm.orchestrate.FREE_JOB_TYPES` is an explicit allow-list
+>   (94 cadence loops). Every other job type is spending, including `intel.serp_capture` and
+>   `laura.executive_tick`, which the old deny-list missed. A static call graph (`tests/_spend_reach.py`)
+>   proves that no allow-listed handler reaches the paid gateway, cross-checked against
+>   `test_cert_spend_hosts.DECLARED`.
+> - M1: `radar.scan` selects only undrafted concepts that `radar.score` would promote today (one shared
+>   `promotion_verdict`; #88 and the threshold are unchanged). On the production drafted set it drafts the
+>   3 promotable concepts, then records `selection_unpromotable` with a reason for each of the 15 held
+>   concepts. No honest premise path exists for POOL slots (only creative tournament winners or approved
+>   intake), so they stay held. **original_product will stall again after those 3 drafts** until creative
+>   or intake supplies real concepts.
+> - L1/L4/L5 addressed (full pool size reported; boot record read once per pass; an end-to-end test
+>   proves a legacy row completes its chain under a pending #39 without spending its budget).
+
+> **2026-11-19 — ENG-RECOVERY slice 1 (`eng/recovery`, NOT merged, NOT deployed; production 8bc96eef SHADOW).**
+> P0 "the factory makes nothing" root-caused from the code; no gate weakened.
+> - original_product 0/0/0: `radar.scan` re-selected the same 11 drafted concepts every time
+>   (score-only ranking; `draft:<slug>` dedupe swallowed silently). It now selects from the
+>   undrafted pool, falling back to the full pool.
+> - Thrash breaker: a backoff never consulted the code, so a fixed and redeployed loop stayed at
+>   x32. A suspended NON-SPENDING loop now gets one probe per new release (boot record plus a
+>   changed commit or handler digest). Spending loops are unchanged.
+> - #39 `listing_image_rules`: it held every internal rebuild retry. Now only a change governing
+>   `product_creation` holds the rebuild; publication still refuses on every unreviewed change.
+>   OWNER ACTION: Command Center card "Etsy policy changed: listing_image_rules", Preview then
+>   Review (confirm "reviewed and tested").
+> - Tests: `test_eng_recovery` (new), 12 of 12 mutants killed. Suites and status:
+>   `research/final_build/w6/review_requests/recovery.md`. Slice 2: a legacy rebuild-incomplete row
+>   with nothing STALE gets one targeted rebuild (once per row); 15 of 15 mutants killed.
+> **2026-11-19 — ENG-RESEARCH fix round 1 (`eng/research-flow`, NOT integrated, NOT deployed).** Main's review
+> (DO NOT SHIP) found the first round fabricated the #108 qualifier: `brief_for` typed `motif_composition` for every
+> pod. It is now DERIVED by `creative.intake.qualifiers_for` from the concept's own premise and construction, with
+> provenance on the proposal and a #108 precheck recorded beside it. Honest outcome per pod on the flat-rows radar path:
+> - **home_decor** (pillow, an outline, not a generic form) clears #108 with no qualifier and reaches `cir.draft` once a
+>   vision verdict exists. Its occasion moved from `spring_refresh` to `housewarming` (no spring motifs; #83 moment).
+> - **blankets** and **kitchen_bath** (rectangle throw, coaster: generic forms, plain-row stripes) carry no qualifier and
+>   are REFUSED by #108. The lineage names the hold, they are not "qualifying", and nothing is engineered. They need a
+>   construction the radar draft path does not compile yet (e.g. a charted flat panel) — an open engineering item.
+> Also fixed: P0 board JS SyntaxError (an extra `)`), per-row health pill (never-succeeded/failing ≠ OK), MP1.2-s4
+> off-Etsy channels (websites, YouTube, Pinterest) as UNAVAILABLE registry rows, unreadable vision ≠ scheduled,
+> downstream UNKNOWN without lineage tables, guarded conclusion in the intake job. SW `cc-shell-v35`.
+
+> **2026-11-19 — ENG-RESEARCH (`eng/research-flow`, NOT integrated, NOT deployed).** The research loop was traced
+> from watchlist change to engineering. It stopped at the pre-engineering gate: every watchlist proposal was refused
+> deterministically (no #88 storyboard, no #108 qualifier). That is fixed, and anti-clone now covers all eight watchlist
+> shops. With a vision verdict on record, a simulated watchlist change reaches `cir.draft` unattended. Without one, the
+> concept WAITS on `image_vision`. That wait is legitimate, owner-gated and not bypassed.
+> Every `radar.concept_intake` cycle now records `intel.research_conclusion`: `opportunities` or
+> `no_qualifying_opportunity`, with evidence. New pieces:
+> - the source registry `research/final_build/w6/research_sources.md`;
+> - P0 board section `research_sources`.
+>
+> Limitations, kept visible: research_fetch disabled (deployment flag); external trend platforms missing (no official
+> API); Marketplace Insights is owner-recorded. Review: `research/final_build/w6/review_requests/research_flow.md`.
+
+> **2026-11-19 — ENG-VISUAL (branch `eng/visual-factory`, not deployed).**
+> - Audit: `research/final_build/w6/visual_factory_audit.md`, covering every stage from certified pattern to Etsy read-back, with file:line and blockers.
+> - Read-only evidence: the `visual_pipeline` section on `/api/readback/evidence`, plus an advisory readback row. Unreadable parts are UNKNOWN, never 0.
+> - S2:
+>   - the seven-frame campaign standard is enforced at gallery readiness;
+>   - `eng/motif-reservation` is merged;
+>   - an E2E (`tests/test_visual_factory_e2e.py`) runs on FakeEtsy with both PDFs and every image read back. The generated-gallery certification blocker is pinned.
+> - Production numbers are UNKNOWN until this branch is deployed and read.
+> - Owner exceptions: (1) the identity-verification method — embedder qualification plus a second vision transport; (2) activating `image_generation` and `image_vision`.
+
+
+> **2026-11-02 — Batch 4 DEPLOYED: production = 0967c3ee (SHADOW unchanged). 24-hour acceptance running until 2026-11-03T03:31Z.**
+> - Owner approval: "APPROVE DEPLOY 0967c3eee287d06cad0d8034a99e39076c0ab6d5" (2026-11-02).
+> - Pre-release backup (03:27:45Z, before the push): `brambleloop_prod_20261102T032745Z.dump`, 497,732,160 bytes, sha256
+>   `9d94e242ad804e7e52f8f541e19723f1d26d3ebf8da4cf0e8e7518d0eb55e814`; `BK restore_ok`, 144 tables, 262,123 rows; drift only
+>   on `ops_runtime_samples` (live, +2 rows). Volume 1.3 GB free of 4.6 GB: room for about two more dumps (owner action soon:
+>   prune the October dumps or grow the volume).
+> - `ops/deploy.sh --deployed ee35a493`: guard ALLOW (cert run 20261101T080736Z-18171, 10,122 passing, 0 failing), rollback
+>   rehearsal ALLOW; pushed `ee35a493..0967c3ee`; `/health` reported 0967c3ee after 63.6 s.
+> - Readback: worker alive FAIL on the first read (cold start inside `BRAMBLELOOP_RUNNER_START_DELAY`), PASS on the re-read;
+>   release identity, boot guard (enforced, ok), shadow, nothing published, refusals recorded, no unexpected dead letters,
+>   cost ceilings, smoke matrix, launch gate, catalogue and launch-packet route all PASS. Six operator-only rows are
+>   NEEDS_OPERATOR because `BRAMBLELOOP_READBACK_TOKEN` is not set in Railway (owner action, not done). Decision FIX_FORWARD
+>   (P1 only); deploy.sh exit 5. Evidence: `research/final_build/w4/evidence_BOARD/prod_readback_0967c3eee287_20261102T0331Z.json`.
+> - **Production is NOT fully healthy.** `/api/verify` ok=True (13/13), but this release is the first to expose
+>   `evidence_checks`, and three are false: `publishing_halt_clear`, `stale_artefacts_rebuilding`,
+>   `no_repeated_paid_call_in_24h` (`weekly_jobs_completing` true). Their evidence is behind the readback token, so the cause is
+>   not yet diagnosed. These are readings of state that existed before the deploy, not a regression introduced by it.
+> - Stages: Batch 4 deployed and in acceptance. Batch 5 integrating on `claude/w5-INTEG1`
+>   (queue: `research/final_build/w5/OPUS2_INTEGRATION_QUEUE.md`).
+> **2026-11-01 — Batch 5 integration (`claude/w5-INTEG1`, NOT certified, NOT deployed).** Merged on the certified Batch 4 base:
+> INVENTORY, CONCEPT, opus2 fb52cb9e, PDF1 (premium PDF engine, basket small 1.3.0), PHYSFIX R40-R42 (review SHIP) and opus2 PR #5
+> (review ACCEPT). Integrator fixes for branch interactions (size-claim false positive on "Rnd 10 the basket", narrowed after
+> review INTEG5FIX F1 HIGH; PHYSFIX tests re-pointed to basket 1.3.0; one CA$66.00 kit figure; owner packet kit 1.3.0; a
+> re-certification test proving both withholding carries). **Open P0 gap (honest status): P0-PHOTO-ASSET-REVIEW** -- no
+> production path re-approves a sample-photo frame after the owner's attestation, so a photo-led listing set cannot certify
+> yet (fails closed). The basket 1.3.0 tester kit is provisional: no tester commissioned, nothing spent.
+
+> **2026-11-01 — Batch 4 re-certification (`claude/w4-INTEG8-next`, NOT deployed; production ee35a493 SHADOW).**
+> - **Certification run 20261101T053634Z-559 on e43eeafe FAILED** (clean tree, uninterrupted, 845 suites; 10,076 tests passing,
+>   12 suites failing, 0 environment failures). Not certified. Every failure was root-caused and fixed on
+>   `claude/w4-INTEG8-certfix`, with no test weakened:
+>   - Calendar time bombs exposed on 2026-11-01: the synthetic finance dataset put "current month" events in the previous
+>     month on days 1-3 (r2_finance_close, accounting_controller); a fixed 2026-10-01 policy reading aged past 30 days (b2gate2).
+>   - Expectations made stale by Batch 4's own changes: F-076 cited a test PHYSFIX replaced (closure matrix, via the documented
+>     override); the More menu gained "policy" (pwa_browser, now pinned to the exact id list); the one-size basket identity
+>     (store_preview, now derived from the catalogue); READBACK's anonymous `evidence_checks` (provider_health, kept strict).
+>   - A "mockups" wording trip in `command_center/policy_readings.py` (cc_views guard unchanged).
+>   - Four suites printing lowercase `ok` counted as reporting no passes (fmbatch2 x2, intelrec x2).
+> - All 12 suites pass on the fix branch. A fresh, uninterrupted full run certifies (resumed runs never do).
+> - **R40-R42** (`claude/w4-PHYSFIX-R40` 43021c1e): Low, fail-open, unreachable until an owner-commissioned tester sample; NOT
+>   in Batch 4 (I-B4-R40-DEFER), tested and reviewed for Batch 5; disclosed in the deploy request. Not waived.
+> - **Production dead letter diagnosed** (read-only logs): `culture.sweep` jobs 41979 (2026-11-01 00:13Z) and 34246
+>   (2026-10-27) end in `PaidCallUnresolved` after an interrupted first paid call (probable 60 s timeout escaping
+>   `culture/classify.py`). The anti-double-spend guard held. Recurring (2 of 7 nights); NOT fixed by Batch 4; work item
+>   P1-CULTURE-SWEEP-TIMEOUT. Production is NOT fully healthy while `no_unexpected_dead_letters_in_24h` is red.
+> - Stages: Batch 4 built, reviewed, integrated; certification pending; not deployed. Batch 5 integration in progress on
+>   `claude/w5-INTEG1` (INVENTORY, CONCEPT, opus2 fb52cb9e merged; PDF1 merge in progress). opus2 PR #3/#5/#6 fixes:
+>   CHANGES_REQUIRED (OPUS2EF2).
+
+> **2026-10-21 — W4-LISTREADY (branch `claude/w4-LISTREADY`, NOT deployed; production b931d17 SHADOW).** Production has
+> certified nothing since 2026-10-11. A P0 `systemic-halt:publication`, built only from stale-artefact incidents, halts every
+> `gate.certify`. Fixed at the roots, no gate changed:
+> - R1: the sentinel judges an artefact by its own release; an older release's artefacts are `superseded`. Publication refuses a
+>   superseded release.
+> - R3: a halted certification is retried once per halt episode.
+> - R4: stale marketing is rebuildable, while publication still refuses.
+> - R5: the six Launch-0 releases never drafted are seeded, one per `chain.rebuild`.
+> - chain.rebuild's design-comparison false positive is fixed.
+>
+> Etsy's real taxonomy names have been read: the matcher lands on `Craft Supplies & Tools > Patterns & How To > Patterns &
+> Blueprints`. CHOSEN only if Etsy's schema offers "Crochet". That is UNKNOWN until b997efd's refresh.
+>
+> Owner-approved batch D-W4-LAUNCH-VISION-BATCH (CA$7.07 total, CA$8.00/day for this batch only, 14-day expiry, reverts to
+> CA$1.00 in code) has been built and is NOT activated. It is activated by an owner step-up after deploy.
+> Report: `research/final_build/w4/LISTREADY.md`.
+
+> **2026-10-21 — W4-LAURAONE freeze 2: every remaining LOW/INFO review finding fixed (`claude/w4-LAURAONE-freeze`, NOT deployed, every switch OFF).**
+> - **Delta review c13e20d.** N-1..N-11 fixed (N-3: the approval re-authenticates within its own request).
+> - **Integration review bcce679.** S-1 (`BRAMBLELOOP_LAURA_CEO_MODEL`, default OFF), S-3..S-6 fixed; S-2 has operator rollback steps.
+> - **First review.** I-5 fixed. I-3 is kept as an accepted risk, documented.
+> - **Tests.** `test_w4_laura_unified` 53/53; all focused suites green. Table: LAURAONE.md §10a/§10b.
+
+> **2026-10-20 (freeze) — W4-LAURAONE: security review fixes; feature set frozen (`claude/w4-LAURAONE-freeze`, NOT deployed, every switch OFF).**
+> - **Fixed from the independent review of a4a6841.** B-1 (fail toward privacy when code routes; current-turn screen; no owner text without her tap), H-1, M-1, M-2, L-1..L-6, I-2 and I-4.
+> - **INTEG5.** `laura.private_reply@3` is refused on any non-Venice transport (`REGISTER_NEEDS_VENICE`). The `pl_*` and `plact` suites now drive the stubbed Venice transport.
+> - **Tests.** `test_w4_laura_unified` 40/40; all focused suites green.
+> - **Still OPEN.** I-3, I-5 (deferred under the freeze) and ADD-LCONT-11. A delta review of a4a6841..freeze is pending.
+
+> **2026-10-20 (later) — W4-LAURAONE revision: restricted Venice feed and structured requests (branch `claude/w4-LAURAONE`, NOT deployed, every switch OFF).**
+> Owner review (D-W4-LAURA-UNIFIED-FEED): Unified Laura is the preferred candidate.
+> - **Feed.** `laura/agency/venice_context.py` sends Venice an allowlisted, validated, size-capped company-context pack, only with `BRAMBLELOOP_LAURA_BUSINESS_TO_VENICE=1`. Every send is audited by hash, names and counts, and the owner can preview it.
+> - **Structured requests.** Business tools now get code-rendered structured requests. Free text, including the owner's own words, crosses only on her explicit tap; step-up is required unless it is clean business wording.
+> - **Residual risks revisited.** The guard reads the whole store and matches short texts exactly. Marking an exchange private redacts the derived business records.
+> - **Tests.** `tests/test_w4_laura_unified.py` 26/26.
+> - **Not done.** ADD-LCONT-11 is OPEN; ADD-LCONT-12 and -13 were added. Owner decisions OA-LCONT-1..4 are in LAURAONE.md §10.
+
+> **2026-10-20 — W4-LAURAONE: one Laura, one thread (branch `claude/w4-LAURAONE`, NOT deployed, every switch OFF).**
+> Owner requirement "LAURA CONVERSATIONAL CONTINUITY" plus its clarification (D-W4-LAURA-UNIFIED; spec/13 ADD-LCONT-01..11).
+> - **What exists.** Behind `BRAMBLELOOP_LAURA_UNIFIED=venice`, the CC Laura view is one thread. Every turn, on any topic, is kept in the encrypted private store with a sealed label.
+> - **How it routes.** Laura (Venice, router `laura.unified_intent@1`, billed to `laura_private`) decides when a business tool is needed. Code decides what crosses. Business Laura (Claude, budget `laura`) receives only the owner's business words or a fixed canonical request, through a deterministic leak guard (substring, normalised, shingle and token overlap) applied to the brief and to the exact outbound request.
+> - **Crossings.** Mixed content and any Venice-drafted brief cross only after the owner approves the exact text with a step-up (`laura_boundary_crossings`, which stores the approved text only).
+> - **Owner controls.** Mark private, exclude, include again, and real deletion. Key rotation keeps all of it. There is no fallback that sends thread history to Claude or GPT.
+> - **Tests.** `tests/test_w4_laura_unified.py` 21/21.
+> - **Not done.** ADD-LCONT-11 (production acceptance) is OPEN. The four register strings come only from the owner's commit fcb2bcd, merged unchanged.
+> - **Owner actions.** OA-LCONT-1..4 in `research/final_build/w4/LAURAONE.md` §8.
+
+> **2026-10-21 -- W4-FMBATCH1 (branch `claude/w4-FMBATCH1` from b997efd, NOT deployed).** Triage of the 40 blocked_engineering Build 2 + FM launch-critical board rows: (a) 2 built -- F-010 attribute drift monitor (`integrations/taxonomy_drift.py`: a changed Etsy schema opens a halting P1 per affected product and re-queues listing.seo; resolves on rebuild) and F-381 severity containment (`ops/rollback_decision.py`: a P0 post-deploy readback regression is rolled back to the predecessor through the guarded path, P1 fixes forward); (c) 10 already implemented (closure proposals for F-540 and F-100 on production evidence); (b) 23 blocked on deploy + 24h window, real buyers, Etsy's schema answer or an owner Etsy-write authorisation; 5 excluded (other lanes). Finding: `claude/w4-CLOSE6` (accepted proposals for 9 of these rows) is in neither b997efd nor INTEG5. Proposals: `OVERRIDES_PROPOSED_FMBATCH1.json`, `FM_REGATE_PROPOSED_FMBATCH1.json`. Report: `research/final_build/w4/FMBATCH1.md`.
+
+> **2026-10-19 (later) -- W4-PRODREADY second pass (same branch, NOT deployed).** B1 fixed: disclosed-render contract 3
+> (D-W4-CONTRACT3) letters every word Launch-0 uploads at 58 px / titles 66 px on 2000 (>= 11.2 px at display size);
+> the verifier re-letters the new lines exactly, nothing relaxed; re-chained, all 8 Launch-0 products' uploaded images
+> measure legible. B2 is company work, not an owner action: production already reads Etsy's 3065-node taxonomy daily
+> with the configured keystring; the pattern-subtree matcher finds 0 nodes, and the refresh now records the tree's
+> pattern/crochet names so the next release can correct it. Owner directive: motif words must be backed by the CIR's
+> declared motif (launch0.motif_promise, Product Truth); "Nordic Snowflake Ornament Set (6)" -> "Textured Stripe
+> Ornament Set (6)" 1.5.0, "Diamond Lattice Placemat Pair" -> "Raised Diamond Lattice Placemat Pair" 1.4.0. Still
+> NOT READY: search certificate (B2), vision review (B3), first-customer gate (B4-B6). See PRODREADY.md.
+
+> **2026-10-19 — W4-PRODREADY (branch `claude/w4-PRODREADY`, NOT deployed; production 1b21e81 SHADOW).** None of the eight
+> named products is customer-ready. All pass certification, Product Truth, US+UK PDFs, byte-identical rebuild from CIR, listing-set
+> certification, price (except the harvest runner, which is not Launch-0 in code) and copy/AI disclosure. All fail on: the
+> uploaded disclosed-render set's type (6.6/5.8/7.8-10.9 px at display size vs the owner's 11 px rule), no Etsy taxonomy (search
+> certificate refuses), no independent vision review, and the first-customer gate (physical sample, Etsy upload never confirmed,
+> non-durable artifact store). Fixed: listing_assets essential text legible at actual display size (D-W4-VISROLE-LEGIBILITY) and an
+> off-image size label; Build 2 #61 closure restored with the two held tests asserting the correct consequence (ledger PROVEN 228);
+> **production defect: scipy imported unguarded but absent from requirements.lock** (render verifier and listing export could not
+> run in the production image) -- declared and locked with hashes, plus an import-vs-lock test. The local venv has drifted from the
+> lock on 20 packages: rebuild it from requirements.lock before the next freeze. Report: `research/final_build/w4/PRODREADY.md`.
+
+> **2026-10-12 (later) — INTEG3 freeze 1 (056398c) full suite FAILED 16/629; causes fixed on INTEG2** (tmp hygiene,
+> harness-unreadable OK markers, stale generated artefacts, a pre-existing W4-AUTONOMY duplicate-mission defect on a
+> reclaimed tick, and B2CLOSE's #61 closure HELD because it silently removed the fund-the-model owner card). Re-freeze
+> and full suite follow; see INTEG3.md §6.
+
+> **2026-10-12 — W4-INTEG3: INTEG2 release candidate (NOT deployed; production stays 7bbbe72, SHADOW).**
+> INTEG2 had NOT contained the deployed hotfix 7bbbe72 (LAURAFIX + ETSYSHOPID): merged first. Fixed the three
+> production dead letters that are still occurring on 7bbbe72 (first seen 18:01-18:08Z, i.e. after the hotfix, not
+> "pre-hotfix" as recorded below): radar.score handoff without a slug (scores the open gap queue, one implementation
+> with B2CLOSE's), policy_snapshots.version VARCHAR(40) -> VARCHAR(120) via a new widening-only migration
+> (`core.migrate.widen`, Postgres 16 reproduction in evidence_INTEG3/), offsite restore proof `scratch=True`
+> (+ its failure incident was an invalid constructor). Security review L1/L2/I2 addressed. Merged SWARMCONTROL,
+> CCNOTIFY (+vacuity fix), PRIVLAURA (defaults OFF verified; LAURA-PRIVATE-REGISTER tracked, NOT complete), VISFIX,
+> B2CLOSE and four checkpoint-note branches. **FMCLOSE rejected**: test_v11_accounting_reconciliation fails on its own
+> tip 013c2e3, passes on 28ba6df. Required regression set green on the final tree (launch/cost_governance/
+> autonomy_timeline were red on 28ba6df). No row reached verified_complete (needs deploy); Build 2 #61 PROVEN in the
+> ledger; production now reports etsy_shop/etsy_api/transactions_r gates OPEN. Not yet run: a full suite. Next:
+> full suite, then owner deploy approval, then 24 h dead-letter-free window for #195. Report:
+> `research/final_build/w4/INTEG3.md`.
+
+> **2026-10-12 — W4-B2CLOSE (second pass): #61 closed in the ledger; #195's three production dead letters fixed (branch `claude/w4-B2CLOSE`, NOT deployed).**
+> Read-only GETs of production 7bbbe72: `/api/verify` fails only `no_unexpected_dead_letters_in_24h`, on radar.score KeyError 'slug'
+> (CoverageGap handoff enqueues it slug-less), ops.policy_watch VARCHAR(40) overflow (seed version label 49 chars) and ops.offsite_archive
+> EphemeralStorageRefused (restore-proof scratch SQLite not marked scratch) -- all recurred AFTER the hotfix. Fixed with regression tests
+> that reproduce each production error on clean INTEG2. #61: production runs the independent frame review with vision open
+> (assets.frame_review x4; heroes blocked as chart-like); size-card scale clause made explicit (legible label + drawn scale) and the review
+> records why a frame blocked. Ledger PROVEN 228 / OPEN-DEFECT 0. The 12 implemented_unverified rows are green on INTEG2 and wait only on a
+> release + deploy. Finding for the visual lane: infographic frames stay `unjudged` on photographic realism checks the model cannot answer.
+> Report: `research/final_build/w4/B2CLOSE.md`. Tests: test_w4_b2close2 11/11 + focused suites.
+
+> **2026-10-12 — HOTFIX 7bbbe72 DEPLOYED (owner-approved; Laura briefing truncation fix + Etsy shop binding).**
+> Fresh backup before deploy: `brambleloop_prod_20261012T173525Z.dump` (309,580,486 B, sha256 9eec5294...1774), restore_ok,
+> 130 tables / 65,135 rows, 680M free; the 3 earlier dumps kept. Railway deployment b02e9241; /health build.commit 7bbbe72 known=true.
+> Verified: SHADOW (env+recorded agree), nothing published (185 refusals, 0 listings with an Etsy id), TOTP owner auth,
+> model spend CA$9.86/100, every agent has a ceiling, Laura CA$0.137/0.50 today (the failed @3 call only).
+> /api/verify ok=false ONLY on no_unexpected_dead_letters_in_24h: radar.score KeyError 'slug' (x2), ops.policy_watch
+> varchar(40) overflow, ops.offsite_archive no Postgres URL — all 15:01-15:16Z under c498888, pre-hotfix; next release.
+> NOT YET VERIFIED: Etsy shop binding/reads/refresh (lazy; runs on the ~00:26Z daily Etsy cycle) and the Laura briefing
+> (needs the owner to re-run it; expect laura.ceo_briefing@4). Private Laura: trace PRIVATE_LAURA_TRACE.md merged; worker
+> W4-PRIVLAURA building on claude/w4-PRIVLAURA. Private Laura is NOT complete until its production soak passes.
+
+> **2026-10-11 — W4-COPY: store copy v3 + customer-claim register (branch `claude/w4-COPY`, not deployed).**
+> One content source (`store_foundation/copy_v2.py`, VERSION copy_v3; `brand.storefront.ABOUT` now reads it -- the
+> rejected v1 "compiler" About had survived there). AI disclosure no longer implies a human designer ("This design was
+> created with AI assistance, and every row's stitch count is checked before release."), carried verbatim in listings.
+> Terms: "its images" (no photographs exist); corrections "on request" (no Messages API can notify every buyer; "forever"
+> dropped). `store_foundation.claims`: 16 claims with evidence and verdicts, FORBIDDEN fence over 96 surfaces
+> (tests/test_w4_copy.py). Open owner/legal reviews: licence enforceability, consumer-law refunds, CASL wording, Etsy image
+> rule vs renderings, proactive correction notices, support commitment. `research/final_build/w4/COPY_CLAIMS.md`.
+
+> **2026-10-11 — W4-MARKETINTEL: market intelligence from sanctioned sources, labelled and routed (branch `claude/w4-MARKETINTEL`, not deployed).**
+> Etsy Open API v3 (oas 3.0.0 read 2026-10-11, sha256 b993d52f...) has NO Marketplace Insights / search-volume / shop-stats
+> operation ('insight' 0, 'stats' 0, 'search volume' 0); only findAllListingsActive `{count, results}`. `intel.market_intel`
+> (run inside the daily `intel.serp_capture`) labels competition / favourite velocity / recent-entrant share as PROXY with
+> source+timestamp (UNKNOWN never 0), routes them to SEO (search_language + SEO evidence store), Creative briefs, Pattern
+> Engineering (construction_preference), gated growth experiments, and Product Truth (lint TRUTH_MARKET_CLAIM + SEO tag
+> validator). Owner step: paste the Insights view at /ops/insights (-> /ops/teardown#insights), parsed deterministically,
+> recorded on confirm. Production has 0 SERP snapshots: the Etsy credential is refused (403) -- owner fix first.
+> `serp.capture_targets` now stops at the first 401/403. Finding: #237 waits on the Stats CSV export, not insights_access.
+> Report: `research/final_build/w4/MARKETINTEL.md`. Tests: test_w4_marketintel 7/7 + focused suites green.
+
+> **2026-10-11 — W4-B2GATE2: all 102 gated Build 2 rows read against production 0417f35 (branch `claude/w4-B2GATE2`, not deployed).**
+> Ledger regenerated from production `/api/build` + 8 data gates derived from production GETs (`evidence_B2GATE2/`);
+> counts unchanged 215/56/41/5/3/0, every gate now has a production reading. Fixes: (F1) #140 `radar.lead_lag` refuses a
+> plateau -- production served 4 "measurable" lead-lags that were artefacts and `lead_lag_series` would have opened on
+> them; (F2) `gates/policy_access.py` (robots.txt + Etsy Help Center companion articles as change signals, never a
+> legal page, never opens the gate; `/api/policy` legal_access); (F3) the 30-day policy reading is now a PROPOSAL the
+> owner may accept or decline; (F4) the transactions_r card names its other half: production `etsy.probe` has been
+> HTTP 403 since 2026-10-07 12:00Z (owner: check the Etsy app + `ETSY_SHARED_SECRET`). #195's only unmet condition is
+> company dead letters (fixes on claude/w4-FMGATE). B2GATES doors are not in production yet. Report:
+> `research/final_build/w4/B2_GATE2_REPORT.md`. Tests: test_w4_b2gate2 11/11 + focused suites green.
+> **2026-10-11 — W4-PRODUCT (branch `claude/w4-PRODUCT`, base 0417f35; not deployed).** Carried the two genuine
+> defect fixes from W4-LAUNCHREADY (creative gate judges the engineered Launch-0 cohort; PDF stitch key defines both
+> `slst`/`sl st`). The three catalogue-floor products are a PROPOSAL, not Launch-0: `launch0.CATALOGUE_FLOOR_APPROVED =
+> False` (owner decision CAP-1 / D-FB-9; Launch-0 cap stays 5, no test assertion edited). D-W5-7 closed for readers:
+> `launch0.radar_concept_for` + `pipeline.product_seed` give product-keyed readers the radar concept, so the #168
+> benchmark challenge now covers basket and coaster (was "uncategorised"). Scratch shadow chain radar.scan → … →
+> store.publish: 7/7 Launch-0 releases certified, Product Truth PASS, listings drafted, all refused at the owner
+> boundary; trend evidence UNMEASURED (none stamped). Report: `research/final_build/w4/PRODUCT_FIX.md`.
+> **2026-10-11 — W4-AUTONOMY: "departments idle while eligible work exists" root-caused and fixed (branch `claude/w4-AUTONOMY`, NOT deployed; production stays 0417f35).**
+> Production evidence (public GETs 14:39Z): the only open jobs were model jobs parked on the spent Anthropic balance, and
+> the orchestrator counted them as department work, so Product & Design, Intelligence and Visual read BUSY and got none
+> of their deterministic work (`rule1.measure` masked it the same way; `idle_wake` and Laura's empty-queue path never
+> fired). `ops.sentinel` dead-lettered 7× in 8 min on Postgres VARCHAR(200) (`rebuild:product:` key 544 chars; SQLite
+> never enforces it), so 14 stale products' `chain.rebuild` never queued. Share holds favoured unrunnable model jobs and
+> held the control lane's own `autonomy.orchestrate`. Fixes: actionable-only busy count (60 s due grace, waiting jobs
+> reported, no duplicates), deterministic key fitting at the enqueue boundary, work-conserving share holds, control
+> lane exempt from the pool mix. 10 regression tests (8 fail on 0417f35); Postgres 16 reproduction of the exact
+> production error; production-seeded simulation 0 → 9 missions for the three departments, parked jobs untouched.
+> Shadow, authority, spend and model policy unchanged. Evidence: `research/final_build/w4/AUTONOMY_FIX.md`.
+
+> **2026-10-06 — LAURA canonical identity revision 2 (D-FB-14, owner-approved; branch `claude/v11-CANON`).** Identity
+> `laura-r2-a42aeac7` = approved face a42aeac7 (unchanged) + v6 revised torso afe6191f + v6 revised full-length f32bac68,
+> committed under `visual/assets/canonical/laura-r2-a42aeac7/reference_pack/` with their real provenance (v6 run
+> 2026-09-21). Revision 1 `laura-v15-a42aeac7` and its missing v15 frames stay as history (OA-CANON-1 still open for
+> the v15 bytes as evidence). `canonical.adopt_revision(db)` moves the production registry from revision 1 to 2 once —
+> **not yet run** (deploy step). Further changes need a new owner decision in `AUTHORISED_IDENTITY_CHANGES`. No image
+> is publication-approved; photorealism/identity/Product Truth gates unchanged.
+
+> **2026-10-06 — LAURA: canonical brand face preserved and protected (D-FB-11..13; branch `claude/v11-CANON`, not deployed).**
+> Owner rulings: the frozen model is **Laura**, a persistent AI person and the **Founder/CEO of Brambleloop**; the
+> approved woman is her permanent visual identity (`spec/07_Laura_Owner_Ruling_2026-10-06.md`). **Task #59
+> reinterpreted:** "re-make the canonical model" = repair the Visual system so it reproduces *Laura*; it never
+> authorises a new woman. Canonical identity id `laura-v15-a42aeac7` (Laura + frozen build v15 + face a42aeac7…);
+> `reference_pack.PACK_VERSION` v16-… is the pack-procedure label, not her identity.
+> - **Preserved (byte-verified):** approved face `visual/assets/identity_portrait.jpg` unchanged; copy as
+>   `canonical/laura-v15-a42aeac7/reference_pack/neutral_portrait.jpg`; historical v6 post-revision local run (7 frames)
+>   and v5 owner-viewed set (lossless face PNG + 5 stress scenes), all `forbidden_as_fallback`. MANIFEST.json v2
+>   records sha256/bytes/dimensions/role/provenance/publication_status for all 19 committed images.
+> - **MISSING canonical (not synthesised):** v15 torso_fit_reference, full_length_standing and the 5-frame stress set.
+>   Bytes live only in production (`durable_artifacts`, referenced by the v15 `audit_log` `model.reference_pack` row,
+>   built 2026-09-22T01:02:49Z, fingerprint 914ee7da716baef7). Public read-only endpoints expose only v16 (not frozen)
+>   hashes. v6 files are NOT proven to be v15 (no v15 hash recorded anywhere).
+> - **OWNER ACTION OA-CANON-1 (≈10 min, CA$0, read-only):** in Railway → Postgres → Query, run
+>   `SELECT detail->'reference_frames', detail->'scenes' FROM audit_log WHERE action='model.reference_pack' AND
+>   detail->>'pack_version' LIKE 'v15-%';` and paste the sha256 values to the session (or GET
+>   `/api/model-tournament/image/{sha256}` for each, which is public once the hash is known). Why: the frozen body
+>   and stress evidence of Laura exist only in one database; a lost DB loses them permanently. Waiting costs nothing
+>   until production storage is at risk.
+> - **Safeguards:** `visual/canonical.py` (identity id, `verify()`, forbidden hashes, `laura_verdict`: "a woman similar
+>   to Laura is NOT Laura"); `model_registry.replace_canonical`/`portrait_repair.adopt` refuse to retire/alter Laura
+>   and `freeze.freeze` refuses any build but v15 without an owner decision in `AUTHORISED_IDENTITY_CHANGES` (empty);
+>   `gate_frames` requires every locked face dimension to match for Laura; historical frames join
+>   `freeze.forbidden_reference_hashes`.
+> - **Store Foundation gap closed for preview only:** `store_foundation/brand_face.py` (placements; icon = logo mark,
+>   Laura = seller portrait/banner/About/seasonal; non-wearables product-first), surface `brand_face` (GATED, never
+>   READY), Owner Store Preview `variant=brand_face` (every Laura image labelled "Internal preview — canonical
+>   reference, not publication-approved"), lint rule `TRUTH_LAURA_HUMAN_CLAIM`. **Customer-facing still gated:**
+>   identity → photorealism (B-657 failure stands) → anatomy → Product Truth → brand QA → disclosure → publication;
+>   no Laura image is `publication_approved`. Public wording: "Laura, Brambleloop's AI founder" (AI disclosure always;
+>   never human; no legal-ownership/seller statements in Laura copy).
+> - **QUEUED (not built): the Laura agent, target per D-FB-13** — persistent identity + Founder/CEO executive layer +
+>   durable company memory/history + canonical visual identity + 24/7 executive agency + Command Center presence +
+>   inter-department orchestration + Learn-controlled self-improvement + separately protected spouse relationship
+>   context (isolated from all public/protected functions; human-Laura consent stays human-gated), reusing the
+>   Executive/COO orchestrator, departments, memory, Learn and authority framework.
+> - Tests: test_canon_manifest 21, test_canon_store_brand_face 11. Handoff: `research/final_build/v1_1/handoff_CANON.md`.
+
+> **2026-09-28 ~14:30Z — FINAL BUILD HANDOFF (usage limit).** Wave FB-1 clusters F, D, C, E integrated on `claude/visual-investigation` (targeted suites green; no full suite yet on FB-1 commits). A finished and awaiting integration; B and G in progress (branches pushed). Resume from `research/final_build/FINAL_BUILD_RESUME_MANIFEST.md`. Nothing deployed, published or spent.
+
+> **2026-09-28 — FINAL BUILD (Master v1.0) PHASE 0 COMPLETE: baseline audit written.** Registry of 866 requirement records (859 IDs; F-631..F-650 absent; F-514..F-520 defined twice, both kept) mapped to evidence and adjudicated: launch-critical 446 / mature 413 / NA 7; launch-critical maturity MISSING 63 · IMPLEMENTED 34 · TESTED 26 · INTEGRATED 129 · DEPLOYED 175 · EXERCISED 19; nothing production-observed or commercially evidenced. 52 launch-critical rows satisfied end to end; 103 below INTEGRATED with no gate; 87 carry a defect (e.g. store.publish sends no images, `/api/support` readable unauthenticated, one hard-coded Etsy taxonomy, P&L reads CA$0.00 while orders are disconnected). See `research/final_build/FINAL_BUILD_BASELINE_AUDIT.md` and `FINAL_BUILD_STATE.md`. Engineering baseline 019ebf0 unchanged; production fcb982d; nothing deployed, published or spent.
+
+# BUILD_STATE
+
+> **2026-09-28 — BUILD 2 CERTIFIED (executable obligations), remaining gates parked honestly.** Two independent audits (9434c53: 55 invalid/96 weak; Codex: 75 findings) refuted the earlier closeout. Every finding was adjudicated and the confirmed ones repaired in six clusters plus four follow-on waves (ledger C-60..C-87, all FIXED). A fresh independent 320-row audit of 15c5d1b found no phantom module or unreached handler; its 11 labelling findings are applied. Final head **856186f**: full suite from clean state **5,242 passing, 0 suites failing**; closure with every gate read live on a fresh database **218 COMPLETE+PROVEN · 0 OPEN · 58 owner-gated · 37 data-gated · 7 external-blocked**, `closed_out: true`. Production `/api/verify` 08:16Z: 12 checks, none failing. Nothing deployed, published or spent; phase shadow. Product-Only Visual V1 remains NOT LOCKED. Owner batch and details: "2026-09-28 — Build 2 certification" below and `research/b2_resume/RESUME_MANIFEST.md`.
+
+
+_Updated 2026-09-20 by the Brambleloop build session. Maintained continuously so any future
+session resumes without rediscovery (Execution Directive step 1, Master Plan section 35)._
+
+## PRODUCTION DIAGNOSIS — 2026-11-20 04:55 UTC (Main, live readback of 5496bc4a / Batch 11)
+
+Read-only evidence via the readback token: **FAIL 9, PASS 4, UNKNOWN 0.**
+- **Shops:** 8/8 registered shops scanned; the 9th (ArtLoveDesing) is not in prod.
+  test_ninth_shop is in the undeployed batches.
+- **Systemic publication halt:** incident 380, open since 2026-10-11. Cause: 14 products
+  (more than 50% of the catalogue) hold open stale-artefact / rebuild-incomplete incidents,
+  and `systemic_evidence` escalates any failure family at that scale.
+- **Why they can't rebuild:** the stale-artefact sentinel finds 126 of 587 stale. Every
+  rebuild retry is held by "#39 listing_image_rules awaiting owner review", and the owner
+  override D-OWNER-POLICY39-OVERRIDE is only in Batch 13+. **Deploying Batch 13+ releases
+  the rebuilds.** That should resolve the stale-artefact incidents, then the systemic halt.
+- **Scheduler backoff:** 19 job types, among them chain.rebuild (x32), chain.successors
+  (x32), the photography jobs and the creative jobs.
+- **Production output:** original_product 0 and commercial_preparation 0; 0 certified in
+  7 days.
+- **Dead letters:** 8 `seasonal.cycle_proof:ProspectingRefused`, fixed on b16-integ
+  (daabf4a9): recorded as a refusal.
+- **Critical path:** a certified batch (12, 13, 14 or 15) is deployed, then a readback
+  confirms the rebuilds are flowing and the halt is clear.
+
+## Build 1: COMPLETE
+**Accepted as complete by the owner on 2026-09-18**, and checkpointed as a recoverable
+baseline before any Build-2 scope begins.
+
+- Baseline commit `d5168c0cea93dde23f06592a36c5a253533b83e5`
+- Durable remote checkpoint: branch **`build-1-baseline`** on `origin` (confirmed present)
+- Recovery manifest, schema snapshot and production evidence: **`baseline/`**
+- 541 tests passing, 0 failing · `/api/verify` 12 of 12 · `/api/launch` blocked on build: NONE
+- Decisions B-001 … B-099
+
+None of the seven owner actions has been performed. Etsy is not connected, the phase has not
+changed, nothing has been published, no advertising has been bought and no customer activity
+exists. See `baseline/BUILD_1_BASELINE.md`, including what the baseline does **not** preserve.
+
+## Build 2: IN PROGRESS — Master Upgrades v1.4.3
+The owner's v1.4.3 master is the canonical Build-2 specification
+(`spec/08_Brambleloop_Queued_Upgrades_v1.4.3_MASTER.pdf`). All 320 numbered requirements are
+audited against the system that actually exists and carried in `src/brambleloop/build2/requirements.json`,
+readable live at `/api/build2`.
+
+| status | count | meaning |
+|---|---|---|
+| covered | 235 | satisfied, and the note or `proof` names a module that exists and a test that exercises it |
+| partial | 45 | something real exists; **every one is parked on a checkable gate** (0 ready to start) |
+| missing | 0 | nobody has built it |
+| owner_gated | 20 | waits on an owner decision, credential or legal acceptance |
+| data_gated | 20 | waits on market evidence that does not exist yet in shadow mode |
+
+**Build 2 closure matrix (2026-09-27, `/api/closure`, computed from evidence — `build2/closure.py`):**
+
+| final state | count |
+|---|---|
+| COMPLETE+PROVEN | 235 |
+| OWNER-GATED | 28 |
+| DATA-GATED | 42 |
+| EXTERNAL-BLOCKED | 15 |
+| OPEN (executable work remaining) | **0** |
+
+The five-status table above is the registry's claim; the matrix is the audit of it. A covered
+row counts as COMPLETE+PROVEN only when a module it names exists and a test exercises it; a
+parked row carries the kind of its gate, checked live. See the 2026-09-27 closeout section at
+the end of this file.
+
+Five values rather than two on purpose: "done / not done" is what makes a large build
+dishonest, because a requirement waiting on an Etsy shop is not the same kind of unfinished
+as one nobody has written. **45 requirements are executable** (partial +
+missing). 227 of 320 covered is **70.9% complete**, read from the registry rather than
+estimated.
+
+These counts were typed, and until 2026-09-23 they were stale — the table read 221/43/36
+beside a sentence promising it was "regenerated from the registry, never typed", which is the
+same defect as a value living in two places and disagreeing with itself, sitting in the
+document whose entire job is honest status. Read them live at `/api/build2`; that endpoint
+computes them and this table is a snapshot of it.
+
+Seven of those moved out of `partial` this session without being built, and that is a claim
+worth being precise about: they were re-audited, not finished. #39's retrieval half is
+refused 403 by Etsy's bot protection, verified by request rather than assumed; #94, #104 and
+#299 need a model or a credential to make the next measurement at all; #132 and #296 need
+customers; #51's remaining half needs storage outside this provider. Each now names a gate
+whose condition code can test, which is the only form of parking this build accepts. The
+executable number went down because it was wrong, not because the work went away.
+
+Build 1 remains recoverable throughout: baseline commit `d5168c0`, branch `build-1-baseline`.
+
+## Current phase
+PHASE 1 — SHADOW MODE, **deployed and running 24/7**. Nothing is connected to live customers,
+live listings or live spend. The system runs unattended on Railway whether or not any Claude
+session is open.
+
+**`/api/verify` reports `ok: true` in production as of 2026-09-19T16:40Z — 12 of 12
+checks passing**, against live state rather than only in tests. Also verified in production
+on this deploy rather than asserted:
+
+- **A real model call succeeded** (15:31Z, 14 tokens in, 4 out, CA$0.0000466). Month-to-date
+  model spend CA$0.000047 against a CA$25 ceiling enforced before each request.
+- **The continuity archive is retained**: archive 1 holds 5,299 rows across 41 tables,
+  6.26 MB compressed to 604 KB. It survives a container replacement and a redeploy, and not
+  the loss of the provider — which is the half still parked on `offsite_storage`.
+- **The operator credential is configured** (Railway-side, never in this repository), so
+  `GET /api/continuity/export` is reachable by the owner and `POST /api/queue/requeue` can
+  re-drive a dead letter whose defect has been fixed. Both were closed-by-default before,
+  which was the safe direction and also meant the export nobody could download.
+
+Live: https://brambleloop-os-production.up.railway.app — dashboard `/`, health `/health`,
+status `/api/status`, **verification `/api/verify`**.
+
+## OWNER ACTIONS — now the only remaining lever
+
+**Correction, same day.** An earlier version of this section said the build queue was empty
+at 0 READY. That number was computed in a session container with no Etsy key, no model key
+and no browser URL, so more gates were shut there than in production — where `/api/build`
+showed one ready requirement, #268, un-parked automatically because `benchmark_observation`
+is open there. The executor was right in both places; reporting one environment's answer as
+the build's was not. Gate conditions are environment-dependent by design, which makes *where
+a count was taken* part of the count (B-481).
+
+**The gates themselves then changed, and that is the larger finding.** `browser_vision` named
+two capabilities — "rendered-page and image evidence" — and held twenty-eight requirements
+behind the more expensive of them. Ten needed no browser: the sanctioned Etsy endpoint
+`listing_images` has been returning every gallery image's URL since the credential was proven
+on 2026-09-19, and the model that can look at those URLs was credentialed the same day. What
+stood in the way was that nobody had written the call. It is written now
+(`gateway.anthropic.see`, `intel.vision.analyse`), and the gate is split (B-478).
+
+Three gates also opened on environment variables — a browser URL, an image key, an archive
+URL — holding thirty-nine requirements behind conditions a person could satisfy by typing, in
+the one module whose purpose is that the queue cannot overstate itself. All three are now
+recorded successful uses, and a test asserts the property over every gate in the table rather
+than over those three (B-479).
+
+**Two of those gates then opened, and the work behind them was done.** Verified live at
+2026-09-20T20:00Z: `image_vision` opened on a real MJs gallery image judged a photograph, and
+`culture_feed` on 28 days of Wikimedia pageviews. Production's queue went 0 → 13 READY, and
+those thirteen are now closed: the gallery-analysis loop and its consumers (#209, #304, #303,
+#208, #210, #211), the culture radar with a source, discovery and domain filing (#133), the
+findings routed into the improvement system (#147), the visual semantic and physical-realism
+checks that were named and never made (#61, #79), and the construction-evidence
+decomposition (#116, #278). #140 moved to `data_gated`: both series exist, and the
+marketplace one needs listings discovered over time rather than a catalogue observed in one
+pass.
+
+Where the 79 parked requirements wait, read from production 2026-09-21T02:10Z:
+
+| gate | parked | what opens it | cost |
+|---|---|---|---|
+| `customers` | 21 | a real customer, which is the phase decision | the phase decision |
+| `rendered_pages` | 20 | a browser worker that actually fetched an Etsy page | **recommended against** |
+| `image_generation` | 12 | one image actually generated by a reference-conditioning provider | ~CA$18.55 benchmark, then ~CA$3.40/mo |
+| `owned_surfaces` | 7 | a list, a blog or a social account that exists | the phase decision |
+| `live_listings` | 6 | a published listing | the phase decision |
+| `ad_authority` | 6 | paid-media authority | the owner's, later |
+| `benchmark_purchases` | 4 | one purchased benchmark pattern row | CA$292 approved, see below |
+| `physical_proof` | 1 | one completed PhysicalTest, by whoever the protocol says | protocol pending |
+| `tester_roster` | 1 | one person who has agreed to test a pattern | outreach |
+| `offsite_storage` | 1 | a continuity archive actually written outside this provider | ~CA$1/mo bucket |
+
+**Seventeen of the seventy-nine are behind the three gates the owner is currently
+progressing.** The other sixty-two are behind going live, behind paid media, or behind the
+browser worker this build recommended against buying.
+
+### Spend policy, as of 2026-09-20
+
+**QUALITY FIRST. COST SECOND. WASTE NEVER.** The owner raised the combined model, vision and
+image ceiling from CA$25 to **CA$100 a month** and reversed the argument that went with it:
+"the cheaper option is adequate" is no longer a reason, and "the better option costs several
+times more" is no longer an objection when the improvement is commercially meaningful. The
+ceiling is an authority rather than a target; the expectation is that most months cost far
+less. Infrastructure keeps its separate CA$20 ceiling.
+
+The policy lives in `finance/spend_policy.py` as code, with the owner's six priorities and,
+beside each, what may not be traded away for money. `/api/spend-policy` reads it;
+`/api/spend-report` says what the month bought by provider, model, agent, department, product
+and purpose, with the pre-call reservation beside the bill (B-513, B-517).
+
+**What the reconciliation found.** Three things had drifted while nobody was arguing about
+them: the ceiling was written in two modules *and* hardcoded into a `/api/verify` assertion,
+so carrying out the owner's decision would have turned a safety check red (B-514); four
+vision call sites bypassed `routing.TASKS` entirely, running MJs gallery analysis on the
+cheapest tier while the table declared standard — on the owner's second-highest spending
+priority, for a day (B-515); and two cadence intervals were set by the old ceiling rather
+than by the work (B-516). Gallery analysis is now 25 images every two hours on the standard
+tier: the benchmark's visual evidence closes in four days rather than nineteen.
+
+**Measured on the first run under the new accounting, not estimated:** CA$0.029 an image, so
+about CA$8.70 a day while the backlog drains and CA$33 to finish it. The same run corrected
+the image-token estimate for the third time — 800, then 2,000, now **6,000** from the actual
+bill, having been under the truth twice in the direction that turns a ceiling into a
+suggestion (B-521). Gallery analysis is capped at 40% of the month, and the cap is about
+priority order rather than thrift: a four-day backlog must not consume the ceiling and leave
+concept generation, the owner's first priority, refused (B-522).
+
+Purchasing benchmark patterns and authorising advertising remain consequential spend and stay
+the owner's.
+
+### The owner's 2026-09-20 approvals, answered
+
+**1. Browser worker — recommend not buying one yet.** The minimum architecture question turned
+out to be upstream of the cost question. Half of what the old gate held needed no browser at
+all and is done. The other half reads Marketplace Insights, search results and platform
+policy, and those sit behind an edge that deliberately refuses automated clients: re-confirmed
+today, `robots.txt` answers 200 and `/legal/terms` answers 403 to a client identifying itself
+honestly. B-268 already decided that getting past it by pretending to be a browser is evasion,
+and doing that to a marketplace this company intends to sell on trades a small convenience for
+the relationship. So: a Playwright worker inside the existing Railway project would cost about
+**CA$1–3/month** (inside the ceiling) and would most likely return 403s; a hosted browser API
+is **US$50+/month** and buys the same 403 more expensively. The client and its probe are built
+and committed, so the day access exists the capability is one variable away. **No service has
+been provisioned and no spend incurred.** (B-500)
+
+**2. Image generation — measured, not recommended. Superseded by the owner's quality-first
+decision.** There was a recommendation here: FLUX 2 Pro, on the grounds that it was the
+cheapest candidate supporting reference conditioning. The owner replaced that instruction on
+the same day — do not lock a provider because it is inexpensive — and the recommendation is
+deleted rather than defended, because a named winner beside an unrun benchmark is the price
+list deciding again with a second opinion for cover (B-502).
+
+`gateway/image_bench.py` decides it instead: six trials this catalogue genuinely needs
+rendered (stitch truth, hero comprehension, thumbnail strength, premium lifestyle, the
+canonical model brief, an anti-drift repeat against a reference), **five samples each**, on
+every model that can hold an identity at all — **120 images, CA$6.19** of the owner's CA$25
+benchmark budget. Judged blind by the vision capability against a rubric whose every line
+cites its requirement. **Imagen 4 Ultra is excluded before the benchmark, on a requirement
+rather than a score**: the best published photorealism of the field and no reference
+conditioning, so #200 is unmeetable by it at any quality (B-503).
+
+The whole monthly spread across the four eligible models is **CA$2.19 – CA$6.90**, which is
+not an amount a catalogue decision should turn on; a test fails if that spread ever grows
+enough to make cost a real argument. **Nothing is chosen and nothing can be until an account
+exists** — creating one needs a payment method and an identity this build may not supply, so
+the measurement is the owner action. `/api/image-benchmark`.
+
+**3. Cultural signal source — done, CA$0.** Wikimedia Pageviews: official, free, keyless,
+sanctioned within its documented terms with an identifying user agent. Verified live
+2026-09-20T20:00Z. It measures *reference reading*, not search volume and not purchase intent,
+and is labelled `reference` for that reason — #140 measures the gap between that and
+marketplace demand, so a feed that measured the same thing would have nothing to say (B-483).
+
+**4. Benchmark set — thirteen approved to CA$300; the list is at
+`/api/benchmark-selection?target=13`.** Thirteen purchases total **CA$268** and cover every
+facet the observed catalogue varies along; ten would total CA$212 and leave `stockings`,
+`seasonal_gift` and `unclassified` unbought — the first two being the departments this
+campaign window is aimed at, which is why the CA$56 margin is worth paying (B-501). Each pick
+now carries **the runner-up it beat, what that alternative would have taught instead, and the
+extra the winner adds**; the set carries how many of the 438 observed listings it makes
+redundant, which is the number that answers "are we buying thirteen similar things" (B-507).
+The selection is deterministic, so it is reviewed rather than trusted. Files land in the
+quarantined library, which refuses every reader that is not an analyst and stores no
+competitor text in any table.
+
+**5. Physical sample — parked, and the gate no longer asks the owner to crochet.** Its
+description said "needs somebody to crochet a Brambleloop sample", which put the owner's hands
+in a gate and so into the action list. The condition is unchanged: one completed PhysicalTest.
+Who performs it is a question for the revised risk-based protocol (B-486).
+
+**6. Etsy #268 — closed as an owner item; recorded `data_gated`.** The sanctioned read
+capability is the applicable evidence and is not requested again (B-508).
+
+**6a. (context)** Nothing sanctioned is missing. The credential is proven and has been since
+2026-09-19; it read the 438 listings the whole mission runs on. #268 was parked on
+`benchmark_observation`, which that credential *is*, so it was parked behind a condition
+already true. What it needs is a second benchmark shop **outside the United States** — one
+shop's term frequencies are one market's language however many listings they came from. That
+is a choice of shop, on the credential that already exists: no new capability, no spend, and
+nothing for the owner to repeat (B-482).
+
+Listed below in the Execution Directive's format; the live queue is `/api/launch`.
+
+**~~Add credit to the Anthropic account the API key belongs to.~~ DONE 2026-09-19.** Credit
+arrived and a real call succeeded in production at 15:31Z; the gate opened by itself and the
+four requirements un-parked. Kept here with its original wording because an owner-action list
+that deletes what was done stops being a record of what this company asked for.
+- *Exact action:* open the Anthropic console's billing page and add credit. The smallest
+  top-up is enough.
+- *Why:* the key supplied on 2026-09-19 authenticates, and the first request it made returned
+  `Your credit balance is too low to access the Anthropic API`. Nothing in this build treats
+  the provider as available until a real call succeeds, so four requirements (#94, #104,
+  #177, #178) are parked on it.
+- *Maximum cost:* CA$25/month, enforced in code before every call, not by intention.
+- *Minutes:* about 3.
+- *Consequence of waiting:* those four requirements stay parked. No other Build-2 work is
+  affected, and the gate opens by itself within six hours of credit arriving — the probe
+  cadence does not need to be told.
+
+**Separately, and not a build item:** the key was pasted into this session in plaintext and
+in a screenshot. It is stored only as a Railway variable and appears nowhere in this
+repository, but a key that has travelled through a chat transcript should be rotated once the
+build no longer needs this one. The owner has said a replacement is coming.
+
+## Canonical specification
+`brambleloop/spec/01_Brambleloop_Master_Plan_v1.2.pdf` (vendored copy of the owner's handoff).
+Treat v1.2 as canonical. Improvements become v1.3+ with a preserved changelog — do not
+scatter canonical strategy across chat.
+
+## Honest status — what actually exists
+Measured by `./run_tests.sh` on commit `8afbdc4`: **2,667 tests passing, 0
+failing** across 146 suites, including 23 that assert the owner's acceptance gates line by line. Measured, not
+predicted — writing a predicted total on this line has been wrong twice. (Build 1 closed at
+541 across 26 suites, at commit `d5168c0`.)
+
+Suites: CIR engine (including row-level repeats and round-worked geometry), platform, release gates, market radar, model gateway, brand and
+storefront, commerce (pricing, search, thumbnail, paid media), departments (support, content,
+portfolio), quality (confidence, regression), finance, shadow pipeline, real-process
+persistence, chaos, deployment surface, flagship run and adversarial attacks, generated
+catalogue, accessibility, and the acceptance gates.
+- The full release chain runs end to end with no human in the loop, and correctly *refuses*
+  to publish in shadow mode. A single `plan.cycle` now carries an entire 11-SKU portfolio
+  from market scan to eleven release certificates without intervention.
+- Persistence is **proven, not assumed**: a worker is SIGKILLed mid-job against a file-backed
+  database and a fresh process recovers and completes the work, inputs intact, with no
+  duplicate side effects.
+- Cloud deployment: **live and verified.** See "Deployment" below for the exact
+  configuration, the twelve production checks that pass, and the measured cost.
+- Catalogue: **19 engineered designs** — 11 generated from the motif library
+  (`products/builder.py`) and 8 hand-built: the flagship mosaic throw, the basket in three
+  measured sizes, the hexagon coaster, the cable throw, the bobble pillow and the ribbed
+  scarf. The last six are the products whose names made claims their fabric did not honour,
+  rebuilt rather than renamed (B-061, B-082). Every one compiles, reverse-compiles and
+  certifies. Ten of the eleven release candidates ship an engineered design; the eleventh is
+  the collection bundle, which correctly has no pattern of its own.
+- **Construction beyond flat rows now exists.** Pieces worked in the round are measured as a
+  surface of revolution, so a coaster, a tube, a cone and a basket get real finished sizes,
+  a closed shaped piece gets a circumference and an explicit refusal to state a height, and
+  fabric that must gather is named. Charts for round work are drawn as rounds. Two catalogue
+  products were named for shapes their patterns did not make and are rebuilt (see the
+  milestone below).
+- Storefront, listings, imagery and content: **drafted and held.** Production at
+  2026-09-18T08:40Z, after the chain-7 rebuild, holds 15 certified patterns, 16 listings all
+  built by the current chain, 94 listing images with **all 94 approved**, 134 content pieces
+  and 1 collection — none of it published, against 120 recorded publication refusals.
+  Nothing in this system can publish: there is no Etsy, Pinterest, email, video or messaging
+  integration at all.
+- The chain-7 rebuild re-derived every product's imagery under the **armed** Asset Truth
+  gate (B-098), which until this morning could not block anything: 15 restarted, 15 images
+  built, **0 blocked**. That is the evidence that the defect was latent rather than a claim
+  that it was.
+- **Nothing in the launch report is blocked on build.** `/api/launch` reports every
+  build-owned requirement satisfied; the eight unmet ones wait on the owner (seven) or on an
+  Etsy credential that only the shop can produce.
+- Etsy publishing: **code written and wired, never called.** `store.publish` asks the client
+  past shadow mode, and the client's own three refusals stand in front of it, so the phase is
+  the first of four conditions rather than the only one. A listing records the Etsy listing
+  it became, so publishing twice cannot create two. The client exists, is unit-tested and
+  refuses on phase, on owner authority and on missing credentials, in that order. Nothing in
+  this environment can satisfy any of the three. "Written" is not "connected" and the
+  readiness report still reports the integration as absent.
+- Model providers: **none configured.** The Model Gateway is built and tested, but no API
+  key exists in this environment, so `available_providers()` returns an empty list and the
+  dashboard says "none". Nothing in the pipeline currently calls a model: every load-bearing
+  step is deterministic code.
+- Object storage: **none.** Rendered PDFs and charts are written to local disk, which is
+  ephemeral in a container. The system knows this: artifact *hashes* are stored in Postgres
+  and survive, the bytes may not, and `assets.storage_not_durable` is audited on every run.
+- Etsy shop, listings, customers, revenue, ad spend: **none, CA$0, zero.**
+- Market Radar now runs on **real observed competitor intelligence** (five seeded shops,
+  dated 2026-09-17, with price bands, discount patterns, format signals and named gaps) and a
+  **34-concept opportunity pool across 23 categories**. No live scraping integration exists;
+  observations are point-in-time and carry their observation date so they cannot silently rot.
+
+## Heartbeat 2026-09-18T16:14Z — both fixed cadences proved in production
+
+`/api/verify` reads **11 of 12**. The failing check is
+`no_unexpected_dead_letters_in_24h`, and it is **correct to be red**: it is counting two dead
+letters from this morning, both from defects that are now fixed and deployed. The check is not
+being softened — a dead letter that has been fixed is still a dead letter that happened, and
+the window clears itself by 2026-09-19T15:00Z.
+
+Both fixes are proved against production rather than asserted:
+
+| cadence | proof |
+|---|---|
+| `ops.continuity` | ran at 14:52Z against live Postgres — **4,304 rows, 25 tables, 4,027 non-rederivable**, restored and digests matched |
+| `seasonal.sentinel` | ran at 16:2xZ on commit `f07e4bf` — **done, 1 attempt**, 15 products scheduled, and it raised the P2 it was supposed to |
+
+`POST /api/seasonal/recompute` was added to make that provable now rather than at midnight,
+with an optional `as_of` for asking what the room looked like on a given day.
+
+### What the war room actually says about this company
+
+Measured against the 15 certified patterns in production, not a fixture:
+
+- **Christmas: all 15 on track.** The four blankets have preferred launch dates of
+  **27 September – 3 October** — nine to fifteen days away — and last viable dates of
+  21–27 October.
+- **Canadian Thanksgiving (12 Oct): missed for all 15.** Recommendations are `hold_for_next_cycle`
+  for the blankets and `pivot_to_evergreen` for the quick makes.
+- **Halloween: nine products at risk, and the runway is days.** `market-basket-trio` is at
+  **zero days**; `spooky-garland` — a product whose entire premise is Halloween — has its last
+  viable launch date on **2026-09-25, seven days away**.
+
+None of it can be acted on, because nothing can be published without a shop. That does not
+change the owner-action list; it puts dates on it. Every figure above is labelled `assumed`:
+no completed physical test has reported hours, so the stitch rate the make-times divide by is
+still a guess.
+
+631 tests passing, 0 failing, 33 suites. Shadow Mode intact, CA$0 revenue, CA$0 model spend,
+1 open incident (the Halloween P2, correctly raised).
+
+## Last completed milestone
+
+### 2026-09-28 — Build 2 certification: the repair wave, integrated and audited
+
+**What was wrong.** The 2026-09-27 closeout (9434c53) called 320 rows closed. An independent audit
+refuted it: 55 rows invalid, 96 weak — modules that existed and were tested but that nothing in
+the running system ever called; readings persisted that nothing acted on; fixtures injecting
+evidence production never produces; gates parked in front of executable work. Codex audited the
+six repair patches independently and preserved 75 findings (`research/codex_b2_integration_pack/`).
+
+**What was done.** Six repair clusters (platform, orders, growth, design, improve, intel) and four
+follow-on waves (orders2, platform2, improve2, residue) rebuilt the missing chains — producer →
+durable evidence → runtime consumer on a cadence → decision → protected action — each with a
+handler-level test through `Worker.run_once` on a real database, sockets refused. The lead merged
+one cluster at a time, reconciled every shared-file and semantic conflict by hand (radar.score
+composes #2 steering, the #38 evidence discount and the #97 lesson nudge; one referral reader; one
+withholding record; bounded receipted priority movement), adjudicated every Codex finding against
+the merged code, and recorded each defect and fix in `research/BUILD2_CERTIFICATION.md` (C-60..C-86).
+Highlights: the closure rule itself (C-74: only an explicit park parks; C-65: call-graph
+reachability), order truth reconciled as state (C-78), durable rollback and one release-eligibility
+record (C-81, C-84), steering idempotent across runs (C-75), thrash suspensions lifted only by a
+real change (C-85), the Christmas cardigan engineered end to end and stopped only by owned imagery
+(#308), and the Claude-independence test (boot from a scrubbed environment, shadow publish refused,
+SIGKILL mid-job, restart with no loss or duplication, cadences continue) 4/4.
+
+**Fresh independent audit of 15c5d1b** (`research/b2_resume/reports/independent_audit_15c5d1b.md`):
+217 VALID · 9 WEAK · 0 INVALID · 92 GATED-OK · 2 GATED-BAD; verdict "the C-60 class of exists,
+tested, never runs is gone; every remaining defect is a labelling or measurement-honesty defect".
+All 11 were applied as C-86: #31 #163 #169 parked on the data their measured half needs, #277 #281
+#309 #88 #126 #308 parked on `image_vision` (the design pipeline is built; its winners wait on the
+owner's provider credit), `seasonal.cycle` reports the model-bearing render path BLOCKED on the
+external gate and never complete, the governor says plainly that no experiment-driven job spends yet.
+
+**Honest closure at a885680:** 218 COMPLETE+PROVEN · 0 OPEN · 58 owner-gated · 37 data-gated ·
+7 external-blocked; `closure.matrix(db)` on a fresh database reads every gate live, none open,
+`closed_out: true`. Production (`/api/verify`, 02:27Z): all 12 checks passing, shadow, ad spend 0.
+Product-Only Visual V1 remains NOT LOCKED; the model-bearing render path remains external (0/16,
+0/7 draws).
+
+**Full suite from clean state on the final head 856186f:** `bash run_tests.sh` — **5,242 passing, 0 suites failing** (285 suites; log in `research/b2_resume/evidence/full_suite_856186f_5242_passing_0_failing.log`). The first run on f4565dd (5,237 passing, 5 suites failing) found five older tests asserting behaviour the repair wave deliberately changed; each was adapted to the documented new behaviour, none loosened (ledger C-87).
+
+**Remaining gates, all real, all typed (row ids in `research/b2_resume/closure_state.json`).**
+Owner (58): fund the vision/model provider account (`image_vision`: 15 rows incl. the whole
+original-design path), re-authorise the Etsy app with `transactions_r` (11, 12), record the
+`acceptance_ruling` (189 221 222 320), benchmark purchases (165 168 315 317), owned surfaces (7),
+ad authority (6), live listings (9), Insights/Stats exports (5), tester roster (3), offsite
+storage (51), production window (195). Data (37): customers/orders. External (7): the
+model-bearing render (72 130 202 203 300 308) and Etsy's 403 on policy pages (35 39).
+
+### 2026-09-26 — Product-only Visual V1 graduation (blind Brambleloop product): deterministic chain PASS, 0 of 16 certified — NOT LOCKED
+
+From `ad81e30`. Report `research/VISUAL_V1_GRADUATION.md`; every asset, digest, call, cost and
+verdict in `research/v1grad/out/`. External spend **US$4.86** of a US$5.00 ceiling (OpenAI only;
+Google intentionally unfunded and not substituted).
+
+- **Product:** the Heirloom Cable Throw (`products/texture.py`, class A, 18 cable columns crossing
+  every fourth row on back-post ribbing, 144 x 121, cream worsted), a Brambleloop original that has
+  never been made; the strongest fully specified candidate (no original garment exists yet).
+- **Firewall:** EXTERNAL FINISHED-PRODUCT VISUAL REFERENCES USED BY PRODUCT CONSTRUCTION OR
+  GENERATION: NONE. Every input to every stage listed with digests; a scratchpad chart and the
+  artifact store's image blobs quarantined unopened; no web search.
+- **Blind deterministic chain PASS before any spend:** Product Truth from the CIR (10 cross-checks,
+  4 declared uncertainties), reference at counts x gauge drawing every cell/row/crossing, cable
+  identity + gauge instrument self-tested (reference PASS; rotated, plain, star, waffle controls
+  FAIL; 2x scale fails gauge), reference passes its own gate; frozen with digests at `9cf29f5`.
+- **Generation:** gpt-image-1.5 high input fidelity, 16 draws over five rounds (whole throw; stronger
+  contrast; fidelity prompt; folded landscape at 14.2 px/cm x2). **0 certified.** The generator draws
+  the columns 1.3-1.7x too far apart at the whole-throw scale and rewrites crossings as ladder, moss
+  or rib textures, often adding an edge border; at the folded scale two draws pass every
+  deterministic measure but the reader (texture, edging) and the judge (folds) reject them.
+- **Capability fixed generally:** `visual.fabric.texture_signature` now sees relief stitches
+  (`tests/test_fabric_relief.py`); a gate expectation corrected for the folded view (D-V1-5).
+- **Verdict:** PRODUCT-ONLY VISUAL V1 is NOT locked. Blocker localised to image generation /
+  provider capability at the stitch-structure scale. Shortest next experiment in the report.
+- Tests: `test_v1grad.py` 40/40, `tests/test_fabric_relief.py` 8/8; full suite 4,257 passing, the one
+  failing suite is the pre-existing date-dependent `test_a_spender_the_registry_has_never_heard_of_gets_no_invented_ceiling`.
+
+### 2026-09-26 — Commercial benchmark 2: Mini Star Stitch Cardigan — pipeline complete, 0 of 7 certified, both providers out of credit
+
+From `e4af6f1` (Bench1 untouched). Report `research/VISUAL_BENCH2.md`; every fact, digest, call
+and cost in `research/bench2/out/`. External spend **US$1.83** of a US$5.00 ceiling. The
+designer's PDF, text and photographs stay outside the repository (asserted by `test_bench2.py`).
+
+- **All-size Product Truth** (17-page PDF, ten sizes, parsed at run time, every fact page-cited):
+  25 deterministic cross-checks pass on every size; four ambiguities recorded; the size 2-3T CIR
+  compiles on a new star-stitch vocabulary (`beg_star_st`/`star_st`/`end_star_st`/`hdc_inc`/`hdc3`).
+- **Star-stitch identity + gauge instrument**, built and self-tested before any paid draw: the
+  eye lattice (pitch, columnar next row, pitch/pair band, isotropy, fan fraction, return row) with
+  a priori bars. Truth passes, six controls fail (half-offset model, hdc, seed, knit, Bench1 waffle,
+  Bench1 hero), five of six designer-photo crops pass. Known limit: a cluster texture sharing the
+  lattice passes it; the reader's material texture answer catches that.
+- **Frozen size 2-3T** with reason; **deterministic full-product reference** (one piece, built-in
+  sleeves, V front neck from the increases, spread hood with face band, bands, cuffs, five
+  buttons) that passes its own gate and reads as star stitch at gauge.
+- **Generation and gate:** OpenAI credit exhausted at the first call (blocks gpt-image-1.5, the
+  pinned reader and the pinned D judge); gemini-3-pro-image drew 7 (2K) with a declared
+  substitute reader/judge, then Google credit ran out. **0 of 7 certified**: texture rewritten
+  to hdc or clusters (6/7), hood folded to a point (7/7), 4 or 6 buttons for 5 (4/7); every
+  rejection measured and recorded. The substitute judge discriminated nothing; nothing rests on it.
+- **OWNER ACTION REQUIRED (batched in the manifest):** add prepaid credit to the OpenAI API
+  organisation (restores the pinned reader, judge and gpt-image-1.5; US$10 covers finishing this
+  benchmark) or to Google AI Studio (US$5). Until then no Bench2 hero can be certified.
+- Tests: `test_bench2.py` 42/42. Full suite 4,245 passing; it exposed that the new stitch codes were
+  unregistered in the publishing registries (difficulty, chart glyphs) and that the code `star` collided
+  with the English word under the abbreviation-key check — fixed (codes renamed `*_st`, all five
+  registered in difficulty, glyphs, twin yarn factors, texture list), `test_deliverable_qa.py`,
+  `test_compiler.py`, `test_twin.py` green afterwards; the one remaining failure is the pre-existing
+  date-dependent `test_a_spender_the_registry_has_never_heard_of_gets_no_invented_ceiling`.
+
+### 2026-09-26 — Commercial benchmark 1: purchased cardigan pattern → certified listing hero, 1 of 12, through a recorded pipeline
+
+From checkpoint `90fa87a`. Report `research/VISUAL_BENCH1.md`; every fact, digest, call and cost in
+`research/bench1/out/`. External spend **US$3.45** of a US$5.00 ceiling. The seller's PDF, its
+text and photographs stay outside the repository (asserted by `test_bench1.py`).
+
+- **Product Truth from the real pattern** (12-page PDF, text parsed at run time, every fact
+  page-cited): side-to-side one-piece body 94 sts × 91 rows (20/50/20+1) with a 10-st integral
+  hem rib, two chained sleeve openings, side-to-side sleeves with slip-stitch cuffs, 7-st neckband,
+  two 24×13 pockets, 14.5 × 9.5 gauge, size S sample. All consistency checks pass; the CIR
+  compiles; the sleeve-to-opening join is sound under the derived chain gauge; the independent
+  earlier encoding agrees on every count. Pocket placement and colour RGB declared ASSUMED.
+- **Seller photographs read independently** by one fixed reader: all four agree with Product
+  Truth on every gated property; ridge direction is unreadable by the reader even on ground
+  truth (recorded, not gated).
+- **Full-product reference:** deterministic flat lay at counts × gauge with every texture cell a
+  counted stitch; three versions, the third fixing a cuff-end defect the gate exposed (a ribbed
+  insert at the shoulder that the generator faithfully reproduced).
+- **Hero generation and gate:** gpt-image-1.5 high fidelity (E5's best), 12 draws, plus 2 Gemini;
+  every draw gated automatically (silhouette, proportions, sleeve span, **stitch scale**, twelve
+  material reader properties, seven judge items). **One certified hero**
+  (`oa15_hifi_10.png`, sha `1879561f…`); eleven rejected for stated reasons, most often the
+  generator's gauge drawn 1.6–3.6× coarser (two independently read as child-sized).
+- **Discrepancies traced:** gauge → generator (+ reference pixel scale); stitch-pattern
+  appearance (seed-like, not crumpled waffle) → generator, not yet gated; ribbed inserts → our
+  reference (fixed); sleeve-length reads → flat-lay ambiguity; ridge direction → reader.
+- **Readiness:** hero as a gated loop, yes; detail and sizing images, possible now; on-body and
+  lifestyle, not yet (no body form or drape in the reference; E5's pose drift applies). Not
+  published, not integrated. `90fa87a`, `a447c2f`, `1229442`, `4a08871`, `fcb982d` untouched.
+- Tests: `test_bench1.py` 34. No `src/` change.
+
+### 2026-09-26 — Visual E5: structure-locked photorealisation benchmark across providers — no repeatable route; realism solved, pose lock unavailable
+
+From checkpoint `a447c2f`. Report `research/VISUAL_E5.md`; every request and output digest,
+parameter, judge id and cost in `research/e5/out/`. External spend **US$2.80** of a US$3.00
+ceiling (21 draws US$2.58, judge US$0.22), stopped with the picture clear.
+
+- **Capabilities verified on the wire, not assumed:** gpt-image-1 / 1.5 accept
+  `input_fidelity=high` and a mask; gpt-image-2 and both 2.5 variants refuse it. BFL exposes
+  FLUX.2 pro/max/flex editing, Kontext and Fill inpainting, but its depth and canny control
+  endpoints answer 404. Google's three image models edit from several images with no fidelity,
+  strength, mask or structure parameter. No reachable provider offers structure conditioning.
+- **Frozen package** (E4 SC camera: geometry `e0762cc0…`, reference `acdfc2d8…`, mask, normals,
+  manifest) re-hashed before every mode; nothing in the reference changed for any provider.
+- **Nine modes, 21 draws, every one measured by the unchanged E4 instrument and judge.**
+  Realism: 18/21 pass all seven judge items. Structure: certified draws — gpt-image-1.5
+  high-fidelity **2 of 4**, gemini-3-pro-image **2 of 8**, everything else 0; E4's gpt-image-2
+  re-measured on the same view 1 of 4. No consecutive certified draws on any mode.
+- **Instrument:** the E4 aligner's area/centroid estimate is thrown by warm scene pixels on real
+  photographs (structure NCC under-read by up to 0.44, measured before any change); E5 adds a
+  silhouette-refined alignment as an option, E4's default untouched, both verdicts reported on
+  every image, adversarial tests green under both (66). No threshold moved.
+- **Failure mode, provider-independent:** the object is re-posed or re-framed on 50–75 % of
+  draws (aspect drift 0.13–0.45 against a 0.10 bar). When it is not, 5 of 6 draws certify. Mask
+  inpainting destroys the structure it is meant to protect (two modes, silhouette 0.33 and 0.01).
+- **Verdict: no winner.** A gated rejection-sampling loop on the two best modes would cost about
+  US$0.40–0.60 per certified SC image with no termination guarantee; recorded as a cost model,
+  not a route. Best configurations preserved exactly in `run_e5.MODES` and the manifest. Not
+  integrated. `twin.calibrated` False. `a447c2f`, `4a08871`, `1229442`, `fcb982d` untouched.
+- Tests: `test_e5.py` 19, `test_e4.py` 66, `test_e3.py` 10. No `src/` change this phase.
+- Also: `research/VISUAL_E4.md` carries an erratum on its sc draw split (4 camera / 6
+  oblique, not 6 / 5); no E4 result changed.
+
+### 2026-09-26 — Visual E4: stitch-addressable correspondence, continuous reference, yield of the photographic layer — FAIL as a pipeline, one image proves both properties
+
+From checkpoint `1229442`. Report `research/VISUAL_E4.md`; every manifest, per-stitch result, judge
+record, prompt, digest and cost in `research/e4/out/`. External spend **US$0.60** of a US$1.00
+ceiling (14 images US$0.42 list, judge US$0.18), stopped with the evidence complete.
+
+- **The reference's artificial features were yarn all along.** The 87 "hops" the renderer cut
+  (68 capped ends on hdc) were traced: 83 inside an hdc cell between named key points, 4 in
+  turning chains, none on sc. `fabric_strands(continuous=True)` is now the default; the strand
+  runs on through joins, no control point moved; one strand, two ends, on both swatches
+  (three tests in `tests/test_render.py`). Clean `presentation3` references rendered and hashed.
+- **Projected-stitch instrument** (`research/e4/project.py`): every certified stitch projected
+  through the verified pinhole into the reference with id, family, row, position, points,
+  orientation, colour region, depth-tested visibility and neighbours. **Self-validates on all
+  four views** (100 % of projected points on yarn, worst per-stitch reference IoU 0.90–0.97);
+  56 offline checks in `research/e4/test_e4.py` including erasure caught and named, re-framing
+  tolerated, blank frame refused. **A limit found and recorded:** a mirror image of the
+  near-symmetric swatch passes the presence test, so handedness became its own global
+  property (certified ≥ 2× mirrored; references read 4.2–9.5×).
+- **Generation:** `gpt-image-2` edits on the byte-identical package (clean RGB + mask +
+  normals), presentation-only prompts. Round 1 held proportions (drift 4–11 %) but copied the
+  rendered material (judge FAIL on 3 of 4). Round 2 named the material as a rendering to
+  replace: real wool on 5 of 10 draws by the judge, but the generator re-shot the object (aspect
+  drift 17–47 % on 8 of 10, structure NCC collapsed on the worst). Round 3's localised fix,
+  `input_fidelity=high`, was **refused by the provider before any spend** (unsupported on this
+  model). A yield round of six more sc draws confirmed the rate rather than the luck.
+- **Result over 14 images:** every testable stitch present in 14/14; global structure PASS on
+  2/14 (both sc camera); judge 7/7 on 5/14; **both on 1/14** — `sc_camera_e4.png`, sha256
+  `46eebcec…`, 22/25 stitches testable and present (worst IoU 0.81), proportions +4 %,
+  structure 0.47 vs mirror 0.06, judge all seven true. Oblique view: 0/7 structural.
+- **Localised:** instrument, reference, package and judge each ruled out by measurement; the
+  failure is the generator's coupling of reference literalness and material re-synthesis, with
+  no parameter on this endpoint to separate them. Proven blocker within scope; the remaining
+  US$0.40 could not change a 0/7 oblique reading.
+- **Verdict: E4 FAIL.** Not UNKNOWN: every property measured. No threshold weakened (one
+  property added). Milestone D unchanged (FAIL, physical blocker). `twin.calibrated` False.
+  Production gate, drape solver, assessment and `cir/` untouched. `4a08871`, `1229442`,
+  `fcb982d` untouched. One gateway addition: `generate(..., extra_fields=None)`, default none.
+- **Suite on this branch head: 4,249 passing, 1 suite failing** — the pre-existing
+  date-dependent `test_a_spender_the_registry_has_never_heard_of_gets_no_invented_ceiling`,
+  which fails identically on `fcb982d` and was not touched. E4's own tests: `test_e4.py` 56,
+  `test_e3.py` 10, `test_render.py` green, `test_gateway.py` 30. Checkpoint tag `checkpoint-e4`.
+
+### 2026-09-26 — Visual E3: certified structure → reference-conditioned photograph → same product? Not yet proven; Option 3
+
+From checkpoint `4a08871`. The frozen assessed geometries (hashes on every record) and their
+judged presentation renders were the only conditioning; `gpt-image-2` through the edits
+endpoint, one image per view plus a two-image arm with silhouette mask and normals added
+-- six images, **US$0.18** of a US$1.00 ceiling; judge and reader **US$0.25**; E3 total
+**US$0.43**. Report `research/VISUAL_E3.md`; every artefact, hash, prompt, response id and cost in
+`research/e3/out/`.
+
+- **Photographic realism (the unchanged independent judge):** on the sc swatch one conditioned
+  generation repaired four of the five D failures -- folds, imperfection, melted yarn, synthetic
+  texture -- and failed only sterility, which is the prop-sphere scene we chose for
+  measurability. On the hdc swatch it repaired none, because it faithfully carried the
+  reference's own artefacts: the 68 cut strand ends of the yarn-path model became "bead-like
+  nubs" and "knotted tassels".
+- **Structural correspondence (measured, property by property):** outline preserved (aligned
+  IoU 0.82–0.93 on all six); rows and stitch family preserved where readable; with mask and
+  normals in the package, row/post placement preserved (NCC 0.40–0.60). **Drift caught:** 4 and
+  6 stitches per row for a certified 5, tassels the product does not have, one view re-shaped
+  as a tube. The independent reader cannot count the truth on three of four deterministic
+  references (UNKNOWN there by rule). No output reaches "same product proven": FAIL ×5, UNKNOWN ×1.
+- **Gate:** the two-category distinction (certified presentation transformation vs unauthorised
+  redesign, fail-closed, `research/e3/gate_spec.py`, 10/10) classifies every E3 output as
+  redesign or UNKNOWN. Proposed, not integrated; production gate unchanged.
+- **Decision: Option 3.** Deterministic: CIR, topology, linkage, morphology, colour placement,
+  the certified deformation, the reference and its digests. Generative: fibre, yarn surface,
+  material, lighting, shadows, camera, background. Not yet certifiable: stitch-level structure,
+  until a projected-stitch correspondence instrument exists and the reference has no cut ends.
+- Not done, per the brief: no purchased-pattern work, no model photography, no tournament,
+  no gate change, no merge, no deploy. `twin.calibrated` False. `4a08871` and `fcb982d` untouched.
+
+### 2026-09-26 — Visual wave 6 close-out: Milestone D judged — FAIL, on a blocker that is physical
+
+The owner lifted the spend freeze for the minimum needed to resolve D's UNKNOWNs. Done, on the
+isolated branch, `fcb982d` untouched:
+
+- **Independent judge.** `visual/d_judge.py` puts the seven B-700 fabric items to
+  `gpt-5-2025-08-07` (a model with no part in the Mitsuba renders), in the vocabulary of the
+  failure, omitted keys UNKNOWN, this module deciding. Three rounds on the authoritative draped
+  views of both swatches: the instrument renders, then `STAGING_PRESENTATION` (the form drawn,
+  thin lens, window key, the derived fibre population), then the same with the fibre scattering
+  model and continuous strands. **Lighting and shadows moved to PASS; folds, imperfection,
+  melted yarn, synthetic texture and sterility failed in all three readings**, for the same
+  stated reasons. Six calls, **US$0.142 in total**; every prompt, answer, response id, token
+  count and list-price cost is in `research/d/out/judge_*.json`.
+- **Stationarity, bar unchanged at 2 %.** 12,800 momentum iterations left the hdc creeping at a
+  constant 0.031 mm / 200 (sc converged, 1.58 %); a 3,200-iteration momentum-off settle phase --
+  how a FIRE minimisation is finished, rest state carried, trace from the same origin -- gave
+  **0.55 % (hdc) and 0.77 % (sc): PASS.** `settle_iterations` is on every result; the assessed
+  points are saved with their hashes and the judged renders were refused unless they matched.
+- **The hand-tension experiment** (`HandTension()`, sourced 5 % input): certifies and keeps every
+  lock, realises 2.2 % width CV, lands on the form on 3 and 2 stitches with worse stationarity.
+  Recorded, not adopted. The geometric irregularity item is a measurement, not a gate (D-W6-11).
+- **Verdict from the executable criterion: D = FAIL on both swatches** (`milestone_d_<kind>_final.json`).
+  Every measured item passes. The five judged failures each trace to a physical input the
+  repository lacks and may not fabricate: a measured yarn-on-yarn friction (the infinite-friction
+  lock is what stops the stitches everting and what reads as rigid -- BOUNDED, uncalibrated), a
+  photographed reference swatch for hairiness and fibre grain (Stage 0, deferred), a continuous
+  yarn path between operations (the 68 "bead-like ends" are the model's hops). A fourth staging
+  without new physical input would be prettier pictures chasing a score, so it was not made
+  (D-W6-13). `twin.calibrated` stays False.
+- Suites: test_drape 157/0, test_render 15/0 (strand continuity added), test_milestone_d 21/0
+  (judge reading and decision rule, offline). Full suite: **4,247 passing, 1 suite failing** -- the same pre-existing, date-dependent spender check that reproduces on untouched `fcb982d`; nothing else, read from the run's own TOTAL PASSING line.
+- Not done, per the brief: no purchased-pattern generation, no GPT Image work, no Etsy imagery,
+  no merge, no deploy.
+
+### 2026-09-26 — Visual wave 6: Milestone D measured, PARTIAL — the drift, the frictionless law, and the frame
+
+Isolated branch `claude/visual-investigation` (worktree), integrated checkpoint `fcb982d`
+untouched. `visual/milestone_d.py` (new), `visual/sc_swatch.py` (new), `drape.py`,
+`crochet_topology.py`, `stitch_shape.py`, `pbr_scene.py`, `milestones.py`, `app/main.py`
+(one colour), `tests/test_milestone_d.py` (new, 15), `test_drape.py` (144 → 157),
+`test_stitch_identity.py` (23 → 29), `test_render.py` (11 → 14). Report:
+`research/VISUAL_MILESTONE_D.md`. **CA$0.00 this wave; nothing deployed, published or
+activated; `BRAMBLELOOP_PHASE=shadow`; no paid API call since the owner's freeze.**
+
+**Full suite on the isolated branch (commit c6ad3e5 code): 4,239 passing, 1 suite failing** -- `test_cost_governance_wave2`, two checks. One was this wave's: `milestone_d` wrote its curve file under a `TemporaryDirectory` prefix (`brambleloop-d-`) absent from `health.TEMP_PREFIXES`, invisible to the disk signal -- the guard the 2026-09-25 wave verification recorded, catching the same defect again; the prefix is now registered and the check passes. The other, `test_a_spender_the_registry_has_never_heard_of_gets_no_invented_ceiling`, **reproduces on the untouched integrated checkout fcb982d** and is date-dependent: its rows are stamped at a frozen NOW of 2026-09-25 while `spend_report.per_agent_today` reads the wall clock, so from 2026-09-26 the frozen spend is not "today" -- the very defect class the file's next test names. Not Visual's, not touched here, recorded for the integrator. **Rerun with the prefix registered, read from its own TOTAL PASSING line: 4,240 passing, 1 suite failing -- that one pre-existing, date-dependent check and nothing else.**
+
+**Milestone D: PARTIAL, measured — not FAIL, not PASS.** `milestone_d.assess` drapes the
+certified 5x5 (hdc and sc) on a sphere, re-validates it, and derives a plied render from that
+configuration. Measured items pass on both swatches: identity, the flat locks, the exact fixed
+point (5.7e-15 mm with every option on), energy descent, contact with the form, **no
+structural drift** (20/20 linked, 25/25 shaped in the carried frame, above the floor), double
+curvature (contact patch 4 columns x 4 rows hdc, 4 x 5 sc), the render's geometry hash
+unchanged and every ply within the yarn radius of its strand. UNKNOWN, and never counted
+toward a PASS: the seven judged items (folds, lighting, shadows, imperfection, melted yarn,
+synthetic texture, sterility) because no judge ran, and hand irregularity because none was
+applied to the assessed build. Stationarity at 6,400 iterations read 2.3 % (hdc) and 2.1 % (sc) of the whole motion over the last tenth against the 2 % bar -- UNKNOWN, still creeping, the bar not moved, the trace on the result. Under load the certified linkages open by up to 1.9 mm (hdc) and 1.3 mm (sc) while staying linked; reported, since no non-invented limit on a link opening exists (wave 5 §4a).
+
+**Three defects under the inherited failure, each measured before it was fixed.**
+
+1. **The reported drape was free drift.** The force step is scaled to the yarn's bending
+   force, so gravity moved a vertex 0.7 µm per iteration: 0.566 / 1.130 / 4.44 mm at 800 /
+   1600 / 6400 iterations, linear. Every displacement the solver had reported at 800
+   iterations was the first half-millimetre of a fall, and a uniformly drifting fabric moves
+   every row as a unit by construction — that was wave 5's "rigid bar" symptom. Pinned as a
+   test. `momentum` (FIRE) and `step_multiplier` (inside the stencil's stability margin) let
+   a solve arrive; both off by default, both rate-only, fixed point unchanged.
+2. **The frictionless force law takes stitches apart once the drape proceeds**, at every
+   bending rigidity in the derived bracket: 14 of 25 hdc third loops above the V after 25,600
+   plain iterations at the committed constant, 16 of 25 at the derived 1.27e-6 N m^2, and the
+   sc swatch loses 13 of 20 linkages — netting, the failure the locks name. The force missing
+   was yarn-on-yarn friction, which outweighs gravity on a stitch by orders of magnitude.
+   `rigid_stitches` is its infinite limit (per-stitch shape matching, Müller 2005), BOUNDED
+   and stated on every result as holding the stitch's internal shape; linkage, floor,
+   contact, curvature and equilibrium remain the mechanics' to lose. Friction against the
+   form (`support_friction`) only works together with it: measured, the fabric crept 0.6 mm
+   past vertices that had not moved a nanometre until the stitches were locked too.
+3. **The morphology check's frame measured the neighbours, not the stitch.** With every
+   stitch rigid to 0.1 mm through a 26 mm drape, four intact stitches read as everted because
+   the neighbour frame's UP sat 17–19.5° off their own. `validate(reference=flat)` carries
+   each stitch's certified frame by its own rigid motion; a lifted third loop is still caught
+   (test), a 40° rotation is cleared, and a folded fabric of intact stitches — which the
+   neighbour frame fails from 35° — is cleared. The frame used is named on every result.
+
+Also: the pinned pair came back from every drape 2e-13 mm under the floor and was refused;
+the floor is now compared to a nanometre (named as numerical; the floor unchanged). The
+constraint polish ends on the floor and the form. `stitches_shaped_like_hdc` counted sc
+stitches "like hdc" and is `stitches_shaped_as_ordered`. The ladder reports D as
+**UNMEASURED** unless measured on the call — a hard-coded FAIL was a stored claim.
+
+**The bridge wave 5 §6c asked for exists.** `pbr_scene.write_plied_curve_file` draws the
+certified fabric's own strands through `yarn_construction.ply_geometry` and `surface_fibres`
+under the committed scene; `STAGING_PLIED` differs from `STAGING` only in what it admits it
+does not reproduce. Before/after: `wave5_reconciled_oblique.png` (0.566 mm of drift, tubes)
+against `research/d/out/*_draped_plied_*.jpg` (the re-validated draped configuration, plies
+and fibre halo, same camera and key). They are instrument images and are not offered as
+evidence about appearance.
+
+**What is not claimed.** D is not PASS. Morphology under drape is an input of the friction
+lock, not an outcome. The friction limits are BOUNDED by an order-of-magnitude argument, not
+a measured coefficient. The derived bending rigidity (42x the committed constant, which was
+not changed) comes from the committed procedure on a 5x5. `twin.calibrated` stays False.
+`dc`, `inc` and joined rounds are refused by name, not modelled.
+
+## Previously — last completed milestone
+
+### 2026-09-24 — Physically based yarn relaxation: the increment works; D still not passed
+
+`src/brambleloop/visual/relaxation.py` (new), `crochet_topology.py`, `stitch_shape.py`,
+`tests/test_linkage.py` (new, 18), `test_crochet_topology.py` (34),
+`test_topology_adversarial.py` (18). Zero spend.
+
+**Full suite: 3,283 passing, 0 suites failing.** An earlier run of the same code reported
+3,282 with `test_deploy` failing on a 40-second wait for a background readiness job. That
+test passes in isolation, passes on re-run, and is in code this increment never touched --
+contention under a suite that saturates every core, confirmed by re-running rather than
+assumed by calling it a flake.
+
+**The authorised question is answered: yes.** Physically based relaxation transforms the
+validated CIR-derived topology into geometry that satisfies a physical floor the authored
+version could not, without changing the certified topology.
+
+| measure | unrelaxed | relaxed |
+|---|---|---|
+| closest strand approach (segment to segment) | 0.609mm — **fails** the 1.50mm floor | **1.95mm — passes** |
+| stitches linked | all, at +/-1 | all, at +/-1 |
+| completed stitches shaped like HDC | all | all |
+| min gap anywhere on the trajectory | — | **never reached zero** |
+| yarn strain / length change | — | 1.0% / -0.07% |
+| gate verdict | **False** | **True** |
+
+Identical at 5x5, 7x7 and 10x10. Topology preservation is **by construction**: no vertex may
+move further than half the current smallest gap between non-adjacent segments, so no two
+strands can close that gap and cross. Enforced every iteration, not checked afterwards.
+
+**Bounded, as hoped.** A projection solver following Kaldor et al.'s
+inextensibility-by-projection. ~90s per swatch, no physics platform, no new runtime
+dependency. PyElastica was installed and TESTED rather than dismissed -- MIT, it works --
+and rejected for a measured reason: its self-contact is quadratic in element count and its
+contact is penalty-based, so it cannot promise non-penetration and worsens with size.
+
+#### Five defects, three of them in checks previously reported as passing
+
+21. **The interpenetration check was not measuring interpenetration.** It sampled vertices.
+    Segments here are ~3mm long, so two can cross clean through each other while all four
+    endpoints stay far apart. The authored geometry's true closest approach was **0.050mm**
+    against a 1.50mm floor; the check reported 2.06mm.
+22. **The linking-number check is not invariant on moved geometry.** A 0.15mm jiggle changes
+    its verdict. Proved rather than suspected: in one run the solver established that no
+    strand ever passed through another *while* the linking number claimed 39 of 42 linkages
+    had broken. Topology cannot change without a crossing. It now corroborates; it does not
+    gate.
+23. **The fabric depth was invented and never revisited.** `D = L * 0.55` predates deriving
+    yarn diameter from the stated 6mm hook, leaving a fabric 1.14 yarn diameters deep that
+    must hold three strands. That is what pinned the geometry between threading the V
+    (grazing its legs at 0.05mm) and clearing the legs (threading nothing). Now derived from
+    the yarn at 2.2 diameters.
+24. **A scale dependency I reported to the owner did not exist.** The sweep passed bend
+    compliance 0.03; the test took the `Material` default of 0.18, my first guess, which
+    flattens stitches. Corrected.
+25. **The last "misshapen" stitch is the free end of the yarn** -- always the last stitch
+    worked, loop still live because nothing fastens off. A boundary condition with a
+    physical cause, now reported on its own line rather than merged into a shape verdict.
+
+#### Parameter provenance
+
+Measured: segment rest lengths. Derived: yarn diameter (hook/1.8, cross-checked against the
+gauge to within 3%); fabric depth (2.2 diameters, bounded below by what must physically fit).
+Estimated but bounded by published weft-knit compression: the contact floor.
+**Estimated and weakly constrained: bend compliance.** It is the one number that moves the
+result and cannot presently be defended from the pattern. Grounding it in a measured yarn
+flexural rigidity is the first thing to do before trusting the shape the fabric settles into.
+
+#### D is NOT passed
+
+The topology gate passes on relaxed geometry. The realism bar does not. The render shows
+genuine emergent mechanics -- rows nesting, tension propagating, neighbouring stitches
+differing because their neighbours differ -- and still reads as smooth tubing in a lattice
+rather than wool. Material work (ply, twist, fibre) is explicitly not the answer while the
+macro-geometry reads as CGI.
+
+## Previously — last completed milestone
+
+### 2026-09-24 — Crochet topology sprint: topology gate PASSES, photographic realism does NOT
+
+Commits `90d837c` through HEAD on `claude/repository-setup-nc9x6o`.
+`src/brambleloop/visual/{crochet_topology,linkage,stitch_shape}.py`,
+`tests/test_crochet_topology.py` (27), `tests/test_topology_adversarial.py` (17).
+
+**Status: conditions 1-5 of the sprint's success definition are met. Condition 6 is NOT.**
+The geometry is topologically correct and mechanically valid, and the PBR render does not yet
+read as real crochet. It reads as a regular lattice of identical modules. No claim is made
+that it does.
+
+#### What is now proven
+
+| invariant | how it is measured | result at 14x16 |
+|---|---|---|
+| stitch count / loop target | against the certified CIR | 224/224, targets match |
+| linkage | **linking number of two closed curves** | 208/208, all exactly +/-1 |
+| continuity | each operation begins where the last ended | within-row joins 0.007mm |
+| interpenetration | closest non-adjacent approach vs compressed contact | 5.49mm against a 1.50mm floor |
+| stitch shape | HDC morphology, features documented outside this repo | 224/224 |
+| semantic coverage | every loop target x every working direction | complete |
+| gauge | pitch and row height against the pattern | exact |
+| yardage | mm per stitch against the pattern's stated grams | 0.71x, stable to 0.3% across sizes |
+
+Sixteen defects were found and fixed during the sprint. Each is a commit message of its own.
+The recurring shape of them: **a quantity that had no source** (yarn diameter invented as a
+ratio when the pattern states a 6mm hook), **one value living in two places** (the contact
+distance, accepted at 0.45 diameters and relaxed to 1.0), **a check that could not see what
+it existed to measure** (grid repulsion comparing only within a cell; continuity
+thresholding the largest step, under which a real 13.9mm break sat unnoticed), and **a proof
+measured on a sample that could not contain the broken case** (the 4x5 swatch has no
+front-loop stitch).
+
+#### Approaches eliminated, with reasons
+
+- **Crossing parity on a sub-path.** Not a topological property: the answer moves with where
+  the path is cut. Replaced by linking number, which cannot.
+- **Storck et al.'s published ratios as HDC geometry.** Equations 3-7 of that paper describe
+  a SLIP STITCH; it models chains, slip stitches and single crochets and contains no half
+  double. Borrowing a flat stitch's 1.85L sideways reach gave every stitch a lean and merged
+  the row tops into a bar.
+- **Blind contact repulsion to fix interpenetration.** Topology-blind: at a linkage the
+  shortest way apart is straight out of the loop, so it took linkage from 15/15 to 5/15.
+  Clearance belongs in the construction.
+- **Relaxation as repair.** Once clearance is constructed, relaxation changes almost nothing,
+  which is the relationship it should have.
+
+#### The remaining blocker, and it is architectural
+
+The look of crochet does not come from a well-designed unit cell. Yuksel, Kaldor, James and
+Marschner's stitch-mesh pipeline is explicitly *interactive modelling followed by offline
+relaxation*: topology from tiles, then **physically-based yarn-level relaxation** that
+locally relaxes yarn into realistic shape while explicitly avoiding *yarn pull-through* --
+the same linkage-destroying failure this sprint hit twice. Guo, Lin, Narayanan and McCann
+adapt that to crochet with a *current loop* edge type for the loop held on the hook.
+
+Brambleloop has the topology half and does not have the relaxation half. `settle()` is a
+spring-and-repulsion pass that PRESERVES an authored shape; what produces convincing fabric
+is one that FINDS an equilibrium under tension. That is a real subsystem, not a tuning pass,
+and no amount of further hand-placing of key points will substitute for it.
+
+#### Is the architecture still viable
+
+Yes, and the sprint strengthened the case rather than weakening it. The deterministic chain
+CIR -> topology -> validation holds and is now defended by independent checks and 17
+adversarial fixtures. What is missing is a named, published, well-understood component with
+open implementations.
+
+**A caveat, and it is now checked against the data rather than the prose about it.**
+
+Verified by reading Zenodo record 22822228 directly: CC BY 4.0, 18 files, and they are
+`.nrrd` **micro-CT volumes** of 0.8-1.7GB each, not centrelines. The file names settle the
+stitch question on their own evidence -- `C_chain_stiches`, `O_chain_stiches`,
+`S_chain_stiches`, `single_stiches_patch2`, `single_stiches_patch3`, `two_tight`, plus
+letters and shapes (`bar`, `O`, `X`, `H`, `arrow`, `six`). Chains and single stitches. **No
+half double.**
+
+Unverified and left that way: the README says reconstructed centreline curves are released
+too, while the project's own `download_data.py` describes the GitHub release
+`data-processed-v1` as holding processed *volumes*. Which it is cannot be checked from this
+session -- github.com returns 403 for repositories outside this session's scope -- so no
+claim is made either way. If it is volumes, obtaining centrelines means running their
+reconstruction pipeline, which is a project rather than a download.
+
+So the independent-data test is worth wanting and is not cheaply reachable from here. An
+earlier draft of this section said the dataset would give the shape check something external
+to calibrate against; that was written from a search summary before any of this was checked,
+and it was wrong twice over -- the data is volumes, and it contains no half double.
+
+**That is the second time.** Storck et al. model chains, slip stitches and single crochets;
+CT2Yarn scans chains, slip stitches and single-stitch patches. The published crochet
+literature and its data both stop short of the half double. That is not a gap in the reading,
+it is the state of the art, and it is why HDC geometry had to be derived here from the
+certified gauge and documented anatomy rather than adopted. Worth knowing before any future
+increment budgets time to "find the published HDC model".
+
+#### Estimated remaining scope
+
+A yarn-level relaxation solver: inextensibility along the strand, bending resistance,
+contact with friction, and a pull-through guard that makes linkage inviolable rather than
+hoped for. Days rather than hours, and it needs its own acceptance gates. **Recommended as
+the next increment, and flagged for owner decision because it is a subsystem rather than a
+fix.**
+
+#### Heartbeat 2026-09-24T08:14Z — verified, and three more of my own claims corrected
+
+Production `/api/verify`: **12 of 12 passing**. Phase `shadow`, 0 published against 148
+publish refusals, model spend CA$74.81 of the CA$100 ceiling, no paused scopes.
+
+Full suite: **3,275 passing, 0 suites failing.** The first run of this heartbeat reported
+3,213 passing and 2 suites failing, and both failures were mine and both suites were
+actually green -- see below. 3275 - 3213 = 62, exactly the 18 + 27 + 17 passes that were
+not being counted.
+
+Three defects, all of them in work this session had already reported as done:
+
+18. **The suite caught me committing the fault its own comment was written about.**
+    `run_tests.sh` counts passes with `grep -c '^OK'` and deliberately counts a suite that
+    exits clean while reporting none as a failure. Its comment explains why: nine files
+    once printed a different marker, their results stopped reaching the headline total for
+    a whole session, exit codes still caught real failures so nothing looked broken, and
+    the headline number was quietly wrong -- "the harder fault to notice". All three test
+    files added this sprint printed `PASS`.
+
+19. **The Hopf link scored 0.** Testing the linking number against values this project did
+    not choose showed that a crossing landing exactly on a path vertex was dropped, and the
+    absence of a detection returned as the absence of a crossing -- the precise failure
+    that module's docstring says it exists to prevent. The crochet figures are unaffected
+    and were re-run rather than assumed: the bug produced false ZEROS and the reported
+    state has none.
+
+20. **The CT2Yarn claim was wrong twice over**, corrected above from the Zenodo record
+    itself rather than from prose about it.
+
+The sprint's conclusions stand unchanged. What did not stand was the confidence of my
+reporting: three things presented as verified had been checked less carefully than the
+report implied, and each was caught by a check rather than by me re-reading my own work.
+
+#### Cost and posture
+
+Zero spend. Everything in this sprint is deterministic and in-container: numpy, Mitsuba
+3.9.1 (BSD-3, pip, CPU). Experiment spend unchanged at CA$0.8276 of CA$4.00.
+`BRAMBLELOOP_PHASE=shadow`. Nothing published. Mitsuba is deliberately NOT in
+`requirements.txt`: production never renders and does not carry a 200MB path tracer.
+
+## Previously — last completed milestone
+
+### 2026-09-24 — Crochet topology validated; both-loop linkage is INDETERMINATE, not passed
+
+`src/brambleloop/visual/crochet_topology.py`, `tests/test_crochet_topology.py` (18 passing).
+Committed `90d837c`, pushed.
+
+**Status: topology does NOT pass. Nothing was rendered.** The gate is "validate topology
+before realism", and it is not cleared, so no material, light or camera was applied to this
+geometry. The diagnostic SVG is geometry only and is not a product image.
+
+At 14 rows x 16 stitches, against the certified benchmark CIR:
+
+| measure | value |
+|---|---|
+| stitches built / expected | 208 / 208 |
+| loop targets match the CIR | yes |
+| verified linked | 201 |
+| unlinked | 0 |
+| **indeterminate** | **7** |
+| closest non-adjacent approach | 1.98mm against 2.00mm yarn |
+| `validate(...)["passes"]` | **False** |
+
+**Four construction defects, each found by the validator, not by looking:**
+
+1. `settle()` averaged all segments to one rest length, dragging strands out of their loops:
+   linkage 15/15 -> 0/15. Rest length is now per segment. The docstring had asserted linkage
+   "cannot be undone" — asserted, not held. Corrected.
+2. The contact-repulsion grid compared only points in the same cell, so it could not see any
+   of the contacts it existed to relieve. Now scans the 27-cell neighbourhood.
+3. The dive around the loop below was sized as a fraction of row height, with no term for the
+   strand being 2mm thick. Every stitch passed 0.53mm from it — through it. Clearance is now
+   a yarn diameter.
+4. Both loop spans ran one point long. The front loop's extra point doubles back in x, making
+   the strand a hairpin, so a passing yarn crossed the ribbon under it twice and every
+   front-loop stitch read as unlinked.
+
+**Defect 4 was hidden by an unrepresentative sample.** The 4x5 swatch contains no front-loop
+stitch at all. The earlier "15 of 15 linked" could not have caught it. Validation now runs to
+14x16 and exercises all three loop targets.
+
+**Why 7 are indeterminate.** Working through both loops puts the hook under the pair, so the
+relation is encirclement of two strands as a bundle. The test in place asked whether the yarn
+threads *between* them — a different relation — and counted crossings on a sub-path cut at an
+arbitrary point, so its parity moved with the cut, not with the topology. It reported 16
+linked and 7 unlinked; neither number meant anything. Recorded as indeterminate. An unmeasured
+relation is not a relation that holds, and UNMEASURABLE is never PASS.
+
+**The checks are necessary but not sufficient — and the diagnostic proves it.** Linkage,
+continuity and interpenetration all pass on 201 stitches, but the rendered geometry does not
+read as crochet: stitch tops draw as straight horizontal bars rather than paired loops, and
+the intermeshing that makes crochet fabric is not visible. A geometry can satisfy every check
+here and still not be a half double crochet. No stitch-shape check exists yet.
+
+**Blocking the next increment**, in order:
+1. A correct both-loop linkage measure (encirclement of the strand pair as a bundle).
+2. A stitch-shape check, so passing the topology checks means the thing is recognisably an
+   HDC and not merely a connected non-intersecting curve.
+
+Neither is a rendering problem and neither is fixed by materials or lighting.
+
+## Previously — last completed milestone
+**2026-09-23 — the render-reliability standard, and the frame-reuse feature that was green
+and dead on arrival.**
+
+### The reliability standard was written before the sample was drawn
+
+`visual/reliability.py`, `standard_set_at: 2026-09-23`. Two standards, deliberately separate,
+because only one of them is about image quality:
+
+- **CORRECTNESS** — no asset is ever marked usable with a floor that did not say `pass`.
+  Absolute. One breach blocks launch however good the rate, because that is the failure that
+  reaches a buyer.
+- **ECONOMICS** — every attempted gallery reaches a usable state inside
+  `MAX_ATTEMPTS_PER_GALLERY = 3` at no more than `MAX_CAD_PER_USABLE_GALLERY = 2.00`,
+  reasoned from a ~CA$9.50 pattern whose imagery is made once and serves the listing for its
+  whole life.
+
+Verdicts: `unsafe` (a correctness breach) → `architecturally blocked` (a floor failed every
+time it was asked) → `unproven` (below `MIN_GALLERIES_FOR_A_RATE = 3`) → `unreliable`
+(a gallery spent its budget without an asset) → `uneconomic` → `production capable`.
+Live at `/api/render-reliability`, reading filed sequences and rendering nothing.
+
+Two refusals are built in rather than bolted on. A rate is withheld below three galleries,
+because a proportion from two is not a capability measurement. And a dimension asked fewer
+than `MIN_ASKS_FOR_A_CLASSIFICATION = 2` times is reported `unclassified` rather than called
+systematic — one ask cannot tell an architecture failure from bad luck, and guessing sends
+the next session to rebuild something on a sample of one.
+
+**The standard's own first draft carried the defect it exists to catch.** `systematic` divided
+a dimension's failures by *all* attempts. `product_truth` is decided by the detail frame, so a
+floor asked three times and failed three times would have been reported as a 27% stochastic
+failure in an eleven-attempt sample — an architecture problem retried forever. Fixed to count
+each dimension against the attempts that asked it, before any measurement was taken.
+
+### B-651 — frame reuse could not fire in production, and its test could not see that
+
+The reuse feature shipped in `946eee8` read audit rows expecting one row per *frame*. The
+handler and `listing_asset.make` file one row per **sequence**, with the frames nested under
+`frames` and no `version` of their own. So `_passing_frame` compared `record["shot"]` — a key
+that is not at that level — against every shot name, matched nothing, silently, and would have
+gone on matching nothing forever. Every field the query named was absent from the level it
+looked at, which is why it failed quietly rather than erroring.
+
+The test was green because it filed frames one at a time: a shape production never writes.
+Classified **B** (trust blocker: a false-green test standing in for a capability). Fixed on the
+read side, in `_filed_frames`, which also makes the sequences already filed in production
+reusable rather than needing them re-rendered. The new guard drives the real filing path
+(`listing_asset.make(record=True)`) and was verified to fail against the old reader before
+being kept.
+
+### B-647 and B-649 confirmed working in production
+
+Not asserted — observed, from `/api/queue/cadences` on 2026-09-23:
+
+- `gallery run 02:02:48Z | judged=25 remaining=1278 failures=0`. The backlog now counts what
+  is actually left, with nothing subtracted and nothing capped at 500, and `failures: 0` for
+  the first time since the durable marker was added.
+- `vision coverage moved: silhouette absent_on=414 share=0.945`, down from the hardcoded 438.
+  That number moving at all is the evidence that judged images are now recorded and that
+  coverage is measured per listing rather than assumed.
+
+The second reading settled it. At 04:03:44Z: `judged=24 remaining=1254`, against `1278` an
+hour earlier — a decrease of exactly 24, the unique count judged, with nothing subtracted
+twice and nothing capped. Coverage moved again in the same window, `silhouette absent_on`
+413. A backlog that moves by exactly what was paid for is the property the defect destroyed,
+and it is now observed rather than argued.
+
+The repeated paid re-judging of the same 25 images — four batches over eight hours that moved
+the backlog 475 → 476 — is stopped at both ends: the marker is written, and `remaining` no
+longer subtracts its own run's work.
+
+### CORRECTION — the model blocks the acceptance test, not the catalogue
+
+Stated wrongly earlier in this session and corrected here on evidence. I wrote that "every
+worn product is blocked behind her" and that cardigans, hats and scarves could not have a
+listing image. **There are no worn products.** All eleven certified products are flat-shot:
+
+`winter-village-graphghan`, `cloudline-baby-blanket`, `autumn-oak-mosaic-throw`,
+`harvest-table-runner`, `mosaic-placemat-pair`, `nordic-star-ornaments`, `spooky-garland`,
+`valentine-heart-garland`, `pet-snuggle-mat`, `pressed-flower-motifs`,
+`cottage-wall-hanging`.
+
+`listing_asset.needs_the_model` returns False for every one, and production agrees — the
+`model_photography` cadence reports "no certified product needs the model". The only worn
+item anywhere is `hats-hat-0`, a concept the seasonal cycle engineers in memory from the
+MJs `hats` arena and never files in the catalogue.
+
+So the canonical model blocks **#72, #130, #202 and #300's acceptance test**. It does not
+block a single real product from being listed. That is a materially less severe commercial
+position than I described, and the owner action below is re-scoped accordingly.
+
+### A-CLASS — the photography cadence was reporting success while doing nothing
+
+Found by following that correction. Two defects, compounding, on the path that carries the
+entire shippable catalogue:
+
+1. **`verdict: "unjudged"` counted as a finished release.** The handler's idempotency asked
+   only whether a row existed for the version and replied "this release already has an
+   owned asset". Production's own output carried `verdict: "unjudged"` inside that reply —
+   an asset whose checks were never made, reported as done, daily. This is B-631 exactly,
+   the defect the *model* path was rescued from, left standing on the product-first path.
+2. **`_representative_slug` returned the same product every day, for ever.** It took the
+   first product-first slug by row id unconditionally, so `winter-village-graphghan` was
+   photographed and the other ten certified products never were — and nothing counted it.
+
+Together: the one product photographed has an unjudged asset, and ten have none. A launch
+that depends on listing imagery has **no usable assets at all**, and the cadence has been
+reporting `done` every day throughout.
+
+Fixed: `owned_photography.what_to_do_next` gives the product-first path the same three
+outcomes the model path has (`usable_asset_on_file` / `attempts_exhausted` /
+`no_usable_asset_yet`), bounded at `ATTEMPTS = 3` per release. `_representative_slug` now
+skips products that are finished or exhausted and returns one that still needs work, so
+the cadence walks the catalogue instead of standing on its first row.
+`owned_photography.coverage` and `/api/asset-coverage` count what the job never did: how
+many certified products actually have a usable listing asset.
+
+### The flat-shot path was failing renders for information it never gave them
+
+`/api/asset-coverage` made the two existing failures readable, and they said this:
+
+| product | verdict | motif | attempts |
+|---|---|---|---|
+| `cloudline-baby-blanket` | **clear** — every check passed | **mismatch** | 1 |
+| `winter-village-graphghan` | blocked | unmeasurable | 2 |
+
+The blanket is the diagnostic one. Every asset-truth check passed and the asset was still
+unusable, because `usable_as_listing_asset` requires the motif to match the chart as well.
+
+`owned_photography.make` passed **`reference_urls=None`**. The prompt said the fabric is
+worked "exactly as the accompanying stitch chart shows" and there was no accompanying
+chart — the generator was asked to reproduce a pattern it was never shown, then failed for
+not reproducing it. A floor nothing can clear. The comment directly above even asserted
+that "the chart is what the render is conditioned on", which it was not: a sentence
+claiming a property the code did not have, which is the same defect as a test claiming one.
+
+The model path had already been fixed exactly this way — showing the chart is what took its
+`product_truth` from fail to pass on v10 — and the fix was never carried across. Capability
+drift between two paths doing the same job, which is the family this system keeps finding.
+
+Fixed: `make` renders the chart and passes it as a reference image, and `METHOD_VERSION` is
+bumped to `v4-the-chart-is-shown-not-only-described` so v3's assets are read as evidence
+about v3 rather than as this release's, and the corrected render actually runs.
+
+**Not verified in production yet.** The daily cadence renders one product per run and now
+walks the catalogue, so the evidence arrives over the next runs at the cost those renders
+were always going to have. No render was bought to prove it early.
+
+What *is* confirmed on the v4 deploy: `/api/asset-coverage` went from two products with
+unusable assets to ten with none. That is the version scoping working exactly as intended —
+a v3 asset is evidence about v3 and is no longer read as this release's — and it is why the
+corrected render will actually run instead of being skipped as "already has one".
+
+**The discipline being held here**: verify the fix on one render before paying for nine
+more. Opex is CA$62.30 of the CA$100 governing ceiling, and the whole lesson of this
+session is that a method which fails every time it is asked fails the next nine times too.
+If the first v4 asset comes back usable, the rest are worth the roughly CA$1 they cost. If
+it does not, that CA$1 would have bought nine more of the same answer.
+
+### The first legible flat-shot failure, and what it costs to read one
+
+Two v4 renders ran in production (CA$0.0411 each, boot-enqueued by the deploys rather than
+bought separately). `winter-village-graphghan`, attempt 2 of 3:
+
+```
+verdict: blocked | motif: mismatch | detail: recorded
+failed_realism: ["texture_not_repeating"]
+semantic_problems: []   third_party_marks: []   unmade: []
+```
+
+Two independent signals pointing the same way: the generator is tiling a patch instead of
+working the chart, and the motif does not match. That is a coherent finding rather than a
+gate misfiring — and it is now readable, which it was not three commits ago.
+
+**But the sample is wrong, and that was an ordering defect.** `_representative_slug` picked
+by row id, and row id put `winter-village-graphghan` first — a pictorial picture-blanket,
+the hardest thing in this catalogue for a generator to reproduce. So the whole catalogue
+was queued behind three attempts at its worst case while nine simpler products (garlands,
+placemats, ornaments, a table runner) had no asset at all.
+
+It is also the weaker measurement. Nine products at one attempt each says far more about
+whether the method works than one product at three, which is the sampling rule
+`visual.reliability` is built on: three tries at a single hard case is one case, not three.
+Fixed — untried products are photographed before products with attempts already spent.
+
+**What this does not yet say.** Whether showing the chart helped is still unknown: both v4
+renders went to the hardest product, and one product's two attempts cannot separate "the
+method is wrong" from "this product is hard". The next renders spread across the simpler
+products, which is what will answer it.
+
+### The calibration overruled me, for the second time tonight
+
+Four product-first renders, two products, two method versions, every one blocked on
+`texture_not_repeating`. Crocheted fabric is by construction a surface that repeats, and
+`inspect.realism_prompt` sends the judge only the bare check *names* with no definitions —
+unlike `photoreal.CHECKS`, which maps each name to a careful description. The reasoning
+that this was a floor nothing can clear was strong, and it was wrong.
+
+`/api/gallery-calibration`, run against a real benchmark listing photograph:
+
+```
+calibrated: true | failed: [] | unjudged: [] | reachable: true
+```
+
+**All ten checks passed on a real crochet photograph, `texture_not_repeating` included,
+with nothing unjudged.** The check discriminates. Our renders are genuinely tiling.
+
+That is the second time in this session that a confident "the gate must be broken" was
+overruled by putting a real photograph to it — the first was the photographic-realism floor
+on 2026-09-22. Both times the standard was working. The rule earned twice over: when the
+choice is "the measurement is wrong" or "the thing measured is wrong", the flattering
+answer is the one to test, not the one to act on.
+
+**So the finding is about the generator.** `texture_not_repeating` asked four times, failed
+four times → systematic under B-651, and the prescribed response to systematic is a method
+change rather than a retry. `owned_photography.systematically_blocked` now stops the
+catalogue spending on it, the way the model path already did — the same capability drift
+that left the chart undisplayed and the gate's detail discarded. Eight untouched products
+will not pay three times each for an answer four renders already gave.
+
+**Cost of the whole investigation: four renders, CA$0.164.** It bought a settled cause
+rather than a suspicion, and it stopped a CA$1 spend that would have bought eight more of
+the same failure.
+
+### v5 — the tiling defect is named, which is the method change the block asked for
+
+The calibration settled that the renders tile and the check is sound, and B-651's response
+to a systematic failure is a method change rather than a retry. This is that change, and it
+costs nothing to make.
+
+The prompt asked for visible stitch texture and for fabric that "lies as real crocheted
+fabric lies", and **never once said what tiling was**. `photoreal.DIRECTION` already
+records the lesson, about skin: *"A general request for realism did not reach it; the
+specific defect has to be named to be avoided."* It had never been applied to fabric.
+
+`FABRIC_DIRECTION` now names it: worked continuously and never tiled, no patch copied or
+repeated, every row unbroken edge to edge, stitches varying in tension as hand work does,
+edges and corners genuinely different from the middle, and no seam or repeat boundary where
+a patch was duplicated. That asks for the harder thing — fabric worked rather than stamped —
+which is what the real benchmark photograph shows and what the check was always asking for.
+
+`METHOD_VERSION` → `v5-tiling-is-named-so-it-can-be-avoided`, which clears B-666's block.
+**That is the gate working, not being defeated**, and the distinction is testable: the
+block's stated escape is a method change, and this change targets `texture_not_repeating`
+itself — the check that failed four times out of four. Compare the model path, where the
+version was deliberately *not* bumped for a change addressing only checks that came back
+`unjudged` while the failed ones stood (B-655). The test is whether the change targets the
+thing that failed.
+
+**Answered, and the answer is no.** The v5 render (CA$0.0411, boot-enqueued) came back
+`failed_realism: ["texture_not_repeating"]` with `motif: mismatch`. Naming the defect at
+paragraph length did not reach this generator — the same answer the skin direction got
+three times before the reference turned out to be the cause.
+
+That is now five renders across v3, v4 and v5, every one blocked on the same check, with a
+real photograph having passed it. Under B-666 the block re-arms as soon as a second v5
+render agrees, which is the gate doing its job without anybody deciding to be honest.
+
+**And it caught a gap in my own ordering fix.** The v5 bump reset every product to zero
+attempts, so "untried first" went flat and row order decided again — straight back to
+`winter-village-graphghan`, the hardest thing in the catalogue and precisely the arbitrary
+tie-break that fix existed to remove. The attempt budget belongs to the method; the
+evidence about which product is hard does not. `historical_failures` counts a product's
+failures across *all* methods and orders behind it, so a product that has failed five times
+under three methods now goes last rather than first.
+
+**Settled by the next render.** With ordering fixed, v5's second render went to
+`spooky-garland` — one of the simplest products in the catalogue, a garland rather than a
+pictorial blanket. It failed the same check:
+
+| product | complexity | v5 result |
+|---|---|---|
+| `winter-village-graphghan` | hardest — a pictorial picture-blanket | `texture_not_repeating` |
+| `spooky-garland` | among the simplest | `texture_not_repeating` |
+
+That rules out the comfortable explanation. It is not that complex pictorial products are
+hard; it is the fabric itself, on the simplest object in the catalogue. Two asks, two
+failures under v5, so B-666's block re-arms on its own — `/api/asset-coverage` now reports
+`method_blocked_on` so that state is readable without paying for a render to be refused.
+
+**The provider question, now answered as far as evidence can answer it.** Six renders,
+CA$0.246, across three method versions — v3 with no chart, v4 with the chart shown, v5 with
+tiling named at paragraph length — every one blocked on a check that a real crochet
+photograph passes cleanly, on both the hardest and the simplest product. The prompt is not
+the variable. The remaining lever is a different image provider, which is spend and a
+provider decision, so it is the owner item below rather than something done here.
+
+### The production diagnosis, and why no more renders are being paid for
+
+Read from `/api/model-asset` on 2026-09-23, on `hats-hat-0 0.1.0` at v12. Two frames, both
+shots rendered, CA$0.0822 spent:
+
+| floor | verdict | what the evidence says |
+|---|---|---|
+| `face_identity` | **pass** | the identity lock works |
+| `product_truth` | **pass** | motif `match` on both frames, 8 and 14 repeats read correctly |
+| `styling` | fail | `lighting` outside range on the detail frame only |
+| `whole_person_morphology` | unverifiable | bust and torso unreadable; the plan asks for them |
+| `photographic_realism` | **fail** | airbrushed skin, unrestrained processing, on every attempt |
+| `asset_truth` | fail | `texture_not_repeating` on the detail frame; `hands_and_fingers` unmade |
+
+**Realism fails on every model frame this system has ever produced**, across v8 to v12,
+blocked on `skin_looks_real` and `processing_is_restrained` against direction that names
+airbrushed skin at paragraph length, and a judge the 2026-09-22 calibration proved can pass
+a real photograph.
+
+*Stated precisely, because the first draft of this section was not.* `/api/render-reliability`
+reports one v12 sequence on file, not three — the earlier attempts belong to superseded
+method versions and the measurement counts only the current method, by design. So v12's
+realism failure is `unclassified`, not `systematic`, and **B-654's block is not in force.**
+Saying otherwise would have been a figure manufactured by the claim rather than read from
+the evidence, which is the mistake B-647 already cost this company real money for.
+
+What actually stops the spend is the reference verdict, which is the stronger answer and
+does not wait for a sample: `what_to_do_next` refuses with `reference_cannot_produce_a_photograph`
+when the filed verdict says the pack's own images fail the checks a render inherits. It is
+read, never computed — deciding whether to spend must not itself spend — and it is keyed to
+the pack it was made about, so a new identity is not answerable for the old one's skin.
+
+Alongside it, `what_to_do_next` gained `method_systematically_blocked`. `ATTEMPTS`
+bounds one release and does nothing about a method that does not work, because each new
+product starts its budget again — without this the next product pays three more times for
+the same answer. The block lifts when `METHOD_VERSION` changes, which is a code change
+somebody has to make and cannot be waited out.
+
+**`METHOD_VERSION` was deliberately not bumped in this commit.** Two prompt defects were
+found and fixed — neither shot plan asked for the hands that `asset_truth` and
+`photographic_realism` both ask about, so two floors could only ever clear by luck — but
+those address checks that came back *unjudged*, not the ones that came back *failed*.
+Cutting a version now would clear the block without fixing what it caught, and buy three
+more attempts with money that is not authorised.
+
+### ANSWERED, in production: the pack is the cause
+
+`/api/reference-realism` on pack `v15-the-revised-dimension-is-judged-by-the-frame-whose-job-it-is`,
+2026-09-23. Both reference frames `blocked`:
+
+- **face** — failed `skin_looks_real`, `processing_is_restrained`, `not_sterile_perfection`.
+  "Overly smooth, poreless quality especially on the forehead and cheeks, and the overall
+  polish (symmetric styled hair, flawless complexion, uniform background) reads as heavily
+  processed or AI-generated."
+- **body** — the same three plus `hands_are_right`. "Skin has an overly smooth, poreless
+  quality and the fingers are indistinct/blurred, both typical of AI generation."
+
+`inheritable_failures: ['hands_are_right', 'processing_is_restrained', 'skin_looks_real']`
+— the exact three that have blocked every model frame. The prompt was arguing with the
+picture and the picture wins: a generator copies the skin it is shown. Three escalations of
+direction naming airbrushed skin explicitly achieved nothing, and a fourth would have
+achieved nothing, which is what the systematic block now prevents.
+
+This also retires a hypothesis this system spent real money on. The renders were never the
+problem, the provider was never the problem, and the realism judge — calibrated against a
+real photograph on 2026-09-22 — was right every time.
+
+**Made structural (B-657).** `visual.freeze` now refuses to promote a pack whose own
+reference images fail the checks a render inherits from them. Freezing is a one-way door —
+`select_canonical` refuses a second canonical outright — so that was the last moment the
+question could be asked for free, and it was not being asked. Only `photoreal.INHERITED`
+is grounds to refuse: a reference flawed in its own lighting is still frozen, because
+refusing on that would install a floor nothing can clear as the fix for a floor nothing can
+clear.
+
+### Production state at close, 2026-09-23T05:4xZ
+
+- `/api/verify` **ok: true**, 12 of 12. Shadow Mode intact, 0 published, 134 publication
+  refusals (the refusals are the evidence that publishing was actually attempted).
+- `/api/reference-realism` run twice against pack v15. Both runs: `pack_is_the_cause`,
+  both frames blocked, `skin_looks_real` and `processing_is_restrained` failing every
+  time. `hands_are_right` failed the first run and not the second — so the judge is
+  stochastic on hands and consistent on skin, which is what makes the skin finding the
+  one to act on. The verdict is filed, so the render path reads it for nothing.
+- `/api/render-reliability`: 1 gallery attempted, 0 usable, CA$0.0822 spent, verdict
+  `unproven`, rate withheld below the floor of 3. Honest and unflattering, which is the
+  point of writing the standard first.
+- `build_tick`: ready 5, parked 68, blocked 0, done 227. The watchdog says `stalled` with
+  `alarm: true` — correctly. Every READY requirement is the model-bearing cluster (#72,
+  #130, #202, #300), and all of it is behind the one decision below.
+- `model_photography` cadence last ran 04:03:44Z and spent nothing: "no certified product
+  needs the model". Gallery drain continues, `failures` back to 0 after one transient.
+
+The render guard is deployed and its input is filed, but it has not yet been *observed*
+refusing in production — the cadence has not needed the model since the verdict was filed.
+Saying it works would be a claim about a code path nobody has watched run.
+
+### The root cause is one committed file, and it narrows the decision
+
+`reference_pack.build` does not re-render the face. It carries
+`visual/assets/identity_portrait.jpg` forward unchanged — deliberately, because the owner
+approved that face and the last revision was about one body dimension, which must not put
+an approved face back at risk.
+
+That file **is** the face frame production judged `blocked`. So it is not one pack's
+problem: every pack this code can build inherits it, and would be refused by the freeze
+gate after rendering seven frames and paying for them. `reference_pack.build` now refuses
+at stage `carried_portrait` with `spent_cad: 0.0` when a filed verdict says the carried
+face cannot pass — read, never judged there, so an unchecked portrait builds as it always
+did.
+
+The verdict is keyed by the file's **content hash**, not by a date or a pack version. That
+is what makes replacing the file the fix: new bytes are a new question, asked
+automatically, rather than a stale refusal somebody has to remember to clear.
+`/api/carried-portrait` asks it once and files it; repeat calls are free.
+
+**What this changes about the decision below:** re-making the model is not "generate new
+body frames". The face is the root, and the face is the thing the owner approved. There is
+no version of this that does not go back to them.
+
+### The CA$4 image authorisation cannot be spent yet — the judging balance is empty
+
+The trial is built, tested, deployed and boot-enqueued. It did not run, and the reason is
+not the image provider:
+
+```
+seasonal.cycle_proof | 2 dead letters | 2026-09-23T14:26Z
+ProviderUnusable: anthropic 400: "Your credit balance is too low to access the Anthropic API"
+```
+
+**Anthropic is the judging provider, not the rendering one.** Every gate that makes a render
+*mean* anything — the motif judge, asset truth, the gallery realism checks, photographic
+realism, the identity comparison — is a vision call on that balance. So rendering on a
+second image provider right now would spend the owner's CA$4 to produce pictures nothing
+could score, which is precisely what `owned_photography`'s funding guard already refuses to
+do. The authorisation is intact and unspent: **CA$0.00 of CA$4.00**.
+
+**A-CLASS, fixed:** the two dead letters turned `/api/verify` red and reported a funding
+problem as a broken worker. `handle_seasonal_cycle_proof`'s docstring already claimed it
+"refuses to spend when the model provider's balance would leave the result unjudgeable" —
+and the asset maker does — but the cycle's own generate and engineer steps call the gateway
+several links earlier, so the error escaped upstream of that guard. It now records a
+refusal instead, the way the freeze job already did. Retrying could never have helped: no
+number of attempts adds money to an account, so a dead letter there was a queue entry
+nobody could action wearing the costume of a bug. The refusal also says "the proof did not
+run", so a funding stop can never read as #300 having been disproved.
+
+### BOTH EXPERIMENTS RAN — reconciled spend and evidence, 2026-09-23
+
+Anthropic funding restored and confirmed by probe (`model_probe` ok at 21:37:07Z,
+`image_vision` working at 21:37:06Z). Both owner-authorised experiments executed.
+
+**Spend reconciliation**
+
+| experiment | ceiling | spent | of ceiling |
+|---|---|---|---|
+| portrait repair | CA$1.00 | **CA$0.1233** | 12% |
+| provider trial | CA$4.00 | **CA$0.0822** | 2% |
+| **total** | CA$5.00 | **CA$0.2055** | 4% |
+
+Month-to-date agent opex CA$65.03 against the CA$100 governing ceiling.
+
+#### 1. Portrait repair — her identity held; the photography did not improve
+
+Three candidates, the full bounded set, because none cleared both floors.
+
+| attempt | identity drifted | realism still failing |
+|---|---|---|
+| 1 | **none** | `processing_is_restrained` |
+| 2 | **none** | `processing_is_restrained`, `skin_looks_real` |
+| 3 | **none** | `processing_is_restrained`, `skin_looks_real` |
+
+**The important half succeeded.** `identity_drifted: []` with nothing unread, three times out
+of three: reference conditioning holds the approved woman through an image-to-image repair.
+The failure mode the owner most needed protecting against — a beautiful, real, subtly
+different woman — did not occur and would have been caught if it had.
+
+**The repair itself did not take.** `processing_is_restrained` failed on every candidate;
+attempt 1 cleared `skin_looks_real` and the others did not. Verdict `not_repaired`: still
+her, still over-processed. Nothing is adopted and the canonical reference is unchanged.
+
+**A floor nothing can clear, in my own module.** All three were first reported
+`unverifiable` because `hands_are_right` came back unjudged — on a head-and-shoulders
+portrait, which has no hands in it. `MUST_HOLD` already excluded the morphology dimensions
+for exactly that reason; the reasoning had been applied to the identity half and not the
+realism half. Corrected, and applied to the stored evidence by recomputation rather than by
+re-rendering: the failures were measured correctly and were already paid for.
+
+#### 2. Provider trial — the challenger could not be tested, and the incumbent now is
+
+`nano-banana-2` returned **`402 prepayment credits are depleted`** on all four attempts and
+rendered nothing. That is a **Google AI Studio** balance, separate from the Anthropic one
+just restored. The authorised question is therefore still unanswered, and the trial
+correctly reports `unproven` rather than a verdict.
+
+What the run did buy is the first full measurement of the incumbent on every dimension,
+including photographic realism, which the product-first path had never judged:
+
+| `gpt-image-2` | spooky-garland | winter-village-graphghan |
+|---|---|---|
+| texture (the blocker) | **fail** | **fail** |
+| structural fidelity | pass | pass |
+| product truth | mismatch | mismatch |
+| photographic realism | blocked (`not_sterile_perfection`) | unjudged |
+
+Rates: texture 0/2, product truth 0/2, photoreal 0/2, usable 0/2 — **structural 2/2**. The
+crochet it renders is physically plausible; it tiles, and it does not work the certified
+chart. Consistent across the simplest and the hardest product.
+
+**Challenger fallback added.** `flux-2-pro` is the only other credentialled provider that
+conditions on reference images and its probe is green, so the trial falls through to it
+rather than re-buying the same 402 on every deploy. That is not widening the experiment:
+one challenger at a time, same question, same ceiling. A challenger that cannot render is
+not a cheaper answer — it is no answer.
+
+### Previously — re-probed on the owner's instruction: the credential could not spend
+
+The owner reported Anthropic Console showing US$5.95 organization credits available and
+asked for a fresh probe of the real production credential rather than cached state. The
+probe ran and **failed**:
+
+```
+2026-09-23T18:00:36Z  anthropic 400
+"Your credit balance is too low to access the Anthropic API"
+```
+
+**Console credit and this credential's ability to spend are not the same fact**, which is
+precisely why the instruction was to go and look. Both experiments therefore refused, and
+between them spent **CA$0.00**:
+
+| experiment | ceiling | spent | outcome |
+|---|---|---|---|
+| portrait repair | CA$1.00 | CA$0.00 | `ran: false`, `waiting_on: model_provider_balance` |
+| provider trial | CA$4.00 | CA$0.00 | 6 attempts, all `made: false`, verdict `unproven` |
+
+**Two trigger defects found and fixed before they could bite.**
+
+1. `_trial_on_file` treated any filed trial as "already run". A funding refusal files a row
+   with no rendered attempts, so it would have blocked the real trial permanently at the
+   exact moment the balance returned. An idempotency key exists to stop re-buying an
+   answer, not to record the absence of one as though it were the answer. A trial that
+   rendered nothing is no longer a trial.
+2. Both experiments' boot-enqueue keys were fixed strings. A key is claimed once and never
+   again, so **no later deploy could have re-fired either of them** — they would have sat
+   armed for ever while the thing they waited on came back. Both keys now carry the commit,
+   the way `owned_photography`'s already did. The `when=` guards and the handlers' own
+   on-file checks are what prevent re-buying; the key only has to let the attempt happen
+   again.
+
+Both are the same shape and it is worth naming: a guard that cannot distinguish "answered"
+from "could not be attempted" converts a temporary blocker into a permanent one.
+
+### A-CLASS — the launch gate could not see the photographs, only the charts
+
+Found by asking the heartbeat's question honestly: with both authorised experiments
+balance-blocked, what is the next unblocked action? `/api/launch` answers **11 of 21
+requirements ready**, and every one of the ten not-ready is `blocked_by: owner` or
+`integration` — no remaining engineering. Except two of the eleven "ready" ones were wrong.
+
+```
+listing_imagery   READY  "every listing carries at least 6 approved frames"
+imagery_truthful  READY  "no listing asset is blocked by Asset Truth"
+/api/asset-coverage      listable: 0 of 10
+```
+
+Two subsystems flatly disagreeing about whether this company has listing imagery, and the
+optimistic one was gating launch. `listing_imagery` counts rows in the `ListingAsset`
+table — charts, schematics, earlier approvals — while the rendered product photographs are
+audit records written by `assets.owned_photography`, which nothing in launch readiness
+read. **A shop could have been declared imagery-ready with not one product photograph that
+passed its floors.**
+
+`imagery_truthful` was worse in kind: "no listing asset is blocked" is *vacuously true of
+an empty asset table*. Every other requirement in that file already guards its own
+emptiness with `and bool(listings)`; this one did not. A floor nothing can fail, on the
+launch gate.
+
+Both fixed. `listing_photography` is a new requirement reading `owned_photography.coverage`
+— the same source `/api/asset-coverage` uses, so the two cannot drift apart again by
+construction — and `imagery_truthful` now requires assets to exist before it can pass.
+Launch readiness is **11 of 22**, with `listing_photography` correctly `blocked_by: build`.
+
+**The test fixture carried the same defect.** `_stock()` built synthetic `product-0` slugs
+with no CIR, so the new requirement could never be satisfied in a test however much was
+stocked — a floor nothing can clear, living in the fixture rather than the code. It now
+uses real catalogue slugs, so "a company that has done its half" means the same thing in
+the tests as in production, and takes `photographs=False` to reproduce the live gap.
+
+### Portrait repair: authorised, built, and refusing to spend until it can be judged
+
+The owner authorised a bounded repair attempt on the approved portrait on 2026-09-23 —
+explicitly not a redesign, replacement, new face or reopened tournament. The identity is
+approved; the photography is defective.
+
+**It has not rendered anything, and that is the design working.** Both floors of
+`portrait_repair.assess` are vision calls — the realism judge and the identity comparison —
+and that balance is spent. `propose` refuses before the first render, because a candidate
+nobody can judge is indistinguishable from a different woman, and the one outcome worse
+than no repair is an unverified one adopted because it looked good. **CA$0.00 of CA$1.00.**
+
+What is built and waiting:
+
+- **Bounded at three candidates, CA$1.00, stops at the first that clears both floors.** The
+  question asked was whether the method works, not which of three near-identical portraits
+  is prettiest — that would be a casting decision nobody authorised, at three times the
+  price of the answer.
+- **She is shown, never described.** The repair direction carries no adjective about her:
+  no colouring, no age, no "beautiful". Her appearance comes entirely from the reference
+  image. A prompt that described a face would produce a different woman who matches the
+  words, which is the failure `model_photography.prompt_for` already documents. Every
+  clause is about the photograph — pores and tonal variation, hair as strands rather than a
+  mass, correctly formed fingers, one coherent daylight source, no catalogue polish — plus
+  an explicit prohibition on beautifying, slimming, youthening or symmetrising her.
+- **Drift outranks realism**, and a method that drifts her is reported `different_woman`
+  rather than retried into a pass: that is a method to abandon, not to sample again.
+- **Nothing is adopted.** `/api/portrait-repair` returns both photographs side by side with
+  both floors' evidence, and the canonical reference changes only on the owner's visual
+  approval.
+- **The body pack is untouched.** The approved bust, torso and proportions remain
+  authoritative; a portrait repair regenerates none of them.
+
+**Encouraging prior evidence, stated as evidence and not as a promise:** `face_identity`
+already reads `pass` on production model frames conditioned on this same portrait, so the
+provider can hold her face through reference conditioning. That is what makes a repair
+plausible. It is not proof that it will clear the realism floor.
+
+### OWNER ACTION REQUIRED — top up the Anthropic balance before the CA$4 trial can run
+
+**Exact action:** add credit to the Anthropic API account that serves judging and vision.
+
+**Why it is required rather than a decision I can make:** it is spend on a provider
+balance, which is explicitly outside standing authority.
+
+**Maximum cost:** owner's discretion. For reference, the trial itself needs roughly CA$0.30
+of judging on top of ~CA$0.70 of rendering, and month-to-date agent opex is CA$62.30 against
+the CA$100 governing ceiling.
+
+**Minutes required of the owner:** about 2.
+
+**Consequence of waiting:** **both** authorised experiments are held — the CA$4 provider
+trial and the CA$1 portrait repair — because both depend on judging rather than on
+rendering. `seasonal.cycle_proof` keeps refusing cleanly, which is now observed in
+production at 14:48:56Z rather than asserted: `{"ran": true, "refused":
+"model_provider_balance"}` instead of a dead letter. No spend accrues while waiting; the
+funding guard stops every path that would render something unjudgeable.
+
+### OWNER ACTION REQUIRED — the image provider cannot render crochet fabric
+
+**Exact action:** authorise evaluating a second image provider for listing imagery, against
+the existing benchmark. Nothing is purchased or switched without a further decision; this
+authorises the comparison.
+
+**Why it is required rather than a decision I can make:** it is spend, and which provider
+renders this company's product imagery is a provider decision the owner already took once
+(the image benchmark, B-050/B-051).
+
+**Evidence it is the provider and not the brief:** six renders, CA$0.246, three method
+versions — no chart, chart shown, tiling named explicitly — all blocked on
+`texture_not_repeating`, on both the hardest product (a pictorial graphghan) and one of the
+simplest (a garland). `/api/gallery-calibration` passed a real crochet photograph on all
+ten gallery checks with nothing unjudged, so the check discriminates and the renders
+genuinely tile.
+
+**Maximum cost:** roughly CA$2–4 to render the same two products on a second provider and
+judge them with the existing gates. Opex is CA$62.30 against the CA$100 governing ceiling.
+
+**Minutes required of the owner:** about 2 — a yes or no. The comparison itself is automated.
+
+**Consequence of waiting:** the catalogue stays at `listable: 0` of 10 and no product can be
+listed with imagery, whatever else is finished. This is now the binding launch blocker, and
+it costs nothing to wait: the systematic block stops the cadence paying to re-ask.
+
+### OWNER ACTION REQUIRED — the canonical model has to be re-made
+
+**CORRECTED 2026-09-23 on the owner's instruction.** This section previously said the
+approved portrait being the root made this "a new face, not a revision". The owner's stated
+intent is the opposite: *"preserve the approved woman and repair/rebuild deficient canonical
+reference photography if possible, rather than casually replacing her."* She was chosen
+deliberately from five finalists; what fails is the **photograph of her**, not the choice.
+So the action is repair, and replacement is the fallback nobody has authorised.
+
+**Exact action:** decide whether to authorise a repair attempt on the approved portrait —
+an image-to-image pass that restores skin texture while keeping the same woman. Not a new
+selection, not a new finalist round.
+
+**Built and waiting for it (zero cost, B-674):** `visual.portrait_repair` judges a candidate
+repair on two floors that cannot substitute for each other — REPAIRED (the checks a render
+inherits now pass on the portrait itself) and STILL HER (an independent judge, shown the
+approved portrait and the candidate, finds no drift on `face`, `hair`, `eyes`, `age`). Four
+verdicts, because the responses are opposite: `repaired`, `not_repaired` (still her, still
+airbrushed — try the photography again), `different_woman` (a replacement, which is yours
+to decide), and `unverifiable`.
+
+Drift outranks a clean realism pass deliberately. **This is the one failure nothing else in
+this system would catch**: `face_identity` compares a render against the pack, so once a
+drifted portrait *is* the pack, every later frame agrees with it perfectly — the reference
+that is supposed to be the check has become the thing being checked. A silently swapped
+identity would pass every gate here. The module assesses and never generates.
+
+**Re-scoped on the correction above.** This does not block any product from being listed;
+all eleven certified products are flat-shot and need no model. It blocks requirements #72,
+#130, #202 and #300's acceptance test. It is a release-gate and brand blocker, not a
+commercial one, and it is no longer the most urgent thing in this file — the asset-coverage
+defect above is.
+
+**Why it is required rather than a decision I can make:** replacing her is a brand identity
+decision and `freeze` refuses a second canonical outright by design (#200). It is also
+spend: generating and gating a new candidate set costs image credits, and no additional
+funding is authorised.
+
+**Maximum cost:** roughly CA$3–5 for a candidate set of five to eight, gated on
+`photoreal.INHERITED` *before* any of them is presented, so nothing is shown that could not
+be frozen. Against the CA$100 ceiling and the current ~CA$7/month run rate.
+
+**Minutes required of the owner:** about 10 — review the finalists that survive the gate
+and name one.
+
+**Consequence of waiting:** #72, #130, #202 and #300 stay blocked, and Build 2 cannot be
+declared complete. No product is prevented from being listed. No spend accrues while
+waiting, because the reference verdict stops the render cadence paying to re-ask a settled
+question.
+
+**What is already built for it:** the gate that stops this recurring, and the diagnostic
+that proved it. Nothing will be generated, presented or frozen without the go-ahead.
+
+**The next question is built and answered.** `/api/reference-realism` judges the frozen
+identity pack by the same standard its renders are held to. Every frame is conditioned on
+that reference, and a generator copies the skin it is shown, so there are two explanations
+needing opposite fixes: the provider will not do unretouched skin (change the method), or
+the reference is already airbrushed (re-make the pack). Only the subject's own properties
+are treated as inheritable — lighting and sterile perfection belong to the scene the new
+frame builds, and reading those as the pack's fault would let a real generator failure hide
+behind an irrelevant flaw in the reference. Read-only, generates nothing, costs a fraction
+of a cent, and is not on a cadence.
+
+### Unfinished, classified C (post-launch)
+
+**Remote access from the owner's phone to the Windows HQ machine is not configured.** Claude
+Remote Control did not connect from the S25 Ultra, and the owner ended that work on
+2026-09-22. It is HQ convenience, not a launch blocker: Brambleloop runs on Railway and is
+unaffected by whether that PC is on, which is the Phase 11 independence requirement rather
+than a gap in it. No generic remote-desktop system was installed, per the owner's instruction.
+
+## Previously — last completed milestone
+**2026-09-21 — #198 answered, the identity made whole-person, the tournament built, and the
+MJs purchase stopped.**
+
+### OWNER ACTION REQUIRED — do not buy the MJs set yet
+
+`/api/teardown/readiness` reports **NOT READY**, checked from evidence rather than from a
+list: a PDF reader is importable and **nothing uses it**, and `library.retrieve` — the
+quarantine's only sanctioned reader — **is called by nothing at all**. The purchase would
+land, be filed, be hashed, be manifested, have its filenames audited against the listing's
+promises, and then sit there. Every downstream capability the owner listed — materials, yarn,
+hook, gauge, sizing, construction, shaping, assembly, charts, troubleshooting, the
+cross-reference against what the listing advertised — is a schedule waiting on observations
+nothing produces. **The gap is a module, not a dependency** (B-560).
+
+Ready: listing imagery, listing promises, provenance. Missing: PDF ingestion, pattern
+analysis, promise cross-reference against the instructions, construction-to-object.
+
+### #198 — answered, and recorded as code
+
+`visual/brief.py` holds the direction in the owner's own phrasing. Two prohibitions sit apart
+from taste: **no photograph of a real identifiable person** is used as a reference or
+conditioning source, and no candidate that reads as a recognisable public figure is accepted.
+The direction arrived beside a photograph of a public figure; it was not used. A persistent
+commercial brand identity built from somebody's photograph is that person's likeness in
+commercial use, and it is the celebrity resemblance the direction rules out in the same
+breath (B-558).
+
+### The body-drift failure is fixed
+
+The canonical identity is now **the entire woman**. The pack pins stature, build, shoulders,
+torso, bust, waist, hips and limbs alongside the face. `drift_check` returns **two group
+verdicts that never average into one another** — a blended score is precisely how a good face
+waves a different body through. A dimension is three-valued: match, drift, or **unmeasurable**
+when clothing, pose or crop genuinely hides it; a group with fewer than three readable
+dimensions is `unverifiable` rather than passing (B-557).
+
+### The tournament (#199) is built and contains no way to choose
+
+Twenty-four seed notes varying hair, colouring, stature and figure from one shared base
+prompt. Screen on the owner's ten criteria; a candidate reading as a public figure leaves on
+the rule, not the score. Five finalists stress-tested across five materially different scenes
+— neutral, fitted garment, loose layered garment, winter, non-garment — each conditioned on
+the finalist's own portrait, which is the mechanism the canonical identity will use. There is
+no `select_canonical` anywhere in the module and a test reads the source to keep it that way
+(B-559). It opens an owner action when it completes.
+
+Suite green at **2,783 across 152 suites**. `/api/verify` 12/12.
+
+## Previously — last completed milestone
+**Heartbeat 2026-09-21T08:15Z — the identity gate had no callers.**
+
+`visual/identity.py` was complete, correct and **invoked by nothing anywhere in the
+codebase**. A grep for every one of its functions returned nothing outside the module. It
+would have gone on being right and unconsulted while the first model-bearing listing shipped
+past it — which is exactly the case #201 exists for.
+
+Two joins were missing and only those two were built (B-555):
+
+- **Persistence** — `model_identities` holds candidates and the frozen pack, because a pack
+  held in memory is gone after the next deploy, and a canonical model who disappears on a
+  redeploy is not locked to anything. `select_canonical` still refuses without the owner, and
+  refuses a second selection as the redesign it is.
+- **The release join** — `model_registry.gate_frames` is called from the listing-image build
+  and its verdict is in `blocking`. With no canonical pack, every model-bearing frame is
+  blocked. That is correct rather than inconvenient: unverifiable is not a pass. Frames
+  carrying no model are not examined at all, so today's product-only catalogue is untouched
+  and the gate bites on the day the first model frame is built.
+
+`#200 Permanent Identity Lock` and `#201 Model Anti-Drift Release Gate` are the two `partial`
+requirements this closes. `/api/model-identity` reports the state from rows.
+
+**And four notes had gone stale the moment the capability arrived.** #200 said "no candidate
+has been generated, because that needs the image capability" — it does not any more, and the
+honest blocker is now a different one: #198, the owner's aesthetic direction, without which
+#199's tournament is meaningless and generating faces would only invite the first of them to
+become canonical by being first. #200 and #201 are `owner_gated` now rather than `partial`.
+#292 and #300 parked their imagery halves on the same capability and are **unblocked and
+unbuilt**, which is a different state from parked and is now recorded as one (B-556).
+
+The registry's own validator caught the incomplete half of that edit: an owner-gated
+requirement has no remaining work for `parked_on` to describe, and both rows still carried
+`image_generation`. A guard that refuses an incoherent registry is worth more than the edit
+it refused.
+
+Suite green at **2,755 across 150 suites**. `/api/verify` 12/12.
+
+## Previously — last completed milestone
+**2026-09-21T07:00Z — the image gate opened on demonstrated capability, twelve requirements
+unparked, and both reachable candidates are measured.**
+
+### The benchmark, measured
+
+| model | overall | fabric (floor 2.5) | identity (floor 3.0) | repeatability | median latency |
+|---|---|---|---|---|---|
+| `gpt-image-2` | **3.570** | 3.187 ✅ | **3.0 ✅** | 0.948 | 14.6 s |
+| `flux-2-pro` | 3.467 | 3.013 ✅ | **0.8 ❌** | 0.937 | 9.7 s |
+
+Both on complete thirty-sample schedules. **GPT Image 2 leads and nothing is locked** —
+Google remains an eligible unmeasured candidate, and a leader chosen over candidates nobody
+could render is a shortlist of one.
+
+The benchmark earned its cost here: FLUX's `image_prompt` conditioning does not hold a face
+across a regeneration. No amount of reading a pricing page would have found that, and an
+identity that does not survive a regeneration produces a catalogue that drifts into somebody
+else by February. Quality decided before any tie-break was consulted (B-554).
+
+Unmeasured, with reasons: `nano-banana-2` — Google project denied access, caught by the
+two-image reference probe rather than by a thirty-sample schedule; `seedream-v5-lite` — no
+credential, and Volcano Engine is not practically reachable from Canada.
+
+### Spend
+
+**Benchmark, cumulative lifetime: CA$34.43 of the CA$50 the owner authorized** (inclusive of
+every prior run, including the invalidated ones). **Month-to-date model spend: CA$33.85 of
+CA$100.** The two figures overlap because the blind judging bills through the model gateway.
+
+### The gate opened on evidence
+
+`image_generation` was missing from `ops.capability_probes` entirely, so a capability that had
+been rendering for hours was recorded nowhere and twelve requirements sat parked on the
+absence of a row nobody was writing. The probe now runs in that job and also on deploy when a
+credential is unproven. Verified live: probe ok, provider `flux-2-pro`, `usable: true`, and
+the executor went **0 READY → 12 READY, 79 parked → 67**.
+
+Of the twelve, **eight are `owner_gated` by their own definition** — led by **#198, the
+canonical model's aesthetic direction**, which is the owner's to give and which #199's
+candidate tournament depends on. Four are `partial` and are the autonomous loop's.
+
+## Previously — last completed milestone
+**2026-09-21T05:15Z — the benchmark ran for real, spent past its budget, and every defect
+it found was in the benchmark. It is stopped at the ceiling and the overrun is recorded.**
+
+### OWNER ACTION REQUIRED — benchmark budget
+
+| | |
+|---|---|
+| **Action** | Decide whether to raise the image-provider benchmark budget above CA$25, or stop and choose from what has been measured |
+| **Why** | The benchmark has spent **CA$31** of an approved **CA$25** and has one of two reachable candidates measured |
+| **What the overrun bought** | Nothing. It went to defects in the benchmark itself, all now fixed |
+| **Maximum cost** | ~CA$10 to finish GPT Image 2's schedule |
+| **Minutes** | 2 |
+| **Consequence of waiting** | The provider choice stays unmade and the twelve requirements behind `image_generation` stay parked |
+
+The job now refuses to start once the cumulative total is reached and raises this itself.
+Two things let an approved figure become CA$31 without anyone crossing a visible line: the
+ceiling was applied per run, so four runs each stayed inside a number approved once; and
+`spent_to_date` counted only the renders while the blind judging — the larger half — bills
+through the model gateway, so it reported CA$7 against a real CA$31 (B-550).
+
+### Verification of the three credentials
+
+| Provider | Verified | Evidence |
+|---|---|---|
+| **BFL FLUX 2 Pro** | **yes** | real renders, reference conditioning proven |
+| **OpenAI GPT Image 2** | **yes** | real renders, identity lock held across a regeneration |
+| **Google Nano Banana 2** | **no** | key authenticates and lists models; every `generateContent` call, text and image, returns 403 "Your project has been denied access" |
+
+All three are installed as Railway service variables and appear nowhere else: a grep of the
+working tree for each finds zero occurrences.
+
+### What the benchmark measured
+
+`flux-2-pro`, complete 30-sample schedule: overall **3.467**, fabric **3.013**, identity
+match **0.8**. It clears the fabric floor of 2.5 and fails the identity floor of 3.0.
+`gpt-image-2` has not completed a schedule. **No winner is locked, and none should be** — a
+leader chosen over candidates nobody could render is a shortlist of one.
+
+### Every defect the run found, all in the benchmark
+
+- **The identity floor was unpassable by construction** — the drift trial ran with no
+  reference image and the judge was shown one picture while being asked whether two people
+  matched (B-542).
+- **OpenAI conditions through `/v1/images/edits`**, multipart, not a field on
+  `/v1/images/generations` (B-545).
+- **Black Forest Labs needed base64**, and was handed the local filesystem path of the
+  canonical render (B-547).
+- **A partial schedule was stored and reused**, ranking one model on sixteen samples against
+  another's thirty (B-543).
+- **The follow-up job could not stop** — progress was read from the run's results while
+  storage required a complete schedule, so it re-queued itself every few minutes at about
+  CA$1.85 a time (B-546).
+- **`JUDGE_MAX_TOKENS` was 500** and the rubric outgrew it, so sixteen of thirty samples died
+  to a truncated JSON answer rather than to a model (B-548).
+- **The live ceiling variable still said CA$25**, five days after the owner raised it to
+  CA$100 (B-548).
+- **Two working providers could not open the image gate**, because the probe resolved its
+  provider through a variable nobody had set (B-549).
+
+**The identity lock then held.** The canonical model rendered through GPT Image 2, and a
+second image conditioned on her — different garment, different season, same face. That is
+#200 and #201 working for the first time in this build.
+
+## Previously — last completed milestone
+**2026-09-21T03:30Z — the benchmark ran for real, and every defect it found was in the
+benchmark.**
+
+All three image credentials are installed as Railway service variables and appear nowhere
+else: a grep of the working tree for each finds zero occurrences. **FLUX 2 Pro and GPT Image
+2 are verified with real sanctioned generation calls. Google is not** — the key authenticates
+and lists models, and every `generateContent` call, text as well as image, returns 403 "Your
+project has been denied access", which is a Google-side restriction on that project rather
+than a billing tier or a request-shape problem.
+
+The benchmark runs as `creative.image_benchmark` on a six-hourly cadence rather than behind an
+endpoint, because the endpoint needs an operator credential no session holds. Each candidate's
+scores are stored as it finishes, and a candidate already measured under the current method is
+reused rather than re-rendered.
+
+**It ran, and it reported no winner, and it was right to.** The first live run spent CA$6.40
+and said no candidate cleared both floors. That was true of the test:
+
+- **The identity floor was unpassable by construction.** `identity_repeat`'s prompt says "the
+  same woman as the reference image" and `run` passed no reference, so each model was asked to
+  invent the same stranger twice from a description; the judge was then asked whether two
+  people matched while being shown one photograph. #200 is explicit that an identity lock is
+  reference conditioning rather than a better prompt. A check that cannot pass is not a check
+  (B-542).
+- **OpenAI conditions through a different endpoint.** `/v1/images/generations` answered
+  `Unknown parameter: 'image'`. Reference conditioning lives on `/v1/images/edits` as
+  multipart with the reference uploaded as a file. This cost a whole candidate: GPT Image 2
+  rendered twenty-five of thirty samples and failed exactly the five carrying the identity
+  lock (B-545).
+- **A partial schedule was stored and reused**, ranking one model on sixteen samples against
+  another's thirty — the fault `teardown.audits` refuses by name (B-543).
+- **The follow-up job could not stop.** Progress was read from the run's own results while
+  storage required a complete schedule, so a candidate that scored but never finished counted
+  as progress, was never stored, and the job re-queued itself every few minutes at about
+  CA$1.85 a time. A follow-up condition that cannot become false is a spend with no stopping
+  rule. Caught live, mid-spend (B-546).
+
+**The identity lock then held.** The canonical model rendered, and a second image conditioned
+on her — different garment, different season, same face, same eyes, same hair. That is #200
+and #201 working for the first time in this build.
+
+## Previously — last completed milestone
+**2026-09-21T01:50Z — the first images this company has ever generated, and the four
+defects that only a real key could show.**
+
+The owner supplied Google, Black Forest Labs and OpenAI credentials. **FLUX 2 Pro and GPT
+Image 2 both rendered.** Google's key authenticates and lists models, and every
+`generateContent` call — text as well as image — returns **403 "Your project has been denied
+access"**, which is a Google-side restriction on that project rather than a billing tier or a
+request-shape problem. All three keys are set on Railway; the image-generation gate stays shut
+because it is a probe, and one of the three cannot render.
+
+Four defects, none of which any amount of reading could have found:
+
+**The benchmark would have sent one invented body to every provider.** `generate` posted
+`{"prompt", "size"}` with a bearer token to each provider's base endpoint, on the stated
+reasoning that the differences "are not worth an abstraction nobody has exercised". Google
+wants `x-goog-api-key`, a `:generateContent` suffix, a `contents` array and an `imageConfig`,
+and would have refused that body under any billing arrangement. An abstraction nobody has
+exercised is not thin, it is untested (B-537).
+
+**An empty balance was being recorded as a content refusal.** Google answered 429 `limit: 0`
+and BFL answered 402 `Insufficient credits`. The first would have been retried for ever as a
+transient outage; the second fell through to a refusal path whose own message says the
+provider objected to the brief — so the log would have said a crochet basket was declined on
+content grounds. A content refusal is answered with a new brief and an empty balance with a
+top-up, so a wrong diagnosis is worse than none (B-538).
+
+**A presigned link is only an image while it lasts.** BFL's URL expires about ten minutes
+after it is issued — measured, 01:47Z issue against `se=01:57:00Z`. The canonical identity
+pack of #200 cannot be a set of links that stop resolving over lunch. Every render is written
+to disk now, which also fixes the mirror-image defect: Google and OpenAI return inline base64
+and never a URL, and the old parser looked only for URLs (B-539).
+
+**And the first generated image carried somebody else's trademark.** GPT Image 2 was asked for
+a basket beside a linen armchair; it produced a styled scene in which the basket holds
+magazines, the top one carrying the **KINFOLK masthead**, legibly, centre frame. Nothing would
+have objected — `text_present` was already a field and `true` was the honest answer, which is
+a fact about the picture rather than a problem with it. It is a problem with it, and not one a
+caption can fix. Unasked for, first attempt, from the strongest prompt-adherence model in the
+set. `third_party_marks` is now a description field and blocks the asset, and the describer is
+asked about **props** specifically, because that is where it was (B-540).
+
+Suite green at **2,724 across 149 suites**.
+
+## Previously — last completed milestone
+**Heartbeat 2026-09-21T00:30Z — the owner queue was asking for four finished things.**
+
+Production held ten open owner actions. Four were done: the Etsy shop that exists, the
+developer app that is working, the model key that has spent CA$2.66, and a benchmark
+purchase superseded by the approved CA$300 selection. A fifth asked the owner to crochet a
+calibration sample, which they have parked twice.
+
+The cause is one missing half of a loop. `launch.readiness` adds an action and restates its
+figure, and never closes one. A request stops being generated the moment its requirement is
+satisfied — but the row it created stays open for ever, so the queue only grows and its
+oldest entries are the ones most likely to be finished. The owner's standing instruction is
+"do not ask me to repeat an action already completed", and the live queue was breaking it on
+four rows in ten (B-531).
+
+Actions no longer requested now close themselves, guarded: an assessment that produced *no*
+requests is far more likely to have failed than to describe a company with nothing left for
+its owner to do, and closing the whole queue on that would destroy the record of what was
+asked.
+
+Two rows were stale rather than finished. The physical sample is withdrawn from the queue and
+recorded as **parked by the owner**, with the requirement unchanged and still blocking
+calibrated yardage and every fitted garment — the ask is withdrawn, not the requirement, and
+the other way through is a pattern tester rather than the owner (B-532). The benchmark
+purchase asked for "about ten" patterns into "its own folder under the benchmark library
+path" at CA$120: there is no folder on a phone, the set is chosen rather than approximated,
+and it now points at `/api/benchmark-selection` and `/ops/teardown` at the approved CA$300
+(B-533).
+
+Also confirmed live rather than assumed this heartbeat: `/api/verify` 12 of 12; the gallery
+drain is running and on schedule (1,048 images pending, ~CA$0.034 an image observed against
+CA$0.029 estimated, within the 40% allocation); 134 dead letters are all publication
+refusals and **zero are defects**; the off-site archive records a configuration failure
+rather than a stale success.
+
+**And the image-provider action list was checked against the providers' own pricing pages
+rather than against memory.** Three things were wrong. Google AI Studio was listed as free
+and cardless, first in the queue because it was the easy one — but Nano Banana 2's image
+output reads "Not available" under Free Tier, so that key would have authenticated and
+refused to render (B-534). Nano Banana was priced at US$0.063, roughly Google's 1K figure,
+while the benchmark renders it at 2048px, which is US$0.101 — an estimate for a rendering
+nobody was going to make, understating the dearest candidate by 60% (B-535). And Imagen 4 is
+no longer listed on that page at all, so its row left the provider table and survives only as
+the recorded requirement-based exclusion (B-536).
+
+All three sign-ups need a payment method. The benchmark now plans at **CA$20.11** of the
+approved CA$25.
+
+Suite green at **2,716 across 149 suites**.
+
+## Previously — last completed milestone
+**The three practical gates, built as far as they go without the owner's credentials.**
+
+### Off-site storage — built, tested, unconfigured, and honest about it
+
+`core/offsite.py` writes the continuity export to any S3-compatible bucket. SigV4 signing is
+checked against the key-derivation vector AWS publishes rather than against itself; the
+payload is sealed with AES-256-CBC under a PBKDF2-stretched passphrase held in a variable the
+bucket credentials do not include, and it is authenticated before it is decrypted, so a
+flipped bit is a refusal rather than a restore.
+
+The archive is one function on purpose — export, upload, read back, compare digests,
+decompress, restore into a scratch database — because an upload recorded as a success and a
+restore proven separately are two facts about two different objects. The only claim worth
+recording is that *this* object, as it now sits in that bucket, restores this company.
+Verified end to end against an injected transport: 45 tables restored, `survives provider
+loss: true`.
+
+A daily `ops.offsite_archive` cadence runs it and prunes only after a good write. An
+unconfigured destination is recorded as a **failed** archive rather than skipped — the gate
+reads those rows, and a job that returned early on a missing variable would leave the last
+`ok` standing from whenever the credential last worked (B-524). Production confirms it:
+`/api/offsite` reports `configured: false`, `usable: false`, with a recorded attempt.
+
+**Recommendation: Backblaze B2.** Eleven nines of durability like the others, US$6/TB/month
+with egress free up to three times the stored amount, native object lock and versioning, and
+the only one of them that publishes its drive failure statistics. At this archive's size —
+604 KB compressed, 14 retained — the bill is under CA$1 a month at any of them, so the choice
+is made on recoverability rather than on price, which is what the owner asked for. The code is
+provider-neutral: R2, Wasabi and AWS need only different variables.
+
+### Mobile teardown intake — one tap per purchase
+
+`teardown/intake.py` and a single-file page at `/ops/teardown`. The owner taps a pick and
+chooses files; the seller, department, price, listing reference, recorded reason and the
+listing's promises all come from the catalogue row that justified the purchase. A system that
+makes somebody retype what it already stored is a system abandoned around purchase four,
+which is exactly the failure #170 exists to prevent.
+
+Zips are expanded here — bounded in entry count, expanded size and compression ratio, refusing
+an entry that climbs out of the folder — because the alternative is asking a phone to unzip.
+Files are hashed, classified by filename, manifested, audited against what the listing
+promised, and mirrored to the archive. Nothing opens a file: the quarantine holds.
+
+The reply says `durable: false` when the mirror could not be made, loudly and with the reason.
+On this host an upload that was not mirrored is a purchase that will have to be made again,
+and "uploaded" and "kept" are different claims.
+
+The promise audit has three outcomes rather than two. A claim nobody observed is
+`unverifiable`, never `kept` — an audit that resolved its unknowns in either direction would
+manufacture a finding about the seller out of a gap in our own observation.
+
+### Image generation — the benchmark would have compared one model against itself
+
+Three defects found, all the same shape: a fact recorded once, with no way of noticing the
+world had changed.
+
+`image_bench.run` called `images.generate` with no provider, which resolves whichever provider
+the environment names — so every candidate's prompt went to the same endpoint. It would not
+have errored. It would have returned five near-identical rows and handed the decision to the
+cost tie-break, which is precisely the decision the owner ruled out. Credentials are held per
+*account* now (one Google key covers two candidates), `generate` takes the provider it is to
+use, and a candidate with no credential is recorded as **unmeasured rather than beaten**
+(B-525).
+
+`decide` now reports `locked: false` while any eligible candidate went unmeasured. A leader
+chosen over models nobody could render is a shortlist of one wearing a result's clothes
+(B-526).
+
+`plan()["runnable"]` was a literal `False` with a sentence beside it explaining that no
+account existed. True when written; it would have gone on saying so after the accounts were
+made. It is computed from credentials now (B-527).
+
+### And the selector told the owner the wrong reason it stopped
+
+At the approved CA$300 the live set stops at **twelve** picks costing **CA$292**, with the
+`education` department uncovered — and `why_stopped` said no remaining listing added anything
+new. It was the ceiling, by CA$13. Somebody reading that line to decide whether to raise it
+was told there was nothing left to buy. The cause is now recorded where the loop ends, with
+the excluded pick, its price and its shortfall (B-528).
+
+Suite green at **2,711 across 149 suites**. Production `/api/verify` 12 of 12; 0 READY, 79
+parked.
+
+## Previously — last completed milestone
+**Online means work is progressing, and the self-healing turned out to already exist.**
+
+**#185 — `ops/health.py`.** The requirement writes its own definition into the middle of the
+sentence and the module takes it literally: *online means useful work is progressing, not
+merely that HTTP returns 200*. A container can serve 200s, tick a worker, run a scheduler,
+hold an empty queue and complete nothing for a week — every liveness signal green, because
+none of them is about work. That is this build's recurring defect in its most respectable
+costume: the verdict is computed from the absence of failures, and a system doing nothing has
+none. So `progress` is a signal with the same standing as the heartbeat, and an
+otherwise-green system reports **`idle`**, which is a different word from healthy on purpose.
+
+*Writing the self-healing half produced the finding that replaced it.* Both obvious repairs
+already exist: a lease is reclaimed inside `JobQueue.claim` on **every** claim, and a dead
+letter is re-driven once per deploy (B-327) — which is the right trigger, because a dead
+letter is fixed by a code change. Re-driving one on a fifteen-minute timer re-runs a failure
+nothing has fixed, ninety-six times a day: a retry storm with a health check's name on it. So
+the sweep detects, escalates, and names where each repair actually lives, which makes
+"self-healing" a claim somebody can check. What it cannot fix at all — a container restart, a
+missing credential, money already spent — it escalates by name rather than attempting,
+because a repair that is announced and does not happen is worse than none: nobody looks.
+
+Escalation waits for persistence — one bad sweep is a blip and a deploy produces several — and
+the history is read from the handler's own audit trail rather than memory, because a container
+replacement is exactly when conditions happen. Cadence: `health_sweep` → `ops.health`, every
+fifteen minutes, GREEN, spends nothing.
+
+**#183 — `/api/console`, and the two views the dashboard was missing.** Approvals now arrive
+as the executor's own cards, each with its action and its consequence of waiting, because a
+count of queued actions does not answer *is anything waiting on me*; and learning changes
+arrive with their source and date. Both are on the dashboard page itself, so the answer is
+readable on a phone without composing a request. The console's health is #185's verdict, which
+means it can say `idle` — a console that cannot say so is one that will report a green week of
+nothing. It aggregates what the read endpoints already serve, at the same exposure, and opens
+no new door; the continuity export and the dead-letter requeue stay behind the operator
+credential. No public marketing site exists or is planned, which is the requirement's other
+half.
+
+**Verified in production on `0782969`, not asserted.** The three new cadences fired and
+completed on the live service within ten minutes of the deploy — `ops.health` (job 1749),
+`ops.sentinel` (1747) and `ops.capacity` (1745) — and the console reports `healthy`, 0
+pending, 134 dead letters.
+
+The sentinel's first real sweep is the evidence that the backlog calibration mattered: it
+found **275 derived artefacts with no provenance row** across the live estate, and raised
+**one** P3 incident carrying that number rather than 275 incidents. Without that decision
+(B-364a) production would now hold 285 open incidents and the ten real ones would be
+unreadable. Nothing was reported stale, nothing was blocked, and `graduation()` correctly
+says absence may not be enforced yet.
+
+The 134 dead letters are all publications refused by shadow mode — the guard working — which
+is what prompted counting deliberate refusals apart from defects (B-374).
+
+**#172 — the rebuild set, and the part of the estate the graph cannot see.**
+`ops/rebuild_graph.py` reads its edges from #171's provenance rows rather than keeping a
+second opinion, follows them the other way and transitively — a listing built from a PDF
+built from a design is two hops away and nobody rebuilds it by hand — and emits them
+topologically, because rebuilding the listing before the PDF regenerates it from the stale
+one and afterwards everything claims to be current. A cycle is refused, not traversed. The
+number that matters is the coverage, printed on the same line as the rebuild set because the
+rebuild set is the part people read: **production holds 275 derived artefacts and not one
+carries a provenance row**, so a propagation over the recorded graph touches nothing and
+reports that no rebuild is needed — true of the graph, false of the shop.
+
+**#260/#261 — the two halves of "why did they buy", and the one that cannot see non-buyers.**
+`commerce/friction.py` audits the buyer journey and files every friction at the stage that
+*caused* it rather than the stage it arrived at. That distinction is the module. Support is
+where nearly all friction lands and where almost none is made: "I thought I was buying the
+blanket" arrives in the support queue, an audit grouped by arrival produces a support macro,
+the macro works — the buyer is refunded quickly, the response-time metric improves — and the
+listing goes on saying the same thing to the next four hundred people. A shop can become
+measurably excellent at absorbing a defect it has never once removed, with every number
+moving the right way while it happens.
+
+Two thresholds, not one: a correctness defect acts at n=1 (nobody's second complaint makes a
+missing file more missing) and a comprehension defect needs a rate — three in five is an
+emergency, three in four hundred is three people, and the difference is a denominator a count
+does not carry. And a stage with no complaints and no traversals reads `not_yet_walked`,
+never `clean`, because zero complaints from zero buyers is identical evidence to a flawless
+funnel and this shop is the first case today. Five of the six confusions the spec names are
+made in the listing copy, so that half of the audit runs now, against the listing artefact
+rather than against `seo.build_description` — asking the generator whether its own output is
+correct is asking the defendant. A test asserts the shop's generated copy passes its own
+auditor, which is the check that catches a standard a module ships without meeting.
+
+`growth/interviews.py` is the other half. Its output is never a finding: `Hypothesis.status`
+is `hypothesis`, and the only exit is evidence from an instrument that asked nobody a
+question — another interview reproduces the selection rather than testing the claim, and is
+refused by name. The three ways a voluntary sample decides its answer in advance are each
+closed structurally: the incentive lives on the invitation and must be identical across a
+round (`Response` has no incentive field at all, because one chosen after reading a response
+is contingent on sentiment however kindly meant — contingency is ordering, not motive);
+"what nearly stopped you" carries a 14-day window and a later answer is kept as
+`reconstructed`, since a hesitation is rebuilt rather than retrieved; and selection rules
+that can see the outcome — `left_a_good_review`, `repeat_buyer`, `no_refund_requested`,
+`high_order_value` — are refused by name, because each one describes itself as *asking our
+best customers* and each produces a warm sample that measures nothing. Invitations pass
+through the CASL gate on the purchase relationship; a published business address is refused
+as a basis for surveying a private buyer.
+
+Both name the same blind spot from opposite sides: **everyone who did not buy**. The
+interview reaches only survivors of the decision it is trying to understand. Both land
+`partial` — #260 parked on `customers`, #261 on `live_listings` — and #261's listing half is
+the part that stays true for every buyer who has not arrived yet. Decisions B-406..B-412.
+
+**#262 — checking the forecast, and paying for having been optimistic.**
+`scale/calibration.py`. Three structural choices, each closing a way a calibration flatters
+the model it is checking. A `Forecast` carries `made_on` and it must precede the period it
+predicts: recalibrating against expectations recorded afterwards builds a model that is
+always well calibrated and never right, because the expectation adjusts to the outcome on the
+way past and nobody involved notices. The error is decomposed in log space rather than by a
+waterfall — revenue is a product of seven terms, and substituting them one at a time gives
+each term a different share depending where in the sequence it is walked, so whoever does the
+decomposition chooses, after seeing the numbers, how much of the miss belongs to the term
+they would rather blame. In logs the split is exact and order-independent, and a term with no
+measured actual lands in `unexplained` instead of being spread across the measured ones.
+
+Optimism costs five times what pessimism costs, automatically — there is no argument
+`ceiling()` accepts that raises it — and recovery is a ratchet: three consecutive accurate
+periods before it starts, then one step at a time, because symmetric recovery lets one good
+month erase a year of forecasting high. The output is a *ceiling* applied to
+`scale.confidence.probability`, never a second probability, since two answers to one question
+means the flattering one gets quoted.
+
+And the honest note about today: **every period would be excluded**. With nothing published
+there are no live listings, so a calibration run would score a model nobody applied as
+catastrophically optimistic and take confidence to the floor — arithmetic about an unopened
+shop rather than a finding. Excluded periods are counted in the result rather than silently
+shrinking the denominator. `partial`, parked on `live_listings`. Decisions B-413..B-417.
+
+**#267 — the weeks a single calendar throws away.**
+Most of this requirement was already built: `seasonal/compression.py` retires lanes one at a
+time and moves each closing lane's share into the fastest lane still open, so the
+early-flagship to late-quick-make shift falls out of the arithmetic rather than out of
+somebody remembering it in November. What was missing is the word *and* in "product and
+marketing capacity", and it is not a detail — the two run on different clocks. Engineering
+leaves an occasion when its last lane closes, because nothing new could be launched, indexed
+and finished in time. Marketing leaves weeks later, at the buyer's own last practical make
+date, because the catalogue already listed goes on selling until then. Those weeks are the
+ones that earn most, and a shop budgeting one capacity against one calendar has already moved
+its attention to February.
+
+`seasonal/rollforward.py` holds the two as separate ledgers over one calendar and states the
+rule: **engineering rolls forward first, marketing rolls forward last.** Rolling forward is
+refused in both directions — nothing leaves an occasion that still holds it, and engineering
+may not arrive at one inside its own preparation lead, because capacity moved out of a season
+that is ending into one that is already late has been spent on being late twice. On today's
+real calendar the ledger already shows the gap: Thanksgiving is 22 days out, unlaunchable and
+still entirely buyable.
+
+The curve it will not draw: `demand_curve()` computes the structural floor — past the last
+practical make date demand is zero, because nobody can finish the object — and reports the
+decay before it as unobserved, naming what would settle it. Makers do not all wait for the
+last possible day, but no listing of this shop's has been watched through a season, and a
+decay date taken from a plausible shape is a point estimate presented as a fact. `covered`.
+Decisions B-418..B-421.
+
+**#179/#180 — the agents whose only job is other agents, and the league they argue in front of.**
+`improve/roles.py` names the eight meta-agents #179 lists and enforces the three rules that
+stop such a swarm flattering itself. The requirement's own last clause — *measured by verified
+uplift, not number of changes* — is implemented as arithmetic rather than as a policy:
+`scorecard()` computes from realised uplift alone and `proposals_made` cannot reach it,
+because a swarm graded on changes made will make changes — forty findings, thirty proposals,
+twelve promotions, and no capability curve anywhere that moved, with every number on the way
+pointing upward. The other half matters as much: a rejected proposal scores **zero, never
+negative**, since penalising rejection teaches the swarm to propose only what will obviously
+pass. No role both proposes and judges. The cost optimiser may not buy its savings from
+reliability, the reliability engineer may not buy uptime from contribution, and no role may
+trade deterministic validation at all.
+
+`partial`, and the gap is named rather than counted around: none of the eight has an entry in
+`agents/registry.py`, a job type, a ceiling or a cadence. The roster is a specification of
+roles, not running agents.
+
+**#180** hardened `improve/league.py` rather than adding a second judge beside it. Four things
+it was quietly missing. **The shared set is overfitted by the league itself** — refusing a
+challenger's own tasks stops one author gaming one comparison and does nothing about a hundred
+challengers judged, over a year, against the same forty tasks; a holdout is now carried, never
+tuned against, and winning the tuned set while losing the holdout is refused with that named
+as the reason. **Latency is the fourth axis**, and the one that looks free, because it is
+nobody's line item until a cadence misses its window. **A margin is not a significance test** —
+the bar now scales with how much was measured, since 0.03 on four tasks is a coin and a league
+promoting on coins churns while every report counting promotions calls it progress. **Rollback
+is a recorded target** with a required reason, answerable before it is needed.
+
+Two existing league tests failed against the new bar, and both encoded the old weaker
+standard: a test about how the *cost* bar scales was incidentally testing sample size on a
+four-task fixture. The fixture was widened and the margin scaling given its own tests, rather
+than the new threshold relaxed until the old test passed — which is the obvious move and is
+how a standard quietly reverts. Decisions B-422..B-427.
+
+**#191 — two clocks, and the department that is never stale and never moves.**
+`improve/freshness.py`. The requirement says each department decides how often its evidence
+should be reconsidered based on how fast its world changes, and what existed was a single
+thirty-day constant carried separately by `improve/profiles.py` and `improve/bus.py` — far
+too slow for a competitor's catalogue and meaningless for the compiler. Each cell is now
+mapped to a *world speed*: adversarial 24h, market 72h, operational 168h. A cell with no
+declared world raises rather than taking a default, because a default is the single global
+constant coming back.
+
+The entry worth arguing about is the one with **no interval at all**. Compiler mathematics
+does not go stale with time — a stitch count right in March is right in September — so
+`pattern_engineering` is answered on a code fingerprint, the same mechanism `ops.artefacts`
+uses for derived files. A very long interval was the easier choice and is wrong in exactly one
+way: it reports the compiler current for another month after somebody changes it.
+
+**And two clocks, not one.** A freshness SLA measured in "when did we last look" rewards
+looking: a department re-running a scan every hour and learning nothing scores perfectly on
+recency, and that is the commonest real state of an improvement programme — busy, current and
+flat. So evidence age and capability movement are separate readings, and `CHURNING` — fresh
+and going nowhere — is reported as a problem rather than a pass. Direction is read against each
+cell's own polarity, because half these metrics are better when they fall; the first version of
+that test used `finance`, whose metric is forecast *error*, and asserted a rising number was
+healthy. Never-measured is kept apart from stale: one is instrumented, the other re-run.
+
+`partial`, and the gap is the honest one: `sweep()` is tested but nothing calls it on a
+schedule, so nothing is flagged to anybody yet. That arrives with #193's nightly window, and
+claiming the flagging works before a cadence runs it would be capability from configuration.
+Decisions B-428..B-431.
+
+**#190/#193/#194 — the autonomy block, and the fourth costume of the same defect.**
+`improve/pipeline.py` is the object between a proposal and a promotion; the governance half
+already existed in `improve/tiers.py` and is not rebuilt. **Evidence is a recorded run, never
+a field the proposal sets** — a proposal that runs its own tests and reports them passed has
+reported an opinion in the shape of a fact. And **evidence describes a version**: each
+proposal carries a fingerprint, evidence records the fingerprint it ran against, and revising
+the proposal invalidates it rather than ageing it out. That is the failure that only happens
+to something working around the clock, where the content moves silently under evidence
+gathered hours earlier. Auto-promotion reads the tier and never the proposal's own view of its
+risk — there is no confidence field to set, because classification-by-surface exists precisely
+so a change cannot talk its way into a faster lane. The owner card is refused unless impact,
+cost and rollback are each exact; "minimal impact, low cost, we can revert" is what an
+approval queue fills with when nobody checks, and a person reading it has been told nothing
+and will approve it.
+
+`improve/nightly.py`, with the `improve.nightly` cadence and handler. The whole risk in a
+scheduled sweep is the word **completed**: a job that finishes without raising and writes "ok"
+reads identically whether it did the work or skipped every stage, and the comfortable reading
+is the one believed. So a stage has three outcomes and never two — found, found nothing, or
+did not run — and a stage that read zero rows reports `did_not_run` however it describes
+itself, because finding nothing in nothing has not established there was nothing to find. The
+verdict is computed from what each stage returned. **This is the fourth costume of the same
+defect this build keeps meeting**, after a funnel stage that killed nothing (B-278), an
+artefact with no provenance row (B-360) and a buyer journey nobody walked (B-408).
+
+Run against the real database, the handler reports `incomplete` and names the five stages with
+nothing to read. That is the honest output for a shadow-mode company, and exactly what a
+success-on-no-exception job would have hidden.
+
+`improve/weekly.py`, with the `improve.weekly` cadence and handler. Eight domains audited
+rather than visited — nothing read is `not_audited`, and the cycle will not call itself
+complete while one remains. The substance is the architecture review: `improve/velocity.py`
+already refuses the add-only review for cadences, and **that argument does not stop at
+cadences**. A review permitted to add specialists and never to merge or retire one grows the
+org chart every week, one individually defensible step at a time, which is what makes the
+total indefensible and invisible. Three of the four moves subtract. Revising a metric is the
+dangerous one: a department may never propose the revision of its own measure, the old
+metric's history is preserved rather than migrated, and ten phrasings of "the number is
+unfair" are refused by name — because a department that changes its metric after a bad quarter
+has not improved, it has moved the goalposts, and from inside that feels like better
+measurement.
+
+Both handlers are covered by the platform suite's `test_every_scheduled_cadence_survives_actually_being_run`,
+which runs every cadence for real rather than checking one is registered. #191 closes to
+`covered` with them: the nightly sweep is what calls `freshness.sweep()` and reports the stale,
+churning and never-measured departments. Decisions B-432..B-439.
+
+**#179 closes: the eight roles become running agents.**
+Each meta-agent now has an entry in `agents/registry.py` at GREEN with a CA$0.25 daily
+ceiling, exactly one job type it may run, and a daily cadence. Both lists are *generated from
+the roster* rather than retyped, because two lists of the same eight drift and the drift is
+silent: an agent with no role has authority over nothing, and a role with no agent is a job
+description nobody holds. The agent **is** the role, so `ctx.job.agent` dispatches and a pass
+by an agent that is not a role is refused rather than defaulted to something.
+
+None of them proposes or promotes. Proposing runs through #190's upgrade pipeline and
+promotion through #178's tiers, and a meta-agent that could promote would be the company
+rewriting itself faster than it can observe the results — the failure #178 exists to prevent.
+The ceilings are nominal rather than absent, because a meta-agent able to spend real money
+deciding whether somebody else should have spent money is the wrong shape.
+
+Run against the real database, all eight report `unmeasured` and propose nothing. That is
+asserted by test rather than described: a swarm reporting activity against no rows would be
+reporting on work it invented, which is the specific failure `swarm.next_work` already names
+for ordinary agents and which applies with more force to the agents whose only job is other
+agents.
+
+**And a rule broken two hours after recording it.** #190's module was written as
+`improve/pipeline.py` while `runtime/pipeline.py` already existed — exactly the collision
+B-421 was written to prevent. Nothing would have broken; different packages mean no import
+collision. It would only have meant two unrelated modules answering to one name in a codebase
+where imports are read far more often than they are written. It was found by stumbling into
+the other module while tracing a missing handler, not by running the check. Renamed to
+`improve/upgrades.py` across four files. Recorded as B-440, because writing a rule down is
+evidently not the same as following it.
+
+**#146, and three requirements that were reporting themselves as ready work.**
+The culture cluster's registry notes were already honest — #133 said no feed is connected,
+#140 said it needs a connected search source, #147 said it needs launch data. All three sat
+in the **ready queue** anyway. A note is read by people; the queue reads gates, and the ready
+count is the one number the executor exists to keep honest. A `culture_feed` gate now holds
+them, opening on the first `CultureObservation` row that names its source — counted rather
+than configured, because an observation with no source is the same unverifiable thing as no
+observation. Ready fell from 33 to 29 and nothing was lost: the work is parked where it can
+un-park itself.
+
+That leaves **#146**, which was genuinely buildable. `culture/cast.py` holds what
+`translate.owned_territories()` could only count, and two refusals carry the requirement.
+
+**Recurrence cannot be declared.** "Recognisable original IP that customers return for" is a
+claim about the second time, so an element is `proposed` until it has appeared in three
+releases across two seasons — and eight appearances inside one season is still proposed,
+because returning requires having gone away. There is no status field to set, one product
+cannot be counted twice, and a retired element coming back is a new proposal so the roster
+shows somebody decided twice.
+
+**Originality is checked on the primitives, never the name.** The dangerous failure is not a
+product that borrows openly — that path exists and is routed. It is a character with an
+original name whose design is a recognisable external one: it looks like an asset, carries the
+full legal risk of what it resembles, and cannot be defended because nobody wrote down what it
+was derived from. `propose()` scans name, description and every primitive through
+`rights.check_free_of` rather than implementing a second containment test, since two answers
+to "is this token present" means the more permissive one gets used.
+
+A collection world must answer `can_host()` for a category it has never seen, and `dependence()`
+refuses a single reading — "not permanent dependence" is a direction, and a dependence nobody
+trends is one nobody notices growing.
+
+The roster is empty, and stays empty. Filling it now with invented names is exactly the
+failure the module refuses; the elements get earned as products are designed.
+Decisions B-441..B-444.
+
+**#57/#58/#65/#69 — what an asset is made of, and what it is allowed to do.**
+`publish/eligibility.py`. `AssetClass` already said what an asset is *made of* — a twin
+render, a photograph, an infographic. #57's own sentence asks something else: *a technically
+correct chart cannot be promoted to hero merely because it rendered successfully.* Rendering
+successfully is a fact about the medium. Being the hero is a question about the purpose, and
+nothing held the second — which is exactly why the only reason a chart ever becomes a hero is
+that it was the asset that finished rendering. Purpose is now a second, orthogonal axis, and
+the row that matters most is that **nothing but a photograph may be `PHYSICAL_PROOF`**,
+whatever it is labelled, because a label is precisely where that gets claimed.
+
+**#65's rule is about jobs, not pixels.** "Prevent five technically different images from
+communicating essentially the same thing" reads like a similarity check, and implemented that
+way it passes the actual failure: five genuinely different charts all doing `DETAIL`. So every
+frame declares one job from the ten named, and two frames sharing a job is the defect. Frame
+one is the hero and its job is `DESIRE`, stated rather than derived — a listing whose first
+frame documents rather than sells has spent the only frame most shoppers see. Missing jobs are
+listed and never refused, because a shop adding a frame per uncovered job is padding the
+gallery to satisfy a checklist.
+
+**Four gates, and the fifth costume.** Each of `DATA_TRUTH`, `LAYOUT_QA`, `COMMERCIAL_QA` and
+`POLICY_PROVENANCE` reports passed, failed or **not_run**, and export requires all four to
+have run *and* passed. A boolean would make a gate nobody wired up indistinguishable from one
+that passed — the same defect as B-278, B-360, B-408 and B-435, in a fifth place.
+
+**And a label is never a licence.** #69 says it outright, so it has to be structural: the
+honesty label is computed from the medium rather than accepted from a caller, and `may_export`
+reads the asset-truth verdict *independently* of it. There is no ordering in which a
+disclaimer makes a failing asset exportable. It is required only where the render/photograph
+distinction is material, because labelling a materials list trains buyers to read nothing and
+costs the label its meaning on the frames where it matters. Decisions B-445..B-448.
+
+**#60/#68/#70 — traced numbers, named defects, and a certificate that invalidates itself.**
+`publish/dimensions.py` audits every number on the way *out*. `cir.geometry` was already
+canonical and already refused what it could not measure, and none of that says anything about
+what reached the card — every defect #60 names happens after the measurement is right. The
+check that matters is the third one: **two displayed numbers disagreeing about the same axis
+of the same component**, which is invisible to any check that validates measurements one at a
+time, and one at a time is how measurements are usually checked. The requirement's own
+unexplained 180 cm marker is caught as `untraceable` — not wrong so much as unreadable, and
+unreadable is worse because nobody can disagree with it.
+
+`publish/defects.py` gives visual defects the treatment compiler defects already had. They
+never got it for a nameable reason: a compiler defect is a wrong number and a layout defect is
+a look, so it feels like taste, and taste does not get a fixture — but `layout_qa` measures
+rendered pixels, which makes these reproducible, and anything reproducible can be fixtured. A
+defect with no reproduction is refused; it is a memory, and memories prevent nothing. And a
+**recurrence after a fixture is a bug in the fixture**, not a second bug in the renderer,
+which is what stops a second broken fixture being added instead of the first being widened.
+"Improve monotonically" is implemented as the narrow claim it can support: not that defect
+counts fall — production finds what production finds — but that the set of classes with a
+passing fixture never shrinks.
+
+`publish/listing_set.py` certifies the listing, which is a separate object from the release
+certificate because the two go stale for different reasons: a size card can be quoting
+geometry that has since changed while the pattern's own certificate stays perfectly valid. The
+load-bearing word is **invalidates** — a revocation step is a step somebody forgets, and the
+forgetting is silent, so validity is recomputed from the current inputs rather than read from
+a flag.
+
+**And two more requirements stopped advertising work nobody can start.** #61 leads with
+independent visual review and #64's trigger is a photograph of an object nobody has made.
+Parked on `browser_vision` and a new `physical_proof` gate — which opens on the first
+PhysicalTest row with a completion date, counted rather than read from a flag saying testing
+is set up. Ready fell from 29 to 19. Decisions B-449..B-452.
+
+**#63/#66 — the one direction creative may not go, and the context the builder never occupies.**
+`publish/brief.py`. The CIR-to-evidence half of the flow was built; the constraint in the
+middle was not, and its shape is an asymmetry. **Creative may select from truth and may never
+extend it.** A hero showing three of seven stitch types is a photograph of part of a thing —
+no listing shows everything. A hero showing an eighth is a claim about a pattern that does not
+contain it, made by an image nobody thought of as a statement. Subset, one direction, across
+all five categories the requirement names. A category the brief is *silent* about is refused,
+because silence is a category creative may fill in; an empty allowance is a real constraint
+and stays distinct from no entry.
+
+The flow is ordered because a brief produced once the creative exists is a caption — the same
+shape as a forecast dated after its period, arriving for the same reason: the convenient order
+is the wrong one and nothing else notices. Going backwards is permitted and reported as
+*restarting*, since a defect found at the gates genuinely sends work back to the brief.
+
+`publish/mobile.py` evaluates the set where it is chosen rather than where it was built. A
+listing is assembled at full size, one frame at a time, by somebody who already knows what the
+product is; it is chosen at 170 pixels, in a grid of competitors, by somebody who does not.
+**The first three frames are a context, not a prefix** — a phone shows three before anybody
+scrolls, most people do not scroll, and three frames all doing one job is one frame shown
+three times in the only context most shoppers occupy. An unrendered context reads
+`not_rendered`: "we checked the mobile view" is not a finding anybody can revisit when a
+listing underperforms three months later, which is exactly when somebody wants to.
+
+**And prose was doing a gate's job for the third time.** #168 said "unrunnable until
+benchmarks are purchased" and #79 said "needs the vision capability", and both sat in the
+ready queue. Parked on `benchmark_purchases` and `browser_vision`. Ready is 15 against 87
+parked, and the number now means what it says. Decisions B-453..B-457.
+
+**#33 — a year with many occasions in it, and the constant that says otherwise.**
+`seasonal/engine.py`. The merge instruction is explicit: *preserve Christmas as the current
+campaign, not the company identity.* And `compression.PRIORITY_PROGRAMMES` is
+`{"Christmas": 0.45}` — a constant naming one occasion, granting it nearly half of engineering
+capacity permanently, read by five modules. **That is the Christmas Strike Team, in code**, and
+no amount of rolling-wave machinery wrapped around it changes what it says.
+
+Priority now comes from a score with no favourites. Seven factors **multiplied, not averaged**,
+because they are conjunctive: an occasion with no time remaining scores zero however strong its
+demand, and an average lets six good factors carry one fatal one — the same reason
+`scale.confidence` takes a minimum over its rungs. A missing factor is refused rather than
+defaulted, because a factor left out of a product is a factor silently set to one, which is the
+most optimistic possible assumption and the one nobody notices making.
+
+**The evergreen floor is the inverse of the priority floor, and nothing had it.**
+`MIN_PRIORITY_SHARE` stops a seasonal programme decaying; nothing stopped evergreen being
+squeezed to zero, and a shop entirely inside Christmas has nothing to sell in February. It is
+subtracted before anything is granted rather than checked afterwards — and that was not
+theoretical: rounding three equal shares independently produced 0.8001 against a pool of 0.8,
+eating the floor from above. Caught by the test that asserted the invariant, fixed by giving
+the remainder to the largest share.
+
+Squads stand down by arithmetic, because nobody stands a team down in a busy week.
+Construction primitives and commercial lessons cross seasons; designs, motifs, colourways and
+copy do not — recolouring last October's product is not the insight, it is the product again.
+And a breakout moves allocation and is *structurally* unable to reach a gate, because
+"emergency" is the word people use when they want to skip a step.
+
+**And then the constant went.** All five call sites now read
+`compression.priority_shares()`, which returns scores when any occasion has them and the
+owner's named campaign, labelled `current_campaign_seed`, when none does. A straight cutover
+was the tempting move and would have been wrong: scoring needs observed demand, visibility and
+competitive weakness, this shop has none, and every occasion would have scored zero — reserving
+nothing for the campaign whose making window is actually open. That is absence, not rigour.
+What the migration buys is that the owner's decision can no longer be read as a measurement,
+and a test refuses any direct read of the seed outside its accessor, because a direct read is
+that decision with the label stripped off.
+
+The guard test written one commit earlier asserted the constant was still present so
+`state()`'s claim could not go stale silently. The migration broke it, which is exactly what it
+was for: the claim got updated because a test failed, not because somebody remembered. #33 is
+`covered`.
+
+**And the process failure got a check.** Three times this session prose in a registry note was
+doing a gate's job — the cultural feed, vision, physical proof, purchased benchmarks. Every
+note was accurate; every one of those requirements sat in the ready queue. `test_executor` now
+fails if an unparked requirement's note describes a blocker. It is phrase-matching and crude,
+and crude is the right trade: a false positive costs a reworded note, a false negative costs
+the ready count its meaning. Verified against the live registry rather than assumed — it
+matches four real notes, which pass only because they are now parked.
+Decisions B-458..B-462.
+
+**#215/#219/#220/#227/#228 — learning from the best shops without becoming one.**
+Six requirements in this group had never been audited; five of them were buildable and are
+now built. `intel/panel.py` and `intel/veto.py`.
+
+**#227 is the spine, and its failure is aggregation rather than any single decision.** Every
+individual choice to match the benchmark is defensible — they are good, this is what good
+looks like, we should be at least this good — and a year of defensible choices is a shop that
+looks like a copy of a shop. There is no moment where anybody decides to become derivative,
+which is precisely why parity alone is a refusal rather than a caution. #215 pushes equally
+hard the other way: sharing an arena with an elite seller is *not* a reason to stay out of it,
+so entering is permitted and the over-correction is what gets avoided.
+
+**A standard may be raised by a competitor and never lowered by one.** Lowering because
+somebody else slipped is a race to the bottom with a paper trail, and it is the more tempting
+move because it is free and shows up as an improvement in every metric about hitting
+standards.
+
+**A panel of one is one shop's aesthetic with a formal name.** MJs is named once, as the
+anchor, so "the panel" never quietly means it; a mechanism needs two independent sellers
+before it is a mechanism rather than one shop's habit.
+
+**And the owner's veto records why.** A veto is easy; the reason evaporates — acted on once,
+and six months later nobody can say whether the same objection was raised eleven times or
+once, so an evaluator that could have been trained on eleven instances was trained on nothing.
+Reasons come from a countable vocabulary, the third repetition is a finding about the
+*evaluator*, and retirement needs thirty predictions made **before** the owner ruled, because
+grading a model on answers it has seen is the natural mistake when the owner's rulings are the
+easiest training data to hand.
+
+**One requirement now remains `missing` across all 320.** Decisions B-464..B-468.
+
+**#226 — and nothing is `missing` any more.**
+`intel/pod_learning.py`. The requirement's last sentence — *the pod should become measurably
+more discerning and creative over time* — contains a trap, and it is the one
+`improve/velocity.py` was built against. **Discerning and creative pull against each other.**
+A pod that rejects everything is maximally discerning and contributes nothing; one that
+accepts everything is maximally generative and worthless. A single score can rise while either
+collapses, and the one that collapses is whichever the score happens to weight least — which
+is exactly how a pod becomes very good at saying no. So there are two measures, nothing
+returns one without the other, and a test asserts no single pod score exists anywhere in the
+module.
+
+**Discernment is precision against outcomes, never rejection rate.** Rejection rate is the
+measure that gets used, because it is available the moment a call is made and rises whenever
+the pod is being careful. What it measures is caution. Both directions count: a pod that never
+says no reports that, and noes that would have worked are counted separately, because a pod
+whose every refusal was wrong is expensive in a way precision alone hides.
+
+The six record kinds split into learning from failure and learning from success, and a memory
+collapsed into one is reported as drifting cautious or drifting imitative — the second being
+**#227's failure arriving through the learning system** rather than through a decision anybody
+made. Reported as a direction, never a target: there is no correct ratio, only a pod that has
+stopped doing one of them.
+
+And pods are deliberately *not* added to `improve.cells.CELLS`. The literal reading of
+"participate in the continuous-learning architecture" is to make each pod a department cell,
+which would double CELLS from twelve to twenty-four and quietly double every count computed
+over it — including the freshness sweep and the nightly bottleneck stage. A department is a
+function of this company; a pod is a lens on somebody else's catalogue. Decisions B-469..B-472.
+
+**With #226 closed, no requirement in the 320 is `missing`.** What remains is 57 `partial` —
+things that exist and fall short — plus 56 parked on owner actions and absent data.
+
+**A red suite that was not a code defect, and the fix that is one line rather than sixty-four.**
+A full run failed **eleven suites** on `No space left on device` with nothing in the diff to
+explain it. The cause: the suites had left **37,284 temporary directories totalling 29 GB** in
+`/tmp` — about twelve hundred per run, across roughly thirty runs this session. Sixty-four
+test files call `tempfile.mkdtemp`, which unlike `TemporaryDirectory` never cleans up, and
+each directory holds a SQLite database and sometimes a rendered image.
+
+The fix is in `run_tests.sh`, not in sixty-four files: `mkdtemp` honours `TMPDIR`, so the
+runner gives the whole run one temporary directory and removes it on exit, including on
+interrupt — the runs killed half way are exactly the ones nobody goes back to tidy. Fixing
+the call sites would be sixty-four edits that each have to stay correct, and the
+sixty-fifth would leak again. Verified: a run now leaves zero directories behind.
+
+*And the first fix did not work, while the suite was green.* `trap ... EXIT` replaces an
+earlier EXIT trap rather than adding to it, so the `$outdir` trap thirty lines below silently
+discarded the one that removed the run's TMPDIR. Stray directories in `/tmp` went to zero —
+the containment was real — and the run directory itself survived with 342 MB in 399
+subdirectories, so the disk still filled at a third of the rate, on a run that passed 1,995
+tests. It was caught by counting what was left rather than by trusting the change, which is
+this build's recurring defect arriving in a shell script while fixing something else. One
+cleanup function, one trap. Verified on the run after: 1,995 passing, **zero** leftover
+directories of either kind, disk steady at 23%.
+
+Worth keeping because of what it looked like from inside: eleven red suites, a green run
+twenty minutes earlier, and nothing in the change to blame. The log said `ENOSPC` on every
+single failure, which is the sort of thing that is obvious once read and invisible while
+guessing.
+
+**#253/#254/#256 — the club, the customisation and the referral.**
+
+`products/personalisation.py` (#254) gives "keep canonical pattern truth intact" a precise
+reading: every customisation is a **presentation** choice, which changes what the buyer is
+shown, or a **construction** choice, which changes the instructions and is a new design
+wearing the old one's name. Letters are stitches. The failure prevented is the one every shop
+makes — offering custom initials, delivering a hand-edited PDF, selling it under a certified
+product's name — so the buyer's copy is the only one nobody checked, and the one most likely
+to be wrong because it is the only one edited by hand. It is *routed*, not refused: it becomes
+a product and goes through the chain. The pricing follows the same line, because a
+presentation choice costs nothing per order and a construction choice costs a full chain run.
+
+`commerce/club.py` (#253) names what the appeal hides: a club is payment for work that does
+not exist yet — a liability before it is income, and the only product where failing to deliver
+costs more than the sale. Of its four questions, three need buyers or a policy read; **the
+cadence is answerable today and is the one that ends clubs.** Month one ships what already
+existed; month two needs a new pattern, certified, on a date somebody else chose. It requires
+1.3× headroom, because a club that exactly fits its period has no room for the week somebody
+is ill, and there is always that week.
+
+`commerce/referral.py` (#256) draws the same line for a third time — a reward is for an
+action, never an outcome statement — importing the refused phrases from `commerce/reviews.py`
+rather than listing them again. A mechanic nothing can attribute is refused *before* it runs,
+because one that cannot be judged will be judged anyway, favourably, by whoever proposed it.
+
+**#257/#258/#259 — proof, reviews, and the sprint that mostly happens beforehand.**
+
+`commerce/reviews.py` (#257): the prohibition's third verb is the precise one. *Gating* is
+not buying — it is withholding something the buyer already paid for until they leave a
+rating, and no money moves, which is exactly why it ends up in a support template written by
+a shop that would never buy a review. Eight phrasings are refused by name. The analytical
+half has an arithmetic problem the rule does not: a shop with three reviews has a rating one
+bad day away from 3.7, so the star distribution is **refused below twenty rather than
+caveated** — a caveat is read once and an average is read every week. The useful output is
+the routing: a *misunderstood* theme is usually a missing disclosure, and sending it to the
+design queue rewrites a pattern that was correct.
+
+`commerce/buyer_trust.py` (#258): a gallery entry belongs to a pattern version. A customer's
+photograph of v1.0.0 beside a listing selling v1.2.0 is proof of a *different object*, and it
+is the most believable wrong thing on the page because it is real — so it is marked, not
+removed. The colourway is now required (the yarn already was, at construction). Whether proof
+lifts conversion needs both arms: a gallery added to every listing measures the month it was
+added.
+
+`commerce/first_hundred.py` (#259): read as written, the requirement produces a plan that
+starts on the day of the first sale — the wrong day for four of its five priorities. The
+first buyer either gets the file or does not; a listing is written before anybody reads it;
+prevention that begins after the first sale is not prevention. **Only rapid support genuinely
+needs customers.** So four priorities are checkable today and are not waiting for anybody,
+which matters because the alternative is comfortable: a plan beginning at the first sale lets
+all four sit unfinished while the shop feels prepared. The sprint ends at a hundred — a
+permanent sprint is just how the company works — and it may spend support hours, sample costs
+and a slower release cadence, never the price.
+
+**#249/#250 — the creator portfolio, and the two programmes that must not merge.**
+`growth/creators.py` extended. "Scale high-contribution relationships and stop weak ones" is
+correct, and applied to a roster where most relationships are unmeasured it stops the ones
+nobody got round to measuring — a null sorts to the bottom of a ranking, and the bottom is
+where things are cut from. So an unmeasured relationship is classified `unmeasured` and named,
+never weak. For #250: a tester is paid to find what is wrong; an ambassador is given a
+relationship for saying what is good. Under one agreement the test fee becomes a review fee —
+and the testing stops working, because a tester whose standing depends on enthusiasm reports
+fewer defects, and the physical sample is the most expensive signal this company buys. Two
+agreements, a recorded revocable consent, and testing terms that mention anything public are
+refused by name.
+
+**#251/#255 — tools that answer first, and the number the flows refuse to be judged on.**
+`growth/tools.py`. A calculator that withholds its answer until somebody hands over an address
+is a lead capture form wearing a calculator's name. The more useful finding is that **five of
+the six tools the requirement names are arithmetic this system already runs on every release**
+— yardage from the twin, finished size from the compiler, make time from the lead-time engine,
+the last practical make date from the calendar, colourway contrast from the substitution guide
+— so what is missing is a surface, which is one owner action rather than five engineering
+ones. For #251 there is no open-rate field anywhere: an open is not a business outcome, a flow
+judged on opens is optimised toward subject lines and away from the purchase, and a segment
+built on one is built on whether somebody's mail client fetched an image. Incremental
+contribution needs a holdout, and `growth/experiments.py` already refuses without one.
+
+**#248 — the clip that outlives its pattern.** `growth/video.py`. The instruction with
+weight in this requirement is *keeping a canonical tutorial*, and the reason is not tidiness:
+five platform videos with no canonical source diverge silently, and a corrected pattern
+leaves the troubleshooting clip telling three thousand people to do the thing that was wrong.
+That is the same defect as a stale PDF, so a module is recorded in `ops/artefacts.py` against
+the design it was cut from and goes stale by the same mechanism — found by the hourly sentinel
+rather than by somebody remembering that videos exist. Repurposing is checked: a twelve-minute
+technique explanation cut to fifteen seconds is refused as a trailer for nothing.
+Troubleshooting modules are seeded from #247's observed questions, so a clip about a problem
+nobody has had is refused.
+
+**#246 — a pin set that is genuinely several pins.** `growth/pins.py`. The requirement says
+"avoid spammy duplicate pins" and the mechanism is not about images: five pins that differ in
+crop, overlay and filter are one pin posted five times, and they are indistinguishable from
+five pins to any check that looks at the file. What makes two pins different is what they are
+*about* — seven reasons anybody saves one object — and the four things a pin factory produces
+when asked for variants are named as not being pins. Amplifying a winner means another angle;
+the same pin again with a different overlay is the same spam arriving through the door marked
+success. The schedule is the seasonal calendar's own milestones, because a second set of
+seasonal dates is a second answer to when the work is late.
+
+**#247 — search clusters from questions makers demonstrably asked.**
+`growth/clusters.py`. A keyword list produced by asking a model what crocheters search for is
+a list of things that *sound* like searches, and it is indistinguishable from a good one
+until a year of writing has been spent on it. This company already holds a list it has
+evidence for: the complaint themes counted from observed reviews. A complaint is an
+informational intent that arrived too late — "the stitch counts do not add up", "I ran out of
+yarn", "it did not fit" are the questions somebody would have typed a week earlier. A theme
+nobody has seen three times is one customer's bad day rather than a cluster, on the observer's
+own constant. A cluster with no paid destination is refused — and the download-help cluster
+says outright that it sells least of all, which is better than pretending every article sells
+something.
+
+**#233/#234 — the ladder, and what a bundle is.** `commerce/ladder.py` names the rungs with
+nothing on them (a buyer who climbs to one arrives and finds nothing) and the steps that are
+too big: a buyer who has spent CA$4 does not next spend CA$20, and a rung five times the last
+one is a missing step wearing a price — invisible in a tier diagram, because both rungs are
+occupied. The discount rule is the requirement's own sentence made mechanical: a tier on sale
+more than a third of its live days has no regular price left, and the flagship is never
+routinely discounted, because it is the one product whose job is to say what this shop is
+worth. `commerce/bundles.py` makes "natural" checkable — same occasion, same yarn weight,
+same collection, same recipient, same room — and delegates *did it work* to the attribution
+engine that already refuses without a baseline, because two answers to one question means the
+flattering one gets quoted.
+
+**#188 — `finance/governor.py`, and the three numbers it refuses to invent.** Cost is
+attributed across the five dimensions the requirement names, and every dollar is either
+attributed or named `unattributed`, with the two summing to the bill or the table being
+refused outright — because an attribution table that sums to less than the invoice is worse
+than none, and the missing spend is always the spend nobody has a story for. The other three
+controls are measurements this company cannot take, and each says so: an anomaly needs
+fourteen days of baseline (a detector with none fires on the first real day of work, teaches
+everybody to ignore it, then never fires again); marginal value has a zero numerator while
+no order is attributed to any spend, and calling that "worthless" would justify cutting the
+spend that has not had time to work; and parallelism cannot be judged from one worker count,
+which answers with whatever was running when somebody asked. The verdict is completions per
+*minute*, not per worker-minute — that always falls when a worker is added, and the question
+is whether the queue drained faster.
+
+## Previously — last completed milestone
+**Freshness is proved, not assumed — and a trajectory that refuses to state a probability.**
+
+**#171/#173 — every derived artefact tied to its evidence, and a sentinel that can stop a
+publication.** `ops/artefacts.py`. The chain already fingerprinted the three things it had
+been burned by; what did not exist was the general statement. Every artefact class the
+requirement names now records the fingerprints of what it was made from, and the rule that
+answers the requirement's own sentence — *a stable slug must never make stale output appear
+current* — is that **an artefact with no provenance row is unproven, never fresh**. It has
+no mismatch to report, so a sweep comparing only recorded rows calls the estate clean and
+leaves every un-instrumented file looking current.
+
+The sentinel is hourly, and three things make it real rather than decorative:
+
+- Its block is the existing `halts_publication` flag that `runtime/pipeline.py` already
+  consults, and the test asserts the publish path **refuses** rather than asserting a row
+  was written. A block that is only a row is a claim about a block.
+- It enqueues the existing `chain.rebuild` for each stale product, so the deterministic
+  rebuild is triggered rather than recommended.
+- It can clear. An artefact whose upstreams match again resolves its own incident, because
+  a sentinel that can only add incidents halts the company the first time anything is
+  rebuilt.
+
+A mismatch and an absence are graded differently, on the requirement's own wording — it
+blocks on *any mismatch*. An absence is a backlog: blocking on it the first time this ran
+would have halted the whole catalogue over instrumentation nobody had fitted. `graduation()`
+states the condition for enforcing absence as a count, not a judgement. Both of #173's named
+test conditions are exercised: deliberate stale-data injection, and a restart through a new
+`Database` against the same file.
+
+**#26 — a trajectory made of assumptions, labelled as one.** `scale/trajectory.py`. The
+requirement's last sentence governs the module rather than being appended to it: **no
+function returns a bare probability**, because a number detaches from its provenance the
+moment somebody writes it in a summary. Below a 60% observed share the run is named an
+assumption space and states no probability at all — today that share is zero. The output
+that *is* useful with no data is the sensitivity ranking: it does not say what will happen,
+it says which assumption the answer is hostage to, which is the one thing worth going and
+measuring. The seed is the date, because the first thing anybody does with a nightly number
+is compare it to last night's.
+
+*A process note worth keeping:* `ops/artefacts.py` was first written as `ops/provenance.py`,
+beside the existing `radar/provenance.py`, and its test file overwrote
+`tests/test_provenance.py` — 161 lines of #38/#50 coverage, recovered from git rather than
+from memory. The near-duplicate name was the whole cause (B-364).
+
+## Previously — last completed milestone
+**The commercial spine: two production queues, a creator roster, offers, baselines,
+experiment memory, the free-to-paid funnel and where the week goes.**
+
+Nine requirements landed together because they are one argument. #5 decides which queue a
+product is made in, #13 decides the shape it is sold in, #10 decides what brings somebody to
+it, #9 and #21 decide who can vouch for it, #14 decides what its numbers are compared
+against, #16 decides what a test of it may claim, #22 decides what happens when one of them
+finally works, and #30 decides how much of the week any of it gets. Each is summarised in
+its registry note; what follows is what they have in common.
+
+**Every one of them is a refusal that costs something now to stop a mistake later**, and in
+five of the eight the mistake is the same shape this build keeps finding — *a verdict
+computed from the absence of failures will always pass a run that did not happen*:
+
+| where | the absence that would have passed | what is required instead |
+|---|---|---|
+| #5 lanes | a QA-stability flag somebody set | the regression corpus, its run, certified releases and open halting incidents, each read positively — an unread signal is its own refusal |
+| #5 gates | "no gate complained" | a gate *run* per stage; a stage nobody reached is absent, and absent is not passing |
+| #16 listing tests | a listing with no exposure, read as a failure | a listing nobody saw did not fail, it was not tested — and an unreadable test writes nothing to memory, because a disproof would block an idea nobody tried |
+| #14 baselines | a refund rate of zero on a shop with no orders | absent, named as absent; and a rate computed from three orders is a rumour with its own message |
+| #10 funnel | 0% conversion from an upstream of zero | no rate at all, because 0% makes an untried funnel look like a failed one |
+| #21 creators | an outcome nobody measured, averaging as a zero | unmeasured is named and blocks; spend does not scale on no bad news |
+
+**#5 — two production queues, and the floor that stops one eating the other.**
+`commerce/lanes.py`. The fast lane buys learning rate and search coverage; the flagship lane
+buys authority, content depth and order value. A garment cannot be argued into the fast lane
+by typing "one component" onto it under a deadline, because the pod decides what a thing is
+and the deadline does not. Both lanes have a capacity floor: the fast lane eats the flagship
+lane one defensible week at a time, and a catalogue of four magnificent blankets has had
+four chances a year to learn what sells. The mix is a share of **making capacity, never a
+count of products**. "Both retain all applicable quality gates" is structural —
+`applicable_gates()` takes the product and **has no lane argument at all**, asserted by
+signature rather than by example.
+
+**#9/#21 — a roster that buys work and never an opinion.** `growth/creators.py`. The
+deliverable vocabulary is closed and contains no review, so "never require or purchase
+dishonest reviews" is unrepresentable rather than discouraged; a sentiment condition is
+refused even when the deliverable is honest, including the one nobody writes down ("we will
+send the next one if it goes well"). A stated follower count stays a claim with its source,
+there is no reach projection anywhere in the module, and a test reads the source to assert
+the absence. Permission is scoped: a photograph licensed for the creator's own channel is
+not licensed for our listing. Outreach is a commercial electronic message and travels on
+CASL's conspicuously-published-address basis, with the message requirements delegated to
+`growth/owned.py` rather than restated. Seeding starts at zero spend, because a digital
+pattern costs nothing to give.
+
+**#13 — the offer is a variable.** `commerce/offers.py`. The same design sold six ways is
+six propositions, and one failing says nothing about the other five, so a design may not be
+retired until it has worn more than one *family* of offer — three bundles are one offer
+tested three times. Both measurements are reported and neither alone, because revenue per
+buyer is the one that flatters. Two of the six offers cannot be delivered today and are
+named unavailable rather than quietly priced: nothing here can make a video, and a stated
+answer time is a promise nobody has measured the capacity to keep.
+
+**#14 — one funnel at a time.** `commerce/benchmarks.py`. A baseline belongs to a cell
+(category, traffic source, price band, shop maturity) and a comparison across cells is
+refused with the axes that differ, because the failure the requirement names is somebody
+reading two correct numbers side by side. A thin cell answers, which makes it more dangerous
+than an empty one, so below the floor the number is not produced at all.
+
+**#16 — a memory that can also forget.** `commerce/listing_tests.py`. A disproof closes a
+question only in the context that produced it, and reopens when the caller names what
+changed; a memory that never forgets is a way to stop learning, which is the same failure as
+no memory arriving from the other side. The memory is a table, because "we tried that last
+year" is exactly the knowledge a restart loses.
+
+**#10 — free work with a commercial job.** `growth/free_to_paid.py`. A free pattern for
+something this company sells does not lead to it, it **replaces** it — and that failure looks
+exactly like success from the inside, because the downloads go up while conversion falls. An
+email is a rung only once it is consented.
+
+**#22 — rank is not credibility.** `commerce/replication.py`. In a catalogue of three the
+best seller may have sold twice. A winner normally differs from the field on every dimension
+at once, each a complete explanation of which at most one is true, so candidate causes are
+ranked by how *distinguishable* they are and a fully confounded winner is reported as
+confounded rather than explained. The study returns its capacity on the end date whether or
+not the question was answered.
+
+**#30 — the default is not more engineering.** `scale/allocation.py`. The requirement
+names the failure it prevents, and it is the one this system is most exposed to rather than
+least: engineering work is always available, always visible, always finishes, and never
+requires anybody outside this company, while distribution requires an audience that does not
+exist yet and can always be defensibly deferred until the thing being distributed is better.
+A shop can be improved indefinitely and shown to nobody, and no week feels wasted. So the
+mature 30/30/30/10 mix is the default rather than the reward, distribution has a floor no
+bottleneck may cross, and an unmeasured bottleneck is not a bottleneck — guessing produces
+whichever term somebody has a benchmark for, which is the one nearest the code. "After core
+engineering stabilizes" is #5's evidence, imported rather than restated, because two
+definitions of stable is one definition and one excuse. It runs as a **weekly cadence**
+(`capacity_review` → `ops.capacity`, GREEN, spends nothing) rather than as a function
+somebody remembers to call, because a module nobody calls is precisely "whatever was easiest
+to pick up" — the thing the requirement prevents. Its handler is executed end to end by its
+own test, since a handler whose interesting half no test runs is an untested handler with a
+passing test beside it, and this build has shipped that twice.
+
+*Worth recording, because it is the same slide happening inside the module written to stop
+it:* the first draft's build-phase mix put distribution at 15% against the 20% floor it
+enforces everywhere else, with a docstring claiming the floor was respected. The invariant
+test — every mix this module ships passes its own check — is what caught it, and it is the
+only kind of proof that survives the next edit.
+
+**One gate was added and two requirements re-parked.** #4 and #10 were parked on
+`browser_vision` and `live_listings` because those were the nearest existing keys, and
+neither is what they wait for: a concept post and a free article wait on somewhere of this
+company's own to publish them. `owned_surfaces` now exists. A gate that is nearly right is
+worse than a new one, because it opens on the wrong day and puts work in the ready queue
+that still cannot start.
+
+**Live:** `/api/lanes`, `/api/creators`, `/api/offers`, `/api/benchmarks`,
+`/api/listing-tests`, `/api/free-to-paid`, `/api/replication`, `/api/allocation`.
+
+## Previously — last completed milestone
+**Four commercial requirements, and the one defect shape behind three of them.**
+
+**#5 — two production queues, and the floor that stops one eating the other.**
+`commerce/lanes.py` operates the fast lane (ornaments, kitchen and bath textiles, simple
+decor, selected hats, suitable simple amigurumi, quick seasonal gifts) and the flagship lane
+(premium blankets, major collections, selected garments, sophisticated seasonal products).
+What the fast lane buys is learning rate and search coverage; what the flagship lane buys is
+authority, content depth and order value. Three things make it code rather than a policy
+note:
+
+- *A garment cannot be argued into the fast lane.* The pod is a necessary condition and the
+  product's own measurements decide the rest, so typing "one component" onto a cardigan
+  under a deadline changes nothing. This is the commonest way a fast lane goes wrong.
+- *Both floors are enforced.* The fast lane eats the flagship lane one defensible week at a
+  time — the fast product is always the better use of *this* week — and a catalogue that is
+  all flagship has had four chances a year to learn what sells. The mix is a share of
+  **making capacity, never a count of products**, because a flagship costs several fast
+  products and a count that looks balanced is a capacity split that is not.
+- *"Both retain all applicable quality gates" is structural.* The list is the release
+  chain's own `CANONICAL_STAGES`, imported rather than retyped, and `applicable_gates()`
+  takes the product and **has no lane argument at all**. A test asserts that by signature
+  rather than by example, because an example only proves the case somebody thought of.
+
+Flagship is never merely "not fast": substance is proved, and a product that is neither
+simple enough to buy learning rate nor substantial enough to buy authority is routed to
+neither queue and told so. A Class B fast-lane product says out loud that a physical sample
+sets its wall clock — which is why the trend lane (#291) takes Class A only, and why a test
+holds #291 at least as strict as this lane so it cannot become an exemption in a second
+costume. Live at `/api/lanes`.
+
+**The requirement's own opening — "after core QA stabilizes" — is read from records.**
+The tempting implementation is a boolean somebody sets. `qa_stable()` instead counts the
+regression corpus, runs it, counts certified releases and reads unresolved halting incidents,
+and **an unread signal is its own refusal**. `RegressionRun.ok` is true for a run that
+checked nothing, so the fixture count decides whether there is a verdict at all. Until the
+chain is steady there is one queue — running exactly the same gates, because nothing about
+the checking ever changes here.
+
+**#4 — pre-production demand validation, where the value and the hazard are the same act.**
+A picture of a thing that does not exist, posted where people buy things, is a pre-order
+somebody will try to place. `commerce/preproduction.py` requires the concept to be named as
+one in words a scroller reads rather than in a trailing hashtag, refuses every phrase that
+promises a purchase, and refuses a price — a number with a currency in front of it is an
+offer. There is **no code path in the module that can author an engagement number**, and a
+test asserts the absence by reading the source, because "we would never" is not a control.
+Nothing is published: no social credential has been granted. The refusals run anyway, so
+they are tested before the day they matter.
+
+**#268/#269 — the cross-border lens, and exact money.** The benchmark this company measures
+itself against is a US shop, so `commerce/markets.py` answers *whose language is this* before
+any comparison is read as a finding, and names the holidays that do not transfer.
+`finance/currency.py` carries `Money`, `Rate` and a fee schedule that includes the two fees
+that quietly eat a cross-border margin: currency conversion and the regulatory operating fee.
+
+**#240 — a catalogue competing with itself, and the stuffing that "fixes" it.** The two
+failures are opposites, and a module that counted one would push the catalogue into the
+other, so both are counted. Its own test caught the module inverting: a facet stated by a
+single listing was reported as 100% concentrated, which made the least crowded facet read as
+the most crowded.
+
+**The shape behind three of these** is the one this build keeps finding, and it is worth
+naming again because it arrives in a new costume each time: *a verdict computed from the
+absence of failures will always pass a run that did not happen.* It was a QA-stability flag
+in #5, a gate list checked by "nothing complained" in the release path, and "flagship" read
+as "not fast" in the routing. Each fix is the same fix — require positive evidence that the
+work was done, never the absence of a complaint.
+
+## Previously — last completed milestone
+**The tournament runs at scale, the scorer was finally fed, and the queue's top item was
+work nobody could start.**
+
+**#3 — the tournament at its specified size.** The requirement asks for roughly 75-100
+*inexpensive* concepts cut by five kill gates. Generating a hundred at the deep tier costs
+about CA$2.52, which contradicts the requirement's own word: the funnel's shape is to spend
+little across a wide field and concentrate cost only after it is cut. A cheap-tier
+`concept_ideation` task now does 100 concepts for about **CA$0.27**, and cheapness is a
+routing fact a test asserts rather than an intention. `field()` fills the field by
+round-robin across reachable proven arenas so breadth is structural, and `tournament()` runs
+the real funnel stages — two of them. It names the three it cannot run: proposition needs a
+margin and an unmet angle, prototype needs a compile and a twin, release needs the gates, and
+running them with placeholder verdicts would produce a five-stage funnel that had cut nothing
+twice. First run at scale: **80 generated, ideation examined 80 and killed 0, research killed
+78 — 58 sameness, 20 unverifiable.**
+
+The first attempt was refused by the funnel's own rule that *a stage killing nothing did not
+happen*. The honest fix was not to weaken it but to let a zero-kill stage prove itself:
+`advance()` now takes `examined`, and a stage that killed nothing must declare its gate saw
+every entrant. A count short of that is refused as a stage that partly did not happen.
+
+It is now a weekly cadence (`product_tournament`) against the one arena this cycle's wheel
+picks — one arena rather than twelve, because a field spread across every department puts two
+or three concepts against each and cannot support a comparison against anything. The wheel
+reserves 45% of its slots for Christmas, so the priority programme gets depth rather than a
+turn: **9 of the next 20 cycles are Christmas**, starting with Christmas/garments at 96 days
+against 140 observed MJs listings and no Brambleloop garment at all.
+
+**#2 — the scorer had never been called with anything.** `score_market()` was correct
+arithmetic that had never produced a number about this business, which is the same defect as
+a credential nobody has used. `score_observed()` now feeds it the four dimensions first-party
+observation genuinely supports — demand from observed favourites, the opening in the
+incumbents' offers from the weakness hunt, what the market charges from observed prices, and
+machine-verifiability from the share of a department's observed forms the compiler can build.
+That is **52% of the weight**, above the floor and comparable across departments because
+every department is scored from the same source. Demand and price are each a department's
+median against the strongest department *in the one catalogue observed*, and say so wherever
+they surface. Listing density stays unmeasured rather than being taken from a single shop's
+shelf space.
+
+**#2's deliverable clarity closed, and with it the requirement's own eight-item list.** The
+note said it needed "a field the observation does not carry" — true of the stored row, not of
+the payload. Every catalogue page was already arriving with each listing's description and
+nothing was reading it. `intel/deliverable.py` reads it once, in memory, and stores eight
+booleans: whether the listing states its format, delivery, extent, contents, stitch terms,
+finished size, yarn and hook. **The facts are kept and the seller's words are not**, on the
+same rule the review reader follows. Limited sizes and weak bundles closed with it; a size
+letter is read only from a clause that says "size", because a bare `s`, `m` or `l` is one of
+the commonest characters in a pattern listing and a matcher that read "1200 m" of yarn as a
+size range would manufacture the weakness it was written to find. The two the requirement
+names that no text can answer — branding coherence and whether the styling looks like this
+year — are reported under `needs_vision` rather than dropped so the list could be called
+complete, and **#2 is parked on `browser_vision`**.
+
+The reading reaches unchanged listings, which is the gallery backlog's lesson applied before
+it could repeat: a reading attached to the new-or-changed branch describes the shop's recent
+edits and nothing else. It costs no extra request, so the whole map closes on one scan.
+
+**The queue's top item was unstartable.** #292's own note said every re-merchandising move
+this build can reach was built and the rest waits on image generation — and the executor,
+which cannot read prose, went on offering it as the single highest-value READY requirement.
+Hand-maintaining a second list of gated requirements inside `executor.py` is what let the two
+drift, always in the same direction. The registry now declares its own gate:
+`Requirement.parked_on` sits beside the sentence that states it and is written in the same
+edit. A gate the registry names that no `Gate` defines is refused, because a key nothing
+checks never opens and the requirement would leave the queue permanently rather than wait in
+it. **Ready 90 → 88, parked 40 → 42.**
+
+**`mjs.reviews` ran for the first time: 100 reviews read, 0 recurring complaint themes.**
+Zero is a finding, not an absence — a shop with a hundred reviews and no complaint reaching
+the floor of three is a strong incumbent, and the honest reading of the arbitrage opening
+here is that it is not going to come from their customer service.
+
+**Fifty-eight sameness deaths were one brief asked twelve times.** Reading the first
+tournament's 78 kills as a harsh jury would have been the comfortable conclusion and it is
+not what happened. Within one slot the pod, form and occasion are already identical, so a
+pair only clears the novelty floor when its motif, recipient *and* function all differ — and
+one brief does not produce that. The brief now varies per concept: #106's nine named pairs
+crossed with #107's nine transformation patterns give **81 structurally distinct questions**,
+walked with a stride co-prime to both factors so consecutive concepts never share a pairing,
+and continued across batches so a slot visited seven times asks eighty-four questions rather
+than the same twelve seven times. Every cross is still built through `cross()`, so #106's
+near-synonym and one-dimension refusals apply: the variety is generated and it is still
+checked.
+
+Underneath it, a determinism defect. The pairing was chosen with `hash((pod, form))`, which
+Python salts per process, while the docstring promised the same arena always asks the same
+question. **The brief was silently different on every worker restart**, which makes any
+comparison between two runs unreadable — the field moved and nothing recorded that it had. It
+is a blake2b digest now, with a test that spawns three interpreters under different seeds.
+
+**The proposition stage runs.** Two of its three checks are computable from observation. The
+family test (#111) asks whether the hero's construction reaches enough roles including a
+cheap one, or whether the collection would have to be forced after the hero exists — which is
+exactly when the answer is always yes. The angle check is one-sided on purpose: it refuses a
+concept whose every word the department uses at all is used by more than 34% of its listings,
+and it does **not** endorse one whose words simply do not appear, because an absent word is
+absence of evidence. **Margin is named as not applied rather than run.** Contribution after
+platform fees passes every concept — a digital file has no marginal cost — and what decides a
+pattern's margin is the cost to create it, which is #31 and does not exist. A check that
+always passes is not a gate. A proposition stage fed below its floor of 35 is refused by the
+funnel and the refusal is *reported*, because "research left too few to reach stage three" is
+a finding about the field, not about the gate.
+
+**A cadence its agent may not run dead-letters on its first fire.** `product_tournament` went
+live and died at 05:12Z: `creative_director` had permission for `creative.blinded` and
+`creative.expedition` and not for `creative.tournament`.
+`test_every_scheduled_cadence_can_actually_run` exists for exactly this and caught it — the
+push went out before the full suite's result was read, so production found it first. That is
+the wrong order and it is the reason that test was written.
+
+**#7 — what can I use instead, and how much of it.** The first question a pattern buyer asks
+is the one nobody answers, and it is normally answered with a paragraph of confident prose.
+`publish/substitution.py` answers it as arithmetic on the pattern's own gauge and yardage, and
+refuses in three places. Gauge decides which weights substitute, not the name on the band. A
+pattern with no gauge gets no guidance at all. Across fibre classes it gives a direction and
+no number, because how much cotton and acrylic differ per stitch is measured on a swatch.
+
+**I wrote the wrong arithmetic first and the smoke test caught it.** Scaling a pattern's
+yardage by the ratio of two weights' lengths per 100g looks right and is wrong — that ratio
+is about *mass*, not length used. At the same gauge and finished size the stitch count and
+each stitch's yarn path are unchanged, so the metres barely move; what moves is how many balls
+they arrive in. The wrong version gave a 900 m pattern a band of 485–900 m and **would have
+sent a buyer home with half the yarn**. The regression test holds the correction and states
+why the obvious arithmetic is the wrong one, because the next person will have the same idea.
+
+It is rendered into the pattern PDF rather than parked behind an endpoint nothing calls —
+which is the defect this same session spent its morning fixing in `score_market()`.
+
+**And it found something on its first real pattern.** Every CIR this system generates declares
+**worsted acrylic at 16 stitches per 10 cm, and the published band for medium yarn is 11–14**.
+The stated yarn cannot hold the stated gauge. That is all eleven products. The PDF prints the
+inconsistency and tells the buyer to swatch; it does not pick a side, because which number is
+wrong is a swatch's answer and nothing here has swatched. Promoting it from a printed note to
+a release gate would stop the whole catalogue, which is a reason to do it deliberately rather
+than a reason not to. **OWNER-VISIBLE, not owner-blocking.**
+
+**#8 — the proof stack.** Five rungs, each a query against rows: deterministic validation,
+independent reverse compilation, a physical tester's example, a real customer project, a
+repeat purchase. The claim level is the highest **contiguous** rung — a customer photograph
+arriving before any tester made the thing licenses nothing new, and reporting the highest rung
+in isolation is how a listing claims a test nobody ran. `check_claim` is wired into the policy
+gate and into `certify()`, deliberately separate from the existing unsupported-claim patterns:
+those refuse sentences that are never sayable, and "maker tested" is true the day a tester
+finishes one and false the day before. A completed sample that **failed** is evidence and not
+a proof point. Every rung states what it does *not* prove, because a ladder that only says
+what each rung establishes invites the reader to round it up.
+
+The permission half is enforced at provenance: `tester` and `customer` are permitted sources,
+and either without a recorded `consent_ref` is `ASSET_CONSENT_MISSING`. A reference rather
+than a boolean — somebody has to be able to go and look, and absent consent is not implied
+consent. Rungs four and five read False until orders exist and are parked on the `customers`
+gate.
+
+**A remainder that needs orders had nowhere to wait.** `parked_on` covered capabilities
+somebody can grant; #18's remainder needs *orders*, and nothing in the gate table could open
+for that. The `customers` gate is the one entry the owner cannot grant — it counts ledger
+rows, and its test asserts that no environment variable can open it.
+
+## Four of the tournament's five stages run
+
+**#3 stage four.** `creative/prototype.py` authors a CIR from a concept's form and
+construction, compiles it, and asks the twin whether the object it describes is the one that
+was asked for. No model is consulted — a test asserts the module never reaches for a gateway,
+because section 2 outranks everything else. The finished size is the input and the stitch
+count is **derived**, which is the direction that cannot produce a "blanket" 100 cm wide and
+17 cm tall.
+
+**The gauge is derived from the declared yarn's published band**, which makes this morning's
+catalogue defect — worsted at 16 sts/10 cm against a band of 11–14 — structurally impossible
+in anything this system authors.
+
+**I shipped a bug into it and kept the bug as the gate.** My first draft alternated single and
+double crochet rows under a gauge stated in single crochet. It **compiled perfectly** and
+built a 150 cm throw the twin measured at 225 cm — a CIR that is internally consistent and
+describes the wrong object, which is exactly what the digital twin exists to catch and what a
+compile-only gate would have passed. The stage now asks the twin as well and refuses a size
+drift above 20%.
+
+Sixteen forms have geometry; **six are refused rather than sized by guess**, with reasons: a
+graded garment is a size chart rather than a finished size, a shawl's size *is* its shaping, a
+garland is a repeat count. Those refusals are the engineering backlog stated precisely.
+
+**#29 — a dependency is existential when it is concentrated AND load-bearing.** The rule's two
+halves pull against each other, and a module implementing only the first tells a pre-revenue
+company to open a second marketplace. Today: **`ai_provider` is genuinely existential** — one
+provider at 100%, and nothing needing judgement runs without it. `sku` is 100% `home_decor`,
+concentrated and not yet load-bearing. `traffic_source` and `marketplace` are unmeasurable
+with reasons, because "no traffic source is dominant" is true of a company with no traffic.
+
+**Two fixture faults, and one in my own checking.** Nothing exercised the tournament's later
+stages because the field double answered `in_the_round` whatever form it was asked about,
+used a key stride that was a multiple of both 4 and 5 (so recipient and function repeated
+identically every batch), and wrote near-identical premises. Fixed, research survivors went
+2 → 24. I stopped short of proposition's floor of 35 rather than tune a fixture until it
+cleared a gate — the live run reached 45. And my own spot-check command, `… | grep "^FAIL" ||
+echo clean`, reported clean on a file that failed to parse. Checks are by exit code now.
+
+Suite **1506 passing, 0 failing**.
+
+## The first tournament at scale, and the three price tables underneath it
+
+**2026-09-20T06:04Z, job 1718, Mother's Day / garments: 80 generated → research kept 45 →
+proposition kept 11.** Research's kill rate went from 0.975 to 0.438, inside the
+requirement's 35–45 target for that stage. The 58 sameness deaths in the first run really
+were one brief asked twelve times, and the per-concept invention crosses fixed it. Three of
+five stages ran; `proposition_refused` is empty, so stage three cleared its floor of 35
+legitimately.
+
+**It also reported `cost_cad: 0.0` for eighty concepts, and the month's spend did not move.**
+That is not possible, and chasing it found three price tables that disagreed.
+
+- The cheap tier routes to `claude-haiku-4-5`; the billing table held only
+  `claude-haiku-4-5-20251001`. `PRICES.get(model, (0.0, 0.0))` priced **every cheap-tier call
+  at nothing**, so the CA$25 monthly ceiling could never be reached by cheap work — an
+  unbounded budget reporting zero, the same defect class as the `kind="model"` versus
+  `kind="llm"` bug from the same night.
+- `AnthropicProvider.__post_init__` defaulted an unknown model to zero while `_cost_for`, ten
+  lines below, raised saying *"an unpriced call is an unbounded one"*. **Two code paths for
+  one rule, and the silent one was the one the gateway used.**
+- Routing restated the deep tier at USD 5/25 per million tokens; the provider bills 15/75.
+  **Every estimate in the system was a third of the truth** — which is why the first
+  expedition, estimated at CA$0.15 a field, cost CA$1.02.
+
+One price table now. Routing reads it rather than restating it, an unpriced model is refused
+at construction, and a test locks the tables together. **CA$25 buys about 64 release-blocking
+blinded comparisons a month, not the 192 a passing test used to believe** — the assertion was
+corrected, not the price.
+
+**The wheel could starve its own priority programme.** The run picked Mother's Day, not
+Christmas — correctly per the schedule, and that is the bug. Twenty slots with the first nine
+reserved, positioned by a week number counted from the Unix epoch, so the phase was
+arbitrary: it landed at a non-priority position with Christmas 96 days out, thirteen cycles of
+runway left and the next Christmas slot eight cycles away. **A reservation a phase offset can
+push outside the runway is not a reservation.** The turn is capped at the runway now and the
+slots are spread across it, so the worst wait for a Christmas cycle from *any* phase is 2
+instead of 8.
+
+**#31's attribution closed.** `registry.record_cost` always accepted a job id; `ModelGateway`
+never passed one, so every model cost reached the ledger with a null job and `unit_costs()`
+could match none of them to the artefact that caused them. Correct arithmetic over an empty
+attribution — the same shape as a scorer nobody feeds. An artefact can now be produced by
+several actions, and one whose count lives in the row is counted from the row: a discovery
+run is one audit entry that produced eighty concepts, and calling it one concept would report
+a field at eighty times its unit cost, which reads as a reason to stop doing discovery.
+
+Model spend **CA$1.17 of CA$25**. Production verify **12/12 green** at 2026-09-20T05:04Z.
+Suite **1481 passing, 0 failing** before this batch.
+
+## Previously — last completed milestone
+**Discovery produced its first real products, and the headline number needed its caveat.**
+
+At **2026-09-20T04:02Z** the weekly expedition ran live for the first time: **Mother's Day /
+garments — 18 concepts proposed across fitted garment, draped garment and scarf, 18
+surviving, CA$1.02.** Names from the run: *Asymmetric Dawn Yoke, Shutter Sleeve Top, Folding
+Facet Jacket, Household Squares Kimono, Lit Window Wrap, Fan Wedge Ruana, Shingle Tier
+Capelet, Medallion Bloom Shawl.* The loop works: a proven MJs arena with no Brambleloop
+answer went in, and eighteen distinct garment concepts came out through the deterministic
+gates. **This is the first time this system has invented a product outside `home_decor`.**
+
+**18 of 18 is not a strong field and not a weak gauntlet — it is structural.** Our catalogue
+is eleven home-decor products, so every garment concept scores maximum novelty against it
+automatically and the jury's `sameness` critic has nothing to fire on. A novelty gate
+measured against a catalogue containing nothing like the candidate **cannot fail**. The first
+expedition into any new pod will survive at 100%, and that number says *we have never made
+one of these*, not *these are good*. The run now reports `novelty_comparable` and states in
+words what its own survival rate means.
+
+Two sequencing defects found in the same run. It went to **Mother's Day at 231 days** while
+Christmas sat at 96 and Halloween at 41 — the wheel indexed each half in whatever order the
+matrix returned, so the run was aimed at the occasion whose runway was least in danger. Both
+halves are now ordered soonest first. And `choose()` had picked `Halloween/bags` on the
+previous cycle, an arena where nothing can still be made in time, burning the slot on every
+retry; reachability is now checked where the arena is chosen.
+
+**Measured cost correction:** the cadence comment said CA$0.32 a run. The real figure is
+**CA$1.02**, about CA$4.40 a month against the CA$25 ceiling. An estimate left in place after
+the real number is known is how a budget drifts.
+
+**#2's last two weakness signals closed** from endpoints already in the sanctioned allowlist.
+The deep audit records `has_video` per listing, measured only where a gallery was actually
+audited — counting unknown as "no video" would turn an unfinished backfill into a
+competitor's weakness. And `mjs.reviews` reads the shop's reviews weekly, counting recurring
+complaint themes: **counts only, never a review's text, a reviewer or a quotation**, because
+a complaint theme is a fact about a category and a review is somebody's words. That also
+corrects a claim made earlier the same night — `customer_pain` was recorded unfeedable
+because "inferring complaints from a competitor's catalogue is inventing them", which was
+true, and reading their reviews is observing rather than inferring.
+
+**#292** now computes which re-merchandising moves it can take instead of taking the list
+from its caller. `search_positioning` became genuinely available when the credential made a
+department's buyer language countable; the rest report what they wait on. The weekly
+`remerchandising_review` runs the inspection "periodically inspect" asks for.
+
+**Re-audited:** #293 → covered, #104 → data_gated, #98 → data_gated.
+
+Model spend **CA$1.17 of CA$25**. Production verify **12/12**, dead-letter defects 0. Suite
+**1420 passing, 0 failing**.
+
+## Previously — last completed milestone
+**The garment primitive, arena language, and the third form of a silent success (#104, #293).**
+
+**The armhole division.** Garments are 140 of 438 observed MJs listings and the deepest
+proven-and-unserved arena, and this engine could not build one — not for want of rounds,
+shaping, assembly or grading, all of which existed. One primitive was missing: **working into
+part of a previous row.** A yoke worked in rounds splits, the sleeve stitches go on hold, the
+body continues over the rest; without it the compiler saw a body round consuming 32 of 48,
+called it an underrun, and was right to.
+
+`Row.skips`, `Component.holds` and `Component.resumes` now express it, with five checks —
+because *"place 24 sts on hold for the sleeve"* is a promise, and an unchecked promise ships
+a pattern with live stitches nobody comes back for. A sleeve two stitches short is a hole in
+the armpit and compiled silently before. The writer states the division where it happens: a
+divided pattern that reads *"Rnd 3: sc 32 (32 sts)"* over a round of 48 is arithmetically
+correct, agrees with the twin, and is unfollowable. **A top-down yoke now compiles clean.**
+`top_down_yoke` and `bottom_up` route to `joined_rounds`, so every concept construction is
+buildable.
+
+**Discovery from proven arenas.** 12 live proven-and-unserved arenas. Christmas takes the
+**0.45 share the compression engine already reserves**, not one turn in twelve, and sweeps
+all four of its departments rather than deepening one. Forms come from observed listings in
+the pod; a form the engine cannot build is reported rather than dropped; a saturated form
+must earn its place; a form carries a lane *floor* so Halloween hats stay reachable as QUICK
+makes at 42 days. The pass reports `is_a_tournament: false` against the funnel's own ideation
+floor, because generating 75 concepts per arena to clear a threshold is optimising for
+volume.
+
+**The existing catalogue is 0 of 11 commercially informed** — none of it aims at a proven
+market, and none is even in a proven *department*. Plateau is now a checkable defect: a move
+under 0.03 is not a move, and unmeasured is never reported as flat.
+
+**#293's other half.** `arena_language()` counts terms across a department's observed titles
+and sorts them into the six facets — for stockings: object=stocking, season=christmas,
+aesthetic=farmhouse/rustic/chunky, skill=easy/beginner/chart, technique=cable/granny/mosaic.
+Observed by construction. Marketplace furniture is separated rather than dropped, a word
+meaning two things is classified as neither, and it emits single words and never a title,
+because term frequency is demand intelligence and a title is somebody's expression.
+
+**The same defect shape, three times.** An outcome indistinguishable from success while
+nothing happened. (1) `arenas()` read a key the matrix does not return and reported no arenas
+against 27. (2) The discovery cadence completed saying "nothing to do" and consumed its
+weekly window. (3) It then completed reporting `ran: true, proposed: 0, cost_cad: 0` twice,
+because a prompt asked for six concepts inside a 2000-token budget and came back as truncated
+JSON — a budget too small is not a transient fault, and the retry bought a second identical
+failure. The re-drive rule now reads **work done, not a flag**: a completed job whose every
+work counter is zero is a no-op. The flag was the unreliable half each time.
+
+Also found: the jury's anti-copying critic was never passed its benchmark, so the one gate
+against arriving as an MJs clone never fired. It compares the five things both sides state
+and reports its own limit — catching a borrowed *execution* needs a product in hand, which is
+the `benchmark_purchases` gate.
+
+Model spend **CA$0.1525 of CA$25**. Production verify **12/12**, queue depth 0, dead-letter
+defects 0 (120 Shadow Mode publication refusals, working as designed). Suite **1383 passing,
+0 failing**.
+
+## Previously — last completed milestone
+**Discovery that starts from a proven market rather than from what compiles (#104).**
+
+The direction of travel is inverted. Discovery no longer begins with a brief and looks for a
+market; it begins with a market the benchmark has *proven*, in a department this catalogue
+does *not* answer, and asks what would have to be built. Three refusals carry the owner's
+instruction that not every concept may become another throw, runner or garland:
+
+- **The arena picks the form.** An expedition into `hats` produces hats, and the forms it may
+  target are counted from observed listings in that pod — the vocabulary comes from what the
+  market contains, not from what this compiler finds easy.
+- **A form the engine cannot build is an engineering requirement, not a rejection.** Dropping
+  it is exactly how a catalogue converges on flat panels while believing it is being
+  selective.
+- **A saturated form has to earn its place.** Another rectangle throw is not discovery.
+
+Live against the real matrix: **12 proven-and-unserved arenas**. Christmas/garments (140
+listings, 97 days), Thanksgiving/blankets (85, 23 days), Halloween/hats (85, 42 days),
+Christmas/blankets, Christmas/hats, and bags across four occasions.
+
+The gauntlet is deterministic and every gate may empty the field: buildable form →
+adversarial jury → novelty against the catalogue → novelty against its own siblings →
+feasibility, which is marked and never fatal. Siblings are checked pairwise because a field
+can pass every individual gate and still be one idea submitted five times. **An empty field
+is a real answer**, and a better one than a survivor that only survived because the gauntlet
+was loosened until one did.
+
+**Four defects found building it, three of them live.**
+
+1. **Six of twenty-two forms were absent from the buildability map**, `stocking` among them.
+   An absent form has no buildable construction, so the pairing rules silently refused to
+   build a Christmas stocking — a pod the benchmark carries thirteen listings in and the
+   owner names a top priority. A form missing from that table is not unconstrained, it is
+   unbuildable, and nothing said so.
+2. **`arenas()` read `proven_gaps`; the matrix returns `proven_and_unserved`.** Production
+   reported no arenas at all against a matrix holding twenty-seven. Second reader/writer key
+   disagreement of the build, same comfortable failure both times: a wrong key does not
+   raise, it returns empty, and empty is the flattering answer.
+3. **A lane derived from physical size dropped Halloween/hats at 42 days** — a beanie, which
+   is exactly the product the compression doctrine says to reach for as an occasion closes.
+   Size and make time are correlated and not the same thing. Forms now carry a lane *floor*
+   and take the fastest viable lane at or above it.
+4. **A cadence that wrongly said "nothing to do" consumed its window.** `arena_expedition`
+   fired, hit defect 2, reported no arenas, and **completed**. It would have sat idle for
+   seven days after the repair, and the dead-letter re-drive cannot help because the job did
+   not fail. `ops.queue_check` now re-drives both shapes under one bound — once per deployed
+   commit — and `arenas()` raises rather than returning empty when the matrix contradicts
+   observed listings.
+
+**The garment gap is one named primitive, not a vague difficulty.** Joined rounds, increase
+and decrease ops, placed multi-component seams and size grading across a run all exist —
+`cir/grading.py` says in its own docstring that it was written for the garments pod. What is
+missing is **working into part of a previous row**: `Row.into` names a row index and the
+compiler takes that whole row's count, so the armhole division cannot be expressed and a
+cardigan can only ship as a flat panel nobody can wear. That one primitive unblocks
+`top_down_yoke` and `bottom_up`, and with them **140 of the 438 observed listings** — the
+deepest proven-and-unserved arena.
+
+Two new instruments earned their place immediately. `GET /api/queue/dead` groups dead letters
+by failure: the 121 turned out to be 120 Shadow Mode publication refusals working as designed
+plus one real defect. `GET /api/queue/cadences` reports when each cadence last ran and what
+it returned, and found defect 4 in one request — a cadence that completed with nothing to do
+is invisible at queue depth zero and looks exactly like a healthy system.
+
+Model spend: **CA$0.1524 of CA$25**. Suite **1342 passing, 0 failing**.
+
+## Previously — last completed milestone
+**The first blinded run scored 11-1 for this catalogue and was worthless (#94).**
+
+It ran in production for CA$0.1523. Twelve same-pod pairs, position share exactly 0.50,
+comfortably above the sample floor, `valid: true`, verdict `ahead`, win rate 0.9167. Both
+guards green. The number was meaningless and the judge's own reasons say why — it named
+"throw" in nine of the twelve:
+
+> *"A cosy rectangle throw gives far more warmth and everyday use than a single pillow."*
+> *"...whereas a single coaster feels like a small extra."*
+
+Our home decor is mostly rectangle throws; this benchmark's home decor is pillows, coasters
+and wreaths. The run measured **which object is bigger**, which is true whoever designed
+either one. That is a third confound beside position bias and a thin sample, and neither
+existing guard flinched at it.
+
+It cannot be corrected after the fact, so it is removed by construction: pairing is now
+same-**form** as well as same-pod. A throw is judged against a throw. The honest cost is
+that almost nothing remains to compare — `form_overlap()` reports **0 of 11 concepts have a
+like-for-like opponent**. This catalogue makes garlands, ornaments, table runners, wall
+hangings and flat panels; this benchmark's home decor does not. That is a finding about the
+catalogue, not a limitation of the measurement, and a more useful one than "92%".
+
+Two rules came out of it. A run that cannot reach the sample floor is refused **before** it
+spends, because paying for a result already known to be `unmeasured` is worse than not
+measuring. And results carry a `method_version`: the 11-1 verdict is still served, marked
+superseded and not valid, because the record of a measurement that was confidently wrong is
+what stops the same mistake being made confidently a second time.
+
+**The measurement was worth running early precisely because it was wrong in a way no amount
+of reasoning about the design had produced.**
+
+Two more #94 measures now exist, both computable and both awkward reading. **Theme fatigue**,
+per field because "the catalogue is repetitive" is not actionable: pod, feeling and make_lane
+each hold exactly **one** distinct value across all eleven products; recipient is 82% `self`.
+A field with one value is not a preference, it is a missing field. **Novelty distance**
+reports the minimum beside the mean, because the mean is the reassuring number and the
+minimum is the true one — mean 0.34, minimum 0.25, closest pair winter-village-graphghan
+against nordic-star-ornaments.
+
+**Two production defects, both found by the new dead-letter endpoint in one request.** 121
+dead letters turned out to be 120 Shadow Mode publication refusals working exactly as
+designed, plus one real failure. `/api/status` now splits refusals from defects, because a
+three-digit number that is 99% healthy is an alarm nobody can read. The real one was my own
+handler, and fixing it surfaced the serious one: **`ModelGateway` ledgered its calls as
+`kind="model"` while every ceiling counts `kind="llm"`**, so a real gateway call would have
+been invisible to the budget — the ceiling would have read CA$0.00 indefinitely while money
+left the account. It had never bitten because nothing had ever constructed a ModelGateway;
+the blinded run is the first thing that does, and would have been the first spend, uncapped.
+
+**A deploy now re-drives the dead letters it fixed, exactly once per commit.** The blinded
+job died on a typo and would have sat in the graveyard until its next monthly window, thirty
+days after the repair. A commit that did not fix the defect kills the job again and it waits
+for the next one. Verified in production: dead-letter defects went 1 → 0 by itself, and the
+re-driven job ran.
+
+Model spend to date: **CA$0.1524 of the CA$25 monthly ceiling.** Suite **1312 passing, 0
+failing**.
+
+## Previously — last completed milestone
+**The blinded human/agent comparison, and what it refuses to tell you (#94, #104).**
+
+Everything #94 asks for that code can compute has been in `tournament.scorecard()` since
+Build 1. The half that needed a judge became possible on 2026-09-19: the model gate opened
+from a recorded successful call, and the benchmark scan returned 438 real listings. The
+human side is a catalogue a person designed and a market has already paid for.
+
+This is the owner's product-quality concern turned into a number. The creative gate has been
+reporting 0 of 11 survivors with emotional appeal as the dominant failure, and *"are ours as
+appealing as theirs"* has been an opinion.
+
+Three guards, because this measurement returns a confident number whether or not it measured
+anything:
+
+- **Blinding is mechanical.** `blind()` refuses a card carrying a tell and refuses one with
+  an empty field, because a card is identifiable by its holes. The harder problem was
+  register: a Concept carries evocative free text in motif, premise, palette_story and
+  function; a benchmark listing carries none of it, and our prose against their keywords
+  would let a judge separate the sides without reading either. So the free-text fields are
+  **not on the card at all** — the comparison is over the structural promise both sides
+  genuinely state, rendered from the same enumerations.
+- **A judge that prefers the first option is measuring order.** Presentation order is
+  randomised per pair and recorded before judging. Past a 70% position share the run is
+  reported **invalid and discarded rather than corrected**: a correction applied to a judge
+  that was not really reading puts error bars around nothing.
+- **A win rate from four pairs is not a capability.** Below twelve judged pairs there is no
+  rate, only `unmeasured` — which is not parity and not losing.
+
+What it deliberately does not compare is **the photograph**, which is most of why a listing
+sells. That half needs browser/vision and says so in its own output.
+
+Live readiness: 438 benchmark listings, **220 usable as opponents (50%)**, CA$0.1294 per
+pair, 193 affordable, CA$0.0001 spent of CA$25 this month. The 218 that cannot be opponents
+are named by reason — 143 state no feeling, 42 state no product form, 29 are bundles, 4 are
+guidebooks or unclassified. Refusing to describe an unreadable listing creates a selection
+bias toward richly-titled ones, and `readability()` reports it, because an unstated bias is a
+wrong number rather than a limitation.
+
+It runs on a **monthly** cadence and there is no endpoint that runs it: a request that spends
+the model budget should not be one URL away. Monthly is a spending decision — twelve pairs is
+6% of the ceiling, weekly would be 27% for a number that cannot move that fast, and a
+measurement that expensive is one somebody eventually switches off.
+
+Our side is the existing catalogue through `audit.concept_from_design`, and that is the
+point: all eleven products are `home_decor` and all eleven are `cosy`, because the generator
+has no field in which to be anything else.
+
+**#303 is parked on browser_vision** — its API half is complete and live (438 listings, 2
+unclassified, stored drift 0, palette closing on the gallery backfill), and the two columns
+left are judgements about a photograph. **#94 and #104 were re-audited from owner_gated to
+partial**: both were parked on model_provider, that gate opened, and their status strings had
+not caught up.
+
+Suite **1297 passing, 0 failing**. Production 12/12 verify, queue depth 0, watchdog moving.
+
+## Previously — last completed milestone
+**The 58 unrouted benchmark listings, and the six routing defects reading them exposed
+(#303, #207, #210, #312).**
+
+The first full observation of the MJs catalogue put 58 of 438 listings — 13% — into
+`unclassified`. That number was in the dashboard and was not actionable: it said one listing
+in eight reached no specialist and gave nobody the evidence to fix it. `market_map.gaps()`
+and `GET /api/mjs/coverage` now name them, with the terms recurring across them, because the
+pod vocabulary may only grow from observed titles. Widening it from imagination produces pods
+that match nothing and a router that drops the same listings while looking broader.
+
+Reading the 58 found **three defects in the router and three more in the fixes for them**,
+and every one needed a real Etsy title to appear at all:
+
+1. **Substring matching, failing in both directions.** `"slippers" in title` missed "Crochet
+   Slipper Boot Pattern"; `"vest"` is inside `"harvest"`, so "Hello Harvest Chunky Throw
+   Blanket" and "Harvest Twist Ear Warmer" were both filed as garments. A missed listing is
+   visible in the unclassified count. A wrongly-routed one is invisible forever.
+2. **A vocabulary narrower than the catalogue it watches.** Four departments had no
+   specialist: kitchen and bath textiles, amigurumi and soft sculpture, multi-pattern ebooks
+   and guidebooks.
+3. **Stored routing that never updates.** The scanner routes on discovery and short-circuits
+   on an unchanged fingerprint, so a widened vocabulary would have reached only listings MJs
+   later edits. Both fixes above would have looked like they worked and changed nothing.
+4. **A motif taken for a form.** Adding "pumpkin" sent "Hello Pumpkin Mosaic Cardigan" and
+   "Pumpkin Pillow Crochet Pattern" to the specialist in stuffing firmness — the same
+   invisible misrouting, reintroduced by its own fix.
+5. **HTML entities.** Etsy returns titles escaped; "Men&#39;s Cardigan Pattern" tokenised to
+   `men 39 s cardigan pattern`, and the bundle rule read thirty-nine patterns. Seventeen
+   cardigans and four blankets had moved pods on a possessive apostrophe.
+6. **A stemmer that cost a pod its own keyword.** Stripping "es" after s/x/z/h turns "boxes"
+   into "box" and "purses" into "purs" — the bags pod would have stopped matching `purse`.
+
+The rules that came out of it: match on words, not substrings; **form beats motif**, always;
+**the earliest match wins**, because a title that names two products names the one it is
+selling first; a stitch name and a character name are not products.
+
+**Verified in production.** 438 listings, **unclassified 2**, stored routing drift **0** after
+the scan reconciled it. The two that remain name no product at all ("Dusty Rose Baby Set"),
+and guessing is the worse answer. Twelve pods now carry the catalogue:
+
+| pod | listings | | pod | listings |
+|---|---|---|---|---|
+| garments | 140 | | bags | 17 |
+| blankets | 85 | | kitchen_bath | 14 |
+| hats | 85 | | ornaments | 13 |
+| collections | 29 | | home_decor | 11 |
+| amigurumi | 20 | | stockings / seasonal_gift | 10 / 10 |
+| | | | education / unclassified | 2 / 2 |
+
+**Two merchandising mechanisms this company does not have, now counted rather than sensed.**
+MJs sells 29 multi-pattern collections and 2 standalone guidebooks. Collections are a pod
+rather than a keyword because a six-pattern ebook is a bundle first: routing it to whichever
+product its title mentions first hides the mechanism.
+
+Also fixed: `POST /api/mjs/scan` was defined twice. FastAPI serves the first match, so the
+second handler could never run — and both bodies agreed, which is the dangerous version,
+because the module name `api_mjs_scan` referred to the unreachable one. A test now asserts no
+method and path pair is registered twice.
+
+28 new regression tests, each built from an observed title. Suite **1268 passing, 0 failing**.
+
+## Previously — last completed milestone
+**The Etsy credential was verified by using it, and the benchmark mission ran for the first
+time (#206, #301, #303, #319, #2).**
+
+The developer application was approved on 2026-09-19 and the credentials are in Railway. The
+owner's condition was that the gate open from demonstrated capability, and Etsy makes that
+condition concrete rather than theoretical: **v3 refuses the keystring alone** with `Shared
+secret is required in x-api-key header`, so a half-configured credential returns 403 and
+looks exactly like a working one to anything checking whether two variables are set.
+
+- `etsy_public.probe()` makes the smallest sanctioned read — an application ping returning an
+  application id and nothing about anybody's shop — and records the outcome as a row. Both
+  the `etsy_api` and `benchmark_observation` gates read that row. A six-hourly cadence runs
+  it *ahead of* the scan that depends on it, so the gate closes again by itself if the
+  credential is revoked, rather than being discovered by finding an empty catalogue.
+- Nothing about the credential reaches the row, the audit detail or a failure message, and a
+  test searches the recorded evidence for its parts.
+- **Verified in production at 2026-09-19T18:03Z**: `ok: true`, application id returned. Four
+  gates are now open and nine requirements un-parked by themselves.
+
+**The mission then ran, live, at 18:04Z. 438 listings observed** from
+`MJsOffTheHookDesigns` through the sanctioned read-only API: garments 141, blankets 88, hats
+82, seasonal gift 19, bags 18, stockings 13, ornaments 13, home decor 6, unclassified 58. Ten
+listings and ten galleries audited in depth. `observation_state: observing`, and the mission's
+own honest statement is now *"coverage above is measured, not assumed"* rather than a
+description of what it would do with a credential.
+
+**The coverage matrix now has both halves (#299), and it reads as a plan.** 27 department
+and event pairs where the benchmark was observed selling and this catalogue has no answer,
+ordered by how deep they are and how soon the occasion is. The top of that list:
+
+| event | department | benchmark listings | days away |
+|---|---|---|---|
+| Christmas | garments | 141 | 97 |
+| Thanksgiving (CA) | blankets | 88 | 23 |
+| Christmas | blankets | 88 | 97 |
+| Halloween | hats | 82 | 42 |
+| Christmas | hats | 82 | 97 |
+
+The discipline that makes the matrix worth having: a department is *proven and unserved* only
+when somebody actually looked. An unobserved market and a market with nothing in it render
+identically — both as an empty cell — and the empty cell is the one somebody points at in a
+planning meeting.
+
+**Two defects found by production disagreeing with itself.** `/api/mjs` reported 438 listings
+known while the new matrix reported zero observed, reading the same table. The scanner writes
+`benchmark_key` `mjs_off_the_hook_designs`; the living market map and the new matrix both
+defaulted to `"mjs"`. A wrong key does not raise — it returns an empty result indistinguishable
+from the truth — so **the market map had been reporting "no benchmark listing has been
+observed" from the moment the first scan succeeded**. The existing test wrote its fixtures
+under the same wrong literal, which is why a closely covered module carried the defect: the
+test and the code shared one assumption. Both readers now default from the scanner's own
+constant, and the regression test asserts no reader carries a literal key of its own.
+
+**The first competitive weakness this company has measured rather than assumed:** 413 of 438
+observed listings carry fewer than five images. #2's weakness hunt reported `measurable:
+false` an hour ago and reports a number now, which is the difference a first-party credential
+makes and the reason the hunt refused to report an empty list as "none found".
+
+Nothing was written to Etsy. The shop stays empty, Shadow Mode holds, and these credentials
+authorise reading public marketplace data and nothing else — enforced by an endpoint
+allowlist that raises before a request is built, not by an intention.
+
+## Previously in Build 2
+**The Etsy shop opened, and the reconciliation it produced was not the one it looked like
+(#279, #282, #216, #59, #62, executor).**
+
+BrambleloopStudio exists as of 2026-09-19: empty, zero sales, staying that way while Shadow
+Mode holds. The owner asked for anything blocked only by the shop's existence to be unparked
+automatically. **Nothing qualified, and saying so is the finding.**
+
+The four requirements parked on `etsy_shop` — Marketplace Insights, the query budgeter, the
+portfolio allocator, targeted offers — were never blocked by the shop existing. They are
+blocked by *automated access* to it, which is the developer credential still pending.
+Unparking them on this good news would have put work in the ready queue that nothing can
+start: the exact failure the executor exists to prevent, arriving as a reward. So they moved
+to a new `etsy_api` gate, `etsy_shop` stays satisfied and carrying nothing — a gate that has
+opened is evidence — and the ready count did not move. `ETSY_SHOP_NAME` is set Railway-side.
+
+Then the owner's first priority, which is product quality rather than product count.
+
+- **#279 and #282 — the seasonal transformation engine.** Every transformation is routed
+  before it is costed. Palette, styling, gift context and collection story change what a
+  buyer sees and nothing a maker makes: a photograph, not a pattern. Motif vocabulary, trim
+  and a companion accessory change the object, so they take a CIR, a compile and a physical
+  test — and therefore have to be worth them. **An engineered variant carrying no emotional
+  promise is refused by name**, because that is the creative jury's dominant failure arriving
+  through the seasonal door, and a seasonal palette does not fix it.
+- **The test that answers the standard.** The throw the jury rejects for emotional appeal —
+  an everyday thing for oneself that feels cosy, the default answer to every crochet brief —
+  goes through the engine and comes out clearing every mechanical critic. The child still
+  faces the jury on its own; the engine's job is to produce something that survives the gate,
+  never to be trusted instead of it.
+- **#282's worked example is a function, not a paragraph.** The striped cardigan in three
+  seasonal palettes returns `catalogue_growth: 1`, not 4.
+- **#216 — the breakthrough lane.** Eight divergence axes, and the label that makes them
+  honest: "what the competitor has not made" requires having looked, so with nothing observed
+  the divergence runs against our own catalogue and every brief says so. A brief calling that
+  a market gap is refused. Both lanes are held open by a floor, because incremental work has
+  a visible customer and breakthrough work has an argument, and the argument loses every
+  planning round unless something stops it.
+- **#59 and #62 — measuring the pixels.** Build 1 shipped a hero that was entirely truthful
+  and entirely invisible, and everything upstream reported success. Layout QA now measures
+  the rendered frame: flat frames, badge-band content, the square crop the mobile grid
+  applies, type too short to be type, and the one that matters most — ink at listing scale
+  and none at 170px, which is an image nobody will ever click. The hero is held to it inside
+  `check_frame_plan`, not beside it.
+
+One defect found in my own checker while writing its tests: inferring the background from the
+corners inverted on a full-bleed frame — the subject reached the corners, became the
+background by definition, and a frame that was 97% one block of colour was reported as 96%
+empty. Fixed by measuring the dominant colour over the whole image, and both the failure and
+the fix are in the tests.
+
+## Previously in Build 2
+**The seasonal machine, built out around the Christmas instruction (#289, #287, #291, #292,
+#2).**
+
+Five requirements that all answer the same question from different sides: given an occasion
+and a finite company, what gets built, by whom, how fast, and out of what already exists.
+
+- **#289, collections.** Coherence and originality as opposing constraints. Members carry the
+  palette and story a buyer recognises across a grid, and they must differ structurally —
+  measured by the concept engine's own `distance()`, which scores a pure recolour at zero
+  because palette is not a term in it. So a derivative is refused by exactly the arithmetic
+  that refuses a duplicate in a tournament field: one mechanism, two places, no second
+  definition of "the same idea" to drift. The *closest* pair is reported, never the mean.
+- **#287, strike teams.** A team is a share of capacity or it is a name. Christmas, Halloween
+  and Easter stand; a fourth event brings counted rows rather than enthusiasm. A quarter of
+  capacity is reserved for evergreen work, because a seasonal programme that consumes
+  everything leaves a shop excellent in December and absent in February. A team whose occasion
+  has passed releases what it held without anybody remembering.
+- **#291, the fast lane.** Every fast lane begins as a queue-jump and ends as an exemption,
+  one defensible deadline at a time. So the gate list is the release chain's own, *imported
+  rather than retyped* — a second copy is how the guarantee quietly stops being true — and a
+  test reads `certificate.py` and asserts the constant matches the stages the chain actually
+  appends. What the lane buys is scope: one component, three colours, no technique the
+  catalogue has never used, because a new technique needs a sample and a sample is the one
+  part of this company nobody can hurry.
+- **#292, re-merchandising.** A recolour presented as a launch inflates catalogue size,
+  release rate and collection breadth at once, so no move here increments the catalogue, and
+  any move touching construction, rows, gauge or the release hash is refused as the new
+  product it is. "Proven" is a claim about sales this company has none of: candidates are
+  *eligible*, on every row.
+- **#2, micro-market scoring.** An unmeasured dimension leaves the arithmetic and is named.
+  Filling it with a neutral value keeps the number's shape and loses its meaning, and nobody
+  can tell by looking. Markets scored at confidences more than fifteen points apart are
+  refused a ranking outright, because a caveat is read once and a ranking is read every week.
+
+## Previously in Build 2
+**Christmas is attacked with faster products as the slow ones close, and the model provider
+became real (#6, #293, #177, #178, model access).**
+
+The owner's second correction: the make-time interval work must not read as permission to
+deprioritise Christmas. A 150-hour flagship genuinely cannot be finished for this one.
+"Christmas is closed" is a different sentence, and the difference is most of the commercial
+year. It is now encoded rather than remembered.
+
+- **The engine may retire a product class and may never stand down an occasion.** Two
+  refusals enforce it: a priority programme with open lanes cannot fall below its capacity
+  floor, and one that names no department to pursue is treating the occasion as a single
+  product class.
+- **The mix shifts by arithmetic.** Each lane's share is its runway verdict weighted by how
+  soon it closes, so a comfortable lane with months of runway ranks below a tight one shutting
+  in a fortnight — the tight one is the opportunity about to be lost. MEDIUM leads at 150
+  days, SHORT at 120, QUICK from 75, QUICK alone at 45. Nobody decides that.
+- **Christmas is a taxonomy.** Departments come from the calendar's own event map filtered by
+  open lanes: ornaments, stockings, home decor, bags, hats, seasonal gift. Blankets drop out
+  by themselves at 60 days.
+- **A closed launch lane is not a closed occasion.** When nothing new can be launched and
+  indexed in time the programme moves to merchandising and holds its floor through the
+  fortnight the occasion earns the money, releasing only past the buyer's last practical make
+  date. Next year's flagship track runs now and is capped below this year's share.
+
+**The model provider is verified, not configured.** The owner supplied a key; the first call
+it made returned `Your credit balance is too low to access the Anthropic API`. The gate was
+changed to read a recorded successful call rather than an environment variable — a
+variable-check would have un-parked four requirements onto work that cannot run. Credit
+arrived, and at **2026-09-19T15:31Z a real call succeeded in production** (14 tokens in, 4
+out, CA$0.0000466 against a CA$25 ceiling enforced before the request). The gate opened by
+itself and #94, #104, #177 and #178 un-parked with nobody telling it to, which is the
+property the executor was built for, observed rather than asserted.
+
+Two of those were then built:
+
+- **#178, risk tiers.** A change is graded by what it touches, never by what it is called —
+  the description is the part somebody chooses. Five tiers, each with a cooldown (six changes
+  to one surface in an afternoon cannot be attributed to any of them), a rolling weekly
+  ceiling (continuous learning with no ceiling is a company rewriting itself faster than it
+  can observe the result) and the evidence its failure mode needs. An unknown surface grades
+  *upward*. The gate tier never promotes without a person. Enforced in `cells.promote()`, not
+  offered.
+- **#177, capability profiles.** Assembled from the rows rather than stored beside them, and
+  reviewed deterministically: a run of three measurements the wrong way, a metric never
+  measured, a stale baseline, a tactic rejected twice for the same reason, a lesson nobody
+  acted on. A model can write a plausible hypothesis about anything, and a cell proposing
+  fluently every week looks exactly like a cell that is learning. A clean record proposes
+  nothing. Nothing here promotes.
+- **#293, buyer language.** Six facets, and a refusal for the two ways the map becomes a
+  description of ourselves. Every phrase is labelled assumed or observed and the two are never
+  blended into one ranked list.
+
+One measurement defect, found while checking a number rather than reported by it:
+`run_tests.sh` counted only pass lines beginning `OK` at column zero, so nine suites written
+this session contributed **zero** to the headline total. Exit codes still caught their
+failures, so nothing was broken and the number was quietly wrong — the harder fault to
+notice. Markers standardised, and a suite that exits clean while reporting no passes now
+counts as a failure.
+
+## Previously in Build 2
+**An Anthropic key arrived, and the gate it opens is not the gate it looks like
+(model access, #17, #18).**
+
+The owner supplied an API key on 2026-09-19. The first request it made returned, verbatim:
+*"Your credit balance is too low to access the Anthropic API."* The key authenticates; the
+account cannot serve a request. Both halves of that are recorded because both matter.
+
+- **The model gate now reads a call, not a variable.** It used to check whether
+  `ANTHROPIC_API_KEY` was set, which would have reported the provider available and
+  un-parked #94, #104, #177 and #178 onto work that cannot run — the queue advertising work
+  nobody can start, which is exactly what the build executor was written to prevent, arriving
+  through the one door nobody was watching. `gateway/anthropic.probe()` makes the smallest
+  call the API accepts on the cheapest model and records the outcome in the provider's own
+  words. A six-hourly cadence runs it, so when credits arrive the gate opens by itself.
+- **The CA$25/month ceiling is enforced in front of the call.** Spend counted from ledger
+  rows; the estimate assumes the model writes its whole output allowance and is padded 1.25×
+  on top; an unpriced model is refused as an unbounded call; configuration can lower the
+  ceiling and never raise it. Prices are the provider's published list at an assumed exchange
+  rate, so every row carries `price_basis: assumed`.
+- **The key is in Railway and nowhere else** — not in the repository, not here, not in any
+  log or audit row. A repository-wide search for the prefix returns nothing.
+- **One owner action was added**, below. It is the only thing in this batch that needs a
+  human, and the rest of Build 2 is unaffected by it.
+
+Then down the queue:
+
+- **#3, the selection tournament.** The shape is the requirement — 75-100 concepts to 5-10
+  releases — and it is the part that disappears. Four refusals keep it a funnel: survivors
+  plus killed equals entrants, a stage that killed nothing did not happen, a kill cause
+  outside the vocabulary aggregates to nothing, and a stage fed below its floor is choosing
+  among whatever happened to be there. `may_engineer()` refuses a concept the tournament has
+  not carried to prototype, which is the requirement's opening sentence made mechanical.
+- **#98, the external learning radar.** The radar is unremarkable; the second clause is the
+  requirement. Observations carry `kind=external_signal`, `as_evidence()` exists so it can
+  refuse by name, and `support()` refuses a signal passed in the evidence list — because the
+  step where "textured stitches are trending" becomes something the company knows is a
+  sentence nobody notices writing. Nothing fetches these yet and every domain reports
+  unobserved, which is different from quiet.
+- **#131, seasonal storefront takeovers.** Surfaces transition on different dates read off
+  the collection calendar, every takeover carries the revert date scheduled with its start —
+  the failure is the Christmas banner still up in February — and six brand invariants are
+  refused rather than flagged.
+- **#17 and #18.** The trust accelerator is a sequence where unmeasured is never passed and
+  proof is counted from rows, with `record_proof()` refusing anything free-standing: the rule
+  against manufactured reviews in mechanical form. Support takes the *minimum* of its
+  canonical and escalated service levels, because one average lets a fast automated majority
+  bury the slow escalated minority where the unhappy buyers are. Whether fast support reduces
+  refunds is reported unmeasurable — there are no orders — rather than assumed.
+
+## Previously in Build 2
+**What an improvement returned, whether an idea seeds a family, and two requirements that
+were pretending to be executable (#99, #101, #111, #112, #288, #51, #39).**
+
+Six requirements, and the thread running through them is the second half: the half that gets
+skipped because the first half feels like the work.
+
+- **#99 knew what every improvement cost and nothing about what any returned.** Realised
+  benefit is now read against the baseline captured at proposal time, and deliberately *not*
+  against the sandbox result that won the promotion — that number was taken under the
+  conditions chosen to show the change working, and reading it as the return would make every
+  promotion succeed by construction. A promotion younger than the window is `too_early`; an
+  older one with nothing measured since is a cost with no return, which is a real outcome
+  rather than a broken system.
+- **#101 counted lessons acted on; the direction it is named after is the other one.** A new
+  design now records which accumulated lessons it drew on. Drawing on nothing is recorded,
+  not forbidden — the first product in a new territory legitimately has nothing to stand on —
+  and a catalogue of them reports restarting from generic intelligence by name.
+- **#111 asks whether an idea seeds a family before engineering, because afterwards the
+  answer is always yes.** Five roles, a construction→size-band range for whether the visual
+  idea still reads, and a construction→form map for whether it can be built that way at all.
+  Both are needed: size compatibility alone would pair an amigurumi robin with a scarf, which
+  is the forced derivative the requirement names arrived at from the other side. A mosaic
+  throw gets no quick companion — its motif on a coaster is four stitches nobody can see — so
+  it is reported as a family with no entry price rather than as a collection.
+- **#112 puts make-time into creative scoring, where the owner's correction belongs.** Graded
+  against the interval, so infeasible means the optimistic bound has passed and everything
+  short of it is an instruction to hurry. Wired in rather than offered: the jury gained a
+  `shopping_window` critic that rejects what the buyer cannot finish and judges *nothing*
+  when nobody said how long is left, because an unknown window is not a comfortable one.
+- **#288's gap report now produces work.** Each uncovered department becomes a brief with the
+  forms that serve it, the lane each implies, the last optimistic launch date and the family
+  role it would fill — and a department past its window is next season's gap, not this
+  season's. A brief is not a product: nothing in the module counts as coverage, and a test
+  holds that line.
+- **#51 was proving a restore every night of a file that no longer existed an hour later.**
+  The export landed on ephemeral container storage. A proved export is now retained in the
+  database — three generations, gzipped, hashed, refused on read if the bytes do not match —
+  and exports exclude the archive table so a backup does not carry the previous backups. It
+  survives a container replacement, a redeploy and a crash. It does not survive losing the
+  provider, which is the failure #51 actually names, so that half is parked on a new
+  `offsite_storage` gate rather than claimed.
+- **#39's retrieval half is blocked from outside, established rather than assumed.** A plain
+  HTTPS GET of Etsy's seller-policy page returns 403 from their bot protection while
+  `robots.txt` fetches fine, so it is the edge refusing an automated client. Spoofing a
+  browser user-agent past it is evasion and was not done.
+
+One defect in the executor, and it was its own kind: `sync()` skipped past an existing task
+when its requirement stopped being schedulable, so requirements re-audited as gated kept
+reporting themselves ready — the queue advertising work nobody can start, which is precisely
+what the module was written to prevent. Stale rows are retired, the reverse transition brings
+them back, and both directions have a regression test.
+
+## Previously in Build 2
+**Make-time became a distribution, and the claim it had produced was withdrawn (#283, #284,
+#36, #41, #42, #38, #50).**
+
+The owner's correction landed on a real defect, and one this build makes nowhere else. The
+lead-time chain is exact arithmetic over guesses — seven crochet hours a week, an assumed skill
+multiplier, no Brambleloop maker ever timed — and its single date was reported first as a fact
+and then as an impossibility covering a whole season. Unmeasured is not zero and absent is not
+inferred; a point estimate is not a proof of impossibility either.
+
+- **The interval is asymmetric and only samples narrow it.** Craft overruns: a project going
+  well finishes a little early, one going badly finishes very late. A symmetric band would be
+  a third wrong claim dressed as rigour. More planning does not narrow it — timing somebody
+  does — and even fully calibrated it stays an interval, because two makers differ.
+- **Infeasible now requires the optimistic bound to have passed.** Christmas 2026 at 97 days:
+  QUICK/SHORT comfortable, MEDIUM tight, **LONG high risk** (needs 95 days optimistically,
+  has 97), FLAGSHIP genuinely infeasible (needs 134, short by 37). So the correction is a
+  distinction rather than an excuse — one window really has shut and one has not.
+
+Then down the queue, which named the rest:
+
+- **A tester's photograph without recorded consent is refused (#36)** — the same act as using
+  a competitor's, arriving from the friendly direction, which is exactly why it gets a
+  mechanical check rather than good intentions. A physical photograph records its yarn,
+  because a buyer choosing a substitute is choosing against that picture.
+- **The digital-not-finished disclosure belongs in the title (#41).** A buyer who thinks they
+  are purchasing a blanket does not read the description, and that refund is the most
+  preventable one in the category. Confusion contacts are a listing defect, not a cost of
+  doing business — counting them as a cost budgets for them.
+- **The order-to-version map is written at sale time (#42),** because it cannot be
+  reconstructed: once the listing moves on, nobody knows who holds what. The one requirement
+  here impossible to retrofit, so it exists before the first order does.
+- **A trend datum with no population or window is refused; a foreign one is discounted (#38).**
+  Those are different answers to different problems. The discount is baked into the value the
+  consumer sees, because a caveat beside a figure is read once and the figure travels alone.
+  Staleness is measured against the topic's own seasonality — last January's Christmas figure
+  is one cycle old; last January's meme is archaeology.
+- **Dependency impact is graded by what stops, not by vendor (#50).** Postgres holds the
+  company's memory; GitHub holds a copy of code that is also on disk. A dependency with no
+  recovery strategy is refused at construction, because a hand-written map marks three things
+  critical and those are the three somebody was already worried about.
+
+One modelling fix in the executor: **executable and ready are two numbers, not one.** The old
+invariant held only while every gated requirement was also `owner_gated`, and broke the moment
+a requirement was half-built with its remainder behind a credential — the ordinary case. #303
+and #304 are now correctly parked while still counted as owed.
+
+## Previously in Build 2
+**Heartbeat 2026-09-19T08:14Z — the mission's capacity, its map and its memory (#302, #303,
+#316).**
+
+The operator loop ran as designed: lease acquired, production `/api/verify` green, and then
+the build queue — not a judgement call — named the top three ready requirements. All three
+fail in a way that leaves the org chart intact.
+
+- **The capacity floor is reserved, not allocated (#302).** Capacity merely allocated to a
+  mission gets borrowed, and the borrowing decision is locally sensible *every single time*:
+  generic research is busy now, the specialists are idle now, moving them is obviously right.
+  It is obviously right often enough that the mission ends up with specialists on paper and no
+  throughput, and nobody ever decided to defund it. The refusal names the five kinds of work it
+  would starve. Above the floor the ceiling is money rather than headcount, and a fan-out must
+  name which of coverage, quality or latency it is buying — "we could use more" is what an
+  elastic system asks for by default.
+- **The map records judgement columns as absent with the capability named (#303).** Silhouette,
+  merchandising mechanism and styling are judgements about a photograph; inferring them from a
+  title would make every row look complete and be fiction — *persuasive* fiction, because seven
+  of ten columns would be right. Completeness is scored against what the available capabilities
+  can observe, or a correctly limited map reports itself permanently broken. Palette is a third
+  case and is distinguished: Etsy publishes it per image, so its absence is **a request nobody
+  made**, not a capability nobody has.
+- **A map that does not know how stale it is is not living.** Every row carries its evidence
+  date; the map reports its oldest. A catalogue map nobody refreshed is indistinguishable from
+  a current one right up to the moment it is wrong — which is exactly when the shop changed
+  something, and exactly when somebody is reading it.
+- **Only an outcome moves the learning memory (#316).** The failure every learning system has
+  is confidence that grows with repetition: forty observations of one shop's Christmas listings
+  is one observation made forty times. "Observed again" is refused **by name**, with the reason
+  attached. A challenger wins on outcomes or not at all, a tie leaves the incumbent standing —
+  promoting on equal evidence is promoting on novelty — and superseded lessons are kept,
+  because a memory that has only ever been right is not learning.
+
+One refactor fell out: the pods' competitor-expression boundary lived inline inside
+`lesson()`, and the learning memory needed the same rule. It is now called rather than copied
+— a boundary that exists twice drifts, and the copy that drifts is always the newer one.
+
+#303 stays **partial**: full discoverable catalogue coverage needs the Etsy credential. The map
+is built and waiting.
+
+## Previously in Build 2
+**The build loop moved out of the conversation and into Postgres (#195, #196, and the master
+intent's Autonomous Build Executor).**
+
+Build 2 *did* route around the missing Etsy credential — eight milestones landed while it was
+unavailable and no requirement waited on it. But the thing doing the routing was a session.
+The dependency graph was prose in this file, the priority queue was judgement, and the parking
+decision was made once and remembered by whoever was in the conversation. All of that
+evaporates when the session does, and the failure is invisible until the moment it matters.
+**Autonomy that depends on a particular process staying alive is not autonomy.**
+
+- **The graph, the queue and the parking state are rows.** `build_tasks` and `build_events` in
+  Postgres, reconciled hourly by a `build.tick` cadence in the deployed worker. A claim
+  carries a 90-minute lease, so a session that dies mid-requirement loses a worker rather than
+  the build — another one takes it over with nobody noticing that intervention was needed.
+- **Parking is checkable or it is refused.** Seven owner gates, each with a condition the code
+  can *test*, and `sync()` refuses an owner-gated requirement that has no gate. That refusal
+  is the load-bearing half: without it, such a requirement falls into the ready list as work
+  nobody can do and the queue reports more ready work than exists — the one number the whole
+  module is for. Free text would make parking a place to put anything difficult, and a queue
+  that can absorb its own difficulties never reports being blocked and never finishes.
+- **Two of the seven gates check rows, not environment variables.** Benchmark purchases is a
+  `BenchmarkProduct` count; advertising authority is a `SpendLimit` with a positive cap. The
+  question a gate asks is "is this true yet", not "is there a credential".
+- **Un-parking is automatic.** A gate opens, its requirements go ready, and nothing had to
+  remember. Setting `ETSY_SHOP_ID` un-parks four; a browser endpoint un-parks sixteen.
+- **Never-idle is measured in completions, not ticks.** A loop that always has something to do
+  can invent work. The watchdog distinguishes idle-with-ready-work (a stall, raises an
+  incident) from idle-with-everything-parked (correct, raises nothing) — opposite situations
+  that look identical from outside.
+- **#196: the owner inbox is asynchronous by construction.** Seven cards with what, why,
+  capability, maximum spend, risk, rollback and consequence of waiting, sorted free-and-quick
+  first. An inbox is only asynchronous if the queue behind it does not wait, and that property
+  lives in `sync()` rather than in the card layout.
+- **#195: the off-device proof** counts five things and requires all of them — jobs completed,
+  distinct job types, completions *spread across* the window, scheduler activity, and no
+  unexpected dead letters. Because *"online" means useful work is progressing, not that HTTP
+  returns 200* (#185), and a container answering health checks with a stalled queue passes
+  every naive uptime monitor ever written.
+
+### Then it continued, from the requirement the queue named
+
+The loop's first job was to say what to do next, and it said **#302's cluster** — the
+MJs-proven-arena response (#306, #307, #308, #309). Built immediately, because it is what
+makes tomorrow's credential productive: the pipeline is what waits for observations, not the
+other way round.
+
+- **A third content boundary, drawn in a different place (#306).** The teardown library
+  refuses a competitor's instructions and the culture router refuses their property. This one
+  has to *permit* "cropped V-neck button cardigan" while refusing "their stripe sequence" —
+  because a rule that forbade entering a proven arena would make the intelligence mission
+  conclude that the useful answer is never to act on what it found, which is the most
+  expensive possible conclusion for the company's stated top priority.
+- **"MUST consider" is satisfied by a recorded refusal and never by silence,** and entering
+  requires a differentiator — #163's anti-parity rule arriving through the competitive door.
+- **Seasonalising enumerates eight lenses (#307),** and a palette-only answer is reported as
+  the recolour it is: exactly the output this build measured as its creativity defect.
+- **Fourteen pipeline stages, each naming its gate (#309).** A long pipeline never fails by
+  collapsing; it fails by one stage quietly becoming optional, and a failed gate stops the run
+  rather than marking it amber.
+- **The owner's Christmas cardigan example (#308) is a test fixture** over #306 and #307
+  rather than a special case in the code.
+
+### Three defects this surfaced
+
+**Four requirements the registry called executable cannot be built without a credential**
+(#177, #178, #221, #222). The gate validator refused them as ungated, which is exactly what it
+is for. Registry reconciled; ready count and executable count now agree by construction, with
+a test asserting it.
+
+**The watchdog could not see the commonest kind of progress.** Registry-driven completions
+— a session finishes work and moves the status — were recorded only as a sync event, so the
+loop reported *stalled* while six requirements had just closed. A false alarm in the channel
+that exists to catch a real one is worse than no channel. Fixing it naively then made the
+first sync count the whole 140-requirement backlog as completions, so a table created ten
+seconds ago reported a busy loop: a completion is a transition this system **observed**, not a
+status it found on first sight.
+
+**The off-device proof counted a different set than its verdict tested.** Run against
+production it reported sixteen dead letters where the condition meant one: shadow-mode publish
+refusals are the gate working and were excluded from the test but not from the number printed
+beside it. Same class of defect as an unmeasured rate reported as zero, in the one report whose
+whole job is to be believed.
+
+**`/api/build2` had been returning 500 in production for as long as it existed.** The registry
+JSON sat at the repository root and the Dockerfile copies `src`, so it was never in the
+container — passing every local test the whole time. The file now lives inside the package, so
+it travels by construction. The more valuable fix is the general guard: a test that walks the
+app's declared GET routes and calls every one, so a new endpoint is covered the moment it is
+registered rather than when somebody remembers to list it.
+
+## Previously in Build 2
+**Cells to generate against, and a real finding about Christmas 2026 (#105, #113, #114,
+#117-#123, #132).**
+
+One idea runs through all of it: *generate against explicit cells and measure the cells*,
+because the alternative is generating against a keyword and measuring a count. "Christmas
+crochet patterns" produces what the phrase suggests. The same December contains a mantel
+stocking, a teacher gift under fifteen dollars, a nursery keepsake somebody keeps for thirty
+years, a table setting and a front door — different products for different people, and a
+catalogue ends up with six variations on a blanket because nothing ever asked which cell each
+one was for. **Six products against 288 cells reads as six products.**
+
+- **Sixteen Christmas departments × eighteen contexts (#105, #113).** The contexts are people
+  *and* places — "a teacher" and "the front door" are both cells somebody shops for, and
+  neither is reachable from a keyword.
+- **Skill level is segmentation, not difficulty (#114).** A wave of only flagships has no
+  beginner entry and no impulse purchase; one of only quick makes has nothing anybody keeps.
+  Both look busy.
+- **Diversity is measured per axis (#119),** because twelve concepts sharing one construction
+  have explored one construction, and twelve is exactly the number that makes it look like
+  exploration.
+- **A crowded archetype needs a named unmet angle first (#117).** Forty near-interchangeable
+  pumpkin coasters is evidence the archetype sells *and* evidence the forty-first is invisible;
+  only the second reading has arithmetic behind it. The refusal names the number, because
+  "ours will be nicer" is what everybody entering a crowded category believes — including the
+  forty already there.
+- **White space is mined from complaints (#118).** A buyer saying what went wrong is a brief
+  with a customer attached, which no search-volume report is. With nothing recorded the agent
+  says so rather than proposing from the category, which is how a white-space agent
+  rediscovers the commodity and reports it as discovery.
+- **The mechanism transfers between seasons; the theme does not (#120)** — the distinction
+  that collapses first under a deadline, because the finished design is right there.
+- **Four-season programs and non-holiday occasions (#121, #122),** because a shop that only
+  sells in December is closed for eleven months and calls it seasonality.
+
+### A finding, not a feature
+
+The collection calendar (#123) holds ten dated milestones per occasion. **Run today against
+Christmas 2026, five of the ten are already past** — research start, concept freeze,
+engineering start, physical-test deadline and creative-production deadline — with
+listing/indexing due **2026-09-26, one week away**. A missed date is a portfolio failure
+rather than an amber row, and the failure is silent: a phase that slips does not announce
+itself, it becomes the next phase, and the first visible symptom is a product that lists in
+December.
+
+### What the calendar actually permits, computed 2026-09-19
+
+Not a worry — the engines now answer it. Heaviest lane a customer could still finish, and
+milestones already past:
+
+| event | days out | heaviest lane still launchable | milestones past |
+|---|---:|---|---|
+| Christmas | 97 | **MEDIUM** | 5/10 |
+| Halloween | 42 | QUICK | 8/10 |
+| Thanksgiving (CA) | 23 | **none** | 8/10 |
+| Valentine's | 148 | LONG | 4/10 |
+| Easter | 197 | LONG | 3/10 |
+| Mother's Day | 233 | **FLAGSHIP** | 2/10 |
+
+Christmas 2026 by lane, as latest effective launch date:
+
+| lane | up to | days needed (optimistic / typical / pessimistic) | verdict at 97 days |
+|---|---:|---|---|
+| QUICK | 6h | 37 / 40 / 47 | comfortable |
+| SHORT | 20h | 47 / 56 / 80 | comfortable |
+| MEDIUM | 45h | 63 / 83 / 137 | tight |
+| LONG | 90h | 95 / 135 / 243 | **high risk** |
+| FLAGSHIP | 150h | 134 / 202 / 382 | **infeasible** |
+
+The spread is wide because nothing has been calibrated: zero completed physical tests. Every
+recorded sample narrows it, and nothing else does — more planning does not narrow an interval,
+timing somebody does.
+
+**Corrected 2026-09-19: "arithmetically impossible" was wrong, and wrong in the way this
+build refuses everywhere else.** The arithmetic is exact; its inputs are guesses — an assumed
+seven crochet hours a week, an assumed skill multiplier, and no Brambleloop maker ever timed.
+Make-time is now an interval (`seasonal/uncertainty.py`), and *infeasible* requires the
+**optimistic** bound to have passed. Against that, Christmas 2026 at 97 days reads:
+QUICK and SHORT **comfortable**, MEDIUM **tight**, LONG **high risk** (needs 95 days
+optimistically, has 97), FLAGSHIP genuinely **infeasible** (needs 134, short by 37).
+
+So LONG Christmas work is attemptable and carries real risk, rather than being impossible.
+Thanksgiving (CA) is gone. **Flagship effort
+belongs to Mother's Day 2027** (233 days, every lane open, 2 milestones past) and to the
+four-season programs that do not wait for a date. That is what the concept queue should be
+pointed at, and it is a consequence of the calendar rather than a preference.
+
+The calendar is checked by the **daily `seasonal.sentinel` cadence**, not by somebody opening
+a page: a function nobody calls produces that finding once and never again. Run against
+today's state it finds **every** seasonal event behind — Halloween worst at 8 of 10 — which is
+the honest state of a company that has never run a collection calendar. One incident for the
+worst-affected event, because eight rows about one Christmas is the noise that trains
+everybody to close the channel.
+
+#132 is **partial**: all eleven north-star metrics are tracked by cohort, with the four that
+need no customers separated from the seven that do — a dashboard showing four numbers and
+seven blanks is read as four numbers.
+
+## Previously in Build 2
+**The creativity defect the owner named, addressed at the brief rather than at the gate
+(#106-#110, #115, #124, #125, #127, #129).**
+
+The defect is measured, not asserted: `creative/audit.py` compiles all eleven catalogue
+products and finds one component shape, one construction and two stitches. That is not a taste
+failure. It is a generator with one degree of freedom being asked for variety and answering
+with colour — and **no validator fixes it**, because given a season and a category the
+highest-probability output *is* the commodity. The commodity is what the category is made of.
+A validator can only reject what arrives.
+
+So all of this acts on the brief:
+
+- **Two dimensions that do not normally co-occur (#106).** Motif × function, holiday × storage,
+  tableware × character. One dimension is a category, and a category is what everybody else is
+  already making. Two near-synonyms are the same failure with two names — storage crossed with
+  organization reads like a combination and is one idea stated twice, which is exactly what a
+  system under pressure to produce pairings emits.
+- **Abstract transformation patterns, never a seller's expression (#107).** Becomes a set,
+  nests, unfolds, stacks into a scene, inverts, reveals. A description that names a specific
+  product is refused by the same content boundary the teardown library uses.
+- **The silhouette gate enforces #108's own sentence literally.** "A concept that needs its
+  title to explain why it is interesting is weak" is unenforceable while the two are read
+  together, because the title supplies the interest and nobody can tell which half carried it.
+  The premise is read with the title's words deleted: *"Gingerbread Village Basket"* /
+  *"a gingerbread village basket"* leaves nothing.
+- **The emotional promise names what delivers it (#109).** "Cosy" achieved by writing *cosy*
+  in the listing is the failure the requirement names, and the cheapest way to satisfy any
+  check that reads text. The promise must survive a buyer looking at the photograph with the
+  sound off.
+- **A motif grammar with its clichés marked (#110).** 10–20 motifs per season; a selection
+  built only from the saturated set is reported as the commodity by construction.
+- **A flagship's WOW mechanism must be grounded in the object (#115).** Naming one from a
+  closed list is half; requiring four specific words about *this* object is the half that stops
+  "it has a reveal" counting. A checkbox is what a generator learns to tick.
+- **The floor is the trailing median, with an absolute floor underneath (#124).** A fixed
+  threshold is one the company grows past and keeps meeting — the bar that rejected two thirds
+  now rejects none, and the improving pass rate looks like success. A trailing median alone has
+  the mirror failure, so the absolute floor sits below it.
+- **Flagships aim at the top decile (#125), and boring is a verdict (#129).** #129's most
+  important sentence is that agents must be able to reject technically valid ideas: every other
+  gate here is a correctness gate, and the correctness score is *precisely* what a boring
+  concept passes. A taste rejection is a closed vocabulary with no numeric content and it ends
+  the question.
+- **Rejection reasons are closed, or forty autopsies have forty reasons (#127).** Five of six
+  rejections being "obvious" is a brief problem rather than six concept problems, and it is
+  invisible under free text.
+
+`GET /api/invention` reports the machinery and the measured defect side by side.
+
+## Previously in Build 2
+**CA$3,000 as arithmetic, and the metric everyone optimises instead (#24, #25, #27, #28, #31).**
+
+A revenue target is a wish until it is a funnel, and the useful part of writing it as one is
+not the number at the end. It is that only one term is ever binding, and the company almost
+always works on a different one — because the binding term is usually the one nobody owns, and
+the term under our hand is always the listing.
+
+- **Contribution per visitor, not conversion rate (#24).** A CA$25 pattern converting at 1.6%
+  beats a CA$12 pattern at 2.5%, and the second listing looks healthier on every dashboard.
+  Conversion is a ratio whose denominator the company is also buying. The ranking function
+  reports explicitly when the two orderings **disagree**, because that disagreement is the
+  requirement rather than a footnote to it.
+- **The target at four prices is four companies (#25).** 200 × CA$15, 150 × CA$20, 120 × CA$25
+  — shown together so the price decision is visible as a decision instead of implicit in
+  whichever number was written down first. Required visits are derived **only** from an
+  observed conversion rate: the category benchmark is available, plausible, would complete the
+  funnel, and would produce a confident plan about a company that does not exist.
+- **The constraint is one term, walked in funnel order (#25, #28).** A test caught the first
+  implementation contradicting its own stated principle: a listing with 100,000 impressions
+  and 200 visits satisfies "strong conversion, low traffic", and buying more impressions when
+  99.8% of them bounce is buying more of a broken funnel. The CTR check now precedes the
+  traffic check. Rising defects outrank every commercial term — scaling a defect multiplies it.
+- **#27's conditions sit beside the counts, and silence is not neutral.** Counts and conditions
+  fail differently: volume arrives from one lucky listing. A shop with sixty orders from a
+  single viral outlier, a negative contribution margin and an open policy warning satisfies
+  **every count** in the gate and **none** of the eight conditions. An undeclared condition is
+  unmet rather than unknown, because treating silence as neutral is the cheapest way to pass
+  any gate.
+- **An artefact produced by uncosted work is a floor, not a price (#31).** The averaging
+  instinct spreads unattributed spend across the artefacts, which makes every unit cost look
+  plausible. Free is the most dangerous price, so the uncosted producer count is reported per
+  artefact and unattributed spend is its own number. Both of #31's ratios are reported even
+  when one side is zero — `burning: true` today, with CA$0 earned.
+
+`GET /api/runrate`. Honest gap: #31 is **partial** — per-artefact attribution needs cost
+entries carrying job ids, which most handlers do not yet record.
+
+## Previously in Build 2
+**Four ways an autonomous system flatters itself, closed (#49, #52, #53, #55).**
+
+None of these is a bug. Each is what a system does when nothing stops it: one that measures its
+own throughput optimises throughput, because throughput is the thing it can move without
+anybody's permission. One with cash in the account finds a use for it, because the obvious use
+is more of whatever produced it. One that reviews itself weekly adds work, because removing
+work is nobody's job. And one reporting confidence as a single number reports zero for a year
+while a great deal is built, which teaches its owner to stop reading it.
+
+- **Revenue does not automatically become ad budget (#49).** Four reserves filled in order —
+  tax (never yours), operating floor, cash reserve, then whatever is spare. The
+  *recommendation* is the envelope scaled by the modelled confidence, so a company with
+  CA$20,000 in the account and no customers recommends **nothing**: cash from an unrepeatable
+  source is not evidence that spending will repeat it. Confidence is read from the ladder
+  rather than accepted as an argument. **No code path returns `owner_approval_required:
+  False`** — an authority boundary in a docstring is one the next change forgets, and small
+  amounts are how standing budgets start.
+- **There is no function that returns a release count alone (#52).** The four companions —
+  defect rate, support burden, conversion, contribution — travel with it structurally rather
+  than presentationally, and a faster week where any of them degrades is reported as
+  *degraded*. Writing it surfaced a real hole: the percentage-change guard skipped every
+  metric whose previous value was zero, dropping the single most important movement it can
+  see — a defect rate going from none to some.
+- **A review that stops nothing has to say why (#53).** Not blocked: a hard requirement to
+  stop something weekly manufactures removals, which is worse than the bureaucracy it
+  prevents. But a silent empty list is exactly what a bureaucracy reports, every week, for
+  years. One sentence costs a lean week nothing and makes an accumulating one visible. Five
+  categories, because an experiment that will not conclude is a different problem from a
+  cadence costing more than it returns.
+- **The ladder opens with an architecture rung that is earned and moves nothing (#55).** A
+  ladder whose every rung reads 0.00 shows no stages at all. Architecture is the layer this
+  company *can* honestly earn — derived from rows: a certified pattern, a proved restore, a
+  refused publish, completed work, no accumulating dead letters — and it is non-critical, so
+  earning it does not move the modelled probability by a point. Progress is visible and is not
+  convertible into confidence about revenue. CA$3,000 and CA$5,000 are now computed as
+  separate questions and today give the same answer: **a smaller target is not a nearer one
+  when nothing has been sold.**
+
+`GET /api/discipline` reports all four together.
+
+## Previously in Build 2
+**Price memory, control cohorts and bundle attribution: three names for one mistake
+(#45, #46, #47, #48).**
+
+The mistake is *something changed, sales moved, therefore the thing that changed caused it*.
+It is not carelessness — every version of it is locally reasonable, and every version makes a
+dashboard improve, which is why none of them is caught by looking at the dashboard.
+
+- **A comparison across a confounder is refused, not flagged (#46).** The price dropped in
+  November and sales rose; it was December that rose. Season, traffic source, category and
+  sale state are *columns*, because "was this price or was it December" has to be a filter and
+  a note cannot be filtered on. Refusing rather than warning is deliberate: a warning is read
+  by the person who wrote it and by nobody afterwards, and the number travels on alone.
+- **An unmeasured elasticity is unmeasured, never zero.** Zero is not the absence of a claim;
+  it is the claim that price does not matter, and it is what the obvious default would have
+  said. This company has no sales, so everything here reports that.
+- **Incrementality is measured against what the control predicts (#48).** Counting the
+  control's own performance as a result of the spend makes every ad budget look self-funding.
+  With one arm it cannot be done at all: a conversion rate measured on paid traffic is a
+  statement about *who was shown the listing*, and scaling on it buys more of that audience
+  and none of the improvement.
+- **A bundle is judged on contribution, and not at all without a pre-bundle baseline (#45).**
+  The failure is not that the bundle fails — it is that it succeeds with buyers who were
+  already ours and used to buy the higher-margin thing beside it. Both halves are true at
+  once, so nothing looks wrong: units rise, the catalogue looks broader, contribution is flat.
+  Revenue is the metric that hides it, so the amplification check is separate and explicit
+  rather than one number among nine that all went up. An incremental bundle still names what
+  it displaced instead of netting it away.
+- **#47's missing rung (#47).** The restored lifecycle classifier already ran four of the
+  five stages; the gap was **clicks with no saves**, which is the product failing to appeal,
+  versus **saves with no orders**, which is the offer. The two look identical in every
+  aggregate and the interventions are opposite — reworking price and trust on a product
+  nobody wanted produces a cheaper version of something nobody wants. Checked *before* the
+  conversion stage so the cheaper diagnosis cannot claim the case first.
+
+One test hardening came out of it: the ladder-coverage test enumerated classes by hand, so a
+new class with no intervention ladder would have passed. It now derives from the module.
+
+`GET /api/commercial` reports the price memory and names the confounders that are refused.
+
+## Previously in Build 2
+**Etsy's rules as a dated snapshot, the AI-disclosure gate, and customer-use terms decided
+once (#35, #39, #40).**
+
+Three requirements that look like paperwork and are the ones that close a shop. They share a
+shape: each fails silently and in the future. A policy encoded in code is true the day it is
+written; a generated lifestyle image is a compliance problem only once somebody complains; and
+terms that were never decided are correct until the first customer asks the question they
+actually have.
+
+- **A platform policy is a dated snapshot, not a constant (#39).** Five surfaces watched
+  separately — seller policy, creativity standards, listing-image rules, advertising rules,
+  shilling and reviews — because each blocks a different workflow and one "Etsy policy" blob
+  blocks everything or nothing. **Never checked and unchanged are opposite states**: an
+  unread source blocks the workflows it governs, and a watch that reported "no material
+  changes" from an empty table would be the most confident possible way to be wrong. A
+  material change is a **digest difference rather than a judgement**, so the question reaching
+  a person is "this changed, does it matter" instead of "has anything changed" — a much better
+  question to be asked while tired.
+- **The release certificate now records which reading of Etsy's rules it was issued under.**
+  `POLICY_VERSION` answers which version of *our* rules; the new stamp answers the one that
+  changes without telling us, and a certificate that cannot name it cannot be re-examined
+  after the platform moves.
+- **A label does not convert misrepresentation into disclosure (#35).** Asset roles carry a
+  requirement — photograph, or generated-permitted — and a generated image in a role that makes
+  a claim about the finished object is refused however carefully it is labelled. An AI render
+  of a finished blanket is a picture of a blanket that does not exist, and the buyer is looking
+  at it precisely to find out what they are buying. A deterministic render of our own chart is
+  the exception: it *is* the artefact being sold.
+- **Enabling a new product or asset class against an unread policy is refused**, which is #35
+  read literally: a new class is exactly when the old reading is least likely to cover the case.
+- **Customer-use terms are five deliberate choices, rendered once (#40).** Closed options, so
+  "do not redistribute" cannot arrive by inheritance while the question customers actually ask
+  — may I sell what I make at a craft fair? — gets answered for the first time in a support
+  reply. PDF, listing and FAQ render from one decision and a consistency check refuses
+  divergence, because writing them three times is the only way this drifts. **Decided is not
+  enforceable**: the rendered PDF says the terms have not been through legal review, and
+  `enforceable` stays False until a named reviewer and scope are recorded.
+
+`GET /api/policy` shows the freshness answer first. A daily `ops.policy_watch` cadence opens
+one blocking incident per stale or unread source; it deliberately **does not fetch**, because
+no policy reader is connected and a cadence that fails every run on an absent dependency is a
+dead letter with a schedule — a mistake this build has already made twice.
+
+Honest gap: #39 is **partial**. Snapshots are recorded rather than retrieved, so today every
+source reads as never checked and the watch is correctly blocking. Connecting a reader, or the
+owner recording a snapshot by hand, is what closes it.
+
+## Previously in Build 2
+**The Culture & Nostalgia opportunity engine, rights gate first (#133-#147).**
+
+Fifteen requirements, nothing built, and the reason to build the gate before the radar is that
+a culture radar is the most dangerous thing a pattern company can own. The danger does not
+arrive as a decision. It arrives as a gradient: the radar optimises for demand, the strongest
+demand signals are all somebody's property, each step downstream receives a slightly more
+abstract description of the same protected thing, and it reaches production having been
+refused by nobody. Nobody chose it.
+
+`culture/rights.py` exists before the radar that would feed it, the same order the benchmark
+quarantine was built in:
+
+- **Unclear rights route to the original lane, never to a refusal (#135).** Killing an
+  opportunity because its obvious execution is protected teaches every downstream step that
+  the gate is an obstacle, and a gate people argue with eventually loses one. The original
+  lane is a turning, and the turning is where a product this company *owns* comes from.
+- **Decomposition is checked, not trusted (#134).** The protected element is the most salient
+  thing in the input, so it is exactly what survives a judgement call — "the warmth of
+  watching <character>" is a sincere attempt at an emotion primitive and it is the
+  infringement intact. Word-boundary matching, because a check that fires on "art" inside
+  "heart" is one everybody learns to route around.
+- **The public-domain screen refuses to do arithmetic it should not do (#135).** Term depends
+  on authorship, work type, renewal and jurisdiction. The screen passes only works published
+  before **1900**, records that passing is not clearance, and sends everything else to the
+  original lane or to the owner.
+- **Quotes, lyrics, slogans and catchphrases are their own class (#139)** — the class that
+  feels most free and is not — and a final check catches one reaching customer-facing copy
+  through the original lane, because a concept can pick up a token anywhere in the middle.
+
+On top of that gate: the ten translation primitives (#134); nine reusable **eras** and ten
+franchise-free **themes** (#137, #142) that recur annually and that nobody can withdraw in
+January — 19 territories this company owns outright, counted, because a dependence nobody
+measures is one nobody notices growing (#146); a white-space tournament measuring **families
+and distinct premises rather than a count** (#138), since fifteen ideas in two families is one
+idea in fifteen colours and the jury cannot see that reading concepts one at a time; the
+six-role collection architecture (#143); the eleven-component opportunity score where **rights
+feasibility and the make-time window are gates rather than weights** (#136) — five out of five
+everywhere and zero on rights is not a four; signal memory with sources, exit reasons and
+lessons, carried in the continuity export as non-rederivable (#144); the lead-lag model that
+names the case where the radar is *reporting the news* (#140); a four-condition saturation
+exit where any one is sufficient and unmeasured conversion is not failure (#145); the
+rapid-response cell as two closed lists rather than a principle (#141); and culture lessons
+routed to creativity, market radar, SEO and portfolio (#147).
+
+`GET /api/culture` reports the rights routing first and unconditionally, because it is the
+part that stops this becoming a legal problem and it is invisible in every other view. With no
+feed connected the radar says **it has no source** rather than reporting no trends: an empty
+trend list is indistinguishable from a world with no culture in it, and the second reading is
+the one an absent owner would take.
+
+Honest gaps: #133 and #140 are **partial** — the machinery is built and there is no connected
+search or marketplace feed, so the lead-lag model has one series where it needs two. #146 is
+partial: the borrowed/owned split is countable, and recurring Brambleloop characters and
+collection worlds are not built. #147 is partial: outcomes updating the scoring weights needs
+launch data that does not exist.
+
+## Previously in Build 2
+**The Competitive Product Teardown Laboratory, finished — and three regressions it exposed
+(#152-#160, #164, #168).**
+
+The laboratory had a twelve-dimension scorecard and no way to earn a score. "Chart quality: 4"
+is a feeling with a number attached; #154 asks about legibility, symbols, legends, colour
+independence, pagination, row numbering, motif boundaries, print quality, scale, schematics,
+assembly diagrams and written correspondence. Twelve things a person can look at and disagree
+about. `teardown/audits.py` is the nine schedules the requirements enumerate — **92 elements
+across nine audits** — and four rules that keep them evidence rather than impressions:
+
+- **An audit is complete or it is not scored.** Scoring five of twelve chart elements and
+  reporting the mean would let a shallow teardown outrank a thorough one.
+- **Only the extremes owe a mechanism.** A 3 is "competent" and teaches nothing. A 4 or 5 is a
+  mechanism worth adopting and a 0-2 is a trap worth preventing, and both must say what
+  produced them. Demanding an essay for all 92 elements is how ten purchases become a task
+  nobody finishes.
+- **A strength with no answer is reported, not converted.** A benchmark element scoring 4 or 5
+  becomes a Brambleloop publishing requirement only when an advantage this company can
+  *evidence* beats it. Otherwise it is recorded as an **unmatched strength** — a competitor
+  does something we have no answer to, which is the most useful thing a teardown can find and
+  the first thing an invented differentiator would destroy.
+- **The requirement is to exceed, never to match.** #154 says clearer charts than the best
+  benchmark and #156 says the best purchased experience rather than the average; parity is the
+  floor #163 already refuses.
+
+Video applies only where the manifest records video: a pattern that never promised video does
+not have bad video, and scoring it zero manufactures a weakness out of a category difference.
+Delivery packaging is half answered from the intake manifest, so the analyst answers only what
+filenames cannot settle. Every free-text field still goes through `check_derived()`, so a
+mechanism that is really the competitor's instructions is refused at the new door too.
+
+**#164 is now a pipeline rather than a convention.** `teardown/pipeline.promote()` routes a
+finding through `improve.cells.propose`, so the pre-change baseline and the governance
+boundary both apply unchanged — and "relax the claim gates so our listings can state the same
+size range as theirs" is refused by the same rule that refuses it anywhere else. A competitor
+doing something this company is not allowed to do is a finding about the competitor. The
+funnel counts **measured improvements, not filed findings**: a finding that became a
+hypothesis nobody tested has changed nothing.
+
+**#168 is a gate, not a report.** The pre-launch challenge compares a product against the best
+category-matched benchmark on seven critical dimensions, blocks on a full-point gap unless a
+tradeoff was declared *and* names an advantage we can evidence, and refuses to pass a critical
+dimension by leaving it unscored. It is carried in `launch/readiness.py` as a real requirement
+with an owner request attached. An unrun challenge is **not** a pass — it currently blocks,
+and the unblock path is the owner's benchmark purchases.
+
+### Three regressions this work exposed, all fixed
+
+Running the full suite found four failing suites. All three defects were real, and one was
+mine:
+
+- **`growth/portfolio.py` had been overwritten, not extended.** The CA$5K portfolio-mix work
+  replaced a Build-1 module that `runtime/pipeline.py` imports, so the weekly `portfolio.review`
+  cadence would have dead-lettered on its next run. It had **not** yet done so in production —
+  `/api/verify` records two historical dead letters, neither of them this one — because the
+  cadence is weekly and the guard test caught it first. The lifecycle classifier is restored and the
+  new mix/concentration/stress-test code now lives in `growth/mix.py`. They answer different
+  questions — how a SKU is *performing* versus what the catalogue is *shaped* like — and a
+  catalogue of twelve healthy stars with one role is a portfolio one trend away from zero.
+- **A continuity export cut exactly on a table boundary restored as if complete.** Every table
+  it contained was internally consistent, so every per-table row count agreed and the operator
+  was told the restore succeeded. The header now declares which tables the file will contain
+  and the file carries an end marker; a restore missing either is refused.
+- **`/api/verify` returned 500 instead of 503 whenever there was a dead letter to report.**
+  `cutoff` is timezone-aware, SQLite returns naive datetimes, and the comparison only runs when
+  the dead-letter list is non-empty — so the endpoint an absent owner relies on was green in
+  every state where nobody needed it and opaque in the one where they did. Fixed, with a test
+  that plants a dead letter, because the existing tests all passed while the defect was live.
+
+## Previously in Build 2
+**The benchmark observation pipeline — written while the credential does not exist, so it runs
+the moment it does (#207, #208, #212, #214, #303, #313, #319).**
+
+The pieces already existed: the read-only Etsy client, the pods, the coverage queue, the
+evidence grading. What was missing was the thing that drives them on a schedule. It is
+deliberately written *before* the key arrives, because a pipeline written the day the key
+lands is a pipeline debugged against a live marketplace. Every branch — first baseline,
+unchanged catalogue, new listing, changed listing, unreadable gallery, no credential at all —
+is exercised against an injected reader.
+
+- **Baseline once, then only what moved (#212).** Each listing carries a content fingerprint
+  over the fields that change *commercially* — title, description, price, tags, materials,
+  state, last-modified, favourites. `views` is deliberately excluded: a field that moves every
+  hour makes a fingerprint useless by making it always different. The second scan of an
+  unchanged catalogue opens **zero** galleries, and the test asserts that by counting calls,
+  because the rows look identical either way.
+- **An audit is only claimed after it happened.** `audit_state` becomes `audited` after the
+  gallery call returns, never from a catalogue row.
+- **The gallery result is called an inventory, not an analysis.** Etsy publishes per-image
+  hex, hue, saturation and brightness, so palette evidence is free — and nothing in the record
+  claims a judgement about the shot was made, because that needs the model provider.
+- **A scan's purpose is a queue, not a report (#314).** Arenas the benchmark sells into and
+  Brambleloop does not become scored coverage gaps, using only components the scan can
+  actually observe. Make time, contribution and creative potential are left **absent rather
+  than guessed**, so the queue's own `evidence_weight` reads under 0.4 and says so.
+- **#319 is enforced inside the pipeline**, not beside it: `mission.check_report()` runs
+  against the scan's own output, so a scan that could not produce a compliant report fails
+  rather than files one.
+- **No credential is not an empty catalogue.** The easy implementation returns zero listings,
+  which is indistinguishable from a shop that has none. This records that no observation was
+  performed, names the six requirements that stay unmet, and states that nothing was
+  substituted.
+
+Six-hourly cadence, `POST /api/mjs/scan` to run it now. The interval is fixed and chosen to be
+cheap; cadence that adapts to the shop's own posting behaviour (#313) is still to build, and
+is recorded as partial rather than claimed.
+
+## Previously in Build 2
+**A second cadence died on its first production run, and the guard that would have caught
+both.**
+
+`seasonal.sentinel` dead-lettered three times: it constructed an `Incident` with a `title`
+keyword that model does not have. The test I had written for it passed — **vacuously**. It
+asserted over an empty incident list, because on the day it ran nothing in the fixture
+happened to be at risk, so the branch that raises was never entered.
+
+Two fixes, and the second matters more:
+
+1. The handler builds the `Incident` correctly, with `summary`, `product_slug` and
+   `halts_publication=False` — a timing risk must never halt publication.
+2. The test now picks a date five days inside a real product's at-risk window and asserts
+   **exactly one** incident with the slug, the runway and the severity. The handler takes an
+   `as_of` input, which also lets an operator ask what the war room looked like on any day.
+
+And the general guard: `test_every_scheduled_cadence_survives_actually_being_run` enqueues
+every cadence against a seeded database and asserts none dead-letters. The existing test
+proved each cadence had an agent and a handler — wiring — and both of this session's
+production defects were handlers that could not survive their own first run, which no wiring
+check can see. It excludes exactly one kind of dead letter: the shadow-mode publication
+refusal, which is Gate F working, and which it asserts *must* be present.
+
+## Previously in Build 2
+**The CA$5,000/month model, built so it cannot flatter the company (#229, #230, #269, #270,
+#273, #274, #275).**
+
+The owner's framing is the specification: the probability must be *earned from actual market
+evidence, not manufactured from optimistic assumptions*. That rules out the obvious
+implementation — a weighted score over criteria somebody fills in produces a number that rises
+as the architecture gets more sophisticated, which is precisely what #230 forbids.
+
+**Against this company's real state today, `/api/scale` reports a probability of 0.0**, and
+says: *"Effectively zero, and correctly so… No amount of further building moves this number —
+only customers do."* Fifteen certified patterns, a deterministic compiler, a reverse compiler,
+release gates, a benchmark mission and a seasonal engine, and not one customer.
+
+Four properties, each a thing that *cannot* be done rather than a thing that should not:
+
+- **Every rung counts rows.** No parameter sets a layer; no override exists.
+- **Everything measured from orders is bounded by the ledger's order count.** This closes the
+  hole every scoring model has: several rungs need counts from systems that do not exist yet
+  (attribution, repeat tracking), and a caller supplying those could otherwise report a
+  perfectly diversified, highly converting business into a database holding no sales. Tested
+  adversarially with maximal fabricated inputs: still 0.0.
+- **Small samples cannot produce confidence.** Observed rates are shrunk toward the
+  pessimistic prior by their own sample size, so the first lucky week cannot set the year's
+  expectations. Three orders is demand evidence worth under 0.05.
+- **The ladder is a minimum, never an average (#274).** Tested with a company strong on six
+  layers and dead on acquisition: the average reads above 0.7 and the model reports 0.0,
+  because *"we can make it, price it, photograph it, and nobody buys it"* is exactly the
+  failure an average hides.
+
+Above that sits the #275 gate — six counts (selling SKUs, product families, outside customers,
+orders, acquisition loops, months of history) that cap the figure at 0.74 until all are met.
+Tested in both directions, because a model that can only ever report near zero would stop
+being read.
+
+**The scenario matrix (#273)** decomposes the target seven ways, sorted by the traffic each
+path needs, with gross *and* contribution after Etsy's fees — CA$5,000 gross is about
+CA$4,430 net, and a plan that reports only gross is one that hits its number on paper and
+misses it in the bank. Required visits account for repeat and off-platform orders, which do
+not arrive through the search funnel. Every row records whether its conversion rate was
+observed and over what sample; today **zero paths are evidence-supported**, and the note says
+the most attractive row is the one to distrust — it is attractive on account of its
+assumptions, not its difficulty.
+
+## Previously in Build 2
+**Both owner-approved credentials built against their conditions — and the owner was right
+about Etsy's authentication.**
+
+### The correction, verified rather than accepted
+
+The owner said Etsy v3 requires `x-api-key` containing *keystring and shared secret separated
+by a colon*, not the keystring alone. Checked against Etsy's own documentation, which says
+exactly that. **This codebase had it wrong** — `integrations/etsy.py` had been sending the
+keystring alone since Build 1. It is the kind of wrong that costs a diagnosis round rather
+than failing loudly: the header is accepted as a header and refused as a credential, so the
+first real call returns 401 and every explanation for a 401 is plausible.
+
+### What the sanctioned API actually covers
+
+Fetched Etsy's published OpenAPI specification and analysed it rather than guessing. **32
+endpoints are served by the API key alone, with no OAuth scope** — and nine of them carry the
+MJs mandate:
+
+| mandate element | covered? | how |
+|---|---|---|
+| resolve the canonical shop (#206) | yes | `findShops`, exact name match only |
+| enumerate the full catalogue (#207) | yes | `findAllActiveListingsByShop`, paginated to the shop's own count |
+| listing text and commerce metadata (#208) | yes | title, description, price, tags, materials, style, favourites, timestamps |
+| gallery asset inventory (#209) | yes | every image URL at four sizes — **plus Etsy's own per-image hex, hue, saturation, brightness and black-and-white flag**, which answers palette and colour-architecture questions with no vision model at all |
+| merchandising structure (#303) | yes | `getShopSections` — the shop's own categorisation, better evidence than our inference |
+| change detection (#212) | yes | `last_modified_timestamp` plus a content fingerprint |
+| image-level visual judgement (#209) | **no** | needs the approved model provider reading the public image URL — no browser, no scraping |
+| rendered page presentation (#208) | **no** | badges, sale banners as presented, thumbnail crop in search. Recorded as an unmet fraction (#224). **A cloud browser is not being requested**: the API covers the mandate's substance |
+
+Minimum scope is enforced rather than intended: an endpoint allowlist that raises before a
+request is built, and no code path that could send an OAuth token. The credential never
+appears in a log, an error, the call trail, `__repr__` or benchmark evidence.
+
+### Model routing inside CA$25
+
+Three tiers, and the tier is a property of the task, not the caller's mood:
+
+| task | model | ~CA$/call | inside the ceiling |
+|---|---|---|---|
+| classification, extraction, routing | `claude-haiku-4-5` | 0.0030 | ~8,200 calls |
+| gallery observation, listing copy | `claude-sonnet-5` | 0.0252 | ~990 calls |
+| creative evaluation, benchmark challenge | `claude-opus-5` | 0.1294 | ~190 calls |
+
+The ceiling is checked **before** each call — a ceiling checked afterwards is a report about
+an overspend — against this calendar month's ledgered `llm` cost, with no override parameter.
+Unchanged evidence is never paid for twice: the cache key is the content fingerprint *plus the
+routed model*, so a downgrade cannot silently keep serving the better model's answers. And
+`PATTERN_TASKS_REFUSED` means a model can never be asked for stitch counts, dimensions,
+yardage or instructions, whatever the budget — the compiler owns those.
+
+### The lead-time engine now runs itself
+
+`seasonal.sentinel` is a daily cadence (#311). It names the at-risk rows rather than counting
+them and raises a P2 only for windows where reallocating effort still changes the outcome — a
+missed window is not an incident, because #297 already decided what happens to those, and an
+incident per missed product per day trains everyone to ignore the channel. The finding stands
+as planning evidence: Canadian Thanksgiving is missed for the generated catalogue, Christmas
+remains actionable, and the 26.7-hour autumn oak throw's preferred launch is 2026-09-27.
+
+## Previously in Build 2
+**The competitive product teardown laboratory (#148, #149, #150, #151, #161, #162, #163,
+#167, #169, #170) — built before the files arrive, because a boundary added afterwards was
+absent exactly when it mattered.**
+
+The owner will buy about ten representative competitor patterns so this company can study what
+a customer actually receives after paying. That is legitimate and ordinary, and it puts a
+folder of somebody else's copyrighted instructions on the same disk as a system that writes
+crochet patterns.
+
+- **The library is a quarantine, not a corpus.** It lives outside the repository tree, is in
+  `.gitignore`, and `retrieve()` is its only reader. It refuses every generation, listing,
+  support, marketing and publishing role *by name, with the reason*; refuses any role not
+  explicitly an analyst; and refuses a path that resolves outside the library root, because a
+  quarantine whose reader accepts `../../src` is a file-serving endpoint with a misleading
+  name.
+- **Nothing is ever stored as content.** The manifest holds filenames, roles, sizes and
+  hashes. `check_derived()` refuses a finding whose text reads as row instructions or a
+  transcription, and runs on both the mechanism and the improvement of every finding.
+- **Intake never opens a file.** `scan()` works out the seller, the file roles, the chart /
+  video / print / bonus presence and the hashes from filenames and the filesystem, then asks
+  the owner only what it genuinely cannot infer. A manifest that had to parse a competitor's
+  PDF would be reading the thing it exists to keep unread.
+- **The composite standard refuses to be one seller's product with extra steps (#162).** Each
+  dimension takes its target from whichever benchmark did it best, and **ties keep every
+  contributor** — resolving a tie by insertion order would bias the whole standard toward
+  whatever was torn down first, which is the single-source failure arriving by accident
+  instead of by choice.
+- **Parity is refused as a position (#163).** Every product class must name an advantage from
+  a closed list anchored in capabilities already built, because free text accepts "better
+  quality", which is a hope.
+- **A finding with no action cannot be recorded (#164).** A teardown that produces no change
+  is a review.
+
+Readable at `/api/teardown`, which leads with whether the standard is still single-source.
+
+## Business continuity is now proved in production, not only in tests
+
+`POST /api/continuity/verify` against the live Postgres database, 2026-09-18T14:52Z:
+
+- **4,304 rows across 25 tables** exported in portable JSON Lines
+- **4,027 of them non-rederivable** — audit log, jobs, owner queue, incidents, ledger,
+  benchmark observations
+- restored into a scratch database and re-exported; **content digests match**
+  (`c86bb1d4a49c…`)
+
+The gap Build 1 wrote into its own baseline is closed and demonstrated against real data. What
+remains is durable storage for the archive itself, which is an owner decision (below): the
+evidence is durable in the audit log; the bytes are on a container filesystem.
+
+## Previously in Build 2
+**A defect production found in the continuity job, three dead letters in.**
+
+`BRAMBLELOOP_REQUIRE_POSTGRES=1` refuses to let this company run on a SQLite file that a
+restart destroys — and the restore proof deliberately builds exactly such a file to restore
+into. The guard was right; the call site was wrong. `/api/verify` went to 11 of 12 on
+`no_unexpected_dead_letters_in_24h`, which is the check doing its job.
+
+The exemption is `Database(..., scratch=True)` — a parameter, not an environment variable, so
+it cannot be switched on for the whole process including the application's own database.
+Verified with the production flag set: the application path still refuses, the proof runs.
+Regression test in `test_continuity.py` asserts both halves, because an exemption that
+accidentally disarms the guard would be a worse defect than the one it fixed.
+
+## Previously in Build 2
+**The maker lead-time engine and the seasonal launch-date compiler (#283, #284, #285, #296,
+#297, #310, #311) — the requirement the owner flagged non-negotiable, and the first piece of
+Build 2 that produced a finding about this company rather than about its code.**
+
+A crochet pattern is not the product the customer wants. The product they want is a finished
+cardigan, on a person, on Christmas morning — and between the listing and that morning sit the
+marketplace's indexing lag, the buyer's own planning, and forty hours of somebody's hands. A
+shop that launches its Christmas blanket on December 1st has launched a blanket nobody can
+finish, at the exact moment the search term peaks, and its own conversion data will report that
+Christmas blankets do not sell.
+
+    latest effective launch = event − completion buffer − make time
+                                    − planning buffer − marketplace ramp
+    preferred launch        = latest − creative iteration − ad learning window
+
+- **Make time is derived from the twin, never typed.** Stitch count, colour changes counted in
+  the order a person actually crochets, and per-piece finishing — the term every optimistic
+  estimate drops. This company already refuses a typed finished size; make time decides
+  whether a customer holds a finished object on the day, so it gets the same treatment.
+- **Every figure says whether it is measured or assumed.** A launch date derived from six
+  guesses and one derived from six months of sales data are different objects, and a dashboard
+  that renders them identically ruins both. `Assumptions.measured()` is the only route from
+  assumed to measured, so nothing graduates by being overwritten.
+- **`calibrate_from_samples()` turns tester-reported hours into a real stitch rate** — the
+  physical test intake has asked testers for hours since Build 1 and nobody had ever divided.
+  With no completed samples it reports that, rather than returning a plausible number wearing
+  a `measured` label.
+- **A missed window is never launched on its seasonal premise (#297).** Finished engineering
+  is not an argument. The recommendation is pivot-to-evergreen, simplify-to-a-quick-make or
+  hold-for-next-cycle, with the reason.
+- **`at_risk` is distinguished from merely past-preferred (#311)**, because they are different
+  situations: one has runway to spend, the other is the last window in which reallocating
+  effort changes the outcome.
+
+**The finding, measured against the eleven generated designs on 2026-09-18** — `/api/seasonal`:
+
+| | |
+|---|---|
+| Canadian Thanksgiving (12 Oct) | **missed for all eleven.** Even the 0.9-hour ornament needed to be live by 4 September |
+| Halloween (31 Oct) | at risk for the larger pieces |
+| Christmas (25 Dec) | all eleven still on track — but the largest, the 26.7-hour autumn oak throw, has a **preferred launch of 2026-09-27**, nine days away, and a last viable date of 21 October |
+
+That is the first time this system has said something about the business that nobody had
+asked it. It is also the argument for the owner actions below: a listing cannot go live
+without a shop.
+
+## Previously in Build 2
+**The benchmark spine for the owner's named-shop mandate (#205, #206, #210, #211, #217, #301,
+#305, #312, #314, #318, #319) — everything the MJs mission needs that does not require the
+browser capability nobody has granted yet.**
+
+The mandate is unusually emphatic: one specific shop, by name, explicitly not generalisable
+into "watch proven sellers". Most of the ways it goes wrong are ways of *appearing* to satisfy
+it, so each one has a refusal and a test:
+
+- **A redirect to a different seller is refused, not followed.** `intel/benchmarks.py`
+  classifies resolution as healthy / moved / unreachable / **wrong_shop** / unverified. A 404
+  and a redirect that lands somewhere plausible look identical to a naive follower, and the
+  second silently re-points the entire mission at a stranger. A move updates where we look; a
+  wrong shop never does. With no capability configured the state is `unverified`, never
+  `healthy`, because the dashboard is believed.
+- **The owner's own URL is stored verbatim**, query string and all, and surfaces unchanged on
+  `/api/mjs` — #301 requires it in the registry and in acceptance evidence, and tidying it into
+  the short canonical route is the obvious, helpful, wrong thing.
+- **Eight permanent specialist pods** with ordered routing, so a Christmas stocking reaches
+  the stocking specialist rather than the seasonal one, and each pod owns a quality rubric. A
+  listing nobody can classify goes to a visible `unclassified` queue rather than the nearest
+  pod, because a map whose gaps are invisible reports full coverage of whatever it understood.
+- **A dimension with no evidence is `unknown`, never `parity`.** Parity is a finding.
+  Defaulting to it lets a company that has never looked at its benchmark report itself level
+  with it, which is the most comfortable wrong answer available.
+- **Lessons are stored only at the mechanism level**, against a closed vocabulary, and a note
+  carrying a competitor's row-by-row instructions or chart is refused at the point of writing.
+- **The gap queue has all seven states #314 names**, a transition table that refuses a state
+  the work never passed through, and a mandatory reason for `not_pursuing` — a queue whose
+  items can be closed silently shrinks by forgetting and then reports good coverage. Scores
+  record the share of the weighting actually answered, so a 0.8 computed from one component
+  out of seven cannot pass for a considered one.
+- **#319, almost verbatim:** a report that says only "competitor scan complete" is refused.
+  So is one that names a different shop, one with no date, and one whose catalogue coverage
+  cannot say how many listings are known versus inspected.
+- **#305 is enforced at provenance**, the only place a file's origin is stated: a source
+  outside camera / twin / generator / designer blocks, and provenance describing a downloaded,
+  scraped or recoloured competitor image blocks. By the time an image is in a gallery it looks
+  like any other image, and "we would never do that" is not a control.
+
+Four new tables (`benchmarks`, `benchmark_listings`, `benchmark_observations`,
+`coverage_gaps`), three of them added to the continuity export's non-rederivable set. The
+mission dashboard at `/api/mjs` leads with whether the mission can observe anything at all,
+and says plainly that nothing in it is filled in from snippets, screenshots or fixtures.
+
+## Previously completed milestone
+**The access approval protocol, and the rule that stops a missing capability being faked
+(#223, #224).**
+
+The owner said they would approve reasonable access for the mandatory benchmark observation
+and for 24/7 autonomy, and put the limit in the same sentence: not blanket authorization for
+unbounded spending or credentials. `src/brambleloop/launch/access.py` is both halves.
+
+- **Every request is bounded by construction.** A recurring cost with no monthly ceiling
+  cannot be instantiated — the guard is in the type, not in a review, because a rule that
+  lives in a docstring is one a future session writes around. Each request carries the exact
+  action, purpose, capability unlocked, security scope, maximum cost, monthly ceiling,
+  minutes, consequence of declining, and what continues regardless.
+- **One queue, not two.** The capability requests go into the same consolidated owner queue
+  through `launch.readiness`, keyed on the requirement so a re-run restates rather than
+  duplicates — the same identity rule that stopped the fee approval appearing twice. Section
+  14 says one queue and the reason is arithmetic: two means the owner reads whichever they
+  remember.
+- **Willingness is not approval.** `available()` asks the environment and nothing else, so no
+  amount of stated intent turns a capability on.
+- **A degraded substitute is never evidence (#224).** `accept_evidence()` grades every piece
+  of benchmark evidence: a search snippet, a manual screenshot, a seeded fixture or a stale
+  cache is *supporting* — real, keepable, and unable to close a requirement that asks for
+  continuous cloud observation. Evidence labelled `browser_traversal` while the capability was
+  never granted is downgraded, because the label must not be able to grade itself. A copied
+  competitor photograph is refused outright rather than graded.
+
+The engineering finding worth the owner's attention: **the first step of the benchmark mandate
+appears to be free.** Etsy's Open API v3 issues a read-only keystring for public shop and
+listing data — no shop, no KYC, no payout account, no cost — which is the platform's own
+sanctioned route and covers resolving the shop, enumerating the catalogue and reading listing
+text, price, tags and gallery image URLs. A paid cloud browser is worth approving only if that
+proves insufficient. Nothing here claims it has been called: it is the documented path, and it
+stays unverified until a key exists.
+
+Readable at `/api/access`, which reports the unmet capability first and the request second.
+
+## Earlier in Build 2
+**Business continuity: the export, the restore, and the proof that the restore works
+(requirement 51 — the gap Build 1 wrote into its own baseline, and the one the owner flagged
+to close early in Build 2).**
+
+`src/brambleloop/core/continuity.py`:
+
+- **Portable, not engine-native.** Every table exports as JSON Lines with a per-table sha256
+  and a declared row count. A `pg_dump` restores into Postgres and nowhere else, which is the
+  dependency #51 exists to remove; this restores into any SQLAlchemy engine, and a
+  Postgres-shaped export restoring into a scratch SQLite file is exactly what makes the proof
+  below runnable from the application container at all.
+- **The proof is a hash comparison, not a row count.** `prove_restore()` restores the export
+  into an empty database, re-exports it and compares digests table by table. A restore that
+  dropped every timestamp, mangled a JSON column or coerced a Decimal would pass a headcount
+  unchanged.
+- **Truncation and unknown formats are refused.** Each table declares its own row count and
+  the reader checks it, so a half-written archive fails at the point it stopped rather than
+  restoring silently as if it were complete.
+- **No credential ever reaches the export, its manifest or the audit log.** The export names
+  which database it came from — continuity evidence that cannot say that is not evidence —
+  with the credentials redacted before anything is written.
+- **Scheduled daily** as the `continuity_proof` cadence, and a failed proof raises a
+  correlated P1 incident rather than a log line.
+
+`src/brambleloop/core/opsauth.py` and `GET /api/continuity/export`: the one endpoint that can
+return database contents authenticates with an operator token held only in the hosting
+environment, compared in constant time, never echoed — and **closed to everyone when unset**
+rather than open. The opposite default serves the company to the internet in the window
+between deploying the endpoint and remembering to set the variable, which is exactly the
+window in which nobody is looking. `/api/continuity` reports whether backups are being proved
+without exposing anything a stranger could use.
+
+Still open, and batched for the owner rather than hidden: the archive is written to ephemeral
+container storage. The **evidence** is durable — digests, row counts and the restore proof
+live in the audit log — but the bytes are not, and that needs durable object storage. Rendered
+PDFs and charts are deliberately not archived: they are re-derivable from the CIR and the
+code, which is what "patterns are software releases" buys.
+
+Found by the test that exists for it: the new daily cadence was scheduled against an agent
+with no permission to run it — the same defect production hit with the heartbeat in Build 1.
+`test_every_scheduled_cadence_can_actually_run` caught it before it ever ran.
+
+## Build-1 closing milestone
+**Build 1 of Master Plan v1.2 is complete. Nothing in the launch report is blocked on build.**
+
+Verified at 2026-09-18T08:40Z against production running commit `d5168c0`:
+
+- `/api/verify` — 12 of 12 checks passing.
+- `/api/launch` — every build-owned requirement satisfied; `blocked on build: NONE`. The
+  eight unmet requirements are seven owner actions and one Etsy credential that only the
+  shop can produce.
+- `./run_tests.sh` — 541 passing, 0 failing, 26 suites, measured at `d5168c0`.
+- Shadow Mode intact: `BRAMBLELOOP_PHASE=shadow`, 0 published against 120 recorded
+  publication refusals, CA$0 revenue, CA$0 advertising, CA$0 model spend, no provider
+  configured, no spend scope paused, 0 customers, 0 orders.
+- The per-section coverage map below records what exists for each of the plan's 29 sections
+  and what each unmet item waits on.
+
+The last four defects closed to get here were all found by looking at what production had
+actually produced rather than at what the code said it would:
+
+1. **Every listing image in production was unreadable.** Three independent causes, each of
+   which alone would have shipped an unsellable listing: no fonts in the container, so
+   Pillow fell back silently to a bitmap face a few pixels tall; a fabric renderer that
+   coloured cells only by colourway, so a deliberately single-colour textured design had
+   nothing to show; and my own frame-level thumbnail check passing a blank hero at 78%
+   coverage because it was measuring the title text while production blocked the same
+   product at 11%.
+2. **Production could not say which code it was running.** `version` is hand-maintained, so
+   until now "the deploy landed" was inferred from effects — which is how each of the three
+   idempotency layers cost a diagnosis round. `/api/status` now reports the build commit and
+   says `unknown` rather than guessing.
+3. **The fourth layer of the rebuild bug**, found with that new field. The rebuild had
+   detected the cable throw as stale, enqueued the work, watched `assets.build` refuse it
+   for blocked imagery — correctly — and then reported the same stale line on every later
+   run while enqueueing nothing, because the listing stayed stale and so the transition, the
+   token and the key never changed. `CHAIN_VERSION` 6 is the mechanism that frees it, and
+   the audit record now distinguishes "stale and untried" from "stale, attempted, refused".
+4. **The charts could not be read without colour vision** (§31). Twelve of the nineteen
+   designs are two-colour work where the colour *is* the motif, the chart separated the
+   yarns by hue alone, and the legend's only identifier per yarn was a coloured square.
+   Every square now carries its yarn's letter, and a chart too small to carry one blocks
+   rather than ships.
+
+Writing the regression fixture for (4) then caught two defects I had just introduced — a
+footer that stretched the disc chart to 2:1, and a flag reset that discarded a fact about
+the container — which is what the fixtures are for.
+
+## Previous milestone
+**Construction beyond flat rows (§2, §3), and the defect it exposed.**
+
+Two products in the catalogue were named for shapes their patterns did not make. "Market
+Basket Trio" was a single flat 24-row rectangle whose own designer note called it "the side
+panel, seamed into the basket" — with no seaming instruction anywhere in the document, so a
+buyer would have paid for three baskets and received one panel. "Hexagon Coaster Set" was a
+rectangle with a colourwork motif on it. Both were certified, both had listings drafted in
+production. Nothing was published, because nothing in this system can publish.
+
+What now exists:
+
+- `cir/geometry.py` measures a round-worked piece as a surface of revolution: each round is a
+  circle of fabric, and the row height splits between growing outward and rising upward. A
+  disc, a tube, a cone and an open vessel are measured exactly; a closed shaped piece is
+  *refused* a width and a height and reports its circumference instead, because the ball is
+  made by the stuffing and the maker's tension, which are not in the gauge.
+- The same model names fabric that has to gather — a round growing faster than its own height
+  is a frill, which is a legitimate design and not a diameter.
+- `geometry.corners` reads six stacked increase columns out of the stitch positions, so
+  "hexagon" is evidence rather than an assertion.
+- The twin no longer reports a flat width for anything worked in the round, and Asset Truth
+  refuses a size claim it cannot check rather than passing it for want of a comparison.
+- Product names are checked against the shape the pattern makes, narrowly: a
+  three-dimensional noun, or a shape word attached to the object. A star motif *on* a
+  rectangle is not a shape claim.
+- The finishing is in the CIR. Seams name their pieces, the compiler checks they exist, the
+  writer emits the steps, the reverse compiler reads them back, and a flat panel may be
+  called a basket once something joins it into one.
+- Written patterns name the yarn on every row of a multi-colour pattern — the whole catalogue
+  was previously workable only from the chart — and say once per component whether to join
+  the rounds or spiral. Both are checked by the reverse compiler.
+- Charts for round work are drawn as rounds from the centre out, replacing a ragged staircase
+  captioned with flat-fabric reading directions.
+- `market-basket-trio` is now a storage basket worked in one piece from the centre of the
+  base, in three sizes (15 / 20 / 25 cm across, measured), and `hexie-coaster-set` is a real
+  six-cornered hexagon, set of four, with the yarn estimate covering all four.
+- `CHAIN_VERSION` 5 and a new `DOC_VERSION` so the corrected documents reach products that
+  were already certified, and re-certification now *replaces* the stored certificate instead
+  of skipping it.
+- A product whose certificate is refused has its listing withdrawn.
+
+**Launch readiness and the owner queue (§14, §26).** The system now computes, from the
+warehouse rather than from recollection, every requirement a live shop has, and attributes
+each unmet one to *build* (ours), *integration* (an account or service that does not exist)
+or *owner* (a person's identity, bank account or hands). Only the third kind reaches the
+owner-action queue, which the system writes itself on a daily cadence in the Execution
+Directive's format — action, reason, maximum cost, minutes, consequence of delay — and does
+not duplicate on re-assessment. Visible at `/api/launch` and on the dashboard. The queue
+table has had those columns since the first build and nothing had written to them, because
+until the catalogue, imagery, pricing and copy existed, every blocker was ours.
+
+## Earlier milestone
+Master Plan v1.2's commercial departments, built on the proven infrastructure rather than
+alongside it. Sections 6, 7, 8, 9, 10, 11, 12 and 16 now have running code and tests:
+
+- **Brand system and Storefront Director (§6).** Palette, type, crop and lighting rules, a
+  two-word collection naming grammar, the brand model's character bible with three enforced
+  refusals, grid-coherence measurement, and the whole shop drafted — announcement, About, five
+  policies, sections, banner and icon briefs.
+- **Listing imagery (§7).** Seven ordered frames rendered from the twin, each declaring its
+  asset class and claims, checked by Asset Truth, with the hero judged at Etsy's real
+  search-grid size.
+- **Search Domination (§8).** A query model that distinguishes reachable phrases from head
+  terms a shop with no history cannot place for, thirteen tag slots spent under a word budget,
+  coverage scored against reachable demand, and structured attributes from pattern data.
+- **Pricing Intelligence (§9).** Market price scanner, contribution-per-visitor optimiser,
+  bundle economist with a breakeven attach rate, price experiments whose stopping rule is
+  fixed before they run, and promotion checks that refuse a permanent sale.
+- **AI Customer Experience (§10).** Triage across seven desks with escalation ordered first,
+  replies drafted and recorded as unsent, review solicitation refused, and repeated questions
+  about one row surfaced as candidate defects.
+- **Marketing (§11).** A full content ecosystem per product — article, four distinct pins,
+  tutorial outline, email with a CASL unsubscribe, validated free teaser, cross-sell and a
+  crochet-along where the make time warrants one — scheduled backwards from launch.
+- **Portfolio (§12).** Section 12's diagnostic table as code, with intervention ladders, and a
+  classifier that refuses to classify a SKU nobody has seen.
+- **Confidence (§3) and regression capture (Gate B).** Seven dimensions tracked separately with
+  no overall score, and confirmed defects frozen as permanent fixtures.
+- **Paid media guard rails (§11).** Every ceiling section 11 names, and every auto-pause
+  condition: tracking failure, unavailable listing, CAC breach, refund anomaly and the
+  test-loss cap. Built while no campaign exists and no money can be spent — `authorise_spend`
+  refuses on phase and on missing owner authority before it looks at any budget, because a cap
+  is not permission.
+- **Finance (§1, §15, §34).** The full P&L section 15 lists, read from observed entries only;
+  a tax reserve that is never counted as ours; cost-per-validated-pattern computable without
+  revenue; a CFO/Skeptic that reports concerns when everything is nominally fine and blocks on
+  infrastructure above the owner's ceiling or advertising with no attributable orders; and a
+  CA$100K trajectory that refuses to forecast from zero orders.
+- **Row-level repeats (§2).** Written patterns now collapse a repeated row block into
+  "Repeat rows 25-48 3 more times, ending with row 120", the way a printed pattern does.
+  The flagship prints 48 rows instead of 120 and its PDF is 7 pages instead of 8. The cycle
+  is *derived* from the compiled rows rather than declared in the CIR, so there is no field
+  that can disagree with them, and the reverse compiler parses and expands the instruction
+  itself from the customer text — it does not receive the writer's expansion, because then
+  the two halves would no longer be independent.
+- **The catalogue (§16).** A motif library and a builder; sixteen designs generated, every one
+  compiling and reverse-compiling clean. Ten of eleven release candidates now ship an
+  engineered design rather than the striped template; the eleventh is the bundle, which
+  correctly has no pattern of its own.
+
+## Earlier milestone (before that)
+The complete shadow release chain on a real product. One unattended `plan.cycle` now runs
+market scan → portfolio selection → engineered CIR → compile → digital twin → reverse compile
+→ certificate → PDF and charts → pricing → listing and SEO → launch plan → refused publish,
+for all eleven release candidates, with 101 jobs completed and no unexpected failures. The
+flagship's actual output — the 8-page PDF, the chart, the price net of Etsy fees, the listing
+copy, the launch dates and a support transcript — is written to
+`reports/shadow_release_nordic_forest.md` so it can be inspected rather than taken on trust.
+The chain was then deliberately attacked: 16 attack tests covering a single wrong stitch in a
+motif, a stale chart from another size, drifted customer text, unsupported size claims,
+invented motifs, a fake was-price, a bundle that is not cheaper, an unsupportable listing
+claim, an agent reaching outside its permissions, support trying to amend a pattern, and a
+corrupted or missing artifact. All are rejected by construction.
+
+## Architecture decisions
+See `DECISION_LOG.md` for reasoning. Summary:
+- Python 3.11. Core value is deterministic arithmetic, PDF/chart generation and image work.
+- Postgres in production; SQLite for hermetic tests. Durable queue via `SELECT ... FOR UPDATE
+  SKIP LOCKED` (Postgres) with a portable fallback — no Redis, fewer moving parts to die
+  unattended.
+- FastAPI + server-rendered Jinja admin. No separate frontend build step.
+- Railway as the deploy target (owner account `statefarm91` verified present, personal
+  workspace, 3 existing projects). **Not provisioned** — paid infrastructure is an owner gate.
+- Lives at `brambleloop/` inside the Project-Money repo for now, purely because push
+  credentials are scoped to that repo. Migrating to a dedicated repo is a tracked follow-up,
+  not a blocker.
+
+## Completed capabilities
+- `core/db.py`, `core/models.py` — warehouse: jobs, agents, audit log, cost entries, ledger,
+  spend limits, products, pattern versions, incidents, owner-action queue.
+- `queue/durable.py` — leased jobs, idempotency keys, backoff with jitter, dead-letter.
+- `agents/registry.py` — per-agent job-type permissions, daily cost ceilings, structurally
+  forbidden combinations, audit trail, and a SpendGuard that pauses a scope on breach.
+- `core/backup.py` — backup plus a restore drill that reloads and compares row counts.
+- `gates/asset_truth.py` — imagery/claims checked against the digital twin.
+- `gates/policy.py` — unsupported claims, IP tripwires, deceptive pricing, Etsy limits.
+- `gates/certificate.py` — the full release chain and an immutable release hash.
+- `gates/incidents.py` — defect correlation, P1 escalation, publication halt.
+- `runtime/worker.py` — worker loop (authorize → dispatch → complete/fail) and scheduler.
+- `runtime/pipeline.py` — the shadow release pipeline and its job handlers. `radar.scan` now
+  scores the real pool and emits the selected portfolio; `radar.score` re-scores each
+  candidate at the moment it would consume engineering effort, because a job can sit in the
+  queue while a seasonal window closes underneath it.
+- `radar/market.py` — dated competitor profiles, category observations, and the SHOPPING DATE
+  vs MAKING DATE window arithmetic (section 5).
+- `radar/opportunity.py` — the 34-concept pool, the six-component score, and the section 33
+  portfolio constraints.
+- `radar/report.py` — renders the whole decision as reviewable markdown.
+- `gateway/prompts.py` — immutable, content-hashed, version-pinned prompts.
+- `gateway/model_gateway.py` — provider-agnostic routing, per-provider circuit breakers,
+  strict JSON parsing, per-agent cost recording, and `require_deterministic()` which refuses
+  to let a model verdict stand where the compiler has one.
+- `gateway/evals.py` — property-based eval fixtures that block a prompt version change if the
+  model starts inventing or dropping factual claims.
+- `products/nordic_forest.py` — the first engineered design: a motif grid, three generated
+  sizes.
+- `publish/charts.py`, `publish/pdf.py` — charts and the customer PDF, rendered from the twin.
+- `commerce/pricing.py`, `commerce/seo.py`, `commerce/launch.py` — fee-aware pricing that
+  refuses deceptive discounts, listing copy assembled only from computed facts, and a launch
+  plan anchored on the buying window.
+- `support/concierge.py` — answers from the exact released version and cannot amend it.
+- `core/artifacts.py` — content-addressed artifacts; hashes durable, bytes not.
+- `core/resilience.py` — transient/permanent classification, Retry-After honouring, circuit
+  breaker, artifact hash integrity, strict model-output parsing.
+- `app/main.py`, `app/worker_entry.py`, `app/scheduler_entry.py`, `Dockerfile`,
+  `railway.json` — the deployable surface. **Provisioned and running**: see "Integrations
+  connected". The image installs `fonts-dejavu-core`, because without it Pillow fell back
+  silently to a bitmap face a few pixels tall and every listing image rendered in production
+  was unreadable at thumbnail size.
+- `core/build.py` — which commit the running image was built from, surfaced on `/api/status`
+  and `/health`. Reports `unknown` when the build environment does not say, and an unknown
+  build never matches a commit, so "I cannot tell" is never reported as "the deploy landed".
+- `publish/charts.py` — stitch and colour charts, flat and round, rendered from the twin.
+  Cells are shaded by their stitch's relief as well as their colour, so single-colour
+  textured fabric is visible, and every square of a multi-colour chart carries its yarn's
+  letter so the chart can be read without relying on colour (section 31).
+- `publish/listing_assets.py` — the six-frame listing plan (hero, chart, size, detail, format,
+  siblings), rendered from the same twin as the PDF so no frame can assert something the
+  pattern does not produce. Blocks on a missing font, on a hero whose fabric has no internal
+  contrast, and on any frame Asset Truth rejects.
+- `cir/stitches.py` — canonical stitch taxonomy (consumes/produces/height per stitch). US
+  canonical, UK rendered downstream.
+- `cir/model.py` — CIR dataclasses, JSON round-trip, components/rows/repeats/gauge/materials.
+- `cir/compiler.py` — deterministic compiler. Validates per row: stitch availability, over/
+  under-run, repeat divisibility, declared-vs-computed count, unknown colour, row ordering,
+  empty rows. Warns on missing turning chains for tall stitches.
+- `cir/writer.py` — CIR → customer-facing pattern text, US/UK terminology, magic-ring aware,
+  repeated row blocks collapsed into an instruction. `collapses_rows()` is the single place
+  that answers whether a document collapsed anything, so listing copy cannot promise a
+  printed line for every row when the PDF no longer prints one.
+- `cir/rowcycle.py` — detects the longest repeated row block in the compiled rows, expands it
+  back, and writes the maker-facing sentence. Derived, never declared.
+- `cir/geometry.py` — round-worked geometry as a surface of revolution: per-round
+  circumference, radius, axial rise, shape classification (disc / tube / cone / vessel /
+  dome / shaped / gathered), corner detection from stitch positions, and an explicit refusal
+  where the geometry cannot support a finished size.
+- `integrations/http.py` — a urllib transport for that client. Standard library only, no
+  retries (that is the caller's policy), and never run against Etsy.
+- `integrations/etsy.py` — the publishing path: a v3 draft-listing client behind three
+  ordered refusals (phase, owner authority, credentials), a mapper that refuses rather than
+  truncates, and an honest outcome for "listing created, file not attached". **Written and
+  unit-tested against a fake transport; never called against Etsy.** No credentials exist in
+  this environment. The multipart file upload is the one part that cannot be verified
+  without a live call, and the interface says so rather than hiding it.
+- `quality/physical.py` — the only measured input: grams per colour and the ball band become
+  metres, metres against the estimate become a calibration factor keyed on that yarn and
+  stitch, and a finished size outside 12% of the claim raises a defect rather than becoming
+  a factor. Intake at `POST /api/physical-test` and the `physical.record` job.
+- `launch/readiness.py` — every requirement a live shop has, checked against the warehouse,
+  with each unmet one attributed to build, integration or the owner. Writes the owner-only
+  ones into the owner-action queue in the Execution Directive's format, daily, without
+  duplicating what is already there. Exposed at `/api/launch` and on the dashboard.
+- `products/texture.py` — the designs whose names were claims the fabric did not honour: a
+  cable throw that crosses, a bobble pillow that bobbles, a ribbed scarf that ribs. Post
+  stitches, closed clusters and crossings now exist in the taxonomy, and
+  `check_technique_claims` blocks any product whose name says otherwise.
+- `products/vessels.py` — the round-worked designs: three basket sizes derived from a wanted
+  diameter, and a hexagon coaster whose corners are real.
+- `cir/reverse.py` — independent parser of customer-facing text + structural diff against
+  canonical CIR. Shares no parsing code with the writer by design.
+- `cir/twin.py` — digital twin: cell-level fabric model, chart/colour grids, finished
+  dimensions from gauge, per-colour yardage estimate with an explicit ±20% tolerance until a
+  physical test calibrates it.
+
+## Master Plan v1.2 coverage, section by section
+
+The honest answer to "is anything left that Claude can build?". Every section of
+`spec/01_Brambleloop_Master_Plan_v1.2.pdf` is listed -- the plan numbers 1-17 and 25-36,
+with no 18-24 -- against what exists and what it is waiting on. "Owner" means the item in
+the owner queue above; "observations" means live marketplace or sales data that cannot exist
+before the shop does.
+
+| § | Section | State | Waiting on |
+|---|---|---|---|
+| 1 | Business Thesis and CA$100K Target | Machinery built: pricing, contribution P&L, portfolio selection, cost-to-create. Revenue CA$0 and cannot be otherwise in shadow. | Owner 2-4, 7 |
+| 2 | Pattern Engineering (non-negotiable) | Complete. CIR, deterministic compiler, stitch taxonomy including post stitches, bobbles and crossings, round geometry, seams with placement. | — |
+| 3 | Digital Twin, Reverse Compiler, Physical Testing | Twin and independent reverse compiler complete. Physical intake, calibration and falsification built and tested. | Owner 5 (the measurement) |
+| 4 | Market Radar and Competitor Digital Twins | Built on dated, sourced observations with a 34-concept scored pool. No live scraping integration. | Observations |
+| 5 | Seasonality, Launch Events, Winner Amplification | Shopping-vs-making window arithmetic and launch calendar built. Amplification needs winners. | Observations |
+| 6 | Brand System, Storefront, Consistent Model | Built: brand tokens, announcement, About, five policies, all checked. Brand-model imagery deliberately not generated (disclosure question, tracked). | — |
+| 7 | Listing Conversion and Asset Truth | Complete. Six-frame plan rendered from the twin, Asset Truth over every frame, thumbnail check at shopper scale. | — |
+| 8 | Search Domination and Page Growth | Tag and title selection, coverage scoring, content ecosystem built. Ranking feedback needs a live shop. | Observations |
+| 9 | Pricing Intelligence and Promotions | Fee-aware pricing, bundle arithmetic, refusal of deceptive discounts. Elasticity needs sales. | Observations |
+| 10 | AI Customer Experience | Built: answers from the exact released version, cannot amend a CIR, refuses to guess, every reply recorded unsent. | Owner 7 |
+| 11 | Marketing and Paid Media | Built with hard caps enforced in code; disabled, CA$0 spent. | Owner (paid-media authority) |
+| 12 | Portfolio, Reviews, Product Mortality | Classification and mortality rules built. Needs reviews and sales. | Observations |
+| 13 | 24/7 Cloud Architecture | Complete and running. Durable queue, leases, scheduler, twelve production checks, and the running commit now reported. | — |
+| 14 | Agent Governance, Policy, Owner Approval | Complete. Per-agent permissions and cost ceilings, structurally forbidden combinations, RED actions, owner queue. | — |
+| 15 | Intelligence Warehouse, Finance, Failure Recovery | Complete. Postgres warehouse, full P&L with a CFO challenge, backup with a tested restore, dead letters, circuit breakers. | — |
+| 16 | Initial Catalogue and Agent Organization | 19 engineered designs, 15 agents, every design compiling and certifying. | — |
+| 17 | Final Release Chain | Complete and exercised in production end to end. | — |
+| 25 | Search Reality Corrections | Built: the corrections are in tag selection and coverage scoring. | — |
+| 26 | Shadow Mode and Safe Autonomy | Complete and enforced in code. Verified continuously: 12/12 checks, 90 recorded publication refusals, nothing published. | Owner 7 |
+| 27 | Model Gateway and Reproducibility | Gateway built with pinned, content-hashed prompts and deterministic override. No provider configured. PDFs render byte-identically. | — |
+| 28 | Security, Privacy, Disaster Recovery | Backup and restore drill, no secrets in the repository, resilience classification, artifact hash integrity. | — |
+| 29 | Originality, Trademark, Brand Clearance | Originality gate built and run in the chain. | Owner 6 |
+| 30 | Owned Audience and Channel Resilience | Content ecosystem with a commercial job per piece, and channel attribution modelled. No email, Pinterest or site integration exists. | Owner 2-3, credentials |
+| 31 | Localization and Accessibility | Complete as far as it can be. Terminology rendered at write time from one canonical CIR; charts carry hue-independent colour cues, explained legends, print-friendly contrast. Translation itself needs terminology review before sale. | Owner (translation review) |
+| 32 | Pre-Launch Acceptance Tests | Complete. All six gates pass, every line with its own named test. | — |
+| 33 | Initial Launch Portfolio Test | Complete. The portfolio selector runs under the section's constraints and an 11-SKU cycle completes unattended. | — |
+| 34 | Cost-to-Create and Throughput Metrics | Built and reported. | — |
+| 35 | What Must Happen Before Sending Claude Live | This is the owner queue, written by the system. Seven items. | Owner 1-7 |
+| 36 | v1.2 Final Release Chain | Complete. | — |
+
+**Nothing in this table is waiting on Claude.** Every remaining item needs either an owner
+action from the queue above, or marketplace data that cannot exist until the shop is open.
+
+## Acceptance gates
+
+Every line of `spec/03_Acceptance_Tests_and_Autonomy_Gates.pdf` now has a named test in
+`tests/test_acceptance_gates.py`, so "Gate B passes" is a claim backed by a test rather than
+inferred from a scattering of others.
+
+- **Gate A (Infrastructure): passing.** Worker restart loses no durable jobs; a replayed cycle
+  duplicates no products; backup and a tested restore succeed; dead-letter and backoff work;
+  the audit log identifies actor, action and artifact.
+- **Gate B (Pattern Safety): passing — now complete.** Known-good compiles; a broken stitch
+  count fails; a bad repeat fails; a construction-changing mutation of the customer text is
+  caught by reverse compilation; **and a corrected bug creates a regression test**, which was
+  the one line that kept this gate open. The repository carries a regression corpus of
+  defective patterns that must keep failing.
+- **Gate C (Asset Truth): passing.** An absent motif is rejected; unsupported size, material
+  and difficulty claims are blocked; provenance is stored for every listing asset.
+- **Gate D (Commercial Safety): passing — now complete.** Price and promotion changes pass
+  policy; an ad budget breach is prevented and the scope auto-pauses with no refused spend
+  leaking through; **contribution accounting reconciles against test transactions**, which was
+  the outstanding line; per-agent cost ceilings hold.
+- **Gate E (Customer Experience): passing — now complete.** Routine support is answered from
+  the correct pattern version and recorded as unsent; repeated defect reports correlate into
+  one incident; support cannot patch a CIR by any path; a P1 halts the publication workflow.
+- **Gate F (Shadow Graduation): passing.** A full product completes Market Radar → Opportunity
+  → CIR → QA → PDF/assets → pricing → listing draft → launch plan → simulated support with no
+  intervention, and a second test asserts that **nothing graduated**: no publication, no
+  ledger entry, no message sent.
+
+Passing these is permission to graduate SHADOW → STAGING, not graduation. Nothing has
+graduated, and nothing will without the owner.
+
+## Integrations connected
+- **Railway** — connected and load-bearing. Project `brambleloop`, environment `production`,
+  services `brambleloop-os` (the app) and `Postgres` (the durable state). Deploys on push to
+  `claude/repository-setup-nc9x6o`. `/api/status` reports the commit the running image was
+  built from, so "the deploy landed" is now checkable rather than inferred.
+- **Etsy** — *not* connected. The client is written and unit-tested against a fake transport
+  and has never been called against Etsy. It refuses on phase, on owner authority and on
+  missing credentials, and nothing in this environment satisfies any of the three.
+- **Model providers** — none. `/api/status` reports `model_providers: []`, which is the
+  truthful answer, and no model call has ever been made.
+- **Object storage** — none. Artifact bytes live on the container filesystem and do not
+  survive a restart; hashes are durable and everything re-renders from the certified CIR.
+  This is owner action 1.
+
+## Owner actions required
+
+**Seven of these are written by the system, not by hand.** `launch.readiness` assesses every
+requirement, decides who each unmet one waits on, and queues only the owner's — with the
+five columns the Execution Directive asks for. Read them live at `/api/owner-actions`, or as
+the report at `/api/launch`. As of 2026-09-18 there are seven, in dependency order:
+
+1. **Object storage for generated PDFs and images** — max CA$5/month (within the CA$20
+   ceiling), 10 minutes. Unlocks reliable delivery of purchased files.
+2. **Open the Etsy shop and complete Etsy's identity verification** — CA$0, 25 minutes.
+   Unlocks publishing anything at all. Must be done by the person who is the seller.
+3. **Add the payout bank account and tax details** — CA$0, 15 minutes. Unlocks publishing and
+   any revenue at all.
+4. **Accept Etsy's listing and transaction fees for the opening catalogue** — about
+   US$1.80 (CA$2.50) for nine listings plus 6.5% per sale; max CA$5, 2 minutes. The first
+   spend that leaves the account, so it needs approval by the directive.
+5. **Crochet one sample (the 20 cm basket), weigh the yarn, measure the piece** — max CA$25,
+   about 7 hours. Unlocks calibrated yardage instead of a ±20% tolerance, and is the gate
+   Class C products cannot pass at all. Cannot be automated: it needs hands, yarn and a hook.
+6. **Decide on trademark clearance for "Brambleloop Studio"** — knock-out search free, filing
+   CA$458.05; max CA$460, 20 minutes. Blocks nothing yet; the risk rises with every sale.
+7. **Move `BRAMBLELOOP_PHASE` to staging, then limited production** — CA$0, 5 minutes.
+   Unlocks the entire commercial phase. Only the owner moves the phase; the system cannot
+   promote itself.
+
+Plus one piece of housekeeping that predates the queue:
+
+**8. Delete the stray Railway service `Project-Money` (housekeeping, ~1 minute).**
+- *Exact action:* in the Railway project `brambleloop` → `production`, delete the service
+  named `Project-Money` (`4dff24df-2186-4278-b01f-c11ec39a766f`).
+- *Why:* it was created by accident — a deploy call spawned a second service instead of
+  deploying to `brambleloop-os`. Its build failed and it is not running, so it costs nothing
+  measurable, but it is not part of the system and should not sit in the project pretending
+  to be.
+- *Still outstanding as of 2026-09-18T04:05Z.* `list-services` on project `brambleloop`
+  still returns it. Deletion has now been attempted from this session three times and
+  declined each time, which is the correct default for an irreversible action — so it stays
+  here as a request rather than being retried.
+- *Maximum cost:* CA$0. Leaving it costs nothing either; this is tidiness, not spend.
+- *Consequence of waiting:* none beyond confusion for whoever opens the project next.
+
+Nothing on this list was asked for speculatively. Every item is a requirement the system has
+actually reached and cannot meet itself, and the directive's prohibition on requesting
+Etsy/KYC/banking "merely because they will eventually be needed" is enforced by the
+readiness assessment: a requirement blocked on build never reaches the owner queue, and a
+test asserts both directions.
+
+## Financial state
+Exact and verified. Nothing here is projected.
+
+- **Recurring infrastructure:** Railway Hobby plan, US$5 / ~CA$7 per month, which includes
+  US$5 of usage. Measured usage is ~US$1.70/month, so no overage is expected. Owner ceiling
+  is CA$20/month; nothing may exceed it without the owner's approval.
+- **Spend to date:** CA$0 invoiced. No bill has been issued yet.
+- **Agent/model spend:** CA$0 — no model provider is configured and no model call has been
+  made.
+- **Advertising spend:** CA$0 — paid media is not enabled.
+- **Revenue:** CA$0. **Customers:** 0. **Orders:** 0. **Listings live:** 0.
+
+## Current blockers
+- **Nothing is blocked on build.** Build 1 of v1.2 is complete and production-verified; see
+  the coverage map and `/api/launch`. Every remaining item waits on an owner action from the
+  queue above, or on marketplace data that cannot exist before the shop is open.
+- A future session resuming here should **not** invent new scope. The owner has a v1.3
+  commercial upgrade package queued for after Build 1; do not ask for it and do not guess
+  its contents. If the owner has not yet acted on the queue, the honest next move is the
+  deferred work in "Next highest-value unblocked actions" below, not a new department.
+
+## Operating notes
+- **Reproducible artifacts.** The customer PDF renders byte-identically from the same
+  certified CIR. Without that the stored hash proved only that a render happened, which is
+  not what `assets.build` claims and not enough to stand behind a purchased file that is
+  re-rendered on demand.
+- **Schema.** `Database.create_all()` creates missing tables *and* adds missing columns and
+  indexes to existing ones, then returns what it changed so startup can audit it. Additive
+  only — it refuses a NOT NULL column with no default rather than guessing a backfill.
+- **Design fingerprints.** A slug and a version do not identify a design. Every key for
+  design-derived work (`compile`, `certify`, the rebuild's re-draft) carries `CIR.fingerprint`,
+  a content hash of the design, so the work re-runs exactly when the design changes. Without
+  it a re-engineered product could never enter the chain, which is how two corrected designs
+  sat in the repository while production kept serving the old ones.
+- **Release hashes in the chain keys.** Every post-certification stage key carries the
+  certified release hash, and `Listing.release_hash` records which release produced the
+  listing, so the hourly rebuild can tell a stale listing from a current one even when the
+  slug, the version and the chain version are all unchanged.
+- **Chain version.** `runtime/release.CHAIN_VERSION` is stamped into every idempotency key
+  after certification. Bump it whenever a stage that runs *after* `gate.certify` changes what
+  it produces, or the upgrade will never reach products that already shipped. `chain.rebuild`
+  runs hourly and restarts certified releases whose listing was not built by the current
+  chain from the current release. Currently 6. It records *why* it judged each listing
+  current or stale, and distinguishes a stale listing nobody has tried from one whose
+  rebuild already ran and was refused downstream — because a rebuild cannot deliver a
+  transition that a later stage refuses, and reporting the two identically is what hid a
+  blocked product through three rebuilds.
+- **Owner queue identity.** Each `OwnerRequest` carries the requirement key it belongs to,
+  and `OwnerAction.requirement_key` stores it. The queue de-duplicates on that, not on the
+  action's wording, because an action that derives a figure from the catalogue changes its
+  text when the catalogue changes. A request whose figure moved is restated in the same row.
+  `POST /api/launch-readiness` forces an assessment when waiting for the daily one would
+  leave the owner reading a stale figure.
+- **Build identity.** `/api/status` and `/health` report the commit the running image was
+  built from. It is the only field that can tell whether a fix reached production: `version`
+  is hand-maintained and proves nothing. An absent build variable reports `unknown` and
+  never matches a commit, so "I cannot tell" is never reported as "the deploy landed".
+
+- **Collapsed patterns and support.** The PDF may not print a line for row 97, but the
+  compiled rows still contain it, and the concierge answers row questions from the compile
+  result rather than the written text. A maker who asks about a row inside a repeat gets the
+  right stitch count.
+
+## Known refinements (tracked, not urgent)
+- The suite is **~345 seconds** rather than twenty minutes, because `run_tests.sh` runs its
+  files concurrently and schedules the six expensive ones first. Nothing about what the tests
+  do changed: a lighter fixture for the tests that do not examine image content was the
+  obvious move and is the wrong one, because rendering at a smaller scale is exactly how the
+  blank hero passed locally while production was right to refuse it.
+- **The suite is floor-limited by `test_product_run.py` (342s), and nothing else is worth
+  optimising until that changes.** Measured, including a negative result worth keeping:
+  sharing one cycle across the three read-only tests in `test_shadow.py` cut that file from
+  245s to 121s and moved the whole suite's wall clock not at all (344s to 348s, noise),
+  because the runner already overlapped the two files. Three of that file's tests drive the
+  full eleven-product cycle; consolidating them or splitting the file would be the next
+  lever, and it buys at most ninety seconds.
+- Yardage constants are uncalibrated heuristics with a stated tolerance; physical tests
+  replace them per yarn/hook. Never present an uncalibrated estimate as precise.
+- Reverse compiler handles the writer's grammar plus common variants; widen coverage as real
+  pattern styles appear.
+- ~~Brand model imagery (section 6) raises a disclosure question.~~ **Decided 2026-09-18
+  (B-097)**: a generated lifestyle image must be disclosed as an illustration wherever it
+  appears, and may never be the hero. Set at full strength while nothing in the system
+  generates one, and a test asserts the frame builder still produces none, so whoever changes
+  that has to read the reasoning first.
+
+## Next highest-value unblocked actions
+1. An engineered amigurumi, when the radar selects one. The construction is now complete —
+   geometry, seams, placement, stuffing and the size refusal — but on 2026-09-18 every one
+   of the top fourteen concepts is Class A and the best amigurumi is Class B with a
+   Christmas window that has not opened. Building one before the demand model asks is the
+   same mistake as building to a hunch.
+2. Shells, fans and granny clusters — stitches that work several times into one stitch.
+   The catalogue does not need them today; a lace or granny-style product would.
+3. Live-data halves of Pricing Intelligence, Thumbnail Warfare and Portfolio, which are built
+   and correctly refuse to act without observations that do not exist yet.
+
+Waiting on the owner rather than on us: a physical sample (the intake and calibration now
+exist and are tested; the measurement does not), object storage, trademark clearance, and
+the Etsy shop with its payout details. All seven are in the owner queue with costs and
+timings, written there by the system rather than by hand.
+
+## Changelog
+- 2026-09-17: Initial build. Competition retired. CIR engine complete (27 tests).
+- 2026-09-17: Platform layer — durable queue, agent governance, audit, spend caps, backup
+  drill (14 tests). Gate D test caught a real bug: the spend guard raised inside its session,
+  so the rollback discarded the `paused` flag and a breach would have refused one spend then
+  accepted the next. Fixed: the pause commits before the raise.
+- 2026-09-17: Release gates — asset truth, policy, certificate, incidents (27 tests).
+- 2026-09-17: Shadow pipeline + worker/scheduler (8 tests). Two ordering bugs found and fixed:
+  permission was checked *after* handler lookup (so an agent reaching for forbidden work that
+  had no handler was recorded as "no handler" instead of denied), and a shadow-mode refusal
+  was being retried with backoff against a mode that cannot change between attempts.
+- 2026-09-17: Deployable surface (FastAPI admin/API, container, entrypoints), real-process
+  persistence proof (5 tests) and the chaos suite (21 tests). Persistence testing exposed a
+  race in its own harness — a three-second lease could expire during subprocess spawn — fixed
+  by expiring leases deterministically in the database instead of sleeping on the wall clock.
+- 2026-09-17: Market Radar (30 tests). Replaced the placeholder concept stubs with dated
+  competitor intelligence and a 34-concept scored pool, and wired the section 33 portfolio
+  selector into `radar.scan`. Three real bugs found while building it: the buy-window buffer
+  was flat rather than proportional, so a 60-hour Christmas throw was scored as "too early"
+  in September against direct evidence to the contrary; the constraint-repair loop could
+  evict a quick low-price make to make room for a quick low-price make and spin forever; and
+  the bundle was outranking everything in the pool while its members went unbuilt.
+- 2026-09-17: Full shadow release chain on the flagship (26 tests) plus the deployment
+  surface (8). Four real defects found and fixed while building it: the digital twin was using
+  turning-chain units as physical row heights, overstating a blanket's finished length by
+  half — a size claim, therefore a refund; the yardage constants were set by feel and came out
+  at less than half of a checkable reference, which would have told a customer a throw needed
+  190 m of yarn; support indexed row counts by row number into a zero-based list, so it
+  confidently answered the wrong row; and the flagship's written instructions flattened every
+  repeat across the full 144 stitches, producing a row instruction eleven lines long that no
+  maker could follow.
+- 2026-09-17: Model Gateway (21 tests). Prompts are immutable and content-hashed, output is
+  parsed strictly, cost is recorded per agent so a runaway loop hits the daily ceiling rather
+  than the bill, and a dead provider's circuit opens instead of absorbing doomed calls. Two
+  standing constraints are now asserted rather than documented: no registered prompt may ask
+  a model for pattern content, and `require_deterministic()` raises if a model verdict is
+  offered where the compiler has one.
+- 2026-09-17: **Deployed to Railway and verified in production.** Four real defects surfaced
+  only by watching the deployed service, none of which any local test could have caught:
+  the container hardcoded port 8000 so the health check probed nowhere; the embedded worker
+  started a full planning cycle the instant the app came up and starved the health endpoint
+  until the platform failed a working deployment; the operational heartbeat had been
+  dead-lettering every fifteen minutes since the first boot because it was scheduled against
+  an agent with no permission for it; and the fix for that never reached production, because
+  agent seeding was insert-if-absent and the row already existed. A fifth appeared when a
+  dated planning cycle ran two jobs instead of sixty: `plan.cycle` dropped `as_of`, so the
+  run scored against today and collapsed into the morning's idempotency keys.
+  Each fix carries a test: every cadence must be runnable by its agent, permissions reconcile
+  on deploy, and a cycle's date must reach the radar.
+- 2026-09-17: **Master Plan v1.2's commercial departments** (sections 6-12, 15, 16, 34).
+  Brand system and Storefront Director; listing imagery as part of the release; Search
+  Domination; Pricing Intelligence; AI Customer Experience; the content ecosystem; portfolio
+  classification; separate confidence dimensions; regression capture closing Gate B; a motif
+  library and sixteen generated designs; and the full P&L with a CFO challenge.
+  Four real defects found while building: the thumbnail check counted non-background pixels,
+  so a two-colour crochet fabric — half cream against a cream background — scored 9% and
+  blocked six products for a problem none of them had; the fabric renderer coloured cells by
+  their row's yarn, which in overlay mosaic is flat stripes and no motif at all; tag selection
+  spent six of thirteen slots on the word "mosaic"; and the pipeline had been certifying a
+  "Collection Bundle" whose PDF was a twelve-row striped panel — a product sold as three
+  patterns and delivered as one invented swatch.
+- 2026-09-17: **Row-level repeats** (20 tests). Written patterns collapse a repeated row
+  block into an instruction: the flagship prints 48 rows instead of 120. The cycle is derived
+  from the compiled rows, not declared, so no field can disagree with them; the reverse
+  compiler parses and expands the instruction from the customer text alone, so the two halves
+  stay independent. It also exposed a claim the copy had been making for two deploys — "a
+  stitch count on every single row", in the description and in listing frame 2 — which stops
+  being true the moment the document collapses rows 49-120 into one sentence. The claim is now
+  derived from the document. `CHAIN_VERSION` bumped to 4 so both reach products already
+  certified.
+- 2026-09-17: **Construction beyond flat rows.** Round-worked geometry as a surface of
+  revolution; honest finished sizes for discs, tubes, cones and vessels, and an explicit
+  refusal for closed shaped pieces; gathering named; corners derived from stitch positions;
+  round charts; the finishing in the CIR with seams checked both ways; row colours named in
+  written instructions; and the join-or-spiral instruction stated and verified.
+  It also exposed four real defects, two of them already in production as drafted listings:
+  "Market Basket Trio" was one flat rectangle with no seaming instruction and "Hexagon
+  Coaster Set" was a rectangle — both are now worked in the round and both are blocked by a
+  new name-versus-shape check if they ever regress; a size claim the twin could not check was
+  being passed rather than refused; and the entire catalogue's written instructions omitted
+  which yarn each row uses, so a two-colour mosaic was workable only from the chart.
+  `CHAIN_VERSION` 5 plus a new `DOC_VERSION`, and re-certification now replaces the stored
+  certificate rather than skipping it — the fourth appearance of "code changed, the deployed
+  database did not".
+- 2026-09-17: **Launch readiness and the owner queue.** What stands between this shop and a
+  live customer, computed from the database and split by who can actually clear it. The
+  remaining blockers are now genuinely the owner's — an Etsy shop with identity
+  verification, a payout account, acceptance of Etsy's listing fees, one physical sample,
+  a decision on trademark clearance, object storage, and the phase itself — so for the first
+  time the system writes its own owner queue rather than a human writing one for it.
+- 2026-09-17: **Design fingerprints in the idempotency keys.** Found by watching production
+  accept the round-worked rebuild and keep serving the old designs: `cir.draft` was keyed
+  once per slug, forever, so a re-engineered product could not re-enter the chain and the
+  `DOC_VERSION` bump could not reach the stage it existed for. Keys now carry the design's
+  content hash, and the hourly rebuild compares the stored design against the one the code
+  produces.
+- 2026-09-17: **The post-certification chain keyed on the release.** The same collision one
+  stage lower, found in production ten minutes after the previous fix: re-certification
+  produced a new release hash and then found every downstream key already taken, so two
+  corrected designs certified while their old listings stayed exactly as they were. Listings
+  now record the release that produced them.
+- 2026-09-18: **Build 1 accepted as complete and checkpointed.** Tagged locally as `build-1`
+  at `d5168c0` and pushed as the branch `build-1-baseline`, because this environment's git
+  transport rejects tag pushes while accepting branches — recorded rather than worked around
+  silently. `baseline/` holds the recovery manifest, the schema snapshot (21 tables, 201
+  columns, hashed) and a read-only capture of the production evidence. Recoverability is
+  proved rather than asserted: the suite was re-run from a clean worktree checked out at the
+  baseline commit. The manifest is explicit that the production database is **not** backed up
+  here and cannot be from this environment, and which of its contents are re-derivable from
+  code and which are not.
+- 2026-09-18 08:14Z heartbeat: production verified 12/12 before and after; radar re-asked
+  for today and it still selects nothing unbuilt, so B-079 holds and no product work was
+  invented to fill the time. Three defects closed instead — the section 6 disclosure rule,
+  the severity comparison that disarmed three gates, and the verify window that called a
+  starting worker dead. Chain 7, 541 passing, 0 failing.
+- 2026-09-18: **Every deploy opened a 90-second window where `/api/verify` lied.** Caught
+  by the heartbeat itself: verify reported the worker dead and the scheduler silent, and the
+  worker was fine — it had started 85 seconds earlier, and the first tick lands at 25s of
+  start delay plus a 60s scheduler interval. A runner that has started and not yet ticked now
+  reads as *starting*, for a grace derived from those two knobs rather than hardcoded, and
+  the check's evidence says `starting: true` so it is never silently passing. The grace
+  expires: a worker ten minutes silent still reads as dead, and so does one that ticked and
+  stopped. That matters because the operator loop treats a failing check as the highest-value
+  work, so a recurring false alarm costs a whole session.
+- 2026-09-18: **A gate that could not block, found by writing a different test.** The
+  section 6 disclosure question was open, so it was closed (B-097). Writing its tests turned
+  up something worse: `ERROR` is the string `"ERROR"`, and three places filtered findings
+  with `f.severity == "error"` — lowercase, false by construction. Asset Truth could not stop
+  a listing image, the policy gate could not stop listing copy, and the confidence profile
+  counted zero asset errors however many there were. All three gates ran, produced entirely
+  correct findings, and had them dropped on the floor. Callers now ask `finding.is_error`.
+  Checked across all seventeen designs before claiming anything: the defect was **latent** —
+  nothing in the catalogue had tripped the gate, so it disarmed a guard rather than shipping
+  untruthful imagery — and the chain is bumped to 7 so production re-derives that under the
+  fixed gate instead of it being taken on trust.
+- 2026-09-18: **One shadow cycle instead of four, and an honest negative result.** Four of
+  the nine tests in `test_shadow.py` were 60 seconds each, three of them asserting different
+  things about an identical eleven-product run, so the file paid three times for one piece of
+  evidence. It now builds the cycle once: 245s to 121s, all ten tests passing. It did *not*
+  make the suite faster -- 344s to 348s, noise -- because the runner already overlapped that
+  file with the longer one. Kept anyway, because it frees a core for two minutes and because
+  the file now says what it actually proves; recorded as a negative result so the next
+  session does not repeat the experiment. The shared cycle is fingerprinted and re-checked
+  before every use, and a test fires that guard rather than trusting a comment.
+- 2026-09-18: **The suite is ~345 seconds instead of nineteen minutes.** Measured before
+  changing anything: six of the twenty-six files were 97% of the 1133 seconds, each driving
+  the full eleven-product pipeline with 2000-pixel rendering. The files were already
+  independent processes with their own temporary databases and were simply queued one behind
+  another, so they now run concurrently, the expensive six first, and print back in the
+  canonical order -- an identical log, an identical 532 passing, and no test made cheaper or
+  less representative. The tempting alternative was a smaller render for tests that do not
+  examine the image, which is precisely how the blank hero passed locally while production
+  refused it.
+- 2026-09-18: **The migration path for the queue, and a way to run an assessment now.**
+  Keying the queue on the requirement was only half the fix: pre-upgrade rows were matched
+  on their full action text, which adopts every action whose wording is unchanged and fails
+  for the only one that had changed. Production was holding exactly that row, so the fee
+  approval would have been left keyless with a second row added beside it. A keyless row is
+  adopted by its opening clause instead, which no derived figure reaches, and two tests
+  assert the clauses are distinct and stable. Verified in production: seven actions before,
+  seven after, `owner_actions_added: 0`, `owner_actions_restated: ["listing_fees"]`, and the
+  queue now reads US$3.20 / CA$4.48 for the 16 listings that exist. Delivering it also
+  needed `POST /api/launch-readiness`, because the assessment runs daily and the corrected
+  figure would otherwise have sat undeliverable until midnight — the same argument as
+  `/api/chain-rebuild`, and GREEN for the same reasons.
+- 2026-09-18: **The owner queue keyed on prose.** Deriving the fee figure from the
+  catalogue broke `test_deploy` on the next run: the queue de-duplicated open owner actions
+  by comparing their text, which worked only while every action was a frozen string, so a
+  changed number read as a new request and the owner would have seen eight entries for
+  seven decisions -- two of them asking approval for different amounts for the same thing.
+  Each request now carries its requirement key as its identity, and an action whose figure
+  moved is restated in the same row rather than added beside itself. Actions queued before
+  the column existed still match on text, so the upgrade does not re-queue what the owner is
+  already looking at.
+- 2026-09-18: **The one number the system asked for was hardcoded.** The owner action
+  approving Etsy's listing fees read "about US$1.80 (CA$2.50) for nine listings" -- true
+  when written, still shown after the catalogue reached sixteen, and sitting directly beside
+  an evidence field that computed CA$4.48 from the real count. Everywhere else a claim is
+  derived and checked; the place a figure is *asked for* is the last place a stale one
+  belongs, because the approval is the figure. Derived now, with a test that the sentence
+  and the evidence agree to the cent and another that refuses the old wording if it returns.
+- 2026-09-18: **Charts that can be read without colour vision** (section 31). Twelve of
+  the nineteen designs are two-colour work where the colour *is* the motif, the chart
+  separated the yarns by hue alone, and the legend identified each yarn by a coloured square
+  and nothing else -- so for a maker with a colour vision deficiency there was nothing in
+  the file that said which yarn a square meant, and unlike a sighted maker they cannot
+  recover it by looking harder. Every square of a multi-colour chart now carries its yarn's
+  letter, in the corner so the stitch glyph still reads; the round chart puts it on the
+  round number; the legend prints it inside the swatch and explains it; and a chart drawn
+  too small to carry one blocks the frame plan instead of shipping. The letter indexes the
+  CIR's own colour order, so the chart, the legend and the written instructions cannot
+  disagree. `tests/test_accessibility.py` holds it to a property rather than an appearance:
+  two yarns are given the *same* hex, and the squares must still differ.
+- 2026-09-18: **Chain version 6, and the reason a refused rebuild looked untried.** The
+  imagery fix changed what `assets.build` produces, which is exactly what `CHAIN_VERSION`
+  exists for -- shipping it without the bump left every asset rendered by the old code in
+  place and the blocked product unreachable. Diagnosing that needed the jobs list *and* the
+  audit detail cross-referenced, because the rebuild had detected the cable throw as stale,
+  enqueued the work, watched `assets.build` refuse it for blocked imagery (correctly), and
+  then reported the same stale line on every later run while enqueueing nothing: the listing
+  stayed stale, so the transition, the token and the key stayed the same. The record now
+  says which of the two it is looking at. The rebuild still cannot fix it -- only changed
+  code can, arriving as the bump -- but the difference is visible from outside the process,
+  which is what B-073 was for.
+- 2026-09-18: **Production says which commit it is running.** `/api/status` and `/health` now
+  report the build's commit sha, branch, and whether it knows them at all. `version` is
+  hand-maintained and proves nothing about a deploy, so until now the only way to tell
+  whether a fix had landed was to look for its effects and hope no other change explained
+  them -- which is how each of the three idempotency layers cost a diagnosis round to "the
+  code is fixed and production disagrees". An absent build variable reports `unknown` and
+  never matches a commit, because a check that treats "I cannot tell" as "yes" is worse than
+  no check.
+- 2026-09-18: **Three imagery defects, found by looking at what production actually
+  rendered.** The cable throw's hero was a blank cream rectangle. Three separate causes, each
+  of which alone would have shipped an unsellable listing: the container had no fonts, so
+  Pillow fell back silently to a bitmap face a few pixels tall on every image the system has
+  ever rendered in production; the fabric renderer coloured cells only by colourway, so a
+  deliberately single-colour textured design had nothing to show; and my own frame-level
+  thumbnail check passed the blank hero at 78% coverage because it was measuring the title
+  text, while production blocked the same product at 11%. Fixed in all three places — the
+  Dockerfile installs the fonts, cells are shaded by their stitch's relief (on the overhang
+  pass too, which was erasing it), and a hero whose fabric has no internal contrast is
+  refused. A check that can pass an empty image is worse than no check, because it is
+  evidence.
+- 2026-09-18: **Reproducible PDFs.** Two renders of one certified release, three minutes
+  apart in production, were audited under two different hashes: reportlab stamps the time and
+  a random id into every render. Since artifact bytes are not durable, a purchased file is
+  re-rendered on demand, so the hash has to identify the file rather than the occasion.
+- 2026-09-18: **Texture, and the third face of the naming defect.** Three products were
+  named for techniques their patterns could not contain — a cable throw with no crossing, a
+  bobble pillow with no bobble, a ribbed scarf with no rib — all plain sc/dc colourwork, one
+  of them fourth in the selected portfolio with a certificate and a drafted listing in
+  production. Nothing could see it: the shape check looks at silhouettes and Asset Truth at
+  what images depict, and those patterns were internally perfect. Post stitches, bobbles and
+  cable crossings are now in the taxonomy with real yarn costs and chart glyphs, the three
+  products are rebuilt to do what they say, and a name claiming a technique the fabric does
+  not work is refused at certification.
+- 2026-09-18: **Placement in the finishing.** A seam now says where on the piece it
+  happens — which rounds, how far either side of centre, and whether the second one mirrors
+  — because knowing that the ear attaches to the head does not make a toy. It is validated
+  against the piece it attaches to (a join at round 40 of a seven-round head, or two ears
+  that would overlap, are errors every other check would pass), written into the document
+  and read back independently. A multi-piece join with no placement is reported rather than
+  allowed through: an unspecified assembly step is the "beauty image, guess the
+  instructions" failure arriving through the back door.
+- 2026-09-17: **The Etsy publishing path, written before it can publish.** A v3
+  draft-listing client behind three ordered refusals — phase, then the owner's authority,
+  then credentials — with a mapper that refuses rather than truncates and an honest outcome
+  for "listing created, file not attached". `store.publish` asks it past shadow mode, so the
+  phase is now the first of four conditions rather than the only one. Unit-tested against a
+  fake transport that counts its calls; never called against Etsy, because nothing in this
+  environment can satisfy the other three conditions. The multipart file upload is the one
+  part that cannot be verified without a live call, and the interface says so.
+- 2026-09-17: **Physical test intake and calibration**, plus the third layer of the rebuild
+  bug. A real sample now has somewhere to land: it calibrates the yardage for its own yarn
+  and stitch, and a finished size that disagrees with the claim raises a defect instead of
+  being absorbed into the factor. The rebuild also needed the trigger in its keys — keying
+  on the product, the code version and the certified release still left every downstream key
+  taken, so a rebuild could detect staleness and do nothing about it, which it did three
+  times while two products sat visibly wrong in production. It now records the comparison it
+  made for every listing.
+- 2026-09-20T08:19Z heartbeat: lease taken, production `/api/verify` verified 12 of 12
+  against live state, and the commercial spine landed -- #5 production lanes, #9/#21 creator
+  roster, #10 free-to-paid funnel, #13 offer engineering, #14 conversion baselines, #16
+  listing-test memory, #22 bestseller replication and #30 capacity allocation, the last of
+  which is now a weekly `capacity_review` cadence. Registry 177 of 320 covered, 87
+  executable. One gate added (`owned_surfaces`) and #4/#10 re-parked onto it. Then #26's
+  trajectory model and #171/#173's artefact provenance and stale-artefact sentinel: 179 of
+  320 covered, 85 executable. Then #183/#185's console and health sweep (1,817 tests
+  passing on `0782969`, deployed and live: production console reports `healthy`, 0 pending,
+  134 dead letters all of which are deliberate shadow-mode refusals) and #188's spend
+  governor: 182 of 320 covered, 82 executable. Decisions B-345..B-373.
+- 2026-09-20 continued: #172's rebuild graph (`9e4dcfb`, suite green at 2,005 across 119
+  suites, zero leftover directories), then #260/#261 — the first-100 interview instrument and
+  the purchase-friction audit. Both land `partial` and parked, #260 on `customers` and #261
+  on `live_listings`, and both name the same blind spot: the interview reaches only survivors
+  of the purchase decision, and the people who left are the ones whose friction costs most.
+  #261's listing half runs today against the listing artefact and the shop's own generated
+  copy is asserted to pass it. Then #262's forecast calibration, which caps
+  `scale.confidence` rather than computing a second probability and excludes every period
+  today as unexposed, and #267's capacity roll-forward, which holds engineering and marketing
+  as separate ledgers because the occasion stops being launchable weeks before it stops being
+  buyable. Then #179's meta-agent roster (`partial`: defined and enforced, not yet running
+  agents) and #180's league hardening -- latency as a fourth axis, a holdout never tuned
+  against, a promotion bar that scales with how much was measured, and a recorded rollback
+  target. Suite green at 2,144 across 125 suites on `7855fef`, zero leftover directories.
+  Then the autonomy block: #191's per-department freshness SLAs (green at 2,168), and
+  #190/#193/#194 -- the upgrade pipeline, the nightly window and the weekly deep cycle, with
+  both new cadences wired and exercised by the platform suite that runs every cadence for
+  real (green at 2,242 across 129 suites on `4725036`). Then #179 closed: the eight
+  meta-agents became running agents with their own authority, ceilings and cadences, all
+  generated from the roster so the three lists cannot drift (green at 2,249). Then the
+  culture cluster: a `culture_feed` gate parks #133/#140/#147, which had been reporting
+  themselves as ready while their own notes said no feed exists, and #146's owned-IP roster
+  lands with recurrence that cannot be declared (green at 2,279). Then #57/#58/#65/#69: asset
+  purpose as a second axis orthogonal to medium, one commercial job per frame checked for
+  collision rather than similarity, four gates where not_run is not passed, and an honesty
+  label that is never a licence (green at 2,308). Then #60/#68/#70: measurements traced to
+  the geometry object with the two-numbers-disagreeing check, visual defects given the
+  fixtures compiler defects already had, and a listing certificate invalidated by its inputs
+  rather than by being revoked. #61 and #64 parked on browser_vision and a new physical_proof
+  gate; ready fell from 29 to 19 (green at 2,359). Then #63/#66: creative constrained to a
+  subset of truth in one direction, the flow ordered so a brief cannot be a caption, and the
+  listing evaluated where it is chosen rather than where it was built. #168 and #79 parked;
+  ready is 15 against 87 (green at 2,395). Then #33's seasonal engine: priority from a score
+  with no favourites, an evergreen floor taken before anything is granted, squads that stand
+  down by arithmetic, and a breakout that cannot reach a gate (green at 2,433). Then the
+  migration itself: all five call sites off the constant and onto a labelled accessor, with
+  the owner's campaign surviving as a seed that cannot be read as a measurement. Plus a test
+  that fails when a note describes a blocker and the requirement is not parked. Registry 201
+  of 320 covered, 63 executable. Decisions B-404..B-463.
+- 2026-09-20T16:14Z heartbeat: lease acquired, production verified 12 of 12 on `/api/verify`,
+  and the live deployment is `aff020260a72` -- Railway had already auto-deployed the #33
+  migration pushed minutes earlier. Console reports `healthy`, 0 pending, 134 dead letters
+  (all deliberate shadow-mode publication refusals, per B-374). **The eight meta-agents of
+  #179 are seeded in production**: `cost_optimiser`, `creative_critic`, `evaluator`,
+  `experiment_designer`, `failure_miner`, `lesson_router`, `prompt_tool_challenger` and
+  `reliability_engineer` all exist as Agent rows with their own authority and ceilings, which
+  is the verification that matters -- a roster in a module is a definition and an Agent row is
+  a thing the queue will dispatch to. All five new endpoints answer 200. The three new
+  cadences (`improve.nightly`, `improve.weekly`, `improve.role_work`) have not fired yet and
+  are not expected to: they are daily and weekly, the container started at 16:14, and the
+  recent window holds only the 15-minute and hourly ones. Saying they are deployed is true;
+  saying they have run would not be.
+- 2026-09-20 intel block, closing the MJs benchmark cluster. #215/#219/#220/#227/#228: a
+  panel that is never one shop (MJs named once, in one constant; three members minimum;
+  membership read per category), a standard a competitor may raise and never lower, entry
+  refused on parity alone, and an owner veto recorded in a closed vocabulary whose third
+  repetition is a finding about the evaluator rather than about the product. The veto retires
+  only on predictions the evaluator made *before* the owner ruled -- a prediction dated at or
+  after the ruling is refused by the constructor, because the owner's rulings are the easiest
+  training data to hand. Then #226: a pod's capability is two numbers and no function returns
+  one alone, discernment is precision against settled outcomes and explicitly not rejection
+  rate, and pods stay out of `improve.cells.CELLS` so that one vocabulary does not come to
+  mean two things. Then #214: a mechanism is how a listing works on a buyer, never what the
+  product depicts -- depiction words refused at construction, containment reusing
+  `culture.rights` rather than a second copy of it, and a tournament requiring two mechanisms
+  this shop lacks *and* our own demand evidence, because a pipeline that answers every
+  competitor listing is handing them the roadmap. #207-#211 parked on `browser_vision`:
+  #221 mandates vision for the observation layer, so they are not code that could be written
+  now and switched on later. Registry 208 of 320 covered, 56 executable, **0 READY** --
+  nothing is `missing`, and every one of the 94 parked requirements names a gate that opens
+  from demonstrated capability. Decisions B-464..B-476.
+- The empty backlog then broke the executor's own tests, nine at once, and none of them
+  because the thing it tested had broken: they read `next_ready()` off the live registry to
+  get something to claim, and one asserted `ready > 0` directly beside a comment explaining
+  that same mistake in its previous costume. Ready work is now produced the way it will
+  actually be produced from now on -- by a gate's condition becoming true -- and both idle
+  states are asserted through the deployed worker: parked-and-silent raises nothing,
+  gate-open-and-silent raises exactly one incident across two ticks. B-477.
+- 2026-09-20 owner-approved gate preparations, and two corrections to what was reported
+  earlier the same day. The queue count of 0 READY was taken in a credential-free session
+  container; production had one ready requirement, #268, because `benchmark_observation` is
+  open there. Where a gate count was taken is part of the count (B-481). And #268 turned out
+  to be parked on a gate that was already open -- the Etsy credential it names has been
+  proven by use since 2026-09-19 and read the 438 listings the whole mission runs on. What
+  it waits on is a second market to compare against, which is a choice of shop and not a
+  credential, so `second_market_benchmark` now names it and `commerce.markets` computes the
+  attribution from the benchmark's registered market instead of returning `US` for whatever
+  key it was handed (B-482).
+- The larger finding: **`browser_vision` was two capabilities under one name**, and the
+  cheaper one had been paid for since 2026-09-19. Ten of its twenty-eight requirements
+  needed no browser -- the sanctioned `listing_images` endpoint returns every gallery image's
+  URL and the model that can look at them was already credentialed. Nobody had written the
+  call. It is written (`gateway.anthropic.see`, `intel.vision.analyse`: one image per call,
+  closed answer vocabulary parsed strictly, the depicted subject refused by the system
+  prompt, every failure counted and named), and the gate is split into `image_vision` and
+  `rendered_pages` (B-478). Five notes that justified parking turned out to be a day out of
+  date, having been written before the capability arrived and survived it -- #207 is closed
+  on that basis, having actually run (B-480).
+- **No gate in the executor's table opens on a typed string any more.** Three did, holding
+  thirty-nine requirements behind conditions a person could satisfy by typing: a browser URL,
+  an image key, an archive URL. Each is now a recorded successful use, and the test is stated
+  over every gate that holds requirements rather than over those three (B-479).
+- Owner-approved preparations delivered: the **culture feed is connected** (Wikimedia
+  pageviews -- free, keyless, sanctioned, labelled `reference` reading rather than search
+  interest, because #140 measures the gap between the two); the **image-generation provider
+  decision is worked out** with three priced candidates, reference conditioning as the
+  deciding property and an estimate of CA$3.40 in the first month, with vision substitution
+  refused in code rather than discouraged in a note (B-484); the **benchmark purchase
+  selector** chooses for facet coverage rather than popularity and stops short of ten rather
+  than filling the list (B-485); and the `physical_proof` gate no longer names whose hands
+  do the work (B-486). Decisions B-478..B-486.
+- 2026-09-20, owner's quality-first decision. The instruction is that quality decides and a
+  modestly dearer model that materially outperforms is worth paying for, and the first thing
+  it cost was a recommendation already sitting in the code: FLUX 2 Pro, chosen because it was
+  the cheapest candidate that supports reference conditioning. That is deleted rather than
+  defended -- a named winner beside an unrun benchmark is the price list deciding again with
+  a second opinion for cover (B-502). `gateway/image_bench.py` replaces it: six trials this
+  catalogue genuinely needs rendered, five samples each, four eligible models, 120 images at
+  **CA$6.19** of the CA$25 the owner authorised, judged blind by the vision capability
+  against a rubric whose every line cites its requirement (B-505). Imagen 4 Ultra leaves
+  *before* the benchmark on a requirement rather than a score: the best published
+  photorealism in the field and no reference conditioning, so the canonical model cannot be
+  held across seasons by it at any quality (B-503). Five samples rather than three because
+  one render is a sample of a distribution and this choice governs every listing image the
+  company ships; five rather than as many as the ceiling allows, because budget is not a
+  reason (B-504). With no results it names nobody, and a model below the fabric floor is out
+  at any price -- both refusals guarding the same failure, a measurement quietly becoming a
+  price comparison (B-506).
+- The benchmark purchase list now answers the question a person about to spend CA$268
+  actually asks. Each pick carries the runner-up it beat, what that alternative would have
+  taught instead and the extra the winner adds; the set carries how many of the 438 observed
+  listings it makes redundant, measured over the finished set rather than per pick -- the
+  per-pick count reads zero in a catalogue of near-duplicates right up until the duplicate is
+  bought (B-507).
+- #268 recorded `data_gated` on the owner's instruction, with the proven sanctioned Etsy
+  capability as the applicable evidence and nothing further owed by the owner. Its
+  `parked_on` came off with it: that field states what *remaining* work needs, and the
+  executor refuses one on a requirement that is not executable -- which it did, loudly, the
+  moment the status changed. The gate stays defined and carries nothing, as the condition
+  that would make it executable again (B-508). Decisions B-502..B-508.
+- 2026-09-20, the governing spend policy. The owner raised the combined model ceiling from
+  CA$25 to CA$100 and reversed the argument with it: **QUALITY FIRST, COST SECOND, WASTE
+  NEVER**. The build had followed "start economically" faithfully and the faithfulness had
+  become the problem -- decisions had accumulated whose stated justification was the ceiling
+  rather than the work, each defensible, together a company optimising for cheapness
+  (B-513).
+- Reconciling it found three things that had drifted while nobody was arguing about them.
+  The ceiling was written in two modules *and* hardcoded into a `/api/verify` assertion, so
+  carrying out the owner's decision would have turned a safety check red -- the exact shape
+  of check that file's own comment warns against, three lines above, added by the session
+  that wrote the warning (B-514). Four vision call sites never consulted `routing.TASKS` at
+  all: `intel.vision` built its provider from `VISION_PROBE_MODEL` -- the *probe's* model,
+  chosen because a probe should be the smallest possible real call -- so MJs gallery
+  analysis ran on the cheapest tier while the table declared standard, on the owner's
+  second-highest spending priority (B-515). And two cadence intervals were set by the old
+  ceiling rather than by the work (B-516).
+- Fixed with one ceiling, `provider_for(task)`, three new declared tasks, and two tests
+  stated over the whole codebase: every vision call site names a task in the routing table,
+  and no module outside the gateway names a model string at all. Gallery analysis is now 25
+  images every two hours on the standard tier -- the benchmark's visual evidence closes in
+  four days rather than nineteen -- and it is self-limiting, because a rate that stayed high
+  against an empty queue would be the waste clause rather than the quality one. The blinded
+  creative benchmark went monthly to fortnightly rather than weekly, and the reason is the
+  measurement: the thing it tracks does not move in seven days, so it stops where more
+  frequency would stop adding information rather than where it would start costing money.
+- Spend accounting: provider, model, agent, department, product and purpose are columns
+  rather than JSON keys, with the pre-call reservation beside the bill and under-estimation
+  flagged specifically, because that is the direction where a ceiling is checked against a
+  number smaller than the invoice (B-517). The report covers the calendar month rather than
+  "the month so far" -- its upper bound was `now`, which silently dropped rows timestamped a
+  few seconds ahead of the reader's clock (B-518).
+- The image benchmark now scores twelve judged dimensions, asks gallery consistency once per
+  set, and measures repeatability and latency from data the run already produces (B-519).
+  Inside the deciding margin, repeatability breaks the tie before cost does: both are
+  tie-breaks and only one is about quality (B-520). Judging moved to the deep tier, taking
+  the benchmark from CA$6.19 to **CA$18.55** of the CA$25 authorised -- the judgement decides
+  which provider renders every listing image afterwards, so measuring carefully with a blunt
+  instrument was the one economy that could not be defended. Decisions B-513..B-520.
+- 2026-09-21, the Teardown Laboratory can read a page. The owner's MJs protocol said not to
+  ask for the CA$292 purchase until the complete intake and analysis path was verified ready,
+  and the honest answer was no: `library.retrieve` -- the quarantine's only sanctioned reader
+  -- was called by nothing at all, so a purchase would have been filed, hashed, manifested and
+  never opened. `teardown/reader.py` is that missing module, built so that nothing leaves it
+  which this repository did not already contain: closed vocabularies and numbers, no code path
+  that emits a substring of the document (B-566). Readiness is now proved by running the whole
+  path against a real Brambleloop PDF on every request rather than by a table of ticks, and the
+  launch assessment withholds the purchase request entirely while the lab is unready (B-567).
+  **The verdict is now READY**; the purchase is the owner's decision, not a blocked build.
+- Pointing that reader at this company's own pattern found the first thing it audited: every
+  Brambleloop pattern shipped with no finishing section. The document ended at the last row --
+  no fastening off, no ends, no blocking -- and now does not (B-568).
+- 2026-09-21, the canonical model. The tournament rendered a field, stress-tested five
+  finalists and presented them; the owner rejected all five and supplied their own generated
+  concept as the candidate. The tournament is now closed rather than re-running, and its
+  results stay as evidence that cannot be promoted (B-569). The reference pack built from the
+  owner's candidate is two frames -- a neutral portrait for the face and a full-length
+  standing frame for the body -- because every finalist had been measured against a cropped
+  portrait on which the body was unmeasurable by construction (B-570). Chest/bust and torso
+  are required-readable rather than counted (B-571), and the owner's revised bust direction is
+  a pinned identity dimension rather than a styling preference (B-572). **Nothing is frozen**:
+  the pack is built, measured and presented, and only the owner's approval makes it canonical.
+- 2026-09-21 evening, the canonical reference pack is built and **awaiting the owner's
+  approval**. Three reference frames (portrait, torso, full-length), five stress scenes, and
+  all six approval conditions met: every scene rendered, facial identity held in all five,
+  no morphology drift anywhere, chest and torso both evidenced, all thirteen dimensions
+  pinned, reference frames coherent. Nothing is frozen -- `select_canonical` with the
+  owner's approval is the only thing that can. Five live builds were needed and each found a
+  different version of one defect: a reference that cannot state the dimension it is trusted
+  for, an approval condition nothing could satisfy, an hour-long idempotency lockout, a
+  stale replica answering about a different pack, and a frame whose verdict turned on
+  sampling luck (B-573..B-579). Total spend across all five: about CA$2.50.
+- 2026-09-21 heartbeat: #292 and #300 un-parked and their imagery halves built. Both were
+  gated on `BRAMBLELOOP_IMAGE_KEY`, a variable that stopped existing when credentials moved
+  to per-account keys, so a capability proven in production for a day read as absent and the
+  check could no longer come true (B-581). `publish/owned_photography.py` makes the missing
+  asset: a styled illustration of the finished object, generated from the certified CIR,
+  described by a model that never sees the claim, compared deterministically, gated on three
+  verdicts, and disclosed as generated everywhere it appears (B-582). It runs as a daily job,
+  idempotent per release; the seasonal cycle reports what exists rather than rendering.
+  The first live asset rendered, passed every existing check and depicted a
+  checkerboard where the pattern makes a diamond lattice: **motif fidelity is not
+  yet checkable**, so it is named as a gate rather than waved through, and the
+  asset is evidence to look at rather than a listing image (B-585). **Closed
+  2026-09-21**: the fabric is now compared against the deterministically rendered
+  chart, and a mismatch or an unreadable fabric blocks the asset (B-591).
+  `/api/seasonal/remerchandising` computes its own availability now, rather than
+  defaulting to "nothing works" because its caller passed nothing (B-583).
+- The test runner now discovers its suites. The hand-maintained list was three files out of
+  date, so two mornings' work was green without being run by the full suite -- both passed
+  directly, nothing was broken, and the claim was weaker than it sounded (B-580). 155 suites,
+  **2,939 tests passing, 0 failing**.
+- **CLOSED 2026-09-21T21:37:52Z — the Anthropic API balance.** It was spent; it is funded
+  again. The owner added US$10 and the console showed a balance, but a screenshot is a
+  claim about a dashboard, not a capability: the blocker was cleared by a real sanctioned
+  production call on the same credential Brambleloop actually uses, which returned
+  `ok=True` at 21:37:52Z, and `funding.cleared` closed the owner action on that result
+  rather than on the picture (B-588, B-589). While it was spent, image renders that could
+  not be checked were refused rather than paid for, which is why nothing shipped
+  unmeasured during the outage.
+- 2026-09-21 night, **the bust revision executed and the pack is at v8**. v6 (CA$0.2877)
+  produced the revision the owner asked for: measured against the *approved* body, the bust
+  reads `drift` and stature, shoulders, waist, hips, torso and limbs all read `match` --
+  a targeted morphology revision rather than a larger woman, which is the only check that
+  can tell those apart. v7 (CA$0.3288) met **eight of the nine** approval conditions and
+  failed the ninth on `nothing_else_changed: ['hair']`, with the before and after showing
+  identical hair colour, length and cut, worn up in the approved references and down in
+  the revised ones. The pack carried one `hair` dimension that conflated who she is with
+  how it was arranged, and the brief itself says she wears it both ways: a floor that fails
+  a revision for doing what it was told is the same defect as one nothing can fail. v8 asks
+  a narrower second question -- colour, length and cut separately from arrangement -- only
+  when `hair` moves, and drops it from `also_moved` only when all three come back `match`;
+  a recolour, a cut, or an unreadable answer all still fail (B-597). **Nothing is frozen and
+  nothing is owner-approved.** The v8 run is what the owner is shown.
+- 2026-09-21 night, **the v8 pack ran in production and failed honestly, twice over.** The
+  hair separation worked as designed and then failed on its own floor: the approved
+  reference wears her hair up, length is unmeasurable from a bun by construction, and
+  demanding three `match` verdicts called that a different woman -- the observer's own note
+  read "pulled up into a bun ... the color and highlight pattern match". Worse, three torso
+  frames in a row came back with `bust: unmeasurable` while the comparison of those same
+  frames against the approved body returned `bust: match`, so the pack reported that the
+  revision had not changed the bust on the strength of two images neither of which could
+  state one. v9 fixes both: the revised dimension is `unmeasurable` when no frame could
+  state it (not a pass, and not a finding that the revision failed), and the hair question
+  needs no `drift`, two of three positively read, and an arrangement difference that
+  actually explains the flagged drift (B-600).
+- The v9 run was the first with honest reporting, and it produced a real finding: **eight
+  of nine conditions met** -- all five scenes rendered, facial identity held in 5 of 5, no
+  morphology drift anywhere, chest and torso both evidenced, all thirteen dimensions
+  pinned, the reference frames coherent, a close-fitting frame reading chest/torso/waist
+  together, and hair no longer flagged at all. The ninth: **the bust did not change.**
+  `the_bust_actually_changed: match` against the approved body, with the bust readable, so
+  this is the generator not applying the revision rather than the measurement failing to
+  see it. The retry loop could not have told anyone either way: three frames were rendered
+  with the revision clause on them and the clearest was kept, with the revision never part
+  of the choice. v10 selects on `(readable, changed)` in that order, raises the attempt
+  budget to four, and escalates the clause only after measuring a failure -- repeating the
+  owner's bounds rather than relaxing them (B-602).
+- v10 ran with four attempts and the escalated clause, and reported the bust unchanged
+  again. **Seven torso renders across v9 and v10 all reproduced the approved chest**, which
+  is a finding rather than bad luck: every one of them was conditioned on `approved_torso`,
+  the pre-revision body, and reference conditioning is a far stronger signal than a textual
+  delta. The escalation was aimed at the wrong thing. v11 makes the retries a ratchet --
+  once an attempt has been measured as unchanged, the next conditions on the best frame so
+  far plus the approved portrait instead of restarting from the body it is trying to
+  revise. Safe because the measurement does not move with it: the final frame is still
+  compared against the approved body, so a retry that drifted the waist to get there still
+  fails `nothing_else_changed` (B-603).
+- v11 ran clean on everything except the one thing: **eight of nine conditions met** --
+  all thirteen dimensions pinned, reference frames coherent, facial identity held in 5 of
+  5, no morphology drift, chest and torso evidenced, nothing else changed -- and
+  `the_bust_actually_changed: match` again. That is **eleven torso renders across three
+  code versions**, through a clearer instruction, a selection rule that prefers the changed
+  frame, and a conditioning ratchet. All eleven came from one provider, and "this model
+  declines this edit" is the one explanation eleven samples from one provider cannot
+  distinguish from "the instruction is wrong". v12 renders the insisting attempt on the
+  next identity-capable provider: the pack's provider won the benchmark at *holding an
+  identity across frames*, which is a different question from applying a targeted edit to
+  one image, and the benchmark never measured the second (B-604).
+- v12 ran, and the frame it kept was from the incumbent provider at attempt 3 of a budget
+  of 4 -- which could mean the second provider did not help, or that it was refused and
+  the loop stopped. **The pack could not say which, and had not been able to for four
+  versions.** Twelve torso renders left no trace beyond a count and a winner, so each
+  round of debugging was guesswork where reading would have done. v13 logs every attempt:
+  its provider, its anchor, what it scored, whether it was kept, and — separately — whether
+  it was refused, rendered-but-unreadable, or read and unhelpful (B-605). It changes no
+  floor and costs nothing.
+- **2026-09-21, the canonical-model pack passes all nine approval conditions and is
+  AWAITING THE OWNER'S VISUAL APPROVAL.** Pack `v13-the-retry-keeps-the-evidence-it-was-
+  throwing-away`, candidate fingerprint `53040cdbab9589a3`, built from the owner's own
+  supplied concept. Every scene rendered; facial identity held in 5 of 5; no morphology
+  drifted in any scene; chest and torso both evidenced; all thirteen dimensions pinned;
+  the three reference frames read as one woman; the close-fitting validation frame reads
+  chest, torso and waist together; **the bust moved (`drift` on both reference frames
+  against the approved body) and nothing else did** — face, eyes, age, stature, build,
+  shoulders, torso, waist, hips and limbs all `match`, and the hair flag resolved to
+  styling (same colour, same cut, worn up in one and down in the other). Render cost
+  CA$0.3288; month-to-date CA$48.19 of the CA$100 ceiling.
+- The attempt log paid for itself on its first run: the frame that carried the change came
+  from **attempt 2 on the incumbent provider**, which means the eleven earlier unchanged
+  renders were sampling variance rather than a provider that refuses the edit. Four
+  versions of debugging had been guessing at a question one log line answered.
+- The approval row itself was stale — created on the first build and never rewritten, so
+  it told the owner "face unverifiable, whole-person morphology unverifiable" for a day
+  after both stopped being true, and quoted two floors where `unverifiable` is the correct
+  answer for a woman in a winter coat. It now reports the nine conditions, names any that
+  are unmet, and carries the pack version and fingerprint (B-606).
+- **The approval was never actually being asked.** `launch.readiness` closes any open owner
+  action whose key is not in its own request list -- correct for the rows it raises, and it
+  is not the only thing writing to that queue. The reference-pack build, the tournament, the
+  image benchmark and `ops/funding.py` all raise rows it has never heard of, and a key it
+  did not generate is indistinguishable from a request that has been satisfied. It closed
+  the canonical-model approval on the run after the pack passed all nine conditions: pack
+  ready, owner never asked, nothing anywhere reporting a problem. The closer now skips keys
+  it does not produce, and `build.tick` *derives* the question from the waiting pack rather
+  than relying on the build that raised it once -- the pack build does not run again once a
+  pack is on file, so there had been nothing left to reopen it (B-607).
+- **And then the images evaporated.** All eight returned 404 within the hour of the next
+  redeploy: the artifact store writes bytes to a container directory and the hash to
+  Postgres, and is honest that the bytes are ephemeral. That is the right trade for a
+  catalogue of regenerable PDFs and the wrong one for a brand identity, which cannot be
+  re-rendered because re-rendering produces a different woman — so the owner was being
+  asked to visually approve a package whose measurements survived and whose pictures did
+  not. The reference pack's images are now kept in Postgres as well as on disk and restored
+  to disk on the first read after a restart; nothing else is, and object storage stays an
+  owner action for the catalogue (B-608). v14 rebuilds the pack with its images kept.
+- **v14 passed all nine conditions and the pass was wrong** — caught one step before the
+  owner saw it, by the attempt log added the night before. `verdict_for` takes `drift` if
+  any frame says `drift`: conservative for a dimension that must not move, permissive for
+  the one that must, same line of code. The torso reference — the frame that exists to read
+  the chest, and the one `FRAME_AUTHORITY` names for the bust — said `match`, three of
+  three torso renders said `changed: false`, and the full-length standing frame said
+  `drift`; the pack reported the revision had landed. Without the log, those two numbers
+  would never have appeared in the same report. v15: the authoritative frame decides, the
+  other frame's answer is printed beside it, and an authoritative frame that cannot read
+  the dimension gives `unmeasurable`, which is not a pass (B-609).
+- **With the measurement finally sound, v15's honest verdict is that gpt-image-2 will not
+  apply the bust revision.** The torso reference — three of three renders — reads the bust
+  as unchanged against the approved body, and that is now reported as `the_bust_actually
+  _changed: NOT met` rather than papered over. The insisting attempt hands the edit to
+  flux-2-pro, which is the right move, but flux timed out at 120s of polling on every
+  attempt and never returned a picture: its poll budget (60×2s) was set for the benchmark's
+  single un-conditioned renders, and a reference-conditioned identity-holding edit is far
+  slower. Raised to 150 polls / 5 minutes, inside the 90-minute claim lease, so the fallback
+  provider actually renders (B-610). If flux applies the change the bust condition passes on
+  its own frame; if it does not either, the finding — that no available provider will make
+  this specific edit against this reference — is an owner decision, not a bug.
+- **v16 (flux with 5 minutes to render) is the honest stopping point, and it correctly
+  refuses.** Attempt 2 on gpt-image-2 produced a torso frame the *comparison against the
+  approved body* reads as a bust `drift` — the change landed — but the pack's independent
+  single-frame observation still cannot pin the bust in a clean frame, so `every_dimension
+  _pinned` fails and the revised verdict is `unmeasurable`, not a pass. That is the owner's
+  own rule working: "when clothing/pose genuinely prevents a body dimension from being
+  evaluated, return UNMEASURABLE rather than PASS." The pack will not certify a bust change
+  it cannot independently read. flux-2-pro, given 5 minutes, rendered once without applying
+  the change and timed out on the second attempt. **This is now an OWNER DECISION, not a
+  bug** — see the checkpoint note below.
+- **Nothing is frozen and nothing is owner-approved.** `select_canonical` is the only thing
+  that can freeze the identity and it refuses without the owner's explicit approval.
+- **The maturity ladder's first production reading**: of 222 requirements the registry
+  calls covered, 158 are implemented, tested and deployed; **42 reach production-observed**
+  -- a job actually ran, finished, left an append-only audit row, and did so within the
+  last fourteen days. 116 stop at `deployed` because no registered job type reaches them,
+  which is unreadable rather than unexercised, and 64 were audited in prose that names no
+  module. One requirement has a job type that has never run, and it is named rather than
+  counted.
+- 2026-09-21, **the executor and the registry were disagreeing in production and nothing
+  was reading the check that says so.** Nine requirements' notes read "needs an image
+  generation capability *and owner identity selection*"; only the first half was a gate, so
+  when image generation started working all nine un-parked into the ready queue -- work
+  nobody can start, advertised as ready. A `canonical_model` gate now reads the one slot
+  `select_canonical` refuses to write without the owner, so no amount of rendering opens
+  it. And `reconciliation()`, which states the invariant that nothing owner-gated is ever
+  ready, had tests and no callers: it is now in `report()` and in `/api/build` (B-599).
+- 2026-09-21 night, **the coverage percentage got a ladder under it**. `covered` means
+  somebody read the spec line, read the module, and judged that the module satisfies it --
+  a real judgement, and rung one and a half of six. 222 of those reported as "69.4%
+  complete" was this build's most flattering number, and the owner named the gap exactly: a
+  requirement is not complete merely because code exists. `build2/maturity.py` measures
+  implemented -> tested -> deployed -> exercised -> evidenced -> production-observed from
+  evidence, at `/api/build2/maturity`, and never reads the registry's own status: a ladder
+  that consulted the claim it is testing would be measuring the claim against itself. The
+  job-type map is parsed out of `runtime/release.py` rather than declared. Unmeasurable is
+  its own column and is never a pass -- 64 requirements were audited in prose that names no
+  module, and most modules are libraries no job type reaches, so calling either "not
+  exercised" would invent failures out of the measurement's blind spot. Locally: 158 of 222
+  reach `tested`, 64 are unreadable, and `deployed` and above are unmeasurable by
+  construction, because an import that succeeds on a laptop is rung one wearing rung
+  three's name. Production is where the top four rungs get their answer (B-598).
+- 2026-09-21, **the MJs teardown laboratory is proven end to end in production, on real
+  documents.** Before asking for the CA$292 purchase, it was run against four of
+  Brambleloop's own patterns as a proof fixture: 26 pages read through the quarantine,
+  every page yielding text, 63 dimension observations, 8 of 8 stages driven, 12 listing
+  claims extracted, 8 settled against the documents and 4 left unverifiable. Two things it
+  is honest about rather than quiet about: `construction_to_object` returned
+  `unverifiable` for all four, and `assembly` appears in no Brambleloop document because
+  this catalogue is flat and seamless -- so that path is decided, not exercised. The
+  readiness verdict is READY and nothing blocks the purchase, which remains the owner's
+  decision and has not been made.
+- **Heartbeat 2026-09-22T00:14Z.** Production green at 12/12. The gate work from the night
+  before is confirmed live: `reconciliation` balances and `owner_gated_but_ready` is empty,
+  so nothing the owner has to decide is sitting in the ready queue any more.
+- **#300's acceptance test was broken at step 8 and looked fine.** The cycle engineered
+  `hats-hat-0` and the assets step reported `cloudline-baby-blanket`: `last_asset(db)`
+  returns whichever product was photographed last, and the cycle handed that in as its own
+  evidence — with that product's motif failure attributed to this cycle. A pass would have
+  proved nothing and the failure was about something else, so the one number this
+  launch-blocking test exists to produce was meaningless in both directions. Bound to
+  `cir.slug` now (B-611).
+- **And that exposed the real gap**: the cycle authors and certifies its concept in memory
+  and never files it in the catalogue, while the photography job photographs catalogue
+  products — so for a cycle-internal product **no asset can ever exist**. Reported as FAILED
+  with the fix named (the cycle should file what it engineers) rather than as gated on a job
+  that will never reach it, because a gate that cannot open is a permanent blocker wearing a
+  queue entry.
+- **And then closed it.** The message B-611 left named the wrong fix — "the cycle should
+  file what it engineers" — and filing it would inflate the catalogue on every page view,
+  the move #292 exists to refuse. `owned_photography.make` already takes a CIR rather than
+  a slug, so the answer is an injected `asset_maker`: the new weekly **`seasonal.cycle_proof`**
+  job runs the cycle and renders for the product the chain produced, while
+  `/api/seasonal/cycle` passes nothing and stays free — a GET that spends money spends it
+  every time a sweep walks the routes. It runs as `publishing`, the agent that already owns
+  the photography job (B-613).
+- **Its first live run finished successfully and proved nothing** — `weakest_link: generate`,
+  `assets_state: None`. The handler asked the cycle for everything except the one input it
+  needed, so the generate step gated on `model_provider` and the run stopped at step 5, four
+  links short of the link the job exists to close. Found by reading the cadence's recorded
+  outputs rather than trusting a `done` job — which is exactly the deployed-versus-exercised
+  distinction the maturity ladder draws, arriving on the first thing built after it. The job
+  now builds the gateway the endpoint builds and refuses outright without a credential
+  rather than emitting a truncated run a cadence row would report as a proof (B-614).
+- **#300's assets link is reachable for the first time**, and not yet proven closed in
+  production: the corrected job has not run again. The endpoint confirms the chain is
+  honest — it now names `hats-hat-0`, the product its own chain engineered, where it used
+  to name an unrelated blanket.
+- **And checking before claiming it would close found that it will not — for a good
+  reason.** The cycle's soonest proven arena is `hats`; a hat is not a product-first form;
+  so `owned_photography.make` refuses it, because a model-bearing frame is blocked while
+  the canonical identity is built and unapproved. That is the model gate working as
+  #72/#73/#201 intend. What was wrong was what the step would have *said*: the maker's
+  refusal was discarded and it would have reported "never filed in the catalogue" — an
+  owner decision dressed as a filing problem. The maker's reason now outranks the guess,
+  and a refusal naming something to wait for is GATED rather than FAILED (B-615).
+- **Newly stated dependency: #300 cannot complete until the canonical model is approved**,
+  for any cycle whose arena is a worn form. Two launch-blocking requirements were linked
+  and nothing said so.
+- **The motif-fidelity gate is working in production.** It is what failed the cycle's assets
+  step: a generated blanket image judged `mismatch` against the certified diamond-lattice
+  chart. The owner's release requirement — that an image depict what the pattern actually
+  makes — is live and blocking, on a real asset, not just in tests.
+- **#292 re-parked from `image_generation` to `customers`** (B-612). All five
+  re-merchandising moves now compute as available in production, so its park pointed at a
+  gate that had opened while the requirement still could not be finished. The only thing
+  left is the word "proven", which is a claim about sales. The live queue now reads
+  honestly: one requirement ready and actionable, nothing ready that nobody can begin.
+- **2026-09-22T03:52:53Z — THE CANONICAL IDENTITY IS FROZEN.** The owner approved the
+  revised pack; `creative.model_freeze` promoted it in production and
+  `/api/model-identity` reports `canonical_selected: true`, version 1, `persisted: true`,
+  `gate_is_wired: true`. **All seven properties the owner asked for hold against the pack
+  read back out of the database** (`/api/model-identity/enforcement`, free to re-ask):
+  the revised pack loads with all fifteen fields and a reference image; facial identity is
+  enforced; morphology is enforced separately; bust and torso are hard; unmeasurable never
+  becomes pass; a face match cannot compensate for body drift; and a model-bearing
+  customer-facing frame is blocked while a product-only frame is `not_applicable` rather
+  than waved through.
+- **It froze v15, not the newest pack, and says so.** v16 had `bust: unmeasurable`;
+  freezing it would have written a chest with no stated value — a dimension that can never
+  drift again, which is the owner's own rule made permanent rather than broken. The freeze
+  refuses any pack with an unstated required dimension whatever the approval says, and
+  names the newer packs it skipped (B-616). Superseded packs and the five rejected
+  finalists remain evidence; nothing can promote them and `select_canonical` refuses a
+  second canonical outright.
+- **Two stale claims died with the freeze.** `owned_photography` refused every worn form
+  with "she is built but not approved" — false within minutes, and the test guarding it
+  asserted the same expired words. It now reads the real state (B-620). And #300 briefly
+  reported `complete: true` with its assets link merely `gated`: a GATED link does not stop
+  completeness, and I had mapped our own unbuilt render path to GATED. `EXTERNAL_WAITS` is
+  now a closed set with a failing default (B-621).
+- **#300 re-driven through the now-open dependency, against its own product.** The job ran
+  at 04:16:20Z, reached the assets step for `hats-hat-0` — the product its own chain
+  engineered, never another's — and the honest verdict is **complete: false, weakest link
+  `assets`**. What remains is a real, named gap and it is this build's work, not a
+  decision: **she is approved and enforced, and nothing yet conditions a frame on her
+  reference and sends the result through the identity gate.** That is the remaining content
+  of #72/#73.
+- **Reconciled against production evidence (B-622).** `reconciliation` reported
+  `balances: False` the moment the gate opened, naming all nine stale statuses — the check
+  wired in the night before doing its job on the first event that mattered. Now **covered**:
+  #199 (field rendered, finalists presented, owner rejected all five, supplied a candidate,
+  approved the pack built from it), #200 (frozen, persisted, versioned, refuses a second
+  and refuses an incomplete pack), #201 (gate wired, seven properties proved in production),
+  #74 (`PRODUCT_FIRST_FORMS` + form-based `needs_no_model`; product-only frames answered
+  `not_applicable`, not passed). Still **partial**, each for a stated reason: #72/#130/#202
+  wait on the model-bearing render path (ours, not a decision); #73's pack does not yet
+  carry makeup range, wardrobe rules, lighting language or the rejected drift examples;
+  #75's eight-part parity gate is genuinely unbuilt — four of eight checks exist and calling
+  it covered because half exists is the averaging it is written against.
+- **Coverage 226 of 320 (70.6%). READY is six items and all six are ours**: #72, #73, #75,
+  #130, #202, #300. Nothing ready that nobody can begin; `balances: True`.
+- Totals: 541 tests passing, 0 failing. All six acceptance gates pass, each line with its own
+  named test. Gates A, C, D, E, F passing; B passing except
+  regression automation.
+
+---
+
+## 2026-09-22 overnight — the model-bearing render path, built and exercised
+
+The owner's mandate: build the actual production chain — canonical pack → reference
+conditioned generation → generated model-bearing frame → independent observation → face
+identity gate → whole-person morphology gate → product/pattern truth gates → photographic
+realism gate → release eligibility — with no mocks, no fixtures and no path that merely
+claims conditioning occurred. Six READY requirements: #72, #73, #75, #130, #202, #300.
+
+**The path exists and runs in production.** `assets.model_photography` conditions a render
+on the frozen pack's own reference images and has the result described by a vision model
+that never saw the prompt. Every claim below is from a live run, not a test.
+
+### What was proved in production
+
+- **Reference-conditioned generation.** Live frames record
+  `conditioned_on: {reference_image, body_reference_image, pack_version: 1,
+  approved_at: 2026-09-22T03:52:53Z}`, both references recovered from the durable artifact
+  store, passed to the provider as references rather than described in words.
+- **The whole-person morphology floor passed for the first time** — `pass` on the fit
+  frame, against the pack's own torso reference.
+- **The eight-part parity gate runs on every publish attempt**, including the refused
+  ones, recording `listing.parity` with all eight dimensions.
+- **Shadow Mode intact.** `/api/verify` 12 of 12, `store.published: 0`, refusals still
+  recorded as shadow refusals, month-to-date model spend CA$53.11 of the CA$100 ceiling.
+
+### Five defects found, each a variant of the family this system keeps catching
+
+- **B-631 — a row standing in for the capability it evidenced.** The handler's idempotency
+  asked whether a frame existed for this product and version and answered "this release
+  already has a model frame" when the only frame on file had three floors unverifiable.
+  The release could never be re-rendered and the next deploy agreed the work was done.
+  `what_to_do_next` now gives three answers, and retrying is bounded at three attempts
+  belonging to the *method*, so a corrected prompt gets its own budget.
+- **B-632 — the morphology floor could never pass.** `select_canonical` takes one
+  `reference_image` and freezing put the committed portrait there, because it is the only
+  reference that survives a restart. Every frame was therefore compared, whole, against a
+  head-and-shoulders crop, so bust, torso, waist and hips read `unmeasurable` however well
+  the frame was shot. Face and body are now judged against different references, the body
+  one recovered from the durable store. **There is deliberately no fallback**: the
+  committed body frames are the pre-revision pack, and using them would enforce the
+  superseded body the owner replaced, so the floor reads `unverifiable` instead.
+- **B-633 — one frame cannot answer both remaining floors.** The correctly-framed
+  three-quarter shot showed the whole body and the motif judge read its fabric as
+  `unmeasurable`, naming what it needed: "a closer or flatter frame". Close enough to
+  count stitches loses the hips. The asset is now the smallest complete gallery — a fit
+  frame and a detail frame — each floor taken from the frame in a position to answer it,
+  shared floors taking the worst answer any frame gave, and a failure anywhere blocking
+  everywhere because both frames ship.
+- **B-634 — an image labelled by its filename rather than by its bytes.** The artifact
+  store is content-addressed, so its files carry no extension; `guess_type` returns nothing
+  and the code defaulted that to `image/png`. The canonical portrait is a JPEG. It was sent
+  labelled `image/png`, refused by the provider, and the face comparison returned
+  `unmeasurable` on all five dimensions — while the body reference, a PNG, worked. Half the
+  identity check silently did not run, which is worse than it failing. Bytes are now
+  authoritative.
+- **B-635 — styling was unjudgeable on a close crop.** Five of the character bible's
+  fourteen questions are about wardrobe and a frame cropped to a hat answers none, so a
+  sixth floor became unclearable by the same mistake the morphology floor had just been
+  rescued from. Styling is now read off the fit frame.
+
+### What was built
+
+- **`visual/bible.py` (#73, #202).** The four parts #73 names and the pack did not carry —
+  makeup range, expression range, wardrobe rules, lighting language — written as fourteen
+  closed questions about the rendered frame and enforced as a sixth independent floor. The
+  identity gate would accept exactly the right woman in editorial makeup under gelled light
+  in a printed dress, every dimension it measures still matching; nothing could tell.
+  Rejected drift examples are read out of the audit log rather than composed, and the
+  canonical pack is never listed among them — that is read from the freeze record, not
+  guessed from which build is newest.
+- **The parity gate in front of listing export (#75).** All eight checks existed and
+  nothing consulted them. The verdict is now computed *before* the phase check — Shadow
+  Mode refuses every publication, so a gate enforced behind it would meet its first real
+  listing having executed zero times — and enforced *after* the phase, the credentials and
+  the authority matrix, because those ask whether this system may publish at all and must
+  stay outermost.
+- **A calibration control for the photographic-realism judge.** Two renders in a row were
+  blocked on the same three checks and the second plainly had pores, freckles and fine
+  lines in it. Either the renders are unphotographic or the judge cannot pass a photograph,
+  and those need opposite fixes. The judge is now asked about a real listing photograph
+  from the observed benchmark, once per version of the checks. The photograph is a control
+  and nothing else: not copied, not re-hosted, not imitated, never described.
+
+### The live sequence, method by method
+
+Every floor that cleared did so because a specific defect was found and fixed, and every
+floor still failing is a **real reading** rather than "nobody could tell" — which is the
+distinction the owner asked to be preserved, and the one this table could not make at all
+before tonight.
+
+| floor | v2 (one frame) | v6 (two frames, two references) | v8 (chart-conditioned, lighting fixed) |
+|---|---|---|---|
+| face_identity | pass | **pass** | **pass** |
+| whole_person_morphology | unverifiable | **pass** | **pass** |
+| asset_truth | unverifiable | fail | **pass** |
+| styling | — | fail (`lighting`) | **pass** |
+| product_truth | unverifiable | fail (mismatch) | fail (mismatch) |
+| photographic_realism | fail | fail | fail |
+
+Four of six. The two that remain:
+
+- **product_truth** — the motif judge called both frames a **mismatch**, and the reason
+  was ours, not the provider's (B-644). `expected()` took the chart's motif name from the
+  first sentence of the designer note, and every machine-authored note reads "prototype of
+  {key}: {what}, {w} x {h} cm at {gauge}" — the finished object and its dimensions, with
+  nothing in it about stitches. So the render prompt asked for "fabric worked in this
+  pattern's own motif: an adult hat, worked in the round", and the verdict compared an
+  honest description of fabric against those same words and found no overlap. **For every
+  product the seasonal cycle authors, product truth could never pass**, and it failed for
+  a reason that had nothing to do with the picture. The mirror defect sat behind it: with
+  the name empty the test was skipped and the verdict fell through to MATCH.
+
+  **And when it was told the truth, it passed.** The v10 detail frame returned
+  `product_truth: pass` — the judge compared the photograph against the chart itself, said
+  the fabric is working it, and the colour count agreed. First time that floor has ever
+  cleared. So the provider was never the problem, twice over: I blamed it once on a
+  defect (B-643) and again on the v9 evidence (B-645), and the answer both times was that
+  the render had not been told what fabric to make.
+
+  I had already written this up as a provider capability question (B-643). **That
+  conclusion is withdrawn.** Object prose is now recognised by our own format string, an
+  unnamed motif reports `name_test: unavailable` rather than passing, and the colour count
+  — deterministic from the chart, true of every pattern including the ones authored in
+  memory — is checked first, because that is what both live renders actually broke. The
+  provider gets asked again only after a render that was told the truth about its fabric.
+- **photographic_realism** — improving under evidence rather than guesswork, and the
+  calibration proved the standard discriminates. The detail frame fell from three failed
+  checks to one (`processing_is_restrained`); the fit frame still fails all three. One of
+  three bounded attempts for this method is used.
+
+**The photographic-realism verdict was the one not to act on until it was checked, and
+then it was.** Three renders in a row blocked on the same three checks, and one of them
+plainly had pores, freckles and fine lines in it. `creative.photoreal_calibration` asked
+the judge about a real benchmark listing photograph. It **failed nothing**, and under the
+corrected reading it answered ten of the eleven checks — including all three that were
+blocking us. `skin_looks_real`, `processing_is_restrained` and `not_sterile_perfection`
+discriminate, so the renders are what needs changing and tightening them is justified
+rather than speculative. Only `depth_of_field_is_natural` stayed unjudged, because a
+flat-lay swatch has no background to blur: unproven, not unreachable.
+
+Its first reading of that answer was wrong, and wrong in the dangerous direction: the
+control is a flat-lay swatch with no person and no background in it, so two checks came
+back `unjudged`, and `calibrate` reported "this judge blocked a real photograph". A verdict
+computed from absence of evidence — the exact defect the function exists to test for,
+committed by the test (B-641). It is three-valued about its own control now, and `unjudged`
+is unproven rather than unreachable.
+
+### Honest status of the six
+
+- **#72, #130, #202 — the render path is built, deployed, exercised and evidenced; the
+  frame is not yet usable.** Identity is proved end to end in production: conditioned on
+  the frozen pack, verified afterwards by a model that never saw the prompt, face and body
+  both passing against their own references. What remains is render quality on four floors.
+- **The catalogue contains no worn form.** All eleven products route to the product-first
+  path, correctly, so the only model-bearing evidence comes from the seasonal cycle's own
+  engineered `hats-hat-0`. #72 says the model is mandatory "for appropriate wearables" and
+  this company does not yet sell one — a merchandising fact worth stating, not a gap in
+  the gate (C).
+- **#73 — the character bible is built and enforced**, and the pack now carries every part
+  the requirement names.
+- **#75 — all eight checks exist and are wired in front of export. The evidence for
+  COMPETITIVE was not draining, and the reason was a defect (B-647).** `gallery_analysed`
+  was read in `pending()` and written nowhere, so every two-hourly run took the same
+  twenty-five images off the same newest listings, judged them, paid for them and left
+  them pending: eight unattended hours and four paid batches moved the backlog from 475 to
+  **476**, at about CA$8.50 a day for no new evidence. `remaining` then subtracted the
+  run's own `judged` from a live count, so a queue standing still reported as one draining
+  by twenty-five a run — which is how "about 38 hours and CA$13 to empty" reached the
+  owner in a report. Both halves are fixed: images are marked judged per rank, a listing
+  is analysed only when every image of it has been, and `remaining` is counted with
+  nothing subtracted. **The real drain rate is whatever the next runs report and is not
+  claimed here in advance.**
+- **#300 — product-bound and honest.** The chain reaches its assets step for `hats-hat-0`,
+  the product its own cycle engineered, and reports `complete: false, weakest link assets`
+  with the exact floors that fell short. It closes when the sequence clears every floor.
+
+### What the night cost, and what it did not touch
+
+Month-to-date model spend moved CA$52.04 → CA$53.35 of the CA$100 ceiling: roughly CA$1.30
+for the whole overnight build, across eight deploys and five live sequences. No provider
+credits were bought, no auto-reload enabled, no limit raised, no benchmark re-run, and the
+MJs benchmark purchase remains untouched and owner-controlled. `/api/verify` is 12 of 12
+throughout, `store.published` is 0 against 134 recorded refusals, and `BRAMBLELOOP_PHASE`
+is `shadow`.
+
+Tests: 2,988 passing, 0 failing.
+
+---
+
+## 2026-09-23 — forensic recovery: why a busy day produced little
+
+### The diagnosis, from production evidence rather than from the dashboards
+
+**Production never stalled.** Everything the recovery prompt listed as a candidate cause was
+ruled out by evidence, not by assumption:
+
+| candidate cause | evidence | verdict |
+|---|---|---|
+| deployment mismatch | deployed SHA == local == remote | ruled out |
+| worker failure | alive, 9h uptime, 0 restarts, ticking | ruled out |
+| scheduler failure | ticking within its interval | ruled out |
+| queue starvation | 0 pending, 0 running, 2,893 done, 0 failed | ruled out |
+| executor believed nothing READY | `build_tick` reports `ready: 5` | ruled out |
+| lease problem | lease held and re-acquirable | ruled out |
+| database / spend / provider gate | `/api/verify` 12/12, CA$60.63 of CA$100, no paused scopes | ruled out |
+| genuine lack of executable work | five READY requirements, all ours | ruled out |
+
+**What was actually true.** Forty-four cadences ran on schedule and the system learned
+almost nothing from them:
+
+- `gallery_analysis` re-judged the same twenty-five images every two hours and charged for
+  them each time (B-647) — twelve runs, no new evidence, about CA$8.50 a day.
+- Five cadences are listed by the queue's own `last_run_was_a_no_op`:
+  `model_tournament`, `model_reference_pack`, `owned_photography`, `model_photography`,
+  `blinded_benchmark`.
+- `seasonal_cycle_proof` ran once and failed at `assets` — real evidence, no progress.
+- **The development loop is not a cadence.** Code only changes while a Claude session is
+  awake, and the heartbeat Routine wakes one every eight hours. Production cadences
+  generate evidence; they do not advance a READY requirement.
+
+**And the health sweep called all of it healthy**, because `progress` counts *completed
+jobs* — `{"state": "healthy", "bad": [], "why": "work is being completed"}`. Jobs
+completing is not evidence being produced. That is the demonstrated root cause of "active
+all day, little to show": not a failure anywhere, but **no signal that could tell a working
+loop from a spinning one**.
+
+### The signal that would have caught it (B-648)
+
+`evidence_freshness` compares each cadence's latest result against its previous one over a
+twelve-hour window. A cadence returning exactly what it returned last time has told this
+system nothing it did not know. Deliberately not a judgement about value — "different from
+last time" needs no opinion, and the failure it exists to catch is precisely a result that
+never moves. `progress` and `evidence_freshness` can now disagree, and when they do, the
+second one is the true reading.
+
+### Classification
+
+- **B-647 / B-648 — TRUST BLOCKERS.** Duplicate paid processing, and a health signal that
+  reported a stalled loop as healthy. Both fixed.
+- Remote Control for HQ is **unfinished C-class convenience**, not a launch blocker.
+  Recorded and dropped; the cloud session and Railway production are both PC-independent.
+
+## 2026-09-23 — the Build-2 completion audit the owner asked for
+
+The instruction was to audit every one of the 93 requirements that are not covered, decide
+whether each classification is truthful, and fix the machinery wherever work had been parked
+before the actual owner boundary. Done by query against the live production gate state rather
+than by reading the notes, because the notes are what would be wrong.
+
+### The contradiction the owner reported, resolved
+
+"45 partial/executable remaining, yet executable left: 0" was two separate reporting defects,
+both real, both now fixed and observed in production at commit `eb83ce6` (B-684):
+
+- The console tile read `cov.get("partial", 0) + cov.get("missing", 0)` from a dict that nests
+  those counts under `by_status`. Both lookups missed, both defaulted to zero, and the tile
+  rendered **executable left: 0** beside a card reading `executable_remaining: 45`. Now reads
+  the computed field. Production now shows `executable left: 45`.
+- `/api/build2` sliced its list at a hardcoded `[:40]`, dropping five of forty-five silently.
+  Now lists in full and says so with `executable_listed_in_full: true`.
+
+### Are the 93 classifications truthful? Substantially yes
+
+Cross-referenced every non-covered requirement against whether the gate it waits on is
+actually open in production. **Four** sit under an open gate, and none is a false park:
+
+- **#300** (`partial`, parked on `image_generation`, now open) — correctly executable, and it
+  is the tracked next action. Blocked in practice by the imagery chain below, not by the gate.
+- **#94, #104, #140** (`data_gated`) — the gate table lists them under `model_provider` and
+  `culture_feed`, but their blocker is the other axis: real performance data. Being reachable
+  is not the same as being answerable.
+
+Every one of the 93 names a specific dependency; none is parked on a vague one.
+
+### The one class worth stating plainly, and why it stays parked
+
+**#237, #238, #239** carry their own note: "machinery buildable, needs real stats". That is
+literally the pattern the owner warned about — but building three analytics engines with no
+data, no way to validate them and thresholds that need real baselines, ahead of a single
+listable product, would be working the wrong end of the owner's own priority chain to move a
+percentage. They are post-launch measurement. Parked deliberately, recorded here so the
+decision is visible rather than implicit. **Test count is evidence, not the objective.**
+
+### What the audit did find: the owner's re-probe instruction was not honoured (B-686)
+
+The owner asked, in terms: re-probe the actual production Google credential once, do not rely
+on the previous failed probe. Production did the opposite and said so in its own health
+output: `provider_trial` boot enqueue, `outcome: not needed`, `why: this challenger has
+already been tried under this render method`.
+
+The cause was `_trial_on_file` counting `nano-banana-2`'s four `402 prepayment credits are
+depleted` attempts as a completed trial. A refusal was recorded as a measurement, so the
+strongest candidate in the experiment was retired permanently on the evidence that an account
+had not been topped up yet — while `BRAMBLELOOP_IMAGE_KEY_GOOGLE` was set in production the
+whole time. Fourth appearance this session of a temporary blocker converted into a permanent
+one. A challenger is now tried only if it actually rendered.
+
+### Where the critical path actually is
+
+`listable: 0 of 10`. Measured across both providers, on the simplest and hardest certified
+products, under the current render method:
+
+| | gpt-image-2 | flux-2-pro |
+|---|---|---|
+| renders | 2 | 4 |
+| texture clear | 0.0 | 0.5 |
+| structural clear | 1.0 | 1.0 |
+| **product truth match** | **0.0** | **0.0** |
+| photoreal clear | 0.0 | 0.0 |
+| usable | 0.0 | 0.0 |
+| CA$/render | 0.0411 | 0.0274 |
+
+Trial verdict: `no_switch_on_this_evidence` — flux cleared the tiling blocker half the time
+and gave back structure and photographic realism, which is trading one launch blocker for
+another. Nothing was switched; the image stack remains the owner's decision.
+
+The number that matters more than the one the trial was authorised to answer is **product
+truth: 0 of 6 renders, both providers, both products**. Tiling was the blocker we were
+chasing; reproducing the certified chart is a second, deeper one that no provider has cleared
+yet. `nano-banana-2` is the one candidate whose own entry claims fine-grained fabric fidelity
+and it has still never been measured. That measurement is what the next deploy buys.
+
+Spend: trial CA$0.1918 of CA$4.00 authorised. Portrait repair CA$0.1233 of CA$1.00. Combined
+CA$0.3151 of CA$5.00. Shadow Mode intact; nothing published.
+
+### The executor's five ready requirements are one blocker wearing five numbers
+
+Read from `/api/build` on 2026-09-24. The watchdog is alarming:
+
+```
+verdict: stalled | ready_total: 5 | completions_in_window: 0 (6h)
+last_completion: 2026-09-22T08:00:18Z
+```
+
+The five are #130, #300, #72, #75 and #202 — the model-bearing and acceptance-test cluster.
+Every one is genuinely unparked: their gates are open, nothing is waiting on the owner, and
+the executor is right to offer them. They are also, every one, unfinishable today for the
+same reason — the renders do not clear their floors. `listable: 0 of 10`, product truth 0 of
+6 renders across both providers.
+
+Worth stating because "5 ready, 0 moving for two days" invites the wrong fix. The queue is
+not stuck on scheduling, claiming, dependencies or an unnoticed gate, and no amount of
+executor work will move it. It is stuck on one question, and the next deploy is what asks it:
+can any available image provider reproduce a certified crochet chart. Until that has an
+answer, five ready requirements is an accurate count of work that cannot be completed rather
+than a backlog anybody can burn down.
+
+## 2026-09-24 — the three-way provider comparison is complete, and it settles the question
+
+Deployed `2e6864d`. `nano-banana-2` rendered for the first time, job 3588. All three
+credentialled providers have now been measured on the same two certified products, the same
+CIR-derived prompt, the same chart reference, the same independent judges and the same floors,
+under render method `v5-tiling-is-named-so-it-can-be-avoided`.
+
+| | gpt-image-2 | flux-2-pro | nano-banana-2 |
+|---|---|---|---|
+| renders | 4 | 4 | 4 |
+| texture clear | 0.00 | 0.50 | 0.00 |
+| structural clear | 1.00 | 1.00 | 0.75 |
+| **product truth match** | **0.00** | **0.00** | **0.00** |
+| photographic realism clear | 0.00 | 0.00 | 0.00 |
+| **usable as listing asset** | **0.00** | **0.00** | **0.00** |
+| CA$ per render | 0.0411 | 0.0274 | 0.1384 |
+| CA$ per usable | — | — | — |
+
+Trial verdict: **`keep_the_incumbent`** — "nano-banana-2 tiled on every render too, so the
+blocker is not specific to gpt-image-2. That is a finding about rendering crochet rather than
+about either provider, and switching would cost money and change nothing." Nothing was
+switched; the image stack remains the owner's decision, as instructed.
+
+The most expensive candidate was also the worst. `nano-banana-2` is the one whose provider
+entry claims "fine-grained fabric and material texture at up to 4K", and it tiled on every
+render, lost a quarter of its structural clears, and added `drape` and `yarn_is_believable`
+to the failure set at 3.4x the incumbent's price per image.
+
+### What twelve renders across three providers actually establish
+
+**Product truth: 0 of 12.** Not one render on any provider reproduced the certified stitch
+chart. This is the number that matters and it was never the number the experiment was
+authorised to chase — tiling was. Tiling turns out to be the visible symptom; the chart is
+the disease. `texture_not_repeating` failed 10 of 12; `product_truth` failed 12 of 12.
+
+Under B-651's rule this is systematic, not stochastic, and its prescribed response is a
+method change rather than a retry. But three method versions (v3, v4, v5) and three providers
+have now failed the same floor, which moves the diagnosis up a level: the variable that keeps
+changing is not the one that matters.
+
+**The non-negotiable already said this.** "Patterns are software releases. Never create a
+beauty image and ask a model to guess the instructions." The product-first render path asks a
+diffusion model to draw a specific combinatorial stitch structure and then judges whether it
+matches the chart — which is a model guessing the instructions, wearing a picture. The rule
+was written for pattern text and applies unchanged to pattern imagery. Nothing in twelve
+renders suggests the next prompt, the next provider or the next method version escapes it.
+
+### The recommendation, for the owner rather than for the next session
+
+Certified-product listing photography does not appear to be obtainable from text-to-image
+generation, at any price any of the three vendors charges. Two routes remain and they are a
+product decision, not a technical one:
+
+1. **Deterministic fabric rendering from the CIR.** Brambleloop already compiles a CIR and
+   builds a digital twin; rendering the fabric programmatically from the chart would make
+   product truth true *by construction* rather than by a judge catching its absence. This is
+   the same move the pattern text already made, applied to the picture. It is buildable here
+   and needs no vendor.
+2. **Real photography of real objects.** Physically crocheted samples, photographed. This
+   clears every floor at once by not being generated, and it is the only route that also
+   satisfies the physical-proof gate — but it needs a person and hands.
+
+They are not exclusive: (1) serves the chart and schematic frames, (2) serves the beauty and
+worn frames. Recorded as evidence with a recommendation rather than acted on, because the
+owner's instruction on the image stack was explicit: bring the measured evidence first.
+
+Spend: this run CA$0.5536, experiment total **CA$0.8276 of CA$4.00**. The cumulative ceiling
+worked on its first real use — `prior_spend_cad: 0.274` was carried into the run rather than
+reset, exactly as B-687 intended, and the incumbent arm was reused rather than re-bought.
+
+## 2026-09-24 — deterministic product truth: the benchmark cardigan proof
+
+The owner supplied a purchased crochet pattern plus four photographs of the finished garment,
+as private evaluation evidence, to test whether Brambleloop can bridge instructions → product
+deterministically after the three-provider trial returned product truth 0 of 12.
+
+**Handling:** the purchased pattern's protected expression is not in this repository and
+never will be. It was extracted to a session scratchpad, read, and used to measure
+Brambleloop's own machinery. No Brambleloop product is derived from it; the regression tests
+use generic swatch fixtures. What is recorded below is measurement of *our* system.
+
+### Phase A/B — the pattern is arithmetically coherent, and the photographs agree
+
+Independently recomputed from the pattern's own stitch counts and gauge, for all nine sizes:
+
+| check | result |
+|---|---|
+| finished length from stitch count ÷ gauge | **9/9 within 1%** |
+| back width from row count ÷ gauge | **9/9 within 2%** |
+| total rows = front + back + front + 1 | **9/9 exact** |
+| sleeve circumference ≈ 2 × stated armhole | 9/9 within 5% |
+
+That last one is the seam-compatibility invariant: the sleeve tube's circumference has to
+equal the armhole's perimeter or the pieces cannot be sewn together. It holds across every
+size, which means the pattern is internally consistent and is a sound benchmark.
+
+Reconciliation against the four photographs, classified by what actually supports each claim:
+
+- **BOTH** — oversized silhouette (pattern: ~14cm positive ease at XS); open front with no
+  closures; two patch pockets; dropped shoulder with no armhole shaping (the armhole is a
+  straight chain-spanned slit); ribbed cuffs; integral ribbed hem band; balloon sleeve from a
+  straight tube gathered by a slip-stitch cuff; mid-thigh length.
+- **PATTERN ONLY** — stitch counts, gauge, yarn weight, size grading, seam order, the
+  instruction that pieces are joined with RS inside and WS facing out.
+- **PHOTOGRAPH ONLY** — pocket placement on the body, and neckline-ribbing position. The
+  pattern specifies neither numerically; it says "pin ribbing along neckline" and shows the
+  pockets in a photo.
+- **NOT OBSERVABLE** — individual stitch identity at this image resolution. No stitch-level
+  photographic verification is claimed.
+- **AMBIGUOUS** — stated sleeve length (39cm) against the foundation-chain computation
+  (42.8cm at XS); the difference is plausibly seam allowance and take-up but is not stated.
+
+**The compiler independently found the same gap the human pattern has.** Compiling our CIR of
+the garment produced exactly one warning: assembly steps join two pieces *without saying where
+on the second piece the join happens*. That is the pocket and ribbing placement — the one
+thing the purchased pattern also leaves to a photograph. The gate was not tuned to find it.
+
+### Phase C — what the existing CIR could and could not hold
+
+The whole garment **compiles clean in the existing CIR, unmodified**: four components, the
+armhole via the existing `skips` primitive, the full seam set, and a twin reporting
+**62.1cm against the pattern's stated 62cm — 0.1% error** from counts and gauge alone.
+
+Two things it could not represent, both found by building it rather than by reading it:
+
+1. **Loop targeting (BLO/FLO) did not exist.** The stitch registry had post stitches, bobbles
+   and cables but no concept of which loop a stitch enters. The benchmark's entire visual
+   identity is alternating BLO/FLO half doubles, so the CIR could hold every stitch count in
+   the garment exactly while being unable to say the one thing that makes it look like
+   itself. Count-perfect and texture-blind passes every gate and renders the wrong fabric.
+2. **The twin's grid was in working order, not fabric order (B-690).** Flat rows turn, so
+   alternate rows are mirrored. The integral hem rib — nine back-loop stitches at one edge of
+   every row — landed at positions 0–8 on odd rows and 80–88 on even ones, describing a rib
+   that zig-zags across the fabric instead of the continuous band the garment has. This was a
+   **live defect in shipped functionality**, not merely a gap: `color_grid()` feeds chart
+   rendering, so every flat two-colour chart has been drawn with alternate rows reversed.
+
+### Phase D/E — the deterministic proof, and what it measures
+
+Bounded addition: a `loop` field on `Op` → `ResolvedOp` → `Cell` (count-neutral, so no
+existing certified pattern needs re-verification), fabric coordinates on the twin, and
+`visual/fabric.py` — a flat SVG drawn one rect per counted stitch, one bar per unworked loop.
+No model, no prompt, no credits spent.
+
+The measurement that makes this testable rather than decorative, computed from loop targets:
+
+| | working order (before) | fabric order (after) |
+|---|---|---|
+| alternation along a row | 0.909 | 0.909 |
+| offset between rows | **0.085** | **0.864** |
+| classified surface | stripes | **checkered** |
+
+The fabric-coordinate fix moved the measured texture from stripes to checkered. The benchmark's own name for its stitch pattern describes a
+crumpled, non-directional broken surface, which is also what the photographs show. The classifier reads both axes rather than thresholding one,
+because alternation alone cannot tell a checkerboard from a ridge — and it refuses to name a
+direction on the *worn* garment, because that needs panel grain, which the CIR does not carry.
+
+**Product-truth scorecard for the deterministic path:**
+
+| | verdict |
+|---|---|
+| instruction fidelity | **PASS** — every drawn cell is a stitch the compiler counted; zero invented |
+| geometric fidelity | **PASS** — 62.1cm vs 62cm stated; 9/9 sizes reconcile |
+| physical plausibility | **PASS** — compiles clean, holds resolved, seams complete, closed form |
+| visual correspondence | **PARTIAL** — texture class and construction features correspond; stitch-level photographic match NOT claimed (resolution does not support it) |
+| photorealism | **not attempted, by design** |
+
+Compare: three image providers, twelve renders, product truth **0/12**. One deterministic
+render, product truth **true by construction**, cost **CA$0.00**.
+
+### CRITICAL DECISION GATE
+
+**Is deterministic Pattern/CIR → Product Truth viable enough to justify the production visual
+pipeline? YES.**
+
+The evidence: the existing CIR already carried topology, components, holds, seams, gauge and
+per-stitch cells; it compiled a real nine-size commercial garment clean on the first honest
+attempt; its twin reproduced the finished measurement to 0.1%; and the one thing it could not
+express turned out to be a count-neutral field that took a bounded change to add. That is a
+representation that was close, not one that was wrong.
+
+**Minimum production architecture to progress from here** (recommended, not built):
+
+1. **Panel grain/orientation** — the one genuinely missing primitive left. Without it a panel
+   cannot be placed in garment space and "vertical on the worn garment" cannot be said. This
+   is what turns correct panels into an assembled schematic.
+2. **Chain-span gauge** — chains are narrower than worked stitches; the armhole is chain-
+   spanned, and the implied chain gauge (~18/10cm vs 14.5 for hdc) is what reconciles the
+   stated armhole with the sleeve circumference. Without it every chain-spanned opening is
+   geometrically wrong.
+3. **Placed seams made mandatory for garments** — the compiler already warns; the benchmark
+   shows a commercial pattern shipping without it, which is the bar to beat, not to match.
+4. **A presentation layer that composites around the fabric and may never redraw it.** Scene,
+   lighting, model and environment may eventually be generative. The crochet region stays
+   authoritative, or product truth stops meaning anything.
+
+Stopping here as instructed. The renderer is a proof, not a product.
+
+## 2026-09-24 — the benchmark reconstructed in full, all nine sizes
+
+The owner corrected an over-restrictive reading on my part: technical facts — counts, gauge,
+construction method, stitch sequence, grading, assembly — are not protected expression, and
+reducing the benchmark to high-level measurements was weakening the test for no reason. The
+garment is now encoded completely in `cir/benchmarks.py`. What stays out is the seller's
+written text and photographs; what is in is our own encoding of how the thing is built.
+
+### The reconstruction
+
+`cardigan(size)` builds the whole garment for any of the nine sizes: the one-piece body
+(front → armhole → back → armhole → front → final row), two sleeves, two pockets, the
+neckline ribbing, and the five-step assembly. **All nine sizes compile with zero errors.**
+
+| check | result |
+|---|---|
+| compiles, every size | **9/9, no errors** |
+| total row count vs the pattern's published total | **9/9 exact** (81, 91, 99, 107, 115, 125, 133, 143, 151) |
+| finished length from counts ÷ gauge | 9/9 within 2% |
+| back width from row count ÷ gauge | 9/9 within 3% |
+| sleeve circumference vs armhole perimeter (seam compatibility) | **9/9 compatible** |
+| grading monotonic in all seven dimensions | pass |
+
+Body at XS is 7,292 stitches; 5XL is 14,800. Every one is placed, loop-targeted and drawn.
+
+### What the reconstruction got right that a measurement summary would have missed
+
+- **The cuff is slip stitch, not half double.** Nothing in the sleeve tapers — it is a
+  straight tube. The balloon shape exists because the cuff edge is worked in slip stitch,
+  which is shorter than a half double and draws that edge in. A summary that recorded
+  "sleeve: 62 sts × 26 rows" would have produced a sleeve hanging like a pipe.
+- **The hem ribbing is not a band.** It is nine back-loop stitches at one edge of every body
+  row, created by the same rows as the fabric beside it — which only reads correctly once
+  the grid is in fabric coordinates (B-690), since the rows turn.
+- **The neckband is ribbing, and the classifier said it was flat.** Constant single-loop
+  working has no *variation*, so a classifier looking for variation called it "uniform". But
+  every row leaves its unworked loop in the same place and the rows stack into ridges — that
+  is ribbing, the commonest textured fabric in crochet. Fixed: absence of variation is not
+  absence of texture. Body and sleeves measure `checkered`; the neckband `ridges_along_the_rows`.
+- **Grain is now carried.** Body and sleeves are `across` — worked sideways, so their rows run
+  vertically on the worn garment. Pockets are `up`. This is what lets anything downstream
+  speak about direction on a finished object instead of guessing.
+
+### Two gaps the full reconstruction measured rather than predicted
+
+1. **No chain-span primitive, and the geometry is ~1% wrong because of it.** The armhole is
+   spanned by chains that replace the stitches the row left unworked. The CIR counts a chain
+   as producing one unit, so the armhole row measures 64 worked stitches + 27 chains = 91
+   units wide — but those 27 chains *span* the 26 stitches they replace and add no width.
+   Measured overstatement: **+1.11% at XS, +1.02% at 5XL.** Separately, the chain gauge the
+   pattern's own numbers imply is 17.6–19.7 per 10cm against 14.5 for the worked fabric, so
+   chains are roughly 20–35% narrower. Until the CIR can distinguish a span from a stitch,
+   every chain-spanned opening is geometrically wrong by about a percent.
+2. **A bridge chain cannot be declared as "not a stitch of this row".** The pattern writes it
+   precisely — `<64 sts + 27 chs>` — and the CIR has no way to say it, so the encoding
+   declares the sum and carries the distinction in a note. That is the same missing
+   distinction as (1), seen from the counting side rather than the measuring side.
+
+### Honest status of the photograph comparison
+
+Unchanged and still **PARTIAL**. Construction features and texture class correspond —
+side-to-side grain predicting vertical row lines, a broken checkered body surface, ribbed
+neckband and cuffs, a straight sleeve gathered at the cuff, two patch pockets, a dropped
+shoulder from an unshaped slit armhole. Stitch-level photographic verification is **not**
+claimed and the image resolution does not support it. Pocket and neckband placement remain
+photograph-only: the pattern states neither numerically, and the neckline row count had to be
+derived from the body geometry rather than read, which `_neckline_rows` flags as derived.
+
+## 2026-09-24 — production visual pipeline, increments 1 and 2
+
+Owner authorised the pipeline on the measured architectural result. Built in increments as
+instructed, against the milestone ladder A→E, stopping to diagnose at the first failure.
+
+### Increment 1 — the chain-span primitive
+
+`Op.spans` says how many stitches of the row below a chain BRIDGES rather than adds to, and
+`Gauge.chains_per_10cm` (with `chain_gauge_uncertainty`) says how wide a chain is when it
+does add fabric. Both are count-neutral: the compiler's arithmetic is untouched.
+
+**Migration safety, proved empirically before changing anything:** all 11 catalogue products
+use chains only as foundations — zero mid-row chain ops — so no already-certified product's
+geometry can shift. The change cannot corrupt what exists because nothing existing uses it.
+
+Result on the benchmark: body width **62.10cm against 62.07cm from its own stitch count**,
+where it had been 62.76cm. The +1.11% error at XS and +1.02% at 5XL are gone. Where no chain
+gauge is stated, a width that had to assume one now carries a `width_caveat` naming the
+assumption rather than presenting an over-estimate as a measurement.
+
+### Increment 2 — placement in object space
+
+`cir/assembly.py` places every piece and checks every join, deterministically, from certified
+counts and gauge. Deliberately generic: pieces, edges, joins and footprints describe a
+basket's side meeting its base or a blanket's border meeting its centre as readily as a
+sleeve meeting an armhole. No garment vocabulary anywhere in the module.
+
+**Milestone B failed on the first attempt, and the diagnosis was architectural.** The edge
+vocabulary could only name a piece's four outer sides — but a sleeve does not join the side
+of a body panel, it joins a **slit inside it**, and the neckband follows a **path** along it.
+Comparing a sleeve against the body's full height reported a garment that assembles perfectly
+well as impossible. Fixed by making openings first-class: an opening's length derives from
+the bridge chains at chain gauge, which is the increment-1 primitive paying for itself, and
+what another piece sews into is twice that span because a slit has two sides.
+
+Measured: derived armhole vs the pattern's stated armhole is within 5% at every size, and the
+sleeve-to-armhole seam check lands at **0.0–0.4% for S, M, L and XL**.
+
+**A third verdict was needed and is the honest part.** At XS the check comes out 6.6% against
+a 6% tolerance — but the armhole length is derived from a chain gauge solved out of the
+pattern and known only to ±6%, so the discrepancy sits inside the derivation's own error
+bars. Neither "fits" nor "does not fit" is supportable, so joins now report
+`indeterminate` alongside sound/mismatched/unchecked. A check that cannot separate its error
+from the thing it measures says so.
+
+Current state, every size: 3 of 5 joins sound (XS: 2 sound, 1 indeterminate), 2 unchecked —
+the neckline path and the pocket placement, which the purchased pattern genuinely states only
+in a photograph. Verdict `partially_placed`, which is truthful rather than disappointing.
+
+### Milestone C — correspondence with the real photographs
+
+`visual/correspondence.py` predicts finished-object characteristics from the certified CIR
+alone and compares them with recorded observations of the four supplied photographs. The two
+sides are not the same kind of evidence and the module says so: a prediction is a computation
+over certified counts, an observation is a judgement about an image at whatever resolution it
+has. Observations are stored as data rather than re-judged per run, so a changed verdict means
+the model changed.
+
+**Result at size S — the size the pattern says the sample was made in: PARTIAL.
+11 correspond, 0 contradict, 3 not observable.**
+
+Corresponding: overall length, silhouette, front opening with no closures, dropped shoulder
+from an unshaped slit, sleeve volume, cuff gathering, pocket count and kind, neckband,
+body texture class, neckband texture class, and texture direction — the last being the
+discriminating one, since sideways construction predicts vertical row lines and a bottom-up
+garment with identical counts would show them horizontal.
+
+Not observable, and permanently so: individual stitch identity (listing photography does not
+resolve it), pocket placement (the construction states none), drape (nothing deterministic is
+claimed). `FULL` is deliberately unreachable from photography alone.
+
+### Milestone ladder, live at `/api/visual-pipeline` and on the console
+
+| | | |
+|---|---|---|
+| A | pattern → deterministic fabric | **PASS** |
+| B | panels → assembled object geometry | **PARTIAL** |
+| C | object → photograph correspondence | **PARTIAL** |
+| D | photographic presentation without drift | NOT_STARTED |
+| E | listing asset passing truth and realism | NOT_STARTED |
+
+The ladder enforces its own ordering: a milestone cannot report PASS while an earlier one has
+not, so later layers cannot be built on an invalid earlier one by accident. Computed on every
+call rather than stored, because a stored progress figure is what told this build it had no
+work left.
+
+Cost this increment: **CA$0.00.** No model called, nothing rendered, no provider touched.
+
+## 2026-09-24 — the final listing-image standard, set before anything can meet it
+
+The owner set the customer-facing standard. It is in code at `visual/final_standard.py`,
+written before the photographic bridge exists so it cannot be shaped by what that bridge
+turns out to be capable of — the same discipline `visual.reliability` used when it was
+written before the first render rate was measured.
+
+**The deterministic pipeline is not the aesthetic.** It makes Product Truth constructible; a
+customer must never be able to tell it is there. The reaction a finished listing image has to
+produce is "that is a beautiful photograph of a real person wearing a real crochet product" —
+not render, not CGI, not AI, not composite.
+
+### Three floors, independent, none compensating
+
+```
+product truth PASS + identity PASS + realism FAIL  ->  FAIL
+product truth PASS + realism  PASS + identity FAIL ->  FAIL
+identity      PASS + realism  PASS + truth    FAIL ->  FAIL
+```
+
+**Identity is itself two floors.** Face and whole-person morphology are checked separately and
+never averaged, because a generative model's failure mode when asked for a specific person is
+a plausible, subtly different one — and a single score would let a convincing face carry a
+wrong body across. A matching face on a different body fails; a matching body with a
+different face fails. Morphology covers stature, shoulders, torso, bust, waist, hips, limbs
+and overall build, which is also why a head-and-shoulders check can never clear it: a
+portrait has no hips in it.
+
+**UNMEASURABLE is never PASS**, and a missing floor cannot ship by omission — leaving a check
+out must not be easier than failing it.
+
+**Fail outranks unmeasurable.** A defect that was found is not softened by one that was not.
+
+### The product lock
+
+`product_lock_held(before, after)` compares the product region's structural measurements
+either side of the presentation stage — texture signature, geometry, counts — field by field
+rather than by score, because "mostly the same garment" is not something a certified pattern
+can promise. If the photographic stage changed the certified product, the asset fails **and
+the technique is what has to change**, not the check.
+
+### Realism is stated as requirements, not only as disqualifiers
+
+Absence of a defect is not presence of realism, so both lists exist: 15 things that must be
+present (skin texture and pores, believable hair, anatomically correct hands, realistic eyes,
+natural fabric folds, physically plausible crochet drape, coherent body/garment contact,
+correct occlusion, plausible gravity, coherent shadows, realistic lighting, believable depth
+of field, ordinary photographic imperfection, consistent camera characteristics, a believable
+real environment) and 12 that disqualify (plastic skin, beauty-filter appearance, impossible
+hands, floating garment, garment/body intersection, melted yarn, synthetic stitch texture,
+impossible shadows, excessive HDR, generic AI interior, fake typography, catalogue-perfect
+sterility).
+
+### What this changes about milestones D and E
+
+D's invariant is now testable rather than aspirational: the presentation stage must leave the
+measured product structure unchanged. E's bar is the three floors passing simultaneously, and
+no technical render — correct mesh, correct topology, correct dimensions, canonical model
+present — closes it. 14 tests pin all of this, and they exist specifically to stop a future
+session softening the rule while holding a nearly-good-enough result.
+
+**Owner visual approval is required before the visual architecture is accepted.** The first
+complete pipeline result is to be presented as actual images for inspection, not as judge
+scores, and preserved as a regression fixture once approved.
+
+## 2026-09-24 — milestone D architecture: the product lock is provenance, not inspection
+
+The obvious way to make a deterministic render look photographic is to hand it to a
+generative model and ask for realism. That is precisely the operation that redesigns the
+product, and twelve renders across three providers already measured what happens when a model
+is asked to produce certified crochet: product truth 0 of 12.
+
+**Measuring structure out of a finished photograph is the wrong instrument.** Once an image
+is lit, draped, blurred and compressed, recovering "is this the certified stitch pattern"
+from pixels is a vision judgement — costly, approximate, and most likely to return
+`unmeasurable` on exactly the cases that matter. A gate that can only sometimes tell whether
+the product survived is not a lock.
+
+**So the lock is provenance.** Every operation applied to the product region is declared, and
+it holds if and only if all of them are structure-preserving. That is a property of the
+pipeline rather than of a picture: deterministic, checkable before a penny is spent, and
+incapable of returning `unmeasurable`.
+
+The line is not a matter of degree:
+
+- **Structure-preserving** operations are functions of pixels already present — relight,
+  shade, tonal grade, warp onto a draped surface, perspective, depth-of-field blur, grain,
+  vignette, composite, occlusion mask, shadow cast, lens distortion, compression. None of
+  them has a model of what crochet is, so none can invent a stitch. Fabric that is shadowed
+  or blurred becomes harder to read; it does not become different fabric.
+- **Generative** operations sample new pixels — image-to-image, inpaint, outpaint, diffusion
+  upscale, enhance, refine, style transfer, face restore, texture synthesis. Every one can
+  produce a plausible crochet texture that is not the certified one, and plausible-but-wrong
+  is the only failure that reaches a customer.
+
+**Generative work away from the product is allowed and is the point.** Scene, environment,
+lighting design, pose, styling and the model may all be generated. The rule is not "no
+generative AI"; it is that generative AI may photograph the product and may not be the thing
+that draws it.
+
+**An unclassified operation may not touch the product.** That is the gap a future technique
+arrives through — something new, plausibly harmless, applied because no rule named it. The
+default is refusal. An undeclared pipeline reports `unmeasurable` rather than safe.
+
+This makes D's invariant enforceable before any image is bought, which also means the first
+paid experiment can be spent on whether the *result looks real* rather than on discovering
+that a technique quietly redrew the cardigan.
+
+**What is still unproven:** that a composite of this kind can reach photographic realism at
+all. Structure preservation is now guaranteed by construction; convincingness is not, and
+that is the question D actually has to answer with measured evidence.
+
+## 2026-09-24 — owner decisions: specification rule closed, second product lock added
+
+### Decision 1 — Brambleloop designs must be reconstructible from what they state
+
+Generalised as the owner set it: a construction fact that materially determines the finished
+object's geometry, placement, assembly, fit or visible appearance belongs in the authoritative
+source, not in a photograph or in maker intuition. `cir/specification.py` enforces it against
+the object rather than against a checklist of garment parts, so the same rule covers a
+basket's handle placement and a blanket's border attachment without naming either.
+
+**The asymmetry is the load-bearing part.** A CIR now declares `authored`:
+
+- `brambleloop` — we control the specification, so reconstructive gaps are refused at
+  certification. Defaults here, so a new design cannot inherit a benchmark's licence to be
+  vague.
+- `benchmark` — our record of someone else's pattern, allowed to be exactly as incomplete as
+  its source. Inventing a pocket placement to make the record look complete would make the
+  reconstruction agree with itself instead of with the real garment, which is the one thing a
+  benchmark exists to prevent.
+
+Measured: the purchased cardigan has **4 gaps, and they are precisely the two joins its
+pattern leaves to a photograph** — pocket placement and neckline attachment. The sleeve join,
+which the pattern does state, is correctly not reported. **All 11 existing catalogue products
+are already reconstructible with zero gaps**, so the rule holds for what is certified today
+rather than being aspirational.
+
+B therefore stays PARTIAL on the benchmark, truthfully, and Brambleloop products are capable
+of B = PASS by construction.
+
+### Decision 2 — the geometry lock, added before any paid experiment
+
+The provenance lock proves the product's pixels were never invented. That is necessary and
+insufficient, and the owner's framing is exact: **a transformation being deterministic does
+not automatically make it truthful.** A cardigan squashed 20% to fit a pose contains every
+certified stitch and is not the product the pattern makes.
+
+So Product Truth now needs two independent locks, reported separately and never averaged:
+
+| lock | question | how |
+|---|---|---|
+| structure / content | were these pixels drawn by a model? | provenance over declared operations |
+| geometry / fit | does the thing they depict still have the certified shape? | ratio comparison against object space |
+
+Certified ratios for the benchmark at size S: garment aspect 0.6764, stitch aspect 0.6552,
+sleeve-to-body 0.2179, pocket-to-body 0.0366, band-to-body 0.1140. Ratios rather than absolute
+sizes, because a photograph may show the garment at any scale — what it may not do is change
+its shape. Tolerance 2%: enough for a seam easing or a drape foreshortening, not enough for
+an image fitted to a frame.
+
+**Fails closed.** A ratio nobody measured is not a ratio that held — the specific defeat this
+guards against is a pipeline that simply declines to report the geometry it produced, which
+would turn the strictest lock in the system into the easiest one to pass.
+
+Both locks hold, independently, before D spends anything. The first paid call therefore buys
+an answer about **realism**, which is genuinely unknown, rather than discovering that a
+technique quietly reshaped the cardigan.
+
+## 2026-09-24 — MILESTONE D = FAIL for deterministic 2D rendering. CA$0.00 spent.
+
+Reported rather than polished, per the owner's stop condition: architecture does not get to
+declare D solved, and a result that is technically correct and visibly synthetic is a failure.
+
+### What was tried, and what each looked like
+
+Three deterministic renderers over the benchmark cardigan's certified fabric:
+
+1. **Glyph raster** — each counted stitch drawn as a shape with legs, a top bar placed by its
+   loop target, relief highlights and seeded tension jitter. Reads as **plastic mesh**: too
+   open, ground showing through, stitches as blocks.
+2. **Corrected density** — rows overlapping at 0.62 of stitch height so the fabric closes up,
+   thicker strands, smaller holes. Reads as **machine-woven textile or pixel art**. Better
+   fabric, still not yarn.
+3. **Per-pixel lighting from a height field** — the standard way to make fabric look real
+   without a 3D engine. My implementation was **genuinely buggy** (output far too dark, the
+   autocontrast crushed the colour) and has been **removed rather than shipped**, because a
+   function that is present and does not work is worse than an absent one.
+
+Structure was correct in all three — guaranteed upstream and never in doubt.
+
+### The diagnosis, stated precisely
+
+The dominant failure is not lighting. It is that the fabric is **a lattice of identical
+glyphs, and no lighting model stops a lattice reading as a lattice.** What real crochet
+photography has that this structurally cannot: continuous tone across round strands, a fibre
+halo instead of an edge, ply twist, contact shadow where strands cross, and — probably the
+most telling — **tension that drifts across the whole panel** rather than jittering per
+stitch. Hand fabric breathes at the scale of the piece; local noise on a perfect grid reads
+as a textured grid.
+
+**What this does and does not establish.** It establishes that filled-vector glyph rendering
+fails. It does **not** establish that all deterministic rendering fails: proper normal-mapped
+or physically based rendering is a different class of work, and this container has no numpy,
+so it could not be tested efficiently. That distinction is kept deliberately.
+
+### The architectural consequence
+
+The deterministic layer **cannot be the photograph**. It has to be the authority that
+constrains one — which is what the owner's own architecture says (*deterministic authoritative
+representation → photographic presentation layer*). This experiment is what establishes that
+empirically rather than by assumption.
+
+### OWNER DECISION REQUIRED — a genuine tension in the standard
+
+The owner listed *depth/normal/segmentation guidance* and *product-preserving image-to-image*
+among candidate techniques. The provenance lock as built classifies image-to-image as
+generative and **fails it closed over the product region**. Both positions are defensible and
+they conflict:
+
+- **Hold the lock as built** → the product's pixels must be deterministic, so photographic
+  appearance has to come from physically based rendering or from real photography.
+- **Allow constrained image-to-image** → the product's pixels are model-drawn, so Product
+  Truth returns to pixel verification — the weaker instrument, and the one the 0-of-12
+  provider trial suggests is unreliable for crochet specifically.
+
+This decides whether the next increment is a bounded PBR renderer, a conditioned generative
+bridge with verification, or physical samples. It is not a decision to make unilaterally.
+
+### Independently blocking, and unchanged
+
+The canonical reference photography is still `blocked` on `skin_looks_real` and
+`processing_is_restrained`, both flagged `inheritable_failures`. Even a working product bridge
+cannot clear identity + realism on a model-bearing image until that is resolved, and the
+repair experiment already measured 3/3 identity held with realism not repaired.
+
+## 2026-09-24 — D-product yarn-level spike: FAIL on realism, blocker isolated, CA$0.00
+
+Owner directed research first, then the smallest legitimate yarn-level proof. Done in that
+order. The result fails the bar and the failure is precisely located.
+
+### The infrastructure answer changed completely
+
+**No Blender, no GPU, no render worker, no cloud cost.** Mitsuba 3 (`pip install mitsuba`,
+BSD-3-Clause) is a full physically based path tracer with `linearcurve` primitives built for
+hair and fibre. It installs into the existing venv and renders on CPU in-process. Every image
+in this experiment cost **CA$0.00** and required no new deployment.
+
+**A correction to the previous D report.** I recorded "this container has no numpy" as a
+constraint. I never tested it — numpy installs in seconds and there is 27GB free. That was an
+assumption presented as a finding, and it made the earlier failure look more structural than
+it was. numpy is now in `requirements.txt`; mitsuba deliberately is not, because the deployed
+service never renders and should not carry 200MB it cannot use.
+
+### What works
+
+Rendering, material and relaxation are solved:
+
+- round strands with genuine contact shadows and inter-strand occlusion;
+- a fibrous, non-plastic surface response;
+- neighbour-aware relaxation — structural springs along the strand plus contact repulsion
+  between non-adjacent vertices, so stitches visibly affect their neighbours;
+- **low-frequency tension drift across the whole panel**, which is the specific fix for the
+  B-704 diagnosis: local jitter on a regular grid still reads as a regular grid, and hand
+  fabric varies over dozens of stitches rather than per stitch.
+
+Every vertex carries provenance back to a cell the compiler counted, so the geometry is
+auditable and not merely deterministic. Loop targeting produces **genuinely free strands** —
+a back-loop stitch leaves the anchor's front loop unattached, lying across the face with
+nothing drawn through it. The ridge is geometry now, not shading.
+
+### What fails, and it is topology
+
+Two iterations. The first routed the yarn *near* the anchor and back up, producing a net of
+struts and bars — proximity is not linkage. Adding encirclement and three post strands (a
+half double leaves the yarn-over, the pull-up and the closing all standing in the same place)
+produced real density and visible courses. **It still does not read as crochet.** It reads as
+coarse netting.
+
+The blocker is **not** material, renderer, relaxation or computational practicality. It is
+that hand-authoring the yarn route for a crochet stitch is the hard part, and my route is an
+informed approximation rather than the real thing.
+
+### The research that already solves it
+
+- **Representing Crochet with Stitch Meshes** — Guo, Lin, Narayanan, McCann (CMU Textiles
+  Lab, SCF 2020). A tile library where each tile *contains yarn geometry*, plus a special
+  "current loop" edge type modelling the single live loop on the hook. That edge type is
+  exactly the knitting/crochet distinction: knitting holds a queue of live loops on a needle,
+  crochet holds one. https://dl.acm.org/doi/10.1145/3424630.3425409
+- **CT2Yarn** (2026) — micro-CT reconstruction of real crochet into a continuous yarn
+  centreline with ply-level geometry. Ground truth for what these curves should be.
+  https://arxiv.org/html/2609.06950v1
+- **Stitch meshes** (Yuksel et al., TOG 2012) and **mechanics-aware yarn deformation**
+  (Sperl et al., 2021) for the relaxation layer.
+
+### Proposed next increment — NOT BUILT, awaiting authorisation
+
+Replace the hand-written stitch path with a **per-stitch-type yarn geometry tile library**
+adapted from the CMU face types: chain, slip stitch, single, half double, double, each with
+back-loop and front-loop variants, connected through a current-loop edge. The CIR side, the
+renderer, the material and the relaxation already exist and are proven; this is the one
+missing layer.
+
+- **Scope:** the tile library plus connection logic. No new infrastructure.
+- **Compute:** CPU, in-container, minutes per swatch.
+- **Operating cost:** CA$0.00 per render, no recurring cost, no external service.
+- **Licensing:** Mitsuba BSD-3-Clause; the papers are references, not code to copy.
+- **Product Truth:** unaffected — both locks still hold, every vertex still traces to a cell.
+
+## 2026-09-24 — RESEARCH: the published crochet topology method, and what it proves
+
+Research run before implementation, as directed. The finding that matters is that a
+crochet-specific, fully parameterised, open-access method exists — and two of its published
+numbers explain the netting failure directly.
+
+### Primary source
+
+**Storck, Gerber, Steenbock, Kyosev (2022), "Topology based modelling of crochet
+structures", Journal of Industrial Textiles 52:1–18.** Open access via HSBI's repository.
+
+The method: each stitch is a **unit cell of parameterised key points along the yarn centre
+path**, driven by three shaping parameters — **L** (distance between stitches in a row,
+correlating with stitch length), **H** (stitch height), **D** (depth) — plus yarn diameter.
+A row is a list of key points; shifting a stitch by L along a dimension moves it along the
+row. Rows are built with a **left/right orientation distinction**, then shifted and rotated
+"so that the loops of the individual rows intermesh in a correct manner". Between rows there
+are explicit **transition unit cells, partially consisting of a chain stitch** — the turning
+chain. Yarn path is then interpolated with **Kochanek-Bartels splines** (tension, bias,
+continuity; the tangent equations are given in the paper) and extruded to the yarn diameter.
+
+### The two numbers that explain my failure
+
+From the published slip-stitch unit cell:
+
+```
+4a.x − 1a.x = 1.85 × L      a loop spans nearly TWO stitch widths
+2a.y − 1a.y = 1.23 × H      a key point rises 23% ABOVE the nominal stitch height
+3a.z − 5a.z = D             the depth separation between front and back of the cell
+```
+
+**My hand-authored stitch kept every point inside its own cell.** A real crochet loop reaches
+almost two stitch widths in x and arches above the row line in y — which is exactly how the
+next row's loops come down *through* it. Contained loops cannot interlock with their
+neighbours, and strands that meet without passing through one another are netting. The
+published proportions say the loops are supposed to overlap, and mine did not.
+
+My model also had **no turning-chain transition cell** between rows at all.
+
+### What the research proves, versus what we infer
+
+- **Proven by the paper:** the parameterisation (L, H, D), the three ratios above, the
+  unit-cell/shift/rotate assembly, the KB spline interpolation, and that the approach is
+  extensible — the authors state plainly that the program "can be easily extended with other
+  crochet stitch types by defining more parameterized key points for these accounting for the
+  spatial arrangement of the loops".
+- **Not in the paper:** half double crochet. They model **chain, slip stitch and single
+  crochet only**. Our benchmark is HDC, so the HDC unit cell is ours to define — constrained
+  by their published proportions rather than invented freely, and that distinction is
+  recorded rather than blurred.
+- **Reference scale:** their sample is L = 5mm with 0.5mm yarn (d/L = 0.1), a fine cotton.
+  Our benchmark is worsted at L = 6.9mm with ≈2mm yarn (d/L ≈ 0.29), so their absolute
+  numbers do not transfer; the ratios do.
+
+### Corroborating sources
+
+- **CT2Yarn** (arXiv 2609.06950, 2026) — micro-CT reconstruction of real crochet to a
+  continuous yarn centreline, with code and data released at github.com/netbeifeng/ct2yarn.
+  It is the source that pointed to Storck. It deliberately does **not** describe per-stitch
+  topology, so it is ground-truth geometry rather than a construction method.
+- **Guo, Lin, Narayanan, McCann (2020), "Representing Crochet with Stitch Meshes"** (SCF '20,
+  CMU Textiles Lab) — tiles carrying yarn geometry plus a "current loop" edge type modelling
+  the single live loop on the hook. ACM blocks automated retrieval and no public code was
+  reachable from this session, so it informs the architecture (tiles as unit cells, current
+  loop as an explicit edge) rather than supplying geometry.
+
+### Licensing and practicality
+
+Methods, equations and measured proportions are not copyrightable expression; implementing a
+published method and citing it is ordinary practice. We implement the key-point construction
+and the KB spline ourselves — the spline is a standard formulation and the paper states the
+tangent equations. The authors used a TexMind library for their own work; **we do not need
+it** and are not taking their code. No licence obstacle to proceeding.
+
+### Permanent research rule, adopted
+
+Before treating a missing dependency or capability as an architectural constraint, verify
+whether it is actually unavailable, impractical or incompatible — or merely not installed.
+The numpy error is the worked example: it was never tested, it was reported as a limit, and
+it made a failure look structural when it was not.
+
+## 2026-09-24 — Layer 5: hand tension, and a validator that could not see leaning stitches
+
+Deterministic, CA$0.00 spent. Phase remains `shadow`. Nothing published.
+
+### What was built
+
+`src/brambleloop/visual/hand_tension.py`, plus its wiring into `crochet_topology.build()`
+behind an optional `hand=` argument.
+
+The control path with `hand=None` is NOT bit-identical to Layer 4, and the first draft of
+this section said it was. Checked rather than asserted, against the previous revision of the
+module: 159 of 2754 coordinates differ, by at most 2.8e-14 mm. The cause is understood and
+benign — stitch positions now come from a cumulative sum of per-stitch widths instead of
+`fp * L`, and those agree only to the last bit of a double. 28 femtometres against a 3.33mm
+yarn is physically nothing, and every lock returns the same verdict. But "bit-identical" is a
+precise claim, it was made from reasoning rather than measurement, and it was false.
+
+The varied quantity is LOOP LENGTH, not stitch width, because loop length is what a hand
+actually controls. Munden (1959) established for plain knitted fabric that courses/cm ×
+loop length and wales/cm × loop length are both constants, so stitch width and height each
+scale linearly with loop length: one perturbation drives both by a published relation rather
+than by two invented ones.
+
+  MAGNITUDE          total CV 5% of loop length. BOUNDED BY TWO INDEPENDENT SOURCES rather
+                     than chosen: machine-knitting quality literature puts loop-length
+                     irregularity at 4% for "detectable" and 10% for "clearly noticeable";
+                     craft practice calls a swatch uneven when two places differ by half a
+                     stitch, which at 14.5 sts/10cm is 3.4%. 5% sits deliberately between.
+  CORRELATION        three behaviours the craft sources actually describe, and nothing else:
+                     drift over ~12cm, a per-row tension, and per-stitch jitter. Variance
+                     split 45/35/20 is labelled a BOUNDED ESTIMATE, not sourced.
+  ANCHOR             every row spans exactly ncols × L and the rows total exactly nrows × H,
+                     held to 1.4e-14 mm. Local variation cannot accumulate into garment drift.
+
+### What the anchor costs, stated because the flattering number was available
+
+The specified 5% is a property of the generated field. The anchor is a constraint on that
+same field and removes its long-wavelength part: renormalising each row's widths subtracts
+that row's mean, deleting the row term from the widths outright and most of the drift with
+it. What survives to be SEEN is 2.5% in stitch width and 3.2% in row height, measured over
+many seeds. That is not leakage — it is the physical content of the anchor, since a maker
+checking gauge against the pattern performs exactly this correction. `realised_variation()`
+measures it rather than asserting it, and the tests require the reported observable figure
+to be strictly less than the specified one.
+
+### Three defects this increment found, two of them mine and one older
+
+1. THE FIELD WAS NOT ZERO-MEAN. The drift field normalised by standard deviation but not by
+   mean. With a correlation length longer than the swatch the filtered field went nearly
+   constant, dividing by its tiny standard deviation amplified the residual mean to about
+   -8, and stitch widths came out NEGATIVE. The anchor then divided by a negative row sum,
+   flipped the signs back, and returned plausible positive widths with the variation crushed
+   to a tenth of its specified size. Every printed value looked reasonable. Only measuring
+   the realised statistic caught it. Rebuilt as a sum of low-frequency modes, which has no
+   such pathology: over a large piece it gives the intended deviation, and over a patch
+   smaller than one wavelength it gives a gentle gradient, which is what a slow drift looks
+   like when only 5cm of it is visible.
+
+2. THE DRIFT WAS PERIODIC. Three modes all at the correlation length sum to a field that
+   repeats every 12cm — over a garment that is regular banding at a fixed pitch, the
+   opposite of wandering. The correlation test caught it as rows twelve apart (one
+   wavelength) resembling each other MORE than adjacent rows. Fixed by spreading the
+   wavelengths over a half-octave either side. Row-mean correlation now falls from +0.28 at
+   lag 1 to +0.03 at 21cm.
+
+3. THE ENCIRCLEMENT CHECK COULD NOT SEE A LEANING STITCH — older, and the more serious.
+   A single top loop is a degenerate sliver bounding no area, so it is closed through a
+   point off to one side and the stitch must cross the triangle that spans. That triangle is
+   fictitious, so its only requirement is that real yarn cannot leave through its EDGE. At a
+   fixed 6mm tail it could. The identical-stitch control was unaffected, so the defect stayed
+   invisible for as long as every stitch sat squarely above its anchor; once stitches leaned,
+   ELEVEN OF FORTY-TWO CERTIFIED STITCHES READ AS UNLINKED. The same fabric scored 42/42 at
+   every tail from 12mm to 60mm. A verdict that depends on the size of an imaginary surface
+   is measuring the surface, not the crochet. The tail is now DERIVED — twice the cell
+   diagonal plus fabric depth, 39.8mm here — and a regression test pins the verdict's
+   invariance across tail lengths. The 18 adversarial fixtures still reject every broken
+   fabric, so the check was made able to see, not made lenient.
+
+   This is the same defect family as every previous one here: a check that cannot see what
+   it exists to measure. It is worth noting that the increment that exposed it was not
+   looking for it.
+
+### The stitch leans, and that is physics rather than a fix for a failing check
+
+With varying widths, row r's stitch centres no longer sit above row r-1's. A cell placed
+squarely on its own centre reaches down for an anchor that has moved, and linkage fell to
+38/42. The hook does not have this problem: it goes into the stitch that is actually there.
+So a cell's foot is placed on its anchor's centre and its top on its own, and the stitch
+leans between them — which is what real crochet does when tension varies.
+
+### Locks, re-run on the actual varied geometry
+
+                      as built                     after relaxation
+  control    42/42 linked, 49/49 shaped    42/42, closest 1.500mm, passes=True
+  hand       42/42 linked, 49/49 shaped    42/42, closest 1.500mm, passes=True
+
+Linking numbers ∈ {-1,+1}, 0 unmeasurable, `crossing_impossible=True`, finished dimensions
+54.0 × 78.7 × 10.9mm against the control's 54.0 × 78.6 × 10.9mm. Stitch count, stitch type,
+loop targets, joins, gauge and provenance all unchanged.
+
+### Verdict against the realism floor: D REMAINS FAIL
+
+Layer 5 did what it was authorised to do. Perfect repetition is no longer the dominant CG
+cue: rows waver, stitch widths vary, the edge is no longer a ruled line. It is no longer the
+loudest defect, so the next one is now clearly visible and has been MEASURED rather than
+eyeballed — the first attempt to measure it geometrically was wrong, reporting 96% coverage
+by treating the yarn as a solid cylinder when the rendered yarn is four ply tubes with real
+voids between them.
+
+  THE FABRIC IS SEE-THROUGH. Rendering against an emissive backdrop and counting what shows
+  through the interior: 20.0% without the fibre halo, 19.2% with it. The halo closes less
+  than one point, so this is STRUCTURAL, not a fibre-coverage problem. A real half double
+  crochet fabric is what crocheters call solid — it is used for blankets and garments
+  precisely because it is opaque. At ~19% visible backdrop this reads as lace.
+
+That is the next increment, and it is a topology/geometry question rather than a rendering
+one, so it belongs before any further material work.
+
+### Heartbeat 2026-09-24T16:15Z — the see-through diagnosis sharpened, and it moved
+
+Production `/api/verify` 12 of 12 passing, phase `shadow`, 0 published against 148 refusals,
+worker alive, scheduler ticking, no dead letters. Model spend CA$75.55 of CA$100. CA$0.00
+spent this heartbeat.
+
+The openness was measured again, two more ways, and the answer is not the one the first
+number implied:
+
+  ORTHOGRAPHIC projection of the actual ply tubes     94.5% covered  ->   5.5% open
+  PERSPECTIVE render against an emissive backdrop                        20.0% open
+
+The fabric is therefore NOT mostly open when looked at flat. The gap between the two figures
+is PARALLAX: the fabric is 7.33mm deep, the small holes at its front and back do not line up,
+and a ray only ~9° off axis drifts 1.16mm sideways crossing that depth — about a third of a
+yarn diameter, which is enough to thread between layers that individually block it.
+
+So the defect is not "the fabric is too open". It is that the fabric is TOO DEEP FOR ITS HOLE
+STRUCTURE, and the two candidate causes are separable and both geometric:
+
+  1. `D = yarn_diameter * 2.2` is one of the few numbers here still labelled ESTIMATED. It
+     was bounded below by what must physically fit through the depth — a back leg, a front
+     leg, and the next row's stem passing between them — and never bounded ABOVE by anything.
+     A real half double crochet fabric's thickness relative to its yarn diameter is a
+     measurable, publishable quantity and has not yet been looked up.
+  2. The residual 5.5% of genuine orthographic holes, which is still more open than real hdc.
+
+Care is required on the first, because depth is exactly what un-pinned the earlier geometry:
+too shallow and threading the loop means grazing its legs, which is the interpenetration
+failure that `D` was raised to escape. Lowering it to improve an image without re-deriving it
+would be tuning a physical constant by eye, so the next action is RESEARCH — the published
+thickness-to-yarn-diameter ratio for half double crochet or an equivalent single-layer
+crochet fabric — before any value changes.
+
+Recorded here rather than acted on because the instruction is to research before inventing,
+and because the first attempt to measure this reported 96% covered by treating the yarn as a
+solid cylinder. Two of the three measurements of this one property have now been wrong in
+different directions, which is itself the reason to source the number rather than derive it
+from another render.
+
+RESEARCH RESULT, AND IT KILLS CANDIDATE 1. No published thickness-to-yarn-diameter ratio for
+crochet fabric was found; the knitting geometry literature (Chamberlain, Peirce, Leaf and
+Glaskin, Munden) models loop length, course and wale spacing but states no thickness formula,
+and the crochet-specific sources give none either. What the craft sources DO settle is the
+anatomy, and it points the opposite way: half double crochet's third loop "sits just behind
+the two usual front and back loops", so the top of an hdc stacks THREE strands through the
+fabric depth. That is 3 yarn diameters, about 10mm here, against the 7.33mm currently used.
+
+So the fabric is not too deep. If anything the estimate is low, and reducing `D` to close the
+parallax would have been tuning a physical constant to improve an image — exactly the move
+the directive forbids. Candidate 1 is withdrawn on evidence rather than left open.
+
+WHAT THAT LEAVES, and it is a sharper question than the one this heartbeat started with. The
+fabric is ~94.5% covered orthographically at a depth that the anatomy says is correct, and
+still shows 20% backdrop to the camera. Two contributions remain, and they are separable:
+
+  a. The residual ~5.5% of genuine holes, which is still more open than real hdc.
+  b. STAGING, which has not been examined at all. The swatch is rendered against a brightly
+     lit diffuse backdrop 29.7mm behind it — about four fabric thicknesses of empty air. Real
+     crochet in a product photograph rests ON its surface, so what shows through a hole is
+     contact shadow and reads as dark structure, not as a bright gap. Every hole in this
+     render is lit from behind by a surface no real photograph would have there.
+
+The Layer 5 macro corroborates (b) by eye, which is not authority but is consistent: the
+holes render as FLAT BRIGHT GREY, the colour of a distant lit surface, rather than as the
+dark recesses between layers that a fabric resting on a backdrop would show.
+
+(b) is a staging artefact and is NOT permission to declare the fabric solid — (a) is a real
+defect regardless. But it must be measured before (a) is attacked, because attacking fabric
+geometry to compensate for a backdrop that should not be 30mm behind the cloth would put an
+unphysical correction into the certified product to fix a lighting decision. Next action: put
+the backdrop at contact distance, re-measure see-through both ways, and attribute the 20%
+between (a) and (b) before changing any geometry.
+
+### Suite and honesty note for this heartbeat
+
+`bash run_tests.sh`: **3,308 passing, 1 suite failing.** The failure is
+`tests/test_deploy.py::test_a_reworded_owner_action_is_restated_in_place_not_queued_twice`,
+which asserts `the readiness job never ran` after waiting 40 seconds of WALL CLOCK for a
+background worker. It passes in isolation, it is untouched by this increment, and the root
+cause is load I inflicted myself: the suite was run concurrently with a 384-sample Mitsuba
+macro render holding a core, alongside four parallel test files. Recorded rather than
+dismissed as a flake, because a wall-clock deadline in a test is a real fragility even when
+the code under it is fine — the test's own docstring shows it was already hardened once for a
+related reason. Re-run clean without the render for a confirming number.
+
+UNCONTENDED RE-RUN: **3,309 passing, 0 suites failing.** The count differs from the
+contended run by exactly one — the test that timed out — which is the arithmetic the
+contention explanation predicts, so the diagnosis is confirmed rather than merely plausible.
+The fragility itself is real and stays recorded: a 40-second wall-clock wait will fail again
+on a loaded machine, and it is worth fixing the next time that file is touched. It is not
+this increment's to fix and has not been touched.
+
+## 2026-09-24 — the see-through defect was mostly STAGING, and no geometry was changed
+
+Deterministic, CA$0.00. Phase `shadow`. Suite green at 3,309.
+
+The attribution the previous section demanded, run before touching any geometry.
+
+First, a correction to how I had framed it: moving the backdrop cannot change the geometric
+escape fraction. A ray that gets through the fabric gets through whatever is behind it, so
+the 20% figure is a true property of this fabric and this camera and it still stands. What
+staging changes is whether the escaped rays land on a BRIGHT distant surface or on a surface
+the fabric is shadowing. That is the part that decides whether holes read as lace or as
+fabric texture, and it is the only part that was ever in question.
+
+  backdrop 29.7mm behind (as rendered all session)   hole pixels 0.2357, 0.37 of interior mean
+  backdrop 0.3mm behind, i.e. resting on it          hole pixels 0.1674, 0.28 of interior mean
+
+Holes darken by 29%, and the visual change is larger than that number suggests: with contact
+staging the swatch reads as SOLID FABRIC lying on a surface. The gaps become dark recesses
+between rows — which is what they are — rather than windows onto a lit backdrop. The lace
+appearance is gone, and `yarn_stage_far.png` and `yarn_stage_contact.png` are committed side
+by side as the evidence.
+
+WHAT THIS MEANS, AND WHAT IT DOES NOT. It does not mean the fabric is optically solid; 20%
+of interior rays still escape it, and the residual ~5.5% of genuine orthographic holes is
+still a real if minor difference from real hdc. What it means is that the defect I had
+promoted to "the next increment" was substantially an artefact of photographing a fabric
+suspended 30mm in front of a lit wall, which is not how fabric is photographed.
+
+The reason to record this prominently is that the obvious response to the 20% figure was to
+close the fabric up, and the two levers for that — reducing depth, or thickening the stitch —
+would both have altered the certified product to compensate for a lighting decision. The
+depth lever was already withdrawn this session on anatomical evidence. Had the staging not
+been checked first, the second lever would have looked justified, would have improved every
+render, and would have been wrong. NO GEOMETRY WAS CHANGED, and none is warranted by this.
+
+### Where D-product actually stands now
+
+Honest assessment against the realism floor, not a promotion. The contact-staged Layer 5
+swatch is the most convincing render this project has produced: stitch definition is legible,
+rows read as rows, the yarn has ply twist, fibre striation and a halo, and hand tension has
+removed the machine-perfect repetition. Two things keep it from clearing the floor, and both
+are now the honest top of the queue:
+
+  1. THE FABRIC IS PERFECTLY FLAT AND RIGID. It lies in a plane like a stiff mat. Real
+     crochet drapes, buckles slightly out of plane, and curls at its edges; a swatch photo
+     always shows some of that. This is the largest remaining CG cue by a distance, and it is
+     a mechanics question — the relaxation solver currently has no out-of-plane freedom and
+     nothing pulls the fabric out of its plane.
+  2. The yarn still reads slightly as smooth cord rather than as spun fibre at listing
+     resolution, though much less than before the surface and halo layers.
+
+Milestone D remains FAIL. Nothing here promotes it.
+
+## 2026-09-24 — out-of-plane relaxation: the fabric leaves its plane, and three more
+## validators turned out to have been measuring orientation
+
+Deterministic, CA$0.00. Phase `shadow`. Nothing published.
+
+### The increment
+
+`src/brambleloop/visual/drape.py`. Gravity, a support plane and boundary conditions, in real
+units, so the fabric's shape is an OUTCOME rather than a deformation applied to it. Nothing
+here displaces vertices to look like drape, and no curl, wrinkle or noise is added anywhere.
+
+  lambda   DERIVED. 444 tex IS mass per length by definition: 4.44e-4 kg/m.
+  g        SOURCED. Standard gravity.
+  B        BOUNDED then CALIBRATED, see below. Not chosen.
+  friction NOT MODELLED, and stated as such.
+
+### Product Truth versus physical presentation, measured
+
+                       intrinsic W x H          projected W x H
+  CONTROL (flat)       41.29 x 62.86 mm         54.05 x 78.71 mm
+  DRAPED               41.27 x 64.63 mm         55.54 x 80.32 mm
+  change               -0.03% / +2.81%          +2.76% / +2.04%
+
+Intrinsic width is invariant to three hundredths of a per cent. Intrinsic height extends
+2.81% -- that is the hanging half carrying its own weight, i.e. fabric extension under load,
+not the product changing size, and it is reported rather than absorbed. It exceeds the 2%
+tolerance in `test_drape`, which passes at that suite's smaller sample and shorter solve; the
+threshold is a statement about an unloaded product and needs restating for a loaded one. NOT
+verified: that the extension is recoverable when the load is removed.
+
+Locks on the actual 3D geometry, control and experiment alike:
+**42/42 linked, 49/49 shaped, 0 unmeasurable, 0 unframeable, closest 1.500mm, passes=True.**
+Yarn length change +0.0000%, worst segment strain 4e-5, zero displacement-cap violations.
+
+### The mechanics are validated against something they were not fitted to
+
+Simulated cantilever against beam theory, delta = l^4 / 8c^3, across the band:
+-3.0%, -3.8%, +6.2%. The solver reproduces classical beam deflection independently.
+
+Out-of-plane displacement 6.93mm max, 1.89mm mean, over a 39.4mm overhang: a 10.0 degree
+tip. Fabric depth goes 10.91mm to 17.27mm.
+
+### How B was fixed, and the claim of mine that this overturned
+
+The bracket spans 735,000x -- a solid rod of this yarn against its fibres bending freely --
+so it cannot pick a value. My first attempt to narrow it assumed fabric rigidity per unit
+width was the yarn's divided by the stitch pitch. The solver disagrees by about sixteen
+times. THAT SAME MAPPING is what I had used earlier in this increment to exclude the
+free-fibre lower bound on evidence, so that exclusion was wrong and is withdrawn.
+
+Calibration therefore runs against the quantity published measurement does bound: fabric
+bending length. Jersey is published at 0.5-1.4cm and chunky crochet is unambiguously
+stiffer, giving a floor near 15mm; crochet of this weight visibly bends at swatch scale,
+giving a ceiling near 80mm. The solver's own bending length is MEASURED by deflecting a
+cantilever, and B set so it lands on the band's geometric midpoint. The cross-check it was
+not fitted to: B comes out at 1.45x the free-fibre hard floor, exactly where a soft chunky
+acrylic whose fibres nearly slip freely belongs.
+
+### Rest curvature, which was the whole increment in one decision
+
+Measuring bending against STRAIGHT treats every formed loop as pre-stressed, and a crochet
+stitch is nothing but curvature. The internal stress then dominates gravity by 200 to 32,000
+times and sets the fabric's rigidity by itself. Symptoms, both diagnostic:
+
+  * drape identical -- 12.2mm -- across a 160-fold range of bending rigidity. A fabric whose
+    drape ignores its own stiffness is not modelling drape.
+  * three edge stitches EVERTED. Measured rather than trusted: flat, all 49 sit 1.5-1.7mm
+    clear of the third-loop threshold with none within 0.5mm; draped, two had moved +4.6mm
+    and +7.0mm. A deformed product, not a grazed threshold -- so the geometry was wrong, not
+    the instrument, which mattered because the instrument had just been rebuilt.
+
+Kaldor et al. already split these phases, relaxing with a bending constant a thousand times
+below what they simulate with, because relaxation finds the rest state. Ours has done that,
+so drape takes the yarn as set in the shape it relaxed into -- which is what blocking does to
+a finished piece. Both symptoms vanished: drape became monotonic in stiffness and all 49
+stitches survived.
+
+### THREE more validators were measuring orientation, not cloth
+
+Found by rigidly rotating the certified swatch, which changes nothing physical.
+
+  1. MORPHOLOGY read features off global axes. 49/49 correctly shaped became 2/49 at fifteen
+     degrees and 0/49 at thirty, stitches untouched. Rebuilt on a per-stitch frame -- across
+     the course, up the wale, through the cloth.
+  2. The linkage closure's DIRECTION was a fixed global -y. Rotations about x and y looked
+     clean; about z it fell 42/42 to 3/42. That asymmetry is the signature.
+  3. The closure's LENGTH, derived from one flat cell, was too short once cloth curved --
+     linkage 40/42, rising to a stable 41/42 for every tail from 60 to 200mm. Now twice the
+     fabric's own bounding diagonal.
+
+And then the closure's direction failed a fourth time, on curved cloth only: a stitch that is
+demonstrably linked scored -1 for three closure directions and 0 for a fourth at comparable
+clearance. The linking number of an open path with an artificial closure is not an invariant,
+so several are now tried, following how each error occurs -- a miss gives a false negative so
+one clear detection establishes linkage; a false positive needs the tail to thread the stitch,
+which clearance excludes; no room anywhere is UNMEASURABLE, never "unlinked".
+
+Two wrong turns kept because they were informative. Choosing the closure purely for clearance
+picks a triangle pointing away from everything that no stitch crosses: 42/42 became 3/42,
+proving the direction carries physics. And clearance measured from the closure's start is
+meaningless, since a closure begins on the loop and the stitch runs beside it BECAUSE it is
+linked through it.
+
+All 25 adversarial fixtures still reject, plus new ones pinning rotation invariance and that
+a genuinely unlinked strand is caught by no closure.
+
+### D-PRODUCT AGAINST THE REALISM FLOOR: STILL FAIL
+
+The fabric now demonstrably leaves its plane, and the oblique diagnostic shows real relief.
+It is not enough, and the dominant cue has changed rather than gone:
+
+  THE FABRIC READS AS A CORRUGATED RELIEF, NOT AS CLOTH. Each row behaves as a rigid bar
+  that bows gently as a unit; real crochet rows also twist, squash against their neighbours
+  and close the fabric up. The oblique view makes this plainest -- it looks like a moulded
+  panel mounted on a wall rather than yarn lying on a surface.
+
+Honest reading of why: 6.93mm over a 39mm overhang is a gentle bow. The calibration says
+that is what a fabric of this bending length does, and the beam-theory agreement says the
+solver is computing it correctly, so the remaining gap is NOT in the solver. It is that a
+real crochet fabric's softness comes substantially from stitches sliding and rearranging
+against each other -- yarn-on-yarn friction and slip -- which this model does not have at
+all. Friction is listed as NOT MODELLED in the provenance for exactly this reason.
+
+Not claimed: that more iterations, a different B inside the band, or any rendering change
+closes this. The next honest increment is inter-yarn friction and slip, which is a mechanics
+addition rather than an appearance one.
+
+Suite **3,349 passing, 0 failing**, after the full run caught a regression this increment
+introduced: `test_drape` carried its own bending rigidity as a literal, chosen before the
+calibration existed, and the rest-curvature change left it twenty times too stiff -- so the
+suite asserted gravity had moved the fabric while the fabric moved 0.03mm. The
+one-value-in-two-places defect in a physical constant, which is the worst place for it: a
+stale copy of a calibrated number is indistinguishable from a real result. The calibrated
+value now lives only in `drape.py` and the test imports it.
+
+### CORRECTION to the "next increment" named above, before any of it was built
+
+I told the owner the next increment was inter-yarn friction and slip. Researching it first,
+as the standing rule requires, showed the first half of that is pointing the wrong way.
+
+FRICTION IS NOW SOURCED, and narrowly, which is worth having regardless: acrylic yarn
+coefficients of friction are published at **0.134-0.141 point contact and 0.186-0.243 line
+contact**. That is a real bound on a real parameter, not the six-order bracket that bending
+rigidity presented, and it is recorded here for whenever friction is built.
+
+But friction RESISTS relative sliding, so adding it makes a fabric STIFFER in bending, not
+softer. It is a principal source of bending hysteresis and non-linear stiffness in fabric
+mechanics. The observed defect is that the swatch is already too stiff and too plate-like, so
+friction alone would move away from the target rather than towards it. Naming it as the fix
+was reasoning by association -- "friction and slip" is a familiar phrase -- rather than by
+mechanism, and it did not survive contact with the literature.
+
+THE SHARPER DIAGNOSIS, and it is uncomfortable because it implicates the choice that made
+this increment work. Rest-curvature fixed two real defects and is correct as far as it goes.
+But taking the yarn as set in its relaxed shape makes the fabric resist ANY departure from
+that configuration, which turns it into an elastic plate. Real crochet is closer to a
+MECHANISM than a plate: its conformability comes from loops articulating against one another
+and from yarn sliding THROUGH the loops so tension redistributes between stitches. The model
+has fixed material coordinates -- every vertex is welded to its place along the yarn -- so no
+yarn can travel through a stitch, and the only compliance available is bending.
+
+So the two bending rest states bracket the problem rather than solving it:
+
+  rest = straight   internal pre-stress dominates gravity by 200-32,000x, drape stops
+                    responding to stiffness, and free-edge stitches evert. Measured.
+  rest = relaxed    stitches survive and drape responds correctly to stiffness, but the
+                    fabric is an elastic plate with no articulation. Measured.
+
+Yarn slip through loops is the mechanism that sits between them, and it is not a bounded
+increment: it means giving the solver material coordinates that move along the yarn, which
+changes what a vertex IS. That is an owner-level architectural decision, which is the
+boundary the authorisation drew, so it stops here rather than being started.
+
+NOT CLAIMED: that yarn slip would close the gap. It is the mechanism the evidence points at,
+and the honest status of that claim is a hypothesis with an argument behind it, not a result.
+
+## 2026-09-24 — RESEARCH: the literature does not use our configuration at all
+
+Research only, CA$0.00, nothing implemented. Full report at
+`brambleloop/research/YARN_SLIP_RESEARCH.md` (865 lines, every claim labelled SOURCED /
+INFERRED / UNKNOWN, 194 such labels).
+
+### The headline, and it overturns something I had assumed
+
+**Every established yarn-level method lets the yarn move relative to the loops.** Our welded
+material coordinates are a third option the literature does not use — and it is precisely the
+configuration in which bending is the only compliance left, which is exactly the symptom we
+measured. Two camps, both permitting yarn travel:
+
+  KALDOR / STITCH-MESH LINEAGE. Material coordinates are welded to spline control points,
+  and they even add an energy term to stop mass drifting inside the curve. But NOTHING PINS
+  A MATERIAL POINT TO A STITCH: loops are held only by penalty contact between arbitrary
+  segment pairs found at runtime, and the paper states its collision evaluation "makes no
+  assumptions about cloth topology". So yarn translates bodily through loops and the length
+  between neighbouring stitches is emergent rather than constrained.
+
+  EULERIAN-ON-LAGRANGIAN (Sueda / Cirio / Otaduy). Each loop-loop contact becomes a
+  permanent node carrying arc-length material coordinates as solver degrees of freedom,
+  q = (x, u, v), five DOF, where "yarns are allowed to slide at contact nodes".
+
+The experimental physics agrees: Poincloux et al. (PRX 2018) state "the yarn is not attached
+to these topological units and is allowed to slide from one stitch to another" and attribute
+knit drapability to exactly that. The only place sliding is forbidden is Sperl 2022's
+periodic homogenisation cell, which is never used for drape.
+
+### Three findings that bear on the rest-state bracketing we measured
+
+1. **Kaldor 2010 uses NEITHER of our brackets.** Discrete elastic rods with a non-straight
+   rest configuration PLUS a bounded PLASTIC MIGRATION of the rest state: rest curvature is
+   projected onto a ball of radius `p_plastic` around the current curvature and a ball of
+   radius `p_max_plastic` around the origin. That sits between straight and relaxed-shape —
+   the two ends we measured — and is roughly fifty lines of work.
+2. Kaldor 2008's relaxation runs bending stiffness 1000x below simulation with hard length
+   constraints replaced by soft ones and the yarn shrunk by c = 0.935; Stitch Meshes 2012
+   does the same. Their "relaxed shape" is a two-stage artefact, not a single-solve
+   equilibrium — which is what we have been treating ours as.
+3. A 2026 review notes frictional textiles exhibit MULTIPLE REST STATES. A frictionless
+   model may be being asked to pick a unique rest shape the real object does not possess.
+
+### The most actionable single result
+
+Poincloux et al. give a fully specified, one-parameter, experimentally validated
+redistribution law: yarn inextensible and bending-only, per-stitch allotment l = c + dw,
+with the constraint imposed GLOBALLY — mean(c) + d*mean(w) = const — rather than per stitch.
+Measured d = 0.86 for stockinette, predicting a geometric Poisson ratio of 0.46, which
+matched. Total yarn length is preserved exactly. That is the smallest representation change
+that is also the physically correct one.
+
+### The warning, taken seriously
+
+Sánchez-Banderas et al. (SIGGRAPH 2020) quantify the cost: stretch stiffness with respect to
+both spatial and material length is k/du, and du becomes a degree of freedom that can
+approach zero, so conditioning diverges. Naive remeshing by node collapse is documented as
+WRONG because it destroys the Eulerian coordinate. Their fix avoids remeshing entirely.
+
+### One thing worth recording about our own work
+
+Four citable mechanisms exist for preserving topology during sliding. Notably, **no published
+method certifies topology the way we do.** Our invariant is stricter than published practice.
+
+### Honest gaps, not papered over
+
+- Full text of Guo/Lin/Narayanan/McCann "Representing Crochet with Stitch Meshes" (SCF 2020)
+  COULD NOT BE OBTAINED — ACM returns 403 here and the CMU site is down. Abstract only, and
+  the reading that it carries no mechanics is labelled INFERRED, not established.
+- Cirio et al. full texts likewise unobtainable; the method was recovered from the granted
+  patents (US 10,810,333; US 11,250,187) by the same authors and cross-checked against
+  open-access re-derivations. Institutional access should be obtained before any full
+  rewrite.
+- **No crochet-specific yarn-level simulator exists in the literature at all.** There is
+  nothing to copy for half double crochet.
+- UNKNOWN: any yarn-consumption parameter for HDC; friction/hysteresis data for crochet
+  fabric; and any published ablation isolating sliding's contribution to drape. Nobody has
+  run the experiment we want to run.
+
+## 2026-09-24 — SEO / Marketplace Research department: the children's category
+
+Merged from an isolated worktree. CA$0.00, Shadow Mode, no Etsy API call, no account.
+Boundary verified by diff before merge: nothing under `visual/**`, `cir/**`, BUILD_STATE or
+DECISION_LOG was touched. 30 tests, verified green by the integrator rather than taken on
+report.
+
+Delivered: `research/CHILDRENS_CATEGORY.md`, `intel/childrens.py` (taxonomy and safety
+constraints as dated sourced data plus deterministic checks), `tests/test_childrens.py`.
+
+### The finding that changes what we may sell
+
+**Etsy's Children and Baby Products policy, effective 2026-06-02, prohibits PATTERNS,
+DESIGNS AND INSTRUCTIONS for making prohibited children's items — not only the items.** A
+shop can be actioned for a PDF. So crib bumpers, crib liners, infant loungers, inclined
+sleepers and neck floats are out as patterns, not merely as products. Two further hard
+refusals come from regulation rather than platform: crocheted baby slings and carriers
+(16 CFR 1228 / ASTM F2907-22, load-bearing infant containment) and children's loose-fitting
+sleepwear (Canada SOR/2016-169 flammability to size 14X — untreated crochet is not flame
+resistant).
+
+Constraints that bite on ordinary crochet products:
+
+  * **Small parts under 36 months are BANNED, not warnable** (16 CFR 1501; Canada SOR/2011-17
+    s.7(1), s.31 on eyes and noses). Consequence: embroidered or crocheted-on faces become
+    the Brambleloop default and safety eyes exist only as a labelled 3+ variant. That is a
+    real merchandising cost, because a safety-eye photograph is the genre's visual
+    signature — and it is simultaneously the cleanest differentiator available to us.
+  * 3-to-under-6 with a small part requires the 16 CFR 1500.19 cautionary statement.
+  * Drawstrings: a hood or neck tie on children's upper outerwear 2T-12 is on the
+    substantial-product-hazard list. A chained tie through a hooded cardigan neckline is the
+    obvious crochet solution and it is the prohibited one.
+  * Safe sleep (AAP 2022): baby blankets and loveys need an explicit supervised-use
+    statement. Commercially awkward, since the baby blanket is this audience's most
+    merchandised object.
+  * CPSIA does not attach to us — it attaches to the physical product — but a buyer who
+    sells finished items becomes the manufacturer, so every children's pattern carries a
+    pointer rather than advice.
+
+### Market, measured rather than asserted
+
+Wikimedia monthly pageviews 2025-09 to 2026-08: `Amigurumi` swings 1.92x peak to trough,
+peaking in December; `Baby_shower` swings 1.60x, peaking in September and TROUGHING in
+December. The two are counter-seasonal, so a children's portfolio pairing toys with
+baby-occasion products is materially flatter than one built on toys alone. Labelled a proxy
+for interest, not purchase intent. It is the first actual series behind the
+"baby demand is year-round" line that was already sitting in `radar/opportunity.py`.
+
+Price and velocity from a third-party top-100 (EtsyHunt, 2026-09-01, estimates, unverified):
+five of the top ten crochet pattern listings are children's toys; single amigurumi patterns
+cluster at $5.76-$6.00. Two of the top-ten mechanics are ones we are forbidden to use —
+licensed-character IP and 20,000-pattern bundles of other people's work — so the addressable
+top of the shelf is smaller than the chart looks. That is an argument in our favour.
+
+**Recommended entry order, weighted by obligation and verifiability rather than by demand:
+nursery decor and keepsake/baby blankets first, amigurumi second with an embroidered-face
+default, children's fitted garments last.**
+
+### A defect this surfaced in existing code
+
+`commerce/search.py: listing_attributes()` sends a HAND-BUILT attribute dict that has never
+been verified against Etsy's real property list, and it carries no children's audience key.
+That is this codebase's recurring defect family again — a value asserted rather than
+measured — and it now has a category that would expose it on day one.
+
+### Genuinely blocked, with no owner action arising
+
+1. Etsy policy text verbatim: `etsy.com` returns HTTP 403 to this environment, verified by
+   direct request. The prohibition list is built from search-result quotations of Etsy's own
+   page, and the module records this per-source via `unfetched_sources()` rather than as a
+   caveat in prose, with a test asserting the enumeration works.
+2. Attribute schema for taxonomy node 66 needs one `getPropertiesByTaxonomyId(66)` call,
+   which the department was instructed not to make. No schema was invented.
+3. Listing counts and review distributions per sub-category need the Etsy credential. No
+   number was invented.
+4. The exact 16 CFR 1500.19 warning string renders as an image in the regulation; the
+   constant is marked as needing one confirmation from a rendered copy before any live
+   listing carries it.
+
+### Held at the merge queue, deliberately
+
+The department recommends adding a sixth policy surface to `gates/platform_policy.py` for
+the Children and Baby Products policy. NOT APPLIED YET: the Etsy/Commerce department is
+concurrently working on shop policy and may be in that file. Applying it now would be the
+integrator racing his own department. It is queued for the integration point after
+Etsy/Commerce reports.
+
+## 2026-09-24 — Etsy / Commerce department: THREE LAUNCH-BLOCKING DEFECTS, verified
+
+Merged from an isolated worktree. CA$0.00, Shadow Mode, no Etsy API call, no shop, no
+credentials stored. Boundary verified by diff: nothing under `visual/**`, `cir/**`,
+BUILD_STATE or DECISION_LOG touched. Tests re-run by the integrator, all exit 0.
+
+### The finding, and it reframes the critical path
+
+The department fetched Etsy's own published OpenAPI description and compared it to what our
+export actually produces. **Three things would have failed outright on the first real
+request, and none was visible from `launch/readiness.py`, which only measures our side of
+the wire.** Each independently verified by the integrator before merge:
+
+  1. **NOTHING UPLOADS A LISTING IMAGE.** `uploadListingImage` appears ZERO times in `src/`.
+     Etsy, verbatim: "Setting a `draft` listing to `active` will also publish the listing on
+     etsy.com and requires that the listing have an image set." Every draft would be
+     permanently unactivatable. **The shop would have opened with zero live listings** —
+     despite a certified, owner-approved image pipeline sitting right next to it.
+  2. **NOTHING EVER ACTIVATES A LISTING.** `updateListing` appears ZERO times in `src/`. The
+     client creates drafts and stops.
+  3. **The create request is sent as JSON.** `integrations/http.py` sets
+     `Content-Type: application/json`; Etsy's document lists exactly one media type for
+     `createDraftListing` and `updateListing`: `application/x-www-form-urlencoded`.
+
+Why this matters beyond the fix: it is this codebase's defining defect family in the most
+expensive possible place. `launch/readiness.py` reports readiness by measuring OUR artefacts
+and never the counterparty's contract, so it could return green while the shop was incapable
+of putting a single listing live. A check that cannot see what it exists to measure.
+
+**It also corrects the DAG conclusion recorded earlier today.** I wrote that Visual was the
+critical path and the chain was imagery -> listings -> customers. That is now known to be
+incomplete: with perfect imagery we still could not have activated one listing. Two
+independent blockers sat on that chain, and only one of them was being worked.
+
+The department deliberately did NOT fix (2)'s wire format in the transport, on the grounds
+that the format cannot be verified without a live call and changing it on a reading produces
+the same untested code with more confidence. `listing_schema.form_encoded()` supplies the
+shape, tested. That is the right call and it is recorded rather than quietly patched.
+
+### Also fixed, additively, no threshold weakened
+
+  * **Etsy's character sets, which nothing checked.** Materials permit letters, digits and
+    whitespace ONLY, so `"100% cotton"` was refused by Etsy and by nothing here. Titles allow
+    `%`, `:`, `&`, `+` once each. `build_payload` now refuses both.
+  * **Duplicate materials.** A CIR carries one material entry per colour, so an eight-colour
+    blanket sent the same yarn eight times, and a product with more than thirteen colours
+    would have been refused for a reason unrelated to the limit's purpose.
+  * **A live requirement-40 drift failure.** The buyer's licence — the single most-asked
+    question in this market — existed in THREE places saying THREE different things about
+    selling finished items. `commerce/terms.py` said "individual makers and small
+    businesses, not manufactured at scale"; `brand/storefront.py` said "sell the items you
+    make from it" with no limit; `commerce/seo.py` says "Sell what you make".
+    `brand/storefront.py` now renders from the decision. **`commerce/seo.py` is still a third
+    copy** and is recorded as outstanding rather than touched, because it is a shared file.
+
+### Built
+
+`publish/listing_schema.py` — Etsy's digital-download contract clause by clause, each SOURCED
+(keeping the verbatim sentence; a sourced clause with no quote is refused at construction) or
+INFERRED. Confirms `shipping_profile_id`, `return_policy_id` and `readiness_state_id` are
+physical-only. `commerce/shop_package.py` — six policies, a ten-question FAQ with the
+craft-fair question first, the AI disclosure rendered from `gates/platform_policy` rather
+than rewritten, the five shop text fields Etsy's API can actually write (including
+`digital_sale_message`, which reaches every customer and was empty), and `MANUAL_ONLY` for
+fields with no write endpoint. 32 tests.
+
+### Integrator applied the change held from the SEO department
+
+`gates/platform_policy.py` now watches a sixth surface: Children and Baby Products, gating
+`publishing` AND `product_creation` — the point to refuse a crib-bumper pattern is before a
+CIR is written for it, not at the listing. Held until Etsy/Commerce finished so the
+integrator was not racing his own department; applied once that file was free.
+
+### Five new OWNER ACTION items, none repeating the existing queue
+
+  1. **Paste Etsy's five policy pages into the policy watch** — 25 min, CA$0. `help.etsy.com`
+     and `etsy.com/legal/*` return HTTP 403 to every automated request from this environment,
+     so the freshness gate has read NOTHING. It has been green by having no data.
+  2. **Decide the GST/HST position** — 20 min, CA$0-250. Software must not take a tax
+     position. PRIMARY source is the CRA's own page: CA$30,000 threshold, effective from the
+     sale that crosses it, 29 days to register.
+  3. **Legal review of the customer-use terms** — 30 min, max CA$500. `enforceable` stays
+     false until then.
+  4. **Confirm the Canadian fee stack on the first transaction** — 5 min, CA$0. Sources
+     disagree on whether Canada carries a ~1.15% Regulatory Operating Fee; on a CA$7 pattern
+     that decides whether the pricing floor holds.
+  5. **Set each listing's AI attribution in Shop Manager** — 10 min + ~1 min/listing, CA$0.
+     SECONDARY that Etsy requires a two-place disclosure; PRIMARY that its API has no
+     AI/disclosure/attribution field at all, so if the setting exists no software can set it.
+
+### Still missing entirely, recorded honestly
+
+Listing images, activation, OAuth refresh (static token, no refresh flow), shop-setup calls
+(`updateShop`, `createShopSection`, `createShopReturnPolicy`), listing properties/attributes,
+and any fetcher for the policy freshness watch — `record_snapshot` has zero callers in `src/`.
+
+## 2026-09-24 — Reliability / Cost Governance: the spend ceilings were never on
+
+Merged from an isolated worktree. Production read GET-only; nothing deployed, restarted or
+reconfigured. Boundary verified by diff. 35 new tests in `tests/test_spend_governance.py`,
+each quoting the production reading it was found from.
+
+### A correction to what I have been reporting all day
+
+I have repeatedly cited `/api/verify` "12 of 12 passing" as evidence that spend is
+controlled. **One of those twelve was green because it had no data.**
+
+`spend_limits_not_breached` reports `all(...)` over the configured spend limits. Nothing in
+`src/` ever calls `SpendGuard.set_limit` — verified: exactly one occurrence in the whole of
+`src/`, which is the method's own definition — so the table is empty and `all([])` is True.
+The production evidence field says `{"paused_scopes": []}`: it reports that no scope is
+paused, when no scope exists. **The check described as "the ceilings are on and unbreached"
+could not see whether any ceiling existed at all.**
+
+The empty table is also how advertising stays gated, so the gate is correctly closed. The
+defect is that a closed gate and a healthy ceiling were the same sentence.
+
+### Eight more, all one family
+
+2. **The governor read 3 of its 5 dimensions from a field nothing writes.** Same rows, same
+   minute: `/api/spend-report` attributed all CA$75.93 across three departments;
+   `/api/governor` called it `unattributed_share: 1.0`. `spend_report.record` writes the
+   `department` and `product_slug` COLUMNS; `governor.spend_by` read `detail[dimension]`.
+   Its "attribution sums to the bill or it is refused" guard could not catch this, because a
+   dimension reading nothing sums perfectly in the unattributed bucket.
+3. **In-batch hole in the monthly ceiling.** `check_budget` is called inside the per-image
+   loop while the ledger row is written after it. Evidence from real rows:
+   `gallery_observation` CA$23.65 across 33 rows carrying 4.18M input tokens — about
+   **twenty-one vision calls behind one ledger row**. Twenty of every twenty-one were
+   authorised against a month total that had not moved. Fixed via `uncommitted_cad`.
+4. **Cross-process race, still OPEN.** No reservation is written before a call; the estimate
+   is recorded after the fact. Overshoot is bounded only by concurrent callers times the
+   largest estimate. Needs a durable reservation table — a schema change. The same
+   lost-update shape inside `SpendGuard.authorize_spend` IS fixed, with `FOR UPDATE`.
+5. **Per-agent ceilings sum past the global one and are never consulted.** 24 agents declare
+   about CA$57/day, roughly CA$1,700/month, against a CA$100 month. They are checked in
+   exactly one place, which nearly every real call does not use. `/api/verify` asserted only
+   that a number was configured — `every_agent_has_a_cost_ceiling`, which is true and
+   nearly meaningless.
+6. **The daily ceiling deleted its own evidence.** `record_cost` checked before writing, so
+   the one call that crossed the ceiling wrote no row — and the monthly ceiling is summed
+   from those rows. The daily guard was lowering the number the monthly guard checks.
+7. **Orphaned work was recoverable only while the queue was idle.** `_reclaim_expired` ran
+   only when the pending query came back empty, so a job whose worker died holding the lease
+   was never reclaimed under a backlog — which is exactly when workers get killed.
+8. **`ops/lock.py` was not a lock.** Read-then-write, so two parallel departments could both
+   hold the lease; and staleness measured from acquisition, so any session running past three
+   hours had its lease stolen while alive. This session has been holding that lease all day.
+9. **One dead letter, three classifications** — `/api/status` said 1 defect while
+   `/api/verify` said 0 unexpected, about the same row in the same minute.
+
+Sustainability: `/api/status` loaded every job row six times per request; a `disk` health
+signal now exists measured in absolute free space rather than a share (10% of a 270GB volume
+is 27GB — the share version was the wrong instrument); `worker_restarts` read 0 across three
+container starts in 47 minutes because it counts a thread loop inside one process, so nothing
+could distinguish three deploys from a twenty-minute crash loop. Audit log grows ~4,700
+rows/day and **nothing prunes anything** — `purge_dead` exists and is called from nowhere.
+
+### One pre-existing assertion changed, and it was STRENGTHENED
+
+`test_agent_daily_cost_ceiling_is_enforced` asserted "refused spend is not recorded".
+`record_cost` runs after the provider has answered, so there is no spend left to refuse — the
+money has gone. Dropping the row made the single call that breached the daily ceiling the
+single call missing from the monthly ledger. The refusal assertions are kept verbatim; only
+the ledger-completeness line moved, and it moved to a stricter property. Reviewed by the
+integrator against the no-weakening rule and accepted on that reasoning.
+
+### Visual applied the one fix left for it
+
+`visual/inspect.py` carried the identical in-batch ceiling hole. The Reliability department
+correctly did not reach into a Visual-owned file; the integrator applied it.
+
+### OWNER DECISION REQUIRED — 2 minutes, CA$0
+
+`agents/registry.py` gives `market_radar` a CA$4.00/day ceiling. `spend_policy.ALLOCATION`
+states the gallery cadence costs **CA$8.70/day**. Both are in the repository, they
+contradict, and until it is resolved the ceiling stays unenforced. Either the ceiling rises
+or the cadence slows. **The department did not raise it — correctly, that is the owner's
+call.**
+
+Related and deliberate: after this deploys, the `spend` signal may go DEGRADED on the first
+full gallery day, because the ceiling is genuinely below the budgeted cadence. **That is a
+true reading. Do not raise the ceiling to silence it.**
+
+### Still open, needing a deploy or a schema change
+
+Durable spend reservation (the only remaining unbounded overshoot); per-agent enforcement
+before the call rather than after; `tempfile.mkdtemp` at 10 production call sites — the same
+call that left 29GB in `/tmp` on 2026-09-20, where only frequent container replacement is
+saving us; and a retention policy for the audit log, jobs and dead letters.
+
+## 2026-09-24 — Deliverable QA: a UK pattern instructed the wrong stitch
+
+Merged from an isolated worktree. The department rendered the real PDFs for every shippable
+design — 11 catalogue products, the Nordic Forest flagship, three texture designs, the
+hexagon coaster — extracted every page with pypdf and read them as a buyer trying to make
+the thing. Boundary verified: it read `visual/**` and `cir/**` and edited neither.
+
+### Ranked by customer harm
+
+1. **A UK-terms PDF instructed the WRONG STITCH.** `cir/writer._term` carried its own
+   terminology map covering only the basic stitches and their shaping variants, and returned
+   the US code unchanged for anything else — so a UK document printed `fpdc`, which a UK
+   maker correctly reads as front post DOUBLE crochet: in UK terms the stitch a US pattern
+   calls single crochet, **half the height** of the one the pattern compiled against. On the
+   cable throw that is a garment arriving at roughly half its stated 129cm, from a document
+   that was internally consistent and wrong. `write_op` also short-circuited `sk` before the
+   map was consulted, so that UK entry was dead.
+2. **The Heirloom Cable Throw was sold, labelled and gated as "beginner".** `_difficulty`
+   existed in THREE places, each with its own stale copy of the hard-stitch set. The one
+   product genuinely beyond a beginner printed "beginner" on its cover, claimed it on its
+   listing, and **passed the gate whose stated job is to block that claim** — the gate could
+   not see a cable.
+3. **No abbreviation key anywhere in the document.** The only key was the legend IMAGE, built
+   from the stitches that make a fabric cell — so a turning chain and a skipped stitch, which
+   make no cell, appeared in instructions whose key was structurally incapable of containing
+   them.
+4. **Stated gauge and compiled length described two different fabrics.** Cloudline states 18
+   rows/10cm; 88 rows produce 97cm, which is 9 rows/10cm. A maker checking at row 22 measures
+   24cm where 12 is implied and rips out a correct blanket.
+5. **The certified hash did not identify the customer's file.** `released_on` defaulted to
+   `date.today()` and is printed on the cover, and `store.publish` re-renders at upload. The
+   existing determinism test rendered three times in one process on one day — **a proof
+   measured on a sample that could not contain the broken case**, under a docstring asserting
+   the property.
+
+Eight more fixed: materials list naming no hook, needle, pins or cable needle; a licence with
+no owner, date or pattern id; the reader's "us terms" cue reporting an abbreviations section
+in a PDF that had none (and crediting competitors with keys they never wrote); small print at
+4.48:1 contrast and 8pt against a brand minimum of 9; the palette duplicated out of
+`bible.PALETTE`; "page 5" rather than "page 5 of 8"; and "1 times".
+
+### The integrator closed the root, in the layer that owns it
+
+The department could not fix (1) because `cir/**` is Visual-owned, so it wrote a guard that
+refuses such a document and pinned the gap as a subset so that fixing the writer would make
+its test PASS rather than fail. The root is now closed properly rather than patched:
+
+`cir/stitches.UK_TERMS` is now the single terminology table, in the lowest layer, because
+what a stitch is called is a fact about the stitch rather than about any document. The writer
+delegates to it and `publish/abbreviations.TOKENS` derives from it, so the two cannot
+disagree again — this was one value living in two places, and the copy that knew less was the
+one the customer's document was rendered from. `stitches.term()` REFUSES an unknown code
+rather than passing it through, because passing it through is exactly what produced the wrong
+stitch. The `sk` short-circuit now uses the mapped token.
+
+Both of the department's pinning tests were then TIGHTENED rather than deleted: "no worse
+than this known gap" became "there is no gap", and the refusal guard — which must stay,
+because it protects against the next stitch somebody adds without a UK rendering — is now
+tested against an INJECTED gap. Testing it against the real gap would have meant the guard
+stopped being tested the moment the writer was fixed: a check passing forever by having
+nothing to catch, which is the failure this codebase keeps finding elsewhere.
+
+23 checks in `tests/test_deliverable_qa.py`, green.
+
+### Still open, and one is commercially serious
+
+  * **`growth/content.py` promises "US or UK terms" and a pin claims "US and UK terms", while
+    `assets.build` ships `pattern-us.pdf` only.** That is a claim to customers we do not meet.
+    Now that the writer localises correctly the honest fix is to ship both, but that is a
+    release-chain change and is recorded rather than rushed.
+  * `publish/charts.py` still duplicates the brand palette and bakes its legend into pixels.
+  * `stitches.Stitch` has no crossing direction — its own comment claims which two strands
+    cross in front "is a property of the stitch" and the dataclass has no such field, so
+    front- and back-crossed cables are identical to every check. **A docstring asserting a
+    property the code lacks.** The document now states only what is true.
+  * `TwinModel` exposes only a total height, so milestones interpolate linearly — harmless
+    today, wrong on any pattern with uneven sections.
+  * **`twin.calibrated` is False catalogue-wide.** Nothing in the deliverable has been checked
+    against a physically worked sample. That remains the largest unmeasured risk in the
+    product, and the document says so where it matters.
+
+### Heartbeat 2026-09-25T00:14Z — the four departments are LIVE, and the blind check now says so
+
+Production is running `8bef34d`, which is the fully integrated tree. **Correction to the
+previous status report: there was never a deploy pending anybody's word.** Railway deploys
+from the branch, so each push WAS the deploy, and all four departments' work has been live
+since it landed. Saying it was "queued" described a step that does not exist here.
+
+The Reliability department predicted four observable effects. All four verified in
+production, by reading it rather than by assuming the code implies it:
+
+  1. `dead_letter_defects` is **0**, now agreeing with `/api/verify`, classified by a single
+     source (`queue.durable.deliberate_refusal`). Previously the two endpoints reported 1 and
+     0 about the same row in the same minute.
+  2. `spend_limits_not_breached` now carries its own limits:
+     `{"paused_scopes": [], "scopes_configured": 0, "what_this_cannot_see": "a scope nobody
+     configured. With none configured this check passes by absence..."}`. **It still passes,
+     correctly — nothing is breached — but it can no longer be read as "the ceilings are
+     on".** The check did not become stricter; it became honest about what it cannot see.
+     This is the fix that matters most, because that check is one of the twelve I have been
+     citing all day as evidence that spend is controlled.
+  3. `every_agent_has_a_cost_ceiling` now carries `spent_today_against_ceiling` — real
+     measurement per agent, rather than asserting only that a number was configured.
+  4. `/api/health-signals` now has a twelfth signal, `disk`.
+
+`/api/verify`: **12 of 12 passing** — and that sentence now means something narrower and
+truer than it did yesterday.
+
+`market_radar` reads `spent_today 0.00 / ceiling 4.00`: no gallery run has happened today, so
+the predicted DEGRADED has not fired. It remains a true future reading and the owner decision
+below still stands.
+
+Full suite re-run this heartbeat; result recorded below rather than predicted.
+
+### OWNER DECISIONS OUTSTANDING — batched, none urgent enough to stop work
+
+  1. **`market_radar` ceiling, 2 min, CA$0.** `agents/registry.py` says CA$4.00/day;
+     `spend_policy.ALLOCATION` says the gallery cadence costs CA$8.70/day. Both in the repo,
+     they contradict, and the ceiling stays unenforced until resolved. Either the ceiling
+     rises or the cadence slows. Consequence of waiting: the first full gallery day reports
+     DEGRADED, which is true and must not be silenced by raising the ceiling to match.
+  2. **Paste Etsy's five policy pages into the policy watch, 25 min, CA$0.** `etsy.com`
+     returns 403 to this environment, so the freshness gate has read NOTHING and has been
+     green by having no data. Consequence of waiting: we would not notice an Etsy policy
+     change before it affected a live shop.
+  3. **Decide the GST/HST position, 20 min, CA$0-250.** Software must not take a tax
+     position. CRA primary: CA$30,000 threshold, effective from the sale that crosses it,
+     29 days to register.
+  4. **Legal review of customer-use terms, 30 min, max CA$500.** `enforceable` stays false
+     until then.
+  5. **Confirm the Canadian fee stack on the first transaction, 5 min, CA$0.** Sources
+     disagree on a ~1.15% Regulatory Operating Fee; on a CA$7 pattern it decides whether the
+     pricing floor holds.
+  6. **Set each listing's AI attribution in Shop Manager, 10 min + ~1 min/listing, CA$0.**
+     Etsy's API has no AI/disclosure/attribution field, so no software can set it.
+  7. **Visual Stage 0: crochet a 20x30 HDC swatch, mark it, load it in 8 steps, photograph;
+     plus one load-unload cycle. Half a day, cost = one ball of yarn.** It measures whether
+     per-stitch yarn allotment varies in HDC at all. **If that variance sits at noise,
+     redistribution is not the mechanism and the whole Visual programme redirects** — for
+     half a day instead of building for three.
+
+### The heartbeat suite caught a test that expires
+
+`bash run_tests.sh` on the integrated tree: **3466 passing, 1 suite failing** —
+`test_spend_governance`, three checks, all in the Reliability department's own new file.
+
+Not a flake, and not contention: they failed identically in isolation. Root cause, found by
+reading rather than re-running:
+
+`NOW` in that file is hardcoded to `datetime(2026, 9, 24, 19, 0)`. The three failing checks
+write through `spend_report.record`, which stamps its row with `utcnow()` and accepts no
+timestamp, then read back with `per_agent_today(now=NOW)` or a health reading at `NOW`. That
+asks **two different clocks about the same day**. It is green while the frozen date happens
+to be today and red at the next UTC midnight — which is exactly what happened. These checks
+were green at 20:47 on 2026-09-24 and failed at 00:23 on 2026-09-25 with **nothing in the
+code changed between the two runs.**
+
+A test whose correctness depends on an unstated condition — here, that the calendar has not
+moved — is the same defect family the file was written to catch, so it is fixed rather than
+re-pinned or re-run until convenient. The three reads now take the wall clock, matching the
+writer; the runner state moves with them so the heartbeat signals stay consistent with the
+instant being asked about. **`NOW` stays everywhere it is internally consistent** — the
+`CostEntry(at=NOW)` rows, the budget readings, the signal readings that supply their own
+timestamps. Those must not be made clock-dependent to match.
+
+Then checked whether the family exists elsewhere rather than stopping at the instance: ten
+test files carry a hardcoded September 2026 date, and of those **only this one also writes
+through a real-clock recorder.** The other nine freeze time on both sides and are internally
+consistent.
+
+No threshold moved, no check removed, no assertion weakened. The three checks assert exactly
+what they asserted before.
+
+**Re-run after the fix: 3,469 passing, 0 suites failing.** Same count as the 20:47 run on the
+integrated tree, which is the expected result: the three checks were restored to passing, not
+removed, and nothing else moved.
+
+### Heartbeat close — 2026-09-25T00:14Z
+
+  * Branch synced, lease acquired and released, BUILD_STATE and DECISION_LOG current.
+  * Production `8bef34d`, `/api/verify` **12 of 12**, phase `shadow`, 0 published against 149
+    refusals, worker alive, scheduler ticking, no dead-letter defects.
+  * Suite **3,469 / 0**.
+  * Model spend CA$76.15 of CA$100. Infrastructure ~CA$7 of CA$20. **CA$0.00 spent this
+    heartbeat.**
+  * Milestone D: **FAIL**, unchanged and not weakened. Visual is on research only, awaiting
+    the Stage 0 physical measurement.
+  * Seven owner decisions batched above; none blocks further autonomous work.
+
+## 2026-09-25 — Owner decisions D1-D7 applied; Parallel Wave 2 dispatched; coordinator built
+
+### The seven decisions, as ruled
+
+  **D1 market_radar** — ceiling STAYS at CA$4.00/day. The cadence adapts to the budget, not
+  the reverse. Governing principle stated by the owner and now binding: *global/monthly spend
+  is authoritative; per-agent ceilings are PERMISSIONS, not additive budgets.* That resolves
+  the 24-agents-at-CA$1,700/month finding — it was never an over-commitment, because a
+  permission cap is not an allocation. Enforcement is authorised against CA$4.00/day.
+
+  **D2 Etsy policy freshness** — required before Launch 0 goes live. Research exhausts
+  legitimate official-source routes FIRST; only if `etsy.com` stays 403 does the owner paste
+  the five pages once. Binding: **no-data must never equal policy-current.**
+
+  **D3 GST/HST** — registration deferred. Maintain an honest monitored threshold with an
+  owner alert. Software takes no tax position.
+
+  **D4 buyer licence** — ONE conservative canonical Launch-0 licence source; divergent copies
+  eliminated. Professional review scheduled before material scale, NOT a launch blocker,
+  unless research finds a concrete legal reason it must precede first sale.
+
+  **D5 Canadian Etsy fee** — conservatively assume ~1.15% applies for the pricing floor.
+  Marked unverified; reconcile against the first real settlement.
+
+  **D6 AI attribution** — Launch 0 uses a manual owner Shop Manager step per listing, as an
+  explicit launch-checklist item. **Do not claim the API can do it** — it has no such field.
+
+  **D7 physical HDC Stage 0** — DEFERRED, and preserved as the preferred physical
+  falsification before Stage 1. **Stage 1 must NOT begin on the knit analogy alone.**
+
+### Launch-0 priority, now a standing distinction
+
+A **hard blocker to first legitimate sale** is separated from **continuous improvement that
+can continue after selling begins**. A new Launch-0 blocker requires evidence it materially
+threatens product correctness, safety, platform/legal compliance, payment/fulfilment,
+truthful customer claims, uncontrolled spend, or production/customer-data integrity.
+Existing hard gates are not weakened, and not every possible improvement becomes a
+prerequisite.
+
+### Wave 2 dispatched — five lanes, isolated worktrees, one merge queue
+
+  V  Visual (continuous)  Kaldor-2010 bounded plastic rest-state migration; the corrected
+                          recovery experiment against the ORIGINAL flat rest curvature; ASTM
+                          convergence. Owns `visual/**` + `cir/**`. Stage 1 forbidden.
+  W1 Etsy/Commerce II     HIGH PRIORITY. The listing transport gap: image upload, draft
+                          update/activation, OAuth refresh, request encoding, READ-BACK
+                          verification, refusal handling. Draft-only; activation may be built
+                          and tested but no customer listing goes live without Launch-0
+                          authorisation. Owns `integrations/etsy.py`, `integrations/http.py`.
+  W2 Catalogue            Launch-0 assortment from landed children's research; obligation-
+                          weighted entry order; counter-seasonal pairing. Hard rule: do not
+                          manufacture catalogue completion ahead of Product Truth.
+  W3 Deliverable QA II    Ship US AND UK PDFs now localisation is authoritative; close the
+                          "US or UK terms" claim we do not meet; unify the last licence copy;
+                          continue adversarial QA.
+  W4 Reliability II       Gallery cadence to fit CA$4.00/day derived from the ceiling rather
+                          than restated; per-agent enforcement as permission; DURABLE spend
+                          reservation (the last unbounded overshoot); temp-file lifecycle at
+                          10 sites; retention policy.
+
+Collision control: W1 and W3 both reach the release chain and are separated by file; W4 was
+told to yield `runtime/release.py` if W3 is in it. Every lane is CA$0 and read-only on
+Visual-owned modules.
+
+### The coordinator: `ops/board.py`
+
+One rule: **completion comes from the job's own terminal evidence, never from a watcher's
+state.** States the previous approach could not express: `STALLED` (no sentinel, no process),
+`NO_SENTINEL`, `COMPLETE_UNREPORTED` (finished, nobody acted, carries its age), `MISSING`.
+`alive()` takes the caller's whole process LINEAGE and refuses to count any of it, and the
+process table is injectable so the self-match case is TESTED rather than argued — the 2026
+version was argued correct and was not.
+
+21 checks in `tests/test_board.py`, including both historical failures reproduced:
+the ~100-minute self-matching waiter, and the ~47-minute finished-but-unread suite.
+
+**The board found a defect in itself on first real use.** It called older logs
+"died without finishing" when they had merely used a different sentinel (`SUITE EXIT 0`
+rather than `EXIT 0`). That is a verdict computed from absence of evidence — the exact family
+the board exists to catch, in the board. Split into `NO_SENTINEL`, which says which fact is
+missing and refuses to guess; such a lane is pulled to attention and is NOT reported
+refillable, because completion was never established.
+
+Run live against the real logs, it immediately surfaced `suite6` as COMPLETE_UNREPORTED
+quoting `TOTAL PASSING: 3469 ; suites failing: 0` — the exact result that sat unread for 47
+minutes.
+
+It reports and says when a lane is free. **It does not merge or deploy.** Integration stays
+controlled and deployment stays serialized.
+
+## 2026-09-25 — Catalogue: Launch-0 is three listings, and the flagship is disqualified
+
+Merged from an isolated worktree, boundary verified against the true merge-base (three new
+files, nothing under `visual/**`, `cir/**`, BUILD_STATE or DECISION_LOG). 43 checks, green.
+
+### The Launch-0 set — three listings, nine finished pieces
+
+  **Nesting Baskets, three sizes** (15/20/25cm) — `vessels.build_basket` x3, compiles 0/0,
+  twin resolves `vessel`. CA$6.50. The children's research's LEAD sub-category.
+  **Cloudline Baby Blanket** (78.8 x 97.2cm) — 0/0, 11,088 stitches. CA$7.50, deliberately
+  BELOW the observed CA$8.47-11.65 premium floor because those listings carry pattern +
+  video and we have neither video nor reviews.
+  **Hexagon Coaster Set (4)** — `Component.make=4` correctly set, twin resolves `disc`.
+  CA$4.00.
+
+Two reserves — Harvest Table Runner, Pet Snuggle Mat — pass every gate and are held back
+**on assortment grounds, not truth grounds**, and the module records that distinction so
+"why only three" has an answer.
+
+### THE FINDING: the CIR cannot put two colours in one row
+
+**`Row.color` is a single `str | None` and `Op` has NO colour field.** Verified directly
+against the dataclasses. So every mosaic, overlay-mosaic and graphghan product compiles into
+horizontal stripes with a raised sc/dc relief — a 24-row fir tree becomes twelve alternating
+cream/forest bands. They compile clean and would certify.
+
+**This disqualifies all three sizes of the hand-engineered Nordic Forest, which was to be the
+headline product.** Eleven of eighteen CIRs in the repo fail on this.
+
+`per_stitch_colour_expressible()` measures it from the dataclass rather than asserting it in
+prose, so the gate re-opens by itself when the primitive lands. Each gate is also tested
+against an INJECTED defect, so it does not stop being tested once the catalogue is clean.
+
+**Launch-0 judgement, under the owner's new standing rule:** this is NOT a Launch-0 blocker.
+It is a catalogue-scope limit. None of the three Launch-0 products needs per-stitch colour,
+and a product we cannot make is simply not listed — no untruth reaches a customer. Adding the
+primitive changes the CIR contract and is **queued for Visual**, which owns `cir/**` and is
+mid-increment. It is continuous improvement that expands the catalogue after selling begins.
+
+### Truthful-claims defects, verified, in products NOT in Launch-0
+
+  "Nordic Star Ornament Set **(6)**" makes **1** piece.
+  "Pressed Flower Motif Library **(12)**" makes **1**.
+  "Mosaic Placemat **Pair**" makes **1**.
+
+A customer buying "Ornament Set (6)" would receive a pattern for one ornament. This is the
+same `Component.make` defect `vessels.py` fixed once for the Market Basket Trio, recurring in
+the layer above. Not Launch-0 blocking because none is in Launch-0 — **and each is blocking
+for itself, permanently, until fixed.**
+
+### One merchandising fix owed BEFORE the blanket lists
+
+Cloudline's designer note claims *"no long floats for small fingers to catch"*, which implies
+a carried-float colourwork fabric **this pattern does not make**. In Launch-0, so it must be
+corrected before listing. Filed for Deliverable QA II.
+
+### Two defects in other departments' files — reported, not edited
+
+  * **`publish/motif_fidelity.chart_colours(twin)` counts STITCH CODES as colours.** Verified
+    at line 157: it reads `twin.chart_grid()` instead of `color_grid()`. It gives the right
+    answer today only by coincidence — every product's stitch vocabulary happens to be
+    `{sc, dc}` — and would report "2 colours" for a single-colour textured pattern. **This is
+    the gate that should have caught the colourwork finding in an image.** A check measuring
+    the wrong property and passing by luck.
+  * **`seasonal.leadtime.estimate_make_hours` ignores `Component.make`** — 1.1h for a set of
+    four coasters that takes ~4.4h. `launch0.make_time()` corrects it and pins the
+    correction; the uncorrected figure must never reach a listing.
+
+### Seasonal pipeline, re-derived rather than restated
+
+Amigurumi swings 1.92x (peak December), baby-occasion 1.60x (trough December); a
+mean-normalised 50/50 blend swings **1.48x — flatter than either alone**, and a test sweeps
+30-60% to assert the conclusion does not depend on the weight. Sequence: catalogue hygiene +
+per-stitch colour → lovey with an embroidered face for amigurumi's December peak, plus the
+keepsake blanket → baby wearables → fitted garments. `leadtime.compile_launch` puts the
+lovey at latest effective launch 2026-11-06, work starting by 2026-09-22, `on_track` with 42
+days runway, every assumption reported as assumed.
+
+### Blocked, and one of these is a measurement for another department
+
+  1. **Publishing either children's product.** `required_statements()` computes the safety
+     obligation and **nothing consumes it** — measured: zero files in `publish/`, `cir/` or
+     `commerce/` mention any statement in the set. `assess()` returns *subject allowed, not
+     ready to ship*. **This IS Launch-0 blocking for the two children's products**, and it is
+     a measurement handed to Deliverable QA II, who own `publish/pdf.py`.
+  2. All colourwork products — needs the CIR primitive above.
+  3. Any claim a finished measurement is real — `twin.calibrated` is False catalogue-wide.
+  4. Keepsake blankets — no alphabet or numeral motifs in `motifs.LIBRARY`; and
+     `personalisation.py` correctly makes a named blanket a product per name, so the
+     economics need deciding first.
+  5. Baby wearables grading — `intel.childrens` carries CYC chest tables only; head
+     circumference is a different published chart, cheap to land.
+
+## 2026-09-25 — Visual wave 2: three honest negatives, and two corrections to what I reported
+
+Merged from an isolated worktree, boundary clean (only `visual/**`, its own tests, research).
+**159 checks across five suites, 0 failing** — 34 + 28 + 18 + 24 + 55, up from 136. All 28
+adversarial fixtures still reject. No threshold lowered, nothing deleted, no committed result
+restarted or weakened. CA$0.00. **Milestone D: still FAIL, and none of this was a
+conformability mechanism.** Stage 1 not begun.
+
+### Item 1 — Kaldor plastic rest state: built, sourced, measured, NOT adopted
+
+Off by default (`plastic_rest_migration: bool = False`, verified). Mechanism and both
+parameter values SOURCED; the angular-to-second-difference mapping DERIVED and kept exact
+(`2l·sin(θ/2)`) rather than linearised, because this swatch's mean turning angle is 1.394 rad
+where linearising errs by a third.
+
+**It does what the research said and it makes the symptom worse.** The bound is real and now
+quantified: it converts the rest-state choice from **285–753× gravity** (straight) or **0×**
+(frozen relaxed) into a bounded **2.22×** — the "sits between our two brackets" claim is now a
+number. Stiffness response is restored but weak: over 144× of B, straight rest gives a 2.2×
+spread and is non-monotonic, Kaldor gives 4.6× monotonic, the committed default gives 102×.
+
+But the new `relief_profile()` measures within-row share of relief variance falling from
+**0.8% to 0.0%**. The fabric droops 2.8× further and does so as an even purer function of
+position along the cantilever. **The plastic rest state erases exactly the local stitch-scale
+stress whose variation between neighbours is the only thing that could make one stitch move
+differently from its neighbour.** Not adopted.
+
+Not safe across the bracket either: at B/12 it everts stitches to +1.728mm and fails the
+gate. Diagnosed as geometry rather than instrument — 1.7mm past the line is not grazing, and
+the same instrument reads −1.599 on the default at the same B and iteration count.
+
+Two further findings: `p_plastic` is **saturated** — droop varies 1.66× over a 500× range of
+it, so it is a stitch-integrity dial and not a drape dial. And with plasticity on, the
+starting rest state is forgotten, so **`rest_is_relaxed_shape` — the decision the entire
+previous increment turned on — stops meaning anything.**
+
+### Item 2 — recovery: ELASTIC. And a number I reported was a transient.
+
+The invalidity is fixed properly (the rest state is now passable) and the trap pinned by two
+tests. At **25,600 release iterations the solve converges** — final step 1.00e-05 mm, the
+only converged solve in this work — and **83.6% of droop and 75.0% of the intrinsic-height
+extension recover.** A never-loaded control rules out contact inflation (drift 0.0001mm).
+
+**CORRECTION.** I reported "+2.81% intrinsic height under load" as a measured property of the
+fabric, and said only that I had not verified whether it recovers. It is worse than
+unverified: **it is not an equilibrium property at all.** On this fixture the same figure
+reads +0.136% at 800 iterations, +2.042% at 3200, and +0.102% at convergence. The number I
+gave was an unconverged transient that happened to be sampled at 6000 iterations. The honest
+statement is that the loaded extension at equilibrium is about 0.1%, and it largely recovers.
+
+Consequence recorded and deliberately NOT patched: `test_drape`'s `< 4%` intrinsic-height
+tolerance — which I wrote — bounds that transient, and would fail on nothing but running the
+solver longer.
+
+### Item 3 — under-convergence, and it costs more of the calibration than I claimed
+
+At 400 iterations the tip drop is **constant across a 2.3× overhang range** (0.680→0.730mm,
+identical to four decimal places for the three longest). The falling tip angle I reported is
+`atan(const/reach)` — arithmetic, not stiffness. Per-iteration progress is overhang-
+independent by construction; the clearance cap is **not** the limit (0.101mm cap against a
+3.1e-3mm largest step, zero retries). Tip drop becomes monotonic in overhang at 1600
+iterations and tip angle at 6400. **None of 25 runs converged.**
+
+Two further instrumental causes: the angle's denominator was NOMINAL overhang rather than
+measured (free extent 16.06 vs nominal 17.27mm), now reported alongside with existing keys
+unchanged so no committed figure moves; and **a five-row swatch cannot form a short
+cantilever** — the shortest overhang frees one row plus its turning chain, and a one-row
+specimen is not a beam.
+
+**CORRECTION, and this is the commercially relevant one.** I told the owner that B landing at
+1.45× the free-fibre floor was "a cross-check it was not fitted to". That claim is materially
+weaker than I made it sound. Inverted bending length spans **2.00× across overhang at 6400
+iterations, 3.02× at 400, and 2.09× for one unchanged fabric across the iteration range**
+(76.69 → 36.75mm at the longest overhang). The 34.6mm target is producible at four different
+overhangs depending on iteration count, so **`CALIBRATED_BENDING_N_M2` was set as much by run
+configuration as by the target.** Every column is still falling at 6400, so a convergent
+calibration would demand a LARGER B.
+
+The department did not change the constant, which is right: that would be acting on an
+extrapolation. Incidental: the calibration procedure exists only as prose — **no code or test
+re-derives it.**
+
+### One of the department's own new checks failed, and the instrument was right
+
+It asserted `within_row_fraction > 0.3` against a fixture whose arithmetic gives exactly
+0.235006. Diagnosed before touching either: the metric was correct and the threshold invented.
+Replaced with the two fixtures the construction pins exactly — row-only displacement scores 0,
+across-row-only scores 1.
+
+### Net position
+
+**This increment made the calibration less certain, not more. That is the real result**, and
+it is worth more than a confident number would have been. The recommended next step is
+instrumental, needs no Stage 0, and is not Stage 1: converge the cantilever inversion and
+re-derive B in code with a test stating its conditions; use a larger swatch for cantilever
+work; state a converged iteration count per quantity.
+
+## 2026-09-25 — Etsy/Commerce II: the transport gap is closed, and exercised as far as an auth wall allows
+
+Merged from an isolated worktree. Boundary clean. Secret scan on the diff: the only match is
+`keystring="keystring-value"`, a test placeholder. **Nothing activated, nothing deployed,
+nothing spent, nothing exists on Etsy.** 15 + 27 + 14 + 18 + 24 + 13 checks re-run green by
+the integrator.
+
+### Built
+
+`uploadListingImage`, with a finding the audit could not have produced: **the old transport
+hard-coded the multipart part name `file` for every upload. Etsy's parameter is `image`.**
+That is a well-formed request in which Etsy finds no image — it would have failed silently on
+launch day. `updateListing` as PATCH (not PUT/POST), form-encoded, whitelisted to Etsy's 24
+writable fields. `activate` implemented and **triple-gated** — phase, owner authority, and a
+Launch-0 authorisation string passed to the call — **and never called against Etsy.** OAuth
+authorization-code grant with PKCE, refresh, and token rotation persisted via callback rather
+than to the repo (the static token was a day-two failure: Etsy's access token lives one hour).
+Per-endpoint encoding channels, so the Content-Type header cannot disagree with the bytes.
+
+**A second finding of the same kind: `updateListing` has no `price` property at all.** Price
+lives in `updateListingInventory` — PUT, and genuinely `application/json`. Sending a price to
+`updateListing` returns **200 and changes nothing.** Refused client-side with that
+explanation.
+
+### What is PROVEN, and by what
+
+Three live requests to Etsy's `openapi-ping`, CA$0, creating nothing — **the first Etsy call
+this system has ever made.** They establish: Etsy is reachable from this environment through
+our own transport; Etsy itself confirms the `keystring:shared_secret` header format; a bad key
+returns **403, not 401**; and **Etsy refuses on the API key before reading a body**, which
+means no unauthenticated request can ever confirm an encoding.
+
+Against `tests/fake_etsy.py` — a real HTTP server built from Etsy's OpenAPI and its two real
+error strings, bodies parsed by `parse_qsl` and Python's `email`, reached through the real
+transport — the full sequence is green: **11 of 11 fields matched on read-back, state=draft,
+1 image, shop empty afterwards.** A JSON body on a form endpoint is **415**, so the old
+encoding was contract-INVALID rather than merely unusual. An image in a part named `file` is
+**400**. A `quantity` PATCH returns **200 and changes nothing**, caught only by read-back.
+PKCE matches RFC 7636's published vector.
+
+### The epistemics, which are the best part of this work
+
+`listing_schema.gaps()` keeps the image and encoding gaps as launch blockers, but **rewritten
+from "this system does not do it" to "Etsy has never confirmed that this system does it
+correctly"** — plus a third: nothing has ever authenticated against Etsy. That is the correct
+distinction and it is the one this codebase keeps having to relearn. A fake server proves the
+contract we believe in; it cannot prove the contract Etsy has.
+
+Also corrected: **`publish()` reported `published=True` for drafts that could never go live.**
+It now reports `activatable` separately, today's call is not activatable, and a test asserts
+it. No caller supplies image bytes yet — listing imagery is a release artefact and the bytes
+are not durable without object storage, which is an existing owner decision.
+
+### OWNER ACTION REQUIRED — 15 minutes, CA$0, no fee
+
+**Authorise the Etsy app once in a browser.** Register app → set the exact https callback →
+put `ETSY_KEYSTRING`, `ETSY_SHARED_SECRET`, `ETSY_REDIRECT_URI` in the environment → open the
+authorize URL the probe prints → capture `ETSY_REFRESH_TOKEN`. Detail in §5.1 of
+`research/ETSY_TRANSPORT.md`.
+
+**Why it must be you:** Etsy has no key-only route to a write scope. The department did not
+attempt to work around it, which is correct. **No fee is involved — Etsy charges on
+publication, which none of this work performs.** Consequence of waiting: every write remains
+unexercised against the real API, so the three launch blockers stay open on evidence rather
+than on capability.
+
+### Recorded, not fixed
+
+`test_deploy::test_scheduler_tick_endpoint_is_idempotent_within_a_window` reportedly fails
+inside the suite and passes in isolation. **Verified passing in isolation by the integrator
+(exit 0); the in-suite behaviour is under test in the full run now.** Same family as the
+expiring test fixed earlier — a check whose result depends on conditions it does not state.
+Recorded rather than omitted, and not yet diagnosed.
+
+## 2026-09-25 — Two claim defects and Reliability II
+
+### Make-time could not see how many pieces the pattern makes
+
+`Component.make` is the CIR's statement of multiplicity — `writer` prints "(make 4)" from it,
+`assembly` counts copies from it — and `seasonal.leadtime.estimate_make_hours` never read it. A
+twin holds *one* instance of a component, so **a set of four coasters reported 1.1 hours for a
+make of about four and a half**: the figure that decides whether a customer can finish before
+the event, and the figure a listing quotes to a buyer.
+
+Two corrections existed for it and both were wrong. `launch0.make_time` multiplied afterwards —
+but built a twin for the **first component only** and multiplied that by the total piece count,
+so a body-plus-two-ears product counted the body three times and the ears not at all.
+`calibrate_from_samples` did not correct at all, **and it is the only route from assumed to
+measured**: a tester who crocheted a set of four and reported four and a half hours would have
+established a stitch rate four times too slow, wearing the `measured` label, with every seasonal
+launch date in the company derived from it.
+
+Defaulting an absent count to one is what made all of that possible, so **there is no default**.
+`makes` is a required keyword; a component missing from it raises; a repeated twin raises
+(multiplicity belongs in the mapping, not in a duplicated piece); `makes_of(cir)` and
+`estimate_for(cir, result)` are the supported ways to build it so a caller cannot forget.
+`MakeTimeEstimate` carries `pieces` and a per-component breakdown, because a total is
+unauditable on its own.
+
+The old launch0 test asserted `hours_total == hours_per_piece * 4` where `hours_per_piece` was
+the figure the total had been computed from — **true for any number at all**, and it passed
+throughout the period when the function was counting the wrong component. It now checks against
+an independently computed single-piece estimate. The calibration regression is tested end to end
+through a real DB sample, against both the correct rate and the four-times-too-slow one.
+
+### "No long floats for small fingers to catch"
+
+The Cloudline baby blanket's designer note. A float is the resting colour carried across the back
+of a row; this fabric works one colour per row and carries the resting yarn up the side edge, so
+**there is no float in it anywhere**. The sentence was literally true and described stranded
+colourwork — and it did so as reassurance about a child's safety, attached to a hazard the
+product does not have, which teaches a buyer to read our safety wording as decoration.
+
+Nothing could see it for the usual reason: `certify` ran the claim checks on the title and ran
+only the originality check on the notes, three lines down the same document. **The checker
+existed, the twin held the fact, and the text carrying the claim was never passed in.**
+
+`check_technique_claims` now runs on `cir.designer_notes`, with a float rule derived from the
+twin's own cells (`rows_working_more_than_one_colour`) rather than from the colour count. No CIR
+can reach the permitting branch today — `Row` carries one `color` field, so intra-row colour
+waits on the per-stitch colour primitive — so the test builds that twin by hand, keeping the
+branch live code rather than a condition that is true by accident.
+
+`check_shape_claims` is deliberately **not** run on the notes, on measured grounds: across all 16
+catalogue patterns it fires on the pet snuggle mat ("suited to baskets and pillows"), and an
+intermediate version of this work failed `test_seasonal_cycle` at certify, because
+`creative.prototype` authors notes from a vocabulary containing "a storage basket", "a tote", "a
+small pouch", "a cosy or sleeve" — every one describing an intended form rather than claiming to
+be one. That check is written for a name. Separating the two readings in prose is parsing English
+rather than measuring fabric.
+
+The note now says what the fabric is. The first correction ("a relief rather than colourwork")
+was refused by `launch0.fabric_truth`, which matches the word anywhere and cannot read a
+negation — correctly, for the same reason the float claim was wrong.
+
+### Reliability II merged (department work, integrated and re-verified)
+
+Boundary clean; secret scan of the diff found nothing; CA$0 spent; production read GET-only.
+
+- **Gallery cadence derived from the ceiling rather than a constant.** `GALLERY_BATCH = 25` is
+  gone; the batch is computed each run from `market_radar`'s remaining daily ceiling and the
+  cadence's own period, using the same padded estimator `check_budget` enforces with. **5
+  images/run, 60/day, ~CA$2.04 measured (~CA$3.74 padded) inside CA$4.00**, down from 300/day at
+  ~CA$8.70. Divisor is runs-per-day, not runs-left-today: a shrinking divisor produces a
+  60-image run at the end of a quiet day, which outlives the 5-minute job lease and can be
+  reclaimed and re-driven — duplicate spend through the recovery path.
+- **Per-agent ceilings enforced before the call, as permissions.** Monthly checked first because
+  it is the budget; the agent refusal says it is a permission, how much month remains, and that
+  work resumes next UTC day — never "use a cheaper model". A spender with no `Agent` row gets no
+  invented ceiling. This is the owner's D1 ruling in code.
+- **Durable aggregate reservation** (`spend_reservations`), the audit's last unbounded overshoot.
+  TTL 300s above the 60s gateway timeout; an expired reservation counts for nothing, so a dead
+  holder costs a bounded over-reservation rather than a permanent phantom charge — and it is
+  still reported (`reservations_expired_unreleased_cad`), because that number is the evidence a
+  call site does not release what it takes.
+- **Temp files at all ten sites**, via `core.workspace.work_dir`. Three cannot be a plain `with`
+  and the write-up says why; `images.generate` and `motif_fidelity.chart_image` now refuse rather
+  than invent a directory, and that refusal identified the two callers production's `generated-`
+  directories actually came from. `health.TEMP_PREFIXES` gained six prefixes that were already in
+  production and uncounted, and a test scans `src/` for any prefix the disk signal has not heard
+  of.
+- **Retention** (`ops/retention.py`, daily cadence) — three rules rather than one horizon.
+  Protected actions are never deleted at any age, each naming the reader that makes it evidence,
+  including `image.benchmark`, which `image_bench.spent_to_date` sums over all time to enforce
+  the owner's cumulative CA$50: pruning it would rebuild the exact defect that ruling closed.
+  The two newest rows of every action survive whatever the horizon, so no "latest row" reader can
+  be made to answer differently. Job horizon 45 days, which a test proves exceeds the longest
+  cadence period (30d) — otherwise an idempotency key is freed while its window is open. `apply`
+  refuses to run at all when the code reads an audit action the policy has no decision about.
+  `plan()` and `dry_run` exist, so the decision can be read before it is taken.
+
+**Needs the deploy to create one additive table** (`create_all`; no manual step). After it,
+`reservations_expired_unreleased_cad` is the number to watch: anything but zero is a call site
+not releasing.
+
+**Left for other owners, recorded not fixed:** `visual/inspect.py:246` needs an agent/purpose
+and a release; `visual/model_registry.py`, `photoreal.py`, `tournament.py` and `bible.py` call
+`spend_report.record` and never `check_budget`, so they are **not ceiling-checked at all** —
+the same shape as the audit's §2, in Visual-owned files.
+
+### The reported in-suite-only failure did not reproduce
+
+Etsy/Commerce II recorded `test_deploy::test_scheduler_tick_endpoint_is_idempotent_within_a_window`
+as failing inside the suite and passing in isolation. In the full run of 2026-09-25 it passed:
+**test_deploy 32 of 32, exit clean, inside the suite**. Recorded as not reproduced rather than as
+fixed — nothing was changed to address it, and a failure that cannot be reproduced has not been
+explained.
+
+## 2026-09-25 — Deliverable QA II merged: both terminologies ship, and the UK document was wrong twice
+
+Boundary clean; secret scan found nothing. `runtime/release.py` was edited by both this
+department and Reliability II; the merge is clean and verified — `work_dir` survives at all five
+sites and `handle_assets_build` reads coherently. 41 + 39 + 33 + 18 checks re-run green after the
+merge.
+
+### The listing claimed two documents and one shipped
+
+`assets.build` rendered `pattern-us.pdf` alone while the listing title said "US and UK Terms",
+the description said "US and UK terminology", the FAQ said "the UK equivalent for every stitch in
+the key" and a Pinterest pin said "US and UK terms". **A live customer-facing falsehood**, fixed
+by shipping what is claimed rather than narrowing the claim. Both documents are now rendered,
+stored and attached, keyed on `pdf.TERMINOLOGIES` / `pdf.pattern_filename` — neither `assets` nor
+`store.publish` names a file any more. The FAQ line was false in its own right and is corrected:
+a key lists one terminology's tokens.
+
+### Two defects a localised *token* cannot reach, found by rendering and reading the UK PDF
+
+- **Every UK PDF stated its gauge "in sc" on the cover and "in dc" on the instructions page.**
+  One gauge, two stitches, one file. `cir.gauge.stitch_type` is a US abbreviation and only
+  `cir.writer` localised it; `publish/pdf.py` printed it raw in three places. `sc` is not a UK
+  abbreviation at all, so it was also a word the document's own key could never define — a UK
+  maker resolving it swatches a treble, **three times the height the gauge was measured at**.
+- **Every special-stitch method said "double crochet"** — in UK terms the stitch a US pattern
+  calls single crochet, **half the height**. A UK document whose token was correctly localised to
+  `fptr` then told the maker, in the paragraph that teaches the stitch, to finish it as a double
+  crochet. `unlocalised()` cannot see this: it renders ops through the writer and never sees a
+  method paragraph. `METHOD` now holds no stitch name at all — each arrives as `{dc}` resolved
+  from `cir.stitches` — and the guard is on the templates rather than on a render, because
+  "double crochet" is simultaneously the right word and the wrong word.
+
+### The licence had four copies, not three
+
+The fourth was **the PDF — the copy the customer keeps** — and it granted an *unlimited* right to
+sell finished items and *no* teaching right, against a decision saying the opposite on both.
+Requirement 40's consistency check could not see it because it was called with
+`terms.render(terms, "pdf")`: the decision rendered *for* the PDF surface rather than the PDF.
+`commerce.terms.BRAMBLELOOP_TERMS` is now the canonical Launch-0 licence in source, the PDF
+constant is deleted, and the consistency check runs on text extracted from the real document,
+with a companion case proving it fails on a hand-written surface. That closes owner decision D4's
+"eliminate divergent copies".
+
+On D4's timing: **no concrete legal reason was found that review must precede first sale** — own
+copyright work, own jurisdiction, no regulated disclosure. `enforceable` stays False and the page
+says so; review is scheduled before material scale.
+
+Side effect worth its own line: printing the terms next to the support paragraph showed the terms
+promising questions "answered by email". **There is no support mailbox.** Corrected.
+
+### Findings ranked, and two more instruments that could not fail
+
+- **The chart showed a repeat the pattern does not have, at 1.9 mm per cell.** `detect_repeat`
+  required a row period that divides the row count and starts at row 1; **8 of 16 designs satisfy
+  neither**. The cabled throw's chart read "one repeat: 8 stitches wide and 121 rows tall" three
+  pages after "Repeat rows 2-5 29 more times", and rendered as a 16 mm ribbon down a 216 mm page.
+  It now asks `cir.rowcycle`, the detector the written pattern already collapses to. Cells went
+  **1.9–4.3 mm → 5.1–7.5 mm** catalogue-wide.
+- **Nothing measured the chart's type size** — it is pixels in an image, so the source fixture
+  cannot see it — and the gate standing in for it was `full_cols > 48`, which the 48-stitch table
+  runner failed by one stitch. The floor is now derived and measured where the cell lands on the
+  page.
+- **`undefined_tokens` could not come out badly**: it built the key from the text it then checked,
+  with `pragma: no cover` on the unreachable branch, under a docstring calling itself "the check
+  that matters", and ran on one section of eight. Now runs on the whole document against the key
+  actually printed, in both vocabularies.
+- The document told the maker to follow a colour key that existed only as pixels, and the sentence
+  saying where to look described squares to readers of a round chart. `sc` and `cable1x1` drew the
+  same glyph. The chart's small type was 4.48:1 against a floor the rest of the document had been
+  raised to. The colour cue's legibility was a lightness threshold rather than a measurement —
+  3.9:1 on plain mid-grey, on the feature that exists for makers who cannot use hue.
+
+### Still open, recorded not fixed
+
+The round chart's readable unit (ring width) is not measured — returned as `cell_mm: None` so it
+reads *not applicable* rather than *checked*. Chart row and column labels sit just under 9pt. The
+legend image still bakes its text into pixels, with both keys now in text elsewhere and pointers
+to them. `twin.calibrated` is False catalogue-wide. `TwinModel` exposes only a total height, so
+milestones still interpolate linearly, and `stitches.Stitch` still has no crossing direction —
+`PDF_CABLE_DIRECTION_UNSPECIFIED` remains the only problem any catalogue document reports. The
+last two are `cir/**`, which the Visual Department owns.
+
+## 2026-09-25 — Wave 3: the children's statement set ships, and the drape energy is not a material energy
+
+Both Wave-3 lanes returned, were reviewed, merged and re-verified. Boundaries clean on both;
+secret scans found nothing; CA$0 spent by both.
+
+### Children's Safety Deliverable — the last deliverable gap on two of three Launch-0 products
+
+`required_statements()` computed an obligation that nothing consumed. It is now rendered on its
+own page of the customer document, in both terminologies, for children's products only, and
+**gated on the rendered document**: `build_pattern_pdf` extracts the text from the finished bytes
+and refuses if a required statement is missing. Refusal rather than a `problems` entry, because
+`runtime/release.py` audits problems **without blocking on them** — a finding would have been
+recorded and shipped.
+
+- `STATEMENT_SET` holds obligation, heading, customer text, marker, source and derived facts;
+  `STATEMENTS` is now **derived from it** rather than maintained beside it, so the obligation and
+  the sentence cannot drift. The ten obligations are byte-identical to the old table.
+- The facts are derived, not typed per product: audience band, finished dimensions from the twin,
+  colours, fibre, compile date. One table gives the blanket "79 x 97 cm … acrylic" and the basket
+  "15 x 9 cm … cotton".
+- Seven of ten statements cite a `SOURCES` entry. **The three that cannot print "Source: none.
+  This is Brambleloop Studio's own practice rather than a published rule."** That is the right
+  answer and it is the one a lesser version of this work would have papered over.
+- Measured: 8 documents (3 basket variants + 1 blanket, US and UK) each carry all five required
+  statements by pypdf extraction; `harvest-table-runner` carries no statement marker at all.
+
+**16 CFR 1500.19 — the caveat is discharged, and the constant was wrong.** The old
+`CHOKING_WARNING` read as one line with a spaced hyphen and a full stop the rule does not set;
+1500.19(d)(1) requires at least two lines, so it **could not have satisfied the rule it quoted**.
+Three primary retrievals on 2026-09-25 (eCFR, 15 U.S.C. 1278(a)(2), and the 1995 Federal Register
+bitmap `ER27FE95.001`, sha256 recorded) confirm the regulation renders the statement as an image
+and that no machine-readable copy exists. The text is now the rule's three lines — and it is
+labelled a **transcription of a bitmap, a weaker instrument than reading prose**, under a new
+retrieval kind `RENDERED_IMAGE` that is deliberately kept out of `unfetched_sources()` so a page
+that was read is not reported as unread. Nothing ships on the safety alert symbol (a glyph, not a
+string); neither Launch-0 product is in the 3-to-6 band that needs it.
+
+**The fibre blocker, diagnosed rather than papered over.** `cir.model.Material` still records no
+fibre. The fibre *class* is nevertheless already customer-facing and already parsed out of
+`Material.name` by `publish/substitution.py`, so it is read from there against the same closed
+vocabulary — and the statement says in as many words that it names **the fibre the pattern was
+written for and not a fibre content for the finished item**, because the maker's yarn decides
+that. It fails closed: a material naming no recognised fibre makes the render refuse. The CIR
+change is specified for the Visual/CIR owner rather than made: `Material.fibre_content`, validated
+to sum to 100 when non-empty, defaulting empty so an omission is refused rather than assumed.
+
+**`statement_rendering_gap()` was the wrong instrument** — a grep over source files answers "does
+a file mention the topic", which a *comment* satisfies, so it would have reported the gap closed
+on a false pass. It now renders every Launch-0 children's variant and reads the extracted PDF
+text; the old reading survives under `source_grep` with its limitation named.
+`childrens_view()["as_built"]` was passing a hard-coded `()` — honest when nothing was rendered, a
+constant that could not notice the gap closing.
+
+**Listing copy** carries only what a buyer needs before they pay (age suitability, safe sleep,
+selling finished items, and the choking statement where required), each exclusion recorded with
+its reason, printing the statements' own words — requirement 40's four-divergent-licences lesson
+applied to safety text. Deliberately not claimed: 15 U.S.C. 1278(c)'s advertising requirement
+attaches to a toy, and **we sell a PDF**; the statement is on the list for our own
+gift-suitability reason and the module says so.
+
+**Then the caller's side, which was mine:** `handle_listing_seo` passed neither the statements nor
+the audit, so the live chain would have built a children's listing with no safety section and the
+auditor would have failed it at the *end* of a release. Fixed, and checked on a listing the real
+pipeline produced — reading the CIR back out of the warehouse rather than rebuilding it, because
+the defect was in the wiring and a unit test of either end would have passed throughout.
+
+**Recorded, not fixed:** `nordic-forest-mosaic-throw-baby` is a children's title with **no
+children's assignment**. It would render with no safety block while every other gate passed, and
+it does not ship only because it fails the colourwork gate — **luck, not design.**
+`childrens_titles_without_an_assignment()` now reports it. That is a merchandising decision for
+the owner: assign the audience or change the name.
+
+### Visual wave 3 — the bending energy is not a material energy, and the cantilever cannot converge
+
+Milestone D **remains FAIL**, nothing weakened, no threshold moved,
+`CALIBRATED_BENDING_N_M2` unchanged, every new option defaults off, `test_drape` 55 → 102 checks
+with nothing deleted.
+
+**The defect, which I reproduced independently on my own build before merging:** the rest
+curvature is stored as a world-space second difference, so *turning finished cloth without
+deforming it costs energy*. Pure translation reads **1.535e-33 J**; a 5° rotation reads
+**9.881e-06 J**, the equivalent of lifting every stitch **1.1717 mm** — against **1.586 mm** of
+droop from the entire gravitational drive of the standard solve. It grows as 1−cos θ, so it is a
+spring, and the penalty scales with how curved the rest state already is. A crochet loop is
+nothing but curvature (mean turning angle 1.394 rad). **An energy that charges each stitch for
+turning, in proportion to how much of a stitch it is, is an energy that holds rows rigid** — the
+corrugated-relief symptom, finally stated as a mechanism rather than a look.
+
+**The cantilever cannot be converged, established rather than assumed.** The implemented bending
+force is the second difference *once*, where the gradient of the documented energy is the second
+difference *twice* — settled by central differences: the analytic gradient matches to 3e-8 while
+the implemented force differs from it by 69% of the gradient's norm, with the opposite sign at 3
+of 18 components. A second difference once is a **string under tension B/l²**, not a beam, and a
+string clamped at one end has no shallow equilibrium. Measured to **51,200 iterations**: 32.4 mm
+out of plane on a 57.5 mm swatch, still falling, 44% of the way to its own force law's
+equilibrium. **A collapse in progress, not an unsettled drape** — more iterations will not fix it.
+
+**B re-derived by an instrument with nothing to converge** (impose a cylindrical curvature,
+evaluate the energy in closed form, invert ASTM's own `G = W g c³`): linear to 1.0004 over a 4×
+curvature sweep. It immediately showed why no bending length from this model was ever a material
+property — world-space bending length grows with swatch size (57.6 mm at 5×5 to 98.5 mm at 12×10,
+same yarn, same B) while the frame-invariant one holds at 21.56 mm across all four sizes. The
+honest answer for B is **a bracket, 1.24e-7 to 1.27e-6 N m², 4× to 42× the committed value**, with
+three stated conditions: frame invariance on, bend direction (1.60× anisotropy), and whether the
+87 artificial hops count (worth 10.2×). The constant was **not moved** — a 10× bracket is not a
+calibration, and moving it moves every committed result. Wave 2's INFERRED "a convergent
+calibration would demand a larger B" is confirmed and quantified. The withdrawn "1.45× the
+free-fibre floor" cross-check was still being asserted in three places in `drape.py`; all three
+now record the withdrawal instead, and it is restored nowhere.
+
+**Every Product Truth lock re-run on real geometry**, on the 5×5 and on a 10×8 (1494 vertices —
+the larger swatch queued), including two configurations the validators had never seen: the fabric
+wrapped round 500 mm and 125 mm cylinders, curved everywhere and planar nowhere. Every stitch
+stays linked and shaped, the topology gate passes, and **intrinsic width moves −0.0000% under a
+pure bend while every stitch moves** — the intrinsic/projected separation holding exactly, which
+is the whole reason those are two quantities. **No validator was passing because the fabric was
+planar.** The larger swatch behaves like the small one on every lock, and its within-row relief is
+*lower* (0.0031 against 0.0083), consistent with rotational stiffness dominating.
+
+**A new lock finding, recorded rather than patched:** with frame invariance on, the product's
+validity is **not monotone in the iteration count** — valid at 100, broken at 200/400/800, valid
+again at 1600, broken at 3200 and 6400. Same at the derived B, so it is geometry rather than
+stiffness or the instrument. **Every Product Truth lock is evaluated at the END of a solve and
+therefore cannot see a solve that passed through a broken product.** That applies to the committed
+default too: nothing establishes its descent is monotone in validity, only that the endpoints
+tested are valid. Continuous per-iteration validation was not added because it costs a topology
+pass per iteration, which is the dominant cost of the solve.
+
+**The missing mechanism, named:** there is **no tensile linkage between stitches**. Contact is
+purely repulsive — `_segment_contacts` returns only pairs closer than `rest_sep`, so
+`apply_contacts` can only push apart. Nothing represents a stitch being *pulled through* the loop
+below it, and in the committed model that cohesion was being supplied **accidentally** by the
+spurious world-frame rotational stiffness, which is exactly why removing it everts free-edge
+stitches. **The linkage exists as a `validate` check and not as a force.** Falsifiable, needs no
+Stage 0, and is not Stage 1.
+
+**Two corrections to the Wave 2 record** (numbers, not results): the solver's length scale is
+4.0860 mm, not the recorded 3.1427 mm, because `drape()` takes the median over the whole path
+including artificial hops — a factor of 2.20 on every prestress ratio derived from it, which makes
+Wave 2's headline "Kaldor bounded prestress = 2.22× gravity" read **1.010× gravity**. Kaldor's
+bound and gravity on a vertex are equal to within 1% on this fabric, a cleaner version of Wave 2's
+own finding. No Wave 2 result is withdrawn.
+
+Per-stitch colour in `cir/**` was **not started**, correctly: it changes the CIR contract across
+the dataclass, the compiler's count arithmetic, the writer, the independent reverse compiler
+(decision B-005 forbids shared parsing, so it needs its own colour grammar), the twin, the chart
+renderer and eleven existing CIRs, and a half-changed contract is worse than an unchanged one.
+
+## 2026-09-25T08:15Z heartbeat — one value that meant both "no" and "nobody looked"
+
+Lease acquired and pushed. Production verified before any work: `/api/verify` **12 of 12**,
+health `ok` on the deployed commit, worker alive. Reliability II's new mechanisms are live and
+quiet — `reservations_expired_unreleased_cad` **0.0**, `reservations_live` **0**,
+`temp_dirs_left_behind` **0**, which is the reading that would have shown a call site taking a
+reservation and not releasing it.
+
+### The gate this closed
+
+`childrens_assignment` returned `None` for two different states: a candidate that declares no
+children's sub-category, which is a **decision**, and a slug no candidate mentions at all, which
+is an **omission**. The renderer keys the safety block on that answer, so on the second reading a
+document titled "(Baby)" rendered with no safety statements — silently, with every other gate
+passing. One value meaning both a "no" and a "nobody looked", which is this codebase's recurring
+defect wearing its plainest form.
+
+`nordic-forest-mosaic-throw-baby` was that product, reported by the children's lane yesterday as
+a merchandising decision for the owner. It is **assigned** now (`baby_blanket`, `under_3`) rather
+than exempted: a baby blanket is a baby blanket, and the title is the merchandising decision
+already made by whoever wrote it. It renders at 9 pages carrying its full statement set, verified
+by extraction from the rendered document.
+
+`childrens_decision()` separates the three states — ASSIGNED, NOT_FOR_CHILDREN with a reason,
+UNDECIDED — and `build_pattern_pdf` **refuses** the undecided case. That does not decide an
+audience; the catalogue is where that belongs. It requires that somebody did, as an assignment or
+as an exemption with its reason, and the refusal names both places to put it. Two sources for one
+product's audience are checked against each other rather than silently merged.
+
+The survey check is kept and **turned around**: an empty survey and a broken survey look
+identical from outside, so it now removes the assignment and shows the survey finding the original
+product again. One existing fixture changed its title along with its slug, because "Cloudline
+Textured Baby Blanket" under an unassigned slug had become the exact case the refusal exists for;
+the property it tests is unchanged.
+
+### Still open
+
+- **`Material.fibre_content`** in `cir/**`, specified precisely by the children's lane. Until it
+  lands, the fibre statement names the fibre the pattern was *written for* and says so.
+- **OWNER ACTION, unchanged:** authorise the Etsy app once in a browser. 15 minutes, CA$0, no
+  fee. Detail in `research/ETSY_TRANSPORT.md` §5.1.
+
+## 2026-09-25 — Wave 4: three lanes integrated, and the coordinator was calling failures clean
+
+Lanes E, C and B merged and re-verified; A (tensile linkage) and D (chart/legend) still running.
+Boundaries clean on all three, secret scans clean, CA$0 spent by every lane.
+
+### The coordinator was reporting failed jobs as COMPLETE
+
+`board.py` decided the exit code by **pattern identity**: `code = int(...) if end.re is _EXIT
+else 0` — an `is` test on a compiled regex object. So **every job told about its own sentinel
+convention reported exit code 0 and read COMPLETE however it exited.** `SUITE EXIT 1` was a clean
+pass. I reproduced it independently before merging: a job exiting 1 under its own sentinel read
+`complete`, `exit_code 0`. A failing job reading COMPLETE is the worst answer that module can
+give, and it was in the module built to stop verdicts being computed from absent evidence.
+
+Also found there: **"it is in the branch" was erasing "its suite failed"** — integration became
+the headline and overwrote the evidence state. `evidence_state` now travels beside `state`, so
+merged work whose suite failed stays in `needs_attention`.
+
+### Lane E — the night is durable now
+
+`ops/registry.py` plus `ops/JOBS.json`: identity, lane, evidence **location**, the job's own
+sentinel **convention** (not cosmetic — `NO_SENTINEL` exists because a job can finish under a
+convention the reader was not told about), process marker, container identity at enrolment, git
+coordinates, and acknowledgement. **No state, status or verdict is persisted** — a stored verdict
+is a watcher's state, which is the one thing the rule forbids — and a test asserts the file
+contains no such key.
+
+Two states only a durable record can express, both computed: `INTERRUPTED` (recorded container
+differs **and** no sentinel — which also closes the self-match defect in its restart form, where a
+new job carrying the same marker would have made the old one read RUNNING) and `EVIDENCE_LOST`
+(the recorded log is gone across a restart — not MISSING, and emphatically not COMPLETE).
+`INTEGRATED` is `git merge-base --is-ancestor`, re-asked every read, with a recorded commit
+outranking the branch tip because a squash leaves the lane's own commits unreachable; a branch
+reset after the merge reports `INTEGRATION_UNVERIFIED` rather than continuing to assert
+INTEGRATED. Where integration cannot be computed it says `unknown`, **not** not-integrated.
+
+The restart regression test demands the survey from a genuinely fresh interpreter with one lane's
+log deleted, and it fails against this morning's code: `ModuleNotFoundError` — there was nothing
+durable to import. 21 existing checks untouched, 65 new.
+
+### Lane C — the one authenticated round trip is prepared, and a fake run promotes nothing
+
+Eight ordered steps with a sweep at step 0 that deletes any draft a previous run stranded, which
+is what makes it safe to attempt twice. **50 failure signatures** across 7 steps — ENVIRONMENT 18,
+ETSY_CONTRACT_DRIFT 12, OUR_BUG 12, CONFIRMED 8 — each naming the single change that follows. No
+entry says "investigate", and a test asserts that.
+
+The signature that justifies the whole exercise: a comma-joined tag list Etsy misreads returns
+**201, and Etsy holds one tag containing a comma**. No status code anywhere says anything is
+wrong; only the read-back sees it.
+
+Three states are kept apart in the code, in `gaps()` and in the report:
+`verification_matrix()` **refuses** to emit VERIFIED_AGAINST_ETSY for a claim with no recorded
+observation, and promotion requires both that requests went to `openapi.etsy.com` **and** that the
+confirming signature fired — **so a perfect run against the fake promotes nothing, and that is a
+test rather than a convention.** Today: 4 IMPLEMENTED, 4 LOCALLY_TESTED, 4 VERIFIED_AGAINST_ETSY,
+and the four verified are exactly the four unauthenticated ping facts, none about a write.
+
+Secrets are scrubbed by field name and by value, seeded with the credentials the process holds,
+fingerprinted the way the reprs already were — proved by a test where the fake echoes the
+`Authorization` header back inside an error body.
+
+### Lane B — no Visual call gets a special exemption
+
+Seven provider calls across five modules each wrote a ledger row naming an agent and **none told
+the pre-call guard which agent it was**; four of the five never called `check_budget` at all. All
+seven now check and release through the one durable mechanism.
+
+**A defect Lane B's own change would have introduced, caught before it landed:** `BudgetExceeded`
+is a `PermanentError`, and `tournament.generate_candidates` already caught `PermanentError` per
+candidate and continued — so adding the guard would have recorded a ceiling refusal as *that
+candidate screened badly* and rendered the next one, paying for an image to ask a question the
+budget had already refused. In `stress_test` it was worse: a finalist would have been
+**disqualified because the budget ran out**, on the run that decides the brand's permanent
+identity. Both now stop and report `stopped_by`, and a run with no judged scene floors at
+`unverifiable` rather than `fail`.
+
+**Measured, not asserted:** an AST scan of every module in `src/` — 15 provider call sites, 13
+guarded, the 2 exceptions pinned by exact equality in both directions. And the bigger finding:
+**image generation is outside the mechanism entirely.** 11 call sites in 9 functions, none passing
+through `check_budget` and **none able to** — it prices per token against `PRICES_USD_PER_MTOK`
+while an image is priced per image, and three image models are not in that table at all. Pinned,
+with an assertion that those keys are still unpriced, so the day someone prices them the test says
+to re-read the finding.
+
+`Material.fibre_content` is built: closed vocabulary, whole percents summing to 100, normalised
+descending **because `CIR.fingerprint` hashes `to_dict` and is the pipeline's idempotency key**, so
+declaration order would give one design two fingerprints. The reverse compiler has its **own**
+grammar per decision B-005 and reads back a hand-retyped line; `compare()` raises on a document
+that lost the composition, invented one, or attached it to the wrong yarn. **The eleven Launch-0
+CIRs get no values** — generic yarn descriptions with no ball band state no composition, so
+nothing is recorded, and empty means "not stated" rather than "no fibre concerns".
+
+### One value, two clocks — found by a check that expired
+
+`check_budget` threads `now` into a reservation's expiry; `release_reservation` could not take one
+and read the wall clock. A caller reasoning about a fixed instant wrote a reservation at that
+instant and released it against a different one, and `release` correctly answered False. Green in
+the configuration everybody runs, wrong in the one that reasons about time — and invisible until
+the frozen date drifted past the 300-second TTL, which is how it surfaced today. **Both lanes
+found it independently and diagnosed it identically.** Fixed in the code; the check now freezes
+both halves. A scan of `finance.reservations` and the gateway confirms no asymmetric pair is left.
+
+### My own dispatch error, corrected
+
+My Wave-4 brief named `brand/bible.py` where Reliability II had named `visual/bible.py`. Verified:
+`brand/bible.py` contains no provider call and no ledger write; `visual/bible.py` has the hole.
+Lane B was right to treat it as in scope, and Lane D has been told `brand/bible.py` is not fenced
+off after all — which lets it close its palette-duplication defect properly instead of handing the
+diff to somebody else.
+
+### `gates/first_customer.py` — built by the integrator
+
+Nine areas, four states, and it never authorises publication. Detail in DECISION_LOG. It found a
+first-customer blocker nothing had named: **`fulfilment_and_download` FAILs for every Launch-0
+variant** because `ArtifactStore.durable` is False in a container — a paid download that can
+resolve to nothing, which to a buyer looks like theft rather than a mistake.
+
+### Recorded, not fixed
+
+`test_deploy::test_scheduler_tick_endpoint_is_idempotent_within_a_window` failed **in-suite** under
+four concurrent lanes ("the readiness job never ran") and passes in isolation, 32 of 32. It did not
+reproduce in this morning's clean run. Load-dependent, not diagnosed, and not papered over.
+
+## 2026-09-25 — Lane A: the falsification returned NO, and found we have been measuring the wrong thing
+
+Merged. Boundary clean: exactly five files. Every new option defaults off except a
+measurement-only watch. **Milestone D remains FAIL**, nothing weakened, no lock or threshold
+moved. `test_drape` 102 → **124**, `test_crochet_topology` 34 → **43**, all 28 adversarial
+fixtures still REJECT.
+
+### The answer to the question that was asked
+
+**No.** Tensile stitch linkage paired with the co-rotational rest state does **not** produce
+materially more cloth-like behaviour. The force works exactly as derived — it holds the certified
+links shut, **1.75 mm of opening reduced to 0.040 mm** — and free-edge stitches still evert,
+**worse** than with co-rotation alone (+2.418 mm against +1.121; flat baseline −1.540, committed
+default −1.599). The force is **inert on the committed model**: margin identical to three decimal
+places, droop within 0.5%. No committed result moves.
+
+The force has **no free parameter**. It acts between each stitch's `pull_through` span and the
+anchor's own top-loop legs — the same arcs `validate` closes into the ring it measures the linking
+number against — and `certified_linkage_pairs()` is now the **single definition** of which stitch
+was worked into which, iterated by `validate` itself, so the relation the validator certifies and
+the relation the solver pulls on cannot drift apart. Its only number, the rest separation, is
+measured off the certified geometry. Blind to rigid motion (<1e-9 mm), opens by 0.0002 mm when the
+fabric is wrapped on a 125 mm cylinder so it does not fight conforming, and moves the fabric by
+exactly 0.0 mm when the rest separations are inflated — it is tension only.
+
+Eversion is **geometry, not the instrument**: the three failing stitches read +1.409 / +1.169 /
++0.875 in their own co-rotated frames with rigid-fit residuals of 1.68 / 1.48 / 1.52 mm on a 6.90
+mm pitch. Every one is in the **foundation row** — the free tip, and the one row with no certified
+linkage at all, because it was worked into nothing. The tensile link cannot hold what nothing was
+worked into.
+
+### The finding that reframes the programme, which I reproduced independently before merging
+
+**Switch gravity off and the frame-invariant fabric moves anyway.**
+
+| | gravity on | gravity off |
+|---|---|---|
+| committed model | 0.4123 mm rms | **0.0004 mm** |
+| frame-invariant | 0.7443 mm | **0.8140 mm** |
+
+It moves **more with gravity off than with it on**. That is not drape — it is a load-independent
+instability, and `within_row_fraction`, the metric this whole realism programme has been reading,
+**was measuring it** (0.1104 at zero gravity). The driver: **the certified relaxed fabric is not an
+equilibrium of `drape`'s own contact model** — 1.5000 mm clearance against a 2.0667 mm rest
+separation — and the committed model's only defence against that rearrangement is the spurious
+rotational stiffness wave 3 identified.
+
+So the next mechanism is specific, falsifiable, and needs neither Stage 0 nor Stage 1: **make the
+flat certified fabric an equilibrium of the solver it is dropped into.** Until it is, no experiment
+that removes the rotational stiffness can be read, because the first thing it measures is the
+fabric settling out of a state it was never in equilibrium in.
+
+### A second diagnosis: with the rest state in the vertex frame, the solve climbs
+
+Bending energy gained 1.03e-5 J while gravity releases 1.85e-6 J — **5.6× what drives it** — within
+50 iterations, then oscillating, where the committed solve descends monotonically. The *energy* was
+verified correct first (a 3-vertex chain charges co-rotational and world energies identically to
+1.00000 at every angle, and a pure 25° rotation costs 5.7e-37 J), so **the energy is right and the
+force is wrong**: the implemented term is a lumped Laplacian, and the co-rotational target moves
+with the configuration so the two chase each other. `energy_gradient_bending` (off by default)
+replaces it, and with it **eversion disappears and every lock passes at both swatch sizes**.
+
+### The non-monotone validity is the INSTRUMENT, and the lock was not touched
+
+Three independent lines. **No strand ever passed another, continuously**: min gap 1.5000 mm, cap
+exceeded 0, crossing impossible in every run, including the one reporting 17/20 linked — and a
+linking number between real closed curves cannot change without a crossing. The certified link had
+opened by only 0.0697 mm against rest separations of 2.18–2.48 mm. And directly: the three
+"unlinked" stitches are found linked by **52 / 57 / 50 of ~370 random closure directions**, while
+`_encirclement`'s structured ten find none. On correct geometry ~40% of directions detect; on
+deformed cloth 14%. **`_encirclement` produces a false negative on strongly deformed cloth.**
+Nothing about it was changed — diagnosis written first, defect pinned by a check, and enlarging the
+closure set left as owner-visible work on a lock all 28 adversarial fixtures are calibrated against.
+
+**The guard is cheap and it is monotone where the gate is not.** One topology pass 97.673 ms; one
+certified-linkage closest-approach pass **0.081 ms** — 1,200× cheaper, free against the solve.
+`watch_linkage` (on, measurement-only) records the worst opening over the whole run: 0.3083 →
+0.6465 → 1.1409 → 1.7527 mm, never falling, across PASS→FAIL→FAIL→FAIL→**PASS**→FAIL. **A run
+ending at 1600 iterations reports a clean gate and a 1.7527 mm worst opening.** Stated limitation:
+it sees a link opening, not a stitch's shape failing with its link intact; a continuous morphology
+guard would cost 2.168 ms/iteration and is deliberately **not** wired in, because a guard needs a
+decided policy for what it does when it fires.
+
+### Articulation
+
+Neither articulation nor mere displacement. A second measure was derived — `articulation_profile`,
+the second difference of the surface normal, exactly zero for a rigid panel and for a uniform
+cylinder — reported **with its measured floor** (flat 0.519°, 500 mm cylinder 0.720°, 125 mm
+cylinder 2.057°), and it **does not rescue the result**: gradient+co-rotation+linkage reads 1.619°
+against the committed default's 3.388°, i.e. lower.
+
+## 2026-09-25 — Lane D closes, Wave 4 complete: 3,894 passing / 0 failing
+
+All five Wave-4 lanes integrated and verified. Suite **3,894 / 0**, up from 3,726 this morning.
+
+### The flagship's chart was 1.21 mm a ring, and a `None` hid it through two audits
+
+`cell_mm` returned `None` for a round chart, which read as **not applicable** rather than
+**not checked** — the exact distinction the first-customer gate was built around, found in the
+wild the same day.
+
+| Launch-0 chart | ring before | round number before | after |
+|---|---|---|---|
+| nesting basket, large | **1.21 mm** | **2.1 pt** | 6.86 mm / 11.7 pt |
+| nesting basket, medium | 1.65 mm | 2.9 pt | 8.58 mm / 14.6 pt |
+| nesting basket, small | 2.53 mm | 4.2 pt | 11.44 mm / 19.5 pt |
+
+**Three times worse than the 1.9 mm flat chart that was the previous audit's headline**, on the
+flagship product. Two causes, each with a counterpart the flat chart already had: 46 of the 70
+rounds are a straight side wall drawn as 46 rings — *a picture of a disc the basket is not* — and
+every round repeats six identical wedges. Drawing one wedge of the shaped block puts the radius
+across the page instead of the diameter. The renderer now walks a ladder, predicts each rung from
+geometry so no oversized image is rendered to be discarded, and reports the number **measured on
+the image actually produced**.
+
+**The floor itself was derived from the wrong number.** `CHART_MIN_CELL_MM = MIN_BODY_PT / 0.62`
+where 0.62 is the *stitch glyph* — the largest type in the picture. A floor derived from the
+largest type certifies the one thing never in danger. Row numbers ran at 7.93 pt and the colour
+cue — the mark that makes a mosaic chart readable **without hue** — shipped at 6.61 pt. Floor now
+taken from the smallest mark; every piece of type in every catalogue chart now measures ≥ 9 pt on
+the page, tightest 9.20.
+
+**And the pointer that excused the baked-in legend was false.** The document said the stitch key
+"is also written out under Abbreviations" — and the Abbreviations page writes out abbreviations and
+has never carried a chart symbol. A maker who saw an **X** and followed that sentence arrived at a
+page with no X on it. The mark→stitch mapping existed in exactly one place in the deliverable, in
+pixels, behind a sentence. There is now a Chart symbols text section, built from `charts.GLYPHS`
+through `abbreviations` → `cir.stitches`, verified in both terminologies.
+
+Defect 4 (palette as RGB triples) **was not real** — already closed, measured, and its guard named
+only 2 of 6 literals, so the guard was strengthened to parse the module and fail on any brand
+colour written as a tuple.
+
+Also fixed: a colour key describing a chart not in front of the reader (all three basket variants
+showed a cropped chart with no letters under a key naming two), a round-chart footer naming marks
+it does not draw, and titles clipped once a chart fills the page.
+
+**Applied by the integrator from Lane D's diff:** `assets.build` stored a **second** chart of every
+product — `render_any_chart` at the default spec, i.e. the whole 70-round disc — so one release
+produced the legible chart inside the PDF and an illegible one with a URL on it. It now stores
+`publish.pdf.chart_image`, the one the buyer sees.
+
+### Two deploy checks, and one that passed by timing out
+
+Both enqueued a job and polled a background worker for 30–40 seconds. The first failed under four
+concurrent departments. **The second broke out of its wait when the owner-action count changed,
+then asserted the count had not changed** — so on a machine too busy to run the job it timed out
+with the count unchanged and passed for the wrong reason: "nothing duplicated" and "nothing ran"
+were the same observation. Both now drain the queue with a Worker, which is how `test_access.py`
+already drives this exact job; the idiom existed and this file did not use it.
+
+### Still open
+
+- **Found by Lane D, not fixed:** `publish/listing_assets.py::_chart_frame` renders the whole disc
+  for listing frame 6, captioned "every round, from the centre out", on a product that is a
+  24-round base plus a wall. Same defect as the one just closed, one module over.
+- The basket's wall rounds are described rather than drawn; a "where the bands fall" strip would
+  close it. Not Launch-0 blocking.
+- `TwinModel` exposes only total height and `stitches.Stitch` has no crossing direction — both
+  `cir/**`, and the latter is still the only problem any catalogue document reports.
+
+### An observation to pass on, outside the repository
+
+Three credential-shaped files (`.bflkey`, `.gkey`, `.oaikey`, dated 2026-09-21, mode 0600) sit in
+the machine's shared scratchpad directory. **They are not in the repository** — `git ls-files`
+confirms it, so the standing rule is not breached — and nothing here read them. A shared temp
+directory is still not where API keys belong, and whoever placed them should know.
+
+## 2026-09-25T16:15Z heartbeat — production healthy, one lane in flight, nothing else started
+
+Lease acquired and pushed. `/api/verify` **12 of 12**, health `ok` on deployed `15c378b`, worker
+alive. No failing check to fix, so the loop moved to the next highest-value action — which is
+already in flight.
+
+**The Etsy OAuth callback lane is building.** The owner went to the Etsy app's Callback URLs
+screen and asked for the exact URL to paste, and there was none to give: `OAuthApp.from_env`
+takes `redirect_uri` verbatim from the environment and validates only the `https://` prefix, no
+callback route exists anywhere in `src/`, six plausible paths return 404 in production,
+`exchange()` has no caller, and the PKCE verifier is process-bound. **The "15-minute owner
+action" this file has carried for two days was not completable**, which is an error in our own
+reporting rather than a change in the facts.
+
+**No parallel work was started this heartbeat, deliberately.** The lane owns `app/main.py`,
+`core/models.py` and `integrations/**` — files most of the tree imports — so a second lane would
+risk a merge conflict in production authentication code for no gain. The heartbeat's own
+instruction is to avoid spawning agents; the one that is running was authorised directly by the
+owner before this heartbeat fired.
+
+**No full suite was run this heartbeat, and the reason is that it would prove nothing.** The last
+run was green at **3,894 / 0** on `10d94af`, and the only commit since is a markdown file
+(`ops/ORG_BOARD.md`). `git diff 10d94af..HEAD -- '*.py'` is empty. A suite re-run over an
+unchanged tree is wall-clock spent to reconfirm a result that already holds; the suite will run
+against the OAuth lane's code when it merges, which is where the evidence is actually needed.
+
+**Verified independently against Etsy's current primary documentation** while the lane worked,
+so its output can be reviewed against the source rather than against its own account:
+`AUTHORIZE_URL`, `TOKEN_URL`, the 1-hour access token and the 90-day refresh token all match what
+Etsy documents today. That **resolves the token-host UNKNOWN** in `research/ETSY_TRANSPORT.md`
+§3.3 — Etsy gives `api.etsy.com`, which `TOKEN_URL` already leads with. It also confirms
+**refresh-token rotation is real** (Etsy's own example response carries a new `refresh_token`),
+upgrading that claim from inferred to sourced, and establishes that **Etsy does not document what
+happens when a refresh token is reused or expires** — so that path must be handled defensively
+rather than by assumption. Documented and exercised remain separate states.
+
+**Visual / crochet realism is OPEN and is not superseded**, on the owner's explicit instruction.
+Milestone D remains FAIL. Visual resumes at the identified next step — the certified relaxed
+fabric is not an equilibrium of `drape`'s own contact model — once Etsy authentication is proven.
+
+## 2026-09-25 — the Etsy OAuth callback exists, and the old owner action would have died on day two
+
+Merged and deployed. Suite **3,935 / 0**. `test_etsy_oauth_callback` 41, `test_etsy_transport` 44,
+`test_deploy` 32, `test_gates` 33, `test_continuity` 15, `test_health` 34 — all green.
+
+### The fifth gap, which nobody had written down
+
+Four were known: no callback route, `exchange()` with no caller, a process-bound PKCE verifier,
+and a `redirect_uri` validated only as `startswith("https://")`. The fifth was found by this lane:
+**`Credentials.from_env` built a `TokenProvider` with no `on_refresh`.** Etsy rotates the refresh
+token on every refresh — confirmed from Etsy's own example response — so a pasted
+`ETSY_REFRESH_TOKEN` would have worked for one hour and then presented a spent token after the
+next container replacement. `invalid_grant`, which looks exactly like a revoked app.
+**The owner action this repository has carried for two days described a credential that would have
+died on day two.**
+
+### The route, and why each piece is where it is
+
+`GET /api/etsy/oauth/callback`, one constant `etsy_authorise.CALLBACK_PATH`, plus operator-only
+`/start` and `/status`.
+
+- **The state is never stored — only its SHA-256.** The row is found by hashing what the callback
+  presents, so a `pg_dump`, a continuity export or a console session contains nothing replayable.
+- **The verifier is sealed** (AES-256-GCM, fresh nonce, context-bound so a sealed verifier cannot
+  be opened as a sealed refresh token). No plaintext fallback: with no key it refuses.
+- **`consume()` claims the row in one conditional UPDATE** (`consumed_at IS NULL AND expires_at >
+  now`), so the database decides and there is no read-then-write window.
+
+Five outcomes, each distinguishable from a proxy log with no bodies: missing state 400, unknown
+403, expired 410, replayed 409 with a replay count, unreadable verifier 503.
+
+**The completion end cannot carry the operator token** — Etsy redirects the owner's *browser*,
+which holds no bearer header of ours, and curl and the browser are different clients so a cookie
+would not survive. It is guarded by what it can check: a 32-byte `secrets` state this service
+minted and wrote down before returning the URL, claimable once within 15 minutes. Proved by test:
+six malformed callbacks, including one with a real-looking code, against a transport that raises
+on any call — **zero outbound requests**.
+
+### Where the refresh token lives, and why that split
+
+Sealed in `oauth_credentials`. A repository file is forbidden; a Railway environment variable
+cannot be rewritten by the app; a container file dies with the container. Postgres is the only
+durable store the service can write — **and Postgres alone is not enough**, because
+`continuity.export` serves every table as a download and `core/backup.py` runs `pg_dump`. Hence:
+**the key stays in the environment where secrets already live, the rotating ciphertext goes where
+the app can write, and neither half is a credential.** Excluded from the continuity export for a
+second, independent reason: two deployments restored from one export would both refresh the same
+single-use token and one would silently spend production's credential.
+
+`credential_health()` reports `openable`, which distinguishes *stored* from *stored and we still
+hold the key*.
+
+### A leak nothing in `src/` would have caught
+
+uvicorn's access log prints the request line, and **in this flow the request line is the
+credential** (`?code=…`). `app/access_log.py` filters `uvicorn.access`, reusing `http.SECRET_KEYS`
+and `http.fingerprint`; an ordinary log line is byte-identical.
+
+### Primary sources, fetched and verified by the integrator independently
+
+The token-host ambiguity in `research/ETSY_TRANSPORT.md` §3.3 is **resolved**: Etsy's requests page
+states verbatim *"The two hostnames are equivalent and you can use either."* I fetched that page
+myself and confirmed the sentence and its scope — it is said of v3 API endpoints generally, which
+the residual-doubt note beside the new constant records. `TOKEN_URL` stays the authentication
+page's host and a test asserts the live route sent its grant there **and nowhere else**.
+
+Also confirmed against Etsy directly: `state` is Recommended rather than required for a PKCE
+client; redirect matching is case-sensitive and exact; refresh tokens last 90 days and **a new one
+is issued on every refresh**. Recorded as **UNKNOWN rather than inferred**: Etsy does not document
+the authorization code's lifetime or that it is single-use — that is RFC 6749, not Etsy.
+
+### Adversarial tests, 41, including two injected defects
+
+Replay, wrong state, expired state, missing verifier, four malformed shapes, exchange failure on
+both 400 and 403 with **no credential written**, duplicate callback (200 then 409, one exchange),
+operator guard at both ends, and a full successful authorization through the real FastAPI route
+followed by sweeping every secret from the page, the audit rows, the credential row, `/status` and
+the access log. The injected defects: a naive read-then-write `consume` (both deliveries return
+ok) and `seal` replaced by the identity function (the verifier appears in the row) — each asserted
+to reproduce, then asserted refused by the real code.
+
+### Recorded, not fixed
+
+`core/backup.py`'s `pg_dump` carries the credential table as ciphertext, so that backup's security
+is the sealing key's. `http.TOKEN_SHAPED` recognises Etsy-shaped tokens only — deliberately not
+widened, because a redactor that eats ordinary fields gets switched off. A reverse proxy's own
+access log is unreachable from here, bounded by the code being single-use, short-lived and
+**useless without the PKCE verifier**, which never leaves the sealed database.
+
+**Nothing has been exercised against Etsy.** Everything above is our side of the wire, against a
+local model built from Etsy's document. That changes only when the owner authorises in a browser.
+
+## 2026-09-25 — VERIFIED: Brambleloop is authorised on Etsy
+
+The owner completed the browser authorization at about 17:24 UTC. **This is the first time this
+system has held a write credential for its own shop**, and the first Etsy OAuth exchange it has
+ever performed.
+
+Evidence, read off the callback's own success page (every token on it is an eight-character
+SHA-256 fingerprint; no code, access token, refresh token or verifier appears there, in the
+server log, or in the audit record):
+
+| | |
+|---|---|
+| outcome / verdict | ok / ok |
+| handshake / replays | **1 / 0** — the state was consumed exactly once |
+| scopes granted | `listings_r listings_w listings_d shops_r shops_w` — all five requested |
+| credential | **sealed in `oauth_credentials`**, `rotations: 0` |
+| token fingerprint | `***e6bddd89`, and the stored credential carries the same fingerprint |
+| key fingerprint | `***5f373132` — the deployment's sealing key opened it |
+| access token | 3600 seconds remaining |
+
+Production after the flow: `/api/verify` **12 of 12**, callback still 400 on a bare hit and 403
+on an unknown state.
+
+**What this does and does not establish.** It establishes that the authorization-code grant with
+PKCE works end to end against the real Etsy, that the redirect URI matches character for
+character, that our state and sealing machinery behave, and that Etsy granted every scope asked
+for. It establishes **nothing about any write**: no draft has been created, no image uploaded, no
+listing read back. Those stay `LOCALLY_TESTED` in `listing_schema.verification_matrix()` until the
+one controlled round trip runs.
+
+**The rotation fix is not yet proven.** `rotations: 0`. The defect this lane found — a
+`TokenProvider` built with no `on_refresh`, against an Etsy that issues a new refresh token on
+every refresh — bites at the *first* refresh, roughly an hour after issue or at the next container
+replacement. The proof is `rotations` reaching 1 with the credential still openable. Until then
+the fix is implemented and tested locally, not demonstrated in production.
+
+**Owner action closed:** "authorise the Etsy app once in a browser", carried since 2026-09-24.
+The one that replaced it — set `BRAMBLELOOP_SECRET_KEY` — is done too, by the owner, who
+generated it directly in Railway and did not expose the value.
+
+**New owner item, from an incident during the flow:** the operator token was typed onto a
+PowerShell command line rather than at the `Read-Host` prompt, so it reached the console, the
+PSReadLine history file and a screenshot. `BRAMBLELOOP_OPS_TOKEN` guards `/api/etsy/oauth/start`,
+`/status` and the continuity export. **Rotation status unconfirmed** — the replacement is the same
+length as the exposed value, which is expected either way and therefore tells us nothing. It is
+not an Etsy credential, so rotating it touches nothing the owner asked to be left alone.
+
+**Next, and gated on the owner's word rather than started:** Lane C's one controlled round trip —
+identity and shop read, a clearly marked test draft, image upload, permitted field update, remote
+read-back, taxonomy and encoding verification, delete, verify cleanup. It is pre-authorised and
+prepared with a 50-signature failure taxonomy. Held because a mid-run failure strands a draft that
+only the owner can remove in Shop Manager.
+
+**Visual / crochet realism remains OPEN and is not superseded.** Milestone D is still FAIL. It
+resumes at the identified next step: the certified relaxed fabric is not an equilibrium of
+`drape`'s own contact model.
+
+## 2026-09-25 — Build 2 wave: five lanes plus one cloud pilot, integrated
+
+Five department lanes ran in isolated worktrees and were merged through the single coordinator
+queue, each verified by me against its own terminal evidence rather than its report.
+
+### The ordering constraint no single lane could see
+
+Lane E proved, and I reproduced independently, that `etsy_oauth._token_request` builds its
+exception out of Etsy's response body and falls back to the **whole body** when Etsy names
+neither `error` nor `error_description`. That text reaches `AuditLog.detail["error"]` and
+`Job.last_error`; both tables are in `continuity.NON_REDERIVABLE` and absent from
+`EXCLUDED_TABLES`, so they ride `/api/continuity/export`, the offsite archive and `pg_dump`
+**in the clear**, while `oauth_credentials` (ciphertext) is excluded. A provider echoing the
+credential into an error body would put it in plaintext somewhere more exposed than the sealed
+row. The callback path already redacted the identical body; the refresh path did not. The
+finding is that asymmetry, not a missing mechanism.
+
+It was unreachable only because nothing had ever made an authenticated Etsy call. Lane A's new
+`/api/etsy/exercise` drives `rotations` 0 -> 3 on a first full run, so it is precisely the
+trigger. The fix therefore landed in the same tree, before the endpoint can ever be called.
+Neither is deployed yet, so both arrive together.
+
+Lane E's five reproduction checks asserted the leak was PRESENT and are inverted to assert it
+is closed, plus three added checks that the audit row still exists and still fingerprints the
+token -- a test passing because nothing was recorded would prove nothing. Removing the scrub
+turns them red, so they are the tripwire. 87 passing.
+
+### Corrections I made to lane reports
+
+- **Lane A** said "no existing code modified"; `app/main.py` gained 89 lines. The substantive
+  claim held: zero deletions, and `integrations/etsy.py` absent from the diff, so `activate()`
+  is untouched. Its `mode` query parameter IS validated (a typo returns 409, not a draft).
+- **Lane A's suite was invisible to the harness.** `test_etsy_exercise.py` printed
+  `  ok  <name>`; `run_tests.sh` counts `^OK`. All 31 checks passed and none reached the total.
+  `run_tests.sh` detected it ("SUITE REPORTED NO PASSES") rather than miscounting. Format fixed.
+- **Lane C's finding #5 is overstated and is NOT a first-sale blocker.** It reported that
+  `_engineered_cir("nursery-nesting-baskets")` and `("hexagon-coaster-set")` return `None`, so
+  "two of three Launch-0 products have no CIR route". They return None because `ENGINEERED` is
+  keyed `market-basket-trio` / `hexie-coaster-set` while Launch-0 declares
+  `nursery-nesting-baskets` / `hexagon-coaster-set`. **Launch-0 does not build through
+  `_engineered_cir`; it builds through `launch0.BUILDERS`, and all six variant builders resolve
+  to real CIRs** (verified by running them). Real defect -- the same product named differently
+  in two registries -- but a class B inconsistency, not a launch blocker.
+- **Lane D's sqlalchemy-dependent results were unverified** (wrong venv). Re-run here:
+  `test_etsy_surfaces`, `test_commerce`, `test_launch`, `test_intel`, `test_certification` pass.
+
+### A defect in my own module, found by Lane C
+
+`gates/first_customer.check_terminology` called `ab.undefined_tokens(text, terminology)` with
+no `defined`. That function's own docstring calls this form vacuous: the key is derived from
+the same string, so every token is in it by construction and the failing branch is unreachable.
+**The check could only ever report PASS, and did, on eight documents containing an undefined
+abbreviation.** Now reads `pdf`'s key-completeness verdict, measured on the document's whole
+prose against the key it actually printed -- rather than re-deriving it, which would put one
+value in two places again -- plus a guard that empty prose reads UNVERIFIABLE, not PASS,
+because that check finds nothing in an empty string too.
+
+### The instruction that could destroy the object
+
+`cir/writer.finishing_lines` told every maker to "pin it out damp ... and leave it to dry flat".
+Correct for a blanket, a runner and a disc coaster; ruinous for a basket. Now branches on
+`cir.geometry`'s own classification, inverted as **not-DISC** rather than a list of the solid
+shapes, so a shape nobody has written yet cannot silently inherit the wording that destroys the
+object. Verified across all six Launch-0 builders: three baskets upright, blanket/runner/coaster
+unchanged.
+
+### Lane D: this shop cannot see its own orders
+
+The 2026-09-25 grant is `listings_r listings_w listings_d shops_r shops_w`. Every receipt,
+payment and ledger operation needs `transactions_r`, and a refresh grant carries the same scope
+as the original, so refreshing can never widen it. `SCOPES_WANTED`/`SCOPES_REQUIRED` widened
+after verifying nothing hard-fails on a wanted-but-ungranted scope: `TokenProvider.access`
+refuses per operation, nothing calls a receipt operation, and `finish` reports the shortfall as
+`scopes_not_granted`. Until the owner re-authorises, the gap is DISCLOSED rather than breaking.
+Not a first-sale blocker: Etsy delivers the file without us; what breaks is everything after.
+
+Also from Lane D: **no ad-spend ceiling is enforceable in code** -- Etsy Ads has no endpoint,
+scope or field, so the only control is that nobody turns it on. Recorded as a promise, not a
+ceiling. And the pricing floor rested on an incomplete fee model; now CA$6.50 reads modelled
+13.7% take with a stated worst case of 32.3%, rather than folding an unverified rate into a
+constant.
+
+### Visual (Lane B): the certified fabric is an equilibrium, and the instability was not yarn
+
+Gravity off, 800 iterations: **1.58e-17 mm rms** on the 5x5, 2.43e-17 on the 10x8, converged at
+iteration 1. The reconciled configuration then descends its own energy under load for the first
+time and does nothing with the load removed, against wave 4's 109% and 98% load-INdependent
+motion. Two corrections to wave 4: the disequilibrium is **two pairs of 96**, and as a
+displacement it is worth 0.0011 mm rms, not the 0.814 mm it was invoked to explain -- the seed
+of an instability, not the mechanism. One loaded iteration injects 9.7564e-06 J of which
+3.99e-13 J is on the 312 genuine yarn vertices: **99.99996% was never yarn**, but the 162
+artificial hops and sub-micron joins, whose edge directions the co-rotational frame cannot fit.
+
+**Milestone D: FAIL, unchanged, nothing weakened, no threshold moved**; 28/28 adversarial
+fixtures still REJECT. The conformability metric reads LOWER for the reconciled configuration,
+because wave 3's 18-20x rise is now known to have BEEN the instability.
+
+**The repository's best renders are not of the fabric being measured.** They come from
+`visual/yarn.py`'s separate geometry generator; `drape` acts on `crochet_topology.Fabric`.
+Three waves of mechanics were measured on one object while the pictures showed another. The
+scene is now committed as data. Mitsuba was installed into the shared venv; `requirements.txt`
+deliberately unchanged.
+
+### Cloud pilot
+
+One bounded cloud session (`claude/cloud-pilot-products-audit`) audited the four unowned product
+modules, additive only. Boundary verified independently: six files, all inside the declared
+list. Found three real defects of the recurring family -- `NEEDS_THE_CHAIN` was a stale second
+copy of the canonical chain missing a stage; an unclassified customisation read as cleared; a
+coaster listing stated the size asked for rather than the size made. Cost US$9.71, separately
+metered. Assessment in `research/CLOUD_SESSIONS.md`; the operator board **cannot see a cloud
+session at all** (`ops/board.py` reads `/proc`), so such work is accepted only on its own
+terminal evidence: a pushed branch.
+
+### Still open, unchanged
+
+`twin.calibrated` is False catalogue-wide -- the largest unmeasured risk. `ArtifactStore.durable`
+is False, which fails `fulfilment_and_download` for all five Launch-0 variants. Nothing has been
+run against real Etsy: the whole Etsy deliverable is IMPLEMENTED + LOCALLY_TESTED. CA$0.00 spent
+this wave; nothing published, activated or deployed; `BRAMBLELOOP_PHASE=shadow`.
+
+### Wave verification — 2026-09-25, final
+
+**Full suite on the fully integrated tree: 4,181 passing, 0 suites failing.** Terminal evidence
+read from the run's own log (`TOTAL PASSING`), not from a process check. All five lane branches
+and the cloud pilot branch are merged; nothing unmerged remains on any of them.
+
+The integrated run earned its keep: it found a regression in `visual/pbr_scene.py`, merged an
+hour earlier, that no lane could have seen because each ran only its own suites. The new
+renderer created its curve file under a bare `tempfile.mkdtemp()` with nothing removing it,
+making it the second unremoved mkdtemp in `src/` where exactly one is allowed. Fixing it
+surfaced a second guard immediately: the prefix `brambleloop-render-` was used in `src/` and
+absent from `health.TEMP_PREFIXES`, so a leftover directory would have been invisible to the
+disk signal. Both are the shape this wave kept finding -- a signal that cannot see the thing it
+exists to measure. The count rose 4,180 -> 4,181 because the check that printed FAIL now prints
+OK, which is the whole of the difference.
+
+**A method failure of mine, recorded because it nearly hid the above.** I twice reported the
+final suite as running when it was not. The launching command was an `&&` chain whose middle
+link returned non-zero, so the run never started; and every status check used
+`pgrep -f "run_tests.sh"`, which matched my own waiter's command line, so the watcher was
+detecting itself. Both are the defects this repository already knows: a self-match, and a
+verdict read from a watcher's state instead of the job's own terminal evidence. The correction
+is the same rule `ops/board.py` and `ops/registry.py` already follow -- wait on the log line the
+job itself writes. Had that gone uncorrected, this wave would have been reported clean with a
+temp-directory leak sitting in a newly merged file.
+
+## 2026-09-27 — Build 2 closeout: OPEN = 0, every requirement in a final state
+
+Isolated branch `claude/visual-investigation`, from checkpoint `4cf6959`. The integrated
+branch `claude/repository-setup-nc9x6o` is untouched at `fcb982d`; nothing was deployed,
+published, activated or spent on advertising; no paid Visual generation was run.
+
+**Closure matrix** (`/api/closure`): 235 COMPLETE+PROVEN · 28 OWNER-GATED · 42 DATA-GATED ·
+15 EXTERNAL-BLOCKED · **0 OPEN**. First computed on 2026-09-26 at 161/27/42/19/71; the 71 open
+were 67 covered rows naming no module plus four model-render rows. A 67-row proof audit found
+44 proven, 17 overstated (a correct library nothing in the runtime called) and 3 process
+directives; the 17 were reclassified partial and then made true in the runtime.
+
+**What was built (verified by focused suites, then the full suite):**
+
+- *Etsy/commerce knowledge* — `gates/policy_knowledge.py`: six policy surfaces and six commerce
+  topics as dated readings with declared basis (search-engine excerpts of official pages,
+  because every etsy.com/legal and help.etsy.com page returns 403 to honest automation); the
+  policy watch seeds them and resolves the six `policy_stale` incidents with the snapshot
+  named; `POST /api/policy/snapshot` lets a person record a page they read; `commerce/fee_schedule.py`
+  is the one fee record every fee literal reads; AI disclosure is a sourced ERROR.
+- *Original design* — garment grading from sourced CYC body tables (`cir/graded.py`),
+  shaping primitives, drop-shoulder and top-down raglan templates, two original garments
+  certified at every sourced size (9 adult, 8 child), and `creative/garment_design.py` so a
+  generated garment concept is designed by rule and survives the whole release chain.
+  Writer/reverse are loop-aware and per-piece; certify runs specification and assembly with a
+  twin per piece; a benchmark-containment check refuses purchased-pattern tables; a schematic
+  page renders for multi-piece designs.
+- *Canonical model* — asset MANIFEST with sha256 and role; references hash-pinned
+  (a tampered face returns nothing); `identity.provenance_check` in the frame gate; a
+  version/replacement procedure requiring an owner approval record (not used: no replacement
+  was approved); the poisoned `creative.model_reference_pack` dead letter now stands aside;
+  `/api/model-pack` reads frozen state instead of a literal.
+- *Continuous learning* — measure → mine → hypothesis → sandbox → independent approval →
+  tier-gated promotion → monitor → rollback, all with cadences and handler tests. Proposer,
+  approver and promoter are separate; an Improvement Director blocks conflicting changes;
+  gate thresholds and Product Truth weakening are refused end to end; a full nightly+weekly run
+  leaves 110 gate constants and the cable-throw Product Truth digest unchanged.
+- *Cost governance* — the dashboard states the monthly ceiling and the unset paid-media caps
+  instead of "No spend limits configured"; the 80% escalation is a monthly owner action from a
+  cadence; image renders and the model gateway reserve before spending; one BudgetExceeded
+  hierarchy; refusal audit; provider and department ceiling tables exist and are empty (owner
+  numbers). The date-dependent wave-2 test is fixed by passing its frozen date.
+- *Provenance* — a fail-closed lineage write path on every chain handler, a worker backstop
+  (log-only until the backlog closes), additive lineage columns, and an evidence-only
+  backfill (`source=backfilled`, unmatched rows stay UNPROVEN).
+- *Orchestration and incidents* — `awaiting_build_session` distinguished from `stalled`;
+  `model_bearing_render` gate; completion fenced to the lease holder with worker-side lease
+  renewal (capped at an hour); incident lifecycle reconciliation; seasonal detectors keyed by
+  event and year, filtered to each product's occasion and evidence-aware; `GET /api/incidents`.
+- *Runtime wiring of 17 overstated libraries* — swarm quality/allocation/orphans/backlog,
+  priority bands at enqueue, buyer-trust findings and the order-version table, persisted
+  experiments with kill rules, diversification plan, culture recurrence needing a second
+  sighting, adaptive benchmark scan interval, parity escalation ladder.
+- *Intel and competitive parity* — blind review writer (UNKNOWN without observations, never
+  PASS), dated category-matched benchmark set, insights budgeter, the #126 grid tournament with
+  a three-judge vision panel, and a 13-step #320 acceptance runner.
+- *Dashboard truth* — the console shows ready vs parked work (0 ready; 45 parked) and the
+  closure matrix; parity reads the realism checks product-first frames actually record.
+
+**Honest status of what is not done:**
+
+- **Product-only Visual V1 is NOT LOCKED** (0 of 16 draws, `4cf6959`). #72/#130/#202 are
+  EXTERNAL-BLOCKED on `model_bearing_render`: no provider renders a certified structure
+  faithfully. No further paid draws were run.
+- **Etsy pages are 403 to automation** (#1, #2 density, #15, #37, #39, #189, #221, #222,
+  #236, #277, #281, #320 browser wording): EXTERNAL-BLOCKED; readings are recorded by excerpt
+  or by a person.
+- **Production gates today:** model_provider, image_vision and image_generation are CLOSED
+  because the Anthropic credit is exhausted. The vision-path requirements are built and
+  tested; their production runs are refused before spending until it is funded.
+- **Not deployed.** The seasonal-incident fixes, policy seeding and incident lifecycle will
+  resolve the 17 open production incidents only once this branch is deployed, which is outside
+  this closeout's authority.
+- Physical calibration (yarn factors, fit of class C garments) remains DATA-GATED on a
+  physical sample; nothing was invented.
+
+**OWNER ACTION REQUIRED (batched):**
+
+1. *Fund the Anthropic API* (owner actions 19/20 are duplicates of this). Why: model_provider,
+   image_vision and image_generation are closed, so the vision judges, blind review evidence,
+   gallery analysis and seasonal cycle proof cannot run. Max cost: the existing CA$100/month
+   ceiling, enforced in code. Minutes: 5. Consequence of waiting: competitive parity and the
+   #320 demonstration stay unjudged.
+2. *Decide whether an API + vision traversal satisfies the "browser/vision" wording of
+   #222/#320* (B-105 grades capability, not this). Minutes: 2. Consequence: every acceptance
+   grade stays provisional.
+3. *Authorise deployment of `claude/visual-investigation`* after review. Minutes: 10.
+   Consequence: the 17 production incidents and the dead-letter re-drive stay as they are.
+4. Standing, unchanged: Etsy identity/payout/shop activation, paid-media authority,
+   benchmark purchases, owned surfaces, a physical sample or paid tester.
+
+**Verification (2026-09-27):** full suite on `b80c31a` — **TOTAL PASSING: 4,615 ; suites
+failing: 0** (previous closeout run on `de1f491`: 4,605 / 0; the recovery snapshot `a49f1df`
+had 4,395 / 5 failing, all since fixed). The previously date-dependent
+`test_a_spender_the_registry_has_never_heard_of_gets_no_invented_ceiling` now passes on its
+frozen date. `research/v1grad/test_v1grad.py` 40/0 unchanged. Deployed service (read-only):
+`/api/verify` 12/12 at `fcb982d`.
+
+## 2026-10-05 — Final Build resume: Codex reconciled by evidence; FB-2/FB-3 integrated; 5,653 passing / 0 failing
+
+Branch `claude/visual-investigation` (Final Build). **Production unchanged at `fcb982d`**; nothing
+merged or deployed; no Etsy publication, spend, banking or KYC action. Phase stays SHADOW.
+
+**What is true now (verified):**
+- Full lock-matched suite on `6f9a2f7`, clean tree, HEAD unchanged at end: **5,653 passing, 0 failing
+  suites, release_eligible=true** (record `research/final_build/RUN_6f9a2f7_full_suite.json`).
+- Codex work reconciled by reproduction, not acceptance (D-FB-8). Of Codex build2-assist's 75
+  findings: 39 were still applicable at the start of this session and are now fixed or re-audited;
+  **C-78 was false** — the Orders hardening that Build-2 certification counted as merged never was;
+  ported and proven (Codex's adversarial receipt script 11/11). Codex's Final Build repairs: 9
+  verified, 3 partial (closed), 2 regressions (closed), details in
+  `research/final_build/codex_reconciliation/`.
+- Launch-0 (nesting baskets ×3, Cloudline blanket, hexagon coasters): every product certifies;
+  disclosed deterministic renders (D-FB-7) pass an independent pixel verifier; disclosed frames reach
+  Etsy only through the listing-set certificate (D-FB-9); size labels are gated against the twin
+  (large basket corrected 25 → 24 cm).
+- Protected actions: store.publish needs a sealed, scoped, expiring owner publication grant (D-FB-10);
+  activation keeps its own grant; refusals before any request no longer park a version.
+- Queue: customer-support and truth-defect work can never be overtaken by steered or aged work (G02).
+- Money: refunds, partial/late refunds, unpaid receipts and negative contribution are reconciled as
+  state; modelled/unknown/unbilled spend counts against every ceiling (regression-tested).
+- Catalogue: generators derive gauge from the declared yarn band; re-derived designs carry new
+  versions, and a content-fingerprint test refuses a content change under an old version.
+- Postgres: fcb982d schema+data migrates to head additively with all rows preserved (local evidence;
+  a rehearsal on a snapshot of the real database remains a deploy gate).
+
+**What is NOT true / still blocked:**
+- No Final Build release candidate is frozen yet: launch-critical closure-matrix rows are being
+  re-mapped against current code (the matrix still carries 019ebf0-era mappings for 123 rows).
+- Launch-0 parity still blocks on HERO (needs the `image_vision` gate — owner) and COMPETITIVE
+  (blind review over observed benchmark galleries — data + `image_vision`).
+- Cable throw, bobble pillow and ribbed scarf need physical calibration of their special stitches.
+- Nothing is listed, sold or measured commercially.
+
+**OWNER ACTION REQUIRED (batched; nothing requested before the gate is reached):**
+1. Decision: launch readiness needs 8 listable products; Launch-0 has 5 slugs across 3 products.
+   Keep the threshold (launch waits for more products) or set a Launch-0-specific depth. 2 minutes.
+2. At the live-publish gate only: per release, set `BRAMBLELOOP_OPS_TOKEN` and
+   `BRAMBLELOOP_PUBLISH_AUTHORISED=1`, then preview + approve via `/api/owner/publication/*`.
+   CA$0, ~5 min/release; without it every publish refuses before any Etsy request.
+3. Standing: re-authorise Etsy `transactions_r`; vision-gate ruling; model/vision spend headroom
+   (≤CA$25 top-up proposal; CA$76.40/100 used); rotate the Anthropic key exposed 2026-09-19.
+
+## 2026-10-10 — W4-B2VERIFY: Build 2 claim re-verified on 56d7b38
+
+Regenerated with `research/final_build/w4/build2_ledger.py` against a fresh read-only production gate
+reading (fcb982d, `evidence_B2/prod_gates_2026-10-10.json`): PROVEN 215, OWNER-GATED 54, DATA-GATED 41,
+EXTERNAL-GATED 7, NOT-APPLICABLE 3, OPEN-DEFECT 0 (the committed 2026-10-07 ledger was stale at 58/37).
+Final Master snapshot regenerates identical (launch-critical OPEN 15). The closure count is 0, but the
+adversarial re-check found executable company work it does not see: #10 (free lead-magnet half not done)
+and a gate-wiring defect on #35/#39 (rendered_pages opens only on browser.probe, though the stated remedy
+is a human policy snapshot). Both are listed, not fixed. 15 gated rows got proof citations (states
+unchanged). 17 parked rows' gates are not reported by production, so their state is UNKNOWN. Production
+etsy_api/benchmark_observation read CLOSED today; /api/verify reads 11/12. Report:
+`research/final_build/w4/BUILD2_VERIFY_2026-10-10.md`.
+
+## 2026-10-20 — W4-LAURACEO: Business Laura model-backed conversation and executive loop (branch `claude/w4-LAURACEO`, not deployed)
+
+**Root cause.** Greetings in the live Command Center get Ask-Company UNKNOWN or the overnight template. `talk.classify` falls through to `ask.ask`, whose classifier returns `unknown`. "today" matches the overnight keyword. No conversation model call exists.
+
+**Built (offline-proven, stub transport):**
+- `laura/agency/ceo_chat.py`: the model writes the reply over the deterministic evidence tools, with cited records, session history and scoped business memory. Deterministic validation withholds unverified figures and human claims. When the model is unavailable it says so honestly.
+- `gateway/laura_converse.py`: governed calls on the `laura` budget, with tasks `laura.converse` (Haiku 4.5), `laura.executive` (Sonnet 5) and `laura.exec_rank`.
+- Executive tick:
+  - the model orders authorised priorities, at most twice a day;
+  - corrections carry feedback and stay bounded;
+  - an owner report with costs goes to the timeline and memory each 6 h window.
+- Per-unit cost attribution (`laura_cost_events`, `GET /api/cc/laura/costs`).
+- `POST /api/cc/laura/converse`; the CC Laura view uses it.
+- Tests: `tests/test_w4_laura_ceo.py` 13/13.
+
+**Not done.** ADD-LCEO-07 needs the production run in `research/final_build/w4/LAURACEO.md` §5, after deploy and owner approval. Until then it is open, not PASS.
+
+## 2026-10-27 — W4-READBACK: read-only production evidence surface (branch `claude/w4-READBACK`, not deployed)
+
+**Why.** SECPATCH made public GETs deny-by-default (kept). Nothing outside the owner's session could see why a public `/api/verify` boolean was false (e.g. `no_unexpected_dead_letters_in_24h`, with no job type visible).
+
+**Built.**
+- `ops/production_evidence.py`. Row-only evidence for:
+  - dead letters in 24 h, by job type and error class (never the error text);
+  - the publishing halt (systemic row and truth sweep);
+  - stale-artefact rebuilds (verified rebuilds counted apart from `already_fresh` no-ops);
+  - paid-call dedupe (the same request billed twice in 24 h);
+  - weekly jobs (`improve.weekly` required);
+  - certification stages with slugs;
+  - the 12-stage autonomy loop: useful completions apart from no-ops (`did_no_work`), with the newest example ids.
+- `/api/verify` gains `evidence_checks`: `publishing_halt_clear`, `stale_artefacts_rebuilding`, `no_repeated_paid_call_in_24h` and `weekly_jobs_completing`.
+  - Each is false without evidence.
+  - Anonymous callers see `{check, ok}` only.
+  - They do not change `ok` or the status code: they are readbacks of recovery, not safety invariants.
+- `GET /api/readback/evidence` is authenticated ONLY by the new `BRAMBLELOOP_READBACK_TOKEN` (`core/readbackauth.py`, `security.READBACK_ROUTES`).
+  - Closed (503) while the token is unset, shorter than 32 characters, or equal to the ops token.
+  - The ops token is refused, and the readback token is refused on every other route.
+- `ops/readback.py --evidence` reads the token from the environment only and judges each item PASS / FAIL / UNKNOWN. UNKNOWN is never a pass.
+- Contract pin: api_routes `750cd12d5d99f93d` (row in `ops/CONTRACT_CHANGES.md`).
+- Deploy readback without the operator token: `/api/readback/evidence` also carries `deploy_readback`. These are the six operator-only manifest rows (departments, swarm runtime, funding packets, offsite, continuity, etsy).
+  - Each handler is called in-process; only its status and the row's one field leave. A list is reduced to its length.
+  - `ops/readback.py` reads these rows with `BRAMBLELOOP_READBACK_TOKEN`. It falls back to the ops token (INTEG8 707f9113's path) when only that is set, and otherwise reports NEEDS_OPERATOR, never PASS.
+- `etsy_taxonomy` section (for W-LAUNCHFIX E4): the newest `etsy.taxonomy_refreshed` row, projected to:
+  - category choices (ids and path names), and whether each chosen node's stored schema offers "Crochet";
+  - property-candidate nodes with their property ids and names;
+  - the refresh time.
+- Tests (2026-10-27, run one at a time; the later ones through `testslot.sh`): `test_w4_readback_evidence` 19/19. The suites listed below also pass; the last results are in the commit message:
+  - `test_w4_secpatch_public_surface`, `test_w4_secpatch2`, `test_route_auth_default_deny`, `test_w4_fmbatch1_route_audit`, `test_w4_fmbatch1_contracts`;
+  - `test_deploy`: its exact anonymous key-set pin gained `evidence_checks`, with each item `{check, ok}` only and equal to the operator view;
+  - `test_w4_smoke`, `test_w4_close6_readback`, `test_vacuity`, `test_secret_scan`.
+
+**Owner action (not done).** Set `BRAMBLELOOP_READBACK_TOKEN` in Railway (32 characters or more, different from the ops token). Until then the endpoint answers 503, and every evidence item reads UNKNOWN.
+
+## ENG-APPROVALS-FIX (2026-11-19, branch eng/approvals; not merged, not deployed)
+- M1: `support_defect_decision:` is now GENUINE (certification_construction_safety_authority); the sweep never supersedes it.
+- M2: producers (`autonomy.orchestrator._raise_approval`, `authority.dag._raise_owner_action`, `gateway.providers` vendor/routes cards) call `standing_internal.closure_in_force` and raise nothing while a standing-authority closure for the same key (and, for the provider cards, the same condition text) is in force; a cleared condition writes one audit row (`note_condition_cleared`) and ends the closure. Nothing deleted; audit preserved.
+- M3: `test_eng_approvals` pins every KIND_RULES row and every inventoried kind to its class; 15 mutants run, all killed.
+
+## ENG-APPROVALS-FIX2 (2026-11-20)
+- M4: sweep and lifecycle audit rows are now stamped with the injected `now`; the P0-board count test no longer depends on the wall clock.
+- LOW 1-3: `standing_internal.owner_closed` (owner closure only; never a standing-authority closure) now gates Finance spend authority, the `creative.reengineer` job and the `listing_package:` module. `owner_action.lifecycle` is kept for life in retention (pruning it would fail open).
+- LOW 4: not-ready PUBLICATION cards are class PUBLICATION (flag `not_ready`), not ROUTINE-labelled `publication_not_ready`.
+- LOW 5: `routine_superseded_nothing_approved_24h` counts `improve.challenger_run:` / `taxonomy_drift:` supersedes apart from `routine_auto_approved_24h`.
+- Known, not from this change: `test_first_listing_doors` fails the same way at eb0f062 ("listing search profile not certified PASS").

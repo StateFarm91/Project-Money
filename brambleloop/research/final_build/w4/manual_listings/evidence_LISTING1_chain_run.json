@@ -1,0 +1,391 @@
+{
+ "generated_at": "2026-10-27",
+ "by": "W-LISTING (claude/w4-LISTING1)",
+ "code_head": "b01339168bb4616d81044bc12e2a8a9effb7f237",
+ "how": "PYTHONPATH=src nice -n 19 python research/final_build/w4/pipe_chain_run.py <scratch> hexagon-coaster-set market-basket-small (REAL release chain, SHADOW worker, scratch SQLite, every outbound socket refused, no credentials, no Etsy taxonomy snapshot). store.publish refused in SHADOW as designed.",
+ "caveat": "Scratch run: PDF bytes are rendered with released_on = the scratch release date, so PDF sha256 values here are NOT the production/W-PDF1 certified hashes. Release (content) hashes are content-derived and do match LAUNCH_PATH/W4-SAMPLE.",
+ "products": {
+  "hexagon-coaster-set": {
+   "slug": "hexagon-coaster-set",
+   "version": "1.2.0",
+   "release_hash": "3754ed17a63b790dc2c04b0f744de3fad34e5893ca69c0ff9f0c7cb41090937b",
+   "title": "Hexagon Coaster Set | Crochet Pattern PDF | Written Instructions and Chart | US and UK Terms",
+   "title_chars": 92,
+   "tags": [
+    "coaster crochet",
+    "written and chart",
+    "crochet home decor",
+    "hexagon crochet",
+    "hexagon coaster",
+    "diy coaster",
+    "digital download",
+    "home decor diy",
+    "instant download pdf",
+    "yarn craft project",
+    "us and uk terms",
+    "printable pdf chart",
+    "fiber art project"
+   ],
+   "price_cad": 4.0,
+   "description": "Hexagon Coaster Set — a crochet pattern, not a finished item. You receive an instant digital download. Why it is worth making: worked in 2 colours, written for a confident beginner maker, every row written out and charted, so you can follow whichever you prefer.\nIf you are searching for crochet home decor, diy coaster and home decor diy, this is the one: every row is written out and charted, and every stitch count is checked before release.\n\nWHAT YOU GET\n- Written instructions for every row, with a stitch count on each\n- A chart drawn from the same pattern as the written instructions, so the two always agree\n- Two PDFs, one in US terms and one in UK terms — the same pattern, each written throughout in its own terminology, with a stitch key to match\n- 7-page PDF, laid out to be readable on a phone or printed\n\nTHE DETAILS\n- Finished size: hexagon, 9.7 cm across the points, 8.4 cm across the flats, worked at the gauge below\n- Difficulty: confident beginner\n- Yarn: dk cotton\n- Fibre: as named above; the pattern does not specify a composition, so choose any yarn of the same weight that meets the gauge\n- Gauge: 14.5 sts x 16.0 rows = 10 cm in sc, 5 mm hook\n- Stitches used: inc, sc\n- Colours: 2 (cream, wine)\n- cream: about 18-27 m\n- wine: about 5-7 m\n- Yarn quantities are estimates with a +/-20% range, not measurements. Yarn use varies with yarn, hook and tension.\n\nHOW THIS PATTERN WAS MADE\nThis design was created with AI assistance, and every row's stitch count is checked before release. If anything in it does not add up, tell us: we correct the pattern itself and send you the corrected file.\n\nPATTERN USE AND SUPPORT\n\n- for the buyer's own use, and to teach from in a class where each participant has their own copy\n- finished items may be sold by individual makers and small businesses, not manufactured at scale\n- the pattern file, its charts and its images may not be shared, resold, uploaded or included in another publication\n- questions are answered through the shop the pattern was bought from, against the exact version that was bought\n- corrections are free: a corrected pattern replaces the old file, and anyone who bought an earlier version can ask for the corrected one at any time\n\nThese are the terms Brambleloop offers; they have not yet been through legal review.\n\nDISCLOSURES\n- About the images: each listing image is a digital rendering of the pattern's finished design, not a photograph. Every stitch in it is drawn from the pattern itself at the stated gauge, with a centimetre scale; no sample has been photographed, and your finished piece will vary with yarn and tension.\n- Charts and previews are rendered directly from the pattern file, so they show exactly what is in the document.\n- This design was created with AI assistance, and every row's stitch count is checked before release.\n- This is a digital pattern. No physical item is shipped.",
+   "pricing": {
+    "price_cad": 4.0,
+    "net_cad": 3.342,
+    "band_cad": [
+     4.0,
+     12.0
+    ],
+    "band_basis": "SOURCED",
+    "proposed_cad": 4.0,
+    "basis": "products.launch0.price_plan(hexagon-coaster-set): band CA$4.00-12.00 (SOURCED), proposal CA$4.00, decided by commerce.pricing",
+    "candidate": "hexagon-coaster-set",
+    "reasons": [],
+    "warnings": [
+     "take rate 16.4% excludes offsite_ads, regulatory_operating_fee, currency_conversion; if all three apply at their reported rates the take rate is 35.1% and the net is CA$2.60. Those rates are SECONDARY -- etsy.com/legal/fees is 403 to automated readers"
+    ],
+    "price_point": {
+     "recorded": true,
+     "id": 1,
+     "price_cad": 4.0,
+     "previous_price_cad": null
+    },
+    "product_record": "products.launch0:hexagon-coaster-set"
+   },
+   "assets": {
+    "slug": "hexagon-coaster-set",
+    "version": "1.2.0",
+    "release": "3754ed17a63b790dc2c04b0f744de3fad34e5893ca69c0ff9f0c7cb41090937b",
+    "rebuild": "",
+    "pages": 7,
+    "size_label": "10 x 8 cm",
+    "finished_size_cm": [
+     9.7,
+     8.4
+    ],
+    "yardage": {
+     "cream": 22.6,
+     "wine": 6.2
+    },
+    "tolerance": 0.2,
+    "calibrated": false,
+    "pdf_sha256": "d8014e46b990b9887a6e8332b65fbac8c82f99b5b32a4b4026eb6c774cb99d50",
+    "chart_sha256": "8a355ff4612efb40675e41cbe15199fdf3c0e2e08b4818fb6403269d401713e4",
+    "legend_sha256": "8b3f7b570bdaf8075727de8a9b8847fe76a3f509d0142d2ac6a64217f6557265",
+    "pdf_sha256_by_terminology": {
+     "UK": "ce613061be93a42468646408fbd01345ed0b6b8ba2512f31cd7983ad4a7e473b",
+     "US": "d8014e46b990b9887a6e8332b65fbac8c82f99b5b32a4b4026eb6c774cb99d50"
+    },
+    "frames": [
+     {
+      "position": 1,
+      "role": "hero",
+      "asset_class": "DIGITAL_TWIN_RENDER",
+      "sha256": "2eba4b826b721012a0a986b8596caf51b051524a8cf54dc24caa480cfd3699a8"
+     },
+     {
+      "position": 2,
+      "role": "whats_included",
+      "asset_class": "INFOGRAPHIC",
+      "sha256": "547b281ac4eb935dfd60f8fb59b9d95f3ede242c939720d9fa872f709800f0db"
+     },
+     {
+      "position": 3,
+      "role": "size",
+      "asset_class": "INFOGRAPHIC",
+      "sha256": "c6172abde394997243c6bddd15a307bac8681e427770b41a26652e4ac53c49f3"
+     },
+     {
+      "position": 4,
+      "role": "materials",
+      "asset_class": "INFOGRAPHIC",
+      "sha256": "251a9d6033570d3d6bc5cf0cf8e3274e615a316d004ffc1d7bb47cd99c58ef15"
+     },
+     {
+      "position": 5,
+      "role": "pattern_preview",
+      "asset_class": "PATTERN_PREVIEW",
+      "sha256": "5cf3cc72770616384eb86c67efab4ed9a16ed9d8791d6d5d081e9fdaae13b1aa"
+     },
+     {
+      "position": 6,
+      "role": "chart",
+      "asset_class": "DIGITAL_TWIN_RENDER",
+      "sha256": "171601bcd50850a52be468a6e924ec5ac62794acc65d171c91ecbe7fb4c80734"
+     }
+    ]
+   },
+   "seo": {
+    "attributes": {
+     "digital": true,
+     "instant_download": true,
+     "file_type": "PDF",
+     "craft_type": "crochet",
+     "pattern_type": "coaster",
+     "skill_level": "confident beginner",
+     "primary_color": "cream",
+     "secondary_color": "wine",
+     "occasion": null,
+     "terminology": "US terms",
+     "includes_chart": true,
+     "includes_written_instructions": true
+    },
+    "disclosures": {
+     "checked": true,
+     "slug": "hexagon-coaster-set",
+     "version": "1.2.0",
+     "complete": true,
+     "missing": [],
+     "misplaced": [],
+     "finding": false
+    },
+    "search_hero": {
+     "judged": true,
+     "verdict": "REFUSED",
+     "reasons": [
+      "category: no Etsy taxonomy snapshot is stored: the tree has never been read, so no category can be chosen and none is assumed (taxonomy 66 was never verified)",
+      "attributes: no category, so no property schema to be complete against",
+      "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+      "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+     ]
+    },
+    "search_package": {
+     "written": true,
+     "id": 1,
+     "state": "CURRENT",
+     "keywords": {
+      "phrases": 21,
+      "added": 21,
+      "removed": 0
+     },
+     "readiness": "EXTERNAL_GATED",
+     "verdict": "REFUSED"
+    },
+    "materials": [
+     "dk cotton",
+     "dk cotton"
+    ],
+    "supported_claims": [
+     "hexagon, 9.7 cm across the points, 8.4 cm across the flats",
+     "14.5 sts x 16.0 rows = 10 cm in sc, 5 mm hook"
+    ]
+   },
+   "release_gates": {
+    "blocks_release": true,
+    "reasons": [
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (3754ed17a63b); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im"
+    ]
+   },
+   "pdfs": {
+    "UK": {
+     "key": "hexagon-coaster-set/1.2.0/pattern-uk.pdf",
+     "sha256": "ce613061be93a42468646408fbd01345ed0b6b8ba2512f31cd7983ad4a7e473b",
+     "bytes": 60885,
+     "content_type": "application/pdf",
+     "durable": true
+    },
+    "US": {
+     "key": "hexagon-coaster-set/1.2.0/pattern-us.pdf",
+     "sha256": "d8014e46b990b9887a6e8332b65fbac8c82f99b5b32a4b4026eb6c774cb99d50",
+     "bytes": 60876,
+     "content_type": "application/pdf",
+     "durable": true
+    }
+   }
+  },
+  "market-basket-small": {
+   "slug": "market-basket-small",
+   "version": "1.2.0",
+   "release_hash": "1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991",
+   "title": "Hexagonal Bread Basket | Crochet Pattern PDF | Nursery | Written Instructions and Chart | US and UK Terms",
+   "title_chars": 105,
+   "tags": [
+    "basket crochet",
+    "nursery crochet",
+    "nursery basket",
+    "pdf crochet pattern",
+    "hexagon basket",
+    "beginner crochet",
+    "diy basket",
+    "written and chart",
+    "crochet home decor",
+    "digital download",
+    "home decor diy",
+    "instant download pdf",
+    "yarn craft project"
+   ],
+   "price_cad": 6.5,
+   "description": "Crochet Hexagonal Bread Basket — a crochet pattern, not a finished item. You receive an instant digital download. Why it is worth making: worked in 2 colours, written for a confident beginner maker, every row written out and charted, so you can follow whichever you prefer.\nIf you are searching for diy basket, crochet home decor and home decor diy, this is the one: every row is written out and charted, and every stitch count is checked before release.\n\nWHAT YOU GET\n- Written instructions for every row, with a stitch count on each\n- A chart drawn from the same pattern as the written instructions, so the two always agree\n- Two PDFs, one in US terms and one in UK terms — the same pattern, each written throughout in its own terminology, with a stitch key to match\n- 9-page PDF, laid out to be readable on a phone or printed\n\nTHE DETAILS\n- Finished size: hexagon base 16.0 cm across the points, 13.9 cm across the flats; 8.7 cm tall, worked at the gauge below\n- Difficulty: confident beginner\n- Yarn: worsted cotton\n- Fibre: as named above; the pattern does not specify a composition, so choose any yarn of the same weight that meets the gauge\n- Gauge: 12.5 sts x 13.8 rows = 10 cm in sc, 5 mm hook\n- Stitches used: inc, sc\n- Colours: 2 (cream, wine)\n- cream: about 32-48 m\n- wine: about 10-14 m\n- Yarn quantities are estimates with a +/-20% range, not measurements. Yarn use varies with yarn, hook and tension.\n\nSAFETY AND SUITABILITY\n- Who this is for: This pattern makes an item intended for children under 3 years, finishing at hexagon base 16.0 cm across the points, 13.9 cm across the flats; 8.7 cm tall at the stated gauge. The age band is stated here rather than left to be read off a photograph, because it is the fact every safety note below depends on, and because the person buying this is usually choosing for one particular child.\n- Not for an unsupervised sleep space: This is for supervised, awake use, and it does not belong in an unsupervised sleep space before 12 months. The American Academy of Pediatrics' 2022 recommendations keep soft objects and loose bedding (blankets, comforters, pillows, soft toys) out of the infant sleep area. Keep this out of the cot, and out of reach of a baby who is in one. We know where a soft crocheted thing in a nursery is most likely to end up, so we say so here rather than leave it to be assumed.\n- If you sell what you make: What this licence permits is set out in the licence terms; this is about what follows if you do it. Sell a finished children's item and you become its manufacturer. In the United States that is CPSIA: testing by a CPSC-accepted third-party laboratory, a Children's Product Certificate, and a tracking label on the product itself. In Canada it is the Canada Consumer Product Safety Act and, for a toy, the Toys Regulations SOR/2011-17. We are not your lawyer and this is a pointer rather than advice, and we are not entitled to let you assume none of it exists.\nThe pattern itself carries the full set of safety notes for a children's item, each with its source, and states the date the guidance was compiled.\n\nHOW THIS PATTERN WAS MADE\nThis design was created with AI assistance, and every row's stitch count is checked before release. If anything in it does not add up, tell us: we correct the pattern itself and send you the corrected file.\n\nPATTERN USE AND SUPPORT\n\n- for the buyer's own use, and to teach from in a class where each participant has their own copy\n- finished items may be sold by individual makers and small businesses, not manufactured at scale\n- the pattern file, its charts and its images may not be shared, resold, uploaded or included in another publication\n- questions are answered through the shop the pattern was bought from, against the exact version that was bought\n- corrections are free: a corrected pattern replaces the old file, and anyone who bought an earlier version can ask for the corrected one at any time\n\nThese are the terms Brambleloop offers; they have not yet been through legal review.\n\nDISCLOSURES\n- About the images: each listing image is a digital rendering of the pattern's finished design, not a photograph. Every stitch in it is drawn from the pattern itself at the stated gauge, with a centimetre scale; no sample has been photographed, and your finished piece will vary with yarn and tension.\n- Charts and previews are rendered directly from the pattern file, so they show exactly what is in the document.\n- This design was created with AI assistance, and every row's stitch count is checked before release.\n- This is a digital pattern. No physical item is shipped.",
+   "pricing": {
+    "price_cad": 6.5,
+    "net_cad": 5.6045,
+    "band_cad": [
+     4.0,
+     12.0
+    ],
+    "band_basis": "SOURCED",
+    "proposed_cad": 6.5,
+    "basis": "products.launch0.price_plan(nursery-nesting-baskets): band CA$4.00-12.00 (SOURCED), proposal CA$6.50, decided by commerce.pricing",
+    "candidate": "nursery-nesting-baskets",
+    "reasons": [
+     "3 finished sizes from one chart, which no profiled competitor offers"
+    ],
+    "warnings": [
+     "take rate 13.8% excludes offsite_ads, regulatory_operating_fee, currency_conversion; if all three apply at their reported rates the take rate is 32.4% and the net is CA$4.39. Those rates are SECONDARY -- etsy.com/legal/fees is 403 to automated readers"
+    ],
+    "price_point": {
+     "recorded": true,
+     "id": 2,
+     "price_cad": 6.5,
+     "previous_price_cad": null
+    },
+    "product_record": "products.launch0:nursery-nesting-baskets"
+   },
+   "assets": {
+    "slug": "market-basket-small",
+    "version": "1.2.0",
+    "release": "1ddde587f537388b4a9dd5a74e9a0e0ebadc6ce0c0a79372dd6b867a230b3991",
+    "rebuild": "",
+    "pages": 9,
+    "size_label": "16 x 9 cm",
+    "finished_size_cm": [
+     16.0,
+     8.7
+    ],
+    "yardage": {
+     "cream": 40.2,
+     "wine": 11.9
+    },
+    "tolerance": 0.2,
+    "calibrated": false,
+    "pdf_sha256": "6b7dfc85ae6db172b9840f531cc8311a959755c29a72dcf612e5ba286278df81",
+    "chart_sha256": "bd6e163a558b35216b2b8ed750bd07308892348f825b4f1bf17960c4c2e62758",
+    "legend_sha256": "8b3f7b570bdaf8075727de8a9b8847fe76a3f509d0142d2ac6a64217f6557265",
+    "pdf_sha256_by_terminology": {
+     "UK": "010e085af12bbac80e6f3ce6d9417be7e446a3c64fe877dba0766d3c472041b1",
+     "US": "6b7dfc85ae6db172b9840f531cc8311a959755c29a72dcf612e5ba286278df81"
+    },
+    "frames": [
+     {
+      "position": 1,
+      "role": "hero",
+      "asset_class": "DIGITAL_TWIN_RENDER",
+      "sha256": "611fd598c280d09c5e78e5823acb0db1660be6d3b65efaea3590e379f97e3cb2"
+     },
+     {
+      "position": 2,
+      "role": "whats_included",
+      "asset_class": "INFOGRAPHIC",
+      "sha256": "b433611b47c1137cff456a7504fdd84bf2c346ec32c4c5242b4b1f3bbdb5a79b"
+     },
+     {
+      "position": 3,
+      "role": "size",
+      "asset_class": "INFOGRAPHIC",
+      "sha256": "3ef635ff71b773d3f9b4e9e70be9e9be1ab2e467d24e56ca4738c088153460dd"
+     },
+     {
+      "position": 4,
+      "role": "materials",
+      "asset_class": "INFOGRAPHIC",
+      "sha256": "de61fa735197a1f0729a3ad85b33e23fb5a6824b266c9b09a8959fbf59cc022a"
+     },
+     {
+      "position": 5,
+      "role": "pattern_preview",
+      "asset_class": "PATTERN_PREVIEW",
+      "sha256": "1dc2876d58e28891443c698a95f8be107a4f77d8240368722b5fa5197a6ab426"
+     },
+     {
+      "position": 6,
+      "role": "chart",
+      "asset_class": "DIGITAL_TWIN_RENDER",
+      "sha256": "adbbc01bac567e3bcdddf1381ecef30674ace29dd5bb289519f5d15c7716ded6"
+     }
+    ]
+   },
+   "seo": {
+    "attributes": {
+     "digital": true,
+     "instant_download": true,
+     "file_type": "PDF",
+     "craft_type": "crochet",
+     "pattern_type": "basket",
+     "skill_level": "confident beginner",
+     "primary_color": "cream",
+     "secondary_color": "wine",
+     "occasion": null,
+     "terminology": "US terms",
+     "includes_chart": true,
+     "includes_written_instructions": true
+    },
+    "disclosures": {
+     "checked": true,
+     "slug": "market-basket-small",
+     "version": "1.2.0",
+     "complete": true,
+     "missing": [],
+     "misplaced": [],
+     "finding": false
+    },
+    "search_hero": {
+     "judged": true,
+     "verdict": "REFUSED",
+     "reasons": [
+      "category: no Etsy taxonomy snapshot is stored: the tree has never been read, so no category can be chosen and none is assumed (taxonomy 66 was never verified)",
+      "attributes: no category, so no property schema to be complete against",
+      "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+      "search certificate (F-004) attributes: no category, so no property schema to be complete against"
+     ]
+    },
+    "search_package": {
+     "written": true,
+     "id": 2,
+     "state": "CURRENT",
+     "keywords": {
+      "phrases": 19,
+      "added": 11,
+      "removed": 0
+     },
+     "readiness": "EXTERNAL_GATED",
+     "verdict": "REFUSED"
+    },
+    "materials": [
+     "worsted cotton",
+     "worsted cotton"
+    ],
+    "supported_claims": [
+     "hexagon base 16.0 cm across the points, 13.9 cm across the flats; 8.7 cm tall",
+     "12.5 sts x 13.8 rows = 10 cm in sc, 5 mm hook"
+    ]
+   },
+   "release_gates": {
+    "blocks_release": true,
+    "reasons": [
+     "search certificate (F-005): category UNKNOWN -- no stored Etsy taxonomy snapshot names a node for this product, and none is assumed",
+     "search certificate (F-004) attributes: no category, so no property schema to be complete against",
+     "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims: UNRESOLVED -- no passed physical sample is bound to this content (1ddde587f537); none on file. Every finished dimension is arithmetic from the stated gauge until somebody works this text",
+     "FIRST_CUSTOMER_BLOCKING: etsy_remote_state: UNVERIFIABLE -- 9 open: {'gap': 'the listing-image upload has never been confirmed by Etsy', 'claim': 'multipart_image_upload', 'clause': 'image_required_to_publish', 'detail': \"integrations.etsy.EtsyClient.upload_im"
+    ]
+   },
+   "pdfs": {
+    "UK": {
+     "key": "market-basket-small/1.2.0/pattern-uk.pdf",
+     "sha256": "010e085af12bbac80e6f3ce6d9417be7e446a3c64fe877dba0766d3c472041b1",
+     "bytes": 380825,
+     "content_type": "application/pdf",
+     "durable": true
+    },
+    "US": {
+     "key": "market-basket-small/1.2.0/pattern-us.pdf",
+     "sha256": "6b7dfc85ae6db172b9840f531cc8311a959755c29a72dcf612e5ba286278df81",
+     "bytes": 380819,
+     "content_type": "application/pdf",
+     "durable": true
+    }
+   }
+  }
+ }
+}

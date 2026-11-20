@@ -1,0 +1,40 @@
+{
+ "dry_run": true,
+ "overrides": "research/final_build/w4/OVERRIDES_PROPOSED_FMBATCH1.json",
+ "problems": [],
+ "launch_critical_open": 27,
+ "rows": {
+  "F-010": {
+   "completion": "OPEN",
+   "reasons": [
+    "maturity TESTED below target INTEGRATED"
+   ],
+   "maturity": "TESTED",
+   "completion_target": null
+  },
+  "F-100": {
+   "completion": "COMPLETE",
+   "reasons": [],
+   "maturity": "INTEGRATED",
+   "completion_target": null
+  },
+  "F-380": {
+   "completion": "COMPLETE",
+   "reasons": [],
+   "maturity": "DEPLOYED",
+   "completion_target": null
+  },
+  "F-381": {
+   "completion": "COMPLETE",
+   "reasons": [],
+   "maturity": "INTEGRATED",
+   "completion_target": null
+  },
+  "F-540": {
+   "completion": "COMPLETE",
+   "reasons": [],
+   "maturity": "DEPLOYED",
+   "completion_target": null
+  }
+ }
+}

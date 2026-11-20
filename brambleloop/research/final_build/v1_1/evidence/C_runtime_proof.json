@@ -1,0 +1,393 @@
+{
+ "what": "lane C runtime proof: real main.app via ASGI TestClient over a fresh SQLite DB (shadow phase, no network)",
+ "generated_at": "2026-10-06T06:35:26Z",
+ "git_head": "f525d167540f097dd58fd8b010e568fedc6df713",
+ "steps": [
+  {
+   "step": "anonymous GET /api/cc/home",
+   "status": 401,
+   "body": {
+    "error": "owner session required (no session)",
+    "code": "NOT_AUTHENTICATED"
+   }
+  },
+  {
+   "step": "anonymous POST approve (refused+audited)",
+   "status": 401,
+   "body": {
+    "error": "owner session required (no session)",
+    "code": "NOT_AUTHENTICATED"
+   }
+  },
+  {
+   "step": "login wrong passphrase",
+   "status": 401,
+   "body": {
+    "error": "passphrase or code not accepted",
+    "code": "BAD_CREDENTIALS"
+   }
+  },
+  {
+   "step": "login",
+   "status": 200,
+   "body": {
+    "authenticated": true,
+    "session": {
+     "session_id": "s_7a0ced361beebc75",
+     "device_label": "proof",
+     "created_at": "2026-10-06T06:35:25.107374+00:00",
+     "last_seen_at": "2026-10-06T06:35:25.107374+00:00",
+     "expires_at": "2026-10-06T18:35:25.107374+00:00",
+     "idle_expires_at": "2026-10-06T08:35:25.107374+00:00",
+     "stepup_valid_until": "2026-10-06T06:40:25.107374+00:00",
+     "revoked_at": null,
+     "revoked_reason": null,
+     "current": true
+    }
+   }
+  },
+  {
+   "step": "POST without CSRF",
+   "status": 403,
+   "body": {
+    "error": "missing or wrong X-CSRF-Token",
+    "code": "CSRF"
+   }
+  },
+  {
+   "step": "POST seen",
+   "status": 200,
+   "body": {
+    "seen_at": "2026-10-06T06:35:25.179564+00:00"
+   }
+  },
+  {
+   "step": "replay same nonce",
+   "status": 409,
+   "body": {
+    "error": "request nonce already used",
+    "code": "REPLAY"
+   }
+  },
+  {
+   "step": "GET /api/cc/home headline",
+   "status": 200,
+   "body": {
+    "revenue": {
+     "value_cad": null,
+     "state": "UNMEASURED",
+     "basis": "unknown",
+     "display": "UNMEASURED",
+     "sources": [
+      "ledger",
+      "orders",
+      "commerce.orders_ingest.source_state"
+     ],
+     "why": "the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales"
+    },
+    "profit": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "basis": "unknown",
+     "display": "UNKNOWN",
+     "why": "not built"
+    },
+    "store": {
+     "products": null,
+     "certified": null,
+     "on_etsy": null,
+     "status": "UNKNOWN",
+     "reason": "no product recorded"
+    },
+    "launch": {
+     "phase": "shadow",
+     "status": "BLOCKED"
+    },
+    "autonomy": {
+     "status": "UNKNOWN",
+     "reason": "not built",
+     "jobs_completed_24h": 0
+    },
+    "incidents_open": 0,
+    "owner_decisions": 14
+   }
+  },
+  {
+   "step": "GET /api/cc/money",
+   "status": 200,
+   "body": {
+    "status": "UNKNOWN",
+    "revenue": {
+     "value_cad": null,
+     "state": "UNMEASURED",
+     "basis": "unknown",
+     "display": "UNMEASURED",
+     "sources": [
+      "ledger",
+      "orders",
+      "commerce.orders_ingest.source_state"
+     ],
+     "why": "the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales"
+    },
+    "profit": {
+     "value_cad": null,
+     "state": "UNKNOWN",
+     "basis": "unknown",
+     "display": "UNKNOWN",
+     "why": "not built"
+    },
+    "source_health": {
+     "order_source_measured": false,
+     "last_read_at": null,
+     "why": "the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales",
+     "warning": "order/payment source is not connected-and-read: revenue, fees and profit are UNKNOWN, not CA$0.00"
+    },
+    "accounting": {
+     "status": "UNKNOWN",
+     "as_of": null,
+     "basis": "unknown",
+     "items": [],
+     "sources": [],
+     "reason": "not built",
+     "provider": "brambleloop.finance.accounting.dashboard.summary"
+    }
+   }
+  },
+  {
+   "step": "GET /api/cc/approvals",
+   "status": 200,
+   "body": {
+    "open": 14,
+    "first_card": {
+     "card_id": "gate:image_vision",
+     "kind": "GATE",
+     "title": "a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+     "proposed_action": "grant a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+     "recommendation": "Recommended when convenient: it un-parks 14 parked requirement(s); nothing else waits on it",
+     "evidence": [
+      {
+       "label": "gate check",
+       "state": "FAIL",
+       "why": "gate 'image_vision' opens when: a recorded vision.probe judged a real observed image -- and a reply that describes no image is recorded as a failure, because a 200 carrying an apology is the shape a broken vision path takes",
+       "source": "executor gate image_vision"
+      }
+     ],
+     "uncertainty": "scope not yet described in the access registry",
+     "expected_benefit": "a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+     "downside": "scope not yet described in the access registry",
+     "max_spend_cad": 0.0,
+     "monthly_ceiling_cad": 0.0,
+     "minutes": 10,
+     "reversibility": "revocable at the source at any time; the gate closes again and its requirements re-park automatically",
+     "deadline": null,
+     "consequence_of_no_action": "requirements [15, 44, 61, 67, 86, 88, 116, 126, 218, 277, 281, 304, 308, 309] stay parked",
+     "continues_regardless": "every requirement not parked on this gate",
+     "unblocks": [
+      15,
+      44,
+      61,
+      67,
+      86,
+      88,
+      116,
+      126,
+      218,
+      277,
+      281,
+      304,
+      308,
+      309
+     ],
+     "executable": false,
+     "actions": [],
+     "not_executable_reason": "completed outside this app (an account, purchase or credential at the provider); the gate re-checks reality and closes this card itself: a recorded vision.probe judged a real observed image -- and a reply that describes no image is recorded as a failure, because a 200 carrying an apology is the shape a broken vision path takes",
+     "sources": [
+      "build2.executor.approval_inbox"
+     ]
+    }
+   }
+  },
+  {
+   "step": "GET /api/cc/notifications",
+   "status": 200,
+   "body": {
+    "count": 14,
+    "top": [
+     {
+      "id": 14,
+      "dedupe_key": "approval:gate:model_provider",
+      "severity": "high",
+      "category": "decision",
+      "title": "Decision needed: a model provider that can actually serve a request",
+      "body": "Recommended when convenient: it un-parks 1 parked requirement(s); nothing else waits on it",
+      "consequence": "The company stays deterministic: correct, cheap, and unable to look at a photograph or write in a voice.",
+      "deadline": null,
+      "evidence": [
+       "build2.executor.approval_inbox"
+      ],
+      "deep_link": "/cc/#/approvals/gate:model_provider",
+      "first_seen_at": "2026-10-06T06:35:25.553924+00:00",
+      "last_seen_at": "2026-10-06T06:35:25.553924+00:00",
+      "occurrences": 1,
+      "acked_at": null,
+      "delivered": "in_app",
+      "held_for_quiet_hours": false
+     },
+     {
+      "id": 1,
+      "dedupe_key": "approval:gate:image_vision",
+      "severity": "normal",
+      "category": "decision",
+      "title": "Decision needed: a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns",
+      "body": "Recommended when convenient: it un-parks 14 parked requirement(s); nothing else waits on it",
+      "consequence": "requirements [15, 44, 61, 67, 86, 88, 116, 126, 218, 277, 281, 304, 308, 309] stay parked",
+      "deadline": null,
+      "evidence": [
+       "build2.executor.approval_inbox"
+      ],
+      "deep_link": "/cc/#/approvals/gate:image_vision",
+      "first_seen_at": "2026-10-06T06:35:25.553924+00:00",
+      "last_seen_at": "2026-10-06T06:35:25.553924+00:00",
+      "occurrences": 1,
+      "acked_at": null,
+      "delivered": "in_app",
+      "held_for_quiet_hours": false
+     }
+    ],
+    "suppressed": 0
+   }
+  },
+  {
+   "step": "ask: what is blocking launch?",
+   "status": 200,
+   "body": {
+    "status": "ANSWERED",
+    "answer": "Launch is blocked by: the company runs in SHADOW (no live publication); 14 owner decision(s) open (top: a model that can actually look at a picture, over the gallery URLs the sanctioned Etsy endpoint already returns).",
+    "sources": [
+     "build2.executor.approval_inbox",
+     "core.phase.resolve (audit_log owner.phase.transition)"
+    ]
+   }
+  },
+  {
+   "step": "ask: why did profit fall?",
+   "status": 200,
+   "body": {
+    "status": "UNKNOWN",
+    "answer": "UNKNOWN: revenue is UNMEASURED (the order source is not connected: etsy_api: no recorded successful etsy.probe, so no working Etsy credential has been demonstrated; transactions_r: the stored Etsy grant does not include it. Only the owner can add it, by re-authorising the app in a browser (owner action 'reauthorise_transactions_r'). Sales are UNMEASURED, which is different from zero sales); profit cannot be stated and is not shown as CA$0.00; accountant view: not built"
+   }
+  },
+  {
+   "step": "pause department growth",
+   "status": 200,
+   "body": {
+    "scope": "department",
+    "department": "growth",
+    "agents_disabled": [
+     "ads",
+     "growth"
+    ],
+    "spend_scopes_paused": [],
+    "grants_revoked": [],
+    "audit_id": 1,
+    "still_running": [
+     "executive",
+     "finance",
+     "platform",
+     "product_truth"
+    ]
+   }
+  },
+  {
+   "step": "pause department platform (refused)",
+   "status": 409,
+   "body": {
+    "error": "platform is never paused: reliability and recovery must keep running",
+    "code": "REFUSED_BY_AUTHORITY"
+   }
+  },
+  {
+   "step": "kill switch to shadow",
+   "status": 200,
+   "body": {
+    "effective_phase": "shadow",
+    "audit_id": 4
+   }
+  },
+  {
+   "step": "GET /api/cc/account security events",
+   "status": 200,
+   "body": {
+    "refused_24h": 6,
+    "events": [
+     {
+      "id": 7,
+      "at": "2026-10-06T06:35:25.883984+00:00",
+      "kind": "emergency",
+      "outcome": "refused",
+      "method": "POST",
+      "route": "/api/cc/emergency/pause",
+      "reason": "REFUSED_BY_AUTHORITY: platform is never paused: reliability and recovery must keep running",
+      "session_id": "s_7a0ced361beebc75"
+     },
+     {
+      "id": 6,
+      "at": "2026-10-06T06:35:25.203856+00:00",
+      "kind": "request",
+      "outcome": "refused",
+      "method": "POST",
+      "route": "/api/cc/home/seen",
+      "reason": "REPLAY: request nonce already used",
+      "session_id": "s_7a0ced361beebc75"
+     },
+     {
+      "id": 5,
+      "at": "2026-10-06T06:35:25.141283+00:00",
+      "kind": "request",
+      "outcome": "refused",
+      "method": "POST",
+      "route": "/api/cc/home/seen",
+      "reason": "CSRF: missing or wrong X-CSRF-Token",
+      "session_id": "s_7a0ced361beebc75"
+     },
+     {
+      "id": 4,
+      "at": "2026-10-06T06:35:25.117535+00:00",
+      "kind": "login",
+      "outcome": "ok",
+      "method": "POST",
+      "route": "/api/cc/auth/login",
+      "reason": "",
+      "session_id": "s_7a0ced361beebc75"
+     },
+     {
+      "id": 3,
+      "at": "2026-10-06T06:35:25.008545+00:00",
+      "kind": "login",
+      "outcome": "refused",
+      "method": "POST",
+      "route": "/api/cc/auth/login",
+      "reason": "BAD_CREDENTIALS: passphrase or code not accepted",
+      "session_id": null
+     },
+     {
+      "id": 2,
+      "at": "2026-10-06T06:35:24.951461+00:00",
+      "kind": "request",
+      "outcome": "refused",
+      "method": "POST",
+      "route": "/api/cc/actions/{action}",
+      "reason": "NOT_AUTHENTICATED: owner session required (no session)",
+      "session_id": null
+     }
+    ]
+   }
+  },
+  {
+   "step": "GET /cc/ (static, CSP)",
+   "status": 200,
+   "body": "<!doctype html>\n<html lang=\"en\"><head>\n<meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<title>Brambleloop Command Center</title>\n</head><body>\n<main><h1>Bramb",
+   "csp": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; manifest-src 'self'; worker-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'"
+  }
+ ]
+}
