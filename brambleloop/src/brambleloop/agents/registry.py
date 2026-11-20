@@ -43,6 +43,15 @@ class BudgetExceeded(Exception):
 DEFAULT_AGENTS: list[dict] = [
     dict(name="learn", description="Learn source gaps and approved education; no publication/spend.",
          allowed_job_types=["learn.scan"], authority=Authority.GREEN, daily_cost_ceiling_cad=0.0),
+    # ENG-AUTOCODER (D-OWNER-AUTOCODER, 2026-11-20): the in-production coding team. Its one
+    # job edits code in a temp workspace and pushes only an auto/* branch for the
+    # certify-and-promote pipeline; it never deploys, publishes or spends outside the model
+    # gateway. Daily ceiling CA$8 (two requests at the CA$3.50 per-request cap, with room for
+    # a review); `improve.autocoder.limits` holds the per-request and monthly sub-ceilings.
+    dict(name="autocoder", description="Autocoder: change requests to reviewed auto/* "
+                                       "branches through the model gateway; never deploys.",
+         allowed_job_types=["improve.code"], authority=Authority.GREEN,
+         daily_cost_ceiling_cad=8.0),
     dict(name="orchestrator", description="CEO/Orchestrator: sets priorities, schedules work",
          allowed_job_types=["scale.trajectory",  # C-64 / #26: nightly scenario analysis
                             "plan.cycle", "portfolio.review", "ops.heartbeat",

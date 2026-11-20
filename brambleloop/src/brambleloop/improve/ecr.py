@@ -266,6 +266,34 @@ def _counts_only(value, depth: int = 0):
     return "<omitted>"
 
 
+def note_autocoder(db, ecr_id: int, **fields) -> dict:
+    """ENG-AUTOCODER: merge the coding job's state into `evidence["autocoder"]`.
+
+    Keys whose value is None are removed (a parked run clears `status`, so the request is
+    eligible again). Never moves the lifecycle state; `advance` does that. Audited."""
+    from .self_models import EngineeringChangeRequest as E
+
+    with db.session() as s:
+        row = s.get(E, ecr_id)
+        if row is None:
+            raise ECRRefused(f"no change request {ecr_id}")
+        ev = dict(row.evidence or {})
+        ac = dict(ev.get("autocoder") or {})
+        for k, v in fields.items():
+            if v is None:
+                ac.pop(k, None)
+            else:
+                ac[k] = v
+        ev["autocoder"] = ac
+        row.evidence = ev
+        entry = _log(row, f"autocoder:{ac.get('status') or 'cleared'}",
+                     **{k: v for k, v in fields.items()
+                        if k in ("status", "branch", "sha", "reason", "attempts", "job")})
+        out = dict(ac)
+    _audit(db, ecr_id, entry)
+    return out
+
+
 def readback(db) -> dict:
     """The projection `GET /api/readback/ecrs` serves: open requests, newest evidence counts."""
     rows = []

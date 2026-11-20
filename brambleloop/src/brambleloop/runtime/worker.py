@@ -665,6 +665,10 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # live challengers judged (promotion / automatic rollback), change requests filed and
     # verified against their KPI. Reads rows; never edits or deploys code; spends nothing.
     ("self_tune", "orchestrator", "improve.self_tune", 24 * 60 * 60),
+    # ENG-AUTOCODER (D-OWNER-AUTOCODER): one change request per run, from pick to an auto/*
+    # branch or a recorded refusal. Six-hourly; the kill switch (OFF by default), the
+    # autocoder's monthly sub-ceiling and the CA$100 model ceiling bind, not the cadence.
+    ("autocoder", "autocoder", "improve.code", 6 * 60 * 60),
     # Certification 2026-09-27 (#82, #89, #298): the learners run daily and report UNMEASURED
     # with the minimum n until listings produce outcomes; the harvest refuses a season that
     # has not passed or has fewer than 20 orders.

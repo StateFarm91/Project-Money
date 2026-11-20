@@ -259,6 +259,21 @@ TASKS: dict[str, Task] = {
         "benchmark_challenge", DEEP, 2500, 6000, False,
         "blinded comparison against category-matched benchmark evidence (#315) — "
         "release-blocking, so it gets the model that is right most often"),
+    # ENG-AUTOCODER (D-OWNER-AUTOCODER): the in-production coding team. One plan/edit/test
+    # step on the standard tier (code at volume), and the independent review of the finished
+    # diff on the deep tier -- a different model from the author by default, and routable to
+    # a different vendor per task through BRAMBLELOOP_MODEL_ROUTES. Neither is cacheable (each
+    # step sees a new transcript), and neither falls back: a coding step or a review whose
+    # model is down parks rather than paying a dearer substitute. Tests and the deterministic
+    # rails (`improve.autocoder_safety`) decide what ships, never these answers alone.
+    "autocoder.step": Task(
+        "autocoder.step", STANDARD, 4000, 16000, False,
+        "one plan/edit/test step of the autocoder on an engineering change request",
+        stronger_fallback=False),
+    "autocoder.review": Task(
+        "autocoder.review", DEEP, 1200, 14000, False,
+        "independent SHIP/BLOCK review of an autocoder diff before any branch is pushed",
+        stronger_fallback=False),
 }
 
 # Questions a model may not be asked at all, whatever the budget. Deterministic code already

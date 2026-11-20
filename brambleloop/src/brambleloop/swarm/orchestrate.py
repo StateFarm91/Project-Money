@@ -1371,6 +1371,8 @@ JOB_BANDS: dict[str, str] = {
     "seasonal.cycle_proof": "exploration",
     "improve.nightly": "exploration",
     "improve.weekly": "exploration",
+    # ENG-AUTOCODER: model-paid coding against a change request; capped by its own month.
+    "improve.code": "exploration",
     "improve.retrospective": "exploration",
     "intel.pod_learning": "exploration",
     "improve.role_work": "exploration",
