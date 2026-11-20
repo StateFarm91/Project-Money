@@ -106,6 +106,7 @@ def test_branded_revealing_knitted_and_identity_outfits_are_refused():
         "KNITWEAR": dict(top_or_dress="sage cable-knit cardigan"),
         "IDENTITY": dict(accessories="gold hoops framing her face"),
     }
+    assert len(cases) == 4
     for code, change in cases.items():
         o = OL.Outfit(**{**base.__dict__, **change})
         probs = OL.outfit_problems(o)
@@ -251,6 +252,7 @@ def test_misleading_prop_rule():
         "KNITWEAR": ("coaster", "a knitted tea cosy"),
         "DECOY": ("basket", "a second wicker basket"),
     }
+    assert len(codes) == 3
     for code, (fam, text) in codes.items():
         assert any(p.startswith(code) for p in SL.prop_problems("x", fam, text=text)), code
     assert any(p.startswith("NOT_ALLOWED") for p in SL.prop_problems("dinner_plates",
@@ -363,6 +365,7 @@ def test_laura_appears_where_the_family_puts_her():
     small = G.plan_gallery("s", product=_product("coaster"), outfit=o)
     assert {f["frame_role"] for f in small["frames"] if f["laura"]} == {"lifestyle"}
     for plan in (worn, small):
+        assert len(plan["frames"]) >= 7
         for f in plan["frames"]:
             if f["frame_role"] in ("flat_lay", "close_up"):
                 assert f["laura"] is False
