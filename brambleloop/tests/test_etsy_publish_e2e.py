@@ -272,6 +272,18 @@ def test_package_to_draft_rollback_adoption_and_refusals():
                     if k in sent:
                         seeded[k] = sent[k]
                 seeded["listing_type"] = sent.get("type", "download")
+                # Review b17-d A1: the hand-made draft already holds an image at every rank
+                # with the certified alt text and pixel size, but other bytes. Matching alt
+                # text is no proof; adoption must overwrite every rank with our bytes.
+                imgs = etsy_ops.certified_images(db, slug, version, release=rh)
+                fake.images[seeded_id] = []
+                for rank, e in enumerate(imgs["images"], start=1):
+                    w, h = etsy_ops._dimensions(e[1])
+                    fake.images[seeded_id].append({
+                        "listing_image_id": 990000 + rank, "listing_id": int(seeded_id),
+                        "rank": rank, "alt_text": getattr(e, "alt_text", ""),
+                        "full_width": w, "full_height": h})
+                assert not fake.received_images.get(seeded_id)
                 creates_before = _creates(fake)
                 gid2 = _grant(db, slug, version, rh, "after rollback")
                 #    No button: the hourly scheduler sees the owner's grant and queues the
@@ -286,6 +298,13 @@ def test_package_to_draft_rollback_adoption_and_refusals():
                 assert job["outputs"].get("adopted_existing_draft") is True, job
                 assert FL._audits(db, draft_adoption.ADOPTED), "adoption is audited"
                 _assert_complete_draft(db, fake, slug, version, rh, seeded_id, job)
+                got_ranks = sorted({i["rank"] for i in fake.received_images[seeded_id]})
+                assert got_ranks == list(range(1, len(imgs["images"]) + 1)), got_ranks
+                by_rank = FL._audits(db, "store.published")[-1]["read_back"]["images"][
+                    "by_rank"]
+                last = {i["rank"]: i["sha256"] for i in fake.received_images[seeded_id]}
+                assert all(r["uploaded_in_this_job"] and r["sent_sha256"] == last[r["rank"]]
+                           for r in by_rank), by_rank
                 assert len(fake.listings) == 1
                 _assert_card(db, slug, version, seeded_id)
 

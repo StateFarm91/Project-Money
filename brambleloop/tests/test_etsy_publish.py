@@ -354,22 +354,38 @@ def test_image_readback_compares_sent_hashes_with_the_certificate_and_etsy_dimen
             "order": [{"position": 1, "sha256": _sha(a)}, {"position": 2, "sha256": _sha(b)}]}
     remote = [{"rank": 1, "alt_text": "alt one", "full_width": 40, "full_height": 30},
               {"rank": 2, "alt_text": "alt two", "full_width": 20, "full_height": 20}]
-    rows, problems = etsy_ops.image_hash_checks(sent, remote)
+    uploaded = {1: _sha(a), 2: _sha(b)}
+    rows, problems = etsy_ops.image_hash_checks(sent, remote, uploaded)
     assert not problems and all(r["hash_matches_certificate"] for r in rows), (rows, problems)
     # bytes that are not the certified frame
     wrong = {**sent, "order": [{"position": 1, "sha256": "0" * 64}, sent["order"][1]]}
-    rows, problems = etsy_ops.image_hash_checks(wrong, remote)
+    rows, problems = etsy_ops.image_hash_checks(wrong, remote, uploaded)
     assert not rows[0]["hash_matches_certificate"] and "rank 1" in problems[0], problems
     # Etsy holds an image of other dimensions at rank 2
     rows, problems = etsy_ops.image_hash_checks(
-        sent, [remote[0], {**remote[1], "full_width": 640}])
+        sent, [remote[0], {**remote[1], "full_width": 640}], uploaded)
     assert problems == ["image rank 2: sent 20x20, Etsy holds 640x20"], problems
+    # Review b17-d A1: a rank not uploaded in this job proves nothing, whatever we meant to send
+    rows, problems = etsy_ops.image_hash_checks(sent, remote, {1: _sha(a)})
+    assert rows[1]["uploaded_in_this_job"] is False and not rows[1]["hash_matches_certificate"]
+    assert problems == [problems[0]] and "rank 2: no bytes were uploaded" in problems[0], problems
+    rows, problems = etsy_ops.image_hash_checks(sent, remote)
+    assert len(problems) == 2, problems
+    # ... and the hash is of the bytes uploaded, not of the bytes the job intended
+    rows, problems = etsy_ops.image_hash_checks(sent, remote, {1: "f" * 64, 2: _sha(b)})
+    assert "rank 1: sent bytes hash to ffffffffffff" in problems[0], problems
+    # a missing Etsy dimension is a problem, never a skipped check
+    rows, problems = etsy_ops.image_hash_checks(
+        sent, [remote[0], {"rank": 2, "alt_text": "alt two"}], uploaded)
+    assert problems == ["image rank 2: Etsy reported no full-size dimensions, so the image "
+                        "it holds is unchecked"], problems
 
     class Client:
         def get_listing_images(self, _lid):
             return remote
 
-    out = etsy_ops.images_read_back(Client(), "1", ["alt one", "alt two"], sent_images=wrong)
+    out = etsy_ops.images_read_back(Client(), "1", ["alt one", "alt two"], sent_images=wrong,
+                                    uploaded=uploaded)
     assert out["verified"] is False and out["by_rank"], out
 
 
@@ -534,6 +550,123 @@ def test_the_scheduler_queues_nothing_without_an_owner_grant():
     assert out["queued"] == [] and out["waiting_for_owner_grant"] == 1, out
     with db.session() as s:
         assert not list(s.scalars(select(Job).where(Job.job_type == "store.publish")))
+
+
+class _Ctx:
+    """A JobContext stand-in: the db and an audit sink (what the helpers below use)."""
+
+    def __init__(self, db):
+        self.db, self.audits = db, []
+
+    def audit(self, action, **kw):
+        from brambleloop.core.models import AuditLog
+
+        self.audits.append((action, kw))
+        with self.db.session() as s:
+            s.add(AuditLog(actor="store_operator", action=action,
+                           artifact=kw.get("artifact"), detail=kw.get("detail") or {}))
+
+
+def test_an_adopted_draft_has_every_image_rank_resent_and_reports_the_uploaded_hashes():
+    """Review b17-d A1: matching alt text on an adopted draft is no reason to skip a rank."""
+    from brambleloop.runtime import etsy_ops, pipeline
+
+    a, b = _png(40, 30), _png(20, 20)
+    images = {"images": [etsy_ops.CertifiedImage("f-1.png", a, "alt one"),
+                         etsy_ops.CertifiedImage("f-2.png", b, "alt two")]}
+
+    class Client:
+        def __init__(self):
+            self.uploads = []
+
+        def get_listing_files(self, _lid):
+            return []
+
+        def attach_file(self, *_a, **_k):
+            return True
+
+        def get_listing_images(self, _lid):
+            return [{"rank": 1, "alt_text": "alt one"}, {"rank": 2, "alt_text": "alt two"}]
+
+        def upload_image(self, _lid, **kw):
+            self.uploads.append((kw["rank"], kw["overwrite"], _sha(kw["data"])))
+
+    docs = {t: type("D", (), {"pdf_bytes": b"%PDF"})() for t in ("US", "UK")}
+    lazy = Client()
+    out = pipeline._complete_draft(lazy, "1", slug="s", docs=docs, listing_images=images,
+                                   payload=None, grant_fn=lambda: None)
+    assert lazy.uploads == [] and out["sent_ranks"] == {}, out
+    forced = Client()
+    out = pipeline._complete_draft(forced, "1", slug="s", docs=docs, listing_images=images,
+                                   payload=None, grant_fn=lambda: None, force_images=True)
+    assert forced.uploads == [(1, True, _sha(a)), (2, True, _sha(b))], forced.uploads
+    assert out["sent_ranks"] == {1: _sha(a), 2: _sha(b)}, out
+
+
+def test_an_adopted_draft_holding_a_file_of_our_name_is_escalated():
+    """Review b17-d A2: name and size cannot prove a held PDF is this release's."""
+    from brambleloop.core.resilience import PermanentError
+    from brambleloop.publish import draft_adoption
+    from brambleloop.publish.pdf import pattern_filename
+    from brambleloop.runtime import pipeline
+
+    db = _db()
+    ctx = _Ctx(db)
+
+    class Client:
+        def __init__(self, names):
+            self.names = names
+
+        def get_listing_files(self, _lid):
+            return [{"filename": n} for n in self.names]
+
+    pipeline._refuse_held_pattern_files(ctx, Client(["other.pdf"]), "9", slug=SLUG,
+                                        version=VERSION, release=RELEASE)
+    assert ctx.audits == []
+    try:
+        pipeline._refuse_held_pattern_files(
+            ctx, Client([f"{SLUG}-{pattern_filename('UK')}"]), "9", slug=SLUG,
+            version=VERSION, release=RELEASE)
+        raise AssertionError("a held file of our name was accepted")
+    except PermanentError as e:
+        assert "DRAFT_ADOPTION_ESCALATED" in str(e), e
+    assert ctx.audits[-1][0] == draft_adoption.ESCALATED, ctx.audits
+
+
+def test_an_unreadable_shop_dead_letters_after_the_bound_with_one_incident():
+    """Review b17-d A3: UNREAD retries are bounded; still nothing is created."""
+    from sqlalchemy import select
+
+    from brambleloop.core.models import Incident
+    from brambleloop.core.resilience import PermanentError
+    from brambleloop.runtime import pipeline
+
+    db = _db()
+    ctx = _Ctx(db)
+
+    def refuse():
+        ctx.audit("store.execution_refused", artifact=f"{SLUG}@{VERSION}",
+                  detail={"release": RELEASE, "stage": "duplicate_check", "reason": "x"})
+
+    for _ in range(pipeline.MAX_CONSECUTIVE_UNREAD - 1):
+        pipeline._dead_letter_if_unread_too_often(ctx, slug=SLUG, version=VERSION,
+                                                  release=RELEASE, why="503")
+        refuse()
+    for _ in range(2):
+        try:
+            pipeline._dead_letter_if_unread_too_often(ctx, slug=SLUG, version=VERSION,
+                                                      release=RELEASE, why="503")
+            raise AssertionError("an unreadable shop retried past the bound")
+        except PermanentError as e:
+            assert "DEAD_LETTER" in str(e), e
+    with db.session() as s:
+        rows = list(s.scalars(select(Incident).where(
+            Incident.signature == f"store.draft_adoption:unread:{SLUG}@{VERSION}")))
+        assert len(rows) == 1 and rows[0].severity == "P2", rows
+    # Another outcome (an adoption) ends the streak.
+    ctx.audit("store.draft_adopted", artifact=f"{SLUG}@{VERSION}", detail={})
+    pipeline._dead_letter_if_unread_too_often(ctx, slug=SLUG, version=VERSION,
+                                              release=RELEASE, why="503")
 
 
 run(globals())
