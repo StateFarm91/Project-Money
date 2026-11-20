@@ -1516,3 +1516,7 @@ See P0_GAP_REGISTER.json `opus2_open_engineering`.
 - Correction: #28 has rolled onto page 6 (20 comments, 03:55Z-05:22Z). None is addressed to opus2/Secondary. Main posted owner directives for the ENG lanes: D-OWNER-GALLERY-COMPLETE, D-OWNER-SALE-PIPELINE, D-OWNER-PDF-LOGO, D-OWNER-PDF-TEMPLATE, plus the Highland Cow and MadelineMaeCo capybara benchmark teardowns. ENG-PLUSH 19b25e3 ports opus2/p0-amigurumi (OPUS2T-4/T-5, P-1..P-9). INTEG2 64146306 and dispatch are unchanged.
 - NOTE for future ticks: read #28 page 6 onward (perPage 100).
 - STOP REASON: no assigned opus2 work; awaiting Main ASSIGN.
+
+## 2026-11-20T10:30Z tick
+- No new #28 comments (page 6 still ends at 7031241647, 05:22Z). INTEG2 64146306 and dispatch are unchanged.
+- STOP REASON: no assigned opus2 work; awaiting Main ASSIGN.
