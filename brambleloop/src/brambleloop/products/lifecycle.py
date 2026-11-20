@@ -46,6 +46,25 @@ def may_move(frm: str, to: str) -> bool:
     return to in ALLOWED.get(frm, ())
 
 
+def _complete_gallery(s, slug: str) -> bool:
+    """Whether a valid listing-set certificate for `slug` names the whole campaign gallery
+    (at least CAMPAIGN_MIN_FRAMES frames). Unreadable is never complete."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import ListingSetCertificateRecord
+    from ..visual.shot_plans import CAMPAIGN_MIN_FRAMES
+
+    try:
+        rec = s.scalar(select(ListingSetCertificateRecord).where(
+            ListingSetCertificateRecord.product_slug == slug,
+            ListingSetCertificateRecord.state == "valid")
+            .order_by(desc(ListingSetCertificateRecord.id)).limit(1))
+        frames = (rec.certificate or {}).get("frames") if rec is not None else None
+        return isinstance(frames, list) and len(frames) >= CAMPAIGN_MIN_FRAMES
+    except Exception:  # noqa: BLE001 - unreadable is never complete
+        return False
+
+
 def derive(db, slug: str) -> dict:
     from sqlalchemy import func, select
 
@@ -65,6 +84,7 @@ def derive(db, slug: str) -> dict:
             ListingAsset.product_slug == slug)) or 0
         orders = s.scalar(select(func.count()).select_from(Order).where(
             Order.product_slug == slug)) or 0
+        gallery = _complete_gallery(s, slug)
     from ..core.listing_state import LIVE_ON_ETSY
 
     states = {x.state for x in listings}
@@ -75,8 +95,13 @@ def derive(db, slug: str) -> dict:
         stage, why = ("GROWING", f"{orders} order(s) recorded") if orders else \
             ("LIVE", "a listing is published")
     elif listings:
-        stage, why = (("LISTING_READY", "a draft listing with assets") if assets else
-                      ("VISUAL", "a draft listing without assets"))
+        # D-OWNER-GALLERY-COMPLETE: a listing is not ready until every listing photo is.
+        if assets and gallery:
+            stage, why = "LISTING_READY", "a draft listing with its complete certified gallery"
+        elif assets:
+            stage, why = "VISUAL", "a draft listing whose certified gallery is incomplete"
+        else:
+            stage, why = "VISUAL", "a draft listing without assets"
     elif any(v.certified for v in versions):
         stage, why = "QA", "a certified pattern version, no listing yet"
     elif versions:
