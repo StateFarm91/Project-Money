@@ -152,6 +152,9 @@ class SFaceEmbedder:
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = int(os.environ.get("BRAMBLELOOP_FACE_THREADS", "1"))
         opts.log_severity_level = 3
+        # RAM budget (~120 MB over the worker): no pre-grown CPU arena, no pattern cache.
+        opts.enable_cpu_mem_arena = False
+        opts.enable_mem_pattern = False
         mk = lambda f: ort.InferenceSession(str(d / f), sess_options=opts,  # noqa: E731
                                             providers=["CPUExecutionProvider"])
         return cls(mk(MODELS["detector"]["file"]), mk(MODELS["recogniser"]["file"]))
