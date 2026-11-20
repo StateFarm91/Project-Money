@@ -58,7 +58,14 @@ primitives in `PRIMITIVES`. Each primitive names the test that validates it.
 Every item ran concept → plan → CIR → compile, twin, assembly, reverse (US and UK) → certify
 (US and UK) → US and UK PDF. The table comes from `scripts/compose_examples.py`.
 
-__ITEMS_TABLE__
+| Item | Title | Parts (shape, closure) | Joins | Rows | Sts | Risk | Size (from the twin) | Certificate US / UK | PDF US / UK |
+|---|---|---|---|---|---|---|---|---|---|
+| owl | Pebble Owl Amigurumi | body (ovoid, gathered), wing (cylinder, folded_flat ×2), ear tuft (cone, folded_flat ×2) | sewn | 44 | 1146 | C | The body is about 33.6 cm around its widest round | withheld: CHILD_SAFETY_PHYSICAL_EVIDENCE_UNKNOWN, PHYSICAL_TEST_REQUIRED | 1001 KB / 1001 KB |
+| whale | Harbour Whale Amigurumi | body (ovoid, gathered), fin (cylinder, folded_flat ×2), tail (cone, folded_flat) | sewn | 47 | 1392 | C | The body is about 38.4 cm around its widest round | withheld: CHILD_SAFETY_PHYSICAL_EVIDENCE_UNKNOWN, PHYSICAL_TEST_REQUIRED | 990 KB / 990 KB |
+| lovey | Meadow Lamb Lovey | square (rectangle, open), head (sphere, gathered), ear (cylinder, folded_flat ×2) | sewn, surface | 68 | 2242 | C | The square is about 30.4 cm wide and about 29.7 cm tall | withheld: CHILD_SAFETY_PHYSICAL_EVIDENCE_UNKNOWN, PHYSICAL_TEST_REQUIRED | 247 KB / 247 KB |
+| tote | Harvest Block Tote | bag (cylinder, open), strap (rectangle, open ×2) | sewn | 109 | 3360 | A | The bag is about 18.3 cm across and about 25.4 cm tall | granted / granted | 1450 KB / 1450 KB |
+| cushion | Moonwell Round Cushion Cover | front (flat_circle, open), back (flat_circle, open) | rim | 54 | 4536 | A | The front is about 41.3 cm across | withheld: PHYSICAL_TEST_REQUIRED | 1312 KB / 1312 KB |
+| sleeve | Slate Band Tablet Sleeve | front (rectangle, open), back (rectangle, open) | seamed_panels | 60 | 1920 | A | The front is about 25.6 cm wide and about 21.7 cm tall | granted / granted | 355 KB / 354 KB |
 
 - **"Withheld" means withheld only for physical evidence.** The toys and the lovey are held
   for `PHYSICAL_TEST_REQUIRED` and `CHILD_SAFETY_PHYSICAL_EVIDENCE_UNKNOWN`, exactly as the
