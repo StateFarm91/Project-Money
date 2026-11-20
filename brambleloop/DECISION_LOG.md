@@ -3100,3 +3100,21 @@ queued so it drafts automatically once its engine certifies.
 - Adopted drafts are proven by re-sending every image rank, not by trusting alt text and pixel size: Etsy returns no image hash, so the only hash that means anything is the hash of bytes this job sent. Unproven ranks fail the read-back.
 - Held pattern files on an adopted draft escalate rather than being replaced: adding a file-delete write path to the Etsy client is a new irreversible capability and was not needed to fail closed.
 - Unread shops dead-letter after 5 consecutive refusals (one P2 incident) instead of retrying forever.
+## D-CERTFIX1-SUPPLY-REFILL — the chain-end refill fills the slot the ending chain held (CERTFIX-1, 2026-11-20)
+- **Change:** `supply.after_chain_job` enqueues no `supply.admit` when two or more slots are open after the end, because at
+  least one slot was already free before it. That supply belongs to the 15-minute `supply.admit` and to `offer`'s own
+  immediate admission. A refill with capacity full or unreadable is unchanged, and the pass records its own refusal.
+  `Worker._supply_after` enqueues one only when its own handler registry runs `supply.admit`: a private-registry worker's
+  refill could only dead-letter as "no handler registered".
+- **Why:** with every end refilling, one release's chain in a scoped drain seeded every other Launch-0 release.
+  `test_w5_a9_package_event` packaged all 8 Launch-0 releases instead of the one under test, and the timeline in
+  `test_w4_close6_timeline` grew an uncaused `supply.admit` story. D-ENG-DEMAND-SUPPLY's "capacity refill is unchanged" still
+  holds for the case it was built for: a full WIP whose slot frees (tests/test_eng_supply.py, unchanged, passes).
+- Reversible by decision.
+## D-CERTFIX1-CIR-V3 — CIR contract v3 declared (CERTFIX-1, 2026-11-20)
+- ENG-PLUSH (2763340) and ENG-COLOURWORK (78d6299) added `Chart`, `Component.chart/stuff_at_round/closes` and Seam
+  `'surface'` without a contract bump. CIR goes from v2 to v3 with a CHANGELOG entry and a row in ops/CONTRACT_CHANGES.md,
+  and consumers re-pin to v3. The change is additive and optional, and existing CIRs serialise byte-identically.
+- `child_safety` joins `certificate.CANONICAL_STAGES` as a conditional stage, because the chain runs it.
+  `commerce.lanes.applicable_gates` owes it when `child_safety.applies`, and an unread profile with a closed form owes it
+  (fail closed).
