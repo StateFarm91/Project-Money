@@ -317,6 +317,7 @@ def test_family_garment_has_the_size_table_and_fit_and_ease():
     text = _flat(doc)
     assert "FIT + EASE" in text and "Intended fit: relaxed" in text
     cir = _cir("garment:harbour-drop-shoulder-pullover:M")
+    assert cir.grading.sizes
     for e in cir.grading.sizes:
         assert f"chest {e['built_cm']['chest']:g} cm" in text, e["size"]
     assert "this edition" in text
