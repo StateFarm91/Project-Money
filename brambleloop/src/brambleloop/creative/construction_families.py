@@ -71,8 +71,9 @@ HAT_BEANIE = "hat_beanie"
 BABY_DRESS, BABY_ROMPER = "baby_dress", "baby_romper"
 TOP_TEE, TOP_TANK = "top_tee", "top_tank"
 CARDIGAN_VNECK = "cardigan_vneck"
+SOCK, SLIPPER = "sock", "slipper"
 WEARABLE_FAMILIES = frozenset({HAT_BEANIE, BABY_DRESS, BABY_ROMPER, TOP_TEE, TOP_TANK,
-                               CARDIGAN_VNECK})
+                               CARDIGAN_VNECK, SOCK, SLIPPER})
 
 FAMILIES: dict[str, Family] = {f.key: f for f in (
     Family(FC.FLAT_PANEL, "runtime.pipeline.concept_to_cir", VERIFIED,
@@ -186,6 +187,19 @@ FAMILIES: dict[str, Family] = {f.key: f for f in (
            "cir.graded WOMAN / CHILD / BABY + stated relaxed ease",
            "open-front top-down raglan with a V neck; no buttons, cables or pockets. A "
            "granny-square cardigan is not built: motifs joined in rounds have no engine"),
+    Family(SOCK, "products.wearables (sock)", VERIFIED,
+           f"{WEARABLE_PROOF}::test_a_research_adult_sock_runs_concept_to_pdf",
+           ("CYC foot: child 10-13 to youth 4-6", "CYC foot: woman 4-12.5, man 12-14"),
+           "cir.graded FOOT (Craft Yarn Council foot chart) + stated negative ease; leg and "
+           "cuff are design ratios of the foot length",
+           "cuff-down sock with an afterthought heel; no baby sizes (the heel cup measures "
+           "as a small part for under-3s), no toe-up, gusset, short-row heel or knee-high"),
+    Family(SLIPPER, "products.wearables (slipper)", VERIFIED,
+           f"{WEARABLE_PROOF}::test_a_research_adult_slipper_runs_concept_to_pdf",
+           ("CYC foot: child 10-13 to youth 4-6", "CYC foot: woman 4-12.5, man 12-14"),
+           "cir.graded FOOT + stated negative ease",
+           "the sock construction in worsted with a short ankle cuff; no sole, grip or "
+           "baby booties"),
     Family(FC.POUCH, "creative.fallback_constructions.pouch", PARTIAL, "",
            ("one size",), "fallback_constructions.POUCH_ACROSS_CM (design choice)",
            "certification refuses ASSET_COLOR_ABSENT: the pouch works one palette colour "
@@ -358,6 +372,8 @@ WEARABLE_PAIR_AUDIENCE: dict[tuple[str, str], frozenset] = {
     (TOP_TANK, "top"): frozenset({"adult", "child"}),
     (CARDIGAN_VNECK, "cardigan"): frozenset({"adult", "child"}),
     (CARDIGAN_VNECK, "baby"): frozenset({"baby"}),
+    (SOCK, "sock"): frozenset({"adult", "child"}),
+    (SLIPPER, "slipper"): frozenset({"adult", "child"}),
 }
 PAIR_PROOFS.update({
     (HAT_BEANIE, "hat"): FAMILIES[HAT_BEANIE].proof,
@@ -370,6 +386,8 @@ PAIR_PROOFS.update({
     (CARDIGAN_VNECK, "cardigan"): FAMILIES[CARDIGAN_VNECK].proof,
     (CARDIGAN_VNECK, "baby"): f"{WEARABLE_PROOF}::test_a_research_baby_v_neck_cardigan_runs_"
                               f"concept_to_pdf",
+    (SOCK, "sock"): FAMILIES[SOCK].proof,
+    (SLIPPER, "slipper"): FAMILIES[SLIPPER].proof,
 })
 # A garment pair's proof is for one body table: the audience it was proven on.
 GARMENT_PAIR_AUDIENCE: dict[tuple[str, str], str] = {

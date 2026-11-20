@@ -65,11 +65,20 @@ KIDS_VCARDI = WB.WearableSpec("acorn-kids-v-neck-cardigan", "Acorn Kids V-Neck C
 BABY_VCARDI = WB.WearableSpec("dewdrop-baby-v-neck-cardigan", "Dewdrop Baby V-Neck Cardigan",
                               "cardigan", "cardigan_vneck", "baby", "dk", "cotton",
                               WB.VCARDI_EASE["baby"])
+SOCK = WB.WearableSpec("heathland-socks", "Heathland Socks", "sock", "sock", "adult",
+                       "fingering", "merino", (("foot_circ", WB.SOCK_EASE_CM),))
+KIDS_SOCK = WB.WearableSpec("bramble-kids-socks", "Bramble Kids Socks", "sock", "sock",
+                            "child", "fingering", "merino", (("foot_circ", WB.SOCK_EASE_CM),))
+SLIPPER = WB.WearableSpec("hearthstone-slippers", "Hearthstone Slippers", "slipper", "slipper",
+                          "adult", "worsted", "wool", (("foot_circ", WB.SOCK_EASE_CM),))
+KIDS_SLIPPER = WB.WearableSpec("fox-den-kids-slippers", "Fox Den Kids Slippers", "slipper",
+                               "slipper", "child", "worsted", "wool",
+                               (("foot_circ", WB.SOCK_EASE_CM),))
 ADULT_SIZES = ("XS", "S", "M", "L", "XL", "2X", "3X", "4X", "5X")
 CHILD_SIZES = ("2", "4", "6", "8", "10", "12")
 SPECS = {s.key: s for s in (BEANIE, SLOUCHY, BABY_HAT, BABY_DRESS, BABY_PINAFORE,
                             BABY_ROMPER, TEE, TANK, KIDS_TANK, VCARDI, KIDS_VCARDI,
-                            BABY_VCARDI)}
+                            BABY_VCARDI, SOCK, KIDS_SOCK, SLIPPER, KIDS_SLIPPER)}
 
 
 @lru_cache(maxsize=None)
@@ -560,6 +569,112 @@ def test_cardigans_route_by_neckline_and_granny_square_is_held_by_name():
         assert got["reason"].startswith(f"{CF.HOLD_PREFIX}granny_square_garment"), got
 
 
+# ---- 5. socks and slippers -------------------------------------------------------------------
+
+
+def test_the_foot_chart_is_the_published_cyc_chart():
+    from brambleloop.cir.graded import FOOT
+
+    assert FOOT.source_url.endswith("/standards/foot-size-charts")
+    got = {b.size: (b.cm("foot_circ"), b.published["foot_length"]) for b in FOOT.sizes}
+    assert got["Woman 7-9.5"] == (20.5, (23.5, 25.5)) and got["Man 12-14"] == (25.5,
+                                                                                (28.5, 30.5))
+    assert got["Baby 0-4"] == (11.0, (7.75, 11.5)) and len(got) == 11
+    assert all(not b.is_sourced("sock_height") for b in FOOT.sizes)
+
+
+def test_every_sock_and_slipper_size_is_granted():
+    adult, child = WB.SOCK_SIZES["adult"], WB.SOCK_SIZES["child"]
+    assert_family_release(SOCK.key, adult)
+    assert_family_release(KIDS_SOCK.key, child)
+    assert_family_release(SLIPPER.key, adult)
+    assert_family_release(KIDS_SLIPPER.key, child)
+
+
+def test_socks_are_graded_from_the_foot_chart_and_rise():
+    for spec in (SOCK, KIDS_SOCK, SLIPPER, KIDS_SLIPPER):
+        r = released(spec.key)
+        ms = [WB.sock_measures(c) for c in r.cirs.values()]
+        assert ms and all(b["circumference"] > a["circumference"] and
+                          b["foot_length"] > a["foot_length"] for a, b in zip(ms, ms[1:]))
+        for (size, _c), m in zip(r.cirs.items(), ms):
+            g = r.design.graded_size(size)
+            assert -3.0 <= m["circumference"] - g.body_cm("foot_circ") <= 0.5
+            assert abs(m["foot_length"] - g.body_cm("foot_length")) / g.body_cm(
+                "foot_length") <= 0.06
+    sock = WB.sock_measures(released(SOCK.key).cirs["Woman 7-9.5"])
+    slip = WB.sock_measures(released(SLIPPER.key).cirs["Woman 7-9.5"])
+    assert sock["leg_length"] > 2 * slip["leg_length"]
+
+
+def test_socks_reverse_compile_hold_size_truth_and_child_sizes_are_safe():
+    for spec in (SOCK, KIDS_SOCK, SLIPPER, KIDS_SLIPPER):
+        assert_reverse_reads_back(spec.key)
+        assert_size_truth(spec.key)
+    for spec in (KIDS_SOCK, KIDS_SLIPPER):
+        assert released(spec.key).cirs
+        for size, cir in released(spec.key).cirs.items():
+            v = CS.evaluate(cir, compile_cir(cir))
+            assert v.applies and v.verdict == CS.VERDICT_PASS, (spec.key, size, v.to_dict())
+
+
+def test_sock_documents_read_back_with_chart_and_schematic():
+    for spec in (SOCK, KIDS_SOCK, SLIPPER, KIDS_SLIPPER):
+        assert_document(spec.key)
+    text = " ".join(document(SOCK.key, "UK").text.split())
+    assert "(heel opening)" in text and "Heel" in text
+
+
+def test_sock_gates_fail_on_the_defects_they_exist_for():
+    r = released(SOCK.key)
+    cirs = dict(r.cirs)
+    cirs["Woman 4-6.5"] = r.cirs["Woman 10-12.5"]
+    got = _codes(r, cirs)
+    assert {"SOCK_CIRCUMFERENCE", "SOCK_FOOT_LENGTH", "GARMENT_SIZE_RUN"} <= got, got
+    # a toe that stops short of closing
+    cirs = dict(r.cirs)
+    cir = copy.deepcopy(cirs["Woman 7-9.5"])
+    leg = next(c for c in cir.components if c.name == "leg")
+    leg.rows = leg.rows[:-2]
+    f = WB.facts_of(cir)
+    last = f.pieces["leg"][-1]
+    f.pieces["leg"][-1] = dataclasses.replace(
+        last, last=last.last - 2, count=leg.rows[-1].declared_count,
+        n=(("sections", 6), ("rounds", last.get("rounds") - 2)))
+    cirs["Woman 7-9.5"] = cir
+    assert "SOCK_CAP_OPEN" in _codes(r, cirs)
+    # a heel that starts on fewer stitches than the opening holds
+    cirs = dict(r.cirs)
+    cir = copy.deepcopy(cirs["Man 12-14"])
+    heel = next(c for c in cir.components if c.name == "heel")
+    heel.foundation -= 2
+    row = heel.rows[0]
+    row.ops = [Op("sc", heel.foundation)]
+    row.declared_count = heel.foundation
+    cirs["Man 12-14"] = cir
+    assert {"GARMENT_PICKUP_RATE", "GARMENT_STITCH_COUNT"} & _codes(r, cirs)
+
+
+def test_socks_route_and_unbuilt_footwear_is_held():
+    from brambleloop.creative import construction_families as CF
+
+    for cat, title, fam in (("sock", "Heathland Socks", "sock"),
+                            ("sock", "Bramble Kids Socks", "sock"),
+                            ("slipper", "Hearthstone Slippers", "slipper")):
+        got = CF.route(category=cat, title=title, form="fitted_garment",
+                       construction="in_the_round")
+        assert got["admitted"] and got["family"] == fam, (title, got)
+    for cat, title in (("sock", "Baby Socks"), ("sock", "Knee-High Socks"),
+                       ("slipper", "Moccasin Slippers"), ("slipper", "Non-Slip Slippers"),
+                       ("sock", "Toe-Up Socks"), ("slipper", "Baby Booties")):
+        got = CF.route(category=cat, title=title, form="fitted_garment",
+                       construction="in_the_round")
+        assert not got["admitted"] and got["reason"].startswith(CF.HOLD_PREFIX), (title, got)
+    got = CF.route(category="stocking", title="Fireside Stocking", form="stocking",
+                   construction="flat_rows")
+    assert got.get("family") != "sock"
+
+
 # ---- routing and research concepts end to end -----------------------------------------------
 
 
@@ -749,6 +864,42 @@ def test_a_research_child_v_neck_cardigan_runs_concept_to_pdf():
 def test_a_research_baby_v_neck_cardigan_runs_concept_to_pdf():
     out = _research_wearable_to_pdf(BABY_VCARDI_P)
     assert_concept_to_pdf(out, BABY_SIZES, "cardigan_vneck")
+
+
+SOCK_P = _wearable_proposal(
+    "moorland-socks", "Moorland Socks", "sock", "fitted_garment", "in_the_round", "self",
+    "Soft merino socks with a ribbed cuff to wear around the house in winter")
+KIDS_SOCK_P = _wearable_proposal(
+    "puddle-jump-kids-socks", "Puddle Jump Kids Socks", "sock", "fitted_garment",
+    "in_the_round", "child", "Cosy merino socks that stay up inside wellington boots on rainy walks to "
+    "school, in a heathery green", "back_to_school")
+SLIPPER_P = _wearable_proposal(
+    "inglenook-slippers", "Inglenook Slippers", "slipper", "fitted_garment", "in_the_round",
+    "self", "Thick wool slippers with a short ribbed cuff for cold floors")
+KIDS_SLIPPER_P = _wearable_proposal(
+    "burrow-kids-slippers", "Burrow Kids Slippers", "slipper", "fitted_garment",
+    "in_the_round", "child", "Cosy wool slippers with a short ribbed cuff that stay on while small feet "
+    "pad around a cold farmhouse kitchen")
+
+
+def test_a_research_adult_sock_runs_concept_to_pdf():
+    out = _research_wearable_to_pdf(SOCK_P)
+    assert_concept_to_pdf(out, WB.SOCK_SIZES["adult"], "sock")
+
+
+def test_a_research_child_sock_runs_concept_to_pdf():
+    out = _research_wearable_to_pdf(KIDS_SOCK_P)
+    assert_concept_to_pdf(out, WB.SOCK_SIZES["child"], "sock")
+
+
+def test_a_research_adult_slipper_runs_concept_to_pdf():
+    out = _research_wearable_to_pdf(SLIPPER_P)
+    assert_concept_to_pdf(out, WB.SOCK_SIZES["adult"], "slipper")
+
+
+def test_a_research_child_slipper_runs_concept_to_pdf():
+    out = _research_wearable_to_pdf(KIDS_SLIPPER_P)
+    assert_concept_to_pdf(out, WB.SOCK_SIZES["child"], "slipper")
 
 
 def test_hats_route_to_the_beanie_and_others_are_held():

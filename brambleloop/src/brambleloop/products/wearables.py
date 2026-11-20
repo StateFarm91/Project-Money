@@ -1669,3 +1669,252 @@ register(Engine(
              "the V-neck cardigan engine builds an open-front plain raglan with a V neck "
              "only"),),
 ))
+
+
+# ==== 5. socks and slippers =================================================================
+#
+# Cuff down, graded on the CYC foot chart. A back-loop rib cuff is worked flat side to side
+# and seamed into a ring (as the beanie's brim); the leg is picked up along one edge and
+# worked in joined rounds; the heel opening is one round in which half the stitches are
+# skipped and bridged by a chain (an afterthought heel); the foot continues straight, the toe
+# is decreased in sections and gathered shut. The heel is then worked into the opening -- one
+# stitch into each chain and each skipped stitch -- and decreased and gathered the same way.
+# Nothing is sewn on. The foot chart publishes circumference and length; the leg (sock
+# height is not read unambiguously from the woman chart, so it is UNSOURCED) and the cuff are
+# stated design ratios of the foot length.
+
+SOCK_EASE_CM = -1.5                      # stated negative ease at the foot circumference
+SOCK_STRETCH_BAND_CM = (-3.0, 0.5)
+SOCK_LEG_OF_FOOT = {"sock": 0.55, "slipper": 0.12}   # leg above the heel, of foot length
+SOCK_CUFF_OF_FOOT = {"sock": 0.12, "slipper": 0.12}  # cuff depth, of foot length
+SOCK_LENGTH_TOLERANCE = 0.06
+# No baby sizes: the afterthought heel cup of a sock for under-3s measures inside the small
+# parts cylinder (`gates.child_safety` SMALL_PARTS), worked in or not. Held, not argued with.
+SOCK_SIZES = {"child": ("Child 10-13", "Youth 1-3", "Youth 4-6"),
+              "adult": ("Woman 4-6.5", "Woman 7-9.5", "Woman 10-12.5", "Man 12-14")}
+
+
+def _opening(p: Rounds, *, label: str) -> int:
+    """One round: work half the stitches, chain the other half loosely and skip them (the
+    afterthought heel's opening). Returns the round's index."""
+    worked = p.count // 2
+    bridge = p.count - worked
+    i = p.next_index
+    row = p._row([Op(p.fam.stitch, worked), Op("ch", bridge, spans=bridge), Op("sk", bridge)],
+                 note="the heel opening: the chain bridges the skipped stitches")
+    p._finish(row, p.count)
+    p._record("opening", i, i, n=(("worked", worked), ("bridge", bridge)), label=label)
+    return i
+
+
+def _gathered(p: Rounds, sections: int, *, label: str) -> None:
+    """A spread round down to whole sections, then section decreases to `sections`."""
+    setup = p.count % sections
+    p.spread_dec(setup, label=f"set-up for the {label}")
+    p.section_dec(sections, p.count // sections - 1, label=label)
+
+
+def sock(g: GradedSize, spec: WearableSpec) -> CIR:
+    fam = StitchFamily("sc", "plain")
+    style = "slipper" if spec.family == "slipper" else "sock"
+    sections = flat_sections(g)
+    target = g.finished_cm("foot_circ")
+    n = g.stitches(target, minimum=2 * sections)
+    foot_cm = g.finished_cm("foot_length")
+    row_cm = _row_cm(g.gauge)
+    cuff_sts = g.stitches(foot_cm * SOCK_CUFF_OF_FOOT[style], minimum=3)
+    ring_rows = max(2, int(round(n * _st_cm(g.gauge) / row_cm)))
+    leg_rounds = g.rows(foot_cm * SOCK_LEG_OF_FOOT[style], minimum=2)
+    # Toe and heel caps: one set-up round and the section rounds down to `sections`.
+    cap_rounds = 1 + (n - n % sections) // sections - 1
+    foot_rounds = max(2, int(round((foot_cm - 2 * cap_rounds * row_cm) / row_cm)) - 1)
+    cuff = GF.Piece("cuff", fam, foundation=cuff_sts, grain="across", feature="cuff",
+                    direction="side_to_side",
+                    note="worked flat side to side; the rows run round the leg")
+    cuff.even(ring_rows, loop="back", label="cuff")
+    leg = Rounds("leg", fam, foundation=n, feature="body", direction="top_down",
+                 foundation_kind="none",
+                 note="picked up along one long edge of the cuff ring; leg, heel opening, "
+                      "foot and toe in joined rounds")
+    leg.even(leg_rounds, label="leg")
+    opening = _opening(leg, label="heel opening")
+    leg.even(foot_rounds, label="foot")
+    _gathered(leg, sections, label="toe")
+    heel = Rounds("heel", fam, foundation=n, feature="body", direction="top_down",
+                  foundation_kind="none",
+                  note="worked into the heel opening: one st into each chain and each skipped "
+                       "st")
+    heel.even(1, label="heel")
+    _gathered(heel, sections, label="heel")
+    seams = [
+        Seam("mattress", "cuff", "cuff", edge_a="left", edge_b="right",
+             note="fold the cuff into a ring and sew its last row to its foundation chain, "
+                  "through both loops"),
+        Seam("pick_up", "leg", "cuff", edge_a="bottom", edge_b="top",
+             note=f"pick up {n} sts evenly along one long edge of the cuff ring, join"),
+        Seam("pick_up", "heel", "leg", edge_a="bottom", edge_b="opening", at_round=opening,
+             note=f"join the yarn at one corner of the heel opening and work {n - n // 2} sc "
+                  f"along the chain and {n // 2} sc along the skipped sts; join"),
+    ]
+    facts = WFacts(style, pieces={"cuff": cuff.steps, "leg": leg.steps, "heel": heel.steps},
+                   rounds=frozenset({"leg", "heel"}))
+    facts.pickups = [{"piece": "leg", "into": "cuff", "edge_rows": ring_rows,
+                      "edge_cm": round(g.cm_of_rows(ring_rows), 2), "stitches": n,
+                      "rows_along": ring_rows}]
+    facts.seams = [{"seam": "cuff ring", "a": "cuff(last row)", "b": "cuff(foundation)",
+                    "a_sts": cuff_sts, "b_sts": cuff_sts, "a_edge_sts": cuff_sts,
+                    "b_edge_sts": cuff_sts}]
+    facts.numbers = {"sections": sections, "closing_sts": sections, "ring_rows": ring_rows,
+                     "opening_round": opening, "target_circ_cm": target,
+                     "target_foot_cm": foot_cm}
+    word = "slipper" if style == "slipper" else "sock"
+    return make_cir(g, spec, comps=[cuff.component(), leg.component(), heel.component()],
+                    seams=seams, facts=facts, construction="joined_rounds",
+                    designer=(f"A cuff-down {word}: a back-loop rib cuff worked side to side "
+                              f"and seamed into a ring, the leg and foot in joined rounds with "
+                              f"an afterthought heel opening, a gathered toe, and the heel "
+                              f"worked into the opening and gathered."),
+                    size_note=f"Finished foot circumference {n * _st_cm(g.gauge):.1f} cm "
+                              f"(unstretched), to fit foot {g.body_cm('foot_circ'):g} cm round")
+
+
+def sock_measures(cir: CIR) -> dict[str, float]:
+    """Circumference, foot length (heel cup + foot + toe), leg length, from the rows."""
+    from ..cir.geometry import _row_height_cm
+
+    _compiled(cir)
+    g = cir.gauge
+    leg = next(c for c in cir.components if c.name == "leg")
+    heel = next(c for c in cir.components if c.name == "heel")
+    cuff = next(c for c in cir.components if c.name == "cuff")
+    opening = next(row.index for row in leg.rows
+                   if any(isinstance(o, Op) and o.stitch == "ch" for o in row.ops))
+    h = [_row_height_cm(row, cir) for row in leg.rows]
+    heel_cm = sum(_row_height_cm(row, cir) for row in heel.rows)
+    return {"circumference": round(leg.foundation * _st_cm(g), 2),
+            "foot_length": round(heel_cm + sum(h[opening:]), 2),
+            "leg_length": round(cuff.foundation * _st_cm(g) + sum(h[:opening]), 2),
+            "cuff": round(cuff.foundation * _st_cm(g), 2)}
+
+
+def sock_gates(ctx) -> list:
+    from ..cir.geometry import CLOSEABLE_STITCHES
+    from ..gates.garment_fit import GarmentFinding
+
+    out = []
+    g, m, f, size, res = ctx["g"], ctx["measured"], ctx["facts"], ctx["size"], ctx["result"]
+
+    def bad(code, msg):
+        out.append(GarmentFinding(code, size, msg))
+
+    target = g.finished_cm("foot_circ")
+    if abs(m["circumference"] - target) > 1.5 * _st_cm(g.gauge) + 0.05:
+        bad("SOCK_CIRCUMFERENCE", f"built {m['circumference']:.1f} cm against {target:g} cm")
+    ease = m["circumference"] - g.body_cm("foot_circ")
+    lo, hi = SOCK_STRETCH_BAND_CM
+    if not lo <= ease <= hi:
+        bad("SOCK_STRETCH_OUT_OF_BAND", f"built ease {ease:+.1f} cm outside {lo:g} to "
+                                        f"{hi:+g} cm")
+    want = g.finished_cm("foot_length")
+    if abs(m["foot_length"] - want) / want > SOCK_LENGTH_TOLERANCE:
+        bad("SOCK_FOOT_LENGTH", f"built foot {m['foot_length']:.1f} cm against the CYC "
+                                f"{want:g} cm, more than {SOCK_LENGTH_TOLERANCE:.0%}")
+    for piece in ("leg", "heel"):
+        last = [x for x in res.rows if x.component == piece][-1].stitch_count
+        if last > CLOSEABLE_STITCHES:
+            bad("SOCK_CAP_OPEN", f"the {piece} ends on {last} sts; at most "
+                                 f"{CLOSEABLE_STITCHES} gather shut")
+    if int(f.numbers["sections"]) != flat_sections(g):
+        bad("SOCK_CAP_SHAPE", "the toe and heel are not decreased at the flat rate")
+    leg_rows = [x for x in res.rows if x.component == "leg"]
+    at = int(f.numbers["opening_round"])
+    heel_first = [x for x in res.rows if x.component == "heel"][0].stitch_count
+    if heel_first != leg_rows[at - 1].stitch_count:
+        bad("GARMENT_PICKUP_RATE", f"the heel starts on {heel_first} sts; the opening round "
+                                   f"has {leg_rows[at - 1].stitch_count}")
+    ring = len([x for x in res.rows if x.component == "cuff"])
+    if ring != int(f.numbers["ring_rows"]):
+        bad("SOCK_CUFF_RING", f"the cuff has {ring} rows; the ring needs "
+                              f"{int(f.numbers['ring_rows'])}")
+    out += pickup_rate(dict(ctx, facts=f))
+    return out
+
+
+def sock_schematic(sizes, ms) -> dict:
+    sk = Sketch(ms, {"half_circ": "Half circumference, laid flat (unstretched)",
+                     "foot_length": "Foot length, heel to toe", "leg_length": "Leg, cuff "
+                                                                              "included",
+                     "cuff": "Cuff depth"})
+    for m in ms:
+        m["half_circ"] = round(m["circumference"] / 2.0, 1)
+    mid = ms[len(ms) // 2]
+    C, F, L, K = mid["half_circ"], mid["foot_length"], mid["leg_length"], mid["cuff"]
+    x0, y0 = 6.0, 6.0
+    sk.poly([(x0, y0), (x0 + C, y0), (x0 + C, y0 + L), (x0 + C + F - C, y0 + L),
+             (x0 + F, y0 + L + C * 0.5), (x0 + F - 1, y0 + L + C), (x0 + C, y0 + L + C),
+             (x0, y0 + L + C * 0.6)], "sock, laid flat")
+    sk.line((x0, y0 + K), (x0 + C, y0 + K))
+    sk.dim((x0, y0), (x0 + C, y0), "half_circ", "above")
+    sk.dim((x0 - 1, y0), (x0 - 1, y0 + L), "leg_length", "left")
+    sk.dim((x0, y0 + L + C + 1.5), (x0 + F, y0 + L + C + 1.5), "foot_length", "below")
+    sk.dim((x0 + C + 1, y0), (x0 + C + 1, y0 + K), "cuff", "right")
+    return _schematic(sk.items, sk.legend, x0 + F + 10, L + C + 2 * y0 + 6, sizes, ms, "sock")
+
+
+def _sock_narrative(spec, facts) -> str:
+    word = "slipper" if facts.construction == "slipper" else "sock"
+    return (f"The cuff comes first: a narrow strip worked flat in back-loop rows, sewn into a "
+            f"ring. The leg is picked up along one edge of the ring and worked down in joined "
+            f"rounds. One round makes the heel opening: half the stitches are worked and the "
+            f"other half skipped under a loose chain. The foot continues straight to the toe, "
+            f"which is decreased in equal sections and gathered shut. Last, the heel is worked "
+            f"into the opening, decreased the same way and gathered: an afterthought heel, so "
+            f"the whole {word} is worked in one piece apart from its cuff.")
+
+
+_SOCK_COMMON = dict(
+    table=FOOT, sizes=SOCK_SIZES, requires=("foot_circ", "foot_length"), primary="foot_circ",
+    built_primary="circumference", builder=sock, measure=sock_measures, gates=sock_gates,
+    chart=(("body_cm", "To fit foot (round)"), ("circumference_cm", "Finished round"),
+           ("ease_cm", "Ease"), ("foot_length_cm", "Foot length"), ("leg_length_cm", "Leg")),
+    narrative=_sock_narrative, schematic=sock_schematic, risk="B", chain_gauge=True,
+    abbreviations=("ch", "sc", "dec", "sk", "slst"),
+    forms=("fitted_garment", "tube"), constructions=("in_the_round",
+                                                                 "seamless_tube"),
+    ease=tuple((a, (("foot_circ", SOCK_EASE_CM),)) for a in ("child", "adult")),
+    closing=lambda facts: (
+        "Toe and heel: cut the yarn leaving a 20 cm tail, thread it through the front loop "
+        f"of each of the last {_values([int(f.numbers['closing_sts']) for f in facts])} sts, "
+        "pull tight to gather shut, and fasten off securely on the wrong side."),
+    where=(("leg", "one long edge of the cuff ring (the row ends), one stitch into each row "
+                   "end, skipping evenly"),
+           ("heel", "the heel opening, starting at one corner: one stitch into each chain "
+                    "and one into each skipped stitch")),
+    titles=(("cuff", "Cuff"), ("leg", "Leg, foot and toe"), ("heel", "Heel")),
+    tips=("Chain loosely across the heel opening: the heel is worked into those chains.",
+          "Try the sock on before the toe: the foot should reach the base of your toes "
+          "before you start the toe decreases."),
+    safety_note=("It is made with no ties, cords, pom-poms or anything sewn on: the heel is "
+                 "worked into the sock, and the cuff is sewn into a ring."),
+    fit_note=(f"Made a little smaller round than the foot so it stays up: {SOCK_EASE_CM:+g} cm "
+              f"of stated ease, and every size's built ease stays between "
+              f"{SOCK_STRETCH_BAND_CM[0]:g} and {SOCK_STRETCH_BAND_CM[1]:+g} cm."),
+    refuse=((r"\b(?:toe-?up|knee-?high|over-?the-?knee|thigh|stirrup|toeless|gusset|"
+             r"short-?row|cabled?|lace|lacy|pom-?poms?|non-?slip|grip|soles?|leather|"
+             r"bow|ties?|lined|moccasins?|clogs?|mary-?janes?|slides?|scuffs?)\b",
+             "the sock engine builds a cuff-down sock or slipper with an afterthought heel "
+             "in plain single crochet only"),),
+    honest_phrases=(r"\b(?:turned |folded )?ribb?(?:ed|ing)?[- ]?(?:cuffs?|band)\b",),
+)
+register(Engine(
+    family="sock", title="cuff down in joined rounds with an afterthought heel",
+    words=("sock", "socks"), category_word="sock",
+    yarn=(("child", ("fingering", "merino")), ("adult", ("fingering", "merino"))),
+    **_SOCK_COMMON))
+register(Engine(
+    family="slipper", title="cuff down in joined rounds with an afterthought heel, short "
+                            "ankle cuff",
+    words=("slipper", "slippers", "slipper sock", "slipper socks", "bootie", "booties"),
+    category_word="slipper",
+    yarn=(("child", ("worsted", "wool")), ("adult", ("worsted", "wool"))),
+    **_SOCK_COMMON))

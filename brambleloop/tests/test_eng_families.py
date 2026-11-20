@@ -565,6 +565,10 @@ WEARABLE_PROBES = [
     ("cardigan", "fitted_garment", "top_down_yoke", "Larkspur V-Neck Cardigan"),
     ("cardigan", "fitted_garment", "top_down_yoke", "Chestnut Kids V-Neck Cardigan"),
     ("baby", "fitted_garment", "top_down_yoke", "Snowberry Baby V-Neck Cardigan"),
+    ("sock", "fitted_garment", "in_the_round", "Moorland Socks"),
+    ("sock", "fitted_garment", "in_the_round", "Puddle Jump Kids Socks"),
+    ("slipper", "fitted_garment", "in_the_round", "Inglenook Slippers"),
+    ("slipper", "fitted_garment", "in_the_round", "Burrow Kids Slippers"),
 ]
 
 

@@ -50,6 +50,12 @@ def round_lines(sizes_steps: list[list], *, piece: str, t: Terms) -> list[Line]:
         elif kind == "even":
             text = (f"{head}: {t.ch} 1, {sc} in each st around; join with a {t.slst} to the "
                     f"first st. {counts}")
+        elif kind == "opening":
+            half = values([s.get("worked") for s in steps])
+            bridge = values([s.get("bridge") for s in steps])
+            text = (f"{head}: {t.ch} 1, {sc} in the first {half} sts, {t.ch} {bridge} "
+                    f"loosely, {t.skip} the last {bridge} sts; join with a {t.slst} to the "
+                    f"first st. {counts}")
         elif kind == "spread_dec":
             d = values([s.get("dec") for s in steps])
             text = (f"{head}: {t.ch} 1, {sc} around, decreasing {d} sts evenly spaced "
