@@ -2718,33 +2718,8 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
         _revalidate_publish_effect(ctx, slug=slug, version=version, release=release,
                                    payload=payload, docs=docs, listing_images=listing_images,
                                    reserved_digest=content_digest, stage="pre_claim")
-    # ENG-ETSY-PUBLISH slice 2: a draft already on Etsy for this release, with no local
-    # intent, is adopted rather than duplicated (`publish.draft_adoption`). Read before the
-    # intent is claimed; an unread shop or an ambiguous match sends nothing.
-    from ..publish import draft_adoption
-
-    existing = draft_adoption.check(ctx.db, client, slug=slug, version=version)
-    if existing["verdict"] == draft_adoption.UNREAD:
-        ctx.audit("store.execution_refused", artifact=f"{slug}@{version}",
-                  detail={"release": release, "stage": "duplicate_check",
-                          "reason": f"the shop could not be read for an existing draft: "
-                                    f"{existing['why']}"[:500]})
-        raise TransientError("DRAFT_DUPLICATE_CHECK_UNREAD: the shop's listings could not be "
-                             "read, so no create is sent: " + str(existing["why"])[:300])
-    if existing["verdict"] == draft_adoption.ESCALATE:
-        ctx.audit(draft_adoption.ESCALATED, artifact=f"{slug}@{version}",
-                  detail={"release": release, "why": existing["why"],
-                          "found": existing["found"][:10]})
-        raise PermanentError("DRAFT_ADOPTION_ESCALATED: " + str(existing["why"]))
     intent_key, intent_token = draft_intent.claim(
         ctx.db,slug=slug,version=version,release=release,content_digest=content_digest)
-    if existing["verdict"] == draft_adoption.ADOPT:
-        return _adopt_and_complete(
-            ctx, client, slug=slug, version=version, release=release, payload=payload,
-            docs=docs, hash_check=hash_check, stored=stored,
-            stored_by_terminology=stored_by_terminology, listing_images=listing_images,
-            listing_id=existing["listing_id"], intent_key=intent_key,
-            intent_token=intent_token, found=existing["found"])
     # Whether the create request could have left. For any publish implementation other than
     # the stock one the request is presumed possibly sent (fail closed).
     hook = {"entered": not known_order}
@@ -2755,6 +2730,14 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
             ctx, slug=slug, version=version, release=release,
             payload=payload, docs=docs, listing_images=listing_images,
             reserved_digest=content_digest, stage="before_create")
+        # ENG-ETSY-PUBLISH: a draft already on Etsy for this release, with no local intent,
+        # is adopted rather than duplicated (`publish.draft_adoption`). Read only after the
+        # full revalidation above, so a refused gate still sends no request at all, and only
+        # for the stock client (production's), whose create follows this hook. Any outcome
+        # but "none" leaves here before createDraftListing, so nothing was created.
+        if known_order:
+            _duplicate_check(ctx, client, slug=slug, version=version, release=release,
+                             hook=hook)
 
     from ..integrations.etsy import OwnerGrant
 
@@ -2776,9 +2759,20 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
                                  grant=_publication_grant(),
                                  on_created=lambda remote_id: draft_intent.checkpoint(
                                      ctx.db,intent_key,intent_token,remote_id))
+    except _AdoptInstead as adopt:
+        return _adopt_and_complete(
+            ctx, client, slug=slug, version=version, release=release, payload=payload,
+            docs=docs, hash_check=hash_check, stored=stored,
+            stored_by_terminology=stored_by_terminology, listing_images=listing_images,
+            listing_id=adopt.listing_id, intent_key=intent_key,
+            intent_token=intent_token, found=adopt.found)
     except BaseException:
         # Hard process death cannot run this block; the committed CREATING intent still
         # blocks the next attempt. Ordinary failures additionally open a visible incident.
+        if hook.get("duplicate_refused"):
+            # The duplicate check refused before createDraftListing: provably unsent.
+            draft_intent.release_unsent(ctx.db,intent_key,intent_token)
+            raise
         if hook["entered"]:
             draft_intent.uncertain(ctx.db,intent_key,intent_token)
         else:
@@ -2836,6 +2830,40 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
         slug=slug, version=version, release=release, payload=payload, docs=docs,
         hash_check=hash_check, stored=stored, stored_by_terminology=stored_by_terminology,
         listing_images=listing_images, grant_fn=_publication_grant)
+
+
+class _AdoptInstead(Exception):
+    """Raised from `before_create` when an existing draft is to be adopted: no create."""
+
+    def __init__(self, listing_id: str, found: list):
+        super().__init__(listing_id)
+        self.listing_id, self.found = listing_id, found
+
+
+def _duplicate_check(ctx, client, *, slug, version, release, hook) -> None:
+    """ENG-ETSY-PUBLISH: none returns (create proceeds); adopt raises `_AdoptInstead`;
+    escalate raises PermanentError; unread raises TransientError. Nothing is written."""
+    from ..core.resilience import PermanentError, TransientError
+    from ..publish import draft_adoption
+
+    existing = draft_adoption.check(ctx.db, client, slug=slug, version=version)
+    verdict = existing["verdict"]
+    if verdict == draft_adoption.NONE:
+        return
+    if verdict == draft_adoption.ADOPT:
+        raise _AdoptInstead(existing["listing_id"], existing["found"])
+    hook["duplicate_refused"] = True
+    if verdict == draft_adoption.UNREAD:
+        ctx.audit("store.execution_refused", artifact=f"{slug}@{version}",
+                  detail={"release": release, "stage": "duplicate_check",
+                          "reason": f"the shop could not be read for an existing draft: "
+                                    f"{existing['why']}"[:500]})
+        raise TransientError("DRAFT_DUPLICATE_CHECK_UNREAD: the shop's listings could not be "
+                             "read, so no create is sent: " + str(existing["why"])[:300])
+    ctx.audit(draft_adoption.ESCALATED, artifact=f"{slug}@{version}",
+              detail={"release": release, "why": existing["why"],
+                      "found": existing["found"][:10]})
+    raise PermanentError("DRAFT_ADOPTION_ESCALATED: " + str(existing["why"]))
 
 
 def _adopt_and_complete(ctx: JobContext, client, *, slug, version, release, payload, docs,

@@ -1007,6 +1007,14 @@ def test_f8_every_etsy_write_call_site_is_classified_and_release_writes_pass_for
             "store.publish, after _release_gates (for_publish); owner grant at the client",
         ("runtime/pipeline.py", "handle_store_activate"):
             "store.activate, after _release_gates (for_publish); launch authorisation",
+        ("runtime/pipeline.py", "_complete_draft"):
+            "ENG-ETSY-PUBLISH: completes the draft store.publish created or adopted, inside "
+            "_publish_and_read_back only (pinned below); every write carries the publication "
+            "grant, which completes only its own draft (PUBLISH_COMPLETE)",
+        ("launch/rollback.py", "withdraw_draft"):
+            "ENG-ETSY-PUBLISH: deletes this system's own DRAFT only (read back first, Etsy must "
+            "say draft; a live listing is refused); deny-direction, never a release write; "
+            "the client's write boundary needs the publication grant for that draft",
         ("integrations/etsy.py", "publish"): "the client's composite; grant verified first",
         ("integrations/etsy_exercise.py", "create_draft"):
             "write-path exercise draft: shadow lane only, never a release, deleted",
@@ -1061,6 +1069,14 @@ def test_f8_every_etsy_write_call_site_is_classified_and_release_writes_pass_for
     callers = [n for n, b in fns.items() if n != "_publish_and_read_back"
                and "_publish_and_read_back(" in b]
     assert callers == ["_publish_guarded"], callers
+    # ENG-ETSY-PUBLISH: completion is reached only from inside the guarded publish path.
+    completers = sorted(n for n, b in fns.items() if n != "_complete_draft"
+                        and "_complete_draft(" in b)
+    assert completers == ["_adopt_and_complete", "_read_back_and_record"], completers
+    for inner in ("_adopt_and_complete", "_read_back_and_record"):
+        reach = sorted(n for n, b in fns.items() if n != inner and f"{inner}(" in b)
+        assert reach and set(reach) <= {"_publish_and_read_back", "_adopt_and_complete"}, \
+            (inner, reach)
     assert [n for n, b in fns.items() if n != "_publish_guarded"
             and "_publish_guarded(" in b] == ["handle_store_publish"]
     rel_gates = (src_root / "publish" / "release_gates.py").read_text()

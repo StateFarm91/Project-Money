@@ -800,7 +800,10 @@ def image_hash_checks(sent_images: dict | None, remote: list[dict]) -> tuple[lis
     for rank, entry in enumerate(images, start=1):
         data = entry[1]
         sent = hashlib.sha256(data).hexdigest()
-        certified = str((order[rank - 1] if rank - 1 < len(order) else {}).get("sha256") or "")
+        entry_order = order[rank - 1] if rank - 1 < len(order) else {}
+        # No recorded certificate hash for a rank is a mismatch, never a pass.
+        certified = str((entry_order.get("sha256") if isinstance(entry_order, dict)
+                         else "") or "")
         dims = _dimensions(data)
         held = ordered[rank - 1] if rank - 1 < len(ordered) else {}
         on_etsy = ((int(held["full_width"]), int(held["full_height"]))
