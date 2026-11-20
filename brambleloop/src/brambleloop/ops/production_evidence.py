@@ -1353,6 +1353,113 @@ def _vp_drafts(db) -> dict:
             "releases": rows[:30]}
 
 
+_GALLERY_ROLES = ("hero", "colour_context", "lifestyle", "angle", "detail", "size")
+
+
+def _independent(checks) -> bool:
+    """A PASS made with no test double and no fixture stand-in in any of its readings."""
+    if not isinstance(checks, dict):
+        return False
+    for k, c in checks.items():
+        if str(k).startswith("_") or not isinstance(c, dict):
+            continue
+        if c.get("test_double") or c.get("fixture_only"):
+            return False
+        fid = c.get("fidelity")
+        if isinstance(fid, dict) and (fid.get("test_double") or fid.get("fixture_only")):
+            return False
+    return True
+
+
+def _vp_generated(db) -> dict:
+    """D-OWNER-FLUX-GALLERY: the seven-frame generated galleries, counted from rows only.
+
+    Images generated and recovered in generated-gallery runs; how many are independently
+    verified (technical PASS with no test-double or fixture reading); Laura identity passes
+    and holds; completed (certified) seven-image galleries; products whose certified gallery
+    awaits publication; verified Etsy drafts of them; spend and cost per completed gallery.
+    Counts only: no prompt, image, reason text or listing id."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog, ListingSetCertificateRecord
+    from ..visual.image_production import ROUTE_SUFFIX
+    from ..visual.image_records import ImageCandidate as C
+    from ..visual.image_records import ImageProductionRun as R
+
+    runs: dict[str, dict] = {}
+    with db.session() as s:
+        for key, slug, version, spent in s.execute(select(R.run_key, R.slug, R.version,
+                                                          R.spent_cad)):
+            if ROUTE_SUFFIX in str(key or "").split("#")[0]:
+                runs[key] = {"release": f"{slug}@{version}", "spent": float(spent or 0)}
+        img = {"generated": 0, "recovered": 0, "independently_verified": 0,
+               "verified_with_test_doubles": 0, "failed": 0, "unmeasured": 0}
+        laura = {"frames": 0, "identity_passed": 0, "identity_held": 0}
+        for key, role, meth, ts, lp, checks, sha in s.execute(
+                select(C.run_key, C.role, C.method, C.technical_status, C.laura_present,
+                       C.checks, C.sha256).where(C.run_key.in_(list(runs) or [""]))):
+            if role not in _GALLERY_ROLES or not sha:
+                continue
+            img["recovered" if meth == "recovered" else "generated"] += 1
+            if ts == "PASS":
+                img["independently_verified" if _independent(checks)
+                    else "verified_with_test_doubles"] += 1
+            elif ts == "FAIL":
+                img["failed"] += 1
+            else:
+                img["unmeasured"] += 1
+            if lp:
+                laura["frames"] += 1
+                idc = (checks or {}).get("identity") if isinstance(checks, dict) else None
+                ok = (isinstance(idc, dict) and idc.get("status") == "PASS"
+                      and not idc.get("fixture_only") and not idc.get("test_double"))
+                laura["identity_passed" if ok else "identity_held"] += 1
+        completed: set[str] = set()
+        for slug, version, cert in s.execute(
+                select(ListingSetCertificateRecord.product_slug,
+                       ListingSetCertificateRecord.version,
+                       ListingSetCertificateRecord.certificate)
+                .where(ListingSetCertificateRecord.state == "valid")):
+            frames = (cert or {}).get("frames") or []
+            gen = [f for f in frames if f.get("kind") == "generated_render"]
+            if len(frames) == 7 and len(gen) == 6:
+                completed.add(f"{slug}@{version}")
+        blocked_by_gate: dict[str, int] = {}
+        latest: dict[str, dict] = {}
+        for art, d in s.execute(select(AuditLog.artifact, AuditLog.detail).where(
+                AuditLog.action == "images.generated_gallery_certify")
+                .order_by(AuditLog.id.desc())):
+            if art and art not in latest:
+                latest[art] = d or {}
+        for art, d in latest.items():
+            if d.get("certified") or art in completed:
+                continue
+            for b in d.get("blockers") or []:
+                g = str((b or {}).get("gate") or "?")
+                g = g if _SOURCE_NAME.match(g) else "other"
+                blocked_by_gate[g] = blocked_by_gate.get(g, 0) + 1
+        published = {}
+        for art, d in s.execute(select(AuditLog.artifact, AuditLog.detail).where(
+                AuditLog.action == "store.published").order_by(AuditLog.id.desc())):
+            if art in completed and art not in published:
+                rb = (d or {}).get("read_back") or {}
+                published[art] = bool(rb.get("verified") is True and (rb.get("images") or {})
+                                      .get("verified") is True)
+    spent_done = sum(r["spent"] for r in runs.values() if r["release"] in completed)
+    return {
+        "runs": len(runs), "images": img, "laura_identity": laura,
+        "completed_seven_image_galleries": len(completed),
+        "blocked_galleries": len([a for a, d in latest.items()
+                                  if not d.get("certified") and a not in completed]),
+        "blocked_by_gate": blocked_by_gate,
+        "awaiting_publication": len(completed - set(published)),
+        "etsy_drafts_verified": sum(1 for v in published.values() if v),
+        "spent_cad": round(sum(r["spent"] for r in runs.values()), 4),
+        "cost_per_completed_gallery_cad": (round(spent_done / len(completed), 4)
+                                           if completed else UNKNOWN_COUNT),
+    }
+
+
 def visual_pipeline(db, *, now: datetime) -> dict:
     """ENG-VISUAL: certified pattern -> PDFs -> images -> identity/product QA -> gallery ->
     listing package -> Etsy draft, counted from persisted rows only.
@@ -1393,6 +1500,11 @@ def visual_pipeline(db, *, now: datetime) -> dict:
         out["images"], out["laura_identity_checks"] = u, dict(u)
     out["laura_identity_method"] = _vp_identity_method()
     out["recovered_images"] = _vp_recovered(db)
+    if tables.get("image_production_runs") and tables.get("image_candidates"):
+        out["generated_galleries"] = part("generated_galleries", _vp_generated, db)
+    else:
+        out["generated_galleries"] = {"readable": False, "count": UNKNOWN_COUNT,
+                                      "why": "image tables absent or unprobed"}
     out["listing_packages"] = part("listing_packages", _vp_packages, db)
     out["etsy_drafts"] = part("etsy_drafts", _vp_drafts, db)
     try:

@@ -263,3 +263,129 @@ def generated_roles(plan: dict) -> list[dict]:
     if not any("generate" in r for r in plan["roles"]):
         plan = campaign_plan(plan["listing"])
     return [r for r in plan["roles"] if r.get("generate")]
+
+
+# ---- D-OWNER-FLUX-GALLERY: the seven-frame FLUX campaign, per family ------------------------
+#
+# The owner's P0 "PERFECT FLUX 3 LISTING IMAGES": a whole gallery generated from deterministic
+# CIR reference renders (`eligibility.GALLERY_ROUTE`), certified only when every frame passes
+# every gate on its exact bytes. Seven frames, one job each (#65 still refuses a duplicate):
+#
+#   1 hero (DESIRE)            5 stitch close-up (DETAIL)
+#   2 full product / flat-lay  6 scale / fit / in use (SCALE)
+#     (COLOUR_CONTEXT)         7 download information (CONTENTS): the deterministic
+#   3 lifestyle (LIFESTYLE)      pattern-preview frame from the certified PDF, never generated
+#   4 alternative / back angle
+#     (ANGLE)
+#
+# Families adapt the briefs and where Laura appears. Garments are worn by Laura front, back and
+# for fit; pillows and stuffed animals get styled rooms and texture close-ups; small goods get
+# construction and usage views. Lifestyle rooms, people, angles and lighting vary; the product
+# and (within a listing) Laura's outfit do not. A "fit" frame is a SCALE frame on Laura: it is
+# a render, never evidence of how a made garment sits (FIT stays photograph-only).
+FLUX_ROUTE = el.GALLERY_ROUTE
+FLUX_SLOTS: tuple[tuple[str, str], ...] = (
+    (el.DESIRE, "hero"), (el.COLOUR_CONTEXT, "colour_context"), (el.LIFESTYLE, "lifestyle"),
+    (el.ANGLE, "angle"), (el.DETAIL, "detail"), (el.SCALE, "size"),
+    (el.CONTENTS, "whats_included"))
+WORN_FAMILY, SOFT_FAMILY, LIVED_FAMILY, SMALL_FAMILY = "worn", "soft", "lived_with", "small_goods"
+_SOFT = frozenset({"pillow", "amigurumi", "toy", "stuffed_animal", "cushion"})
+_SMALL = frozenset({"coaster", "placemat", "basket", "ornament", "bag", "runner", "flower",
+                    "seasonal_decor", "stocking", "pet", "wall_decor"})
+
+# family -> job -> (Laura appears, brief). The product is "the finished piece" made exactly to
+# the certified pattern; briefs never describe its construction (the references carry it).
+FLUX_BRIEFS: dict[str, dict[str, tuple[bool, str]]] = {
+    WORN_FAMILY: {
+        el.DESIRE: (True, "hero: Laura wearing the finished piece, front view, natural light"),
+        el.COLOUR_CONTEXT: (False, "the finished piece laid flat, full length, every part "
+                                   "visible, plain neutral surface"),
+        el.LIFESTYLE: (True, "Laura wearing the finished piece outdoors or in a styled "
+                             "room, relaxed and candid"),
+        el.ANGLE: (True, "Laura wearing the finished piece, back view, same outfit"),
+        el.DETAIL: (False, "close-up of the stitch texture and edging of the finished piece"),
+        el.SCALE: (True, "Laura wearing the finished piece, three-quarter view showing how it "
+                         "fits and its length on her"),
+    },
+    SOFT_FAMILY: {
+        el.DESIRE: (False, "hero: the finished piece styled in a warm, lived-in room"),
+        el.COLOUR_CONTEXT: (False, "the finished piece alone, full view, plain backdrop, "
+                                   "every component visible"),
+        el.LIFESTYLE: (True, "Laura holding or arranging the finished piece in a styled room"),
+        el.ANGLE: (False, "the finished piece from the back or side, showing seams and "
+                          "closures"),
+        el.DETAIL: (False, "texture close-up of the stitches and surface of the finished "
+                           "piece"),
+        el.SCALE: (False, "the finished piece beside everyday objects of known size on a "
+                          "sofa or bed, showing its size"),
+    },
+    LIVED_FAMILY: {
+        el.DESIRE: (False, "hero: the finished piece in the room it lives in, soft daylight"),
+        el.COLOUR_CONTEXT: (False, "the finished piece laid flat, unfolded, every edge in "
+                                   "view, plain surface"),
+        el.LIFESTYLE: (True, "Laura using the finished piece where it lives"),
+        el.ANGLE: (False, "the finished piece folded or draped from another angle, "
+                          "showing the reverse"),
+        el.DETAIL: (False, "close-up of the stitch texture and motif of the finished piece"),
+        el.SCALE: (True, "the finished piece with Laura, showing its size against her"),
+    },
+    SMALL_FAMILY: {
+        el.DESIRE: (False, "hero: the finished piece in use, styled table or shelf"),
+        el.COLOUR_CONTEXT: (False, "the finished piece(s) flat-lay, every piece visible, "
+                                   "plain surface"),
+        el.LIFESTYLE: (False, "the finished piece in everyday use, no person"),
+        el.ANGLE: (False, "the finished piece from another angle showing its construction: "
+                          "base, joins or back"),
+        el.DETAIL: (False, "close-up of the stitch texture of the finished piece"),
+        el.SCALE: (False, "the finished piece beside everyday objects of known size"),
+    },
+}
+CONTENTS_BRIEF = ("download information: the deterministic preview of the certified US and "
+                  "UK pattern PDFs (never generated)")
+
+
+def flux_family(category: str) -> str:
+    cat = (category or "").lower()
+    if cat in el._WORN:
+        return WORN_FAMILY
+    if cat in _SOFT:
+        return SOFT_FAMILY
+    if cat in _SMALL:
+        return SMALL_FAMILY
+    return LIVED_FAMILY
+
+
+def flux_campaign_for(category: str, *, listing: str = "") -> dict:
+    """The seven-frame FLUX campaign for a category (D-OWNER-FLUX-GALLERY)."""
+    family = flux_family(category)
+    briefs = FLUX_BRIEFS[family]
+    slots = []
+    for pos, (job, role) in enumerate(FLUX_SLOTS, start=1):
+        generated = job != el.CONTENTS
+        laura, brief = briefs.get(job, (False, CONTENTS_BRIEF))
+        slots.append({
+            "position": pos, "role": role, "job": job, "route": FLUX_ROUTE,
+            "why": el.JOBS[job], "required_by": list(REQUIRED_BY.get(job, ("F-254",))),
+            "conditional": False, "generate": generated, "laura": bool(generated and laura),
+            "campaign_role": brief.split(":")[0] if ":" in brief else role,
+            "brief": brief if generated else CONTENTS_BRIEF,
+            # A generated slot has no fallback in this route: a frame that fails is repaired
+            # or the gallery is held, never quietly swapped for another source.
+            "sources": ({DISCLOSED: "not_in_route", GENERATED: SATISFIES, PHOTO: PURPOSE_REFUSED}
+                        if generated else
+                        {DISCLOSED: SATISFIES, GENERATED: PURPOSE_REFUSED,
+                         PHOTO: PURPOSE_REFUSED}),
+            "preferred_source": GENERATED if generated else DISCLOSED,
+            "disclosed_medium": ((None, None) if generated
+                                 else ("PATTERN_PREVIEW", el.CUSTOMER_INFORMATION)),
+            "fallback": None})
+    return {"listing": listing, "category": category, "family": family, "route": FLUX_ROUTE,
+            "roles": slots, "image_count": len(slots), "one_outfit": True,
+            "laura_in_campaign": any(s["laura"] for s in slots), "ruling_conflicts": [],
+            "basis": "D-OWNER-FLUX-GALLERY seven-frame campaign"}
+
+
+def flux_campaign_plan(listing: str) -> dict:
+    """`flux_campaign_for` for a Launch-0 listing (by listing slug)."""
+    category, _sizes, _colours, primary = _listing_shape(listing)
+    return {**flux_campaign_for(category, listing=listing), "primary_release_slug": primary}

@@ -202,14 +202,14 @@ def test_roles_generated_never_satisfies_photo_only_or_hero():
         assert CG.role(r)["status"] == "PASS", r
 
 
-def test_unknown_never_pass_and_publication_blocked_by_f852_and_etsy_policy():
+def test_unknown_never_pass_and_publication_blocked_by_f852():
     from brambleloop.visual import candidate_gates as CG
 
     db = make_db()
     v = CG.evaluate(db, cand(role="detail"))     # real judges: fidelity/realism unread
     assert v["technical_status"] == "UNKNOWN" and not v["publishable"]
     joined = " ".join(v["publication"]["blockers"])
-    assert "F-852" in joined and "Etsy" in joined
+    assert "F-852" in joined and "Etsy" not in joined   # D-OWNER-FLUX-GALLERY
     # Even with every judge stubbed PASS, publication stays blocked (gate not lowered).
     v2 = CG.evaluate(db, cand(role="detail"), judges=StubJudges())
     assert v2["technical_status"] == "PASS" and v2["publishable"] is False
@@ -464,6 +464,25 @@ def test_unattended_end_to_end_shadow_stub_reaches_owner_card_without_owner_step
     assert learn["accepted"] >= 1 and learn["cost_per_accepted_cad"] == 0.0
 
 
+from contextlib import contextmanager as _cm
+
+
+@_cm
+def admitted_for_sale():
+    """test_double: for-sale admission (b17-c A3). A paid run first parks unless the release is
+    admitted for sale; these tests are about the image_generation gate behind it, so the
+    admission is doubled and labelled. test_vis_gallery_e2e test_9 covers the real one."""
+    from brambleloop.visual import image_production as IP
+
+    real = IP.sale_admission
+    IP.sale_admission = lambda *a, **k: {"admitted": True, "test_double": True,
+                                         "why": "test_double: admitted for sale"}
+    try:
+        yield
+    finally:
+        IP.sale_admission = real
+
+
 def test_default_generator_is_flux3_and_refused_while_the_gate_is_closed():
     from brambleloop.visual import image_production as IP
 
@@ -473,6 +492,13 @@ def test_default_generator_is_flux3_and_refused_while_the_gate_is_closed():
     follow, _ = drain(db, generator=None, judges=StubJudges())
     IP.trigger(follow, slug="cloudline-baby-blanket", version="1.2.0", release=RELEASE)
     drain(db, generator=None, judges=StubJudges())
+    run = IP.get_run(db, IP.run_key("cloudline-baby-blanket", "1.2.0", RELEASE))
+    # b17-c A3: a release not admitted for sale parks before any paid stage
+    assert run["state"] == IP.SALE_WAITING and run["generation_calls"] == 0, run
+    with admitted_for_sale():
+        assert IP.admit_for_sale(db, follow, slug="cloudline-baby-blanket", version="1.2.0",
+                                 release=RELEASE)["admission"]["admitted"]
+        drain(db, generator=None, judges=StubJudges())
     run = IP.get_run(db, IP.run_key("cloudline-baby-blanket", "1.2.0", RELEASE))
     assert run["state"] == "blocked" and "image_generation gate closed" in run["blocked_reason"]
     assert run["spent_cad"] == 0.0 and run["generation_calls"] == 0
@@ -593,7 +619,8 @@ def test_paid_generator_needs_the_image_generation_gate():
     follow, _ = drain(db, generator=Paid(), judges=StubJudges())
     IP.trigger(follow, slug="cloudline-baby-blanket", version="1.2.0", release=RELEASE)
     gen = Paid()
-    drain(db, generator=gen, judges=StubJudges())
+    with admitted_for_sale():
+        drain(db, generator=gen, judges=StubJudges())
     run = IP.get_run(db, IP.run_key("cloudline-baby-blanket", "1.2.0", RELEASE))
     assert run["state"] == "blocked" and "image_generation gate closed" in run["blocked_reason"]
     assert gen.calls == 0

@@ -2933,6 +2933,171 @@ Reversible by decision. The non-tunable rule is the owner's and is not reversibl
 - **Caps in code, lower-only.** Within `paid_provider_gate.authorize` the caps are 60 images per UTC day and 16 images / CA$2.50 per gallery. The environment can lower them and never raise them. They sit beneath the owner's activation ceilings, so the lower one binds.
 - **Readiness.** It is READY only when `BRAMBLELOOP_IMAGE_KEY_BFL` is present (presence only; the value is never read into output) and the owner's `flux-3-image` generation activation is active. Otherwise it is UNKNOWN with the reason, and the generation job refuses before reserving.
 - **Retention.** `image.generation_rejected` and `image.generation_rejection_rechecked` are lifetime-protected.
+
+**D-OWNER-FLUX-GALLERY: a whole generated FLUX gallery may be certified when EVERY frame passes EVERY gate on its exact bytes; Etsy's AI rules are treated as non-existent (owner CRITICAL DIRECTIVE "PERFECT FLUX 3 LISTING IMAGES", relayed by the coordinator to ENG-VIS-GALLERY, 2026-11-20).** Recorded by ENG-VIS-GALLERY from the coordinator's brief; the owner's own words were not seen in this session, so this record is open to owner veto and to main's review.
+
+1. **Owner standards (absolute, unchanged):** the pattern produces exactly the pictured item; generated renders are identified as renders in our records (`is_render: True`, `is_photograph: False`, `physical_sample_evidence: False`, `provenance_kind ai_generated_*`, honesty label `CONCEPT_LABEL`); physical-sample evidence stays separate (PROOF and FIT are never generated-gallery jobs; a "fit" frame is a SCALE frame on Laura); Laura's identity is exact (identity, body, outfit and her per-image publication gate all required).
+2. **Etsy AI policy:** no Etsy AI-policy reading is required anywhere. `etsy_policy` is removed from `eligibility.EXCEPTION_CHECKS`; `candidate_gates.publication_verdict` no longer appends `ETSY_POLICY_UNKNOWN` (the constant is kept as a record).
+3. **The generated-gallery route (`eligibility.GALLERY_ROUTE`, `gallery_exception`).** Jobs DESIRE, COLOUR_CONTEXT, LIFESTYLE, ANGLE, DETAIL, SCALE (+ the deterministic CONTENTS preview). Inside this route only:
+   - ASSET_CONCEPT_AS_HERO (pending separate review since D-W4-F852-AMEND) is resolved by the directive: the hero may be generated, held to structural Product Truth on its exact bytes and motif fidelity against the CIR chart — the rule's own reason ("the thing the pattern actually makes") is carried by those gates.
+   - F-853 (certified pixels mandatory where compositing is feasible) does not refuse DETAIL / SCALE / COLOUR_CONTEXT in this route; the directive puts the stitch close-up and the flat-lay in the FLUX campaign. The route instead conditions every frame on CIR-derived references and requires motif fidelity PASS. **This is the one point main/owner should explicitly confirm or veto.** Outside the route, F-852/F-853 and the per-frame exception are unchanged.
+4. **UNKNOWN / UNMEASURED never counts as PASS.** A fixture-labelled PASS is UNMEASURED. The owner's look is not an input.
+5. **Per-gallery spend cap** the owner can lower (`visual.gallery_budget`), never raise above `image_production.MAX_SPEND_CAD_PER_GALLERY` (CA$2.00, unchanged). The route's call cap is 2 anchors + 6 frames × (1 + 2 repair rounds) = 20 calls; the money cap and the per-agent/monthly gateway ceilings are unchanged.
+
+Reversible by the owner.
+
+
+## D-OWNER-GALLERY-COMPLETE — 2026-11-20 (owner directive, permanent)
+
+**Decision:** "Listings aren't ready until they have all the listing photos ready too." A listing
+is not ready, not a draft candidate, not counted as a certified listing and never uploaded
+until its valid listing-set certificate names the whole campaign gallery
+(`visual.shot_plans.CAMPAIGN_MIN_FRAMES`, seven frames).
+**Enforced in code:** `runtime.etsy_ops.certified_frames` reports a `gallery incomplete`
+problem for a certificate with fewer frames (so the listing package BLOCKS and no publish
+uploads a partial gallery); `products.lifecycle.derive` reaches LISTING_READY only with a
+complete certified gallery (a partial one stays VISUAL). Unreadable is never complete.
+**Consequence:** today's three-frame disclosed render set (hero, scale, detail) no longer makes
+a listing ready on its own; the seven-image generated campaign (ENG-VIS-GALLERY) is on the
+critical path.
+
+## D-OWNER-PDF-STANDARD — 2026-11-20 (owner directive, permanent)
+
+**Decision:** "Listings aren't ready without beautiful PDFs like the one I shared. That's the
+standard. That's what people are buying. The PDF. The PDFs have images." A listing is not ready
+until BOTH editions (US and UK) of its PDF meet `research/benchmarks/PDF_STRUCTURE_STANDARD.md`
+for its family, verified deterministically from the built PDF bytes. The required parts:
+- a full-bleed cover hero photo;
+- an overview lifestyle photo;
+- construction progress photos;
+- CIR-generated schematics and inline mini-diagrams;
+- a 5–6 photo gallery page;
+- a stitch count on every row;
+- the licence page.
+
+The PDF's photos are the listing's certified gallery images, reused. Structure intelligence
+only: never copy benchmark text, numbers, art or layout. **Owner of the checker and gates:**
+ENG-READY-GATES. **Owner of the layout:** ENG-PDF-PREMIUM.
+
+## D-OWNER-SPEND-ORDER — 2026-11-20 (owner directive, permanent)
+
+**Decision:** "Don't waste money on pictures for products we aren't listing for sale. But we
+will be listing hundreds." Paid image generation starts for a release only when it is certified
+and every non-image listing gate already passes. A run that is not yet eligible waits in a
+non-spending state. Admission is ordered by expected value (core families first) and bounded
+in code by a per-listing image cost cap and the CA$100/month ceiling. Reservations are
+released for any product that is rejected or parked. One gallery spend serves both the
+listing and its PDF.
+
+## D-OWNER-SALE-PIPELINE — 2026-11-20 (owner directive, HARD RULE)
+
+**Decision:** "If a product passes its tests and the agents think it should be for sale, then it
+should obviously have images for the PDF, the PDF with the pattern and images, and images for
+the listing. Then it's ready to be for sale. Hard rule."
+- Selection for sale, once the pattern is certified and every non-image gate passes, AUTOMATICALLY
+  enqueues the full chain, with no owner step and no manual nudge:
+  1. generate the certified 7-photo campaign gallery (Laura locked, one outfit per listing);
+  2. build the US and UK premium PDFs, with the pattern and those images embedded, and certify them against D-OWNER-PDF-STANDARD;
+  3. attach the listing images to the listing package;
+  4. mark the listing READY for sale.
+- D-OWNER-SPEND-ORDER decides *which* products spend (only for-sale ones, in value order,
+  within the caps). It never becomes a place where an eligible product silently stalls. An
+  eligible product that is not progressing is an incident with a named blocker, visible on
+  Mission Control and in readback.
+- Ready for sale = certified pattern + complete certified gallery + both premium illustrated
+  PDFs certified for this release + every listing gate PASS. Nothing less counts.
+
+## D-OWNER-PDF-LOGO — 2026-11-20 (owner directive) — supersedes integrator decision N1 (2026-10-31)
+
+**Decision:** "You should already have the company logo… It should be used on the PDF." Every
+premium PDF (US and UK) carries the owner's canonical logo,
+`brand/owner_source/brambleloop_owner_logo_canonical.png` (sha256 28f301b2…5998, D-FB-17),
+used exactly as supplied, resampled only to fit (the existing `publish.pdf._cover_logo`):
+- prominently on the cover;
+- on the About Brambleloop Studio page.
+
+The A3 vector lockup or the micro-mark may appear only as a small-size utility, for example
+the running footer, as D-FB-17's hierarchy permits. It never replaces the logo on the cover.
+N1's worry (the artwork's HOME · BABY · GIFTS · SEASONAL line read as a product claim) is
+outweighed by the owner's direct instruction, and that line now matches the core families.
+**Verified deterministically:** the D-OWNER-PDF-STANDARD checker confirms that the cover
+embeds an image derived from the canonical logo (a perceptual or derived-hash match to the
+resampled canonical bytes). A PDF without it FAILS.
+
+## D-OWNER-PDF-TEMPLATE — 2026-11-20 (owner-supplied master layout)
+
+**Decision:** The owner's `spec/07_Brambleloop_Master_Pattern_Template.pdf` (14 pages, Letter) is
+the master layout for every premium pattern PDF, in both US and UK editions. It is the owner's
+own brand design, so its layout may be reproduced exactly. It combines with
+D-OWNER-PDF-STANDARD (structure from the Mini Star Stitch benchmark), D-OWNER-PDF-LOGO and
+D-OWNER-SALE-PIPELINE. The owner said "don't have to use it if yours is better"; it is adopted
+because it is better than the current engine layout and carries the brand.
+
+**Page order:** each page is filled only from certified CIR data. A missing required fact
+blocks; nothing is guessed. Optional sections are omitted entirely, never left with a
+placeholder.
+1. **Cover:** the canonical owner logo, family / DIGITAL DOWNLOAD kicker, title, collection
+   line, the certified hero photo in the slot, and a forest band with skill, sizes and
+   terminology.
+2. **01 Meet the pattern:** about this design, how it comes together, and a project-details
+   panel (difficulty, category, sizes, CYC yarn weight, hook US/mm, construction), plus
+   "your download includes".
+3. **02 Tools + yarn:** yarn, hooks, notions, gauge and its importance, yarn quantities, maker
+   note.
+4. **03 Sizing & finished fit:** the size table (size, finished size, yarn m/yd, notes), fit
+   and ease, a note on measurements.
+5. **04 Construction guide:** the numbered making sequence plus a CIR schematic, and the
+   construction check.
+6. **05 Stitches & abbreviations:** terminology-correct terms and special stitches, only
+   those used.
+7. **06 The pattern:** two columns, component bars, Row/Round labels, and a stitch count on
+   every row. Additional pieces or sizes appear only when they apply. Inline mini-diagrams and
+   progress photos go at the tricky steps (D-OWNER-PDF-STANDARD).
+8. **07 Finishing & assembly:** numbered steps and the final quality check.
+9. **08 Gauge, care & helpful notes:** gauge first, yarn substitution, care, and
+   safety/age/use notes (child-safety gate text for baby and amigurumi).
+10. **09 Gallery and continued gallery:** the 7 certified campaign photos in order:
+    1. full product / hero;
+    2. stitch detail;
+    3. lifestyle;
+    4. back / alternate;
+    5. scale / fit;
+    6. construction / materials;
+    7. download facts.
+
+    These are the same certified images as the listing (one spend). Generated images are
+    labelled as renderings.
+11. **10 About Brambleloop:** the canonical owner banner, the studio blurb, and support via
+    Etsy Messages only.
+12. **11 Copyright + use:** the approved Brambleloop licence (never a competitor's), the
+    "please remember" notice, and the thank-you block with the logo.
+
+**Every page:** a header with the logo, BRAMBLELOOP / CROCHET PATTERNS, collection name and
+terminology; a numbered section kicker plus a serif title; and the footer "BRAMBLELOOP STUDIO /
+PATTERNS FOR A MORE HANDMADE LIFE" with the page number. The template's "MASTER LAYOUT •
+REQUIRES CERTIFIED PRODUCT DATA" line is a template marker and is never printed in a customer
+PDF. Palette and type as in the template: forest band, cream ground, rose kickers, serif
+display.
+
+## D-ENG-VIS-GALLERY-ADMISSION — the for-sale admission point for paid images (b17-c A3, 2026-11-20; routine engineering implementing D-OWNER-SPEND-ORDER)
+
+- **Where.** `listing.package` is the admission point: it runs after pricing, listing copy and every listing gate, at the end of the chain. After it records a release's package it calls `image_production.admit_for_sale`. Nothing at build time enqueues the paid FLUX route.
+- **Rule.** Admitted iff the recorded package is for exactly this release, every blocker on it is an image blocker, and the product lifecycle is not REJECTED, RETIRED or ROLLED_BACK. Image blockers are `certified_frames` problems plus the `for_publish` reasons from the listing set, image originality, the search hero, the sample-photo requirement and the `gallery_images`/`video_in_gallery` standards (`release_gates.image_reasons`). A reason it cannot attribute counts as non-image: unknown never admits.
+- **Enforcement.** Every stage of a paid run re-checks admission before it acts (FLUX always; the campaign route whenever its generator is paid). Controlled runs and EXPERIMENTs keep their own owner authorisation. A run that is not admitted parks in `waiting_for_sale_admission`, spends nothing and frees an unused outfit reservation. A later admission resumes it once per wait.
+- **Consequence, stated plainly.** Launch-0 releases today carry non-image first-customer blockers (a physical sample, Etsy round-trip verification), so they are not admitted until those pass. Reversible by decision.
+
+
+## D-MAIN-IMAGE-ADMISSION — publish-time gates do not stop admission for paid images (main's decision, 2026-11-20; amends D-ENG-VIS-GALLERY-ADMISSION)
+- **Problem.** Production has 0 images. Every Launch-0 release carries two FIRST_CUSTOMER blockers that are not about the product's pattern truth. `gauge_and_size_claims` needs a physical sample. `etsy_remote_state` is an UNVERIFIABLE store-wide integration check. Under the strict admission rule these block paid images, so nothing ever gets images.
+- **Decision.** `image_production.admit_for_sale` (reached from `listing_package_ops._admit_for_sale`) treats those two blocker sources as **publish-time / store-wide** gates, alongside the image-tagged blockers. A release is ADMITTED for paid images when its only remaining blockers are image-tagged ones plus these publish-time ones.
+- **Mechanism.** `release_gates.PUBLISH_TIME_AREAS = {"gauge_and_size_claims", "etsy_remote_state"}` is an explicit allow-list. It is read from the structured `area` that `eligibility.product_publication` now puts on each FIRST_CUSTOMER_BLOCKING reason, never matched against text. `listing_package.assemble` tags such a blocker `publish_time: <area>`. `sale_admission` accepts a blocker only when it is `image: True`, or comes from `release_gates.for_publish` with a `publish_time` area on the allow-list. This is checked again against the allow-list at admission.
+- **Unchanged.** Both gates still block PUBLISHING exactly as before: they stay in `for_publish`'s reasons, the package stays BLOCKED and `store.publish` refuses. Nothing reaches Etsy without them. Any other non-image blocker still prevents admission, including other first-customer areas such as `listing_claims` and `imagery`. A reason that cannot be attributed still counts as non-image, so it never admits.
+- **Spend.** This stays consistent with D-OWNER-SPEND-ORDER. Images are made only for releases that are sale-ready in every respect the factory controls. The owner directive "if a product passes its tests and the agents think it should be for sale, it should have images" (D-OWNER-SALE-PIPELINE) requires this. Ceilings, reservations and the paid-provider gate are unchanged.
+- **Tests.** `test_vis_gallery_e2e` test_10 to test_13 cover the four required proofs:
+  - admitted on the real key-basket chain, where listing.package enqueues the FLUX route;
+  - not admitted when any extra non-image blocker is present (test_11, and test_9 with a real LISTING_PRICE_NOT_PLAN gate);
+  - the publish path still refuses on both gates (for_publish, and store.publish with the real Launch-0 scope gate, which makes no Etsy request);
+  - the allow-list is load-bearing. Three mutants were killed: an emptied allow-list, the admission-side allow-list check removed, and the reason-side area check removed.
 **D-ENG-GARMENT-1: a garment is released as one unit of every size, built from one step list (ENG-GARMENT slice 1, 2026-11-20).**
 `products.garment_families` builds every size of a design from the same recorded steps
 (`Step`/`Piece`): cast on, work even, shape every Nth row, chain on, leave unworked, raglan

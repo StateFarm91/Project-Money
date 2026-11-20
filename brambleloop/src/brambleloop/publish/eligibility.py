@@ -434,8 +434,11 @@ COMPOSITING_FEASIBLE: dict[str, tuple[bool, str]] = {
                    "contain; no certified-pixel producer exists for it"),
 }
 # The readings the exception needs, every one PASS. Laura's gates only when she appears.
+# D-OWNER-FLUX-GALLERY (2026-11-20): the owner ordered Etsy's AI rules treated as
+# non-existent, so no Etsy AI-policy reading is required here. The owner's own standards
+# (exact product, accurate render records, separate physical evidence, exact Laura) remain.
 EXCEPTION_CHECKS: tuple[str, ...] = ("structural_fidelity", "photographic", "product_truth",
-                                     "quality", "etsy_policy", "publication_gates")
+                                     "quality", "publication_gates")
 EXCEPTION_LAURA_CHECKS: tuple[str, ...] = ("identity", "body_proportions", "outfit")
 EXCEPTION_PROVENANCE: tuple[str, ...] = ("model", "references", "release", "prompt_version",
                                          "receipt", "disclosure")
@@ -446,10 +449,80 @@ def exception_roles_without_compositing() -> list[str]:
     return sorted(j for j, (ok, _) in COMPOSITING_FEASIBLE.items() if not ok)
 
 
+# ---- D-OWNER-FLUX-GALLERY: the generated-gallery route ------------------------------------
+#
+# A whole listing gallery produced by FLUX from deterministic CIR reference renders, and
+# certified only when EVERY frame passes every gate on its exact bytes. Narrower in what it
+# accepts than the per-frame exception above, wider only in which jobs it may do: the owner's
+# directive puts the hero and the stitch close-up in the generated campaign, so DESIRE and the
+# compositing-feasible jobs are in scope HERE, each needing a motif/product-fidelity PASS
+# against the CIR references. PROOF and FIT stay out: physical-sample evidence is separate
+# and a generated frame is never evidence that something was made or worn.
+GALLERY_ROUTE = "generated_gallery"
+GALLERY_JOBS: tuple[str, ...] = (DESIRE, LIFESTYLE, ANGLE, DETAIL, SCALE, COLOUR_CONTEXT)
+GALLERY_CHECKS: tuple[str, ...] = ("structural_fidelity", "motif_fidelity", "product_truth",
+                                   "photographic", "quality", "anatomy", "publication_gates")
+GALLERY_LAURA_CHECKS: tuple[str, ...] = EXCEPTION_LAURA_CHECKS
+
+
+def gallery_exception(candidate: Candidate, evidence: dict) -> list[str]:
+    """Every reason the generated-gallery route refuses this frame; empty means it passes.
+
+    Every reading must be PASS. UNKNOWN, missing, a fixture stand-in or a reading made on
+    other bytes all block. Structural Product Truth must have been measured on exactly the
+    bytes being exported (`structural_sha256 == sha256`)."""
+    tag = f"generated gallery ({GALLERY_ROUTE}) refused"
+    ev = dict(evidence or {})
+    out: list[str] = []
+    label = honesty_label(candidate.medium, candidate.job)
+    for field_ in ("label", "honesty_label"):
+        if str(ev.get(field_) or "") != label["label"] or not label["label"]:
+            out.append(f"{tag}: disclosure: {field_} must be the computed honesty label "
+                       f"{label['label']!r}; it is {ev.get(field_)!r}")
+    if str(ev.get("presented_as") or "").lower() != "ai_generated":
+        out.append(f"{tag}: the frame must be recorded as an AI-generated render, never a "
+                   f"photograph or a made sample (presented_as={ev.get('presented_as')!r})")
+    if candidate.purpose == PHYSICAL_PROOF or candidate.job not in GALLERY_JOBS:
+        out.append(f"{tag}: {candidate.job} is not a generated-gallery job {list(GALLERY_JOBS)}"
+                   f"; PROOF and FIT need a photograph of a made sample")
+    sha = str(ev.get("sha256") or "")
+    if len(sha) != 64 or str(ev.get("structural_sha256") or "") != sha:
+        out.append(f"{tag}: structural Product Truth was not measured on these exact bytes "
+                   f"(measured {str(ev.get('structural_sha256') or 'nothing')[:12]}, frame "
+                   f"{sha[:12] or 'unknown'})")
+    checks = dict(ev.get("checks") or {})
+    needed = list(GALLERY_CHECKS) + (list(GALLERY_LAURA_CHECKS) if ev.get("laura_present")
+                                     else [])
+    for name in needed:
+        st = str(checks.get(name) or "UNKNOWN").upper()
+        if st not in ("PASS",) and not (name == "anatomy" and st == "NOT_APPLICABLE"
+                                         and not ev.get("laura_present")):
+            out.append(f"{tag}: {name} is {st}; every gate must read PASS and UNMEASURED "
+                       f"never counts as PASS")
+    prov = dict(ev.get("provenance") or {})
+    missing = [k for k in EXCEPTION_PROVENANCE if not prov.get(k)]
+    refs = prov.get("references") or []
+    if refs and not all(isinstance(r, dict) and len(str(r.get("sha256") or "")) == 64
+                        for r in refs):
+        missing.append("references (sha256 for each, in order)")
+    if not any(isinstance(r, dict) and r.get("kind") == "pattern_derived" for r in refs):
+        missing.append("a CIR-derived product reference (kind pattern_derived)")
+    if prov.get("disclosure") and prov.get("disclosure") != label["label"]:
+        missing.append("disclosure (differs from the computed label)")
+    if missing:
+        out.append(f"{tag}: provenance incomplete: {missing}")
+    rel = str(ev.get("fidelity_release") or "")
+    if not rel or not prov.get("release") or rel != str(prov["release"]):
+        out.append(f"{tag}: the structural fidelity reading is not for this exact release")
+    return out
+
+
 def verified_exception(candidate: Candidate, evidence: dict | None) -> list[str]:
     """Every reason the D-W4-F852-AMEND exception does not hold; empty means it holds."""
     if candidate.medium not in GENERATED_MEDIA:
         return []
+    if evidence and evidence.get("route") == GALLERY_ROUTE:
+        return gallery_exception(candidate, evidence)
     tag = f"F-852 ({AMENDMENT}) verified exception refused"
     if not evidence:
         return [f"F-852: a {candidate.medium.value} is generated imagery of the product; it "
@@ -765,7 +838,10 @@ def product_publication(db, slug: str, version: str, *, listing=None, frames=Non
         blocking = first_customer(CIR.from_dict(cir_json), listing=listing, frames=frames,
                                   store=store, db=db, version=version)
         for check in blocking:
-            reasons.append({"code": FIRST_CUSTOMER_BLOCKING,
+            # D-MAIN-IMAGE-ADMISSION: the area travels with the reason, so the for-sale
+            # admission reads it from data (`release_gates.publish_time_reasons`), never by
+            # matching the text.
+            reasons.append({"code": FIRST_CUSTOMER_BLOCKING, "area": check["area"],
                             "why": f"{check['area']}: {check['state']} -- "
                                    f"{str(check['detail'])[:200]}"})
     return {"slug": slug, "version": version, "publishable": not reasons,

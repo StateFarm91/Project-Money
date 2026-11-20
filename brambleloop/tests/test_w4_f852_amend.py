@@ -53,7 +53,8 @@ def test_a_fully_verified_generated_frame_exports():
 
 def test_each_missing_unknown_or_failed_condition_blocks_with_its_reason():
     names = list(el.EXCEPTION_CHECKS) + list(el.EXCEPTION_LAURA_CHECKS)
-    assert len(names) == 9
+    # D-OWNER-FLUX-GALLERY: the Etsy AI-policy reading is no longer a condition (8, was 9)
+    assert len(names) == 8 and "etsy_policy" not in names
     for name in names:
         for bad in ("UNKNOWN", "FAIL", None):
             ev = evidence()
@@ -126,7 +127,7 @@ def test_a_photo_label_or_presentation_is_refused():
 
 def test_owner_visual_approval_never_substitutes():
     ev = evidence()
-    ev["checks"]["etsy_policy"] = "UNKNOWN"
+    ev["checks"]["photographic"] = "UNKNOWN"
     ev["owner_visual_approval"] = True
     ev["checks"]["owner_visual_approval"] = "PASS"
     assert not export(ev)["may_export"]
@@ -158,7 +159,7 @@ def test_hero_rule_and_unchanged_media_paths():
         assert a["may_export"] is True and a == b, medium
 
 
-def test_the_production_path_still_refuses_today_on_the_etsy_reading():
+def test_the_production_path_still_refuses_today_without_structural_fidelity():
     import test_w4_ownerimg as O
     from brambleloop.visual import candidate_gates as CG
 
@@ -166,8 +167,9 @@ def test_the_production_path_still_refuses_today_on_the_etsy_reading():
     v = CG.evaluate(db, O.cand(role="lifestyle", release=O.RELEASE), judges=O.StubJudges(),
                     record_outfit_use=False)
     assert v["publishable"] is False
-    assert any("etsy_policy is UNKNOWN" in b for b in v["publication"]["blockers"])
-    assert any(CG.ETSY_POLICY_UNKNOWN == b for b in v["publication"]["blockers"])
+    # D-OWNER-FLUX-GALLERY: no Etsy AI-policy blocker on either route
+    assert not any("etsy_policy" in b for b in v["publication"]["blockers"])
+    assert not any(CG.ETSY_POLICY_UNKNOWN == b for b in v["publication"]["blockers"])
     # the stub's Product Truth carries no fidelity reading: structural fidelity UNKNOWN blocks
     assert any("structural_fidelity is UNKNOWN" in b for b in v["publication"]["blockers"])
 

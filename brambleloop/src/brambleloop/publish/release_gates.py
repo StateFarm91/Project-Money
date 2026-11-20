@@ -60,6 +60,32 @@ def _asset_id(slug: str, position: int) -> str:
 GENERATED_SOURCE = "visual.image_production"
 
 
+# D-OWNER-FLUX-GALLERY: the jobs a generated-gallery frame does, by its role. Every one is
+# CONVERSION_CREATIVE (the only purpose an AI_LIFESTYLE_CONCEPT can serve).
+GENERATED_ROLE_JOBS: dict[str, tuple[str, str]] = {
+    "hero": (el.DESIRE, el.CONVERSION_CREATIVE),
+    "colour_context": (el.COLOUR_CONTEXT, el.CONVERSION_CREATIVE),
+    "lifestyle": (el.LIFESTYLE, el.CONVERSION_CREATIVE),
+    "angle": (el.ANGLE, el.CONVERSION_CREATIVE),
+    "detail": (el.DETAIL, el.CONVERSION_CREATIVE),
+    "size": (el.SCALE, el.CONVERSION_CREATIVE),
+}
+GENERATED_GALLERY = "generated_gallery"             # the listing-set kind of this route
+GENERATED_RENDER_KIND = "generated_render"          # a certified frame's kind in it
+SELECTED_ACTION = "images.generated_gallery_selected"
+
+
+def is_gallery_route_frame(f) -> bool:
+    return is_generated_frame(f) and (getattr(f, "claims", None) or {}).get(
+        "route") == el.GALLERY_ROUTE
+
+
+def _job_of_frame(f):
+    if is_gallery_route_frame(f):
+        return GENERATED_ROLE_JOBS.get(f.role)
+    return ROLE_JOBS.get(f.role)
+
+
 def is_generated_frame(f) -> bool:
     """A ListingAsset frame that image production generated (never a photograph)."""
     return (getattr(f, "claims", None) or {}).get("source") == GENERATED_SOURCE
@@ -74,8 +100,10 @@ def generated_frame_verdict(db, slug: str, version: str, f) -> dict:
     Truth, identity, outfit), LAYOUT_QA from its measured quality, COMMERCIAL_QA from its role,
     realism and anatomy checks, POLICY_PROVENANCE from its provenance row (the file on record
     must be the file written). `eligibility.may_export` then decides, and its F-852 rule refuses
-    generated product imagery in every role. Nothing here relaxes that."""
-    job = ROLE_JOBS.get(f.role)
+    generated product imagery in every role. Nothing here relaxes that. A frame written by the
+    generated-gallery route (D-OWNER-FLUX-GALLERY) is judged by that route's exception
+    (`eligibility.gallery_exception`), on the evidence its own candidate record carries."""
+    job = _job_of_frame(f)
     base = {"asset_id": _asset_id(slug, f.position), "position": f.position, "role": f.role,
             "sha256": f.sha256, "generated": True}
     from ..visual.experiment import LABEL, is_experiment_image
@@ -112,7 +140,11 @@ def generated_frame_verdict(db, slug: str, version: str, f) -> dict:
                         "prompt_version": row.prompt_version,
                         "provenance_kind": row.provenance_kind,
                         "laura_present": bool(row.laura_present),
-                        "identity_evidence": checks.get("_identity_evidence") or {}}
+                        "identity_evidence": checks.get("_identity_evidence") or {},
+                        "route": (checks.get("_route") or {}).get("route") or ""}
+                if is_gallery_route_frame(f) and cand["route"] != el.GALLERY_ROUTE:
+                    # written as a gallery frame but not generated and judged under the route
+                    cand["route"] = "mismatch"
 
     def outcome(*names):
         st = [str((checks.get(n) or {}).get("status") or "UNKNOWN") for n in names]
@@ -548,6 +580,14 @@ def listing_set(db, *, slug: str, version: str, store_root=None, issue: bool = T
     # set, one certificate, one upload path.
     from . import listing_asset
 
+    # D-OWNER-FLUX-GALLERY: a generated gallery selected for this release is the listing set,
+    # judged and certified on its own path (one set, one certificate, one upload path).
+    selection = generated_selection(db, slug, version)
+    if selection is not None:
+        return generated_listing_set(db, slug=slug, version=version, cir=cir, twin=twin,
+                                     listing=listing, selection=selection, frames=frames,
+                                     release_hash=release_hash, issue=issue,
+                                     store_root=store_root, store_renders=store_renders)
     current_asset = listing_asset.last(db, slug=slug)
     if (current_asset and current_asset.get("kind") == ls.DISCLOSED_RENDER
             and current_asset.get("version") == version):
@@ -872,7 +912,7 @@ def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, re
     # refused one is excluded from the certified set and reported. One that passed its gates
     # would need a mixed-set certificate, which the disclosed certificate is not: blocked.
     generated = [generated_frame_verdict(db, slug, version, f) for f in frames
-                 if is_generated_frame(f)]
+                 if is_generated_frame(f) and not is_gallery_route_frame(f)]
     passing = [g for g in generated if g.get("may_export")]
     if passing:
         reasons.append(f"generated frame(s) {[g['position'] for g in passing]} passed their "
@@ -1299,7 +1339,7 @@ def certificate_step(db, *, slug: str, version: str, release_hash: str, frames, 
 
     certified = []
     for f in frames:
-        job, purpose = ROLE_JOBS[f.role]
+        job, purpose = _job_of_frame(f) or ROLE_JOBS[f.role]
         label = el.honesty_label(AssetClass(f.asset_class), job)
         sources = (("finished.width", "finished.length")
                    if f.role == "size" and (f.claims or {}).get("width_cm") else ())
@@ -1963,6 +2003,53 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
             "sample_photo": photo, "stage": stage}
 
 
+IMAGE_STANDARDS = ("gallery_images", "video_in_gallery")
+HERO_REASON = "search certificate (F-004) hero:"
+
+
+def image_reasons(verdict: dict | None) -> set[str]:
+    """b17-c A3 (D-OWNER-SPEND-ORDER): the reasons of a `for_publish` verdict that the
+    listing's images cause -- the listing set, image originality, the search hero, the
+    sample-photo requirement and the gallery-size competitive standards. Every other reason
+    is a non-image listing gate, and a product with one is not admitted for image spend.
+    A reason this cannot attribute is non-image: unknown never admits."""
+    v = verdict or {}
+    out: set[str] = set()
+    for part in ("listing_set", "originality", "sample_photo"):
+        out.update(str(r) for r in ((v.get(part) or {}).get("reasons") or []))
+    out.update(str(r) for r in ((v.get("search") or {}).get("reasons") or [])
+               if str(r).startswith(HERO_REASON))
+    out.update(str(r) for r in ((v.get("standards") or {}).get("reasons") or [])
+               if any(str(r).startswith(f"competitive standard {k} ") for k in IMAGE_STANDARDS))
+    return out
+
+
+# D-MAIN-IMAGE-ADMISSION: the publish-time / store-wide first-customer gates. Both still
+# block PUBLISHING exactly as before (they stay in `for_publish`'s reasons); they do not stop a
+# release being admitted for its paid images, because neither is about the product's pattern
+# truth: `gauge_and_size_claims` waits on a physical sample (an owner action) and
+# `etsy_remote_state` is a store-wide integration check (UNVERIFIABLE until Etsy is read).
+# An explicit allow-list of first-customer AREAS, read from the structured reason -- never a
+# pattern over the text. Any area not listed here stays a non-image blocker.
+PUBLISH_TIME_AREAS = frozenset({"gauge_and_size_claims", "etsy_remote_state"})
+
+
+def publish_time_reasons(verdict: dict | None) -> dict[str, str]:
+    """The reasons of a `for_publish` verdict that come from an allow-listed publish-time gate
+    (`PUBLISH_TIME_AREAS`), mapped to that gate's area. Read from the product scope's structured
+    reasons (`eligibility.product_publication`), so a reason whose area is missing, or not on
+    the list, is not here -- it stays non-image, and unknown never admits."""
+    from .eligibility import FIRST_CUSTOMER_BLOCKING
+
+    scope = (verdict or {}).get("publication_scope") or {}
+    out: dict[str, str] = {}
+    for r in scope.get("reasons") or []:
+        if (isinstance(r, dict) and r.get("code") == FIRST_CUSTOMER_BLOCKING
+                and isinstance(r.get("area"), str) and r["area"] in PUBLISH_TIME_AREAS):
+            out[f"{r['code']}: {r['why']}"] = r["area"]
+    return out
+
+
 def our_competitive_reading(db, *, slug: str, version: str, key: str) -> float | None:
     """This listing's own reading on one CompetitiveStandard, or None when unmeasurable."""
     from sqlalchemy import select
@@ -2052,3 +2139,229 @@ def for_marketing(db, *, slug: str, version: str, today: date | None = None,
             # only block: nothing halted, the window open, only marketing_asset outstanding
             "only_own_marketing_stale": (stale["outstanding_only_marketing"]
                                          and bool(window["may_launch_seasonally"]))}
+
+
+# ---- D-OWNER-FLUX-GALLERY: the generated-gallery listing set --------------------------------
+
+def generated_selection(db, slug: str, version: str) -> dict | None:
+    """The generated gallery `visual.gallery_persist` selected for this release, or None.
+
+    Written only after every frame passed every gate there; it names each frame's position,
+    role and sha256 and the deterministic CONTENTS frame. A withdrawn selection (`withdrawn`)
+    is no selection."""
+    det = _audit_detail(db, SELECTED_ACTION, f"{slug}@{version}")
+    if not det or det.get("route") != el.GALLERY_ROUTE or det.get("withdrawn"):
+        return None
+    return det
+
+
+def certified_contents_frame(db, slug: str, version: str, store_root=None) -> dict:
+    """The download-information frame: the CONTENTS pattern preview the deterministic path
+    built from the certified PDF, re-verified on its bytes now (`check_supplement`), with the
+    alt text it is certified with. Never generated. Status PASS / FAIL / UNMEASURED."""
+    from sqlalchemy import desc, select
+
+    from ..core.artifacts import ArtifactMissing, ArtifactStore
+    from ..core.models import ListingSetCertificateRecord
+    from ..visual import launch_imagery as LI
+
+    with db.session() as s:
+        rows = list(s.scalars(select(ListingSetCertificateRecord).where(
+            ListingSetCertificateRecord.product_slug == slug,
+            ListingSetCertificateRecord.version == version)
+            .order_by(desc(ListingSetCertificateRecord.id))))
+        found = None
+        for r in rows:
+            for f in (r.certificate or {}).get("frames") or []:
+                if f.get("job") == el.CONTENTS and f.get("kind") == ls.DISCLOSED_SUPPLEMENT:
+                    found = dict(f)
+                    break
+            if found:
+                break
+    if not found:
+        return {"status": "UNMEASURED", "why": "no certified CONTENTS (download information) "
+                "preview is on file for this release: assets.build has not certified the "
+                "pattern-preview frame", "owner": "publishing (assets.build)"}
+    try:
+        data = ArtifactStore(store_root).get(found["sha256"], db=db)
+    except (ArtifactMissing, OSError) as e:
+        return {"status": "UNMEASURED", "why": f"CONTENTS preview bytes unreadable: {e}"[:300],
+                "owner": "publishing (assets.build)"}
+    verdict = LI.check_supplement(slug, version, el.CONTENTS, data, db=db,
+                                  store=ArtifactStore(store_root))
+    want_alt = LI.expected_alt_text(slug, el.CONTENTS)
+    if verdict.get("status") != "PASS":
+        return {"status": "FAIL" if verdict.get("status") == "FAIL" else "UNMEASURED",
+                "why": f"CONTENTS preview re-verification: {verdict.get('why')}"[:300],
+                "owner": "publishing (assets.build)"}
+    if found.get("alt_text") != want_alt:
+        return {"status": "FAIL", "why": "the CONTENTS preview's certified alt text is not the "
+                "one it is certified with today", "owner": "publishing (assets.build)"}
+    return {"status": "PASS", "why": "certified pattern preview, re-verified on its bytes",
+            "frame": found, "data": data}
+
+
+def _gallery_alt_text(job: str) -> str:
+    from .disclosed_listing import ALT_TEXT_MAX
+
+    what = {el.DESIRE: "the finished piece", el.COLOUR_CONTEXT: "full view of the finished piece",
+            el.LIFESTYLE: "the finished piece in use", el.ANGLE: "another angle of the piece",
+            el.DETAIL: "stitch close-up", el.SCALE: "the finished piece showing its size"}
+    return f"{el.CONCEPT_LABEL}. {what.get(job, job.lower())}."[:ALT_TEXT_MAX]
+
+
+class _Shown:
+    """A frame as `mobile_contexts` reads it: a position and the bytes' hash."""
+
+    def __init__(self, position: int, sha256: str):
+        self.position, self.sha256 = position, sha256
+
+
+def generated_listing_set(db, *, slug: str, version: str, cir, twin, listing, selection: dict,
+                          frames, release_hash: str | None, issue: bool, store_root=None,
+                          store_renders: bool = False) -> dict:
+    """The selected generated gallery through the four gates and the set checks, and a
+    listing-set certificate only when every frame and every set check passed.
+
+    Each generated frame is judged by `generated_frame_verdict` on its own candidate record
+    (identity, outfit, motif and product fidelity, anatomy, realism, quality, provenance, the
+    route's exception). The CONTENTS frame is the deterministic preview, re-verified now. The
+    set: one job per frame (#65), the seven-frame standard, mobile contexts (#66) and the
+    dimension audit (#60). Anything not run, unreadable or UNMEASURED blocks."""
+    from ..gates.asset_truth import AssetClass
+    from ..gates.platform_policy import policy_stamp
+    from ..gates.policy import POLICY_VERSION
+    from ..visual import shot_plans as SP
+
+    reasons: list[str] = []
+    by_pos = {f.position: f for f in frames}
+    selected = sorted(selection.get("frames") or [], key=lambda x: int(x["position"]))
+    chosen = []
+    per_frame: list[dict] = []
+    for sel in selected:
+        f = by_pos.get(int(sel.get("stored_position") or sel["position"]))
+        if f is None or f.sha256 != sel.get("sha256") or not is_gallery_route_frame(f):
+            why = (f"frame {sel['position']} ({sel.get('role')}): the selected bytes "
+                   f"{str(sel.get('sha256'))[:12]} are not on file as a generated-gallery frame")
+            per_frame.append({"position": int(sel["position"]), "role": sel.get("role"),
+                              "sha256": sel.get("sha256"), "may_export": False, "why": why,
+                              "blockers": [why], "job": "", "gates": {}})
+            continue
+        chosen.append(f)
+        v = generated_frame_verdict(db, slug, version, f)
+        # judged on its stored row; placed at its listing position
+        per_frame.append({**v, "position": int(sel["position"]),
+                          "asset_id": _asset_id(slug, int(sel["position"]))})
+    # assets.build's own build-side rows are not listing frames on this path (as on the
+    # disclosed path); another generated-gallery frame not in the selection is a mixed set.
+    taken = {int(x.get("stored_position") or x["position"]) for x in selected}
+    strays = sorted(p for p, f in by_pos.items() if is_gallery_route_frame(f) and p not in taken)
+    if strays:
+        reasons.append(f"generated-gallery frames at {strays} are on file but not part of "
+                       f"the selected gallery; a mixed set is not certified on this path")
+    contents = certified_contents_frame(db, slug, version, store_root=store_root)
+    cpos = int((selection.get("contents") or {}).get("position") or len(selected) + 1)
+    if contents["status"] != "PASS":
+        reasons.append(f"download-information frame (CONTENTS): {contents['status']}: "
+                       f"{contents['why']}")
+    candidates = []
+    for v in per_frame:
+        job = (GENERATED_ROLE_JOBS.get(v.get("role") or "") or ("", ""))[0]
+        if job:
+            candidates.append(el.Candidate(asset_id=_asset_id(slug, v["position"]),
+                                           medium=AssetClass.AI_LIFESTYLE_CONCEPT,
+                                           purpose=el.CONVERSION_CREATIVE, job=job,
+                                           position=v["position"]))
+    candidates.append(el.Candidate(asset_id=_asset_id(slug, cpos),
+                                   medium=AssetClass.PATTERN_PREVIEW,
+                                   purpose=el.CUSTOMER_INFORMATION, job=el.CONTENTS,
+                                   position=cpos))
+    frame_set = el.check_set(candidates)
+    standard = SP.campaign_standard({"roles": [{"job": c.job} for c in candidates]})
+    if not frame_set["ok"]:
+        reasons.append("frame set (#65): " + "; ".join(p.get("kind", "?")
+                                                        for p in frame_set["problems"])[:300])
+    if not standard["ok"]:
+        reasons.append(f"seven-frame campaign standard: {standard['problems']}")
+    shown = [_Shown(v["position"], v.get("sha256") or "") for v in per_frame]
+    if contents["status"] == "PASS":
+        shown.append(_Shown(cpos, contents["frame"]["sha256"]))
+    mob = mobile_contexts(db, slug=slug, version=version, frames=shown, candidates=candidates,
+                          store_root=store_root, store_renders=store_renders)
+    if not mob.get("ok"):
+        reasons.append(f"mobile QA (#66): {mob.get('why') or mob.get('not_rendered')}")
+    dim = dimension_audit(db, slug=slug, version=version, twin=twin, frames=[],
+                          listing=listing)
+    if not dim["ok"]:
+        reasons.append("dimensions (#60): " + "; ".join(
+            f"{p['kind']} at {p.get('where')}" for p in dim["problems"])[:400])
+    refused = [v for v in per_frame if not v.get("may_export")]
+    if refused:
+        reasons.append(f"generated frames: {len(refused)} may not export -- " + "; ".join(
+            f"{v['position']}: {str(v.get('why'))[:160]}" for v in refused[:4]))
+    if listing is None:
+        reasons.append("no listing copy is drafted; the listing set cannot be certified")
+
+    geometry = geometry_of(twin, cir)
+    claims = claims_of(listing, chosen, _search_profile(db, slug, version))
+    rechecked = recheck(db, slug=slug, version=version, geometry=geometry, claims=claims,
+                        policy_version=POLICY_VERSION)
+    cert: dict
+    if reasons:
+        cert = {"valid": False, "issued": False, "rechecked": rechecked,
+                "why": "no generated-gallery certificate while any frame or set check above "
+                       "fails or is unmeasured"}
+    else:
+        certified = []
+        for v in per_frame:
+            job = GENERATED_ROLE_JOBS[v["role"]][0]
+            certified.append(ls.CertifiedFrame(
+                position=v["position"], asset_id=_asset_id(slug, v["position"]),
+                sha256=v["sha256"], job=job, purpose=el.CONVERSION_CREATIVE,
+                medium=AssetClass.AI_LIFESTYLE_CONCEPT.value,
+                honesty_label=el.honesty_label(AssetClass.AI_LIFESTYLE_CONCEPT, job)["label"],
+                kind=GENERATED_RENDER_KIND, alt_text=_gallery_alt_text(job),
+                represented_variant=cir.variant_key))
+        cf = contents["frame"]
+        certified.append(ls.CertifiedFrame(
+            position=cpos, asset_id=cf.get("asset_id") or _asset_id(slug, cpos),
+            sha256=cf["sha256"], job=el.CONTENTS, purpose=cf.get("purpose") or
+            el.CUSTOMER_INFORMATION, medium=cf.get("medium") or ls.PREVIEW_MEDIUM,
+            honesty_label=cf.get("honesty_label") or el.PREVIEW_LABEL,
+            kind=ls.DISCLOSED_SUPPLEMENT, alt_text=cf.get("alt_text") or "",
+            represented_variant=cf.get("represented_variant") or cir.variant_key))
+        gate_results = {g: (el.PASSED if all(
+            (v["gates"].get(g) or {}).get("outcome") == el.PASSED for v in per_frame)
+            else el.FAILED) for g in el.GATES}
+        try:
+            certificate = ls.certify(
+                slug=slug, version=version, frames=certified, gate_results=gate_results,
+                geometry=geometry, claims=claims, policy_version=POLICY_VERSION,
+                platform_policy=policy_stamp(db),
+                disclosures=tuple(sorted({c.honesty_label for c in certified})),
+                variant=cir.variant_key)
+            cert = _record_certificate(db, certificate, release_hash=release_hash or "",
+                                       issue=issue, rechecked=rechecked)
+        except ls.ListingSetRefused as e:
+            cert = {"valid": False, "issued": False, "rechecked": rechecked,
+                    "why": str(e)[:400]}
+        if not cert.get("valid"):
+            reasons.append(f"listing-set certificate (#70): {cert.get('why')}")
+    return {
+        "slug": slug, "version": version, "kind": GENERATED_GALLERY,
+        "blocks_release": bool(reasons), "reasons": reasons,
+        "selection": {k: selection.get(k) for k in ("run_key", "route", "family")},
+        "frames": [{k: v.get(k) for k in ("position", "role", "job", "may_export", "why")}
+                   | {"gates": {g: o["outcome"] for g, o in (v.get("gates") or {}).items()}}
+                   for v in per_frame],
+        "contents": {k: contents.get(k) for k in ("status", "why")} | {"position": cpos},
+        "frame_set": {k: frame_set.get(k) for k in ("ok", "jobs_covered", "problems")},
+        "campaign_standard": standard,
+        "dimensions": {k: dim[k] for k in ("ok", "problems", "sources", "displayed",
+                                           "references")},
+        "mobile": {k: mob.get(k) for k in ("ok", "complete", "not_rendered", "why",
+                                           "title_safe_ink_by_position", "missing_bytes")}
+                  | {"render_refs": {n: r.get("render_ref")
+                                     for n, r in (mob.get("contexts") or {}).items()}},
+        "certificate": cert,
+    }

@@ -51,14 +51,20 @@ from brambleloop.runtime import pipeline, release  # noqa: E402,F401
 from brambleloop.runtime.worker import Worker  # noqa: E402
 from brambleloop.visual import exported_review as X  # noqa: E402
 
-SLUG = "hexagon-coaster-set"
+# D-OWNER-GALLERY-COMPLETE: the reviewed release must export its whole gallery. The key
+# basket's disclosed set plus its verified supplements is an eight-frame certificate made by
+# the production path below; the coaster's is six frames (no ANGLE/CONSTRUCTION for a flat
+# piece), which is no longer an exportable gallery -- see
+# test_a_partial_gallery_is_not_served_so_it_is_not_reviewed.
+SLUG = "housewarming-key-basket"
+PARTIAL_SLUG = "hexagon-coaster-set"
 
 
 def _description(**over):
-    base = {"object_shown": "four hexagon coasters", "object_count": 4,
+    base = {"object_shown": "a crocheted key basket", "object_count": 1,
             "finished_or_in_progress": "finished", "human_present": False,
             "text_present": True, "chart_or_diagram": False,
-            "dominant_colours": "cream, wine", "clarity": "clear",
+            "dominant_colours": "pine, cream", "clarity": "clear",
             "third_party_marks": "none"}
     base.update(over)
     return base
@@ -87,28 +93,53 @@ class _Provider:
 _C: dict = {}
 
 
-def _certified():
-    """A coaster release whose disclosed set + supplements hold a valid listing-set certificate."""
-    if "db" not in _C:
-        db = Database(f"sqlite:///{_TMP}/qa.sqlite")
+def _certified(slug: str = SLUG):
+    """A release whose disclosed set + supplements hold a valid listing-set certificate."""
+    if slug not in _C:
+        db = Database(f"sqlite:///{_TMP}/qa-{slug}.sqlite")
         db.create_all()
         Registry(db).seed_defaults()
-        cir = pipeline._engineered_cir(SLUG)
+        cir = pipeline._engineered_cir(slug)
         JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
                              idempotency_key="cert", priority=0)
         Worker(db, "c", phase=Phase.SHADOW, job_types=["gate.certify"]).run_once()
         JobQueue(db).enqueue("publishing", "assets.build",
-                             {"slug": SLUG, "version": cir.version, "release": "",
+                             {"slug": slug, "version": cir.version, "release": "",
                               "rebuild": "disclosed"}, idempotency_key="d", priority=0)
         Worker(db, "b", phase=Phase.SHADOW, job_types=["assets.build"]).run_once()
         with db.session() as s:
-            s.add(Listing(product_slug=SLUG, version=cir.version, title=cir.title,
+            s.add(Listing(product_slug=slug, version=cir.version, title=cir.title,
                           description="A crochet pattern.\n\n" + disclosed_listing.COPY_DISCLOSURE,
                           price_cad=4.0, state="draft"))
-        v = release_gates.listing_set(db, slug=SLUG, version=cir.version, issue=True)
+        v = release_gates.listing_set(db, slug=slug, version=cir.version, issue=True)
         assert (v.get("certificate") or {}).get("valid"), v.get("reasons")
-        _C["db"], _C["cir"] = db, cir
-    return _C["db"], _C["cir"]
+        _C[slug] = (db, cir)
+    return _C[slug]
+
+
+def test_the_reviewed_release_exports_a_complete_gallery():
+    from brambleloop.runtime.etsy_ops import certified_frames
+    from brambleloop.visual.shot_plans import CAMPAIGN_MIN_FRAMES
+
+    db, cir = _certified()
+    got = certified_frames(db, SLUG, cir.version)
+    assert got["problems"] == [] and len(got["frames"]) >= CAMPAIGN_MIN_FRAMES, got
+
+
+def test_a_partial_gallery_is_not_served_so_it_is_not_reviewed():
+    """D-OWNER-GALLERY-COMPLETE: the coaster's six-frame certificate is valid but is not a
+    whole gallery, so nothing is exported and no paid review of it is bought."""
+    from brambleloop.runtime.etsy_ops import certified_frames
+
+    db, cir = _certified(PARTIAL_SLUG)
+    got = certified_frames(db, PARTIAL_SLUG, cir.version)
+    assert any(p.startswith("gallery incomplete") for p in got["problems"]), got
+    assert X.applies(db, PARTIAL_SLUG, cir.version) is True   # still a disclosed release
+    p = _Provider(_description(object_shown="four hexagon coasters", object_count=4))
+    out = X.review(db, PARTIAL_SLUG, cir.version, provider=p, gate_open=True)
+    assert out["reviewed"] is False and p.calls == 0, out
+    assert "gallery incomplete" in out["why"], out
+    assert X.review_state(db, PARTIAL_SLUG, cir.version)["reviewed"] is False
 
 
 def test_a_disclosed_release_needs_the_review_and_starts_unreviewed():

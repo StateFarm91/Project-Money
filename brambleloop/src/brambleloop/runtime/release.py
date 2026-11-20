@@ -651,6 +651,11 @@ def handle_assets_build(ctx: JobContext) -> dict:
                 lambda inputs, key: ctx.enqueue("publishing", "visual.image_production",
                                                 inputs, idempotency_key=key),
                 slug=slug, version=version, release=release)
+            # D-OWNER-FLUX-GALLERY / b17-c A3 (D-OWNER-SPEND-ORDER): the paid seven-frame
+            # FLUX campaign is NOT started here. At build time no price, listing copy or
+            # non-image listing gate has run, so a release later rejected or parked would
+            # still buy a gallery. It is enqueued only from the for-sale admission point,
+            # `listing.package` -> `image_production.admit_for_sale`.
         except Exception as exc:  # noqa: BLE001 - imagery never blocks the price chain
             ctx.audit("visual.image_production_trigger_failed", artifact=f"{slug}@{version}",
                       detail={"error": f"{type(exc).__name__}: {str(exc)[:300]}"})

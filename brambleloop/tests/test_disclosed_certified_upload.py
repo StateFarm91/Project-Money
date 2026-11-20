@@ -40,16 +40,21 @@ from brambleloop.runtime import pipeline, release  # noqa: E402,F401
 from brambleloop.runtime.worker import Worker  # noqa: E402
 
 SLUG = "cloudline-baby-blanket"
+# D-OWNER-GALLERY-COMPLETE: the blanket's disclosed set + verified supplements certifies six
+# frames on the production path (a flat piece has no ANGLE or CONSTRUCTION frame), which is
+# no longer a whole listing gallery, so it is certified but never served. The key basket's
+# certifies eight, so it is the release whose gallery is served and uploaded.
+FULL_SLUG = "housewarming-key-basket"
 _STATE: dict = {}
 
 
-def _built():
+def _built(slug: str = SLUG):
     """One certified release with its disclosed set filed by the real assets.build handler."""
-    if "db" not in _STATE:
+    if slug not in _STATE:
         db = Database(f"sqlite:///{tempfile.mkdtemp()}/upload.sqlite")
         db.create_all()
         Registry(db).seed_defaults()
-        cir = pipeline._engineered_cir(SLUG)
+        cir = pipeline._engineered_cir(slug)
         JobQueue(db).enqueue("quality_director", "gate.certify", {"cir": cir.to_dict()},
                              idempotency_key="cert", priority=0)
         Worker(db, "c", phase=Phase.SHADOW, job_types=["gate.certify"]).run_once()
@@ -59,8 +64,8 @@ def _built():
         Worker(db, "b", phase=Phase.SHADOW, job_types=["assets.build"]).run_once()
         with db.session() as s:
             assert s.get(Job, job.id).status == JobStatus.DONE
-        _STATE.update(db=db, cir=cir)
-    return _STATE["db"], _STATE["cir"]
+        _STATE[slug] = (db, cir)
+    return _STATE[slug]
 
 
 def _set_copy(db, cir, description: str) -> None:
@@ -69,7 +74,9 @@ def _set_copy(db, cir, description: str) -> None:
                                              Listing.version == cir.version))
         if row is None:
             s.add(Listing(product_slug=cir.slug, version=cir.version,
-                          title="Cloudline Baby Blanket - Digital Crochet Pattern",
+                          title=("Cloudline Baby Blanket - Digital Crochet Pattern"
+                                 if cir.slug == SLUG else
+                                 f"{cir.title} - Digital Crochet Pattern"),
                           description=description, price_cad=9.5, state="draft"))
         else:
             row.description = description
@@ -82,10 +89,11 @@ def _valid_certs(db, cir) -> list:
             ListingSetCertificateRecord.state == "valid"))]
 
 
-def _disclosing_copy():
+def _disclosing_copy(slug: str = SLUG):
     from brambleloop.publish import disclosed_listing
 
-    return ("A worsted-weight baby blanket pattern, written in US terms.\n\n"
+    what = "baby blanket" if slug == SLUG else "basket"
+    return (f"A worsted-weight {what} pattern, written in US terms.\n\n"
             + disclosed_listing.COPY_DISCLOSURE)
 
 
@@ -241,7 +249,55 @@ def test_the_disclosed_set_is_certified_and_served_with_its_alt_text():
     assert [f["position"] for f in cert["frames"]] == list(range(1, len(cert["frames"]) + 1))
     assert cert["disclosures"] == [disclosed_listing.DISCLOSURE, PREVIEW_LABEL]
 
+    # D-OWNER-GALLERY-COMPLETE: six certified frames are not the whole listing gallery, so
+    # the one upload path serves none of them (no partial gallery is ever uploaded).
+    from brambleloop.visual.shot_plans import CAMPAIGN_MIN_FRAMES
+
+    assert len(cert["frames"]) == n + len(extra) == 6 < CAMPAIGN_MIN_FRAMES
     served = etsy_ops.certified_images(db, SLUG, cir.version)
+    assert served["images"] == [], served
+    assert served["problems"] == [
+        f"gallery incomplete: listing-set certificate {served['record_id']} names 6 of the "
+        f"{CAMPAIGN_MIN_FRAMES} required listing photos (D-OWNER-GALLERY-COMPLETE)"], served
+    fake = _FakeEtsy()
+    outcome = EtsyClient.publish(fake, payload=None, filename="p.pdf", data=b"%PDF",
+                                 images=served["images"], grant=_TransportTestGrant())
+    assert fake.uploads == [] and not outcome.images_uploaded, outcome
+
+
+def test_a_complete_disclosed_gallery_is_certified_and_served_with_its_alt_text():
+    """The sibling of the test above with a whole gallery: the key basket's disclosed set and
+    its verified supplements certify at least CAMPAIGN_MIN_FRAMES frames, and every one is
+    served and uploaded in certificate order with its certified alt text."""
+    import hashlib
+
+    from brambleloop.integrations.etsy import EtsyClient
+    from brambleloop.publish import disclosed_listing, release_gates
+    from brambleloop.publish.eligibility import PREVIEW_LABEL
+    from brambleloop.runtime import etsy_ops
+    from brambleloop.visual.shot_plans import CAMPAIGN_MIN_FRAMES
+
+    db, cir = _built(FULL_SLUG)
+    _set_copy(db, cir, _disclosing_copy(FULL_SLUG))
+    verdict = release_gates.listing_set(db, slug=FULL_SLUG, version=cir.version)
+    assert verdict["kind"] == "disclosed_render", verdict
+    assert not verdict["blocks_release"], verdict["reasons"]
+    assert verdict["certificate"]["valid"] is True, verdict["certificate"]
+    cert = _valid_certs(db, cir)[-1]
+    rec = disclosed_listing.last_asset(db, slug=FULL_SLUG)
+    n = len(rec["frames"])
+    assert all(f["kind"] == "disclosed_render" and f["alt_text"].startswith(
+        disclosed_listing.DISCLOSURE) for f in cert["frames"][:n])
+    extra = cert["frames"][n:]
+    assert {f["job"] for f in extra} == {"ANGLE", "CONSTRUCTION", "COLOUR_CONTEXT",
+                                         "MATERIALS", "CONTENTS"}, extra
+    assert all(f["kind"] == "disclosed_gallery_frame" and f["alt_text"].startswith(
+        PREVIEW_LABEL if f["job"] == "CONTENTS" else disclosed_listing.DISCLOSURE)
+        for f in extra)
+    assert [f["position"] for f in cert["frames"]] == list(range(1, len(cert["frames"]) + 1))
+    assert len(cert["frames"]) >= CAMPAIGN_MIN_FRAMES
+
+    served = etsy_ops.certified_images(db, FULL_SLUG, cir.version)
     assert served["problems"] == [], served["problems"]
     assert len(served["images"]) == len(cert["frames"]) == n + len(extra)
     for (name, data), entry, frame in zip(served["images"], served["images"], cert["frames"]):
@@ -288,39 +344,41 @@ def test_the_upload_path_refuses_a_certificate_that_was_altered_or_bytes_that_ch
     from brambleloop.publish import release_gates
     from brambleloop.runtime import etsy_ops
 
-    db, cir = _built()
-    _set_copy(db, cir, _disclosing_copy())
-    release_gates.listing_set(db, slug=SLUG, version=cir.version)
+    # On the complete gallery: a partial one is refused before any of these checks matter.
+    db, cir = _built(FULL_SLUG)
+    _set_copy(db, cir, _disclosing_copy(FULL_SLUG))
+    release_gates.listing_set(db, slug=FULL_SLUG, version=cir.version)
+    assert etsy_ops.certified_images(db, FULL_SLUG, cir.version)["problems"] == []
     # 1. alt text edited in the certificate after issue: no longer the filed alt text.
     with db.session() as s:
         row = s.scalar(select(ListingSetCertificateRecord).where(
-            ListingSetCertificateRecord.product_slug == SLUG,
+            ListingSetCertificateRecord.product_slug == FULL_SLUG,
             ListingSetCertificateRecord.state == "valid"))
         original = copy.deepcopy(row.certificate)
         body = copy.deepcopy(row.certificate)
         body["frames"][0]["alt_text"] = "A photograph of the finished blanket."
         row.certificate = body
-    served = etsy_ops.certified_images(db, SLUG, cir.version)
+    served = etsy_ops.certified_images(db, FULL_SLUG, cir.version)
     assert served["images"] == [] and served["problems"], served
     # 2. the kind stripped: the disclosed bytes no longer carry a certified alt text.
     with db.session() as s:
         row = s.scalar(select(ListingSetCertificateRecord).where(
-            ListingSetCertificateRecord.product_slug == SLUG,
+            ListingSetCertificateRecord.product_slug == FULL_SLUG,
             ListingSetCertificateRecord.state == "valid"))
         body = copy.deepcopy(original)
         for f in body["frames"]:
             f.pop("kind", None)
             f.pop("alt_text", None)
         row.certificate = body
-    served = etsy_ops.certified_images(db, SLUG, cir.version)
+    served = etsy_ops.certified_images(db, FULL_SLUG, cir.version)
     assert served["images"] == [] and any("did not certify as one" in p
                                           for p in served["problems"]), served
     with db.session() as s:
         row = s.scalar(select(ListingSetCertificateRecord).where(
-            ListingSetCertificateRecord.product_slug == SLUG,
+            ListingSetCertificateRecord.product_slug == FULL_SLUG,
             ListingSetCertificateRecord.state == "valid"))
         row.certificate = original
-    assert etsy_ops.certified_images(db, SLUG, cir.version)["problems"] == []
+    assert etsy_ops.certified_images(db, FULL_SLUG, cir.version)["problems"] == []
     # 3. the stored bytes changed on disk under their hash: refused, never uploaded.
     sha = original["frames"][1]["sha256"]
     store = ArtifactStore()
@@ -328,7 +386,7 @@ def test_the_upload_path_refuses_a_certificate_that_was_altered_or_bytes_that_ch
     saved = path.read_bytes()
     try:
         path.write_bytes(saved[:-10] + b"0123456789")
-        served = etsy_ops.certified_images(db, SLUG, cir.version)
+        served = etsy_ops.certified_images(db, FULL_SLUG, cir.version)
         assert served["images"] == [] and served["problems"], served
     finally:
         path.write_bytes(saved)

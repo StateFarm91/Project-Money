@@ -655,7 +655,18 @@ def test_e2e_a_completed_gallery_hands_a_stalled_release_on_to_listing_package()
         assert row is not None
         payload = dict(row.payload)
     assert payload["state"] in (LP.READY, LP.BLOCKED)
-    why = " ".join(b.get("why", "") for b in payload.get("blockers") or [])
+    blockers = payload.get("blockers") or []
+    # D-OWNER-GALLERY-COMPLETE (merged with b17-c A4): this fixture's photography set
+    # certifies fewer than CAMPAIGN_MIN_FRAMES frames, so the package correctly names the
+    # gallery as incomplete -- an image blocker, tagged as one. Every other image gate the
+    # handoff exists to clear must be gone.
+    from brambleloop.visual.shot_plans import CAMPAIGN_MIN_FRAMES
+
+    incomplete = [b for b in blockers if b.get("source") == "certified_frames"
+                  and str(b.get("why", "")).startswith("gallery incomplete")]
+    assert all(b.get("image") is True for b in incomplete), incomplete
+    assert all(f"of the {CAMPAIGN_MIN_FRAMES} required" in b["why"] for b in incomplete)
+    why = " ".join(b.get("why", "") for b in blockers if b not in incomplete)
     for image_gate in ("POLICY_CLASSIFICATION", "GALLERY", "ASSET_", "listing images"):
         assert image_gate not in why, (image_gate, why[:400])
     # A second handoff of the same gallery is the same job (idempotent).

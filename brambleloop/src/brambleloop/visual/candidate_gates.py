@@ -52,8 +52,8 @@ ETSY_POLICY_UNKNOWN = (
     "Whether a generated image may appear on a digital-pattern listing is UNKNOWN")
 CHECKS = ("binding", "provenance", "quality", "role", "product_truth", "identity",
           "body_proportions", "anatomy", "realism", "disclosure", "outfit",
-          "outfit_distinctness", "outfit_consistency")
-FAILURE_CATEGORY = {"identity": "identity_drift", "product_truth": "product_fidelity",
+          "outfit_distinctness", "outfit_consistency", "motif_fidelity")
+FAILURE_CATEGORY = {"motif_fidelity": "motif_mismatch","identity": "identity_drift", "product_truth": "product_fidelity",
                     "anatomy": "anatomy", "quality": "quality", "outfit": "outfit_duplication",
                     "realism": "realism", "role": "role", "binding": "binding",
                     "provenance": "provenance", "disclosure": "disclosure",
@@ -142,7 +142,7 @@ def quality(data: bytes) -> dict:
 
 # ---- role --------------------------------------------------------------------------------
 
-def role(role_key: str) -> dict:
+def role(role_key: str, route: str = "") -> dict:
     job = JOB_OF_ROLE.get(role_key)
     if job is None:
         return _c(FAIL, f"role {role_key!r} has no gallery job; a frame with no job is filler")
@@ -155,6 +155,13 @@ def role(role_key: str) -> dict:
     served = el.may_serve(cand)
     if not served["may_serve"]:
         return _c(FAIL, served["why"][:300], job=job)
+    if job == el.HERO_JOB and route == el.GALLERY_ROUTE:
+        # D-OWNER-FLUX-GALLERY: in the generated-gallery route the hero may be generated. The
+        # rule's own reason ("it has to be the thing the pattern actually makes") is carried
+        # by the route's gates, not waived: structural Product Truth on these exact bytes and
+        # motif fidelity against the CIR references must both PASS (eligibility.gallery_exception).
+        return _c(PASS, "generated-gallery hero: held to structural Product Truth and motif "
+                        "fidelity on its exact bytes (D-OWNER-FLUX-GALLERY)", job=job)
     if job == el.HERO_JOB:
         return _c(FAIL, "ASSET_CONCEPT_AS_HERO: a generated image may not be the hero; the hero "
                         "has to be the thing the pattern actually makes", job=job)
@@ -311,6 +318,49 @@ class RealJudges:
     def realism(self, cand: dict) -> dict:
         return _plain(self.adapters().realism(cand))
 
+    def motif_fidelity(self, cand: dict, bind: dict) -> dict:
+        # The production transport: motif_fidelity's own reserved vision call.
+        return motif_reading(self.db, cand)
+
+
+def motif_reading(db, cand: dict, *, judger=None, provider=None) -> dict:
+    """`publish.motif_fidelity.check` on a generated frame's exact bytes, against the chart
+    rendered deterministically from its certified CIR. match -> PASS, mismatch -> FAIL,
+    unmeasurable (including a refused or unreserved call) -> UNKNOWN. The vision call is the
+    existing reserved one (quality_director / asset_inspection); `judger` replaces only the
+    transport in tests and is labelled by the caller."""
+    from pathlib import Path
+
+    from ..core import workspace
+    from ..publish import motif_fidelity as MF
+    from ..publish.release_gates import _release, _twin
+
+    data = cand.get("data") or b""
+    if not data:
+        return _c(UNKNOWN, "motif fidelity: no image bytes to compare", sha256="")
+    sha = hashlib.sha256(data).hexdigest()
+    try:
+        cir, _rh = _release(db, cand.get("slug", ""), cand.get("version", ""))
+        twin = _twin(db, cir) if cir is not None else None
+    except Exception as exc:  # noqa: BLE001 - an unreadable CIR is unmeasured
+        return _c(UNKNOWN, f"motif fidelity: certified CIR unreadable ({type(exc).__name__})",
+                  sha256=sha)
+    if cir is None or twin is None:
+        return _c(UNKNOWN, "motif fidelity: no certified CIR to compare against", sha256=sha)
+    with workspace.work_dir(None, prefix="motif-frame-") as root:
+        path = Path(root) / f"frame-{sha[:16]}.png"
+        path.write_bytes(data)
+        out = MF.check(db, str(path), cir, twin, provider=provider, judger=judger)
+    verdict = out.get("verdict")
+    status = {MF.MATCH: PASS, MF.MISMATCH: FAIL}.get(verdict, UNKNOWN)
+    # b17-c A1: the field is `motif_verdict`, never `verdict`. `gate_status` reads a `verdict`
+    # key as an identity consumer verdict (ENG-VIS-IDENTITY) and demotes PASS unless it is
+    # PASS, so a matched motif carrying verdict="match" read UNMEASURED on the merged line.
+    return _c(status, f"motif fidelity {verdict}: {str(out.get('why') or '')[:200]}",
+              sha256=sha, motif_verdict=verdict, unmeasured=out.get("unmeasured"),
+              rejudge=bool(out.get("rejudge")), expected=out.get("expected"),
+              codes=(["motif_mismatch"] if status == FAIL else []))
+
 
 def _plain(check: dict) -> dict:
     """An adapter check as a gate reading (status, why, plus what it measured)."""
@@ -380,7 +430,7 @@ def fidelity_reading(db, cand: dict, bind: dict, *, judge=None, consistency=None
 
 def _anchor_of(db, cand: dict, release: str, *, expected_cir_fingerprint: str | None = None):
     """The release's best product-only anchor and its bytes, or (None, None)."""
-    from .image_production import ANCHOR_ROLE, _best, run_key
+    from .image_production import ANCHOR_ROLE, ROUTE_SUFFIX, _best, run_key
     from .fidelity import CHECKER, same_release
 
     if not release:
@@ -388,8 +438,11 @@ def _anchor_of(db, cand: dict, release: str, *, expected_cir_fingerprint: str | 
     listing = cand.get("listing") or outfits.listing_of(cand.get("slug", ""))
     canonical_run = run_key(cand.get("slug", ""), cand.get("version", ""), release)
     candidate_run = cand.get("run_key") or canonical_run
+    # D-OWNER-FLUX-GALLERY: the generated-gallery run of the same release keeps its own
+    # anchor (verified the same way); it never borrows another run's.
     if not isinstance(candidate_run, str) or not (
-            candidate_run == canonical_run or candidate_run.startswith(canonical_run + "#")):
+            candidate_run in (canonical_run, canonical_run + ROUTE_SUFFIX)
+            or candidate_run.startswith(canonical_run + "#")):
         return None, None
     identity = {"slug": cand.get("slug", ""), "version": cand.get("version", ""),
                 "release": release}
@@ -501,14 +554,21 @@ def evaluate(db, cand: dict, *, judges=None, record_outfit_use: bool = True) -> 
     checks["binding"] = bind
     checks["provenance"] = provenance(cand)
     checks["quality"] = quality(data)
-    checks["role"] = role(cand.get("role", ""))
+    route = str(cand.get("route") or "")
+    checks["role"] = role(cand.get("role", ""), route)
     pt = judges.product_truth(cand, bind)
     from .repair_routes import UNVERIFIABLE_COUNT
 
     if UNVERIFIABLE_COUNT in (pt.get("codes") or []) and pt.get("status") == PASS:
         # A count the image cannot show is never passed (owner wrap experiment, 2026-10-19).
         pt = {**pt, "status": UNKNOWN, "why": f"{UNVERIFIABLE_COUNT}: " + str(pt.get("why"))}
-    checks["product_truth"] = pt
+    # The bytes this reading was made on (evaluate verified `data` hashes to `sha`), so the
+    # generated-gallery route can require structural truth on exactly the exported bytes.
+    checks["product_truth"] = {**pt, "sha256": sha}
+    if route == el.GALLERY_ROUTE:
+        # Motif / product fidelity against the CIR-derived references (publish.motif_fidelity
+        # through the reserved vision call). A judge that cannot make it leaves it UNKNOWN.
+        checks["motif_fidelity"] = _judge(judges, "motif_fidelity", cand, bind)
     laura = bool(cand.get("laura_present"))
     checks["identity"] = judges.identity(cand) if laura else _c(NA, "Laura does not appear")
     checks["body_proportions"] = (_judge(judges, "body_proportions", cand) if laura else
@@ -551,6 +611,7 @@ def evaluate(db, cand: dict, *, judges=None, record_outfit_use: bool = True) -> 
         if c.get("status") in (FAIL, UNKNOWN):
             failures += [str(x) for x in c.get("codes") or [] if str(x) not in failures]
     out = {"gates_version": GATES_VERSION, "sha256": sha, "listing": listing, "job": job,
+           "route": route,
            "checks": checks, "technical_status": technical,
            "publication": publication, "publishable": publication["publishable"],
            "failure_categories": failures,
@@ -646,7 +707,18 @@ def exception_evidence(cand: dict, checks: dict, job: str | None, laura: bool, *
     receipt = (ev.get("request") or {}).get("request_sha256") or ev.get("task_id") or \
         cand.get("receipt")
     label = (checks.get("disclosure") or {}).get("label")
-    return {
+    route = str(cand.get("route") or "")
+    gallery = {}
+    if route == el.GALLERY_ROUTE:
+        computed = el.honesty_label(MEDIUM, job)["label"] if job in el.JOBS else ""
+        gallery = {
+            "route": route, "honesty_label": computed, "sha256": cand.get("sha256"),
+            "structural_sha256": (checks.get("product_truth") or {}).get("sha256"),
+            # the release the fidelity verifier read, never the binding's by assumption
+            "fidelity_release": (fid.get("release_hash") or fid.get("release")
+                                 or (fid.get("anchor") or {}).get("release_hash")
+                                 or (bind.get("release_hash") if fid else None))}
+    return {**{
         "label": label, "scope": _scope_of(cand, job), "laura_present": laura,
         "presented_as": ("ai_generated" if str(cand.get("provenance_kind") or "ai_generated")
                          .startswith("ai_generated") else str(cand.get("provenance_kind"))),
@@ -660,7 +732,8 @@ def exception_evidence(cand: dict, checks: dict, job: str | None, laura: bool, *
             "body_proportions": st.get("body_proportions", UNKNOWN),
             "outfit": worst(st.get("outfit", UNKNOWN), st.get("outfit_distinctness", UNKNOWN),
                             st.get("outfit_consistency", UNKNOWN)),
-            "etsy_policy": ETSY_POLICY_STATUS,
+            "motif_fidelity": st.get("motif_fidelity", UNKNOWN),
+            "anatomy": st.get("anatomy", UNKNOWN),
             "publication_gates": FAIL if other_publication_blockers else PASS},
         "provenance": {"model": cand.get("model"),
                        "references": [{"sha256": r.get("sha256"), "kind": r.get("kind")}
@@ -672,7 +745,8 @@ def exception_evidence(cand: dict, checks: dict, job: str | None, laura: bool, *
         "owner_visual_approval_is_not_an_input": True,
         # N4: which readings came from fixture stand-ins (counted UNKNOWN above)
         "fixture_only_checks": sorted(k for k, v in checks.items()
-                                      if (v or {}).get("fixture_only"))}
+                                      if isinstance(v, dict) and v.get("fixture_only"))},
+        **gallery}
 
 
 def publication_verdict(cand: dict, checks: dict, job: str | None, laura: bool) -> dict:
@@ -714,8 +788,8 @@ def publication_verdict(cand: dict, checks: dict, job: str | None, laura: bool) 
             blockers.append(str(exc)[:300])
     else:
         blockers.append("no gallery job")
-    if ETSY_POLICY_STATUS != PASS:
-        blockers.append(ETSY_POLICY_UNKNOWN)
+    # D-OWNER-FLUX-GALLERY: Etsy's AI rules are treated as non-existent (owner order), so no
+    # Etsy AI-policy reading blocks publication. ETSY_POLICY_UNKNOWN is kept as a record only.
     blockers += other
     if cand.get("_db") is not None:
         from .experiment import LABEL, is_experiment_image
@@ -737,8 +811,9 @@ def laura_gate_order(checks: dict, publication: dict) -> list[dict]:
          "anatomy": checks["anatomy"], "product_truth_if_product_shown": checks["product_truth"],
          "outfit_uniqueness": checks["outfit"],
          "composition_brand_qa": _c(UNKNOWN, "brand QA has not reviewed this image"),
-         "disclosure_policy": _c(worst(checks["disclosure"]["status"], UNKNOWN),
-                                 "label assigned; Etsy policy reading UNKNOWN"),
+         "disclosure_policy": _c(checks["disclosure"]["status"],
+                                 "honesty label assigned (no Etsy AI-policy gate: "
+                                 "D-OWNER-FLUX-GALLERY)"),
          "publication_gate": _c(PASS if publication["publishable"] else FAIL,
                                 "; ".join(publication["blockers"])[:400] or "publishable")}
     # D1: a fixture-labelled PASS is shown with its label but counted UNKNOWN in the order.

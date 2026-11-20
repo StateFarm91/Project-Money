@@ -280,6 +280,8 @@ tests/test_research_flow.py
 tests/test_motif_backlog.py
 tests/test_visual_factory_e2e.py
 tests/test_eng_vis_flux.py
+tests/test_vis_gallery_gates.py
+tests/test_vis_gallery_e2e.py
 tests/test_product_run.py
 tests/test_first_listing_doors.py
 tests/test_eng_improve.py

@@ -48,6 +48,7 @@ from brambleloop.runtime import etsy_ops, pipeline  # noqa: E402
 from brambleloop.runtime.worker import CADENCES, JobContext, Worker  # noqa: E402
 import _owner_grant; _owner_grant.scoped_owner_approvals()  # noqa: E402,E702  (WS4-0a)
 from tests.fake_etsy import FakeEtsy  # noqa: E402
+from brambleloop.visual.shot_plans import CAMPAIGN_MIN_FRAMES  # noqa: E402
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"frame-bytes-"
 TITLE = "Nordic Forest Throw Digital Crochet Pattern"
@@ -69,9 +70,14 @@ def _db() -> Database:
     return db
 
 
-def _product(db, *, frames: int = 3) -> dict:
+def _product(db, *, frames: int | None = None) -> dict:
     """A certified release with a drafted listing and a valid listing-set certificate whose
-    frames are real bytes in the artifact store."""
+    frames are real bytes in the artifact store.
+
+    D-OWNER-GALLERY-COMPLETE: by default the certificate names the whole campaign gallery
+    (`shot_plans.CAMPAIGN_MIN_FRAMES` frames); a smaller `frames` builds a partial gallery,
+    which the upload path must refuse."""
+    frames = CAMPAIGN_MIN_FRAMES if frames is None else frames
     from brambleloop.products import nordic_forest as nf
 
     cir = nf.build()
@@ -440,15 +446,17 @@ def test_publish_sends_the_certified_image_bytes_in_certificate_order_and_reads_
         out, _ctx_ = _publish(db, fake, p)
         lid = out["etsy_listing_id"]
         assert out["published"] and out["read_back_verified"], out
+        n = len(p["shas"])
+        assert n == CAMPAIGN_MIN_FRAMES
         ranks = [(i["rank"]) for i in fake.images[lid]]
-        assert ranks == [1, 2, 3], ranks
+        assert ranks == list(range(1, n + 1)), ranks
         uploads = [r for r in fake.requests if r["operation"] == "uploadListingImage"]
-        assert len(uploads) == 3
+        assert len(uploads) == n
         reads = [r["operation"] for r in fake.requests]
         assert reads.index("getListing") > reads.index("uploadListingFile")
         assert "getAllListingFiles" in reads
     published = _audits(db, "store.published")[-1]
-    assert [o["position"] for o in published["image_order"]] == [1, 2, 3]
+    assert [o["position"] for o in published["image_order"]] == list(range(1, n + 1))
     assert [o["sha256"] for o in published["image_order"]] == p["shas"]
     assert published["read_back"]["verified"] is True
     assert {f["name"] for f in published["files_sent"]} == {
@@ -457,6 +465,22 @@ def test_publish_sends_the_certified_image_bytes_in_certificate_order_and_reads_
     with db.session() as s:
         queued = list(s.scalars(select(Job).where(Job.job_type == "store.activate")))
         assert len(queued) == 1 and queued[0].agent == "store_operator"
+
+
+def test_a_partial_gallery_refuses_before_anything_is_created_on_etsy():
+    # D-OWNER-GALLERY-COMPLETE: the three-frame set this file used to publish is no longer a
+    # listing's gallery. A valid certificate naming fewer than CAMPAIGN_MIN_FRAMES frames
+    # serves nothing, and nothing is created, uploaded or attached on Etsy.
+    db = _db()
+    p = _product(db, frames=3)
+    images = etsy_ops.certified_images(db, p["slug"], p["version"], release="r" * 64)
+    assert images["images"] == [] and any("gallery incomplete" in x
+                                          for x in images["problems"]), images
+    cert = etsy_ops.certified_frames(db, p["slug"], p["version"], release="r" * 64)
+    assert len(cert["frames"]) == 3 and any(
+        f"3 of the {CAMPAIGN_MIN_FRAMES} required" in x for x in cert["problems"]), cert
+    # store.publish refuses on these problems before any Etsy call (pipeline F-524 check;
+    # exercised end to end in test_visual_factory_e2e).
 
 
 def test_a_missing_frame_refuses_before_anything_is_created_on_etsy():

@@ -51,6 +51,31 @@ def _setup(*, attest=True, unedited=True, full_make=True):
     return db, cir, release, plan
 
 
+# D-OWNER-GALLERY-COMPLETE: the upload path serves a certificate only when it names the whole
+# campaign gallery (`shot_plans.CAMPAIGN_MIN_FRAMES`). `T._render_gallery` files three renders;
+# a test that needs a servable certificate files the rest of the gallery's roles too, so the
+# certificate step certifies a complete gallery and the photo-fence assertions are not read
+# through a "gallery incomplete" problem that would make them pass for the wrong reason.
+FULL_GALLERY_EXTRA_ROLES = ("size", "materials", "whats_included", "collection")
+
+
+def _complete_gallery(db, cir) -> None:
+    from sqlalchemy import func
+
+    from brambleloop.core.artifacts import ArtifactStore
+
+    store = ArtifactStore()
+    with db.session() as s:
+        last = s.scalar(select(func.max(ListingAsset.position)).where(
+            ListingAsset.product_slug == cir.slug, ListingAsset.version == cir.version)) or 0
+        for i, role in enumerate(FULL_GALLERY_EXTRA_ROLES, start=1):
+            sha = store.put(f"full-{role}.png", f"render {role} (full gallery)".encode(),
+                            "image/png").sha256
+            s.add(ListingAsset(product_slug=cir.slug, version=cir.version, position=last + i,
+                               asset_class="DIGITAL_TWIN_RENDER", role=role, sha256=sha,
+                               approved=True, claims={}, blocked_reasons=[]))
+
+
 def _photo_frame(db, cir):
     with db.session() as s:
         f = s.scalar(select(ListingAsset).where(
@@ -79,6 +104,7 @@ def test_the_upgrade_job_queues_the_review_and_the_job_approves_the_attested_pho
     db = T._db()
     cir, release = T._certified_basket(db)
     T._render_gallery(db, cir)
+    _complete_gallery(db, cir)
     test_id = T._passed_full_make(db, cir)
     from brambleloop.core.artifacts import ArtifactStore
     from brambleloop.publish import physical_upgrade as pu
@@ -837,6 +863,7 @@ def test_revoked_supplement_invalidates_certificate_even_if_reissue_fails():
     from brambleloop.core.models import PhysicalPhoto
     from brambleloop.runtime import etsy_ops
     db, cir, release, _ = _setup()
+    _complete_gallery(db, cir)
     first = _photo_frame(db, cir)
     assert par.sweep(db)["approved"] == 1
     test_id = T._passed_full_make(db, cir)
@@ -888,6 +915,7 @@ def test_review_u5_f6_an_exception_in_the_photo_fence_is_a_refusal_never_a_pass(
     from brambleloop.runtime import etsy_ops
 
     db, cir, release, _ = _setup()
+    _complete_gallery(db, cir)
     assert par.sweep(db)["approved"] == 1
     _, cert = _certify_without_touching_approval(db, cir, release)
     assert cert["valid"] and cert["issued"], cert

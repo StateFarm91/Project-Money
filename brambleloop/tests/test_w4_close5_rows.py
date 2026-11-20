@@ -130,6 +130,11 @@ SCRATCH = {
         "caller", "runtime/release.py::handle_model_photography", ("ctx.audit(",)),
     "publish/motif_fidelity.py::check": ("caller", "publish/owned_photography.py::make",
                                          ("motif_fidelity.check(",)),
+    # ENG-VIS-GALLERY: the generated-gallery motif check writes the frame for the judge; its
+    # verdict is filed on the candidate row by image_production.record_candidate.
+    "visual/candidate_gates.py::motif_reading": ("caller",
+                                                 "visual/image_production.py::record_candidate",
+                                                 ("ImageCandidate(",)),
     # ENG-MOTIF-BACKLOG: the backlog re-ask's scratch holds only the chart drawn for the
     # comparison; the answer is filed as an audit row by `_file_answer`, which recheck_one
     # calls before it settles the motif_recovery row.

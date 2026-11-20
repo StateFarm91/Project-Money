@@ -326,13 +326,17 @@ def test_disclosed_last_asset_is_read_per_product_not_from_a_global_window():
 
 # ---- PT-02: the first-customer gate clears on evidence -------------------------------------
 
-def _disclosed_release():
-    """The blanket certified, its disclosed set filed by assets.build, copy and certificate."""
-    if "disclosed" not in _STATE:
+def _disclosed_release(build_key: str = "cloudline_blanket"):
+    """The blanket certified, its disclosed set filed by assets.build, copy and certificate.
+
+    `build_key` names another Launch-0 product: the key basket's disclosed set certifies the
+    complete gallery (D-OWNER-GALLERY-COMPLETE), the blanket's six frames do not."""
+    key = "disclosed" if build_key == "cloudline_blanket" else f"disclosed-{build_key}"
+    if key not in _STATE:
         from brambleloop.publish import disclosed_listing, release_gates
 
-        db = _db("disclosed")
-        cir = L.cir_for("cloudline_blanket")
+        db = _db(key)
+        cir = L.cir_for(build_key)
         job = _run(db, "quality_director", "gate.certify", {"cir": cir.to_dict()}, "c")
         assert job.outputs.get("granted"), job.outputs
         with db.session() as s:
@@ -342,15 +346,22 @@ def _disclosed_release():
                     "rebuild": "disclosed"}, "a")
         assert job.status is JobStatus.DONE, job.last_error
         with db.session() as s:
-            s.add(Listing(product_slug=cir.slug, version=cir.version,
-                          title="Cloudline Textured Baby Blanket | Crochet Pattern PDF",
-                          description=("A worsted-weight baby blanket pattern.\n\n"
-                                       + disclosed_listing.COPY_DISCLOSURE),
-                          tags=["baby blanket crochet"], price_cad=7.5, state="draft"))
+            if build_key == "cloudline_blanket":
+                s.add(Listing(product_slug=cir.slug, version=cir.version,
+                              title="Cloudline Textured Baby Blanket | Crochet Pattern PDF",
+                              description=("A worsted-weight baby blanket pattern.\n\n"
+                                           + disclosed_listing.COPY_DISCLOSURE),
+                              tags=["baby blanket crochet"], price_cad=7.5, state="draft"))
+            else:
+                s.add(Listing(product_slug=cir.slug, version=cir.version,
+                              title=f"{cir.title} | Crochet Pattern PDF",
+                              description=("A crochet basket pattern.\n\n"
+                                           + disclosed_listing.COPY_DISCLOSURE),
+                              tags=["crochet basket"], price_cad=5.5, state="draft"))
         verdict = release_gates.listing_set(db, slug=cir.slug, version=cir.version)
         assert verdict["certificate"]["valid"] is True, verdict["reasons"]
-        _STATE["disclosed"] = (db, cir, rh)
-    return _STATE["disclosed"]
+        _STATE[key] = (db, cir, rh)
+    return _STATE[key]
 
 
 def test_no_sample_blocks_on_physical_proof_and_a_bound_sample_clears_it():
@@ -423,7 +434,8 @@ def test_a_certificate_bound_to_no_release_is_neither_filed_nor_served():
     from brambleloop.publish import release_gates
     from brambleloop.runtime import etsy_ops
 
-    db, cir, rh = _disclosed_release()
+    # The complete gallery, so the only problem the binding check can add is its own.
+    db, cir, rh = _disclosed_release(L.build_key_for("housewarming-key-basket"))
     assert etsy_ops.certified_frames(db, cir.slug, cir.version)["problems"] == []
     with db.session() as s:
         row = s.scalar(select(ListingSetCertificateRecord).where(

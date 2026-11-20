@@ -691,6 +691,9 @@ TEMP_PREFIXES: tuple[str, ...] = (
     "owned-rung-", "moat-hero-",
     # ENG-MOTIF: the owned handler's motif re-ask on a kept render; scoped to the call.
     "owned-rejudge-",
+    # ENG-VIS-GALLERY: the generated-gallery motif check writes the frame for the judge;
+    # scoped to the call (core.workspace.work_dir).
+    "motif-frame-",
     # ENG-MOTIF-BACKLOG: the backlog sweep's motif re-ask on a filed render; scoped to the call.
     "motif-backlog-",
     # The hand-run physically based renderer. Its directory is a TemporaryDirectory and is
