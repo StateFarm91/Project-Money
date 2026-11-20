@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-20T03:56:37.307817+00:00",
+ "generated_at": "2026-11-20T04:06:47.602993+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 145,
-  "handlers": 177,
+  "cadences": 146,
+  "handlers": 178,
   "agents": 34,
   "follow_on_edges": 93
  },
@@ -2225,6 +2225,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "learning_loops",
+      "agent": "analyst",
+      "job_type": "learning.loops",
+      "period_seconds": 86400
+     },
+     {
       "name": "knowledge_gaps",
       "agent": "analyst",
       "job_type": "learning.knowledge_gaps",
@@ -2368,6 +2374,7 @@
      "brambleloop.learn.runtime",
      "brambleloop.runtime.commercial_ops",
      "brambleloop.runtime.learning_gaps_ops",
+     "brambleloop.runtime.learning_ops",
      "brambleloop.runtime.release"
     ],
     "executable_job_types": [
@@ -2383,7 +2390,8 @@
      "improve.sandbox",
      "improve.weekly",
      "learn.scan",
-     "learning.knowledge_gaps"
+     "learning.knowledge_gaps",
+     "learning.loops"
     ],
     "permitted_without_handler": []
    },
