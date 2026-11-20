@@ -3368,3 +3368,26 @@ FAIL, never a pass by absence.
   writers print measured values without the estimate wording.
 - **No surfaces, no pass.** Without a rendered document or a listing, the area stays UNRESOLVED.
 Reversible by owner decision.
+**D-ENG-GARMENT2-1: clothing beyond the chest-graded garment is one Engine registry (`products.wearables`).**
+Each family declares its sourced table, required and primary measurement, builder, instrument,
+gates, chart, schematic and routing words; release, PDF, router and draft path read the registry.
+A family is admitted only where a research concept is proven end to end for that (family,
+category, audience) (`construction_families.WEARABLE_PAIR_AUDIENCE`). Reversible by decision.
+**D-ENG-GARMENT2-2: new sourced tables, and what is a design ratio.** CYC head chart and CYC foot
+chart (read 2026-11-20) are body tables; ISO 216 A-series sizes a bag (what it holds, read from
+Wikipedia's ISO 216 table because the ISO page refused automated reads). Hat height, brim, sock
+leg/cuff, dress length and hem, romper rise, wrap width and handle length are stated design
+ratios, never measurements. The head chart's age lower bounds (child safety) are ours, stated
+as such, in the strict direction.
+**D-ENG-GARMENT2-3: stretch fits take bounded negative ease.** Only head (<= 5 cm) and foot
+circumference (<= 3 cm); everywhere else negative ease is still refused. A beanie and a sock are
+risk class B with a built-ease band gate, not class C: their fit tolerance is the stretch band.
+**D-ENG-GARMENT2-4: child-safety holds are respected, not routed around.** No child tee (a sewn-on
+sleeve needs physical evidence), no baby socks or booties (the heel cup measures as a small
+part), no straps on baby garments (shoulders are worked in), no closures on any baby garment.
+**D-ENG-GARMENT2-5: a shaped row-end edge is measured along its slope (`cir.assembly`).** A row
+starting or ending with an increase/decrease moves that edge a stitch; the edge is the sum of
+the row hypotenuses. Unshaped edges are unchanged (None). Needed for the V-neck's front band.
+**D-ENG-GARMENT2-6: not built, held by name.** Granny-square garment (no motif-join garment
+engine), crescent shawl (curved edge not expressible in flat rows the twin measures), mesh
+market bag, lined/zipped bags, toe-up/gusset socks, pom-poms and earflaps on hats.

@@ -92,6 +92,33 @@
 > chain e2e test_a/test_b, cert_rebuild_chain, opus2_size_claims, physfix and platform also fail on base. product_run
 > timed out (incomplete). CHAIN_VERSION 9 forces every v8 PDF and listing to rebuild.
 > Results: `research/final_build/w6/review_requests/ENG-ESTIMATE-CLAIMS.md`.
+> **2026-11-20 — ENG-GARMENT-2: seven new clothing families (`eng/garment-2`, NOT merged, NOT deployed).**
+> Built on claude/w6-INTEG7-wip c6d4400. One framework, `products/wearables.py` (Engine registry), with
+> `gates/wearable_fit.py`, `publish/wearable_writer.py` and `publish/wearable_pdf.py`. Every family certifies
+> every size through `gates.certificate.certify`, passes the wearable gates, reverse-compiles (US and UK), holds
+> size truth per size, and renders US/UK PDFs with a size chart and schematic that read back to the compiler. Each
+> has a research concept proven intake -> admit -> draft -> every size compiled/certified -> US/UK PDF.
+> - Hats `hat_beanie`: CYC head chart (new, sourced 2026-11-20), Preemie-Man, -2 cm stated stretch ease, rib brim
+>   ring + crown in joined rounds, section decreases, gathered. Adult, child, baby proofs.
+> - Baby `baby_dress` (dress, pinafore) and `baby_romper`, CYC baby 3-24m: pull-on, square neck, no closures or
+>   straps; neck perimeter checked against the CYC head chart's Toddler upper bound (46 cm).
+> - Tops `top_tee` (adult XS-5X) and `top_tank` (adult + child 2-12): boxy drop-shoulder, slash neck. No child
+>   tee: a sleeve sewn onto a child's garment needs physical evidence.
+> - Cardigan `cardigan_vneck` (adult, child, baby): top-down raglan, fronts increase from a point into a V; bands
+>   picked up along the sloped edge. Granny-square cardigan assessed and NOT built (no motif-join garment engine):
+>   held as `granny_square_garment`.
+> - Socks/slippers `sock`, `slipper`: CYC foot chart (new, sourced), cuff-down, afterthought heel. Adult + child
+>   only: a baby sock's heel cup reads as a small part.
+> - Shawls `shawl_triangle`, `shawl_wrap`: CYC woman neck-to-wrist (XS, M, L, 2X, 4X). Crescent held by name.
+> - Bags `bag_tote`, `bag_market`: sized by the ISO 216 sheet held (A5/A4/A3; dimensions read from Wikipedia's ISO
+>   216 table, the ISO page refused automated reads).
+> - Shared changes: `cir.graded` (head/foot/sheet tables, bounded stretch ease, `primary`), `cir.assembly` (a
+>   row-end edge shaped at its ends is measured along its slope), `creative.size_truth` (head/foot grade names bind),
+>   `gates.risk_matrix` (plausibility uses the family instrument), routing + `_draft_wearable`.
+> - Pre-existing failures, unchanged by this branch (reproduced with the branch's changes stashed):
+>   `test_eng_plush` 3 (amigurumi PDF "Rnd 16 has no stitch count"), `test_s1_fix_size_families` 1 (Baby Lovey).
+> - NOT done: nothing physically made or photographed, no listings; neckbands on tops, sleeves for child tees,
+>   baby socks, crescent shawl, mesh market bag, granny-square cardigan are named holds.
 > **2026-11-20 — ENG-DAILY-FIX (`eng/daily`, NOT merged, NOT deployed; production unchanged).** Fixes every Unit B
 > finding of the independent review of a795be17 (BLOCK). Merged `origin/claude/w6-INTEG4` (259e47c4) first, so
 > learn and improve with `improve.ecr` are present; change requests now go through `ecr.file`. (1) BLOCKER: a

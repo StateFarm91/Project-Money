@@ -1070,6 +1070,64 @@ def _draft_garment(ctx: JobContext, slug: str, i: dict) -> dict:
             "rows": sum(len(c.rows) for c in next(iter(release.cirs.values())).components)}
 
 
+def _draft_wearable(ctx: JobContext, slug: str, i: dict) -> dict:
+    """ENG-GARMENT-2: a wearable (hat, romper, sock...) is one release of every size.
+
+    Routed by `construction_families.wearable_route` (admitted only where a pinned end-to-end
+    proof exists for its family, category and audience), built from one step list per size
+    (`products.wearables`), certified through the release chain and the wearable gates; a run
+    with any refused size or gate finding is held with its reasons. A granted run sends each
+    size's CIR through the same `cir.compile` -> `gate.certify` chain every product takes."""
+    from types import SimpleNamespace
+
+    from ..creative import construction_families as CF
+    from ..products import wearables as WB
+
+    title, category = str(i.get("title") or ""), str(i.get("category") or "")
+    form = str(i.get("form") or "")
+    route = CF.route(category=category, title=title, form=form,
+                     construction=str(i.get("construction") or ""), slug=slug,
+                     premise=str(i.get("premise") or ""))
+
+    def held(reason: str, gate: str = "construction") -> dict:
+        ctx.audit("cir.draft_refused", artifact=slug,
+                  detail={"reason": reason[:400], "gate": gate, "category": category,
+                          "hold": reason.split(" ", 1)[0]})
+        return {"artifact": slug, "drafted": False, "gate": gate, "construction": "wearable",
+                "hold": reason.split(" ", 1)[0], "reasons": [reason[:300]]}
+
+    if not route["admitted"]:
+        return held(route["reason"])
+    concept = SimpleNamespace(
+        key=slug, title=title, form=form, category=category,
+        construction=str(i.get("construction") or ""), premise=str(i.get("premise") or ""),
+        notes=str(i.get("notes") or ""), recipient=str(i.get("recipient") or "self"))
+    try:
+        spec = WB.spec_for(concept)
+    except WB.WearableRefused as exc:
+        return held(str(exc))
+    if spec.audience != route.get("audience"):
+        return held(f"{CF.HOLD_PREFIX}{route['family']} -- the concept's recipient sizes it "
+                    f"for {spec.audience} but its title and category say {route.get('audience')}")
+    release = WB.certify(WB.build(spec))
+    if not release.granted:
+        return held(f"{CF.HOLD_PREFIX}{route['family']} -- the wearable run is refused: "
+                    + "; ".join(release.reasons()[:3]), gate="wearable")
+    queued = []
+    for size, cir in release.cirs.items():
+        ctx.enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
+                    idempotency_key=f"compile:{cir.slug}:{cir.version}:{cir.fingerprint}")
+        queued.append(f"{cir.slug}@{cir.version}")
+    ctx.audit("cir.drafted", artifact=slug,
+              detail={"source": "products.wearables", "family": route["family"],
+                      "sizes": list(release.sizes), "queued": queued})
+    return {"artifact": slug, "drafted": True, "construction": route["family"],
+            "garment": {"family": route["family"], "audience": spec.audience,
+                        "sizes": list(release.sizes), "queued": queued,
+                        "construction": spec.family},
+            "rows": sum(len(c.rows) for c in next(iter(release.cirs.values())).components)}
+
+
 @handlers.register("cir.draft")
 def handle_cir_draft(ctx: JobContext) -> dict:
     slug = ctx.job.inputs["slug"]
@@ -1192,6 +1250,10 @@ def handle_cir_draft(ctx: JobContext) -> dict:
         opportunity_score=i.get("score", i.get("opportunity_score", 0.0)),
         season=i.get("season"), risk_class=i.get("risk_class", "A"),
     )
+    from ..creative.construction_families import is_wearable as _is_wearable
+    if _is_wearable(str(i.get("form") or ""), str(i.get("title") or "")):
+        # ENG-GARMENT-2: a wearable family (hat, romper, sock...) is one graded release.
+        return _draft_wearable(ctx, slug, i)
     if i.get("form") == "fitted_garment":
         # ENG-GARMENT: a graded garment is one release of every size, never a flat panel.
         return _draft_garment(ctx, slug, i)

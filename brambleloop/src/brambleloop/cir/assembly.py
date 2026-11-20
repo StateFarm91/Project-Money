@@ -53,6 +53,11 @@ class Footprint:
     # PLACED across rows a-b of a piece (a sleeve sewn to the body's side across the rows
     # around the shoulder line) is as long as those rows, not as the whole edge.
     row_cm: float | None = None
+    # ENG-GARMENT-2: the length of a row-end edge whose rows are shaped AT that edge (a row
+    # that begins or ends with an increase or decrease steps the edge out or in by a stitch),
+    # so a sloped edge -- a V neck's front edge -- is measured along its slope, not as the
+    # rows' height. None when no row shapes an edge: the edge is the rows' height, as before.
+    side_cm: float | None = None
 
     def placed_edge_cm(self, edge: str, spans_rows: int) -> float | None:
         """The length of `spans_rows` rows of a side edge, or None where that has no meaning.
@@ -70,6 +75,9 @@ class Footprint:
 
     def edge_cm(self, edge: str) -> float | None:
         """The length of one named edge. `fold` is the across-axis; `perimeter` the whole."""
+        rows_run = ("left", "right") if self.grain == "up" else ("top", "bottom")
+        if self.side_cm is not None and edge in rows_run:
+            return self.side_cm
         return {
             "top": self.across_cm, "bottom": self.across_cm, "fold": self.across_cm,
             "left": self.up_cm, "right": self.up_cm,
@@ -200,11 +208,42 @@ def footprint(component, twin, gauge=None) -> Footprint:
         raise ValueError(f"{component.name}: no finished size, so it cannot be placed")
     across, up = (w, h) if component.grain == "up" else (h, w)
     row_cm = None
+    side = None
     if component.construction == "flat_rows" and component.rows:
         row_cm = h / len(component.rows)
+        side = _sloped_side_cm(component, row_cm, gauge)
     return Footprint(piece=component.name, across_cm=across, up_cm=up,
                      grain=component.grain, copies=component.make,
-                     openings=openings_cm(component, gauge), row_cm=row_cm)
+                     openings=openings_cm(component, gauge), row_cm=row_cm, side_cm=side)
+
+
+_EDGE_SHAPING = {code for pair in __import__("brambleloop.cir.shaping",
+                                             fromlist=["SHAPING"]).SHAPING.values()
+                 for code in pair if code}
+
+
+def _sloped_side_cm(component, row_cm: float, gauge) -> float | None:
+    """A row-end edge measured along its slope, or None when no row shapes an edge.
+
+    A row's first or last op being an increase or decrease moves the edge by that many
+    stitches on that row; the edge's length is the sum of each row's hypotenuse. Shaping is
+    read from the row's own ops (never a step record), the larger of the two ends per row
+    (the pieces this measures are shaped symmetrically)."""
+    import math
+
+    from .model import Op
+
+    if gauge is None or not getattr(gauge, "stitches_per_10cm", None):
+        return None
+    st = 10.0 / gauge.stitches_per_10cm
+    shaped, total = False, 0.0
+    for row in component.rows:
+        ends = [row.ops[0], row.ops[-1]] if row.ops else []
+        k = max((op.count for op in ends if isinstance(op, Op) and op.stitch in _EDGE_SHAPING),
+                default=0)
+        shaped = shaped or k > 0
+        total += math.hypot(row_cm, k * st)
+    return round(total, 1) if shaped else None
 
 
 # The two edges a closed band's self-seam joins, by grain: its rows' ends (a band along its

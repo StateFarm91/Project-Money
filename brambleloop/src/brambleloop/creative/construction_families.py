@@ -66,6 +66,19 @@ GARMENT_RAGLAN, GARMENT_ONE_PIECE = "garment_raglan", "garment_one_piece"
 GARMENT_SIDE_TO_SIDE, GARMENT_DROP_SHOULDER = "garment_side_to_side", "garment_drop_shoulder"
 GARMENT_FAMILIES = frozenset({GARMENT_RAGLAN, GARMENT_ONE_PIECE, GARMENT_SIDE_TO_SIDE,
                               GARMENT_DROP_SHOULDER})
+# ENG-GARMENT-2: wearable families (products.wearables), graded from CYC body, head and foot
+# tables, each pinned end to end per (family, category, audience) in WEARABLE_PAIR_AUDIENCE.
+WEARABLE_PROOF = "tests/test_eng_garment2.py"
+HAT_BEANIE = "hat_beanie"
+BABY_DRESS, BABY_ROMPER = "baby_dress", "baby_romper"
+TOP_TEE, TOP_TANK = "top_tee", "top_tank"
+CARDIGAN_VNECK = "cardigan_vneck"
+SOCK, SLIPPER = "sock", "slipper"
+SHAWL_TRIANGLE, SHAWL_WRAP = "shawl_triangle", "shawl_wrap"
+BAG_TOTE, BAG_MARKET = "bag_tote", "bag_market"
+WEARABLE_FAMILIES = frozenset({HAT_BEANIE, BABY_DRESS, BABY_ROMPER, TOP_TEE, TOP_TANK,
+                               CARDIGAN_VNECK, SOCK, SLIPPER, SHAWL_TRIANGLE, SHAWL_WRAP,
+                               BAG_TOTE, BAG_MARKET})
 
 FAMILIES: dict[str, Family] = {f.key: f for f in (
     Family(FC.FLAT_PANEL, "runtime.pipeline.concept_to_cir", VERIFIED,
@@ -144,6 +157,71 @@ FAMILIES: dict[str, Family] = {f.key: f for f in (
            "", ("CYC woman XS-5X",), "cir.graded WOMAN + stated ease",
            "every size certifies and renders (tests/test_eng_garment.py) but no research "
            "concept is pinned through intake yet"),
+    # ENG-GARMENT-2: a beanie graded on the CYC head chart, preemie to man, every size
+    # certified with the wearable gates and rendered US/UK; research concepts pinned below.
+    Family(HAT_BEANIE, "products.wearables (beanie)", VERIFIED,
+           f"{WEARABLE_PROOF}::test_a_research_adult_beanie_runs_concept_to_pdf",
+           ("CYC head Preemie-Man",), "cir.graded HEAD (Craft Yarn Council head chart) + "
+                                      "stated negative ease; height and brim are design ratios",
+           "rib brim and round crown only; no pom-pom, earflaps, visor or shaped brim"),
+    Family(BABY_DRESS, "products.wearables (baby_dress)", VERIFIED,
+           f"{WEARABLE_PROOF}::test_a_research_baby_dress_runs_concept_to_pdf",
+           ("CYC baby 3-24 months",), "cir.graded BABY + stated ease; lengths and hem flare "
+                                      "are design ratios of the back length and chest",
+           "sleeveless pull-on A-line dress or pinafore, square neck; no closures, straps, "
+           "sleeves, collar or trim"),
+    Family(BABY_ROMPER, "products.wearables (baby_romper)", VERIFIED,
+           f"{WEARABLE_PROOF}::test_a_research_baby_romper_runs_concept_to_pdf",
+           ("CYC baby 3-24 months",), "cir.graded BABY + stated ease; rise and gusset are "
+                                      "design ratios of the back length and hip",
+           "sleeveless pull-on romper, square neck, plain leg openings; no closures, "
+           "straps, sleeves or feet"),
+    Family(TOP_TEE, "products.wearables (top_tee)", VERIFIED,
+           f"{WEARABLE_PROOF}::test_a_research_adult_tee_runs_concept_to_pdf",
+           ("CYC woman XS-5X",), "cir.graded WOMAN + stated relaxed ease",
+           "boxy drop-shoulder tee, slash neck, short straight sleeves; adult only (a sleeve "
+           "sewn onto a child's garment needs physical evidence)"),
+    Family(TOP_TANK, "products.wearables (top_tank)", VERIFIED,
+           f"{WEARABLE_PROOF}::test_a_research_adult_tank_runs_concept_to_pdf",
+           ("CYC woman XS-5X", "CYC child/youth 2-12"),
+           "cir.graded WOMAN / CHILD + stated relaxed ease",
+           "boxy drop-shoulder tank, slash neck, open armholes; plain sc only"),
+    Family(CARDIGAN_VNECK, "products.wearables (cardigan_vneck)", VERIFIED,
+           f"{WEARABLE_PROOF}::test_a_research_adult_v_neck_cardigan_runs_concept_to_pdf",
+           ("CYC woman XS-5X", "CYC child/youth 2-12", "CYC baby 3-24 months"),
+           "cir.graded WOMAN / CHILD / BABY + stated relaxed ease",
+           "open-front top-down raglan with a V neck; no buttons, cables or pockets. A "
+           "granny-square cardigan is not built: motifs joined in rounds have no engine"),
+    Family(SOCK, "products.wearables (sock)", VERIFIED,
+           f"{WEARABLE_PROOF}::test_a_research_adult_sock_runs_concept_to_pdf",
+           ("CYC foot: child 10-13 to youth 4-6", "CYC foot: woman 4-12.5, man 12-14"),
+           "cir.graded FOOT (Craft Yarn Council foot chart) + stated negative ease; leg and "
+           "cuff are design ratios of the foot length",
+           "cuff-down sock with an afterthought heel; no baby sizes (the heel cup measures "
+           "as a small part for under-3s), no toe-up, gusset, short-row heel or knee-high"),
+    Family(SLIPPER, "products.wearables (slipper)", VERIFIED,
+           f"{WEARABLE_PROOF}::test_a_research_adult_slipper_runs_concept_to_pdf",
+           ("CYC foot: child 10-13 to youth 4-6", "CYC foot: woman 4-12.5, man 12-14"),
+           "cir.graded FOOT + stated negative ease",
+           "the sock construction in worsted with a short ankle cuff; no sole, grip or "
+           "baby booties"),
+    Family(SHAWL_TRIANGLE, "products.wearables (shawl_triangle)", VERIFIED,
+           f"{WEARABLE_PROOF}::test_a_research_adult_shawl_runs_concept_to_pdf",
+           ("CYC woman XS, M, L, 2X, 4X",), "cir.graded WOMAN neck-to-wrist + stated ease",
+           "plain sc triangle from the point; no crescent (curved edge), lace or fringe"),
+    Family(SHAWL_WRAP, "products.wearables (shawl_wrap)", VERIFIED,
+           f"{WEARABLE_PROOF}::test_a_research_adult_wrap_runs_concept_to_pdf",
+           ("CYC woman XS, M, L, 2X, 4X",), "cir.graded WOMAN neck-to-wrist + stated ease; "
+                                            "width a design ratio",
+           "plain sc rectangle with back-loop end bands; no fringe or lace"),
+    Family(BAG_TOTE, "products.wearables (bag_tote)", VERIFIED,
+           f"{WEARABLE_PROOF}::test_a_research_adult_tote_runs_concept_to_pdf",
+           ("ISO 216 A5, A4, A3",), "cir.graded SHEETS (ISO 216 A-series) + stated room",
+           "unlined sc tote, flat base, strap handles sewn on; no lining, zip or pockets"),
+    Family(BAG_MARKET, "products.wearables (bag_market)", VERIFIED,
+           f"{WEARABLE_PROOF}::test_a_research_adult_market_bag_runs_concept_to_pdf",
+           ("ISO 216 A5, A4, A3",), "cir.graded SHEETS (ISO 216 A-series) + stated room",
+           "round-base sc market bag, strap handles sewn on; solid fabric, no mesh"),
     Family(FC.POUCH, "creative.fallback_constructions.pouch", PARTIAL, "",
            ("one size",), "fallback_constructions.POUCH_ACROSS_CM (design choice)",
            "certification refuses ASSET_COLOR_ABSENT: the pouch works one palette colour "
@@ -194,8 +272,11 @@ UNBUILT: dict[str, str] = {
     "garment": "a graded garment from body tables; only the creative tournament path "
                "(creative.garment_design) builds one",
     "ornament": "a closed or shaped small piece; no radar engine makes it",
-    "hat": "a fitted crown and brim; the sourced head chart lacks height and ease",
     "flower": "a motif worked in rounds; no radar engine makes it",
+    # ENG-GARMENT-2: assessed and not feasible on the current engines.
+    "granny_square_garment": "a garment of granny-square motifs worked in rounds and joined "
+                             "into a graded body: no engine joins motifs into a garment yet "
+                             "(the motif-join assembly and per-size motif counts are unbuilt)",
     "seasonal_decor": "garlands, shapes and ornaments; no radar engine makes them",
 }
 
@@ -238,7 +319,7 @@ NAMED_FEATURES: tuple[tuple[str, str, frozenset], ...] = (
     ("charted_tapestry", r"\bcharted\b|\btapestry\b|\bcolou?r ?work\b",
      frozenset({FC.TAPESTRY, FC.COLOURWORK_TAPESTRY})),
     ("garment_or_wearable", r"\b(?:hat|beanie|cardigan|sweater|sock|mitten|cowl)s?\b",
-     GARMENT_FAMILIES),
+     GARMENT_FAMILIES | WEARABLE_FAMILIES),
 )
 
 
@@ -335,6 +416,41 @@ PAIR_PROOFS: dict[tuple[str, str], str] = {
                               f"to_pdf",
     (GARMENT_ONE_PIECE, "sweater"): FAMILIES[GARMENT_ONE_PIECE].proof,
 }
+# ENG-GARMENT-2: the wearable pairs, each proven end to end on the audiences named.
+WEARABLE_PAIR_AUDIENCE: dict[tuple[str, str], frozenset] = {
+    (HAT_BEANIE, "hat"): frozenset({"adult", "child", "baby"}),
+    (BABY_DRESS, "baby"): frozenset({"baby"}),
+    (BABY_DRESS, "dress"): frozenset({"baby"}),
+    (BABY_ROMPER, "baby"): frozenset({"baby"}),
+    (TOP_TEE, "top"): frozenset({"adult"}),
+    (TOP_TANK, "top"): frozenset({"adult", "child"}),
+    (CARDIGAN_VNECK, "cardigan"): frozenset({"adult", "child"}),
+    (CARDIGAN_VNECK, "baby"): frozenset({"baby"}),
+    (SOCK, "sock"): frozenset({"adult", "child"}),
+    (SLIPPER, "slipper"): frozenset({"adult", "child"}),
+    (SHAWL_TRIANGLE, "shawl"): frozenset({"adult"}),
+    (SHAWL_WRAP, "shawl"): frozenset({"adult"}),
+    (BAG_TOTE, "bag"): frozenset({"adult"}),
+    (BAG_MARKET, "bag"): frozenset({"adult"}),
+}
+PAIR_PROOFS.update({
+    (HAT_BEANIE, "hat"): FAMILIES[HAT_BEANIE].proof,
+    (BABY_DRESS, "baby"): FAMILIES[BABY_DRESS].proof,
+    (BABY_DRESS, "dress"): f"{WEARABLE_PROOF}::test_a_research_baby_pinafore_runs_concept_"
+                           f"to_pdf",
+    (BABY_ROMPER, "baby"): FAMILIES[BABY_ROMPER].proof,
+    (TOP_TEE, "top"): FAMILIES[TOP_TEE].proof,
+    (TOP_TANK, "top"): FAMILIES[TOP_TANK].proof,
+    (CARDIGAN_VNECK, "cardigan"): FAMILIES[CARDIGAN_VNECK].proof,
+    (CARDIGAN_VNECK, "baby"): f"{WEARABLE_PROOF}::test_a_research_baby_v_neck_cardigan_runs_"
+                              f"concept_to_pdf",
+    (SOCK, "sock"): FAMILIES[SOCK].proof,
+    (SLIPPER, "slipper"): FAMILIES[SLIPPER].proof,
+    (SHAWL_TRIANGLE, "shawl"): FAMILIES[SHAWL_TRIANGLE].proof,
+    (SHAWL_WRAP, "shawl"): FAMILIES[SHAWL_WRAP].proof,
+    (BAG_TOTE, "bag"): FAMILIES[BAG_TOTE].proof,
+    (BAG_MARKET, "bag"): FAMILIES[BAG_MARKET].proof,
+})
 # A garment pair's proof is for one body table: the audience it was proven on.
 GARMENT_PAIR_AUDIENCE: dict[tuple[str, str], str] = {
     (GARMENT_RAGLAN, "cardigan"): "adult", (GARMENT_RAGLAN, "baby"): "baby",
@@ -362,6 +478,12 @@ def route(*, category: str, title: str, form: str, construction: str, slug: str 
     starts with `construction_unsupported:<family>` when held."""
     from ..radar import intake
 
+    if form == "fitted_garment" and re.search(r"\bgranny\b|\bsquare motifs?\b",
+                                              FC.fold_title(f"{title} {premise}")):
+        return _hold("granny_square_garment", UNBUILT["granny_square_garment"])
+    if is_wearable(form, title):
+        return wearable_route(category=category, title=title, form=form,
+                              construction=construction, slug=slug, premise=premise)
     if form == "fitted_garment":
         return garment_route(category=category, title=title, construction=construction,
                              slug=slug, premise=premise)
@@ -472,6 +594,50 @@ def garment_route(*, category: str, title: str, construction: str, slug: str = "
         return _hold(family, f"the {family} engine is not pinned end to end for category "
                              f"{category!r} on the {audience} body table"
                              + (f": {f.gaps}" if f.status != VERIFIED else ""))
+    return {"admitted": True, "family": family, "status": status_of(family), "reason": "",
+            "audience": audience}
+
+
+def is_wearable(form: str, title: str) -> bool:
+    """ENG-GARMENT-2: a concept a wearable family claims (a hat form, or a fitted garment
+    whose title names a wearable family's word rather than a chest-graded garment's)."""
+    from ..products import wearables as WB
+
+    return form == "hat" or WB.family_for(form, title) is not None
+
+
+def wearable_route(*, category: str, title: str, form: str, construction: str,
+                   slug: str = "", premise: str = "") -> dict:
+    """ENG-GARMENT-2: a wearable routes to its family (`products.wearables.spec_for`),
+    admitted only where WEARABLE_PAIR_AUDIENCE pins it for the concept's audience."""
+    from types import SimpleNamespace
+
+    from ..products import wearables as WB
+
+    audience = garment_audience(category, title)
+    recipient = {"baby": "new_parent", "child": "child"}.get(audience, "self")
+    concept = SimpleNamespace(key=slug or "wearable", title=title, form=form,
+                              construction=construction, premise=premise or "", notes="",
+                              recipient=recipient, category=category)
+    try:
+        spec = WB.spec_for(concept)
+    except WB.WearableRefused as exc:
+        return _hold(exc.family, exc.why)
+    family = spec.family
+    honest = WB.ENGINES[family].honest_phrases
+    for source, text in (("title", title), ("premise", premise)):
+        folded = FC.fold_title(text)
+        for rx in honest:
+            folded = re.sub(rx, " ", folded)
+        named = named_feature(folded, family)
+        if named is not None:
+            feature, word = named
+            return _hold(feature, f"the {source} names {word!r} ({feature}), which the "
+                                  f"{family} engine does not build")
+    if (family, category) not in PAIR_PROOFS or \
+            audience not in WEARABLE_PAIR_AUDIENCE.get((family, category), ()):
+        return _hold(family, f"the {family} engine is not pinned end to end for category "
+                             f"{category!r} on the {audience} sizes")
     return {"admitted": True, "family": family, "status": status_of(family), "reason": "",
             "audience": audience}
 

@@ -413,7 +413,8 @@ def test_router_admits_only_verified_or_physical_gated_families():
     assert admitted == {FC.FLAT_PANEL, FC.VESSEL, FC.TAPESTRY, FC.PANEL_PAIR,
                         FC.COLOURWORK_TAPESTRY,
                         FC.AMIGURUMI, FC.ENVELOPE, FC.APPLIQUE, FC.LOVEY,
-                        CF.GARMENT_RAGLAN, CF.GARMENT_ONE_PIECE}, admitted   # ENG-GARMENT
+                        CF.GARMENT_RAGLAN, CF.GARMENT_ONE_PIECE,           # ENG-GARMENT
+                        *CF.WEARABLE_FAMILIES}, admitted                    # ENG-GARMENT-2
     # Every admitted family names the test that proves it, and that test exists (ENG-PLUSH:
     # the core-family proofs live in tests/test_eng_plush.py).
     for key in admitted:
@@ -430,7 +431,7 @@ def test_router_admits_only_verified_or_physical_gated_families():
 
 def test_router_family_table_is_the_report_and_names_every_unbuilt_family():
     table = {r["family"]: r for r in CF.family_table()}
-    for key in ("mosaic", "cable", "motif", "garment", "ornament", "hat"):
+    for key in ("mosaic", "cable", "motif", "garment", "ornament"):
         assert table[key]["status"] == CF.NONE and table[key]["gaps"], key
     report = (ROOT / "research/final_build/w6/construction_families.md").read_text()
     for key, row in table.items():
@@ -558,6 +559,30 @@ def test_every_admitted_flat_category_certifies_end_to_end():
         _assert_certified_end_to_end(out)
 
 
+WEARABLE_PROBES = [
+    ("hat", "hat", "in_the_round", "Hollin Ridge Beanie"),
+    ("hat", "hat", "in_the_round", "Baby Beanie"),
+    ("hat", "hat", "in_the_round", "Kids Toque"),
+    ("baby", "fitted_garment", "bottom_up", "Sorrel Baby Dress"),
+    ("dress", "fitted_garment", "bottom_up", "Wren Song Baby Pinafore"),
+    ("baby", "fitted_garment", "bottom_up", "Meadowlark Baby Romper"),
+    ("top", "fitted_garment", "flat_rows", "Harbour Light Boxy Tee"),
+    ("top", "fitted_garment", "flat_rows", "Seagrass Tank"),
+    ("top", "fitted_garment", "flat_rows", "Rockpool Kids Tank"),
+    ("cardigan", "fitted_garment", "top_down_yoke", "Larkspur V-Neck Cardigan"),
+    ("cardigan", "fitted_garment", "top_down_yoke", "Chestnut Kids V-Neck Cardigan"),
+    ("baby", "fitted_garment", "top_down_yoke", "Snowberry Baby V-Neck Cardigan"),
+    ("sock", "fitted_garment", "in_the_round", "Moorland Socks"),
+    ("sock", "fitted_garment", "in_the_round", "Puddle Jump Kids Socks"),
+    ("slipper", "fitted_garment", "in_the_round", "Inglenook Slippers"),
+    ("slipper", "fitted_garment", "in_the_round", "Burrow Kids Slippers"),
+    ("shawl", "draped_garment", "flat_rows", "Saltgrass Shawl"),
+    ("shawl", "draped_garment", "flat_rows", "Lantern Hour Wrap"),
+    ("bag", "bag", "in_the_round", "Chandlers Row Tote"),
+    ("bag", "bag", "in_the_round", "Saturday Stall Market Bag"),
+]
+
+
 def test_every_admitted_family_category_pair_names_an_existing_certifying_proof():
     """The meta-guard over (family, category) pairs, not families: sweep the router across every
     category and plain title, and require each pair it admits to name a proof that exists."""
@@ -601,6 +626,8 @@ def test_every_admitted_family_category_pair_names_an_existing_certifying_proof(
                ("sweater", "fitted_garment", "flat_rows", "Cosy Adult Sweater"),
                ("vest", "fitted_garment", "side_to_side", "Driftline Vest"),
                ("pullover", "fitted_garment", "bottom_up", "Kestrel Pullover")]
+    # ENG-GARMENT-2: wearable families (each pair pinned in tests/test_eng_garment2.py).
+    probes += WEARABLE_PROBES
     admitted = set()
     for cat, form, constr, title in probes:
         got = CF.route(category=cat, title=title, form=form, construction=constr)

@@ -428,6 +428,10 @@ def built_measures(cir: CIR) -> dict[str, float]:
     # ENG-GARMENT: a garment-family build is measured by its own construction's instrument.
     if garment_families.construction_of(cir) is not None:
         return garment_families.built_measures(cir)
+    # ENG-GARMENT-2: a wearable-family build (hat, romper, sock...) likewise.
+    from . import wearables
+    if wearables.construction_of(cir) is not None:
+        return wearables.built_measures(cir)
     r = compile_cir(cir)
     if not r.ok:
         raise ShapingRefused(f"{cir.slug} does not compile: {[str(e) for e in r.errors][:1]}")

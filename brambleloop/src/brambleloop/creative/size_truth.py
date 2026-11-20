@@ -167,6 +167,15 @@ _STRAY_UNIT = (r"\b(?:cm|mm|centimet(?:er|re)s?|millimet(?:er|re)s?|inch(?:es)?|
 # each with its reason and its test (tests/test_s1_product_truth_3.py). Count, colour and grade
 # entries are BOUND to what the CIR states (`facts_of`); a value the CIR does not state is
 # unbound. Everything else that looks like a figure or a size word is refused.
+def _table_grades() -> list[str]:
+    from ..cir.graded import FOOT, HEAD
+
+    names = {b.size.lower() for t in (HEAD, FOOT) for b in t.sizes}
+    return [re.escape(n) for n in sorted(names, key=len, reverse=True)]
+
+
+_TABLE_GRADES = _table_grades()
+
 ALLOWED_NON_SIZE: dict[str, dict] = {
     "n_in_1": {"re": r"\b[2-4][- ]?in[- ]?1\b",
                "basis": "'2 in 1' is a product-versatility idiom (two uses), not 2 inches"},
@@ -181,7 +190,9 @@ ALLOWED_NON_SIZE: dict[str, dict] = {
                          "to the CIR's colour table"},
     # Bound first, before any other parser reads the title (`_bind_grades`): "XL" and "2X" in
     # "(size XL)" are the grade, not a relative word or a dangling "2 x".
-    "grade": {"re": r"\(?\bsize ([a-z0-9]{1,4})\b\)?",
+    # ENG-GARMENT-2: the CYC head and foot charts name their sizes in words ("Preemie",
+    # "Woman 7-9.5"); those exact names are grades too, bound the same way.
+    "grade": {"re": r"\(?\bsize (" + "|".join(_TABLE_GRADES) + r"|[a-z0-9]{1,4})\b\)?",
               "bind": "grade", "prepass": True,
               "basis": "a garment size ('(size 2X)') is the CYC grade the CIR is graded to: "
                        "bound to CIR.grading.size"},

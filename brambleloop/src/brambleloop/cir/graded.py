@@ -58,6 +58,14 @@ MEASUREMENTS: tuple[str, ...] = (
     "neck_to_wrist",   # CYC "Center Back Neck-to-Wrist"
     "wrist",           # not published by CYC: UNSOURCED
     "neck",            # not published by CYC: UNSOURCED
+    # ENG-GARMENT-2: the CYC head and foot charts (separate pages, separate tables).
+    "head",            # CYC "Head Circumference"
+    "foot_circ",       # CYC "Foot Circumference"
+    "foot_length",     # CYC "Total Foot Length"
+    "sock_height",     # CYC "Sock Height"
+    # ENG-GARMENT-2: a bag is not worn on a body; it is sized by what it must hold.
+    "sheet_width",     # ISO 216 A-series sheet, short side
+    "sheet_height",    # ISO 216 A-series sheet, long side
 )
 
 Range = tuple[float, float]
@@ -185,10 +193,72 @@ def months_of(table_name: str, size: str) -> int | None:
             return int(float(size)) * 12
         except ValueError:
             return None
+    if table_name == HEAD.name:
+        return HEAD_MONTHS.get(str(size))
+    if table_name == FOOT.name:
+        return FOOT_MONTHS.get(str(size))
     return None
 
 
-TABLES: dict[str, BodyTable] = {"woman": WOMAN, "child": CHILD, "baby": BABY}
+# ENG-GARMENT-2: Craft Yarn Council, Head Circumference Chart (centimetre column), read
+# 2026-11-20. The page publishes circumference only: no hat height, so a hat's height is a
+# stated design ratio (`products.wearables`), never a measurement. Ranges are kept.
+CYC_HEAD_URL = "https://www.craftyarncouncil.com/standards/head-circumference-chart"
+HEAD_RETRIEVED = "2026-11-20"
+HEAD = BodyTable(
+    name="CYC head", source_url=CYC_HEAD_URL, retrieved=HEAD_RETRIEVED,
+    sizes=tuple(BodyMeasurements(size=size, published={
+        m: (head if m == "head" else UNSOURCED) for m in MEASUREMENTS})
+        for size, head in (("Preemie", (23, 30.5)), ("Baby", (35.5, 40.5)),
+                           ("Toddler", (40.5, 46)), ("Child", (45.5, 51)),
+                           ("Tween", (51, 56)), ("Woman", (53, 58.5)), ("Man", (56, 61)))))
+
+# ENG-GARMENT-2: Craft Yarn Council, Foot Size Charts (centimetre columns), read 2026-11-20.
+# Three charts on one page: baby/child/youth (US 0-4 .. youth 4-6), woman, man. The woman
+# chart's sock-height centimetre column could not be read unambiguously, so sock height is
+# UNSOURCED throughout (no design here requires it).
+CYC_FOOT_URL = "https://www.craftyarncouncil.com/standards/foot-size-charts"
+FOOT_RETRIEVED = "2026-11-20"
+_FOOT_ROWS = (
+    # size label (US shoe size), foot circumference, total foot length (range)
+    ("Baby 0-4", 11.0, (7.75, 11.5)), ("Toddler 5-9", 14.0, (12.0, 15.25)),
+    ("Child 10-13", 15.5, (16.5, 19.0)), ("Youth 1-3", 16.5, (19.75, 21.5)),
+    ("Youth 4-6", 17.5, (22.25, 24.0)),
+    ("Woman 4-6.5", 17.5, (20.25, 23.0)), ("Woman 7-9.5", 20.5, (23.5, 25.5)),
+    ("Woman 10-12.5", 23.0, (26.0, 28.0)),
+    ("Man 6-8.5", 20.5, (23.5, 25.5)), ("Man 9-11.5", 23.0, (26.0, 28.0)),
+    ("Man 12-14", 25.5, (28.5, 30.5)),
+)
+FOOT = BodyTable(
+    name="CYC foot", source_url=CYC_FOOT_URL, retrieved=FOOT_RETRIEVED,
+    sizes=tuple(BodyMeasurements(size=size, published={
+        m: (circ if m == "foot_circ" else length if m == "foot_length" else UNSOURCED)
+        for m in MEASUREMENTS}) for size, circ, length in _FOOT_ROWS))
+
+# The CYC head chart gives no ages, and the foot chart gives them only for its baby, child
+# and youth rows. For child safety a size is read at the YOUNGEST age it can be worn at, so
+# every rule for that age applies (the strict direction): these are Brambleloop's stated
+# lower bounds for the head chart, never presented as CYC figures.
+HEAD_MONTHS = {"Preemie": 0, "Baby": 0, "Toddler": 12, "Child": 36, "Tween": 108}
+FOOT_MONTHS = {"Baby 0-4": 6, "Toddler 5-9": 24, "Child 10-13": 48, "Youth 1-3": 72,
+               "Youth 4-6": 120}
+
+
+# ENG-GARMENT-2: ISO 216 A-series sheet sizes (mm, shown in cm), the object a tote must hold
+# upright. Read 2026-11-20 from the dimensions table of the page below (the ISO catalogue
+# page, https://www.iso.org/standard/36631.html, refused automated reading: 403). Not a body
+# table: `BodyTable` is the sourced-size structure, and a bag is graded by what it carries.
+ISO216_URL = "https://en.wikipedia.org/wiki/ISO_216"
+SHEETS = BodyTable(
+    name="ISO 216 A-series", source_url=ISO216_URL, retrieved="2026-11-20",
+    sizes=tuple(BodyMeasurements(size=size, published={
+        m: (w if m == "sheet_width" else h if m == "sheet_height" else UNSOURCED)
+        for m in MEASUREMENTS}) for size, w, h in (("A5", 14.8, 21.0), ("A4", 21.0, 29.7),
+                                                   ("A3", 29.7, 42.0))))
+
+
+TABLES: dict[str, BodyTable] = {"woman": WOMAN, "child": CHILD, "baby": BABY, "head": HEAD,
+                                "foot": FOOT, "sheets": SHEETS}
 
 
 # ---- the design's intent ------------------------------------------------------------------
@@ -209,6 +279,12 @@ FIT_EASE_BANDS_CM: dict[str, tuple[float, float]] = {
 }
 
 
+# ENG-GARMENT-2: the measurements a stretch fit may take negative ease on, and the most
+# negative ease (cm) each may take. A beanie or a sock is made smaller than the body so it
+# stays on; anywhere else negative ease means the garment does not fit and is refused.
+STRETCH_EASE_LIMIT_CM: dict[str, float] = {"head": 5.0, "foot_circ": 3.0}
+
+
 @dataclass(frozen=True)
 class FitIntent:
     """Ease per measurement, in cm. Positive is room; negative ease is refused.
@@ -225,7 +301,7 @@ class FitIntent:
         for m, e in self.ease_cm.items():
             if m not in MEASUREMENTS:
                 raise GradingRefused(f"ease given for unknown measurement {m!r}")
-            if e < 0:
+            if e < 0 and not (m in STRETCH_EASE_LIMIT_CM and -e <= STRETCH_EASE_LIMIT_CM[m]):
                 raise GradingRefused(
                     f"negative ease on {m} means the garment is smaller than the body")
         if self.character is not None:
@@ -322,13 +398,17 @@ class GradedDesign:
     # every size's Provenance, so certification asks a benchmark-informed graded garment for
     # its design-difference ledger exactly as it asks any other product.
     benchmarks_consulted: tuple[str, ...] = ()
+    # ENG-GARMENT-2: the measurement the size run is graded by (the chest for a garment; the
+    # head for a hat; the foot for a sock). It must be required and rise strictly.
+    primary: str = "bust"
 
     def __post_init__(self) -> None:
         unknown = [m for m in self.requires if m not in MEASUREMENTS]
         if unknown:
             raise GradingRefused(f"{self.key} requires unknown measurements {unknown}")
-        if "bust" not in self.requires:
-            raise GradingRefused(f"{self.key}: a garment is graded by its chest at least")
+        if self.primary not in self.requires:
+            raise GradingRefused(f"{self.key}: a garment is graded by its {self.primary} "
+                                 f"at least")
 
     @property
     def size_names(self) -> tuple[str, ...]:
@@ -450,7 +530,8 @@ class GradedDesign:
         for m in self.requires:
             values = [r["measurements"][m]["finished_cm"] for r in table]
             for i in range(1, len(values)):
-                if values[i] < values[i - 1] or (m == "bust" and values[i] == values[i - 1]):
+                if values[i] < values[i - 1] or (m == self.primary
+                                                  and values[i] == values[i - 1]):
                     raise GradingRefused(
                         f"{self.key}: finished {m} goes from {values[i - 1]} at "
                         f"{table[i - 1]['size']} to {values[i]} at {table[i]['size']}")
@@ -630,12 +711,14 @@ def matrix_problems(sizes: list[dict], *, ease_cm: dict, fit: str | None) -> lis
                                f"the {fit} band {lo:g}-{hi:g} cm")
     for a, b in zip(sizes, sizes[1:]):
         pair = f"{a['size']} -> {b['size']}"
-        for block, strict in (("intended_cm", "bust"), ("built_cm", "chest")):
+        # ENG-GARMENT-2: a hat's head and a sock's foot are graded strictly like a chest.
+        for block, strict in (("intended_cm", ("bust", "head", "foot_circ", "sheet_width")),
+                              ("built_cm", ("chest", "circumference", "wingspan"))):
             for m, vb in (b.get(block) or {}).items():
                 va = (a.get(block) or {}).get(m)
                 if va is None:
                     continue
-                if vb < va - 1e-9 or (m == strict and not vb > va):
+                if vb < va - 1e-9 or (m in strict and not vb > va):
                     out.append(f"{block[:-3]} {m} does not grow {pair}: {va} -> {vb}")
         # Widest row only. Row counts are recorded and recomputed but legitimately fall: a
         # drop-shoulder sleeve gets SHORTER as the shoulder drops further down a larger body.
