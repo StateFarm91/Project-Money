@@ -3088,3 +3088,12 @@ Reversible by the owner. Weakening any check needs a decision entry naming it.
 - **Caps in code, lower-only.** Within `paid_provider_gate.authorize` the caps are 60 images per UTC day and 16 images / CA$2.50 per gallery. The environment can lower them and never raise them. They sit beneath the owner's activation ceilings, so the lower one binds.
 - **Readiness.** It is READY only when `BRAMBLELOOP_IMAGE_KEY_BFL` is present (presence only; the value is never read into output) and the owner's `flux-3-image` generation activation is active. Otherwise it is UNKNOWN with the reason, and the generation job refuses before reserving.
 - **Retention.** `image.generation_rejected` and `image.generation_rejection_rechecked` are lifetime-protected.
+
+
+## D-ENG-LOWSEW-CHENILLE — join-as-you-go is a CIR construction, not prose (2026-11-20)
+
+- **Decision.** Appendages are worked flat and fold-closed (`Row.fold`, so the closing count is half the opening). They are then crocheted INTO a named body round at explicit stitch positions (`Op.through`). The joined round's stitch count includes those through-stitches. The head is joined by working through both pieces. `cir.joins` checks all of this deterministically. A piece that is fold-closed but never attached, a join width that differs from the closing count, unmirrored limbs, runs that touch, sewn joins in a low-sew claim and drift beyond `JOIN_DRIFT_MAX` are all refused.
+- **Why.** "No sew" is a strong buyer-facing claim. It may appear only when certified geometry proves it, so `construction.sewing_required` is computed from the CIR and gates SEO, titles and listings.
+- **Chenille.** CYC 6–7 is a first-class yarn class. A gauge off its table is refused. The yardage model carries a wider tolerance, because pile and stretch make chenille estimates less certain.
+- **Eyes.** Embroidered eyes are always available. For baby and under-3 they are the default and the only option, which stays consistent with `gates.child_safety`.
+- **Not decided here.** Routing research concepts to `lowsew_chenille` (it stays PARTIAL), and the physical samples (an owner action, like every other plush).

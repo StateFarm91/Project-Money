@@ -1,3 +1,12 @@
+> **2026-11-20 — ENG-LOWSEW-CHENILLE (`eng/lowsew-chenille`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
+> - Join-as-you-go ("low-sew") construction in the CIR: `Op.through` (work through an appendage's folded edge), `Row.fold` (fold-close a flat piece), stated join drift, and eye placement. `cir.joins` proves every joined count, position, mirror symmetry, the head joined through both pieces, closure and stuffing order. Compile, twin and reverse all carry the joins; reverse reads every join back from the text.
+> - `construction.sewing_required` reading (none / low / standard / unknown). It gates titles, tags and listings: "no sew" and "low sew" appear only when the certified construction supports them.
+> - Chenille / jumbo yarn class (CYC 6–7) in `cir.yarn_classes`: gauge table, 6–8 mm hook range, tension, shedding and care notes, and a yardage model with its own tolerance.
+> - `gates.eye_options`: embroidered eyes are always offered, and are the only option for baby and under-3.
+> - Proof: three ORIGINAL low-sew chenille animals (`creative.lowsew`: penguin, fox, elephant). They are certified in `tests/test_eng_lowsew.py`, and each is HELD only on PHYSICAL_EVIDENCE. Family `lowsew_chenille` is PARTIAL because research intake does not route a concept to it yet.
+> - Merged `origin/eng/plush` b01851c and `origin/claude/w6-INTEG6` dde3ea62. Kept both sides of DECISION_LOG and suite_final_segment, and regenerated autonomy_map. D-ENG-LOWSEW-CHENILLE.
+> - Honest state: no physical sample exists, no listing exists, nothing is published. Counts: `research/final_build/w6/review_requests/ENG-LOWSEW-CHENILLE.md`.
+
 > **2026-11-20 — ENG-PLUSH-FIX (`eng/plush`, builder branch; fixes the DO NOT SHIP review of 2763340b; NOT re-reviewed, NOT integrated, NOT deployed).**
 > - Merged `claude/w6-INTEG4` 259e47c4. Union-resolved DECISION_LOG and suite_final_segment, and regenerated autonomy_map.
 > - H1: added non-emptiness asserts before the four loops. H2: declared `tests/test_eng_plush.py` in the final segment. H3: `plush_results.md` now exists with measured counts.
