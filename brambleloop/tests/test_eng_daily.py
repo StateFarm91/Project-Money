@@ -132,7 +132,7 @@ def _seed_counts(db):
     _job(db, "gate.certify", status=JobStatus.DEAD, at=_at(D1),
          error="capability not enabled: publication")
     _job(db, "mjs.scan", at=_at(D0, 5), outputs={"ran": True})
-    _job(db, "mjs.scan", at=_at(D1, 5), outputs={"ran": False, "deferred": True})
+    _job(db, "mjs.scan", at=_at(D1, 5), outputs={"ran": True, "deferred": True})
 
 
 def test_counts_are_exact_on_fixtures():
@@ -347,7 +347,10 @@ def test_rearm_fires_only_on_a_free_loop_rearm_probe_releases():
         again = _diag(db, "concepts", queue=q, act=True)
     act = next(a for a in row["actions"] if a["action"] == "rearm")
     assert act["enqueued"] is True and act["job_type"] == "radar.scan"
-    assert act["key"].startswith("cadence:"), "the cadence's own key: the scheduler cannot double it"
+    from brambleloop.runtime.worker import CADENCES, cadence_key
+    name, _a, _jt, period = next(c for c in CADENCES if c[2] == "radar.scan")
+    assert act["key"] == cadence_key(name, period, NOW), \
+        "the cadence's own key: the scheduler cannot double it"
     assert not any(a.get("enqueued") for a in again["actions"]), "one probe, never two"
     with db.session() as s:
         assert s.scalar(select(func.count()).select_from(Job).where(
@@ -366,7 +369,8 @@ def test_a_spending_loop_is_never_rearmed_and_gets_a_change_request():
     with db.session() as s:
         s.add(Incident(severity="P2", signature="thrash:cir.draft:x", summary="x",
                        detail={"suspension": {"kind": "suspended", "job_type": "cir.draft"}}))
-    assert orc.spending_job_type(None, "cir.draft") is True
+    with db.session() as s:
+        assert orc.spending_job_type(s, "cir.draft") is True
     with patch.object(orc, "suspended_job_types", lambda db, now=None: sus), \
             patch.object(orc, "rearm_probe", lambda *a, **k: {"release": "x"}), \
             patch("brambleloop.products.supply.offers", lambda db: []):
@@ -376,6 +380,21 @@ def test_a_spending_loop_is_never_rearmed_and_gets_a_change_request():
     with db.session() as s:
         assert s.scalar(select(func.count()).select_from(Job).where(
             Job.job_type == "cir.draft")) == 0
+
+
+def test_rearm_never_enqueues_a_spending_cadence_loop_even_if_probed():
+    db = _db()
+    _observing(db)
+    q = JobQueue(db)
+    jt = "creative.style_learning"
+    with db.session() as s:
+        assert orc.spending_job_type(s, jt) is True
+        s.add(Incident(severity="P2", signature=f"thrash:{jt}:x", summary="x",
+                       detail={"suspension": {"kind": "suspended", "job_type": jt}}))
+    with patch.object(orc, "rearm_probe", lambda *a, **k: {"release": "x"}):
+        assert L._rearm(db, q, jt, now=NOW) is None
+    with db.session() as s:
+        assert s.scalar(select(func.count()).select_from(Job).where(Job.job_type == jt)) == 0
 
 
 def test_reoffer_fires_only_when_admission_is_clear():
@@ -391,6 +410,12 @@ def test_reoffer_fires_only_when_admission_is_clear():
         row = _diag(db, "products_started", queue=q, act=True)
     a = next(a for a in row["actions"] if a["action"] == "reoffer")
     assert a["enqueued"] is False and "cost" in a["why"]
+    with patch.object(supply, "offers", lambda db: offer), \
+            patch.object(supply, "assess", lambda db, now=None: {
+                "slots": 1, "refusals": ["backlog: a stage is not keeping up"]}):
+        row = _diag(db, "products_started", queue=q, act=True)
+    a = next(a for a in row["actions"] if a["action"] == "reoffer")
+    assert a["enqueued"] is False and "backlog" in a["why"], "an open slot never outvotes a refusal"
     with patch.object(supply, "offers", lambda db: offer), \
             patch.object(supply, "assess", lambda db, now=None: {"slots": 1, "refusals": []}):
         row = _diag(db, "products_started", queue=q, act=True)

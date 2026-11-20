@@ -1,3 +1,19 @@
+> **2026-11-20 — ENG-DAILY slice 1 (`eng/daily`, NOT merged, NOT deployed; production unchanged).** The owner's P0
+> daily counts. `ops/daily_ledger.py` gives per-UTC-day counts for 14 days from persisted rows only: the 9 shops'
+> scans, concepts, products started and advanced, certifications, US/UK PDFs, images, galleries, listing packages,
+> Etsy drafts and live ids, lessons, failures and dead letters, and CA$ spend. UNKNOWN is never 0: an unreadable
+> source, a day before the first job, a day past retention or an unregistered shop.
+> - Zero-output diagnosis covers suspended loops, an empty upstream queue, a refusing gate (top reasons), a budget
+>   refusal, and policy or owner holds. It records an `ops.zero_output` row per day and stage.
+> - Safe free actions only: re-arm through `rearm_probe` under the cadence key, and one supply re-offer when
+>   admission is clear. A cause that needs code files an ECR: through `improve.ecr` once ENG-IMPROVE lands,
+>   `ops.ecr_pending` until then. No gate, ceiling or owner exception is changed.
+> - Owner-only `GET /api/cc/daily` and the `#/daily` view (`cc-shell-v42`, bundle 388,682 bytes); readback
+>   section `daily_ledger` (spend withheld). Not measured against production: no production reading was taken.
+> - Honest gaps (no per-event timestamp exists for these, so each counts the nearest row): stage moves, the moment
+>   an Etsy id is set, image verification time, "image recovered". Details:
+>   `research/final_build/w6/review_requests/daily_slice1.md`.
+
 > **2026-11-19 — ENG-RECOVERY fix round 1 (`eng/recovery`, NOT merged, NOT deployed).** Main's review was DO NOT SHIP.
 > - H1: the spend classifier now FAILS CLOSED. `swarm.orchestrate.FREE_JOB_TYPES` is an explicit allow-list
 >   (94 cadence loops). Every other job type is spending, including `intel.serp_capture` and
