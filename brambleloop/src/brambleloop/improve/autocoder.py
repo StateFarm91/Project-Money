@@ -687,7 +687,9 @@ def run(db, *, registry=None, job_id: int | None = None, host=None, make_gateway
     budget.started = clock()
     host = host or _host_default()
     make_gateway = make_gateway or _gateway_default(db, job_id, registry)
-    tmp = Path(tempfile.mkdtemp(prefix="autocoder-", dir=str(workdir) if workdir else None))
+    scratch = tempfile.TemporaryDirectory(prefix="autocoder-",
+                                          dir=str(workdir) if workdir else None)
+    tmp = Path(scratch.name)
     result: dict = {"ecr": r["id"], "attempt": attempts, "base": base}
     try:
         try:
@@ -766,7 +768,7 @@ def run(db, *, registry=None, job_id: int | None = None, host=None, make_gateway
                 pass
         return _finish(db, result, budget)
     finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+        scratch.cleanup()
 
 
 def _refuse(db, r: dict, result: dict, budget: Budget, reason: str, detail: list) -> dict:

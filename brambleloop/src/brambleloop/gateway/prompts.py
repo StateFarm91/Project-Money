@@ -251,7 +251,7 @@ AUTOCODER_STEP = register(Prompt(
             "release, spend, gate, child-safety, auth, authority or approval code; never "
             "delete a test, remove or weaken an assertion, or add a skip; never add a model "
             "call, network request, subprocess or secret; keep the diff small. Patterns are "
-            "deterministic software: never let a model decide a stitch count or a gate. "
+            "deterministic software: pattern arithmetic and every gate stay in code. "
             "Make the smallest change that meets the acceptance criteria, add or extend a "
             "test that proves it, run the targeted test, and finish only when it passes. "
             "Reply with JSON only."),

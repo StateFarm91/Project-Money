@@ -3042,3 +3042,56 @@ open request's `occurrences`.
 **Readback.** `daily_ledger` is an advisory readback row: PASS or WARN when readable, UNKNOWN when
 missing or unreadable, never PASS on UNKNOWN.
 Reversible by decision; the thresholds are constants in `ops/daily_ledger.py`.
+
+## D-OWNER-AUTOCODER — the in-production coding team (owner directive, 2026-11-20)
+**Directive (verbatim, as relayed in the ENG-AUTOCODER task brief):** "We also have a 100
+Anthropic API every month that can be used for new code and the improvement agents are supposed
+to use that to make changes. Learning agents are useless without a team making changes and
+coding." Provenance: it reached this builder session through the dispatched ENG-AUTOCODER brief,
+not as a message typed in this session. It is recorded as given.
+
+**What was built (ENG-AUTOCODER, `eng/autocoder`).**
+- **The job.** `improve.code` runs every 6 hours on agent `autocoder` (daily ceiling CA$8). It takes
+  one engineering change request (priority first, with engine demand counted one level up) from pick
+  to a reviewed `auto/ecr-<id>` branch, or to a refusal with the reason recorded.
+- **Spend path.** Model calls go only through `failover.job_gateway`, tasks `autocoder.step` (standard
+  tier) and `autocoder.review` (deep tier). Every call is reserved, checked against the ceiling and
+  billed per job.
+- **Hard budgets in code.** Environment may lower them, never raise them:
+  - CA$3.50, 400k tokens, 40 min and 12 iterations per request;
+  - a CA$40 monthly autocoder sub-ceiling inside the CA$100 model ceiling.
+- **The gate.** Deterministic rails (`improve/autocoder_safety.py`):
+  - an `auto/*`-only refspec allowlist;
+  - a path denylist covering the deploy/boot guard, release records, spend, gates and child safety,
+    auth, authority/approvals, the agent registry, the worker and the autocoder itself;
+  - test-weakening detection;
+  - a secret scan;
+  - refusal of any new spend, network, exec or env path.
+
+  Then the targeted suites + `test_vacuity` + `test_w4_resume_runner` must pass in the workspace.
+  Then an independent reviewer call must SHIP exactly that diff.
+- **Promotion is never this job's.** It stays with the certify-and-promote pipeline (ENG-AUTOPROMOTE).
+
+**Decision: the kill switch defaults OFF** (`BRAMBLELOOP_AUTOCODER_ENABLED` unset = OFF). The brief
+said the directive authorises default ON. OFF was chosen for four reasons:
+- the directive's provenance could not be confirmed inside this session;
+- the job is blocked on the owner's GitHub token anyway;
+- turning it on is one variable and one minute;
+- the first live runs should be watched.
+
+Reversible by the owner at any time (OWNER_ACTIONS_AUTOCODER.md).
+
+**Decision: the worker image gains `git` (pinned 1:2.47.3-0+deb13u1).** `test_w4_resume_runner` is a
+mandatory gate and builds throwaway git repositories. Without git the job reports UNKNOWN, naming
+that blocker. The image has no git credentials; pushes use the GitHub API token.
+
+**Named limits.**
+- Model-written code runs inside the worker during the loop. It is contained by:
+  - a scrubbed environment (no secrets or DATABASE_URL);
+  - static rails checked before every test run.
+
+  It is not contained by an OS sandbox: a determined obfuscation could evade a regex rail. The
+  independent review and the full-suite certification are the later layers.
+- The reviewer is a different model from the author, from the same vendor by default. It can be
+  routed to OpenAI with `BRAMBLELOOP_MODEL_ROUTES=autocoder.review=openai` once that route is
+  owner-activated.

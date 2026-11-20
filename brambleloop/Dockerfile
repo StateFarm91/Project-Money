@@ -19,7 +19,12 @@ COPY requirements.txt requirements.lock ./
 # file, so every listing image rendered in this container had near-illegible text while the
 # same code looked correct on a developer machine that happens to have DejaVu installed.
 # Nothing local could catch that, which is why it is pinned here rather than assumed.
+# git (ENG-AUTOCODER): the `improve.code` job gates every diff on tests/test_w4_resume_runner.py,
+# which builds throwaway git repositories, so the worker image needs the git binary. It is
+# never given push credentials: the job pushes through the GitHub API with the owner's
+# fine-grained token, and only to auto/* refs. Pinned to Debian trixie's 1:2.47.3-0+deb13u1.
 RUN apt-get update && apt-get install -y --no-install-recommends fonts-dejavu-core=2.37-8 \
+       git=1:2.47.3-0+deb13u1 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir --require-hashes --no-deps -r requirements.lock
