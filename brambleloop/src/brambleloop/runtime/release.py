@@ -42,6 +42,16 @@ from ..radar.market import shopping_window
 from ..radar.opportunity import POOL, _event
 from .worker import JobContext, handlers
 
+# ==== PDF LAYOUT SWITCH (ENG-PDF-TEMPLATE, D-OWNER-PDF-TEMPLATE) ==============================
+# Which renderer builds the customer pattern PDFs: "engine" (publish.pdf.build_pattern_pdf) or
+# "template" (publish.pdf_template.build_template_pdf, the owner's master layout). Read by
+# `publish.pdf_template.build_customer_pdf`, which every build/re-render site calls, so the
+# certified file and every re-render come from the same layout. It defaults to the template
+# only once the template renderer passes every existing PDF suite (test_deliverable_qa, the
+# pdf, edition and manifest suites, layout_qa, deterministic bytes); until then: "engine".
+PDF_LAYOUT = "engine"
+# ==============================================================================================
+
 # The release chain's own version, stamped into every downstream idempotency key.
 #
 # Without it a pipeline upgrade cannot reach products that already shipped. Production proved
@@ -347,8 +357,9 @@ def handle_assets_build(ctx: JobContext) -> dict:
     released_on = _released_on(ctx, slug, version)
     from ..learn.service import pdf_help_links
     lesson_links = pdf_help_links(ctx.db, cir.to_dict())
-    docs = {t: build_pattern_pdf(cir, twin=twin, terminology=t, released_on=released_on,
-                                 lesson_links=lesson_links)
+    from ..publish.pdf_template import build_customer_pdf
+    docs = {t: build_customer_pdf(cir, twin=twin, terminology=t, released_on=released_on,
+                                  lesson_links=lesson_links, db=ctx.db)
             for t in TERMINOLOGIES}
     doc = docs["US"]
     # Every file this handler stores is a derived artefact the provenance sentinel watches,

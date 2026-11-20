@@ -738,10 +738,13 @@ class StatementFacts:
 
     @property
     def size_label(self) -> str:
-        if not self.finished_size_cm:
-            return ""
+        # A closed stuffed piece has size_text (its circumference) and no width x height;
+        # `available()` counts that as the size, so it must also be what is printed, never an
+        # empty "finishing at  at the stated gauge" (FIX-B18).
         if self.size_text:
             return self.size_text
+        if not self.finished_size_cm:
+            return ""
         w, h = self.finished_size_cm
         return f"{w:.0f} x {h:.0f} cm"
 

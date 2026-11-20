@@ -220,15 +220,54 @@ class PremiumStandardRefused(ValueError):
     """The finished PDF is missing what its family requires."""
 
 
+# The owner's master template (D-OWNER-PDF-TEMPLATE, publish.pdf_template) prints the same
+# parts of the document under its own headings. Each rule still requires the same content;
+# only the heading that introduces it may be the template's. Exact strings, never fuzzy.
+TEMPLATE_EQUIVALENTS: dict[str, tuple[str, ...]] = {
+    "AT A GLANCE": ("PROJECT DETAILS",),
+    "Materials": ("Gather your materials",),
+    "How much yarn": ("YARN QUANTITIES",),
+    "BEFORE YOU START": ("MAKER NOTE",),
+    "Hook and notions": ("CROCHET HOOKS",),
+    "TAPESTRY NEEDLE": ("Tapestry needle",),
+    "Gauge, and why it matters here": ("GAUGE FIRST",),
+    "How it is made": ("Construction guide",),
+    "FINISHED MEASUREMENTS": ("SIZE & MATERIAL GUIDE",),
+    "Sizes and fit": ("Sizing & finished fit",),
+    "Abbreviations": ("Stitches & abbreviations",),
+    "US CROCHET TERMS": ("COMMON TERMS / US TERMINOLOGY",),
+    "UK CROCHET TERMS": ("COMMON TERMS / UK TERMINOLOGY",),
+    "How to read a row": ("HOW TO READ A ROW",),
+    "Special stitches": ("SPECIAL STITCHES",),
+    "Instructions (US terms)": ("• US TERMINOLOGY",),
+    "Instructions (UK terms)": ("• UK TERMINOLOGY",),
+    "CHART AND KEYS": ("CHART KEY",),
+    "ASSEMBLY AND FINISHING": ("Finishing & assembly",),
+    "Substituting the yarn": ("YARN SUBSTITUTION",),
+    "Tips and troubleshooting": ("HELPFUL NOTES",),
+    "construction diagram": ("Diagram drawn from this pattern's stitch data",
+                             "Drawn from the stitch data"),
+    "BRAMBLELOOP ·": ("BRAMBLELOOP CROCHET PATTERNS",),
+    "About Brambleloop Studio": ("A little about Brambleloop",),
+    "Safety notes for a children's item": ("SAFETY / AGE / USE NOTES",),
+}
+
+
+def _find(text: str, needle: str, start: int = 0) -> int:
+    hits = [k for k in (text.find(n, start) for n in (needle,) +
+                        TEMPLATE_EQUIVALENTS.get(needle, ())) if k >= 0]
+    return min(hits) if hits else -1
+
+
 def _has(text: str, *needles: str) -> list[str]:
-    return [f"missing {n!r}" for n in needles if n not in text]
+    return [f"missing {n!r}" for n in needles if _find(text, n) < 0]
 
 
 def _section(text: str, start: str, ends: tuple[str, ...]) -> str:
-    i = text.find(start)
+    i = _find(text, start)
     if i < 0:
         return ""
-    j = min([k for k in (text.find(e, i + len(start)) for e in ends) if k > 0],
+    j = min([k for k in (_find(text, e, i + 1) for e in ends) if k > 0],
             default=len(text))
     return text[i:j]
 
@@ -299,7 +338,9 @@ def _gauge(text, ctx):
     for g in _gauges_of(ctx.cir):
         pat = (rf"{g.stitches_per_10cm:g}(?:\.0)? sts x {g.rows_per_10cm:g}(?:\.0)? rows "
                rf"= 10 ?cm")
-        if not re.search(pat, text):
+        tpl = (rf"{g.stitches_per_10cm:g}(?:\.0)? sts and {g.rows_per_10cm:g}(?:\.0)? rows "
+               rf"over 10 x 10 cm")
+        if not re.search(pat, text) and not re.search(tpl, text):
             out.append(f"no gauge statement for the {g.stitch_type} fabric "
                        f"({g.stitches_per_10cm:g} sts x {g.rows_per_10cm:g} rows)")
     return out
@@ -413,7 +454,7 @@ def _rs_ws(text, ctx):
 
 
 def _diagrams(text, ctx):
-    return [] if "construction diagram" in text else ["no inline construction diagram"]
+    return [] if _find(text, "construction diagram") >= 0 else ["no inline construction diagram"]
 
 
 def _chart(text, ctx):
@@ -545,7 +586,7 @@ def header_footer_failures(pages: list[str], cir) -> list[str]:
             out.append(f"page {i} has no 'page {i} of {n}' folio")
         if f"{cir.slug}@{cir.version}" not in t:
             out.append(f"page {i} has no release footer")
-        if i > 1 and "BRAMBLELOOP ·" not in t:
+        if i > 1 and _find(t, "BRAMBLELOOP ·") < 0:
             out.append(f"page {i} has no running header")
     return out
 

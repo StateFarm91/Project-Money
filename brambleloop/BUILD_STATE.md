@@ -260,6 +260,41 @@
 >   arrived. A promotion could wait up to 32 days for its rollback monitor. `orchestrate.INPUT_PROBES` now lift it.
 >   This was derived from code: the production suspension list was not readable from this session.
 > - Review: `research/final_build/w6/review_requests/improve_slice1.md`.
+> **2026-11-20 — ENG-PDF-TEMPLATE (`eng/pdf-template`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
+> - `publish.pdf_template` renders the owner's master template (spec/07), with:
+>   - the canonical logo on the cover, in every header and in the thank-you block;
+>   - the owner banner on the About page;
+>   - the 7 gallery slots filled from certified frames;
+>   - missing facts blocking the build (`TemplateBlocked`);
+>   - no placeholder or template marker ever printed (`audit`).
+>   D-ENG-PDF-TEMPLATE-1/-2.
+> - Amigurumi variant: per-piece component diagrams (from the stitch data, labelled as diagrams), numbered assembly
+>   steps with round-number placement and placement diagrams, an eye-options block and a hook range. It is exercised only by
+>   a test fixture. A real stuffed toy still BLOCKS at child safety, because the twin cannot state the width x height
+>   the age statement needs. This is reported, not routed around.
+> - Yarn quantities are now the whole pattern's in the template. **The engine still under-reports multi-piece yarn**
+>   (the Harbour pullover prints the body's 467-700 m; the whole pattern is 646-969 m). This is reported to the integrator.
+> - The premium standard is audited on the template's bytes and enforced on customer builds. All 5 proof families
+>   (home décor, baby, garment, pillow, blanket) pass it in US and UK with a rendered gallery.
+> - `PDF_LAYOUT` stays `"engine"`. Under `"template"`, `test_cert_publish_gates` fails 10 of 18 and `test_w4_firstsale_deliverables` fails 4 of 6, all with
+>   `GalleryAwaiting`. Those tests render a release that has no listing-set certificate. Flipping the switch needs
+>   gallery certification to come before PDF certification in the pipeline, and fixtures that carry a certified gallery.
+> - Proofs (test-double images, NOT customer-ready): `research/final_build/w6/pdf_template_proofs/`.
+>   Review request: `research/final_build/w6/review_requests/ENG-PDF-TEMPLATE.md`.
+> **2026-11-20 — ENG-PDF-PREMIUM slice 1 (`eng/pdf-premium`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
+> - `publish.pdf_standard`: family-aware premium standard (small home goods, blanket, basket, garment, pillow, amigurumi),
+>   22 rules + running header/footer, audited on the finished PDF bytes; `build_pattern_pdf` refuses a PDF that fails
+>   (`PremiumStandardRefused`). D-ENG-PDF-PREMIUM-1.
+> - Renderer gaps closed: CYC number and US hook size, "or size to obtain gauge", yarn per colour in 100 g balls and
+>   yd (US) / m (UK), length-per-gram substitution, RS/WS row labels, own licence with designer credit plus a
+>   disclaimer, "About Brambleloop Studio" (never Laura), schematic measurements as text, schematic cover hero for
+>   designs the stitch renderer cannot draw. Fixed buyer-facing defects: "Makes 4 bodys" (pullover) and "Makes 3 pillows"
+>   (one ring pillow of 3 pieces).
+> - Measured: all 13 catalogue documents (11 Launch-0/proposed + a garment size + a pillow) pass in US and UK.
+> - NOT built: one multi-size garment edition with sizes in parentheses (each size is still its own PDF); garment
+>   inline diagrams; amigurumi (no engine exists). Review request: `research/final_build/w6/review_requests/pdf_premium_slice1.md`.
+
+
 > **2026-11-20 — ENG-VIS-FLUX slice 1 (`eng/vis-flux`, builder branch; NOT reviewed, NOT integrated, NOT deployed; no BFL request made).**
 > - The FLUX 3 Image contract was verified against BFL's official docs on 2026-11-20: the OpenAPI schema, the API reference, pricing, the integration guide and the errors page.
 >   - It is held as data in `gateway/flux_contract.py`, with citations.

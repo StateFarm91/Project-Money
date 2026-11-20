@@ -3145,6 +3145,108 @@ display.
   - not admitted when any extra non-image blocker is present (test_11, and test_9 with a real LISTING_PRICE_NOT_PLAN gate);
   - the publish path still refuses on both gates (for_publish, and store.publish with the real Launch-0 scope gate, which makes no Etsy request);
   - the allow-list is load-bearing. Three mutants were killed: an emptied allow-list, the admission-side allow-list check removed, and the reason-side area check removed.
+**D-ENG-PDF-PREMIUM-1: every customer PDF must pass its family's premium standard, audited on the finished bytes, or it is not built (ENG-PDF-PREMIUM, 2026-11-20).** `publish.pdf_standard` holds the rules (structure from `research/benchmarks/PDF_STRUCTURE_STANDARD.md`, never its content). Families are read from the CIR (`gates.first_customer.product_type_words_in_cir`, or a graded design): small home goods, blanket, basket, garment, pillow, amigurumi. A coaster is held to the concise standard; the garment adds the size chart and assembly; basket, pillow and amigurumi add inline diagrams; child items and toys add the safety section. `build_pattern_pdf` raises `PremiumStandardRefused` when a rule fails. The rules run on extracted text and per-page text (running header, folio, release footer), and each has a mutation test.
+- **Licence.** `commerce.terms` gains `permitted_small_scale_with_credit`, now the chosen FINISHED_ITEM_SALE option. Its first clause is the old sentence unchanged, followed by "with a credit to Brambleloop Studio as the pattern designer". All four surfaces render it from the same source. The PDF adds our own Disclaimer paragraph. Still not legally reviewed, and every surface says so.
+- **Brand page.** "About Brambleloop Studio" covers the brand only. It does not include the shop About page's Laura paragraph, and the audit fails any PDF that names Laura.
+- **RS/WS.** On flat rows, Row 1 is the right side by stated convention (`pdf.RS_NOTE`), and the side changes on every row the CIR turns. This matches the chart's "odd rows right to left".
+- **Units.** The US edition gives yarn in yd (m), and the UK edition in m. Ball counts use 100 g balls at the shortest CYC-typical length, so the count does not run short. The hook is given in mm with its CYC US name, and only when the size is on the table. Substitution states the CYC class and its typical length per gram.
+- **Covers.** A design the stitch renderer cannot draw whole (a garment, an assembled pillow) uses its compiler-checked schematic as the cover hero, labelled as a rendering. A multi-component design reads "Made from N pieces", not "Makes 4 bodys".
+- **Not yet built (slice 2+):** a single multi-size garment edition with the other sizes in parentheses (today each size ships as its own CIR/PDF), inline diagrams at garment tricky steps, and a per-fabric gauge table for CIRs that carry component gauges (none in the catalogue today; the rule already checks each one).
+## D-ENG-PDF-TEMPLATE-1 — how the owner's master template is rendered (ENG-PDF-TEMPLATE, 2026-11-20; routine engineering)
+**Status:** routine engineering decisions implementing D-OWNER-PDF-TEMPLATE. No gate or test was
+weakened. Renderer: `publish/pdf_template.py`; switch: `runtime.release.PDF_LAYOUT` (still
+`"engine"`, see below).
+- **Faithful where the template is a layout; never where it is an instruction.** Page sequence,
+  header, footer, palette (read from the template's own fills), Lato + Noto Serif Display
+  (embedded, pinned in `brand/fonts/pdf/SHA256SUMS`), cards, forest bands, numbered sequences,
+  two-column pattern and 4 + 3 gallery grid are reproduced. Its bracketed placeholders, the
+  "ILLUSTRATIVE SLOT" art and the "MASTER LAYOUT • REQUIRES CERTIFIED PRODUCT DATA" marker are
+  never printed; `pdf_template.audit` reads the placeholder list from the template itself.
+- **Brand floors win over the template's smallest type.** The template's 6.3-8.2 pt labels are
+  set at the 9 pt brand minimum, and its rose is darkened only as far as the 4.5:1 contrast floor
+  requires on its ground (`publish.pdf._legible`).
+- **Logo:** the canonical owner logo, resampled only, on the cover (`publish.pdf._cover_logo`),
+  in every page header and in the thank-you block. The template's header shows a monogram crop;
+  a crop is not "resampled only", so the full artwork is used at header size.
+- **Footer additions:** the release id and "page N of M" sit on their own line in the footer band,
+  so a truncated download is visible. The template's footer line and page number are unchanged.
+- **Gallery:** slot n is the valid listing-set certificate's frame at position n (the campaign's
+  order is the gallery's order), embedded as `publish.pdf_photos.rendition` JPEG bytes (the same
+  certified bytes as the listing, provable from the built file). No complete certified gallery is
+  `GalleryAwaiting` ("awaiting gallery"). `proof=True` is an internal text-only proof marked
+  NOT CUSTOMER-READY on every page; test-double images make `proof_test_double`, also marked.
+- **The cover hero sits in the template's card slot, not full bleed.** This follows the owner's
+  layout; the sale-pipeline checker's `slot:cover_hero` full-bleed rule conflicts and is reported
+  to its owner rather than resolved here.
+- **Family variants:** garment (size table, fit + ease, care required), baby and amigurumi
+  (child-safety gate text required, or the build blocks), pillow, blanket and colourwork (the
+  chart always), home décor (concise). The chart appears for other families only when it fits
+  on one page (a 36-tile chart of plain stitches is not help).
+- **Blocking:** a missing required fact (gauge, yarn, yarn quantity, finished size, schematic,
+  making sequence, finishing, a row's stitch count, garment fit or care, child-safety text) raises
+  `TemplateBlocked` with a named reason. Optional sections with nothing to say are omitted.
+- **Default stays `engine`.** The template becomes the default only when it passes every existing
+  PDF suite. Those suites assert engine-specific headings and structure (e.g. "Terms and
+  support", "Instructions (US terms)"), and the premium and sale-pipeline checkers key on the
+  same names (`pdf_template.CHECKER_SECTION_ALIASES` maps them). Switching now would fail them,
+  so the switch is not flipped.
+## D-ENG-PDF-TEMPLATE-2 — template completion: amigurumi variant, whole-pattern yarn, premium standard on the template (ENG-PDF-TEMPLATE, 2026-11-20; routine engineering)
+**Status:** routine engineering implementing D-OWNER-PDF-TEMPLATE, D-OWNER-PDF-STANDARD and the
+amigurumi teardown lessons (`research/benchmarks/TEARDOWN_*`). No gate was weakened.
+- **Amigurumi variant** (`publish/pdf_template.py`):
+  - Each piece worked in rounds gets a **component diagram** under its bar in 06. The diagram
+    has one band per round, as wide as that round's diameter at gauge, drawn on one scale shared
+    by every piece. An arrow marks the round whose CIR note says to stuff. The caption says
+    "Drawn from the stitch data, not a photograph."
+  - 07 gets **numbered assembly steps** (A1, A2, …), one per CIR seam. Each step carries the
+    writer's placement cue in round numbers and a placement diagram: the host piece's profile
+    with the rounds of the join outlined. A seam without `at_round` blocks.
+  - 08 gets an **eye-options** block. Embroidered eyes are placed between the head's widest
+    rounds. Safety eyes are offered only when the certified materials list them, and always
+    with the under-3 small-parts warning.
+  - 02 gets a **hook range** under the gauge: the stated hook down to 0.5 mm below it, never
+    above.
+  - The finished size of a stuffed piece is its circumference at the widest round, which is
+    what the twin's own `size_refusal` says to state.
+- **The yarn quantity is the whole pattern's.** `cir.twin.build_twin` models one component, so
+  both layouts printed only the first piece's yarn. For the Harbour pullover size M that was
+  the body's 584 m of an 808 m pattern (467–700 m printed; it should be 646–969 m). The template
+  now sums every component, each times its `make`, at the twin's calibration
+  (`_pattern_yardage`).
+  - **The engine (`publish.pdf.build_pattern_pdf`) still under-reports multi-piece yarn.** It
+    is not changed here, because its listing, deliverable and digest consumers belong to other
+    lanes. It is reported in the review request.
+- **The premium standard applies to the template, on the bytes.** `pdf_standard.TEMPLATE_EQUIVALENTS`
+  lets each rule accept the template's own heading for the same part of the document (for
+  example "GAUGE FIRST" for "Gauge, and why it matters here"). The content each rule requires
+  is unchanged; the matching is exact strings, never fuzzy.
+  - The template now refuses a customer build that fails the standard (`PremiumStandardRefused`),
+    as the engine does. Proofs record the failures in `problems`.
+  - Content added to meet the standard: chart and colour key for any colourwork; the garment
+    size chart's "to fit chest / finished chest / ease / yarn about / SIZE X" wording; the brand
+    on the cover line; diagram captions that cannot be read as row labels.
+- **Colourwork outside the chart families gets a one-page overview chart.** The baby
+  blanket's stripes would otherwise take 25 tile pages; its rows and colours are already
+  written out in 06.
+- **The amigurumi child-safety gap is reported, not routed around.** A closed stuffed toy
+  cannot state the width × height that the child-safety `age_suitability` statement needs,
+  because the twin refuses to state one. The real build therefore blocks with a named reason.
+  The amigurumi layout is exercised only by a test that stubs that one fact
+  (`tests/fixture_amigurumi.py` is a test fixture, never a product).
+**D-ENG-VIS-FLUX-1: the FLUX 3 provider follows the documented contract, rejects bad frames at generation, and caps images in code (ENG-VIS-FLUX slice 1, 2026-11-20).** This applies the owner's directive "PERFECT FLUX 3 LISTING IMAGES" within D-W4-F852-AMEND. It changes no publication gate.
+- **The contract is data, with citations.** `gateway/flux_contract.py` holds BFL's documented FLUX 3 Image contract, read 2026-11-20 from the openapi schema, the API reference, pricing, integration and errors pages.
+  - The request builder validates the whole body against it before any reservation.
+  - A test pins the contract to a machine-extracted snapshot of the official schema and rate card.
+- **No seed.** FLUX 3 Image has no seed field (`additionalProperties: false`). The seed is recorded only when BFL's result reports one, and is never invented.
+- **Generation-time rejection.**
+  - A listing frame must be PNG/JPEG, opaque, at least 2000 px on its shortest side and within 1% of the aspect it asked for. An intermediate frame must be at least 900 px.
+  - A frame that fails is rejected before QA. It stays billed, and its bytes and an audit row are kept.
+  - A corrupt download is re-fetched up to twice; this costs nothing.
+  - A rejection is never retried with the same request, because the owner gate would refuse it as already billed.
+  - A replacement is bought only after `flux_provider.replacement_allowed` has re-checked the kept bytes. It also requires that no `motif_recovery` row for the product is open (ENG-MOTIF-BACKLOG's table, read only).
+- **Caps in code, lower-only.** Within `paid_provider_gate.authorize` the caps are 60 images per UTC day and 16 images / CA$2.50 per gallery. The environment can lower them and never raise them. They sit beneath the owner's activation ceilings, so the lower one binds.
+- **Readiness.** It is READY only when `BRAMBLELOOP_IMAGE_KEY_BFL` is present (presence only; the value is never read into output) and the owner's `flux-3-image` generation activation is active. Otherwise it is UNKNOWN with the reason, and the generation job refuses before reserving.
+- **Retention.** `image.generation_rejected` and `image.generation_rejection_rechecked` are lifetime-protected.
 **D-ENG-GARMENT-1: a garment is released as one unit of every size, built from one step list (ENG-GARMENT slice 1, 2026-11-20).**
 `products.garment_families` builds every size of a design from the same recorded steps
 (`Step`/`Piece`): cast on, work even, shape every Nth row, chain on, leave unworked, raglan

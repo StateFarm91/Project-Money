@@ -2581,8 +2581,9 @@ def handle_store_publish(ctx: JobContext) -> dict:
     released_on = _released_on(ctx, slug, version)
     from ..learn.service import pdf_help_links
     lesson_links = pdf_help_links(ctx.db, cir.to_dict())
-    docs = {t: build_pattern_pdf(cir, twin=twin, terminology=t, released_on=released_on,
-                                 lesson_links=lesson_links)
+    from ..publish.pdf_template import build_customer_pdf  # the layout switch (PDF_LAYOUT)
+    docs = {t: build_customer_pdf(cir, twin=twin, terminology=t, released_on=released_on,
+                                  lesson_links=lesson_links, db=ctx.db)
             for t in TERMINOLOGIES}
     doc = docs["US"]
     # The file uploaded must be the file certified: compared per terminology against the
