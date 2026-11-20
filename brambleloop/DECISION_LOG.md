@@ -2878,3 +2878,25 @@ Reversible by decision.
   judged by declared WORK_KEYS (a bare `ran: true` is not progress).
 - Spend classification is unchanged, so `creative.*`/`visual.*` still get no release probe.
 - Reversible.
+**D-ENG-IMPROVE-1: the self-improvement team tunes only an allowlist, promotes only on a significant KPI gain, and changes code only through change requests (ENG-IMPROVE, 2026-11-20).** This implements the owner directive of 2026-11-20 ("every department gets better with experience; learning is worthless unless it changes behaviour; a team turns lessons into fixes").
+
+**What may be tuned.**
+- `improve.tuning.TUNABLES` is a hard-coded allowlist of 13 keys: numbers within bounds, and choices.
+- Every key and value is also checked by `improve.invariants`. Certified gates, safety, spend ceilings, evidence floors and owner exceptions are never tunable.
+- The module refuses to import if a protected key is allowlisted.
+
+**Live changes.**
+- A change runs as a challenger on at most 20% of units, capped at CA$5 of recorded arm cost.
+- Promotion requires a two-proportion z of at least 2.807 at a fixed look (50·2^k units per arm) and a gain of at least 3 points.
+- A promotion is then watched against a 20% holdback, and is rolled back automatically at z <= -1.96.
+
+**Code changes.**
+- Code changes are `EngineeringChangeRequest` rows, deduplicated by (defect_class, department, module).
+- A request is closed only when the KPI is verified after deploy, and is reopened otherwise.
+- The integrator reads them at `GET /api/readback/ecrs`. Production never edits or deploys code.
+
+**Departments.** A department whose lessons reach no consumer is a finding, never a pass.
+
+**Parked loops.** improve.monitor, sandbox and league backoffs lift on their real input rows (`orchestrate.INPUT_PROBES`).
+
+Reversible by decision. The non-tunable rule is the owner's and is not reversible by an agent.

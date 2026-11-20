@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-20T04:06:47.602993+00:00",
+ "generated_at": "2026-11-20T04:08:33.807443+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 146,
-  "handlers": 178,
+  "cadences": 147,
+  "handlers": 179,
   "agents": 34,
   "follow_on_edges": 93
  },
@@ -2249,6 +2249,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "self_tune",
+      "agent": "orchestrator",
+      "job_type": "improve.self_tune",
+      "period_seconds": 86400
+     },
+     {
       "name": "improve_sandbox",
       "agent": "orchestrator",
       "job_type": "improve.sandbox",
@@ -2388,6 +2394,7 @@
      "improve.retrospective",
      "improve.role_work",
      "improve.sandbox",
+     "improve.self_tune",
      "improve.weekly",
      "learn.scan",
      "learning.knowledge_gaps",

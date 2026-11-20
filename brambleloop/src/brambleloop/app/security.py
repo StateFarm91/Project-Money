@@ -318,7 +318,10 @@ def owner_session_route(route_path: str) -> bool:
 # token. They are GET-only, are not on PUBLIC_GET_ROUTES (so `requires_operator` stays true and
 # no sweep treats them as public), and the readback credential opens no other route: every
 # other gated route still checks `core.opsauth`, which the readback value never matches.
-READBACK_ROUTES: frozenset[str] = frozenset({"/api/readback/evidence"})
+READBACK_ROUTES: frozenset[str] = frozenset({"/api/readback/evidence",
+                                            # ENG-IMPROVE: open engineering change requests
+                                            # for the integrator's routine (read-only).
+                                            "/api/readback/ecrs"})
 
 
 def readback_route(route_path: str) -> bool:

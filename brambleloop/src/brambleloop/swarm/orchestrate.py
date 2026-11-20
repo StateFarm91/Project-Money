@@ -546,6 +546,78 @@ def made_progress(outputs, job_type: str | None = None) -> bool:
     return outputs.get("ran") is True
 
 
+def _promotions_since(session, since) -> dict | None:
+    """ENG-IMPROVE: new input for the promotion monitor -- a promotion, or a production reading
+    of a cell that has a promoted change -- recorded after `since`."""
+    from sqlalchemy import select
+
+    from ..core.models import CapabilityPoint, Improvement
+
+    row = session.scalar(select(Improvement).where(Improvement.promoted_at > since)
+                         .order_by(Improvement.id.desc()).limit(1))
+    if row is not None:
+        return {"input": "improvements.promoted_at", "id": row.id,
+                "at": _aware(row.promoted_at).isoformat()}
+    cells = set(session.scalars(select(Improvement.cell).where(Improvement.state == "promoted")))
+    if cells:
+        pt = session.scalar(select(CapabilityPoint).where(CapabilityPoint.at > since,
+                                                          CapabilityPoint.cell.in_(cells))
+                            .order_by(CapabilityPoint.id.desc()).limit(1))
+        if pt is not None and (pt.detail or {}).get("source") != "post-promotion monitoring":
+            return {"input": "capability_history", "id": pt.id, "at": _aware(pt.at).isoformat()}
+    try:
+        from ..improve.self_models import Challenger
+
+        ch = session.scalar(select(Challenger).where(Challenger.promoted_at > since)
+                            .order_by(Challenger.id.desc()).limit(1))
+    except Exception:  # noqa: BLE001 - a table not yet created is no new input
+        ch = None
+    if ch is not None:
+        return {"input": "si_challengers.promoted_at", "id": ch.id,
+                "at": _aware(ch.promoted_at).isoformat()}
+    return None
+
+
+def _proposals_since(session, since) -> dict | None:
+    """New input for the sandbox: an improvement proposal recorded after `since`."""
+    from sqlalchemy import select
+
+    from ..core.models import Improvement
+
+    row = session.scalar(select(Improvement).where(Improvement.at > since,
+                                                   Improvement.state == "proposed")
+                         .order_by(Improvement.id.desc()).limit(1))
+    return (None if row is None else
+            {"input": "improvements.proposed", "id": row.id, "at": _aware(row.at).isoformat()})
+
+
+def _configs_since(session, since) -> dict | None:
+    """New input for the league: a configuration version registered after `since`."""
+    from sqlalchemy import select
+
+    from ..core.models import ConfigVersion
+
+    row = session.scalar(select(ConfigVersion).where(ConfigVersion.at > since)
+                         .order_by(ConfigVersion.id.desc()).limit(1))
+    return (None if row is None else
+            {"input": "config_versions", "id": row.id, "at": _aware(row.at).isoformat()})
+
+
+# ENG-IMPROVE (diagnosis of the parked improve.* loops): improve.monitor, improve.sandbox and
+# improve.league read rows other code writes -- promotions, proposals, configuration versions
+# -- and none reports `work_done`. With nothing promoted their outputs are identical every
+# night, so `_free_poll_backoff` parks them (2x .. 32x a daily period) -- correctly, an idle
+# watcher should not poll. The defect was that nothing lifted the backoff when the input
+# arrived: a promotion made on day 3 waited up to 32 days for the monitor that can roll it
+# back. These probes are those inputs, read directly from the rows (a job-level
+# `made_progress` cannot see them), so a backoff lifts the sweep after new input appears.
+INPUT_PROBES: dict[str, object] = {
+    "improve.monitor": _promotions_since,
+    "improve.sandbox": _proposals_since,
+    "improve.league": _configs_since,
+}
+
+
 def upstream_progressed(session, job_type: str, since) -> dict | None:
     """The newest upstream job that made progress after `since`, as {job_type, job_id, at}."""
     from sqlalchemy import select
@@ -554,6 +626,14 @@ def upstream_progressed(session, job_type: str, since) -> dict | None:
 
     ups = UPSTREAM_INPUTS.get(job_type)
     since = _aware(since)
+    probe = INPUT_PROBES.get(job_type)
+    if probe is not None and since is not None:
+        try:
+            hit = probe(session, since)
+        except Exception:  # noqa: BLE001 - an unreadable input is not new input
+            hit = None
+        if hit:
+            return {"job_type": job_type, "job_id": None, **hit}
     if not ups or since is None:
         return None
     for job in session.scalars(select(Job).where(
@@ -681,7 +761,8 @@ FREE_JOB_TYPES: frozenset[str] = frozenset({
     "growth.distribution", "growth.experiments", "growth.journey", "growth.preproduction",
     "growth.steer", "improve.commercial_lessons", "improve.league", "improve.measure",
     "improve.mine", "improve.monitor", "improve.nightly", "improve.replay",
-    "improve.retrospective", "improve.role_work", "improve.sandbox", "improve.weekly",
+    "improve.retrospective", "improve.role_work", "improve.sandbox", "improve.self_tune",
+    "improve.weekly",
     "intel.acceptance", "intel.benchmark_health", "intel.benchmark_refresh",
     "intel.benchmark_shopping",
     "intel.children_portfolio", "intel.panel_discovery", "intel.pod_learning",

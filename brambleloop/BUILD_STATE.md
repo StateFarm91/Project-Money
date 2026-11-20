@@ -45,6 +45,28 @@
 >   - Nothing has run against production, so every real trend is UNKNOWN.
 >   - No producer calls `prompt_for` yet, so no arm has production evidence.
 >   - Review notes: `research/final_build/w6/review_requests/learn_slice{1,2,3}.md`.
+> **2026-11-20 — ENG-IMPROVE slice 1 (`eng/improve` from w6-INTEG3 39b92619; NOT reviewed, NOT integrated, NOT deployed).**
+> Owner directive: every department improves with experience; a lesson counts only if it changes behaviour.
+> - **Department loops.** `improve.department_loops` covers 11 departments, each with a KPI (useful yield from `jobs` rows,
+>   UNKNOWN below 20 runs), lessons (learned, verified, applied) and a consumer checked statically and live. A department
+>   with no consumer, or a dormant one, is a FINDING that files an ECR. Table: `research/final_build/w6/self_improvement_table.md`.
+>   Structural findings: **Pricing and Ops have no lesson consumer.**
+> - **Live tuning.** `improve.tuning` is champion/challenger over a hard-coded allowlist of 13 keys, re-checked by
+>   `improve.invariants`. Challengers are capped by share (20%) and spend (CA$5). Promotion happens only at fixed looks
+>   (z >= 2.807 and +3 points). A promotion is watched against a holdback and rolled back automatically on regression.
+>   Everything is audited. **No reader calls `tuning.value()` yet, so no challenger can run in production (slice 2).**
+> - **ECRs.** `improve.ecr` adds EngineeringChangeRequest rows: deduplicated, related requests linked, lifecycle
+>   FILED -> BUILDING -> REVIEWED -> DEPLOYED -> VERIFIED or REOPENED. A request closes only on a KPI verified after deploy.
+>   Open requests are served read-only at `GET /api/readback/ecrs` (readback token only). There is no transition route
+>   yet. Production never edits code.
+> - **Daily job.** `improve.self_tune` (free, GREEN, daily) judges trials, files and verifies ECRs, and files `failing_loop`
+>   ECRs for improve.* loops parked at 32x.
+> - **Panel.** Mission Control -> Autonomy -> "Self-improvement (per department)". SW `cc-shell-v41`.
+> - **Parked improve.* loops diagnosed.** `improve.monitor`, `improve.sandbox` and `improve.league` read rows, not job
+>   outputs. Idle, they correctly back off to 32x, but nothing lifted the backoff when a promotion, proposal or config
+>   arrived. A promotion could wait up to 32 days for its rollback monitor. `orchestrate.INPUT_PROBES` now lift it.
+>   This was derived from code: the production suspension list was not readable from this session.
+> - Review: `research/final_build/w6/review_requests/improve_slice1.md`.
 > **2026-11-19 — ENG-APPROVALS slice 1 (`eng/approvals`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
 > - The owner directive `D-OWNER-STANDING-INTERNAL` is recorded in DECISION_LOG.
 > - Code: `authority.standing_internal` (classifier and directive), `ops.owner_queue_consolidate` (idempotent sweep, the one

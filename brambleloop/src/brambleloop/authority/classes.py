@@ -104,6 +104,7 @@ JOB_CLASS: dict[str, ActionClass] = {
     "build.tick": _B, "chain.rebuild": _B, "chain.successors": _B, "supply.admit": _B, "cir.draft": _B, "cir.revise": _B, "cir.reengineer": _B,
     "collection.assemble": _B, "listing.package": _B, "creative.candidates_file": _B, "creative.model_freeze": _B, "growth.steer": _B,
     "improve.nightly": _B, "improve.role_work": _B, "improve.weekly": _B,
+    "improve.self_tune": _B,   # ENG-IMPROVE: tunable champions + change-request rows only
     "laura.executive_tick": _B, "ops.offsite_archive": _B, "ops.retention": _B,
     "ops.owner_queue_consolidate": _B,   # ENG-APPROVALS: owner-queue lifecycle moves only
     "plan.cycle": _B, "seasonal.cycle_proof": _B, "seasonal.engine": _B,

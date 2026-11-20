@@ -7505,6 +7505,29 @@ def handle_promotion_monitor(ctx: JobContext) -> dict:
             "waiting": len(out["waiting"]), "unchanged": len(out["unchanged"])}
 
 
+@handlers.register("improve.self_tune")
+def handle_self_tune(ctx: JobContext) -> dict:
+    """The self-improvement team's daily pass (ENG-IMPROVE, owner directive 2026-11-20).
+
+    Judges live champion/challenger trials of allowlisted tunables (promotion on a
+    statistically meaningful KPI gain, automatic rollback on regression), checks every
+    department's KPI -> lessons -> consumer loop, and files / verifies engineering change
+    requests. A change request is a row: production never edits or deploys code.
+
+    GREEN: reads rows, may change a tunable champion inside its declared bounds, writes
+    si_* / engineering_change_requests rows and audit records. Spends nothing.
+    """
+    from ..improve import self_improve
+
+    out = self_improve.cycle(ctx.db)
+    ctx.audit("improve.self_tune.cycle",
+              detail={k: out[k] for k in ("work_done", "trials_judged", "loops_closed",
+                                          "departments", "ecrs_filed", "ecrs_merged",
+                                          "ecrs_verified", "ecrs_reopened",
+                                          "parked_improve_loops")})
+    return out
+
+
 @handlers.register("improve.sandbox")
 def handle_improve_sandbox(ctx: JobContext) -> dict:
     """Take eligible proposals through a sandbox trial, test, judge, and promote or route (#92).
