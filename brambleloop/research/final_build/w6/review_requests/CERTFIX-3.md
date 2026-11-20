@@ -18,7 +18,7 @@
 | test_s1_product_truth_2 | 11 OK / 0 FAIL |
 | test_physfix | 48 / 48 (after the coaster kit rebuild; the first run showed the coaster kit was stale too, masked behind the basket) |
 | test_provenance_write_path | 19 OK / 0 FAIL |
-| test_shadow | SHADOW_RESULT |
+| test_shadow | 10 OK / 0 FAIL |
 | test_ws4_stage_a_withdrawal | 13 OK / 0 FAIL |
 | test_codex_v1_blind_comparison | 43 OK / 0 FAIL (already passing on 511a8c6; nothing changed) |
 | test_codex_v1_craft_enum | 13 OK / 0 FAIL (already passing on 511a8c6; nothing changed) |
@@ -75,5 +75,5 @@ except test_w3_decision_index, which passes because the index was regenerated wi
 7. **test_codex_v1_*** — already passing at 511a8c6 (fixed on the branch after dde3ea62); verified, untouched.
 
 ## Not done / honest gaps
-- No full certification run; test_shadow's remaining slow tests are as listed above.
+- No full certification run.
 - No end-to-end colourwork proof for wall hangings (still held, by decision).
