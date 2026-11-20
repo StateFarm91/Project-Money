@@ -1511,3 +1511,7 @@ See P0_GAP_REGISTER.json `opus2_open_engineering`.
 ## 2026-11-20T04:30Z tick
 - No [MAIN] post for opus2. New RRs are from ENG-VIS-FLUX and ENG-VIS-GALLERY. INTEG2 is now 64146306; dispatch is unchanged.
 - STOP REASON: no assigned opus2 work; awaiting Main ASSIGN.
+
+## 2026-11-20T09:30Z tick (covers 05:28-09:28Z firings, which were delayed by worker restarts)
+- No new #28 comments since 03:53Z. INTEG2 64146306 and dispatch are unchanged.
+- STOP REASON: no assigned opus2 work; awaiting Main ASSIGN.
