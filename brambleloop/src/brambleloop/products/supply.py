@@ -379,11 +379,38 @@ def offers(db) -> list[dict]:
         # Market demand first (the owner core-family boost is inside it); then, on equal
         # market demand, research-backed originals before static-pool re-promotions; then
         # the producer's own score; then the oldest offer.
-        return (-(float(market) if isinstance(market, (int, float)) else 0.0),
+        # B-2: a missing market score reads as the UNKNOWN prior, never as 0.0
+        return (-(float(market) if isinstance(market, (int, float)) else _prior()),
                 0 if o.get("research") else 1,
                 0 if isinstance(demand, (int, float)) else 1,
                 -(float(demand) if isinstance(demand, (int, float)) else 0.0), o["offer_id"])
     return sorted(out, key=order)
+
+
+def _prior() -> float:
+    from . import demand
+
+    return float(demand.PRIOR)
+
+
+def engine_demand_waiting(db) -> dict[str, str]:
+    """{slug: reason} for every waiting offer whose construction has no certified engine.
+
+    ENG-DEMAND-STALL: such a concept is engine demand, not draftable supply. It stays in the
+    queue (never dropped) and is admitted on the first pass after its engine certifies; the
+    verdict is re-read live, so a certified engine removes it from this map at once."""
+    from . import demand as demand_mod
+
+    out: dict[str, str] = {}
+    for o in offers(db):
+        slug = str(o.get("slug") or "")
+        if not slug or slug in out:
+            continue
+        v = demand_mod.engine_verdict(slug, o.get("payload"))
+        if v["known"] and not v["certified"]:
+            out[slug] = (f"engine_demand:{v['family']}: no certified engine builds it yet "
+                         f"({str(v.get('reason') or '')[:200]})")
+    return out
 
 
 def _demand_index(db):

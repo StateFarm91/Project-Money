@@ -1,3 +1,12 @@
+> **2026-11-20 — FIX-DEMAND-STALL on `claude/w6-INTEG8-wip` (Batch 18 integration; NOT deployed; production
+> unchanged).** A promoted concept waiting in the supply queue for an uncertified engine (on the production pool:
+> `cottage-wall-hanging`, flat_panel refusal) was counted as `promotable_undrafted`/`supply_selected` on every scan
+> with `stalled: False` while nothing drafted. It is now counted as `engine_demand_undrafted`, held with its
+> `engine_demand:` reason, the scan reports `stalled: True` (`engine_demand` reason when every undrafted concept waits
+> on an engine), and it stays queued and drafts automatically once its engine certifies (tested). Review b18-a B-1:
+> core families are the owner's three; garments carry `SECONDARY_BOOST` and `core: False`. B-2: a missing market
+> score orders as `demand.PRIOR`. Report: `research/final_build/w6/review_requests/FIX-DEMAND-STALL.md`.
+
 > **2026-11-20 — ENG-DEMAND-SUPPLY (`eng/demand-supply`, NOT merged, NOT deployed; production unchanged).** Owner
 > TOP PRIORITY: "production agents should be automatically making things that sell" (D-ENG-DEMAND-SUPPLY).
 > - `products/demand.py` is a deterministic demand score per family/form/subject from STORED evidence only:

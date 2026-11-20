@@ -3087,6 +3087,15 @@ engine table, so an engine certification re-proposes those concepts on fresh evi
 **Surfaces.** The Mission Control Demand view (`GET /api/cc/demand`, `cc-shell-v44`) and the advisory readback row
 `engine_demand`: WARN while a concept waits for an engine, never a deploy FAIL.
 Reversible by decision. The weights, saturations, prior and boosts are constants in `products/demand.py`.
+**Amendment (FIX-DEMAND-STALL, 2026-11-20, review b18-a B-1/B-2).** D-OWNER-CORE-FAMILIES names three core
+families (amigurumi > baby > pillow/cushion); `CORE_FAMILIES`/`CORE_BOOST` now hold exactly those. Garments keep a
+routine (non-owner) weighting, `SECONDARY_BOOST = {garment: 0.18}`, below every core boost, and every reading labels
+them `core: False`; reason: garments are a proven seller in the teardowns and the originals catalogue, but the owner
+did not make them core. A missing market score in `supply.offers` orders as `demand.PRIOR`, never 0.0.
+A promoted concept waiting in the supply queue for an uncertified engine is engine demand, not supply: the scan
+counts it as `engine_demand_undrafted` (never `promotable_undrafted`), holds it with its `engine_demand:` reason,
+reports `stalled: True` (reason `engine_demand` when every undrafted concept is waiting on an engine), and keeps it
+queued so it drafts automatically once its engine certifies.
 ## 2026-11-20 — ENG-ETSY-PUBLISH review b17-d fixes
 - Adopted drafts are proven by re-sending every image rank, not by trusting alt text and pixel size: Etsy returns no image hash, so the only hash that means anything is the hash of bytes this job sent. Unproven ranks fail the read-back.
 - Held pattern files on an adopted draft escalate rather than being replaced: adding a file-delete write path to the Etsy client is a new irreversible capability and was not needed to fail closed.

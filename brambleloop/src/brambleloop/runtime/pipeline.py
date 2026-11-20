@@ -365,6 +365,21 @@ def handle_radar_scan(ctx: JobContext) -> dict:
         _drafted = set()
     undrafted = [c for c in steered if c.slug not in _drafted]
     promotable, held = promotable_now(ctx.db, undrafted, today) if undrafted else ([], {})
+    # ENG-DEMAND-STALL: a promoted concept already offered and waiting on an engine that is
+    # not certified is engine demand, not supply. Re-selecting it every scan while nothing can
+    # draft it was a hidden stall. It stays queued in `supply` (admitted once its engine
+    # certifies) and is reported as `engine_demand_undrafted`, held with its reason.
+    try:
+        from ..products import supply as _supply
+
+        _waiting_engine = _supply.engine_demand_waiting(ctx.db)
+    except Exception:  # noqa: BLE001 - an unreadable queue judges as before
+        _waiting_engine = {}
+    engine_demand = {c.slug: _waiting_engine[c.slug] for c in promotable
+                     if c.slug in _waiting_engine}
+    if engine_demand:
+        promotable = [c for c in promotable if c.slug not in engine_demand]
+        held = {**held, **engine_demand}
     portfolio, selection_pool = None, "promotable_undrafted"
     for tier, candidates in (("promotable_undrafted", promotable), ("undrafted", undrafted),
                              ("full_pool", steered)):
@@ -419,7 +434,8 @@ def handle_radar_scan(ctx: JobContext) -> dict:
     try:
         supply = _record_supply_stall(ctx, [c.slug for c in steered],
                                       [c.slug for c in portfolio.selected], today,
-                                      promotable=[c.slug for c in promotable], held=held)
+                                      promotable=[c.slug for c in promotable], held=held,
+                                      engine_demand=sorted(engine_demand))
     except Exception as exc:  # noqa: BLE001
         supply = {"measured": False, "why": f"{type(exc).__name__}: {str(exc)[:160]}"}
 
@@ -466,7 +482,8 @@ def handle_radar_scan(ctx: JobContext) -> dict:
 
 def _record_supply_stall(ctx: JobContext, pool: list[str], selected: list[str],
                          today: date, *, promotable: list[str] | None = None,
-                         held: dict[str, str] | None = None) -> dict:
+                         held: dict[str, str] | None = None,
+                         engine_demand: list[str] | None = None) -> dict:
     """W5-A7 (P0-SUPPLY-STALL): the next-product supply reading of one `radar.scan`.
 
     Supply is a selected concept with no `draft:<slug>` job that `radar.score` would promote
@@ -479,7 +496,10 @@ def _record_supply_stall(ctx: JobContext, pool: list[str], selected: list[str],
     `selection_unpromotable` (ENG-RECOVERY fix round 1, review M1) when undrafted concepts
     remain but none would be promoted (each held concept's reason is recorded);
     `promotable_not_selectable` when promotable ones exist but section 33 could not select
-    them on their own; `selection_all_drafted` when promotability was not judged. Deterministic, deduplicated per period, and read-only for the
+    them on their own; `engine_demand` when every undrafted concept left is a promoted
+    concept waiting in the supply queue for an engine that is not certified yet (such a
+    concept is counted as `engine_demand_undrafted`, never as `promotable_undrafted`);
+    `selection_all_drafted` when promotability was not judged. Deterministic, deduplicated per period, and read-only for the
     queue: it enqueues nothing.
 
     `promotable` None means the caller did not judge promotability (the W5-A7 reading).
@@ -497,15 +517,21 @@ def _record_supply_stall(ctx: JobContext, pool: list[str], selected: list[str],
     undrafted_selected = [s for s in selected if s not in drafted]
     supply_selected = [s for s in undrafted_selected if s in can]
     held = dict(held or {})
+    waiting_engine = set(engine_demand or ()) & set(undrafted_pool)
+    can -= waiting_engine
+    supply_selected = [s for s in supply_selected if s not in waiting_engine]
     out = {"measured": True, "pool": len(set(pool)), "drafted": len(drafted & set(pool)),
            "undrafted_pool": len(undrafted_pool), "undrafted_selected": len(undrafted_selected),
            "promotable_undrafted": len(can & set(undrafted_pool)) if judged else None,
+           "engine_demand_undrafted": len(waiting_engine),
            "supply_selected": len(supply_selected),
            "stalled": not supply_selected, "recorded": False}
     if supply_selected:
         return out
     if not undrafted_pool:
         reason = "pool_exhausted"
+    elif judged and waiting_engine and not (set(undrafted_pool) - waiting_engine):
+        reason = "engine_demand"
     elif judged and not (can & set(undrafted_pool)):
         reason = "selection_unpromotable"
     elif judged:
@@ -515,13 +541,16 @@ def _record_supply_stall(ctx: JobContext, pool: list[str], selected: list[str],
     else:
         reason = "selection_all_drafted"
     out["reason"] = reason
-    if reason == "selection_unpromotable":
+    if waiting_engine:
+        out["engine_demand"] = sorted(waiting_engine)[:50]
+    if reason in ("selection_unpromotable", "engine_demand"):
         out["held"] = {k: held[k] for k in sorted(held)[:50]}
     period = today.isoformat()
     payload = {"reason": reason,
                "pool": out["pool"], "drafted": out["drafted"],
                "undrafted_pool": undrafted_pool[:50], "selected": list(selected)[:50],
                "held": out.get("held") or {},
+               "engine_demand": out.get("engine_demand") or [],
                "as_of": period, "job_id": ctx.job.id}
     try:
         with ctx.db.session() as s:

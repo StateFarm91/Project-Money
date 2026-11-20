@@ -49,9 +49,20 @@ from datetime import datetime, timedelta, timezone
 # ---- the taxonomy: family / form / subject ------------------------------------------------
 
 AMIGURUMI, BABY, PILLOW, GARMENT = "amigurumi", "baby", "pillow_cushion", "garment"
-CORE_FAMILIES: tuple[str, ...] = (AMIGURUMI, BABY, PILLOW, GARMENT)   # the owner's order
+# D-OWNER-CORE-FAMILIES: the owner named exactly three permanent core families.
+CORE_FAMILIES: tuple[str, ...] = (AMIGURUMI, BABY, PILLOW)   # the owner's order
 # Strictly decreasing in the owner's order, so equal evidence ranks them in that order.
-CORE_BOOST: dict[str, float] = {AMIGURUMI: 0.30, BABY: 0.26, PILLOW: 0.22, GARMENT: 0.18}
+CORE_BOOST: dict[str, float] = {AMIGURUMI: 0.30, BABY: 0.26, PILLOW: 0.22}
+# Review b18-a B-1: garments carry a smaller routine (non-owner) weighting, recorded in
+# D-ENG-DEMAND-SUPPLY. They are NOT core: every reading labels them `core: False`.
+SECONDARY_BOOST: dict[str, float] = {GARMENT: 0.18}
+# The families either boost names (the owner's three, then the routine secondary weighting).
+BOOSTED_FAMILIES: tuple[str, ...] = CORE_FAMILIES + tuple(SECONDARY_BOOST)
+
+
+def family_boost(family: str) -> float:
+    """The full-confidence boost for a family: owner core first, else the secondary weight."""
+    return CORE_BOOST.get(family, SECONDARY_BOOST.get(family, 0.0))
 
 # Ordered: the first family whose words match wins. A lovey is a baby item even though it has
 # an animal head; a baby cardigan is a garment (clothing); a cushion with a face is a cushion.
@@ -170,7 +181,7 @@ def classify(title: str = "", *, category: str = "", tags=(), pod: str = "") -> 
     # A category or pod that names a core family outranks a weaker word match (an
     # "amigurumi" category concept titled "... Cosy Bear" is amigurumi, not home décor).
     strong = _CATEGORY_FAMILY.get(str(category or "")) or _POD_FAMILY.get(str(pod or ""))
-    if strong in CORE_FAMILIES and family not in CORE_FAMILIES:
+    if strong in BOOSTED_FAMILIES and family not in BOOSTED_FAMILIES:
         family = strong
     form = DEFAULT_FORM
     for name, rx in _FORM_WORDS.get(family, ()):
@@ -346,7 +357,7 @@ def _score(agg: _Agg | None, family: str, level: int) -> dict:
     value = (value_acc / known_w) if known_w > 0 else None
     confidence = coverage * (n / (n + SAMPLE_K)) * LEVEL_CONFIDENCE[level] if n else 0.0
     evidence = (confidence * value + (1.0 - confidence) * PRIOR) if value is not None else PRIOR
-    boost = CORE_BOOST.get(family, 0.0) * (0.5 + 0.5 * confidence)
+    boost = family_boost(family) * (0.5 + 0.5 * confidence)
     status = MEASURED if confidence >= 0.5 else PARTIAL if confidence > 0 else UNKNOWN
     return {"score": round(min(1.0, evidence + boost), 4),
             "evidence_score": round(evidence, 4), "value": None if value is None else
@@ -472,7 +483,7 @@ def build_index(listings=(), serp=(), *, now: datetime | None = None,
     return DemandIndex(aggs, as_of=now, basis={
         "listings_read": n_listings, "serp_entries_read": n_serp,
         "teardown_observations": n_tear, "prior": PRIOR, "weights": dict(SIGNAL_WEIGHTS),
-        "core_boost": dict(CORE_BOOST),
+        "core_boost": dict(CORE_BOOST), "secondary_boost": dict(SECONDARY_BOOST),
         "rule": "UNKNOWN is never 0: a missing signal lowers confidence and the score "
                 "shrinks toward the prior; it never scores high"})
 

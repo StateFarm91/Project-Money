@@ -326,8 +326,9 @@ def test_the_originals_catalogue_is_core_heavy_and_original():
 
     cat = O.CATALOGUE
     assert len(cat) >= 20
-    assert all(o.family in D.CORE_FAMILIES for o in cat)
-    assert {o.family for o in cat} == set(D.CORE_FAMILIES)
+    assert all(o.family in D.BOOSTED_FAMILIES for o in cat)
+    assert {o.family for o in cat} == set(D.BOOSTED_FAMILIES)
+    assert sum(o.family in D.CORE_FAMILIES for o in cat) > len(cat) // 2   # core-heavy
     assert sum(o.family == D.GARMENT for o in cat) >= 4
     pool = {p.title.lower() for p in POOL}
     assert not [o for o in cat if o.title.lower() in pool]
@@ -426,6 +427,39 @@ def _boost_order_holds() -> bool:
     s = [ix.score(CORE_TITLES[f])["score"] for f in
          ("amigurumi", "baby", "pillow_cushion", "garment", "home_decor")]
     return all(a > b for a, b in zip(s, s[1:]))
+
+
+def test_only_the_owners_three_families_are_core_and_garments_are_secondary():
+    """Review b18-a B-1: D-OWNER-CORE-FAMILIES names three core families. Garments keep a
+    smaller, separately named routine weighting and are labelled `core: False`."""
+    assert D.CORE_FAMILIES == ("amigurumi", "baby", "pillow_cushion")
+    assert set(D.CORE_BOOST) == set(D.CORE_FAMILIES) and D.GARMENT not in D.CORE_BOOST
+    assert D.SECONDARY_BOOST == {D.GARMENT: 0.18}
+    assert max(D.SECONDARY_BOOST.values()) < min(D.CORE_BOOST.values())
+    ix = D.build_index(_same_evidence(CORE_TITLES), (), now=NOW, teardowns=())
+    assert ix.score("Fixture Cardigan")["core"] is False
+    assert ix.score("Fixture Plush Toy")["core"] is True
+    fams = {r["family"]: r["core"] for r in ix.families()}
+    assert fams.get(D.GARMENT) is not True, fams
+    assert all(fams[f] is True for f in D.CORE_FAMILIES), fams
+
+
+def test_a_missing_market_score_orders_as_the_prior_not_zero():
+    """Review b18-a B-2: `supply.offers` reads a missing market score as demand.PRIOR."""
+    db = _db()
+    ctx = _ctx(db)
+    _fill(db, "busy-one", "busy-two")            # no free slot: both offers wait
+    _offer(ctx, "fx-a", "Tide Line Placemat", "placemat", demand=0.5)
+    _offer(ctx, "fx-b", "Shore Line Placemat", "placemat", demand=0.4)
+    real = supply._market_demand
+    supply._market_demand = lambda ix, o: (
+        {"score": None} if o["slug"] == "fx-a" else {**real(ix, o), "score": D.PRIOR - 0.01})
+    try:
+        order = [o["slug"] for o in supply.offers(db)]
+    finally:
+        supply._market_demand = real
+    # read as 0.0 the missing score would sort last; read as PRIOR it leads PRIOR - 0.01
+    assert order == ["fx-a", "fx-b"], order
 
 
 def test_mutation_unknown_read_as_zero_is_killed():
