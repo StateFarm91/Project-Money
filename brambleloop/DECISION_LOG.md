@@ -2914,3 +2914,52 @@ Reversible by decision. The non-tunable rule is the owner's and is not reversibl
 - **Caps in code, lower-only.** Within `paid_provider_gate.authorize` the caps are 60 images per UTC day and 16 images / CA$2.50 per gallery. The environment can lower them and never raise them. They sit beneath the owner's activation ceilings, so the lower one binds.
 - **Readiness.** It is READY only when `BRAMBLELOOP_IMAGE_KEY_BFL` is present (presence only; the value is never read into output) and the owner's `flux-3-image` generation activation is active. Otherwise it is UNKNOWN with the reason, and the generation job refuses before reserving.
 - **Retention.** `image.generation_rejected` and `image.generation_rejection_rechecked` are lifetime-protected.
+**D-ENG-GARMENT-1: a garment is released as one unit of every size, built from one step list (ENG-GARMENT slice 1, 2026-11-20).**
+`products.garment_families` builds every size of a design from the same recorded steps
+(`Step`/`Piece`): cast on, work even, shape every Nth row, chain on, leave unworked, raglan
+increases, divide, pick up, buttonholes. That is what lets one document print the smallest size
+first with the others in parentheses, and lets `gates.garment_fit.multi_size_problems` read the
+text back with its own grammar and compare every row of every size with the compiler. A design
+whose steps differ between sizes is refused (GARMENT_STEPS_DIFFER). `products.garment_release`
+certifies every size through the unchanged `gates.certificate.certify` chain, then the garment
+gates over the run; the release is granted only when every size is and the gates find nothing.
+**D-ENG-GARMENT-2: constructions are chosen so the generic assembler can measure every join honestly.**
+`cir.assembly` compares whole named edges and places partial joins only on one piece's rows, so a
+sleeve straddling separate front and back panels cannot be measured. The four constructions are
+therefore: top-down raglan (one piece, sleeves resume holds, bands picked up along whole front
+edges); flat one-piece with built-in sleeves (folded at a slash neck, side/underarm seams are
+self-seams, cuffs and neckband picked up); side-to-side panels (vest: shoulder and side seams join
+equal whole edges, the seam notes state the rows/stitches sewn and `garment_fit` checks them);
+drop-shoulder panels (one body panel over the shoulders, sleeves sewn on centred on the shoulder
+line). Separate front/back panels with set-in sleeves wait for a placed-on-both-pieces join in
+`cir.assembly`. Reversible by decision.
+**D-ENG-GARMENT-3: the back-loop band is not called "rib".**
+`gates.asset_truth._TECHNIQUE_CLAIMS` defines ribbing as post stitches; a back-loop sc band is a
+ridged band. Titles, notes and the PDF say "band" / "back-loop band", and the band fabric's
+gauge is stated as its own fabric, at the main gauge (same hook, same stitch; the twin computes
+every length at the main gauge and certification refuses a second gauge regime, F-754). Not
+re-decidable without changing the technique gate.
+**D-ENG-GARMENT-4: child and baby garments are inside the child-safety gate, with garment rules.**
+A garment graded on the CYC baby table, or on the child table at 12 and under, is in scope
+whatever its title (`child_safety.garment_months`). New check GARMENT_CLOSURES: under 3, any
+buttonhole FAILS (no buttons, no ties); an older child's buttonhole is UNKNOWN (button security
+is a physical pull test): held. A band picked up and worked into an edge is crocheted fabric, not
+a sewn-on piece (no seam-pull profile), and must still meet its edge (JOINS_VALIDATED measures it).
+A chain the next row works into (sleeves chained on, a bridged neck) is fabric; a chain in a last
+row, or one the next row leaves unworked, is still a loop. A seamed child garment still needs
+physical evidence. Not weakened: every previous FAIL still fails.
+**D-ENG-GARMENT-5: the garment PDF is one document for every size and refuses itself if its own text is wrong (slice 2).**
+`publish.garment_pdf.build` renders only a granted release and re-reads what it rendered:
+the parenthesised pattern is expanded per size and compared with the compiler, the size chart
+is re-derived from the twin, the schematic SVG and its legend must be present, and a child's
+garment's rendered text must pass the child-safety content checks. The schematic is drawn from
+each size's rows (one primitive list rendered as SVG and onto the page), with lettered
+dimensions and a per-size legend. Reversible by decision.
+**D-ENG-GARMENT-6: garments route only where a research concept is proven end to end, on that body table (slice 3).**
+`construction_families.garment_route` admits (garment_raglan, cardigan) on the adult table,
+(garment_raglan, baby) on the baby table and (garment_one_piece, sweater) on the child table,
+each pinned by a test that runs intake -> draft -> every size compiled and certified -> US/UK
+PDF. Side-to-side and drop-shoulder are PARTIAL (they certify and render, but no intake proof).
+`cir.draft` drafts a garment as one release of every size, gated as a run, then sends each size
+through the unchanged compile -> certify chain. A garment title naming a single size is refused
+at intake. Reversible by decision; widen only by adding a proof.

@@ -397,15 +397,27 @@ def test_childrens_gates_still_apply_to_a_routed_family_and_baby_items_are_not_r
 # ---- the router itself ------------------------------------------------------------------------
 
 
+def _proof_exists(proof: str) -> bool:
+    """A proof is `tests/<file>.py::<test>` naming a test function that exists in that file."""
+    import ast
+
+    path, _, name = proof.partition("::")
+    if not (path.startswith("tests/test_") and name):
+        return False
+    tree = ast.parse((ROOT / path).read_text())
+    return any(isinstance(n, ast.FunctionDef) and n.name == name for n in tree.body)
+
+
 def test_router_admits_only_verified_or_physical_gated_families():
     admitted = {k for k, f in CF.FAMILIES.items() if f.status in CF.ADMITTED_STATUSES}
-    assert admitted == {FC.FLAT_PANEL, FC.VESSEL, FC.TAPESTRY, FC.PANEL_PAIR}, admitted
-    # Every admitted family names the test in THIS file that proves it, and that test exists.
-    here = {n for n, _ in inspect.getmembers(sys.modules[__name__], inspect.isfunction)}
+    assert admitted == {FC.FLAT_PANEL, FC.VESSEL, FC.TAPESTRY, FC.PANEL_PAIR,
+                        FC.AMIGURUMI, FC.ENVELOPE, FC.APPLIQUE, FC.LOVEY,
+                        CF.GARMENT_RAGLAN, CF.GARMENT_ONE_PIECE}, admitted   # ENG-GARMENT
+    # Every admitted family names the test that proves it, and that test exists (ENG-PLUSH:
+    # the core-family proofs live in tests/test_eng_plush.py).
     for key in admitted:
         proof = CF.FAMILIES[key].proof
-        assert proof.startswith("tests/test_eng_families.py::"), (key, proof)
-        assert proof.split("::")[1] in here, (key, proof)
+        assert _proof_exists(proof), (key, proof)
     # A partial engine is held even when the route and the declaration agree.
     got = CF.route(category="bag", title="Simple Drawstring Pouch", form="pouch",
                    construction="in_the_round")
@@ -417,7 +429,7 @@ def test_router_admits_only_verified_or_physical_gated_families():
 
 def test_router_family_table_is_the_report_and_names_every_unbuilt_family():
     table = {r["family"]: r for r in CF.family_table()}
-    for key in ("amigurumi", "mosaic", "cable", "motif", "garment", "ornament", "hat"):
+    for key in ("mosaic", "cable", "motif", "garment", "ornament", "hat"):
         assert table[key]["status"] == CF.NONE and table[key]["gaps"], key
     report = (ROOT / "research/final_build/w6/construction_families.md").read_text()
     for key, row in table.items():
@@ -443,6 +455,7 @@ FEATURE_SAMPLES = {
     "waffle_stitch": "Waffle", "lid": "Lidded", "handles": "Handled",
     "amigurumi_features": "Bunny Ears", "trim": "Fringe", "lining_pocket": "Lined",
     "motif_assembly": "Hexie", "colourwork": "Fair Isle", "garment_or_wearable": "Beanie",
+    "embroidery": "Embroidered",
 }
 # One plain, admitted concept per admitted family: (category, form, construction, title).
 ADMITTED_PLAIN = {
@@ -555,7 +568,21 @@ def test_every_admitted_family_category_pair_names_an_existing_certifying_proof(
                ("wedding", "pillow", "flat_rows", "Wedding Ring Cushion"),
                ("pet", "basket", "in_the_round", "Snug Cat Bed"),
                ("pet", "basket", "in_the_round", "Cat Bed"),
-               ("pet", "basket", "in_the_round", "Kitten Nest")]
+               ("pet", "basket", "in_the_round", "Kitten Nest"),
+               ("toy", "toy", "amigurumi_shaping", "Ball Bear Amigurumi"),
+               ("amigurumi", "toy", "in_the_round", "Cosy Rabbit"),
+               ("pillow", "pillow", "flat_rows", "Linen Envelope Cushion Cover"),
+               ("pillow", "pillow", "flat_rows", "Highland Cow Cushion Cover"),
+               ("baby", "toy", "amigurumi_shaping", "Bear Lovey"),
+               ("toy", "toy", "amigurumi_shaping", "Bunny Lovey"),
+               ("amigurumi", "toy", "in_the_round", "Cosy Rabbit Lovey"),
+               # ENG-GARMENT: graded garments (each pair pinned in tests/test_eng_garment.py)
+               ("cardigan", "fitted_garment", "top_down_yoke", "Fernway Raglan Cardigan"),
+               ("baby", "fitted_garment", "top_down_yoke", "Hush Baby Cardigan"),
+               ("sweater", "fitted_garment", "flat_rows", "Puddle Lane Kids Sweater"),
+               ("sweater", "fitted_garment", "flat_rows", "Cosy Adult Sweater"),
+               ("vest", "fitted_garment", "side_to_side", "Driftline Vest"),
+               ("pullover", "fitted_garment", "bottom_up", "Kestrel Pullover")]
     admitted = set()
     for cat, form, constr, title in probes:
         got = CF.route(category=cat, title=title, form=form, construction=constr)
@@ -565,8 +592,9 @@ def test_every_admitted_family_category_pair_names_an_existing_certifying_proof(
     for pair in sorted(admitted):
         proof = CF.PAIR_PROOFS.get(pair)
         assert proof, f"{pair} is admitted but names no certifying proof (CF.PAIR_PROOFS)"
-        assert proof.startswith("tests/test_eng_families.py::"), (pair, proof)
-        assert proof.split("::")[1] in here, (pair, proof)
+        assert _proof_exists(proof), (pair, proof)
+        if proof.startswith("tests/test_eng_families.py::"):
+            assert proof.split("::")[1] in here, (pair, proof)
     # And no proof is claimed for a pair the router never admits.
     assert set(CF.PAIR_PROOFS) >= admitted
     assert set(CF.PAIR_PROOFS) == admitted, \

@@ -982,6 +982,65 @@ def handle_creative_candidates_file(ctx: JobContext) -> dict:
             "unchanged": unchanged, "errors": errors}
 
 
+def _draft_garment(ctx: JobContext, slug: str, i: dict) -> dict:
+    """ENG-GARMENT: route, build every size, gate the run, then compile and certify each size.
+
+    The garment is drafted only into a family `construction_families.garment_route` admits
+    (a pinned end-to-end proof for its category and body table). Every size is built from one
+    step list (`products.garment_families`), certified through the release chain and the
+    garment gates (`products.garment_release.certify`); a run with any refused size or gate
+    finding is held with its reasons. A granted run sends each size's CIR through the same
+    `cir.compile` -> `gate.certify` chain every product takes."""
+    from types import SimpleNamespace
+
+    from ..creative import construction_families as CF
+    from ..products import garment_release as GR
+
+    title, category = str(i.get("title") or ""), str(i.get("category") or "")
+    route = CF.route(category=category, title=title, form="fitted_garment",
+                     construction=str(i.get("construction") or ""), slug=slug,
+                     premise=str(i.get("premise") or ""))
+
+    def held(reason: str, gate: str = "construction") -> dict:
+        ctx.audit("cir.draft_refused", artifact=slug,
+                  detail={"reason": reason[:400], "gate": gate, "category": category,
+                          "hold": reason.split(" ", 1)[0]})
+        return {"artifact": slug, "drafted": False, "gate": gate, "construction": "garment",
+                "hold": reason.split(" ", 1)[0], "reasons": [reason[:300]]}
+
+    if not route["admitted"]:
+        return held(route["reason"])
+    concept = SimpleNamespace(
+        key=slug, title=title, form="fitted_garment",
+        construction=str(i.get("construction") or ""), premise=str(i.get("premise") or ""),
+        notes=str(i.get("notes") or ""), recipient=str(i.get("recipient") or "self"),
+        feeling=str(i.get("feeling") or "serene"))
+    try:
+        spec = GR.spec_for(concept)
+    except GR.GarmentRefused as exc:
+        return held(str(exc))
+    if spec.audience != route.get("audience"):
+        return held(f"{CF.HOLD_PREFIX}{route['family']} -- the concept's recipient sizes it "
+                    f"for {spec.audience} but its title and category say {route.get('audience')}")
+    release = GR.certify(GR.build(spec))
+    if not release.granted:
+        return held(f"{CF.HOLD_PREFIX}{route['family']} -- the garment run is refused: "
+                    + "; ".join(release.reasons()[:3]), gate="garment")
+    queued = []
+    for size, cir in release.cirs.items():
+        ctx.enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
+                    idempotency_key=f"compile:{cir.slug}:{cir.version}:{cir.fingerprint}")
+        queued.append(f"{cir.slug}@{cir.version}")
+    ctx.audit("cir.drafted", artifact=slug,
+              detail={"source": "products.garment_release", "family": route["family"],
+                      "sizes": list(release.sizes), "queued": queued})
+    return {"artifact": slug, "drafted": True, "construction": route["family"],
+            "garment": {"family": route["family"], "audience": spec.audience,
+                        "sizes": list(release.sizes), "queued": queued,
+                        "construction": spec.construction},
+            "rows": sum(len(c.rows) for c in next(iter(release.cirs.values())).components)}
+
+
 @handlers.register("cir.draft")
 def handle_cir_draft(ctx: JobContext) -> dict:
     slug = ctx.job.inputs["slug"]
@@ -1104,6 +1163,9 @@ def handle_cir_draft(ctx: JobContext) -> dict:
         opportunity_score=i.get("score", i.get("opportunity_score", 0.0)),
         season=i.get("season"), risk_class=i.get("risk_class", "A"),
     )
+    if i.get("form") == "fitted_garment":
+        # ENG-GARMENT: a graded garment is one release of every size, never a flat panel.
+        return _draft_garment(ctx, slug, i)
     lineage = _fallback_lineage(seed, dict(i), concept)
     from ..creative import fallback_constructions as FC
     from ..creative.prototype import PrototypeRefused, source_provenance
@@ -1197,6 +1259,41 @@ def handle_cir_draft(ctx: JobContext) -> dict:
                     concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
                     concept.source_brief, primitives)
             cir = FC.tapestry_basket(concept, provenance=provenance)
+        elif route["family"] == FC.AMIGURUMI:
+            provenance = None
+            if lineage["known"]:
+                concept.source_provenance = lineage["source"]
+                concept.source_brief = lineage["brief"]
+                primitives = (FC.AMIGURUMI_PRIMITIVES
+                              + tuple(p for p in lineage["primitives"]
+                                      if p != "runtime.pipeline.concept_to_cir"))
+                provenance = source_provenance(
+                    concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
+                    concept.source_brief, primitives)
+            cir = FC.amigurumi(concept, provenance=provenance)
+        elif route["family"] in (FC.ENVELOPE, FC.APPLIQUE, FC.LOVEY):
+            # ENG-PLUSH slices 2-3: cushion covers (creative.cushions) and loveys
+            # (creative.baby), drafted from modelled pieces only.
+            from ..creative import baby as _baby
+            from ..creative import cushions as _cushions
+
+            builder = {FC.ENVELOPE: "creative.cushions.envelope_cover",
+                       FC.APPLIQUE: "creative.cushions.envelope_cover",
+                       FC.LOVEY: "creative.baby.lovey"}[route["family"]]
+            provenance = None
+            if lineage["known"]:
+                concept.source_provenance = lineage["source"]
+                concept.source_brief = lineage["brief"]
+                primitives = ((builder, "cir.assembly._surface_join") + tuple(
+                    p for p in lineage["primitives"] if p != "runtime.pipeline.concept_to_cir"))
+                provenance = source_provenance(
+                    concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
+                    concept.source_brief, primitives)
+            if route["family"] == FC.LOVEY:
+                cir = _baby.lovey(concept, provenance=provenance)
+            else:
+                cir = _cushions.envelope_cover(concept, provenance=provenance,
+                                               applique=route.get("applique"))
         elif route["family"] == FC.POUCH:
             provenance = None
             if lineage["known"]:

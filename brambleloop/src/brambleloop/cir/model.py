@@ -416,6 +416,14 @@ class Component:
     # fingerprint, the writer's piece heading and the reverse compiler's comparison.
     work_direction: "WorkDirection | None" = None
     feature: "Feature | None" = None
+    # ENG-PLUSH: a closed stuffed piece (an amigurumi body) states its stuffing point and its
+    # closure as structure, not prose. `stuff_at_round` is the round after which the piece is
+    # stuffed (the opening must still admit a hand: `cir.closed_forms`); `closes` says the last
+    # round is gathered shut. Both are validated by the compiler (`cir.closed_forms.check`),
+    # printed by the writer and read back by the reverse compiler. Omitted from `to_dict` at
+    # their defaults, so no existing Product Truth digest moves.
+    stuff_at_round: int | None = None
+    closes: bool = False
 
     @property
     def rows_run_vertically_on_the_body(self) -> bool:
@@ -494,10 +502,14 @@ class Seam:
     # join the side of a body panel: it joins a slit inside it. A join targeting an outer
     # edge when it means an opening compares the wrong two lengths and reports a garment
     # that assembles perfectly well as impossible.
+    # "surface" (ENG-PLUSH) is not an edge: piece_a is laid flat ON piece_b (an appliqué on
+    # a cushion front, a lovey's head on its square), centred on row `at_round` and
+    # `stitches_from_centre` stitches from piece_b's centre line; `cir.assembly` checks it lies
+    # inside piece_b and that a mirrored pair does not overlap itself.
     edge_a: Literal["top", "bottom", "left", "right",
-                    "fold", "perimeter", "opening"] | None = None
+                    "fold", "perimeter", "opening", "surface"] | None = None
     edge_b: Literal["top", "bottom", "left", "right",
-                    "fold", "perimeter", "opening"] | None = None
+                    "fold", "perimeter", "opening", "surface"] | None = None
 
     @property
     def names_its_edges(self) -> bool:
@@ -739,9 +751,11 @@ class CIR:
         if out.get("grading") is None:
             out.pop("grading", None)
         for comp in out.get("components", []):
-            for optional in ("gauge", "work_direction", "feature"):
+            for optional in ("gauge", "work_direction", "feature", "stuff_at_round"):
                 if comp.get(optional) is None:
                     comp.pop(optional, None)
+            if not comp.get("closes"):
+                comp.pop("closes", None)
             for row in comp.get("rows", []):
                 _drop_null_op_colour(row.get("ops", []))
         return out
@@ -781,6 +795,8 @@ class CIR:
                 gauge=Gauge(**c["gauge"]) if c.get("gauge") else None,
                 work_direction=c.get("work_direction"),
                 feature=c.get("feature"),
+                stuff_at_round=c.get("stuff_at_round"),
+                closes=bool(c.get("closes", False)),
                 rows=[
                     Row(
                         index=r["index"],

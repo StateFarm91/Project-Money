@@ -103,6 +103,41 @@
 > - **Safety.** Nothing buys: no purchase path, no buy control, metadata only. Intake (`teardown.intake.receive`) now accepts a pick from any watchlist shop into the quarantined library.
 > - **Not verified.** Nothing here ran against production scan data (this checkout has no production database), so the real number of picks, shops with picks and total are UNKNOWN until the first production run. Whether the observed listings carry `options.listing_type` for every shop is also UNKNOWN: listings without it are excluded and counted as `digital_status_unknown`.
 > - Tests: `tests/test_benchbuy.py`, the benchbuy check in `check.mjs`. Review request: `research/final_build/w6/review_requests/benchbuy.md`.
+> **2026-11-20 — ENG-GARMENT slices 2-3 (`eng/garment`, NOT merged, NOT deployed).**
+> - Slice 2, `publish/garment_pdf.py` + `publish/garment_schematic.py`: one PDF per edition (US, UK) for all sizes,
+>   with:
+>   - overview table, supplies with balls per size and a gauge for each fabric;
+>   - construction narrative, size chart (body vs finished, ease, balls/yards/metres), schematic SVG from the rows;
+>   - tips, abbreviations, multi-size pattern, finishing with pick-up rates, child-safety section where it applies;
+>   - yarn substitution, our own licence (commerce.terms), About.
+>
+>   The PDF refuses itself if its text does not read back to the compiler or the twin. 5 designs x 2 editions render.
+> - Slice 3, routing: `construction_families` garment families. PAIR_PROOFS cover only (raglan, cardigan/adult),
+>   (raglan, baby/baby) and (one_piece, sweater/child). `cir.draft` drafts a garment as one release and sends
+>   every size through compile -> certify; intake refuses a garment title naming one size.
+>   End to end with real handlers: adult cardigan (9 sizes), child sweater (6), baby cardigan (5), each
+>   concept -> all sizes granted -> US/UK PDF with schematic and size chart.
+> - Follow-up: `products/garments.drop_shoulder_flat` seam notes lack "through both loops" (Harbour text change +
+>   version bump), so child-table tournament drop-shoulder garments are held by the child gate.
+> - NOT done: no garment physically made, no photos, side-to-side/drop-shoulder not admitted at intake, no
+>   listing/product-row work for a multi-size release beyond the per-size certified releases.
+> **2026-11-20 — ENG-GARMENT slice 1 (`eng/garment`, NOT merged, NOT deployed).** Garments as a family that
+> certifies end to end, every size. Built on INTEG2 64146306 + eng/plush d4aaf9b6 (which carries eng/families).
+> - `products/garment_families.py`: four constructions (top-down raglan, flat one-piece with built-in sleeves,
+>   side-to-side, drop-shoulder panels) over a recorded step list; back-loop bands at hems and cuffs; picked-up
+>   front bands with buttonholes, cuffs and neckbands; balls and yards per size from the twin.
+> - `cir/graded.py`: the CYC baby table (3-24 months, read 2026-11-20), so baby sizes are sourced, never invented.
+> - Five original designs (`products/garment_release.DESIGNS`): Fernhollow raglan cardigan (adult, 9 sizes,
+>   buttons), Brookside kids sweater (child 2-12, one-piece), Little Wren baby cardigan (3-24 m, no buttons),
+>   Driftline side-to-side vest (adult, 9), Kestrel drop-shoulder pullover (adult, 9). **Every size of all five is
+>   granted by the unchanged release chain** and passes `gates/garment_fit.py` (stitch counts, shaping, seam match,
+>   pick-up rates, neck and armhole fit, finished vs target, ease band, yardage and size-chart claims).
+> - `publish/garment_writer.py`: one text for every size, smallest first, others in parentheses, a stitch count
+>   after every row line, US and UK; read back per size by `garment_fit.multi_size_problems` (0 problems on all 10).
+> - `gates/child_safety.py`: child/baby garments in scope; GARMENT_CLOSURES (no buttonholes under 3); picked-up
+>   bands measured, not "sewn"; worked-into chains are fabric. Nothing that failed before passes now.
+> - NOT yet: the garment PDF (schematic, size chart, licence page), concept intake routing (PAIR_PROOFS) - slices 2-3.
+>   No real garment has been made; physical fit is unproven (class B relaxed designs only; fitted is refused).
 
 > **2026-11-19 — ENG-RECOVERY fix round 1 (`eng/recovery`, NOT merged, NOT deployed).** Main's review was DO NOT SHIP.
 > - H1: the spend classifier now FAILS CLOSED. `swarm.orchestrate.FREE_JOB_TYPES` is an explicit allow-list

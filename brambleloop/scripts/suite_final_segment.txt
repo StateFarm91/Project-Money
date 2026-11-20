@@ -283,3 +283,4 @@ tests/test_eng_vis_flux.py
 tests/test_product_run.py
 tests/test_first_listing_doors.py
 tests/test_eng_improve.py
+tests/test_eng_plush.py
