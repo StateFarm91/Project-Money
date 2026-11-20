@@ -112,4 +112,25 @@ The job writes `OperatingReading(kind="ops.daily_ledger", period_key=<day>)`.
   - the worker-run wiring.
 - **Mutants:** see the table below.
 - **`test_v11_pwa_browser`:** 235 passes, 0 failures. It has two new Daily checks, and the More list is pinned with `daily`.
-- **Required suites:** see the table below.
+- **Required suites:** see the run table at the end (added by ENG-DAILY-FIX, review of a795be17 finding 6).
+
+
+## Run table (added by ENG-DAILY-FIX)
+
+The original slice-1 run would have shown `test_w4_readback_evidence` failing (22/23: no `daily_ledger`
+readback row). After the fix, at `b77b1feb` (INTEG4 259e47c4 merged), clean tree, run record
+`artifacts/suite_runs/20261120T045050Z-21073`, JOBS=6, 98 s:
+
+| suite | OK | failed |
+|---|---|---|
+| test_eng_daily | 27 | 0 |
+| test_v11_pwa_static | 86 | 0 |
+| test_w4_readback_evidence | 23 | 0 |
+| test_s4_p0_board | 18 | 0 |
+| test_vacuity | 8 | 0 |
+| test_w4_resume_runner | 40 | 0 |
+| test_eng_improve | 24 | 0 |
+| test_eng_learn | 13 | 0 |
+
+TOTAL PASSING 239, 0 failing. `test_v11_pwa_browser` (not in the required set): 264 passes, 0 failures.
+Details: `ENG-DAILY-FIX.md`.
