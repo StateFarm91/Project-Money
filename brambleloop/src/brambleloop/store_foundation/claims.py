@@ -107,7 +107,7 @@ CLAIMS: tuple[Claim, ...] = (
           "unchanged"),
     Claim("C-07", "commercial use of finished items",
           "finished items may be sold by individual makers and small businesses, not "
-          "manufactured at scale",
+          "manufactured at scale, with a credit to Brambleloop Studio as the pattern designer",
           QUALIFIED,
           "commerce.terms FINISHED_ITEM_SALE (decided by the build); terms.enforceable is "
           "False and every surface says 'not yet been through legal review'.",

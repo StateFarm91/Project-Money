@@ -440,7 +440,17 @@ def handle_concept_intake(ctx: JobContext) -> dict:
     renewed = watchlist.renew_approved_support(
         ctx.db, now=at, expiring_within=watchlist_research.RENEW_AHEAD)
     wrote = proposal_writer.write(ctx.db, today=today)
+    # ENG-DEMAND-SUPPLY: original core-family concepts from the top demand clusters, attached
+    # to evidence tasks carrying the stored demand reading. Intake judges every one below.
+    from ..radar import demand_originals
+
+    try:
+        originals = demand_originals.run(ctx.db, audit=ctx.audit, today=today)
+    except Exception as exc:  # noqa: BLE001 - recorded; intake still runs
+        originals = {"proposed": [], "error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+        ctx.audit("demand.originals_failed", detail={"error": originals["error"]})
     out = intake.run(ctx.db, audit=ctx.audit, enqueue=ctx.enqueue, today=today)
+    out["originals_proposed"] = len(originals.get("proposed") or [])
     out["proposals_written"] = len(wrote["written"])
     out["supports_renewed"] = sum(1 for r in renewed if r.get("renewed"))
     # ENG-RESEARCH: every cycle ends in a recorded outcome -- the opportunities and the stage

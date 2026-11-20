@@ -151,7 +151,11 @@ def test_synthetic_scans_yield_100_evidence_backed_original_concepts():
         assert r.evidence["listings"] >= P.MIN_SIGNAL_LISTINGS
     # Families with variation, across the construction spectrum.
     fams = {r.family for r in rows}
-    assert {"panel_pair", "vessel", "tapestry", "flat_panel", "amigurumi", "garment"} <= fams
+    assert {"panel_pair", "vessel", "tapestry", "flat_panel", "amigurumi"} <= fams
+    # Garments now route to their named engines (ENG-GARMENT), so the family is the garment
+    # construction (`garment_raglan`, `garment_drop_shoulder`, ...), never the bare word.
+    assert any(f.startswith("garment_") for f in fams), fams
+    assert "garment" not in fams, fams
 
 
 def test_no_competitor_words_reach_a_concept():
@@ -224,9 +228,23 @@ def test_copied_titles_are_refused():
 def test_held_families_are_visible_and_never_dropped():
     db, out = _seeded()
     h = out["health"]
-    for fam in ("amigurumi", "garment", "hat", "mosaic", "c2c", "cable"):
-        assert h["held_reasons"].get(f"construction_unsupported:{fam}"), (fam, h["held_reasons"])
+    held_keys = {k for k, n in h["held_reasons"].items()
+                 if k.startswith("construction_unsupported:") and n}
+    assert held_keys, h["held_reasons"]
+    # Families with no engine yet: each is held under its own key, with a count.
+    for fam in ("amigurumi", "hat", "mosaic", "c2c", "cable"):
+        assert f"construction_unsupported:{fam}" in held_keys, (fam, h["held_reasons"])
         assert h["by_family"][fam].get("held"), fam
+    # Garments: held under the garment construction that refused them, never a bare
+    # `garment` key (the engines exist now; the key names which construction held it).
+    garment_keys = {k for k in held_keys if k.startswith("construction_unsupported:garment_")}
+    assert garment_keys, h["held_reasons"]
+    assert "construction_unsupported:garment" not in h["held_reasons"], h["held_reasons"]
+    for k in garment_keys:
+        assert h["by_family"][k.split(":", 1)[1]].get("held"), k
+    # Every held construction key is visible per family too (nothing is dropped between them).
+    for k in held_keys:
+        assert h["by_family"][k.split(":", 1)[1]].get("held"), k
     assert h["held_reasons"].get("#108 silhouette")
     held = [r for r in _pool(db) if r.state == P.HELD]
     assert all(r.reasons for r in held)

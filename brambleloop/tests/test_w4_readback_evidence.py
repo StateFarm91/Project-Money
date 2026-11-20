@@ -571,8 +571,10 @@ def test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart():
         # ENG-VISUAL: the visual-pipeline row is advisory (WARN or PASS only).
         # ENG-LEARN: the learning-loops row is advisory (WARN or PASS only).
         # ENG-MOTIF-BACKLOG: the recovery row is advisory (WARN or PASS only).
+        # ENG-DAILY: the daily-ledger row is advisory (WARN or PASS; UNKNOWN when unreadable).
         advisory = ("competitor_scans", "scheduler", "first_listing_readiness",
-                    "motif_backlog_recovery", "visual_pipeline", "learning")
+                    "motif_backlog_recovery", "visual_pipeline", "learning", "daily_ledger",
+                    "engine_demand")
         assert all(i["verdict"] in (readback.PASS, readback.FAIL, readback.UNKNOWN)
                    for i in out["items"] if i.get("section") not in advisory)
         assert by["competitor shops scanned (nine-shop research network)"]["verdict"] in (
@@ -590,7 +592,23 @@ def test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart():
             readback.PASS, readback.WARN), by
         assert by["learning loops (image + pattern) progress"]["verdict"] in (
             readback.PASS, readback.WARN), by
-        assert len(out["items"]) == 19, out["items"]
+        assert by["daily production ledger (14 UTC days)"]["verdict"] in (
+            readback.PASS, readback.WARN), by
+        # ENG-DEMAND-SUPPLY: the advisory engine-demand row (WARN or PASS only).
+        assert by["engine demand (build this engine next)"]["verdict"] in (
+            readback.PASS, readback.WARN), by
+        assert len(out["items"]) == 21, out["items"]
+        # ENG-DAILY: the daily row never PASSes on UNKNOWN.
+        for sec in (None, {"readable": False, "error_class": "OperationalError"}):
+            assert readback._judge_section("daily_ledger", sec, None)[0] == readback.UNKNOWN
+        assert readback._judge_section("daily_ledger", {"readable": True}, None)[0] == \
+            readback.WARN
+        assert readback._judge_section("daily_ledger", {"readable": True, "stage_status_today": {
+            "scans": "producing", "lessons": "UNKNOWN"}}, None)[0] == readback.WARN
+        assert readback._judge_section("daily_ledger", {"readable": True, "stage_status_today": {
+            "scans": "zero_output"}}, None)[0] == readback.WARN
+        assert readback._judge_section("daily_ledger", {"readable": True, "stage_status_today": {
+            "scans": "producing", "lessons": "not_yet_due"}}, None)[0] == readback.PASS
         # An unreadable section is UNKNOWN, never PASS.
         v, _ = readback._judge_section("weekly_jobs", {"readable": False}, True)
         assert v == readback.UNKNOWN

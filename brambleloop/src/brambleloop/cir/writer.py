@@ -162,6 +162,26 @@ def construction_lines(comp: Component) -> list[str]:
     return []
 
 
+def stuff_line(comp: Component) -> str:
+    """ENG-PLUSH: the stuffing point, in a fixed grammar the reverse compiler reads back."""
+    return (f"Stuff after Rnd {comp.stuff_at_round}: stuff firmly with new polyester "
+            f"fibrefill, pushing it out to the widest round so the piece keeps its shape; "
+            f"top up as the opening closes.")
+
+
+def close_line(comp: Component, result) -> str:
+    """ENG-PLUSH: the closure of a closed piece, in a fixed grammar the reverse compiler reads."""
+    last = comp.rows[-1]
+    try:
+        count = result.row(comp.name, last.index).stitch_count
+    except (KeyError, AttributeError):
+        count = last.declared_count
+    return (f"Close after Rnd {last.index}: fasten off leaving a 20 cm tail, thread it through "
+            f"the front loop of each of the last {count} sts, pull tight to close the hole, "
+            f"then weave the tail through at least 5 cm of stitches in two directions and "
+            f"trim it inside the piece.")
+
+
 ASSEMBLY_HEADING = "## Assembly"
 
 _SEAM_WORDS = {
@@ -190,7 +210,15 @@ def write_seam(seam, position: int, unit: str = "round") -> str:
 
         where = (f"the {seam.piece_a} {SEAM_CONNECTOR.get(seam.method, 'to')} "
                  f"the {seam.piece_b}")
-    if seam.is_placed:
+    if seam.is_placed and seam.edge_b == "surface":
+        # ENG-PLUSH: laid on the piece, not along an edge.
+        where = where.replace(f" to the {seam.piece_b}", f" onto the {seam.piece_b}", 1)
+        where += f" centred on {unit} {seam.at_round}"
+        if seam.stitches_from_centre:
+            where += f", {seam.stitches_from_centre} sts from the centre line"
+        if seam.mirrored:
+            where += ", and the second one mirrored on the far side"
+    elif seam.is_placed:
         last = seam.at_round + seam.spans_rounds - 1
         # "rows" on a piece worked in flat rows: a maker counting rows of a flat panel is
         # not counting rounds, and the reader accepts either word.
@@ -314,7 +342,8 @@ def finishing_lines(cir: CIR, *, width_cm: float | None = None,
     # up, stuffed lightly with a towel" is vessel advice; on a toy or a stuffed pillow it
     # tells the maker to soak a finished, stuffed object. Branches on the assembly's own
     # stuff_before_closing, never on a title.
-    stuffed = any(getattr(s, "stuff_before_closing", False) for s in (cir.assembly or []))
+    stuffed = any(getattr(s, "stuff_before_closing", False) for s in (cir.assembly or [])) \
+        or any(c.stuff_at_round is not None for c in cir.components)   # ENG-PLUSH
     if stuffed:
         out.append("This piece is stuffed and closed, so it is not blocked: do not soak, pin "
                    "or press it. Ease its shape and any sewn-on pieces into place with your "
@@ -452,7 +481,11 @@ def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US", *,
         # the rows, so it cannot disagree with them.
         cycle = detect_cycle(comp.rows)
         state_color = len(cir.colors) > 1
+        stuff_pending = comp.stuff_at_round is not None
         for row in comp.rows:
+            if stuff_pending and row.index > comp.stuff_at_round:
+                out.append(stuff_line(comp))
+                stuff_pending = False
             if cycle is not None and cycle.covers(row.index):
                 continue
             try:
@@ -465,6 +498,10 @@ def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US", *,
                 out.append(held)
             if cycle is not None and row.index == cycle.end:
                 out.append(describe(cycle, comp.rows[-1].index))
+        if stuff_pending:
+            out.append(stuff_line(comp))
+        if comp.closes and comp.rows:
+            out.append(close_line(comp, result))
         out.append("")
 
     out.extend(assembly_lines(cir))

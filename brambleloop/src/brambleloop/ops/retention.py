@@ -113,6 +113,21 @@ NEVER_PRUNED_TABLES = ("oauth_credentials",)
 # The point is not this list's current contents; it is that the next lifetime aggregate
 # somebody writes has to come here and make a decision.
 KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+    # ENG-DAILY: the daily production ledger counts these per UTC day over the last 14 days
+    # (24 h for the budget refusals its diagnosis reads), far inside AUDIT_RETENTION_DAYS.
+    "intel.watchlist_scan": ("windowed",
+                             "ops.daily_ledger._shop_scans counts the last 14 days per shop"),
+    "listing.package": ("windowed", "ops.daily_ledger counts ready packages over 14 days"),
+    "concept.intake_refused": ("windowed",
+                               "ops.daily_ledger._causes counts the last 24 hours"),
+    # ENG-DAILY fix (review of a795be17, B2): the fallback change-request row is deduplicated
+    # per fingerprint per UTC day by reading today's rows only.
+    "ops.ecr_pending": ("windowed",
+                        "ops.daily_ledger._pending_exists reads the current UTC day"),
+    "store.publish_blocked": ("windowed",
+                              "ops.daily_ledger._causes counts the last 24 hours"),
+    "job.budget_exceeded": ("windowed",
+                            "ops.daily_ledger._causes counts the last 24 hours"),
     # ENG-RECOVERY: the thrash-breaker re-arm reads the boot rows of the RUNNING commit (the
     # newest 500) for when this release first booted. A release is weeks old at most, far
     # inside the horizon; were its first boot row pruned, a later boot of the same release
@@ -227,6 +242,11 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                        "products.supply.offers reads each waiting offer, newest per key"),
     "supply.admitted": ("lifetime_total",
                         "products.supply.offers/_taken read every admission by key"),
+    # ENG-DEMAND-SUPPLY: the "build this engine next" list is read from these rows (the
+    # newest per concept); pruning one would drop a concept from the engine-demand ranking.
+    "supply.engine_demand": ("lifetime_total",
+                             "products.demand.recorded_engine_demand reads the newest row "
+                             "per concept for the ranked engine-demand list"),
     "gate.halted": ("lifetime_total",
                     "release_recovery.halted_releases compares each release's newest halt with "
                     "its newest certify outcome (per artifact, which keep-per-action does not "
@@ -930,6 +950,13 @@ KNOWN_READ_PREFIXES: dict[str, tuple[str, str]] = {
 # where that is classified. Every entry is checked to still exist; an unresolved site not
 # listed here makes `unknown_read_actions` fail closed.
 UNRESOLVED_READ_SITES: dict[str, str] = {
+    # ENG-DAILY: `refusals` is a tuple from `daily_ledger.STAGES` (mjs.scan_blocked,
+    # concept.intake_refused, cir.draft_refused, gate.blocked, gate.halted,
+    # assets.deliverable_problems, assets.listing_images_blocked,
+    # listing.package_release_failed, store.publish_refused, store.publish_blocked), counted
+    # over the last 24 hours; windowed, each classified by its own reader above.
+    "ops/daily_ledger.py::_causes": (
+        "AuditLog.action in a daily_ledger.STAGES refusal tuple, last 24 h; windowed"),
     "app/command_center/emergency.py::_live_grants": (
         "loops over (publication_authority, activation_authority) modules and reads "
         "mod.APPROVED: owner.publication.approved / owner.activation.approved, both "

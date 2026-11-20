@@ -178,7 +178,9 @@ def test_an_honestly_qualifying_proposal_clears_the_gates_deterministic_checks()
     row = research_flow.lineage(db)[0]
     score = row["proposals"][0]["score_job"]
     assert score["gate"] == "waiting" and score["failed"] == [], score
-    (task,) = [t for t in S.tasks(db) if (t.detail or {}).get("concept_proposals")]
+    (task,) = [t for t in S.tasks(db) if (t.detail or {}).get("concept_proposals")
+               # ENG-DEMAND-SUPPLY: demand originals carry their own evidence task
+               and not str(t.trigger or "").startswith("demand_originals:")]
     (prop,) = task.detail["concept_proposals"]
     assert prop["concept"]["form"] not in GENERIC_FORMS
     assert prop["brief"]["silhouette_qualifiers"] == [], prop["brief"]
@@ -197,7 +199,9 @@ def test_a_generic_concept_with_no_qualifier_is_held_by_108_and_says_so():
     _run_change(db, judged=True, pod="kitchen_bath")
     (row,) = research_flow.lineage(db)
     assert row["pod"] == "kitchen_bath"
-    (task,) = [t for t in S.tasks(db) if (t.detail or {}).get("concept_proposals")]
+    (task,) = [t for t in S.tasks(db) if (t.detail or {}).get("concept_proposals")
+               # ENG-DEMAND-SUPPLY: demand originals carry their own evidence task
+               and not str(t.trigger or "").startswith("demand_originals:")]
     (prop,) = task.detail["concept_proposals"]
     assert prop["brief"]["silhouette_qualifiers"] == [], prop["brief"]
     assert prop["silhouette_precheck"]["passes"] is False
@@ -508,7 +512,10 @@ def test_a_never_succeeded_or_failing_source_never_reads_ok():
 
     reader.resolve_shop = resolve
     S.scan(db, reader, S.at(0, 6))
-    srcs = {r["id"]: r for r in B.view(db)["sections"]["research_sources"]["sources"]}
+    # Read the board one hour after the scan, not at wall-clock now: late in the UTC day a
+    # 06:00 scan is past its freshness window, so the shop read STALE and this failed by clock.
+    view = B.view(db, now=S.at(0, 7))
+    srcs = {r["id"]: r for r in view["sections"]["research_sources"]["sources"]}
     bad = srcs[benchmark_alias("firefly_crochets")]
     assert bad["last_success"] is None and bad["health"] in ("UNKNOWN", "DEGRADED"), bad
     assert bad["health"] != "OK"

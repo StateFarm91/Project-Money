@@ -2801,6 +2801,15 @@ The table is `research/final_build/w6/construction_families.md`. Reversible by d
 
 **D-ENG-FAMILIES-2: the router reads what a title and premise name, and admits only (family, category) pairs that certify (ENG-FAMILIES fix round 1, 2026-11-19).** Main's review found a "Granny Square Basket" admitted, drafted as the plain striped vessel and certified (H1), and pet beds admitted but never certifying (M1). `construction_families.route` now holds any title or premise naming a construction the drafted engine does not build (`NAMED_FEATURES`, shared across every admitted family) as `construction_unsupported:<feature>`; the pet bed variant is held as `construction_unsupported:pet_bed` rather than widening the twin tolerance; `PAIR_PROOFS` and a router sweep require a certifying proof per admitted (family, category). `gates/policy._IP_TERMS` matches whole words.
 
+**D-ENG-COLOURWORK-1: a research-admitted colourwork family; slice 1 is tapestry, admitted pair by pair (ENG-COLOURWORK, 2026-11-20).** Research shows demand for mosaic, tapestry and charted colourwork on blankets, cushions, placemats, bags and baskets. Before this, a flat "Diamond Tapestry Throw" declared as flat rows was admitted and would have drafted plain stripes under a tapestry name.
+
+- **Charts are generated, declared and proven.** `creative/colourwork.py` generates every chart deterministically from the Brambleloop motif library (six parametric geometric tiles) and the concept's slug and title. The chart is declared on the CIR (`cir.model.Chart`, an optional `Component.chart` omitted from `to_dict` when absent, so no existing digest moves).
+- **The compiler validates every charted row** (`cir/colourwork.py`, run inside `compile_cir`). It checks chart/instruction agreement cell by cell in fabric order, stitch counts, the colour count (at most 2 per tapestry row and 3 per piece, each declared and yarned), the float length (a carried yarn travels at most 12 sts unworked, cyclic for rounds), and colour-change placement (a turned row never asks for a yarn resting at the far edge). Certification also checks that the twin's fabric equals the chart (`CHART_TWIN_DISAGREE`). The thresholds are a stated house design rule, not a sourced standard.
+- **Originality (B-117).** The generator reads no benchmark. `gates/originality` gains a chart dimension: colour-blind, mirror-folded window fingerprints compared with any chart fingerprint captured at teardown. A chart match alone escalates, as wording does. With no benchmark chart captured, the dimension is UNMEASURED, never "clear".
+- **Routing.** One family per technique: `colourwork_tapestry` is verified. `colourwork_overlay_mosaic`, `colourwork_inset_mosaic` and `colourwork_c2c` are unbuilt (slices 2-3). The family is admitted only for the pairs `PAIR_PROOFS` names (`PAIR_GATED`): blanket, placemat and basket certify end to end, and the cushion is physical-gated. Bag, runner, wall hanging, scarf, dishcloth and baby are held with reasons. Titles are an allowlist, so a picture word the chart does not draw ("heron") is refused. Diamond and check baskets keep the existing two-chart tapestry route.
+- **The PDF** prints the chart with symbol and colour keys and row numbers. A basket gets a new wall chart: one repeat, read right to left, numbered by round. Every row and round is written out in US and UK terms, with yarn per colour.
+
+Reversible by decision.
 **D-OWNER-POLICY39-OVERRIDE: the pending `listing_image_rules` change (#39) no longer holds publication, by the owner's direct order (2026-11-20).** The owner ordered Etsy's AI rules ignored and chose "Remove the #39 hold" when asked directly. This record is about what was decided, not what was reviewed:
 - **How it is recorded.** `gates/platform_policy.OWNER_DIRECTED_OVERRIDES` records it as "owner directed proceeding without review". It is never recorded as reviewed or tested, and the readback lists it under `overridden_changes`.
 - **Scope.** It covers only `listing_image_rules` changes read on or before 2026-11-20. A later change, an undated change, or a change to any other policy source holds again.
@@ -2817,6 +2826,16 @@ Reversible by the owner.
 - **Safety.** No purchase path exists: the list makes no request and the Mission Control panel has no buy control. Reads listing metadata only. A purchased PDF goes only through `teardown.intake.receive`, which now accepts a listing from any watchlist shop (folder `<shop key>-<listing id>`, seller recorded) into the quarantined library (B-117). Status moves to bought, then intake done, from the BenchmarkProduct row.
 - **Not decided here.** Whether to buy, which picks, and the contingency factor beyond the owner's 1.158. Reversible by removing the cadence.
 
+**D-ENG-ETSY-PUBLISH-1: the automatic Etsy path adopts, completes, verifies and rolls back, all under the owner's existing authority (ENG-ETSY-PUBLISH slice 1, 2026-11-20).** Builder decisions, reversible by decision:
+- **Rollback is executed, not only rehearsed, for drafts.** `launch.rollback.withdraw_draft` deletes this system's Etsy draft only while Etsy reports it as `draft`. It counts the draft gone only when a second read finds it absent or `removed`, never on a 204 alone. Only then does the local listing return to `draft` with no Etsy id, and the creation intent is retired, its record kept in the `listing.draft_withdrawn` audit row. This relaxes `draft_intent`'s one-create-per-version rule in exactly one case: no remote listing exists, so a new create cannot duplicate one. A live listing is never deleted by it: it is deactivated through `standing_withdrawal` (SP lineage) or Shop Manager.
+- **The rehearsal reads what a restore would re-serve.** That is the PDFs certified for this release (every `assets.built` row) and the valid listing-set certificate's frames. It used to read the newest 200 build jobs catalogue-wide and every stored ListingAsset.
+- **Duplicate recovery on content, before any create.** The shop is read in every state. Exactly one unbound draft with the certified title and price is adopted (intent checkpointed, completed in place). Anything else carrying the title escalates to one halting incident. An unread shop creates nothing (transient).
+- **Completion in place, bounded.** A draft that reads back short on files or images gets only what Etsy lacks (missing PDFs; images in rank order with `overwrite`), at most two rounds. Field mismatches are not completed.
+- **Read-back hashes.** Etsy exposes no file or image hash, and serves re-encoded images. Byte identity is proven at the moment of sending: the sha256 of every PDF and every image sent must equal the certified hash. Etsy's side is proven by name and exact byte size for files, and by rank, alt text and pixel dimensions for images. Nothing claims Etsy-side byte identity.
+- **Fee cap per listing.** One reservation may not exceed US$0.20 at the assumed rate (+1 cent), inside the same lock as the CA$6 cumulative budget (D-OWNER-STANDING-INTERNAL).
+- **One owner card.** `first_public_listing:approve`, "Approve first public listing (step-up)", is raised only with complete evidence: the read-back, both PDF hashes, the image hashes and all seven gate results, cited by audit id. It is withdrawn when the evidence goes and satisfied once a listing is live. GENUINE_EXCEPTION / publication.
+- **Scheduler, no self-grant.** Hourly inside `store.draft_reconcile`, a release whose owner publication grant validates now is queued through `owner_execution.queue_publication` (the owner's door). No grant, nothing queued. Activation stays with the owner's activation grant or Stage A (`STAGE_A_ENABLED` False).
+- **No AI-policy gate added** (owner order, D-OWNER-POLICY39-OVERRIDE). The existing AI disclosure in copy, alt text and pixels is untouched.
 ## D-ENG-VIS-IDENTITY-1 — identity verification method and its rules (ENG-VIS-IDENTITY, 2026-11-20; routine engineering, owner decisions pending)
 
 **Status:** routine engineering decisions within autonomy. Admitting a method for production is
@@ -2940,3 +2959,233 @@ Reversible by decision. The non-tunable rule is the owner's and is not reversibl
   - If the cost cannot be estimated, or the ledger cannot be read, nothing is admitted.
 
 Reversible by decision (remove the cadence; the pool table only informs).
+**D-ENG-GARMENT-1: a garment is released as one unit of every size, built from one step list (ENG-GARMENT slice 1, 2026-11-20).**
+`products.garment_families` builds every size of a design from the same recorded steps
+(`Step`/`Piece`): cast on, work even, shape every Nth row, chain on, leave unworked, raglan
+increases, divide, pick up, buttonholes. That is what lets one document print the smallest size
+first with the others in parentheses, and lets `gates.garment_fit.multi_size_problems` read the
+text back with its own grammar and compare every row of every size with the compiler. A design
+whose steps differ between sizes is refused (GARMENT_STEPS_DIFFER). `products.garment_release`
+certifies every size through the unchanged `gates.certificate.certify` chain, then the garment
+gates over the run; the release is granted only when every size is and the gates find nothing.
+**D-ENG-GARMENT-2: constructions are chosen so the generic assembler can measure every join honestly.**
+`cir.assembly` compares whole named edges and places partial joins only on one piece's rows, so a
+sleeve straddling separate front and back panels cannot be measured. The four constructions are
+therefore: top-down raglan (one piece, sleeves resume holds, bands picked up along whole front
+edges); flat one-piece with built-in sleeves (folded at a slash neck, side/underarm seams are
+self-seams, cuffs and neckband picked up); side-to-side panels (vest: shoulder and side seams join
+equal whole edges, the seam notes state the rows/stitches sewn and `garment_fit` checks them);
+drop-shoulder panels (one body panel over the shoulders, sleeves sewn on centred on the shoulder
+line). Separate front/back panels with set-in sleeves wait for a placed-on-both-pieces join in
+`cir.assembly`. Reversible by decision.
+**D-ENG-GARMENT-3: the back-loop band is not called "rib".**
+`gates.asset_truth._TECHNIQUE_CLAIMS` defines ribbing as post stitches; a back-loop sc band is a
+ridged band. Titles, notes and the PDF say "band" / "back-loop band", and the band fabric's
+gauge is stated as its own fabric, at the main gauge (same hook, same stitch; the twin computes
+every length at the main gauge and certification refuses a second gauge regime, F-754). Not
+re-decidable without changing the technique gate.
+**D-ENG-GARMENT-4: child and baby garments are inside the child-safety gate, with garment rules.**
+A garment graded on the CYC baby table, or on the child table at 12 and under, is in scope
+whatever its title (`child_safety.garment_months`). New check GARMENT_CLOSURES: under 3, any
+buttonhole FAILS (no buttons, no ties); an older child's buttonhole is UNKNOWN (button security
+is a physical pull test): held. A band picked up and worked into an edge is crocheted fabric, not
+a sewn-on piece (no seam-pull profile), and must still meet its edge (JOINS_VALIDATED measures it).
+A chain the next row works into (sleeves chained on, a bridged neck) is fabric; a chain in a last
+row, or one the next row leaves unworked, is still a loop. A seamed child garment still needs
+physical evidence. Not weakened: every previous FAIL still fails.
+**D-ENG-GARMENT-5: the garment PDF is one document for every size and refuses itself if its own text is wrong (slice 2).**
+`publish.garment_pdf.build` renders only a granted release and re-reads what it rendered:
+the parenthesised pattern is expanded per size and compared with the compiler, the size chart
+is re-derived from the twin, the schematic SVG and its legend must be present, and a child's
+garment's rendered text must pass the child-safety content checks. The schematic is drawn from
+each size's rows (one primitive list rendered as SVG and onto the page), with lettered
+dimensions and a per-size legend. Reversible by decision.
+**D-ENG-GARMENT-6: garments route only where a research concept is proven end to end, on that body table (slice 3).**
+`construction_families.garment_route` admits (garment_raglan, cardigan) on the adult table,
+(garment_raglan, baby) on the baby table and (garment_one_piece, sweater) on the child table,
+each pinned by a test that runs intake -> draft -> every size compiled and certified -> US/UK
+PDF. Side-to-side and drop-shoulder are PARTIAL (they certify and render, but no intake proof).
+`cir.draft` drafts a garment as one release of every size, gated as a run, then sends each size
+through the unchanged compile -> certify chain. A garment title naming a single size is refused
+at intake. Reversible by decision; widen only by adding a proof.
+**D-ENG-PDF-PREMIUM-1: every customer PDF must pass its family's premium standard, audited on the finished bytes, or it is not built (ENG-PDF-PREMIUM, 2026-11-20).** `publish.pdf_standard` holds the rules (structure from `research/benchmarks/PDF_STRUCTURE_STANDARD.md`, never its content). Families are read from the CIR (`gates.first_customer.product_type_words_in_cir`, or a graded design): small home goods, blanket, basket, garment, pillow, amigurumi. A coaster is held to the concise standard; the garment adds the size chart and assembly; basket, pillow and amigurumi add inline diagrams; child items and toys add the safety section. `build_pattern_pdf` raises `PremiumStandardRefused` when a rule fails. The rules run on extracted text and per-page text (running header, folio, release footer), and each has a mutation test.
+- **Licence.** `commerce.terms` gains `permitted_small_scale_with_credit`, now the chosen FINISHED_ITEM_SALE option. Its first clause is the old sentence unchanged, followed by "with a credit to Brambleloop Studio as the pattern designer". All four surfaces render it from the same source. The PDF adds our own Disclaimer paragraph. Still not legally reviewed, and every surface says so.
+- **Brand page.** "About Brambleloop Studio" covers the brand only. It does not include the shop About page's Laura paragraph, and the audit fails any PDF that names Laura.
+- **RS/WS.** On flat rows, Row 1 is the right side by stated convention (`pdf.RS_NOTE`), and the side changes on every row the CIR turns. This matches the chart's "odd rows right to left".
+- **Units.** The US edition gives yarn in yd (m), and the UK edition in m. Ball counts use 100 g balls at the shortest CYC-typical length, so the count does not run short. The hook is given in mm with its CYC US name, and only when the size is on the table. Substitution states the CYC class and its typical length per gram.
+- **Covers.** A design the stitch renderer cannot draw whole (a garment, an assembled pillow) uses its compiler-checked schematic as the cover hero, labelled as a rendering. A multi-component design reads "Made from N pieces", not "Makes 4 bodys".
+- **Not yet built (slice 2+):** a single multi-size garment edition with the other sizes in parentheses (today each size ships as its own CIR/PDF), inline diagrams at garment tricky steps, and a per-fabric gauge table for CIRs that carry component gauges (none in the catalogue today; the rule already checks each one).
+## D-ENG-VIS-IDENTITY-2 — held-out calibration and race settlement (ENG-VIS-IDENTITY slice 2, 2026-11-20; routine engineering)
+**Status:** routine engineering decisions within autonomy, made in response to the slice-1 review.
+No gate was relaxed; the calibration gate was tightened.
+- **Held-out calibration (`identity-calibration/2`).**
+  - Thresholds are fixed on a deterministic calibration subset: 1/6 of genuine units and 1/3 of
+    impostor faces. A genuine image and its augmentations are one unit.
+  - FAR and FRR, with exact 95% bounds, are measured on the disjoint held-out subset only.
+  - The production floors (>= 30 genuine, >= 300 impostors) apply to held-out counts.
+  - `qualification()` re-derives the split from the rows and refuses in-sample evidence. The gate
+    refuses a record without a held-out evaluation.
+  - Genuine samples take the smaller calibration share because they set only `refuse_below`.
+- **Outfit race settlement.** After a race, the winner is the outfit that already reached an
+  image (earliest use), else the lowest id. Losers with no uses are released. Losers with uses are
+  retired and bound to the listing, so they are never reused. `reserve()` settles too.
+- **Vision reservations** use `providers.input_tokens`: the model's own per-image figure, the real
+  image count and the system text. That is the paid gate's own estimate, so a read is never
+  under-reserved.
+- **Models in the image** are fetched at build, best-effort. Missing or mismatched weights are
+  refused at load, so identity HOLDs and a deploy is never broken by a mirror outage.
+**D-ENG-WARDROBE-1: the approved outfit library is code, approved by its own rules; no knitwear, arrangement-only hair (ENG-WARDROBE-SCENES, 2026-11-20).** `visual/outfit_library.py` holds 63 complete outfits with stable ids (`wl-<key>`). Every outfit passes `outfit_problems`, and the library passes `library_problems`:
+- complete;
+- no brand, logo or lettering;
+- nothing revealing;
+- every large garment names a measurable colour;
+- pairwise below `wardrobe.MAX_SIMILARITY`, and below it against the canonical references' clothing.
+Three routine choices were made here:
+- **No knitted or crocheted garment in any outfit.** Every frame already states "no other crocheted or knitted item is in the scene" (`laura_home.NO_OTHER_TEXTILES`). A knitted cardigan next to a crochet product reads as part of it, and the Product Truth judge would have to tell them apart.
+- **Hair is a closed list of arrangements of her own hair** (loose, tucked, low ponytail, low bun, half-up, side braid). Colour, length, cut and texture are never changed (`canonical.LOCKED` includes hair). The arrangement is stored in the outfit's `concept`, never its garments, because the registry refuses identity words in garments.
+- **A library outfit is approved with `approved_by = code:outfit_library/1`** at the moment a listing claims it. The approval is by deterministic rules, not by the owner. The owner can retire any outfit (`outfits.replace`), and a retired outfit stays bound to its listing.
+**D-ENG-WARDROBE-2: colour harmony keeps the product the hero, measured in CIELAB (ENG-WARDROBE-SCENES, 2026-11-20).** Rule `outfit_library.harmony/1`:
+- **Measured garments.** Only the large garments (top or dress, lower, outerwear) are measured. Footwear and small accessories are too small a share of the frame.
+- **CAMOUFLAGE.** A garment with ΔE76 < 20 to any yarn colour is refused: it would merge with the product's edges.
+- **COMPETITION.** A garment with chroma above max(the most chromatic yarn + 12, 34) is refused: it outshouts the product.
+- **Unmeasurable colours.** A product whose colours cannot be measured reads UNKNOWN, never PASS.
+The claim only takes harmonious outfits. A measured consequence: cream + ink products (the Cloudline Baby Blanket) admit 5 library outfits. Reversible by decision.
+**D-ENG-WARDROBE-3: lifestyle scenes, many environments around one home (ENG-WARDROBE-SCENES, 2026-11-20).** This reconciles D-W4-OWNER-LAURA-HOME (one house, fixed architecture) with D-OWNER-CORE-FAMILIES §5 (multiple settings).
+- **Rooms of the house.** A scene in a room of `laura-home-v1` carries that room's architecture verbatim.
+- **New spaces of the same house:** the reading nook is the living-room corner, the porch and the garden belong to the same house, and the craft room is its spare room.
+- **Away from home:** sixteen outdoor scenes (park, lake, trail, market, orchard, snowy street) add the environments the newer directive asks for.
+Every scene text passes `laura_home.check`. A scene suits a family only if its whole text, the room architecture included, passes the misleading-prop rule: KNITWEAR, DECOY, KIT (yarn, hooks, notions, printed pattern, packaging) and the family's prop allow-list. Every prompt states that props are not part of the pattern. Reversible by decision.
+**D-ENG-WARDROBE-4: the seven gallery roles, their jobs, and where Laura appears (ENG-WARDROBE-SCENES, 2026-11-20).**
+- **Roles and jobs:**
+  | Role | Job |
+  |---|---|
+  | hero | DESIRE |
+  | flat-lay | COLOUR_CONTEXT |
+  | lifestyle | LIFESTYLE |
+  | alternative angle | ANGLE |
+  | close-up | DETAIL |
+  | scale or in use | SCALE |
+  | extra, shaped or worn family | CONSTRUCTION (plus the deterministic CONTENTS frame as an eighth) |
+  | extra, any other family | CONTENTS |
+  These are the same jobs as ENG-VIS-GALLERY's `FLUX_SLOTS`, one job per frame.
+- **Where Laura appears** (`gallery_planner.LAURA_IN`): worn products in the hero, lifestyle, back view and fit frames; held products in the lifestyle and scale frames; home goods in the lifestyle frame. She never appears in the flat-lay or the close-up.
+- **Home goods differ from ENG-VIS-GALLERY.** Laura in a home-goods lifestyle frame differs from ENG-VIS-GALLERY's product-only small-goods brief. It is raised on #28 and settled before the planner is wired to the producer.
+- **Refusals.** A gallery is refused rather than padded: a repeated scene, the same place from the same angle, fewer than three places, or near-identical scene text (REPETITIVE_FILLER).
+## D-ENG-DAILY-ZERO-RULE — when a stage counts as zero-output (ENG-DAILY-FIX, 2026-11-20; routine engineering)
+Context: the independent review of eng/daily @ a795be17 (Unit B, finding 2) reproduced every stage
+diagnosed at 00:30 UTC and duplicate change requests from repeated six-hourly runs.
+**Rule.** A stage is `zero_output` only when all three hold: at least 6 h of the UTC day have
+passed (so the first six-hourly run of a day never diagnoses); its expected count by now
+(mean of the known prior days x the elapsed fraction of today) is at least 1.0; and today's count
+is at most 0.2 x that expectation. Otherwise a stage at 0 reads `not_yet_due` (never DEGRADED),
+one with output reads `producing`, and an unreadable count reads UNKNOWN.
+**Change requests.** Filed only when the estimated last-24-hour window is also 0, through
+`improve.ecr.file` (now present via INTEG4), and deduplicated by fingerprint per stage per UTC day:
+today's diagnosis row records the fingerprints it filed, and the `ops.ecr_pending` fallback also
+refuses a second row for the same fingerprint on the same day. A repeated run never inflates an
+open request's `occurrences`.
+**Readback.** `daily_ledger` is an advisory readback row: PASS or WARN when readable, UNKNOWN when
+missing or unreadable, never PASS on UNKNOWN.
+Reversible by decision; the thresholds are constants in `ops/daily_ledger.py`.
+## D-ENG-DEMAND-SUPPLY — demand decides what enters engineering (ENG-DEMAND-SUPPLY, 2026-11-20; owner TOP PRIORITY "production agents should be automatically making things that sell")
+Context: the concept pool was 34 concepts (16 drafted, 18 held, 0 promotable undrafted). Selection followed
+engine convenience, so the catalogue became coasters, garlands and placemats while the market buys chunky low-sew
+amigurumi, baby items, cushions and clothing (D-OWNER-CORE-FAMILIES; the two 2026-11-20 teardowns).
+**Rule 1, the demand score (`products/demand.py`).** It is computed from stored evidence only: `benchmark_listings`
+(favourites level, favourites velocity from dated `favorers_history`, per-listing reviews, bestseller and baskets
+where stored, recency weight with a 30-day half-life and a 180-day cut-off), `serp_snapshots` (1/sqrt(rank)), and
+the owner's dated teardown facts (numbers and clusters only). It is scored per family / form / subject cluster,
+backing off to family+form and then to family when fewer than 3 readings exist. **UNKNOWN is never 0.** A missing
+signal lowers confidence, and the evidence score shrinks toward PRIOR=0.20, so an unobserved cluster never scores 0
+and never scores high. The owner core-family boost (amigurumi 0.30 > baby 0.26 > pillow 0.22 > garment 0.18) is
+scaled by confidence (x0.5 at zero confidence). Flat décor and seasonal pieces get no boost.
+**Rule 2, demand-led admission.** `supply.offers` orders by market demand first, then by research flag and the
+producer's score. `radar.intake.run` evaluates candidates in demand order. An offer whose construction has no certified
+engine is not admitted and not silently held: it is recorded once as `supply.engine_demand`, stays waiting, and is
+admitted on the first pass after its engine certifies. Engineered designs (`pipeline.ENGINEERED`, Launch-0 legacy
+routes) count as certified. Capacity refill is unchanged (`after_chain_job` plus the 15-minute `supply.admit`).
+**Rule 3, originals.** `radar/demand_originals.py` proposes 28 house-original core-family and clothing concepts on
+every `radar.concept_intake` pass, on research tasks that carry the family's stored demand reading. Evidence
+confidence follows the reading (UNKNOWN gives low confidence, which intake refuses). Intake judges every concept
+with all its gates (novelty floor, anti-copy, children's checks, construction). An engine-less one is refused as
+`construction_unsupported:<family>` and appears on the engine list. The research trigger carries a digest of the
+engine table, so an engine certification re-proposes those concepts on fresh evidence.
+**Surfaces.** The Mission Control Demand view (`GET /api/cc/demand`, `cc-shell-v44`) and the advisory readback row
+`engine_demand`: WARN while a concept waits for an engine, never a deploy FAIL.
+Reversible by decision. The weights, saturations, prior and boosts are constants in `products/demand.py`.
+**Amendment (FIX-DEMAND-STALL, 2026-11-20, review b18-a B-1/B-2).** D-OWNER-CORE-FAMILIES names three core
+families (amigurumi > baby > pillow/cushion); `CORE_FAMILIES`/`CORE_BOOST` now hold exactly those. Garments keep a
+routine (non-owner) weighting, `SECONDARY_BOOST = {garment: 0.18}`, below every core boost, and every reading labels
+them `core: False`; reason: garments are a proven seller in the teardowns and the originals catalogue, but the owner
+did not make them core. A missing market score in `supply.offers` orders as `demand.PRIOR`, never 0.0.
+A promoted concept waiting in the supply queue for an uncertified engine is engine demand, not supply: the scan
+counts it as `engine_demand_undrafted` (never `promotable_undrafted`), holds it with its `engine_demand:` reason,
+reports `stalled: True` (reason `engine_demand` when every undrafted concept is waiting on an engine), and keeps it
+queued so it drafts automatically once its engine certifies.
+## 2026-11-20 — ENG-ETSY-PUBLISH review b17-d fixes
+- Adopted drafts are proven by re-sending every image rank, not by trusting alt text and pixel size: Etsy returns no image hash, so the only hash that means anything is the hash of bytes this job sent. Unproven ranks fail the read-back.
+- Held pattern files on an adopted draft escalate rather than being replaced: adding a file-delete write path to the Etsy client is a new irreversible capability and was not needed to fail closed.
+- Unread shops dead-letter after 5 consecutive refusals (one P2 incident) instead of retrying forever.
+## D-OWNER-DEPLOY-OVERRIDE — 2026-11-20 ~12:40 UTC (owner, exact SHA)
+**Decision:** The owner authorised deploying exactly **dde3ea62** (Batch 16, which contains
+Batches 12–15) WITHOUT the uninterrupted full-suite pass that deploy_guard requires
+(D-W4-OWNER-RESUME-POLICY). Answered via the session's question: "Deploy dde3ea62 now".
+**Why:** The full-suite certifications died at a usage limit, and the deadline is today.
+**Evidence at decision time:** Batch 15 overlap suites 335/0 failing, Batch 16 affected suites
+270/0, Batch 14 overlap 239+23 — about 600 targeted tests green. Three full runs were still in
+flight: two cloud, one local.
+**Safeguards kept:**
+- a fresh verified backup (BK RESULT OK 20261120T121953Z);
+- the rollback rehearsal to 5496bc4a;
+- verify_deploy and the readback with the token;
+- a manual rollback to 5496bc4a on any P0 readback regression.
+**Code scope:** The pushed release commit equals dde3ea62's code plus release records only
+(DEPLOYED_HISTORY and release evidence merged from claude/w6-release-a35ad302, and this
+entry). The guard itself is unchanged. This is a one-time, exact-SHA override, not a policy
+change. The in-flight full runs continue; any failure they find is fixed and redeployed
+through the normal guarded path.
+## D-OWNER-DEPLOY-OVERRIDE-2 — 2026-11-20 ~14:10 UTC (pending the owner's exact-SHA OK)
+Batch 17 (code b098fcce): plush/lovey/cushions, garments, colourwork, premium PDF standard,
+Laura identity method, wardrobe/scenes and daily ledger, on top of production dde3ea62.
+- **Evidence:** the overlap suites passed 576 with 0 suites failing; the colourwork merge suites
+  passed 181 with 0 failing. The full certification (cert-results/b098fcce) is running.
+- **Safeguards:** a rollback rehearsal to 6289e493 (ALLOW), verify_deploy, a readback with the
+  token, and a rollback on any P0 regression.
+- **Deploy authority:** the deploy is pushed only on the owner's explicit OK for this exact
+  SHA. Until the full run's record is deployed, the boot guard stays not-ok (SHADOW is already
+  the phase).
+
+## D-OWNER-DEPLOY-OVERRIDE-3 — 2026-11-20 ~16:40 UTC (pending the owner's exact-SHA OK)
+
+Batch 18 (code 511a8c63) = production Batch 17 b098fcce plus three changes:
+- demand-led supply 2a85f4f3;
+- the Etsy-publish fixes 04e1200d;
+- the demand-stall fix f47a5961.
+
+**Evidence:** 353 overlap tests passing, 0 suites failing. The demand-stall fix suites: 157 OK.
+**Safeguards:** rollback rehearsal to 09be42d6, verify_deploy, readback, and rollback on a P0.
+The deploy goes out only with the owner's explicit OK for this exact SHA.
+
+## D-OWNER-APPROVE-ALL — 2026-11-20T13:20Z (owner directive, recorded 2026-11-20T22:20Z)
+
+**Owner, verbatim:** "I approve every single one. You go and approve every single one now." /
+"Approve them all, whatever it takes. Once its at 0, I will take over approval moving forward." /
+"I need an approve all button now."
+
+**Decision.** The owner's directive is recorded as an explicit, second kind of activation
+evidence for the paid-provider gate. It is limited to the two activations the image pipeline
+was blocked on:
+- `flux-3-image:generation`: CA$5/day, CA$40/month, CA$2.50 per gallery.
+- `openai-vision:vision`: CA$2/day, CA$10/month, CA$1 per gallery.
+
+Both sit inside the CA$100/month company ceiling. `ops.owner_directives.apply` writes each row
+once, from the hourly `ops.owner_queue_consolidate` job (never inside the sweep, which signs no
+grant). It expires after 30 days, and the system never renews it.
+
+**What it is not.**
+- The row says `step_up_performed: false`. No login or TOTP is bypassed or forged, and no
+  secret is read.
+- No other provider, scope, ad spend, publication authority, child-safety hold or attestation
+  is touched. Physical-evidence attestations remain the owner's; waivers stay
+  `owner_directed_without_attestation`.
+- Renewal or widening goes through the normal step-up path.
