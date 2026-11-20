@@ -149,7 +149,14 @@ Fail, and the same on the base `93aabde0` (pre-existing, not caused by this bran
 Not finished: test_product_run, which timed out at 2400 s running alongside two other heavy
 suites.
 
-E2E: see the #28 comment.
+test_w6_listing_chain_e2e: 3/6 pass on this branch. `test_c` (the observed blocker set,
+which now includes the UNKNOWN hold) and both `test_d` pass. `test_a` (x2) and `test_b` fail
+identically on the base `93aabde0` (`cir.draft` and `gate.certify` repeat in the world
+fixture), so they are pre-existing.
+
+These results were measured at `2e32855`, before ENG-ETSY-AI-FIX3. On the combined tree, only
+test_w6_etsy_ai_policy (30/30), test_w6_etsy_ai_fix3_seo (2/2) and the mutation pass were
+re-run.
 
 Test changes (fixtures, not weakened gates):
 - test_gates and test_launch0_listing_truth copy now carries the design disclosure. Both
