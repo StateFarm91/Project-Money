@@ -2816,3 +2816,37 @@ Reversible by the owner.
 - **Refresh.** `intel.benchmark_shopping`, daily, CA$0, in `FREE_JOB_TYPES`, upstream inputs the two scan jobs (an unchanged day backs off). It calls `benchmark_refresh.refresh_shopping`, which stores one dated `benchmark.shopping` reading and keeps ONE owner card, "Buy N benchmark patterns, ≤ CA$X" (key `benchmark_shopping:set`; closed when nothing is left to buy).
 - **Safety.** No purchase path exists: the list makes no request and the Mission Control panel has no buy control. Reads listing metadata only. A purchased PDF goes only through `teardown.intake.receive`, which now accepts a listing from any watchlist shop (folder `<shop key>-<listing id>`, seller recorded) into the quarantined library (B-117). Status moves to bought, then intake done, from the BenchmarkProduct row.
 - **Not decided here.** Whether to buy, which picks, and the contingency factor beyond the owner's 1.158. Reversible by removing the cadence.
+
+## D-ENG-VIS-IDENTITY-1 — identity verification method and its rules (ENG-VIS-IDENTITY, 2026-11-20; routine engineering, owner decisions pending)
+
+**Status:** routine engineering decisions within autonomy. Admitting a method for production is
+the owner's decision (`research/final_build/w6/IDENTITY_OWNER_DECISIONS.md`). No gate, margin or
+test was relaxed; several were tightened.
+
+- **Method recommended: (a)** YuNet + SFace ONNX on the worker CPU (Apache-2.0/MIT). InsightFace
+  ArcFace weights were rejected because their licence is non-commercial only. Hosted Rekognition
+  is the fallback. An LLM is rejected as the biometric floor but kept as the second judge.
+- **Thresholds are derived, never chosen:**
+  - `match_at` = highest impostor score + 0.05;
+  - `refuse_below` = lowest genuine score - 0.15.
+- **A production record needs all of:** at least 30 genuine samples; at least 300 impostor faces;
+  a FAR 95% upper bound of 1% or less; FRR of 10% or less; evidence that declares itself
+  production_ready; the owner's production-scoped decision; and a place on the register.
+- **Consumer verdict:** PASS only with a production-qualified method and two agreeing judges.
+  - Disagreement means HOLD with its reason.
+  - Drift means REFUSE.
+  - UNKNOWN, unmeasured, a fixture or the legacy table means HOLD.
+  - `candidate_gates.gate_status` counts a non-PASS verdict as UNKNOWN.
+- **Every Laura frame must be conditioned on all three canonical references.** A frame with
+  fewer is INVALID.
+- **Second judge:** OpenAI gpt-4.1, a different provider from the Anthropic first judge, through
+  the same reservation path and the `openai-vision` owner activation. Without a key it is not
+  configured.
+- **Outfit claim:** a compare-and-set UPDATE on `laura_outfits.listing`.
+  - It is idempotent per listing and survives restarts.
+  - It never reuses an outfit or claims a near-duplicate.
+  - If two claims for the same listing race, the lowest id wins.
+- **Identity records:** append-only, idempotent on the evaluation content hash. A frame whose
+  evaluation cannot be recorded is UNKNOWN.
+
+Reversible by decision.

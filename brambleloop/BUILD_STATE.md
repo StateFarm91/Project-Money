@@ -1,3 +1,17 @@
+
+> **2026-11-20 — ENG-VIS-IDENTITY slice 1 (`eng/vis-identity`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
+> - Built: `visual/face_embedder.py` (YuNet+SFace ONNX on CPU, Apache-2.0/MIT, weights pinned by sha256), `visual/identity_calibration.py` (measured thresholds, FAR/FRR with exact 95% bounds, production floors >=30 genuine / >=300 impostors / FAR-UB <=1% / FRR <=10%), `visual/identity_records.py` (durable per-image identity records), `outfits.claim` (idempotent compare-and-set outfit claim), blind outfit-vs-approved-reference check, OpenAI gpt-4.1 second judge via the existing `GatewayVisionJudge` reservation path, `identity_gate.assess` consumer `verdict` PASS/HOLD/REFUSE and all-three-references rule.
+> - Measured (committed evidence, sha 6884612e): Laura worst 0.696 vs best look-alike 0.582; FAR 0/10, FRR 0/12; **FAR 95% upper bound 25.9% -> NOT production-ready**. 0.08 CPU-s/frame, ~120 MB RAM.
+> - Honest state: `PRODUCTION_QUALIFICATIONS` still empty, so Laura identity HOLDs in production. Needs: ~306 generated impostor faces (US$1.63, standing authority; not run: no BFL key in this session), 18+ owner-confirmed genuine frames, OpenAI key + `openai-vision` activation, owner decisions in `research/final_build/w6/IDENTITY_OWNER_DECISIONS.md`. Nothing generated or spent in this session.
+> **2026-11-19 — ENG-VISUAL (branch `eng/visual-factory`, not deployed).**
+> - Audit: `research/final_build/w6/visual_factory_audit.md`, covering every stage from certified pattern to Etsy read-back, with file:line and blockers.
+> - Read-only evidence: the `visual_pipeline` section on `/api/readback/evidence`, plus an advisory readback row. Unreadable parts are UNKNOWN, never 0.
+> - S2:
+>   - the seven-frame campaign standard is enforced at gallery readiness;
+>   - `eng/motif-reservation` is merged;
+>   - an E2E (`tests/test_visual_factory_e2e.py`) runs on FakeEtsy with both PDFs and every image read back. The generated-gallery certification blocker is pinned.
+> - Production numbers are UNKNOWN until this branch is deployed and read.
+> - Owner exceptions: (1) the identity-verification method — embedder qualification plus a second vision transport; (2) activating `image_generation` and `image_vision`.
 > **2026-11-19 — ENG-APPROVALS slice 1 (`eng/approvals`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
 > - The owner directive `D-OWNER-STANDING-INTERNAL` is recorded in DECISION_LOG.
 > - Code: `authority.standing_internal` (classifier and directive), `ops.owner_queue_consolidate` (idempotent sweep, the one
@@ -81,6 +95,7 @@
 >   - an E2E (`tests/test_visual_factory_e2e.py`) runs on FakeEtsy with both PDFs and every image read back. The generated-gallery certification blocker is pinned.
 > - Production numbers are UNKNOWN until this branch is deployed and read.
 > - Owner exceptions: (1) the identity-verification method — embedder qualification plus a second vision transport; (2) activating `image_generation` and `image_vision`.
+
 
 > **2026-11-02 — Batch 4 DEPLOYED: production = 0967c3ee (SHADOW unchanged). 24-hour acceptance running until 2026-11-03T03:31Z.**
 > - Owner approval: "APPROVE DEPLOY 0967c3eee287d06cad0d8034a99e39076c0ab6d5" (2026-11-02).

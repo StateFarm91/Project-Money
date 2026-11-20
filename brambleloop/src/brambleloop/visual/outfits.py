@@ -448,3 +448,69 @@ def wardrobe_editor(db) -> dict:
                       f"two outfits are distinct when their weighted similarity is below "
                       f"{W.MAX_SIMILARITY}",
                       "an outfit is styling, never identity"]}
+
+
+# ---- idempotent claim (ENG-VIS-IDENTITY) -------------------------------------------------
+
+def claim(db, listing: str) -> dict:
+    """ONE complete outfit for this listing, durable and idempotent.
+
+    * The listing already holds an approved outfit: that outfit, unchanged (any number of
+      calls, any number of restarts: the reservation is the `laura_outfits.listing` row).
+    * Otherwise the first approved, free outfit that is distinct from every other listing's
+      outfit and from the reference clothing is claimed with a compare-and-set UPDATE
+      (`WHERE listing = ''`), so two workers can never both take it. If a concurrent claim for
+      the same listing won a different outfit first, this one is released and the winner's
+      returned: one listing never ends up holding two.
+    * No eligible outfit: UNKNOWN (never a reused or near-duplicate outfit).
+
+    Returns `_result(...)` with `outfit` (the view) on PASS."""
+    from sqlalchemy import select, update
+
+    from .image_records import LauraOutfit, ensure_tables
+
+    listing = str(listing or "").strip()
+    if not listing:
+        return _result(UNKNOWN, "no listing to claim an outfit for")
+    ensure_tables(db)
+    held = reserved_for(db, listing)
+    if held is not None:
+        return _result(PASS, f"listing {listing!r} already holds {held['outfit_id']}",
+                       outfit_id=held["outfit_id"], outfit=held, claimed=False)
+    with db.session() as s:
+        free = [r.outfit_id for r in s.scalars(select(LauraOutfit).where(
+            LauraOutfit.listing == "", LauraOutfit.approval_state == "approved")
+            .order_by(LauraOutfit.id))]
+    skipped = []
+    for oid in free:
+        with db.session() as s:
+            row = _row(s, oid)
+            if row is None or row.listing or row.approval_state != "approved":
+                continue
+            twin = s.scalar(select(LauraOutfit).where(
+                LauraOutfit.signature == row.signature, LauraOutfit.listing != "",
+                LauraOutfit.listing != listing))
+            near = _too_similar(s, row, listing)
+            if (row.signature and twin is not None) or near is not None:
+                skipped.append({"outfit_id": oid, "why": "WARDROBE_REPETITION"})
+                continue
+            won = s.execute(update(LauraOutfit).where(
+                LauraOutfit.outfit_id == oid, LauraOutfit.listing == "")
+                .values(listing=listing, reserved_at=_now())).rowcount
+        if won != 1:
+            continue                    # another worker took it first: try the next one
+        with db.session() as s:
+            mine = list(s.scalars(select(LauraOutfit).where(
+                LauraOutfit.listing == listing, LauraOutfit.approval_state == "approved")
+                .order_by(LauraOutfit.id)))
+            keep = mine[0]
+            for extra in mine[1:]:      # a concurrent claim for this listing: lowest id wins
+                if not extra.uses:
+                    extra.listing, extra.reserved_at = "", None
+            view = _view(keep)
+        return _result(PASS, f"outfit {view['outfit_id']} claimed for {listing!r}",
+                       outfit_id=view["outfit_id"], outfit=view,
+                       claimed=view["outfit_id"] == oid, skipped=skipped)
+    return _result(UNKNOWN, f"no approved, free and distinct outfit is available for "
+                            f"{listing!r}; register and approve a new one",
+                   skipped=skipped)
