@@ -411,7 +411,8 @@ def _proof_exists(proof: str) -> bool:
 def test_router_admits_only_verified_or_physical_gated_families():
     admitted = {k for k, f in CF.FAMILIES.items() if f.status in CF.ADMITTED_STATUSES}
     assert admitted == {FC.FLAT_PANEL, FC.VESSEL, FC.TAPESTRY, FC.PANEL_PAIR,
-                        FC.AMIGURUMI, FC.ENVELOPE, FC.APPLIQUE, FC.LOVEY}, admitted
+                        FC.AMIGURUMI, FC.ENVELOPE, FC.APPLIQUE, FC.LOVEY,
+                        CF.GARMENT_RAGLAN, CF.GARMENT_ONE_PIECE}, admitted   # ENG-GARMENT
     # Every admitted family names the test that proves it, and that test exists (ENG-PLUSH:
     # the core-family proofs live in tests/test_eng_plush.py).
     for key in admitted:
@@ -574,7 +575,14 @@ def test_every_admitted_family_category_pair_names_an_existing_certifying_proof(
                ("pillow", "pillow", "flat_rows", "Highland Cow Cushion Cover"),
                ("baby", "toy", "amigurumi_shaping", "Bear Lovey"),
                ("toy", "toy", "amigurumi_shaping", "Bunny Lovey"),
-               ("amigurumi", "toy", "in_the_round", "Cosy Rabbit Lovey")]
+               ("amigurumi", "toy", "in_the_round", "Cosy Rabbit Lovey"),
+               # ENG-GARMENT: graded garments (each pair pinned in tests/test_eng_garment.py)
+               ("cardigan", "fitted_garment", "top_down_yoke", "Fernway Raglan Cardigan"),
+               ("baby", "fitted_garment", "top_down_yoke", "Hush Baby Cardigan"),
+               ("sweater", "fitted_garment", "flat_rows", "Puddle Lane Kids Sweater"),
+               ("sweater", "fitted_garment", "flat_rows", "Cosy Adult Sweater"),
+               ("vest", "fitted_garment", "side_to_side", "Driftline Vest"),
+               ("pullover", "fitted_garment", "bottom_up", "Kestrel Pullover")]
     admitted = set()
     for cat, form, constr, title in probes:
         got = CF.route(category=cat, title=title, form=form, construction=constr)

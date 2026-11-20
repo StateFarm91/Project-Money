@@ -42,7 +42,18 @@ The fixture concepts give a specific occasion. The #83 jury correctly refused an
 
 ## Test expectations changed (more gates apply now, nothing weakened)
 - `test_eng_plush::test_baby_garments_and_unbuilt_baby_items_are_held_by_name`: a baby cardigan is now admitted to `garment_raglan`. A baby side-to-side vest is still held.
+- `test_eng_families` meta-guards: the admitted-family set, the (family, category) sweep and the report table now include the two garment families and garment probes (adult one-piece, vest, pullover are swept and held).
 - `test_garment_design` (varied concepts): child-table sizes of 12 and under from the tournament drop-shoulder template are now inside the child-safety gate.
   - They are held because the sleeves are sewn on and the seam notes do not say "through both loops".
   - The only refusals allowed are CHILD_SAFETY_*, and the stage must have run.
   - **Follow-up:** `products/garments.drop_shoulder_flat` seam notes need "through both loops; bury the tails". That changes Harbour's released text, so it needs a version bump and is not done here.
+
+## Suites (final tree, e78f87b + this fix)
+- `test_eng_garment`: 28/28, including the 3 end-to-end tests and 11 mutation tests.
+- Exit 0 (31 suites):
+  - core: eng_families, compiler, twin, reverse;
+  - product truth: s1_product_truth, s1_product_truth_2, s1_product_truth_3, s1_product_truth_4, blanket_size_truth;
+  - deliverables and intake: deliverable_qa (928 s), w5_concept_intake;
+  - grading: graded, grading, cert_grading, k9_graded_truth, garments, garment_design, benchmark_garment, w4_overnight_grade;
+  - children's and plush: eng_plush, opus2_a1_children, opus2_amigurumi, childrens, a1r_child_safety_core, w4_children;
+  - other: gates, w4_resume_runner, v11_autonomy_timeline (map regenerated with the module), vacuity.
