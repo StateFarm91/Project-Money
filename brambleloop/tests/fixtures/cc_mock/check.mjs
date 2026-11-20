@@ -195,6 +195,16 @@ try {
   check(/Level: PRODUCTION-VERIFIED/.test(runCard.sub || "") && runCard.reached.at(-1) === "PRODUCTION-VERIFIED",
     "p0 board: the level shown is the section's own", JSON.stringify(runCard.reached));
 
+  // ---- ENG-DAILY: the Daily panel ---------------------------------------------------------
+  await page.goto(`${BASE}/cc/#/daily`);
+  await settle();
+  const daily = await page.$eval("#main", (e) => ({ text: e.textContent, charts: e.querySelectorAll("figure.chart-fig svg").length }));
+  check(/Products started: today 0/.test(daily.text) && /Certified: today Unknown/.test(daily.text) && !/Certified: today 0/.test(daily.text),
+    "daily: counts render and UNKNOWN reads Unknown, never 0", daily.text.slice(0, 300));
+  check(/suspended · cir\.draft/.test(daily.text) && /pre_engineering_gate x3/.test(daily.text) && /Action reoffer: taken/.test(daily.text)
+    && /Change request pending ENG-IMPROVE/.test(daily.text) && daily.charts >= 3,
+    "daily: today's diagnoses show causes, actions and change requests beside sparklines", daily.text.slice(0, 400));
+
   await page.goto(`${BASE}/cc/#/completion`);
   await settle();
   // INTEG4: the first-sale card (W4-FIRSTSALE) has its own rows; the lanes are the other sections.
@@ -518,7 +528,8 @@ try {
   // pinned, not just its length, so an item added or dropped is a deliberate change here.
   // W5-INVENTORY adds "production" (product inventory by state, stalls, loops, agents).
   // S4b adds "p0_board" (the P0 command board, each section with its proven level).
-  const MORE_IDS = ["company", "images", "production", "p0_board", "completion", "policy", "operations", "learn",
+  // ENG-DAILY adds "daily" (per-day production counts and zero-output diagnoses).
+  const MORE_IDS = ["company", "images", "production", "p0_board", "daily", "completion", "policy", "operations", "learn",
     "insights", "notifications", "timeline", "ask", "account", "emergency"];
   check(JSON.stringify(menu.map((m) => m.id)) === JSON.stringify(MORE_IDS) && menu.every((m) => m.hint.length > 5), "ccux more: every More item says what it holds", JSON.stringify(menu.map((m) => [m.id, m.hint])));
   const nb = await page.$eval(".menu a[data-more=notifications] .badge", (b) => ({ hidden: b.hidden, t: b.textContent }));

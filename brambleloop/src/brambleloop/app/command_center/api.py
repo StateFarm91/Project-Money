@@ -310,6 +310,14 @@ def make_router(db) -> APIRouter:
 
         return ok(p0_board.view(db))
 
+    # ENG-DAILY: the Daily panel -- per-day production counts and today's zero-output
+    # diagnoses. Read-only, owner session, the same `/api/cc` default-deny gate.
+    @router.get("/daily")
+    def daily_view(request: Request):
+        from ...ops import daily_ledger
+
+        return ok(daily_ledger.panel(db))
+
     @router.get("/completion")
     def completion_view(request: Request):
         return ok({"tab": "COMPLETION", "generated_at": providers.now_iso(),
