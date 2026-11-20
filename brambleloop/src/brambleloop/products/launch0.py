@@ -227,6 +227,12 @@ MOTIF_DECLARATIONS: dict[str, dict] = {
 }
 
 
+# ENG-COLOURWORK: each library motif backs its own words, in colour (not relief).
+from ..creative.colourwork import motif_declarations as _colourwork_motifs  # noqa: E402
+
+MOTIF_DECLARATIONS.update(_colourwork_motifs())
+
+
 def declared_motifs(cir: CIR) -> list[str]:
     """The motif primitives the CIR's provenance declares (`primitives_used`)."""
     prov = getattr(cir, "provenance", None)

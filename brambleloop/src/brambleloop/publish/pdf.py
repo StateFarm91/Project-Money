@@ -1619,7 +1619,17 @@ def overview_paragraphs(cir: CIR, result, twin: TwinModel, text: str,
         totals: dict[str, int] = {}
         for c in twin.cells:
             totals[c.color] = totals.get(c.color, 0) + 1
-        if len(totals) > 1:
+        chart = getattr(comp, "chart", None)
+        if chart is not None and len(totals) > 1:
+            # ENG-COLOURWORK: a charted piece changes colour inside its rows, so the colour of
+            # a row's first stitch says nothing about it. Say what the chart is.
+            yarns = sorted(set(chart.key.values()))
+            main = comp.rows[0].color if comp.rows and comp.rows[0].color else yarns[0]
+            out.append(f"The main colour is {main}. {unit.capitalize()}s "
+                       f"{_span_words(chart.first_row, chart.last_row)} are {chart.technique} "
+                       f"colourwork in {' and '.join(yarns)}, worked from the chart; every "
+                       f"other {unit} is {main} only.")
+        elif len(totals) > 1:
             main = max(sorted(totals), key=lambda k: totals[k])
             others = []
             for colour in sorted(k for k in totals if k != main):
@@ -2916,6 +2926,23 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         for name in colours:
             doc.kv(name, cir.colors.get(name, ""), upper=False)
 
+    wall = art.get("wall")
+    if wall:
+        # ENG-COLOURWORK: the colourwork band of a piece worked in rounds, on its own page.
+        doc.new_page(head)
+        doc.heading("Colourwork chart", kicker="Chart and keys")
+        doc.para(wall["caption"], size=9.5, color=MUTED, keep=True)
+        doc.space(1 * mm)
+        doc.image(wall["chart"], running_head=head, max_height=CHART_TILE_HEIGHT,
+                  figure={"kind": "chart", "source": "publish.charts (twin cell grid)",
+                          "label": "Colourwork chart"})
+        problems.extend(wall.get("problems", ()))
+        if wall.get("cues"):
+            doc.heading("Colour key", size=12)
+            doc.para(COLOUR_CUE_NOTE_FLAT, size=9.5, color=MUTED)
+            for name, cue in sorted(wall["cues"].items(), key=lambda kv: kv[1]):
+                doc.kv(cue, f"{name}  {cir.colors.get(name, '')}".strip(), upper=False)
+
     # ---------------------------------------------------------------- 10. gallery ----------
     gallery = [(v, views[v]) for v in ("hero", "angle", "detail") if v in views]
     if gallery or sample_photo_placeholders:
@@ -3412,8 +3439,11 @@ def _straight_tail_sentence(block: RoundBlock) -> str:
         by_colour: dict[str, list[str]] = {}
         for name, a, b in block.tail_other_colors:
             by_colour.setdefault(name, []).append(_round_span(a, b, dash=True))
-        runs = "; ".join(f"rounds {' and '.join(spans)} in {name}"
-                         for name, spans in by_colour.items())
+        runs = "; ".join(
+            f"rounds {' and '.join(spans)} in "
+            + (name or "tapestry colourwork, two yarns in the round (see the colourwork "
+                       "chart)")
+            for name, spans in by_colour.items())
         out += (f" They are worked in {block.tail_color} except {runs}, and the written "
                 f"instructions give the colour of every round.")
     else:
@@ -3554,7 +3584,9 @@ def _chart_art(cir: CIR, twin: TwinModel) -> dict:
     if is_round(cir, twin):
         # A ragged grid is not a chart of a disc, and "read odd rows right to left" is
         # flat-fabric advice: every round is worked in the same direction.
-        return _round_chart_art(cir, twin)
+        art = _round_chart_art(cir, twin)
+        wall = _wall_chart_art(cir, twin)
+        return dict(art, wall=wall) if wall is not None else art
 
     grid, colour_grid = twin.chart_grid(), twin.color_grid()
     full_cols = max((len(r) for r in grid), default=0)
@@ -3653,6 +3685,49 @@ def _chart_art(cir: CIR, twin: TwinModel) -> dict:
 
 # Reserve the measured area for heading, explanatory caption and tile range.
 CHART_TILE_HEIGHT = PAGE_H - 2 * MARGIN - 55 * mm
+
+
+def _wall_chart_art(cir: CIR, twin: TwinModel) -> dict | None:
+    """ENG-COLOURWORK: the colourwork chart of a piece worked in rounds.
+
+    The round chart draws the rounds that shape the piece; a tapestry wall is straight, so
+    it is left out there, and without this page the band the maker buys the pattern for would
+    have no chart at all. One repeat of the band, drawn from the twin's own cells (the twin is
+    proven equal to the declared chart), every round read right to left from stitch 1."""
+    comp = next((c for c in cir.components
+                 if c.name == twin.component and getattr(c, "chart", None) is not None), None)
+    if comp is None:
+        return None
+    chart = comp.chart
+    width = len(chart.rows[0])
+    period = next(p for p in range(1, width + 1)
+                  if width % p == 0 and all(r == r[:p] * (width // p) for r in chart.rows))
+    by_row: dict[int, list] = {}
+    for cell in twin.cells:
+        by_row.setdefault(cell.row, []).append(cell)
+    stitches_g, colours_g = [], []
+    for index in range(chart.first_row, chart.last_row + 1):
+        cells = sorted(by_row.get(index, []), key=lambda c: c.fabric_position)[:period]
+        stitches_g.append([c.stitch for c in cells])
+        colours_g.append([c.color for c in cells])
+    spec = ChartSpec(cell_px=32, margin_px=64)
+    image = render_chart(cir, twin, spec, grids=(stitches_g, colours_g),
+                         caption="Colourwork chart", row_offset=chart.first_row - 1,
+                         show_columns=True, rounds=True)
+    scale = min(1.0, (PAGE_W - 2 * MARGIN) / image.width, CHART_TILE_HEIGHT / image.height)
+    cell_mm = spec.cell_px * scale / mm
+    main = comp.rows[0].color if comp.rows and comp.rows[0].color else ""
+    problems = ([] if cell_mm >= CHART_MIN_CELL_MM else
+                [f"PDF_CHART_CELL_BELOW_BRAND_MINIMUM: the colourwork chart's cells render at "
+                 f"{cell_mm:.1f} mm"])
+    caption = (f"Colourwork chart: rounds {chart.first_row} to {chart.last_row}, one "
+               f"{period}-stitch repeat. Work the repeat {_times(width // period)} around "
+               f"each round ({width} stitches), reading every round from right to left, "
+               f"starting at the stitch numbered 1. Every other round is worked in {main} "
+               f"only. The chart is drawn from the same verified data as the written "
+               f"instructions, so the two cannot disagree.")
+    return {"chart": image, "caption": caption, "cell_mm": cell_mm, "problems": problems,
+            "cues": chart_mod.flat_cue_letters(cir, colours_g, spec.cell_px)}
 
 
 def _tiled_chart_art(cir, twin, grid, colors):

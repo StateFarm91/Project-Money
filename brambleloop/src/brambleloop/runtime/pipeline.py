@@ -1275,6 +1275,35 @@ def handle_cir_draft(ctx: JobContext) -> dict:
                     concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
                     concept.source_brief, primitives)
             cir = FC.tapestry_basket(concept, provenance=provenance)
+        elif route["family"] == FC.COLOURWORK_TAPESTRY:
+            # ENG-COLOURWORK: an original chart generated from the motif library; the motif
+            # it draws is a declared primitive, so name truth can back the title's motif word.
+            from ..creative import colourwork as CW
+
+            if len(set((concept.colors or {}).values())) < 2:
+                hold = draft_hold(concept.category, concept.title, FC.COLOURWORK_TAPESTRY)
+                ctx.audit("cir.draft_refused", artifact=slug,
+                          detail={"reason": "tapestry needs two distinct colours",
+                                  "gate": "construction", "category": concept.category,
+                                  "needs": "a second, distinct colour in the palette",
+                                  "hold": hold})
+                return {"artifact": slug, "drafted": False, "gate": "construction",
+                        "construction": FC.REFUSED, "hold": hold,
+                        "reasons": ["tapestry needs two distinct colours"]}
+            build = CW.basket_wall if concept.category == "basket" else CW.flat_piece
+            base = CW.BASKET_PRIMITIVES if concept.category == "basket" else CW.FLAT_PRIMITIVES
+            motif = CW.motif_primitive(CW.design(concept.slug, concept.title)["motif"])
+            provenance = None
+            if lineage["known"]:
+                concept.source_provenance = lineage["source"]
+                concept.source_brief = lineage["brief"]
+                primitives = (base + (motif,)
+                              + tuple(p for p in lineage["primitives"]
+                                      if p != "runtime.pipeline.concept_to_cir"))
+                provenance = source_provenance(
+                    concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
+                    concept.source_brief, primitives)
+            cir = build(concept, provenance=provenance)
         elif route["family"] == FC.AMIGURUMI:
             provenance = None
             if lineage["known"]:

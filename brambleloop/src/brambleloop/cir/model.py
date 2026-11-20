@@ -351,6 +351,46 @@ class Hold:
 
 
 # F-750: the directions a piece can be worked in, and the typed features a piece can be.
+# ENG-COLOURWORK: the designed colour chart a charted component realises, declared beside its
+# rows so the compiler can prove the rows say what the chart shows (`cir.colourwork`). The
+# chart is the design; the rows are its instructions; neither is derived from a picture.
+# `rows` are in FABRIC order (bottom row first, each string read from the edge row 1 starts
+# at), one character per stitch, each character a key of `key` (symbol -> colour id).
+# `rows[0]` is component row `first_row`. Rows outside the chart must work one colour only.
+CHART_TECHNIQUES: tuple[str, ...] = ("tapestry",)
+
+
+@dataclass
+class Chart:
+    technique: str
+    key: dict[str, str]
+    rows: list[str]
+    first_row: int = 1
+    motif: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.technique not in CHART_TECHNIQUES:
+            raise ValueError(f"chart technique {self.technique!r} is not one of "
+                             f"{CHART_TECHNIQUES}")
+        self.rows = [str(r) for r in (self.rows or [])]
+        self.key = {str(k): str(v) for k, v in (self.key or {}).items()}
+        if not self.rows:
+            raise ValueError("a chart has at least one row")
+        if self.first_row < 1:
+            raise ValueError(f"chart first_row must be >= 1, got {self.first_row}")
+
+    @property
+    def last_row(self) -> int:
+        return self.first_row + len(self.rows) - 1
+
+    def colours_at(self, row_index: int) -> list[str] | None:
+        """The colour of every stitch of component row `row_index`, in fabric order, or None
+        when the row is outside the chart. A symbol missing from the key reads as itself."""
+        if not self.first_row <= row_index <= self.last_row:
+            return None
+        return [self.key.get(ch, ch) for ch in self.rows[row_index - self.first_row]]
+
+
 WorkDirection = Literal["bottom_up", "top_down", "side_to_side", "centre_out"]
 WORK_DIRECTIONS: tuple[str, ...] = ("bottom_up", "top_down", "side_to_side", "centre_out")
 Feature = Literal["body", "yoke", "sleeve", "band", "button_band", "hood", "pocket",
@@ -416,6 +456,9 @@ class Component:
     # fingerprint, the writer's piece heading and the reverse compiler's comparison.
     work_direction: "WorkDirection | None" = None
     feature: "Feature | None" = None
+    # ENG-COLOURWORK: the chart this piece's rows realise (see `Chart`). Omitted from
+    # `to_dict` when None, so no existing Product Truth digest moves.
+    chart: "Chart | None" = None
     # ENG-PLUSH: a closed stuffed piece (an amigurumi body) states its stuffing point and its
     # closure as structure, not prose. `stuff_at_round` is the round after which the piece is
     # stuffed (the opening must still admit a hand: `cir.closed_forms`); `closes` says the last
@@ -443,6 +486,8 @@ class Component:
         if self.work_direction is not None and self.work_direction not in WORK_DIRECTIONS:
             raise ValueError(f"component {self.name!r} work_direction "
                              f"{self.work_direction!r} is not one of {WORK_DIRECTIONS}")
+        if isinstance(self.chart, dict):
+            self.chart = Chart(**self.chart)
         if self.feature is not None and self.feature not in FEATURES:
             raise ValueError(f"component {self.name!r} feature {self.feature!r} is not one "
                              f"of {FEATURES}")
@@ -751,7 +796,8 @@ class CIR:
         if out.get("grading") is None:
             out.pop("grading", None)
         for comp in out.get("components", []):
-            for optional in ("gauge", "work_direction", "feature", "stuff_at_round"):
+            for optional in ("gauge", "work_direction", "feature", "chart",
+                             "stuff_at_round"):
                 if comp.get(optional) is None:
                     comp.pop(optional, None)
             if not comp.get("closes"):
@@ -795,6 +841,7 @@ class CIR:
                 gauge=Gauge(**c["gauge"]) if c.get("gauge") else None,
                 work_direction=c.get("work_direction"),
                 feature=c.get("feature"),
+                chart=Chart(**c["chart"]) if c.get("chart") else None,
                 stuff_at_round=c.get("stuff_at_round"),
                 closes=bool(c.get("closes", False)),
                 rows=[

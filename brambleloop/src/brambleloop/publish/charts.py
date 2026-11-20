@@ -612,7 +612,8 @@ def round_block(twin: TwinModel) -> RoundBlock | None:
                 others.append((run_name, run_from, run_to))
                 run_name = None
             continue
-        if name == run_name and r == run_to + 1:
+        # A multi-colour (charted) round is named "" so consecutive ones form one run.
+        if (name or "") == run_name and r == run_to + 1:
             run_to = r
         else:
             if run_name is not None:
@@ -668,7 +669,8 @@ def round_chart_size(twin: TwinModel, spec: ChartSpec | None = None, *,
 def render_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
                  grids: tuple[list[list[str]], list[list[str | None]]] | None = None,
                  caption: str | None = None, *, row_offset: int = 0,
-                 column_offset: int = 0, show_columns: bool = False) -> Image.Image:
+                 column_offset: int = 0, show_columns: bool = False,
+                 rounds: bool = False) -> Image.Image:
     """Colour chart with stitch glyphs, row numbers and working direction.
 
     Row 1 is drawn at the bottom, the way fabric actually grows, and alternate rows are
@@ -701,7 +703,14 @@ def render_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
     gutter = spec.margin_px
     grid_w = cols * cell
     title = caption or f"{cir.title} - {twin.component}"
-    footer = "odd rows read right to left   even rows read left to right"
+    # ENG-COLOURWORK: a chart of rounds (a basket wall's colourwork) is read right to left on
+    # every round, numbered on the right where each round starts, stitches counted from the
+    # right. The grids are passed in working order and drawn mirrored.
+    footer = ("every round read right to left" if rounds else
+              "odd rows read right to left   even rows read left to right")
+    if rounds:
+        grid = [list(reversed(r)) for r in grid]
+        colors = [list(reversed(r)) for r in colors]
     # A small repeat chart is narrower than its own caption. Sizing the canvas to the grid
     # alone silently crops the title and the reading-direction note off both edges, which is
     # the sort of thing that looks like a broken file to a customer.
@@ -746,7 +755,7 @@ def render_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
         # Number every row on the side it is worked from; on a tiny cell, every fifth.
         if cell >= 10 or row_number % 5 == 0 or row_number == rows:
             label = str(row_number)
-            if row_number % 2 == 0:
+            if row_number % 2 == 0 and not rounds:
                 d.text((left - 8, y + cell / 2), label, font=label_font, fill=MUTED,
                        anchor="rm")
             else:
@@ -756,8 +765,9 @@ def render_chart(cir: CIR, twin: TwinModel, spec: ChartSpec | None = None,
     d.text((width / 2, gutter - 26), title, font=label_font, fill=PINE, anchor="ms")
     if show_columns:
         for c_idx in range(cols):
+            number = column_offset + (cols - c_idx if rounds else c_idx + 1)
             d.text((left + (c_idx + .5) * cell, height - gutter + 4),
-                   str(column_offset + c_idx + 1), font=label_font, fill=MUTED, anchor="mt")
+                   str(number), font=label_font, fill=MUTED, anchor="mt")
     d.text((width / 2, height - gutter + (46 if show_columns else 22)), footer, font=label_font, fill=MUTED,
            anchor="ms")
     return img

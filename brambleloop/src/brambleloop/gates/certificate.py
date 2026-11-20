@@ -374,6 +374,10 @@ def certify(
     # 2a. Twin plausibility (F-117): compilation alone cannot certify. Every finished
     #     dimension the pattern states must sit inside tolerance of what the twin computes.
     findings.extend(_risk_matrix.plausibility_findings(cir, twins))
+    # ENG-COLOURWORK: the twin renders the true chart. A charted piece's twin fabric must be
+    # its declared chart cell for cell (the compiler already proved the rows work it).
+    from ..cir.colourwork import twin_findings as _chart_twin_findings
+    findings.extend(_chart_twin_findings(cir, twins))
     stages.append("twin")
 
     # 2b. Assembly: every piece placed and every join measured on both sides. A garment
