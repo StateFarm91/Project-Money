@@ -2800,3 +2800,37 @@ Reversible only by the owner.
 The table is `research/final_build/w6/construction_families.md`. Reversible by decision.
 
 **D-ENG-FAMILIES-2: the router reads what a title and premise name, and admits only (family, category) pairs that certify (ENG-FAMILIES fix round 1, 2026-11-19).** Main's review found a "Granny Square Basket" admitted, drafted as the plain striped vessel and certified (H1), and pet beds admitted but never certifying (M1). `construction_families.route` now holds any title or premise naming a construction the drafted engine does not build (`NAMED_FEATURES`, shared across every admitted family) as `construction_unsupported:<feature>`; the pet bed variant is held as `construction_unsupported:pet_bed` rather than widening the twin tolerance; `PAIR_PROOFS` and a router sweep require a certifying proof per admitted (family, category). `gates/policy._IP_TERMS` matches whole words.
+
+## D-ENG-VIS-IDENTITY-1 — identity verification method and its rules (ENG-VIS-IDENTITY, 2026-11-20; routine engineering, owner decisions pending)
+
+**Status:** routine engineering decisions within autonomy. Admitting a method for production is
+the owner's decision (`research/final_build/w6/IDENTITY_OWNER_DECISIONS.md`). No gate, margin or
+test was relaxed; several were tightened.
+
+- **Method recommended: (a)** YuNet + SFace ONNX on the worker CPU (Apache-2.0/MIT). InsightFace
+  ArcFace weights were rejected because their licence is non-commercial only. Hosted Rekognition
+  is the fallback. An LLM is rejected as the biometric floor but kept as the second judge.
+- **Thresholds are derived, never chosen:**
+  - `match_at` = highest impostor score + 0.05;
+  - `refuse_below` = lowest genuine score - 0.15.
+- **A production record needs all of:** at least 30 genuine samples; at least 300 impostor faces;
+  a FAR 95% upper bound of 1% or less; FRR of 10% or less; evidence that declares itself
+  production_ready; the owner's production-scoped decision; and a place on the register.
+- **Consumer verdict:** PASS only with a production-qualified method and two agreeing judges.
+  - Disagreement means HOLD with its reason.
+  - Drift means REFUSE.
+  - UNKNOWN, unmeasured, a fixture or the legacy table means HOLD.
+  - `candidate_gates.gate_status` counts a non-PASS verdict as UNKNOWN.
+- **Every Laura frame must be conditioned on all three canonical references.** A frame with
+  fewer is INVALID.
+- **Second judge:** OpenAI gpt-4.1, a different provider from the Anthropic first judge, through
+  the same reservation path and the `openai-vision` owner activation. Without a key it is not
+  configured.
+- **Outfit claim:** a compare-and-set UPDATE on `laura_outfits.listing`.
+  - It is idempotent per listing and survives restarts.
+  - It never reuses an outfit or claims a near-duplicate.
+  - If two claims for the same listing race, the lowest id wins.
+- **Identity records:** append-only, idempotent on the evaluation content hash. A frame whose
+  evaluation cannot be recorded is UNKNOWN.
+
+Reversible by decision.

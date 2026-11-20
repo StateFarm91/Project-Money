@@ -205,6 +205,28 @@ CAMPAIGN_GENERATED_PRODUCT_ONLY: dict[str, str] = {
 }
 
 
+# ENG-VISUAL: the campaign standard's floor. The ruling's "typical set of seven" adapts its roles
+# to the category (each frame one job), so seven is the minimum a gallery is certified with,
+# never a count padded to: a plan that cannot reach it is refused, not filled with repeats.
+CAMPAIGN_MIN_FRAMES = 7
+
+
+def campaign_standard(plan: dict) -> dict:
+    """Whether a campaign plan meets the seven-frame standard: >= CAMPAIGN_MIN_FRAMES slots,
+    each a distinct job. Read-only; `image_production.gallery_view` refuses on it."""
+    roles = list(plan.get("roles") or [])
+    jobs = [r.get("job") for r in roles]
+    dup = sorted({j for j in jobs if jobs.count(j) > 1 and j is not None})
+    problems = []
+    if len(roles) < CAMPAIGN_MIN_FRAMES:
+        problems.append({"kind": "campaign_below_standard", "frames": len(roles),
+                         "minimum": CAMPAIGN_MIN_FRAMES})
+    if dup:
+        problems.append({"kind": "campaign_duplicate_job", "jobs": dup})
+    return {"ok": not problems, "frames": len(roles), "minimum": CAMPAIGN_MIN_FRAMES,
+            "problems": problems}
+
+
 def campaign_briefs(laura: bool) -> dict[str, str]:
     """The generated-campaign briefs for a listing with or without Laura."""
     return CAMPAIGN_GENERATED if laura else CAMPAIGN_GENERATED_PRODUCT_ONLY
