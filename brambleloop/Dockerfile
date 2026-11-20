@@ -24,6 +24,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends fonts-dejavu-co
 
 RUN pip install --no-cache-dir --require-hashes --no-deps -r requirements.lock
 
+# ENG-VIS-IDENTITY: the identity floor's two ONNX models (YuNet MIT + SFace Apache-2.0, ~39 MB),
+# fetched at build and verified against the sha256 pins in face_embedder.py. Only the pin file
+# and the fetch script are copied first, so this layer is rebuilt only when the pins change.
+# --best-effort: an unreachable mirror never breaks the deploy. Missing or mismatched weights
+# are refused again at every load (SFaceEmbedder.load), so the floor reads UNMEASURED and Laura
+# identity HOLDs; it can never PASS on weights that are not the pinned bytes.
+ENV BRAMBLELOOP_FACE_MODEL_DIR=/app/models/face
+COPY scripts/fetch_face_models.py ./scripts/fetch_face_models.py
+COPY src/brambleloop/visual/face_embedder.py ./src/brambleloop/visual/face_embedder.py
+RUN python scripts/fetch_face_models.py --best-effort "$BRAMBLELOOP_FACE_MODEL_DIR"
+
 COPY src ./src
 # A3-05: the tracked release records the runtime boot guard verifies (brambleloop.ops.release_record).
 COPY release ./release

@@ -1516,6 +1516,17 @@ CHECK_NAMES = ("publishing_halt_clear", "stale_artefacts_rebuilding",
                "no_repeated_paid_call_in_24h", "weekly_jobs_completing")
 
 
+def daily_ledger(db, *, now: datetime) -> dict:
+    """ENG-DAILY: per-UTC-day production counts (14 days), counts only; spend as recorded or
+    not, never an amount (`ops.daily_ledger.readback`)."""
+    from .daily_ledger import readback
+
+    return readback(db, now=now)
+
+
+SECTIONS["daily_ledger"] = daily_ledger
+
+
 def _section(name: str, db, now) -> dict:
     try:
         return SECTIONS[name](db, now=now)

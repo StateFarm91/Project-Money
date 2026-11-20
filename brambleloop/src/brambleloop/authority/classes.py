@@ -75,7 +75,7 @@ JOB_CLASS: dict[str, ActionClass] = {
     "marketing.ads_readiness": _O, "ops.capacity": _O, "ops.dependencies": _O,
     "ops.health": _O, "ops.heartbeat": _O, "ops.maturity_disagreements": _O,
     "ops.policy_watch": _O, "ops.provenance_backfill": _O, "ops.queue_check": _O,
-    "ops.sentinel": _O, "ops.slo": _O, "ops.thrash": _O, "physical.photo": _O,
+    "ops.sentinel": _O, "ops.slo": _O, "ops.thrash": _O, "ops.daily_ledger": _O, "physical.photo": _O,
     "physical.record": _O, "physical.upgrade_impact": _O, "portfolio.review": _O,
     "seasonal.harvest": _O, "seasonal.sentinel": _O, "swarm.review": _O,
     "visual.identity_drift": _O, "visual.model_ledger": _O, "mjs.seasonal_sentinel": _O,

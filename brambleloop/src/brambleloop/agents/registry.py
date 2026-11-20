@@ -66,6 +66,8 @@ DEFAULT_AGENTS: list[dict] = [
                             "improve.self_tune",
                             # #34 thrash sweep; #33 #38 #131 #267 #286 #287 #289-#291 engine.
                             "ops.thrash", "seasonal.engine",
+                            # ENG-DAILY: the daily production ledger and diagnosis.
+                            "ops.daily_ledger",
                             # C-69 (#50, #29): the daily dependency and fragility sweep.
                             "ops.dependencies",
                             "ops.provenance_backfill",

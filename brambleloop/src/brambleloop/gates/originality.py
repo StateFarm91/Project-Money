@@ -399,6 +399,9 @@ class BenchmarkFingerprint:
     # Per size, the piece-level numbers a maker works (foundations, piece totals).
     piece_numbers: dict[str, tuple[int, ...]] = field(default_factory=dict)
     wording: frozenset[str] = frozenset()
+    # ENG-COLOURWORK: salted hashes of the benchmark chart's n x n windows
+    # (`creative.colourwork.chart_fingerprint`), never the chart. Empty: no chart captured.
+    chart_windows: frozenset[str] = frozenset()
 
     def unusual_sequences(self) -> dict[str, tuple[int, ...]]:
         return {k: v for k, v in self.size_sequences.items()
@@ -478,8 +481,43 @@ def fingerprints_from_db(db) -> list[BenchmarkFingerprint]:
             features=frozenset(r.features or []), construction=tuple(r.construction or []),
             size_sequences={k: tuple(v) for k, v in (r.size_sequences or {}).items()},
             piece_numbers={k: tuple(v) for k, v in (r.piece_numbers or {}).items()},
-            wording=frozenset(r.wording_shingles or []))
+            wording=frozenset(r.wording_shingles or []),
+            chart_windows=frozenset(f[len(CHART_FEATURE):] for f in (r.features or [])
+                                    if str(f).startswith(CHART_FEATURE)))
             for r in s.scalars(select(BenchmarkFingerprintRecord))]
+
+
+# ENG-COLOURWORK: a benchmark chart's window hashes ride in the record's `features` list under
+# this prefix (no schema change); `fingerprints_from_db` separates them and the feature
+# comparison never sees them.
+CHART_FEATURE = "chart:"
+CHART_MATERIAL = 0.30        # share of OUR chart windows found in the benchmark's
+CHART_MIN_SHARED = 8
+
+
+def record_chart_fingerprint(db, ref: str, chart_rows: list[str], *, title: str = "",
+                             source: str = "teardown") -> dict:
+    """Store a benchmark chart's fingerprint (hashes only; the chart is never stored)."""
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkFingerprintRecord
+    from ..creative.colourwork import chart_fingerprint
+
+    windows = sorted(chart_fingerprint(chart_rows))
+    with db.session() as s:
+        row = s.scalar(select(BenchmarkFingerprintRecord).where(
+            BenchmarkFingerprintRecord.benchmark_ref == ref))
+        if row is None:
+            row = BenchmarkFingerprintRecord(benchmark_ref=ref)
+            s.add(row)
+        row.title = title or row.title or ref
+        kept = [f for f in (row.features or []) if not str(f).startswith(CHART_FEATURE)]
+        row.features = sorted(kept) + [CHART_FEATURE + w for w in windows]
+        row.source = source
+        row.updated_at = datetime.now(timezone.utc)
+    return {"ref": ref, "chart_windows": len(windows)}
 
 
 def record_fingerprint(db, ref: str, *, title: str = "", text: str | None = None,
@@ -689,9 +727,27 @@ def compare(cir, benchmark: BenchmarkFingerprint, *, pattern_text: str | None = 
                             else "clear", "ours": list(steps),
                             "share_of_theirs": round(share_c, 3)}
 
+    # ENG-COLOURWORK: a charted candidate's chart against the benchmark's captured chart.
+    # Colour-blind and mirror-folded windows, so a recoloured or flipped chart is the same chart.
+    from ..creative.colourwork import cir_chart_fingerprint
+
+    ours_chart = cir_chart_fingerprint(cir)
+    if ours_chart:
+        if not benchmark.chart_windows:
+            dims["chart"] = {"verdict": "unmeasured",
+                             "why": "no fingerprint of the benchmark's chart has been captured"}
+        else:
+            shared_c = len(ours_chart & benchmark.chart_windows)
+            share_ch = shared_c / len(ours_chart)
+            dims["chart"] = {"verdict": ("material" if share_ch >= CHART_MATERIAL
+                                         and shared_c >= CHART_MIN_SHARED else "clear"),
+                             "shared_windows": shared_c, "share_of_ours": round(share_ch, 3)}
+
     # Features and construction together are what "the same design" means; either alone is a
-    # genre (every cardigan has fronts and sleeves). Wording or numbers alone are a copy.
-    material = [d for d in ("wording", "numeric") if dims[d]["verdict"] == "material"]
+    # genre (every cardigan has fronts and sleeves). Wording, numbers or a chart alone are a
+    # copy.
+    material = [d for d in ("wording", "numeric", "chart")
+                if dims.get(d, {}).get("verdict") == "material"]
     if feature_material and dims["construction"]["verdict"] == "material":
         material += ["features", "construction"]
     return {"benchmark": benchmark.ref, "title": benchmark.title, "dimensions": dims,
@@ -718,7 +774,8 @@ def similarity_review(cir, *, pattern_text: str | None = None, db=None,
             # A copy, never the shared code fingerprint: one database's captured wording must
             # not leak into the next review in the same process.
             pool[fp.ref] = fp if have is None else dataclasses.replace(
-                have, wording=have.wording | fp.wording)
+                have, wording=have.wording | fp.wording,
+                chart_windows=have.chart_windows | fp.chart_windows)
     comparisons = [compare(cir, b, pattern_text=pattern_text) for b in pool.values()]
     escalated = [c for c in comparisons if c["material"]]
     return {"slug": cir.slug, "benchmarks_compared": sorted(pool),

@@ -716,6 +716,8 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # engine daily (#33 #38 #131 #267 #286 #287 #289 #290 #291).
     ("growth_conclude", "experiment_steward", "growth.conclude", 24 * 60 * 60),
     ("thrash_sweep", "orchestrator", "ops.thrash", 60 * 60),
+    # ENG-DAILY: the daily production ledger and its zero-output diagnosis, six-hourly.
+    ("daily_ledger", "orchestrator", "ops.daily_ledger", 6 * 60 * 60),
     ("seasonal_engine", "orchestrator", "seasonal.engine", 24 * 60 * 60),
     # Build 2 closeout (2026-09-27): the runtime halves of libraries that had none.
     # #174-#176, #186, #192: the swarm reviews agent quality, sizes lanes, resolves orphaned

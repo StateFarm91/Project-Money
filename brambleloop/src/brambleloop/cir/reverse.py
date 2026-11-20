@@ -323,7 +323,12 @@ def parse_construction(text: str) -> str | None:
 # shared code proves nothing (B-005).
 _STEP_RE = re.compile(r"^Step\s+(\d+):\s*(.+?)\s*$", re.I)
 _SELF_SEAM_RE = re.compile(r"the two edges of the (.+?) together", re.I)
-_TWO_PIECE_RE = re.compile(r"the (.+?) (?:to|into|through) the (.+?)(?:\s+across|[.,])", re.I)
+_TWO_PIECE_RE = re.compile(r"the (.+?) (?:to|into|through|onto) the (.+?)"
+                           r"(?:\s+across|\s+centred|[.,])", re.I)
+# ENG-PLUSH: a piece laid on another ("onto the front centred on row 28, 13 sts from the
+# centre line").
+_SURFACE_RE = re.compile(r"centred on (?:rounds?|rows?)\s+(\d+)(?:,\s*(\d+)\s+sts\s+from\s+"
+                         r"the\s+centre\s+line)?", re.I)
 # Placement, read back out of the sentence. Its own patterns, not the writer's: a round trip
 # through shared code proves nothing (B-005).
 _SPAN_RE = re.compile(r"across (?:rounds?|rows?)\s+(\d+)(?:\s*[-\u2013]\s*(\d+))?", re.I)
@@ -369,6 +374,10 @@ def parse_assembly(text: str) -> list[tuple]:
                     f"which is backwards")
         centre = _CENTRE_RE.search(body)
         from_centre = int(centre.group(1)) if centre else None
+        surface = _SURFACE_RE.search(body)
+        if surface:
+            at_round, spans = int(surface.group(1)), 1
+            from_centre = int(surface.group(2) or 0)
         mirrored = bool(_MIRRORED_RE.search(body))
 
         self_seam = _SELF_SEAM_RE.search(body)
@@ -435,6 +444,28 @@ def parse_fibre_content(text: str) -> tuple[tuple[tuple[str, int], ...], ...]:
                 f"{sum(p for _, p in pairs)}%, not 100%", chunk.strip())
         out.append(tuple(pairs))
     return tuple(out)
+
+
+_STUFF_RE = re.compile(r"^Stuff after (?:Rnd|Round) (\d+):")
+_CLOSE_RE = re.compile(r"^Close after (?:Rnd|Round) (\d+):")
+
+
+def parse_closed_forms(text: str) -> dict[str | None, tuple[int | None, int | None]]:
+    """ENG-PLUSH: per piece heading, (stuffed after round, closed after round) as printed."""
+    out: dict[str | None, list] = {}
+    current: str | None = None
+    for raw in text.splitlines():
+        line = raw.strip()
+        h = _HEADING_RE.match(line)
+        if h:
+            name = h.group(1).strip()
+            current = None if name.lower() in _SECTION_HEADINGS else name
+            continue
+        for i, rx in enumerate((_STUFF_RE, _CLOSE_RE)):
+            m = rx.match(line)
+            if m:
+                out.setdefault(current, [None, None])[i] = int(m.group(1))
+    return {k: (v[0], v[1]) for k, v in out.items()}
 
 
 def parse_pattern(text: str, terminology: str = "US") -> list[ParsedRow]:
@@ -578,6 +609,21 @@ def compare(cir: CIR, text: str, terminology: str = "US") -> list[Finding]:
             f"{[list(f) for f in expected_fibres]}, customer text states "
             f"{[list(f) for f in printed_fibres]}. A composition a buyer reads and acts on "
             f"is a product fact, not presentation"))
+
+    # ENG-PLUSH: a closed stuffed piece's stuffing point and closure are instructions, read
+    # back per piece from the document's own words and compared with the CIR.
+    printed_closed = parse_closed_forms(text)
+    expected_closed = {c.name: (c.stuff_at_round, c.rows[-1].index if c.closes and c.rows
+                                else None)
+                       for c in cir.components if c.stuff_at_round is not None or c.closes}
+    single = len(cir.components) == 1
+    printed_closed = {(cir.components[0].name if single and k is None else k): v
+                      for k, v in printed_closed.items()}
+    if printed_closed != expected_closed:
+        findings.append(Finding(
+            ERROR, "REVERSE_CLOSED_FORM",
+            f"stuffing points and closures differ from the validated design: CIR has "
+            f"{expected_closed}, customer text has {printed_closed}"))
 
     # The finishing is part of the pattern too. A document that has lost its assembly steps
     # leaves a maker with pieces and no object.
