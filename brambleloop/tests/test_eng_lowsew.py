@@ -114,7 +114,9 @@ def test_three_original_animals_are_physical_gated_end_to_end():
         for terms in ("US", "UK"):
             doc = pdf.build_pattern_pdf(cir, terminology=terms, childrens=TOY)
             pdf_text = pdf.extracted_text(doc.pdf_bytes)
+            assert cir.components
             for comp in cir.components:
+                assert comp.rows, comp.name
                 for row in comp.rows:
                     count = result.row(comp.name, row.index).stitch_count
                     assert f"({count} sts)" in pdf_text, (animal.slug, terms, comp.name)
@@ -370,6 +372,7 @@ def test_the_reverse_compiler_reads_every_join_back_from_the_text():
             ("sc in next 9 sts", "REVERSE_FOLD"),
         "ear (make 2).": ("ear (make 1).", "REVERSE_JOIN_ORDER"),
     }
+    assert probes
     for old, (new, code) in probes.items():
         assert old in text, old
         tampered = text.replace(old, new, 1)
