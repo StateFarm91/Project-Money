@@ -267,7 +267,8 @@ def build_description(product_title: str, *, size_label: str | None,
                       key_phrases: list[str] | None = None,
                       lesson_links: list[dict] | None = None,
                       why_it_matters: str | None = None,
-                      yarn_lines: list[str] | None = None) -> str:
+                      yarn_lines: list[str] | None = None,
+                      fold_facts: str | None = None) -> str:
     """Assemble the description entirely from verified pattern facts.
 
     `lesson_links` is `learn.service.listing_help_links(db, cir)` (F-808): approved,
@@ -291,6 +292,10 @@ def build_description(product_title: str, *, size_label: str | None,
     # on the same line so the key-phrase sentence (F-025) stays in the first two lines.
     lead = (f"{product_title} — a crochet pattern, not a finished item. You receive an "
             f"instant digital download.")
+    if fold_facts and fold_facts.strip():
+        # ENG-SEO-PRICE / B-409: skill level, size(s) and both PDFs ride on the first line, so
+        # the buyer who stops there has every answer (`market_fit.fold_problems`).
+        lead = f"{lead} {fold_facts.strip()}"
     if why_it_matters and why_it_matters.strip():
         lead = f"{lead} {why_it_matters.strip()}"
     out.append(lead)
