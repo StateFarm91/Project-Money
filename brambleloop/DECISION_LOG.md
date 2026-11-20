@@ -3163,3 +3163,7 @@ grant). It expires after 30 days, and the system never renews it.
   is touched. Physical-evidence attestations remain the owner's; waivers stay
   `owner_directed_without_attestation`.
 - Renewal or widening goes through the normal step-up path.
+
+## D-OWNER-DEPLOY-OVERRIDE-4 — 2026-11-20T22:26Z
+
+Batch 19a (D-OWNER-APPROVE-ALL alone, on top of production 511a8c63) is deployed without a full-suite certification, under the owner's exact-SHA approval. Reason: the owner deadline is end of day 2026-11-20. The changed suites pass (8 suites, 168 tests), and a rollback to a4952711 was rehearsed. The boot guard still requires a full-suite record; this override does not satisfy it.
