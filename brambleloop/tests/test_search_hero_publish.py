@@ -73,6 +73,10 @@ from tests.fake_etsy import FakeEtsy  # noqa: E402
 import _owner_grant; _owner_grant.scoped_owner_approvals()  # noqa: E402,E702  (WS4-0a)
 
 SLUG = "cloudline-baby-blanket"
+# A product whose disclosed set certifies the complete gallery (D-OWNER-GALLERY-COMPLETE); the
+# blanket's set certifies 6 of the 7 frames and is rightly blocked from publish (b18-a A-1).
+FULL_SLUG = "housewarming-key-basket"
+FULL_CATEGORY = "basket"
 OWNER_TOKEN = "fixture-owner-publication-credential-32+"
 _BUILT: dict = {}
 
@@ -148,10 +152,10 @@ def _chain(slug: str = SLUG, category: str = "baby_blanket"):
     return copy, version, rh
 
 
-def _profile(db) -> ListingSearchProfile:
+def _profile(db, slug: str = SLUG) -> ListingSearchProfile:
     with db.session() as s:
         row = s.scalar(select(ListingSearchProfile).where(
-            ListingSearchProfile.product_slug == SLUG))
+            ListingSearchProfile.product_slug == slug))
         s.expunge(row)
         return row
 
@@ -229,9 +233,9 @@ def _creates(fake) -> list:
 # ---------------------------------------------------------------------------- the merits
 
 def test_certify_assets_seo_grant_publish_creates_exactly_one_draft_with_no_forced_verdict():
-    path, version, rh = _chain()
+    path, version, rh = _chain(FULL_SLUG, FULL_CATEGORY)
     db = Database(f"sqlite:///{path}")
-    row = _profile(db)
+    row = _profile(db, FULL_SLUG)
     # listing.seo judged the hero on the certified disclosed set and wrote PASS back, with
     # the evidence it used, bound to this release.
     assert row.verdict == "PASS", (row.verdict, row.certificate.get("reasons"))
@@ -245,13 +249,13 @@ def test_certify_assets_seo_grant_publish_creates_exactly_one_draft_with_no_forc
         assert frame1["sha256"] == ev["frame_1_sha256"]
         assert frame1["kind"] == "disclosed_render"
     assert cert["bound_fingerprint"] == row.fingerprint
-    payload = etsy_ops.certified_payload(db, SLUG, version)
+    payload = etsy_ops.certified_payload(db, FULL_SLUG, version)
     assert payload.taxonomy_id == row.taxonomy_id
 
     with FakeEtsy() as fake, _owner_and_fake(fake):
-        grant = _grant(db, version, rh)
+        grant = _grant(db, version, rh, slug=FULL_SLUG)
         job = _run(db, "store_operator", "store.publish",
-                   {"slug": SLUG, "version": version, "release": rh},
+                   {"slug": FULL_SLUG, "version": version, "release": rh},
                    phase=Phase.LIMITED_PRODUCTION)
         assert job.status is JobStatus.DONE, job.last_error
         assert job.outputs.get("published") is True, job.outputs
@@ -273,9 +277,23 @@ def test_certify_assets_seo_grant_publish_creates_exactly_one_draft_with_no_forc
         assert uploaded == certified, (uploaded, certified)
         assert len(fake.images[lid]) == len(certified) > 3, len(fake.images[lid])
     with db.session() as s:
-        listing = s.scalar(select(Listing).where(Listing.product_slug == SLUG))
+        listing = s.scalar(select(Listing).where(Listing.product_slug == FULL_SLUG))
         assert str(listing.etsy_listing_id) == str(lid)
     assert grant
+    db.engine.dispose()
+
+    # The 6-frame blanket is the same chain with an incomplete gallery: it stays blocked.
+    path, version, rh = _chain()
+    db = Database(f"sqlite:///{path}")
+    with FakeEtsy() as fake, _owner_and_fake(fake):
+        _grant(db, version, rh)
+        job = _run(db, "store_operator", "store.publish",
+                   {"slug": SLUG, "version": version, "release": rh},
+                   phase=Phase.LIMITED_PRODUCTION)
+        out = job.outputs or {}
+        assert out.get("published") is not True and out.get("blocked") is True, out
+        assert any("gallery incomplete" in r for r in out.get("reasons") or []), out
+        assert _creates(fake) == [], [r["operation"] for r in fake.requests]
     db.engine.dispose()
 
 
