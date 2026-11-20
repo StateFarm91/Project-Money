@@ -2960,3 +2960,20 @@ the listing. Then it's ready to be for sale. Hard rule."
   Mission Control and in readback.
 - Ready for sale = certified pattern + complete certified gallery + both premium illustrated
   PDFs certified for this release + every listing gate PASS. Nothing less counts.
+
+## D-OWNER-PDF-LOGO — 2026-11-20 (owner directive) — supersedes integrator decision N1 (2026-10-31)
+
+**Decision:** "You should already have the company logo… It should be used on the PDF." Every
+premium PDF (US and UK) carries the owner's canonical logo,
+`brand/owner_source/brambleloop_owner_logo_canonical.png` (sha256 28f301b2…5998, D-FB-17),
+used exactly as supplied, resampled only to fit (the existing `publish.pdf._cover_logo`):
+- prominently on the cover;
+- on the About Brambleloop Studio page.
+
+The A3 vector lockup or the micro-mark may appear only as a small-size utility, for example
+the running footer, as D-FB-17's hierarchy permits. It never replaces the logo on the cover.
+N1's worry (the artwork's HOME · BABY · GIFTS · SEASONAL line read as a product claim) is
+outweighed by the owner's direct instruction, and that line now matches the core families.
+**Verified deterministically:** the D-OWNER-PDF-STANDARD checker confirms that the cover
+embeds an image derived from the canonical logo (a perceptual or derived-hash match to the
+resampled canonical bytes). A PDF without it FAILS.
