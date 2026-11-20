@@ -113,6 +113,12 @@ NEVER_PRUNED_TABLES = ("oauth_credentials",)
 # The point is not this list's current contents; it is that the next lifetime aggregate
 # somebody writes has to come here and make a decision.
 KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+    # ENG-ETSY-AI-FIX: publication_status reads the newest 20 recorded readings of Etsy's AI
+    # rules; only one dated on or after the rules' last edit counts, so a pruned older row
+    # can only make the status UNKNOWN (publication held), never PERMITTED.
+    "etsy_ai_policy.reading": ("windowed",
+                               "publish.etsy_ai_policy.publication_status reads the newest 20 "
+                               "readings; a pruned row only ever leaves the status UNKNOWN"),
     # ENG-RECOVERY: the thrash-breaker re-arm reads the boot rows of the RUNNING commit (the
     # newest 500) for when this release first booted. A release is weeks old at most, far
     # inside the horizon; were its first boot row pruned, a later boot of the same release

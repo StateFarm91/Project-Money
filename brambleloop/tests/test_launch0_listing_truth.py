@@ -197,7 +197,12 @@ def test_claim_checks_refuse_a_product_type_or_fabric_the_cir_does_not_make():
 
     basket = L.cir_for("basket_small")
     twin = build_twin(basket, compile_cir(basket))
-    desc = "A crochet basket pattern, worked in the round, as two PDFs."
+    # ENG-ETSY-AI-FIX: a first-listing door checks a listing package, which must carry the
+    # design disclosure; the test is about product-type truth, so the copy carries it.
+    from brambleloop.gates.platform_policy import DISCLOSURES
+
+    desc = ("A crochet basket pattern, worked in the round, as two PDFs. "
+            + DISCLOSURES["ai_assisted_design"])
     wrong = {"title": "Bread Basket | Crochet Pattern PDF | Market Mosaic Blanket",
              "description": desc, "tags": ["mosaic blanket", "basket crochet"],
              "price_cad": 6.5}

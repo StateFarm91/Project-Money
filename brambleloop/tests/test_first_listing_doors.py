@@ -112,6 +112,17 @@ def test_the_grant_reaches_a_draft_and_then_a_public_listing_through_the_owner_d
     with db.session() as s:
         s.add(AuditLog(actor="orchestrator", action="launch.rollback_rehearsed",
                        artifact=f"{slug}@{version}", detail={"ok": True}))
+        # ENG-ETSY-AI-FIX (H2a): FIXTURE reading of Etsy's AI rules, so this test can drive the
+        # doors past the UNKNOWN publication hold. Test data, not an owner attestation; the
+        # hold itself is pinned by test_w6_etsy_ai_policy.
+        from datetime import date as _date
+
+        from brambleloop.publish import etsy_ai_policy as _eap
+
+        s.add(AuditLog(actor="owner-test", action=_eap.READING_ACTION, artifact="etsy_ai_policy",
+                       detail={"status": _eap.PERMITTED, "read_by": "owner-test (FIXTURE)",
+                               "read_on": _date.today().isoformat()}))
+        s.commit()
     env_keys = {"BRAMBLELOOP_OPS_TOKEN": reh.REHEARSAL_OPS_TOKEN,
                 "BRAMBLELOOP_PUBLISH_AUTHORISED": "1", **ogk.generate_keypair()}
     saved_env = {k: os.environ.get(k) for k in

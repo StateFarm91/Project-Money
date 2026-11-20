@@ -209,7 +209,10 @@ def claims(text: str) -> list[tuple[str, str]]:
     """(rule, phrase) for every authorship/making/testing/sample claim in the free text that
     is left once the allowlisted honest sentences are removed."""
     found: dict[tuple[str, str], None] = {}
-    for form in forms(_residue(text)):
+    # One sentence at a time: a window never spans "...made. Edited by hand..." (a real false
+    # positive). Joiner dots ("h.a.n.d") are not followed by a space, so they do not split.
+    sentences = [x for x in re.split(r"[.!?;:\n]+(?=\s|$)", _residue(text)) if x.strip()]
+    for form in (f for sentence in sentences for f in forms(sentence)):
         for label, rx in _COMPILED:
             for m in rx.finditer(form):
                 found[(label, m.group(0).strip())] = None

@@ -138,6 +138,7 @@ def _blocker_key(b: dict) -> tuple[str, str]:
     """A blocker's stable identity: its source and the gate code / reader that raised it."""
     why = b["why"]
     for pattern in (r"^(FIRST_CUSTOMER_BLOCKING: \w+)", r"^(SAMPLE_PHOTO_REQUIRED)",
+                    r"^held: (Etsy AI policy status UNKNOWN)",
                     r"^(listing-set certificate \(#70\))", r"^(search certificate \(F-004\))",
                     r"^(ValueError: listing search profile not certified PASS)",
                     r"^(no valid listing-set certificate for [\w.@-]+?):"):
@@ -264,7 +265,11 @@ def test_b_in_shadow_store_publish_is_refused_and_nothing_is_published():
 #     multipart_image_upload, oauth_token_endpoint) are unverified because no authenticated
 #     round trip against Etsy exists. Needs a live Etsy connection; cannot clear offline.
 #   * SAMPLE_PHOTO_REQUIRED -- gate publish/sample_photo.py: no unedited photograph on file.
+#   * Etsy AI policy status UNKNOWN -- gate publish/etsy_ai_policy.py (ENG-ETSY-AI-FIX H2a):
+#     no named person has recorded a reading of Etsy's current AI rules for functional guides.
+#     Owner exception B; publication only.
 BLOCKERS_C = {
+    ("release_gates.for_publish", "Etsy AI policy status UNKNOWN"),
     ("release_gates.for_publish", "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims"),
     ("release_gates.for_publish", "FIRST_CUSTOMER_BLOCKING: etsy_remote_state"),
     ("release_gates.for_publish", "SAMPLE_PHOTO_REQUIRED"),
@@ -309,6 +314,7 @@ def test_c_the_package_is_blocked_on_exactly_the_observed_set():
 #     Approving the frame by hand would be bypassing asset truth, so it is not done.
 #   * FIRST_CUSTOMER_BLOCKING: etsy_remote_state still needs a live Etsy round trip.
 BLOCKERS_D = {
+    ("release_gates.for_publish", "Etsy AI policy status UNKNOWN"),
     ("release_gates.for_publish", "listing-set certificate (#70)"),
     ("release_gates.for_publish", "search certificate (F-004)"),
     ("release_gates.for_publish", "FIRST_CUSTOMER_BLOCKING: imagery"),

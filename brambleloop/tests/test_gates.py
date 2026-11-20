@@ -155,10 +155,13 @@ def test_policy_enforces_etsy_limits():
     assert {"POLICY_TITLE_LENGTH", "POLICY_TAG_COUNT", "POLICY_TAG_LENGTH"} <= c
 
 
+from brambleloop.gates.platform_policy import DISCLOSURES  # noqa: E402
+
+
 def test_clean_listing_passes_policy():
     d = ListingDraft(title="Mosaic Crochet Blanket Pattern PDF with Video",
                      description="A two-colour mosaic throw. Made with AI assistance in "
-                                 "drafting and checking.",
+                                 "drafting and checking. " + DISCLOSURES["ai_assisted_design"],
                      tags=["crochet pattern", "mosaic blanket"], price_cad=11.99)
     assert not [f for f in check_listing(d) if f.severity == "ERROR"]
 

@@ -116,10 +116,12 @@ def test_the_listing_claims_nothing_the_concept_does_not_say():
                   "repeat_purchase": False}
     assert check_claim(draft.title, at_release) == []
     assert check_claim(draft.description, at_release) == []
-    assert not [f for f in check_listing(draft, cir, proof_states=at_release)
+    # ENG-ETSY-AI-FIX: this is the concept-stage draft the certificate checks (package=False,
+    # as gates.certificate passes); listing.seo appends and requires the disclosure later.
+    assert not [f for f in check_listing(draft, cir, proof_states=at_release, package=False)
                 if f.severity == "ERROR"], [str(f) for f in
-                                            check_listing(draft, cir,
-                                                          proof_states=at_release)]
+                                            check_listing(draft, cir, proof_states=at_release,
+                                                          package=False)]
 
 
 def test_a_concept_that_cannot_be_authored_never_reaches_the_chain():

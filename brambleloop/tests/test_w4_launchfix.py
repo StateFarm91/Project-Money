@@ -787,7 +787,10 @@ def test_img_stage_only_activation_asks_for_the_activation_stage_and_nothing_int
     # W-PHYSFIX-PHOTO: physical_upgrade reads the gate's own qualifying predicate to decide
     # which photograph leads the gallery. It never calls `requirement` (it cannot judge the
     # gate) and never passes a stage.
+    # ENG-ETSY-AI-FIX: etsy_ai_policy reads only disclosure_copy, to put both truthful image
+    # sentences on the closed allowlist of honest statements; it gates nothing on the photo.
     assert users == ["brambleloop/gates/platform_policy.py",
+                     "brambleloop/publish/etsy_ai_policy.py",
                      "brambleloop/publish/photo_asset_review.py",
                      "brambleloop/publish/physical_upgrade.py",
                      "brambleloop/publish/release_gates.py",
