@@ -440,6 +440,27 @@
 _Updated 2026-09-20 by the Brambleloop build session. Maintained continuously so any future
 session resumes without rediscovery (Execution Directive step 1, Master Plan section 35)._
 
+## PRODUCTION DIAGNOSIS — 2026-11-20 04:55 UTC (Main, live readback of 5496bc4a / Batch 11)
+
+Read-only evidence via the readback token: **FAIL 9, PASS 4, UNKNOWN 0.**
+- **Shops:** 8/8 registered shops scanned; the 9th (ArtLoveDesing) is not in prod.
+  test_ninth_shop is in the undeployed batches.
+- **Systemic publication halt:** incident 380, open since 2026-10-11. Cause: 14 products
+  (more than 50% of the catalogue) hold open stale-artefact / rebuild-incomplete incidents,
+  and `systemic_evidence` escalates any failure family at that scale.
+- **Why they can't rebuild:** the stale-artefact sentinel finds 126 of 587 stale. Every
+  rebuild retry is held by "#39 listing_image_rules awaiting owner review", and the owner
+  override D-OWNER-POLICY39-OVERRIDE is only in Batch 13+. **Deploying Batch 13+ releases
+  the rebuilds.** That should resolve the stale-artefact incidents, then the systemic halt.
+- **Scheduler backoff:** 19 job types, among them chain.rebuild (x32), chain.successors
+  (x32), the photography jobs and the creative jobs.
+- **Production output:** original_product 0 and commercial_preparation 0; 0 certified in
+  7 days.
+- **Dead letters:** 8 `seasonal.cycle_proof:ProspectingRefused`, fixed on b16-integ
+  (daabf4a9): recorded as a refusal.
+- **Critical path:** a certified batch (12, 13, 14 or 15) is deployed, then a readback
+  confirms the rebuilds are flowing and the halt is clear.
+
 ## Build 1: COMPLETE
 **Accepted as complete by the owner on 2026-09-18**, and checkpointed as a recoverable
 baseline before any Build-2 scope begins.
