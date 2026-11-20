@@ -2694,6 +2694,7 @@ Reversible by decision.
 The trigger is the proposal's stated size, not only the band, so the dishcloths fit with or without A4a's code on the tree. Reversible by decision.
 **D-A1R-STUFFED-EXEMPTIONS: the two catalogue stuffed pieces are written "not merchandised to a child" (opus2 under the owner's A1-R directive, 2026-11-02; owner ratification pending).** A1-R made the construction the children's-safety trigger: any closed stuffed form is held until an explicit decision exists, and the implicit candidate exemption is not one. The catalogue has two closed stuffed forms. `heart-row-ring-pillow` is a wedding ring-bearer pillow and `spring-garden-kneeler` a garden kneeling pad; neither is merchandised, sized or described for a child. Both are recorded in `products/launch0.NOT_MERCHANDISED_TO_A_CHILD`, with who, when and this entry in `NOT_MERCHANDISED_DECISIONS`. Any other closed stuffed form (a radar or registry draft, a toy) is held as a named hold with one owner decision item (`childrens-decision:<slug>`) until assigned or exempted. Reversing either exemption is one line and re-holds the product.
 
+<<<<<<< HEAD
 **D-OWNER-CORE-FAMILIES: stuffed animals/amigurumi, baby products and pillows/cushions are permanent CORE product families; MadelineMaeCo is a priority research shop. The factory runs first (owner FINAL DIRECTIVE, 2026-11-19, approved).** The owner reports these as the shop's "huge hits" and made them a permanent business direction, not a temporary assignment. Every future engineering and research session follows it.
 
 1. **Two parallel tracks, and Track 1 always wins a conflict.**
@@ -2743,3 +2744,17 @@ Reversible only by the owner.
 **Readback.** `ops/production_evidence.competitor_scans` reports nine shops. `ops/readback` states `RESEARCH_SHOPS = 9`, a test pins that number to `len(OWNER_SHOPS)`, and the row is now "competitor shops scanned (nine-shop research network)". A server that reports fewer shops WARNs with "expected 9" and never PASSes.
 
 **Tests.** `tests/test_ninth_shop.py` covers the change, and the existing suites now assert the exact nine. This is reversible only by an owner decision.
+=======
+**D-ENG-FAMILIES-1: a researched concept is routed to the verified engine for its family; everything else is held as `construction_unsupported:<family>` (ENG-FAMILIES, 2026-11-19).** This supersedes W5-CONCEPT's intake rule `SUPPORTED_CONSTRUCTIONS = ("flat_rows",)`. Under that rule a researched basket was refused, while the same object from the static POOL drafted, compiled and certified through `fallback_constructions.vessel`.
+
+- **No second source of truth.** `creative.construction_families.route` asks `fallback_constructions.plan`, the function `cir.draft` calls, which family a concept drafts.
+- **No mislabelling.** The concept's declared form and construction must name that same family. If they don't (a tapestry declaration the title would draft as a plain vessel, a basket whose category drafts a panel), the concept is held, never drafted under a name it does not make.
+- **Admission.** Only `verified` and `physical_gate` families are admitted. Each admitted family names the test in `tests/test_eng_families.py` that carries a research-derived concept through compile, twin, reverse, the Product Truth size check and a granted certificate. For `panel_pair` (physical_gate), the only refusal is the class C physical sample.
+- **Slice one admits** flat_panel, vessel, tapestry and panel_pair. pouch, tote, cosy, stocking and triangle are `partial` and held until a pinned proof exists. pouch is refused `ASSET_COLOR_ABSENT` today.
+- **Holds are visible.** They appear in `production_inventory` as hold kind `construction_unsupported`, for intake holds and for `cir.draft` construction refusals.
+- **Children's gates are untouched.** Intake `_children_reasons` still runs, as do `childrens_decision` and `small_parts` at PDF. No baby item routes to a shaped family.
+
+The table is `research/final_build/w6/construction_families.md`. Reversible by decision.
+
+**D-ENG-FAMILIES-2: the router reads what a title and premise name, and admits only (family, category) pairs that certify (ENG-FAMILIES fix round 1, 2026-11-19).** Main's review found a "Granny Square Basket" admitted, drafted as the plain striped vessel and certified (H1), and pet beds admitted but never certifying (M1). `construction_families.route` now holds any title or premise naming a construction the drafted engine does not build (`NAMED_FEATURES`, shared across every admitted family) as `construction_unsupported:<feature>`; the pet bed variant is held as `construction_unsupported:pet_bed` rather than widening the twin tolerance; `PAIR_PROOFS` and a router sweep require a certifying proof per admitted (family, category). `gates/policy._IP_TERMS` matches whole words.
+>>>>>>> origin/eng/families
