@@ -2800,3 +2800,11 @@ Reversible only by the owner.
 The table is `research/final_build/w6/construction_families.md`. Reversible by decision.
 
 **D-ENG-FAMILIES-2: the router reads what a title and premise name, and admits only (family, category) pairs that certify (ENG-FAMILIES fix round 1, 2026-11-19).** Main's review found a "Granny Square Basket" admitted, drafted as the plain striped vessel and certified (H1), and pet beds admitted but never certifying (M1). `construction_families.route` now holds any title or premise naming a construction the drafted engine does not build (`NAMED_FEATURES`, shared across every admitted family) as `construction_unsupported:<feature>`; the pet bed variant is held as `construction_unsupported:pet_bed` rather than widening the twin tolerance; `PAIR_PROOFS` and a router sweep require a certifying proof per admitted (family, category). `gates/policy._IP_TERMS` matches whole words.
+
+**D-OWNER-POLICY39-OVERRIDE: the pending `listing_image_rules` change (#39) no longer holds publication, by the owner's direct order (2026-11-20).** The owner ordered Etsy's AI rules ignored and chose "Remove the #39 hold" when asked directly. This record is about what was decided, not what was reviewed:
+- **How it is recorded.** `gates/platform_policy.OWNER_DIRECTED_OVERRIDES` records it as "owner directed proceeding without review". It is never recorded as reviewed or tested, and the readback lists it under `overridden_changes`.
+- **Scope.** It covers only `listing_image_rules` changes read on or before 2026-11-20. A later change, an undated change, or a change to any other policy source holds again.
+- **Unchanged.** The AI disclosure in descriptions, Product Truth, and every other gate are untouched.
+- **Owner informed.** Before choosing, the owner was told that the only readable Etsy image page says a pattern listing must show "an actual result made using your instructions, not an AI-generated or simulated result", plus one unedited photo of the real item, and that listings without one risk removal.
+
+Reversible by the owner.
