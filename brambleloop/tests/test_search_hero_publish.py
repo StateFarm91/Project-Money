@@ -232,7 +232,39 @@ def _creates(fake) -> list:
 
 # ---------------------------------------------------------------------------- the merits
 
+# D-OWNER-GALLERY-COMPLETE: a listing is uploaded only with its whole certified gallery
+# (`shot_plans.CAMPAIGN_MIN_FRAMES`). The blanket's disclosed set certifies six frames (no
+# ANGLE/CONSTRUCTION for a flat piece), so its publish is refused before Etsy; the key
+# basket's certifies the complete gallery and is the one that reaches a draft.
+def test_a_partial_certified_gallery_passes_the_hero_but_publish_is_blocked_with_no_request():
+    from brambleloop.visual.shot_plans import CAMPAIGN_MIN_FRAMES
+
+    path, version, rh = _chain()
+    db = Database(f"sqlite:///{path}")
+    row = _profile(db)
+    assert row.verdict == "PASS", (row.verdict, row.certificate.get("reasons"))
+    cert = etsy_ops.certified_frames(db, SLUG, version, release=rh)
+    assert 0 < len(cert["frames"]) < CAMPAIGN_MIN_FRAMES, cert
+    assert any(p.startswith("gallery incomplete") for p in cert["problems"]), cert
+    with FakeEtsy() as fake, _owner_and_fake(fake):
+        _grant(db, version, rh)
+        job = _run(db, "store_operator", "store.publish",
+                   {"slug": SLUG, "version": version, "release": rh},
+                   phase=Phase.LIMITED_PRODUCTION)
+        assert job.status is JobStatus.DONE, job.last_error
+        out = job.outputs
+        assert out.get("published") is False and out.get("blocked") is True, out
+        assert any("gallery incomplete" in r for r in out.get("reasons") or []), out
+        assert _creates(fake) == [] and not fake.received_images, fake.requests
+    with db.session() as s:
+        listing = s.scalar(select(Listing).where(Listing.product_slug == SLUG))
+        assert listing is None or not listing.etsy_listing_id, listing.etsy_listing_id
+    db.engine.dispose()
+
+
 def test_certify_assets_seo_grant_publish_creates_exactly_one_draft_with_no_forced_verdict():
+    from brambleloop.visual.shot_plans import CAMPAIGN_MIN_FRAMES
+
     path, version, rh = _chain(FULL_SLUG, FULL_CATEGORY)
     db = Database(f"sqlite:///{path}")
     row = _profile(db, FULL_SLUG)
@@ -263,7 +295,7 @@ def test_certify_assets_seo_grant_publish_creates_exactly_one_draft_with_no_forc
         lid = job.outputs["etsy_listing_id"]
         assert fake.listings[lid]["state"] == "draft"
         assert int(fake.listings[lid]["taxonomy_id"]) == row.taxonomy_id
-        # The published gallery is exactly the certified set: the three disclosed renders
+        # The published gallery is exactly the complete certified set: the disclosed renders
         # plus the W4-VISUAL gallery supplements the certificate was issued with, in its
         # order and byte for byte -- nothing certified dropped, nothing uncertified added.
         with db.session() as s:
@@ -275,7 +307,8 @@ def test_certify_assets_seo_grant_publish_creates_exactly_one_draft_with_no_forc
                                for f in valid[0].certificate["frames"])
         uploaded = sorted((int(i["rank"]), i["sha256"]) for i in fake.received_images[lid])
         assert uploaded == certified, (uploaded, certified)
-        assert len(fake.images[lid]) == len(certified) > 3, len(fake.images[lid])
+        assert len(fake.images[lid]) == len(certified) >= CAMPAIGN_MIN_FRAMES, \
+            len(fake.images[lid])
     with db.session() as s:
         listing = s.scalar(select(Listing).where(Listing.product_slug == FULL_SLUG))
         assert str(listing.etsy_listing_id) == str(lid)

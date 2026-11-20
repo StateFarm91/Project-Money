@@ -140,7 +140,8 @@ def _blocker_key(b: dict) -> tuple[str, str]:
     for pattern in (r"^(FIRST_CUSTOMER_BLOCKING: \w+)", r"^(SAMPLE_PHOTO_REQUIRED)",
                     r"^(listing-set certificate \(#70\))", r"^(search certificate \(F-004\))",
                     r"^(ValueError: listing search profile not certified PASS)",
-                    r"^(no valid listing-set certificate for [\w.@-]+?):"):
+                    r"^(no valid listing-set certificate for [\w.@-]+?):",
+                    r"^(gallery incomplete):"):
         m = re.match(pattern, why)
         if m:
             return b["source"], m.group(1)
@@ -154,7 +155,17 @@ def _world() -> dict:
     assert SLUG in L.LAUNCH0_SLUGS
     db = _boot()
     first = JobQueue(db).enqueue("crochet_engineer", "cir.draft", {"slug": SLUG}).id
-    worker = _drain(db, "w6-e2e-chain")
+    # The supply refill (`supply.after_chain_job` -> `supply.admit`, ENG-SUPPLY) is its own
+    # trigger with its own tests. Left on here, the end of this chain admits the next
+    # Launch-0 release, and that chain's end the next, so the drain ran all eight Launch-0
+    # chains in one database (eight `cir.draft` roots). It is held for this one product's
+    # chain, and nothing else is.
+    from unittest.mock import patch
+
+    from brambleloop.products import supply as _supply
+
+    with patch.object(_supply, "after_chain_job", lambda *a, **k: None):
+        worker = _drain(db, "w6-e2e-chain")
     jobs_after_chain = _jobs(db)
     package_job = _enqueue_cadence(db, "listing_package", 0)
     _drain(db, "w6-e2e-package", job_types=["listing.package"])
@@ -265,9 +276,13 @@ def test_b_in_shadow_store_publish_is_refused_and_nothing_is_published():
 #     multipart_image_upload, oauth_token_endpoint) are unverified because no authenticated
 #     round trip against Etsy exists. Needs a live Etsy connection; cannot clear offline.
 #   * SAMPLE_PHOTO_REQUIRED -- gate publish/sample_photo.py: no unedited photograph on file.
+#   * certified_frames: gallery incomplete -- D-OWNER-GALLERY-COMPLETE: the coasters'
+#     disclosed set certifies fewer than CAMPAIGN_MIN_FRAMES frames, so no partial gallery
+#     is packaged for upload. Clears when the seven-image campaign is certified.
 BLOCKERS_C = {
     ("release_gates.for_publish", "FIRST_CUSTOMER_BLOCKING: etsy_remote_state"),
     ("release_gates.for_publish", "SAMPLE_PHOTO_REQUIRED"),
+    ("certified_frames", "gallery incomplete"),
 }
 
 
@@ -280,10 +295,16 @@ def test_c_the_package_is_blocked_on_exactly_the_observed_set():
     assert len(keys) == len(set(keys)) and set(keys) == BLOCKERS_C, keys
     photo = next(b["why"] for b in pkg["blockers"] if b["why"].startswith(SP.CODE))
     assert "no unedited photograph of a sample made from this release is on file" in photo
-    # The rest of the package is complete: copy, US and UK files, a certified gallery.
+    # The rest of the package is complete: copy, US and UK files, a certified (but partial) gallery.
     assert pkg["copy"] and pkg["copy"]["title"]
     assert set(pkg["files"]["pdf_sha256_by_terminology"]) == {"US", "UK"}
     assert pkg["gallery"] and pkg["gallery"][0]["position"] == 1
+    # ... but the gallery is partial, and that alone keeps it from READY.
+    from brambleloop.visual.shot_plans import CAMPAIGN_MIN_FRAMES
+
+    assert 0 < len(pkg["gallery"]) < CAMPAIGN_MIN_FRAMES, len(pkg["gallery"])
+    gallery = next(b["why"] for b in pkg["blockers"] if b["source"] == "certified_frames")
+    assert f"of the {CAMPAIGN_MIN_FRAMES} required listing photos" in gallery, gallery
     with w["db"].session() as s:   # a blocked package asks the owner for no review
         assert not list(s.scalars(select(OwnerAction).where(
             OwnerAction.requirement_key.like(f"{LP.ACTION_PREFIX}%"))))

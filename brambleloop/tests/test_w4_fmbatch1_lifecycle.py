@@ -8,9 +8,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from brambleloop.core.db import Database  # noqa: E402
-from brambleloop.core.models import (Customer, Listing, ListingAsset, Order,  # noqa: E402
-                                     PatternVersion, Product)
+from brambleloop.core.models import (Customer, Listing, ListingAsset,  # noqa: E402
+                                     ListingSetCertificateRecord, Order, PatternVersion,
+                                     Product)
 from brambleloop.products import lifecycle as L  # noqa: E402
+from brambleloop.visual.shot_plans import CAMPAIGN_MIN_FRAMES  # noqa: E402
 
 
 def _db():
@@ -40,6 +42,19 @@ def test_stages_follow_the_rows():
     with db.session() as s:
         s.add(ListingAsset(product_slug="x", version="1", position=1, asset_class="hero",
                            role="hero"))
+    # D-OWNER-GALLERY-COMPLETE: a draft with a partial certified gallery is not ready ...
+    assert L.derive(db, "x")["stage"] == "VISUAL"
+    with db.session() as s:
+        s.add(ListingSetCertificateRecord(
+            product_slug="x", version="1", state="valid",
+            certificate={"frames": [{"position": i} for i in range(1, CAMPAIGN_MIN_FRAMES)]}))
+    assert L.derive(db, "x")["stage"] == "VISUAL"
+    # ... and the complete gallery is what makes it LISTING_READY.
+    with db.session() as s:
+        s.add(ListingSetCertificateRecord(
+            product_slug="x", version="1", state="valid",
+            certificate={"frames": [{"position": i}
+                                    for i in range(1, CAMPAIGN_MIN_FRAMES + 1)]}))
     assert L.derive(db, "x")["stage"] == "LISTING_READY"
     with db.session() as s:
         s.query(Listing).update({"state": "published"})
