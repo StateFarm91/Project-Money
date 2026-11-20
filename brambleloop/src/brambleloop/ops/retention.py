@@ -242,6 +242,11 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                        "products.supply.offers reads each waiting offer, newest per key"),
     "supply.admitted": ("lifetime_total",
                         "products.supply.offers/_taken read every admission by key"),
+    # ENG-DEMAND-SUPPLY: the "build this engine next" list is read from these rows (the
+    # newest per concept); pruning one would drop a concept from the engine-demand ranking.
+    "supply.engine_demand": ("lifetime_total",
+                             "products.demand.recorded_engine_demand reads the newest row "
+                             "per concept for the ranked engine-demand list"),
     "gate.halted": ("lifetime_total",
                     "release_recovery.halted_releases compares each release's newest halt with "
                     "its newest certify outcome (per artifact, which keep-per-action does not "

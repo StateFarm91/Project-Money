@@ -1,3 +1,24 @@
+> **2026-11-20 — ENG-DEMAND-SUPPLY (`eng/demand-supply`, NOT merged, NOT deployed; production unchanged).** Owner
+> TOP PRIORITY: "production agents should be automatically making things that sell" (D-ENG-DEMAND-SUPPLY).
+> - `products/demand.py` is a deterministic demand score per family/form/subject from STORED evidence only:
+>   benchmark_listings favourites and velocity, reviews, bestseller and baskets where stored, serp_snapshots rank,
+>   and the owner's teardown facts. Velocity comes from the new dated `favorers_history` that `intel.observe.scan`
+>   now keeps. UNKNOWN shrinks to a low prior (never 0, never high). The core-family boost runs amigurumi > baby >
+>   pillows > garments.
+> - `supply.offers`/`admit` order by market demand. An engine-less concept is recorded as `supply.engine_demand`
+>   (ranked "build this engine next"), not silently held, and is admitted once its engine certifies. `radar.intake`
+>   evaluates in demand order.
+> - `radar/demand_originals.py`: 28 original core-family and clothing concepts, proposed on every intake pass and
+>   judged by every intake gate. On fixtures, 10 are approved (buildable today) and 18 are refused as engine demand
+>   (new animals, lamb/fox loveys, face cushions, vest/drop-shoulder/one-piece adult).
+> - POOL re-classification: 20 of 34 POOL concepts have no certified engine. Each is named with the engine it needs
+>   (`demand.pool_reclassification`, Demand view). Production's 18 held is the live count and was not measured here.
+> - Mission Control Demand view (`cc-shell-v44`) and advisory readback row `engine_demand` (readback items 20 -> 21).
+>   Autonomy map regenerated (timestamp only; no new job type).
+> - NOT MEASURED against production: no production reading was taken, and per-listing review counts, bestseller and
+>   baskets are UNKNOWN until a scan stores them. Review request:
+>   `research/final_build/w6/review_requests/ENG-DEMAND-SUPPLY.md`.
+
 > **2026-11-20 — ENG-DAILY-FIX (`eng/daily`, NOT merged, NOT deployed; production unchanged).** Fixes every Unit B
 > finding of the independent review of a795be17 (BLOCK). Merged `origin/claude/w6-INTEG4` (259e47c4) first, so
 > learn and improve with `improve.ecr` are present; change requests now go through `ecr.file`. (1) BLOCKER: a

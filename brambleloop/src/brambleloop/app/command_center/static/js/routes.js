@@ -11,6 +11,7 @@ export const TABS = [
   { id: "production", label: "Production", icon: "operations", hint: "Product inventory by state, stalls, loops and agent activity" },
   { id: "p0_board", label: "P0 board", icon: "operations", hint: "Everything P0 at once, each with the level its evidence proves" },
   { id: "daily", label: "Daily", icon: "timeline", hint: "Daily production counts and why a stage made nothing" },
+  { id: "demand", label: "Demand", icon: "insights", hint: "What the market buys and which engine to build next" },
   { id: "catalogue", label: "Catalogue", icon: "store", hint: "Every product by stage, with evidence, holds and next action" },
   { id: "agents_evidence", label: "Agent evidence", icon: "operations", hint: "Each department's last useful job, queues, dead letters and workers" },
   { id: "completion", label: "Completion effort", icon: "approvals", hint: "Launch packet and what must be true first" },

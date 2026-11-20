@@ -82,6 +82,7 @@ export const ENDPOINTS = {
   completion: () => `${API_BASE}/completion`,
   p0Board: () => `${API_BASE}/p0-board`,
   daily: () => `${API_BASE}/daily`,
+  demand: () => `${API_BASE}/demand`,
   // ENG-CATALOGUE: the full catalogue (paged, filtered) and the per-department evidence.
   catalogue: (p = {}) => `${API_BASE}/catalogue${q({ q: p.q, stage: p.stage, category: p.category, held: p.held, page: p.page, page_size: p.page_size })}`,
   operatingEvidence: () => `${API_BASE}/operating-evidence`,
@@ -335,6 +336,7 @@ export const api = {
   completion: () => get(ENDPOINTS.completion()),
   p0Board: () => get(ENDPOINTS.p0Board()),
   daily: () => get(ENDPOINTS.daily()),
+  demand: () => get(ENDPOINTS.demand()),
   catalogue: (p) => get(ENDPOINTS.catalogue(p)),
   operatingEvidence: () => get(ENDPOINTS.operatingEvidence()),
   launchPacket: () => get(ENDPOINTS.launchPacket()),
