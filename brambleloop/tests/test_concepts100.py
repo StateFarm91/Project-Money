@@ -70,12 +70,19 @@ def _db() -> Database:
     return db
 
 
-def _scan(db, fixture=FIXTURE, *, seen=NOW, start=1000) -> None:
+# A title that states a feeling becomes a comparable card (`blinded.from_listing`), so every
+# fixture pod has observed cards and the design-copy check actually runs. A pod with no cards
+# is the UNKNOWN case, tested on its own below.
+CARD_FEELING = "Vintage "
+
+
+def _scan(db, fixture=FIXTURE, *, seen=NOW, start=1000, feeling=CARD_FEELING) -> None:
     n = start
     with db.session() as s:
         for shop, titles in fixture.items():
             for t in titles:
                 n += 1
+                t = feeling + t
                 s.add(BenchmarkListing(benchmark_key=shop, listing_ref=f"fx-{n}", title=t,
                                        pod=pod_route(t), price_cad=6.0 + (n % 5),
                                        last_seen=seen, first_seen=seen,
@@ -206,7 +213,7 @@ def test_copied_titles_are_refused():
     restated = next(c for c in first.values() if c["state"] == P.READY and c["lane"] == "basket")
     _scan(db, {"zkbdesigner": [ready["title"],                       # the exact title
                                f"{restated['title']} Crochet Pattern"]},  # restated
-          start=9000)
+          start=9000, feeling="")
     again = {c["slug"]: c for c in P.generate(db, now=NOW)}
     for c in (ready, restated):
         got = again[c["slug"]]
@@ -257,6 +264,22 @@ def test_owner_weighting_madeline_and_core_families():
     reqs = out["health"]["research_requests"]
     assert reqs and reqs[0]["priority_shop"], reqs
 
+
+
+def test_core_families_outrank_plain_lanes_at_equal_demand_and_demand_still_leads():
+    """Amigurumi, baby, pillows and garments are favoured; demand (listings, shops) still
+    decides within that, so a weight never invents demand a lane does not have."""
+    sig = {"listings": 4, "shops": {"zkbdesigner": 4}, "favourites": 10}
+    plain = P.priority_of(P.LANES_BY_KEY["runner"], sig)
+    for key in ("amigurumi", "baby-blanket", "baby-cardigan", "cushion", "animal-cushion",
+                "cardigan", "yoke-sweater"):
+        assert P.priority_of(P.LANES_BY_KEY[key], sig) > plain, key
+    core = P.LANES_BY_KEY["amigurumi"]
+    thin = {"listings": 1, "shops": {"zkbdesigner": 1}, "favourites": 0}
+    strong = {"listings": 12, "shops": {"zkbdesigner": 6, "the_easy_design": 6},
+              "favourites": 80}
+    assert P.priority_of(core, strong) > P.priority_of(core, thin)
+    assert P.priority_of(P.LANES_BY_KEY["runner"], strong) > P.priority_of(core, thin)
 
 # ---- spend bound and admission ------------------------------------------------------------
 
@@ -323,6 +346,93 @@ def test_generation_is_free():
     assert out["spend_cad"] == 0.0 and out["network_calls"] == 0
     with db.session() as s:
         assert s.scalar(select(AuditLog.id).where(AuditLog.action.like("paid%"))) is None
+
+
+# ---- C2: the design-copy check is load-bearing, and UNKNOWN is never READY ----------------
+
+
+def test_a_concept_matching_an_observed_listing_card_is_refused_as_a_copy():
+    """Kill the mutant `twin = ""`: a listing whose card states everything the concept states
+    must refuse the concept, even though the titles share no words."""
+    from brambleloop.creative import blinded
+
+    db = _db()
+    _scan(db)
+    first = P.generate(db, now=NOW)
+    # A title that `from_listing` reads back to exactly a READY concept's card (brute force
+    # over the reader's own vocabulary; no competitor text is involved).
+    from itertools import product
+
+    from brambleloop.creative.blinded import (_FEELING_WORDS, _FORM_WORDS, _OCCASION_WORDS,
+                                              _RECIPIENT_WORDS)
+
+    def words(table, value, default=None):
+        out = [w for w, v in table if v == value]
+        return ([""] + out) if value == default else out
+
+    def title_for_card(mine, pod):
+        for fw, ew, ow, rw in product(words(_FORM_WORDS, mine.form),
+                                      words(_FEELING_WORDS, mine.feeling),
+                                      words(_OCCASION_WORDS, mine.occasion, "everyday"),
+                                      words(_RECIPIENT_WORDS, mine.recipient, "self")):
+            t = " ".join(x for x in (ow, ew, fw, rw) if x)
+            try:
+                card = blinded.from_listing({"title": t, "listing_ref": "probe", "pod": pod})
+            except (blinded.Unreadable, blinded.NotComparable):
+                continue
+            if card.presented() == mine.presented():
+                return t
+        return None
+
+    c = title = None
+    for cand in first:
+        if cand["state"] != P.READY or cand["_concept"] is None:
+            continue
+        try:
+            mine = blinded.from_concept(cand["_concept"])
+        except Exception:  # noqa: BLE001 - not every concept maps to a card
+            continue
+        title = title_for_card(mine, cand["pod"])
+        if title:
+            c = cand
+            break
+    assert title, "the fixture must yield a READY concept a listing title can match"
+    with db.session() as s:
+        s.add(BenchmarkListing(benchmark_key="zkbdesigner", listing_ref="fx-twin", title=title,
+                               pod=c["pod"], price_cad=7.0, last_seen=NOW, first_seen=NOW,
+                               detail={"num_favorers": 1}))
+    got = {x["slug"]: x for x in P.generate(db, now=NOW)}[c["slug"]]
+    assert got["state"] == P.REFUSED, (got["state"], got["reasons"])
+    assert any(r.startswith("copy: indistinguishable from observed listing") for r in
+               got["reasons"]), got["reasons"]
+
+
+def test_a_pod_with_no_benchmark_cards_is_held_not_ready():
+    """No observed cards for a pod: originality is UNKNOWN, so nothing in it is READY."""
+    db = _db()
+    _scan(db, feeling="")      # titles state no feeling, so no listing becomes a card
+    out = P.generate(db, now=NOW)
+    no_cards = [c for c in out if c["originality"].get("benchmark_cards") == 0]
+    assert no_cards, "the fixture must leave at least one pod without cards"
+    for c in no_cards:
+        assert c["state"] != P.READY, (c["slug"], c["reasons"])
+        if c["state"] == P.HELD:
+            assert P.HELD_NO_CARDS in c["reasons"], c["reasons"]
+    assert any(P.HELD_NO_CARDS in c["reasons"] for c in no_cards)
+    # And the cards, once observed, lift the hold (the gate is not a constant).
+    db2 = _db()
+    _scan(db2)
+    out2 = P.generate(db2, now=NOW)
+    assert any(c["state"] == P.READY for c in out2)
+    assert not any(P.HELD_NO_CARDS in c["reasons"] for c in out2
+                   if c["originality"].get("benchmark_cards"))
+
+
+def test_classify_holds_on_unknown_originality():
+    cand = {"reasons": []}
+    assert P.classify(cand, [], [P.HELD_NO_CARDS]) == (P.HELD, [P.HELD_NO_CARDS])
+    assert P.classify(cand, [], []) == (P.READY, [])
+    assert P.classify(cand, ["copy: x"], [P.HELD_NO_CARDS])[0] == P.REFUSED
 
 
 if __name__ == "__main__":

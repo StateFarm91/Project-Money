@@ -199,6 +199,45 @@ def test_a_spent_provider_balance_is_a_refusal_rather_than_a_dead_letter():
         "a refusal must not read as #300 having been disproved")
 
 
+def test_a_prospecting_refusal_is_recorded_not_a_dead_letter():
+    """Live, 2026-11-20: eight `seasonal.cycle_proof` dead letters `ProspectingRefused`.
+
+    Prospecting declining (no proven arena makeable in time) is the wheel working. The proof
+    job records it as a refusal naming prospecting, and never claims #300 was disproved.
+    """
+    from brambleloop.agents.registry import Registry
+    from brambleloop.creative.prospecting import ProspectingRefused
+    from brambleloop.queue.durable import JobQueue
+    from brambleloop.runtime import release
+
+    db = _db()
+    Registry(db).seed_defaults()
+    queue = JobQueue(db)
+    ctx = release.JobContext(
+        job=queue.enqueue("publishing", "seasonal.cycle_proof", {}),
+        db=db, queue=queue, registry=Registry(db), phase=None)
+
+    def refuse(*a, **k):
+        raise ProspectingRefused("none of 3 proven arena(s) has a form that can still be "
+                                 "made in time")
+
+    from brambleloop.seasonal import cycle
+    from brambleloop.gateway.anthropic import AnthropicProvider
+
+    original_run, original_key = cycle.run, AnthropicProvider.key
+    cycle.run = refuse
+    AnthropicProvider.key = staticmethod(lambda: "test-key")
+    try:
+        out = release.handle_seasonal_cycle_proof(ctx)
+    finally:
+        cycle.run, AnthropicProvider.key = original_run, original_key
+
+    assert out["ran"] is True and out["complete"] is False
+    assert out["refused"] == "prospecting" and out["waiting_on"] == "prospecting"
+    assert "the proof did not run" in out["why"]
+    assert "made in time" in out["why"]
+
+
 def test_a_funding_refusal_does_not_count_as_a_trial_already_run():
     """The hazard that would have surfaced the moment the balance came back.
 

@@ -357,6 +357,11 @@ def sources() -> tuple[dict, ...]:
              "radar.competitor_snapshot", "stored rows; aggregates only", kind="analysis"),
         _src("scan_evidence", "daily per-shop scan evidence", "market_radar",
              "intel.scan_evidence", "stored rows", kind="analysis"),
+        # ENG-BENCHBUY (review main-integ #2): the daily benchmark shopping list is a research
+        # job over stored scan rows (CA$0, no network); nothing is bought by it.
+        _src("benchmark_shopping", "benchmark shopping list (per-shop picks, owner buys)",
+             "market_radar", "intel.benchmark_shopping", "stored rows; owner card only",
+             kind="analysis"),
         _src("market_radar", "Market Radar signal review (POOL + intake concepts, arbitrage)",
              "market_radar", "radar.scan", "stored rows; no network", kind="analysis"),
         _src("concept_intake", "concept intake (proposal writer -> intake -> radar.score)",
@@ -365,9 +370,6 @@ def sources() -> tuple[dict, ...]:
         # ENG-CONCEPTS-100: the evidence-backed concept pool (scan rows -> original concepts).
         _src("concept_pool", "concept pool (scan evidence -> original concepts -> intake)",
              "market_radar", "radar.concept_pool", "stored rows; no network", kind="analysis"),
-        # ENG-BENCHBUY's loop, registered here (it was missing from the registry on INTEG3).
-        _src("benchmark_shopping", "benchmark shopping list (nine shops)", "market_radar",
-             "intel.benchmark_shopping", "stored rows; never buys", kind="analysis"),
         _src("research_sweep", "Research Agent sweep", "research_agent", "research.sweep",
              "stored rows; enqueues research.investigate", kind="analysis"),
         _src("research_fetch", "allow-listed public reference fetch (gov, Wikipedia, "

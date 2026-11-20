@@ -18,8 +18,10 @@
 // read", so v31.
 // ENG-FIRSTLIST: approvals.js threads the preview digest into approvals; merged after S4's
 // v30/v31 (INTEG2), so v32 supersedes both shells.
-// ENG-CATALOGUE fix2 (catalogue view) merged after research-flow v35, so v36.
-const VERSION = "cc-shell-v37";
+// ENG-LEARN (learning progress view) merged after catalogue v36 and learn v40, so v41.
+// ENG-IMPROVE (improvement-team view) merged after learn v41, so v42.
+// ENG-CONCEPTS-100 (concept pool view) merged after improve v42 and eng/daily v43, so v44.
+const VERSION = "cc-shell-v44";
 const SHELL = [
   "./",
   "index.html",

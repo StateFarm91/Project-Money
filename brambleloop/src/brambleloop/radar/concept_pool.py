@@ -870,19 +870,32 @@ def originality(db, cand: dict, accepted: list, refs: list, competitors, cards_b
         from ..creative.prospecting import watchlist_comparables
 
         cards = cards_by_pod[cand["pod"]] = watchlist_comparables(db, pod=cand["pod"])
-    twin = _matches_a_listing(concept, cards) if cards else ""
     detail["benchmark_cards"] = len(cards)
+    holds: list[str] = []
+    if not cards:
+        # No observed listings for the pod: the design-copy check cannot run, so originality
+        # is UNKNOWN. UNKNOWN is never a pass: the concept is HELD until cards exist.
+        holds.append(HELD_NO_CARDS)
+        return {"reasons": reasons, "holds": holds, "detail": detail}
+    twin = _matches_a_listing(concept, cards)
     if twin:
         reasons.append(f"copy: indistinguishable from observed listing {twin}")
-    return {"reasons": reasons, "detail": detail}
+    return {"reasons": reasons, "holds": holds, "detail": detail}
 
 
-def classify(cand: dict, orig_reasons: list[str]) -> tuple[str, list[str]]:
-    """REFUSED for clones and copies; HELD for every other reason; READY otherwise."""
+HELD_NO_CARDS = ("held: originality against observed listings is UNKNOWN (no benchmark cards "
+                 "for pod)")
+
+
+def classify(cand: dict, orig_reasons: list[str],
+             orig_holds: list[str] = ()) -> tuple[str, list[str]]:
+    """REFUSED for clones and copies; HELD for every other reason (an UNKNOWN originality
+    check included); READY otherwise."""
     if orig_reasons:
         return REFUSED, orig_reasons + cand["reasons"]
-    if cand["reasons"]:
-        return HELD, cand["reasons"]
+    held = list(cand["reasons"]) + list(orig_holds)
+    if held:
+        return HELD, held
     return READY, []
 
 
@@ -1039,7 +1052,7 @@ def generate(db, *, now: datetime | None = None) -> list[dict]:
                     break
             else:
                 cand, orig = first
-            state, reasons = classify(cand, orig["reasons"])
+            state, reasons = classify(cand, orig["reasons"], orig.get("holds", ()))
             if state != REFUSED and cand["_concept"] is not None:
                 accepted.append(cand["_concept"])
             cand.update(state=state, reasons=reasons, originality=orig["detail"],

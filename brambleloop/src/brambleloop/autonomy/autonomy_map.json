@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-20T04:22:28.575149+00:00",
+ "generated_at": "2026-11-20T13:25:39.996184+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 146,
-  "handlers": 178,
+  "cadences": 149,
+  "handlers": 181,
   "agents": 34,
   "follow_on_edges": 93
  },
@@ -1123,6 +1123,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "motif_backlog",
+      "agent": "publishing",
+      "job_type": "assets.motif_backlog",
+      "period_seconds": 21600
+     },
+     {
       "name": "photo_review",
       "agent": "asset_truth",
       "job_type": "assets.photo_review",
@@ -1202,6 +1208,7 @@
    "execution": {
     "handler_modules": [
      "brambleloop.autonomy.visual_rnd_job",
+     "brambleloop.runtime.motif_backlog_ops",
      "brambleloop.runtime.photo_review_ops",
      "brambleloop.runtime.quality_ops",
      "brambleloop.runtime.release"
@@ -1210,6 +1217,7 @@
      "assets.build",
      "assets.launch_review",
      "assets.model_photography",
+     "assets.motif_backlog",
      "assets.owned_photography",
      "assets.photo_review",
      "assets.physical_upgrade",
@@ -2232,6 +2240,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "learning_loops",
+      "agent": "analyst",
+      "job_type": "learning.loops",
+      "period_seconds": 86400
+     },
+     {
       "name": "knowledge_gaps",
       "agent": "analyst",
       "job_type": "learning.knowledge_gaps",
@@ -2247,6 +2261,12 @@
       "name": "promotion_monitor",
       "agent": "orchestrator",
       "job_type": "improve.monitor",
+      "period_seconds": 86400
+     },
+     {
+      "name": "self_tune",
+      "agent": "orchestrator",
+      "job_type": "improve.self_tune",
       "period_seconds": 86400
      },
      {
@@ -2375,6 +2395,7 @@
      "brambleloop.learn.runtime",
      "brambleloop.runtime.commercial_ops",
      "brambleloop.runtime.learning_gaps_ops",
+     "brambleloop.runtime.learning_ops",
      "brambleloop.runtime.release"
     ],
     "executable_job_types": [
@@ -2388,9 +2409,11 @@
      "improve.retrospective",
      "improve.role_work",
      "improve.sandbox",
+     "improve.self_tune",
      "improve.weekly",
      "learn.scan",
-     "learning.knowledge_gaps"
+     "learning.knowledge_gaps",
+     "learning.loops"
     ],
     "permitted_without_handler": []
    },

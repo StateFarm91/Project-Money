@@ -2817,6 +2817,104 @@ Reversible by the owner.
 - **Safety.** No purchase path exists: the list makes no request and the Mission Control panel has no buy control. Reads listing metadata only. A purchased PDF goes only through `teardown.intake.receive`, which now accepts a listing from any watchlist shop (folder `<shop key>-<listing id>`, seller recorded) into the quarantined library (B-117). Status moves to bought, then intake done, from the BenchmarkProduct row.
 - **Not decided here.** Whether to buy, which picks, and the contingency factor beyond the owner's 1.158. Reversible by removing the cadence.
 
+## D-ENG-VIS-IDENTITY-1 — identity verification method and its rules (ENG-VIS-IDENTITY, 2026-11-20; routine engineering, owner decisions pending)
+
+**Status:** routine engineering decisions within autonomy. Admitting a method for production is
+the owner's decision (`research/final_build/w6/IDENTITY_OWNER_DECISIONS.md`). No gate, margin or
+test was relaxed; several were tightened.
+
+- **Method recommended: (a)** YuNet + SFace ONNX on the worker CPU (Apache-2.0/MIT). InsightFace
+  ArcFace weights were rejected because their licence is non-commercial only. Hosted Rekognition
+  is the fallback. An LLM is rejected as the biometric floor but kept as the second judge.
+- **Thresholds are derived, never chosen:**
+  - `match_at` = highest impostor score + 0.05;
+  - `refuse_below` = lowest genuine score - 0.15.
+- **A production record needs all of:** at least 30 genuine samples; at least 300 impostor faces;
+  a FAR 95% upper bound of 1% or less; FRR of 10% or less; evidence that declares itself
+  production_ready; the owner's production-scoped decision; and a place on the register.
+- **Consumer verdict:** PASS only with a production-qualified method and two agreeing judges.
+  - Disagreement means HOLD with its reason.
+  - Drift means REFUSE.
+  - UNKNOWN, unmeasured, a fixture or the legacy table means HOLD.
+  - `candidate_gates.gate_status` counts a non-PASS verdict as UNKNOWN.
+- **Every Laura frame must be conditioned on all three canonical references.** A frame with
+  fewer is INVALID.
+- **Second judge:** OpenAI gpt-4.1, a different provider from the Anthropic first judge, through
+  the same reservation path and the `openai-vision` owner activation. Without a key it is not
+  configured.
+- **Outfit claim:** a compare-and-set UPDATE on `laura_outfits.listing`.
+  - It is idempotent per listing and survives restarts.
+  - It never reuses an outfit or claims a near-duplicate.
+  - If two claims for the same listing race, the lowest id wins.
+- **Identity records:** append-only, idempotent on the evaluation content hash. A frame whose
+  evaluation cannot be recorded is UNKNOWN.
+
+Reversible by decision.
+
+**D-ENG-LEARN-1: learning promotes only on statistically meaningful, measured improvement (ENG-LEARN, 2026-11-20).**
+- **Image prompt templates** compete champion/challenger per family:role.
+  - The challenger share is 15%, hard-capped at 20%, with at most 2 challengers. An
+    assignment replaces the champion for that generation and never adds one, so spend is
+    unchanged.
+  - Promotion needs 40+ first-pass frames per arm, one-sided p < 0.002 and a lift of +8pt
+    absolute. Or, on cost: 15+ galleries per arm, at least 15% cheaper, p < 0.002, and
+    first-pass not more than 3pt worse.
+  - Why these thresholds: the loop re-tests daily, so alpha is set against sequential looks.
+    Measured on identical arms (1000 seeds × 40 looks), 0.9% are falsely promoted. A
+    challenger measurably worse (p < 0.05, n ≥ 15) is retired early. A promotion contradicted
+    by its own later frames is demoted.
+- **Scene and engineering lessons** need minimum samples per side, Bonferroni over the
+  scope's comparisons (Fisher exact for engineering), and are deactivated when their evidence
+  weakens.
+- **A lesson is advice to a decision.** It never refuses or weakens a gate.
+- **Reporting.** "Applied" means bus `acted_on`, never published. Trends are UNKNOWN below
+  the minimum window size.
+- Reversible by decision.
+
+**D-ENG-LEARN-2: a parked learner wakes on new evidence, not on a timer (ENG-LEARN, 2026-11-20).**
+- The backoff was correct: identical output for identical input. What was missing was a lift
+  when the input changed.
+- So each learner names its upstream producers in `UPSTREAM_INPUTS`, and upstream progress is
+  judged by declared WORK_KEYS (a bare `ran: true` is not progress).
+- Spend classification is unchanged, so `creative.*`/`visual.*` still get no release probe.
+- Reversible.
+**D-ENG-IMPROVE-1: the self-improvement team tunes only an allowlist, promotes only on a significant KPI gain, and changes code only through change requests (ENG-IMPROVE, 2026-11-20).** This implements the owner directive of 2026-11-20 ("every department gets better with experience; learning is worthless unless it changes behaviour; a team turns lessons into fixes").
+
+**What may be tuned.**
+- `improve.tuning.TUNABLES` is a hard-coded allowlist of 13 keys: numbers within bounds, and choices.
+- Every key and value is also checked by `improve.invariants`. Certified gates, safety, spend ceilings, evidence floors and owner exceptions are never tunable.
+- The module refuses to import if a protected key is allowlisted.
+
+**Live changes.**
+- A change runs as a challenger on at most 20% of units, capped at CA$5 of recorded arm cost.
+- Promotion requires a two-proportion z of at least 2.807 at a fixed look (50·2^k units per arm) and a gain of at least 3 points.
+- A promotion is then watched against a 20% holdback, and is rolled back automatically at z <= -1.96.
+
+**Code changes.**
+- Code changes are `EngineeringChangeRequest` rows, deduplicated by (defect_class, department, module).
+- A request is closed only when the KPI is verified after deploy, and is reopened otherwise.
+- The integrator reads them at `GET /api/readback/ecrs`. Production never edits or deploys code.
+
+**Departments.** A department whose lessons reach no consumer is a finding, never a pass.
+
+**Parked loops.** improve.monitor, sandbox and league backoffs lift on their real input rows (`orchestrate.INPUT_PROBES`).
+
+Reversible by decision. The non-tunable rule is the owner's and is not reversible by an agent.
+**D-ENG-VIS-FLUX-1: the FLUX 3 provider follows the documented contract, rejects bad frames at generation, and caps images in code (ENG-VIS-FLUX slice 1, 2026-11-20).** This applies the owner's directive "PERFECT FLUX 3 LISTING IMAGES" within D-W4-F852-AMEND. It changes no publication gate.
+- **The contract is data, with citations.** `gateway/flux_contract.py` holds BFL's documented FLUX 3 Image contract, read 2026-11-20 from the openapi schema, the API reference, pricing, integration and errors pages.
+  - The request builder validates the whole body against it before any reservation.
+  - A test pins the contract to a machine-extracted snapshot of the official schema and rate card.
+- **No seed.** FLUX 3 Image has no seed field (`additionalProperties: false`). The seed is recorded only when BFL's result reports one, and is never invented.
+- **Generation-time rejection.**
+  - A listing frame must be PNG/JPEG, opaque, at least 2000 px on its shortest side and within 1% of the aspect it asked for. An intermediate frame must be at least 900 px.
+  - A frame that fails is rejected before QA. It stays billed, and its bytes and an audit row are kept.
+  - A corrupt download is re-fetched up to twice; this costs nothing.
+  - A rejection is never retried with the same request, because the owner gate would refuse it as already billed.
+  - A replacement is bought only after `flux_provider.replacement_allowed` has re-checked the kept bytes. It also requires that no `motif_recovery` row for the product is open (ENG-MOTIF-BACKLOG's table, read only).
+- **Caps in code, lower-only.** Within `paid_provider_gate.authorize` the caps are 60 images per UTC day and 16 images / CA$2.50 per gallery. The environment can lower them and never raise them. They sit beneath the owner's activation ceilings, so the lower one binds.
+- **Readiness.** It is READY only when `BRAMBLELOOP_IMAGE_KEY_BFL` is present (presence only; the value is never read into output) and the owner's `flux-3-image` generation activation is active. Otherwise it is UNKNOWN with the reason, and the generation job refuses before reserving.
+- **Retention.** `image.generation_rejected` and `image.generation_rejection_rechecked` are lifetime-protected.
+
 **D-ENG-CONCEPTS-100: the concept pool is generated at scale from scan evidence, in our own words, and admitted only through intake (ENG-CONCEPTS-100, 2026-11-20).** P0 item 4 asked for 100+ evidence-backed ORIGINAL concepts, replenished continuously. `radar/concept_pool.py` is the generator; `radar.concept_pool` is its 6-hourly CA$0 cadence.
 - **Evidence.** A demand signal is the fresh (30 days) watchlist listing rows behind a lane: a demand facet read from listing titles (baby, stuffed animal, pillow, garment, basket, colourwork), or the pod. At least 2 listings. Concepts cite listing rows by id only. No title, tag, description, photo or instruction of a listing is stored on a concept or reaches a proposal. B-117 is untouched: the quarantined library is never opened.
 - **Grammar.** A lane is (category, declared form, construction, demand). Each lane has its own motifs, uses and contexts, written in the closed vocabulary. A variant pairs motif i with use i and the first context that keeps it ORIGINAL against everything already kept. A variant with no original context is refused as the clone it is.
