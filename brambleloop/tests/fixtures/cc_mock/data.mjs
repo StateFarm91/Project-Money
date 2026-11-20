@@ -211,6 +211,17 @@ export const DATA = {
     customer_orders: env("UNKNOWN", [{ metric: "orders", value: null, state: "UNKNOWN", why: "order source not connected and read" }], { reason: "order source not connected and read" }),
     customer_support: env("OK", [{ metric: "cases", value: 2, state: "OWNER_RECORDED" }, { metric: "awaiting_reply", value: 1, state: "OWNER_RECORDED" }]),
     customer_reviews: env("UNKNOWN", [], { reason: "no review source is connected" }),
+    // ENG-BENCHBUY: the benchmark shopping list as the real tab emits it (grouped by shop).
+    benchmark_shopping: { status: "OK", as_of: ago(10), sources: ["benchmark_listings"],
+      owner_card: { id: 1, action: "Buy 2 benchmark patterns, ≤ CA$14.00", max_cost_cad: 14.0, minutes: 10 },
+      to_buy_count: 2, total_with_contingency_cad: 14.0, contingency_factor: 1.158,
+      budget: { ceiling_cad: 300, recorded_spend_cad: 0, remaining_cad: 300 },
+      no_auto_purchase: "nothing here buys anything; purchased PDFs go only through the quarantined teardown intake",
+      groups: [
+        { shop: "MadelineMaeCo", status: "PICKED", reason: "1 of 5 slots used", picks: [
+          { title: "Baby bear amigurumi pattern", url: "https://www.etsy.com/listing/111", price_cad: 6.0, price_with_contingency_cad: 6.95, teaches: "capability: amigurumi; owner-demand family: baby", answers: "closes a capability gap not yet covered: amigurumi", status: "to buy", listing_ref: "111" }] },
+        { shop: "ZKBDESIGNER", status: "EMPTY", reason: "12 listings scanned, none eligible: 12 not a digital download", picks: [] },
+        { shop: "IvyLoop", status: "UNKNOWN", reason: "no scanned listings are in the database for IvyLoop (scan state: unknown). Nothing is assumed about its catalogue", picks: [] }] },
   }),
   timeline: () => tab("TIMELINE", {}, { events: [
     { at: ago(30), kind: "job_completed", title: "SEO coverage refreshed", actor: "seo", source: "jobs:320", origin: "autonomy.status.timeline" },

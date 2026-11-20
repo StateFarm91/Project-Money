@@ -1000,6 +1000,10 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # lead to paid work downstream inside the creative ceilings (review N-4).
     ("watchlist_scan", "market_radar", "intel.watchlist_scan", 6 * 60 * 60),
     ("watchlist_compare", "market_radar", "intel.watchlist_compare", 24 * 60 * 60),
+    # ENG-BENCHBUY: the daily benchmark shopping list across all nine watchlist shops, rebuilt
+    # after the scans (its upstream inputs are the scans, so an unchanged day backs off and a
+    # real scan lifts the backoff). Reads rows only: CA$0, no network, never buys.
+    ("benchmark_shopping", "market_radar", "intel.benchmark_shopping", 24 * 60 * 60),
     # W4-AGENTS W3 (F-401): the Research Agent's own sweep -- unknowns become tasks, due open
     # tasks become investigations (internal retrieval first, CA$0, no network).
     ("research_sweep", "research_agent", "research.sweep", 24 * 60 * 60),

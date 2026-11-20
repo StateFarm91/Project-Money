@@ -807,6 +807,13 @@ try {
   const firstInsight = await page.$eval("#main .stack > .card .card-title", (e) => e.textContent).catch(() => "");
   check(firstInsight === "Marketing & customers" && /ROAS \(evidence-attributed Etsy Ads\)/.test(custText) && /Support cases \(owner-recorded\)/.test(custText),
     "ccall insights: combined marketing & customers view leads Insights (F-622)", firstInsight);
+  const shop = await page.evaluate(() => { const c = [...document.querySelectorAll("#main section.card")].find((x) => /Benchmark shopping list/.test(x.querySelector(".card-title")?.textContent || ""));
+    if (!c) return null; const a = c.querySelector("a[href^='https://www.etsy.com/listing/']");
+    return { t: c.textContent, href: a && a.getAttribute("href"), rel: a && a.getAttribute("rel"), buttons: c.querySelectorAll("button, form, input").length, groups: c.querySelectorAll(".sub").length }; });
+  check(!!shop && shop.groups === 3 && shop.href === "https://www.etsy.com/listing/111" && /noopener/.test(shop.rel || "") && shop.buttons === 0
+    && /CA\$6\.00 listed/.test(shop.t) && /CA\$6\.95 with the ×1\.158/.test(shop.t) && /Teaches: capability: amigurumi/.test(shop.t) && /Why: closes a capability gap/.test(shop.t)
+    && /TO BUY/i.test(shop.t) && /Owner card: Buy 2 benchmark patterns, ≤ CA\$14\.00/.test(shop.t) && /12 not a digital download/.test(shop.t) && /no scanned listings/.test(shop.t),
+    "benchbuy insights: shopping list grouped by shop with title, Etsy URL, CA$ price (+contingency), teaches, why, status; empty shop shows its reason; no buy control", JSON.stringify(shop).slice(0, 300));
   await noHScroll("ccfm1 insights");
   await page.goto(`${BASE}/cc/#/ask`);
   await settle();

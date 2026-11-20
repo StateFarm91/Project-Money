@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-20T03:24:21.922800+00:00",
+ "generated_at": "2026-11-20T03:38:16.221659+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 145,
-  "handlers": 177,
+  "cadences": 146,
+  "handlers": 178,
   "agents": 34,
   "follow_on_edges": 93
  },
@@ -413,6 +413,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "benchmark_shopping",
+      "agent": "market_radar",
+      "job_type": "intel.benchmark_shopping",
+      "period_seconds": 86400
+     },
+     {
       "name": "research_sweep",
       "agent": "research_agent",
       "job_type": "research.sweep",
@@ -495,6 +501,7 @@
      "intel.acceptance",
      "intel.benchmark_health",
      "intel.benchmark_refresh",
+     "intel.benchmark_shopping",
      "intel.children_portfolio",
      "intel.gallery_analysis",
      "intel.opportunity_review",

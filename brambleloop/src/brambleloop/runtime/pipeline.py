@@ -3257,6 +3257,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "radar.concept_intake": ("work_done",),
     "intel.watchlist_scan": ("work_done",),
     "intel.watchlist_compare": ("work_done",),
+    "intel.benchmark_shopping": ("work_done",),
     "intel.opportunity_review": ("work_done",),
     "research.sweep": ("work_done",),
     "storefront.review": ("work_done",),

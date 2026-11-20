@@ -97,7 +97,7 @@ DEFAULT_AGENTS: list[dict] = [
                             # W5-CONCEPT: evidence-backed concept intake.
                             "radar.concept_intake",
                             # W4-INTELREC: the owner's permanent watchlist.
-                            "intel.watchlist_scan", "intel.watchlist_compare",
+                            "intel.watchlist_scan", "intel.watchlist_compare", "intel.benchmark_shopping",
                             "intel.opportunity_review",
                             "intel.acceptance",
                             "mjs.scan", "mjs.reviews", "etsy.probe", "intel.serp_capture",
