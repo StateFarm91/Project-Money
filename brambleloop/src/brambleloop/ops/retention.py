@@ -440,6 +440,16 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "image.reference_probe": ("lifetime_total",
                               "gateway.image_bench.spent_to_date sums these too "
                               "(images.REFERENCE_PROBE_ACTION)"),
+    # ENG-VIS-FLUX: a paid render rejected at generation, and its re-check. Both are read over
+    # every row for a gallery (gateway.flux_provider.replacement_allowed): a pruned rejection
+    # would let a replacement be bought without the paid one being re-checked, and a pruned
+    # RECOVERED re-check would stop blocking it. Protected; one row per rejected render.
+    "image.generation_rejected": ("lifetime_total",
+                                  "gateway.flux_provider.replacement_allowed reads every "
+                                  "rejection for a gallery before a replacement is bought"),
+    "image.generation_rejection_rechecked": ("lifetime_total",
+                                             "gateway.flux_provider.replacement_allowed: a "
+                                             "RECOVERED re-check keeps blocking replacement"),
     "image.benchmark_blocked": ("latest", "gateway.image_bench.last_run"),
     "image.benchmark_capped": ("latest", "gateway.image_bench.last_run"),
     "model.frozen": ("lifetime_total",
