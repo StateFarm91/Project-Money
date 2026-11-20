@@ -3039,3 +3039,46 @@ display.
 - **Units.** The US edition gives yarn in yd (m), and the UK edition in m. Ball counts use 100 g balls at the shortest CYC-typical length, so the count does not run short. The hook is given in mm with its CYC US name, and only when the size is on the table. Substitution states the CYC class and its typical length per gram.
 - **Covers.** A design the stitch renderer cannot draw whole (a garment, an assembled pillow) uses its compiler-checked schematic as the cover hero, labelled as a rendering. A multi-component design reads "Made from N pieces", not "Makes 4 bodys".
 - **Not yet built (slice 2+):** a single multi-size garment edition with the other sizes in parentheses (today each size ships as its own CIR/PDF), inline diagrams at garment tricky steps, and a per-fabric gauge table for CIRs that carry component gauges (none in the catalogue today; the rule already checks each one).
+
+## D-ENG-PDF-TEMPLATE-1 — how the owner's master template is rendered (ENG-PDF-TEMPLATE, 2026-11-20; routine engineering)
+
+**Status:** routine engineering decisions implementing D-OWNER-PDF-TEMPLATE. No gate or test was
+weakened. Renderer: `publish/pdf_template.py`; switch: `runtime.release.PDF_LAYOUT` (still
+`"engine"`, see below).
+
+- **Faithful where the template is a layout; never where it is an instruction.** Page sequence,
+  header, footer, palette (read from the template's own fills), Lato + Noto Serif Display
+  (embedded, pinned in `brand/fonts/pdf/SHA256SUMS`), cards, forest bands, numbered sequences,
+  two-column pattern and 4 + 3 gallery grid are reproduced. Its bracketed placeholders, the
+  "ILLUSTRATIVE SLOT" art and the "MASTER LAYOUT • REQUIRES CERTIFIED PRODUCT DATA" marker are
+  never printed; `pdf_template.audit` reads the placeholder list from the template itself.
+- **Brand floors win over the template's smallest type.** The template's 6.3-8.2 pt labels are
+  set at the 9 pt brand minimum, and its rose is darkened only as far as the 4.5:1 contrast floor
+  requires on its ground (`publish.pdf._legible`).
+- **Logo:** the canonical owner logo, resampled only, on the cover (`publish.pdf._cover_logo`),
+  in every page header and in the thank-you block. The template's header shows a monogram crop;
+  a crop is not "resampled only", so the full artwork is used at header size.
+- **Footer additions:** the release id and "page N of M" sit on their own line in the footer band,
+  so a truncated download is visible. The template's footer line and page number are unchanged.
+- **Gallery:** slot n is the valid listing-set certificate's frame at position n (the campaign's
+  order is the gallery's order), embedded as `publish.pdf_photos.rendition` JPEG bytes (the same
+  certified bytes as the listing, provable from the built file). No complete certified gallery is
+  `GalleryAwaiting` ("awaiting gallery"). `proof=True` is an internal text-only proof marked
+  NOT CUSTOMER-READY on every page; test-double images make `proof_test_double`, also marked.
+- **The cover hero sits in the template's card slot, not full bleed.** This follows the owner's
+  layout; the sale-pipeline checker's `slot:cover_hero` full-bleed rule conflicts and is reported
+  to its owner rather than resolved here.
+- **Family variants:** garment (size table, fit + ease, care required), baby and amigurumi
+  (child-safety gate text required, or the build blocks), pillow, blanket and colourwork (the
+  chart always), home décor (concise). The chart appears for other families only when it fits
+  on one page (a 36-tile chart of plain stitches is not help).
+- **Blocking:** a missing required fact (gauge, yarn, yarn quantity, finished size, schematic,
+  making sequence, finishing, a row's stitch count, garment fit or care, child-safety text) raises
+  `TemplateBlocked` with a named reason. Optional sections with nothing to say are omitted.
+- **Default stays `engine`.** The template becomes the default only when it passes every existing
+  PDF suite. Those suites assert engine-specific headings and structure (e.g. "Terms and
+  support", "Instructions (US terms)"), and the premium and sale-pipeline checkers key on the
+  same names (`pdf_template.CHECKER_SECTION_ALIASES` maps them). Switching now would fail them,
+  so the switch is not flipped.
+
+Reversible by decision.

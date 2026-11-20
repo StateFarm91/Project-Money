@@ -388,6 +388,7 @@ class _T:
         self.logo_pages: list[int] = []
         self.section_key = ""
         self.total_pages = 0
+        self.release_id = f"{cir.slug}@{cir.version}"
         self._open = False
 
     # -- text ---------------------------------------------------------------------------
@@ -546,8 +547,9 @@ class _T:
                   align="right", track=0.6)
         self.rule(45, 567, 91, RULE, 0.8)
         # footer
-        self.text(47, 774, FOOTER_TEXT, SANS, MIN_PT, INK, track=0.5)
+        self.text(47, 771, FOOTER_TEXT, SANS, MIN_PT, INK, track=0.5)
         self.text(567, 774, f"{self.pages:02d}", SANS_SEMI, MIN_PT, INK, align="right")
+        self._folio()
         self._marker()
         # kicker and title
         _k, num, kicker, title = _SECTION[key]
@@ -556,9 +558,16 @@ class _T:
         self.rule(47, 567, 179, RULE, 0.7)
         self.top = 200
 
+    def _folio(self) -> None:
+        """The release id and "page N of M" (a buyer can see a truncated download), in the
+        footer band between the template's footer line and its page number."""
+        total = self.total_pages or self.pages
+        self.text(47, 787, f"{self.release_id}  ·  page {self.pages} of {total}", SANS,
+                  MIN_PT, GREY)
+
     def _marker(self) -> None:
         if self.marker:
-            self.text(PAGE_W / 2, 746 if self.section_key != "cover" else 784, self.marker,
+            self.text(PAGE_W / 2, 746 if self.section_key != "cover" else 775, self.marker,
                       SANS_BOLD, MIN_PT, P.ACCENT, align="centre", track=0.6)
 
     def need(self, h: float, key: str | None = None) -> bool:
@@ -852,8 +861,10 @@ class _Facts:
         return s
 
     def yarn_amount(self, metres: float) -> str:
+        """The range in the edition's unit (yd in US, m in UK) with 100 g balls
+        (publish.pdf._amount, the premium standard's one formatter)."""
         lo, hi = P._metres(metres, self.twin.yardage_tolerance)
-        return f"about {lo:.0f}-{hi:.0f} m ({lo * 1.094:.0f}-{hi * 1.094:.0f} yd)"
+        return P._amount(lo, hi, self.terminology, P._std.cyc_weight(self.cir))
 
     def total_yarn(self) -> str:
         return self.yarn_amount(sum(self.twin.yarn_metres_by_color.values()))
@@ -872,7 +883,8 @@ class _Facts:
 
     def tolerance_note(self) -> str:
         tol = self.twin.yardage_tolerance
-        return (f"Yarn quantities are estimates with a ±{tol * 100:.0f}% range, not "
+        ball = P._ball_note(P._std.cyc_weight(self.cir), self.terminology)
+        return ((ball + " ") if ball else "") + (f"Yarn quantities are estimates with a ±{tol * 100:.0f}% range, not "
                 f"measurements: consumption varies with yarn, hook and tension, so buy a little "
                 f"more than the top of the range if your dye lot matters to you."
                 if not self.twin.calibrated else
@@ -1039,7 +1051,11 @@ def _cover(t: _T, f: _Facts, slots: list[dict]) -> None:
     if not story:
         f.block("no one-line product description can be stated", "cover")
     line_top = y - size * 0.85 + 14
-    t.para(58, line_top, 496, story, font=SANS, size=10.2, color=GREY, leading=14)
+    line_top = t.para(58, line_top, 496, story, font=SANS, size=10.2, color=GREY, leading=14)
+    ident = (f"{cir.title}  ·  Crochet pattern  ·  {f.terminology} terms  ·  "
+             f"version {cir.version}")
+    if line_top + 4 < 420:
+        t.text(58, line_top + 10, ident, SANS_SEMI, MIN_PT, GREY)
     # the hero slot: the certified hero (slot 1)
     x, top, w, h = 62, 429, 488, 232
     t.card(x - 4, top - 4, w + 8, h + 8, fill=PAPER, radius=12)
@@ -1073,8 +1089,10 @@ def _cover(t: _T, f: _Facts, slots: list[dict]) -> None:
         t.text((lo + hi) / 2, yy, ln, SANS_SEMI, MIN_PT, ON_FOREST, align="centre", track=0.6)
         yy += 13
     t.prose.append(f"{f.terminology} terms")
-    t.text(PAGE_W / 2, 763, COVER_TAGLINE, SANS, MIN_PT, BROWN_ON_CREAM, align="centre",
+    t.text(PAGE_W / 2, 760, COVER_TAGLINE, SANS, MIN_PT, BROWN_ON_CREAM, align="centre",
            track=1.2)
+    t.text(PAGE_W / 2, 788, f"{t.release_id}  ·  page 1 of {t.total_pages or 1}", SANS,
+           MIN_PT, GREY, align="centre")
 
 
 def _chip(t: _T, x: float, top: float, s: str) -> None:
@@ -1190,7 +1208,7 @@ def _tools(t: _T, f: _Facts) -> None:
         if metres:
             name += f"; {f.yarn_amount(metres)}"
         yarn.append(name + fibres + ".")
-    hooks = [f"{hook_label(cir.gauge.hook_mm)}, or the size that gives you the gauge."]
+    hooks = [f"{hook_label(cir.gauge.hook_mm)}, {P._std.HOOK_GAUGE_PHRASE}."]
     instructed = "\n".join([f.text] + [abbreviations.method(code, f.terminology)
                                        for code in sorted(twin.stitch_types_used)])
     notions = [f"{n.capitalize()}: {w}." for n, w in P._tools_required(cir, instructed)]
@@ -1518,6 +1536,10 @@ def _pattern(t: _T, f: _Facts, slots: list[dict]) -> int:
     for title, lines in f.parsed["blocks"]:
         if title.lower().startswith("finishing"):
             continue
+        sided = P._sides_for(f.cir, title)
+        if sided:
+            # RS/WS from the CIR's own turns (publish.pdf._sides_for), the note stated once.
+            lines = [P.RS_NOTE] + [P._with_side(ln, sided) for ln in lines]
         next_col(29 + 40)
         t.card(x, y, COL_W + 2, 29, fill=FOREST, radius=5)
         t.text(x + 12, y + 18.5, title.upper(), SANS_BOLD, MIN_PT, ON_FOREST, track=1.0)
@@ -1720,6 +1742,10 @@ def _notes(t: _T, f: _Facts) -> None:
                 sub.append(f"If you use {row['to'].replace('_', ' ')}: about "
                            f"{row['buy_metres']:.0f} m in total ({balls}); "
                            f"{row['fabric_changes']}")
+        weight = P._std.cyc_weight(cir)
+        if weight is not None:
+            sub.append(f"On the ball band, look for CYC {weight.number} and about "
+                       f"{P._std.length_per_gram(weight, f.terminology)}.")
         sub.append("Changing fibre as well changes how much yarn each stitch takes by an "
                    "amount that has to be measured on a swatch.")
         _flow_card(t, "YARN SUBSTITUTION", sub, fill=SAGE)
@@ -1809,8 +1835,11 @@ def _about(t: _T, f: _Facts) -> None:
                     "source": "brand/owner_source/brambleloop_owner_banner_canonical.png",
                     "sha256": hashlib.sha256(banner).hexdigest()})
     t.top = 422
-    _flow_card(t, "PATTERNS FOR A MORE HANDMADE LIFE", [STUDIO_BLURB], fill=CREAM,
-               title_color=ROSE)
+    # The owner's studio blurb, then the premium standard's brand paragraphs: a brand, never
+    # a person (PDF_STRUCTURE_STANDARD honest-only rules; the banner's model is not a designer).
+    _flow_card(t, "PATTERNS FOR A MORE HANDMADE LIFE",
+               [STUDIO_BLURB] + list(P._std.ABOUT_PARAGRAPHS), fill=CREAM, title_color=ROSE,
+               size=MIN_PT + 0.5, gap=4, leading=13.5)
     _flow_card(t, "QUESTIONS ABOUT YOUR PATTERN?", [SUPPORT_TEXT, P.support_scope(f.cir)],
                fill=PAPER, stroke=RULE, title_color=ROSE)
 
@@ -1823,6 +1852,7 @@ def _copyright(t: _T, f: _Facts, designer: str) -> None:
     body = []
     for i, line in enumerate(lines):
         body.append(("• " + line[2:]) if line.startswith("- ") else line)
+    body += [f"{P._std.DISCLAIMER_HEADING}.", P._std.DISCLAIMER]
     _flow_card(t, "YOUR PATTERN LICENCE", body, fill=CREAM, size=MIN_PT + 0.5, gap=3,
                leading=13.5)
     year = f.released_on.year
