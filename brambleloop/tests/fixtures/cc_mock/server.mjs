@@ -88,6 +88,9 @@ export function createMock() {
         company: "company", completion: "completion", "launch/packet": "launchPacket", "first-sale": "firstSale", "launch-review": "launchReview", credentials: "credentials",
         checks: "checks", "store/settings": "storeSettings" };
       if (route === "p0-board") return send(res, 200, DATA.p0Board(st.p0Sales || "partial"));
+      // ENG-CATALOGUE: the catalogue honours its query (filters, search, paging) like the server.
+      if (route === "catalogue") return send(res, 200, DATA.catalogue(url.searchParams));
+      if (route === "operating-evidence") return send(res, 200, DATA.operatingEvidence());
       if (Object.hasOwn(simple, route)) return send(res, 200, DATA[simple[route]]());
       if (route === "laura") return send(res, 200, DATA.laura());
       if (route === "laura/conversation") return send(res, 200, DATA.lauraConversation());

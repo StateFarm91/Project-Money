@@ -491,6 +491,79 @@ export const DATA = {
       recorded_suite: { state: "UNKNOWN", why: "no repository root given; suite evidence not read" },
       activation_steps: ["Resolve every open owner gate.", "Record the phase move."],
       sources: ["launch.packet.build"], cache: { ttl_seconds: 300 } }) }, { status: "BLOCKED" }),
+  // ENG-CATALOGUE: the full catalogue, as /api/cc/catalogue serves it. The mock pages and
+  // filters a fixed fixture of products the way the server does; totals are over ALL of them
+  // (never the page), one row's stage is UNKNOWN.
+  catalogue: (params) => {
+    const STAGES = [["research_candidate", "Research candidate"], ["pattern_in_development", "Pattern in development"],
+      ["listing_package", "Listing package completed"], ["physical_sample_pending", "Physical sample pending"],
+      ["live_on_etsy", "Live on Etsy"], ["withdrawn_or_rejected", "Withdrawn / rejected"]];
+    const WORDS = ["moss", "fern", "birch", "heath", "cedar", "glade", "dune", "ember"];
+    const all = Array.from({ length: 64 }, (_, i) => {
+      const unknown = i === 9;
+      const [stage, label] = unknown ? ["UNKNOWN", "UNKNOWN"] : STAGES[i % STAGES.length];
+      const slug = `${WORDS[i % 8]}-${WORDS[Math.floor(i / 8) % 8]}-coaster`;
+      return { slug, version: "1.0.0", title: `${WORDS[i % 8]} ${WORDS[Math.floor(i / 8) % 8]} coaster`,
+        state: unknown ? "UNKNOWN" : "listing_package_completed", stage, stage_label: label,
+        category: i % 3 ? "coaster" : "UNKNOWN", family: null, why: unknown ? "state could not be derived: OSError" : "listing package complete",
+        held: stage === "physical_sample_pending" ? ["physical"] : [], holds: [],
+        next_action: unknown ? { action: "UNKNOWN", owner: "UNKNOWN", job_type: null } : { action: "pass the publication gates", owner: "store_commerce", job_type: "store.publish" },
+        physical_sample: "not_required", tiers: {},
+        evidence: stage === "live_on_etsy" ? { certificate: { release_hash: "abcdef1234567890", content_hash: "c", physical_test_required: false },
+          pdf: { sha256_by_terminology: { us: "0123456789abcdef", uk: "fedcba9876543210" }, href: `/api/cc/store/pdf/${slug}` },
+          gallery: { audit_id: 41, frames: 6, href: `/api/cc/visual/evidence/${slug}` }, listing_package: { listing_id: 7, audit_id: 42 },
+          etsy: { listing_row: 7, state: "active", etsy_listing_id: "4401", read_back: "live", draft_intent: "created" } }
+          : { certificate: null, pdf: null, gallery: null, listing_package: null, etsy: null } };
+    });
+    const p = params || new URLSearchParams();
+    const qs = (p.get("q") || "").toLowerCase();
+    const rows = all.filter((r) => (!p.get("stage") || r.stage === p.get("stage"))
+      && (!p.get("category") || r.category === p.get("category"))
+      && (!p.get("held") || (p.get("held") === "any" ? r.held.length : p.get("held") === "none" ? !r.held.length : r.held.includes(p.get("held"))))
+      && (!qs || r.slug.includes(qs) || r.title.toLowerCase().includes(qs)));
+    const size = Math.min(200, Math.max(1, Number(p.get("page_size")) || 50));
+    const pages = Math.max(1, Math.ceil(rows.length / size));
+    const page = Math.min(pages, Math.max(1, Number(p.get("page")) || 1));
+    const count = (key) => all.reduce((m, r) => ({ ...m, [r[key]]: (m[r[key]] || 0) + 1 }), {});
+    const byStage = Object.fromEntries(STAGES.map(([k]) => [k, 0]));
+    return { tab: "CATALOGUE", read_only: true, as_of: ago(1), gate_mode: "recorded", status: "OK",
+      stages: STAGES.map(([key, label]) => ({ key, label })), filters: {},
+      page, page_size: size, pages, matching: rows.length, items: rows.slice((page - 1) * size, page * size),
+      crosscheck: { ok: true, checks: {} }, sales_measured: false,
+      totals: { products: all.length, by_state: count("state"), by_stage: { ...byStage, ...count("stage") },
+        by_category: count("category"), by_held: { owner: 0, physical: all.filter((r) => r.held.length).length, paid_approval: 0, policy: 0 },
+        by_owner: count("stage"), unknown: 1 } };
+  },
+  // ENG-CATALOGUE: per-department operating evidence, as /api/cc/operating-evidence serves it.
+  operatingEvidence: () => ({ tab: "OPERATING_EVIDENCE", read_only: true, as_of: ago(1), state: "BLOCKED",
+    note: "from persisted rows only; a green health check is not autonomy evidence",
+    departments: [
+      { department: "product_truth", agents: ["engineer"], state: "OK",
+        last_useful_job: { state: "FOUND", job_id: 812, job_type: "cir.compile", agent: "engineer", finished_at: ago(40) },
+        next_scheduled: { pending_run_after: ago(-30), cadence: { cadence: "compile_sweep", job_type: "cir.compile", next_at: ago(-60) } },
+        queue: { waiting: 3, oldest_created: ago(300), oldest_age_s: 18000 }, in_progress: 1,
+        completed_24h: { useful: 5, no_op: 2 }, dead_letters: { last_24h: 0, open: 0 }, blocked: [] },
+      { department: "visual", agents: ["visual"], state: "BLOCKED",
+        last_useful_job: { state: "NONE", scanned: 12, why: "no completed job of this department did useful work" },
+        next_scheduled: { pending_run_after: null, cadence: null },
+        queue: { waiting: 0, oldest_created: null, oldest_age_s: null }, in_progress: 0,
+        completed_24h: { useful: 0, no_op: 4 }, dead_letters: { last_24h: 1, open: 1 },
+        blocked: [{ job_type: "assets.build", why: "defect dead letter (job 901) with no later success: KeyError: frames" }] },
+      { department: "intelligence", agents: ["radar"], state: "UNKNOWN",
+        last_useful_job: { state: "UNKNOWN", scanned: 1000, why: "no useful job in the newest 1000 completions; older rows were not scanned" },
+        next_scheduled: { pending_run_after: null, cadence: "UNKNOWN" },
+        queue: { waiting: 0, oldest_created: null, oldest_age_s: null }, in_progress: 0,
+        completed_24h: { useful: 0, no_op: 0 }, dead_letters: { last_24h: 0, open: 0 }, blocked: "UNKNOWN" }],
+    queue_by_stage: { validation: { waiting: 3, oldest_created: ago(300), oldest_age_s: 18000 } },
+    last_24h: { stage_transitions: { validation: 5 }, listing_packages_completed: 1, versions_certified: 0, useful: 5, no_op: 6 },
+    dead_letters: { total: 1, open: 1, open_defect: 1, open_refused: 0, last_24h: 1, recent: [] },
+    blocked_agents: [{ department: "visual", agents: ["visual"], reasons: [] }], suspensions_readable: true,
+    workers: { state: "DEGRADED", healthy: 1, unhealthy: 1, items: [
+      { component: "worker", instance: "w-a", last_heartbeat: ago(2), age_s: 120, healthy: true, why: null },
+      { component: "worker", instance: "w-b", last_heartbeat: ago(200), age_s: 12000, healthy: false, why: "no heartbeat in 15 minutes" }],
+      queue_drain: { stalled: false } },
+    recoveries: { state: "OK", last_24h: 2, last_7d: 3, refused_24h: 1, recent: [
+      { id: 1, at: ago(60), action: "queue.lease_reclaimed", actor: "queue", job_id: 5, result: null }] } }),
   ask: (question) => /overnight/i.test(question)
     ? { question, intent: "overnight", status: "ANSWERED", answer: "Overnight: 6 jobs completed, 1 parked (bank feed missing).",
       facts: [{ statement: "SEO coverage refreshed", source: "jobs:320", as_of: ago(30) }], next_action: "Connect bank feed",

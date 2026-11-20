@@ -261,7 +261,13 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                       "spend_report.refusals reads the calendar month; ops.slo soak window"),
     # Audit ddf9c6e M-3: the soak's "no duplicated external effect" criterion reads reclaims
     # and guard-refused duplicates inside the soak window only (hours).
-    "queue.lease_reclaimed": ("windowed", "ops.slo.soak_report reads the soak window"),
+    "queue.lease_reclaimed": ("windowed", "ops.slo.soak_report reads the soak window; "
+                              "command_center.operating_evidence counts 24 h / 7 d"),
+    # ENG-CATALOGUE: the agents panel counts refused recovery requests in the last 24 h (and
+    # excludes them from recoveries). Already protected by the "recovery." prefix
+    # (lifetime_total); recorded by name because it is read by name.
+    "recovery.refused": ("lifetime_total", "ops.recovery prefix (protected); "
+                         "command_center.operating_evidence counts refusals in 24 h"),
     "effect.duplicate_refused": ("windowed", "ops.slo.soak_report reads the soak window"),
     # C-60 (#201): the identity drift series reads 60 days of model-bearing frames and
     # persists its own daily reading, so pruning older rows cannot change the series.
