@@ -87,6 +87,13 @@ ACTIONS: dict[str, tuple[bool, str]] = {
     # W4-LAUNCHFIX review F-7: the owner attests a sample photograph unedited here, never
     # through the operator-token photo intake.
     "physical_photo.attest_unedited": (True, "attest a sample photograph is unedited"),
+    # ENG-ETSY-AI-FIX3 (M-A): the UNKNOWN Etsy AI-policy publication hold lifts only on the
+    # owner's own reading of Etsy's current AI/creativity rules (a policy attestation, never
+    # inferred). Preview reads; record writes `etsy_ai_policy.reading` under step-up.
+    "etsy_ai_policy.reading_preview": (False, "read what an Etsy AI-policy reading attests"),
+    "etsy_ai_policy.record_reading": (True, "record the owner's reading of Etsy's current AI "
+                                            "and creativity policy (URLs, date, what was "
+                                            "checked)"),
     # PHYSFIX integrator decision (SECREVIEW 8da830d R28): a physical size halt is
     # product-wide and only the owner lifts it, on a passed full make of a re-released
     # version by an independent tester whose size agrees (`runtime.release.lift_size_halt`).
@@ -237,6 +244,9 @@ def _gate_card(c: dict) -> dict:
                                 "label": f"{decision}: {choice}",
                                 "params": {"decision": decision, "choice": choice,
                                            "expected_digest": "<from launch_decision.preview>"}})
+    if rk == "etsy_ai_policy.reading":
+        kind, reason = "policy_attestation", None
+        actions.extend(_ai_policy_actions())
     if oa:
         actions.append({"action": "owner_action.defer", "requires_step_up": False,
                         "params": {"owner_action_id": oa}})
@@ -275,6 +285,52 @@ def _gate_card(c: dict) -> dict:
         "steps": c.get("steps"), "state": c.get("state"),
         **({"tester_route": c["tester_route"]} if c.get("tester_route") else {}),
     }
+
+
+def _ai_policy_actions() -> list[dict]:
+    from ...publish import etsy_ai_policy as _eap
+
+    return [{"action": "etsy_ai_policy.reading_preview", "requires_step_up": False,
+             "params": {}},
+            {"action": "etsy_ai_policy.record_reading", "requires_step_up": True,
+             "params": {"status": "<PERMITTED or PROHIBITED>",
+                        "policy_urls": list(_eap.POLICY_URLS),
+                        "read_on": "<YYYY-MM-DD you read them>",
+                        "checked": "<what you checked on those pages>",
+                        "confirm": _eap.READING_CONFIRMATION,
+                        "expected_digest": "<from etsy_ai_policy.reading_preview>"}}]
+
+
+def _ai_policy_card(db, cards: list[dict]) -> list[dict]:
+    """ENG-ETSY-AI-FIX3 (M-A): ONE consolidated owner card while the Etsy AI-policy status is
+    UNKNOWN (no reading, or a stale one). The owner-queue row for the same key is folded in,
+    never shown twice. Computed on every read, so it is back the day a reading goes stale."""
+    from ...publish import etsy_ai_policy as _eap
+
+    st = _eap.publication_status(db)
+    folded = [c for c in cards if c.get("card_id") != "etsy_ai_policy:reading"
+              and _eap.OWNER_CARD_KEY not in str(c.get("requirement_key") or "")
+              and not any(a.get("action") == "etsy_ai_policy.record_reading"
+                          for a in c.get("actions") or [])]
+    if st["status"] != _eap.UNKNOWN:
+        return folded
+    return folded + [{
+        "card_id": "etsy_ai_policy:reading", "kind": "policy_attestation",
+        "requirement_key": _eap.OWNER_CARD_KEY,
+        "title": "Etsy AI policy status UNKNOWN: every listing's publication is held",
+        "what": st["reason"], "proposed_action": (
+            "Read Etsy's current AI and creativity rules and record PERMITTED or PROHIBITED, "
+            "with the page URL(s), the date and what you checked"),
+        "evidence": [_ev("Etsy AI policy reading", "UNKNOWN", st["reason"],
+                         "publish.etsy_ai_policy.publication_status")],
+        "max_spend_cad": 0.0, "executable": True, "actions": _ai_policy_actions(),
+        "not_executable_reason": None,
+        "why_software_cannot": ("the Seller Handbook refuses automated reads; whether the "
+                                "shop may sell AI-assisted patterns is the owner's policy "
+                                "attestation, never inferred"),
+        "consequence_of_no_action": "no listing is published while the status is UNKNOWN",
+        "sources": ["publish.etsy_ai_policy.publication_status",
+                    f"owner_actions:{_eap.OWNER_CARD_KEY}"]}]
 
 
 def _publication_cards(db, limit: int = 20) -> list[dict]:
@@ -535,6 +591,12 @@ def inbox(db) -> dict:
     except Exception as exc:  # noqa: BLE001
         reason = (reason + "; " if reason else "") + (
             f"standing policy unreadable: {type(exc).__name__}")
+        status = "DEGRADED" if status == "OK" else status
+    try:
+        cards = _ai_policy_card(db, cards)
+    except Exception as exc:  # noqa: BLE001
+        reason = (reason + "; " if reason else "") + (
+            f"Etsy AI policy status unreadable: {type(exc).__name__}")
         status = "DEGRADED" if status == "OK" else status
     # W4-PRODFIX: each unreviewed material policy change is a card (it blocks publishing).
     try:
@@ -935,6 +997,21 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
             result = _review_policy_change(db, body, actor=actor)
         elif action == "finance.statement_archive":
             result = _archive_statement(db, body, actor=actor)
+        elif action == "etsy_ai_policy.reading_preview":
+            from ...publish import etsy_ai_policy as _eap
+
+            return {"result": _eap.reading_preview(), "audit_id": None}  # a read
+        elif action == "etsy_ai_policy.record_reading":
+            from ...publish import etsy_ai_policy as _eap
+
+            try:
+                result = _eap.record_reading(
+                    db, status=str(body.get("status") or ""),
+                    policy_urls=body.get("policy_urls"), read_on=str(body.get("read_on") or ""),
+                    checked=str(body.get("checked") or ""), confirm=str(body.get("confirm") or ""),
+                    expected_digest=str(body.get("expected_digest") or ""), actor=actor)
+            except _eap.ReadingRefused as exc:
+                raise ActionRefused(str(exc)[:500]) from None
         elif action == "physical_photo.attest_unedited":
             from ...publish import physical_upgrade as _pu
 
@@ -1017,7 +1094,8 @@ def execute(db, action: str, body: dict, *, actor: str) -> dict:
                                            "physical_test_id", "withheld", "same_geometry",
                                            "etsy_listing_id", "verification", "repeat",
                                            "audit_id", "review_incident_id",
-                                           "accepted", "incidents_resolved")}})
+                                           "accepted", "incidents_resolved",
+                                           "reading_audit_id", "status", "read_on")}})
     return {"result": result, "audit_id": audit_id}
 
 

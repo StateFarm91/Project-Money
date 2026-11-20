@@ -115,6 +115,7 @@ def listing_for(concept, cir, price_cad: float):
     exists for one level up.
     """
     from ..gates.policy import ListingDraft
+    from ..publish import etsy_ai_policy as _eap
 
     # "fitted garment" is a form category, not a fit: as copy it claims a fitted fit the
     # design may not have (gates.policy FIT_CLAIMS, F-763), so the copy names the object.
@@ -128,8 +129,7 @@ def listing_for(concept, cir, price_cad: float):
             f"{concept.premise} "
             f"Written instructions with stitch counts for every row, in US terms, with "
             f"charts. {concept.function.capitalize()}. "
-            f"Drafted and checked with AI assistance and validated by an automated pattern "
-            f"compiler before release."),
+            f"{_eap.CERTIFIED_CONCEPT_AI_SENTENCE}"),
         tags=[t[:20] for t in tags],
         price_cad=price_cad,
     )

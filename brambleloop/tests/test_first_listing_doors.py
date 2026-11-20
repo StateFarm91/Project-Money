@@ -121,7 +121,10 @@ def test_the_grant_reaches_a_draft_and_then_a_public_listing_through_the_owner_d
 
         s.add(AuditLog(actor="owner-test", action=_eap.READING_ACTION, artifact="etsy_ai_policy",
                        detail={"status": _eap.PERMITTED, "read_by": "owner-test (FIXTURE)",
-                               "read_on": _date.today().isoformat()}))
+                               "read_on": _date.today().isoformat(),
+                               "policy_urls": list(_eap.POLICY_URLS),
+                               "checked": "FIXTURE: test data, not an owner attestation",
+                               "attested_via": _eap.ATTESTED_VIA}))
         s.commit()
     env_keys = {"BRAMBLELOOP_OPS_TOKEN": reh.REHEARSAL_OPS_TOKEN,
                 "BRAMBLELOOP_PUBLISH_AUTHORISED": "1", **ogk.generate_keypair()}

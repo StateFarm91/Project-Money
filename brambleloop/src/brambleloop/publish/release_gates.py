@@ -1833,6 +1833,12 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
     ai_policy = etsy_ai_policy.publication_status(db)
     if ai_policy["hold"]:
         reasons.append(ai_policy["reason"])
+    if ai_policy["status"] == etsy_ai_policy.UNKNOWN and not read_only:
+        # ENG-ETSY-AI-FIX3 (M-A): the hold has an owner path out -- one consolidated card.
+        try:
+            ai_policy["owner_card"] = etsy_ai_policy.ensure_owner_card(db, ai_policy)
+        except Exception as exc:  # noqa: BLE001 - the hold stands either way
+            ai_policy["owner_card"] = {"error": f"{type(exc).__name__}"}
     if not window["may_launch_seasonally"]:
         reasons.append(f"missed window (#297): {window['action']} -- {window['why']}")
     reasons.extend(set_verdict["reasons"])
