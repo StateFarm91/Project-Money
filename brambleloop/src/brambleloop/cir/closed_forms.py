@@ -55,6 +55,11 @@ def check(cir: CIR, result, findings: list) -> None:
             continue
         rows = [r for r in result.rows if r.component == name]
         if not rows:
+            # ENG-PLUSH-FIX (review L3): a stated stuffing point or closure on a piece with no
+            # compiled round is unmeasured, and an unmeasured closure is never a silent pass.
+            findings.append(_finding("CLOSED_FORM_UNMEASURED",
+                                     "a stuffing point or closure is stated on a piece with "
+                                     "no compiled round, so neither can be checked", name))
             continue
         counts = {r.index: r.stitch_count for r in rows}
         last = rows[-1]
