@@ -489,6 +489,8 @@ def plan_digest(plan: dict) -> str:
     return hashlib.sha256(json.dumps(plan, sort_keys=True, default=str).encode()).hexdigest()
 
 
+SEWN_GAP_STS = 6        # = fallback_constructions.AMI_EAR_GAP
+
 _SEW_NOTE = ("Sew through both loops of every stitch of its closed edge and through the "
              "fabric beneath, across and back again, so the whole edge is joined and no single "
              "stitch carries it; knot the tail on the inside and bury it through at least 5 cm "
@@ -544,7 +546,7 @@ def _join_seams(plan: dict, comps: dict, facts: dict) -> tuple[list[Seam], list[
             seams.append(Seam(
                 method, a, b, edge_a="top", edge_b="top", at_round=at_round, spans_rounds=1,
                 stitches_from_centre=flat // 2, mirrored=bool(j.get("mirrored")),
-                note=(lead + (", one each side, mirrored" if copies == 2 else "")
+                note=(lead + (", mirrored" if copies == 2 else "")
                       + f". {_SEW_NOTE}" + (f". {j['note']}" if j.get("note") else ""))))
         elif kind == "seamed_panels":
             seams.append(Seam("mattress", a, b, edge_a=j["edge_a"], edge_b=j["edge_b"],
@@ -572,9 +574,12 @@ def _join_seams(plan: dict, comps: dict, facts: dict) -> tuple[list[Seam], list[
                                     f"side and bury the tail through at least 5 cm of stitches")))
     for (b, rnd), sts in used_on_round.items():
         count = next(r.declared_count for r in comps[b].rows if r.index == rnd)
-        if sts > count:
-            problems.append(f"sewn: pieces sewn to round {rnd} of {b!r} need {sts} sts and the "
-                            f"round has {count}")
+        # The amigurumi engine's rule (AMI_EAR_GAP): pieces on one round keep a gap at the
+        # front and at the back, so they sit apart rather than wrapping the round.
+        if sts + 2 * SEWN_GAP_STS > count:
+            problems.append(f"sewn: pieces sewn to round {rnd} of {b!r} need {sts} sts plus "
+                            f"{SEWN_GAP_STS} sts clear front and back, and the round has "
+                            f"{count}")
     return seams, problems
 
 
@@ -691,7 +696,7 @@ SUBJECTS: dict[str, dict] = {
                       "where": "one at each side of the body"}},
             {"name": "ear tuft", "shape": "cone", "base_cm": 2.6, "height_cm": 3.0,
              "closure": "folded_flat", "make": 2, "colour": 1,
-             "join": {"kind": "sewn", "at": 0.2, "mirrored": True,
+             "join": {"kind": "sewn", "at": 0.3, "mirrored": True,
                       "where": "at the top of the head, one either side of the centre line"}}],
         "face": ("two eyes of 6 straight stitches each worked as a ring, and a small beak of 5 "
                  "satin stitches between them, worked through the fabric with every knot pulled "
