@@ -795,6 +795,23 @@ def test_e_the_monthly_sub_ceiling_parks_the_run_before_any_call():
     assert called == []
 
 
+def test_e_an_environment_fault_parks_the_request_instead_of_refusing_it():
+    from brambleloop.gateway.model_gateway import NoProviderAvailable
+
+    db = _db()
+    eid = _file_ecr(db)
+    repo, _base = _toy_repo()
+
+    def no_provider(task):
+        raise NoProviderAvailable("no model provider is configured")
+    out = AC.run(db, host=LocalGitHost(repo), env=_env(), make_gateway=no_provider)
+    assert out["status"] == AC.PARKED and "NoProviderAvailable" in out["reason"], out
+    row = next(r for r in ecr.listing(db) if r["id"] == eid)
+    ac = row["evidence"]["autocoder"]
+    assert "status" not in ac and ac["attempts"] == 0, ac
+    assert AC.pick(db)["id"] == eid           # picked again on the next run
+
+
 # ---- H. kill switch and the token blocker --------------------------------------------------------
 
 def test_h_off_by_default_and_unknown_with_a_named_blocker_without_the_token():

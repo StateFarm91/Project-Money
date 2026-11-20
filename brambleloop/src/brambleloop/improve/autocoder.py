@@ -498,6 +498,10 @@ def run_loop(r: dict, ws: Workspace, budget: Budget, gateway) -> LoopResult:
             out.stop = "model_unavailable"
             out.transcript.append(f"[stop] {type(exc).__name__}: {str(exc)[:200]}")
             return out
+        except Exception as exc:  # noqa: BLE001 - no key, refused route: the environment's
+            out.stop = "model_error"  # fault, not the request's; parked, never refused
+            out.transcript.append(f"[stop] {type(exc).__name__}: {str(exc)[:200]}")
+            return out
         actions = ans.get("actions") if isinstance(ans.get("actions"), list) else []
         out.transcript.append(f"[{it}] plan: {str(ans.get('plan') or '')[:500]}")
         for a in actions[:20]:
@@ -642,7 +646,6 @@ def run(db, *, registry=None, job_id: int | None = None, host=None, make_gateway
         runner=run_suite, env=None, now: datetime | None = None, clock=time.monotonic,
         workdir: Path | None = None) -> dict:
     """One `improve.code` run: at most one request taken from pick to push (or refusal)."""
-    from ..gateway.failover import Parked
     from . import ecr
 
     env = os.environ if env is None else env
@@ -695,25 +698,20 @@ def run(db, *, registry=None, job_id: int | None = None, host=None, make_gateway
         try:
             base_sha = host.materialize(base, tmp)
         except Exception as exc:  # noqa: BLE001 - a host failure is retryable, not a refusal
-            result.update(status=PARKED, reason=f"workspace: {type(exc).__name__}: "
-                                                f"{str(exc)[:200]}")
-            _note(db, r["id"], status=None, at=now.isoformat(), attempts=attempts - 1,
-                  last=result["reason"])
-            return _finish(db, result, budget)
+            return _park(db, r, result, budget, attempts,
+                         f"workspace: {type(exc).__name__}: {str(exc)[:200]}")
         result["base_sha"] = base_sha
         ws = Workspace(tmp, runner=runner, test_timeout_s=L.test_timeout_s)
         try:
             step_gw = make_gateway(STEP_TASK)
-        except Parked as exc:
-            result.update(status=PARKED, reason=f"model parked: {str(exc)[:200]}")
-            _note(db, r["id"], status=None, attempts=attempts - 1, last=result["reason"])
-            return _finish(db, result, budget)
+        except Exception as exc:  # noqa: BLE001 - Parked, no provider, refused route
+            return _park(db, r, result, budget, attempts,
+                         f"model unavailable: {type(exc).__name__}: {str(exc)[:200]}")
         loop = run_loop(r, ws, budget, step_gw)
         result.update(iterations=loop.iterations, loop_stop=loop.stop or None)
-        if loop.stop == "model_unavailable":
-            result.update(status=PARKED, reason="the model became unavailable mid-run")
-            _note(db, r["id"], status=None, attempts=attempts - 1, last=result["reason"])
-            return _finish(db, result, budget)
+        if loop.stop in ("model_unavailable", "model_error"):
+            return _park(db, r, result, budget, attempts,
+                         f"{loop.stop}: {(loop.transcript or [''])[-1][:200]}")
         if not loop.done:
             return _refuse(db, r, result, budget, "did_not_finish",
                            [f"stopped: {loop.stop or 'not done'}"])
@@ -728,9 +726,9 @@ def run(db, *, registry=None, job_id: int | None = None, host=None, make_gateway
             rv = review(r, diff, loop.summary, g, budget, review_gw)
         except BudgetStop as exc:
             return _refuse(db, r, result, budget, f"budget_{exc.which}", [str(exc)])
-        except Exception as exc:  # noqa: BLE001 - no review means no push
-            return _refuse(db, r, result, budget, "review_unavailable",
-                           [f"{type(exc).__name__}: {str(exc)[:200]}"])
+        except Exception as exc:  # noqa: BLE001 - no review means no push; retried later
+            return _park(db, r, result, budget, attempts,
+                         f"review unavailable: {type(exc).__name__}: {str(exc)[:200]}")
         result["review"] = {"verdict": rv.verdict, "ship": rv.ship, "model": rv.model,
                             "checks_true": list(rv.checks), "reasons": list(rv.reasons)}
         if not rv.ship:
@@ -748,12 +746,8 @@ def run(db, *, registry=None, job_id: int | None = None, host=None, make_gateway
         except PushRefused as exc:
             return _refuse(db, r, result, budget, "push_refused", [str(exc)])
         except Exception as exc:  # noqa: BLE001 - a push the host refused is retryable
-            result.update(status=PARKED, reason=f"push: {type(exc).__name__}: "
-                                                f"{str(exc)[:200]}")
-            _note(db, r["id"], status=None, attempts=attempts - 1, last=result["reason"],
-                  spent_cad=round(budget.ecr_before_cad + budget.run_cad(), 6),
-                  tokens=budget.ecr_before_tokens + budget.run_tokens())
-            return _finish(db, result, budget)
+            return _park(db, r, result, budget, attempts,
+                         f"push: {type(exc).__name__}: {str(exc)[:200]}")
         result.update(status=SUBMITTED, branch=pushed["branch"], sha=pushed["sha"],
                       files=sorted(changes), diff_sha256=rv.diff_sha256)
         _note(db, r["id"], status=SUBMITTED, at=datetime.now(timezone.utc).isoformat(),
@@ -769,6 +763,17 @@ def run(db, *, registry=None, job_id: int | None = None, host=None, make_gateway
         return _finish(db, result, budget)
     finally:
         scratch.cleanup()
+
+
+def _park(db, r: dict, result: dict, budget: Budget, attempts: int, reason: str) -> dict:
+    """Not the request's fault (host, model or reviewer unavailable): clear `coding` so it is
+    picked again, do not count the attempt, but keep what was spent against its budget."""
+    result.update(status=PARKED, reason=reason)
+    _note(db, r["id"], status=None, attempts=attempts - 1, last=reason[:300],
+          at=datetime.now(timezone.utc).isoformat(),
+          spent_cad=round(budget.ecr_before_cad + budget.run_cad(), 6),
+          tokens=budget.ecr_before_tokens + budget.run_tokens())
+    return _finish(db, result, budget)
 
 
 def _refuse(db, r: dict, result: dict, budget: Budget, reason: str, detail: list) -> dict:
