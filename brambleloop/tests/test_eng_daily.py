@@ -351,6 +351,9 @@ def test_rearm_fires_only_on_a_free_loop_rearm_probe_releases():
     name, _a, _jt, period = next(c for c in CADENCES if c[2] == "radar.scan")
     assert act["key"] == cadence_key(name, period, NOW), \
         "the cadence's own key: the scheduler cannot double it"
+    with db.session() as s:
+        assert s.scalar(select(Job.idempotency_key).where(Job.job_type == "radar.scan")) == \
+            act["key"], "the enqueued job carries the cadence key itself"
     assert not any(a.get("enqueued") for a in again["actions"]), "one probe, never two"
     with db.session() as s:
         assert s.scalar(select(func.count()).select_from(Job).where(
