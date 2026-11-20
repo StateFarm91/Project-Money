@@ -981,8 +981,13 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
                       released_on: date | None = None,
                       childrens: tuple[str, str] | None = None,
                       lesson_links: list[dict] | None = None,
-                      sample_photo_placeholders: bool = False) -> PatternDocument:
+                      sample_photo_placeholders: bool = False,
+                      enforce_standard: bool = True) -> PatternDocument:
     """Render the full pattern document.
+
+    `enforce_standard=False` is for tests that build a deliberately defective document to
+    inspect one property of it; the audit still runs and is returned in `standard`. No
+    production caller passes it (`tests/test_pdf_standard.py` asserts so).
 
     Refuses outright if the CIR does not compile. A PDF built on failed arithmetic is a
     defect we would be charging money for, and the release chain is supposed to make that
@@ -1095,7 +1100,8 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
     # missing what its family needs is refused here, not shipped and found by a buyer.
     standard = premium_audit(pdf_bytes, cir, twin=twin, result=result,
                              terminology=terminology, childrens=childrens is not None)
-    _std.refuse_if_incomplete(standard)
+    if enforce_standard:
+        _std.refuse_if_incomplete(standard)
 
     return PatternDocument(
         pdf_bytes=pdf_bytes,

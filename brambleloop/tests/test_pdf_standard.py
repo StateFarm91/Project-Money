@@ -317,6 +317,13 @@ def test_a_page_without_its_folio_or_running_head_fails():
     assert S.header_footer_failures(broken, cir)
 
 
+def test_no_production_code_turns_the_standard_off():
+    src = ROOT / "src" / "brambleloop"
+    hits = [str(p.relative_to(src)) for p in src.rglob("*.py")
+            if "enforce_standard=False" in p.read_text(encoding="utf-8")]
+    assert hits == [], hits
+
+
 def test_the_build_refuses_a_pdf_that_drops_a_required_section():
     original = pdf.licence_paragraphs
     try:

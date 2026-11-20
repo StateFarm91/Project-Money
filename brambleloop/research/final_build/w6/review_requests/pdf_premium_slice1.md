@@ -43,6 +43,10 @@ It also found two buyer-facing defects:
   - Schematic: measurements set as text.
   - Cover: a schematic hero, labelled as a rendering, when no stitch render exists.
   - Pieces: `makes_words` / `per_piece` fix the piece-count wording and the per-piece yarn split on assembled designs.
+- **`enforce_standard=False`** on `build_pattern_pdf` exists only for tests that build a deliberately defective
+  document to inspect one property of it. Two `test_deliverable_qa` tests use it: the outline-removal injection,
+  which also drops the section kickers, and the all-grey colours, which leave no renderable hero. Both now also
+  assert that the audit fails. `test_no_production_code_turns_the_standard_off` keeps it out of `src/`.
 - **`commerce/terms.py`**: new option `permitted_small_scale_with_credit`, which is now chosen. Its first clause is
   the old sentence verbatim. `store_foundation/claims.py` C-07 is updated to match.
 - **`autonomy_map.json`**: regenerated via `python -m brambleloop.autonomy.map --write`. Only the timestamp changed.
@@ -84,7 +88,21 @@ All 13 documents pass in **US and UK**:
 - the special-stitch rule on a bobble context;
 - an end-to-end refusal when the renderer drops the licence.
 
-Suite results are in the push comment.
+Suites run on this branch:
+
+- test_pdf_standard, test_pdf_premium, test_deliverable, test_deliverable_qa
+- test_pdf_layout_bounds, test_cert_publish_gates, test_learn_publish_contract, test_publish_execution_gate
+- test_search_hero_publish, test_w4_ccgap_pdfium, test_w4_firstsale_deliverables, test_w4_integ4_deliverable_routes
+- test_s1_product_truth_3, test_compiler, test_twin, test_reverse
+- test_w4_resume_runner, test_v11_autonomy_timeline (map regenerated), test_vacuity
+- the licence-surface suites: test_platform_policy, test_shop_package, test_w4_copy, test_w3_store_copy_surfaces,
+  test_w3_store_copy_routing
+
+The final results are in the #28 post.
+
+**Risk for the wide run:** any other caller that renders a PDF for a CIR missing what its family needs is now
+refused. For example, a synthetic test CIR with no CYC yarn weight would fail. Only the suites listed above were
+run here.
 
 ## Not done (honest)
 
