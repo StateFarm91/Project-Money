@@ -239,7 +239,31 @@ filed before a crash is, idempotently by the existing per-row key.
 
 ## Suites
 
-SUITES_PLACEHOLDER
+Scope: the unit's suite (`test_motif_backlog`), every suite naming `motif_fidelity`,
+`owned_photography`, `model_photography` or `gallery` (`grep -lE` over `tests/test_*.py`), plus
+`test_model_spend_paths`, `test_cert_spend_hosts`, `test_cost_governance_wave2` and
+`test_w3_spend_attribution`: **147 suites**, through `run_tests.sh` with `SUITES=`.
+
+| Run | SHA | Suites | Result |
+|---|---|---|---|
+| `20261119T233335Z-1646` | `0629c1d` (all code fixes) | 147 | 2212 passing; 12 suites failing |
+| `20261120T001642Z-8343` | `514f143` | the 8 below | 172 passing, 0 failing |
+| `20261120T003357Z-9352` | `514f143` | the other 4 | 68 passing, 0 failing |
+
+The 12 failures in the first run had two causes:
+- **11 were the test venv:** `starlette.testclient` found no `httpx`. I installed the pinned
+  `httpx==0.28.1` from `requirements-test.lock` (`--no-deps`, as its header says). No code changed.
+  Suites: test_cert_mjs, test_cert_wiring, test_health, test_policy_intake, test_s4_p0_board,
+  test_w3_k4_launch_verdict, test_w4_close5_rows4, test_w4_controlled_experiments,
+  test_w4_launchfix, test_w4_rel2, test_w5_v0_paid_provider_gate.
+- **1 was real and already on the branch** (it fails at `13c9484` too):
+  `test_w4_close5_rows::test_f152_every_scratch_site_is_classified`. The backlog's
+  `recheck_one` scratch site had no F-152 entry. It is now registered as `durable` through
+  `_file_answer` (`AuditLog(`), and the suite fails again with the entry removed.
+
+`test_cost_governance_wave2` (finding 1) passes in run `-1646`. Every suite that ran at
+`514f143` passed. The other 135 ran at `0629c1d`, and `514f143` adds only a test-registry
+entry and this document on top of it.
 
 ## Residual
 
