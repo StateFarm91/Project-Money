@@ -1,3 +1,16 @@
+> **2026-11-20 — ENG-HOMEDECOR slice 1 (`eng/homedecor`, builder branch; NOT reviewed, NOT integrated, NOT deployed; production unchanged, SHADOW).** Vessels in the round.
+> - **Defect found first.** Five basket titles were each granted a certificate as the plain hexagon basket, reproduced through the real handlers: "Round …", "Oval …", "… Yarn Bowl", "… Plant Pot Cozy" and "Moss Stitch …". They are now refused at intake, at draft and at certify.
+> - **Built (VERIFIED, end-to-end proofs in `tests/test_eng_homedecor.py`).** `creative.homedecor` has four variants: `round_vessel` (staggered increases, 0 corners), `bowl` (round base, flared wall), `lidded_vessel` (a lid fitted past the rim by whole wedges) and `handled_vessel` (two opposite cut-out handles). Each proof runs concept → certify → US and UK PDFs, checked against the small-home-goods PDF standard.
+> - **Gates.** `homedecor.findings` runs in `gate.certify` on the CIR title and on the listing title. Codes: `VESSEL_BASE_NOT_FLAT`, `_OUTLINE_UNSUPPORTED`, `_BOWL_NOT_FLARED`, `_LID_DOES_NOT_FIT`, `_HANDLE_UNSUPPORTED`, `_OBJECT_UNSUPPORTED`, `_TEXTURE_UNSUPPORTED`. Each has a mutation test.
+> - **Still held, by name.** Oval, square and rectangular outlines; planters and pot cozies (no sourced pot size); stitch textures; combinations of two variants; nesting sets. Décor and textures are slices 2 and 3.
+> - **Shared fixes.**
+>   - A spanning chain is no longer counted as an increase by `geometry.corners`.
+>   - A multi-piece PDF cover no longer reads "Makes 2 baskets" for a basket and its lid (the tote read "Makes 3 baskets").
+> - **Not verified.**
+>   - Every size and fit figure is computed, not measured. Lid fit assumes a fabric thickness; `HANDLE_MIN_CM` is a design choice.
+>   - Nothing ran against production.
+> - Review request: `research/final_build/w6/review_requests/homedecor_slice1.md`.
+
 > **2026-11-19 — ENG-APPROVALS slice 1 (`eng/approvals`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
 > - The owner directive `D-OWNER-STANDING-INTERNAL` is recorded in DECISION_LOG.
 > - Code: `authority.standing_internal` (classifier and directive), `ops.owner_queue_consolidate` (idempotent sweep, the one

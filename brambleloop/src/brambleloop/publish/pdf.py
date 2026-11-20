@@ -1367,6 +1367,14 @@ def _render_gap(cir: CIR, twin: TwinModel) -> dict | None:
     (§1.3) expects the rim to relax toward a rounded hexagon. A flat piece, or a round vessel
     with no corners, has no gap."""
     fold = _fold(cir, twin)
+    if fold and twin.sides == 0:
+        # ENG-HOMEDECOR: a round base has no corners to soften; only the fold is idealised.
+        return {
+            "long": (f"These pictures are idealised: they draw a sharp edge where the base "
+                     f"meets the wall. Worked as written, the base turns up in a gentle curve "
+                     f"over Rnds {fold['first_wall']} to {fold['settled']}."),
+            "short": (f"Worked as written, the base edge curves up over Rnds "
+                      f"{fold['first_wall']} to {fold['settled']}.")}
     if fold:
         return {
             "long": (f"These pictures are idealised: they draw a sharp edge where the base "
@@ -1446,6 +1454,13 @@ def _span_words(first: int, last: int) -> str:
     return f"{first}" if first == last else f"{first} to {last}"
 
 
+def _pieces_words(cir: CIR) -> str:
+    """'1 basket, 1 lid': every component and how many to make, in pattern order."""
+    return ", ".join(f"{c.make} {c.name.replace('_', ' ')}"
+                     f"{'s' if c.make != 1 and not c.name.endswith('s') else ''}"
+                     for c in cir.components)
+
+
 def overview_paragraphs(cir: CIR, result, twin: TwinModel, text: str,
                         terminology: str) -> list[str]:
     """What this pattern makes and how, in sentences built from the compiled pattern."""
@@ -1463,13 +1478,17 @@ def overview_paragraphs(cir: CIR, result, twin: TwinModel, text: str,
     out = []
     first = (f"This pattern makes {count} {shape + ' ' if shape else ''}{noun}"
              if len(cir.components) == 1 else
-             f"This pattern makes {cir.title.lower()}, from {make} pieces")
+             f"This pattern makes {cir.title.lower()}, from {make} pieces "
+             f"({_pieces_words(cir)})")
     size = _sized(cir, twin, size_statement(twin)) if twin.width_cm else None
     if size and shape:
         # "hexagonal coasters: hexagon, 9.7 cm ..." says the shape twice.
         size = re.sub(r"^[a-z]+(,| base)\s*", lambda m: "base " if "base" in m.group(0) else "",
                       size)
-    if size:
+    if size and len(cir.components) > 1:
+        # ENG-HOMEDECOR: the size is the first piece's, never "each" of different pieces.
+        first += f"; the {piece} is {size} at the stated gauge"
+    elif size:
         first += f", {'each ' if make > 1 else ''}{size} at the stated gauge"
         first += "." if not twin.calibrated else ", measured on a worked sample."
         if not twin.calibrated:
@@ -1898,8 +1917,10 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     doc.text(PAGE_W / 2, title_y - 8.5 * mm, kicker, FONT_UI_MEDIUM, 10.5, TAUPE,
              align="centre", track=0.5)
     if make_total > 1:
-        # The CIR makes several pieces; the cover says how many (Component.make).
-        makes = f"Makes {make_total} {piece}s"
+        # The CIR makes several pieces; the cover says how many (Component.make). ENG-HOMEDECOR:
+        # different pieces are named one by one -- a basket and its lid are not "2 baskets".
+        makes = (f"Makes {make_total} {piece}s" if len(cir.components) == 1
+                 else f"In {make_total} pieces: {_pieces_words(cir)}")
         doc.prose.append(makes)
         doc.text(PAGE_W / 2, title_y - 15 * mm, makes, FONT_DISPLAY_ITALIC, 15, ACCENT,
                  align="centre")

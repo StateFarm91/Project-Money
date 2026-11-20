@@ -2816,3 +2816,22 @@ Reversible by the owner.
 - **Refresh.** `intel.benchmark_shopping`, daily, CA$0, in `FREE_JOB_TYPES`, upstream inputs the two scan jobs (an unchanged day backs off). It calls `benchmark_refresh.refresh_shopping`, which stores one dated `benchmark.shopping` reading and keeps ONE owner card, "Buy N benchmark patterns, ≤ CA$X" (key `benchmark_shopping:set`; closed when nothing is left to buy).
 - **Safety.** No purchase path exists: the list makes no request and the Mission Control panel has no buy control. Reads listing metadata only. A purchased PDF goes only through `teardown.intake.receive`, which now accepts a listing from any watchlist shop (folder `<shop key>-<listing id>`, seller recorded) into the quarantined library (B-117). Status moves to bought, then intake done, from the BenchmarkProduct row.
 - **Not decided here.** Whether to buy, which picks, and the contingency factor beyond the owner's 1.158. Reversible by removing the cadence.
+
+**D-ENG-HOMEDECOR-1: a vessel's name is held to the rows that make it, and four vessel variants are built (ENG-HOMEDECOR slice 1, 2026-11-20).** Before this decision, "Round", "Oval", "Yarn Bowl", "Plant Pot Cozy" and "Moss Stitch" baskets each certified as the plain hexagon basket.
+- **One routing rule.** `fallback_constructions._plan` (vessel category) asks `creative.homedecor.vessel_route` after tapestry. It drafts `round_vessel`, `bowl`, `lidded_vessel` or `handled_vessel`, or refuses by name. Intake and `cir.draft` read that same rule.
+- **Admission.** All four variants are VERIFIED, and each has a `(variant, "basket")` `PAIR_PROOF` in `tests/test_eng_homedecor.py`. That proof runs concept → certify → US and UK PDF.
+- **Holds.** These stay held until a model or a source exists:
+  - oval, square and rectangular outlines (the surface model is a circle);
+  - planters and pot cozies (no sourced pot size);
+  - stitch textures the walls do not work;
+  - a combination of two variants;
+  - nesting sets (one draft is one release).
+- **Certify gates.** `homedecor.findings` runs on the CIR title and on the listing title. It checks:
+  - every base round grows within 0.85–1.15× its row height;
+  - a circle word needs 0 corners;
+  - a bowl leans 8–50°;
+  - a lid clears the rim by 0.3–6.0 cm measured around;
+  - handles are two opposite openings of at least `HANDLE_MIN_CM`, at least 2 rounds below the rim.
+- **Stated assumptions, not measurements.** `FABRIC_THICKNESS_ROWS = 0.5`, `HANDLE_MIN_CM = 8.0` and `BOWL_SIZES` are design choices. A worked sample would replace them.
+
+Reversible by decision.
