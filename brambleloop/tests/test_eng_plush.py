@@ -211,6 +211,14 @@ def test_a_toy_called_anything_is_still_inside_the_gate():
         renamed = _with(toy, title=title, slug=slug)
         assert CS.applies(renamed), title
         assert CS.evaluate(renamed).verdict == CS.VERDICT_HELD, title
+    # A stuffed closed ball with nothing sewn on (not a "stuffed figure") and no child word in
+    # its name is still a toy: the closed-piece rule alone brings it inside the gate.
+    from brambleloop.products import launch0 as L
+
+    ball = _with(toy, components=[toy.components[0]], assembly=[], title="Juniper Friend",
+                 slug="juniper-ball-1")
+    assert not L.stuffed_figure(ball) and not L.child_words_in(ball.title, ball.slug)
+    assert CS.applies(ball) and CS.evaluate(ball).verdict == CS.VERDICT_HELD
 
 
 def test_unknown_is_never_pass():
