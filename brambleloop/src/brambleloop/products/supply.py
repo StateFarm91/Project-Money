@@ -629,6 +629,11 @@ def after_chain_job(db, queue, job) -> int | None:
                              idempotency_key=f"{REFILL_PREFIX}:{job.id}")
     except Exception:  # noqa: BLE001 - a duplicate key is the same refill
         return None
+    # CERTFIX-2: the refill is caused by the job that ended its chain, so the queue's causal
+    # record (`job_links`) says so. Without the link a refill read as a manual enqueue.
+    from ..runtime import lineage
+
+    lineage.record(db, job, made)
     return getattr(made, "id", None)
 
 

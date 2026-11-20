@@ -119,7 +119,7 @@ def test_h1_a_refused_proposal_is_re_eligible_when_its_evidence_rises():
                                             "statement": f"one day ({f})"},
                     conclusion={"alternatives": [], "constraints": ["one day"],
                                 "unresolved": [], "next_test": {}, "applicability": {}})
-    band = W.bands("coaster")
+    band = W.bands(W.POD_CONCEPTS[S.POD]["category"])
     intake.attach_proposal(db, tid, W.proposal_for(gid, S.POD, tid, 2, {
         "refs": [f, "S1"], "confidence": "low", "facts": 1}, band))
     S.intake(db, S.at(2, 9))

@@ -67,7 +67,7 @@ from brambleloop.publish import sample_photo as SP  # noqa: E402
 from brambleloop.queue.durable import JobQueue  # noqa: E402
 from brambleloop.runtime import listing_package_ops, pipeline, release  # noqa: E402,F401
 from brambleloop.runtime.lineage import JobLink  # noqa: E402
-from brambleloop.runtime.worker import CADENCES, Worker  # noqa: E402
+from brambleloop.runtime.worker import CADENCES, Worker, handlers  # noqa: E402
 
 SLUG = "hexagon-coaster-set"
 FIXTURE = "FIXTURE — not physical evidence"
@@ -154,7 +154,13 @@ def _world() -> dict:
     assert SLUG in L.LAUNCH0_SLUGS
     db = _boot()
     first = JobQueue(db).enqueue("crochet_engineer", "cir.draft", {"slug": SLUG}).id
-    worker = _drain(db, "w6-e2e-chain")
+    # CERTFIX-2: this fixture proves ONE product's chain. Since ENG-SUPPLY (2d5f2eb) and
+    # D-ENG-DEMAND-SUPPLY Rule 2 ("capacity refill: after_chain_job"), the worker enqueues a
+    # `supply.admit` pass when a chain ends, and on a fresh database that admits the next
+    # Launch-0 product -- the whole catalogue then runs through the same drain. The refill is
+    # proven in tests/test_eng_supply.py; here it is left pending so the chain stays one product.
+    worker = _drain(db, "w6-e2e-chain",
+                    job_types=[t for t in handlers.known() if t != "supply.admit"])
     jobs_after_chain = _jobs(db)
     package_job = _enqueue_cadence(db, "listing_package", 0)
     _drain(db, "w6-e2e-package", job_types=["listing.package"])
