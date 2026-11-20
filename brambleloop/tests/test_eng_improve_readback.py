@@ -12,6 +12,8 @@ Run: cd brambleloop && python3 tests/test_eng_improve_readback.py
 """
 from __future__ import annotations
 
+import _tmp; _tmp.install()  # W3-HYG: per-process temp sandbox, removed at exit
+
 import contextlib
 import os
 import sys
