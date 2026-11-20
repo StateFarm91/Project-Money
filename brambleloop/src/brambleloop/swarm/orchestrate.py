@@ -1341,6 +1341,7 @@ JOB_BANDS: dict[str, str] = {
     "improve.monitor": "exploration",
     "improve.sandbox": "exploration",
     "improve.league": "exploration",
+    "improve.self_tune": "exploration",   # ENG-IMPROVE: judging and filing; no spend
     "improve.replay": "exploration",
     "teardown.enforce": "benchmark_change",
     "creative.style_learning": "exploration",

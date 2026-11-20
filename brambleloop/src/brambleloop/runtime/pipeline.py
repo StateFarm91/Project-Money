@@ -3318,6 +3318,8 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "improve.league": ("challengers_registered.registered", "compared", "promoted",
                        "rolled_back", "cards_closed", "owner_cards"),
     "improve.measure": ("measured",),
+    # ENG-IMPROVE: a trial decided, a change request filed or verified/reopened.
+    "improve.self_tune": ("work_done",),
     "improve.mine": ("published", "regression_fixtures", "routed_to"),
     "improve.monitor": ("promoted", "judged", "reverted", "rollback_proposals"),
     "improve.nightly": ("total_found",),
