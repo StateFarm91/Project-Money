@@ -300,10 +300,15 @@ SPEND_PATTERNS: tuple[tuple[str, re.Pattern], ...] = (
 
 
 # What test code may not do either: it runs inside the worker during the loop, before review.
-EXECUTION_KINDS = ("network", "execution", "environment", "process_read")
+# A test subprocess already gets a scrubbed environment (`autocoder._clean_env`), so a test that
+# sets or reads `os.environ` sees nothing secret and is allowed; reading another process's
+# environment or a secrets file is not. Source code is held to the stricter `env_read` rule:
+# it will later run in the production worker, where the environment holds every credential.
+EXECUTION_KINDS = ("network", "execution", "process_read")
 SPEND_PATTERNS = SPEND_PATTERNS + (
-    ("process_read", re.compile(r"/proc/|/run/secrets|\.netrc\b|\bgetpass\b|"
-                                r"\bos\.environ\b(?!\.get\(\s*[\"'](?:TMPDIR|HOME|PATH)[\"'])")),
+    ("process_read", re.compile(r"/proc/|/run/secrets|\.netrc\b|\bgetpass\b|\.ssh/|"
+                                r"\.git-credentials|\.docker/config")),
+    ("env_read", re.compile(r"\bos\.environ\b|\bos\.getenv\s*\(")),
 )
 
 

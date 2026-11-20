@@ -416,6 +416,12 @@ def test_d_secrets_and_spend_network_exec_paths_are_refused():
     assert rail_failures() == []
     test_exec = S.test_execution_findings(T + "test_x.py", "", "import subprocess\n")
     assert test_exec and "execution" in test_exec[0], test_exec
+    # A test may steer its own (already scrubbed) environment; it may not read another
+    # process's environment or a secrets file.
+    assert S.test_execution_findings(T + "test_x.py", "", "os.environ.pop('X', None)\n") == []
+    proc = S.test_execution_findings(T + "test_x.py", "",
+                                     "open(f'/proc/{os.getppid()}/environ').read()\n")
+    assert proc and "process_read" in proc[0], proc
 
 
 def test_d_model_written_code_is_not_executed_past_the_rails():
