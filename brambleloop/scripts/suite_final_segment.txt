@@ -272,5 +272,6 @@ tests/test_eng_supply.py
 tests/test_eng_recovery.py
 tests/test_motif_reservation.py
 tests/test_research_flow.py
+tests/test_eng_families.py
 tests/test_product_run.py
 tests/test_first_listing_doors.py
