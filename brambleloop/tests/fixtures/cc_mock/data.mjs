@@ -298,6 +298,30 @@ export const DATA = {
     blockers: env("BLOCKED", [{ what: "Store / Commerce: owner_gate", gate: "etsy_api" }]),
     completion_effort: env("OK", [], { counts: { RUNNING: 2 }, href: "#/completion" }),
   }, { status: "BLOCKED", reason: "departments BLOCKED" }),
+  // ENG-DAILY: the Daily panel, as /api/cc/daily serves it.
+  daily: () => {
+    const days = ["2026-11-18", "2026-11-19", "2026-11-20"];
+    return { tab: "DAILY", read_only: true, generated_at: now(),
+      ledger: { days, today: "2026-11-20", unknown_rule: "UNKNOWN is never 0: unreadable source",
+        metrics: { products_started: { days: { "2026-11-18": 2, "2026-11-19": 1, "2026-11-20": 0 }, basis: "cir.drafted audit rows" },
+          certifications: { days: { "2026-11-18": "UNKNOWN", "2026-11-19": "UNKNOWN", "2026-11-20": "UNKNOWN" }, basis: null, error_class: "OperationalError" },
+          lessons_learned: { days: { "2026-11-18": 0, "2026-11-19": 1, "2026-11-20": 0 }, basis: "lessons by at" },
+          failures: { days: { "2026-11-18": 0, "2026-11-19": 0, "2026-11-20": 2 }, basis: "jobs DEAD" },
+          dead_letters: { days: { "2026-11-18": 1, "2026-11-19": 0, "2026-11-20": 0 }, basis: "dead letters" },
+          spend_cad: { days: { "2026-11-18": 0, "2026-11-19": 0.5, "2026-11-20": 0 }, basis: "cost entries" },
+          "advanced:cir.draft": { days: { "2026-11-18": 1, "2026-11-19": 0, "2026-11-20": 0 }, basis: "cir.draft jobs DONE" } },
+        shops: [{ owner_order: 1, alias: "anchor", registered: true, basis: "mjs.scan", succeeded: { "2026-11-18": 1, "2026-11-19": 1, "2026-11-20": 1 } }] },
+      diagnoses: [{ stage: "products_started", today: 0, causes: [{ kind: "suspended", job_type: "cir.draft", why: "a loop spending without progress" },
+        { kind: "gate_refusing", top_reasons: [{ reason: "pre_engineering_gate", count: 3 }] }],
+        actions: [{ action: "reoffer", enqueued: true }], ecrs: [{ filed: false, pending: true }] }],
+      live_zero_stages: [],
+      rows: [["products_started", "Products started", null], ["certifications", "Certified", null],
+        ["lessons_learned", "Lessons learned", null], ["failures", "Failures", "invert"],
+        ["dead_letters", "Dead letters", "invert"], ["spend_cad", "Spend (CA$)", "neutral"]],
+      stage_readings: [{ stage: "products_started", metric: "products_started", today: 0, status: "zero_output" },
+        { stage: "certifications", metric: "certifications", today: "UNKNOWN", status: "UNKNOWN", unknown: true },
+        { stage: "lessons", metric: "lessons_learned", today: 0, status: "not_yet_due", why: "0.3 expected by now, under 1.0" }] };
+  },
   // S4b: the P0 board, as /api/cc/p0-board serves it (sections carry their own level).
   p0Board: (salesReading = "partial") => {
     const V = ["CODE BUILT", "INDEPENDENTLY REVIEWED", "INTEGRATED", "DEPLOYED", "RUNNING",

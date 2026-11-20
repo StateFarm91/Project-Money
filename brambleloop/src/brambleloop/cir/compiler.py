@@ -591,4 +591,17 @@ def compile_cir(cir: CIR) -> CompileResult:
         result.rows.extend(compile_component(comp, cir, result.findings))
     check_assembly(cir, result.findings)
     check_holds(cir, result.rows, result.findings)
+    # ENG-COLOURWORK: a charted component's rows must work exactly its chart -- colour by
+    # colour, within the colour and float bounds, every yarn where its row needs it. Run only
+    # on clean arithmetic (a row of the wrong count is already an error above).
+    if result.ok and any(c.chart is not None for c in cir.components):
+        from .colourwork import chart_findings
+
+        result.findings.extend(chart_findings(cir, result))
+    # ENG-PLUSH: a stated stuffing point or closure is checked against the compiled rounds
+    # and the surface geometry (`cir.closed_forms`); a piece that states neither is untouched.
+    if any(c.stuff_at_round is not None or c.closes for c in cir.components):
+        from . import closed_forms
+
+        closed_forms.check(cir, result, result.findings)
     return result

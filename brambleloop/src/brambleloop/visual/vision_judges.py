@@ -1031,13 +1031,3 @@ def configured_second_transport(db=None):
         return factory(db) if callable(factory) else None
     except Exception:  # noqa: BLE001 - an unconstructable transport is no transport (HOLD)
         return None
-
-
-def transports_independent(first, second) -> bool:
-    """Two transports are independent only if both their names and their models differ."""
-    if first is None or second is None:
-        return False
-    m1 = str(getattr(getattr(first, "provider", None), "model", "") or "")
-    m2 = str(getattr(getattr(second, "provider", None), "model", "") or "")
-    n1, n2 = str(getattr(first, "name", "")), str(getattr(second, "name", ""))
-    return n1 != n2 and (not m1 or not m2 or m1 != m2)

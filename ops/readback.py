@@ -359,6 +359,9 @@ EVIDENCE_ITEMS = (
     # ENG-LEARN: image + pattern learning loops. Advisory: a loop without enough evidence
     # reads UNKNOWN in its own section and WARNs here; it never fails a deploy.
     ("learning loops (image + pattern) progress", "learning", None),
+    # ENG-DAILY: the daily production ledger. Advisory: a zero-output stage or an UNKNOWN
+    # stage WARNs and never fails a deploy; an unreadable section is UNKNOWN, never a PASS.
+    ("daily production ledger (14 UTC days)", "daily_ledger", None),
 )
 
 
@@ -411,6 +414,8 @@ def _judge_section(name: str, section, judged) -> tuple[str, str]:
             return WARN, ("section missing" if not isinstance(section, dict) else
                           f"unreadable ({section.get('error_class') or 'no reason given'})")
         return PASS, "learning loops readable"
+    if name == "daily_ledger":
+        return _judge_daily(section)
     if name == "competitor_scans" and (not isinstance(section, dict)
                                        or section.get("readable") is not True):
         # WS2 R1: advisory -- a build without the section, or one that cannot read it, warns.
@@ -493,6 +498,30 @@ def _judge_section(name: str, section, judged) -> tuple[str, str]:
             f"{section.get('degraded_sweeps')} degraded sweeps; unrecorded: {bad}"
             if not judged else "every release recorded")
     return (PASS if judged else FAIL), ""
+
+
+def _judge_daily(section) -> tuple[str, str]:
+    """ENG-DAILY: advisory, WARN or PASS when readable; UNKNOWN when missing or unreadable.
+
+    PASS only when every stage's reading today is known and none is zero-output; a stage
+    still "not yet due" is not a failure. Never PASS on UNKNOWN."""
+    if not isinstance(section, dict):
+        return UNKNOWN, "section missing"
+    if section.get("readable") is not True:
+        return UNKNOWN, f"unreadable ({section.get('error_class') or 'no reason given'})"
+    status = section.get("stage_status_today")
+    if not isinstance(status, dict) or not status:
+        return WARN, "no stage readings today"
+    zero = sorted(k for k, v in status.items() if v == "zero_output")
+    unknown = sorted(k for k, v in status.items()
+                     if v not in ("zero_output", "not_yet_due", "producing"))
+    if zero or unknown:
+        return WARN, ((f"zero output: {zero}" if zero else "")
+                      + ("; " if zero and unknown else "")
+                      + (f"unknown: {unknown}" if unknown else ""))
+    due = sorted(k for k, v in status.items() if v == "not_yet_due")
+    return PASS, (f"{len(status)} stages read; not yet due: {due}" if due
+                  else f"{len(status)} stages producing")
 
 
 def _vp_n(part, key):
