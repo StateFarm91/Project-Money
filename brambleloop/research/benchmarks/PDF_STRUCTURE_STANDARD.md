@@ -46,3 +46,19 @@ Our versions (honest-only rules):
 - Newsletter: only if a real CASL-compliant list exists (express consent). Otherwise omit; never fake it.
 - Support/contact: a real channel only (Etsy messages). No fake community or video.
 - About page: "About Brambleloop Studio" for the brand. NEVER present Laura (a generated model) as a real designer or person; no invented human bio or signature.
+
+## Amigurumi / stuffed-animal family addendum (2026-11-20, from TEARDOWN_HIGHLAND_COW_AMIGURUMI.md)
+
+- **Pattern pages:** organised by component (head, body, limbs ×N, ears, tail, features,
+  surface effects such as fur or hair). Each component has a header, a working note (rounds,
+  joining, colour), round lines with a stitch count on EVERY round, and inline "stuff now"
+  cues.
+- **Per-component image slot:** a real progress photo when a physical sample exists;
+  otherwise a CIR-generated component diagram labelled as a diagram. Never a fake photo.
+- **Assembly:** numbered steps, each with a placement cue tied to round numbers and an image
+  slot.
+- **Mandatory:** finished size (from CIR), gauge, grams and yardage per colour, and safety
+  and age guidance from the child-safety gate (embroidered-feature option, strand anchoring
+  for fur or hair).
+- **Never:** review-for-gift offers, other-product ads inside the pattern, or link-page
+  delivery.

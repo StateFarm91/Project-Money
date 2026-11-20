@@ -103,9 +103,13 @@ def _run(db, agent: str, job_type: str, inputs: dict, *, phase=Phase.SHADOW) -> 
         return row
 
 
-def _chain():
-    """certify -> assets.build -> listing.seo, through the real handlers. Returns a db path."""
-    key = "full"
+def _chain(slug: str = SLUG, category: str = "baby_blanket"):
+    """certify -> assets.build -> listing.seo, through the real handlers. Returns a db path.
+
+    `slug`/`category` default to the blanket every test here is about; test_visual_factory_e2e
+    also drives a product whose disclosed set certifies the complete gallery
+    (D-OWNER-GALLERY-COMPLETE)."""
+    key = "full" if slug == SLUG else f"full-{slug}"
     if key not in _BUILT:
         path = os.path.join(_TMP, f"{key}.sqlite")
         db = Database(f"sqlite:///{path}")
@@ -115,13 +119,13 @@ def _chain():
         with db.session() as s:
             s.add(EtsyTaxonomySnapshot(sha256="fixture", node_count=len(snap["nodes"]),
                                        nodes=snap["nodes"], properties=snap["properties"]))
-        cir = pipeline._engineered_cir(SLUG)
+        cir = pipeline._engineered_cir(slug)
         job = _run(db, "quality_director", "gate.certify", {"cir": cir.to_dict()})
         assert job.status is JobStatus.DONE and job.outputs.get("granted"), job.outputs
         with db.session() as s:
             rh = s.scalar(select(PatternVersion)).release_hash
         job = _run(db, "publishing", "assets.build",
-                   {"slug": SLUG, "version": cir.version, "release": rh,
+                   {"slug": slug, "version": cir.version, "release": rh,
                     "rebuild": "disclosed"})
         assert job.status is JobStatus.DONE, job.last_error
         # The price is the one the release path gives this Launch-0 product: pricing.position
@@ -130,11 +134,11 @@ def _chain():
         # which publication now refuses as LISTING_PRICE_NOT_PLAN (W4-CAP1).
         from brambleloop.products import launch0 as _l0
 
-        plan = _l0.launch_price(SLUG)
+        plan = _l0.launch_price(slug)
         assert plan is not None and plan["within_plan_band"], plan
         job = _run(db, "listing", "listing.seo",
-                   {"slug": SLUG, "version": cir.version, "release": rh,
-                    "price_cad": plan["price_cad"], "category": "baby_blanket"})
+                   {"slug": slug, "version": cir.version, "release": rh,
+                    "price_cad": plan["price_cad"], "category": category})
         assert job.status is JobStatus.DONE and job.outputs["ok"], job.outputs
         db.engine.dispose()
         _BUILT[key] = (path, cir.version, rh)
@@ -201,19 +205,19 @@ def _owner_and_fake(fake):
                 os.environ[k] = v
 
 
-def _grant(db, version, rh) -> int:
+def _grant(db, version, rh, slug: str = SLUG) -> int:
     from unittest.mock import patch
 
     from brambleloop.ops import publication_authority as pa
 
     with patch.dict(os.environ, {"BRAMBLELOOP_OPS_TOKEN": OWNER_TOKEN,
                                  "BRAMBLELOOP_PUBLISH_AUTHORISED": "1"}):
-        return _approve(db, pa, version, rh)
+        return _approve(db, pa, version, rh, slug=slug)
 
 
-def _approve(db, pa, version, rh) -> int:
-    content = pa.snapshot(db, SLUG, version, rh)
-    return pa.approve(db, authorization=OWNER_TOKEN, slug=SLUG, version=version, release=rh,
+def _approve(db, pa, version, rh, slug: str = SLUG) -> int:
+    content = pa.snapshot(db, slug, version, rh)
+    return pa.approve(db, authorization=OWNER_TOKEN, slug=slug, version=version, release=rh,
                       expected_digest=pa.digest(content),
                       reason="fixture: owner reviewed this release")["approval_id"]
 
