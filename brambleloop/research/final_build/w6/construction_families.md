@@ -49,6 +49,7 @@ fails if a family in that table is missing from this file.
 | `panel_pair` | `creative.fallback_constructions.panel_pair` | physical_gate | `test_a_research_cushion_is_physical_gated_not_flattened` | `size_truth.PILLOW_FORMS` (standard pillow-form sizes) | certification's risk matrix sets class C; the only refusal is `PHYSICAL_TEST_REQUIRED` |
 | `garment_raglan` | `products.garment_release` (`raglan_cardigan`) | verified | `tests/test_eng_garment.py::test_a_research_adult_cardigan_runs_concept_to_pdf_in_nine_sizes`, `::test_a_research_baby_cardigan_runs_concept_to_pdf` | CYC woman XS-5X; CYC baby 3-24 months (`cir.graded`), one release of every size | cardigan only; relaxed or oversized; adult pair proven on the adult table, baby pair on the baby table only (ENG-GARMENT) |
 | `garment_one_piece` | `products.garment_release` (`one_piece_sweater`) | verified | `tests/test_eng_garment.py::test_a_research_child_sweater_runs_concept_to_pdf` | CYC child/youth 2-12 (`cir.graded`) | sweater on the child table only; adult one-piece held until a proof exists (ENG-GARMENT) |
+| `hat_beanie` | `products.wearables` (`beanie`) | verified | `tests/test_eng_garment2.py::test_a_research_adult_beanie_runs_concept_to_pdf`, `::test_a_research_child_beanie_runs_concept_to_pdf`, `::test_a_research_baby_beanie_runs_concept_to_pdf` | CYC head chart Preemie-Man (`cir.graded.HEAD`), stated -2 cm ease; height and brim are design ratios | rib brim and round crown only; no pom-pom, earflaps, visor or shaped brim (ENG-GARMENT-2) |
 | `garment_side_to_side` | `products.garment_release` (`side_to_side_vest`) | partial | none at intake (every size certifies and renders in `tests/test_eng_garment.py`) | CYC woman XS-5X | no research concept pinned through intake (ENG-GARMENT) |
 | `garment_drop_shoulder` | `products.garment_release` (`drop_shoulder_pullover`) | partial | none at intake (every size certifies and renders in `tests/test_eng_garment.py`) | CYC woman XS-5X | no research concept pinned through intake (ENG-GARMENT) |
 | `pouch` | `creative.fallback_constructions.pouch` | partial | none: an exploratory run was refused | one size (`POUCH_ACROSS_CM`, design choice) | certification refuses `ASSET_COLOR_ABSENT`: the pouch works one palette colour while its hero asset depicts two |
@@ -69,7 +70,7 @@ fails if a family in that table is missing from this file.
 | `modular` | none | none | — | — | several shaped panels and an assembly |
 | `garment` | `creative.garment_design` (tournament path only) | none on research route | — | — | graded garments are built only from tournament winners, not radar concepts |
 | `ornament` | none | none | — | — | closed or shaped small pieces |
-| `hat` | none | none | — | — | the sourced head chart lacks height and negative ease (`HAT_UNSOURCED`) |
+| `hat` | `products.wearables` | see `hat_beanie` | — | CYC head chart | a beanie is built (`hat_beanie`); any other hat (brimmed, earflap, bucket) is held (ENG-GARMENT-2) |
 | `flower` | none | none | — | — | a motif in rounds |
 | `seasonal_decor` | none | none | — | — | garlands and shapes |
 

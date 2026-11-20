@@ -64,6 +64,11 @@ GARMENT_RAGLAN, GARMENT_ONE_PIECE = "garment_raglan", "garment_one_piece"
 GARMENT_SIDE_TO_SIDE, GARMENT_DROP_SHOULDER = "garment_side_to_side", "garment_drop_shoulder"
 GARMENT_FAMILIES = frozenset({GARMENT_RAGLAN, GARMENT_ONE_PIECE, GARMENT_SIDE_TO_SIDE,
                               GARMENT_DROP_SHOULDER})
+# ENG-GARMENT-2: wearable families (products.wearables), graded from CYC body, head and foot
+# tables, each pinned end to end per (family, category, audience) in WEARABLE_PAIR_AUDIENCE.
+WEARABLE_PROOF = "tests/test_eng_garment2.py"
+HAT_BEANIE = "hat_beanie"
+WEARABLE_FAMILIES = frozenset({HAT_BEANIE})
 
 FAMILIES: dict[str, Family] = {f.key: f for f in (
     Family(FC.FLAT_PANEL, "runtime.pipeline.concept_to_cir", VERIFIED,
@@ -142,6 +147,13 @@ FAMILIES: dict[str, Family] = {f.key: f for f in (
            "", ("CYC woman XS-5X",), "cir.graded WOMAN + stated ease",
            "every size certifies and renders (tests/test_eng_garment.py) but no research "
            "concept is pinned through intake yet"),
+    # ENG-GARMENT-2: a beanie graded on the CYC head chart, preemie to man, every size
+    # certified with the wearable gates and rendered US/UK; research concepts pinned below.
+    Family(HAT_BEANIE, "products.wearables (beanie)", VERIFIED,
+           f"{WEARABLE_PROOF}::test_a_research_adult_beanie_runs_concept_to_pdf",
+           ("CYC head Preemie-Man",), "cir.graded HEAD (Craft Yarn Council head chart) + "
+                                      "stated negative ease; height and brim are design ratios",
+           "rib brim and round crown only; no pom-pom, earflaps, visor or shaped brim"),
     Family(FC.POUCH, "creative.fallback_constructions.pouch", PARTIAL, "",
            ("one size",), "fallback_constructions.POUCH_ACROSS_CM (design choice)",
            "certification refuses ASSET_COLOR_ABSENT: the pouch works one palette colour "
@@ -173,7 +185,6 @@ UNBUILT: dict[str, str] = {
     "garment": "a graded garment from body tables; only the creative tournament path "
                "(creative.garment_design) builds one",
     "ornament": "a closed or shaped small piece; no radar engine makes it",
-    "hat": "a fitted crown and brim; the sourced head chart lacks height and ease",
     "flower": "a motif worked in rounds; no radar engine makes it",
     "seasonal_decor": "garlands, shapes and ornaments; no radar engine makes them",
 }
@@ -213,7 +224,7 @@ NAMED_FEATURES: tuple[tuple[str, str, frozenset], ...] = (
                    r"\bcorner[- ]to[- ]corner\b|\bgraph ?gh?an\b|\bpixel\b|\bcharted\b",
      frozenset()),
     ("garment_or_wearable", r"\b(?:hat|beanie|cardigan|sweater|sock|mitten|cowl)s?\b",
-     GARMENT_FAMILIES),
+     GARMENT_FAMILIES | WEARABLE_FAMILIES),
 )
 
 
@@ -301,6 +312,13 @@ PAIR_PROOFS: dict[tuple[str, str], str] = {
                               f"to_pdf",
     (GARMENT_ONE_PIECE, "sweater"): FAMILIES[GARMENT_ONE_PIECE].proof,
 }
+# ENG-GARMENT-2: the wearable pairs, each proven end to end on the audiences named.
+WEARABLE_PAIR_AUDIENCE: dict[tuple[str, str], frozenset] = {
+    (HAT_BEANIE, "hat"): frozenset({"adult", "child", "baby"}),
+}
+PAIR_PROOFS.update({
+    (HAT_BEANIE, "hat"): FAMILIES[HAT_BEANIE].proof,
+})
 # A garment pair's proof is for one body table: the audience it was proven on.
 GARMENT_PAIR_AUDIENCE: dict[tuple[str, str], str] = {
     (GARMENT_RAGLAN, "cardigan"): "adult", (GARMENT_RAGLAN, "baby"): "baby",
@@ -326,6 +344,9 @@ def route(*, category: str, title: str, form: str, construction: str, slug: str 
     starts with `construction_unsupported:<family>` when held."""
     from ..radar import intake
 
+    if is_wearable(form, title):
+        return wearable_route(category=category, title=title, form=form,
+                              construction=construction, slug=slug, premise=premise)
     if form == "fitted_garment":
         return garment_route(category=category, title=title, construction=construction,
                              slug=slug, premise=premise)
@@ -431,6 +452,50 @@ def garment_route(*, category: str, title: str, construction: str, slug: str = "
         return _hold(family, f"the {family} engine is not pinned end to end for category "
                              f"{category!r} on the {audience} body table"
                              + (f": {f.gaps}" if f.status != VERIFIED else ""))
+    return {"admitted": True, "family": family, "status": status_of(family), "reason": "",
+            "audience": audience}
+
+
+def is_wearable(form: str, title: str) -> bool:
+    """ENG-GARMENT-2: a concept a wearable family claims (a hat form, or a fitted garment
+    whose title names a wearable family's word rather than a chest-graded garment's)."""
+    from ..products import wearables as WB
+
+    return form == "hat" or WB.family_for(form, title) is not None
+
+
+def wearable_route(*, category: str, title: str, form: str, construction: str,
+                   slug: str = "", premise: str = "") -> dict:
+    """ENG-GARMENT-2: a wearable routes to its family (`products.wearables.spec_for`),
+    admitted only where WEARABLE_PAIR_AUDIENCE pins it for the concept's audience."""
+    from types import SimpleNamespace
+
+    from ..products import wearables as WB
+
+    audience = garment_audience(category, title)
+    recipient = {"baby": "new_parent", "child": "child"}.get(audience, "self")
+    concept = SimpleNamespace(key=slug or "wearable", title=title, form=form,
+                              construction=construction, premise=premise or "", notes="",
+                              recipient=recipient, category=category)
+    try:
+        spec = WB.spec_for(concept)
+    except WB.WearableRefused as exc:
+        return _hold(exc.family, exc.why)
+    family = spec.family
+    honest = WB.ENGINES[family].honest_phrases
+    for source, text in (("title", title), ("premise", premise)):
+        folded = FC.fold_title(text)
+        for rx in honest:
+            folded = re.sub(rx, " ", folded)
+        named = named_feature(folded, family)
+        if named is not None:
+            feature, word = named
+            return _hold(feature, f"the {source} names {word!r} ({feature}), which the "
+                                  f"{family} engine does not build")
+    if (family, category) not in PAIR_PROOFS or \
+            audience not in WEARABLE_PAIR_AUDIENCE.get((family, category), ()):
+        return _hold(family, f"the {family} engine is not pinned end to end for category "
+                             f"{category!r} on the {audience} sizes")
     return {"admitted": True, "family": family, "status": status_of(family), "reason": "",
             "audience": audience}
 
