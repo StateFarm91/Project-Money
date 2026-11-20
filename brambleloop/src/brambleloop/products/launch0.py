@@ -1661,6 +1661,18 @@ def child_words_in_listing(listing) -> tuple[str, ...]:
     return child_words_in(*texts)
 
 
+def stuffed_figure(cir) -> bool:
+    """OPUS2T-4: whether the CIR's own construction is a stuffed figure -- a stuffed, closed
+    body with a piece sewn onto it at a stated place (ears, limbs). That is the shape of a toy
+    whatever its title says, so the children's-decision gate reads it, not only title words.
+    A stuffed cushion or kneeler (panels or a disc closing a stuffed shape, nothing placed on
+    it) is not one."""
+    seams = list(getattr(cir, "assembly", None) or [])
+    stuffed = any(getattr(s, "stuff_before_closing", False) for s in seams)
+    placed = any(getattr(s, "stitches_from_centre", None) is not None for s in seams)
+    return stuffed and placed
+
+
 def childrens_assignment(cir_slug: str) -> tuple[str, str] | None:
     """The children's sub-category and age band a CIR slug is merchandised into, or None.
 
@@ -1686,6 +1698,10 @@ INFANT_PRODUCT_WORDS: tuple[str, ...] = (
     "bassinets", "layette", "layettes", "onesie", "onesies", "bootie", "booties",
     "swaddle", "swaddles", "toy", "toys", "plushie", "plushies", "stuffie", "stuffies",
     "doll", "dolls", "playmat", "playmats",
+    # OPUS2P-1 (ENG-PLUSH port): nouns that name only a stuffed toy. "bear", "bunny" and
+    # "rabbit" are deliberately NOT here: they also name pets (`_PET_TOY`) and motifs, and every
+    # stuffed toy is caught by its construction (`closed_stuffed_form`) whatever it is called.
+    "plush", "plushes", "softie", "softies", "teddy", "teddies",
 )
 _PET_TOY = re.compile(r"\b(?:cat|cats|kitten|kittens|kitty|dog|dogs|puppy|puppies|pet|pets|"
                       r"catnip|ferret|rabbit|bunny)\s+toys?\b")
