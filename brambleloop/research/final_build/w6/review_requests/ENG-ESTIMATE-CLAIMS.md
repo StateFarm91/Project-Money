@@ -98,7 +98,7 @@ was hit; those suites were rerun alone with a 3000 s cap.
 | test_cert_rebuild_chain | 8 OK / 3 FAIL | 8 OK / 3 FAIL, the same two tests | already failing on base |
 | test_opus2_size_claims | 12 OK / 1 FAIL | the same graded 9-sizes test fails | already failing on base |
 | test_physfix | 47 OK / 1 FAIL | `basket_small` kit rebuild fails identically | committed tester kits are a record of what testers were sent; not touched |
-| test_platform | 21 OK / 1 FAIL (`no such table: radar_concepts` in the cadence survival test) | @@PLATFORM_BASE@@ | unrelated to this change |
+| test_platform | 21 OK / 1 FAIL (`no such table: radar_concepts` in the cadence survival test) | the same test fails identically when run alone on base (`no such table: radar_concepts`); the full base suite run hit the 30-min background limit before reaching it | unrelated to this change |
 | test_product_run | 3 OK / 0 FAIL, then timed out at 3000 s | not run | **incomplete, not a pass** |
 
 ## Honest gaps
