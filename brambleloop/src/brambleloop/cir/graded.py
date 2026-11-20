@@ -150,7 +150,45 @@ CHILD = _table("CYC child/youth", CYC_CHILD_URL,
     "hip": (56, 59.5, 63.5, 71, 75, 80, 83.5, 90),
 })
 
-TABLES: dict[str, BodyTable] = {"woman": WOMAN, "child": CHILD}
+# Craft Yarn Council, Baby Size Chart (centimetre rows), read 2026-11-20 (ENG-GARMENT).
+# The source's "Center Back Neck-to-Wrist" and "Arm Length to Underarm" rows are the same
+# measurements the woman and child charts publish under those names. Sizes are months.
+CYC_BABY_URL = "https://www.craftyarncouncil.com/standards/baby-size-chart"
+BABY_RETRIEVED = "2026-11-20"
+_BABY_COLUMNS = {
+    "bust": (40.5, 43, 45.5, 48, 50.5),
+    "neck_to_wrist": (26.5, 29, 31.5, 35.5, 45.5),
+    "back_length": (15.5, 17.5, 19, 20.5, 21.5),
+    "cross_back": (18.5, 19.5, 21, 21.5, 22),
+    "arm_length": (15.5, 16.5, 19, 20.5, 21.5),
+    "upper_arm": (14, 15.5, 16.5, 17.5, 19),
+    "armhole_depth": (8.5, 9, 9.5, 10, 10.5),
+    "waist": (45.5, 48, 50.5, 52, 53.5),
+    "hip": (48, 50.5, 50.5, 53.5, 56),
+}
+BABY = BodyTable(
+    name="CYC baby", source_url=CYC_BABY_URL, retrieved=BABY_RETRIEVED,
+    sizes=tuple(BodyMeasurements(size=size, published={
+        m: _BABY_COLUMNS[m][i] if m in _BABY_COLUMNS else UNSOURCED for m in MEASUREMENTS})
+        for i, size in enumerate(("3m", "6m", "12m", "18m", "24m"))))
+
+
+def months_of(table_name: str, size: str) -> int | None:
+    """The age in months a size of a sourced table is named for, or None (adult sizes)."""
+    if table_name == BABY.name:
+        try:
+            return int(str(size).rstrip("m"))
+        except ValueError:
+            return None
+    if table_name == CHILD.name:
+        try:
+            return int(float(size)) * 12
+        except ValueError:
+            return None
+    return None
+
+
+TABLES: dict[str, BodyTable] = {"woman": WOMAN, "child": CHILD, "baby": BABY}
 
 
 # ---- the design's intent ------------------------------------------------------------------

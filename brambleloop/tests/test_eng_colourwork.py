@@ -497,6 +497,58 @@ def test_the_chart_round_trips_and_an_uncharted_cir_is_unchanged():
         "no existing Product Truth digest moves"
 
 
+
+def _chart_cells(rounds: bool):
+    """Render a one-row chart of three cells, A B C in working order, and read it back: the
+    fill colour sampled inside each drawn cell (left to right on the page) and the column
+    numbers printed beneath them (left to right)."""
+    from PIL import ImageDraw
+
+    from brambleloop.publish import charts as CH
+
+    cir = copy.deepcopy(_placemat_cir())
+    cir.colors = {"A": "#c81e1e", "B": "#1ec81e", "C": "#1e1ec8"}
+    spec = CH.ChartSpec()
+    grids = ([["a", "b", "c"]], [["A", "B", "C"]])
+    texts: list[tuple[float, float, str]] = []
+    real = ImageDraw.ImageDraw.text
+
+    def spy(self, xy, text, *a, **kw):
+        texts.append((xy[0], xy[1], str(text)))
+        return real(self, xy, text, *a, **kw)
+
+    ImageDraw.ImageDraw.text = spy
+    try:
+        img = CH.render_chart(cir, None, spec, grids, caption="mirror probe",
+                              show_columns=True, rounds=rounds)
+    finally:
+        ImageDraw.ImageDraw.text = real
+    cell = CH.cell_size(None, spec, grids)
+    left = (img.width - 3 * cell) // 2
+    y = spec.margin_px + int(cell * 0.85)   # clear of the glyph, the cue letter and the line
+    rgb = {(0xc8, 0x1e, 0x1e): "A", (0x1e, 0xc8, 0x1e): "B", (0x1e, 0x1e, 0xc8): "C"}
+    page = [rgb.get(img.getpixel((left + int(cell * (i + 0.85)), y))[:3]) for i in range(3)]
+    under = sorted((x, t) for x, yy, t in texts
+                   if yy >= img.height - spec.margin_px and t.isdigit())
+    return page, [t for _, t in under]
+
+
+def test_a_chart_of_rounds_is_drawn_mirrored_with_stitch_one_at_the_right():
+    # Review b17-b finding 2: a round is worked right to left, so stitch 1 (colour A, the
+    # first cell in working order) must print in the RIGHTMOST square, numbered "1" beneath
+    # it, and the last stitch (C) at the left. A wrong mirror prints a wrong customer chart.
+    page, numbers = _chart_cells(rounds=True)
+    assert page == ["C", "B", "A"], page
+    assert numbers == ["3", "2", "1"], numbers
+
+
+def test_a_flat_chart_control_is_not_mirrored():
+    # The control: flat rows are drawn in stored order, column 1 at the left.
+    page, numbers = _chart_cells(rounds=False)
+    assert page == ["A", "B", "C"], page
+    assert numbers == ["1", "2", "3"], numbers
+
+
 TESTS = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)
          and v.__module__ == __name__]
 

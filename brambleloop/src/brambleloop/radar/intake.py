@@ -622,7 +622,7 @@ def _originality_reasons(db, p: dict, built, source_ref: str) -> tuple[list[str]
     from ..creative import preengineering
     from ..creative.audit import briefed_catalogue_concepts
     from ..creative.concept import Concept, ConceptRefused, nearest
-    from ..creative.prospecting import MIN_NOVELTY, _matches_a_listing, benchmark_comparables
+    from ..creative.prospecting import MIN_NOVELTY, _matches_a_listing, watchlist_comparables
 
     slug, title, category = p["slug"], p["title"], p["category"]
     reasons: list[str] = []
@@ -669,7 +669,7 @@ def _originality_reasons(db, p: dict, built, source_ref: str) -> tuple[list[str]
         reasons.append(f"duplicate: {gap} from {near.key!r}, below the novelty floor "
                        f"{MIN_NOVELTY} -- a near-clone or recolour of an existing concept")
     # Anti-copy: never arrive as a competitor's listing, never wear its title.
-    cards = benchmark_comparables(db, pod=built.pod)
+    cards = watchlist_comparables(db, pod=built.pod)
     twin = _matches_a_listing(built, cards) if cards else ""
     detail["benchmark_cards"] = len(cards)
     if twin:
@@ -750,7 +750,24 @@ def validate(db, proposal: dict, evidence: dict, *, source_ref: str) -> dict:
     from ..creative import size_truth
 
     sized = size_truth.request(p["category"], str(p["title"]))
-    if sized["refused"] and size_truth.applies(p["category"], str(p["title"])):
+    # ENG-PLUSH: a family whose engine states its own size (a lovey's square and head, a toy's
+    # body) is not a flat template, so the flat-panel size bands do not apply to it.
+    from ..creative import fallback_constructions as _FC
+
+    engine_sized = _FC.plan(category=str(p["category"]), title=str(p["title"]))[
+        "family"] in (_FC.LOVEY, _FC.AMIGURUMI)
+    # ENG-GARMENT: a garment is sized by its sourced body table, one release of the whole
+    # run; the flat bands do not apply, and a title naming any one size is refused.
+    garment = str(c.get("form")) == "fitted_garment"
+    if garment:
+        token = re.search(r"\d|\b(?:xxs|xs|s|m|l|xl|xxl|[2-5]x|small|medium|large|petite|"
+                          r"plus|size[sd]?|months?|years?|toddler|newborn|preemie)\b",
+                          _FC.fold_title(str(p["title"])))
+        if token:
+            reasons.append(f"size: a garment is released in its whole sourced size run; the "
+                           f"title names {token.group(0)!r}, a size the release is not")
+    elif sized["refused"] and size_truth.applies(p["category"], str(p["title"])) \
+            and not engine_sized:
         reasons.append(f"size: {sized['refused']}")
     if c.get("pod") not in POD_KEYS:
         reasons.append(f"pod {c.get('pod')!r} is not a pod key")

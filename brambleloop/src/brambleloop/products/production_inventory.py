@@ -180,8 +180,45 @@ def _iso(v) -> str | None:
     return v.isoformat() if v else None
 
 
+_SCAN = json.JSONDecoder().scan_once
+
+
+def _jload(v):
+    """A JSON column read as raw text (see `load_records`) -> its value. A driver that already
+    decoded it (psycopg2 on a native json column) passes through unchanged."""
+    if v is None:
+        return None
+    if isinstance(v, (bytes, bytearray, str)):
+        if v in ("{}", "null", ""):
+            return {} if v != "null" else None
+        try:
+            # The C scanner directly: the stored text is canonical JSON, so the whitespace /
+            # trailing-data handling of `json.loads` is pure per-row overhead at 220k rows.
+            obj, end = _SCAN(v, 0)
+            return obj if end == len(v) else json.loads(v)
+        except (ValueError, StopIteration):
+            try:
+                return json.loads(v)
+            except ValueError:
+                return None
+    return v
+
+
+_STATUS_TEXT: dict = {}
+
+
 def _status(job) -> str:
     st = job.status
+    v = _STATUS_TEXT.get(st) if type(st) is str else None
+    if v is not None:
+        return v
+    if type(st) is str and not _STATUS_TEXT:
+        # Read as raw text (see `load_records`): the Enum column stores member names.
+        from ..core.models import JobStatus
+
+        _STATUS_TEXT.update({m.name: m.value for m in JobStatus})
+        _STATUS_TEXT.update({m.value: m.value for m in JobStatus})
+        return _STATUS_TEXT.get(st, st)
     return getattr(st, "value", str(st))
 
 
@@ -222,45 +259,77 @@ def job_identity(inputs, outputs) -> tuple[str | None, str | None, str]:
     return (str(slug) if slug else None, str(version) if version else None, release)
 
 
-class _Job:
-    """A detached, plain copy of the job columns the inventory reads."""
+def _dt(v):
+    """A timestamp column read as raw text (SQLite) or as a datetime (PG) -> aware datetime."""
+    if v is None or v == "":
+        return None
+    if isinstance(v, str):
+        v = datetime.fromisoformat(v)
+    return _aware(v)
 
-    __slots__ = ("id", "agent", "job_type", "status", "inputs", "outputs", "created_at",
-                 "started_at", "finished_at", "run_after", "cost_cad", "last_error", "attempts",
-                 "slug", "version", "release")
+
+def _lazy_dt(name: str):
+
+    def get(self):
+        return _dt(getattr(self._r, name))
+    return property(get)
+
+
+class _Job:
+    """A detached, plain copy of the job columns the inventory reads. The cold read builds
+    70k of these, so only what grouping needs (id, type, status, inputs/outputs identity) is
+    computed up front; timestamps and the cost/error columns are read through on access."""
+
+    __slots__ = ("_r", "id", "agent", "job_type", "status", "inputs", "outputs",
+                 "attempts", "slug", "version", "release", "idem")
+
+    created_at = _lazy_dt("created_at")
+    started_at = _lazy_dt("started_at")
+    finished_at = _lazy_dt("finished_at")
+    run_after = _lazy_dt("run_after")
+    cost_cad = property(lambda self: float(self._r.cost_cad or 0.0))
+    last_error = property(lambda self: self._r.last_error or "")
 
     def __init__(self, row):
+        self._r = row
         self.id = row.id
+        self.idem = getattr(row, "idempotency_key", None) or None
         self.agent = row.agent
         self.job_type = row.job_type
         self.status = _status(row)
-        self.inputs = row.inputs or {}
-        self.outputs = row.outputs or {}
-        self.created_at = _aware(row.created_at)
-        self.started_at = _aware(row.started_at)
-        self.finished_at = _aware(row.finished_at)
-        self.run_after = _aware(row.run_after)
-        self.cost_cad = float(row.cost_cad or 0.0)
-        self.last_error = row.last_error or ""
+        self.inputs = _jload(row.inputs) or {}
+        self.outputs = _jload(row.outputs) or {}
         self.attempts = row.attempts or 0
         self.slug, self.version, self.release = job_identity(self.inputs, self.outputs)
 
 
 class _Audit:
-    __slots__ = ("id", "at", "action", "artifact", "job_id", "detail")
+    """Detached audit row. `detail` and `at` are decoded lazily: the cold read groups 150k
+    audit rows by artifact but only reads the detail of the few the gates consult."""
+
+    __slots__ = ("_r", "id", "action", "artifact", "job_id", "_detail")
+
+    at = _lazy_dt("at")
 
     def __init__(self, row):
+        self._r = row
         self.id = row.id
-        self.at = _aware(row.at)
         self.action = row.action
         self.artifact = row.artifact or ""
         self.job_id = row.job_id
-        self.detail = row.detail or {}
+        self._detail = None
+
+    @property
+    def detail(self) -> dict:
+        if self._detail is None:
+            v = _jload(self._r.detail)
+            self._detail = v if isinstance(v, dict) else {}
+        return self._detail
 
 
 def load_records(db) -> dict:
     """Every row the inventory reads, detached, in one pass. Read-only."""
-    from sqlalchemy import or_, select
+    from sqlalchemy import String, Text, or_, select, type_coerce
 
     from ..core.models import (AuditLog, CostEntry, Job, Listing, OwnerAction, PatternVersion,
                                PhysicalTest, Product)
@@ -287,9 +356,20 @@ def load_records(db) -> dict:
                 "id": t.id, "passed": t.passed, "requested_at": _iso(t.requested_at),
                 "completed_at": _iso(t.completed_at), "_completed": _aware(t.completed_at)})
         conds = [Job.job_type.like(p + "%") for p in JOB_PREFIXES]
-        jobs = [_Job(j) for j in s.scalars(select(Job).where(or_(*conds)).order_by(Job.id))]
-        audits = [_Audit(a) for a in s.scalars(
-            select(AuditLog).where(AuditLog.action.in_(AUDIT_ACTIONS)).order_by(AuditLog.id))]
+        # Column rows, not ORM entities: entity hydration was ~40% of the cold read at 220k
+        # rows. The filters are the indexed ones (`job_type` / `action`).
+        jobs = [_Job(j) for j in s.connection().execute(
+            select(Job.id, Job.agent, Job.job_type, type_coerce(Job.status, String).label("status"),
+                   type_coerce(Job.inputs, Text).label("inputs"),
+                   type_coerce(Job.outputs, Text).label("outputs"),
+                   *(type_coerce(getattr(Job, c), String).label(c)
+                     for c in ("created_at", "started_at", "finished_at", "run_after")),
+                   Job.cost_cad, Job.last_error, Job.attempts, Job.idempotency_key)
+            .where(or_(*conds)).order_by(Job.id)).fetchall()]
+        audits = [a for a in s.connection().execute(
+            select(AuditLog.id, type_coerce(AuditLog.at, String).label("at"), AuditLog.action, AuditLog.artifact,
+                   AuditLog.job_id, type_coerce(AuditLog.detail, Text).label("detail"))
+            .where(AuditLog.action.in_(AUDIT_ACTIONS)).order_by(AuditLog.id)).fetchall()]
         costs = [(c.id, c.product_slug or "", c.job_id, float(c.amount_cad or 0.0))
                  for c in s.scalars(select(CostEntry))]
         owner_open = [{"id": a.id, "text": " ".join([a.requirement_key or "", a.action or "",
@@ -297,6 +377,18 @@ def load_records(db) -> dict:
                        "max_cost": a.max_cost_known, "action": (a.action or "")[:160]}
                       for a in s.scalars(select(OwnerAction).where(
                           OwnerAction.done == False))]  # noqa: E712
+    vetoes = None
+    try:
+        from collections import namedtuple
+
+        from ..core.models import OwnerVeto
+
+        _V = namedtuple("_V", "id subject_ref owner_vetoed scope reason")
+        with db.session() as s:
+            vetoes = [_V(r.id, r.subject_ref, r.owner_vetoed, r.scope, r.reason)
+                      for r in s.scalars(select(OwnerVeto).order_by(OwnerVeto.id))]
+    except Exception:  # noqa: BLE001 - None: derive_row falls back to active_veto and fails closed
+        vetoes = None
     intents, intents_unreadable = {}, None
     try:
         from ..publish.draft_intent import DraftIntent
@@ -313,7 +405,8 @@ def load_records(db) -> dict:
             "jobs": jobs, "audits": audits, "costs": costs, "owner_open": owner_open,
             "intents": intents, "intents_unreadable": intents_unreadable,
             "construction_holds": construction_holds,
-            "construction_holds_unreadable": construction_unreadable}
+            "construction_holds_unreadable": construction_unreadable,
+            "vetoes": vetoes}
 
 
 def _intake_construction_holds(db) -> tuple[dict, str | None]:
@@ -344,6 +437,40 @@ def _intake_construction_holds(db) -> tuple[dict, str | None]:
         return out, None
     except Exception as exc:  # noqa: BLE001 - informational reader; never hides the rest
         return {}, f"intake construction holds could not be read: {type(exc).__name__}"
+
+
+# ---- shared snapshot ---------------------------------------------------------------------------
+# Production runs one uvicorn worker with the job worker embedded, so two cold reads (the
+# production view and the catalogue) must not each reload and re-derive the same 70k-job
+# inventory, nor run concurrently. One lock coalesces them; a short TTL lets the second view
+# reuse the first's `load_records` + `derive`. Read-only consumers only.
+import threading as _threading
+import time as _time
+
+SNAPSHOT_TTL = 15.0
+_SNAP_LOCK = _threading.Lock()
+_SNAP: dict = {"at": 0.0, "db": None, "snap": None}
+
+
+def reset_snapshot() -> None:
+    with _SNAP_LOCK:
+        _SNAP.update(at=0.0, db=None, snap=None)
+
+
+def snapshot(db, *, ttl: float | None = None) -> dict:
+    """{"rec", "inv", "now"}: `load_records` + `derive` (recorded gate mode), computed once and
+    shared. Concurrent cold callers wait on the lock and get the same snapshot."""
+    ttl = SNAPSHOT_TTL if ttl is None else ttl
+    with _SNAP_LOCK:
+        if (_SNAP["snap"] is not None and _SNAP["db"] is db
+                and _time.monotonic() - _SNAP["at"] < ttl):
+            return _SNAP["snap"]
+        now = datetime.now(timezone.utc)
+        rec = load_records(db)
+        inv = derive(db, records=rec, now=now)
+        snap = {"rec": rec, "inv": inv, "now": now}
+        _SNAP.update(at=_time.monotonic(), db=db, snap=snap)
+        return snap
 
 
 def _version_key(v: str | None):
@@ -386,10 +513,51 @@ def rows_from(rec: dict) -> list[dict]:
     return out
 
 
+class _AuditGroups(dict):
+    """Raw audit rows grouped by artifact; `_Audit` objects are built per group, on first read.
+    The cold read groups 150k rows but the derivation reads the groups of ~800 rows' artifacts
+    only when it reaches the stages that consult them."""
+
+    def get(self, key, default=None):
+        rows = super().get(key)
+        if rows is None:
+            return default
+        if rows and not isinstance(rows[0], _Audit):
+            rows[:] = [_Audit(r) for r in rows]
+        return rows
+
+
+def _ix(rec: dict) -> dict:
+    """Per-product groupings of the loaded rows, built ONCE per `rec` (one O(rows) pass) so a
+    per-product lookup is O(that product's rows), not a scan of every job/audit/cost row
+    (ENG-CATALOGUE LOW: 600 products x 70k jobs x 150k audits took 6-7 s). The rows were
+    already selected with indexed filters (`job_type LIKE prefix%`, `action IN (...)`); the
+    slug/version a row belongs to lives in JSON inputs/outputs, so grouping is done here."""
+    ix = rec.get("_ix")
+    if ix is None:
+        jobs_by_slug: dict = {}
+        for j in rec["jobs"]:
+            if j.slug:
+                jobs_by_slug.setdefault(j.slug, []).append(j)
+        audits_by_art = _AuditGroups()
+        for a in rec["audits"]:
+            audits_by_art.setdefault(a.artifact or "", []).append(a)
+        costs_by_slug: dict = {}
+        costs_by_job: dict = {}
+        for c in rec["costs"]:
+            if c[1]:
+                costs_by_slug.setdefault(c[1], []).append(c)
+            if c[2] is not None:
+                costs_by_job.setdefault(c[2], []).append(c)
+        ix = rec["_ix"] = {"jobs": jobs_by_slug, "audits": audits_by_art,
+                           "costs_slug": costs_by_slug, "costs_job": costs_by_job}
+    return ix
+
+
 def _jobs_for(rec: dict, slug: str, version: str | None, head: bool) -> list:
     """A row's jobs: its own versioned jobs, and (head row only) its slug's unversioned ones."""
-    return [j for j in rec["jobs"] if j.slug == slug
-            and (j.version == version or (head and j.version is None))]
+    return [j for j in _ix(rec)["jobs"].get(slug, ())
+            if j.version == version or (head and j.version is None)]
 
 
 def _latest(jobs, job_type: str, *, statuses=("done",)):
@@ -399,7 +567,7 @@ def _latest(jobs, job_type: str, *, statuses=("done",)):
 
 def _audits_for(rec: dict, slug: str, version: str | None, actions) -> list:
     art = f"{slug}@{version}" if version else slug
-    return [a for a in rec["audits"] if a.action in actions and a.artifact == art]
+    return [a for a in _ix(rec)["audits"].get(art, ()) if a.action in actions]
 
 
 # ---- gate readers (the only places publication's gates are consulted) -------------------------
@@ -416,12 +584,12 @@ def _recorded_product_gates(rec: dict, slug: str, version: str, changed_at,
     verdict must be younger than `VERDICT_TTL`, and newer than the product's last change.
     Anything else is UNKNOWN; UNKNOWN is never a pass."""
     now = _aware(now) or datetime.now(timezone.utc)
-    publish = {j.id: j for j in rec["jobs"] if j.job_type == "store.publish"
-               and j.slug == slug and j.version == version}
+    publish = {j.id: j for j in _ix(rec)["jobs"].get(slug, ())
+               if j.job_type == "store.publish" and j.version == version}
     gates = {}
     parity = {}
-    for a in rec["audits"]:
-        if a.artifact != slug or a.job_id not in publish:
+    for a in _ix(rec)["audits"].get(slug, ()):
+        if a.job_id not in publish:
             continue
         if a.action == "store.release_gates" and a.detail.get("version") == version:
             if a.job_id not in gates or a.id > gates[a.job_id].id:
@@ -546,12 +714,12 @@ def _hold(kind: str, why: str, **evidence) -> dict:
 
 
 def _cost(rec: dict, slug: str, job_ids: set) -> float:
-    seen, total = set(), 0.0
-    for cid, pslug, jid, amount in rec["costs"]:
-        if (pslug == slug or (jid is not None and jid in job_ids)) and cid not in seen:
-            seen.add(cid)
-            total += amount
-    return round(total, 4)
+    ix = _ix(rec)
+    found = {c[0]: c[3] for c in ix["costs_slug"].get(slug, ())}
+    for jid in job_ids:
+        for c in ix["costs_job"].get(jid, ()):
+            found.setdefault(c[0], c[3])
+    return round(sum(found[k] for k in sorted(found)), 4)
 
 
 def physical_status(pv: dict | None, tests: list) -> dict:
@@ -626,7 +794,10 @@ def derive_row(db, rec: dict, row: dict, *, gate_mode: str = "recorded",
     try:
         from ..intel.mission_runtime import active_veto
 
-        veto = active_veto(db, slug)
+        # Rulings are loaded once per `load_records` (the 800-row cold read made 800
+        # full-table scans). Still decided by `active_veto`, so a crashing reader closes the
+        # gates; an unreadable table (None) makes it read per slug, which raises -> closed.
+        veto = active_veto(db, slug, rulings=rec.get("vetoes"))
     except Exception as exc:  # noqa: BLE001 - review M1: unreadable veto closes the gates
         veto = {"vetoed": False}
         closed.append(f"owner veto could not be read ({type(exc).__name__}): a veto may exist")
@@ -775,8 +946,8 @@ def derive_row(db, rec: dict, row: dict, *, gate_mode: str = "recorded",
         return result(REVISION_REQUIRED, "listing withdrawn by a failed re-certification",
                       failed_stage="listing")
     if latest_seo is None or listing is None or listing["release_hash"] != release:
-        priced = [a for a in rec["audits"] if a.action == "pricing.refused" and a.artifact == slug
-                  and a.id > latest_vis.id]
+        priced = [a for a in _ix(rec)["audits"].get(slug, ())
+                  if a.action == "pricing.refused" and a.id > latest_vis.id]
         if priced:
             holds.append(_hold(HOLD_POLICY, "pricing refused", audit_id=priced[-1].id))
         return result(VISUAL_COMPLETED, "visuals verified; no listing bound to this release yet")

@@ -109,7 +109,12 @@ def _readiness(reading_a, reading_b):
 
     # V1's readiness resolves one production identity and certifies the set; both are pinned
     # to "fine" here so the verdict turns on campaign consistency alone.
+    # ENG-VISUAL: the seven-frame campaign standard is pinned too (its own suite,
+    # test_visual_campaign_standard); this two-role fixture tests consistency only.
     real = IP._best, IP._dashboard_identity, el.check_set
+    real_standard = IP.SP.campaign_standard
+    IP.SP.campaign_standard = lambda plan: {"ok": True, "frames": 2, "minimum": 2,
+                                            "problems": []}
     IP._best = lambda db, *, listing, role, **kw: {
         **rows[role], "publishable": True, "technical_status": "PASS", "blockers": []}
     IP._dashboard_identity = lambda db, listing: (
@@ -119,6 +124,7 @@ def _readiness(reading_a, reading_b):
         return IP.readiness(None, "basket", plan=_plan())
     finally:
         IP._best, IP._dashboard_identity, el.check_set = real
+        IP.SP.campaign_standard = real_standard
 
 
 def test_an_unjudged_gallery_is_not_ready_and_names_its_blocker():

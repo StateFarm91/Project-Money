@@ -598,4 +598,10 @@ def compile_cir(cir: CIR) -> CompileResult:
         from .colourwork import chart_findings
 
         result.findings.extend(chart_findings(cir, result))
+    # ENG-PLUSH: a stated stuffing point or closure is checked against the compiled rounds
+    # and the surface geometry (`cir.closed_forms`); a piece that states neither is untouched.
+    if any(c.stuff_at_round is not None or c.closes for c in cir.components):
+        from . import closed_forms
+
+        closed_forms.check(cir, result, result.findings)
     return result

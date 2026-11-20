@@ -155,7 +155,7 @@ def transition(session, row, state: str, reason: str, *, actor: str = "system",
     row.state_at = when
     row.state_reason = reason[:1000]
     row.done = state in CLOSED_STATES
-    session.add(AuditLog(actor=actor[:64], action="owner_action.lifecycle",
+    session.add(AuditLog(actor=actor[:64], action="owner_action.lifecycle", at=when,
                          artifact=f"owner_action:{row.id or row.requirement_key}",
                          detail={"from": current, "to": state, "reason": reason[:500],
                                  "requirement_key": row.requirement_key,

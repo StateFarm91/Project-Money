@@ -17,10 +17,12 @@ Wave-3 lane K12. Three requirements that sit on top of the existing Laura gate
   *current* canonical reference bytes (by sha256, `gateway.images.conditioning_receipt`),
   two independent judges who each read every locked face dimension as a match and the
   morphology floor as readable and matching, and a deterministic biometric floor (cosine
-  similarity of face embeddings from a *qualified* embedder, computed here). No embedder is
-  qualified in this build -- that needs a face-embedding model, which is not installed and
-  is gated -- so the biometric floor is UNMEASURED and every non-drift frame goes to human
-  review. That is the honest state, not a defect to route around.
+  similarity of face embeddings from a *qualified* embedder, computed here). ENG-VIS-IDENTITY
+  built the method (`face_embedder`: YuNet + SFace ONNX on CPU, commercially licensed) and its
+  calibration (`identity_calibration`), but production qualification needs >= 300 impostor
+  faces and the owner's decision (IDENTITY_OWNER_DECISIONS.md), so `PRODUCTION_QUALIFICATIONS`
+  is still empty, the floor is UNMEASURED and every non-drift frame HOLDs for review. That is
+  the honest state, not a defect to route around.
 * **V3 qualification (OA-V3-LAURA-QUALIFICATION, fixture-only).** An embedder becomes the
   biometric floor only through a validated qualification record (`validate_qualification`,
   `measure_biometric`). Production admits a record only from `PRODUCTION_QUALIFICATIONS`,
@@ -138,6 +140,13 @@ def trial_validity(evidence: dict | None, *, now: datetime | None = None) -> dic
         if canonical.FACE_SHA256 not in shas:
             invalid.append("missing_reference_bytes: the canonical face reference was not "
                            "among the conditioning references")
+        # ENG-VIS-IDENTITY: every Laura image is conditioned on ALL THREE canonical references
+        # (face, torso, full body; D-W4-LAURA-FLUX3). A frame made from fewer is not a trial.
+        absent = sorted(f for f, h in canonical.CURRENT_REFERENCE_HASHES.items()
+                        if h != canonical.FACE_SHA256 and h not in shas)
+        if absent:
+            invalid.append(f"missing_reference_bytes: canonical {absent} not among the "
+                           f"conditioning references (all three are mandatory)")
     for meta in ev.get("references") or []:
         exp = _parse((meta or {}).get("expires_at")) if isinstance(meta, dict) else None
         if exp is not None and exp <= now:
@@ -236,6 +245,35 @@ SCOPE_PRODUCTION, SCOPE_FIXTURE = "production", "fixture_only"
 # adding one is an owner decision with calibration evidence, recorded here in code.
 PRODUCTION_QUALIFICATIONS: tuple[dict, ...] = ()
 
+def production_calibration_refusals(cal: dict) -> list[str]:
+    """ENG-VIS-IDENTITY: a production record must cite calibration that meets the floors in
+    `identity_calibration` (sample sizes, the false-accept upper bound, the false-reject rate)
+    and that calibration itself declared production-ready. A record cannot claim less."""
+    from . import identity_calibration as C
+
+    out = []
+    gen, imp = cal.get("genuine_pairs"), cal.get("impostor_pairs")
+    if not isinstance(gen, int) or isinstance(gen, bool) or gen < C.MIN_GENUINE_PRODUCTION:
+        out.append(f"production calibration needs >= {C.MIN_GENUINE_PRODUCTION} genuine "
+                   f"samples (has {gen})")
+    if not isinstance(imp, int) or isinstance(imp, bool) or imp < C.MIN_IMPOSTOR_PRODUCTION:
+        out.append(f"production calibration needs >= {C.MIN_IMPOSTOR_PRODUCTION} impostor "
+                   f"faces (has {imp})")
+    for k, cap in (("far_upper_95", C.MAX_FAR_UPPER_95), ("frr", C.MAX_FRR)):
+        v = cal.get(k)
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or not 0 <= v <= cap:
+            out.append(f"production calibration {k} {v!r} is unmeasured or above {cap}")
+    if cal.get("production_ready") is not True:
+        out.append("the calibration evidence did not declare itself production_ready")
+    # F2: the rates (and the counts the floors apply to) must come from a held-out subset
+    # disjoint from the one that set the thresholds; in-sample FAR is 0 by construction.
+    if cal.get("evaluation") != C.HELD_OUT or cal.get("calibration_version") != \
+            C.CALIBRATION_VERSION or cal.get("split_method") != C.SPLIT_METHOD:
+        out.append("production calibration must measure FAR/FRR on a held-out subset "
+                   f"({C.CALIBRATION_VERSION}, {C.SPLIT_METHOD}); in-sample evidence refused")
+    return out
+
+
 _RECORD_FIELDS = ("version", "embedder", "embedder_version", "weights_sha256", "calibration",
                   "owner_decision", "fixture_only")
 
@@ -309,6 +347,8 @@ def validate_qualification(record: dict | None, *, embedder=None,
         n = cal.get(k)
         if isinstance(n, bool) or not isinstance(n, int) or n <= 0:
             refused.append(f"calibration {k} must be a positive count")
+    if rec.get("fixture_only") is False:
+        refused += production_calibration_refusals(cal)
     current = {str(v).lower() for v in canonical.CURRENT_REFERENCE_HASHES.values()}
     named = {str(v).lower() for v in cal.get("canonical_references") or ()}
     if named != current:
@@ -413,6 +453,49 @@ def measure_biometric(embedder, record: dict | None, frame: bytes, references: d
 
 def assess(evidence: dict | None, *, now: datetime | None = None,
            biometric: dict | None = None) -> dict:
+    """The identity gate for one frame, with the consumer-facing `verdict` (ENG-VIS-IDENTITY).
+
+    `verdict` is what every consumer (the gallery certificate, the FLUX provider's retry loop)
+    reads: PASS, HOLD or REFUSE. PASS needs `status` PASS *and* a biometric floor computed by a
+    method admitted with production qualification (`certification == "qualified"`); a fixture
+    floor, the legacy `QUALIFIED_EMBEDDERS` table or anything unmeasured is HOLD. UNKNOWN is
+    never PASS. `judge_agreement` records whether the independent judges agreed; disagreement
+    is never a PASS and its reason is stated."""
+    g = _assess(evidence, now=now, biometric=biometric)
+    verdicts = g.get("judges") or []
+    kinds = sorted({v.get("verdict") for v in verdicts})
+    if len(verdicts) < 2:
+        agreement = {"state": "insufficient", "judges": len(verdicts),
+                     "why": f"{len(verdicts)} independent judge reading(s); two must agree"}
+    elif len(kinds) == 1:
+        agreement = {"state": "agree", "reading": kinds[0], "judges": len(verdicts)}
+    else:
+        agreement = {"state": "disagree", "judges": len(verdicts),
+                     "readings": {v["judge"]: v.get("verdict") for v in verdicts},
+                     "why": "judges disagree: " + "; ".join(
+                         f"{v['judge']} read {v.get('verdict')}" for v in verdicts)}
+    cert = ((g.get("biometric") or {}).get("qualification") or {}).get("certification")
+    hold = []
+    if agreement["state"] != "agree":
+        hold.append(agreement["why"])
+    if cert != CERT_QUALIFIED:
+        hold.append("the biometric method is not production-qualified "
+                    f"(certification {cert!r})")
+    if g["status"] == "FAIL":
+        verdict = "REFUSE"
+    elif g["status"] == "PASS" and not hold:
+        verdict = "PASS"
+    else:
+        verdict = "HOLD"
+    out = {**g, "verdict": verdict, "judge_agreement": agreement,
+           "hold_reasons": hold if verdict == "HOLD" else []}
+    if agreement["state"] == "disagree" and agreement["why"] not in g["why"]:
+        out["why"] = g["why"] + f" [{agreement['why']}]"
+    return out
+
+
+def _assess(evidence: dict | None, *, now: datetime | None = None,
+            biometric: dict | None = None) -> dict:
     """The identity gate for one model-bearing frame: PASS, FAIL or UNKNOWN, with its band.
 
     Order: any drift read by any judge is auto-refused (FAIL) -- the existing rule, kept;
@@ -471,6 +554,29 @@ def assess(evidence: dict | None, *, now: datetime | None = None,
                     f"two judges read every locked dimension and morphology as a match, "
                     f"biometric {bio['similarity']} >= {bio['match_at']}"),
             "failed": [], "review_required": False}
+
+
+# ---------------------------------------------------------------------------- production wiring
+
+def production_floor(model_dir=None) -> dict:
+    """The production biometric method: the installed embedder and the register record that
+    qualifies it, or why there is none. Never raises; a missing piece means UNMEASURED.
+
+    Returns {"embedder", "qualification", "why"}. `embedder` may be loaded while
+    `qualification` is None (installed but not qualified): `measure_biometric` then reads
+    UNMEASURED, and identity holds."""
+    from . import face_embedder
+
+    emb, why = face_embedder.try_load(model_dir)
+    if emb is None:
+        return {"embedder": None, "qualification": None, "why": why}
+    for rec in PRODUCTION_QUALIFICATIONS:
+        if (rec.get("embedder"), rec.get("embedder_version"), rec.get("weights_sha256")) == \
+                (emb.name, emb.version, emb.weights_sha256):
+            return {"embedder": emb, "qualification": rec, "why": ""}
+    return {"embedder": emb, "qualification": None,
+            "why": (f"{emb.name} is installed but no record on PRODUCTION_QUALIFICATIONS "
+                    f"qualifies it (OWNER DECISION: IDENTITY_OWNER_DECISIONS.md)")}
 
 
 def single_reading(scored: dict | None) -> dict:

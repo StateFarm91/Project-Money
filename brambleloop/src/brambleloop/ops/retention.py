@@ -113,6 +113,21 @@ NEVER_PRUNED_TABLES = ("oauth_credentials",)
 # The point is not this list's current contents; it is that the next lifetime aggregate
 # somebody writes has to come here and make a decision.
 KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+    # ENG-DAILY: the daily production ledger counts these per UTC day over the last 14 days
+    # (24 h for the budget refusals its diagnosis reads), far inside AUDIT_RETENTION_DAYS.
+    "intel.watchlist_scan": ("windowed",
+                             "ops.daily_ledger._shop_scans counts the last 14 days per shop"),
+    "listing.package": ("windowed", "ops.daily_ledger counts ready packages over 14 days"),
+    "concept.intake_refused": ("windowed",
+                               "ops.daily_ledger._causes counts the last 24 hours"),
+    # ENG-DAILY fix (review of a795be17, B2): the fallback change-request row is deduplicated
+    # per fingerprint per UTC day by reading today's rows only.
+    "ops.ecr_pending": ("windowed",
+                        "ops.daily_ledger._pending_exists reads the current UTC day"),
+    "store.publish_blocked": ("windowed",
+                              "ops.daily_ledger._causes counts the last 24 hours"),
+    "job.budget_exceeded": ("windowed",
+                            "ops.daily_ledger._causes counts the last 24 hours"),
     # ENG-RECOVERY: the thrash-breaker re-arm reads the boot rows of the RUNNING commit (the
     # newest 500) for when this release first booted. A release is weeks old at most, far
     # inside the horizon; were its first boot row pruned, a later boot of the same release
@@ -128,6 +143,15 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "chain.rebuild_unbound": ("windowed",
                               "ops.production_evidence.stale_rebuilds counts the last 7 days"),
     "ops.rebuild_propagated": ("latest", "ops.production_evidence reads the newest propagation"),
+    # ENG-MOTIF-BACKLOG: the recovery report reads only the newest sweep row, to know that the
+    # backlog was measured at all (never-swept is UNKNOWN, never 0); counts come from the
+    # motif_recovery table, not from audit rows.
+    "assets.motif_backlog.swept": ("latest", "publish.motif_backlog.report reads the newest "
+                                             "sweep to tell measured from never-measured"),
+    # ENG-MOTIF-BACKLOG-FIX: one row per claimed paid motif re-ask; the daily cap counts the
+    # rows since 00:00 UTC (publish.motif_backlog.claimed_today / _claim).
+    "assets.motif_backlog.claimed": ("windowed", "publish.motif_backlog counts claims since "
+                                                 "00:00 UTC for the daily re-ask cap"),
     # eng/stale-rebuild-loop: refused rebuilds are counted; the newest refusal for a release
     # names why a rebuild could not complete (runtime.release._rebuild_incomplete).
     "chain.rebuild_refused": ("windowed",
@@ -252,7 +276,13 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                       "spend_report.refusals reads the calendar month; ops.slo soak window"),
     # Audit ddf9c6e M-3: the soak's "no duplicated external effect" criterion reads reclaims
     # and guard-refused duplicates inside the soak window only (hours).
-    "queue.lease_reclaimed": ("windowed", "ops.slo.soak_report reads the soak window"),
+    "queue.lease_reclaimed": ("windowed", "ops.slo.soak_report reads the soak window; "
+                              "command_center.operating_evidence counts 24 h / 7 d"),
+    # ENG-CATALOGUE: the agents panel counts refused recovery requests in the last 24 h (and
+    # excludes them from recoveries). Already protected by the "recovery." prefix
+    # (lifetime_total); recorded by name because it is read by name.
+    "recovery.refused": ("lifetime_total", "ops.recovery prefix (protected); "
+                         "command_center.operating_evidence counts refusals in 24 h"),
     "effect.duplicate_refused": ("windowed", "ops.slo.soak_report reads the soak window"),
     # C-60 (#201): the identity drift series reads 60 days of model-bearing frames and
     # persists its own daily reading, so pruning older rows cannot change the series.
@@ -289,6 +319,18 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     # The stop watch's newest reading is the silence fact (design §5.1), and G-SHADOW reads
     # the last 7 days for continuity -- far inside the horizon. Pruning older readings cannot
     # clear a stop: no reading at all reads as silence, and a short history fails G-SHADOW.
+    # ENG-APPROVALS: every automatic owner-queue decision under the owner's standing authority
+    # (D-OWNER-STANDING-INTERNAL). The owner's words: "Preserve the audit trail." Kept for
+    # life; the P0 board reads the last 24 h of it (`ops.owner_queue_consolidate.counts`).
+    "owner_action.standing_authority": ("lifetime_total",
+                                        "the owner's standing-authority audit trail (kept); "
+                                        "ops.owner_queue_consolidate.counts reads 24 h"),
+    # FIX2: `authority.standing_internal.closed_by_standing_authority` reads the newest
+    # lifecycle row of a card to tell the owner's closure from the standing authority's. A
+    # pruned row would make a standing closure read as the owner's (fail open), so kept for life.
+    "owner_action.lifecycle": ("lifetime_total",
+                               "authority.standing_internal.closed_by_standing_authority: who "
+                               "made a card's latest closure (kept; pruning would fail open)"),
     "standing_policy.stop_watch_reading": ("windowed",
                                            "ops.standing_stop.last_reading (silence); "
                                            "ops.standing_shadow_gate 7-day continuity"),
@@ -428,6 +470,16 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "image.reference_probe": ("lifetime_total",
                               "gateway.image_bench.spent_to_date sums these too "
                               "(images.REFERENCE_PROBE_ACTION)"),
+    # ENG-VIS-FLUX: a paid render rejected at generation, and its re-check. Both are read over
+    # every row for a gallery (gateway.flux_provider.replacement_allowed): a pruned rejection
+    # would let a replacement be bought without the paid one being re-checked, and a pruned
+    # RECOVERED re-check would stop blocking it. Protected; one row per rejected render.
+    "image.generation_rejected": ("lifetime_total",
+                                  "gateway.flux_provider.replacement_allowed reads every "
+                                  "rejection for a gallery before a replacement is bought"),
+    "image.generation_rejection_rechecked": ("lifetime_total",
+                                             "gateway.flux_provider.replacement_allowed: a "
+                                             "RECOVERED re-check keeps blocking replacement"),
     "image.benchmark_blocked": ("latest", "gateway.image_bench.last_run"),
     "image.benchmark_capped": ("latest", "gateway.image_bench.last_run"),
     "model.frozen": ("lifetime_total",
@@ -893,6 +945,13 @@ KNOWN_READ_PREFIXES: dict[str, tuple[str, str]] = {
 # where that is classified. Every entry is checked to still exist; an unresolved site not
 # listed here makes `unknown_read_actions` fail closed.
 UNRESOLVED_READ_SITES: dict[str, str] = {
+    # ENG-DAILY: `refusals` is a tuple from `daily_ledger.STAGES` (mjs.scan_blocked,
+    # concept.intake_refused, cir.draft_refused, gate.blocked, gate.halted,
+    # assets.deliverable_problems, assets.listing_images_blocked,
+    # listing.package_release_failed, store.publish_refused, store.publish_blocked), counted
+    # over the last 24 hours; windowed, each classified by its own reader above.
+    "ops/daily_ledger.py::_causes": (
+        "AuditLog.action in a daily_ledger.STAGES refusal tuple, last 24 h; windowed"),
     "app/command_center/emergency.py::_live_grants": (
         "loops over (publication_authority, activation_authority) modules and reads "
         "mod.APPROVED: owner.publication.approved / owner.activation.approved, both "

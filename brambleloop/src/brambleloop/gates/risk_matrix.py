@@ -222,7 +222,11 @@ def features(cir, twin_summary: dict | None, primitive_status: dict | None = Non
     prims = tuple(getattr(cir.provenance, "primitives_used", ()) or ()) if cir.provenance else ()
     if any(m in p for p in prims for m in GRADING_MARKERS):
         out.append(Feature("graded", "B", "one size of a graded design", "F-073"))
-    if any(s.stuff_before_closing for s in cir.assembly):
+    # ENG-PLUSH: a piece stated to be stuffed or closed (`Component.stuff_at_round`,
+    # `closes`) is the same closed form as a seam stuffed before closing.
+    if any(s.stuff_before_closing for s in cir.assembly) or any(
+            getattr(c, "stuff_at_round", None) is not None or getattr(c, "closes", False)
+            for c in cir.components):
         out.append(Feature("closed_3d_form", "C",
                            "stuffed and closed: a complex dimensional form whose shape only "
                            "a full make shows", "F-073/F-081"))

@@ -749,7 +749,9 @@ class StatementFacts:
         """Which derived facts this product actually has."""
         return {
             "audience_label": bool(self.audience_label),
-            "finished_size_cm": bool(self.finished_size_cm),
+            # ENG-PLUSH: a closed stuffed piece states its size as words the twin derives
+            # (a circumference) instead of a width x height it cannot compute.
+            "finished_size_cm": bool(self.finished_size_cm) or bool(self.size_text),
             "colours": bool(self.colours),
             "fibres": bool(self.fibres),
             "compiled_on": bool(self.compiled_on),
