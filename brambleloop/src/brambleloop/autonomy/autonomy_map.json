@@ -1,9 +1,5 @@
 {
-<<<<<<< HEAD
- "generated_at": "2026-11-20T04:38:53.050336+00:00",
-=======
- "generated_at": "2026-11-20T04:38:33.135454+00:00",
->>>>>>> origin/claude/w6-INTEG6
+ "generated_at": "2026-11-20T12:30:03.963384+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
