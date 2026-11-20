@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-20T22:26:48.713691+00:00",
+ "generated_at": "2026-11-20T22:27:06.032430+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -13,7 +13,7 @@
   "cadences": 149,
   "handlers": 181,
   "agents": 34,
-  "follow_on_edges": 97
+  "follow_on_edges": 98
  },
  "departments": [
   {
@@ -1484,6 +1484,7 @@
      "growth.steer",
      "growth/portfolio_act.py:act",
      "integrations/taxonomy_drift.py:after_refresh",
+     "integrations/taxonomy_drift.py:backfill_unknown",
      "launch.plan",
      "ops.sentinel",
      "ops/rebuild_graph.py:enqueue",

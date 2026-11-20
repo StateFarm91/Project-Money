@@ -341,3 +341,99 @@ def held_drift(db, slug: str) -> list[dict]:
                     Incident.resolved == False,  # noqa: E712
                     Incident.halts_publication == False))]  # noqa: E712
 
+
+
+# ---- ENG-SEO-PRICE: an UNKNOWN profile is re-decided on the snapshot that can decide it -------
+#
+# Production readback: "search: FAIL, category UNKNOWN" while the daily refresh reads Etsy's
+# tree. The path from a stored snapshot to a listing's search profile had two holes:
+#
+# 1. `after_refresh` runs only when a refresh *stores a new snapshot*. The first snapshot that
+#    carried the Patterns & Blueprints schema was diffed once; every later daily refresh
+#    confirms the same hash (`new_snapshot: False`) and never looks at the profiles again.
+# 2. On that one run the re-queue switch is off by default, so a profile that was UNKNOWN --
+#    never certified, never publishable -- was held for the owner exactly like a CHOSEN
+#    listing whose certified node drifted. Nothing ever re-decided it.
+#
+# The profile therefore stays bound to the snapshot it was computed on (or to none) while the
+# stored snapshot would CHOOSE a node for it. `backfill_unknown` closes both holes: on every
+# refresh that ran (new snapshot or not), each newest profile that is not CHOSEN, is not bound
+# to the newest snapshot, and whose category the newest snapshot now CHOOSES, gets one
+# `listing.seo` re-run -- FIX-ONLY (W6 primitive: it ends at the listing, never reaches
+# launch.plan or store.publish, never touches a live listing), once per snapshot. That is why
+# it needs no owner switch: the review F-1 risk (an Etsy-side change driving an Etsy write)
+# cannot happen on a fix-only run. A CHOSEN profile is never touched here; drift handles it.
+
+BACKFILL_ACTION = "taxonomy.category_backfill"
+
+
+def _product_category(slug: str, db) -> str | None:
+    from ..runtime import release
+
+    record = release._product_record(slug, db=db)
+    return str(record["category"]) if record and record.get("category") else None
+
+
+def backfill_unknown(ctx, *, snapshot_id: int) -> dict:
+    """Re-decide every non-CHOSEN newest profile the stored snapshot can now decide."""
+    from sqlalchemy import select
+
+    from ..commerce import category as cat
+    from ..integrations import etsy_taxonomy
+    from ..runtime.release import chain_key
+
+    snapshot = etsy_taxonomy.latest(ctx.db)
+    if snapshot is None or int(snapshot["id"]) != int(snapshot_id):
+        return {"state": "UNKNOWN", "why": f"snapshot {snapshot_id} is not the newest stored"}
+    # Not "tx<id>": that token is the drift re-queue's, and the two are separate decisions.
+    token = f"catfill{snapshot_id}"
+    queued, skipped = [], []
+    with ctx.db.session() as s:
+        profiles = [(r.product_slug, r.version, r.snapshot_id, r.category_status)
+                    for r in _newest_profiles(s)]
+        plans = []
+        for slug, version, bound, status in profiles:
+            if status == CHOSEN:
+                continue
+            if bound is not None and int(bound) == int(snapshot_id):
+                skipped.append({"slug": slug, "version": version,
+                                "why": "already decided on this snapshot: "
+                                       "the snapshot itself cannot choose a node"})
+                continue
+            category = _product_category(slug, ctx.db)
+            if not category:
+                skipped.append({"slug": slug, "version": version,
+                                "why": "no product record names this product's category"})
+                continue
+            choice = cat.choose(snapshot, category)
+            if choice.status != cat.CHOSEN:
+                skipped.append({"slug": slug, "version": version,
+                                "why": f"the newest snapshot still cannot choose: "
+                                       f"{choice.why[:200]}"})
+                continue
+            inputs = _last_seo_inputs(s, slug, version)
+            if inputs is None:
+                skipped.append({"slug": slug, "version": version,
+                                "why": "no completed listing.seo job to re-run"})
+                continue
+            key = chain_key("seo", slug, version, inputs.get("release", ""), token)
+            from ..core.models import Job
+
+            if s.scalar(select(Job.id).where(Job.idempotency_key == key)) is not None:
+                # Once per snapshot, and reported honestly: a re-run already queued (or run)
+                # for this snapshot is not "queued" again.
+                skipped.append({"slug": slug, "version": version,
+                                "why": f"the fix-only re-run for snapshot {snapshot_id} is "
+                                       "already queued or done"})
+                continue
+            plans.append((slug, version, inputs, choice, key))
+    for slug, version, inputs, choice, key in plans:
+        ctx.enqueue("listing", "listing.seo", {**inputs, "rebuild": token, "fix_only": True},
+                    idempotency_key=key)
+        queued.append({"slug": slug, "version": version, "taxonomy_id": choice.taxonomy_id,
+                       "path": " > ".join(choice.path_names)})
+    report = {"state": "measured", "snapshot_id": snapshot_id, "queued": queued,
+              "skipped": skipped[:50], "fix_only": True}
+    if queued or skipped:
+        ctx.audit(BACKFILL_ACTION, detail=report)
+    return report

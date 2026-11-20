@@ -268,7 +268,8 @@ def build_description(product_title: str, *, size_label: str | None,
                       lesson_links: list[dict] | None = None,
                       why_it_matters: str | None = None,
                       yarn_lines: list[str] | None = None,
-                      size_is_estimate: bool = True) -> str:
+                      size_is_estimate: bool = True,
+                      fold_facts: str | None = None) -> str:
     """Assemble the description entirely from verified pattern facts.
 
     `size_is_estimate` (D-OWNER-ESTIMATE-CLAIMS) is True unless a physical sample of this
@@ -298,6 +299,10 @@ def build_description(product_title: str, *, size_label: str | None,
     # on the same line so the key-phrase sentence (F-025) stays in the first two lines.
     lead = (f"{product_title} — a crochet pattern, not a finished item. You receive an "
             f"instant digital download.")
+    if fold_facts and fold_facts.strip():
+        # ENG-SEO-PRICE / B-409: skill level, size(s) and both PDFs ride on the first line, so
+        # the buyer who stops there has every answer (`market_fit.fold_problems`).
+        lead = f"{lead} {fold_facts.strip()}"
     if why_it_matters and why_it_matters.strip():
         lead = f"{lead} {why_it_matters.strip()}"
     out.append(lead)

@@ -807,7 +807,8 @@ REFUSED = "REFUSED"
 
 def search_certificate(*, category: dict, properties: dict, attribute_problems: list[str],
                        copy_gate: dict, tag_problems: list[str],
-                       description_problems: list[str], hero: dict | None = None) -> dict:
+                       description_problems: list[str], hero: dict | None = None,
+                       market_fit: dict | None = None) -> dict:
     """Holistic search certification: never from title and tags alone.
 
     Every check must PASS: the category is CHOSEN from a stored Etsy snapshot (UNKNOWN
@@ -834,6 +835,14 @@ def search_certificate(*, category: dict, properties: dict, attribute_problems: 
                                      "at publish"} if hero is None else
                  {"ok": bool(hero.get("ok")), "why": hero.get("why", "")}),
     }
+    if market_fit is not None:
+        # ENG-SEO-PRICE: the research-shelf check (originality against the nine shops, the
+        # buyer's five questions above the fold, Etsy's title rules).
+        # Review b17-a B1: originality that is not proven (UNKNOWN on an empty shelf, or a
+        # copy) fails the check whatever `ok` says; only a check that ran and passed is PASS.
+        checks["market_fit"] = {"ok": bool(market_fit.get("ok"))
+                                and market_fit.get("originality", True) is True,
+                                "why": str(market_fit.get("why") or "")[:400]}
     failed = [k for k, v in checks.items() if v["ok"] is False]
     pending = [k for k, v in checks.items() if v["ok"] is None]
     verdict = REFUSED if failed else ("PENDING" if pending else PASS)

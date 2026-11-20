@@ -182,6 +182,33 @@
 > - **Open gap reported, not changed.** `risk_matrix` does not re-check "W x H cm" size notes.
 > Tests: `tests/test_eng_composer.py` (21, including 7 killed mutants). Results:
 > `research/final_build/w6/review_requests/ENG-COMPOSER.md`.
+> **2026-11-20 — ENG-SEO-PRICE review b17-a fixes (`eng/seo-price`, merged with `claude/w6-INTEG6` dde3ea62; NOT deployed).**
+> - **B1 fixed.** `market_fit.originality` on an empty research shelf is UNKNOWN (`ok` None), `seo_package` adds `TITLE_ORIGINALITY_UNKNOWN`, `CATEGORY_` problems now block, and `search_certificate` fails `market_fit` unless originality is True. Test: empty shelf -> certificate `market_fit.ok is False`.
+> - **B2 fixed.** Killing test for the trigram-Jaccard copy rule (no long shared run, Jaccard 0.667 -> copied; the rule disabled -> passes).
+> - **B3 fixed.** `discount_problems` (B-376) runs on both live price paths via `release._refuse_deceptive_discount`; with `was_price=None` only a deceptive price can refuse today.
+> - **B4 fixed.** Originality evidence records `scope` (`pod` or `all`).
+> **2026-11-20 — ENG-SEO-PRICE slice 1 (`eng/seo-price`, NOT merged, NOT deployed; production unchanged).**
+> - Production "search: FAIL, category UNKNOWN", root-caused from the code (production audit rows were not readable
+>   without the ops token). Taxonomy drift runs only when a refresh stores a NEW snapshot, and its re-queue switch is
+>   off, so profiles drafted before the Patterns & Blueprints schema was read stayed UNKNOWN for ever. Fix:
+>   `taxonomy_drift.backfill_unknown`. Every refresh re-decides non-CHOSEN profiles the newest snapshot can now choose,
+>   by a FIX-ONLY `listing.seo` once per snapshot (never launch.plan or store.publish).
+>   UNVERIFIED in production: whether Etsy's stored schema offers "Crochet". If it does not, `skipped` names it.
+> - `commerce/market_fit.py` covers SEO, price and learning:
+>   - SEO: research-shelf keyword evidence (the nine OWNER_SHOPS, metadata only); a competitor-title originality check
+>     (blocking); 13 true tags; Etsy title rules; a materials attribute; an above-the-fold check (B-409). The search
+>     certificate gains a `market_fit` check.
+>   - Price: `pricing.position` prices from a MEASURED research band (Q1..Q3, by size range for graded pods), placed
+>     by complexity and charm-priced, with the evidence recorded. UNKNOWN keeps the static band, labelled as such.
+>   - Discounts and learning: B-376 discount checks. The learning hook reads REAL outcomes only, through the existing
+>     lesson bus, with bounded price arms (B-201).
+> - Tests: `test_eng_seoprice` 23/23 (6 mutants killed). Wide 58-suite run: 587 passing. Failing suites, both
+>   PRE-EXISTING (identical on base 64146306): `test_w6_listing_chain_e2e` (3/6) and `test_w4_fmbatch1_drift` (4/10).
+>   Report: `research/final_build/w6/review_requests/seoprice_slice1.md`.
+> - Not yet built:
+>   - `market_fit` is not a REQUIRED certificate check, so legacy profiles are not refused on its account.
+>   - There are no separate bundle-vs-single bands.
+>   - No cadence runs `market_fit.learn`.
 > **2026-11-20 — ENG-DAILY-FIX (`eng/daily`, NOT merged, NOT deployed; production unchanged).** Fixes every Unit B
 > finding of the independent review of a795be17 (BLOCK). Merged `origin/claude/w6-INTEG4` (259e47c4) first, so
 > learn and improve with `improve.ecr` are present; change requests now go through `ecr.file`. (1) BLOCKER: a
