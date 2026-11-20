@@ -572,7 +572,7 @@ def test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart():
                     "motif_backlog_recovery")
         assert all(i["verdict"] in (readback.PASS, readback.FAIL, readback.UNKNOWN)
                    for i in out["items"] if i.get("section") not in advisory)
-        assert by["competitor shops scanned (eight-shop research network)"]["verdict"] in (
+        assert by["competitor shops scanned (nine-shop research network)"]["verdict"] in (
             readback.PASS, readback.WARN), by
         # A9 round 2: unrecorded listing-package releases are a readback row (none seeded).
         assert by["listing-package releases recorded"]["verdict"] == readback.PASS, by

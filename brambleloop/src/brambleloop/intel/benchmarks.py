@@ -157,7 +157,35 @@ LOVEANDSTITCH = _seed_shop("loveandstitch_designs", "LoveandStitchDesigns")
 FIREFLY = _seed_shop("firefly_crochets", "FireflyCrochets")
 SEED_SHOPS: tuple[BenchmarkSpec, ...] = (HANJAN, IVYLOOP, LOVEANDSTITCH, FIREFLY)
 
-REGISTRY: tuple[BenchmarkSpec, ...] = (MJS, MADELINE, ZKB, EASY) + SEED_SHOPS
+# D-OWNER-NINTH-SHOP (owner directive 2026-11-19): a ninth mandatory research shop, permanent,
+# scanned on the watchlist cadence through the same official Etsy Open API v3 public reads as
+# the others. The shop's name is spelled "Desing" -- that is the shop's own spelling, and the
+# exact-match `resolve_shop` would refuse a "corrected" one as a different seller (#206).
+# The owner-supplied URL is kept verbatim (tracking query included), the canonical one beside it.
+ARTLOVE_KEY = "artlove_desing"
+ARTLOVE_SHOP = "ArtLoveDesing"
+ARTLOVE_CANONICAL_URL = "https://www.etsy.com/ca/shop/ArtLoveDesing"
+ARTLOVE_OWNER_SUPPLIED_URL = (
+    "https://www.etsy.com/ca/shop/ArtLoveDesing?ref=shop_profile&listing_id=4427559824")
+# What the owner asked to have monitored for this shop. Each maps to a figure of
+# `watchlist.compare` (see `watchlist.MONITORING_FOCUS`); none of it reads PDF contents.
+ARTLOVE_FOCUS = ("listings", "prices", "amigurumi", "pdf_languages", "pdf_quality", "reviews",
+                 "trends")
+ARTLOVE = BenchmarkSpec(
+    key=ARTLOVE_KEY, shop_name=ARTLOVE_SHOP, canonical_url=ARTLOVE_CANONICAL_URL,
+    owner_supplied_url=ARTLOVE_OWNER_SUPPLIED_URL, mandatory=True,
+    reason_for_inclusion=(
+        "Owner directive 2026-11-19 (D-OWNER-NINTH-SHOP): ninth mandatory research shop, "
+        "permanent watchlist member, monitored for listings, prices, amigurumi, PDF languages "
+        "and quality, reviews and trends. Research source only: demand and merchandising "
+        "intelligence, never copied. Where an authorized source cannot reach it, the "
+        "limitation is recorded and the monitoring job kept; it is never reported as scanned."))
+# No categories/pods are declared: nobody has observed this shop's catalogue yet, and a pod
+# claimed before the first scan would be an assumption. Amigurumi is a monitored figure.
+# The permanent research sources the owner named after the seed shops, in the owner's order.
+OWNER_ADDED_SHOPS: tuple[BenchmarkSpec, ...] = (ARTLOVE,)
+
+REGISTRY: tuple[BenchmarkSpec, ...] = (MJS, MADELINE, ZKB, EASY) + SEED_SHOPS + OWNER_ADDED_SHOPS
 
 
 def mandatory() -> list[BenchmarkSpec]:

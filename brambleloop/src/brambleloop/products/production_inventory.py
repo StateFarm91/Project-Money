@@ -111,7 +111,10 @@ VERDICT_TTL = timedelta(hours=24)
 
 # HELD reasons (flow health and the CC view read these).
 HOLD_OWNER, HOLD_PHYSICAL, HOLD_PAID, HOLD_POLICY = "owner", "physical", "paid_approval", "policy"
-HOLD_KINDS = (HOLD_OWNER, HOLD_PHYSICAL, HOLD_PAID, HOLD_POLICY)
+# ENG-FAMILIES: a concept whose construction family has no verified engine (intake held it, or
+# `cir.draft` refused its construction). Its `why` starts `construction_unsupported:<family>`.
+HOLD_CONSTRUCTION = "construction_unsupported"
+HOLD_KINDS = (HOLD_OWNER, HOLD_PHYSICAL, HOLD_PAID, HOLD_POLICY, HOLD_CONSTRUCTION)
 
 PASS, FAIL, UNKNOWN = "PASS", "FAIL", "UNKNOWN"
 GATE_MODES = ("recorded", "live")
@@ -305,9 +308,42 @@ def load_records(db) -> dict:
     except Exception as exc:  # noqa: BLE001 - review M1: an unreadable intent table is a
         # closed gate for every product (store.publish would refuse or crash), never "none".
         intents_unreadable = f"draft intents could not be read: {type(exc).__name__}"
+    construction_holds, construction_unreadable = _intake_construction_holds(db)
     return {"products": products, "versions": versions, "listings": listings, "tests": tests,
             "jobs": jobs, "audits": audits, "costs": costs, "owner_open": owner_open,
-            "intents": intents, "intents_unreadable": intents_unreadable}
+            "intents": intents, "intents_unreadable": intents_unreadable,
+            "construction_holds": construction_holds,
+            "construction_holds_unreadable": construction_unreadable}
+
+
+def _intake_construction_holds(db) -> tuple[dict, str | None]:
+    """ENG-FAMILIES: research concepts intake held for their construction, by slug.
+
+    The newest `radar_concepts` row per slug, when it is refused and one of its reasons is a
+    `construction_unsupported:<family>` hold. Read-only: a database that never ran intake has
+    no table and therefore no such concept. Informational, so an unreadable table is reported
+    (never a pass for anything) without closing any publication gate."""
+    from sqlalchemy import inspect, select
+
+    try:
+        from ..creative.construction_families import HOLD_PREFIX
+        from ..radar import intake
+
+        if not inspect(db.engine).has_table(intake.RadarConcept.__tablename__):
+            return {}, None
+        newest: dict[str, Any] = {}
+        with db.session() as s:
+            for r in s.scalars(select(intake.RadarConcept).order_by(intake.RadarConcept.id)):
+                newest[r.slug] = (r.id, r.state, list(r.reasons or []),
+                                  ((r.detail or {}).get("proposal") or {}).get("title"))
+        out = {}
+        for slug, (rid, state, reasons, title) in newest.items():
+            held = [str(x) for x in reasons if str(x).startswith(HOLD_PREFIX)]
+            if state == intake.REFUSED and held:
+                out[slug] = {"row_id": rid, "reason": held[0], "title": title}
+        return out, None
+    except Exception as exc:  # noqa: BLE001 - informational reader; never hides the rest
+        return {}, f"intake construction holds could not be read: {type(exc).__name__}"
 
 
 def _version_key(v: str | None):
@@ -336,6 +372,9 @@ def rows_from(rec: dict) -> list[dict]:
                 slugs[j.slug].add(j.version)
     for slug, _t in rec["products"].values():
         slugs.setdefault(slug, set())
+    for slug, held in (rec.get("construction_holds") or {}).items():
+        slugs.setdefault(slug, set())
+        titles.setdefault(slug, held.get("title"))
     out = []
     for slug in sorted(slugs):
         vers = sorted(slugs[slug], key=lambda v: (order.get((slug, v), 0), _version_key(v)))
@@ -595,6 +634,14 @@ def derive_row(db, rec: dict, row: dict, *, gate_mode: str = "recorded",
         reach("owner_veto", ruling_id=veto.get("ruling_id"))
         return result(REJECTED, veto.get("why") or "owner veto")
 
+    # ENG-FAMILIES: a research concept intake held for its construction never reaches a job.
+    intake_hold = (rec.get("construction_holds") or {}).get(slug)
+    if intake_hold is not None and not jobs and not pv and not listing:
+        holds.append(_hold(HOLD_CONSTRUCTION, intake_hold["reason"],
+                           radar_concept_id=intake_hold["row_id"]))
+        return result(RESEARCH_CANDIDATE, "held at intake: " + intake_hold["reason"],
+                      held_stage="research")
+
     # Research.
     score = _latest(jobs, "radar.score")
     if score is not None:
@@ -619,6 +666,16 @@ def derive_row(db, rec: dict, row: dict, *, gate_mode: str = "recorded",
         return result(RESEARCH_CANDIDATE, "scored for research; not yet promoted"
                       if score is None and stages else "on record; no research verdict yet")
     reach("research_approved", job_ids=[score.id] if score is not None else [])
+
+    # ENG-FAMILIES: the draft refused the concept's construction and nothing was built.
+    if drafts and not compiles and not pv:
+        last = max(drafts, key=lambda j: j.id)
+        hold = str(last.outputs.get("hold") or "") if last.status == "done" else ""
+        if last.outputs.get("drafted") is False and hold:
+            holds.append(_hold(HOLD_CONSTRUCTION, hold + ": " + "; ".join(
+                str(r)[:160] for r in (last.outputs.get("reasons") or [])[:2]),
+                job_id=last.id))
+            return result(RESEARCH_APPROVED, f"held: {hold}", held_stage="development")
 
     # Development.
     retired = [d for d in drafts if d.status == "done" and d.outputs.get("retired_alias")]

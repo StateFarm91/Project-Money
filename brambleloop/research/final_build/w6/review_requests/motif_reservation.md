@@ -127,7 +127,23 @@ by `{"reservation_id": None}`. 8 tests in `test_motif_reservation` failed, and 3
 
 ## Suites
 
-SUITES_RESULT_PLACEHOLDER
+`cd brambleloop && JOBS=4 SUITE_REGISTRY=0 SUITES="..." PY=<venv> bash run_tests.sh`, with
+venv from `requirements.lock` + `requirements-test.lock` and no PYTHONPATH. The run covered 44
+suites: the required list, plus every suite that greps for `owned_photography`,
+`model_photography`, `motif_fidelity` or `_representative_slug`.
+
+**Result: TOTAL PASSING 811, suites failing 0, TMP leaked 0** (run record
+`20261119T171410Z-22076`, 2026-11-19T17:31:13Z). The run started on `bb3bdd92`, with a working
+tree whose uncommitted changes are exactly what `58ba3455` commits. This file's commit changes
+only this file.
+
+The first run found two problems, both fixed in `58ba3455`:
+- `test_cost_governance_wave2`: the new `owned-rejudge-` work-directory prefix was missing from
+  `ops.health.TEMP_PREFIXES`. It is now registered.
+- `test_motif_reservation`: the harness could not read the suite's own output format. The
+  tests passed, but the passes were not counted.
+
+Suites: test_cert_design_pipeline test_cert_intel_wave test_cert_intel_wave2 test_cert_parity_copy test_cert_spend_hosts test_cost_governance_wave2 test_etsy_oauth_callback test_executor test_fb2_i_repairs test_final_visual_authority test_funding test_gallery_escalation test_launch test_model_identity test_model_photography test_model_spend_paths test_motif_fidelity test_motif_reservation test_owned_photography test_parity_realism_reader test_portrait_repair test_provider_trial test_reliability test_seasonal_cycle test_serp test_vacuity test_w3_spend_attribution test_w3_tmp_hygiene test_w3_visual_rnd_guard test_w4_c07_f441_handlers test_w4_c2_visual test_w4_close5_rows test_w4_controlled_experiments test_w4_department_work test_w4_departments test_w4_fmbatch1_providers test_w4_fmbatch1_retention_guard test_w4_fml_checkpoint_adoption test_w4_gatesi test_w4_resume_runner test_w4_spend_attribution test_w4_spenda_k5a test_w4_visref test_w4_wraptest
 
 ## Residual / not done
 

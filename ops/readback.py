@@ -320,6 +320,14 @@ READBACK_TOKEN_VAR = "BRAMBLELOOP_READBACK_TOKEN"
 EVIDENCE_ENDPOINT = "/api/readback/evidence"
 EVIDENCE_CHECKS = ("publishing_halt_clear", "stale_artefacts_rebuilding",
                    "no_repeated_paid_call_in_24h", "weekly_jobs_completing")
+# The owner's research shops (`intel.scan_evidence.OWNER_SHOPS`, anchor included): eight
+# until D-OWNER-NINTH-SHOP (2026-11-19) added ArtLoveDesing. This script is stdlib-only and
+# cannot import the package, so the count is stated here and a test pins it to OWNER_SHOPS.
+RESEARCH_SHOPS = 9
+_NUMBER_WORDS = {8: "eight", 9: "nine", 10: "ten", 11: "eleven", 12: "twelve"}
+COMPETITOR_SCANS_ITEM = (f"competitor shops scanned "
+                         f"({_NUMBER_WORDS.get(RESEARCH_SHOPS, str(RESEARCH_SHOPS))}-shop "
+                         f"research network)")
 # (item, evidence section, server judgement key or None)
 EVIDENCE_ITEMS = (
     ("dead letters in 24 h by job type", "dead_letters_24h", "no_unexpected_dead_letters_in_24h"),
@@ -332,9 +340,9 @@ EVIDENCE_ITEMS = (
     ("products progressing through certification", "certification_pipeline", None),
     ("autonomous company loop", "autonomy_loop", None),
     ("Etsy category resolvable (crochet offered by the chosen node)", "etsy_taxonomy", None),
-    # WS2 R1: the eight shops' scan state. Advisory: a WARN never fails the readback or a
+    # WS2 R1: the research shops' scan state. Advisory: a WARN never fails the readback or a
     # deploy -- an Etsy refusal (or one seed shop gone) is reported, not turned into a FAIL.
-    ("competitor shops scanned (eight-shop research network)", "competitor_scans", None),
+    (COMPETITOR_SCANS_ITEM, "competitor_scans", None),
     # ENG watchlist-cadence: what the scheduler is holding back. Advisory, like the scans: a
     # suspension or a silent mandatory shop WARNs (the P1 incident is the escalation).
     ("scheduler holds and silent mandatory shops", "scheduler", None),
@@ -447,11 +455,16 @@ def _judge_section(name: str, section, judged) -> tuple[str, str]:
         unscanned += [f"{r.get('alias')}:stale({r.get('success_age_hours')}h>"
                       f"{r.get('stale_after_hours')}h)"
                       for r in shops if r.get("state") == "scanned" and _stale(r)]
+        # D-OWNER-NINTH-SHOP: a server reporting fewer research shops than the owner named has
+        # dropped one; that is never a PASS, however well the others scanned.
+        missing = ([f"reported {len(shops)} shops, expected {RESEARCH_SHOPS}"]
+                   if len(shops) != RESEARCH_SHOPS else [])
         if credential != "usable":
             return WARN, (f"Etsy read credential {credential}; {len(shops) - len(unscanned)}/"
-                          f"{len(shops)} scanned")
-        if unscanned:
-            return WARN, f"{len(shops) - len(unscanned)}/{len(shops)} scanned; {unscanned}"
+                          f"{len(shops)} scanned" + (f"; {missing}" if missing else ""))
+        if unscanned or missing:
+            return WARN, (f"{len(shops) - len(unscanned)}/{len(shops)} scanned; "
+                          f"{unscanned + missing}")
         return PASS, f"{len(shops)}/{len(shops)} scanned"
     if not isinstance(judged, bool):
         return UNKNOWN, "no server judgement"

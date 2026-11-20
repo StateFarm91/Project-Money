@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-19T17:05:24.058701+00:00",
+ "generated_at": "2026-11-20T03:45:09.528478+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,10 +10,10 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 143,
-  "handlers": 175,
+  "cadences": 145,
+  "handlers": 177,
   "agents": 34,
-  "follow_on_edges": 94
+  "follow_on_edges": 93
  },
  "departments": [
   {
@@ -110,6 +110,12 @@
       "period_seconds": 3600
      },
      {
+      "name": "supply_admit",
+      "agent": "orchestrator",
+      "job_type": "supply.admit",
+      "period_seconds": 900
+     },
+     {
       "name": "launch_readiness",
       "agent": "orchestrator",
       "job_type": "launch.readiness",
@@ -147,6 +153,7 @@
      "owner/API route api_launch_readiness",
      "owner/API route api_plan_cycle",
      "plan.strategy",
+     "products/supply.py:after_chain_job",
      "runtime/chain_successors.py:launch_held",
      "runtime/orders.py:handle_trajectory"
     ]
@@ -195,6 +202,7 @@
      "plan.strategy",
      "portfolio.review",
      "scale.trajectory",
+     "supply.admit",
      "swarm.allocate",
      "swarm.backlog",
      "swarm.orphans",
@@ -523,10 +531,6 @@
     {
      "from": "mjs.seasonal_sentinel",
      "to": "creative.tournament"
-    },
-    {
-     "from": "radar.score",
-     "to": "cir.draft"
     }
    ],
    "learning_signal": [
@@ -727,13 +731,10 @@
      "chain.rebuild",
      "cir.compile",
      "cir.draft",
-     "creative/intake.py:intake",
-     "creative/intake.py:regate_held",
      "creative/preengineering.py:record",
      "mjs.seasonal_sentinel",
      "owner/API route api_seasonal_recompute",
      "products/pipeline_board.py:handle_product_pipeline",
-     "radar.score",
      "runtime/release.py:enqueue_member_collections",
      "runtime/release_recovery.py:seed_launch0",
      "seasonal.engine"
@@ -1013,6 +1014,10 @@
     {
      "from": "gate.certify",
      "to": "listing.draft"
+    },
+    {
+     "from": "ops.sentinel",
+     "to": "chain.rebuild"
     },
     {
      "from": "physical.record",
@@ -1469,6 +1474,7 @@
      "growth/portfolio_act.py:act",
      "integrations/taxonomy_drift.py:after_refresh",
      "launch.plan",
+     "ops.sentinel",
      "ops/rebuild_graph.py:enqueue",
      "owner/API route api_chain_rebuild",
      "pricing.position",
@@ -2518,6 +2524,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "owner_queue_consolidate",
+      "agent": "orchestrator",
+      "job_type": "ops.owner_queue_consolidate",
+      "period_seconds": 3600
+     },
+     {
       "name": "dependency_sweep",
       "agent": "integration_steward",
       "job_type": "ops.dependencies",
@@ -2569,6 +2581,7 @@
    "execution": {
     "handler_modules": [
      "brambleloop.runtime.ops_watch",
+     "brambleloop.runtime.owner_queue_ops",
      "brambleloop.runtime.pipeline",
      "brambleloop.runtime.release",
      "brambleloop.runtime.v11_wiring"
@@ -2582,6 +2595,7 @@
      "ops.heartbeat",
      "ops.maturity_disagreements",
      "ops.offsite_archive",
+     "ops.owner_queue_consolidate",
      "ops.policy_watch",
      "ops.provider_credentials",
      "ops.queue_check",

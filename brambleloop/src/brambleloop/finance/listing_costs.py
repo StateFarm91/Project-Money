@@ -31,6 +31,63 @@ def pending(db, listing_id, amount):
         return 0.0 if _exposure(s, listing_id) is not None else amount
 
 
+# ENG-APPROVALS (owner directive D-OWNER-STANDING-INTERNAL, 2026-11-19): "I approve the opening
+# catalogue's Etsy listing fees up to CA$6". A standing spend authorisation for listing /
+# activation fees ONLY, bounded and cumulative: every reservation counts against it (and an
+# observed listing fee for a listing that was never reserved counts too), it never resets, and
+# it raises no other ceiling -- the agent's daily ceiling is still checked first, unchanged.
+# It authorises no publication: store.activate still needs its gates, the Etsy grant path and
+# Stage A or the per-product approval before it ever reaches `reserve`.
+OPENING_CATALOGUE_FEE_BUDGET_CAD = 6.00
+FEE_KINDS = ('etsy_listing_fee', 'etsy_listing_fee_actual')
+_EPS = 1e-9
+
+
+def _opening_used(session) -> tuple[float, int]:
+    """(CA$ counted against the opening-catalogue budget, reservations). Reservations count in
+    full; an observed fee counts only for a listing with no reservation (never twice)."""
+    rows = list(session.execute(select(CostEntry.kind, CostEntry.amount_cad, CostEntry.detail)
+                                .where(CostEntry.kind.in_(FEE_KINDS))))
+    reserved = {str((d or {}).get('listing_id')) for k, _a, d in rows
+                if k == 'etsy_listing_fee'}
+    used = sum(float(a or 0.0) for k, a, _d in rows if k == 'etsy_listing_fee')
+    used += sum(max(0.0, float(a or 0.0)) for k, a, d in rows
+                if k == 'etsy_listing_fee_actual'
+                and str((d or {}).get('listing_id')) not in reserved)
+    return round(used, 6), len(reserved)
+
+
+def opening_budget(db) -> dict:
+    """The opening-catalogue listing-fee budget: total, used (reservations count), remaining."""
+    with db.session() as s:
+        used, n = _opening_used(s)
+    return {'budget_cad': OPENING_CATALOGUE_FEE_BUDGET_CAD, 'used_cad': round(used, 2),
+            'remaining_cad': round(max(0.0, OPENING_CATALOGUE_FEE_BUDGET_CAD - used), 2),
+            'reservations': n, 'authority': 'D-OWNER-STANDING-INTERNAL',
+            'covers': 'Etsy listing/activation fees only; authorises no publication',
+            'cumulative': True}
+
+
+def opening_budget_refusal(db, listing_id, amount) -> str | None:
+    """Why a fee of `amount` for `listing_id` would exceed the opening budget, or None. A
+    listing already reserved costs nothing more (the reservation is once per listing)."""
+    with db.session() as s:
+        if _exposure(s, listing_id) is not None:
+            return None
+        used, _n = _opening_used(s)
+    return _budget_refusal(used, amount)
+
+
+def _budget_refusal(used: float, amount: float) -> str | None:
+    if float(amount) < 0:
+        return 'a negative listing fee is not a reservation'
+    if used + float(amount) > OPENING_CATALOGUE_FEE_BUDGET_CAD + _EPS:
+        return (f'the opening-catalogue listing-fee budget is CA$'
+                f'{OPENING_CATALOGUE_FEE_BUDGET_CAD:.2f} in total (D-OWNER-STANDING-INTERNAL): '
+                f'CA${used:.2f} already reserved + CA${float(amount):.2f} would exceed it')
+    return None
+
+
 def reserve(db, *, listing_id, amount, agent, ceiling, job_id=None):
     """Durable exposure once per initial listing activation, not a claim of paid cash."""
     from ..agents.registry import BudgetExceeded
@@ -43,10 +100,16 @@ def reserve(db, *, listing_id, amount, agent, ceiling, job_id=None):
             CostEntry.agent == agent, CostEntry.at >= since)) or 0.0)
         if spent + amount > ceiling:
             raise BudgetExceeded('listing fee exposure exceeds unchanged daily ceiling')
+        # Under the same lock as the write: two activations cannot both find the last room.
+        over = _budget_refusal(_opening_used(s)[0], amount)
+        if over:
+            raise BudgetExceeded(over)
         row = CostEntry(agent=agent, job_id=job_id, kind='etsy_listing_fee',
                         amount_cad=amount, estimated_cad=amount,
                         detail={'listing_id': str(listing_id), 'basis': 'modelled',
                                 'state': 'reserved_unreconciled', 'usd': 0.20,
+                                'authority': 'D-OWNER-STANDING-INTERNAL',
+                                'budget': 'opening_catalogue_listing_fees',
                                 'conversion': f'assumed {_fx.ASSUMED_USD_PER_CAD:.4f} USD/CAD (core.fx); '
                                               'not payment evidence'})
         s.add(row);s.flush();return row.id

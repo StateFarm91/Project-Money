@@ -58,7 +58,7 @@ LOOP_STAGES: tuple[tuple[str, tuple[str, ...]], ...] = (
                             "intel.serp_capture", "intel.watchlist_scan",
                             "intel.gallery_analysis", "etsy.listing_census", "culture.sweep",
                             # WS2 R1: category-leader discovery. Review 6816970157 M1: NOT
-                            # intel.scan_evidence -- the daily join always reports 8 shops as
+                            # intel.scan_evidence -- the daily join always reports every shop as
                             # work, so it would satisfy this stage with nothing scanned.
                             "intel.panel_discovery")),
     ("opportunity_validation", ("radar.score", "intel.opportunity_review",
@@ -699,7 +699,8 @@ def etsy_taxonomy(db, *, now: datetime) -> dict:
             "category_choices": choices, "property_candidates": candidates}
 
 
-# WS2 R1: the competitor-scan state of the owner's eight shops, readable with the readback
+# WS2 R1: the competitor-scan state of the owner's research shops (nine since
+# D-OWNER-NINTH-SHOP, 2026-11-19), readable with the readback
 # token. Aliases, fixed-vocabulary states, counts and UTC timestamps only -- never a shop name,
 # a benchmark key (which embeds one), a URL or error text.
 _WATCH_STATES = frozenset({"ok", "source_outage", "credential_refused", "not_accessible",

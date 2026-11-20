@@ -2693,3 +2693,110 @@ Reversible by decision.
 
 The trigger is the proposal's stated size, not only the band, so the dishcloths fit with or without A4a's code on the tree. Reversible by decision.
 **D-A1R-STUFFED-EXEMPTIONS: the two catalogue stuffed pieces are written "not merchandised to a child" (opus2 under the owner's A1-R directive, 2026-11-02; owner ratification pending).** A1-R made the construction the children's-safety trigger: any closed stuffed form is held until an explicit decision exists, and the implicit candidate exemption is not one. The catalogue has two closed stuffed forms. `heart-row-ring-pillow` is a wedding ring-bearer pillow and `spring-garden-kneeler` a garden kneeling pad; neither is merchandised, sized or described for a child. Both are recorded in `products/launch0.NOT_MERCHANDISED_TO_A_CHILD`, with who, when and this entry in `NOT_MERCHANDISED_DECISIONS`. Any other closed stuffed form (a radar or registry draft, a toy) is held as a named hold with one owner decision item (`childrens-decision:<slug>`) until assigned or exempted. Reversing either exemption is one line and re-holds the product.
+
+## D-OWNER-STANDING-INTERNAL — standing authority for routine internal operations (owner, 2026-11-19)
+
+The owner's directive, verbatim:
+
+> I authorize all routine internal Brambleloop operations within our existing budgets, permissions and safety requirements. Research, product development, engineering, testing, PDF creation, image generation, SEO, listing preparation, learning, recovery, scheduling and agent coordination should happen AUTOMATICALLY. I approve the opening catalogue's Etsy listing fees up to CA$6 and the existing CA$100/month model-spending ceiling. This is not permission for paid ads, additional subscriptions, or higher spending. Replace the 106-card owner queue with consolidated decisions, standing authorizations and automatic closure of redundant, stale or already-satisfied requests. Preserve the audit trail. Do not interpret this as me attesting that I've personally reviewed external policies, supplied physical evidence, signed specific cryptographic grants or authorized publication that hasn't passed its requirements. Bring me only those genuinely necessary exceptions in one concise batch. Do not let unresolved publication approvals stop safe internal manufacturing.
+
+How it is implemented (ENG-APPROVALS, branch `eng/approvals`). It uses the existing authority
+model; there is no new framework.
+
+- **What the authority covers.** It covers exactly the autonomous action classes in
+  `authority.classes` (OBSERVE, RESEARCH, BUILD, TEST, DRAFT). These already dispatch without
+  approval. The gated classes are never covered (`authority.standing_internal.covers_job_type`).
+- **Classifying the queue.** Every OwnerAction kind is classified as ROUTINE_INTERNAL,
+  AUTO_CLOSE or GENUINE_EXCEPTION (`authority.standing_internal.classify`). Unknown kinds fail
+  closed to the owner. The table is in `research/final_build/w6/owner_queue_classification.md`.
+- **The hourly sweep.** `ops.owner_queue_consolidate` supersedes routine cards and closes
+  redundant, stale or satisfied cards. Each move writes an `owner_action.standing_authority`
+  audit row citing this entry, and that row is kept for life. Nothing is deleted. Genuine
+  exceptions are never touched. The sweep is idempotent.
+- **What reaches the owner.** Only the eight exception classes do:
+  - grant signatures and step-up acts;
+  - publication or activation;
+  - external policy attestation;
+  - physical evidence;
+  - spend beyond approved budgets;
+  - paid ads and subscriptions;
+  - KYC, legal and banking;
+  - certification, construction and safety authority.
+
+  They are shown as one batch, `owner_exceptions` in the Approvals inbox. The P0 board counts
+  open exceptions, automatic closes in the last 24 h and routine approvals in the last 24 h.
+- **Opening-catalogue listing fees.** These have a CA$6.00 standing budget, cumulative, with
+  reservations counted (`finance.listing_costs.OPENING_CATALOGUE_FEE_BUDGET_CAD`). It is
+  enforced in `reserve` under the accounting lock and in store.activate's early refusal. The
+  limits on it:
+  - It covers listing and activation fees only.
+  - It raises no other ceiling. The store_operator daily CA$1 is unchanged and checked first,
+    and the standing policy's CA$0 per 30 days is unchanged.
+  - It authorises no publication.
+- **What the directive does not authorise.** It is not an owner attestation. Nothing under it
+  signs, seals or records an owner grant, launch decision, policy review, physical evidence or
+  publication approval. Tests pin that the modules import no grant writer.
+
+Reversible by decision.
+**D-OWNER-CORE-FAMILIES: stuffed animals/amigurumi, baby products and pillows/cushions are permanent CORE product families; MadelineMaeCo is a priority research shop. The factory runs first (owner FINAL DIRECTIVE, 2026-11-19, approved).** The owner reports these as the shop's "huge hits" and made them a permanent business direction, not a temporary assignment. Every future engineering and research session follows it.
+
+1. **Two parallel tracks, and Track 1 always wins a conflict.**
+   - **Track 1 (immediate revenue factory)** carries the construction families already proven through the whole chain, 24/7 on Railway: research → original design → CIR → compile → twin/reverse → certification → US/UK PDFs → FLUX galleries → SEO/pricing → listing package → authorized draft/publication → learning.
+   - **Track 2 (permanent category expansion)** is a dedicated team building the amigurumi, pillow/cushion and baby families.
+   - New families are never a reason to delay production from proven ones.
+2. **Each new family enters the publishable catalogue only after passing its own tests:** real engineering, compilation, sizing, certification and customer-deliverable tests.
+3. **Child and baby safety is more than embroidered eyes.**
+   - Embroidered features only, with no detachable small parts.
+   - Validated joins, cords and loops, stuffing, and age suitability.
+   - Cited age and choking-hazard requirements.
+   - Physical evidence where the gate requires it.
+   - We sell patterns and claim no toy certification.
+4. **Research weighting.**
+   - MadelineMaeCo gets higher research priority and up to 5 benchmark-shortlist picks, inside the CA$300 benchmark budget.
+   - No purchase happens without separate owner authorization.
+   - Research demand for stuffed animals, baby items and cushions is prioritized, while proven families keep a steady flow.
+   - Concepts that cannot be manufactured yet stay visible and HELD with exact reasons.
+5. **Visual and PDF standard.**
+   - Premium FLUX imagery is encouraged: lifestyle scenes, multiple settings, varied angles.
+   - Laura's identity stays locked, her outfit is consistent within a listing, and the product's construction is identical throughout the gallery.
+   - PDF requirements scale with the product family: a coaster does not need a garment manual.
+   - Images never substitute for physical or engineering proof, and the Etsy disclosures and publication safeguards stay.
+6. **Accountability.**
+   - Every day the factory shows production evidence: concepts entering engineering, certifications, US/UK PDFs, images verified or recovered, galleries, listing packages, Etsy drafts/live listings, and lessons applied.
+   - Zero output is a blocker that gets fixed the same day.
+
+Reversible only by the owner.
+
+**D-OWNER-NINTH-SHOP: ArtLoveDesing is the ninth mandatory research shop, permanent (owner directive, 2026-11-19).** The owner added a ninth research shop. It is named ArtLoveDesing, spelled "Desing" exactly as the shop spells itself. The owner-supplied URL is kept verbatim: `https://www.etsy.com/ca/shop/ArtLoveDesing?ref=shop_profile&listing_id=4427559824`. The canonical URL `https://www.etsy.com/ca/shop/ArtLoveDesing` is stored beside it. The shop is a permanent research source and never a report mention.
+
+**Registries.** It is added to every registry, with role `permanent`:
+- `intel/benchmarks.py`: `ARTLOVE` in `OWNER_ADDED_SHOPS`, so it is in `REGISTRY` and mandatory.
+- `intel/watchlist.py`: a `Member` in `WATCHLIST`.
+- `intel/scan_evidence.py`: in `OWNER_SHOPS`, the ninth in the owner's order.
+- `radar/market.py`: in `COMPETITORS`, as an owner-named profile with nothing observed and nothing claimed.
+
+**Scanning.** It is scanned on the watchlist cadence by the same `scan_member` as the other shops. That is the official Etsy Open API v3 public read endpoints only: findShops, the shop's listings and getReviewsByShop.
+
+**Monitoring.** The owner asked for listings, prices, amigurumi, PDF languages and quality, reviews and trends. `watchlist.MONITORING_FOCUS` maps each of these to the `compare` figures that answer it. Three figures are new, and they are read for every shop:
+- `amigurumi_listings` is DERIVED from our pod routing.
+- `listing_languages` is MEASURED from findShops `languages`. Language codes only are kept. The PDF is never bought, downloaded or opened.
+- `pdf_quality` is UNMEASURED. No compliant source exists, because judging a competitor's PDF needs their file. The review average and recurring complaint themes are shown as their own figures and are never relabelled as PDF quality.
+
+**Unreachable shop.** If the authorised API cannot reach the shop, the D-W4-OWNER-SEEDSHOPS pattern applies unchanged. The shop is recorded as `not_accessible`, its monitoring is kept, it backs off, the other shops are not blocked and it is never reported as scanned. Its alternative evidence says "owner-named profile, not yet observed" rather than citing an observation that never happened. IvyLoop's unobserved profile now reads the same way.
+
+**Readback.** `ops/production_evidence.competitor_scans` reports nine shops. `ops/readback` states `RESEARCH_SHOPS = 9`, a test pins that number to `len(OWNER_SHOPS)`, and the row is now "competitor shops scanned (nine-shop research network)". A server that reports fewer shops WARNs with "expected 9" and never PASSes.
+
+**Tests.** `tests/test_ninth_shop.py` covers the change, and the existing suites now assert the exact nine. This is reversible only by an owner decision.
+
+**D-ENG-FAMILIES-1: a researched concept is routed to the verified engine for its family; everything else is held as `construction_unsupported:<family>` (ENG-FAMILIES, 2026-11-19).** This supersedes W5-CONCEPT's intake rule `SUPPORTED_CONSTRUCTIONS = ("flat_rows",)`. Under that rule a researched basket was refused, while the same object from the static POOL drafted, compiled and certified through `fallback_constructions.vessel`.
+
+- **No second source of truth.** `creative.construction_families.route` asks `fallback_constructions.plan`, the function `cir.draft` calls, which family a concept drafts.
+- **No mislabelling.** The concept's declared form and construction must name that same family. If they don't (a tapestry declaration the title would draft as a plain vessel, a basket whose category drafts a panel), the concept is held, never drafted under a name it does not make.
+- **Admission.** Only `verified` and `physical_gate` families are admitted. Each admitted family names the test in `tests/test_eng_families.py` that carries a research-derived concept through compile, twin, reverse, the Product Truth size check and a granted certificate. For `panel_pair` (physical_gate), the only refusal is the class C physical sample.
+- **Slice one admits** flat_panel, vessel, tapestry and panel_pair. pouch, tote, cosy, stocking and triangle are `partial` and held until a pinned proof exists. pouch is refused `ASSET_COLOR_ABSENT` today.
+- **Holds are visible.** They appear in `production_inventory` as hold kind `construction_unsupported`, for intake holds and for `cir.draft` construction refusals.
+- **Children's gates are untouched.** Intake `_children_reasons` still runs, as do `childrens_decision` and `small_parts` at PDF. No baby item routes to a shaped family.
+
+The table is `research/final_build/w6/construction_families.md`. Reversible by decision.
+
+**D-ENG-FAMILIES-2: the router reads what a title and premise name, and admits only (family, category) pairs that certify (ENG-FAMILIES fix round 1, 2026-11-19).** Main's review found a "Granny Square Basket" admitted, drafted as the plain striped vessel and certified (H1), and pet beds admitted but never certifying (M1). `construction_families.route` now holds any title or premise naming a construction the drafted engine does not build (`NAMED_FEATURES`, shared across every admitted family) as `construction_unsupported:<feature>`; the pet bed variant is held as `construction_unsupported:pet_bed` rather than widening the twin tolerance; `PAIR_PROOFS` and a router sweep require a certifying proof per admitted (family, category). `gates/policy._IP_TERMS` matches whole words.

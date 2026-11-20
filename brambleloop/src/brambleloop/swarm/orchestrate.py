@@ -348,6 +348,7 @@ def thrash_sweep(db, *, now: datetime | None = None,
             "limit": THRASH_LIMIT,
             "progress": progress, "backoff": backoffs,
             "suspended": sorted(suspended_job_types(db, now=now)),
+            "rearmed": rearmed_job_types(db),
             "note": ("no loop: no failing or paid call repeated an identical result three "
                      "times" if not tripped else
                      f"{len(tripped)} loop(s) broken: incidents raised and queued retries "
@@ -383,6 +384,10 @@ LIVENESS_JOB_TYPES: frozenset[str] = frozenset({
     "ops.continuity",
     # W4-CREDHEALTH: its job is to notice the owner's key rotation or top-up.
     "ops.provider_credentials",
+    # ENG-SUPPLY: product admission. While capacity is full its output is unchanged by
+    # design; its job is to notice the slot a finished or parked chain frees. Backed off
+    # (up to 32 x 15 min) the next product would wait hours for nothing. CA$0, a DB read.
+    "supply.admit",
 })
 # ENG watchlist-cadence (prod 2026-11-18): a reader gated on a credential that a probe
 # re-tests. While the probe says the key is refused, the reader correctly does nothing and
@@ -589,6 +594,169 @@ def _hypothesis_changed(suspension: dict) -> bool:
     return bool(suspension.get("code_commit")) and suspension["code_commit"] != _commit()
 
 
+# ---------------------------------------------------------------------------
+# ENG-RECOVERY (prod 2026-11-19): a release change re-arms a suspended NON-SPENDING loop once.
+#
+# Production read 19 job types parked by the breaker, most of them backoffs at the 32x cap
+# (chain.rebuild, chain.successors, assets.owned_photography until 12-17). A backoff lifted
+# only when its deadline passed, its gate probe succeeded or an upstream made progress --
+# never when the code that runs it changed. So a loop whose cause was fixed and redeployed
+# stayed parked for up to 32 periods, and when the deadline passed the one run it got was
+# judged against the old tail and pushed the deadline out again. The fix's own evidence could
+# never reach it.
+#
+# The rule: when the running release differs from the one the suspension was recorded under
+# (or the handler's recorded source digest has changed), a suspended loop that does not spend
+# is released for exactly ONE probe run under the new release. "Once" is stateless and
+# durable: the probe is allowed only while no job of that type has been enqueued since the
+# current release first booted (the `release.boot_verdict` row the boot writes). The tick
+# enqueues one cadence job; from then on the suspension stands again, and the next sweep
+# judges the probe's result -- a changed result lifts the backoff, an unchanged one records
+# the new release and keeps it parked until the next release. An unknown release, a release
+# with no boot record, or a job type whose spending cannot be ruled out gets no probe.
+#
+# A loop that spends keeps the breaker: it lifts only through `gate_lifted` (its credential
+# gate changed) or `_hypothesis_changed` (its own handler's code changed), as before.
+REARM_BOOT_ACTION = "release.boot_verdict"
+# Families whose handlers buy model, vision or render work, or advertising. Kept as a second,
+# independent refusal: a job type in one of these families is spending even if somebody adds
+# it to the allow-list below.
+SPENDING_PREFIXES: tuple[str, ...] = (
+    "creative.", "assets.", "visual.", "marketing.ads", "ads.", "gateway.", "culture.",
+    "intel.gallery", "seasonal.")
+
+# ENG-RECOVERY fix round 1 (independent review H1): the classifier FAILS CLOSED. The first
+# version was a deny-list (prefixes + paid_job_types + external effects + recorded spend), and
+# it called `intel.serp_capture` (score_thumbnails -> providers.for_task, a paid vision call)
+# and `laura.executive_tick` (_model_rank -> laura_converse.call) free, so a deploy would have
+# re-armed two paid loops. Now only a job type on this explicit list is free; anything else --
+# a new job type, a renamed one, one nobody has looked at -- is spending and keeps the breaker.
+#
+# Membership is evidence, not opinion: tests/test_eng_recovery.py builds a conservative static
+# call graph of every registered handler (tests/_spend_reach.py) and fails if any job type
+# listed here can reach a paid entry point (`provider_for`, `for_task`, `paid_calls.guarded`,
+# `laura_converse.call`, `images.generate`, or a request site in a paid module declared in
+# test_cert_spend_hosts.DECLARED). These are the cadence loops that graph proves free and that
+# no other rule (prefix, paid_job_types, external effects) already calls spending. Adding one
+# is a decision about spend, made in review.
+FREE_JOB_TYPES: frozenset[str] = frozenset({
+    "autonomy.orchestrate", "build.tick", "chain.rebuild", "chain.successors",
+    "commerce.order_readings", "commerce.orders_ingest", "commerce.readings",
+    "etsy.credential_health", "etsy.dashboard_harvest", "etsy.listing_census",
+    "etsy.openapi_reverify", "etsy.probe", "etsy.shop_snapshot", "finance.accounting.cycle",
+    "finance.accounting.period_pack", "finance.escalation_check", "finance.governor",
+    "finance.reconcile", "gate.lanes", "gate.quality", "growth.conclude",
+    "growth.distribution", "growth.experiments", "growth.journey", "growth.preproduction",
+    "growth.steer", "improve.commercial_lessons", "improve.league", "improve.measure",
+    "improve.mine", "improve.monitor", "improve.nightly", "improve.replay",
+    "improve.retrospective", "improve.role_work", "improve.sandbox", "improve.weekly",
+    "intel.acceptance", "intel.benchmark_health", "intel.benchmark_refresh",
+    "intel.children_portfolio", "intel.panel_discovery", "intel.pod_learning",
+    "intel.scan_evidence", "intel.watchlist_compare", "intel.watchlist_scan", "learn.scan",
+    "learning.knowledge_gaps", "listing.cross_sell_graph", "listing.outcomes",
+    "listing.package", "listing.search_visibility_aging", "listing.search_visibility_watch",
+    "listing.taxonomy_refresh", "listing.window_captures", "mjs.reviews", "mjs.scan",
+    "ops.capacity", "ops.continuity", "ops.dependencies", "ops.health", "ops.heartbeat",
+    "ops.maturity_disagreements", "ops.offsite_archive", "ops.policy_watch",
+    "ops.provenance_backfill", "ops.provider_credentials", "ops.queue_check", "ops.retention",
+    "ops.sentinel", "ops.slo", "ops.thrash", "physical.upgrade_impact", "plan.cycle",
+    "plan.strategy", "policy.activation_schedule", "policy.issuer_shadow", "policy.stop_watch",
+    "portfolio.review", "radar.competitor_snapshot", "radar.concept_intake", "radar.scan",
+    "research.sweep", "scale.trajectory", "seo.cycle", "store.draft_reconcile",
+    "store.live_drift", "storefront.review", "support.triage", "swarm.allocate",
+    "swarm.backlog", "swarm.orphans", "swarm.review", "teardown.enforce",
+})
+
+
+def spending_job_type(session, job_type: str) -> bool:
+    """Whether a job type spends money, or might. Fails closed: True unless the type is on
+    the explicit FREE_JOB_TYPES list AND no other evidence says it spends. A failed read is
+    True (UNKNOWN is never PASS)."""
+    if not job_type or job_type not in FREE_JOB_TYPES or job_type.startswith(SPENDING_PREFIXES):
+        return True
+    try:
+        from ..intel.watchlist import paid_job_types
+        from ..queue.effects import EXTERNAL_EFFECT_JOB_TYPES
+
+        if job_type in paid_job_types() or job_type in EXTERNAL_EFFECT_JOB_TYPES:
+            return True
+        from sqlalchemy import select
+
+        from ..core.models import CostEntry, Job
+
+        if session.scalar(select(Job.id).where(Job.job_type == job_type, Job.cost_cad > 0)
+                          .limit(1)) is not None:
+            return True
+        if session.scalar(select(CostEntry.id).join(Job, CostEntry.job_id == Job.id)
+                          .where(Job.job_type == job_type, CostEntry.amount_cad > 0)
+                          .limit(1)) is not None:
+            return True
+    except Exception:  # noqa: BLE001 - spending that cannot be ruled out is spending
+        return True
+    return False
+
+
+def release_booted_at(session, commit: str | None = None) -> datetime | None:
+    """When the running release first booted, from its own `release.boot_verdict` rows."""
+    from sqlalchemy import select
+
+    from ..core.build import UNKNOWN
+    from ..core.models import AuditLog
+
+    commit = commit if commit is not None else _commit()
+    if not commit or commit == UNKNOWN:
+        return None
+    first = None
+    for at, detail in session.execute(
+            select(AuditLog.at, AuditLog.detail).where(AuditLog.action == REARM_BOOT_ACTION)
+            .order_by(AuditLog.id.desc()).limit(500)):
+        running = str((detail or {}).get("running_commit") or "")
+        if running and running == commit:
+            at = _aware(at)
+            first = at if first is None or at < first else first
+    return first
+
+
+def rearm_probe(session, job_type: str, suspension: dict, *,
+                boot_cache: dict | None = None) -> dict | None:
+    """The one probe run a release change grants a suspended non-spending loop, or None.
+
+    `boot_cache` (review L4): one dict per caller pass, so the boot-record scan runs once per
+    `suspended_job_types` / `rearmed_job_types` call instead of once per suspension."""
+    from sqlalchemy import select
+
+    from ..core.build import UNKNOWN
+    from ..core.models import Job
+
+    commit = _commit()
+    if not job_type or not commit or commit == UNKNOWN:
+        return None
+    recorded = str(suspension.get("code_commit") or "")
+    digest_changed = bool(suspension.get("handler_digest")) and _hypothesis_changed(suspension)
+    if not digest_changed and (not recorded or recorded == UNKNOWN or recorded == commit):
+        return None
+    if spending_job_type(session, job_type):
+        return None
+    if boot_cache is not None and commit in boot_cache:
+        booted = boot_cache[commit]
+    else:
+        booted = release_booted_at(session, commit)
+        if boot_cache is not None:
+            boot_cache[commit] = booted
+    if booted is None:
+        return None
+    since = _parse_when(suspension.get("since"))
+    if since is not None and since >= booted:
+        return None          # recorded under this release already: its probe has been judged
+    newest = session.scalar(select(Job.created_at).where(Job.job_type == job_type)
+                            .order_by(Job.id.desc()).limit(1))
+    if newest is not None and _aware(newest) >= booted:
+        return None          # the one probe for this release has been enqueued
+    return {"job_type": job_type, "release": commit, "release_booted_at": booted.isoformat(),
+            "suspended_under": recorded or None, "digest_changed": digest_changed,
+            "kind": suspension.get("kind")}
+
+
 def _state_of(outputs) -> str:
     """A job's result with its clocks and row ids removed: what state did it observe?"""
     def strip(v):
@@ -747,6 +915,7 @@ def _free_poll_backoff(session, progress: dict, *, now: datetime,
         suspension = {"kind": BACKOFF, "job_type": jt, "level": level, "factor": factor,
                       "suspend_until": until.isoformat(), "code_commit": _commit(),
                       "last_counted_job_id": row.get("last_job_id"),
+                      "handler_digest": handler_digest(jt),
                       "since": now.isoformat(), **gate_snapshot(session, jt)}
         summary = (f"{jt} observed {IDENTICAL_STATES} identical states in a row without "
                    f"progress; polling backs off to every {factor}x its period (#34)")
@@ -778,6 +947,7 @@ def suspended_job_types(db, *, now: datetime | None = None) -> dict[str, dict]:
     now = now or datetime.now(timezone.utc)
     commit = _commit()
     out: dict[str, dict] = {}
+    boot_cache: dict = {}
     with db.session() as s:
         for inc in s.scalars(select(Incident).where(
                 Incident.resolved.is_(False),
@@ -791,6 +961,9 @@ def suspended_job_types(db, *, now: datetime | None = None) -> dict[str, dict]:
             if sus.get("kind") == BACKOFF and upstream_progressed(
                     s, jt, _parse_when(sus.get("since")) or inc.at):
                 continue              # its input changed since: run it again
+            if sus.get("kind") in (BACKOFF, SUSPENDED) and rearm_probe(s, jt, sus,
+                                                                       boot_cache=boot_cache):
+                continue              # ENG-RECOVERY: one probe under a new release (free only)
             if sus.get("kind") == SUSPENDED:
                 if _hypothesis_changed(sus):
                     continue          # the handler's own code changed: a changed hypothesis
@@ -804,6 +977,30 @@ def suspended_job_types(db, *, now: datetime | None = None) -> dict[str, dict]:
                     out[jt] = {"kind": BACKOFF, "until": sus["suspend_until"],
                                "factor": sus.get("factor"), "incident": inc.signature}
     return out
+
+
+def rearmed_job_types(db) -> list[dict]:
+    """The suspended loops a release change has released for their one probe (readback)."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+
+    out: list[dict] = []
+    boot_cache: dict = {}
+    try:
+        with db.session() as s:
+            for inc in s.scalars(select(Incident).where(
+                    Incident.resolved.is_(False),
+                    Incident.signature.like(f"{THRASH_SIGNATURE_PREFIX}%"))):
+                sus = (inc.detail or {}).get("suspension") or {}
+                jt = sus.get("job_type")
+                if jt and sus.get("kind") in (BACKOFF, SUSPENDED):
+                    hit = rearm_probe(s, jt, sus, boot_cache=boot_cache)
+                    if hit:
+                        out.append({**hit, "incident": inc.signature})
+    except Exception:  # noqa: BLE001 - a readback never breaks the sweep
+        return []
+    return sorted(out, key=lambda r: r["job_type"])
 
 
 def retry_allowed(db, job) -> dict:
@@ -966,7 +1163,8 @@ JOB_BANDS: dict[str, str] = {
     "assets.photo_review": "proven_winner",
     # W5-INTEG1 (integration fix): opus2 job types merged in Batch 5 had no decided band
     # (test_swarm_runtime). Each takes the band of the chain it belongs to.
-    "chain.successors": "proven_winner",          # advances a release to its next stage
+    "chain.successors": "proven_winner",
+    "supply.admit": "proven_winner",              # admits the next product into engineering          # advances a release to its next stage
     "listing.package": "proven_winner",           # owner-review listing package (listing.draft's chain)
     "intel.scan_evidence": "benchmark_change",    # competitor evidence, like intel.benchmark_*
     "policy.issuer_shadow": "proven_winner",      # WS4-5: shadow decisions on the publish chain
@@ -1106,6 +1304,7 @@ JOB_BANDS: dict[str, str] = {
     # Keeps the system honest, urgent to nobody.
     "build.tick": "housekeeping",
     "ops.retention": "housekeeping",
+    "ops.owner_queue_consolidate": "housekeeping",   # ENG-APPROVALS
     "ops.capacity": "housekeeping",
     "ops.dependencies": "housekeeping",
     "ops.provenance_backfill": "housekeeping",

@@ -1,6 +1,6 @@
 """S4: the P0 command board -- one read-only page of what the company is doing right now.
 
-Main's S4 (#28 6953884261): running SHA and health; the 8 mandatory shops with last attempted
+Main's S4 (#28 6953884261): running SHA and health; the mandatory research shops (nine) with last attempted
 and successful scan, source timestamp, listings observed, failures, next scan and downstream
 concept evidence; opportunities scored; products in development; certified releases; PDFs and
 galleries; Etsy draft status and remote listing ids; published and sales; costs and API
@@ -39,7 +39,10 @@ LEVELS = ("CODE BUILT", "INDEPENDENTLY REVIEWED", "INTEGRATED", "DEPLOYED", "RUN
           "PRODUCTION-VERIFIED", "REAL COMMERCE VERIFIED")
 CODE_BUILT, REVIEWED, INTEGRATED, DEPLOYED, RUNNING, PROD_VERIFIED, COMMERCE = LEVELS
 NOT_PROVABLE_HERE = (REVIEWED, INTEGRATED)
-MANDATORY_SHOPS = 8
+# D-OWNER-NINTH-SHOP: computed from the owner's list (nine since 2026-11-19), never retyped.
+from ...intel.scan_evidence import OWNER_SHOPS as _OWNER_SHOPS  # noqa: E402
+
+MANDATORY_SHOPS = len(_OWNER_SHOPS)
 HEALTH_FRESH = timedelta(minutes=45)          # the sweep runs every 15 minutes
 FRESH_WORK = timedelta(hours=24)
 ROW_LIMIT = 25
@@ -146,7 +149,8 @@ def shops(db, now):
                 **_level(deployed, running=bool(fresh),
                          verified=len(rows) == MANDATORY_SHOPS and clean,
                          why={RUNNING: "at least one shop scanned inside its cadence",
-                              PROD_VERIFIED: "all 8 mandatory shops scanned inside their "
+                              PROD_VERIFIED: f"all {MANDATORY_SHOPS} mandatory shops scanned "
+                                             "inside their "
                                              "cadence, each reporting zero consecutive "
                                              "failures"})}
     return build_section
@@ -405,6 +409,22 @@ def blockers(db, now):
     return build_section
 
 
+def owner_queue(db, now):
+    """ENG-APPROVALS: owner exceptions open; cards closed automatically and routine operations
+    auto-approved under D-OWNER-STANDING-INTERNAL in the last 24 hours."""
+    from ...ops import owner_queue_consolidate as oqc
+
+    got = oqc.counts(db, now=now)
+
+    def build_section(deployed):
+        active = (got["closed_automatically_24h"] + got["routine_auto_approved_24h"]) > 0
+        return {"state": "CLEAR" if not got["owner_exceptions_open"] else "OPEN", **got,
+                **_level(deployed, running=active,
+                         why={RUNNING: "the standing authority moved an owner card in the "
+                                       "last 24 hours"})}
+    return build_section
+
+
 def agents(db, now):
     from ...app.command_center import company
 
@@ -448,10 +468,40 @@ def motif_recovery(db, now):
     return build_section
 
 
+def research_sources(db, now):
+    """ENG-RESEARCH: every registered research source with its agent, method, status, last
+    attempt and success, freshness, failures and backoff, and what it led to (findings ->
+    concepts -> engineering); plus the loop's stages and its latest recorded conclusion."""
+    from ...intel import research_flow
+
+    ev = research_flow.evidence(db, now=now)
+
+    def build_section(deployed):
+        srcs = ev["sources"]
+        shops = [r for r in srcs if r["kind"] == "shop"]
+        fresh = [r for r in shops if r.get("last_success") and not r.get("stale")]
+        down = [r for r in srcs if r["status"] != research_flow.SCHEDULED]
+        concl = ev.get("conclusion") or {}
+        return {"state": ("OK" if not down and len(fresh) == len(shops) and concl
+                          else "DEGRADED"),
+                "counts": ev["counts"], "credential": ev["credential"],
+                "sources": srcs, "loop": ev["loop"], "conclusion": ev["conclusion"],
+                "limitations": [{"id": r["id"], "status": r["status"], "why": r["why"]}
+                                for r in down],
+                **_level(deployed, running=bool(fresh) and bool(concl),
+                         verified=bool(concl) and ev["loop"]["in_engineering"] > 0,
+                         why={RUNNING: "a watchlist shop scanned inside its cadence and the "
+                                       "research loop recorded a conclusion",
+                              PROD_VERIFIED: "a research opportunity reached engineering "
+                                             "(a cir.draft job exists for it)"})}
+    return build_section
+
+
 SECTIONS = (("running", running), ("motif_recovery", motif_recovery), ("shops", shops), ("opportunities", opportunities),
             ("development", development), ("releases", releases), ("assets", assets),
             ("etsy", etsy), ("sales", sales), ("costs", costs), ("blockers", blockers),
-            ("agents", agents))
+            ("owner_queue", owner_queue), ("agents", agents),
+            ("research_sources", research_sources))
 
 
 def view(db, *, now: datetime | None = None) -> dict:

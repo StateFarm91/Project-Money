@@ -113,6 +113,13 @@ NEVER_PRUNED_TABLES = ("oauth_credentials",)
 # The point is not this list's current contents; it is that the next lifetime aggregate
 # somebody writes has to come here and make a decision.
 KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+    # ENG-RECOVERY: the thrash-breaker re-arm reads the boot rows of the RUNNING commit (the
+    # newest 500) for when this release first booted. A release is weeks old at most, far
+    # inside the horizon; were its first boot row pruned, a later boot of the same release
+    # would anchor the window, granting at most one more probe to a non-spending loop.
+    "release.boot_verdict": ("windowed",
+                             "swarm.orchestrate.release_booted_at reads the running "
+                             "release's own boot rows (the newest 500) for its first boot"),
     # Batch 4 integration (W4-READBACK + LAUNCHFIX + RESUMEFIX merge, 2026-10-31): readers
     # added by ops.production_evidence without an entry, caught by
     # test_w4_fmbatch1_retention_guard on the merged tree.
@@ -213,6 +220,13 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                               "sample measured at the wrong size is withheld forever (PHYSFIX "
                               "R28 follow-up); release_gates.for_publish refuses on any such "
                               "row, at any age"),
+    # ENG-SUPPLY: products.supply reads every offer not yet admitted (the supply queue
+    # itself) and every admission (so an offer whose cir.draft job was later pruned is never
+    # admitted twice). Pruning either would drop a waiting product or draft one twice.
+    "supply.offered": ("lifetime_total",
+                       "products.supply.offers reads each waiting offer, newest per key"),
+    "supply.admitted": ("lifetime_total",
+                        "products.supply.offers/_taken read every admission by key"),
     "gate.halted": ("lifetime_total",
                     "release_recovery.halted_releases compares each release's newest halt with "
                     "its newest certify outcome (per artifact, which keep-per-action does not "
@@ -284,6 +298,18 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     # The stop watch's newest reading is the silence fact (design §5.1), and G-SHADOW reads
     # the last 7 days for continuity -- far inside the horizon. Pruning older readings cannot
     # clear a stop: no reading at all reads as silence, and a short history fails G-SHADOW.
+    # ENG-APPROVALS: every automatic owner-queue decision under the owner's standing authority
+    # (D-OWNER-STANDING-INTERNAL). The owner's words: "Preserve the audit trail." Kept for
+    # life; the P0 board reads the last 24 h of it (`ops.owner_queue_consolidate.counts`).
+    "owner_action.standing_authority": ("lifetime_total",
+                                        "the owner's standing-authority audit trail (kept); "
+                                        "ops.owner_queue_consolidate.counts reads 24 h"),
+    # FIX2: `authority.standing_internal.closed_by_standing_authority` reads the newest
+    # lifecycle row of a card to tell the owner's closure from the standing authority's. A
+    # pruned row would make a standing closure read as the owner's (fail open), so kept for life.
+    "owner_action.lifecycle": ("lifetime_total",
+                               "authority.standing_internal.closed_by_standing_authority: who "
+                               "made a card's latest closure (kept; pruning would fail open)"),
     "standing_policy.stop_watch_reading": ("windowed",
                                            "ops.standing_stop.last_reading (silence); "
                                            "ops.standing_shadow_gate 7-day continuity"),

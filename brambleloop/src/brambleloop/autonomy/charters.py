@@ -188,7 +188,9 @@ CHARTERS: tuple[Charter, ...] = (
        # department, so it is never paused (F-889) and never counted as department work.
        prefixes=("autonomy.", "plan.", "swarm.", "portfolio.", "laura."),
        job_types={"scale.trajectory", "launch.readiness", "launch.plan", "ops.capacity",
-                  "build.tick"},
+                  "build.tick",
+                  # ENG-SUPPLY: capacity-aware product admission into engineering.
+                  "supply.admit"},
        generatable=("autonomy.morning_handoff", "scale.trajectory",
                     "autonomy.department_review"),
        forbidden=("publish, activate, spend, message a customer or change a live price",
@@ -402,7 +404,9 @@ CHARTERS: tuple[Charter, ...] = (
        job_types={"ops.heartbeat", "ops.queue_check", "ops.health", "ops.continuity",
                   "ops.offsite_archive", "ops.retention", "ops.dependencies",
                   "ops.capability_probes", "ops.thrash", "ops.policy_watch",
-                  "ops.maturity_disagreements", "model.probe"},
+                  "ops.maturity_disagreements", "model.probe",
+                  # ENG-APPROVALS: owner-queue consolidation (D-OWNER-STANDING-INTERNAL).
+                  "ops.owner_queue_consolidate"},
        generatable=("ops.queue_check", "ops.maturity_disagreements", "ops.slo",
                     "autonomy.department_review"),
        forbidden=("deploy, merge or mutate hosting", "delete evidence a gate reads"),

@@ -335,6 +335,23 @@ export const DATA = {
         blockers: run({ state: "OPEN", owner_actions: [{ id: 1, owner: "owner", action: "Approve the issuer service", requirement: "k", max_cost_cad: 2.35, minutes: 5, blocks: "standing grants", since: ago(120) }],
           incidents: [{ id: 2, owner: "system", severity: "P2", family: "dead-letter", product: null, halts_publication: false, since: ago(60) }] }),
         agents: run({ state: "OK", counts: { active: 3, idle: 5, failed: 0 }, agents: [] }),
+        // ENG-RESEARCH: the research sources section (review M1: health is derived server-side;
+        // a never-succeeded scheduled shop reads UNKNOWN, a failing one DEGRADED).
+        research_sources: run({ state: "DEGRADED", credential: "OK",
+          counts: { scheduled: 2, disabled: 0, blocked: 0, missing: 1 },
+          sources: [
+            { id: "bm-ok", kind: "shop", agent: "market_radar", job_type: "intel.watchlist_scan", method: "API", status: "scheduled", why: "every 6 h",
+              health: "OK", last_attempt: ago(30), last_success: ago(30), source_timestamp: ago(31), listings_observed: 12, changes_discovered: 1,
+              next_scan: ago(-60), consecutive_failures: 0, findings: 1, concepts: ["pillow-home-decor-gap-5"], engineering: [] },
+            { id: "bm-never", kind: "shop", agent: "market_radar", job_type: "intel.watchlist_scan", method: "API", status: "scheduled", why: "every 6 h",
+              health: "UNKNOWN", last_attempt: ago(30), last_success: null, source_timestamp: null, listings_observed: null, changes_discovered: null,
+              next_scan: ago(-60), consecutive_failures: 1, failure_class: "RuntimeError", findings: null, concepts: null, engineering: null },
+            { id: "youtube", kind: "offsite", agent: "market_radar", job_type: null, method: "none", status: "missing",
+              why: "UNAVAILABLE: no compliant collector exists", health: "UNKNOWN", last_attempt: null, last_success: null, next_scan: null, failures_7d: null }],
+          loop: { opportunities: 1, qualifying: 0, in_engineering: 0,
+            stages: [{ gap: 1, pod: "kitchen_bath", stage: "gate_refused", held_because: "the pre-engineering gate refused it (['silhouette']); held by #108", corroborated_by: [], concepts: ["coaster-kitchen-bath-gap-1"], engineering: [] }] },
+          conclusion: { at: ago(20), outcome: "no_qualifying_opportunity", why: "kitchen_bath: held by #108" },
+          limitations: [{ id: "youtube", status: "missing", why: "UNAVAILABLE: no compliant collector exists" }] }),
       } };
   },
   completion: () => tab("COMPLETION", { board: env("OK", [
