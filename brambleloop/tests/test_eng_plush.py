@@ -898,6 +898,25 @@ def test_l2_every_quote_was_reread_and_an_unread_one_is_unknown():
         CS.SOURCES["hc_toy_tips"] = original
 
 
+def test_a_face_named_without_eyes_or_nose_must_still_say_it_is_embroidered():
+    """Kills "features: a face need not be embroidered": the face word alone, with no eye or
+    nose for the clause rule to read, still needs an embroidery instruction."""
+    cir = _toy()
+    body = cir.components[0]
+    plain = dataclasses.replace(body, note="Worked from the top down. Give it a friendly face.")
+    faceless = _with(cir, components=[plain] + cir.components[1:],
+                     designer_notes="A ball-body bear.",
+                     assembly=[dataclasses.replace(cir.assembly[0],
+                                                   note="sew through both loops; bury the "
+                                                        "tail")],
+                     materials=[m for m in cir.materials if "embroider" not in m.name])
+    texts = " ".join(CS._instruction_texts(faceless))
+    assert "face" in texts and "embroider" not in texts.lower()
+    assert all(CS._unembroidered_feature(t) is None for t in CS._instruction_texts(faceless))
+    check = {c.code: c for c in CS.evaluate(faceless).checks}["FEATURES_EMBROIDERED"]
+    assert check.state == CS.FAIL and "embroidered" in check.detail, check
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in list(globals().items()):
