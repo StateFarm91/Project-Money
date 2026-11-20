@@ -122,7 +122,11 @@ def _free_slots_and_admit(db):
     ctx = JobContext(job=holder, db=db, queue=JobQueue(db), registry=_Reg(db),
                      phase=Phase.SHADOW)
     out = supply.admit(ctx)
-    assert out["admitted"], out
+    # ENG-DEMAND-SUPPLY: an offer whose family has no certified engine is named on the
+    # engine-demand list instead of admitted. Every offer is accounted for -- admitted or
+    # named -- never silently dropped.
+    assert out["admitted"] or out.get("engine_demand"), out
+    return out
 
 
 def _drafts(db):
@@ -240,15 +244,22 @@ def test_the_production_drafted_set_drafts_what_can_be_drafted_then_names_the_st
             now_made = {k[len("draft:"):] for k in set(_drafts(db)) - before}
             assert now_made and now_made.isdisjoint(waiting), (now_made, waiting)
             assert now_made | set(waiting) == set(outs[0]["selected"]), (now_made, waiting)
-            _free_slots_and_admit(db)
-            assert not supply.offers(db), supply.offers(db)
+            admitted = _free_slots_and_admit(db)
+            demanded = set(admitted.get("engine_demand") or [])
+            took = {str(k).split(":", 1)[-1] for k in admitted["admitted"]}
+            assert set(waiting) <= took | demanded, (waiting, admitted)
+            # An engine-demand concept stays queued (drafted once its engine exists); nothing
+            # else is left waiting.
+            assert {o["slug"] for o in supply.offers(db)} == demanded, supply.offers(db)
         made.append(sorted(k[len("draft:"):] for k in set(_drafts(db)) - before))
     first = outs[0]
     # continued progress: everything the gate passes is drafted (within capacity, then as
     # slots free)
-    assert made[0] and set(made[0]) == set(first["selected"]), (made[0], first["selected"])
+    # ENG-DEMAND-SUPPLY: a selected concept with no certified engine is engine demand, not a draft.
+    assert made[0] and set(made[0]) | demanded == set(first["selected"]), (
+        made[0], demanded, first["selected"])
     assert first["concept_supply"]["stalled"] is False
-    assert first["concept_supply"]["supply_selected"] == len(made[0])
+    assert first["concept_supply"]["supply_selected"] == len(made[0]) + len(demanded)
     assert first["selection_pool"] == "promotable_undrafted"
     # L1: the full section-33 pool is reported beside the sub-pool selected from
     assert first["pool_size"] == 34 and first["selection_pool_size"] < 34
