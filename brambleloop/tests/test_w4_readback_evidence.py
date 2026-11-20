@@ -586,7 +586,7 @@ def test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart():
             readback.PASS, readback.WARN), by
         assert by["learning loops (image + pattern) progress"]["verdict"] in (
             readback.PASS, readback.WARN), by
-        assert len(out["items"]) == 17, out["items"]
+        assert len(out["items"]) == 18, out["items"]
         # An unreadable section is UNKNOWN, never PASS.
         v, _ = readback._judge_section("weekly_jobs", {"readable": False}, True)
         assert v == readback.UNKNOWN
