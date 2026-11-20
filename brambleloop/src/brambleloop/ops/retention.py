@@ -128,6 +128,15 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "chain.rebuild_unbound": ("windowed",
                               "ops.production_evidence.stale_rebuilds counts the last 7 days"),
     "ops.rebuild_propagated": ("latest", "ops.production_evidence reads the newest propagation"),
+    # ENG-MOTIF-BACKLOG: the recovery report reads only the newest sweep row, to know that the
+    # backlog was measured at all (never-swept is UNKNOWN, never 0); counts come from the
+    # motif_recovery table, not from audit rows.
+    "assets.motif_backlog.swept": ("latest", "publish.motif_backlog.report reads the newest "
+                                             "sweep to tell measured from never-measured"),
+    # ENG-MOTIF-BACKLOG-FIX: one row per claimed paid motif re-ask; the daily cap counts the
+    # rows since 00:00 UTC (publish.motif_backlog.claimed_today / _claim).
+    "assets.motif_backlog.claimed": ("windowed", "publish.motif_backlog counts claims since "
+                                                 "00:00 UTC for the daily re-ask cap"),
     # eng/stale-rebuild-loop: refused rebuilds are counted; the newest refusal for a release
     # names why a rebuild could not complete (runtime.release._rebuild_incomplete).
     "chain.rebuild_refused": ("windowed",
@@ -446,6 +455,16 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "image.reference_probe": ("lifetime_total",
                               "gateway.image_bench.spent_to_date sums these too "
                               "(images.REFERENCE_PROBE_ACTION)"),
+    # ENG-VIS-FLUX: a paid render rejected at generation, and its re-check. Both are read over
+    # every row for a gallery (gateway.flux_provider.replacement_allowed): a pruned rejection
+    # would let a replacement be bought without the paid one being re-checked, and a pruned
+    # RECOVERED re-check would stop blocking it. Protected; one row per rejected render.
+    "image.generation_rejected": ("lifetime_total",
+                                  "gateway.flux_provider.replacement_allowed reads every "
+                                  "rejection for a gallery before a replacement is bought"),
+    "image.generation_rejection_rechecked": ("lifetime_total",
+                                             "gateway.flux_provider.replacement_allowed: a "
+                                             "RECOVERED re-check keeps blocking replacement"),
     "image.benchmark_blocked": ("latest", "gateway.image_bench.last_run"),
     "image.benchmark_capped": ("latest", "gateway.image_bench.last_run"),
     "model.frozen": ("lifetime_total",
