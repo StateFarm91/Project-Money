@@ -126,14 +126,17 @@ def test_a_rebuild_that_ended_without_delivering_is_asked_for_again_once_a_day()
 def test_s2_the_daily_retry_is_held_while_an_owner_gate_refuses_it_and_resumes_after():
     """INTEG7 (review S-2): a product whose rebuild stays refused for an owner-gated reason (an
     unreviewed platform-policy change) is not retried every day. The retry is held with the
-    reason, and it resumes by itself once the gate clears."""
+    reason, and it resumes by itself once the gate clears.
+
+    ENG-RECOVERY (owner directive): only a change that governs product creation holds the
+    internal rebuild; a publication-side change holds publication only (test_eng_recovery)."""
     from brambleloop.gates import platform_policy
 
     db = _db()
     q = JobQueue(db)
     real = rebuild_graph.rebuild_set, platform_policy.unreviewed_changes
     rebuild_graph.rebuild_set = _plan
-    pending = [{"source": "etsy_seller_policy", "affects": ["publishing"]}]
+    pending = [{"source": "children_and_baby", "affects": ["publishing", "product_creation"]}]
     platform_policy.unreviewed_changes = lambda db: list(pending)
     try:
         def go(now):

@@ -6,7 +6,8 @@ run on a SQLite FILE through `JobQueue` and `Worker.run_once`:
 
 * POOL exhausted: one `radar.supply_stall` reading and one audit per scan date, however many
   scans run that day; a new date is a new period; no duplicate `cir.draft` is queued.
-* Selection all drafted while undrafted pool concepts remain: recorded, with its own reason.
+* Selection all drafted while undrafted pool concepts remain: the scan selects the
+  undrafted concepts instead (ENG-RECOVERY), so no stall and new drafts are queued.
 * Supply available: no reading.
 * The reading is visible on the Command Center Production view (stalls_loops) and in the
   readback evidence (autonomy_loop), informational only: no /api/verify check is added.
@@ -105,6 +106,25 @@ def _audits(db):
         return list(s.scalars(select(AuditLog.id).where(AuditLog.action == "radar.supply_stall")))
 
 
+def _free_slots_and_admit(db):
+    """Finish the research drafts already made, then run the offer admission pass
+    (`supply.admit`, the event refill). Launch-0 seeding (`supply.run`) is a separate decision
+    with its own priority rules (test_eng_supply) and is not under test here."""
+    from brambleloop.agents.registry import Registry as _Reg
+    from brambleloop.products import supply
+    from brambleloop.runtime.worker import JobContext
+
+    with db.session() as s:
+        for j in s.scalars(select(Job).where(Job.job_type == "cir.draft")):
+            j.status = JobStatus.DONE
+    holder = JobQueue(db).enqueue("orchestrator", "supply.admit", {},
+                                  idempotency_key="admit-after-free", priority=0)
+    ctx = JobContext(job=holder, db=db, queue=JobQueue(db), registry=_Reg(db),
+                     phase=Phase.SHADOW)
+    out = supply.admit(ctx)
+    assert out["admitted"], out
+
+
 def _drafts(db):
     with db.session() as s:
         return sorted(s.scalars(select(Job.idempotency_key).where(Job.job_type == "cir.draft")))
@@ -161,19 +181,96 @@ def test_with_supply_available_there_is_no_reading():
     assert flow_health.concept_supply_stall(db) is None
 
 
-def test_a_selection_of_only_drafted_concepts_is_recorded_with_its_own_reason():
+def test_a_drafted_selection_is_replaced_by_undrafted_pool_concepts():
+    """ENG-RECOVERY (prod 2026-11-19, `selection_all_drafted` with 18 undrafted in the pool):
+    W5-A7 recorded the stall but the next scan selected the very same drafted concepts, so
+    original_product did nothing for a week. The scan now selects from the undrafted pool:
+    no stall, a different selection, and the scores it queues reach new `cir.draft` jobs."""
     db = _db("selection")
     first = _scan(db, DAY1, "scan-a")
     assert first["concept_supply"]["stalled"] is False
     _drafted(db, first["selected"])
-    # Same date, so the same deterministic selection -- now every one of them drafted.
+    before = _drafts(db)
     second = _scan(db, DAY1, "scan-b")
-    assert second["selected"] == first["selected"]
+    assert second["selected"] and not set(second["selected"]) & set(first["selected"]), second
     supply = second["concept_supply"]
-    assert supply["stalled"] is True and supply["recorded"] is True, supply
-    assert supply["undrafted_pool"] > 0 and supply["reason"] == "selection_all_drafted"
-    assert [p for p, _ in _readings(db)] == [DAY1] and len(_audits(db)) == 1
-    assert _readings(db)[0][1]["undrafted_pool"]          # what could still be drafted
+    assert supply["stalled"] is False and supply["recorded"] is False, supply
+    assert supply["undrafted_selected"] == len(second["selected"])
+    assert _readings(db) == [] and _audits(db) == []
+    _score_all(db)
+    new_drafts = sorted(set(_drafts(db)) - set(before))
+    assert new_drafts and all(k[len("draft:"):] in second["selected"] for k in new_drafts), \
+        new_drafts
+
+
+# The 16 concepts production had drafted when the review read it (8bc96eef, 2026-11-19).
+PRODUCTION_DRAFTED = (
+    "autumn-oak-mosaic-throw", "cloudline-baby-blanket", "harvest-table-runner",
+    "hexie-coaster-set", "market-basket-trio", "mosaic-placemat-pair",
+    "nordic-forest-mosaic-throw", "nordic-star-ornaments", "pet-snuggle-mat",
+    "pressed-flower-motifs", "pumpkin-cluster-set", "spooky-garland", "valentine-heart-garland",
+    "winter-village-graphghan", "heirloom-cable-blanket", "nordic-forest-bundle")
+
+
+def test_the_production_drafted_set_drafts_what_can_be_drafted_then_names_the_stall():
+    """ENG-RECOVERY fix round 1 (review M1), the reviewer's probe on the real POOL.
+
+    "Select undrafted" made three drafts and then re-selected the same ten every scan --
+    eight refused by #88 (a radar slot with no premise or storyboard is not a concept), one
+    at 0.544 < 0.55 -- with `stalled=False`. Now every promotable undrafted concept is drafted
+    on the first scan, and every later scan reports `selection_unpromotable` with each held
+    concept's reason. The gate is not relaxed: no held concept is ever drafted."""
+    db = _db("production-drafted")
+    pool = [c.slug for c in pool_with_intake(db)]
+    assert len(pool) == 34 and set(PRODUCTION_DRAFTED) <= set(pool)
+    _drafted(db, PRODUCTION_DRAFTED)
+    days = ("2026-11-19", "2026-11-19", "2026-11-20", "2026-11-21")
+    outs, made = [], []
+    for i, day in enumerate(days):
+        before = set(_drafts(db))
+        outs.append(_scan(db, day, f"prod-{i}"))
+        _score_all(db)
+        if i == 0:
+            # ENG-SUPPLY: a promoted concept is offered to the capacity-aware admission
+            # controller. What fits the WIP limit is drafted now; the rest waits in the
+            # supply queue (never dropped), and is drafted when a slot frees.
+            from brambleloop.products import supply
+
+            waiting = [o["slug"] for o in supply.offers(db)]
+            now_made = {k[len("draft:"):] for k in set(_drafts(db)) - before}
+            assert now_made and now_made.isdisjoint(waiting), (now_made, waiting)
+            assert now_made | set(waiting) == set(outs[0]["selected"]), (now_made, waiting)
+            _free_slots_and_admit(db)
+            assert not supply.offers(db), supply.offers(db)
+        made.append(sorted(k[len("draft:"):] for k in set(_drafts(db)) - before))
+    first = outs[0]
+    # continued progress: everything the gate passes is drafted (within capacity, then as
+    # slots free)
+    assert made[0] and set(made[0]) == set(first["selected"]), (made[0], first["selected"])
+    assert first["concept_supply"]["stalled"] is False
+    assert first["concept_supply"]["supply_selected"] == len(made[0])
+    assert first["selection_pool"] == "promotable_undrafted"
+    # L1: the full section-33 pool is reported beside the sub-pool selected from
+    assert first["pool_size"] == 34 and first["selection_pool_size"] < 34
+    # then the stall is named, not hidden behind a non-empty selection
+    for out, new in zip(outs[1:], made[1:]):
+        supply = out["concept_supply"]
+        assert new == [], new
+        assert supply["stalled"] is True and supply["reason"] == "selection_unpromotable", supply
+        assert supply["promotable_undrafted"] == 0 and supply["undrafted_pool"] > 0
+        held = supply["held"]
+        assert set(held) == set(pool) - set(PRODUCTION_DRAFTED) - set(made[0]), held
+        assert "premise_thumbnail" in held["nordic-forest-stocking"], held
+        assert "below promotion threshold" in held["alpine-slouch-beanie"], held
+        assert "Class C" in held["boxy-summer-tee"], held
+        assert out["pool_size"] == 34
+    # every held concept stays undrafted (#88 and the threshold stand)
+    assert not set(_drafts(db)) & {f"draft:{s}" for s in outs[-1]["concept_supply"]["held"]}
+    # one reading per scan date, and the supply readback shows the reason
+    assert [p for p, _ in _readings(db)] == ["2026-11-19", "2026-11-20", "2026-11-21"]
+    got = flow_health.concept_supply_stall(db)
+    assert got and got["reason"] == "selection_unpromotable" and got["held"] > 0, got
+    assert got["promotable_undrafted"] == 0 and got["pool"] == 34, got
 
 
 def test_recovery_and_a_later_stall_are_reported_from_real_scans():

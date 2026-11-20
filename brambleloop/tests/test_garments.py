@@ -107,6 +107,18 @@ def test_every_size_of_every_design_passes_the_whole_chain():
             cert = certify(cir)
             # F-112: worsted at 16 sc/10cm is refused until products/garments.py declares a
             # weight that holds its gauge; every other stage must still be clean.
+            if "child_safety" in cert.stages_run:
+                # ENG-PLUSH/ENG-GARMENT: a child's garment is inside the child-safety gate
+                # (the fixture by its title's "Child" at every size; a graded child garment
+                # by the child table at 12 and under). The fixture's sleeves are sewn on
+                # (seam-pull evidence UNKNOWN: held) and its material names no yarn weight
+                # (UNKNOWN filling, held fail-closed by launch0.stuffed_form_reasons), so the
+                # only extra refusals allowed are that gate's own.
+                assert design.table is GR.CHILD, cir.slug
+                assert {f.code for f in cert.errors} <= fixtures.PRODUCT_TRUTH_CODES | {
+                    f.code for f in cert.errors if f.code.startswith("CHILD_SAFETY_")}, \
+                    (cir.slug, cert.blocking_reasons)
+                continue
             assert fixtures.clean_but_for_product_truth(cert), (cir.slug, cert.blocking_reasons)
             assert {"specification", "assembly"} <= set(cert.stages_run)
     assert _vac_87, "_designs() was empty: the loop proved nothing (F-123)"

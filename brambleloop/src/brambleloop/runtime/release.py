@@ -5538,12 +5538,18 @@ def handle_chain_rebuild(ctx: JobContext) -> dict:
     if scope is None:
         from . import release_recovery
 
+        from ..products import supply
+
         for name, step in (("halted_certifications", release_recovery.retry_halted),
-                           ("launch0_seed", release_recovery.seed_launch0)):
+                           ("supply", supply.run)):
             try:
                 recovery[name] = step(ctx)
             except Exception as exc:  # noqa: BLE001 - recorded, never fails the rebuild
                 recovery[name] = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+        # ENG-SUPPLY: Launch-0 seeding is the first source of the admission pass; its reading
+        # keeps the key every reader of chain.rebuilt already uses.
+        recovery["launch0_seed"] = (recovery.get("supply") or {}).get("launch0") \
+            or recovery.get("supply")
 
     ctx.audit("chain.rebuilt", detail={"chain_version": CHAIN_VERSION,
                                        "doc_version": DOC_VERSION,
@@ -6661,6 +6667,21 @@ def handle_four_season(ctx: JobContext) -> dict:
             "holiday_independent_share": detail["holiday_independent_share"]}
 
 
+def _gallery_handoff(ctx: JobContext, slug: str, version: str, record: dict) -> dict | None:
+    """ENG-MOTIF-BACKLOG: a photography job that filed a usable record hands the release to
+    the chain (`assets.build` -> pricing.position -> listing.seo -> launch.plan ->
+    listing.package). Only when the existing gallery reader says the gallery is complete;
+    an unusable record advances nothing. A failed handoff never fails the photography job."""
+    if not record.get("made") or not record.get("usable_as_listing_asset"):
+        return None
+    from ..publish import motif_backlog
+
+    try:
+        return motif_backlog.gallery_handoff(ctx.enqueue, ctx.db, slug, version)
+    except Exception as exc:  # noqa: BLE001 - the record is filed; the sweep retries the handoff
+        return {"advanced": False, "why": f"handoff failed: {type(exc).__name__}"}
+
+
 @handlers.register("assets.model_photography")
 def handle_model_photography(ctx: JobContext) -> dict:
     """One model-bearing listing frame for a certified product that needs her (#72, #130).
@@ -6733,6 +6754,7 @@ def handle_model_photography(ctx: JobContext) -> dict:
         _checkpoint_step(ctx, step, {"record": record})
 
     ctx.audit(model_photography.ACTION, detail=record)
+    handoff = _gallery_handoff(ctx, slug, cir.version, record)
     # C-80 defect 8: a model-bearing product's rung attempt is persisted too, so the ladder
     # resumes rather than restarting (the model path carries no rung brief yet: it is the
     # same conditioned render, recorded as such).
@@ -6758,7 +6780,7 @@ def handle_model_photography(ctx: JobContext) -> dict:
             records=buyer_trust.records_for_generated(
                 list(record.get("frames") or [record]), slug=slug, version=cir.version))
     return {"ran": True, "made": record.get("made"), "slug": slug,
-            "resumed_from_checkpoint": resumed,
+            "resumed_from_checkpoint": resumed, "gallery_handoff": handoff,
             "waiting_on": record.get("waiting_on"),
             "floors": record.get("floors"),
             "usable": record.get("usable_as_listing_asset"),
@@ -6849,6 +6871,7 @@ def handle_seasonal_cycle_proof(ctx: JobContext) -> dict:
     from ..gateway.anthropic import AnthropicProvider
     from ..gateway import failover
     from ..publish import listing_asset
+    from ..creative import prospecting
     from ..seasonal import cycle
 
     # The gateway is the difference between this job doing its job and this job reporting
@@ -6918,6 +6941,19 @@ def handle_seasonal_cycle_proof(ctx: JobContext) -> dict:
                             f"refused: {str(exc)[:200]}. Nothing about #300 is proved or "
                             f"disproved by this -- the proof did not run"),
                     "waiting_on": "model_provider_balance"}
+        except prospecting.ProspectingRefused as exc:
+            # Live 2026-11-20: eight dead letters `ProspectingRefused` -- the prospecting
+            # step declining (no proven arena with a form still makeable in time, a dead
+            # arena, an event outside the occasion vocabulary). That is the wheel working,
+            # not a broken worker: recorded as a refusal, never retried into the same answer,
+            # and visible in the audit trail rather than as a dead letter.
+            ctx.audit("seasonal.cycle_proof_refused",
+                      detail={"why": str(exc)[:400], "waiting_on": "prospecting"})
+            return {"ran": True, "complete": False, "refused": "prospecting",
+                    "why": (f"prospecting declined this cycle: {str(exc)[:200]}. Nothing "
+                            f"about #300 is proved or disproved by this -- the proof did "
+                            f"not run"),
+                    "waiting_on": "prospecting"}
 
     _checkpoint_step(ctx, "cycle_report", {"report": report})
     return _file_cycle_proof(ctx, report, resumed=False)
@@ -7499,6 +7535,29 @@ def handle_promotion_monitor(ctx: JobContext) -> dict:
             "waiting": len(out["waiting"]), "unchanged": len(out["unchanged"])}
 
 
+@handlers.register("improve.self_tune")
+def handle_self_tune(ctx: JobContext) -> dict:
+    """The self-improvement team's daily pass (ENG-IMPROVE, owner directive 2026-11-20).
+
+    Judges live champion/challenger trials of allowlisted tunables (promotion on a
+    statistically meaningful KPI gain, automatic rollback on regression), checks every
+    department's KPI -> lessons -> consumer loop, and files / verifies engineering change
+    requests. A change request is a row: production never edits or deploys code.
+
+    GREEN: reads rows, may change a tunable champion inside its declared bounds, writes
+    si_* / engineering_change_requests rows and audit records. Spends nothing.
+    """
+    from ..improve import self_improve
+
+    out = self_improve.cycle(ctx.db)
+    ctx.audit("improve.self_tune.cycle",
+              detail={k: out[k] for k in ("work_done", "trials_judged", "loops_closed",
+                                          "departments", "ecrs_filed", "ecrs_merged",
+                                          "ecrs_verified", "ecrs_reopened",
+                                          "parked_improve_loops")})
+    return out
+
+
 @handlers.register("improve.sandbox")
 def handle_improve_sandbox(ctx: JobContext) -> dict:
     """Take eligible proposals through a sandbox trial, test, judge, and promote or route (#92).
@@ -7941,6 +8000,8 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
             by_slug.setdefault(v.get("product_slug") or "", []).append(v)
         settled = (provenance.FRESH, provenance.SUPERSEDED)
         incomplete_close, incomplete_open = [], {}
+        legacy_restart: list[tuple[str, int, list[str]]] = []
+        from ..ops.rebuild_graph import legacy_incomplete
         for r in list(session.scalars(_select(_Incident).where(
                 _Incident.signature.like(f"{REBUILD_INCOMPLETE_SIGNATURE}:%"),
                 _Incident.resolved == False))):  # noqa: E712
@@ -7959,6 +8020,17 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
             if ok:
                 incomplete_close.append(r.signature)
             else:
+                # ENG-RECOVERY slice 2: a pre-branch row whose product reads nothing STALE
+                # is never reached by the propagation below (it enqueues only for moved
+                # refs), so it could neither restate onto the bounded budget nor close: it
+                # sat in `rebuild_incomplete_legacy_budget_pending` for good. It gets ONE
+                # targeted rebuild of what it names (keyed on the row, so once per row);
+                # that attempt restates it under the new budget (`budget_reset`) or
+                # completes and closes it on verified evidence. Nothing closes here.
+                if (legacy_incomplete(r.detail) and keys
+                        and not any(v["state"] == provenance.STALE
+                                    for v in by_slug.get(slug_, []))):
+                    legacy_restart.append((slug_, r.id, keys[:50]))
                 incomplete_open[r.signature] = read or {"(none)": "no artefact on file"}
                 r.detail = dict(r.detail or {}, sentinel_read={
                     "at": _utcnow().isoformat(), "verdicts": dict(list(read.items())[:50])
@@ -7968,6 +8040,18 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
             resolution=("every artefact this row named reads fresh (or superseded) in the "
                         "provenance check and none of the product's reads stale: the "
                         "outstanding rebuild has been delivered"))
+
+    legacy_restarted: list[str] = []
+    for slug_, row_id, keys_ in legacy_restart:
+        job = ctx.enqueue("listing", "chain.rebuild",
+                          {"product_slug": slug_, "artefacts": keys_, "fingerprints": {},
+                           "reason": ("legacy rebuild-incomplete row with nothing reading "
+                                      "stale: one targeted rebuild onto the bounded budget "
+                                      "(ENG-RECOVERY)"),
+                           "legacy_restart": row_id},
+                          idempotency_key=f"rebuild:legacy-restart:{slug_}:{row_id}")
+        if job is not None:
+            legacy_restarted.append(slug_)
 
     # W4-LISTREADY (delta review N3): a live listing of a superseded release is owner-visible.
     from . import release_recovery
@@ -7993,6 +8077,7 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         "incidents_cleared": len(report.get("incidents_cleared") or []),
         "rebuild_incomplete_cleared": incomplete_cleared,
         "rebuild_incomplete_open": dict(list(incomplete_open.items())[:50]),
+        "rebuild_incomplete_legacy_restarted": legacy_restarted[:50],
     }
     ctx.audit("ops.sentinel", detail=detail)
 
@@ -8034,6 +8119,15 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         detail["rebuild_already_queued"] = queued["already_queued"][:50]
         detail["rebuild_retried"] = list(queued.get("retried") or [])[:50]
         detail["rebuild_retry_held"] = dict(list((queued.get("retry_held") or {}).items())[:50])
+        # ENG-RECOVERY: publication-side policy changes pending review that did NOT hold
+        # these rebuilds (they hold publication only), so the readback can see the scope.
+        try:
+            from ..gates.platform_policy import unreviewed_changes as _uc
+
+            detail["rebuild_policy_publication_only"] = _rg.policy_publication_only(
+                _uc(ctx.db))
+        except Exception:  # noqa: BLE001 - a readback field never fails the sentinel
+            detail["rebuild_policy_publication_only"] = None
         # eng/stale-rebuild-loop: products whose last attempt ended and that are waiting out
         # RETRY_AFTER (or whose retry for today has run) -- not queued, not held.
         detail["rebuild_retry_waiting"] = list(queued.get("retry_waiting") or [])[:50]
@@ -8043,6 +8137,7 @@ def handle_stale_artefact_sentinel(ctx: JobContext) -> dict:
         ctx.audit("ops.rebuild_propagated", detail={
             k: detail[k] for k in ("rebuild_enqueued", "rebuild_already_queued",
                                    "rebuild_retried", "rebuild_retry_held",
+                                   "rebuild_policy_publication_only",
                                    "rebuild_retry_waiting", "rebuild_order",
                                    "fingerprints")})
     return detail
@@ -8237,6 +8332,20 @@ def handle_thrash_sweep(ctx: JobContext) -> dict:
 
     out = thrash_sweep(ctx.db)
     ctx.audit("ops.thrash", detail=out)
+    return out
+
+
+@handlers.register("ops.daily_ledger")
+def handle_daily_ledger(ctx: JobContext) -> dict:
+    """ENG-DAILY: record the per-UTC-day production ledger and diagnose every zero stage.
+
+    Six-hourly. Counts from persisted rows only; a zero stage gets a diagnosis row, a safe
+    free action (re-arm through `rearm_probe`, re-offer supply) or an engineering change
+    request. It changes no gate, ceiling or owner exception."""
+    from ..ops import daily_ledger
+
+    out = daily_ledger.run(ctx)
+    ctx.audit("ops.daily_ledger", detail=out)
     return out
 
 
@@ -9135,9 +9244,36 @@ def handle_image_benchmark(ctx: JobContext) -> dict:
     # change, not a flag a caller can set.
     if image_bench.SUPERSEDED["superseded"]:
         rec = image_bench.superseded_record(ctx.db)
-        return {"ran": False, "superseded": True, "by": rec["by"], "why": rec["why"],
+        # ENG-LEARN: the provider benchmark's question ("which configuration makes frames that
+        # pass?") is now answered from production itself. Every judged frame is an
+        # observation, measured lessons are derived from them, and template challengers are
+        # promoted only on a significant first-pass or cost gain (`learning.image_lessons`).
+        # It reads this database only: nothing is rendered, judged or spent here. Until it ran,
+        # this branch returned the same superseded record every hour, so the thrash breaker
+        # parked it at 32x. Now its state changes exactly when new judged frames arrive, and
+        # `swarm.orchestrate.UPSTREAM_INPUTS` lifts the backoff when they do.
+        from ..learning import image_lessons
+
+        loop = image_lessons.cycle(ctx.db)
+        ctx.audit("learning.image_cycle", detail={
+            "observed": loop["harvest"]["observed"], "lessons": loop["lessons"]["lessons"],
+            "lessons_new": loop["lessons"]["new"],
+            "lessons_deactivated": loop["lessons"]["deactivated"],
+            "challengers": loop["challengers"]["registered"],
+            "promoted": [p["arm_id"] for p in loop["evaluation"]["promoted"]],
+            "demoted": [d["demoted"] for d in loop["evaluation"]["demoted"]],
+            "retired": [r["arm_id"] for r in loop["evaluation"]["retired"]]})
+        return {"ran": True, "superseded": True, "by": rec["by"], "why": rec["why"],
                 "evidence_retained": True, "record": rec["record"],
-                "work_done": 1 if rec["created"] else 0}
+                "image_learning": {
+                    "observed": loop["harvest"]["observed"],
+                    "lessons": loop["lessons"]["lessons"],
+                    "new_lessons": loop["lessons"]["new"],
+                    "challengers_registered": len(loop["challengers"]["registered"]),
+                    "promoted": len(loop["evaluation"]["promoted"]),
+                    "demoted": len(loop["evaluation"]["demoted"]),
+                    "retired": len(loop["evaluation"]["retired"])},
+                "work_done": (1 if rec["created"] else 0) + loop["work_done"]}
 
     # The approved benchmark budget as a stop, not as a number in a report. It was being
     # applied per run, so four runs each stayed inside a figure the owner approved once and
@@ -9550,6 +9686,27 @@ def handle_owned_photography(ctx: JobContext) -> dict:
         return _owned_photography_rung(ctx, cir, slug, rung, failed)
 
     next_move = owned_photography.what_to_do_next(ctx.db, slug=slug, version=cir.version)
+    if next_move["reason"] == "motif_rejudge_pending":
+        # ENG-MOTIF: a paid render whose motif question went unasked (the unreserved vision
+        # call, or a budget that was spent) is asked again about the same image. Nothing is
+        # rendered; a still-refused question files nothing and waits for the next tick.
+        compiled = compile_cir(cir)
+        if not compiled.ok:
+            return {"ran": False, "reason": f"{slug} does not compile, so there is nothing "
+                                            f"true to judge the render against"}
+        with workspace.work_dir(ctx.job.inputs.get("work_dir"),
+                                prefix="owned-rejudge-") as work:
+            again = owned_photography.rejudge_motif(
+                ctx.db, next_move["asset"], cir, build_twin(cir, compiled), work_dir=work)
+        if not again["filed"]:
+            return {"ran": False, "reason": "motif_judgement_waiting", "slug": slug,
+                    "why": again["why"], "unmeasured": again["motif"].get("unmeasured")}
+        record = again["record"]
+        ctx.audit(owned_photography.ACTION, detail=record)
+        return {"ran": True, "slug": slug, "made": False, "rejudged": True,
+                "motif": record["motif"]["verdict"], "verdict": record.get("verdict"),
+                "usable_as_listing_asset": record.get("usable_as_listing_asset"),
+                "spent_cad": 0.0}
     if not next_move["render"]:
         return {"ran": False, "reason": next_move["reason"], "slug": slug,
                 "attempts": next_move["attempts"], "why": next_move["why"],
@@ -9571,7 +9728,8 @@ def handle_owned_photography(ctx: JobContext) -> dict:
             occasion=ctx.job.inputs.get("occasion", ""),
             env=dict(os.environ), work_dir=work)
     ctx.audit(owned_photography.ACTION, detail=record)
-    return {"ran": True, "slug": slug, "made": record.get("made"),
+    handoff = _gallery_handoff(ctx, slug, cir.version, record)
+    return {"ran": True, "slug": slug, "made": record.get("made"), "gallery_handoff": handoff,
             "verdict": record.get("verdict"), "why": record.get("why"),
             "usable_as_listing_asset": record.get("usable_as_listing_asset"),
             "spent_cad": record.get("spent_cad", 0.0)}
@@ -9645,6 +9803,7 @@ def _owned_photography_rung(ctx: JobContext, cir, slug: str, rung: str,
             env=env, work_dir=work, provider_key=provider_key, rung=rung,
             constraints=constraints)
     ctx.audit(owned_photography.ACTION, detail=record)
+    _gallery_handoff(ctx, slug, cir.version, record)
     return result(attempted=bool(record.get("made")), made=record.get("made"),
                   usable=bool(record.get("usable_as_listing_asset")),
                   verdict=record.get("verdict"), why=(record.get("why") or "")[:300],
@@ -9712,8 +9871,11 @@ def _representative_slug(db) -> str:
     waiting = []
     for index, (slug, cir) in enumerate(product_first):
         move = owned_photography.what_to_do_next(db, slug=slug, version=cir.version)
-        if move["render"]:
-            waiting.append((move["attempts"],
+        # ENG-MOTIF: a paid render waiting on its motif question needs work too, and it goes
+        # first -- re-asking costs one vision call where every other choice costs an image.
+        rejudge = move["reason"] == "motif_rejudge_pending"
+        if move["render"] or rejudge:
+            waiting.append((0 if rejudge else 1, move["attempts"],
                             owned_photography.historical_failures(db, slug=slug),
                             index, slug))
     if waiting:
@@ -10474,6 +10636,19 @@ def handle_chain_successors(ctx: JobContext) -> dict:
     ctx.audit("chain.successors_swept", detail={k: out[k] for k in (
         "open", "redriven", "resolved", "commit")} | {"waiting": out["waiting"][:20]})
     return out
+
+
+@handlers.register("supply.admit")
+def handle_supply_admit(ctx: JobContext) -> dict:
+    """ENG-SUPPLY, every 15 minutes: admit the next eligible products into free capacity.
+
+    Launch-0 releases first, then the research and creative offers waiting in the supply
+    queue (products.supply). A slot freed by a finished chain, or by a product parked on a
+    physical sample or an owner decision, is refilled here with no manual kick. CA$0 itself;
+    every admission and refusal is recorded with its reason (`supply.admission`)."""
+    from ..products import supply
+
+    return supply.run(ctx)
 
 
 # The runtime handlers for these three job types are the wrappers (the registry keeps the last

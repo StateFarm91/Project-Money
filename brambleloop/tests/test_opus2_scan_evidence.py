@@ -62,9 +62,13 @@ def test_nothing_recorded_means_never_attempted_or_not_registered_never_scanned(
     rep = SE.report(_db(), now=NOW)
     shops = _by_shop(rep)
     assert [s for s, _u, _r in SE.OWNER_SHOPS] == [r["shop"] for r in rep["shops"]]
-    assert len(shops) == 8 and rep["scanned"] == []
+    # D-OWNER-NINTH-SHOP: the exact nine, so a silently dropped shop fails here.
+    assert set(shops) == {"MJsOffTheHookDesigns", "MadelineMaeCo", "ZKBDESIGNER",
+                          "TheEasyDesign", "HanJanCrochet", "IvyLoop", "LoveandStitchDesigns",
+                          "FireflyCrochets", "ArtLoveDesing"}
+    assert len(shops) == 9 and rep["scanned"] == []
     assert shops["MJsOffTheHookDesigns"]["state"] == SE.NEVER
-    for shop in ("MadelineMaeCo", "ZKBDESIGNER", "TheEasyDesign"):
+    for shop in ("MadelineMaeCo", "ZKBDESIGNER", "TheEasyDesign", "ArtLoveDesing"):
         assert shops[shop]["state"] == SE.NEVER and shops[shop]["schedule"]["every_hours"] == 6
     registered = {m.shop_name for m in watchlist.WATCHLIST}
     for shop in ("HanJanCrochet", "IvyLoop", "LoveandStitchDesigns", "FireflyCrochets"):
@@ -194,7 +198,7 @@ def test_the_job_writes_one_reading_per_day_and_reports_work():
 
     out = run()
     run()
-    assert out["shops"] == 8 and not pipeline.did_no_work(out, "intel.scan_evidence")
+    assert out["shops"] == 9 and not pipeline.did_no_work(out, "intel.scan_evidence")
     with db.session() as s:
         n = s.scalar(select(func.count()).select_from(OperatingReading).where(
             OperatingReading.kind == SE.READING_KIND))

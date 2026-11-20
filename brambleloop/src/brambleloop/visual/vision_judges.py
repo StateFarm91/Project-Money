@@ -35,9 +35,10 @@ pass. Identity additionally needs the biometric floor, which no qualified embedd
 in this build (`identity_gate.QUALIFIED_EMBEDDERS` is empty), so identity tops out at the
 REVIEW band (UNKNOWN). That is the honest state. V3 (OA-V3-LAURA-QUALIFICATION): the floor is
 computed here from the image bytes by an embedder admitted through a validated qualification
-record (`identity_gate.measure_biometric`), never read from generator evidence. Production
-configures no embedder and no second transport (`configured_second_transport`), so it stays
-UNKNOWN until the owner funds and qualifies both; fixture stand-ins are labelled as such.
+record (`identity_gate.measure_biometric`), never read from generator evidence. ENG-VIS-IDENTITY:
+production loads the SFace embedder when installed (`identity_gate.production_floor`) and the
+OpenAI second judge when keyed (`configured_second_transport`); identity still HOLDs until the
+owner qualifies the embedder and activates the second transport. Fixture stand-ins are labelled.
 
 Nothing here generates, publishes, or relaxes a gate.
 """
@@ -263,12 +264,23 @@ def identity_check(cand: dict, readings: list[dict], *, size_of=lambda sha: 0,
         # A fixture reading is a test of the wiring: labelled wherever it is recorded.
         extra.update(fixture_only=True, certification=g["certification"])
         why = f"[{identity_gate.CERT_FIXTURE}] " + why
+    bio = g.get("biometric") or {}
     return _c("identity", g["status"], why, band=g.get("band"),
               validity=(g.get("validity") or {}).get("validity"),
               judges=[r.get("judge") for r in readings if r.get("answered")],
               failed=g.get("failed") or [],
-              biometric={k: (g.get("biometric") or {}).get(k)
-                         for k in ("status", "similarity", "why", "qualification")},
+              biometric={k: bio.get(k)
+                         for k in ("status", "similarity", "why", "qualification", "against",
+                                   "match_at", "refuse_below")},
+              # ENG-VIS-IDENTITY interface: consumers read `verdict` (PASS / HOLD / REFUSE).
+              verdict=g.get("verdict"), judge_agreement=g.get("judge_agreement"),
+              hold_reasons=g.get("hold_reasons") or [],
+              references=[{"sha256": r.get("sha256"), "bytes": r.get("bytes")}
+                          for r in (evidence["conditioning"].get("references") or [])],
+              conditioning_proven=bool(evidence["conditioning"].get("proven")),
+              readings=[{"judge": r.get("judge"), "order": r.get("order"),
+                         "answered": bool(r.get("answered")), "scored": r.get("scored"),
+                         "why": r.get("why", "")} for r in readings],
               **extra)
 
 
@@ -435,6 +447,41 @@ def compare_outfit(reading: dict, reserved: dict, *, others: list[tuple[str, dic
                                           "(" + ", ".join(f"{s}: {slots[s]['result']}"
                                                           for s in W.SLOTS) + ")",
               slots=slots)
+
+
+def outfit_reference_prompt() -> str:
+    """Blind: two photographs, is the clothing in each slot the same garment? The judge is not
+    told which answer is wanted, nor that image 1 is a reference."""
+    from . import wardrobe as W
+
+    slots = ", ".join(W.SLOTS)
+    return ("Images 1 and 2 each show a person. Compare only their CLOTHING, slot by slot, "
+            "ignoring the person, pose, lighting and any crochet or knitted item held or worn "
+            "as a product. For each slot answer exactly one of \"same\" (the same garment: "
+            "same type, colour and visible details), \"different\", or \"cannot_tell\" "
+            "(hidden or cropped in either image). Reply with one JSON object whose keys are "
+            f"exactly: {slots}.")
+
+
+def compare_outfit_reference(reading: dict) -> dict:
+    """The frame's clothing against the outfit's approved reference image, slot by slot.
+
+    FAIL when any slot reads `different`. PASS needs the top (or dress) to read `same` and no
+    slot `different`. Anything else is UNKNOWN."""
+    from . import wardrobe as W
+
+    per = {s: str((reading or {}).get(s, CANNOT_TELL)).strip().lower().replace(" ", "_")
+           for s in W.SLOTS}
+    per = {s: (v if v in (SAME, DIFFERENT) else CANNOT_TELL) for s, v in per.items()}
+    diff = [s for s, v in per.items() if v == DIFFERENT]
+    if diff:
+        return _c("outfit_reference", FAIL, f"the clothing differs from the outfit's approved "
+                                            f"reference in {diff}", slots=per)
+    if per["top_or_dress"] != SAME:
+        return _c("outfit_reference", UNKNOWN, "the top or dress cannot be compared with the "
+                                               "outfit's approved reference", slots=per)
+    return _c("outfit_reference", PASS, "every comparable slot matches the outfit's approved "
+                                        "reference", slots=per)
 
 
 # ---- anatomy and realism ---------------------------------------------------------------------
@@ -903,6 +950,26 @@ class Adapters:
             others = []
         out = compare_outfit(got["reading"], outfit, others=others)
         out["judge"] = got["judge"]
+        out["outfit_id"] = outfit.get("outfit_id")
+        ref = str(outfit.get("approved_reference") or "")
+        if out["status"] == FAIL or not ref:
+            out["reference_check"] = None if not ref else "not run: description already FAIL"
+            return out
+        # ENG-VIS-IDENTITY: against the outfit's approved reference image too. Both must PASS.
+        rdata = self._data({"sha256": ref})
+        if not rdata or hashlib.sha256(rdata).hexdigest() != ref:
+            rc = _c("outfit_reference", UNKNOWN, "the outfit's approved reference image could "
+                                                 "not be read by its sha256")
+        else:
+            got2 = ask(self.judge, "outfit_reference", outfit_reference_prompt(), [rdata, data])
+            rc = (compare_outfit_reference(got2["reading"]) if got2["answered"] else
+                  _c("outfit_reference", UNKNOWN, f"not judged: {got2['why']}"))
+            rc["judge"] = got2["judge"]
+        out["reference_check"] = rc
+        if rc["status"] == FAIL:
+            return {**out, "status": FAIL, "why": rc["why"]}
+        if rc["status"] != PASS and out["status"] == PASS:
+            return {**out, "status": UNKNOWN, "why": "description matches; " + rc["why"]}
         return out
 
     def anatomy(self, cand: dict) -> dict:
@@ -925,15 +992,42 @@ class Adapters:
         return locate_product(self.judge, self._data(cand))
 
 
-# ---- V3: what production configures (OWNER ACTION) -------------------------------------------
+# ---- the second, independent judge (ENG-VIS-IDENTITY) ----------------------------------------
 
-# The second, independent vision transport production would judge identity with. None: no
-# second provider has been chosen or funded (provider choice and spend are an OWNER ACTION).
-# When one is, it is wired here, and it must answer under a different `judge_id`.
-SECOND_VISION_TRANSPORT = None
+# The second judge is a different provider AND model from the first (Anthropic, `image_vision`
+# via `fidelity.GatewayVisionJudge`): OpenAI's pinned gpt-4.1 snapshot, through the same
+# `fidelity.GatewayVisionJudge` reservation path (`gateway.check_budget` priced by model, the
+# CA$100/month ceiling, `I._bill` once) plus OpenAI's own `paid_provider_gate` activation as
+# `openai-vision`. It answers only when (a) OPENAI_API_KEY is set, (b) the `image_vision` gate is
+# open and (c) the owner has activated `openai-vision`. Otherwise every read is unanswered,
+# identity has one judge, and it HOLDs. A different provider is the point: two models of one
+# vendor share training data and blind spots.
+SECOND_JUDGE_MODEL = "gpt-4.1-2025-04-14"
+
+
+def _openai_second_judge(db):
+    from ..gateway import openai_chat
+    from .fidelity import GatewayVisionJudge
+
+    if not openai_chat.OpenAIProvider.key():
+        return None
+
+    class OpenAIVisionJudge(GatewayVisionJudge):
+        name = "image_vision_openai"
+
+    return OpenAIVisionJudge(db, provider=openai_chat.OpenAIProvider(model=SECOND_JUDGE_MODEL))
+
+
+# The production second transport factory. `configured_second_transport` returns None while no
+# OpenAI key is configured (and the transport itself refuses while unactivated), so identity
+# stays HOLD until the owner funds it. Tests replace this with a stub.
+SECOND_VISION_TRANSPORT = _openai_second_judge
 
 
 def configured_second_transport(db=None):
-    """The production second judge transport, or None while none is owner-funded."""
+    """The production second judge transport, or None while it is not configured."""
     factory = SECOND_VISION_TRANSPORT
-    return factory(db) if callable(factory) else None
+    try:
+        return factory(db) if callable(factory) else None
+    except Exception:  # noqa: BLE001 - an unconstructable transport is no transport (HOLD)
+        return None

@@ -27,6 +27,10 @@ from brambleloop.core.models import (ArtefactProvenance, BenchmarkListing, Incid
 from brambleloop.gates import platform_policy  # noqa: E402
 from brambleloop.intel import vision  # noqa: E402
 from brambleloop.publish import release_gates  # noqa: E402
+# D-OWNER-POLICY39-OVERRIDE releases production's pending listing_image_rules change; this
+# suite tests the #39 hold mechanism itself on fixture changes, so the override is off here.
+from brambleloop.gates import platform_policy as _pp_override  # noqa: E402
+_pp_override.OWNER_DIRECTED_OVERRIDES.clear()
 
 
 def _cancel_pending(db):

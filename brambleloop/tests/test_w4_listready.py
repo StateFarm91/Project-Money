@@ -871,11 +871,24 @@ def test_f4_the_marketing_rebuild_exception_never_waives_an_unreviewed_policy_ch
                  inputs={"cir:hex": P.fingerprint({"rows": 11})})
     _sentinel(db)
     assert G.staleness(db, slug="hex")["outstanding_only_marketing"] is True
+    # ENG-RECOVERY (#39 holds publication only, owner directive 2026-11-19): a change that
+    # governs only publishing still blocks publication, but no longer stops the internal
+    # draft-and-hold marketing rebuild.
     with db.session() as s:
         s.add(PolicySnapshot(source="seller_policy", material_change=True,
                              affects=["publishing"], digest="d" * 64, checked_on="2026-10-21"))
     st = G.staleness(db, slug="hex")
     assert st["policy_changes_unreviewed"] == ["seller_policy"]
+    assert st["policy_publication_only"] == ["seller_policy"], st
+    assert st["outstanding_only_marketing"] is True and st["blocks"] is True
+    # Review F4 still holds for a change that governs growth: the marketing rebuild
+    # exception never waives it.
+    with db.session() as s:
+        s.add(PolicySnapshot(source="seller_policy", material_change=True,
+                             affects=["publishing", "growth"], digest="e" * 64,
+                             checked_on="2026-10-22"))
+    st = G.staleness(db, slug="hex")
+    assert st["policy_changes_unreviewed"] == ["seller_policy"], st
     assert st["outstanding_only_marketing"] is False and st["blocks"] is True
 
 

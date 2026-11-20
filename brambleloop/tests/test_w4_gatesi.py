@@ -137,6 +137,10 @@ check("target() signs an R2 endpoint for region auto", t is not None and t.regio
 from brambleloop.gates import platform_policy as PP  # noqa: E402
 from brambleloop.gates import policy_knowledge as PK  # noqa: E402
 from brambleloop.gates import policy_reader as PR  # noqa: E402
+# D-OWNER-POLICY39-OVERRIDE releases production's pending listing_image_rules change; this
+# suite tests the #39 hold mechanism itself on fixture changes, so the override is off here.
+from brambleloop.gates import platform_policy as _pp_override  # noqa: E402
+_pp_override.OWNER_DIRECTED_OVERRIDES.clear()
 
 check("listing_image_rules points at the image-requirements article, not 'download listing "
       "information'", "115015663347" in PP.POLICY_SOURCES["listing_image_rules"][0])

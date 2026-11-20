@@ -67,10 +67,13 @@ CATALOGUES = {
     "IvyLoop": [_listing(8100, "Snowflake Ornament Crochet Pattern")],
     "LoveandStitchDesigns": [_listing(8200, "Christmas Stocking Crochet Pattern")],
     "FireflyCrochets": [_listing(8300, "Moose Amigurumi Crochet Pattern")],
+    # D-OWNER-NINTH-SHOP: the ninth research shop, likewise alone in its pod.
+    "ArtLoveDesing": [_listing(8400, "Waffle Dishcloth Crochet Pattern")],
 }
 SHOPS = {"MadelineMaeCo": 1, "ZKBDESIGNER": 2, "TheEasyDesign": 3, "HanJanCrochet": 4,
-         "IvyLoop": 5, "LoveandStitchDesigns": 6, "FireflyCrochets": 7}
-SEEDS = len(benchmarks.SEED_SHOPS)
+         "IvyLoop": 5, "LoveandStitchDesigns": 6, "FireflyCrochets": 7, "ArtLoveDesing": 8}
+# Every non-anchor shop beyond the original three: the seed shops plus the owner-added ones.
+SEEDS = len(benchmarks.SEED_SHOPS) + len(benchmarks.OWNER_ADDED_SHOPS)
 SEED_KEYS = {"hanjan_crochet", "ivyloop", "loveandstitch_designs", "firefly_crochets"}
 
 
@@ -129,8 +132,10 @@ def _with_reader(reader):
 def test_the_watchlist_is_exact_and_permanent():
     keys = [m.key for m in watchlist.WATCHLIST]
     assert keys == [benchmarks.MJS_KEY, "madeline_mae_co", "zkbdesigner", "the_easy_design",
-                    "hanjan_crochet", "ivyloop", "loveandstitch_designs", "firefly_crochets"]
+                    "hanjan_crochet", "ivyloop", "loveandstitch_designs", "firefly_crochets",
+                    "artlove_desing"]
     roles = {m.shop_name: (m.role, m.special) for m in watchlist.WATCHLIST}
+    assert roles["ArtLoveDesing"] == ("permanent", False)            # D-OWNER-NINTH-SHOP
     assert roles["MJsOffTheHookDesigns"] == ("anchor", True)
     assert roles["MadelineMaeCo"] == ("special", True)
     assert roles["ZKBDESIGNER"] == ("permanent", False)
@@ -584,7 +589,8 @@ def test_backoff_never_overflows_and_one_shop_never_stops_the_scan():
     try:
         out = watchlist.scan_all(db, now=now)
         assert {s["key"] for s in out["shops"]} == {"madeline_mae_co", "zkbdesigner",
-                                                    "the_easy_design"} | SEED_KEYS
+                                                    "the_easy_design",
+                                                   "artlove_desing"} | SEED_KEYS
         assert watchlist._state(db, "zkbdesigner")["consecutive_failures"] == 41
         # an unexpected fault in one shop becomes that shop's outage, not the job's failure
         real = watchlist.scan_member
@@ -709,10 +715,11 @@ def test_a_withheld_listing_is_revisited_once_paid_work_is_authorised():
 # ---- D-W4-OWNER-SEEDSHOPS (owner decision 2026-10-27) --------------------------------------
 
 
-def test_all_eight_shops_are_present_and_no_original_benchmark_is_dropped():
+def test_all_nine_shops_are_present_and_no_original_benchmark_is_dropped():
     shops = [m.shop_name for m in watchlist.WATCHLIST]
     assert shops == ["MJsOffTheHookDesigns", "MadelineMaeCo", "ZKBDESIGNER", "TheEasyDesign",
-                     "HanJanCrochet", "IvyLoop", "LoveandStitchDesigns", "FireflyCrochets"]
+                     "HanJanCrochet", "IvyLoop", "LoveandStitchDesigns", "FireflyCrochets",
+                     "ArtLoveDesing"]
     assert [b.shop_name for b in benchmarks.REGISTRY] == shops
     from brambleloop.radar.market import COMPETITORS
 
@@ -778,7 +785,7 @@ def test_seed_shops_copy_no_competitor_content():
     finally:
         watchlist.reader_factory = None
     rep = watchlist.record_comparison(db)["report"]
-    watchlist._assert_no_content(rep)                     # aliases only, all eight shops
+    watchlist._assert_no_content(rep)                     # aliases only, all nine shops
     text = json.dumps(rep)
     assert CATALOGUES and all(CATALOGUES.values())
     for listings in CATALOGUES.values():

@@ -340,14 +340,54 @@ def handle_radar_scan(ctx: JobContext) -> dict:
     nudges = _consume.rank_adjustments(ctx.db, [x.seed for x in steered])
     steered = [_replace(x, score=round(x.score + nudges.get(x.seed.slug, 0.0), 4))
                if nudges.get(x.seed.slug) else x for x in steered]
-    portfolio = select_portfolio(steered, target=target, today=today)
+    # ENG-RECOVERY (prod 2026-11-19: original_product 0/0/0 for 7 days with 18 undrafted
+    # concepts in the pool): `select_portfolio` ranks by score alone, so every scan returned
+    # the same top 11, all drafted long ago, whose `draft:<slug>` keys were taken -- the
+    # radar.score jobs promoted them and enqueued nothing. The portfolio is now chosen from
+    # the concepts not yet drafted (the same section-33 rules, the same score threshold, risk
+    # class and pre-engineering gate in radar.score and cir.draft); only when every concept
+    # has been drafted does it fall back to the full pool, which is the `pool_exhausted`
+    # stall the supply reading reports.
+    #
+    # Fix round 1 (review M1): "undrafted" was not enough. On the production pool (34
+    # concepts, 16 drafted) it made three drafts and then re-selected the same ten every scan
+    # -- eight refused by #88 (a radar slot with no premise or storyboard is not a concept),
+    # one under the threshold -- and called that supply. The scan now selects from the
+    # undrafted concepts `radar.score` would promote today (`promotion_verdict`: the same
+    # threshold, risk class and pre-engineering gate). Only when none is, it selects as
+    # before (undrafted, then the full pool) and the supply reading records the stall as
+    # `selection_unpromotable` with each held concept's reason. No gate is relaxed here.
+    from ..ops import flow_health as _fh
+
+    try:
+        _drafted = _fh.drafted_slugs(ctx.db, {c.slug for c in steered})
+    except Exception:  # noqa: BLE001 - an unreadable draft record selects as before
+        _drafted = set()
+    undrafted = [c for c in steered if c.slug not in _drafted]
+    promotable, held = promotable_now(ctx.db, undrafted, today) if undrafted else ([], {})
+    portfolio, selection_pool = None, "promotable_undrafted"
+    for tier, candidates in (("promotable_undrafted", promotable), ("undrafted", undrafted),
+                             ("full_pool", steered)):
+        if candidates:
+            portfolio = select_portfolio(candidates, target=target, today=today)
+            if portfolio.selected:
+                selection_pool = tier
+                break
+    if portfolio is None:
+        portfolio = select_portfolio(steered, target=target, today=today)
+        selection_pool = "full_pool"
 
     ctx.audit("radar.scanned", detail={
-        "pool": len(portfolio.selected) + len(portfolio.rejected),
+        # L1: the full section-33 pool, and the sub-pool the selection was made from
+        "pool": len(steered),
+        "selection_pool": selection_pool,
+        "selection_pool_size": len(portfolio.selected) + len(portfolio.rejected),
         "selected": len(portfolio.selected),
         "constraints_met": portfolio.constraints_met,
         "as_of": today.isoformat(),
         "arbitrage": steering,
+        "drafted_excluded": len(steered) - len(undrafted),
+        "unpromotable_excluded": len(held),
     })
     if not portfolio.ok:
         # Never silently ship a portfolio that violates section 33; say which rule broke.
@@ -378,7 +418,8 @@ def handle_radar_scan(ctx: JobContext) -> dict:
     # A reading fault never costs the scan.
     try:
         supply = _record_supply_stall(ctx, [c.slug for c in steered],
-                                      [c.slug for c in portfolio.selected], today)
+                                      [c.slug for c in portfolio.selected], today,
+                                      promotable=[c.slug for c in promotable], held=held)
     except Exception as exc:  # noqa: BLE001
         supply = {"measured": False, "why": f"{type(exc).__name__}: {str(exc)[:160]}"}
 
@@ -408,7 +449,9 @@ def handle_radar_scan(ctx: JobContext) -> dict:
 
     return {
         "expansion": {k: expansion.get(k) for k in ("measurable", "opportunities", "why")},
-        "pool_size": len(portfolio.selected) + len(portfolio.rejected),
+        "pool_size": len(steered),
+        "selection_pool": selection_pool,
+        "selection_pool_size": len(portfolio.selected) + len(portfolio.rejected),
         "selected": [c.slug for c in portfolio.selected],
         "constraints_met": portfolio.constraints_met,
         "swaps": portfolio.reasons,
@@ -422,16 +465,24 @@ def handle_radar_scan(ctx: JobContext) -> dict:
 
 
 def _record_supply_stall(ctx: JobContext, pool: list[str], selected: list[str],
-                         today: date) -> dict:
+                         today: date, *, promotable: list[str] | None = None,
+                         held: dict[str, str] | None = None) -> dict:
     """W5-A7 (P0-SUPPLY-STALL): the next-product supply reading of one `radar.scan`.
 
-    Supply is a selected concept with no `draft:<slug>` job; `radar.score` is the only path
-    that turns one into a `cir.draft`, under that same permanent key, so a drafted slug is
-    never drafted twice and is not supply. With none, one `OperatingReading`
+    Supply is a selected concept with no `draft:<slug>` job that `radar.score` would promote
+    today (`promotion_verdict`); `radar.score` is the only path that turns one into a
+    `cir.draft`, under that same permanent key, so a drafted slug is never drafted twice and
+    is not supply, and neither is a concept the score threshold, risk class or
+    pre-engineering gate refuses. With none, one `OperatingReading`
     (`flow_health.SUPPLY_STALL_KIND`, period = the scan date) and one audit record the stall:
-    `pool_exhausted` when every concept in POOL plus approved intake is drafted, else
-    `selection_all_drafted`. Deterministic, deduplicated per period, and read-only for the
+    `pool_exhausted` when every concept in POOL plus approved intake is drafted;
+    `selection_unpromotable` (ENG-RECOVERY fix round 1, review M1) when undrafted concepts
+    remain but none would be promoted (each held concept's reason is recorded);
+    `promotable_not_selectable` when promotable ones exist but section 33 could not select
+    them on their own; `selection_all_drafted` when promotability was not judged. Deterministic, deduplicated per period, and read-only for the
     queue: it enqueues nothing.
+
+    `promotable` None means the caller did not judge promotability (the W5-A7 reading).
     """
     from sqlalchemy import select
     from sqlalchemy.exc import IntegrityError
@@ -441,18 +492,37 @@ def _record_supply_stall(ctx: JobContext, pool: list[str], selected: list[str],
 
     drafted = flow_health.drafted_slugs(ctx.db, set(pool) | set(selected))
     undrafted_pool = sorted(s for s in set(pool) if s not in drafted)
+    judged = promotable is not None
+    can = set(promotable or ()) if judged else set(undrafted_pool)
     undrafted_selected = [s for s in selected if s not in drafted]
+    supply_selected = [s for s in undrafted_selected if s in can]
+    held = dict(held or {})
     out = {"measured": True, "pool": len(set(pool)), "drafted": len(drafted & set(pool)),
            "undrafted_pool": len(undrafted_pool), "undrafted_selected": len(undrafted_selected),
-           "stalled": not undrafted_selected, "recorded": False}
-    if undrafted_selected:
+           "promotable_undrafted": len(can & set(undrafted_pool)) if judged else None,
+           "supply_selected": len(supply_selected),
+           "stalled": not supply_selected, "recorded": False}
+    if supply_selected:
         return out
+    if not undrafted_pool:
+        reason = "pool_exhausted"
+    elif judged and not (can & set(undrafted_pool)):
+        reason = "selection_unpromotable"
+    elif judged:
+        # promotable concepts exist but section 33 could not select them on their own (a
+        # lone bundle is held unless its members are selected with it)
+        reason = "promotable_not_selectable"
+    else:
+        reason = "selection_all_drafted"
+    out["reason"] = reason
+    if reason == "selection_unpromotable":
+        out["held"] = {k: held[k] for k in sorted(held)[:50]}
     period = today.isoformat()
-    payload = {"reason": "pool_exhausted" if not undrafted_pool else "selection_all_drafted",
+    payload = {"reason": reason,
                "pool": out["pool"], "drafted": out["drafted"],
                "undrafted_pool": undrafted_pool[:50], "selected": list(selected)[:50],
+               "held": out.get("held") or {},
                "as_of": period, "job_id": ctx.job.id}
-    out["reason"] = payload["reason"]
     try:
         with ctx.db.session() as s:
             if s.scalar(select(OperatingReading.id).where(
@@ -569,6 +639,98 @@ def _score_coverage_handoff(ctx: JobContext, inputs: dict) -> dict:
                        "score (UNKNOWN, not zero)")}
 
 
+def promotion_verdict(db, seed, c: dict, today: date) -> dict:
+    """Whether `radar.score` promotes this concept now, and every number it decides on.
+
+    Read-only: the records (`radar.evidence_discount`, the lesson acts, the gate record) are
+    written by `radar.score` itself. ENG-RECOVERY fix round 1 (review M1): `radar.scan` asks
+    this same function before it selects, so a concept refused here -- under
+    PROMOTION_THRESHOLD, outside risk class A/B, or not passed by the pre-engineering gate
+    (#88's premise and storyboard first) -- is not selected as new supply. One rule, two
+    callers; the gate is not re-implemented or relaxed anywhere.
+    """
+    from ..creative import preengineering
+    from ..improve import consume
+    from ..radar import arbitrage
+    from ..radar import provenance as trend_provenance
+
+    rescored = score_concept(seed, today)
+    # #2: the same steering as the scan, so a concept is promoted on the score it was selected
+    # on rather than on a base score the market evidence has already moved. Then the #38
+    # evidence discount and the #97 lesson nudge apply to the steered score, in that order.
+    rescored = arbitrage.steer_concepts(db, [rescored])[0][0]
+    # #38 (C-69): the score is discounted by the stamped trend evidence about this concept --
+    # stale or foreign-population evidence lowers it, and the discounted score is the one
+    # that decides promotion.
+    evidence = trend_provenance.evidence_for(db, seed, today=today)
+    evidence_score = round(rescored.score * evidence["discount"], 4)
+    # #97 / #147: Market Radar reads its lesson inbox where it decides. A lesson whose words
+    # match this concept nudges the score within a bound; `radar.score` records the act.
+    concept_text = consume.concept_text(seed, c)
+    radar_lessons = [l for l in consume.matching(db, "market_radar", concept_text)
+                     if l["direction"]]
+    lesson_adjustment = consume.score_adjustment(radar_lessons)
+    adjusted = round(evidence_score + lesson_adjustment, 4)
+    promote = adjusted >= PROMOTION_THRESHOLD and seed.risk_class in ("A", "B")
+    # The pre-engineering gate (#83, #87, #88, #108, #110, #115, #125, #126). An opportunity
+    # score says a slot is worth filling; it says nothing about whether *this idea* deserves
+    # engineering. A design the catalogue already has is a rebuild and passes as one; anything
+    # else is a new concept and must clear the whole deterministic sequence, or it is not
+    # engineered -- refused back to creative development, or left waiting, unpassed, on a
+    # judgement nobody can make yet.
+    gate = None
+    exempt = None
+    if promote:
+        exempt = (preengineering.established(db, seed.slug)
+                  or ("a bundle is assembled from its members' releases, not engineered"
+                      if seed.is_bundle else None))
+        if not exempt:
+            gate = preengineering.gate_concept(db, c, today=today)
+            promote = gate["engineer"]
+    why = None if promote else (
+        "Class C requires physical testing that does not exist yet"
+        if seed.risk_class == "C" else
+        gate["consequence"] if gate is not None else
+        f"score {evidence_score} below promotion threshold {PROMOTION_THRESHOLD}"
+        + (f" after the evidence discount ({evidence['why']})"
+           if evidence.get("measured") else ""))
+    return {"rescored": rescored, "evidence": evidence, "evidence_score": evidence_score,
+            "radar_lessons": radar_lessons, "lesson_adjustment": lesson_adjustment,
+            "adjusted": adjusted, "promote": promote, "gate": gate, "exempt": exempt,
+            "concept_text": concept_text, "why": why}
+
+
+def _score_inputs(db, scored) -> dict:
+    """The inputs `radar.score` would judge a scanned concept on (`radar.scan` enqueues
+    `scored.to_dict()`; an intake concept is judged on its database row, F2)."""
+    c = scored.to_dict()
+    if scored.seed.origin:
+        from ..radar import intake
+
+        c = intake.gate_inputs(db, scored.seed.slug, c)
+    return c
+
+
+def promotable_now(db, scored_concepts, today: date) -> tuple[list, dict[str, str]]:
+    """(the concepts `radar.score` would promote today, {slug: why not} for the rest)."""
+    keep, held = [], {}
+    for x in scored_concepts:
+        try:
+            seed = _seed_for(x.seed.slug, db) or x.seed
+            v = promotion_verdict(db, seed, _score_inputs(db, x), today)
+        except Exception as exc:  # noqa: BLE001 - a verdict that cannot be read is no promotion
+            held[x.seed.slug] = f"unreadable verdict: {type(exc).__name__}: {str(exc)[:120]}"
+            continue
+        if v["promote"]:
+            keep.append(x)
+        else:
+            gate = v["gate"] or {}
+            detail = (f" (failed {gate.get('failed')}; waiting on {gate.get('waiting_on')}: "
+                      f"{'; '.join(gate.get('reasons') or [])[:160]})" if gate else "")
+            held[x.seed.slug] = (str(v["why"] or "not promoted") + detail)[:400]
+    return keep, held
+
+
 @handlers.register("radar.score")
 def handle_radar_score(ctx: JobContext) -> dict:
     """Re-score the candidate on its own and promote it only if it still clears the bar.
@@ -599,61 +761,29 @@ def handle_radar_score(ctx: JobContext) -> dict:
         c = intake.gate_inputs(ctx.db, seed.slug, c)
 
     today = _scan_date(ctx)
-    rescored = score_concept(seed, today)
-    # #2: the same steering as the scan, so a concept is promoted on the score it was selected
-    # on rather than on a base score the market evidence has already moved. Then the #38
-    # evidence discount and the #97 lesson nudge apply to the steered score, in that order.
-    from ..radar import arbitrage
-    rescored = arbitrage.steer_concepts(ctx.db, [rescored])[0][0]
-    # #38 (C-69): the score is discounted by the stamped trend evidence about this concept --
-    # stale or foreign-population evidence lowers it, and the discounted score is the one
-    # that decides promotion.
-    from ..radar import provenance as trend_provenance
-
-    evidence = trend_provenance.evidence_for(ctx.db, seed, today=today)
-    evidence_score = round(rescored.score * evidence["discount"], 4)
-    ctx.audit("radar.evidence_discount", artifact=seed.slug,
-              detail={"raw_score": rescored.score, "score": evidence_score, **evidence})
-    # #97 / #147: Market Radar reads its lesson inbox where it decides. A lesson whose words
-    # match this concept nudges the score within a bound -- a construction customers prefer
-    # up, a creative death in this arena down -- and the nudge is recorded against the lesson
-    # through `bus.acted_on`, so compounding is counted from decisions that changed.
+    # ENG-RECOVERY fix round 1 (review M1): the decision is `promotion_verdict`, the one
+    # function `radar.scan` also asks before it selects, so the scan can never select a
+    # concept this handler would refuse on the same inputs. The records are written here.
+    v = promotion_verdict(ctx.db, seed, c, today)
+    rescored, evidence, evidence_score = v["rescored"], v["evidence"], v["evidence_score"]
+    radar_lessons, lesson_adjustment = v["radar_lessons"], v["lesson_adjustment"]
+    adjusted, promote, gate, exempt = v["adjusted"], v["promote"], v["gate"], v["exempt"]
+    concept_text = v["concept_text"]
     from ..improve import consume
 
-    concept_text = consume.concept_text(seed, c)
-    radar_lessons = [l for l in consume.matching(ctx.db, "market_radar", concept_text)
-                     if l["direction"]]
-    lesson_adjustment = consume.score_adjustment(radar_lessons)
-    # Composed: the evidence-discounted score (#38) is what the lesson nudges (#97), and the
-    # composed score is the one that decides promotion.
-    adjusted = round(evidence_score + lesson_adjustment, 4)
+    ctx.audit("radar.evidence_discount", artifact=seed.slug,
+              detail={"raw_score": rescored.score, "score": evidence_score, **evidence})
     if radar_lessons:
         consume.act(ctx.db, "market_radar", radar_lessons,
                     how=f"radar.score of {seed.slug} moved {lesson_adjustment:+} to {adjusted} "
                         f"(evidence-discounted {evidence_score})")
-    promote = adjusted >= PROMOTION_THRESHOLD and seed.risk_class in ("A", "B")
-
-    # The pre-engineering gate (#83, #87, #88, #108, #110, #115, #125, #126). An opportunity
-    # score says a slot is worth filling; it says nothing about whether *this idea* deserves
-    # engineering. A design the catalogue already has is a rebuild and passes as one; anything
-    # else is a new concept and must clear the whole deterministic sequence, or it is not
-    # engineered -- refused back to creative development, or left waiting, unpassed, on a
-    # judgement nobody can make yet.
-    gate = None
-    exempt = None
-    if promote:
+    if exempt:
+        ctx.audit("concept.gate_exempt", artifact=seed.slug,
+                  detail={"reason": exempt, "source": "radar.score"})
+    elif gate is not None:
         from ..creative import preengineering
 
-        exempt = (preengineering.established(ctx.db, seed.slug)
-                  or ("a bundle is assembled from its members' releases, not engineered"
-                      if seed.is_bundle else None))
-        if exempt:
-            ctx.audit("concept.gate_exempt", artifact=seed.slug,
-                      detail={"reason": exempt, "source": "radar.score"})
-        else:
-            gate = preengineering.gate_concept(ctx.db, c, today=today)
-            preengineering.record(ctx, gate, source="radar.score")
-            promote = gate["engineer"]
+        preengineering.record(ctx, gate, source="radar.score")
 
     ctx.audit("radar.scored", artifact=seed.slug, detail={
         "score": adjusted, "raw_score": rescored.score, "evidence_score": evidence_score,
@@ -692,9 +822,17 @@ def handle_radar_score(ctx: JobContext) -> dict:
                         how=(f"cir.draft of {seed.slug} moved up to {MAX_HEURISTIC_STEPS} "
                              f"step inside its band by a lesson heuristic; benefit unmeasured "
                              f"until the draft's outcome is read"))
-        ctx.enqueue("crochet_engineer", "cir.draft", payload,
-                    idempotency_key=f"draft:{seed.slug}")
-    return {"slug": seed.slug, "score": adjusted, "raw_score": rescored.score,
+        # ENG-SUPPLY: offered to the capacity-aware admission controller, not enqueued
+        # directly. Admitted at once when there is room (the same `draft:<slug>` job and
+        # payload), otherwise it waits in the supply queue for the next free slot.
+        from ..products import supply
+
+        admission = supply.offer(ctx, slug=seed.slug, payload=payload,
+                                 key=f"draft:{seed.slug}", source="radar.score",
+                                 family=seed.family, demand=adjusted,
+                                 research=bool(seed.origin))
+    return {"slug": seed.slug, "score": adjusted,
+            "admission": admission if promote else None, "raw_score": rescored.score,
             "evidence_score": evidence_score,
             "evidence": {k: evidence.get(k) for k in ("measured", "discount", "rows",
                                                       "mean_weight", "why")},
@@ -705,13 +843,7 @@ def handle_radar_score(ctx: JobContext) -> dict:
                      {k: gate[k] for k in ("decision", "failed", "unmeasured", "reasons",
                                            "waiting_on", "consequence")}),
             "gate_exempt": exempt,
-            "reason": None if promote else (
-                "Class C requires physical testing that does not exist yet"
-                if seed.risk_class == "C" else
-                gate["consequence"] if gate is not None else
-                f"score {evidence_score} below promotion threshold {PROMOTION_THRESHOLD}"
-                + (f" after the evidence discount ({evidence['why']})"
-                   if evidence.get("measured") else ""))}
+            "reason": v["why"]}
 
 
 # Concepts whose pattern is engineered rather than templated. The generic builder below makes
@@ -850,6 +982,65 @@ def handle_creative_candidates_file(ctx: JobContext) -> dict:
             "unchanged": unchanged, "errors": errors}
 
 
+def _draft_garment(ctx: JobContext, slug: str, i: dict) -> dict:
+    """ENG-GARMENT: route, build every size, gate the run, then compile and certify each size.
+
+    The garment is drafted only into a family `construction_families.garment_route` admits
+    (a pinned end-to-end proof for its category and body table). Every size is built from one
+    step list (`products.garment_families`), certified through the release chain and the
+    garment gates (`products.garment_release.certify`); a run with any refused size or gate
+    finding is held with its reasons. A granted run sends each size's CIR through the same
+    `cir.compile` -> `gate.certify` chain every product takes."""
+    from types import SimpleNamespace
+
+    from ..creative import construction_families as CF
+    from ..products import garment_release as GR
+
+    title, category = str(i.get("title") or ""), str(i.get("category") or "")
+    route = CF.route(category=category, title=title, form="fitted_garment",
+                     construction=str(i.get("construction") or ""), slug=slug,
+                     premise=str(i.get("premise") or ""))
+
+    def held(reason: str, gate: str = "construction") -> dict:
+        ctx.audit("cir.draft_refused", artifact=slug,
+                  detail={"reason": reason[:400], "gate": gate, "category": category,
+                          "hold": reason.split(" ", 1)[0]})
+        return {"artifact": slug, "drafted": False, "gate": gate, "construction": "garment",
+                "hold": reason.split(" ", 1)[0], "reasons": [reason[:300]]}
+
+    if not route["admitted"]:
+        return held(route["reason"])
+    concept = SimpleNamespace(
+        key=slug, title=title, form="fitted_garment",
+        construction=str(i.get("construction") or ""), premise=str(i.get("premise") or ""),
+        notes=str(i.get("notes") or ""), recipient=str(i.get("recipient") or "self"),
+        feeling=str(i.get("feeling") or "serene"))
+    try:
+        spec = GR.spec_for(concept)
+    except GR.GarmentRefused as exc:
+        return held(str(exc))
+    if spec.audience != route.get("audience"):
+        return held(f"{CF.HOLD_PREFIX}{route['family']} -- the concept's recipient sizes it "
+                    f"for {spec.audience} but its title and category say {route.get('audience')}")
+    release = GR.certify(GR.build(spec))
+    if not release.granted:
+        return held(f"{CF.HOLD_PREFIX}{route['family']} -- the garment run is refused: "
+                    + "; ".join(release.reasons()[:3]), gate="garment")
+    queued = []
+    for size, cir in release.cirs.items():
+        ctx.enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
+                    idempotency_key=f"compile:{cir.slug}:{cir.version}:{cir.fingerprint}")
+        queued.append(f"{cir.slug}@{cir.version}")
+    ctx.audit("cir.drafted", artifact=slug,
+              detail={"source": "products.garment_release", "family": route["family"],
+                      "sizes": list(release.sizes), "queued": queued})
+    return {"artifact": slug, "drafted": True, "construction": route["family"],
+            "garment": {"family": route["family"], "audience": spec.audience,
+                        "sizes": list(release.sizes), "queued": queued,
+                        "construction": spec.construction},
+            "rows": sum(len(c.rows) for c in next(iter(release.cirs.values())).components)}
+
+
 @handlers.register("cir.draft")
 def handle_cir_draft(ctx: JobContext) -> dict:
     slug = ctx.job.inputs["slug"]
@@ -972,6 +1163,9 @@ def handle_cir_draft(ctx: JobContext) -> dict:
         opportunity_score=i.get("score", i.get("opportunity_score", 0.0)),
         season=i.get("season"), risk_class=i.get("risk_class", "A"),
     )
+    if i.get("form") == "fitted_garment":
+        # ENG-GARMENT: a graded garment is one release of every size, never a flat panel.
+        return _draft_garment(ctx, slug, i)
     lineage = _fallback_lineage(seed, dict(i), concept)
     from ..creative import fallback_constructions as FC
     from ..creative.prototype import PrototypeRefused, source_provenance
@@ -982,12 +1176,18 @@ def handle_cir_draft(ctx: JobContext) -> dict:
     route = FC.plan(category=concept.category, title=concept.title,
                     is_bundle=bool(seed.is_bundle) if seed is not None else False,
                     slug=concept.slug, rationale=seed.rationale if seed is not None else "")
+    from ..creative.construction_families import draft_hold
+
     if route["family"] == FC.REFUSED:
+        # ENG-FAMILIES: the refusal names the family it holds, the label intake uses, so the
+        # production inventory shows a construction hold, never "drafted, not compiled".
+        hold = draft_hold(concept.category, concept.title)
         ctx.audit("cir.draft_refused", artifact=slug,
                   detail={"reason": route["why"][:400], "gate": "construction",
-                          "category": concept.category, "needs": route["needs"][:200]})
+                          "category": concept.category, "needs": route["needs"][:200],
+                          "hold": hold})
         return {"artifact": slug, "drafted": False, "gate": "construction",
-                "construction": FC.REFUSED, "reasons": [route["why"][:300]]}
+                "construction": FC.REFUSED, "hold": hold, "reasons": [route["why"][:300]]}
     try:
         if route["family"] == FC.VESSEL:
             provenance = None
@@ -1039,12 +1239,14 @@ def handle_cir_draft(ctx: JobContext) -> dict:
             cir = FC.stocking(concept, provenance=provenance)
         elif route["family"] == FC.TAPESTRY:
             if len(set((concept.colors or {}).values())) < 2:
+                hold = draft_hold(concept.category, concept.title, FC.TAPESTRY)
                 ctx.audit("cir.draft_refused", artifact=slug,
                           detail={"reason": "tapestry needs two distinct colours",
                                   "gate": "construction", "category": concept.category,
-                                  "needs": "a second, distinct colour in the palette"})
+                                  "needs": "a second, distinct colour in the palette",
+                                  "hold": hold})
                 return {"artifact": slug, "drafted": False, "gate": "construction",
-                        "construction": FC.REFUSED,
+                        "construction": FC.REFUSED, "hold": hold,
                         "reasons": ["tapestry needs two distinct colours"]}
             provenance = None
             if lineage["known"]:
@@ -1057,6 +1259,70 @@ def handle_cir_draft(ctx: JobContext) -> dict:
                     concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
                     concept.source_brief, primitives)
             cir = FC.tapestry_basket(concept, provenance=provenance)
+        elif route["family"] == FC.COLOURWORK_TAPESTRY:
+            # ENG-COLOURWORK: an original chart generated from the motif library; the motif
+            # it draws is a declared primitive, so name truth can back the title's motif word.
+            from ..creative import colourwork as CW
+
+            if len(set((concept.colors or {}).values())) < 2:
+                hold = draft_hold(concept.category, concept.title, FC.COLOURWORK_TAPESTRY)
+                ctx.audit("cir.draft_refused", artifact=slug,
+                          detail={"reason": "tapestry needs two distinct colours",
+                                  "gate": "construction", "category": concept.category,
+                                  "needs": "a second, distinct colour in the palette",
+                                  "hold": hold})
+                return {"artifact": slug, "drafted": False, "gate": "construction",
+                        "construction": FC.REFUSED, "hold": hold,
+                        "reasons": ["tapestry needs two distinct colours"]}
+            build = CW.basket_wall if concept.category == "basket" else CW.flat_piece
+            base = CW.BASKET_PRIMITIVES if concept.category == "basket" else CW.FLAT_PRIMITIVES
+            motif = CW.motif_primitive(CW.design(concept.slug, concept.title)["motif"])
+            provenance = None
+            if lineage["known"]:
+                concept.source_provenance = lineage["source"]
+                concept.source_brief = lineage["brief"]
+                primitives = (base + (motif,)
+                              + tuple(p for p in lineage["primitives"]
+                                      if p != "runtime.pipeline.concept_to_cir"))
+                provenance = source_provenance(
+                    concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
+                    concept.source_brief, primitives)
+            cir = build(concept, provenance=provenance)
+        elif route["family"] == FC.AMIGURUMI:
+            provenance = None
+            if lineage["known"]:
+                concept.source_provenance = lineage["source"]
+                concept.source_brief = lineage["brief"]
+                primitives = (FC.AMIGURUMI_PRIMITIVES
+                              + tuple(p for p in lineage["primitives"]
+                                      if p != "runtime.pipeline.concept_to_cir"))
+                provenance = source_provenance(
+                    concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
+                    concept.source_brief, primitives)
+            cir = FC.amigurumi(concept, provenance=provenance)
+        elif route["family"] in (FC.ENVELOPE, FC.APPLIQUE, FC.LOVEY):
+            # ENG-PLUSH slices 2-3: cushion covers (creative.cushions) and loveys
+            # (creative.baby), drafted from modelled pieces only.
+            from ..creative import baby as _baby
+            from ..creative import cushions as _cushions
+
+            builder = {FC.ENVELOPE: "creative.cushions.envelope_cover",
+                       FC.APPLIQUE: "creative.cushions.envelope_cover",
+                       FC.LOVEY: "creative.baby.lovey"}[route["family"]]
+            provenance = None
+            if lineage["known"]:
+                concept.source_provenance = lineage["source"]
+                concept.source_brief = lineage["brief"]
+                primitives = ((builder, "cir.assembly._surface_join") + tuple(
+                    p for p in lineage["primitives"] if p != "runtime.pipeline.concept_to_cir"))
+                provenance = source_provenance(
+                    concept.slug, {**concept.__dict__, "provenance": concept.source_provenance},
+                    concept.source_brief, primitives)
+            if route["family"] == FC.LOVEY:
+                cir = _baby.lovey(concept, provenance=provenance)
+            else:
+                cir = _cushions.envelope_cover(concept, provenance=provenance,
+                                               applique=route.get("applique"))
         elif route["family"] == FC.POUCH:
             provenance = None
             if lineage["known"]:
@@ -1099,12 +1365,14 @@ def handle_cir_draft(ctx: JobContext) -> dict:
         # Review OPUS2C N3.3: a construction that cannot be built from these inputs (an empty
         # repeat, no colours, a stitch outside the taxonomy) is a named refusal, not a crash.
         why = f"{type(exc).__name__}: {str(exc)[:300]}"
+        hold = draft_hold(concept.category, concept.title, route["family"])
         ctx.audit("cir.draft_refused", artifact=slug,
                   detail={"reason": why[:400], "gate": "construction",
                           "category": concept.category,
-                          "needs": f"inputs the {route['family']} construction can work"})
+                          "needs": f"inputs the {route['family']} construction can work",
+                          "hold": hold})
         return {"artifact": slug, "drafted": False, "gate": "construction",
-                "construction": route["family"], "reasons": [why[:300]]}
+                "construction": route["family"], "hold": hold, "reasons": [why[:300]]}
     # OPUS2-P0: the publish gate's name-truth rule, read at draft time for the constructions
     # this fallback now makes. Recorded, never a refusal here: publication refuses it
     # (NAME_OUTRUNS_PATTERN), and the count shows what the fallback cannot yet chart.
@@ -1116,9 +1384,10 @@ def handle_cir_draft(ctx: JobContext) -> dict:
             name_problems = [str(p)[:200] for p in name_truth(cir, None)]
         except Exception as exc:  # noqa: BLE001 - a reading, never a reason to fail a draft
             name_problems = [f"UNKNOWN: {type(exc).__name__}"]
+    advice = _learning_advice(ctx, cir, family=route["family"])
     ctx.audit("cir.drafted", artifact=f"{cir.slug}@{cir.version}",
               detail={"source": "concept_to_cir fallback", "construction": route["family"],
-                      "name_truth": name_problems,
+                      "name_truth": name_problems, "learning_advice": advice,
                       "provenance": ("recorded" if cir.provenance is not None
                                      else "UNKNOWN: " + lineage["why"]),
                       "benchmarks_consulted": (list(cir.provenance.benchmarks_consulted)
@@ -1126,7 +1395,23 @@ def handle_cir_draft(ctx: JobContext) -> dict:
     ctx.enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
                 idempotency_key=f"compile:{cir.slug}:{cir.version}")
     return {"artifact": f"{cir.slug}@{cir.version}", "drafted": True,
-            "construction": route["family"], "rows": len(cir.components[0].rows)}
+            "construction": route["family"], "rows": len(cir.components[0].rows),
+            "learning_advice": advice}
+
+
+def _learning_advice(ctx: JobContext, cir: CIR, *, family: str = "") -> dict:
+    """ENG-LEARN: the measured engineering regions this draft falls in (`learning.
+    pattern_lessons.advise`). A reading recorded with the draft, never a refusal: the
+    compiler and the certificate decide; a lesson never stands in for a gate."""
+    try:
+        from ..learning import pattern_lessons
+
+        a = pattern_lessons.advise(ctx.db, cir=cir.to_dict(), family=str(family or ""))
+        return {"avoid": [h["key"] for h in a["avoid"]][:6],
+                "prefer": [h["key"] for h in a["prefer"]][:6],
+                "measured_regions": a["measured_regions"]}
+    except Exception as exc:  # noqa: BLE001 - advice is a reading; it never fails a draft
+        return {"status": "UNKNOWN", "why": f"{type(exc).__name__}"[:80]}
 
 
 def _fallback_lineage(seed: ConceptSeed | None, inputs: dict, concept: Concept) -> dict:
@@ -1189,15 +1474,18 @@ def _draft_creative(ctx: JobContext, slug: str) -> dict:
                   detail={"reason": str(exc)[:400], "gate": "engine"})
         return {"artifact": slug, "drafted": False, "reasons": [str(exc)[:300]]}
     cir = CIR.from_dict({**cir.to_dict(), "slug": slug, "title": concept.title})
+    advice = _learning_advice(ctx, cir, family=concept.form)
     ctx.audit("cir.drafted", artifact=f"{cir.slug}@{cir.version}",
               detail={"source": "tournament winner", "form": concept.form,
+                      "learning_advice": advice,
                       "construction": cir.construction, "pod": concept.pod,
                       "mjs_event_id": ctx.job.inputs.get("mjs_event_id"),
                       "rows": sum(len(c.rows) for c in cir.components)})
     ctx.enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
                 idempotency_key=f"compile:{cir.slug}:{cir.version}:{cir.fingerprint}")
     return {"artifact": f"{cir.slug}@{cir.version}", "drafted": True, "creative": True,
-            "form": concept.form, "rows": sum(len(c.rows) for c in cir.components)}
+            "form": concept.form, "rows": sum(len(c.rows) for c in cir.components),
+            "learning_advice": advice}
 
 
 @handlers.register("cir.compile")
@@ -2804,11 +3092,24 @@ def handle_store_activate(ctx: JobContext) -> dict:
             # Recorded active here, but no lineage and nothing this job can reconcile from
             # (Etsy does not read it active, or the intent is not this job's): send nothing,
             # and never leave a live listing outside lineage silently.
+            if str(remote.get("state") or "").lower() == "active" and \
+                    stage_a.owner_activated(ctx.db, str(listing_id)):
+                # Verdict 7012067586 item 2: the owner made it live between grant issue and
+                # this run (per-product approval). Not this grant's listing: no lineage, no P1.
+                ctx.audit("store.activate_refused", artifact=artifact,
+                          detail={"reason": "already active: activated by the owner",
+                                  "authority": "standing", "grant_id": seg_id})
+                return {**already, "reasons": ["already active: activated by the owner"]}
             if str(remote.get("state") or "").lower() == "active":
-                stage_a.open_lineage_unrecorded(
+                written = stage_a.open_lineage_unrecorded(
                     ctx.db, grant_id=seg_id, listing_id=str(listing_id), artifact=artifact,
                     why="the listing reads active but this job holds no applied activation "
                         "intent to reconcile it from")
+                if not written:
+                    # Verdict 7012067586 item 1: no lineage and no incident is never silent.
+                    raise stage_a.LineageUnrecorded(
+                        f"listing {listing_id} reads active with no lineage and its incident "
+                        f"could not be written")
             return already
 
     from ..integrations import etsy_verify
@@ -2885,6 +3186,11 @@ def handle_store_activate(ctx: JobContext) -> dict:
             refusal = (f"the listing fee (about CA${fee_cad:.2f}) would take "
                        f"{ctx.job.agent} past its daily ceiling of "
                        f"CA${agent.daily_cost_ceiling_cad:.2f} (spent CA${spent:.2f})")
+    if refusal is None:
+        # ENG-APPROVALS: the owner's opening-catalogue listing-fee budget (CA$6 in total,
+        # reservations counted; D-OWNER-STANDING-INTERNAL). `reserve` re-checks it under the
+        # accounting lock; this is the early, audited refusal.
+        refusal = listing_costs.opening_budget_refusal(ctx.db, listing_id, fee_cad)
     if refusal is not None:
         ctx.audit("store.activate_refused", artifact=artifact,
                   detail={"reason": refusal, "verified": True,
@@ -3074,6 +3380,8 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "intel.children_portfolio": ("work_done",),
     # OPUS2-P0 (P0-CHAIN-DEADENDS): dead ends re-driven or resolved.
     "chain.successors": ("work_done",),
+    # ENG-SUPPLY: products admitted into engineering this run.
+    "supply.admit": ("admitted",),
     # OPUS2-P0 (P0-COMPETITOR-EVIDENCE): shops evaluated into the daily evidence reading.
     "intel.scan_evidence": ("work_done",),
     # WS4-5: shadow decisions recorded (none when no policy is approved).
@@ -3084,6 +3392,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "policy.activation_schedule": ("work_done",),
     # OPUS2-P0: lessons published or withdrawn from measured listing performance.
     "improve.commercial_lessons": ("work_done",),
+    "learning.loops": ("work_done",),
     # OPUS2-P0 (P0-LEARNING-GAPS): gaps recorded or reference purchases recommended.
     "learning.knowledge_gaps": ("work_done",),
     "listing.cross_sell_graph": ("work_done",),
@@ -3095,6 +3404,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "radar.concept_intake": ("work_done",),
     "intel.watchlist_scan": ("work_done",),
     "intel.watchlist_compare": ("work_done",),
+    "intel.benchmark_shopping": ("work_done",),
     "intel.opportunity_review": ("work_done",),
     "research.sweep": ("work_done",),
     "storefront.review": ("work_done",),
@@ -3157,7 +3467,9 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
                        "rolled_back", "cards_closed", "owner_cards"),
     "improve.measure": ("measured",),
     "improve.mine": ("published", "regression_fixtures", "routed_to"),
-    "improve.monitor": ("promoted", "judged", "reverted", "rollback_proposals"),
+    # ENG-LEARN: `promoted` is the standing count of promoted rows, not work this run did;
+    # it made every idle sweep read as useful. Judging, reverting and trial judging are work.
+    "improve.monitor": ("judged", "reverted", "rollback_proposals", "trial_monitoring.judged"),
     "improve.nightly": ("total_found",),
     "improve.retrospective": ("promotions_assessed", "returned", "regressed_promotions"),
     "improve.role_work": ("proposed", "kept"),
@@ -3199,6 +3511,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "ops.sentinel": ("rebuild_enqueued", "publication_blocked"),
     "ops.slo": ("incidents.opened", "incidents.resolved", "incidents.restated"),
     "ops.thrash": ("tripped", "cancelled", "backoff.applied", "backoff.lifted"),
+    "ops.daily_ledger": ("recorded",),
     "physical.upgrade_impact": ("upgrades", "measured"),
     "plan.cycle": ("planned",),
     "portfolio.review": ("actions",),
@@ -3224,6 +3537,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     # these keys are what they report when the capability is open and they did the work.
     "assets.model_photography": ("made",),
     "assets.owned_photography": ("made", "attempted"),
+    "assets.motif_backlog": ("work_done",),  # ENG-MOTIF-BACKLOG
     "creative.blinded": ("judged",),
     "creative.expedition": ("proposed", "survivors", "judged", "generated"),
     "creative.image_benchmark": ("winner", "locked"),
@@ -3249,6 +3563,8 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     # `{"error": ...}` a failed synthesis records, is not work.
     "mjs.scan": ("new", "reclassified", "inspected", "learning_domains", "findings.changed"),
     "ops.retention": ("removed",),
+    # ENG-APPROVALS: work is an owner card moved under the standing authority.
+    "ops.owner_queue_consolidate": ("work_done",),
     "plan.strategy": (),
     "seasonal.cycle_proof": ("complete", "assets_state"),
 }
@@ -3745,11 +4061,14 @@ from . import engineering_ops  # noqa: E402,F401  (W4-AGENTS: cir.revise)
 from . import intel_ops  # noqa: E402,F401  (W4-AGENTS: radar.competitor_snapshot)
 from . import photo_review_ops  # noqa: E402,F401  (OPUS2: assets.photo_review)
 from . import listing_package_ops  # noqa: E402,F401  (OPUS2: listing.package)
+from . import motif_backlog_ops  # noqa: E402,F401  (ENG-MOTIF-BACKLOG: assets.motif_backlog)
 from . import c12_ops  # noqa: E402,F401  (W4-C12 wiring: SV aging, window captures, harvest)
 from . import commercial_ops  # noqa: E402,F401  (OPUS2-P0: improve.commercial_lessons)
+from . import learning_ops  # noqa: E402,F401  (ENG-LEARN: learning.loops)
 from . import learning_gaps_ops  # noqa: E402,F401  (OPUS2-P0: learning.knowledge_gaps)
 from . import evidence_ops  # noqa: E402,F401  (OPUS2-P0: intel.scan_evidence)
 from . import standing_policy_ops  # noqa: E402,F401  (WS4-5: policy.issuer_shadow)
+from . import owner_queue_ops  # noqa: E402,F401  (ENG-APPROVALS: ops.owner_queue_consolidate)
 
 
 def _listing_parity(ctx: JobContext) -> dict:

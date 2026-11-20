@@ -791,6 +791,34 @@ def sample_photo_lead(db, *, slug: str, version: str, frames, cir) -> dict | Non
             "qa": qa, "position": lead.position}
 
 
+def _disclosed_mobile(rec: dict, *, store_root=None) -> dict | None:
+    """The disclosed render set's mobile-context QA (#66), with every stored render verified
+    on file now; None if the export never ran it."""
+    from ..core.artifacts import ArtifactStore
+
+    mob = (rec.get("qa") or {}).get("mobile")
+    if not mob:
+        return None
+    refs = {n: _bare_sha((r or {}).get("render_ref"))
+            for n, r in (mob.get("contexts") or {}).items()}
+    store = ArtifactStore(store_root)
+    missing = sorted(n for n, r in refs.items() if not r or not store.exists(r))
+    out = {k: mob.get(k) for k in ("ok", "complete", "not_rendered", "why",
+                                   "title_safe_ink_by_position", "missing_bytes")}
+    if missing:
+        out.update(ok=False, complete=False,
+                   not_rendered=sorted(set(out.get("not_rendered") or []) | set(missing)),
+                   why=f"render(s) not on file: {missing}")
+    return out | {"render_refs": refs}
+
+
+def _bare_sha(ref):
+    """disclosed_listing writes refs as 'sha256:<hex>'; the frames path and ArtifactStore
+    address bytes by the bare hex digest. One form, so publish verifies either path."""
+    ref = str(ref or "")
+    return ref.split(":", 1)[1] if ref.startswith("sha256:") else (ref or None)
+
+
 def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, rec: dict,
                           frames, release_hash: str | None, issue: bool,
                           store_root=None, persist_supplements: bool = True) -> dict:
@@ -830,6 +858,15 @@ def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, re
     gate_results = ls.disclosed_gate_results(rec, exported=bool(images) and not any(
         r.startswith("disclosed export") for r in reasons), dimensions_ok=dim["ok"],
         supplement_qa=supplement_qa if supplements else None)
+
+    # #66: the shopper contexts the export rendered must still be on file. A missing render
+    # reads not_rendered, blocks the set and leaves COMMERCIAL_QA not_run (the frames path's
+    # rule), so publish never ships a set whose context QA it cannot verify.
+    mobile_qa = _disclosed_mobile(rec, store_root=store_root)
+    if mobile_qa is not None and not mobile_qa["complete"]:
+        gate_results = {**dict(gate_results), "COMMERCIAL_QA": "not_run"}
+        reasons.append(f"mobile QA (#66): {len(mobile_qa['not_rendered'] or [])} context(s) "
+                       f"not rendered or not on file: {mobile_qa['not_rendered']}")
 
     # W-VISNEXT: generated ListingAsset frames are judged per their role, not ignored. A
     # refused one is excluded from the certified set and reported. One that passed its gates
@@ -888,6 +925,10 @@ def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, re
                         "refused": supplement_notes},
         "dimensions": {k: dim[k] for k in ("ok", "problems", "sources", "displayed",
                                            "references")},
+        # #66: the disclosed export rendered and stored the four shopper contexts
+        # (disclosed_listing's QA); report them in the same shape as the frames path, so the
+        # QA stage's `listing.mobile_qa` record and store.publish read one contract.
+        "mobile": mobile_qa,
         "certificate": cert,
         "generated_frames": [{k: g.get(k) for k in ("position", "role", "job", "may_export",
                                                     "why")} for g in generated],
@@ -1446,6 +1487,24 @@ def _waivable_staleness(row, slug: str, fresh: set[str]) -> bool:
     return False
 
 
+def _own_rebuild_pending(db, slug: str) -> bool:
+    """This product's own `rebuild-incomplete` row is open and its budget is not exhausted.
+    Unreadable is False (a halt is never waived on a failed read)."""
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+    from ..ops.rebuild_graph import REBUILD_INCOMPLETE_SIGNATURE
+
+    try:
+        with db.session() as s:
+            row = s.scalar(select(Incident).where(
+                Incident.resolved == False,  # noqa: E712
+                Incident.signature == f"{REBUILD_INCOMPLETE_SIGNATURE}:{slug}"))
+            return row is not None and not rebuild_exhausted(row)
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def _halting_other_than_staleness(db, slug: str, own: set[str],
                                   fresh: set[str] | None = None) -> list:
     """Open halting incidents for `slug` other than its own stale-marketing rows and other
@@ -1531,12 +1590,61 @@ def staleness(db, *, slug: str) -> dict:
                                                   set(graph.get("fresh") or ()))
     # Review F4: an unreviewed platform-policy change (#39) is not staleness, so it is never
     # waived by the marketing rebuild exception.
-    only_marketing = (bool(outstanding) and not halting_other and not policy
+    # ENG-RECOVERY: only a change governing growth or product creation holds the marketing
+    # rebuild (drafted, held content); a listing-image or search change holds publication.
+    policy_marketing = policy_holds_manufacturing(policy, MARKETING_REBUILD_POLICY_WORKFLOWS)
+    # ENG-RECOVERY fix round 1 (review L5): a legacy rebuild-incomplete row names keys that
+    # read "no provenance row" -- nothing is outstanding in the graph -- and the targeted
+    # rebuild that row is waiting for reaches marketing.schedule with an empty `outstanding`.
+    # Requiring a non-empty outstanding list refused that rebuild on every attempt (proved by
+    # test_eng_recovery's end-to-end L5 test), spending the row's three-attempt budget on a
+    # refusal the rebuild exists to cure. So the exception also applies when this product's
+    # own rebuild-incomplete row is open and not exhausted. Everything else is unchanged: any
+    # other halting row, a growth/product-creation policy change or non-marketing outstanding
+    # work still refuses, and `halted`, `reasons` and `blocks` (what publication reads) still
+    # carry the halt and every unreviewed publishing change.
+    own_rebuild_pending = not outstanding and _own_rebuild_pending(db, slug)
+    only_marketing = ((bool(outstanding) or own_rebuild_pending)
+                      and not halting_other and not policy_marketing
                       and all(str(k).startswith("marketing_asset:") for k in outstanding))
     return {"halted": bool(halting), "incidents": halting[:5], "rebuild": graph,
             "policy_changes_unreviewed": [c["source"] for c in policy],
+            "policy_publication_only": policy_publication_only(policy),
             "blocks": bool(reasons), "reasons": reasons,
             "outstanding_only_marketing": only_marketing}
+
+
+# ENG-RECOVERY (prod 2026-11-19, owner directive): a publication-side platform-policy question
+# must not halt internal production; it may hold publication only. Production held 16 daily
+# rebuild retries (and left 14 legacy rebuild-incomplete rows unable to start their fresh
+# budget) on `listing_image_rules` alone -- a change that governs what a *listing* may show,
+# pending the owner's review since 2026-10-11 -- so stale PDFs, charts and galleries were
+# never remade, the stale-artefact halt could never converge and certification stayed halted.
+#
+# The scope rule: an unreviewed change holds the internal rebuild only when it governs whether
+# the product may be MADE at all (`product_creation`: a prohibited children's item, a design
+# outside the creativity categories). Every other unreviewed change -- image, listing, search,
+# seller rules -- leaves internal manufacturing running under the codified, owner-reviewed
+# reading (`gates.policy_knowledge`), which is the stricter of the two until the new text is
+# reviewed: nothing the new reading may relax is used, and nothing built under it can
+# publish, because `staleness()` (what for_publish and for_marketing read) still refuses on
+# EVERY unreviewed publishing change. The marketing rebuild (drafted and held content) is
+# held by changes that govern growth or product creation.
+MANUFACTURING_POLICY_WORKFLOWS: frozenset[str] = frozenset({"product_creation"})
+MARKETING_REBUILD_POLICY_WORKFLOWS: frozenset[str] = frozenset({"product_creation", "growth"})
+
+
+def policy_holds_manufacturing(changes, workflows=MANUFACTURING_POLICY_WORKFLOWS) -> list[str]:
+    """The unreviewed policy sources that hold internal work of the given kind (#39 scope)."""
+    return sorted({str(c.get("source")) for c in changes or ()
+                   if set(c.get("affects") or ()) & set(workflows)})
+
+
+def policy_publication_only(changes) -> list[str]:
+    """Unreviewed sources that hold publication but let internal manufacturing proceed."""
+    held = set(policy_holds_manufacturing(changes))
+    return sorted({str(c.get("source")) for c in changes or ()
+                   if "publishing" in (c.get("affects") or ()) and str(c.get("source")) not in held})
 
 
 def retry_hold_reason(db, *, slug: str) -> str | None:
@@ -1544,7 +1652,9 @@ def retry_hold_reason(db, *, slug: str) -> str | None:
     `slug` should wait, or None.
 
     A retry is held only while a gate the rebuild cannot cure refuses the product:
-    - an unreviewed material platform-policy change (#39), or
+    - an unreviewed material platform-policy change (#39) that governs product creation
+      (ENG-RECOVERY: a publication-side change -- listing images, search, seller rules --
+      holds publication only, never the internal rebuild), or
     - an open halting incident for the product that is not staleness (integrity, tamper and
       the like).
     - eng/stale-rebuild-loop: an exhausted `rebuild-incomplete` row (REBUILD_MAX_ATTEMPTS
@@ -1564,7 +1674,7 @@ def retry_hold_reason(db, *, slug: str) -> str | None:
     from ..ops.rebuild_graph import REBUILD_INCOMPLETE_SIGNATURE, REBUILD_MAX_ATTEMPTS
 
     try:
-        policy = [c for c in unreviewed_changes(db) if "publishing" in c["affects"]]
+        policy = policy_holds_manufacturing(unreviewed_changes(db))
         with db.session() as s:
             try:
                 ev = systemic_evidence(s)
@@ -1590,8 +1700,8 @@ def retry_hold_reason(db, *, slug: str) -> str | None:
     except Exception:  # noqa: BLE001
         return None
     if policy:
-        return ("held: platform policy change awaiting the owner's review (#39): "
-                + ", ".join(c["source"] for c in policy))
+        return ("held: platform policy change governing product creation awaiting the "
+                "owner's review (#39): " + ", ".join(policy))
     if exhausted_why:
         return (f"held: rebuild could not complete after {REBUILD_MAX_ATTEMPTS} attempts "
                 f"({REBUILD_INCOMPLETE_SIGNATURE}:{slug}): " + exhausted_why[0])

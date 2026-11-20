@@ -81,8 +81,11 @@ def _authority(s, proposal: dict) -> tuple[bool, str]:
     row = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == str(auth["ref"])))
     if row is None:
         return False, f"owner action {auth['ref']!r} does not exist"
-    if not row.done:
-        return False, f"owner action {auth['ref']!r} is not approved (not done)"
+    from ...authority import standing_internal as _si
+
+    if not _si.owner_closed(s, row):
+        return False, (f"owner action {auth['ref']!r} is not approved (not closed by the "
+                       "owner; a standing-authority or withdrawn closure authorises no spend)")
     if row.max_cost_known is None:
         # W3-WIRE4: an owner action whose ceiling is UNKNOWN authorises no spend; an unstated
         # ceiling is neither free nor uncapped.

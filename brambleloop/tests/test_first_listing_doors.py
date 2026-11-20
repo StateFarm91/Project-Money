@@ -384,27 +384,38 @@ def test_the_doors_are_step_up_owner_actions_that_never_sign():
 
 def test_the_approve_button_sends_the_previewed_digest_not_the_placeholder():
     js = (STATIC / "js/views/approvals.js").read_text()
-    m = re.search(r"export function fillPreviewParams\(params, digests\) \{.*?\n\}\n", js,
-                  re.S)
-    assert m, "fillPreviewParams is missing"
-    assert "fillPreviewParams(a.params, digests) === null" in js
-    assert "params: fillPreviewParams(a.params, digests)" in js
+    funcs = {}
+    for name in ("previewKey", "isPreviewVerb", "fillPreviewParams"):
+        m = re.search(r"export function " + name + r"\(.*?\n\}\n", js, re.S)
+        assert m, f"{name} is missing"
+        funcs[name] = m.group(0).replace("export function", "function")
+    assert "fillPreviewParams(a.params, digests, previewParams) === null" in js
+    assert "params: fillPreviewParams(a.params, digests, previewParams)" in js
+    # Assign 7012067586 L2: the entry is cleared when a preview starts.
+    assert "delete digests[key];" in js
     import re as _re
     _v = _re.search(r'const VERSION = "cc-shell-v(\d+)";', (STATIC / "sw.js").read_text())
-    assert _v and int(_v.group(1)) >= 32, _v  # the digest-threading shell (v32 on INTEG2)
+    assert _v and int(_v.group(1)) >= 33, _v  # digests keyed by action+params (v33)
     node = shutil.which("node")
     if node is None:
         print("   (node not installed: the pure-function run is skipped)")
         return
-    fn = m.group(0).replace("export function", "function")
-    prog = fn + """
+    prog = "".join(funcs.values()) + """
 const ph = {slug: "s", version: "1", release: "r", expected_digest: "<from publication.preview>"};
+const pp = {"publication.preview": {slug: "s", version: "1", release: "r"}};
+const k = previewKey("publication.preview", pp["publication.preview"]);
+const kOther = previewKey("publication.preview", {slug: "other", version: "1", release: "r"});
 const out = {
-  none: fillPreviewParams(ph, {}),
-  wrong: fillPreviewParams(ph, {"activation.preview": "d1"}),
-  got: fillPreviewParams(ph, {"publication.preview": "abc123"}),
-  plain: fillPreviewParams({slug: "s", approval_id: 7}, {}),
+  none: fillPreviewParams(ph, {}, pp),
+  wrong: fillPreviewParams(ph, {[previewKey("activation.preview", {})]: "d1"}, pp),
+  other_params: fillPreviewParams(ph, {[kOther]: "zzz"}, pp),
+  name_only: fillPreviewParams(ph, {"publication.preview": "abc123"}, pp),
+  no_preview_on_card: fillPreviewParams(ph, {[k]: "abc123"}, {}),
+  got: fillPreviewParams(ph, {[k]: "abc123"}, pp),
+  key_order: previewKey("x.preview", {b: 1, a: 2}) === previewKey("x.preview", {a: 2, b: 1}),
+  plain: fillPreviewParams({slug: "s", approval_id: 7}, {}, {}),
   untouched: ph.expected_digest,
+  verbs: ["preview", "review_preview", "approve", "revoke"].map(isPreviewVerb),
 };
 console.log(JSON.stringify(out));
 """
@@ -412,11 +423,27 @@ console.log(JSON.stringify(out));
     assert r.returncode == 0, r.stderr
     out = json.loads(r.stdout.strip().splitlines()[-1])
     assert out["none"] is None and out["wrong"] is None, out
+    assert out["other_params"] is None and out["name_only"] is None, out      # L2
+    assert out["no_preview_on_card"] is None, out
     assert out["got"] == {"slug": "s", "version": "1", "release": "r",
                           "expected_digest": "abc123"}, out
+    assert out["key_order"] is True, out
     assert out["plain"] == {"slug": "s", "approval_id": 7}, out
     assert out["untouched"] == "<from publication.preview>", out
+    assert out["verbs"] == [True, True, False, False], out                     # L3
+    # L3: the review_preview digest field is captured.
+    assert "res.review_digest" in js
 
+
+def test_the_policy_review_card_names_a_preview_its_digest_comes_from():
+    """Assign 7012067586 L3: the policy.review card's placeholder names a preview action that
+    is on the same card and is a preview verb, and that preview returns `review_digest`."""
+    import inspect
+
+    src = inspect.getsource(approvals)
+    assert '"expected_digest": "<from policy.review_preview>"' in src
+    assert '{"action": "policy.review_preview"' in src
+    assert 'shown["review_digest"]' in src
 
 def test_the_readback_cli_judges_the_new_section_as_advisory():
     import readback
@@ -434,6 +461,46 @@ def test_the_readback_cli_judges_the_new_section_as_advisory():
                                          "draft_candidates": ["a@1.0.0"]}, None)[0] \
         == readback.PASS
 
+
+def test_a_handler_refused_publication_is_not_re_pressed_with_the_same_grant():
+    """Assign 7012067586 L4: the handler refused the store.publish this grant queued (kill
+    switch, gate, credential: it dead-letters, and store.publish is never re-driven). A second
+    press with the SAME grant returns that refused job, says a new grant is needed, and queues
+    nothing; a NEW grant queues a fresh job."""
+    import tempfile
+    from unittest.mock import patch
+
+    from brambleloop.core.models import JobStatus
+    from brambleloop.ops import owner_execution as oe
+    from brambleloop.ops import publication_authority as pa
+
+    tmp = tempfile.mkdtemp(prefix="flr_l4_")
+    db = Database(f"sqlite:///{os.path.join(tmp, 'l4.db')}")
+    db.create_all()
+    slug, version, rel = "l4-coaster", "1.0.0", "f" * 64
+    grants = {"current": 501}
+    with patch.object(pa, "resolve", lambda db_, **k: (None, grants["current"])), \
+            patch.object(oe, "_phase_refusal", lambda db_: None), \
+            patch.object(oe, "_kill_switch_refusal", lambda: None):
+        first = oe.queue_publication(db, slug=slug, version=version, release=rel,
+                                     approval_id=501)
+        assert first["queued"] is True, first
+        with db.session() as s:                    # what the handler leaves on a refusal
+            j = s.get(Job, first["job_id"])
+            j.status = JobStatus.DEAD
+            j.last_error = "store.publish refused: BRAMBLELOOP_PUBLISH_AUTHORISED is off"
+        again = oe.queue_publication(db, slug=slug, version=version, release=rel,
+                                     approval_id=501)
+        assert again["queued"] is False and again["job_id"] == first["job_id"], again
+        assert again["job_status"] == "dead" and "new grant" in again["why"], again
+        with db.session() as s:
+            jobs = list(s.scalars(select(Job).where(Job.job_type == oe.PUBLISH_JOB)))
+        assert len(jobs) == 1, [j.id for j in jobs]
+        grants["current"] = 502                     # the owner re-approves: a new grant
+        fresh = oe.queue_publication(db, slug=slug, version=version, release=rel,
+                                     approval_id=502)
+        assert fresh["queued"] is True and fresh["job_id"] != first["job_id"], fresh
+    shutil.rmtree(tmp, ignore_errors=True)
 
 if __name__ == "__main__":
     import traceback
