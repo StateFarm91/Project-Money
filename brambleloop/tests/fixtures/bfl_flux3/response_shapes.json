@@ -1,0 +1,73 @@
+{
+ "_about": "Response SHAPES for POST /v1/flux-3-image and GET polling_url, built to the documented schema (AsyncResponse, ResultResponse, SettledCostResultResponse, StatusResponse) and the errors page (moderation details). Values are stand-ins: no BFL key exists in this build, so these are NOT live captures. Sources read 2026-11-20: https://api.bfl.ai/openapi.json, https://docs.bfl.ai/api_integration/errors, https://docs.bfl.ai/flux_3/flux3_image_generate.",
+ "submit": {
+  "id": "fixture-task-0001",
+  "polling_url": "https://api.bfl.ai/v1/get_result?id=fixture-task-0001",
+  "cost": 10.0,
+  "input_mp": 4.0,
+  "output_mp": 4.19
+ },
+ "poll_pending": {
+  "id": "fixture-task-0001",
+  "status": "Pending",
+  "result": null,
+  "progress": null
+ },
+ "poll_reasoning": {
+  "id": "fixture-task-0001",
+  "status": "Reasoning",
+  "result": null,
+  "progress": 0.1
+ },
+ "poll_generating": {
+  "id": "fixture-task-0001",
+  "status": "Generating",
+  "result": null,
+  "progress": 0.6
+ },
+ "poll_ready": {
+  "id": "fixture-task-0001",
+  "status": "Ready",
+  "cost": 10.0,
+  "result": {
+   "sample": "https://delivery.eu.bfl.ai/fixture/sample.jpeg?se=fixture",
+   "prompt": "fixture expanded prompt",
+   "seed": null,
+   "duration": 41.5
+  },
+  "progress": 1.0
+ },
+ "poll_request_moderated": {
+  "id": "fixture-task-0001",
+  "status": "Request Moderated",
+  "result": null,
+  "details": {
+   "Moderation Reasons": [
+    "Sexual Content"
+   ]
+  }
+ },
+ "poll_content_moderated": {
+  "id": "fixture-task-0001",
+  "status": "Content Moderated",
+  "result": null,
+  "details": {
+   "Moderation Reasons": [
+    "Violence"
+   ]
+  }
+ },
+ "poll_error": {
+  "id": "fixture-task-0001",
+  "status": "Error",
+  "result": null,
+  "details": {
+   "error": "fixture"
+  }
+ },
+ "poll_task_not_found": {
+  "id": "fixture-task-0001",
+  "status": "Task not found",
+  "result": null
+ }
+}
