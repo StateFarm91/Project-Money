@@ -83,7 +83,7 @@
 >   (the Harbour pullover prints the body's 467-700 m; the whole pattern is 646-969 m). This is reported to the integrator.
 > - The premium standard is audited on the template's bytes and enforced on customer builds. All 5 proof families
 >   (home décor, baby, garment, pillow, blanket) pass it in US and UK with a rendered gallery.
-> - `PDF_LAYOUT` stays `"engine"`: under `"template"`, `test_w4_firstsale_deliverables` fails 4 of 6 with
+> - `PDF_LAYOUT` stays `"engine"`. Under `"template"`, `test_cert_publish_gates` fails 10 of 18 and `test_w4_firstsale_deliverables` fails 4 of 6, all with
 >   `GalleryAwaiting`. Those tests render a release that has no listing-set certificate. Flipping the switch needs
 >   gallery certification to come before PDF certification in the pipeline, and fixtures that carry a certified gallery.
 > - Proofs (test-double images, NOT customer-ready): `research/final_build/w6/pdf_template_proofs/`.

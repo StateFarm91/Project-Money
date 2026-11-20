@@ -1,7 +1,7 @@
 # Review request — ENG-PDF-TEMPLATE
 
 - **Branch:** `eng/pdf-template` — builder branch; NOT reviewed, NOT integrated, NOT deployed.
-- **SHA:** (final SHA added when the clean test run completes; see git log)
+- **SHA:** `ac2c2ccb809df907021887f72f63d3433ed03594` (code and tests). The commit that adds this request changes only this file.
 - **Merged in:** `origin/claude/w6-INTEG6` (dde3ea62) and `origin/eng/gallery-complete`.
   - Both sides of BUILD_STATE and DECISION_LOG were kept.
   - `autonomy_map.json` was regenerated with `python -m brambleloop.autonomy.map --write`.
@@ -86,11 +86,43 @@ failures (`test_every_proof_family_meets_the_premium_standard_with_a_rendered_ga
 
 ## Test counts
 
-The clean engine-layout run on HEAD is in progress, and its counts will replace this line. Template-layout counts from a clean worktree are in the next section.
+Clean run on `ac2c2cc`, `PDF_LAYOUT = "engine"`: **16 suites, 290 tests, 0 failures**.
+
+| Suite | Passed / total |
+|---|---|
+| test_pdf_template | 31 / 31 |
+| test_pdf_premium | 27 / 27 |
+| test_pdf_standard | 23 / 23 |
+| test_pdf_layout_bounds | 3 / 3 |
+| test_deliverable_qa | 61 / 61 |
+| test_layout_qa | 16 / 16 |
+| test_asset_manifest | 8 / 8 |
+| test_w4_ccgap_pdfium | 2 / 2 |
+| test_w4_firstsale_deliverables | 6 / 6 |
+| test_certification | 12 / 12 |
+| test_cert_publish_gates | 18 / 18 |
+| test_vacuity | 8 / 8 |
+| test_w4_resume_runner | 40 / 40 |
+| test_compiler | 9 / 9 |
+| test_reverse | 18 / 18 |
+| test_twin | 8 / 8 |
+
+The same suites under `PDF_LAYOUT = "template"`, run in a separate worktree:
+- **Unchanged:** asset_manifest, certification, deliverable_qa, layout_qa, pdf_layout_bounds,
+  pdf_premium, pdf_standard and w4_ccgap_pdfium. Their counts are identical to the engine run.
+- **test_w4_firstsale_deliverables:** 2 / 6 pass.
+- **test_cert_publish_gates:** 8 / 18 pass.
+
+Every template-only failure is `GalleryAwaiting`: `assets.build` dies because no listing-set
+certificate exists yet. See the next section.
+
+Note: `test_vacuity` flagged 4 loops. Three were in `test_pdf_template.py` and one was in
+`test_owner_gallery_complete.py` (from the gallery-complete merge). Each now has a
+non-emptiness guard.
 
 ## Why `PDF_LAYOUT` is not flipped
 
-Under `"template"`, `test_w4_firstsale_deliverables` fails 4 of 6 with `GalleryAwaiting`:
+Under `"template"`, `test_cert_publish_gates` fails 10 of 18. Every one of those fails because `assets.build` dies with `GalleryAwaiting`. `test_w4_firstsale_deliverables` also fails 4 of 6 with `GalleryAwaiting`:
 - `test_drifting_rerender_is_refused_never_served`
 - `test_kept_bytes_survive_a_redeploy`
 - `test_purchase_to_download_rehearsal`
