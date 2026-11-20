@@ -566,7 +566,14 @@ class Worker:
 
     def _supply_after(self, job) -> None:
         """ENG-SUPPLY: a product chain that just ended frees its slot now, not at the next
-        15-minute `supply.admit`: one admission pass is enqueued, keyed on the ending job."""
+        15-minute `supply.admit`: one admission pass is enqueued, keyed on the ending job.
+
+        CERTFIX-1: only by a worker whose handler registry runs `supply.admit`. A worker
+        built on a private registry (a scoped company in a test, a single-purpose worker)
+        that cannot run an admission pass enqueued one anyway, which could only dead-letter
+        as "no handler registered" and appeared as an uncaused story on the timeline."""
+        if self.handlers.get("supply.admit") is None:
+            return
         try:
             from ..products import supply
 

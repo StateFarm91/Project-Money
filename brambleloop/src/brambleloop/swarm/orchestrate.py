@@ -1380,6 +1380,8 @@ JOB_BANDS: dict[str, str] = {
     "improve.sandbox": "exploration",
     "improve.league": "exploration",
     "improve.replay": "exploration",
+    # ENG-IMPROVE self-tuning pass: reads rows, tunes bounded champions, files change requests.
+    "improve.self_tune": "exploration",
     "teardown.enforce": "benchmark_change",
     "creative.style_learning": "exploration",
     # Learning-centre scan: reads evidence, no committed value.
