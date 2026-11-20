@@ -1,3 +1,22 @@
+> **2026-11-20 — ENG-GARMENT slices 2-3 (`eng/garment`, NOT merged, NOT deployed).**
+> - Slice 2, `publish/garment_pdf.py` + `publish/garment_schematic.py`: one PDF per edition (US, UK) for all sizes,
+>   with:
+>   - overview table, supplies with balls per size and a gauge for each fabric;
+>   - construction narrative, size chart (body vs finished, ease, balls/yards/metres), schematic SVG from the rows;
+>   - tips, abbreviations, multi-size pattern, finishing with pick-up rates, child-safety section where it applies;
+>   - yarn substitution, our own licence (commerce.terms), About.
+>
+>   The PDF refuses itself if its text does not read back to the compiler or the twin. 5 designs x 2 editions render.
+> - Slice 3, routing: `construction_families` garment families. PAIR_PROOFS cover only (raglan, cardigan/adult),
+>   (raglan, baby/baby) and (one_piece, sweater/child). `cir.draft` drafts a garment as one release and sends
+>   every size through compile -> certify; intake refuses a garment title naming one size.
+>   End to end with real handlers: adult cardigan (9 sizes), child sweater (6), baby cardigan (5), each
+>   concept -> all sizes granted -> US/UK PDF with schematic and size chart.
+> - Follow-up: `products/garments.drop_shoulder_flat` seam notes lack "through both loops" (Harbour text change +
+>   version bump), so child-table tournament drop-shoulder garments are held by the child gate.
+> - NOT done: no garment physically made, no photos, side-to-side/drop-shoulder not admitted at intake, no
+>   listing/product-row work for a multi-size release beyond the per-size certified releases.
+
 > **2026-11-20 — ENG-GARMENT slice 1 (`eng/garment`, NOT merged, NOT deployed).** Garments as a family that
 > certifies end to end, every size. Built on INTEG2 64146306 + eng/plush d4aaf9b6 (which carries eng/families).
 > - `products/garment_families.py`: four constructions (top-down raglan, flat one-piece with built-in sleeves,

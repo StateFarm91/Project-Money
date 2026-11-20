@@ -2795,3 +2795,20 @@ a sewn-on piece (no seam-pull profile), and must still meet its edge (JOINS_VALI
 A chain the next row works into (sleeves chained on, a bridged neck) is fabric; a chain in a last
 row, or one the next row leaves unworked, is still a loop. A seamed child garment still needs
 physical evidence. Not weakened: every previous FAIL still fails.
+
+**D-ENG-GARMENT-5: the garment PDF is one document for every size and refuses itself if its own text is wrong (slice 2).**
+`publish.garment_pdf.build` renders only a granted release and re-reads what it rendered:
+the parenthesised pattern is expanded per size and compared with the compiler, the size chart
+is re-derived from the twin, the schematic SVG and its legend must be present, and a child's
+garment's rendered text must pass the child-safety content checks. The schematic is drawn from
+each size's rows (one primitive list rendered as SVG and onto the page), with lettered
+dimensions and a per-size legend. Reversible by decision.
+
+**D-ENG-GARMENT-6: garments route only where a research concept is proven end to end, on that body table (slice 3).**
+`construction_families.garment_route` admits (garment_raglan, cardigan) on the adult table,
+(garment_raglan, baby) on the baby table and (garment_one_piece, sweater) on the child table,
+each pinned by a test that runs intake -> draft -> every size compiled and certified -> US/UK
+PDF. Side-to-side and drop-shoulder are PARTIAL (they certify and render, but no intake proof).
+`cir.draft` drafts a garment as one release of every size, gated as a run, then sends each size
+through the unchanged compile -> certify chain. A garment title naming a single size is refused
+at intake. Reversible by decision; widen only by adding a proof.

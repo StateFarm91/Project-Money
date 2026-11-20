@@ -60,8 +60,10 @@ MAX_PICKUP_DRIFT = 0.04      # a picked-up edge must be within 4% of the edge it
 # Ball size the yardage is stated in (a design choice the supply list prints): the common
 # put-up for each weight, in metres and grams. Balls are always rounded UP from the twin.
 BALLS: dict[str, tuple[float, int]] = {
-    "worsted": (200.0, 100), "dk": (210.0, 100), "light": (210.0, 100),
-    "fine": (230.0, 50), "sport": (150.0, 50), "bulky": (110.0, 100),
+    # keyed by `publish.substitution` weight key (what `gauge_for` stores as yarn_weight);
+    # each inside that weight's published metres-per-100 g band.
+    "medium": (200.0, 100), "light": (230.0, 100), "fine": (150.0, 50),
+    "bulky": (120.0, 100), "super_fine": (200.0, 50),
 }
 YARD_PER_M = 1.0936133
 
@@ -904,7 +906,9 @@ def design(spec: GarmentSpec) -> GradedDesign:
 
 def balls_and_yards(metres: float, weight: str) -> dict:
     """The yarn a size needs, from the twin's metres: balls (rounded up) and yards."""
-    ball_m, ball_g = BALLS.get(weight, (200.0, 100))
+    if weight not in BALLS:
+        raise ValueError(f"no stated ball put-up for {weight!r} yarn")
+    ball_m, ball_g = BALLS[weight]
     return {"metres": round(metres), "yards": int(math.ceil(metres * YARD_PER_M)),
             "balls": int(math.ceil(metres / ball_m)), "ball_m": ball_m, "ball_g": ball_g,
             "ball_yd": int(round(ball_m * YARD_PER_M))}

@@ -59,6 +59,11 @@ class Family:
 
 
 PROOF = "tests/test_eng_families.py"
+GARMENT_PROOF = "tests/test_eng_garment.py"
+GARMENT_RAGLAN, GARMENT_ONE_PIECE = "garment_raglan", "garment_one_piece"
+GARMENT_SIDE_TO_SIDE, GARMENT_DROP_SHOULDER = "garment_side_to_side", "garment_drop_shoulder"
+GARMENT_FAMILIES = frozenset({GARMENT_RAGLAN, GARMENT_ONE_PIECE, GARMENT_SIDE_TO_SIDE,
+                              GARMENT_DROP_SHOULDER})
 
 FAMILIES: dict[str, Family] = {f.key: f for f in (
     Family(FC.FLAT_PANEL, "runtime.pipeline.concept_to_cir", VERIFIED,
@@ -113,6 +118,30 @@ FAMILIES: dict[str, Family] = {f.key: f for f in (
            ("30 x 30 cm square",), "creative.baby.LOVEY_SQUARE_CM (design choice)",
            "bear or bunny head only; certification withholds for the physical sample and the "
            "child-safety physical evidence"),
+    # ENG-GARMENT: graded garments, one release of every size (products.garment_release).
+    # Verified: every size of the family's designs is granted by the release chain and the
+    # garment gates, and a research concept runs intake -> draft -> every size compiled and
+    # certified -> US/UK PDF in the pinned proof. Only the (family, category) pairs in
+    # PAIR_PROOFS are admitted.
+    Family(GARMENT_RAGLAN, "products.garment_release (raglan_cardigan)", VERIFIED,
+           f"{GARMENT_PROOF}::test_a_research_adult_cardigan_runs_concept_to_pdf_in_nine_sizes",
+           ("CYC woman XS-5X", "CYC baby 3-24 months"),
+           "cir.graded WOMAN / BABY (Craft Yarn Council body tables) + stated ease",
+           "cardigan only; relaxed or oversized fit (fitted is class C, refused); no hood, "
+           "pockets or texture; buttons on adult sizes only"),
+    Family(GARMENT_ONE_PIECE, "products.garment_release (one_piece_sweater)", VERIFIED,
+           f"{GARMENT_PROOF}::test_a_research_child_sweater_runs_concept_to_pdf",
+           ("CYC child/youth 2-12", "CYC woman XS-5X"),
+           "cir.graded CHILD / WOMAN (Craft Yarn Council body tables) + stated ease",
+           "sweater/pullover/jumper; built-in sleeves, slash neck; no hood or texture"),
+    Family(GARMENT_SIDE_TO_SIDE, "products.garment_release (side_to_side_vest)", PARTIAL, "",
+           ("CYC woman XS-5X",), "cir.graded WOMAN + stated ease",
+           "every size certifies and renders (tests/test_eng_garment.py) but no research "
+           "concept is pinned through intake yet"),
+    Family(GARMENT_DROP_SHOULDER, "products.garment_release (drop_shoulder_pullover)", PARTIAL,
+           "", ("CYC woman XS-5X",), "cir.graded WOMAN + stated ease",
+           "every size certifies and renders (tests/test_eng_garment.py) but no research "
+           "concept is pinned through intake yet"),
     Family(FC.POUCH, "creative.fallback_constructions.pouch", PARTIAL, "",
            ("one size",), "fallback_constructions.POUCH_ACROSS_CM (design choice)",
            "certification refuses ASSET_COLOR_ABSENT: the pouch works one palette colour "
@@ -183,7 +212,8 @@ NAMED_FEATURES: tuple[tuple[str, str, frozenset], ...] = (
     ("colourwork", r"\bintarsia\b|\bfair[- ]?isle\b|\bjacquard\b|\bmosaic\b|\bc2c\b|"
                    r"\bcorner[- ]to[- ]corner\b|\bgraph ?gh?an\b|\bpixel\b|\bcharted\b",
      frozenset()),
-    ("garment_or_wearable", r"\b(?:hat|beanie|cardigan|sweater|sock|mitten|cowl)s?\b", frozenset()),
+    ("garment_or_wearable", r"\b(?:hat|beanie|cardigan|sweater|sock|mitten|cowl)s?\b",
+     GARMENT_FAMILIES),
 )
 
 
@@ -265,6 +295,16 @@ PAIR_PROOFS: dict[tuple[str, str], str] = {
     (FC.ENVELOPE, "pillow"): FAMILIES[FC.ENVELOPE].proof,
     (FC.APPLIQUE, "pillow"): FAMILIES[FC.APPLIQUE].proof,
     **{(FC.LOVEY, c): FAMILIES[FC.LOVEY].proof for c in ("baby", "amigurumi", "toy")},
+    # ENG-GARMENT: only the pairs a research concept is pinned through, end to end.
+    (GARMENT_RAGLAN, "cardigan"): FAMILIES[GARMENT_RAGLAN].proof,
+    (GARMENT_RAGLAN, "baby"): f"{GARMENT_PROOF}::test_a_research_baby_cardigan_runs_concept_"
+                              f"to_pdf",
+    (GARMENT_ONE_PIECE, "sweater"): FAMILIES[GARMENT_ONE_PIECE].proof,
+}
+# A garment pair's proof is for one body table: the audience it was proven on.
+GARMENT_PAIR_AUDIENCE: dict[tuple[str, str], str] = {
+    (GARMENT_RAGLAN, "cardigan"): "adult", (GARMENT_RAGLAN, "baby"): "baby",
+    (GARMENT_ONE_PIECE, "sweater"): "child",
 }
 
 # M1 (ENG-FAMILIES review): families admitted only for these categories. A pet bed drafts as
@@ -286,6 +326,9 @@ def route(*, category: str, title: str, form: str, construction: str, slug: str 
     starts with `construction_unsupported:<family>` when held."""
     from ..radar import intake
 
+    if form == "fitted_garment":
+        return garment_route(category=category, title=title, construction=construction,
+                             slug=slug, premise=premise)
     declared = declared_family(form, construction)
     if declared is None:
         # Flat rows: the category's template decides, and the form must be what that flat
@@ -341,6 +384,55 @@ def route(*, category: str, title: str, form: str, construction: str, slug: str 
                                   f"engine does not build; drafting it would sell a {word} the "
                                   f"pattern does not make")
     return {"admitted": True, "family": family, "status": status, "reason": ""}
+
+
+_BABY_WORDS = re.compile(r"\b(?:baby|babies|infant|newborn|layette)\b")
+_CHILD_WORDS = re.compile(r"\b(?:kids?|child|children|childs|toddlers?|girls?|boys?|youth)\b")
+
+
+def garment_audience(category: str, title: str) -> str:
+    """Who a garment concept is for, from its category and title (the recipient is not on
+    the intake path): baby, child, or adult."""
+    text = FC.fold_title(f"{category} {title}")
+    if category == "baby" or _BABY_WORDS.search(text):
+        return "baby"
+    if _CHILD_WORDS.search(text):
+        return "child"
+    return "adult"
+
+
+def garment_route(*, category: str, title: str, construction: str, slug: str = "",
+                  premise: str = "") -> dict:
+    """ENG-GARMENT: a fitted garment routes to its graded garment family
+    (`products.garment_release.spec_for`), admitted only where PAIR_PROOFS pins it."""
+    from types import SimpleNamespace
+
+    from ..products import garment_release as GR
+
+    audience = garment_audience(category, title)
+    recipient = {"baby": "new_parent", "child": "child"}.get(audience, "self")
+    concept = SimpleNamespace(key=slug or "garment", title=title, form="fitted_garment",
+                              construction=construction, premise=premise or "", notes="",
+                              recipient=recipient, feeling="serene")
+    try:
+        spec = GR.spec_for(concept)
+    except GR.GarmentRefused as exc:
+        return _hold(exc.family, exc.why)
+    family = f"garment_{spec.construction}"
+    for source, text in (("title", title), ("premise", premise)):
+        named = named_feature(text, family)
+        if named is not None:
+            feature, word = named
+            return _hold(feature, f"the {source} names {word!r} ({feature}), which the {family} "
+                                  f"engine does not build")
+    if (family, category) not in PAIR_PROOFS or \
+            GARMENT_PAIR_AUDIENCE.get((family, category)) != audience:
+        f = FAMILIES[family]
+        return _hold(family, f"the {family} engine is not pinned end to end for category "
+                             f"{category!r} on the {audience} body table"
+                             + (f": {f.gaps}" if f.status != VERIFIED else ""))
+    return {"admitted": True, "family": family, "status": status_of(family), "reason": "",
+            "audience": audience}
 
 
 def family_table() -> list[dict]:

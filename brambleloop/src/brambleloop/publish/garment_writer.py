@@ -26,6 +26,7 @@ PIECE_TITLES = {
     "cuff": "Cuffs (make 2)", "neckband": "Neckband", "sleeve": "Sleeves (make 2)",
     "back": "Back", "front": "Front",
 }
+PIECE_KEYS = {v: k for k, v in PIECE_TITLES.items()}
 LOOP_WORDS = {"back": " through the back loop", "front": " through the front loop",
               "both": ""}
 
@@ -212,7 +213,10 @@ def write(design, cirs: dict, terminology: str = "US") -> dict[str, list[Line]]:
         setup = setup_row_text(steps, t) if piece == "yoke_and_body" else None
         if setup:
             lines.insert(1, Line(piece, "note", setup))
-        out[PIECE_TITLES.get(piece, piece.replace("_", " ").title())] = lines
+        title = PIECE_TITLES.get(piece, piece.replace("_", " ").title())
+        if piece == "band_right" and not any(ss.kind == "buttonholes" for ss in steps[0]):
+            title = "Right front band"
+        out[title] = lines
     return out
 
 
@@ -243,7 +247,10 @@ def finishing_lines(design, cirs: dict, terminology: str = "US") -> list[str]:
                      "neckband": "the neck opening, all the way round"}.get(seam.piece_a,
                                                                            "the edge")
             rates = ([rate(s, r) for s, r in zip(sts, along)] if all(along) else None)
-            out.append(f"{i}. {PIECE_TITLES.get(seam.piece_a, seam.piece_a)}: with the right "
+            name = PIECE_TITLES.get(seam.piece_a, seam.piece_a)
+            if seam.piece_a == "band_right" and not any(f.buttons for f in facts):
+                name = "Right front band"
+            out.append(f"{i}. {name}: with the right "
                        f"side facing, join the yarn and pick up {values(sts)} sts evenly "
                        f"along {where}"
                        + (f" ({values(rates)})" if rates else

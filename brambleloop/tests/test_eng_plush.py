@@ -641,8 +641,13 @@ def test_baby_blankets_carry_the_safety_section_and_pass_the_gate():
 
 
 def test_baby_garments_and_unbuilt_baby_items_are_held_by_name():
+    # ENG-GARMENT: a baby cardigan now routes to the proven graded raglan family; a baby
+    # garment in a construction no baby proof pins (side-to-side) is still held by name.
     got = CF.route(category="baby", title="Baby Cardigan", form="fitted_garment",
                    construction="top_down_yoke")
+    assert got["admitted"] and got["family"] == "garment_raglan", got
+    got = CF.route(category="baby", title="Baby Vest", form="fitted_garment",
+                   construction="side_to_side")
     assert not got["admitted"] and got["reason"].startswith("construction_unsupported:garment")
     got = CF.route(category="baby", title="Fluffy Bear Lovey", form="toy",
                    construction="amigurumi_shaping")

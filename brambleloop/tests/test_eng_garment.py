@@ -275,6 +275,224 @@ def test_mutation_a_wrong_number_in_the_document_is_caught():
     assert GFIT.multi_size_problems(bad, r.cirs, piece_of)
 
 
+# ---- slice 2: the garment PDF -------------------------------------------------------------
+
+
+@lru_cache(maxsize=None)
+def document(key: str, terms: str):
+    from brambleloop.publish import garment_pdf as GP
+
+    return GP.build(released(key), terms)
+
+
+def test_every_design_renders_the_full_benchmark_structure_in_us_and_uk():
+    from brambleloop.publish import garment_pdf as GP
+
+    for key in GR.DESIGNS:
+        for terms in ("US", "UK"):
+            doc = document(key, terms)
+            assert doc.pdf_bytes.startswith(b"%PDF") and doc.problems == [], (key, terms)
+            for section in GP.SECTIONS:
+                assert section in doc.sections, (key, terms, section)
+            text = " ".join(doc.text.split())
+            # The overview, supplies with a gauge for each fabric, and the licence.
+            for marker in ("Gauge: main fabric", "Gauge: band fabric", "Balls, by size",
+                           "What you may do with this pattern", "US terms" if terms == "US"
+                           else "UK terms", "CYC "):
+                assert marker.lower() in text.lower(), (key, terms, marker)
+            # The size chart: body vs finished, ease, balls and yards, for every size.
+            assert released(key).claims, key
+            for c in released(key).claims:
+                assert f"{c['body_chest_cm']:g} cm" in text and f"{c['yards']} yd" in text
+                assert f"{c['balls']} balls" in text or f"{c['balls']} ball" in text
+            # The pattern: every line, every one ending with its count(s).
+            lines = [ln for ls in doc.pattern_lines.values() for ln in ls]
+            assert lines and all(" ".join(ln.split()) in text for ln in lines), key
+            # The schematic: SVG drawn from geometry, and on the page with its legend.
+            assert doc.svg.startswith("<svg") and "Half chest, finished" in doc.svg
+            assert any(f["kind"] == "schematic" and f["labels"] >= 4 for f in doc.figures)
+            assert "Half chest, finished" in text
+
+
+def test_buttons_and_child_safety_are_stated_where_they_apply():
+    adult = " ".join(document(ADULT_CARDIGAN, "US").text.split())
+    assert "buttonhole" in adult and f"{GF.BUTTON_MM} mm" in adult
+    assert CS.SECTION_HEADING not in adult
+    for key in (BABY_CARDIGAN, CHILD_SWEATER):
+        doc = document(key, "UK")
+        text = " ".join(doc.text.split())
+        assert CS.SECTION_HEADING in text and CS.SECTION_END in text, key
+        assert "buttonhole" not in text.lower(), key
+        v = CS.evaluate(next(iter(released(key).cirs.values())), text=doc.text)
+        states = {c.code: c.state for c in v.checks}
+        assert v.verdict == CS.VERDICT_PASS, (key, states)
+    assert "Right front band (buttonhole band)" not in document(BABY_CARDIGAN, "US").pattern_lines
+
+
+def test_the_pdf_refuses_an_ungranted_release_and_a_tampered_size_chart():
+    from brambleloop.publish import garment_pdf as GP
+
+    r = GR.certify(GR.build(GR.DESIGNS[VEST]))
+    r.claims[2] = dict(r.claims[2], yards=r.claims[2]["yards"] + 50)
+    r.verdict = GFIT.evaluate(r.design, r.cirs, claims=r.claims)
+    assert not r.granted
+    try:
+        GP.build(r, "US")
+    except GP.GarmentPdfRefused:
+        pass
+    else:
+        raise AssertionError("an ungranted garment rendered")
+
+
+# ---- slice 3: routing, and research concepts end to end ------------------------------------
+
+
+def _garment_proposal(slug, title, category, construction, recipient, premise, occasion):
+    import test_eng_families as T
+
+    return T._proposal(slug, title, category, pod="garments", form="fitted_garment",
+                       construction=construction, recipient=recipient, premise=premise,
+                       motif="stone", function="a layer for the first cold mornings",
+                       occasion=occasion, feeling="serene", palette_story="oat")
+
+
+ADULT_PROPOSAL = _garment_proposal(
+    "fernway-raglan-cardigan", "Fernway Raglan Cardigan", "cardigan", "top_down_yoke", "self",
+    "A relaxed raglan cardigan with a buttoned band to pull on for the first frosty walk of "
+    "winter", "winter_nesting")
+CHILD_PROPOSAL = _garment_proposal(
+    "puddle-lane-kids-sweater", "Puddle Lane Kids Sweater", "sweater", "flat_rows", "child",
+    "A relaxed kids sweater in one piece with built-in sleeves, for school mornings",
+    "back_to_school")
+BABY_PROPOSAL = _garment_proposal(
+    "hush-baby-cardigan", "Hush Baby Cardigan", "baby", "top_down_yoke", "new_parent",
+    "A relaxed baby cardigan whose fronts meet edge to edge, nothing to fasten, for a new "
+    "arrival's first visitors", "new_baby")
+
+
+def _research_garment_to_pdf(proposal: dict) -> dict:
+    """Intake -> score -> draft (every size, garment gates) -> compile and certify every size
+    through the real handlers -> the US and UK documents. Returns everything."""
+    from sqlalchemy import select
+
+    import test_eng_families as T
+    from brambleloop.publish import garment_pdf as GP
+
+    assert proposal["slug"] not in T.POOL_SLUGS, "the concept under test is research-derived"
+    db = T._db()
+    T._benchmarks(db, proposal["concept"]["pod"])
+    tid = T._answered_task(db)
+    T.intake.attach_proposal(db, tid, proposal)
+    got = T._run(db, "radar.concept_intake", {})
+    assert got["approved"] == [proposal["slug"]], got
+    restore = T._judged({proposal["slug"]})
+    try:
+        assert T._run(db, "radar.score")["promoted"] is True
+        drafted = T._run(db, "cir.draft")
+        assert drafted["drafted"] is True, drafted
+        w = T.Worker(db, "garment-e2e", job_types=["cir.compile", "gate.certify"])
+        while w.run_once():
+            pass
+        with db.session() as s:
+            draft_inputs = dict(s.scalars(select(T.Job).where(
+                T.Job.job_type == "cir.draft")).first().inputs)
+            jobs = list(s.scalars(select(T.Job).where(T.Job.job_type.in_(
+                ["cir.compile", "gate.certify"])).order_by(T.Job.id)))
+            compiled = {j.inputs["cir"]["slug"]: dict(j.outputs or {}) for j in jobs
+                        if j.job_type == "cir.compile"}
+            certified = {}
+            for j in jobs:
+                if j.job_type == "gate.certify":
+                    certified[str((j.inputs.get("cir") or {}).get("slug") or
+                                  j.inputs.get("slug"))] = dict(j.outputs or {})
+            stored = {j.inputs["cir"]["slug"]: j.inputs["cir"] for j in jobs
+                      if j.job_type == "cir.compile"}
+    finally:
+        restore()
+    # The document is rendered from the same release the draft built (same spec, same CIRs).
+    from types import SimpleNamespace
+
+    concept = SimpleNamespace(key=proposal["slug"], title=proposal["title"],
+                              form="fitted_garment", notes="",
+                              **{k: draft_inputs[k] for k in ("construction", "premise",
+                                                              "recipient", "feeling")})
+    release = GR.certify(GR.build(GR.spec_for(concept)))
+    for cir in release.cirs.values():
+        assert stored[cir.slug]["components"] == cir.to_dict()["components"], cir.slug
+    docs = {t: GP.build(release, t) for t in ("US", "UK")}
+    return {"drafted": drafted, "compiled": compiled, "certified": certified,
+            "release": release, "docs": docs}
+
+
+def _assert_concept_to_pdf(out: dict, sizes: tuple, family: str) -> None:
+    from brambleloop.publish import garment_pdf as GP
+
+    g = out["drafted"]["garment"]
+    assert g["family"] == family and tuple(g["sizes"]) == sizes, g
+    slugs = [c.slug for c in out["release"].cirs.values()]
+    assert len(slugs) == len(sizes)
+    for slug in slugs:
+        assert out["compiled"][slug].get("compiled") is True, slug
+        assert out["certified"][slug].get("granted") is True, (slug, out["certified"][slug])
+    assert out["release"].granted
+    for terms, doc in out["docs"].items():
+        assert doc.problems == [] and set(GP.SECTIONS) <= set(doc.sections), terms
+        assert "Size chart" in doc.sections and "Schematic" in doc.sections
+        assert doc.svg.startswith("<svg")
+        assert all(f"{c['yards']} yd" in " ".join(doc.text.split())
+                   for c in out["release"].claims)
+
+
+def test_a_research_adult_cardigan_runs_concept_to_pdf_in_nine_sizes():
+    out = _research_garment_to_pdf(ADULT_PROPOSAL)
+    _assert_concept_to_pdf(out, ("XS", "S", "M", "L", "XL", "2X", "3X", "4X", "5X"),
+                           "garment_raglan")
+    assert all(GF.facts_of(c).buttons >= 3 for c in out["release"].cirs.values())
+
+
+def test_a_research_child_sweater_runs_concept_to_pdf():
+    out = _research_garment_to_pdf(CHILD_PROPOSAL)
+    _assert_concept_to_pdf(out, GR.CHILD_SIZES, "garment_one_piece")
+    assert CS.SECTION_HEADING in " ".join(out["docs"]["US"].text.split())
+
+
+def test_a_research_baby_cardigan_runs_concept_to_pdf():
+    out = _research_garment_to_pdf(BABY_PROPOSAL)
+    _assert_concept_to_pdf(out, ("3m", "6m", "12m", "18m", "24m"), "garment_raglan")
+    for cir in out["release"].cirs.values():
+        assert GF.facts_of(cir).buttons == 0
+    assert CS.SECTION_HEADING in " ".join(out["docs"]["UK"].text.split())
+
+
+def test_every_admitted_garment_pair_has_a_pinned_proof_and_others_are_held():
+    from brambleloop.creative import construction_families as CF
+
+    garment_pairs = {k: v for k, v in CF.PAIR_PROOFS.items() if k[0] in CF.GARMENT_FAMILIES}
+    assert set(garment_pairs) == set(CF.GARMENT_PAIR_AUDIENCE)
+    for (family, category), proof in garment_pairs.items():
+        name = proof.split("::")[1]
+        assert proof.startswith("tests/test_eng_garment.py::") and callable(globals()[name])
+    for f in CF.GARMENT_FAMILIES:
+        assert (CF.FAMILIES[f].status == CF.VERIFIED) == any(k[0] == f for k in garment_pairs)
+    held = [("sweater", "Cosy Adult Sweater", "flat_rows"),       # adult one-piece: unproven
+            ("vest", "Driftline Vest", "side_to_side"),            # family partial
+            ("sweater", "Kids Hoodie", "flat_rows"),               # a hood
+            ("cardigan", "Cabled Cardigan", "top_down_yoke"),      # a feature not built
+            ("cardigan", "Fitted Cardigan", "top_down_yoke"),      # fitted: premise below
+            ("sweater", "Raglan Cardigan", "flat_rows"),           # title names another garment
+            ("cardigan", "Mosaic Cardigan", "corner_to_corner")]   # no engine
+    for cat, title, cons in held:
+        premise = "a fitted cardigan" if title.startswith("Fitted") else ""
+        got = CF.route(category=cat, title=title, form="fitted_garment", construction=cons,
+                       premise=premise)
+        assert not got["admitted"] and got["reason"].startswith(CF.HOLD_PREFIX), (title, got)
+    for cat, title, cons in (("cardigan", "Fernway Raglan Cardigan", "top_down_yoke"),
+                             ("sweater", "Puddle Lane Kids Sweater", "flat_rows"),
+                             ("baby", "Hush Baby Cardigan", "top_down_yoke")):
+        got = CF.route(category=cat, title=title, form="fitted_garment", construction=cons)
+        assert got["admitted"], (title, got)
+
+
 # ---- the child-safety garment rules ---------------------------------------------------------
 
 
