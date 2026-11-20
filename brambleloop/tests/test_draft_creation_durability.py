@@ -32,6 +32,9 @@ class FakeRemote(EtsyClient):
             assert intent.remote_id==listing.etsy_listing_id=='777'
         raise Crash('upload interrupted after durable remote checkpoint')
     _attach_file=attach_file  # J-product P-5: publish() uploads via the grant-covered private method
+    # ENG-ETSY-PUBLISH: the create is preceded by a read of the shop for an existing draft of
+    # this release (publish.draft_adoption); this remote's shop holds none.
+    def get_shop_listings(self,**kw):return []
 
 
 def setup(path):

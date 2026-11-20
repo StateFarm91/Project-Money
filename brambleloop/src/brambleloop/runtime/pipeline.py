@@ -2736,6 +2736,90 @@ def real_draft_credential_refusal(db, client) -> str | None:
     return None
 
 
+#: ENG-ETSY-PUBLISH slice 2: how many times a draft that read back short is completed in place
+#: and read again before it is left `incomplete_on_etsy` behind its incident.
+MAX_COMPLETION_ROUNDS = 2
+
+
+def _complete_draft(client, listing_id: str, *, slug: str, docs: dict, listing_images: dict,
+                    payload, grant_fn, force_images: bool = False) -> dict:
+    """Bring an existing draft up to the certified set, in place (ENG-ETSY-PUBLISH slice 2).
+
+    Used for an adopted draft and for a draft whose read-back came up short. It sends only
+    what Etsy does not already hold, so a second round never doubles anything:
+
+    * each certified PDF (US and UK) whose file name is not attached is attached;
+    * the images: none on Etsy uploads the certified set in rank order with its alt text.
+      A set that differs in count or alt text is re-sent rank by rank with `overwrite`
+      (Etsy replaces the image at that rank). More images on Etsy than certified is reported,
+      never guessed at, because this client has no image delete;
+    * the listing properties are written again (an idempotent PUT).
+
+    Every write carries the publication grant (`PUBLISH_COMPLETE`: only this grant's own draft).
+
+    Review b17-d A1: with `force_images` (an adopted draft, or a read-back whose image ranks
+    are unproven) every certified rank is re-sent with `overwrite`, whatever alt text Etsy
+    holds, so the read-back can hash bytes this job really uploaded. `sent_ranks` maps rank
+    -> SHA-256 of each payload that was accepted.
+    """
+    import hashlib
+
+    from ..core.resilience import PermanentError, TransientError
+    from ..publish.pdf import TERMINOLOGIES, pattern_filename
+
+    problems: list[str] = []
+    files: dict[str, bool] = {}
+    sent_ranks: dict[int, str] = {}
+    try:
+        held = {str(r.get("filename") or "") for r in client.get_listing_files(listing_id) or []}
+    except (TransientError, PermanentError) as e:
+        return {"files": {}, "images_uploaded": 0, "sent_ranks": {},
+                "problems": [f"files unread: {e}"[:300]]}
+    for t in TERMINOLOGIES:
+        name = f"{slug}-{pattern_filename(t)}"
+        if name in held:
+            files[t] = True
+            continue
+        try:
+            files[t] = bool(client.attach_file(listing_id, filename=name,
+                                               data=docs[t].pdf_bytes, grant=grant_fn()))
+        except (TransientError, PermanentError) as e:
+            files[t] = False
+            problems.append(f"the {t} pattern could not be attached to {listing_id}: {e}"[:300])
+    want = list(listing_images.get("images") or [])
+    want_alt = [str(getattr(e, "alt_text", "") or (e[2] if len(e) > 2 else "") or "")
+                for e in want]
+    uploaded = 0
+    try:
+        remote = sorted(client.get_listing_images(listing_id) or [],
+                        key=lambda r: int(r.get("rank") or 0))
+    except (TransientError, PermanentError) as e:
+        remote = None
+        problems.append(f"images unread: {e}"[:300])
+    if remote is not None:
+        have_alt = [str(r.get("alt_text") or "") for r in remote]
+        if len(remote) > len(want):
+            problems.append(f"draft {listing_id} holds {len(remote)} images and {len(want)} are "
+                            "certified; extra images are not removed automatically")
+        elif force_images or have_alt != want_alt:
+            for rank, entry in enumerate(want, start=1):
+                try:
+                    client.upload_image(listing_id, filename=entry[0], data=entry[1],
+                                        rank=rank, alt_text=want_alt[rank - 1],
+                                        overwrite=rank <= len(remote), grant=grant_fn())
+                    uploaded += 1
+                    sent_ranks[rank] = hashlib.sha256(entry[1]).hexdigest()
+                except (TransientError, PermanentError) as e:
+                    problems.append(f"image {rank} was not uploaded to {listing_id}: {e}"[:300])
+    for prop in getattr(payload, "properties", None) or []:
+        try:
+            client.set_listing_property(listing_id, prop, grant=grant_fn())
+        except (TransientError, PermanentError) as e:
+            problems.append(f"listing property {prop.get('property_id')} write failed: {e}"[:300])
+    return {"files": files, "images_uploaded": uploaded, "sent_ranks": sent_ranks,
+            "problems": problems}
+
+
 def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
                            release: str, payload, docs: dict, hash_check: dict, stored,
                            stored_by_terminology: dict, listing_images: dict) -> dict:
@@ -2803,6 +2887,14 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
             ctx, slug=slug, version=version, release=release,
             payload=payload, docs=docs, listing_images=listing_images,
             reserved_digest=content_digest, stage="before_create")
+        # ENG-ETSY-PUBLISH: a draft already on Etsy for this release, with no local intent,
+        # is adopted rather than duplicated (`publish.draft_adoption`). Read only after the
+        # full revalidation above, so a refused gate still sends no request at all, and only
+        # for the stock client (production's), whose create follows this hook. Any outcome
+        # but "none" leaves here before createDraftListing, so nothing was created.
+        if known_order:
+            _duplicate_check(ctx, client, slug=slug, version=version, release=release,
+                             hook=hook)
 
     from ..integrations.etsy import OwnerGrant
 
@@ -2824,9 +2916,20 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
                                  grant=_publication_grant(),
                                  on_created=lambda remote_id: draft_intent.checkpoint(
                                      ctx.db,intent_key,intent_token,remote_id))
+    except _AdoptInstead as adopt:
+        return _adopt_and_complete(
+            ctx, client, slug=slug, version=version, release=release, payload=payload,
+            docs=docs, hash_check=hash_check, stored=stored,
+            stored_by_terminology=stored_by_terminology, listing_images=listing_images,
+            listing_id=adopt.listing_id, intent_key=intent_key,
+            intent_token=intent_token, found=adopt.found)
     except BaseException:
         # Hard process death cannot run this block; the committed CREATING intent still
         # blocks the next attempt. Ordinary failures additionally open a visible incident.
+        if hook.get("duplicate_refused"):
+            # The duplicate check refused before createDraftListing: provably unsent.
+            draft_intent.release_unsent(ctx.db,intent_key,intent_token)
+            raise
         if hook["entered"]:
             draft_intent.uncertain(ctx.db,intent_key,intent_token)
         else:
@@ -2879,9 +2982,220 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
                         f"upload without returning a file id, so the buyer may receive only "
                         f"the US document the listing copy promises alongside it")
 
+    return _read_back_and_record(
+        ctx, client, outcome=outcome, extra_files=extra_files, extra_problems=extra_problems,
+        slug=slug, version=version, release=release, payload=payload, docs=docs,
+        hash_check=hash_check, stored=stored, stored_by_terminology=stored_by_terminology,
+        listing_images=listing_images, grant_fn=_publication_grant)
+
+
+class _AdoptInstead(Exception):
+    """Raised from `before_create` when an existing draft is to be adopted: no create."""
+
+    def __init__(self, listing_id: str, found: list):
+        super().__init__(listing_id)
+        self.listing_id, self.found = listing_id, found
+
+
+def _duplicate_check(ctx, client, *, slug, version, release, hook) -> None:
+    """ENG-ETSY-PUBLISH: none returns (create proceeds); adopt raises `_AdoptInstead`;
+    escalate raises PermanentError; unread raises TransientError. Nothing is written."""
+    from ..core.resilience import PermanentError, TransientError
+    from ..publish import draft_adoption
+
+    existing = draft_adoption.check(ctx.db, client, slug=slug, version=version)
+    verdict = existing["verdict"]
+    if verdict == draft_adoption.NONE:
+        return
+    if verdict == draft_adoption.ADOPT:
+        raise _AdoptInstead(existing["listing_id"], existing["found"])
+    hook["duplicate_refused"] = True
+    if verdict == draft_adoption.UNREAD:
+        _dead_letter_if_unread_too_often(ctx, slug=slug, version=version, release=release,
+                                         why=str(existing["why"]))
+        ctx.audit("store.execution_refused", artifact=f"{slug}@{version}",
+                  detail={"release": release, "stage": "duplicate_check",
+                          "reason": f"the shop could not be read for an existing draft: "
+                                    f"{existing['why']}"[:500]})
+        raise TransientError("DRAFT_DUPLICATE_CHECK_UNREAD: the shop's listings could not be "
+                             "read, so no create is sent: " + str(existing["why"])[:300])
+    ctx.audit(draft_adoption.ESCALATED, artifact=f"{slug}@{version}",
+              detail={"release": release, "why": existing["why"],
+                      "found": existing["found"][:10]})
+    raise PermanentError("DRAFT_ADOPTION_ESCALATED: " + str(existing["why"]))
+
+
+#: Review b17-d A3: consecutive UNREAD duplicate checks for one release before the job is
+#: dead-lettered behind a single P2 incident. It still fails closed: nothing is created.
+MAX_CONSECUTIVE_UNREAD = 5
+
+
+def _unread_streak(ctx, *, slug: str, version: str, release: str) -> int:
+    """Consecutive UNREAD duplicate-check refusals for this release, newest first, ended by any
+    other duplicate-check outcome (adopted, escalated) or a publish record for the version."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+    from ..publish import draft_adoption
+
+    ends = {draft_adoption.ADOPTED, draft_adoption.ESCALATED, "store.published",
+            "store.publish_incomplete"}
+    streak = 0
+    with ctx.db.session() as s:
+        rows = s.scalars(select(AuditLog).where(AuditLog.artifact == f"{slug}@{version}")
+                         .order_by(AuditLog.id.desc()).limit(500)).all()
+        for row in rows:
+            detail = row.detail or {}
+            if row.action in ends:
+                break
+            if (row.action == "store.execution_refused"
+                    and detail.get("stage") == "duplicate_check"
+                    and detail.get("release") == release):
+                streak += 1
+    return streak
+
+
+def _dead_letter_if_unread_too_often(ctx, *, slug: str, version: str, release: str,
+                                     why: str) -> None:
+    """Review b17-d A3: after `MAX_CONSECUTIVE_UNREAD` unread shops in a row, stop retrying.
+
+    One P2 incident `store.draft_adoption:unread:<slug>@<version>` (deduplicated while open)
+    and a PermanentError, which dead-letters the job. Nothing is sent to Etsy either way.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Incident
+    from ..core.resilience import PermanentError
+
+    streak = _unread_streak(ctx, slug=slug, version=version, release=release) + 1
+    if streak < MAX_CONSECUTIVE_UNREAD:
+        return
+    signature = f"store.draft_adoption:unread:{slug}@{version}"
+    with ctx.db.session() as s:
+        open_row = s.scalar(select(Incident).where(Incident.signature == signature,
+                                                   Incident.resolved.is_(False)))
+        if open_row is None:
+            s.add(Incident(severity="P2", product_slug=slug, signature=signature,
+                           summary=(f"The shop could not be read for an existing draft of "
+                                    f"{slug}@{version} {streak} times in a row; the publish "
+                                    f"job is dead-lettered and nothing was created."),
+                           halts_publication=False,
+                           detail={"release": release, "streak": streak, "why": why[:300]}))
+        else:
+            open_row.report_count = int(open_row.report_count or 0) + 1
+    ctx.audit("store.execution_refused", artifact=f"{slug}@{version}",
+              detail={"release": release, "stage": "duplicate_check_dead_letter",
+                      "streak": streak, "reason": why[:500]})
+    raise PermanentError(f"DRAFT_DUPLICATE_CHECK_UNREAD_DEAD_LETTER: the shop could not be "
+                         f"read {streak} times in a row for {slug}@{version}; nothing was "
+                         f"created: {why[:200]}")
+
+
+def _refuse_held_pattern_files(ctx, client, listing_id: str, *, slug: str, version: str,
+                               release: str) -> None:
+    """Review b17-d A2: an adopted draft that already holds a file named like one of ours is
+    escalated. The read-back compares files by name and size, so an earlier release's PDF of
+    the same size would pass it; this client has no file delete to replace it under the
+    grant. An unreadable file list is left to `_complete_draft`, which reports it."""
+    from ..core.resilience import PermanentError, TransientError
+    from ..publish import draft_adoption
+    from ..publish.pdf import TERMINOLOGIES, pattern_filename
+
+    try:
+        held = {str(r.get("filename") or "") for r in client.get_listing_files(listing_id) or []}
+    except (TransientError, PermanentError):
+        return
+    ours = sorted(held & {f"{slug}-{pattern_filename(t)}" for t in TERMINOLOGIES})
+    if not ours:
+        return
+    why = (f"adopted draft {listing_id} already holds {', '.join(ours)}; the bytes cannot be "
+           "proven to be this release's and the client has no file delete to replace them")
+    ctx.audit(draft_adoption.ESCALATED, artifact=f"{slug}@{version}",
+              detail={"release": release, "why": why, "etsy_listing_id": listing_id,
+                      "held_files": ours})
+    raise PermanentError("DRAFT_ADOPTION_ESCALATED: " + why)
+
+
+def _adopt_and_complete(ctx: JobContext, client, *, slug, version, release, payload, docs,
+                        hash_check, stored, stored_by_terminology, listing_images,
+                        listing_id: str, intent_key, intent_token, found) -> dict:
+    """ENG-ETSY-PUBLISH slice 2: the draft is already on Etsy; adopt it, never create.
+
+    The intent claimed for this release is checkpointed to the existing id, which is the path a
+    successful create takes, so the local listing and the intent record it together. The draft
+    is then completed in place under the same publication grant (only its own draft) and read
+    back exactly like a new one. If the checkpoint fails, the intent goes to reconciliation:
+    the existing draft is never doubled.
+    """
+    from ..core.resilience import PermanentError
+    from ..integrations.etsy import OwnerGrant, PublishOutcome
+    from ..publish import draft_adoption, draft_intent
+
+    try:
+        draft_intent.checkpoint(ctx.db, intent_key, intent_token, listing_id)
+    except BaseException:
+        draft_intent.uncertain(ctx.db, intent_key, intent_token)
+        raise
+    ctx.audit(draft_adoption.ADOPTED, artifact=f"{slug}@{version}",
+              detail={"release": release, "etsy_listing_id": listing_id,
+                      "found": list(found)[:10]})
+
+    def _grant():
+        return OwnerGrant(ctx.db, action=OwnerGrant.PUBLISH,
+                          approval_id=(ctx.job.inputs or {}).get(
+                              "owner_publication_approval_id"),
+                          slug=slug, version=version, release=release)
+
+    # Review b17-d A2: a held file with one of our names may be an earlier release's PDF of
+    # the same size; the read-back compares name and size only, so it could pass. This client
+    # has no file delete, so such a draft is escalated to the owner, never adopted as verified.
+    _refuse_held_pattern_files(ctx, client, listing_id, slug=slug, version=version,
+                               release=release)
+    try:
+        # Review b17-d A1: every rank is re-sent, so the read-back hashes our own bytes.
+        done = _complete_draft(client, listing_id, slug=slug, docs=docs,
+                               listing_images=listing_images, payload=payload, grant_fn=_grant,
+                               force_images=True)
+    except PermanentError:
+        done = {"files": {}, "images_uploaded": 0, "sent_ranks": {},
+                "problems": ["completion refused"]}
+    outcome = PublishOutcome(published=bool(done["files"].get("US")), listing_id=listing_id,
+                             file_uploaded=bool(done["files"].get("US")),
+                             images_uploaded=done["images_uploaded"],
+                             image_sha256_by_rank=dict(done.get("sent_ranks") or {}),
+                             problems=list(done["problems"]))
+    extra_files = {t: ok for t, ok in done["files"].items() if t != "US"}
+    return _read_back_and_record(
+        ctx, client, outcome=outcome, extra_files=extra_files, extra_problems=[],
+        slug=slug, version=version, release=release, payload=payload, docs=docs,
+        hash_check=hash_check, stored=stored, stored_by_terminology=stored_by_terminology,
+        listing_images=listing_images, grant_fn=_grant,
+        adopted={"etsy_listing_id": listing_id, "found": list(found)[:10]})
+
+
+def _read_back_and_record(ctx: JobContext, client, *, outcome, extra_files: dict,
+                          extra_problems: list, slug: str, version: str, release: str,
+                          payload, docs: dict, hash_check: dict, stored,
+                          stored_by_terminology: dict, listing_images: dict, grant_fn,
+                          adopted: dict | None = None) -> dict:
+    """Read the draft back, complete it in place within bounds, record the outcome.
+
+    ENG-ETSY-PUBLISH slice 2: a draft that reads back short is completed in place
+    (`_complete_draft`, sending only what Etsy lacks) and read again, at most
+    `MAX_COMPLETION_ROUNDS` times. A field mismatch that completion cannot fix ends the loop
+    at once, so the bound is a ceiling and not a schedule.
+    """
+    from sqlalchemy import select
+
+    from ..core.models import Listing
+    from ..publish.pdf import TERMINOLOGIES, pattern_filename
+    from . import etsy_ops
+
     # F-542 / F-559: read the draft and its files back. Only what Etsy holds afterwards
     # decides whether this is published; the writes' own 2xx responses cannot.
     certified = hash_check.get("certified") or {}
+    # Review b17-d A1: rank -> SHA-256 of image bytes actually uploaded in this job.
+    uploaded_images: dict[int, str] = dict(getattr(outcome, "image_sha256_by_rank", None) or {})
     sent_docs = {f"{slug}-{pattern_filename(t)}": docs[t].pdf_bytes
                  for t in TERMINOLOGIES
                  if t == "US" and outcome.file_uploaded or extra_files.get(t)}
@@ -2889,14 +3203,45 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
         {f"{slug}-{pattern_filename(t)}": docs[t].pdf_bytes for t in TERMINOLOGIES},
         {f"{slug}-{pattern_filename(t)}": certified.get(t) for t in TERMINOLOGIES})
     readback: dict = {"verified": False, "reasons": ["no listing was created"]}
-    if outcome.listing_id:
-        readback = etsy_ops.read_back(
+    completion_rounds: list[dict] = []
+
+    def _read():
+        return etsy_ops.read_back(
             client, outcome.listing_id, sent=etsy_ops.sent_fields(payload),
             expected_files=expected_files, expected_images=len(listing_images["images"]),
             # PT-12: the certified alt text (the disclosure) is read back from Etsy too.
             expected_alt_texts=[str(getattr(e, "alt_text", "") or
                                     (e[2] if len(e) > 2 else "") or "")
-                                for e in listing_images["images"]])
+                                for e in listing_images["images"]],
+            sent_images=listing_images, uploaded_images=uploaded_images)
+
+    if outcome.listing_id:
+        readback = _read()
+        while (not readback["verified"] and len(completion_rounds) < MAX_COMPLETION_ROUNDS
+               and etsy_ops.completable(readback)):
+            images_rb = readback.get("images") or {}
+            done = _complete_draft(client, outcome.listing_id, slug=slug, docs=docs,
+                                   listing_images=listing_images, payload=payload,
+                                   grant_fn=grant_fn,
+                                   force_images=bool(images_rb) and not images_rb.get(
+                                       "verified"))
+            uploaded_images.update(done.get("sent_ranks") or {})
+            completion_rounds.append({"files": done["files"],
+                                      "images_uploaded": done["images_uploaded"],
+                                      "problems": done["problems"][:4]})
+            for t, ok in done["files"].items():
+                if t != "US":
+                    extra_files[t] = ok
+            if done["files"].get("US"):
+                outcome.file_uploaded = True
+            readback = _read()
+        if readback["verified"]:
+            # The writes' own errors are superseded by what Etsy holds once completed.
+            extra_problems[:] = []
+            outcome.problems = []
+            outcome.published = True
+            outcome.file_uploaded = True
+            outcome.images_uploaded = len(listing_images["images"])
     published = bool(outcome.published and outcome.activatable and not extra_problems
                      and readback["verified"])
 
@@ -2923,8 +3268,21 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
                           "US": outcome.file_uploaded, **extra_files},
                       "files_sent": [f for f in expected_files if f["name"] in sent_docs],
                       "read_back": readback,
+                      "completion_rounds": completion_rounds,
+                      "adopted": adopted,
                       "problems": (outcome.problems + extra_problems
                                    + readback.get("reasons", []))[:8]})
+
+    # ENG-ETSY-PUBLISH slice 2: the one "Approve first public listing (step-up)" card follows
+    # the evidence (raised only with a verified read-back, both PDF hashes, image hashes and
+    # gate results). It grants nothing; a failure here never changes the publish outcome.
+    try:
+        from ..publish import first_listing_card
+
+        first_listing_card.refresh(ctx.db)
+    except Exception as exc:  # noqa: BLE001
+        ctx.audit("first_listing.card_refresh_failed", artifact=f"{slug}@{version}",
+                  detail={"error": f"{type(exc).__name__}: {str(exc)[:200]}"})
 
     if outcome.listing_id and not published:
         etsy_ops.open_publish_incomplete(
@@ -2958,6 +3316,8 @@ def _publish_and_read_back(ctx: JobContext, client, *, slug: str, version: str,
             "images_uploaded": outcome.images_uploaded,
             "files_attached_by_terminology": {"US": outcome.file_uploaded, **extra_files},
             "read_back_verified": readback["verified"],
+            "completion_rounds": len(completion_rounds),
+            "adopted_existing_draft": bool(adopted),
             "problems": outcome.problems + extra_problems + readback.get("reasons", [])}
 
 
@@ -3287,6 +3647,14 @@ def handle_store_activate(ctx: JobContext) -> dict:
               detail={"etsy_listing_id": listing_id, "state_on_etsy": after.get("state"),
                       "authority": "standing" if standing else "owner",
                       **({"grant_id": seg_id} if standing else {})})
+    if live:
+        try:
+            from ..publish import first_listing_card
+
+            first_listing_card.refresh(ctx.db)   # closes the card: a listing is live
+        except Exception as exc:  # noqa: BLE001
+            ctx.audit("first_listing.card_refresh_failed", artifact=artifact,
+                      detail={"error": f"{type(exc).__name__}: {str(exc)[:200]}"})
     lineage_recorded = None
     if standing and live:
         # L-B: only now -- after `store.activated` and a read-back showing it active -- is

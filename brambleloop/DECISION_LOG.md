@@ -2826,6 +2826,16 @@ Reversible by the owner.
 - **Safety.** No purchase path exists: the list makes no request and the Mission Control panel has no buy control. Reads listing metadata only. A purchased PDF goes only through `teardown.intake.receive`, which now accepts a listing from any watchlist shop (folder `<shop key>-<listing id>`, seller recorded) into the quarantined library (B-117). Status moves to bought, then intake done, from the BenchmarkProduct row.
 - **Not decided here.** Whether to buy, which picks, and the contingency factor beyond the owner's 1.158. Reversible by removing the cadence.
 
+**D-ENG-ETSY-PUBLISH-1: the automatic Etsy path adopts, completes, verifies and rolls back, all under the owner's existing authority (ENG-ETSY-PUBLISH slice 1, 2026-11-20).** Builder decisions, reversible by decision:
+- **Rollback is executed, not only rehearsed, for drafts.** `launch.rollback.withdraw_draft` deletes this system's Etsy draft only while Etsy reports it as `draft`. It counts the draft gone only when a second read finds it absent or `removed`, never on a 204 alone. Only then does the local listing return to `draft` with no Etsy id, and the creation intent is retired, its record kept in the `listing.draft_withdrawn` audit row. This relaxes `draft_intent`'s one-create-per-version rule in exactly one case: no remote listing exists, so a new create cannot duplicate one. A live listing is never deleted by it: it is deactivated through `standing_withdrawal` (SP lineage) or Shop Manager.
+- **The rehearsal reads what a restore would re-serve.** That is the PDFs certified for this release (every `assets.built` row) and the valid listing-set certificate's frames. It used to read the newest 200 build jobs catalogue-wide and every stored ListingAsset.
+- **Duplicate recovery on content, before any create.** The shop is read in every state. Exactly one unbound draft with the certified title and price is adopted (intent checkpointed, completed in place). Anything else carrying the title escalates to one halting incident. An unread shop creates nothing (transient).
+- **Completion in place, bounded.** A draft that reads back short on files or images gets only what Etsy lacks (missing PDFs; images in rank order with `overwrite`), at most two rounds. Field mismatches are not completed.
+- **Read-back hashes.** Etsy exposes no file or image hash, and serves re-encoded images. Byte identity is proven at the moment of sending: the sha256 of every PDF and every image sent must equal the certified hash. Etsy's side is proven by name and exact byte size for files, and by rank, alt text and pixel dimensions for images. Nothing claims Etsy-side byte identity.
+- **Fee cap per listing.** One reservation may not exceed US$0.20 at the assumed rate (+1 cent), inside the same lock as the CA$6 cumulative budget (D-OWNER-STANDING-INTERNAL).
+- **One owner card.** `first_public_listing:approve`, "Approve first public listing (step-up)", is raised only with complete evidence: the read-back, both PDF hashes, the image hashes and all seven gate results, cited by audit id. It is withdrawn when the evidence goes and satisfied once a listing is live. GENUINE_EXCEPTION / publication.
+- **Scheduler, no self-grant.** Hourly inside `store.draft_reconcile`, a release whose owner publication grant validates now is queued through `owner_execution.queue_publication` (the owner's door). No grant, nothing queued. Activation stays with the owner's activation grant or Stage A (`STAGE_A_ENABLED` False).
+- **No AI-policy gate added** (owner order, D-OWNER-POLICY39-OVERRIDE). The existing AI disclosure in copy, alt text and pixels is untouched.
 ## D-ENG-VIS-IDENTITY-1 — identity verification method and its rules (ENG-VIS-IDENTITY, 2026-11-20; routine engineering, owner decisions pending)
 
 **Status:** routine engineering decisions within autonomy. Admitting a method for production is
@@ -3077,3 +3087,7 @@ engine table, so an engine certification re-proposes those concepts on fresh evi
 **Surfaces.** The Mission Control Demand view (`GET /api/cc/demand`, `cc-shell-v44`) and the advisory readback row
 `engine_demand`: WARN while a concept waits for an engine, never a deploy FAIL.
 Reversible by decision. The weights, saturations, prior and boosts are constants in `products/demand.py`.
+## 2026-11-20 — ENG-ETSY-PUBLISH review b17-d fixes
+- Adopted drafts are proven by re-sending every image rank, not by trusting alt text and pixel size: Etsy returns no image hash, so the only hash that means anything is the hash of bytes this job sent. Unproven ranks fail the read-back.
+- Held pattern files on an adopted draft escalate rather than being replaced: adding a file-delete write path to the Etsy client is a new irreversible capability and was not needed to fail closed.
+- Unread shops dead-letter after 5 consecutive refusals (one P2 incident) instead of retrying forever.

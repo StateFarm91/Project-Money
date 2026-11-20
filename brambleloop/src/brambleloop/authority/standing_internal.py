@@ -202,6 +202,8 @@ KIND_RULES: tuple[dict, ...] = (
     _r("exact", "store:OA-G1", G, _POL, "an Etsy shop-option attestation"),
     # ---- GENUINE: publication, activation, customer-facing acts ---------------------------
     _r("exact", "phase", G, _PUB, "a phase move out of shadow"),
+    _r("prefix", "first_public_listing:", G, _PUB,
+       "the first public listing and its fee (step-up)"),
     _r("prefix", "standing_policy.hold:", G, _PUB, "a release outside the standing policy"),
     _r("prefix", "standing_policy.withdrawal_unconfirmed:", G, _PUB, "deactivation on Etsy"),
     _r("prefix", "listing.live_update:", G, _PUB, "changing a live listing"),

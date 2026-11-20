@@ -88,6 +88,7 @@ lifetime).
 | `brand_clearance` | launch/readiness.py:405 | GENUINE_EXCEPTION | kyc_legal_banking | legal risk acceptance / trademark |
 | `artifact_storage` | launch/readiness.py:428 | GENUINE_EXCEPTION | paid_ads_or_subscriptions | an object-storage subscription |
 | `phase` | launch/readiness.py:443 | GENUINE_EXCEPTION | publication_or_activation | a phase move out of shadow |
+| `first_public_listing:approve` | publish/first_listing_card.py | GENUINE_EXCEPTION | publication_or_activation | the first public listing and its fee (step-up) |
 | `benchmark_observation` | launch/access.py:229 | GENUINE_EXCEPTION | grant_signature_or_step_up | developer credentials of the account holder |
 | `model_provider` | launch/access.py:272 | GENUINE_EXCEPTION | grant_signature_or_step_up | a provider key set in the host by the owner |
 | `credential_rotation:ANTHROPIC_API_KEY` | ops/credential_register.py:140 | GENUINE_EXCEPTION | grant_signature_or_step_up | rotating an exposed credential |

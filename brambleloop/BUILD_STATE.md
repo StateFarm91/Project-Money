@@ -18,6 +18,37 @@
 > - NOT MEASURED against production: no production reading was taken, and per-listing review counts, bestseller and
 >   baskets are UNKNOWN until a scan stores them. Review request:
 >   `research/final_build/w6/review_requests/ENG-DEMAND-SUPPLY.md`.
+> **2026-11-20 — ENG-ETSY-PUBLISH review b17-d fixes (`eng/etsy-publish`, merged with `claude/w6-INTEG6` dde3ea62; NOT deployed; no real Etsy call).**
+> - **A1 fixed.** Image read-back hashes only bytes actually uploaded in this job, per rank (`PublishOutcome.image_sha256_by_rank`, `_complete_draft(..., force_images=True)` returns `sent_ranks`). An adopted draft has every rank re-sent with `overwrite`. A rank not uploaded in this job, or a missing Etsy dimension, is a problem, never a skipped check. E2e seeds a draft with matching alt text and different bytes and asserts every rank was overwritten with our bytes.
+> - **A2 fixed (escalation route).** The client has no file delete, so an adopted draft already holding a file named like ours is escalated (`store.draft_adoption_escalated`, PermanentError), never verified on name and size.
+> - **A3 fixed.** After `MAX_CONSECUTIVE_UNREAD = 5` unread duplicate checks for one release the job dead-letters behind one P2 incident `store.draft_adoption:unread:<slug>@<version>`. Still fails closed.
+> - **A4 (owner action, when this lands):** publication grants recorded before the `ROLLBACK_PATH.remove_draft` text change are void; the owner must re-sign the publication grant. Without it the scheduler shows `waiting_for_owner_grant`.
+> **2026-11-20 — ENG-ETSY-PUBLISH slice 1 (`eng/etsy-publish`, base 307c7e62; NOT reviewed, NOT integrated, NOT deployed; nothing ran against production or real Etsy).**
+> - **Rollback FAIL, root cause fixed.**
+>   - The rehearsal read PDFs from only the newest 200 build jobs catalogue-wide, and frames from every ListingAsset. It now reads this release's certified PDFs and the valid listing-set certificate's frames.
+>   - New executable `launch.rollback.withdraw_draft`: delete, verify gone by a second read, restore the local listing, retire the intent. This fixes G5.
+> - **Uploads.** Duplicate check and adoption before any create (`publish.draft_adoption`). In-place completion of missing PDFs, images and properties, bounded to 2 rounds. Per-rank image sha256 must equal the certificate's, and Etsy's dimensions are compared. Etsy exposes no hash, so Etsy-side byte identity is NOT claimed.
+> - **Fee and scheduler.**
+>   - Per-listing fee cap US$0.20 inside the CA$6 budget lock.
+>   - Publication scheduler inside the hourly `store.draft_reconcile`: owner grants only, never self-grants. STAGE_A_ENABLED is unchanged (False).
+> - **Owner card.** ONE card, "Approve first public listing (step-up)" (`first_public_listing:approve`). It is never raised on empty evidence.
+> - **Measurable sections.** `first_listing_readiness.releases[].section_diagnostics` names the unjudged parity dimensions, the listing-set counts, the failing rollback steps and the failing search checks.
+>   - listing_set FAIL: issuance is gated on staleness, so it follows Batch 12's halt. No independent cause found; production must confirm with the new diagnostics.
+> - **No AI-policy gate added. The AI disclosure is untouched.**
+> - **Tests.**
+>   - `test_etsy_publish` 16/16; `test_etsy_publish_e2e` 3/3; `test_eng_approvals` 34/34; `test_ws5_e6_draft_resolver` passes.
+>   - Mutants killed: grant guard, fee cap, read-back hash, duplicate adoption, rollback verify, completion retry. All targeted mutants are killed.
+>   - The card-empty-evidence mutant is KILLED by the card unit test.
+>   - 38 requested and related suites run on the final tree; 35 pass.
+>   - The first run found 9 failing. 6 were regressions from this branch and are fixed:
+>     - the duplicate check now runs inside `before_create` after revalidation, so a refused gate still sends no HTTP;
+>     - the rehearsal falls back to the release's own build job;
+>     - the write-site table, a source-order pin, a fixture and a hash-order shape were updated.
+>   - 3 fail identically on clean base 307c7e62, so they are NOT caused by this branch:
+>     - `test_w4_readback_evidence` (CLI row test);
+>     - `test_w6_listing_chain_e2e` (3 cases);
+>     - `test_ws4_stage_a_withdrawal` (3 cases).
+>   - Review: `research/final_build/w6/review_requests/etsy_publish_slice1.md`.
 
 > **2026-11-20 — ENG-DAILY-FIX (`eng/daily`, NOT merged, NOT deployed; production unchanged).** Fixes every Unit B
 > finding of the independent review of a795be17 (BLOCK). Merged `origin/claude/w6-INTEG4` (259e47c4) first, so
