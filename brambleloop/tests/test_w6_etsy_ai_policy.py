@@ -226,6 +226,20 @@ def _reading(db, actor="owner", **detail):
         s.commit()
 
 
+def test_a_reading_before_the_rules_last_edit_is_unknown():
+    """Isolated: valid in every field except read_on, one day before LATEST_EDIT, and well
+    inside the freshness window. It read rules that have since changed, so it is UNKNOWN."""
+    edit = date.fromisoformat(pol.LATEST_EDIT)
+    db = _db()
+    _reading(db, status="PERMITTED", read_by="owner",
+             read_on=(edit - timedelta(days=1)).isoformat())
+    st = pol.publication_status(db, today=edit + timedelta(days=1))
+    assert st["status"] == pol.UNKNOWN and st["hold"], st
+    _reading(db, status="PERMITTED", read_by="owner", read_on=edit.isoformat())
+    st = pol.publication_status(db, today=edit + timedelta(days=1))
+    assert st["status"] == pol.PERMITTED and not st["hold"], st
+
+
 def test_status_unknown_holds_publication_with_reason():
     db = _db()
     st = pol.publication_status(db)

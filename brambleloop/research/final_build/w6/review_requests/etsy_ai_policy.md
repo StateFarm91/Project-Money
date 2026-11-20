@@ -98,7 +98,8 @@
 
 `research/final_build/w6/review_requests/etsy_ai_policy_mutate.py` applies one mutant at a
 time and runs `tests/test_w6_etsy_ai_policy.py` against it. The source is restored after
-each run. Result: **18 of 18 killed, 0 survivors.**
+each run. Result on the tree that includes ENG-ETSY-AI-FIX3: **20 of 20 killed, 0 survivors.** M13
+survived until `test_a_reading_before_the_rules_last_edit_is_unknown` isolated it.
 
 | Mutant | Result |
 |---|---|
@@ -114,7 +115,9 @@ each run. Result: **18 of 18 killed, 0 survivors.**
 | M10 allowlist removes everything | killed |
 | M11 status always PERMITTED | killed |
 | M12 anonymous reading accepted | killed |
-| M13 stale reading accepted | killed |
+| M13 a reading dated before the rules' last edit is accepted | killed |
+| M13b a reading of any age is accepted | killed |
+| M13c a reading recorded outside the owner step-up is accepted | killed |
 | M14 unreadable db is PERMITTED | killed |
 | M15 `for_publish` ignores the AI status | killed |
 | M16 `hold_card` writes nothing | killed |
