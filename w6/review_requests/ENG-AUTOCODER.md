@@ -173,7 +173,11 @@ Each file ran once with a 25-minute timeout, 5 in parallel. **`test_eng_autocode
     - `test_w6_listing_chain_e2e` (3/6, `store.publish` dead in shadow);
     - `test_w5_a9_package_event` (5 failed);
     - `test_platform` (`ops.continuity`: no table `radar_concepts`).
-  - `test_cert_wiring`: __CERTWIRING__
+  - `test_cert_wiring`: under 3-way parallel load the drain ran out of its 1525 s budget, 10/16, on this
+    branch only. Re-run alone at `a2db291`: **15/16 in 1457 s, the same as the base** (15/16 in
+    1440 s). Its one failure is the base's own `ops.continuity`: no table `radar_concepts`. The
+    `improve.code` handler takes 0.001 s when OFF and 0.010 s when blocked, so the earlier 10/16
+    was load, not this change.
 
 Not run: no full `run_tests.sh` record. The numbers above are per-file exit codes in this session's
 venv (Python 3.11, from `requirements.lock` + `requirements-test.lock`). They are not a
