@@ -164,8 +164,24 @@ def _after(pattern: str, line: str, n: int) -> list[int]:
 
 
 def read_flat_line(line: str, n: int) -> dict:
-    """A flat row in the garment grammar, plus the wearable split row: the stitches worked
-    are the count after it (the rest are held or left as an edge)."""
+    """A flat row in the garment grammar, plus the wearable split row (the stitches worked
+    are the count after it; the rest are held or left as an edge) and the V-neck yoke."""
+    if "increase 1 st at each neck edge" in line:
+        m = re.match(rf"^Rows? ({_VAL})", line)
+        counts = re.search(rf"\(({_VAL}) sts\)$", line)
+        if not m or not counts:
+            raise ValueError(f"a yoke line with no rows or count: {line!r}")
+        spans = []
+        for v in _vals(m.group(1), n):
+            a, _, b = v.partition("-")
+            spans.append((int(a), int(b or a)))
+        return {"text": line, "kind": "vraglan", "rows": spans, "then": None,
+                "counts": _ints(counts.group(1), n),
+                "doubles": _after(r"work V double raglan", line, n),
+                "every": _after(r"on the next row and on every V row", line, n),
+                "times": _after(r"after it, V times in all; at the same", line, n),
+                "neck_every": _after(r"on the first row and on every V row", line, n),
+                "neck": _after(r"after it, V times in all; work every", line, n)}
     out = read_line(line, n)
     if "are held for the" in line and "sts only" in line:
         keep = _after(r"in the first V sts only", line, n)
@@ -229,6 +245,47 @@ def expand_rounds(parsed: list[dict], size: int) -> tuple[dict[int, int], list[s
     return rows, problems
 
 
+def expand_flat(parsed: list[dict], size: int) -> tuple[dict[int, int], list[str]]:
+    """`garment_fit.expand`, with the V-neck yoke expanded here first (its per-row counts
+    replace it as single-row entries the garment grammar's expander already reads)."""
+    out: list[dict] = []
+    count = None
+    for p in parsed:
+        k = p["kind"]
+        if k == "chain":
+            count = p["n"][size] - 1
+        elif k in ("pick_up", "resume"):
+            count = p["n"][size]
+        if k != "vraglan":
+            out.append(p)
+            if k in ("even",) and count is None:
+                count = p["counts"][size]
+            elif "counts" in p and k != "setup":
+                count = (p["then"] or p["counts"])[size] if p.get("then") else \
+                    p["counts"][size]
+            continue
+        a, b = p["rows"][size]
+        d, every, times = p["doubles"][size], p["every"][size], p["times"][size]
+        nev, nt = p["neck_every"][size], p["neck"][size]
+        for i, r in enumerate(range(a, b + 1)):
+            if i < d:
+                count += 16
+            elif (i - d) % every == 0 and (i - d) // every < times:
+                count += 8
+            if i % nev == 0 and i // nev < nt:
+                count += 2
+            n = len(p["counts"])
+            vals = [0] * n
+            vals[size] = count
+            spans = list(p["rows"])
+            spans[size] = (r, r)
+            out.append({"text": p["text"], "kind": "divide", "rows": spans, "then": None,
+                        "counts": [count if j == size else p["counts"][j] for j in range(n)]
+                        if r == b else [count] * n,
+                        "front": [0] * n, "back": [count] * n, "sleeve": [0] * n})
+    return expand(out, size)
+
+
 def document_problems(pieces_text: dict[str, list[str]], cirs: dict,
                       piece_of: dict[str, str]) -> list[GarmentFinding]:
     """Read the document back per size and compare every row and round with the compiler."""
@@ -252,7 +309,7 @@ def document_problems(pieces_text: dict[str, list[str]], cirs: dict,
             _f(out, "GARMENT_DOCUMENT", "*", f"{heading}: {exc}")
             continue
         for i, size in enumerate(sizes):
-            rows, problems = (expand_rounds if rounds else expand)(parsed, i)
+            rows, problems = (expand_rounds if rounds else expand_flat)(parsed, i)
             for p in problems:
                 _f(out, "GARMENT_DOCUMENT", size, f"{heading}: {p}")
             built = {r.index: r.stitch_count for r in results[size].rows

@@ -225,6 +225,7 @@ class Engine:
     # vocabulary (`construction_families.NAMED_FEATURES`) would otherwise read as a feature
     # it does not ("a ribbed brim" is the beanie's brim, not a rib-stitch fabric).
     honest_phrases: tuple[str, ...] = ()
+    require: str | None = None     # a title must ALSO match this to be this family's
 
 
 ENGINES: dict[str, Engine] = {}
@@ -722,7 +723,8 @@ def family_for(form: str, title: str) -> str | None:
     folded = fold_title(title)
     for eng in ENGINES.values():
         if form in eng.forms and any(_re.search(rf"\b{_re.escape(w)}\b", folded)
-                                     for w in eng.words):
+                                     for w in eng.words) and \
+                (eng.require is None or _re.search(eng.require, folded)):
             return eng.family
     return None
 
@@ -1356,3 +1358,314 @@ register(Engine(
     category_word="tank", ease=(("adult", TOP_EASE["adult"]), ("child", TOP_EASE["child"])),
     fit_note="Relaxed and boxy: 20 cm of ease at the chest for adults, 14 cm for children.",
     **_TOP_COMMON))
+
+
+# ==== 4. cardigan variants: the V-neck raglan cardigan ======================================
+#
+# Top down, worked flat in one piece from the neck. The foundation is the back neck, the two
+# sleeve tops and a two-stitch point for each front; the yoke increases at the four raglan
+# lines (as `garment_families.raglan_cardigan`) AND at both neck edges, so the fronts grow
+# from the point out to their full width and the front edges slope into a V that bottoms out
+# at the underarm. At the underarm the sleeves go on hold and the fronts and back continue as
+# one piece to a back-loop hem band; each sleeve is resumed and decreased to a back-loop cuff.
+# A band is picked up along each front edge, from the hem up the V to the raglan line; its
+# stitches are counted from the edge's own length, the slope included. Open front: no
+# buttons (so the baby and child sizes are child-safe: nothing sewn on, nothing to swallow).
+
+VCARDI_EASE = {
+    "adult": (("bust", 16.0), ("back_length", 14.0), ("armhole_depth", 4.0),
+              ("upper_arm", 8.0), ("cross_back", 0.0), ("arm_length", 0.0)),
+    "child": (("bust", 14.0), ("back_length", 8.0), ("armhole_depth", 2.0),
+              ("upper_arm", 5.0), ("cross_back", 0.0), ("arm_length", 0.0)),
+    "baby": (("bust", 10.0), ("back_length", 4.0), ("armhole_depth", 2.0),
+             ("upper_arm", 4.0), ("cross_back", 0.0), ("arm_length", 0.0)),
+}
+VNECK_BACK_OF_CROSS_BACK = 0.45      # the back neck (foundation), of the cross-back
+VNECK_FRONT_POINT = 2                # stitches each front starts on, at the raglan line
+
+
+def _vraglan_row(p: GF.Piece, f: int, s: int, b: int, m: int, n: int) -> tuple:
+    """One yoke row: `m` raglan units at each of the four lines, `n` neck increases at each
+    end of the row (the two neck edges). Returns the new (f, s, b)."""
+    i = p.next_index
+    lp = p.fam.loop(i)
+    st, inc = p.fam.stitch, p.fam.inc
+    plan = [(inc, n), (st, f - m - n), (inc, 2 * m), (st, s - 2 * m), (inc, 2 * m),
+            (st, b - 2 * m), (inc, 2 * m), (st, s - 2 * m), (inc, 2 * m), (st, f - m - n),
+            (inc, n)]
+    ops: list[Op] = []
+    for code, k in plan:
+        if k < 0:
+            raise ShapingRefused(f"{p.name} row {i}: a section too narrow to increase")
+        if k == 0:
+            continue
+        if ops and ops[-1].stitch == code:
+            ops[-1] = Op(code, ops[-1].count + k, loop=lp)
+        else:
+            ops.append(Op(code, k, loop=lp))
+    new = 2 * f + 2 * s + b + 8 * m + 2 * n
+    p._finish(p._row(ops), new)
+    return f + m + n, s + 2 * m, b + 2 * m
+
+
+def vneck_cardigan(g: GradedSize, spec: WearableSpec) -> CIR:
+    fam = StitchFamily("sc", "plain")
+    rib = GF._rib_rows(g)
+    band_rows = GF._band_rows(g)
+    band_cm = g.cm_of_rows(band_rows)
+    body_sts = g.stitches(g.finished_cm("bust") - band_cm)
+    back = GF._even(body_sts // 2)
+    front = (body_sts - back) // 2
+    sleeve_top = GF._even(g.stitches(g.finished_cm("upper_arm")))
+    yoke_rows = g.rows(g.finished_cm("armhole_depth"), minimum=4)
+    b0 = GF._even(g.stitches(g.body_cm("cross_back") * VNECK_BACK_OF_CROSS_BACK))
+    units = (back - b0) // 2
+    # The sleeve top keeps at least a few stitches at the neck: fewer units, wider back neck.
+    units = min(units, (sleeve_top - 4) // 2)
+    b0 = back - 2 * units
+    s0 = sleeve_top - 2 * units
+    f0 = VNECK_FRONT_POINT
+    neck_incs = front - f0 - units
+    if s0 < 2 or units < 1 or neck_incs < 1:
+        raise ShapingRefused(f"size {g.size}: the V-neck yoke does not resolve "
+                             f"(units {units}, sleeve at neck {s0}, neck increases "
+                             f"{neck_incs})")
+    doubles = max(0, units - yoke_rows)
+    singles = units - 2 * doubles
+    if singles + doubles > yoke_rows or neck_incs > yoke_rows:
+        raise ShapingRefused(f"size {g.size}: the yoke cannot hold {units} raglan units and "
+                             f"{neck_incs} neck increases in {yoke_rows} rows")
+    s_events, s_every = GF.uniform(singles, yoke_rows - doubles)
+    raglan = [2] * doubles + [0] * (yoke_rows - doubles)
+    for k in range(s_events):
+        raglan[doubles + k * s_every] = 1
+    n_events, n_every = GF.uniform(neck_incs, yoke_rows)
+    neck = [0] * yoke_rows
+    for k in range(n_events):
+        neck[k * n_every] = 1
+    p = GF.Piece("yoke_and_body", fam, foundation=2 * f0 + 2 * s0 + b0, feature="yoke",
+                 direction="top_down", note="worked flat from the neck down; the fronts "
+                                            "start as a point at each raglan line")
+    p.even(1, label="set-up row: place the four raglan markers")
+    first = p.next_index
+    f, s, b = f0, s0, b0
+    for m, n in zip(raglan, neck):
+        f, s, b = _vraglan_row(p, f, s, b, m, n)
+    p._record("vraglan", first, p.next_index - 1,
+              n=(("doubles", doubles), ("singles", s_events), ("every", s_every),
+                 ("neck", n_events), ("neck_every", n_every), ("rows", yoke_rows),
+                 ("f0", f0), ("s0", s0), ("b0", b0)), label="yoke")
+    if (f, s, b) != (front, sleeve_top, back):
+        raise ShapingRefused(f"size {g.size}: the yoke ends at {(f, s, b)}, not "
+                             f"{(front, sleeve_top, back)}")
+    length_rows = g.rows(g.finished_cm("back_length"))
+    body_rows = length_rows - 1 - yoke_rows - 1
+    p.divide(sleeve_top, front, back)
+    if body_rows - rib < 2:
+        raise ShapingRefused(f"size {g.size}: no body below the underarm")
+    p.even(body_rows - rib, label="body")
+    p.even(rib, loop="back", label="hem band")
+    cuff = min(sleeve_top, GF._even(g.stitches(g.finished_cm("upper_arm")
+                                               * GF.CUFF_OF_UPPER_ARM)))
+    sleeve_rows = g.rows(g.body_cm("arm_length") + g.fit.ease("arm_length"), minimum=6)
+    events, every = GF.uniform(max(1, (sleeve_top - cuff) // 2), sleeve_rows - rib - 2)
+    sleeves = []
+    for side in ("sleeve_left", "sleeve_right"):
+        sp = GF.Piece(side, fam, foundation=sleeve_top, resumes=side, feature="sleeve",
+                      direction="top_down")
+        sp.even(1, label="first sleeve row")
+        sp.shape(events, every, grow=False, label="sleeve decreases")
+        plain = sleeve_rows - 1 - ((events - 1) * every + 1) - rib
+        sp.even(max(1, plain), label="sleeve")
+        sp.even(rib, loop="back", label="cuff band")
+        sleeves.append(sp)
+    comp = p.component()
+    edge_cm = front_edge_cm(comp, g.gauge)
+    pick = GF.pick_up_count(edge_cm, g)
+    bands = []
+    for side in ("band_left", "band_right"):
+        bp = GF.Piece(side, fam, foundation=pick, grain="across", feature="button_band",
+                      direction="side_to_side", foundation_kind="none",
+                      note=f"picked up along the {side.split('_')[1]} front edge, from the "
+                           f"hem up the V to the raglan line")
+        bp.even(band_rows, loop="back", label="band")
+        bands.append(bp)
+    seams = [Seam("mattress", sl, sl, edge_a="left", edge_b="right",
+                  note="close the sleeve seam from cuff to underarm through both loops")
+             for sl in ("sleeve_left", "sleeve_right")]
+    seams += [Seam("pick_up", bp.name, "yoke_and_body", edge_a="left",
+                   edge_b="left" if bp.name == "band_left" else "right",
+                   note=f"pick up {pick} sts evenly along the front edge, from the hem up the "
+                        f"V to the raglan line") for bp in bands]
+    facts = WFacts("vneck_cardigan",
+                   pieces={x.name: x.steps for x in [p] + sleeves + bands})
+    facts.pickups = [{"piece": bp.name, "into": "yoke_and_body", "edge_cm": round(edge_cm, 2),
+                      "stitches": pick, "rows_along": len(comp.rows), "edge_kind": "front"}
+                     for bp in bands]
+    facts.numbers = {"band_cm": band_cm, "yoke_rows": yoke_rows, "b0": b0, "s0": s0,
+                     "f0": f0, "front": front, "back": back, "sleeve_top": sleeve_top}
+    return make_cir(g, spec, comps=[comp] + [x.component() for x in sleeves + bands],
+                    seams=seams, facts=facts,
+                    designer=("A top-down raglan cardigan with a V neck: the fronts grow from "
+                              "a point at the raglan lines, increasing at the neck edges to "
+                              "the underarm; back-loop hem, cuffs and picked-up front bands; "
+                              "open front, nothing to fasten."),
+                    size_note=f"Finished chest {g.cm_of_stitches(2 * front + back) + band_cm:.0f}"
+                              f" cm, to fit chest {g.body_cm('bust'):g} cm")
+
+
+def front_edge_cm(comp: Component, gauge) -> float:
+    """The front edge's own length, from the rows: every row's height, and on a yoke row that
+    begins with an increase (a neck increase) the slope across that stitch as well."""
+    from types import SimpleNamespace
+
+    from ..cir.geometry import _row_height_cm
+
+    shim = SimpleNamespace(gauge=gauge)
+    divide = min((row.index for row in comp.rows if row.skips), default=10 ** 9)
+    st = _st_cm(gauge)
+    total = 0.0
+    for row in comp.rows:
+        first = row.ops[0] if row.ops else None
+        n = first.count if (row.index < divide and isinstance(first, Op)
+                            and first.stitch == "inc") else 0
+        total += math.hypot(_row_height_cm(row, shim), n * st)
+    return round(total, 2)
+
+
+def vcardi_measures(cir: CIR) -> dict[str, float]:
+    from ..cir.geometry import _row_height_cm
+    from ..cir.twin import row_width_cm
+
+    r = _compiled(cir)
+    g = cir.gauge
+    yoke = next(c for c in cir.components if c.name == "yoke_and_body")
+    div = next(row for row in yoke.rows if row.skips)
+    body_row = next(x for x in r.rows if x.component == yoke.name and x.index == div.index)
+    band = next(c for c in cir.components if c.name == "band_right")
+    band_cm = len(band.rows) * _row_cm(g)
+    heights = [_row_height_cm(row, cir) for row in yoke.rows]
+    upper = max(row_width_cm(x, g)[0] for x in r.rows if x.component == "sleeve_left")
+    return {"chest": round(body_row.stitch_count * _st_cm(g) + band_cm, 2),
+            "length": round(sum(heights), 2), "upper_arm": round(upper, 2),
+            "armhole": round(sum(heights[:div.index - 1]), 2),
+            "front_edge": front_edge_cm(yoke, g)}
+
+
+def vcardi_gates(ctx) -> list:
+    from ..gates.garment_fit import CHEST_TOLERANCE, LENGTH_TOLERANCE, GarmentFinding
+
+    out = []
+    g, m, f, size, cir = ctx["g"], ctx["measured"], ctx["facts"], ctx["size"], ctx["cir"]
+
+    def bad(code, msg):
+        out.append(GarmentFinding(code, size, msg))
+
+    want = g.finished_cm("bust")
+    if abs(m["chest"] - want) / want > CHEST_TOLERANCE:
+        bad("GARMENT_FINISHED_OFF_TARGET", f"built chest {m['chest']:.1f} against {want:g} cm")
+    want_len = g.finished_cm("back_length")
+    if abs(m["length"] - want_len) / want_len > LENGTH_TOLERANCE:
+        bad("GARMENT_FINISHED_OFF_TARGET", f"built length {m['length']:.1f} against "
+                                           f"{want_len:g} cm")
+    if m["armhole"] + 1e-9 < g.body_cm("armhole_depth"):
+        bad("GARMENT_ARMHOLE_FIT", f"the yoke is {m['armhole']:.1f} cm deep; the body's "
+                                   f"armhole depth is {g.body_cm('armhole_depth'):g} cm")
+    if m["upper_arm"] + 1e-9 < g.body_cm("upper_arm"):
+        bad("GARMENT_ARMHOLE_FIT", f"the sleeve is {m['upper_arm']:.1f} cm round; the upper "
+                                   f"arm is {g.body_cm('upper_arm'):g} cm")
+    back_neck = int(f.numbers["b0"]) * _st_cm(g.gauge)
+    cross = g.body_cm("cross_back")
+    if not 0.3 <= back_neck / cross <= 0.7:
+        bad("GARMENT_NECK_FIT", f"the back neck is {back_neck:.1f} cm, "
+                                f"{back_neck / cross:.2f} of the {cross:g} cm cross-back")
+    from ..gates.garment_fit import _counts
+
+    counts = _counts(ctx["result"])
+    yoke = next(c for c in cir.components if c.name == "yoke_and_body")
+    edge = front_edge_cm(yoke, cir.gauge)
+    for p in f.pickups:
+        comp = next(c for c in cir.components if c.name == p["piece"])
+        first = counts.get((comp.name, comp.rows[0].index))
+        if comp.foundation != p["stitches"] or first != p["stitches"]:
+            bad("GARMENT_PICKUP_RATE", f"{comp.name} says {p['stitches']} sts; it starts on "
+                                       f"{comp.foundation}")
+        made = p["stitches"] * _st_cm(cir.gauge)
+        drift = abs(made - edge) / edge
+        if drift > GF.MAX_PICKUP_DRIFT:
+            bad("GARMENT_PICKUP_RATE", f"{comp.name}: {p['stitches']} sts is {made:.1f} cm "
+                                       f"along a {edge:.1f} cm front edge ({drift:.1%})")
+    return out
+
+
+def _vcardi_schematic(sizes, ms) -> dict:
+    sk = Sketch(ms, {"half_chest": "Back width (the two fronts and one band are the same)",
+                     "length": "Length, finished", "armhole": "Yoke depth (V depth)",
+                     "upper_arm": "Upper arm, finished"})
+    for m in ms:
+        m["half_chest"] = round(m["chest"] / 2.0, 1)
+    mid = ms[len(ms) // 2]
+    W, L, A, U = mid["half_chest"], mid["length"], mid["armhole"], mid["upper_arm"]
+    x0, y0 = 4.0, 6.0
+    sk.poly([(x0, y0), (x0 + W / 2.0, y0 + A), (x0 + W / 2.0, y0 + L), (x0, y0 + L)],
+            "left front (the V slopes from the raglan line to the underarm)")
+    bx = x0 + W / 2.0 + 4
+    sk.poly([(bx, y0), (bx + W, y0), (bx + W, y0 + L), (bx, y0 + L)], "back")
+    sk.dim((bx, y0 + L), (bx + W, y0 + L), "half_chest", "below")
+    sk.dim((x0 - 1, y0), (x0 - 1, y0 + L), "length", "left")
+    sk.dim((x0 + W / 2.0 + 1, y0), (x0 + W / 2.0 + 1, y0 + A), "armhole", "right")
+    sx = bx + W + 8
+    sk.poly([(sx, y0), (sx + U, y0), (sx + U * 0.9, y0 + L * 0.8), (sx + U * 0.1, y0 + L * 0.8)],
+            "sleeve")
+    sk.dim((sx, y0), (sx + U, y0), "upper_arm", "above")
+    return _schematic(sk.items, sk.legend, sx + U + 10, L + 2 * y0 + 4, sizes, ms, "vcardi")
+
+
+def _vcardi_narrative(spec, facts) -> str:
+    return ("You begin at the back neck with a short chain and work the yoke flat, "
+            "increasing at four raglan markers and, on the rows the pattern gives, at both "
+            "neck edges too: each front starts as a two-stitch point and grows into the V. At "
+            "the underarm the sleeve stitches go on hold and the fronts and back continue as "
+            "one piece to the hem, finished with a back-loop band. Each sleeve is worked from "
+            "its held stitches down to the cuff, decreasing evenly, and its seam is closed. "
+            "Last, a band is picked up along each front edge, from the hem up the V; the "
+            "fronts meet edge to edge with nothing to fasten.")
+
+
+register(Engine(
+    family="cardigan_vneck", title="top-down raglan worked flat in one piece from the neck, "
+                                   "with a V neck shaped at the front edges",
+    words=("cardigan", "cardigans", "cardi", "cardis"),
+    table=_WOMAN, tables=(("child", _CHILD), ("baby", _BABY)),
+    sizes={"adult": _WOMAN.names, "child": ("2", "4", "6", "8", "10", "12"),
+           "baby": ("3m", "6m", "12m", "18m", "24m")},
+    requires=("bust", "back_length", "cross_back", "arm_length", "upper_arm",
+              "armhole_depth"),
+    primary="bust", built_primary="chest", builder=vneck_cardigan, measure=vcardi_measures,
+    gates=vcardi_gates,
+    chart=(("body_cm", "To fit chest"), ("chest_cm", "Finished chest"), ("ease_cm", "Ease"),
+           ("length_cm", "Length"), ("upper_arm_cm", "Upper arm")),
+    narrative=_vcardi_narrative, schematic=_vcardi_schematic, risk="B",
+    fit_character="relaxed", category_word="cardigan",
+    notions=("4 locking stitch markers", "a tapestry needle"),
+    abbreviations=("ch", "sc", "inc", "dec", "sk"),
+    forms=("fitted_garment",), constructions=("top_down_yoke",),
+    ease=tuple(VCARDI_EASE.items()),
+    yarn=(("adult", ("worsted", "wool")), ("child", ("dk", "cotton")),
+          ("baby", ("dk", "cotton"))),
+    fit_note="Relaxed: 16 cm of ease at the chest for adults, 14 for children, 10 for babies.",
+    where=(("band_left", "the left front edge, from the hem up the V to the raglan line"),
+           ("band_right", "the right front edge, from the raglan line down the V to the hem")),
+    titles=(("band_left", "Left front band"), ("band_right", "Right front band")),
+    tips=("Use locking markers for the raglan lines and move them up as you go; the neck "
+          "increases are worked in the first and last stitch of the row.",),
+    safety_note=("It is made with no buttons, ties, cords or anything sewn on: the sleeves "
+                 "are worked from held stitches and the bands are picked up and worked in."),
+    honest_phrases=(r"\bv[- ]?necks?(?:ed)?\b",),
+    require=r"\bv[- ]?necks?(?:ed)?\b",
+    # A V-neck cardigan is this engine's only claim: a title must say V-neck.
+    refuse=((r"\b(?:buttons?|buttoned|cabled?|hood(?:ed|ie)?|pockets?|fitted|cropped|"
+             r"collar(?:ed)?|shawl collar|belted|ties?|granny|lace|lacy)\b",
+             "the V-neck cardigan engine builds an open-front plain raglan with a V neck "
+             "only"),),
+))

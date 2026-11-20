@@ -76,7 +76,7 @@ def round_lines(sizes_steps: list[list], *, piece: str, t: Terms) -> list[Line]:
     return out
 
 
-FLAT_KINDS = ("split",)
+FLAT_KINDS = ("split", "vraglan")
 
 
 def flat_lines(sizes_steps: list[list], *, piece: str, cirs: list, t: Terms) -> list[Line]:
@@ -98,7 +98,28 @@ def flat_lines(sizes_steps: list[list], *, piece: str, cirs: list, t: Terms) -> 
                       f"leaving the rest of the row: the last {hold} sts are held for the "
                       f"second shoulder and the centre sts are the neck edge. "
                       f"{_sts([s.count for s in steps])}")
+        elif steps[0].kind == "vraglan":
+            head = GW._rows(steps) + (f" ({steps[0].label})" if steps[0].label else "")
+            v = lambda key: values([s.get(key) for s in steps])  # noqa: E731
+            ln = Line(piece, "vraglan",
+                      f"{head}: work {v('doubles')} double raglan increase row(s) (16 sts "
+                      f"increased each), then a raglan increase row (8 sts increased) on the "
+                      f"next row and on every {v('every')} row(s) after it, {v('singles')} "
+                      f"times in all; at the same time, increase 1 st at each neck edge "
+                      f"({t.inc} in the first and last st) on the first row and on every "
+                      f"{v('neck_every')} row(s) after it, {v('neck')} times in all; work "
+                      f"every other row as {t.ch} 1, turn, {t.sc} in each st across, slipping "
+                      f"the markers. {_sts([s.count for s in steps])}")
         out.append(ln)
+    rag = [next((s for s in ss if s.kind == "vraglan"), None) for ss in sizes_steps]
+    if all(rag):
+        v = lambda key: values([r.get(key) for r in rag])  # noqa: E731
+        sc = t.sc
+        out.insert(2, Line(piece, "note",
+                           f"Set-up: on Row 1, place markers as you go: {sc} {v('f0')} "
+                           f"(front), pm, {sc} {v('s0')} (sleeve), pm, {sc} {v('b0')} (back), "
+                           f"pm, {sc} {v('s0')} (sleeve), pm, {sc} {v('f0')} (front). The "
+                           f"raglan increases are worked either side of each marker."))
     return out
 
 

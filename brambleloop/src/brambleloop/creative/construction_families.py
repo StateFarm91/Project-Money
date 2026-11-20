@@ -70,7 +70,9 @@ WEARABLE_PROOF = "tests/test_eng_garment2.py"
 HAT_BEANIE = "hat_beanie"
 BABY_DRESS, BABY_ROMPER = "baby_dress", "baby_romper"
 TOP_TEE, TOP_TANK = "top_tee", "top_tank"
-WEARABLE_FAMILIES = frozenset({HAT_BEANIE, BABY_DRESS, BABY_ROMPER, TOP_TEE, TOP_TANK})
+CARDIGAN_VNECK = "cardigan_vneck"
+WEARABLE_FAMILIES = frozenset({HAT_BEANIE, BABY_DRESS, BABY_ROMPER, TOP_TEE, TOP_TANK,
+                               CARDIGAN_VNECK})
 
 FAMILIES: dict[str, Family] = {f.key: f for f in (
     Family(FC.FLAT_PANEL, "runtime.pipeline.concept_to_cir", VERIFIED,
@@ -178,6 +180,12 @@ FAMILIES: dict[str, Family] = {f.key: f for f in (
            ("CYC woman XS-5X", "CYC child/youth 2-12"),
            "cir.graded WOMAN / CHILD + stated relaxed ease",
            "boxy drop-shoulder tank, slash neck, open armholes; plain sc only"),
+    Family(CARDIGAN_VNECK, "products.wearables (cardigan_vneck)", VERIFIED,
+           f"{WEARABLE_PROOF}::test_a_research_adult_v_neck_cardigan_runs_concept_to_pdf",
+           ("CYC woman XS-5X", "CYC child/youth 2-12", "CYC baby 3-24 months"),
+           "cir.graded WOMAN / CHILD / BABY + stated relaxed ease",
+           "open-front top-down raglan with a V neck; no buttons, cables or pockets. A "
+           "granny-square cardigan is not built: motifs joined in rounds have no engine"),
     Family(FC.POUCH, "creative.fallback_constructions.pouch", PARTIAL, "",
            ("one size",), "fallback_constructions.POUCH_ACROSS_CM (design choice)",
            "certification refuses ASSET_COLOR_ABSENT: the pouch works one palette colour "
@@ -210,6 +218,10 @@ UNBUILT: dict[str, str] = {
                "(creative.garment_design) builds one",
     "ornament": "a closed or shaped small piece; no radar engine makes it",
     "flower": "a motif worked in rounds; no radar engine makes it",
+    # ENG-GARMENT-2: assessed and not feasible on the current engines.
+    "granny_square_garment": "a garment of granny-square motifs worked in rounds and joined "
+                             "into a graded body: no engine joins motifs into a garment yet "
+                             "(the motif-join assembly and per-size motif counts are unbuilt)",
     "seasonal_decor": "garlands, shapes and ornaments; no radar engine makes them",
 }
 
@@ -344,6 +356,8 @@ WEARABLE_PAIR_AUDIENCE: dict[tuple[str, str], frozenset] = {
     (BABY_ROMPER, "baby"): frozenset({"baby"}),
     (TOP_TEE, "top"): frozenset({"adult"}),
     (TOP_TANK, "top"): frozenset({"adult", "child"}),
+    (CARDIGAN_VNECK, "cardigan"): frozenset({"adult", "child"}),
+    (CARDIGAN_VNECK, "baby"): frozenset({"baby"}),
 }
 PAIR_PROOFS.update({
     (HAT_BEANIE, "hat"): FAMILIES[HAT_BEANIE].proof,
@@ -353,6 +367,9 @@ PAIR_PROOFS.update({
     (BABY_ROMPER, "baby"): FAMILIES[BABY_ROMPER].proof,
     (TOP_TEE, "top"): FAMILIES[TOP_TEE].proof,
     (TOP_TANK, "top"): FAMILIES[TOP_TANK].proof,
+    (CARDIGAN_VNECK, "cardigan"): FAMILIES[CARDIGAN_VNECK].proof,
+    (CARDIGAN_VNECK, "baby"): f"{WEARABLE_PROOF}::test_a_research_baby_v_neck_cardigan_runs_"
+                              f"concept_to_pdf",
 })
 # A garment pair's proof is for one body table: the audience it was proven on.
 GARMENT_PAIR_AUDIENCE: dict[tuple[str, str], str] = {
@@ -379,6 +396,9 @@ def route(*, category: str, title: str, form: str, construction: str, slug: str 
     starts with `construction_unsupported:<family>` when held."""
     from ..radar import intake
 
+    if form == "fitted_garment" and re.search(r"\bgranny\b|\bsquare motifs?\b",
+                                              FC.fold_title(f"{title} {premise}")):
+        return _hold("granny_square_garment", UNBUILT["granny_square_garment"])
     if is_wearable(form, title):
         return wearable_route(category=category, title=title, form=form,
                               construction=construction, slug=slug, premise=premise)

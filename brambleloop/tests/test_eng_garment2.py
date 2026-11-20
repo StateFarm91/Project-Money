@@ -57,10 +57,19 @@ TANK = WB.WearableSpec("driftwood-tank", "Driftwood Tank", "top", "top_tank", "a
                        "cotton", WB.TOP_EASE["adult"])
 KIDS_TANK = WB.WearableSpec("pebble-kids-tank", "Pebble Kids Tank", "top", "top_tank",
                             "child", "dk", "cotton", WB.TOP_EASE["child"])
+VCARDI = WB.WearableSpec("juniper-v-neck-cardigan", "Juniper V-Neck Cardigan", "cardigan",
+                         "cardigan_vneck", "adult", "worsted", "wool", WB.VCARDI_EASE["adult"])
+KIDS_VCARDI = WB.WearableSpec("acorn-kids-v-neck-cardigan", "Acorn Kids V-Neck Cardigan",
+                              "cardigan", "cardigan_vneck", "child", "dk", "cotton",
+                              WB.VCARDI_EASE["child"])
+BABY_VCARDI = WB.WearableSpec("dewdrop-baby-v-neck-cardigan", "Dewdrop Baby V-Neck Cardigan",
+                              "cardigan", "cardigan_vneck", "baby", "dk", "cotton",
+                              WB.VCARDI_EASE["baby"])
 ADULT_SIZES = ("XS", "S", "M", "L", "XL", "2X", "3X", "4X", "5X")
 CHILD_SIZES = ("2", "4", "6", "8", "10", "12")
 SPECS = {s.key: s for s in (BEANIE, SLOUCHY, BABY_HAT, BABY_DRESS, BABY_PINAFORE,
-                            BABY_ROMPER, TEE, TANK, KIDS_TANK)}
+                            BABY_ROMPER, TEE, TANK, KIDS_TANK, VCARDI, KIDS_VCARDI,
+                            BABY_VCARDI)}
 
 
 @lru_cache(maxsize=None)
@@ -449,6 +458,108 @@ def test_tops_route_by_title_and_unbuilt_tops_are_held():
         assert not got["admitted"] and got["reason"].startswith(CF.HOLD_PREFIX), (title, got)
 
 
+# ---- 4. cardigan variants: V-neck raglan --------------------------------------------------------
+
+
+def test_every_v_neck_cardigan_size_is_granted_adult_child_and_baby():
+    assert_family_release(VCARDI.key, ADULT_SIZES)
+    assert_family_release(KIDS_VCARDI.key, CHILD_SIZES)
+    assert_family_release(BABY_VCARDI.key, BABY_SIZES)
+
+
+def test_the_v_neck_grows_from_a_point_and_the_band_follows_the_slope():
+    from brambleloop.cir.assembly import footprint
+    from brambleloop.cir.twin import build_twin
+
+    for spec in (VCARDI, KIDS_VCARDI, BABY_VCARDI):
+        r = released(spec.key)
+        assert r.cirs
+        for size, cir in r.cirs.items():
+            res = compile_cir(cir)
+            yoke = next(c for c in cir.components if c.name == "yoke_and_body")
+            # the fronts start as a 2-st point and the neck increases are edge increases
+            assert yoke.foundation == 2 * 2 + 2 * WB.facts_of(cir).numbers["s0"] + \
+                WB.facts_of(cir).numbers["b0"]
+            m = WB.vcardi_measures(cir)
+            g = r.design.graded_size(size)
+            assert m["front_edge"] > m["length"] and m["armhole"] >= g.body_cm("armhole_depth")
+            fp = footprint(yoke, build_twin(cir, res, component=yoke.name), cir.gauge)
+            assert abs(fp.edge_cm("left") - m["front_edge"]) < 0.2, (size, fp, m)
+            band = WB.facts_of(cir).pickups[0]["stitches"] * 10 / cir.gauge.stitches_per_10cm
+            assert abs(band - m["front_edge"]) / m["front_edge"] <= 0.04
+
+
+def test_v_neck_cardigans_reverse_compile_hold_size_truth_and_child_sizes_are_safe():
+    for spec in (VCARDI, KIDS_VCARDI, BABY_VCARDI):
+        assert_reverse_reads_back(spec.key)
+        assert_size_truth(spec.key)
+    for spec in (KIDS_VCARDI, BABY_VCARDI):
+        assert released(spec.key).cirs
+        for size, cir in released(spec.key).cirs.items():
+            v = CS.evaluate(cir, compile_cir(cir))
+            assert v.applies and v.verdict == CS.VERDICT_PASS, (spec.key, size, v.to_dict())
+
+
+def test_v_neck_cardigan_documents_read_back_with_chart_and_schematic():
+    for spec in (VCARDI, KIDS_VCARDI, BABY_VCARDI):
+        assert_document(spec.key)
+    text = " ".join(document(VCARDI.key, "US").text.split())
+    assert "increase 1 st at each neck edge" in text and "Set-up: on Row 1" in text
+
+
+def test_v_neck_cardigan_gates_fail_on_the_defects_they_exist_for():
+    r = released(VCARDI.key)
+    cirs = dict(r.cirs)
+    cirs["M"] = r.cirs["L"]
+    assert {"GARMENT_FINISHED_OFF_TARGET", "GARMENT_SIZE_RUN"} <= _codes(r, cirs)
+    # a band picked up at the vertical height, not along the V's slope: it would pull
+    cirs = dict(r.cirs)
+    cir = copy.deepcopy(cirs["S"])
+    m = WB.vcardi_measures(cir)
+    short = int(m["length"] * cir.gauge.stitches_per_10cm / 10)
+    for name in ("band_left", "band_right"):
+        band = next(c for c in cir.components if c.name == name)
+        band.foundation = short
+        for row in band.rows:
+            row.ops = [Op("sc", short, loop="back")]
+            row.declared_count = short
+    for p in WB.facts_of(cir).pickups:
+        p["stitches"] = short
+    cirs["S"] = cir
+    assert "GARMENT_PICKUP_RATE" in _codes(r, cirs)
+    # a written yoke line whose neck schedule is wrong is caught on read-back
+    doc = document(VCARDI.key, "US")
+    lines = {h: list(ls) for h, ls in doc.pattern_lines.items()}
+    head = next(h for h in lines if h.startswith("Yoke"))
+    k = next(i for i, ln in enumerate(lines[head]) if "neck edge" in ln)
+    lines[head][k] = lines[head][k].replace("times in all; work every",
+                                            "times in all; work every", 1).replace(
+        "on the first row and on every 3 (", "on the first row and on every 4 (")
+    if lines[head][k] != doc.pattern_lines[head][k]:
+        assert any(p.code == "GARMENT_DOCUMENT" for p in WF.document_problems(
+            lines, r.cirs, doc.piece_of))
+
+
+def test_cardigans_route_by_neckline_and_granny_square_is_held_by_name():
+    from brambleloop.creative import construction_families as CF
+
+    got = CF.route(category="cardigan", title="Juniper V-Neck Cardigan",
+                   form="fitted_garment", construction="top_down_yoke")
+    assert got["admitted"] and got["family"] == "cardigan_vneck", got
+    got = CF.route(category="cardigan", title="Fernway Raglan Cardigan",
+                   form="fitted_garment", construction="top_down_yoke")
+    assert got["admitted"] and got["family"] == "garment_raglan", got
+    for title in ("Granny Square Cardigan", "Granny Square V-Neck Cardigan",
+                  "Buttoned V-Neck Cardigan", "Cabled V-Neck Cardigan"):
+        got = CF.route(category="cardigan", title=title, form="fitted_garment",
+                       construction="top_down_yoke")
+        assert not got["admitted"] and got["reason"].startswith(CF.HOLD_PREFIX), (title, got)
+    for cons in ("motif_join", "granny_square", "top_down_yoke"):
+        got = CF.route(category="cardigan", title="Granny Square Cardigan",
+                       form="fitted_garment", construction=cons)
+        assert got["reason"].startswith(f"{CF.HOLD_PREFIX}granny_square_garment"), got
+
+
 # ---- routing and research concepts end to end -----------------------------------------------
 
 
@@ -609,6 +720,35 @@ def test_a_research_adult_tank_runs_concept_to_pdf():
 def test_a_research_child_tank_runs_concept_to_pdf():
     out = _research_wearable_to_pdf(KIDS_TANK_P)
     assert_concept_to_pdf(out, CHILD_SIZES, "top_tank")
+
+
+VCARDI_P = _wearable_proposal(
+    "larkspur-v-neck-cardigan", "Larkspur V-Neck Cardigan", "cardigan", "fitted_garment",
+    "top_down_yoke", "self", "A relaxed open-front V-neck cardigan for cool spring mornings",
+    "mothers_day")
+KIDS_VCARDI_P = _wearable_proposal(
+    "chestnut-kids-v-neck-cardigan", "Chestnut Kids V-Neck Cardigan", "cardigan",
+    "fitted_garment", "top_down_yoke", "child",
+    "A relaxed open-front V-neck kids cardigan for the classroom", "back_to_school")
+BABY_VCARDI_P = _wearable_proposal(
+    "snowberry-baby-v-neck-cardigan", "Snowberry Baby V-Neck Cardigan", "baby",
+    "fitted_garment", "top_down_yoke", "new_parent",
+    "A soft open-front V-neck baby cardigan with nothing to fasten", "new_baby")
+
+
+def test_a_research_adult_v_neck_cardigan_runs_concept_to_pdf():
+    out = _research_wearable_to_pdf(VCARDI_P)
+    assert_concept_to_pdf(out, ADULT_SIZES, "cardigan_vneck")
+
+
+def test_a_research_child_v_neck_cardigan_runs_concept_to_pdf():
+    out = _research_wearable_to_pdf(KIDS_VCARDI_P)
+    assert_concept_to_pdf(out, CHILD_SIZES, "cardigan_vneck")
+
+
+def test_a_research_baby_v_neck_cardigan_runs_concept_to_pdf():
+    out = _research_wearable_to_pdf(BABY_VCARDI_P)
+    assert_concept_to_pdf(out, BABY_SIZES, "cardigan_vneck")
 
 
 def test_hats_route_to_the_beanie_and_others_are_held():
