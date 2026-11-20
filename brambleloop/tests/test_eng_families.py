@@ -399,13 +399,11 @@ def test_childrens_gates_still_apply_to_a_routed_family_and_baby_items_are_not_r
 
 def test_router_admits_only_verified_or_physical_gated_families():
     admitted = {k for k, f in CF.FAMILIES.items() if f.status in CF.ADMITTED_STATUSES}
-    assert admitted == {FC.FLAT_PANEL, FC.VESSEL, FC.TAPESTRY, FC.PANEL_PAIR}, admitted
-    # Every admitted family names the test in THIS file that proves it, and that test exists.
-    here = {n for n, _ in inspect.getmembers(sys.modules[__name__], inspect.isfunction)}
+    assert admitted == {FC.FLAT_PANEL, FC.VESSEL, FC.TAPESTRY, FC.PANEL_PAIR,
+                        FC.COLOURWORK_TAPESTRY}, admitted
+    # Every admitted family names the test that proves it, and that test exists.
     for key in admitted:
-        proof = CF.FAMILIES[key].proof
-        assert proof.startswith("tests/test_eng_families.py::"), (key, proof)
-        assert proof.split("::")[1] in here, (key, proof)
+        assert _proof_exists(CF.FAMILIES[key].proof), (key, CF.FAMILIES[key].proof)
     # A partial engine is held even when the route and the declaration agree.
     got = CF.route(category="bag", title="Simple Drawstring Pouch", form="pouch",
                    construction="in_the_round")
@@ -443,6 +441,7 @@ FEATURE_SAMPLES = {
     "waffle_stitch": "Waffle", "lid": "Lidded", "handles": "Handled",
     "amigurumi_features": "Bunny Ears", "trim": "Fringe", "lining_pocket": "Lined",
     "motif_assembly": "Hexie", "colourwork": "Fair Isle", "garment_or_wearable": "Beanie",
+    "mosaic_or_c2c": "Mosaic", "charted_tapestry": "Charted",
 }
 # One plain, admitted concept per admitted family: (category, form, construction, title).
 ADMITTED_PLAIN = {
@@ -450,7 +449,21 @@ ADMITTED_PLAIN = {
     FC.VESSEL: ("basket", "basket", "in_the_round", "Saltmarsh Reed Basket"),
     FC.TAPESTRY: ("basket", "basket", "tapestry", "Checked Tapestry Shelf Basket"),
     FC.PANEL_PAIR: ("pillow", "pillow", "flat_rows", "Hollow Fern Cushion Cover"),
+    FC.COLOURWORK_TAPESTRY: ("blanket", "rectangle_throw", "tapestry",
+                             "Modern Step Tapestry Throw"),
 }
+
+
+def _proof_exists(proof: str) -> bool:
+    """A proof is `tests/<suite>.py::<test>`, a suite in this repository that defines it.
+    ENG-COLOURWORK: the colourwork family's proofs live in its own suite."""
+    import ast
+
+    path, _, name = proof.partition("::")
+    if path not in ("tests/test_eng_families.py", "tests/test_eng_colourwork.py") or not name:
+        return False
+    tree = ast.parse((ROOT / path).read_text())
+    return name in {n.name for n in tree.body if isinstance(n, ast.FunctionDef)}
 
 
 def _route(family: str, title: str, premise: str = "") -> dict:
@@ -474,9 +487,12 @@ def test_plain_concepts_are_still_admitted_in_every_admitted_family():
 def test_every_named_feature_is_held_for_every_admitted_family():
     assert set(FEATURE_SAMPLES) == {f for f, _, _ in CF.NAMED_FEATURES}, \
         "a feature in the shared vocabulary has no sample here (or a sample has no feature)"
+    honest = {f: fams for f, _, fams in CF.NAMED_FEATURES}
     for family in ADMITTED_PLAIN:
         base = ADMITTED_PLAIN[family][3]
         for feature, word in FEATURE_SAMPLES.items():
+            if family in honest[feature]:
+                continue    # the family's own technique word (tapestry for the tapestry families)
             # The title names it.
             got = _route(family, f"{word} {base}")
             assert not got["admitted"] and got["reason"].startswith(CF.HOLD_PREFIX), \
@@ -543,7 +559,6 @@ def test_every_admitted_family_category_pair_names_an_existing_certifying_proof(
     category and plain title, and require each pair it admits to name a proof that exists."""
     from brambleloop.radar import intake as I
 
-    here = {n for n, _ in inspect.getmembers(sys.modules[__name__], inspect.isfunction)}
     probes = []
     for cat, forms in I.SUPPORTED_FORMS.items():
         for noun in (I._NOUN.get(cat, cat.title()), cat.replace("_", " ").title()):
@@ -555,7 +570,18 @@ def test_every_admitted_family_category_pair_names_an_existing_certifying_proof(
                ("wedding", "pillow", "flat_rows", "Wedding Ring Cushion"),
                ("pet", "basket", "in_the_round", "Snug Cat Bed"),
                ("pet", "basket", "in_the_round", "Cat Bed"),
-               ("pet", "basket", "in_the_round", "Kitten Nest")]
+               ("pet", "basket", "in_the_round", "Kitten Nest"),
+               # ENG-COLOURWORK: the colourwork family across every category it could reach.
+               *[(cat, form, "tapestry", f"Modern Step Tapestry {noun}")
+                 for cat, form, noun in (
+                     ("blanket", "rectangle_throw", "Throw"), ("placemat", "flat_panel",
+                                                                "Placemat"),
+                     ("pillow", "pillow", "Cushion Cover"), ("basket", "basket", "Basket"),
+                     ("bag", "bag", "Tote"), ("runner", "runner", "Table Runner"),
+                     ("scarf", "scarf", "Scarf"), ("dishcloth", "flat_panel", "Dishcloth"),
+                     ("wall_decor", "wall_hanging", "Wall Hanging"),
+                     ("baby", "rectangle_throw", "Baby Blanket"))],
+               ("basket", "basket", "tapestry", "Wave Tapestry Basket")]
     admitted = set()
     for cat, form, constr, title in probes:
         got = CF.route(category=cat, title=title, form=form, construction=constr)
@@ -565,8 +591,7 @@ def test_every_admitted_family_category_pair_names_an_existing_certifying_proof(
     for pair in sorted(admitted):
         proof = CF.PAIR_PROOFS.get(pair)
         assert proof, f"{pair} is admitted but names no certifying proof (CF.PAIR_PROOFS)"
-        assert proof.startswith("tests/test_eng_families.py::"), (pair, proof)
-        assert proof.split("::")[1] in here, (pair, proof)
+        assert _proof_exists(proof), (pair, proof)
     # And no proof is claimed for a pair the router never admits.
     assert set(CF.PAIR_PROOFS) >= admitted
     assert set(CF.PAIR_PROOFS) == admitted, \

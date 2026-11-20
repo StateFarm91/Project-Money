@@ -85,6 +85,7 @@ TRIANGLE = "triangle"
 STOCKING = "stocking"
 TAPESTRY = "tapestry"
 POUCH = "pouch"
+COLOURWORK_TAPESTRY = "colourwork_tapestry"   # creative.colourwork.FAMILY
 REFUSED = "refused"
 
 VESSEL_CATEGORIES = frozenset({"basket"})
@@ -213,6 +214,14 @@ def _plan(*, category: str, title: str, is_bundle: bool = False, slug: str = "",
                          "BASKET_SIZES), each listed on its own",
                 "why": (f"the concept promises several sizes ({promise!r}); one fallback draft "
                         f"is one release of one size")}
+    # ENG-COLOURWORK: a title that claims charted colourwork is drafted by the colourwork
+    # family (tapestry, generated from the motif library) or refused by the technique it
+    # names -- never drafted as plain stripes under a colourwork name.
+    from . import colourwork as _colourwork
+
+    charted = _colourwork.route(category, title)
+    if charted is not None:
+        return charted
     if category in POUCH_CATEGORIES and re.search(r"\bdrawstring\b", fold_title(title)):
         # P0 construction breadth (bags and accessories): a plain drawstring pouch is a small
         # round vessel with an eyelet round and a threaded chain cord.

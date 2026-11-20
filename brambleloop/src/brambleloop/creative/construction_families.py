@@ -59,6 +59,8 @@ class Family:
 
 
 PROOF = "tests/test_eng_families.py"
+CW_PROOF = "tests/test_eng_colourwork.py"
+CW_TAPESTRY = FC.COLOURWORK_TAPESTRY
 
 FAMILIES: dict[str, Family] = {f.key: f for f in (
     Family(FC.FLAT_PANEL, "runtime.pipeline.concept_to_cir", VERIFIED,
@@ -98,6 +100,16 @@ FAMILIES: dict[str, Family] = {f.key: f for f in (
     Family(FC.TRIANGLE, "creative.fallback_constructions.triangle", PARTIAL, "",
            ("one size",), "fallback_constructions.SHAWL_WINGSPAN_CM (design choice)",
            "no research-derived concept is pinned through certification yet"),
+    # ENG-COLOURWORK: original tapestry charts generated from the motif library, validated row
+    # by row by `cir.colourwork`. Admitted only for the (family, category) pairs PAIR_PROOFS
+    # names; every other category is held with its reason (`creative.colourwork`).
+    Family(CW_TAPESTRY, "creative.colourwork.flat_piece / creative.colourwork.basket_wall",
+           VERIFIED, f"{CW_PROOF}::test_a_research_tapestry_throw_certifies_with_its_chart",
+           ("per-category standard", "small", "medium", "large"),
+           "creative.size_truth (Craft Yarn Council blanket sizes; placemat 30 x 45 cm; "
+           "pillow forms); baskets products.vessels.BASKET_SIZES (house design sizes)",
+           "tapestry only (two colours carried); six library motifs; bag, runner, wall "
+           "hanging, scarf, dishcloth and baby are held"),
 )}
 
 # Families with no engine on the radar draft path. Named, so a hold says what is missing.
@@ -106,6 +118,15 @@ UNBUILT: dict[str, str] = {
                  "has no shaped-form engine",
     "mosaic": "overlay mosaic needs stitches that reach past the previous row or round; no "
               "radar engine charts them",
+    "colourwork_overlay_mosaic": "overlay mosaic: stitches that reach down past the previous "
+                                 "row; the CIR has no reach-down primitive yet (ENG-COLOURWORK "
+                                 "slice 2)",
+    "colourwork_inset_mosaic": "inset mosaic: chain spaces filled by stitches dropped from the "
+                               "row above; no reach-down primitive yet (ENG-COLOURWORK slice 2)",
+    "colourwork_c2c": "corner-to-corner: diagonal tiles increased and decreased; no tile "
+                      "primitive yet (ENG-COLOURWORK slice 3)",
+    "intarsia": "separate colour blocks on bobbins with no carried strand; not modelled",
+    "fair_isle": "a floated stranded technique; not modelled",
     "graphghan": "a charted picture worked in rows; the radar template drafts plain stripes",
     "cable": "post-stitch crossings; no radar engine works them (B-080)",
     "motif": "motifs worked in rounds and joined; no radar engine joins motifs",
@@ -148,9 +169,13 @@ NAMED_FEATURES: tuple[tuple[str, str, frozenset], ...] = (
     ("motif_assembly", r"\bhexie\b|\bhexagon (?:motifs?|squares?|tiles?)\b|\bflowers?\b|"
                        r"\bfloral\b|\bpatchwork\b|\bmotif (?:join|panel)\b|\bjoined\b",
      frozenset()),
-    ("colourwork", r"\bintarsia\b|\bfair[- ]?isle\b|\bjacquard\b|\bmosaic\b|\bc2c\b|"
-                   r"\bcorner[- ]to[- ]corner\b|\bgraph ?gh?an\b|\bpixel\b|\bcharted\b",
-     frozenset()),
+    # ENG-COLOURWORK: split by technique, so a technique is honest only for the family that
+    # works it. Tapestry, charted colourwork: the tapestry families. Mosaic and C2C: none yet.
+    ("colourwork", r"\bintarsia\b|\bfair[- ]?isle\b|\bjacquard\b|\bgraph ?gh?an\b|"
+                   r"\bpixel\b", frozenset()),
+    ("mosaic_or_c2c", r"\bmosaic\b|\bc2c\b|\bcorner[- ]to[- ]corner\b", frozenset()),
+    ("charted_tapestry", r"\bcharted\b|\btapestry\b|\bcolou?r ?work\b",
+     frozenset({FC.TAPESTRY, FC.COLOURWORK_TAPESTRY})),
     ("garment_or_wearable", r"\b(?:hat|beanie|cardigan|sweater|sock|mitten|cowl)s?\b", frozenset()),
 )
 
@@ -194,7 +219,9 @@ def declared_family(form: str, construction: str) -> str | None:
             return FC.STOCKING
         return None
     if construction == "tapestry":
-        return FC.TAPESTRY
+        # A tapestry basket is the two-chart basket or a library-chart basket wall; any other
+        # tapestry form is the colourwork family's.
+        return FC.TAPESTRY if form == "basket" else CW_TAPESTRY
     if construction in _ROUND:
         return _FORM_LABEL.get(form, f"{form}_in_the_round")
     return _CONSTRUCTION_LABEL.get(construction, construction)
@@ -229,7 +256,16 @@ PAIR_PROOFS: dict[tuple[str, str], str] = {
     (FC.VESSEL, "basket"): FAMILIES[FC.VESSEL].proof,
     (FC.TAPESTRY, "basket"): FAMILIES[FC.TAPESTRY].proof,
     (FC.PANEL_PAIR, "pillow"): FAMILIES[FC.PANEL_PAIR].proof,
+    # ENG-COLOURWORK: each pair names its own end-to-end proof (concept -> admit -> CIR ->
+    # compile -> twin -> certify -> US/UK PDF with chart). The cushion is physical-gated: the
+    # proof shows certification withholds only for the class C physical sample.
+    (CW_TAPESTRY, "blanket"): FAMILIES[CW_TAPESTRY].proof,
+    (CW_TAPESTRY, "placemat"): f"{CW_PROOF}::test_a_research_tapestry_placemat_certifies_with_its_chart",
+    (CW_TAPESTRY, "basket"): f"{CW_PROOF}::test_a_research_tapestry_basket_wall_certifies_with_its_chart",
+    (CW_TAPESTRY, "pillow"): f"{CW_PROOF}::test_a_research_tapestry_cushion_is_physical_gated_with_its_chart",
 }
+# Families admitted pair by pair: a (family, category) the table above does not name is held.
+PAIR_GATED: frozenset[str] = frozenset({CW_TAPESTRY})
 
 # M1 (ENG-FAMILIES review): families admitted only for these categories. A pet bed drafts as
 # the vessel but its twin height (11.4 cm) disagrees with the 10 cm its note states, so it is
@@ -272,10 +308,12 @@ def route(*, category: str, title: str, form: str, construction: str, slug: str 
     plan = FC.plan(category=category, title=title, slug=slug, rationale=rationale)
     family = plan["family"]
     if family == FC.REFUSED:
-        label = declared or str(hold_family(draft_hold(category, title)))
+        label = (plan.get("colourwork") or declared
+                 or str(hold_family(draft_hold(category, title))))
         return _hold(label, f"the {label} engine refuses this title: {plan['why']}"
                             + (f" (needs {plan['needs']})" if plan.get("needs") else ""))
-    if declared is not None and family != declared:
+    if declared is not None and family != declared and not (
+            {family, declared} <= {FC.TAPESTRY, CW_TAPESTRY} and category == "basket"):
         return _hold(declared, f"the concept declares {construction!r} {form!r} ({declared}) "
                                f"but its category {category!r} and title draft a {family}; "
                                f"drafting it would mislabel the product")
@@ -287,6 +325,9 @@ def route(*, category: str, title: str, form: str, construction: str, slug: str 
         f = FAMILIES.get(family)
         return _hold(family, f"the {family} engine is {status}, not verified end to end"
                              + (f": {f.gaps}" if f is not None else ""))
+    if family in PAIR_GATED and (family, category) not in PAIR_PROOFS:
+        return _hold(family, f"no end-to-end proof certifies a {family} {category!r} yet; "
+                             f"held until one does")
     if (family, category) in HELD_CATEGORIES:
         label, why = HELD_CATEGORIES[(family, category)]
         return _hold(label, why)
@@ -325,6 +366,13 @@ def draft_hold(category: str | None, title: str | None, construction: str | None
 
     cat = str(category or "")
     folded = FC.fold_title(title)
+    from . import colourwork as _cw
+
+    charted = _cw.route(cat, title)
+    if charted is not None:
+        family = (charted.get("colourwork") if charted["family"] == FC.REFUSED
+                  else charted["family"]) or CW_TAPESTRY
+        return f"{HOLD_PREFIX}{family}"
     if cat in FC.VESSEL_CATEGORIES and FC.tapestry_route(title) is not None:
         family = FC.TAPESTRY
     elif cat in FC.POUCH_CATEGORIES and re.search(r"\bdrawstring\b", folded):
