@@ -1047,7 +1047,9 @@ DEFAULT_AGENTS.extend([
                             # OPUS2-P0: measured listing performance into routed lessons.
                             "improve.commercial_lessons",
                             # OPUS2-P0: knowledge gaps and reference recommendations.
-                            "learning.knowledge_gaps"],
+                            "learning.knowledge_gaps",
+                            # ENG-LEARN: pattern + commerce learning loops (DB only).
+                            "learning.loops"],
          authority=Authority.GREEN, daily_cost_ceiling_cad=0.0),
     dict(name="integration_steward",
          description="Integration: re-verifies the Etsy API surface, provider credentials "

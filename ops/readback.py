@@ -353,6 +353,9 @@ EVIDENCE_ITEMS = (
     # before launch nothing has a verified gallery or a read-back draft, so it WARNs and
     # never fails a deploy; an unreadable part is UNKNOWN, never 0.
     ("listing-image and PDF factory (visual pipeline)", "visual_pipeline", None),
+    # ENG-LEARN: image + pattern learning loops. Advisory: a loop without enough evidence
+    # reads UNKNOWN in its own section and WARNs here; it never fails a deploy.
+    ("learning loops (image + pattern) progress", "learning", None),
 )
 
 
@@ -382,6 +385,11 @@ def _judge_section(name: str, section, judged) -> tuple[str, str]:
                       f"certified Launch-0 releases with a listing")
     if name == "visual_pipeline":
         return _judge_visual(section)
+    if name == "learning":
+        if not isinstance(section, dict) or section.get("readable") is not True:
+            return WARN, ("section missing" if not isinstance(section, dict) else
+                          f"unreadable ({section.get('error_class') or 'no reason given'})")
+        return PASS, "learning loops readable"
     if name == "competitor_scans" and (not isinstance(section, dict)
                                        or section.get("readable") is not True):
         # WS2 R1: advisory -- a build without the section, or one that cannot read it, warns.

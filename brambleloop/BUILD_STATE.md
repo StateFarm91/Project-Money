@@ -12,6 +12,39 @@
 >   - an E2E (`tests/test_visual_factory_e2e.py`) runs on FakeEtsy with both PDFs and every image read back. The generated-gallery certification blocker is pinned.
 > - Production numbers are UNKNOWN until this branch is deployed and read.
 > - Owner exceptions: (1) the identity-verification method — embedder qualification plus a second vision transport; (2) activating `image_generation` and `image_vision`.
+
+> **2026-11-20 — ENG-LEARN slices 1-4 (`eng/learn`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
+> The owner directive: the learning department must make the company measurably better with experience.
+> - **Images (`learning.image_lessons`).**
+>   - Every judged `image_candidates` frame becomes one structured observation.
+>   - Measured scene lessons are derived per family:role, Bonferroni-corrected, and published as bus subject
+>     `image_production`.
+>   - Prompt templates compete champion/challenger. The challenger share is 15%, capped at 20%. Promotion needs p < 0.002,
+>     40+ frames per arm and +8pt, or a significant cost win. Harm stop and demotion apply, and every change is a
+>     `learning_decisions` row.
+>   - Contract `image_lessons/1` is posted to #28 for ENG-VIS-GALLERY and ENG-VIS-FLUX.
+> - **Patterns (`learning.pattern_lessons`).**
+>   - Finished `cir.draft`/`cir.compile`/`gate.certify` jobs become defect observations by construction family, category
+>     and binned parameters.
+>   - Fisher-exact region lessons go to `engineering_risk` (new, disfavoured) and `construction_preference`, which
+>     `radar.score` already consumes.
+>   - `cir.draft` records `learning_advice`, which is advice and never a refusal. The metric is first-pass certification
+>     per family.
+> - **Suspended learners.** All five were parked by the backoff (identical states), with no upstream lift and, for
+>   `creative.*`/`visual.*`, no release probe. Each now has a real upstream input, and
+>   `made_progress` judges declared WORK_KEYS.
+>   - `creative.image_benchmark`'s superseded branch runs the image loop.
+>   - `visual.rnd.cycle` counts hero work.
+>   - `improve.monitor` no longer counts a standing `promoted` as work.
+>   - No spend classification changed.
+> - **New free job `learning.loops`** runs the pattern and commerce loops daily.
+> - **Proof.** `learning.progress` feeds Mission Control (LEARN tab) and the readback (`learning` section). Windows,
+>   trends and lessons acted on are UNKNOWN below the minimum sample. Service worker `cc-shell-v40`.
+> - **Commerce.** Only real-provenance outcomes and orders feed lessons. There are none today, so it reads UNMEASURED.
+> - **Honest status.**
+>   - Nothing has run against production, so every real trend is UNKNOWN.
+>   - No producer calls `prompt_for` yet, so no arm has production evidence.
+>   - Review notes: `research/final_build/w6/review_requests/learn_slice{1,2,3}.md`.
 > **2026-11-19 — ENG-APPROVALS slice 1 (`eng/approvals`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
 > - The owner directive `D-OWNER-STANDING-INTERNAL` is recorded in DECISION_LOG.
 > - Code: `authority.standing_internal` (classifier and directive), `ops.owner_queue_consolidate` (idempotent sweep, the one

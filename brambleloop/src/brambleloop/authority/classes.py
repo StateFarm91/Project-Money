@@ -69,6 +69,7 @@ JOB_CLASS: dict[str, ActionClass] = {
     "finance.accounting.cycle": _O, "finance.challenge": _O,
     "finance.escalation_check": _O, "finance.governor": _O, "finance.reconcile": _O,
     "growth.journey": _O, "improve.measure": _O, "improve.commercial_lessons": _O,
+    "learning.loops": _O,
     "learning.knowledge_gaps": _O, "improve.monitor": _O,
     "launch.readiness": _O, "listing.outcomes": _O, "listing.search_visibility_watch": _O,
     "marketing.ads_readiness": _O, "ops.capacity": _O, "ops.dependencies": _O,

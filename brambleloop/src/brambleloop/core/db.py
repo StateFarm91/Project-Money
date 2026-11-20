@@ -178,6 +178,7 @@ class Database:
         from ..ops import standing_activation as _stage_a  # noqa: F401; Stage A slots
         from ..visual import image_records as _img_records  # noqa: F401; W-OWNERIMG
         from ..visual import identity_records as _identity_records  # noqa: F401; ENG-VIS-IDENTITY
+        from ..learning import store as _learn_store  # noqa: F401; ENG-LEARN
         from ..experiments import controlled as _controlled  # noqa: F401; W-VISNEXT
         # W4-LISTREADY: the launch image-review batch tables. `gateway.anthropic` imports this
         # module on every reservation, which registers them in Base; created here so every

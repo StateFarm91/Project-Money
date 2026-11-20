@@ -1258,9 +1258,10 @@ def handle_cir_draft(ctx: JobContext) -> dict:
             name_problems = [str(p)[:200] for p in name_truth(cir, None)]
         except Exception as exc:  # noqa: BLE001 - a reading, never a reason to fail a draft
             name_problems = [f"UNKNOWN: {type(exc).__name__}"]
+    advice = _learning_advice(ctx, cir, family=route["family"])
     ctx.audit("cir.drafted", artifact=f"{cir.slug}@{cir.version}",
               detail={"source": "concept_to_cir fallback", "construction": route["family"],
-                      "name_truth": name_problems,
+                      "name_truth": name_problems, "learning_advice": advice,
                       "provenance": ("recorded" if cir.provenance is not None
                                      else "UNKNOWN: " + lineage["why"]),
                       "benchmarks_consulted": (list(cir.provenance.benchmarks_consulted)
@@ -1268,7 +1269,23 @@ def handle_cir_draft(ctx: JobContext) -> dict:
     ctx.enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
                 idempotency_key=f"compile:{cir.slug}:{cir.version}")
     return {"artifact": f"{cir.slug}@{cir.version}", "drafted": True,
-            "construction": route["family"], "rows": len(cir.components[0].rows)}
+            "construction": route["family"], "rows": len(cir.components[0].rows),
+            "learning_advice": advice}
+
+
+def _learning_advice(ctx: JobContext, cir: CIR, *, family: str = "") -> dict:
+    """ENG-LEARN: the measured engineering regions this draft falls in (`learning.
+    pattern_lessons.advise`). A reading recorded with the draft, never a refusal: the
+    compiler and the certificate decide; a lesson never stands in for a gate."""
+    try:
+        from ..learning import pattern_lessons
+
+        a = pattern_lessons.advise(ctx.db, cir=cir.to_dict(), family=str(family or ""))
+        return {"avoid": [h["key"] for h in a["avoid"]][:6],
+                "prefer": [h["key"] for h in a["prefer"]][:6],
+                "measured_regions": a["measured_regions"]}
+    except Exception as exc:  # noqa: BLE001 - advice is a reading; it never fails a draft
+        return {"status": "UNKNOWN", "why": f"{type(exc).__name__}"[:80]}
 
 
 def _fallback_lineage(seed: ConceptSeed | None, inputs: dict, concept: Concept) -> dict:
@@ -1331,15 +1348,18 @@ def _draft_creative(ctx: JobContext, slug: str) -> dict:
                   detail={"reason": str(exc)[:400], "gate": "engine"})
         return {"artifact": slug, "drafted": False, "reasons": [str(exc)[:300]]}
     cir = CIR.from_dict({**cir.to_dict(), "slug": slug, "title": concept.title})
+    advice = _learning_advice(ctx, cir, family=concept.form)
     ctx.audit("cir.drafted", artifact=f"{cir.slug}@{cir.version}",
               detail={"source": "tournament winner", "form": concept.form,
+                      "learning_advice": advice,
                       "construction": cir.construction, "pod": concept.pod,
                       "mjs_event_id": ctx.job.inputs.get("mjs_event_id"),
                       "rows": sum(len(c.rows) for c in cir.components)})
     ctx.enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
                 idempotency_key=f"compile:{cir.slug}:{cir.version}:{cir.fingerprint}")
     return {"artifact": f"{cir.slug}@{cir.version}", "drafted": True, "creative": True,
-            "form": concept.form, "rows": sum(len(c.rows) for c in cir.components)}
+            "form": concept.form, "rows": sum(len(c.rows) for c in cir.components),
+            "learning_advice": advice}
 
 
 @handlers.register("cir.compile")
@@ -3246,6 +3266,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "policy.activation_schedule": ("work_done",),
     # OPUS2-P0: lessons published or withdrawn from measured listing performance.
     "improve.commercial_lessons": ("work_done",),
+    "learning.loops": ("work_done",),
     # OPUS2-P0 (P0-LEARNING-GAPS): gaps recorded or reference purchases recommended.
     "learning.knowledge_gaps": ("work_done",),
     "listing.cross_sell_graph": ("work_done",),
@@ -3320,7 +3341,9 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
                        "rolled_back", "cards_closed", "owner_cards"),
     "improve.measure": ("measured",),
     "improve.mine": ("published", "regression_fixtures", "routed_to"),
-    "improve.monitor": ("promoted", "judged", "reverted", "rollback_proposals"),
+    # ENG-LEARN: `promoted` is the standing count of promoted rows, not work this run did;
+    # it made every idle sweep read as useful. Judging, reverting and trial judging are work.
+    "improve.monitor": ("judged", "reverted", "rollback_proposals", "trial_monitoring.judged"),
     "improve.nightly": ("total_found",),
     "improve.retrospective": ("promotions_assessed", "returned", "regressed_promotions"),
     "improve.role_work": ("proposed", "kept"),
@@ -3912,6 +3935,7 @@ from . import photo_review_ops  # noqa: E402,F401  (OPUS2: assets.photo_review)
 from . import listing_package_ops  # noqa: E402,F401  (OPUS2: listing.package)
 from . import c12_ops  # noqa: E402,F401  (W4-C12 wiring: SV aging, window captures, harvest)
 from . import commercial_ops  # noqa: E402,F401  (OPUS2-P0: improve.commercial_lessons)
+from . import learning_ops  # noqa: E402,F401  (ENG-LEARN: learning.loops)
 from . import learning_gaps_ops  # noqa: E402,F401  (OPUS2-P0: learning.knowledge_gaps)
 from . import evidence_ops  # noqa: E402,F401  (OPUS2-P0: intel.scan_evidence)
 from . import standing_policy_ops  # noqa: E402,F401  (WS4-5: policy.issuer_shadow)

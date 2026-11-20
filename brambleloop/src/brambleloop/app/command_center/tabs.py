@@ -939,8 +939,18 @@ def autonomy(db) -> dict:
                                                  lambda: visual_rnd_section(db)),
                              "visual_rnd_governance": guard(
                                  "visual_rnd_governance", lambda: visual_rnd_governance(db)),
+                             # ENG-LEARN: proof of improvement per learning loop -- the metric
+                             # over rolling windows, its trend, lessons acted on, before/after
+                             # per promotion. UNKNOWN when the sample is too small.
+                             "learning": guard("learning", lambda: _learning(db)),
                              "laura_roadmap": providers.call("laura_roadmap", db)},
                 last_useful_action=jw.get("last_useful_action"))
+
+
+def _learning(db) -> dict:
+    from ...learning import progress
+
+    return progress.summary(db)
 
 
 def insights(db) -> dict:
