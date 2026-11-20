@@ -1027,6 +1027,20 @@ def first_listing_readiness(db, *, now: datetime) -> dict:
 
 # ---- the anonymous-safe checks ----------------------------------------------------------
 
+def motif_backlog_recovery(db, *, now: datetime) -> dict:
+    """ENG-MOTIF-BACKLOG (owner P0): paid renders whose motif check the budget gate refused,
+    and what the recovery made of them. Counts only (`publish.motif_backlog.report`, from the
+    persisted `motif_recovery` rows); a backlog never swept is UNKNOWN, never 0."""
+    from ..publish import motif_backlog
+
+    rep = motif_backlog.report(db)
+    if not rep.get("readable"):
+        return {"readable": False, "error_class": str(rep.get("why") or "unreadable")[:80]}
+    return {"readable": True, "swept": rep.get("swept"),
+            "last_sweep_at": rep.get("last_sweep_at"), "counts": rep.get("counts"),
+            "recheck_spend_cad": rep.get("recheck_spend_cad")}
+
+
 SECTIONS = {
     "dead_letters_24h": dead_letters,
     "publishing_halt": publishing_halt,
@@ -1040,6 +1054,7 @@ SECTIONS = {
     "listing_package_releases": listing_package_releases,
     "scheduler": scheduler,
     "first_listing_readiness": first_listing_readiness,
+    "motif_backlog_recovery": motif_backlog_recovery,
 }
 CHECK_NAMES = ("publishing_halt_clear", "stale_artefacts_rebuilding",
                "no_repeated_paid_call_in_24h", "weekly_jobs_completing")

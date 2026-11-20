@@ -1180,6 +1180,7 @@ JOB_BANDS: dict[str, str] = {
     "assets.render": "proven_winner",
     "assets.owned_photography": "proven_winner",
     "assets.model_photography": "proven_winner",
+    "assets.motif_backlog": "proven_winner",      # recovers paid renders; never renders
     "visual.image_production": "proven_winner",
     # INTEG4: an owner-authorised controlled visual experiment is learning with no committed
     # value (its output is labelled EXPERIMENT and never publishes): exploration.

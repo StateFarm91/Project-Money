@@ -798,6 +798,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # nothing afterwards -- and it refuses to spend at all when no frozen identity exists
     # to verify the result against (#72, #130, #202).
     ("model_photography", "publishing", "assets.model_photography", 24 * 60 * 60),
+    # ENG-MOTIF-BACKLOG: six-hourly, so a re-check the budget refused is retried the same day
+    # rather than lost; free when the backlog is empty (a scan of filed rows, no call).
+    ("motif_backlog", "publishing", "assets.motif_backlog", 6 * 60 * 60),
     ("seasonal_sentinel", "orchestrator", "seasonal.sentinel", 24 * 60 * 60),
     # Six-hourly, matching the radar scan. #313 wants frequent lightweight checks once a
     # baseline exists, and the fingerprint makes an unchanged catalogue nearly free -- but

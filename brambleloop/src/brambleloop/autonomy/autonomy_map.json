@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-20T00:10:27.646861+00:00",
+ "generated_at": "2026-11-20T02:51:04.887967+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 144,
-  "handlers": 176,
+  "cadences": 145,
+  "handlers": 177,
   "agents": 34,
   "follow_on_edges": 93
  },
@@ -1109,6 +1109,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "motif_backlog",
+      "agent": "publishing",
+      "job_type": "assets.motif_backlog",
+      "period_seconds": 21600
+     },
+     {
       "name": "photo_review",
       "agent": "asset_truth",
       "job_type": "assets.photo_review",
@@ -1188,6 +1194,7 @@
    "execution": {
     "handler_modules": [
      "brambleloop.autonomy.visual_rnd_job",
+     "brambleloop.runtime.motif_backlog_ops",
      "brambleloop.runtime.photo_review_ops",
      "brambleloop.runtime.quality_ops",
      "brambleloop.runtime.release"
@@ -1196,6 +1203,7 @@
      "assets.build",
      "assets.launch_review",
      "assets.model_photography",
+     "assets.motif_backlog",
      "assets.owned_photography",
      "assets.photo_review",
      "assets.physical_upgrade",

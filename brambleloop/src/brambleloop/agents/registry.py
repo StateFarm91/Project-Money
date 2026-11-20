@@ -214,6 +214,9 @@ DEFAULT_AGENTS: list[dict] = [
                             # A styled image of the finished object, generated from the
                             # certified CIR and disclosed as an illustration (#292, #300).
                             "assets.owned_photography",
+                            # ENG-MOTIF-BACKLOG: re-check (never re-render) paid renders
+                            # whose motif check the budget gate refused.
+                            "assets.motif_backlog",
                             # #300's cycle run as a job, so its assets link can be closed
                             # for the product the cycle itself engineered rather than for
                             # whichever product was photographed last (B-611).

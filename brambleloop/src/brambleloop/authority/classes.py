@@ -98,7 +98,7 @@ JOB_CLASS: dict[str, ActionClass] = {
     "scale.trajectory": _R, "visual.provider_trial": _R,
     "visual.controlled_experiment": _R, "visual.rnd.cycle": _R,
     # build: internal artefacts, code/config/process changes, work generation
-    "assets.build": _B, "assets.launch_review": _B, "assets.model_photography": _B, "assets.owned_photography": _B,
+    "assets.build": _B, "assets.launch_review": _B, "assets.model_photography": _B, "assets.motif_backlog": _B, "assets.owned_photography": _B,
     "assets.physical_upgrade": _B, "assets.render": _B, "autonomy.orchestrate": _B,
     "build.tick": _B, "chain.rebuild": _B, "chain.successors": _B, "supply.admit": _B, "cir.draft": _B, "cir.revise": _B, "cir.reengineer": _B,
     "collection.assemble": _B, "listing.package": _B, "creative.candidates_file": _B, "creative.model_freeze": _B, "growth.steer": _B,
