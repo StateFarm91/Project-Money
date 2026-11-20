@@ -1120,7 +1120,10 @@ def test_the_toy_and_lovey_pdfs_print_the_eye_options_and_age_guidance():
             assert "for a baby or a child under 3 it is the only option" in flat
             assert "0 to 36 months" in flat
         else:
-            assert "3 to under 6 years" in flat
+            # The older reading, not the under-3 one (the band label alone also appears in
+            # the children's statements, so it cannot tell the readings apart).
+            assert "this design is assigned to 3 to under 6 years" in flat
+            assert "for a baby or a child under 3 it is the only option" not in flat
         v = CS.evaluate(cir, text=text, childrens=childrens,
                         instructions=writer.write_pattern(cir, compile_cir(cir), "US"))
         states = {c.code: c.state for c in v.checks}
