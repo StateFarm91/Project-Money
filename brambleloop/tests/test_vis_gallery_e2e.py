@@ -720,6 +720,7 @@ def test_11_the_same_release_plus_any_other_non_image_blocker_is_not_admitted():
         "an unattributable blocker",
         {},
     ]
+    assert extras
     real_latest = LP.latest
     try:
         for extra in extras:
