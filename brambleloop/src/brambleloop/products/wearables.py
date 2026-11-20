@@ -2075,3 +2075,226 @@ register(Engine(
     family="shawl_wrap", title="a rectangle worked end to end",
     words=("wrap", "wraps", "stole", "stoles"), category_word="wrap",
     titles=(("shawl", "Wrap"),), **_SHAWL_COMMON))
+
+
+# ==== 7. bags and totes =====================================================================
+#
+# Sized by what they carry: an ISO 216 sheet (A5, A4, A3) standing upright inside, with
+# stated room (ease) across and above it. Worked in firm single crochet:
+#   tote        a flat rectangular base worked in rows; the sides are picked up all round
+#               its edge and worked up in joined rounds to a back-loop top band.
+#   market bag  a round base from a magic ring, increased in sections at the flat rate; the
+#               sides continue straight up in joined rounds to a back-loop top band.
+# Two flat handles are worked separately and each end is sewn across a measured span of the
+# top round, inside the bag. Handle length is a stated design figure (shoulder carry).
+
+from ..cir.graded import SHEETS  # noqa: E402
+
+BAG_EASE = (("sheet_width", 4.0), ("sheet_height", 2.0))
+BAG_SIZES = {"adult": ("A5", "A4", "A3")}
+TOTE_DEPTH_OF_WIDTH = 0.3              # the tote's base depth, of its width
+HANDLE_CM = 55.0                        # each handle, end to end (shoulder carry)
+HANDLE_WIDTH_CM = 3.0
+HANDLE_INSET_OF_SIDE = 0.25             # a handle's ends sit a quarter in from each side
+BAG_TOLERANCE = 0.06
+
+
+class _BagRounds(Rounds):
+    def ring(self, n: int, *, label: str = "") -> None:
+        self.steps = []
+        i = self.next_index
+        self._finish(self._row([Op(self.fam.stitch, n)], note="into a magic ring"), n)
+        self._record("magic_ring", i, i, n=(("sts", n),), label=label)
+
+
+def bag(g: GradedSize, spec: WearableSpec) -> CIR:
+    fam = StitchFamily("sc", "plain")
+    width_cm = g.finished_cm("sheet_width")
+    height_cm = g.finished_cm("sheet_height")
+    band = g.rows(2.5, minimum=2)
+    st, row = _st_cm(g.gauge), _row_cm(g.gauge)
+    comps, seams, pieces, rounds = [], [], {}, set()
+    if spec.family == "bag_tote":
+        w = g.stitches(width_cm)
+        d_rows = g.rows(width_cm * TOTE_DEPTH_OF_WIDTH, minimum=4)
+        base = GF.Piece("base", fam, foundation=w, feature="panel", direction="bottom_up",
+                        note="the flat base, worked in rows")
+        base.even(d_rows, label="base")
+        perim_cm = 2 * (w * st) + 2 * (d_rows * row)
+        n = g.stitches(perim_cm)
+        body = Rounds("body", fam, foundation=n, feature="body", direction="bottom_up",
+                      foundation_kind="none",
+                      note="picked up all round the base and worked up in joined rounds")
+        comps.append(base)
+        pieces["base"] = base.steps
+        seams.append(Seam("pick_up", "body", "base", edge_a="bottom", edge_b="perimeter",
+                          note=f"pick up {n} sts all round the base: {w} along each long "
+                               f"edge and the rest evenly along the row ends; join"))
+        pickups = [{"piece": "body", "into": "base", "edge_cm": round(perim_cm, 2),
+                    "edge_sts": round(perim_cm / st, 2), "stitches": n, "rows_along": 0}]
+    else:
+        sections = flat_sections(g)
+        circ_target = 2 * width_cm
+        n = max(2 * sections, int(round(g.stitches(circ_target) / sections)) * sections)
+        body = _BagRounds("body", fam, foundation=0, feature="body", direction="bottom_up",
+                          foundation_kind="magic_ring",
+                          note="worked from the centre of the base in joined rounds")
+        body.ring(sections, label="base")
+        body.section_inc(sections, n // sections - 1, label="base")
+        pickups = []
+    rounds.add("body")
+    side_rounds = g.rows(height_cm, minimum=4) - band
+    body.even(side_rounds, label="sides")
+    body.even(band, loop="back", label="top band")
+    top_round = body.rows[-1].index
+    hw = GF._even(g.stitches(HANDLE_WIDTH_CM, minimum=4))
+    h_rows = g.rows(HANDLE_CM)
+    handle = GF.Piece("handle", fam, foundation=hw, make=2, feature="band",
+                      direction="bottom_up", note="a flat strap handle")
+    handle.even(h_rows, label="handle")
+    comps += [body, handle]
+    pieces["body"], pieces["handle"] = body.steps, handle.steps
+    for edge in ("bottom", "top"):
+        seams.append(Seam("whipstitch", "handle", "body", edge_a=edge, edge_b="top",
+                          at_round=top_round, stitches_from_centre=hw // 2, mirrored=True,
+                          note=f"sew this end of each handle inside the top band, across "
+                               f"{hw} sts, a quarter of the way in from a side; the two "
+                               f"handles face each other; sew through both loops all round "
+                               f"the strap end and fasten off securely"))
+    facts = WFacts(spec.family, pieces=pieces, rounds=frozenset(rounds))
+    facts.pickups = pickups
+    facts.seams = [{"seam": "handle end", "a": "handle", "b": "body top", "a_sts": hw,
+                    "b_sts": 2 * (hw // 2), "a_edge_sts": hw, "b_edge_sts": n}]
+    facts.numbers = {"circ_sts": n, "handle_sts": hw, "target_width_cm": width_cm,
+                     "target_height_cm": height_cm}
+    word = "tote" if spec.family == "bag_tote" else "market bag"
+    return make_cir(g, spec, comps=[c.component() for c in comps], seams=seams, facts=facts,
+                    construction="joined_rounds",
+                    designer=(f"A {word} in firm single crochet, sized to hold an ISO 216 "
+                              f"{g.size} sheet upright: "
+                              + ("a flat base in rows with the sides picked up all round it"
+                                 if word == "tote" else "a round base from a magic ring")
+                              + ", straight sides in joined rounds to a back-loop band, and "
+                                "two strap handles sewn inside the top."),
+                    size_note=f"Finished width {n * st / 2:.1f} cm across, laid flat, to "
+                              f"hold a sheet {g.body_cm('sheet_width'):g} cm wide")
+
+
+def bag_measures(cir: CIR) -> dict[str, float]:
+    from ..cir.geometry import _row_height_cm
+
+    r = _compiled(cir)
+    g = cir.gauge
+    body = next(c for c in cir.components if c.name == "body")
+    rows = [x for x in r.rows if x.component == "body"]
+    circ = max(x.stitch_count for x in rows)
+    first_full = next(i for i, x in enumerate(rows) if x.stitch_count == circ)
+    height = sum(_row_height_cm(row, cir) for row in body.rows[first_full:])
+    handle = next(c for c in cir.components if c.name == "handle")
+    out = {"circumference": round(circ * _st_cm(g), 2), "width": round(circ * _st_cm(g) / 2, 2),
+           "height": round(height, 2),
+           "handle": round(sum(_row_height_cm(row, cir) for row in handle.rows), 2)}
+    base = next((c for c in cir.components if c.name == "base"), None)
+    if base is not None:
+        out["depth"] = round(sum(_row_height_cm(row, cir) for row in base.rows), 2)
+    else:
+        out["depth"] = round(circ * _st_cm(g) / math.pi, 2)
+    return out
+
+
+def bag_gates(ctx) -> list:
+    from ..gates.garment_fit import GarmentFinding
+
+    out = []
+    g, m, f, size, cir = ctx["g"], ctx["measured"], ctx["facts"], ctx["size"], ctx["cir"]
+
+    def bad(code, msg):
+        out.append(GarmentFinding(code, size, msg))
+
+    sheet_w, sheet_h = g.body_cm("sheet_width"), g.body_cm("sheet_height")
+    inner = m["width"] - (m["depth"] if f.construction == "bag_tote" else 0) / 2.0
+    if m["width"] < sheet_w or m["height"] < sheet_h:
+        bad("BAG_HOLDS", f"the bag is {m['width']:.1f} x {m['height']:.1f} cm; an {size} "
+                         f"sheet is {sheet_w:g} x {sheet_h:g} cm")
+    want = g.finished_cm("sheet_height")
+    if abs(m["height"] - want) / want > BAG_TOLERANCE:
+        bad("BAG_HEIGHT", f"built height {m['height']:.1f} cm against {want:g} cm")
+    del inner
+    if f.construction == "bag_market":
+        last_base = [x.stitch_count for x in ctx["result"].rows if x.component == "body"]
+        if int(f.numbers["circ_sts"]) % flat_sections(g) or last_base[0] != flat_sections(g):
+            bad("BAG_BASE_SHAPE", "the round base is not increased at the flat rate")
+    for s in cir.assembly:
+        if s.piece_a == "handle" and 2 * (s.stitches_from_centre or 0) != \
+                int(f.numbers["handle_sts"]):
+            bad("GARMENT_SEAM_MISMATCH", f"a handle end of {f.numbers['handle_sts']} sts is "
+                                         f"sewn across {2 * (s.stitches_from_centre or 0)}")
+    if m["handle"] < 0.9 * HANDLE_CM:
+        bad("BAG_HANDLE", f"the handle is {m['handle']:.1f} cm; the design states "
+                          f"{HANDLE_CM:g} cm")
+    out += pickup_rate(ctx)
+    return out
+
+
+def bag_schematic(sizes, ms) -> dict:
+    sk = Sketch(ms, {"width": "Width, laid flat", "height": "Height, base to top",
+                     "depth": "Base depth (round bag: base diameter)",
+                     "handle": "Handle length"})
+    mid = ms[len(ms) // 2]
+    W, H, Hd = mid["width"], mid["height"], mid["handle"]
+    x0, y0 = 6.0, 6.0 + Hd * 0.3
+    sk.poly([(x0, y0), (x0 + W, y0), (x0 + W, y0 + H), (x0, y0 + H)], "bag, laid flat")
+    for hx in (x0 + W * 0.25, x0 + W * 0.75):
+        sk.line((hx - 1, y0), (hx - 1, y0 - Hd * 0.3))
+    sk.line((x0 + W * 0.25 - 1, y0 - Hd * 0.3), (x0 + W * 0.75 - 1, y0 - Hd * 0.3))
+    sk.dim((x0, y0 + H), (x0 + W, y0 + H), "width", "below")
+    sk.dim((x0 + W, y0), (x0 + W, y0 + H), "height", "right")
+    sk.note("depth")
+    sk.text((x0 + W / 2, y0 - Hd * 0.3 - 1.5), "handles (see legend)")
+    sk.note("handle")
+    return _schematic(sk.items, sk.legend, W + 2 * x0 + 10, H + y0 + 8, sizes, ms, "bag")
+
+
+def _bag_narrative(spec, facts) -> str:
+    if facts.construction == "bag_tote":
+        start = ("The base is a flat rectangle worked in rows. Stitches are picked up all the "
+                 "way round its edge, and the sides are worked straight up from it in joined "
+                 "rounds")
+    else:
+        start = ("The base is a flat circle, worked from a magic ring and increased in equal "
+                 "sections on every round; the sides then carry straight on up in joined "
+                 "rounds")
+    return (start + " to a firm back-loop band at the top. The two strap handles are worked "
+                    "flat, and each end is sewn securely inside the top band.")
+
+
+_BAG_COMMON = dict(
+    table=SHEETS, sizes=BAG_SIZES, requires=("sheet_width", "sheet_height"),
+    primary="sheet_width", built_primary="circumference", builder=bag, measure=bag_measures,
+    gates=bag_gates,
+    chart=(("body_cm", "Holds a sheet (width)"), ("width_cm", "Width"),
+           ("height_cm", "Height"), ("depth_cm", "Base"), ("handle_cm", "Handle")),
+    narrative=_bag_narrative, schematic=bag_schematic, risk="B",
+    abbreviations=("ch", "sc", "inc", "slst"), ease=(("adult", BAG_EASE),),
+    yarn=(("adult", ("worsted", "cotton")),),
+    forms=("bag",), constructions=("in_the_round", "seamless_tube", "flat_rows"),
+    fit_note=("Sized to hold an ISO 216 sheet upright: 4 cm of stated room across it and "
+              "2 cm above it."),
+    tips=("Crochet firmly: a bag's fabric carries weight, so a hook one size smaller than "
+          "your gauge hook for the handles is a good choice if they stretch.",),
+    refuse=((r"\b(?:lin(?:ed|ing)|zip(?:per|pered)?|buttons?|clasp|magnetic|drawstring|"
+             r"backpack|crossbody|clutch|purse|wallet|pockets?|mesh|net|string|"
+             r"granny|tapestry|leather|wooden|bamboo|ring handles?|baby|kids?|child)\b",
+             "the bag engines build an unlined single crochet tote or market bag with strap "
+             "handles only"),),
+    honest_phrases=(r"\b(?:strap )?handles?\b", r"\bhandled\b", r"\bstraps?\b"),
+    category_word="bag",
+)
+register(Engine(family="bag_tote", title="a flat base in rows, sides picked up and worked "
+                                         "in joined rounds, handles sewn on",
+                words=("tote", "totes", "tote bag", "tote bags", "shopper"),
+                **{**_BAG_COMMON, "category_word": "tote"}))
+register(Engine(family="bag_market", title="a round base and sides in joined rounds, "
+                                           "handles sewn on",
+                words=("market bag", "market bags", "market tote", "farmers market bag"),
+                **{**_BAG_COMMON, "category_word": "market bag"}))

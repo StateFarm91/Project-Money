@@ -437,7 +437,11 @@ def plausibility_findings(cir, twins: dict) -> list:
             v = getattr(t, name, None)
             if v:
                 figures.append(float(v))
-    if _is_wearable(cir):
+    from ..products import wearables as _wearables
+
+    if _is_wearable(cir) or _wearables.construction_of(cir) is not None:
+        # ENG-GARMENT-2: a wearables-family build (a bag too, which is sized by what it
+        # holds, not "to fit") is measured by its family's own instrument as well.
         # A garment's chest and length are not one piece's width and height (a drop-shoulder
         # body is worked over the shoulder; a raglan yoke divides for the sleeves), so they
         # are measured from the compiled rows by the garment module's own instrument.

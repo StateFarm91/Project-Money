@@ -73,8 +73,10 @@ TOP_TEE, TOP_TANK = "top_tee", "top_tank"
 CARDIGAN_VNECK = "cardigan_vneck"
 SOCK, SLIPPER = "sock", "slipper"
 SHAWL_TRIANGLE, SHAWL_WRAP = "shawl_triangle", "shawl_wrap"
+BAG_TOTE, BAG_MARKET = "bag_tote", "bag_market"
 WEARABLE_FAMILIES = frozenset({HAT_BEANIE, BABY_DRESS, BABY_ROMPER, TOP_TEE, TOP_TANK,
-                               CARDIGAN_VNECK, SOCK, SLIPPER, SHAWL_TRIANGLE, SHAWL_WRAP})
+                               CARDIGAN_VNECK, SOCK, SLIPPER, SHAWL_TRIANGLE, SHAWL_WRAP,
+                               BAG_TOTE, BAG_MARKET})
 
 FAMILIES: dict[str, Family] = {f.key: f for f in (
     Family(FC.FLAT_PANEL, "runtime.pipeline.concept_to_cir", VERIFIED,
@@ -210,6 +212,14 @@ FAMILIES: dict[str, Family] = {f.key: f for f in (
            ("CYC woman XS, M, L, 2X, 4X",), "cir.graded WOMAN neck-to-wrist + stated ease; "
                                             "width a design ratio",
            "plain sc rectangle with back-loop end bands; no fringe or lace"),
+    Family(BAG_TOTE, "products.wearables (bag_tote)", VERIFIED,
+           f"{WEARABLE_PROOF}::test_a_research_adult_tote_runs_concept_to_pdf",
+           ("ISO 216 A5, A4, A3",), "cir.graded SHEETS (ISO 216 A-series) + stated room",
+           "unlined sc tote, flat base, strap handles sewn on; no lining, zip or pockets"),
+    Family(BAG_MARKET, "products.wearables (bag_market)", VERIFIED,
+           f"{WEARABLE_PROOF}::test_a_research_adult_market_bag_runs_concept_to_pdf",
+           ("ISO 216 A5, A4, A3",), "cir.graded SHEETS (ISO 216 A-series) + stated room",
+           "round-base sc market bag, strap handles sewn on; solid fabric, no mesh"),
     Family(FC.POUCH, "creative.fallback_constructions.pouch", PARTIAL, "",
            ("one size",), "fallback_constructions.POUCH_ACROSS_CM (design choice)",
            "certification refuses ASSET_COLOR_ABSENT: the pouch works one palette colour "
@@ -386,6 +396,8 @@ WEARABLE_PAIR_AUDIENCE: dict[tuple[str, str], frozenset] = {
     (SLIPPER, "slipper"): frozenset({"adult", "child"}),
     (SHAWL_TRIANGLE, "shawl"): frozenset({"adult"}),
     (SHAWL_WRAP, "shawl"): frozenset({"adult"}),
+    (BAG_TOTE, "bag"): frozenset({"adult"}),
+    (BAG_MARKET, "bag"): frozenset({"adult"}),
 }
 PAIR_PROOFS.update({
     (HAT_BEANIE, "hat"): FAMILIES[HAT_BEANIE].proof,
@@ -402,6 +414,8 @@ PAIR_PROOFS.update({
     (SLIPPER, "slipper"): FAMILIES[SLIPPER].proof,
     (SHAWL_TRIANGLE, "shawl"): FAMILIES[SHAWL_TRIANGLE].proof,
     (SHAWL_WRAP, "shawl"): FAMILIES[SHAWL_WRAP].proof,
+    (BAG_TOTE, "bag"): FAMILIES[BAG_TOTE].proof,
+    (BAG_MARKET, "bag"): FAMILIES[BAG_MARKET].proof,
 })
 # A garment pair's proof is for one body table: the audience it was proven on.
 GARMENT_PAIR_AUDIENCE: dict[tuple[str, str], str] = {

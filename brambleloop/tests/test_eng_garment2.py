@@ -78,12 +78,16 @@ SHAWL = WB.WearableSpec("tidewrack-shawl", "Tidewrack Shawl", "shawl", "shawl_tr
                         "adult", "dk", "merino", WB.SHAWL_EASE)
 WRAP = WB.WearableSpec("tidewrack-wrap", "Tidewrack Wrap", "shawl", "shawl_wrap", "adult",
                        "dk", "merino", WB.SHAWL_EASE)
+TOTE = WB.WearableSpec("quayside-tote", "Quayside Tote", "bag", "bag_tote", "adult",
+                       "worsted", "cotton", WB.BAG_EASE)
+MARKET = WB.WearableSpec("orchard-market-bag", "Orchard Market Bag", "bag", "bag_market",
+                         "adult", "worsted", "cotton", WB.BAG_EASE)
 ADULT_SIZES = ("XS", "S", "M", "L", "XL", "2X", "3X", "4X", "5X")
 CHILD_SIZES = ("2", "4", "6", "8", "10", "12")
 SPECS = {s.key: s for s in (BEANIE, SLOUCHY, BABY_HAT, BABY_DRESS, BABY_PINAFORE,
                             BABY_ROMPER, TEE, TANK, KIDS_TANK, VCARDI, KIDS_VCARDI,
                             BABY_VCARDI, SOCK, KIDS_SOCK, SLIPPER, KIDS_SLIPPER,
-                            SHAWL, WRAP)}
+                            SHAWL, WRAP, TOTE, MARKET)}
 
 
 @lru_cache(maxsize=None)
@@ -737,6 +741,68 @@ def test_shawls_route_and_a_crescent_is_held_by_name():
     assert "crescent" in got["reason"]
 
 
+# ---- 7. bags and totes -----------------------------------------------------------------------
+
+
+def test_the_sheet_table_is_iso_216():
+    from brambleloop.cir.graded import SHEETS
+
+    got = {b.size: (b.cm("sheet_width"), b.cm("sheet_height")) for b in SHEETS.sizes}
+    assert got == {"A5": (14.8, 21.0), "A4": (21.0, 29.7), "A3": (29.7, 42.0)}
+
+
+def test_every_tote_and_market_bag_size_is_granted_and_holds_its_sheet():
+    for spec in (TOTE, MARKET):
+        assert_family_release(spec.key, WB.BAG_SIZES["adult"])
+        r = released(spec.key)
+        ms = [WB.bag_measures(c) for c in r.cirs.values()]
+        assert ms and all(b["circumference"] > a["circumference"] for a, b in zip(ms, ms[1:]))
+        for (size, _c), m in zip(r.cirs.items(), ms):
+            g = r.design.graded_size(size)
+            assert m["width"] >= g.body_cm("sheet_width") and \
+                m["height"] >= g.body_cm("sheet_height"), (spec.key, size, m)
+
+
+def test_bags_reverse_compile_hold_size_truth_and_render():
+    for spec in (TOTE, MARKET):
+        assert_reverse_reads_back(spec.key)
+        assert_size_truth(spec.key)
+        assert_document(spec.key)
+    text = " ".join(document(MARKET.key, "US").text.split())
+    assert "make a magic ring" in text and "through the back loop in each st around" in text
+
+
+def test_bag_gates_fail_on_the_defects_they_exist_for():
+    r = released(TOTE.key)
+    cirs = dict(r.cirs)
+    cirs["A3"] = r.cirs["A5"]
+    assert {"BAG_HOLDS", "GARMENT_SIZE_RUN"} <= _codes(r, cirs)
+    cirs = dict(r.cirs)
+    cir = copy.deepcopy(cirs["A4"])
+    h = next(c for c in cir.components if c.name == "handle")
+    h.rows = h.rows[:20]
+    cirs["A4"] = cir
+    assert "BAG_HANDLE" in _codes(r, cirs)
+    cirs = dict(r.cirs)
+    cir = copy.deepcopy(cirs["A5"])
+    WB.facts_of(cir).pickups[0] = dict(WB.facts_of(cir).pickups[0], edge_sts=30.0)
+    cirs["A5"] = cir
+    assert "GARMENT_PICKUP_RATE" in _codes(r, cirs)
+
+
+def test_bags_route_and_unbuilt_bags_are_held():
+    from brambleloop.creative import construction_families as CF
+
+    for title, fam in (("Quayside Tote", "bag_tote"), ("Orchard Market Bag", "bag_market"),
+                       ("Quayside Tote with Strap Handles", "bag_tote")):
+        got = CF.route(category="bag", title=title, form="bag", construction="in_the_round")
+        assert got["admitted"] and got["family"] == fam, (title, got)
+    for title in ("Lined Tote", "Mesh Market Bag", "Zippered Tote", "Kids Tote",
+                  "Crossbody Tote"):
+        got = CF.route(category="bag", title=title, form="bag", construction="in_the_round")
+        assert not got["admitted"] and got["reason"].startswith(CF.HOLD_PREFIX), (title, got)
+
+
 # ---- routing and research concepts end to end -----------------------------------------------
 
 
@@ -982,6 +1048,26 @@ def test_a_research_adult_shawl_runs_concept_to_pdf():
 def test_a_research_adult_wrap_runs_concept_to_pdf():
     out = _research_wearable_to_pdf(WRAP_P)
     assert_concept_to_pdf(out, WB.SHAWL_SIZES["adult"], "shawl_wrap")
+
+
+TOTE_P = _wearable_proposal(
+    "chandlers-row-tote", "Chandlers Row Tote", "bag", "bag", "in_the_round", "self",
+    "A sturdy cotton tote that carries a sketchbook and a flask to the harbour wall",
+    "mothers_day")
+MARKET_P = _wearable_proposal(
+    "saturday-stall-market-bag", "Saturday Stall Market Bag", "bag", "bag", "in_the_round",
+    "self", "A round-bottomed cotton bag for apples, bread and greens from the Saturday stalls",
+    "mothers_day")
+
+
+def test_a_research_adult_tote_runs_concept_to_pdf():
+    out = _research_wearable_to_pdf(TOTE_P)
+    assert_concept_to_pdf(out, WB.BAG_SIZES["adult"], "bag_tote")
+
+
+def test_a_research_adult_market_bag_runs_concept_to_pdf():
+    out = _research_wearable_to_pdf(MARKET_P)
+    assert_concept_to_pdf(out, WB.BAG_SIZES["adult"], "bag_market")
 
 
 def test_hats_route_to_the_beanie_and_others_are_held():

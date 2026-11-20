@@ -63,6 +63,9 @@ MEASUREMENTS: tuple[str, ...] = (
     "foot_circ",       # CYC "Foot Circumference"
     "foot_length",     # CYC "Total Foot Length"
     "sock_height",     # CYC "Sock Height"
+    # ENG-GARMENT-2: a bag is not worn on a body; it is sized by what it must hold.
+    "sheet_width",     # ISO 216 A-series sheet, short side
+    "sheet_height",    # ISO 216 A-series sheet, long side
 )
 
 Range = tuple[float, float]
@@ -241,8 +244,21 @@ FOOT_MONTHS = {"Baby 0-4": 6, "Toddler 5-9": 24, "Child 10-13": 48, "Youth 1-3":
                "Youth 4-6": 120}
 
 
+# ENG-GARMENT-2: ISO 216 A-series sheet sizes (mm, shown in cm), the object a tote must hold
+# upright. Read 2026-11-20 from the dimensions table of the page below (the ISO catalogue
+# page, https://www.iso.org/standard/36631.html, refused automated reading: 403). Not a body
+# table: `BodyTable` is the sourced-size structure, and a bag is graded by what it carries.
+ISO216_URL = "https://en.wikipedia.org/wiki/ISO_216"
+SHEETS = BodyTable(
+    name="ISO 216 A-series", source_url=ISO216_URL, retrieved="2026-11-20",
+    sizes=tuple(BodyMeasurements(size=size, published={
+        m: (w if m == "sheet_width" else h if m == "sheet_height" else UNSOURCED)
+        for m in MEASUREMENTS}) for size, w, h in (("A5", 14.8, 21.0), ("A4", 21.0, 29.7),
+                                                   ("A3", 29.7, 42.0))))
+
+
 TABLES: dict[str, BodyTable] = {"woman": WOMAN, "child": CHILD, "baby": BABY, "head": HEAD,
-                                "foot": FOOT}
+                                "foot": FOOT, "sheets": SHEETS}
 
 
 # ---- the design's intent ------------------------------------------------------------------
@@ -696,7 +712,7 @@ def matrix_problems(sizes: list[dict], *, ease_cm: dict, fit: str | None) -> lis
     for a, b in zip(sizes, sizes[1:]):
         pair = f"{a['size']} -> {b['size']}"
         # ENG-GARMENT-2: a hat's head and a sock's foot are graded strictly like a chest.
-        for block, strict in (("intended_cm", ("bust", "head", "foot_circ")),
+        for block, strict in (("intended_cm", ("bust", "head", "foot_circ", "sheet_width")),
                               ("built_cm", ("chest", "circumference", "wingspan"))):
             for m, vb in (b.get(block) or {}).items():
                 va = (a.get(block) or {}).get(m)

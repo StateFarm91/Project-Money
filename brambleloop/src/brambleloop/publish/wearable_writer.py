@@ -42,14 +42,16 @@ def round_lines(sizes_steps: list[list], *, piece: str, t: Terms) -> list[Line]:
                     f"(see Finishing for where and the pick-up rate), and join with a "
                     f"{t.slst} to the first st.")
         elif kind == "magic_ring":
-            text = (f"Make a magic ring and work {values([s.get('sts') for s in steps])} "
-                    f"{sc} into it; join with a {t.slst} to the first st.")
+            text = (f"{head}: make a magic ring and work "
+                    f"{values([s.get('sts') for s in steps])} {sc} into it; join with a "
+                    f"{t.slst} to the first st. {counts}")
         elif kind == "resume":
             text = (f"Rejoin the yarn to the {values([s.get('sts') for s in steps])} held "
                     f"sts.")
         elif kind == "even":
-            text = (f"{head}: {t.ch} 1, {sc} in each st around; join with a {t.slst} to the "
-                    f"first st. {counts}")
+            lp = GW.LOOP_WORDS.get(s0.loop, "")
+            text = (f"{head}: {t.ch} 1, {sc}{lp} in each st around; join with a {t.slst} to "
+                    f"the first st. {counts}")
         elif kind == "opening":
             half = values([s.get("worked") for s in steps])
             bridge = values([s.get("bridge") for s in steps])

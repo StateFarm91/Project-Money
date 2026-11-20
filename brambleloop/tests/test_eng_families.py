@@ -571,6 +571,8 @@ WEARABLE_PROBES = [
     ("slipper", "fitted_garment", "in_the_round", "Burrow Kids Slippers"),
     ("shawl", "draped_garment", "flat_rows", "Saltgrass Shawl"),
     ("shawl", "draped_garment", "flat_rows", "Lantern Hour Wrap"),
+    ("bag", "bag", "in_the_round", "Chandlers Row Tote"),
+    ("bag", "bag", "in_the_round", "Saturday Stall Market Bag"),
 ]
 
 

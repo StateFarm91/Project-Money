@@ -191,10 +191,7 @@ def read_flat_line(line: str, n: int) -> dict:
 
 def read_round_line(line: str, n: int) -> dict:
     """A round instruction -> {"kind", per-size numbers, "rows", "counts"}."""
-    if line.startswith("Pick up") or re.match(r"^Ch \d", line) or line.startswith("Rejoin") \
-            or line.startswith("Make a magic ring"):
-        if line.startswith("Make a magic ring"):
-            return {"text": line, "kind": "pick_up", "n": _after(r"work V ", line, n)}
+    if line.startswith("Pick up") or re.match(r"^Ch \d", line) or line.startswith("Rejoin"):
         return read_line(line, n)
     m = re.match(rf"^Rnds? ({_VAL})", line)
     counts = re.search(rf"\(({_VAL}) sts\)$", line)
@@ -205,7 +202,10 @@ def read_round_line(line: str, n: int) -> dict:
         a, _, b = v.partition("-")
         spans.append((int(a), int(b or a)))
     out = {"text": line, "rows": spans, "counts": _ints(counts.group(1), n), "then": None}
-    if re.search(r"(?:de|in)creasing \S", line) and "evenly spaced" in line:
+    if "make a magic ring" in line:
+        out["kind"] = "ring"
+        out["ring"] = _after(r"make a magic ring and work V ", line, n)
+    elif re.search(r"(?:de|in)creasing \S", line) and "evenly spaced" in line:
         out["kind"] = "spread"
         out["by"] = _after(r"creasing V sts evenly", line, n)
         out["sign"] = -1 if "decreasing" in line else 1
@@ -230,6 +230,13 @@ def expand_rounds(parsed: list[dict], size: int) -> tuple[dict[int, int], list[s
         if a != expect:
             problems.append(f"rounds jump from {expect - 1} to {a} at {p['text'][:50]!r}")
         expect = b + 1
+        if p["kind"] == "ring":
+            count = p["ring"][size]
+            rows[a] = count
+            if count != p["counts"][size]:
+                problems.append(f"the ring round works {count} sts; the line prints "
+                                f"{p['counts'][size]}")
+            continue
         if count is None:
             problems.append(f"{p['text'][:40]!r} has no stitches to work into")
             count = p["counts"][size]
