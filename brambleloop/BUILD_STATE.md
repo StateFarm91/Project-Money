@@ -1,3 +1,20 @@
+> **2026-11-20 — ENG-ESTIMATE-CLAIMS (`eng/estimate-claims` from eng/colourwork b098fcce, NOT merged, NOT deployed;
+> production unchanged).** D-OWNER-ESTIMATE-CLAIMS: production refused every listing with `gauge_and_size_claims:
+> no physical sample`, and no sample exists. With no passed sample bound to the content, the area now PASSES only
+> when both PDFs, the listing copy and every alt text state each gauge and size claim as a calculated estimate
+> (`gates/estimate_claims.py`): every finished figure is within 10% of a twin figure and every gauge equals the CIR's
+> gauge; every size claim carries estimate language, and the PDFs and copy carry the note "Measured gauge not yet
+> verified on a physical sample; finished size is calculated from the stated gauge. Check your gauge."; nothing
+> implies a measurement ("measures", "tested", "as pictured"). Any breach is FAIL; an unreadable surface or no
+> listing stays UNRESOLVED. Writers: `publish.pdf` (cover, at-a-glance, schematic, gauge section) and
+> `commerce.seo.build_description(size_is_estimate=not twin.calibrated)`. NOT changed: child-safety physical
+> evidence (a product `gates.child_safety` needs a physical test for stays UNRESOLVED here), sample-photo truth,
+> listing tester claims, and the measured path when a sample is bound. Honest gaps: spec 07 (the template PDF the
+> decision cites) is not in the repository; the decision quotes the brief. `cir/writer.py`'s "Block the finished
+> piece to N cm" instruction is accepted without an estimate word (an instruction, not a measurement claim;
+> figures still checked) because changing it would change every release hash. No production listing was re-run.
+> Results: `research/final_build/w6/review_requests/ENG-ESTIMATE-CLAIMS.md`.
+
 > **2026-11-20 — ENG-DAILY-FIX (`eng/daily`, NOT merged, NOT deployed; production unchanged).** Fixes every Unit B
 > finding of the independent review of a795be17 (BLOCK). Merged `origin/claude/w6-INTEG4` (259e47c4) first, so
 > learn and improve with `improve.ecr` are present; change requests now go through `ecr.file`. (1) BLOCKER: a
