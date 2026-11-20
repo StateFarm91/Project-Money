@@ -70,7 +70,7 @@ def pebble_friend() -> CIR:
                                    colorway="oat", color_id="oat"),
                           Material(name="worsted cotton", yarn_weight="worsted",
                                    colorway="sage", color_id="sage"),
-                          Material(name="black embroidery floss (face)"),
+                          Material(name="black cotton embroidery floss (face)"),
                           Material(name="polyester fibrefill")],
                components=comps, assembly=assembly)
 

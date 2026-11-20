@@ -353,16 +353,13 @@ def test_family_amigurumi_needs_the_child_safety_gate_or_it_blocks():
         assert "child-safety" in e.reason
     else:
         raise AssertionError("an amigurumi PDF without child-safety text")
-    # with it, a fixture whose twin cannot state a finished size blocks with that reason
-    try:
-        T.build_template_pdf(sphere, childrens=("amigurumi_toy", ch.UNDER_3),
-                             released_on=RELEASED, gallery=list(_gallery()))
-    except T.TemplateBlocked as e:
-        # its circumference is stated (size_text); the child-safety statement still needs a
-        # width x height the twin refuses for a closed stuffed form, so it blocks there
-        assert "finished size" in e.reason or "finished_size_cm" in e.reason, e
-    else:
-        raise AssertionError("an amigurumi PDF with no finished size")
+    # with it, a closed stuffed form states the circumference its twin derives (ENG-PLUSH,
+    # base) in the child-safety text: the size is printed, never left empty
+    doc = T.build_template_pdf(sphere, childrens=("amigurumi_toy", ch.UNDER_3),
+                               released_on=RELEASED, gallery=list(_gallery()))
+    text = P.extracted_text(doc.pdf_bytes)
+    assert "intended for children under 3" in text, text[:400]
+    assert "around its widest round" in text and "finishing at  at" not in text
 
 
 def test_family_pillow_has_its_cover_variant():
@@ -466,15 +463,33 @@ def test_yarn_is_every_pieces_not_the_first_components():
     assert abs(total - every) < 0.5 and total > first * 1.2, (first, every, total)
 
 
-def test_a_stuffed_toy_blocks_on_the_child_safety_size_it_cannot_state():
+def test_a_stuffed_toy_states_the_size_it_can_or_blocks_never_an_empty_size():
+    """ENG-PLUSH (base): a closed stuffed toy states its circumference, the size its twin can
+    derive, in place of a width x height it refuses. The child-safety text must carry that
+    size; it is never rendered with an empty one (FIX-B18)."""
     F = _ami()
+    doc = T.build_template_pdf(F.pebble_friend(), released_on=RELEASED,
+                               gallery=T.test_double_gallery(), childrens=F.CHILDRENS)
+    text = P.extracted_text(doc.pdf_bytes)
+    assert "The age band is stated here" in text
+    assert "finishing at about" in text and "around its widest round" in text, text[:400]
+    assert "finishing at  at" not in text and "finishing at at" not in text
+    # With no size the twin can state at all, it still blocks in notes.
+    orig = P.childrens_facts
+
+    def no_size(cir, twin, audience):
+        import dataclasses as _dc
+        return _dc.replace(orig(cir, twin, audience), finished_size_cm=None, size_text="")
+    P.childrens_facts = no_size
     try:
         T.build_template_pdf(F.pebble_friend(), released_on=RELEASED,
                              gallery=T.test_double_gallery(), childrens=F.CHILDRENS)
     except T.TemplateBlocked as e:
         assert e.section == "notes" and "finished_size_cm" in str(e), e
     else:
-        raise AssertionError("a closed stuffed toy rendered child-safety text without a size")
+        raise AssertionError("a stuffed toy rendered child-safety text with no size at all")
+    finally:
+        P.childrens_facts = orig
 
 
 def _ami_doc():
