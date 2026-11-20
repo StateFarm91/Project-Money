@@ -501,7 +501,8 @@ UPSTREAM_INPUTS: dict[str, tuple[str, ...]] = {
     "intel.benchmark_shopping": ("intel.watchlist_scan", "mjs.scan"),
     # (not intel.watchlist_compare: it reports work_done=1 on every run, changed or not)
     "radar.concept_intake": ("research.investigate", "intel.opportunity_review",
-                             "intel.watchlist_scan"),
+                             "intel.watchlist_scan", "radar.concept_pool"),
+    "radar.concept_pool": ("intel.watchlist_scan", "research.investigate"),
 }
 
 
@@ -663,7 +664,7 @@ FREE_JOB_TYPES: frozenset[str] = frozenset({
     "ops.provenance_backfill", "ops.provider_credentials", "ops.queue_check", "ops.retention",
     "ops.sentinel", "ops.slo", "ops.thrash", "physical.upgrade_impact", "plan.cycle",
     "plan.strategy", "policy.activation_schedule", "policy.issuer_shadow", "policy.stop_watch",
-    "portfolio.review", "radar.competitor_snapshot", "radar.concept_intake", "radar.scan",
+    "portfolio.review", "radar.competitor_snapshot", "radar.concept_intake", "radar.concept_pool", "radar.scan",
     "research.sweep", "scale.trajectory", "seo.cycle", "store.draft_reconcile",
     "store.live_drift", "storefront.review", "support.triage", "swarm.allocate",
     "swarm.backlog", "swarm.orphans", "swarm.review", "teardown.enforce",
@@ -1226,6 +1227,7 @@ JOB_BANDS: dict[str, str] = {
     "intel.watchlist_compare": "benchmark_change",
     "intel.opportunity_review": "new_opportunity",
     "radar.concept_intake": "new_opportunity",
+    "radar.concept_pool": "new_opportunity",
     "culture.sweep": "benchmark_change",
     "creative.blind_review": "benchmark_change",
     # Unproven, possibly valuable.

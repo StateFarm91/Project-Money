@@ -19,7 +19,7 @@
 // ENG-FIRSTLIST: approvals.js threads the preview digest into approvals; merged after S4's
 // v30/v31 (INTEG2), so v32 supersedes both shells.
 // ENG-CATALOGUE fix2 (catalogue view) merged after research-flow v35, so v36.
-const VERSION = "cc-shell-v36";
+const VERSION = "cc-shell-v37";
 const SHELL = [
   "./",
   "index.html",

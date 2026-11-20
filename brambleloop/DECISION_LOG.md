@@ -2816,3 +2816,29 @@ Reversible by the owner.
 - **Refresh.** `intel.benchmark_shopping`, daily, CA$0, in `FREE_JOB_TYPES`, upstream inputs the two scan jobs (an unchanged day backs off). It calls `benchmark_refresh.refresh_shopping`, which stores one dated `benchmark.shopping` reading and keeps ONE owner card, "Buy N benchmark patterns, ≤ CA$X" (key `benchmark_shopping:set`; closed when nothing is left to buy).
 - **Safety.** No purchase path exists: the list makes no request and the Mission Control panel has no buy control. Reads listing metadata only. A purchased PDF goes only through `teardown.intake.receive`, which now accepts a listing from any watchlist shop (folder `<shop key>-<listing id>`, seller recorded) into the quarantined library (B-117). Status moves to bought, then intake done, from the BenchmarkProduct row.
 - **Not decided here.** Whether to buy, which picks, and the contingency factor beyond the owner's 1.158. Reversible by removing the cadence.
+
+**D-ENG-CONCEPTS-100: the concept pool is generated at scale from scan evidence, in our own words, and admitted only through intake (ENG-CONCEPTS-100, 2026-11-20).** P0 item 4 asked for 100+ evidence-backed ORIGINAL concepts, replenished continuously. `radar/concept_pool.py` is the generator; `radar.concept_pool` is its 6-hourly CA$0 cadence.
+- **Evidence.** A demand signal is the fresh (30 days) watchlist listing rows behind a lane: a demand facet read from listing titles (baby, stuffed animal, pillow, garment, basket, colourwork), or the pod. At least 2 listings. Concepts cite listing rows by id only. No title, tag, description, photo or instruction of a listing is stored on a concept or reaches a proposal. B-117 is untouched: the quarantined library is never opened.
+- **Grammar.** A lane is (category, declared form, construction, demand). Each lane has its own motifs, uses and contexts, written in the closed vocabulary. A variant pairs motif i with use i and the first context that keeps it ORIGINAL against everything already kept. A variant with no original context is refused as the clone it is.
+- **Gates reused, never restated.**
+  - #108 qualifiers are derived by `creative.intake.qualifiers_for`.
+  - `honesty_reasons` refuses a premise whose words declare a qualifier its construction does not earn.
+  - The family comes from `construction_families.route`.
+  - The novelty floor is `prospecting.MIN_NOVELTY`, measured with `creative.concept.distance` against the catalogue, approved intake rows and the pool itself.
+  - Copy refusal works on an exact competitor title, a title restating its specific words (Jaccard 0.8 or more), a POOL title (intake's 0.5 rule), or a twin of an observed listing.
+- **Holds.** Families that are not certified, and generic forms with no earned qualifier, are HELD with the reason and never deleted. A concept no fresh signal supports becomes STALE, with a reason, and is kept.
+- **Owner weighting** (D-OWNER-CORE-FAMILIES).
+  - Weights: MadelineMaeCo x1.5; baby, stuffed animal and pillow lanes x1.5; garment, basket and colourwork x1.25.
+  - Higher-priority lanes claim novelty first.
+  - Research requests list MadelineMaeCo-backed arenas first.
+- **Admission and spend.**
+  - Generation spends nothing.
+  - A READY concept is attached as a proposal to the answered research task behind its arena's validated watchlist gap, and `radar.intake` judges it on its own checks.
+  - Admissions are bounded by three limits:
+    - 5 per run;
+    - the CA$100 month, less what has been spent and what is reserved;
+    - 10% of the ceiling per month for the pool.
+  - Each admission is costed at 2 x `vision.per_image_estimate_cad`.
+  - If the cost cannot be estimated, or the ledger cannot be read, nothing is admitted.
+
+Reversible by decision (remove the cadence; the pool table only informs).

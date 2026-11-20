@@ -371,6 +371,39 @@ def handle_opportunity_review(ctx: JobContext) -> dict:
             "work_done": out["work_done"]}
 
 
+# ---- ENG-CONCEPTS-100: the evidence-backed concept pool -----------------------------------
+
+@handlers.register("radar.concept_pool")
+def handle_concept_pool(ctx: JobContext) -> dict:
+    """Replenish the concept pool from the watchlist scan evidence (`radar.concept_pool`).
+
+    Deterministic, no model call, no network, CA$0: every validated demand signal becomes
+    several ORIGINAL concepts (premise and #88 storyboard, #108 qualifiers derived by
+    `creative.intake.qualifiers_for`, construction family by `construction_families.route`,
+    size range, evidence refs). Clones and copies are refused; families that are not
+    certified are HELD with the reason and kept. READY concepts are attached to their arena's
+    answered research task, bounded by `concept_pool.admission_allowance` (per run, the
+    monthly ceiling less spend and reservations, the pool's share), and `radar.concept_intake`
+    judges them. `work_done` counts new, changed, stale and admitted concepts, so an unchanged
+    day backs off.
+    """
+    from ..radar import concept_pool
+
+    out = concept_pool.replenish(ctx.db, audit=ctx.audit)
+    counts = out["health"]["counts"]
+    ctx.audit("radar.concept_pool", detail={
+        "candidates": out["candidates"], "new": len(out["new"]), "changed": len(out["changed"]),
+        "stale": len(out["stale"]), "admitted": out["admitted"],
+        "allowance": {k: (out["allowance"] or {}).get(k) for k in ("units", "binding")},
+        "counts": counts})
+    return {"candidates": out["candidates"], "new": len(out["new"]),
+            "changed": len(out["changed"]), "stale": len(out["stale"]),
+            "admitted": out["admitted"], "counts": counts, "network_calls": 0,
+            "spend_cad": 0.0,
+            "work_done": len(out["new"]) + len(out["changed"]) + len(out["stale"])
+            + len(out["admitted"])}
+
+
 # ---- W5-CONCEPT: evidence-backed concept intake -------------------------------------------
 
 @handlers.register("radar.concept_intake")

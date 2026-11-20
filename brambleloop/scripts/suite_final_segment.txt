@@ -26,6 +26,7 @@ tests/test_cert_residue.py
 tests/test_chaos.py
 tests/test_childrens.py
 tests/test_commerce.py
+tests/test_concepts100.py
 tests/test_cost_consumer_basis.py
 tests/test_cost_governance_wave2.py
 tests/test_culture.py

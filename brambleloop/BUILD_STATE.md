@@ -10,6 +10,24 @@
 >   - The listing-package preparation path that a publication-only policy hold still stops (`_judge_search_hero`'s
 >     listing-set issuance) is slice 2.
 
+> **2026-11-20 — ENG-CONCEPTS-100 slice 1 (`eng/concepts-100`, NOT reviewed, NOT merged, NOT deployed; production unchanged, SHADOW).** The concept pool: 100+ evidence-backed ORIGINAL concepts from the watchlist scans, replenished continuously (P0 item 4).
+> - **Built.** `radar/concept_pool.py` (D-ENG-CONCEPTS-100):
+>   - It generates concepts from 28 lanes (142 motif and use variants). The fixture run covers 15 construction families.
+>   - Each concept carries a premise, a #88 storyboard, #108 qualifiers derived by `qualifiers_for`, an honesty check, its family from `route`, a sourced size range and evidence refs to listing rows.
+>   - It refuses clones (novelty floor) and copies (exact or restated title, POOL title, listing twin).
+>   - Holds are kept with their reasons and never deleted.
+>   - Admission into intake is bounded by spend.
+>   - New cadence `radar.concept_pool` (6-hourly, CA$0, free, upstream inputs: the scans and `research.investigate`). The autonomy map was regenerated: 146 cadences, 178 handlers.
+>   - P0 board section `concept_pool`; SW `cc-shell-v37`.
+> - **Fixture result, NOT production.** On synthetic scans of three shops: 115 evidence-backed concepts. 19 are ready, in four lanes: cushion, storage basket, tapestry basket and wall panel. 96 are held and 7 refused. All 19 READY concepts pass `radar.intake.validate`.
+>   - The holds are honest. #108 holds plain-stripe generic forms (throws, baby blankets, runners, placemats, coasters, dishcloths, scarves, pet mats). The family holds cover amigurumi, garments, hats, mosaic, c2c, granny, cable, tote, triangle, stocking and ornament.
+> - **Not verified / open.**
+>   - The real pool size is UNKNOWN until the cadence runs on production scan data.
+>   - A READY concept is admitted only where an answered research task stands behind a validated watchlist gap in its pod. Elsewhere it waits, and the pod is listed under research requests, MadelineMaeCo-backed first. The pool does not open research tasks itself.
+>   - Pool cushions are physical-gated: certification withholds them for the class-C sample.
+>   - Every admitted concept still WAITS on `image_vision` at the pre-engineering gate, so engineered is 0 until a vision verdict exists.
+> - Tests: `tests/test_concepts100.py`, 14 tests; 14 of 14 mutants killed. Review request: `research/final_build/w6/review_requests/concepts100_slice1.md`.
+
 > **2026-11-20 — ENG-BENCHBUY (`eng/benchbuy`, NOT merged, NOT deployed; production unchanged, SHADOW).** The benchmark shopping list across all nine watchlist shops.
 > - **Built.** `purchase_selection.shopping_list`: pattern digital downloads only, quota 3 per shop (MadelineMaeCo 5), capability-gap facet then owner-demand facet (baby, stuffed animal, pillow), favourites as a tie-break only, no pick without a new facet. Budget in code: `SET_BUDGET_CAD` less recorded BenchmarkProduct spend, every price at x1.158. Owned items (both MJ benchmarks, any BenchmarkProduct) never offered. Empty or never-scanned shops are listed with their reason; no scan data is UNKNOWN.
 > - **Wiring.** New daily loop `intel.benchmark_shopping` (free, after the scans, thrash/backoff via upstream inputs; autonomy_map regenerated, 144 cadences / 176 handlers). Mission Control: Insights tab gets the "Benchmark shopping list" panel grouped by shop, plus one owner card "Buy N benchmark patterns, ≤ CA$X". `sw.js` untouched.

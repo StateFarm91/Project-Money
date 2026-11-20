@@ -362,6 +362,12 @@ def sources() -> tuple[dict, ...]:
         _src("concept_intake", "concept intake (proposal writer -> intake -> radar.score)",
              "market_radar", "radar.concept_intake", "stored rows; no network",
              kind="analysis"),
+        # ENG-CONCEPTS-100: the evidence-backed concept pool (scan rows -> original concepts).
+        _src("concept_pool", "concept pool (scan evidence -> original concepts -> intake)",
+             "market_radar", "radar.concept_pool", "stored rows; no network", kind="analysis"),
+        # ENG-BENCHBUY's loop, registered here (it was missing from the registry on INTEG3).
+        _src("benchmark_shopping", "benchmark shopping list (nine shops)", "market_radar",
+             "intel.benchmark_shopping", "stored rows; never buys", kind="analysis"),
         _src("research_sweep", "Research Agent sweep", "research_agent", "research.sweep",
              "stored rows; enqueues research.investigate", kind="analysis"),
         _src("research_fetch", "allow-listed public reference fetch (gov, Wikipedia, "
