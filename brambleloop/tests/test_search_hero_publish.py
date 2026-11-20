@@ -73,6 +73,10 @@ from tests.fake_etsy import FakeEtsy  # noqa: E402
 import _owner_grant; _owner_grant.scoped_owner_approvals()  # noqa: E402,E702  (WS4-0a)
 
 SLUG = "cloudline-baby-blanket"
+# A product whose disclosed set certifies the complete gallery (D-OWNER-GALLERY-COMPLETE); the
+# blanket's set certifies 6 of the 7 frames and is rightly blocked from publish (b18-a A-1).
+FULL_SLUG = "housewarming-key-basket"
+FULL_CATEGORY = "basket"
 OWNER_TOKEN = "fixture-owner-publication-credential-32+"
 _BUILT: dict = {}
 
@@ -101,12 +105,6 @@ def _run(db, agent: str, job_type: str, inputs: dict, *, phase=Phase.SHADOW) -> 
         row = s.get(Job, job.id)
         s.expunge(row)
         return row
-
-
-# The product whose disclosed set plus verified supplements certifies the complete gallery
-# (D-OWNER-GALLERY-COMPLETE); the blanket's certifies six frames and is refused before Etsy.
-FULL_SLUG = "housewarming-key-basket"
-FULL_CATEGORY = "basket"
 
 
 def _chain(slug: str = SLUG, category: str = "baby_blanket"):
@@ -235,9 +233,6 @@ def _creates(fake) -> list:
 # ---------------------------------------------------------------------------- the merits
 
 def test_certify_assets_seo_grant_publish_creates_exactly_one_draft_with_no_forced_verdict():
-    # Review b18-a A-1: D-OWNER-GALLERY-COMPLETE refuses a gallery below CAMPAIGN_MIN_FRAMES,
-    # so the draft is driven with the product whose disclosed set certifies the complete
-    # gallery (as test_visual_factory_e2e does); the 6-frame blanket is asserted blocked below.
     path, version, rh = _chain(FULL_SLUG, FULL_CATEGORY)
     db = Database(f"sqlite:///{path}")
     row = _profile(db, FULL_SLUG)
@@ -287,15 +282,19 @@ def test_certify_assets_seo_grant_publish_creates_exactly_one_draft_with_no_forc
     assert grant
     db.engine.dispose()
 
-    # The 6-frame blanket stays blocked: its certified gallery is incomplete.
-    from brambleloop.visual.shot_plans import CAMPAIGN_MIN_FRAMES
-
-    bpath, bversion, brh = _chain()
-    bdb = Database(f"sqlite:///{bpath}")
-    blanket = etsy_ops.certified_frames(bdb, SLUG, bversion, release=brh)
-    assert 0 < len(blanket["frames"]) < CAMPAIGN_MIN_FRAMES, blanket
-    assert any(str(p).startswith("gallery incomplete") for p in blanket["problems"]), blanket
-    bdb.engine.dispose()
+    # The 6-frame blanket is the same chain with an incomplete gallery: it stays blocked.
+    path, version, rh = _chain()
+    db = Database(f"sqlite:///{path}")
+    with FakeEtsy() as fake, _owner_and_fake(fake):
+        _grant(db, version, rh)
+        job = _run(db, "store_operator", "store.publish",
+                   {"slug": SLUG, "version": version, "release": rh},
+                   phase=Phase.LIMITED_PRODUCTION)
+        out = job.outputs or {}
+        assert out.get("published") is not True and out.get("blocked") is True, out
+        assert any("gallery incomplete" in r for r in out.get("reasons") or []), out
+        assert _creates(fake) == [], [r["operation"] for r in fake.requests]
+    db.engine.dispose()
 
 
 # ---------------------------------------------------------------------------- refusals

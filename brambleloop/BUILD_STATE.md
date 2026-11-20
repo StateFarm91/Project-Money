@@ -1,8 +1,8 @@
 > **2026-11-20 — ENG-VIS-GALLERY image-admission fix (`eng/vis-gallery`; review request `w6/review_requests/FIX-IMAGE-ADMISSION.md`; NOT integrated, NOT deployed).**
 > - **D-MAIN-IMAGE-ADMISSION (main's decision):** `gauge_and_size_claims` and `etsy_remote_state` are publish-time / store-wide gates. They are named in an explicit allow-list, `release_gates.PUBLISH_TIME_AREAS`, and read from the structured `area`, never from the text. A release whose only blockers are image ones plus these two is ADMITTED for paid images. Both gates still block publishing. Any other non-image blocker still prevents admission.
 > - Tests: `test_vis_gallery_e2e` test_10 to test_13. test_9 now adds a real LISTING_PRICE_NOT_PLAN gate. Three allow-list mutants were all killed.
-> - **Review b18-a A-1 fixed:** `test_search_hero_publish`'s publish test now runs on the complete-gallery key basket. The 6-frame blanket is asserted still `gallery incomplete`.
-> - Merged eng/colourwork @ b098fcce (production Batch 17). The docs and retention.py were merged as the union of both sides. autonomy_map.json was regenerated: 149 cadences, 181 handlers.
+> - **Review b18-a A-1:** fixed by the concurrent commit 46c1b0c on this branch (publish test on the complete-gallery key basket; the 6-frame blanket's store.publish stays blocked `gallery incomplete`). My equivalent fix was merged onto it, keeping 46c1b0c's version.
+> - Batch 17 (eng/colourwork @ b098fcce) merged; the concurrent merge 3ab2441 on this branch was merged in too, with identical resolutions (docs and retention.py as unions). autonomy_map.json regenerated (149 cadences / 181 handlers).
 > - **Honest status:** production still has 0 generated galleries. With FLUX activated, Launch-0 releases with no other non-image blocker would now be admitted, so image spend becomes possible, within the unchanged ceilings.
 
 > **2026-11-20 — ENG-VIS-GALLERY fix round (review request: `w6/review_requests/ENG-VIS-GALLERY-FIX.md`; fixes tested at c8d534bb, 371 passing, 0 failing suites) (review b17-c Unit A; `eng/vis-gallery` merged with claude/w6-INTEG6 dde3ea62 and eng/gallery-complete; NOT integrated, NOT deployed).**
