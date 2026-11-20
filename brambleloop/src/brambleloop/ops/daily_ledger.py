@@ -95,6 +95,10 @@ class _Src:
         self.basis, self.pruned_after_days = basis, pruned_after_days
         self.counts: dict[str, float] = {}
         self.ids: dict[str, list[str]] = {}
+        # Days the source actually measured; None means every observed day was measured.
+        # A day outside it is UNKNOWN (with `unmeasured_why`), never a 0.
+        self.measured_days: set[str] | None = None
+        self.unmeasured_why: str = "the source did not measure this day"
 
     def add(self, at, n: float = 1, ident: str | None = None):
         d = _day(at)
@@ -198,10 +202,22 @@ def _metrics(db, since, now) -> dict[str, _Src]:
         from ..core.models import OperatingReading
         from .flow_health import SUPPLY_STALL_KIND
 
-        src = _Src("radar.supply_stall readings: concepts held, by reading time", None)
+        # A stall reading is written only when a scan found a stall, so a day with no
+        # completed radar.scan has no reading either way: it is UNKNOWN, never 0 held
+        # (review of a795be17, Unit B finding 3). The scan days come from Job rows, so the
+        # horizon is the job retention horizon.
+        src = _Src("radar.supply_stall readings: concepts held, by reading time; 0 when a "
+                   "completed radar.scan found supply, UNKNOWN when no radar.scan completed",
+                   _job_days())
+        src.measured_days = {d for (f,) in s.execute(select(Job.finished_at).where(
+            Job.job_type == "radar.scan", Job.status == JobStatus.DONE,
+            Job.finished_at >= since)) if (d := _day(f))}
+        src.unmeasured_why = "no radar.scan completed this day"
         for at, p in s.execute(select(OperatingReading.at, OperatingReading.payload).where(
                 OperatingReading.kind == SUPPLY_STALL_KIND, OperatingReading.at >= since)):
             src.add(at, len((p or {}).get("held") or {}))
+            if (d := _day(at)):
+                src.measured_days.add(d)     # a stall reading is itself a measurement
         return src
 
     call(concepts, ("concepts_created", "concepts_approved", "concepts_refused"))
@@ -397,8 +413,11 @@ def _series(src, days: list[str], observed_from: date | None, now: datetime) -> 
         dd = date.fromisoformat(d)
         if observed_from is None or dd < observed_from:
             vals[d], why[d] = UNKNOWN, "before the first recorded job"
-        elif horizon is not None and dd < horizon:
+        elif horizon is not None and dd <= horizon:
+            # The horizon day itself is partly pruned, so it is UNKNOWN too (finding 5).
             vals[d], why[d] = UNKNOWN, "older than the source's retention horizon"
+        elif src.measured_days is not None and d not in src.measured_days:
+            vals[d], why[d] = UNKNOWN, src.unmeasured_why
         else:
             v = src.counts.get(d, 0)
             vals[d] = round(v, 2) if isinstance(v, float) else v
@@ -537,31 +556,66 @@ def _num(v):
     return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
 
 
-def zero_stages(led: dict, *, now: datetime) -> list[dict]:
-    """Stages at 0 today, or 0 over 24 h with a 13-day rate above 0; UNKNOWN is listed apart."""
+# A stage is zero-output only when, by this hour of the UTC day, its historical rate
+# expects clearly more than nothing and what it made is far below that (review of
+# a795be17, Unit B finding 2). Before that it is "not yet due": a reading, never DEGRADED.
+EXPECTED_MIN = 1.0          # expected count by now must be at least this
+FAR_BELOW = 0.2             # observed <= FAR_BELOW * expected counts as far below
+MIN_HOURS_INTO_DAY = 6      # the first six-hourly run of a UTC day never diagnoses
+NOT_YET_DUE = "not_yet_due"
+ZERO_OUTPUT = "zero_output"
+PRODUCING = "producing"
+
+
+def _day_fraction(led: dict, now: datetime) -> float:
+    start = datetime.combine(date.fromisoformat(led["days"][-1]), datetime.min.time(),
+                             tzinfo=timezone.utc)
+    return min(1.0, max(0.0, (now - start).total_seconds() / 86400))
+
+
+def stage_readings(led: dict, *, now: datetime) -> list[dict]:
+    """Every stage's reading today: zero_output, not_yet_due, producing or UNKNOWN."""
     days = led["days"]
     today, yesterday = days[-1], days[-2] if len(days) > 1 else None
-    frac = (now - datetime.combine(date.fromisoformat(today), datetime.min.time(),
-                                   tzinfo=timezone.utc)).total_seconds() / 86400
+    frac = _day_fraction(led, now)
     out = []
     for stage, metric, *_rest in STAGES:
         series = (led["metrics"].get(metric) or {}).get("days") or {}
         t = series.get(today, UNKNOWN)
-        if t == UNKNOWN:
+        if t == UNKNOWN or _num(t) is None:
             out.append({"stage": stage, "metric": metric, "today": UNKNOWN,
-                        "unknown": True})
+                        "status": UNKNOWN, "unknown": True})
             continue
         prior = [_num(series.get(d)) for d in days[:-1]]
         known = [p for p in prior if p is not None]
         rate = (sum(known) / len(known)) if known else None
+        expected = None if rate is None else rate * frac
         y = _num(series.get(yesterday)) if yesterday else None
         # The last 24 h: today, plus yesterday's share by the hour (an estimate, labelled).
         last24 = None if y is None else t + y * max(0.0, 1 - frac)
-        if t == 0 or (last24 == 0 and (rate or 0) > 0):
-            out.append({"stage": stage, "metric": metric, "today": t,
-                        "last_24h_estimate": None if last24 is None else round(last24, 2),
-                        "expected_per_day": None if rate is None else round(rate, 2)})
+        row = {"stage": stage, "metric": metric, "today": t,
+               "last_24h_estimate": None if last24 is None else round(last24, 2),
+               "expected_per_day": None if rate is None else round(rate, 2),
+               "expected_by_now": None if expected is None else round(expected, 2),
+               "hours_into_day": round(frac * 24, 2)}
+        if (frac * 24 >= MIN_HOURS_INTO_DAY and expected is not None
+                and expected >= EXPECTED_MIN and t <= FAR_BELOW * expected):
+            row["status"] = ZERO_OUTPUT
+        elif t > 0:
+            row["status"] = PRODUCING
+        else:
+            row["status"] = NOT_YET_DUE
+            row["why"] = ("no history to expect output from" if rate is None else
+                          f"{round(expected, 2)} expected by now, under {EXPECTED_MIN}"
+                          if expected < EXPECTED_MIN else
+                          f"under {MIN_HOURS_INTO_DAY} h into the UTC day")
+        out.append(row)
     return out
+
+
+def zero_stages(led: dict, *, now: datetime) -> list[dict]:
+    """The stages to diagnose: zero-output ones, and UNKNOWN ones listed apart."""
+    return [r for r in stage_readings(led, now=now) if r["status"] in (ZERO_OUTPUT, UNKNOWN)]
 
 
 def _top(rows) -> list[dict]:
@@ -644,8 +698,45 @@ def _causes(db, s, stage_def, led, *, now, suspended) -> list[dict]:
     return causes
 
 
-def _file_ecr(db, **kw) -> dict:
-    """ENG-IMPROVE's `improve.ecr.file` when it is present; else a pending request row."""
+def _fingerprint(defect_class: str, department: str, module: str) -> str:
+    """ENG-IMPROVE's fingerprint when present, else the same formula (so the two agree)."""
+    try:
+        from ..improve.ecr import fingerprint
+    except ImportError:
+        import hashlib
+
+        def fingerprint(c, d, m):
+            raw = f"{c.strip().lower()}|{d.strip().lower()}|{m.strip().lower()}"
+            return hashlib.sha256(raw.encode()).hexdigest()[:32]
+    return fingerprint(defect_class, department, module)
+
+
+def _pending_exists(db, artifact: str, fp: str, day: str) -> bool:
+    """A fallback `ops.ecr_pending` row for this fingerprint already filed on this UTC day."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    start = datetime.combine(date.fromisoformat(day), datetime.min.time(), tzinfo=timezone.utc)
+    with db.session() as s:
+        for (d,) in s.execute(select(AuditLog.detail).where(
+                AuditLog.action == ECR_PENDING, AuditLog.artifact == artifact,
+                AuditLog.at >= start, AuditLog.at < start + timedelta(days=1))):
+            if (d or {}).get("fingerprint") in (None, fp):
+                return True
+    return False
+
+
+def _file_ecr(db, *, day: str, now: datetime, filed: set[str] | None = None, **kw) -> dict:
+    """File through ENG-IMPROVE's `improve.ecr.file`; else a pending request row.
+
+    Deduplicated by fingerprint per stage per UTC day (review of a795be17, Unit B finding 2):
+    `filed` holds the fingerprints today's diagnosis row for this stage already filed, and
+    the fallback also checks for a pending row of the same fingerprint today, so a repeated
+    run neither adds a pending row nor inflates an open request's `occurrences`."""
+    fp = _fingerprint(kw["defect_class"], kw["department"], kw["module"])
+    if filed is not None and fp in filed:
+        return {"filed": False, "deduped": True, "fingerprint": fp}
     try:
         from ..improve import ecr
     except ImportError:
@@ -653,16 +744,20 @@ def _file_ecr(db, **kw) -> dict:
     if ecr is not None and hasattr(ecr, "file"):
         try:
             got = ecr.file(db, filed_by="ops.daily_ledger", **kw)
-            return {"filed": True, "id": got.get("id"), "created": got.get("created")}
+            return {"filed": True, "id": got.get("id"), "created": got.get("created"),
+                    "fingerprint": fp}
         except Exception as exc:  # noqa: BLE001 - recorded, the diagnosis still stands
-            return {"filed": False, "error_class": type(exc).__name__}
+            return {"filed": False, "error_class": type(exc).__name__, "fingerprint": fp}
     from ..core.models import AuditLog
 
+    artifact = f"ecr:{kw['defect_class']}:{kw['module']}"[:200]
+    if _pending_exists(db, artifact, fp, day):
+        return {"filed": False, "deduped": True, "pending": True, "fingerprint": fp}
     with db.session() as s:
-        s.add(AuditLog(actor="ops.daily_ledger", action=ECR_PENDING,
-                       artifact=f"ecr:{kw['defect_class']}:{kw['module']}"[:200],
-                       detail={"request": kw, "for": "improve.ecr.file"}))
-    return {"filed": False, "pending": True}
+        s.add(AuditLog(actor="ops.daily_ledger", action=ECR_PENDING, artifact=artifact, at=now,
+                       detail={"request": kw, "for": "improve.ecr.file", "fingerprint": fp,
+                               "day": day}))
+    return {"filed": False, "pending": True, "fingerprint": fp}
 
 
 def _cadence_for(job_type: str):
@@ -766,6 +861,20 @@ def diagnose(db, queue=None, *, now: datetime | None = None, act: bool = True,
     rows = []
     for z in zero_stages(led, now=now):
         d = defs[z["stage"]]
+        key = f"{led['today']}:{z['stage']}"
+        prior_payload = {}
+        if act:
+            from sqlalchemy import select
+
+            with db.session() as s:
+                prior_payload = dict(s.scalar(select(OperatingReading.payload).where(
+                    OperatingReading.kind == DIAG_KIND,
+                    OperatingReading.period_key == key)) or {})
+        prior_ecrs = [e for e in prior_payload.get("ecrs") or [] if isinstance(e, dict)]
+        filed_today = {e["fingerprint"] for e in prior_ecrs if e.get("fingerprint")
+                       and (e.get("filed") or e.get("pending"))}
+        # A change request needs the whole 24-hour window at zero, not the partial day.
+        window_zero = z.get("last_24h_estimate") == 0
         if z.get("unknown"):
             m = led["metrics"].get(z["metric"]) or {}
             causes = [{"kind": "unknown", "error_class": m.get("error_class"),
@@ -786,9 +895,10 @@ def diagnose(db, queue=None, *, now: datetime | None = None, act: bool = True,
                     got = _rearm(db, queue, c["job_type"], now=now)
                     if got:
                         actions.append(got)
-                    else:
+                    elif window_zero:
                         ecrs.append(_file_ecr(
-                            db, defect_class="failing_loop",
+                            db, day=led["today"], now=now, filed=filed_today,
+                            defect_class="failing_loop",
                             department=_department(c["job_type"]), module=c["job_type"],
                             title=f"{c['job_type']} suspended while {z['stage']} produced 0",
                             problem=f"The thrash breaker holds {c['job_type']} "
@@ -806,9 +916,10 @@ def diagnose(db, queue=None, *, now: datetime | None = None, act: bool = True,
                     got = _reoffer(db, queue, now=now)
                     if got:
                         actions.append(got)
-                elif c["kind"] == "undiagnosed":
+                elif c["kind"] == "undiagnosed" and window_zero:
                     ecrs.append(_file_ecr(
-                        db, defect_class="missing_capability", department="engineering",
+                        db, day=led["today"], now=now, filed=filed_today,
+                        defect_class="missing_capability", department="engineering",
                         module=f"ops.daily_ledger:{z['stage']}",
                         title=f"{z['stage']} produced 0 with no recorded cause",
                         problem="The daily ledger reads 0 and no suspension, empty queue, "
@@ -825,7 +936,6 @@ def diagnose(db, queue=None, *, now: datetime | None = None, act: bool = True,
         if act:
             from sqlalchemy import select
 
-            key = f"{led['today']}:{z['stage']}"
             with db.session() as s:
                 row = s.scalar(select(OperatingReading).where(
                     OperatingReading.kind == DIAG_KIND, OperatingReading.period_key == key))
@@ -834,7 +944,10 @@ def diagnose(db, queue=None, *, now: datetime | None = None, act: bool = True,
                                            at=now))
                 else:
                     prior = list((row.payload or {}).get("actions") or [])
-                    row.payload = {**payload, "actions": prior + actions}
+                    kept = [e for e in prior_ecrs if e.get("filed") or e.get("pending")]
+                    fresh = [e for e in ecrs if not e.get("deduped")]
+                    row.payload = {**payload, "actions": prior + actions,
+                                   "ecrs": kept + fresh}
         rows.append(payload)
     return {"day": led["today"], "diagnosed": rows,
             "zero_stages": [r["stage"] for r in rows],
@@ -873,7 +986,9 @@ def run(ctx) -> dict:
     diag = diagnose(ctx.db, ctx.queue, now=now, led=led)
     return {"recorded": led["today"], "zero_stages": diag["zero_stages"],
             "diagnosed": len(diag["diagnosed"]), "actions_taken": diag["actions_taken"],
-            "ecrs": sum(len(r["ecrs"]) for r in diag["diagnosed"])}
+            "ecrs": sum(1 for r in diag["diagnosed"] for e in r["ecrs"] if not e.get("deduped")),
+            "ecrs_deduped": sum(1 for r in diag["diagnosed"] for e in r["ecrs"]
+                                if e.get("deduped"))}
 
 
 # ---- projections ------------------------------------------------------------------------
@@ -888,7 +1003,9 @@ def panel(db, *, now: datetime | None = None) -> dict:
         diag = {"error_class": type(exc).__name__}
     preview = diagnose(db, None, now=now, act=False, led=led)["diagnosed"]
     return {"tab": "DAILY", "read_only": True, "ledger": led, "diagnoses": diag,
-            "live_zero_stages": preview}
+            "live_zero_stages": preview, "stage_readings": stage_readings(led, now=now),
+            "rule": {"expected_min": EXPECTED_MIN, "far_below": FAR_BELOW,
+                     "min_hours_into_day": MIN_HOURS_INTO_DAY}}
 
 
 def readback(db, *, now: datetime) -> dict:
@@ -908,4 +1025,6 @@ def readback(db, *, now: datetime) -> dict:
                                         "attempted", "succeeded")} for r in shops]
     return {"readable": True, "days": led["days"], "observed_from": led["observed_from"],
             "metrics": metrics, "shops": shops,
-            "zero_stages_today": [z["stage"] for z in zero_stages(led, now=now)]}
+            "zero_stages_today": [z["stage"] for z in zero_stages(led, now=now)],
+            "stage_status_today": {r["stage"]: r["status"]
+                                   for r in stage_readings(led, now=now)}}

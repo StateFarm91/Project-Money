@@ -61,6 +61,9 @@ DEFAULT_AGENTS: list[dict] = [
                             "seasonal.harvest",
                             # #92 / #95 / #180 / #190: sandbox trials and the challenger league.
                             "improve.sandbox", "improve.league",
+                            # ENG-IMPROVE: champion/challenger judging, the department
+                            # loop table and engineering change requests (no code edits).
+                            "improve.self_tune",
                             # #34 thrash sweep; #33 #38 #131 #267 #286 #287 #289-#291 engine.
                             "ops.thrash", "seasonal.engine",
                             # ENG-DAILY: the daily production ledger and diagnosis.
@@ -88,7 +91,10 @@ DEFAULT_AGENTS: list[dict] = [
                             # #153-#161: teardown requirements enforced and routed.
                             "improve.replay", "teardown.enforce",
                             # v1.1 lane I (F-924): SLO evaluation and slo.* incidents.
-                            "ops.slo"],
+                            "ops.slo",
+                            # ENG-APPROVALS: owner-queue consolidation under the standing
+                            # authority (moves owner_actions rows; never signs or spends).
+                            "ops.owner_queue_consolidate"],
          authority=Authority.GREEN,
          daily_cost_ceiling_cad=3.0),
     dict(name="market_radar", description="Discovery, category, trend and seasonality scanning",
@@ -96,7 +102,7 @@ DEFAULT_AGENTS: list[dict] = [
                             # W5-CONCEPT: evidence-backed concept intake.
                             "radar.concept_intake",
                             # W4-INTELREC: the owner's permanent watchlist.
-                            "intel.watchlist_scan", "intel.watchlist_compare",
+                            "intel.watchlist_scan", "intel.watchlist_compare", "intel.benchmark_shopping",
                             "intel.opportunity_review",
                             "intel.acceptance",
                             "mjs.scan", "mjs.reviews", "etsy.probe", "intel.serp_capture",
@@ -1046,7 +1052,9 @@ DEFAULT_AGENTS.extend([
                             # OPUS2-P0: measured listing performance into routed lessons.
                             "improve.commercial_lessons",
                             # OPUS2-P0: knowledge gaps and reference recommendations.
-                            "learning.knowledge_gaps"],
+                            "learning.knowledge_gaps",
+                            # ENG-LEARN: pattern + commerce learning loops (DB only).
+                            "learning.loops"],
          authority=Authority.GREEN, daily_cost_ceiling_cad=0.0),
     dict(name="integration_steward",
          description="Integration: re-verifies the Etsy API surface, provider credentials "

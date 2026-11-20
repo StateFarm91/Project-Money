@@ -1,13 +1,3 @@
-// STORE (F-926; reorganised W4-STOREFRONT for the phone). Routes:
-//   #/store                    overview: launch readiness, owner decisions, visual catalogue,
-//                              storefront review, live-shop observation, technical evidence
-//   #/store/collection         the 8-product launch collection (Launch-0 + proposal)
-//   #/store/product/<slug>     one product: image, PDF previews, quality, listing, readiness
-//   #/store/listings           listing titles and prices with their basis (read-only)
-//   #/store/storefront         customer preview and what Etsy lets the shop control
-// Read-only everywhere except the existing live-shop observation (CSRF + nonce via api.js).
-// Images and PDFs are owner-session URLs; an unverified image is never requested or shown.
-// The preview opens as its own page: the edge sends frame-ancestors 'none', so no iframe.
 import { h, icon, safeUrl } from "../dom.js";
 import { api } from "../api.js";
 import { card, guardedAction, statusPill, freshness } from "../components.js";
@@ -43,8 +33,6 @@ function findPreview(data, s) {
 const ETSY_LABEL = { CONNECTED: "Connected", NOT_CONNECTED: "Not connected", UNKNOWN: UNKNOWN_TEXT };
 const price = (v) => (typeof v === "number" ? formatMoney({ value_cad: v, state: "MEASURED" }) : UNKNOWN_TEXT);
 const pill = (st, label) => statusPill(st === "OWNER_GATED" ? "PENDING" : st, label || st);
-// Launch status of a collection product. CAP-1 (owner, 2026-10-11) changed the cap 5 -> 8 as
-// configuration only: those products are in Launch-0 scope but not approved; gates pending.
 const CAP1_LABEL = "In Launch-0 scope (CAP-1); not approved: gates pending";
 function launchPill(p) {
   if (p.launch_status === "CAP1_SCOPE") return statusPill(p.on_customer_page ? "OK" : "DEGRADED", p.on_customer_page ? "CAP-1 · GATES PASS" : "CAP-1 · NOT APPROVED");
@@ -52,9 +40,6 @@ function launchPill(p) {
   return statusPill("OK", "LAUNCH-0");
 }
 
-// W4-SHOPSYNC: every live shop setting in one of three states. CONFIRMED-LIVE comes from a
-// read-only Etsy API reading; OWNER-CONFIRMED from the owner's one-tap confirmation (for what
-// the API cannot read), with the evidence already on file shown first; UNVERIFIED otherwise.
 const STATE_CLASS = { "CONFIRMED-LIVE": "callout-info", "OWNER-CONFIRMED": "callout-info", UNVERIFIED: "callout-warn" };
 
 function evidenceLines(ev) {
@@ -186,10 +171,6 @@ function controlsCard(cat) {
       h("ul", { class: "rows" }, (ctl.not_controlled || []).map((x) => h("li", { class: "row" }, h("p", { class: "row-title" }, x.element), h("p", { class: "row-detail" }, x.why))))));
 }
 
-// ---- section: Etsy connection (W4-ETSYCOMM) ---------------------------------------------------
-// The two Etsy-connection steps only the owner can take, from a phone. Re-check
-// queues a read-only ping of the app key; Connect (step-up) starts the shop authorization and
-// opens Etsy's own consent page. Neither changes scopes, credentials or the Etsy app.
 const ETSY_CONSENT_HOST = "www.etsy.com";
 
 function etsyCard(etsy, stale, rerender) {
@@ -218,8 +199,6 @@ function etsyCard(etsy, stale, rerender) {
         "Sign in as the account that owns the shop and press Allow. Nothing is published."],
       confirmLabel: "Continue to Etsy", requiresStepUp: true,
       run: () => api.etsyConnect(), success: "Opening Etsy..." });
-    // Navigate only to Etsy's own consent host: the URL is built server-side, but the phone
-    // checks it anyway rather than following whatever a response says.
     const url = r && safeUrl(r.authorize_url);
     let host = "";
     try { host = url ? new URL(url).hostname : ""; } catch (_) { host = ""; }
@@ -229,9 +208,6 @@ function etsyCard(etsy, stale, rerender) {
     ...lines, h("div", { class: "btn-row" }, recheck, connect));
 }
 
-// ---- section: live-shop observation (W4-STORE) -------------------------------------------------
-// The owner records what the live Etsy page shows, one field at a time. Nothing is written to
-// Etsy: the reading only feeds the drift check, whose repo proposals are ADOPT_LIVE_INTO_REPO.
 function observationCard(drift, stale, rerender) {
   const rows = drift && Array.isArray(drift.items) ? drift.items : [];
   if (!rows.length) return null;
@@ -268,7 +244,6 @@ function evidenceGroup(data, result) {
     h("div", { class: "stack" }, cards));
 }
 
-// ---- pages ------------------------------------------------------------------------------------
 
 function productPage(p, cat) {
   if (!p) return card({ title: "No such product", actions: statusPill("UNKNOWN") }, h("p", { class: "muted" }, "This product is not in the launch collection."));
@@ -346,9 +321,6 @@ function listingsPage(cat) {
 
 export async function render({ params = [], rerender } = {}) {
   const sub = params[0] || "";
-  // The first catalogue of a server process renders and checks eight pictures (tens of
-  // seconds); later ones are cached. The page does not wait on that: past CATALOGUE_WAIT_MS it
-  // renders with a "being prepared" card, and the request keeps warming the server cache.
   const catalogue = Promise.race([api.storeCatalogue(), new Promise((_, rej) => setTimeout(
     () => rej(Object.assign(new Error("the catalogue is still being prepared (pictures are rendered and checked on first load); refresh in a moment"), { preparing: true })),
     CATALOGUE_WAIT_MS))]);
@@ -379,12 +351,10 @@ export async function render({ params = [], rerender } = {}) {
     cat ? decisionsCard(cat, s) : null,
     cat ? card({ title: "Catalogue", labelId: "store-catalogue", subtitle: "Tap a pattern for its pictures, PDFs, quality and listing", actions: h("a", { class: "btn", href: "#/store/collection" }, "All 8") },
       catalogueGrid((cat.products || []).filter((p) => p.launch_status === "LAUNCH_0"))) : null,
-    // Overview sections, each self-contained (a later lane adds its own card here):
     previewCard(preview, cat),
     settingsCard(settings, result.stale, rerender || (() => {})),
     etsyCard(etsy, result.stale, rerender || (() => {})),
     observationCard(s.live_drift, result.stale, rerender || (() => {})),
-    // LAUNCHPREP E5: the owner's dated Shop Manager readings, from the phone (step-up).
     shopReadingsCard(rerender || (() => {}), { labelId: "store-shop-readings" }),
     evidenceGroup(data, result));
 }

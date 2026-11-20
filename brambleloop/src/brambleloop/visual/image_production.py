@@ -347,7 +347,11 @@ def record_candidate(db, cand: dict, verdict: dict, *, method: str, run: str = "
                        if cand.get("_generation_operation") else {}),
                     # the generator's conditioning receipt (references sent, proven), kept
                     # so a re-verification reads the same evidence (W-VISNEXT)
-                    "_identity_evidence": _receipt_summary(cand.get("identity_evidence"))},
+                    "_identity_evidence": _receipt_summary(cand.get("identity_evidence")),
+                    # ENG-LEARN: the scene the producer chose (room, camera, lighting), read
+                    # back by learning.image_lessons.harvest; never read by a gate.
+                    **({"_scene": {k: str(v)[:200] for k, v in cand["scene"].items()}}
+                       if isinstance(cand.get("scene"), dict) else {})},
             technical_status=tech,
             publishable=bool(verdict["publishable"]), outcome=outcome,
             failure_categories=list(verdict.get("failure_categories") or []),
@@ -1340,6 +1344,7 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                 "recommended_fix": _recommend(not_ready, view),
                 "owner_approval_is_not_technical_verification": True}
         card["campaign_consistency"] = view.get("campaign_consistency")
+        card["campaign_standard"] = view.get("campaign_standard")
         if exp is None and _controlled_of(db, key):
             from ..experiments import controlled as CX
             from . import experiment as XP
@@ -2028,6 +2033,12 @@ def readiness(db, listing: str, *, run_key_: str | None = None, plan: dict | Non
         roles.append(entry)
     set_check = el.check_set(set_cands) if set_cands else {"ok": False, "problems": [
         {"kind": "no_valid_frames"}]}
+    # ENG-VISUAL: the seven-frame campaign standard (shot_plans.CAMPAIGN_MIN_FRAMES). A plan
+    # below it is never gallery-ready, and its shortfall is a set-check problem.
+    standard = SP.campaign_standard(plan)
+    if not standard["ok"]:
+        set_check = {"ok": False, "problems": list(set_check["problems"])
+                     + list(standard["problems"])}
     consistency = CG.campaign_consistency(chosen) if chosen else CG._c(
         CG.NA, "no generated images yet")
     # F-226 (W4-C08): two Laura frames that are one photograph are copy-paste sameness, not a
@@ -2042,6 +2053,7 @@ def readiness(db, listing: str, *, run_key_: str | None = None, plan: dict | Non
         blockers.add(consistency["blocker"])      # I-V2-UNJUDGED-PAIRS
     return {"listing": listing, "category": plan["category"], "roles": roles,
             "image_count": plan["image_count"],
+            "campaign_standard": standard,
             "set_check": {"ok": set_check["ok"], "problems": set_check["problems"]},
             "campaign_consistency": consistency,
             "naturalism": sameness,
@@ -2049,8 +2061,10 @@ def readiness(db, listing: str, *, run_key_: str | None = None, plan: dict | Non
             "publication_blockers": sorted(blockers),
             "gallery_ready": all(e["status"].startswith(("disclosed", "publishable"))
                                  for e in roles) and bool(set_check["ok"])
-                             and consistency["status"] in (CG.PASS, CG.NA) and not ambiguous,
-            "basis": "visual.shot_plans.campaign_plan + candidate_gates + eligibility.check_set"}
+                             and consistency["status"] in (CG.PASS, CG.NA) and not ambiguous
+                             and standard["ok"],
+            "basis": "visual.shot_plans.campaign_plan + campaign_standard + candidate_gates + "
+                     "eligibility.check_set"}
 
 
 # ---- Command Center ---------------------------------------------------------------------

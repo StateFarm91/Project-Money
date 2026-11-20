@@ -34,6 +34,9 @@ SOURCES = ["jobs", "pattern_versions", "listings", "audit_log", "physical_tests"
 def reset() -> None:
     with _LOCK:
         _CACHE.update(at=0.0, data=None)
+    from ...products import production_inventory as pi
+
+    pi.reset_snapshot()
 
 
 def _env(name, fn, sources=None):
@@ -218,13 +221,18 @@ def _next_work(nw: dict) -> dict:
                               provider="production.next_work")
 
 
-def build(db) -> dict:
+def build(db, snap: dict | None = None) -> dict:
+    """`snap` is `production_inventory.snapshot(db)`, shared with the catalogue so a cold read
+    loads and derives the inventory once; without it (direct callers) it is loaded here."""
     from ...ops import flow_health
     from ...products import production_inventory as pi
 
     now = datetime.now(timezone.utc)
-    rec = pi.load_records(db)
-    inv = pi.derive(db, records=rec)
+    if snap is not None:
+        rec, inv = snap["rec"], snap["inv"]
+    else:
+        rec = pi.load_records(db)
+        inv = pi.derive(db, records=rec)
     fl = flow_health.flow(db, inventory=inv, records=rec, now=now)
     act = providers.guard("production.activity", lambda: flow_health.activity(db, now=now))
     sections = {
@@ -244,12 +252,26 @@ def build(db) -> dict:
             "gate_mode": inv["gate_mode"], "sections": sections}
 
 
+_BUILD_LOCK = threading.Lock()
+
+
 def view(db) -> dict:
     with _LOCK:
         if _CACHE["data"] is not None and time.monotonic() - _CACHE["at"] < TTL:
             return _CACHE["data"]
+    # Coalesce concurrent cold reads: one build, the rest wait and reuse it.
+    with _BUILD_LOCK:
+        with _LOCK:
+            if _CACHE["data"] is not None and time.monotonic() - _CACHE["at"] < TTL:
+                return _CACHE["data"]
+        return _view_cold(db)
+
+
+def _view_cold(db) -> dict:
+    from ...products import production_inventory as pi
+
     try:
-        data = build(db)
+        data = build(db, pi.snapshot(db))
     except Exception as exc:  # noqa: BLE001 - an unreadable inventory is UNKNOWN, never empty
         return {"tab": "PRODUCTION", "generated_at": providers.now_iso(), "status": "UNKNOWN",
                 "reason": f"production view could not be built: {type(exc).__name__}",

@@ -265,3 +265,85 @@ def _pod_of_query(query: str) -> str:
     from . import serp
 
     return next((t.get("pod") or "" for t in serp.target_queries() if t["query"] == query), "")
+
+
+# ---- ENG-BENCHBUY: the daily benchmark shopping list ----------------------------------------
+#
+# Weekly `assess` above notices that the market moved. This is the daily, standing counterpart:
+# after the shop scans it rebuilds the owner's shopping list across all nine watchlist shops
+# (`purchase_selection.shopping_list`), stores it as one dated reading, and keeps ONE
+# consolidated owner card, "Buy N benchmark patterns, <= CA$X". It reads rows only: no request,
+# no purchase, no spend. Buying and the upload of a purchased PDF stay with the owner, and the
+# PDF goes through the quarantined teardown intake only (B-117).
+SHOPPING_ACTION_KEY = "benchmark_shopping:set"
+
+
+def _pick_refs(listing: dict) -> list[str]:
+    return sorted(str(p["listing_ref"]) for p in listing.get("to_buy") or [])
+
+
+def refresh_shopping(db, *, today: date | None = None) -> dict:
+    """Rebuild the shopping list, store today's reading, keep one owner card in step."""
+    from sqlalchemy import select
+
+    from ..core.models import OperatingReading, OwnerAction
+    from ..ops import owner_queue
+    from . import purchase_selection as ps
+
+    today = today or datetime.now(timezone.utc).date()
+    prior = ps.previous_ledger(db)
+    listing = ps.shopping_list(db, ledger=prior)
+    before = sorted(str(p["listing_ref"]) for p in prior if p.get("status") == "to buy")
+    changed = before != _pick_refs(listing)
+
+    n = listing["to_buy_count"]
+    cost = listing["total_with_contingency_cad"]
+    card = {"state": "none", "key": SHOPPING_ACTION_KEY}
+    with db.session() as s:
+        open_row = s.scalar(select(OwnerAction).where(
+            OwnerAction.requirement_key == SHOPPING_ACTION_KEY,
+            OwnerAction.done == False))  # noqa: E712
+        if n > 0 and listing["status"] == "OK":
+            title = f"Buy {n} benchmark patterns, ≤ CA${cost:.2f}"
+            shops = listing["shops_with_picks"]
+            fields = dict(
+                reason=(f"Benchmark shopping list: {n} pattern PDFs across {shops} of "
+                        f"{listing['shops_total']} watchlist shops, chosen for the capability "
+                        f"gaps and owner-demand families they teach. CA${cost:.2f} includes the "
+                        f"x1.158 FX/tax contingency; CA${listing['budget']['remaining_cad']:.2f} "
+                        f"of the benchmark budget remains. Open Mission Control > Insights > "
+                        f"Benchmark shopping list for each title, URL, price and reason. "
+                        f"Upload each purchased PDF only through the teardown intake"),
+                max_cost_cad=cost, minutes=max(10, 3 * n),
+                consequence_of_delay=("the benchmark library keeps its current gaps (capability "
+                                      "and owner-demand families); the list is rebuilt daily"),
+                blocks="165,166",
+                why_software_cannot=("buying is consequential spend and a payment step; software "
+                                     "only prepares the list and never purchases"))
+            if open_row is None:
+                row = owner_queue.ensure(s, SHOPPING_ACTION_KEY, action=title, **fields)
+                card = {"state": "raised", "id": row.id, "action": title}
+            else:
+                # Our own derived card: restated exactly, the ceiling following the list down
+                # as well as up (the guard's never-lower rule is for owner-set ceilings).
+                open_row.action = title
+                for k, v in fields.items():
+                    setattr(open_row, k, v)
+                card = {"state": "restated", "id": open_row.id, "action": title}
+        elif open_row is not None:
+            owner_queue.close(open_row, owner_queue.WITHDRAWN,
+                              "no pattern is left to buy on the benchmark shopping list"
+                              if listing["status"] == "OK" else
+                              "scan data is missing, so the list is UNKNOWN")
+            card = {"state": "closed", "id": open_row.id}
+
+        payload = {"as_of": today.isoformat(), **listing, "changed": changed, "card": card}
+        row = s.scalar(select(OperatingReading).where(
+            OperatingReading.kind == ps.SHOPPING_KIND,
+            OperatingReading.period_key == today.isoformat()))
+        if row is None:
+            s.add(OperatingReading(kind=ps.SHOPPING_KIND, period_key=today.isoformat(),
+                                   payload=payload))
+        else:
+            row.payload = payload
+    return payload

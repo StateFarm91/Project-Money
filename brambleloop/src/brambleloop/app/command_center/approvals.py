@@ -246,6 +246,9 @@ def _gate_card(c: dict) -> dict:
     max_spend = c.get("max_spend_cad")
     return {
         "card_id": card_id, "kind": kind, "title": c.get("what") or c.get("action"),
+        # ENG-APPROVALS: the requirement the card stands for (the standing-authority batch
+        # classifies by it; `ops.owner_queue_consolidate.card_verdict`).
+        "requirement_key": rk or None,
         "proposed_action": c.get("action"),
         "recommendation": (f"Recommended when convenient: it un-parks {unblocks} parked "
                            f"requirement(s); nothing else waits on it" if unblocks else
@@ -584,10 +587,17 @@ def inbox(db) -> dict:
     from .providers import guard
 
     batches = guard("decision_batches", lambda: company_mod.owner_decision_batches(raw))
+    # ENG-APPROVALS (D-OWNER-STANDING-INTERNAL): the ONE concise owner batch -- only the
+    # genuine exceptions, grouped by class; everything covered by the standing authority is
+    # counted, never asked. Read-only: it signs, approves and publishes nothing.
+    from ...ops import owner_queue_consolidate as _oqc
+
+    exceptions = guard("owner_exceptions", lambda: _oqc.exception_batch(cards))
     return {"status": status, "reason": reason, "cards": cards, "open": len(cards),
             "release": release_mod.envelope_for(rc),
             # W4-OWNER: the consolidated decision packet, batch first.
             "decision_batches": batches,
+            "owner_exceptions": exceptions,
             # F-204 (K7): an empty queue is proven only by a fresh assessment + live gates.
             "empty_state": raw.get("empty_state"),
             "parked_owner_actions": raw.get("parked_owner_actions") or [],

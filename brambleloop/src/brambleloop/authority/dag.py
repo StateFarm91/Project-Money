@@ -278,13 +278,18 @@ def _set(db, key: str, *, state: str, reason: str, now: datetime, **fields) -> N
 def _raise_owner_action(s, w: WorkItem) -> None:
     from ..core.models import OwnerAction
 
+    from . import standing_internal
+
     rk = (w.inputs or {}).get("requirement_key") or f"dag:{w.key}"
+    text = (f"Approve {w.job_type} ({w.action_class}) for {w.department or 'company'}: "
+            f"{w.title or w.key}")[:900]
+    if standing_internal.closure_in_force(s, rk[:500]):
+        return            # closed by the standing authority and still covered: no re-raise
     if s.scalar(select(OwnerAction.id).where(OwnerAction.requirement_key == rk,
                                              OwnerAction.done == False)) is None:  # noqa: E712
         s.add(OwnerAction(
             requirement_key=rk[:500],
-            action=f"Approve {w.job_type} ({w.action_class}) for {w.department or 'company'}: "
-                   f"{w.title or w.key}"[:900],
+            action=text,
             reason=(f"{w.action_class} work needs the owner before it runs; only the work "
                     "that depends on it waits (F-702/F-721)"),
             max_cost_cad=float((w.inputs or {}).get("max_cost_cad") or 0.0), minutes=2,

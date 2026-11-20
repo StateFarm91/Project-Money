@@ -7505,6 +7505,29 @@ def handle_promotion_monitor(ctx: JobContext) -> dict:
             "waiting": len(out["waiting"]), "unchanged": len(out["unchanged"])}
 
 
+@handlers.register("improve.self_tune")
+def handle_self_tune(ctx: JobContext) -> dict:
+    """The self-improvement team's daily pass (ENG-IMPROVE, owner directive 2026-11-20).
+
+    Judges live champion/challenger trials of allowlisted tunables (promotion on a
+    statistically meaningful KPI gain, automatic rollback on regression), checks every
+    department's KPI -> lessons -> consumer loop, and files / verifies engineering change
+    requests. A change request is a row: production never edits or deploys code.
+
+    GREEN: reads rows, may change a tunable champion inside its declared bounds, writes
+    si_* / engineering_change_requests rows and audit records. Spends nothing.
+    """
+    from ..improve import self_improve
+
+    out = self_improve.cycle(ctx.db)
+    ctx.audit("improve.self_tune.cycle",
+              detail={k: out[k] for k in ("work_done", "trials_judged", "loops_closed",
+                                          "departments", "ecrs_filed", "ecrs_merged",
+                                          "ecrs_verified", "ecrs_reopened",
+                                          "parked_improve_loops")})
+    return out
+
+
 @handlers.register("improve.sandbox")
 def handle_improve_sandbox(ctx: JobContext) -> dict:
     """Take eligible proposals through a sandbox trial, test, judge, and promote or route (#92).
@@ -9191,9 +9214,36 @@ def handle_image_benchmark(ctx: JobContext) -> dict:
     # change, not a flag a caller can set.
     if image_bench.SUPERSEDED["superseded"]:
         rec = image_bench.superseded_record(ctx.db)
-        return {"ran": False, "superseded": True, "by": rec["by"], "why": rec["why"],
+        # ENG-LEARN: the provider benchmark's question ("which configuration makes frames that
+        # pass?") is now answered from production itself. Every judged frame is an
+        # observation, measured lessons are derived from them, and template challengers are
+        # promoted only on a significant first-pass or cost gain (`learning.image_lessons`).
+        # It reads this database only: nothing is rendered, judged or spent here. Until it ran,
+        # this branch returned the same superseded record every hour, so the thrash breaker
+        # parked it at 32x. Now its state changes exactly when new judged frames arrive, and
+        # `swarm.orchestrate.UPSTREAM_INPUTS` lifts the backoff when they do.
+        from ..learning import image_lessons
+
+        loop = image_lessons.cycle(ctx.db)
+        ctx.audit("learning.image_cycle", detail={
+            "observed": loop["harvest"]["observed"], "lessons": loop["lessons"]["lessons"],
+            "lessons_new": loop["lessons"]["new"],
+            "lessons_deactivated": loop["lessons"]["deactivated"],
+            "challengers": loop["challengers"]["registered"],
+            "promoted": [p["arm_id"] for p in loop["evaluation"]["promoted"]],
+            "demoted": [d["demoted"] for d in loop["evaluation"]["demoted"]],
+            "retired": [r["arm_id"] for r in loop["evaluation"]["retired"]]})
+        return {"ran": True, "superseded": True, "by": rec["by"], "why": rec["why"],
                 "evidence_retained": True, "record": rec["record"],
-                "work_done": 1 if rec["created"] else 0}
+                "image_learning": {
+                    "observed": loop["harvest"]["observed"],
+                    "lessons": loop["lessons"]["lessons"],
+                    "new_lessons": loop["lessons"]["new"],
+                    "challengers_registered": len(loop["challengers"]["registered"]),
+                    "promoted": len(loop["evaluation"]["promoted"]),
+                    "demoted": len(loop["evaluation"]["demoted"]),
+                    "retired": len(loop["evaluation"]["retired"])},
+                "work_done": (1 if rec["created"] else 0) + loop["work_done"]}
 
     # The approved benchmark budget as a stop, not as a number in a report. It was being
     # applied per run, so four runs each stayed inside a figure the owner approved once and

@@ -211,6 +211,17 @@ export const DATA = {
     customer_orders: env("UNKNOWN", [{ metric: "orders", value: null, state: "UNKNOWN", why: "order source not connected and read" }], { reason: "order source not connected and read" }),
     customer_support: env("OK", [{ metric: "cases", value: 2, state: "OWNER_RECORDED" }, { metric: "awaiting_reply", value: 1, state: "OWNER_RECORDED" }]),
     customer_reviews: env("UNKNOWN", [], { reason: "no review source is connected" }),
+    // ENG-BENCHBUY: the benchmark shopping list as the real tab emits it (grouped by shop).
+    benchmark_shopping: { status: "OK", as_of: ago(10), sources: ["benchmark_listings"],
+      owner_card: { id: 1, action: "Buy 2 benchmark patterns, ≤ CA$14.00", max_cost_cad: 14.0, minutes: 10 },
+      to_buy_count: 2, total_with_contingency_cad: 14.0, contingency_factor: 1.158,
+      budget: { ceiling_cad: 300, recorded_spend_cad: 0, remaining_cad: 300 },
+      no_auto_purchase: "nothing here buys anything; purchased PDFs go only through the quarantined teardown intake",
+      groups: [
+        { shop: "MadelineMaeCo", status: "PICKED", reason: "1 of 5 slots used", picks: [
+          { title: "Baby bear amigurumi pattern", url: "https://www.etsy.com/listing/111", price_cad: 6.0, price_with_contingency_cad: 6.95, teaches: "capability: amigurumi; owner-demand family: baby", answers: "closes a capability gap not yet covered: amigurumi", status: "to buy", listing_ref: "111" }] },
+        { shop: "ZKBDESIGNER", status: "EMPTY", reason: "12 listings scanned, none eligible: 12 not a digital download", picks: [] },
+        { shop: "IvyLoop", status: "UNKNOWN", reason: "no scanned listings are in the database for IvyLoop (scan state: unknown). Nothing is assumed about its catalogue", picks: [] }] },
   }),
   timeline: () => tab("TIMELINE", {}, { events: [
     { at: ago(30), kind: "job_completed", title: "SEO coverage refreshed", actor: "seo", source: "jobs:320", origin: "autonomy.status.timeline" },
@@ -294,12 +305,19 @@ export const DATA = {
       ledger: { days, today: "2026-11-20", unknown_rule: "UNKNOWN is never 0: unreadable source",
         metrics: { products_started: { days: { "2026-11-18": 2, "2026-11-19": 1, "2026-11-20": 0 }, basis: "cir.drafted audit rows" },
           certifications: { days: { "2026-11-18": "UNKNOWN", "2026-11-19": "UNKNOWN", "2026-11-20": "UNKNOWN" }, basis: null, error_class: "OperationalError" },
+          lessons_learned: { days: { "2026-11-18": 0, "2026-11-19": 1, "2026-11-20": 0 }, basis: "lessons by at" },
+          failures: { days: { "2026-11-18": 0, "2026-11-19": 0, "2026-11-20": 2 }, basis: "jobs DEAD" },
+          dead_letters: { days: { "2026-11-18": 1, "2026-11-19": 0, "2026-11-20": 0 }, basis: "dead letters" },
+          spend_cad: { days: { "2026-11-18": 0, "2026-11-19": 0.5, "2026-11-20": 0 }, basis: "cost entries" },
           "advanced:cir.draft": { days: { "2026-11-18": 1, "2026-11-19": 0, "2026-11-20": 0 }, basis: "cir.draft jobs DONE" } },
         shops: [{ owner_order: 1, alias: "anchor", registered: true, basis: "mjs.scan", succeeded: { "2026-11-18": 1, "2026-11-19": 1, "2026-11-20": 1 } }] },
       diagnoses: [{ stage: "products_started", today: 0, causes: [{ kind: "suspended", job_type: "cir.draft", why: "a loop spending without progress" },
         { kind: "gate_refusing", top_reasons: [{ reason: "pre_engineering_gate", count: 3 }] }],
         actions: [{ action: "reoffer", enqueued: true }], ecrs: [{ filed: false, pending: true }] }],
-      live_zero_stages: [] };
+      live_zero_stages: [],
+      stage_readings: [{ stage: "products_started", metric: "products_started", today: 0, status: "zero_output" },
+        { stage: "certifications", metric: "certifications", today: "UNKNOWN", status: "UNKNOWN", unknown: true },
+        { stage: "lessons", metric: "lessons_learned", today: 0, status: "not_yet_due", why: "0.3 expected by now, under 1.0" }] };
   },
   // S4b: the P0 board, as /api/cc/p0-board serves it (sections carry their own level).
   p0Board: (salesReading = "partial") => {
@@ -349,6 +367,23 @@ export const DATA = {
         blockers: run({ state: "OPEN", owner_actions: [{ id: 1, owner: "owner", action: "Approve the issuer service", requirement: "k", max_cost_cad: 2.35, minutes: 5, blocks: "standing grants", since: ago(120) }],
           incidents: [{ id: 2, owner: "system", severity: "P2", family: "dead-letter", product: null, halts_publication: false, since: ago(60) }] }),
         agents: run({ state: "OK", counts: { active: 3, idle: 5, failed: 0 }, agents: [] }),
+        // ENG-RESEARCH: the research sources section (review M1: health is derived server-side;
+        // a never-succeeded scheduled shop reads UNKNOWN, a failing one DEGRADED).
+        research_sources: run({ state: "DEGRADED", credential: "OK",
+          counts: { scheduled: 2, disabled: 0, blocked: 0, missing: 1 },
+          sources: [
+            { id: "bm-ok", kind: "shop", agent: "market_radar", job_type: "intel.watchlist_scan", method: "API", status: "scheduled", why: "every 6 h",
+              health: "OK", last_attempt: ago(30), last_success: ago(30), source_timestamp: ago(31), listings_observed: 12, changes_discovered: 1,
+              next_scan: ago(-60), consecutive_failures: 0, findings: 1, concepts: ["pillow-home-decor-gap-5"], engineering: [] },
+            { id: "bm-never", kind: "shop", agent: "market_radar", job_type: "intel.watchlist_scan", method: "API", status: "scheduled", why: "every 6 h",
+              health: "UNKNOWN", last_attempt: ago(30), last_success: null, source_timestamp: null, listings_observed: null, changes_discovered: null,
+              next_scan: ago(-60), consecutive_failures: 1, failure_class: "RuntimeError", findings: null, concepts: null, engineering: null },
+            { id: "youtube", kind: "offsite", agent: "market_radar", job_type: null, method: "none", status: "missing",
+              why: "UNAVAILABLE: no compliant collector exists", health: "UNKNOWN", last_attempt: null, last_success: null, next_scan: null, failures_7d: null }],
+          loop: { opportunities: 1, qualifying: 0, in_engineering: 0,
+            stages: [{ gap: 1, pod: "kitchen_bath", stage: "gate_refused", held_because: "the pre-engineering gate refused it (['silhouette']); held by #108", corroborated_by: [], concepts: ["coaster-kitchen-bath-gap-1"], engineering: [] }] },
+          conclusion: { at: ago(20), outcome: "no_qualifying_opportunity", why: "kitchen_bath: held by #108" },
+          limitations: [{ id: "youtube", status: "missing", why: "UNAVAILABLE: no compliant collector exists" }] }),
       } };
   },
   completion: () => tab("COMPLETION", { board: env("OK", [
@@ -488,6 +523,79 @@ export const DATA = {
       recorded_suite: { state: "UNKNOWN", why: "no repository root given; suite evidence not read" },
       activation_steps: ["Resolve every open owner gate.", "Record the phase move."],
       sources: ["launch.packet.build"], cache: { ttl_seconds: 300 } }) }, { status: "BLOCKED" }),
+  // ENG-CATALOGUE: the full catalogue, as /api/cc/catalogue serves it. The mock pages and
+  // filters a fixed fixture of products the way the server does; totals are over ALL of them
+  // (never the page), one row's stage is UNKNOWN.
+  catalogue: (params) => {
+    const STAGES = [["research_candidate", "Research candidate"], ["pattern_in_development", "Pattern in development"],
+      ["listing_package", "Listing package completed"], ["physical_sample_pending", "Physical sample pending"],
+      ["live_on_etsy", "Live on Etsy"], ["withdrawn_or_rejected", "Withdrawn / rejected"]];
+    const WORDS = ["moss", "fern", "birch", "heath", "cedar", "glade", "dune", "ember"];
+    const all = Array.from({ length: 64 }, (_, i) => {
+      const unknown = i === 9;
+      const [stage, label] = unknown ? ["UNKNOWN", "UNKNOWN"] : STAGES[i % STAGES.length];
+      const slug = `${WORDS[i % 8]}-${WORDS[Math.floor(i / 8) % 8]}-coaster`;
+      return { slug, version: "1.0.0", title: `${WORDS[i % 8]} ${WORDS[Math.floor(i / 8) % 8]} coaster`,
+        state: unknown ? "UNKNOWN" : "listing_package_completed", stage, stage_label: label,
+        category: i % 3 ? "coaster" : "UNKNOWN", family: null, why: unknown ? "state could not be derived: OSError" : "listing package complete",
+        held: stage === "physical_sample_pending" ? ["physical"] : [], holds: [],
+        next_action: unknown ? { action: "UNKNOWN", owner: "UNKNOWN", job_type: null } : { action: "pass the publication gates", owner: "store_commerce", job_type: "store.publish" },
+        physical_sample: "not_required", tiers: {},
+        evidence: stage === "live_on_etsy" ? { certificate: { release_hash: "abcdef1234567890", content_hash: "c", physical_test_required: false },
+          pdf: { sha256_by_terminology: { us: "0123456789abcdef", uk: "fedcba9876543210" }, href: `/api/cc/store/pdf/${slug}` },
+          gallery: { audit_id: 41, frames: 6, href: `/api/cc/visual/evidence/${slug}` }, listing_package: { listing_id: 7, audit_id: 42 },
+          etsy: { listing_row: 7, state: "active", etsy_listing_id: "4401", read_back: "live", draft_intent: "created" } }
+          : { certificate: null, pdf: null, gallery: null, listing_package: null, etsy: null } };
+    });
+    const p = params || new URLSearchParams();
+    const qs = (p.get("q") || "").toLowerCase();
+    const rows = all.filter((r) => (!p.get("stage") || r.stage === p.get("stage"))
+      && (!p.get("category") || r.category === p.get("category"))
+      && (!p.get("held") || (p.get("held") === "any" ? r.held.length : p.get("held") === "none" ? !r.held.length : r.held.includes(p.get("held"))))
+      && (!qs || r.slug.includes(qs) || r.title.toLowerCase().includes(qs)));
+    const size = Math.min(200, Math.max(1, Number(p.get("page_size")) || 50));
+    const pages = Math.max(1, Math.ceil(rows.length / size));
+    const page = Math.min(pages, Math.max(1, Number(p.get("page")) || 1));
+    const count = (key) => all.reduce((m, r) => ({ ...m, [r[key]]: (m[r[key]] || 0) + 1 }), {});
+    const byStage = Object.fromEntries(STAGES.map(([k]) => [k, 0]));
+    return { tab: "CATALOGUE", read_only: true, as_of: ago(1), gate_mode: "recorded", status: "OK",
+      stages: STAGES.map(([key, label]) => ({ key, label })), filters: {},
+      page, page_size: size, pages, matching: rows.length, items: rows.slice((page - 1) * size, page * size),
+      crosscheck: { ok: true, checks: {} }, sales_measured: false,
+      totals: { products: all.length, by_state: count("state"), by_stage: { ...byStage, ...count("stage") },
+        by_category: count("category"), by_held: { owner: 0, physical: all.filter((r) => r.held.length).length, paid_approval: 0, policy: 0 },
+        by_owner: count("stage"), unknown: 1 } };
+  },
+  // ENG-CATALOGUE: per-department operating evidence, as /api/cc/operating-evidence serves it.
+  operatingEvidence: () => ({ tab: "OPERATING_EVIDENCE", read_only: true, as_of: ago(1), state: "BLOCKED",
+    note: "from persisted rows only; a green health check is not autonomy evidence",
+    departments: [
+      { department: "product_truth", agents: ["engineer"], state: "OK",
+        last_useful_job: { state: "FOUND", job_id: 812, job_type: "cir.compile", agent: "engineer", finished_at: ago(40) },
+        next_scheduled: { pending_run_after: ago(-30), cadence: { cadence: "compile_sweep", job_type: "cir.compile", next_at: ago(-60) } },
+        queue: { waiting: 3, oldest_created: ago(300), oldest_age_s: 18000 }, in_progress: 1,
+        completed_24h: { useful: 5, no_op: 2 }, dead_letters: { last_24h: 0, open: 0 }, blocked: [] },
+      { department: "visual", agents: ["visual"], state: "BLOCKED",
+        last_useful_job: { state: "NONE", scanned: 12, why: "no completed job of this department did useful work" },
+        next_scheduled: { pending_run_after: null, cadence: null },
+        queue: { waiting: 0, oldest_created: null, oldest_age_s: null }, in_progress: 0,
+        completed_24h: { useful: 0, no_op: 4 }, dead_letters: { last_24h: 1, open: 1 },
+        blocked: [{ job_type: "assets.build", why: "defect dead letter (job 901) with no later success: KeyError: frames" }] },
+      { department: "intelligence", agents: ["radar"], state: "UNKNOWN",
+        last_useful_job: { state: "UNKNOWN", scanned: 1000, why: "no useful job in the newest 1000 completions; older rows were not scanned" },
+        next_scheduled: { pending_run_after: null, cadence: "UNKNOWN" },
+        queue: { waiting: 0, oldest_created: null, oldest_age_s: null }, in_progress: 0,
+        completed_24h: { useful: 0, no_op: 0 }, dead_letters: { last_24h: 0, open: 0 }, blocked: "UNKNOWN" }],
+    queue_by_stage: { validation: { waiting: 3, oldest_created: ago(300), oldest_age_s: 18000 } },
+    last_24h: { stage_transitions: { validation: 5 }, listing_packages_completed: 1, versions_certified: 0, useful: 5, no_op: 6 },
+    dead_letters: { total: 1, open: 1, open_defect: 1, open_refused: 0, last_24h: 1, recent: [] },
+    blocked_agents: [{ department: "visual", agents: ["visual"], reasons: [] }], suspensions_readable: true,
+    workers: { state: "DEGRADED", healthy: 1, unhealthy: 1, items: [
+      { component: "worker", instance: "w-a", last_heartbeat: ago(2), age_s: 120, healthy: true, why: null },
+      { component: "worker", instance: "w-b", last_heartbeat: ago(200), age_s: 12000, healthy: false, why: "no heartbeat in 15 minutes" }],
+      queue_drain: { stalled: false } },
+    recoveries: { state: "OK", last_24h: 2, last_7d: 3, refused_24h: 1, recent: [
+      { id: 1, at: ago(60), action: "queue.lease_reclaimed", actor: "queue", job_id: 5, result: null }] } }),
   ask: (question) => /overnight/i.test(question)
     ? { question, intent: "overnight", status: "ANSWERED", answer: "Overnight: 6 jobs completed, 1 parked (bank feed missing).",
       facts: [{ statement: "SEO coverage refreshed", source: "jobs:320", as_of: ago(30) }], next_action: "Connect bank feed",

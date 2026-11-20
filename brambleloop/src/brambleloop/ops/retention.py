@@ -120,6 +120,10 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "listing.package": ("windowed", "ops.daily_ledger counts ready packages over 14 days"),
     "concept.intake_refused": ("windowed",
                                "ops.daily_ledger._causes counts the last 24 hours"),
+    # ENG-DAILY fix (review of a795be17, B2): the fallback change-request row is deduplicated
+    # per fingerprint per UTC day by reading today's rows only.
+    "ops.ecr_pending": ("windowed",
+                        "ops.daily_ledger._pending_exists reads the current UTC day"),
     "store.publish_blocked": ("windowed",
                               "ops.daily_ledger._causes counts the last 24 hours"),
     "job.budget_exceeded": ("windowed",
@@ -263,7 +267,13 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                       "spend_report.refusals reads the calendar month; ops.slo soak window"),
     # Audit ddf9c6e M-3: the soak's "no duplicated external effect" criterion reads reclaims
     # and guard-refused duplicates inside the soak window only (hours).
-    "queue.lease_reclaimed": ("windowed", "ops.slo.soak_report reads the soak window"),
+    "queue.lease_reclaimed": ("windowed", "ops.slo.soak_report reads the soak window; "
+                              "command_center.operating_evidence counts 24 h / 7 d"),
+    # ENG-CATALOGUE: the agents panel counts refused recovery requests in the last 24 h (and
+    # excludes them from recoveries). Already protected by the "recovery." prefix
+    # (lifetime_total); recorded by name because it is read by name.
+    "recovery.refused": ("lifetime_total", "ops.recovery prefix (protected); "
+                         "command_center.operating_evidence counts refusals in 24 h"),
     "effect.duplicate_refused": ("windowed", "ops.slo.soak_report reads the soak window"),
     # C-60 (#201): the identity drift series reads 60 days of model-bearing frames and
     # persists its own daily reading, so pruning older rows cannot change the series.
@@ -300,6 +310,18 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     # The stop watch's newest reading is the silence fact (design §5.1), and G-SHADOW reads
     # the last 7 days for continuity -- far inside the horizon. Pruning older readings cannot
     # clear a stop: no reading at all reads as silence, and a short history fails G-SHADOW.
+    # ENG-APPROVALS: every automatic owner-queue decision under the owner's standing authority
+    # (D-OWNER-STANDING-INTERNAL). The owner's words: "Preserve the audit trail." Kept for
+    # life; the P0 board reads the last 24 h of it (`ops.owner_queue_consolidate.counts`).
+    "owner_action.standing_authority": ("lifetime_total",
+                                        "the owner's standing-authority audit trail (kept); "
+                                        "ops.owner_queue_consolidate.counts reads 24 h"),
+    # FIX2: `authority.standing_internal.closed_by_standing_authority` reads the newest
+    # lifecycle row of a card to tell the owner's closure from the standing authority's. A
+    # pruned row would make a standing closure read as the owner's (fail open), so kept for life.
+    "owner_action.lifecycle": ("lifetime_total",
+                               "authority.standing_internal.closed_by_standing_authority: who "
+                               "made a card's latest closure (kept; pruning would fail open)"),
     "standing_policy.stop_watch_reading": ("windowed",
                                            "ops.standing_stop.last_reading (silence); "
                                            "ops.standing_shadow_gate 7-day continuity"),

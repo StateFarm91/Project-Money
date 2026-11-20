@@ -50,9 +50,12 @@ POD_CONCEPTS: dict[str, dict] = {
                      "occasion": "housewarming", "feeling": "bold",
                      "function": "protects a table surface under a hot mug",
                      "motif": "offset row stripes", "palette": "two contrasting house colours"},
+    # Review H1: `housewarming`, not `spring_refresh` -- plain bands draw nothing from the
+    # spring motif grammar (#110), so a seasonal occasion was a claim the concept could not
+    # carry; and "everyday, for oneself" names no buying moment (#83 jury). A new home does.
     "home_decor": {"category": "pillow", "form": "pillow", "recipient": "self",
-                   "occasion": "spring_refresh", "feeling": "serene",
-                   "function": "softens and brightens a reading chair",
+                   "occasion": "housewarming", "feeling": "serene",
+                   "function": "softens and brightens a reading chair in a new home",
                    "motif": "stacked horizontal bands",
                    "palette": "a light and a deep house colour"},
 }
@@ -148,11 +151,13 @@ def prior_proposals(db, gap_id: int) -> list[dict]:
                     intake.RadarConcept.slug == slug).order_by(intake.RadarConcept.id.desc())
                     .limit(1))
                 decided = (row.state, float(row.quality or 0.0)) if row is not None else None
+                reasons = [str(r) for r in (row.reasons or [])][:3] if row is not None else []
             stamp = stamps.get(slug) or {}
             out.append({"task": t.id, "slug": slug, "digest": stamp.get("digest"),
                         "quality": (float(stamp["quality"]) if "quality" in stamp else
                                     decided[1] if decided else 0.0),
-                        "state": decided[0] if decided else None})
+                        "state": decided[0] if decided else None,
+                        "reasons": reasons})
     return out
 
 
@@ -244,6 +249,57 @@ def _stamp(db, task_id: int, slug: str, digest: str, quality: float) -> None:
         flag_modified(t, "detail")
 
 
+# Review H1 (main, eng/research-flow): the brief is DERIVED from the concept's own fields by
+# the repository's own rules, never typed. `creative.intake.qualifiers_for` reads the #108
+# silhouette qualifiers off the premise words and the construction; a plain flat-rows stripe
+# carries none, and a concept in a generic form (`creative.invention.GENERIC_FORMS`) with
+# none is refused by #108 at the gate -- the refusal is the honest outcome, recorded in the
+# lineage, and is never relabelled away here.
+BRIEF_DERIVED_FROM = {
+    "thumbnail_storyboard": ("category", "concept.motif", "concept.palette_story"),
+    "silhouette_qualifiers": ("concept.premise", "concept.construction"),
+}
+QUALIFIER_RULE = "creative.intake.qualifiers_for"
+
+
+def creative_concept(slug: str, title: str, concept: dict):
+    """The proposal's concept as the creative `Concept` the gate reads (the same fields
+    `radar.intake.validate` builds it from)."""
+    from ..creative.concept import Concept
+
+    return Concept(key=slug, title=title, premise=str(concept["premise"]),
+                   pod=str(concept["pod"]), form=str(concept["form"]),
+                   construction=str(concept["construction"]), motif=str(concept["motif"]),
+                   palette_story=str(concept["palette_story"]),
+                   recipient=str(concept["recipient"]), occasion=str(concept["occasion"]),
+                   feeling=str(concept["feeling"]), function=str(concept["function"]),
+                   make_lane="SHORT", provenance="radar.proposal_writer")
+
+
+def brief_for(slug: str, title: str, category: str, concept: dict) -> dict:
+    """The gate brief, derived from the concept's own fields: the #88 storyboard from its
+    category, motif and palette; the #108 qualifiers by `creative.intake.qualifiers_for`.
+    An empty qualifier list is a true answer, not a gap to fill."""
+    from ..creative.intake import qualifiers_for
+    from .intake import _WHAT
+
+    what = _WHAT.get(category, category)
+    return {"thumbnail_storyboard": (f"{what} laid flat from above showing its "
+                                     f"{concept['motif']} in {concept['palette_story']}"),
+            "silhouette_qualifiers": qualifiers_for(creative_concept(slug, title, concept))}
+
+
+def silhouette_precheck(slug: str, title: str, concept: dict, brief: dict) -> dict:
+    """#108 exactly as the pre-engineering gate runs it (`preengineering._silhouette`), on
+    the derived brief. Recorded on the proposal so a refusal is visible before scoring."""
+    from ..creative.preengineering import FAIL, _silhouette
+
+    out = _silhouette(creative_concept(slug, title, concept), brief)
+    return {"passes": out["status"] != FAIL, "reasons": list(out.get("reasons") or [])[:2],
+            "qualifiers": list(brief.get("silhouette_qualifiers") or []),
+            "generic_form": bool((out.get("detail") or {}).get("generic_form"))}
+
+
 def proposal_for(gap_id: int, pod: str, task_id: int, corroborated: int, facts: dict,
                  band: dict) -> dict:
     """The proposal, built from our own vocabulary only."""
@@ -254,7 +310,7 @@ def proposal_for(gap_id: int, pod: str, task_id: int, corroborated: int, facts: 
     what = _WHAT.get(category, category)
     arena = pod.replace("_", " ")
     slug = f"{category}-{pod.replace('_', '-')}-gap-{int(gap_id)}"[:60].rstrip("-")
-    return {
+    out = {
         "slug": slug,
         "title": f"Worked-row {what.split(' ', 1)[-1]} for the {arena} arena",
         "category": category,
@@ -275,6 +331,18 @@ def proposal_for(gap_id: int, pod: str, task_id: int, corroborated: int, facts: 
             "feeling": spec["feeling"], "function": spec["function"]},
         "evidence": list(facts["refs"]),
     }
+    # ENG-RESEARCH (review H1): the gate's deterministic inputs (#88 storyboard, #108
+    # qualifiers) DERIVED from the concept above, with their provenance. A concept that
+    # honestly carries no qualifier in a generic form is refused by #108 -- the precheck
+    # records that before scoring, and the gate refuses it again on its own.
+    brief = brief_for(slug, out["title"], category, out["concept"])
+    out["brief"] = brief
+    out["brief_provenance"] = {k: {"derived_from": list(v)}
+                               for k, v in BRIEF_DERIVED_FROM.items()}
+    out["brief_provenance"]["silhouette_qualifiers"]["rule"] = QUALIFIER_RULE
+    out["silhouette_precheck"] = silhouette_precheck(slug, out["title"], out["concept"],
+                                                     brief)
+    return out
 
 
 def write(db, *, today: date | None = None, now: datetime | None = None) -> dict:
@@ -339,6 +407,7 @@ def write(db, *, today: date | None = None, now: datetime | None = None) -> dict
         _stamp(db, int(task_id), proposal["slug"], digest, float(ev["quality"]))
         written.append({"gap": gid, "pod": pod, "task": int(task_id),
                         "slug": proposal["slug"], "evidence": proposal["evidence"],
+                        "silhouette": proposal["silhouette_precheck"],
                         "evidence_digest": digest, "quality": ev["quality"]})
     with db.session() as s:
         for w in written:

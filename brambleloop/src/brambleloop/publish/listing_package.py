@@ -350,6 +350,8 @@ def record(db, package: dict, *, now: datetime | None = None,
     from ..core.models import OperatingReading, OwnerAction
     from ..ops import owner_queue
 
+    from ..authority import standing_internal as _si
+
     _OWNER_CLOSED = _owner_closed()
 
     now = now or datetime.now(timezone.utc)
@@ -480,7 +482,8 @@ def record(db, package: dict, *, now: datetime | None = None,
         # package was blocked for a while, then came back unchanged) is not the owner's answer,
         # so the owner is asked again rather than never.
         already = same_parked or any(r.requirement_key == current
-                      and (not r.done or r.state in _OWNER_CLOSED) for r in rows)
+                      and (not r.done or _si.owner_closed(s, r, _OWNER_CLOSED))
+                      for r in rows)
         if package["state"] == READY and not already:
             title = ((package.get("copy") or {}).get("title") or key)[:90]
             s.add(OwnerAction(

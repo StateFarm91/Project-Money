@@ -1114,12 +1114,18 @@ def handle_cir_draft(ctx: JobContext) -> dict:
     route = FC.plan(category=concept.category, title=concept.title,
                     is_bundle=bool(seed.is_bundle) if seed is not None else False,
                     slug=concept.slug, rationale=seed.rationale if seed is not None else "")
+    from ..creative.construction_families import draft_hold
+
     if route["family"] == FC.REFUSED:
+        # ENG-FAMILIES: the refusal names the family it holds, the label intake uses, so the
+        # production inventory shows a construction hold, never "drafted, not compiled".
+        hold = draft_hold(concept.category, concept.title)
         ctx.audit("cir.draft_refused", artifact=slug,
                   detail={"reason": route["why"][:400], "gate": "construction",
-                          "category": concept.category, "needs": route["needs"][:200]})
+                          "category": concept.category, "needs": route["needs"][:200],
+                          "hold": hold})
         return {"artifact": slug, "drafted": False, "gate": "construction",
-                "construction": FC.REFUSED, "reasons": [route["why"][:300]]}
+                "construction": FC.REFUSED, "hold": hold, "reasons": [route["why"][:300]]}
     try:
         if route["family"] == FC.VESSEL:
             provenance = None
@@ -1171,12 +1177,14 @@ def handle_cir_draft(ctx: JobContext) -> dict:
             cir = FC.stocking(concept, provenance=provenance)
         elif route["family"] == FC.TAPESTRY:
             if len(set((concept.colors or {}).values())) < 2:
+                hold = draft_hold(concept.category, concept.title, FC.TAPESTRY)
                 ctx.audit("cir.draft_refused", artifact=slug,
                           detail={"reason": "tapestry needs two distinct colours",
                                   "gate": "construction", "category": concept.category,
-                                  "needs": "a second, distinct colour in the palette"})
+                                  "needs": "a second, distinct colour in the palette",
+                                  "hold": hold})
                 return {"artifact": slug, "drafted": False, "gate": "construction",
-                        "construction": FC.REFUSED,
+                        "construction": FC.REFUSED, "hold": hold,
                         "reasons": ["tapestry needs two distinct colours"]}
             provenance = None
             if lineage["known"]:
@@ -1231,12 +1239,14 @@ def handle_cir_draft(ctx: JobContext) -> dict:
         # Review OPUS2C N3.3: a construction that cannot be built from these inputs (an empty
         # repeat, no colours, a stitch outside the taxonomy) is a named refusal, not a crash.
         why = f"{type(exc).__name__}: {str(exc)[:300]}"
+        hold = draft_hold(concept.category, concept.title, route["family"])
         ctx.audit("cir.draft_refused", artifact=slug,
                   detail={"reason": why[:400], "gate": "construction",
                           "category": concept.category,
-                          "needs": f"inputs the {route['family']} construction can work"})
+                          "needs": f"inputs the {route['family']} construction can work",
+                          "hold": hold})
         return {"artifact": slug, "drafted": False, "gate": "construction",
-                "construction": route["family"], "reasons": [why[:300]]}
+                "construction": route["family"], "hold": hold, "reasons": [why[:300]]}
     # OPUS2-P0: the publish gate's name-truth rule, read at draft time for the constructions
     # this fallback now makes. Recorded, never a refusal here: publication refuses it
     # (NAME_OUTRUNS_PATTERN), and the count shows what the fallback cannot yet chart.
@@ -1248,9 +1258,10 @@ def handle_cir_draft(ctx: JobContext) -> dict:
             name_problems = [str(p)[:200] for p in name_truth(cir, None)]
         except Exception as exc:  # noqa: BLE001 - a reading, never a reason to fail a draft
             name_problems = [f"UNKNOWN: {type(exc).__name__}"]
+    advice = _learning_advice(ctx, cir, family=route["family"])
     ctx.audit("cir.drafted", artifact=f"{cir.slug}@{cir.version}",
               detail={"source": "concept_to_cir fallback", "construction": route["family"],
-                      "name_truth": name_problems,
+                      "name_truth": name_problems, "learning_advice": advice,
                       "provenance": ("recorded" if cir.provenance is not None
                                      else "UNKNOWN: " + lineage["why"]),
                       "benchmarks_consulted": (list(cir.provenance.benchmarks_consulted)
@@ -1258,7 +1269,23 @@ def handle_cir_draft(ctx: JobContext) -> dict:
     ctx.enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
                 idempotency_key=f"compile:{cir.slug}:{cir.version}")
     return {"artifact": f"{cir.slug}@{cir.version}", "drafted": True,
-            "construction": route["family"], "rows": len(cir.components[0].rows)}
+            "construction": route["family"], "rows": len(cir.components[0].rows),
+            "learning_advice": advice}
+
+
+def _learning_advice(ctx: JobContext, cir: CIR, *, family: str = "") -> dict:
+    """ENG-LEARN: the measured engineering regions this draft falls in (`learning.
+    pattern_lessons.advise`). A reading recorded with the draft, never a refusal: the
+    compiler and the certificate decide; a lesson never stands in for a gate."""
+    try:
+        from ..learning import pattern_lessons
+
+        a = pattern_lessons.advise(ctx.db, cir=cir.to_dict(), family=str(family or ""))
+        return {"avoid": [h["key"] for h in a["avoid"]][:6],
+                "prefer": [h["key"] for h in a["prefer"]][:6],
+                "measured_regions": a["measured_regions"]}
+    except Exception as exc:  # noqa: BLE001 - advice is a reading; it never fails a draft
+        return {"status": "UNKNOWN", "why": f"{type(exc).__name__}"[:80]}
 
 
 def _fallback_lineage(seed: ConceptSeed | None, inputs: dict, concept: Concept) -> dict:
@@ -1321,15 +1348,18 @@ def _draft_creative(ctx: JobContext, slug: str) -> dict:
                   detail={"reason": str(exc)[:400], "gate": "engine"})
         return {"artifact": slug, "drafted": False, "reasons": [str(exc)[:300]]}
     cir = CIR.from_dict({**cir.to_dict(), "slug": slug, "title": concept.title})
+    advice = _learning_advice(ctx, cir, family=concept.form)
     ctx.audit("cir.drafted", artifact=f"{cir.slug}@{cir.version}",
               detail={"source": "tournament winner", "form": concept.form,
+                      "learning_advice": advice,
                       "construction": cir.construction, "pod": concept.pod,
                       "mjs_event_id": ctx.job.inputs.get("mjs_event_id"),
                       "rows": sum(len(c.rows) for c in cir.components)})
     ctx.enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
                 idempotency_key=f"compile:{cir.slug}:{cir.version}:{cir.fingerprint}")
     return {"artifact": f"{cir.slug}@{cir.version}", "drafted": True, "creative": True,
-            "form": concept.form, "rows": sum(len(c.rows) for c in cir.components)}
+            "form": concept.form, "rows": sum(len(c.rows) for c in cir.components),
+            "learning_advice": advice}
 
 
 @handlers.register("cir.compile")
@@ -3030,6 +3060,11 @@ def handle_store_activate(ctx: JobContext) -> dict:
             refusal = (f"the listing fee (about CA${fee_cad:.2f}) would take "
                        f"{ctx.job.agent} past its daily ceiling of "
                        f"CA${agent.daily_cost_ceiling_cad:.2f} (spent CA${spent:.2f})")
+    if refusal is None:
+        # ENG-APPROVALS: the owner's opening-catalogue listing-fee budget (CA$6 in total,
+        # reservations counted; D-OWNER-STANDING-INTERNAL). `reserve` re-checks it under the
+        # accounting lock; this is the early, audited refusal.
+        refusal = listing_costs.opening_budget_refusal(ctx.db, listing_id, fee_cad)
     if refusal is not None:
         ctx.audit("store.activate_refused", artifact=artifact,
                   detail={"reason": refusal, "verified": True,
@@ -3231,6 +3266,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "policy.activation_schedule": ("work_done",),
     # OPUS2-P0: lessons published or withdrawn from measured listing performance.
     "improve.commercial_lessons": ("work_done",),
+    "learning.loops": ("work_done",),
     # OPUS2-P0 (P0-LEARNING-GAPS): gaps recorded or reference purchases recommended.
     "learning.knowledge_gaps": ("work_done",),
     "listing.cross_sell_graph": ("work_done",),
@@ -3242,6 +3278,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "radar.concept_intake": ("work_done",),
     "intel.watchlist_scan": ("work_done",),
     "intel.watchlist_compare": ("work_done",),
+    "intel.benchmark_shopping": ("work_done",),
     "intel.opportunity_review": ("work_done",),
     "research.sweep": ("work_done",),
     "storefront.review": ("work_done",),
@@ -3304,7 +3341,9 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
                        "rolled_back", "cards_closed", "owner_cards"),
     "improve.measure": ("measured",),
     "improve.mine": ("published", "regression_fixtures", "routed_to"),
-    "improve.monitor": ("promoted", "judged", "reverted", "rollback_proposals"),
+    # ENG-LEARN: `promoted` is the standing count of promoted rows, not work this run did;
+    # it made every idle sweep read as useful. Judging, reverting and trial judging are work.
+    "improve.monitor": ("judged", "reverted", "rollback_proposals", "trial_monitoring.judged"),
     "improve.nightly": ("total_found",),
     "improve.retrospective": ("promotions_assessed", "returned", "regressed_promotions"),
     "improve.role_work": ("proposed", "kept"),
@@ -3397,6 +3436,8 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     # `{"error": ...}` a failed synthesis records, is not work.
     "mjs.scan": ("new", "reclassified", "inspected", "learning_domains", "findings.changed"),
     "ops.retention": ("removed",),
+    # ENG-APPROVALS: work is an owner card moved under the standing authority.
+    "ops.owner_queue_consolidate": ("work_done",),
     "plan.strategy": (),
     "seasonal.cycle_proof": ("complete", "assets_state"),
 }
@@ -3895,9 +3936,11 @@ from . import photo_review_ops  # noqa: E402,F401  (OPUS2: assets.photo_review)
 from . import listing_package_ops  # noqa: E402,F401  (OPUS2: listing.package)
 from . import c12_ops  # noqa: E402,F401  (W4-C12 wiring: SV aging, window captures, harvest)
 from . import commercial_ops  # noqa: E402,F401  (OPUS2-P0: improve.commercial_lessons)
+from . import learning_ops  # noqa: E402,F401  (ENG-LEARN: learning.loops)
 from . import learning_gaps_ops  # noqa: E402,F401  (OPUS2-P0: learning.knowledge_gaps)
 from . import evidence_ops  # noqa: E402,F401  (OPUS2-P0: intel.scan_evidence)
 from . import standing_policy_ops  # noqa: E402,F401  (WS4-5: policy.issuer_shadow)
+from . import owner_queue_ops  # noqa: E402,F401  (ENG-APPROVALS: ops.owner_queue_consolidate)
 
 
 def _listing_parity(ctx: JobContext) -> dict:

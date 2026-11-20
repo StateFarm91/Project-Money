@@ -234,8 +234,27 @@ def test_today_unknown_is_diagnosed_as_unknown_not_zero():
 
 # ---- 3. diagnosis -----------------------------------------------------------------------
 
+def _led(db, *, now=NOW, history=3, yesterday=None):
+    """The real ledger, with a per-day history written into every stage metric so the
+    zero-output rule has a rate to expect from (review of a795be17, Unit B finding 2).
+    `history` fills every day before yesterday; `yesterday` fills yesterday (default 0)."""
+    led = L.ledger(db, now=now)
+    if history is None:
+        return led
+    for _stage, metric, *_r in L.STAGES:
+        days = (led["metrics"].get(metric) or {}).get("days") or {}
+        for d in led["days"][:-2]:
+            if isinstance(days.get(d), (int, float)):
+                days[d] = history
+        if yesterday is not None and isinstance(days.get(led["days"][-2]), (int, float)):
+            days[led["days"][-2]] = yesterday
+    return led
+
+
 def _diag(db, stage, **kw):
-    d = L.diagnose(db, kw.pop("queue", None), now=NOW, act=kw.pop("act", False))
+    now = kw.pop("now", NOW)
+    led = _led(db, now=now, history=kw.pop("history", 3), yesterday=kw.pop("yesterday", None))
+    d = L.diagnose(db, kw.pop("queue", None), now=now, act=kw.pop("act", False), led=led)
     return next((r for r in d["diagnosed"] if r["stage"] == stage), None)
 
 
@@ -326,7 +345,142 @@ def test_a_stage_with_output_today_and_no_history_is_not_diagnosed():
     db = _db()
     _observing(db)
     _audit(db, L.A_CERTIFIED, NOW - timedelta(hours=1), "basket@1")
-    assert _diag(db, "certifications") is None
+    assert _diag(db, "certifications", history=None) is None
+    assert _diag(db, "certifications") is None, "1 made against 1.4 expected is not far below"
+
+
+# ---- 3b. the zero-output rule: expected by this hour, never a false zero ----------------
+
+def test_a_zero_against_no_history_is_not_yet_due_never_diagnosed():
+    db = _db()
+    _observing(db)
+    led = L.ledger(db, now=NOW)                     # every stage 0 every day: rate 0
+    reads = {r["stage"]: r for r in L.stage_readings(led, now=NOW)}
+    assert all(r["status"] == L.NOT_YET_DUE for r in reads.values()), reads
+    assert L.zero_stages(led, now=NOW) == []
+    d = L.diagnose(db, JobQueue(db), now=NOW, act=True, led=led)
+    assert d["diagnosed"] == [] and L.recorded_diagnoses(db, D0) == []
+
+
+def test_the_first_run_after_midnight_diagnoses_no_stage_and_files_nothing():
+    """Review of a795be17, Unit B finding 2: at 00:30 UTC every stage is 0 today. Neither a
+    low rate (expected by now under 1) nor a high one (under six hours into the day) is a
+    diagnosis, so no change request is filed, on either path, however often it runs."""
+    from brambleloop.improve.self_models import EngineeringChangeRequest as E
+
+    db = _db()
+    _observing(db)
+    _job(db, "learn.scan", status=JobStatus.PENDING, at=NOW)    # producer alive
+    q = JobQueue(db)
+    early = datetime(2026, 11, 20, 0, 30, tzinfo=timezone.utc)
+    for history in (3, 100):                     # 0.06 expected; 2.1 expected but 00:30
+        for _ in range(2):
+            led = _led(db, now=early, history=history, yesterday=history)
+            reads = L.stage_readings(led, now=early)
+            assert all(r["status"] == L.NOT_YET_DUE for r in reads), reads
+            assert L.zero_stages(led, now=early) == []
+            d = L.diagnose(db, q, now=early, act=True, led=led)
+            assert d["diagnosed"] == [], d
+    with db.session() as s:
+        assert s.scalar(select(func.count()).select_from(AuditLog).where(
+            AuditLog.action == L.ECR_PENDING)) == 0
+        assert s.scalar(select(func.count()).select_from(E)) == 0
+        assert s.scalar(select(func.count()).select_from(OperatingReading).where(
+            OperatingReading.kind == L.DIAG_KIND)) == 0
+    # The readback reads "not yet due", never a zero-output stage.
+    ev = L.readback(db, now=early)
+    assert ev["zero_stages_today"] == [] and set(ev["stage_status_today"].values()) <= {
+        L.NOT_YET_DUE, L.PRODUCING}
+
+
+def test_a_partial_day_zero_with_output_in_the_last_24h_files_no_change_request():
+    db = _db()
+    _observing(db)
+    _job(db, "learn.scan", status=JobStatus.PENDING, at=NOW)
+    row = _diag(db, "lessons", queue=JobQueue(db), act=True, yesterday=3)
+    assert row is not None and row["status"] == L.ZERO_OUTPUT and _kinds(row) == {"undiagnosed"}
+    assert row["ecrs"] == [], "the last 24 h made output: a reading, not a change request"
+
+
+def _two_runs(db, q):
+    rows = []
+    for _ in range(2):
+        led = _led(db)
+        rows.append(next(r for r in L.diagnose(db, q, now=NOW, act=True, led=led)["diagnosed"]
+                         if r["stage"] == "lessons"))
+    return rows
+
+
+def test_repeated_runs_file_one_change_request_through_ecr_file():
+    from brambleloop.improve import ecr
+    from brambleloop.improve.self_models import EngineeringChangeRequest as E
+
+    db = _db()
+    _observing(db)
+    _job(db, "learn.scan", status=JobStatus.PENDING, at=NOW)
+    first, second = _two_runs(db, JobQueue(db))
+    assert first["ecrs"][0]["filed"] is True and first["ecrs"][0]["created"] is True
+    assert second["ecrs"][0]["deduped"] is True
+    assert first["ecrs"][0]["fingerprint"] == ecr.fingerprint(
+        "missing_capability", "engineering", "ops.daily_ledger:lessons")
+    with db.session() as s:
+        rows = list(s.scalars(select(E)))
+    assert len(rows) == 1 and (rows[0].occurrences or 1) == 1, \
+        "a repeated run never inflates occurrences with the same day's evidence"
+    rec = [r for r in L.recorded_diagnoses(db, D0) if r["stage"] == "lessons"]
+    assert len(rec) == 1 and len(rec[0]["ecrs"]) == 1 and rec[0]["ecrs"][0]["filed"] is True
+
+
+def test_repeated_runs_add_one_pending_row_on_the_fallback():
+    import types
+
+    import brambleloop.improve as improve_pkg
+
+    db = _db()
+    _observing(db)
+    _job(db, "learn.scan", status=JobStatus.PENDING, at=NOW)
+    with patch.object(improve_pkg, "ecr", types.SimpleNamespace()):   # no ecr.file
+        first, second = _two_runs(db, JobQueue(db))
+        assert first["ecrs"][0]["pending"] is True and second["ecrs"][0]["deduped"] is True
+        # Even without today's diagnosis row (another process), the pending row dedupes.
+        again = L._file_ecr(db, day=D0, now=NOW, defect_class="missing_capability",
+                            department="engineering", module="ops.daily_ledger:lessons",
+                            title="t", problem="p", evidence={"examples": [D0]},
+                            proposed_change="c", acceptance_criteria=["a"])
+        assert again["deduped"] is True
+        # A new UTC day is a new request.
+        nxt = L._file_ecr(db, day="2026-11-21", now=NOW + timedelta(days=1),
+                          defect_class="missing_capability", department="engineering",
+                          module="ops.daily_ledger:lessons", title="t", problem="p",
+                          evidence={"examples": ["2026-11-21"]}, proposed_change="c",
+                          acceptance_criteria=["a"])
+        assert nxt.get("pending") is True and not nxt.get("deduped")
+    with db.session() as s:
+        reqs = list(s.scalars(select(AuditLog).where(AuditLog.action == L.ECR_PENDING)))
+    assert len(reqs) == 2 and {r.detail["day"] for r in reqs} == {D0, "2026-11-21"}
+    assert reqs[0].detail["request"]["defect_class"] == "missing_capability"
+
+
+def test_concepts_held_is_unknown_on_a_day_no_radar_scan_completed():
+    from brambleloop.ops.flow_health import SUPPLY_STALL_KIND
+
+    db = _db()
+    _observing(db)
+    _job(db, "radar.scan", at=_at(D2))                             # ran, found supply
+    _job(db, "radar.scan", at=_at(D1))                             # ran, found a stall
+    with db.session() as s:
+        s.add(OperatingReading(kind=SUPPLY_STALL_KIND, period_key=D1, at=_at(D1, 11),
+                               payload={"held": {"a": "risk", "b": "score"}}))
+    m = L.ledger(db, now=NOW)["metrics"]["concepts_held"]
+    assert m["days"][D2] == 0 and m["days"][D1] == 2
+    assert m["days"][D0] == L.UNKNOWN and m["days"][D3] == L.UNKNOWN
+    assert m["unknown_why"][D0] == "no radar.scan completed this day"
+
+
+def test_the_retention_horizon_day_itself_is_unknown():
+    src = L._Src("x", 2)                    # horizon = NOW - 2 days = D2, partly pruned
+    s = L._series(src, [D3, D2, D1, D0], datetime(2026, 10, 1).date(), NOW)
+    assert s["days"][D2] == L.UNKNOWN and s["days"][D1] == 0
 
 
 # ---- 4. actions: safe and free only -----------------------------------------------------
