@@ -1,3 +1,22 @@
+> **2026-11-20 — ENG-ETSY-PUBLISH slice 1 (`eng/etsy-publish`, base 307c7e62; NOT reviewed, NOT integrated, NOT deployed; nothing ran against production or real Etsy).**
+> - **Rollback FAIL, root cause fixed.**
+>   - The rehearsal read PDFs from only the newest 200 build jobs catalogue-wide, and frames from every ListingAsset. It now reads this release's certified PDFs and the valid listing-set certificate's frames.
+>   - New executable `launch.rollback.withdraw_draft`: delete, verify gone by a second read, restore the local listing, retire the intent. This fixes G5.
+> - **Uploads.** Duplicate check and adoption before any create (`publish.draft_adoption`). In-place completion of missing PDFs, images and properties, bounded to 2 rounds. Per-rank image sha256 must equal the certificate's, and Etsy's dimensions are compared. Etsy exposes no hash, so Etsy-side byte identity is NOT claimed.
+> - **Fee and scheduler.**
+>   - Per-listing fee cap US$0.20 inside the CA$6 budget lock.
+>   - Publication scheduler inside the hourly `store.draft_reconcile`: owner grants only, never self-grants. STAGE_A_ENABLED is unchanged (False).
+> - **Owner card.** ONE card, "Approve first public listing (step-up)" (`first_public_listing:approve`). It is never raised on empty evidence.
+> - **Measurable sections.** `first_listing_readiness.releases[].section_diagnostics` names the unjudged parity dimensions, the listing-set counts, the failing rollback steps and the failing search checks.
+>   - listing_set FAIL: issuance is gated on staleness, so it follows Batch 12's halt. No independent cause found; production must confirm with the new diagnostics.
+> - **No AI-policy gate added. The AI disclosure is untouched.**
+> - **Tests.**
+>   - `test_etsy_publish` 16/16; `test_etsy_publish_e2e` 3/3; `test_eng_approvals` 34/34; `test_ws5_e6_draft_resolver` passes.
+>   - Mutants killed: grant guard, fee cap, read-back hash, duplicate adoption, rollback verify, completion retry. The card-empty-evidence mutant is being re-run against the unit test.
+>   - The 38-suite requested and related run was IN PROGRESS at this commit; results follow in the next commit.
+>   - Pre-existing failure, identical on base: `test_w4_readback_evidence::test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart`.
+>   - Review: `research/final_build/w6/review_requests/etsy_publish_slice1.md`.
+
 > **2026-11-19 — ENG-APPROVALS slice 1 (`eng/approvals`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
 > - The owner directive `D-OWNER-STANDING-INTERNAL` is recorded in DECISION_LOG.
 > - Code: `authority.standing_internal` (classifier and directive), `ops.owner_queue_consolidate` (idempotent sweep, the one

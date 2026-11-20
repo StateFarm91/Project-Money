@@ -113,6 +113,10 @@ class FakeEtsy:
         self.image_failure = image_failure
         self.delete_failure = delete_failure
         self.delete_is_soft = delete_is_soft
+        #: A delete that answers 204 and leaves the listing exactly as it was.
+        self.delete_is_noop = False
+        #: (status, message) per file upload to refuse next, consumed in order.
+        self.file_failures: list[tuple[int, str]] = []
         # When true, an error body carries a token-shaped string, which is how a real API
         # leaks one: inside prose nobody predicted. The redaction test uses it.
         self.echo_token_in_error = echo_token_in_error
@@ -605,6 +609,11 @@ class _Handler(BaseHTTPRequestHandler):
                      # from the received bytes (was a constant 1x1), so a read-back can
                      # compare them with what was sent.
                      "full_height": height, "full_width": width}
+            # Etsy's uploadListingImage: "overwrite: When true, this request replaces the
+            # existing image at a given rank." Without it a second upload at a rank adds one.
+            if str(text.get("overwrite", "")).lower() in ("true", "1"):
+                fake.images[listing_id] = [i for i in fake.images[listing_id]
+                                           if i["rank"] != image["rank"]]
             fake.images[listing_id].append(image)
             fake.received_images.setdefault(listing_id, []).append(
                 {"rank": image["rank"], "filename": filename, "bytes": len(data),
@@ -626,6 +635,11 @@ class _Handler(BaseHTTPRequestHandler):
             if "file" not in files:
                 return self._send(400, {"error": f"No file supplied; parts received: "
                                                  f"{sorted(files)}."})
+            if fake.file_failures:
+                # ENG-ETSY-PUBLISH: the next upload(s) refused, one entry per refusal, so a
+                # draft left without its files is an exercised state, not a described one.
+                status, message = fake.file_failures.pop(0)
+                return self._send(status, {"error": message})
             filename, data = files["file"]
             fake.listings[listing_id]["file_data"] = filename
             row = {"listing_file_id": fake.next_file_id, "listing_id": int(listing_id),
@@ -742,6 +756,12 @@ class _Handler(BaseHTTPRequestHandler):
                     message = (f"{message} (request was authorised as "
                                f"{self.headers.get('Authorization', '')})")
                 return self._send(status, {"error": message})
+            if fake.delete_is_noop:
+                # ENG-ETSY-PUBLISH: a 204 that changed nothing. Only a second read can tell.
+                self.send_response(204)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
             if fake.delete_is_soft:
                 # Etsy accepts the deletion and keeps the record in a terminal state. The 204
                 # is honest about the request and says nothing about the listing.

@@ -361,8 +361,11 @@ def _economics(db, slug, version):
 ROLLBACK_PATH = {
     "this_grant": ("covers draft creation only: an Etsy draft is never visible to buyers, so "
                    "no buyer can exist for it"),
-    "remove_draft": ("EtsyClient.delete_listing(listing_id) -- reads the listing back first and "
-                     "refuses unless Etsy reports it as draft or inactive"),
+    "remove_draft": ("launch.rollback.withdraw_draft -- reads the listing back, deletes it "
+                     "through EtsyClient.delete_listing only while Etsy reports it as a draft, "
+                     "verifies by a second read that Etsy no longer holds it, then restores "
+                     "the local listing to its pre-draft state (draft, no Etsy id) so the "
+                     "retained release can be drafted again as the same bytes"),
     "if_later_activated": ("activation is a separate owner grant (store.activate). To withdraw "
                            "a live listing the owner deactivates it in Etsy Shop Manager -- no "
                            "automated deactivation job exists in this system -- and the "

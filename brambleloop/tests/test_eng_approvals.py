@@ -361,20 +361,23 @@ def test_fee_budget_caps_at_six_dollars_cumulatively():
 
 def test_fee_budget_boundary_and_actual_fees_count():
     db = _db()
-    assert LC.opening_budget_refusal(db, "A", 6.00) is None
-    assert LC.opening_budget_refusal(db, "A", 6.01) is not None
+    # ENG-ETSY-PUBLISH: one reservation is at most one listing fee (US$0.20 at the assumed
+    # rate), so the cumulative CA$6 boundary is reached one fee at a time.
+    assert "per-listing cap" in (LC.opening_budget_refusal(db, "A", 6.00) or "")
+    assert LC.opening_budget_refusal(db, "A", 0.28) is None
     assert LC.opening_budget_refusal(db, "A", -1.0) is not None
-    _reserve(db, 1, amount=5.00)
-    assert LC.opening_budget_refusal(db, "B", 1.00) is None
-    assert LC.opening_budget_refusal(db, "B", 1.01) is not None
+    for n in range(20):
+        _reserve(db, n)                                   # 20 x 0.28 = CA$5.60
+    assert LC.opening_budget_refusal(db, "B", 0.28) is None
     # An observed fee for a listing never reserved counts; one for a reserved listing does not.
     with db.session() as s:
         s.add(CostEntry(agent="store_operator", kind="etsy_listing_fee_actual",
                         amount_cad=0.30, detail={"listing_id": "L1"}))
         s.add(CostEntry(agent="store_operator", kind="etsy_listing_fee_actual",
-                        amount_cad=0.50, detail={"listing_id": "renewed-elsewhere"}))
-    assert LC.opening_budget(db)["used_cad"] == 5.50
-    assert LC.opening_budget_refusal(db, "C", 0.51) is not None
+                        amount_cad=0.25, detail={"listing_id": "renewed-elsewhere"}))
+    assert LC.opening_budget(db)["used_cad"] == 5.85
+    assert LC.opening_budget_refusal(db, "C", 0.15) is None          # exactly CA$6.00
+    assert "CA$6.00" in (LC.opening_budget_refusal(db, "C", 0.16) or "")
 
 
 def test_the_daily_ceiling_is_unchanged_and_checked_first():
@@ -532,6 +535,7 @@ PINNED_RULES = {
     'exact:store:OA-OBS': (D_G, SI.POLICY_ATTESTATION),
     'exact:store:OA-G1': (D_G, SI.POLICY_ATTESTATION),
     'exact:phase': (D_G, SI.PUBLICATION),
+    'prefix:first_public_listing:': (D_G, SI.PUBLICATION),
     'prefix:standing_policy.hold:': (D_G, SI.PUBLICATION),
     'prefix:standing_policy.withdrawal_unconfirmed:': (D_G, SI.PUBLICATION),
     'prefix:listing.live_update:': (D_G, SI.PUBLICATION),
@@ -564,7 +568,7 @@ PINNED_RULES = {
 }
 
 #: Every inventoried kind and the job-type families, pinned the same way.
-EXPECTED_RULE_TALLY = {D_G: 70, D_R: 13, D_A: 3}
+EXPECTED_RULE_TALLY = {D_G: 71, D_R: 13, D_A: 3}
 
 PINNED_KINDS = {
     'etsy.auth:reauthorise': (D_G, SI.GRANT_SIGNATURE),
