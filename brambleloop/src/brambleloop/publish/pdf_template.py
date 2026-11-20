@@ -919,6 +919,14 @@ class _Facts:
                 out.append((comp.name.replace("_", " "), tw.circumference_cm))
         return out
 
+    def pieces_phrase(self) -> str:
+        """'4 coasters' for one piece made four times; '1 body, 2 sleeves, 1 neckband' for a
+        pattern of several pieces (never '4 bodys')."""
+        def name(c):
+            n = c.name.replace("_", " ")
+            return f"{c.make} {n}" + ("s" if c.make > 1 and not n.endswith("s") else "")
+        return ", ".join(name(c) for c in self.cir.components)
+
     def size_text(self) -> str:
         """The finished size as the certified data can state it."""
         if self.twin.width_cm or not self.circumferences:
@@ -1061,7 +1069,7 @@ class _Facts:
             return out
         size = self.size_text()
         yarn = self.total_yarn()
-        note = (f"makes {self.make_total} {self.piece}s" if self.make_total > 1
+        note = (f"makes {self.pieces_phrase()}" if self.make_total > 1
                 else "one size, as written")
         return [("One size", size, yarn, note)]
 
@@ -1443,7 +1451,7 @@ def _tools(t: _T, f: _Facts) -> None:
     qty = [f"{name}: {f.yarn_amount(m)}." for name, m in
            sorted(twin.yarn_metres_by_color.items())]
     if f.make_total > 1:
-        qty.append(f"Totals are for all {f.make_total} {f.piece}s.")
+        qty.append(f"Totals are for every piece: {f.pieces_phrase()}.")
     right = [("GAUGE", gauge), ("IMPORTANT", important), ("YARN QUANTITIES", qty)]
     top = 207
     lh = [_card_height(t, COL_W, b, size=10) for _k, b in left]
@@ -1912,6 +1920,14 @@ def _chart_block(t: _T, f: _Facts) -> None:
     """The chart and its legend, from the twin (publish.charts, via publish.pdf)."""
     art = f.chart_art()
     charts = [tile["chart"] for tile in art.get("tiles") or []] or [art["chart"]]
+    caption = art["caption"]
+    if len(charts) > 1 and f.family not in CHART_FAMILIES:
+        # Colourwork outside the chart families (stripes on a baby blanket) gets its chart as
+        # a one-page overview: every row and its colour is already written out in 06, and
+        # page after page of tiles would be paper, not help.
+        charts = [art["chart"]]
+        caption = ("Full chart at reduced scale, one cell per stitch in its colour, as an "
+                   "overview: every row, with its colour, is written out in the pattern above.")
     for n, chart in enumerate(charts, start=1):
         t.section_page("pattern", continued=True)
         label = ("CHART AND KEYS" if len(charts) == 1
@@ -1925,7 +1941,7 @@ def _chart_block(t: _T, f: _Facts) -> None:
             figure={"kind": "chart_legend", "source": "publish.charts.render_legend"})
     key = "Colour key: " + "; ".join(f"{name} ({hexv.upper()})" for name, hexv in
                                      sorted((f.cir.colors or {}).items()) if hexv) + "."
-    t.para(47, t.top + 96, CONTENT_W, art["caption"] + " " + key, size=MIN_PT, color=BROWN,
+    t.para(47, t.top + 96, CONTENT_W, caption + " " + key, size=MIN_PT, color=BROWN,
            leading=12)
     t.prose.append(key)
 

@@ -3083,6 +3083,54 @@ weakened. Renderer: `publish/pdf_template.py`; switch: `runtime.release.PDF_LAYO
 
 Reversible by decision.
 
+## D-ENG-PDF-TEMPLATE-2 — template completion: amigurumi variant, whole-pattern yarn, premium standard on the template (ENG-PDF-TEMPLATE, 2026-11-20; routine engineering)
+
+**Status:** routine engineering implementing D-OWNER-PDF-TEMPLATE, D-OWNER-PDF-STANDARD and the
+amigurumi teardown lessons (`research/benchmarks/TEARDOWN_*`). No gate was weakened.
+
+- **Amigurumi variant** (`publish/pdf_template.py`):
+  - Each piece worked in rounds gets a **component diagram** under its bar in 06. The diagram
+    has one band per round, as wide as that round's diameter at gauge, drawn on one scale shared
+    by every piece. An arrow marks the round whose CIR note says to stuff. The caption says
+    "Drawn from the stitch data, not a photograph."
+  - 07 gets **numbered assembly steps** (A1, A2, …), one per CIR seam. Each step carries the
+    writer's placement cue in round numbers and a placement diagram: the host piece's profile
+    with the rounds of the join outlined. A seam without `at_round` blocks.
+  - 08 gets an **eye-options** block. Embroidered eyes are placed between the head's widest
+    rounds. Safety eyes are offered only when the certified materials list them, and always
+    with the under-3 small-parts warning.
+  - 02 gets a **hook range** under the gauge: the stated hook down to 0.5 mm below it, never
+    above.
+  - The finished size of a stuffed piece is its circumference at the widest round, which is
+    what the twin's own `size_refusal` says to state.
+- **The yarn quantity is the whole pattern's.** `cir.twin.build_twin` models one component, so
+  both layouts printed only the first piece's yarn. For the Harbour pullover size M that was
+  the body's 584 m of an 808 m pattern (467–700 m printed; it should be 646–969 m). The template
+  now sums every component, each times its `make`, at the twin's calibration
+  (`_pattern_yardage`).
+  - **The engine (`publish.pdf.build_pattern_pdf`) still under-reports multi-piece yarn.** It
+    is not changed here, because its listing, deliverable and digest consumers belong to other
+    lanes. It is reported in the review request.
+- **The premium standard applies to the template, on the bytes.** `pdf_standard.TEMPLATE_EQUIVALENTS`
+  lets each rule accept the template's own heading for the same part of the document (for
+  example "GAUGE FIRST" for "Gauge, and why it matters here"). The content each rule requires
+  is unchanged; the matching is exact strings, never fuzzy.
+  - The template now refuses a customer build that fails the standard (`PremiumStandardRefused`),
+    as the engine does. Proofs record the failures in `problems`.
+  - Content added to meet the standard: chart and colour key for any colourwork; the garment
+    size chart's "to fit chest / finished chest / ease / yarn about / SIZE X" wording; the brand
+    on the cover line; diagram captions that cannot be read as row labels.
+- **Colourwork outside the chart families gets a one-page overview chart.** The baby
+  blanket's stripes would otherwise take 25 tile pages; its rows and colours are already
+  written out in 06.
+- **The amigurumi child-safety gap is reported, not routed around.** A closed stuffed toy
+  cannot state the width × height that the child-safety `age_suitability` statement needs,
+  because the twin refuses to state one. The real build therefore blocks with a named reason.
+  The amigurumi layout is exercised only by a test that stubs that one fact
+  (`tests/fixture_amigurumi.py` is a test fixture, never a product).
+
+Reversible by decision.
+
 **D-ENG-VIS-FLUX-1: the FLUX 3 provider follows the documented contract, rejects bad frames at generation, and caps images in code (ENG-VIS-FLUX slice 1, 2026-11-20).** This applies the owner's directive "PERFECT FLUX 3 LISTING IMAGES" within D-W4-F852-AMEND. It changes no publication gate.
 - **The contract is data, with citations.** `gateway/flux_contract.py` holds BFL's documented FLUX 3 Image contract, read 2026-11-20 from the openapi schema, the API reference, pricing, integration and errors pages.
   - The request builder validates the whole body against it before any reservation.
