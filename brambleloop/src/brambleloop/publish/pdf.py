@@ -985,7 +985,7 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
                       enforce_standard: bool = True) -> PatternDocument:
     """Render the full pattern document.
 
-    `enforce_standard=False` is for tests that build a deliberately defective document to
+    Turning `enforce_standard` off is for tests that build a deliberately defective document to
     inspect one property of it; the audit still runs and is returned in `standard`. No
     production caller passes it (`tests/test_pdf_standard.py` asserts so).
 
