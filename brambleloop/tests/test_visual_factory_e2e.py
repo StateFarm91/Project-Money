@@ -138,6 +138,41 @@ def test_a4_the_generated_gallery_cannot_be_certified_and_reaches_no_listing_or_
 
 # ---- B. certified pattern -> PDFs -> certified gallery -> package -> FakeEtsy draft ---------
 
+# D-OWNER-GALLERY-COMPLETE: a listing is uploaded only with its whole certified gallery
+# (`shot_plans.CAMPAIGN_MIN_FRAMES`). The key basket's disclosed set plus its verified
+# supplements certifies eight frames on the production path; the blanket's certifies six
+# (no ANGLE/CONSTRUCTION for a flat piece), so the blanket is refused before Etsy (b0) and
+# the complete gallery is the one that reaches a draft (b1).
+FULL_SLUG = "housewarming-key-basket"
+FULL_CATEGORY = "basket"
+
+
+def test_b0_a_six_frame_disclosed_gallery_is_blocked_before_anything_reaches_etsy():
+    import test_search_hero_publish as SH
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import JobStatus, Phase
+    from brambleloop.runtime import etsy_ops
+    from brambleloop.visual.shot_plans import CAMPAIGN_MIN_FRAMES
+    from tests.fake_etsy import FakeEtsy
+
+    path, version, rh = SH._chain()
+    db = Database(f"sqlite:///{path}")
+    cert = etsy_ops.certified_frames(db, SH.SLUG, version, release=rh)
+    assert 0 < len(cert["frames"]) < CAMPAIGN_MIN_FRAMES, cert
+    assert any(p.startswith("gallery incomplete") for p in cert["problems"]), cert
+    with FakeEtsy() as fake, SH._owner_and_fake(fake):
+        SH._grant(db, version, rh)
+        job = SH._run(db, "store_operator", "store.publish",
+                      {"slug": SH.SLUG, "version": version, "release": rh},
+                      phase=Phase.LIMITED_PRODUCTION)
+        assert job.status is JobStatus.DONE, job.last_error
+        out = job.outputs
+        assert out.get("published") is False and out.get("blocked") is True, out
+        assert any("gallery incomplete" in r for r in out.get("reasons") or []), out
+        assert SH._creates(fake) == [] and not fake.received_images, fake.requests
+    db.engine.dispose()
+
+
 def test_b1_certified_pdfs_and_every_image_reach_the_draft_and_are_read_back():
     from sqlalchemy import select
 
@@ -150,9 +185,11 @@ def test_b1_certified_pdfs_and_every_image_reach_the_draft_and_are_read_back():
     from brambleloop.runtime.pipeline import _certified_pdf_hashes
     from tests.fake_etsy import FakeEtsy
 
-    path, version, rh = SH._chain()
+    from brambleloop.visual.shot_plans import CAMPAIGN_MIN_FRAMES
+
+    path, version, rh = SH._chain(FULL_SLUG, FULL_CATEGORY)
     db = Database(f"sqlite:///{path}")
-    slug = SH.SLUG
+    slug = FULL_SLUG
     certified = _certified_pdf_hashes(db, slug, version, rh)
     assert set(certified or {}) == {"US", "UK"} and all(certified.values()), certified
     vp = pe.visual_pipeline(db, now=NOW)
@@ -171,7 +208,7 @@ def test_b1_certified_pdfs_and_every_image_reach_the_draft_and_are_read_back():
         assert s.scalar(select(OperatingReading).where(OperatingReading.kind == lp.KIND))
 
     with FakeEtsy() as fake, SH._owner_and_fake(fake):
-        SH._grant(db, version, rh)
+        SH._grant(db, version, rh, slug=slug)
         job = SH._run(db, "store_operator", "store.publish",
                       {"slug": slug, "version": version, "release": rh},
                       phase=Phase.LIMITED_PRODUCTION)
@@ -193,7 +230,7 @@ def test_b1_certified_pdfs_and_every_image_reach_the_draft_and_are_read_back():
             frames = sorted((int(f["position"]), f["sha256"])
                             for f in rec.certificate["frames"])
         uploaded = sorted((int(i["rank"]), i["sha256"]) for i in fake.received_images[lid])
-        assert uploaded == frames and len(uploaded) >= 3, (uploaded, frames)
+        assert uploaded == frames and len(uploaded) >= CAMPAIGN_MIN_FRAMES, (uploaded, frames)
         assert len(fake.images[lid]) == len(frames)
     # The read-back is recorded, and the evidence counts it -- files and images both verified.
     with db.session() as s:
