@@ -2834,3 +2834,27 @@ test was relaxed; several were tightened.
   evaluation cannot be recorded is UNKNOWN.
 
 Reversible by decision.
+
+## D-ENG-VIS-IDENTITY-2 — held-out calibration and race settlement (ENG-VIS-IDENTITY slice 2, 2026-11-20; routine engineering)
+
+**Status:** routine engineering decisions within autonomy, made in response to the slice-1 review.
+No gate was relaxed; the calibration gate was tightened.
+
+- **Held-out calibration (`identity-calibration/2`).**
+  - Thresholds are fixed on a deterministic calibration subset: 1/6 of genuine units and 1/3 of
+    impostor faces. A genuine image and its augmentations are one unit.
+  - FAR and FRR, with exact 95% bounds, are measured on the disjoint held-out subset only.
+  - The production floors (>= 30 genuine, >= 300 impostors) apply to held-out counts.
+  - `qualification()` re-derives the split from the rows and refuses in-sample evidence. The gate
+    refuses a record without a held-out evaluation.
+  - Genuine samples take the smaller calibration share because they set only `refuse_below`.
+- **Outfit race settlement.** After a race, the winner is the outfit that already reached an
+  image (earliest use), else the lowest id. Losers with no uses are released. Losers with uses are
+  retired and bound to the listing, so they are never reused. `reserve()` settles too.
+- **Vision reservations** use `providers.input_tokens`: the model's own per-image figure, the real
+  image count and the system text. That is the paid gate's own estimate, so a read is never
+  under-reserved.
+- **Models in the image** are fetched at build, best-effort. Missing or mismatched weights are
+  refused at load, so identity HOLDs and a deploy is never broken by a mirror outage.
+
+Reversible by decision.

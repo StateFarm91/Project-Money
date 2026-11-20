@@ -37,7 +37,8 @@ def main(model_dir):
            "unlabelled_probe_note": ("owner's manual FLUX 3 attempts at Laura; scored against the "
                                      "calibrated thresholds for information only, never as labels")}
     (HERE / "calibration_evidence.json").write_text(json.dumps(out, indent=1, sort_keys=True))
-    keys = ("genuine_pairs", "impostor_pairs", "derived_genuine", "match_at", "refuse_below", "far",
+    keys = ("total_genuine", "total_impostor", "calibration_genuine", "calibration_impostor",
+            "genuine_pairs", "impostor_pairs", "derived_genuine", "match_at", "refuse_below", "far",
             "far_upper_95", "frr", "derived_frr", "genuine_min", "impostor_max", "separation",
             "production_ready", "not_ready_reasons", "evidence_sha256")
     print(json.dumps({k: ev.get(k) for k in keys} | ev_perf, indent=1))
