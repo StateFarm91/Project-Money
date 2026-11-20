@@ -3051,3 +3051,29 @@ open request's `occurrences`.
 **Readback.** `daily_ledger` is an advisory readback row: PASS or WARN when readable, UNKNOWN when
 missing or unreadable, never PASS on UNKNOWN.
 Reversible by decision; the thresholds are constants in `ops/daily_ledger.py`.
+
+## 2026-11-20 — B19-FIX: autopromote security review findings B1–B7 (review-results/b19-b)
+
+**B1 (backup gate).** Every `run:` in certify-and-promote.yml uses `shell: bash` (GitHub runs it
+as `bash -eo pipefail`), and the backup step also sets `set -o pipefail` and then requires the
+verdict JSON's `ok` to be `true`. A REFUSE (exit 1) can no longer be masked by `| tee`. A test
+executes the shipped step script against a stand-in that refuses and shows it fails, and shows
+the old form continuing.
+**B2.** Certify concurrency is one repository-wide group (`brambleloop-certify`); promote refuses
+a release that does not descend from the deployed commit (`git merge-base --is-ancestor`).
+**B3.** The suite runs in `certify` with `contents: read` and uploads the record as an artifact; a
+separate `record` job (fresh checkout, no test code run, `contents: write`) verifies the record
+names this SHA and touches only the record directories, then commits and pushes with
+`core.hooksPath=/dev/null`.
+**B4 (decision).** The `push` trigger is dropped: the workflow runs only by `workflow_dispatch`
+and refuses unless the run uses the default branch's copy of the file. The production
+environment's required reviewers and a ruleset on `claude/w6-release-*` are now mandatory owner
+actions. Why: a push trigger runs the workflow as pushed, and with an autocoder writing code a
+human click is the last gate.
+**B5.** dispatch.yml checks out a pinned reviewed commit (07a41bf1) instead of the mutable
+`claude/w4-INTEG8-next` head (the default branch does not carry the board's files), and no
+expression is interpolated into its run line.
+**B6.** The workflow test pins the trigger set, pipefail, the backup verdict check, no `|| true`,
+no `${{ github.event.* / inputs.* }}` in `run:`, the job split and the ancestry check; ten
+mutants (including `|| true` and `pull_request_target`) are killed.
+**B7.** `tests/test_autopromote.py` is declared in `scripts/suite_final_segment.txt`.

@@ -51,18 +51,22 @@ either value into a chat, an issue or the repository.
 - **Why:** `ops/deploy.sh` pushes the certified commit with the workflow's `GITHUB_TOKEN`
   (`contents: write`). The pre-push hook and `deploy_guard check` still run on that push.
 - **Maximum cost:** CA$0. **Minutes:** 5.
-- **Trust note:** a `push` trigger runs the workflow file as it exists on the pushed
-  `claude/w6-release-*` branch. Anyone who can push such a branch can push an edited workflow.
-  That is the same power as pushing the production branch directly today. The runtime boot
-  guard still runs an unrecorded build only as SHADOW. A ruleset on `claude/w6-release-*` that
-  only you and the integrator can push would close that gap.
+- **Trust note (B19 B4):** the workflow no longer has a `push` trigger, because a push trigger
+  runs the workflow file as pushed. It runs only by `workflow_dispatch` and refuses unless the
+  run uses the default branch's copy of the file. **Required before first use:** add
+  `claude/w6-release-*` to the same ruleset (Restrict updates, Block force pushes), with only
+  GitHub Actions and you on the bypass list, so a bot token cannot create or move a release
+  branch.
 
-## 4. Optional: approve each deploy with one click
+## 4. REQUIRED: approve each deploy with one click (B19 B4, no longer optional)
 - **Exact action:** Settings -> Environments -> **production** -> Required reviewers -> add
   yourself.
 - **Why:** the promote job uses the `production` environment. With a reviewer set, each deploy
   waits for an Approve click in the GitHub app. That keeps the exact-SHA owner approval used for
-  Batches 5-11 without any Claude usage. Leave it empty for fully automatic releases.
+  Batches 5-11 without any Claude usage. The B19 security review made this mandatory: with the
+  autocoder able to write code, a human click is the last gate before production.
+- **Consequence of waiting:** do not dispatch the workflow until this is set; without it a
+  certified release deploys with no human in the loop.
 - **Maximum cost:** CA$0. **Minutes:** 2, plus about 1 per release.
 
 ## Cost and runtime (Actions minutes)
@@ -87,12 +91,18 @@ either value into a chat, an issue or the repository.
 
 ## How a release flows once this is done
 1. The integrator pushes the certified candidate to a `claude/w6-release-<name>` branch whose
-   history already contains the production commit. That push starts the workflow.
-2. **certify:** one plain `REQUIRE_CLEAN=1 bash run_tests.sh` on the exact SHA. Then
-   `deploy_guard.py record`, and the record is committed and pushed onto the release branch as a
-   fast-forward. If someone pushed to the branch during the run, the push fails and nothing
+   history already contains the production commit, then dispatches the workflow from the
+   default branch with that `sha` and `branch` (Actions UI, or the API). A push alone starts
+   nothing (B19 B4).
+2. **certify** (one at a time across the repository, `contents: read`): one plain
+   `REQUIRE_CLEAN=1 bash run_tests.sh` on the exact SHA, then `deploy_guard.py record`; the
+   record is uploaded as an artifact. **record** (a fresh checkout that ran no tests, the only
+   job that can push): checks that the record names this SHA and touches only the record
+   directories, then commits and pushes it onto the release branch as a fast-forward with git
+   hooks disabled. If someone pushed to the branch during the run, the push fails and nothing
    deploys.
-3. **promote** (one at a time across the repository): read the production SHA. If production
+3. **promote** (one at a time across the repository): read the production SHA and refuse unless
+   the release descends from it. If production
    reports a commit missing from DEPLOYED_HISTORY, append it as observed. Run the guard dry run,
    then the backup gate, then `ops/deploy.sh --deployed <prod sha>`. Finally record the deploy in
    DEPLOYED_HISTORY on the release branch.
