@@ -130,6 +130,11 @@ SCRATCH = {
         "caller", "runtime/release.py::handle_model_photography", ("ctx.audit(",)),
     "publish/motif_fidelity.py::check": ("caller", "publish/owned_photography.py::make",
                                          ("motif_fidelity.check(",)),
+    # ENG-MOTIF-BACKLOG: the backlog re-ask's scratch holds only the chart drawn for the
+    # comparison; the answer is filed as an audit row by `_file_answer`, which recheck_one
+    # calls before it settles the motif_recovery row.
+    "publish/motif_backlog.py::recheck_one": ("durable", "publish/motif_backlog.py::_file_answer",
+                                              ("AuditLog(",)),
     "publish/owned_photography.py::make": ("caller",
                                            "runtime/release.py::handle_owned_photography",
                                            ("ctx.audit(",)),

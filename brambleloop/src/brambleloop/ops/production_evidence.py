@@ -244,7 +244,23 @@ def publishing_halt(db, *, now: datetime) -> dict:
         "stale_artefact_family": SENTINEL_SIGNATURE,
         "halted_certifications": len(halted),
         "halted_certification_artefacts": [h["artifact"] for h in halted][:SLUGS_PER_STAGE],
+        # Review main-integ (Unit B): an owner-directed policy override releases holds, so
+        # it must be visible wherever holds are read -- never silent. Unreadable is None.
+        "owner_overridden_policy_changes": _overridden_view(db),
     }
+
+
+def _overridden_view(db):
+    try:
+        from ..gates.platform_policy import overridden_changes
+
+        return [{"source": str(r.get("source")), "checked_on": str(r.get("checked_on")),
+                 "decision": str((r.get("override") or {}).get("decision") or ""),
+                 "through": str((r.get("override") or {}).get("through") or ""),
+                 "reviewed": False}
+                for r in overridden_changes(db)][:SLUGS_PER_STAGE]
+    except Exception:  # noqa: BLE001 - unreadable is UNKNOWN (None), never "no override"
+        return None
 
 
 def _exhausted(report_count, detail) -> bool:
@@ -1353,6 +1369,20 @@ def learning(db, *, now: datetime | None = None) -> dict:
     return {"readable": True, **progress.readback(db, now=now)}
 
 
+def motif_backlog_recovery(db, *, now: datetime) -> dict:
+    """ENG-MOTIF-BACKLOG (owner P0): paid renders whose motif check the budget gate refused,
+    and what the recovery made of them. Counts only (`publish.motif_backlog.report`, from the
+    persisted `motif_recovery` rows); a backlog never swept is UNKNOWN, never 0."""
+    from ..publish import motif_backlog
+
+    rep = motif_backlog.report(db)
+    if not rep.get("readable"):
+        return {"readable": False, "error_class": str(rep.get("why") or "unreadable")[:80]}
+    return {"readable": True, "swept": rep.get("swept"),
+            "last_sweep_at": rep.get("last_sweep_at"), "counts": rep.get("counts"),
+            "recheck_spend_cad": rep.get("recheck_spend_cad")}
+
+
 SECTIONS = {
     "dead_letters_24h": dead_letters,
     "publishing_halt": publishing_halt,
@@ -1366,6 +1396,7 @@ SECTIONS = {
     "listing_package_releases": listing_package_releases,
     "scheduler": scheduler,
     "first_listing_readiness": first_listing_readiness,
+    "motif_backlog_recovery": motif_backlog_recovery,
     "visual_pipeline": visual_pipeline,
     "learning": learning,
 }

@@ -3445,6 +3445,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     # these keys are what they report when the capability is open and they did the work.
     "assets.model_photography": ("made",),
     "assets.owned_photography": ("made", "attempted"),
+    "assets.motif_backlog": ("work_done",),  # ENG-MOTIF-BACKLOG
     "creative.blinded": ("judged",),
     "creative.expedition": ("proposed", "survivors", "judged", "generated"),
     "creative.image_benchmark": ("winner", "locked"),
@@ -3968,6 +3969,7 @@ from . import engineering_ops  # noqa: E402,F401  (W4-AGENTS: cir.revise)
 from . import intel_ops  # noqa: E402,F401  (W4-AGENTS: radar.competitor_snapshot)
 from . import photo_review_ops  # noqa: E402,F401  (OPUS2: assets.photo_review)
 from . import listing_package_ops  # noqa: E402,F401  (OPUS2: listing.package)
+from . import motif_backlog_ops  # noqa: E402,F401  (ENG-MOTIF-BACKLOG: assets.motif_backlog)
 from . import c12_ops  # noqa: E402,F401  (W4-C12 wiring: SV aging, window captures, harvest)
 from . import commercial_ops  # noqa: E402,F401  (OPUS2-P0: improve.commercial_lessons)
 from . import learning_ops  # noqa: E402,F401  (ENG-LEARN: learning.loops)
