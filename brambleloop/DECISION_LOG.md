@@ -3128,3 +3128,14 @@ Laura identity method, wardrobe/scenes and daily ledger, on top of production dd
 - **Deploy authority:** the deploy is pushed only on the owner's explicit OK for this exact
   SHA. Until the full run's record is deployed, the boot guard stays not-ok (SHADOW is already
   the phase).
+
+## D-OWNER-DEPLOY-OVERRIDE-3 — 2026-11-20 ~16:40 UTC (pending the owner's exact-SHA OK)
+
+Batch 18 (code 511a8c63) = production Batch 17 b098fcce plus three changes:
+- demand-led supply 2a85f4f3;
+- the Etsy-publish fixes 04e1200d;
+- the demand-stall fix f47a5961.
+
+**Evidence:** 353 overlap tests passing, 0 suites failing. The demand-stall fix suites: 157 OK.
+**Safeguards:** rollback rehearsal to 09be42d6, verify_deploy, readback, and rollback on a P0.
+The deploy goes out only with the owner's explicit OK for this exact SHA.
