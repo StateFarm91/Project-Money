@@ -245,6 +245,87 @@ def test_search_certificate_carries_the_market_fit_check():
     assert bad["verdict"] == search.REFUSED and "market_fit" in bad["failed"]
 
 
+def test_a_rearranged_title_with_no_long_run_is_refused_by_the_trigram_rule():
+    """Review b17-a B2: the trigram-Jaccard rule alone refuses this; mutating it out fails."""
+    theirs, ours = "Chunky Granny Basket Tote", "Cosy Chunky Granny Basket Tote"
+    o = M.overlap(ours, theirs)
+    assert not o["verbatim"] and o["run_len"] <= M.MAX_SHARED_RUN, o
+    assert o["trigram_jaccard"] >= M.MAX_TRIGRAM_JACCARD and o["copied"], o
+    orig = M.originality(ours, [("MJ", theirs)])
+    assert orig["ok"] is False and orig["copies"], orig
+    old = M.MAX_TRIGRAM_JACCARD
+    try:
+        M.MAX_TRIGRAM_JACCARD = 1.01   # mutant: the trigram rule disabled
+        assert M.originality(ours, [("MJ", theirs)])["ok"] is True
+    finally:
+        M.MAX_TRIGRAM_JACCARD = old
+
+
+def test_an_empty_shelf_is_unknown_originality_and_fails_the_certificate():
+    """Review b17-a B1: no competitor evidence is UNKNOWN, never a passing market_fit."""
+    from brambleloop.commerce import category as C
+    from brambleloop.commerce import search
+
+    o = M.originality("Crochet Cat Hat Pattern", [])
+    assert o["ok"] is None and o["status"] == "UNKNOWN" and o["checked"] == 0, o
+    db = _db("emptyshelf")
+    facts = _facts()
+    desc = (f"{facts.title} — a crochet pattern, not a finished item. You receive an instant "
+            f"digital download. {M.fold_sentence(facts)}")
+    chosen = C.CategoryChoice(C.CHOSEN, taxonomy_id=24, path_ids=[20, 21, 24],
+                              path_names=["Craft Supplies & Tools", "Patterns & How To",
+                                          "Patterns & Blueprints"])
+    pkg = M.seo_package(db, facts, title="Hexagonal Bread Basket Crochet Pattern | US and "
+                        "UK Terms", tags=[], description=desc, category_choice=chosen)
+    assert not pkg["ok"] and any(p.startswith("TITLE_ORIGINALITY_UNKNOWN")
+                                 for p in pkg["problems"]), pkg["problems"]
+    assert pkg["originality"]["scope"] == "all", pkg["originality"]
+    blocking = [p for p in pkg["problems"] if p.startswith(("TITLE_", "FOLD_", "CATEGORY_"))]
+    base = dict(category={"status": "CHOSEN"}, properties={"complete": True},
+                attribute_problems=[], copy_gate={"ok": True}, tag_problems=[],
+                description_problems=[], hero={"ok": True})
+    cert = search.search_certificate(**base, market_fit={
+        "ok": not blocking, "why": "; ".join(blocking),
+        "originality": pkg["originality"]["ok"]})
+    assert cert["checks"]["market_fit"]["ok"] is False and cert["verdict"] == search.REFUSED
+    # even an `ok` the caller got wrong cannot pass unproven originality
+    cert = search.search_certificate(**base, market_fit={"ok": True, "originality": None})
+    assert cert["checks"]["market_fit"]["ok"] is False, cert
+
+
+def test_the_pod_shelf_scope_is_recorded():
+    """Review b17-a B4: the originality evidence says which shelf it was checked against."""
+    db = _db("scope")
+    _shelf(db, BASKET_ROWS)
+    facts = _facts()
+    pkg = M.seo_package(db, facts, title="Hexagonal Bread Basket Crochet Pattern", tags=[],
+                        description="x", category_choice=None)
+    assert pkg["originality"]["scope"] == "pod" and pkg["originality"]["checked"] > 0, pkg
+
+
+def test_the_discount_rules_run_on_the_live_price_path():
+    """Review b17-a B3: `discount_problems` is called from the price handlers, not shelf-ware."""
+    import inspect
+
+    from brambleloop.commerce import pricing
+    from brambleloop.runtime import release
+
+    src = inspect.getsource(release)
+    assert src.count("_refuse_deceptive_discount(") >= 3, "both price paths call the rules"
+    assert "check_no_fake_discount(decision.price_cad" not in src
+    release._refuse_deceptive_discount(6.99, flagship=True)   # no was-price: nothing to refuse
+    saved = M.discount_problems
+    try:
+        M.discount_problems = lambda **kw: ["FLAGSHIP_DISCOUNT: test"]
+        try:
+            release._refuse_deceptive_discount(6.99, flagship=True)
+            raise AssertionError("a discount problem did not refuse the price")
+        except pricing.DeceptivePricing as e:
+            assert "FLAGSHIP_DISCOUNT" in str(e), e
+    finally:
+        M.discount_problems = saved
+
+
 # ---- pricing ----------------------------------------------------------------------------------
 
 def test_the_band_is_quartiles_of_the_research_shelf():

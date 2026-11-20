@@ -185,8 +185,21 @@ def overlap(ours: str, theirs: str) -> dict:
             "copied": copied}
 
 
-def originality(title: str, shelf_titles: list[tuple[str, str]]) -> dict:
-    """`shelf_titles` is [(shop, title)]. ok=False names the competitor title it copies."""
+def originality(title: str, shelf_titles: list[tuple[str, str]], *,
+                scope: str = "pod") -> dict:
+    """`shelf_titles` is [(shop, title)]. ok=False names the competitor title it copies.
+
+    Review b17-a B1: with no competitor title to compare against, originality is UNKNOWN
+    (`ok` None, `status` "UNKNOWN"), never a pass. B4: `scope` records whether the titles were
+    the pod's own shelf ("pod") or every pod's ("all") when the pod's shelf was empty.
+    """
+    if not shelf_titles:
+        return {"ok": None, "status": "UNKNOWN", "checked": 0, "copies": [], "closest": None,
+                "scope": scope,
+                "why": "no competitor titles on the research shelf to compare against",
+                "rule": (f"no verbatim title; no shared run longer than {MAX_SHARED_RUN} "
+                         f"tokens with {MIN_DISTINCT_IN_RUN}+ non-generic words; word-trigram "
+                         f"Jaccard below {MAX_TRIGRAM_JACCARD}")}
     worst, hits = None, []
     for shop, theirs in shelf_titles:
         o = overlap(title, theirs)
@@ -195,8 +208,9 @@ def originality(title: str, shelf_titles: list[tuple[str, str]]) -> dict:
         if worst is None or (o["run_len"], o["trigram_jaccard"]) > (
                 worst["run_len"], worst["trigram_jaccard"]):
             worst = {"shop": shop, **o}
-    return {"ok": not hits, "checked": len(shelf_titles), "copies": hits[:5],
-            "closest": worst,
+    return {"ok": not hits, "status": "COPIED" if hits else "PASS",
+            "checked": len(shelf_titles), "copies": hits[:5], "closest": worst,
+            "scope": scope,
             "rule": (f"no verbatim title; no shared run longer than {MAX_SHARED_RUN} tokens "
                      f"with {MIN_DISTINCT_IN_RUN}+ non-generic words; word-trigram Jaccard "
                      f"below {MAX_TRIGRAM_JACCARD}")}
@@ -454,10 +468,14 @@ def seo_package(db, facts: ProductFacts, *, title: str, tags: list[str],
     everything = shelf if shelf else research_listings(db)
     evidence = keyword_evidence(shelf or everything)
     full_tags, provenance = choose_tags(facts, evidence, given=tags)
-    orig = originality(title, [(r.shop, r.title) for r in everything if r.title])
+    orig = originality(title, [(r.shop, r.title) for r in everything if r.title],
+                       scope="pod" if shelf else "all")
     problems = title_problems(title) + tag_problems(full_tags) + fold_problems(description,
                                                                                facts)
-    if not orig["ok"]:
+    if orig["ok"] is None:
+        problems.append("TITLE_ORIGINALITY_UNKNOWN: no competitor titles on the research "
+                        "shelf, so the title is not proven original")
+    elif not orig["ok"]:
         problems.append("TITLE_COPIES_COMPETITOR: " + "; ".join(
             f"{c['shop']} ({c['shared_run'] or 'rearranged'})" for c in orig["copies"]))
     status = getattr(category_choice, "status", None)

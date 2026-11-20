@@ -857,7 +857,7 @@ def handle_pricing_position(ctx: JobContext) -> dict:
 
     # The category's standing "50% off" is not available to us; assert that explicitly rather
     # than relying on nobody adding it later.
-    pricing_mod.check_no_fake_discount(decision.price_cad, None, ever_charged=False)
+    _refuse_deceptive_discount(decision.price_cad, flagship=bool(i.get("flagship")))
 
     # #46: every price this handler sets opens a point in the elasticity memory, with its
     # season, traffic source and sale state as columns. An unchanged price is not re-recorded,
@@ -882,6 +882,19 @@ def handle_pricing_position(ctx: JobContext) -> dict:
                 idempotency_key=chain_key("seo", slug, i["version"], i.get("release", ""),
                                           i.get("rebuild", "")))
     return decision.to_dict()
+
+
+def _refuse_deceptive_discount(price_cad: float, *, flagship: bool) -> None:
+    """Review b17-a B3: the B-376 discount rules (`market_fit.discount_problems`) on the live
+    price path. No was-price is ever set here, so today this refuses only a deceptive price;
+    the flagship and a-third-of-days rules bind the moment a caller supplies one."""
+    from ..commerce import market_fit as _mf
+    from ..commerce import pricing as _pricing
+
+    problems = _mf.discount_problems(price_cad=price_cad, was_price_cad=None,
+                                     ever_charged=False, flagship=flagship)
+    if problems:
+        raise _pricing.DeceptivePricing("; ".join(problems))
 
 
 def _vet_promotion(ctx: JobContext, i: dict, slug: str, full_price_cad: float) -> None:
@@ -938,7 +951,7 @@ def _price_launch0(ctx: JobContext, i: dict, slug: str, record: dict,
     i["sale_allowed"] = sale_allowed
     price = float(launch["price_cad"])
     _vet_promotion(ctx, i, slug, price)
-    pricing_mod.check_no_fake_discount(price, None, ever_charged=False)
+    _refuse_deceptive_discount(price, flagship=bool(i.get("flagship")))
     price_point = {"skipped": "fix_only: no price is applied, so none is recorded"} \
         if i.get("fix_only") else elasticity.record_price_set(
         ctx.db, product_slug=slug, category=record["category"], price_cad=price,
@@ -1409,7 +1422,7 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     mf_reading = _mf.seo_package(ctx.db, mf_facts, title=copy.title, tags=copy.tags,
                                  description=copy.description, category_choice=choice)
     mf_blocking = [p for p in mf_reading["problems"]
-                   if p.startswith(("TITLE_", "FOLD_"))]
+                   if p.startswith(("TITLE_", "FOLD_", "CATEGORY_"))]
     blocking = blocking + mf_blocking
 
     # F-004: the holistic search certificate. Category, properties, copy, tags and the
@@ -1427,6 +1440,7 @@ def handle_listing_seo(ctx: JobContext) -> dict:
         description_problems=description_problems,
         market_fit={"ok": not mf_blocking, "why": "; ".join(mf_blocking)[:400],
                     "originality": mf_reading["originality"]["ok"],
+                    "originality_scope": mf_reading["originality"].get("scope"),
                     "shelf_listings": mf_reading["evidence"]["all_listings"]})
     # F-242: the certificate is bound to the search guidance it was issued under; a material
     # change to that reading invalidates it (`search.stored_pass_problems`).
