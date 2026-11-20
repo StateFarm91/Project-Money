@@ -137,10 +137,12 @@ def _release_hash(cir: CIR, pattern_text: str) -> str:
 # a copy of the list somewhere else is how that guarantee would quietly stop being true.
 CANONICAL_STAGES: tuple[str, ...] = (
     "compile", "specification", "twin", "assembly", "geometry", "write", "reverse",
-    "originality", "asset_truth", "policy", "physical_test", "confidence",
+    "originality", "asset_truth", "policy", "physical_test", "child_safety", "confidence",
 )
 
-CONDITIONAL_STAGES: tuple[str, ...] = ("geometry", "asset_truth", "policy")
+# ENG-PLUSH: "child_safety" runs only when `gates.child_safety.applies` (a toy, lovey or
+# child's item), like the other conditional stages.
+CONDITIONAL_STAGES: tuple[str, ...] = ("geometry", "asset_truth", "policy", "child_safety")
 
 
 # A4A-1: the finished size an object noun promises, enforced at certification. A name a buyer

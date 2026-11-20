@@ -223,6 +223,22 @@ def test_a_toy_called_anything_is_still_inside_the_gate():
     assert CS.applies(ball) and CS.evaluate(ball).verdict == CS.VERDICT_HELD
 
 
+def test_an_unidentified_material_on_a_toy_is_held_and_garments_use_their_own_constraints():
+    toy = _toy()
+    odd = _with(toy, materials=toy.materials + [Material(name="trim kit (assorted)")])
+    v = CS.evaluate(odd)
+    assert {c.code: c.state for c in v.checks}["MATERIALS_KNOWN"] == CS.UNKNOWN
+    assert v.verdict != CS.VERDICT_PASS
+    # A graded children's garment is governed by intel.childrens' garment constraints.
+    assert CS.applies(toy)                                  # ungraded toy: inside
+    import types
+    fake = types.SimpleNamespace(**{**toy.__dict__, "grading": object(),
+                                    "components": [dataclasses.replace(
+                                        c, stuff_at_round=None, closes=False)
+                                        for c in toy.components]})
+    assert not CS.applies(fake)                             # a graded, unstuffed garment
+
+
 def test_unknown_is_never_pass():
     v = CS.Verdict(applies=True, profile=("base",),
                    checks=[CS.Check("X", CS.PASS, ""), CS.Check("Y", CS.UNKNOWN, "")])
@@ -915,6 +931,17 @@ def test_a_face_named_without_eyes_or_nose_must_still_say_it_is_embroidered():
     assert all(CS._unembroidered_feature(t) is None for t in CS._instruction_texts(faceless))
     check = {c.code: c for c in CS.evaluate(faceless).checks}["FEATURES_EMBROIDERED"]
     assert check.state == CS.FAIL and "embroidered" in check.detail, check
+
+
+def test_a_hard_part_that_is_not_a_feature_fails_in_the_printed_instructions():
+    """Kills "text: hard parts in instructions unread": no eye or nose for the clause rule."""
+    probes = ("Sew two buttons to the tummy.", "Add a jingle bell inside.",
+              "Finish with press studs.")
+    assert probes
+    for line in probes:
+        assert CS._unembroidered_feature(line) is None, line
+        checks = CS._text_checks("x", ("base",), instructions=line)
+        assert {c.code: c.state for c in checks}["NO_HARD_PARTS_IN_TEXT"] == CS.FAIL, line
 
 
 if __name__ == "__main__":
