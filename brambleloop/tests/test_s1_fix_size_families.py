@@ -199,7 +199,10 @@ def test_objects_without_a_band_and_template_are_refused_not_drafted_as_a_panel(
         assert route["family"] == FC.REFUSED, (title, route)
         assert route["why"], (title, route)
     # The band-less ones are refused for that reason, not by accident of another rule.
-    for title in ("Baby Lovey", "Linen Hot Pad", "Linen Tablecloth", "Baby Nursery Panel"):
+    # ENG-PLUSH: a lovey now has an engine (creative.baby); "Baby Lovey" is still refused
+    # above, by the lovey's head (no bear or bunny is named), not for a missing size band.
+    assert "head" in FC.plan(category="baby", title="Baby Lovey")["why"]
+    for title in ("Linen Hot Pad", "Linen Tablecloth", "Baby Nursery Panel"):
         cat = "baby" if title.startswith("Baby") else "placemat"
         assert "size band" in FC.plan(category=cat, title=title)["needs"], title
 

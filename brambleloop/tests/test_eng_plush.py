@@ -139,7 +139,7 @@ def test_the_toy_is_a_closed_spiral_with_counts_and_geometry_validated():
     geo = {g["piece"]: g for g in closed_forms.part_geometry(cir, result)}
     assert geo["body"]["meridian_cm"] > geo["body"]["diameter_cm"]
     # Every round's declared count is the computed count (the compiler's own check).
-    assert cir.components and all(c.rows for c in cir.components)
+    assert cir.components and all(comp.rows for comp in cir.components)
     for comp in cir.components:
         for row in comp.rows:
             assert row.declared_count == result.row(comp.name, row.index).stitch_count
@@ -198,9 +198,11 @@ def test_the_reverse_compiler_reads_the_stuffing_point_and_closure_back():
 def test_the_drafted_toy_passes_every_computable_check_and_is_held_for_evidence():
     v = CS.evaluate(_toy())
     states = {c.code: c.state for c in v.checks}
-    assert states == {"FEATURES_EMBROIDERED": CS.PASS, "JOINS_VALIDATED": CS.PASS,
-                      "NO_CORDS_OR_LOOPS": CS.PASS, "STUFFING_GUIDANCE": CS.PASS,
-                      "SMALL_PARTS": CS.PASS, "PHYSICAL_EVIDENCE": CS.UNKNOWN}, states
+    assert states == {"FEATURES_EMBROIDERED": CS.PASS, "MATERIALS_KNOWN": CS.PASS,
+                      "ATTACHMENTS_KNOWN": CS.PASS,
+                      "JOINS_VALIDATED": CS.PASS, "NO_CORDS_OR_LOOPS": CS.PASS,
+                      "STUFFING_GUIDANCE": CS.PASS, "SMALL_PARTS": CS.PASS,
+                      "AGE_SUITABILITY": CS.PASS, "PHYSICAL_EVIDENCE": CS.UNKNOWN}, states
     assert v.verdict == CS.VERDICT_HELD
     assert set(v.profile) >= {"stuffed", "face", "sewn"}
 
@@ -220,6 +222,26 @@ def test_a_toy_called_anything_is_still_inside_the_gate():
                  slug="juniper-ball-1")
     assert not L.stuffed_figure(ball) and not L.child_words_in(ball.title, ball.slug)
     assert CS.applies(ball) and CS.evaluate(ball).verdict == CS.VERDICT_HELD
+
+
+def test_an_unidentified_material_on_a_toy_is_held_and_childrens_garments_stay_in_the_gate():
+    toy = _toy()
+    odd = _with(toy, materials=toy.materials + [Material(name="trim kit (assorted)")])
+    v = CS.evaluate(odd)
+    assert {c.code: c.state for c in v.checks}["MATERIALS_KNOWN"] == CS.UNKNOWN
+    assert v.verdict != CS.VERDICT_PASS
+    assert CS.applies(toy)                                  # ungraded toy: inside
+    # Review b18-c C1: a graded baby or child garment is NEVER outside the child-safety gate
+    # (GARMENT_CLOSURES, cords, small parts). Real graded CIRs, not a stand-in grading object.
+    from brambleloop.products import garment_release as GR
+    for key in ("little-wren-baby-cardigan", "brookside-kids-sweater"):
+        cirs = GR.build(GR.DESIGNS[key]).cirs
+        assert cirs, key
+        for size, cir in cirs.items():
+            assert cir.grading is not None and not any(
+                c.stuff_at_round is not None or c.closes for c in cir.components), (key, size)
+            assert CS.garment_months(cir) is not None, (key, size)
+            assert CS.applies(cir), (key, size)             # graded, unstuffed: still inside
 
 
 def test_unknown_is_never_pass():
@@ -615,7 +637,7 @@ def test_a_research_lovey_is_physical_gated_end_to_end():
     for terms in ("US", "UK"):
         doc = pdf.build_pattern_pdf(cir, terminology=terms, childrens=lovey)
         text = pdf.extracted_text(doc.pdf_bytes)
-        assert cir.components and all(c.rows for c in cir.components)
+        assert cir.components and all(comp.rows for comp in cir.components)
         for comp in cir.components:
             for row in comp.rows:
                 assert f"({result.row(comp.name, row.index).stitch_count} sts)" in text
@@ -652,6 +674,470 @@ def test_baby_garments_and_unbuilt_baby_items_are_held_by_name():
     got = CF.route(category="baby", title="Fluffy Bear Lovey", form="toy",
                    construction="amigurumi_shaping")
     assert not got["admitted"] and "texture" in got["reason"], got
+
+
+# ---- ENG-PLUSH-FIX: every probe of the independent review of 2763340b --------------------------
+
+M1_MATERIAL_PROBES = ("2 x 9 mm black eyes", "9mm animal eyes with washers", "craft eyes",
+                      "doll eyes", "toy eyes", "crystal eyes", "rhinestones", "pom-pom nose",
+                      "an eye back", "press studs", "hook and eye", "toggle")
+
+
+def test_m1_every_reviewer_hard_part_probe_fails_features_on_the_embroidered_bear():
+    cir = _toy()
+    assert _codes(cir)["FEATURES_EMBROIDERED"] == CS.PASS        # the baseline is clean
+    assert len(M1_MATERIAL_PROBES) == 12
+    for material in M1_MATERIAL_PROBES:
+        bad = _with(cir, materials=cir.materials + [Material(name=material)])
+        v = CS.evaluate(bad)
+        states = {c.code: c.state for c in v.checks}
+        assert states["FEATURES_EMBROIDERED"] == CS.FAIL, (material, states)
+        assert v.verdict == CS.VERDICT_FAIL, material
+
+
+def test_m1_an_eye_or_nose_instruction_not_stated_as_embroidered_fails():
+    cir = _toy()
+    probes = ("Sew on two 9 mm eyes.", "Add the eyes between rounds 8 and 9.",
+              "Insert the nose at round 10.", "Glue the felt nose on.",
+              "Embroider the mouth, then attach the 12mm eyes.")
+    assert probes
+    for note in probes:
+        noted = _with(cir, designer_notes=(cir.designer_notes or "") + " " + note)
+        assert _codes(noted)["FEATURES_EMBROIDERED"] == CS.FAIL, note
+    # And the printed instructions are read by the same rule.
+    result = compile_cir(cir)
+    checks = CS._text_checks("x", ("base", "face"), instructions="Add two craft eyes.")
+    hard = {c.code: c.state for c in checks}["NO_HARD_PARTS_IN_TEXT"]
+    assert hard == CS.FAIL and result.ok
+
+
+def test_m1_materials_are_an_allow_list_and_an_unknown_one_holds_the_item():
+    cir = _toy()
+    assert _codes(cir)["MATERIALS_KNOWN"] == CS.PASS
+    unknowns = ("a scrap of felt", "leather lacing", "a small notion", "fabric paint")
+    assert unknowns
+    for material in unknowns:
+        v = CS.evaluate(_with(cir, materials=cir.materials + [Material(name=material)]))
+        states = {c.code: c.state for c in v.checks}
+        assert states["MATERIALS_KNOWN"] in (CS.UNKNOWN, CS.FAIL), (material, states)
+        assert v.verdict != CS.VERDICT_PASS, material
+    tools = ("4.0 mm crochet hook", "tapestry needle", "stitch markers", "scissors")
+    assert tools
+    for material in tools:
+        ok = _with(cir, materials=cir.materials + [Material(name=material)])
+        assert _codes(ok)["MATERIALS_KNOWN"] == CS.PASS, material
+        assert _codes(ok)["FEATURES_EMBROIDERED"] == CS.PASS, material
+
+
+M2_NOTE_PROBES = ("Tie a bow around the neck.", "Add a loop for hanging.",
+                  "Attach a lace to the pram.", "Crochet a leash.",
+                  "Make a 60 cm chain and tie it on.")
+M2_MATERIAL_PROBES = ("a 40 cm length of yarn to tie on", "a pacifier chain", "leather lacing")
+
+
+def test_m2_every_reviewer_cord_and_loop_probe_fails():
+    cir = _toy()
+    assert _codes(cir)["NO_CORDS_OR_LOOPS"] == CS.PASS
+    assert len(M2_NOTE_PROBES) == 5 and len(M2_MATERIAL_PROBES) == 3
+    for note in M2_NOTE_PROBES:
+        noted = _with(cir, designer_notes=(cir.designer_notes or "") + " " + note)
+        assert _codes(noted)["NO_CORDS_OR_LOOPS"] == CS.FAIL, note
+    for material in M2_MATERIAL_PROBES:
+        bad = _with(cir, materials=cir.materials + [Material(name=material)])
+        v = CS.evaluate(bad)
+        assert {c.code: c.state for c in v.checks}["NO_CORDS_OR_LOOPS"] == CS.FAIL, material
+        assert v.verdict == CS.VERDICT_FAIL, material
+
+
+def test_m2_consecutive_chain_ops_and_repeats_are_one_chain_run():
+    from brambleloop.cir.model import Repeat
+
+    cir = _toy()
+    ear = cir.components[1]
+    for ops in ([Op("sc", 10), Op("ch", 6), Op("ch", 6), Op("ch", 6), Op("sc", 10)],
+                [Op("sc", 10), Repeat([Op("ch", 6)], times=5), Op("sc", 10)],
+                [Op("sc", 10), Op("ch", 4), Repeat([Op("ch", 2)], times=2), Op("sc", 10)]):
+        rows = list(ear.rows)
+        rows[-1] = dataclasses.replace(rows[-1], ops=ops)
+        bad = _with(cir, components=[cir.components[0], dataclasses.replace(ear, rows=rows)])
+        assert _codes(bad)["NO_CORDS_OR_LOOPS"] == CS.FAIL, ops
+    # A chain run of exactly the limit, broken by a stitch, is not a loop.
+    rows = list(ear.rows)
+    rows[-1] = dataclasses.replace(rows[-1], ops=[Repeat([Op("ch", 3), Op("sc", 1)], times=4)])
+    ok = _with(cir, components=[cir.components[0], dataclasses.replace(ear, rows=rows)])
+    assert _codes(ok)["NO_CORDS_OR_LOOPS"] == CS.PASS
+
+
+def test_m2_a_corded_flat_baby_blanket_cannot_reach_pass():
+    from brambleloop.products import inventory
+
+    cir = inventory._engineered("cloudline-baby-blanket")
+    assert CS.evaluate(cir).verdict == CS.VERDICT_PASS
+    corded = _with(cir, designer_notes=(cir.designer_notes or "") + " Add a loop for hanging.")
+    assert CS.evaluate(corded).verdict == CS.VERDICT_FAIL
+    tied = _with(cir, materials=cir.materials + [Material(name="a 40 cm length of yarn to "
+                                                                "tie on")])
+    assert CS.evaluate(tied).verdict == CS.VERDICT_FAIL
+
+
+def test_m3_certify_reads_the_catalogue_assignment_of_a_flat_design():
+    """A flat sewn applique throw with no child word in its name, assigned to a child in the
+    catalogue, is inside the gate at certify and held for physical evidence."""
+    from brambleloop.gates import certificate
+    from brambleloop.products import inventory, launch0
+
+    base = inventory._engineered("cloudline-baby-blanket")
+    neutral = _with(base, title="Meadow Applique Throw", slug="meadow-applique-throw-m3")
+    assert not launch0.child_words_in(neutral.title, neutral.slug)
+    patch = Component("patch", "flat_rows",
+                      rows=[Row(i, [Op("sc", 20)], declared_count=20) for i in range(1, 21)],
+                      foundation=20)
+    sewn = _with(neutral, components=list(neutral.components) + [patch],
+                 assembly=list(neutral.assembly) + [
+                     Seam("whipstitch", "patch", neutral.components[0].name,
+                          edge_a="bottom", edge_b="top",
+                          note="sew through both loops; bury the tail")])
+    assert not CS.applies(sewn)                        # nothing in the CIR says "child"
+    launch0.EXTRA_CHILDRENS_ASSIGNMENTS[sewn.slug] = ("baby_blanket", "under_3")
+    launch0._CIR_AUDIENCE = None
+    try:
+        assert launch0.childrens_assignment(sewn.slug) == ("baby_blanket", "under_3")
+        cert = certificate.certify(sewn)
+        codes = {f.code for f in cert.findings}
+        assert "CHILD_SAFETY_PHYSICAL_EVIDENCE_UNKNOWN" in codes, codes
+        assert "child_safety" in cert.stages_run and not cert.granted
+    finally:
+        del launch0.EXTRA_CHILDRENS_ASSIGNMENTS[sewn.slug]
+        launch0._CIR_AUDIENCE = None
+
+
+def test_m4_the_age_band_is_read_and_the_age_statement_claims_only_what_is_shown():
+    cir = _toy()
+    small = {c.code: c for c in CS.evaluate(cir).checks}
+    assert small["AGE_SUITABILITY"].state == CS.PASS
+    odd = {c.code: c.state for c in CS.evaluate(cir, childrens=("amigurumi_toy",
+                                                               "no_such_band")).checks}
+    assert odd["AGE_SUITABILITY"] == CS.UNKNOWN
+    ear = cir.components[1]
+    tiny = _with(cir, components=[cir.components[0],
+                                  dataclasses.replace(ear, rows=ear.rows[:2])])
+    states = {c.code: c.state for c in CS.evaluate(tiny, childrens=TOY).checks}
+    assert states["SMALL_PARTS"] != CS.PASS and states["AGE_SUITABILITY"] != CS.PASS
+    claim = "every sewn-on piece is larger than the small-parts cylinder"
+    sewn = ("base", "sewn", "stuffed")
+    assert claim in dict(CS.section_lines(sewn, small_parts_clear=True))["Age suitability"]
+    for clear in (None, False):
+        text = dict(CS.section_lines(sewn, small_parts_clear=clear))["Age suitability"]
+        assert claim not in text and "has NOT been shown" in text, clear
+    one = dict(CS.section_lines(("base",), small_parts_clear=True))["Age suitability"]
+    assert claim not in one and "one piece" in one
+    for text in (CS.AGE_TEXT_ONE_PIECE, CS.AGE_TEXT_UNPROVEN,
+                 CS.STATEMENTS["age_suitability"].text):
+        assert CS.STATEMENTS["age_suitability"].marker in text
+
+
+def test_m5_a_closed_stuffed_ball_with_a_neutral_name_and_no_placed_seam_is_in_scope():
+    """The surviving mutant: a closed stuffed piece in rounds is a toy by its construction
+    alone -- one piece, a neutral name, no sewn-on part, no assignment."""
+    from brambleloop.products import launch0
+
+    cir = _toy()
+    body = cir.components[0]
+    ball = _with(cir, title="Oat Round", slug="oat-round-m5", components=[body],
+                 assembly=[], designer_notes="Worked as one closed piece.")
+    assert not launch0.child_words_in(ball.title, ball.slug)
+    assert not launch0.stuffed_figure(ball)            # no placed seam
+    assert launch0.childrens_assignment(ball.slug) is None
+    assert any(c.closes for c in ball.components)
+    assert CS.applies(ball)
+    assert CS.evaluate(ball).verdict != CS.VERDICT_PASS
+
+
+def test_l3_a_stated_closure_on_an_uncompiled_piece_is_a_finding():
+    cir = _toy()
+    result = compile_cir(cir)
+    stripped = SimpleNamespace(rows=[r for r in result.rows if r.component != "body"])
+    found: list = []
+    closed_forms.check(cir, stripped, found)
+    assert [f.code for f in found] == ["CLOSED_FORM_UNMEASURED"], found
+
+
+def test_l4_an_asset_naming_its_pieces_may_show_only_their_colours():
+    from brambleloop.cir.twin import build_twin
+    from brambleloop.gates import asset_truth as AT
+
+    concept = SimpleNamespace(slug="two-tone", title="Ball Bear Amigurumi",
+                              category="amigurumi",
+                              colors={"MC": "#D8C9B0", "CC": "#5A3A22"}, yarn_weight="worsted")
+    cir = FC.amigurumi(concept)
+    ear = cir.components[1]
+    ear = dataclasses.replace(ear, rows=[dataclasses.replace(r, color="CC") for r in ear.rows])
+    body = dataclasses.replace(cir.components[0], rows=[dataclasses.replace(r, color="MC")
+                                                        for r in cir.components[0].rows])
+    cir = _with(cir, components=[body, ear])
+    result = compile_cir(cir)
+    twin = build_twin(cir, result, component="body")
+    assert "CC" not in set(twin.colors_used)
+
+    def asset(components):
+        return AT.Asset(asset_id="a", asset_class=AT.AssetClass.DIGITAL_TWIN_RENDER,
+                        provenance=AT.Provenance(source="twin", created_by="t", tool="t"),
+                        depicts_colors=["CC"], depicts_components=components, is_hero=True)
+
+    def colour_errors(a):
+        return [f for f in AT.check_assets([a], cir, twin) if f.code == "ASSET_COLOR_ABSENT"]
+
+    assert colour_errors(asset(["body"]))                 # the body never works CC
+    assert not colour_errors(asset(["body", "ear"]))      # the ear does
+    assert not colour_errors(asset([]))                   # a whole-design depiction
+
+
+def test_mutation_harness_reports_an_import_error_as_an_error_not_a_kill():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("mutate_plush",
+                                                  ROOT / "scripts" / "mutate_plush.py")
+    mp = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mp)
+    import_error = SimpleNamespace(returncode=1, stdout=b"",
+                                   stderr=b"ModuleNotFoundError: No module named 'sqlalchemy'")
+    assert mp.classify(import_error) == mp.ERROR
+    assert mp.classify(SimpleNamespace(returncode=1, stdout=b"FAIL test_x AssertionError",
+                                       stderr=b"")) == mp.KILLED
+    assert mp.classify(SimpleNamespace(returncode=0, stdout=b"0 failed", stderr=b"")) == \
+        mp.SURVIVED
+
+
+def test_l2_every_quote_was_reread_and_an_unread_one_is_unknown():
+    assert CS.SOURCES
+    for key, src in CS.SOURCES.items():
+        assert src.verified.startswith(CS.ACCESSED), key
+    original = CS.SOURCES["hc_toy_tips"]
+    CS.SOURCES["hc_toy_tips"] = dataclasses.replace(original, verified="")
+    try:
+        profile = ("base", "face", "stuffed")
+        lines = CS.section_lines(profile, small_parts_clear=True)
+        text = " ".join(f"{h} {t}" for h, t in lines)
+        cit = {c.code: c.state for c in CS._text_checks(text, profile)}["CITATIONS"]
+        assert cit == CS.UNKNOWN
+    finally:
+        CS.SOURCES["hc_toy_tips"] = original
+
+
+def test_a_face_named_without_eyes_or_nose_must_still_say_it_is_embroidered():
+    """Kills "features: a face need not be embroidered": the face word alone, with no eye or
+    nose for the clause rule to read, still needs an embroidery instruction."""
+    cir = _toy()
+    body = cir.components[0]
+    plain = dataclasses.replace(body, note="Worked from the top down. Give it a friendly face.")
+    faceless = _with(cir, components=[plain] + cir.components[1:],
+                     designer_notes="A ball-body bear.",
+                     assembly=[dataclasses.replace(cir.assembly[0],
+                                                   note="sew through both loops; bury the "
+                                                        "tail")],
+                     materials=[m for m in cir.materials if "embroider" not in m.name])
+    texts = " ".join(CS._instruction_texts(faceless))
+    assert "face" in texts and "embroider" not in texts.lower()
+    assert all(CS._unembroidered_feature(t) is None for t in CS._instruction_texts(faceless))
+    check = {c.code: c for c in CS.evaluate(faceless).checks}["FEATURES_EMBROIDERED"]
+    assert check.state == CS.FAIL and "embroidered" in check.detail, check
+
+
+def test_a_hard_part_that_is_not_a_feature_fails_in_the_printed_instructions():
+    """Kills "text: hard parts in instructions unread": no eye or nose for the clause rule."""
+    probes = ("Sew two buttons to the tummy.", "Add a jingle bell inside.",
+              "Finish with press studs.")
+    assert probes
+    for line in probes:
+        assert CS._unembroidered_feature(line) is None, line
+        checks = CS._text_checks("x", ("base",), instructions=line)
+        assert {c.code: c.state for c in checks}["NO_HARD_PARTS_IN_TEXT"] == CS.FAIL, line
+
+
+# ---- ENG-PLUSH-FIX round 2: one test per reviewer probe ----------------------------------------
+# Every probe the review of 2763340b listed is its own test, so a probe that stops failing is
+# named in the run, not hidden inside a loop that another probe already satisfied.
+
+def _probe_material_hard_part(material):
+    def test():
+        v = CS.evaluate(_with(_toy(), materials=_toy().materials + [Material(name=material)]))
+        states = {c.code: c.state for c in v.checks}
+        assert states["FEATURES_EMBROIDERED"] == CS.FAIL, (material, states)
+        assert v.verdict != CS.VERDICT_PASS, material
+    return test
+
+
+def _probe_note_cord(note):
+    def test():
+        cir = _toy()
+        v = CS.evaluate(_with(cir, designer_notes=(cir.designer_notes or "") + " " + note))
+        assert {c.code: c.state for c in v.checks}["NO_CORDS_OR_LOOPS"] == CS.FAIL, note
+        assert v.verdict == CS.VERDICT_FAIL, note
+    return test
+
+
+def _probe_material_cord(material):
+    def test():
+        cir = _toy()
+        v = CS.evaluate(_with(cir, materials=cir.materials + [Material(name=material)]))
+        assert {c.code: c.state for c in v.checks}["NO_CORDS_OR_LOOPS"] == CS.FAIL, material
+        assert v.verdict == CS.VERDICT_FAIL, material
+    return test
+
+
+def _slug(text):
+    import re as _re
+
+    return _re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
+
+
+assert len(M1_MATERIAL_PROBES) == 12 and len(M2_NOTE_PROBES) == 5 \
+    and len(M2_MATERIAL_PROBES) == 3
+for _p in M1_MATERIAL_PROBES:
+    globals()[f"test_probe_m1_material_{_slug(_p)}"] = _probe_material_hard_part(_p)
+for _p in M2_NOTE_PROBES:
+    globals()[f"test_probe_m2_note_{_slug(_p)}"] = _probe_note_cord(_p)
+for _p in M2_MATERIAL_PROBES:
+    globals()[f"test_probe_m2_material_{_slug(_p)}"] = _probe_material_cord(_p)
+
+
+def test_probe_m2_chain_ops_ch6_ch6_ch6_in_one_round():
+    cir = _toy()
+    ear = cir.components[1]
+    rows = list(ear.rows)
+    rows[-1] = dataclasses.replace(rows[-1], ops=[Op("sc", 10), Op("ch", 6), Op("ch", 6),
+                                                  Op("ch", 6), Op("sc", 10)])
+    bad = _with(cir, components=[cir.components[0], dataclasses.replace(ear, rows=rows)])
+    assert _codes(bad)["NO_CORDS_OR_LOOPS"] == CS.FAIL
+
+
+def test_probe_m2_chain_repeat_ch6_times_5_in_one_round():
+    from brambleloop.cir.model import Repeat
+
+    cir = _toy()
+    ear = cir.components[1]
+    rows = list(ear.rows)
+    rows[-1] = dataclasses.replace(rows[-1], ops=[Op("sc", 10), Repeat([Op("ch", 6)], times=5),
+                                                  Op("sc", 10)])
+    bad = _with(cir, components=[cir.components[0], dataclasses.replace(ear, rows=rows)])
+    assert _codes(bad)["NO_CORDS_OR_LOOPS"] == CS.FAIL
+
+
+# ---- attachments are an allow-list ------------------------------------------------------------
+
+ATTACHMENT_PROBES = ("Sew on the felt heart.", "Attach the plastic charm holder.",
+                     "Glue the label in place.", "Clip on the soother holder.",
+                     "Fasten the bow tie with a pin.")
+
+
+def _probe_attachment(note):
+    def test():
+        cir = _toy()
+        v = CS.evaluate(_with(cir, designer_notes=(cir.designer_notes or "") + " " + note))
+        states = {c.code: c.state for c in v.checks}
+        assert states["ATTACHMENTS_KNOWN"] == CS.UNKNOWN, (note, states)
+        assert v.verdict != CS.VERDICT_PASS, note
+    return test
+
+
+assert len(ATTACHMENT_PROBES) == 5
+for _p in ATTACHMENT_PROBES:
+    globals()[f"test_probe_attachment_{_slug(_p)}"] = _probe_attachment(_p)
+
+
+def test_attaching_the_patterns_own_pieces_or_yarn_is_known():
+    cir = _toy()
+    assert _codes(cir)["ATTACHMENTS_KNOWN"] == CS.PASS
+    known = ("Sew the ears to the head.", "Attach yarn at the back loop.",
+             "Sew on both ear pieces across the whole edge.")
+    assert known
+    for note in known:
+        ok = _with(cir, designer_notes=(cir.designer_notes or "") + " " + note)
+        assert _codes(ok)["ATTACHMENTS_KNOWN"] == CS.PASS, note
+
+
+def test_an_unknown_attachment_on_a_flat_baby_blanket_holds_it():
+    from brambleloop.products import inventory
+
+    cir = inventory._engineered("cloudline-baby-blanket")
+    assert CS.evaluate(cir).verdict == CS.VERDICT_PASS
+    held = _with(cir, designer_notes=(cir.designer_notes or "") + " Sew on the felt heart.")
+    v = CS.evaluate(held)
+    assert {c.code: c.state for c in v.checks}["ATTACHMENTS_KNOWN"] == CS.UNKNOWN
+    assert v.verdict == CS.VERDICT_HELD
+
+
+# ---- eye options: embroidered is the default for baby and under 3 -----------------------------
+
+def test_eye_options_default_to_embroidered_and_allow_only_embroidered():
+    bands = ("under_3", "three_to_six", "six_to_twelve", "over_twelve", None, "no-such-band")
+    assert bands
+    for band in bands:
+        opts = CS.eye_options(band)
+        assert opts["default"] == CS.EYE_DEFAULT == "embroidered", band
+        assert opts["allowed"] == ("embroidered",), band
+        assert opts["text"].startswith(CS.EYE_OPTIONS_MARKER), band
+        assert CS.AGE_GUIDANCE_MARKER in opts["text"], band
+    # A baby or a child under 3: the only option, with its age guidance.
+    young = ((None, ()), ("under_3", ()), ("three_to_six", ("base", "sleep")),
+             ("no-such-band", ()))
+    assert young
+    for band, profile in young:
+        opts = CS.eye_options(band, profile)
+        assert opts["young"], band
+        assert "for a baby or a child under 3 it is the only option" in opts["text"], band
+        assert "0 to 36 months" in opts["text"], band
+    older = CS.eye_options("three_to_six")
+    assert not older["young"] and "3 to under 6 years" in older["text"]
+    assert "Not for children under 3 yrs." in older["text"]
+
+
+def test_eye_options_are_required_with_age_guidance_on_a_face_or_stuffed_item():
+    assert "eye_options" in CS.required_statements(("base", "face"))
+    assert "eye_options" in CS.required_statements(("base", "stuffed"))
+    assert "eye_options" not in CS.required_statements(("base", "sleep"))
+    lines = dict(CS.section_lines(("base", "face", "stuffed"), small_parts_clear=True))
+    assert lines["Eye options"] == CS.eye_options(None)["text"]
+    older = dict(CS.section_lines(("base", "face"), age_band="six_to_twelve"))
+    assert "6 to 12 years" in older["Eye options"]
+    # A document whose eye options lose their age guidance fails the text check.
+    full = " ".join([CS.SECTION_HEADING] + [f"{h} {t}" for h, t in CS.section_lines(
+        ("base", "face"), small_parts_clear=True)])
+    ok = {c.code: c.state for c in CS._text_checks(full, ("base", "face"))}
+    assert ok["AGE_GUIDANCE_IN_TEXT"] == CS.PASS and ok["SAFETY_SECTION"] == CS.PASS, ok
+    cut = full.replace(CS.AGE_GUIDANCE_MARKER, "")
+    bad = {c.code: c.state for c in CS._text_checks(cut, ("base", "face"))}
+    assert bad["AGE_GUIDANCE_IN_TEXT"] == CS.FAIL, bad
+    gone = full.replace(CS.EYE_OPTIONS_MARKER, "")
+    assert {c.code: c.state for c in CS._text_checks(gone, ("base", "face"))
+            }["SAFETY_SECTION"] == CS.FAIL
+
+
+def test_the_toy_and_lovey_pdfs_print_the_eye_options_and_age_guidance():
+    import re as _re
+
+    cases = ((_toy(), TOY), (_toy(), ("amigurumi_toy", "three_to_six")))
+    assert cases
+    for cir, childrens in cases:
+        doc = pdf.build_pattern_pdf(cir, childrens=childrens)
+        text = pdf.extracted_text(doc.pdf_bytes)
+        flat = _re.sub(r"\s+", " ", text)
+        assert "Eye options" in flat, childrens
+        assert CS.EYE_OPTIONS_MARKER in flat, childrens
+        assert CS.AGE_GUIDANCE_MARKER in flat, childrens
+        if childrens[1] == "under_3":
+            assert "for a baby or a child under 3 it is the only option" in flat
+            assert "0 to 36 months" in flat
+        else:
+            # The older reading, not the under-3 one (the band label alone also appears in
+            # the children's statements, so it cannot tell the readings apart).
+            assert "this design is assigned to 3 to under 6 years" in flat
+            assert "for a baby or a child under 3 it is the only option" not in flat
+        v = CS.evaluate(cir, text=text, childrens=childrens,
+                        instructions=writer.write_pattern(cir, compile_cir(cir), "US"))
+        states = {c.code: c.state for c in v.checks}
+        assert states["AGE_GUIDANCE_IN_TEXT"] == CS.PASS, states
+        assert states["SAFETY_SECTION"] == CS.PASS, states
 
 
 if __name__ == "__main__":

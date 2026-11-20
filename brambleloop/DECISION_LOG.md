@@ -2919,6 +2919,53 @@ Reversible by decision.
 **Parked loops.** improve.monitor, sandbox and league backoffs lift on their real input rows (`orchestrate.INPUT_PROBES`).
 
 Reversible by decision. The non-tunable rule is the owner's and is not reversible by an agent.
+
+## D-ENG-PLUSH-FIX — the child-safety gate's deny-lists become allow-lists (ENG-PLUSH-FIX, 2026-11-20)
+
+The independent review of `eng/plush` @ 2763340b (DO NOT SHIP) found real gaps in `gates/child_safety.py`, and D-OWNER-CORE-FAMILIES s.3 says child safety is more than embroidered eyes. Fixed as rules, not as longer lists where a rule is possible:
+
+- **Eyes and noses are an allow-list.** Any material or instruction clause naming an eye or nose must say it is embroidered, or FEATURES_EMBROIDERED fails. A size in mm or a mounting verb (insert, attach, glue, sew on) next to an eye or nose fails even inside an "embroider" clause. The hard-part deny-list stays, extended with the parts that are not features (rhinestones, press studs, toggles, hook-and-eye, washers, eye backs, pom-poms, tassels and similar).
+- **Materials are an allow-list (new check MATERIALS_KNOWN).** Yarn, new polyester toy stuffing and tools that leave with the maker pass. Any other material is UNKNOWN and holds the item.
+- **Cords.** Consecutive chain ops and repeats are summed into one chain run. Loop, tie, bow, lace, leash, pacifier, a measured chain or length of yarn, and attaching to a pram or crib all fail. Only named stitch-loop terms ("both loops", "magic ring") and lace-stitch terms are exempt.
+- **Age band is read (new check AGE_SUITABILITY).** An unknown band is UNKNOWN. Under 3 with any sewn-on piece needs SMALL_PARTS to have passed. The printed age statement claims the small-parts geometry only when that check passed.
+- **Certify reads the catalogue's children's assignment**, so a flat design assigned to a child is in the gate at certify as it is at render.
+- **Quotes carry a `verified` record.** An unread quote makes CITATIONS UNKNOWN. All seven were re-read on 2026-11-20.
+- **The mutation harness** requires a green baseline and reports an import or environment failure as ERROR, never as KILLED.
+- **Attachments are an allow-list (new check ATTACHMENTS_KNOWN, round 2).** A clause that attaches, sews on, fastens, glues or clips something must name a piece of this CIR, yarn or an embroidered feature. Any other attachment ("sew on the felt heart") is UNKNOWN and holds the item, flat baby blankets included.
+- **Eye options (round 2).** For any face or stuffed item, the PDF prints an "Eye options" statement: embroidered with yarn is the default. For a baby or a child under 3 (the under-3 band, a sleep-profile item, no assignment or an unknown band) it is the only option. The statement carries its age guidance, and the new text check AGE_GUIDANCE_IN_TEXT fails a document that drops it. No hard-eye option is offered at any age, because FEATURES_EMBROIDERED still fails any hard eye.
+- **One test per probe.** Every probe the review listed is its own generated test, so one probe that regresses is named in the run.
+
+Physical evidence for flat, one-piece, unstuffed items (a baby blanket) is still not required. Such an item has no seam to pull and nothing to contain. Its under-3 risks (cords, loops, hard parts, small parts, unknown materials) are computed by the other checks. The PHYSICAL_EVIDENCE docstring now says this instead of promising more than the code did. No gate was weakened. Reversible by decision.
+
+**D-ENG-PLUSH-GATE: core child-facing families are certified only through a child-safety pattern-content gate, and a family is admitted to routing only by a pinned end-to-end proof (ENG-PLUSH, 2026-11-20).** Under D-OWNER-CORE-FAMILIES section 3.
+
+1. `gates.child_safety` is the single gate. It applies to:
+   - a children's assignment;
+   - child words in the title or slug;
+   - a stuffed figure;
+   - any stuffed or closed piece in rounds;
+   - a closed stuffed form decided for a child.
+
+   An undecided stuffed cushion stays with the A1-R decision gate.
+2. Every check answers PASS, FAIL or UNKNOWN. UNKNOWN is never PASS.
+   - Physical evidence is required for anything stuffed or with sewn-on pieces.
+   - It is UNKNOWN until a content-bound evidence authority exists, so such items are HELD at
+     certification.
+   - A FAIL refuses the PDF. HELD does not refuse the PDF; it refuses certification and so
+     publication.
+3. The safety section cites only sources read on a primary page, each with its access date. Facts not confirmed are not printed:
+   - a Canadian cord-length rule (SOR/2011-17 has none);
+   - an age in months on CPSC's safe-sleep page;
+   - ASTM F963's 12-inch figure (found only in a 2010 CPSC staff memo).
+4. We sell patterns. No document claims a test, a certification or a standard met.
+5. Stuffing points and closures are CIR structure (`Component.stuff_at_round`, `closes`), not prose. Appliqué and lovey heads are `surface` joins whose placement `cir.assembly` checks.
+6. Status follows the proof:
+   - amigurumi and lovey are physical_gate;
+   - the envelope and appliqué cushion covers are verified (risk class A, granted end to end);
+   - baby garments stay held.
+
+Reversible by the owner. Weakening any check needs a decision entry naming it.
+
 **D-ENG-VIS-FLUX-1: the FLUX 3 provider follows the documented contract, rejects bad frames at generation, and caps images in code (ENG-VIS-FLUX slice 1, 2026-11-20).** This applies the owner's directive "PERFECT FLUX 3 LISTING IMAGES" within D-W4-F852-AMEND. It changes no publication gate.
 - **The contract is data, with citations.** `gateway/flux_contract.py` holds BFL's documented FLUX 3 Image contract, read 2026-11-20 from the openapi schema, the API reference, pricing, integration and errors pages.
   - The request builder validates the whole body against it before any reservation.

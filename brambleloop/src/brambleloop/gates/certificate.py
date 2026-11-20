@@ -137,10 +137,12 @@ def _release_hash(cir: CIR, pattern_text: str) -> str:
 # a copy of the list somewhere else is how that guarantee would quietly stop being true.
 CANONICAL_STAGES: tuple[str, ...] = (
     "compile", "specification", "twin", "assembly", "geometry", "write", "reverse",
-    "originality", "asset_truth", "policy", "physical_test", "confidence",
+    "originality", "asset_truth", "policy", "physical_test", "child_safety", "confidence",
 )
 
-CONDITIONAL_STAGES: tuple[str, ...] = ("geometry", "asset_truth", "policy")
+# ENG-PLUSH: "child_safety" runs only when `gates.child_safety.applies` (a toy, lovey or
+# child's item), like the other conditional stages.
+CONDITIONAL_STAGES: tuple[str, ...] = ("geometry", "asset_truth", "policy", "child_safety")
 
 
 # A4A-1: the finished size an object noun promises, enforced at certification. A name a buyer
@@ -545,7 +547,13 @@ def certify(
     #     bind) holds it -- UNKNOWN is never a pass.
     from . import child_safety as _child_safety
 
-    safety = _child_safety.evaluate(cir, result)
+    # Review M3: the catalogue's children's assignment is passed in, so a FLAT design
+    # assigned to a child (an applique baby throw with no child word in its name) is inside
+    # the gate at certify exactly as it is at render.
+    from ..products import launch0 as _launch0
+
+    safety = _child_safety.evaluate(cir, result,
+                                    childrens=_launch0.childrens_assignment(cir.slug))
     if safety.applies:
         for check in safety.failing():
             findings.append(Finding(ERROR, f"CHILD_SAFETY_{check.code}", check.detail))
