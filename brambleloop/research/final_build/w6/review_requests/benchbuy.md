@@ -53,7 +53,7 @@ The owner's ask: benchmark patterns to buy, with variety from each of the nine s
 
 ## Tests
 
-- New `tests/test_benchbuy.py`: 17 tests, all passing.
+- New `tests/test_benchbuy.py`: 18 tests, all passing.
 - New check in `tests/fixtures/cc_mock/check.mjs`, with a `benchmark_shopping` fixture section: the panel groups by shop, shows the URL, price, contingency, teaches, why and status, shows an empty shop's reason, and has no buy control.
 - Covered:
   - variety from all nine shops and the quotas (3, and 5 for MadelineMaeCo);
@@ -82,7 +82,8 @@ The owner's ask: benchmark patterns to buy, with variety from each of the nine s
   - `test_w4_resume_runner`: passes.
   - `test_v11_autonomy_timeline`: 0 failing, committed map matches the generator.
   - `test_purchase_selection` and `test_intake`: pass.
-- Regression runs of the wider wiring suites are listed in the issue comment. A full, uninterrupted certification run was NOT done here.
+- Wider regression suites, run on this branch, all passing: `test_cert_wiring` (16/16, which also drains the new cadence to done; 20 min, and the unchanged base is equally slow), `test_eng_recovery`, `test_cert_spend_hosts`, `test_cert_dependencies`, `test_cert_claude_independence`, `test_cert_residue`, `test_cadence_spread`, `test_opus2_knowledge_gaps`, `test_w4_gatesb`, `test_ninth_shop`, `test_w4_fmbatch1_departments`.
+- NOT completed: `test_deploy` and `test_platform` each hit my 900 s cap and were stopped, so they are UNKNOWN. A full, uninterrupted certification run was NOT done here.
 
 ## What is UNKNOWN (not claimed)
 
