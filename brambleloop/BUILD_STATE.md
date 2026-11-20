@@ -1,3 +1,13 @@
+> **2026-11-20 — ENG-PLUSH-FIX (`eng/plush`, builder branch; fixes the DO NOT SHIP review of 2763340b; NOT re-reviewed, NOT integrated, NOT deployed).**
+> - Merged `claude/w6-INTEG4` 259e47c4. Union-resolved DECISION_LOG and suite_final_segment, and regenerated autonomy_map.
+> - H1: added non-emptiness asserts before the four loops. H2: declared `tests/test_eng_plush.py` in the final segment. H3: `plush_results.md` now exists with measured counts.
+> - Mutation harness: a green baseline is required, and an import error is reported as ERROR, never as KILLED.
+> - M1/M2: eye/nose features and materials are now allow-lists (new check MATERIALS_KNOWN). Cord and loop words cover every probe. Chain runs are summed across ops and repeats.
+> - M3: certify passes the catalogue assignment. M4: new check AGE_SUITABILITY, and the age statement claims small parts only when that check is shown. M5: added a direct test.
+> - L2: all 7 quotes were re-read, and an unread quote makes the citations UNKNOWN. L3: an uncompiled closure produces a finding. L4: an asset may show only the colours of the pieces it depicts.
+> - Every reviewer probe is a test. D-ENG-PLUSH-FIX.
+> - Honest state: every stuffed or sewn toy is still HELD on physical evidence, and cushions stay held for the owner's decision. Counts: `research/final_build/w6/review_requests/plush_results.md`.
+
 
 > **2026-11-20 — ENG-VIS-IDENTITY slice 1 (`eng/vis-identity`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
 > - Built: `visual/face_embedder.py` (YuNet+SFace ONNX on CPU, Apache-2.0/MIT, weights pinned by sha256), `visual/identity_calibration.py` (measured thresholds, FAR/FRR with exact 95% bounds, production floors >=30 genuine / >=300 impostors / FAR-UB <=1% / FRR <=10%), `visual/identity_records.py` (durable per-image identity records), `outfits.claim` (idempotent compare-and-set outfit claim), blind outfit-vs-approved-reference check, OpenAI gpt-4.1 second judge via the existing `GatewayVisionJudge` reservation path, `identity_gate.assess` consumer `verdict` PASS/HOLD/REFUSE and all-three-references rule.
