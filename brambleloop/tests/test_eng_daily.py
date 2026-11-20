@@ -621,6 +621,9 @@ def test_the_panel_route_is_owner_only_and_read_only():
     assert r.status_code == 200, r.text
     data = r.json().get("data", r.json())
     assert data["tab"] == "DAILY" and data["read_only"] is True and "ledger" in data
+    assert [r[0] for r in data["rows"]][-3:] == ["failures", "dead_letters", "spend_cad"]
+    assert {r[0]: r[2] for r in data["rows"]}["failures"] == "invert"
+    assert {r[0] for r in data["rows"]} <= set(data["ledger"]["metrics"]), "a row names a real metric"
     after = _counts(main.db)
     assert {k: v for k, v in after.items() if k != "AuditLog"} == \
         {k: v for k, v in before.items() if k != "AuditLog"}

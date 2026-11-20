@@ -9,7 +9,7 @@
 > diagnoses nothing and files nothing; repeated runs file one request (both paths). (3) `concepts_held` is UNKNOWN on
 > a day no `radar.scan` completed. (4) Daily panel pills: Failures and Dead letters invert, Spend is neutral, stage
 > rows follow their reading. (5) the retention-horizon day is UNKNOWN (`<=`). (6) the review request carries its
-> run table. `sw.js` `cc-shell-v43`; autonomy map regenerated (148 cadences / 180 handlers). Results:
+> run table. `sw.js` `cc-shell-v43`; autonomy map regenerated (148 cadences / 180 handlers). Bundle: INTEG4 plus the Daily view came to 403,169 bytes (over 400 KB); the two PWA icons were re-encoded with zopfli, pixel-identical (verified), the Daily row labels are served with the panel and sw.js drops its per-version changelog (in git): 393,345 bytes. Results:
 > `research/final_build/w6/review_requests/ENG-DAILY-FIX.md`.
 
 > **2026-11-20 — ENG-DAILY slice 1 (`eng/daily`, NOT merged, NOT deployed; production unchanged).** The owner's P0

@@ -993,6 +993,24 @@ def run(ctx) -> dict:
 
 # ---- projections ------------------------------------------------------------------------
 
+# The Daily panel's rows: (metric, label, pill mode). "invert": bad when high; "neutral":
+# neither good nor bad (spend). Served with the panel so the shell bundle stays small.
+PANEL_ROWS = (
+    ("scans_succeeded", "Competitor scans", None), ("concepts_created", "Concepts created", None),
+    ("concepts_approved", "Concepts admitted by intake", None),
+    ("concepts_admitted", "Concepts admitted to engineering", None),
+    ("concepts_held", "Concepts held", None), ("products_started", "Products started", None),
+    ("certifications", "Certified", None), ("pdfs_us", "US PDFs", None),
+    ("pdfs_uk", "UK PDFs", None), ("images_generated", "Images generated", None),
+    ("images_recovered", "Images recovered", None), ("images_verified", "Images verified", None),
+    ("galleries_completed", "Galleries completed", None),
+    ("listing_packages", "Listing packages", None), ("etsy_drafts", "Etsy drafts", None),
+    ("etsy_live", "Live on Etsy", None), ("lessons_learned", "Lessons learned", None),
+    ("lessons_applied", "Lessons applied", None), ("failures", "Failures", "invert"),
+    ("dead_letters", "Dead letters", "invert"), ("spend_cad", "Spend (CA$)", "neutral"),
+)
+
+
 def panel(db, *, now: datetime | None = None) -> dict:
     """The owner's Daily panel: the live ledger and today's recorded diagnoses. Read-only."""
     now = _aware(now) or datetime.now(timezone.utc)
@@ -1004,6 +1022,7 @@ def panel(db, *, now: datetime | None = None) -> dict:
     preview = diagnose(db, None, now=now, act=False, led=led)["diagnosed"]
     return {"tab": "DAILY", "read_only": True, "ledger": led, "diagnoses": diag,
             "live_zero_stages": preview, "stage_readings": stage_readings(led, now=now),
+            "rows": [list(r) for r in PANEL_ROWS],
             "rule": {"expected_min": EXPECTED_MIN, "far_below": FAR_BELOW,
                      "min_hours_into_day": MIN_HOURS_INTO_DAY}}
 

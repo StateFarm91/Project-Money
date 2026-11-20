@@ -315,6 +315,9 @@ export const DATA = {
         { kind: "gate_refusing", top_reasons: [{ reason: "pre_engineering_gate", count: 3 }] }],
         actions: [{ action: "reoffer", enqueued: true }], ecrs: [{ filed: false, pending: true }] }],
       live_zero_stages: [],
+      rows: [["products_started", "Products started", null], ["certifications", "Certified", null],
+        ["lessons_learned", "Lessons learned", null], ["failures", "Failures", "invert"],
+        ["dead_letters", "Dead letters", "invert"], ["spend_cad", "Spend (CA$)", "neutral"]],
       stage_readings: [{ stage: "products_started", metric: "products_started", today: 0, status: "zero_output" },
         { stage: "certifications", metric: "certifications", today: "UNKNOWN", status: "UNKNOWN", unknown: true },
         { stage: "lessons", metric: "lessons_learned", today: 0, status: "not_yet_due", why: "0.3 expected by now, under 1.0" }] };
