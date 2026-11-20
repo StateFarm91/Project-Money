@@ -791,6 +791,17 @@ def sample_photo_lead(db, *, slug: str, version: str, frames, cir) -> dict | Non
             "qa": qa, "position": lead.position}
 
 
+def _disclosed_mobile(rec: dict) -> dict | None:
+    """The disclosed render set's mobile-context QA (#66), or None if it was never run."""
+    mob = (rec.get("qa") or {}).get("mobile")
+    if not mob:
+        return None
+    return ({k: mob.get(k) for k in ("ok", "complete", "not_rendered", "why",
+                                     "title_safe_ink_by_position", "missing_bytes")}
+            | {"render_refs": {n: (r or {}).get("render_ref")
+                               for n, r in (mob.get("contexts") or {}).items()}})
+
+
 def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, rec: dict,
                           frames, release_hash: str | None, issue: bool,
                           store_root=None, persist_supplements: bool = True) -> dict:
@@ -888,6 +899,10 @@ def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, re
                         "refused": supplement_notes},
         "dimensions": {k: dim[k] for k in ("ok", "problems", "sources", "displayed",
                                            "references")},
+        # #66: the disclosed export rendered and stored the four shopper contexts
+        # (disclosed_listing's QA); report them in the same shape as the frames path, so the
+        # QA stage's `listing.mobile_qa` record and store.publish read one contract.
+        "mobile": _disclosed_mobile(rec),
         "certificate": cert,
         "generated_frames": [{k: g.get(k) for k in ("position", "role", "job", "may_export",
                                                     "why")} for g in generated],
