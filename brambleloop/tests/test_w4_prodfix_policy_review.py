@@ -52,6 +52,10 @@ from brambleloop.core import opsauth  # noqa: E402
 from brambleloop.core.models import AuditLog, PolicySnapshot  # noqa: E402
 from brambleloop.gates import platform_policy  # noqa: E402
 from brambleloop.publish import release_gates  # noqa: E402
+# D-OWNER-POLICY39-OVERRIDE releases production's pending listing_image_rules change; this
+# suite tests the #39 review mechanism itself on fixture changes, so the override is off here.
+from brambleloop.gates import platform_policy as _pp_override  # noqa: E402
+_pp_override.OWNER_DIRECTED_OVERRIDES.clear()
 
 OPS = "p" * 40
 PASS = "owner passphrase for the policy review harness"

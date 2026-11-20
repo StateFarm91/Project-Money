@@ -141,6 +141,24 @@ def test_policy_blocks_unsupported_claims_and_ip():
     assert "POLICY_UNSUPPORTED_CLAIM" in c and "POLICY_IP_RISK" in c
 
 
+def test_policy_ip_terms_match_whole_words_not_substrings():
+    from brambleloop.gates.policy import check_text
+
+    def ip(text):
+        return [f.message for f in check_text(text, "t") if f.code == "POLICY_IP_RISK"]
+
+    # ENG-FAMILIES review: 'nba' inside "Fernbank" refused a fern basket.
+    for clean in ("Fernbank Basket", "Marionette Cushion", "Dismario Table Runner",
+                  "Snflux Runner", "Shenhlbank"):
+        assert not ip(clean), (clean, ip(clean))
+    # The protected terms still match: alone, in a phrase, with punctuation, plural/possessive.
+    for hit, term in (("NBA team blanket", "nba"), ("An NFL-inspired throw", "nfl"),
+                      ("Disney's castle", "disney"), ("a Mario cap, crochet", "mario"),
+                      ("Hello Kitty (sanrio) bag", "hello kitty"), ("Marvels set", "marvel"),
+                      ("stitch (disney) plush", "stitch (disney)")):
+        assert any(repr(term) in m for m in ip(hit)), (hit, term, ip(hit))
+
+
 def test_policy_blocks_perpetual_sale_and_bad_compare_at():
     d = ListingDraft(title="X", description="AI assisted", price_cad=10.0,
                      compare_at_cad=8.0, is_on_sale=True, sale_days_running=120)

@@ -96,11 +96,16 @@ def vendor_switch_card(db, *, env=None) -> dict:
     name = vendor(env)
     with db.session() as s:
         if name in ROUTED_ONLY:
+            from ..authority import standing_internal
+
+            text = (f"Remove {VENDOR_VAR}={name} from the service variables and name the "
+                    f"tasks that should use {name} in {ROUTES_VAR} instead (for example "
+                    f"{ROUTES_VAR}={EXAMPLE_ROUTE_TASK}={name}).")
+            if standing_internal.closure_in_force(s, VENDOR_CARD_KEY, text):
+                return {"state": "covered", "vendor": name}
             owner_queue.ensure(
                 s, VENDOR_CARD_KEY,
-                action=(f"Remove {VENDOR_VAR}={name} from the service variables and name the "
-                        f"tasks that should use {name} in {ROUTES_VAR} instead (for example "
-                        f"{ROUTES_VAR}={EXAMPLE_ROUTE_TASK}={name})."),
+                action=text,
                 reason=(f"{VENDOR_VAR}={name}: {name} may only be reached per task through "
                         f"{ROUTES_VAR}, never for the whole process, so every model task is "
                         f"refused while this is set (review 6957356475)."),
@@ -118,6 +123,9 @@ def vendor_switch_card(db, *, env=None) -> dict:
             owner_queue.close(row, owner_queue.SATISFIED,
                               f"{VENDOR_VAR} no longer names a routed-only vendor ({name})")
             return {"state": "closed", "vendor": name}
+        from ..authority import standing_internal
+
+        standing_internal.note_condition_cleared(s, VENDOR_CARD_KEY)
     return {"state": "clear", "vendor": name}
 
 
@@ -187,12 +195,17 @@ def routes_card(db, *, env=None) -> dict:
     _table, invalid = parse_routes(env)
     with db.session() as s:
         if invalid:
+            from ..authority import standing_internal
+
             named = "; ".join(f"{b['entry']!r} {b['why']}" for b in invalid)
+            text = (f"Correct {ROUTES_VAR} in the service variables: {named}. Each entry "
+                    f"is task=vendor with a task from routing.TASKS (for example "
+                    f"{EXAMPLE_ROUTE_TASK}=openai).")
+            if standing_internal.closure_in_force(s, ROUTES_CARD_KEY, text):
+                return {"state": "covered", "invalid": invalid}
             owner_queue.ensure(
                 s, ROUTES_CARD_KEY,
-                action=(f"Correct {ROUTES_VAR} in the service variables: {named}. Each entry "
-                        f"is task=vendor with a task from routing.TASKS (for example "
-                        f"{EXAMPLE_ROUTE_TASK}=openai)."),
+                action=text,
                 reason=(f"{ROUTES_VAR} has {len(invalid)} invalid entr"
                         f"{'y' if len(invalid) == 1 else 'ies'}; the task each one names is "
                         f"refused its model calls until it is corrected (verdict 6998037105)."),
@@ -205,6 +218,9 @@ def routes_card(db, *, env=None) -> dict:
         if row is not None:
             owner_queue.close(row, owner_queue.SATISFIED, f"{ROUTES_VAR} has no invalid entry")
             return {"state": "closed", "invalid": []}
+        from ..authority import standing_internal
+
+        standing_internal.note_condition_cleared(s, ROUTES_CARD_KEY)
     return {"state": "clear", "invalid": []}
 
 

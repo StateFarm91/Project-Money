@@ -503,3 +503,482 @@ def information_value(db) -> dict:
                       "no benchmark has been purchased: purchasing is the owner's "
                       "consequential spend, so there is no information value to count yet"),
     }
+
+
+# =========================================================================================
+# ENG-BENCHBUY: the benchmark shopping list across every watchlist shop
+# =========================================================================================
+#
+# The owner's ask (2026-11-20): benchmark patterns to buy, with variety from each of the nine
+# shops scanned daily, where owner demand (MadelineMaeCo, baby products, stuffed
+# animals/amigurumi, pillows) counts as a first-class reason to buy.
+#
+# `select` above is unchanged and still serves the MJs approved set (teardown.intake). What
+# follows keeps its design -- greedy facet coverage, a computed reason for every pick, and the
+# rule that no pick is made without a new facet -- and adds what a multi-shop list needs:
+#
+# * the catalogue is every watchlist shop's scanned listings, restricted to PATTERN DIGITAL
+#   DOWNLOADS (Etsy `listing_type == "download"` and a pattern word in the title or tags);
+# * a per-shop quota (3, MadelineMaeCo 5) so no shop is bought out and none is skipped;
+# * two new facets, ranked ahead of everything else: the capability gap a purchase teaches
+#   (global -- one in-the-round purchase teaches it for the company) and the owner-demand
+#   family (per shop -- baby, stuffed animal / amigurumi, pillow / cushion);
+# * the budget is enforced here, in code, against the remaining CA$ ceiling after recorded
+#   BenchmarkProduct spend, with every price shown beside its x1.158 FX/tax contingency;
+# * owned items (both MJ benchmarks, every BenchmarkProduct row) never appear as "to buy".
+#
+# **Metadata only.** This reads rows the daily scans already wrote (title, tags, price, type,
+# favourites). It makes no request, opens no listing, copies no competitor content, and has no
+# purchase path: it returns a list for the owner to act on. A purchased PDF goes only through
+# the quarantined intake (teardown.intake -> teardown.library, B-117).
+import re as _re
+
+# Verified against the owner's ask: nine shops, three each, five for MadelineMaeCo.
+PER_SHOP_QUOTA = 3
+SHOP_QUOTAS: dict[str, int] = {"madeline_mae_co": 5}
+# The owner's FX + tax contingency on every observed CAD price (D-OWNER-BENCHBUY).
+CONTINGENCY = 1.158
+SHOPPING_KIND = "benchmark.shopping"
+OWNER_CARD_KEY = "benchmark_shopping:set"
+
+# Items the owner already holds and must never be offered again (both MJ benchmarks). Matched
+# on a normalised title inside MJ's own catalogue; BenchmarkProduct rows are matched by listing
+# reference and by title in every shop.
+OWNED_TITLE_MARKERS: tuple[str, ...] = ("mini star stitch cardigan", "cardigan with pockets")
+
+# The capability gaps this company's compiler/twin is weakest at, in teaching priority order.
+GAPS: tuple[tuple[str, str], ...] = (
+    ("in_the_round", r"in[- ]the[- ]round|seamless|top[- ]down|magic ring|magic circle|"
+                     r"beanie|bucket hat|basket|bowl|\bhat\b"),
+    ("colourwork_chart", r"colou?rwork|jacquard|fair ?isle|intarsia|\bc2c\b|corner to corner|"
+                         r"pixel|graphghan|\bchart"),
+    ("mosaic_tapestry", r"mosaic|tapestry|overlay"),
+    ("granny_motif", r"granny|motif|hexagon|joined square|sunburst|medallion|afghan square"),
+    ("garment_grading", r"cardigan|sweater|pullover|\bvest\b|jumper|\btee\b|\btop\b|dress|"
+                        r"shrug|poncho|\bsizes?\b"),
+    ("amigurumi", r"amigurumi|plush|stuffed|plushie|stuffie"),
+    ("flat", r"\bflat\b|rectangle|scarf|blanket|\bwrap\b|shawl|runner|placemat|coaster|"
+             r"dishcloth|washcloth|rug|ripple|panel"),
+)
+GAP_POD_HINTS: dict[str, tuple[str, ...]] = {
+    "hats": ("in_the_round",), "amigurumi": ("amigurumi", "in_the_round"),
+    "garments": ("garment_grading",), "blankets": ("flat",), "kitchen_bath": ("flat",),
+}
+# What the owner reports as "huge hits": permanent core families (D-OWNER-CORE-FAMILIES).
+OWNER_DEMAND: tuple[tuple[str, str], ...] = (
+    ("baby", r"\bbaby\b|newborn|infant|toddler|nursery|lovey|rattle|\bbib\b|romper|bootie"),
+    ("stuffed_animal", r"amigurumi|stuffed|plush|plushie|stuffie"),
+    ("pillow_cushion", r"pillow|cushion|bolster|pouf|ottoman"),
+)
+DEMAND_POD_HINTS: dict[str, tuple[str, ...]] = {"amigurumi": ("stuffed_animal",)}
+PATTERN_WORDS = _re.compile(r"pattern|\bpdf\b|tutorial|e-?book|\bchart", _re.I)
+SHOPPING_FACETS: tuple[str, ...] = FACETS + ("capability_gap", "owner_demand")
+_GLOBAL_FACETS = ("capability_gap",)
+_PRIORITY_FACETS = ("capability_gap", "owner_demand")
+
+
+def _norm(text: str) -> str:
+    return _re.sub(r"[^a-z0-9]+", " ", (text or "").lower()).strip()
+
+
+def _text_of(row) -> str:
+    detail = row.detail or {}
+    tags = " ".join(str(t) for t in (detail.get("tags") or []))
+    return f"{row.title or ''} {tags}".lower()
+
+
+def digital_status(row) -> str:
+    """`download`, `physical` or `unknown` from the API's own listing_type; never guessed."""
+    kind = ((row.detail or {}).get("options") or {}).get("listing_type")
+    if not kind:
+        return "unknown"
+    return "download" if str(kind).lower() == "download" else "physical"
+
+
+def capability_gaps(row) -> tuple[str, ...]:
+    text = _text_of(row)
+    found = {g for g, rx in GAPS if _re.search(rx, text)}
+    found.update(GAP_POD_HINTS.get(row.pod or "", ()))
+    return tuple(g for g, _ in GAPS if g in found)
+
+
+def owner_demand(row) -> tuple[str, ...]:
+    text = _text_of(row)
+    found = {d for d, rx in OWNER_DEMAND if _re.search(rx, text)}
+    found.update(DEMAND_POD_HINTS.get(row.pod or "", ()))
+    return tuple(d for d, _ in OWNER_DEMAND if d in found)
+
+
+@dataclass(frozen=True)
+class ShopCandidate:
+    shop_key: str
+    shop_name: str
+    base: Candidate
+    gaps: tuple
+    demand: tuple
+    bestseller: bool
+
+    @property
+    def listing_ref(self) -> str:
+        return self.base.listing_ref
+
+    @property
+    def price_with_contingency(self) -> float:
+        return round(self.base.price_cad * CONTINGENCY, 2)
+
+    @property
+    def facets(self) -> dict:
+        return {**self.base.facets, "capability_gap": self.gaps, "owner_demand": self.demand}
+
+
+def contingent(price_cad: float) -> float:
+    return round(float(price_cad or 0.0) * CONTINGENCY, 2)
+
+
+def recorded_spend(db) -> dict:
+    """Spend recorded on BenchmarkProduct rows. A row with no recorded price is UNKNOWN, not 0."""
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkProduct
+
+    with db.session() as s:
+        rows = list(s.scalars(select(BenchmarkProduct)))
+        known = [float(r.paid_cad) for r in rows if r.paid_cad and r.paid_cad > 0]
+        return {"products": len(rows), "recorded_cad": round(sum(known), 2),
+                "unknown_price_for": [r.ref for r in rows if not (r.paid_cad and r.paid_cad > 0)],
+                "listing_refs": {str(r.listing_ref) for r in rows if r.listing_ref},
+                "titles": {_norm(r.title) for r in rows if r.title},
+                "by_listing": {str(r.listing_ref): {"files": len(r.files or []),
+                                                    "state": r.teardown_state}
+                               for r in rows if r.listing_ref}}
+
+
+def _exclusion(row, owned: dict, shop_key: str) -> str | None:
+    """Why a scanned listing cannot be a shopping-list pick, or None when it can."""
+    if row.audit_state == "withdrawn":
+        return "withdrawn"
+    title = _norm(row.title)
+    if shop_key == "mjs_off_the_hook_designs" and any(m in title for m in OWNED_TITLE_MARKERS):
+        return "owned"
+    if str(row.listing_ref) in owned["listing_refs"] or (title and title in owned["titles"]):
+        return "owned"
+    status = digital_status(row)
+    if status == "physical":
+        return "not_digital_download"
+    if status == "unknown":
+        return "digital_status_unknown"
+    if not PATTERN_WORDS.search(_text_of(row)):
+        return "not_a_pattern"
+    if not (row.price_cad and row.price_cad > 0):
+        return "price_unknown"
+    return None
+
+
+EXCLUSION_TEXT = {
+    "withdrawn": "withdrawn from sale", "owned": "already owned",
+    "not_digital_download": "not a digital download", "not_a_pattern": "not a pattern listing",
+    "digital_status_unknown": "digital-download status not observed (UNKNOWN)",
+    "price_unknown": "price not observed (UNKNOWN)",
+}
+
+
+def _shop_state(db, member) -> dict:
+    from . import watchlist
+
+    try:
+        st = watchlist._state(db, member.key) if member.role != watchlist.ANCHOR else {}
+    except Exception:  # noqa: BLE001 - a missing memory table is "unknown", never a crash
+        st = {}
+    return {"state": st.get("state") or "unknown",
+            "last_error": (st.get("last_error") or "")[:160] or None}
+
+
+def shopping_list(db, *, ledger: list[dict] | None = None, budget_ceiling_cad: float | None = None,
+                  members=None) -> dict:
+    """The benchmark shopping list: variety across every watchlist shop, owner demand first.
+
+    `ledger` is the previous list's picks that have since been bought: they stay on the list
+    with their status and still count toward each shop's quota and the facet coverage, but
+    their price is not charged again (their spend is already a recorded BenchmarkProduct).
+    """
+    from sqlalchemy import select
+
+    from ..core.models import BenchmarkListing
+    from ..teardown import intake
+    from . import watchlist
+
+    members = tuple(members or watchlist.WATCHLIST)
+    ceiling = float(intake.SET_BUDGET_CAD if budget_ceiling_cad is None else budget_ceiling_cad)
+    owned = recorded_spend(db)
+    remaining = round(ceiling - owned["recorded_cad"], 2)
+
+    with db.session() as s:
+        rows = list(s.scalars(select(BenchmarkListing)))
+    by_shop: dict[str, list] = {m.key: [] for m in members}
+    for r in rows:
+        if r.benchmark_key in by_shop:
+            by_shop[r.benchmark_key].append(r)
+
+    pool: list[ShopCandidate] = []
+    shops: dict[str, dict] = {}
+    for m in members:
+        listings = by_shop[m.key]
+        reasons: dict[str, int] = {}
+        eligible = 0
+        for r in listings:
+            why = _exclusion(r, owned, m.key)
+            if why:
+                reasons[why] = reasons.get(why, 0) + 1
+                continue
+            eligible += 1
+            detail = r.detail or {}
+            pool.append(ShopCandidate(
+                shop_key=m.key, shop_name=m.shop_name, base=describe(r),
+                gaps=capability_gaps(r), demand=owner_demand(r),
+                bestseller=bool(detail.get("is_bestseller"))))
+        shops[m.key] = {"shop_key": m.key, "shop_name": m.shop_name, "role": m.role,
+                        "scan": _shop_state(db, m), "observed": len(listings),
+                        "eligible": eligible, "excluded": reasons,
+                        "quota": SHOP_QUOTAS.get(m.key, PER_SHOP_QUOTA), "picks": []}
+
+    # -- carried picks: bought already, still on the list, still count --------------------
+    covered: dict[tuple[str, str], set] = {}
+    picks_by_shop: dict[str, list[dict]] = {m.key: [] for m in members}
+
+    def cover(shop_key: str, facets: dict) -> None:
+        for facet, value in facets.items():
+            scope = "*" if facet in _GLOBAL_FACETS else shop_key
+            vals = value if isinstance(value, tuple) else (value,)
+            covered.setdefault((scope, facet), set()).update(v for v in vals if v != "unknown")
+
+    carried = 0
+    for old in ledger or []:
+        key = old.get("shop_key")
+        ref = str(old.get("listing_ref"))
+        if key not in picks_by_shop or ref not in owned["by_listing"]:
+            continue
+        info = owned["by_listing"][ref]
+        status = "intake done" if info["files"] else "bought"
+        keep = {**old, "status": status}
+        keep.pop("chosen_over", None)
+        picks_by_shop[key].append(keep)
+        cover(key, {k: (tuple(v) if isinstance(v, list) else v)
+                    for k, v in (old.get("facets") or {}).items()})
+        carried += 1
+
+    def new_for(c: ShopCandidate) -> dict:
+        out = {}
+        for facet, value in c.facets.items():
+            scope = "*" if facet in _GLOBAL_FACETS else c.shop_key
+            have = covered.get((scope, facet), set())
+            if isinstance(value, tuple):
+                fresh = tuple(v for v in value if v not in have)
+                if fresh:
+                    out[facet] = fresh
+            elif value != "unknown" and value not in have:
+                out[facet] = value
+        return out
+
+    # -- the greedy loop ------------------------------------------------------------------
+    chosen: list[dict] = []
+    spent = 0.0                       # contingent CAD of picks still to buy
+    budget = max(remaining, 0.0)
+    remaining_pool = list(pool)
+    ended = {"cause": "nothing_left_to_learn", "excluded": None}
+    skipped_for_budget = 0
+
+    def open_slots(c: ShopCandidate) -> bool:
+        return len(picks_by_shop[c.shop_key]) < SHOP_QUOTAS.get(c.shop_key, PER_SHOP_QUOTA)
+
+    while True:
+        live = [c for c in remaining_pool if open_slots(c)]
+        scored = []
+        for c in live:
+            new = new_for(c)
+            if not new:
+                continue          # the rule that survives: no pick without a new facet
+            generic = sum(1 for f in new if f not in _PRIORITY_FACETS)
+            scored.append((
+                -len(new.get("capability_gap", ())),
+                -len(new.get("owner_demand", ())),
+                len(picks_by_shop[c.shop_key]),   # the shop with the fewest picks so far first
+                -generic, -richness(c.base),
+                # favourites / bestseller: a tie-break only, last before the stable order
+                -int(c.bestseller), -c.base.favourites,
+                c.shop_key, c.listing_ref, c, new))
+        if not scored:
+            break
+        scored.sort(key=lambda t: t[:9])
+        # Variety survives a tight budget: money is held back for the cheapest first pick of
+        # every shop that has none yet, so a gap/demand-first ranking cannot spend the whole
+        # ceiling before the last shops are reached. Only when even that cannot be honoured
+        # does the plain budget check apply, so the ceiling is never left idle.
+        cheapest_first: dict[str, float] = {}
+        for t in scored:
+            c = t[-2]
+            if not picks_by_shop[c.shop_key]:
+                cheapest_first[c.shop_key] = min(
+                    cheapest_first.get(c.shop_key, c.price_with_contingency),
+                    c.price_with_contingency)
+
+        def reserve_for(c: ShopCandidate) -> float:
+            return round(sum(v for k, v in cheapest_first.items() if k != c.shop_key), 2)
+
+        affordable = [t for t in scored
+                      if spent + t[-2].price_with_contingency + reserve_for(t[-2]) <= budget]
+        if not affordable:
+            affordable = [t for t in scored
+                          if spent + t[-2].price_with_contingency <= budget]
+        if not affordable:
+            top = scored[0][-2]
+            ended = {"cause": "budget_exhausted", "excluded": {
+                "listing_ref": top.listing_ref, "title": top.base.title,
+                "shop": top.shop_name, "price_cad": round(top.base.price_cad, 2),
+                "price_with_contingency_cad": top.price_with_contingency,
+                "shortfall_cad": round(spent + top.price_with_contingency - budget, 2)}}
+            break
+        if affordable[0] is not scored[0]:
+            skipped_for_budget += 1
+        best_t = affordable[0]
+        best, new = best_t[-2], best_t[-1]
+        runner = next((t for t in scored if t[-2] is not best), None)
+        cover(best.shop_key, new)
+        spent = round(spent + best.price_with_contingency, 2)
+        pick = {
+            **best.base.to_dict(),
+            "shop_key": best.shop_key, "shop_name": best.shop_name,
+            "price_with_contingency_cad": best.price_with_contingency,
+            "contingency_factor": CONTINGENCY,
+            "status": "to buy",
+            "teaches": _teaches(new),
+            "owner_demand": list(best.demand),
+            "capability_gaps": list(best.gaps),
+            "answers": _reason_shopping(new, best),
+            "new_facets": {k: (list(v) if isinstance(v, tuple) else v) for k, v in new.items()},
+            "facets": {k: (list(v) if isinstance(v, tuple) else v)
+                       for k, v in best.facets.items()},
+            "chosen_over": _chosen_over(best, runner, new_for),
+        }
+        picks_by_shop[best.shop_key].append(pick)
+        chosen.append(pick)
+        remaining_pool = [c for c in remaining_pool if c is not best]
+
+    # -- per-shop verdicts: an empty shop is visible, with its reason -----------------------
+    for m in members:
+        info = shops[m.key]
+        info["picks"] = picks_by_shop[m.key]
+        n_to_buy = sum(1 for p in info["picks"] if p["status"] == "to buy")
+        if info["picks"]:
+            info["status"], info["reason"] = "PICKED", (
+                f"{len(info['picks'])} of {info['quota']} slots used")
+        elif info["observed"] == 0:
+            info["status"] = "UNKNOWN"
+            info["reason"] = (f"no scanned listings are in the database for {m.shop_name} "
+                              f"(scan state: {info['scan']['state']}"
+                              f"{', ' + info['scan']['last_error'] if info['scan']['last_error'] else ''}"
+                              f"). Nothing is assumed about its catalogue")
+        elif info["eligible"] == 0:
+            top = sorted(info["excluded"].items(), key=lambda kv: -kv[1])
+            info["status"] = "EMPTY"
+            info["reason"] = (f"{info['observed']} listings scanned, none eligible: " +
+                              "; ".join(f"{n} {EXCLUSION_TEXT.get(k, k)}" for k, n in top))
+        elif ended["cause"] == "budget_exhausted":
+            info["status"] = "EMPTY"
+            info["reason"] = (f"{info['eligible']} eligible listings, none chosen before the "
+                              f"CA${budget:.2f} remaining benchmark budget was reached")
+        else:
+            info["status"] = "EMPTY"
+            info["reason"] = (f"{info['eligible']} eligible listings, but each would teach "
+                              f"nothing this list does not already teach")
+        info["to_buy"] = n_to_buy
+        info["slots_left"] = max(info["quota"] - len(info["picks"]), 0)
+
+    to_buy = [p for p in chosen]
+    total_plain = round(sum(p["price_cad"] for p in to_buy), 2)
+    total_cont = round(sum(p["price_with_contingency_cad"] for p in to_buy), 2)
+    observed_total = sum(s["observed"] for s in shops.values())
+    if observed_total == 0:
+        status, why = "UNKNOWN", ("no watchlist shop has scanned listings in the database, so "
+                                  "there is no catalogue to choose from; nothing is guessed")
+    else:
+        status, why = "OK", ""
+    return {
+        "status": status, "reason": why,
+        "shops": [shops[m.key] for m in members],
+        "shops_with_picks": sum(1 for s in shops.values() if s["picks"]),
+        "shops_total": len(shops),
+        "to_buy": to_buy, "to_buy_count": len(to_buy),
+        "carried": carried,
+        "total_cad": total_plain, "total_with_contingency_cad": total_cont,
+        "contingency_factor": CONTINGENCY,
+        "budget": {"ceiling_cad": ceiling, "recorded_spend_cad": owned["recorded_cad"],
+                   "remaining_cad": remaining,
+                   "unknown_price_for": owned["unknown_price_for"],
+                   "within_budget": total_cont <= max(remaining, 0.0),
+                   "basis": ("the SET_BUDGET_CAD ceiling less recorded BenchmarkProduct spend; "
+                             "every price is checked at x1.158 for FX and tax. A product with "
+                             "no recorded price is listed as UNKNOWN, never counted as CA$0")},
+        "stopped_because": ended["cause"], "budget_excluded": ended["excluded"],
+        "budget_skips": skipped_for_budget,
+        "quota": {"default": PER_SHOP_QUOTA, **SHOP_QUOTAS},
+        "method": ("greedy facet coverage across all watchlist shops: capability gap first, "
+                   "owner demand second, then every other facet; favourites only break ties"),
+        "not_a_purchase": ("this is a list and a cost. Nothing is bought automatically; buying "
+                           "is the owner's. A purchased PDF goes only through the quarantined "
+                           "teardown intake"),
+    }
+
+
+def _teaches(new: dict) -> str:
+    parts = []
+    if new.get("capability_gap"):
+        parts.append("capability: " + ", ".join(g.replace("_", " ") for g in new["capability_gap"]))
+    if new.get("owner_demand"):
+        parts.append("owner-demand family: " + ", ".join(
+            d.replace("_", " ") for d in new["owner_demand"]))
+    rest = [f for f in new if f not in _PRIORITY_FACETS]
+    if rest and not parts:
+        parts.append("market lesson: " + ", ".join(f.replace("_", " ") for f in rest[:3]))
+    return "; ".join(parts) or "nothing new"
+
+
+def _reason_shopping(new: dict, c: ShopCandidate) -> str:
+    plain = {k: v for k, v in new.items() if k not in _PRIORITY_FACETS}
+    bits = []
+    if new.get("capability_gap"):
+        bits.append("closes a capability gap not yet covered: " + ", ".join(
+            g.replace("_", " ") for g in new["capability_gap"]))
+    if new.get("owner_demand"):
+        bits.append("owner-demand family for this shop: " + ", ".join(
+            d.replace("_", " ") for d in new["owner_demand"]))
+    if plain:
+        bits.append(_reason(plain, c.base))
+    return "; ".join(bits) or "nothing new"
+
+
+def _chosen_over(best: ShopCandidate, runner, new_for) -> dict | None:
+    if runner is None:
+        return None
+    other = runner[-2]
+    would = {k: (list(v) if isinstance(v, tuple) else v) for k, v in runner[-1].items()}
+    return {"listing_ref": other.listing_ref, "title": other.base.title,
+            "shop": other.shop_name, "would_have_added": would,
+            "why": ("ranked behind on capability gap, owner demand and facet coverage; "
+                    "favourites were consulted only as a last tie-break")}
+
+
+# -- the persisted daily reading, the owner card and the Mission Control read model -----------
+
+def previous_ledger(db) -> list[dict]:
+    from sqlalchemy import desc, select
+
+    from ..core.models import OperatingReading
+
+    with db.session() as s:
+        row = s.scalar(select(OperatingReading).where(OperatingReading.kind == SHOPPING_KIND)
+                       .order_by(desc(OperatingReading.period_key)).limit(1))
+        payload = dict(row.payload or {}) if row is not None else {}
+    out: list[dict] = []
+    for shop in payload.get("shops") or []:
+        out.extend(p for p in shop.get("picks") or [])
+    return out

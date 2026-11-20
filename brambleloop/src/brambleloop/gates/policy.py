@@ -36,6 +36,11 @@ _IP_TERMS = [
     "nfl", "nhl", "nba", "taylor swift", "barbie",
 ]
 
+# Whole-word matching (ENG-FAMILIES review): a bare substring refused "Fernbank" for 'nba'. A
+# term matches only when no letter or digit touches it on either side (a plural or possessive
+# "s" is still the same property: "Disney's", "Marvels").
+_IP_TERM_RX = {t: re.compile(r"(?<!\w)" + re.escape(t) + r"(?:'?s)?(?!\w)") for t in _IP_TERMS}
+
 _DECEPTIVE_PRICING = [
     (r"\b(?:always|permanent(?:ly)?)\s+\d+%\s+off", "perpetual discount"),
     (r"\bwas\s+CA?\$\s?\d+(?:\.\d{2})?\b.{0,20}\bnever\b", "fabricated reference price"),
@@ -145,7 +150,7 @@ def check_text(text: str, where: str) -> list[Finding]:
                                f"{why}: matched {pattern!r}", where))
 
     for term in _IP_TERMS:
-        if term in low:
+        if _IP_TERM_RX[term].search(low):
             out.append(Finding(ERROR, "POLICY_IP_RISK",
                                f"references potentially protected property {term!r}", where))
 

@@ -462,7 +462,7 @@ class Candidate:
         }
 
 
-def benchmark_comparables(db, *, pod: str = "", benchmark_key: str = "") -> list:
+def benchmark_comparables(db, *, pod: str = "", benchmark_key: "str | tuple" = "") -> list:
     """Observed listings as comparable cards, for the "is this theirs?" check.
 
     Named apart from `blinded.benchmark_cards`, which returns listing rows rather than cards.
@@ -482,10 +482,10 @@ def benchmark_comparables(db, *, pod: str = "", benchmark_key: str = "") -> list
     from ..core.models import BenchmarkListing
     from . import blinded
 
-    benchmark_key = benchmark_key or benchmarks.MJS_KEY
+    keys = ((benchmark_key,) if isinstance(benchmark_key, str) else tuple(benchmark_key)) \
+        if benchmark_key else (benchmarks.MJS_KEY,)
     with db.session() as s:
-        query = select(BenchmarkListing).where(
-            BenchmarkListing.benchmark_key == benchmark_key)
+        query = select(BenchmarkListing).where(BenchmarkListing.benchmark_key.in_(keys))
         if pod:
             query = query.where(BenchmarkListing.pod == pod)
         rows = list(s.scalars(query))
@@ -499,6 +499,18 @@ def benchmark_comparables(db, *, pod: str = "", benchmark_key: str = "") -> list
         except (blinded.Unreadable, blinded.NotComparable):
             continue
     return out
+
+
+def watchlist_comparables(db, *, pod: str = "") -> list:
+    """ENG-RESEARCH: the anti-clone cards of EVERY owner watchlist shop (the anchor included).
+
+    A concept the watchlist comparison inspired must be checked against the listings of the
+    shops that corroborated it, not only the anchor's: an arena only other watchlist shops
+    occupy otherwise left the "is this theirs?" check unmeasured, or measured against nobody.
+    More shops can only add twins to refuse; it never removes one."""
+    from ..intel.watchlist import WATCHLIST
+
+    return benchmark_comparables(db, pod=pod, benchmark_key=tuple(m.key for m in WATCHLIST))
 
 
 def _matches_a_listing(concept: Concept, cards: list) -> str:

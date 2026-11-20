@@ -171,12 +171,15 @@ class Database:
         from ..gateway import paid_provider_gate as _ppg  # noqa: F401; owner activation (V0)
         from ..authority import models as _authority_models  # noqa: F401; authority (W3-K11)
         from ..improve import failure_memory as _failmem  # noqa: F401; F-378 failure memory
+        from ..improve import self_models as _self_models  # noqa: F401; ENG-IMPROVE tables
         from ..intel import research as _research  # noqa: F401; F-431 research tasks
         from ..integrations import etsy_webhooks as _etsy_wh  # noqa: F401; F-512 deliveries
         # Verdict 6999967600 L-A: Stage A's slot tables are created by the migration owner,
         # never lazily by a worker or issuer role (which would then own them).
         from ..ops import standing_activation as _stage_a  # noqa: F401; Stage A slots
         from ..visual import image_records as _img_records  # noqa: F401; W-OWNERIMG
+        from ..visual import identity_records as _identity_records  # noqa: F401; ENG-VIS-IDENTITY
+        from ..learning import store as _learn_store  # noqa: F401; ENG-LEARN
         from ..experiments import controlled as _controlled  # noqa: F401; W-VISNEXT
         # W4-LISTREADY: the launch image-review batch tables. `gateway.anthropic` imports this
         # module on every reservation, which registers them in Base; created here so every

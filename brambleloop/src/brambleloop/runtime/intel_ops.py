@@ -336,6 +336,29 @@ def handle_watchlist_compare(ctx: JobContext) -> dict:
             "gaps": got["gaps"], "network_calls": 0, "work_done": 1}
 
 
+@handlers.register("intel.benchmark_shopping")
+def handle_benchmark_shopping(ctx: JobContext) -> dict:
+    """ENG-BENCHBUY: rebuild the benchmark shopping list from the scanned listings.
+
+    Reads stored rows only (CA$0, no network). Writes one dated reading and keeps ONE
+    consolidated owner card, "Buy N benchmark patterns, <= CA$X". Nothing is bought here:
+    buying is the owner's, and a purchased PDF enters only through the quarantined teardown
+    intake. `work_done` is 1 only when the list changed, so an unchanged day backs off.
+    """
+    from ..intel import benchmark_refresh
+
+    got = benchmark_refresh.refresh_shopping(ctx.db)
+    ctx.audit("intel.benchmark_shopping", detail={
+        "status": got["status"], "to_buy": got["to_buy_count"],
+        "total_with_contingency_cad": got["total_with_contingency_cad"],
+        "shops_with_picks": got["shops_with_picks"], "changed": got["changed"],
+        "card": got["card"].get("state")})
+    return {"status": got["status"], "to_buy": got["to_buy_count"],
+            "shops_with_picks": got["shops_with_picks"],
+            "total_with_contingency_cad": got["total_with_contingency_cad"],
+            "network_calls": 0, "work_done": 1 if got["changed"] else 0}
+
+
 @handlers.register("intel.opportunity_review")
 def handle_opportunity_review(ctx: JobContext) -> dict:
     """Laura's delegated review: one durable decision per validated watchlist opportunity."""
@@ -387,8 +410,22 @@ def handle_concept_intake(ctx: JobContext) -> dict:
     out = intake.run(ctx.db, audit=ctx.audit, enqueue=ctx.enqueue, today=today)
     out["proposals_written"] = len(wrote["written"])
     out["supports_renewed"] = sum(1 for r in renewed if r.get("renewed"))
+    # ENG-RESEARCH: every cycle ends in a recorded outcome -- the opportunities and the stage
+    # each reached (and what holds it), or "no qualifying opportunity" with its evidence.
+    from ..intel import research_flow
+
+    # Review LOW: intake has already written; a failure to record the conclusion is itself
+    # recorded (audited, outcome "conclusion_failed") rather than failing the job after it.
+    try:
+        concluded = research_flow.conclude(ctx.db, now=at, written=wrote["written"],
+                                           skipped=wrote["skipped"], intake_out=out)
+        out["research_outcome"] = concluded["outcome"]
+    except Exception as exc:  # noqa: BLE001 - recorded, never swallowed silently
+        out["research_outcome"] = research_flow.CONCLUSION_FAILED
+        ctx.audit("intel.research_conclusion_failed",
+                  detail={"error": f"{type(exc).__name__}: {str(exc)[:300]}"})
     out["work_done"] = out.get("work_done", 0) + len(wrote["written"])
     ctx.audit("radar.concept_intake", detail={k: out[k] for k in (
         "candidates", "unchanged", "approved", "refused", "work_done", "as_of",
-        "proposals_written")})
+        "proposals_written", "research_outcome")})
     return out

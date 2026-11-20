@@ -905,6 +905,42 @@ def launch_verdict(db) -> dict:
                     reason=None if ready else "the latest launch assessment is not ready")
 
 
+def self_improvement_section(db) -> dict:
+    """ENG-IMPROVE: per department, the KPI trend, lessons learned and applied, active
+    challengers, promotions and rollbacks, and open / shipped / verified change requests.
+    UNKNOWN below the sample floor; nothing here is a trend the rows do not show."""
+    from ...improve import self_improve
+
+    p = self_improve.panel(db)
+    items = []
+    for d in p["departments"]:
+        k, l, e = d["kpi"], d["lessons"], d["ecrs"]
+        value = "UNKNOWN" if k["value"] is None else f"{k['value']:.0%}"
+        consumers = ", ".join(f"{(c['module'] or 'none').rsplit('.', 1)[-1]} {c['state']}"
+                              for c in d["consumers"])
+        items.append({
+            "title": d["name"],
+            "status": "OK" if d["loop"] == "LOOP_CLOSED" else "DEGRADED",
+            "detail": (f"KPI useful yield {value} over {k['trials']} runs, trend {k['trend']}"
+                       f"{' (' + k['why'] + ')' if k['trend'] == 'UNKNOWN' and k['why'] else ''}"
+                       f"; lessons {l['learned']} learned / {l['verified']} verified / "
+                       f"{l['applied']} applied; consumer: {consumers}; challengers active "
+                       f"{len(d['challengers_active'])}, promotions {d['promotions']}, "
+                       f"rollbacks {d['rollbacks']}; change requests {e['open']} open / "
+                       f"{e['shipped']} shipped / {e['verified']} verified; improving: "
+                       f"{d['improving']}"),
+            "improving": d["improving"], "source": "improve.self_improve.panel"})
+    return envelope(p["status"], items,
+                    ["jobs", "lessons", "learn_decisions", "si_challengers",
+                     "engineering_change_requests"],
+                    basis="measured", provider="improve.self_improve",
+                    as_of=p["as_of"],
+                    reason=(None if p["status"] == "OK" else
+                            f"{p['total'] - p['loops_closed']} of {p['total']} departments "
+                            f"have no lesson consumer that acted in the window"),
+                    note=p["basis"])
+
+
 def autonomy(db) -> dict:
     from ...core.models import AuditLog
 
@@ -930,6 +966,9 @@ def autonomy(db) -> dict:
                              # W4-CCFM2 (F-668): per-agent department, work, failures, spend.
                              "agents_workspace": _agents_workspace(db),
                              "improvement": providers.call("improvement", db),
+                             # ENG-IMPROVE: the self-improvement team, per department.
+                             "self_improvement": guard(
+                                 "self_improvement", lambda: self_improvement_section(db)),
                              "jobs_24h": jw,
                              "hours_since_owner_action": guard("owner_gap", owner_gap),
                              "improvements": readers.improvements(db),
@@ -939,8 +978,18 @@ def autonomy(db) -> dict:
                                                  lambda: visual_rnd_section(db)),
                              "visual_rnd_governance": guard(
                                  "visual_rnd_governance", lambda: visual_rnd_governance(db)),
+                             # ENG-LEARN: proof of improvement per learning loop -- the metric
+                             # over rolling windows, its trend, lessons acted on, before/after
+                             # per promotion. UNKNOWN when the sample is too small.
+                             "learning": guard("learning", lambda: _learning(db)),
                              "laura_roadmap": providers.call("laura_roadmap", db)},
                 last_useful_action=jw.get("last_useful_action"))
+
+
+def _learning(db) -> dict:
+    from ...learning import progress
+
+    return progress.summary(db)
 
 
 def insights(db) -> dict:
@@ -953,7 +1002,55 @@ def insights(db) -> dict:
                              **_customer_sections(db),
                              # W4-CCALL (F-622): the combined marketing & customers view.
                              "marketing_customers": guard(
-                                 "marketing_customers", lambda: marketing_customers(db))})
+                                 "marketing_customers", lambda: marketing_customers(db)),
+                             # ENG-BENCHBUY: the benchmark shopping list, grouped by shop.
+                             "benchmark_shopping": guard(
+                                 "benchmark_shopping", lambda: benchmark_shopping(db))})
+
+
+def benchmark_shopping(db) -> dict:
+    """ENG-BENCHBUY: the stored daily shopping list, grouped by shop, for the Insights tab.
+
+    Reads the latest `benchmark.shopping` reading only. It never rebuilds the list on a page
+    view, never contacts Etsy and has no purchase action: the owner buys, and a purchased PDF
+    goes only through the quarantined teardown intake. No reading yet is UNKNOWN, not empty.
+    """
+    from ...core.models import OperatingReading, OwnerAction
+    from ...intel import purchase_selection as ps
+
+    with db.session() as s:
+        row = s.scalar(select(OperatingReading).where(OperatingReading.kind == ps.SHOPPING_KIND)
+                       .order_by(OperatingReading.period_key.desc()).limit(1))
+        payload = dict(row.payload or {}) if row is not None else None
+        card = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == ps.OWNER_CARD_KEY,
+                                                  OwnerAction.done == False))  # noqa: E712
+        owner_card = ({"id": card.id, "action": card.action,
+                       "max_cost_cad": card.max_cost_cad, "minutes": card.minutes,
+                       "consequence_of_delay": card.consequence_of_delay}
+                      if card is not None else None)
+    sources = ["benchmark_listings", "benchmark_products", "operating_readings"]
+    if payload is None:
+        return {"status": "UNKNOWN", "as_of": now_iso(), "sources": sources, "groups": [],
+                "reason": "the daily benchmark shopping list has not been built yet "
+                          "(intel.benchmark_shopping runs after the shop scans)"}
+    groups = []
+    for shop in payload.get("shops") or []:
+        groups.append({
+            "shop": shop.get("shop_name"), "status": shop.get("status"),
+            "reason": shop.get("reason"), "scan_state": (shop.get("scan") or {}).get("state"),
+            "observed": shop.get("observed"), "quota": shop.get("quota"),
+            "picks": [{k: p.get(k) for k in (
+                "title", "url", "price_cad", "price_with_contingency_cad", "teaches",
+                "answers", "status", "listing_ref")} for p in shop.get("picks") or []]})
+    return {"status": payload.get("status", "UNKNOWN"), "as_of": payload.get("as_of"),
+            "reason": payload.get("reason") or None, "sources": sources,
+            "owner_card": owner_card, "groups": groups,
+            "to_buy_count": payload.get("to_buy_count"),
+            "total_with_contingency_cad": payload.get("total_with_contingency_cad"),
+            "contingency_factor": payload.get("contingency_factor"),
+            "budget": payload.get("budget"),
+            "no_auto_purchase": ("nothing here buys anything; purchased PDFs go only through "
+                                 "the quarantined teardown intake")}
 
 
 def _customer_sections(db) -> dict:

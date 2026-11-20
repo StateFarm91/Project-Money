@@ -1,0 +1,13 @@
+{
+ "_about": "The FLUX 3 Image rate card embedded in the official pricing page https://docs.bfl.ai/quick_start/pricing (component `Pricing`, endpoint `/v1/flux-3-image`), read 2026-11-20 (UTC). Values are credits; 1 credit = US$0.01 per the same page.",
+ "source": "https://docs.bfl.ai/quick_start/pricing",
+ "accessed": "2026-11-20",
+ "usd_per_credit": 0.01,
+ "/v1/flux-3-image": {
+  "tier768": 4.1,
+  "tier1k": 4.8,
+  "tier1_5k": 7,
+  "tier2k": 10,
+  "tier4k": 60.7
+ }
+}
