@@ -488,7 +488,8 @@ def certify(
         "repeat_purchase": False,
     }
     if listing is not None:
-        findings.extend(check_listing(listing, cir, proof_states=proof_states))
+        # concept-stage draft: disclosures are appended and required at listing.seo
+        findings.extend(check_listing(listing, cir, proof_states=proof_states, package=False))
         findings.extend(check_shape_claims(listing.title, cir, twin, "listing.title"))
         findings.extend(check_technique_claims(listing.title, cir, twin, "listing.title"))
         stages.append("policy")

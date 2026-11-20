@@ -128,6 +128,8 @@ def forms(text: str) -> tuple[str, ...]:
 
 
 # ---- claim classes ---------------------------------------------------------------------
+# Subjects are subject pronouns only: "us"/"me" are objects, and "US crochet terms" is a
+# country (a real false positive from the suites). They stay in _AGENT ("made by us").
 # Verb stems of making, authoring and testing, every inflection, US and UK spellings.
 _MAKE = (r"(?:design(?:s|ed|ing|er|ers)?|creat(?:e|es|ed|ing|or|ors|ion)|"
          r"ma(?:de|ke|kes|king|ker|kers)|wr(?:ite|ites|ote|itten|iting)|author(?:s|ed|ing)?|"
@@ -140,7 +142,7 @@ _MAKE = (r"(?:design(?:s|ed|ing|er|ers)?|creat(?:e|es|ed|ing|or|ors|ion)|"
          r"prov(?:e|ed|en)|check(?:s|ed)?|proof(?:s|ed|read)?|work(?:s|ed)? (?:up|out)|"
          r"dream(?:t|ed) up|c(?:a|o)me up with|put together|photograph(?:s|ed)?|shot|"
          r"finish(?:es|ed)?|sew(?:s|ed|n)?|hand ?(?:craft|make|made)\w*)")
-_SUBJECT = (r"(?:i|we|me|us|myself|ourselves|(?:our|my) (?:\w+ ){0,2}?"
+_SUBJECT = (r"(?:i|we|myself|ourselves|(?:our|my) (?:\w+ ){0,2}?"
             r"(?:team|studio|staff|designers?|makers?|crocheters?|testers?|founders?|shop|"
             r"family|people|crew|artists?|owners?|grandma|mum|mom|community))")
 _AUX = (r"(?:have|has|had|ve|d|ll|am|are|is|was|were|m|re|will|would|did|do|does|also|all|"

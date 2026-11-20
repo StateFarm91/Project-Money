@@ -238,8 +238,13 @@ def check_authorship(text: str, where: str) -> list[Finding]:
 
 def check_listing(draft: ListingDraft, cir: CIR | None = None,
                   proof_states: dict | None = None,
-                  classification=None) -> list[Finding]:
+                  classification=None, package: bool = True) -> list[Finding]:
     """Listing-level policy findings.
+
+    `package=False` is ONLY for the release certificate's concept-stage draft, which is
+    checked before `listing.seo` appends the owed disclosures (and is re-checked there, as a
+    package, with its classification). It skips the disclosure requirement and nothing else:
+    the authorship guard and every other check still run.
 
     `classification` is what `platform_policy.classify` returned for this release. When it
     is supplied and owes an AI disclosure, a description without that exact sentence is an
@@ -250,7 +255,8 @@ def check_listing(draft: ListingDraft, cir: CIR | None = None,
     # ENG-ETSY-AI-FIX (H2b, M4): this is the listing-package gate (release drafting, the
     # certificate, first-customer doors, list-ready, listing tests). The AI disclosure is
     # required on every package and authorship claims are refused in every text field.
-    out += check_ai_disclosure(draft.description, classification)
+    if package:
+        out += check_ai_disclosure(draft.description, classification)
     out += check_authorship(draft.title, "listing.title")
     out += check_authorship(draft.description, "listing.description")
     for t in draft.tags:

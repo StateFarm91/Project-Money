@@ -92,6 +92,8 @@ BENIGN = (
     "Includes a stitch guide and a photo tutorial of each technique.",
     "Each and every row is charted.", "Colourwork is worked from the chart.",
     "Handy for quick gifts.", "Perfect for a handbag charm.",
+    "Written in US crochet terms.", "Uses US crochet terms with a UK conversion chart.",
+    "Contact us crochet lovers!",
 )
 
 
@@ -184,6 +186,14 @@ def test_disclosure_missing_is_an_error_without_classification():
     assert "POLICY_AI_DISCLOSURE_MISSING" in _codes(
         gpolicy.check_listing(_draft(description="A pattern with no disclosure.")))
     assert "POLICY_AI_DISCLOSURE_MISSING" not in _codes(gpolicy.check_listing(_draft()))
+
+
+def test_only_the_concept_stage_skips_the_disclosure_and_never_the_guard():
+    bare = _draft(description="A pattern with no disclosure. Handmade.")
+    codes = _codes(gpolicy.check_listing(bare, package=False))
+    assert "POLICY_AI_DISCLOSURE_MISSING" not in codes
+    assert "POLICY_AUTHORSHIP_CLAIM" in codes
+    assert "POLICY_AI_DISCLOSURE_MISSING" in _codes(gpolicy.check_listing(bare))
 
 
 def test_disclosure_missing_is_an_error_with_classification():
