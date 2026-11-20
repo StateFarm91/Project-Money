@@ -2942,3 +2942,21 @@ non-spending state. Admission is ordered by expected value (core families first)
 in code by a per-listing image cost cap and the CA$100/month ceiling. Reservations are
 released for any product that is rejected or parked. One gallery spend serves both the
 listing and its PDF.
+
+## D-OWNER-SALE-PIPELINE — 2026-11-20 (owner directive, HARD RULE)
+
+**Decision:** "If a product passes its tests and the agents think it should be for sale, then it
+should obviously have images for the PDF, the PDF with the pattern and images, and images for
+the listing. Then it's ready to be for sale. Hard rule."
+- Selection for sale, once the pattern is certified and every non-image gate passes, AUTOMATICALLY
+  enqueues the full chain, with no owner step and no manual nudge:
+  1. generate the certified 7-photo campaign gallery (Laura locked, one outfit per listing);
+  2. build the US and UK premium PDFs, with the pattern and those images embedded, and certify them against D-OWNER-PDF-STANDARD;
+  3. attach the listing images to the listing package;
+  4. mark the listing READY for sale.
+- D-OWNER-SPEND-ORDER decides *which* products spend (only for-sale ones, in value order,
+  within the caps). It never becomes a place where an eligible product silently stalls. An
+  eligible product that is not progressing is an incident with a named blocker, visible on
+  Mission Control and in readback.
+- Ready for sale = certified pattern + complete certified gallery + both premium illustrated
+  PDFs certified for this release + every listing gate PASS. Nothing less counts.
