@@ -207,47 +207,76 @@ def _outcome(states: list[str]) -> str:
     return SURVIVED
 
 
-def main(suites: list[str]) -> int:
-    suites = suites or ["tests/test_eng_plush.py"]
-    work = Path(tempfile.mkdtemp(prefix="plushmut_"))
-    tree = work / "brambleloop"
-    shutil.copytree(ROOT, tree, ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"))
-    survived, errored = [], []
+def _mutant(tree: Path, suites: list[str], mutant) -> tuple[str, str]:
+    name, rel, old, new = mutant
+    path = tree / rel
+    original = path.read_text()
+    if original.count(old) != 1:
+        return name, f"BAD: pattern occurs {original.count(old)} times"
+    path.write_text(original.replace(old, new))
     try:
-        baseline = {s: _run(tree, s) for s in suites}
+        states = []
+        for s in suites:
+            states.append(_run(tree, s))
+            if states[-1] == KILLED:
+                break
+    finally:
+        path.write_text(original)
+    return name, _outcome(states)
+
+
+def main(suites: list[str]) -> int:
+    """MUTATE_JOBS=n runs n mutants at once, each in its own copy of the tree."""
+    import os
+    import queue
+    import threading
+
+    suites = suites or ["tests/test_eng_plush.py"]
+    jobs = max(1, int(os.environ.get("MUTATE_JOBS", "1")))
+    work = Path(tempfile.mkdtemp(prefix="plushmut_"))
+    trees = []
+    for i in range(jobs):
+        tree = work / f"t{i}" / "brambleloop"
+        shutil.copytree(ROOT, tree, ignore=shutil.ignore_patterns(".git", "__pycache__",
+                                                                  "*.pyc"))
+        trees.append(tree)
+    results: dict[str, str] = {}
+    try:
+        baseline = {s: _run(trees[0], s) for s in suites}
         bad = {s: st for s, st in baseline.items() if st != SURVIVED}
         if bad:
             print(f"BASELINE NOT GREEN, no mutant run: {bad}")
             return 2
         print(f"BASELINE green: {sorted(baseline)}", flush=True)
-        for name, rel, old, new in MUTANTS:
-            path = tree / rel
-            original = path.read_text()
-            if original.count(old) != 1:
-                print(f"BAD      {name}: pattern occurs {original.count(old)} times")
-                errored.append(name)
-                continue
-            path.write_text(original.replace(old, new))
-            try:
-                states = []
-                for s in suites:
-                    states.append(_run(tree, s))
-                    if states[-1] == KILLED:
-                        break
-            finally:
-                path.write_text(original)
-            outcome = _outcome(states)
-            print(f"{outcome:<8} {name}", flush=True)
-            if outcome == SURVIVED:
-                survived.append(name)
-            elif outcome == ERROR:
-                errored.append(name)
+        todo: queue.Queue = queue.Queue()
+        for m in MUTANTS:
+            todo.put(m)
+        lock = threading.Lock()
+
+        def worker(tree: Path) -> None:
+            while True:
+                try:
+                    m = todo.get_nowait()
+                except queue.Empty:
+                    return
+                name, outcome = _mutant(tree, suites, m)
+                with lock:
+                    results[name] = outcome
+                    print(f"{outcome:<8} {name}", flush=True)
+
+        threads = [threading.Thread(target=worker, args=(t,)) for t in trees]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
     finally:
         shutil.rmtree(work, ignore_errors=True)
-    killed = len(MUTANTS) - len(survived) - len(errored)
+    survived = [n for n, o in results.items() if o == SURVIVED]
+    errored = [n for n, o in results.items() if o != SURVIVED and o != KILLED]
+    killed = sum(1 for o in results.values() if o == KILLED)
     print(f"{killed} of {len(MUTANTS)} mutants killed; {len(survived)} survived; "
           f"{len(errored)} errored")
-    return 1 if survived or errored else 0
+    return 0 if killed == len(MUTANTS) else 1
 
 
 if __name__ == "__main__":
