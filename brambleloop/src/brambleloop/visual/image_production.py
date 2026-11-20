@@ -1215,6 +1215,13 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
             outs = []
             outfit = outfits.get(db, run["outfit_id"]) if run["outfit_id"] else None
             for r in roles:
+                if r.get("route") and not repairs:
+                    from . import gallery_recovery
+
+                    prior_ = gallery_recovery.already(db, key, r["role"])
+                    if prior_ is not None:
+                        outs.append(prior_)
+                        continue
                 attempt = _attempts(db, key, r["role"]) + 1
                 if attempt > max_att:
                     recovered = _recover_generation(
@@ -1250,6 +1257,19 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                                                     release=run["release"])
                         if base_:
                             refs_ = refs_ + [base_]
+                if r.get("route") and attempt == 1 and not repairs:
+                    # D-OWNER-FLUX-GALLERY: recovery first -- an image already made for this
+                    # release and role is re-judged under the route before one is bought.
+                    from . import gallery_recovery
+
+                    got_ = gallery_recovery.recover(
+                        db, key, slug=slug, version=version, release=release,
+                        listing=run["listing"], role=r["role"], laura=bool(r["laura"]),
+                        outfit_id=(outfit or {}).get("outfit_id") if r["laura"] else None,
+                        judges=judges, route=str(r["route"]), stage=rnd_stage)
+                    if got_ is not None:
+                        outs.append(got_)
+                        continue
                 outs.append(_generate(db, key, gen, slug=slug, version=version,
                                       release=release, role=r["role"], stage=rnd_stage,
                                       route=str(r.get("route") or ""),
@@ -1424,13 +1444,32 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                             f" (failed {sorted(((r.get('candidate') or {}).get('failed') or {}))},"
                             f" unknown {(r.get('candidate') or {}).get('unknown')})"
                             for r in not_ready) or str(view["set_check"]["problems"])[:500]
-            return {"run_key": key, **_update(db, key, stage=stage, blocked=why[:1500],
+            out_ = {"run_key": key, **_update(db, key, stage=stage, blocked=why[:1500],
                                                exhausted=True, card=card,
                                                record={"outputs": card})}
-        return {"run_key": key, **_update(db, key, stage=stage,
+            return _certify_route(db, key, route, out_)
+        out_ = {"run_key": key, **_update(db, key, stage=stage,
                                            status="ready_for_owner_review", card=card,
                                            record={"outputs": card})}
+        return _certify_route(db, key, route, out_)
     raise ValueError(f"stage {stage!r} fell through")
+
+
+def _certify_route(db, key: str, route: str, out: dict) -> dict:
+    """D-OWNER-FLUX-GALLERY: a generated-gallery run is judged for its certificate the moment
+    its card is assembled -- certified when every frame and set check passes, otherwise its
+    blockers (gate, reason, owner, next action) are recorded. The owner's look is not asked."""
+    if route != SP.FLUX_ROUTE:
+        return out
+    try:
+        from . import gallery_persist
+
+        got = gallery_persist.certify_gallery(db, key)
+        return {**out, "gallery_certified": bool(got.get("certified")),
+                "gallery_blockers": len(got.get("blockers") or [])}
+    except Exception as exc:  # noqa: BLE001 - a certification error is recorded, never a pass
+        return {**out, "gallery_certified": False,
+                "gallery_error": f"{type(exc).__name__}: {str(exc)[:200]}"}
 
 
 # ---- re-verification and restart (W-VISNEXT; OWNERIMG E4) -----------------------------------

@@ -43,11 +43,75 @@ MUTANTS = [
     ("owner cap can raise", GB, '        if amount > code_cap():', '        if False:'),
     ("non-owner sets cap", GB, '    if not str(by).startswith("owner"):', '    if False:'),
     ("cap ignores owner", GB, '    return code_cap() if own is None else min(code_cap(), own)', '    return code_cap()'),
+    ("cir references not checked", GP, '    elif not cir_references or sent != list(cir_references):', '    elif False:'),
+    ("stub readings count as independent", "src/brambleloop/ops/production_evidence.py", '        if c.get("test_double") or c.get("fixture_only"):\n            return False', '        if False:\n            return False'),
+    ("fidelity double counts as independent", "src/brambleloop/ops/production_evidence.py", 'if isinstance(fid, dict) and (fid.get("test_double") or fid.get("fixture_only")):', 'if False:'),
     ("route call cap ignored", IP, '    calls = FLUX_MAX_GENERATION_CALLS if route_of_key(key) else MAX_GENERATION_CALLS', '    calls = MAX_GENERATION_CALLS'),
 ]
 
 
+RG = "src/brambleloop/publish/release_gates.py"
+GR = "src/brambleloop/visual/gallery_recovery.py"
+PE = "src/brambleloop/ops/production_evidence.py"
+E2E = "tests/test_vis_gallery_e2e.py"
+# (name, file, old, new, tests to run): the chain-level mutants, ~3-5 min each
+E2E_MUTANTS = [
+    ("refused frame does not block the set", RG, "    if refused:\n        reasons.append(f\"generated frames:", "    if False:\n        reasons.append(f\"generated frames:", "test_8"),
+    ("selected bytes not compared", RG, "if f is None or f.sha256 != sel.get(\"sha256\") or not is_gallery_route_frame(f):", "if f is None or not is_gallery_route_frame(f):", "test_8"),
+    ("generated path not dispatched", RG, "    if selection is not None:\n        return generated_listing_set(", "    if False:\n        return generated_listing_set(", "test_2"),
+    ("certify ignores blockers", GP, "    if not st[\"ok\"]:\n        with db.session() as s:", "    if False:\n        with db.session() as s:", "test_4"),
+    ("laura publication passes unapproved", GP, "\"status\": PASS if ok else UNMEASURED, \"owner\": ID_AGENT,", "\"status\": PASS, \"owner\": ID_AGENT,", "test_5"),
+    ("recovery ignores Laura", GR, "        if bool(r.laura_present) != bool(laura):\n            continue\n", "", "test_6"),
+]
+
+
+def _run(rel, old, new, suite, env_extra=None):
+    with tempfile.TemporaryDirectory(prefix="visgal-mut-") as d:
+        tree = Path(d) / "b"
+        shutil.copytree(ROOT / "src", tree / "src")
+        shutil.copytree(ROOT / "tests", tree / "tests",
+                        ignore=shutil.ignore_patterns("__pycache__"))
+        if suite == E2E:
+            # the chain reads repository data beside src/ (registries, references, fixtures):
+            # linked read-only, never copied or mutated
+            for p in ROOT.iterdir():
+                if p.name not in ("src", "tests") and not (tree / p.name).exists():
+                    (tree / p.name).symlink_to(p)
+            if (ROOT.parent / "ops").exists():
+                (tree.parent / "ops").symlink_to(ROOT.parent / "ops")
+        f = tree / rel
+        text = f.read_text()
+        if text.count(old) != 1:
+            return None
+        f.write_text(text.replace(old, new))
+        env = {"PYTHONPATH": "src:tests", "PATH": "/usr/bin:/bin:/usr/local/bin",
+               "HOME": str(tree), **(env_extra or {})}
+        r = subprocess.run([sys.executable, suite], cwd=tree, capture_output=True, text=True,
+                           env=env, timeout=2400)
+        return r.returncode != 0
+
+
+def main_e2e() -> int:
+    from concurrent.futures import ThreadPoolExecutor
+
+    def one(m):
+        name, rel, old, new, only = m
+        return name, _run(rel, old, new, E2E, {"VIS_E2E_ONLY": only})
+
+    survived = []
+    with ThreadPoolExecutor(4) as ex:
+        for name, killed in ex.map(one, E2E_MUTANTS):
+            print(("KILLED  " if killed else ("BAD     " if killed is None else "SURVIVED"))
+                  + f" {name}", flush=True)
+            if not killed:
+                survived.append(name)
+    print(f"{len(E2E_MUTANTS) - len(survived)} of {len(E2E_MUTANTS)} e2e mutants killed")
+    return 1 if survived else 0
+
+
 def main() -> int:
+    if "--e2e" in sys.argv:
+        return main_e2e()
     survived = []
     for name, rel, old, new in MUTANTS:
         with tempfile.TemporaryDirectory(prefix="visgal-mut-") as d:

@@ -255,6 +255,49 @@ def test_spend_guard_refuses_past_the_owner_cap():
         pass
 
 
+def test_frame_matrix_requires_the_release_cir_references_in_order():
+    from types import SimpleNamespace
+
+    from brambleloop.visual import gallery_persist as GP
+
+    refs = [{"sha256": c * 64, "kind": "pattern_derived"} for c in "bcde"]
+    row = SimpleNamespace(id=1, sha256=SHA, role="detail", model="m", references=refs,
+                          prompt_version="p", provenance_kind="ai_generated_autonomous",
+                          laura_present=False, technical_status="PASS", attempt=1,
+                          checks={"_route": {"route": el.GALLERY_ROUTE}})
+    want = [c * 64 for c in "bcde"]
+    m = GP.frame_matrix(None, row, job=el.DETAIL, laura_expected=False, cir_references=want)
+    assert m["gates"]["cir_references"]["status"] == "PASS"
+    for other in (want[::-1], want[:3], [], None):
+        m = GP.frame_matrix(None, row, job=el.DETAIL, laura_expected=False,
+                            cir_references=other)
+        assert m["gates"]["cir_references"]["status"] in ("FAIL", "UNMEASURED"), other
+        assert m["ok"] is False
+    # every other gate on this empty record is UNMEASURED, never PASS
+    m = GP.frame_matrix(None, row, job=el.DETAIL, laura_expected=False, cir_references=want)
+    assert m["ok"] is False
+    assert m["gates"]["motif_fidelity"]["status"] == "UNMEASURED"
+    # a Laura slot whose frame has no Laura FAILs identity
+    m = GP.frame_matrix(None, row, job=el.LIFESTYLE, laura_expected=True, cir_references=want)
+    assert m["gates"]["identity"]["status"] == "FAIL"
+
+
+def test_evidence_never_counts_a_test_double_or_fixture_as_independent():
+    from brambleloop.ops.production_evidence import _independent
+
+    clean = {"identity": {"status": "PASS"}, "product_truth": {"status": "PASS",
+                                                                "fidelity": {"status": "PASS"}}}
+    assert _independent(clean) is True
+    for bad in ({"identity": {"status": "PASS", "test_double": True}},
+                {"identity": {"status": "PASS", "fixture_only": True}},
+                {"product_truth": {"status": "PASS", "fidelity": {"test_double": "x"}}},
+                {"product_truth": {"status": "PASS", "fidelity": {"fixture_only": True}}}):
+        assert _independent({**clean, **bad}) is False, bad
+    assert _independent(None) is False
+    # underscore records (provenance, receipts) are not readings
+    assert _independent({**clean, "_route": {"test_double": True}}) is True
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in sorted(globals().items()):

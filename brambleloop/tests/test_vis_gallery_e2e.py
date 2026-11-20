@@ -59,9 +59,11 @@ class GalleryGenerator(V6.V6Generator):
         from brambleloop.creative import flux3_generator as FG
 
         before = len(self.stub.calls)
+        run = self.current_run_key          # read before the call (the generator clears it)
         out = self.real.generate(**kw)
         sent = self.stub.calls[before:]
         self.requests.append({"role": kw["role"], "stage": kw["stage"],
+                              "run": run,
                               "refs": [V6._sha_of(p) for p in sent[0]["refs"]] if sent else [],
                               "prompt": sent[0]["prompt"] if sent else ""})
         self.n += 1
@@ -81,7 +83,7 @@ class GalleryGenerator(V6.V6Generator):
                 "identity_evidence": receipt}
 
 
-def _motif_judger(cir, *, colours_seen=None):
+def _motif_judger(db, cir, *, colours_seen=None):
     """The motif-fidelity vision transport, doubled: it describes what a faithful frame shows
     (the chart's own motif and colour count), in motif_fidelity's closed vocabulary.
     `publish.motif_fidelity.judge` decides in code. `colours_seen` makes it describe a frame
@@ -92,7 +94,7 @@ def _motif_judger(cir, *, colours_seen=None):
     words = {1: "one", 2: "two", 3: "three", 4: "four"}
 
     def judger(image_ref, chart_path):
-        want = MF.expected(cir, _twin(_S["db"], cir))
+        want = MF.expected(cir, _twin(db, cir))
         n = colours_seen or want["colour_count"]
         return {"repeating_unit_shape": want["motif_named"] or "no visible repeat",
                 "repeats_across": None,
@@ -140,11 +142,31 @@ class GalleryJudges(V6.V6Judges):
         return CG._c(fid["status"], f"fidelity {fid['status']} (end-band rule: test double)",
                      test_double=True, codes=list(fid.get("codes") or []), fidelity=fid)
 
+    # The person judges are StubJudges; every reading they make is labelled a test double so
+    # production evidence never counts it as an independent verification.
+    def _label(self, out):
+        return {**out, "test_double": True}
+
+    def identity(self, c):
+        return self._label(super().identity(c))
+
+    def anatomy(self, c):
+        return self._label(super().anatomy(c))
+
+    def realism(self, c):
+        return self._label(super().realism(c))
+
+    def body_proportions(self, c):
+        return self._label(super().body_proportions(c))
+
+    def outfit_consistency(self, c, outfit):
+        return self._label(super().outfit_consistency(c, outfit))
+
     def motif_fidelity(self, c, bind):
         from brambleloop.visual import candidate_gates as CG
 
         self._seen("motif_fidelity", c)
-        out = CG.motif_reading(self.db, c, judger=_motif_judger(self.cir))
+        out = CG.motif_reading(self.db, c, judger=_motif_judger(self.db, self.cir))
         return {**out, "test_double": "transport"}
 
 
@@ -187,7 +209,6 @@ def run_gallery(db, *, fail_role=None, unknown_role=None):
     manifest, _entry, _rb = V6._room_manifest(room)
     real_manifest = RR.MANIFEST
     RR.MANIFEST = manifest
-    _S["db"] = db
     try:
         vision = V6.StubVision(cir)
         judges = GalleryJudges(db, vision, cir, fail_role=fail_role, unknown_role=unknown_role)
@@ -233,8 +254,13 @@ def test_1_seven_frame_flux_campaign_is_generated_from_cir_references_with_laura
     assert roles == ["hero", "colour_context", "lifestyle", "angle", "detail", "size",
                      "whats_included"], roles
     assert card["campaign_standard"]["ok"] is True, card["campaign_standard"]
-    sent = {r["role"]: r for r in R["gen"].requests}
-    assert set(sent) >= {"hero", "colour_context", "lifestyle", "angle", "detail", "size"}
+    sent = {r["role"]: r for r in R["gen"].requests if r["run"] == R["key"]}
+    # generated in this run, or recovered first from an image already made for the release
+    from brambleloop.visual import gallery_recovery as GR
+
+    recovered = {role for role in ("lifestyle", "size") if GR.already(db, R["key"], role)}
+    assert set(sent) | recovered >= {"hero", "colour_context", "lifestyle", "angle", "detail",
+                                     "size"}, (sorted(sent), recovered)
     # Laura + outfit conditioning: Laura's frames carry her canonical references and outfit.
     from sqlalchemy import select
 
@@ -327,6 +353,7 @@ def test_3_package_draft_upload_and_byte_for_byte_readback_of_every_image_and_bo
         rb = row.detail["read_back"]
     assert rb["verified"] is True and rb["files"]["verified"] is True, rb
     assert rb["images"]["verified"] is True, rb["images"]
+    S["published"] = True
 
 
 def _fresh(**kw):
@@ -398,10 +425,144 @@ def test_5_unmeasured_never_counts_as_pass():
     assert {b["owner"] for b in pub} == {"ENG-VIS-IDENTITY"}
 
 
+def test_6_recovery_first_prior_images_are_rejudged_before_any_new_purchase():
+    """assets.build starts the release's campaign run and its FLUX-gallery run. Images the
+    campaign run already made for a slot the gallery shares (same release, role, Laura and
+    outfit) are re-judged under the route and recovered; only the rest are generated."""
+    from sqlalchemy import select
+
+    from brambleloop.visual import gallery_recovery as GR
+    from brambleloop.visual import image_production as IP
+    from brambleloop.visual.image_records import ImageCandidate
+
+    S = chain()
+    R, db = S["R"], S["db"]
+    rec = IP._stage_data(db, R["key"]).get("_recovery") or {}
+    assert set(rec) >= {"lifestyle", "size"}, rec
+    with db.session() as s:
+        rows = {r.id: r for r in s.scalars(select(ImageCandidate))}
+    for role in ("lifestyle", "size"):
+        got = GR.already(db, R["key"], role)
+        assert got and got["technical_status"] == "PASS", (role, got)
+        src = rows[got["recovered_from"]]
+        mine = rows[got["candidate_id"]]
+        assert src.run_key != R["key"] and src.sha256 == mine.sha256, role
+        assert mine.method == "recovered" and mine.cost_cad == 0.0
+        assert mine.checks["_recovered"]["from_candidate"] == src.id
+        assert mine.checks["motif_fidelity"]["status"] == "PASS"   # re-judged under the route
+        # nothing was bought for the recovered slot in the gallery run
+        assert not [q for q in R["gen"].requests if q["run"] == R["key"]
+                    and q["role"] == role], role
+    # a slot whose Laura/outfit/role differs is never recovered (generated instead)
+    assert not GR.already(db, R["key"], "colour_context")
+    assert [q for q in R["gen"].requests if q["run"] == R["key"]
+            and q["role"] == "colour_context"]
+
+
+def test_7_production_evidence_counts_the_gallery_from_rows():
+    from brambleloop.ops import production_evidence as pe
+    from datetime import datetime, timezone
+
+    S = chain()
+    db = S["db"]
+    if not S.get("published"):
+        test_3_package_draft_upload_and_byte_for_byte_readback_of_every_image_and_both_pdfs()
+    vp = pe.visual_pipeline(db, now=datetime(2026, 11, 20, tzinfo=timezone.utc))
+    g = vp["generated_galleries"]
+    assert g["runs"] == 1, g
+    im = g["images"]
+    assert im["generated"] + im["recovered"] == 6 and im["recovered"] == 2, im
+    # every PASS here used labelled test doubles: none is an independent verification
+    assert im["independently_verified"] == 0 and im["verified_with_test_doubles"] == 6, im
+    assert g["laura_identity"]["frames"] == 2, g["laura_identity"]
+    assert g["laura_identity"]["identity_passed"] == 0          # stub identity never counts
+    assert g["laura_identity"]["identity_held"] == 2
+    assert g["completed_seven_image_galleries"] == 1, g
+    assert g["awaiting_publication"] == 0 and g["etsy_drafts_verified"] == 1, g
+    assert g["spent_cad"] == 0.0 and g["cost_per_completed_gallery_cad"] == 0.0, g
+    assert vp["certified_pdfs"]["with_us_and_uk_pdf_hashes"] >= 1
+    assert vp["etsy_drafts"]["fully_read_back"] >= 1
+    import json
+
+    text = json.dumps(g)
+    assert S["R"]["key"] not in text and "cloudline" not in text      # counts only
+
+
+def test_8_the_listing_set_rejudges_on_every_call_and_tampering_blocks_it():
+    """After certification, `release_gates.listing_set` (what store.publish asks) re-judges the
+    selected frames from their records: a reading that drops to UNKNOWN, a missing CONTENTS
+    preview or bytes that differ from the selection each block the set."""
+    from sqlalchemy import select
+    from sqlalchemy.orm.attributes import flag_modified
+
+    import test_search_hero_publish as SH
+    from brambleloop.core.models import AuditLog
+    from brambleloop.publish import release_gates as RG
+    from brambleloop.visual.image_records import ImageCandidate
+
+    S = chain()
+    db, version = S["db"], S["version"]
+    with laura_publication_double(db):
+        ok = RG.listing_set(db, slug=SH.SLUG, version=version, issue=False)
+        assert ok["kind"] == "generated_gallery" and ok["blocks_release"] is False, ok["reasons"]
+        # 1. one frame's motif reading becomes UNKNOWN
+        sel = RG.generated_selection(db, SH.SLUG, version)
+        cid = next(f["candidate_id"] for f in sel["frames"] if f["role"] == "detail")
+        with db.session() as s:
+            row = s.get(ImageCandidate, cid)
+            saved = dict(row.checks)
+            row.checks = {**saved, "motif_fidelity": {"status": "UNKNOWN", "why": "tampered"}}
+            flag_modified(row, "checks")
+        try:
+            out = RG.listing_set(db, slug=SH.SLUG, version=version, issue=False)
+            assert out["blocks_release"] is True, out
+            assert any("may not export" in r for r in out["reasons"]), out["reasons"]
+        finally:
+            with db.session() as s:
+                row = s.get(ImageCandidate, cid)
+                row.checks = saved
+                flag_modified(row, "checks")
+        # 2. the selection names bytes that are not the stored frame's
+        with db.session() as s:
+            bad = {**sel, "frames": [{**f, "sha256": "0" * 64} if f["role"] == "hero" else f
+                                     for f in sel["frames"]]}
+            s.add(AuditLog(actor="test", action=RG.SELECTED_ACTION,
+                           artifact=f"{SH.SLUG}@{version}", detail=bad))
+        try:
+            out = RG.listing_set(db, slug=SH.SLUG, version=version, issue=False)
+            assert out["blocks_release"] is True
+            assert any("not on file as a generated-gallery frame" in str(f.get("why"))
+                       for f in out["frames"]), out["frames"]
+        finally:
+            with db.session() as s:
+                s.add(AuditLog(actor="test", action=RG.SELECTED_ACTION,
+                               artifact=f"{SH.SLUG}@{version}", detail=sel))
+        # 3. no certified CONTENTS preview
+        real = RG.certified_contents_frame
+        RG.certified_contents_frame = lambda *a, **k: {"status": "UNMEASURED",
+                                                       "why": "tampered", "owner": "t"}
+        try:
+            out = RG.listing_set(db, slug=SH.SLUG, version=version, issue=False)
+            assert out["blocks_release"] is True
+            assert any(r.startswith("download-information frame") for r in out["reasons"])
+        finally:
+            RG.certified_contents_frame = real
+        # The tampered selection changed what the certificate was bound to, so the stored
+        # certificate was invalidated (recheck); it is re-issued only by a fresh, full pass.
+        again = RG.listing_set(db, slug=SH.SLUG, version=version, issue=True,
+                               store_renders=True)
+        assert again["blocks_release"] is False, again["reasons"]
+        assert again["certificate"]["valid"] is True
+
+
 if __name__ == "__main__":
+    import os
+
+    only = [x for x in os.environ.get("VIS_E2E_ONLY", "").split(",") if x]
     fails = 0
     for name, fn in sorted(globals().items()):
-        if name.startswith("test_") and callable(fn):
+        if name.startswith("test_") and callable(fn) and (
+                not only or any(name.startswith(o) for o in only)):
             try:
                 fn()
                 print("OK  ", name)

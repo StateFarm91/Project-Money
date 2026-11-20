@@ -130,6 +130,11 @@ SCRATCH = {
         "caller", "runtime/release.py::handle_model_photography", ("ctx.audit(",)),
     "publish/motif_fidelity.py::check": ("caller", "publish/owned_photography.py::make",
                                          ("motif_fidelity.check(",)),
+    # ENG-VIS-GALLERY: the generated-gallery motif check writes the frame for the judge; its
+    # verdict is filed on the candidate row by image_production.record_candidate.
+    "visual/candidate_gates.py::motif_reading": ("caller",
+                                                 "visual/image_production.py::record_candidate",
+                                                 ("ImageCandidate(",)),
     "publish/owned_photography.py::make": ("caller",
                                            "runtime/release.py::handle_owned_photography",
                                            ("ctx.audit(",)),

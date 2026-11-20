@@ -651,6 +651,14 @@ def handle_assets_build(ctx: JobContext) -> dict:
                 lambda inputs, key: ctx.enqueue("publishing", "visual.image_production",
                                                 inputs, idempotency_key=key),
                 slug=slug, version=version, release=release)
+            # D-OWNER-FLUX-GALLERY: the seven-frame FLUX campaign, its own run beside the
+            # campaign run. Shadow-safe the same way: a closed image_generation gate blocks it
+            # before any paid call, and it is certified only by gallery_persist.certify_gallery.
+            image_production.trigger(
+                lambda inputs, key: ctx.enqueue("publishing", "visual.image_production",
+                                                inputs, idempotency_key=key),
+                slug=slug, version=version, release=release,
+                route=image_production.SP.FLUX_ROUTE)
         except Exception as exc:  # noqa: BLE001 - imagery never blocks the price chain
             ctx.audit("visual.image_production_trigger_failed", artifact=f"{slug}@{version}",
                       detail={"error": f"{type(exc).__name__}: {str(exc)[:300]}"})

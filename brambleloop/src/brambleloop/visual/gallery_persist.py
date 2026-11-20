@@ -277,11 +277,29 @@ def _row_of(db, candidate_id):
         return row
 
 
-def frame_matrix(db, row, *, job: str, laura_expected: bool) -> dict:
-    """Every gate for one generated frame, from its own stored record."""
+def frame_matrix(db, row, *, job: str, laura_expected: bool,
+                 cir_references: list[str] | None = None) -> dict:
+    """Every gate for one generated frame, from its own stored record.
+
+    `cir_references`: the ordered sha256 of the deterministic CIR reference renders the run
+    prepared (`creative.pattern_refs`: layout, texture, detail, rules). The frame must have
+    been conditioned on exactly those, in that order."""
     checks = dict(row.checks or {})
     laura = bool(row.laura_present)
     gates: dict[str, dict] = {}
+    sent = [r.get("sha256") for r in (row.references or []) if r.get("kind") == "pattern_derived"]
+    if cir_references is None:
+        gates["cir_references"] = {"status": UNMEASURED, "owner": GALLERY_AGENT,
+                                   "why": "the run's prepared CIR references are not on file"}
+    elif not cir_references or sent != list(cir_references):
+        gates["cir_references"] = {"status": FAIL, "owner": FLUX_AGENT,
+                                   "why": f"conditioned on {len(sent)} CIR reference(s) that "
+                                          f"are not the {len(cir_references)} the release's "
+                                          f"certified CIR renders, in order"}
+    else:
+        gates["cir_references"] = {"status": PASS, "owner": FLUX_AGENT,
+                                   "why": f"conditioned on the release's {len(sent)} CIR "
+                                          f"reference renders, in order"}
     for gate, names, owner, laura_only in FRAME_GATES:
         if laura_only and not laura:
             gates[gate] = {"status": NA if not laura_expected else FAIL, "owner": owner,
@@ -386,6 +404,10 @@ def gallery_status(db, key: str) -> dict:
                                             f"{SP.FLUX_ROUTE!r}"}}]}
     plan = SP.flux_campaign_plan(run["listing"])
     view = IP.readiness(db, run["listing"], run_key_=key, plan=plan)
+    prepared = ((IP._stage_data(db, key).get("prepare_references") or {}).get("outputs")
+                or {}).get("references")
+    cir_refs = ([r["sha256"] for r in prepared if r.get("kind") == "pattern_derived"]
+                if isinstance(prepared, list) else None)
     blockers: list[dict] = []
     frames: list[dict] = []
     for slot in plan["roles"]:
@@ -415,7 +437,7 @@ def gallery_status(db, key: str) -> dict:
                                                                     "owner": FLUX_AGENT})})
             continue
         m = frame_matrix(db, _row_of(db, best["candidate_id"]), job=slot["job"],
-                         laura_expected=slot["laura"])
+                         laura_expected=slot["laura"], cir_references=cir_refs)
         m["position"] = slot["position"]
         frames.append(m)
         for gate, g in m["gates"].items():
