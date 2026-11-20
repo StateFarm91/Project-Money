@@ -54,6 +54,10 @@ _YARN_FACTOR = {
 # stated at 41.0 m when its own model gives 28.8 m, 43 % over and well outside the +/-20 %
 # the document promises.
 YARDAGE_TOLERANCE = 0.20  # +/- 20% until calibrated by a physical test
+# ENG-LOWSEW-CHENILLE: a stitch worked through more than one layer (a joining stitch through
+# the body and a limb's edge, or a fold-and-close sc through both layers) pulls its loops
+# through more fabric. A stated assumption until a sample calibrates it.
+JOIN_THROUGH_YARN = 1.25
 
 
 @dataclass
@@ -82,6 +86,9 @@ class Cell:
     # error mirrors every other row of `color_grid`, which feeds chart rendering -- so a flat
     # two-colour chart has been drawn with alternate rows reversed.
     fabric_position: int = 0
+    # ENG-LOWSEW-CHENILLE: the piece this stitch is worked through (a joined limb or head),
+    # so the twin carries the joined runs independently of the compiler (`joined_runs`).
+    through: str | None = None
 
 
 @dataclass
@@ -231,6 +238,8 @@ def _yardage(rows: list[ResolvedRow], cir: CIR, calibration: float,
         worked: dict[str, int] = {}
         for op in r.ops:
             factor = _YARN_FACTOR.get(op.stitch, 3.0)
+            if getattr(op, "through", None) or getattr(r, "fold", False):
+                factor *= JOIN_THROUGH_YARN
             # P0-CIR-COLOURWORK: a stitch worked in its own colour uses that yarn.
             yarn = getattr(op, "color", None) or color
             totals[yarn] = totals.get(yarn, 0.0) + factor * stitch_width_cm * op.count
@@ -245,7 +254,11 @@ def _yardage(rows: list[ResolvedRow], cir: CIR, calibration: float,
         if r.turning_chain:
             totals[color] = (totals.get(color, 0.0)
                              + _YARN_FACTOR["ch"] * stitch_width_cm * r.turning_chain)
-    return {k: round(v / 100.0 * calibration * make, 1) for k, v in totals.items()}
+    from .yarn_classes import classify
+
+    cls = classify(cir)
+    factor = cls.yardage_factor if cls is not None else 1.0
+    return {k: round(v / 100.0 * calibration * make * factor, 1) for k, v in totals.items()}
 
 
 CARRY_FACTOR = 1.0   # OPUS2H H2-2: cm of carried strand per stitch width it travels (assumed)
@@ -284,7 +297,8 @@ def build_twin(
                         Cell(row=r.index, position=pos, stitch=op.stitch,
                              color=getattr(op, "color", None) or r.color,
                              repeat_group=op.repeat_group,
-                             loop=getattr(op, "loop", "both"))
+                             loop=getattr(op, "loop", "both"),
+                             through=getattr(op, "through", None))
                     )
                     pos += 1
         model.row_widths[r.index] = pos
@@ -347,7 +361,40 @@ def build_twin(
         model.height_rule = HEIGHT_RULE
 
     model.yarn_metres_by_color = _yardage(rows, cir, calibration, comp.make)
+    from .yarn_classes import classify
+
+    cls = classify(cir)
+    if cls is not None:
+        # ENG-LOWSEW-CHENILLE: an uncalibrated yarn class states its own, wider tolerance.
+        model.yardage_tolerance = max(model.yardage_tolerance, cls.yardage_tolerance)
     return model
+
+
+def joined_runs(twins: dict[str, TwinModel]) -> list[tuple[str, int, str, int, int, int]]:
+    """ENG-LOWSEW-CHENILLE: (host, round, piece, first st, last st, round sts) for every run of
+    stitches worked through another piece, read from the twin's own cells."""
+    out = []
+    for name, twin in twins.items():
+        by_row: dict[int, list[Cell]] = {}
+        for c in twin.cells:
+            by_row.setdefault(c.row, []).append(c)
+        for index, cells in sorted(by_row.items()):
+            cells = sorted(cells, key=lambda c: c.position)
+            n = len(cells)
+            run = None
+            for c in cells:
+                if c.through and run is not None and run[0] == c.through \
+                        and run[2] == c.position - 1:
+                    run[2] = c.position
+                    continue
+                if run is not None:
+                    out.append((name, index, run[0], run[1] + 1, run[2] + 1, n))
+                    run = None
+                if c.through:
+                    run = [c.through, c.position, c.position]
+            if run is not None:
+                out.append((name, index, run[0], run[1] + 1, run[2] + 1, n))
+    return sorted(out)
 
 
 _POLYGON_NAMES = {3: "triangle", 4: "square", 5: "pentagon", 6: "hexagon", 8: "octagon"}

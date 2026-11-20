@@ -237,6 +237,19 @@ def validate_listing(title: str, tags: list[str], facts: ProductFacts, *,
     if stuffed.get("repeated_in_title"):
         blocking.append(f"LISTING_STUFFED: title repeats {stuffed['repeated_in_title']}")
 
+    # ENG-LOWSEW-CHENILLE: "no sew" / "low sew" are high-intent words and claims. Allowed only
+    # where the construction.sewing_required reading of a CIR that compiles supports them; with
+    # no CIR there is no reading, and UNKNOWN is never a pass.
+    from ..cir import joins as _joins
+
+    claimed = [t for t in [title or ""] + list(tags) if _joins.sewing_claims(t)]
+    if claimed:
+        reading = (_joins.sewing_required(facts.cir)["sewing_required"]
+                   if facts.cir is not None else _joins.SEWING_UNKNOWN)
+        for t in claimed:
+            where = "title" if t == (title or "") else "tag"
+            blocking += _joins.sewing_claim_findings(t, reading, where)
+
     if facts.cir is not None:
         for f in fc.product_type_findings(facts.cir, title=title or "", tags=list(tags)):
             blocking.append(f"TERM_MISLEADING: {f}")

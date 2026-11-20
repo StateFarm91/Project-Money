@@ -382,6 +382,14 @@ def certify(
     geo = _assembly.assemble(cir, twins)
     findings.extend(assembly_findings(cir, geo))
     stages.append("assembly")
+    # 2c. ENG-LOWSEW-CHENILLE: joined rounds. The compiler proved counts, positions and
+    #     symmetry (`cir.joins`); the twin's own cells must place every joined run on the same
+    #     stitches, or the two models of the object disagree and neither is trusted.
+    from ..cir import joins as _joins
+
+    if _joins.uses_joins(cir):
+        findings.extend(joins_twin_findings(cir, result, twins))
+        stages.append("joins")
 
     if any(t.geometry is not None for t in twins.values()):
         # What the fabric does with the shaping: a round that has to gather, and therefore a
@@ -420,6 +428,8 @@ def certify(
     # different product from the one the buyer would be paying for.
     findings.extend(check_shape_claims(cir.title, cir, twin, "cir.title"))
     findings.extend(check_technique_claims(cir.title, cir, twin, "cir.title"))
+    # ENG-LOWSEW-CHENILLE: "no sew" / "low sew" only where the construction reading says so.
+    findings.extend(sewing_claim_errors(cir.title, cir, result, "cir.title"))
     findings.extend(check_text(cir.designer_notes or "", "cir.designer_notes"))
     # The designer notes go through the technique check too.
     #
@@ -491,6 +501,9 @@ def certify(
         findings.extend(check_listing(listing, cir, proof_states=proof_states))
         findings.extend(check_shape_claims(listing.title, cir, twin, "listing.title"))
         findings.extend(check_technique_claims(listing.title, cir, twin, "listing.title"))
+        findings.extend(sewing_claim_errors(listing.title, cir, result, "listing.title"))
+        for tag in getattr(listing, "tags", None) or []:
+            findings.extend(sewing_claim_errors(str(tag), cir, result, "listing.tag"))
         stages.append("policy")
 
     # 6. Physical testing. Class C (fitted garments, complex structures) does not ship on
@@ -499,6 +512,9 @@ def certify(
     #    the floor the product's own features set, whichever is higher -- and C needs a full
     #    physical make of this content, not a swatch (F-072, F-081).
     twin_block = twin_summary(cir, twins, geo)
+    # ENG-LOWSEW-CHENILLE: the construction readings listing copy may lean on, computed from
+    # this compile (`construction.sewing_required`), with the joined runs behind them.
+    twin_block["construction"] = construction_reading(cir, result)
     primitive_status, primitive_errors = primitive_findings(
         cir, physically_evidenced=physical_test_passed,
         calibrated_primitives=calibrated_primitives)
@@ -526,6 +542,11 @@ def certify(
     #     truth, so it is refused here unless a tester's measured sample of this exact content
     #     is the evidence for it instead.
     findings.extend(gauge_findings(cir, physically_evidenced=physical_test_passed))
+    # 6b'. ENG-LOWSEW-CHENILLE: a chenille design's gauge is its yarn class's gauge for its
+    #      hook, and its hook is inside the class's range (`cir.yarn_classes`).
+    from ..cir import yarn_classes as _yarn_classes
+
+    findings.extend(_yarn_classes.findings(cir))
     # 6c. New primitives (F-074): a stitch whose real-world height and yarn behaviour no
     #     sample has measured does not carry unrestricted size or yardage claims.
     findings.extend(primitive_errors)
@@ -909,6 +930,45 @@ def colour_carry_findings(cir: CIR) -> list[Finding]:
 CLAIM_FIELDS: tuple[str, ...] = (
     "width_cm", "height_cm", "shape", "circumference_cm", "size_refusal", "sides",
     "across_points_cm", "across_flats_cm", "yarn_metres", "yardage_tolerance", "pieces")
+
+
+def construction_reading(cir: CIR, result=None) -> dict:
+    """ENG-LOWSEW-CHENILLE: `construction.sewing_required` and the joins behind it."""
+    from ..cir import joins as _joins, yarn_classes as _yc
+
+    if result is None:
+        result = compile_cir(cir)
+    reading = _joins.sewing_required(cir, result)
+    cls = _yc.classify(cir)
+    return {"sewing_required": reading["sewing_required"], "sewing": reading,
+            "joined_runs": ([r.to_dict() for r in _joins.runs(cir, result)]
+                            if result.ok else []),
+            "yarn_class": cls.to_dict() if cls is not None else None}
+
+
+def sewing_claim_errors(text: str, cir: CIR, result, where: str) -> list[Finding]:
+    from ..cir import joins as _joins
+
+    if not _joins.sewing_claims(text or ""):
+        return []
+    reading = _joins.sewing_required(cir, result)["sewing_required"]
+    return [Finding(ERROR, "SEW_CLAIM_UNCERTIFIED", why)
+            for why in _joins.sewing_claim_findings(text, reading, where)]
+
+
+def joins_twin_findings(cir: CIR, result, twins: dict) -> list[Finding]:
+    """The twin's joined runs (from its cells) against the compiler's (from its rounds)."""
+    from ..cir import joins as _joins
+    from ..cir.twin import joined_runs
+
+    compiled = sorted((r.host, r.round, r.target, r.start, r.end, r.round_count)
+                      for r in _joins.runs(cir, result))
+    modelled = joined_runs(twins)
+    if compiled != modelled:
+        return [Finding(ERROR, "JOIN_TWIN_DISAGREES",
+                        f"the twin places the joined pieces at {modelled}, the compiler at "
+                        f"{compiled}")]
+    return []
 
 
 def claims_fingerprint(summary: dict | None) -> str:

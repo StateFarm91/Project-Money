@@ -75,6 +75,7 @@ class ResolvedOp:
     loop: str = "both"
     spans: int = 0
     color: str | None = None   # P0-CIR-COLOURWORK: the op's own yarn, None = the row's
+    through: str | None = None  # ENG-LOWSEW-CHENILLE: the piece this op is worked through
 
 
 @dataclass
@@ -89,6 +90,9 @@ class ResolvedRow:
     ops: list[ResolvedOp]
     turning_chain: int
     turning_chain_counts: bool
+    # ENG-LOWSEW-CHENILLE: worked through both layers of the flattened opening; `into_count`
+    # is then the number of stitch PAIRS (half the stitches below).
+    fold: bool = False
 
     @property
     def stitch_count(self) -> int:
@@ -152,7 +156,8 @@ def _flatten(nodes: Iterable[OpNode], available: int, group: list[int]) -> tuple
     for i, n in enumerate(nodes):
         if isinstance(n, Op):
             out.append(ResolvedOp(n.stitch, n.count, n.consumes, n.produces, loop=n.loop,
-                                  spans=n.spans, color=getattr(n, "color", None)))
+                                  spans=n.spans, color=getattr(n, "color", None),
+                                  through=getattr(n, "through", None)))
             continue
 
         assert isinstance(n, Repeat)
@@ -193,7 +198,8 @@ def _flatten(nodes: Iterable[OpNode], available: int, group: list[int]) -> tuple
                     ResolvedOp(r.stitch, r.count, r.consumes, r.produces, repeat_group=gid,
                                loop=getattr(r, "loop", "both"),
                                spans=getattr(r, "spans", 0),
-                               color=getattr(r, "color", None))
+                               color=getattr(r, "color", None),
+                               through=getattr(r, "through", None))
                 )
 
     return out, problems
@@ -248,6 +254,33 @@ def compile_component(comp: Component, cir: CIR, findings: list[Finding]) -> lis
                     )
                 )
             into_count = max(0, into_count - row.skips)
+
+        # ENG-LOWSEW-CHENILLE: fold and close. The flattened opening is worked through both
+        # layers, so the stitches available to this row are pairs of the stitches below.
+        if getattr(row, "fold", False):
+            if comp.construction == "flat_rows":
+                findings.append(Finding(
+                    ERROR, "FOLD_NOT_ROUNDS",
+                    "a fold-and-close row is stated on a piece worked in flat rows; only a "
+                    "tube worked in the round flattens into two layers", comp.name, row.index))
+            if row is not comp.rows[-1]:
+                findings.append(Finding(
+                    ERROR, "FOLD_NOT_LAST",
+                    "a fold-and-close row closes the piece, so it must be the piece's last "
+                    "row", comp.name, row.index))
+            bad = sorted({o.stitch for o in _ops_flat(row.ops) if o.stitch not in ("sc", "slst")})
+            if bad:
+                findings.append(Finding(
+                    ERROR, "FOLD_STITCH",
+                    f"a fold-and-close row is worked in sc or sl st through both layers, one "
+                    f"stitch per pair; {bad} cannot be", comp.name, row.index))
+            if into_count % 2:
+                findings.append(Finding(
+                    ERROR, "FOLD_ODD",
+                    f"the opening has {into_count} sts, which do not flatten into pairs: one "
+                    f"stitch would be worked through a single layer and leave a hole",
+                    comp.name, row.index))
+            into_count = into_count // 2
 
         # Row 1 of a flat piece with no foundation has nothing to consume; treat its own
         # production as authoritative rather than inventing a constraint.
@@ -390,6 +423,7 @@ def compile_component(comp: Component, cir: CIR, findings: list[Finding]) -> lis
                 ops=ops,
                 turning_chain=row.turning_chain,
                 turning_chain_counts=row.turning_chain_counts,
+                fold=bool(getattr(row, "fold", False)),
             )
         )
         counts_by_index[row.index] = total
@@ -597,4 +631,11 @@ def compile_cir(cir: CIR) -> CompileResult:
         from . import closed_forms
 
         closed_forms.check(cir, result, result.findings)
+    # ENG-LOWSEW-CHENILLE: join-as-you-go (`cir.joins`): every joined round's count, positions
+    # and symmetry, every fold-and-close against its join width, the drift allowance and the
+    # embroidered eye placement. A design with none of them is untouched.
+    from . import joins
+
+    if joins.uses_joins(cir):
+        joins.check(cir, result, result.findings)
     return result

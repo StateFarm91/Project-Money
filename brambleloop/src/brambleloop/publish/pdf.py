@@ -2423,6 +2423,23 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             mark = ms["milestones"][1]
             steps.append(f"On a piece worked in the round you can also check as you go: after "
                          f"round {mark['row']} it should be {mark['measured']}.")
+        # ENG-LOWSEW-CHENILLE: a chenille yarn class prints its hook range, gauge by hook,
+        # tension guidance and shedding/care note (teardown L3/L7: "stitches too tight").
+        from ..cir import yarn_classes as _yarn_classes
+
+        ycls = _yarn_classes.classify(cir)
+        if ycls is not None:
+            doc.label(f"Hook range for {ycls.name} (CYC {ycls.cyc})")
+            doc.para(f"Hook range {ycls.hook_range_words}. This toy is written at "
+                     f"{g.stitches_per_10cm:g} sc per 10 cm on the {g.hook_mm:g} mm hook. "
+                     + " ".join(f"{h.hook_mm:g} mm: about {h.sc_per_10cm:g} sc per 10 cm "
+                                f"({h.use})." for h in ycls.hooks)
+                     + " These are design gauges for this yarn class, not yet measured on a "
+                       "worked sample: your swatch decides.", size=10)
+            doc.label("Tension with chenille")
+            doc.para(ycls.tension, size=10)
+            doc.label("Shedding and care")
+            doc.para(ycls.shedding_care, size=10)
         doc.label("How to check your gauge")
         for n, s in enumerate(steps, 1):
             doc.need(10 * mm)
@@ -2875,7 +2892,16 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         from ..gates import small_parts as _small_parts
 
         clear = not _small_parts.blocking(cir)
+        from ..gates import eye_options as _eye_options
+
         for heading_, text_ in _child_safety.section_lines(profile, small_parts_clear=clear):
+            if heading_ == "Sources" and _eye_options.applies(cir):
+                # ENG-LOWSEW-CHENILLE: the eye options block, with this gate's age reading.
+                for eh, et in _eye_options.block_lines(cir, childrens):
+                    if eh:
+                        doc.heading(eh, size=12)
+                    if et:
+                        doc.para(et, size=9.5, running_head=head)
             if heading_:
                 doc.heading(heading_, size=12)
             doc.para(text_, size=9.5 if heading_ != "Sources" else 9,

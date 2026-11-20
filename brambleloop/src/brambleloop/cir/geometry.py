@@ -321,7 +321,10 @@ def measure(comp: Component, result: CompileResult, cir: CIR) -> Revolution:
             "no gauge, so nothing about the finished size can be computed", comp.name))
         return rev
 
-    rows = [r for r in result.rows if r.component == comp.name]
+    # ENG-LOWSEW-CHENILLE: a fold-and-close row flattens the tube into two layers; it is an
+    # edge, not a ring of the surface, so the revolution stops at the round below it.
+    rows = [r for r in result.rows if r.component == comp.name
+            and not getattr(r, "fold", False)]
     if not rows:
         rev.findings.append(Finding(
             ERROR, "ROUND_NO_ROWS", "no compiled rounds to measure", comp.name))

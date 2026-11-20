@@ -21,8 +21,12 @@ def _term(code: str, terminology: str) -> str:
 
 
 def write_op(op: Op, terminology: str = "US") -> str:
-    """One op; an op worked in its own colour ends "with <colour>" (P0-CIR-COLOURWORK)."""
+    """One op; an op worked in its own colour ends "with <colour>" (P0-CIR-COLOURWORK); an op
+    worked through another piece's edge says so (ENG-LOWSEW-CHENILLE, `cir.joins`)."""
     text = _write_op(op, terminology)
+    through = getattr(op, "through", None)
+    if through:
+        text += f" through the {through.replace('_', ' ')} edge"
     colour = getattr(op, "color", None)
     return f"{text} with {colour}" if colour else text
 
@@ -94,6 +98,10 @@ def write_row(
         parts.append(body + ".")
     else:
         body = ", ".join(write_node(n, terminology) for n in row.ops)
+        if getattr(row, "fold", False):
+            from .joins import fold_prefix
+
+            body = f"{fold_prefix()} {body}"
         parts.append(body + ".")
     heading = f"{label} {row.index}"
     if state_color and row.color:
@@ -475,6 +483,13 @@ def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US", *,
         if resumed:
             out.append(resumed)
         out.extend(construction_lines(comp))
+        # ENG-LOWSEW-CHENILLE: the joining positions, the drift allowance and the eyes.
+        from . import joins as _joins
+
+        comp_runs = [r for r in _joins.runs(cir, result) if r.host == comp.name] \
+            if _joins.uses_joins(cir) else []
+        if comp_runs and comp.join_drift_sts is not None:
+            out.append(_joins.drift_line(comp))
         # Collapse a repeated row-block into an instruction, the way a real pattern does.
         # Printing all 120 rows of a five-repeat blanket is complete and unusable: a maker
         # loses their place in four pages of near-identical lines. The cycle is derived from
@@ -493,6 +508,9 @@ def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US", *,
             except KeyError:
                 count = None
             out.append(write_row(row, comp, count, terminology, state_color))
+            joined_here = [r for r in comp_runs if r.round == row.index]
+            if joined_here:
+                out.append(_joins.placement_line(joined_here))
             held = hold_line(comp, row)
             if held:
                 out.append(held)
@@ -502,6 +520,8 @@ def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US", *,
             out.append(stuff_line(comp))
         if comp.closes and comp.rows:
             out.append(close_line(comp, result))
+        if comp.eye_round is not None and comp.eye_gap_sts is not None:
+            out.append(_joins.eye_line(comp))
         out.append("")
 
     out.extend(assembly_lines(cir))

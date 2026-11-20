@@ -44,6 +44,7 @@ class ParsedRow:
     # The piece this row belongs to, from the nearest "## name" heading above it. None for a
     # one-piece pattern the writer prints without a heading.
     component: str | None = None
+    fold: bool = False          # ENG-LOWSEW-CHENILLE: "Flatten the opening and work through"
 
 
 # "## sleeve (make 2)". A heading starts a new piece, and row numbers restart with it, so
@@ -152,6 +153,8 @@ _LOOP_RE = re.compile(
 
 
 _OP_COLOUR_RE = re.compile(r"^(.+?)\s+with\s+([a-z0-9][a-z0-9_-]*)$", re.I)
+# ENG-LOWSEW-CHENILLE: "sc in next 6 sts through the leg edge" -- worked through a piece.
+_OP_THROUGH_RE = re.compile(r"^(.+?)\s+through\s+the\s+([a-z0-9][a-z0-9 _-]*?)\s+edge$", re.I)
 
 
 def _parse_op(text: str, terminology: str) -> Op:
@@ -161,6 +164,11 @@ def _parse_op(text: str, terminology: str) -> Op:
     if m:
         op = _parse_op(m.group(1), terminology)
         op.color = m.group(2)
+        return op
+    m = _OP_THROUGH_RE.fullmatch(t)
+    if m:
+        op = _parse_op(m.group(1), terminology)
+        op.through = m.group(2).strip().lower().replace(" ", "_")
         return op
 
     m = _LOOP_RE.fullmatch(t)
@@ -446,6 +454,50 @@ def parse_fibre_content(text: str) -> tuple[tuple[tuple[str, int], ...], ...]:
     return tuple(out)
 
 
+_FOLD_RE = re.compile(r"^Flatten the opening and work through both layers:\s*", re.I)
+_PLACEMENT_RE = re.compile(r"^Joining (?:Rnd|Round) (\d+) of (\d+) sts:\s*(.+?)\.?$", re.I)
+_PLACEMENT_PART_RE = re.compile(r"^([a-z0-9 _-]+?)\s+(\d+)\s+through\s+sts\s+(\d+)-(\d+)$",
+                                re.I)
+_DRIFT_RE = re.compile(r"^Spiral drift:.*?by up to (\d+) sts", re.I)
+_EYES_RE = re.compile(r"^Eyes on (?:Rnd|Round) (\d+), (\d+) sts apart:", re.I)
+
+
+def parse_joins(text: str) -> dict:
+    """ENG-LOWSEW-CHENILLE: per piece heading, the printed joining positions, drift allowance
+    and eye placement, in this reader's own grammar.
+
+    {"placements": {(piece, round): (count, [(target, start, end), ...])},
+     "drift": {piece: sts}, "eyes": {piece: (round, gap)}}"""
+    out = {"placements": {}, "drift": {}, "eyes": {}}
+    current: str | None = None
+    for raw in text.splitlines():
+        line = raw.strip()
+        h = _HEADING_RE.match(line)
+        if h:
+            name = h.group(1).strip()
+            current = None if name.lower() in _SECTION_HEADINGS else name
+            continue
+        m = _PLACEMENT_RE.match(line)
+        if m:
+            parts = []
+            for chunk in m.group(3).split(";"):
+                pm = _PLACEMENT_PART_RE.match(chunk.strip())
+                if not pm:
+                    raise ParseProblem(f"unreadable joining position {chunk.strip()!r}")
+                parts.append((pm.group(1).strip().lower().replace(" ", "_"),
+                              int(pm.group(3)), int(pm.group(4))))
+            out["placements"][(current, int(m.group(1)))] = (int(m.group(2)), parts)
+            continue
+        m = _DRIFT_RE.match(line)
+        if m:
+            out["drift"][current] = int(m.group(1))
+            continue
+        m = _EYES_RE.match(line)
+        if m:
+            out["eyes"][current] = (int(m.group(1)), int(m.group(2)))
+    return out
+
+
 _STUFF_RE = re.compile(r"^Stuff after (?:Rnd|Round) (\d+):")
 _CLOSE_RE = re.compile(r"^Close after (?:Rnd|Round) (\d+):")
 
@@ -530,13 +582,20 @@ def parse_pattern(text: str, terminology: str = "US") -> list[ParsedRow]:
             tc = int(tm.group(1))
             rest = rest[tm.end():].strip()
 
+        folded = False
+        fm = _FOLD_RE.match(rest)
+        if fm:
+            folded = True
+            rest = rest[fm.end():].strip()
+
         try:
             ops = _parse_body(rest, terminology)
         except ParseProblem as e:
             e.line = raw
             raise
 
-        rows.append(ParsedRow(label, index, ops, count, tc, carried_color, current))
+        rows.append(ParsedRow(label, index, ops, count, tc, carried_color, current,
+                              fold=folded))
     return rows
 
 
@@ -547,7 +606,10 @@ def _shape(node: OpNode) -> tuple:
     # The loop is part of the instruction: a back-loop row and a both-loops row have the
     # same counts and different fabric, and a comparison blind to it passes the wrong one.
     if isinstance(node, Op):
-        return ("op", node.stitch, node.count, node.loop, getattr(node, "color", None))
+        shape = ("op", node.stitch, node.count, node.loop, getattr(node, "color", None))
+        # ENG-LOWSEW-CHENILLE: which piece a stitch is worked through is part of it too.
+        through = getattr(node, "through", None)
+        return shape + (("through", through),) if through else shape
     return ("rep", node.times, tuple(_shape(o) for o in node.ops))
 
 
@@ -624,6 +686,14 @@ def compare(cir: CIR, text: str, terminology: str = "US") -> list[Finding]:
             ERROR, "REVERSE_CLOSED_FORM",
             f"stuffing points and closures differ from the validated design: CIR has "
             f"{expected_closed}, customer text has {printed_closed}"))
+
+    # ENG-LOWSEW-CHENILLE: joined rounds. The positions are recomputed HERE from the parsed
+    # rows (`joins.runs_from_ops` over the document's own stitches) and compared with both the
+    # printed placement lines and the CIR's; the drift allowance and eyes are read back too.
+    from . import joins as _joins
+
+    if _joins.uses_joins(cir) or "Joining Rnd" in text or "Flatten the opening" in text:
+        findings.extend(_compare_joins(cir, text, parsed, terminology))
 
     # The finishing is part of the pattern too. A document that has lost its assembly steps
     # leaves a maker with pieces and no object.
@@ -713,6 +783,12 @@ def compare(cir: CIR, text: str, terminology: str = "US") -> list[Finding]:
             )
             continue
 
+        if bool(getattr(row, "fold", False)) != p.fold:
+            findings.append(Finding(
+                ERROR, "REVERSE_FOLD",
+                f"fold-and-close differs: CIR {bool(getattr(row, 'fold', False))}, customer "
+                f"text {p.fold}", comp.name, row.index))
+
         want, got = _shape_all(row.ops), _shape_all(p.ops)
         if want != got:
             findings.append(
@@ -767,3 +843,70 @@ def compare(cir: CIR, text: str, terminology: str = "US") -> list[Finding]:
             )
 
     return findings
+
+
+def _flat_parsed_ops(nodes):
+    for n in nodes:
+        if isinstance(n, Op):
+            yield n
+        else:
+            for _ in range(n.times or 0):
+                yield from _flat_parsed_ops(n.ops)
+
+
+def _compare_joins(cir: CIR, text: str, parsed: list, terminology: str) -> list[Finding]:
+    """ENG-LOWSEW-CHENILLE: joined rounds, drift and eyes, from the document alone."""
+    from . import joins as _joins
+    from .compiler import compile_cir
+
+    out: list[Finding] = []
+    try:
+        printed = parse_joins(text)
+    except ParseProblem as e:
+        return [Finding(ERROR, "REVERSE_PARSE", f"customer text could not be parsed: {e}")]
+    headed = len(cir.components) > 1 or cir.components[0].name != "body"
+
+    def key(name):
+        return name if headed else None
+
+    # Positions the document's own stitches put each joined run at.
+    from_text: dict = {}
+    for p in parsed:
+        ops = list(_flat_parsed_ops(p.ops))
+        if any(getattr(o, "through", None) for o in ops):
+            got = _joins.runs_from_ops(p.component or "body", p.index, ops)
+            from_text[(p.component, p.index)] = (got[0].round_count if got else 0,
+                                                 [(r.target, r.start, r.end) for r in got])
+    result = compile_cir(cir)
+    expected: dict = {}
+    for r in _joins.runs(cir, result):
+        k = (key(r.host), r.round)
+        expected.setdefault(k, (r.round_count, []))[1].append((r.target, r.start, r.end))
+    expected = {k: (n, sorted(v, key=lambda t: t[1])) for k, (n, v) in expected.items()}
+    printed_p = {k: (n, sorted(v, key=lambda t: t[1]))
+                 for k, (n, v) in printed["placements"].items()}
+    from_text = {k: (n, sorted(v, key=lambda t: t[1])) for k, (n, v) in from_text.items()}
+    if printed_p != from_text:
+        out.append(Finding(
+            ERROR, "REVERSE_JOIN_PLACEMENT",
+            f"the printed joining positions {printed_p} are not where the document's own "
+            f"stitches put the pieces {from_text}"))
+    if from_text != expected:
+        out.append(Finding(
+            ERROR, "REVERSE_JOIN_PLACEMENT",
+            f"joined rounds differ from the validated design: CIR has {expected}, customer "
+            f"text has {from_text}"))
+    want_drift = {key(c.name): c.join_drift_sts for c in cir.components
+                  if c.join_drift_sts is not None
+                  and any(r.host == c.name for r in _joins.runs(cir, result))}
+    if printed["drift"] != want_drift:
+        out.append(Finding(
+            ERROR, "REVERSE_JOIN_DRIFT",
+            f"drift allowance differs: CIR {want_drift}, customer text {printed['drift']}"))
+    want_eyes = {key(c.name): (c.eye_round, c.eye_gap_sts) for c in cir.components
+                 if c.eye_round is not None and c.eye_gap_sts is not None}
+    if printed["eyes"] != want_eyes:
+        out.append(Finding(
+            ERROR, "REVERSE_EYES",
+            f"eye placement differs: CIR {want_eyes}, customer text {printed['eyes']}"))
+    return out

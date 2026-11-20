@@ -182,6 +182,13 @@ STATEMENTS: dict[str, Statement] = {s.key: s for s in (
               "carries it. Knot the tail inside and bury it through at least 5 cm of "
               "stitches. Pull each sewn piece firmly when you finish; resew any that moves.",
               "Sew every piece on across its whole edge"),
+    Statement("crochet_joins", "Crocheted-in pieces",
+              "Each limb, ear or head is crocheted in, not sewn: on the joining round every "
+              "stitch of its closed edge is worked through the body stitch with it, so no "
+              "single stitch carries it. Work those stitches through both layers of the "
+              "edge, never one. Pull each joined piece firmly when you finish; if one moves, "
+              "unpick that round and work it again.",
+              "Each limb, ear or head is crocheted in, not sewn"),
     Statement("stuffing", "Stuffing",
               "Use only new, clean polyester toy stuffing. Never use beans, pellets, rice, "
               "seeds, beads or anything hard. Work at the stated gauge or tighter so stuffing "
@@ -351,6 +358,11 @@ def profile_for(cir, childrens: tuple[str, str] | None = None) -> tuple[str, ...
         flags.add("face")
     if any(s.piece_a != s.piece_b for s in cir.assembly):
         flags.add("sewn")
+    # ENG-LOWSEW-CHENILLE: a piece crocheted in through another's stitches is attached too.
+    from . import small_parts as _sp
+
+    if any(_sp._through_targets(r.ops) for c in cir.components for r in c.rows):
+        flags.add("joined")
     title = _fold(f"{cir.title} {cir.slug}")
     if (childrens and childrens[0] in SLEEP_SUBCATEGORIES) or _SLEEP_WORDS.search(title):
         flags.add("sleep")
@@ -381,6 +393,8 @@ def required_statements(profile: tuple[str, ...]) -> tuple[str, ...]:
         keys.append("features")
     if "sewn" in profile:
         keys.append("joins")
+    if "joined" in profile:
+        keys.append("crochet_joins")
     if "stuffed" in profile:
         keys.append("stuffing")
     if "sleep" in profile:
@@ -391,7 +405,7 @@ def required_statements(profile: tuple[str, ...]) -> tuple[str, ...]:
 def age_text(profile: tuple[str, ...], small_parts_clear: bool | None) -> str:
     """The age statement this document may print (review M4): the small-parts claim only when
     the SMALL_PARTS check passed, none for a one-piece item, a do-not-give warning otherwise."""
-    if "sewn" not in profile:
+    if "sewn" not in profile and "joined" not in profile:
         return AGE_TEXT_ONE_PIECE
     if small_parts_clear is True:
         return STATEMENTS["age_suitability"].text
@@ -496,19 +510,44 @@ def _age(cir, profile, childrens, small: Check) -> Check:
     if band not in _ch.AGE_BANDS:
         return Check("AGE_SUITABILITY", UNKNOWN,
                      f"age band {band!r} is not one this gate knows: UNKNOWN is not a pass")
-    if band == _ch.UNDER_3 and "sewn" in profile and small.state != PASS:
+    attached = "sewn" in profile or "joined" in profile
+    if band == _ch.UNDER_3 and attached and small.state != PASS:
         return Check("AGE_SUITABILITY", small.state,
                      f"for a child under 3 every sewn-on piece must be shown clear of the "
                      f"small-parts cylinder, and SMALL_PARTS is {small.state}")
     return Check("AGE_SUITABILITY", PASS,
                  f"age band {band}: "
                  + ("every sewn-on piece is clear of the small-parts cylinder"
-                    if "sewn" in profile else "one piece, nothing sewn on"))
+                    if attached else "one piece, nothing sewn on"))
+
+
+def _crochet_joins(cir, result) -> Check | None:
+    """ENG-LOWSEW-CHENILLE: pieces crocheted in are validated by `cir.joins` (counts,
+    positions, symmetry, fold widths); None when the design crochets nothing in."""
+    from ..cir import joins as _cj
+
+    if not _cj.uses_joins(cir):
+        return None
+    if result is None or not result.ok:
+        bad = [f"{f.code}: {f.message}" for f in (getattr(result, "findings", None) or [])
+               if f.is_error and f.code.split("_")[0] in ("JOIN", "FOLD", "EYE")]
+        if bad:
+            return Check("JOINS_VALIDATED", FAIL, "; ".join(bad))
+        return Check("JOINS_VALIDATED", UNKNOWN, "the pattern did not compile, so no "
+                                                 "crocheted join is measured")
+    found = len(_cj.runs(cir, result))
+    return Check("JOINS_VALIDATED", PASS,
+                 f"{found} crocheted-in join(s), each counted, placed and mirrored")
 
 
 def _joins(cir, result) -> Check:
+    crochet = _crochet_joins(cir, result)
+    if crochet is not None and crochet.state != PASS:
+        return crochet
     sewn = [s for s in cir.assembly if s.piece_a != s.piece_b]
     if not sewn:
+        if crochet is not None:
+            return crochet
         return Check("JOINS_VALIDATED", PASS, "no piece is sewn onto another")
     bad = [f"{s.piece_a}->{s.piece_b} by {s.method}" for s in sewn
            if s.method not in ("whipstitch", "sew", "mattress", "slst")]
@@ -625,7 +664,13 @@ def _stuffing(cir, result, profile) -> Check:
     if not closed:
         return Check("STUFFING_GUIDANCE", FAIL,
                      "a stuffed item states no stuffing point or closure for any piece")
-    missing = [c.name for c in closed if c.stuff_at_round is None or not c.closes]
+    # ENG-LOWSEW-CHENILLE: a piece may be shut by a fold-and-close row or a full-width
+    # crocheted join instead of a gathered closure; `cir.joins` proves that closure.
+    from ..cir import joins as _cj
+
+    missing = [c.name for c in closed if c.stuff_at_round is None
+               or not (c.closes or (result is not None and _cj.closed_by_join(cir, result,
+                                                                               c.name)))]
     if missing:
         return Check("STUFFING_GUIDANCE", FAIL,
                      f"{missing}: a stuffed closed piece must state both its stuffing point "
@@ -659,7 +704,7 @@ def _physical(cir, profile, childrens) -> Check:
     # Required where the construction can fail in a child's hands: a stuffed piece (closure,
     # stuffing containment) or a sewn-on piece (seam pull). A flat, unstuffed, one-piece
     # blanket has neither, and its other checks are computable.
-    needs = ("stuffed" in profile or "sewn" in profile
+    needs = ("stuffed" in profile or "sewn" in profile or "joined" in profile
              or bool(childrens and childrens[0] in ("lovey", "amigurumi_toy")))
     # Review M4: the age band is read. For a child under 3 the physical test is required for
     # anything with a seam or a closure -- the cases above -- and ALSO for any toy or lovey

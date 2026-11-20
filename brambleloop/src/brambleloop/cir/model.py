@@ -63,6 +63,14 @@ class Op:
     # per-stitch mosaic are expressed. Count-neutral: the compiler's arithmetic never reads
     # it. None (the default) is omitted from `to_dict`, so no existing CIR's digest moves.
     color: str | None = None
+    # ENG-LOWSEW-CHENILLE: join-as-you-go. The op is worked through the stitch below AND, held
+    # against it, the join edge of the named piece (a limb's fold-closed edge, or a head's
+    # open last round): one stitch of that edge per stitch made. Count-neutral for the row
+    # being worked into -- each stitch still consumes one stitch below and makes one -- so the
+    # joined round's count includes the stitches worked through the appendage. Which stitches
+    # of the round they are, how wide each joined run is, and whether a pair is mirrored is
+    # computed and checked by `cir.joins`. None (the default) is omitted from `to_dict`.
+    through: str | None = None
 
     def __post_init__(self) -> None:
         if self.count < 1:
@@ -123,11 +131,13 @@ class UnresolvedRepeat(RuntimeError):
 
 
 def _drop_null_op_colour(nodes: list) -> None:
-    """`to_dict` omits `Op.color` when it is None (see `Op.color`), at every repeat depth."""
+    """`to_dict` omits `Op.color` (and `Op.through`) when None, at every repeat depth."""
     for node in nodes:
         if "stitch" in node:
             if node.get("color") is None:
                 node.pop("color", None)
+            if node.get("through") is None:
+                node.pop("through", None)
         else:
             _drop_null_op_colour(node.get("ops", []))
 
@@ -170,6 +180,12 @@ class Row:
     # continues over the rest. Without it the compiler sees a row consuming 96 of 144 and
     # calls it an underrun, which is why no garment construction could be expressed.
     skips: int = 0
+    # ENG-LOWSEW-CHENILLE: "fold and close". The opening is flattened and this row is worked
+    # through both layers at once, so each stitch consumes a PAIR of the stitches below: a
+    # 12-st tube folded flat is 6 pairs and closes with "sc 6" (6 sts). The compiler halves
+    # the available count (FOLD_ODD when it is odd), and the closed edge this row makes is the
+    # piece's join edge (`cir.joins`). False is omitted from `to_dict`.
+    fold: bool = False
 
     def __post_init__(self) -> None:
         if not self.ops:
@@ -424,6 +440,17 @@ class Component:
     # their defaults, so no existing Product Truth digest moves.
     stuff_at_round: int | None = None
     closes: bool = False
+    # ENG-LOWSEW-CHENILLE: a piece other pieces are crocheted into states how far a spiral
+    # round's start may have drifted -- the allowed adjustment, in stitches, applied to every
+    # joining position on a round together -- so a maker whose marker has wandered can still
+    # place the limbs symmetrically. Required on any spiral piece with a joined round
+    # (JOIN_DRIFT_UNSTATED); bounded by the gaps between the joined runs (`cir.joins`).
+    join_drift_sts: int | None = None
+    # ENG-LOWSEW-CHENILLE: the embroidered eyes, as structure: the round they sit on and the
+    # stitches between them, checked against the piece by `cir.joins.check_eyes`, printed by
+    # the writer and read back by the reverse compiler. None omits them from `to_dict`.
+    eye_round: int | None = None
+    eye_gap_sts: int | None = None
 
     @property
     def rows_run_vertically_on_the_body(self) -> bool:
@@ -751,13 +778,16 @@ class CIR:
         if out.get("grading") is None:
             out.pop("grading", None)
         for comp in out.get("components", []):
-            for optional in ("gauge", "work_direction", "feature", "stuff_at_round"):
+            for optional in ("gauge", "work_direction", "feature", "stuff_at_round",
+                             "join_drift_sts", "eye_round", "eye_gap_sts"):
                 if comp.get(optional) is None:
                     comp.pop(optional, None)
             if not comp.get("closes"):
                 comp.pop("closes", None)
             for row in comp.get("rows", []):
                 _drop_null_op_colour(row.get("ops", []))
+                if not row.get("fold"):
+                    row.pop("fold", None)
         return out
 
     def to_json(self, **kw: Any) -> str:
@@ -776,7 +806,7 @@ class CIR:
             if "stitch" in x:
                 return Op(stitch=x["stitch"], count=x.get("count", 1), note=x.get("note"),
                           loop=x.get("loop", "both"), spans=x.get("spans", 0),
-                          color=x.get("color"))
+                          color=x.get("color"), through=x.get("through"))
             return Repeat(
                 ops=[node(o) for o in x["ops"]], times=x.get("times"), note=x.get("note")
             )
@@ -797,6 +827,9 @@ class CIR:
                 feature=c.get("feature"),
                 stuff_at_round=c.get("stuff_at_round"),
                 closes=bool(c.get("closes", False)),
+                join_drift_sts=c.get("join_drift_sts"),
+                eye_round=c.get("eye_round"),
+                eye_gap_sts=c.get("eye_gap_sts"),
                 rows=[
                     Row(
                         index=r["index"],
@@ -809,6 +842,7 @@ class CIR:
                         allow_remainder=r.get("allow_remainder", False),
                         note=r.get("note"),
                         skips=r.get("skips", 0),
+                        fold=bool(r.get("fold", False)),
                     )
                     for r in c["rows"]
                 ],

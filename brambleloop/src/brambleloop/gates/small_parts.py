@@ -80,8 +80,27 @@ def separable_pieces(cir) -> list[tuple[str, float, float]]:
 
 
 def _sewn_on(cir) -> list[str]:
-    return sorted({piece for s in (getattr(cir, "assembly", None) or [])
-                   if s.piece_a != s.piece_b for piece in (s.piece_a, s.piece_b)})
+    """Every piece attached to another: sewn on, or (ENG-LOWSEW-CHENILLE) crocheted in through
+    `Op.through`. A crocheted-in limb is held by every stitch of its edge, but it is still a
+    piece that could come away from a broken join, so it is measured like a sewn one."""
+    out = {piece for s in (getattr(cir, "assembly", None) or [])
+           if s.piece_a != s.piece_b for piece in (s.piece_a, s.piece_b)}
+    for comp in getattr(cir, "components", None) or []:
+        for row in comp.rows:
+            for target in _through_targets(row.ops):
+                out |= {target, comp.name}
+    return sorted(out)
+
+
+def _through_targets(nodes) -> set[str]:
+    out: set[str] = set()
+    for n in nodes:
+        if hasattr(n, "stitch"):
+            if getattr(n, "through", None):
+                out.add(n.through)
+        else:
+            out |= _through_targets(getattr(n, "ops", []))
+    return out
 
 
 def blocking(cir) -> list[str]:
