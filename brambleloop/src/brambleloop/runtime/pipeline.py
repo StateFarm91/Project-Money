@@ -1270,6 +1270,12 @@ def handle_cir_draft(ctx: JobContext) -> dict:
     from ..creative.construction_families import draft_hold
 
     if route["family"] == FC.REFUSED:
+        # ENG-COMPOSER: no family engine makes it. The composer drafts it from proven
+        # primitives when it can; when it cannot, the missing primitive becomes a change
+        # request, and the hold below stands.
+        composed = _draft_composed(ctx, slug, concept, seed)
+        if composed is not None:
+            return composed
         # ENG-FAMILIES: the refusal names the family it holds, the label intake uses, so the
         # production inventory shows a construction hold, never "drafted, not compiled".
         hold = draft_hold(concept.category, concept.title)
@@ -1279,6 +1285,16 @@ def handle_cir_draft(ctx: JobContext) -> dict:
                           "hold": hold})
         return {"artifact": slug, "drafted": False, "gate": "construction",
                 "construction": FC.REFUSED, "hold": hold, "reasons": [route["why"][:300]]}
+    # ENG-COMPOSER: an intake concept is admitted only by a verified or physical-gated family
+    # (construction_families.route). When the fallback plan names a family that is neither,
+    # the admission was the composer's, so the composer drafts it -- never the partial engine.
+    from ..creative import construction_families as _CF
+
+    if (seed is not None and str(seed.origin or "").startswith("radar.intake")
+            and _CF.status_of(route["family"]) not in _CF.ADMITTED_STATUSES):
+        composed = _draft_composed(ctx, slug, concept, seed)
+        if composed is not None:
+            return composed
     try:
         if route["family"] == FC.VESSEL:
             provenance = None
@@ -1487,6 +1503,48 @@ def handle_cir_draft(ctx: JobContext) -> dict:
                 idempotency_key=f"compile:{cir.slug}:{cir.version}")
     return {"artifact": f"{cir.slug}@{cir.version}", "drafted": True,
             "construction": route["family"], "rows": len(cir.components[0].rows),
+            "learning_advice": advice}
+
+
+def _draft_composed(ctx: JobContext, slug: str, concept: Concept, seed) -> dict | None:
+    """ENG-COMPOSER: draft a concept no family engine makes through `creative.composer`.
+
+    Returns the draft result when composed, else None after recording the missing primitive
+    (an `improve.ecr` change request when the concept named a composer template; a concept
+    that names no template at all is not the composer's to request)."""
+    from types import SimpleNamespace
+
+    from ..creative import composer
+
+    premise = str((ctx.job.inputs.get("concept") or {}).get("premise") or "") \
+        if isinstance(ctx.job.inputs.get("concept"), dict) else ""
+    try:
+        cc = composer.concept_from_text(slug=slug, title=concept.title,
+                                        category=concept.category, colours=concept.colors,
+                                        yarn_weight=concept.yarn_weight, premise=premise)
+        plan = composer.plan_for(cc)
+        cir = composer.compose(plan)
+    except composer.ComposeRefused as exc:
+        ecr_id = None
+        if not exc.primitive.startswith("template:"):
+            try:
+                ecr_id = composer.file_missing_primitive(
+                    ctx.db, SimpleNamespace(slug=slug, title=concept.title), exc).get("id")
+            except Exception as err:  # noqa: BLE001 - a request is a record, never a crash
+                ecr_id = f"UNFILED: {type(err).__name__}"
+        ctx.audit("composer.refused", artifact=slug,
+                  detail={"primitive": exc.primitive, "why": exc.why[:400], "ecr": ecr_id})
+        return None
+    advice = _learning_advice(ctx, cir, family="composer")
+    ctx.audit("cir.drafted", artifact=f"{cir.slug}@{cir.version}",
+              detail={"source": "creative.composer", "construction": "composer",
+                      "plan_digest": composer.plan_digest(plan),
+                      "primitives": list(cir.provenance.primitives_used),
+                      "learning_advice": advice, "provenance": "recorded"})
+    ctx.enqueue("validator", "cir.compile", {"cir": cir.to_dict()},
+                idempotency_key=f"compile:{cir.slug}:{cir.version}")
+    return {"artifact": f"{cir.slug}@{cir.version}", "drafted": True,
+            "construction": "composer", "rows": len(cir.components[0].rows),
             "learning_advice": advice}
 
 

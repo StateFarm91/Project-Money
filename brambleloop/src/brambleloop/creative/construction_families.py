@@ -79,6 +79,10 @@ BAG_TOTE, BAG_MARKET = "bag_tote", "bag_market"
 WEARABLE_FAMILIES = frozenset({HAT_BEANIE, BABY_DRESS, BABY_ROMPER, TOP_TEE, TOP_TANK,
                                CARDIGAN_VNECK, SOCK, SLIPPER, SHAWL_TRIANGLE, SHAWL_WRAP,
                                BAG_TOTE, BAG_MARKET})
+# ENG-COMPOSER: the general family. A concept no engine admits but `creative.composer` can
+# express from proven primitives is admitted here and drafted through the composer.
+COMPOSER = "composer"
+COMPOSER_PROOF = "tests/test_eng_composer.py"
 
 FAMILIES: dict[str, Family] = {f.key: f for f in (
     Family(FC.FLAT_PANEL, "runtime.pipeline.concept_to_cir", VERIFIED,
@@ -222,6 +226,16 @@ FAMILIES: dict[str, Family] = {f.key: f for f in (
            f"{WEARABLE_PROOF}::test_a_research_adult_market_bag_runs_concept_to_pdf",
            ("ISO 216 A5, A4, A3",), "cir.graded SHEETS (ISO 216 A-series) + stated room",
            "round-base sc market bag, strap handles sewn on; solid fabric, no mesh"),
+    # ENG-COMPOSER: physical-gated like the toy and the panel pair, because a composed toy,
+    # lovey or cushion sewn over its form is withheld only for its physical sample; a composed
+    # tote or sleeve is granted outright (both pinned in the proof).
+    Family(COMPOSER, "creative.composer.compose", PHYSICAL_GATE,
+           f"{COMPOSER_PROOF}::test_a_research_composer_concept_runs_concept_to_pdf",
+           ("per-template sizes",),
+           "creative.composer TEMPLATES (design choices stated in cm; pillow forms; solved "
+           "small-parts clearance from gates.small_parts)",
+           "only the templates and subjects in creative.composer; anything else files an ECR "
+           "naming the missing primitive"),
     Family(FC.POUCH, "creative.fallback_constructions.pouch", PARTIAL, "",
            ("one size",), "fallback_constructions.POUCH_ACROSS_CM (design choice)",
            "certification refuses ASSET_COLOR_ABSENT: the pouch works one palette colour "
@@ -295,17 +309,19 @@ NAMED_FEATURES: tuple[tuple[str, str, frozenset], ...] = (
      frozenset()),
     ("lid", r"\blids?\b|\blidded\b|\bcovered\b|\blidded\b|\bzipp?(?:er|ered)?\b|"
             r"\bbuttons?\b|\bclosures?\b|\bflaps?\b", frozenset()),
-    ("handles", r"\bhandles?\b|\bhandled\b|\bstraps?\b", frozenset({FC.TOTE})),
+    ("handles", r"\bhandles?\b|\bhandled\b|\bstraps?\b", frozenset({FC.TOTE, "composer"})),
     ("amigurumi_features", r"\bamigurumi\b|\bears?\b|\btails?\b|\bwhiskers?\b|\bfaces?\b|"
                            r"\bsnouts?\b|\beyes?\b|\bpaws?\b|\bhorns?\b|\bwings?\b|"
-                           r"\bplush\b|\bstuffed\b", frozenset({FC.AMIGURUMI, FC.LOVEY})),
+                           r"\bplush\b|\bstuffed\b",
+     frozenset({FC.AMIGURUMI, FC.LOVEY, "composer"})),
     ("trim", r"\bfring(?:e|ed)\b|\btassels?\b|\bpom[- ]?poms?\b|\bruffles?\b|\bfrills?\b|"
              r"\bscallop(?:s|ed)?\b|\bpicots?\b|\blace\b|\blacy\b|\bfilet\b|"
              r"\bapplique\b|\bappliqu\u00e9d?\b|\bbeaded\b|"
              r"\bsequin(?:s|ned)?\b", frozenset()),
     # ENG-PLUSH: an embroidered face is what the amigurumi engine builds (yarn features only);
     # on any other family embroidery is still a feature its engine does not make.
-    ("embroidery", r"\bembroider(?:y|ed)\b", frozenset({FC.AMIGURUMI, FC.APPLIQUE, FC.LOVEY})),
+    ("embroidery", r"\bembroider(?:y|ed)\b",
+     frozenset({FC.AMIGURUMI, FC.APPLIQUE, FC.LOVEY, "composer"})),
     ("lining_pocket", r"\blin(?:ed|ing)\b|\bpockets?\b|\bpadded\b|\bquilted\b|"
                       r"\bfelted\b|\bstiffened\b|\bwired\b|\breinforced\b", frozenset()),
     ("motif_assembly", r"\bhexie\b|\bhexagon (?:motifs?|squares?|tiles?)\b|\bflowers?\b|"
@@ -415,6 +431,10 @@ PAIR_PROOFS: dict[tuple[str, str], str] = {
     (GARMENT_RAGLAN, "baby"): f"{GARMENT_PROOF}::test_a_research_baby_cardigan_runs_concept_"
                               f"to_pdf",
     (GARMENT_ONE_PIECE, "sweater"): FAMILIES[GARMENT_ONE_PIECE].proof,
+    # ENG-COMPOSER: the composer pairs a research concept is pinned through, end to end.
+    (COMPOSER, "amigurumi"): FAMILIES[COMPOSER].proof,
+    (COMPOSER, "bag"): f"{COMPOSER_PROOF}::test_a_research_composer_tote_is_granted_through_"
+                       f"the_real_handlers",
 }
 # ENG-GARMENT-2: the wearable pairs, each proven end to end on the audiences named.
 WEARABLE_PAIR_AUDIENCE: dict[tuple[str, str], frozenset] = {
@@ -472,6 +492,31 @@ HELD_CATEGORIES: dict[tuple[str, str], str] = {
 
 def route(*, category: str, title: str, form: str, construction: str, slug: str = "",
           rationale: str = "", premise: str = "") -> dict:
+    """Which verified engine drafts this concept, the composer, or the named hold.
+
+    ENG-COMPOSER: a concept every family engine holds is admitted to the composer when
+    `creative.composer.expressible` composes it from proven primitives AND no named feature
+    in its title or premise is one the composer does not build. Otherwise the engine's hold
+    stands, unchanged."""
+    got = _route_engines(category=category, title=title, form=form,
+                         construction=construction, slug=slug, rationale=rationale,
+                         premise=premise)
+    if got["admitted"] or form == "fitted_garment":
+        return got
+    from . import composer
+
+    probe = composer.expressible(slug=slug, title=title, category=category, premise=premise)
+    if not probe["expressible"]:
+        return got
+    for text in (title, premise):
+        if named_feature(text, COMPOSER) is not None:
+            return got
+    return {"admitted": True, "family": COMPOSER, "status": status_of(COMPOSER), "reason": "",
+            "composer": {"form": probe["form"], "subject": probe["subject"]}}
+
+
+def _route_engines(*, category: str, title: str, form: str, construction: str, slug: str = "",
+                   rationale: str = "", premise: str = "") -> dict:
     """Which verified engine drafts this concept, or the named construction hold.
 
     Returns {"admitted", "family", "status", "reason"}; `reason` is "" when admitted and

@@ -414,7 +414,8 @@ def test_router_admits_only_verified_or_physical_gated_families():
                         FC.COLOURWORK_TAPESTRY,
                         FC.AMIGURUMI, FC.ENVELOPE, FC.APPLIQUE, FC.LOVEY,
                         CF.GARMENT_RAGLAN, CF.GARMENT_ONE_PIECE,           # ENG-GARMENT
-                        *CF.WEARABLE_FAMILIES}, admitted                    # ENG-GARMENT-2
+                        *CF.WEARABLE_FAMILIES,                              # ENG-GARMENT-2
+                        CF.COMPOSER}, admitted                              # ENG-COMPOSER
     # Every admitted family names the test that proves it, and that test exists (ENG-PLUSH:
     # the core-family proofs live in tests/test_eng_plush.py).
     for key in admitted:
@@ -625,7 +626,10 @@ def test_every_admitted_family_category_pair_names_an_existing_certifying_proof(
                ("sweater", "fitted_garment", "flat_rows", "Puddle Lane Kids Sweater"),
                ("sweater", "fitted_garment", "flat_rows", "Cosy Adult Sweater"),
                ("vest", "fitted_garment", "side_to_side", "Driftline Vest"),
-               ("pullover", "fitted_garment", "bottom_up", "Kestrel Pullover")]
+               ("pullover", "fitted_garment", "bottom_up", "Kestrel Pullover"),
+               # ENG-COMPOSER: composed items (each pinned in tests/test_eng_composer.py)
+               ("amigurumi", "toy", "amigurumi_shaping", "Pebble Owl Amigurumi"),
+               ("bag", "bag", "in_the_round", "Harvest Block Tote")]
     # ENG-GARMENT-2: wearable families (each pair pinned in tests/test_eng_garment2.py).
     probes += WEARABLE_PROBES
     admitted = set()

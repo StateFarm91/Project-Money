@@ -3540,3 +3540,22 @@ the row hypotenuses. Unshaped edges are unchanged (None). Needed for the V-neck'
 **D-ENG-GARMENT2-6: not built, held by name.** Granny-square garment (no motif-join garment
 engine), crescent shawl (curved edge not expressible in flat rows the twin measures), mesh
 market bag, lined/zipped bags, toe-up/gusset socks, pom-poms and earflaps on hats.
+## D-ENG-COMPOSER — new items are composed from proven primitives, not new engines (ENG-COMPOSER, 2026-11-20; routine engineering)
+Owner goal: "it automatically learns how to build new things".
+**Rule.** A concept no family engine admits is drafted by `creative.composer` when it can be
+expressed as a plan of primitives in `PRIMITIVES`, each pinned by a validating test. The CIR
+then goes through the unchanged chain: compile, twin, assembly, reverse, originality, child
+safety and Product Truth. Anything outside the library is refused by the missing primitive's
+name and never approximated. When the concept names a composer template, the refusal files an
+`improve.ecr` change request (`module=creative.composer:<primitive>`), and repeats merge into
+one request, so the queue of missing primitives is what production learns to build next.
+**The validator decides.** A model may propose plan structure only. `adjudicate` takes the
+first proposal that validates and composes, and agreement between proposers counts for
+nothing.
+**Sizes.** Every count is solved from the gauge. Sewn-on pieces are solved to clear the
+small-parts cylinder. The size note is written from the twin in the "about N cm" form that
+the plausibility gate re-checks.
+**Beanie.** It is refused (`graded_head_fit`) until a sourced crown-to-brim height and ease
+table exists. The CYC head chart, re-read on 2026-11-20, publishes circumference only.
+Reversible by decision. Adding a primitive means adding a builder and its test; nothing else
+changes.

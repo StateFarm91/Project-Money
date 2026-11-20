@@ -157,6 +157,31 @@
 > - Suites: `research/final_build/w6/review_requests/plush_results.md` (pre-existing and inherited failures attributed
 >   against base 809107b and INTEG3). Mutation: 44 of 44 killed after the shadowed survivor got a direct test.
 > - OWNER ACTION (batched in plush_results.md): a standing decision for adult cushion covers (A1-R holds each one).
+> **2026-11-20 — ENG-COMPOSER (`eng/composer` from `claude/w6-INTEG7-wip`; NOT merged, NOT deployed; production
+> unchanged).** `creative/composer.py` composes ORIGINAL items from a declarative plan of 20 proven primitives:
+> - shapes: flat circle, sphere, ovoid, cylinder, cone, tube, rectangle, trapezoid, triangle;
+> - closures: gathered, folded flat, open;
+> - joins: sewn, join-as-you-go, seamed panels, surface, rim;
+> - details: colour blocks, band edging.
+> Every count is solved from the gauge, and the size note is read from the twin. Anything the
+> library cannot express is refused by name; an unexpressible concept files an `improve.ecr`
+> request naming the missing primitive.
+> - **Routing.** `construction_families.route` admits a concept every engine holds as family
+>   `composer` (physical_gate). `cir.draft` drafts it through the composer.
+> - **Proof.** Six original items, with no new family engine, ran concept → plan → CIR →
+>   compile/twin/reverse → certify → US/UK PDF:
+>   - granted: a tote and a tablet sleeve;
+>   - withheld only for physical evidence: an owl and a whale (ovoid bodies, cones, folded
+>     wings and fins), a lamb lovey, and a round cushion.
+>   Two research concepts (the owl and the tote) also ran through the real handlers.
+> - **Beanie.** REFUSED (`graded_head_fit`) with an ECR: no sourced hat height or ease exists,
+>   and `eng/garment-2` is not on the remote.
+> - **Shared fixes.** `pdf_standard` no longer reads "Stuff after Rnd N:" as a round label. On
+>   this base every stuffed-toy PDF refused, the plush bear included. `cir.assembly` now
+>   measures a flattened round piece on an open vessel by its flattened edge.
+> - **Open gap reported, not changed.** `risk_matrix` does not re-check "W x H cm" size notes.
+> Tests: `tests/test_eng_composer.py` (21, including 7 killed mutants). Results:
+> `research/final_build/w6/review_requests/ENG-COMPOSER.md`.
 > **2026-11-20 — ENG-DAILY-FIX (`eng/daily`, NOT merged, NOT deployed; production unchanged).** Fixes every Unit B
 > finding of the independent review of a795be17 (BLOCK). Merged `origin/claude/w6-INTEG4` (259e47c4) first, so
 > learn and improve with `improve.ecr` are present; change requests now go through `ecr.file`. (1) BLOCKER: a
