@@ -255,17 +255,17 @@ def test_b_in_shadow_store_publish_is_refused_and_nothing_is_published():
 # ---- C. the package is BLOCKED, and on exactly what ----------------------------------------
 
 # Observed on this chain. The task named SAMPLE_PHOTO_REQUIRED as the expected sole blocker;
-# two more appear, and they are asserted rather than hidden:
-#   * FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims -- gate gates/first_customer.py (read by
-#     release_gates.for_publish): no passed physical sample is bound to this content, so the
-#     set-of-four size claim is unproven. A real independent full make clears it (see D).
+# one more appears, and it is asserted rather than hidden. (ENG-ESTIMATE-CLAIMS,
+# D-OWNER-ESTIMATE-CLAIMS: FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims used to appear here
+# with no physical sample bound. The chain's own writers now state every size as a calculated
+# estimate with the owner's note, gates/estimate_claims.py reads that off both PDFs and the
+# copy, and the area passes as ESTIMATE; tests/test_estimate_claims.py pins the rule.)
 #   * FIRST_CUSTOMER_BLOCKING: etsy_remote_state -- gate gates/first_customer.py: four
 #     launch-blocking Etsy claims (array_encoding_tags, form_encoded_create,
 #     multipart_image_upload, oauth_token_endpoint) are unverified because no authenticated
 #     round trip against Etsy exists. Needs a live Etsy connection; cannot clear offline.
 #   * SAMPLE_PHOTO_REQUIRED -- gate publish/sample_photo.py: no unedited photograph on file.
 BLOCKERS_C = {
-    ("release_gates.for_publish", "FIRST_CUSTOMER_BLOCKING: gauge_and_size_claims"),
     ("release_gates.for_publish", "FIRST_CUSTOMER_BLOCKING: etsy_remote_state"),
     ("release_gates.for_publish", "SAMPLE_PHOTO_REQUIRED"),
 }
@@ -292,8 +292,9 @@ def test_c_the_package_is_blocked_on_exactly_the_observed_set():
 # ---- D. a FIXTURE sample and photograph through the real intake ----------------------------
 
 # The next state, observed. Still BLOCKED, and READY is not reachable here without forging:
-#   * gauge_and_size_claims and the no-photo SAMPLE_PHOTO_REQUIRED are gone: the FIXTURE full
-#     make is bound to this release's content and the FIXTURE photo qualifies
+#   * the no-photo SAMPLE_PHOTO_REQUIRED is gone (and gauge_and_size_claims now reads the
+#     measured path, PASS, not the estimate path): the FIXTURE full make is bound to this
+#     release's content and the FIXTURE photo qualifies
 #     (sample_photo.qualifying_photos lists it).
 #   * The photo frame that assets.physical_upgrade adds is unapproved ("awaiting asset-truth
 #     review and listing-set re-certification") and no production job approves a
