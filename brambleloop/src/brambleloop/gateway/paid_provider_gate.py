@@ -548,7 +548,7 @@ def _current(session, provider: str, scope: str, now: datetime) -> tuple[Any, st
         if exp is None or exp <= now:
             reason = EXPIRED
             continue
-        if not (row.step_up or {}).get("session_public_id"):
+        if not (row.step_up or {}).get("session_public_id") and not _directive(row):
             continue                    # a row with no step-up evidence authorises nothing
         return row, ""
     return None, reason
@@ -577,6 +577,15 @@ def require_active(db, provider: str, scope: str, *, now: datetime | None = None
     return st["activation"]
 
 
+def _directive(row) -> bool:
+    """D-OWNER-APPROVE-ALL: an owner directive recorded by the system authorises exactly the
+    (provider, scope) pairs `ops.owner_directives.ACTIVATIONS` lists, and nothing else."""
+    from ..ops import owner_directives
+
+    return (str(row.activated_by or "") == owner_directives.ACTOR
+            and owner_directives.recognised(row.step_up, row.provider, row.scope))
+
+
 def is_active_id(db, activation_id, *, now: datetime | None = None) -> bool:
     """Whether a specific activation is still in force (not revoked, not expired)."""
     if db is None or activation_id is None:
@@ -587,7 +596,8 @@ def is_active_id(db, activation_id, *, now: datetime | None = None) -> bool:
             row = s.get(PaidProviderActivation, int(activation_id))
             return (row is not None and row.revoked_at is None
                     and _aware(row.expires_at) is not None and _aware(row.expires_at) > _now(now)
-                    and bool((row.step_up or {}).get("session_public_id")))
+                    and (bool((row.step_up or {}).get("session_public_id"))
+                         or _directive(row)))
     except Exception:  # noqa: BLE001 - fail closed
         return False
 

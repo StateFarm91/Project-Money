@@ -15,13 +15,18 @@ JOB_TYPE = "ops.owner_queue_consolidate"
 
 @handlers.register(JOB_TYPE)
 def handle_owner_queue_consolidate(ctx: JobContext) -> dict:
+    from ..ops import owner_directives
     from ..ops import owner_queue_consolidate as oqc
 
+    # D-OWNER-APPROVE-ALL is applied here, as its own step, never inside the sweep: the sweep
+    # signs no grant. `apply` writes each listed activation once and never renews one.
+    directive = owner_directives.apply(ctx.db)
     out = oqc.sweep(ctx.db)
     summary = {"directive": out["directive"], "closed": out["closed"],
                "routine_superseded": len(out["routine_superseded"]),
                "auto_closed": len(out["auto_closed"]),
                "genuine_open": len(out["genuine_open"]),
-               "unclassified_open": sorted(set(out["unclassified_open"]))[:50]}
+               "unclassified_open": sorted(set(out["unclassified_open"]))[:50],
+               "owner_directive": directive}
     ctx.audit(JOB_TYPE, detail=summary)
-    return {**summary, "ran": True, "work_done": out["closed"]}
+    return {**summary, "ran": True, "work_done": out["closed"] + len(directive["activated"])}

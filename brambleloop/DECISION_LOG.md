@@ -3139,3 +3139,27 @@ Batch 18 (code 511a8c63) = production Batch 17 b098fcce plus three changes:
 **Evidence:** 353 overlap tests passing, 0 suites failing. The demand-stall fix suites: 157 OK.
 **Safeguards:** rollback rehearsal to 09be42d6, verify_deploy, readback, and rollback on a P0.
 The deploy goes out only with the owner's explicit OK for this exact SHA.
+
+## D-OWNER-APPROVE-ALL — 2026-11-20T13:20Z (owner directive, recorded 2026-11-20T22:20Z)
+
+**Owner, verbatim:** "I approve every single one. You go and approve every single one now." /
+"Approve them all, whatever it takes. Once its at 0, I will take over approval moving forward." /
+"I need an approve all button now."
+
+**Decision.** The owner's directive is recorded as an explicit, second kind of activation
+evidence for the paid-provider gate. It is limited to the two activations the image pipeline
+was blocked on:
+- `flux-3-image:generation`: CA$5/day, CA$40/month, CA$2.50 per gallery.
+- `openai-vision:vision`: CA$2/day, CA$10/month, CA$1 per gallery.
+
+Both sit inside the CA$100/month company ceiling. `ops.owner_directives.apply` writes each row
+once, from the hourly `ops.owner_queue_consolidate` job (never inside the sweep, which signs no
+grant). It expires after 30 days, and the system never renews it.
+
+**What it is not.**
+- The row says `step_up_performed: false`. No login or TOTP is bypassed or forged, and no
+  secret is read.
+- No other provider, scope, ad spend, publication authority, child-safety hold or attestation
+  is touched. Physical-evidence attestations remain the owner's; waivers stay
+  `owner_directed_without_attestation`.
+- Renewal or widening goes through the normal step-up path.
