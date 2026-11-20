@@ -35,6 +35,7 @@ from ..cir.twin import TwinModel, build_twin
 from ..cir.writer import write_pattern
 from ..intel import childrens as ch
 from . import abbreviations, substitution, value_stack
+from . import pdf_standard as _std
 from . import charts as chart_mod
 from .charts import (
     COLOUR_CUE_NOTE_FLAT, COLOUR_CUE_NOTE_ROUND, ChartSpec, RoundBlock, cell_size,
@@ -147,6 +148,8 @@ class PatternDocument:
     # Every picture the document places, in order: what it is and where it came from. A
     # reviewer checks the provenance of each image from here rather than by guessing.
     figures: list[dict] = field(default_factory=list)
+    # ENG-PDF-PREMIUM: this document's family audit (`publish.pdf_standard.Audit.to_dict`).
+    standard: dict = field(default_factory=dict)
 
     def size_label(self) -> str:
         if not self.finished_size_cm:
@@ -990,8 +993,13 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
                       released_on: date | None = None,
                       childrens: tuple[str, str] | None = None,
                       lesson_links: list[dict] | None = None,
-                      sample_photo_placeholders: bool = False) -> PatternDocument:
+                      sample_photo_placeholders: bool = False,
+                      enforce_standard: bool = True) -> PatternDocument:
     """Render the full pattern document.
+
+    Turning `enforce_standard` off is for tests that build a deliberately defective document to
+    inspect one property of it; the audit still runs and is returned in `standard`. No
+    production caller passes it (`tests/test_pdf_standard.py` asserts so).
 
     Refuses outright if the CIR does not compile. A PDF built on failed arithmetic is a
     defect we would be charging money for, and the release chain is supposed to make that
@@ -1102,6 +1110,12 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
         _refuse_an_incomplete_childrens_document(cir, twin, pdf_bytes, childrens, terminology)
     _refuse_a_child_safety_content_failure(cir, result, pdf_bytes, childrens, terminology,
                                            instructions=text)
+    # ENG-PDF-PREMIUM: the family's premium standard, audited on the finished bytes. A PDF
+    # missing what its family needs is refused here, not shipped and found by a buyer.
+    standard = premium_audit(pdf_bytes, cir, twin=twin, result=result,
+                             terminology=terminology, childrens=childrens is not None)
+    if enforce_standard:
+        _std.refuse_if_incomplete(standard)
 
     return PatternDocument(
         pdf_bytes=pdf_bytes,
@@ -1118,7 +1132,24 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
         problems=problems,
         prose="\n".join(doc.prose),
         figures=list(doc.figures),
+        standard=standard.to_dict(),
     )
+
+
+def premium_audit(pdf_bytes: bytes, cir: CIR, *, twin: TwinModel, result, terminology: str,
+                  childrens: bool) -> "_std.Audit":
+    """The premium standard's audit of finished bytes, reading each page once.
+
+    The flat text is the per-page text joined, which is what `extracted_text` computes, so
+    it is cached under the same digest for the gates that read it next.
+    """
+    pages = _std.pages_text(pdf_bytes)
+    text = " ".join(" ".join(pages).split())
+    sha = hashlib.sha256(pdf_bytes).hexdigest()
+    if sha not in _EXTRACTED and len(_EXTRACTED) < 32:
+        _EXTRACTED[sha] = text
+    ctx = _std.context(cir, twin, result, terminology, childrens=childrens)
+    return _std.audit_text(text, ctx, pages)
 
 
 def extracted_text(pdf_bytes: bytes) -> str:
@@ -1470,9 +1501,53 @@ def _yarn_weight_label(cir: CIR) -> str:
     weights = sorted({m.yarn_weight for m in cir.materials if m.yarn_weight})
     named = ", ".join(w.upper() if len(w) <= 3 else w.capitalize() for w in weights)
     cyc = cir.gauge.yarn_weight if cir.gauge and cir.gauge.yarn_weight else ""
+    # ENG-PDF-PREMIUM: the Craft Yarn Council number is the one a buyer finds on a ball band.
+    w = _std.cyc_weight(cir)
+    number = f", CYC {w.number}" if w is not None else ""
     if cyc and cyc.lower() not in {w.lower() for w in weights}:
-        return f"{named} weight ({cyc.replace('_', ' ')})"
-    return f"{named} weight" if named else "see Materials"
+        return f"{named} weight ({cyc.replace('_', ' ')}){number}"
+    return f"{named} weight{number}" if named else "see Materials"
+
+
+def makes_words(cir: CIR) -> str | None:
+    """What the cover says the pattern makes, from Component.make.
+
+    One component made N times is N of that piece ("Makes 4 coasters"). Several different
+    components are the pieces of one assembled object, and naming the object by its first
+    piece printed "Makes 4 bodys" on a pullover and "Makes 3 pillows" on one ring pillow.
+    """
+    make = sum(c.make for c in cir.components)
+    if make <= 1:
+        return None
+    if len(cir.components) == 1:
+        piece = cir.components[0].name.replace("_", " ")
+        return f"Makes {make} {piece if piece.endswith('s') else piece + 's'}"
+    return f"Made from {make} pieces"
+
+
+def per_piece(cir: CIR) -> int:
+    """How many identical pieces a yarn amount divides into: 1 unless one component repeats."""
+    return cir.components[0].make if len(cir.components) == 1 else 1
+
+
+def _amount(lo: float, hi: float, terminology: str, weight=None) -> str:
+    """A yarn range in the edition's unit (yd in US, m in UK), with 100 g balls."""
+    out = _std.yarn_amount(lo, hi, terminology)
+    n = _std.balls(hi, weight)
+    if n:
+        out += f"; {n} x 100 g ball{'s' if n > 1 else ''}"
+    return out
+
+
+def _ball_note(weight, terminology: str) -> str:
+    if weight is None:
+        return ""
+    lo = weight.metres_per_100g[0]
+    length = (f"{lo:.0f} m" if terminology.upper() == "UK"
+              else f"{lo * _std.YD_PER_M:.0f} yd ({lo:.0f} m)")
+    return (f"Ball counts assume 100 g balls at the shortest typical length for "
+            f"{weight.key.replace('_', ' ')} weight (CYC {weight.number}): {length} per ball. "
+            f"Check your ball band and recount if yours is shorter.")
 
 
 def _metres(m: float, tol: float) -> tuple[float, float]:
@@ -1507,7 +1582,8 @@ def overview_paragraphs(cir: CIR, result, twin: TwinModel, text: str,
         size = re.sub(r"^[a-z]+(,| base)\s*", lambda m: "base " if "base" in m.group(0) else "",
                       size)
     if size:
-        first += f", {'each ' if make > 1 else ''}{size} at the stated gauge"
+        first += (f", {'each ' if make > 1 and len(cir.components) == 1 else ''}{size} "
+                  f"at the stated gauge")
         first += "." if not twin.calibrated else ", measured on a worked sample."
         if not twin.calibrated:
             first = first[:-1] + ", computed rather than measured."
@@ -1779,6 +1855,45 @@ _STEP_NUMBER = re.compile(r"^(?:Rnds?|Rows?|Rounds?)\s+(\d+)")
 _IN_ORDER = re.compile(r"^(?:Stuff|Close) after (?:Rnd|Round) \d+:")
 
 
+COVER_SCHEMATIC_CAPTION = ("Schematic drawing of the pieces, generated from this pattern's "
+                           "stitch data — a rendering, not a photograph.")
+
+RS_NOTE = ("RS means right side and WS wrong side. Row 1 is a right-side row and sets which "
+           "side is the right side; each turn changes side, so every row below is labelled.")
+
+
+def _sides_for(cir: CIR, block_title: str) -> dict[int, str]:
+    """RS/WS for each row of the flat-row component a writer block names, from its turns.
+
+    Row 1 is the right side by this document's convention (stated once, in RS_NOTE). Every
+    later row changes side exactly when the writer prints "turn" for it, which it does for a
+    flat-row row with a turning chain, so the label follows the CIR rather than parity.
+    """
+    key = block_title.lower().split(" (")[0].replace("_", " ").strip()
+    comp = next((c for c in cir.components
+                 if c.name.replace("_", " ").lower() == key), None)
+    if comp is None or comp.construction != "flat_rows" or not comp.rows:
+        return {}
+    out: dict[int, str] = {}
+    side = "RS"
+    for i, row in enumerate(comp.rows):
+        if i > 0 and row.turning_chain:
+            side = "WS" if side == "RS" else "RS"
+        out[row.index] = side
+    return out
+
+
+_SIDE_AT = re.compile(r"^((?:Rows?)\s+(\d+)(?:-\d+)?)")
+
+
+def _with_side(line: str, sided: dict[int, str]) -> str:
+    """'Row 2 (wine): ...' -> 'Row 2 (WS) (wine): ...'. Unchanged when the row is not sided."""
+    m = _SIDE_AT.match(line)
+    if not m or int(m.group(2)) not in sided:
+        return line
+    return f"{m.group(1)} ({sided[int(m.group(2))]}){line[m.end():]}"
+
+
 def _rich_lines(c, segments: list[tuple[str, str, object]], width: float,
                 size: float) -> list[list[tuple[str, str, object]]]:
     """Greedy wrap of styled segments into lines of (text, font, colour) runs."""
@@ -1935,9 +2050,9 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     # `visual.contents_frame`) looks for the words "version 1.2.0".
     doc.text(PAGE_W / 2, title_y - 8.5 * mm, kicker, FONT_UI_MEDIUM, 10.5, TAUPE,
              align="centre", track=0.5)
-    if make_total > 1:
+    makes = makes_words(cir)
+    if makes:
         # The CIR makes several pieces; the cover says how many (Component.make).
-        makes = f"Makes {make_total} {piece}s"
         doc.prose.append(makes)
         doc.text(PAGE_W / 2, title_y - 15 * mm, makes, FONT_DISPLAY_ITALIC, 15, ACCENT,
                  align="centre")
@@ -1969,11 +2084,30 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         else:
             doc.prose.append(cap)
             doc.text(PAGE_W / 2, caption_y, cap, FONT_BODY_ITALIC, 9.5, MUTED, align="centre")
+    else:
+        # ENG-PDF-PREMIUM: a design the stitch renderer cannot draw whole (a garment, an
+        # assembled pillow) still gets a hero: its schematic, drawn from the same assembly
+        # the certificate checked, and labelled as the rendering it is.
+        from .schematic import schematic_for as _schematic_for
+        cover_schematic = _schematic_for(cir, result)
+        if cover_schematic is not None:
+            box_top = title_y - 15 * mm
+            box_h = box_top - (caption_y + 6 * mm)
+            img = cover_schematic.image
+            scale_ = min(usable / img.width, box_h / img.height)
+            w_, h_ = img.width * scale_, img.height * scale_
+            doc.place(img, (PAGE_W - w_) / 2, box_top - (box_h - h_) / 2, w_, h_,
+                      figure={"kind": "schematic", "view": "cover",
+                              "source": "publish.schematic.schematic_for",
+                              "label": COVER_SCHEMATIC_CAPTION})
+            doc.prose.append(COVER_SCHEMATIC_CAPTION)
+            doc.text(PAGE_W / 2, caption_y, COVER_SCHEMATIC_CAPTION, FONT_BODY_ITALIC, 9.5,
+                     MUTED, align="centre")
     # The facts strip in the forest band.
     strip = [("Skill", difficulty_word.capitalize()),
              ("Finished size", _short_size(twin, cir)),
              ("Yarn", _yarn_weight_label(cir)),
-             ("Hook", f"{cir.gauge.hook_mm:g} mm" if cir.gauge else "see Materials")]
+             ("Hook", _std.hook_words(cir.gauge.hook_mm) if cir.gauge else "see Materials")]
     col_w = usable / len(strip)
     for i, (k, v) in enumerate(strip):
         x = MARGIN + i * col_w
@@ -2007,8 +2141,14 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     level = LADDER.index(difficulty_word) + 1 if difficulty_word in LADDER else len(LADDER)
     rows.insert(0, ("skill", "difficulty", difficulty_word,
                     {"level": level, "of": len(LADDER)}))
+    if cir.grading is not None:
+        rows.append(("size", "sizes", f"{len(cir.grading.sizes)} sizes; this document is size "
+                     f"{cir.grading.size} (see Sizes and fit)", {}))
+    else:
+        rows.append(("size", "sizes", "one size", {}))
     if make_total > 1:
-        rows.append(("pieces", "pieces", f"{make_total} {piece}s", {}))
+        rows.append(("pieces", "pieces", (f"{make_total} {piece}s" if len(cir.components) == 1
+                                          else f"{make_total} pieces, assembled"), {}))
     construction = cir.construction.replace("_", " ")
     if "magic ring" in text:
         construction += ", from a magic ring"
@@ -2022,10 +2162,9 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         total = sum(twin.yarn_metres_by_color.values())
         lo, hi = _metres(total, twin.yardage_tolerance)
         rows.append(("yarn", "yarn amount",
-                     f"about {lo:.0f}-{hi:.0f} m in total ({lo * 1.094:.0f}-{hi * 1.094:.0f} yd), "
-                     f"estimated", {}))
+                     f"{_std.yarn_amount(lo, hi, terminology)} in total, estimated", {}))
     if cir.gauge:
-        rows.append(("hook", "hook", f"{cir.gauge.hook_mm:g} mm", {}))
+        rows.append(("hook", "hook", _std.hook_words(cir.gauge.hook_mm), {}))
         rows.append(("gauge", "gauge", f"{cir.gauge.stitches_per_10cm} sts x "
                      f"{cir.gauge.rows_per_10cm} rows = 10 cm in {_gauge_stitch(cir, terminology)}",
                      {}))
@@ -2151,6 +2290,11 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             doc.image(schematic.image, running_head=head,
                       figure={"kind": "schematic", "source": "publish.schematic.schematic_for",
                               "label": "Schematic"})
+            # The drawn labels, set as text too: what a screen reader and a text search can
+            # find, and exactly the strings the picture carries (`Schematic.labels`).
+            doc.label("Finished measurements")
+            for piece_, (across_, up_) in schematic.labels.items():
+                doc.kv(piece_.replace("_", " "), f"{across_} across, {up_} up")
         elif scale_view is not None:
             img, sha = scale_view
             doc.prose.append("Schematic")
@@ -2291,9 +2435,11 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         metres = twin.yarn_metres_by_color.get(m.color_id or "", None)
         if metres:
             lo, hi = _metres(metres, tol)
-            amount = f"about {lo:.0f}-{hi:.0f} m ({lo * 1.094:.0f}-{hi * 1.094:.0f} yd)"
-            if make_total > 1:
-                amount += f" for all {make_total}"
+            # Compact on the card (one unit, the edition's); both units in "How much yarn".
+            amount = _amount(lo, hi, terminology, _std.cyc_weight(cir)).replace(
+                f" ({lo:.0f}-{hi:.0f} m)", "")
+            if per_piece(cir) > 1:
+                amount += f", for all {make_total}"
             doc.prose.append(amount)
             for line in _wrap(c, amount, FONT_BODY_BOLD, 9.5, card_w - 29 * mm):
                 doc.text(tx, yy, line, FONT_BODY_BOLD, 9.5, FOREST)
@@ -2307,8 +2453,8 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     doc.heading("Hook and notions", size=12)
     notions: list[tuple[str, str, str]] = []
     if cir.gauge and cir.gauge.hook_mm:
-        notions.append(("hook", "hook", f"{cir.gauge.hook_mm:g} mm, or whatever hook gets you "
-                                        f"the gauge below"))
+        notions.append(("hook", "hook", f"{_std.hook_words(cir.gauge.hook_mm)}, "
+                                        f"{_std.HOOK_GAUGE_PHRASE} (see Gauge)"))
     # The special-stitch methods are part of what this document asks the maker to do, so the
     # tools they require belong on the shopping list too.
     instructed = "\n".join([text] + [abbreviations.method(code, terminology)
@@ -2335,12 +2481,17 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     if twin.yarn_metres_by_color:
         for name, metres in sorted(twin.yarn_metres_by_color.items()):
             low, high = _metres(metres, tol)
-            value = f"about {low:.0f}-{high:.0f} m ({low * 1.094:.0f}-{high * 1.094:.0f} yd)"
-            if make_total > 1:
-                plo, phi = low / make_total, high / make_total
-                value += (f" for all {make_total} {piece}s; about {plo:.1f}-{phi:.1f} m "
-                          f"for each one")
+            value = _amount(low, high, terminology, _std.cyc_weight(cir))
+            n_same = per_piece(cir)
+            if n_same > 1:
+                plo, phi = low / n_same, high / n_same
+                each = (f"{plo:.1f}-{phi:.1f} m" if terminology.upper() == "UK" else
+                        f"{plo * _std.YD_PER_M:.1f}-{phi * _std.YD_PER_M:.1f} yd")
+                value += f"; for all {n_same} {piece}s, about {each} for each one"
             doc.kv(name, value)
+        note = _ball_note(_std.cyc_weight(cir), terminology)
+        if note:
+            doc.para(note, size=9.5, color=MUTED)
     tolerance_note = (
         f"These quantities are estimates with a ±{tol * 100:.0f}% range, not measurements. "
         "Yarn consumption genuinely varies with yarn, hook and tension, so buy a little more "
@@ -2363,6 +2514,15 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             f"Gauge decides this, not the name on the band. Any of these can be worked to "
             f"this fabric: {names}. Swatch and change hook until your gauge matches — the "
             f"gauge is what makes the finished size come out.", size=10)
+        w_ = _std.cyc_weight(cir)
+        if w_ is not None:
+            # By CYC class and length per gram: the two numbers printed on every ball band.
+            doc.para(
+                f"On the ball band, look for CYC {w_.number} "
+                f"({w_.key.replace('_', ' ')}) at about "
+                f"{_std.length_per_gram(w_, terminology)}, the typical range for that class. "
+                f"A yarn outside that range at the same weight name will make a denser or "
+                f"looser fabric, and needs its own swatch.", size=10)
         printed_rows = 0
         for row in guide["how_much"]:
             if not row.get("measurable"):
@@ -2599,10 +2759,13 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         shown = title[:1].upper() + title[1:]
         doc.heading(shown, size=12)
         # ENG-PLUSH: a stuffing point and a closure are steps in their place among the
-        # rounds, not notes lifted to the top of the piece.
-        steps = [ln for ln in lines if _STEP.match(ln) or _IN_ORDER.match(ln)]
+        # rounds, not notes lifted to the top of the piece. ENG-PDF-PREMIUM: RS/WS sides.
+        sided = _sides_for(cir, title)
+        steps = [_with_side(ln, sided) for ln in lines if _STEP.match(ln) or _IN_ORDER.match(ln)]
         notes_ = [ln for ln in lines
                   if ln.strip() and not _STEP.match(ln) and not _IN_ORDER.match(ln)]
+        if sided:
+            notes_.append(RS_NOTE)
         for ln in notes_:
             doc.need(10 * mm)
             doc.para(ln, size=10, color=FOREST, font=FONT_BODY_ITALIC)
@@ -2912,12 +3075,18 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             doc.para(line[2:], size=10, x=MARGIN + 6 * mm)
         else:
             doc.para(line, size=9.5, color=MUTED)
+    doc.heading(_std.DISCLAIMER_HEADING, size=12)
+    doc.para(_std.DISCLAIMER, size=10)
     doc.heading("Customer support", size=12)
     doc.para("If anything in this pattern does not add up, tell us through the shop you "
              "bought it from and we will fix the pattern itself, not just answer your "
              "question. Every report is checked against the compiler that validated this "
              "release.", size=10)
     doc.para(support_scope(cir), size=10)
+    # ENG-PDF-PREMIUM: about the BRAND. Never a person, never Laura, never a signature.
+    doc.heading(_std.ABOUT_HEADING, size=12)
+    for para_ in _std.ABOUT_PARAGRAPHS:
+        doc.para(para_, size=10)
     doc.heading("About this document", size=12)
     doc.para(AI_DISCLOSURE, size=9.5, color=MUTED)
     doc.para(platform_policy.DISCLOSURES["deterministic_render"], size=9.5, color=MUTED)
