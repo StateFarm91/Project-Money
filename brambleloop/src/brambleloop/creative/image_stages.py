@@ -154,11 +154,16 @@ def flux3_renderer(env: Mapping[str, str] | None = None, *,
     from ..gateway import images
 
     def render(prompt, *, reference_urls, size, work_dir, purpose, agent, db=None,
-               job_id=None):
+               job_id=None, frame_role=None, prompt_version="", product=""):
         return images.generate(prompt, reference_urls=list(reference_urls), env=env,
                                size=size, provider_key=provider_key, work_dir=work_dir,
-                               db=db, agent=agent, purpose=purpose, job_id=job_id)
+                               db=db, agent=agent, purpose=purpose, job_id=job_id,
+                               frame_role=frame_role, prompt_version=prompt_version,
+                               product=product)
     render.reference_limit = images.BY_KEY[provider_key].reference_images  # type: ignore[attr-defined]
+    # ENG-VIS-FLUX: this renderer takes the frame role (generation-time check) and the prompt
+    # version and product (provenance); `_run` passes them only to a renderer that says so.
+    render.accepts_generation_context = True  # type: ignore[attr-defined]
     render.provider_key = provider_key  # type: ignore[attr-defined]
     return render
 
@@ -425,11 +430,18 @@ def _run(stage: str, role: str, release: Release, refs: dict, built, size: str, 
                                "inputs; refused")
     errors: list[str] = []
     started = time.time()
+    context = {}
+    if getattr(renderer, "accepts_generation_context", False):
+        from ..gateway import flux_qc
+
+        context = {"frame_role": flux_qc.INTERMEDIATE if intermediate else flux_qc.LISTING,
+                   "prompt_version": f"{built.builder_version}#{built.ref}",
+                   "product": f"{release.slug}@{release.version}#{release.release_hash[:12]}"}
     for attempt in range(1, tries + 1):
         try:
             out = renderer(built.text, reference_urls=refs["paths"], size=size,
                            work_dir=work_dir, purpose=purpose, agent=AGENT, db=db,
-                           job_id=job_id)
+                           job_id=job_id, **context)
         except TransientError as exc:          # the only failure worth another attempt
             errors.append(f"attempt {attempt}: {type(exc).__name__}: {str(exc)[:200]}")
             if attempt == tries:
@@ -473,6 +485,11 @@ def _run(stage: str, role: str, release: Release, refs: dict, built, size: str, 
             "opaque": measured.get("opaque"),
             "meets_listing_floor": measured.get("meets_floor"),
             "upscaled": False,
+            # ENG-VIS-FLUX: the gateway's generation-time verdict and the F-852 provenance
+            # record (D-W4-F852-AMEND item 7), carried verbatim for the gallery's evidence.
+            "generation_check": out.get("generation_check"),
+            "provenance": out.get("provenance"),
+            "provenance_missing": out.get("provenance_missing"),
         }
         return Candidate(stage=stage, role=role, path=path, sha256=out_sha,
                          release_hash=release.release_hash, receipt=receipt)

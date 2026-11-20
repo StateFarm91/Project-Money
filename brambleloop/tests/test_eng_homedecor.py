@@ -354,6 +354,73 @@ def test_mutant_planter_and_texture_names_are_refused_by_their_gates():
     _kill(dataclasses.replace(plain, title="Oval Tide Basket"), "VESSEL_OUTLINE_UNSUPPORTED")
 
 
+# ---- review b17-b: UNKNOWN is not a pass; the `spans` exclusion is pinned -------------------
+
+
+def test_a_vessel_name_with_no_readable_twin_geometry_is_an_error_not_silence():
+    """Finding 1: no twin (or no geometry) used to make every vessel check emit nothing."""
+    plain = FC.vessel(_concept())
+    for title in ("Bowl Tide Basket", "Round Tide Basket", "Lidded Tide Basket"):
+        got = {f.code for f in HD.findings(dataclasses.replace(plain, title=title), {})}
+        assert "VESSEL_GEOMETRY_UNKNOWN" in got, (title, got)
+    # A twin with no geometry is the same UNKNOWN.
+    no_geo = {c.name: type("T", (), {"geometry": None, "sides": None})()
+              for c in plain.components}
+    got = {f.code for f in HD.findings(dataclasses.replace(plain, title="Bowl Tide Basket"),
+                                       no_geo)}
+    assert "VESSEL_GEOMETRY_UNKNOWN" in got, got
+    # A title with no vessel claim is not judged here at all.
+    assert HD.findings(dataclasses.replace(plain, title="Tide Reed Throw"), {}) == []
+
+
+def test_a_round_vessel_not_worked_from_a_magic_ring_cannot_pass_the_flat_base_check():
+    """The flat-base check only reads a magic-ring base; any other base claiming round, bowl
+    or lid is UNKNOWN, and UNKNOWN is an error. The twin is the real twin of the real body."""
+    good = FC.vessel(_concept())
+    body = [c for c in good.components if c.construction != "flat_rows"][0]
+    result = compile_cir(good)
+    twins = {body.name: build_twin(good, result, body.name)}
+    assert twins[body.name].geometry is not None and twins[body.name].geometry.rings
+    assert body.foundation_kind == "magic_ring", body.foundation_kind
+    other = dataclasses.replace(body, foundation_kind="chain")
+    bad = dataclasses.replace(good, title="Round Tide Basket", components=[
+        other if c.name == body.name else c for c in good.components])
+    got = {f.code for f in HD.findings(bad, twins)}
+    assert "VESSEL_GEOMETRY_UNKNOWN" in got, got
+    # The same body from a magic ring is not UNKNOWN.
+    ok = {f.code for f in HD.findings(dataclasses.replace(good, title="Round Tide Basket"),
+                                      twins)}
+    assert "VESSEL_GEOMETRY_UNKNOWN" not in ok, ok
+
+
+def test_a_bridging_chain_with_spans_is_not_an_increase():
+    """Finding 5: the chain over a cut-out handle replaces the stitches it skips. Counted as an
+    increase it consumed positions and hid the base's corner count behind the opening."""
+    from brambleloop.cir.compiler import ResolvedOp
+    from brambleloop.cir.geometry import _increase_and_parentage
+
+    good = HD.handled_vessel(_concept("Tide Basket With Handles"))
+    result = compile_cir(good)
+    assert result.ok
+    body = [c for c in good.components if c.construction != "flat_rows"][0].name
+    rows = [r for r in result.rows if r.component == body]
+    opened = [r for r in rows if any(getattr(o, "spans", 0) for o in r.ops)]
+    assert opened, "the handled vessel must have a round with a bridging chain"
+    for r in opened:
+        consumed, produced = _increase_and_parentage(r)
+        assert consumed == [], (r.index, consumed)
+        assert not any(produced), r.index
+    # The corner count of the body does not change because the openings exist.
+    without = [r for r in rows if r not in opened]
+    assert corners(without) is not None and corners(rows) == corners(without), \
+        (corners(rows), corners(without))
+    # And directly: a chain with spans>0 is not an increase; the same chain with spans=0 is.
+    row = opened[0]
+    bridge = ResolvedOp(stitch="ch", count=1, consumes=0, produces=4, spans=4)
+    plain_ch = ResolvedOp(stitch="ch", count=1, consumes=0, produces=4, spans=0)
+    assert _increase_and_parentage(dataclasses.replace(row, ops=[bridge]))[0] == []
+    assert _increase_and_parentage(dataclasses.replace(row, ops=[plain_ch]))[0] != []
+
 def test_the_gates_run_on_the_listing_title_too():
     from brambleloop.gates import certificate as C
 

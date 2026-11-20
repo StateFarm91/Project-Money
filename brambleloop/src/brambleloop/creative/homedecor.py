@@ -476,7 +476,20 @@ def findings(cir: CIR, twins: dict, where: str = "cir.title", text: str | None =
 
     # 1. The base is flat: every base round grows at its own row height.
     rings = _rings(twins, body.name)
+    if not rings:
+        # No twin, or a twin with no geometry (no gauge): no vessel claim can be measured.
+        # UNKNOWN is not a pass, so the claim is an error rather than silence.
+        err("VESSEL_GEOMETRY_UNKNOWN", (
+            "vessel claim cannot be checked: the twin has no readable geometry (UNKNOWN is "
+            "not a pass)"))
+        return out
     nbase = _base_rounds(body)
+    early = claims(title)
+    if body.foundation_kind != "magic_ring" and any(k in early for k in ("round", "bowl", "lid")):
+        err("VESSEL_GEOMETRY_UNKNOWN", (
+            f"the name claims {', '.join(repr(early[k]) for k in ('round', 'bowl', 'lid') if k in early)}"
+            f", but the base is not worked from a magic ring ({body.foundation_kind!r}), so "
+            f"the flat-base check cannot run (UNKNOWN is not a pass)"))
     if body.foundation_kind == "magic_ring" and len(rings) >= nbase >= 2:
         bad = [(r.index, r.growth_ratio) for r in rings[1:nbase]
                if not FLAT_LO <= r.growth_ratio <= FLAT_HI]

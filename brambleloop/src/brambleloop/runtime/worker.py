@@ -649,6 +649,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     ("capability_measure", "analyst", "improve.measure", 24 * 60 * 60),
     # OPUS2-P0: measured listing performance becomes lessons Market Radar reads. CA$0.
     ("commercial_lessons", "analyst", "improve.commercial_lessons", 24 * 60 * 60),
+    # ENG-LEARN: engineering outcomes into measured parameter-region lessons, and real
+    # commerce readings into the same lesson store. Daily; DB only.
+    ("learning_loops", "analyst", "learning.loops", 24 * 60 * 60),
     # OPUS2-P0 (P0-LEARNING-GAPS): knowledge gaps into capped owner-approval reference
     # recommendations. Weekly, CA$0, never buys.
     ("knowledge_gaps", "analyst", "learning.knowledge_gaps", 7 * 24 * 60 * 60),
@@ -658,6 +661,10 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # Requirement 93. Daily: every promoted change judged once per new production reading,
     # and a regression becomes a revert plus a rollback incident rather than a quiet row.
     ("promotion_monitor", "orchestrator", "improve.monitor", 24 * 60 * 60),
+    # ENG-IMPROVE (owner directive 2026-11-20): every department's improvement loop checked,
+    # live challengers judged (promotion / automatic rollback), change requests filed and
+    # verified against their KPI. Reads rows; never edits or deploys code; spends nothing.
+    ("self_tune", "orchestrator", "improve.self_tune", 24 * 60 * 60),
     # Certification 2026-09-27 (#82, #89, #298): the learners run daily and report UNMEASURED
     # with the minimum n until listings produce outcomes; the harvest refuses a season that
     # has not passed or has fewer than 20 orders.
@@ -798,6 +805,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # nothing afterwards -- and it refuses to spend at all when no frozen identity exists
     # to verify the result against (#72, #130, #202).
     ("model_photography", "publishing", "assets.model_photography", 24 * 60 * 60),
+    # ENG-MOTIF-BACKLOG: six-hourly, so a re-check the budget refused is retried the same day
+    # rather than lost; free when the backlog is empty (a scan of filed rows, no call).
+    ("motif_backlog", "publishing", "assets.motif_backlog", 6 * 60 * 60),
     ("seasonal_sentinel", "orchestrator", "seasonal.sentinel", 24 * 60 * 60),
     # Six-hourly, matching the radar scan. #313 wants frequent lightweight checks once a
     # baseline exists, and the fingerprint makes an unchanged catalogue nearly free -- but
