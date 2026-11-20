@@ -170,7 +170,13 @@ def draft(animal: Animal, *, version: str = "1.0.0", provenance=None,
                                   f"and work each stitch through both pieces")))
     components = []
     eye_piece, eye_round, eye_gap = animal.eyes
-    for p in animal.pieces:
+    # The principal piece (the body) is printed first: the document, the twin's headline
+    # size and the PDF read the first piece as the object. Pieces crocheted into it are
+    # printed after it under a "Make first" line (`cir.joins.make_first`).
+    principal = [p for p in animal.pieces if p.end in ("open", "close")]
+    heads = [p for p in animal.pieces if p.end == "join_head"]
+    rest = [p for p in animal.pieces if p not in principal and p not in heads]
+    for p in principal + heads + rest:
         rows = rows_by_piece[p.name]
         stuff_at = None
         if p.stuffed:

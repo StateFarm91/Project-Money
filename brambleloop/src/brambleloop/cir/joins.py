@@ -11,7 +11,9 @@ from the compiled rounds (`Op.through`, `Row.fold`, the CIR's own counts):
 
   JOIN_UNKNOWN_PIECE     a stitch is worked through a piece the pattern does not contain
   JOIN_SELF              a piece is worked through itself
-  JOIN_ORDER             the piece worked through is made after the round that joins it
+  JOIN_CYCLE             two pieces are each worked through the other: neither is finished
+                         first (a piece printed after the host that joins it is fine: the
+                         writer prints a "Make first" line, read back by the reverse compiler)
   JOIN_STITCH            a joining stitch that is not sc or sl st (one stitch, one edge stitch)
   JOIN_TARGET_CLOSED     the piece was gathered shut, so it has no edge to work through
   JOIN_WIDTH_MISMATCH    a joined run is not exactly the piece's join width (a fold-closed
@@ -49,7 +51,8 @@ from .model import CIR, Component
 
 JOIN_DRIFT_MAX = 3                  # stitches; more than this and placement is guesswork
 JOIN_STITCHES = ("sc", "slst")      # one stitch made per stitch below, one edge stitch each
-# How many pieces may be sewn on with a needle and the construction still read "low sew".
+# How many pieces may be sewn on with a needle and the construction still read "low sew"
+# (pieces, not seam steps: a mirrored step that sews both ears is two).
 LOW_SEW_MAX_SEWN_JOINS = 1
 SEWING_NONE, SEWING_LOW, SEWING_STANDARD, SEWING_UNKNOWN = "none", "low", "standard", "UNKNOWN"
 SEWN_METHODS = ("whipstitch", "mattress", "sew")
@@ -223,7 +226,6 @@ def _group(all_runs: list[JoinRun]) -> dict[tuple[str, str], list[JoinRun]]:
 def check(cir: CIR, result, findings: list) -> None:
     """Append a finding for every joined round, fold or eye placement that does not hold."""
     by_name = {c.name: c for c in cir.components}
-    order = {c.name: i for i, c in enumerate(cir.components)}
     all_runs = runs(cir, result)
 
     # Stitches worked through another piece.
@@ -250,11 +252,11 @@ def check(cir: CIR, result, findings: list) -> None:
             findings.append(_finding("JOIN_SELF", "a piece cannot be worked through itself",
                                      run.host, run.round))
             continue
-        if order[run.target] > order[run.host]:
+        if any(r.host == run.target and r.target == run.host for r in all_runs):
             findings.append(_finding(
-                "JOIN_ORDER",
-                f"round {run.round} works through the {run.target}, which the pattern makes "
-                f"afterwards: a piece is finished before it is crocheted in",
+                "JOIN_CYCLE",
+                f"the {run.host} is worked through the {run.target} and the {run.target} "
+                f"through the {run.host}: one of them must be finished first",
                 run.host, run.round))
         kind, width = join_edge(target, result)
         if kind == "closed":
@@ -434,6 +436,25 @@ def drift_line(comp: Component) -> str:
             f"same.")
 
 
+def make_first(cir: CIR, result, host: str) -> list[tuple[str, int]]:
+    """(piece, make) of every piece `host` crochets in that the document prints after it."""
+    order = [c.name for c in cir.components]
+    by_name = {c.name: c for c in cir.components}
+    out = []
+    for r in runs(cir, result):
+        if r.host == host and r.target in by_name and order.index(r.target) > order.index(host):
+            item = (r.target, by_name[r.target].make)
+            if item not in out:
+                out.append(item)
+    return out
+
+
+def make_first_line(items: list[tuple[str, int]]) -> str:
+    parts = [f"{name.replace('_', ' ')} (make {n})" for name, n in items]
+    return ("Make these first, from their sections below: " + ", ".join(parts)
+            + ". They are crocheted in on the rounds given.")
+
+
 def eye_line(comp: Component) -> str:
     return (f"Eyes on Rnd {comp.eye_round}, {comp.eye_gap_sts} sts apart: embroider each eye "
             f"with yarn only, after stuffing, knots pulled inside the piece.")
@@ -452,8 +473,9 @@ def sewing_required(cir: CIR, result=None) -> dict:
     none      no piece is sewn to another and no feature is embroidered: every join is
               crocheted (fastening off and weaving in ends are not counted -- every pattern
               has them).
-    low       no more than LOW_SEW_MAX_SEWN_JOINS piece is sewn on; embroidered features
-              and gathered closures are allowed.
+    low       no more than LOW_SEW_MAX_SEWN_JOINS piece is sewn on (counted in pieces, so
+              a mirrored step sewing two ears is two); embroidered features and gathered
+              closures are allowed.
     standard  anything more.
     UNKNOWN   the design does not compile, so nothing about it is read (never a pass).
     """
@@ -465,10 +487,14 @@ def sewing_required(cir: CIR, result=None) -> dict:
         return {"sewing_required": SEWING_UNKNOWN, "why": "the design does not compile",
                 "sewn_joins": None, "crochet_joins": None, "needle_work": []}
     sewn = [s for s in cir.assembly if s.method in SEWN_METHODS]
+    by_name = {c.name: c for c in cir.components}
+    # Pieces sewn on, not seam entries: one mirrored seam step sews both ears.
+    sewn_pieces = sum((by_name[s.piece_a].make if s.piece_a in by_name else 1)
+                      if s.piece_a != s.piece_b else 1 for s in sewn)
     crochet = runs(cir, result)
     needle = []
     if sewn:
-        needle.append(f"{len(sewn)} sewn join(s)")
+        needle.append(f"{sewn_pieces} piece(s) sewn on")
     texts = " ".join([cir.designer_notes or ""] + [c.note or "" for c in cir.components]
                      + [r.note or "" for c in cir.components for r in c.rows]
                      + [s.note or "" for s in cir.assembly]).lower()
@@ -481,11 +507,11 @@ def sewing_required(cir: CIR, result=None) -> dict:
         needle.append(f"gathered closure ({', '.join(gathered)})")
     if not sewn and not embroidered and not gathered:
         level = SEWING_NONE
-    elif len(sewn) <= LOW_SEW_MAX_SEWN_JOINS:
+    elif sewn_pieces <= LOW_SEW_MAX_SEWN_JOINS:
         level = SEWING_LOW
     else:
         level = SEWING_STANDARD
-    return {"sewing_required": level, "sewn_joins": len(sewn),
+    return {"sewing_required": level, "sewn_joins": sewn_pieces,
             "crochet_joins": len(crochet), "needle_work": needle,
             "why": ("; ".join(needle) or "every join is crocheted")}
 

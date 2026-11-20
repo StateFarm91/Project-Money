@@ -488,6 +488,10 @@ def write_pattern(cir: CIR, result: CompileResult, terminology: str = "US", *,
 
         comp_runs = [r for r in _joins.runs(cir, result) if r.host == comp.name] \
             if _joins.uses_joins(cir) else []
+        if comp_runs:
+            first = _joins.make_first(cir, result, comp.name)
+            if first:
+                out.append(_joins.make_first_line(first))
         if comp_runs and comp.join_drift_sts is not None:
             out.append(_joins.drift_line(comp))
         # Collapse a repeated row-block into an instruction, the way a real pattern does.

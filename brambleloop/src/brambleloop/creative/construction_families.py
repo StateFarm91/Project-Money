@@ -113,6 +113,19 @@ FAMILIES: dict[str, Family] = {f.key: f for f in (
            ("30 x 30 cm square",), "creative.baby.LOVEY_SQUARE_CM (design choice)",
            "bear or bunny head only; certification withholds for the physical sample and the "
            "child-safety physical evidence"),
+    # ENG-LOWSEW-CHENILLE: join-as-you-go chunky chenille animals (`creative.lowsew`). The
+    # engine's three original animals compile, build their twins, reverse-compile US and UK,
+    # pass every computable child-safety check and are withheld ONLY for physical evidence
+    # (tests/test_eng_lowsew.py). PARTIAL, not admitted: research intake does not yet route a
+    # concept to it -- `plan()` has no title route for it, so a researched "chenille fox"
+    # cannot reach this engine and is held by name rather than drafted as something else.
+    Family("lowsew_chenille", "creative.lowsew.draft", PARTIAL,
+           "tests/test_eng_lowsew.py::test_three_original_animals_are_physical_gated_end_to_end",
+           ("one size",), "cir.yarn_classes.CHENILLE_6 design gauge at 6 mm (uncalibrated; "
+                          "circumference only, height from a sample)",
+           "only the animals specified in creative.lowsew; no research title route yet; "
+           "certification withholds for the physical sample and the child-safety physical "
+           "evidence"),
     Family(FC.POUCH, "creative.fallback_constructions.pouch", PARTIAL, "",
            ("one size",), "fallback_constructions.POUCH_ACROSS_CM (design choice)",
            "certification refuses ASSET_COLOR_ABSENT: the pouch works one palette colour "

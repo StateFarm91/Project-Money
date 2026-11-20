@@ -1468,11 +1468,23 @@ def _short_size(twin: TwinModel, cir: CIR | None = None) -> str:
 
 def _yarn_weight_label(cir: CIR) -> str:
     weights = sorted({m.yarn_weight for m in cir.materials if m.yarn_weight})
-    named = ", ".join(w.upper() if len(w) <= 3 else w.capitalize() for w in weights)
+    named = ", ".join(w.upper() if len(w) <= 3 else w.replace("_", " ").capitalize()
+                      for w in weights)
     cyc = cir.gauge.yarn_weight if cir.gauge and cir.gauge.yarn_weight else ""
     if cyc and cyc.lower() not in {w.lower() for w in weights}:
         return f"{named} weight ({cyc.replace('_', ' ')})"
     return f"{named} weight" if named else "see Materials"
+
+
+def _hook_words(cir: CIR) -> str:
+    """The hook, and for a chenille yarn class its range (ENG-LOWSEW-CHENILLE)."""
+    if not cir.gauge:
+        return "see Materials"
+    from ..cir import yarn_classes as _yc
+
+    cls = _yc.classify(cir)
+    base = f"{cir.gauge.hook_mm:g} mm"
+    return f"{base} (range {cls.hook_range_words})" if cls is not None else base
 
 
 def _metres(m: float, tol: float) -> tuple[float, float]:
@@ -1507,7 +1519,10 @@ def overview_paragraphs(cir: CIR, result, twin: TwinModel, text: str,
         size = re.sub(r"^[a-z]+(,| base)\s*", lambda m: "base " if "base" in m.group(0) else "",
                       size)
     if size:
-        first += f", {'each ' if make > 1 else ''}{size} at the stated gauge"
+        # ENG-LOWSEW-CHENILLE: in a multi-piece pattern the size is the first (principal)
+        # piece's, so it is said to be that piece's; "each" was only true of a set of one piece.
+        lead = ("each " if make > 1 else "") if len(cir.components) == 1 else f"the {piece} "
+        first += f", {lead}{size} at the stated gauge"
         first += "." if not twin.calibrated else ", measured on a worked sample."
         if not twin.calibrated:
             first = first[:-1] + ", computed rather than measured."
@@ -1937,7 +1952,8 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
              align="centre", track=0.5)
     if make_total > 1:
         # The CIR makes several pieces; the cover says how many (Component.make).
-        makes = f"Makes {make_total} {piece}s"
+        makes = (f"Makes {make_total} {piece}s" if len(cir.components) == 1
+                 else f"Makes 1 from {make_total} pieces")
         doc.prose.append(makes)
         doc.text(PAGE_W / 2, title_y - 15 * mm, makes, FONT_DISPLAY_ITALIC, 15, ACCENT,
                  align="centre")
@@ -1973,7 +1989,7 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     strip = [("Skill", difficulty_word.capitalize()),
              ("Finished size", _short_size(twin, cir)),
              ("Yarn", _yarn_weight_label(cir)),
-             ("Hook", f"{cir.gauge.hook_mm:g} mm" if cir.gauge else "see Materials")]
+             ("Hook", _hook_words(cir))]
     col_w = usable / len(strip)
     for i, (k, v) in enumerate(strip):
         x = MARGIN + i * col_w
@@ -2008,7 +2024,8 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     rows.insert(0, ("skill", "difficulty", difficulty_word,
                     {"level": level, "of": len(LADDER)}))
     if make_total > 1:
-        rows.append(("pieces", "pieces", f"{make_total} {piece}s", {}))
+        rows.append(("pieces", "pieces", f"{make_total} {piece}s" if len(cir.components) == 1
+                     else f"{make_total} pieces", {}))
     construction = cir.construction.replace("_", " ")
     if "magic ring" in text:
         construction += ", from a magic ring"
@@ -2020,12 +2037,18 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     rows.append(("yarn", "yarn", yarn, {}))
     if twin.yarn_metres_by_color:
         total = sum(twin.yarn_metres_by_color.values())
-        lo, hi = _metres(total, twin.yardage_tolerance)
+        tolerance = twin.yardage_tolerance
+        if len(cir.components) > 1:
+            # "In total" is the whole pattern: every piece, times its make count.
+            others = [build_twin(cir, result, component=c.name) for c in cir.components[1:]]
+            total += sum(sum(t.yarn_metres_by_color.values()) for t in others)
+            tolerance = max([tolerance] + [t.yardage_tolerance for t in others])
+        lo, hi = _metres(total, tolerance)
         rows.append(("yarn", "yarn amount",
                      f"about {lo:.0f}-{hi:.0f} m in total ({lo * 1.094:.0f}-{hi * 1.094:.0f} yd), "
                      f"estimated", {}))
     if cir.gauge:
-        rows.append(("hook", "hook", f"{cir.gauge.hook_mm:g} mm", {}))
+        rows.append(("hook", "hook", _hook_words(cir), {}))
         rows.append(("gauge", "gauge", f"{cir.gauge.stitches_per_10cm} sts x "
                      f"{cir.gauge.rows_per_10cm} rows = 10 cm in {_gauge_stitch(cir, terminology)}",
                      {}))

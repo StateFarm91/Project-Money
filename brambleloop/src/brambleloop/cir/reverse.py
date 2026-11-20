@@ -460,6 +460,8 @@ _PLACEMENT_PART_RE = re.compile(r"^([a-z0-9 _-]+?)\s+(\d+)\s+through\s+sts\s+(\d
                                 re.I)
 _DRIFT_RE = re.compile(r"^Spiral drift:.*?by up to (\d+) sts", re.I)
 _EYES_RE = re.compile(r"^Eyes on (?:Rnd|Round) (\d+), (\d+) sts apart:", re.I)
+_MAKE_FIRST_RE = re.compile(r"^Make these first, from their sections below:\s*(.+?)\.\s+They",
+                            re.I)
 
 
 def parse_joins(text: str) -> dict:
@@ -468,7 +470,7 @@ def parse_joins(text: str) -> dict:
 
     {"placements": {(piece, round): (count, [(target, start, end), ...])},
      "drift": {piece: sts}, "eyes": {piece: (round, gap)}}"""
-    out = {"placements": {}, "drift": {}, "eyes": {}}
+    out = {"placements": {}, "drift": {}, "eyes": {}, "make_first": {}}
     current: str | None = None
     for raw in text.splitlines():
         line = raw.strip()
@@ -491,6 +493,16 @@ def parse_joins(text: str) -> dict:
         m = _DRIFT_RE.match(line)
         if m:
             out["drift"][current] = int(m.group(1))
+            continue
+        m = _MAKE_FIRST_RE.match(line)
+        if m:
+            items = []
+            for chunk in m.group(1).split(","):
+                pm = re.fullmatch(r"([a-z0-9 _-]+?)\s+\(make\s+(\d+)\)", chunk.strip(), re.I)
+                if not pm:
+                    raise ParseProblem(f"unreadable make-first item {chunk.strip()!r}")
+                items.append((pm.group(1).strip().lower().replace(" ", "_"), int(pm.group(2))))
+            out["make_first"][current] = items
             continue
         m = _EYES_RE.match(line)
         if m:
@@ -903,6 +915,16 @@ def _compare_joins(cir: CIR, text: str, parsed: list, terminology: str) -> list[
         out.append(Finding(
             ERROR, "REVERSE_JOIN_DRIFT",
             f"drift allowance differs: CIR {want_drift}, customer text {printed['drift']}"))
+    want_first = {}
+    for c in cir.components:
+        items = _joins.make_first(cir, result, c.name)
+        if items:
+            want_first[key(c.name)] = items
+    if printed["make_first"] != want_first:
+        out.append(Finding(
+            ERROR, "REVERSE_JOIN_ORDER",
+            f"the pieces to make first differ: CIR {want_first}, customer text "
+            f"{printed['make_first']}"))
     want_eyes = {key(c.name): (c.eye_round, c.eye_gap_sts) for c in cir.components
                  if c.eye_round is not None and c.eye_gap_sts is not None}
     if printed["eyes"] != want_eyes:
