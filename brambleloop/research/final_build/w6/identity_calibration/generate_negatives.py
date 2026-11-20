@@ -5,8 +5,9 @@ including deliberate look-alikes (the impostor class that matters). Hard cap: US
 the published FLUX 3 1k price (US$0.048/image), authorised under D-OWNER-STANDING-INTERNAL
 (routine image generation inside the CA$100/month model ceiling), through the gateway's
 reservation path. NOT RUN in the build session: this session's BFL key was not available.
-To reach the >= 300 impostor faces production needs, run with n_grids ~ 34 and CAP_USD 1.70
-(US$0.048 each), then add the files to calibration_set.json with face "all".
+Production needs >= 300 HELD-OUT impostor faces, and 1/3 of impostors are spent on calibration
+(`identity_calibration.CALIBRATION_FRACTION`), so >= 450 in total: run with n_grids ~ 50 and
+CAP_USD 2.40 (US$0.048 each), then add the files to calibration_set.json with face "all".
 """
 import json, time
 from pathlib import Path
