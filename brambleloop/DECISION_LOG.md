@@ -2914,3 +2914,27 @@ Reversible by decision. The non-tunable rule is the owner's and is not reversibl
 - **Caps in code, lower-only.** Within `paid_provider_gate.authorize` the caps are 60 images per UTC day and 16 images / CA$2.50 per gallery. The environment can lower them and never raise them. They sit beneath the owner's activation ceilings, so the lower one binds.
 - **Readiness.** It is READY only when `BRAMBLELOOP_IMAGE_KEY_BFL` is present (presence only; the value is never read into output) and the owner's `flux-3-image` generation activation is active. Otherwise it is UNKNOWN with the reason, and the generation job refuses before reserving.
 - **Retention.** `image.generation_rejected` and `image.generation_rejection_rechecked` are lifetime-protected.
+
+## D-OWNER-DEPLOY-OVERRIDE — 2026-11-20 ~12:40 UTC (owner, exact SHA)
+
+**Decision:** The owner authorised deploying exactly **dde3ea62** (Batch 16, which contains
+Batches 12–15) WITHOUT the uninterrupted full-suite pass that deploy_guard requires
+(D-W4-OWNER-RESUME-POLICY). Answered via the session's question: "Deploy dde3ea62 now".
+
+**Why:** The full-suite certifications died at a usage limit, and the deadline is today.
+
+**Evidence at decision time:** Batch 15 overlap suites 335/0 failing, Batch 16 affected suites
+270/0, Batch 14 overlap 239+23 — about 600 targeted tests green. Three full runs were still in
+flight: two cloud, one local.
+
+**Safeguards kept:**
+- a fresh verified backup (BK RESULT OK 20261120T121953Z);
+- the rollback rehearsal to 5496bc4a;
+- verify_deploy and the readback with the token;
+- a manual rollback to 5496bc4a on any P0 readback regression.
+
+**Code scope:** The pushed release commit equals dde3ea62's code plus release records only
+(DEPLOYED_HISTORY and release evidence merged from claude/w6-release-a35ad302, and this
+entry). The guard itself is unchanged. This is a one-time, exact-SHA override, not a policy
+change. The in-flight full runs continue; any failure they find is fixed and redeployed
+through the normal guarded path.
