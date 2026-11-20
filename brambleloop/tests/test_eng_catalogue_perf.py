@@ -1,6 +1,6 @@
 """ENG-CATALOGUE fix round 1 (performance): a cold catalogue read at production scale -- 600
 products, 70k jobs, 150k audit rows -- must not be O(products x jobs). The measured defect was
-6.4-6.9 s on PG; the target is under 1 s there, and this test holds a generous bound on SQLite.
+6.4-6.9 s on PG; the acceptance target is under 1 s uncached, and this test asserts exactly that bound.
 
 Run: cd brambleloop && PYTHONPATH=src $PY tests/test_eng_catalogue_perf.py
 """
@@ -55,7 +55,7 @@ DB = main.db
 NOW = datetime.now(timezone.utc)
 
 PRODUCTS, JOBS, AUDITS = 600, 70_000, 150_000
-BOUND_SECONDS = 5.0     # generous: the pre-fix cold read was 7.7 s here, ~3.2 s now
+BOUND_SECONDS = 1.0     # the acceptance target (uncached, this fixture); ~0.85 s measured
 
 
 def _seed():
@@ -106,6 +106,46 @@ def test_cold_catalogue_read_at_production_scale_is_not_quadratic():
     assert v["totals"]["versions"] == PRODUCTS + PRODUCTS // 3
     print(f"cold catalogue read: {took:.2f}s ({PRODUCTS} products, {JOBS} jobs, {AUDITS} audits)")
     assert took < BOUND_SECONDS, f"{took:.1f}s cold read: per-product scans of all jobs/audits"
+
+
+def test_500_concurrent_cold_readers_single_flight_one_load_no_errors():
+    """ENG-CATALOGUE fix round 2 (M2): 500 simultaneous cold readers on the 600-product / 70k-job
+    / 150k-audit fixture. All must succeed with the same totals, and the inventory must be
+    loaded exactly once (single-flight): the other 499 wait for the one build, none reloads."""
+    real = PI.load_records
+    calls: list = []
+
+    def counting(db):
+        calls.append(1)
+        return real(db)
+
+    N = 500
+    C.reset()
+    PROD.reset()
+    start = threading.Barrier(N)
+    results: list = []
+    errors: list = []
+
+    def reader():
+        try:
+            start.wait(timeout=60)
+            results.append(C.view(DB, {}))
+        except BaseException as exc:  # noqa: BLE001 - any failure is a test failure
+            errors.append(repr(exc))
+
+    with patch.object(PI, "load_records", counting):
+        ts = [threading.Thread(target=reader) for _ in range(N)]
+        t0 = time.perf_counter()
+        [t.start() for t in ts]
+        [t.join(timeout=120) for t in ts]
+        took = time.perf_counter() - t0
+    assert not any(t.is_alive() for t in ts), "a reader never returned"
+    assert not errors, errors[:3]
+    assert len(results) == N
+    assert all(r["status"] == "OK" for r in results), {r["status"] for r in results}
+    assert {r["totals"]["products"] for r in results} == {PRODUCTS}
+    assert len(calls) == 1, f"load_records called {len(calls)} times for {N} cold readers"
+    print(f"{N} concurrent cold readers: {took:.2f}s, load_records x{len(calls)}")
 
 
 def test_the_per_product_lookups_use_the_grouped_index_not_a_scan():

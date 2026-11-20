@@ -264,9 +264,9 @@ def test_cold_reads_coalesce_and_share_the_snapshot_with_the_production_view():
     assert len(calls) == 1, f"inventory loaded {len(calls)} times; expected once (shared + coalesced)"
 
 
-def test_service_worker_is_v34_or_later():
+def test_service_worker_is_v36_or_later():
     sw = (ROOT / "src/brambleloop/app/command_center/static/sw.js").read_text()
-    assert int(re.search(r'const VERSION = "cc-shell-v(\d+)";', sw).group(1)) >= 34
+    assert int(re.search(r'const VERSION = "cc-shell-v(\d+)";', sw).group(1)) >= 36
 
 
 if __name__ == "__main__":

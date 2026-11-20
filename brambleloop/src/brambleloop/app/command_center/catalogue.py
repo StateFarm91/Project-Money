@@ -171,7 +171,8 @@ def next_action(item: dict, listing: dict | None = None) -> dict:
         if kind in holds:
             return {"action": action, "owner": "owner", "job_type": None}
     action, job_type = NEXT_ACTION.get(item.get("state"), (UNKNOWN, None))
-    if item.get("state") == "published":
+    from ...core import listing_state
+    if item.get("state") == listing_state.PUBLISHED:
         lstate = (listing or {}).get("state", "")
         if is_verified_draft(lstate) and (listing or {}).get("etsy_listing_id"):
             # A verified draft is not live: the next step is the owner's activation, which

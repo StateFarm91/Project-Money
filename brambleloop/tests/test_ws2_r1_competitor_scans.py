@@ -1,4 +1,4 @@
-"""WS2 R1 (audit WS2_research_audit §6): the eight shops' scan state, readable in production.
+"""WS2 R1 (audit WS2_research_audit §6): the nine shops' scan state, readable in production.
 
 `/api/readback/evidence` (the read-only readback token) gains a `competitor_scans` section: per
 shop, in the owner's order, alias, role, state, method, cadence, last attempted / successful,
@@ -18,6 +18,10 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+# D-OWNER-NINTH-SHOP: the owner's nine research shops, in the owner's order, by benchmark key.
+NINE_KEYS = ("mjs_off_the_hook_designs", "madeline_mae_co", "zkbdesigner", "the_easy_design",
+             "hanjan_crochet", "ivyloop", "loveandstitch_designs", "firefly_crochets",
+             "artlove_desing")
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "tests"))
 
@@ -75,7 +79,9 @@ def test_every_owner_shop_is_reported_in_order_with_its_state():
     sec = PE.competitor_scans(db, now=NOW)
     assert sec["readable"] is True
     assert [r["owner_order"] for r in sec["shops"]] == list(range(1, len(SE.OWNER_SHOPS) + 1))
-    assert len(sec["shops"]) == 8
+    assert len(sec["shops"]) == 9
+    # D-OWNER-NINTH-SHOP: the exact nine (by alias), so a silently dropped shop fails here.
+    assert [r["alias"] for r in sec["shops"]] == [benchmark_alias(k) for k in NINE_KEYS]
     by = {r["alias"]: r for r in sec["shops"]}
     anchor = by[benchmark_alias(benchmarks.MJS_KEY)]
     assert anchor["state"] == SE.SCANNED and anchor["failure_class"] is None
@@ -129,7 +135,8 @@ def test_the_section_ships_on_the_readback_route_and_an_empty_database_is_honest
     body = PE.evidence(db, now=NOW)
     sec = body["sections"]["competitor_scans"] if "sections" in body else body[
         "competitor_scans"]
-    assert sec["readable"] is True and len(sec["shops"]) == 8
+    assert sec["readable"] is True and len(sec["shops"]) == 9
+    assert [r["alias"] for r in sec["shops"]] == [benchmark_alias(k) for k in NINE_KEYS]
     assert all(r["state"] == SE.NEVER for r in sec["shops"]), [r["state"] for r in sec["shops"]]
     assert all(r["last_successful"] is None for r in sec["shops"])
     assert "competitor_scans" in PE.SECTIONS
@@ -139,7 +146,7 @@ def test_the_research_jobs_are_counted_in_the_loop():
     stages = dict(PE.LOOP_STAGES)
     assert "intel.panel_discovery" in stages["market_observation"]
     assert "radar.concept_intake" in stages["opportunity_validation"]
-    # Review 6816970157 M1: the daily join always reports eight shops as work, so it must not
+    # Review 6816970157 M1: the daily join always reports nine shops as work, so it must not
     # satisfy market_observation on a day nothing was scanned.
     assert all("intel.scan_evidence" not in jts for _stage, jts in PE.LOOP_STAGES)
 
@@ -160,17 +167,17 @@ def test_review_m2_a_stale_success_is_not_a_current_scan_and_warns():
     assert anchor["state"] == SE.SCANNED and anchor["stale"] is True, anchor
     assert anchor["stale_after_hours"] <= PE.STALE_CAP_HOURS
     every_scanned = {**sec, "credential": "usable",
-                     "shops": [{**anchor}] + [{**anchor, "stale": False} for _ in range(7)]}
+                     "shops": [{**anchor}] + [{**anchor, "stale": False} for _ in range(8)]}
     verdict, why = readback._judge_section("competitor_scans", every_scanned, None)
     assert verdict == readback.WARN and "stale" in why, why
     current = {**anchor, "stale": False, "success_age_hours": 1.0, "stale_after_hours": 12.0}
-    fresh = {**every_scanned, "shops": [current] * 8}
+    fresh = {**every_scanned, "shops": [current] * 9}
     assert readback._judge_section("competitor_scans", fresh, None)[0] == readback.PASS
     # Review 6819096414 LOW-1: the flag alone is not trusted -- an age past the limit, or an
     # age or limit that cannot be read, is stale even when the flag says otherwise.
     for bad in ({"success_age_hours": 13.0}, {"success_age_hours": None},
                 {"stale_after_hours": None}, {"success_age_hours": "1"}):
-        shops = [{**current, **bad}] + [current] * 7
+        shops = [{**current, **bad}] + [current] * 8
         verdict, why = readback._judge_section("competitor_scans",
                                                {**fresh, "shops": shops}, None)
         assert verdict == readback.WARN and "stale" in why, (bad, why)
@@ -319,21 +326,27 @@ def test_review_l1_l3_evidence_warns_with_its_code_and_classes_are_the_shops_own
     assert anchor["failure_class"] != "credential_refused", anchor
 
 
-def test_the_deploy_readback_row_is_advisory_pass_only_when_all_eight_are_scanned():
+def test_the_deploy_readback_row_is_advisory_pass_only_when_all_nine_are_scanned():
     sys.path.insert(0, str(ROOT.parent / "ops"))
     import readback
 
-    assert ("competitor shops scanned (eight-shop research network)", "competitor_scans",
+    assert ("competitor shops scanned (nine-shop research network)", "competitor_scans",
             None) in readback.EVIDENCE_ITEMS
+    # The stdlib-only script states the count; it must be the owner's list's length.
+    assert readback.RESEARCH_SHOPS == len(SE.OWNER_SHOPS) == 9
     j = readback._judge_section
     shop = {"alias": "bm-x", "state": "scanned", "failure_class": None, "stale": False,
             "success_age_hours": 2.0, "stale_after_hours": 12.0}
-    all_ok = {"readable": True, "credential": "usable", "shops": [shop] * 8}
+    all_ok = {"readable": True, "credential": "usable", "shops": [shop] * 9}
     assert j("competitor_scans", all_ok, None)[0] == readback.PASS
-    one_bad = {**all_ok, "shops": [shop] * 7 + [{"alias": "bm-y", "state": "not_accessible",
+    one_bad = {**all_ok, "shops": [shop] * 8 + [{"alias": "bm-y", "state": "not_accessible",
                                                  "failure_class": "credential_refused"}]}
     verdict, why = j("competitor_scans", one_bad, None)
-    assert verdict == readback.WARN and "7/8" in why and "credential_refused" in why, why
+    assert verdict == readback.WARN and "8/9" in why and "credential_refused" in why, why
+    # D-OWNER-NINTH-SHOP: a server that reports only the old eight has dropped a shop.
+    eight = {**all_ok, "shops": [shop] * 8}
+    verdict, why = j("competitor_scans", eight, None)
+    assert verdict == readback.WARN and "expected 9" in why, why
     refused = {**all_ok, "credential": "refused"}
     assert j("competitor_scans", refused, None)[0] == readback.WARN
     assert j("competitor_scans", {"readable": False, "error_class": "KeyError"},

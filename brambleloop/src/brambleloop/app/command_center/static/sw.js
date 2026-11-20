@@ -18,11 +18,12 @@
 // read", so v31.
 // ENG-FIRSTLIST: approvals.js threads the preview digest into approvals; merged after S4's
 // v30/v31 (INTEG2), so v32 supersedes both shells.
+// Assign 7012067586 L2/L3: approval digests keyed by action+params; preview verbs. v33
+// (INTEG2 / research-flow line, up to v35).
 // ENG-CATALOGUE: the Catalogue (#/catalogue) and Agent evidence (#/agents_evidence) views join
-// the shell, so v33 (above INTEG2's v32).
-// ENG-CATALOGUE fix round 1: catalogue.js shows products / versions / concepts / superseded
-// apart, so v34.
-const VERSION = "cc-shell-v34";
+// the shell; fix round 1 splits products / versions / concepts / superseded; fix round 2
+// (cold-read perf) bumps above research-flow's v35, so v36.
+const VERSION = "cc-shell-v36";
 const SHELL = [
   "./",
   "index.html",

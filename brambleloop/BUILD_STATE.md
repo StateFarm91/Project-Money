@@ -1,3 +1,34 @@
+> **2026-11-19 — ENG-RECOVERY fix round 1 (`eng/recovery`, NOT merged, NOT deployed).** Main's review was DO NOT SHIP.
+> - H1: the spend classifier now FAILS CLOSED. `swarm.orchestrate.FREE_JOB_TYPES` is an explicit allow-list
+>   (94 cadence loops). Every other job type is spending, including `intel.serp_capture` and
+>   `laura.executive_tick`, which the old deny-list missed. A static call graph (`tests/_spend_reach.py`)
+>   proves that no allow-listed handler reaches the paid gateway, cross-checked against
+>   `test_cert_spend_hosts.DECLARED`.
+> - M1: `radar.scan` selects only undrafted concepts that `radar.score` would promote today (one shared
+>   `promotion_verdict`; #88 and the threshold are unchanged). On the production drafted set it drafts the
+>   3 promotable concepts, then records `selection_unpromotable` with a reason for each of the 15 held
+>   concepts. No honest premise path exists for POOL slots (only creative tournament winners or approved
+>   intake), so they stay held. **original_product will stall again after those 3 drafts** until creative
+>   or intake supplies real concepts.
+> - L1/L4/L5 addressed (full pool size reported; boot record read once per pass; an end-to-end test
+>   proves a legacy row completes its chain under a pending #39 without spending its budget).
+
+> **2026-11-19 — ENG-RECOVERY slice 1 (`eng/recovery`, NOT merged, NOT deployed; production 8bc96eef SHADOW).**
+> P0 "the factory makes nothing" root-caused from the code; no gate weakened.
+> - original_product 0/0/0: `radar.scan` re-selected the same 11 drafted concepts every time
+>   (score-only ranking; `draft:<slug>` dedupe swallowed silently). It now selects from the
+>   undrafted pool, falling back to the full pool.
+> - Thrash breaker: a backoff never consulted the code, so a fixed and redeployed loop stayed at
+>   x32. A suspended NON-SPENDING loop now gets one probe per new release (boot record plus a
+>   changed commit or handler digest). Spending loops are unchanged.
+> - #39 `listing_image_rules`: it held every internal rebuild retry. Now only a change governing
+>   `product_creation` holds the rebuild; publication still refuses on every unreviewed change.
+>   OWNER ACTION: Command Center card "Etsy policy changed: listing_image_rules", Preview then
+>   Review (confirm "reviewed and tested").
+> - Tests: `test_eng_recovery` (new), 12 of 12 mutants killed. Suites and status:
+>   `research/final_build/w6/review_requests/recovery.md`. Slice 2: a legacy rebuild-incomplete row
+>   with nothing STALE gets one targeted rebuild (once per row); 15 of 15 mutants killed.
+
 > **2026-11-02 — Batch 4 DEPLOYED: production = 0967c3ee (SHADOW unchanged). 24-hour acceptance running until 2026-11-03T03:31Z.**
 > - Owner approval: "APPROVE DEPLOY 0967c3eee287d06cad0d8034a99e39076c0ab6d5" (2026-11-02).
 > - Pre-release backup (03:27:45Z, before the push): `brambleloop_prod_20261102T032745Z.dump`, 497,732,160 bytes, sha256

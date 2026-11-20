@@ -81,6 +81,19 @@ COMPETITORS: list[CompetitorProfile] = [
         strength="A single recurring model across the grid makes the shop read as one brand.",
         gap="Garments are Class C: they need physical testing, which is slow for us at first.",
     ),
+    # D-OWNER-NINTH-SHOP (owner directive 2026-11-19): named by the owner as a permanent
+    # research source. Nothing has been observed yet, so nothing is claimed: the profile is
+    # filled from the first official-API watchlist scan, exactly as IvyLoop's.
+    CompetitorProfile(
+        shop="ArtLoveDesing",
+        url="https://www.etsy.com/ca/shop/ArtLoveDesing",
+        positioning="Named by owner 2026-11-19; profile to be filled on first live scan",
+        observed_price_band_cad=(0.0, 0.0),
+        discount_pattern=None,
+        format_signals=[],
+        strength="Not yet observed.",
+        gap="Not yet observed.",
+    ),
     CompetitorProfile(
         shop="IvyLoop",
         url="https://www.etsy.com/ca/shop/IvyLoop",
