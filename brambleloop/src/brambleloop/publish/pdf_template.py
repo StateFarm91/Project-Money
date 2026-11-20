@@ -694,6 +694,7 @@ def build_template_pdf(cir: CIR, *, terminology: str = "US", twin: TwinModel | N
     text = write_pattern(cir, result, terminology=terminology,
                          width_cm=twin.width_cm, height_cm=twin.height_cm)
     facts = _Facts(cir, result, twin, text, terminology, released_on, fam, childrens)
+    facts.has_gallery = bool(plan["slots"])
     slots = plan["slots"]
     total = 0
     for _ in range(4):
@@ -768,6 +769,7 @@ class _Facts:
         self.piece = cir.components[0].name.replace("_", " ")
         self.colours = {n: colors.HexColor(v) for n, v in (cir.colors or {}).items() if v}
         self._memo: dict = {}
+        self.has_gallery = False
 
     def memo(self, key: str, fn):
         """Computed once per document, reused by every layout pass."""
@@ -787,8 +789,39 @@ class _Facts:
         return P._short_size(self.twin, self.cir)
 
     def overview(self) -> list[str]:
-        return P.overview_paragraphs(self.cir, self.result, self.twin, self.text,
-                                     self.terminology)
+        """publish.pdf's overview, without its closing sentence about the engine layout's
+        contents; this edition states its own (`includes_line`)."""
+        paras = P.overview_paragraphs(self.cir, self.result, self.twin, self.text,
+                                      self.terminology)
+        body = [p for p in paras if not p.startswith("It is written in ")]
+        return body[:2] + [self.includes_line()]
+
+    def chart_art(self) -> dict:
+        from .charts import render_legend
+
+        def build():
+            art = P._chart_art(self.cir, self.twin)
+            return dict(art, legend=render_legend(
+                self.cir, self.twin, terminology=self.terminology, marks=art.get("marks"),
+                colours=art.get("charted_colours"), lettered=bool(art.get("cues"))))
+
+        return self.memo("chart", build)
+
+    def chart_included(self) -> bool:
+        return self.family in CHART_FAMILIES or not self.chart_art().get("tiles")
+
+    def includes_line(self) -> str:
+        from .construction_diagrams import stages as _stages
+
+        unit = "round" if "round" in self.cir.components[0].construction else "row"
+        parts = ["a schematic"] + (["a chart"] if self.chart_included() else [])
+        if self.memo("stages", lambda: _stages(self.cir)) or _tricky_rows(self, []):
+            parts.append("inline diagrams at the key steps")
+        if self.has_gallery:
+            parts.append("the certified gallery")
+        listed = ", ".join(parts[:-1]) + " and " + parts[-1]
+        return (f"It is written in {self.terminology} crochet terms. Every {unit} is written "
+                f"out with its stitch count, and this edition includes {listed}.")
 
     def how_it_comes_together(self) -> str:
         lines = P.construction_overview(self.cir)
@@ -853,13 +886,20 @@ class _Facts:
             for e in g.sizes:
                 built = e.get("built_cm") or {}
                 body = e.get("body_cm") or {}
-                fin = ", ".join(f"{k} {v:g} cm" for k, v in sorted(built.items())[:2])
+
+                def pick(d):
+                    keys = [k for k in ("chest", "bust", "hip", "length", "body_length")
+                            if k in d] or sorted(d)
+                    return keys[:2]
+
+                fin = ", ".join(f"{k.replace('_', ' ')} {built[k]:g} cm" for k in pick(built))
                 yarn = (f"{e['yarn_m']:.0f} m / {e['yarn_m'] * 1.094:.0f} yd"
                         if e.get("yarn_m") else "")
                 if not fin or not yarn:
                     self.block(f"size {e.get('size')} has no built measurement or yarn figure",
                                "sizing")
-                note = ", ".join(f"to fit {k} {v:g} cm" for k, v in sorted(body.items())[:1])
+                note = ", ".join(f"to fit {k.replace('_', ' ')} {body[k]:g} cm"
+                                 for k in pick(body)[:1])
                 if str(e.get("size")) == str(g.size):
                     note = (note + "; this edition" if note else "this edition")
                 out.append((str(e.get("size")), fin, yarn, note))
@@ -1093,7 +1133,7 @@ def _meet(t: _T, f: _Facts) -> None:
         f.block("no project introduction can be built from the design record",
                 "meet_the_pattern")
     how = f.how_it_comes_together()
-    left_body_h = (sum(t.para_h(p, 280, size=10.6) + 6 for p in about[:2]) + 26 +
+    left_body_h = (sum(t.para_h(p, 280, size=10.6, leading=16) + 6 for p in about) + 34 +
                    t.para_h(how, 280, size=10) + 50)
     details = [("DIFFICULTY", f.difficulty.capitalize()),
                ("CATEGORY", FAMILY_LABEL[f.family]),
@@ -1109,7 +1149,7 @@ def _meet(t: _T, f: _Facts) -> None:
     t.card(371, top, 196, h, fill=SAGE)
     t.label(62, top + 14, "ABOUT THIS DESIGN")
     y = top + 42
-    for p in about[:2]:
+    for p in about:
         y = t.para(62, y, 280, p, size=10.6, leading=16) + 6
     y += 8
     t.label(62, y, "HOW IT COMES TOGETHER")
@@ -1276,6 +1316,15 @@ def _construction(t: _T, f: _Facts) -> None:
     img, source = _schematic_image(f)
     if img is None:
         f.block("no schematic can be drawn from the certified geometry", "construction")
+    # the schematic card first, beside the sequence on the section's first page
+    sx, stop, sw, sh = 379, 240, 188, 309
+    first_page = t.pages
+    t.card(sx, stop, sw, sh, fill=SAGE)
+    t.label(sx + 12, stop + 14, "SCHEMATIC", INK)
+    t.prose.append("Schematic")
+    t.image(img, sx + 10, stop + 36, sw - 20, sh - 80, fit="contain",
+            figure={"kind": "schematic", "source": source, "label": "Schematic"})
+    t.label(sx + 12, stop + sh - 26, "DIAGRAM FROM CERTIFIED DATA", BROWN, track=1.0)
     y = 240
     fills = [CREAM, PAPER]
     for i, s in enumerate(steps, start=1):
@@ -1293,14 +1342,8 @@ def _construction(t: _T, f: _Facts) -> None:
             yy += 14
         t.prose.append(s)
         y += h + 11
-    # the schematic card, beside the sequence on its first page
-    sx, stop, sw, sh = 379, 240, 188, 309
-    t.card(sx, stop, sw, sh, fill=SAGE)
-    t.label(sx + 12, stop + 14, "SCHEMATIC", INK)
-    t.prose.append("Schematic")
-    t.image(img, sx + 10, stop + 36, sw - 20, sh - 80, fit="contain",
-            figure={"kind": "schematic", "source": source, "label": "Schematic"})
-    t.label(sx + 12, stop + sh - 26, "DIAGRAM FROM CERTIFIED DATA", BROWN, track=1.0)
+    if t.pages != first_page:
+        stop, sh = 0, 0
     t.top = max(y, stop + sh + 17)
     body = [f.check_construction()]
     h = _card_height(t, CONTENT_W, body)
@@ -1403,6 +1446,9 @@ def _mini_grid(f: _Facts, first: int, last: int, *, cols: int | None = 24, px: i
     return img
 
 
+_ANY_COUNT = re.compile(r"\(\d+ sts?\)")
+
+
 def _tricky_rows(f: _Facts, labels: list[tuple[int, str]]) -> set[int]:
     """The step numbers where the standard asks for a picture: the first row whose stitch
     sequence differs from the row below it, and the first colour change."""
@@ -1494,14 +1540,17 @@ def _pattern(t: _T, f: _Facts, slots: list[dict]) -> int:
                 continue
             label = m.group("label")
             body = m.group("body")
-            cm = P._COUNT.search(body)
-            if not cm:
+            counts = list(_ANY_COUNT.finditer(body))
+            if not counts:
                 f.block(f"{label.rstrip(':')} has no stitch count in the compiled pattern",
                         "pattern")
-            count = cm.group("count")
+            cm = counts[-1]
+            count = cm.group(0)
+            trailing = body[cm.end():].strip().lstrip("-– ").strip()
             body = body[:cm.start()].rstrip()
             blines = t.wrap(body, SANS, MIN_PT + 0.5, COL_W - 8)
-            hh = 16 + len(blines) * 13 + 15 + 9
+            tlines = t.wrap(trailing, SANS, MIN_PT, COL_W - 8) if trailing else []
+            hh = 16 + len(blines) * 13 + 15 + 9 + len(tlines) * 12
             next_col(hh)
             colour = None
             c2 = re.search(r"\(([^)]+)\):$", label)
@@ -1522,6 +1571,9 @@ def _pattern(t: _T, f: _Facts, slots: list[dict]) -> int:
                 t.text(x + 2, yy, b, SANS, MIN_PT + 0.5, INK, record=False)
                 yy += 13
             t.text(x + 2, yy + 1, count, SANS_SEMI, MIN_PT, ROSE, record=False)
+            for b in tlines:
+                yy += 12
+                t.text(x + 2, yy + 1, b, SANS, MIN_PT, BROWN, record=False)
             t.prose.append(ln)
             rows_printed += 1
             y += hh
@@ -1556,8 +1608,9 @@ def _pattern(t: _T, f: _Facts, slots: list[dict]) -> int:
                     t.image(grid, x + 6, y + 6, gw, ih - 30,
                             figure={"kind": "mini_diagram", "rows": [max(1, n - 2), n + 3],
                                     "source": "publish.pdf_template._mini_grid"})
-                    cap = (f"{unit_word}s {max(1, n - 2)} to {n + 3}, first stitches: one cell "
-                           f"per stitch, in its yarn colour. Drawn from the pattern data.")
+                    cap = (f"Diagram of {unit_word.lower()}s {max(1, n - 2)} to {n + 3} (first "
+                           f"stitches): one cell per stitch, in its yarn colour, drawn from "
+                           f"the pattern data.")
                     t.para(x + 8, y + ih - 22, COL_W - 16, cap, size=MIN_PT, leading=11)
                     y += ih + 10
             if n is not None and n in tricky and progress is not None and not progress_used:
@@ -1576,23 +1629,16 @@ def _pattern(t: _T, f: _Facts, slots: list[dict]) -> int:
                 progress_used = True
                 y += ih + 10
         y += 10
-    if f.family in CHART_FAMILIES:
+    # The colourwork and blanket variants always carry the chart; any other family carries it
+    # when it is one page (a 36-tile chart of plain stitches is not help, it is paper).
+    if f.chart_included():
         _chart_block(t, f)
     return rows_printed
 
 
 def _chart_block(t: _T, f: _Facts) -> None:
-    """The colourwork / blanket variant: the full chart and its legend, from the twin."""
-    from .charts import render_legend
-
-    def build():
-        art = P._chart_art(f.cir, f.twin)
-        return dict(art, legend=render_legend(f.cir, f.twin, terminology=f.terminology,
-                                              marks=art.get("marks"),
-                                              colours=art.get("charted_colours"),
-                                              lettered=bool(art.get("cues"))))
-
-    art = f.memo("chart", build)
+    """The chart and its legend, from the twin (publish.charts, via publish.pdf)."""
+    art = f.chart_art()
     charts = [tile["chart"] for tile in art.get("tiles") or []] or [art["chart"]]
     for n, chart in enumerate(charts, start=1):
         t.section_page("pattern", continued=True)
@@ -1800,6 +1846,137 @@ def _copyright(t: _T, f: _Facts, designer: str) -> None:
     t.text(143, t.top + 37, "BRAMBLELOOP STUDIO", SANS_BOLD, MIN_PT, ON_FOREST, track=1.8)
     t.text(143, t.top + 66, THANK_YOU, SERIF, 11.5, ON_FOREST)
     t.top += h + 14
+
+
+# ---- the deterministic audit of a built template PDF --------------------------------------
+
+_ROW_LABEL = re.compile(r"(?m)^\s*(?:Rnds?|Rows?|Rounds?)\s+\d+[^:\n]{0,60}:")
+_CAPS_PLACEHOLDER = re.compile(r"\[[A-Z][A-Z0-9 /&+.,'-]{2,}\]")
+
+
+@lru_cache(maxsize=1)
+def template_placeholders(root=None) -> tuple[str, ...]:
+    """Every bracketed placeholder the owner's template prints, read from the template
+    itself (e.g. "[Skill level]", "[X sts]"). None of them may reach a customer PDF."""
+    from pathlib import Path
+
+    import pypdf
+
+    base = Path(root) if root else Path(__file__).resolve().parents[3]
+    reader = pypdf.PdfReader(str(base / TEMPLATE_PATH))
+    found = set()
+    for page in reader.pages:
+        text = re.sub(r"\s+", " ", page.extract_text() or "")
+        found.update(m.group(0) for m in re.finditer(r"\[[^\[\]]{1,80}\]", text))
+    return tuple(sorted(found))
+
+
+def _page_titles() -> dict[str, str]:
+    return {k: f"{num} / {kicker}" for k, num, kicker, _t in SECTIONS if num}
+
+
+def audit(pdf_bytes: bytes, *, expected_gallery: list[dict] | None = None) -> dict:
+    """Deterministic checks of a built template PDF, from its bytes (never from the layout's
+    report of itself). Each check is PASS / FAIL / UNKNOWN; the verdict is PASS only when all
+    PASS. UNKNOWN is never PASS.
+
+    * page_order: the template's section sequence, every section present, in order;
+    * logo_cover / logo_headers: the canonical logo's renditions embedded on the cover and
+      on every body page's header;
+    * gallery: the seven certified renditions on the gallery pages (with `expected_gallery`,
+      the exact sha256s, in slot order);
+    * no_placeholders: none of the template's own bracketed placeholders, and no all-caps
+      bracket placeholder (crochet repeat brackets such as "[sc, inc] x 6" are notation);
+    * no_template_marker: the template's MASTER LAYOUT marker is absent;
+    * stitch_counts: every Row/Round label is followed by its count before the next label."""
+    import pypdf
+
+    checks: list[dict] = []
+
+    def check(name, ok, why="", **kw):
+        status = "PASS" if ok is True else "FAIL" if ok is False else "UNKNOWN"
+        checks.append({"check": name, "status": status, "why": "" if ok is True else why, **kw})
+
+    try:
+        reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
+        pages = []
+        for page in reader.pages:
+            text = page.extract_text() or ""
+            imgs = []
+            xobjs = ((page.get("/Resources") or {}).get("/XObject") or {})
+            xobjs = xobjs.get_object() if hasattr(xobjs, "get_object") else xobjs
+            for _name, ref in (xobjs or {}).items():
+                obj = ref.get_object()
+                if obj.get("/Subtype") != "/Image":
+                    continue
+                try:
+                    data = obj.get_data()
+                except Exception:  # noqa: BLE001
+                    data = b""
+                imgs.append({"sha256": hashlib.sha256(data).hexdigest(),
+                             "px": (int(obj.get("/Width") or 0), int(obj.get("/Height") or 0))})
+            pages.append({"text": text, "flat": re.sub(r"\s+", " ", text), "images": imgs})
+    except Exception as exc:  # noqa: BLE001 - unreadable is never a pass
+        return {"verdict": "UNKNOWN", "checks": [{"check": "readable", "status": "UNKNOWN",
+                                                   "why": f"{type(exc).__name__}: {exc}"}]}
+    # page order
+    titles = _page_titles()
+    seq = []
+    for p in pages[1:]:
+        key = next((k for k, v in titles.items() if p["flat"].find(v) != -1
+                    and (k != "gallery" or "CONTINUED GALLERY" not in p["flat"])), None)
+        seq.append(key)
+    order = [k for k in SECTION_ORDER if k != "cover"]
+    collapsed = [k for i, k in enumerate(seq) if i == 0 or k != seq[i - 1]]
+    check("page_order", collapsed == order,
+          f"sections read {collapsed}, template order is {order}", read=collapsed)
+    # logo
+    fp = logo_fingerprints()
+    cover_raw = hashlib.sha256(_logo_cover().convert("RGB").tobytes()).hexdigest()
+    cover_ok = bool(pages) and any(im["sha256"] == cover_raw for im in pages[0]["images"])
+    check("logo_cover", cover_ok, "the cover does not embed the canonical logo rendition")
+    missing = [i + 2 for i, p in enumerate(pages[1:])
+               if not any(im["sha256"] == fp["header"] for im in p["images"])]
+    check("logo_headers", not missing and len(pages) > 1,
+          f"pages without the header logo: {missing}", pages=len(pages) - 1)
+    thanks = any(im["sha256"] == fp["thanks"] for im in pages[-1]["images"]) if pages else False
+    check("logo_thank_you", thanks, "the thank-you block does not embed the logo")
+    # gallery
+    gal_pages = [p for p, k in zip(pages[1:], seq) if k in ("gallery", "gallery_continued")]
+    found = [im["sha256"] for p in gal_pages for im in p["images"]
+             if im["sha256"] not in (fp["header"],)]
+    if expected_gallery is not None:
+        want = [g["rendition_sha256"] for g in expected_gallery]
+        got = [w for w in want if w in found]
+        check("gallery", len(want) == GALLERY_FRAMES and got == want,
+              f"{len(got)} of {GALLERY_FRAMES} certified gallery images found", count=len(got))
+    else:
+        check("gallery", len(set(found)) == GALLERY_FRAMES,
+              f"{len(set(found))} gallery images, {GALLERY_FRAMES} required",
+              count=len(set(found)))
+    # placeholders and marker
+    alltext = "\n".join(p["flat"] for p in pages)
+    bad = [ph for ph in template_placeholders() if ph in alltext]
+    bad += [m.group(0) for m in _CAPS_PLACEHOLDER.finditer(alltext)]
+    check("no_placeholders", not bad, f"placeholders printed: {sorted(set(bad))[:5]}")
+    marker = re.sub(r"\s+", " ", TEMPLATE_MARKER)
+    check("no_template_marker", marker not in alltext and "MASTER LAYOUT" not in alltext,
+          "the template marker is printed")
+    # stitch counts
+    body = "\n".join(p["text"] for p, k in zip(pages[1:], seq) if k == "pattern")
+    labels = list(_ROW_LABEL.finditer(body))
+    lacking = []
+    for i, m in enumerate(labels):
+        end = labels[i + 1].start() if i + 1 < len(labels) else len(body)
+        if not _ANY_COUNT.search(body[m.end():end]):
+            lacking.append(m.group(0).strip())
+    check("stitch_counts", bool(labels) and not lacking,
+          f"{len(lacking)} of {len(labels)} rows lack a count, e.g. {lacking[:3]}"
+          if labels else "no row labels found", rows=len(labels))
+    statuses = [c["status"] for c in checks]
+    verdict = "FAIL" if "FAIL" in statuses else "UNKNOWN" if "UNKNOWN" in statuses else "PASS"
+    return {"verdict": verdict, "pages": len(pages), "sections": seq, "checks": checks,
+            "failed": [c["check"] for c in checks if c["status"] == "FAIL"]}
 
 
 # ---- the build switch ------------------------------------------------------------------------
