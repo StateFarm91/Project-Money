@@ -2816,3 +2816,53 @@ Reversible by the owner.
 - **Refresh.** `intel.benchmark_shopping`, daily, CA$0, in `FREE_JOB_TYPES`, upstream inputs the two scan jobs (an unchanged day backs off). It calls `benchmark_refresh.refresh_shopping`, which stores one dated `benchmark.shopping` reading and keeps ONE owner card, "Buy N benchmark patterns, ≤ CA$X" (key `benchmark_shopping:set`; closed when nothing is left to buy).
 - **Safety.** No purchase path exists: the list makes no request and the Mission Control panel has no buy control. Reads listing metadata only. A purchased PDF goes only through `teardown.intake.receive`, which now accepts a listing from any watchlist shop (folder `<shop key>-<listing id>`, seller recorded) into the quarantined library (B-117). Status moves to bought, then intake done, from the BenchmarkProduct row.
 - **Not decided here.** Whether to buy, which picks, and the contingency factor beyond the owner's 1.158. Reversible by removing the cadence.
+
+**D-ENG-WARDROBE-1: the approved outfit library is code, approved by its own rules; no knitwear, arrangement-only hair (ENG-WARDROBE-SCENES, 2026-11-20).** `visual/outfit_library.py` holds 63 complete outfits with stable ids (`wl-<key>`). Every outfit passes `outfit_problems`, and the library passes `library_problems`:
+- complete;
+- no brand, logo or lettering;
+- nothing revealing;
+- every large garment names a measurable colour;
+- pairwise below `wardrobe.MAX_SIMILARITY`, and below it against the canonical references' clothing.
+
+Three routine choices were made here:
+- **No knitted or crocheted garment in any outfit.** Every frame already states "no other crocheted or knitted item is in the scene" (`laura_home.NO_OTHER_TEXTILES`). A knitted cardigan next to a crochet product reads as part of it, and the Product Truth judge would have to tell them apart.
+- **Hair is a closed list of arrangements of her own hair** (loose, tucked, low ponytail, low bun, half-up, side braid). Colour, length, cut and texture are never changed (`canonical.LOCKED` includes hair). The arrangement is stored in the outfit's `concept`, never its garments, because the registry refuses identity words in garments.
+- **A library outfit is approved with `approved_by = code:outfit_library/1`** at the moment a listing claims it. The approval is by deterministic rules, not by the owner. The owner can retire any outfit (`outfits.replace`), and a retired outfit stays bound to its listing.
+
+Reversible by decision.
+
+**D-ENG-WARDROBE-2: colour harmony keeps the product the hero, measured in CIELAB (ENG-WARDROBE-SCENES, 2026-11-20).** Rule `outfit_library.harmony/1`:
+- **Measured garments.** Only the large garments (top or dress, lower, outerwear) are measured. Footwear and small accessories are too small a share of the frame.
+- **CAMOUFLAGE.** A garment with ΔE76 < 20 to any yarn colour is refused: it would merge with the product's edges.
+- **COMPETITION.** A garment with chroma above max(the most chromatic yarn + 12, 34) is refused: it outshouts the product.
+- **Unmeasurable colours.** A product whose colours cannot be measured reads UNKNOWN, never PASS.
+
+The claim only takes harmonious outfits. A measured consequence: cream + ink products (the Cloudline Baby Blanket) admit 5 library outfits. Reversible by decision.
+
+**D-ENG-WARDROBE-3: lifestyle scenes, many environments around one home (ENG-WARDROBE-SCENES, 2026-11-20).** This reconciles D-W4-OWNER-LAURA-HOME (one house, fixed architecture) with D-OWNER-CORE-FAMILIES §5 (multiple settings).
+- **Rooms of the house.** A scene in a room of `laura-home-v1` carries that room's architecture verbatim.
+- **New spaces of the same house:** the reading nook is the living-room corner, the porch and the garden belong to the same house, and the craft room is its spare room.
+- **Away from home:** sixteen outdoor scenes (park, lake, trail, market, orchard, snowy street) add the environments the newer directive asks for.
+
+Every scene text passes `laura_home.check`. A scene suits a family only if its whole text, the room architecture included, passes the misleading-prop rule: KNITWEAR, DECOY, KIT (yarn, hooks, notions, printed pattern, packaging) and the family's prop allow-list. Every prompt states that props are not part of the pattern. Reversible by decision.
+
+**D-ENG-WARDROBE-4: the seven gallery roles, their jobs, and where Laura appears (ENG-WARDROBE-SCENES, 2026-11-20).**
+- **Roles and jobs:**
+
+  | Role | Job |
+  |---|---|
+  | hero | DESIRE |
+  | flat-lay | COLOUR_CONTEXT |
+  | lifestyle | LIFESTYLE |
+  | alternative angle | ANGLE |
+  | close-up | DETAIL |
+  | scale or in use | SCALE |
+  | extra, shaped or worn family | CONSTRUCTION (plus the deterministic CONTENTS frame as an eighth) |
+  | extra, any other family | CONTENTS |
+
+  These are the same jobs as ENG-VIS-GALLERY's `FLUX_SLOTS`, one job per frame.
+- **Where Laura appears** (`gallery_planner.LAURA_IN`): worn products in the hero, lifestyle, back view and fit frames; held products in the lifestyle and scale frames; home goods in the lifestyle frame. She never appears in the flat-lay or the close-up.
+- **Home goods differ from ENG-VIS-GALLERY.** Laura in a home-goods lifestyle frame differs from ENG-VIS-GALLERY's product-only small-goods brief. It is raised on #28 and settled before the planner is wired to the producer.
+- **Refusals.** A gallery is refused rather than padded: a repeated scene, the same place from the same angle, fewer than three places, or near-identical scene text (REPETITIVE_FILLER).
+
+Reversible by decision.
