@@ -37,6 +37,13 @@ FACES: dict[str, str] = {
     "BL-UI": "WorkSans-Regular.ttf",
     "BL-UI-Medium": "WorkSans-Medium.ttf",
     "BL-UI-SemiBold": "WorkSans-SemiBold.ttf",
+    # The owner's master pattern template (D-OWNER-PDF-TEMPLATE) is set in Lato and Noto
+    # Serif Display; publish.pdf_template draws in exactly these faces.
+    "BL-T-Serif": "NotoSerifDisplay-Regular.ttf",
+    "BL-T-Serif-SemiBold": "NotoSerifDisplay-SemiBold.ttf",
+    "BL-T-Sans": "Lato-Regular.ttf",
+    "BL-T-Sans-Semibold": "Lato-Semibold.ttf",
+    "BL-T-Sans-Bold": "Lato-Bold.ttf",
 }
 
 LICENCE = "SIL Open Font License 1.1 (see brand/fonts/*-OFL.txt)"
