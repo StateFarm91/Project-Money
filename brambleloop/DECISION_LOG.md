@@ -2900,3 +2900,17 @@ Reversible by decision.
 **Parked loops.** improve.monitor, sandbox and league backoffs lift on their real input rows (`orchestrate.INPUT_PROBES`).
 
 Reversible by decision. The non-tunable rule is the owner's and is not reversible by an agent.
+
+## D-ENG-PLUSH-FIX — the child-safety gate's deny-lists become allow-lists (ENG-PLUSH-FIX, 2026-11-20)
+
+The independent review of `eng/plush` @ 2763340b (DO NOT SHIP) found real gaps in `gates/child_safety.py`, and D-OWNER-CORE-FAMILIES s.3 says child safety is more than embroidered eyes. Fixed as rules, not as longer lists where a rule is possible:
+
+- **Eyes and noses are an allow-list.** Any material or instruction clause naming an eye or nose must say it is embroidered, or FEATURES_EMBROIDERED fails. A size in mm or a mounting verb (insert, attach, glue, sew on) next to an eye or nose fails even inside an "embroider" clause. The hard-part deny-list stays, extended with the parts that are not features (rhinestones, press studs, toggles, hook-and-eye, washers, eye backs, pom-poms, tassels and similar).
+- **Materials are an allow-list (new check MATERIALS_KNOWN).** Yarn, new polyester toy stuffing and tools that leave with the maker pass. Any other material is UNKNOWN and holds the item.
+- **Cords.** Consecutive chain ops and repeats are summed into one chain run. Loop, tie, bow, lace, leash, pacifier, a measured chain or length of yarn, and attaching to a pram or crib all fail. Only named stitch-loop terms ("both loops", "magic ring") and lace-stitch terms are exempt.
+- **Age band is read (new check AGE_SUITABILITY).** An unknown band is UNKNOWN. Under 3 with any sewn-on piece needs SMALL_PARTS to have passed. The printed age statement claims the small-parts geometry only when that check passed.
+- **Certify reads the catalogue's children's assignment**, so a flat design assigned to a child is in the gate at certify as it is at render.
+- **Quotes carry a `verified` record.** An unread quote makes CITATIONS UNKNOWN. All seven were re-read on 2026-11-20.
+- **The mutation harness** requires a green baseline and reports an import or environment failure as ERROR, never as KILLED.
+
+Physical evidence for flat, one-piece, unstuffed items (a baby blanket) is still not required. Such an item has no seam to pull and nothing to contain. Its under-3 risks (cords, loops, hard parts, small parts, unknown materials) are computed by the other checks. The PHYSICAL_EVIDENCE docstring now says this instead of promising more than the code did. No gate was weakened. Reversible by decision.
