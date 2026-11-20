@@ -1,0 +1,16 @@
+OK   test_crashed_deployment_without_ok_refuses
+OK   test_history_append_is_idempotent_and_validates
+OK   test_history_format_matches_tracked_file
+OK   test_no_dated_ok_anywhere_refuses
+OK   test_no_token_refuses_and_never_reads_anything
+OK   test_release_subject_reads_tracked_record
+OK   test_scan_logs_distinguishes_ok_and_fail
+OK   test_timeout_without_verdict_uses_freshness_rule
+OK   test_trigger_error_and_stale_ok_refuses
+OK   test_trigger_error_falls_back_to_recent_ok
+OK   test_triggered_backup_fail_refuses_even_with_fresh_old_ok
+OK   test_triggered_backup_ok
+OK   test_unreadable_logs_refuse
+FAIL test_workflow_keeps_the_guard_intact ValueError('substring not found')
+SKIP actionlint not installed (pip install actionlint-py)
+OK   test_workflow_lint

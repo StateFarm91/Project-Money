@@ -1,0 +1,7 @@
+GIT SHA: bf4d6c47f6850c7418046244763b3c483036133e
+   FAIL test_f7_the_declared_final_segment_set_covers_every_matching_suite AssertionError("declare these in scripts/suite_final_segment.txt: ['tests/test_autopromote.py']")
+TOTAL PASSING: 69 ; suites failing: 1
+ENVIRONMENT FAILURES: 0 of the 1 failing suites (ENOSPC/permission/network/provider; F-150)
+DURATION: 154s
+GIT SHA: bf4d6c47f6850c7418046244763b3c483036133e (tree clean at start)
+EXIT 1
