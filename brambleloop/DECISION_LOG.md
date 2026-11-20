@@ -3069,3 +3069,15 @@ flight: two cloud, one local.
 entry). The guard itself is unchanged. This is a one-time, exact-SHA override, not a policy
 change. The in-flight full runs continue; any failure they find is fixed and redeployed
 through the normal guarded path.
+
+## D-OWNER-DEPLOY-OVERRIDE-2 — 2026-11-20 ~14:10 UTC (pending the owner's exact-SHA OK)
+
+Batch 17 (code b098fcce): plush/lovey/cushions, garments, colourwork, premium PDF standard,
+Laura identity method, wardrobe/scenes and daily ledger, on top of production dde3ea62.
+- **Evidence:** the overlap suites passed 576 with 0 suites failing; the colourwork merge suites
+  passed 181 with 0 failing. The full certification (cert-results/b098fcce) is running.
+- **Safeguards:** a rollback rehearsal to 6289e493 (ALLOW), verify_deploy, a readback with the
+  token, and a rollback on any P0 regression.
+- **Deploy authority:** the deploy is pushed only on the owner's explicit OK for this exact
+  SHA. Until the full run's record is deployed, the boot guard stays not-ok (SHADOW is already
+  the phase).
