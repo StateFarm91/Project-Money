@@ -51,8 +51,16 @@ BABY_PINAFORE = WB.WearableSpec("thimble-baby-pinafore", "Thimble Baby Pinafore"
 BABY_ROMPER = WB.WearableSpec("bramble-baby-romper", "Bramble Baby Romper", "romper",
                               "baby_romper", "baby", "dk", "cotton", WB.BABY_EASE)
 BABY_SIZES = ("3m", "6m", "12m", "18m", "24m")
+TEE = WB.WearableSpec("saltwind-boxy-tee", "Saltwind Boxy Tee", "top", "top_tee", "adult",
+                      "dk", "cotton", WB.TOP_EASE["adult"])
+TANK = WB.WearableSpec("driftwood-tank", "Driftwood Tank", "top", "top_tank", "adult", "dk",
+                       "cotton", WB.TOP_EASE["adult"])
+KIDS_TANK = WB.WearableSpec("pebble-kids-tank", "Pebble Kids Tank", "top", "top_tank",
+                            "child", "dk", "cotton", WB.TOP_EASE["child"])
+ADULT_SIZES = ("XS", "S", "M", "L", "XL", "2X", "3X", "4X", "5X")
+CHILD_SIZES = ("2", "4", "6", "8", "10", "12")
 SPECS = {s.key: s for s in (BEANIE, SLOUCHY, BABY_HAT, BABY_DRESS, BABY_PINAFORE,
-                            BABY_ROMPER)}
+                            BABY_ROMPER, TEE, TANK, KIDS_TANK)}
 
 
 @lru_cache(maxsize=None)
@@ -363,6 +371,84 @@ def test_a_buttoned_or_strapped_baby_garment_is_held_never_drafted():
         assert got["admitted"] and got["family"] == fam, (title, got)
 
 
+# ---- 3. simple tops: boxy tee and tank ---------------------------------------------------------
+
+
+def test_every_tee_and_tank_size_is_granted():
+    assert_family_release(TEE.key, ADULT_SIZES)
+    assert_family_release(TANK.key, ADULT_SIZES)
+    assert_family_release(KIDS_TANK.key, CHILD_SIZES)
+
+
+def test_tops_are_graded_relaxed_and_rise_size_to_size():
+    for spec in (TEE, TANK, KIDS_TANK):
+        r = released(spec.key)
+        ms = [WB.top_measures(c) for c in r.cirs.values()]
+        assert ms and all(b["chest"] > a["chest"] for a, b in zip(ms, ms[1:])), spec.key
+        for (size, _c), m in zip(r.cirs.items(), ms):
+            g = r.design.graded_size(size)
+            assert 8 <= m["chest"] - g.body_cm("bust") <= 22, (spec.key, size, m)
+            assert m["armhole"] >= g.body_cm("armhole_depth")
+    tee = WB.top_measures(released(TEE.key).cirs["M"])
+    assert tee["upper_arm"] >= released(TEE.key).design.graded_size("M").body_cm("upper_arm")
+
+
+def test_tops_reverse_compile_hold_size_truth_and_the_kids_tank_is_child_safe():
+    for spec in (TEE, TANK, KIDS_TANK):
+        assert_reverse_reads_back(spec.key)
+        assert_size_truth(spec.key)
+    assert released(KIDS_TANK.key).cirs
+    for size, cir in released(KIDS_TANK.key).cirs.items():
+        v = CS.evaluate(cir, compile_cir(cir))
+        assert v.applies and v.verdict == CS.VERDICT_PASS and "sewn" not in v.profile, size
+
+
+def test_tops_documents_read_back_with_chart_and_schematic():
+    for spec in (TEE, TANK, KIDS_TANK):
+        assert_document(spec.key)
+    assert CS.SECTION_HEADING in " ".join(document(KIDS_TANK.key, "US").text.split())
+    assert CS.SECTION_HEADING not in " ".join(document(TEE.key, "US").text.split())
+
+
+def test_top_gates_fail_on_the_defects_they_exist_for():
+    r = released(TEE.key)
+    cirs = dict(r.cirs)
+    cirs["L"] = r.cirs["XL"]
+    got = _codes(r, cirs)
+    assert {"GARMENT_FINISHED_OFF_TARGET", "GARMENT_SIZE_RUN"} <= got, got
+    # the back one row longer than the front: the fold does not meet
+    cirs = dict(r.cirs)
+    cir = copy.deepcopy(cirs["M"])
+    body = next(c for c in cir.components if c.name == "body")
+    extra = copy.deepcopy(body.rows[-1])
+    extra.index = body.rows[-1].index + 1
+    body.rows.append(extra)
+    cirs["M"] = cir
+    assert "GARMENT_SEAM_MISMATCH" in _codes(r, cirs)
+    # a sleeve narrower than the armhole it is sewn into
+    cirs = dict(r.cirs)
+    cir = copy.deepcopy(cirs["S"])
+    WB.facts_of(cir).seams[1] = dict(WB.facts_of(cir).seams[1], a_cm=10.0)
+    cirs["S"] = cir
+    assert "GARMENT_SEAM_MISMATCH" in _codes(r, cirs)
+
+
+def test_tops_route_by_title_and_unbuilt_tops_are_held():
+    from brambleloop.creative import construction_families as CF
+
+    for cat, title, fam in (("top", "Saltwind Boxy Tee", "top_tee"),
+                            ("top", "Driftwood Tank Top", "top_tank"),
+                            ("top", "Pebble Kids Tank", "top_tank")):
+        got = CF.route(category=cat, title=title, form="fitted_garment",
+                       construction="flat_rows")
+        assert got["admitted"] and got["family"] == fam, (title, got)
+    for title in ("Kids Boxy Tee", "V-Neck Tee", "Cropped Tank", "Lace Tank",
+                  "Long Sleeve Tee", "Fitted Tee"):
+        got = CF.route(category="top", title=title, form="fitted_garment",
+                       construction="flat_rows")
+        assert not got["admitted"] and got["reason"].startswith(CF.HOLD_PREFIX), (title, got)
+
+
 # ---- routing and research concepts end to end -----------------------------------------------
 
 
@@ -497,6 +583,32 @@ def test_a_research_baby_pinafore_runs_concept_to_pdf():
 def test_a_research_baby_romper_runs_concept_to_pdf():
     out = _research_wearable_to_pdf(BABY_ROMPER_P)
     assert_concept_to_pdf(out, BABY_SIZES, "baby_romper")
+
+
+TEE_P = _wearable_proposal(
+    "harbour-light-boxy-tee", "Harbour Light Boxy Tee", "top", "fitted_garment", "flat_rows",
+    "self", "A boxy cotton tee with short sleeves for warm evenings by the water", "mothers_day")
+TANK_P = _wearable_proposal(
+    "seagrass-tank", "Seagrass Tank", "top", "fitted_garment", "flat_rows", "self",
+    "A boxy cotton tank with a slash neck to layer in summer", "mothers_day")
+KIDS_TANK_P = _wearable_proposal(
+    "rockpool-kids-tank", "Rockpool Kids Tank", "top", "fitted_garment", "flat_rows", "child",
+    "A boxy cotton kids tank for beach days", "back_to_school")
+
+
+def test_a_research_adult_tee_runs_concept_to_pdf():
+    out = _research_wearable_to_pdf(TEE_P)
+    assert_concept_to_pdf(out, ADULT_SIZES, "top_tee")
+
+
+def test_a_research_adult_tank_runs_concept_to_pdf():
+    out = _research_wearable_to_pdf(TANK_P)
+    assert_concept_to_pdf(out, ADULT_SIZES, "top_tank")
+
+
+def test_a_research_child_tank_runs_concept_to_pdf():
+    out = _research_wearable_to_pdf(KIDS_TANK_P)
+    assert_concept_to_pdf(out, CHILD_SIZES, "top_tank")
 
 
 def test_hats_route_to_the_beanie_and_others_are_held():

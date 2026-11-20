@@ -559,6 +559,9 @@ WEARABLE_PROBES = [
     ("baby", "fitted_garment", "bottom_up", "Sorrel Baby Dress"),
     ("dress", "fitted_garment", "bottom_up", "Wren Song Baby Pinafore"),
     ("baby", "fitted_garment", "bottom_up", "Meadowlark Baby Romper"),
+    ("top", "fitted_garment", "flat_rows", "Harbour Light Boxy Tee"),
+    ("top", "fitted_garment", "flat_rows", "Seagrass Tank"),
+    ("top", "fitted_garment", "flat_rows", "Rockpool Kids Tank"),
 ]
 
 

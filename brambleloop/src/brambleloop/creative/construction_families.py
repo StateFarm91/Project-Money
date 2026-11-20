@@ -69,7 +69,8 @@ GARMENT_FAMILIES = frozenset({GARMENT_RAGLAN, GARMENT_ONE_PIECE, GARMENT_SIDE_TO
 WEARABLE_PROOF = "tests/test_eng_garment2.py"
 HAT_BEANIE = "hat_beanie"
 BABY_DRESS, BABY_ROMPER = "baby_dress", "baby_romper"
-WEARABLE_FAMILIES = frozenset({HAT_BEANIE, BABY_DRESS, BABY_ROMPER})
+TOP_TEE, TOP_TANK = "top_tee", "top_tank"
+WEARABLE_FAMILIES = frozenset({HAT_BEANIE, BABY_DRESS, BABY_ROMPER, TOP_TEE, TOP_TANK})
 
 FAMILIES: dict[str, Family] = {f.key: f for f in (
     Family(FC.FLAT_PANEL, "runtime.pipeline.concept_to_cir", VERIFIED,
@@ -167,6 +168,16 @@ FAMILIES: dict[str, Family] = {f.key: f for f in (
                                       "design ratios of the back length and hip",
            "sleeveless pull-on romper, square neck, plain leg openings; no closures, "
            "straps, sleeves or feet"),
+    Family(TOP_TEE, "products.wearables (top_tee)", VERIFIED,
+           f"{WEARABLE_PROOF}::test_a_research_adult_tee_runs_concept_to_pdf",
+           ("CYC woman XS-5X",), "cir.graded WOMAN + stated relaxed ease",
+           "boxy drop-shoulder tee, slash neck, short straight sleeves; adult only (a sleeve "
+           "sewn onto a child's garment needs physical evidence)"),
+    Family(TOP_TANK, "products.wearables (top_tank)", VERIFIED,
+           f"{WEARABLE_PROOF}::test_a_research_adult_tank_runs_concept_to_pdf",
+           ("CYC woman XS-5X", "CYC child/youth 2-12"),
+           "cir.graded WOMAN / CHILD + stated relaxed ease",
+           "boxy drop-shoulder tank, slash neck, open armholes; plain sc only"),
     Family(FC.POUCH, "creative.fallback_constructions.pouch", PARTIAL, "",
            ("one size",), "fallback_constructions.POUCH_ACROSS_CM (design choice)",
            "certification refuses ASSET_COLOR_ABSENT: the pouch works one palette colour "
@@ -331,6 +342,8 @@ WEARABLE_PAIR_AUDIENCE: dict[tuple[str, str], frozenset] = {
     (BABY_DRESS, "baby"): frozenset({"baby"}),
     (BABY_DRESS, "dress"): frozenset({"baby"}),
     (BABY_ROMPER, "baby"): frozenset({"baby"}),
+    (TOP_TEE, "top"): frozenset({"adult"}),
+    (TOP_TANK, "top"): frozenset({"adult", "child"}),
 }
 PAIR_PROOFS.update({
     (HAT_BEANIE, "hat"): FAMILIES[HAT_BEANIE].proof,
@@ -338,6 +351,8 @@ PAIR_PROOFS.update({
     (BABY_DRESS, "dress"): f"{WEARABLE_PROOF}::test_a_research_baby_pinafore_runs_concept_"
                            f"to_pdf",
     (BABY_ROMPER, "baby"): FAMILIES[BABY_ROMPER].proof,
+    (TOP_TEE, "top"): FAMILIES[TOP_TEE].proof,
+    (TOP_TANK, "top"): FAMILIES[TOP_TANK].proof,
 })
 # A garment pair's proof is for one body table: the audience it was proven on.
 GARMENT_PAIR_AUDIENCE: dict[tuple[str, str], str] = {

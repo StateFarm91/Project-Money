@@ -202,6 +202,8 @@ class Engine:
     notions: tuple[str, ...] = ("a tapestry needle",)
     risk: str = "B"
     chain_gauge: bool = False      # chains are worked into as fabric (chained-on stitches)
+    tables: tuple[tuple[str, object], ...] = ()     # audience -> BodyTable, where not `table`
+    fit_character: str | None = None                # cir.graded.FIT_CHARACTERS, if stated
     fit_note: str = ""
     abbreviations: tuple[str, ...] = ("ch", "sc", "inc", "dec", "sk", "slst")
     closing: Callable | None = None                     # (facts list) -> finishing sentence
@@ -269,8 +271,10 @@ def design(spec: WearableSpec) -> GradedDesign:
     def template(g):
         return eng.builder(g, spec)
 
-    d = GradedDesign(key=spec.key, title=spec.title, table=eng.table, gauge=gauge,
-                     fit=FitIntent(dict(spec.ease_cm)), requires=eng.requires,
+    table = dict(eng.tables).get(spec.audience, eng.table)
+    d = GradedDesign(key=spec.key, title=spec.title, table=table, gauge=gauge,
+                     fit=FitIntent(dict(spec.ease_cm), character=eng.fit_character),
+                     requires=eng.requires,
                      sizes=tuple(sizes), primitives=("cir.graded", f"{MARKER}:{spec.family}"),
                      template=template, measure=eng.measure, primary=eng.primary)
     d.spec = spec
@@ -1101,3 +1105,254 @@ register(Engine(
     chart=(("body_cm", "To fit chest"), ("chest_cm", "Finished chest"), ("ease_cm", "Ease"),
            ("widest_cm", "Hips"), ("length_cm", "Length")),
     category_word="romper", chain_gauge=True, **_BABYWEAR_COMMON))
+
+
+# ==== 3. simple tops: boxy tee and tank =====================================================
+#
+# A boxy drop-shoulder top. The body is one flat piece worked from the front hem up, over a
+# slash neck bridged by a chain at the shoulder line, and down to the back hem (back-loop hem
+# bands at both ends). Folded at the shoulder line, the sides are seamed from the hems up to
+# the armhole, which is left open: a tank stops there; a tee has straight short sleeves worked
+# from a back-loop cuff band and sewn into the armhole, centred on the shoulder line. Child
+# sizes are the tank only: a sleeve sewn onto a child's garment needs physical evidence no
+# authority holds yet (`gates.child_safety` "sewn"), so a child's tee is not offered.
+
+TOP_NECK_OF_CROSS_BACK = 0.8           # slash neck width, of the body's cross-back
+SHORT_SLEEVE_OF_ARM = 0.25             # tee sleeve length, of the arm length to underarm
+TOP_RIB_CM = {"adult": 3.0, "child": 2.0}
+TOP_EASE = {
+    "adult": (("bust", 20.0), ("back_length", 14.0), ("armhole_depth", 4.0),
+              ("upper_arm", 10.0), ("cross_back", 0.0), ("arm_length", 0.0)),
+    "child": (("bust", 14.0), ("back_length", 8.0), ("armhole_depth", 3.0),
+              ("cross_back", 0.0)),
+}
+TOP_LENGTH_TOLERANCE = 0.08
+
+
+def boxy_top(g: GradedSize, spec: WearableSpec) -> CIR:
+    fam = StitchFamily("sc", "plain")
+    style = "tank" if spec.family == "top_tank" else "tee"
+    rib = g.rows(TOP_RIB_CM["child" if spec.audience == "child" else "adult"], minimum=2)
+    width = g.stitches(g.finished_cm("bust") / 2.0)
+    half_rows = g.rows(g.finished_cm("back_length"))
+    neck = g.stitches(g.body_cm("cross_back") * TOP_NECK_OF_CROSS_BACK)
+    if (width - neck) % 2:
+        neck += 1
+    body = GF.Piece("body", fam, foundation=width, feature="body", direction="bottom_up",
+                    note="worked in one piece from the front hem, over the shoulders, to the "
+                         "back hem")
+    body.even(rib, loop="back", label="front hem band")
+    body.even(half_rows - rib, label="front")
+    neck_row = body.neck_bridge(neck)
+    body.even(half_rows - rib, label="back")
+    body.even(rib, loop="back", label="back hem band")
+    row_cm = _row_cm(g.gauge)
+    comps = [body.component()]
+    pieces = {"body": body.steps}
+    if style == "tee":
+        top = g.stitches(max(g.finished_cm("upper_arm"), 2 * g.finished_cm("armhole_depth")))
+        half_cover = max(1, round(g.cm_of_stitches(top) / 2.0 / row_cm))
+        sl_rows = g.rows(g.body_cm("arm_length") * SHORT_SLEEVE_OF_ARM, minimum=rib + 2)
+        sl = GF.Piece("sleeve", fam, foundation=top, make=2, feature="sleeve",
+                      direction="bottom_up")
+        sl.even(rib, loop="back", label="cuff band")
+        sl.even(sl_rows - rib, label="sleeve")
+        comps.append(sl.component())
+        pieces["sleeve"] = sl.steps
+    else:
+        half_cover = g.rows(g.finished_cm("armhole_depth"), minimum=4)
+    first_cover = neck_row - half_cover
+    below = first_cover - 1
+    if below <= rib + 2:
+        raise ShapingRefused(f"size {g.size}: no side seam below the armhole")
+    seams = [Seam("mattress", "body", "body", edge_a="left", edge_b="left", at_round=1,
+                  spans_rounds=below, mirrored=True,
+                  note=f"fold at the shoulder line and join the front's side to the back's "
+                       f"side from the hems up, {below} rows each, through both loops; leave "
+                       f"the rest open for the armhole")]
+    if style == "tee":
+        seams = [Seam("whipstitch", "sleeve", "body", edge_a="top", edge_b="left",
+                      at_round=first_cover, spans_rounds=2 * half_cover + 1, mirrored=True,
+                      note="centre the sleeve on the shoulder line and sew its top edge into "
+                           "the armhole through both loops; bury the tails")] + seams + [
+                 Seam("mattress", "sleeve", "sleeve", edge_a="left", edge_b="right",
+                      note="close the underarm seam of each sleeve")]
+    facts = WFacts(f"top_{style}", pieces=pieces)
+    facts.seams = [{"seam": "side", "a": "body(front half)", "b": "body(back half)",
+                    "a_rows": neck_row - 1, "b_rows": len(body.rows) - neck_row}]
+    if style == "tee":
+        facts.seams.append({"seam": "sleeve to armhole", "a": "sleeve", "b": "body",
+                            "a_cm": g.cm_of_stitches(top),
+                            "b_cm": (2 * half_cover + 1) * row_cm})
+    facts.numbers = {"neck": neck, "half_cover": half_cover, "neck_row": neck_row}
+    word = "tee" if style == "tee" else "tank"
+    return make_cir(g, spec, comps=comps, seams=seams, facts=facts,
+                    designer=(f"A boxy drop-shoulder {word}: one body piece worked from the "
+                              f"front hem over a slash neck to the back hem, with back-loop "
+                              f"hem bands"
+                              + (", and straight short sleeves with back-loop cuffs sewn into "
+                                 "the armholes." if style == "tee" else
+                                 "; the armholes are left open in the side seams.")),
+                    size_note=f"Finished chest {2 * width * _st_cm(g.gauge):.0f} cm, to fit "
+                              f"chest {g.body_cm('bust'):g} cm")
+
+
+def top_measures(cir: CIR) -> dict[str, float]:
+    """Chest, length, neck width and armhole depth from the rows and the assembly; upper arm
+    and sleeve length for a tee. From the CIR alone (a stored CIR has no step record)."""
+    from ..cir.geometry import _row_height_cm
+
+    r = _compiled(cir)
+    g = cir.gauge
+    body = next(c for c in cir.components if c.name == "body")
+    rows = [x for x in r.rows if x.component == "body"]
+    heights = [_row_height_cm(row, cir) for row in body.rows]
+    bridge = next(row for row in body.rows
+                  if any(op.stitch == "ch" for op in row.ops if isinstance(op, Op)))
+    neck_sts = next(op.count for op in bridge.ops if isinstance(op, Op) and op.stitch == "ch")
+    out = {"chest": round(2 * rows[0].stitch_count * _st_cm(g), 2),
+           "length": round(sum(heights[:bridge.index]), 2),
+           "neck": round(neck_sts * _st_cm(g), 2)}
+    sleeve = next((c for c in cir.components if c.name == "sleeve"), None)
+    if sleeve is not None:
+        place = next(s for s in cir.assembly if s.piece_a == "sleeve" and s.at_round)
+        out["armhole"] = round(place.spans_rounds * _row_cm(g) / 2.0, 2)
+        out["upper_arm"] = round(sleeve.foundation * _st_cm(g), 2)
+        out["sleeve"] = round(sum(_row_height_cm(row, cir) for row in sleeve.rows), 2)
+    else:
+        side = next(s for s in cir.assembly if s.piece_a == "body" and s.at_round)
+        out["armhole"] = round(sum(heights[side.spans_rounds:bridge.index - 1]), 2)
+    return out
+
+
+def top_gates(ctx) -> list:
+    from ..gates.garment_fit import CHEST_TOLERANCE, NECK_MAX, NECK_MIN, GarmentFinding
+
+    out = []
+    g, m, f, size, res = ctx["g"], ctx["measured"], ctx["facts"], ctx["size"], ctx["result"]
+
+    def bad(code, msg):
+        out.append(GarmentFinding(code, size, msg))
+
+    want = g.finished_cm("bust")
+    if abs(m["chest"] - want) / want > CHEST_TOLERANCE:
+        bad("GARMENT_FINISHED_OFF_TARGET", f"built chest {m['chest']:.1f} cm against "
+                                           f"{want:g} cm")
+    want_len = g.finished_cm("back_length")
+    if abs(m["length"] - want_len) / want_len > TOP_LENGTH_TOLERANCE:
+        bad("GARMENT_FINISHED_OFF_TARGET", f"built length {m['length']:.1f} cm against "
+                                           f"{want_len:g} cm")
+    fit = ctx["design"].fit.character
+    if fit:
+        from ..cir.graded import FIT_EASE_BANDS_CM
+
+        lo, hi = FIT_EASE_BANDS_CM[fit]
+        ease = m["chest"] - g.body_cm("bust")
+        if not lo <= ease <= hi:
+            bad("GARMENT_EASE_OUT_OF_BAND", f"chest ease {ease:.1f} cm outside {fit} "
+                                            f"{lo:g}-{hi:g}")
+    ratio = m["neck"] / g.body_cm("cross_back")
+    if not NECK_MIN <= ratio <= NECK_MAX:
+        bad("GARMENT_NECK_FIT", f"the slash neck is {m['neck']:.1f} cm, {ratio:.2f} of the "
+                                f"cross-back")
+    if m["armhole"] + 1e-9 < g.body_cm("armhole_depth"):
+        bad("GARMENT_ARMHOLE_FIT", f"the armhole is {m['armhole']:.1f} cm deep; the body's "
+                                   f"is {g.body_cm('armhole_depth'):g} cm")
+    if "upper_arm" in m and m["upper_arm"] + 1e-9 < g.body_cm("upper_arm"):
+        bad("GARMENT_ARMHOLE_FIT", f"the sleeve is {m['upper_arm']:.1f} cm round; the upper "
+                                   f"arm is {g.body_cm('upper_arm'):g} cm")
+    rows = [x.stitch_count for x in res.rows if x.component == "body"]
+    nr = int(f.numbers["neck_row"])
+    front, back = rows[:nr - 1], rows[nr:]
+    if front != list(reversed(back)):
+        bad("GARMENT_SEAM_MISMATCH", "the back half is not the front half row for row: the "
+                                     "sides do not meet at the fold")
+    return out
+
+
+def _top_schematic(sizes, ms) -> dict:
+    tee = "upper_arm" in ms[0]
+    names = {"half_chest": "Half chest, finished", "length": "Length, finished",
+             "neck": "Neck opening", "armhole": "Armhole depth"}
+    if tee:
+        names.update(upper_arm="Sleeve width, round", sleeve="Sleeve length")
+    sk = Sketch(ms, names)
+    for m in ms:
+        m["half_chest"] = round(m["chest"] / 2.0, 1)
+    mid = ms[len(ms) // 2]
+    W, L, N, A = mid["half_chest"], mid["length"], mid["neck"], mid["armhole"]
+    x0, y0 = 4.0, 6.0
+    sk.poly([(x0, y0), (x0 + W, y0), (x0 + W, y0 + L), (x0, y0 + L)],
+            "body (front shown; the back is the same)")
+    nx = x0 + (W - N) / 2.0
+    sk.line((nx, y0), (nx + N, y0), heavy=True)
+    sk.line((x0 + W - 1.2, y0 + A), (x0 + W, y0 + A))
+    sk.dim((x0, y0 + L), (x0 + W, y0 + L), "half_chest", "below")
+    sk.dim((x0, y0), (x0, y0 + L), "length", "left")
+    sk.dim((nx, y0), (nx + N, y0), "neck", "above")
+    sk.dim((x0 + W, y0), (x0 + W, y0 + A), "armhole", "right")
+    width = W + 2 * x0 + 8
+    if tee:
+        U, S = mid["upper_arm"], mid["sleeve"]
+        sx = x0 + W + 12
+        sk.poly([(sx, y0), (sx + U, y0), (sx + U, y0 + S), (sx, y0 + S)], "sleeve")
+        sk.dim((sx, y0), (sx + U, y0), "upper_arm", "above")
+        sk.dim((sx + U, y0), (sx + U, y0 + S), "sleeve", "right")
+        width = sx + U + 12
+    return _schematic(sk.items, sk.legend, width, L + 2 * y0 + 4, sizes, ms, "top")
+
+
+def _top_narrative(spec, facts) -> str:
+    base = ("The body is one flat piece. You start at the front hem with a back-loop band, "
+            "work straight up to the shoulder line, where a chain bridges the slash neck, and "
+            "carry on down the back to the back hem. Fold it at the shoulder line and seam "
+            "the sides from the hems up, leaving the top open for the armholes.")
+    if facts.construction == "top_tee":
+        return base + (" The short sleeves are straight, worked from a back-loop cuff band, "
+                       "sewn into the armholes centred on the shoulder line, and seamed "
+                       "underneath.")
+    return base + " The armhole edges and the neck are left plain."
+
+
+from ..cir.graded import CHILD as _CHILD, WOMAN as _WOMAN  # noqa: E402
+
+_TOP_COMMON = dict(
+    requires=("bust", "back_length", "cross_back", "armhole_depth"), primary="bust",
+    built_primary="chest", measure=top_measures, gates=top_gates, narrative=_top_narrative,
+    schematic=_top_schematic, risk="B", abbreviations=("ch", "sc", "sk"),
+    forms=("fitted_garment",), constructions=("flat_rows", "bottom_up", "modular_panels"),
+    yarn=(("adult", ("dk", "cotton")), ("child", ("dk", "cotton"))),
+    refuse=((r"\b(?:fitted|bodycon|crop(?:ped)?|v-?neck|scoop(?:ed)?|crew ?neck|collar(?:ed)?|"
+             r"buttons?|button-?down|ruffles?|halter|lace|lacy|mesh|open-?work|peplum|wrap|"
+             r"long[- ]sleeved?|puff[- ]sleeves?|raglan|hood(?:ed|ie)?|pockets?)\b",
+             "the boxy top engine builds a slash-neck drop-shoulder tee or tank in plain "
+             "single crochet only"),),
+    tips=("Chain loosely across the neck: the next row works into those chains and they "
+          "must be as wide as the fabric.",
+          "Seam the sides with the top folded flat at the shoulder line so the hems meet."),
+    safety_note=("It is made with no buttons, ties, cords or anything sewn on: the body is "
+                 "one piece, seamed at the sides."),
+)
+register(Engine(
+    family="top_tee", title="one body piece worked over a slash neck, folded at the shoulder "
+                            "line and seamed, with short sleeves sewn in",
+    words=("tee", "tees", "t-shirt", "t-shirts", "tshirt"),
+    table=_WOMAN, sizes={"adult": _WOMAN.names},
+    builder=boxy_top,
+    chart=(("body_cm", "To fit chest"), ("chest_cm", "Finished chest"), ("ease_cm", "Ease"),
+           ("length_cm", "Length"), ("upper_arm_cm", "Sleeve width")),
+    category_word="tee", ease=(("adult", TOP_EASE["adult"]),),
+    fit_note="Relaxed and boxy: 20 cm of ease at the chest (the relaxed band is 8-22 cm).",
+    **{**_TOP_COMMON, "requires": _TOP_COMMON["requires"] + ("upper_arm", "arm_length")}))
+register(Engine(
+    family="top_tank", title="one body piece worked over a slash neck, folded at the shoulder "
+                             "line and seamed, with open armholes",
+    words=("tank", "tanks", "tank top", "tank tops", "singlet", "singlets"),
+    table=_WOMAN, tables=(("child", _CHILD),),
+    sizes={"adult": _WOMAN.names, "child": ("2", "4", "6", "8", "10", "12")},
+    builder=boxy_top,
+    chart=(("body_cm", "To fit chest"), ("chest_cm", "Finished chest"), ("ease_cm", "Ease"),
+           ("length_cm", "Length"), ("armhole_cm", "Armhole depth")),
+    category_word="tank", ease=(("adult", TOP_EASE["adult"]), ("child", TOP_EASE["child"])),
+    fit_note="Relaxed and boxy: 20 cm of ease at the chest for adults, 14 cm for children.",
+    **_TOP_COMMON))
