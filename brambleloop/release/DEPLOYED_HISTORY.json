@@ -61,6 +61,46 @@
    "sha": "705725a3f0b2aa9910153d99b9d4389405199152",
    "observed": "2026-11-07T07:37Z",
    "evidence": "owner exact-SHA approval 2026-11-07 (Main channel). Batch 5 release record over suite tree 5ba84bf7 (full suite 20261102T164117Z-1487: 10384 passing, 0 suites failing). Pre-deploy backup brambleloop_prod_20261107T072926Z.dump restore_ok, 147 tables, 319915 rows, BK RESULT OK. Guard ALLOW, rollback rehearsal to 0967c3ee ALLOW. /health build 705725a3, worker alive; /api/verify 13/13; readback smoke PASS, 6 NEEDS_OPERATOR (operator-gated endpoints), rollback_decision FIX_FORWARD."
+  },
+  {
+   "sha": "b792105273421099ce6937abc3b581dc7e6c51f5",
+   "observed": "2026-11-10T15:22Z",
+   "evidence": "owner exact-SHA approval 2026-11-08 ('Deploy b7921052 now') and 2026-11-10 ('deploy b7921052 with backup first'). Batch 6 release record over suite tree ea5873aa (full suite 20261108T121311Z-32051: 10812 passing, 0 suites failing, clean, release-eligible). Pre-deploy backup brambleloop_prod_20261110T151751Z.dump 568458453 B sha256 b823e86f restore_ok, 148 tables, 351097 rows, BK RESULT OK (drift: ops_runtime_samples only). ops/deploy.sh --deployed 705725a3: guard ALLOW, rollback rehearsal ALLOW; pushed 705725a3..b7921052; verify_deploy DEPLOYED. Readback: first pass FAIL worker_alive just after boot (decision ROLLBACK recorded, AUTO_ROLLBACK off, nothing pushed); second pass worker alive, decision FIX_FORWARD, 6 NEEDS_OPERATOR (operator-gated endpoints). /health build b7921052 worker_alive true; /api/verify 13/13."
+  },
+  {
+   "sha": "88d1ce5ee1a429ea6e0619c3c3c98dff27f22b4e",
+   "observed": "2026-11-12T02:18Z",
+   "evidence": "owner exact-SHA approval 2026-11-11 ('Approve 88d1ce5e'); backup room by owner-approved prune of the six Oct 26-27 dumps (2026-11-12, 'Go'). Batch 7 release record over suite tree 93eb5106 (full suite 20261111T112841Z-1006: 10867 passing, 0 suites failing, clean, release-eligible). Pre-deploy backup brambleloop_prod_20261112T013853Z.dump 595476327 B sha256 d681ccaa restore_ok, 150 tables, 363501 rows, BK RESULT OK, 1.9G free. ops/deploy.sh --deployed b7921052: guard ALLOW, rollback rehearsal ALLOW; verify_deploy DEPLOYED. Readback: first pass FAIL worker_alive just after boot (decision ROLLBACK recorded, AUTO_ROLLBACK off, nothing pushed); second pass worker alive, decision FIX_FORWARD, rc=5 on P1 only: no_unexpected_dead_letters (dead letter from 2026-11-12 ~00:1xZ on b7921052, before this deploy) and smoke matrix FAIL (public verdict only; failing check not visible without operator credential), 6 NEEDS_OPERATOR. /health build 88d1ce5e worker_alive true; /api/verify 13/14 (dead letters)."
+  },
+  {
+   "sha": "ea3aacc783635d7f67d3e2e1efd5d28e2c854d6c",
+   "observed": "2026-11-17T03:28Z",
+   "evidence": "owner exact-SHA approval 2026-11-17 ('Yes' to ea3aacc7). Batch 8 release record over suite tree 9e91b75b (full suite 20261112T114611Z-23092: 10905 passing, 0 suites failing, clean, release-eligible). Pre-deploy backup brambleloop_prod_20261117T032249Z.dump 639814286 B sha256 0ce5a88e restore_ok, BK RESULT OK, 1.3G free. ops/deploy.sh --deployed 88d1ce5e: guard ALLOW, rollback rehearsal ALLOW; DEPLOYED. Readback: first pass worker_alive FAIL just after boot (ROLLBACK recorded, AUTO_ROLLBACK off, nothing pushed); re-read FIX_FORWARD, rc=5 on P1: smoke matrix FAIL (pre-existing since 88d1ce5e, sub-check not visible without readback token) and 6 NEEDS_OPERATOR. /health build ea3aacc7 worker_alive true; /api/verify 14/14."
+  },
+  {
+   "sha": "8bc96eefc0dd385c578ab118f23d9481a5493c1a",
+   "observed": "2026-11-19T15:01Z",
+   "evidence": "owner approval 2026-11-19 ('I approve'; earlier 'launch batch 9' and standing 'do whatever it takes'). Batches 9+10 release record over suite tree f34c25ae (full suite 20261119T045037Z-1780: 11639 passing, 0 suites failing, clean, release-eligible; contains Batch 9 6e47d9bb, itself certified 11568/0). Pre-deploy backup brambleloop_prod_20261119T132003Z.dump 652694066 B sha256 dd34116d restore_ok, 150 tables, 425448 rows, BK RESULT OK, 640M free (next dump needs pruning). ops/deploy.sh --deployed ea3aacc7: guard ALLOW, rollback rehearsal ALLOW; verify_deploy DEPLOYED. Readback: first pass worker_alive FAIL just after boot (ROLLBACK recorded, AUTO_ROLLBACK off, nothing pushed); re-read with readback token: worker alive, all 6 operator rows PASS (incl. Etsy credential usable, continuity proof), FAIL on P1 only: no_unexpected_dead_letters (2 NoHandlerRegistered at 15:01:16-19Z for assets.photo_review and policy.issuer_shadow, both new in this release, claimed by the outgoing ea3aacc7 worker during switchover; the new build registers both handlers) and smoke matrix FAIL (pre-existing since 88d1ce5e). /health build 8bc96eef worker_alive true."
+  },
+  {
+   "sha": "5496bc4a075aec6d2c5deb3025a192645e7a9f21",
+   "observed": "2026-11-19T17:04Z",
+   "evidence": "owner approval 2026-11-19 ('I approve everything that is pending my approval'; 'You have full permission to do whatever it takes'). Batch 11 release record over suite tree a35ad302 (full suite 20261119T135927Z-1739: 11679 passing, 0 suites failing, clean, release-eligible). Backup room by owner-delegated prune 2026-11-19 ('You prune it'): five oldest dumps removed (Railway deploy c38b75bc, PRUNE RESULT OK, 2.2G free). Pre-deploy backup brambleloop_prod_20261119T165654Z.dump 652959077 B sha256 260c1c80 restore_ok, 152 tables, 426787 rows, BK RESULT OK, 1.6G free (fresh deploy 6c19d064). ops/deploy.sh --deployed 8bc96eef: guard ALLOW, rollback rehearsal ALLOW; verify_deploy DEPLOYED (94.7 s). Readback: first pass worker_alive FAIL just after boot (ROLLBACK recorded, AUTO_ROLLBACK off, nothing pushed); second pass FIX_FORWARD; re-read with readback token: all operator rows PASS, FAIL on P1 only: no_unexpected_dead_letters (8x seasonal.cycle_proof ProspectingRefused, newest 15:09Z, before this deploy) and smoke matrix FAIL (pre-existing since 88d1ce5e). /health build 5496bc4a worker_alive true. first_listing_readiness: 0 draft candidates (all Launch-0 releases fail certification/listing_set/policy/search/rollback sections; stale artefacts + policy #39 hold)."
+  },
+  {
+   "sha": "6289e493bbf13c91c54f66489d91ba4d8d83f9c4",
+   "observed": "2026-11-20T12:47Z",
+   "evidence": "owner exact-SHA override D-OWNER-DEPLOY-OVERRIDE (2026-11-20: 'Deploy dde3ea62 now', then 'Yes, push it to production now'). Batch 16 code dde3ea62 + release records only. NO full-suite record (boot guard reports ok=false until a certification of dde3ea62 passes and its record-only commit is deployed). Pre-deploy backup BK RESULT OK 20261120T121953Z. Rollback rehearsal to 5496bc4a ALLOW. verify_deploy DEPLOYED in 47 s; worker alive."
+  },
+  {
+   "sha": "09be42d6929fde45fad6ce853ecf0174914d92da",
+   "observed": "2026-11-20T15:47Z",
+   "evidence": "owner exact-SHA OK ('Yes, push Batch 17 now', 2026-11-20). Batch 17 code b098fcce + release records. Overlap suites 576/0. Rollback rehearsal to 6289e493 ALLOW. verify_deploy DEPLOYED in 80 s; worker alive. Boot guard ok=false until cert-results/b098fcce passes and its record-only commit is deployed. Readback --evidence PASS 11 FAIL 5 (stale rebuilding + weekly jobs now PASS)."
+  },
+  {
+   "sha": "a4952711c5e1dcab1d668239656778d016ba1cfd",
+   "observed": "2026-11-20T22:04Z",
+   "evidence": "owner exact-SHA OK ('Yes, push Batch 18 now'). Batch 18 code 511a8c63 (demand-supply + etsy-publish fixes + demand-stall fix) + release records. Overlap 353/0. Rollback rehearsal to 09be42d6 ALLOW. verify_deploy DEPLOYED; worker alive. Readback: 9/9 shops scanned, engine-demand row live; seasonal.cycle_proof re-billing (6 calls) traced to dead-letter redrive, fix in eng/fix-cycle-proof-billing."
   }
  ]
 }

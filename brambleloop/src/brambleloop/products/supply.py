@@ -367,15 +367,71 @@ def offers(db) -> list[dict]:
             Job.idempotency_key.in_(list(fitted))))} if fitted else set()
     out = [o for k, o in latest.items()
            if k not in admitted and fit_idempotency_key(k) not in jobs]
+    # ENG-DEMAND-SUPPLY: the market's demand for the concept's cluster, from stored evidence
+    # only (products.demand). Read at admission time, so a new scan re-ranks the queue.
+    ix = _demand_index(db)
+    for o in out:
+        o["market_demand"] = _market_demand(ix, o)
 
     def order(o):
         demand = o.get("demand")
-        # Research-backed originals (radar intake, creative winners) are the permanent
-        # supply and go first; static-pool re-promotions after them; then demand.
-        return (0 if o.get("research") else 1,
+        market = (o.get("market_demand") or {}).get("score")
+        # Market demand first (the owner core-family boost is inside it); then, on equal
+        # market demand, research-backed originals before static-pool re-promotions; then
+        # the producer's own score; then the oldest offer.
+        # B-2: a missing market score reads as the UNKNOWN prior, never as 0.0
+        return (-(float(market) if isinstance(market, (int, float)) else _prior()),
+                0 if o.get("research") else 1,
                 0 if isinstance(demand, (int, float)) else 1,
                 -(float(demand) if isinstance(demand, (int, float)) else 0.0), o["offer_id"])
     return sorted(out, key=order)
+
+
+def _prior() -> float:
+    from . import demand
+
+    return float(demand.PRIOR)
+
+
+def engine_demand_waiting(db) -> dict[str, str]:
+    """{slug: reason} for every waiting offer whose construction has no certified engine.
+
+    ENG-DEMAND-STALL: such a concept is engine demand, not draftable supply. It stays in the
+    queue (never dropped) and is admitted on the first pass after its engine certifies; the
+    verdict is re-read live, so a certified engine removes it from this map at once."""
+    from . import demand as demand_mod
+
+    out: dict[str, str] = {}
+    for o in offers(db):
+        slug = str(o.get("slug") or "")
+        if not slug or slug in out:
+            continue
+        v = demand_mod.engine_verdict(slug, o.get("payload"))
+        if v["known"] and not v["certified"]:
+            out[slug] = (f"engine_demand:{v['family']}: no certified engine builds it yet "
+                         f"({str(v.get('reason') or '')[:200]})")
+    return out
+
+
+def _demand_index(db):
+    try:
+        from . import demand
+
+        return demand.index(db)
+    except Exception:  # noqa: BLE001 - no index: every offer reads the same UNKNOWN prior
+        return None
+
+
+def _market_demand(ix, o: dict) -> dict:
+    from . import demand
+
+    payload = dict(o.get("payload") or {})
+    title = str(payload.get("title") or o.get("slug") or "").replace("-", " ")
+    if ix is None:
+        ix = demand.build_index((), ())
+    d = ix.score(title, category=str(payload.get("category") or ""),
+                 pod=str(payload.get("pod") or ""))
+    return {k: d[k] for k in ("score", "confidence", "status", "cluster", "level", "core")}
 
 
 def family_of(db, slug: str) -> str:
@@ -419,6 +475,11 @@ def admit(ctx, *, per_run: int = MAX_ADMIT_PER_RUN, wip_limit: int | None = None
     # flight is deferred, and admitted only if no other eligible candidate wants the slot.
     # Diversity orders the work; it never leaves a free slot idle.
     deferred: list[tuple[dict, str]] = []
+    from . import demand as demand_mod
+
+    recorded = {(r.get("slug"), r.get("engine"), r.get("reason"))
+                for r in demand_mod.recorded_engine_demand(ctx.db)}
+    engine_waiting: list[str] = []
 
     def take(o, family):
         job = ctx.enqueue(o.get("agent") or "crochet_engineer",
@@ -429,8 +490,8 @@ def admit(ctx, *, per_run: int = MAX_ADMIT_PER_RUN, wip_limit: int | None = None
             return
         ctx.audit(ADMITTED, artifact=o["slug"], detail={
             "key": o["key"], "job": job.id, "source": o.get("source"), "family": family,
-            "demand": o.get("demand"), "offer_id": o["offer_id"],
-            "family_in_flight": families.get(family, 0)})
+            "demand": o.get("demand"), "market_demand": o.get("market_demand"),
+            "offer_id": o["offer_id"], "family_in_flight": families.get(family, 0)})
         admitted.append({"slug": o["slug"], "key": o["key"], "job": job.id,
                          "family": family})
         families[family] = families.get(family, 0) + 1
@@ -442,6 +503,16 @@ def admit(ctx, *, per_run: int = MAX_ADMIT_PER_RUN, wip_limit: int | None = None
             refused[key] = (f"product {slug} already has a chain in flight"
                             + (f" (waiting: {cap['waiting'][slug]})"
                                if slug in cap["waiting"] else ""))
+            continue
+        # ENG-DEMAND-SUPPLY: a concept whose construction has no certified engine is not
+        # silently held: it is recorded as engine demand (the ranked "build this engine next"
+        # list) and stays waiting, admitted on the first pass after its engine certifies.
+        verdict = demand_mod.engine_verdict(slug, o.get("payload"))
+        if verdict["known"] and not verdict["certified"]:
+            refused[key] = (f"engine_demand:{verdict['family']}: no certified engine builds "
+                            f"it yet ({verdict['reason'][:200]})")
+            _record_engine_demand(ctx, o, verdict, recorded)
+            engine_waiting.append(slug)
             continue
         if cap["refusals"]:
             refused[key] = "; ".join(cap["refusals"])
@@ -467,9 +538,27 @@ def admit(ctx, *, per_run: int = MAX_ADMIT_PER_RUN, wip_limit: int | None = None
                    wip=cap["wip"])
     if admitted or refused or already:
         ctx.audit(ADMISSION, detail={"admitted": admitted, "refused": refused,
-                                     "already": already, "capacity": summary})
+                                     "already": already, "capacity": summary,
+                                     "engine_demand": engine_waiting})
     return {"admitted": admitted, "refused": refused, "already": already,
-            "capacity": summary}
+            "engine_demand": engine_waiting, "capacity": summary}
+
+
+def _record_engine_demand(ctx, o: dict, verdict: dict, recorded: set) -> None:
+    """One `supply.engine_demand` row per concept and engine reading; a 15-minute pass that
+    sees the same reading again adds nothing."""
+    from . import demand
+
+    reason = str(verdict.get("reason") or "")[:300]
+    sig = (o["slug"], verdict.get("family"), reason)
+    if sig in recorded:
+        return
+    recorded.add(sig)
+    ctx.audit(demand.ENGINE_DEMAND_ACTION, artifact=o["slug"], detail={
+        "slug": o["slug"], "key": o["key"], "engine": verdict.get("family"),
+        "family": verdict.get("family"), "engine_status": verdict.get("status"),
+        "reason": reason, "build": demand.engine_need(verdict.get("family")),
+        "demand": o.get("market_demand"), "source": o.get("source")})
 
 
 def offer(ctx, *, slug: str, payload: dict, key: str, source: str,

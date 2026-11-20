@@ -131,14 +131,20 @@ def schematic_for(cir, result) -> Schematic | None:
     """The schematic for a compiled multi-piece design, or None where there is nothing to join.
 
     A one-piece product's outline is already its finished size on the cover; a schematic is
-    for designs whose pieces have to meet.
+    for designs of several pieces. Pieces that are sewn together are drawn with their joins.
+    ENG-HOMEDECOR (b19-c B2): pieces worked separately and never sewn (a basket and its lid)
+    are drawn only when EVERY piece has a measured footprint, side by side with no join, so
+    each printed size is still a `Footprint` the certified twins produced.
     """
-    if not result.ok or len(cir.components) < 2 or not cir.assembly:
+    if not result.ok or len(cir.components) < 2:
         return None
     from ..cir.twin import build_twin
 
     twins = {c.name: build_twin(cir, result, component=c.name) for c in cir.components}
     geo = _assembly.assemble(cir, twins)
-    if not geo.footprints:
+    if not cir.assembly:
+        if set(geo.footprints) != {c.name for c in cir.components}:
+            return None
+    elif not geo.footprints:
         return None
     return render_schematic(cir, geo)

@@ -374,6 +374,10 @@ def certify(
     # 2a. Twin plausibility (F-117): compilation alone cannot certify. Every finished
     #     dimension the pattern states must sit inside tolerance of what the twin computes.
     findings.extend(_risk_matrix.plausibility_findings(cir, twins))
+    # ENG-COLOURWORK: the twin renders the true chart. A charted piece's twin fabric must be
+    # its declared chart cell for cell (the compiler already proved the rows work it).
+    from ..cir.colourwork import twin_findings as _chart_twin_findings
+    findings.extend(_chart_twin_findings(cir, twins))
     stages.append("twin")
 
     # 2b. Assembly: every piece placed and every join measured on both sides. A garment
@@ -541,6 +545,19 @@ def certify(
     findings.extend(risk_downgrade_findings(cir, prior_risk_class,
                                             physically_evidenced=physical_test_passed))
     stages.append("physical_test")
+    # 6e. ENG-PLUSH: the child-safety pattern-content gate (D-OWNER-CORE-FAMILIES s.3). A
+    #     stuffed toy, a lovey or a child's item is certified only when every construction
+    #     check passes; a FAIL is a defect and an UNKNOWN (physical evidence nothing can yet
+    #     bind) holds it -- UNKNOWN is never a pass.
+    from . import child_safety as _child_safety
+
+    safety = _child_safety.evaluate(cir, result)
+    if safety.applies:
+        for check in safety.failing():
+            findings.append(Finding(ERROR, f"CHILD_SAFETY_{check.code}", check.detail))
+        for check in safety.unknown():
+            findings.append(Finding(ERROR, f"CHILD_SAFETY_{check.code}_UNKNOWN", check.detail))
+        stages.append("child_safety")
 
     # 7. Confidence, tracked per dimension (section 3). Deliberately computed after every
     #    other stage so it reflects what was actually established rather than what was hoped.

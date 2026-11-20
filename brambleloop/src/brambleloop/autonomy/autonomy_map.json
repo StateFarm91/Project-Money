@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-20T13:44:02.496185+00:00",
+ "generated_at": "2026-11-20T22:33:41.458811+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,10 +10,10 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 148,
-  "handlers": 180,
+  "cadences": 149,
+  "handlers": 181,
   "agents": 34,
-  "follow_on_edges": 93
+  "follow_on_edges": 95
  },
  "departments": [
   {
@@ -150,6 +150,7 @@
     "follow_on_from": [
      "build2/unblock.py:request_recompute",
      "listing.seo",
+     "ops/daily_ledger.py:_reoffer",
      "owner/API route api_launch_readiness",
      "owner/API route api_plan_cycle",
      "plan.strategy",
@@ -947,6 +948,7 @@
      "owner/API route api_physical_photo",
      "owner/API route api_physical_test",
      "runtime/pipeline.py:_draft_creative",
+     "runtime/pipeline.py:_draft_garment",
      "runtime/pipeline.py:_persist_release",
      "runtime/release_recovery.py:retry_halted",
      "support/defects.py:escalate"
@@ -1485,7 +1487,7 @@
      "ops/rebuild_graph.py:enqueue",
      "owner/API route api_chain_rebuild",
      "pricing.position",
-     "runtime/pipeline.py:_publish_and_read_back",
+     "runtime/pipeline.py:_read_back_and_record",
      "runtime/release.py:_enqueue_listing_package",
      "runtime/release.py:_price_launch0",
      "runtime/release.py:_reprice_on_plan_drift",
@@ -2492,6 +2494,12 @@
       "period_seconds": 3600
      },
      {
+      "name": "daily_ledger",
+      "agent": "orchestrator",
+      "job_type": "ops.daily_ledger",
+      "period_seconds": 21600
+     },
+     {
       "name": "maturity_disagreements",
       "agent": "orchestrator",
       "job_type": "ops.maturity_disagreements",
@@ -2612,6 +2620,7 @@
      "model.probe",
      "ops.capability_probes",
      "ops.continuity",
+     "ops.daily_ledger",
      "ops.dependencies",
      "ops.health",
      "ops.heartbeat",

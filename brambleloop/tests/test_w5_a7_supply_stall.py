@@ -122,7 +122,11 @@ def _free_slots_and_admit(db):
     ctx = JobContext(job=holder, db=db, queue=JobQueue(db), registry=_Reg(db),
                      phase=Phase.SHADOW)
     out = supply.admit(ctx)
-    assert out["admitted"], out
+    # ENG-DEMAND-SUPPLY: an offer whose family has no certified engine is named on the
+    # engine-demand list instead of admitted. Every offer is accounted for -- admitted or
+    # named -- never silently dropped.
+    assert out["admitted"] or out.get("engine_demand"), out
+    return out
 
 
 def _drafts(db):
@@ -240,15 +244,22 @@ def test_the_production_drafted_set_drafts_what_can_be_drafted_then_names_the_st
             now_made = {k[len("draft:"):] for k in set(_drafts(db)) - before}
             assert now_made and now_made.isdisjoint(waiting), (now_made, waiting)
             assert now_made | set(waiting) == set(outs[0]["selected"]), (now_made, waiting)
-            _free_slots_and_admit(db)
-            assert not supply.offers(db), supply.offers(db)
+            admitted = _free_slots_and_admit(db)
+            demanded = set(admitted.get("engine_demand") or [])
+            took = {str(k).split(":", 1)[-1] for k in admitted["admitted"]}
+            assert set(waiting) <= took | demanded, (waiting, admitted)
+            # An engine-demand concept stays queued (drafted once its engine exists); nothing
+            # else is left waiting.
+            assert {o["slug"] for o in supply.offers(db)} == demanded, supply.offers(db)
         made.append(sorted(k[len("draft:"):] for k in set(_drafts(db)) - before))
     first = outs[0]
     # continued progress: everything the gate passes is drafted (within capacity, then as
     # slots free)
-    assert made[0] and set(made[0]) == set(first["selected"]), (made[0], first["selected"])
+    # ENG-DEMAND-SUPPLY: a selected concept with no certified engine is engine demand, not a draft.
+    assert made[0] and set(made[0]) | demanded == set(first["selected"]), (
+        made[0], demanded, first["selected"])
     assert first["concept_supply"]["stalled"] is False
-    assert first["concept_supply"]["supply_selected"] == len(made[0])
+    assert first["concept_supply"]["supply_selected"] == len(made[0]) + len(demanded)
     assert first["selection_pool"] == "promotable_undrafted"
     # L1: the full section-33 pool is reported beside the sub-pool selected from
     assert first["pool_size"] == 34 and first["selection_pool_size"] < 34
@@ -258,7 +269,11 @@ def test_the_production_drafted_set_drafts_what_can_be_drafted_then_names_the_st
         assert new == [], new
         assert supply["stalled"] is True and supply["reason"] == "selection_unpromotable", supply
         assert supply["promotable_undrafted"] == 0 and supply["undrafted_pool"] > 0
+        # ENG-DEMAND-STALL: a queued concept waiting on an engine is counted apart, never as
+        # promotable supply, and is held with its engine reason.
+        assert supply["engine_demand_undrafted"] == len(demanded), supply
         held = supply["held"]
+        assert all(held[s].startswith("engine_demand:") for s in demanded), held
         assert set(held) == set(pool) - set(PRODUCTION_DRAFTED) - set(made[0]), held
         assert "premise_thumbnail" in held["nordic-forest-stocking"], held
         assert "below promotion threshold" in held["alpine-slouch-beanie"], held
@@ -271,6 +286,42 @@ def test_the_production_drafted_set_drafts_what_can_be_drafted_then_names_the_st
     got = flow_health.concept_supply_stall(db)
     assert got and got["reason"] == "selection_unpromotable" and got["held"] > 0, got
     assert got["promotable_undrafted"] == 0 and got["pool"] == 34, got
+
+
+def test_an_engine_demand_concept_drafts_once_its_engine_exists():
+    """ENG-DEMAND-STALL: the engine-demand concept is not dropped. It stays queued, the scan
+    counts it as `engine_demand_undrafted` (stalled, not supply), and once an engine for it
+    is registered the next scan counts it as promotable supply and admission drafts it."""
+    from brambleloop.products import supply
+
+    db = _db("engine-arrives")
+    _drafted(db, PRODUCTION_DRAFTED)
+    _scan(db, "2026-11-19", "ea-0")
+    _score_all(db)
+    demanded = set(_free_slots_and_admit(db).get("engine_demand") or [])
+    assert demanded, "the production pool holds a concept with no certified engine"
+    assert {o["slug"] for o in supply.offers(db)} == demanded
+    waiting = _scan(db, "2026-11-20", "ea-1")["concept_supply"]
+    assert waiting["stalled"] is True and waiting["promotable_undrafted"] == 0, waiting
+    assert waiting["engine_demand_undrafted"] == len(demanded), waiting
+    assert not {f"draft:{s}" for s in demanded} & set(_drafts(db))
+    # Register an engine for the concept (an engineered design under its slug, the path
+    # `cir.draft` and `engine_verdict` both read).
+    added = {s: f"fx-engine-{s}" for s in demanded if s not in pipeline.ENGINEERED}
+    pipeline.ENGINEERED.update(added)
+    try:
+        assert supply.engine_demand_waiting(db) == {}
+        ready = _scan(db, "2026-11-21", "ea-2")["concept_supply"]
+        assert ready["engine_demand_undrafted"] == 0, ready
+        assert ready["promotable_undrafted"] == len(demanded), ready
+        # Automatic: the scan's radar.score re-offers it and the admission pass it triggers
+        # (or the next refill) admits it -- no operator step.
+        _score_all(db)
+    finally:
+        for s in added:
+            pipeline.ENGINEERED.pop(s, None)
+    assert {f"draft:{s}" for s in demanded} <= set(_drafts(db)), _drafts(db)
+    assert supply.offers(db) == []
 
 
 def test_recovery_and_a_later_stall_are_reported_from_real_scans():

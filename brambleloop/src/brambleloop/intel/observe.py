@@ -164,6 +164,13 @@ def fingerprint_of(listing: dict) -> str:
     return pods.fingerprint({k: listing.get(k) for k in FINGERPRINTED})
 
 
+FAVORERS_HISTORY_MAX = 30
+
+
+def _isint(v) -> bool:
+    return isinstance(v, int) and not isinstance(v, bool)
+
+
 def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
          shop_name: str = benchmarks.MJS_SHOP, deep_audit_limit: int = 25,
          backfill_limit: int = 40,
@@ -265,6 +272,14 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
             row.last_seen = now
             row.audit_state = "queued"
             history = (row.detail or {}).get(WITHDRAWAL_HISTORY)
+            prior_fav = (row.detail or {}).get("favorers_history")
+            old = known.get(ref)
+            if not prior_fav and old is not None and _isint((old.detail or {}).get(
+                    "num_favorers")) and old.last_seen is not None:
+                # The count the previous scan read, dated when it was last seen: a real
+                # reading, so velocity is measurable from the first change.
+                prior_fav = [{"at": _aware(old.last_seen).isoformat(),
+                              "n": int(old.detail["num_favorers"])}]
             row.detail = {"tags": listing.get("tags") or [],
                           "materials": listing.get("materials") or [],
                           "num_favorers": listing.get("num_favorers"),
@@ -276,6 +291,14 @@ def scan(db, reader: PublicReader, *, benchmark_key: str = benchmarks.MJS_KEY,
                 # Review M1: a changed listing's facts are re-read, its withdrawals are not
                 # forgotten.
                 row.detail[WITHDRAWAL_HISTORY] = history
+            # ENG-DEMAND-SUPPLY: favourites velocity needs dated readings. The favourites
+            # count is in the fingerprint, so every change arrives here; each reading is
+            # kept (bounded) so products.demand can measure a rate instead of a level.
+            fav_hist = list(prior_fav or [])
+            if listing.get("num_favorers") is not None:
+                fav_hist.append({"at": now.isoformat(), "n": int(listing["num_favorers"])})
+            if fav_hist:
+                row.detail["favorers_history"] = fav_hist[-FAVORERS_HISTORY_MAX:]
             # #208: options and variants, from the API's own listing fields. Stored only
             # when the payload carries them -- an absent field is unmeasured, not "none".
             options = listing_options(listing)

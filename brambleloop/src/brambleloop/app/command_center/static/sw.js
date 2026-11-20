@@ -6,21 +6,10 @@
 // security data and are current truth only at the moment they are served (F-898). API
 // requests are not intercepted at all; they go straight to the network. Non-GET requests are
 // never intercepted. Cross-origin requests are never intercepted.
-// INTEG6: listings (v24) and LAURAONE (v20) shells merged, so a new version.
-// CLOSE6b: CLOSE6's shell changes (timeline, Ask, overnight brief) merged on top, so v26.
-// INTEG8: CLOSE6b (v26) and WIRE1 (v26, Visual Studio panel) shells merged, so v27.
-// W4-LAUNCHFIX: the Policy readings view (#/policy) joins the shell, so v28.
-// W5-INVENTORY: the Production view joins the shell, so v28.
-// Batch 5 integration: LAUNCHFIX's Policy view (v28) and W5-INVENTORY's Production view (v28)
-// merged, so a new version.
-// S4b: the P0 board view (#/p0_board) joins the shell, so v30.
-// S4 sales LOWs (verdict 6998037105): the board page shows PARTIAL sales "as of the last
-// read", so v31.
-// ENG-FIRSTLIST: approvals.js threads the preview digest into approvals; merged after S4's
-// v30/v31 (INTEG2), so v32 supersedes both shells.
-// ENG-LEARN (learning progress view) merged after catalogue v36 and learn v40, so v41.
-// ENG-IMPROVE (improvement-team view) merged after learn v41, so v42.
-const VERSION = "cc-shell-v42";
+// Bump VERSION whenever a SHELL file changes or two shells merge; the per-version history is
+// in `git log -p -- sw.js`. ENG-DAILY: Daily view after improve v42, so v43.
+// ENG-DEMAND-SUPPLY: Demand view, so v44.
+const VERSION = "cc-shell-v44";
 const SHELL = [
   "./",
   "index.html",
@@ -48,6 +37,8 @@ const SHELL = [
   "js/views/company.js",
   "js/views/completion.js",
   "js/views/p0_board.js",
+  "js/views/daily.js",
+  "js/views/demand.js",
   "js/views/catalogue.js",
   "js/views/agents_evidence.js",
   "js/views/production.js",

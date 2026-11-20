@@ -86,7 +86,9 @@ def samples(n_gen: int, n_imp: int) -> list[dict]:
     return out
 
 
-def calibrate(n_gen=40, n_imp=320):
+def calibrate(n_gen=40, n_imp=460):
+    # F2: the floors apply to the HELD-OUT subset (5/6 of genuine, 2/3 of impostors), so
+    # 40 genuine -> 33 held out and 460 impostors -> 306 held out.
     return C.calibrate(StubEmbedder(), samples(n_gen, n_imp), REFS, with_augmentations=False)
 
 
@@ -192,8 +194,11 @@ def _mutant_function(module, fname: str, old: str, new: str):
 
 def test_calibration_derives_thresholds_and_rates_from_measurements():
     ev = calibrate()
-    assert ev["genuine_pairs"] == 40 and ev["impostor_pairs"] == 320
-    assert ev["match_at"] > ev["impostor_max"]                       # above every impostor
+    assert ev["total_genuine"] == 40 and ev["total_impostor"] == 460
+    assert ev["calibration_genuine"] == 7 and ev["genuine_pairs"] == 33        # held out
+    assert ev["calibration_impostor"] == 154 and ev["impostor_pairs"] == 306   # held out
+    assert ev["evaluation"] == C.HELD_OUT and C.audit_split(ev) == []
+    assert ev["match_at"] > ev["calibration_impostor_max"]      # above every calibration impostor
     assert ev["refuse_below"] < ev["match_at"]
     assert ev["far"] == 0.0 and ev["frr"] == 0.0
     assert ev["far_upper_95"] <= C.MAX_FAR_UPPER_95
@@ -205,8 +210,70 @@ def test_small_calibration_is_not_production_ready_whatever_it_scored():
     ev = calibrate(12, 10)
     assert ev["far"] == 0.0 and ev["frr"] == 0.0                     # perfect, but tiny
     assert not ev["production_ready"]
-    assert ev["far_upper_95"] > 0.2                                   # 0/10 bounds at ~26%
-    assert any("impostor faces" in r for r in ev["not_ready_reasons"])
+    assert ev["impostor_pairs"] == 6 and ev["far_upper_95"] > 0.3    # 0/6 held out: ~39%
+    assert any("held-out impostor faces" in r for r in ev["not_ready_reasons"])
+
+
+def test_held_out_split_is_disjoint_deterministic_and_keeps_augmentations_together():
+    ev = calibrate()
+    sp = ev["split"]
+    assert not set(sp["calibration_units"]) & set(sp["held_out_units"])
+    assert len(sp["calibration_units"]) + len(sp["held_out_units"]) == 500
+    again = calibrate()
+    assert again["split"] == sp and again["evidence_sha256"] == ev["evidence_sha256"]
+    # thresholds are set only by calibration rows: moving a held-out impostor's score above
+    # match_at raises FAR, it does not move match_at
+    rows = [dict(r) for r in ev["rows"]]
+    i = next(k for k, r in enumerate(rows) if r["label"] == C.IMPOSTOR
+             and r["split"] == C.HELD_OUT)
+    rows[i]["score"] = 0.999
+    ev2 = C.summarise(rows, [], StubEmbedder())
+    assert ev2["match_at"] == ev["match_at"] and ev2["false_accepts"] == 1, ev2["far"]
+    # a genuine image and its augmentations always land in the same subset
+    aug = C.summarise([{"id": "g1", "label": C.GENUINE, "sha256": "a", "score": .9,
+                        "derived": False}] +
+                      [{"id": f"g1~{n}", "label": C.GENUINE, "sha256": "a", "score": .9,
+                        "derived": True} for n in C.AUGMENTATIONS] +
+                      [{"id": f"g{k}", "label": C.GENUINE, "sha256": str(k), "score": .9,
+                        "derived": False} for k in range(2, 9)] +
+                      [{"id": f"i{k}", "label": C.IMPOSTOR, "sha256": str(k), "score": .2,
+                        "derived": False} for k in range(9)], [], StubEmbedder())
+    assert len({r["split"] for r in aug["rows"] if r["id"].startswith("g1")}) == 1
+
+
+def test_qualification_refuses_in_sample_evidence():
+    ev = calibrate()
+    assert ev["production_ready"]
+    # 1. evidence from the old in-sample harness (version /1): refused
+    old = {**ev, "version": "identity-calibration/1"}
+    old["evidence_sha256"] = C.evidence_sha256(old)
+    # 2. in-sample evidence re-labelled as held-out: every row "held_out", thresholds and FAR
+    #    computed over the very impostors that set them, hash recomputed so it verifies
+    rows = [{**r, "split": C.HELD_OUT} for r in ev["rows"]]
+    imp = [r["score"] for r in rows if r["label"] == C.IMPOSTOR]
+    forged = {**ev, "rows": rows, "impostor_pairs": len(imp), "far": 0.0,
+              "match_at": C._ceil2(max(imp) + C.MARGIN_ACCEPT),
+              "split": {**ev["split"], "calibration_units": [],
+                        "held_out_units": sorted(C._unit(r) for r in rows)}}
+    forged["evidence_sha256"] = C.evidence_sha256(forged)
+    for bad in (old, forged):
+        assert C.verify_evidence(bad)
+        try:
+            C.qualification(bad, owner_decision=PROD_DECISION)
+        except C.InSampleEvidence as exc:
+            assert "held-out" in str(exc) or "reproduce" in str(exc), exc
+        else:
+            raise AssertionError("in-sample evidence built a qualification record")
+    # 3. a hand-built record that omits the held-out evaluation is refused by the gate too
+    rec = C.qualification(ev, owner_decision=PROD_DECISION)
+    cal = {k: v for k, v in rec["calibration"].items() if k != "evaluation"}
+    hand = IG.qualification_record(embedder=rec["embedder"],
+                                   embedder_version=rec["embedder_version"],
+                                   weights_sha256=rec["weights_sha256"], calibration=cal,
+                                   owner_decision=PROD_DECISION, fixture_only=False)
+    with on_register(hand):
+        q = IG.validate_qualification(hand, embedder=StubEmbedder())
+    assert not q["admitted"] and any("in-sample" in r for r in q["reasons"]), q["reasons"]
 
 
 def test_clopper_pearson_upper_bound():
@@ -254,9 +321,20 @@ def test_committed_sface_evidence_is_intact_and_honestly_not_ready():
 
     assert ev["weights_sha256"] == FE.weights_sha256()
     assert ev["canonical_references"] == canonical.CURRENT_REFERENCE_HASHES
-    assert ev["impostor_max"] < ev["match_at"] <= ev["genuine_min"], ev
-    assert ev["far"] == 0.0 and ev["frr"] == 0.0
+    # F2: measured held-out. Thresholds come from the calibration subset only; the honest
+    # held-out reading of this tiny set is that look-alikes DO cross match_at (FAR 2/6).
+    assert ev["version"] == C.CALIBRATION_VERSION and ev["evaluation"] == C.HELD_OUT
+    assert C.audit_split(ev) == [], C.audit_split(ev)
+    assert ev["calibration_impostor_max"] < ev["match_at"] <= ev["genuine_min"], ev
+    assert ev["false_accepts"] == 2 and ev["impostor_pairs"] == 6 and ev["frr"] == 0.0
     assert not ev["production_ready"] and ev["impostor_pairs"] < C.MIN_IMPOSTOR_PRODUCTION
+    try:
+        C.qualification(ev, owner_decision=PROD_DECISION)
+    except C.InSampleEvidence:
+        raise AssertionError("held-out evidence was refused as in-sample")
+    rec = C.qualification(ev, owner_decision=PROD_DECISION)
+    with on_register(rec):                    # not production-ready: refused even on register
+        assert not IG.validate_qualification(rec)["admitted"]
     # no labelled sample is a real person's photograph: every licence says generated/owner
     m = json.loads((EVIDENCE.parent / "calibration_set.json").read_text())
     assert all("no real person" in s["licence"] or "no third-party person" in s["licence"]
@@ -276,7 +354,8 @@ def test_real_sface_calibration_reproduces_when_installed():
     m = EVIDENCE.parent / "calibration_set.json"
     ev = C.calibrate(emb, C.load_set(m, ROOT), REFS)
     want = json.loads(EVIDENCE.read_text())["evidence"]
-    for k in ("match_at", "refuse_below", "genuine_pairs", "impostor_pairs", "far", "frr"):
+    for k in ("match_at", "refuse_below", "genuine_pairs", "impostor_pairs", "far", "frr",
+              "split", "evidence_sha256"):
         assert ev[k] == want[k], (k, ev[k], want[k])
 
 
@@ -328,6 +407,49 @@ def test_the_same_judge_twice_is_one_judge():
     assert got["verdict"] == "HOLD", got
 
 
+def test_vision_judge_reserves_the_providers_own_image_figure_never_less_than_the_gate():
+    """F4: an OpenAI identity read (4 images) is reserved at gpt-4.1's own per-image figure
+    plus system text -- exactly the paid gate's estimate -- not at Anthropic's 6,000."""
+    from brambleloop.gateway import anthropic as A, openai_chat as OC, providers as gw
+    from brambleloop.visual import fidelity as F, inspect as I
+
+    seen = {}
+
+    class Resp:
+        input_tokens, output_tokens, text = 3300, 200, "{}"
+
+    class Prov:
+        model = VJ.SECOND_JUDGE_MODEL
+        cost_per_1k_input_cad = cost_per_1k_output_cad = 0.0
+
+        def see(self, system, prompt, paths, *, max_tokens):
+            seen["gate"] = gw.input_tokens(self.model, system=system, user=prompt,
+                                           images=len(paths))
+            return Resp()
+
+    class Open(F.GatewayVisionJudge):
+        def gate_open(self):
+            return True
+
+    saved = (gw.check_budget, gw.release_reservation, I._bill)
+    gw.check_budget = lambda db, **kw: (seen.update(res=kw["input_tokens"]) or
+                                        {"estimate_cad": 0.0, "reservation_id": None})
+    gw.release_reservation = lambda *a, **k: None
+    I._bill = lambda *a, **k: None
+    try:
+        prompt = "Task: identity_morphology\n" + VJ.person_prompt("photo_first")
+        got = Open(None, provider=Prov()).read(prompt, [b"a", b"b", b"c", b"d"],
+                                               system=VJ.SYSTEM, max_tokens=400)
+    finally:
+        gw.check_budget, gw.release_reservation, I._bill = saved
+    assert got["answered"], got
+    assert seen["res"] == seen["gate"], seen                    # never below the gate
+    assert seen["res"] >= 4 * 1445                               # gpt-4.1 worst case/image
+    assert seen["res"] < len(prompt) // 4 + 4 * A.IMAGE_TOKENS_ESTIMATE    # no 4x
+    cad = OC.estimate_cad(Prov.model, input_tokens=seen["res"], output_tokens=400)
+    assert 0.02 < cad < 0.04, cad                                # was ~CA$0.091
+
+
 def test_impostor_frame_is_refused_by_the_biometric_floor():
     got = ident(OTHER)
     assert got["verdict"] == "REFUSE" and got["biometric"]["status"] == "FAIL", got
@@ -345,7 +467,10 @@ def test_second_transport_is_a_different_provider_and_is_off_without_a_key():
 
         assert isinstance(t, GatewayVisionJudge)           # the same reservation path
         first = GatewayVisionJudge(None)
-        assert VJ.transports_independent(first, t)
+        # F5: independence is enforced by distinct judge ids (`person_readings` counts the
+        # same id twice as one reading); the unused transports_independent helper is gone.
+        assert VJ.judge_id(first) != VJ.judge_id(t)
+        assert not hasattr(VJ, "transports_independent")
         # its gate is closed without a database: unanswered, so identity HOLDs, nothing sent
         assert t.read("x", [b"img"])["answered"] is False
     finally:
@@ -480,6 +605,97 @@ def test_outfit_claims_are_unique_idempotent_and_survive_a_restart():
     assert any(s["why"] == "WARDROBE_REPETITION" for s in c["skipped"]), c
     # and a different listing cannot take a claimed outfit through reserve either
     assert O.reserve(again, a1["outfit_id"], "listing-c")["status"] == "FAIL"
+
+
+def _held(db, listing):
+    from sqlalchemy import select
+
+    from brambleloop.visual.image_records import LauraOutfit
+
+    with db.session() as s:
+        return sorted(r.outfit_id for r in s.scalars(select(LauraOutfit).where(
+            LauraOutfit.listing == listing, LauraOutfit.approval_state == "approved")))
+
+
+class interleave:
+    """Run `other()` inside claim(), after it has read the free list and before its
+    compare-and-set UPDATE: the window two workers race in (F3)."""
+
+    def __init__(self, other):
+        self.other, self.done = other, False
+
+    def __enter__(self):
+        self.saved = O._too_similar
+
+        def hooked(s, row, listing):
+            if not self.done:
+                self.done = True
+                self.other()
+            return self.saved(s, row, listing)
+
+        O._too_similar = hooked
+
+    def __exit__(self, *a):
+        O._too_similar = self.saved
+
+
+def _race_db(name):
+    db = _db(Path(os.environ.get("TMPDIR", "/tmp")) / name)
+    _outfit(db, "outfit-a-sage", "sage cotton jumper", "grey wool trousers", "black loafers")
+    _outfit(db, "outfit-b-plum", "plum silk blouse", "cream midi skirt", "brown mary janes")
+    _outfit(db, "outfit-c-teal", "teal knit vest", "white wide-leg jeans", "red sneakers")
+    return db
+
+
+def test_interleaved_claim_whose_loser_already_has_uses_leaves_exactly_one_outfit():
+    db = _race_db("race1.db")
+
+    def other_worker():   # reserves B for the same listing and generates a frame in it
+        got = O.check_use(db, "outfit-b-plum", listing="L", product="p", image_sha256="f" * 64)
+        assert got["status"] == "PASS", got
+
+    with interleave(other_worker):
+        got = O.claim(db, "L")      # took A by compare-and-set, after B reached an image
+    assert _held(db, "L") == ["outfit-b-plum"], _held(db, "L")
+    assert got["status"] == "PASS" and got["outfit_id"] == "outfit-b-plum", got
+    assert got["claimed"] is False
+    assert got["race"] == [{"outfit_id": "outfit-a-sage", "action": "released", "uses": 0}]
+    # A is free again for another listing; B stays B's
+    assert O.claim(db, "M")["outfit_id"] == "outfit-a-sage"
+    assert O.reserved_for(db, "L")["outfit_id"] == "outfit-b-plum"
+
+
+def test_interleaved_claims_where_both_outfits_have_uses_retire_the_later_one():
+    db = _race_db("race2.db")
+    O.check_use(db, "outfit-b-plum", listing="L", product="p", image_sha256="1" * 64)
+    from brambleloop.visual.image_records import LauraOutfit  # noqa: F401
+    # simulate the worst case: A was reserved for L by a racing claim and also reached images
+    with db.session() as s:
+        a = O._row(s, "outfit-a-sage")
+        a.listing, a.reserved_at = "L", O._now()
+        a.uses = [{"listing": "L", "product": "p", "image_sha256": "2" * 64,
+                   "at": "2099-01-01T00:00:00+00:00"}]          # its first use is later
+    view, resolved = O.settle(db, "L")
+    assert view["outfit_id"] == "outfit-b-plum" and _held(db, "L") == ["outfit-b-plum"]
+    assert resolved[0]["outfit_id"] == "outfit-a-sage" and resolved[0]["action"] == "retired"
+    # the retired loser is never handed to another listing
+    assert O.claim(db, "M")["outfit_id"] == "outfit-c-teal"
+
+
+def test_reserve_racing_a_claim_settles_to_one_outfit():
+    db = _race_db("race3.db")
+    seen = {}
+
+    def other_worker():
+        seen["got"] = O.reserve(db, "outfit-b-plum", "L")
+
+    with interleave(other_worker):
+        got = O.claim(db, "L")
+    assert len(_held(db, "L")) == 1, _held(db, "L")
+    winner = _held(db, "L")[0]
+    assert got["outfit_id"] == winner
+    assert seen["got"]["status"] == "PASS"          # it was first; the claim then settled
+    assert O.reserve(db, "outfit-c-teal", "L")["status"] == "FAIL"
 
 
 def test_outfit_reference_check_is_slot_by_slot():
@@ -617,6 +833,185 @@ def test_mutant_gate_status_verdict_rule_is_caught():
     held = {"status": "PASS", "verdict": "HOLD"}
     assert CG.gate_status(held) == "UNKNOWN"
     assert m.gate_status(held) == "PASS"
+
+
+# ============================================================ 6. owner Decision 2: the contact sheet
+
+from brambleloop.visual import identity_labelling as L  # noqa: E402
+
+
+def _png(seed: int) -> bytes:
+    import io as _io
+
+    from PIL import Image
+
+    b = _io.BytesIO()
+    Image.new("RGB", (64, 64), (seed * 9 % 255, 120, 200)).save(b, "PNG")
+    return b.getvalue()
+
+
+def _stub_generator(out, calls):
+    def gen(prompt, reference_urls):
+        calls.append((prompt, list(reference_urls)))
+        p = Path(out) / f"render-{len(calls)}.png"
+        p.write_bytes(_png(len(calls)))
+        return {"path": str(p), "cost_entry_id": len(calls)}
+    return gen
+
+
+READY = lambda db, env=None: {"state": "READY", "code": ""}  # noqa: E731
+
+
+def test_contact_sheet_plan_conditions_every_frame_on_all_three_references():
+    shots = L.plan()
+    assert len(shots) == L.N_FRAMES == 24
+    want = sorted(canonical.CURRENT_REFERENCE_HASHES.values())
+    assert all(sorted(r["sha256"] for r in s["references"]) == want for s in shots)
+    assert len({s["prompt"] for s in shots}) == 24                    # 24 different shots
+    assert len({s["framing"] for s in shots}) >= 4 and len({s["angle"] for s in shots}) == 3
+    assert L.N_FRAMES * L.price_usd() <= L.CAP_USD < (L.N_FRAMES + 1) * L.price_usd()
+
+
+def test_contact_sheet_generation_refuses_without_key_and_activation_and_spends_nothing():
+    out = Path(os.environ.get("TMPDIR", "/tmp")) / "cs-refused"
+    calls = []
+    for env in ({}, {"BRAMBLELOOP_IMAGE_KEY_BFL": "x"}):
+        try:
+            L.generate(None, out, env=env, generator=_stub_generator(out, calls))
+        except L.NotReady as exc:
+            assert exc.code in ("no_bfl_credential", "accounting_store_missing") or \
+                "activation" in str(exc) or exc.code, exc
+        else:
+            raise AssertionError("generated without the key and the owner's activation")
+    assert calls == [] and not (out / "contact_sheet.json").exists()
+
+
+def test_contact_sheet_generate_sheet_label_and_add_round_trip():
+    root = Path(os.environ.get("TMPDIR", "/tmp")) / "cs-repo"
+    out = root / "sheet"
+    calls = []
+    man = L.generate(None, out, generator=_stub_generator(out, calls), ready=READY)
+    assert len(man["frames"]) == 24 and len(calls) == 24
+    assert all(len(refs) == 3 for _, refs in calls)
+    assert all(f["label"] is None for f in man["frames"])          # never self-labelled
+    again = L.generate(None, out, generator=_stub_generator(out, calls), ready=READY)
+    assert len(calls) == 24 and len(again["frames"]) == 24          # idempotent: no re-buy
+    png = L.contact_sheet(man, out)
+    from PIL import Image
+    import io as _io
+
+    w, h = Image.open(_io.BytesIO(png)).size
+    assert w > h > 0                                                # 6 x 4 grid
+    page = L.labelling_page(man)
+    assert page.count('value="laura"') == 24 and page.count('value="not_laura"') == 24
+    laura, other = L.parse_numbers("1-20,22"), L.parse_numbers("21,23,24")
+    for bad in (dict(laura=laura, not_laura=other[:-1], labelled_by="owner"),   # one missing
+                dict(laura=laura + [21], not_laura=other, labelled_by="owner"),  # both ways
+                dict(laura=laura, not_laura=other + [25], labelled_by="owner"),  # not on sheet
+                dict(laura=laura, not_laura=other, labelled_by=" ")):           # nobody
+        try:
+            L.apply_labels(man, out, **bad)
+        except L.LabelsRefused:
+            pass
+        else:
+            raise AssertionError(f"labels accepted: {bad}")
+    labelled = L.apply_labels(man, out, laura=laura, not_laura=other, labelled_by="owner")
+    assert sum(f["label"] == L.LAURA for f in labelled["frames"]) == 21
+    sp = root / "calibration_set.json"
+    sp.write_text(json.dumps({"version": "x", "samples": []}))
+    try:
+        L.add_to_calibration_set(man, out, sp, root)                # unlabelled: refused
+    except L.LabelsRefused:
+        pass
+    else:
+        raise AssertionError("an unlabelled sheet reached the calibration set")
+    assert L.add_to_calibration_set(labelled, out, sp, root) == {"added": 24, "samples": 24}
+    assert L.add_to_calibration_set(labelled, out, sp, root)["added"] == 0     # idempotent
+    added = json.loads(sp.read_text())["samples"]
+    assert {s["label"] for s in added} == {C.GENUINE, C.IMPOSTOR}
+    assert all("no real person" in s["licence"] for s in added)
+    # tampered bytes after labelling: refused
+    (out / man["frames"][0]["file"]).write_bytes(b"changed")
+    try:
+        L.apply_labels(man, out, laura=laura, not_laura=other, labelled_by="owner")
+    except L.LabelsRefused as exc:
+        assert "sha256" in str(exc)
+    else:
+        raise AssertionError("tampered frame was labelled")
+
+
+# ============================================================ 7. the models in the Railway image
+
+def _fetch_script():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("fetch_face_models",
+                                                  ROOT / "scripts/fetch_face_models.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_dockerfile_fetches_the_pinned_models_without_breaking_the_build():
+    docker = (ROOT / "Dockerfile").read_text()
+    lines = [ln.strip() for ln in docker.splitlines()]
+    assert "ENV BRAMBLELOOP_FACE_MODEL_DIR=/app/models/face" in lines
+    run = [ln for ln in lines if ln.startswith("RUN") and "fetch_face_models.py" in ln]
+    assert run == ['RUN python scripts/fetch_face_models.py --best-effort '
+                   '"$BRAMBLELOOP_FACE_MODEL_DIR"'], run
+    # after the locked install (onnxruntime comes from the lock), before the full source copy
+    i_pip = next(k for k, ln in enumerate(lines) if "--require-hashes" in ln)
+    i_run = lines.index(run[0])
+    i_src = lines.index("COPY src ./src")
+    assert i_pip < i_run < i_src
+    lock = (ROOT / "requirements.lock").read_text()
+    assert "\nonnxruntime==" in lock and "onnxruntime>=" in (ROOT / "requirements.txt").read_text()
+    from brambleloop.visual import face_embedder as FE
+
+    assert FE.DEFAULT_MODEL_DIR == os.environ.get("BRAMBLELOOP_FACE_MODEL_DIR",
+                                                  "/app/models/face")
+
+
+def test_fetch_script_reads_the_embedders_pins_and_deletes_a_mismatch():
+    from brambleloop.visual import face_embedder as FE
+
+    fs = _fetch_script()
+    pins, default_dir = fs._pins()
+    assert pins == FE.MODELS and default_dir == FE.DEFAULT_MODEL_DIR
+    tmp = Path(os.environ.get("TMPDIR", "/tmp")) / "fetch-test"
+    src = tmp / "src"
+    src.mkdir(parents=True, exist_ok=True)
+    (src / "m.onnx").write_bytes(b"model bytes")
+    good = hashlib.sha256(b"model bytes").hexdigest()
+    url = (src / "m.onnx").resolve().as_uri()
+    dst = tmp / "dst"
+    assert fs.main(str(dst), {"x": {"file": "m.onnx", "sha256": good, "url": url,
+                                    "licence": "test"}}) == 0
+    assert (dst / "m.onnx").read_bytes() == b"model bytes"
+    bad = tmp / "dst-bad"
+    assert fs.main(str(bad), {"x": {"file": "m.onnx", "sha256": "0" * 64, "url": url,
+                                    "licence": "test"}}) == 1
+    assert not (bad / "m.onnx").exists()                     # mismatched bytes never kept
+    gone = tmp / "dst-gone"
+    assert fs.main(str(gone), {"x": {"file": "m.onnx", "sha256": good,
+                                     "url": (src / "nope").resolve().as_uri(),
+                                     "licence": "test"}}) == 1
+    # --best-effort: the build exits 0 and the embedder then refuses (HOLD, never PASS)
+    import subprocess
+
+    r = subprocess.run([sys.executable, "-I", str(ROOT / "scripts/fetch_face_models.py"),
+                        "--best-effort", str(tmp / "offline")], capture_output=True, text=True,
+                       env={**os.environ, "HTTPS_PROXY": "http://127.0.0.1:9",
+                            "https_proxy": "http://127.0.0.1:9", "NO_PROXY": "", "no_proxy": ""},
+                       timeout=120)
+    assert r.returncode == 0 and "NOT installed" in r.stdout, (r.returncode, r.stdout, r.stderr)
+    emb, why = FE.try_load(tmp / "offline")
+    assert emb is None and why
+
+
+def test_embedder_keeps_to_the_ram_budget_settings():
+    src = (ROOT / "src/brambleloop/visual/face_embedder.py").read_text()
+    assert "opts.enable_cpu_mem_arena = False" in src and "intra_op_num_threads" in src
 
 
 def test_canonical_references_untouched():

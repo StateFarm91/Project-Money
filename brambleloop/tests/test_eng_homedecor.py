@@ -135,6 +135,18 @@ def test_a_research_lidded_basket_certifies_with_a_fitting_lid():
     assert lid > rim and (lid - rim) % 6 == 0, (rim, lid)
     texts = _assert_pdfs(cir)
     assert "lid" in texts["US"].lower() and "lid" in texts["UK"].lower()
+    # b19-c B2: the cover names the pieces (never "Makes 2 baskets"), its hero is the
+    # schematic labelled as a rendering, and the schematic draws both pieces, unjoined.
+    from brambleloop.cir.compiler import compile_cir
+    from brambleloop.publish.schematic import schematic_for
+    for terms in ("US", "UK"):
+        assert "In 2 pieces: 1 basket, 1 lid" in texts[terms], terms
+        assert "Makes 2 baskets" not in texts[terms], terms
+        assert "a rendering, not a photograph" in texts[terms][:1500], terms
+        assert "not sewn together" in texts[terms], terms
+    drawn = schematic_for(cir, compile_cir(cir))
+    assert drawn is not None and set(drawn.labels) == {"basket", "lid"}, drawn
+    assert drawn.arrows == [] and drawn.closures == []
 
 
 def test_a_research_handled_basket_certifies_with_cut_out_handles():

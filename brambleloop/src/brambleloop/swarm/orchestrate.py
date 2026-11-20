@@ -770,7 +770,8 @@ FREE_JOB_TYPES: frozenset[str] = frozenset({
     "learning.knowledge_gaps", "learning.loops", "listing.cross_sell_graph", "listing.outcomes",
     "listing.package", "listing.search_visibility_aging", "listing.search_visibility_watch",
     "listing.taxonomy_refresh", "listing.window_captures", "mjs.reviews", "mjs.scan",
-    "ops.capacity", "ops.continuity", "ops.dependencies", "ops.health", "ops.heartbeat",
+    "ops.capacity", "ops.continuity", "ops.daily_ledger", "ops.dependencies", "ops.health",
+    "ops.heartbeat",
     "ops.maturity_disagreements", "ops.offsite_archive", "ops.policy_watch",
     "ops.provenance_backfill", "ops.provider_credentials", "ops.queue_check", "ops.retention",
     "ops.sentinel", "ops.slo", "ops.thrash", "physical.upgrade_impact", "plan.cycle",
@@ -1258,6 +1259,7 @@ JOB_BANDS: dict[str, str] = {
     "seasonal.sentinel": "seasonal_deadline",
     "seasonal.engine": "seasonal_deadline",
     "ops.thrash": "truth_defect",
+    "ops.daily_ledger": "truth_defect",
     # #311: an MJs-derived opportunity's window closes exactly like a certified product's.
     "mjs.seasonal_sentinel": "seasonal_deadline",
     "seasonal.remerchandising": "seasonal_deadline",

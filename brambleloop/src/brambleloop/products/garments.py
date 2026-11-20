@@ -423,7 +423,11 @@ def built_measures(cir: CIR) -> dict[str, float]:
     measured from its compiled rows and digital twin rather than from its size table."""
     from ..cir.compiler import compile_cir
     from ..cir.twin import build_twin, row_width_cm
+    from . import garment_families
 
+    # ENG-GARMENT: a garment-family build is measured by its own construction's instrument.
+    if garment_families.construction_of(cir) is not None:
+        return garment_families.built_measures(cir)
     r = compile_cir(cir)
     if not r.ok:
         raise ShapingRefused(f"{cir.slug} does not compile: {[str(e) for e in r.errors][:1]}")

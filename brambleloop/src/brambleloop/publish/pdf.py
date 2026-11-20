@@ -35,6 +35,7 @@ from ..cir.twin import TwinModel, build_twin
 from ..cir.writer import write_pattern
 from ..intel import childrens as ch
 from . import abbreviations, substitution, value_stack
+from . import pdf_standard as _std
 from . import charts as chart_mod
 from .charts import (
     COLOUR_CUE_NOTE_FLAT, COLOUR_CUE_NOTE_ROUND, ChartSpec, RoundBlock, cell_size,
@@ -147,6 +148,8 @@ class PatternDocument:
     # Every picture the document places, in order: what it is and where it came from. A
     # reviewer checks the provenance of each image from here rather than by guessing.
     figures: list[dict] = field(default_factory=list)
+    # ENG-PDF-PREMIUM: this document's family audit (`publish.pdf_standard.Audit.to_dict`).
+    standard: dict = field(default_factory=dict)
 
     def size_label(self) -> str:
         if not self.finished_size_cm:
@@ -603,14 +606,14 @@ def graded_childrens_assignment(cir: CIR) -> tuple[str, str] | None:
     the age band; sizes 14 and 16 are over 12 and outside CPSC's children's-product
     definition (`intel.childrens.OVER_TWELVE`), so they carry no children's block.
     """
-    from ..cir.graded import CHILD
+    from ..cir.graded import BABY, CHILD, months_of
 
     g = cir.grading
-    if g is None or g.table != CHILD.name:
+    if g is None or g.table not in (CHILD.name, BABY.name):
         return None
-    try:
-        months = int(float(g.size)) * 12
-    except ValueError:
+    # ENG-GARMENT: the CYC baby table names its sizes in months ("3m" .. "24m").
+    months = months_of(g.table, g.size)
+    if months is None:
         return None
     band = ch.age_band_for_months(months)
     if band == ch.OVER_TWELVE:
@@ -851,6 +854,12 @@ def fibres_named(cir: CIR) -> tuple[tuple[str, ...], str]:
     for material in cir.materials:
         name = (material.name or "").lower()
         words = set(re.findall(r"[a-z]+", name))
+        # ENG-PLUSH: a stuffing is not a yarn the pattern is written for. A material with no
+        # yarn weight whose name says it is stuffing is skipped (never read as "polyester
+        # yarn"); any other weightless material still has to name its fibre or block.
+        if not getattr(material, "yarn_weight", None) and re.search(
+                r"\b(?:fibrefill|fiberfill|stuffing|polyfill|filling)\b", name):
+            continue
         hits = [fibre for fibre in known if fibre in words]
         if not hits:
             silent.append(material.name or "(unnamed)")
@@ -886,13 +895,19 @@ def childrens_facts(cir: CIR, twin: TwinModel, audience: str) -> ch.StatementFac
     fibres, read_from = fibres_named(cir)
     size = ((twin.width_cm, twin.height_cm)
             if twin.width_cm and twin.height_cm else None)
+    size_text = (size_statement(twin) or "") if twin.shape is not None else ""
+    if size is None and twin.size_refusal and twin.circumference_cm:
+        # ENG-PLUSH: a closed stuffed piece has no computable height (the twin refuses it),
+        # so the size it can honestly state is its circumference, said as such.
+        size_text = (f"about {twin.circumference_cm:.0f} cm around its widest round (its "
+                     f"height is set by the stuffing and is measured on a sample)")
     return ch.StatementFacts(
         audience=audience,
         finished_size_cm=size,
         colours=tuple(sorted(c for c in (cir.colors or {}) if c)),
         fibres=fibres,
         fibre_read_from=read_from,
-        size_text=(size_statement(twin) or "") if twin.shape is not None else "",
+        size_text=size_text,
     )
 
 
@@ -978,8 +993,13 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
                       released_on: date | None = None,
                       childrens: tuple[str, str] | None = None,
                       lesson_links: list[dict] | None = None,
-                      sample_photo_placeholders: bool = False) -> PatternDocument:
+                      sample_photo_placeholders: bool = False,
+                      enforce_standard: bool = True) -> PatternDocument:
     """Render the full pattern document.
+
+    Turning `enforce_standard` off is for tests that build a deliberately defective document to
+    inspect one property of it; the audit still runs and is returned in `standard`. No
+    production caller passes it (`tests/test_pdf_standard.py` asserts so).
 
     Refuses outright if the CIR does not compile. A PDF built on failed arithmetic is a
     defect we would be charging money for, and the release chain is supposed to make that
@@ -1088,6 +1108,14 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
     pdf_bytes = doc.finish()
     if childrens is not None:
         _refuse_an_incomplete_childrens_document(cir, twin, pdf_bytes, childrens, terminology)
+    _refuse_a_child_safety_content_failure(cir, result, pdf_bytes, childrens, terminology,
+                                           instructions=text)
+    # ENG-PDF-PREMIUM: the family's premium standard, audited on the finished bytes. A PDF
+    # missing what its family needs is refused here, not shipped and found by a buyer.
+    standard = premium_audit(pdf_bytes, cir, twin=twin, result=result,
+                             terminology=terminology, childrens=childrens is not None)
+    if enforce_standard:
+        _std.refuse_if_incomplete(standard)
 
     return PatternDocument(
         pdf_bytes=pdf_bytes,
@@ -1104,7 +1132,24 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
         problems=problems,
         prose="\n".join(doc.prose),
         figures=list(doc.figures),
+        standard=standard.to_dict(),
     )
+
+
+def premium_audit(pdf_bytes: bytes, cir: CIR, *, twin: TwinModel, result, terminology: str,
+                  childrens: bool) -> "_std.Audit":
+    """The premium standard's audit of finished bytes, reading each page once.
+
+    The flat text is the per-page text joined, which is what `extracted_text` computes, so
+    it is cached under the same digest for the gates that read it next.
+    """
+    pages = _std.pages_text(pdf_bytes)
+    text = " ".join(" ".join(pages).split())
+    sha = hashlib.sha256(pdf_bytes).hexdigest()
+    if sha not in _EXTRACTED and len(_EXTRACTED) < 32:
+        _EXTRACTED[sha] = text
+    ctx = _std.context(cir, twin, result, terminology, childrens=childrens)
+    return _std.audit_text(text, ctx, pages)
 
 
 def extracted_text(pdf_bytes: bytes) -> str:
@@ -1138,6 +1183,29 @@ def extracted_text(pdf_bytes: bytes) -> str:
 
 
 _EXTRACTED: dict[str, str] = {}
+
+
+def _refuse_a_child_safety_content_failure(cir: CIR, result, pdf_bytes: bytes, childrens,
+                                           terminology: str, *,
+                                           instructions: str | None = None) -> None:
+    """ENG-PLUSH: the finished document is read back and the child-safety gate run on it.
+
+    A FAIL (a missing statement or citation, a certification claim, a hard part in the
+    instructions, a construction defect) refuses the document. HELD -- physical evidence
+    nothing can bind yet -- does not refuse a document; it refuses certification, and so
+    publication, in `gates.certificate`."""
+    from ..gates import child_safety as _child_safety
+
+    if not _child_safety.applies(cir, childrens):
+        return
+    verdict = _child_safety.evaluate(cir, result, text=extracted_text(pdf_bytes),
+                                     instructions=instructions, childrens=childrens)
+    failing = verdict.failing()
+    if failing:
+        raise ValueError(
+            f"refusing to render a {terminology.upper()}-terms PDF for {cir.slug}: the "
+            f"child-safety content gate fails: "
+            + " | ".join(f"{c.code}: {c.detail}" for c in failing))
 
 
 def childrens_statements_in(pdf_bytes: bytes, assignment: tuple[str, str]) -> dict:
@@ -1441,9 +1509,53 @@ def _yarn_weight_label(cir: CIR) -> str:
     weights = sorted({m.yarn_weight for m in cir.materials if m.yarn_weight})
     named = ", ".join(w.upper() if len(w) <= 3 else w.capitalize() for w in weights)
     cyc = cir.gauge.yarn_weight if cir.gauge and cir.gauge.yarn_weight else ""
+    # ENG-PDF-PREMIUM: the Craft Yarn Council number is the one a buyer finds on a ball band.
+    w = _std.cyc_weight(cir)
+    number = f", CYC {w.number}" if w is not None else ""
     if cyc and cyc.lower() not in {w.lower() for w in weights}:
-        return f"{named} weight ({cyc.replace('_', ' ')})"
-    return f"{named} weight" if named else "see Materials"
+        return f"{named} weight ({cyc.replace('_', ' ')}){number}"
+    return f"{named} weight{number}" if named else "see Materials"
+
+
+def makes_words(cir: CIR) -> str | None:
+    """What the cover says the pattern makes, from Component.make.
+
+    One component made N times is N of that piece ("Makes 4 coasters"). Several different
+    components are the pieces of one assembled object, and naming the object by its first
+    piece printed "Makes 4 bodys" on a pullover and "Makes 3 pillows" on one ring pillow.
+    """
+    make = sum(c.make for c in cir.components)
+    if make <= 1:
+        return None
+    if len(cir.components) == 1:
+        piece = cir.components[0].name.replace("_", " ")
+        return f"Makes {make} {piece if piece.endswith('s') else piece + 's'}"
+    return f"Made from {make} pieces"
+
+
+def per_piece(cir: CIR) -> int:
+    """How many identical pieces a yarn amount divides into: 1 unless one component repeats."""
+    return cir.components[0].make if len(cir.components) == 1 else 1
+
+
+def _amount(lo: float, hi: float, terminology: str, weight=None) -> str:
+    """A yarn range in the edition's unit (yd in US, m in UK), with 100 g balls."""
+    out = _std.yarn_amount(lo, hi, terminology)
+    n = _std.balls(hi, weight)
+    if n:
+        out += f"; {n} x 100 g ball{'s' if n > 1 else ''}"
+    return out
+
+
+def _ball_note(weight, terminology: str) -> str:
+    if weight is None:
+        return ""
+    lo = weight.metres_per_100g[0]
+    length = (f"{lo:.0f} m" if terminology.upper() == "UK"
+              else f"{lo * _std.YD_PER_M:.0f} yd ({lo:.0f} m)")
+    return (f"Ball counts assume 100 g balls at the shortest typical length for "
+            f"{weight.key.replace('_', ' ')} weight (CYC {weight.number}): {length} per ball. "
+            f"Check your ball band and recount if yours is shorter.")
 
 
 def _metres(m: float, tol: float) -> tuple[float, float]:
@@ -1525,7 +1637,17 @@ def overview_paragraphs(cir: CIR, result, twin: TwinModel, text: str,
         totals: dict[str, int] = {}
         for c in twin.cells:
             totals[c.color] = totals.get(c.color, 0) + 1
-        if len(totals) > 1:
+        chart = getattr(comp, "chart", None)
+        if chart is not None and len(totals) > 1:
+            # ENG-COLOURWORK: a charted piece changes colour inside its rows, so the colour of
+            # a row's first stitch says nothing about it. Say what the chart is.
+            yarns = sorted(set(chart.key.values()))
+            main = comp.rows[0].color if comp.rows and comp.rows[0].color else yarns[0]
+            out.append(f"The main colour is {main}. {unit.capitalize()}s "
+                       f"{_span_words(chart.first_row, chart.last_row)} are {chart.technique} "
+                       f"colourwork in {' and '.join(yarns)}, worked from the chart; every "
+                       f"other {unit} is {main} only.")
+        elif len(totals) > 1:
             main = max(sorted(totals), key=lambda k: totals[k])
             others = []
             for colour in sorted(k for k in totals if k != main):
@@ -1758,6 +1880,46 @@ def _disclosed_views(cir: CIR) -> dict:
 _STEP = re.compile(r"^(?P<label>(?:Rnds?|Rows?|Rounds?)\s+\d[^:]*:)\s*(?P<body>.*)$")
 _COUNT = re.compile(r"(?P<count>\(\d+ sts?\))\s*$")
 _STEP_NUMBER = re.compile(r"^(?:Rnds?|Rows?|Rounds?)\s+(\d+)")
+_IN_ORDER = re.compile(r"^(?:Stuff|Close) after (?:Rnd|Round) \d+:")
+
+
+COVER_SCHEMATIC_CAPTION = ("Schematic drawing of the pieces, generated from this pattern's "
+                           "stitch data — a rendering, not a photograph.")
+
+RS_NOTE = ("RS means right side and WS wrong side. Row 1 is a right-side row and sets which "
+           "side is the right side; each turn changes side, so every row below is labelled.")
+
+
+def _sides_for(cir: CIR, block_title: str) -> dict[int, str]:
+    """RS/WS for each row of the flat-row component a writer block names, from its turns.
+
+    Row 1 is the right side by this document's convention (stated once, in RS_NOTE). Every
+    later row changes side exactly when the writer prints "turn" for it, which it does for a
+    flat-row row with a turning chain, so the label follows the CIR rather than parity.
+    """
+    key = block_title.lower().split(" (")[0].replace("_", " ").strip()
+    comp = next((c for c in cir.components
+                 if c.name.replace("_", " ").lower() == key), None)
+    if comp is None or comp.construction != "flat_rows" or not comp.rows:
+        return {}
+    out: dict[int, str] = {}
+    side = "RS"
+    for i, row in enumerate(comp.rows):
+        if i > 0 and row.turning_chain:
+            side = "WS" if side == "RS" else "RS"
+        out[row.index] = side
+    return out
+
+
+_SIDE_AT = re.compile(r"^((?:Rows?)\s+(\d+)(?:-\d+)?)")
+
+
+def _with_side(line: str, sided: dict[int, str]) -> str:
+    """'Row 2 (wine): ...' -> 'Row 2 (WS) (wine): ...'. Unchanged when the row is not sided."""
+    m = _SIDE_AT.match(line)
+    if not m or int(m.group(2)) not in sided:
+        return line
+    return f"{m.group(1)} ({sided[int(m.group(2))]}){line[m.end():]}"
 
 
 def _rich_lines(c, segments: list[tuple[str, str, object]], width: float,
@@ -1916,11 +2078,13 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     # `visual.contents_frame`) looks for the words "version 1.2.0".
     doc.text(PAGE_W / 2, title_y - 8.5 * mm, kicker, FONT_UI_MEDIUM, 10.5, TAUPE,
              align="centre", track=0.5)
-    if make_total > 1:
-        # The CIR makes several pieces; the cover says how many (Component.make). ENG-HOMEDECOR:
-        # different pieces are named one by one -- a basket and its lid are not "2 baskets".
-        makes = (f"Makes {make_total} {piece}s" if len(cir.components) == 1
-                 else f"In {make_total} pieces: {_pieces_words(cir)}")
+    # One component: makes_words ("Makes 4 coasters"). Several different components
+    # (ENG-HOMEDECOR): name the pieces one by one -- a basket and its lid are not "2 baskets",
+    # and a garment is not "4 bodys".
+    makes = makes_words(cir) if len(cir.components) == 1 else (
+        f"In {make_total} pieces: {_pieces_words(cir)}" if make_total > 1 else None)
+    if makes:
+        # The CIR makes several pieces; the cover says how many (Component.make).
         doc.prose.append(makes)
         doc.text(PAGE_W / 2, title_y - 15 * mm, makes, FONT_DISPLAY_ITALIC, 15, ACCENT,
                  align="centre")
@@ -1952,11 +2116,30 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         else:
             doc.prose.append(cap)
             doc.text(PAGE_W / 2, caption_y, cap, FONT_BODY_ITALIC, 9.5, MUTED, align="centre")
+    else:
+        # ENG-PDF-PREMIUM: a design the stitch renderer cannot draw whole (a garment, an
+        # assembled pillow) still gets a hero: its schematic, drawn from the same assembly
+        # the certificate checked, and labelled as the rendering it is.
+        from .schematic import schematic_for as _schematic_for
+        cover_schematic = _schematic_for(cir, result)
+        if cover_schematic is not None:
+            box_top = title_y - 15 * mm
+            box_h = box_top - (caption_y + 6 * mm)
+            img = cover_schematic.image
+            scale_ = min(usable / img.width, box_h / img.height)
+            w_, h_ = img.width * scale_, img.height * scale_
+            doc.place(img, (PAGE_W - w_) / 2, box_top - (box_h - h_) / 2, w_, h_,
+                      figure={"kind": "schematic", "view": "cover",
+                              "source": "publish.schematic.schematic_for",
+                              "label": COVER_SCHEMATIC_CAPTION})
+            doc.prose.append(COVER_SCHEMATIC_CAPTION)
+            doc.text(PAGE_W / 2, caption_y, COVER_SCHEMATIC_CAPTION, FONT_BODY_ITALIC, 9.5,
+                     MUTED, align="centre")
     # The facts strip in the forest band.
     strip = [("Skill", difficulty_word.capitalize()),
              ("Finished size", _short_size(twin, cir)),
              ("Yarn", _yarn_weight_label(cir)),
-             ("Hook", f"{cir.gauge.hook_mm:g} mm" if cir.gauge else "see Materials")]
+             ("Hook", _std.hook_words(cir.gauge.hook_mm) if cir.gauge else "see Materials")]
     col_w = usable / len(strip)
     for i, (k, v) in enumerate(strip):
         x = MARGIN + i * col_w
@@ -1990,8 +2173,14 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     level = LADDER.index(difficulty_word) + 1 if difficulty_word in LADDER else len(LADDER)
     rows.insert(0, ("skill", "difficulty", difficulty_word,
                     {"level": level, "of": len(LADDER)}))
+    if cir.grading is not None:
+        rows.append(("size", "sizes", f"{len(cir.grading.sizes)} sizes; this document is size "
+                     f"{cir.grading.size} (see Sizes and fit)", {}))
+    else:
+        rows.append(("size", "sizes", "one size", {}))
     if make_total > 1:
-        rows.append(("pieces", "pieces", f"{make_total} {piece}s", {}))
+        rows.append(("pieces", "pieces", (f"{make_total} {piece}s" if len(cir.components) == 1
+                                          else f"{make_total} pieces, assembled"), {}))
     construction = cir.construction.replace("_", " ")
     if "magic ring" in text:
         construction += ", from a magic ring"
@@ -2005,10 +2194,9 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         total = sum(twin.yarn_metres_by_color.values())
         lo, hi = _metres(total, twin.yardage_tolerance)
         rows.append(("yarn", "yarn amount",
-                     f"about {lo:.0f}-{hi:.0f} m in total ({lo * 1.094:.0f}-{hi * 1.094:.0f} yd), "
-                     f"estimated", {}))
+                     f"{_std.yarn_amount(lo, hi, terminology)} in total, estimated", {}))
     if cir.gauge:
-        rows.append(("hook", "hook", f"{cir.gauge.hook_mm:g} mm", {}))
+        rows.append(("hook", "hook", _std.hook_words(cir.gauge.hook_mm), {}))
         rows.append(("gauge", "gauge", f"{cir.gauge.stitches_per_10cm} sts x "
                      f"{cir.gauge.rows_per_10cm} rows = 10 cm in {_gauge_stitch(cir, terminology)}",
                      {}))
@@ -2129,11 +2317,21 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                          f"{base[-1].index}. There are no seams to sew.", size=10)
         if schematic is not None:
             doc.heading("Schematic", size=12)
-            doc.para("Every piece as worked, to scale, with the joins that make it one object. "
-                     "Measurements are computed from the stated gauge.", size=9.5, color=MUTED)
+            doc.para(("Every piece as worked, to scale, with the joins that make it one object. "
+                      if cir.assembly else
+                      # b19-c B2: separate pieces (a basket and its lid) are never sewn.
+                      "Every piece as worked, to scale. The pieces are worked separately and "
+                      "are not sewn together. ")
+                     + "Measurements are computed from the stated gauge.", size=9.5,
+                     color=MUTED)
             doc.image(schematic.image, running_head=head,
                       figure={"kind": "schematic", "source": "publish.schematic.schematic_for",
                               "label": "Schematic"})
+            # The drawn labels, set as text too: what a screen reader and a text search can
+            # find, and exactly the strings the picture carries (`Schematic.labels`).
+            doc.label("Finished measurements")
+            for piece_, (across_, up_) in schematic.labels.items():
+                doc.kv(piece_.replace("_", " "), f"{across_} across, {up_} up")
         elif scale_view is not None:
             img, sha = scale_view
             doc.prose.append("Schematic")
@@ -2274,9 +2472,11 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         metres = twin.yarn_metres_by_color.get(m.color_id or "", None)
         if metres:
             lo, hi = _metres(metres, tol)
-            amount = f"about {lo:.0f}-{hi:.0f} m ({lo * 1.094:.0f}-{hi * 1.094:.0f} yd)"
-            if make_total > 1:
-                amount += f" for all {make_total}"
+            # Compact on the card (one unit, the edition's); both units in "How much yarn".
+            amount = _amount(lo, hi, terminology, _std.cyc_weight(cir)).replace(
+                f" ({lo:.0f}-{hi:.0f} m)", "")
+            if per_piece(cir) > 1:
+                amount += f", for all {make_total}"
             doc.prose.append(amount)
             for line in _wrap(c, amount, FONT_BODY_BOLD, 9.5, card_w - 29 * mm):
                 doc.text(tx, yy, line, FONT_BODY_BOLD, 9.5, FOREST)
@@ -2290,8 +2490,8 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     doc.heading("Hook and notions", size=12)
     notions: list[tuple[str, str, str]] = []
     if cir.gauge and cir.gauge.hook_mm:
-        notions.append(("hook", "hook", f"{cir.gauge.hook_mm:g} mm, or whatever hook gets you "
-                                        f"the gauge below"))
+        notions.append(("hook", "hook", f"{_std.hook_words(cir.gauge.hook_mm)}, "
+                                        f"{_std.HOOK_GAUGE_PHRASE} (see Gauge)"))
     # The special-stitch methods are part of what this document asks the maker to do, so the
     # tools they require belong on the shopping list too.
     instructed = "\n".join([text] + [abbreviations.method(code, terminology)
@@ -2318,12 +2518,17 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     if twin.yarn_metres_by_color:
         for name, metres in sorted(twin.yarn_metres_by_color.items()):
             low, high = _metres(metres, tol)
-            value = f"about {low:.0f}-{high:.0f} m ({low * 1.094:.0f}-{high * 1.094:.0f} yd)"
-            if make_total > 1:
-                plo, phi = low / make_total, high / make_total
-                value += (f" for all {make_total} {piece}s; about {plo:.1f}-{phi:.1f} m "
-                          f"for each one")
+            value = _amount(low, high, terminology, _std.cyc_weight(cir))
+            n_same = per_piece(cir)
+            if n_same > 1:
+                plo, phi = low / n_same, high / n_same
+                each = (f"{plo:.1f}-{phi:.1f} m" if terminology.upper() == "UK" else
+                        f"{plo * _std.YD_PER_M:.1f}-{phi * _std.YD_PER_M:.1f} yd")
+                value += f"; for all {n_same} {piece}s, about {each} for each one"
             doc.kv(name, value)
+        note = _ball_note(_std.cyc_weight(cir), terminology)
+        if note:
+            doc.para(note, size=9.5, color=MUTED)
     tolerance_note = (
         f"These quantities are estimates with a ±{tol * 100:.0f}% range, not measurements. "
         "Yarn consumption genuinely varies with yarn, hook and tension, so buy a little more "
@@ -2346,6 +2551,15 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             f"Gauge decides this, not the name on the band. Any of these can be worked to "
             f"this fabric: {names}. Swatch and change hook until your gauge matches — the "
             f"gauge is what makes the finished size come out.", size=10)
+        w_ = _std.cyc_weight(cir)
+        if w_ is not None:
+            # By CYC class and length per gram: the two numbers printed on every ball band.
+            doc.para(
+                f"On the ball band, look for CYC {w_.number} "
+                f"({w_.key.replace('_', ' ')}) at about "
+                f"{_std.length_per_gram(w_, terminology)}, the typical range for that class. "
+                f"A yarn outside that range at the same weight name will make a denser or "
+                f"looser fabric, and needs its own swatch.", size=10)
         printed_rows = 0
         for row in guide["how_much"]:
             if not row.get("measurable"):
@@ -2581,8 +2795,14 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             continue
         shown = title[:1].upper() + title[1:]
         doc.heading(shown, size=12)
-        steps = [ln for ln in lines if _STEP.match(ln)]
-        notes_ = [ln for ln in lines if ln.strip() and not _STEP.match(ln)]
+        # ENG-PLUSH: a stuffing point and a closure are steps in their place among the
+        # rounds, not notes lifted to the top of the piece. ENG-PDF-PREMIUM: RS/WS sides.
+        sided = _sides_for(cir, title)
+        steps = [_with_side(ln, sided) for ln in lines if _STEP.match(ln) or _IN_ORDER.match(ln)]
+        notes_ = [ln for ln in lines
+                  if ln.strip() and not _STEP.match(ln) and not _IN_ORDER.match(ln)]
+        if sided:
+            notes_.append(RS_NOTE)
         for ln in notes_:
             doc.need(10 * mm)
             doc.para(ln, size=10, color=FOREST, font=FONT_BODY_ITALIC)
@@ -2601,6 +2821,21 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                 for ln in group:
                     _step_line(doc, ln, yarn_rgb, MARGIN, usable, head)
         doc.space(3 * mm)
+
+    # ENG-PLUSH: the part diagram, every piece at one scale and every join at its round.
+    from . import part_diagram as _part_diagram
+
+    part_png = _part_diagram.render(cir, result)
+    if part_png is not None:
+        from PIL import Image as _PILImage
+
+        doc.heading("Parts and joins", size=12)
+        doc.image(_PILImage.open(io.BytesIO(part_png)), head, max_height=90 * mm,
+                  figure={"kind": "part_diagram", "source": "publish.part_diagram.render"})
+        doc.para(_part_diagram.CAPTION, size=9, color=MUTED, font=FONT_BODY_ITALIC)
+        for j in _part_diagram.joins(cir):
+            doc.para(f"{j['from']} to {j['to']}: {j['method']}, {j['where']}.", size=9.5,
+                     running_head=head)
 
     if finishing:
         doc.need(60 * mm)
@@ -2718,6 +2953,23 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         for name in colours:
             doc.kv(name, cir.colors.get(name, ""), upper=False)
 
+    wall = art.get("wall")
+    if wall:
+        # ENG-COLOURWORK: the colourwork band of a piece worked in rounds, on its own page.
+        doc.new_page(head)
+        doc.heading("Colourwork chart", kicker="Chart and keys")
+        doc.para(wall["caption"], size=9.5, color=MUTED, keep=True)
+        doc.space(1 * mm)
+        doc.image(wall["chart"], running_head=head, max_height=CHART_TILE_HEIGHT,
+                  figure={"kind": "chart", "source": "publish.charts (twin cell grid)",
+                          "label": "Colourwork chart"})
+        problems.extend(wall.get("problems", ()))
+        if wall.get("cues"):
+            doc.heading("Colour key", size=12)
+            doc.para(COLOUR_CUE_NOTE_FLAT, size=9.5, color=MUTED)
+            for name, cue in sorted(wall["cues"].items(), key=lambda kv: kv[1]):
+                doc.kv(cue, f"{name}  {cir.colors.get(name, '')}".strip(), upper=False)
+
     # ---------------------------------------------------------------- 10. gallery ----------
     gallery = [(v, views[v]) for v in ("hero", "angle", "detail") if v in views]
     if gallery or sample_photo_placeholders:
@@ -2826,6 +3078,22 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                 f"{childrens[0]} product stated for {childrens[1]} and this document cannot "
                 f"state it: {why}")
 
+    # ---------------------------------------------------------------- 11b. child safety -----
+    # ENG-PLUSH (D-OWNER-CORE-FAMILIES s.3): a stuffed toy, lovey or child's item carries the
+    # child-safety section `gates.child_safety` requires, with every source cited and its
+    # access date; `build_pattern_pdf` reads it back from the finished bytes.
+    from ..gates import child_safety as _child_safety
+
+    if _child_safety.applies(cir, childrens):
+        profile = _child_safety.profile_for(cir, childrens)
+        doc.new_page(head)
+        doc.heading(_child_safety.SECTION_HEADING, kicker="Child safety")
+        for heading_, text_ in _child_safety.section_lines(profile):
+            if heading_:
+                doc.heading(heading_, size=12)
+            doc.para(text_, size=9.5 if heading_ != "Sources" else 9,
+                     color=INK if heading_ != "Sources" else MUTED, running_head=head)
+
     # Approved contextual links supplied by assets.build, bound to lesson revisions.
     if lesson_links:
         from urllib.parse import urlsplit
@@ -2861,12 +3129,18 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             doc.para(line[2:], size=10, x=MARGIN + 6 * mm)
         else:
             doc.para(line, size=9.5, color=MUTED)
+    doc.heading(_std.DISCLAIMER_HEADING, size=12)
+    doc.para(_std.DISCLAIMER, size=10)
     doc.heading("Customer support", size=12)
     doc.para("If anything in this pattern does not add up, tell us through the shop you "
              "bought it from and we will fix the pattern itself, not just answer your "
              "question. Every report is checked against the compiler that validated this "
              "release.", size=10)
     doc.para(support_scope(cir), size=10)
+    # ENG-PDF-PREMIUM: about the BRAND. Never a person, never Laura, never a signature.
+    doc.heading(_std.ABOUT_HEADING, size=12)
+    for para_ in _std.ABOUT_PARAGRAPHS:
+        doc.para(para_, size=10)
     doc.heading("About this document", size=12)
     doc.para(AI_DISCLOSURE, size=9.5, color=MUTED)
     doc.para(platform_policy.DISCLOSURES["deterministic_render"], size=9.5, color=MUTED)
@@ -3192,8 +3466,11 @@ def _straight_tail_sentence(block: RoundBlock) -> str:
         by_colour: dict[str, list[str]] = {}
         for name, a, b in block.tail_other_colors:
             by_colour.setdefault(name, []).append(_round_span(a, b, dash=True))
-        runs = "; ".join(f"rounds {' and '.join(spans)} in {name}"
-                         for name, spans in by_colour.items())
+        runs = "; ".join(
+            f"rounds {' and '.join(spans)} in "
+            + (name or "tapestry colourwork, two yarns in the round (see the colourwork "
+                       "chart)")
+            for name, spans in by_colour.items())
         out += (f" They are worked in {block.tail_color} except {runs}, and the written "
                 f"instructions give the colour of every round.")
     else:
@@ -3334,7 +3611,9 @@ def _chart_art(cir: CIR, twin: TwinModel) -> dict:
     if is_round(cir, twin):
         # A ragged grid is not a chart of a disc, and "read odd rows right to left" is
         # flat-fabric advice: every round is worked in the same direction.
-        return _round_chart_art(cir, twin)
+        art = _round_chart_art(cir, twin)
+        wall = _wall_chart_art(cir, twin)
+        return dict(art, wall=wall) if wall is not None else art
 
     grid, colour_grid = twin.chart_grid(), twin.color_grid()
     full_cols = max((len(r) for r in grid), default=0)
@@ -3433,6 +3712,49 @@ def _chart_art(cir: CIR, twin: TwinModel) -> dict:
 
 # Reserve the measured area for heading, explanatory caption and tile range.
 CHART_TILE_HEIGHT = PAGE_H - 2 * MARGIN - 55 * mm
+
+
+def _wall_chart_art(cir: CIR, twin: TwinModel) -> dict | None:
+    """ENG-COLOURWORK: the colourwork chart of a piece worked in rounds.
+
+    The round chart draws the rounds that shape the piece; a tapestry wall is straight, so
+    it is left out there, and without this page the band the maker buys the pattern for would
+    have no chart at all. One repeat of the band, drawn from the twin's own cells (the twin is
+    proven equal to the declared chart), every round read right to left from stitch 1."""
+    comp = next((c for c in cir.components
+                 if c.name == twin.component and getattr(c, "chart", None) is not None), None)
+    if comp is None:
+        return None
+    chart = comp.chart
+    width = len(chart.rows[0])
+    period = next(p for p in range(1, width + 1)
+                  if width % p == 0 and all(r == r[:p] * (width // p) for r in chart.rows))
+    by_row: dict[int, list] = {}
+    for cell in twin.cells:
+        by_row.setdefault(cell.row, []).append(cell)
+    stitches_g, colours_g = [], []
+    for index in range(chart.first_row, chart.last_row + 1):
+        cells = sorted(by_row.get(index, []), key=lambda c: c.fabric_position)[:period]
+        stitches_g.append([c.stitch for c in cells])
+        colours_g.append([c.color for c in cells])
+    spec = ChartSpec(cell_px=32, margin_px=64)
+    image = render_chart(cir, twin, spec, grids=(stitches_g, colours_g),
+                         caption="Colourwork chart", row_offset=chart.first_row - 1,
+                         show_columns=True, rounds=True)
+    scale = min(1.0, (PAGE_W - 2 * MARGIN) / image.width, CHART_TILE_HEIGHT / image.height)
+    cell_mm = spec.cell_px * scale / mm
+    main = comp.rows[0].color if comp.rows and comp.rows[0].color else ""
+    problems = ([] if cell_mm >= CHART_MIN_CELL_MM else
+                [f"PDF_CHART_CELL_BELOW_BRAND_MINIMUM: the colourwork chart's cells render at "
+                 f"{cell_mm:.1f} mm"])
+    caption = (f"Colourwork chart: rounds {chart.first_row} to {chart.last_row}, one "
+               f"{period}-stitch repeat. Work the repeat {_times(width // period)} around "
+               f"each round ({width} stitches), reading every round from right to left, "
+               f"starting at the stitch numbered 1. Every other round is worked in {main} "
+               f"only. The chart is drawn from the same verified data as the written "
+               f"instructions, so the two cannot disagree.")
+    return {"chart": image, "caption": caption, "cell_mm": cell_mm, "problems": problems,
+            "cues": chart_mod.flat_cue_letters(cir, colours_g, spec.cell_px)}
 
 
 def _tiled_chart_art(cir, twin, grid, colors):
