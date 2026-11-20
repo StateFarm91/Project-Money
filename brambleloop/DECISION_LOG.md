@@ -3328,3 +3328,43 @@ grant). It expires after 30 days, and the system never renews it.
   is touched. Physical-evidence attestations remain the owner's; waivers stay
   `owner_directed_without_attestation`.
 - Renewal or widening goes through the normal step-up path.
+## D-OWNER-ESTIMATE-CLAIMS — with no physical sample, gauge and size claims pass only as labelled calculated estimates (ENG-ESTIMATE-CLAIMS, 2026-11-20; owner standard)
+**Source.** The owner's Master Pattern Template, `spec/07_Brambleloop_Master_Pattern_Template.pdf`,
+as quoted in the ENG-ESTIMATE-CLAIMS brief. Page 3: "Gauge is specific to this pattern. Measure a
+swatch before committing to a size. Where physical calibration is absent, the pattern must state
+estimates truthfully." Page 4: "Every figure is calculated from certified gauge and stitch
+geometry." **Honesty note:** that PDF is not in this repository on any branch checked
+(eng/estimate-claims, eng/pdf-template, origin refs); the text above is the brief's quotation, not
+a reading of the file. Commit the PDF to `spec/` to make this citation verifiable.
+**Problem.** `gauge_and_size_claims` read UNRESOLVED ("no physical sample") for every product,
+and no sample has been worked, so no Launch-0 listing could ever reach owner review.
+**Rule (`gates/estimate_claims.py`, `estimate_claims/1`).** With no passed physical sample bound to
+this content, the area PASSES only when every surface a buyer reads (both PDFs' extracted text,
+the listing title and description, every alt text on file) meets all three:
+1. **Accuracy.** Every finished-size figure is within `risk_matrix.DIMENSION_TOLERANCE` (10%) of a
+   twin figure; every stated gauge equals the CIR's gauge exactly.
+2. **Labelling.** Every size claim carries estimate language ("approx.", "calculated",
+   "computed", "about", "estimate"); both PDFs and the listing copy carry `ESTIMATE_NOTE`
+   verbatim: "Measured gauge not yet verified on a physical sample; finished size is calculated
+   from the stated gauge. Check your gauge."
+3. **No physical implication.** No size claim (and nothing in the listing copy or alt text) says
+   "measures", "measured", "tested", "as pictured", "true to size", "actual size" and the like,
+   once honest negations ("not yet measured") are removed.
+Any breach is FAIL. A surface where no size claim could be read, while the twin has a size, is
+FAIL, never a pass by absence.
+**Writers.** With `twin.calibrated` False, `publish.pdf` prints the cover and at-a-glance size as
+"approx. ...: calculated finished size" and the gauge section carries `ESTIMATE_NOTE`;
+`commerce.seo.build_description(size_is_estimate=True)` (the default) does the same in the copy.
+**Unchanged, on purpose.**
+- **Child safety is never waived.** A product for which `gates.child_safety` requires a physical
+  use-and-abuse test (stuffed toy, lovey, sewn-on piece, under-3 assignment) does not take the
+  estimate path; the area stays UNRESOLVED. `child_safety`, `small_parts` and certification are
+  untouched.
+- **Sample-photo truth** (`publish.sample_photo`, the PHOTO_LEAD rules) is untouched.
+- **Physical claims still need physical evidence.** `listing_claims` still refuses tester-made or
+  physically-proven claims without a bound full make.
+- **Measured evidence wins.** With a passed sample bound to this content, the gate reads it exactly
+  as before (PASS, or UNRESOLVED on the wrong evidence class), and a calibrated twin makes the
+  writers print measured values without the estimate wording.
+- **No surfaces, no pass.** Without a rendered document or a listing, the area stays UNRESOLVED.
+Reversible by owner decision.

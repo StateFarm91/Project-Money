@@ -53,7 +53,7 @@ from .worker import JobContext, handlers
 # "Build assets for slug@1.0.0 with chain v2" is genuinely different work from doing it with
 # v1, so it gets a different key. Bump this whenever a stage after certification changes what
 # it produces.
-CHAIN_VERSION = "8"  # 8: hero kept out of the title-safe band (C-58), size-card labels (#60)
+CHAIN_VERSION = "9"  # 9: D-OWNER-ESTIMATE-CLAIMS estimate wording in PDF and listing copy; 8: hero kept out of the title-safe band (C-58), size-card labels (#60)
 
 # How much of an owner action's opening clause identifies it, for adopting rows queued
 # before `OwnerAction.requirement_key` existed. Long enough to be unambiguous, short enough
@@ -1188,7 +1188,9 @@ def handle_listing_seo(ctx: JobContext) -> dict:
             why_it_matters=seo_mod.value_proposition(
                 sizes=len(i.get("sizes") or []) or 1, difficulty=difficulty,
                 colours=len(colors)),
-            yarn_lines=seo_mod.yarn_lines(list(cir.materials))),
+            yarn_lines=seo_mod.yarn_lines(list(cir.materials)),
+            # D-OWNER-ESTIMATE-CLAIMS: estimates until a sample calibrates the twin.
+            size_is_estimate=not twin.calibrated),
         materials=[m.name for m in cir.materials],
         price_cad=float(i.get("price_cad", 0.0)),
         supported_claims=[c for c in (size_label, gauge_line) if c],

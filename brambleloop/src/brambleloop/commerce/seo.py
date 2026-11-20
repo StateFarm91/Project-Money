@@ -267,8 +267,15 @@ def build_description(product_title: str, *, size_label: str | None,
                       key_phrases: list[str] | None = None,
                       lesson_links: list[dict] | None = None,
                       why_it_matters: str | None = None,
-                      yarn_lines: list[str] | None = None) -> str:
+                      yarn_lines: list[str] | None = None,
+                      size_is_estimate: bool = True) -> str:
     """Assemble the description entirely from verified pattern facts.
+
+    `size_is_estimate` (D-OWNER-ESTIMATE-CLAIMS) is True unless a physical sample of this
+    content has calibrated the twin: the finished size is then printed as "approx. ...:
+    calculated finished size" and the estimate note follows the gauge line, which is what
+    `gates.estimate_claims` reads back. It defaults to True so a caller that forgets it never
+    over-claims a measurement.
 
     `lesson_links` is `learn.service.listing_help_links(db, cir)` (F-808): approved,
     revision-bound lessons on the owned Learn origin. Empty -- and no section printed --
@@ -329,7 +336,11 @@ def build_description(product_title: str, *, size_label: str | None,
     out.append("")
     out.append("THE DETAILS")
     if size_label:
-        out.append(f"- Finished size: {size_label}, worked at the gauge below")
+        if size_is_estimate:
+            out.append(f"- Finished size: approx. {size_label}, calculated finished size at "
+                       f"the gauge below")
+        else:
+            out.append(f"- Finished size: {size_label}, worked at the gauge below")
     out.append(f"- Difficulty: {difficulty}")
     # F-255: materials before gauge -- the yarn (and its fibre where the pattern states it)
     # is what a buyer has to go and buy, and the hook is on the gauge line.
@@ -337,6 +348,10 @@ def build_description(product_title: str, *, size_label: str | None,
         out.append(f"- {line}")
     if gauge_line:
         out.append(f"- Gauge: {gauge_line}")
+    if size_is_estimate and (size_label or gauge_line):
+        from ..gates.estimate_claims import ESTIMATE_NOTE
+
+        out.append(f"- {ESTIMATE_NOTE}")
     if stitches:
         out.append(f"- Stitches used: {', '.join(stitches)}")
     if colors:

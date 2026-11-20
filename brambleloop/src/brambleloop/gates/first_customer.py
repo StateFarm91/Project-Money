@@ -310,7 +310,48 @@ def _coverage_note(physical: dict) -> str:
             f"size)")
 
 
-def check_gauge_and_size_claims(cir, twin, physical: dict | None = None) -> Check:
+ESTIMATE_INSTRUMENT = ("gates.estimate_claims.evaluate on both rendered documents' text, the "
+                       "listing copy and the alt text (D-OWNER-ESTIMATE-CLAIMS)")
+
+
+def _estimate_path(cir, twin, estimate: dict | None) -> Check | None:
+    """D-OWNER-ESTIMATE-CLAIMS: with no physical sample, labelled calculated estimates pass.
+
+    None when the estimate path cannot decide -- no surfaces were handed in, or the product
+    needs a child-safety physical test, which is never waived -- and the caller keeps its
+    UNRESOLVED state with the reason appended.
+    """
+    if estimate is None:
+        return None
+    from . import estimate_claims as ec
+
+    safety = ec.child_safety_physical_needed(cir, estimate.get("result"))
+    if safety:
+        return Check("gauge_and_size_claims", UNRESOLVED,
+                     "no passed physical sample, and this product needs a child-safety "
+                     f"physical test that estimate wording never waives: {safety}"[:600],
+                     "gates.child_safety PHYSICAL_EVIDENCE (D-OWNER-ESTIMATE-CLAIMS)")
+    if twin.width_caveat:
+        return Check("gauge_and_size_claims", FAIL,
+                     f"a width rests on an assumed chain gauge: {twin.width_caveat}",
+                     "TwinModel.width_caveat")
+    reading = ec.evaluate(cir, twin, pdf_texts=estimate.get("pdf_texts"),
+                          listing_text=estimate.get("listing_text"),
+                          alt_texts=estimate.get("alt_texts"))
+    if not reading["applies"]:
+        return None
+    if not reading["ok"]:
+        return Check("gauge_and_size_claims", FAIL,
+                     f"no physical sample, and the estimate claims are not truthful: "
+                     f"{reading['why']}"[:600], ESTIMATE_INSTRUMENT)
+    return Check("gauge_and_size_claims", PASS,
+                 f"ESTIMATE: no physical sample of this content; {reading['why']} "
+                 f"({twin.width_cm:.1f} x {twin.height_cm:.1f} cm calculated at the certified "
+                 f"gauge; rule {ec.RULE})", ESTIMATE_INSTRUMENT)
+
+
+def check_gauge_and_size_claims(cir, twin, physical: dict | None = None, *,
+                                estimate: dict | None = None) -> Check:
     """Every size in the document is arithmetic from a gauge nobody has crocheted.
 
     This is the area that must not be allowed to go green by being forgotten. `twin.calibrated`
@@ -321,8 +362,12 @@ def check_gauge_and_size_claims(cir, twin, physical: dict | None = None) -> Chec
     """
     if physical is not None:
         # PT-02: the runtime path. Only a passed, completed sample bound to this exact
-        # content clears this area; the twin's calibration factor is reported with it.
+        # content clears this area as MEASURED; the twin's calibration factor is reported
+        # with it. Without one, D-OWNER-ESTIMATE-CLAIMS: labelled estimates may clear it.
         if not physical.get("passed"):
+            est = _estimate_path(cir, twin, estimate)
+            if est is not None:
+                return est
             unbound = "; ".join(f"{u.get('id')}: {u.get('why')}"
                                 for u in (physical.get("unbound") or [])[:3])
             return Check("gauge_and_size_claims", UNRESOLVED,
@@ -353,6 +398,9 @@ def check_gauge_and_size_claims(cir, twin, physical: dict | None = None) -> Chec
                      "gates.certificate.bind_physical_evidence on stored PhysicalTest rows, "
                      "twin built with quality.physical.calibration_from_db")
     if not twin.calibrated:
+        est = _estimate_path(cir, twin, estimate)
+        if est is not None:
+            return est
         return Check("gauge_and_size_claims", UNRESOLVED,
                      "twin.calibrated is False: every finished dimension is arithmetic from "
                      "the gauge the CIR states, and no sample has been crocheted. The "
@@ -840,6 +888,7 @@ def gate_product(cir, *, listing=None, frames=None, store=None, db=None,
         c == "full_physical_make" for c in (physical.get("bound_classes") or {}).values())
     docs, refusals = _documents(cir, twin, result)
     assignment = l0.childrens_assignment(cir.slug)
+    estimate = _estimate_surfaces(cir, docs, refusals, listing, frames, db, result)
 
     if refusals:
         # The document refused to render. Everything read off the document is unmeasurable,
@@ -852,7 +901,7 @@ def gate_product(cir, *, listing=None, frames=None, store=None, db=None,
                          f"({unreadable})", "publish.pdf.build_pattern_pdf refusal")
                    for a in from_docs]
         checks.append(check_counts_and_construction(cir, result, twin))
-        checks.append(check_gauge_and_size_claims(cir, twin, physical))
+        checks.append(check_gauge_and_size_claims(cir, twin, physical, estimate=estimate))
         checks.append(check_listing_claims(cir, twin, listing, physically_evidenced=evidenced))
         checks.append(check_imagery(cir, twin, frames, disclosed))
         checks.append(check_etsy_remote_state(db))
@@ -864,7 +913,7 @@ def gate_product(cir, *, listing=None, frames=None, store=None, db=None,
         check_final_pdf(cir, docs, refusals),
         check_terminology(cir, docs),
         check_counts_and_construction(cir, result, twin),
-        check_gauge_and_size_claims(cir, twin, physical),
+        check_gauge_and_size_claims(cir, twin, physical, estimate=estimate),
         check_listing_claims(cir, twin, listing, physically_evidenced=evidenced),
         check_imagery(cir, twin, frames, disclosed),
         check_etsy_remote_state(db),
@@ -872,6 +921,44 @@ def gate_product(cir, *, listing=None, frames=None, store=None, db=None,
                                       version=version or cir.version),
         check_licence_and_safety_statements(cir, docs, assignment),
     ))
+
+
+def _alt_texts(frames, db, slug: str) -> list[str]:
+    """Every alt text this listing would carry: the frames handed in and the disclosed set."""
+    out: list[str] = []
+    for f in frames or []:
+        alt = f.get("alt_text") if isinstance(f, dict) else getattr(f, "alt_text", None)
+        if isinstance(alt, str) and alt:
+            out.append(alt)
+    if db is not None:
+        try:
+            from ..publish import disclosed_listing
+
+            rec = disclosed_listing.last_asset(db, slug=slug) or {}
+            out += [f["alt_text"] for f in rec.get("frames") or []
+                    if isinstance(f, dict) and isinstance(f.get("alt_text"), str)]
+        except Exception:  # noqa: BLE001 - no disclosed set read: only the frames handed in
+            pass
+    return out
+
+
+def _estimate_surfaces(cir, docs, refusals, listing, frames, db, result) -> dict | None:
+    """The text of every surface a size claim can appear on, for gates.estimate_claims.
+
+    None when a document refused to render or there is no listing: the estimate wording
+    cannot be read, so the area keeps its UNRESOLVED state rather than passing unread."""
+    if refusals or not docs or listing is None:
+        return None
+    from ..publish.pdf import extracted_text
+
+    if isinstance(listing, dict):
+        listing_text = "\n".join(str(listing.get(k) or "") for k in ("title", "description"))
+    else:
+        listing_text = "\n".join(str(getattr(listing, k, "") or "")
+                                 for k in ("title", "description"))
+    return {"pdf_texts": {t: extracted_text(d.pdf_bytes) for t, d in docs.items()},
+            "listing_text": listing_text, "alt_texts": _alt_texts(frames, db, cir.slug),
+            "result": result}
 
 
 def blocking(cir, *, listing=None, frames=None, store=None, db=None,
