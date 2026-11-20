@@ -295,7 +295,14 @@ def _flat_rows(spec: dict, gauge) -> tuple[list[Row], dict]:
 
 def build_part(spec: dict, gauge) -> tuple[Component, dict]:
     """One plan part -> one CIR component (and the solved facts the joins need)."""
-    shape = spec["shape"]
+    shape = spec.get("shape")
+    # Defence in depth: the builders refuse by name on their own, so a plan that somehow
+    # skipped `validate` still cannot reach a builder with a shape or size it does not have.
+    if shape not in SHAPES:
+        raise ComposeRefused(str(shape), f"{shape!r} is not a shape in the primitive library")
+    missing = [d for d in _REQUIRED_DIMS[shape] if not isinstance(spec.get(d), (int, float))]
+    if missing:
+        raise ComposeRefused(shape, f"part {spec.get('name')!r} states no {missing}")
     closure = spec.get("closure", "open")
     if shape in ROUND_SHAPES:
         rows, facts = _ring_rows(spec, gauge)
@@ -643,23 +650,32 @@ def compose(plan: dict, *, version: str = VERSION) -> CIR:
 
 
 def size_note(cir: CIR, twins: dict, plan: dict) -> str:
-    """The finished size, measured from the twin of the piece that carries the object."""
-    from ..cir.twin import size_statement
+    """The finished size, measured from the twin of the piece that carries the object.
 
+    Written as "about N cm" figures, the form `gates.risk_matrix.stated_dimensions` reads, so
+    every figure stated here is re-checked against the twin at certification (F-117). (A
+    "W x H cm" statement is NOT read by that check today; see the ENG-COMPOSER review
+    request.)"""
     body = cir.components[0]
     twin = twins[body.name]
     gauge = cir.gauge
+    tail = " at the stated gauge. Computed from the stitch counts, not yet measured on a " \
+           "worked sample."
     if body.closes:
         around = max(r.declared_count for r in body.rows) / gauge.stitches_per_10cm * 10.0
-        return (f"The {body.name} is about {around:.0f} cm around its widest round at the "
+        return (f"The {body.name} is about {around:.1f} cm around its widest round at the "
                 f"stated gauge. Computed from the stitch counts, not yet measured on a worked "
                 f"sample; its height depends on the stuffing and is measured on the sample.")
-    stated = size_statement(twin)
-    if stated:
-        return (f"{stated} at the stated gauge. Computed from the stitch counts, not yet "
-                f"measured on a worked sample.")
-    return ("Size is computed from the stitch counts at the stated gauge; not yet measured on a "
-            "worked sample.")
+    w, h = twin.width_cm, twin.height_cm
+    if body.construction == "flat_rows" and w and h:
+        return f"The {body.name} is about {w:.1f} cm wide and about {h:.1f} cm tall{tail}"
+    if w and plan["parts"][0]["shape"] == "flat_circle":
+        return f"The {body.name} is about {w:.1f} cm across{tail}"
+    if w and h and h > 0.5:
+        return f"The {body.name} is about {w:.1f} cm across and about {h:.1f} cm tall{tail}"
+    if w:
+        return f"The {body.name} is about {w:.1f} cm across{tail}"
+    raise ComposeRefused("size_truth", f"the twin of {body.name!r} gives no finished size")
 
 
 # ---- concepts -> plans ------------------------------------------------------------------------

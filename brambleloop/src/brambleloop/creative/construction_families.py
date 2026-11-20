@@ -316,6 +316,10 @@ PAIR_PROOFS: dict[tuple[str, str], str] = {
     (GARMENT_RAGLAN, "baby"): f"{GARMENT_PROOF}::test_a_research_baby_cardigan_runs_concept_"
                               f"to_pdf",
     (GARMENT_ONE_PIECE, "sweater"): FAMILIES[GARMENT_ONE_PIECE].proof,
+    # ENG-COMPOSER: the composer pairs a research concept is pinned through, end to end.
+    (COMPOSER, "amigurumi"): FAMILIES[COMPOSER].proof,
+    (COMPOSER, "bag"): f"{COMPOSER_PROOF}::test_a_research_composer_tote_is_granted_through_"
+                       f"the_real_handlers",
 }
 # A garment pair's proof is for one body table: the audience it was proven on.
 GARMENT_PAIR_AUDIENCE: dict[tuple[str, str], str] = {

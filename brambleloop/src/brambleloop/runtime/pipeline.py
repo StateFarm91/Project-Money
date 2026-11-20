@@ -1194,6 +1194,16 @@ def handle_cir_draft(ctx: JobContext) -> dict:
                           "hold": hold})
         return {"artifact": slug, "drafted": False, "gate": "construction",
                 "construction": FC.REFUSED, "hold": hold, "reasons": [route["why"][:300]]}
+    # ENG-COMPOSER: an intake concept is admitted only by a verified or physical-gated family
+    # (construction_families.route). When the fallback plan names a family that is neither,
+    # the admission was the composer's, so the composer drafts it -- never the partial engine.
+    from ..creative import construction_families as _CF
+
+    if (seed is not None and str(seed.origin or "").startswith("radar.intake")
+            and _CF.status_of(route["family"]) not in _CF.ADMITTED_STATUSES):
+        composed = _draft_composed(ctx, slug, concept, seed)
+        if composed is not None:
+            return composed
     try:
         if route["family"] == FC.VESSEL:
             provenance = None
