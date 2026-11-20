@@ -65,6 +65,18 @@ def _complete_gallery(s, slug: str) -> bool:
         return False
 
 
+def _ready_for_sale(db, slug: str, version: str | None) -> dict:
+    """The sale pipeline's ready-for-sale reading. Unreadable is never ready."""
+    if not version:
+        return {"ready": False, "reasons": ["no certified version with a listing"]}
+    try:
+        from ..publish import sale_pipeline
+
+        return sale_pipeline.ready_for_sale(db, slug, version)
+    except Exception as exc:  # noqa: BLE001
+        return {"ready": False, "reasons": [f"unreadable ({type(exc).__name__})"]}
+
+
 def derive(db, slug: str) -> dict:
     from sqlalchemy import func, select
 
@@ -85,6 +97,9 @@ def derive(db, slug: str) -> dict:
         orders = s.scalar(select(func.count()).select_from(Order).where(
             Order.product_slug == slug)) or 0
         gallery = _complete_gallery(s, slug)
+        certified = sorted(((v.id, v.version) for v in versions if v.certified), reverse=True)
+        listed = {x.version for x in listings}
+        sale_version = next((ver for _id, ver in certified if ver in listed), None)
     from ..core.listing_state import LIVE_ON_ETSY
 
     states = {x.state for x in listings}
@@ -96,8 +111,15 @@ def derive(db, slug: str) -> dict:
             ("LIVE", "a listing is published")
     elif listings:
         # D-OWNER-GALLERY-COMPLETE: a listing is not ready until every listing photo is.
-        if assets and gallery:
-            stage, why = "LISTING_READY", "a draft listing with its complete certified gallery"
+        # D-OWNER-SALE-PIPELINE: and not until both premium PDFs are certified for the release
+        # and every listing gate passes (`publish.sale_pipeline.ready_for_sale`).
+        sale = _ready_for_sale(db, slug, sale_version) if (assets and gallery) else None
+        if sale and sale["ready"]:
+            stage, why = ("LISTING_READY", "ready for sale: certified pattern, complete "
+                          "certified gallery, both premium PDFs certified, every gate PASS")
+        elif assets and gallery:
+            stage, why = "VISUAL", ("a draft listing with its gallery, not yet ready for sale: "
+                                    + "; ".join((sale or {}).get("reasons") or ["unreadable"]))
         elif assets:
             stage, why = "VISUAL", "a draft listing whose certified gallery is incomplete"
         else:

@@ -590,6 +590,16 @@ def test_paid_generator_needs_the_image_generation_gate():
         paid = True
 
     db = make_db()
+    # D-OWNER-SPEND-ORDER (ENG-SALE-PIPELINE): a paid generator runs only for a release the
+    # sale pipeline admitted; the fixture is that admitted release, so it reaches the gate.
+    from brambleloop.publish import sale_pipeline as SPL
+
+    SPL.ensure_tables(db)
+    with db.session() as s:
+        s.add(SPL.SalePipelineRun(
+            run_key=SPL.run_key("cloudline-baby-blanket", "1.2.0", RELEASE),
+            slug="cloudline-baby-blanket", version="1.2.0", release=RELEASE,
+            state=SPL.GALLERY, reservation="held", reserved_cad=2.0, evidence={}))
     follow, _ = drain(db, generator=Paid(), judges=StubJudges())
     IP.trigger(follow, slug="cloudline-baby-blanket", version="1.2.0", release=RELEASE)
     gen = Paid()

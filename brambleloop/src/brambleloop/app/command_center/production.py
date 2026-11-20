@@ -9,6 +9,8 @@ Sections (provider envelopes, so the generic CC renderer can draw any of them):
   inventory      -- one item per state: count and the products in it; the physical sample
                     is shown as an attribute beside the state (owner clarification 2026-10-27)
   tiers          -- internal / private Etsy draft / public publication readiness counts
+  sale_readiness -- ENG-SALE-PIPELINE: eligible, gallery done, PDFs certified, READY and
+                    blocked by named reason (`publish.sale_pipeline.board`)
   products       -- one row per product/version: state, physical sample, holds, flags
   agents_working -- jobs running now
   recent_outputs -- PDFs built, listing packages drafted, versions certified (7 d)
@@ -84,6 +86,40 @@ def _tiers_section(inv: dict) -> dict:
     ]
     return providers.envelope("OK", items, SOURCES, provider="production.tiers",
                               as_of=inv["as_of"])
+
+
+def _sale_section(db, now) -> dict:
+    """ENG-SALE-PIPELINE (D-OWNER-SALE-PIPELINE): the readiness row. Every eligible for-sale
+    release that is not advancing is listed under its named blocker; unreadable is UNKNOWN."""
+    from ...publish import sale_pipeline as SPL
+
+    b = SPL.board(db, now=now)
+    src = ["sale_pipeline_runs", "pdf_certificates"]
+    if not b.get("readable"):
+        return providers.envelope("UNKNOWN", [], src, provider="production.sale_readiness",
+                                  reason=f"unreadable ({b.get('error_class')})")
+    items = [{"title": "Eligible for sale", "count": b["eligible"],
+              "detail": "certified, selected for sale, every non-image gate PASS"},
+             {"title": "Gallery done", "count": b["gallery_done"],
+              "detail": "complete certified 7-frame campaign gallery"},
+             {"title": "PDFs certified", "count": b["pdfs_certified"],
+              "detail": "US and UK premium PDFs PASS the standard for the release"},
+             {"title": "READY for sale", "count": b["ready"],
+              "detail": "pattern + gallery + both PDF certificates + every gate PASS"},
+             {"title": "Waiting before images (no spend)",
+              "count": b["awaiting_pre_image_readiness"],
+              "detail": ", ".join(f"{k} {v}" for k, v in
+                                  b["awaiting_pre_image_by_reason"].items()) or None},
+             {"title": "Awaiting admission (spend order)", "count": b["awaiting_admission"],
+              "detail": f"CA${b['reserved_cad']:.2f} reserved; per-listing cap "
+                        f"CA${b['per_listing_cap_cad']:.2f}"}]
+    for reason, n in b["blocked_by_reason"].items():
+        items.append({"title": f"Blocked: {reason}", "count": n, "status": "BLOCKED"})
+    status = "BLOCKED" if b["stalled"] else ("DEGRADED" if b["blocked_by_reason"] else "OK")
+    return providers.envelope(status, items, src, provider="production.sale_readiness",
+                              stalled=b["stalled"],
+                              reason=(f"{b['stalled']} eligible release(s) stalled past their "
+                                      f"bound" if b["stalled"] else None))
 
 
 def _products_section(inv: dict, flow: dict) -> dict:
@@ -238,6 +274,8 @@ def build(db, snap: dict | None = None) -> dict:
     sections = {
         "inventory": _env("production.inventory", lambda: _inventory_section(inv)),
         "tiers": _env("production.tiers", lambda: _tiers_section(inv)),
+        "sale_readiness": _env("production.sale_readiness", lambda: _sale_section(db, now),
+                               sources=["sale_pipeline_runs", "pdf_certificates"]),
         "products": _env("production.products", lambda: _products_section(inv, fl)),
         "agents_working": _env("production.agents_working", lambda: _agents_working(db)),
         "recent_outputs": _env("production.recent_outputs", lambda: _recent_outputs(db, now)),

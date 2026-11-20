@@ -20,7 +20,7 @@
 // v30/v31 (INTEG2), so v32 supersedes both shells.
 // ENG-LEARN (learning progress view) merged after catalogue v36 and learn v40, so v41.
 // ENG-IMPROVE (improvement-team view) merged after learn v41, so v42.
-const VERSION = "cc-shell-v42";
+const VERSION = "cc-shell-v43";
 const SHELL = [
   "./",
   "index.html",

@@ -1043,7 +1043,8 @@ BLOCK_FAMILIES: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 _TECH_STATUSES = ("PASS", "FAIL", "UNKNOWN", "UNMEASURABLE", "NOT_APPLICABLE")
 _CANDIDATE_OUTCOMES = ("accepted", "rejected", "unverified", "provider_error")
-_RUN_STATES = ("awaiting_certified_pattern", "reference_preparation", "product_generation",
+_RUN_STATES = ("awaiting_certified_pattern", "awaiting_pre_image_readiness",
+               "reference_preparation", "product_generation",
                "lifestyle_generation", "gallery_assembly", "automated_verification",
                "ready_for_owner_review", "blocked", "approved_for_publication")
 
@@ -1353,6 +1354,24 @@ def learning(db, *, now: datetime | None = None) -> dict:
     return {"readable": True, **progress.readback(db, now=now)}
 
 
+def sale_pipeline(db, *, now: datetime) -> dict:
+    """ENG-SALE-PIPELINE (D-OWNER-SALE-PIPELINE): counts only -- eligible, gallery done, PDFs
+    certified, READY, blocked by named reason, stalled. No copy, slug lists or reason text."""
+    from ..publish import sale_pipeline as SPL
+
+    b = SPL.board(db, now=now)
+    if not b.get("readable"):
+        return {"readable": False, "error_class": _safe_class(str(b.get("error_class") or ""))}
+    reasons = {k: v for k, v in b["blocked_by_reason"].items() if _SOURCE_NAME.match(str(k))}
+    pre = {k: v for k, v in b["awaiting_pre_image_by_reason"].items()
+           if _SOURCE_NAME.match(str(k))}
+    return {"readable": True, **{k: b[k] for k in (
+        "releases", "eligible", "gallery_done", "pdfs_certified", "ready", "stalled",
+        "awaiting_pre_image_readiness", "awaiting_admission", "parked", "rejected",
+        "reserved_cad", "per_listing_cap_cad")},
+        "blocked_by_reason": reasons, "awaiting_pre_image_by_reason": pre}
+
+
 SECTIONS = {
     "dead_letters_24h": dead_letters,
     "publishing_halt": publishing_halt,
@@ -1368,6 +1387,7 @@ SECTIONS = {
     "first_listing_readiness": first_listing_readiness,
     "visual_pipeline": visual_pipeline,
     "learning": learning,
+    "sale_pipeline": sale_pipeline,
 }
 CHECK_NAMES = ("publishing_halt_clear", "stale_artefacts_rebuilding",
                "no_repeated_paid_call_in_24h", "weekly_jobs_completing")
