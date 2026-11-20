@@ -267,18 +267,29 @@ class TemplateDocument:
 
 # ---- the canonical owner artwork, through the verified-path loaders --------------------------
 
-HEADER_LOGO_PX = 420     # ~70 pt wide at 300+ dpi
-THANKS_LOGO_PX = 560
-BANNER_PX = 2000
+HEADER_LOGO_PX = 300     # ~66 pt wide: over 300 dpi
+THANKS_LOGO_PX = 320
+BANNER_PX = 1200         # 520 pt wide: about 166 dpi
 
 
 @lru_cache(maxsize=None)
-def _owner_jpeg(role: str, px: int) -> bytes:
-    """The owner's canonical artwork resampled (LANCZOS) to `px` wide, as deterministic JPEG.
+def _owner_art(role: str, px: int):
+    """The owner's canonical artwork resampled (LANCZOS) to `px` wide, as an RGB image.
 
     `canonical_assets.display_bytes` re-hashes the source against SHA256SUMS before reading
-    it (D-FB-17: used exactly as supplied, resampled only to fit)."""
-    return _CA.display_bytes(role, px, fmt="JPEG", quality=90)
+    it (D-FB-17: used exactly as supplied, resampled only to fit). Embedded losslessly
+    (Flate), never as JPEG: brand artwork is not a photograph, and the sale-pipeline checker
+    treats every DCT image as one that must be a certified frame."""
+    from PIL import Image
+
+    img = Image.open(io.BytesIO(_CA.display_bytes(role, px, fmt="PNG"))).convert("RGB")
+    img.load()
+    return img
+
+
+def _art_sha(role: str, px: int) -> str:
+    """sha256 of the decoded image stream the PDF carries for this rendition."""
+    return hashlib.sha256(_owner_art(role, px).tobytes()).hexdigest()
 
 
 def _logo_cover():
@@ -288,8 +299,9 @@ def _logo_cover():
 
 def logo_fingerprints() -> dict:
     """The sha256 of every logo rendition this layout embeds, by use."""
-    return {"header": hashlib.sha256(_owner_jpeg(_CA.HERO_LOGO, HEADER_LOGO_PX)).hexdigest(),
-            "thanks": hashlib.sha256(_owner_jpeg(_CA.HERO_LOGO, THANKS_LOGO_PX)).hexdigest(),
+    return {"header": _art_sha(_CA.HERO_LOGO, HEADER_LOGO_PX),
+            "thanks": _art_sha(_CA.HERO_LOGO, THANKS_LOGO_PX),
+            "cover": hashlib.sha256(_logo_cover().convert("RGB").tobytes()).hexdigest(),
             "cover_px": list(_logo_cover().size)}
 
 
@@ -530,11 +542,10 @@ class _T:
         c.rect(0, self.y(HEADER_H), PAGE_W, HEADER_H, fill=1, stroke=0)
         c.rect(0, 0, PAGE_W, PAGE_H - FOOTER_TOP, fill=1, stroke=0)
         # header: the canonical logo, resampled only, then the wordmark lines
-        self.image(_owner_jpeg(_CA.HERO_LOGO, HEADER_LOGO_PX), 40, 22, 66, 60,
+        self.image(_owner_art(_CA.HERO_LOGO, HEADER_LOGO_PX), 40, 22, 66, 60,
                    figure={"kind": "owner_logo", "use": "header",
                            "source": "brand/owner_source/brambleloop_owner_logo_canonical.png",
-                           "sha256": hashlib.sha256(_owner_jpeg(
-                               _CA.HERO_LOGO, HEADER_LOGO_PX)).hexdigest()})
+                           "sha256": _art_sha(_CA.HERO_LOGO, HEADER_LOGO_PX)})
         self.logo_pages.append(self.pages)
         self.text(112, 43, "BRAMBLELOOP", SANS_BOLD, 10.3, INK, track=3.0)
         self.text(113, 60, "CROCHET PATTERNS", SANS_BOLD, MIN_PT, BROWN_ON_CREAM, track=1.8)
@@ -1536,6 +1547,11 @@ def _pattern(t: _T, f: _Facts, slots: list[dict]) -> int:
     for title, lines in f.parsed["blocks"]:
         if title.lower().startswith("finishing"):
             continue
+        # The twin (and so every inline diagram drawn from it) describes one component; a
+        # diagram is placed only in that component's block, never under another piece.
+        block_key = title.lower().split(" (")[0].replace("_", " ").strip()
+        twin_key = str(f.twin.component or f.cir.components[0].name).replace("_", " ").lower()
+        draws = block_key == twin_key
         sided = P._sides_for(f.cir, title)
         if sided:
             # RS/WS from the CIR's own turns (publish.pdf._sides_for), the note stated once.
@@ -1603,7 +1619,7 @@ def _pattern(t: _T, f: _Facts, slots: list[dict]) -> int:
             # inline pictures at this step
             num = P._STEP_NUMBER.match(ln)
             n = int(num.group(1)) if num else None
-            st = stage_at.get(n) if n is not None else None
+            st = stage_at.get(n) if (n is not None and draws) else None
             if st is not None:
                 ih = 96
                 next_col(ih + 10)
@@ -1620,7 +1636,7 @@ def _pattern(t: _T, f: _Facts, slots: list[dict]) -> int:
                     yy += 12
                 t.prose.append(cap)
                 y += ih + 10
-            elif n is not None and n in tricky and not stages:
+            elif draws and n is not None and n in tricky and not stages:
                 grid = _mini_grid(f, max(1, n - 2), n + 3)
                 if grid is not None:
                     ih = 84
@@ -1635,7 +1651,8 @@ def _pattern(t: _T, f: _Facts, slots: list[dict]) -> int:
                            f"the pattern data.")
                     t.para(x + 8, y + ih - 22, COL_W - 16, cap, size=MIN_PT, leading=11)
                     y += ih + 10
-            if n is not None and n in tricky and progress is not None and not progress_used:
+            if draws and n is not None and n in tricky and progress is not None \
+                    and not progress_used:
                 ih = 150
                 next_col(ih + 10)
                 t.image(progress["jpeg"], x, y, COL_W, ih - 24, fit="cover", radius=6,
@@ -1829,11 +1846,11 @@ def _gallery(t: _T, f: _Facts, slots: list[dict]) -> list[dict]:
 
 def _about(t: _T, f: _Facts) -> None:
     t.section_page("about")
-    banner = _owner_jpeg(_CA.STOREFRONT_BANNER, BANNER_PX)
+    banner = _owner_art(_CA.STOREFRONT_BANNER, BANNER_PX)
     t.image(banner, 47, 200, 520, 208, fit="contain", radius=0,
             figure={"kind": "owner_banner",
                     "source": "brand/owner_source/brambleloop_owner_banner_canonical.png",
-                    "sha256": hashlib.sha256(banner).hexdigest()})
+                    "sha256": _art_sha(_CA.STOREFRONT_BANNER, BANNER_PX)})
     t.top = 422
     # The owner's studio blurb, then the premium standard's brand paragraphs: a brand, never
     # a person (PDF_STRUCTURE_STANDARD honest-only rules; the banner's model is not a designer).
@@ -1869,10 +1886,9 @@ def _copyright(t: _T, f: _Facts, designer: str) -> None:
     t.need(h)
     t.card(47, t.top, 520, h, fill=FOREST)
     t.card(57, t.top + 22, 66, 59, fill=CREAM, radius=4)
-    t.image(_owner_jpeg(_CA.HERO_LOGO, THANKS_LOGO_PX), 58, t.top + 23, 64, 57,
+    t.image(_owner_art(_CA.HERO_LOGO, THANKS_LOGO_PX), 58, t.top + 23, 64, 57,
             figure={"kind": "owner_logo", "use": "thank_you",
-                    "sha256": hashlib.sha256(_owner_jpeg(_CA.HERO_LOGO,
-                                                         THANKS_LOGO_PX)).hexdigest()})
+                    "sha256": _art_sha(_CA.HERO_LOGO, THANKS_LOGO_PX)})
     t.text(143, t.top + 37, "BRAMBLELOOP STUDIO", SANS_BOLD, MIN_PT, ON_FOREST, track=1.8)
     t.text(143, t.top + 66, THANK_YOU, SERIF, 11.5, ON_FOREST)
     t.top += h + 14
@@ -1943,7 +1959,11 @@ def audit(pdf_bytes: bytes, *, expected_gallery: list[dict] | None = None) -> di
                     data = obj.get_data()
                 except Exception:  # noqa: BLE001
                     data = b""
+                filters = obj.get("/Filter")
+                filters = [str(x) for x in (filters if isinstance(filters, list) else [filters])
+                           if x is not None]
                 imgs.append({"sha256": hashlib.sha256(data).hexdigest(),
+                             "dct": "/DCTDecode" in filters,
                              "px": (int(obj.get("/Width") or 0), int(obj.get("/Height") or 0))})
             pages.append({"text": text, "flat": re.sub(r"\s+", " ", text), "images": imgs})
     except Exception as exc:  # noqa: BLE001 - unreadable is never a pass
@@ -1962,8 +1982,7 @@ def audit(pdf_bytes: bytes, *, expected_gallery: list[dict] | None = None) -> di
           f"sections read {collapsed}, template order is {order}", read=collapsed)
     # logo
     fp = logo_fingerprints()
-    cover_raw = hashlib.sha256(_logo_cover().convert("RGB").tobytes()).hexdigest()
-    cover_ok = bool(pages) and any(im["sha256"] == cover_raw for im in pages[0]["images"])
+    cover_ok = bool(pages) and any(im["sha256"] == fp["cover"] for im in pages[0]["images"])
     check("logo_cover", cover_ok, "the cover does not embed the canonical logo rendition")
     missing = [i + 2 for i, p in enumerate(pages[1:])
                if not any(im["sha256"] == fp["header"] for im in p["images"])]
@@ -1974,7 +1993,7 @@ def audit(pdf_bytes: bytes, *, expected_gallery: list[dict] | None = None) -> di
     # gallery
     gal_pages = [p for p, k in zip(pages[1:], seq) if k in ("gallery", "gallery_continued")]
     found = [im["sha256"] for p in gal_pages for im in p["images"]
-             if im["sha256"] not in (fp["header"],)]
+             if im["sha256"] not in (fp["header"], fp["thanks"], fp["cover"])]
     if expected_gallery is not None:
         want = [g["rendition_sha256"] for g in expected_gallery]
         got = [w for w in want if w in found]
@@ -1984,6 +2003,13 @@ def audit(pdf_bytes: bytes, *, expected_gallery: list[dict] | None = None) -> di
         check("gallery", len(set(found)) == GALLERY_FRAMES,
               f"{len(set(found))} gallery images, {GALLERY_FRAMES} required",
               count=len(set(found)))
+    # photographs: every JPEG in the document is a certified gallery rendition
+    if expected_gallery is not None:
+        allowed = {g["rendition_sha256"] for g in expected_gallery}
+        strays = sorted({i + 1 for i, p in enumerate(pages) for im in p["images"]
+                         if im["dct"] and im["sha256"] not in allowed})
+        check("no_uncertified_photos", not strays,
+              f"JPEG images that are not certified renditions on pages {strays}")
     # placeholders and marker
     alltext = "\n".join(p["flat"] for p in pages)
     bad = [ph for ph in template_placeholders() if ph in alltext]

@@ -393,7 +393,10 @@ def test_inline_diagrams_and_progress_slot_sit_at_the_tricky_steps():
     assert [f for f in rounds.figures if f["kind"] == "construction_diagram"]
     rows = _doc("cloudline_blanket")
     assert [f for f in rows.figures if f["kind"] == "mini_diagram"]
-    for doc in (rounds, rows):
+    # two pieces (front, back): the twin draws the front, so its diagram sits only there
+    pillow = _doc("pillow")
+    assert len([f for f in pillow.figures if f["kind"] == "mini_diagram"]) == 1
+    for doc in (rounds, rows, pillow):
         prog = [f for f in doc.figures if f.get("slot") == "progress"]
         assert len(prog) == 1
         assert prog[0]["rendition_sha256"] == doc.gallery[5]["rendition_sha256"]
