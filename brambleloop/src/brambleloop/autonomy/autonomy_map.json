@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-20T23:05:40.610523+00:00",
+ "generated_at": "2026-11-20T23:05:51.291526+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -13,7 +13,7 @@
   "cadences": 150,
   "handlers": 182,
   "agents": 35,
-  "follow_on_edges": 97
+  "follow_on_edges": 96
  },
  "departments": [
   {
@@ -947,7 +947,6 @@
      "growth/portfolio_act.py:act",
      "owner/API route api_physical_photo",
      "owner/API route api_physical_test",
-     "runtime/pipeline.py:_draft_composed",
      "runtime/pipeline.py:_draft_creative",
      "runtime/pipeline.py:_draft_garment",
      "runtime/pipeline.py:_draft_wearable",

@@ -330,15 +330,6 @@ def _count_join(cir, seam, twins) -> tuple[float, float] | None:
     return na * per, nb * per
 
 
-def _flattened_round(cir, seam) -> bool:
-    """A round piece sewn by its first or last round across a placed span of another piece."""
-    if seam.stitches_from_centre is None or seam.edge_a not in ("top", "bottom") \
-            or seam.method in ("pick_up", "thread") or seam.edge_b == "surface":
-        return False
-    a = next((c for c in cir.components if c.name == seam.piece_a), None)
-    return a is not None and a.construction != "flat_rows"
-
-
 def _picked_up_only(cir, comp) -> bool:
     """A round piece begun inside another (foundation 'none') and joined only by pick-up: its
     finished shape may be refused (a closed tip is shaped by tension), but its first round is
@@ -390,13 +381,6 @@ def assemble(cir, twins: dict) -> ObjectGeometry:
             # length that meets it, whatever the finished piece's own span.
             _measure(cir, seam, join, first_round_cm(twins[seam.piece_a], cir.gauge),
                      fb.edge_cm(seam.edge_b))
-        elif _flattened_round(cir, seam) and _count_join(cir, seam, twins) is not None:
-            # ENG-COMPOSER: a piece worked in rounds and sewn by its edge across a placed span
-            # lies flattened, both layers together, whether or not the piece it is sewn to has
-            # a footprint. Its joining length is half its round, not its diameter: an ear, a
-            # fin or a flap on an open vessel is measured exactly as one on a closed body.
-            la, lb = _count_join(cir, seam, twins)
-            _measure(cir, seam, join, la, lb)
         elif (fa is None or fb is None) and _count_join(cir, seam, twins) is not None:
             # OPUS2P-2: a stuffed, shaped piece has no finished size, but its rounds have
             # counts: the joining edge is compared stitch for stitch with what it is sewn to.
