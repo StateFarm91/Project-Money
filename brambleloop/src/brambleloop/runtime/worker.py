@@ -649,6 +649,9 @@ CADENCES: list[tuple[str, str, str, int]] = [
     ("capability_measure", "analyst", "improve.measure", 24 * 60 * 60),
     # OPUS2-P0: measured listing performance becomes lessons Market Radar reads. CA$0.
     ("commercial_lessons", "analyst", "improve.commercial_lessons", 24 * 60 * 60),
+    # ENG-LEARN: engineering outcomes into measured parameter-region lessons, and real
+    # commerce readings into the same lesson store. Daily; DB only.
+    ("learning_loops", "analyst", "learning.loops", 24 * 60 * 60),
     # OPUS2-P0 (P0-LEARNING-GAPS): knowledge gaps into capped owner-approval reference
     # recommendations. Weekly, CA$0, never buys.
     ("knowledge_gaps", "analyst", "learning.knowledge_gaps", 7 * 24 * 60 * 60),
@@ -658,6 +661,10 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # Requirement 93. Daily: every promoted change judged once per new production reading,
     # and a regression becomes a revert plus a rollback incident rather than a quiet row.
     ("promotion_monitor", "orchestrator", "improve.monitor", 24 * 60 * 60),
+    # ENG-IMPROVE (owner directive 2026-11-20): every department's improvement loop checked,
+    # live challengers judged (promotion / automatic rollback), change requests filed and
+    # verified against their KPI. Reads rows; never edits or deploys code; spends nothing.
+    ("self_tune", "orchestrator", "improve.self_tune", 24 * 60 * 60),
     # Certification 2026-09-27 (#82, #89, #298): the learners run daily and report UNMEASURED
     # with the minimum n until listings produce outcomes; the harvest refuses a season that
     # has not passed or has fewer than 20 orders.
@@ -951,6 +958,10 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # gate reads and refuses to run at all when it finds an audit action nobody has decided
     # about; `ops.retention` carries the reasoning.
     ("retention_sweep", "orchestrator", "ops.retention", 24 * 60 * 60),
+    # ENG-APPROVALS (D-OWNER-STANDING-INTERNAL): hourly owner-queue consolidation -- routine
+    # internal cards superseded by the standing authority, redundant/stale/satisfied cards
+    # closed, genuine exceptions never touched. Rows kept; every move audited. CA$0.
+    ("owner_queue_consolidate", "orchestrator", "ops.owner_queue_consolidate", 60 * 60),
     # C-69 (#50, #29): the dependency map probed daily and every failed probe, unproved
     # recovery, unmapped paid provider or existential concentration raised as an incident.
     # W4-F454: the integration domain's focused agent.
@@ -993,6 +1004,10 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # lead to paid work downstream inside the creative ceilings (review N-4).
     ("watchlist_scan", "market_radar", "intel.watchlist_scan", 6 * 60 * 60),
     ("watchlist_compare", "market_radar", "intel.watchlist_compare", 24 * 60 * 60),
+    # ENG-BENCHBUY: the daily benchmark shopping list across all nine watchlist shops, rebuilt
+    # after the scans (its upstream inputs are the scans, so an unchanged day backs off and a
+    # real scan lifts the backoff). Reads rows only: CA$0, no network, never buys.
+    ("benchmark_shopping", "market_radar", "intel.benchmark_shopping", 24 * 60 * 60),
     # W4-AGENTS W3 (F-401): the Research Agent's own sweep -- unknowns become tasks, due open
     # tasks become investigations (internal retrieval first, CA$0, no network).
     ("research_sweep", "research_agent", "research.sweep", 24 * 60 * 60),

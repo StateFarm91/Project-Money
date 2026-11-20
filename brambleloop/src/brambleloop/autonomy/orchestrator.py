@@ -145,7 +145,11 @@ def _raise_approval(db, charter: charters.Charter, cand: generators.Candidate,
         open_row = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == rk,
                                                       OwnerAction.done == False))  # noqa: E712
         created = False
-        if open_row is None:
+        from ..authority import standing_internal
+
+        if open_row is None and standing_internal.closure_in_force(s, rk):
+            pass                # closed by the standing authority and still covered
+        elif open_row is None:
             s.add(OwnerAction(requirement_key=rk, action=a["action"], reason=a["reason"],
                               max_cost_cad=float(a.get("max_cost_cad") or 0.0),
                               minutes=int(a.get("minutes") or 0),

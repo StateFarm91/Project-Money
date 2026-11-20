@@ -237,6 +237,45 @@ VERSION_MAX = 120
 CHANGE_SIGNATURE = "policy_changed:"
 
 
+# D-OWNER-POLICY39-OVERRIDE (owner direct order, 2026-11-20): the owner directed proceeding
+# WITHOUT a review of these sources' material changes recorded on or before the stated date.
+# This is the owner's business decision, recorded as exactly that -- never as "reviewed" or
+# "tested", and never extended to a change first read after the date (a later change holds
+# again). Etsy's own rules still apply to the listings; nothing here changes the AI
+# disclosure, Product Truth or any other gate.
+OWNER_DIRECTED_OVERRIDES: dict[str, dict] = {
+    "listing_image_rules": {"through": "2026-11-20", "decided_by": "owner",
+                            "decision": "D-OWNER-POLICY39-OVERRIDE",
+                            "basis": "owner directed proceeding without review"},
+}
+
+
+def owner_overridden(source: str, checked_on) -> dict | None:
+    """The owner's override covering this change, or None."""
+    o = OWNER_DIRECTED_OVERRIDES.get(source)
+    if not o or not str(checked_on or "").strip():
+        return None             # an undated change is never assumed covered
+    return o if str(checked_on)[:10] <= o["through"] else None
+
+
+def overridden_changes(db) -> list[dict]:
+    """Material changes released by an owner-directed override (readback: shown as such)."""
+    from sqlalchemy import select
+
+    from ..core.models import PolicySnapshot
+
+    with db.session() as s:
+        latest: dict[str, PolicySnapshot] = {}
+        for r in s.scalars(select(PolicySnapshot).where(
+                PolicySnapshot.material_change.is_(True)).order_by(PolicySnapshot.id)):
+            latest[r.source] = r
+        return [{"source": src, "snapshot_id": r.id, "checked_on": r.checked_on,
+                 "override": owner_overridden(src, r.checked_on), "reviewed": False}
+                for src, r in latest.items()
+                if not (r.detail or {}).get("reviewed_at")
+                and owner_overridden(src, r.checked_on)]
+
+
 def unreviewed_changes(db) -> list[dict]:
     """Sources whose newest reading differs materially from the one before, unreviewed (#39).
 
@@ -260,7 +299,8 @@ def unreviewed_changes(db) -> list[dict]:
         return [{"source": src, "snapshot_id": r.id, "checked_on": r.checked_on,
                  "version": version_of(r), "affects": list(r.affects or POLICY_SOURCES[src][1])}
                 for src, r in latest_change.items()
-                if not (r.detail or {}).get("reviewed_at")]
+                if not (r.detail or {}).get("reviewed_at")
+                and not owner_overridden(src, r.checked_on)]
 
 
 def review_change(db, source: str, *, reviewed_by: str, tested: str,

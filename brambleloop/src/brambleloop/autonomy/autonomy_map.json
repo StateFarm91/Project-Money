@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-19T23:11:17.362824+00:00",
+ "generated_at": "2026-11-20T04:38:53.050336+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 143,
-  "handlers": 175,
+  "cadences": 147,
+  "handlers": 179,
   "agents": 34,
   "follow_on_edges": 93
  },
@@ -413,6 +413,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "benchmark_shopping",
+      "agent": "market_radar",
+      "job_type": "intel.benchmark_shopping",
+      "period_seconds": 86400
+     },
+     {
       "name": "research_sweep",
       "agent": "research_agent",
       "job_type": "research.sweep",
@@ -495,6 +501,7 @@
      "intel.acceptance",
      "intel.benchmark_health",
      "intel.benchmark_refresh",
+     "intel.benchmark_shopping",
      "intel.children_portfolio",
      "intel.gallery_analysis",
      "intel.opportunity_review",
@@ -2218,6 +2225,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "learning_loops",
+      "agent": "analyst",
+      "job_type": "learning.loops",
+      "period_seconds": 86400
+     },
+     {
       "name": "knowledge_gaps",
       "agent": "analyst",
       "job_type": "learning.knowledge_gaps",
@@ -2233,6 +2246,12 @@
       "name": "promotion_monitor",
       "agent": "orchestrator",
       "job_type": "improve.monitor",
+      "period_seconds": 86400
+     },
+     {
+      "name": "self_tune",
+      "agent": "orchestrator",
+      "job_type": "improve.self_tune",
       "period_seconds": 86400
      },
      {
@@ -2361,6 +2380,7 @@
      "brambleloop.learn.runtime",
      "brambleloop.runtime.commercial_ops",
      "brambleloop.runtime.learning_gaps_ops",
+     "brambleloop.runtime.learning_ops",
      "brambleloop.runtime.release"
     ],
     "executable_job_types": [
@@ -2374,9 +2394,11 @@
      "improve.retrospective",
      "improve.role_work",
      "improve.sandbox",
+     "improve.self_tune",
      "improve.weekly",
      "learn.scan",
-     "learning.knowledge_gaps"
+     "learning.knowledge_gaps",
+     "learning.loops"
     ],
     "permitted_without_handler": []
    },
@@ -2516,6 +2538,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "owner_queue_consolidate",
+      "agent": "orchestrator",
+      "job_type": "ops.owner_queue_consolidate",
+      "period_seconds": 3600
+     },
+     {
       "name": "dependency_sweep",
       "agent": "integration_steward",
       "job_type": "ops.dependencies",
@@ -2567,6 +2595,7 @@
    "execution": {
     "handler_modules": [
      "brambleloop.runtime.ops_watch",
+     "brambleloop.runtime.owner_queue_ops",
      "brambleloop.runtime.pipeline",
      "brambleloop.runtime.release",
      "brambleloop.runtime.v11_wiring"
@@ -2580,6 +2609,7 @@
      "ops.heartbeat",
      "ops.maturity_disagreements",
      "ops.offsite_archive",
+     "ops.owner_queue_consolidate",
      "ops.policy_watch",
      "ops.provider_credentials",
      "ops.queue_check",

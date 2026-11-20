@@ -69,6 +69,7 @@ JOB_CLASS: dict[str, ActionClass] = {
     "finance.accounting.cycle": _O, "finance.challenge": _O,
     "finance.escalation_check": _O, "finance.governor": _O, "finance.reconcile": _O,
     "growth.journey": _O, "improve.measure": _O, "improve.commercial_lessons": _O,
+    "learning.loops": _O,
     "learning.knowledge_gaps": _O, "improve.monitor": _O,
     "launch.readiness": _O, "listing.outcomes": _O, "listing.search_visibility_watch": _O,
     "marketing.ads_readiness": _O, "ops.capacity": _O, "ops.dependencies": _O,
@@ -88,7 +89,7 @@ JOB_CLASS: dict[str, ActionClass] = {
     "creative.tournament": _R, "creative.white_space": _R, "creative.family_engine": _R, "creative.salvage_review": _R, "creative.capability_scorecard": _R, "creative.photo_principles": _R,
     "listing.cross_sell_graph": _R, "culture.sweep": _R,
     "improve.mine": _R, "improve.retrospective": _R, "intel.acceptance": _R,
-    "intel.benchmark_health": _R, "intel.benchmark_refresh": _R,
+    "intel.benchmark_health": _R, "intel.benchmark_refresh": _R, "intel.benchmark_shopping": _R,
     "intel.gallery_analysis": _R, "intel.panel_discovery": _R, "intel.pod_learning": _R,
     "intel.serp_capture": _R, "intel.children_portfolio": _R, "intel.scan_evidence": _O, "policy.issuer_shadow": _O, "policy.stop_watch": _O, "policy.activation_schedule": _O, "learn.scan": _R, "research.investigate": _R, "research.sweep": _R, "research.flag_architecture": _R, "listing.taxonomy_refresh": _R,
     "mjs.reviews": _R, "mjs.scan": _R, "pricing.position": _R,
@@ -103,7 +104,9 @@ JOB_CLASS: dict[str, ActionClass] = {
     "build.tick": _B, "chain.rebuild": _B, "chain.successors": _B, "supply.admit": _B, "cir.draft": _B, "cir.revise": _B, "cir.reengineer": _B,
     "collection.assemble": _B, "listing.package": _B, "creative.candidates_file": _B, "creative.model_freeze": _B, "growth.steer": _B,
     "improve.nightly": _B, "improve.role_work": _B, "improve.weekly": _B,
+    "improve.self_tune": _B,   # ENG-IMPROVE: tunable champions + change-request rows only
     "laura.executive_tick": _B, "ops.offsite_archive": _B, "ops.retention": _B,
+    "ops.owner_queue_consolidate": _B,   # ENG-APPROVALS: owner-queue lifecycle moves only
     "plan.cycle": _B, "seasonal.cycle_proof": _B, "seasonal.engine": _B,
     "swarm.allocate": _B, "swarm.backlog": _B, "swarm.orphans": _B,
     "teardown.enforce": _B, "visual.portrait_repair": _B,
