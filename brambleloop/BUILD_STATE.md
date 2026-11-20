@@ -39,6 +39,31 @@
 > - Tests: `test_eng_recovery` (new), 12 of 12 mutants killed. Suites and status:
 >   `research/final_build/w6/review_requests/recovery.md`. Slice 2: a legacy rebuild-incomplete row
 >   with nothing STALE gets one targeted rebuild (once per row); 15 of 15 mutants killed.
+> **2026-11-19 — ENG-RESEARCH fix round 1 (`eng/research-flow`, NOT integrated, NOT deployed).** Main's review
+> (DO NOT SHIP) found the first round fabricated the #108 qualifier: `brief_for` typed `motif_composition` for every
+> pod. It is now DERIVED by `creative.intake.qualifiers_for` from the concept's own premise and construction, with
+> provenance on the proposal and a #108 precheck recorded beside it. Honest outcome per pod on the flat-rows radar path:
+> - **home_decor** (pillow, an outline, not a generic form) clears #108 with no qualifier and reaches `cir.draft` once a
+>   vision verdict exists. Its occasion moved from `spring_refresh` to `housewarming` (no spring motifs; #83 moment).
+> - **blankets** and **kitchen_bath** (rectangle throw, coaster: generic forms, plain-row stripes) carry no qualifier and
+>   are REFUSED by #108. The lineage names the hold, they are not "qualifying", and nothing is engineered. They need a
+>   construction the radar draft path does not compile yet (e.g. a charted flat panel) — an open engineering item.
+> Also fixed: P0 board JS SyntaxError (an extra `)`), per-row health pill (never-succeeded/failing ≠ OK), MP1.2-s4
+> off-Etsy channels (websites, YouTube, Pinterest) as UNAVAILABLE registry rows, unreadable vision ≠ scheduled,
+> downstream UNKNOWN without lineage tables, guarded conclusion in the intake job. SW `cc-shell-v35`.
+
+> **2026-11-19 — ENG-RESEARCH (`eng/research-flow`, NOT integrated, NOT deployed).** The research loop was traced
+> from watchlist change to engineering. It stopped at the pre-engineering gate: every watchlist proposal was refused
+> deterministically (no #88 storyboard, no #108 qualifier). That is fixed, and anti-clone now covers all eight watchlist
+> shops. With a vision verdict on record, a simulated watchlist change reaches `cir.draft` unattended. Without one, the
+> concept WAITS on `image_vision`. That wait is legitimate, owner-gated and not bypassed.
+> Every `radar.concept_intake` cycle now records `intel.research_conclusion`: `opportunities` or
+> `no_qualifying_opportunity`, with evidence. New pieces:
+> - the source registry `research/final_build/w6/research_sources.md`;
+> - P0 board section `research_sources`.
+>
+> Limitations, kept visible: research_fetch disabled (deployment flag); external trend platforms missing (no official
+> API); Marketplace Insights is owner-recorded. Review: `research/final_build/w6/review_requests/research_flow.md`.
 
 > **2026-11-02 — Batch 4 DEPLOYED: production = 0967c3ee (SHADOW unchanged). 24-hour acceptance running until 2026-11-03T03:31Z.**
 > - Owner approval: "APPROVE DEPLOY 0967c3eee287d06cad0d8034a99e39076c0ab6d5" (2026-11-02).
