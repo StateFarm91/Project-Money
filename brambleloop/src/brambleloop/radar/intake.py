@@ -1211,12 +1211,33 @@ def prune(db, *, now: datetime | None = None, dry_run: bool = False) -> dict:
             "removed": 0 if dry_run else len(deletable), "retention_days": RETENTION_DAYS}
 
 
+def order_by_demand(db, candidates: list[dict]) -> list[dict]:
+    """ENG-DEMAND-SUPPLY: evaluate the highest market demand first (products.demand, stored
+    evidence only, the owner core-family boost inside it), so the bounded per-run budget
+    goes to what sells. Stable: equal demand keeps the source order."""
+    from ..products import demand
+
+    try:
+        ix = demand.index(db)
+    except Exception:  # noqa: BLE001 - no index: the source order stands
+        return list(candidates)
+
+    def score(c):
+        p = dict(c.get("proposal") or {})
+        d = ix.score(str(p.get("title") or ""), category=str(p.get("category") or ""),
+                     pod=str((p.get("concept") or {}).get("pod") or ""))
+        c["market_demand"] = {k: d[k] for k in ("score", "status", "cluster")}
+        return -d["score"]
+    return sorted(candidates, key=score)
+
+
 def run(db, *, audit, enqueue, today: date | None = None) -> dict:
     """One intake pass: research proposals, then family variations. Bounded, idempotent."""
     _ensure(db)
     today = today or datetime.now(timezone.utc).date()
     withdrawn = withdraw_unsupported(db, audit=audit, today=today)
-    candidates = research_candidates(db, today=today) + family_candidates(db, today=today)
+    candidates = order_by_demand(db, research_candidates(db, today=today)
+                                 + family_candidates(db, today=today))
     decided, unchanged = [], 0
     for cand in candidates:
         if len(decided) >= MAX_EVALUATIONS_PER_RUN:

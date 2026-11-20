@@ -8,7 +8,8 @@
 // never intercepted. Cross-origin requests are never intercepted.
 // Bump VERSION whenever a SHELL file changes or two shells merge; the per-version history is
 // in `git log -p -- sw.js`. ENG-DAILY: Daily view after improve v42, so v43.
-const VERSION = "cc-shell-v43";
+// ENG-DEMAND-SUPPLY: Demand view, so v44.
+const VERSION = "cc-shell-v44";
 const SHELL = [
   "./",
   "index.html",
@@ -37,6 +38,7 @@ const SHELL = [
   "js/views/completion.js",
   "js/views/p0_board.js",
   "js/views/daily.js",
+  "js/views/demand.js",
   "js/views/catalogue.js",
   "js/views/agents_evidence.js",
   "js/views/production.js",

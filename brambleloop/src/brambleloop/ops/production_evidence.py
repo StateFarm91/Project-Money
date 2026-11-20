@@ -1415,6 +1415,17 @@ def daily_ledger(db, *, now: datetime) -> dict:
 SECTIONS["daily_ledger"] = daily_ledger
 
 
+def engine_demand(db, *, now: datetime) -> dict:
+    """ENG-DEMAND-SUPPLY: the ranked engines held concepts wait for, and demand per family,
+    from stored evidence (`products.demand.readback`). Counts and keys only."""
+    from ..products.demand import readback
+
+    return readback(db, now=now)
+
+
+SECTIONS["engine_demand"] = engine_demand
+
+
 def _section(name: str, db, now) -> dict:
     try:
         return SECTIONS[name](db, now=now)
