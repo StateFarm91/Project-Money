@@ -2974,3 +2974,75 @@ the listing. Then it's ready to be for sale. Hard rule."
 - **Caps in code, lower-only.** Within `paid_provider_gate.authorize` the caps are 60 images per UTC day and 16 images / CA$2.50 per gallery. The environment can lower them and never raise them. They sit beneath the owner's activation ceilings, so the lower one binds.
 - **Readiness.** It is READY only when `BRAMBLELOOP_IMAGE_KEY_BFL` is present (presence only; the value is never read into output) and the owner's `flux-3-image` generation activation is active. Otherwise it is UNKNOWN with the reason, and the generation job refuses before reserving.
 - **Retention.** `image.generation_rejected` and `image.generation_rejection_rechecked` are lifetime-protected.
+
+## D-OWNER-PDF-LOGO — 2026-11-20 (owner directive) — supersedes integrator decision N1 (2026-10-31)
+
+**Decision:** "You should already have the company logo… It should be used on the PDF." Every
+premium PDF (US and UK) carries the owner's canonical logo,
+`brand/owner_source/brambleloop_owner_logo_canonical.png` (sha256 28f301b2…5998, D-FB-17),
+used exactly as supplied, resampled only to fit (the existing `publish.pdf._cover_logo`):
+- prominently on the cover;
+- on the About Brambleloop Studio page.
+
+The A3 vector lockup or the micro-mark may appear only as a small-size utility, for example
+the running footer, as D-FB-17's hierarchy permits. It never replaces the logo on the cover.
+N1's worry (the artwork's HOME · BABY · GIFTS · SEASONAL line read as a product claim) is
+outweighed by the owner's direct instruction, and that line now matches the core families.
+**Verified deterministically:** the D-OWNER-PDF-STANDARD checker confirms that the cover
+embeds an image derived from the canonical logo (a perceptual or derived-hash match to the
+resampled canonical bytes). A PDF without it FAILS.
+
+## D-OWNER-PDF-TEMPLATE — 2026-11-20 (owner-supplied master layout)
+
+**Decision:** The owner's `spec/07_Brambleloop_Master_Pattern_Template.pdf` (14 pages, Letter) is
+the master layout for every premium pattern PDF, in both US and UK editions. It is the owner's
+own brand design, so its layout may be reproduced exactly. It combines with
+D-OWNER-PDF-STANDARD (structure from the Mini Star Stitch benchmark), D-OWNER-PDF-LOGO and
+D-OWNER-SALE-PIPELINE. The owner said "don't have to use it if yours is better"; it is adopted
+because it is better than the current engine layout and carries the brand.
+
+**Page order:** each page is filled only from certified CIR data. A missing required fact
+blocks; nothing is guessed. Optional sections are omitted entirely, never left with a
+placeholder.
+1. **Cover:** the canonical owner logo, family / DIGITAL DOWNLOAD kicker, title, collection
+   line, the certified hero photo in the slot, and a forest band with skill, sizes and
+   terminology.
+2. **01 Meet the pattern:** about this design, how it comes together, and a project-details
+   panel (difficulty, category, sizes, CYC yarn weight, hook US/mm, construction), plus
+   "your download includes".
+3. **02 Tools + yarn:** yarn, hooks, notions, gauge and its importance, yarn quantities, maker
+   note.
+4. **03 Sizing & finished fit:** the size table (size, finished size, yarn m/yd, notes), fit
+   and ease, a note on measurements.
+5. **04 Construction guide:** the numbered making sequence plus a CIR schematic, and the
+   construction check.
+6. **05 Stitches & abbreviations:** terminology-correct terms and special stitches, only
+   those used.
+7. **06 The pattern:** two columns, component bars, Row/Round labels, and a stitch count on
+   every row. Additional pieces or sizes appear only when they apply. Inline mini-diagrams and
+   progress photos go at the tricky steps (D-OWNER-PDF-STANDARD).
+8. **07 Finishing & assembly:** numbered steps and the final quality check.
+9. **08 Gauge, care & helpful notes:** gauge first, yarn substitution, care, and
+   safety/age/use notes (child-safety gate text for baby and amigurumi).
+10. **09 Gallery and continued gallery:** the 7 certified campaign photos in order:
+    1. full product / hero;
+    2. stitch detail;
+    3. lifestyle;
+    4. back / alternate;
+    5. scale / fit;
+    6. construction / materials;
+    7. download facts.
+
+    These are the same certified images as the listing (one spend). Generated images are
+    labelled as renderings.
+11. **10 About Brambleloop:** the canonical owner banner, the studio blurb, and support via
+    Etsy Messages only.
+12. **11 Copyright + use:** the approved Brambleloop licence (never a competitor's), the
+    "please remember" notice, and the thank-you block with the logo.
+
+**Every page:** a header with the logo, BRAMBLELOOP / CROCHET PATTERNS, collection name and
+terminology; a numbered section kicker plus a serif title; and the footer "BRAMBLELOOP STUDIO /
+PATTERNS FOR A MORE HANDMADE LIFE" with the page number. The template's "MASTER LAYOUT •
+REQUIRES CERTIFIED PRODUCT DATA" line is a template marker and is never printed in a customer
+PDF. Palette and type as in the template: forest band, cream ground, rose kickers, serif
+display.
