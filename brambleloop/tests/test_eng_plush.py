@@ -917,6 +917,17 @@ def test_a_face_named_without_eyes_or_nose_must_still_say_it_is_embroidered():
     assert check.state == CS.FAIL and "embroidered" in check.detail, check
 
 
+def test_a_hard_part_that_is_not_a_feature_fails_in_the_printed_instructions():
+    """Kills "text: hard parts in instructions unread": no eye or nose for the clause rule."""
+    probes = ("Sew two buttons to the tummy.", "Add a jingle bell inside.",
+              "Finish with press studs.")
+    assert probes
+    for line in probes:
+        assert CS._unembroidered_feature(line) is None, line
+        checks = CS._text_checks("x", ("base",), instructions=line)
+        assert {c.code: c.state for c in checks}["NO_HARD_PARTS_IN_TEXT"] == CS.FAIL, line
+
+
 if __name__ == "__main__":
     failed = 0
     for name, fn in list(globals().items()):
