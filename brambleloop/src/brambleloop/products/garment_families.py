@@ -259,6 +259,7 @@ class Piece:
         from .garments import _raglan_row
 
         first = self.next_index
+        start = (("f0", f), ("s0", s), ("b0", b))
         for m in plan:
             i = self.next_index
             if m:
@@ -274,7 +275,7 @@ class Piece:
         every = _spacing(plan)
         self._record("raglan", first, self.next_index - 1,
                      n=(("doubles", doubles), ("singles", singles), ("every", every),
-                        ("rows", len(plan))), label=label)
+                        ("rows", len(plan))) + start, label=label)
 
     def divide(self, sleeve: int, front: int, back: int) -> None:
         """The underarm row: sleeves on hold, fronts and back joined."""
@@ -297,7 +298,8 @@ class Piece:
 
 
 def _spacing(plan: list[int]) -> int:
-    idx = [k for k, m in enumerate(plan) if m]
+    """Rows between single raglan increase rows (the doubles come first, every row)."""
+    idx = [k for k, m in enumerate(plan) if m == 1]
     gaps = {b - a for a, b in zip(idx, idx[1:])}
     return min(gaps) if gaps else 1
 
@@ -382,18 +384,17 @@ def pick_up_count(edge_cm: float, g: GradedSize) -> int:
 
 
 def button_gaps(stitches: int, buttons: int) -> list[int]:
-    """Plain stitches before, between and after `buttons` 2-stitch buttonholes, spaced evenly.
-    The first and last gaps are the band ends; the in-between gaps are equal."""
+    """Plain stitches before, between and after `buttons` 2-stitch buttonholes: equal gaps
+    between the holes and half a gap at each end of the band (any odd stitch at the start).
+    """
     if buttons < 1:
         return [stitches]
     worked = stitches - buttons * BUTTONHOLE_STS
-    ends = max(2, round(worked / (buttons + 1) / 2))
-    between_total = worked - 2 * ends
-    if buttons == 1:
-        return [ends, between_total + ends] if between_total >= 0 else [stitches]
-    between = between_total // (buttons - 1)
-    first = ends + (between_total - between * (buttons - 1))
-    return [first] + [between] * (buttons - 1) + [ends]
+    between = worked // buttons
+    rest = worked - (buttons - 1) * between
+    if between < 2 or rest < 2:
+        raise ShapingRefused(f"{buttons} buttonholes do not fit on a {stitches}-st band")
+    return [rest - rest // 2] + [between] * (buttons - 1) + [rest // 2]
 
 
 # ---- 1. top-down raglan cardigan ------------------------------------------------------------

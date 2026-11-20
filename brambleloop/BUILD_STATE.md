@@ -1,3 +1,21 @@
+> **2026-11-20 — ENG-GARMENT slice 1 (`eng/garment`, NOT merged, NOT deployed).** Garments as a family that
+> certifies end to end, every size. Built on INTEG2 64146306 + eng/plush d4aaf9b6 (which carries eng/families).
+> - `products/garment_families.py`: four constructions (top-down raglan, flat one-piece with built-in sleeves,
+>   side-to-side, drop-shoulder panels) over a recorded step list; back-loop bands at hems and cuffs; picked-up
+>   front bands with buttonholes, cuffs and neckbands; balls and yards per size from the twin.
+> - `cir/graded.py`: the CYC baby table (3-24 months, read 2026-11-20), so baby sizes are sourced, never invented.
+> - Five original designs (`products/garment_release.DESIGNS`): Fernhollow raglan cardigan (adult, 9 sizes,
+>   buttons), Brookside kids sweater (child 2-12, one-piece), Little Wren baby cardigan (3-24 m, no buttons),
+>   Driftline side-to-side vest (adult, 9), Kestrel drop-shoulder pullover (adult, 9). **Every size of all five is
+>   granted by the unchanged release chain** and passes `gates/garment_fit.py` (stitch counts, shaping, seam match,
+>   pick-up rates, neck and armhole fit, finished vs target, ease band, yardage and size-chart claims).
+> - `publish/garment_writer.py`: one text for every size, smallest first, others in parentheses, a stitch count
+>   after every row line, US and UK; read back per size by `garment_fit.multi_size_problems` (0 problems on all 10).
+> - `gates/child_safety.py`: child/baby garments in scope; GARMENT_CLOSURES (no buttonholes under 3); picked-up
+>   bands measured, not "sewn"; worked-into chains are fabric. Nothing that failed before passes now.
+> - NOT yet: the garment PDF (schematic, size chart, licence page), concept intake routing (PAIR_PROOFS) - slices 2-3.
+>   No real garment has been made; physical fit is unproven (class B relaxed designs only; fitted is refused).
+
 > **2026-11-19 — ENG-RECOVERY fix round 1 (`eng/recovery`, NOT merged, NOT deployed).** Main's review was DO NOT SHIP.
 > - H1: the spend classifier now FAILS CLOSED. `swarm.orchestrate.FREE_JOB_TYPES` is an explicit allow-list
 >   (94 cadence loops). Every other job type is spending, including `intel.serp_capture` and

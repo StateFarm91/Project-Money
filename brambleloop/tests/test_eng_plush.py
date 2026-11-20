@@ -139,6 +139,7 @@ def test_the_toy_is_a_closed_spiral_with_counts_and_geometry_validated():
     geo = {g["piece"]: g for g in closed_forms.part_geometry(cir, result)}
     assert geo["body"]["meridian_cm"] > geo["body"]["diameter_cm"]
     # Every round's declared count is the computed count (the compiler's own check).
+    assert cir.components and all(c.rows for c in cir.components)
     for comp in cir.components:
         for row in comp.rows:
             assert row.declared_count == result.row(comp.name, row.index).stitch_count
@@ -614,6 +615,7 @@ def test_a_research_lovey_is_physical_gated_end_to_end():
     for terms in ("US", "UK"):
         doc = pdf.build_pattern_pdf(cir, terminology=terms, childrens=lovey)
         text = pdf.extracted_text(doc.pdf_bytes)
+        assert cir.components and all(c.rows for c in cir.components)
         for comp in cir.components:
             for row in comp.rows:
                 assert f"({result.row(comp.name, row.index).stitch_count} sts)" in text

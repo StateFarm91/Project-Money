@@ -388,3 +388,236 @@ def evaluate(design, cirs: dict | None = None, *, claims: list[dict] | None = No
     if claims is not None:
         v.findings += claim_problems(design, cirs, claims)
     return v
+
+
+# ---- the multi-size document, read back (its own grammar; shares nothing with the writer) --
+
+import re as _re
+
+_NUM = r"\d+(?:-\d+)?"
+_VAL = rf"{_NUM}(?: \({_NUM}(?:, {_NUM})*\))?"
+
+
+def _vals(text: str, n: int) -> list[str]:
+    """`a` or `a (b, c, ...)` -> one value per size (n sizes)."""
+    text = text.strip()
+    m = _re.fullmatch(rf"({_NUM})(?: \(([^()]*)\))?", text)
+    if not m:
+        raise ValueError(f"not a size value: {text!r}")
+    if m.group(2) is None:
+        return [m.group(1)] * n
+    out = [m.group(1)] + [x.strip() for x in m.group(2).split(",")]
+    if len(out) != n:
+        raise ValueError(f"{text!r} gives {len(out)} sizes, not {n}")
+    return out
+
+
+def _ints(text: str, n: int) -> list[int]:
+    return [int(x) for x in _vals(text, n)]
+
+
+def _span(text: str, n: int) -> list[tuple[int, int]]:
+    out = []
+    for v in _vals(text, n):
+        a, _, b = v.partition("-")
+        out.append((int(a), int(b or a)))
+    return out
+
+
+def _after(pattern: str, line: str, n: int) -> list[int]:
+    m = _re.search(pattern.replace("V", f"({_VAL})"), line)
+    if not m:
+        raise ValueError(f"expected {pattern!r} in {line!r}")
+    return _ints(m.group(1), n)
+
+
+def read_line(line: str, n: int) -> dict:
+    """One instruction line -> {"kind", per-size numbers, "rows", "counts"}."""
+    out: dict = {"text": line}
+    counts = _re.search(rf"\(({_VAL}) sts(?:, then ({_VAL}) sts)?\)$", line)
+    if line.startswith("Set-up:"):
+        out["kind"] = "setup"
+        out["parts"] = [_ints(v, n) for v in _re.findall(
+            rf"(?:sc|dc) ({_VAL}) \((?:front|sleeve|back)\)", line)]
+        return out
+    if _re.match(r"^Ch \d", line):
+        out["kind"] = "chain"
+        out["n"] = _after(r"^Ch V\.", line, n)
+        return out
+    if line.startswith("Pick up"):
+        out["kind"] = "pick_up"
+        out["n"] = _after(r"^Pick up V sts", line, n)
+        return out
+    if line.startswith("Rejoin"):
+        out["kind"] = "resume"
+        out["n"] = _after(r"the V held sts", line, n)
+        return out
+    m = _re.match(rf"^Rows? ({_VAL})", line)
+    if not m or not counts:
+        raise ValueError(f"an instruction with no rows or no stitch count: {line!r}")
+    out["rows"] = _span(m.group(1), n)
+    out["counts"] = _ints(counts.group(1), n)
+    out["then"] = _ints(counts.group(2), n) if counts.group(2) else None
+    if "raglan increase row" in line:
+        out["kind"] = "raglan"
+        out["doubles"] = (_after(r"work V double raglan", line, n)
+                          if "double raglan" in line else [0] * n)
+        out["every"] = _after(r"on every V row", line, n)
+        out["times"] = _after(r"after it, V times in all", line, n)
+    elif "1 st at each end" in line:
+        out["kind"] = "inc" if "increase 1 st" in line else "dec"
+        out["every"] = _after(r"of every V row", line, n)
+        out["times"] = _after(r"after it, V times in all", line, n)
+    elif "on the second row work" in line:
+        out["kind"] = "chain_on"
+        out["extra"] = _after(r"then ch V loosely", line, n)
+    elif "leave them unworked" in line:
+        out["kind"] = "leave"
+        out["leave"] = _after(r"to the last V sts", line, n)
+    elif "leave them on hold" in line:
+        out["kind"] = "divide"
+        out["front"] = _after(r"(?:sc|dc) V \(front\)", line, n)
+        out["sleeve"] = _after(r"(?:sk|miss) V sleeve", line, n)
+        out["back"] = _after(r"(?:sc|dc) V \(back\)", line, n)
+    elif _re.search(r"\[ch 2, (?:sk|miss) 2 sts", line):
+        out["kind"] = "buttonholes"
+        out["first"] = _after(r"in the first V sts", line, n)
+        out["between"] = _after(r"in the next V sts\]", line, n)
+        out["holes"] = [h + 1 for h in _after(r"\] V times", line, n)]
+        out["last"] = _after(r"in the last V sts", line, n)
+    elif "loosely" in line and _re.search(r"(?:sk|miss) \d", line):
+        out["kind"] = "bridge"
+        sides = _re.findall(rf"(?:sc|dc) ({_VAL})", line)
+        out["side"] = _ints(sides[0], n)
+        out["neck"] = _after(r"ch V loosely", line, n)
+    else:
+        out["kind"] = "even"
+    return out
+
+
+def expand(parsed: list[dict], size: int) -> tuple[dict[int, int], list[str]]:
+    """Per-row stitch counts for one size (index into the value lists), from text alone."""
+    rows: dict[int, int] = {}
+    problems: list[str] = []
+    count = None
+    expect = 1
+    for p in parsed:
+        k = p["kind"]
+        if k in ("chain",):
+            count = p["n"][size] - 1
+            continue
+        if k in ("pick_up", "resume"):
+            count = p["n"][size]
+            continue
+        if k == "setup":
+            continue
+        a, b = p["rows"][size]
+        if a != expect:
+            problems.append(f"rows jump from {expect - 1} to {a} at {p['text'][:50]!r}")
+        expect = b + 1
+        printed = p["counts"][size]
+        if count is None:
+            problems.append(f"{p['text'][:40]!r} has no stitches to work into")
+            count = printed
+        if k == "even":
+            for r in range(a, b + 1):
+                rows[r] = count
+        elif k in ("inc", "dec"):
+            every, times = p["every"][size], p["times"][size]
+            if b - a + 1 != (times - 1) * every + 1:
+                problems.append(f"rows {a}-{b} do not hold {times} shapings every {every}")
+            for r in range(a, b + 1):
+                if (r - a) % every == 0 and (r - a) // every < times:
+                    count += 2 if k == "inc" else -2
+                rows[r] = count
+        elif k == "raglan":
+            d, every, times = p["doubles"][size], p["every"][size], p["times"][size]
+            for i, r in enumerate(range(a, b + 1)):
+                if i < d:
+                    count += 16
+                elif (i - d) % every == 0 and (i - d) // every < times:
+                    count += 8
+                rows[r] = count
+        elif k == "chain_on":
+            count += p["extra"][size]
+            rows[a] = count
+            count += p["extra"][size]
+            rows[b] = count
+            if p["then"] is None or p["then"][size] != count or printed != rows[a]:
+                problems.append(f"chain-on counts printed {printed}/{p['then']} vs {rows[a]}"
+                                f"/{count}")
+            continue
+        elif k == "leave":
+            count -= p["leave"][size]
+            rows[a] = count
+            count -= p["leave"][size]
+            rows[b] = count
+            if p["then"] is None or p["then"][size] != count or printed != rows[a]:
+                problems.append(f"leave counts printed {printed}/{p['then']} vs {rows[a]}"
+                                f"/{count}")
+            continue
+        elif k == "divide":
+            count = 2 * p["front"][size] + p["back"][size]
+            rows[a] = count
+        elif k == "bridge":
+            if 2 * p["side"][size] + p["neck"][size] != count:
+                problems.append(f"the shoulder row works {2 * p['side'][size]} + "
+                                f"{p['neck'][size]} of {count} sts")
+            rows[a] = count
+        elif k == "buttonholes":
+            h = p["holes"][size]
+            made = (p["first"][size] + p["between"][size] * (h - 1) + p["last"][size]
+                    + 2 * h)
+            if made != count:
+                problems.append(f"the buttonhole row makes {made} of {count} sts")
+            rows[a] = count
+        if rows[b] != printed:
+            problems.append(f"{p['text'][:50]!r}: the rows end on {rows[b]} sts; the line "
+                            f"prints {printed}")
+    return rows, problems
+
+
+def multi_size_problems(pieces_text: dict[str, list[str]], cirs: dict,
+                        piece_of: dict[str, str]) -> list[GarmentFinding]:
+    """Read the parenthesised document back per size and compare every row with the compiler.
+
+    `pieces_text` is {piece heading: instruction lines} as printed; `piece_of` maps each
+    heading to the component it instructs."""
+    from ..cir.compiler import compile_cir
+
+    out: list[GarmentFinding] = []
+    sizes = list(cirs)
+    n = len(sizes)
+    results = {s: compile_cir(c) for s, c in cirs.items()}
+    for heading, lines in pieces_text.items():
+        comp = piece_of.get(heading)
+        if comp is None:
+            _f(out, "GARMENT_DOCUMENT", "*", f"heading {heading!r} names no piece")
+            continue
+        try:
+            parsed = [read_line(line, n) for line in lines]
+        except ValueError as exc:
+            _f(out, "GARMENT_DOCUMENT", "*", f"{heading}: {exc}")
+            continue
+        for i, size in enumerate(sizes):
+            rows, problems = expand(parsed, i)
+            for p in problems:
+                _f(out, "GARMENT_DOCUMENT", size, f"{heading}: {p}")
+            built = {r.index: r.stitch_count for r in results[size].rows if r.component == comp}
+            if set(rows) != set(built):
+                _f(out, "GARMENT_DOCUMENT", size,
+                   f"{heading}: the text covers rows {min(rows, default=0)}-"
+                   f"{max(rows, default=0)}; the piece has rows 1-{max(built, default=0)}")
+            for r, c in sorted(rows.items()):
+                if built.get(r) != c:
+                    _f(out, "GARMENT_DOCUMENT", size,
+                       f"{heading} row {r}: the text gives {c} sts, the compiler {built.get(r)}")
+                    break
+            setup = next((p for p in parsed if p["kind"] == "setup"), None)
+            if setup is not None and setup["parts"]:
+                total = sum(v[i] for v in setup["parts"])
+                if total != built.get(1):
+                    _f(out, "GARMENT_DOCUMENT", size,
+                       f"{heading}: the set-up markers divide {total} sts; row 1 has "
+                       f"{built.get(1)}")
+    return out
