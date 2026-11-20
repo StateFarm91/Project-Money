@@ -556,6 +556,9 @@ WEARABLE_PROBES = [
     ("hat", "hat", "in_the_round", "Hollin Ridge Beanie"),
     ("hat", "hat", "in_the_round", "Baby Beanie"),
     ("hat", "hat", "in_the_round", "Kids Toque"),
+    ("baby", "fitted_garment", "bottom_up", "Sorrel Baby Dress"),
+    ("dress", "fitted_garment", "bottom_up", "Wren Song Baby Pinafore"),
+    ("baby", "fitted_garment", "bottom_up", "Meadowlark Baby Romper"),
 ]
 
 

@@ -68,7 +68,8 @@ GARMENT_FAMILIES = frozenset({GARMENT_RAGLAN, GARMENT_ONE_PIECE, GARMENT_SIDE_TO
 # tables, each pinned end to end per (family, category, audience) in WEARABLE_PAIR_AUDIENCE.
 WEARABLE_PROOF = "tests/test_eng_garment2.py"
 HAT_BEANIE = "hat_beanie"
-WEARABLE_FAMILIES = frozenset({HAT_BEANIE})
+BABY_DRESS, BABY_ROMPER = "baby_dress", "baby_romper"
+WEARABLE_FAMILIES = frozenset({HAT_BEANIE, BABY_DRESS, BABY_ROMPER})
 
 FAMILIES: dict[str, Family] = {f.key: f for f in (
     Family(FC.FLAT_PANEL, "runtime.pipeline.concept_to_cir", VERIFIED,
@@ -154,6 +155,18 @@ FAMILIES: dict[str, Family] = {f.key: f for f in (
            ("CYC head Preemie-Man",), "cir.graded HEAD (Craft Yarn Council head chart) + "
                                       "stated negative ease; height and brim are design ratios",
            "rib brim and round crown only; no pom-pom, earflaps, visor or shaped brim"),
+    Family(BABY_DRESS, "products.wearables (baby_dress)", VERIFIED,
+           f"{WEARABLE_PROOF}::test_a_research_baby_dress_runs_concept_to_pdf",
+           ("CYC baby 3-24 months",), "cir.graded BABY + stated ease; lengths and hem flare "
+                                      "are design ratios of the back length and chest",
+           "sleeveless pull-on A-line dress or pinafore, square neck; no closures, straps, "
+           "sleeves, collar or trim"),
+    Family(BABY_ROMPER, "products.wearables (baby_romper)", VERIFIED,
+           f"{WEARABLE_PROOF}::test_a_research_baby_romper_runs_concept_to_pdf",
+           ("CYC baby 3-24 months",), "cir.graded BABY + stated ease; rise and gusset are "
+                                      "design ratios of the back length and hip",
+           "sleeveless pull-on romper, square neck, plain leg openings; no closures, "
+           "straps, sleeves or feet"),
     Family(FC.POUCH, "creative.fallback_constructions.pouch", PARTIAL, "",
            ("one size",), "fallback_constructions.POUCH_ACROSS_CM (design choice)",
            "certification refuses ASSET_COLOR_ABSENT: the pouch works one palette colour "
@@ -315,9 +328,16 @@ PAIR_PROOFS: dict[tuple[str, str], str] = {
 # ENG-GARMENT-2: the wearable pairs, each proven end to end on the audiences named.
 WEARABLE_PAIR_AUDIENCE: dict[tuple[str, str], frozenset] = {
     (HAT_BEANIE, "hat"): frozenset({"adult", "child", "baby"}),
+    (BABY_DRESS, "baby"): frozenset({"baby"}),
+    (BABY_DRESS, "dress"): frozenset({"baby"}),
+    (BABY_ROMPER, "baby"): frozenset({"baby"}),
 }
 PAIR_PROOFS.update({
     (HAT_BEANIE, "hat"): FAMILIES[HAT_BEANIE].proof,
+    (BABY_DRESS, "baby"): FAMILIES[BABY_DRESS].proof,
+    (BABY_DRESS, "dress"): f"{WEARABLE_PROOF}::test_a_research_baby_pinafore_runs_concept_"
+                           f"to_pdf",
+    (BABY_ROMPER, "baby"): FAMILIES[BABY_ROMPER].proof,
 })
 # A garment pair's proof is for one body table: the audience it was proven on.
 GARMENT_PAIR_AUDIENCE: dict[tuple[str, str], str] = {

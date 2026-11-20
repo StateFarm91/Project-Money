@@ -960,11 +960,12 @@ def babywear_measures(cir: CIR) -> dict[str, float]:
 
     r = _compiled(cir)
     g = cir.gauge
-    f = facts_of(cir)
     panel = [x for x in r.rows if x.component == "panel"]
     pcomp = next(c for c in cir.components if c.name == "panel")
     heights = [_row_height_cm(row, cir) for row in pcomp.rows]
-    split = next(s for s in f.pieces["panel"] if s.kind == "split").first
+    # The square-neck split is the panel's last row that leaves stitches (from the CIR
+    # alone: a stored CIR carries no step record).
+    split = max(row.index for row in pcomp.rows if row.skips)
     chest_row = panel[split - 2]
     chest = 2 * chest_row.stitch_count * _st_cm(g)
     widest = 2 * max(x.stitch_count for x in panel) * _st_cm(g)

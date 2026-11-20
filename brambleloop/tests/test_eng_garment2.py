@@ -43,7 +43,16 @@ SLOUCHY = WB.WearableSpec("fogbank-slouchy-beanie", "Fogbank Slouchy Beanie", "h
                           (("head", WB.HAT_EASE_CM),), options=(("style", "slouchy"),))
 BABY_HAT = WB.WearableSpec("pebble-baby-beanie", "Pebble Baby Beanie", "hat", "hat_beanie",
                            "baby", "dk", "cotton", (("head", WB.HAT_EASE_CM),))
-SPECS = {s.key: s for s in (BEANIE, SLOUCHY, BABY_HAT)}
+BABY_DRESS = WB.WearableSpec("clover-baby-dress", "Clover Baby Dress", "dress", "baby_dress",
+                             "baby", "dk", "cotton", WB.BABY_EASE)
+BABY_PINAFORE = WB.WearableSpec("thimble-baby-pinafore", "Thimble Baby Pinafore", "dress",
+                                "baby_dress", "baby", "dk", "cotton", WB.BABY_EASE,
+                                options=(("style", "pinafore"),))
+BABY_ROMPER = WB.WearableSpec("bramble-baby-romper", "Bramble Baby Romper", "romper",
+                              "baby_romper", "baby", "dk", "cotton", WB.BABY_EASE)
+BABY_SIZES = ("3m", "6m", "12m", "18m", "24m")
+SPECS = {s.key: s for s in (BEANIE, SLOUCHY, BABY_HAT, BABY_DRESS, BABY_PINAFORE,
+                            BABY_ROMPER)}
 
 
 @lru_cache(maxsize=None)
@@ -254,6 +263,106 @@ def test_a_written_round_with_a_wrong_count_is_caught_on_read_back():
     assert any(p.code == "GARMENT_DOCUMENT" for p in got)
 
 
+# ---- 2. baby rompers, dresses and pinafores ---------------------------------------------------
+
+
+def test_every_baby_dress_pinafore_and_romper_size_is_granted():
+    for spec in (BABY_DRESS, BABY_PINAFORE, BABY_ROMPER):
+        assert_family_release(spec.key, BABY_SIZES)
+
+
+def test_babywear_is_graded_from_the_baby_table_and_rises():
+    for spec in (BABY_DRESS, BABY_PINAFORE, BABY_ROMPER):
+        r = released(spec.key)
+        ms = [WB.babywear_measures(c) for c in r.cirs.values()]
+        assert len(ms) == 5
+        for (size, cir), m in zip(r.cirs.items(), ms):
+            g = r.design.graded_size(size)
+            assert m["chest"] >= g.body_cm("bust") + 8, (spec.key, size, m)
+            assert m["neck_opening"] >= WB.PULLOVER_HEAD_CM and m["armhole"] >= \
+                g.body_cm("armhole_depth")
+        assert all(b["chest"] > a["chest"] and b["length"] >= a["length"]
+                   for a, b in zip(ms, ms[1:])), spec.key
+    dress = WB.babywear_measures(released(BABY_DRESS.key).cirs["12m"])
+    pina = WB.babywear_measures(released(BABY_PINAFORE.key).cirs["12m"])
+    assert dress["widest"] > pina["widest"] and dress["length"] > pina["length"]
+    romper = WB.babywear_measures(released(BABY_ROMPER.key).cirs["12m"])
+    assert romper["widest"] >= released(BABY_ROMPER.key).design.graded_size(
+        "12m").finished_cm("hip") - 1
+
+
+def test_babywear_reverse_compiles_holds_size_truth_and_passes_child_safety():
+    for spec in (BABY_DRESS, BABY_PINAFORE, BABY_ROMPER):
+        assert_reverse_reads_back(spec.key)
+        assert_size_truth(spec.key)
+        assert released(spec.key).cirs
+        for size, cir in released(spec.key).cirs.items():
+            v = CS.evaluate(cir, compile_cir(cir))
+            assert v.applies and v.verdict == CS.VERDICT_PASS, (spec.key, size, v.to_dict())
+            got = {c.code: c.state for c in v.checks}
+            assert got["GARMENT_CLOSURES"] == CS.PASS and got["NO_CORDS_OR_LOOPS"] == CS.PASS
+
+
+def test_babywear_documents_read_back_with_chart_and_schematic():
+    for spec in (BABY_DRESS, BABY_PINAFORE, BABY_ROMPER):
+        assert_document(spec.key)
+        text = " ".join(document(spec.key, "UK").text.split())
+        assert CS.SECTION_HEADING in text and "pulls on over the head" in text
+        made = " ".join(ln for ls in document(spec.key, "UK").pattern_lines.values()
+                        for ln in ls).lower()
+        made += text[text.find("Finishing"):text.find(CS.SECTION_HEADING)].lower()
+        assert "button" not in made and "strap" not in made and "tie" not in made.split()
+
+
+def test_babywear_gates_fail_on_the_defects_they_exist_for():
+    r = released(BABY_ROMPER.key)
+    # a neck too small to pass a head
+    cirs = dict(r.cirs)
+    cir = copy.deepcopy(cirs["6m"])
+    real = WB.ENGINES["baby_romper"].measure
+    try:
+        object.__setattr__(WB.ENGINES["baby_romper"], "measure",
+                           lambda c: dict(real(c), neck_opening=30.0))
+        assert "GARMENT_NECK_FIT" in _codes(r, cirs)
+    finally:
+        object.__setattr__(WB.ENGINES["baby_romper"], "measure", real)
+    # a 24m garment sold as 12m: off target and the size run does not rise
+    cirs = dict(r.cirs)
+    cirs["12m"] = r.cirs["24m"]
+    got = _codes(r, cirs)
+    assert {"GARMENT_FINISHED_OFF_TARGET", "GARMENT_SIZE_RUN"} <= got, got
+    # second shoulder one row short: the shoulder seam does not meet
+    cirs = dict(r.cirs)
+    cir = copy.deepcopy(cirs["18m"])
+    sh = next(c for c in cir.components if c.name == "shoulder")
+    sh.rows = sh.rows[:-1]
+    cirs["18m"] = cir
+    assert "GARMENT_SEAM_MISMATCH" in _codes(r, cirs) or "GARMENT_STITCH_COUNT" in \
+        _codes(r, cirs)
+    # a leg opening too tight for the hips
+    cirs = dict(r.cirs)
+    cir = copy.deepcopy(cirs["3m"])
+    WB.facts_of(cir).numbers["leg_opening_cm"] = 10.0
+    cirs["3m"] = cir
+    assert "GARMENT_LEG_FIT" in _codes(r, cirs)
+
+
+def test_a_buttoned_or_strapped_baby_garment_is_held_never_drafted():
+    from brambleloop.creative import construction_families as CF
+
+    for title in ("Buttoned Baby Romper", "Baby Dress with Straps", "Tie Shoulder Baby Dress",
+                  "Baby Romper with Sleeves", "Footed Baby Romper", "Linen Summer Dress"):
+        got = CF.route(category="dress" if title.startswith("Linen") else "baby", title=title, form="fitted_garment",
+                       construction="flat_rows")
+        assert not got["admitted"] and got["reason"].startswith(CF.HOLD_PREFIX), (title, got)
+    for title, fam in (("Clover Baby Dress", "baby_dress"),
+                       ("Thimble Baby Pinafore", "baby_dress"),
+                       ("Bramble Baby Romper", "baby_romper")):
+        got = CF.route(category="baby", title=title, form="fitted_garment",
+                       construction="bottom_up")
+        assert got["admitted"] and got["family"] == fam, (title, got)
+
+
 # ---- routing and research concepts end to end -----------------------------------------------
 
 
@@ -358,6 +467,36 @@ def test_a_research_baby_beanie_runs_concept_to_pdf():
     out = _research_wearable_to_pdf(BABY_HAT_P)
     assert_concept_to_pdf(out, WB.HAT_SIZES["baby"], "hat_beanie")
     assert CS.SECTION_HEADING in " ".join(out["docs"]["UK"].text.split())
+
+
+BABY_DRESS_P = _wearable_proposal(
+    "sorrel-baby-dress", "Sorrel Baby Dress", "baby", "fitted_garment", "bottom_up",
+    "new_parent", "A soft A-line baby dress in cotton that pulls on with nothing to fasten",
+    "new_baby")
+BABY_PINAFORE_P = _wearable_proposal(
+    "wren-song-baby-pinafore", "Wren Song Baby Pinafore", "dress", "fitted_garment",
+    "bottom_up", "new_parent", "A square-neck baby pinafore to layer over a little top",
+    "new_baby")
+BABY_ROMPER_P = _wearable_proposal(
+    "meadowlark-baby-romper", "Meadowlark Baby Romper", "baby", "fitted_garment",
+    "bottom_up", "new_parent", "A sleeveless pull-on baby romper in cotton for warm days",
+    "new_baby")
+
+
+def test_a_research_baby_dress_runs_concept_to_pdf():
+    out = _research_wearable_to_pdf(BABY_DRESS_P)
+    assert_concept_to_pdf(out, BABY_SIZES, "baby_dress")
+
+
+def test_a_research_baby_pinafore_runs_concept_to_pdf():
+    out = _research_wearable_to_pdf(BABY_PINAFORE_P)
+    assert_concept_to_pdf(out, BABY_SIZES, "baby_dress")
+    assert out["release"].spec.option("style") == "pinafore"
+
+
+def test_a_research_baby_romper_runs_concept_to_pdf():
+    out = _research_wearable_to_pdf(BABY_ROMPER_P)
+    assert_concept_to_pdf(out, BABY_SIZES, "baby_romper")
 
 
 def test_hats_route_to_the_beanie_and_others_are_held():
