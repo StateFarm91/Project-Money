@@ -3096,3 +3096,25 @@ weakened. Renderer: `publish/pdf_template.py`; switch: `runtime.release.PDF_LAYO
   so the switch is not flipped.
 
 Reversible by decision.
+
+## D-ENG-SALE-PIPELINE-1 — 2026-11-20 (ENG-SALE-PIPELINE, engineering decision)
+
+**Decision:** the sale chain's premium PDFs are always built in the owner's master template
+(`publish.pdf_template.build_template_pdf`, D-OWNER-PDF-TEMPLATE) with the release's seven
+certified gallery frames, independent of the release chain's `PDF_LAYOUT` switch (still
+"engine" for the base release PDFs). Certification uses `publish.pdf_standard.check(...,
+require_template=True)`, which FAILs any other layout.
+- `publish.pdf_standard` (checker `pdf_standard/2`) adds, from the built bytes:
+  - `logo:cover`: a cover image matching the canonical owner logo as resampled by
+    `publish.pdf._cover_logo`. The match is perceptual: greyscale 32×32, mean difference ≤ 8/255,
+    aspect within 3% (D-OWNER-PDF-LOGO);
+  - `slot:gallery7`: exactly the seven certified renditions, in certificate order;
+  - the template's own byte audit (`pdf_template.audit`), included in the verdict.
+- Name clash at merge: ENG-PDF-PREMIUM's family-content module, also called `pdf_standard`, is
+  now `publish.premium_standard` (tests: `test_premium_standard.py`). `publish.pdf_standard`
+  stays the D-OWNER-PDF-STANDARD bytes checker named in D-OWNER-SALE-PIPELINE.
+- Pre-image readiness still reads the base engine PDFs for text, schematics and diagrams,
+  with `logo:cover` PENDING there. The engine cover has no logo, so `logo:cover` is
+  certified only on the template build.
+
+Reversible by decision.

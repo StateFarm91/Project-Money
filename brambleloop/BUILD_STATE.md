@@ -1,4 +1,11 @@
 
+> **2026-11-20 — ENG-SALE-PIPELINE slices 1-3 (`eng/sale-pipeline`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
+> D-OWNER-SALE-PIPELINE (hard rule), D-OWNER-SPEND-ORDER, D-OWNER-PDF-STANDARD, D-OWNER-PDF-LOGO, D-OWNER-PDF-TEMPLATE, D-OWNER-GALLERY-COMPLETE.
+> - **Chain (`publish/sale_pipeline.py`, job `sale.pipeline`):** admission (value order, per-listing cap, CA$100/month ceiling, reservation) -> certified 7-photo gallery -> US+UK premium PDFs built in the owner template (`publish/pdf_template.py`) with the same seven certified frames -> `publish/pdf_standard.py` certifies the bytes (layout, canonical logo on the cover, 7 gallery slots in order, template audit, licence, stitch counts) -> listing images attached -> READY. A stall is a named-blocker incident (board, Mission Control, readback row).
+> - **Merged here:** `claude/w6-INTEG6` (dde3ea62), `eng/gallery-complete` (20e81839), `eng/pdf-template` (309522a3; its family module renamed `publish.premium_standard`, D-ENG-SALE-PIPELINE-1).
+> - **Proven only with test doubles** (stub generator and judges, labelled `test_double`): the e2e reaches READY with no owner step. No real gallery, PDF, listing or spend exists from this branch. Production counts are UNKNOWN until deployed and read.
+> - **Known gap:** the engine layout (the release chain's `PDF_LAYOUT`, still "engine") has no logo on the cover; only template builds can certify.
+
 > **2026-11-20 — ENG-VIS-IDENTITY slice 1 (`eng/vis-identity`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
 > - Built: `visual/face_embedder.py` (YuNet+SFace ONNX on CPU, Apache-2.0/MIT, weights pinned by sha256), `visual/identity_calibration.py` (measured thresholds, FAR/FRR with exact 95% bounds, production floors >=30 genuine / >=300 impostors / FAR-UB <=1% / FRR <=10%), `visual/identity_records.py` (durable per-image identity records), `outfits.claim` (idempotent compare-and-set outfit claim), blind outfit-vs-approved-reference check, OpenAI gpt-4.1 second judge via the existing `GatewayVisionJudge` reservation path, `identity_gate.assess` consumer `verdict` PASS/HOLD/REFUSE and all-three-references rule.
 > - Measured (committed evidence, sha 6884612e): Laura worst 0.696 vs best look-alike 0.582; FAR 0/10, FRR 0/12; **FAR 95% upper bound 25.9% -> NOT production-ready**. 0.08 CPU-s/frame, ~120 MB RAM.
