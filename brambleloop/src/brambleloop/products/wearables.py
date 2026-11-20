@@ -1918,3 +1918,160 @@ register(Engine(
     category_word="slipper",
     yarn=(("child", ("worsted", "wool")), ("adult", ("worsted", "wool"))),
     **_SOCK_COMMON))
+
+
+# ==== 6. shawls and wraps ===================================================================
+#
+# Graded on the CYC woman chart by the measurement a shawl must span: centre back neck to
+# wrist. The wingspan is twice the finished neck-to-wrist (body + stated ease), so the shawl
+# reaches the wrists with the ease to drape. Sizes are the CYC sizes whose neck-to-wrist
+# rises (L and XL, 4X and 5X publish the same figure, so one of each pair is offered).
+#
+# Triangle: worked bottom up from the point, one stitch increased at each end of every row
+# (the depth follows from the gauge: about half the wingspan), finished with a back-loop band
+# along the long top edge. Wrap: a rectangle worked from one short end, back-loop bands at
+# both ends; its width is a stated ratio of the wingspan. A crescent is not built: its curved
+# lower edge cannot be expressed in flat rows that the twin measures, so it is held by name.
+
+SHAWL_SIZES = {"adult": ("XS", "M", "L", "2X", "4X")}
+SHAWL_EASE = (("neck_to_wrist", 12.0),)
+WRAP_WIDTH_OF_SPAN = 0.28
+SHAWL_BAND_CM = 2.5
+SHAWL_SPAN_TOLERANCE = 0.05
+TRIANGLE_DEPTH_BAND = (0.38, 0.6)      # depth as a share of the wingspan
+
+
+def shawl(g: GradedSize, spec: WearableSpec) -> CIR:
+    fam = StitchFamily("sc", "plain")
+    span_cm = 2 * g.finished_cm("neck_to_wrist")
+    band = g.rows(SHAWL_BAND_CM, minimum=2)
+    if spec.family == "shawl_triangle":
+        span = g.stitches(span_cm)
+        start = 3
+        if (span - start) % 2:
+            span += 1
+        events = (span - start) // 2
+        p = GF.Piece("shawl", fam, foundation=start, feature="body", direction="bottom_up",
+                     note="worked from the bottom point up; the last rows are the long top "
+                          "edge")
+        p.even(1, label="point")
+        p.shape(events, 1, grow=True, label="increases")
+        p.even(band, loop="back", label="top band")
+        facts = WFacts("shawl_triangle", pieces={"shawl": p.steps})
+        facts.numbers = {"span": span, "target_span_cm": round(span_cm, 2)}
+        word, how = "triangle shawl", ("worked from the point up, increasing at both ends of "
+                                       "every row, with a back-loop band along the top edge")
+    else:
+        width = g.stitches(span_cm * WRAP_WIDTH_OF_SPAN)
+        rows = g.rows(span_cm)
+        p = GF.Piece("shawl", fam, foundation=width, feature="body", direction="bottom_up",
+                     note="worked from one short end to the other")
+        p.even(band, loop="back", label="end band")
+        p.even(rows - 2 * band, label="body")
+        p.even(band, loop="back", label="end band")
+        facts = WFacts("shawl_wrap", pieces={"shawl": p.steps})
+        facts.numbers = {"width": width, "target_span_cm": round(span_cm, 2)}
+        word, how = "wrap", "worked end to end with back-loop bands at both short ends"
+    return make_cir(g, spec, comps=[p.component()], seams=[], facts=facts,
+                    designer=f"A {word} in single crochet, {how}.",
+                    size_note=f"Finished wingspan {span_cm:.0f} cm, to span neck to wrist "
+                              f"{g.body_cm('neck_to_wrist'):g} cm each side")
+
+
+def shawl_measures(cir: CIR) -> dict[str, float]:
+    from ..cir.geometry import _row_height_cm
+
+    r = _compiled(cir)
+    g = cir.gauge
+    comp = cir.components[0]
+    rows = [x for x in r.rows if x.component == comp.name]
+    depth = sum(_row_height_cm(row, cir) for row in comp.rows)
+    widest = max(x.stitch_count for x in rows) * _st_cm(g)
+    if rows[0].stitch_count < rows[-1].stitch_count:          # a triangle
+        return {"wingspan": round(widest, 2), "depth": round(depth, 2)}
+    return {"wingspan": round(depth, 2), "depth": round(widest, 2)}
+
+
+def shawl_gates(ctx) -> list:
+    from ..gates.garment_fit import GarmentFinding
+
+    out = []
+    g, m, f, size = ctx["g"], ctx["measured"], ctx["facts"], ctx["size"]
+    want = 2 * g.finished_cm("neck_to_wrist")
+    if abs(m["wingspan"] - want) / want > SHAWL_SPAN_TOLERANCE:
+        out.append(GarmentFinding("SHAWL_WINGSPAN", size, f"built {m['wingspan']:.1f} cm "
+                                                          f"against {want:.1f} cm"))
+    if m["wingspan"] < 2 * g.body_cm("neck_to_wrist"):
+        out.append(GarmentFinding("SHAWL_WINGSPAN", size, "the shawl does not reach both "
+                                                          "wrists"))
+    if f.construction == "shawl_triangle":
+        lo, hi = TRIANGLE_DEPTH_BAND
+        ratio = m["depth"] / m["wingspan"]
+        if not lo <= ratio <= hi:
+            out.append(GarmentFinding("SHAWL_SHAPE", size, f"depth {ratio:.2f} of the "
+                                                           f"wingspan is not a triangle shawl "
+                                                           f"({lo}-{hi})"))
+    else:
+        ratio = m["depth"] / m["wingspan"]
+        if abs(ratio - WRAP_WIDTH_OF_SPAN) > 0.04:
+            out.append(GarmentFinding("SHAWL_SHAPE", size, f"the wrap is {ratio:.2f} as wide "
+                                                           f"as it is long"))
+    return out
+
+
+def shawl_schematic(sizes, ms) -> dict:
+    sk = Sketch(ms, {"wingspan": "Wingspan", "depth": "Depth (wrap: width)"})
+    mid = ms[len(ms) // 2]
+    W, D = mid["wingspan"], mid["depth"]
+    x0, y0 = 6.0, 6.0
+    if D < W * 0.35:
+        sk.poly([(x0, y0), (x0 + W, y0), (x0 + W, y0 + D), (x0, y0 + D)], "wrap")
+        sk.dim((x0, y0 + D), (x0 + W, y0 + D), "wingspan", "below")
+        sk.dim((x0 + W, y0), (x0 + W, y0 + D), "depth", "right")
+        sk.text((x0 + W / 2.0, y0 + D / 2.0), "worked end to end")
+    else:
+        sk.poly([(x0, y0), (x0 + W, y0), (x0 + W / 2.0, y0 + D)], "triangle shawl")
+        sk.dim((x0, y0), (x0 + W, y0), "wingspan", "above")
+        sk.dim((x0 + W / 2.0, y0), (x0 + W / 2.0, y0 + D), "depth", "right")
+        sk.text((x0 + W / 2.0, y0 + D * 0.75), "begin at the point")
+    return _schematic(sk.items, sk.legend, W + 2 * x0 + 6, D + 2 * y0 + 4, sizes, ms, "shawl")
+
+
+def _shawl_narrative(spec, facts) -> str:
+    if facts.construction == "shawl_triangle":
+        return ("The shawl starts at its bottom point with three stitches and grows upward, "
+                "one stitch increased at each end of every row, so the two sloping sides form "
+                "as you go. The long top edge -- the wingspan -- is finished with a few rows "
+                "worked through the back loop. There is nothing to sew.")
+    return ("The wrap is one rectangle worked from one short end to the other, with a few "
+            "rows through the back loop at each end for a firm, ridged edge. There is nothing "
+            "to sew.")
+
+
+_SHAWL_COMMON = dict(
+    table=_WOMAN, sizes=SHAWL_SIZES, requires=("neck_to_wrist",), primary="neck_to_wrist",
+    built_primary="wingspan", builder=shawl, measure=shawl_measures, gates=shawl_gates,
+    chart=(("body_cm", "Neck to wrist (body)"), ("wingspan_cm", "Wingspan"),
+           ("depth_cm", "Depth / width")),
+    narrative=_shawl_narrative, schematic=shawl_schematic, risk="A",
+    abbreviations=("ch", "sc", "inc"), ease=(("adult", SHAWL_EASE),),
+    yarn=(("adult", ("dk", "merino")),),
+    forms=("draped_garment", "scarf", "fitted_garment"),
+    constructions=("flat_rows", "bottom_up"),
+    fit_note=("Sized to span the arms: the wingspan is twice the neck-to-wrist measurement "
+              "plus 12 cm of stated ease each side to drape."),
+    tips=("Count every row of the increases: each row ends 2 stitches wider than the last.",),
+    refuse=((r"\b(?:crescent|half[- ]moon|circular|circle|pi shawl|lace|lacy|"
+             r"openwork|mesh|fring(?:e|ed)|tassels?|pom-?poms?|ruana|poncho|capelet|"
+             r"shrug|hood(?:ed)?|pockets?|granny|mosaic|c2c|corner[- ]to[- ]corner)\b",
+             "the shawl engines build a plain single crochet triangle shawl or rectangular "
+             "wrap; a crescent's curved edge, lace, fringe and the rest are not built"),),
+)
+register(Engine(
+    family="shawl_triangle", title="worked bottom up from the point, increasing at both "
+                                   "edges", words=("shawl", "shawls", "kerchief"),
+    category_word="shawl", **_SHAWL_COMMON))
+register(Engine(
+    family="shawl_wrap", title="a rectangle worked end to end",
+    words=("wrap", "wraps", "stole", "stoles"), category_word="wrap",
+    titles=(("shawl", "Wrap"),), **_SHAWL_COMMON))

@@ -74,11 +74,16 @@ SLIPPER = WB.WearableSpec("hearthstone-slippers", "Hearthstone Slippers", "slipp
 KIDS_SLIPPER = WB.WearableSpec("fox-den-kids-slippers", "Fox Den Kids Slippers", "slipper",
                                "slipper", "child", "worsted", "wool",
                                (("foot_circ", WB.SOCK_EASE_CM),))
+SHAWL = WB.WearableSpec("tidewrack-shawl", "Tidewrack Shawl", "shawl", "shawl_triangle",
+                        "adult", "dk", "merino", WB.SHAWL_EASE)
+WRAP = WB.WearableSpec("tidewrack-wrap", "Tidewrack Wrap", "shawl", "shawl_wrap", "adult",
+                       "dk", "merino", WB.SHAWL_EASE)
 ADULT_SIZES = ("XS", "S", "M", "L", "XL", "2X", "3X", "4X", "5X")
 CHILD_SIZES = ("2", "4", "6", "8", "10", "12")
 SPECS = {s.key: s for s in (BEANIE, SLOUCHY, BABY_HAT, BABY_DRESS, BABY_PINAFORE,
                             BABY_ROMPER, TEE, TANK, KIDS_TANK, VCARDI, KIDS_VCARDI,
-                            BABY_VCARDI, SOCK, KIDS_SOCK, SLIPPER, KIDS_SLIPPER)}
+                            BABY_VCARDI, SOCK, KIDS_SOCK, SLIPPER, KIDS_SLIPPER,
+                            SHAWL, WRAP)}
 
 
 @lru_cache(maxsize=None)
@@ -675,6 +680,63 @@ def test_socks_route_and_unbuilt_footwear_is_held():
     assert got.get("family") != "sock"
 
 
+# ---- 6. shawls and wraps ---------------------------------------------------------------------
+
+
+def test_every_shawl_and_wrap_size_is_granted_and_spans_the_arms():
+    for spec in (SHAWL, WRAP):
+        assert_family_release(spec.key, WB.SHAWL_SIZES["adult"])
+        r = released(spec.key)
+        ms = [WB.shawl_measures(c) for c in r.cirs.values()]
+        assert ms and all(b["wingspan"] > a["wingspan"] for a, b in zip(ms, ms[1:]))
+        for (size, _c), m in zip(r.cirs.items(), ms):
+            assert m["wingspan"] >= 2 * r.design.graded_size(size).body_cm("neck_to_wrist")
+    tri = WB.shawl_measures(released(SHAWL.key).cirs["M"])
+    assert 0.38 <= tri["depth"] / tri["wingspan"] <= 0.6
+
+
+def test_shawls_reverse_compile_hold_size_truth_and_render():
+    for spec in (SHAWL, WRAP):
+        assert_reverse_reads_back(spec.key)
+        assert_size_truth(spec.key)
+        assert_document(spec.key)
+    assert "Wrap" in document(WRAP.key, "US").pattern_lines
+
+
+def test_shawl_gates_fail_on_the_defects_they_exist_for():
+    r = released(SHAWL.key)
+    cirs = dict(r.cirs)
+    cirs["L"] = r.cirs["XS"]
+    assert {"SHAWL_WINGSPAN", "GARMENT_SIZE_RUN"} <= _codes(r, cirs)
+    w = released(WRAP.key)
+    cirs = dict(w.cirs)
+    cir = copy.deepcopy(cirs["M"])
+    comp = cir.components[0]
+    comp.rows = comp.rows[:40] + comp.rows[-4:]
+    for i, row in enumerate(comp.rows, start=1):
+        row.index = i
+    cirs["M"] = cir
+    assert "SHAWL_WINGSPAN" in _codes(w, cirs)
+
+
+def test_shawls_route_and_a_crescent_is_held_by_name():
+    from brambleloop.creative import construction_families as CF
+
+    for title, fam in (("Tidewrack Shawl", "shawl_triangle"), ("Tidewrack Wrap",
+                                                               "shawl_wrap")):
+        got = CF.route(category="shawl", title=title, form="draped_garment",
+                       construction="flat_rows")
+        assert got["admitted"] and got["family"] == fam, (title, got)
+    for title in ("Moonrise Crescent Shawl", "Lace Shawl", "Fringed Wrap", "Granny Shawl",
+                  "Kids Shawl"):
+        got = CF.route(category="shawl", title=title, form="draped_garment",
+                       construction="flat_rows")
+        assert not got["admitted"] and got["reason"].startswith(CF.HOLD_PREFIX), (title, got)
+    got = CF.route(category="shawl", title="Moonrise Crescent Shawl", form="draped_garment",
+                   construction="flat_rows")
+    assert "crescent" in got["reason"]
+
+
 # ---- routing and research concepts end to end -----------------------------------------------
 
 
@@ -900,6 +962,26 @@ def test_a_research_adult_slipper_runs_concept_to_pdf():
 def test_a_research_child_slipper_runs_concept_to_pdf():
     out = _research_wearable_to_pdf(KIDS_SLIPPER_P)
     assert_concept_to_pdf(out, WB.SOCK_SIZES["child"], "slipper")
+
+
+SHAWL_P = _wearable_proposal(
+    "saltgrass-shawl", "Saltgrass Shawl", "shawl", "draped_garment", "flat_rows", "self",
+    "A soft merino triangle to wrap round the shoulders on a breezy harbour evening",
+    "mothers_day")
+WRAP_P = _wearable_proposal(
+    "lantern-hour-wrap", "Lantern Hour Wrap", "shawl", "draped_garment", "flat_rows",
+    "self", "A long merino rectangle to throw over the shoulders for evenings on the porch",
+    "mothers_day")
+
+
+def test_a_research_adult_shawl_runs_concept_to_pdf():
+    out = _research_wearable_to_pdf(SHAWL_P)
+    assert_concept_to_pdf(out, WB.SHAWL_SIZES["adult"], "shawl_triangle")
+
+
+def test_a_research_adult_wrap_runs_concept_to_pdf():
+    out = _research_wearable_to_pdf(WRAP_P)
+    assert_concept_to_pdf(out, WB.SHAWL_SIZES["adult"], "shawl_wrap")
 
 
 def test_hats_route_to_the_beanie_and_others_are_held():

@@ -697,7 +697,7 @@ def matrix_problems(sizes: list[dict], *, ease_cm: dict, fit: str | None) -> lis
         pair = f"{a['size']} -> {b['size']}"
         # ENG-GARMENT-2: a hat's head and a sock's foot are graded strictly like a chest.
         for block, strict in (("intended_cm", ("bust", "head", "foot_circ")),
-                              ("built_cm", ("chest", "circumference"))):
+                              ("built_cm", ("chest", "circumference", "wingspan"))):
             for m, vb in (b.get(block) or {}).items():
                 va = (a.get(block) or {}).get(m)
                 if va is None:
