@@ -201,9 +201,18 @@ def test_a_generic_concept_with_no_qualifier_is_held_by_108_and_says_so():
     (prop,) = task.detail["concept_proposals"]
     assert prop["brief"]["silhouette_qualifiers"] == [], prop["brief"]
     assert prop["silhouette_precheck"]["passes"] is False
+    # Two honest holds can stop it first: concept intake (ENG-FAMILIES: no verified
+    # construction engine makes a coaster disc from flat rows) or the #108 gate at scoring.
+    # Either way it is never engineered and the lineage names #108.
     score = row["proposals"][0]["score_job"]
-    assert score is not None and "silhouette" in score["failed"], score
-    assert row["stage"] == "gate_refused" and row["held_by_108"], row
+    if row["stage"] == "intake_refused":
+        assert score is None, score
+        assert "concept intake refused it" in row["held_because"], row["held_because"]
+        assert row["proposals"][0]["intake_reasons"], row["proposals"][0]
+    else:
+        assert score is not None and "silhouette" in score["failed"], score
+        assert row["stage"] == "gate_refused", row
+    assert row["held_by_108"], row
     assert not row["qualifying"]
     assert "#108" in row["held_because"] and "shape rather than an outline" in \
         row["held_because"], row["held_because"]

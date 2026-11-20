@@ -32,8 +32,8 @@ OPPORTUNITIES = "opportunities"
 CONCLUSION_FAILED = "conclusion_failed"
 
 # The stages, in loop order. A gap's stage is the furthest one its own rows prove.
-STAGES = ("validated", "researching", "proposed", "approved", "scored", "gate_refused",
-          "gate_waiting", "engineering")
+STAGES = ("validated", "researching", "proposed", "intake_refused", "approved", "scored",
+          "gate_refused", "gate_waiting", "engineering")
 _RANK = {s: i for i, s in enumerate(STAGES)}
 # A gap at or past `approved` is a qualifying opportunity: research-backed, original, and
 # accepted by intake for scoring.
@@ -95,6 +95,10 @@ def _proposal_stage(p: dict, score: dict | None, draft: dict | None) -> str:
         return "scored"
     if p.get("state") == intake.APPROVED or score is not None:
         return "approved"
+    if p.get("state") == intake.REFUSED:
+        # Refused by concept intake itself (for example, no verified construction engine can
+        # make it): a terminal hold, never shown as still awaiting judgement.
+        return "intake_refused"
     return "proposed"
 
 
@@ -136,6 +140,7 @@ def lineage(db, *, now: datetime | None = None) -> list[dict]:
             score, draft = _jobs_for_slug(db, p["slug"])
             proposals.append({"slug": p["slug"], "task": p["task"],
                               "intake_state": p.get("state"),
+                              "intake_reasons": list(p.get("reasons") or []),
                               "stage": _proposal_stage(p, score, draft),
                               "silhouette": _precheck(db, p["task"], p["slug"]),
                               "score_job": score, "engineering_job": draft})
@@ -158,6 +163,14 @@ def lineage(db, *, now: datetime | None = None) -> list[dict]:
                            ((p["score_job"] or {}).get("silhouette_reasons") or [])), None)
             held = (f"the pre-engineering gate refused it ({failed}); returned to development"
                     + (f". {why108[:240]}" if why108 else ""))
+        elif stage == "intake_refused":
+            why = next((r for p in proposals for r in (p.get("intake_reasons") or [])), "")
+            held = "concept intake refused it" + (f": {why[:240]}" if why else "")
+            bad = next((p["silhouette"] for p in proposals
+                        if p["silhouette"] and not p["silhouette"].get("passes")), None)
+            if bad:
+                held += (f"; held by #108: it honestly carries no silhouette qualifier "
+                         f"({(bad.get('reasons') or [''])[0][:200]})")
         elif stage in ("proposed", "approved"):
             held = ("awaiting concept intake's judgement" if stage == "proposed"
                     else "approved; radar.score not yet run")
@@ -172,7 +185,8 @@ def lineage(db, *, now: datetime | None = None) -> list[dict]:
             held = None
         held_by_108 = stage == "gate_refused" and any(
             "silhouette" in ((p["score_job"] or {}).get("failed") or []) for p in proposals) \
-            or (stage in ("proposed", "approved") and "held by #108" in (held or ""))
+            or (stage in ("proposed", "intake_refused", "approved")
+                and "held by #108" in (held or ""))
         out.append({"gap": gid, "pod": pod, "gap_state": state,
                     "corroborated_by": list(ev.get("corroborated_by") or []),
                     "validated_at": ev.get("validated_at"),

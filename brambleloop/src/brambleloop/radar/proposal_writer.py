@@ -151,11 +151,13 @@ def prior_proposals(db, gap_id: int) -> list[dict]:
                     intake.RadarConcept.slug == slug).order_by(intake.RadarConcept.id.desc())
                     .limit(1))
                 decided = (row.state, float(row.quality or 0.0)) if row is not None else None
+                reasons = [str(r) for r in (row.reasons or [])][:3] if row is not None else []
             stamp = stamps.get(slug) or {}
             out.append({"task": t.id, "slug": slug, "digest": stamp.get("digest"),
                         "quality": (float(stamp["quality"]) if "quality" in stamp else
                                     decided[1] if decided else 0.0),
-                        "state": decided[0] if decided else None})
+                        "state": decided[0] if decided else None,
+                        "reasons": reasons})
     return out
 
 
