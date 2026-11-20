@@ -11,16 +11,21 @@ B. the path denylist: deploy/boot guard, release records, spend, gates, auth, au
    approvals and the autocoder itself are refused -- in the rail, the workspace and the push;
 C. test-weakening detection: deleted tests, removed tests/assertions, skips, vacuity pragmas,
    constant-true assertions and early returns are refused; a strengthened test passes;
-D. secrets and spend/network/execution paths are refused (and checked before a test runs);
+D. secrets and spend/network/execution paths are refused; and (B19 A1) the production job
+   NEVER executes model-written code: no test op, no suite run, no subprocess or import from
+   the modified tree -- tests run in the autocoder-ci workflow, whose result is read back;
 E. budget ceilings bind: per request CA$ and tokens, wall time, the monthly sub-ceiling, and
    environment can only tighten; a run over budget makes no model call;
 F. the reviewer must SHIP before any push (and SHIP binds to the exact diff);
 G. end to end with the stub model on a toy ECR in a temp repository: an auto/ecr-<id> branch
-   on top of the base, the request `code_submitted` with the SHA, spend in the ledger; and the
-   refusals (weakened test, review BLOCK, failing mandatory suite) push nothing;
+   on top of the base, the request `code_submitted` with the SHA and the suites trailer, spend
+   in the ledger; only a green CI status from github-actions[bot] makes it `code_certified`;
+   the refusals (weakened test, review BLOCK, red CI) certify nothing;
 H. kill switch OFF by default; enabled without the token -> UNKNOWN with a named blocker;
 I. picking: priority, engine demand, cooldowns; the Mission Control panel and readback;
-J. mutations of each rail are killed by the checks above.
+J. mutations of each rail are killed by the checks above;
+K. (B19) the CI sandbox workflow: push to auto/** only, contents: read, no secrets, no
+   credential on disk, status posted by a job that runs no repository code.
 
 Run: cd brambleloop && PYTHONPATH=src:tests python3 tests/test_eng_autocoder.py
 """
@@ -220,6 +225,8 @@ class _FakeGitHub:
                     return False
             return R(payload)
         m = req.get_method()
+        if m == "GET" and "/statuses" in path:
+            return resp(getattr(self, "statuses", []))
         if m == "GET" and path.startswith("/commits/"):
             return resp({"sha": self.base})
         if m == "GET" and path.startswith("/tarball/"):
@@ -294,7 +301,17 @@ PROTECTED_SAMPLES = (
     SRC + "improve/autocoder.py", SRC + "improve/autocoder_safety.py",
     SRC + "improve/autocoder_git.py", T + "test_eng_autocoder.py", T + "test_vacuity.py",
     T + "test_w4_resume_runner.py", "CLAUDE.md", "brambleloop/DECISION_LOG.md",
-    "../etc/passwd", "/etc/passwd", SRC + ".env", SRC + "x.so", "brambleloop/README.md")
+    "../etc/passwd", "/etc/passwd", SRC + ".env", SRC + "x.so", "brambleloop/README.md",
+    # B19 A2: child safety, auth/session/OAuth, spend ceilings and authority outside the
+    # packages listed before, plus shared test helpers by prefix
+    SRC + "intel/childrens.py", SRC + "creative/children.py", SRC + "publish/pdf.py",
+    SRC + "core/opsauth.py", SRC + "core/readbackauth.py", SRC + "core/oauth_store.py",
+    SRC + "integrations/etsy_oauth.py", SRC + "integrations/etsy_authorise.py",
+    SRC + "visual/spend_plan.py", SRC + "visual/product_authority.py",
+    SRC + "app/command_center/private_context.py", SRC + "app/command_center/api.py",
+    SRC + "ops/release_record.py", T + "_helpers.py", T + "_spend_reach.py",
+    T + "test_autopromote.py", SRC + "app/session_totp.py", SRC + "new/kill_switch.py",
+    SRC + "ops/deploy_guard.py", SRC + "app/boot_guard.py", SRC + "publish/release_gates.py")
 EDITABLE_SAMPLES = (SRC + "improve/ecr.py", SRC + "cir/compiler_extra.py",
                     T + "test_toy.py", T + "test_new_thing.py", SRC + "creative/notes.md")
 
@@ -307,6 +324,34 @@ def path_failures() -> list[str]:
 
 def test_b_protected_paths_are_refused_and_ordinary_ones_are_not():
     assert path_failures() == []
+
+
+SENSITIVE_RX = r"child|minor|auth|oauth|secret|spend|ceiling|budget|authority|guard|gate"
+
+
+def sensitive_name_failures() -> list[str]:
+    """B19 A2: every module in the real tree whose name says child, auth, secret, spend,
+    ceiling, budget, authority, guard or gate is refused -- including ones added later."""
+    import re
+
+    rx = re.compile(SENSITIVE_RX, re.I)
+    out = []
+    for f in sorted((ROOT / "src/brambleloop").rglob("*.py")):
+        rel = "brambleloop/" + str(f.relative_to(ROOT)).replace(os.sep, "/")
+        if rx.search(rel[len("brambleloop/"):]) and not S.path_refusal(rel):
+            out.append(f"{rel} is editable")
+    for f in sorted((ROOT / "tests").glob("_*.py")):
+        rel = "brambleloop/tests/" + f.name
+        if not S.path_refusal(rel):
+            out.append(f"{rel} is editable")
+    return out
+
+
+def test_b_every_sensitive_module_in_the_tree_is_protected_by_name_or_list():
+    assert sensitive_name_failures() == [], sensitive_name_failures()[:20]
+    # ...and the editable surface is not empty: ordinary product code stays editable.
+    assert S.path_refusal(SRC + "improve/ecr.py") == ""
+    assert S.path_refusal(SRC + "cir/compiler.py") == ""
 
 
 def test_b_a_changeset_touching_a_protected_path_is_refused_whole():
@@ -363,7 +408,15 @@ WEAKENED = (
     ("early return", BASE_TEST.replace("def test_two():\n", "def test_two():\n    return\n")),
     ("deleted", None),
     ("unparseable", BASE_TEST + "\ndef broken(:\n"),
+    # B19 A4: a guarded early return, a rewritten (same-count) assertion, and a same-named
+    # method in a second class all count.
+    ("guarded early return", BASE_TEST.replace("def test_two():\n",
+                                               "def test_two():\n    if True:\n        return\n")),
+    ("assertion rewritten", BASE_TEST.replace("assert f(2) == 3", "assert f(2) is not None")),
 )
+CLASS_BASE = ("class A:\n    def test_x(self):\n        assert f(1) == 2\n\n\n"
+              "class B:\n    def test_x(self):\n        assert g(1) == 2\n")
+CLASS_WEAKENED = CLASS_BASE.replace("        assert g(1) == 2\n", "        g(1)\n")
 STRENGTHENED = BASE_TEST + "\n\ndef test_three():\n    assert f(3) == 4\n"
 
 
@@ -374,7 +427,40 @@ def weakening_failures() -> list[str]:
             out.append(f"weakening not detected: {label}")
     if S.test_weakening(T + "test_x.py", BASE_TEST, STRENGTHENED):
         out.append("a strengthened test was refused")
+    if not S.test_weakening(T + "test_x.py", CLASS_BASE, CLASS_WEAKENED):
+        out.append("weakening not detected: B.test_x lost its assertion behind A.test_x")
+    if S.test_weakening(T + "test_x.py", BASE_TEST,
+                        BASE_TEST.replace("    assert f(2) == 3\n",
+                                          "    assert f(2) == 3\n    assert f(4) == 5\n")):
+        out.append("adding an assertion was refused")
     return out
+
+
+SOURCE_WEAKENED = (
+    ("raise deleted", "def f(x):\n    if x < 0:\n        raise ValueError(x)\n    return x\n",
+     "def f(x):\n    return x\n"),
+    ("refusal branch deleted", "def ok(r):\n    if r.bad:\n        return refuse(r)\n"
+                               "    return True\n", "def ok(r):\n    return True\n"),
+    ("threshold retuned", "MAX_ITEMS = 5\n", "MAX_ITEMS = 50\n"),
+    ("assert deleted", "def g(x):\n    assert x\n    return x\n", "def g(x):\n    return x\n"),
+)
+
+
+def source_weakening_failures() -> list[str]:
+    """B19 A3: a source change that deletes a check or retunes a constant is refused."""
+    out = []
+    for label, old, new in SOURCE_WEAKENED:
+        if not S.check_changeset({SRC + "m.py": (old, new)}):
+            out.append(f"source weakening not detected: {label}")
+    fix = S.check_changeset({SRC + "toy.py": ("def add(a, b):\n    return a - b\n",
+                                              "def add(a, b):\n    return a + b\n")})
+    if fix:
+        out.append(f"an ordinary fix was refused: {fix}")
+    return out
+
+
+def test_c_source_deletions_of_checks_are_refused():
+    assert source_weakening_failures() == []
 
 
 def test_c_every_weakening_is_refused_and_strengthening_is_not():
@@ -424,28 +510,109 @@ def test_d_secrets_and_spend_network_exec_paths_are_refused():
     assert proc and "process_read" in proc[0], proc
 
 
-def test_d_model_written_code_is_not_executed_past_the_rails():
+def test_d_the_workspace_test_op_runs_nothing():
+    """B19 A1: the `test` action is answered, never executed."""
     root = Path(tempfile.mkdtemp())
     (root / "brambleloop/tests").mkdir(parents=True)
-    (root / "brambleloop/tests/test_x.py").write_text("def test_a():\n    assert 1 == 1\n")
-    ran = []
-    ws = AC.Workspace(root, runner=lambda w, s, t: ran.append(s) or {
-        "suite": s, "rc": 0, "passed": True, "seconds": 0, "tail": ""})
-    ws.apply({"op": "edit", "path": T + "test_x.py", "old": "assert 1 == 1",
-              "new": "assert 1 == 1\n    import subprocess; subprocess.run(['true'])"})
+    marker = root / "RAN"
+    (root / "brambleloop/tests/test_x.py").write_text(
+        f"open({str(marker)!r}, 'w').write('ran')\n")
+    ws = AC.Workspace(root)
     obs = ws.apply({"op": "test", "suite": "tests/test_x.py"})
-    assert obs.startswith("test not run") and ran == [], obs
+    assert obs.startswith("test not run") and "CI" in obs, obs
+    assert not marker.exists()
+    assert not hasattr(AC, "run_suite") and not hasattr(AC, "_clean_env")
+    assert "runner" not in AC.Workspace.__init__.__code__.co_varnames
+    assert "runner" not in AC.run.__code__.co_varnames
 
 
-def test_d_tests_run_with_a_scrubbed_environment():
-    os.environ["BRAMBLELOOP_SECRET_PROBE"] = "must-not-leak"
+SPAWN_TOKENS = ("subprocess", "os.system", "os.popen", "os.exec", "os.spawn", "os.fork",
+                "sys.executable", "runpy", "importlib", "__import__", "exec(", "eval(",
+                "compile(", "multiprocessing", "pty.")
+
+
+def spawn_failures() -> list[str]:
+    """B19 A1, static half: the job's module has no way to start or import code at all."""
+    src = (ROOT / "src/brambleloop/improve/autocoder.py").read_text()
+    code = "\n".join(ln.split("#", 1)[0] for ln in src.splitlines())
+    import re
+
+    return [f"autocoder.py mentions {t!r}" for t in SPAWN_TOKENS
+            if re.search(r"(?<![\w.])" + re.escape(t), code)]
+
+
+def test_d_the_job_never_spawns_or_imports_the_modified_code():
+    """B19 A1: fails if the production job ever executes the tree it modified.
+
+    Static: autocoder.py names no process, exec or import machinery. Dynamic: a full run on a
+    toy ECR (rails -> SHIP -> push) with every process-spawning call trapped, a model that
+    asks to run tests, and a modified test and source file that would leave a marker if
+    executed or imported. Only the host's own git plumbing (LocalGitHost) may run, and never
+    with the workspace as its cwd or an interpreter as argv[0]."""
+    import builtins
+    import importlib
+
+    assert spawn_failures() == [], spawn_failures()
+    db = _db()
+    eid = _file_ecr(db)
+    repo, _base = _toy_repo()
+    marker = Path(tempfile.mkdtemp()) / "EXECUTED"
+    wd = str(Path(tempfile.mkdtemp(prefix="ws-")).resolve())    # the job's workspaces live here
+    toy, test = SRC + "toy.py", T + "test_toy.py"
+    boom = f"open({str(marker)!r}, 'w').write('x')\n"
+    steps = [
+        {"plan": "fix", "done": False, "actions": [
+            {"op": "edit", "path": toy, "old": "return a - b", "new": "return a + b"},
+            {"op": "edit", "path": test, "old": "from brambleloop import toy\n",
+             "new": "from brambleloop import toy\n" + boom},
+            {"op": "test", "suite": "tests/test_toy.py"}]},
+        {"plan": "done", "actions": [{"op": "test", "suite": "tests/test_toy.py"}],
+         "targets": ["tests/test_toy.py"], "done": True, "summary": "add() adds"}]
+
+    def script(system, user, n):
+        return steps[min(n, len(steps)) - 1]
+    spawned, imported = [], []
+    real_popen, real_import = subprocess.Popen, builtins.__import__
+    real_system, real_execv = os.system, os.execv
+
+    class TrapPopen(real_popen):
+        def __init__(self, args, *a, **k):
+            argv = list(args) if isinstance(args, (list, tuple)) else [str(args)]
+            cwd = str(k.get("cwd") or "")
+            spawned.append((argv[:3], cwd))
+            if (argv and ("python" in Path(str(argv[0])).name or str(argv[0]) == sys.executable)) \
+                    or str(Path(cwd or ".").resolve()).startswith(wd):
+                raise AssertionError(f"the job spawned modified code: {argv[:3]} in {cwd}")
+            super().__init__(args, *a, **k)
+
+    def trap_import(name, globals=None, locals=None, fromlist=(), level=0):
+        f = (globals or {}).get("__file__") or ""
+        if str(f).startswith(wd) or name.endswith("test_toy"):
+            imported.append(name)
+            raise AssertionError(f"the job imported modified code: {name}")
+        return real_import(name, globals, locals, fromlist, level)
+
+    def refuse(*a, **k):
+        raise AssertionError(f"the job spawned a process: {a[:2]}")
+    subprocess.Popen, builtins.__import__ = TrapPopen, trap_import
+    os.system, os.execv = refuse, refuse
+    real_import_module = importlib.import_module
+    importlib.import_module = lambda name, *a, **k: (
+        imported.append(name), real_import_module(name, *a, **k))[1]
     try:
-        env = AC._clean_env(Path(tempfile.mkdtemp()))
+        out = AC.run(db, host=LocalGitHost(repo), env=_env(), workdir=Path(wd),
+                     make_gateway=_gateways(db, script, _review(), {}))
     finally:
-        os.environ.pop("BRAMBLELOOP_SECRET_PROBE", None)
-    assert "BRAMBLELOOP_SECRET_PROBE" not in env and "DATABASE_URL" not in env
-    assert set(env) == {"PATH", "HOME", "TMPDIR", "LANG", "LC_ALL", "PYTHONDONTWRITEBYTECODE",
-                        "PYTHONPATH", "PYTHONHASHSEED"}
+        subprocess.Popen, builtins.__import__ = real_popen, real_import
+        os.system, os.execv = real_system, real_execv
+        importlib.import_module = real_import_module
+    assert out["status"] == AC.SUBMITTED, out
+    assert not marker.exists(), "model-written code ran in the production job"
+    assert imported == [] or all("test_toy" not in m and "toy" != m.split(".")[-1]
+                                 for m in imported), imported
+    assert all(a and a[0] == "git" for a, _cwd in spawned), spawned
+    row = next(r for r in ecr.listing(db, open_only=False) if r["id"] == eid)
+    assert row["evidence"]["autocoder"]["status"] == AC.SUBMITTED
 
 
 # ---- the stub model (test double) behind the real gateway ------------------------------------------
@@ -516,18 +683,10 @@ def _review(verdict="SHIP", **overrides):
     return script
 
 
-def _runner(mandatory_ok=True, ran=None):
-    ran = [] if ran is None else ran
-
-    def runner(ws, suite, timeout):
-        ran.append(suite)
-        if suite in AC.MANDATORY_SUITES:
-            # The two mandatory suites need the whole repository; in the toy repository the
-            # gate's use of their result is what is under test. Production runs them for real.
-            return {"suite": suite, "rc": 0 if mandatory_ok else 1, "passed": mandatory_ok,
-                    "seconds": 0.0, "tail": "stand-in"}
-        return AC.run_suite(ws, suite, timeout)
-    return runner, ran
+def _ci(host, sha, state="success", creator=AC.CI_CREATOR):
+    """What the autocoder-ci workflow's report job posts (the CI sandbox's verdict)."""
+    host.statuses[sha] = {"state": state, "creator": creator, "context": AC.CI_CONTEXT,
+                          "target_url": "https://github.com/x/actions/runs/1"}
 
 
 def _env(**extra):
@@ -549,8 +708,8 @@ def test_g_end_to_end_toy_ecr_becomes_a_reviewed_auto_branch():
     eid = _file_ecr(db)
     repo, base = _toy_repo()
     log: dict = {}
-    runner, ran = _runner()
-    out = AC.run(db, host=LocalGitHost(repo), runner=runner, env=_env(),
+    host = LocalGitHost(repo)
+    out = AC.run(db, host=host, env=_env(),
                  make_gateway=_gateways(db, _toy_steps(), _review(), log))
     assert out["status"] == AC.SUBMITTED, out
     assert out["branch"] == f"auto/ecr-{eid}" and out["work_done"] == 1
@@ -568,11 +727,16 @@ def test_g_end_to_end_toy_ecr_becomes_a_reviewed_auto_branch():
     # The production branch and main never move.
     assert _ref(repo, "refs/heads/main") == base
     assert _ref(repo, "refs/heads/claude/repository-setup-nc9x6o") == base
-    # The targeted suite and both mandatory suites gated the push.
-    assert "tests/test_toy.py" in ran and set(AC.MANDATORY_SUITES) <= set(ran)
+    # The commit names the targeted suite and both mandatory suites for the CI sandbox.
+    msg = subprocess.run(["git", "log", "-1", "--format=%B", sha], cwd=repo,
+                         capture_output=True, text=True).stdout
+    trailer = [ln for ln in msg.splitlines() if ln.startswith(AC.CI_TRAILER)]
+    assert trailer and trailer[0].split()[1:] == ["tests/test_toy.py", *AC.MANDATORY_SUITES]
     row = next(r for r in ecr.listing(db, open_only=False) if r["id"] == eid)
     ac = row["evidence"]["autocoder"]
-    assert row["state"] == ecr.REVIEWED and ac["status"] == AC.SUBMITTED and ac["sha"] == sha
+    # Pushed, not certified: the lifecycle waits for CI.
+    assert row["state"] == ecr.FILED and ac["status"] == AC.SUBMITTED and ac["sha"] == sha
+    assert ac["ci"]["state"] == "pending" and AC.classify(row, NOW) == "submitted"
     assert ac["spent_cad"] > 0 and ac["tokens"] > 0
     # Every call went through the gateway and was billed to the autocoder agent.
     n, cad = _ledger(db)
@@ -583,14 +747,25 @@ def test_g_end_to_end_toy_ecr_becomes_a_reviewed_auto_branch():
     assert p["ecrs"][0]["branch"] == f"auto/ecr-{eid}"
     # A submitted request is not picked again.
     assert AC.pick(db) is None
+    # No verdict yet: still waiting. A status from anyone but github-actions[bot] is ignored.
+    assert AC.ci_readback(db, host)["waiting"] == [eid]
+    _ci(host, sha, creator="brambleloop-autocoder")
+    assert AC.ci_readback(db, host)["waiting"] == [eid]
+    # Green CI from the sandbox: code_certified, and the ECR moves to REVIEWED.
+    _ci(host, sha)
+    got = AC.ci_readback(db, host)
+    assert got["certified"] == [eid], got
+    row = next(r for r in ecr.listing(db, open_only=False) if r["id"] == eid)
+    ac = row["evidence"]["autocoder"]
+    assert ac["status"] == AC.CERTIFIED == "code_certified" and ac["certified_sha"] == sha
+    assert row["state"] == ecr.REVIEWED and AC.classify(row, NOW) == "certified"
 
 
 def test_g_a_weakened_test_is_refused_and_nothing_is_pushed():
     db = _db()
     eid = _file_ecr(db)
     repo, _base = _toy_repo()
-    runner, _ran = _runner()
-    out = AC.run(db, host=LocalGitHost(repo), runner=runner, env=_env(),
+    out = AC.run(db, host=LocalGitHost(repo), env=_env(),
                  make_gateway=_gateways(db, _toy_steps(weaken=True), _review(), {}))
     assert out["status"] == AC.REFUSED and out["reason"] == "gate_rails", out
     assert any("assertion" in d or "lost" in d for d in out["detail"]), out["detail"]
@@ -600,15 +775,81 @@ def test_g_a_weakened_test_is_refused_and_nothing_is_pushed():
     assert row["state"] == ecr.FILED
 
 
-def test_g_a_failing_mandatory_suite_refuses_the_push():
+def test_g_red_ci_refuses_the_request_and_nothing_is_certified():
     db = _db()
     eid = _file_ecr(db)
     repo, _base = _toy_repo()
-    runner, _ran = _runner(mandatory_ok=False)
-    out = AC.run(db, host=LocalGitHost(repo), runner=runner, env=_env(),
+    host = LocalGitHost(repo)
+    out = AC.run(db, host=host, env=_env(),
                  make_gateway=_gateways(db, _toy_steps(), _review(), {}))
-    assert out["status"] == AC.REFUSED and out["reason"] == "gate_tests", out
-    assert _ref(repo, f"refs/heads/auto/ecr-{eid}") == ""
+    assert out["status"] == AC.SUBMITTED, out
+    _ci(host, out["sha"], state="failure")
+    got = AC.ci_readback(db, host)
+    assert got["failed"] == [eid] and got["certified"] == [], got
+    row = next(r for r in ecr.listing(db, open_only=False) if r["id"] == eid)
+    ac = row["evidence"]["autocoder"]
+    assert ac["status"] == AC.REFUSED and ac["reason"] == "ci_failed"
+    assert row["state"] == ecr.FILED
+    # Certification without a green result for exactly this SHA is refused.
+    for ci in ({"state": "failure", "creator": AC.CI_CREATOR},
+               {"state": "success", "creator": "someone"},
+               {"state": "success", "creator": AC.CI_CREATOR, "sha": "f" * 40}, None):
+        try:
+            AC.mark_certified(db, eid, sha=out["sha"], ci=ci, by="x")
+            raise AssertionError(f"certified with {ci}")
+        except AC.NotCertified:
+            pass
+    # A request with no CI result within the timeout is refused, not left forever.
+    db2 = _db()
+    e2 = _file_ecr(db2)
+    host2 = LocalGitHost(_toy_repo()[0])
+    out2 = AC.run(db2, host=host2, env=_env(),
+                  make_gateway=_gateways(db2, _toy_steps(), _review(), {}))
+    assert out2["status"] == AC.SUBMITTED
+    late = datetime.now(timezone.utc) + AC.CI_TIMEOUT + timedelta(hours=1)
+    assert AC.ci_readback(db2, host2, now=late)["failed"] == [e2]
+
+
+def test_g_the_github_host_reads_the_ci_status_with_its_creator():
+    sha = "c" * 40
+    fake = _FakeGitHub("a" * 40)
+    fake.statuses = [{"context": "other", "state": "success", "creator": {"login": "x"}},
+                     {"context": AC.CI_CONTEXT, "state": "failure",
+                      "creator": {"login": AC.CI_CREATOR}, "target_url": "u"}]
+    os.environ["BRAMBLELOOP_GITHUB_TOKEN"] = "test-not-a-token"
+    try:
+        got = GitHubHost("owner/repo", opener=fake).ci_status(sha, AC.CI_CONTEXT)
+    finally:
+        os.environ.pop("BRAMBLELOOP_GITHUB_TOKEN", None)
+    assert got == {"state": "failure", "sha": sha, "creator": AC.CI_CREATOR,
+                   "target_url": "u"}, got
+    assert fake.requests[-1][:2] == ("GET", f"/commits/{sha}/statuses?per_page=100")
+
+
+def test_e_per_request_spend_comes_from_the_ledger_and_survives_a_crash():
+    """B19 A5: a run that crashed after spending (no note written) still counts."""
+    from brambleloop.core.models import Job
+
+    db = _db()
+    eid = _file_ecr(db)
+    with db.session() as s:
+        job = Job(job_type=AC.JOB_TYPE, agent=AC.AGENT, inputs={})
+        s.add(job)
+        s.flush()
+        jid = job.id
+    ecr.note_autocoder(db, eid, status=AC.CODING, at=(NOW - timedelta(hours=3)).isoformat(),
+                       attempts=1, job=jid, jobs=[jid])
+    with db.session() as s:      # what the crashed run had been billed
+        s.add(CostEntry(agent=AC.AGENT, job_id=jid, amount_cad=AC.HARD.ecr_cad - 0.0001,
+                        kind=routing.COST_KIND, purpose="autocoder.step@2",
+                        tokens_in=10, tokens_out=5))
+    assert AC.ecr_ledger_spend(db, [jid]) == (round(AC.HARD.ecr_cad - 0.0001, 6), 15)
+    log: dict = {}
+    repo, _base = _toy_repo()
+    out = AC.run(db, host=LocalGitHost(repo), env=_env(), job_id=None,
+                 make_gateway=_gateways(db, _toy_steps(), _review(), log))
+    assert out["status"] == AC.REFUSED and out["loop_stop"] == "budget:ecr_cad", out
+    assert log[AC.STEP_TASK][0].calls == []
 
 
 # ---- F. the reviewer must SHIP ------------------------------------------------------------------
@@ -619,8 +860,7 @@ def test_f_review_block_or_a_false_check_pushes_nothing():
         db = _db()
         eid = _file_ecr(db)
         repo, _base = _toy_repo()
-        runner, _ran = _runner()
-        out = AC.run(db, host=LocalGitHost(repo), runner=runner, env=_env(),
+        out = AC.run(db, host=LocalGitHost(repo), env=_env(),
                      make_gateway=_gateways(db, _toy_steps(), script, {}))
         assert out["status"] == AC.REFUSED and out["reason"] == "review_block", out
         assert _ref(repo, f"refs/heads/auto/ecr-{eid}") == ""
@@ -779,8 +1019,7 @@ def test_e_a_run_over_its_request_budget_makes_no_model_call():
     eid = _file_ecr(db)
     repo, _base = _toy_repo()
     log: dict = {}
-    runner, _ran = _runner()
-    out = AC.run(db, host=LocalGitHost(repo), runner=runner,
+    out = AC.run(db, host=LocalGitHost(repo),
                  env=_env(BRAMBLELOOP_AUTOCODER_ECR_CAD="0.0001"),
                  make_gateway=_gateways(db, _toy_steps(), _review(), log))
     assert out["status"] == AC.REFUSED and out["loop_stop"] == "budget:ecr_cad", out
@@ -931,6 +1170,11 @@ MUTANTS = (
     ("limits no longer clamp", AC, "limits", lambda env=None: AC.Limits(ecr_cad=500.0,
                                                                            month_cad=1000.0),
      limits_failures),
+    # B19
+    ("name rule removed", S, "SENSITIVE_NAME", __import__("re").compile(r"(?!x)x"),
+     sensitive_name_failures),
+    ("source-weakening rail returns nothing", S, "source_weakening_findings",
+     lambda *a, **k: [], source_weakening_failures),
 )
 
 
@@ -950,6 +1194,7 @@ def test_j_each_rail_mutation_is_killed():
     # And with every rail restored, every check is clean again.
     assert refspec_failures() == path_failures() == weakening_failures() == []
     assert rail_failures() == budget_failures() == limits_failures() == []
+    assert sensitive_name_failures() == source_weakening_failures() == spawn_failures() == []
 
 
 def test_j_the_submit_ship_gate_mutation_is_killed():
@@ -965,6 +1210,81 @@ def test_j_the_submit_ship_gate_mutation_is_killed():
     finally:
         AC.submit = original
     assert review_gate_failures() == []
+
+
+# ---- K. the CI sandbox workflow (B19 A1) ---------------------------------------------------------
+
+WORKFLOW = ROOT.parent / ".github/workflows/autocoder-ci.yml"
+
+
+def workflow_failures(text: str | None = None) -> list[str]:
+    import re
+
+    import yaml
+
+    text = WORKFLOW.read_text() if text is None else text
+    wf = yaml.safe_load(text)
+    on = wf.get(True, wf.get("on"))       # YAML 1.1 reads the key `on` as True
+    out = []
+    if set(on) != {"push"} or on["push"] != {"branches": ["auto/**"]}:
+        out.append(f"triggers must be exactly push to auto/**: {on}")
+    if wf.get("permissions") != {"contents": "read"}:
+        out.append(f"workflow permissions must be contents: read: {wf.get('permissions')}")
+    if (wf.get("defaults") or {}).get("run", {}).get("shell") != "bash":
+        out.append("defaults.run.shell must be bash (pipefail)")
+    if "secrets." in text:
+        out.append("the workflow references a secret")
+    jobs = wf.get("jobs") or {}
+    test, report = jobs.get("test") or {}, jobs.get("report") or {}
+    if test.get("permissions") != {"contents": "read"}:
+        out.append(f"test job permissions: {test.get('permissions')}")
+    for st in test.get("steps") or []:
+        if "checkout" in str(st.get("uses") or ""):
+            if (st.get("with") or {}).get("persist-credentials") is not False:
+                out.append("test job checkout must set persist-credentials: false")
+        if re.search(r"\$\{\{", str(st.get("run") or "")):
+            out.append(f"an expression is interpolated into a run script: {st.get('name')}")
+        if "github.token" in str(st):
+            out.append("the test job sees the token")
+    run = "\n".join(str(st.get("run") or "") for st in test.get("steps") or [])
+    for suite in AC.MANDATORY_SUITES:
+        if suite not in run:
+            out.append(f"mandatory suite {suite} not run")
+    if AC.CI_TRAILER not in run:
+        out.append("the targeted suites are not read from the commit trailer")
+    if report.get("needs") != "test" or report.get("if") != "always()":
+        out.append("the report job must follow the test job always")
+    if report.get("permissions") != {"statuses": "write"}:
+        out.append(f"report job permissions: {report.get('permissions')}")
+    if any("uses" in st for st in report.get("steps") or []):
+        out.append("the report job must not check out or run repository code")
+    rrun = "\n".join(str(st.get("run") or "") for st in report.get("steps") or [])
+    if AC.CI_CONTEXT not in rrun or "statuses/" not in rrun:
+        out.append("the report job does not post the commit status")
+    return out
+
+
+def test_k_the_ci_sandbox_workflow_holds_no_secret_and_reports_by_status():
+    assert workflow_failures() == [], workflow_failures()
+    base = WORKFLOW.read_text()
+    mutants = {
+        "pull_request_target added": base.replace(
+            '  push:\n    branches: ["auto/**"]',
+            '  push:\n    branches: ["auto/**"]\n  pull_request_target:'),
+        "secret given to the test job": base.replace(
+            "          PYTHONPATH: src:tests",
+            "          PYTHONPATH: src:tests\n          K: ${{ secrets.RAILWAY_TOKEN }}"),
+        "credential persisted": base.replace("persist-credentials: false",
+                                             "persist-credentials: true"),
+        "write permission": base.replace("permissions:\n  contents: read",
+                                         "permissions:\n  contents: write", 1),
+        "report job checks out": base.replace(
+            "      - name: Post the result as the commit status",
+            "      - uses: actions/checkout@v4\n      - name: Post the result as the commit status"),
+        "mandatory suite dropped": base.replace(" tests/test_vacuity.py", ""),
+    }
+    survived = [k for k, v in mutants.items() if v == base or not workflow_failures(v)]
+    assert survived == [], survived
 
 
 if __name__ == "__main__":

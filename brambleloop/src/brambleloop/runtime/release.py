@@ -7565,8 +7565,10 @@ def handle_improve_code(ctx: JobContext) -> dict:
 
     BUILD class, build plane. Every model call goes through `failover.job_gateway` with this
     job's id (reserved, ceiling-checked, billed per job) under hard per-request and monthly
-    autocoder budgets. Deterministic rails and the targeted + mandatory suites gate the diff;
-    an independent reviewer must SHIP it; only an `auto/*` ref may be pushed. Never deploys:
+    autocoder budgets. Deterministic rails gate the diff; an independent reviewer must SHIP
+    it; only an `auto/*` ref may be pushed. Executes nothing the model wrote (B19 A1): the
+    targeted + mandatory suites run in the `autocoder-ci` GitHub Actions sandbox, and only a
+    green status read back makes a request `code_certified`. Never deploys:
     promotion is the certify-and-promote pipeline's. OFF unless BRAMBLELOOP_AUTOCODER_ENABLED
     is 1; enabled without BRAMBLELOOP_GITHUB_TOKEN it reports UNKNOWN with the blocker named
     and spends nothing.

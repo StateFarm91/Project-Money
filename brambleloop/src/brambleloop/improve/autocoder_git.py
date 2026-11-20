@@ -5,6 +5,8 @@ Two hosts, one contract:
 * `materialize(base, dest)` puts the repository at `base` (a commit SHA or branch name) into
   the empty directory `dest` -- a depth-1 snapshot, the equivalent of a shallow clone -- and
   returns the resolved 40-hex SHA.
+* `ci_status(sha, context)` reads the CI sandbox's verdict on a pushed commit (B19 A1): the
+  autocoder never runs the code it pushes; `.github/workflows/autocoder-ci.yml` does.
 * `push(ref, base_sha, files, message)` creates one commit on top of `base_sha` whose only
   changes are `files` ({repo-relative path: new text}) and points `ref` at it. Returns the
   commit SHA. **`ref` must pass `autocoder_safety.assert_ref_allowed`** (`refs/heads/auto/*`):
@@ -173,6 +175,20 @@ class GitHubHost:
                 pass
         return sha
 
+    def ci_status(self, sha: str, context: str) -> dict:
+        """B19 A1: the newest commit status in `context` on `sha` (the autocoder-ci workflow's
+        verdict), with who posted it. Needs the token's "Commit statuses: read" permission.
+        Returns {"state": "none"} when there is none yet."""
+        if not _SHA.match(sha or ""):
+            raise HostError("ci_status needs a 40-hex commit")
+        rows = self._call("GET", f"/commits/{sha}/statuses?per_page=100")
+        for row in rows if isinstance(rows, list) else []:
+            if row.get("context") == context:
+                return {"state": str(row.get("state") or "none"), "sha": sha,
+                        "creator": str((row.get("creator") or {}).get("login") or ""),
+                        "target_url": str(row.get("target_url") or "")[:300]}
+        return {"state": "none", "sha": sha}
+
     def push(self, ref: str, base_sha: str, files: dict[str, str], message: str) -> str:
         full = assert_ref_allowed(ref)
         if not _SHA.match(base_sha or ""):
@@ -212,6 +228,14 @@ class LocalGitHost:
         self.repo_path = Path(repo_path)
         if shutil.which("git") is None:
             raise HostBlocked("git binary not found")
+        # Stand-in for GitHub's commit statuses: tests post the CI sandbox's verdict here.
+        self.statuses: dict[str, dict] = {}
+
+    def ci_status(self, sha: str, context: str) -> dict:
+        got = self.statuses.get(sha) or {}
+        if got.get("context", context) != context:
+            return {"state": "none", "sha": sha}
+        return {"state": "none", "sha": sha, **got}
 
     def _git(self, *args: str, cwd: Path | None = None) -> str:
         out = subprocess.run(["git", *args], cwd=str(cwd or self.repo_path),

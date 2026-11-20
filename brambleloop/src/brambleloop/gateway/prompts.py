@@ -235,15 +235,16 @@ CONCEPT_FIELD_V3 = register(Prompt(
 
 # ---- ENG-AUTOCODER (D-OWNER-AUTOCODER, 2026-11-20): the in-production coding team ----------
 #
-# One step of the plan -> edit -> test loop (`improve.autocoder`), and the independent review
+# One step of the plan -> edit loop (`improve.autocoder`), and the independent review
 # of the finished diff. Neither prompt decides anything that ships: deterministic rails
 # (`improve.autocoder_safety`) and the repository's own tests are the gate, and a diff any
-# rail refuses is never pushed whatever these answers say. Edits are structured (exact
+# rail refuses is never pushed whatever these answers say. v2 (B19 A1): nothing the model
+# writes runs in production; the suites it names run in the CI sandbox after review and push. Edits are structured (exact
 # search/replace on one file, or a new file), never free-form patches, so every change the
 # model proposes is applied and checked by code. Output is capped at the F-316 maximum: a
 # step that needs more says so and continues on the next iteration.
 AUTOCODER_STEP = register(Prompt(
-    name="autocoder.step", version="1",
+    name="autocoder.step", version="2",
     system=("You are a careful senior Python engineer working inside the Brambleloop "
             "repository on one engineering change request (ECR). You act only through the "
             "JSON actions listed below; you never see or run anything else. Rules you may "
@@ -253,7 +254,9 @@ AUTOCODER_STEP = register(Prompt(
             "call, network request, subprocess or secret; keep the diff small. Patterns are "
             "deterministic software: pattern arithmetic and every gate stay in code. "
             "Make the smallest change that meets the acceptance criteria, add or extend a "
-            "test that proves it, run the targeted test, and finish only when it passes. "
+            "test that proves it, and name it in targets. Nothing runs here: the targeted "
+            "suites run in a CI sandbox after independent review, and a red result refuses "
+            "the change, so read the code carefully before you finish. "
             "Reply with JSON only."),
     template=("ECR:\n{ecr}\n\nEditable roots: {roots}\nProtected (never edit): {protected}\n"
               "Iteration {iteration} of {max_iterations}. Budget left: {budget}\n\n"
@@ -266,7 +269,6 @@ AUTOCODER_STEP = register(Prompt(
               "  {{\"op\": \"edit\", \"path\": \"file\", \"old\": \"exact unique text\", "
               "\"new\": \"replacement\"}}\n"
               "  {{\"op\": \"create\", \"path\": \"new file\", \"content\": \"...\"}}\n"
-              "  {{\"op\": \"test\", \"suite\": \"tests/test_x.py\"}}\n"
               "JSON: {{\"plan\": \"one or two sentences\", \"actions\": [...], "
               "\"targets\": [\"tests/test_x.py\"], \"done\": false, "
               "\"summary\": \"what changed and why, when done\"}}"),
@@ -274,7 +276,7 @@ AUTOCODER_STEP = register(Prompt(
     max_output_tokens=4000))
 
 AUTOCODER_REVIEW = register(Prompt(
-    name="autocoder.review", version="1",
+    name="autocoder.review", version="2",
     system=("You are an independent code reviewer for an autonomous coding agent. You did "
             "not write this diff and you owe it nothing. Block it unless every check holds: "
             "no gate, guard, ceiling, safety or authority check is weakened or bypassed; no "
@@ -282,7 +284,8 @@ AUTOCODER_REVIEW = register(Prompt(
             "or looping over something that may be empty); no secret, token or credential "
             "appears; no new spend, network or process-execution path exists; the change "
             "does what the ECR asks and the summary claims nothing the diff and test results "
-            "do not show. When unsure, BLOCK. Reply with JSON only."),
+            "do not show. The tests have NOT run yet: they run in a CI sandbox only after you "
+            "SHIP, so judge the code itself. When unsure, BLOCK. Reply with JSON only."),
     template=("ECR:\n{ecr}\n\nAgent's summary:\n{summary}\n\n"
               "Deterministic rails: {rails}\nTest results:\n{tests}\n\nDiff:\n{diff}\n\n"
               "JSON: {{\"verdict\": \"SHIP\" or \"BLOCK\", \"checks\": {{"

@@ -1,3 +1,12 @@
+> **2026-11-20 — B19-FIX on `eng/autocoder` (security review review-results/b19-b, findings A1–A5; NOT merged,
+> NOT deployed).** Model-written code no longer runs in the production worker: rails -> reviewer SHIP -> push
+> `auto/ecr-<id>`; tests run in the new `autocoder-ci` GitHub Actions sandbox (no secrets, contents: read) and
+> the worker reads the commit status back -- only green CI makes a request `code_certified`. Path denylist
+> extended (child safety, auth/session/OAuth, spend ceilings, authority, test helpers) plus a by-name rule
+> over every module. Test-weakening and source-deletion gaps closed; per-ECR spend from the ledger. Merged
+> production (eng/colourwork). The CI workflow has **never run** on GitHub yet. Fix record:
+> `w6/review_requests/FIX-SECURITY-B19.md`.
+
 > **2026-11-20 — ENG-AUTOCODER (`eng/autocoder` from claude/w6-INTEG7-wip c6d4400; NOT reviewed, NOT merged, NOT
 > deployed; production unchanged; kill switch OFF by default).** D-OWNER-AUTOCODER: the in-production coding team.
 > - **Job.** `improve.code` (agent `autocoder`, CA$8/day, 6-hourly, BUILD class, build plane) takes one engineering

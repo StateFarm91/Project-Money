@@ -1,0 +1,102 @@
+# Autocoder CI sandbox (B19 A1): the ONLY place code the autocoder wrote is ever executed.
+#
+# The production worker (`improve.code`) plans and writes a diff, passes the deterministic
+# rails, gets a SHIP from the independent reviewer and only then pushes `auto/ecr-<id>`. It
+# never runs a test, script or import from the modified tree. This workflow runs them:
+#
+#   test:   on a GitHub-hosted runner, with NO secrets, `contents: read` and no credential on
+#           disk (persist-credentials: false). Runs the suites named in the commit's
+#           `Autocoder-Suites:` trailer (each must match tests/test_*.py) plus the two
+#           mandatory suites, test_vacuity and test_w4_resume_runner.
+#   report: a separate job on a fresh runner that checks nothing out and runs no repository
+#           code. It alone holds `statuses: write`, and posts the test job's result as the
+#           commit status `brambleloop/autocoder-ci` on the exact pushed SHA.
+#
+# The worker reads that status back (`autocoder.ci_readback`); only `success` posted by
+# github-actions[bot] moves the request to `code_certified`. There is deliberately no
+# pull_request / pull_request_target / workflow_run trigger, and no `${{ }}` expression is
+# interpolated into a `run:` script (values reach the shell through `env:`).
+name: autocoder-ci
+on:
+  push:
+    branches: ["auto/**"]
+permissions:
+  contents: read
+concurrency:
+  group: autocoder-ci-${{ github.ref }}
+  cancel-in-progress: true
+defaults:
+  run:
+    shell: bash    # => bash --noprofile --norc -eo pipefail {0}
+env:
+  PYTHON_VERSION: "3.11"
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          fetch-depth: 1
+          persist-credentials: false   # model-written code runs here; no token on disk
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install from the locks
+        working-directory: brambleloop
+        run: |
+          set -euo pipefail
+          sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends fonts-dejavu-core
+          python -m pip install -q --require-hashes -r requirements.lock
+          python -m pip install -q --require-hashes --no-deps -r requirements-test.lock
+      - name: Targeted and mandatory suites
+        working-directory: brambleloop
+        env:
+          PYTHONPATH: src:tests
+        run: |
+          set -euo pipefail
+          trailer=$(git log -1 --format=%B | sed -n 's/^Autocoder-Suites: //p' | head -n 1)
+          [ -n "$trailer" ] || { echo "::error::commit has no Autocoder-Suites trailer"; exit 1; }
+          suites=()
+          for s in $trailer tests/test_vacuity.py tests/test_w4_resume_runner.py; do
+            [[ "$s" =~ ^tests/test_[A-Za-z0-9_]+\.py$ ]] || { echo "::error::not a suite path: $s"; exit 1; }
+            [ -f "$s" ] || { echo "::error::no such suite: $s"; exit 1; }
+            case " ${suites[*]-} " in *" $s "*) ;; *) suites+=("$s") ;; esac
+          done
+          rc=0
+          for s in "${suites[@]}"; do
+            echo "::group::$s"
+            if python "$s"; then echo "PASS $s" >> "$GITHUB_STEP_SUMMARY"
+            else rc=1; echo "FAIL $s" >> "$GITHUB_STEP_SUMMARY"; fi
+            echo "::endgroup::"
+          done
+          exit "$rc"
+
+  report:
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      statuses: write
+    steps:
+      - name: Post the result as the commit status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULT: ${{ needs.test.result }}
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if [ "$RESULT" = "success" ]; then state=success; else state=failure; fi
+          body=$(jq -n --arg state "$state" --arg url "$RUN_URL" --arg d "autocoder-ci: tests $RESULT" \
+            '{state: $state, context: "brambleloop/autocoder-ci", description: $d, target_url: $url}')
+          curl -fsS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$REPO/statuses/$SHA" -d "$body" > /dev/null
+          echo "autocoder-ci: $state on $SHA" >> "$GITHUB_STEP_SUMMARY"

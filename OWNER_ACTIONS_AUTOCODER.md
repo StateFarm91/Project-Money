@@ -37,20 +37,24 @@ reports `OFF` and spends nothing.
      - **Resource owner:** `StateFarm91`
      - **Repository access:** **Only select repositories**, then `StateFarm91/Project-Money`
   4. Under **Permissions**, then **Repository permissions**, set **Contents** to **Read and
-     write**. Metadata becomes Read-only automatically. Leave everything else at **No access**:
-     no Workflows, no Actions, no Administration, no Secrets.
+     write** and **Commit statuses** to **Read-only** (the worker reads the CI sandbox's
+     verdict; B19 A1). Metadata becomes Read-only automatically. Leave everything else at
+     **No access**: no Workflows, no Actions, no Administration, no Secrets.
   5. Click **Generate token** and copy the value once.
 - **Add it to Railway.**
   1. Railway, then project **brambleloop**, then the app service, then **Variables**, then
      **New Variable**.
   2. Set `BRAMBLELOOP_GITHUB_TOKEN` to the pasted value. Never paste it into a chat, an issue or
      the repository.
-- **Protect the production branch so only Actions can push it.**
+- **Protect the production branch so only Actions can push it. MANDATORY before the switch
+  is turned on (B19 A1 / B4): the in-process `auto/*` allowlist is a second line; this ruleset
+  is the boundary GitHub itself enforces.**
   1. github.com/StateFarm91/Project-Money, then **Settings**, then **Rules**, then **Rulesets**,
      then **New ruleset**, then **New branch ruleset**.
   2. **Name:** `production-branch`. **Enforcement:** Active.
-  3. **Target branches:** **Add target**, then **Include by pattern**:
-     `claude/repository-setup-nc9x6o`. Add `main` too if you want it protected.
+  3. **Target branches:** **Add target**, then **Include by pattern**, once for each of:
+     `claude/repository-setup-nc9x6o`, `main` and `claude/w6-release-*`. All three are
+     required: `claude/w6-release-*` is what certify-and-promote deploys from.
   4. Rules:
      - tick **Restrict updates**;
      - tick **Restrict deletions**;
@@ -58,6 +62,11 @@ reports `OFF` and spends nothing.
   5. **Bypass list:** **Add bypass**. Choose the **GitHub Actions** app (and yourself as Repository
      admin if you want a manual escape hatch). Do not add the token's user as a general bypass.
   6. Click **Create**.
+
+  A ruleset bypass applies to every token of the account on the bypass list. So if you keep
+  yourself on it, create the autocoder token from a separate machine-user account (a free
+  GitHub account added as a collaborator with Write access) rather than your own, or install a
+  GitHub App restricted to `auto/*`. Otherwise a token minted from your account bypasses too.
 
   With this in place, even a stolen autocoder token cannot move the production branch. The code
   already refuses any ref outside `auto/*`, and the ruleset makes GitHub refuse it too.
@@ -111,8 +120,19 @@ The CA$100 monthly model ceiling (`BRAMBLELOOP_MODEL_MONTHLY_CEILING_CAD`) still
 all of these. At CA$40 a month, the autocoder can take roughly 11 or more requests to a submitted
 branch.
 
+## Where the tests run (B19 A1)
+
+The production worker never executes code the model wrote: no test, script or import from the
+modified tree. After the rails pass and the reviewer says SHIP, it pushes `auto/ecr-<id>`, and
+`.github/workflows/autocoder-ci.yml` runs the named suites plus `test_vacuity` and
+`test_w4_resume_runner` on a GitHub-hosted runner with no secrets and `contents: read`. A
+separate job that checks nothing out posts the result as the commit status
+`brambleloop/autocoder-ci`. The worker reads it back on its next run; only a green result from
+`github-actions[bot]` moves the request to `code_certified`. No owner action is needed for the
+workflow itself: it uses only the run's own `GITHUB_TOKEN`.
+
 ## Deploy note
 
-This change adds `git` (pinned) to the worker image. `test_w4_resume_runner`, a mandatory gate,
-needs it. It ships through the normal certify-and-promote path. Nothing here is deployed by this
-session.
+The worker image no longer needs `git` (B19 A1 removed every in-worker test run), so the
+Dockerfile is unchanged by this unit. It ships through the normal certify-and-promote path.
+Nothing here is deployed by this session.

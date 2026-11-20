@@ -9,22 +9,30 @@ module is the `improve.code` worker job that does it on the company's own model 
    flight, or recently refused are skipped.
 2. **Workspace**: a depth-1 snapshot of the integration base (`BRAMBLELOOP_AUTOCODER_BASE`,
    default the production SHA Railway reports in `RAILWAY_GIT_COMMIT_SHA`) in a temp dir.
-3. **Plan -> edit -> test loop** (`run_loop`) with Claude through the model gateway
+3. **Plan -> edit loop** (`run_loop`) with Claude through the model gateway
    (`failover.job_gateway`, task `autocoder.step`): every call is reserved, ceiling-checked
    and billed to this job like every other model call. The model acts only through
-   structured actions (list / read / grep / exact edit / create / run one test suite) that
-   code applies; it never runs anything itself.
+   structured actions (list / read / grep / exact edit / create) that code applies, and names
+   the test suites that prove the change. **Nothing the model writes is ever executed in this
+   process or any child of it** (B19 A1): no test, script or import from the modified tree.
 4. **Hard budgets** (`Limits`), checked before every call: per request CA$, tokens, wall time
    and iterations, and a monthly autocoder sub-ceiling inside the CA$100 model ceiling.
    Environment variables may only tighten them.
-5. **Gate** (`gate`): the deterministic rails (`autocoder_safety.check_changeset`), then the
-   targeted suites plus `test_vacuity` and `test_w4_resume_runner`, in the workspace. Any
-   failure refuses the request with the reason; nothing is pushed.
+5. **Rails** (`gate`): the deterministic rails (`autocoder_safety.check_changeset`: refspec
+   allowlist, path denylist, test-weakening detector, secret scanner, spend/exec paths, size)
+   and the targeted suites the change names. Any refusal refuses the request; nothing is
+   pushed. The gate runs nothing.
 6. **Independent review** (`review`): a second model call, different prompt and (by default)
    a different, stronger model, which must answer SHIP with every check true.
 7. **Push** (`submit`) the branch `auto/ecr-<id>` -- and only an `auto/*` ref, enforced in
    `autocoder_safety.assert_ref_allowed` and again in each host -- and record the request as
-   `code_submitted` with the commit SHA.
+   `code_submitted` with the commit SHA. The commit carries an `Autocoder-Suites:` trailer.
+8. **Tests run in CI, not here** (`.github/workflows/autocoder-ci.yml`): a push to `auto/**`
+   runs the named suites plus `test_vacuity` and `test_w4_resume_runner` on a GitHub-hosted
+   runner with no secrets and `contents: read`, and a separate job with no checkout posts the
+   result as the commit status `brambleloop/autocoder-ci`. `ci_readback` (every run, before
+   any spend) reads that status back for the exact pushed SHA; only `success` posted by
+   `github-actions[bot]` moves the request to `code_certified`. A failure refuses it.
 
 **Promotion is not this job's.** The certify-and-promote pipeline (GitHub Actions,
 ENG-AUTOPROMOTE) takes a branch through the full suite, the release record and `deploy.sh`
@@ -40,9 +48,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
-import subprocess
-import sys
 import tempfile
 import time
 from dataclasses import dataclass, field
@@ -55,7 +60,7 @@ JOB_TYPE = "improve.code"
 AGENT = "autocoder"
 ACTION = "improve.code"
 STEP_TASK, REVIEW_TASK = "autocoder.step", "autocoder.review"
-STEP_PROMPT, REVIEW_PROMPT = "autocoder.step@1", "autocoder.review@1"
+STEP_PROMPT, REVIEW_PROMPT = "autocoder.step@2", "autocoder.review@2"
 
 ENABLED_VAR = "BRAMBLELOOP_AUTOCODER_ENABLED"
 BASE_VAR = "BRAMBLELOOP_AUTOCODER_BASE"
@@ -64,11 +69,16 @@ PROD_SHA_VAR = "RAILWAY_GIT_COMMIT_SHA"
 DEFAULT_ENABLED = False
 
 # Statuses this job writes into `evidence["autocoder"]["status"]` of a request.
-CODING, SUBMITTED, CERTIFIED, REFUSED = "coding", "code_submitted", "certified", "refused"
+CODING, SUBMITTED, CERTIFIED, REFUSED = "coding", "code_submitted", "code_certified", "refused"
 # Run outcomes (the job's own result).
 OFF, UNKNOWN, IDLE, PARKED = "OFF", "UNKNOWN", "IDLE", "PARKED"
 
 MANDATORY_SUITES = ("tests/test_vacuity.py", "tests/test_w4_resume_runner.py")
+# B19 A1: the CI sandbox's verdict. The workflow posts it; only github-actions[bot] counts.
+CI_CONTEXT = "brambleloop/autocoder-ci"
+CI_CREATOR = "github-actions[bot]"
+CI_TRAILER = "Autocoder-Suites:"
+CI_TIMEOUT = timedelta(hours=24)
 REFUSE_COOLDOWN = timedelta(days=7)
 MAX_ATTEMPTS = 3
 IN_FLIGHT = timedelta(hours=2)
@@ -99,9 +109,8 @@ class Limits:
     ecr_cad: float = 3.50            # model spend per request, across all its attempts
     ecr_tokens: int = 400_000        # input + output tokens per request
     wall_s: int = 40 * 60            # one run, start to push (the lease renews to 60 min)
-    iterations: int = 12             # plan/edit/test steps per run
+    iterations: int = 12             # plan/edit steps per run
     month_cad: float = 40.00         # autocoder sub-ceiling inside the CA$100 model ceiling
-    test_timeout_s: int = 900        # per suite
     transcript_chars: int = 40_000   # what each step sees of the previous ones
 
 
@@ -160,6 +169,26 @@ def month_spent_cad(db, now: datetime | None = None) -> float:
         v = s.scalar(select(func.coalesce(func.sum(CostEntry.amount_cad), 0.0)).where(
             CostEntry.agent == AGENT, CostEntry.at >= _month_start(now)))
     return round(float(v or 0.0), 6)
+
+
+def ecr_ledger_spend(db, job_ids) -> tuple[float, int]:
+    """B19 A5: what the autocoder was billed for these jobs, from the ledger (`CostEntry`
+    rows carry the job id), so a run that crashed after spending still counts against the
+    request. Returns (CA$, tokens)."""
+    from sqlalchemy import func, select
+
+    from ..core.models import CostEntry
+
+    ids = sorted({int(j) for j in (job_ids or []) if j is not None})
+    if not ids:
+        return 0.0, 0
+    with db.session() as s:
+        cad, tin, tout = s.execute(select(
+            func.coalesce(func.sum(CostEntry.amount_cad), 0.0),
+            func.coalesce(func.sum(CostEntry.tokens_in), 0),
+            func.coalesce(func.sum(CostEntry.tokens_out), 0)).where(
+                CostEntry.agent == AGENT, CostEntry.job_id.in_(ids))).one()
+    return round(float(cad or 0.0), 6), int(tin or 0) + int(tout or 0)
 
 
 @dataclass
@@ -290,33 +319,6 @@ GREP_HITS, GREP_FILES = 60, 4000
 _TEXT = (".py", ".md", ".json", ".txt", ".sh", ".toml", ".cfg", ".yml", ".yaml")
 
 
-def _clean_env(workspace: Path) -> dict:
-    """The environment a test subprocess gets: nothing from the worker's own, so no
-    credential, database URL or provider key is visible to code the model wrote."""
-    home = workspace / ".autocoder_home"
-    home.mkdir(exist_ok=True)
-    tmp = workspace / ".autocoder_tmp"
-    tmp.mkdir(exist_ok=True)
-    return {"PATH": "/usr/local/bin:/usr/bin:/bin", "HOME": str(home), "TMPDIR": str(tmp),
-            "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8", "PYTHONDONTWRITEBYTECODE": "1",
-            "PYTHONPATH": "src:tests", "PYTHONHASHSEED": "0"}
-
-
-def run_suite(workspace: Path, suite: str, timeout_s: int) -> dict:
-    """Run one test file in the workspace (cwd brambleloop/), bounded by `timeout_s`."""
-    started = time.monotonic()
-    try:
-        out = subprocess.run([sys.executable, suite], cwd=str(workspace / "brambleloop"),
-                             env=_clean_env(workspace), capture_output=True, text=True,
-                             timeout=timeout_s)
-        rc, text = out.returncode, (out.stdout or "") + (out.stderr or "")
-    except subprocess.TimeoutExpired as exc:
-        rc = 124
-        text = f"TIMEOUT after {timeout_s}s\n" + str(exc.stdout or "")[-2000:]
-    return {"suite": suite, "rc": rc, "passed": rc == 0,
-            "seconds": round(time.monotonic() - started, 1), "tail": text[-3000:]}
-
-
 def _suite_ok(suite: str) -> bool:
     return bool(re.match(r"^tests/test_[A-Za-z0-9_]+\.py$", str(suite or "")))
 
@@ -324,12 +326,9 @@ def _suite_ok(suite: str) -> bool:
 class Workspace:
     """The model's only hands: structured actions applied by code, every write path-checked."""
 
-    def __init__(self, root: Path, *, runner=run_suite, test_timeout_s: int = 900):
+    def __init__(self, root: Path):
         self.root = Path(root)
-        self.runner = runner
-        self.test_timeout_s = test_timeout_s
         self.changes: dict[str, tuple[str | None, str]] = {}
-        self.test_runs: list[dict] = []
 
     def _path(self, rel: str) -> Path:
         rel = safety.normalize(rel)
@@ -403,35 +402,15 @@ class Workspace:
                 self._write(rel, str(action.get("content") or ""))
                 return f"created {rel}"
             if op == "test":
-                suite = str(action.get("suite") or "")
-                if not _suite_ok(suite) or not (self.root / "brambleloop" / suite).exists():
-                    return f"test refused: {suite!r} is not an existing tests/test_*.py file"
-                # Code the model wrote runs here, so the rails that keep secrets, network,
-                # subprocesses and spend out of a diff are checked before it runs at all.
-                blocked = execution_rails(self.changes)
-                if blocked:
-                    return "test not run: " + "; ".join(blocked)[:1500]
-                res = self.runner(self.root, suite, self.test_timeout_s)
-                self.test_runs.append(res)
-                return (f"{suite}: {'PASSED' if res['passed'] else 'FAILED'} rc={res['rc']} "
-                        f"in {res['seconds']}s\n{res['tail'][-2500:]}")
+                # B19 A1: model-written code never runs in the production worker. Tests run
+                # in the CI sandbox after the rails and the reviewer pass and the branch is
+                # pushed; name the suites in `targets` instead.
+                return ("test not run: tests never run in the production worker; name the "
+                        "suites that prove the change in `targets` and they run in CI after "
+                        "review and push")
             return f"unknown op {op!r}"
         except (OSError, ValueError, PermissionError, re.error, UnicodeDecodeError) as exc:
             return f"{op} refused: {type(exc).__name__}: {exc}"[:600]
-
-
-def execution_rails(changes: dict) -> list[str]:
-    """The rails that must hold before any model-written code is executed."""
-    out = []
-    for path, (old, new) in changes.items():
-        why = safety.path_refusal(path)
-        if why:
-            out.append(why)
-            continue
-        out.extend(safety.secret_findings(path, old, new))
-        out.extend(safety.spend_path_findings(path, old, new))
-        out.extend(safety.test_execution_findings(path, old, new))
-    return out
 
 
 # ---- the loop --------------------------------------------------------------------------------
@@ -452,7 +431,8 @@ ORIENTATION = (
     "brambleloop/tests/test_*.py, each a plain script run as `python3 tests/test_x.py` from "
     "brambleloop/ with PYTHONPATH=src:tests; most import `_tmp` and build a temp sqlite "
     "Database. Job handlers register in runtime/release.py. ECR rows live in "
-    "improve/ecr.py. Use `test` with a path relative to brambleloop/ (tests/test_x.py).")
+    "improve/ecr.py. Nothing runs here: name the suites that prove the change in `targets` "
+    "(paths relative to brambleloop/, tests/test_x.py); they run in CI after review.")
 
 
 @dataclass
@@ -526,8 +506,11 @@ def text_changes(ws: Workspace) -> dict[str, tuple[str | None, str | None]]:
     return {p: (old, new) for p, (old, new) in ws.changes.items() if old != new}
 
 
-def gate(ws: Workspace, loop: LoopResult, limits_: Limits) -> dict:
-    """Deterministic: the rails, then the targeted suites + the two mandatory suites."""
+def gate(ws: Workspace, loop: LoopResult) -> dict:
+    """Deterministic and execution-free: the rails, then the suites CI will run.
+
+    Runs nothing (B19 A1). The suites are the model's named targets plus every test file it
+    changed, plus the two mandatory suites; CI runs them after review and push."""
     changes = text_changes(ws)
     rails = safety.check_changeset(changes)
     if rails:
@@ -541,13 +524,15 @@ def gate(ws: Workspace, loop: LoopResult, limits_: Limits) -> dict:
         return {"passed": False, "stage": "targets", "suites": [],
                 "reasons": ["no targeted test suite: a change must be proven by a test it "
                             "names or changes"]}
-    results = [ws.runner(ws.root, s, limits_.test_timeout_s)
-               for s in [*targets, *MANDATORY_SUITES]]
-    failed = [f"{x['suite']} rc={x['rc']}" for x in results if not x["passed"]]
-    return {"passed": not failed, "stage": "tests" if failed else "passed",
-            "reasons": failed, "suites": [{k: x[k] for k in ("suite", "rc", "passed",
-                                                              "seconds")} for x in results],
+    suites = [*targets, *MANDATORY_SUITES]
+    return {"passed": True, "stage": "rails_passed", "reasons": [],
+            "suites": [{"suite": x, "where": "ci", "result": "pending"} for x in suites],
             "targets": targets}
+
+
+def ci_trailer(suites: list[str]) -> str:
+    ok = [x for x in suites if _suite_ok(x)]
+    return f"{CI_TRAILER} {' '.join(ok)}"
 
 
 @dataclass(frozen=True)
@@ -573,7 +558,9 @@ def review(r: dict, diff: str, summary: str, gate_result: dict, budget: Budget,
     """The independent reviewer. SHIP only when it says SHIP and every check is true."""
     values = {"ecr": ecr_brief(r), "summary": summary or "(none given)",
               "rails": "passed (paths, test weakening, secrets, spend/network/exec, size)",
-              "tests": json.dumps(gate_result.get("suites") or []),
+              "tests": ("not yet run: these suites run in the CI sandbox after your SHIP "
+                        "and the push; a red CI result refuses the change: "
+                        + json.dumps([x.get("suite") for x in gate_result.get("suites") or []])),
               "diff": diff[:60_000]}
     ans = guarded_call(budget, gateway, REVIEW_PROMPT, values)
     checks = ans.get("checks") if isinstance(ans.get("checks"), dict) else {}
@@ -642,10 +629,51 @@ def _gateway_default(db, ctx_job_id, registry):
 
 # ---- the job ---------------------------------------------------------------------------------
 
+def ci_readback(db, host, *, now: datetime | None = None) -> dict:
+    """B19 A1: read the CI sandbox's verdict for every submitted request, before any spend.
+
+    Only a `success` status in context `CI_CONTEXT`, posted by `CI_CREATOR`, on the exact SHA
+    this job pushed, moves the request to `code_certified` (and the ECR to REVIEWED). A
+    failure or error refuses it; no verdict within `CI_TIMEOUT` refuses it as `ci_no_result`;
+    anything else leaves it waiting. Never raises: an unreadable host leaves everything as is."""
+    from . import ecr
+
+    now = now or datetime.now(timezone.utc)
+    out = {"checked": 0, "certified": [], "failed": [], "waiting": [], "unreadable": []}
+    for r in ecr.listing(db, open_only=False, limit=500):
+        ac = (r.get("evidence") or {}).get("autocoder") or {}
+        if ac.get("status") != SUBMITTED or not ac.get("sha"):
+            continue
+        out["checked"] += 1
+        try:
+            st = host.ci_status(str(ac["sha"]), CI_CONTEXT)
+        except Exception as exc:  # noqa: BLE001 - unreadable is not a verdict
+            out["unreadable"].append({"ecr": r["id"], "error": type(exc).__name__})
+            continue
+        state = str((st or {}).get("state") or "none")
+        trusted = (st or {}).get("creator") == CI_CREATOR
+        if state == "success" and trusted:
+            mark_certified(db, r["id"], sha=str(ac["sha"]), ci=st, by="autocoder-ci")
+            out["certified"].append(r["id"])
+        elif state in ("failure", "error") and trusted:
+            _note(db, r["id"], status=REFUSED, at=now.isoformat(), reason="ci_failed",
+                  ci={"state": state, "url": str((st or {}).get("target_url") or "")[:300]},
+                  detail=f"CI ({CI_CONTEXT}) reported {state} on {str(ac['sha'])[:12]}")
+            out["failed"].append(r["id"])
+        elif (_aware(ac.get("at")) or now) < now - CI_TIMEOUT:
+            _note(db, r["id"], status=REFUSED, at=now.isoformat(), reason="ci_no_result",
+                  detail=f"no trusted {CI_CONTEXT} result within {CI_TIMEOUT}")
+            out["failed"].append(r["id"])
+        else:
+            out["waiting"].append(r["id"])
+    return out
+
+
 def run(db, *, registry=None, job_id: int | None = None, host=None, make_gateway=None,
-        runner=run_suite, env=None, now: datetime | None = None, clock=time.monotonic,
+        env=None, now: datetime | None = None, clock=time.monotonic,
         workdir: Path | None = None) -> dict:
-    """One `improve.code` run: at most one request taken from pick to push (or refusal)."""
+    """One `improve.code` run: the CI readback, then at most one request taken from pick to
+    push (or refusal). Executes nothing the model wrote (B19 A1)."""
     from . import ecr
 
     env = os.environ if env is None else env
@@ -663,13 +691,13 @@ def run(db, *, registry=None, job_id: int | None = None, host=None, make_gateway
     if not base:
         blockers.append(f"no integration base: set {BASE_VAR} or run where {PROD_SHA_VAR} "
                         f"is reported")
-    if shutil.which("git") is None:
-        blockers.append("git binary not in this image (test_w4_resume_runner needs it)")
     if blockers:
         out = {"status": UNKNOWN, "work_done": 0, "blockers": blockers,
                "reason": "blocked before any spend: " + "; ".join(blockers)}
         _audit(db, {"ecr": None, "outcome": UNKNOWN, "blockers": blockers})
         return out
+    host = host or _host_default()
+    ci = ci_readback(db, host, now=now)
     L = limits(env)
     month_before = month_spent_cad(db, now)
     if month_before >= L.month_cad:
@@ -680,20 +708,28 @@ def run(db, *, registry=None, job_id: int | None = None, host=None, make_gateway
         return out
     r = pick(db, now)
     if r is None:
-        return {"status": IDLE, "work_done": 0, "reason": "no eligible open change request"}
+        return {"status": IDLE, "work_done": 0, "reason": "no eligible open change request",
+                "ci": ci}
     prev = (r.get("evidence") or {}).get("autocoder") or {}
     attempts = int(prev.get("attempts") or 0) + 1
+    jobs = [j for j in (prev.get("jobs") or []) if isinstance(j, int)]
+    if job_id is not None and job_id not in jobs:
+        jobs.append(int(job_id))
+    # Written before any spend, so a crash mid-run leaves the job id on the request and the
+    # ledger rows it billed are counted next time (B19 A5).
     _note(db, r["id"], status=CODING, at=now.isoformat(), attempts=attempts, job=job_id,
-          base=base)
-    budget = Budget(L, month_before, ecr_before_cad=float(prev.get("spent_cad") or 0.0),
-                    ecr_before_tokens=int(prev.get("tokens") or 0), clock=clock)
+          jobs=jobs, base=base)
+    ledger_cad, ledger_tok = ecr_ledger_spend(db, jobs)
+    budget = Budget(L, month_before,
+                    ecr_before_cad=max(float(prev.get("spent_cad") or 0.0), ledger_cad),
+                    ecr_before_tokens=max(int(prev.get("tokens") or 0), ledger_tok),
+                    clock=clock)
     budget.started = clock()
-    host = host or _host_default()
     make_gateway = make_gateway or _gateway_default(db, job_id, registry)
     scratch = tempfile.TemporaryDirectory(prefix="autocoder-",
                                           dir=str(workdir) if workdir else None)
     tmp = Path(scratch.name)
-    result: dict = {"ecr": r["id"], "attempt": attempts, "base": base}
+    result: dict = {"ecr": r["id"], "attempt": attempts, "base": base, "ci": ci}
     try:
         try:
             base_sha = host.materialize(base, tmp)
@@ -701,7 +737,7 @@ def run(db, *, registry=None, job_id: int | None = None, host=None, make_gateway
             return _park(db, r, result, budget, attempts,
                          f"workspace: {type(exc).__name__}: {str(exc)[:200]}")
         result["base_sha"] = base_sha
-        ws = Workspace(tmp, runner=runner, test_timeout_s=L.test_timeout_s)
+        ws = Workspace(tmp)
         try:
             step_gw = make_gateway(STEP_TASK)
         except Exception as exc:  # noqa: BLE001 - Parked, no provider, refused route
@@ -716,7 +752,7 @@ def run(db, *, registry=None, job_id: int | None = None, host=None, make_gateway
             return _refuse(db, r, result, budget, "did_not_finish",
                            [f"stopped: {loop.stop or 'not done'}"])
         changes = text_changes(ws)
-        g = gate(ws, loop, L)
+        g = gate(ws, loop)
         result["gate"] = {k: g[k] for k in ("passed", "stage", "suites")}
         if not g["passed"]:
             return _refuse(db, r, result, budget, f"gate_{g['stage']}", g["reasons"])
@@ -734,12 +770,12 @@ def run(db, *, registry=None, job_id: int | None = None, host=None, make_gateway
         if not rv.ship:
             return _refuse(db, r, result, budget, "review_block",
                            list(rv.reasons) or [f"verdict {rv.verdict}"])
+        suites = [x["suite"] for x in g["suites"]]
         message = (f"ENG-AUTOCODER: ECR {r['id']} -- {str(r.get('title') or '')[:72]}\n\n"
                    f"{loop.summary[:1500]}\n\nBase: {base_sha}\nReview: SHIP "
-                   f"({rv.model or 'reviewer'})\nSuites: "
-                   + ", ".join(s["suite"] for s in g["suites"])
-                   + f"\nRun by the improve.code job {job_id}; promotion is the "
-                     f"certify-and-promote pipeline's.")
+                   f"({rv.model or 'reviewer'})\nRun by the improve.code job {job_id}; tests "
+                   f"run in the autocoder-ci workflow; promotion is the certify-and-promote "
+                   f"pipeline's.\n\n{ci_trailer(suites)}")
         try:
             pushed = submit(host, ecr_id=r["id"], base_sha=base_sha, changes=changes,
                             review_=rv, message=message)
@@ -753,13 +789,9 @@ def run(db, *, registry=None, job_id: int | None = None, host=None, make_gateway
         _note(db, r["id"], status=SUBMITTED, at=datetime.now(timezone.utc).isoformat(),
               attempts=attempts, branch=pushed["branch"], sha=pushed["sha"],
               base=base_sha, spent_cad=round(budget.ecr_before_cad + budget.run_cad(), 6),
-              tokens=budget.ecr_before_tokens + budget.run_tokens(), reason=None)
-        for to in (ecr.BUILDING, ecr.REVIEWED):
-            try:
-                ecr.advance(db, r["id"], to, by=AGENT, commit=pushed["sha"],
-                            note=f"auto/ecr-{r['id']} at {pushed['sha'][:12]}")
-            except ecr.ECRRefused:
-                pass
+              tokens=budget.ecr_before_tokens + budget.run_tokens(), reason=None,
+              suites=suites, ci={"state": "pending", "context": CI_CONTEXT})
+        # The lifecycle does not move on a push: only a green CI result does (`ci_readback`).
         return _finish(db, result, budget)
     finally:
         scratch.cleanup()
@@ -796,10 +828,34 @@ def _finish(db, result: dict, budget: Budget) -> dict:
     return result
 
 
-def mark_certified(db, ecr_id: int, *, sha: str, by: str) -> dict:
-    """For the integrator / pipeline readback: the submitted branch passed certification."""
-    return _note(db, ecr_id, status=CERTIFIED, certified_sha=sha[:64], certified_by=by,
-                 at=datetime.now(timezone.utc).isoformat())
+class NotCertified(PermissionError):
+    pass
+
+
+def mark_certified(db, ecr_id: int, *, sha: str, ci: dict, by: str) -> dict:
+    """`code_certified`, and the ECR to BUILDING -> REVIEWED, only on a green CI result for the
+    exact SHA this job pushed (B19 A1). Anything else raises `NotCertified`."""
+    from . import ecr
+
+    if not isinstance(ci, dict) or ci.get("state") != "success" \
+            or ci.get("creator") != CI_CREATOR or ci.get("sha") not in (None, sha):
+        raise NotCertified(f"no green {CI_CONTEXT} result from {CI_CREATOR} for {sha[:12]}")
+    row = next((x for x in ecr.listing(db, open_only=False, limit=500)
+                if x["id"] == ecr_id), None)
+    ac = ((row or {}).get("evidence") or {}).get("autocoder") or {}
+    if ac.get("status") != SUBMITTED or ac.get("sha") != sha:
+        raise NotCertified(f"ECR {ecr_id} has no submitted push at {sha[:12]}")
+    out = _note(db, ecr_id, status=CERTIFIED, certified_sha=sha[:64], certified_by=by,
+                ci={"state": "success", "context": CI_CONTEXT,
+                    "url": str(ci.get("target_url") or "")[:300]},
+                at=datetime.now(timezone.utc).isoformat())
+    for to in (ecr.BUILDING, ecr.REVIEWED):
+        try:
+            ecr.advance(db, ecr_id, to, by=AGENT, commit=sha,
+                        note=f"auto/ecr-{ecr_id} at {sha[:12]}: CI green")
+        except ecr.ECRRefused:
+            pass
+    return out
 
 
 # ---- Mission Control ------------------------------------------------------------------------
@@ -857,8 +913,6 @@ def panel(db, *, now: datetime | None = None, env=None) -> dict:
         blockers.append(f"{TOKEN_VAR} not set")
     if not base_ref(env):
         blockers.append("no integration base")
-    if shutil.which("git") is None:
-        blockers.append("git binary not in this image")
     with db.session() as s:
         last = s.scalars(select(AuditLog).where(AuditLog.action == ACTION)
                          .order_by(AuditLog.id.desc()).limit(1)).first()

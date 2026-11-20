@@ -25,7 +25,19 @@ The rails:
   or to reach the outside is a human-reviewed change, not an autonomous one.
 * **Size** (`MAX_FILES`, `MAX_CHANGED_LINES`): small diffs only.
 
+* **Source weakening** (`source_weakening_findings`, B19 A3): a source change may not delete a
+  `raise`, `assert` or refusal line, or change a module-level constant a check may read.
+
 `check_changeset` runs all of them and returns the refusals (empty = the rails pass).
+
+**These rails are lint, not a security boundary** (B19 A1). Pattern matching over a diff can be
+defeated (string concatenation, `importlib`), so nothing relies on it to contain hostile code.
+The boundaries are elsewhere: (1) model-written code is never executed in the production worker
+-- it runs only in the credential-free `autocoder-ci` GitHub Actions job after review and push;
+(2) the editable surface excludes every gate, guard, ceiling, credential, session, authority and
+child-safety module by list and by name (`SENSITIVE_NAME`); (3) the `auto/*` ref restriction
+is to be enforced server-side by a repository ruleset the autocoder's token cannot bypass
+(OWNER_ACTIONS_AUTOCODER.md). The in-process allowlist is a second line, not the first.
 """
 from __future__ import annotations
 
@@ -101,13 +113,39 @@ PROTECTED_PATHS: tuple[str, ...] = (
     SRC + "ops/standing_", SRC + "ops/owner_queue_guard.py", SRC + "ops/owner_execution.py",
     # the worker's lease, phase and external-effect machinery
     SRC + "runtime/worker.py", SRC + "queue/",
+    # B19 A2: child safety outside gates/ -- the children's audience rules and the PDF
+    # warning block that prints them
+    SRC + "intel/childrens.py", SRC + "creative/children.py", SRC + "publish/pdf.py",
+    SRC + "publish/release_gates.py", SRC + "seasonal/childrens_demand.py",
+    # B19 A2: auth, sessions, TOTP and OAuth
+    SRC + "core/opsauth.py", SRC + "core/readbackauth.py", SRC + "core/oauth_store.py",
+    SRC + "integrations/etsy_oauth.py", SRC + "integrations/etsy_authorise.py",
+    SRC + "app/command_center/private_context.py", SRC + "app/command_center/api.py",
+    SRC + "commerce/shop_security.py",
+    # B19 A2: spend ceilings and authority outside finance/ and authority/
+    SRC + "visual/spend_plan.py", SRC + "visual/product_authority.py",
+    SRC + "visual/approval_record.py", SRC + "intel/insights_budget.py",
+    SRC + "ops/standing_policy.py", SRC + "build2/gate_clearance.py",
+    # B19 A2: the boot guard and the release record's readers
+    SRC + "app/command_center/release_card.py",
     # the autocoder itself, and the tests that pin the rails
     SRC + "improve/autocoder",
     TESTS + "test_eng_autocoder.py", TESTS + "test_vacuity.py",
     TESTS + "test_w4_resume_runner.py", TESTS + "_tmp.py", TESTS + "_minipytest.py",
     TESTS + "_spend_reach.py", TESTS + "test_deploy_guard.py",
     TESTS + "test_cert_spend_hosts.py", TESTS + "__init__.py",
+    # B19 A4: every shared test helper (`tests/_*.py`) is protected by prefix
+    TESTS + "_",
+    TESTS + "test_autopromote.py", TESTS + "test_workflow_lint.py",
 )
+
+# B19 A2: protected by NAME as well as by list, so a module added later whose name says it is a
+# gate, guard, ceiling, credential or child-safety rule is protected the day it lands, without
+# anyone remembering to list it. Matched against every path component (directory or file stem).
+SENSITIVE_NAME = re.compile(
+    r"child|minor|kid|auth|oauth|secret|credential|token|session|totp|mfa|password|login|"
+    r"security|spend|ceiling|budget|reserv|authority|approv|guard|gate|boot|release_|"
+    r"deploy|kill_switch|safety|permission|consent|casl|workflow", re.I)
 
 
 def normalize(path: str) -> str:
@@ -124,6 +162,13 @@ def path_refusal(path: str) -> str:
         return f"{path!r}: not a plain repository-relative path"
     if any(part.startswith(".") and part not in (".",) for part in p.split("/")):
         return f"{p}: hidden paths are not editable"
+    if p.startswith(ALLOWED_ROOTS):
+        for part in p[len("brambleloop/"):].split("/"):
+            stem = part.rsplit(".", 1)[0]
+            if SENSITIVE_NAME.search(stem):
+                return (f"{p}: protected by name ({stem!r} names a gate, guard, ceiling, "
+                        f"credential, authority or child-safety module) -- the autocoder "
+                        f"never edits it")
     for prot in PROTECTED_PATHS:
         # A prefix entry ends in "/" (a directory) or "_" (a family of files); the
         # autocoder's own modules are a prefix too. Anything else is one exact file.
@@ -182,9 +227,53 @@ class TestShape:
     parsed: bool = True
     functions: dict[str, int] = field(default_factory=dict)   # name -> assertion count
     early_return: set[str] = field(default_factory=set)
+    fingerprints: dict[str, list[str]] = field(default_factory=dict)
     total_asserts: int = 0
     vacuous: int = 0
     skips: int = 0
+
+
+def _in_nested_def(top: ast.AST, target: ast.AST) -> bool:
+    for sub in ast.walk(top):
+        if sub is not top and isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                               ast.Lambda, ast.ClassDef)):
+            if any(x is target for x in ast.walk(sub)):
+                return True
+    return False
+
+
+def _returns_before_assert(body: list) -> bool:
+    """B19 A4: a `return` (or `pass`-only body) reachable before the first assertion, at any
+    nesting depth: `if True: return`, `try: return`, `for ...: return` all count."""
+    stmts = [b for b in body if not (isinstance(b, ast.Expr) and isinstance(b.value, ast.Constant))]
+    if not stmts or all(isinstance(b, ast.Pass) for b in stmts):
+        return True
+    for stmt in stmts:
+        if isinstance(stmt, ast.Return):
+            return True
+        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        rets = [sub.lineno for sub in ast.walk(stmt) if isinstance(sub, ast.Return)
+                and not _in_nested_def(stmt, sub)]
+        asserts = [sub.lineno for sub in ast.walk(stmt)
+                   if isinstance(sub, ast.Assert) or _is_assert_call(sub)]
+        if rets and (not asserts or min(rets) <= min(asserts)):
+            return True     # a return inside this statement, at or before its first assertion
+        if asserts:
+            return False
+    return False
+
+
+def _assert_fingerprints(node: ast.AST) -> list[str]:
+    """B19 A4: what each assertion in a test checks, so `assert x == 5` -> `assert x is not
+    None` is a change the detector sees even though the count is the same."""
+    out = []
+    for sub in ast.walk(node):
+        if isinstance(sub, ast.Assert):
+            out.append(ast.dump(sub.test, annotate_fields=False))
+        elif _is_assert_call(sub):
+            out.append(ast.dump(sub, annotate_fields=False))
+    return sorted(out)
 
 
 def test_shape(source: str) -> TestShape:
@@ -205,15 +294,22 @@ def test_shape(source: str) -> TestShape:
             if args and _truthy_const(args[0]) and getattr(node.func, "attr", "") in (
                     "assertTrue", "check"):
                 shape.vacuous += 1
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) \
-                and node.name.startswith("test"):
-            n = sum(1 for sub in ast.walk(node)
-                    if isinstance(sub, ast.Assert) or _is_assert_call(sub))
-            shape.functions[node.name] = n
-            body = [b for b in node.body if not (isinstance(b, ast.Expr)
-                                                 and isinstance(b.value, ast.Constant))]
-            if body and isinstance(body[0], (ast.Return, ast.Pass)):
-                shape.early_return.add(node.name)
+
+    # B19 A4: key by qualified name (`Class.test_x`), so same-named methods do not collide.
+    def visit(body, prefix):
+        for node in body:
+            if isinstance(node, ast.ClassDef):
+                visit(node.body, f"{prefix}{node.name}.")
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                q = prefix + node.name
+                if node.name.startswith("test"):
+                    shape.functions[q] = sum(1 for sub in ast.walk(node)
+                                             if isinstance(sub, ast.Assert)
+                                             or _is_assert_call(sub))
+                    shape.fingerprints[q] = _assert_fingerprints(node)
+                    if _returns_before_assert(node.body):
+                        shape.early_return.add(q)
+    visit(tree.body, "")
     return shape
 
 
@@ -232,6 +328,12 @@ def test_weakening(path: str, old: str | None, new: str | None) -> list[str]:
             out.append(f"{p}: test {name} removed")
         elif after.functions[name] < n:
             out.append(f"{p}: test {name} lost assertions ({n} -> {after.functions[name]})")
+        else:
+            gone = [fp for fp in before.fingerprints.get(name, [])
+                    if fp not in after.fingerprints.get(name, [])]
+            if gone:
+                out.append(f"{p}: test {name} changed or replaced {len(gone)} existing "
+                           f"assertion(s); assertions may be added, never rewritten")
     if after.total_asserts < before.total_asserts:
         out.append(f"{p}: assertions removed ({before.total_asserts} -> "
                    f"{after.total_asserts})")
@@ -343,6 +445,48 @@ def spend_path_findings(path: str, old: str | None, new: str | None) -> list[str
     return out
 
 
+# ---- B19 A3: what a source change takes away ------------------------------------------------
+#
+# The other rails read added lines. A gate is as easily weakened by a deletion (a `raise`,
+# an `assert`, a refusal branch) or by moving a module-level constant a check reads. These are
+# refused outright in source: removing a check, or retuning a threshold, is a human change.
+# This is lint, not a sandbox -- the security boundary is that model-written code never runs in
+# production (it runs only in the credential-free CI job) and the editable surface excludes
+# every gate, guard, ceiling, credential and authority module by list and by name.
+
+_CHECK_LINE = re.compile(r"^\s*(?:raise\b|assert\b|return\s+False\b)|"
+                         r"\b(?:refus|reject|forbid|deny|denied|block|blocked)\w*\b", re.I)
+_CONST_ASSIGN = re.compile(r"^([A-Z][A-Z0-9_]{2,})\s*(?::[^=]+)?=(?!=)\s*(.+)$")
+
+
+def removed_lines(old: str | None, new: str | None) -> list[str]:
+    a = (old or "").splitlines()
+    b = (new or "").splitlines()
+    return [ln[1:] for ln in difflib.unified_diff(a, b, lineterm="", n=0)
+            if ln.startswith("-") and not ln.startswith("---")]
+
+
+def source_weakening_findings(path: str, old: str | None, new: str | None) -> list[str]:
+    p = normalize(path)
+    if is_test_file(p) or not p.endswith(".py") or old is None:
+        return []
+    added = {ln.strip() for ln in added_lines(old, new)}
+    out = []
+    for ln in removed_lines(old, new):
+        code = ln.split("#", 1)[0]
+        if not code.strip() or code.strip() in added:
+            continue                        # moved or re-indented unchanged
+        if _CHECK_LINE.search(code):
+            out.append(f"{p}: removes or rewrites a check ({code.strip()[:80]!r}); "
+                       f"deleting a raise/assert/refusal is a human change")
+            continue
+        m = _CONST_ASSIGN.match(code)
+        if m:
+            out.append(f"{p}: changes the module constant {m.group(1)}; retuning a "
+                       f"threshold a check may read is a human change")
+    return out
+
+
 # ---- the whole changeset ---------------------------------------------------------------------
 
 MAX_FILES = 10
@@ -403,4 +547,5 @@ def check_changeset(changes: dict[str, tuple[str | None, str | None]]) -> list[s
         refusals.extend(secret_findings(path, old, new))
         refusals.extend(spend_path_findings(path, old, new))
         refusals.extend(test_execution_findings(path, old, new))
+        refusals.extend(source_weakening_findings(path, old, new))
     return refusals
