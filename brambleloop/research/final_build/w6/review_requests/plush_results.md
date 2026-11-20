@@ -22,7 +22,7 @@ The earlier run's `test_cert_lanes_capacity` and `test_cert_orders` failures rea
 source changed during analysis". They were artifacts of editing files mid-run, and both passed
 in the clean run.
 
-**Re-run of the timeouts:** RESULTS PENDING (filled in below when complete).
+**Re-run of the timeouts:** never recorded by the ENG-PLUSH session. Treat those five suites as NOT RUN here. The ENG-PLUSH-FIX round-2 run below covers the review's own list, not these five.
 
 ## Mutation
 
@@ -47,3 +47,13 @@ must kill it.
 - **Minutes required:** about 5.
 - **Consequence of waiting:** the cushion families certify, but no cushion PDF or listing can be
   produced.
+
+## ENG-PLUSH-FIX round 2 (measured at f95e603)
+
+- **Suites:** run `20261120T130816Z-22908`, `PY=python3 JOBS=1 SUITE_REGISTRY=0`, tree clean at start.
+  - It covered the 27 suites the review listed, plus test_vacuity, test_w4_resume_runner, test_garments, test_fastlane and test_s1_fix_size_families. The two lists overlap, so the run was 30 suites.
+  - **TOTAL PASSING: 565; suites failing: 0.** 1811 s.
+  - The previous run, at 098e119 (`20261120T123732Z-2109`, JOBS=2), had the same result: 565 passing and 0 failing.
+- **Mutation:** `MUTATE_JOBS=3 python3 scripts/mutate_plush.py` at f95e603. The baseline was green.
+  - **65 of 65 killed, 0 survived, 0 errored.**
+  - At 098e119 it was 64 of 65. The survivor was "pdf ignores the age band". The test now asserts the older eye-options reading itself, not the band label, which the children's statements also print.
