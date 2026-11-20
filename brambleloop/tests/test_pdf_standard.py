@@ -58,12 +58,19 @@ def _status(r, name):
     return next(c["status"] for c in r["checks"] if c["check"] == name)
 
 
-def test_both_premium_editions_pass_from_their_bytes():
+def test_both_engine_editions_pass_every_structural_check_from_their_bytes():
+    """The engine layout's premium editions meet every structural and photo-slot rule. They
+    still FAIL as a whole: the engine cover carries no owner logo (D-OWNER-PDF-LOGO), which
+    is why the sale pipeline certifies only the owner template (test_sale_pipeline_e2e)."""
     C = _fixture()
     assert C["plan"]["problems"] == []
     for t in PS.TERMINOLOGIES:
         r = PS.check(C[t], cir=C["cir"], terminology=t, expected=C["expected"])
-        assert r["verdict"] == PS.PASS, (t, [c for c in r["checks"] if c["status"] != "PASS"])
+        assert r["layout"] == "engine"
+        assert r["verdict"] == PS.FAIL and r["failed"] == ["logo:cover"], (t, r["failed"])
+        r2 = PS.check(C[t], cir=C["cir"], terminology=t, expected=C["expected"],
+                      require_template=True)
+        assert set(r2["failed"]) == {"logo:cover", "layout"}, r2["failed"]
         for slot in PP.SLOTS:
             assert _status(r, f"slot:{slot}") == PS.PASS
         for name in ("sections", "licence_page", "stitch_counts", "schematic", "diagrams",
@@ -103,7 +110,10 @@ def test_images_that_are_not_the_certified_frames_never_count():
 def test_no_expectation_is_unknown_never_pass():
     C = _fixture()
     r = PS.check(C["US"], cir=C["cir"], terminology="US", expected=None)
-    assert r["verdict"] == PS.UNKNOWN, r["verdict"]
+    # Without an expectation every photo slot is UNKNOWN, never PASS (the engine cover's
+    # missing logo FAILs on its own, so the verdict is FAIL here, still never PASS).
+    assert r["verdict"] != PS.PASS and all(
+        _status(r, f"slot:{s}") == PS.UNKNOWN for s in PP.SLOTS), r["checks"]
     assert PS.check(b"not a pdf", cir=C["cir"], terminology="US",
                     expected=C["expected"])["verdict"] == PS.UNKNOWN
 

@@ -25,6 +25,19 @@ pypdf -- the file a buyer downloads, never the template or the layout's own repo
 * **the licence page**: every paragraph `commerce.terms` decides for the PDF appears, in the
   edition's own text, on the "Terms and support" pages.
 
+* **the canonical logo on the cover** (D-OWNER-PDF-LOGO): the cover page embeds an image
+  that is the owner's canonical logo (`brand/owner_source/...canonical.png`) as resampled for
+  the cover (`publish.pdf._cover_logo`). The match is perceptual -- the embedded picture,
+  decoded, is compared with the canonical rendition at a common small size -- so it holds
+  whether the layout embeds the logo as a JPEG or losslessly, and nothing else passes;
+* **layout** (D-OWNER-PDF-TEMPLATE): the owner's master template is detected from its own
+  printed footer. Under the template, its seven gallery slots must hold exactly the release's
+  seven certified renditions in certificate order (`slot:gallery7`), and the template's own
+  byte audit (`publish.pdf_template.audit`: page order, logo on the cover, every header and
+  the thank-you block, no placeholders, no template marker, a count on every row, no
+  uncertified photo) is part of the verdict. `require_template=True` (what the sale
+  pipeline certifies with) FAILs a PDF in any other layout.
+
 Each check is PASS, FAIL or UNKNOWN. The verdict is PASS only when every check PASSes;
 UNKNOWN is never PASS. `images="pending"` checks everything except the photo slots, which
 read PENDING: that is the pre-image readiness reading (D-OWNER-SPEND-ORDER: the text,
@@ -41,7 +54,7 @@ import re
 
 PASS, FAIL, UNKNOWN, PENDING = "PASS", "FAIL", "UNKNOWN", "PENDING"
 STANDARD_PATH = "research/benchmarks/PDF_STRUCTURE_STANDARD.md"
-CHECKER_VERSION = "pdf_standard/1"
+CHECKER_VERSION = "pdf_standard/2"
 TERMINOLOGIES = ("US", "UK")
 
 # Major sections start on a page of their own (`publish.pdf._render` calls new_page for
@@ -303,8 +316,123 @@ def _slots(doc: dict, expected: dict | None) -> list[dict]:
     return out
 
 
+TEMPLATE_FOOTER = "PATTERNS FOR A MORE HANDMADE LIFE"
+LOGO_MATCH_PX = 32          # both pictures compared at this size, greyscale
+LOGO_MAX_MEAN_DIFF = 8.0    # mean absolute difference out of 255
+LOGO_ASPECT_TOL = 0.03
+
+
+def layout_of(doc: dict) -> str:
+    """"template" when the owner's master layout's footer is printed on the body pages."""
+    body = doc["pages"][1:]
+    hits = sum(1 for p in body if TEMPLATE_FOOTER in _norm(p["text"]))
+    return "template" if body and hits >= max(1, len(body) // 2) else "engine"
+
+
+def _logo_signature(img):
+    from PIL import Image
+
+    g = img.convert("L").resize((LOGO_MATCH_PX, LOGO_MATCH_PX), Image.Resampling.BILINEAR)
+    return list(g.getdata()), img.size[0] / max(1, img.size[1])
+
+
+_LOGO_REF: list = []
+
+
+def _canonical_logo_signature():
+    if not _LOGO_REF:
+        from . import pdf as P
+
+        _LOGO_REF.append(_logo_signature(P._cover_logo()))
+    return _LOGO_REF[0]
+
+
+def logo_matches(img) -> bool:
+    """True when `img` (a decoded PIL image) is the canonical cover logo, perceptually."""
+    ref, ref_aspect = _canonical_logo_signature()
+    got, aspect = _logo_signature(img)
+    if abs(aspect - ref_aspect) > LOGO_ASPECT_TOL * ref_aspect:
+        return False
+    diff = sum(abs(a - b) for a, b in zip(got, ref)) / len(ref)
+    return diff <= LOGO_MAX_MEAN_DIFF
+
+
+def _cover_logo_check(pdf_bytes: bytes) -> dict:
+    import pypdf
+
+    reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
+    if not reader.pages:
+        return _check("logo:cover", FAIL, "no pages")
+    seen = 0
+    for im in reader.pages[0].images:
+        try:
+            pic = im.image
+        except Exception:  # noqa: BLE001 - an undecodable image is not the logo
+            continue
+        seen += 1
+        if pic is not None and logo_matches(pic):
+            return _check("logo:cover", PASS, images_on_cover=seen)
+    return _check("logo:cover", FAIL, "the cover does not embed the canonical owner logo "
+                  "(D-OWNER-PDF-LOGO)", images_on_cover=seen)
+
+
+def _gallery7(doc: dict, expected: dict | None) -> dict:
+    """The owner template's seven gallery slots hold exactly the seven certified renditions,
+    in certificate order (D-OWNER-PDF-TEMPLATE, D-OWNER-GALLERY-COMPLETE)."""
+    from ..visual.shot_plans import CAMPAIGN_MIN_FRAMES
+
+    want = list((expected or {}).get("gallery_frames") or [])
+    if len(want) != CAMPAIGN_MIN_FRAMES:
+        return _check("slot:gallery7", UNKNOWN if not want else FAIL,
+                      f"the certified gallery names {len(want)} frames, "
+                      f"{CAMPAIGN_MIN_FRAMES} required", count=len(want))
+    order = []
+    for p in doc["pages"]:
+        if "GALLERY" not in p["text"].upper():
+            continue
+        for im in p["images"]:
+            if im.get("dct") and im.get("sha256") in want and im["sha256"] not in order:
+                order.append(im["sha256"])
+    ok = order == want
+    return _check("slot:gallery7", PASS if ok else FAIL,
+                  "" if ok else f"{len(order)} of {CAMPAIGN_MIN_FRAMES} certified gallery "
+                                f"images found in slot order", count=len(order))
+
+
+def _template_checks(pdf_bytes: bytes, doc: dict, cir, terminology: str,
+                     expected: dict | None, images: str) -> list[dict]:
+    from . import pdf_template as T
+
+    out = []
+    want = list((expected or {}).get("gallery_frames") or [])
+    exp = [{"rendition_sha256": w} for w in want] if want and images != "pending" else None
+    audit = T.audit(pdf_bytes, expected_gallery=exp)
+    for c in audit.get("checks") or []:
+        name = c.get("check")
+        if images == "pending" and name in ("gallery", "no_uncertified_photos"):
+            continue
+        out.append(_check(f"template:{name}", c.get("status") or UNKNOWN, c.get("why") or ""))
+    allt = _norm("\n".join(p["text"] for p in doc["pages"]))
+    title_ok = cir.title.casefold() in _norm(doc["pages"][0]["text"]).casefold()
+    out.append(_check("cover", PASS if title_ok else FAIL,
+                      "" if title_ok else "the cover does not name the pattern"))
+    t = terminology.upper()
+    term_ok = re.search(rf"\b{t}\b", allt) is not None
+    out.append(_check("terminology", PASS if term_ok else FAIL,
+                      "" if term_ok else f"the edition never names its {t} terminology"))
+    from . import pdf as P
+
+    paras = [_norm(ln[2:] if ln.startswith("- ") else ln) for ln in P.licence_paragraphs()]
+    flat = re.sub(r"\s+", " ", allt)
+    missing = [q[:60] for q in paras if q and re.sub(r"\s+", " ", q[:60]) not in flat]
+    out.append(_check("licence_page", FAIL if missing else PASS,
+                      f"licence paragraphs missing: {missing[:3]}" if missing else ""))
+    out.append(_page_range(doc, family(cir)))
+    return out
+
+
 def check(pdf_bytes: bytes, *, cir, terminology: str, expected: dict | None,
-          images: str = "required") -> dict:
+          images: str = "required", require_template: bool = False) -> dict:
     """Check one edition. `expected` is `pdf_photos.expected(slots)` (what certified images
     the slots must hold). `images="pending"` is the pre-image reading: every check but the
     photo slots, which read PENDING."""
@@ -318,6 +446,34 @@ def check(pdf_bytes: bytes, *, cir, terminology: str, expected: dict | None,
             "readable", UNKNOWN, f"{type(exc).__name__}: {str(exc)[:200]}")]}
     renditions = set((expected or {}).get("renditions") or {})
     checks = [_check("readable", PASS, pages=doc["page_count"])]
+    lay = layout_of(doc)
+    base["layout"] = lay
+    if require_template or lay == "template":
+        checks.append(_check("layout", PASS if lay == "template" else FAIL,
+                             "" if lay == "template" else
+                             "not the owner's master template (D-OWNER-PDF-TEMPLATE)",
+                             layout=lay))
+    if images == "pending" and lay != "template":
+        # The pre-image reading reads the release's engine-layout PDFs as a proxy for the
+        # text; the logo is certified on the premium build, which is always the template.
+        checks.append(_check("logo:cover", PENDING, "checked on the premium template build"))
+    else:
+        try:
+            checks.append(_cover_logo_check(pdf_bytes))
+        except Exception as exc:  # noqa: BLE001 - a logo that cannot be read is never a pass
+            checks.append(_check("logo:cover", UNKNOWN,
+                                 f"{type(exc).__name__}: {str(exc)[:200]}"))
+    if lay == "template":
+        try:
+            checks += _template_checks(pdf_bytes, doc, cir, terminology, expected, images)
+        except Exception as exc:  # noqa: BLE001
+            checks.append(_check("template", UNKNOWN, f"{type(exc).__name__}: {str(exc)[:200]}"))
+        if images == "pending":
+            checks.append(_check("slot:gallery7", PENDING, "image slots pending (pre-image "
+                                                           "reading)"))
+        else:
+            checks.append(_gallery7(doc, expected))
+        return _finish(base, doc, checks, images)
     for fn in (lambda: _sections(doc, cir, terminology), lambda: [_licence(doc)],
                lambda: [_stitch_counts(doc)],
                lambda: _schematic_and_diagrams(doc, renditions),
@@ -336,6 +492,10 @@ def check(pdf_bytes: bytes, *, cir, terminology: str, expected: dict | None,
             checks += _slots(doc, expected)
         except Exception as exc:  # noqa: BLE001
             checks.append(_check("slots", UNKNOWN, f"{type(exc).__name__}: {str(exc)[:200]}"))
+    return _finish(base, doc, checks, images)
+
+
+def _finish(base: dict, doc: dict, checks: list[dict], images: str) -> dict:
     statuses = [c["status"] for c in checks if c["status"] != PENDING]
     verdict = (FAIL if FAIL in statuses else UNKNOWN if UNKNOWN in statuses else PASS)
     if images == "pending":

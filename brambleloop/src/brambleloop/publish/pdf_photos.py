@@ -113,13 +113,24 @@ def plan(frames: list[dict]) -> dict:
         problems.append(f"gallery page needs {GALLERY_MIN}-{GALLERY_MAX} certified images; "
                         f"{len(gallery)} available")
     slots["gallery"] = gallery
-    return {"slots": slots, "problems": problems}
+    return {"slots": slots, "problems": problems, "photos": photos}
 
 
-def expected(slots: dict) -> dict:
+def expected(slots: dict, photos: list[dict] | None = None) -> dict:
     """What the checker must find, without the bytes: slot -> [rendition_sha256], plus the
-    rendition -> frame map. Stored on the PDF certificate."""
-    return {"slots": {s: [p["rendition_sha256"] for p in slots.get(s) or []] for s in SLOTS},
-            "renditions": {p["rendition_sha256"]: {"frame_sha256": p["frame_sha256"],
-                                                   "role": p["role"]}
-                           for s in SLOTS for p in slots.get(s) or []}}
+    rendition -> frame map. Stored on the PDF certificate.
+
+    With `photos` (every certified frame, `plan(...)["photos"]`), it also names the owner
+    template's seven gallery slots (D-OWNER-PDF-TEMPLATE): `gallery_frames`, the renditions
+    in certificate position order, which the template's gallery pages must carry exactly."""
+    out = {"slots": {s: [p["rendition_sha256"] for p in slots.get(s) or []] for s in SLOTS},
+           "renditions": {p["rendition_sha256"]: {"frame_sha256": p["frame_sha256"],
+                                                  "role": p["role"]}
+                          for s in SLOTS for p in slots.get(s) or []}}
+    if photos is not None:
+        ordered = sorted(photos, key=lambda p: int(p.get("position") or 0))
+        out["gallery_frames"] = [p["rendition_sha256"] for p in ordered]
+        for p in ordered:
+            out["renditions"].setdefault(p["rendition_sha256"], {
+                "frame_sha256": p["frame_sha256"], "role": p["role"]})
+    return out

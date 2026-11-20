@@ -813,25 +813,31 @@ def gallery_slots(db, slug, version, release, *, store_root=None) -> dict:
                 "record_id": reading["record_id"]}
     by_sha = {hashlib.sha256(d).hexdigest(): d for _n, d in imgs.get("images") or []}
     frames = [{"sha256": f.get("sha256"), "role": f.get("role") or f.get("kind"),
-               "position": f.get("position"), "data": by_sha.get(f.get("sha256"))}
+               "position": f.get("position"), "data": by_sha.get(f.get("sha256")),
+               "kind": f.get("kind") or "generated"}
               for f in reading["frames"]]
     got = PP.plan(frames)
-    return {**got, "record_id": reading["record_id"]}
+    return {**got, "frames": frames, "record_id": reading["record_id"]}
 
 
 def render_premium(db, slug: str, version: str, release: str, *, store_root=None) -> dict:
-    """Both premium editions, byte-deterministic: the certified pattern rendered exactly as
-    `commerce.deliverables` re-renders it (release date pinned, calibration, lesson links),
-    with the certified gallery in the standard's slots."""
+    """Both premium editions, byte-deterministic, in the owner's master template
+    (D-OWNER-PDF-TEMPLATE, `publish.pdf_template.build_template_pdf`): the certified pattern
+    (release date pinned, calibration) with the release's seven certified gallery frames in
+    the template's slots -- the same bytes the listing uploads (one spend)."""
     from ..cir.compiler import compile_cir
     from ..cir.twin import build_twin
-    from ..learn.service import pdf_help_links
     from ..quality.physical import calibration_from_db
-    from .pdf import TERMINOLOGIES, build_pattern_pdf
+    from . import pdf_photos as PP
+    from .pdf import TERMINOLOGIES
+    from .pdf_template import build_template_pdf
 
     plan = gallery_slots(db, slug, version, release, store_root=store_root)
-    if plan["slots"] is None or plan["problems"]:
+    if plan["slots"] is None:
         raise ValueError(f"gallery not usable for the PDF: {plan['problems'][:3]}")
+    bad = [p for p in plan["problems"] if "do not match" in p]
+    if bad:
+        raise ValueError(f"gallery not usable for the PDF: {bad[:3]}")
     cir, pv = _cir(db, slug, version)
     if cir is None or not pv["certified"] or pv["release_hash"] != release:
         raise ValueError("no certified pattern for exactly this release")
@@ -840,14 +846,11 @@ def render_premium(db, slug: str, version: str, release: str, *, store_root=None
         raise ValueError("the release has no date to pin")
     result = compile_cir(cir)
     twin = build_twin(cir, result, calibration=calibration_from_db(db, cir))
-    links = pdf_help_links(db, cir.to_dict())
-    docs = {t: build_pattern_pdf(cir, twin=twin, terminology=t, released_on=released_on,
-                                 lesson_links=links, campaign_photos=plan["slots"])
+    docs = {t: build_template_pdf(cir, twin=twin, terminology=t, released_on=released_on,
+                                  gallery=plan["frames"])
             for t in TERMINOLOGIES}
-    from . import pdf_photos as PP
-
-    return {"docs": docs, "expected": PP.expected(plan["slots"]),
-            "gallery_record_id": plan["record_id"], "cir": cir}
+    return {"docs": docs, "expected": PP.expected(plan["slots"], plan.get("photos")),
+            "gallery_record_id": plan["record_id"], "cir": cir, "layout": "template"}
 
 
 def _pdf_build(db, key, run, *, follow, start_images, store_root):
@@ -890,7 +893,8 @@ def certify_pdfs(db, slug: str, version: str, release: str, *, files: dict, expe
         sha = (files.get(t) or {}).get("sha256")
         try:
             data = store.get(sha, db=db)
-            r = PS.check(data, cir=cir, terminology=t, expected=expected)
+            r = PS.check(data, cir=cir, terminology=t, expected=expected,
+                         require_template=True)
         except Exception as exc:  # noqa: BLE001
             r = {"verdict": UNKNOWN, "checks": [{"check": "readable", "status": UNKNOWN,
                                                  "why": type(exc).__name__}],

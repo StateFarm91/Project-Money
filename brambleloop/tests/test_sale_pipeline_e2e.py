@@ -239,16 +239,72 @@ def test_both_premium_pdfs_embed_exactly_the_certified_gallery_and_are_certified
     R = _chain()
     assert R["certs"]["both_pass"], R["certs"]
     assert set(R["premium"]) == {"US", "UK"}
-    want = {PP.sha256(PP.rendition(R["double"].data[f["sha256"]])) for f in R["double"].frames
-            if f["role"] != "whats_included"}
+    # D-OWNER-PDF-TEMPLATE: the owner's master template carries all seven certified frames
+    # (its seven gallery slots, hero on the cover) and nothing else as a photograph.
+    from brambleloop.visual.shot_plans import CAMPAIGN_MIN_FRAMES
+
+    want = {PP.sha256(PP.rendition(R["double"].data[f["sha256"]])) for f in R["double"].frames}
+    assert len(want) == CAMPAIGN_MIN_FRAMES
     for t, data in R["premium"].items():
         doc = PS.read(data)
         embedded = {im["sha256"] for p in doc["pages"] for im in p["images"] if im.get("dct")}
         assert embedded == want, t
+        assert PS.layout_of(doc) == "template", t
+        expected = (R["run"]["evidence"] or {}).get("expected")
+        assert len(expected["gallery_frames"]) == CAMPAIGN_MIN_FRAMES, expected
+        r = PS.check(data, cir=R["cir"], terminology=t, expected=expected,
+                     require_template=True)
+        by = {c["check"]: c["status"] for c in r["checks"]}
+        assert r["verdict"] == "PASS", (t, r["failed"], r["unknown"])
+        assert by["logo:cover"] == by["slot:gallery7"] == by["layout"] == "PASS", by
         assert R["certs"]["editions"][t]["verdict"] == "PASS"
         assert R["certs"]["editions"][t]["bound_to_release_pdfs"]
     assert R["premium"]["US"] != R["premium"]["UK"]
 
+
+
+def test_the_checker_fails_a_wrong_logo_a_short_or_reordered_gallery_and_another_layout():
+    """Every new rule can fail on the real premium bytes (mutation, not vacuity)."""
+    from PIL import Image, ImageOps
+
+    from brambleloop.publish import pdf as P
+    from brambleloop.publish import pdf_standard as PS
+
+    R = _chain()
+    data = R["premium"]["US"]
+    expected = dict((R["run"]["evidence"] or {}).get("expected"))
+    frames = list(expected["gallery_frames"])
+    assert len(frames) == 7
+
+    def status(exp, name, **kw):
+        r = PS.check(data, cir=R["cir"], terminology="US", expected=exp, **kw)
+        return {c["check"]: c["status"] for c in r["checks"]}[name], r["verdict"]
+
+    assert status(expected, "slot:gallery7") == ("PASS", "PASS")
+    assert status({**expected, "gallery_frames": frames[:6]}, "slot:gallery7") == (
+        "FAIL", "FAIL")
+    assert status({**expected, "gallery_frames": frames[::-1]}, "slot:gallery7") == (
+        "FAIL", "FAIL")
+    # The logo match is perceptual against the canonical rendition, and nothing else passes.
+    logo = P._cover_logo()
+    assert PS.logo_matches(logo)
+    assert not PS.logo_matches(ImageOps.invert(logo.convert("RGB")))
+    assert not PS.logo_matches(Image.new("RGB", logo.size, (240, 236, 228)))
+    saved = list(PS._LOGO_REF)
+    PS._LOGO_REF[:] = [PS._logo_signature(ImageOps.invert(logo.convert("RGB")))]
+    try:
+        assert status(expected, "logo:cover") == ("FAIL", "FAIL")
+    finally:
+        PS._LOGO_REF[:] = saved
+    # The engine layout is refused when the sale pipeline requires the owner template.
+    hashes = (R["run"]["readiness"]["gates"]["pdf_text"] or {}).get("hashes")
+    base = SPL._base_pdf_bytes(R["db"], R["cir"].slug, R["cir"].version, R["release"], "US",
+                               hashes["US"])
+    r = PS.check(base, cir=R["cir"], terminology="US", expected=expected,
+                 require_template=True)
+    by = {c["check"]: c for c in r["checks"]}
+    assert r["layout"] == "engine" and by["layout"]["status"] == "FAIL", by["layout"]
+    assert r["verdict"] == "FAIL"
 
 def test_the_listing_package_carries_the_gallery_and_both_pdfs():
     R = _chain()
