@@ -105,8 +105,9 @@ def render_certified_pdfs(db, slug: str, version: str) -> dict[str, bytes]:
     result = compile_cir(cir)
     twin = build_twin(cir, result, calibration=calibration_from_db(db, cir))
     links = pdf_help_links(db, cir.to_dict())
-    return {t: build_pattern_pdf(cir, twin=twin, terminology=t, released_on=released_on,
-                                 lesson_links=links).pdf_bytes for t in TERMINOLOGIES}
+    from ..publish.pdf_template import build_customer_pdf  # the layout switch (PDF_LAYOUT)
+    return {t: build_customer_pdf(cir, twin=twin, terminology=t, released_on=released_on,
+                                  lesson_links=links, db=db).pdf_bytes for t in TERMINOLOGIES}
 
 
 def resolve_pdf(db, slug: str, version: str, terminology: str = "US", *, release: str = "",
