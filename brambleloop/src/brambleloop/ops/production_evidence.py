@@ -90,6 +90,22 @@ _REFUSAL_PREFIXES = (
     ("capability not enabled", "CapabilityNotEnabled"),
     ("budget exceeded", "BudgetExceeded"),
     ("provenance refused", "ProvenanceRefused"),
+    # legacy reclaim dead letters (before FIX-CYCLE-PROOF-BILLING): no class, just the clause
+    ("| lease expired", "LeaseExpired"),
+)
+# FIX-CYCLE-PROOF-BILLING: `_known_exception_names` walks the classes loaded in THIS process,
+# so a reader that had not imported the module defining an exception classified it
+# `unclassified` (a fresh process read "PaidCallUnresolved: ..." that way). The modules whose
+# exceptions dead letters carry are imported first, so the answer does not depend on what the
+# reading process happened to load.
+_EXCEPTION_MODULES = (
+    "brambleloop.core.resilience", "brambleloop.queue.durable", "brambleloop.queue.effects",
+    "brambleloop.queue.checkpoints", "brambleloop.gateway.paid_calls",
+    "brambleloop.gateway.anthropic", "brambleloop.gateway.images",
+    "brambleloop.gateway.failover", "brambleloop.gateway.paid_provider_gate",
+    "brambleloop.creative.prospecting", "brambleloop.creative.prototype",
+    "brambleloop.creative.concept", "brambleloop.commerce.intent",
+    "brambleloop.seasonal.cycle",
 )
 _CLASS = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*:")
 _CLASS_NAME = re.compile(r"^[A-Z][A-Za-z0-9_]{1,63}$")
@@ -99,6 +115,13 @@ def _known_exception_names() -> frozenset[str]:
     """L1 (READBACK review): the names of every exception class loaded in this process. A name
     is emitted only when it is one of these, so one word of error text ("JaneDoe: refund
     requested") can never travel as an error_class."""
+    import importlib
+
+    for mod in _EXCEPTION_MODULES:
+        try:
+            importlib.import_module(mod)
+        except Exception:  # noqa: BLE001 - an unimportable module cannot name a class
+            continue
     seen, stack = set(), [BaseException]
     while stack:
         cls = stack.pop()

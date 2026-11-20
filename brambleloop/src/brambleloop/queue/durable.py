@@ -99,6 +99,17 @@ STAND_ASIDE_MARKERS: tuple[str, ...] = ("another replica", "asked for pack")
 DELIBERATE_REFUSAL_MARKERS: tuple[str, ...] = CAPABILITY_REFUSAL_MARKERS + STAND_ASIDE_MARKERS
 
 
+class LeaseExpired(Exception):
+    """A job's lease lapsed on every attempt (worker killed, or past MAX_HANDLER_SECONDS).
+
+    Never raised: it names the dead letter the reclaim path writes, so the error head is a
+    class every reader can classify rather than a bare " | lease expired" fragment."""
+
+
+LEASE_EXHAUSTED_HEAD = ("LeaseExpired: lease expired on every attempt, retries exhausted "
+                        "(the worker was lost or the handler outran its lease cap)")
+
+
 def classify_dead_letter(job_type: str, last_error: str = "") -> str:
     """REFUSED, STOOD_ASIDE or DEFECT. The single source every dead-letter reader uses."""
     if job_type in DELIBERATE_REFUSAL_TYPES:
@@ -119,6 +130,40 @@ def deliberate_refusal(job_type: str, last_error: str = "") -> bool:
 def redrivable(job_type: str, last_error: str = "") -> bool:
     """Whether re-driving this dead letter is recovery rather than asking a closed gate again."""
     return classify_dead_letter(job_type, last_error) != REFUSED
+
+
+def unreplayable_spend(s: Session, job) -> str | None:
+    """Why re-driving this dead letter could pay again, or None when it cannot.
+
+    FIX-CYCLE-PROOF-BILLING: a dead letter is re-driven by resetting it to PENDING, and the
+    handler runs from the top. For a job that spent, that is safe only when what it paid for
+    can be served again: every billed paid call on it ended OK (the transport replays it at
+    CA$0), or the job holds a checkpoint (F-659) to resume from. A billed call with no known
+    outcome or a billed failure, and no checkpoint, is spend the redrive cannot replay --
+    refused, with the reason, rather than re-run into a second bill. A job that paid for
+    nothing (no paid-call rows) is not a spending dead letter and is unaffected."""
+    from ..gateway.paid_calls import DECLINED, OK, PaidCallRecord
+    from .checkpoints import JobCheckpoint
+
+    try:
+        with s.begin_nested():
+            rows = s.execute(select(PaidCallRecord.outcome, PaidCallRecord.orphan_billed)
+                             .where(PaidCallRecord.job_id == job.id)).all()
+    except Exception:  # noqa: BLE001 - no paid-call table: nothing was ever guarded
+        return None
+    open_spend = [r for r in rows if r.orphan_billed or r.outcome not in (OK, DECLINED)]
+    if not open_spend:
+        return None
+    try:
+        with s.begin_nested():
+            held = s.scalar(select(func.count()).select_from(JobCheckpoint)
+                            .where(JobCheckpoint.job_id == job.id)) or 0
+    except Exception:  # noqa: BLE001 - unreadable is not a checkpoint
+        held = 0
+    if held:
+        return None
+    return (f"spending job: {len(open_spend)} paid call(s) billed with no replayable outcome "
+            f"and no checkpoint to resume from; a redrive would pay again")
 
 
 def dead_letter_digest(jobs) -> list[dict]:
@@ -419,8 +464,16 @@ class JobQueue:
                                       Job.status == JobStatus.RUNNING,
                                       Job.lease_expires_at <= now)
                     .values(status=JobStatus.DEAD,
-                            last_error=func.coalesce(Job.last_error, "")
-                            + " | lease expired, retries exhausted",
+                            # FIX-CYCLE-PROOF-BILLING: the head names a class. This wrote
+                            # `<last_error> | lease expired...`, and a job redriven with
+                            # last_error=NULL then lost its lease three times dead-lettered
+                            # as " | lease expired, retries exhausted" -- which every reader
+                            # classifies `unclassified` (production: seasonal.cycle_proof
+                            # x7). The earlier error is kept, after the class.
+                            last_error=func.substr(
+                                LEASE_EXHAUSTED_HEAD
+                                + func.coalesce(" | previous: " + Job.last_error, ""),
+                                1, 4000),
                             finished_at=now)
                     .execution_options(synchronize_session=False))
                 continue
@@ -678,6 +731,11 @@ class JobQueue:
                 if not redrivable(job.job_type, job.last_error or ""):
                     skipped.append({"id": job.id, "job_type": job.job_type,
                                     "reason": "refused on purpose, not a failure"})
+                    continue
+                spend = unreplayable_spend(s, job)
+                if spend:
+                    skipped.append({"id": job.id, "job_type": job.job_type,
+                                    "reason": spend})
                     continue
                 # #34: a call the thrash breaker tripped is not retried under the same
                 # hypothesis (the same build).

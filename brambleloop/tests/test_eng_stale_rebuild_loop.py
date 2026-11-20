@@ -483,11 +483,13 @@ def test_p2_four_cadence_runs_a_day_bill_once():
         assert gw.usable(db) is True and gw.last_probe(db)["reused"] is True
         gw.probe_if_due(db, now=t0 + timedelta(hours=24, minutes=1))   # a day on: re-asked
         assert len(calls) == 2, calls
-        # a failed Anthropic call since the last probe contradicts it: re-asked
+        # the provider refusing the account since the last probe contradicts it: re-asked
+        # (FIX-CYCLE-PROOF-BILLING: a ProviderUnusable decline, not any failed call)
         with db.session() as s:
             s.add(PaidCallRecord(key="k-fail", effect="anthropic.messages", job_id=9,
                                  job_type="identity.measure", fingerprint="f" * 64,
-                                 outcome="FAILED_BILLED",
+                                 outcome="DECLINED",
+                                 error="ProviderUnusable: anthropic 400: credit balance",
                                  at=t0 + timedelta(hours=25)))
         gw.probe_if_due(db, now=t0 + timedelta(hours=26))
         assert len(calls) == 3, calls

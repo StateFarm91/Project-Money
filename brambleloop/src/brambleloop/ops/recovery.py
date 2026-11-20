@@ -215,7 +215,7 @@ def rerun_department_cycle(db, cadence: str, *, actor: str, request_id: str,
     from sqlalchemy import select, update
 
     from ..core.models import Job, JobStatus
-    from ..queue.durable import redrivable
+    from ..queue.durable import redrivable, unreplayable_spend
 
     now = _now(now)
 
@@ -236,6 +236,9 @@ def rerun_department_cycle(db, cadence: str, *, actor: str, request_id: str,
                 raise RecoveryRefused(
                     f"job {latest.id} was refused on purpose ({(latest.last_error or '')[:120]}"
                     f"); re-running it is asking a closed gate to open")
+            spend = unreplayable_spend(s, latest)
+            if spend:
+                raise RecoveryRefused(f"job {latest.id}: {spend}")
             try:
                 from ..swarm.orchestrate import retry_allowed
 

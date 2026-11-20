@@ -71,7 +71,7 @@ import threading
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Callable
 
 from sqlalchemy import JSON, Boolean, DateTime, Float, Integer, String, select
@@ -352,6 +352,10 @@ def guarded(effect: str, fp: str, call: Callable[[], Any], *,
             s.expunge(row)
     if row is not None and row.outcome != DECLINED:
         return _replay(scope, row, effect, idem, fp, decode)
+    if row is None:
+        prior = _prior_across_jobs(db, job, effect, fp, n)
+        if prior is not None:
+            return _replay_across_jobs(scope, prior, effect, idem, fp, decode)
     if fp in scope.unresolved:
         raise PaidCallUnresolved(f"{effect}: an earlier occurrence of this request on job "
                                  f"{job.id} has no known outcome; later ones are not sent")
@@ -454,6 +458,85 @@ def _replay(scope: _Scope, row: PaidCallRecord, effect: str, idem: str, fp: str,
         f"{effect}: job {job.id}'s earlier paid call (attempt {row.first_attempt}) has no "
         f"known outcome ({row.error[:120] or 'in flight when its worker was lost'}); "
         f"F-339: not re-sent until reconciled. A new job is the explicit way to ask again")
+
+
+# ---------------------------------------------------------------------------
+# Across jobs (FIX-CYCLE-PROOF-BILLING)
+#
+# Production a4952711, 2026-11-20: `paid_call_dedupe` FAIL -- `anthropic.messages`
+# fingerprint db5496af2005 billed six times across seasonal.cycle_proof jobs 70594, 70762,
+# 72111 and 72527. The key above is per job, so every redriven, re-enqueued or recovery-rerun
+# proof was "a new question by construction" and paid for the identical request again. For a
+# job type whose runs are re-attempts of ONE piece of work (a weekly proof, a cadence probe),
+# that is the waste the store exists to prevent: the answer already paid for is served again
+# from the earlier job's record, inside a window, and nothing is billed.
+#
+# Only these job types, only an identical request (effect + fingerprint + occurrence in the
+# attempt), only inside the window. The earlier outcome decides, exactly as within a job:
+# OK is replayed, FAILED_BILLED replays the failure, PENDING/UNCERTAIN is unresolved and not
+# re-sent (F-339). DECLINED never billed and is asked again.
+CROSS_JOB_REPLAY: dict[str, timedelta] = {
+    # weekly cadence: one proof per week is the work, and its retries are the same work
+    "seasonal.cycle_proof": timedelta(days=7),
+}
+
+
+def _prior_across_jobs(db, job: JobRef, effect: str, fp: str, n: int):
+    window = CROSS_JOB_REPLAY.get(job.job_type)
+    if window is None or job.id is None:
+        return None
+    since = utcnow() - window
+    with db.session() as s:
+        row = s.scalar(select(PaidCallRecord).where(
+            PaidCallRecord.effect == effect[:80], PaidCallRecord.job_type == job.job_type[:80],
+            PaidCallRecord.fingerprint == fp, PaidCallRecord.occurrence == n,
+            PaidCallRecord.job_id != job.id, PaidCallRecord.outcome != DECLINED,
+            PaidCallRecord.at >= since).order_by(PaidCallRecord.at.desc()).limit(1))
+        if row is not None:
+            s.expunge(row)
+    return row
+
+
+def _replay_across_jobs(scope: _Scope, row: PaidCallRecord, effect: str, idem: str, fp: str,
+                        decode: Callable[[dict], Any]):
+    """Serve another job's paid answer to this job. Writes no billed row for this job: the
+    earlier record's `replays` is the count, and an audit names both jobs."""
+    from ..queue import effects
+
+    db, job = scope.db, scope.job
+    try:
+        _k, token = effects.claim(db, effect, idem, job=job, worker=job.leased_by)
+    except effects.EffectRefused:
+        token = None
+    else:
+        if row.outcome == OK:
+            effects.mark_applied(db, _k, token, f"paid_call:replay_of:{row.key[:16]}")
+        else:
+            effects.mark_uncertain(db, _k, token, f"replay of unresolved {row.key[:16]}")
+    with db.session() as s:
+        live = s.get(PaidCallRecord, row.key)
+        live.replays = (live.replays or 0) + 1
+        live.updated_at = utcnow()
+        s.add(AuditLog(actor=(job.leased_by or "worker")[:64], action=REPLAY_ACTION,
+                       artifact=f"{effect}:{row.key[:16]}"[:200], job_id=job.id,
+                       detail={"key": row.key, "outcome": row.outcome,
+                               "across_jobs": True, "paid_by_job": row.job_id,
+                               "first_attempt": row.first_attempt,
+                               "this_attempt": job.attempts}))
+    if row.outcome == OK:
+        scope.last_call = {"paid_call_key": row.key, "replayed": True,
+                           "billing": REPLAY_BILLING}
+        return decode(row.payload or {})
+    scope.last_call = None
+    if row.outcome == FAILED_BILLED:
+        raise PaidCallReplayedFailure(
+            f"{effect}: job {row.job_id} already paid for this identical request and it "
+            f"failed ({(row.error or '')[:160]}); job {job.id} does not buy it again")
+    scope.unresolved.add(fp)
+    raise PaidCallUnresolved(
+        f"{effect}: job {row.job_id} paid for this identical request and its outcome is "
+        f"unknown ({(row.error or '')[:120] or 'in flight when its worker was lost'}); "
+        f"F-339: job {job.id} does not re-send it until reconciled")
 
 
 def rows(db, *, job_id: int | None = None) -> list[dict]:
