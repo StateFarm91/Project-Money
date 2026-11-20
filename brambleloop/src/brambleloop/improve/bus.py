@@ -60,6 +60,9 @@ SUBJECT_ROUTING: dict[str, tuple[str, ...]] = {
     # that choose and design the next product, and Growth, which presents it.
     "commercial_demand": ("market_radar", "product_creativity", "growth"),
     "commercial_underperformance": ("market_radar", "product_creativity", "growth"),
+    # ENG-LEARN: a measured image lesson (a scene, camera or lighting choice that changes how
+    # often frames of one family and role pass a gate) reaches the producers and QA.
+    "image_production": ("creative_assets", "quality", "product_creativity"),
 }
 
 CONFIDENCE = ("observed", "measured", "confirmed")
