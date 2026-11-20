@@ -18,9 +18,9 @@
 // read", so v31.
 // ENG-FIRSTLIST: approvals.js threads the preview digest into approvals; merged after S4's
 // v30/v31 (INTEG2), so v32 supersedes both shells.
-// Assign 7012067586 L2/L3: approval digests keyed by action+params; preview verbs. v33.
-// ENG-RESEARCH-FLOW research-source board view; merged after the v33 shell, so v35.
-const VERSION = "cc-shell-v35";
+// ENG-LEARN (learning progress view) merged after catalogue v36 and learn v40, so v41.
+// ENG-IMPROVE (improvement-team view) merged after learn v41, so v42.
+const VERSION = "cc-shell-v42";
 const SHELL = [
   "./",
   "index.html",
@@ -48,6 +48,8 @@ const SHELL = [
   "js/views/company.js",
   "js/views/completion.js",
   "js/views/p0_board.js",
+  "js/views/catalogue.js",
+  "js/views/agents_evidence.js",
   "js/views/production.js",
   "js/views/ask.js",
   "js/views/drill.js",

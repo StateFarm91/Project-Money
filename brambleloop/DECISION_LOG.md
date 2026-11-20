@@ -2801,6 +2801,120 @@ The table is `research/final_build/w6/construction_families.md`. Reversible by d
 
 **D-ENG-FAMILIES-2: the router reads what a title and premise name, and admits only (family, category) pairs that certify (ENG-FAMILIES fix round 1, 2026-11-19).** Main's review found a "Granny Square Basket" admitted, drafted as the plain striped vessel and certified (H1), and pet beds admitted but never certifying (M1). `construction_families.route` now holds any title or premise naming a construction the drafted engine does not build (`NAMED_FEATURES`, shared across every admitted family) as `construction_unsupported:<feature>`; the pet bed variant is held as `construction_unsupported:pet_bed` rather than widening the twin tolerance; `PAIR_PROOFS` and a router sweep require a certifying proof per admitted (family, category). `gates/policy._IP_TERMS` matches whole words.
 
+**D-OWNER-POLICY39-OVERRIDE: the pending `listing_image_rules` change (#39) no longer holds publication, by the owner's direct order (2026-11-20).** The owner ordered Etsy's AI rules ignored and chose "Remove the #39 hold" when asked directly. This record is about what was decided, not what was reviewed:
+- **How it is recorded.** `gates/platform_policy.OWNER_DIRECTED_OVERRIDES` records it as "owner directed proceeding without review". It is never recorded as reviewed or tested, and the readback lists it under `overridden_changes`.
+- **Scope.** It covers only `listing_image_rules` changes read on or before 2026-11-20. A later change, an undated change, or a change to any other policy source holds again.
+- **Unchanged.** The AI disclosure in descriptions, Product Truth, and every other gate are untouched.
+- **Owner informed.** Before choosing, the owner was told that the only readable Etsy image page says a pattern listing must show "an actual result made using your instructions, not an AI-generated or simulated result", plus one unedited photo of the real item, and that listings without one risk removal.
+
+Reversible by the owner.
+
+**D-OWNER-BENCHBUY: the benchmark shopping list spans all nine watchlist shops, with owner demand first after capability gaps (owner ask, 2026-11-20; ENG-BENCHBUY).** The owner will buy benchmark patterns and wants variety from every shop scanned daily; stuffed animals/amigurumi, baby products and pillows (the "huge hits", D-OWNER-CORE-FAMILIES) and MadelineMaeCo count.
+- **Selection.** `intel/purchase_selection.shopping_list` keeps the greedy facet-coverage design, computed reasons and the rule of no pick without a new facet. Catalogue: scanned pattern digital downloads only (`listing_type == "download"`; an unobserved type is UNKNOWN and excluded). Quota: 3 per shop, 5 for MadelineMaeCo. Rank: capability gap (in-the-round, colourwork chart, mosaic/tapestry, granny/motif, garment grading, amigurumi, flat), then owner demand (baby, stuffed animal, pillow/cushion), then the shop with the fewest picks, then the old facets; favourites are a last tie-break only. `select()` and the MJs approved set are unchanged.
+- **Budget in code.** Ceiling `SET_BUDGET_CAD` less recorded BenchmarkProduct spend; every price is checked at x1.158 (FX and tax) and shown beside the listed price. Money is held back so every shop with an eligible listing gets a first pick before the ceiling is spent. A product with no recorded price is UNKNOWN, not CA$0. Owned: both MJ benchmarks (by title) and every BenchmarkProduct row (by listing reference or title).
+- **Visibility.** Every shop is listed with a status (PICKED, EMPTY with a counted reason, UNKNOWN when no scanned listings exist). No scan data at all makes the whole list UNKNOWN; nothing is invented.
+- **Refresh.** `intel.benchmark_shopping`, daily, CA$0, in `FREE_JOB_TYPES`, upstream inputs the two scan jobs (an unchanged day backs off). It calls `benchmark_refresh.refresh_shopping`, which stores one dated `benchmark.shopping` reading and keeps ONE owner card, "Buy N benchmark patterns, ≤ CA$X" (key `benchmark_shopping:set`; closed when nothing is left to buy).
+- **Safety.** No purchase path exists: the list makes no request and the Mission Control panel has no buy control. Reads listing metadata only. A purchased PDF goes only through `teardown.intake.receive`, which now accepts a listing from any watchlist shop (folder `<shop key>-<listing id>`, seller recorded) into the quarantined library (B-117). Status moves to bought, then intake done, from the BenchmarkProduct row.
+- **Not decided here.** Whether to buy, which picks, and the contingency factor beyond the owner's 1.158. Reversible by removing the cadence.
+
+## D-ENG-VIS-IDENTITY-1 — identity verification method and its rules (ENG-VIS-IDENTITY, 2026-11-20; routine engineering, owner decisions pending)
+
+**Status:** routine engineering decisions within autonomy. Admitting a method for production is
+the owner's decision (`research/final_build/w6/IDENTITY_OWNER_DECISIONS.md`). No gate, margin or
+test was relaxed; several were tightened.
+
+- **Method recommended: (a)** YuNet + SFace ONNX on the worker CPU (Apache-2.0/MIT). InsightFace
+  ArcFace weights were rejected because their licence is non-commercial only. Hosted Rekognition
+  is the fallback. An LLM is rejected as the biometric floor but kept as the second judge.
+- **Thresholds are derived, never chosen:**
+  - `match_at` = highest impostor score + 0.05;
+  - `refuse_below` = lowest genuine score - 0.15.
+- **A production record needs all of:** at least 30 genuine samples; at least 300 impostor faces;
+  a FAR 95% upper bound of 1% or less; FRR of 10% or less; evidence that declares itself
+  production_ready; the owner's production-scoped decision; and a place on the register.
+- **Consumer verdict:** PASS only with a production-qualified method and two agreeing judges.
+  - Disagreement means HOLD with its reason.
+  - Drift means REFUSE.
+  - UNKNOWN, unmeasured, a fixture or the legacy table means HOLD.
+  - `candidate_gates.gate_status` counts a non-PASS verdict as UNKNOWN.
+- **Every Laura frame must be conditioned on all three canonical references.** A frame with
+  fewer is INVALID.
+- **Second judge:** OpenAI gpt-4.1, a different provider from the Anthropic first judge, through
+  the same reservation path and the `openai-vision` owner activation. Without a key it is not
+  configured.
+- **Outfit claim:** a compare-and-set UPDATE on `laura_outfits.listing`.
+  - It is idempotent per listing and survives restarts.
+  - It never reuses an outfit or claims a near-duplicate.
+  - If two claims for the same listing race, the lowest id wins.
+- **Identity records:** append-only, idempotent on the evaluation content hash. A frame whose
+  evaluation cannot be recorded is UNKNOWN.
+
+Reversible by decision.
+
+**D-ENG-LEARN-1: learning promotes only on statistically meaningful, measured improvement (ENG-LEARN, 2026-11-20).**
+- **Image prompt templates** compete champion/challenger per family:role.
+  - The challenger share is 15%, hard-capped at 20%, with at most 2 challengers. An
+    assignment replaces the champion for that generation and never adds one, so spend is
+    unchanged.
+  - Promotion needs 40+ first-pass frames per arm, one-sided p < 0.002 and a lift of +8pt
+    absolute. Or, on cost: 15+ galleries per arm, at least 15% cheaper, p < 0.002, and
+    first-pass not more than 3pt worse.
+  - Why these thresholds: the loop re-tests daily, so alpha is set against sequential looks.
+    Measured on identical arms (1000 seeds × 40 looks), 0.9% are falsely promoted. A
+    challenger measurably worse (p < 0.05, n ≥ 15) is retired early. A promotion contradicted
+    by its own later frames is demoted.
+- **Scene and engineering lessons** need minimum samples per side, Bonferroni over the
+  scope's comparisons (Fisher exact for engineering), and are deactivated when their evidence
+  weakens.
+- **A lesson is advice to a decision.** It never refuses or weakens a gate.
+- **Reporting.** "Applied" means bus `acted_on`, never published. Trends are UNKNOWN below
+  the minimum window size.
+- Reversible by decision.
+
+**D-ENG-LEARN-2: a parked learner wakes on new evidence, not on a timer (ENG-LEARN, 2026-11-20).**
+- The backoff was correct: identical output for identical input. What was missing was a lift
+  when the input changed.
+- So each learner names its upstream producers in `UPSTREAM_INPUTS`, and upstream progress is
+  judged by declared WORK_KEYS (a bare `ran: true` is not progress).
+- Spend classification is unchanged, so `creative.*`/`visual.*` still get no release probe.
+- Reversible.
+**D-ENG-IMPROVE-1: the self-improvement team tunes only an allowlist, promotes only on a significant KPI gain, and changes code only through change requests (ENG-IMPROVE, 2026-11-20).** This implements the owner directive of 2026-11-20 ("every department gets better with experience; learning is worthless unless it changes behaviour; a team turns lessons into fixes").
+
+**What may be tuned.**
+- `improve.tuning.TUNABLES` is a hard-coded allowlist of 13 keys: numbers within bounds, and choices.
+- Every key and value is also checked by `improve.invariants`. Certified gates, safety, spend ceilings, evidence floors and owner exceptions are never tunable.
+- The module refuses to import if a protected key is allowlisted.
+
+**Live changes.**
+- A change runs as a challenger on at most 20% of units, capped at CA$5 of recorded arm cost.
+- Promotion requires a two-proportion z of at least 2.807 at a fixed look (50·2^k units per arm) and a gain of at least 3 points.
+- A promotion is then watched against a 20% holdback, and is rolled back automatically at z <= -1.96.
+
+**Code changes.**
+- Code changes are `EngineeringChangeRequest` rows, deduplicated by (defect_class, department, module).
+- A request is closed only when the KPI is verified after deploy, and is reopened otherwise.
+- The integrator reads them at `GET /api/readback/ecrs`. Production never edits or deploys code.
+
+**Departments.** A department whose lessons reach no consumer is a finding, never a pass.
+
+**Parked loops.** improve.monitor, sandbox and league backoffs lift on their real input rows (`orchestrate.INPUT_PROBES`).
+
+Reversible by decision. The non-tunable rule is the owner's and is not reversible by an agent.
+**D-ENG-VIS-FLUX-1: the FLUX 3 provider follows the documented contract, rejects bad frames at generation, and caps images in code (ENG-VIS-FLUX slice 1, 2026-11-20).** This applies the owner's directive "PERFECT FLUX 3 LISTING IMAGES" within D-W4-F852-AMEND. It changes no publication gate.
+- **The contract is data, with citations.** `gateway/flux_contract.py` holds BFL's documented FLUX 3 Image contract, read 2026-11-20 from the openapi schema, the API reference, pricing, integration and errors pages.
+  - The request builder validates the whole body against it before any reservation.
+  - A test pins the contract to a machine-extracted snapshot of the official schema and rate card.
+- **No seed.** FLUX 3 Image has no seed field (`additionalProperties: false`). The seed is recorded only when BFL's result reports one, and is never invented.
+- **Generation-time rejection.**
+  - A listing frame must be PNG/JPEG, opaque, at least 2000 px on its shortest side and within 1% of the aspect it asked for. An intermediate frame must be at least 900 px.
+  - A frame that fails is rejected before QA. It stays billed, and its bytes and an audit row are kept.
+  - A corrupt download is re-fetched up to twice; this costs nothing.
+  - A rejection is never retried with the same request, because the owner gate would refuse it as already billed.
+  - A replacement is bought only after `flux_provider.replacement_allowed` has re-checked the kept bytes. It also requires that no `motif_recovery` row for the product is open (ENG-MOTIF-BACKLOG's table, read only).
+- **Caps in code, lower-only.** Within `paid_provider_gate.authorize` the caps are 60 images per UTC day and 16 images / CA$2.50 per gallery. The environment can lower them and never raise them. They sit beneath the owner's activation ceilings, so the lower one binds.
+- **Readiness.** It is READY only when `BRAMBLELOOP_IMAGE_KEY_BFL` is present (presence only; the value is never read into output) and the owner's `flux-3-image` generation activation is active. Otherwise it is UNKNOWN with the reason, and the generation job refuses before reserving.
+- **Retention.** `image.generation_rejected` and `image.generation_rejection_rechecked` are lifetime-protected.
+
 **D-OWNER-FLUX-GALLERY: a whole generated FLUX gallery may be certified when EVERY frame passes EVERY gate on its exact bytes; Etsy's AI rules are treated as non-existent (owner CRITICAL DIRECTIVE "PERFECT FLUX 3 LISTING IMAGES", relayed by the coordinator to ENG-VIS-GALLERY, 2026-11-20).** Recorded by ENG-VIS-GALLERY from the coordinator's brief; the owner's own words were not seen in this session, so this record is open to owner veto and to main's review.
 
 1. **Owner standards (absolute, unchanged):** the pattern produces exactly the pictured item; generated renders are identified as renders in our records (`is_render: True`, `is_photograph: False`, `physical_sample_evidence: False`, `provenance_kind ai_generated_*`, honesty label `CONCEPT_LABEL`); physical-sample evidence stays separate (PROOF and FIT are never generated-gallery jobs; a "fit" frame is a SCALE frame on Laura); Laura's identity is exact (identity, body, outfit and her per-image publication gate all required).

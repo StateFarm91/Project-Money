@@ -103,8 +103,8 @@ try {
   check(tabs.length > 0 && tabs.every((t) => t.h >= 44 && t.w >= 44), "tabbar: tap targets >= 44px", JSON.stringify(tabs));
 
   // ---- every tab -------------------------------------------------------------------------
-  const TABS = ["home", "approvals", "money", "store", "operations", "learn", "insights", "notifications", "timeline", "ask", "account", "emergency", "more", "company", "completion", "p0_board"];
-  const SHOT = new Set(["home", "approvals", "money", "store", "operations", "learn", "notifications", "ask", "account", "emergency", "company", "completion", "p0_board"]);
+  const TABS = ["home", "approvals", "money", "store", "operations", "learn", "insights", "notifications", "timeline", "ask", "account", "emergency", "more", "company", "completion", "p0_board", "catalogue", "agents_evidence"];
+  const SHOT = new Set(["home", "approvals", "money", "store", "operations", "learn", "notifications", "ask", "account", "emergency", "company", "completion", "p0_board", "catalogue", "agents_evidence"]);
   for (const t of TABS) {
     consoleErrors.length = 0;
     await page.goto(`${BASE}/cc/#/${t}`);
@@ -207,6 +207,58 @@ try {
   const runCard = board.find((b) => /Running build/.test(b.title)) || {};
   check(/Level: PRODUCTION-VERIFIED/.test(runCard.sub || "") && runCard.reached.at(-1) === "PRODUCTION-VERIFIED",
     "p0 board: the level shown is the section's own", JSON.stringify(runCard.reached));
+
+  // ---- ENG-CATALOGUE: the full catalogue and the agents' operating evidence ---------------
+  await page.goto(`${BASE}/cc/#/catalogue`);
+  await settle();
+  const catText = await page.$eval("#main", (e) => e.textContent);
+  check(/Products: 64/.test(catText), "catalogue: totals are over every product, not the page", catText.slice(0, 160));
+  check(!/null|undefined|NaN/.test(catText), "catalogue: no null, undefined or NaN printed", "");
+  const strayText = await page.$eval("#cat-count", (e) => [...e.parentElement.childNodes].filter((n) => n.nodeType !== 1).map((n) => n.textContent));
+  check(strayText.length === 0, "catalogue: the product list holds only elements (no stray text such as null)", JSON.stringify(strayText));
+  const stageTiles = await page.$$eval("#cat-stage-tiles .tile", (els) => els.map((e) => [e.querySelector(".tile-label").textContent, e.querySelector(".tile-value").textContent]));
+  check(stageTiles.some(([l, v]) => l === "Unknown" && v === "1"), "catalogue: the UNKNOWN stage is its own count, never folded or 0", JSON.stringify(stageTiles));
+  const pageOne = await page.$$eval("#cat-rows li.row .row-title", (els) => els.map((e) => e.textContent));
+  check(pageOne.length === 25 && /page 1 of 3/.test(await page.$eval("#cat-count", (e) => e.textContent)), "catalogue: first page of 25, three pages", String(pageOne.length));
+  const unknownRow = await page.$$eval("#cat-rows li.row[data-stage=UNKNOWN]", (els) => els.map((e) => e.textContent));
+  check(unknownRow.length === 1 && /Unknown/.test(unknownRow[0]) && /owner Unknown/.test(unknownRow[0]),
+    "catalogue: an underivable row reads Unknown (stage and owner)", JSON.stringify(unknownRow));
+  await page.click(".pager button:last-child");
+  await settle();
+  const pageTwo = await page.$$eval("#cat-rows li.row .row-title", (els) => els.map((e) => e.textContent));
+  check(/page 2 of 3/.test(await page.$eval("#cat-count", (e) => e.textContent)) && pageTwo.length === 25 && !pageTwo.some((t) => pageOne.includes(t)),
+    "catalogue: Next shows the next page, no product repeated", JSON.stringify(pageTwo.slice(0, 3)));
+  await page.selectOption("#cat-stage", "live_on_etsy");
+  await page.fill("#cat-q", "");
+  await page.click("form.filters button[type=submit]");
+  await settle();
+  const live = await page.$$eval("#cat-rows li.row", (els) => els.map((e) => ({ stage: e.dataset.stage, text: e.textContent })));
+  check(live.length > 0 && live.every((r) => r.stage === "live_on_etsy" && /read-back live/.test(r.text) && /US 0123456789ab/.test(r.text)),
+    "catalogue: the stage filter narrows and each row shows its evidence", JSON.stringify(live.slice(0, 2).map((r) => r.text.slice(0, 120))));
+  await page.selectOption("#cat-stage", "");
+  await page.fill("#cat-q", "moss");
+  await page.click("form.filters button[type=submit]");
+  await settle();
+  const moss = await page.$$eval("#cat-rows li.row .row-title", (els) => els.map((e) => e.textContent));
+  check(moss.length > 0 && moss.every((t) => /moss/.test(t)), "catalogue: search by slug or title", JSON.stringify(moss));
+  await noHScroll("catalogue-filtered");
+
+  await page.goto(`${BASE}/cc/#/agents_evidence`);
+  await settle();
+  const deps = await page.$$eval("section[aria-labelledby='ev-departments'] li.row", (els) => els.map((e) => ({ d: e.dataset.department, text: e.textContent })));
+  check(deps.length === 3, "agent evidence: every department listed", String(deps.length));
+  check(!/null|undefined|NaN/.test(await page.$eval("#main", (e) => e.textContent)), "agent evidence: no null, undefined or NaN printed", "");
+  const visDept = deps.find((x) => x.d === "visual") || { text: "" };
+  check(/BLOCKED/.test(visDept.text) && /defect dead letter \(job 901\)/.test(visDept.text) && /none recorded/.test(visDept.text),
+    "agent evidence: a blocked department names its reason", visDept.text.slice(0, 200));
+  const intel = deps.find((x) => x.d === "intelligence") || { text: "" };
+  check(/Last useful job\s*Unknown: no useful job in the newest 1000/.test(intel.text) && /Blocked\s*Unknown/.test(intel.text) && !/not blocked/.test(intel.text),
+    "agent evidence: an exhausted scan and unread suspensions read Unknown, never none or clear", intel.text.slice(0, 240));
+  const pt = deps.find((x) => x.d === "product_truth") || { text: "" };
+  check(/cir\.compile #812/.test(pt.text) && /3 waiting · oldest 5 h/.test(pt.text) && /5 useful · 2 no-op/.test(pt.text),
+    "agent evidence: last useful job, queue age and useful vs no-op", pt.text.slice(0, 240));
+  const wk = await page.$$eval("#ev-workers .tile", (els) => els.map((e) => [e.querySelector(".tile-label").textContent, e.querySelector(".tile-value").textContent]));
+  check(JSON.stringify(wk) === JSON.stringify([["Healthy", "1"], ["Unhealthy", "1"]]), "agent evidence: healthy and unhealthy workers", JSON.stringify(wk));
 
   await page.goto(`${BASE}/cc/#/completion`);
   await settle();
@@ -531,7 +583,8 @@ try {
   // pinned, not just its length, so an item added or dropped is a deliberate change here.
   // W5-INVENTORY adds "production" (product inventory by state, stalls, loops, agents).
   // S4b adds "p0_board" (the P0 command board, each section with its proven level).
-  const MORE_IDS = ["company", "images", "production", "p0_board", "completion", "policy", "operations", "learn",
+  // ENG-CATALOGUE adds "catalogue" (every product by stage) and "agents_evidence".
+  const MORE_IDS = ["company", "images", "production", "p0_board", "catalogue", "agents_evidence", "completion", "policy", "operations", "learn",
     "insights", "notifications", "timeline", "ask", "account", "emergency"];
   check(JSON.stringify(menu.map((m) => m.id)) === JSON.stringify(MORE_IDS) && menu.every((m) => m.hint.length > 5), "ccux more: every More item says what it holds", JSON.stringify(menu.map((m) => [m.id, m.hint])));
   const nb = await page.$eval(".menu a[data-more=notifications] .badge", (b) => ({ hidden: b.hidden, t: b.textContent }));
@@ -754,6 +807,13 @@ try {
   const firstInsight = await page.$eval("#main .stack > .card .card-title", (e) => e.textContent).catch(() => "");
   check(firstInsight === "Marketing & customers" && /ROAS \(evidence-attributed Etsy Ads\)/.test(custText) && /Support cases \(owner-recorded\)/.test(custText),
     "ccall insights: combined marketing & customers view leads Insights (F-622)", firstInsight);
+  const shop = await page.evaluate(() => { const c = [...document.querySelectorAll("#main section.card")].find((x) => /Benchmark shopping list/.test(x.querySelector(".card-title")?.textContent || ""));
+    if (!c) return null; const a = c.querySelector("a[href^='https://www.etsy.com/listing/']");
+    return { t: c.textContent, href: a && a.getAttribute("href"), rel: a && a.getAttribute("rel"), buttons: c.querySelectorAll("button, form, input").length, groups: c.querySelectorAll(".sub").length }; });
+  check(!!shop && shop.groups === 3 && shop.href === "https://www.etsy.com/listing/111" && /noopener/.test(shop.rel || "") && shop.buttons === 0
+    && /CA\$6\.00 listed/.test(shop.t) && /CA\$6\.95 with the ×1\.158/.test(shop.t) && /Teaches: capability: amigurumi/.test(shop.t) && /Why: closes a capability gap/.test(shop.t)
+    && /TO BUY/i.test(shop.t) && /Owner card: Buy 2 benchmark patterns, ≤ CA\$14\.00/.test(shop.t) && /12 not a digital download/.test(shop.t) && /no scanned listings/.test(shop.t),
+    "benchbuy insights: shopping list grouped by shop with title, Etsy URL, CA$ price (+contingency), teaches, why, status; empty shop shows its reason; no buy control", JSON.stringify(shop).slice(0, 300));
   await noHScroll("ccfm1 insights");
   await page.goto(`${BASE}/cc/#/ask`);
   await settle();

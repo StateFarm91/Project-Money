@@ -61,6 +61,9 @@ DEFAULT_AGENTS: list[dict] = [
                             "seasonal.harvest",
                             # #92 / #95 / #180 / #190: sandbox trials and the challenger league.
                             "improve.sandbox", "improve.league",
+                            # ENG-IMPROVE: champion/challenger judging, the department
+                            # loop table and engineering change requests (no code edits).
+                            "improve.self_tune",
                             # #34 thrash sweep; #33 #38 #131 #267 #286 #287 #289-#291 engine.
                             "ops.thrash", "seasonal.engine",
                             # C-69 (#50, #29): the daily dependency and fragility sweep.
@@ -97,7 +100,7 @@ DEFAULT_AGENTS: list[dict] = [
                             # W5-CONCEPT: evidence-backed concept intake.
                             "radar.concept_intake",
                             # W4-INTELREC: the owner's permanent watchlist.
-                            "intel.watchlist_scan", "intel.watchlist_compare",
+                            "intel.watchlist_scan", "intel.watchlist_compare", "intel.benchmark_shopping",
                             "intel.opportunity_review",
                             "intel.acceptance",
                             "mjs.scan", "mjs.reviews", "etsy.probe", "intel.serp_capture",
@@ -214,6 +217,9 @@ DEFAULT_AGENTS: list[dict] = [
                             # A styled image of the finished object, generated from the
                             # certified CIR and disclosed as an illustration (#292, #300).
                             "assets.owned_photography",
+                            # ENG-MOTIF-BACKLOG: re-check (never re-render) paid renders
+                            # whose motif check the budget gate refused.
+                            "assets.motif_backlog",
                             # #300's cycle run as a job, so its assets link can be closed
                             # for the product the cycle itself engineered rather than for
                             # whichever product was photographed last (B-611).
@@ -1047,7 +1053,9 @@ DEFAULT_AGENTS.extend([
                             # OPUS2-P0: measured listing performance into routed lessons.
                             "improve.commercial_lessons",
                             # OPUS2-P0: knowledge gaps and reference recommendations.
-                            "learning.knowledge_gaps"],
+                            "learning.knowledge_gaps",
+                            # ENG-LEARN: pattern + commerce learning loops (DB only).
+                            "learning.loops"],
          authority=Authority.GREEN, daily_cost_ceiling_cad=0.0),
     dict(name="integration_steward",
          description="Integration: re-verifies the Etsy API surface, provider credentials "
