@@ -63,6 +63,10 @@ SUBJECT_ROUTING: dict[str, tuple[str, ...]] = {
     # ENG-LEARN: a measured image lesson (a scene, camera or lighting choice that changes how
     # often frames of one family and role pass a gate) reaches the producers and QA.
     "image_production": ("creative_assets", "quality", "product_creativity"),
+    # ENG-LEARN: a measured engineering region (a construction family's parameter range that
+    # certifies first time significantly less often) reaches the cells that choose and design
+    # the next product. Its mirror, a proven region, is `construction_preference`.
+    "engineering_risk": ("market_radar", "pattern_engineering", "product_creativity"),
 }
 
 CONFIDENCE = ("observed", "measured", "confirmed")

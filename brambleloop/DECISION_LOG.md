@@ -2800,3 +2800,31 @@ Reversible only by the owner.
 The table is `research/final_build/w6/construction_families.md`. Reversible by decision.
 
 **D-ENG-FAMILIES-2: the router reads what a title and premise name, and admits only (family, category) pairs that certify (ENG-FAMILIES fix round 1, 2026-11-19).** Main's review found a "Granny Square Basket" admitted, drafted as the plain striped vessel and certified (H1), and pet beds admitted but never certifying (M1). `construction_families.route` now holds any title or premise naming a construction the drafted engine does not build (`NAMED_FEATURES`, shared across every admitted family) as `construction_unsupported:<feature>`; the pet bed variant is held as `construction_unsupported:pet_bed` rather than widening the twin tolerance; `PAIR_PROOFS` and a router sweep require a certifying proof per admitted (family, category). `gates/policy._IP_TERMS` matches whole words.
+
+**D-ENG-LEARN-1: learning promotes only on statistically meaningful, measured improvement (ENG-LEARN, 2026-11-20).**
+- **Image prompt templates** compete champion/challenger per family:role.
+  - The challenger share is 15%, hard-capped at 20%, with at most 2 challengers. An
+    assignment replaces the champion for that generation and never adds one, so spend is
+    unchanged.
+  - Promotion needs 40+ first-pass frames per arm, one-sided p < 0.002 and a lift of +8pt
+    absolute. Or, on cost: 15+ galleries per arm, at least 15% cheaper, p < 0.002, and
+    first-pass not more than 3pt worse.
+  - Why these thresholds: the loop re-tests daily, so alpha is set against sequential looks.
+    Measured on identical arms (1000 seeds × 40 looks), 0.9% are falsely promoted. A
+    challenger measurably worse (p < 0.05, n ≥ 15) is retired early. A promotion contradicted
+    by its own later frames is demoted.
+- **Scene and engineering lessons** need minimum samples per side, Bonferroni over the
+  scope's comparisons (Fisher exact for engineering), and are deactivated when their evidence
+  weakens.
+- **A lesson is advice to a decision.** It never refuses or weakens a gate.
+- **Reporting.** "Applied" means bus `acted_on`, never published. Trends are UNKNOWN below
+  the minimum window size.
+- Reversible by decision.
+
+**D-ENG-LEARN-2: a parked learner wakes on new evidence, not on a timer (ENG-LEARN, 2026-11-20).**
+- The backoff was correct: identical output for identical input. What was missing was a lift
+  when the input changed.
+- So each learner names its upstream producers in `UPSTREAM_INPUTS`, and upstream progress is
+  judged by declared WORK_KEYS (a bare `ran: true` is not progress).
+- Spend classification is unchanged, so `creative.*`/`visual.*` still get no release probe.
+- Reversible.

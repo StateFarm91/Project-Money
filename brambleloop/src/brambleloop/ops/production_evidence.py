@@ -1027,6 +1027,15 @@ def first_listing_readiness(db, *, now: datetime) -> dict:
 
 # ---- the anonymous-safe checks ----------------------------------------------------------
 
+def learning(db, *, now: datetime | None = None) -> dict:
+    """ENG-LEARN: per learning loop, its metric's latest window and trend, active lessons,
+    lessons a department acted on, and promotions/demotions. Rates and counts only; UNKNOWN
+    where the sample is too small (`learning.progress.readback`)."""
+    from ..learning import progress
+
+    return {"readable": True, **progress.readback(db, now=now)}
+
+
 SECTIONS = {
     "dead_letters_24h": dead_letters,
     "publishing_halt": publishing_halt,
@@ -1040,6 +1049,7 @@ SECTIONS = {
     "listing_package_releases": listing_package_releases,
     "scheduler": scheduler,
     "first_listing_readiness": first_listing_readiness,
+    "learning": learning,
 }
 CHECK_NAMES = ("publishing_halt_clear", "stale_artefacts_rebuilding",
                "no_repeated_paid_call_in_24h", "weekly_jobs_completing")

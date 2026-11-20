@@ -375,7 +375,9 @@ CHARTERS: tuple[Charter, ...] = (
                "analyst"),
        prefixes=("improve.", "learn."),
        # OPUS2-P0 (P0-LEARNING-GAPS): knowledge gaps and reference recommendations.
-       job_types={"learning.knowledge_gaps"},
+       job_types={"learning.knowledge_gaps",
+                  # ENG-LEARN: the pattern and commerce learning loops.
+                  "learning.loops"},
        generatable=("improve.mine", "improve.retrospective", "improve.measure",
                     "improve.sandbox", "improve.monitor", "learn.scan",
                     "autonomy.department_review"),
