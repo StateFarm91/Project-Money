@@ -2115,7 +2115,8 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                      MUTED, align="centre")
     # The facts strip in the forest band.
     strip = [("Skill", difficulty_word.capitalize()),
-             ("Finished size", _short_size(twin, cir)),
+             ("Finished size", (_short_size(twin, cir) if twin.calibrated or not twin.width_cm
+                                else f"approx. {_short_size(twin, cir)}")),
              ("Yarn", _yarn_weight_label(cir)),
              ("Hook", _std.hook_words(cir.gauge.hook_mm) if cir.gauge else "see Materials")]
     col_w = usable / len(strip)
@@ -2145,7 +2146,10 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         else:
             size = f"{twin.width_cm:.0f} x {twin.height_cm:.0f} cm at the stated gauge"
         if not twin.calibrated:
-            size += " (computed, not yet measured on a worked sample)"
+            # D-OWNER-ESTIMATE-CLAIMS: with no physical sample, a size is stated as what it
+            # is -- a calculation from the certified gauge (gates.estimate_claims).
+            size = (f"approx. {size}: calculated finished size (computed, not yet measured "
+                    f"on a worked sample)")
         claims.append(size)
         rows.append(("size", "finished size", size, {}))
     level = LADDER.index(difficulty_word) + 1 if difficulty_word in LADDER else len(LADDER)
@@ -2302,13 +2306,15 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                               "label": "Schematic"})
             # The drawn labels, set as text too: what a screen reader and a text search can
             # find, and exactly the strings the picture carries (`Schematic.labels`).
-            doc.label("Finished measurements")
+            doc.label("Finished measurements" if twin.calibrated
+                      else "Calculated finished measurements")
             for piece_, (across_, up_) in schematic.labels.items():
                 doc.kv(piece_.replace("_", " "), f"{across_} across, {up_} up")
         elif scale_view is not None:
             img, sha = scale_view
             doc.prose.append("Schematic")
-            doc.label("Schematic with finished measurements")
+            doc.label("Schematic with finished measurements" if twin.calibrated
+                      else "Schematic with calculated finished measurements")
             base_view = views.get("detail") if _rings(twin)[1] else None
             box = (95 * mm if base_view is not None
                    else max(100 * mm, min(125 * mm, doc.y - MARGIN - 22 * mm)))
@@ -2339,7 +2345,9 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                 facts.append(("rounds" if "round" in comp.construction else "rows",
                               f"{len(rows_ix)}"))
             yy = top - 4 * mm
-            doc.text(tx, yy, "FINISHED MEASUREMENTS", FONT_UI_BOLD, 9.5, ACCENT, track=1.0)
+            doc.text(tx, yy, ("FINISHED MEASUREMENTS" if twin.calibrated
+                              else "CALCULATED FINISHED MEASUREMENTS"), FONT_UI_BOLD, 9.5,
+                     ACCENT, track=1.0)
             doc.prose.append("Finished measurements")
             yy -= 8 * mm
             for k, v in facts:
@@ -2573,6 +2581,13 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         "above; if your gauge differs, your finished piece will differ by the same "
         "proportion. The stitch counts in this pattern are correct at any gauge — only the "
         "measurements change.", size=10)
+    if not twin.calibrated:
+        # D-OWNER-ESTIMATE-CLAIMS: the owner's template -- "where physical calibration is
+        # absent, the pattern must state estimates truthfully". Read back off the bytes by
+        # gates.estimate_claims; replaced by measured values once a sample is bound.
+        from ..gates.estimate_claims import ESTIMATE_NOTE
+
+        doc.para(ESTIMATE_NOTE, size=10)
     if cir.gauge:
         stitch = _gauge_stitch(cir, terminology)
         g = cir.gauge

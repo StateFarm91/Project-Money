@@ -1183,7 +1183,9 @@ def handle_listing_seo(ctx: JobContext) -> dict:
             why_it_matters=seo_mod.value_proposition(
                 sizes=len(i.get("sizes") or []) or 1, difficulty=difficulty,
                 colours=len(colors)),
-            yarn_lines=seo_mod.yarn_lines(list(cir.materials))),
+            yarn_lines=seo_mod.yarn_lines(list(cir.materials)),
+            # D-OWNER-ESTIMATE-CLAIMS: estimates until a sample calibrates the twin.
+            size_is_estimate=not twin.calibrated),
         materials=[m.name for m in cir.materials],
         price_cad=float(i.get("price_cad", 0.0)),
         supported_claims=[c for c in (size_label, gauge_line) if c],
