@@ -1,3 +1,10 @@
+> **2026-11-20 — ENG-BENCHBUY (`eng/benchbuy`, NOT merged, NOT deployed; production unchanged, SHADOW).** The benchmark shopping list across all nine watchlist shops.
+> - **Built.** `purchase_selection.shopping_list`: pattern digital downloads only, quota 3 per shop (MadelineMaeCo 5), capability-gap facet then owner-demand facet (baby, stuffed animal, pillow), favourites as a tie-break only, no pick without a new facet. Budget in code: `SET_BUDGET_CAD` less recorded BenchmarkProduct spend, every price at x1.158. Owned items (both MJ benchmarks, any BenchmarkProduct) never offered. Empty or never-scanned shops are listed with their reason; no scan data is UNKNOWN.
+> - **Wiring.** New daily loop `intel.benchmark_shopping` (free, after the scans, thrash/backoff via upstream inputs; autonomy_map regenerated, 144 cadences / 176 handlers). Mission Control: Insights tab gets the "Benchmark shopping list" panel grouped by shop, plus one owner card "Buy N benchmark patterns, ≤ CA$X". `sw.js` untouched.
+> - **Safety.** Nothing buys: no purchase path, no buy control, metadata only. Intake (`teardown.intake.receive`) now accepts a pick from any watchlist shop into the quarantined library.
+> - **Not verified.** Nothing here ran against production scan data (this checkout has no production database), so the real number of picks, shops with picks and total are UNKNOWN until the first production run. Whether the observed listings carry `options.listing_type` for every shop is also UNKNOWN: listings without it are excluded and counted as `digital_status_unknown`.
+> - Tests: `tests/test_benchbuy.py`, the benchbuy check in `check.mjs`. Review request: `research/final_build/w6/review_requests/benchbuy.md`.
+
 > **2026-11-19 — ENG-RECOVERY fix round 1 (`eng/recovery`, NOT merged, NOT deployed).** Main's review was DO NOT SHIP.
 > - H1: the spend classifier now FAILS CLOSED. `swarm.orchestrate.FREE_JOB_TYPES` is an explicit allow-list
 >   (94 cadence loops). Every other job type is spending, including `intel.serp_capture` and

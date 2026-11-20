@@ -336,6 +336,29 @@ def handle_watchlist_compare(ctx: JobContext) -> dict:
             "gaps": got["gaps"], "network_calls": 0, "work_done": 1}
 
 
+@handlers.register("intel.benchmark_shopping")
+def handle_benchmark_shopping(ctx: JobContext) -> dict:
+    """ENG-BENCHBUY: rebuild the benchmark shopping list from the scanned listings.
+
+    Reads stored rows only (CA$0, no network). Writes one dated reading and keeps ONE
+    consolidated owner card, "Buy N benchmark patterns, <= CA$X". Nothing is bought here:
+    buying is the owner's, and a purchased PDF enters only through the quarantined teardown
+    intake. `work_done` is 1 only when the list changed, so an unchanged day backs off.
+    """
+    from ..intel import benchmark_refresh
+
+    got = benchmark_refresh.refresh_shopping(ctx.db)
+    ctx.audit("intel.benchmark_shopping", detail={
+        "status": got["status"], "to_buy": got["to_buy_count"],
+        "total_with_contingency_cad": got["total_with_contingency_cad"],
+        "shops_with_picks": got["shops_with_picks"], "changed": got["changed"],
+        "card": got["card"].get("state")})
+    return {"status": got["status"], "to_buy": got["to_buy_count"],
+            "shops_with_picks": got["shops_with_picks"],
+            "total_with_contingency_cad": got["total_with_contingency_cad"],
+            "network_calls": 0, "work_done": 1 if got["changed"] else 0}
+
+
 @handlers.register("intel.opportunity_review")
 def handle_opportunity_review(ctx: JobContext) -> dict:
     """Laura's delegated review: one durable decision per validated watchlist opportunity."""

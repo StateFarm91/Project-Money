@@ -88,7 +88,7 @@ JOB_CLASS: dict[str, ActionClass] = {
     "creative.tournament": _R, "creative.white_space": _R, "creative.family_engine": _R, "creative.salvage_review": _R, "creative.capability_scorecard": _R, "creative.photo_principles": _R,
     "listing.cross_sell_graph": _R, "culture.sweep": _R,
     "improve.mine": _R, "improve.retrospective": _R, "intel.acceptance": _R,
-    "intel.benchmark_health": _R, "intel.benchmark_refresh": _R,
+    "intel.benchmark_health": _R, "intel.benchmark_refresh": _R, "intel.benchmark_shopping": _R,
     "intel.gallery_analysis": _R, "intel.panel_discovery": _R, "intel.pod_learning": _R,
     "intel.serp_capture": _R, "intel.children_portfolio": _R, "intel.scan_evidence": _O, "policy.issuer_shadow": _O, "policy.stop_watch": _O, "policy.activation_schedule": _O, "learn.scan": _R, "research.investigate": _R, "research.sweep": _R, "research.flag_architecture": _R, "listing.taxonomy_refresh": _R,
     "mjs.reviews": _R, "mjs.scan": _R, "pricing.position": _R,

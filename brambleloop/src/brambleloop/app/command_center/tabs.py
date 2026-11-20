@@ -953,7 +953,55 @@ def insights(db) -> dict:
                              **_customer_sections(db),
                              # W4-CCALL (F-622): the combined marketing & customers view.
                              "marketing_customers": guard(
-                                 "marketing_customers", lambda: marketing_customers(db))})
+                                 "marketing_customers", lambda: marketing_customers(db)),
+                             # ENG-BENCHBUY: the benchmark shopping list, grouped by shop.
+                             "benchmark_shopping": guard(
+                                 "benchmark_shopping", lambda: benchmark_shopping(db))})
+
+
+def benchmark_shopping(db) -> dict:
+    """ENG-BENCHBUY: the stored daily shopping list, grouped by shop, for the Insights tab.
+
+    Reads the latest `benchmark.shopping` reading only. It never rebuilds the list on a page
+    view, never contacts Etsy and has no purchase action: the owner buys, and a purchased PDF
+    goes only through the quarantined teardown intake. No reading yet is UNKNOWN, not empty.
+    """
+    from ...core.models import OperatingReading, OwnerAction
+    from ...intel import purchase_selection as ps
+
+    with db.session() as s:
+        row = s.scalar(select(OperatingReading).where(OperatingReading.kind == ps.SHOPPING_KIND)
+                       .order_by(OperatingReading.period_key.desc()).limit(1))
+        payload = dict(row.payload or {}) if row is not None else None
+        card = s.scalar(select(OwnerAction).where(OwnerAction.requirement_key == ps.OWNER_CARD_KEY,
+                                                  OwnerAction.done == False))  # noqa: E712
+        owner_card = ({"id": card.id, "action": card.action,
+                       "max_cost_cad": card.max_cost_cad, "minutes": card.minutes,
+                       "consequence_of_delay": card.consequence_of_delay}
+                      if card is not None else None)
+    sources = ["benchmark_listings", "benchmark_products", "operating_readings"]
+    if payload is None:
+        return {"status": "UNKNOWN", "as_of": now_iso(), "sources": sources, "groups": [],
+                "reason": "the daily benchmark shopping list has not been built yet "
+                          "(intel.benchmark_shopping runs after the shop scans)"}
+    groups = []
+    for shop in payload.get("shops") or []:
+        groups.append({
+            "shop": shop.get("shop_name"), "status": shop.get("status"),
+            "reason": shop.get("reason"), "scan_state": (shop.get("scan") or {}).get("state"),
+            "observed": shop.get("observed"), "quota": shop.get("quota"),
+            "picks": [{k: p.get(k) for k in (
+                "title", "url", "price_cad", "price_with_contingency_cad", "teaches",
+                "answers", "status", "listing_ref")} for p in shop.get("picks") or []]})
+    return {"status": payload.get("status", "UNKNOWN"), "as_of": payload.get("as_of"),
+            "reason": payload.get("reason") or None, "sources": sources,
+            "owner_card": owner_card, "groups": groups,
+            "to_buy_count": payload.get("to_buy_count"),
+            "total_with_contingency_cad": payload.get("total_with_contingency_cad"),
+            "contingency_factor": payload.get("contingency_factor"),
+            "budget": payload.get("budget"),
+            "no_auto_purchase": ("nothing here buys anything; purchased PDFs go only through "
+                                 "the quarantined teardown intake")}
 
 
 def _customer_sections(db) -> dict:

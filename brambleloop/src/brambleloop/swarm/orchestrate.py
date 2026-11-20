@@ -498,6 +498,7 @@ def gate_lifted(session, job_type: str, suspension: dict, recorded_at) -> dict |
 # made progress after it was recorded (or after the newest observation it counted).
 UPSTREAM_INPUTS: dict[str, tuple[str, ...]] = {
     "intel.watchlist_compare": ("intel.watchlist_scan", "mjs.scan"),
+    "intel.benchmark_shopping": ("intel.watchlist_scan", "mjs.scan"),
     # (not intel.watchlist_compare: it reports work_done=1 on every run, changed or not)
     "radar.concept_intake": ("research.investigate", "intel.opportunity_review",
                              "intel.watchlist_scan"),
@@ -651,6 +652,7 @@ FREE_JOB_TYPES: frozenset[str] = frozenset({
     "improve.mine", "improve.monitor", "improve.nightly", "improve.replay",
     "improve.retrospective", "improve.role_work", "improve.sandbox", "improve.weekly",
     "intel.acceptance", "intel.benchmark_health", "intel.benchmark_refresh",
+    "intel.benchmark_shopping",
     "intel.children_portfolio", "intel.panel_discovery", "intel.pod_learning",
     "intel.scan_evidence", "intel.watchlist_compare", "intel.watchlist_scan", "learn.scan",
     "learning.knowledge_gaps", "listing.cross_sell_graph", "listing.outcomes",
@@ -1206,6 +1208,7 @@ JOB_BANDS: dict[str, str] = {
     "intel.benchmark_health": "benchmark_change",
     "intel.panel_discovery": "benchmark_change",
     "intel.benchmark_refresh": "benchmark_change",
+    "intel.benchmark_shopping": "benchmark_change",
     "etsy.probe": "benchmark_change",
     # Read-only Etsy observation (shop snapshot, listing census, credential health): the same
     # family and band as the probe. Observation, not a protected tier -- a read never claims
