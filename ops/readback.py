@@ -349,9 +349,6 @@ EVIDENCE_ITEMS = (
     # ENG-FIRSTLIST: which Launch-0 release could become the first Etsy draft. Advisory: no
     # candidate yet is the honest state before launch, so it WARNs and never fails a deploy.
     ("first Etsy draft candidates (Launch-0)", "first_listing_readiness", None),
-    # ENG-MOTIF-BACKLOG: paid renders blocked by a refused motif check, and their recovery.
-    # Advisory: renders still waiting (or a backlog never measured) WARN; never a deploy FAIL.
-    ("paid renders recovered from refused motif checks", "motif_backlog_recovery", None),
     # ENG-VISUAL: the listing-image and PDF factory, counted from persisted rows. Advisory:
     # before launch nothing has a verified gallery or a read-back draft, so it WARNs and
     # never fails a deploy; an unreadable part is UNKNOWN, never 0.
@@ -383,24 +380,6 @@ def _judge_section(name: str, section, judged) -> tuple[str, str]:
             return PASS, f"draft candidates {cands}"
         return WARN, (f"no draft candidate among {section.get('certified_with_listing')} "
                       f"certified Launch-0 releases with a listing")
-    if name == "motif_backlog_recovery":
-        if not isinstance(section, dict) or section.get("readable") is not True:
-            return WARN, ("section missing" if not isinstance(section, dict) else
-                          f"unreadable ({section.get('error_class') or 'no reason given'})")
-        counts = section.get("counts") or {}
-        if section.get("swept") is not True:
-            return WARN, "the recovery sweep has never run: the backlog is UNKNOWN, not 0"
-        waiting = [counts.get("renders_still_queued_budget"),
-                   counts.get("renders_queued_retry"),
-                   counts.get("renders_awaiting_first_recheck")]
-        if not all(isinstance(w, int) for w in waiting):
-            return WARN, f"counts unreadable: {counts}"
-        summary = (f"found {counts.get('renders_found_blocked')}, passed "
-                   f"{counts.get('renders_passed')}, failed {counts.get('renders_failed')}, "
-                   f"queued(budget) {waiting[0]}, galleries completed "
-                   f"{counts.get('products_gallery_completed')}, packages ready "
-                   f"{counts.get('listing_packages_became_ready')}")
-        return (WARN if sum(waiting) else PASS), summary
     if name == "visual_pipeline":
         return _judge_visual(section)
     if name == "competitor_scans" and (not isinstance(section, dict)

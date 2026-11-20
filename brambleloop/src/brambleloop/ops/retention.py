@@ -128,15 +128,6 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
     "chain.rebuild_unbound": ("windowed",
                               "ops.production_evidence.stale_rebuilds counts the last 7 days"),
     "ops.rebuild_propagated": ("latest", "ops.production_evidence reads the newest propagation"),
-    # ENG-MOTIF-BACKLOG: the recovery report reads only the newest sweep row, to know that the
-    # backlog was measured at all (never-swept is UNKNOWN, never 0); counts come from the
-    # motif_recovery table, not from audit rows.
-    "assets.motif_backlog.swept": ("latest", "publish.motif_backlog.report reads the newest "
-                                             "sweep to tell measured from never-measured"),
-    # ENG-MOTIF-BACKLOG-FIX: one row per claimed paid motif re-ask; the daily cap counts the
-    # rows since 00:00 UTC (publish.motif_backlog.claimed_today / _claim).
-    "assets.motif_backlog.claimed": ("windowed", "publish.motif_backlog counts claims since "
-                                                 "00:00 UTC for the daily re-ask cap"),
     # eng/stale-rebuild-loop: refused rebuilds are counted; the newest refusal for a release
     # names why a rebuild could not complete (runtime.release._rebuild_incomplete).
     "chain.rebuild_refused": ("windowed",
