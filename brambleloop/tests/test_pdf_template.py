@@ -276,6 +276,7 @@ def test_a_missing_required_fact_blocks_the_build_never_a_placeholder():
 
 def test_the_licence_is_brambleloops_own_and_support_is_etsy_messages_only():
     text = _flat(_doc("hexagon_coasters"))
+    assert P.licence_paragraphs()
     for para in P.licence_paragraphs():
         para = para[2:] if para.startswith("- ") else para
         if para.strip():

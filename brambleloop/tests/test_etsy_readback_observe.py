@@ -237,6 +237,15 @@ def _publish(db, fake, p, *, docs=None, certified=None, client=None):
     if not opsauth.configured():
         os.environ["BRAMBLELOOP_OPS_TOKEN"] = PUBLISH_FIXTURE_TOKEN
     orig = _gates_pass()
+    # ENG-SALE-PIPELINE: the pre-create revalidation re-reads the certified premium editions
+    # (`publish.sale_pipeline.certified_premium_pdfs`). This synthetic release has no sale
+    # pipeline run, so -- like the parity and release gates above -- that lookup is held to
+    # this fixture's own docs (a declared stand-in); the real certificate check is exercised
+    # by tests/test_sale_pipeline.py and tests/test_sale_pipeline_e2e.py.
+    from brambleloop.publish import sale_pipeline as _SPL
+
+    real_premium = _SPL.certified_premium_pdfs
+    _SPL.certified_premium_pdfs = lambda *_a, **_k: {t: d.pdf_bytes for t, d in docs.items()}
     # F-299: the runtime phase is the environment AND the owner's recorded transition; the
     # fixture records the path to the context's phase and sets the environment to agree.
     from phase_fixture import record_phase_path
@@ -254,6 +263,7 @@ def _publish(db, fake, p, *, docs=None, certified=None, client=None):
             listing_images=images)
     finally:
         _restore(orig)
+        _SPL.certified_premium_pdfs = real_premium
         if prior_phase is None:
             os.environ.pop("BRAMBLELOOP_PHASE", None)
         else:
