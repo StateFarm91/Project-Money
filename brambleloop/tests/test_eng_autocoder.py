@@ -193,6 +193,92 @@ def test_a_hosts_refuse_non_auto_refs_before_writing_anything():
     assert calls == []
 
 
+class _FakeGitHub:
+    """GitHub's REST API, as far as the autocoder uses it. Records every request."""
+
+    def __init__(self, base: str, *, ref_exists: bool = False, tarball: bytes = b""):
+        self.base, self.ref_exists, self.tarball = base, ref_exists, tarball
+        self.requests: list[tuple[str, str, dict | None]] = []
+
+    def __call__(self, req, timeout=0):
+        import io
+        import urllib.error
+
+        body = json.loads(req.data) if req.data else None
+        path = req.full_url.split("/repos/owner/repo", 1)[1]
+        self.requests.append((req.get_method(), path, body))
+        assert req.get_header("Authorization") == "Bearer test-not-a-token"
+
+        def resp(obj, raw=None):
+            payload = raw if raw is not None else json.dumps(obj).encode()
+
+            class R(io.BytesIO):
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *a):
+                    return False
+            return R(payload)
+        m = req.get_method()
+        if m == "GET" and path.startswith("/commits/"):
+            return resp({"sha": self.base})
+        if m == "GET" and path.startswith("/tarball/"):
+            return resp(None, raw=self.tarball)
+        if m == "GET" and path.startswith("/git/commits/"):
+            return resp({"tree": {"sha": "t" * 40}})
+        if m == "POST" and path == "/git/blobs":
+            return resp({"sha": "b" * 40})
+        if m == "POST" and path == "/git/trees":
+            return resp({"sha": "e" * 40})
+        if m == "POST" and path == "/git/commits":
+            return resp({"sha": "c" * 40})
+        if m == "POST" and path == "/git/refs" and self.ref_exists:
+            raise urllib.error.HTTPError(req.full_url, 422, "exists", {},
+                                         io.BytesIO(b'{"message": "Reference already exists"}'))
+        if path.startswith("/git/refs"):
+            return resp({"ref": body.get("ref")})
+        raise AssertionError(f"unexpected request {m} {path}")
+
+
+def test_a_the_github_host_pushes_only_the_auto_ref_through_the_git_data_api():
+    import io
+    import tarfile
+
+    base = "a" * 40
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+        data = b"def add(a, b):\n    return a - b\n"
+        info = tarfile.TarInfo(f"owner-repo-{base[:7]}/{SRC}toy.py")
+        info.size = len(data)
+        tar.addfile(info, io.BytesIO(data))
+        evil = tarfile.TarInfo(f"owner-repo-{base[:7]}/link")
+        evil.type, evil.linkname = tarfile.SYMTYPE, "/etc/passwd"
+        tar.addfile(evil)
+    os.environ["BRAMBLELOOP_GITHUB_TOKEN"] = "test-not-a-token"
+    try:
+        fake = _FakeGitHub(base, tarball=buf.getvalue())
+        gh = GitHubHost("owner/repo", opener=fake)
+        dest = Path(tempfile.mkdtemp()) / "ws"
+        dest.mkdir()
+        assert gh.materialize("claude/w6-INTEG7", dest) == base
+        assert (dest / SRC / "toy.py").read_text().endswith("a - b\n")
+        assert not (dest / "link").exists()          # symlinks are never extracted
+        files = {SRC + "toy.py": "def add(a, b):\n    return a + b\n"}
+        assert gh.push("auto/ecr-5", base, files, "m") == "c" * 40
+        refs = [r for r in fake.requests if r[1].startswith("/git/refs")]
+        assert refs == [("POST", "/git/refs", {"ref": "refs/heads/auto/ecr-5", "sha": "c" * 40})]
+        commit = next(r for r in fake.requests if r[1] == "/git/commits")
+        assert commit[2]["parents"] == [base]
+        fake2 = _FakeGitHub(base, ref_exists=True)
+        GitHubHost("owner/repo", opener=fake2).push("auto/ecr-5", base, files, "m")
+        assert fake2.requests[-1][:2] == ("PATCH", "/git/refs/heads/auto/ecr-5")
+        writes = [r for r in fake.requests + fake2.requests if r[0] != "GET"]
+        assert writes and all("repository-setup" not in r[1] and "/main" not in r[1]
+                              for r in writes)
+    finally:
+        os.environ.pop("BRAMBLELOOP_GITHUB_TOKEN", None)
+
+
 # ---- B. path denylist -------------------------------------------------------------------------
 
 PROTECTED_SAMPLES = (

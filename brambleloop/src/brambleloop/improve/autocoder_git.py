@@ -24,7 +24,6 @@ returned or written.
 """
 from __future__ import annotations
 
-import io
 import json
 import os
 import re
@@ -114,7 +113,7 @@ class GitHubHost:
         return tok
 
     def _call(self, method: str, path: str, body: dict | None = None, *,
-              raw: bool = False):
+              raw: bool = False, to_file: Path | None = None):
         url = f"{API}/repos/{self.repo}{path}"
         data = None if body is None else json.dumps(body).encode()
         req = urllib.request.Request(url, data=data, method=method)
@@ -126,6 +125,19 @@ class GitHubHost:
             req.add_header("Content-Type", "application/json")
         try:
             with self._opener(req, timeout=HTTP_TIMEOUT_S) as resp:
+                if to_file is not None:
+                    # Streamed to disk: the tarball is large and the worker's memory is not.
+                    total = 0
+                    with open(to_file, "wb") as fh:
+                        while True:
+                            chunk = resp.read(1 << 20)
+                            if not chunk:
+                                break
+                            total += len(chunk)
+                            if total > MAX_EXTRACT_BYTES:
+                                raise HostError("tarball exceeds the download limit")
+                            fh.write(chunk)
+                    return to_file
                 payload = resp.read()
         except urllib.error.HTTPError as exc:
             # The body may echo the request; only the status and GitHub's message leave.
@@ -148,9 +160,17 @@ class GitHubHost:
 
     def materialize(self, base: str, dest: Path) -> str:
         sha = self.resolve(base)
-        blob = self._call("GET", f"/tarball/{sha}", raw=True)
-        with tarfile.open(fileobj=io.BytesIO(blob), mode="r:*") as tar:
-            _safe_extract(tar, Path(dest))
+        dest = Path(dest)
+        archive = dest.parent / f".{dest.name}.tar.gz"
+        try:
+            self._call("GET", f"/tarball/{sha}", to_file=archive)
+            with tarfile.open(archive, mode="r:*") as tar:
+                _safe_extract(tar, dest)
+        finally:
+            try:
+                archive.unlink()
+            except OSError:
+                pass
         return sha
 
     def push(self, ref: str, base_sha: str, files: dict[str, str], message: str) -> str:
@@ -171,7 +191,7 @@ class GitHubHost:
         commit = self._call("POST", "/git/commits", {"message": message, "tree": tree["sha"],
                                                      "parents": [base_sha]})
         sha = commit["sha"]
-        short = full[len("refs/"):]
+        short = full[len("refs/"):]          # "heads/auto/..."
         try:
             self._call("POST", "/git/refs", {"ref": full, "sha": sha})
         except HostError as exc:
@@ -179,7 +199,7 @@ class GitHubHost:
                 raise
             # The auto/ branch exists from an earlier attempt of this request. It is ours
             # (auto/* is the autocoder's namespace), so it is moved to the new commit.
-            self._call("PATCH", f"/git/{short}", {"sha": sha, "force": True})
+            self._call("PATCH", f"/git/refs/{short}", {"sha": sha, "force": True})
         return sha
 
 
