@@ -3026,3 +3026,19 @@ Every scene text passes `laura_home.check`. A scene suits a family only if its w
 - **Where Laura appears** (`gallery_planner.LAURA_IN`): worn products in the hero, lifestyle, back view and fit frames; held products in the lifestyle and scale frames; home goods in the lifestyle frame. She never appears in the flat-lay or the close-up.
 - **Home goods differ from ENG-VIS-GALLERY.** Laura in a home-goods lifestyle frame differs from ENG-VIS-GALLERY's product-only small-goods brief. It is raised on #28 and settled before the planner is wired to the producer.
 - **Refusals.** A gallery is refused rather than padded: a repeated scene, the same place from the same angle, fewer than three places, or near-identical scene text (REPETITIVE_FILLER).
+## D-ENG-DAILY-ZERO-RULE — when a stage counts as zero-output (ENG-DAILY-FIX, 2026-11-20; routine engineering)
+Context: the independent review of eng/daily @ a795be17 (Unit B, finding 2) reproduced every stage
+diagnosed at 00:30 UTC and duplicate change requests from repeated six-hourly runs.
+**Rule.** A stage is `zero_output` only when all three hold: at least 6 h of the UTC day have
+passed (so the first six-hourly run of a day never diagnoses); its expected count by now
+(mean of the known prior days x the elapsed fraction of today) is at least 1.0; and today's count
+is at most 0.2 x that expectation. Otherwise a stage at 0 reads `not_yet_due` (never DEGRADED),
+one with output reads `producing`, and an unreadable count reads UNKNOWN.
+**Change requests.** Filed only when the estimated last-24-hour window is also 0, through
+`improve.ecr.file` (now present via INTEG4), and deduplicated by fingerprint per stage per UTC day:
+today's diagnosis row records the fingerprints it filed, and the `ops.ecr_pending` fallback also
+refuses a second row for the same fingerprint on the same day. A repeated run never inflates an
+open request's `occurrences`.
+**Readback.** `daily_ledger` is an advisory readback row: PASS or WARN when readable, UNKNOWN when
+missing or unreadable, never PASS on UNKNOWN.
+Reversible by decision; the thresholds are constants in `ops/daily_ledger.py`.

@@ -3482,6 +3482,7 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     "ops.sentinel": ("rebuild_enqueued", "publication_blocked"),
     "ops.slo": ("incidents.opened", "incidents.resolved", "incidents.restated"),
     "ops.thrash": ("tripped", "cancelled", "backoff.applied", "backoff.lifted"),
+    "ops.daily_ledger": ("recorded",),
     "physical.upgrade_impact": ("upgrades", "measured"),
     "plan.cycle": ("planned",),
     "portfolio.review": ("actions",),

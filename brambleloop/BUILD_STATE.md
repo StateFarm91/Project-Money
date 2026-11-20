@@ -1,3 +1,32 @@
+> **2026-11-20 — ENG-DAILY-FIX (`eng/daily`, NOT merged, NOT deployed; production unchanged).** Fixes every Unit B
+> finding of the independent review of a795be17 (BLOCK). Merged `origin/claude/w6-INTEG4` (259e47c4) first, so
+> learn and improve with `improve.ecr` are present; change requests now go through `ecr.file`. (1) BLOCKER: a
+> `daily_ledger` row in `ops/readback.py` `EVIDENCE_ITEMS`, judged advisory (PASS/WARN; UNKNOWN when unreadable;
+> never PASS on UNKNOWN); readback items 18 -> 19. (2) HIGH: a stage is zero-output only when >= 6 h into the UTC
+> day, expected-by-now >= 1 from its historical rate, and today <= 0.2 x expected; otherwise `not_yet_due` (never
+> DEGRADED) or UNKNOWN (D-ENG-DAILY-ZERO-RULE). Change requests need a zero last-24-h window and are deduplicated by
+> fingerprint per stage per UTC day, on `ecr.file` and on the `ops.ecr_pending` fallback. Tests: the 00:30 UTC run
+> diagnoses nothing and files nothing; repeated runs file one request (both paths). (3) `concepts_held` is UNKNOWN on
+> a day no `radar.scan` completed. (4) Daily panel pills: Failures and Dead letters invert, Spend is neutral, stage
+> rows follow their reading. (5) the retention-horizon day is UNKNOWN (`<=`). (6) the review request carries its
+> run table. `sw.js` `cc-shell-v43`; autonomy map regenerated (148 cadences / 180 handlers). Bundle: INTEG4 plus the Daily view came to 403,169 bytes (over 400 KB); the two PWA icons were re-encoded with zopfli, pixel-identical (verified), the Daily row labels are served with the panel and sw.js drops its per-version changelog (in git): 393,345 bytes. Results:
+> `research/final_build/w6/review_requests/ENG-DAILY-FIX.md`.
+
+> **2026-11-20 — ENG-DAILY slice 1 (`eng/daily`, NOT merged, NOT deployed; production unchanged).** The owner's P0
+> daily counts. `ops/daily_ledger.py` gives per-UTC-day counts for 14 days from persisted rows only: the 9 shops'
+> scans, concepts, products started and advanced, certifications, US/UK PDFs, images, galleries, listing packages,
+> Etsy drafts and live ids, lessons, failures and dead letters, and CA$ spend. UNKNOWN is never 0: an unreadable
+> source, a day before the first job, a day past retention or an unregistered shop.
+> - Zero-output diagnosis covers suspended loops, an empty upstream queue, a refusing gate (top reasons), a budget
+>   refusal, and policy or owner holds. It records an `ops.zero_output` row per day and stage.
+> - Safe free actions only: re-arm through `rearm_probe` under the cadence key, and one supply re-offer when
+>   admission is clear. A cause that needs code files an ECR: through `improve.ecr` once ENG-IMPROVE lands,
+>   `ops.ecr_pending` until then. No gate, ceiling or owner exception is changed.
+> - Owner-only `GET /api/cc/daily` and the `#/daily` view (`cc-shell-v42`, bundle 388,682 bytes); readback
+>   section `daily_ledger` (spend withheld). Not measured against production: no production reading was taken.
+> - Honest gaps (no per-event timestamp exists for these, so each counts the nearest row): stage moves, the moment
+>   an Etsy id is set, image verification time, "image recovered". Details:
+>   `research/final_build/w6/review_requests/daily_slice1.md`.
 
 > **2026-11-20 — ENG-VIS-IDENTITY slice 2 (`eng/vis-identity`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
 > - Review fixes: F1 v3 production test no longer assumes the models are absent; F2 calibration now fixes thresholds on a calibration subset and measures FAR/FRR (exact 95% bounds) only on a disjoint held-out subset, floors apply to held-out counts, `qualification()` refuses in-sample evidence; F3 outfit race settles to exactly one outfit per listing (a loser with uses is retired, never orphaning frames); F4 vision reads reserved at the provider's own image figure (OpenAI read CA$0.092 -> CA$0.029 reserved, equal to the gate's own estimate); F5 unused `transports_independent` removed.
