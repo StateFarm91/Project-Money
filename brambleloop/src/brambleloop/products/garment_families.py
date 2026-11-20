@@ -150,6 +150,12 @@ class Piece:
         for _ in range(rows):
             i = self.next_index
             lp = self.loop_for(loop, i)
+            if i == 1 and self.kw["foundation_kind"] == "chain":
+                lp = "both"        # a foundation chain has no back loop to work into
+            if edge_rib and i == 1 and self.kw["foundation_kind"] == "chain":
+                self._finish(self._row([Op(self.fam.stitch, self.count, loop="both")]),
+                             self.count)
+                continue
             if edge_rib:
                 k, end = edge_rib
                 at_start = (end == "start") == ((i - first) % 2 == 0)
@@ -556,15 +562,18 @@ def one_piece_sweater(g: GradedSize, *, key: str, title: str, family: StitchFami
     body.chain_on(extra, label="sleeves")
     body.even(arm_rows - 2, label="front and sleeves")
     neck_row = body.neck_bridge(neck)
-    body.even(arm_rows - 2, label="back and sleeves")
+    # The back mirrors the front row for row about the shoulder line: the front's two
+    # chain-on rows (W+X, W+2X) meet the back's two leave rows (W+X, W) one row further from
+    # the fold, so the back works one more full-width row and one fewer plain row.
+    body.even(arm_rows - 1, label="back and sleeves")
     body.leave(extra, label="end of sleeves")
-    body.even(below - rib, label="back")
+    body.even(below - rib - 1, label="back")
     body.even(rib, loop="back", label="back hem band")
     comp = body.component()
 
     # The sleeve's end (cuff edge) is the row ends of the extension: 2*arm_rows rows from the
     # first chained-on row, folded over the shoulder line. Cuffs and neckband are picked up.
-    sleeve_rows = 2 * arm_rows - 1 + 2       # chain-on rows .. leave rows, inclusive
+    sleeve_rows = 2 * arm_rows + 1           # chain-on rows .. leave rows, inclusive
     first_sleeve = below + 1
     cuff_edge_cm = sleeve_rows * (10.0 / g.gauge.rows_per_10cm)
     cuff_pick = _even(pick_up_count(cuff_edge_cm, g))
