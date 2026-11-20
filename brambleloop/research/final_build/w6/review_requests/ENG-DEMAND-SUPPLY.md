@@ -5,7 +5,7 @@ Branch `eng/demand-supply`, cut from `claude/w6-INTEG7-wip` @ c6d4400.
 - **Hygiene:** no PR opened. No Railway variables or secrets were read.
 - **Measurement:** everything is measured on fixtures. No production reading was taken.
 
-- **Tested SHA:** `__SHA__` (the commit after it touches only this file).
+- **Tested SHA:** `0c1305767fa1cec8db99d903daa1a70b636fbe80` (the commit after it touches only this file).
 - **Decision:** D-ENG-DEMAND-SUPPLY (DECISION_LOG). BUILD_STATE has its entry at the top.
 
 ## What it does
@@ -99,7 +99,7 @@ The required and touched suites, run on this tree and on the base worktree (c6d4
 | test_r5_research_2 / _3 / _4 | 3 / 4 / 3 failed | **3 / 4 / 3 failed (pre-existing)** |
 | test_ws2_research_m2 | 1 failed | **1 failed (pre-existing: coaster held by flat_panel)** |
 | test_vacuity | pass | — |
-| test_w4_resume_runner | __RR__ | 0 failed |
+| test_w4_resume_runner | 0 failed (40 OK) | 0 failed |
 | test_v11_pwa_static | 87 passed | — |
 | test_w4_readback_evidence | 23/23 | — |
 | test_eng_daily | 0 failed | — |
