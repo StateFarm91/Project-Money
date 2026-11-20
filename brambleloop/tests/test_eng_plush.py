@@ -223,6 +223,22 @@ def test_a_toy_called_anything_is_still_inside_the_gate():
     assert CS.applies(ball) and CS.evaluate(ball).verdict == CS.VERDICT_HELD
 
 
+def test_an_unidentified_material_on_a_toy_is_held_and_garments_use_their_own_constraints():
+    toy = _toy()
+    odd = _with(toy, materials=toy.materials + [Material(name="trim kit (assorted)")])
+    v = CS.evaluate(odd)
+    assert {c.code: c.state for c in v.checks}["MATERIALS_KNOWN"] == CS.UNKNOWN
+    assert v.verdict != CS.VERDICT_PASS
+    # A graded children's garment is governed by intel.childrens' garment constraints.
+    assert CS.applies(toy)                                  # ungraded toy: inside
+    import types
+    fake = types.SimpleNamespace(**{**toy.__dict__, "grading": object(),
+                                    "components": [dataclasses.replace(
+                                        c, stuff_at_round=None, closes=False)
+                                        for c in toy.components]})
+    assert not CS.applies(fake)                             # a graded, unstuffed garment
+
+
 def test_unknown_is_never_pass():
     v = CS.Verdict(applies=True, profile=("base",),
                    checks=[CS.Check("X", CS.PASS, ""), CS.Check("Y", CS.UNKNOWN, "")])

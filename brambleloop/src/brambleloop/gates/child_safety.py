@@ -344,7 +344,13 @@ def profile_for(cir, childrens: tuple[str, str] | None = None) -> tuple[str, ...
     from ..products import launch0
 
     flags = {"base"}
-    if launch0.closed_stuffed_form(cir):
+    # Stuffed means stuffing evidence: a stated stuffing point or closure, a seam stuffed
+    # before closing, or a stuffing material. A1-R's "unknown non-yarn material" reading is
+    # answered by MATERIALS_KNOWN, which holds an unidentified material as UNKNOWN.
+    if any(c.stuff_at_round is not None or c.closes for c in cir.components) \
+            or any(getattr(s, "stuff_before_closing", False) for s in cir.assembly) \
+            or any(re.search(r"\b(?:fibrefill|fiberfill|stuffing|polyfill|filling|stuffed)\b",
+                             _fold(str(m.name or ""))) for m in cir.materials):
         flags.add("stuffed")
     text = _fold(" ".join(_instruction_texts(cir)))
     if re.search(r"\bembroider", text) or re.search(r"\beyes?\b|\bnose\b|\bface\b", text):
@@ -361,6 +367,14 @@ def applies(cir, childrens: tuple[str, str] | None = None) -> bool:
     """A closed stuffed form, a children's assignment, or a title that reads as a child's."""
     from ..products import launch0
 
+    # A graded children's garment is governed by `intel.childrens`' garment constraints
+    # (neck/hood drawstrings, waist ties, small parts) and F-363 physical plausibility, which
+    # the renderer and certification already enforce; this gate is for toys, loveys and baby
+    # textiles, whose rules would misread a garment's bridged armhole chain as a loop. A
+    # stuffed or closed garment piece is still inside it.
+    if getattr(cir, "grading", None) is not None and not any(
+            c.stuff_at_round is not None or c.closes for c in cir.components):
+        return False
     if childrens or launch0.child_words_in(cir.title, cir.slug) or launch0.stuffed_figure(cir):
         return True        # a stuffed figure is a toy whatever any decision says
     # A stuffed closed piece in rounds (an amigurumi body, a ball) is toy-shaped whatever it
