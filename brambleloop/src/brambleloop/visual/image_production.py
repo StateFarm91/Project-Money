@@ -347,7 +347,11 @@ def record_candidate(db, cand: dict, verdict: dict, *, method: str, run: str = "
                        if cand.get("_generation_operation") else {}),
                     # the generator's conditioning receipt (references sent, proven), kept
                     # so a re-verification reads the same evidence (W-VISNEXT)
-                    "_identity_evidence": _receipt_summary(cand.get("identity_evidence"))},
+                    "_identity_evidence": _receipt_summary(cand.get("identity_evidence")),
+                    # ENG-LEARN: the scene the producer chose (room, camera, lighting), read
+                    # back by learning.image_lessons.harvest; never read by a gate.
+                    **({"_scene": {k: str(v)[:200] for k, v in cand["scene"].items()}}
+                       if isinstance(cand.get("scene"), dict) else {})},
             technical_status=tech,
             publishable=bool(verdict["publishable"]), outcome=outcome,
             failure_categories=list(verdict.get("failure_categories") or []),
