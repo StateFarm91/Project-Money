@@ -756,7 +756,17 @@ def validate(db, proposal: dict, evidence: dict, *, source_ref: str) -> dict:
 
     engine_sized = _FC.plan(category=str(p["category"]), title=str(p["title"]))[
         "family"] in (_FC.LOVEY, _FC.AMIGURUMI)
-    if sized["refused"] and size_truth.applies(p["category"], str(p["title"])) \
+    # ENG-GARMENT: a garment is sized by its sourced body table, one release of the whole
+    # run; the flat bands do not apply, and a title naming any one size is refused.
+    garment = str(c.get("form")) == "fitted_garment"
+    if garment:
+        token = re.search(r"\d|\b(?:xxs|xs|s|m|l|xl|xxl|[2-5]x|small|medium|large|petite|"
+                          r"plus|size[sd]?|months?|years?|toddler|newborn|preemie)\b",
+                          _FC.fold_title(str(p["title"])))
+        if token:
+            reasons.append(f"size: a garment is released in its whole sourced size run; the "
+                           f"title names {token.group(0)!r}, a size the release is not")
+    elif sized["refused"] and size_truth.applies(p["category"], str(p["title"])) \
             and not engine_sized:
         reasons.append(f"size: {sized['refused']}")
     if c.get("pod") not in POD_KEYS:

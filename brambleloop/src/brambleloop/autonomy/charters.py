@@ -405,7 +405,7 @@ CHARTERS: tuple[Charter, ...] = (
        prefixes=("ops.", "model.probe"),
        job_types={"ops.heartbeat", "ops.queue_check", "ops.health", "ops.continuity",
                   "ops.offsite_archive", "ops.retention", "ops.dependencies",
-                  "ops.capability_probes", "ops.thrash", "ops.policy_watch",
+                  "ops.capability_probes", "ops.thrash", "ops.policy_watch", "ops.daily_ledger",
                   "ops.maturity_disagreements", "model.probe",
                   # ENG-APPROVALS: owner-queue consolidation (D-OWNER-STANDING-INTERNAL).
                   "ops.owner_queue_consolidate"},

@@ -310,6 +310,13 @@ def make_router(db) -> APIRouter:
 
         return ok(p0_board.view(db))
 
+    # ENG-DAILY: the Daily panel -- per-day production counts and today's zero-output
+    # diagnoses. Read-only, owner session, the same `/api/cc` default-deny gate.
+    @router.get("/daily")
+    def daily_view(request: Request):
+        from ...ops import daily_ledger
+
+        return ok(daily_ledger.panel(db))
     # ENG-CATALOGUE: the full catalogue (uncapped; paginated, searchable, filterable), with
     # totals counted in SQL over every derived row. Read-only, owner session, same gate.
     @router.get("/catalogue")

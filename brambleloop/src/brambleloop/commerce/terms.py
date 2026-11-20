@@ -50,6 +50,13 @@ OPTIONS: dict[str, dict[str, str]] = {
                                   "credit to Brambleloop as the pattern designer"),
         "permitted_small_scale": ("finished items may be sold by individual makers and small "
                                   "businesses, not manufactured at scale"),
+        # ENG-PDF-PREMIUM (2026-11-20, D-ENG-PDF-PREMIUM-1): the same small-scale permission,
+        # with the designer credit the premium-PDF standard requires. The first clause is the
+        # old sentence unchanged, so no surface's answer to the craft-fair question narrows.
+        "permitted_small_scale_with_credit": (
+            "finished items may be sold by individual makers and small businesses, not "
+            "manufactured at scale, with a credit to Brambleloop Studio as the pattern "
+            "designer"),
         "not_permitted": "finished items may not be sold",
     },
     REDISTRIBUTION: {
@@ -175,7 +182,7 @@ class Terms:
 BRAMBLELOOP_TERMS = Terms(
     choices={
         PDF_USE: "personal_and_teaching",
-        FINISHED_ITEM_SALE: "permitted_small_scale",
+        FINISHED_ITEM_SALE: "permitted_small_scale_with_credit",
         REDISTRIBUTION: "prohibited_files_and_images",
         SUPPORT_POLICY: "version_aware_shop_message",
         VERSION_POLICY: "free_corrections_on_request",
@@ -184,7 +191,8 @@ BRAMBLELOOP_TERMS = Terms(
     # when the PDF began rendering from here and named a mailbox that does not exist; the
     # redistribution and version sentences were made exact on 2026-10-11 (W4-COPY,
     # research/final_build/w4/COPY_CLAIMS.md). Still not legally reviewed.
-    decided_on="2026-10-11",
+    # ENG-PDF-PREMIUM (2026-11-20): finished-item sale now asks for a designer credit.
+    decided_on="2026-11-20",
     decided_by="build",
     legal_review=None,
 )

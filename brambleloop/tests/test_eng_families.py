@@ -411,7 +411,9 @@ def _proof_exists(proof: str) -> bool:
 def test_router_admits_only_verified_or_physical_gated_families():
     admitted = {k for k, f in CF.FAMILIES.items() if f.status in CF.ADMITTED_STATUSES}
     assert admitted == {FC.FLAT_PANEL, FC.VESSEL, FC.TAPESTRY, FC.PANEL_PAIR,
-                        FC.AMIGURUMI, FC.ENVELOPE, FC.APPLIQUE, FC.LOVEY}, admitted
+                        FC.COLOURWORK_TAPESTRY,
+                        FC.AMIGURUMI, FC.ENVELOPE, FC.APPLIQUE, FC.LOVEY,
+                        CF.GARMENT_RAGLAN, CF.GARMENT_ONE_PIECE}, admitted   # ENG-GARMENT
     # Every admitted family names the test that proves it, and that test exists (ENG-PLUSH:
     # the core-family proofs live in tests/test_eng_plush.py).
     for key in admitted:
@@ -454,6 +456,7 @@ FEATURE_SAMPLES = {
     "waffle_stitch": "Waffle", "lid": "Lidded", "handles": "Handled",
     "amigurumi_features": "Bunny Ears", "trim": "Fringe", "lining_pocket": "Lined",
     "motif_assembly": "Hexie", "colourwork": "Fair Isle", "garment_or_wearable": "Beanie",
+    "mosaic_or_c2c": "Mosaic", "charted_tapestry": "Charted",
     "embroidery": "Embroidered",
 }
 # One plain, admitted concept per admitted family: (category, form, construction, title).
@@ -462,6 +465,8 @@ ADMITTED_PLAIN = {
     FC.VESSEL: ("basket", "basket", "in_the_round", "Saltmarsh Reed Basket"),
     FC.TAPESTRY: ("basket", "basket", "tapestry", "Checked Tapestry Shelf Basket"),
     FC.PANEL_PAIR: ("pillow", "pillow", "flat_rows", "Hollow Fern Cushion Cover"),
+    FC.COLOURWORK_TAPESTRY: ("blanket", "rectangle_throw", "tapestry",
+                             "Modern Step Tapestry Throw"),
 }
 
 
@@ -486,9 +491,12 @@ def test_plain_concepts_are_still_admitted_in_every_admitted_family():
 def test_every_named_feature_is_held_for_every_admitted_family():
     assert set(FEATURE_SAMPLES) == {f for f, _, _ in CF.NAMED_FEATURES}, \
         "a feature in the shared vocabulary has no sample here (or a sample has no feature)"
+    honest = {f: fams for f, _, fams in CF.NAMED_FEATURES}
     for family in ADMITTED_PLAIN:
         base = ADMITTED_PLAIN[family][3]
         for feature, word in FEATURE_SAMPLES.items():
+            if family in honest[feature]:
+                continue    # the family's own technique word (tapestry for the tapestry families)
             # The title names it.
             got = _route(family, f"{word} {base}")
             assert not got["admitted"] and got["reason"].startswith(CF.HOLD_PREFIX), \
@@ -568,13 +576,31 @@ def test_every_admitted_family_category_pair_names_an_existing_certifying_proof(
                ("pet", "basket", "in_the_round", "Snug Cat Bed"),
                ("pet", "basket", "in_the_round", "Cat Bed"),
                ("pet", "basket", "in_the_round", "Kitten Nest"),
+               # ENG-COLOURWORK: the colourwork family across every category it could reach.
+               *[(cat, form, "tapestry", f"Modern Step Tapestry {noun}")
+                 for cat, form, noun in (
+                     ("blanket", "rectangle_throw", "Throw"), ("placemat", "flat_panel",
+                                                                "Placemat"),
+                     ("pillow", "pillow", "Cushion Cover"), ("basket", "basket", "Basket"),
+                     ("bag", "bag", "Tote"), ("runner", "runner", "Table Runner"),
+                     ("scarf", "scarf", "Scarf"), ("dishcloth", "flat_panel", "Dishcloth"),
+                     ("wall_decor", "wall_hanging", "Wall Hanging"),
+                     ("baby", "rectangle_throw", "Baby Blanket"))],
+               ("basket", "basket", "tapestry", "Wave Tapestry Basket"),
                ("toy", "toy", "amigurumi_shaping", "Ball Bear Amigurumi"),
                ("amigurumi", "toy", "in_the_round", "Cosy Rabbit"),
                ("pillow", "pillow", "flat_rows", "Linen Envelope Cushion Cover"),
                ("pillow", "pillow", "flat_rows", "Highland Cow Cushion Cover"),
                ("baby", "toy", "amigurumi_shaping", "Bear Lovey"),
                ("toy", "toy", "amigurumi_shaping", "Bunny Lovey"),
-               ("amigurumi", "toy", "in_the_round", "Cosy Rabbit Lovey")]
+               ("amigurumi", "toy", "in_the_round", "Cosy Rabbit Lovey"),
+               # ENG-GARMENT: graded garments (each pair pinned in tests/test_eng_garment.py)
+               ("cardigan", "fitted_garment", "top_down_yoke", "Fernway Raglan Cardigan"),
+               ("baby", "fitted_garment", "top_down_yoke", "Hush Baby Cardigan"),
+               ("sweater", "fitted_garment", "flat_rows", "Puddle Lane Kids Sweater"),
+               ("sweater", "fitted_garment", "flat_rows", "Cosy Adult Sweater"),
+               ("vest", "fitted_garment", "side_to_side", "Driftline Vest"),
+               ("pullover", "fitted_garment", "bottom_up", "Kestrel Pullover")]
     admitted = set()
     for cat, form, constr, title in probes:
         got = CF.route(category=cat, title=title, form=form, construction=constr)

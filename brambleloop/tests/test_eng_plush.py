@@ -224,20 +224,24 @@ def test_a_toy_called_anything_is_still_inside_the_gate():
     assert CS.applies(ball) and CS.evaluate(ball).verdict == CS.VERDICT_HELD
 
 
-def test_an_unidentified_material_on_a_toy_is_held_and_garments_use_their_own_constraints():
+def test_an_unidentified_material_on_a_toy_is_held_and_childrens_garments_stay_in_the_gate():
     toy = _toy()
     odd = _with(toy, materials=toy.materials + [Material(name="trim kit (assorted)")])
     v = CS.evaluate(odd)
     assert {c.code: c.state for c in v.checks}["MATERIALS_KNOWN"] == CS.UNKNOWN
     assert v.verdict != CS.VERDICT_PASS
-    # A graded children's garment is governed by intel.childrens' garment constraints.
     assert CS.applies(toy)                                  # ungraded toy: inside
-    import types
-    fake = types.SimpleNamespace(**{**toy.__dict__, "grading": object(),
-                                    "components": [dataclasses.replace(
-                                        c, stuff_at_round=None, closes=False)
-                                        for c in toy.components]})
-    assert not CS.applies(fake)                             # a graded, unstuffed garment
+    # Review b18-c C1: a graded baby or child garment is NEVER outside the child-safety gate
+    # (GARMENT_CLOSURES, cords, small parts). Real graded CIRs, not a stand-in grading object.
+    from brambleloop.products import garment_release as GR
+    for key in ("little-wren-baby-cardigan", "brookside-kids-sweater"):
+        cirs = GR.build(GR.DESIGNS[key]).cirs
+        assert cirs, key
+        for size, cir in cirs.items():
+            assert cir.grading is not None and not any(
+                c.stuff_at_round is not None or c.closes for c in cir.components), (key, size)
+            assert CS.garment_months(cir) is not None, (key, size)
+            assert CS.applies(cir), (key, size)             # graded, unstuffed: still inside
 
 
 def test_unknown_is_never_pass():
@@ -659,8 +663,13 @@ def test_baby_blankets_carry_the_safety_section_and_pass_the_gate():
 
 
 def test_baby_garments_and_unbuilt_baby_items_are_held_by_name():
+    # ENG-GARMENT: a baby cardigan now routes to the proven graded raglan family; a baby
+    # garment in a construction no baby proof pins (side-to-side) is still held by name.
     got = CF.route(category="baby", title="Baby Cardigan", form="fitted_garment",
                    construction="top_down_yoke")
+    assert got["admitted"] and got["family"] == "garment_raglan", got
+    got = CF.route(category="baby", title="Baby Vest", form="fitted_garment",
+                   construction="side_to_side")
     assert not got["admitted"] and got["reason"].startswith("construction_unsupported:garment")
     got = CF.route(category="baby", title="Fluffy Bear Lovey", form="toy",
                    construction="amigurumi_shaping")
