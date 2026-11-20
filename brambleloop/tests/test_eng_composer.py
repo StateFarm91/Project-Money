@@ -279,6 +279,7 @@ def test_unexpressible_plans_are_refused_by_the_missing_primitive():
         "rectangle": _plan({"name": "p", "shape": "rectangle", "width_cm": 500,
                             "height_cm": 10}),
     }
+    assert len(cases) >= 5, cases
     for primitive, plan in cases.items():
         try:
             C.compose(plan)
@@ -300,6 +301,7 @@ def test_unexpressible_concepts_are_refused_by_name_never_approximated():
         "hard_part": C.concept(slug="r", title="Owl Rattle Amigurumi", category="toy",
                                form="toy", subject="owl", colours={"a": "#111111"}),
     }
+    assert len(cases) >= 5, cases
     for primitive, concept in cases.items():
         try:
             C.compose(C.plan_for(concept))
@@ -582,6 +584,7 @@ def test_the_router_admits_composer_concepts_and_keeps_every_hold():
         ("bag", "bag", "in_the_round", "Lined Market Tote"): False,
         ("hat", "hat", "in_the_round", "Fireside Beanie"): False,
     }
+    assert len(probes) >= 5 and any(probes.values()) and not all(probes.values())
     for (cat, form, constr, title), admitted in probes.items():
         got = CF.route(category=cat, title=title, form=form, construction=constr)
         assert got["admitted"] is admitted, (title, got)
