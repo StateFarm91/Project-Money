@@ -143,6 +143,7 @@ def test_no_placeholder_bracket_or_template_marker_reaches_the_document():
         text = _flat(_doc(key))
         assert "MASTER LAYOUT" not in text and "REQUIRES CERTIFIED PRODUCT DATA" not in text
         assert "ILLUSTRATIVE SLOT" not in text
+        assert T.template_placeholders(), "the template's placeholder list was not read"
         for ph in T.template_placeholders():
             assert ph not in text, ph
         # the only brackets printed are crochet repeat notation: "[...] x N"
@@ -279,6 +280,7 @@ def test_a_missing_required_fact_blocks_the_build_never_a_placeholder():
 
 def test_the_licence_is_brambleloops_own_and_support_is_etsy_messages_only():
     text = _flat(_doc("hexagon_coasters"))
+    assert P.licence_paragraphs()
     for para in P.licence_paragraphs():
         para = para[2:] if para.startswith("- ") else para
         if para.strip():
@@ -319,6 +321,7 @@ def test_family_garment_has_the_size_table_and_fit_and_ease():
     text = _flat(doc)
     assert "FIT + EASE" in text and "Intended fit: relaxed" in text
     cir = _cir("garment:harbour-drop-shoulder-pullover:M")
+    assert cir.grading.sizes
     for e in cir.grading.sizes:
         assert f"chest {e['built_cm']['chest']:g} cm" in text, e["size"]
     assert "this edition" in text
