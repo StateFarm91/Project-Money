@@ -171,6 +171,7 @@ class Database:
         from ..gateway import paid_provider_gate as _ppg  # noqa: F401; owner activation (V0)
         from ..authority import models as _authority_models  # noqa: F401; authority (W3-K11)
         from ..improve import failure_memory as _failmem  # noqa: F401; F-378 failure memory
+        from ..improve import self_models as _self_models  # noqa: F401; ENG-IMPROVE tables
         from ..intel import research as _research  # noqa: F401; F-431 research tasks
         from ..integrations import etsy_webhooks as _etsy_wh  # noqa: F401; F-512 deliveries
         # Verdict 6999967600 L-A: Stage A's slot tables are created by the migration owner,

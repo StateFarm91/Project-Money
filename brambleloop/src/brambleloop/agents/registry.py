@@ -61,6 +61,9 @@ DEFAULT_AGENTS: list[dict] = [
                             "seasonal.harvest",
                             # #92 / #95 / #180 / #190: sandbox trials and the challenger league.
                             "improve.sandbox", "improve.league",
+                            # ENG-IMPROVE: champion/challenger judging, the department
+                            # loop table and engineering change requests (no code edits).
+                            "improve.self_tune",
                             # #34 thrash sweep; #33 #38 #131 #267 #286 #287 #289-#291 engine.
                             "ops.thrash", "seasonal.engine",
                             # C-69 (#50, #29): the daily dependency and fragility sweep.

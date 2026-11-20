@@ -658,6 +658,10 @@ CADENCES: list[tuple[str, str, str, int]] = [
     # Requirement 93. Daily: every promoted change judged once per new production reading,
     # and a regression becomes a revert plus a rollback incident rather than a quiet row.
     ("promotion_monitor", "orchestrator", "improve.monitor", 24 * 60 * 60),
+    # ENG-IMPROVE (owner directive 2026-11-20): every department's improvement loop checked,
+    # live challengers judged (promotion / automatic rollback), change requests filed and
+    # verified against their KPI. Reads rows; never edits or deploys code; spends nothing.
+    ("self_tune", "orchestrator", "improve.self_tune", 24 * 60 * 60),
     # Certification 2026-09-27 (#82, #89, #298): the learners run daily and report UNMEASURED
     # with the minimum n until listings produce outcomes; the harvest refuses a season that
     # has not passed or has fewer than 20 orders.
