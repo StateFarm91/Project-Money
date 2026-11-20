@@ -568,8 +568,9 @@ def test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart():
         # or UNKNOWN as before.
         # ENG watchlist-cadence: the advisory scheduler row likewise PASSes or WARNs only.
         # ENG-FIRSTLIST: the first-draft candidates row is advisory too (WARN or PASS only).
+        # ENG-MOTIF-BACKLOG and ENG-VISUAL rows are advisory (WARN or PASS only).
         advisory = ("competitor_scans", "scheduler", "first_listing_readiness",
-                    "motif_backlog_recovery")
+                    "motif_backlog_recovery", "visual_pipeline")
         assert all(i["verdict"] in (readback.PASS, readback.FAIL, readback.UNKNOWN)
                    for i in out["items"] if i.get("section") not in advisory)
         assert by["competitor shops scanned (nine-shop research network)"]["verdict"] in (
@@ -583,6 +584,8 @@ def test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart():
         # ENG-MOTIF-BACKLOG: the advisory recovery row (never swept here: WARN, not PASS).
         assert by["paid renders recovered from refused motif checks"]["verdict"] == \
             readback.WARN, by
+        assert by["listing-image and PDF factory (visual pipeline)"]["verdict"] in (
+            readback.PASS, readback.WARN), by
         assert len(out["items"]) == 17, out["items"]
         # An unreadable section is UNKNOWN, never PASS.
         v, _ = readback._judge_section("weekly_jobs", {"readable": False}, True)

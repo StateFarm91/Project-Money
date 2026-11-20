@@ -352,6 +352,10 @@ EVIDENCE_ITEMS = (
     # ENG-MOTIF-BACKLOG: paid renders blocked by a refused motif check, and their recovery.
     # Advisory: renders still waiting (or a backlog never measured) WARN; never a deploy FAIL.
     ("paid renders recovered from refused motif checks", "motif_backlog_recovery", None),
+    # ENG-VISUAL: the listing-image and PDF factory, counted from persisted rows. Advisory:
+    # before launch nothing has a verified gallery or a read-back draft, so it WARNs and
+    # never fails a deploy; an unreadable part is UNKNOWN, never 0.
+    ("listing-image and PDF factory (visual pipeline)", "visual_pipeline", None),
 )
 
 
@@ -397,6 +401,8 @@ def _judge_section(name: str, section, judged) -> tuple[str, str]:
                    f"{counts.get('products_gallery_completed')}, packages ready "
                    f"{counts.get('listing_packages_became_ready')}")
         return (WARN if sum(waiting) else PASS), summary
+    if name == "visual_pipeline":
+        return _judge_visual(section)
     if name == "competitor_scans" and (not isinstance(section, dict)
                                        or section.get("readable") is not True):
         # WS2 R1: advisory -- a build without the section, or one that cannot read it, warns.
@@ -479,6 +485,39 @@ def _judge_section(name: str, section, judged) -> tuple[str, str]:
             f"{section.get('degraded_sweeps')} degraded sweeps; unrecorded: {bad}"
             if not judged else "every release recorded")
     return (PASS if judged else FAIL), ""
+
+
+def _vp_n(part, key):
+    """A count from a visual-pipeline part, or "UNKNOWN" -- an unreadable part is never 0."""
+    if not isinstance(part, dict) or part.get("readable") is False:
+        return "UNKNOWN"
+    v = part.get(key)
+    return v if isinstance(v, int) and not isinstance(v, bool) else "UNKNOWN"
+
+
+def _judge_visual(section) -> tuple[str, str]:
+    """ENG-VISUAL: advisory. PASS only when at least one draft was read back in full (both
+    PDFs and every image); anything less WARNs with the exact numbers."""
+    if not isinstance(section, dict) or section.get("readable") is not True:
+        return WARN, ("section missing" if not isinstance(section, dict) else
+                      f"unreadable ({section.get('error_class') or 'no reason given'})")
+    pdf, gal = section.get("certified_pdfs"), section.get("galleries")
+    img, idn = section.get("images"), section.get("laura_identity_checks")
+    pkg, dr = section.get("listing_packages"), section.get("etsy_drafts")
+    rec = (section.get("recovered_images") or {}).get("count", "UNKNOWN")
+    meth = section.get("laura_identity_method") or {}
+    why = (f"certified PDFs US+UK {_vp_n(pdf, 'with_us_and_uk_pdf_hashes')}/"
+           f"{_vp_n(pdf, 'certified_releases')}; galleries valid {_vp_n(gal, 'valid')} "
+           f"blocked {_vp_n(gal, 'blocked')} {(gal or {}).get('blocked_reasons_grouped') or {}}; "
+           f"images verified {_vp_n(img, 'verified')} failed {_vp_n(img, 'failed')} "
+           f"unmeasurable {_vp_n(img, 'unmeasurable')}; identity run {_vp_n(idn, 'run')} "
+           f"passed {_vp_n(idn, 'passed')} failed {_vp_n(idn, 'failed')} not run "
+           f"{_vp_n(idn, 'not_run')} (production qualified "
+           f"{meth.get('production_qualified')}); recovered {rec}; listing-ready "
+           f"{_vp_n(pkg, 'listing_ready')}; Etsy drafts {_vp_n(dr, 'drafts')} fully read "
+           f"back {_vp_n(dr, 'fully_read_back')}")
+    full = _vp_n(dr, "fully_read_back")
+    return (PASS if isinstance(full, int) and full > 0 else WARN), why
 
 
 def run_evidence(*, url: str = PRODUCTION_URL, fetch=None, env=None) -> dict:
