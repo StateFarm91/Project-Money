@@ -104,6 +104,7 @@ JOB_CLASS: dict[str, ActionClass] = {
     "collection.assemble": _B, "listing.package": _B, "creative.candidates_file": _B, "creative.model_freeze": _B, "growth.steer": _B,
     "improve.nightly": _B, "improve.role_work": _B, "improve.weekly": _B,
     "laura.executive_tick": _B, "ops.offsite_archive": _B, "ops.retention": _B,
+    "ops.owner_queue_consolidate": _B,   # ENG-APPROVALS: owner-queue lifecycle moves only
     "plan.cycle": _B, "seasonal.cycle_proof": _B, "seasonal.engine": _B,
     "swarm.allocate": _B, "swarm.backlog": _B, "swarm.orphans": _B,
     "teardown.enforce": _B, "visual.portrait_repair": _B,

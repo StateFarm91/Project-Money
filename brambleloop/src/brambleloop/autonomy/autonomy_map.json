@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-19T23:11:17.362824+00:00",
+ "generated_at": "2026-11-20T00:10:27.646861+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,8 +10,8 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 143,
-  "handlers": 175,
+  "cadences": 144,
+  "handlers": 176,
   "agents": 34,
   "follow_on_edges": 93
  },
@@ -2516,6 +2516,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "owner_queue_consolidate",
+      "agent": "orchestrator",
+      "job_type": "ops.owner_queue_consolidate",
+      "period_seconds": 3600
+     },
+     {
       "name": "dependency_sweep",
       "agent": "integration_steward",
       "job_type": "ops.dependencies",
@@ -2567,6 +2573,7 @@
    "execution": {
     "handler_modules": [
      "brambleloop.runtime.ops_watch",
+     "brambleloop.runtime.owner_queue_ops",
      "brambleloop.runtime.pipeline",
      "brambleloop.runtime.release",
      "brambleloop.runtime.v11_wiring"
@@ -2580,6 +2587,7 @@
      "ops.heartbeat",
      "ops.maturity_disagreements",
      "ops.offsite_archive",
+     "ops.owner_queue_consolidate",
      "ops.policy_watch",
      "ops.provider_credentials",
      "ops.queue_check",

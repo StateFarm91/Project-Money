@@ -2694,6 +2694,50 @@ Reversible by decision.
 The trigger is the proposal's stated size, not only the band, so the dishcloths fit with or without A4a's code on the tree. Reversible by decision.
 **D-A1R-STUFFED-EXEMPTIONS: the two catalogue stuffed pieces are written "not merchandised to a child" (opus2 under the owner's A1-R directive, 2026-11-02; owner ratification pending).** A1-R made the construction the children's-safety trigger: any closed stuffed form is held until an explicit decision exists, and the implicit candidate exemption is not one. The catalogue has two closed stuffed forms. `heart-row-ring-pillow` is a wedding ring-bearer pillow and `spring-garden-kneeler` a garden kneeling pad; neither is merchandised, sized or described for a child. Both are recorded in `products/launch0.NOT_MERCHANDISED_TO_A_CHILD`, with who, when and this entry in `NOT_MERCHANDISED_DECISIONS`. Any other closed stuffed form (a radar or registry draft, a toy) is held as a named hold with one owner decision item (`childrens-decision:<slug>`) until assigned or exempted. Reversing either exemption is one line and re-holds the product.
 
+## D-OWNER-STANDING-INTERNAL — standing authority for routine internal operations (owner, 2026-11-19)
+
+The owner's directive, verbatim:
+
+> I authorize all routine internal Brambleloop operations within our existing budgets, permissions and safety requirements. Research, product development, engineering, testing, PDF creation, image generation, SEO, listing preparation, learning, recovery, scheduling and agent coordination should happen AUTOMATICALLY. I approve the opening catalogue's Etsy listing fees up to CA$6 and the existing CA$100/month model-spending ceiling. This is not permission for paid ads, additional subscriptions, or higher spending. Replace the 106-card owner queue with consolidated decisions, standing authorizations and automatic closure of redundant, stale or already-satisfied requests. Preserve the audit trail. Do not interpret this as me attesting that I've personally reviewed external policies, supplied physical evidence, signed specific cryptographic grants or authorized publication that hasn't passed its requirements. Bring me only those genuinely necessary exceptions in one concise batch. Do not let unresolved publication approvals stop safe internal manufacturing.
+
+How it is implemented (ENG-APPROVALS, branch `eng/approvals`). It uses the existing authority
+model; there is no new framework.
+
+- **What the authority covers.** It covers exactly the autonomous action classes in
+  `authority.classes` (OBSERVE, RESEARCH, BUILD, TEST, DRAFT). These already dispatch without
+  approval. The gated classes are never covered (`authority.standing_internal.covers_job_type`).
+- **Classifying the queue.** Every OwnerAction kind is classified as ROUTINE_INTERNAL,
+  AUTO_CLOSE or GENUINE_EXCEPTION (`authority.standing_internal.classify`). Unknown kinds fail
+  closed to the owner. The table is in `research/final_build/w6/owner_queue_classification.md`.
+- **The hourly sweep.** `ops.owner_queue_consolidate` supersedes routine cards and closes
+  redundant, stale or satisfied cards. Each move writes an `owner_action.standing_authority`
+  audit row citing this entry, and that row is kept for life. Nothing is deleted. Genuine
+  exceptions are never touched. The sweep is idempotent.
+- **What reaches the owner.** Only the eight exception classes do:
+  - grant signatures and step-up acts;
+  - publication or activation;
+  - external policy attestation;
+  - physical evidence;
+  - spend beyond approved budgets;
+  - paid ads and subscriptions;
+  - KYC, legal and banking;
+  - certification, construction and safety authority.
+
+  They are shown as one batch, `owner_exceptions` in the Approvals inbox. The P0 board counts
+  open exceptions, automatic closes in the last 24 h and routine approvals in the last 24 h.
+- **Opening-catalogue listing fees.** These have a CA$6.00 standing budget, cumulative, with
+  reservations counted (`finance.listing_costs.OPENING_CATALOGUE_FEE_BUDGET_CAD`). It is
+  enforced in `reserve` under the accounting lock and in store.activate's early refusal. The
+  limits on it:
+  - It covers listing and activation fees only.
+  - It raises no other ceiling. The store_operator daily CA$1 is unchanged and checked first,
+    and the standing policy's CA$0 per 30 days is unchanged.
+  - It authorises no publication.
+- **What the directive does not authorise.** It is not an owner attestation. Nothing under it
+  signs, seals or records an owner grant, launch decision, policy review, physical evidence or
+  publication approval. Tests pin that the modules import no grant writer.
+
+Reversible by decision.
 **D-OWNER-CORE-FAMILIES: stuffed animals/amigurumi, baby products and pillows/cushions are permanent CORE product families; MadelineMaeCo is a priority research shop. The factory runs first (owner FINAL DIRECTIVE, 2026-11-19, approved).** The owner reports these as the shop's "huge hits" and made them a permanent business direction, not a temporary assignment. Every future engineering and research session follows it.
 
 1. **Two parallel tracks, and Track 1 always wins a conflict.**

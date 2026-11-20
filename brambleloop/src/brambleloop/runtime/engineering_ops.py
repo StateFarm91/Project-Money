@@ -293,8 +293,10 @@ def handle_cir_reengineer(ctx: JobContext) -> dict:
     aid = ctx.job.inputs.get("owner_action_id")
     with ctx.db.session() as s:
         card = s.get(OwnerAction, int(aid)) if aid is not None else None
-        decided = bool(card is not None and card.done
-                       and card.requirement_key == REENGINEER_CARD)
+        from ..authority import standing_internal as _si
+
+        decided = bool(card is not None and card.requirement_key == REENGINEER_CARD
+                       and _si.owner_closed(s, card))
     if not decided:
         return {"ran": False, "work_done": 0,
                 "why": "re-engineering needs the owner's decided choice (F-114 card); none given"}

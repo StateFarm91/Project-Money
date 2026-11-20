@@ -409,6 +409,22 @@ def blockers(db, now):
     return build_section
 
 
+def owner_queue(db, now):
+    """ENG-APPROVALS: owner exceptions open; cards closed automatically and routine operations
+    auto-approved under D-OWNER-STANDING-INTERNAL in the last 24 hours."""
+    from ...ops import owner_queue_consolidate as oqc
+
+    got = oqc.counts(db, now=now)
+
+    def build_section(deployed):
+        active = (got["closed_automatically_24h"] + got["routine_auto_approved_24h"]) > 0
+        return {"state": "CLEAR" if not got["owner_exceptions_open"] else "OPEN", **got,
+                **_level(deployed, running=active,
+                         why={RUNNING: "the standing authority moved an owner card in the "
+                                       "last 24 hours"})}
+    return build_section
+
+
 def agents(db, now):
     from ...app.command_center import company
 
@@ -428,7 +444,7 @@ def agents(db, now):
 SECTIONS = (("running", running), ("shops", shops), ("opportunities", opportunities),
             ("development", development), ("releases", releases), ("assets", assets),
             ("etsy", etsy), ("sales", sales), ("costs", costs), ("blockers", blockers),
-            ("agents", agents))
+            ("owner_queue", owner_queue), ("agents", agents))
 
 
 def view(db, *, now: datetime | None = None) -> dict:

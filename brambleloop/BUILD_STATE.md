@@ -1,3 +1,14 @@
+> **2026-11-19 — ENG-APPROVALS slice 1 (`eng/approvals`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
+> - The owner directive `D-OWNER-STANDING-INTERNAL` is recorded in DECISION_LOG.
+> - Code: `authority.standing_internal` (classifier and directive), `ops.owner_queue_consolidate` (idempotent sweep, the one
+>   exception batch, P0 board counts) and the hourly job `ops.owner_queue_consolidate` (fully registered).
+> - The CA$6 opening-catalogue listing-fee budget is enforced in `finance.listing_costs.reserve` and in store.activate.
+> - The classification of every owner-card kind is in `research/final_build/w6/owner_queue_classification.md`.
+> - Honest status:
+>   - The sweep has not run against production, so the real count of open cards versus genuine exceptions is not yet
+>     measured.
+>   - The listing-package preparation path that a publication-only policy hold still stops (`_judge_search_hero`'s
+>     listing-set issuance) is slice 2.
 > **2026-11-19 — ENG-RECOVERY fix round 1 (`eng/recovery`, NOT merged, NOT deployed).** Main's review was DO NOT SHIP.
 > - H1: the spend classifier now FAILS CLOSED. `swarm.orchestrate.FREE_JOB_TYPES` is an explicit allow-list
 >   (94 cadence loops). Every other job type is spending, including `intel.serp_capture` and
@@ -10278,3 +10289,15 @@ etsy_api/benchmark_observation read CLOSED today; /api/verify reads 11/12. Repor
   - `test_w4_smoke`, `test_w4_close6_readback`, `test_vacuity`, `test_secret_scan`.
 
 **Owner action (not done).** Set `BRAMBLELOOP_READBACK_TOKEN` in Railway (32 characters or more, different from the ops token). Until then the endpoint answers 503, and every evidence item reads UNKNOWN.
+
+## ENG-APPROVALS-FIX (2026-11-19, branch eng/approvals; not merged, not deployed)
+- M1: `support_defect_decision:` is now GENUINE (certification_construction_safety_authority); the sweep never supersedes it.
+- M2: producers (`autonomy.orchestrator._raise_approval`, `authority.dag._raise_owner_action`, `gateway.providers` vendor/routes cards) call `standing_internal.closure_in_force` and raise nothing while a standing-authority closure for the same key (and, for the provider cards, the same condition text) is in force; a cleared condition writes one audit row (`note_condition_cleared`) and ends the closure. Nothing deleted; audit preserved.
+- M3: `test_eng_approvals` pins every KIND_RULES row and every inventoried kind to its class; 15 mutants run, all killed.
+
+## ENG-APPROVALS-FIX2 (2026-11-20)
+- M4: sweep and lifecycle audit rows are now stamped with the injected `now`; the P0-board count test no longer depends on the wall clock.
+- LOW 1-3: `standing_internal.owner_closed` (owner closure only; never a standing-authority closure) now gates Finance spend authority, the `creative.reengineer` job and the `listing_package:` module. `owner_action.lifecycle` is kept for life in retention (pruning it would fail open).
+- LOW 4: not-ready PUBLICATION cards are class PUBLICATION (flag `not_ready`), not ROUTINE-labelled `publication_not_ready`.
+- LOW 5: `routine_superseded_nothing_approved_24h` counts `improve.challenger_run:` / `taxonomy_drift:` supersedes apart from `routine_auto_approved_24h`.
+- Known, not from this change: `test_first_listing_doors` fails the same way at eb0f062 ("listing search profile not certified PASS").
