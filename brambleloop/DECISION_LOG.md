@@ -2900,3 +2900,17 @@ Reversible by decision.
 **Parked loops.** improve.monitor, sandbox and league backoffs lift on their real input rows (`orchestrate.INPUT_PROBES`).
 
 Reversible by decision. The non-tunable rule is the owner's and is not reversible by an agent.
+
+## D-OWNER-GALLERY-COMPLETE — 2026-11-20 (owner directive, permanent)
+
+**Decision:** "Listings aren't ready until they have all the listing photos ready too." A listing
+is not ready, not a draft candidate, not counted as a certified listing and never uploaded
+until its valid listing-set certificate names the whole campaign gallery
+(`visual.shot_plans.CAMPAIGN_MIN_FRAMES`, seven frames).
+**Enforced in code:** `runtime.etsy_ops.certified_frames` reports a `gallery incomplete`
+problem for a certificate with fewer frames (so the listing package BLOCKS and no publish
+uploads a partial gallery); `products.lifecycle.derive` reaches LISTING_READY only with a
+complete certified gallery (a partial one stays VISUAL). Unreadable is never complete.
+**Consequence:** today's three-frame disclosed render set (hero, scale, detail) no longer makes
+a listing ready on its own; the seven-image generated campaign (ENG-VIS-GALLERY) is on the
+critical path.

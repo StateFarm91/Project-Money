@@ -626,6 +626,16 @@ def certified_frames(db, slug: str, version: str, *, release: str = "") -> dict:
                                     f"{declared!r}; the release encodes {encoded!r} (F-757)")
         if not frames:
             problems.append(f"listing-set certificate {rec.id} names no frame")
+        else:
+            # D-OWNER-GALLERY-COMPLETE: a listing is not ready, and nothing is uploaded,
+            # until its whole gallery is ready -- every campaign frame, not a partial set.
+            from ..visual.shot_plans import CAMPAIGN_MIN_FRAMES
+
+            if len(frames) < CAMPAIGN_MIN_FRAMES:
+                problems.append(
+                    f"gallery incomplete: listing-set certificate {rec.id} names "
+                    f"{len(frames)} of the {CAMPAIGN_MIN_FRAMES} required listing photos "
+                    f"(D-OWNER-GALLERY-COMPLETE)")
         return {"frames": frames, "record_id": rec.id, "problems": problems}
 
 
