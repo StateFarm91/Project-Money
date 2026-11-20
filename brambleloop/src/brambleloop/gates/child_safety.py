@@ -135,6 +135,9 @@ SOURCES: dict[str, Source] = {s.key: s for s in (
 )}
 
 
+EYE_OPTIONS_MARKER_ = "Eye options: embroidered with yarn is the default"
+
+
 @dataclass(frozen=True)
 class Statement:
     key: str
@@ -176,6 +179,8 @@ STATEMENTS: dict[str, Statement] = {s.key: s for s in (
               + _cite("hc_toy_tips", "cfr_1500_19"),
               "Embroider the eyes, nose and any other feature with yarn",
               ("hc_toy_tips", "cfr_1500_19")),
+    Statement("eye_options", "Eye options",
+              "", EYE_OPTIONS_MARKER_, ("hc_toy_tips", "cfr_1500_19")),
     Statement("joins", "Joins",
               "Sew every piece on across its whole edge, through both loops of every stitch "
               "and through the fabric it joins, across and back again, so no single stitch "
@@ -215,6 +220,45 @@ AGE_TEXT_UNPROVEN = (
     "the finished item to a child under 3. Nothing here is a use-and-abuse test, so it does "
     "not make the finished item suitable for any age; only a tested sample can show that. "
     + _cite("cfr_1501"))
+
+# ENG-PLUSH-FIX: the eye-options reading. Embroidered with yarn is the default eye for every
+# item in this gate, and for a baby or a child under 3 it is the only option the pattern gives.
+# The age guidance is printed in the PDF text with it (D-ENG-PLUSH-EYES). The benchmark
+# teardowns found no competitor pattern that gives this guidance at all.
+EYE_DEFAULT = "embroidered"
+EYE_OPTIONS_MARKER = EYE_OPTIONS_MARKER_
+AGE_GUIDANCE_MARKER = "Age guidance:"
+
+
+def eye_options(age_band: str | None, profile: tuple[str, ...] = ()) -> dict:
+    """The eye options this document gives for an item in `age_band` (None reads as under 3,
+    the conservative reading). `default` is always embroidered; `allowed` is embroidered only
+    (FEATURES_EMBROIDERED fails any hard eye on an item in this gate). `young` is a baby or a
+    child under 3: a sleep-profile item, or the under-3 band."""
+    from ..intel import childrens as _ch
+
+    band = age_band or _ch.UNDER_3
+    known = band in _ch.AGE_BANDS
+    young = band == _ch.UNDER_3 or "sleep" in profile or not known
+    label = _ch.AGE_BANDS[band].label if known else "an age this pattern does not know"
+    if young:
+        text = (f"{EYE_OPTIONS_MARKER}, and for a baby or a child under 3 it is the only "
+                "option. Embroider the eyes and nose with yarn, worked flat and tight to the "
+                "fabric. Do not fit safety eyes, craft eyes, buttons, beads or any hard eye "
+                "or nose: a hard part that is pulled off is a choking hazard. "
+                f"{AGE_GUIDANCE_MARKER} this pattern is written for a baby or a child under 3 "
+                "(0 to 36 months) only with embroidered features; with any hard eye or nose "
+                "the finished item is not for a child under 3. " + _cite("hc_toy_tips"))
+    else:
+        text = (f"{EYE_OPTIONS_MARKER} and the only option this pattern gives. Embroider the "
+                "eyes and nose with yarn. This pattern does not give a safety-eye option; if "
+                "you fit any hard eye or nose, the finished item is not for a child under 3 "
+                "and the US cautionary statement applies: \"WARNING: CHOKING HAZARD--Small "
+                f"parts / Not for children under 3 yrs.\" {AGE_GUIDANCE_MARKER} this design is "
+                f"assigned to {label}. " + _cite("cfr_1500_19"))
+    return {"band": band, "young": young, "default": EYE_DEFAULT,
+            "allowed": (EYE_DEFAULT,), "text": text}
+
 
 SECTION_HEADING = "Child safety: read before you make this"
 SECTION_END = "End of child safety notes."
@@ -393,6 +437,7 @@ def required_statements(profile: tuple[str, ...]) -> tuple[str, ...]:
     keys = ["pattern_not_toy", "age_suitability", "no_cords"]
     if "face" in profile or "stuffed" in profile:
         keys.append("features")
+        keys.append("eye_options")
     if "sewn" in profile:
         keys.append("joins")
     if "stuffed" in profile:
@@ -412,15 +457,21 @@ def age_text(profile: tuple[str, ...], small_parts_clear: bool | None) -> str:
     return AGE_TEXT_UNPROVEN
 
 
-def section_lines(profile: tuple[str, ...], *, small_parts_clear: bool | None = None
-                  ) -> list[tuple[str, str]]:
+def section_lines(profile: tuple[str, ...], *, small_parts_clear: bool | None = None,
+                  age_band: str | None = None) -> list[tuple[str, str]]:
     """(heading, text) pairs the PDF prints, in order, ending with the sources and the end mark.
 
     `small_parts_clear` is whether `SMALL_PARTS` PASSED for this content; anything else (None,
-    False) prints the age statement without the small-parts claim."""
-    out = [(STATEMENTS[k].heading,
-            age_text(profile, small_parts_clear) if k == "age_suitability"
-            else STATEMENTS[k].text) for k in required_statements(profile)]
+    False) prints the age statement without the small-parts claim. `age_band` is the
+    assignment's band (None reads as under 3) and chooses the eye-options reading."""
+    def _text(k: str) -> str:
+        if k == "age_suitability":
+            return age_text(profile, small_parts_clear)
+        if k == "eye_options":
+            return eye_options(age_band, profile)["text"]
+        return STATEMENTS[k].text
+
+    out = [(STATEMENTS[k].heading, _text(k)) for k in required_statements(profile)]
     used = sorted({s for k in required_statements(profile) for s in STATEMENTS[k].sources})
     out.append(("Sources", " ".join(f"{SOURCES[k].title}, {SOURCES[k].url}, accessed "
                                     f"{ACCESSED}." for k in used)))
@@ -468,6 +519,55 @@ def _features(cir, profile) -> Check:
     return Check("FEATURES_EMBROIDERED", PASS,
                  "no hard part named" + ("; the face is embroidered with yarn"
                                          if "face" in profile else ""))
+
+
+# ENG-PLUSH-FIX: attachments are an allow-list too. A clause that attaches, sews on, fastens,
+# glues or clips something must name a piece this CIR builds, yarn, or an embroidered feature;
+# anything else ("sew on the felt heart", "clip on the charm holder") is an attachment this
+# gate does not know, and it is UNKNOWN, which holds the item.
+_ATTACH_VERB = re.compile(
+    r"\b(?:attach\w*|sew(?:s|n|ing)? (?:on|in)|sew(?:s|n|ing)? (?:the|a|an|it|them|each|both)\b"
+    r"|fasten\w*|glue\w*|clip\w*|pin(?:s|ned|ning)? (?:on|to)|fix(?:es|ed|ing)? (?:on|to)|"
+    r"stitch(?:es|ed|ing)? on|add(?:s|ed|ing)? (?:a|an|the|two|\d+) \w+ (?:to|on)|mount\w*)\b")
+_KNOWN_ATTACHED = re.compile(
+    r"\b(?:yarn|tail|tails|embroider\w*|piece|pieces|ear|ears|head|body|arm|arms|leg|legs|"
+    r"tail|muzzle|snout|paw|paws|foot|feet|wing|wings|horn|horns|nose|eye|eyes|panel|panels|"
+    r"front|back|patch|appliqu\w*|motif|motifs|edge|edging|border|square|squares|seam|"
+    r"blanket|lovey|cushion|cover|round|rounds|row|rows|stitch|stitches|st|sts)\b")
+
+
+def _attachment_names(cir) -> set[str]:
+    names = set()
+    for c in cir.components:
+        for w in re.findall(r"[a-z]+", _fold(str(getattr(c, "name", "") or ""))):
+            if len(w) > 2:
+                names.add(w)
+    return names
+
+
+def _attachments(cir) -> Check:
+    names = _attachment_names(cir)
+    texts = [str(getattr(cir, "designer_notes", "") or "")]
+    texts += [str(getattr(s, "note", "") or "") for s in cir.assembly]
+    for c in cir.components:
+        texts.append(str(c.note or ""))
+        texts += [str(r.note or "") for r in c.rows]
+    unknown = []
+    for text in texts:
+        for clause in _CLAUSE.split(_fold(text)):
+            m = _ATTACH_VERB.search(clause)
+            if not m:
+                continue
+            words = set(re.findall(r"[a-z]+", clause))
+            if _KNOWN_ATTACHED.search(clause) or words & names:
+                continue
+            unknown.append(clause.strip()[:80])
+    if unknown:
+        return Check("ATTACHMENTS_KNOWN", UNKNOWN,
+                     f"attachments this gate does not know to be a piece of this pattern, yarn "
+                     f"or an embroidered feature: {unknown}: UNKNOWN is not a pass")
+    return Check("ATTACHMENTS_KNOWN", PASS,
+                 "every attachment is a piece of this pattern, yarn or embroidery")
 
 
 def _materials(cir) -> Check:
@@ -695,6 +795,11 @@ def _text_checks(text: str, profile, instructions: str | None = None) -> list[Ch
     out.append(Check("SAFETY_SECTION", FAIL if missing else PASS,
                      f"missing statements: {missing}" if missing else
                      f"all {len(required)} statements present"))
+    if "eye_options" in required:
+        guided = _fold(AGE_GUIDANCE_MARKER) in folded
+        out.append(Check("AGE_GUIDANCE_IN_TEXT", PASS if guided else FAIL,
+                         "the eye options and their age guidance are printed" if guided else
+                         "the document gives no age guidance with its eye options"))
     sources = sorted({s for k in required for s in STATEMENTS[k].sources})
     uncited = [k for k in sources if SOURCES[k].url.lower() not in folded.replace(" ", "")
                and SOURCES[k].url.lower() not in folded]
@@ -751,7 +856,8 @@ def evaluate(cir, result=None, *, text: str | None = None, instructions: str | N
     profile = profile_for(cir, childrens)
     v = Verdict(applies=True, profile=profile)
     small = _small_parts(cir)
-    v.checks += [_features(cir, profile), _materials(cir), _joins(cir, result), _cords(cir),
+    v.checks += [_features(cir, profile), _materials(cir), _attachments(cir),
+                 _joins(cir, result), _cords(cir),
                  _stuffing(cir, result, profile), small, _age(cir, profile, childrens, small),
                  _physical(cir, profile, childrens)]
     if text is not None:

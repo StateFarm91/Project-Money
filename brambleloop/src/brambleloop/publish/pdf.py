@@ -2875,7 +2875,9 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         from ..gates import small_parts as _small_parts
 
         clear = not _small_parts.blocking(cir)
-        for heading_, text_ in _child_safety.section_lines(profile, small_parts_clear=clear):
+        for heading_, text_ in _child_safety.section_lines(
+                profile, small_parts_clear=clear,
+                age_band=childrens[1] if childrens else None):
             if heading_:
                 doc.heading(heading_, size=12)
             doc.para(text_, size=9.5 if heading_ != "Sources" else 9,
