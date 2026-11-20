@@ -331,6 +331,12 @@ def test_the_originals_catalogue_is_core_heavy_and_original():
     assert sum(o.family == D.GARMENT for o in cat) >= 4
     pool = {p.title.lower() for p in POOL}
     assert not [o for o in cat if o.title.lower() in pool]
+    cs = [Concept(key=o.slug, title=o.title, premise=o.premise, pod=O._pod(o), form=o.form,
+                  construction=o.construction, motif=o.motif, palette_story=o.palette,
+                  recipient=o.recipient, occasion=o.occasion, feeling=o.feeling,
+                  function=o.function, make_lane="SHORT", provenance="t") for o in cat]
+    gaps = [distance(a, b) for i, a in enumerate(cs) for b in cs[i + 1:]]
+    assert gaps and min(gaps) >= 0.45, "no original is a near-clone of another"
     # The run-time guard: a title overlapping an observed listing is never proposed.
     assert originality_reasons("Riverbank Capybara Amigurumi", "Riverbank Capybara",
                                [("fx", "Riverbank Capybara Amigurumi Pattern")])
@@ -338,17 +344,28 @@ def test_the_originals_catalogue_is_core_heavy_and_original():
     with db.session() as s:
         s.add(BenchmarkListing(benchmark_key="fx", listing_ref="cap1", audit_state="audited",
                                title="Riverbank Capybara Amigurumi Pattern", pod="amigurumi",
-                               last_seen=NOW, detail={}))
+                               last_seen=datetime.now(timezone.utc),
+                               detail={"num_favorers": 50}))
+    proposed: list[str] = []
+    skipped: set[str] = set()
+    for _ in range(8):
+        got = O.run(db, audit=lambda *a, **k: None)
+        assert len(got["proposed"]) <= O.MAX_PER_RUN
+        proposed += [x["slug"] for x in got["proposed"]]
+        skipped |= {x["slug"] for x in got["skipped"]}
+    assert "riverbank-capybara-amigurumi" in skipped, skipped
+    assert "riverbank-capybara-amigurumi" not in proposed
+    # only the amigurumi family was scanned here: nothing else is proposed (UNKNOWN)
+    assert sorted(proposed) == sorted(o.slug for o in cat if o.family == D.AMIGURUMI
+                                      and o.slug != "riverbank-capybara-amigurumi"), proposed
+
+
+def test_no_scanned_market_reading_proposes_nothing():
+    from brambleloop.radar import demand_originals as O
+
+    db = _db()                       # teardown facts exist; no scan has observed anything
     got = O.run(db, audit=lambda *a, **k: None)
-    assert "riverbank-capybara-amigurumi" in {x["slug"] for x in got["skipped"]}, got
-    assert "riverbank-capybara-amigurumi" not in {x["slug"] for x in got["proposed"]}
-    assert len(got["proposed"]) == len(cat) - 1, got["skipped"]
-    cs = [Concept(key=o.slug, title=o.title, premise=o.premise, pod=O._pod(o), form=o.form,
-                  construction=o.construction, motif=o.motif, palette_story=o.palette,
-                  recipient=o.recipient, occasion=o.occasion, feeling=o.feeling,
-                  function=o.function, make_lane="SHORT", provenance="t") for o in cat]
-    gaps = [distance(a, b) for i, a in enumerate(cs) for b in cs[i + 1:]]
-    assert gaps and min(gaps) >= 0.45, "no original is a near-clone of another"
+    assert got["proposed"] == [] and len(got["skipped"]) == len(O.CATALOGUE), got
 
 
 def test_originals_run_through_intake_gates_into_buildable_work_and_engine_demand():
@@ -370,15 +387,14 @@ def test_originals_run_through_intake_gates_into_buildable_work_and_engine_deman
                                 {"at": (datetime.now(timezone.utc)
                                         - timedelta(days=10)).isoformat(), "n": 200},
                                 {"at": datetime.now(timezone.utc).isoformat(), "n": 300}]}))
-    approved, refused = [], {}
-    first = T._run(db, "radar.concept_intake", {})
-    assert first["originals_proposed"] == len(O.CATALOGUE), first
-    approved += first["approved"]
-    refused.update({r["slug"]: r["reasons"] for r in first["refused"]})
-    for k in range(3):
+    approved, refused, proposed = [], {}, 0
+    for k in range(8):
         out = T._run(db, "radar.concept_intake", {"pass": k})
+        assert out["originals_proposed"] <= O.MAX_PER_RUN, out
+        proposed += out["originals_proposed"]
         approved += out["approved"]
         refused.update({r["slug"]: r["reasons"] for r in out["refused"]})
+    assert proposed == len(O.CATALOGUE), proposed
     assert len(approved) + len(refused) == len(O.CATALOGUE), (approved, refused)
     for slug in ("cosy-round-bear-amigurumi", "cosy-bunny-lovey", "hearthstone-raglan-cardigan",
                  "stoneware-envelope-cushion-cover", "kite-day-kids-sweater"):

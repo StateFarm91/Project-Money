@@ -586,6 +586,8 @@ ENGINE_NEEDS: dict[str, str] = {
     "lovey": "lovey heads beyond bear/bunny",
     "garment": "garment intake routing: a POOL garment concept re-proposed as fitted_garment "
                "so the certified raglan / one-piece engines draft it",
+    "amigurumi_features": "cushion appliqué faces and features beyond the highland cow",
+    "garment_one_piece": "one-piece sweater: pin the adult (non-child) category through intake",
     "garment_side_to_side": "side-to-side vest: pin a research concept through intake",
     "garment_drop_shoulder": "drop-shoulder pullover: pin a research concept through intake",
     "seasonal_decor": "seasonal décor shapes (garland units, shaped ornaments)",

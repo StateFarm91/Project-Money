@@ -43,6 +43,12 @@ DECISION_REF = "radar.concept_intake:demand_originals"
 DOMAIN = "competitor_positioning"
 PROPOSED = "demand.originals_proposed"
 SKIPPED = "demand.originals_skipped"
+# At most this many new originals are attached per pass, so research proposals keep intake
+# slots (intake evaluates MAX_EVALUATIONS_PER_RUN per pass, highest demand first).
+MAX_PER_RUN = 6
+# A family is proposed for only when the market scans themselves observed it: the owner's
+# teardown facts sharpen a reading, they never start one.
+SCAN_SOURCES = frozenset({"benchmark_listings", "serp_snapshots"})
 
 
 @dataclass(frozen=True)
@@ -332,7 +338,14 @@ def run(db, *, audit, today: date | None = None, ix: D.DemandIndex | None = None
     taken = _taken(db)
     tasks: dict[str, tuple[int, dict]] = {}
     proposed, skipped = [], []
+    scanned = {f["family"] for f in ix.families() if SCAN_SOURCES & set(f.get("sources") or ())}
     for o, reading in ranked(ix):
+        if len(proposed) >= MAX_PER_RUN:
+            break
+        if o.family not in scanned:
+            skipped.append({"slug": o.slug, "why": [f"no scanned market reading for family "
+                                                     f"{o.family} yet (UNKNOWN)"]})
+            continue
         why = originality_reasons(o.title, o.title.rsplit(" ", 1)[0], titles)
         if why:
             skipped.append({"slug": o.slug, "why": why[:2]})

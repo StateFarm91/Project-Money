@@ -3042,3 +3042,29 @@ open request's `occurrences`.
 **Readback.** `daily_ledger` is an advisory readback row: PASS or WARN when readable, UNKNOWN when
 missing or unreadable, never PASS on UNKNOWN.
 Reversible by decision; the thresholds are constants in `ops/daily_ledger.py`.
+## D-ENG-DEMAND-SUPPLY — demand decides what enters engineering (ENG-DEMAND-SUPPLY, 2026-11-20; owner TOP PRIORITY "production agents should be automatically making things that sell")
+Context: the concept pool was 34 concepts (16 drafted, 18 held, 0 promotable undrafted). Selection followed
+engine convenience, so the catalogue became coasters, garlands and placemats while the market buys chunky low-sew
+amigurumi, baby items, cushions and clothing (D-OWNER-CORE-FAMILIES; the two 2026-11-20 teardowns).
+**Rule 1, the demand score (`products/demand.py`).** It is computed from stored evidence only: `benchmark_listings`
+(favourites level, favourites velocity from dated `favorers_history`, per-listing reviews, bestseller and baskets
+where stored, recency weight with a 30-day half-life and a 180-day cut-off), `serp_snapshots` (1/sqrt(rank)), and
+the owner's dated teardown facts (numbers and clusters only). It is scored per family / form / subject cluster,
+backing off to family+form and then to family when fewer than 3 readings exist. **UNKNOWN is never 0.** A missing
+signal lowers confidence, and the evidence score shrinks toward PRIOR=0.20, so an unobserved cluster never scores 0
+and never scores high. The owner core-family boost (amigurumi 0.30 > baby 0.26 > pillow 0.22 > garment 0.18) is
+scaled by confidence (x0.5 at zero confidence). Flat décor and seasonal pieces get no boost.
+**Rule 2, demand-led admission.** `supply.offers` orders by market demand first, then by research flag and the
+producer's score. `radar.intake.run` evaluates candidates in demand order. An offer whose construction has no certified
+engine is not admitted and not silently held: it is recorded once as `supply.engine_demand`, stays waiting, and is
+admitted on the first pass after its engine certifies. Engineered designs (`pipeline.ENGINEERED`, Launch-0 legacy
+routes) count as certified. Capacity refill is unchanged (`after_chain_job` plus the 15-minute `supply.admit`).
+**Rule 3, originals.** `radar/demand_originals.py` proposes 28 house-original core-family and clothing concepts on
+every `radar.concept_intake` pass, on research tasks that carry the family's stored demand reading. Evidence
+confidence follows the reading (UNKNOWN gives low confidence, which intake refuses). Intake judges every concept
+with all its gates (novelty floor, anti-copy, children's checks, construction). An engine-less one is refused as
+`construction_unsupported:<family>` and appears on the engine list. The research trigger carries a digest of the
+engine table, so an engine certification re-proposes those concepts on fresh evidence.
+**Surfaces.** The Mission Control Demand view (`GET /api/cc/demand`, `cc-shell-v44`) and the advisory readback row
+`engine_demand`: WARN while a concept waits for an engine, never a deploy FAIL.
+Reversible by decision. The weights, saturations, prior and boosts are constants in `products/demand.py`.
