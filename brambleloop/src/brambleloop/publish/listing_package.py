@@ -201,8 +201,15 @@ def assemble(db, slug: str, version: str) -> dict | None:
     if err is not None:
         blockers.append({"source": "release_gates.for_publish", "why": err})
     else:
+        # b17-c A3 (D-OWNER-SPEND-ORDER): a reason the listing's images cause is tagged
+        # `image`, so the for-sale admission point (`visual.image_production.sale_admission`)
+        # can tell "only the gallery is missing" from a product that is not for sale.
+        visual = release_gates.image_reasons(gate)
         for reason in gate.get("reasons") or []:
-            blockers.append({"source": "release_gates.for_publish", "why": str(reason)[:300]})
+            b = {"source": "release_gates.for_publish", "why": str(reason)[:300]}
+            if str(reason) in visual:
+                b["image"] = True
+            blockers.append(b)
 
     payload, err = _try(etsy_ops.certified_payload, db, slug, version)
     copy = None
@@ -217,10 +224,11 @@ def assemble(db, slug: str, version: str) -> dict | None:
     framed, err = _try(etsy_ops.certified_frames, db, slug, version, release=release)
     frames = []
     if err is not None:
-        blockers.append({"source": "certified_frames", "why": err})
+        blockers.append({"source": "certified_frames", "why": err, "image": True})
     else:
         for problem in framed.get("problems") or []:
-            blockers.append({"source": "certified_frames", "why": str(problem)[:300]})
+            blockers.append({"source": "certified_frames", "why": str(problem)[:300],
+                             "image": True})
         frames = [{"position": f.get("position"), "kind": f.get("kind"),
                    "sha256": f.get("sha256"), "honesty_label": f.get("honesty_label"),
                    "alt_text": f.get("alt_text")} for f in framed.get("frames") or []]

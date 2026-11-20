@@ -464,6 +464,25 @@ def test_unattended_end_to_end_shadow_stub_reaches_owner_card_without_owner_step
     assert learn["accepted"] >= 1 and learn["cost_per_accepted_cad"] == 0.0
 
 
+from contextlib import contextmanager as _cm
+
+
+@_cm
+def admitted_for_sale():
+    """test_double: for-sale admission (b17-c A3). A paid run first parks unless the release is
+    admitted for sale; these tests are about the image_generation gate behind it, so the
+    admission is doubled and labelled. test_vis_gallery_e2e test_9 covers the real one."""
+    from brambleloop.visual import image_production as IP
+
+    real = IP.sale_admission
+    IP.sale_admission = lambda *a, **k: {"admitted": True, "test_double": True,
+                                         "why": "test_double: admitted for sale"}
+    try:
+        yield
+    finally:
+        IP.sale_admission = real
+
+
 def test_default_generator_is_flux3_and_refused_while_the_gate_is_closed():
     from brambleloop.visual import image_production as IP
 
@@ -473,6 +492,13 @@ def test_default_generator_is_flux3_and_refused_while_the_gate_is_closed():
     follow, _ = drain(db, generator=None, judges=StubJudges())
     IP.trigger(follow, slug="cloudline-baby-blanket", version="1.2.0", release=RELEASE)
     drain(db, generator=None, judges=StubJudges())
+    run = IP.get_run(db, IP.run_key("cloudline-baby-blanket", "1.2.0", RELEASE))
+    # b17-c A3: a release not admitted for sale parks before any paid stage
+    assert run["state"] == IP.SALE_WAITING and run["generation_calls"] == 0, run
+    with admitted_for_sale():
+        assert IP.admit_for_sale(db, follow, slug="cloudline-baby-blanket", version="1.2.0",
+                                 release=RELEASE)["admission"]["admitted"]
+        drain(db, generator=None, judges=StubJudges())
     run = IP.get_run(db, IP.run_key("cloudline-baby-blanket", "1.2.0", RELEASE))
     assert run["state"] == "blocked" and "image_generation gate closed" in run["blocked_reason"]
     assert run["spent_cad"] == 0.0 and run["generation_calls"] == 0
@@ -593,7 +619,8 @@ def test_paid_generator_needs_the_image_generation_gate():
     follow, _ = drain(db, generator=Paid(), judges=StubJudges())
     IP.trigger(follow, slug="cloudline-baby-blanket", version="1.2.0", release=RELEASE)
     gen = Paid()
-    drain(db, generator=gen, judges=StubJudges())
+    with admitted_for_sale():
+        drain(db, generator=gen, judges=StubJudges())
     run = IP.get_run(db, IP.run_key("cloudline-baby-blanket", "1.2.0", RELEASE))
     assert run["state"] == "blocked" and "image_generation gate closed" in run["blocked_reason"]
     assert gen.calls == 0

@@ -353,8 +353,11 @@ def motif_reading(db, cand: dict, *, judger=None, provider=None) -> dict:
         out = MF.check(db, str(path), cir, twin, provider=provider, judger=judger)
     verdict = out.get("verdict")
     status = {MF.MATCH: PASS, MF.MISMATCH: FAIL}.get(verdict, UNKNOWN)
+    # b17-c A1: the field is `motif_verdict`, never `verdict`. `gate_status` reads a `verdict`
+    # key as an identity consumer verdict (ENG-VIS-IDENTITY) and demotes PASS unless it is
+    # PASS, so a matched motif carrying verdict="match" read UNMEASURED on the merged line.
     return _c(status, f"motif fidelity {verdict}: {str(out.get('why') or '')[:200]}",
-              sha256=sha, verdict=verdict, unmeasured=out.get("unmeasured"),
+              sha256=sha, motif_verdict=verdict, unmeasured=out.get("unmeasured"),
               rejudge=bool(out.get("rejudge")), expected=out.get("expected"),
               codes=(["motif_mismatch"] if status == FAIL else []))
 

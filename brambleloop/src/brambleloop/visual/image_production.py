@@ -97,7 +97,8 @@ STAGES: tuple[tuple[str, str], ...] = (
 STAGE_STATE = dict(STAGES)
 STATES = ("awaiting_certified_pattern", "reference_preparation", "product_generation",
           "lifestyle_generation", "gallery_assembly", "automated_verification",
-          "ready_for_owner_review", "blocked", "approved_for_publication")
+          "ready_for_owner_review", "blocked", "approved_for_publication",
+          "waiting_for_sale_admission")
 NOTIFY_STATES = ("ready_for_owner_review", "blocked")
 
 MAX_ATTEMPTS_PER_ROLE = 3          # one generation + two repairs
@@ -227,6 +228,137 @@ def trigger(enqueue, *, slug: str, version: str, release: str, ns: str = "",
         inputs["route"] = route
     job = enqueue(inputs, stage_key(slug, version, release, STAGES[0][0], ns=ns, route=route))
     return {"enqueued": job is not None, "run_key": run_key(slug, version, release, ns, route)}
+
+
+# ---- for-sale admission (b17-c A3, D-OWNER-SPEND-ORDER) ----------------------------------
+#
+# The FLUX gallery is paid. It was enqueued at build time, before pricing, listing copy or any
+# non-image listing gate had run, so once `image_generation` opened every certified release
+# would have bought seven images -- including releases later rejected or parked. Now:
+#   * nothing at build time enqueues the FLUX route (runtime/release.py);
+#   * the for-sale admission point is the `listing.package` job, which runs after the whole
+#     listing chain and calls `admit_for_sale` -- the route is enqueued only when every
+#     NON-image listing gate is PASS (the recorded package's only blockers are image ones);
+#   * every stage of a FLUX run re-checks admission before it does anything; a product that
+#     is not (or no longer) eligible parks in the non-spending `SALE_WAITING` state, and its
+#     unused outfit reservation is released.
+SALE_WAITING = "waiting_for_sale_admission"
+STOPPED_STAGES = ("REJECTED", "RETIRED", "ROLLED_BACK")
+_SALE_WAITS = "_sale_waits"
+
+
+def sale_admission(db, slug: str, version: str, release: str) -> dict:
+    """Whether `slug@version@release` is selected for sale: the product is not rejected or
+    withdrawn, and the recorded listing package for exactly this release has no blocker other
+    than its images. Anything unreadable is not admitted (unknown never admits)."""
+    def no(why: str, **kw) -> dict:
+        return {"admitted": False, "why": why, **kw}
+
+    if not (slug and version and release):
+        return no("slug, version and release are all required")
+    try:
+        from ..products import lifecycle
+
+        stage = str((lifecycle.derive(db, slug) or {}).get("stage") or "")
+    except Exception as exc:  # noqa: BLE001 - an unreadable lifecycle is not for sale
+        return no(f"product lifecycle unreadable ({type(exc).__name__})")
+    if stage in STOPPED_STAGES:
+        return no(f"product is {stage}", rejected=True, lifecycle=stage)
+    try:
+        from ..publish import listing_package
+
+        pkg = listing_package.latest(db, slug, version)
+    except Exception as exc:  # noqa: BLE001
+        return no(f"listing package unreadable ({type(exc).__name__})")
+    if not pkg:
+        return no("no listing package is recorded: pricing, listing copy and the listing "
+                  "gates have not all run")
+    if pkg.get("release_hash") != release:
+        return no(f"the recorded listing package is for release "
+                  f"{str(pkg.get('release_hash') or '')[:12]}, not {release[:12]}")
+    blockers = pkg.get("blockers")
+    if not isinstance(blockers, list):
+        return no("listing package blockers unreadable")
+    other = [b for b in blockers if not (isinstance(b, dict) and b.get("image") is True)]
+    if other:
+        return no(f"{len(other)} non-image listing gate(s) not PASS: "
+                  + "; ".join(str((b or {}).get("why") if isinstance(b, dict) else b)[:120]
+                              for b in other[:3]),
+                  non_image_blockers=other[:10])
+    return {"admitted": True, "why": "every non-image listing gate is PASS",
+            "image_blockers": len(blockers), "lifecycle": stage}
+
+
+def _park_for_sale(db, key: str, stage: str, adm: dict) -> dict:
+    """Park a FLUX run that is not admitted: no spend, its unused outfit reservation freed."""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    run = get_run(db, key) or {}
+    freed = None
+    listing = run.get("listing") or ""
+    if listing:
+        held = outfits.reserved_for(db, listing)
+        if held:
+            freed = outfits.release(db, held["outfit_id"], listing,
+                                    why=f"image run parked: {adm['why']}"[:300])
+    with db.session() as s:
+        r = _run_locked(s, key)
+        st = dict(r.stages or {})
+        waits = dict(st.get(_SALE_WAITS) or {})
+        if r.status != SALE_WAITING:
+            waits["count"] = int(waits.get("count") or 0) + 1
+        waits.update(at=_now().isoformat(), why=str(adm.get("why"))[:500], stage=stage)
+        st[_SALE_WAITS] = waits
+        r.stages = st
+        flag_modified(r, "stages")
+        r.status, r.blocked_reason, r.updated_at = SALE_WAITING, "", _now()
+    return {"run_key": key, "waiting": True, "admission": adm, "outfit_released": freed}
+
+
+def admit_for_sale(db, enqueue, *, slug: str, version: str, release: str) -> dict:
+    """The for-sale admission point (called by `listing.package`): enqueue the FLUX gallery
+    route for this release only when `sale_admission` admits it. A run already parked in
+    SALE_WAITING is re-entered once per wait; a running or finished run is left alone. A
+    product that is not admitted has any existing FLUX run parked (and its reservation freed)."""
+    adm = sale_admission(db, slug, version, release)
+    key = run_key(slug, version, release, route=SP.FLUX_ROUTE)
+    run = get_run(db, key)
+    if not adm["admitted"]:
+        if run is not None and run["state"] not in (
+                SALE_WAITING, "blocked", "ready_for_owner_review", "approved_for_publication"):
+            _park_for_sale(db, key, run["stage"] or STAGES[0][0], adm)
+        return {"enqueued": False, "admission": adm, "run_key": key}
+    # A campaign-route run parked for the same reason (paid generator) resumes too.
+    readmitted = [_readmit(db, enqueue, run_key(slug, version, release), slug, version,
+                           release, "")]
+    if run is None:
+        return {**trigger(enqueue, slug=slug, version=version, release=release,
+                          route=SP.FLUX_ROUTE), "admission": adm}
+    if run["state"] != SALE_WAITING:
+        return {"enqueued": False, "admission": adm, "run_key": key,
+                "why": f"run is already {run['status']}"}
+    readmitted.append(_readmit(db, enqueue, key, slug, version, release, SP.FLUX_ROUTE))
+    return {"enqueued": bool(readmitted[-1]), "admission": adm, "run_key": key,
+            "readmitted": True}
+
+
+def _readmit(db, enqueue, key: str, slug: str, version: str, release: str,
+             route: str) -> bool:
+    """Re-enter a run parked in SALE_WAITING at its first stage, once per wait."""
+    run = get_run(db, key)
+    if run is None or run["state"] != SALE_WAITING:
+        return False
+    waits = int((_stage_data(db, key).get(_SALE_WAITS) or {}).get("count") or 0)
+    inputs = {"slug": slug, "version": version, "release": release,
+              "stage": STAGES[0][0], "round": 0}
+    if route:
+        inputs["route"] = route
+    if run.get("restarts"):
+        inputs["epoch"] = run["restarts"]
+    job = enqueue(inputs, stage_key(slug, version, release, STAGES[0][0], 0,
+                                    run.get("restarts") or 0, "", route)
+                  + f"#admitted{waits}")
+    return job is not None
 
 
 # ---- run row -----------------------------------------------------------------------------
@@ -960,13 +1092,21 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                 "why": f"job epoch {epoch} is not the run's epoch {run.get('restarts', 0)}"}
     if run["state"] in ("blocked", "ready_for_owner_review", "approved_for_publication"):
         return {"run_key": key, "skipped": True, "why": f"run is {run['status']}"}
-    judges = judges or (exp.judges(db) if exp is not None else CG.RealJudges(db))
     if generator is not None:
         gen = generator
     elif exp is not None:
         gen = exp.generator(db)
     else:
         gen = resolve_generator(db)
+    if exp is None and not controlled and (route == SP.FLUX_ROUTE
+                                           or bool(getattr(gen, "paid", False))):
+        # b17-c A3 (D-OWNER-SPEND-ORDER): every stage of a paid gallery -- the FLUX route
+        # always, the campaign route whenever its generator is paid -- re-checks for-sale
+        # admission before it does anything. Not admitted parks it without spend.
+        adm = sale_admission(db, slug, version, release)
+        if not adm["admitted"]:
+            return _park_for_sale(db, key, stage, adm)
+    judges = judges or (exp.judges(db) if exp is not None else CG.RealJudges(db))
     if exp is not None:
         plan = exp.plan
     elif route == SP.FLUX_ROUTE:

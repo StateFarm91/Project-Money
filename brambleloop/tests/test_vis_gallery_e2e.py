@@ -22,7 +22,10 @@ What is real and what is a test double (every double is labelled in its readings
   banded blanket -- `test_v6_gallery_e2e` pins that), identity / anatomy / realism / body /
   outfit judges (`test_w4_ownerimg.StubJudges`), the vision transport, Laura's per-image
   publication approval (ENG-VIS-IDENTITY's gate, which production has not qualified), the
-  generator's pixels (a listing-size synthetic flat lay of the CIR per frame), and Etsy.
+  generator's pixels (a listing-size synthetic flat lay of the CIR per frame), Etsy, and
+  the for-sale admission in `run_gallery` (b17-c A3: the fixture's blanket has real
+  first-customer blockers, so its admission is doubled there and labelled `test_double`;
+  test_9 runs the REAL admission on a separate chain and proves no paid call is made).
 
 Run: cd brambleloop && PYTHONPATH=src:tests python3 tests/test_vis_gallery_e2e.py
 """
@@ -209,6 +212,11 @@ def run_gallery(db, *, fail_role=None, unknown_role=None):
     manifest, _entry, _rb = V6._room_manifest(room)
     real_manifest = RR.MANIFEST
     RR.MANIFEST = manifest
+    real_admission = IP.sale_admission
+    IP.sale_admission = lambda *a, **k: {
+        "admitted": True, "test_double": True,
+        "why": "test_double: for-sale admission doubled for the gallery fixture (test_9 "
+               "covers the real admission)"}
     try:
         vision = V6.StubVision(cir)
         judges = GalleryJudges(db, vision, cir, fail_role=fail_role, unknown_role=unknown_role)
@@ -219,6 +227,7 @@ def run_gallery(db, *, fail_role=None, unknown_role=None):
         _, ran = O.drain(db, generator=gen, judges=judges, limit=160)
     finally:
         RR.MANIFEST = real_manifest
+        IP.sale_admission = real_admission
     return {"key": first["run_key"], "gen": gen, "judges": judges, "ran": ran, "cir": cir,
             "release": rel, "follow": follow}
 
@@ -272,6 +281,7 @@ def test_1_seven_frame_flux_campaign_is_generated_from_cir_references_with_laura
     laura = [r for r in rows if r.laura_present and r.role in ("lifestyle", "size")]
     assert laura and all(r.outfit_id for r in laura), [(r.role, r.outfit_id) for r in laura]
     assert len({r.outfit_id for r in laura}) == 1, "one outfit within the listing"
+    assert rows
     for r in rows:
         if r.role in sent:
             kinds = [x["kind"] for x in r.references]
@@ -553,6 +563,64 @@ def test_8_the_listing_set_rejudges_on_every_call_and_tampering_blocks_it():
                                store_renders=True)
         assert again["blocks_release"] is False, again["reasons"]
         assert again["certificate"]["valid"] is True
+
+
+def test_9_a_release_with_a_failing_non_image_gate_makes_no_paid_call():
+    """b17-c A3 (D-OWNER-SPEND-ORDER): with image generation activated, a certified release
+    whose listing package still has a non-image blocker is not admitted for sale, so the
+    paid FLUX route is never enqueued -- not by assets.build, not by listing.package -- and
+    a FLUX job delivered anyway parks in the non-spending waiting state with 0 calls."""
+    import test_search_hero_publish as SH
+    from sqlalchemy import select
+
+    from brambleloop.core.db import Database
+    from brambleloop.core.models import Job
+    from brambleloop.publish import listing_package as LP
+    from brambleloop.visual import image_production as IP
+
+    slug = "housewarming-key-basket"
+    path, version, rh = SH._chain(slug, "basket")
+    db = Database(f"sqlite:///{path}")
+
+    def flux_jobs():
+        with db.session() as s:
+            return [j for j in s.scalars(select(Job).where(Job.job_type == IP.JOB_TYPE))
+                    if (j.inputs or {}).get("route") == IP.SP.FLUX_ROUTE]
+
+    assert flux_jobs() == [], "assets.build must not enqueue the paid FLUX route"
+
+    class PaidGenerator(O.StubGenerator):
+        name, paid, max_cost_cad_per_call = "paid-test-double", True, 0.50
+
+    gen = PaidGenerator()
+    from brambleloop.visual import gallery as G
+
+    real_gates = G.gates_now
+    # test_double: image generation activated (the owner's provider activation is live)
+    G.gates_now = lambda db_, keys=(): {k: True for k in keys}
+    try:
+        job = SH._run(db, "listing", "listing.package",
+                      {"slug": slug, "version": version, "release": rh})
+        assert job.status.name == "DONE", job.last_error
+        adm = IP.sale_admission(db, slug, version, rh)
+        assert adm["admitted"] is False and adm["non_image_blockers"], adm
+        assert all(b.get("image") is not True for b in adm["non_image_blockers"]), adm
+        assert flux_jobs() == [], "listing.package enqueued a release that is not for sale"
+        follow, _ = O.drain(db, generator=gen, judges=None)
+        got = IP.admit_for_sale(db, follow, slug=slug, version=version, release=rh)
+        assert got["enqueued"] is False, got
+        # A FLUX job that reaches the worker anyway (stale or hand-enqueued) parks unspent.
+        first = IP.trigger(follow, slug=slug, version=version, release=rh,
+                           route=IP.SP.FLUX_ROUTE)
+        O.drain(db, generator=gen, judges=None)
+        run = IP.get_run(db, first["run_key"])
+        assert run["state"] == IP.SALE_WAITING, run
+        assert run["generation_calls"] == 0 and run["spent_cad"] == 0.0, run
+        assert gen.calls == 0
+        assert IP.outfits.reserved_for(db, run["listing"]) is None
+    finally:
+        G.gates_now = real_gates
+    db.engine.dispose()
 
 
 if __name__ == "__main__":

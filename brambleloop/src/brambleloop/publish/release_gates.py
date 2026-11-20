@@ -2003,6 +2003,27 @@ def for_publish(db, *, slug: str, version: str, today: date | None = None,
             "sample_photo": photo, "stage": stage}
 
 
+IMAGE_STANDARDS = ("gallery_images", "video_in_gallery")
+HERO_REASON = "search certificate (F-004) hero:"
+
+
+def image_reasons(verdict: dict | None) -> set[str]:
+    """b17-c A3 (D-OWNER-SPEND-ORDER): the reasons of a `for_publish` verdict that the
+    listing's images cause -- the listing set, image originality, the search hero, the
+    sample-photo requirement and the gallery-size competitive standards. Every other reason
+    is a non-image listing gate, and a product with one is not admitted for image spend.
+    A reason this cannot attribute is non-image: unknown never admits."""
+    v = verdict or {}
+    out: set[str] = set()
+    for part in ("listing_set", "originality", "sample_photo"):
+        out.update(str(r) for r in ((v.get(part) or {}).get("reasons") or []))
+    out.update(str(r) for r in ((v.get("search") or {}).get("reasons") or [])
+               if str(r).startswith(HERO_REASON))
+    out.update(str(r) for r in ((v.get("standards") or {}).get("reasons") or [])
+               if any(str(r).startswith(f"competitive standard {k} ") for k in IMAGE_STANDARDS))
+    return out
+
+
 def our_competitive_reading(db, *, slug: str, version: str, key: str) -> float | None:
     """This listing's own reading on one CompetitiveStandard, or None when unmeasurable."""
     from sqlalchemy import select

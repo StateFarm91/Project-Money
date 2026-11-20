@@ -1,18 +1,10 @@
-<<<<<<< HEAD
-> **2026-11-20 — ENG-VIS-GALLERY slices 2–3 (`eng/vis-gallery`; NOT reviewed, NOT integrated, NOT deployed).**
-> - Recovery first (`visual.gallery_recovery`): before buying a frame, prior generated images of the same release/role (Laura and outfit matching) are re-judged under the route and recovered at no image cost; a retried job never re-buys. Complements eng/motif-backlog (photography renders), does not duplicate it.
-> - `assets.build` now also triggers the FLUX-gallery run; a route run's card is certified automatically (`gallery_persist.certify_gallery`) or its blockers recorded. New frame gate `cir_references`: conditioned on the release's exact deterministic CIR renders, in order.
-> - `ops.production_evidence.visual_pipeline.generated_galleries`: images generated/recovered, independently verified vs test-double PASS, Laura identity passes/holds, completed 7-image galleries, blocked-by-gate, awaiting publication, verified Etsy drafts, spend and cost per completed gallery — rows only, UNKNOWN when nothing is completed.
-> - Proof: `test_vis_gallery_e2e` 8/8 (adds recovery, evidence, tamper), `test_vis_gallery_gates` 14/14, unit mutants 24/24, chain-level mutants 6/6.
-> - **Honest status unchanged:** zero generated galleries in production; independent identity/motif verification needs ENG-VIS-IDENTITY's qualified method and a funded vision transport; Laura per-image approvals are empty.
-> **2026-11-20 — ENG-VIS-GALLERY slice 1 (`eng/vis-gallery`, builder branch; NOT reviewed, NOT integrated, NOT deployed; production unchanged, SHADOW).**
-> P0 "PERFECT FLUX 3 LISTING IMAGES". Decision `D-OWNER-FLUX-GALLERY` recorded (coordinator-relayed; owner/main may veto the F-853/hero scope inside the route).
-> - **H1 built:** a seven-frame generated gallery (`IP.trigger(..., route="generated_gallery")`, its own run key `~gallery`) is judged by `gallery_persist.gallery_status` on a fixed gate matrix (identity, body, outfit, Laura publication, product fidelity on exact bytes, motif fidelity, anatomy, realism, quality, role, provenance, the route's exception; set: slots, 7-frame standard, #65, consistency, naturalism, the deterministic CONTENTS frame). Each blocker names gate, reason, owning agent and a bounded next action (repair / measure / hold). `certify_gallery` writes listing assets and selects the gallery only with zero blockers; `release_gates.generated_listing_set` certifies it (one set, one certificate, one upload path).
-> - **H2 built:** `eligibility.gallery_exception` + `candidate_gates.exception_evidence` from the candidate record: honesty label, model, ordered references with sha256 (a CIR reference required), release, prompt_version, receipt, disclosure; structural truth must be measured on the exact bytes. UNKNOWN/fixture readings block.
-> - Motif fidelity on the generated path through `publish.motif_fidelity.check` (reserved call). Etsy AI-policy gate removed (owner order). Owner-lowerable per-gallery cap (`visual.gallery_budget`).
-> - **Proof (stub FLUX, labelled stub judges, FakeEtsy):** `test_vis_gallery_e2e` — certified CIR → US/UK PDFs → CIR references → Laura + outfit → 7 frames → QA → certified gallery → listing.package → Etsy draft, read back byte for byte (7 images, both PDFs); a failing frame blocks with a reason and bounded repair; UNMEASURED never PASS. `test_vis_gallery_gates` + `_vis_gallery_mutants.py` 21/21 killed.
-> - **Honest status:** no generated gallery exists in production. Production has no qualified identity method, no funded vision transport for motif/identity, and Laura's per-image publication approvals are empty, so a real gallery would hold on those gates (named, owned by ENG-VIS-IDENTITY). The FLUX route is not yet triggered by `assets.build` (slice 2). Production evidence counts are slice 3.
-=======
+> **2026-11-20 — ENG-VIS-GALLERY fix round (review b17-c Unit A; `eng/vis-gallery` merged with claude/w6-INTEG6 dde3ea62 and eng/gallery-complete; NOT integrated, NOT deployed).**
+> - **A1 fixed:** the ENG-VIS-IDENTITY `gate_status` rule reads any `verdict` key as an identity consumer verdict and demoted motif_fidelity PASS (`verdict="match"`) to UNKNOWN, so every frame read UNMEASURED on the merged line. `candidate_gates.motif_reading` now files `motif_verdict`; the identity rule is unchanged. `test_vis_gallery_e2e` passes on the merged tree.
+> - **A2 fixed:** `assert rows` / `assert cases` / `assert want` before the three loops `test_vacuity` flagged.
+> - **A3 fixed (D-OWNER-SPEND-ORDER):** `assets.build` no longer enqueues the paid FLUX route. The for-sale admission point is `listing.package` -> `image_production.admit_for_sale`: the route is enqueued only when the recorded package for exactly this release has no blocker except image ones (`release_gates.image_reasons`, `"image": true` on package blockers) and the product is not REJECTED/RETIRED/ROLLED_BACK. Every stage of a paid run (FLUX always, campaign when its generator is paid) re-checks admission first; not admitted parks in the non-spending `waiting_for_sale_admission` state and frees the unused outfit reservation; re-admission resumes it once per wait. New `test_9`: with image generation activated, a certified release with a failing non-image gate makes 0 paid calls.
+> - **A4 fixed:** eng/gallery-complete merged: `etsy_ops.certified_frames` refuses a certificate with fewer than `CAMPAIGN_MIN_FRAMES` ("gallery incomplete"); `test_visual_factory_e2e` b0 holds a 6-frame gallery BLOCKED before Etsy.
+> - Also fixed: the first merge left conflict markers in this file; resolved as the union.
+> - **Honest consequence:** Launch-0 releases currently carry non-image FIRST_CUSTOMER blockers (physical sample `gauge_and_size_claims`; `etsy_remote_state` UNVERIFIABLE), so admission holds them and production still makes 0 FLUX images until those pass. UNKNOWN never admits.
 
 > **2026-11-20 — ENG-VIS-IDENTITY slice 1 (`eng/vis-identity`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
 > - Built: `visual/face_embedder.py` (YuNet+SFace ONNX on CPU, Apache-2.0/MIT, weights pinned by sha256), `visual/identity_calibration.py` (measured thresholds, FAR/FRR with exact 95% bounds, production floors >=30 genuine / >=300 impostors / FAR-UB <=1% / FRR <=10%), `visual/identity_records.py` (durable per-image identity records), `outfits.claim` (idempotent compare-and-set outfit claim), blind outfit-vs-approved-reference check, OpenAI gpt-4.1 second judge via the existing `GatewayVisionJudge` reservation path, `identity_gate.assess` consumer `verdict` PASS/HOLD/REFUSE and all-three-references rule.
@@ -100,7 +92,19 @@
 >   - Cost: CA$0.142 per 2k frame; about CA$1.06 per Laura gallery; about CA$53–70/month at 50 galleries.
 > - Open: no live render yet. It is UNKNOWN whether the 2k tier at 1:1 delivers exactly 2048 px, and whether 4:5 at 4k works with references.
 > - Also fixed: this branch's own merge commit (439d17e5) left conflict markers at the top of this file. They are now resolved, and both entries are kept.
->>>>>>> origin/claude/w6-INTEG6
+> **2026-11-20 — ENG-VIS-GALLERY slices 2–3 (`eng/vis-gallery`; NOT reviewed, NOT integrated, NOT deployed).**
+> - Recovery first (`visual.gallery_recovery`): before buying a frame, prior generated images of the same release/role (Laura and outfit matching) are re-judged under the route and recovered at no image cost; a retried job never re-buys. Complements eng/motif-backlog (photography renders), does not duplicate it.
+> - `assets.build` now also triggers the FLUX-gallery run; a route run's card is certified automatically (`gallery_persist.certify_gallery`) or its blockers recorded. New frame gate `cir_references`: conditioned on the release's exact deterministic CIR renders, in order.
+> - `ops.production_evidence.visual_pipeline.generated_galleries`: images generated/recovered, independently verified vs test-double PASS, Laura identity passes/holds, completed 7-image galleries, blocked-by-gate, awaiting publication, verified Etsy drafts, spend and cost per completed gallery — rows only, UNKNOWN when nothing is completed.
+> - Proof: `test_vis_gallery_e2e` 8/8 (adds recovery, evidence, tamper), `test_vis_gallery_gates` 14/14, unit mutants 24/24, chain-level mutants 6/6.
+> - **Honest status unchanged:** zero generated galleries in production; independent identity/motif verification needs ENG-VIS-IDENTITY's qualified method and a funded vision transport; Laura per-image approvals are empty.
+> **2026-11-20 — ENG-VIS-GALLERY slice 1 (`eng/vis-gallery`, builder branch; NOT reviewed, NOT integrated, NOT deployed; production unchanged, SHADOW).**
+> P0 "PERFECT FLUX 3 LISTING IMAGES". Decision `D-OWNER-FLUX-GALLERY` recorded (coordinator-relayed; owner/main may veto the F-853/hero scope inside the route).
+> - **H1 built:** a seven-frame generated gallery (`IP.trigger(..., route="generated_gallery")`, its own run key `~gallery`) is judged by `gallery_persist.gallery_status` on a fixed gate matrix (identity, body, outfit, Laura publication, product fidelity on exact bytes, motif fidelity, anatomy, realism, quality, role, provenance, the route's exception; set: slots, 7-frame standard, #65, consistency, naturalism, the deterministic CONTENTS frame). Each blocker names gate, reason, owning agent and a bounded next action (repair / measure / hold). `certify_gallery` writes listing assets and selects the gallery only with zero blockers; `release_gates.generated_listing_set` certifies it (one set, one certificate, one upload path).
+> - **H2 built:** `eligibility.gallery_exception` + `candidate_gates.exception_evidence` from the candidate record: honesty label, model, ordered references with sha256 (a CIR reference required), release, prompt_version, receipt, disclosure; structural truth must be measured on the exact bytes. UNKNOWN/fixture readings block.
+> - Motif fidelity on the generated path through `publish.motif_fidelity.check` (reserved call). Etsy AI-policy gate removed (owner order). Owner-lowerable per-gallery cap (`visual.gallery_budget`).
+> - **Proof (stub FLUX, labelled stub judges, FakeEtsy):** `test_vis_gallery_e2e` — certified CIR → US/UK PDFs → CIR references → Laura + outfit → 7 frames → QA → certified gallery → listing.package → Etsy draft, read back byte for byte (7 images, both PDFs); a failing frame blocks with a reason and bounded repair; UNMEASURED never PASS. `test_vis_gallery_gates` + `_vis_gallery_mutants.py` 21/21 killed.
+> - **Honest status:** no generated gallery exists in production. Production has no qualified identity method, no funded vision transport for motif/identity, and Laura's per-image publication approvals are empty, so a real gallery would hold on those gates (named, owned by ENG-VIS-IDENTITY). The FLUX route is not yet triggered by `assets.build` (slice 2). Production evidence counts are slice 3.
 > **2026-11-19 — ENG-APPROVALS slice 1 (`eng/approvals`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
 > - The owner directive `D-OWNER-STANDING-INTERNAL` is recorded in DECISION_LOG.
 > - Code: `authority.standing_internal` (classifier and directive), `ops.owner_queue_consolidate` (idempotent sweep, the one
@@ -175,10 +179,7 @@
 >
 > Limitations, kept visible: research_fetch disabled (deployment flag); external trend platforms missing (no official
 > API); Marketplace Insights is owner-recorded. Review: `research/final_build/w6/review_requests/research_flow.md`.
-<<<<<<< HEAD
-=======
 
->>>>>>> origin/claude/w6-INTEG6
 > **2026-11-19 — ENG-VISUAL (branch `eng/visual-factory`, not deployed).**
 > - Audit: `research/final_build/w6/visual_factory_audit.md`, covering every stage from certified pattern to Etsy read-back, with file:line and blockers.
 > - Read-only evidence: the `visual_pipeline` section on `/api/readback/evidence`, plus an advisory readback row. Unreadable parts are UNKNOWN, never 0.
@@ -188,10 +189,7 @@
 >   - an E2E (`tests/test_visual_factory_e2e.py`) runs on FakeEtsy with both PDFs and every image read back. The generated-gallery certification blocker is pinned.
 > - Production numbers are UNKNOWN until this branch is deployed and read.
 > - Owner exceptions: (1) the identity-verification method — embedder qualification plus a second vision transport; (2) activating `image_generation` and `image_vision`.
-<<<<<<< HEAD
-=======
 
->>>>>>> origin/claude/w6-INTEG6
 
 > **2026-11-02 — Batch 4 DEPLOYED: production = 0967c3ee (SHADOW unchanged). 24-hour acceptance running until 2026-11-03T03:31Z.**
 > - Owner approval: "APPROVE DEPLOY 0967c3eee287d06cad0d8034a99e39076c0ab6d5" (2026-11-02).

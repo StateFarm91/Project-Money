@@ -73,6 +73,7 @@ def test_every_condition_blocks_alone():
         for bad in ("UNKNOWN", "FAIL", None):
             cases[f"{name}_{bad}"] = (lambda n, b: lambda e: e["checks"].update({n: b}))(
                 name, bad)
+    assert cases
     for name, mutate in cases.items():
         ev = copy.deepcopy(_ev())
         mutate(ev)
@@ -185,6 +186,7 @@ def test_flux_campaign_seven_distinct_jobs_per_family():
     want = {"garment": "worn", "hat": "worn", "pillow": "soft", "amigurumi": "soft",
             "coaster": "small_goods", "basket": "small_goods", "blanket": "lived_with",
             "baby": "lived_with"}
+    assert want
     for cat, fam in want.items():
         p = SP.flux_campaign_for(cat)
         assert p["family"] == fam, (cat, p["family"])

@@ -61,6 +61,37 @@ def _replace_last_error(ctx: JobContext, text: str | None) -> None:
                   .values(last_error=text))
 
 
+def _admit_for_sale(ctx: JobContext, results: list[dict]) -> list[dict]:
+    """b17-c A3 (D-OWNER-SPEND-ORDER): the for-sale admission point. After a release's package
+    is recorded, the paid FLUX gallery route is enqueued only when every non-image listing gate
+    is PASS (`image_production.admit_for_sale`); otherwise an existing run is parked without
+    spend. The package job itself still spends nothing: this only enqueues."""
+    from ..publish import listing_package as LP
+    from ..visual import image_production as IP
+
+    done = []
+    for r in results:
+        key = r.get("key")
+        if r.get("retry") or not isinstance(key, str) or "@" not in key:
+            continue
+        slug, version = key.rsplit("@", 1)
+        try:
+            pkg = LP.latest(ctx.db, slug, version) or {}
+            release = str(pkg.get("release_hash") or "")
+            if not release:
+                continue
+            got = IP.admit_for_sale(
+                ctx.db, lambda inputs, k: ctx.enqueue("publishing", IP.JOB_TYPE, inputs,
+                                                      idempotency_key=k),
+                slug=slug, version=version, release=release)
+            done.append({"key": key, "admitted": got["admission"]["admitted"],
+                         "enqueued": bool(got.get("enqueued"))})
+        except Exception as exc:  # noqa: BLE001 - admission never fails the package
+            ctx.audit("visual.sale_admission_failed", artifact=key,
+                      detail={"error": f"{type(exc).__name__}: {str(exc)[:300]}"})
+    return done
+
+
 @handlers.register(JOB_TYPE)
 def handle_listing_package(ctx: JobContext) -> dict:
     from ..publish import listing_package as LP
@@ -92,6 +123,7 @@ def handle_listing_package(ctx: JobContext) -> dict:
            if single else LP.sweep(ctx.db))
     failed = [{"key": r.get("key"), "error_class": r.get("error_class") or "UnknownError"}
               for r in out["results"] if r.get("retry")]
+    admitted = _admit_for_sale(ctx, out["results"])
     # Review of 56f92eb9 M4: the run's audit row is written whatever happened -- before any
     # retry is requested -- with every release's outcome, so the releases that WERE recorded
     # and the ones that failed (by error class) are both on file.
@@ -101,6 +133,7 @@ def handle_listing_package(ctx: JobContext) -> dict:
                       "releases": out["releases"], "ready": out["ready"],
                       "changed": out["changed"], "failed": failed[:30],
                       "attempt": int(getattr(ctx.job, "attempts", 0) or 0),
+                      "sale_admission": admitted[:30],
                       "results": [{k: r.get(k) for k in ("key", "state", "blockers",
                                                          "review_requested", "error_class",
                                                          "refused")}

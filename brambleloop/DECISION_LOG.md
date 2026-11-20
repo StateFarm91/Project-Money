@@ -3059,3 +3059,11 @@ PATTERNS FOR A MORE HANDMADE LIFE" with the page number. The template's "MASTER 
 REQUIRES CERTIFIED PRODUCT DATA" line is a template marker and is never printed in a customer
 PDF. Palette and type as in the template: forest band, cream ground, rose kickers, serif
 display.
+
+## D-ENG-VIS-GALLERY-ADMISSION — the for-sale admission point for paid images (b17-c A3, 2026-11-20; routine engineering implementing D-OWNER-SPEND-ORDER)
+
+- **Where.** `listing.package` is the admission point: it runs after pricing, listing copy and every listing gate, at the end of the chain. After it records a release's package it calls `image_production.admit_for_sale`. Nothing at build time enqueues the paid FLUX route.
+- **Rule.** Admitted iff the recorded package is for exactly this release, every blocker on it is an image blocker, and the product lifecycle is not REJECTED, RETIRED or ROLLED_BACK. Image blockers are `certified_frames` problems plus the `for_publish` reasons from the listing set, image originality, the search hero, the sample-photo requirement and the `gallery_images`/`video_in_gallery` standards (`release_gates.image_reasons`). A reason it cannot attribute counts as non-image: unknown never admits.
+- **Enforcement.** Every stage of a paid run re-checks admission before it acts (FLUX always; the campaign route whenever its generator is paid). Controlled runs and EXPERIMENTs keep their own owner authorisation. A run that is not admitted parks in `waiting_for_sale_admission`, spends nothing and frees an unused outfit reservation. A later admission resumes it once per wait.
+- **Consequence, stated plainly.** Launch-0 releases today carry non-image first-customer blockers (a physical sample, Etsy round-trip verification), so they are not admitted until those pass. Reversible by decision.
+
