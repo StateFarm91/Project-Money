@@ -376,6 +376,8 @@ def _product_category(slug: str, db) -> str | None:
 
 def backfill_unknown(ctx, *, snapshot_id: int) -> dict:
     """Re-decide every non-CHOSEN newest profile the stored snapshot can now decide."""
+    from sqlalchemy import select
+
     from ..commerce import category as cat
     from ..integrations import etsy_taxonomy
     from ..runtime.release import chain_key
@@ -414,11 +416,20 @@ def backfill_unknown(ctx, *, snapshot_id: int) -> dict:
                 skipped.append({"slug": slug, "version": version,
                                 "why": "no completed listing.seo job to re-run"})
                 continue
-            plans.append((slug, version, inputs, choice))
-    for slug, version, inputs, choice in plans:
+            key = chain_key("seo", slug, version, inputs.get("release", ""), token)
+            from ..core.models import Job
+
+            if s.scalar(select(Job.id).where(Job.idempotency_key == key)) is not None:
+                # Once per snapshot, and reported honestly: a re-run already queued (or run)
+                # for this snapshot is not "queued" again.
+                skipped.append({"slug": slug, "version": version,
+                                "why": f"the fix-only re-run for snapshot {snapshot_id} is "
+                                       "already queued or done"})
+                continue
+            plans.append((slug, version, inputs, choice, key))
+    for slug, version, inputs, choice, key in plans:
         ctx.enqueue("listing", "listing.seo", {**inputs, "rebuild": token, "fix_only": True},
-                    idempotency_key=chain_key("seo", slug, version, inputs.get("release", ""),
-                                              token))
+                    idempotency_key=key)
         queued.append({"slug": slug, "version": version, "taxonomy_id": choice.taxonomy_id,
                        "path": " > ".join(choice.path_names)})
     report = {"state": "measured", "snapshot_id": snapshot_id, "queued": queued,

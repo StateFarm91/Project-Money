@@ -502,7 +502,7 @@ def test_an_unknown_profile_gets_a_category_on_a_refresh_that_stores_no_new_snap
                 if "catfill" in (j.idempotency_key or "")]
         assert jobs and all(j.inputs.get("fix_only") is True for j in jobs), jobs
     ww = Worker(db, "seoprice-seo", phase=Phase.SHADOW, job_types=["listing.seo"])
-    for _ in range(5):
+    for _ in range(40):
         if not ww.run_once():
             break
     with db.session() as s:
@@ -517,6 +517,9 @@ def test_an_unknown_profile_gets_a_category_on_a_refresh_that_stores_no_new_snap
     # once per snapshot: a third refresh queues nothing new
     third = refresh("tx-3")
     assert third["category_backfill"]["queued"] == [], third["category_backfill"]
+    # and a re-run still pending is not re-reported as queued (no double count)
+    fourth = refresh("tx-4")
+    assert fourth["category_backfill"]["queued"] == [], fourth["category_backfill"]
     from brambleloop.commerce import category as C
 
     assert C.publish_inputs(db, slug=slug, version=version)["status"] == C.CHOSEN

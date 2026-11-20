@@ -1,3 +1,26 @@
+> **2026-11-20 — ENG-SEO-PRICE slice 1 (`eng/seo-price`, NOT merged, NOT deployed; production unchanged).**
+> - Production "search: FAIL, category UNKNOWN", root-caused from the code (production audit rows were not readable
+>   without the ops token). Taxonomy drift runs only when a refresh stores a NEW snapshot, and its re-queue switch is
+>   off, so profiles drafted before the Patterns & Blueprints schema was read stayed UNKNOWN for ever. Fix:
+>   `taxonomy_drift.backfill_unknown`. Every refresh re-decides non-CHOSEN profiles the newest snapshot can now choose,
+>   by a FIX-ONLY `listing.seo` once per snapshot (never launch.plan or store.publish).
+>   UNVERIFIED in production: whether Etsy's stored schema offers "Crochet". If it does not, `skipped` names it.
+> - `commerce/market_fit.py` covers SEO, price and learning:
+>   - SEO: research-shelf keyword evidence (the nine OWNER_SHOPS, metadata only); a competitor-title originality check
+>     (blocking); 13 true tags; Etsy title rules; a materials attribute; an above-the-fold check (B-409). The search
+>     certificate gains a `market_fit` check.
+>   - Price: `pricing.position` prices from a MEASURED research band (Q1..Q3, by size range for graded pods), placed
+>     by complexity and charm-priced, with the evidence recorded. UNKNOWN keeps the static band, labelled as such.
+>   - Discounts and learning: B-376 discount checks. The learning hook reads REAL outcomes only, through the existing
+>     lesson bus, with bounded price arms (B-201).
+> - Tests: `test_eng_seoprice` 23/23 (6 mutants killed). Wide 58-suite run: 587 passing. Failing suites, both
+>   PRE-EXISTING (identical on base 64146306): `test_w6_listing_chain_e2e` (3/6) and `test_w4_fmbatch1_drift` (4/10).
+>   Report: `research/final_build/w6/review_requests/seoprice_slice1.md`.
+> - Not yet built:
+>   - `market_fit` is not a REQUIRED certificate check, so legacy profiles are not refused on its account.
+>   - There are no separate bundle-vs-single bands.
+>   - No cadence runs `market_fit.learn`.
+
 > **2026-11-19 — ENG-RECOVERY fix round 1 (`eng/recovery`, NOT merged, NOT deployed).** Main's review was DO NOT SHIP.
 > - H1: the spend classifier now FAILS CLOSED. `swarm.orchestrate.FREE_JOB_TYPES` is an explicit allow-list
 >   (94 cadence loops). Every other job type is spending, including `intel.serp_capture` and

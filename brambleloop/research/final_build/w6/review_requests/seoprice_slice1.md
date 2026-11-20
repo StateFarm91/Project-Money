@@ -141,7 +141,7 @@ already live: `improve.bus` and `improve.consume`.
 
 ## Tests
 
-`tests/test_eng_seoprice.py`: 23 tests, all passing.
+`tests/test_eng_seoprice.py`: 23/23.
 
 Covered:
 - no competitor title copied (verbatim, run, rearranged), and generic overlap allowed;
@@ -173,7 +173,20 @@ Wider suites: see the results section below.
 
 ## Results
 
-(filled at commit time)
+Run on this branch with `run_tests.sh` (`SUITES=` list below, `JOBS=4`), 2026-11-20T04:21Z to
+04:46Z, run record `artifacts/suite_runs/20261120T042106Z-2677.json`. **587 passing, 2 suites
+failing, 0 environment failures.** The run is not release-eligible: the tree was dirty, and
+HEAD moved to cb8faaf partway through.
+
+| Suite | Result | Note |
+|---|---|---|
+| `test_eng_seoprice` | 22/23 in the wide run; **23/23 after the fix** | The wide run caught a real reporting defect. A backfill re-run that was still pending was re-reported as `queued` on the next refresh. The enqueue was deduped, but the report was wrong. Fixed: a re-run already queued or done for this snapshot is reported under `skipped`. A fourth refresh in the test now pins this. |
+| `test_w6_listing_chain_e2e` | 3/6 | **Pre-existing.** Identical 3 failures on untouched base 64146306 (run in a separate worktree): the test expects one `cir.draft`/`gate.certify`/`store.publish` job, and the chain now drafts 8. |
+| `test_w4_fmbatch1_drift` (run separately; not in the name filter) | 6/10 | **Pre-existing.** Identical 4 failures on base 64146306: its `_profile` helper expects one search profile, and the chain now drafts 6. |
+| every other suite in the list | green | Includes `test_w4_listready`, `test_first_listing_doors`, `test_w4_resume_runner`, `test_v11_autonomy_timeline` (map regenerated with `python -m brambleloop.autonomy.map --write`), `test_vacuity`, `test_w4_firstsale_taxonomy` 7/7, every `seo`/`search`/`taxonomy`/`price`/`listing` suite, and compiler/reverse/twin. |
+
+Suites run (58):
+`test_cert_listing_frames test_codex_a1_listing_child test_eng_seoprice test_first_listing_doors test_k3_listing_outcomes test_k8_listing_estate test_launch0_listing_truth test_listing_parity_gate test_listing_schema test_listing_set test_listing_tests test_opus2_listing_package test_r2_product_listing_writes test_r2_product_seo_unicode test_r5_research_2 test_r5_research_3 test_r5_research_4 test_search_certificate_integrity test_search_hero_publish test_search_truth test_search_visibility test_v11_seo_cycle test_v11_seo_proposals test_v11_seo_taxonomy test_v11_seo_truth test_w3_k1_search test_w3_seo_constraints test_w3_seo_learning test_w3_seo_strategy test_w4_adopt_manual_listing test_w4_c09_seo test_w4_c12_search_visibility test_w4_cap1_placemat_price test_w4_firstsale_taxonomy test_w4_fmbatch1_pricing_trial test_w4_fmbatch1_research test_w4_fmbatch1_research_run test_w4_fmbatch1_search_strategy test_w4_fmbatch2_research_docs_absent test_w4_fmgate_taxonomy_refusal test_w4_listing_memory test_w4_placemat_reprice test_w4_prodready_taxonomy test_w4_research test_w4_research_agent test_w4_research_to_product_stall test_w4_seo_packages test_w4_visualseo test_w5_a4a_research_to_concept test_w6_listing_chain_e2e test_ws2_research_m2 test_w4_listready test_w4_resume_runner test_v11_autonomy_timeline test_vacuity test_compiler test_reverse test_twin`
 
 ## Slice 2 (not in this slice)
 
