@@ -237,6 +237,12 @@
 >   `BRAMBLELOOP_AUTOCODER_ENABLED=1` -- OWNER_ACTIONS_AUTOCODER.md. Without the token: UNKNOWN with the named
 >   blocker, CA$0. **No live run has happened; no auto/* branch exists; the GitHub API path is tested only against
 >   a fake API.** Review request: `w6/review_requests/ENG-AUTOCODER.md`.
+> **2026-11-20 — B19-FIX on `eng/autopromote` (security review review-results/b19-b, findings B1–B7; NOT merged,
+> NOT deployed).** The pre-deploy backup gate now fails the job on REFUSE (pipefail + verdict check, tested by
+> executing the step); certify is one-at-a-time and read-only, a separate record job pushes with hooks off;
+> promote refuses a non-descendant release; the workflow is dispatch-only from the default branch; the
+> dispatch board runs a pinned commit; test_autopromote declared in the final segment. Merged production
+> (eng/colourwork). The workflow has **never run** on GitHub. Fix record: `w6/review_requests/FIX-SECURITY-B19.md`.
 > **2026-11-20 — ENG-DAILY-FIX (`eng/daily`, NOT merged, NOT deployed; production unchanged).** Fixes every Unit B
 > finding of the independent review of a795be17 (BLOCK). Merged `origin/claude/w6-INTEG4` (259e47c4) first, so
 > learn and improve with `improve.ecr` are present; change requests now go through `ecr.file`. (1) BLOCKER: a

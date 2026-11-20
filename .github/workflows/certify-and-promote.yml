@@ -1,0 +1,282 @@
+# Certify and promote (ENG-AUTOPROMOTE): the release loop on GitHub Actions, zero Claude usage.
+#
+#   certify: one plain, uninterrupted full run of `cd brambleloop && bash run_tests.sh` on the
+#            exact SHA with a clean tree -> `ops/deploy_guard.py record` -> commit the release
+#            record, tracked run record + log summary and full log on top of the SHA -> push to
+#            the release branch (fast-forward only).
+#   promote: guard dry run (check + rollback rehearsal) -> pre-deploy backup gate
+#            (ops/autopromote.py backup) -> `ops/deploy.sh --deployed <prod sha>` (the guard
+#            decides again; the pre-push hook checks the push a third time) -> readback ->
+#            record the deploy in DEPLOYED_HISTORY on the release branch.
+#
+# Nothing here decides what the guard decides, and nothing weakens it: no CHECKPOINT, RESUME
+# or SHARD (D-W4-OWNER-RESUME-POLICY); a red, filtered, dirty or moved run never records.
+#
+# TRUST NOTE (B19 B4). There is no `push` trigger: GitHub runs a push workflow AS PUSHED, so
+# anyone able to push a claude/w6-release-* branch could have pushed an edited copy that
+# deploys. The only trigger is `workflow_dispatch`, and the first step refuses unless the run
+# uses the DEFAULT branch's (reviewed) copy of this file. The release branch to certify is an
+# input. The `production` environment's required reviewers and the branch ruleset on the
+# production branch and claude/w6-release-* are MANDATORY owner actions before first use
+# (OWNER_ACTIONS_AUTOPROMOTE.md), not optional.
+#
+# B19 hardening: every `run:` uses bash with pipefail (B1: the backup gate can no longer be
+# masked by `| tee`); certify runs one at a time repository-wide (B2) and promote refuses a
+# release that does not descend from the deployed commit; the suite runs in a job with
+# `contents: read` only, and a separate `record` job with a fresh checkout and no hooks pushes
+# the record (B3).
+#
+# Runtime: recent full runs took 7733-10566 s with JOBS=4 (one outlier 15491 s = 4.3 h).
+# This repository is public, so ubuntu-latest is the 4 vCPU / 16 GB runner and a job may run
+# 360 min. The certify job is capped at 350. To move it to a self-hosted runner, set the
+# repository variables CERTIFY_RUNNER (a label) and CERTIFY_TIMEOUT_MIN.
+name: certify-and-promote
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Full 40-hex commit to certify; must be the head of the release branch"
+        required: true
+        type: string
+      branch:
+        description: "Release branch the record is committed onto (claude/w6-release-*)"
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  # B19 B2: one certify run at a time, repository-wide; a second request waits.
+  group: brambleloop-certify
+  cancel-in-progress: false
+defaults:
+  run:
+    shell: bash    # B19 B1: => bash --noprofile --norc -eo pipefail {0}
+env:
+  PYTHON_VERSION: "3.11"   # brambleloop/Dockerfile: python:3.11-slim; run records: python3.11
+jobs:
+  certify:
+    runs-on: ${{ vars.CERTIFY_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: ${{ fromJSON(vars.CERTIFY_TIMEOUT_MIN || '350') }}
+    permissions:
+      contents: read     # B19 B3: the suite never runs in a job that can push
+    outputs:
+      sha: ${{ steps.target.outputs.sha }}
+      branch: ${{ steps.target.outputs.branch }}
+    steps:
+      - name: Resolve target
+        id: target
+        env:
+          IN_SHA: ${{ inputs.sha }}
+          IN_BRANCH: ${{ inputs.branch }}
+          EVENT: ${{ github.event_name }}
+          RUN_REF: ${{ github.ref_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -o pipefail
+          [ "$EVENT" = "workflow_dispatch" ] || { echo "::error::only workflow_dispatch may certify"; exit 2; }
+          [ -n "$DEFAULT_BRANCH" ] && [ "$RUN_REF" = "$DEFAULT_BRANCH" ] || { echo "::error::run this workflow from the default branch ($DEFAULT_BRANCH), not '$RUN_REF'"; exit 2; }
+          sha=$IN_SHA; branch=$IN_BRANCH
+          case "$sha" in *[!0-9a-f]*|"") echo "::error::need a full 40-hex sha, got '$sha'"; exit 2 ;; esac
+          [ "${#sha}" -eq 40 ] || { echo "::error::need a full 40-hex sha, got '$sha'"; exit 2; }
+          case "$branch" in claude/w6-release-*) ;; *) echo "::error::branch must match claude/w6-release-*, got '$branch'"; exit 2 ;; esac
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          ref: ${{ steps.target.outputs.sha }}
+          fetch-depth: 0              # the guard reads ancestry and DEPLOYED_HISTORY from git
+          persist-credentials: false  # the suite never runs with a push credential on disk
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install from the locks
+        working-directory: brambleloop
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends fonts-dejavu-core
+          python -m venv .venv
+          .venv/bin/pip install -q --upgrade pip
+          .venv/bin/pip install -q --require-hashes -r requirements.lock
+          .venv/bin/pip install -q --require-hashes --no-deps -r requirements-test.lock
+      - name: Exact SHA, clean tree, release branch head
+        env:
+          SHA: ${{ steps.target.outputs.sha }}
+          BRANCH: ${{ steps.target.outputs.branch }}
+        run: |
+          [ "$(git rev-parse HEAD)" = "$SHA" ] || { echo "::error::HEAD is not $SHA"; exit 1; }
+          if [ -n "$(git status --porcelain)" ]; then git status --porcelain; echo "::error::tree is dirty"; exit 1; fi
+          head=$(git rev-parse "refs/remotes/origin/$BRANCH" 2>/dev/null || true)
+          [ "$head" = "$SHA" ] || { echo "::error::$SHA is not the head of $BRANCH ($head); the record could not be fast-forwarded onto it"; exit 1; }
+      - name: Full suite (one plain, uninterrupted run)
+        working-directory: brambleloop
+        run: |
+          # No CHECKPOINT / RESUME / SHARD / SUITES / THEN_FULL: D-W4-OWNER-RESUME-POLICY.
+          unset CHECKPOINT RESUME SHARD SUITES THEN_FULL ALLOW_PARALLEL
+          REQUIRE_CLEAN=1 bash run_tests.sh
+      - name: Release record (deploy_guard record)
+        env:
+          SHA: ${{ steps.target.outputs.sha }}
+        run: python3 ops/deploy_guard.py record --sha "$SHA"
+      - name: Upload the release record (no push from this job)
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8c75cf882  # v4.4.3
+        with:
+          name: release-record
+          path: |
+            brambleloop/release/
+            brambleloop/research/release_evidence/
+          if-no-files-found: error
+          retention-days: 7
+
+  record:
+    # B19 B3: a fresh checkout that has run no repository test code, no hooks, and the only
+    # job in certify that can write. It takes nothing from the certify job but the artifact,
+    # and only files under the two record directories.
+    needs: certify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    outputs:
+      release_sha: ${{ steps.commit.outputs.release_sha }}
+      branch: ${{ needs.certify.outputs.branch }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          ref: ${{ needs.certify.outputs.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16  # v4.1.8
+        with:
+          name: release-record
+          path: ${{ runner.temp }}/release-record
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Verify the record names this SHA, then commit and push it (no hooks)
+        id: commit
+        env:
+          SHA: ${{ needs.certify.outputs.sha }}
+          BRANCH: ${{ needs.certify.outputs.branch }}
+          ART: ${{ runner.temp }}/release-record
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          [ "$(git rev-parse HEAD)" = "$SHA" ] || { echo "::error::HEAD is not $SHA"; exit 1; }
+          [ -f "$ART/brambleloop/release/RELEASE_$SHA.json" ] || { echo "::error::the artifact has no RELEASE_$SHA.json"; exit 1; }
+          python3 -c 'import json,sys; sys.exit(0 if sys.argv[2] in json.dumps(json.load(open(sys.argv[1]))) else 1)' \
+            "$ART/brambleloop/release/RELEASE_$SHA.json" "$SHA" || { echo "::error::the record does not name $SHA"; exit 1; }
+          cp -R "$ART/brambleloop/release/." brambleloop/release/
+          if [ -d "$ART/brambleloop/research/release_evidence" ]; then
+            mkdir -p brambleloop/research/release_evidence
+            cp -R "$ART/brambleloop/research/release_evidence/." brambleloop/research/release_evidence/
+          fi
+          bad=$(git status --porcelain --untracked-files=all | awk '{print $NF}' \
+                | grep -v -e '^brambleloop/release/' -e '^brambleloop/research/release_evidence/' || true)
+          [ -z "$bad" ] || { echo "::error::the artifact touched other paths: $bad"; exit 1; }
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add brambleloop/release/ brambleloop/research/release_evidence/
+          git diff --cached --name-only
+          subject=$(python3 ops/autopromote.py release-subject --sha "$SHA")
+          git -c core.hooksPath=/dev/null commit -q -m "$subject" -m "Certified by $RUN_URL"
+          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          echo "::add-mask::$auth"
+          git -c core.hooksPath=/dev/null -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth" \
+            push origin "HEAD:refs/heads/$BRANCH"
+          echo "release_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "Release record $(git rev-parse HEAD) pushed to $BRANCH" >> "$GITHUB_STEP_SUMMARY"
+
+  promote:
+    needs: record
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    environment: production   # B19 B4: required reviewers here are a MANDATORY owner action
+    concurrency:
+      group: brambleloop-promote   # one promote at a time, repository-wide
+      cancel-in-progress: false
+    env:
+      BRANCH: ${{ needs.record.outputs.branch }}
+      RELEASE_SHA: ${{ needs.record.outputs.release_sha }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          ref: ${{ needs.record.outputs.release_sha }}
+          fetch-depth: 0
+          persist-credentials: true   # deploy.sh pushes; no test code runs in this job
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Production SHA and DEPLOYED_HISTORY
+        id: prod
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q -B "$BRANCH" "$RELEASE_SHA"
+          deployed=$(python3 ops/deployed_sha.py) || { echo "::error::production commit unknown; the guard would REFUSE"; exit 1; }
+          # B19 B2: never promote a release that does not descend from what is running (an
+          # older certify finishing after a newer one).
+          git merge-base --is-ancestor "$deployed" "$RELEASE_SHA" || { echo "::error::$RELEASE_SHA does not descend from the deployed $deployed; refusing to promote"; exit 1; }
+          echo "deployed=$deployed" >> "$GITHUB_OUTPUT"
+          # The rollback rehearsal needs the running commit in DEPLOYED_HISTORY. Append it only
+          # because production itself reports running it (the file's rule); idempotent.
+          now=$(date -u +%Y-%m-%dT%H:%MZ)
+          python3 ops/autopromote.py history-append --sha "$deployed" \
+            --evidence "observed running in production (/api/status build.commit) at $now by $RUN_URL before promoting $RELEASE_SHA"
+          if [ -n "$(git status --porcelain brambleloop/release/DEPLOYED_HISTORY.json)" ]; then
+            git commit -q -m "Record deploy of ${deployed:0:8} in DEPLOYED_HISTORY (observed; certify-and-promote)" brambleloop/release/DEPLOYED_HISTORY.json
+            git push -q origin "HEAD:refs/heads/$BRANCH"
+          fi
+      - name: Guard dry run (check + rollback rehearsal; nothing pushed)
+        env:
+          DEPLOYED: ${{ steps.prod.outputs.deployed }}
+        run: DRY_RUN=1 sh ops/deploy.sh --deployed "$DEPLOYED"
+      - name: Pre-deploy backup gate
+        shell: bash      # B19 B1: pipefail, so a REFUSE (exit 1) is not masked by tee
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          set -o pipefail
+          # Absent token -> REFUSE (see ops/autopromote.py for the full rule).
+          python3 ops/autopromote.py backup | tee backup.json
+          # Belt and braces: the verdict itself must say ok, whatever any exit status says.
+          python3 -c "import json,sys; sys.exit(0 if json.load(open('backup.json')).get('ok') is True else 1)"
+      - name: Promote (ops/deploy.sh; the guard decides)
+        id: deploy
+        env:
+          DEPLOYED: ${{ steps.prod.outputs.deployed }}
+          BRAMBLELOOP_DEPLOYED_SHA: ${{ steps.prod.outputs.deployed }}
+          BRAMBLELOOP_READBACK_TOKEN: ${{ secrets.BRAMBLELOOP_READBACK_TOKEN }}
+        run: |
+          sh ops/install_hooks.sh   # the pre-push hook re-checks the production push
+          if [ -z "$BRAMBLELOOP_READBACK_TOKEN" ]; then
+            echo "::warning::BRAMBLELOOP_READBACK_TOKEN is not set: production readback SKIPPED. This is a WARN, not a PASS."
+            echo "READBACK: SKIPPED (WARN) -- secret BRAMBLELOOP_READBACK_TOKEN absent" >> "$GITHUB_STEP_SUMMARY"
+            export READBACK=0
+            echo "readback=SKIPPED-WARN" >> "$GITHUB_OUTPUT"
+          fi
+          rc=0
+          sh ops/deploy.sh --deployed "$DEPLOYED" || rc=$?
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          echo "deploy.sh exit $rc" >> "$GITHUB_STEP_SUMMARY"
+          exit "$rc"
+      - name: Record the deploy in DEPLOYED_HISTORY (release branch, not production)
+        # 0 deployed; 5 deployed, readback failed; 6 deployed, P0 reported. All ran in production.
+        if: always() && (steps.deploy.outputs.rc == '0' || steps.deploy.outputs.rc == '5' || steps.deploy.outputs.rc == '6')
+        env:
+          RC: ${{ steps.deploy.outputs.rc }}
+          READBACK_STATE: ${{ steps.deploy.outputs.readback }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          live=$(BRAMBLELOOP_DEPLOYED_SHA="" python3 ops/deployed_sha.py || true)
+          [ "$live" = "$sha" ] || { echo "::warning::production reports '$live', not $sha; history not appended"; exit 0; }
+          bk=$(python3 -c "import json;d=json.load(open('backup.json'));print(d.get('line') or '')" 2>/dev/null || true)
+          python3 ops/autopromote.py history-append --sha "$sha" \
+            --evidence "certify-and-promote $RUN_URL: guard ALLOW, rollback rehearsal ALLOW, verify_deploy DEPLOYED; deploy.sh exit $RC; readback ${READBACK_STATE:-run (see evidence_BOARD)}; pre-deploy backup: ${bk:-see run log}"
+          git add brambleloop/release/DEPLOYED_HISTORY.json
+          ev=brambleloop/research/final_build/w4/evidence_BOARD
+          if [ -d "$ev" ]; then git add "$ev"; fi
+          git commit -q -m "Record deploy of ${sha:0:8} in DEPLOYED_HISTORY (certify-and-promote)"
+          git push -q origin "HEAD:refs/heads/$BRANCH"

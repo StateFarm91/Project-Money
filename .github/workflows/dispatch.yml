@@ -29,13 +29,17 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
           persist-credentials: false
-          ref: claude/w4-INTEG8-next
+          # B19 B5: pinned to a reviewed commit, never the mutable branch head: code pushed to
+          # claude/w4-INTEG8-next must not run here with issues: write until it is reviewed
+          # and this pin is moved. (The default branch does not carry these files.)
+          ref: 07a41bf15621df3cbd3dd9624feedc934bd0d305   # claude/w4-INTEG8-next @ 2026-11-20
           sparse-checkout: |
             COORDINATION.json
             dispatch
             ops/assignments.py
             ops/dispatch_board.py
           sparse-checkout-cone-mode: false
-      - run: python3 ops/dispatch_board.py --repo "${{ github.repository }}" --issue 28 --post
+      - run: python3 ops/dispatch_board.py --repo "$REPO" --issue 28 --post
         env:
+          REPO: ${{ github.repository }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
