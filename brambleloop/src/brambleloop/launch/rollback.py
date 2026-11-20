@@ -89,6 +89,8 @@ def rehearse(db, *, slug: str, version: str, store=None, job_id: int | None = No
     from ..commerce import deliverables
 
     certified_pdfs = deliverables.certified(db, slug, version, release)["pdfs"]
+    if not certified_pdfs:
+        certified_pdfs = _built_job_pdfs(db, slug, version, release)
     steps.append({"step": "certificate_retained", "ok": bool(certificate.get("granted")),
                   "why": ("the release row keeps the certificate it was published under"
                           if certificate.get("granted") else
@@ -132,6 +134,32 @@ def rehearse(db, *, slug: str, version: str, store=None, job_id: int | None = No
         s.add(AuditLog(actor="orchestrator", action=ACTION, artifact=f"{slug}@{version}",
                        job_id=job_id, detail=detail))
     return detail
+
+
+def _built_job_pdfs(db, slug: str, version: str, release: str) -> dict:
+    """Fallback when no `assets.built` row names the PDFs: the newest DONE assets.build job
+    for THIS slug@version (every such job, not a catalogue-wide window), release-bound when
+    the job records one."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import Job, JobStatus
+
+    with db.session() as s:
+        for j in s.scalars(select(Job).where(Job.job_type == "assets.build",
+                                             Job.status == JobStatus.DONE)
+                           .order_by(desc(Job.id))):
+            out, inp = dict(j.outputs or {}), dict(j.inputs or {})
+            if out.get("slug") != slug or out.get("version") != version:
+                continue
+            recorded = inp.get("release") or out.get("release") or ""
+            if release and recorded and recorded != release:
+                continue
+            hashes = {t: h for t, h in (out.get("pdf_sha256_by_terminology") or {}).items() if h}
+            if not hashes and out.get("pdf_sha256"):
+                hashes = {"US": out["pdf_sha256"]}
+            if hashes:
+                return hashes
+    return {}
 
 
 def latest(db, *, slug: str, version: str, now: datetime | None = None,

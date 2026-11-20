@@ -12,9 +12,17 @@
 > - **No AI-policy gate added. The AI disclosure is untouched.**
 > - **Tests.**
 >   - `test_etsy_publish` 16/16; `test_etsy_publish_e2e` 3/3; `test_eng_approvals` 34/34; `test_ws5_e6_draft_resolver` passes.
->   - Mutants killed: grant guard, fee cap, read-back hash, duplicate adoption, rollback verify, completion retry. The card-empty-evidence mutant is being re-run against the unit test.
->   - The 38-suite requested and related run was IN PROGRESS at this commit; results follow in the next commit.
->   - Pre-existing failure, identical on base: `test_w4_readback_evidence::test_readback_evidence_cli_never_prints_the_token_and_keeps_unknown_apart`.
+>   - Mutants killed: grant guard, fee cap, read-back hash, duplicate adoption, rollback verify, completion retry. All targeted mutants are killed.
+>   - The card-empty-evidence mutant is KILLED by the card unit test.
+>   - 38 requested and related suites run on the final tree; 35 pass.
+>   - The first run found 9 failing. 6 were regressions from this branch and are fixed:
+>     - the duplicate check now runs inside `before_create` after revalidation, so a refused gate still sends no HTTP;
+>     - the rehearsal falls back to the release's own build job;
+>     - the write-site table, a source-order pin, a fixture and a hash-order shape were updated.
+>   - 3 fail identically on clean base 307c7e62, so they are NOT caused by this branch:
+>     - `test_w4_readback_evidence` (CLI row test);
+>     - `test_w6_listing_chain_e2e` (3 cases);
+>     - `test_ws4_stage_a_withdrawal` (3 cases).
 >   - Review: `research/final_build/w6/review_requests/etsy_publish_slice1.md`.
 
 > **2026-11-19 — ENG-APPROVALS slice 1 (`eng/approvals`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**

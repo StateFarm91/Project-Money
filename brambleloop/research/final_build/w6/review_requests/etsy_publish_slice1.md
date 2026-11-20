@@ -95,4 +95,12 @@ vocabulary, counts and booleans are emitted. Free text is dropped, never echoed 
     forced true, duplicate adoption disabled, rollback verify-gone skipped, completion rounds = 0.
   - `card_empty_evidence` survives the e2e alone. Its kill by the card unit test is reported
     in BUILD_STATE.
-* Requested and related suites: see the BUILD_STATE entry for the run on the final tree.
+* `card_empty_evidence` is killed by `test_the_first_listing_card_is_not_raised_without_its_evidence`.
+* 38 requested and related suites ran on the final tree; 35 pass. The 3 failures are identical on clean base 307c7e62: `test_w4_readback_evidence` (CLI row), `test_w6_listing_chain_e2e`, `test_ws4_stage_a_withdrawal`.
+* The first run surfaced 6 regressions, now fixed:
+  * The shop read preceded the before-create revalidation, which `test_publish_execution_gate` caught. The check now runs inside `before_create`, after revalidation, stock client only.
+  * The rehearsal lost the job-only PDF record (`test_launch`). It now falls back to this slug@version's build job.
+  * `test_w4_listready`'s write-site table now covers the new sites. It also gains a new pin: `_complete_draft` is reachable only inside the guarded publish path.
+  * `test_etsy`'s order pin now follows the read-back into `_read_back_and_record`.
+  * The durability `FakeRemote` now models an empty shop.
+  * A legacy `order` shape is read as a mismatch, never a pass.
