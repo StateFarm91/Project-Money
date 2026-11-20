@@ -1499,3 +1499,7 @@ See P0_GAP_REGISTER.json `opus2_open_engineering`.
 ## 2026-11-20T01:30Z tick
 - No new [MAIN] post for opus2 on #28. The only new comment is an ENG-MOTIF-BACKLOG-FIX RR. INTEG2 cde89a4b and dispatch are unchanged.
 - STOP REASON: no assigned opus2 work; awaiting Main ASSIGN.
+
+## 2026-11-20T02:30Z tick
+- INTEG2 is now 809107b5. No [MAIN] post for opus2. Main told ENG-ETSY-AI-FIX3 (7028128622) to update my test_first_listing_doors fixture with an owner AI-policy reading through the owner path; that work is theirs, not mine.
+- STOP REASON: no assigned opus2 work; awaiting Main ASSIGN.
