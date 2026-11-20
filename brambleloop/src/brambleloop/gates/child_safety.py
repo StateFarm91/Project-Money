@@ -174,6 +174,10 @@ _HARD_PARTS = re.compile(
     r"\bgrommets?\b|\bsnaps?\b|\bzip(?:per)?s?\b|\bvelcro\b|\bhook[- ]and[- ]loop\b")
 _CORD_WORDS = re.compile(r"\bcords?\b|\bstrings?\b|\bribbons?\b|\bstraps?\b|\bties\b|"
                          r"\bdrawstrings?\b|\bhanging loop\b|\bpacifier clip\b|\blanyard\b")
+_STUFFING_WORD = re.compile(r"\b(?:fibrefill|fiberfill|stuffing|polyfill|filling|stuffed)\b")
+# Non-yarn materials a child's item may name: its stuffing, a pillow form, an embroidery scrap.
+_KNOWN_NON_YARN = re.compile(r"\b(?:fibrefill|fiberfill|stuffing|polyfill|pillow form|"
+                             r"cushion pad|insert)\b")
 _STUFFING_OK = re.compile(r"\bpolyester\b.*\b(?:fibrefill|fiberfill|stuffing|fill)\b|"
                           r"\btoy stuffing\b")
 _CLAIMS = re.compile(
@@ -250,7 +254,12 @@ def profile_for(cir, childrens: tuple[str, str] | None = None) -> tuple[str, ...
     from ..products import launch0
 
     flags = {"base"}
-    if launch0.closed_stuffed_form(cir):
+    # Stuffed means stuffing evidence: a stated stuffing point or closure, a seam stuffed
+    # before closing, or a stuffing material. (A1-R's "unknown non-yarn material" reading is
+    # answered here by FEATURES_EMBROIDERED, which holds an unidentified material as UNKNOWN.)
+    if any(c.stuff_at_round is not None or c.closes for c in cir.components) \
+            or any(getattr(s, "stuff_before_closing", False) for s in cir.assembly) \
+            or any(_STUFFING_WORD.search(_fold(str(m.name or ""))) for m in cir.materials):
         flags.add("stuffed")
     text = _fold(" ".join(_instruction_texts(cir)))
     if re.search(r"\bembroider", text) or re.search(r"\beyes?\b|\bnose\b|\bface\b", text):
@@ -267,6 +276,14 @@ def applies(cir, childrens: tuple[str, str] | None = None) -> bool:
     """A closed stuffed form, a children's assignment, or a title that reads as a child's."""
     from ..products import launch0
 
+    # A graded children's garment is governed by `intel.childrens`' garment constraints
+    # (neck/hood drawstrings, waist ties, small parts) and F-363 physical plausibility, which
+    # the renderer and certification already enforce; this gate is for toys, loveys and baby
+    # textiles, whose bridged armhole chains and buttons it would misread. A stuffed garment
+    # piece is still inside it.
+    if getattr(cir, "grading", None) is not None and not any(
+            c.stuff_at_round is not None or c.closes for c in cir.components):
+        return False
     if childrens or launch0.child_words_in(cir.title, cir.slug) or launch0.stuffed_figure(cir):
         return True        # a stuffed figure is a toy whatever any decision says
     # A stuffed closed piece in rounds (an amigurumi body, a ball) is toy-shaped whatever it
@@ -313,6 +330,12 @@ def _features(cir, profile) -> Check:
         return Check("FEATURES_EMBROIDERED", FAIL,
                      f"the pattern names {hit.group(0)!r}: only embroidered yarn features are "
                      f"allowed on a child's or stuffed item")
+    unknown = [str(m.name) for m in cir.materials if not getattr(m, "yarn_weight", None)
+               and not _KNOWN_NON_YARN.search(_fold(str(m.name or "")))]
+    if unknown:
+        return Check("FEATURES_EMBROIDERED", UNKNOWN,
+                     f"non-yarn material(s) {unknown} are neither stuffing nor a form; what they "
+                     f"are on a child's item is unassessed (held)")
     if "face" in profile and not re.search(r"\bembroider", texts):
         return Check("FEATURES_EMBROIDERED", FAIL,
                      "the item has a face but no instruction says it is embroidered with yarn")
