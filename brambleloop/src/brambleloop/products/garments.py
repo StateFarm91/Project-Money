@@ -226,7 +226,8 @@ def drop_shoulder_flat(g: GradedSize, *, key: str, title: str, family: StitchFam
     seams = [
         Seam("whipstitch", "sleeve", "body", edge_a="top", edge_b="left",
              at_round=first_cover, spans_rounds=2 * half_cover, mirrored=True,
-             note="centre the sleeve on the shoulder line"),
+             note="centre the sleeve on the shoulder line; sew through both loops of every "
+                  "stitch and bury the tails"),
         Seam("mattress", "body", "body", edge_a="left", edge_b="left", at_round=1,
              spans_rounds=below, mirrored=True,
              note=f"join the front's side to the back's side from the hems to the sleeve, "
@@ -240,7 +241,7 @@ def drop_shoulder_flat(g: GradedSize, *, key: str, title: str, family: StitchFam
         Seam("whipstitch", "neckband", "body", edge_a="bottom", edge_b="opening",
              at_round=neck_row, spans_rounds=1,
              note=f"ease the ring round the neck opening at row {neck_row}, band seam at "
-                  f"the back"),
+                  f"the back; sew through both loops of every stitch and bury the tails"),
     ]
     materials, palette = _materials(material, colours)
     return CIR(

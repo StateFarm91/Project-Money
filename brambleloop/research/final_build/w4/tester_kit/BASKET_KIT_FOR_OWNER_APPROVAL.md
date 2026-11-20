@@ -99,9 +99,9 @@ LISTING1, the basket identity source correction (D-W4-OWNER-BASKET-IDENTITY):
 |---|---|
 | Release | `market-basket-small@1.3.0`, one piece (`basket` × 1) |
 | Content hash (evidence binds to this) | `c4aa14a000e5439b0dfb32812039178b5efed6b4ba840efef7e7c64a6b7c659c` |
-| Test PDF `market-basket-small-1.3.0-TEST.pdf` (13 pages) | `48e54525d105687a5079189fca0764aee4eb2eee125503aef64afbbb12b344c6` |
-| Record sheet `market-basket-small-1.3.0-RECORD-SHEET.pdf` (2 pages) | `f8072169eb2dfd2b66b3b2d3002c8288451bdb902d627415b9c1fd3be03b9f29` |
-| Manifest `KIT_MANIFEST.json` | `9794656d5c53f461c3ee75e3299d67648b293f6266b4ada975f6fc6daa10f009` |
+| Test PDF `market-basket-small-1.3.0-TEST.pdf` (15 pages; rebuilt 2026-11-20 by CERTFIX-3 after the ENG-PDF-PREMIUM renderer added the basket's inline diagrams; content hash unchanged) | `61935a50204e978d8609684785aff59edc751b1533c47f693867179e91c624e4` |
+| Record sheet `market-basket-small-1.3.0-RECORD-SHEET.pdf` (2 pages) | `83298112841736b9c1d441326aa24c52049b5612d3f79001573da84ce7723bc9` |
+| Manifest `KIT_MANIFEST.json` | `17065eab29d3465e5f1582f6a0a769152c7b36f710ac2eff5c921e4cd6d04a6f` |
 
 ---
 

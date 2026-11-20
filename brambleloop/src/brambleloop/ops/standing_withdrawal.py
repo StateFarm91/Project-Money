@@ -121,6 +121,10 @@ def stopped(db, *, now=None) -> str | None:
     """Why the owner's standing policy counts as stopped, or None while it is not."""
     eff = SP.effective(db, now=_now(now))
     state = eff.get("state")
+    if state == SP.NONE and eff.get("why") == SP.NOT_MODE_T_WHY:
+        # The policy is in force; only this deployment cannot issue under it. A missing or
+        # stale process heartbeat never takes a listing down (CERTFIX-3).
+        return None
     if state in STOPPED_STATES:
         return f"{state}: {eff.get('why')}"
     return None

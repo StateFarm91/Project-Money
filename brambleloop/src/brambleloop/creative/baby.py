@@ -26,6 +26,8 @@ from ..cir.model import CIR, Component, Material, Op, Row, Seam
 LOVEY_SQUARE_CM = 30.0            # a lovey square, design choice (stated, not a standard)
 LOVEY_HEAD_STITCHES = 36          # the slice 1 body: the head
 _LOVEY_WORDS = r"\b(?:lovey|loveys|comforter|security blanket|snuggle square)\b"
+# Who a lovey is for, not what its head is.
+_LOVEY_AUDIENCE = r"\b(?:baby|babies|baby's|nursery|infant|newborn|toddler)\b"
 
 
 def lovey_route(title: str | None) -> dict:
@@ -35,7 +37,17 @@ def lovey_route(title: str | None) -> dict:
     t = FC.fold_title(title)
     if not re.search(_LOVEY_WORDS, t):
         return {"family": FC.REFUSED, "needs": "a lovey title", "why": "not a lovey"}
-    animal_title = re.sub(_LOVEY_WORDS, "", t).strip() or "bear"
+    animal_title = re.sub(_LOVEY_WORDS, "", t).strip()
+    if not re.sub(_LOVEY_AUDIENCE, "", animal_title).strip():
+        # CERTFIX-3: a title naming no head ("Baby Lovey") is the plain lovey object, which
+        # has no cited size band (D-S1-SIZE-FAMILIES); it is not silently drafted as a bear
+        # the title never named. "Bear Lovey" / "Baby Bunny Lovey" name the head and draft.
+        return {"family": FC.REFUSED,
+                "needs": "a size band and a template that make the size the title names, "
+                         "or a head the title names (bear or bunny)",
+                "why": "the title names no lovey head, and a lovey square on its own has no "
+                       "size band"}
+    animal_title = re.sub(_LOVEY_AUDIENCE, "", animal_title).strip()
     if not re.search(r"\b(?:bear|bunny|rabbit|teddy)\b", animal_title):
         animal_title = f"{animal_title} bear".strip()
     head = FC.amigurumi_route(animal_title.title())

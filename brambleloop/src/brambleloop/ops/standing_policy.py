@@ -656,6 +656,13 @@ def _approvals(rows) -> dict[int, dict]:
     return {rid: d for rid, d in rows if d.get("event") == APPROVED}
 
 
+# The one NONE that is about the deployment rather than the owner's policy: an approved,
+# activated, unexpired, unsuspended policy in a deployment that cannot issue. Issuance is
+# refused (it is NONE), but the owner has not stopped anything, so `standing_withdrawal`
+# does not read it as a stopped policy (CERTFIX-3).
+NOT_MODE_T_WHY = "deployment is not Mode T (no agreeing issuer, worker and web reports)"
+
+
 def effective(db, *, now: datetime | None = None) -> dict:
     """The one effective policy, or why there is none.
 
@@ -667,7 +674,7 @@ def effective(db, *, now: datetime | None = None) -> dict:
     out = {"state": NONE, "why": "no standing policy is active", "approval_id": None,
            "activation_id": None, "content": None, "seal": None}
     if deployment_mode(db, now=now) != "T":
-        out_mode = "deployment is not Mode T (no agreeing issuer, worker and web reports)"
+        out_mode = NOT_MODE_T_WHY
     else:
         out_mode = None
     try:

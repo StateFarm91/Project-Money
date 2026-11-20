@@ -2152,8 +2152,11 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
     rows.insert(0, ("skill", "difficulty", difficulty_word,
                     {"level": level, "of": len(LADDER)}))
     if cir.grading is not None:
-        rows.append(("size", "sizes", f"{len(cir.grading.sizes)} sizes; this document is size "
-                     f"{cir.grading.size} (see Sizes and fit)", {}))
+        # Reference wording (`gates.size_claims._GRADED_REFERENCE`): this document is one
+        # size of a graded family, so it names its own size "of N" rather than promising
+        # "N sizes" -- the release delivers the instructions for one size (CERTFIX-3).
+        rows.append(("size", "sizes", f"size {cir.grading.size} of {len(cir.grading.sizes)} "
+                     f"in the size chart (see Sizes and fit)", {}))
     else:
         rows.append(("size", "sizes", "one size", {}))
     if make_total > 1:

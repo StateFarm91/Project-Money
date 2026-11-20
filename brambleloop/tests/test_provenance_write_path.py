@@ -63,7 +63,14 @@ def _run_chain(db: Database | None = None) -> Database:
     db = db or _boot()
     JobQueue(db).enqueue("quality_director", "gate.certify",
                          {"cir": build_hexagon_coaster().to_dict()})
-    w = Worker(db, "chain-worker")
+    # One product's chain, as the docstring says. Since ENG-SUPPLY a worker enqueues an
+    # admission pass when a chain ends (`supply.after_chain_job`), which drafts the Launch-0
+    # catalogue into this database too; the assertions below are about this one release, so
+    # the admission pass is left queued rather than run (CERTFIX-3).
+    from brambleloop.runtime.worker import handlers as _handlers
+
+    w = Worker(db, "chain-worker",
+               job_types=[t for t in _handlers.known() if t != "supply.admit"])
     for _ in range(100):
         if not w.run_once():
             break
