@@ -339,8 +339,8 @@ SUPPORTED_FLAT = frozenset({"blanket", "runner", "placemat", "dishcloth", "coast
 # M1: named flat objects with no size band and no correct template. Refused by name rather than
 # drafted as the default 32 x 9.8 cm panel (or another object's template) under that name.
 NO_TEMPLATE: dict[str, str] = {
-    r"\blove?y(?:s|ies)?\b": "a lovey is a small security blanket with a stuffed head or toy "
-                             "joined to it; the fallback makes neither the toy nor the join",
+    # ENG-PLUSH slice 3: a lovey is no longer here -- `creative.baby.lovey` makes the stuffed
+    # head, the square (LOVEY_SQUARE_CM, a stated design size) and the join between them.
     r"\bbibs?\b": "a bib needs a shaped neck opening and a tie or fastening; a flat rectangle "
                   "is not a bib",
     r"\brugs?\b": "a rug needs its own size band, a firm fabric and a non-slip backing",

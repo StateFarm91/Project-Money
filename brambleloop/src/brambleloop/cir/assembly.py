@@ -330,6 +330,8 @@ def assemble(cir, twins: dict) -> ObjectGeometry:
             join.verdict, join.why = "sound", "self-seam: one piece folded and closed"
         elif seam.method == "thread":
             _thread_join(cir, seam, join, fa, fb, twins)
+        elif seam.edge_b == "surface":
+            _surface_join(cir, seam, join, fa, fb, twins)
         elif not seam.names_its_edges:
             join.why = ("this join does not say which edges meet, so no length can be "
                         "compared and the pieces cannot be placed relative to each other")
@@ -424,6 +426,59 @@ def _measure(cir, seam, join: Join, la: float | None, lb: float | None) -> None:
         join.why = (f"{seam.piece_a}.{seam.edge_a} is {la:.1f}cm and {seam.piece_b}."
                     f"{seam.edge_b} is {lb:.1f}cm, a {drift:.1%} difference: these do not "
                     f"join")
+
+
+SURFACE_MARGIN_STS = 1          # a placed piece keeps at least a stitch clear of every edge
+
+
+def _surface_join(cir, seam, join: Join, fa, fb, twins) -> None:
+    """ENG-PLUSH: piece_a laid ON piece_b (an appliqué, a lovey's head) at a stated place.
+
+    Sound when piece_a's extent, centred on row `at_round` and `stitches_from_centre` stitches
+    from piece_b's vertical centre line (and, mirrored, at the same offset the other side),
+    lies inside piece_b with SURFACE_MARGIN_STS clear of every edge, and a mirrored pair does
+    not overlap itself. A closed shaped piece with no flat footprint is measured by its widest
+    round's diameter. Anything that cannot be measured is left unchecked (never sound)."""
+    if fb is None or fb.row_cm is None or not cir.gauge or seam.at_round is None \
+            or seam.stitches_from_centre is None:
+        join.why = ("a surface placement needs a flat piece to lie on, a gauge, a row and an "
+                    "offset from the centre line")
+        return
+    if fa is not None:
+        across, up = fa.across_cm, fa.up_cm
+    else:
+        t = twins.get(seam.piece_a)
+        rev = getattr(t, "geometry", None)
+        if rev is None or not rev.rings:
+            join.why = f"{seam.piece_a} has no measurable extent to place"
+            return
+        across = up = rev.max_diameter_cm
+    st = 10.0 / cir.gauge.stitches_per_10cm
+    margin = SURFACE_MARGIN_STS * st
+    cx = fb.across_cm / 2.0 + seam.stitches_from_centre * st
+    cy = (seam.at_round - 0.5) * fb.row_cm
+    left, right = cx - across / 2.0, cx + across / 2.0
+    if seam.mirrored:
+        left = min(left, fb.across_cm - right)
+    bottom, top = cy - up / 2.0, cy + up / 2.0
+    join.length_a_cm, join.length_b_cm = round(across, 1), round(fb.across_cm, 1)
+    problems = []
+    if left < margin or right > fb.across_cm - margin:
+        problems.append(f"it runs from {left:.1f} to {right:.1f} cm across a "
+                        f"{fb.across_cm:.1f} cm piece")
+    if bottom < margin or top > fb.up_cm - margin:
+        problems.append(f"it runs from {bottom:.1f} to {top:.1f} cm up a {fb.up_cm:.1f} cm piece")
+    if seam.mirrored and seam.stitches_from_centre * st < across / 2.0:
+        problems.append("the mirrored pair overlaps itself across the centre line")
+    if problems:
+        join.verdict = "mismatched"
+        join.why = (f"{seam.piece_a} placed on {seam.piece_b} at row {seam.at_round}, "
+                    f"{seam.stitches_from_centre} sts from centre, does not fit: "
+                    + "; ".join(problems))
+    else:
+        join.verdict = "sound"
+        join.why = (f"{seam.piece_a} lies inside {seam.piece_b} at row {seam.at_round}, "
+                    f"{seam.stitches_from_centre} sts from centre")
 
 
 def _thread_join(cir, seam, join: Join, fa, fb, twins) -> None:

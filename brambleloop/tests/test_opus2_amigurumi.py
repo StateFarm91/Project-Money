@@ -76,7 +76,7 @@ def test_both_toys_compile_clean_and_read_back():
         # The stuffed piece is never blocked; vessel advice never reaches a toy.
         assert "stuffed and closed, so it is not blocked" in text
         assert "standing up" not in text and "towel" not in text
-        assert "Embroider the eyes and nose" in text and "fibrefill" in text
+        assert "embroider the face with yarn only" in text and "fibrefill" in text
         assert "safety" not in text.lower() and "safe" not in text.lower()
 
 
@@ -84,13 +84,12 @@ def test_the_shape_is_round_and_every_count_meets_its_join():
     cir = F.amigurumi(_concept())
     result = compile_cir(cir)
     body = [r for r in result.rows if r.component == "body"]
-    base = [r for r in result.rows if r.component == "base"]
-    # The design is pinned: a changed count is a new design, not a refactor.
-    assert (F.AMI_BODY_STITCHES, F.AMI_PLAIN_ROUNDS, F.AMI_BASE_STITCHES,
-            F.AMI_EAR_ROUND) == (36, 7, 18, 5)
+    # The design is pinned: a changed count is a new design, not a refactor. ENG-PLUSH: the
+    # body is one closed spiral (no base disc) that closes at AMI_CLOSE_STITCHES.
+    assert (F.AMI_BODY_STITCHES, F.AMI_PLAIN_ROUNDS, F.AMI_CLOSE_STITCHES,
+            F.AMI_EAR_ROUND) == (36, 7, 6, 6)
     assert max(r.stitch_count for r in body) == F.AMI_BODY_STITCHES
-    # The opening and the base close stitch for stitch.
-    assert body[-1].stitch_count == base[-1].stitch_count == F.AMI_BASE_STITCHES
+    assert body[-1].stitch_count == F.AMI_CLOSE_STITCHES and cir.components[0].closes
     # Staggered, never stacked: the body is round, not a hexagon.
     revs = geometry.measure_all(cir, result)
     assert revs["body"].shape != geometry.DISC
@@ -102,7 +101,7 @@ def test_the_shape_is_round_and_every_count_meets_its_join():
     count = next(r.stitch_count for r in body if r.index == F.AMI_EAR_ROUND)
     flat = 2 * ear_seam.stitches_from_centre
     assert f"across {flat} sts of round {F.AMI_EAR_ROUND} ({count} sts)" in ear_seam.note
-    back = count - 3 * flat
+    back = count - 2 * flat - F.AMI_EAR_GAP
     assert back > 0 and f"then {back} sts at the back" in ear_seam.note, ear_seam.note
     ear_last = [r for r in result.rows if r.component == "ear"][-1].stitch_count
     assert ear_last == 2 * flat, (ear_last, flat)     # a flattened ear is half its round
@@ -122,7 +121,7 @@ def test_risk_class_c_and_only_the_circumference_is_stated():
     assert f"about {around:.0f} cm around" in cir.finished_size_note
     assert "Computed" in cir.finished_size_note and "measured on the sample" in \
         cir.finished_size_note
-    assert any(m.name == "polyester fibrefill" for m in cir.materials)
+    assert any("polyester fibrefill" in m.name for m in cir.materials)
 
 
 def test_the_handler_drafts_the_toy_with_its_provenance():
@@ -150,7 +149,7 @@ def test_the_handler_drafts_the_toy_with_its_provenance():
     result = pipeline.handle_cir_draft(ctx)
     assert result["drafted"] is True and result["construction"] == F.AMIGURUMI, result
     cir = CIR.from_dict(emitted[-1][1]["cir"])
-    assert {c.name for c in cir.components} == {"body", "base", "ear"}
+    assert {c.name for c in cir.components} == {"body", "ear"}
     assert set(F.AMIGURUMI_PRIMITIVES) <= set(cir.provenance.primitives_used)
 
 
@@ -223,8 +222,9 @@ def test_review_opus2t_t4_the_construction_triggers_the_childrens_gate():
         else:
             raise AssertionError(f"{title!r} rendered with no children's decision")
     # Both halves of the shape are needed: the same pieces unstuffed are not a figure.
-    hollow = dataclasses.replace(toy, assembly=[dataclasses.replace(s, stuff_before_closing=False)
-                                                for s in toy.assembly])
+    # ENG-PLUSH: the stuffing is the body's stated stuffing point, not a stuffed seam.
+    hollow = dataclasses.replace(toy, components=[
+        dataclasses.replace(c, stuff_at_round=None) for c in toy.components])
     assert not L.stuffed_figure(hollow) and L.stuffed_figure(toy)
     # The catalogue's stuffed pieces are not figures (nothing is sewn onto them), so their
     # rendering is unchanged.
@@ -237,13 +237,16 @@ def test_review_opus2t_t4_the_construction_triggers_the_childrens_gate():
 
 
 def test_review_opus2t_t5_no_sewn_on_piece_fits_the_small_parts_cylinder():
-    """OPUS2T-5: the floor bounded the body, not the pieces. Every piece that is sewn on (the
-    ears, the base) is computed from the gauge, and a yarn weight at which one could fit inside
-    the 31.7 mm small-parts cylinder (16 CFR 1501.4; SOR/2011-17 s.7) is refused by name."""
-    refused = {("bear", "sport"), ("bunny", "sport"), ("bear", "dk")}
-    drafted = {("bear", "worsted"), ("bunny", "worsted"), ("bunny", "dk"), ("bear", "bulky"),
-               ("bunny", "bulky")}
-    assert refused and drafted
+    """OPUS2T-5: the floor bounded the body, not the pieces. Every sewn-on piece is measured by
+    the ONE small-parts definition (`gates.small_parts`, A1-R: FITS and UNKNOWN both block),
+    and a yarn weight at which an ear fits or may fit the 31.7 mm cylinder (16 CFR 1501.4;
+    SOR/2011-17 s.7) is refused by name. ENG-PLUSH: the ears are 20-st discs (no base disc any
+    more), so DK is now clear for both toys; sport is refused."""
+    from brambleloop.gates import small_parts
+
+    refused = {("bear", "sport"), ("bunny", "sport")}
+    drafted = {("bear", "worsted"), ("bunny", "worsted"), ("bunny", "dk"), ("bear", "dk"),
+               ("bear", "bulky"), ("bunny", "bulky")}
     for kind, weight in sorted(refused):
         concept = _concept("Teddy Bear" if kind == "bear" else "Bunny Amigurumi")
         concept.yarn_weight = weight
@@ -256,15 +259,10 @@ def test_review_opus2t_t5_no_sewn_on_piece_fits_the_small_parts_cylinder():
     for kind, weight in sorted(drafted):
         concept = _concept("Teddy Bear" if kind == "bear" else "Bunny Amigurumi")
         concept.yarn_weight = weight
-        assert F.amigurumi(concept)
-        for name, narrow, long in F.ami_separable_pieces(kind, weight):
-            assert narrow > F.SMALL_PARTS_CYLINDER_MM or long > F.SMALL_PARTS_DEPTH_MM, \
-                (kind, weight, name, narrow, long)
-    # every sewn-on piece is measured: both ears share one shape, and the base disc is there
-    assert [p[0] for p in F.ami_separable_pieces("bear", "worsted")] == ["ear", "base"]
-    # the bear's ear at worsted clears the cylinder's width (it was about 48 x 29 mm)
-    ear = next(p for p in F.ami_separable_pieces("bear", "worsted") if p[0] == "ear")
-    assert ear[1] > F.SMALL_PARTS_CYLINDER_MM, ear
+        cir = F.amigurumi(concept)
+        assert small_parts.blocking(cir) == [], (kind, weight)
+        pieces = {name for name, _n, _l in small_parts.separable_pieces(cir)}
+        assert pieces == {"body", "ear"}, pieces           # every sewn-on piece is measured
 
 
 def test_review_opus2p_joins_are_counted_size_has_a_floor_and_words_do_not_repeat():
@@ -281,15 +279,15 @@ def test_review_opus2p_joins_are_counted_size_has_a_floor_and_words_do_not_repea
     result = compile_cir(cir)
     twins = {c.name: build_twin(cir, result, component=c.name) for c in cir.components}
     geo = assembly.assemble(cir, twins)
-    assert geo.verdict == "assembles" and len(geo.joins) == 2, (geo.verdict, geo.why)
+    assert geo.verdict == "assembles" and len(geo.joins) == 1, (geo.verdict, geo.why)
     assert all(j.verdict == "sound" for j in geo.joins), [j.why for j in geo.joins]
-    # A 30-st base sewn onto the 18-st opening does not sew together.
+    # A 30-st ear (15 sts flattened) sewn across a 10-st span does not sew together.
     from brambleloop.products.moment_candidates import _disc, _Rows
 
     wrong = _Rows()
     _disc(wrong, 30, cir.components[1].rows[0].color)
     bad = dataclasses.replace(cir, components=[cir.components[0], dataclasses.replace(
-        cir.components[1], rows=wrong.rows), cir.components[2]])
+        cir.components[1], rows=wrong.rows)])
     r2 = compile_cir(bad)
     geo2 = assembly.assemble(bad, {c.name: build_twin(bad, r2, component=c.name)
                                    for c in bad.components})
@@ -309,7 +307,7 @@ def test_review_opus2p_joins_are_counted_size_has_a_floor_and_words_do_not_repea
                   "Bear Bunny", "Rabbit Bunny", "Bear Crochet", "Bunny Simple", "Bear Ball"):
         assert F.plan(category="amigurumi", title=title)["family"] == F.REFUSED, title
     text = writer.write_pattern(cir, result, "US")
-    assert "leaving a 25 cm tail for sewing the ear on" in text
+    assert f"leaving a {F.AMI_SEWING_TAIL_CM} cm tail for sewing the ear on" in text
     assert "before blocking" not in text
 
 

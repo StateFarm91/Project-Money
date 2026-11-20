@@ -750,7 +750,14 @@ def validate(db, proposal: dict, evidence: dict, *, source_ref: str) -> dict:
     from ..creative import size_truth
 
     sized = size_truth.request(p["category"], str(p["title"]))
-    if sized["refused"] and size_truth.applies(p["category"], str(p["title"])):
+    # ENG-PLUSH: a family whose engine states its own size (a lovey's square and head, a toy's
+    # body) is not a flat template, so the flat-panel size bands do not apply to it.
+    from ..creative import fallback_constructions as _FC
+
+    engine_sized = _FC.plan(category=str(p["category"]), title=str(p["title"]))[
+        "family"] in (_FC.LOVEY, _FC.AMIGURUMI)
+    if sized["refused"] and size_truth.applies(p["category"], str(p["title"])) \
+            and not engine_sized:
         reasons.append(f"size: {sized['refused']}")
     if c.get("pod") not in POD_KEYS:
         reasons.append(f"pod {c.get('pod')!r} is not a pod key")

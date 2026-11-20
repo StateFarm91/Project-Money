@@ -109,6 +109,19 @@ _APPROPRIATED: tuple[str, ...] = (
 
 
 
+def _colours_worked(cir: CIR) -> set[str]:
+    """Every colour any row (or stitch) of any piece of the design works, repeats included."""
+    from ..cir.model import op_colours
+
+    out: set[str] = set()
+    for comp in cir.components:
+        for row in comp.rows:
+            if row.color:
+                out.add(row.color)
+            out |= op_colours(row.ops)
+    return out
+
+
 def _stitches_worked(cir: CIR) -> set[str]:
     """Every stitch code any row of any piece of the design works, repeats included."""
     from ..cir.model import Repeat
@@ -182,7 +195,10 @@ def check_asset(
                 f"asset depicts {st!r} but the pattern never works that stitch "
                 f"(pattern uses: {sorted(real_stitches)})", where))
 
-    real_colors = twin.colors_used or set(cir.colors)
+    # ENG-PLUSH: every colour any piece works, as with the stitches above. The hero twin is
+    # the first piece; a toy whose ears are worked in the contrast colour was refused as
+    # depicting a colour "the pattern does not use".
+    real_colors = (set(twin.colors_used) | _colours_worked(cir)) or set(cir.colors)
     for c in asset.depicts_colors:
         if c not in real_colors:
             out.append(Finding(

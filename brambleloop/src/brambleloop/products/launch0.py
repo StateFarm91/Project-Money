@@ -1668,7 +1668,9 @@ def stuffed_figure(cir) -> bool:
     A stuffed cushion or kneeler (panels or a disc closing a stuffed shape, nothing placed on
     it) is not one."""
     seams = list(getattr(cir, "assembly", None) or [])
-    stuffed = any(getattr(s, "stuff_before_closing", False) for s in seams)
+    # ENG-PLUSH: a piece stated to be stuffed (`Component.stuff_at_round`) is stuffed too.
+    stuffed = any(getattr(s, "stuff_before_closing", False) for s in seams) or any(
+        getattr(c, "stuff_at_round", None) is not None for c in (cir.components or []))
     placed = any(getattr(s, "stitches_from_centre", None) is not None for s in seams)
     return stuffed and placed
 
