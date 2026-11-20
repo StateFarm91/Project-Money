@@ -3,10 +3,10 @@ and updated from recorded Stats periods.
 
 The real `gate.certify -> listing.draft -> assets.build -> pricing.position -> listing.seo`
 handlers run on a temporary sqlite database (shadow worker, every outbound socket refused).
-The chains run with the recorded-shape taxonomy FIXTURE (ids illustrative, not Etsy's) and a
-FIXTURE research shelf, so the CERTIFIED branch is reachable. Since ENG-SEO-PRICE, a draft with
-no taxonomy node (CATEGORY_UNKNOWN) or no research shelf (TITLE_ORIGINALITY_UNKNOWN) blocks at
-listing.seo and persists no package; one test asserts each of those fail-closed states. The Stats export used for the update loop is FIXTURE data, submitted as
+No Etsy taxonomy snapshot is stored in the main chain: that is the company's real state, so
+the package must say EXTERNAL_GATED and name the gate, never assume a category. One chain runs
+with the recorded-shape taxonomy FIXTURE (ids illustrative, not Etsy's) to prove the CERTIFIED
+branch. The Stats export used for the update loop is FIXTURE data, submitted as
 `submitted_by="fixture:test_w4_seo_packages"`; it measures nothing about any real listing.
 """
 from __future__ import annotations
@@ -52,40 +52,12 @@ CHAIN = ("gate.certify", "listing.draft", "assets.build", "pricing.position", "l
 _STATE: dict = {}
 
 
-# ENG-SEO-PRICE (b18-b B-1): listing.seo fails closed on TITLE_ORIGINALITY_UNKNOWN (no research
-# shelf) and CATEGORY_UNKNOWN (no taxonomy node). The chain is seeded with a research shelf of
-# original, non-overlapping titles (FIXTURE rows, measuring nothing about any real shop) so
-# originality is PASS with checked > 0; the no-shelf and no-taxonomy states are asserted to
-# block below, never relaxed.
-SHELF = (
-    ("MJsOffTheHookDesigns", "fx-1", "Chunky Ribbed Beanie Crochet Pattern", "hats"),
-    ("MadelineMaeCo", "fx-2", "Sleepy Fox Amigurumi Crochet Pattern", "toys"),
-    ("IvyLoop", "fx-3", "Lacy Shawl Triangle Wrap Pattern", "home_decor"),
-    ("HanJanCrochet", "fx-4", "Granny Stripe Throw Blanket Pattern", "home_decor"),
-)
-
-
-def _seed_shelf(db) -> None:
-    from brambleloop.core.models import Benchmark, BenchmarkListing
-
-    with db.session() as s:
-        for shop in sorted({r[0] for r in SHELF}):
-            s.add(Benchmark(key=f"bm_{shop.lower()}", shop_name=shop,
-                            canonical_url=f"https://example.invalid/{shop}"))
-        for shop, ref, title, pod in SHELF:
-            s.add(BenchmarkListing(benchmark_key=f"bm_{shop.lower()}", listing_ref=ref,
-                                   title=title, pod=pod, price_cad=6.5,
-                                   detail={"tags": ["crochet pattern"]}))
-
-
-def _chain(name: str, *, fixture_taxonomy: bool, shelf: bool = True) -> Database:
+def _chain(name: str, *, fixture_taxonomy: bool) -> Database:
     if name in _STATE:
         return _STATE[name]
     db = Database(f"sqlite:///{tempfile.mkdtemp(dir=_TMP)}/{name}.sqlite")
     db.create_all()
     Registry(db).seed_defaults()
-    if shelf:
-        _seed_shelf(db)
     if fixture_taxonomy:
         snap = FX.snapshot()
         with db.session() as s:
@@ -116,9 +88,9 @@ def _version(db) -> str:
 
 
 def test_listing_seo_persists_a_package_the_consumer_reads():
-    db = _chain("main", fixture_taxonomy=True)
+    db = _chain("real", fixture_taxonomy=False)
     version = _version(db)
-    produced = _STATE["main:seo_result"].get("search_package") or {}
+    produced = _STATE["real:seo_result"].get("search_package") or {}
     assert produced.get("written") is True, produced
     pkg = P.current(db, SLUG, version)
     assert pkg is not None, "no CURRENT package bound to the drafted listing"
@@ -130,9 +102,11 @@ def test_listing_seo_persists_a_package_the_consumer_reads():
     assert pkg["description"]["text"] and pkg["attributes"].get("file_type") == "PDF"
     assert pkg["pricing"]["status"] == "DECIDED" and pkg["pricing"]["price_cad"] > 0
     assert pkg["pricing"]["competitive_shelf"]["observed_on"], "shelf without a date"
-    # The category is the FIXTURE taxonomy's node (ids illustrative); the shelf was checked.
-    assert pkg["category"]["taxonomy_id"] is not None
-    assert pkg["certificate"]["verdict"] == "PASS", pkg["certificate"]
+    # Never assumed, never invented.
+    assert pkg["category"]["taxonomy_id"] is None and pkg["category"]["gate"]
+    assert pkg["readiness"]["state"] == P.EXTERNAL_GATED, pkg["readiness"]
+    assert pkg["certificate"]["verdict"] == "REFUSED"
+    assert set(pkg["certificate"]["failed"]) == {"category", "attributes"}
     assert pkg["evidence"]["volumes"] is None
     assert "demand" not in str(pkg["tags"]["evidence"])
     for t in pkg["tags"]["evidence"]:
@@ -153,7 +127,7 @@ def test_mjs_findings_flow_into_the_package():
     from brambleloop.intel import findings as F
     from brambleloop.seo import jobs
 
-    db = _chain("main", fixture_taxonomy=True)
+    db = _chain("real", fixture_taxonomy=False)
     version = _version(db)
     before = P.current(db, SLUG, version)
     assert before["competitive"]["status"] == "UNKNOWN", before["competitive"]
@@ -199,7 +173,7 @@ def test_packages_make_the_seo_search_cell_measurable():
     empty.create_all()
     assert isinstance(M.measure_cell(empty, "seo_search"), M.NotMeasured)
 
-    db = _chain("main", fixture_taxonomy=True)
+    db = _chain("real", fixture_taxonomy=False)
     version = _version(db)
     pkg = P.current(db, SLUG, version)
     wanted = P.keyword_phrases(pkg)
@@ -230,14 +204,12 @@ def test_packages_make_the_seo_search_cell_measurable():
 def test_search_evidence_consumes_the_package():
     from brambleloop.commerce import search_evidence as se
 
-    db = _chain("main", fixture_taxonomy=True)
+    db = _chain("real", fixture_taxonomy=False)
     items = se.summary(db)["items"]
     assert items, "no search evidence rows"
     item = next(i for i in items if i["slug"] == SLUG)
-    # With the FIXTURE taxonomy and a checked shelf the package is CERTIFIED (the no-taxonomy
-    # state no longer persists a package at all: see the fail-closed test below).
     assert item["search_package"] and item["search_package"]["readiness"]["state"] \
-        == P.CERTIFIED, item["search_package"]["readiness"]
+        == P.EXTERNAL_GATED
     gate = se.supremacy_gate(db)
     assert not gate["cleared"]
     print("OK search_evidence_consumes_the_package")
@@ -266,7 +238,7 @@ def test_stats_arrival_updates_the_package_through_the_seo_cycle():
     from brambleloop.commerce import listing_outcomes as lo
     from brambleloop.seo import jobs
 
-    db = _chain("main", fixture_taxonomy=True)
+    db = _chain("real", fixture_taxonomy=False)
     version = _version(db)
     first = jobs.run_cycle(db)
     assert first["packages"]["packages"] >= 1, first["packages"]
@@ -297,35 +269,6 @@ def test_stats_arrival_updates_the_package_through_the_seo_cycle():
     print("OK stats_arrival_updates_the_package_through_the_seo_cycle")
 
 
-def test_no_taxonomy_or_no_research_shelf_blocks_listing_seo_and_persists_no_package():
-    """b18-b B-1: the fail-closed gates. With no taxonomy node the draft blocks on
-    CATEGORY_UNKNOWN; with no research shelf it blocks on TITLE_ORIGINALITY_UNKNOWN and the
-    certificate's market_fit is not ok. Neither persists a CURRENT package."""
-    _chain("no_taxonomy", fixture_taxonomy=False)
-    got = _STATE["no_taxonomy:seo_result"]
-    assert got.get("ok") is False, got
-    assert any(b.startswith("CATEGORY_UNKNOWN") for b in got.get("blocking") or []), got
-    assert P.current(_STATE["no_taxonomy"], SLUG, _version(_STATE["no_taxonomy"])) is None
-
-    db = _chain("no_shelf", fixture_taxonomy=True, shelf=False)
-    got = _STATE["no_shelf:seo_result"]
-    assert got.get("ok") is False, got
-    blocking = got.get("blocking") or []
-    assert any(b.startswith("TITLE_ORIGINALITY_UNKNOWN") for b in blocking), blocking
-    assert not any(b.startswith("CATEGORY_UNKNOWN") for b in blocking), blocking
-    from brambleloop.core.models import ListingSearchProfile
-
-    with db.session() as s:
-        prof = s.scalar(select(ListingSearchProfile).where(
-            ListingSearchProfile.product_slug == SLUG))
-        cert = (prof.certificate or {}) if prof is not None else {}
-    mf = (cert.get("checks") or {}).get("market_fit")
-    if mf is not None:
-        assert mf.get("ok") is False, mf
-    assert P.current(db, SLUG, _version(db)) is None
-    print("OK no_taxonomy_or_no_research_shelf_blocks_listing_seo_and_persists_no_package")
-
-
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     assert tests
@@ -340,4 +283,3 @@ if __name__ == "__main__":
             traceback.print_exc()
             print(f"FAIL {t.__name__}: {exc}")
     sys.exit(1 if failed else 0)
-

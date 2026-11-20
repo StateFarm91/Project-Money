@@ -777,38 +777,6 @@ def handle_pricing_position(ctx: JobContext) -> dict:
     outcome = None if is_bundle else _outcome_price(ctx, i, seed, category, band)
     proposed = (outcome["price_cad"] if outcome else
                 (seed.price_cad if seed else band[1]))
-    # ENG-SEO-PRICE: the research shelf's band for this category and size range replaces the
-    # static category band whenever it is MEASURED; the product's complexity places the price
-    # inside its interquartile range (charm-priced). UNKNOWN keeps the static band, and the
-    # record says so: no price claims evidence it does not have.
-    from ..commerce import market_fit as _mf
-
-    mf_band = _mf.price_band(ctx.db, category=category,
-                             title=(getattr(seed, "title", "") or slug), sizes=sizes)
-    mf_record: dict = {"band": {k: mf_band.get(k) for k in (
-        "status", "pod", "observations", "shops", "q1_cad", "median_cad", "q3_cad",
-        "low_cad", "high_cad", "size_filter", "why", "listing_refs", "source")},
-        "basis": "static category band (no research-shelf evidence)"}
-    if mf_band["status"] == _mf.MEASURED and not is_bundle:
-        try:
-            _cir = _load_cir(ctx, slug, i["version"])
-            _rows = sum(1 for _ in _cir.iter_rows())
-            _colours = len({c for c in (_cir.colors or {})}) or 1
-        except Exception:  # noqa: BLE001 - complexity unknown: the band's median position
-            _rows, _colours = _mf.ROWS_FOR_FULL // 2, 1
-        mf_facts = _mf.ProductFacts(slug=slug, version=str(i.get("version", "")),
-                                    title=getattr(seed, "title", "") or slug,
-                                    category=category, difficulty="",
-                                    sizes=[_mf.size_name(x) for x in (i.get("sizes") or [])],
-                                    colours=_colours, rows=_rows)
-        cx = _mf.complexity(mf_facts)
-        lo, hi = float(mf_band["q1_cad"]), float(mf_band["q3_cad"])
-        target = lo + cx["score"] * (hi - lo)
-        proposed, charm_why = _mf.charm(target, lo, hi)
-        band = (lo, hi)
-        outcome = None
-        mf_record.update(basis="research-shelf interquartile band", complexity=cx,
-                         target_cad=round(target, 2), charm=charm_why)
     # #24: contribution per visitor, not conversion, decides. When a higher-priced sibling in
     # this category earns more per visitor than this listing, a lower price is not proposed.
     per_visitor = _contribution_per_visitor_guard(ctx, slug, category, proposed)
@@ -836,17 +804,6 @@ def handle_pricing_position(ctx: JobContext) -> dict:
         ctx.audit("pricing.refused", artifact=slug,
                   detail={**decision.to_dict(), "stopped": "listing.seo not enqueued"})
         return {**decision.to_dict(), "stopped": True}
-    if mf_band["status"] == _mf.MEASURED and not is_bundle and not (
-            band[0] - 1e-9 <= decision.price_cad <= band[1] + 1e-9):
-        why = (f"CA${decision.price_cad:.2f} is outside the research band "
-               f"CA${band[0]:.2f}-CA${band[1]:.2f}")
-        ctx.audit("pricing.refused", artifact=slug, detail={
-            **decision.to_dict(), "market_fit": mf_record, "code": "OUTSIDE_EVIDENCE_BAND",
-            "why": why, "stopped": "listing.seo not enqueued"})
-        return {**decision.to_dict(), "refused": why, "stopped": True}
-    mf_record.update(price_cad=decision.price_cad, within_band=(
-        band[0] - 1e-9 <= decision.price_cad <= band[1] + 1e-9), band_cad=list(band),
-        was_price=None, reasons=list(decision.reasons))
 
     # #233 / #235 (CB2-O08): the daily order readings' discount guard and promotion verdicts.
     # A product the guard refused, or whose promotion lost contribution, is full price only:
@@ -873,7 +830,7 @@ def handle_pricing_position(ctx: JobContext) -> dict:
 
     # The category's standing "50% off" is not available to us; assert that explicitly rather
     # than relying on nobody adding it later.
-    _refuse_deceptive_discount(decision.price_cad, flagship=bool(i.get("flagship")))
+    pricing_mod.check_no_fake_discount(decision.price_cad, None, ever_charged=False)
 
     # #46: every price this handler sets opens a point in the elasticity memory, with its
     # season, traffic source and sale state as columns. An unchanged price is not re-recorded,
@@ -887,10 +844,7 @@ def handle_pricing_position(ctx: JobContext) -> dict:
 
     ctx.audit("pricing.positioned", artifact=slug,
               detail={**decision.to_dict(), "price_point": price_point,
-                      "outcome_price": outcome, "per_visitor": per_visitor,
-                      "market_fit": mf_record})
-    _mf.record_choice(ctx.db, slug=slug, version=str(i.get("version", "")), kind="price",
-                      job_id=ctx.job.id, choice=mf_record)
+                      "outcome_price": outcome, "per_visitor": per_visitor})
     i.update({"price_cad": decision.price_cad, "net_cad": decision.net_cad,
               "pricing_reasons": decision.reasons, "pricing_warnings": decision.warnings,
               "category": category})
@@ -898,19 +852,6 @@ def handle_pricing_position(ctx: JobContext) -> dict:
                 idempotency_key=chain_key("seo", slug, i["version"], i.get("release", ""),
                                           i.get("rebuild", "")))
     return decision.to_dict()
-
-
-def _refuse_deceptive_discount(price_cad: float, *, flagship: bool) -> None:
-    """Review b17-a B3: the B-376 discount rules (`market_fit.discount_problems`) on the live
-    price path. No was-price is ever set here, so today this refuses only a deceptive price;
-    the flagship and a-third-of-days rules bind the moment a caller supplies one."""
-    from ..commerce import market_fit as _mf
-    from ..commerce import pricing as _pricing
-
-    problems = _mf.discount_problems(price_cad=price_cad, was_price_cad=None,
-                                     ever_charged=False, flagship=flagship)
-    if problems:
-        raise _pricing.DeceptivePricing("; ".join(problems))
 
 
 def _vet_promotion(ctx: JobContext, i: dict, slug: str, full_price_cad: float) -> None:
@@ -967,7 +908,7 @@ def _price_launch0(ctx: JobContext, i: dict, slug: str, record: dict,
     i["sale_allowed"] = sale_allowed
     price = float(launch["price_cad"])
     _vet_promotion(ctx, i, slug, price)
-    _refuse_deceptive_discount(price, flagship=bool(i.get("flagship")))
+    pricing_mod.check_no_fake_discount(price, None, ever_charged=False)
     price_point = {"skipped": "fix_only: no price is applied, so none is recorded"} \
         if i.get("fix_only") else elasticity.record_price_set(
         ctx.db, product_slug=slug, category=record["category"], price_cad=price,
@@ -978,21 +919,7 @@ def _price_launch0(ctx: JobContext, i: dict, slug: str, record: dict,
               "candidate": launch["candidate"], "reasons": list(launch["reasons"]),
               "warnings": list(launch["warnings"]), "price_point": price_point,
               "product_record": record["source"]}
-    # ENG-SEO-PRICE: a Launch-0 price is the owner-reviewed plan's; the research shelf's band
-    # is recorded beside it so a plan price the shelf no longer supports is visible.
-    from ..commerce import market_fit as _mf
-
-    _b = _mf.price_band(ctx.db, category=record["category"], title=slug,
-                        sizes=len(i.get("sizes") or []) or 1)
-    detail["market_fit"] = {
-        "band": {k: _b.get(k) for k in ("status", "pod", "observations", "q1_cad",
-                                         "median_cad", "q3_cad", "why")},
-        "within_research_band": (None if _b["status"] != _mf.MEASURED else
-                                 _b["q1_cad"] <= price <= _b["q3_cad"]),
-        "basis": "Launch-0 price plan; research band recorded, not applied"}
     ctx.audit("pricing.positioned", artifact=slug, detail=detail)
-    _mf.record_choice(ctx.db, slug=slug, version=str(i.get("version", "")), kind="price",
-                      job_id=ctx.job.id, choice={"price_cad": price, **detail["market_fit"]})
     i.update({"price_cad": price, "net_cad": launch["net_cad_after_fees"],
               "pricing_reasons": list(launch["reasons"]),
               "pricing_warnings": list(launch["warnings"]),
@@ -1240,25 +1167,6 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     # A term shown thousands of times that never sold is a vanity term; a slot spent on it is
     # re-spent on a phrase that has not been proven to earn nothing.
     tags, portfolio_reading["search_terms"] = _drop_vanity_tags(ctx.db, queries, tags)
-    # ENG-SEO-PRICE: the product's own facts, for the research-shelf SEO check and the fold.
-    from ..commerce import market_fit as _mf
-
-    mf_facts = _mf.ProductFacts(
-        slug=slug, version=version, title=cir.title, category=category,
-        difficulty=difficulty, sizes=[_mf.size_name(x) for x in (i.get("sizes") or [])],
-        size_label=size_label, colours=len(colors),
-        rows=sum(1 for _ in cir.iter_rows()), motifs=motifs, techniques=list(techniques),
-        materials=[m.name for m in cir.materials])
-    # All thirteen slots are spent: a short tag set is completed from research-shelf phrases
-    # that are true of this product, then from its own facts (each still passes tag_truth).
-    if len(tags) < seo_mod.TAG_MAX_COUNT:
-        _filled, _ = _mf.choose_tags(mf_facts, _mf.keyword_evidence(
-            _mf.research_listings(ctx.db, pod=_mf.pod_for(category, cir.title))),
-            given=tags, exclude=structured)
-        for _t in _filled[len(tags):]:
-            if not search_mod.tag_truth(_t, difficulty=difficulty, shape=shape) \
-                    and not search_mod.tag_diversity_problems(tags + [_t]):
-                tags.append(_t)
 
     # A children's product's listing carries the statements a buyer needs before they pay.
     #
@@ -1293,8 +1201,7 @@ def handle_listing_seo(ctx: JobContext) -> dict:
                 colours=len(colors)),
             yarn_lines=seo_mod.yarn_lines(list(cir.materials)),
             # D-OWNER-ESTIMATE-CLAIMS: estimates until a sample calibrates the twin.
-            size_is_estimate=not twin.calibrated,
-            fold_facts=_mf.fold_sentence(mf_facts)),
+            size_is_estimate=not twin.calibrated),
         materials=[m.name for m in cir.materials],
         price_cad=float(i.get("price_cad", 0.0)),
         supported_claims=[c for c in (size_label, gauge_line) if c],
@@ -1434,14 +1341,6 @@ def handle_listing_seo(ctx: JobContext) -> dict:
     blocking = (structural + [str(f) for f in policy if f.is_error] + class_problems
                 + rights_problems + copy_gate["blocking"] + tag_problems + attribute_problems
                 + (identity_problems if record["launch0"] else []))
-    # ENG-SEO-PRICE: the research-shelf check. A title that copies a competitor's, a fold
-    # that does not answer the buyer's five questions, or a title Etsy's rules refuse blocks
-    # the draft and fails the search certificate's market_fit check.
-    mf_reading = _mf.seo_package(ctx.db, mf_facts, title=copy.title, tags=copy.tags,
-                                 description=copy.description, category_choice=choice)
-    mf_blocking = [p for p in mf_reading["problems"]
-                   if p.startswith(("TITLE_", "FOLD_", "CATEGORY_"))]
-    blocking = blocking + mf_blocking
 
     # F-004: the holistic search certificate. Category, properties, copy, tags and the
     # description must all pass; the hero is completed at publish by release_gates.
@@ -1455,11 +1354,7 @@ def handle_listing_seo(ctx: JobContext) -> dict:
                               if not p.startswith("DESCRIPTION_")]},
         tag_problems=tag_problems + [f"TAG_REPEATS_STRUCTURED_FIELD: {t!r}"
                                      for t in duplicates],
-        description_problems=description_problems,
-        market_fit={"ok": not mf_blocking, "why": "; ".join(mf_blocking)[:400],
-                    "originality": mf_reading["originality"]["ok"],
-                    "originality_scope": mf_reading["originality"].get("scope"),
-                    "shelf_listings": mf_reading["evidence"]["all_listings"]})
+        description_problems=description_problems)
     # F-242: the certificate is bound to the search guidance it was issued under; a material
     # change to that reading invalidates it (`search.stored_pass_problems`).
     from ..commerce import search_policy as _search_policy
@@ -1477,16 +1372,6 @@ def handle_listing_seo(ctx: JobContext) -> dict:
                             tag_limitation=i.get("tag_slot_limitation") or "",
                             snapshot=cat_reading["snapshot"])
 
-    _mf.record_choice(ctx.db, slug=slug, version=version, kind="seo", job_id=ctx.job.id,
-                      choice={"title": copy.title, "tags": list(copy.tags),
-                              "taxonomy_id": choice.taxonomy_id,
-                              "category_status": choice.status,
-                              "materials": mf_reading["materials"],
-                              "tag_provenance": mf_reading["tag_provenance"],
-                              "originality": mf_reading["originality"],
-                              "problems": mf_reading["problems"],
-                              "evidence": mf_reading["evidence"],
-                              "fix_only": bool(i.get("fix_only"))})
     ctx.audit("listing.seo_drafted" if not blocking else "listing.seo_blocked",
               artifact=f"{slug}@{version}",
               detail={"title_len": len(copy.title), "tags": len(copy.tags),
@@ -1735,21 +1620,6 @@ def handle_taxonomy_refresh(ctx: JobContext) -> dict:
                                                       "incidents_opened", "requeued",
                                                       "not_requeued", "requeue_enabled",
                                                       "held_for_owner") if k in drift}
-    # ENG-SEO-PRICE: every refresh that read the tree -- new snapshot or a confirmed one --
-    # re-decides the UNKNOWN profiles the stored snapshot can now decide (fix-only, once per
-    # snapshot). Without it a profile computed before the schema was read stays UNKNOWN for
-    # ever, because drift only runs when the hash changes.
-    if got.get("ran") and got.get("snapshot_id") is not None:
-        from ..integrations import taxonomy_drift
-
-        try:
-            back = taxonomy_drift.backfill_unknown(ctx, snapshot_id=int(got["snapshot_id"]))
-        except Exception as exc:  # noqa: BLE001 - an unjudged backfill is UNKNOWN, reported
-            back = {"state": "UNKNOWN", "why": f"{type(exc).__name__}: {exc}"[:300]}
-        summary["category_backfill"] = {"state": back.get("state"),
-                                        "queued": back.get("queued", []),
-                                        "skipped": len(back.get("skipped") or []),
-                                        **({"why": back["why"]} if back.get("why") else {})}
     ctx.audit(etsy_taxonomy.REFRESHED_ACTION if got.get("ran")
               else "etsy.taxonomy_unmeasured", detail=summary)
     return summary
