@@ -581,6 +581,10 @@ def test_9_a_release_with_a_failing_non_image_gate_makes_no_paid_call():
     slug = "housewarming-key-basket"
     path, version, rh = SH._chain(slug, "basket")
     db = Database(f"sqlite:///{path}")
+    # D-MAIN-IMAGE-ADMISSION: the basket's real blockers are only image ones plus the
+    # publish-time gates, so it IS admitted (test_10). A real non-image gate is added here:
+    # the stored listing is priced off its Launch-0 plan (LISTING_PRICE_NOT_PLAN).
+    _price_off_plan(db, slug)
 
     def flux_jobs():
         with db.session() as s:
@@ -605,6 +609,7 @@ def test_9_a_release_with_a_failing_non_image_gate_makes_no_paid_call():
         adm = IP.sale_admission(db, slug, version, rh)
         assert adm["admitted"] is False and adm["non_image_blockers"], adm
         assert all(b.get("image") is not True for b in adm["non_image_blockers"]), adm
+        assert any("LISTING_PRICE_NOT_PLAN" in b["why"] for b in adm["non_image_blockers"]), adm
         assert flux_jobs() == [], "listing.package enqueued a release that is not for sale"
         follow, _ = O.drain(db, generator=gen, judges=None)
         got = IP.admit_for_sale(db, follow, slug=slug, version=version, release=rh)
@@ -621,6 +626,170 @@ def test_9_a_release_with_a_failing_non_image_gate_makes_no_paid_call():
     finally:
         G.gates_now = real_gates
     db.engine.dispose()
+
+
+# ---- D-MAIN-IMAGE-ADMISSION: publish-time gates do not stop image admission -----------------
+
+PUBLISH_TIME = {"gauge_and_size_claims", "etsy_remote_state"}
+
+
+def _price_off_plan(db, slug):
+    """A real non-image listing gate: the stored listing carries a price that is not its
+    Launch-0 plan's, which `release_gates.for_publish` refuses as LISTING_PRICE_NOT_PLAN."""
+    from sqlalchemy import select
+
+    from brambleloop.core.models import Listing
+    from brambleloop.products import launch0
+
+    plan = launch0.launch_price(slug)["price_cad"]
+    with db.session() as s:
+        row = s.scalar(select(Listing).where(Listing.product_slug == slug))
+        row.price_cad = round(float(plan) + 1.0, 2)
+
+
+def _basket_packaged():
+    """The key basket's real chain, through the real listing.package job (whose for-sale
+    admission point runs). Its real blockers: the sample-photo requirement (an image
+    reason) and the two publish-time first-customer gates."""
+    if "basket" not in _S:
+        import test_search_hero_publish as SH
+        from brambleloop.core.db import Database
+
+        slug = "housewarming-key-basket"
+        path, version, rh = SH._chain(slug, "basket")
+        db = Database(f"sqlite:///{path}")
+        job = SH._run(db, "listing", "listing.package",
+                      {"slug": slug, "version": version, "release": rh})
+        assert job.status.name == "DONE", job.last_error
+        _S["basket"] = (db, slug, version, rh)
+    return _S["basket"]
+
+
+def _flux_jobs(db):
+    from sqlalchemy import select
+
+    from brambleloop.core.models import Job
+    from brambleloop.visual import image_production as IP
+
+    with db.session() as s:
+        return [j for j in s.scalars(select(Job).where(Job.job_type == IP.JOB_TYPE))
+                if (j.inputs or {}).get("route") == IP.SP.FLUX_ROUTE]
+
+
+def test_10_a_release_blocked_only_by_publish_time_gates_and_images_is_admitted():
+    """(1) Blocked only by gauge_and_size_claims + etsy_remote_state + image reasons: the
+    real listing.package admits it and enqueues its paid FLUX gallery route."""
+    from brambleloop.publish import listing_package as LP
+    from brambleloop.visual import image_production as IP
+
+    db, slug, version, rh = _basket_packaged()
+    pkg = LP.latest(db, slug, version)
+    blockers = pkg["blockers"]
+    assert pkg["state"] == LP.BLOCKED and blockers, pkg
+    areas = {b.get("publish_time") for b in blockers if b.get("publish_time")}
+    assert areas == PUBLISH_TIME, blockers
+    assert any(b.get("image") is True for b in blockers), blockers
+    assert all(b.get("image") is True or b.get("publish_time") in PUBLISH_TIME
+               for b in blockers), blockers
+    adm = IP.sale_admission(db, slug, version, rh)
+    assert adm["admitted"] is True, adm
+    assert set(adm["publish_time_blockers"]) == PUBLISH_TIME, adm
+    assert "still block publishing" in adm["why"], adm
+    jobs = _flux_jobs(db)
+    assert len(jobs) == 1 and jobs[0].inputs["release"] == rh, [j.inputs for j in jobs]
+
+
+def test_11_the_same_release_plus_any_other_non_image_blocker_is_not_admitted():
+    """(2) The same real package plus one more non-image blocker -- of any kind, including an
+    unattributable one, a first-customer area off the allow-list, and a forged publish_time
+    tag from another source -- is not admitted. (The real-gate version is test_9.)"""
+    from brambleloop.publish import listing_package as LP
+    from brambleloop.visual import image_production as IP
+
+    db, slug, version, rh = _basket_packaged()
+    real = LP.latest(db, slug, version)
+    extras = [
+        {"source": "release_gates.for_publish", "why": "LISTING_PRICE_NOT_PLAN: off plan"},
+        {"source": "release_gates.for_publish", "why": "FIRST_CUSTOMER_BLOCKING: "
+         "listing_claims: UNRESOLVED -- x"},
+        {"source": "release_gates.for_publish", "publish_time": "listing_claims", "why": "x"},
+        {"source": "release_gates.for_publish", "publish_time": "imagery", "why": "x"},
+        {"source": "release_gates.for_publish", "publish_time": True, "why": "x"},
+        {"source": "certified_payload", "publish_time": "etsy_remote_state", "why": "x"},
+        {"source": "assets.build", "why": "no assets.build certifies PDFs"},
+        "an unattributable blocker",
+        {},
+    ]
+    real_latest = LP.latest
+    try:
+        for extra in extras:
+            # test_double: the recorded package, plus one extra blocker
+            LP.latest = lambda *a, _e=extra, **k: {**real, "blockers": real["blockers"] + [_e]}
+            adm = IP.sale_admission(db, slug, version, rh)
+            assert adm["admitted"] is False, (extra, adm)
+            assert adm["non_image_blockers"] == [extra], (extra, adm)
+    finally:
+        LP.latest = real_latest
+    assert IP.sale_admission(db, slug, version, rh)["admitted"] is True
+
+
+def test_12_the_publish_path_still_refuses_on_both_publish_time_gates():
+    """(3) Admission for images changes nothing at publication: for_publish still lists both
+    gates and blocks, and store.publish (real release gates, real Launch-0 scope gate)
+    refuses with both reasons and makes no Etsy request."""
+    import test_search_hero_publish as SH
+    from brambleloop.core.models import JobStatus, Phase
+    from brambleloop.publish import eligibility
+    from brambleloop.publish import release_gates as RG
+    from tests.fake_etsy import FakeEtsy
+
+    db, slug, version, rh = _basket_packaged()
+    verdict = RG.for_publish(db, slug=slug, version=version, read_only=True,
+                             stage=RG.STAGE_ACTIVATION)
+    assert verdict["blocks_release"] is True
+    gated = RG.publish_time_reasons(verdict)
+    assert set(gated.values()) == PUBLISH_TIME, gated
+    assert all(r in verdict["reasons"] for r in gated), (gated, verdict["reasons"])
+    real_scope = eligibility.product_publication
+    with FakeEtsy() as fake, SH._owner_and_fake(fake):
+        eligibility.product_publication = real_scope   # the Launch-0 scope gate runs for real
+        SH._grant(db, version, rh, slug=slug)
+        job = SH._run(db, "store_operator", "store.publish",
+                      {"slug": slug, "version": version, "release": rh},
+                      phase=Phase.LIMITED_PRODUCTION)
+        out = job.outputs or {}
+        assert job.status is not JobStatus.DONE or out.get("published") is not True, out
+        said = (job.last_error or "") + str(out)
+        for area in PUBLISH_TIME:
+            assert f"FIRST_CUSTOMER_BLOCKING: {area}:" in said, (area, said[:2000])
+        assert SH._creates(fake) == [] and not fake.received_images, fake.requests
+
+
+def test_13_the_allow_list_is_what_admits():
+    """(4) The allow-list is load-bearing: emptied, the release of test_10 is not admitted;
+    and only the two named areas are on it."""
+    from brambleloop.publish import release_gates as RG
+    from brambleloop.visual import image_production as IP
+
+    assert RG.PUBLISH_TIME_AREAS == frozenset(PUBLISH_TIME)
+    db, slug, version, rh = _basket_packaged()
+    assert IP.sale_admission(db, slug, version, rh)["admitted"] is True
+    saved = RG.PUBLISH_TIME_AREAS
+    RG.PUBLISH_TIME_AREAS = frozenset()
+    try:
+        adm = IP.sale_admission(db, slug, version, rh)
+        assert adm["admitted"] is False, adm
+        assert {b.get("publish_time") for b in adm["non_image_blockers"]} == PUBLISH_TIME, adm
+        assert RG.publish_time_reasons({"publication_scope": {"reasons": [
+            {"code": "FIRST_CUSTOMER_BLOCKING", "area": "etsy_remote_state", "why": "x"}]}}) \
+            == {}
+    finally:
+        RG.PUBLISH_TIME_AREAS = saved
+    # Read from the structured area, never the text: a reason without an area is not on it.
+    assert RG.publish_time_reasons({"publication_scope": {"reasons": [
+        {"code": "FIRST_CUSTOMER_BLOCKING", "why": "etsy_remote_state: UNVERIFIABLE -- x"},
+        {"code": "OTHER", "area": "etsy_remote_state", "why": "x"},
+        {"code": "FIRST_CUSTOMER_BLOCKING", "area": "imagery", "why": "x"}]}}) == {}
 
 
 if __name__ == "__main__":

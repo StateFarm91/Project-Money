@@ -205,10 +205,16 @@ def assemble(db, slug: str, version: str) -> dict | None:
         # `image`, so the for-sale admission point (`visual.image_production.sale_admission`)
         # can tell "only the gallery is missing" from a product that is not for sale.
         visual = release_gates.image_reasons(gate)
+        # D-MAIN-IMAGE-ADMISSION: an allow-listed publish-time / store-wide gate is tagged
+        # with its area. It still blocks this package (and publishing); it only does not
+        # stop the release being admitted for its images.
+        publish_time = release_gates.publish_time_reasons(gate)
         for reason in gate.get("reasons") or []:
             b = {"source": "release_gates.for_publish", "why": str(reason)[:300]}
             if str(reason) in visual:
                 b["image"] = True
+            elif str(reason) in publish_time:
+                b["publish_time"] = publish_time[str(reason)]
             blockers.append(b)
 
     payload, err = _try(etsy_ops.certified_payload, db, slug, version)

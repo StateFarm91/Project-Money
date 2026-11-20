@@ -838,7 +838,10 @@ def product_publication(db, slug: str, version: str, *, listing=None, frames=Non
         blocking = first_customer(CIR.from_dict(cir_json), listing=listing, frames=frames,
                                   store=store, db=db, version=version)
         for check in blocking:
-            reasons.append({"code": FIRST_CUSTOMER_BLOCKING,
+            # D-MAIN-IMAGE-ADMISSION: the area travels with the reason, so the for-sale
+            # admission reads it from data (`release_gates.publish_time_reasons`), never by
+            # matching the text.
+            reasons.append({"code": FIRST_CUSTOMER_BLOCKING, "area": check["area"],
                             "why": f"{check['area']}: {check['state']} -- "
                                    f"{str(check['detail'])[:200]}"})
     return {"slug": slug, "version": version, "publishable": not reasons,

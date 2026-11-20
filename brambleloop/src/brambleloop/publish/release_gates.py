@@ -2024,6 +2024,32 @@ def image_reasons(verdict: dict | None) -> set[str]:
     return out
 
 
+# D-MAIN-IMAGE-ADMISSION: the publish-time / store-wide first-customer gates. Both still
+# block PUBLISHING exactly as before (they stay in `for_publish`'s reasons); they do not stop a
+# release being admitted for its paid images, because neither is about the product's pattern
+# truth: `gauge_and_size_claims` waits on a physical sample (an owner action) and
+# `etsy_remote_state` is a store-wide integration check (UNVERIFIABLE until Etsy is read).
+# An explicit allow-list of first-customer AREAS, read from the structured reason -- never a
+# pattern over the text. Any area not listed here stays a non-image blocker.
+PUBLISH_TIME_AREAS = frozenset({"gauge_and_size_claims", "etsy_remote_state"})
+
+
+def publish_time_reasons(verdict: dict | None) -> dict[str, str]:
+    """The reasons of a `for_publish` verdict that come from an allow-listed publish-time gate
+    (`PUBLISH_TIME_AREAS`), mapped to that gate's area. Read from the product scope's structured
+    reasons (`eligibility.product_publication`), so a reason whose area is missing, or not on
+    the list, is not here -- it stays non-image, and unknown never admits."""
+    from .eligibility import FIRST_CUSTOMER_BLOCKING
+
+    scope = (verdict or {}).get("publication_scope") or {}
+    out: dict[str, str] = {}
+    for r in scope.get("reasons") or []:
+        if (isinstance(r, dict) and r.get("code") == FIRST_CUSTOMER_BLOCKING
+                and isinstance(r.get("area"), str) and r["area"] in PUBLISH_TIME_AREAS):
+            out[f"{r['code']}: {r['why']}"] = r["area"]
+    return out
+
+
 def our_competitive_reading(db, *, slug: str, version: str, key: str) -> float | None:
     """This listing's own reading on one CompetitiveStandard, or None when unmeasurable."""
     from sqlalchemy import select

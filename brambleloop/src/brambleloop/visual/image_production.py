@@ -250,7 +250,8 @@ _SALE_WAITS = "_sale_waits"
 def sale_admission(db, slug: str, version: str, release: str) -> dict:
     """Whether `slug@version@release` is selected for sale: the product is not rejected or
     withdrawn, and the recorded listing package for exactly this release has no blocker other
-    than its images. Anything unreadable is not admitted (unknown never admits)."""
+    than its images and the allow-listed publish-time gates (D-MAIN-IMAGE-ADMISSION), which
+    still block publishing. Anything unreadable is not admitted (unknown never admits)."""
     def no(why: str, **kw) -> dict:
         return {"admitted": False, "why": why, **kw}
 
@@ -279,14 +280,36 @@ def sale_admission(db, slug: str, version: str, release: str) -> dict:
     blockers = pkg.get("blockers")
     if not isinstance(blockers, list):
         return no("listing package blockers unreadable")
-    other = [b for b in blockers if not (isinstance(b, dict) and b.get("image") is True)]
+    other = [b for b in blockers if not _admissible_blocker(b)]
     if other:
         return no(f"{len(other)} non-image listing gate(s) not PASS: "
                   + "; ".join(str((b or {}).get("why") if isinstance(b, dict) else b)[:120]
                               for b in other[:3]),
                   non_image_blockers=other[:10])
-    return {"admitted": True, "why": "every non-image listing gate is PASS",
-            "image_blockers": len(blockers), "lifecycle": stage}
+    publish_time = sorted({b["publish_time"] for b in blockers if not b.get("image") is True})
+    return {"admitted": True,
+            "why": ("every non-image listing gate is PASS" if not publish_time else
+                    "every non-image listing gate is PASS except the publish-time gate(s) "
+                    f"{', '.join(publish_time)}, which still block publishing"),
+            "image_blockers": sum(1 for b in blockers if b.get("image") is True),
+            "publish_time_blockers": publish_time, "lifecycle": stage}
+
+
+def _admissible_blocker(b) -> bool:
+    """A listing-package blocker that does not stop admission for images: one the images
+    cause (`image: True`), or one from an allow-listed publish-time / store-wide gate
+    (D-MAIN-IMAGE-ADMISSION; `release_gates.PUBLISH_TIME_AREAS`). Both still block
+    publishing. Anything else -- including a blocker that cannot be attributed -- is a
+    non-image blocker and never admits."""
+    if not isinstance(b, dict):
+        return False
+    if b.get("image") is True:
+        return True
+    from ..publish.release_gates import PUBLISH_TIME_AREAS
+
+    area = b.get("publish_time")
+    return (b.get("source") == "release_gates.for_publish" and isinstance(area, str)
+            and area in PUBLISH_TIME_AREAS)
 
 
 def _park_for_sale(db, key: str, stage: str, adm: dict) -> dict:

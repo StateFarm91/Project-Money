@@ -103,6 +103,12 @@ def _run(db, agent: str, job_type: str, inputs: dict, *, phase=Phase.SHADOW) -> 
         return row
 
 
+# The product whose disclosed set plus verified supplements certifies the complete gallery
+# (D-OWNER-GALLERY-COMPLETE); the blanket's certifies six frames and is refused before Etsy.
+FULL_SLUG = "housewarming-key-basket"
+FULL_CATEGORY = "basket"
+
+
 def _chain(slug: str = SLUG, category: str = "baby_blanket"):
     """certify -> assets.build -> listing.seo, through the real handlers. Returns a db path.
 
@@ -148,10 +154,10 @@ def _chain(slug: str = SLUG, category: str = "baby_blanket"):
     return copy, version, rh
 
 
-def _profile(db) -> ListingSearchProfile:
+def _profile(db, slug: str = SLUG) -> ListingSearchProfile:
     with db.session() as s:
         row = s.scalar(select(ListingSearchProfile).where(
-            ListingSearchProfile.product_slug == SLUG))
+            ListingSearchProfile.product_slug == slug))
         s.expunge(row)
         return row
 
@@ -229,9 +235,12 @@ def _creates(fake) -> list:
 # ---------------------------------------------------------------------------- the merits
 
 def test_certify_assets_seo_grant_publish_creates_exactly_one_draft_with_no_forced_verdict():
-    path, version, rh = _chain()
+    # Review b18-a A-1: D-OWNER-GALLERY-COMPLETE refuses a gallery below CAMPAIGN_MIN_FRAMES,
+    # so the draft is driven with the product whose disclosed set certifies the complete
+    # gallery (as test_visual_factory_e2e does); the 6-frame blanket is asserted blocked below.
+    path, version, rh = _chain(FULL_SLUG, FULL_CATEGORY)
     db = Database(f"sqlite:///{path}")
-    row = _profile(db)
+    row = _profile(db, FULL_SLUG)
     # listing.seo judged the hero on the certified disclosed set and wrote PASS back, with
     # the evidence it used, bound to this release.
     assert row.verdict == "PASS", (row.verdict, row.certificate.get("reasons"))
@@ -245,13 +254,13 @@ def test_certify_assets_seo_grant_publish_creates_exactly_one_draft_with_no_forc
         assert frame1["sha256"] == ev["frame_1_sha256"]
         assert frame1["kind"] == "disclosed_render"
     assert cert["bound_fingerprint"] == row.fingerprint
-    payload = etsy_ops.certified_payload(db, SLUG, version)
+    payload = etsy_ops.certified_payload(db, FULL_SLUG, version)
     assert payload.taxonomy_id == row.taxonomy_id
 
     with FakeEtsy() as fake, _owner_and_fake(fake):
-        grant = _grant(db, version, rh)
+        grant = _grant(db, version, rh, slug=FULL_SLUG)
         job = _run(db, "store_operator", "store.publish",
-                   {"slug": SLUG, "version": version, "release": rh},
+                   {"slug": FULL_SLUG, "version": version, "release": rh},
                    phase=Phase.LIMITED_PRODUCTION)
         assert job.status is JobStatus.DONE, job.last_error
         assert job.outputs.get("published") is True, job.outputs
@@ -273,10 +282,20 @@ def test_certify_assets_seo_grant_publish_creates_exactly_one_draft_with_no_forc
         assert uploaded == certified, (uploaded, certified)
         assert len(fake.images[lid]) == len(certified) > 3, len(fake.images[lid])
     with db.session() as s:
-        listing = s.scalar(select(Listing).where(Listing.product_slug == SLUG))
+        listing = s.scalar(select(Listing).where(Listing.product_slug == FULL_SLUG))
         assert str(listing.etsy_listing_id) == str(lid)
     assert grant
     db.engine.dispose()
+
+    # The 6-frame blanket stays blocked: its certified gallery is incomplete.
+    from brambleloop.visual.shot_plans import CAMPAIGN_MIN_FRAMES
+
+    bpath, bversion, brh = _chain()
+    bdb = Database(f"sqlite:///{bpath}")
+    blanket = etsy_ops.certified_frames(bdb, SLUG, bversion, release=brh)
+    assert 0 < len(blanket["frames"]) < CAMPAIGN_MIN_FRAMES, blanket
+    assert any(str(p).startswith("gallery incomplete") for p in blanket["problems"]), blanket
+    bdb.engine.dispose()
 
 
 # ---------------------------------------------------------------------------- refusals
