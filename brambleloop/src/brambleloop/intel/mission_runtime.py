@@ -1710,7 +1710,7 @@ def veto_subjects(slug: str) -> tuple[str, ...]:
     return (slug, f"product:{slug}", f"listing:{slug}", f"flagship:{slug}", f"model:{slug}")
 
 
-def active_veto(db, slug: str) -> dict:
+def active_veto(db, slug: str, rulings=None) -> dict:
     """Whether the owner's latest ruling on this product is a veto (#228).
 
     A veto is read where it has force: the publish gate, certification and the asset gate
@@ -1721,10 +1721,20 @@ def active_veto(db, slug: str) -> dict:
 
     from ..core.models import OwnerVeto
 
-    subjects = veto_subjects(slug)
+    if rulings is not None:  # the caller already loaded the rulings (one read, not one per row)
+        return veto_ruling(rulings, slug)
     with db.session() as s:
-        rows = [r for r in s.scalars(select(OwnerVeto).order_by(OwnerVeto.id))
-                if r.subject_ref in subjects or r.subject_ref.startswith(f"asset:{slug}")]
+        rows = [r for r in s.scalars(select(OwnerVeto).order_by(OwnerVeto.id))]
+    return veto_ruling(rows, slug)
+
+
+def veto_ruling(rows, slug: str) -> dict:
+    """`active_veto`'s decision over already-loaded rulings (ordered by id; each needs
+    `subject_ref`, `owner_vetoed`, `id`, `scope`, `reason`). Shared so a caller that loads
+    the rulings once (the production inventory's cold read) decides exactly as `active_veto`."""
+    subjects = veto_subjects(slug)
+    rows = [r for r in rows
+            if r.subject_ref in subjects or r.subject_ref.startswith(f"asset:{slug}")]
     if not rows:
         return {"vetoed": False, "rulings": 0}
     latest = rows[-1]

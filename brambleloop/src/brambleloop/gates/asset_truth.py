@@ -109,12 +109,15 @@ _APPROPRIATED: tuple[str, ...] = (
 
 
 
-def _colours_worked(cir: CIR) -> set[str]:
-    """Every colour any row (or stitch) of any piece of the design works, repeats included."""
+def _colours_worked(cir: CIR, components=None) -> set[str]:
+    """Every colour any row (or stitch) of the named pieces works (all pieces when None),
+    repeats included."""
     from ..cir.model import op_colours
 
     out: set[str] = set()
     for comp in cir.components:
+        if components is not None and comp.name not in components:
+            continue
         for row in comp.rows:
             if row.color:
                 out.add(row.color)
@@ -198,7 +201,12 @@ def check_asset(
     # ENG-PLUSH: every colour any piece works, as with the stitches above. The hero twin is
     # the first piece; a toy whose ears are worked in the contrast colour was refused as
     # depicting a colour "the pattern does not use".
-    real_colors = (set(twin.colors_used) | _colours_worked(cir)) or set(cir.colors)
+    # ENG-PLUSH-FIX (review L4): an asset that names the pieces it depicts may show only the
+    # colours THOSE pieces work (plus the twin's), so an image of the body alone cannot show a
+    # colour that is worked only on an ear. An asset that names no piece depicts the whole
+    # design, so every piece's colours are real for it.
+    depicted = set(asset.depicts_components) or None
+    real_colors = (set(twin.colors_used) | _colours_worked(cir, depicted)) or set(cir.colors)
     for c in asset.depicts_colors:
         if c not in real_colors:
             out.append(Finding(

@@ -2871,7 +2871,11 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
         profile = _child_safety.profile_for(cir, childrens)
         doc.new_page(head)
         doc.heading(_child_safety.SECTION_HEADING, kicker="Child safety")
-        for heading_, text_ in _child_safety.section_lines(profile):
+        # Review M4: the age statement claims the small-parts geometry only when it is shown.
+        from ..gates import small_parts as _small_parts
+
+        clear = not _small_parts.blocking(cir)
+        for heading_, text_ in _child_safety.section_lines(profile, small_parts_clear=clear):
             if heading_:
                 doc.heading(heading_, size=12)
             doc.para(text_, size=9.5 if heading_ != "Sources" else 9,

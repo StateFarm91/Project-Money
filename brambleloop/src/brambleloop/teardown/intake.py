@@ -190,6 +190,13 @@ def _catalogue_row(db, listing_ref: str):
             BenchmarkListing.benchmark_key == benchmarks.MJS_KEY,
             BenchmarkListing.listing_ref == str(listing_ref)))
         if row is None:
+            # ENG-BENCHBUY: a pick from another watchlist shop is received through the same
+            # quarantined intake. Etsy listing ids are unique across shops, so the reference
+            # alone finds it; the shop it came from is carried with the row.
+            row = s.scalar(select(BenchmarkListing).where(
+                BenchmarkListing.listing_ref == str(listing_ref))
+                .order_by(BenchmarkListing.id).limit(1))
+        if row is None:
             return None
         # Detached use; copy what intake needs rather than keeping a session open across the
         # filesystem work.
@@ -198,6 +205,7 @@ def _catalogue_row(db, listing_ref: str):
             "product_type": row.product_type, "price_cad": float(row.price_cad or 0.0),
             "on_sale": bool(row.on_sale), "media_count": int(row.media_count or 0),
             "seasonal": row.seasonal, "url": row.url, "detail": dict(row.detail or {}),
+            "benchmark_key": row.benchmark_key,
         }
 
 
@@ -365,7 +373,11 @@ def receive(db, listing_ref: str, uploads: list[tuple[str, bytes]], *,
             f"{len(expanded)} files is past the {MAX_FILES_PER_PURCHASE} a purchase is "
             f"expected to contain")
 
-    ref = f"mjs-{str(listing_ref).strip()}"
+    # Mrs J's purchases keep their `mjs-` prefix; another shop's carry its own key, so a
+    # purchase's folder says whose it is.
+    shop_key = row.get("benchmark_key") or benchmarks.MJS_KEY
+    ref = (f"mjs-{str(listing_ref).strip()}" if shop_key == benchmarks.MJS_KEY
+           else f"{shop_key}-{str(listing_ref).strip()}")
     root = library.library_root(env)
     folder = (root / ref).resolve()
     if root not in folder.parents:
@@ -383,9 +395,16 @@ def receive(db, listing_ref: str, uploads: list[tuple[str, bytes]], *,
 
     promises = promises_from_listing(row)
     price = float(paid_cad) if paid_cad is not None else float(row["price_cad"])
-    scan = library.scan(folder, ref=ref, seller=benchmarks.MJS_SHOP,
+    seller = benchmarks.MJS_SHOP
+    if shop_key != benchmarks.MJS_KEY:
+        from ..intel import watchlist
+
+        member = watchlist.BY_KEY.get(shop_key)
+        seller = member.shop_name if member is not None else shop_key
+    scan = library.scan(folder, ref=ref, seller=seller,
                         listing_ref=str(listing_ref), paid_cad=price)
-    why = _why_selected(db, str(listing_ref)) or (
+    why = (_why_selected(db, str(listing_ref)) if shop_key == benchmarks.MJS_KEY else
+           "selected from the benchmark shopping list (capability gap / owner demand)") or (
         f"selected into the approved {SET_SIZE}-pattern benchmark set")
 
     product_id = library.register(

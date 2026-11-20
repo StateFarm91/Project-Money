@@ -5720,6 +5720,18 @@ def api_readback_evidence() -> JSONResponse:
                         headers={"Cache-Control": "no-store"})
 
 
+@app.get("/api/readback/ecrs")
+def api_readback_ecrs() -> JSONResponse:
+    """ENG-IMPROVE: open engineering change requests, for the integrator's routine to fetch and
+    launch builder sessions from. Authenticated ONLY by `BRAMBLELOOP_READBACK_TOKEN`
+    (`security.READBACK_ROUTES`); GET/HEAD only. Read-only and projected
+    (`improve.ecr.readback`): generated problem statements, counts, ids and states -- no
+    lesson text, payloads, owner or customer data. Production never edits code itself."""
+    from ..improve import ecr
+
+    return JSONResponse(ecr.readback(db), headers={"Cache-Control": "no-store"})
+
+
 @app.get("/api/verify/smoke")
 def api_verify_smoke() -> JSONResponse:
     """F-171: the production smoke matrix on its own (ops/smoke.py). 200 only on PASS; FAIL

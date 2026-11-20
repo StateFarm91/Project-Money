@@ -791,15 +791,32 @@ def sample_photo_lead(db, *, slug: str, version: str, frames, cir) -> dict | Non
             "qa": qa, "position": lead.position}
 
 
-def _disclosed_mobile(rec: dict) -> dict | None:
-    """The disclosed render set's mobile-context QA (#66), or None if it was never run."""
+def _disclosed_mobile(rec: dict, *, store_root=None) -> dict | None:
+    """The disclosed render set's mobile-context QA (#66), with every stored render verified
+    on file now; None if the export never ran it."""
+    from ..core.artifacts import ArtifactStore
+
     mob = (rec.get("qa") or {}).get("mobile")
     if not mob:
         return None
-    return ({k: mob.get(k) for k in ("ok", "complete", "not_rendered", "why",
-                                     "title_safe_ink_by_position", "missing_bytes")}
-            | {"render_refs": {n: (r or {}).get("render_ref")
-                               for n, r in (mob.get("contexts") or {}).items()}})
+    refs = {n: _bare_sha((r or {}).get("render_ref"))
+            for n, r in (mob.get("contexts") or {}).items()}
+    store = ArtifactStore(store_root)
+    missing = sorted(n for n, r in refs.items() if not r or not store.exists(r))
+    out = {k: mob.get(k) for k in ("ok", "complete", "not_rendered", "why",
+                                   "title_safe_ink_by_position", "missing_bytes")}
+    if missing:
+        out.update(ok=False, complete=False,
+                   not_rendered=sorted(set(out.get("not_rendered") or []) | set(missing)),
+                   why=f"render(s) not on file: {missing}")
+    return out | {"render_refs": refs}
+
+
+def _bare_sha(ref):
+    """disclosed_listing writes refs as 'sha256:<hex>'; the frames path and ArtifactStore
+    address bytes by the bare hex digest. One form, so publish verifies either path."""
+    ref = str(ref or "")
+    return ref.split(":", 1)[1] if ref.startswith("sha256:") else (ref or None)
 
 
 def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, rec: dict,
@@ -841,6 +858,15 @@ def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, re
     gate_results = ls.disclosed_gate_results(rec, exported=bool(images) and not any(
         r.startswith("disclosed export") for r in reasons), dimensions_ok=dim["ok"],
         supplement_qa=supplement_qa if supplements else None)
+
+    # #66: the shopper contexts the export rendered must still be on file. A missing render
+    # reads not_rendered, blocks the set and leaves COMMERCIAL_QA not_run (the frames path's
+    # rule), so publish never ships a set whose context QA it cannot verify.
+    mobile_qa = _disclosed_mobile(rec, store_root=store_root)
+    if mobile_qa is not None and not mobile_qa["complete"]:
+        gate_results = {**dict(gate_results), "COMMERCIAL_QA": "not_run"}
+        reasons.append(f"mobile QA (#66): {len(mobile_qa['not_rendered'] or [])} context(s) "
+                       f"not rendered or not on file: {mobile_qa['not_rendered']}")
 
     # W-VISNEXT: generated ListingAsset frames are judged per their role, not ignored. A
     # refused one is excluded from the certified set and reported. One that passed its gates
@@ -902,7 +928,7 @@ def disclosed_listing_set(db, *, slug: str, version: str, cir, twin, listing, re
         # #66: the disclosed export rendered and stored the four shopper contexts
         # (disclosed_listing's QA); report them in the same shape as the frames path, so the
         # QA stage's `listing.mobile_qa` record and store.publish read one contract.
-        "mobile": _disclosed_mobile(rec),
+        "mobile": mobile_qa,
         "certificate": cert,
         "generated_frames": [{k: g.get(k) for k in ("position", "role", "job", "may_export",
                                                     "why")} for g in generated],

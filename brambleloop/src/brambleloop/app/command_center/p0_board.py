@@ -409,6 +409,22 @@ def blockers(db, now):
     return build_section
 
 
+def owner_queue(db, now):
+    """ENG-APPROVALS: owner exceptions open; cards closed automatically and routine operations
+    auto-approved under D-OWNER-STANDING-INTERNAL in the last 24 hours."""
+    from ...ops import owner_queue_consolidate as oqc
+
+    got = oqc.counts(db, now=now)
+
+    def build_section(deployed):
+        active = (got["closed_automatically_24h"] + got["routine_auto_approved_24h"]) > 0
+        return {"state": "CLEAR" if not got["owner_exceptions_open"] else "OPEN", **got,
+                **_level(deployed, running=active,
+                         why={RUNNING: "the standing authority moved an owner card in the "
+                                       "last 24 hours"})}
+    return build_section
+
+
 def agents(db, now):
     from ...app.command_center import company
 
@@ -425,10 +441,40 @@ def agents(db, now):
     return build_section
 
 
+def research_sources(db, now):
+    """ENG-RESEARCH: every registered research source with its agent, method, status, last
+    attempt and success, freshness, failures and backoff, and what it led to (findings ->
+    concepts -> engineering); plus the loop's stages and its latest recorded conclusion."""
+    from ...intel import research_flow
+
+    ev = research_flow.evidence(db, now=now)
+
+    def build_section(deployed):
+        srcs = ev["sources"]
+        shops = [r for r in srcs if r["kind"] == "shop"]
+        fresh = [r for r in shops if r.get("last_success") and not r.get("stale")]
+        down = [r for r in srcs if r["status"] != research_flow.SCHEDULED]
+        concl = ev.get("conclusion") or {}
+        return {"state": ("OK" if not down and len(fresh) == len(shops) and concl
+                          else "DEGRADED"),
+                "counts": ev["counts"], "credential": ev["credential"],
+                "sources": srcs, "loop": ev["loop"], "conclusion": ev["conclusion"],
+                "limitations": [{"id": r["id"], "status": r["status"], "why": r["why"]}
+                                for r in down],
+                **_level(deployed, running=bool(fresh) and bool(concl),
+                         verified=bool(concl) and ev["loop"]["in_engineering"] > 0,
+                         why={RUNNING: "a watchlist shop scanned inside its cadence and the "
+                                       "research loop recorded a conclusion",
+                              PROD_VERIFIED: "a research opportunity reached engineering "
+                                             "(a cir.draft job exists for it)"})}
+    return build_section
+
+
 SECTIONS = (("running", running), ("shops", shops), ("opportunities", opportunities),
             ("development", development), ("releases", releases), ("assets", assets),
             ("etsy", etsy), ("sales", sales), ("costs", costs), ("blockers", blockers),
-            ("agents", agents))
+            ("owner_queue", owner_queue), ("agents", agents),
+            ("research_sources", research_sources))
 
 
 def view(db, *, now: datetime | None = None) -> dict:

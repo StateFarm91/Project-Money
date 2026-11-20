@@ -1,4 +1,3 @@
-// APPROVALS (F-885 evidence-backed inbox, F-886 one-tap actions, F-887 step-up).
 import { h, clear } from "../dom.js";
 import { api } from "../api.js";
 import { card, statusPill, sourcesList, guardedAction, toast, freshness, releaseNote } from "../components.js";
@@ -6,7 +5,6 @@ import { formatMoney, relTime, utcStamp, humanize, UNKNOWN_TEXT } from "../forma
 import { sectionsOf, pageMeta, renderSection, backLink, tabStatus } from "./_shared.js";
 import { rankDecisions, decideFirstCard } from "./_decisions.js";
 
-// Every field F-885 requires on a card, in reading order. A missing one is shown as missing.
 const FIELDS = [
   ["recommendation", "Agent recommendation"],
   ["uncertainty", "Uncertainty"],
@@ -46,20 +44,11 @@ function actionLabel(action) {
   return { approve: "Approve", preview: "Preview", revoke: "Revoke", defer: "Defer", acknowledge: "Acknowledge" }[verb] || humanize(verb);
 }
 
-// ENG-FIRSTLIST: a server card names a value the owner must first read with a preview as
-// "<from x.preview>" (expected_digest). It was sent verbatim, so every publication, activation
-// and launch-decision approval from this screen was refused ("approval preview changed").
-// The digest the card's own preview returned is substituted; with none yet, null is returned
-// and the caller asks the owner to preview first. Pure, so a test can run it.
-// Assign 7012067586 L2: a digest belongs to one preview of one action WITH its params, so two
-// preview buttons on a card (or a re-preview with other params) never lend each other a digest.
-// `previewParams` maps a preview action's name to the params that card sends with it.
 export function previewKey(action, params) {
   const p = params || {};
   return `${action}|${JSON.stringify(Object.keys(p).sort().map((k) => [k, p[k]]))}`;
 }
 
-// L3: every preview verb ("preview", "review_preview", ...) is a preview.
 export function isPreviewVerb(verb) {
   return /preview/.test(String(verb || ""));
 }
@@ -110,7 +99,6 @@ function approvalCard(c, { stale, rerender, open = false, readAt = null }) {
         try {
           const r = await api.action(a.action, a.params || {});
           const res = (r && r.result) || {};
-          // L3: policy.review_preview names its digest `review_digest`.
           const dg = (typeof res.digest === "string" && res.digest) ? res.digest
             : (typeof res.review_digest === "string" && res.review_digest) ? res.review_digest : "";
           if (dg) digests[key] = dg;
@@ -148,7 +136,6 @@ function approvalCard(c, { stale, rerender, open = false, readAt = null }) {
     h("header", { class: "card-head" },
       h("div", null, h("p", { class: "tile-label" }, c.kind || "DECISION"), h("h2", { class: "card-title" }, c.title || "Untitled proposal")),
       statusPill(c.executable === false ? "BLOCKED" : "PENDING", c.executable === false ? "NOT EXECUTABLE" : "AWAITING YOU")),
-    // W4-CCGAP: when this card's state was read (the inbox is computed live on each load).
     h("p", { class: "card-meta" }, "Inbox read: ", freshness(c.as_of || readAt || null)),
     h("p", { class: "proposal" }, c.proposed_action || "Proposed action not stated."),
     h("details", { class: "review", open },
@@ -165,9 +152,6 @@ function approvalCard(c, { stale, rerender, open = false, readAt = null }) {
       sourcesList(c.sources)));
 }
 
-// W4-OWNER: the owner's decisions consolidated into batches, answered batch by batch. Every
-// decision states why, evidence, max cost (UNKNOWN when not costed, never CA$0), yes / no-or-
-// delay consequence and minutes. Read-only here: deciding happens on the cards below.
 function decisionRow(d) {
   const kv = [["Why", d.why], ["Evidence", d.evidence], ["Max cost", d.max_cost || UNKNOWN_TEXT],
     ["If yes", d.consequence_of_yes], ["If no / delay", d.consequence_of_no],
@@ -197,7 +181,6 @@ function batchesCard(env) {
         h("span", { class: "muted small" }, ` · ${b.decisions ?? UNKNOWN_TEXT} decision(s) · max ${b.max_cost || UNKNOWN_TEXT} · ${typeof b.minutes_total === "number" ? `${b.minutes_total} min` : "minutes unknown"}`)),
       b.why_batched ? h("p", { class: "muted small" }, b.why_batched) : null,
       h("ul", { class: "rows" }, (b.items || []).map(decisionRow)))),
-    // W4-CCGAP: decisions only the release packet lists; never added to the live count.
     extra.length ? h("details", { class: "review release-only" },
       h("summary", null, h("strong", null, `Also in the release packet, not tracked live (${env.release_only_decisions ?? UNKNOWN_TEXT})`)),
       releaseNote(env),
@@ -207,9 +190,6 @@ function batchesCard(env) {
     sourcesList(env.sources));
 }
 
-// W4-CCREL: the release approval card. What the owner needs before authorising a deploy:
-// candidate SHA, full-suite result, security review and rollback target, each with its state
-// and source. UNKNOWN evidence is shown as UNKNOWN, never as a pass. Read-only here.
 function releaseCard(env) {
   if (!env) return null;
   const items = Array.isArray(env.items) ? env.items : [];
@@ -228,7 +208,6 @@ function releaseCard(env) {
   h("p", { class: "muted small" }, "Nothing deploys from this screen: the integrator deploys after your recorded authorisation, and the rollback target is the only commit a rollback may use."));
 }
 
-// W4-GATESB: decisions not asked yet, each with what makes it askable (never a card to answer).
 function notYetAskableCard(env) {
   if (!env) return null;
   const items = Array.isArray(env.items) ? env.items : [];
@@ -244,9 +223,6 @@ function notYetAskableCard(env) {
     sourcesList(env.sources));
 }
 
-// W-ADOPT (E-4): link a listing made by hand in Etsy Shop Manager to its certified release.
-// The server reads the listing from Etsy (never writes), records VERIFIED or UNVERIFIED with
-// every difference, and blocks a second automated listing for that release. Step-up required.
 function adoptListingCard() {
   const inp = (id, placeholder) => h("input", { id, type: "text", placeholder, required: true });
   const lid = inp("adopt-listing-id", "Etsy listing id, from the listing URL");
@@ -282,9 +258,6 @@ function adoptListingCard() {
     subtitle: "For a listing you published yourself in Shop Manager" }, form, out, baselineForm(lid, slug, version));
 }
 
-// W-ADOPT-2: accept an adopted listing's live copy (your Shop Manager edits) as the baseline
-// the daily census compares against. Preview first: it reads Etsy, runs the Product Truth and
-// disclosure checks and shows a digest; Accept binds that digest and needs step-up.
 function baselineForm(lid, slug, version) {
   const out = h("div", { class: "preview-out" });
   let shown = null;
@@ -334,8 +307,6 @@ export async function render({ params, rerender }) {
   const data = result.data || {};
   const cards = Array.isArray(data.cards) ? data.cards : [];
   const s = sectionsOf(data);
-  // W4-CCUX: top decisions first. The ranked summary leads; the full cards follow in the same
-  // order (so the first open card is the most urgent), then the batch queue.
   const ranked = rankDecisions(cards, data.decision_batches);
   const order = new Map(ranked.filter((d) => d.kind === "card").map((d, i) => [d.id, i]));
   const sorted = cards.map((c, i) => [c, i]).sort(([a, ia], [b, ib]) =>
@@ -354,7 +325,6 @@ export async function render({ params, rerender }) {
       meta: h("p", { class: "card-meta" }, "Inbox read: ", freshness(data.generated_at || null, { stale: result.stale, fetchedAt: result.fetchedAt })) }),
     sorted.length ? sorted.map((c, i) => approvalCard(c, { stale: result.stale, rerender, open: i === 0, readAt: data.generated_at || null }))
       : card({ title: "Nothing needs your decision" }, h("p", { class: "muted" }, "No approval cards are waiting. The company keeps working on everything that is not gated.")),
-    // W4-LAUNCHFIX: Etsy policy page readings are recorded on their own view.
     card({ title: "Etsy policy readings" }, h("p", null, h("a", { href: "#/policy" }, "Record your reading of each Etsy policy page"))),
     releaseCard(data.release),
     adoptListingCard(),

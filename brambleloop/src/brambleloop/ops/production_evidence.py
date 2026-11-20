@@ -1025,7 +1025,333 @@ def first_listing_readiness(db, *, now: datetime) -> dict:
             "releases": releases[:30]}
 
 
+# ---- ENG-VISUAL: the listing-image and PDF factory, from persisted rows only ---------------
+
+UNKNOWN_COUNT = "UNKNOWN"
+# A blocked image run's reason is free text; it is grouped into this fixed vocabulary and
+# never emitted. Matched in order, case-insensitively; the first family that matches wins.
+BLOCK_FAMILIES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("identity", ("identity", "biometric", "laura")),
+    ("product_truth", ("product_truth", "fidelity", "motif", "structural floor")),
+    ("budget", ("budget", "spend", "ceiling", "reservation")),
+    ("capability_gate", ("capability", "not enabled", "gate closed", "image_vision",
+                         "image_generation")),
+    ("provider", ("provider", "generator", "flux", "bfl", "timeout", "http")),
+    ("references", ("reference", "outfit")),
+    ("gallery_set", ("set check", "campaign_consistency", "gallery")),
+    ("certified_pattern", ("certified", "certificate", "release")),
+)
+_TECH_STATUSES = ("PASS", "FAIL", "UNKNOWN", "UNMEASURABLE", "NOT_APPLICABLE")
+_CANDIDATE_OUTCOMES = ("accepted", "rejected", "unverified", "provider_error")
+_RUN_STATES = ("awaiting_certified_pattern", "reference_preparation", "product_generation",
+               "lifestyle_generation", "gallery_assembly", "automated_verification",
+               "ready_for_owner_review", "blocked", "approved_for_publication")
+
+
+def block_family(reason) -> str:
+    text = str(reason or "").lower()
+    for family, needles in BLOCK_FAMILIES:
+        if any(n in text for n in needles):
+            return family
+    return "other" if text else "unrecorded"
+
+
+def _has_tables(db, *names) -> dict:
+    from sqlalchemy import inspect
+
+    have = set(inspect(db.engine).get_table_names())
+    return {n: n in have for n in names}
+
+
+def _vp_pdfs(db) -> dict:
+    from sqlalchemy import select
+
+    from ..core.models import PatternVersion, Product
+    from ..runtime.pipeline import _certified_pdf_hashes
+
+    with db.session() as s:
+        rows = list(s.execute(select(Product.slug, PatternVersion.version,
+                                     PatternVersion.release_hash)
+                              .join(PatternVersion, PatternVersion.product_id == Product.id)
+                              .where(PatternVersion.certified == True)  # noqa: E712
+                              .order_by(Product.slug, PatternVersion.id.desc())))
+    both, us_only, uk_only, none, missing = 0, 0, 0, 0, []
+    for slug, version, release in rows:
+        hashes = _certified_pdf_hashes(db, slug, version, release or "") if release else None
+        h = hashes or {}
+        us, uk = bool(h.get("US")), bool(h.get("UK"))
+        if us and uk:
+            both += 1
+        elif us:
+            us_only += 1
+        elif uk:
+            uk_only += 1
+        else:
+            none += 1
+        if not (us and uk) and len(missing) < SLUGS_PER_STAGE:
+            missing.append(f"{slug}@{version}")
+    return {"certified_releases": len(rows), "with_us_and_uk_pdf_hashes": both,
+            "us_only": us_only, "uk_only": uk_only, "no_certified_pdf": none,
+            "releases_missing_a_pdf": missing}
+
+
+def _vp_runs(db) -> dict:
+    from sqlalchemy import select
+
+    from ..visual.image_records import ImageProductionRun as R
+
+    by_state = {k: 0 for k in _RUN_STATES}
+    grouped: dict[str, int] = {}
+    blocked_examples: list[str] = []
+    with db.session() as s:
+        for status, stage, reason, exhausted, slug, version in s.execute(
+                select(R.status, R.stage, R.blocked_reason, R.attempts_exhausted, R.slug,
+                       R.version)):
+            st = status if status in _RUN_STATES else "other"
+            by_state[st] = by_state.get(st, 0) + 1
+            if status == "blocked":
+                stg = stage if isinstance(stage, str) and _SOURCE_NAME.match(stage) else "other"
+                k = f"{stg}:{block_family(reason)}" + (":exhausted" if exhausted else "")
+                grouped[k] = grouped.get(k, 0) + 1
+                if len(blocked_examples) < SLUGS_PER_STAGE:
+                    blocked_examples.append(f"{slug}@{version}")
+    valid = by_state.get("ready_for_owner_review", 0) + by_state.get(
+        "approved_for_publication", 0)
+    return {"runs": sum(by_state.values()), "by_state": by_state,
+            "valid": valid, "blocked": by_state.get("blocked", 0),
+            "blocked_reasons_grouped": dict(sorted(grouped.items())),
+            "blocked_releases": blocked_examples}
+
+
+def _vp_images(db) -> tuple[dict, dict]:
+    from sqlalchemy import select
+
+    from ..visual.image_records import ImageCandidate as C
+
+    tech = {k: 0 for k in _TECH_STATUSES}
+    outcome = {k: 0 for k in _CANDIDATE_OUTCOMES}
+    method: dict[str, int] = {}
+    ident = {"laura_frames": 0, "run": 0, "passed": 0, "failed": 0, "not_run": 0,
+             "unknown": 0, "fixture_only": 0, "biometric_measured": 0}
+    with db.session() as s:
+        for ts, oc, meth, laura, checks in s.execute(
+                select(C.technical_status, C.outcome, C.method, C.laura_present, C.checks)):
+            tech[ts if ts in _TECH_STATUSES else "UNKNOWN"] += 1
+            outcome[oc if oc in _CANDIDATE_OUTCOMES else "unverified"] += 1
+            m = meth if isinstance(meth, str) and _SOURCE_NAME.match(meth) else "other"
+            method[m] = method.get(m, 0) + 1
+            if not laura:
+                continue
+            ident["laura_frames"] += 1
+            idc = (checks or {}).get("identity") if isinstance(checks, dict) else None
+            if not isinstance(idc, dict) or not idc.get("status"):
+                ident["not_run"] += 1
+                continue
+            if idc.get("fixture_only"):
+                # A fixture reading tests the wiring; it is never an identity verification.
+                ident["fixture_only"] += 1
+                ident["not_run"] += 1
+                continue
+            ident["run"] += 1
+            st = str(idc.get("status"))
+            if st == "PASS":
+                ident["passed"] += 1
+            elif st == "FAIL":
+                ident["failed"] += 1
+            else:
+                ident["unknown"] += 1
+            if str((idc.get("biometric") or {}).get("status") or "").upper() in ("PASS",
+                                                                                 "FAIL"):
+                ident["biometric_measured"] += 1
+    images = {"candidates": sum(tech.values()), "by_method": method,
+              "verified": tech["PASS"], "failed": tech["FAIL"],
+              "unmeasurable": tech["UNKNOWN"] + tech["UNMEASURABLE"],
+              "by_technical_status": tech, "by_outcome": outcome}
+    return images, ident
+
+
+def _vp_identity_method() -> dict:
+    """Whether production could run a qualified identity check at all (no row involved)."""
+    out: dict = {}
+    try:
+        from ..visual import canonical
+        from ..visual.vision_judges import SECOND_VISION_TRANSPORT, canonical_reference_bytes
+
+        refs = canonical_reference_bytes()
+        out["identity_id"] = str(getattr(canonical, "IDENTITY_ID", "") or "")[:40]
+        out["canonical_references_expected"] = len(canonical.CURRENT_REFERENCE_HASHES)
+        out["canonical_references_verified"] = sum(1 for v in refs.values() if v)
+        out["second_vision_transport_configured"] = SECOND_VISION_TRANSPORT is not None
+    except Exception as exc:  # noqa: BLE001
+        out["canonical_error_class"] = _safe_class(type(exc).__name__)
+    # Read from the code's own registers (visual.identity_gate): a production-qualified
+    # identity check needs an owner-approved embedder qualification AND a second, independent
+    # vision transport. Unreadable is not qualified.
+    try:
+        from ..visual import identity_gate as ig
+
+        quals = len(ig.PRODUCTION_QUALIFICATIONS)
+    except Exception as exc:  # noqa: BLE001
+        quals = None
+        out["qualification_error_class"] = _safe_class(type(exc).__name__)
+    out["production_embedder_qualifications"] = quals if quals is not None else UNKNOWN_COUNT
+    out["production_qualified"] = bool(
+        isinstance(quals, int) and quals > 0
+        and out.get("second_vision_transport_configured") is True
+        and out.get("canonical_references_verified") == out.get(
+            "canonical_references_expected"))
+    return out
+
+
+def _vp_packages(db) -> dict:
+    from sqlalchemy import select
+
+    from ..core.models import OperatingReading
+    from ..publish import listing_package as lp
+
+    ready, blocked, other, ready_rel, sources = 0, 0, 0, [], {}
+    with db.session() as s:
+        for key, payload in s.execute(select(OperatingReading.period_key,
+                                             OperatingReading.payload)
+                                      .where(OperatingReading.kind == lp.KIND)):
+            p = payload or {}
+            if p.get("state") == lp.READY:
+                ready += 1
+                if len(ready_rel) < SLUGS_PER_STAGE:
+                    ready_rel.append(str(key)[:120])
+            elif p.get("state") == lp.BLOCKED:
+                blocked += 1
+                for b in p.get("blockers") or []:
+                    src = b.get("source") if isinstance(b, dict) else None
+                    if isinstance(src, str) and _SOURCE_NAME.match(src):
+                        sources[src] = sources.get(src, 0) + 1
+            else:
+                other += 1
+    return {"listing_ready": ready, "blocked": blocked, "other": other,
+            "ready_releases": ready_rel, "blocker_sources": dict(sorted(sources.items()))}
+
+
+def _vp_drafts(db) -> dict:
+    """Real Etsy drafts: the newest `store.publish*` audit row per release that names a listing,
+    with what its read-back proved about the files and the images."""
+    from sqlalchemy import select
+
+    from ..core.models import AuditLog
+
+    acts = ("store.published", "store.publish_incomplete")
+    newest: dict[str, dict] = {}
+    with db.session() as s:
+        for art, detail in s.execute(select(AuditLog.artifact, AuditLog.detail)
+                                     .where(AuditLog.action.in_(acts))
+                                     .order_by(AuditLog.id.desc())):
+            d = detail or {}
+            if not art or art in newest or not d.get("etsy_listing_id"):
+                continue
+            newest[art] = d
+    rows = []
+    for art, d in newest.items():
+        rb = d.get("read_back") or {}
+        files = rb.get("files") or {}
+        images = rb.get("images") or {}
+        attached = d.get("files_attached_by_terminology") or {}
+        rows.append({
+            "release": str(art)[:120],
+            "read_back_verified": rb.get("verified") is True,
+            "files_read_back_verified": (files.get("verified") is True
+                                         if isinstance(files, dict) else False),
+            "pdfs_attached": sorted(t for t, v in attached.items()
+                                    if v is True and t in ("US", "UK")),
+            "images_uploaded": _int(d.get("images_uploaded")),
+            "images_read_back_verified": (images.get("verified") is True
+                                          if isinstance(images, dict) else False),
+        })
+    return {"drafts": len(rows),
+            "fully_read_back": sum(1 for r in rows if r["read_back_verified"]
+                                   and r["files_read_back_verified"]
+                                   and set(r["pdfs_attached"]) == {"US", "UK"}
+                                   and r["images_read_back_verified"]),
+            "releases": rows[:30]}
+
+
+def visual_pipeline(db, *, now: datetime) -> dict:
+    """ENG-VISUAL: certified pattern -> PDFs -> images -> identity/product QA -> gallery ->
+    listing package -> Etsy draft, counted from persisted rows only.
+
+    A part that cannot be read is reported as UNKNOWN (never 0), with the class of the reason;
+    a count that has no producer yet (recovered images) is UNKNOWN with `not_measured_because`.
+    No prompt, reason text, image bytes, copy or listing id is emitted."""
+    out: dict = {"readable": True}
+
+    def part(name, fn, *a):
+        try:
+            return fn(*a)
+        except Exception as exc:  # noqa: BLE001 - unreadable is UNKNOWN, never 0
+            return {"readable": False, "count": UNKNOWN_COUNT,
+                    "error_class": _safe_class(type(exc).__name__)}
+
+    out["certified_pdfs"] = part("certified_pdfs", _vp_pdfs, db)
+    try:
+        tables = _has_tables(db, "image_production_runs", "image_candidates")
+    except Exception as exc:  # noqa: BLE001
+        tables = {"image_production_runs": None, "image_candidates": None}
+        out["table_probe_error_class"] = _safe_class(type(exc).__name__)
+    if tables.get("image_production_runs"):
+        out["galleries"] = part("galleries", _vp_runs, db)
+    else:
+        out["galleries"] = {"readable": False, "count": UNKNOWN_COUNT,
+                            "why": "image_production_runs table absent or unprobed"}
+    if tables.get("image_candidates"):
+        try:
+            out["images"], out["laura_identity_checks"] = _vp_images(db)
+        except Exception as exc:  # noqa: BLE001
+            u = {"readable": False, "count": UNKNOWN_COUNT,
+                 "error_class": _safe_class(type(exc).__name__)}
+            out["images"], out["laura_identity_checks"] = u, dict(u)
+    else:
+        u = {"readable": False, "count": UNKNOWN_COUNT,
+             "why": "image_candidates table absent or unprobed"}
+        out["images"], out["laura_identity_checks"] = u, dict(u)
+    out["laura_identity_method"] = _vp_identity_method()
+    out["recovered_images"] = _vp_recovered(db)
+    out["listing_packages"] = part("listing_packages", _vp_packages, db)
+    out["etsy_drafts"] = part("etsy_drafts", _vp_drafts, db)
+    try:
+        from ..visual.shot_plans import CAMPAIGN_MIN_FRAMES
+
+        out["gallery_standard_frames"] = CAMPAIGN_MIN_FRAMES
+    except Exception:  # noqa: BLE001
+        out["gallery_standard_frames"] = UNKNOWN_COUNT
+    return out
+
+
+def _vp_recovered(db) -> dict:
+    """Images recovered by the motif backlog. No producer exists on this build: UNKNOWN."""
+    try:
+        from ..visual import motif_backlog  # type: ignore[attr-defined]  # noqa: F401
+    except Exception:  # noqa: BLE001
+        return {"count": UNKNOWN_COUNT,
+                "not_measured_because": "motif backlog recovery not on this build"}
+    fn = getattr(motif_backlog, "recovered_count", None)
+    if not callable(fn):
+        return {"count": UNKNOWN_COUNT,
+                "not_measured_because": "motif backlog exposes no recovered count"}
+    try:
+        n = fn(db)
+    except Exception as exc:  # noqa: BLE001
+        return {"count": UNKNOWN_COUNT, "error_class": _safe_class(type(exc).__name__)}
+    return {"count": n if isinstance(n, int) else UNKNOWN_COUNT}
+
+
 # ---- the anonymous-safe checks ----------------------------------------------------------
+
+def learning(db, *, now: datetime | None = None) -> dict:
+    """ENG-LEARN: per learning loop, its metric's latest window and trend, active lessons,
+    lessons a department acted on, and promotions/demotions. Rates and counts only; UNKNOWN
+    where the sample is too small (`learning.progress.readback`)."""
+    from ..learning import progress
+
+    return {"readable": True, **progress.readback(db, now=now)}
+
 
 SECTIONS = {
     "dead_letters_24h": dead_letters,
@@ -1040,6 +1366,8 @@ SECTIONS = {
     "listing_package_releases": listing_package_releases,
     "scheduler": scheduler,
     "first_listing_readiness": first_listing_readiness,
+    "visual_pipeline": visual_pipeline,
+    "learning": learning,
 }
 CHECK_NAMES = ("publishing_halt_clear", "stale_artefacts_rebuilding",
                "no_repeated_paid_call_in_24h", "weekly_jobs_completing")

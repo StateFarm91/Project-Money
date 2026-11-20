@@ -233,10 +233,10 @@ def _jury(concept: Concept, brief: dict, catalogue: list, today: date) -> dict:
 def _novelty(db, concept: Concept, catalogue: list, benchmark: list | None) -> dict:
     """#87: distance from our own catalogue and from observed competitor concepts."""
     from .concept import nearest
-    from .prospecting import MIN_NOVELTY, _matches_a_listing, benchmark_comparables
+    from .prospecting import MIN_NOVELTY, _matches_a_listing, watchlist_comparables
 
     cards = benchmark if benchmark is not None else (
-        benchmark_comparables(db) if db is not None else [])
+        watchlist_comparables(db) if db is not None else [])
     near, gap = nearest(concept, catalogue)
     twin = _matches_a_listing(concept, cards) if cards else ""
     detail = {"nearest_own": near.key if near else None, "distance_own": gap,

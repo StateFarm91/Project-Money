@@ -247,6 +247,7 @@ def test_review_opus2t_t5_no_sewn_on_piece_fits_the_small_parts_cylinder():
     refused = {("bear", "sport"), ("bunny", "sport")}
     drafted = {("bear", "worsted"), ("bunny", "worsted"), ("bunny", "dk"), ("bear", "dk"),
                ("bear", "bulky"), ("bunny", "bulky")}
+    assert refused and drafted
     for kind, weight in sorted(refused):
         concept = _concept("Teddy Bear" if kind == "bear" else "Bunny Amigurumi")
         concept.yarn_weight = weight

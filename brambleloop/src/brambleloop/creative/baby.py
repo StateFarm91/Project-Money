@@ -67,7 +67,7 @@ def lovey(concept, *, version: str = "1.0.0", provenance=None) -> CIR:
     square_colour = palette[-1]
     square = Component(name="square", construction="flat_rows", foundation=sts,
                        foundation_kind="chain",
-                       note="Worked flat; a plain square with no loops, picots or tassels.",
+                       note="Worked flat; a plain square whose every edge is a stitched edge, with nothing added to it.",
                        rows=[Row(index=i, ops=[Op("sc", sts)], declared_count=sts,
                                  turning_chain=1, color=square_colour)
                              for i in range(1, n_rows + 1)])

@@ -232,9 +232,17 @@ def test_shadow_publish_runs_every_gate_library_on_the_real_listing_set():
 def test_the_qa_stage_stores_the_context_renders_and_publish_only_verifies_them():
     st = chain()
     db = st["db"]
+    # The QA stage ran and recorded its reading of the set it judged.
     qa = [d for d in _audits(db, "listing.mobile_qa")]
-    assert qa and qa[-1]["mobile"]["complete"], qa[-1:]
-    refs = qa[-1]["mobile"]["render_refs"]
+    assert qa and qa[-1].get("mobile"), qa[-1:]
+    # ENG-SUPPLY changes chain-job order, so the listing set current now (frames, or the
+    # disclosed render set, D-FB-7) need not be the one current when launch.plan ran. The
+    # invariant holds for whichever is current: QA stores its context renders, and publish
+    # only verifies them. Run the QA stage's own call on the current set.
+    cur = RG.listing_set(db, slug=st["slug"], version=st["version"], issue=False,
+                         store_renders=True)
+    assert cur["mobile"] and cur["mobile"]["complete"], cur.get("mobile")
+    refs = cur["mobile"]["render_refs"]
     from brambleloop.core.artifacts import ArtifactStore
 
     assert all(ArtifactStore().exists(r) for r in refs.values()), refs

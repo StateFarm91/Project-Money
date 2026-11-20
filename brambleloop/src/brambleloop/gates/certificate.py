@@ -543,7 +543,13 @@ def certify(
     #     bind) holds it -- UNKNOWN is never a pass.
     from . import child_safety as _child_safety
 
-    safety = _child_safety.evaluate(cir, result)
+    # Review M3: the catalogue's children's assignment is passed in, so a FLAT design
+    # assigned to a child (an applique baby throw with no child word in its name) is inside
+    # the gate at certify exactly as it is at render.
+    from ..products import launch0 as _launch0
+
+    safety = _child_safety.evaluate(cir, result,
+                                    childrens=_launch0.childrens_assignment(cir.slug))
     if safety.applies:
         for check in safety.failing():
             findings.append(Finding(ERROR, f"CHILD_SAFETY_{check.code}", check.detail))

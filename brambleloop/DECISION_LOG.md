@@ -2694,6 +2694,50 @@ Reversible by decision.
 The trigger is the proposal's stated size, not only the band, so the dishcloths fit with or without A4a's code on the tree. Reversible by decision.
 **D-A1R-STUFFED-EXEMPTIONS: the two catalogue stuffed pieces are written "not merchandised to a child" (opus2 under the owner's A1-R directive, 2026-11-02; owner ratification pending).** A1-R made the construction the children's-safety trigger: any closed stuffed form is held until an explicit decision exists, and the implicit candidate exemption is not one. The catalogue has two closed stuffed forms. `heart-row-ring-pillow` is a wedding ring-bearer pillow and `spring-garden-kneeler` a garden kneeling pad; neither is merchandised, sized or described for a child. Both are recorded in `products/launch0.NOT_MERCHANDISED_TO_A_CHILD`, with who, when and this entry in `NOT_MERCHANDISED_DECISIONS`. Any other closed stuffed form (a radar or registry draft, a toy) is held as a named hold with one owner decision item (`childrens-decision:<slug>`) until assigned or exempted. Reversing either exemption is one line and re-holds the product.
 
+## D-OWNER-STANDING-INTERNAL — standing authority for routine internal operations (owner, 2026-11-19)
+
+The owner's directive, verbatim:
+
+> I authorize all routine internal Brambleloop operations within our existing budgets, permissions and safety requirements. Research, product development, engineering, testing, PDF creation, image generation, SEO, listing preparation, learning, recovery, scheduling and agent coordination should happen AUTOMATICALLY. I approve the opening catalogue's Etsy listing fees up to CA$6 and the existing CA$100/month model-spending ceiling. This is not permission for paid ads, additional subscriptions, or higher spending. Replace the 106-card owner queue with consolidated decisions, standing authorizations and automatic closure of redundant, stale or already-satisfied requests. Preserve the audit trail. Do not interpret this as me attesting that I've personally reviewed external policies, supplied physical evidence, signed specific cryptographic grants or authorized publication that hasn't passed its requirements. Bring me only those genuinely necessary exceptions in one concise batch. Do not let unresolved publication approvals stop safe internal manufacturing.
+
+How it is implemented (ENG-APPROVALS, branch `eng/approvals`). It uses the existing authority
+model; there is no new framework.
+
+- **What the authority covers.** It covers exactly the autonomous action classes in
+  `authority.classes` (OBSERVE, RESEARCH, BUILD, TEST, DRAFT). These already dispatch without
+  approval. The gated classes are never covered (`authority.standing_internal.covers_job_type`).
+- **Classifying the queue.** Every OwnerAction kind is classified as ROUTINE_INTERNAL,
+  AUTO_CLOSE or GENUINE_EXCEPTION (`authority.standing_internal.classify`). Unknown kinds fail
+  closed to the owner. The table is in `research/final_build/w6/owner_queue_classification.md`.
+- **The hourly sweep.** `ops.owner_queue_consolidate` supersedes routine cards and closes
+  redundant, stale or satisfied cards. Each move writes an `owner_action.standing_authority`
+  audit row citing this entry, and that row is kept for life. Nothing is deleted. Genuine
+  exceptions are never touched. The sweep is idempotent.
+- **What reaches the owner.** Only the eight exception classes do:
+  - grant signatures and step-up acts;
+  - publication or activation;
+  - external policy attestation;
+  - physical evidence;
+  - spend beyond approved budgets;
+  - paid ads and subscriptions;
+  - KYC, legal and banking;
+  - certification, construction and safety authority.
+
+  They are shown as one batch, `owner_exceptions` in the Approvals inbox. The P0 board counts
+  open exceptions, automatic closes in the last 24 h and routine approvals in the last 24 h.
+- **Opening-catalogue listing fees.** These have a CA$6.00 standing budget, cumulative, with
+  reservations counted (`finance.listing_costs.OPENING_CATALOGUE_FEE_BUDGET_CAD`). It is
+  enforced in `reserve` under the accounting lock and in store.activate's early refusal. The
+  limits on it:
+  - It covers listing and activation fees only.
+  - It raises no other ceiling. The store_operator daily CA$1 is unchanged and checked first,
+    and the standing policy's CA$0 per 30 days is unchanged.
+  - It authorises no publication.
+- **What the directive does not authorise.** It is not an owner attestation. Nothing under it
+  signs, seals or records an owner grant, launch decision, policy review, physical evidence or
+  publication approval. Tests pin that the modules import no grant writer.
+
+Reversible by decision.
 **D-OWNER-CORE-FAMILIES: stuffed animals/amigurumi, baby products and pillows/cushions are permanent CORE product families; MadelineMaeCo is a priority research shop. The factory runs first (owner FINAL DIRECTIVE, 2026-11-19, approved).** The owner reports these as the shop's "huge hits" and made them a permanent business direction, not a temporary assignment. Every future engineering and research session follows it.
 
 1. **Two parallel tracks, and Track 1 always wins a conflict.**
@@ -2756,3 +2800,117 @@ Reversible only by the owner.
 The table is `research/final_build/w6/construction_families.md`. Reversible by decision.
 
 **D-ENG-FAMILIES-2: the router reads what a title and premise name, and admits only (family, category) pairs that certify (ENG-FAMILIES fix round 1, 2026-11-19).** Main's review found a "Granny Square Basket" admitted, drafted as the plain striped vessel and certified (H1), and pet beds admitted but never certifying (M1). `construction_families.route` now holds any title or premise naming a construction the drafted engine does not build (`NAMED_FEATURES`, shared across every admitted family) as `construction_unsupported:<feature>`; the pet bed variant is held as `construction_unsupported:pet_bed` rather than widening the twin tolerance; `PAIR_PROOFS` and a router sweep require a certifying proof per admitted (family, category). `gates/policy._IP_TERMS` matches whole words.
+
+**D-OWNER-POLICY39-OVERRIDE: the pending `listing_image_rules` change (#39) no longer holds publication, by the owner's direct order (2026-11-20).** The owner ordered Etsy's AI rules ignored and chose "Remove the #39 hold" when asked directly. This record is about what was decided, not what was reviewed:
+- **How it is recorded.** `gates/platform_policy.OWNER_DIRECTED_OVERRIDES` records it as "owner directed proceeding without review". It is never recorded as reviewed or tested, and the readback lists it under `overridden_changes`.
+- **Scope.** It covers only `listing_image_rules` changes read on or before 2026-11-20. A later change, an undated change, or a change to any other policy source holds again.
+- **Unchanged.** The AI disclosure in descriptions, Product Truth, and every other gate are untouched.
+- **Owner informed.** Before choosing, the owner was told that the only readable Etsy image page says a pattern listing must show "an actual result made using your instructions, not an AI-generated or simulated result", plus one unedited photo of the real item, and that listings without one risk removal.
+
+Reversible by the owner.
+
+**D-OWNER-BENCHBUY: the benchmark shopping list spans all nine watchlist shops, with owner demand first after capability gaps (owner ask, 2026-11-20; ENG-BENCHBUY).** The owner will buy benchmark patterns and wants variety from every shop scanned daily; stuffed animals/amigurumi, baby products and pillows (the "huge hits", D-OWNER-CORE-FAMILIES) and MadelineMaeCo count.
+- **Selection.** `intel/purchase_selection.shopping_list` keeps the greedy facet-coverage design, computed reasons and the rule of no pick without a new facet. Catalogue: scanned pattern digital downloads only (`listing_type == "download"`; an unobserved type is UNKNOWN and excluded). Quota: 3 per shop, 5 for MadelineMaeCo. Rank: capability gap (in-the-round, colourwork chart, mosaic/tapestry, granny/motif, garment grading, amigurumi, flat), then owner demand (baby, stuffed animal, pillow/cushion), then the shop with the fewest picks, then the old facets; favourites are a last tie-break only. `select()` and the MJs approved set are unchanged.
+- **Budget in code.** Ceiling `SET_BUDGET_CAD` less recorded BenchmarkProduct spend; every price is checked at x1.158 (FX and tax) and shown beside the listed price. Money is held back so every shop with an eligible listing gets a first pick before the ceiling is spent. A product with no recorded price is UNKNOWN, not CA$0. Owned: both MJ benchmarks (by title) and every BenchmarkProduct row (by listing reference or title).
+- **Visibility.** Every shop is listed with a status (PICKED, EMPTY with a counted reason, UNKNOWN when no scanned listings exist). No scan data at all makes the whole list UNKNOWN; nothing is invented.
+- **Refresh.** `intel.benchmark_shopping`, daily, CA$0, in `FREE_JOB_TYPES`, upstream inputs the two scan jobs (an unchanged day backs off). It calls `benchmark_refresh.refresh_shopping`, which stores one dated `benchmark.shopping` reading and keeps ONE owner card, "Buy N benchmark patterns, ≤ CA$X" (key `benchmark_shopping:set`; closed when nothing is left to buy).
+- **Safety.** No purchase path exists: the list makes no request and the Mission Control panel has no buy control. Reads listing metadata only. A purchased PDF goes only through `teardown.intake.receive`, which now accepts a listing from any watchlist shop (folder `<shop key>-<listing id>`, seller recorded) into the quarantined library (B-117). Status moves to bought, then intake done, from the BenchmarkProduct row.
+- **Not decided here.** Whether to buy, which picks, and the contingency factor beyond the owner's 1.158. Reversible by removing the cadence.
+
+## D-ENG-VIS-IDENTITY-1 — identity verification method and its rules (ENG-VIS-IDENTITY, 2026-11-20; routine engineering, owner decisions pending)
+
+**Status:** routine engineering decisions within autonomy. Admitting a method for production is
+the owner's decision (`research/final_build/w6/IDENTITY_OWNER_DECISIONS.md`). No gate, margin or
+test was relaxed; several were tightened.
+
+- **Method recommended: (a)** YuNet + SFace ONNX on the worker CPU (Apache-2.0/MIT). InsightFace
+  ArcFace weights were rejected because their licence is non-commercial only. Hosted Rekognition
+  is the fallback. An LLM is rejected as the biometric floor but kept as the second judge.
+- **Thresholds are derived, never chosen:**
+  - `match_at` = highest impostor score + 0.05;
+  - `refuse_below` = lowest genuine score - 0.15.
+- **A production record needs all of:** at least 30 genuine samples; at least 300 impostor faces;
+  a FAR 95% upper bound of 1% or less; FRR of 10% or less; evidence that declares itself
+  production_ready; the owner's production-scoped decision; and a place on the register.
+- **Consumer verdict:** PASS only with a production-qualified method and two agreeing judges.
+  - Disagreement means HOLD with its reason.
+  - Drift means REFUSE.
+  - UNKNOWN, unmeasured, a fixture or the legacy table means HOLD.
+  - `candidate_gates.gate_status` counts a non-PASS verdict as UNKNOWN.
+- **Every Laura frame must be conditioned on all three canonical references.** A frame with
+  fewer is INVALID.
+- **Second judge:** OpenAI gpt-4.1, a different provider from the Anthropic first judge, through
+  the same reservation path and the `openai-vision` owner activation. Without a key it is not
+  configured.
+- **Outfit claim:** a compare-and-set UPDATE on `laura_outfits.listing`.
+  - It is idempotent per listing and survives restarts.
+  - It never reuses an outfit or claims a near-duplicate.
+  - If two claims for the same listing race, the lowest id wins.
+- **Identity records:** append-only, idempotent on the evaluation content hash. A frame whose
+  evaluation cannot be recorded is UNKNOWN.
+
+Reversible by decision.
+
+**D-ENG-LEARN-1: learning promotes only on statistically meaningful, measured improvement (ENG-LEARN, 2026-11-20).**
+- **Image prompt templates** compete champion/challenger per family:role.
+  - The challenger share is 15%, hard-capped at 20%, with at most 2 challengers. An
+    assignment replaces the champion for that generation and never adds one, so spend is
+    unchanged.
+  - Promotion needs 40+ first-pass frames per arm, one-sided p < 0.002 and a lift of +8pt
+    absolute. Or, on cost: 15+ galleries per arm, at least 15% cheaper, p < 0.002, and
+    first-pass not more than 3pt worse.
+  - Why these thresholds: the loop re-tests daily, so alpha is set against sequential looks.
+    Measured on identical arms (1000 seeds × 40 looks), 0.9% are falsely promoted. A
+    challenger measurably worse (p < 0.05, n ≥ 15) is retired early. A promotion contradicted
+    by its own later frames is demoted.
+- **Scene and engineering lessons** need minimum samples per side, Bonferroni over the
+  scope's comparisons (Fisher exact for engineering), and are deactivated when their evidence
+  weakens.
+- **A lesson is advice to a decision.** It never refuses or weakens a gate.
+- **Reporting.** "Applied" means bus `acted_on`, never published. Trends are UNKNOWN below
+  the minimum window size.
+- Reversible by decision.
+
+**D-ENG-LEARN-2: a parked learner wakes on new evidence, not on a timer (ENG-LEARN, 2026-11-20).**
+- The backoff was correct: identical output for identical input. What was missing was a lift
+  when the input changed.
+- So each learner names its upstream producers in `UPSTREAM_INPUTS`, and upstream progress is
+  judged by declared WORK_KEYS (a bare `ran: true` is not progress).
+- Spend classification is unchanged, so `creative.*`/`visual.*` still get no release probe.
+- Reversible.
+**D-ENG-IMPROVE-1: the self-improvement team tunes only an allowlist, promotes only on a significant KPI gain, and changes code only through change requests (ENG-IMPROVE, 2026-11-20).** This implements the owner directive of 2026-11-20 ("every department gets better with experience; learning is worthless unless it changes behaviour; a team turns lessons into fixes").
+
+**What may be tuned.**
+- `improve.tuning.TUNABLES` is a hard-coded allowlist of 13 keys: numbers within bounds, and choices.
+- Every key and value is also checked by `improve.invariants`. Certified gates, safety, spend ceilings, evidence floors and owner exceptions are never tunable.
+- The module refuses to import if a protected key is allowlisted.
+
+**Live changes.**
+- A change runs as a challenger on at most 20% of units, capped at CA$5 of recorded arm cost.
+- Promotion requires a two-proportion z of at least 2.807 at a fixed look (50·2^k units per arm) and a gain of at least 3 points.
+- A promotion is then watched against a 20% holdback, and is rolled back automatically at z <= -1.96.
+
+**Code changes.**
+- Code changes are `EngineeringChangeRequest` rows, deduplicated by (defect_class, department, module).
+- A request is closed only when the KPI is verified after deploy, and is reopened otherwise.
+- The integrator reads them at `GET /api/readback/ecrs`. Production never edits or deploys code.
+
+**Departments.** A department whose lessons reach no consumer is a finding, never a pass.
+
+**Parked loops.** improve.monitor, sandbox and league backoffs lift on their real input rows (`orchestrate.INPUT_PROBES`).
+
+Reversible by decision. The non-tunable rule is the owner's and is not reversible by an agent.
+
+## D-ENG-PLUSH-FIX — the child-safety gate's deny-lists become allow-lists (ENG-PLUSH-FIX, 2026-11-20)
+
+The independent review of `eng/plush` @ 2763340b (DO NOT SHIP) found real gaps in `gates/child_safety.py`, and D-OWNER-CORE-FAMILIES s.3 says child safety is more than embroidered eyes. Fixed as rules, not as longer lists where a rule is possible:
+
+- **Eyes and noses are an allow-list.** Any material or instruction clause naming an eye or nose must say it is embroidered, or FEATURES_EMBROIDERED fails. A size in mm or a mounting verb (insert, attach, glue, sew on) next to an eye or nose fails even inside an "embroider" clause. The hard-part deny-list stays, extended with the parts that are not features (rhinestones, press studs, toggles, hook-and-eye, washers, eye backs, pom-poms, tassels and similar).
+- **Materials are an allow-list (new check MATERIALS_KNOWN).** Yarn, new polyester toy stuffing and tools that leave with the maker pass. Any other material is UNKNOWN and holds the item.
+- **Cords.** Consecutive chain ops and repeats are summed into one chain run. Loop, tie, bow, lace, leash, pacifier, a measured chain or length of yarn, and attaching to a pram or crib all fail. Only named stitch-loop terms ("both loops", "magic ring") and lace-stitch terms are exempt.
+- **Age band is read (new check AGE_SUITABILITY).** An unknown band is UNKNOWN. Under 3 with any sewn-on piece needs SMALL_PARTS to have passed. The printed age statement claims the small-parts geometry only when that check passed.
+- **Certify reads the catalogue's children's assignment**, so a flat design assigned to a child is in the gate at certify as it is at render.
+- **Quotes carry a `verified` record.** An unread quote makes CITATIONS UNKNOWN. All seven were re-read on 2026-11-20.
+- **The mutation harness** requires a green baseline and reports an import or environment failure as ERROR, never as KILLED.
+
+Physical evidence for flat, one-piece, unstuffed items (a baby blanket) is still not required. Such an item has no seam to pull and nothing to contain. Its under-3 risks (cords, loops, hard parts, small parts, unknown materials) are computed by the other checks. The PHYSICAL_EVIDENCE docstring now says this instead of promising more than the code did. No gate was weakened. Reversible by decision.
