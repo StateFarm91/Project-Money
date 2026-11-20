@@ -593,7 +593,16 @@ def compose(plan: dict, *, version: str = VERSION) -> CIR:
     from ..cir.compiler import compile_cir
     from ..cir.twin import build_twin
 
-    problems = validate(plan)
+    # b18-c A2: a malformed proposal (a non-numeric count, a part that is not a dict) is a
+    # named refusal, never a crash that aborts adjudication of the proposals after it.
+    if not isinstance(plan, dict):
+        raise ComposeRefused("plan", f"the plan is a {type(plan).__name__}, not a dict")
+    try:
+        problems = validate(plan)
+    except ComposeRefused:
+        raise
+    except Exception as exc:  # noqa: BLE001 - malformed input is refused by name
+        raise ComposeRefused("plan", f"malformed plan: {type(exc).__name__}: {exc}") from exc
     if problems:
         primitive = problems[0].split(":", 1)[0]
         raise ComposeRefused(primitive, "; ".join(problems))
