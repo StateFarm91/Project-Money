@@ -13,6 +13,10 @@
 > decision cites) is not in the repository; the decision quotes the brief. `cir/writer.py`'s "Block the finished
 > piece to N cm" instruction is accepted without an estimate word (an instruction, not a measurement claim;
 > figures still checked) because changing it would change every release hash. No production listing was re-run.
+> Tests: the new estimate-claims suite 9/0; every suite the brief names is green (first-customer 12/0, release
+> gates 18/0, listing truth 14/0, PDF 23+27+3, deliverable_qa 61/0, vacuity 8/0, resume runner 40/0). Failures in
+> chain e2e test_a/test_b, cert_rebuild_chain, opus2_size_claims, physfix and platform also fail on base. product_run
+> timed out (incomplete). CHAIN_VERSION 9 forces every v8 PDF and listing to rebuild.
 > Results: `research/final_build/w6/review_requests/ENG-ESTIMATE-CLAIMS.md`.
 
 > **2026-11-20 — ENG-DAILY-FIX (`eng/daily`, NOT merged, NOT deployed; production unchanged).** Fixes every Unit B

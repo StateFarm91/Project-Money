@@ -4,7 +4,7 @@ Branch `eng/estimate-claims`, from `eng/colourwork` @ b098fcce (production).
 **Not merged, not deployed; production unchanged. No PR opened.** No Railway variables or secrets were read.
 Everything is measured on fixtures; no production listing was re-run.
 
-- **Tested SHA:** `@@SHA@@`. Commits after it touch only this file and BUILD_STATE.
+- **Tested SHA:** `a6c57d5aac1cd5b0cb90db46f683314fb8262f15`. Commits after it touch only this file and BUILD_STATE.
 - **Decision:** D-OWNER-ESTIMATE-CLAIMS in `DECISION_LOG.md`.
 
 ## What changed
@@ -53,7 +53,53 @@ Everything is measured on fixtures; no production listing was re-run.
   - Blanking the physical-implication pattern.
 
 ## Suites
-@@SUITES@@
+Run serially or in small batches on a 4-core container under load. "exit 124" means the run.sh 1500 s cap
+was hit; those suites were rerun alone with a 3000 s cap.
+
+**Required by the brief: all green.**
+
+| suite | OK | FAIL |
+|---|---|---|
+| test_estimate_claims (new) | 9 | 0 |
+| test_first_customer_gate | 12 | 0 |
+| test_cert_publish_gates (release gates) | 18 | 0 |
+| test_w4_cap1_gates_intact | 5 | 0 |
+| test_launch0_listing_truth | 14 | 0 |
+| test_k8_listing_estate | 9 | 0 |
+| test_pdf_standard | 23 | 0 |
+| test_pdf_premium | 27 | 0 |
+| test_pdf_layout_bounds | 3 | 0 |
+| test_deliverable_qa | 61 | 0 |
+| test_vacuity | 8 | 0 |
+| test_w4_resume_runner | 40 | 0 |
+
+**Wider set: green.**
+
+| suite | OK | FAIL |
+|---|---|---|
+| test_compiler | 9 | 0 |
+| test_reverse | 18 | 0 |
+| test_twin | 8 | 0 |
+| test_eligibility | 34 | 0 |
+| test_friction | 19 | 0 |
+| test_eng_plush | 25 | 0 |
+| test_provenance_backfill | 12 | 0 |
+| test_opus2_chain_deadends | 18 | 0 |
+| test_w4_placemat_reprice | 4 | 0 |
+| test_cert_commerce | 14 | 0 |
+| test_risk_matrix | 17 | 0 |
+| test_eng_stale_rebuild_loop | 20 | 0 |
+
+**Failures, each compared against base b098fcce.**
+
+| suite | this branch | base | note |
+|---|---|---|---|
+| test_w6_listing_chain_e2e | 3 OK / 3 FAIL | test_a ×2 and test_b fail identically ("stages ran N times") | test_c updated: `gauge_and_size_claims` no longer blocks; the remaining blockers are `etsy_remote_state` and `SAMPLE_PHOTO_REQUIRED` |
+| test_cert_rebuild_chain | 8 OK / 3 FAIL | 8 OK / 3 FAIL, the same two tests | already failing on base |
+| test_opus2_size_claims | 12 OK / 1 FAIL | the same graded 9-sizes test fails | already failing on base |
+| test_physfix | 47 OK / 1 FAIL | `basket_small` kit rebuild fails identically | committed tester kits are a record of what testers were sent; not touched |
+| test_platform | 21 OK / 1 FAIL (`no such table: radar_concepts` in the cadence survival test) | @@PLATFORM_BASE@@ | unrelated to this change |
+| test_product_run | 3 OK / 0 FAIL, then timed out at 3000 s | not run | **incomplete, not a pass** |
 
 ## Honest gaps
 - **Spec PDF.** `spec/07_Brambleloop_Master_Pattern_Template.pdf` is not in the repository on any branch I checked.
