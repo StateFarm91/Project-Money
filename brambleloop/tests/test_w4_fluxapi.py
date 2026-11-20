@@ -45,7 +45,16 @@ from brambleloop.gateway import images as I  # noqa: E402
 from brambleloop.gateway import routing  # noqa: E402
 
 ENV = {"BRAMBLELOOP_IMAGE_KEY_BFL": "stand-in-not-a-key"}
-OUT_PNG = b"\x89PNG\r\n\x1a\n stand-in render bytes"
+def _png(w: int, h: int) -> bytes:
+    buf = io.BytesIO()
+    Image.new("RGB", (w, h), (90, 110, 130)).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+# A real, decodable 2048 x 2048 PNG (ENG-VIS-FLUX): a listing frame's bytes pass the gateway's
+# generation-time check (`flux_qc`) before anything reads them, so the stand-in must be a
+# picture of the size the 2k tier delivers. Unframed renders (this file) never check it.
+OUT_PNG = _png(2048, 2048)
 
 
 def _db() -> Database:

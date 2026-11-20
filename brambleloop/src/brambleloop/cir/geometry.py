@@ -388,7 +388,10 @@ def _increase_and_parentage(row: ResolvedRow) -> tuple[list[int], list[bool]]:
     consumed_index = 0
     for op in row.ops:
         st = stitches.get(op.stitch)
-        increases = st.produces > st.consumes
+        # ENG-HOMEDECOR: a chain that bridges skipped stitches (`spans`, an eyelet or a cut-out
+        # handle) replaces them; it is not an increase, and counting it as one hid the base's
+        # corners behind an opening worked high in the wall.
+        increases = st.produces > st.consumes and not getattr(op, "spans", 0)
         for _ in range(op.count):
             if increases:
                 consumed_by_increase.append(consumed_index)

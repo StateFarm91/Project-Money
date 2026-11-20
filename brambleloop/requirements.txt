@@ -30,3 +30,8 @@ numpy>=2.0
 # declared nowhere, so the production image (installed only from requirements.lock) could not
 # render or verify listing images. Needs only numpy (<2.7,>=1.26.4).
 scipy>=1.13
+# ENG-VIS-IDENTITY slice 2 (2026-11-20): runs the identity floor's two ONNX models on CPU
+# (visual/face_embedder.py: YuNet MIT + SFace Apache-2.0). The weights are not a package: the
+# image build fetches them with scripts/fetch_face_models.py and the embedder re-verifies
+# their pinned sha256 at load; missing or altered weights mean HOLD, never PASS.
+onnxruntime>=1.20

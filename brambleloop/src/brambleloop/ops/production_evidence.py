@@ -244,7 +244,23 @@ def publishing_halt(db, *, now: datetime) -> dict:
         "stale_artefact_family": SENTINEL_SIGNATURE,
         "halted_certifications": len(halted),
         "halted_certification_artefacts": [h["artifact"] for h in halted][:SLUGS_PER_STAGE],
+        # Review main-integ (Unit B): an owner-directed policy override releases holds, so
+        # it must be visible wherever holds are read -- never silent. Unreadable is None.
+        "owner_overridden_policy_changes": _overridden_view(db),
     }
+
+
+def _overridden_view(db):
+    try:
+        from ..gates.platform_policy import overridden_changes
+
+        return [{"source": str(r.get("source")), "checked_on": str(r.get("checked_on")),
+                 "decision": str((r.get("override") or {}).get("decision") or ""),
+                 "through": str((r.get("override") or {}).get("through") or ""),
+                 "reviewed": False}
+                for r in overridden_changes(db)][:SLUGS_PER_STAGE]
+    except Exception:  # noqa: BLE001 - unreadable is UNKNOWN (None), never "no override"
+        return None
 
 
 def _exhausted(report_count, detail) -> bool:
@@ -981,6 +997,7 @@ def first_listing_readiness(db, *, now: datetime) -> dict:
         if (slug, version) in seen:
             continue
         seen.add((slug, version))
+        ev = {}
         try:
             ev = pa.evidence(db, slug, version, release or "")
             sections = {k: str((ev.get(k) or {}).get("state") or pa.UNKNOWN)
@@ -1018,11 +1035,74 @@ def first_listing_readiness(db, *, now: datetime) -> dict:
             "package_blocker_sources": sources[:20],
             "draft_candidate": bool(gated_pass and not etsy_id and pkg_state ==
                                     listing_package.READY and pkg_release == release),
+            # ENG-ETSY-PUBLISH: why each non-passing section does not pass, measurable from
+            # outside: fixed-vocabulary identifiers, counts and booleans only (no copy, no
+            # reason text, no ids of grants).
+            "section_diagnostics": _section_diagnostics(ev),
         })
     return {"readable": True, "launch0_slugs": list(LAUNCH0_SLUGS),
             "certified_with_listing": len(releases),
             "draft_candidates": [r["release"] for r in releases if r["draft_candidate"]],
             "releases": releases[:30]}
+
+
+def _vocab(values, allowed) -> list[str]:
+    return sorted({str(v) for v in (values or []) if str(v) in allowed})
+
+
+def _flag(v):
+    return v if isinstance(v, bool) else None
+
+
+def _section_diagnostics(ev: dict) -> dict:
+    """ENG-ETSY-PUBLISH: the measurable half of each gated section, safe to emit.
+
+    parity: which of the eight #75 dimensions are unjudged or failed, and whether the frames
+    were independently reviewed. listing_set: whether a valid certificate exists and how many
+    frames may export. rollback: which rehearsal steps failed. search: the category status and
+    the failing check names. certification: the three booleans that decide it. Anything not
+    in a fixed vocabulary is dropped, never echoed."""
+    from ..visual import parity as _parity
+
+    if not isinstance(ev, dict) or not ev:
+        return {}
+    par = ev.get("parity") or {}
+    ls = ev.get("listing_set") or {}
+    rb = ev.get("rollback") or {}
+    se = ev.get("search") or {}
+    ce = ev.get("certification") or {}
+    frames = [f for f in (ls.get("frames") or []) if isinstance(f, dict)]
+    steps = (rb.get("rehearsal") or {}).get("steps") or []
+    step_names = ("certificate_retained", "listing_on_record", "deliverables_restorable",
+                  "state_round_trip")
+    checks = se.get("checks") or {}
+    return {
+        "parity": {"unjudged": _vocab(par.get("unjudged"), _parity.DIMENSIONS),
+                   "failed": _vocab(par.get("failed"), _parity.DIMENSIONS),
+                   "frames_judged": _int(par.get("frames_judged")),
+                   "frame_review_done": _flag((par.get("frame_review") or {}).get("reviewed")),
+                   "exported_frame_review_done": _flag(
+                       (par.get("exported_frame_review") or {}).get("reviewed")),
+                   "exported_frame_review_applies": _flag(
+                       (par.get("exported_frame_review") or {}).get("applies"))},
+        "listing_set": {"certificate_valid": _flag((ls.get("certificate") or {}).get("valid")),
+                        "blocks_release": _flag(ls.get("blocks_release")),
+                        "frames": len(frames),
+                        "frames_may_export": sum(1 for f in frames if f.get("may_export") is True),
+                        "reason_count": len(ls.get("reasons") or [])},
+        "rollback": {"rehearsal_recent": rb.get("rehearsal") is not None,
+                     "failing_steps": _vocab([st.get("step") for st in steps
+                                              if isinstance(st, dict) and st.get("ok") is False],
+                                             step_names)},
+        "search": {"category_status": (str(se.get("category_status"))
+                                       if _SOURCE_NAME.match(str(se.get("category_status") or "").lower())
+                                       else None),
+                   "failing_checks": sorted(str(k) for k, v in checks.items()
+                                            if v is False and _SOURCE_NAME.match(str(k)))[:12]},
+        "certification": {"certificate_granted": _flag(ce.get("certificate_granted")),
+                          "release_matches": _flag(ce.get("release_matches")),
+                          "withheld": _flag(ce.get("withheld"))},
+    }
 
 
 # ---- ENG-VISUAL: the listing-image and PDF factory, from persisted rows only ---------------
@@ -1344,6 +1424,29 @@ def _vp_recovered(db) -> dict:
 
 # ---- the anonymous-safe checks ----------------------------------------------------------
 
+def learning(db, *, now: datetime | None = None) -> dict:
+    """ENG-LEARN: per learning loop, its metric's latest window and trend, active lessons,
+    lessons a department acted on, and promotions/demotions. Rates and counts only; UNKNOWN
+    where the sample is too small (`learning.progress.readback`)."""
+    from ..learning import progress
+
+    return {"readable": True, **progress.readback(db, now=now)}
+
+
+def motif_backlog_recovery(db, *, now: datetime) -> dict:
+    """ENG-MOTIF-BACKLOG (owner P0): paid renders whose motif check the budget gate refused,
+    and what the recovery made of them. Counts only (`publish.motif_backlog.report`, from the
+    persisted `motif_recovery` rows); a backlog never swept is UNKNOWN, never 0."""
+    from ..publish import motif_backlog
+
+    rep = motif_backlog.report(db)
+    if not rep.get("readable"):
+        return {"readable": False, "error_class": str(rep.get("why") or "unreadable")[:80]}
+    return {"readable": True, "swept": rep.get("swept"),
+            "last_sweep_at": rep.get("last_sweep_at"), "counts": rep.get("counts"),
+            "recheck_spend_cad": rep.get("recheck_spend_cad")}
+
+
 SECTIONS = {
     "dead_letters_24h": dead_letters,
     "publishing_halt": publishing_halt,
@@ -1357,10 +1460,34 @@ SECTIONS = {
     "listing_package_releases": listing_package_releases,
     "scheduler": scheduler,
     "first_listing_readiness": first_listing_readiness,
+    "motif_backlog_recovery": motif_backlog_recovery,
     "visual_pipeline": visual_pipeline,
+    "learning": learning,
 }
 CHECK_NAMES = ("publishing_halt_clear", "stale_artefacts_rebuilding",
                "no_repeated_paid_call_in_24h", "weekly_jobs_completing")
+
+
+def daily_ledger(db, *, now: datetime) -> dict:
+    """ENG-DAILY: per-UTC-day production counts (14 days), counts only; spend as recorded or
+    not, never an amount (`ops.daily_ledger.readback`)."""
+    from .daily_ledger import readback
+
+    return readback(db, now=now)
+
+
+SECTIONS["daily_ledger"] = daily_ledger
+
+
+def engine_demand(db, *, now: datetime) -> dict:
+    """ENG-DEMAND-SUPPLY: the ranked engines held concepts wait for, and demand per family,
+    from stored evidence (`products.demand.readback`). Counts and keys only."""
+    from ..products.demand import readback
+
+    return readback(db, now=now)
+
+
+SECTIONS["engine_demand"] = engine_demand
 
 
 def _section(name: str, db, now) -> dict:

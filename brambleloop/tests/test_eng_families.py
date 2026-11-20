@@ -30,6 +30,7 @@ from brambleloop.core.models import (  # noqa: E402
 )
 from brambleloop.creative import construction_families as CF  # noqa: E402
 from brambleloop.creative import fallback_constructions as FC  # noqa: E402
+from brambleloop.creative import homedecor as HD  # noqa: E402
 from brambleloop.intel import research  # noqa: E402
 from brambleloop.intel.benchmarks import MJS_KEY  # noqa: E402
 from brambleloop.products import production_inventory as inv  # noqa: E402
@@ -47,6 +48,21 @@ CHAIN_AGENT = {"radar.concept_intake": "market_radar", "radar.score": "market_ra
 
 
 # ---- fixtures ---------------------------------------------------------------------------------
+
+# The files a certifying proof may live in (ENG-HOMEDECOR added its own vessel variants).
+PROOF_FILES = ("tests/test_eng_families.py", "tests/test_eng_homedecor.py")
+
+
+def _proof_exists(proof: str) -> bool:
+    """`proof` names a test function that exists in one of PROOF_FILES."""
+    import ast
+
+    path, _, name = proof.partition("::")
+    if path not in PROOF_FILES or not name:
+        return False
+    tree = ast.parse((ROOT / path).read_text())
+    return any(isinstance(n, ast.FunctionDef) and n.name == name for n in tree.body)
+
 
 
 def _db() -> Database:
@@ -397,15 +413,29 @@ def test_childrens_gates_still_apply_to_a_routed_family_and_baby_items_are_not_r
 # ---- the router itself ------------------------------------------------------------------------
 
 
+def _proof_exists(proof: str) -> bool:
+    """A proof is `tests/<file>.py::<test>` naming a test function that exists in that file."""
+    import ast
+
+    path, _, name = proof.partition("::")
+    if not (path.startswith("tests/test_") and name):
+        return False
+    tree = ast.parse((ROOT / path).read_text())
+    return any(isinstance(n, ast.FunctionDef) and n.name == name for n in tree.body)
+
+
 def test_router_admits_only_verified_or_physical_gated_families():
     admitted = {k for k, f in CF.FAMILIES.items() if f.status in CF.ADMITTED_STATUSES}
-    assert admitted == {FC.FLAT_PANEL, FC.VESSEL, FC.TAPESTRY, FC.PANEL_PAIR}, admitted
-    # Every admitted family names the test in THIS file that proves it, and that test exists.
-    here = {n for n, _ in inspect.getmembers(sys.modules[__name__], inspect.isfunction)}
+    assert admitted == {FC.FLAT_PANEL, FC.VESSEL, FC.TAPESTRY, FC.PANEL_PAIR,
+                        FC.COLOURWORK_TAPESTRY,
+                        FC.AMIGURUMI, FC.ENVELOPE, FC.APPLIQUE, FC.LOVEY,
+                        CF.GARMENT_RAGLAN, CF.GARMENT_ONE_PIECE,    # ENG-GARMENT
+                        *HD.VARIANTS}, admitted                     # ENG-HOMEDECOR
+    # Every admitted family names the test that proves it, and that test exists (ENG-PLUSH:
+    # the core-family proofs live in tests/test_eng_plush.py).
     for key in admitted:
         proof = CF.FAMILIES[key].proof
-        assert proof.startswith("tests/test_eng_families.py::"), (key, proof)
-        assert proof.split("::")[1] in here, (key, proof)
+        assert _proof_exists(proof), (key, proof)
     # A partial engine is held even when the route and the declaration agree.
     got = CF.route(category="bag", title="Simple Drawstring Pouch", form="pouch",
                    construction="in_the_round")
@@ -417,7 +447,7 @@ def test_router_admits_only_verified_or_physical_gated_families():
 
 def test_router_family_table_is_the_report_and_names_every_unbuilt_family():
     table = {r["family"]: r for r in CF.family_table()}
-    for key in ("amigurumi", "mosaic", "cable", "motif", "garment", "ornament", "hat"):
+    for key in ("mosaic", "cable", "motif", "garment", "ornament", "hat"):
         assert table[key]["status"] == CF.NONE and table[key]["gaps"], key
     report = (ROOT / "research/final_build/w6/construction_families.md").read_text()
     for key, row in table.items():
@@ -441,8 +471,13 @@ FLAT_PAIR_TITLES = {
 FEATURE_SAMPLES = {
     "granny_square": "Granny Square", "cable": "Cable", "bobble": "Bobble",
     "waffle_stitch": "Waffle", "lid": "Lidded", "handles": "Handled",
+    "closure": "Zippered", "straps": "Strap", "outline_round": "Round",
+    "outline_oval": "Oval", "bowl": "Bowl", "planter": "Planter",
+    "stitch_texture": "Moss Stitch",
     "amigurumi_features": "Bunny Ears", "trim": "Fringe", "lining_pocket": "Lined",
     "motif_assembly": "Hexie", "colourwork": "Fair Isle", "garment_or_wearable": "Beanie",
+    "mosaic_or_c2c": "Mosaic", "charted_tapestry": "Charted",
+    "embroidery": "Embroidered",
 }
 # One plain, admitted concept per admitted family: (category, form, construction, title).
 ADMITTED_PLAIN = {
@@ -450,6 +485,8 @@ ADMITTED_PLAIN = {
     FC.VESSEL: ("basket", "basket", "in_the_round", "Saltmarsh Reed Basket"),
     FC.TAPESTRY: ("basket", "basket", "tapestry", "Checked Tapestry Shelf Basket"),
     FC.PANEL_PAIR: ("pillow", "pillow", "flat_rows", "Hollow Fern Cushion Cover"),
+    FC.COLOURWORK_TAPESTRY: ("blanket", "rectangle_throw", "tapestry",
+                             "Modern Step Tapestry Throw"),
 }
 
 
@@ -474,28 +511,42 @@ def test_plain_concepts_are_still_admitted_in_every_admitted_family():
 def test_every_named_feature_is_held_for_every_admitted_family():
     assert set(FEATURE_SAMPLES) == {f for f, _, _ in CF.NAMED_FEATURES}, \
         "a feature in the shared vocabulary has no sample here (or a sample has no feature)"
+    honest = {f: fams for f, _, fams in CF.NAMED_FEATURES}
     for family in ADMITTED_PLAIN:
         base = ADMITTED_PLAIN[family][3]
         for feature, word in FEATURE_SAMPLES.items():
+            if family in honest[feature]:
+                continue    # the family's own technique word (tapestry for the tapestry families)
             # The title names it.
             got = _route(family, f"{word} {base}")
-            assert not got["admitted"] and got["reason"].startswith(CF.HOLD_PREFIX), \
+            honest_fams = next(h for f, _, h in CF.NAMED_FEATURES if f == feature)
+            # ENG-HOMEDECOR: a title naming a feature an engine builds drafts in THAT engine
+            # ("Round ... Basket" is the round vessel); it is never admitted to this family.
+            # (b19-c B1: `honest_fams`, not `honest`, which is the feature -> families dict.)
+            assert (got["admitted"] and got["family"] in honest_fams) or \
+                (not got["admitted"] and got["reason"].startswith(CF.HOLD_PREFIX)), \
                 (family, feature, "title", got)
+            assert got["family"] != family or not got["admitted"], (family, feature, got)
             # The premise names it, and the title is plain: the premise is read too.
             got = _route(family, "", premise=f"A plain piece, made with {word.lower()} work")
             assert not got["admitted"] and got["reason"].startswith(CF.HOLD_PREFIX), \
                 (family, feature, "premise", got)
-            if feature != "handles":    # the tote (not admitted) is the family handles belong to
+            if feature not in ("handles", "straps"):    # the tote is where these belong
                 assert feature in got["reason"], (family, feature, got["reason"])
 
 
 def test_the_reported_basket_features_are_held_not_certified_as_plain_baskets():
     for title in ("Granny Square Basket", "Cable Knit Look Basket", "Bobble Storage Basket",
-                  "Lidded Storage Basket", "Bunny Ears Nursery Basket", "Waffle Stitch Basket"):
+                  "Bunny Ears Nursery Basket", "Waffle Stitch Basket"):
         got = CF.route(category="basket", title=title, form="basket",
                        construction="in_the_round")
         assert not got["admitted"], (title, got)
         assert got["reason"].startswith(CF.HOLD_PREFIX), (title, got["reason"])
+    # ENG-HOMEDECOR: the lid is now built, so a lidded basket drafts as the lidded vessel and
+    # is never certified as the plain one.
+    got = CF.route(category="basket", title="Lidded Storage Basket", form="basket",
+                   construction="in_the_round")
+    assert got["admitted"] and got["family"] == HD.LIDDED, got
     # Through intake, so the hold reaches the concept's refusal reasons.
     reasons = intake.construction_verdict("basket", "basket", "in_the_round",
                                           title="Granny Square Basket")
@@ -504,16 +555,17 @@ def test_the_reported_basket_features_are_held_not_certified_as_plain_baskets():
 
 def test_mutant_without_the_feature_vocabulary_admits_a_granny_basket():
     """Mutate: with the shared vocabulary emptied, the granny basket is admitted again, so the
-    vocabulary is what holds it (and the tests above fail without it)."""
+    vocabulary is what holds it (and the tests above fail without it). ("Granny Stripe": the
+    vessel route itself refuses "Square" as an outline since ENG-HOMEDECOR.)"""
     real = CF.NAMED_FEATURES
     try:
         CF.NAMED_FEATURES = ()
-        got = CF.route(category="basket", title="Granny Square Basket", form="basket",
+        got = CF.route(category="basket", title="Granny Stripe Basket", form="basket",
                        construction="in_the_round")
         assert got["admitted"], "the mutant must admit it, or the guard is not what holds it"
     finally:
         CF.NAMED_FEATURES = real
-    assert not CF.route(category="basket", title="Granny Square Basket", form="basket",
+    assert not CF.route(category="basket", title="Granny Stripe Basket", form="basket",
                         construction="in_the_round")["admitted"]
 
 
@@ -555,7 +607,37 @@ def test_every_admitted_family_category_pair_names_an_existing_certifying_proof(
                ("wedding", "pillow", "flat_rows", "Wedding Ring Cushion"),
                ("pet", "basket", "in_the_round", "Snug Cat Bed"),
                ("pet", "basket", "in_the_round", "Cat Bed"),
-               ("pet", "basket", "in_the_round", "Kitten Nest")]
+               ("pet", "basket", "in_the_round", "Kitten Nest"),
+               # ENG-HOMEDECOR vessel variants.
+               ("basket", "basket", "in_the_round", "Round Tide Reed Basket"),
+               ("basket", "basket", "in_the_round", "Tide Catchall Bowl"),
+               ("basket", "basket", "in_the_round", "Lidded Tide Reed Basket"),
+               ("basket", "basket", "in_the_round", "Tide Reed Basket With Handles"),
+               # ENG-COLOURWORK: the colourwork family across every category it could reach.
+               *[(cat, form, "tapestry", f"Modern Step Tapestry {noun}")
+                 for cat, form, noun in (
+                     ("blanket", "rectangle_throw", "Throw"), ("placemat", "flat_panel",
+                                                                "Placemat"),
+                     ("pillow", "pillow", "Cushion Cover"), ("basket", "basket", "Basket"),
+                     ("bag", "bag", "Tote"), ("runner", "runner", "Table Runner"),
+                     ("scarf", "scarf", "Scarf"), ("dishcloth", "flat_panel", "Dishcloth"),
+                     ("wall_decor", "wall_hanging", "Wall Hanging"),
+                     ("baby", "rectangle_throw", "Baby Blanket"))],
+               ("basket", "basket", "tapestry", "Wave Tapestry Basket"),
+               ("toy", "toy", "amigurumi_shaping", "Ball Bear Amigurumi"),
+               ("amigurumi", "toy", "in_the_round", "Cosy Rabbit"),
+               ("pillow", "pillow", "flat_rows", "Linen Envelope Cushion Cover"),
+               ("pillow", "pillow", "flat_rows", "Highland Cow Cushion Cover"),
+               ("baby", "toy", "amigurumi_shaping", "Bear Lovey"),
+               ("toy", "toy", "amigurumi_shaping", "Bunny Lovey"),
+               ("amigurumi", "toy", "in_the_round", "Cosy Rabbit Lovey"),
+               # ENG-GARMENT: graded garments (each pair pinned in tests/test_eng_garment.py)
+               ("cardigan", "fitted_garment", "top_down_yoke", "Fernway Raglan Cardigan"),
+               ("baby", "fitted_garment", "top_down_yoke", "Hush Baby Cardigan"),
+               ("sweater", "fitted_garment", "flat_rows", "Puddle Lane Kids Sweater"),
+               ("sweater", "fitted_garment", "flat_rows", "Cosy Adult Sweater"),
+               ("vest", "fitted_garment", "side_to_side", "Driftline Vest"),
+               ("pullover", "fitted_garment", "bottom_up", "Kestrel Pullover")]
     admitted = set()
     for cat, form, constr, title in probes:
         got = CF.route(category=cat, title=title, form=form, construction=constr)
@@ -565,8 +647,9 @@ def test_every_admitted_family_category_pair_names_an_existing_certifying_proof(
     for pair in sorted(admitted):
         proof = CF.PAIR_PROOFS.get(pair)
         assert proof, f"{pair} is admitted but names no certifying proof (CF.PAIR_PROOFS)"
-        assert proof.startswith("tests/test_eng_families.py::"), (pair, proof)
-        assert proof.split("::")[1] in here, (pair, proof)
+        assert _proof_exists(proof), (pair, proof)
+        if proof.startswith("tests/test_eng_families.py::"):
+            assert proof.split("::")[1] in here, (pair, proof)
     # And no proof is claimed for a pair the router never admits.
     assert set(CF.PAIR_PROOFS) >= admitted
     assert set(CF.PAIR_PROOFS) == admitted, \

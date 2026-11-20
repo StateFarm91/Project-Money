@@ -6667,6 +6667,21 @@ def handle_four_season(ctx: JobContext) -> dict:
             "holiday_independent_share": detail["holiday_independent_share"]}
 
 
+def _gallery_handoff(ctx: JobContext, slug: str, version: str, record: dict) -> dict | None:
+    """ENG-MOTIF-BACKLOG: a photography job that filed a usable record hands the release to
+    the chain (`assets.build` -> pricing.position -> listing.seo -> launch.plan ->
+    listing.package). Only when the existing gallery reader says the gallery is complete;
+    an unusable record advances nothing. A failed handoff never fails the photography job."""
+    if not record.get("made") or not record.get("usable_as_listing_asset"):
+        return None
+    from ..publish import motif_backlog
+
+    try:
+        return motif_backlog.gallery_handoff(ctx.enqueue, ctx.db, slug, version)
+    except Exception as exc:  # noqa: BLE001 - the record is filed; the sweep retries the handoff
+        return {"advanced": False, "why": f"handoff failed: {type(exc).__name__}"}
+
+
 @handlers.register("assets.model_photography")
 def handle_model_photography(ctx: JobContext) -> dict:
     """One model-bearing listing frame for a certified product that needs her (#72, #130).
@@ -6739,6 +6754,7 @@ def handle_model_photography(ctx: JobContext) -> dict:
         _checkpoint_step(ctx, step, {"record": record})
 
     ctx.audit(model_photography.ACTION, detail=record)
+    handoff = _gallery_handoff(ctx, slug, cir.version, record)
     # C-80 defect 8: a model-bearing product's rung attempt is persisted too, so the ladder
     # resumes rather than restarting (the model path carries no rung brief yet: it is the
     # same conditioned render, recorded as such).
@@ -6764,7 +6780,7 @@ def handle_model_photography(ctx: JobContext) -> dict:
             records=buyer_trust.records_for_generated(
                 list(record.get("frames") or [record]), slug=slug, version=cir.version))
     return {"ran": True, "made": record.get("made"), "slug": slug,
-            "resumed_from_checkpoint": resumed,
+            "resumed_from_checkpoint": resumed, "gallery_handoff": handoff,
             "waiting_on": record.get("waiting_on"),
             "floors": record.get("floors"),
             "usable": record.get("usable_as_listing_asset"),
@@ -6855,6 +6871,7 @@ def handle_seasonal_cycle_proof(ctx: JobContext) -> dict:
     from ..gateway.anthropic import AnthropicProvider
     from ..gateway import failover
     from ..publish import listing_asset
+    from ..creative import prospecting
     from ..seasonal import cycle
 
     # The gateway is the difference between this job doing its job and this job reporting
@@ -6924,6 +6941,19 @@ def handle_seasonal_cycle_proof(ctx: JobContext) -> dict:
                             f"refused: {str(exc)[:200]}. Nothing about #300 is proved or "
                             f"disproved by this -- the proof did not run"),
                     "waiting_on": "model_provider_balance"}
+        except prospecting.ProspectingRefused as exc:
+            # Live 2026-11-20: eight dead letters `ProspectingRefused` -- the prospecting
+            # step declining (no proven arena with a form still makeable in time, a dead
+            # arena, an event outside the occasion vocabulary). That is the wheel working,
+            # not a broken worker: recorded as a refusal, never retried into the same answer,
+            # and visible in the audit trail rather than as a dead letter.
+            ctx.audit("seasonal.cycle_proof_refused",
+                      detail={"why": str(exc)[:400], "waiting_on": "prospecting"})
+            return {"ran": True, "complete": False, "refused": "prospecting",
+                    "why": (f"prospecting declined this cycle: {str(exc)[:200]}. Nothing "
+                            f"about #300 is proved or disproved by this -- the proof did "
+                            f"not run"),
+                    "waiting_on": "prospecting"}
 
     _checkpoint_step(ctx, "cycle_report", {"report": report})
     return _file_cycle_proof(ctx, report, resumed=False)
@@ -7503,6 +7533,29 @@ def handle_promotion_monitor(ctx: JobContext) -> dict:
             # row and is resumed next pass; it is never reported as reverted.
             "rollback_pending": [r["improvement"] for r in trials["rollback_pending"]],
             "waiting": len(out["waiting"]), "unchanged": len(out["unchanged"])}
+
+
+@handlers.register("improve.self_tune")
+def handle_self_tune(ctx: JobContext) -> dict:
+    """The self-improvement team's daily pass (ENG-IMPROVE, owner directive 2026-11-20).
+
+    Judges live champion/challenger trials of allowlisted tunables (promotion on a
+    statistically meaningful KPI gain, automatic rollback on regression), checks every
+    department's KPI -> lessons -> consumer loop, and files / verifies engineering change
+    requests. A change request is a row: production never edits or deploys code.
+
+    GREEN: reads rows, may change a tunable champion inside its declared bounds, writes
+    si_* / engineering_change_requests rows and audit records. Spends nothing.
+    """
+    from ..improve import self_improve
+
+    out = self_improve.cycle(ctx.db)
+    ctx.audit("improve.self_tune.cycle",
+              detail={k: out[k] for k in ("work_done", "trials_judged", "loops_closed",
+                                          "departments", "ecrs_filed", "ecrs_merged",
+                                          "ecrs_verified", "ecrs_reopened",
+                                          "parked_improve_loops")})
+    return out
 
 
 @handlers.register("improve.sandbox")
@@ -8279,6 +8332,20 @@ def handle_thrash_sweep(ctx: JobContext) -> dict:
 
     out = thrash_sweep(ctx.db)
     ctx.audit("ops.thrash", detail=out)
+    return out
+
+
+@handlers.register("ops.daily_ledger")
+def handle_daily_ledger(ctx: JobContext) -> dict:
+    """ENG-DAILY: record the per-UTC-day production ledger and diagnose every zero stage.
+
+    Six-hourly. Counts from persisted rows only; a zero stage gets a diagnosis row, a safe
+    free action (re-arm through `rearm_probe`, re-offer supply) or an engineering change
+    request. It changes no gate, ceiling or owner exception."""
+    from ..ops import daily_ledger
+
+    out = daily_ledger.run(ctx)
+    ctx.audit("ops.daily_ledger", detail=out)
     return out
 
 
@@ -9177,9 +9244,36 @@ def handle_image_benchmark(ctx: JobContext) -> dict:
     # change, not a flag a caller can set.
     if image_bench.SUPERSEDED["superseded"]:
         rec = image_bench.superseded_record(ctx.db)
-        return {"ran": False, "superseded": True, "by": rec["by"], "why": rec["why"],
+        # ENG-LEARN: the provider benchmark's question ("which configuration makes frames that
+        # pass?") is now answered from production itself. Every judged frame is an
+        # observation, measured lessons are derived from them, and template challengers are
+        # promoted only on a significant first-pass or cost gain (`learning.image_lessons`).
+        # It reads this database only: nothing is rendered, judged or spent here. Until it ran,
+        # this branch returned the same superseded record every hour, so the thrash breaker
+        # parked it at 32x. Now its state changes exactly when new judged frames arrive, and
+        # `swarm.orchestrate.UPSTREAM_INPUTS` lifts the backoff when they do.
+        from ..learning import image_lessons
+
+        loop = image_lessons.cycle(ctx.db)
+        ctx.audit("learning.image_cycle", detail={
+            "observed": loop["harvest"]["observed"], "lessons": loop["lessons"]["lessons"],
+            "lessons_new": loop["lessons"]["new"],
+            "lessons_deactivated": loop["lessons"]["deactivated"],
+            "challengers": loop["challengers"]["registered"],
+            "promoted": [p["arm_id"] for p in loop["evaluation"]["promoted"]],
+            "demoted": [d["demoted"] for d in loop["evaluation"]["demoted"]],
+            "retired": [r["arm_id"] for r in loop["evaluation"]["retired"]]})
+        return {"ran": True, "superseded": True, "by": rec["by"], "why": rec["why"],
                 "evidence_retained": True, "record": rec["record"],
-                "work_done": 1 if rec["created"] else 0}
+                "image_learning": {
+                    "observed": loop["harvest"]["observed"],
+                    "lessons": loop["lessons"]["lessons"],
+                    "new_lessons": loop["lessons"]["new"],
+                    "challengers_registered": len(loop["challengers"]["registered"]),
+                    "promoted": len(loop["evaluation"]["promoted"]),
+                    "demoted": len(loop["evaluation"]["demoted"]),
+                    "retired": len(loop["evaluation"]["retired"])},
+                "work_done": (1 if rec["created"] else 0) + loop["work_done"]}
 
     # The approved benchmark budget as a stop, not as a number in a report. It was being
     # applied per run, so four runs each stayed inside a figure the owner approved once and
@@ -9634,7 +9728,8 @@ def handle_owned_photography(ctx: JobContext) -> dict:
             occasion=ctx.job.inputs.get("occasion", ""),
             env=dict(os.environ), work_dir=work)
     ctx.audit(owned_photography.ACTION, detail=record)
-    return {"ran": True, "slug": slug, "made": record.get("made"),
+    handoff = _gallery_handoff(ctx, slug, cir.version, record)
+    return {"ran": True, "slug": slug, "made": record.get("made"), "gallery_handoff": handoff,
             "verdict": record.get("verdict"), "why": record.get("why"),
             "usable_as_listing_asset": record.get("usable_as_listing_asset"),
             "spent_cad": record.get("spent_cad", 0.0)}
@@ -9708,6 +9803,7 @@ def _owned_photography_rung(ctx: JobContext, cir, slug: str, rung: str,
             env=env, work_dir=work, provider_key=provider_key, rung=rung,
             constraints=constraints)
     ctx.audit(owned_photography.ACTION, detail=record)
+    _gallery_handoff(ctx, slug, cir.version, record)
     return result(attempted=bool(record.get("made")), made=record.get("made"),
                   usable=bool(record.get("usable_as_listing_asset")),
                   verdict=record.get("verdict"), why=(record.get("why") or "")[:300],

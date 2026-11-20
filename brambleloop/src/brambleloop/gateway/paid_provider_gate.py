@@ -116,6 +116,81 @@ KEY_IS_NOT_ACTIVATION = (
     "monthly CA$ ceilings, a per-gallery limit and an expiry")
 
 
+# ---- ENG-VIS-FLUX: image caps in code, below every owner activation ------------------------
+#
+# Two counts and one amount, enforced here inside the budget lock with every other ceiling, on
+# image-generation providers only. Each can be LOWERED by its environment variable and never
+# raised: a value that is unreadable, negative or above the code constant leaves the constant
+# in force. An owner activation's own CA$ ceilings still apply on top (the lower one binds).
+#
+# * per UTC day, images reserved, billed or uncertain across every image provider;
+# * per gallery (an image-production run, `gallery_scope`), images and CA$, across providers.
+#   Calls outside a gallery (`shared`, `job:N`, `product:slug`) are bounded by the day cap.
+#
+# Sizing (FLUX_OWNER_DECISIONS.md): a seven-frame gallery is 7 listing frames at the 2k tier
+# plus a 1k identity anchor, about CA$1.06; 16 images and CA$2.50 leave room for one repair
+# pass per frame and nothing more.
+DAILY_IMAGE_CAP = 60
+DAILY_IMAGE_CAP_ENV = "BRAMBLELOOP_IMAGE_DAILY_CAP"
+GALLERY_IMAGE_CAP = 16
+GALLERY_IMAGE_CAP_ENV = "BRAMBLELOOP_IMAGE_GALLERY_CAP"
+GALLERY_CAD_CAP = 2.50
+GALLERY_CAD_CAP_ENV = "BRAMBLELOOP_IMAGE_GALLERY_CAD_CAP"
+
+
+def _lower_only(name: str, default, cast):
+    import os
+
+    raw = (os.environ.get(name) or "").strip()
+    if not raw:
+        return default
+    try:
+        value = cast(raw)
+    except (TypeError, ValueError):
+        return default
+    if isinstance(value, float) and not math.isfinite(value):
+        return default
+    return value if 0 <= value < default else default
+
+
+def image_caps() -> dict:
+    """The caps in force now: the code constants, or lower values from the environment."""
+    return {"daily_images": _lower_only(DAILY_IMAGE_CAP_ENV, DAILY_IMAGE_CAP, int),
+            "gallery_images": _lower_only(GALLERY_IMAGE_CAP_ENV, GALLERY_IMAGE_CAP, int),
+            "gallery_cad": _lower_only(GALLERY_CAD_CAP_ENV, GALLERY_CAD_CAP, float),
+            "env": {"daily_images": DAILY_IMAGE_CAP_ENV,
+                    "gallery_images": GALLERY_IMAGE_CAP_ENV,
+                    "gallery_cad": GALLERY_CAD_CAP_ENV},
+            "lower_only": True}
+
+
+def is_gallery_key(key: str | None) -> bool:
+    """A real gallery (an image-production run key), not a fallback bucket."""
+    k = str(key or "")
+    return bool(k) and k != "shared" and not k.startswith(("job:", "product:", "day:"))
+
+
+def gallery_spend(db, gallery: str) -> dict:
+    """What one gallery has cost on image providers: images and CA$ (reserved, billed or
+    uncertain), per provider. Read-only; the per-gallery cost ENG-VIS-GALLERY reports."""
+    ensure_tables(db)
+    providers = image_providers()
+    out = {"gallery": gallery, "images": 0, "cad": 0.0, "by_provider": {}}
+    with db.session() as s:
+        for row in s.scalars(select(PaidProviderCall).where(
+                PaidProviderCall.gallery == str(gallery)[:160],
+                PaidProviderCall.provider.in_(providers),
+                PaidProviderCall.status.in_(COUNTED))):
+            amount = float(row.actual_cad if row.status == BILLED and row.actual_cad
+                           is not None else row.estimate_cad or 0.0)
+            out["images"] += 1
+            out["cad"] = round(out["cad"] + amount, 6)
+            p = out["by_provider"].setdefault(row.provider, {"images": 0, "cad": 0.0})
+            p["images"] += 1
+            p["cad"] = round(p["cad"] + amount, 6)
+    return out
+
+
 class PaidCallRefused(PermanentError):
     """Refused at the enforcement point before any network I/O. `.code` names the reason."""
 
@@ -473,7 +548,7 @@ def _current(session, provider: str, scope: str, now: datetime) -> tuple[Any, st
         if exp is None or exp <= now:
             reason = EXPIRED
             continue
-        if not (row.step_up or {}).get("session_public_id"):
+        if not (row.step_up or {}).get("session_public_id") and not _directive(row):
             continue                    # a row with no step-up evidence authorises nothing
         return row, ""
     return None, reason
@@ -502,6 +577,15 @@ def require_active(db, provider: str, scope: str, *, now: datetime | None = None
     return st["activation"]
 
 
+def _directive(row) -> bool:
+    """D-OWNER-APPROVE-ALL: an owner directive recorded by the system authorises exactly the
+    (provider, scope) pairs `ops.owner_directives.ACTIVATIONS` lists, and nothing else."""
+    from ..ops import owner_directives
+
+    return (str(row.activated_by or "") == owner_directives.ACTOR
+            and owner_directives.recognised(row.step_up, row.provider, row.scope))
+
+
 def is_active_id(db, activation_id, *, now: datetime | None = None) -> bool:
     """Whether a specific activation is still in force (not revoked, not expired)."""
     if db is None or activation_id is None:
@@ -512,7 +596,8 @@ def is_active_id(db, activation_id, *, now: datetime | None = None) -> bool:
             row = s.get(PaidProviderActivation, int(activation_id))
             return (row is not None and row.revoked_at is None
                     and _aware(row.expires_at) is not None and _aware(row.expires_at) > _now(now)
-                    and bool((row.step_up or {}).get("session_public_id")))
+                    and (bool((row.step_up or {}).get("session_public_id"))
+                         or _directive(row)))
     except Exception:  # noqa: BLE001 - fail closed
         return False
 
@@ -758,6 +843,8 @@ def authorize(db, *, provider: str, scope: str, estimate_cad: float, fingerprint
                     refusal = ("run_call_ceiling",
                                f"{in_run} {provider} call(s) already made in {run_key} against "
                                f"the activation's ceiling of {act.max_calls_per_run} per run")
+                if refusal is None and family(provider) == "image":
+                    refusal = _image_cap_refusal(s, provider, gallery, estimate, day0)
             if refusal is None:
                 row = PaidProviderCall(
                     activation_id=act.id, provider=provider, scope=scope, gallery=gallery,
@@ -780,6 +867,36 @@ def authorize(db, *, provider: str, scope: str, estimate_cad: float, fingerprint
         raise _refuse(db, refusal[0], refusal[1], provider=provider, scope=scope,
                       purpose=purpose, estimate=estimate, gallery=gallery)
     return ticket
+
+
+def _image_cap_refusal(s, provider: str, gallery: str, estimate: float,
+                       day0: datetime) -> tuple[str, str] | None:
+    """ENG-VIS-FLUX: the code's image caps (`image_caps`), inside the same budget lock."""
+    caps = image_caps()
+    images = image_providers()
+    counted = (PaidProviderCall.provider.in_(images), PaidProviderCall.status.in_(COUNTED))
+    today = len(list(s.scalars(select(PaidProviderCall.id).where(
+        *counted, PaidProviderCall.at >= day0))))
+    if today + 1 > caps["daily_images"]:
+        return ("daily_image_cap",
+                f"{today} image(s) already reserved or billed today across image providers "
+                f"against the code's cap of {caps['daily_images']} per UTC day "
+                f"({DAILY_IMAGE_CAP_ENV} may lower it, never raise it)")
+    if is_gallery_key(gallery):
+        in_gallery = list(s.scalars(select(PaidProviderCall).where(
+            *counted, PaidProviderCall.gallery == gallery)))
+        if len(in_gallery) + 1 > caps["gallery_images"]:
+            return ("gallery_image_cap",
+                    f"gallery {gallery!r} already has {len(in_gallery)} image(s) against the "
+                    f"code's cap of {caps['gallery_images']} per gallery "
+                    f"({GALLERY_IMAGE_CAP_ENV} may lower it, never raise it)")
+        spent = _sum(s, *counted, PaidProviderCall.gallery == gallery)
+        if spent + estimate > caps["gallery_cad"] + 1e-9:
+            return ("gallery_cad_cap",
+                    f"gallery {gallery!r} has CA${spent:.4f} on image providers against the "
+                    f"code's CA${caps['gallery_cad']:.2f} per-gallery cap; this call is "
+                    f"CA${estimate:.4f} ({GALLERY_CAD_CAP_ENV} may lower it, never raise it)")
+    return None
 
 
 def confirm(db, ticket: dict, *, now: datetime | None = None) -> None:

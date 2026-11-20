@@ -193,7 +193,12 @@ def test_the_deployed_image_and_start_command_carry_no_session_state():
     # (brambleloop.ops.release_record): reviewed build evidence committed to the repository,
     # not state from any Claude session. It is admitted on that basis only, and the check
     # below keeps it so: nothing in it may reference a Claude session or its working files.
-    assert set(copies) <= {"requirements.txt", "src", "release", "tests", "run_tests.sh"}, copies
+    # ENG-VIS-IDENTITY slice 2: the face-model fetch step copies two committed source files
+    # early (the fetch script and the module holding the sha pins) so the model layer caches;
+    # both are tracked code, not session state, and `src/...` is a subset of `src` anyway.
+    assert set(copies) <= {"requirements.txt", "src", "release", "tests", "run_tests.sh",
+                           "scripts/fetch_face_models.py",
+                           "src/brambleloop/visual/face_embedder.py"}, copies
     records = sorted(f for f in (ROOT / "release").rglob("*") if f.is_file())
     assert records, "the Dockerfile copies release/ but it holds no release record"
     for f in records:

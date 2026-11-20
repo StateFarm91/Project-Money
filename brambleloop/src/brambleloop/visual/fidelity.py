@@ -1081,9 +1081,16 @@ class GatewayVisionJudge:
                     with open(p, "wb") as fh:
                         fh.write(data)
                     paths.append(p)
+                # ENG-VIS-IDENTITY F4: reserve at the provider's OWN per-image figure for the
+                # real number of images sent, plus the system text -- the same estimate the
+                # OpenAI paid gate checks with (`providers.input_tokens`), so the reservation
+                # is never below it. Reserving every vendor at Anthropic's 6,000-token image
+                # figure over-reserved an OpenAI gpt-4.1 read about 4x (its worst case is
+                # 1,445 tokens per image; 1,600 is reserved).
                 budget = gw.check_budget(
                     self.db, model=provider.model,
-                    input_tokens=len(prompt) // 4 + gw.IMAGE_TOKENS_ESTIMATE * len(paths),
+                    input_tokens=gw.input_tokens(provider.model, system=system or "",
+                                                 user=prompt, images=len(paths)),
                     max_tokens=max_tokens, uncommitted_cad=0.0, agent=I.AGENT,
                     purpose=I.TASK)
                 billed["reserved"] = budget["estimate_cad"]

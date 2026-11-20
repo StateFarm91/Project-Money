@@ -69,12 +69,13 @@ JOB_CLASS: dict[str, ActionClass] = {
     "finance.accounting.cycle": _O, "finance.challenge": _O,
     "finance.escalation_check": _O, "finance.governor": _O, "finance.reconcile": _O,
     "growth.journey": _O, "improve.measure": _O, "improve.commercial_lessons": _O,
+    "learning.loops": _O,
     "learning.knowledge_gaps": _O, "improve.monitor": _O,
     "launch.readiness": _O, "listing.outcomes": _O, "listing.search_visibility_watch": _O,
     "marketing.ads_readiness": _O, "ops.capacity": _O, "ops.dependencies": _O,
     "ops.health": _O, "ops.heartbeat": _O, "ops.maturity_disagreements": _O,
     "ops.policy_watch": _O, "ops.provenance_backfill": _O, "ops.queue_check": _O,
-    "ops.sentinel": _O, "ops.slo": _O, "ops.thrash": _O, "physical.photo": _O,
+    "ops.sentinel": _O, "ops.slo": _O, "ops.thrash": _O, "ops.daily_ledger": _O, "physical.photo": _O,
     "physical.record": _O, "physical.upgrade_impact": _O, "portfolio.review": _O,
     "seasonal.harvest": _O, "seasonal.sentinel": _O, "swarm.review": _O,
     "visual.identity_drift": _O, "visual.model_ledger": _O, "mjs.seasonal_sentinel": _O,
@@ -98,11 +99,12 @@ JOB_CLASS: dict[str, ActionClass] = {
     "scale.trajectory": _R, "visual.provider_trial": _R,
     "visual.controlled_experiment": _R, "visual.rnd.cycle": _R,
     # build: internal artefacts, code/config/process changes, work generation
-    "assets.build": _B, "assets.launch_review": _B, "assets.model_photography": _B, "assets.owned_photography": _B,
+    "assets.build": _B, "assets.launch_review": _B, "assets.model_photography": _B, "assets.motif_backlog": _B, "assets.owned_photography": _B,
     "assets.physical_upgrade": _B, "assets.render": _B, "autonomy.orchestrate": _B,
     "build.tick": _B, "chain.rebuild": _B, "chain.successors": _B, "supply.admit": _B, "cir.draft": _B, "cir.revise": _B, "cir.reengineer": _B,
     "collection.assemble": _B, "listing.package": _B, "creative.candidates_file": _B, "creative.model_freeze": _B, "growth.steer": _B,
     "improve.nightly": _B, "improve.role_work": _B, "improve.weekly": _B,
+    "improve.self_tune": _B,   # ENG-IMPROVE: tunable champions + change-request rows only
     "laura.executive_tick": _B, "ops.offsite_archive": _B, "ops.retention": _B,
     "ops.owner_queue_consolidate": _B,   # ENG-APPROVALS: owner-queue lifecycle moves only
     "plan.cycle": _B, "seasonal.cycle_proof": _B, "seasonal.engine": _B,

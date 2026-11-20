@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-20T03:43:40.076349+00:00",
+ "generated_at": "2026-11-20T22:33:41.458811+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,10 +10,10 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 145,
-  "handlers": 177,
+  "cadences": 149,
+  "handlers": 181,
   "agents": 34,
-  "follow_on_edges": 93
+  "follow_on_edges": 95
  },
  "departments": [
   {
@@ -150,6 +150,7 @@
     "follow_on_from": [
      "build2/unblock.py:request_recompute",
      "listing.seo",
+     "ops/daily_ledger.py:_reoffer",
      "owner/API route api_launch_readiness",
      "owner/API route api_plan_cycle",
      "plan.strategy",
@@ -947,6 +948,7 @@
      "owner/API route api_physical_photo",
      "owner/API route api_physical_test",
      "runtime/pipeline.py:_draft_creative",
+     "runtime/pipeline.py:_draft_garment",
      "runtime/pipeline.py:_persist_release",
      "runtime/release_recovery.py:retry_halted",
      "support/defects.py:escalate"
@@ -1116,6 +1118,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "motif_backlog",
+      "agent": "publishing",
+      "job_type": "assets.motif_backlog",
+      "period_seconds": 21600
+     },
+     {
       "name": "photo_review",
       "agent": "asset_truth",
       "job_type": "assets.photo_review",
@@ -1195,6 +1203,7 @@
    "execution": {
     "handler_modules": [
      "brambleloop.autonomy.visual_rnd_job",
+     "brambleloop.runtime.motif_backlog_ops",
      "brambleloop.runtime.photo_review_ops",
      "brambleloop.runtime.quality_ops",
      "brambleloop.runtime.release"
@@ -1203,6 +1212,7 @@
      "assets.build",
      "assets.launch_review",
      "assets.model_photography",
+     "assets.motif_backlog",
      "assets.owned_photography",
      "assets.photo_review",
      "assets.physical_upgrade",
@@ -1477,7 +1487,7 @@
      "ops/rebuild_graph.py:enqueue",
      "owner/API route api_chain_rebuild",
      "pricing.position",
-     "runtime/pipeline.py:_publish_and_read_back",
+     "runtime/pipeline.py:_read_back_and_record",
      "runtime/release.py:_enqueue_listing_package",
      "runtime/release.py:_price_launch0",
      "runtime/release.py:_reprice_on_plan_drift",
@@ -2225,6 +2235,12 @@
       "period_seconds": 86400
      },
      {
+      "name": "learning_loops",
+      "agent": "analyst",
+      "job_type": "learning.loops",
+      "period_seconds": 86400
+     },
+     {
       "name": "knowledge_gaps",
       "agent": "analyst",
       "job_type": "learning.knowledge_gaps",
@@ -2240,6 +2256,12 @@
       "name": "promotion_monitor",
       "agent": "orchestrator",
       "job_type": "improve.monitor",
+      "period_seconds": 86400
+     },
+     {
+      "name": "self_tune",
+      "agent": "orchestrator",
+      "job_type": "improve.self_tune",
       "period_seconds": 86400
      },
      {
@@ -2368,6 +2390,7 @@
      "brambleloop.learn.runtime",
      "brambleloop.runtime.commercial_ops",
      "brambleloop.runtime.learning_gaps_ops",
+     "brambleloop.runtime.learning_ops",
      "brambleloop.runtime.release"
     ],
     "executable_job_types": [
@@ -2381,9 +2404,11 @@
      "improve.retrospective",
      "improve.role_work",
      "improve.sandbox",
+     "improve.self_tune",
      "improve.weekly",
      "learn.scan",
-     "learning.knowledge_gaps"
+     "learning.knowledge_gaps",
+     "learning.loops"
     ],
     "permitted_without_handler": []
    },
@@ -2467,6 +2492,12 @@
       "agent": "orchestrator",
       "job_type": "ops.thrash",
       "period_seconds": 3600
+     },
+     {
+      "name": "daily_ledger",
+      "agent": "orchestrator",
+      "job_type": "ops.daily_ledger",
+      "period_seconds": 21600
      },
      {
       "name": "maturity_disagreements",
@@ -2589,6 +2620,7 @@
      "model.probe",
      "ops.capability_probes",
      "ops.continuity",
+     "ops.daily_ledger",
      "ops.dependencies",
      "ops.health",
      "ops.heartbeat",

@@ -340,9 +340,33 @@ class Flux3Generator:
             self._generating.reset(token)
             self.current_run_key = None
 
+    def _preflight(self, slug: str) -> None:
+        """ENG-VIS-FLUX: before any reservation. The paid renderer runs only when the BFL
+        credential is present and the owner's generation activation is on (else UNKNOWN with
+        the reason, nothing spent); and a replacement is never bought while a paid render of
+        this gallery or product awaits recovery and re-check."""
+        from ..gateway import flux_provider, images
+
+        # Keyed on the transport, not on `paid`: the preflight guards the renderer that sends a
+        # BFL request (the default `image_stages.flux3_renderer`, or any renderer naming a
+        # priced gateway provider). A stand-in renderer flagged paid to exercise a cap sends
+        # nothing to BFL, and the gateway enforces the owner gate on every real send anyway.
+        transport = getattr(self.renderer, "provider_key", None) if self.renderer else "flux-3-image"
+        if transport not in images.BY_KEY:
+            return
+        from ..gateway.paid_provider_gate import current_gallery
+
+        try:
+            flux_provider.require_ready(self.db)
+            flux_provider.require_replacement_allowed(self.db, gallery=current_gallery(),
+                                                      slug=slug)
+        except (flux_provider.FluxNotReady, flux_provider.ReplacementRefused) as exc:
+            raise GeneratorRefused(str(exc)) from exc
+
     def _generate(self, *, stage, role, brief, references, outfit, attempt, repair) -> dict:
         started = time.time()
         rel, slug, version, release = self._bind(references)
+        self._preflight(slug)
         extra = _repair_negatives(repair)
         if extra:
             rules = dict(rel.rules)

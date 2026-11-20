@@ -332,6 +332,27 @@ class ImagesGateRefused(ImagesRefused):
         self.code = code
 
 
+class ImagesRejectedAtGeneration(ImagesRefused):
+    """ENG-VIS-FLUX: the provider rendered and billed, and the bytes fail the generation-time
+    check (`flux_qc`): wrong resolution, wrong aspect for the frame role, not PNG/JPEG, or
+    corrupt after the bounded free re-fetches. The render is ledgered; its bytes are KEPT on
+    disk (`.result["path"]`) so it can be recovered and re-checked before any replacement is
+    bought. Never retried with the same request (the owner gate would refuse it as already
+    billed); never handed to a QA judge."""
+
+    def __init__(self, message: str, *, verdict: dict, result: dict):
+        super().__init__(message)
+        self.verdict = dict(verdict or {})
+        self.result = dict(result or {})
+        self.reasons = list(self.verdict.get("reasons") or [])
+
+
+# A corrupt download is re-fetched from the same delivery URL -- free, no new render -- at
+# most this many times before the render is rejected as corrupt.
+CORRUPT_REFETCHES = 2
+GENERATION_REJECTED_ACTION = "image.generation_rejected"
+
+
 class SubstitutionRefused(PermanentError):
     """Somebody tried to satisfy image generation with a model that can only look."""
 
@@ -460,8 +481,9 @@ BFL3_TIER_USD: dict[str, float] = {"768sq": 0.041, "1k": 0.048, "1.5k": 0.070, "
 BFL3_ASPECT_RATIOS: tuple[str, ...] = ("21:9", "2:1", "16:9", "3:2", "7:5", "4:3", "5:4", "1:1",
                                        "4:5", "3:4", "5:7", "2:3", "9:16", "1:2", "9:21")
 # The only fields FLUX 3 Image accepts (`Flux3ImageInputs`, additionalProperties: false).
-BFL3_FIELDS = frozenset({"prompt", "images", "aspect_ratio", "resolution", "safety_tolerance",
-                         "grounding", "version"})
+# ENG-VIS-FLUX: read from the verified contract (`flux_contract`, openapi read 2026-11-20), which
+# added `user`, `width` and `height` to the 2026-10-19 reading. Still no `seed`.
+from .flux_contract import REQUEST_FIELDS as BFL3_FIELDS  # noqa: E402
 # FLUX.2 [pro] megapixel pricing, same source: first output MP, each further output MP, and
 # each input (reference) MP. A megapixel is 1,048,576 pixels (BFL's own definition).
 BFL2_PRO_USD = {"first_mp": 0.03, "extra_mp": 0.015, "input_mp": 0.015}
@@ -645,6 +667,15 @@ def _request_for(provider: ImageProvider, key: str, prompt: str,
                 raise ImagesRefused(f"FLUX 3 Image refuses unknown fields with 422; "
                                     f"not sending {unknown}")
             body.update({k: v for k, v in extra.items() if k not in ("images", "prompt")})
+            # ENG-VIS-FLUX: the whole body against the documented schema (ranges, exact-size
+            # bounds, the 0-4 safety_tolerance of FLUX 3 Image) before any budget is reserved.
+            from . import flux_contract
+
+            try:
+                flux_contract.validate_request(body)
+            except flux_contract.ContractViolation as exc:
+                raise ImagesRefused(f"FLUX 3 Image request outside the documented contract: "
+                                    f"{exc}") from exc
         else:
             px = _pixels(size)
             w, h = _wh(size)
@@ -1090,19 +1121,40 @@ def _finish_render(provider: ImageProvider, body: dict, size: str, work_dir: str
     # that expires is not a lock.
     root = Path(work_dir)
     root.mkdir(parents=True, exist_ok=True)
-    if b64:
-        raw = base64.b64decode(b64)
-    else:
+
+    def fetch() -> tuple[bytes, str]:
         import urllib.request
 
         try:
             with urllib.request.urlopen(image_url, timeout=timeout) as response:
-                raw = response.read()
-                mime = mime or response.headers.get("content-type", "")
+                return response.read(), (mime or response.headers.get("content-type", ""))
         except Exception as exc:  # noqa: BLE001 - a link that will not fetch is no image
             raise ImagesRefused(
                 f"{provider.key} returned a link that could not be fetched: {exc}. A "
                 f"presigned URL is only an image while it lasts") from exc
+
+    if b64:
+        raw = base64.b64decode(b64)
+    else:
+        raw, mime = fetch()
+
+    # ENG-VIS-FLUX: the generation-time check, for a render that is a frame (`frame_role`).
+    # A corrupt download is re-fetched from the same delivery URL (free, bounded); every other
+    # defect is a fact about the render and is rejected below, after the bill is recorded.
+    from . import flux_qc
+
+    frame = dict(billing.get("frame") or {})
+    qc = None
+    refetches = []
+    if frame.get("role"):
+        qc = flux_qc.inspect(raw, requested_size=size, frame_role=frame["role"])
+        while (qc["reasons"] == [flux_qc.CORRUPT_BYTES] and image_url
+               and len(refetches) < CORRUPT_REFETCHES):
+            refetches.append(f"refetch {len(refetches) + 1}: corrupt_bytes "
+                             f"({qc.get('error') or 'undecodable'})")
+            raw, mime = fetch()
+            qc = flux_qc.inspect(raw, requested_size=size, frame_role=frame["role"])
+        qc["refetches"] = refetches
 
     import hashlib
 
@@ -1134,7 +1186,7 @@ def _finish_render(provider: ImageProvider, body: dict, size: str, work_dir: str
     # The claim is released by the caller (`_generate_reserved` / `poll_render`), right after
     # this returns, so the reserved path keeps its own release (test_model_spend_paths pin).
 
-    return {"provider": provider.key, "url": image_url, "path": path,
+    result = {"provider": provider.key, "url": image_url, "path": path,
             "image_ref": path, "bytes": len(raw), "sha256": output_sha256,
             "model": provider.model, "provider_receipt": provider_receipt,
             # Reported rather than assumed: the first version defaulted this to image/png
@@ -1145,6 +1197,70 @@ def _finish_render(provider: ImageProvider, body: dict, size: str, work_dir: str
             "cost_entry_id": cost_entry_id,
             "ceiling_headroom_cad": budget.get("headroom_cad"),
             "latency_ms": round((time.time() - started) * 1000, 2)}
+    if provider.dialect == "bfl3" or frame:
+        # ENG-VIS-FLUX: the F-852 provenance record (D-W4-F852-AMEND item 7), from what was
+        # measured: references found in the body sent, the provider's task id, the reserved
+        # cost the ledger row carries, the output's own fingerprint and size.
+        from . import flux_provenance
+        from .paid_provider_gate import current_gallery
+
+        try:
+            request = json.loads(frame.get("payload") or b"{}")
+        except ValueError:
+            request = {}
+        request.pop("images", None)
+        request.pop("prompt", None)
+        result["provenance"] = flux_provenance.build(
+            provider=provider.key, model=provider.model, prompt=frame.get("prompt") or "",
+            prompt_version=frame.get("prompt_version") or "",
+            conditioning=frame.get("conditioning") or {}, provider_receipt=provider_receipt,
+            cost_cad=result["cad"],
+            cost_basis=str(((frame.get("conditioning") or {}).get("price") or {})
+                           .get("basis") or BFL_PRICE_BASIS),
+            cost_entry_id=cost_entry_id, output_sha256=output_sha256,
+            qc=qc or flux_qc.inspect(raw, requested_size=size, frame_role=flux_qc.INTERMEDIATE),
+            gallery=current_gallery(), request=request, product=frame.get("product") or "",
+            reservation_id=budget.get("reservation_id"))
+        result["provenance_missing"] = flux_provenance.missing(result["provenance"])
+    if qc is not None:
+        result["generation_check"] = qc
+        if not qc["ok"]:
+            # Billed and kept: the bytes stay at `path` for recovery and re-check. The claim
+            # comes back with the price now, because no caller will release it after a raise.
+            release_render(db, budget, billed=True)
+            budget["reservation_id"] = None
+            _record_rejection(db, provider, result, qc, frame)
+            raise ImagesRejectedAtGeneration(
+                f"{provider.key}: rejected at generation, before QA: {flux_qc.explain(qc)}. "
+                f"Billed (cost entry {cost_entry_id}); bytes kept at {path} for recovery",
+                verdict=qc, result=result)
+    return result
+
+
+def _record_rejection(db, provider: ImageProvider, result: dict, qc: dict, frame: dict) -> None:
+    """One audit row per rejected render: what was paid for, why, and where its bytes are, so
+    `flux_provider.replacement_allowed` can re-check it before a replacement is bought."""
+    try:
+        from ..core.models import AuditLog
+
+        with _budget_db(db).session() as s:
+            s.add(AuditLog(actor="gateway", action=GENERATION_REJECTED_ACTION,
+                           artifact=str((result.get("provenance") or {}).get("gallery")
+                                        or "")[:200],
+                           detail={"provider": provider.key, "path": result.get("path"),
+                                   "sha256": result.get("sha256"),
+                                   "reasons": list(qc.get("reasons") or []),
+                                   "verdict": {k: qc.get(k) for k in
+                                               ("px", "format", "role", "requested_size",
+                                                "refetches")},
+                                   "cost_entry_id": result.get("cost_entry_id"),
+                                   "cad": result.get("cad"),
+                                   "product": frame.get("product") or "",
+                                   "gallery": (result.get("provenance") or {}).get("gallery"),
+                                   "receipt_id": (result.get("provider_receipt") or {})
+                                   .get("task_id")}))
+    except Exception:  # noqa: BLE001 - the rejection stands whether or not it was recorded
+        pass
 
 
 def generate(prompt: str, *, reference_urls: list[str] | None = None,
@@ -1152,8 +1268,15 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
              provider_key: str | None = None, work_dir: str | None = None,
              timeout: float = 120.0, extra_fields: dict | None = None,
              db=None, agent: str = "", purpose: str = "", job_id: int | None = None,
-             spend_detail: dict | None = None, gate_scope: str = "generation") -> dict:
+             spend_detail: dict | None = None, gate_scope: str = "generation",
+             frame_role: str | None = None, prompt_version: str = "",
+             product: str = "") -> dict:
     """Ask one provider for one image. Raises rather than returning nothing.
+
+    **ENG-VIS-FLUX.** `frame_role` (`flux_qc.LISTING` / `flux_qc.INTERMEDIATE`) marks a render
+    that is a gallery frame: its bytes pass the generation-time check before anything else
+    sees them, and a failing render raises `ImagesRejectedAtGeneration` (billed, bytes kept).
+    `prompt_version` and `product` go into the result's `provenance` record.
 
     **No render leaves without the owner's activation (P0-PAID-PROVIDER-OWNER-GATE).** The
     provider request runs inside `paid_provider_gate.enforce` (`_gated`): an active owner
@@ -1215,11 +1338,13 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
     provider, url, headers, payload, receipt = _prepare(
         prompt, reference_urls=reference_urls, env=env, size=size,
         provider_key=provider_key, extra_fields=extra_fields, db=db)
+    # Validated before the reservation: a bad frame role has cost nothing.
+    frame = _frame_context(frame_role, prompt, prompt_version, product, receipt, payload)
     budget = reserve_render(db, provider, agent=agent, purpose=purpose, job_id=job_id,
                             estimate_cad=receipt["price"]["cad"])
     started = time.time()
     billing = {"accepted": False, "agent": agent, "purpose": purpose, "job_id": job_id,
-               "spend_detail": spend_detail}
+               "spend_detail": spend_detail, "frame": frame}
     try:
         result = _guarded_render(
             provider, prompt, reference_urls, size, extra_fields, work_dir, budget,
@@ -1253,6 +1378,18 @@ def generate(prompt: str, *, reference_urls: list[str] | None = None,
         else:
             release_render(db, budget, billed=False)
         raise
+
+
+def _frame_context(frame_role, prompt, prompt_version, product, receipt, payload) -> dict:
+    from . import flux_qc
+
+    if frame_role is not None and frame_role not in flux_qc.FRAME_ROLES:
+        raise ImagesRefused(f"frame_role {frame_role!r} is not one of "
+                            f"{sorted(flux_qc.FRAME_ROLES)}")
+    return {"role": frame_role or "", "prompt": prompt, "prompt_version": prompt_version or "",
+            "product": product or "", "conditioning": receipt,
+            "payload": (payload.decode(errors="replace") if isinstance(payload, bytes)
+                        else payload)}
 
 
 def _render_fp(provider: ImageProvider, prompt: str, reference_urls, size: str,
@@ -1544,8 +1681,10 @@ def poll_render(fingerprint: str, *, work_dir: str, env: dict[str, str] | None =
                         job_id=job_id, billing="accepted_then_failed",
                         error="the ready render could not be read",
                         spend_detail=billing["spend_detail"])
-            _store_deferred(bdb, key, fingerprint, provider, budget, paid_calls.FAILED_BILLED,
-                            {}, agent, job_id)
+        # Billed either way (ENG-VIS-FLUX: a render rejected after its ledger row too): the
+        # record ends FAILED_BILLED so a later poll never fetches and bills it a second time.
+        _store_deferred(bdb, key, fingerprint, provider, budget, paid_calls.FAILED_BILLED,
+                        {}, agent, job_id)
         raise
     release_render(db, budget, billed=True)
     _store_deferred(bdb, key, fingerprint, provider, budget, paid_calls.OK,

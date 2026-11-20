@@ -62,6 +62,25 @@ def test_no_other_policy_source_is_released():
     assert pp.overridden_changes(db) == []
 
 
+def test_the_override_is_visible_in_the_publishing_halt_evidence():
+    """Review main-integ (Unit B): a hold released by the owner is never silent -- readback's
+    publishing-halt section names it, its decision and that it was not reviewed."""
+    from datetime import datetime, timezone
+
+    from brambleloop.ops import production_evidence as pe
+
+    db = _db()
+    _change(db, "listing_image_rules", "2026-10-22", "e")
+    out = pe.publishing_halt(db, now=datetime(2026, 11, 20, tzinfo=timezone.utc))
+    (row,) = out["owner_overridden_policy_changes"]
+    assert row == {"source": "listing_image_rules", "checked_on": "2026-10-22",
+                   "decision": "D-OWNER-POLICY39-OVERRIDE", "through": "2026-11-20",
+                   "reviewed": False}, row
+    db2 = _db()
+    out2 = pe.publishing_halt(db2, now=datetime(2026, 11, 20, tzinfo=timezone.utc))
+    assert out2["owner_overridden_policy_changes"] == []
+
+
 if __name__ == "__main__":
     fails = 0
     for name, fn in list(globals().items()):

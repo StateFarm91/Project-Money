@@ -375,7 +375,9 @@ CHARTERS: tuple[Charter, ...] = (
                "analyst"),
        prefixes=("improve.", "learn."),
        # OPUS2-P0 (P0-LEARNING-GAPS): knowledge gaps and reference recommendations.
-       job_types={"learning.knowledge_gaps"},
+       job_types={"learning.knowledge_gaps",
+                  # ENG-LEARN: the pattern and commerce learning loops.
+                  "learning.loops"},
        generatable=("improve.mine", "improve.retrospective", "improve.measure",
                     "improve.sandbox", "improve.monitor", "learn.scan",
                     "autonomy.department_review"),
@@ -403,7 +405,7 @@ CHARTERS: tuple[Charter, ...] = (
        prefixes=("ops.", "model.probe"),
        job_types={"ops.heartbeat", "ops.queue_check", "ops.health", "ops.continuity",
                   "ops.offsite_archive", "ops.retention", "ops.dependencies",
-                  "ops.capability_probes", "ops.thrash", "ops.policy_watch",
+                  "ops.capability_probes", "ops.thrash", "ops.policy_watch", "ops.daily_ledger",
                   "ops.maturity_disagreements", "model.probe",
                   # ENG-APPROVALS: owner-queue consolidation (D-OWNER-STANDING-INTERNAL).
                   "ops.owner_queue_consolidate"},

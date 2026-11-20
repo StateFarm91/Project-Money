@@ -1,0 +1,169 @@
+{
+ "version": "identity-calibration-set/1",
+ "identity_id": "laura-r2-a42aeac7",
+ "root": "brambleloop/",
+ "excluded": [
+  {
+   "path": "src/brambleloop/visual/assets/canonical/laura-v15-a42aeac7/historical/v5_owner_viewed_pre_revision_2026-09-21/neutral_portrait.png",
+   "why": "pixel-identical to the canonical face reference (MANIFEST provenance): not an independent sample"
+  },
+  {
+   "path": "src/brambleloop/visual/assets/identity_portrait.jpg",
+   "why": "is the canonical face reference"
+  },
+  {
+   "path": "src/brambleloop/visual/assets/owner_candidate_reference.png",
+   "why": "one frame cut from the owner concept sheet, already counted there"
+  },
+  {
+   "path": "research/final_build/w4/flux_experiments/*",
+   "why": "unlabelled FLUX 3 attempts at Laura: whether they ARE her is the question, so they cannot be calibration labels; scored separately as 'unlabelled_probe'"
+  }
+ ],
+ "samples": [
+  {
+   "id": "v5/fitted_garment.png",
+   "path": "src/brambleloop/visual/assets/canonical/laura-v15-a42aeac7/historical/v5_owner_viewed_pre_revision_2026-09-21/fitted_garment.png",
+   "label": "laura",
+   "face": "single",
+   "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+   "licence": "Brambleloop-generated asset (no third-party person)",
+   "sha256": "728022d6f711b130d0aa2894cd67fce06b9e44fd48c5b71700ee4a9be33fd361"
+  },
+  {
+   "id": "v5/fitted_garment_close.png",
+   "path": "src/brambleloop/visual/assets/canonical/laura-v15-a42aeac7/historical/v5_owner_viewed_pre_revision_2026-09-21/fitted_garment_close.png",
+   "label": "laura",
+   "face": "single",
+   "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+   "licence": "Brambleloop-generated asset (no third-party person)",
+   "sha256": "f339290676a9ec70859bb9020534ba4bd21875acbebfbf39ece69d17e9a365da"
+  },
+  {
+   "id": "v5/loose_layered_garment.png",
+   "path": "src/brambleloop/visual/assets/canonical/laura-v15-a42aeac7/historical/v5_owner_viewed_pre_revision_2026-09-21/loose_layered_garment.png",
+   "label": "laura",
+   "face": "single",
+   "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+   "licence": "Brambleloop-generated asset (no third-party person)",
+   "sha256": "e0e391257025352fd25996911436425198511d1e5a4a592fa9eddbd6f185d68d"
+  },
+  {
+   "id": "v5/non_garment_lifestyle.png",
+   "path": "src/brambleloop/visual/assets/canonical/laura-v15-a42aeac7/historical/v5_owner_viewed_pre_revision_2026-09-21/non_garment_lifestyle.png",
+   "label": "laura",
+   "face": "single",
+   "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+   "licence": "Brambleloop-generated asset (no third-party person)",
+   "sha256": "b71a20dcc0d38121b816c5ab6d03462c0ee36ca4c04ab079fcdfa6e875a07670"
+  },
+  {
+   "id": "v5/winter_seasonal.png",
+   "path": "src/brambleloop/visual/assets/canonical/laura-v15-a42aeac7/historical/v5_owner_viewed_pre_revision_2026-09-21/winter_seasonal.png",
+   "label": "laura",
+   "face": "single",
+   "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+   "licence": "Brambleloop-generated asset (no third-party person)",
+   "sha256": "fdf3b03ef9561d5ca75640dd041f8a986001ec02ab5cb791a357c2a467c04316"
+  },
+  {
+   "id": "v6/fitted_garment.png",
+   "path": "src/brambleloop/visual/assets/canonical/laura-v15-a42aeac7/historical/v6_bust_revision_local_2026-09-21/fitted_garment.png",
+   "label": "laura",
+   "face": "single",
+   "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+   "licence": "Brambleloop-generated asset (no third-party person)",
+   "sha256": "901dbc17a3fb4d5d1f0b0ff356f8a2b71db9e5134d2de94eb80a0aec823b87e7"
+  },
+  {
+   "id": "v6/fitted_garment_close.png",
+   "path": "src/brambleloop/visual/assets/canonical/laura-v15-a42aeac7/historical/v6_bust_revision_local_2026-09-21/fitted_garment_close.png",
+   "label": "laura",
+   "face": "single",
+   "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+   "licence": "Brambleloop-generated asset (no third-party person)",
+   "sha256": "4389212ef0ab4446c9e0e3099622fcbf3d1d51bf704afe7ee8d51cc2f31a8cac"
+  },
+  {
+   "id": "v6/loose_layered_garment.png",
+   "path": "src/brambleloop/visual/assets/canonical/laura-v15-a42aeac7/historical/v6_bust_revision_local_2026-09-21/loose_layered_garment.png",
+   "label": "laura",
+   "face": "single",
+   "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+   "licence": "Brambleloop-generated asset (no third-party person)",
+   "sha256": "c6f97b419ea877ed8257fee2e2a54a42c3f39bf3f71c4f75cb60e7314bf705ce"
+  },
+  {
+   "id": "v6/non_garment_lifestyle.png",
+   "path": "src/brambleloop/visual/assets/canonical/laura-v15-a42aeac7/historical/v6_bust_revision_local_2026-09-21/non_garment_lifestyle.png",
+   "label": "laura",
+   "face": "single",
+   "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+   "licence": "Brambleloop-generated asset (no third-party person)",
+   "sha256": "11de2b45eddfb5c5e3869f9e7b42b3622d478d98af3392a8c32c888f60ed27b3"
+  },
+  {
+   "id": "v6/winter_seasonal.png",
+   "path": "src/brambleloop/visual/assets/canonical/laura-v15-a42aeac7/historical/v6_bust_revision_local_2026-09-21/winter_seasonal.png",
+   "label": "laura",
+   "face": "single",
+   "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+   "licence": "Brambleloop-generated asset (no third-party person)",
+   "sha256": "fa3adce1e41f65e9c45aef13b6a3d88f3d32ffa582f49a3b8ec5319730cb77cd"
+  },
+  {
+   "id": "identity_torso_v5.jpg",
+   "path": "src/brambleloop/visual/assets/identity_torso_v5.jpg",
+   "label": "laura",
+   "face": "single",
+   "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+   "licence": "Brambleloop-generated asset (no third-party person)",
+   "sha256": "6318f78983b04692570a1ff7da16c35461e4720187c4220b8abaf7f2d7679342"
+  },
+  {
+   "id": "identity_full_length_v5.jpg",
+   "path": "src/brambleloop/visual/assets/identity_full_length_v5.jpg",
+   "label": "laura",
+   "face": "single",
+   "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+   "licence": "Brambleloop-generated asset (no third-party person)",
+   "sha256": "5e66882874b0b119ce3630de2e961e4eca88b2c9be3d9fd1240e25c741e83abd"
+  },
+  {
+   "id": "owner_concept_sheet",
+   "path": "src/brambleloop/visual/assets/owner_candidate_concept.jpg",
+   "label": "not_laura",
+   "face": "all",
+   "source": "owner-supplied generated concept sheet (MANIFEST role owner_concept: 'not the model'); each detected face is one impostor; the deliberate look-alike class",
+   "licence": "owner-supplied generated image (no real person)",
+   "sha256": "7641a767824f42c153defd37f45b77975d5007d67ebf0ed999ad90b8310e313c"
+  },
+  {
+   "id": "e2_gen_on_model",
+   "path": "research/e2/out/gen/on_model.png",
+   "label": "not_laura",
+   "face": "single",
+   "source": "gpt-image-2 render with no Laura reference (research/e2/run_e2.py); the three e2 files show one unrelated generated woman",
+   "licence": "Brambleloop-generated asset (no real person)",
+   "sha256": "2e6264971459032576f649c294a0c88a851f873d930af4630a872c459378daff"
+  },
+  {
+   "id": "e2_v1_on_model",
+   "path": "research/e2/out/v1/on_model.png",
+   "label": "not_laura",
+   "face": "single",
+   "source": "gpt-image-2 render with no Laura reference (research/e2/run_e2.py); the three e2 files show one unrelated generated woman",
+   "licence": "Brambleloop-generated asset (no real person)",
+   "sha256": "444574d6dd96f3ec029f8038dace45684c86a66bc0f1eab8e6c491c9923f915f"
+  },
+  {
+   "id": "e2_v2_on_model",
+   "path": "research/e2/out/v2/on_model.png",
+   "label": "not_laura",
+   "face": "single",
+   "source": "gpt-image-2 render with no Laura reference (research/e2/run_e2.py); the three e2 files show one unrelated generated woman",
+   "licence": "Brambleloop-generated asset (no real person)",
+   "sha256": "e993505c3d04feeb887429f1da36142c64ad52bf5e93d4307f3290d8c5535131"
+  }
+ ]
+}

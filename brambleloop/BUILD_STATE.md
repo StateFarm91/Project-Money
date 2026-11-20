@@ -1,3 +1,233 @@
+> **2026-11-20 — FIX-B19C unit B on `eng/homedecor` (NOT merged to main, NOT deployed; production unchanged).**
+> Merged `claude/batch19-approve-all` (13585c4f). b19-c B1 fixed (`honest_fams` in test_eng_families). B2 fixed:
+> the lidded basket had no renderable hero and no schematic once PremiumStandard existed; `schematic_for` now draws
+> separately worked pieces (no seams) when every piece has a measured footprint, giving the labelled cover hero and
+> FINISHED MEASUREMENTS. Cover: `makes_words` for one component, "In 2 pieces: 1 basket, 1 lid" for several.
+> PremiumStandard unchanged. Report: `research/final_build/w6/review_requests/FIX-B19C.md`.
+
+> **2026-11-20 — ENG-HOMEDECOR fix for review b17-b (finding 1 and the `spans` survivor, finding 5), merged with claude/w6-INTEG6 dde3ea62; NOT reviewed again, NOT deployed.** `creative/homedecor.findings` now emits `VESSEL_GEOMETRY_UNKNOWN` when a vessel title has no readable twin geometry, and when a round, bowl or lid claim sits on a base not worked from a magic ring. Before this, both cases passed silently. New tests in test_eng_homedecor pin that error and the `spans` exclusion in `cir/geometry._increase_and_parentage`. Each mutant (`return []`, and dropping `not spans`) now fails a test.
+>
+> **2026-11-20 — ENG-HOMEDECOR slice 1 (`eng/homedecor`, builder branch; NOT reviewed, NOT integrated, NOT deployed; production unchanged, SHADOW).** Vessels in the round.
+> - **Defect found first.** Five basket titles were each granted a certificate as the plain hexagon basket, reproduced through the real handlers: "Round …", "Oval …", "… Yarn Bowl", "… Plant Pot Cozy" and "Moss Stitch …". They are now refused at intake, at draft and at certify.
+> - **Built (VERIFIED, end-to-end proofs in `tests/test_eng_homedecor.py`).** `creative.homedecor` has four variants: `round_vessel` (staggered increases, 0 corners), `bowl` (round base, flared wall), `lidded_vessel` (a lid fitted past the rim by whole wedges) and `handled_vessel` (two opposite cut-out handles). Each proof runs concept → certify → US and UK PDFs, checked against the small-home-goods PDF standard.
+> - **Gates.** `homedecor.findings` runs in `gate.certify` on the CIR title and on the listing title. Codes: `VESSEL_BASE_NOT_FLAT`, `_OUTLINE_UNSUPPORTED`, `_BOWL_NOT_FLARED`, `_LID_DOES_NOT_FIT`, `_HANDLE_UNSUPPORTED`, `_OBJECT_UNSUPPORTED`, `_TEXTURE_UNSUPPORTED`. Each has a mutation test.
+> - **Still held, by name.** Oval, square and rectangular outlines; planters and pot cozies (no sourced pot size); stitch textures; combinations of two variants; nesting sets. Décor and textures are slices 2 and 3.
+> - **Shared fixes.**
+>   - A spanning chain is no longer counted as an increase by `geometry.corners`.
+>   - A multi-piece PDF cover no longer reads "Makes 2 baskets" for a basket and its lid (the tote read "Makes 3 baskets").
+> - **Not verified.**
+>   - Every size and fit figure is computed, not measured. Lid fit assumes a fabric thickness; `HANDLE_MIN_CM` is a design choice.
+>   - Nothing ran against production.
+> - Review request: `research/final_build/w6/review_requests/homedecor_slice1.md`.
+
+
+> **2026-11-20 — FIX-DEMAND-STALL on `claude/w6-INTEG8-wip` (Batch 18 integration; NOT deployed; production
+> unchanged).** A promoted concept waiting in the supply queue for an uncertified engine (on the production pool:
+> `cottage-wall-hanging`, flat_panel refusal) was counted as `promotable_undrafted`/`supply_selected` on every scan
+> with `stalled: False` while nothing drafted. It is now counted as `engine_demand_undrafted`, held with its
+> `engine_demand:` reason, the scan reports `stalled: True` (`engine_demand` reason when every undrafted concept waits
+> on an engine), and it stays queued and drafts automatically once its engine certifies (tested). Review b18-a B-1:
+> core families are the owner's three; garments carry `SECONDARY_BOOST` and `core: False`. B-2: a missing market
+> score orders as `demand.PRIOR`. Report: `research/final_build/w6/review_requests/FIX-DEMAND-STALL.md`.
+
+> **2026-11-20 — ENG-DEMAND-SUPPLY (`eng/demand-supply`, NOT merged, NOT deployed; production unchanged).** Owner
+> TOP PRIORITY: "production agents should be automatically making things that sell" (D-ENG-DEMAND-SUPPLY).
+> - `products/demand.py` is a deterministic demand score per family/form/subject from STORED evidence only:
+>   benchmark_listings favourites and velocity, reviews, bestseller and baskets where stored, serp_snapshots rank,
+>   and the owner's teardown facts. Velocity comes from the new dated `favorers_history` that `intel.observe.scan`
+>   now keeps. UNKNOWN shrinks to a low prior (never 0, never high). The core-family boost runs amigurumi > baby >
+>   pillows > garments.
+> - `supply.offers`/`admit` order by market demand. An engine-less concept is recorded as `supply.engine_demand`
+>   (ranked "build this engine next"), not silently held, and is admitted once its engine certifies. `radar.intake`
+>   evaluates in demand order.
+> - `radar/demand_originals.py`: 28 original core-family and clothing concepts, proposed on every intake pass and
+>   judged by every intake gate. On fixtures, 10 are approved (buildable today) and 18 are refused as engine demand
+>   (new animals, lamb/fox loveys, face cushions, vest/drop-shoulder/one-piece adult).
+> - POOL re-classification: 20 of 34 POOL concepts have no certified engine. Each is named with the engine it needs
+>   (`demand.pool_reclassification`, Demand view). Production's 18 held is the live count and was not measured here.
+> - Mission Control Demand view (`cc-shell-v44`) and advisory readback row `engine_demand` (readback items 20 -> 21).
+>   Autonomy map regenerated (timestamp only; no new job type).
+> - NOT MEASURED against production: no production reading was taken, and per-listing review counts, bestseller and
+>   baskets are UNKNOWN until a scan stores them. Review request:
+>   `research/final_build/w6/review_requests/ENG-DEMAND-SUPPLY.md`.
+> **2026-11-20 — ENG-ETSY-PUBLISH review b17-d fixes (`eng/etsy-publish`, merged with `claude/w6-INTEG6` dde3ea62; NOT deployed; no real Etsy call).**
+> - **A1 fixed.** Image read-back hashes only bytes actually uploaded in this job, per rank (`PublishOutcome.image_sha256_by_rank`, `_complete_draft(..., force_images=True)` returns `sent_ranks`). An adopted draft has every rank re-sent with `overwrite`. A rank not uploaded in this job, or a missing Etsy dimension, is a problem, never a skipped check. E2e seeds a draft with matching alt text and different bytes and asserts every rank was overwritten with our bytes.
+> - **A2 fixed (escalation route).** The client has no file delete, so an adopted draft already holding a file named like ours is escalated (`store.draft_adoption_escalated`, PermanentError), never verified on name and size.
+> - **A3 fixed.** After `MAX_CONSECUTIVE_UNREAD = 5` unread duplicate checks for one release the job dead-letters behind one P2 incident `store.draft_adoption:unread:<slug>@<version>`. Still fails closed.
+> - **A4 (owner action, when this lands):** publication grants recorded before the `ROLLBACK_PATH.remove_draft` text change are void; the owner must re-sign the publication grant. Without it the scheduler shows `waiting_for_owner_grant`.
+> **2026-11-20 — ENG-ETSY-PUBLISH slice 1 (`eng/etsy-publish`, base 307c7e62; NOT reviewed, NOT integrated, NOT deployed; nothing ran against production or real Etsy).**
+> - **Rollback FAIL, root cause fixed.**
+>   - The rehearsal read PDFs from only the newest 200 build jobs catalogue-wide, and frames from every ListingAsset. It now reads this release's certified PDFs and the valid listing-set certificate's frames.
+>   - New executable `launch.rollback.withdraw_draft`: delete, verify gone by a second read, restore the local listing, retire the intent. This fixes G5.
+> - **Uploads.** Duplicate check and adoption before any create (`publish.draft_adoption`). In-place completion of missing PDFs, images and properties, bounded to 2 rounds. Per-rank image sha256 must equal the certificate's, and Etsy's dimensions are compared. Etsy exposes no hash, so Etsy-side byte identity is NOT claimed.
+> - **Fee and scheduler.**
+>   - Per-listing fee cap US$0.20 inside the CA$6 budget lock.
+>   - Publication scheduler inside the hourly `store.draft_reconcile`: owner grants only, never self-grants. STAGE_A_ENABLED is unchanged (False).
+> - **Owner card.** ONE card, "Approve first public listing (step-up)" (`first_public_listing:approve`). It is never raised on empty evidence.
+> - **Measurable sections.** `first_listing_readiness.releases[].section_diagnostics` names the unjudged parity dimensions, the listing-set counts, the failing rollback steps and the failing search checks.
+>   - listing_set FAIL: issuance is gated on staleness, so it follows Batch 12's halt. No independent cause found; production must confirm with the new diagnostics.
+> - **No AI-policy gate added. The AI disclosure is untouched.**
+> - **Tests.**
+>   - `test_etsy_publish` 16/16; `test_etsy_publish_e2e` 3/3; `test_eng_approvals` 34/34; `test_ws5_e6_draft_resolver` passes.
+>   - Mutants killed: grant guard, fee cap, read-back hash, duplicate adoption, rollback verify, completion retry. All targeted mutants are killed.
+>   - The card-empty-evidence mutant is KILLED by the card unit test.
+>   - 38 requested and related suites run on the final tree; 35 pass.
+>   - The first run found 9 failing. 6 were regressions from this branch and are fixed:
+>     - the duplicate check now runs inside `before_create` after revalidation, so a refused gate still sends no HTTP;
+>     - the rehearsal falls back to the release's own build job;
+>     - the write-site table, a source-order pin, a fixture and a hash-order shape were updated.
+>   - 3 fail identically on clean base 307c7e62, so they are NOT caused by this branch:
+>     - `test_w4_readback_evidence` (CLI row test);
+>     - `test_w6_listing_chain_e2e` (3 cases);
+>     - `test_ws4_stage_a_withdrawal` (3 cases).
+>   - Review: `research/final_build/w6/review_requests/etsy_publish_slice1.md`.
+
+> **2026-11-20 — ENG-DAILY-FIX (`eng/daily`, NOT merged, NOT deployed; production unchanged).** Fixes every Unit B
+> finding of the independent review of a795be17 (BLOCK). Merged `origin/claude/w6-INTEG4` (259e47c4) first, so
+> learn and improve with `improve.ecr` are present; change requests now go through `ecr.file`. (1) BLOCKER: a
+> `daily_ledger` row in `ops/readback.py` `EVIDENCE_ITEMS`, judged advisory (PASS/WARN; UNKNOWN when unreadable;
+> never PASS on UNKNOWN); readback items 18 -> 19. (2) HIGH: a stage is zero-output only when >= 6 h into the UTC
+> day, expected-by-now >= 1 from its historical rate, and today <= 0.2 x expected; otherwise `not_yet_due` (never
+> DEGRADED) or UNKNOWN (D-ENG-DAILY-ZERO-RULE). Change requests need a zero last-24-h window and are deduplicated by
+> fingerprint per stage per UTC day, on `ecr.file` and on the `ops.ecr_pending` fallback. Tests: the 00:30 UTC run
+> diagnoses nothing and files nothing; repeated runs file one request (both paths). (3) `concepts_held` is UNKNOWN on
+> a day no `radar.scan` completed. (4) Daily panel pills: Failures and Dead letters invert, Spend is neutral, stage
+> rows follow their reading. (5) the retention-horizon day is UNKNOWN (`<=`). (6) the review request carries its
+> run table. `sw.js` `cc-shell-v43`; autonomy map regenerated (148 cadences / 180 handlers). Bundle: INTEG4 plus the Daily view came to 403,169 bytes (over 400 KB); the two PWA icons were re-encoded with zopfli, pixel-identical (verified), the Daily row labels are served with the panel and sw.js drops its per-version changelog (in git): 393,345 bytes. Results:
+> `research/final_build/w6/review_requests/ENG-DAILY-FIX.md`.
+
+> **2026-11-20 — ENG-DAILY slice 1 (`eng/daily`, NOT merged, NOT deployed; production unchanged).** The owner's P0
+> daily counts. `ops/daily_ledger.py` gives per-UTC-day counts for 14 days from persisted rows only: the 9 shops'
+> scans, concepts, products started and advanced, certifications, US/UK PDFs, images, galleries, listing packages,
+> Etsy drafts and live ids, lessons, failures and dead letters, and CA$ spend. UNKNOWN is never 0: an unreadable
+> source, a day before the first job, a day past retention or an unregistered shop.
+> - Zero-output diagnosis covers suspended loops, an empty upstream queue, a refusing gate (top reasons), a budget
+>   refusal, and policy or owner holds. It records an `ops.zero_output` row per day and stage.
+> - Safe free actions only: re-arm through `rearm_probe` under the cadence key, and one supply re-offer when
+>   admission is clear. A cause that needs code files an ECR: through `improve.ecr` once ENG-IMPROVE lands,
+>   `ops.ecr_pending` until then. No gate, ceiling or owner exception is changed.
+> - Owner-only `GET /api/cc/daily` and the `#/daily` view (`cc-shell-v42`, bundle 388,682 bytes); readback
+>   section `daily_ledger` (spend withheld). Not measured against production: no production reading was taken.
+> - Honest gaps (no per-event timestamp exists for these, so each counts the nearest row): stage moves, the moment
+>   an Etsy id is set, image verification time, "image recovered". Details:
+>   `research/final_build/w6/review_requests/daily_slice1.md`.
+
+> **2026-11-20 — ENG-VIS-IDENTITY slice 2 (`eng/vis-identity`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
+> - Review fixes: F1 v3 production test no longer assumes the models are absent; F2 calibration now fixes thresholds on a calibration subset and measures FAR/FRR (exact 95% bounds) only on a disjoint held-out subset, floors apply to held-out counts, `qualification()` refuses in-sample evidence; F3 outfit race settles to exactly one outfit per listing (a loser with uses is retired, never orphaning frames); F4 vision reads reserved at the provider's own image figure (OpenAI read CA$0.092 -> CA$0.029 reserved, equal to the gate's own estimate); F5 unused `transports_independent` removed.
+> - Re-measured held-out (evidence sha 1854ae98): **held-out FAR 2/6 (upper bound 72.9%)**, FRR 0/10. The slice-1 "FAR 0/10" was in-sample and is withdrawn. Still NOT production-ready; needs ~450 impostor faces and >=36 genuine in total.
+> - Deploy path: `onnxruntime==1.29.0` in the hash-pinned lock; Dockerfile fetches the sha-pinned models best-effort. Image built and booted in this session (models verified, `/health` ok, floor loads embedder with no qualification -> HOLD; tampered model refused). ~110 MB RAM over the worker.
+> - Decision 2 tooling: `visual/identity_labelling.py` + `scripts/identity_contact_sheet.py` (24 frames on all three references, US$1.16 cap, refuses without BFL key + owner activation; owner labelling page/command). Nothing generated or spent.
+> **2026-11-20 — ENG-VIS-IDENTITY slice 1 (`eng/vis-identity`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
+> - Built: `visual/face_embedder.py` (YuNet+SFace ONNX on CPU, Apache-2.0/MIT, weights pinned by sha256), `visual/identity_calibration.py` (measured thresholds, FAR/FRR with exact 95% bounds, production floors >=30 genuine / >=300 impostors / FAR-UB <=1% / FRR <=10%), `visual/identity_records.py` (durable per-image identity records), `outfits.claim` (idempotent compare-and-set outfit claim), blind outfit-vs-approved-reference check, OpenAI gpt-4.1 second judge via the existing `GatewayVisionJudge` reservation path, `identity_gate.assess` consumer `verdict` PASS/HOLD/REFUSE and all-three-references rule.
+> - Measured (committed evidence, sha 6884612e): Laura worst 0.696 vs best look-alike 0.582; FAR 0/10, FRR 0/12; **FAR 95% upper bound 25.9% -> NOT production-ready**. 0.08 CPU-s/frame, ~120 MB RAM.
+> - Honest state: `PRODUCTION_QUALIFICATIONS` still empty, so Laura identity HOLDs in production. Needs: ~306 generated impostor faces (US$1.63, standing authority; not run: no BFL key in this session), 18+ owner-confirmed genuine frames, OpenAI key + `openai-vision` activation, owner decisions in `research/final_build/w6/IDENTITY_OWNER_DECISIONS.md`. Nothing generated or spent in this session.
+> **2026-11-19 — ENG-VISUAL (branch `eng/visual-factory`, not deployed).**
+> - Audit: `research/final_build/w6/visual_factory_audit.md`, covering every stage from certified pattern to Etsy read-back, with file:line and blockers.
+> - Read-only evidence: the `visual_pipeline` section on `/api/readback/evidence`, plus an advisory readback row. Unreadable parts are UNKNOWN, never 0.
+> - S2:
+>   - the seven-frame campaign standard is enforced at gallery readiness;
+>   - `eng/motif-reservation` is merged;
+>   - an E2E (`tests/test_visual_factory_e2e.py`) runs on FakeEtsy with both PDFs and every image read back. The generated-gallery certification blocker is pinned.
+> - Production numbers are UNKNOWN until this branch is deployed and read.
+> - Owner exceptions: (1) the identity-verification method — embedder qualification plus a second vision transport; (2) activating `image_generation` and `image_vision`.
+
+> **2026-11-20 — ENG-LEARN slices 1-4 (`eng/learn`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
+> The owner directive: the learning department must make the company measurably better with experience.
+> - **Images (`learning.image_lessons`).**
+>   - Every judged `image_candidates` frame becomes one structured observation.
+>   - Measured scene lessons are derived per family:role, Bonferroni-corrected, and published as bus subject
+>     `image_production`.
+>   - Prompt templates compete champion/challenger. The challenger share is 15%, capped at 20%. Promotion needs p < 0.002,
+>     40+ frames per arm and +8pt, or a significant cost win. Harm stop and demotion apply, and every change is a
+>     `learning_decisions` row.
+>   - Contract `image_lessons/1` is posted to #28 for ENG-VIS-GALLERY and ENG-VIS-FLUX.
+> - **Patterns (`learning.pattern_lessons`).**
+>   - Finished `cir.draft`/`cir.compile`/`gate.certify` jobs become defect observations by construction family, category
+>     and binned parameters.
+>   - Fisher-exact region lessons go to `engineering_risk` (new, disfavoured) and `construction_preference`, which
+>     `radar.score` already consumes.
+>   - `cir.draft` records `learning_advice`, which is advice and never a refusal. The metric is first-pass certification
+>     per family.
+> - **Suspended learners.** All five were parked by the backoff (identical states), with no upstream lift and, for
+>   `creative.*`/`visual.*`, no release probe. Each now has a real upstream input, and
+>   `made_progress` judges declared WORK_KEYS.
+>   - `creative.image_benchmark`'s superseded branch runs the image loop.
+>   - `visual.rnd.cycle` counts hero work.
+>   - `improve.monitor` no longer counts a standing `promoted` as work.
+>   - No spend classification changed.
+> - **New free job `learning.loops`** runs the pattern and commerce loops daily.
+> - **Proof.** `learning.progress` feeds Mission Control (LEARN tab) and the readback (`learning` section). Windows,
+>   trends and lessons acted on are UNKNOWN below the minimum sample. Service worker `cc-shell-v40`.
+> - **Commerce.** Only real-provenance outcomes and orders feed lessons. There are none today, so it reads UNMEASURED.
+> - **Honest status.**
+>   - Nothing has run against production, so every real trend is UNKNOWN.
+>   - No producer calls `prompt_for` yet, so no arm has production evidence.
+>   - Review notes: `research/final_build/w6/review_requests/learn_slice{1,2,3}.md`.
+> **2026-11-20 — ENG-IMPROVE slice 1 (`eng/improve` from w6-INTEG3 39b92619; NOT reviewed, NOT integrated, NOT deployed).**
+> Owner directive: every department improves with experience; a lesson counts only if it changes behaviour.
+> - **Department loops.** `improve.department_loops` covers 11 departments, each with a KPI (useful yield from `jobs` rows,
+>   UNKNOWN below 20 runs), lessons (learned, verified, applied) and a consumer checked statically and live. A department
+>   with no consumer, or a dormant one, is a FINDING that files an ECR. Table: `research/final_build/w6/self_improvement_table.md`.
+>   Structural findings: **Pricing and Ops have no lesson consumer.**
+> - **Live tuning.** `improve.tuning` is champion/challenger over a hard-coded allowlist of 13 keys, re-checked by
+>   `improve.invariants`. Challengers are capped by share (20%) and spend (CA$5). Promotion happens only at fixed looks
+>   (z >= 2.807 and +3 points). A promotion is watched against a holdback and rolled back automatically on regression.
+>   Everything is audited. **No reader calls `tuning.value()` yet, so no challenger can run in production (slice 2).**
+> - **ECRs.** `improve.ecr` adds EngineeringChangeRequest rows: deduplicated, related requests linked, lifecycle
+>   FILED -> BUILDING -> REVIEWED -> DEPLOYED -> VERIFIED or REOPENED. A request closes only on a KPI verified after deploy.
+>   Open requests are served read-only at `GET /api/readback/ecrs` (readback token only). There is no transition route
+>   yet. Production never edits code.
+> - **Daily job.** `improve.self_tune` (free, GREEN, daily) judges trials, files and verifies ECRs, and files `failing_loop`
+>   ECRs for improve.* loops parked at 32x.
+> - **Panel.** Mission Control -> Autonomy -> "Self-improvement (per department)". SW `cc-shell-v41`.
+> - **Parked improve.* loops diagnosed.** `improve.monitor`, `improve.sandbox` and `improve.league` read rows, not job
+>   outputs. Idle, they correctly back off to 32x, but nothing lifted the backoff when a promotion, proposal or config
+>   arrived. A promotion could wait up to 32 days for its rollback monitor. `orchestrate.INPUT_PROBES` now lift it.
+>   This was derived from code: the production suspension list was not readable from this session.
+> - Review: `research/final_build/w6/review_requests/improve_slice1.md`.
+> **2026-11-20 — ENG-VIS-FLUX slice 1 (`eng/vis-flux`, builder branch; NOT reviewed, NOT integrated, NOT deployed; no BFL request made).**
+> - The FLUX 3 Image contract was verified against BFL's official docs on 2026-11-20: the OpenAPI schema, the API reference, pricing, the integration guide and the errors page.
+>   - It is held as data in `gateway/flux_contract.py`, with citations.
+>   - The audit is in `research/final_build/w6/flux_integration_audit.md`.
+>   - Findings: `BFL3_FIELDS` was stale (it lacked `user`, `width` and `height`). There was no whole-body range check: `safety_tolerance` must be 0–4. FLUX 3 Image has **no seed** field.
+> - New gateway pieces:
+>   - `flux_qc`: a listing frame is rejected at generation (billed, bytes kept) when it is under 2000 px, has the wrong aspect, is not PNG/JPEG, is transparent, or is still corrupt after up to 2 free re-fetches.
+>   - `flux_provenance`: the D-W4-F852-AMEND item 7 record, with `missing()`.
+>   - `flux_provider`: READY/UNKNOWN readiness that reads the key name only, and the replacement guard. The guard re-checks paid rejects and reads ENG-MOTIF-BACKLOG's `motif_recovery` when present.
+>   - Code image caps inside the gate, lower-only via environment: 60 images per day, 16 images and CA$2.50 per gallery. `gallery_spend()` reports cost per gallery.
+> - `Flux3Generator` refuses before reserving when the key or the owner's activation is missing, or when a paid render awaits recovery.
+> - The suite is `tests/test_eng_vis_flux.py`: a no-network contract test against recorded schema shapes, plus mutations on each guard.
+> - Owner actions are in `research/final_build/w6/FLUX_OWNER_DECISIONS.md`:
+>   - confirm or add `BRAMBLELOOP_IMAGE_KEY_BFL` in Railway;
+>   - activate `flux-3-image` for generation with ceilings of CA$9/day, CA$60/month and CA$2.50/gallery.
+>   - Cost: CA$0.142 per 2k frame; about CA$1.06 per Laura gallery; about CA$53–70/month at 50 galleries.
+> - Open: no live render yet. It is UNKNOWN whether the 2k tier at 1:1 delivers exactly 2048 px, and whether 4:5 at 4k works with references.
+> - Also fixed: this branch's own merge commit (439d17e5) left conflict markers at the top of this file. They are now resolved, and both entries are kept.
+> **2026-11-20 — ENG-PDF-PREMIUM slice 1 (`eng/pdf-premium`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
+> - `publish.pdf_standard`: family-aware premium standard (small home goods, blanket, basket, garment, pillow, amigurumi),
+>   22 rules + running header/footer, audited on the finished PDF bytes; `build_pattern_pdf` refuses a PDF that fails
+>   (`PremiumStandardRefused`). D-ENG-PDF-PREMIUM-1.
+> - Renderer gaps closed: CYC number and US hook size, "or size to obtain gauge", yarn per colour in 100 g balls and
+>   yd (US) / m (UK), length-per-gram substitution, RS/WS row labels, own licence with designer credit plus a
+>   disclaimer, "About Brambleloop Studio" (never Laura), schematic measurements as text, schematic cover hero for
+>   designs the stitch renderer cannot draw. Fixed buyer-facing defects: "Makes 4 bodys" (pullover) and "Makes 3 pillows"
+>   (one ring pillow of 3 pieces).
+> - Measured: all 13 catalogue documents (11 Launch-0/proposed + a garment size + a pillow) pass in US and UK.
+> - NOT built: one multi-size garment edition with sizes in parentheses (each size is still its own PDF); garment
+>   inline diagrams; amigurumi (no engine exists). Review request: `research/final_build/w6/review_requests/pdf_premium_slice1.md`.
+> **2026-11-20 — ENG-WARDROBE-SCENES slice 1 (`eng/wardrobe-scenes`, NOT reviewed, NOT merged, NOT deployed; no provider called).**
+> - **Built, new files only:**
+>   - `visual/outfit_library.py`: 63 outfits, pairwise distinct (max 0.598 < 0.60), with harmony, family compatibility and a durable claim through `outfits.reserve`;
+>   - `visual/scene_library.py`: 59 scenes, 16 of them outdoor, 36 props, and the misleading-prop rule;
+>   - `visual/prompt_assembly.py`: versioned `ws.<role>@1` templates, the ENG-LEARN `image_lessons/1` interface and a CIR product block;
+>   - `visual/gallery_planner.py`: 7 or 8 distinct frames per listing, one outfit, an invariant product, and refusal of filler.
+> - **Decisions:** D-ENG-WARDROBE-1..4.
+> - **Tests:** `tests/test_wardrobe_scenes.py`, 34 OK, including 8 rule mutations, all killed. Review request: `research/final_build/w6/review_requests/wardrobe_scenes_slice1.md`.
+> - **Not done or not verified:**
+>   - Not wired into the image producer or ENG-VIS-GALLERY's FLUX route (slice 2).
+>   - No outfit reference image exists: they are HELD until the owner's FLUX activation.
+>   - Library outfits are approved by code, not by the owner.
+>   - The cream + ink palette admits only 5 outfits.
 > **2026-11-19 — ENG-APPROVALS slice 1 (`eng/approvals`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
 > - The owner directive `D-OWNER-STANDING-INTERNAL` is recorded in DECISION_LOG.
 > - Code: `authority.standing_internal` (classifier and directive), `ops.owner_queue_consolidate` (idempotent sweep, the one
@@ -16,6 +246,41 @@
 > - **Safety.** Nothing buys: no purchase path, no buy control, metadata only. Intake (`teardown.intake.receive`) now accepts a pick from any watchlist shop into the quarantined library.
 > - **Not verified.** Nothing here ran against production scan data (this checkout has no production database), so the real number of picks, shops with picks and total are UNKNOWN until the first production run. Whether the observed listings carry `options.listing_type` for every shop is also UNKNOWN: listings without it are excluded and counted as `digital_status_unknown`.
 > - Tests: `tests/test_benchbuy.py`, the benchbuy check in `check.mjs`. Review request: `research/final_build/w6/review_requests/benchbuy.md`.
+> **2026-11-20 — ENG-GARMENT slices 2-3 (`eng/garment`, NOT merged, NOT deployed).**
+> - Slice 2, `publish/garment_pdf.py` + `publish/garment_schematic.py`: one PDF per edition (US, UK) for all sizes,
+>   with:
+>   - overview table, supplies with balls per size and a gauge for each fabric;
+>   - construction narrative, size chart (body vs finished, ease, balls/yards/metres), schematic SVG from the rows;
+>   - tips, abbreviations, multi-size pattern, finishing with pick-up rates, child-safety section where it applies;
+>   - yarn substitution, our own licence (commerce.terms), About.
+>
+>   The PDF refuses itself if its text does not read back to the compiler or the twin. 5 designs x 2 editions render.
+> - Slice 3, routing: `construction_families` garment families. PAIR_PROOFS cover only (raglan, cardigan/adult),
+>   (raglan, baby/baby) and (one_piece, sweater/child). `cir.draft` drafts a garment as one release and sends
+>   every size through compile -> certify; intake refuses a garment title naming one size.
+>   End to end with real handlers: adult cardigan (9 sizes), child sweater (6), baby cardigan (5), each
+>   concept -> all sizes granted -> US/UK PDF with schematic and size chart.
+> - Follow-up: `products/garments.drop_shoulder_flat` seam notes lack "through both loops" (Harbour text change +
+>   version bump), so child-table tournament drop-shoulder garments are held by the child gate.
+> - NOT done: no garment physically made, no photos, side-to-side/drop-shoulder not admitted at intake, no
+>   listing/product-row work for a multi-size release beyond the per-size certified releases.
+> **2026-11-20 — ENG-GARMENT slice 1 (`eng/garment`, NOT merged, NOT deployed).** Garments as a family that
+> certifies end to end, every size. Built on INTEG2 64146306 + eng/plush d4aaf9b6 (which carries eng/families).
+> - `products/garment_families.py`: four constructions (top-down raglan, flat one-piece with built-in sleeves,
+>   side-to-side, drop-shoulder panels) over a recorded step list; back-loop bands at hems and cuffs; picked-up
+>   front bands with buttonholes, cuffs and neckbands; balls and yards per size from the twin.
+> - `cir/graded.py`: the CYC baby table (3-24 months, read 2026-11-20), so baby sizes are sourced, never invented.
+> - Five original designs (`products/garment_release.DESIGNS`): Fernhollow raglan cardigan (adult, 9 sizes,
+>   buttons), Brookside kids sweater (child 2-12, one-piece), Little Wren baby cardigan (3-24 m, no buttons),
+>   Driftline side-to-side vest (adult, 9), Kestrel drop-shoulder pullover (adult, 9). **Every size of all five is
+>   granted by the unchanged release chain** and passes `gates/garment_fit.py` (stitch counts, shaping, seam match,
+>   pick-up rates, neck and armhole fit, finished vs target, ease band, yardage and size-chart claims).
+> - `publish/garment_writer.py`: one text for every size, smallest first, others in parentheses, a stitch count
+>   after every row line, US and UK; read back per size by `garment_fit.multi_size_problems` (0 problems on all 10).
+> - `gates/child_safety.py`: child/baby garments in scope; GARMENT_CLOSURES (no buttonholes under 3); picked-up
+>   bands measured, not "sewn"; worked-into chains are fabric. Nothing that failed before passes now.
+> - NOT yet: the garment PDF (schematic, size chart, licence page), concept intake routing (PAIR_PROOFS) - slices 2-3.
+>   No real garment has been made; physical fit is unproven (class B relaxed designs only; fitted is refused).
 
 > **2026-11-19 — ENG-RECOVERY fix round 1 (`eng/recovery`, NOT merged, NOT deployed).** Main's review was DO NOT SHIP.
 > - H1: the spend classifier now FAILS CLOSED. `swarm.orchestrate.FREE_JOB_TYPES` is an explicit allow-list
@@ -72,6 +337,7 @@
 >
 > Limitations, kept visible: research_fetch disabled (deployment flag); external trend platforms missing (no official
 > API); Marketplace Insights is owner-recorded. Review: `research/final_build/w6/review_requests/research_flow.md`.
+
 > **2026-11-19 — ENG-VISUAL (branch `eng/visual-factory`, not deployed).**
 > - Audit: `research/final_build/w6/visual_factory_audit.md`, covering every stage from certified pattern to Etsy read-back, with file:line and blockers.
 > - Read-only evidence: the `visual_pipeline` section on `/api/readback/evidence`, plus an advisory readback row. Unreadable parts are UNKNOWN, never 0.
@@ -81,6 +347,7 @@
 >   - an E2E (`tests/test_visual_factory_e2e.py`) runs on FakeEtsy with both PDFs and every image read back. The generated-gallery certification blocker is pinned.
 > - Production numbers are UNKNOWN until this branch is deployed and read.
 > - Owner exceptions: (1) the identity-verification method — embedder qualification plus a second vision transport; (2) activating `image_generation` and `image_vision`.
+
 
 > **2026-11-02 — Batch 4 DEPLOYED: production = 0967c3ee (SHADOW unchanged). 24-hour acceptance running until 2026-11-03T03:31Z.**
 > - Owner approval: "APPROVE DEPLOY 0967c3eee287d06cad0d8034a99e39076c0ab6d5" (2026-11-02).
@@ -350,6 +617,27 @@
 
 _Updated 2026-09-20 by the Brambleloop build session. Maintained continuously so any future
 session resumes without rediscovery (Execution Directive step 1, Master Plan section 35)._
+
+## PRODUCTION DIAGNOSIS — 2026-11-20 04:55 UTC (Main, live readback of 5496bc4a / Batch 11)
+
+Read-only evidence via the readback token: **FAIL 9, PASS 4, UNKNOWN 0.**
+- **Shops:** 8/8 registered shops scanned; the 9th (ArtLoveDesing) is not in prod.
+  test_ninth_shop is in the undeployed batches.
+- **Systemic publication halt:** incident 380, open since 2026-10-11. Cause: 14 products
+  (more than 50% of the catalogue) hold open stale-artefact / rebuild-incomplete incidents,
+  and `systemic_evidence` escalates any failure family at that scale.
+- **Why they can't rebuild:** the stale-artefact sentinel finds 126 of 587 stale. Every
+  rebuild retry is held by "#39 listing_image_rules awaiting owner review", and the owner
+  override D-OWNER-POLICY39-OVERRIDE is only in Batch 13+. **Deploying Batch 13+ releases
+  the rebuilds.** That should resolve the stale-artefact incidents, then the systemic halt.
+- **Scheduler backoff:** 19 job types, among them chain.rebuild (x32), chain.successors
+  (x32), the photography jobs and the creative jobs.
+- **Production output:** original_product 0 and commercial_preparation 0; 0 certified in
+  7 days.
+- **Dead letters:** 8 `seasonal.cycle_proof:ProspectingRefused`, fixed on b16-integ
+  (daabf4a9): recorded as a refusal.
+- **Critical path:** a certified batch (12, 13, 14 or 15) is deployed, then a readback
+  confirms the rebuilds are flowing and the halt is clear.
 
 ## Build 1: COMPLETE
 **Accepted as complete by the owner on 2026-09-18**, and checkpointed as a recoverable

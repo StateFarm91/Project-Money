@@ -905,6 +905,42 @@ def launch_verdict(db) -> dict:
                     reason=None if ready else "the latest launch assessment is not ready")
 
 
+def self_improvement_section(db) -> dict:
+    """ENG-IMPROVE: per department, the KPI trend, lessons learned and applied, active
+    challengers, promotions and rollbacks, and open / shipped / verified change requests.
+    UNKNOWN below the sample floor; nothing here is a trend the rows do not show."""
+    from ...improve import self_improve
+
+    p = self_improve.panel(db)
+    items = []
+    for d in p["departments"]:
+        k, l, e = d["kpi"], d["lessons"], d["ecrs"]
+        value = "UNKNOWN" if k["value"] is None else f"{k['value']:.0%}"
+        consumers = ", ".join(f"{(c['module'] or 'none').rsplit('.', 1)[-1]} {c['state']}"
+                              for c in d["consumers"])
+        items.append({
+            "title": d["name"],
+            "status": "OK" if d["loop"] == "LOOP_CLOSED" else "DEGRADED",
+            "detail": (f"KPI useful yield {value} over {k['trials']} runs, trend {k['trend']}"
+                       f"{' (' + k['why'] + ')' if k['trend'] == 'UNKNOWN' and k['why'] else ''}"
+                       f"; lessons {l['learned']} learned / {l['verified']} verified / "
+                       f"{l['applied']} applied; consumer: {consumers}; challengers active "
+                       f"{len(d['challengers_active'])}, promotions {d['promotions']}, "
+                       f"rollbacks {d['rollbacks']}; change requests {e['open']} open / "
+                       f"{e['shipped']} shipped / {e['verified']} verified; improving: "
+                       f"{d['improving']}"),
+            "improving": d["improving"], "source": "improve.self_improve.panel"})
+    return envelope(p["status"], items,
+                    ["jobs", "lessons", "learn_decisions", "si_challengers",
+                     "engineering_change_requests"],
+                    basis="measured", provider="improve.self_improve",
+                    as_of=p["as_of"],
+                    reason=(None if p["status"] == "OK" else
+                            f"{p['total'] - p['loops_closed']} of {p['total']} departments "
+                            f"have no lesson consumer that acted in the window"),
+                    note=p["basis"])
+
+
 def autonomy(db) -> dict:
     from ...core.models import AuditLog
 
@@ -930,6 +966,9 @@ def autonomy(db) -> dict:
                              # W4-CCFM2 (F-668): per-agent department, work, failures, spend.
                              "agents_workspace": _agents_workspace(db),
                              "improvement": providers.call("improvement", db),
+                             # ENG-IMPROVE: the self-improvement team, per department.
+                             "self_improvement": guard(
+                                 "self_improvement", lambda: self_improvement_section(db)),
                              "jobs_24h": jw,
                              "hours_since_owner_action": guard("owner_gap", owner_gap),
                              "improvements": readers.improvements(db),
@@ -939,8 +978,18 @@ def autonomy(db) -> dict:
                                                  lambda: visual_rnd_section(db)),
                              "visual_rnd_governance": guard(
                                  "visual_rnd_governance", lambda: visual_rnd_governance(db)),
+                             # ENG-LEARN: proof of improvement per learning loop -- the metric
+                             # over rolling windows, its trend, lessons acted on, before/after
+                             # per promotion. UNKNOWN when the sample is too small.
+                             "learning": guard("learning", lambda: _learning(db)),
                              "laura_roadmap": providers.call("laura_roadmap", db)},
                 last_useful_action=jw.get("last_useful_action"))
+
+
+def _learning(db) -> dict:
+    from ...learning import progress
+
+    return progress.summary(db)
 
 
 def insights(db) -> dict:

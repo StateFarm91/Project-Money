@@ -696,6 +696,19 @@ def _awaiting_motif_frame(frame: dict) -> bool:
     """
     from . import motif_fidelity
 
+    return (motif_fidelity.rejudgeable(frame.get("motif"))
+            and motif_eligible_frame(frame))
+
+
+def motif_eligible_frame(frame: dict, *, structural: bool = True) -> bool:
+    """`_awaiting_motif_frame` without the question of why the motif went unasked: the
+    frame's other floors on their merits, and a match would make it usable. Shared with the
+    motif backlog (`motif_backlog.eligible`), so both read one rule. `structural=False` reads
+    the merits alone (the structural floor is the backlog's separate PARKED question)."""
+    from . import motif_fidelity
+
+    if not isinstance(frame, dict):
+        return False
     answers = dict((name, floors) for name, _, floors in SHOTS).get(frame.get("shot"), ())
     if "product_truth" not in answers:
         return False
@@ -703,11 +716,9 @@ def _awaiting_motif_frame(frame: dict) -> bool:
     if floors.get("product_truth") != "unverifiable" or any(
             v == "fail" for v in floors.values()):
         return False
-    if not motif_fidelity.rejudgeable(frame.get("motif")):
-        return False
     wanted = (set(answers) | set(SHARED_FLOORS)) - {"product_truth"}
     return (all(floors.get(name) == "pass" for name in wanted)
-            and motif_fidelity.worth_rejudging(frame))
+            and (not structural or motif_fidelity.worth_rejudging(frame)))
 
 
 def _rejudgeable_frame(db, cir, *, shot: str) -> dict | None:

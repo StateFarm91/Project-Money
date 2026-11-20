@@ -502,17 +502,120 @@ UPSTREAM_INPUTS: dict[str, tuple[str, ...]] = {
     # (not intel.watchlist_compare: it reports work_done=1 on every run, changed or not)
     "radar.concept_intake": ("research.investigate", "intel.opportunity_review",
                              "intel.watchlist_scan"),
+    # ENG-LEARN. Each of these was parked by the backoff because its output did not change
+    # while its input did not change, which is correct. But nothing lifted the backoff when
+    # the input DID change, so a learner parked at 32x missed the evidence it exists to read.
+    # An upstream counts only when it did work (`made_progress`: its work_done, or its
+    # declared WORK_KEYS), never on a bare `ran: true`.
+    "learning.loops": ("cir.compile", "gate.certify", "cir.draft", "listing.outcomes",
+                       "commerce.orders_ingest"),
+    # The image learning loop (it replaced the superseded provider benchmark) reads judged
+    # frames: a production or controlled run that made candidates.
+    "creative.image_benchmark": ("visual.image_production", "visual.controlled_experiment"),
+    # Concept attributes joined to outcomes: new real listing outcomes or orders.
+    "creative.outcome_learning": ("listing.outcomes", "commerce.orders_ingest",
+                                  "commerce.readings"),
+    # Reference decomposition reads newly judged benchmark gallery images.
+    "creative.reference_reading": ("intel.gallery_analysis", "intel.benchmark_refresh"),
+    # The visual R&D loop's input is the certified catalogue (its fingerprint).
+    "visual.rnd.cycle": ("gate.certify", "chain.rebuild"),
+    # A promotion is judged once per new production reading: a measurement that measured.
+    "improve.monitor": ("improve.measure", "improve.sandbox"),
 }
 
 
-def made_progress(outputs) -> bool:
-    """A finished run that produced something: not a gated no-op, not a deferral."""
+def made_progress(outputs, job_type: str | None = None) -> bool:
+    """A finished run that produced something: not a gated no-op, not a deferral.
+
+    ENG-LEARN: with `job_type`, a type that declares WORK_KEYS (`runtime.pipeline`) is judged
+    by them, the same judge every no-op report uses, so `{"ran": true, "measured": 0}` is not
+    progress. Without a declaration the old reading stands (`ran: true`)."""
     if not isinstance(outputs, dict) or gated_noop(outputs) or outputs.get("deferred"):
         return False
     wd = outputs.get("work_done")
     if isinstance(wd, (int, float)) and not isinstance(wd, bool):
         return wd > 0
+    if job_type:
+        try:
+            from ..runtime.pipeline import WORK_KEYS, did_no_work
+
+            if job_type in WORK_KEYS:
+                return not did_no_work(outputs, job_type)
+        except Exception:  # noqa: BLE001 - an unreadable judge is no progress (fail closed)
+            return False
     return outputs.get("ran") is True
+
+
+def _promotions_since(session, since) -> dict | None:
+    """ENG-IMPROVE: new input for the promotion monitor -- a promotion, or a production reading
+    of a cell that has a promoted change -- recorded after `since`."""
+    from sqlalchemy import select
+
+    from ..core.models import CapabilityPoint, Improvement
+
+    row = session.scalar(select(Improvement).where(Improvement.promoted_at > since)
+                         .order_by(Improvement.id.desc()).limit(1))
+    if row is not None:
+        return {"input": "improvements.promoted_at", "id": row.id,
+                "at": _aware(row.promoted_at).isoformat()}
+    cells = set(session.scalars(select(Improvement.cell).where(Improvement.state == "promoted")))
+    if cells:
+        pt = session.scalar(select(CapabilityPoint).where(CapabilityPoint.at > since,
+                                                          CapabilityPoint.cell.in_(cells))
+                            .order_by(CapabilityPoint.id.desc()).limit(1))
+        if pt is not None and (pt.detail or {}).get("source") != "post-promotion monitoring":
+            return {"input": "capability_history", "id": pt.id, "at": _aware(pt.at).isoformat()}
+    try:
+        from ..improve.self_models import Challenger
+
+        ch = session.scalar(select(Challenger).where(Challenger.promoted_at > since)
+                            .order_by(Challenger.id.desc()).limit(1))
+    except Exception:  # noqa: BLE001 - a table not yet created is no new input
+        ch = None
+    if ch is not None:
+        return {"input": "si_challengers.promoted_at", "id": ch.id,
+                "at": _aware(ch.promoted_at).isoformat()}
+    return None
+
+
+def _proposals_since(session, since) -> dict | None:
+    """New input for the sandbox: an improvement proposal recorded after `since`."""
+    from sqlalchemy import select
+
+    from ..core.models import Improvement
+
+    row = session.scalar(select(Improvement).where(Improvement.at > since,
+                                                   Improvement.state == "proposed")
+                         .order_by(Improvement.id.desc()).limit(1))
+    return (None if row is None else
+            {"input": "improvements.proposed", "id": row.id, "at": _aware(row.at).isoformat()})
+
+
+def _configs_since(session, since) -> dict | None:
+    """New input for the league: a configuration version registered after `since`."""
+    from sqlalchemy import select
+
+    from ..core.models import ConfigVersion
+
+    row = session.scalar(select(ConfigVersion).where(ConfigVersion.at > since)
+                         .order_by(ConfigVersion.id.desc()).limit(1))
+    return (None if row is None else
+            {"input": "config_versions", "id": row.id, "at": _aware(row.at).isoformat()})
+
+
+# ENG-IMPROVE (diagnosis of the parked improve.* loops): improve.monitor, improve.sandbox and
+# improve.league read rows other code writes -- promotions, proposals, configuration versions
+# -- and none reports `work_done`. With nothing promoted their outputs are identical every
+# night, so `_free_poll_backoff` parks them (2x .. 32x a daily period) -- correctly, an idle
+# watcher should not poll. The defect was that nothing lifted the backoff when the input
+# arrived: a promotion made on day 3 waited up to 32 days for the monitor that can roll it
+# back. These probes are those inputs, read directly from the rows (a job-level
+# `made_progress` cannot see them), so a backoff lifts the sweep after new input appears.
+INPUT_PROBES: dict[str, object] = {
+    "improve.monitor": _promotions_since,
+    "improve.sandbox": _proposals_since,
+    "improve.league": _configs_since,
+}
 
 
 def upstream_progressed(session, job_type: str, since) -> dict | None:
@@ -523,12 +626,20 @@ def upstream_progressed(session, job_type: str, since) -> dict | None:
 
     ups = UPSTREAM_INPUTS.get(job_type)
     since = _aware(since)
+    probe = INPUT_PROBES.get(job_type)
+    if probe is not None and since is not None:
+        try:
+            hit = probe(session, since)
+        except Exception:  # noqa: BLE001 - an unreadable input is not new input
+            hit = None
+        if hit:
+            return {"job_type": job_type, "job_id": None, **hit}
     if not ups or since is None:
         return None
     for job in session.scalars(select(Job).where(
             Job.job_type.in_(ups), Job.status == JobStatus.DONE, Job.finished_at > since)
             .order_by(Job.id.desc()).limit(200)):
-        if made_progress(job.outputs) and _aware(job.finished_at) > since:
+        if made_progress(job.outputs, job.job_type) and _aware(job.finished_at) > since:
             return {"job_type": job.job_type, "job_id": job.id,
                     "at": _aware(job.finished_at).isoformat()}
     return None
@@ -650,15 +761,17 @@ FREE_JOB_TYPES: frozenset[str] = frozenset({
     "growth.distribution", "growth.experiments", "growth.journey", "growth.preproduction",
     "growth.steer", "improve.commercial_lessons", "improve.league", "improve.measure",
     "improve.mine", "improve.monitor", "improve.nightly", "improve.replay",
-    "improve.retrospective", "improve.role_work", "improve.sandbox", "improve.weekly",
+    "improve.retrospective", "improve.role_work", "improve.sandbox", "improve.self_tune",
+    "improve.weekly",
     "intel.acceptance", "intel.benchmark_health", "intel.benchmark_refresh",
     "intel.benchmark_shopping",
     "intel.children_portfolio", "intel.panel_discovery", "intel.pod_learning",
     "intel.scan_evidence", "intel.watchlist_compare", "intel.watchlist_scan", "learn.scan",
-    "learning.knowledge_gaps", "listing.cross_sell_graph", "listing.outcomes",
+    "learning.knowledge_gaps", "learning.loops", "listing.cross_sell_graph", "listing.outcomes",
     "listing.package", "listing.search_visibility_aging", "listing.search_visibility_watch",
     "listing.taxonomy_refresh", "listing.window_captures", "mjs.reviews", "mjs.scan",
-    "ops.capacity", "ops.continuity", "ops.dependencies", "ops.health", "ops.heartbeat",
+    "ops.capacity", "ops.continuity", "ops.daily_ledger", "ops.dependencies", "ops.health",
+    "ops.heartbeat",
     "ops.maturity_disagreements", "ops.offsite_archive", "ops.policy_watch",
     "ops.provenance_backfill", "ops.provider_credentials", "ops.queue_check", "ops.retention",
     "ops.sentinel", "ops.slo", "ops.thrash", "physical.upgrade_impact", "plan.cycle",
@@ -1146,6 +1259,7 @@ JOB_BANDS: dict[str, str] = {
     "seasonal.sentinel": "seasonal_deadline",
     "seasonal.engine": "seasonal_deadline",
     "ops.thrash": "truth_defect",
+    "ops.daily_ledger": "truth_defect",
     # #311: an MJs-derived opportunity's window closes exactly like a certified product's.
     "mjs.seasonal_sentinel": "seasonal_deadline",
     "seasonal.remerchandising": "seasonal_deadline",
@@ -1174,6 +1288,7 @@ JOB_BANDS: dict[str, str] = {
     "policy.activation_schedule": "proven_winner",  # WS4-8: Stage A standing activations
     "improve.commercial_lessons": "exploration",  # learning, like improve.*
     "learning.knowledge_gaps": "exploration",     # learning gaps -> capped owner recommendations
+    "learning.loops": "exploration",              # ENG-LEARN: measured lessons, like improve.*
     "physical.photo": "truth_defect",
     "physical.upgrade_impact": "exploration",
     "visual.identity_drift": "truth_defect",
@@ -1182,6 +1297,7 @@ JOB_BANDS: dict[str, str] = {
     "assets.render": "proven_winner",
     "assets.owned_photography": "proven_winner",
     "assets.model_photography": "proven_winner",
+    "assets.motif_backlog": "proven_winner",      # recovers paid renders; never renders
     "visual.image_production": "proven_winner",
     # INTEG4: an owner-authorised controlled visual experiment is learning with no committed
     # value (its output is labelled EXPERIMENT and never publishes): exploration.

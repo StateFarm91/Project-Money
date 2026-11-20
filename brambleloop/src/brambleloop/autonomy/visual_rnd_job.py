@@ -35,6 +35,18 @@ def summarise(report: dict) -> dict:
     imagery = report.get("launch_imagery") or {}
     imagery_refreshed = sum(1 for e in imagery.values()
                             if isinstance(e, dict) and e.get("refreshed"))
+    # ENG-LEARN: the hero merchandising R&D (loop.cycle's `hero` / `hero_calibration`) was
+    # invisible here, so a cycle that evaluated or promoted a hero challenger read as a no-op
+    # and the backoff parked the loop at 32x. Evaluations, promotions and calibration
+    # overturns are work; a waiting or unavailable challenger is not.
+    def _n(v) -> int:
+        return len(v) if isinstance(v, (list, tuple, dict)) else int(v or 0) if isinstance(
+            v, (int, float)) and not isinstance(v, bool) else 0
+
+    hero_evaluated = sum(_n((e.get("hero") or {}).get("evaluated")) for e in classes.values())
+    hero_promoted = sum(1 for e in classes.values() if (e.get("hero") or {}).get("promoted"))
+    hero_overturned = sum(1 for e in classes.values()
+                          if (e.get("hero_calibration") or {}).get("verdict") == "overturned")
     for cls, e in classes.items():
         state = str((e.get("paid") or {}).get("state") or "")
         if state in ("executed", "running", "spent"):
@@ -45,8 +57,11 @@ def summarise(report: dict) -> dict:
             "paid_planned": paid_planned, "imagery_refreshed": imagery_refreshed,
             "imagery_errors": sum(1 for e in imagery.values()
                                   if isinstance(e, dict) and e.get("error")),
+            "hero_evaluated": hero_evaluated, "hero_promoted": hero_promoted,
+            "hero_overturned": hero_overturned,
             "work_done": (generated + experiments + rolled_back + overturned + paid_planned
-                          + imagery_refreshed),
+                          + imagery_refreshed + hero_evaluated + hero_promoted
+                          + hero_overturned),
             "incumbents": {c: e.get("incumbent") for c, e in classes.items()},
             "spend_cad": 0.0}
 

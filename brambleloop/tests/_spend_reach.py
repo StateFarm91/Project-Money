@@ -44,9 +44,12 @@ SINK_KEYS = frozenset({
 GATEWAY = "brambleloop.gateway."
 # test_cert_spend_hosts.DECLARED entries reviewed as free reads (no billable call); their
 # request sites are not paid entry points. Every other DECLARED module's are.
+# ENG-VIS-FLUX: `gateway.flux_contract` is declared data only (the verified BFL contract and
+# its citation URLs; test_cert_spend_hosts pins that it holds no HTTP client).
 FREE_REQUEST_MODULES = frozenset({"brambleloop.gateway.credentials",
                                   "brambleloop.ops.provider_accounts",
-                                  "brambleloop.ops.adoptions"})
+                                  "brambleloop.ops.adoptions",
+                                  "brambleloop.gateway.flux_contract"})
 REQUEST_MARKERS = ("urlopen", "Request(", "_post(", ".post(", "http.client")
 
 

@@ -232,16 +232,29 @@ def test_disagreeing_judges():
 def test_production_configuration_stays_unknown():
     assert IG.PRODUCTION_QUALIFICATIONS == ()
     assert IG.QUALIFIED_EMBEDDERS == {}
-    assert VJ.SECOND_VISION_TRANSPORT is None and VJ.configured_second_transport() is None
+    # ENG-VIS-IDENTITY: the second transport is wired (OpenAI, a different provider) but is
+    # None while no OpenAI key is configured, as in every test environment.
+    assert callable(VJ.SECOND_VISION_TRANSPORT)
+    saved = os.environ.pop("OPENAI_API_KEY", None)
+    try:
+        assert VJ.configured_second_transport() is None
+    finally:
+        if saved is not None:
+            os.environ["OPENAI_API_KEY"] = saved
     prod = CG.RealJudges(None, vision=StubJudge("vision-a", "stub-model-a"))
-    assert prod.second_vision is None and prod.embedder is None and not prod.allow_fixture
+    # F1 (ENG-VIS-IDENTITY slice 2): the embedder may be LOADED -- the image installs the
+    # sha-pinned models and BRAMBLELOOP_FACE_MODEL_DIR may point at them -- but nothing on the
+    # production register qualifies it, so the floor is UNMEASURED and the verdict HOLD.
+    assert prod.second_vision is None and prod.qualification is None and not prod.allow_fixture
     got = prod.identity(cand(MATCH_FRAME))
     assert got["status"] == "UNKNOWN" and got["biometric"]["status"] == IG.UNMEASURED, got
+    assert got["verdict"] == "HOLD", got
     # even with two judges, production (no embedder) never passes
     two = CG.RealJudges(None, vision=StubJudge("vision-a", "stub-model-a"),
                         second_vision=StubJudge("vision-b", "stub-model-b"))
     got = two.identity(cand(MATCH_FRAME))
     assert got["status"] == "UNKNOWN" and got["band"] == IG.BAND_REVIEW, got
+    assert got["verdict"] == "HOLD" and got["biometric"]["status"] == IG.UNMEASURED, got
 
 
 def test_unqualified_embedder_is_unknown():
@@ -378,7 +391,9 @@ def test_a_fixture_pass_is_unknown_in_every_gate_it_feeds():
     assert got["status"] == "PASS" and got["fixture_only"] is True
     assert CG.gate_status(got) == "UNKNOWN"
     assert CG.gate_status({**got, "status": "FAIL"}) == "FAIL"
-    assert CG.gate_status({k: v for k, v in got.items() if k != "fixture_only"}) == "PASS"
+    assert CG.gate_status(_unlabelled(got)) == "PASS"
+    # ENG-VIS-IDENTITY: stripping the label alone is not enough; the consumer verdict holds
+    assert CG.gate_status({k: v for k, v in got.items() if k != "fixture_only"}) == "UNKNOWN"
     ok = {"status": "PASS", "why": "fixture"}
     checks = {k: dict(ok) for k in ("binding", "product_truth", "quality", "role", "realism",
                                     "anatomy", "provenance", "body_proportions", "disclosure",
@@ -388,6 +403,11 @@ def test_a_fixture_pass_is_unknown_in_every_gate_it_feeds():
                                other_publication_blockers=[])
     assert ev["checks"]["identity"] == "UNKNOWN", ev["checks"]
     assert ev["fixture_only_checks"] == ["identity"], ev
+
+
+def _unlabelled(got):
+    """The same reading as a production-qualified PASS: no fixture label, verdict PASS."""
+    return {**{k: v for k, v in got.items() if k != "fixture_only"}, "verdict": "PASS"}
 
 
 def _all_pass_checks(identity):
@@ -407,7 +427,7 @@ def test_a_fixture_pass_never_makes_a_frame_technically_pass_or_accepted():
     checks = _all_pass_checks(got)
     assert CG.technical_of(checks) == "UNKNOWN"
     assert CG.unknown_of(checks) == ["identity"]
-    plain = _all_pass_checks({k: v for k, v in got.items() if k != "fixture_only"})
+    plain = _all_pass_checks(_unlabelled(got))
     assert CG.technical_of(plain) == "PASS" and CG.unknown_of(plain) == []
     order = {g["gate"]: g for g in CG.laura_gate_order(
         {**checks, "realism": checks["realism"]}, {"publishable": False, "blockers": ["x"]})}
@@ -421,7 +441,7 @@ def test_a_fixture_pass_is_unknown_in_the_publication_verdicts_gates():
     from brambleloop.publish import eligibility as el
 
     got = ident()
-    plain = {k: v for k, v in got.items() if k != "fixture_only"}
+    plain = _unlabelled(got)
     job = el.HERO_JOB
     fx = CG.publication_verdict(cand(MATCH_FRAME), _all_pass_checks(got), job, False)
     ok = CG.publication_verdict(cand(MATCH_FRAME), _all_pass_checks(plain), job, False)

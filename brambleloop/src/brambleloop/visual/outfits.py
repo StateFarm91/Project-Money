@@ -248,10 +248,19 @@ def reserve(db, outfit_id: str | None, listing: str) -> dict:
                                      f"{_max_sim()}); slots {near['slots']}",
                                outfit_id=row.outfit_id, codes=["WARDROBE_REPETITION"],
                                similarity=near)
-        if not row.listing:
+        newly = not row.listing
+        if newly:
             row.listing, row.reserved_at = listing, _now()
-        return _result(PASS, f"outfit {row.outfit_id} is reserved for {listing!r}",
-                       outfit_id=row.outfit_id)
+        oid = row.outfit_id
+    if newly:
+        # A concurrent writer may have reserved another outfit for this listing between the
+        # `held` check above and this commit: settle so the listing holds exactly one.
+        view, resolved = settle(db, listing)
+        if view["outfit_id"] != oid:
+            return _result(FAIL, f"listing {listing!r} took outfit {view['outfit_id']} in a "
+                                 f"concurrent claim; {oid} was released",
+                           outfit_id=oid, listing_outfit=view["outfit_id"], race=resolved)
+    return _result(PASS, f"outfit {oid} is reserved for {listing!r}", outfit_id=oid)
 
 
 def check_use(db, outfit_id: str | None, *, listing: str, product: str, image_sha256: str,
@@ -330,6 +339,50 @@ def for_listing(db, listing: str) -> dict | None:
         return _view(free) if free is not None else None
 
 
+def _first_use(r) -> str:
+    return min((str(u.get("at") or "") for u in (r.uses or ())), default="")
+
+
+def settle(db, listing: str):
+    """After a race, leave this listing holding exactly ONE approved outfit.
+
+    Two writers can each reserve a different outfit for the same listing (two `claim`s, or a
+    `claim` interleaved with a `reserve`/`check_use`). The winner is the outfit that already
+    reached an image (earliest recorded use), else the lowest id, so frames already generated
+    in an outfit are never orphaned. Every other outfit is taken off the listing: one with no
+    uses is released back to the free pool; one that already has uses cannot be reused by
+    another listing (its images exist), so it is RETIRED, stays bound to this listing as
+    history, and points at the winner (`replaced_by`). Its frames are not this listing's
+    outfit any more and must be regenerated; the resolution says which.
+
+    Returns (view of the winner, [{"outfit_id", "action", "uses"}] for each loser)."""
+    from sqlalchemy import select
+
+    from .image_records import LauraOutfit
+
+    with db.session() as s:
+        mine = list(s.scalars(select(LauraOutfit).where(
+            LauraOutfit.listing == listing, LauraOutfit.approval_state == "approved")
+            .order_by(LauraOutfit.id)))
+        used = [r for r in mine if r.uses]
+        keep = min(used, key=lambda r: (_first_use(r), r.id)) if used else mine[0]
+        resolved = []
+        for extra in mine:
+            if extra is keep:
+                continue
+            if extra.uses:
+                extra.approval_state, extra.replaced_by = "retired", keep.outfit_id
+                resolved.append({"outfit_id": extra.outfit_id, "action": "retired",
+                                 "uses": len(extra.uses),
+                                 "why": f"lost a concurrent claim for {listing!r} to "
+                                        f"{keep.outfit_id}; regenerate its frames"})
+            else:
+                extra.listing, extra.reserved_at = "", None
+                resolved.append({"outfit_id": extra.outfit_id, "action": "released",
+                                 "uses": 0})
+        return _view(keep), resolved
+
+
 def reserved_for(db, listing: str) -> dict | None:
     """The approved outfit this listing holds, or None (styling then chooses one)."""
     from sqlalchemy import select
@@ -339,7 +392,8 @@ def reserved_for(db, listing: str) -> dict | None:
     ensure_tables(db)
     with db.session() as s:
         r = s.scalar(select(LauraOutfit).where(LauraOutfit.listing == listing,
-                                               LauraOutfit.approval_state == "approved"))
+                                               LauraOutfit.approval_state == "approved")
+                     .order_by(LauraOutfit.id))
         return _view(r) if r is not None else None
 
 
@@ -448,3 +502,62 @@ def wardrobe_editor(db) -> dict:
                       f"two outfits are distinct when their weighted similarity is below "
                       f"{W.MAX_SIMILARITY}",
                       "an outfit is styling, never identity"]}
+
+
+# ---- idempotent claim (ENG-VIS-IDENTITY) -------------------------------------------------
+
+def claim(db, listing: str) -> dict:
+    """ONE complete outfit for this listing, durable and idempotent.
+
+    * The listing already holds an approved outfit: that outfit, unchanged (any number of
+      calls, any number of restarts: the reservation is the `laura_outfits.listing` row).
+    * Otherwise the first approved, free outfit that is distinct from every other listing's
+      outfit and from the reference clothing is claimed with a compare-and-set UPDATE
+      (`WHERE listing = ''`), so two workers can never both take it. If a concurrent claim for
+      the same listing won a different outfit first, this one is released and the winner's
+      returned: one listing never ends up holding two (`settle`, which also covers a loser
+      whose outfit already reached an image).
+    * No eligible outfit: UNKNOWN (never a reused or near-duplicate outfit).
+
+    Returns `_result(...)` with `outfit` (the view) on PASS."""
+    from sqlalchemy import select, update
+
+    from .image_records import LauraOutfit, ensure_tables
+
+    listing = str(listing or "").strip()
+    if not listing:
+        return _result(UNKNOWN, "no listing to claim an outfit for")
+    ensure_tables(db)
+    held = reserved_for(db, listing)
+    if held is not None:
+        return _result(PASS, f"listing {listing!r} already holds {held['outfit_id']}",
+                       outfit_id=held["outfit_id"], outfit=held, claimed=False)
+    with db.session() as s:
+        free = [r.outfit_id for r in s.scalars(select(LauraOutfit).where(
+            LauraOutfit.listing == "", LauraOutfit.approval_state == "approved")
+            .order_by(LauraOutfit.id))]
+    skipped = []
+    for oid in free:
+        with db.session() as s:
+            row = _row(s, oid)
+            if row is None or row.listing or row.approval_state != "approved":
+                continue
+            twin = s.scalar(select(LauraOutfit).where(
+                LauraOutfit.signature == row.signature, LauraOutfit.listing != "",
+                LauraOutfit.listing != listing))
+            near = _too_similar(s, row, listing)
+            if (row.signature and twin is not None) or near is not None:
+                skipped.append({"outfit_id": oid, "why": "WARDROBE_REPETITION"})
+                continue
+            won = s.execute(update(LauraOutfit).where(
+                LauraOutfit.outfit_id == oid, LauraOutfit.listing == "")
+                .values(listing=listing, reserved_at=_now())).rowcount
+        if won != 1:
+            continue                    # another worker took it first: try the next one
+        view, resolved = settle(db, listing)
+        return _result(PASS, f"outfit {view['outfit_id']} claimed for {listing!r}",
+                       outfit_id=view["outfit_id"], outfit=view,
+                       claimed=view["outfit_id"] == oid, skipped=skipped, race=resolved)
+    return _result(UNKNOWN, f"no approved, free and distinct outfit is available for "
+                            f"{listing!r}; register and approve a new one",
+                   skipped=skipped)

@@ -1,0 +1,135 @@
+{
+ "_about": "Trimmed snapshot of the official BFL OpenAPI schema, https://api.bfl.ai/openapi.json, read 2026-11-20 (UTC) by ENG-VIS-FLUX. Machine-extracted, not hand-written. The contract test compares gateway/flux_contract.py against it with no network.",
+ "source": "https://api.bfl.ai/openapi.json",
+ "accessed": "2026-11-20",
+ "info_version": "0.0.1",
+ "servers": [
+  "https://api.bfl.ai"
+ ],
+ "security_scheme": {
+  "type": "apiKey",
+  "in": "header",
+  "name": "x-key"
+ },
+ "paths": {
+  "/v1/flux-3-image": [
+   "post"
+  ],
+  "/v1/get_result": [
+   "get"
+  ],
+  "/v1/credits": [
+   "get"
+  ]
+ },
+ "Flux3ImageInputs": {
+  "properties": [
+   "aspect_ratio",
+   "grounding",
+   "height",
+   "images",
+   "prompt",
+   "resolution",
+   "safety_tolerance",
+   "user",
+   "version",
+   "width"
+  ],
+  "required": [
+   "prompt"
+  ],
+  "additionalProperties": false,
+  "aspect_ratio": [
+   "21:9",
+   "2:1",
+   "16:9",
+   "3:2",
+   "7:5",
+   "4:3",
+   "5:4",
+   "1:1",
+   "4:5",
+   "3:4",
+   "5:7",
+   "2:3",
+   "9:16",
+   "1:2",
+   "9:21",
+   "auto"
+  ],
+  "resolution": [
+   "768sq",
+   "1k",
+   "1.5k",
+   "2k",
+   "4k",
+   "match_input"
+  ],
+  "safety_tolerance": {
+   "minimum": 0.0,
+   "maximum": 7.0,
+   "default": 2
+  },
+  "version": [
+   "latest"
+  ],
+  "grounding_default": true,
+  "images_description": "Optional reference image(s) the prompt edits or draws from; each is an http(s) URL or base64, one to 10 total.",
+  "width_description": "Exact output width in pixels, [256, 6256]; set together with height. Overrides resolution and aspect_ratio.",
+  "height_description": "Exact output height in pixels, [256, 6256]; width x height at most 16822272 pixels, and at most 4194304 with reference images."
+ },
+ "AsyncResponse": {
+  "properties": [
+   "cost",
+   "id",
+   "input_mp",
+   "output_mp",
+   "polling_url"
+  ],
+  "required": [
+   "id",
+   "polling_url"
+  ]
+ },
+ "ResultResponse": {
+  "properties": [
+   "details",
+   "id",
+   "preview",
+   "progress",
+   "result",
+   "status"
+  ],
+  "required": [
+   "id",
+   "status"
+  ]
+ },
+ "SettledCostResultResponse": {
+  "properties": [
+   "cost",
+   "details",
+   "id",
+   "preview",
+   "progress",
+   "result",
+   "status"
+  ],
+  "required": [
+   "id",
+   "status",
+   "cost"
+  ]
+ },
+ "StatusResponse": [
+  "Task not found",
+  "Pending",
+  "Reasoning",
+  "Generating",
+  "Request Moderated",
+  "Content Moderated",
+  "No Card Generated",
+  "Ready",
+  "Error"
+ ]
+}

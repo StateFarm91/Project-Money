@@ -206,7 +206,7 @@ class RealJudges:
     it answers nothing, and those checks stay UNKNOWN."""
 
     def __init__(self, db, *, vision=None, second_vision=_CONFIGURED, references=None,
-                 embedder=None, qualification=None, allow_fixture: bool = False):
+                 embedder=_CONFIGURED, qualification=None, allow_fixture: bool = False):
         self.db = db
         self.vision = vision
         # W-VISNEXT: a second, independent judge transport (another model). Identity and body
@@ -223,6 +223,16 @@ class RealJudges:
         # that admits it (`identity_gate.validate_qualification`). Production names neither,
         # so the biometric floor stays UNMEASURED and identity UNKNOWN. `allow_fixture`
         # admits a fixture-only record in shadow, labelled as not certification.
+        # ENG-VIS-IDENTITY: unless a caller names one, the embedder is the installed production
+        # method and its register record (`identity_gate.production_floor`): None/None until
+        # the model is installed, and no record until the owner qualifies it.
+        if embedder is _CONFIGURED:
+            from .identity_gate import production_floor
+
+            floor = production_floor()
+            embedder = floor["embedder"]
+            if qualification is None:
+                qualification = floor["qualification"]
         self.embedder, self.qualification = embedder, qualification
         self.allow_fixture = bool(allow_fixture)
         self._adapters = None
@@ -520,6 +530,7 @@ def evaluate(db, cand: dict, *, judges=None, record_outfit_use: bool = True) -> 
             _judge(judges, "outfit_consistency", cand, reserved)
             if checks["outfit"]["status"] == PASS else
             _c(UNKNOWN, "no reserved outfit to compare the image against"))
+        checks["identity_record"] = _identity_record(db, sha, listing, cand, checks)
     else:
         checks["outfit"] = _c(NA, "Laura does not appear")
         checks["outfit_consistency"] = _c(NA, "Laura does not appear")
@@ -547,6 +558,29 @@ def evaluate(db, cand: dict, *, judges=None, record_outfit_use: bool = True) -> 
     if laura:
         out["laura_gates"] = laura_gate_order(checks, publication)
     return out
+
+
+def _identity_record(db, sha: str, listing: str, cand: dict, checks: dict) -> dict:
+    """ENG-VIS-IDENTITY: persist this Laura frame's identity evaluation
+    (`visual.identity_records`). A frame whose evaluation could not be recorded is UNKNOWN:
+    an identity decision nobody can read back after a restart is not evidence."""
+    if db is None or not sha:
+        return _c(UNKNOWN, "identity evaluation not recorded (no database or image sha256)")
+    try:
+        from . import identity_records
+
+        out = identity_records.record(
+            db, image_sha256=sha, listing=listing, slug=str(cand.get("slug") or ""),
+            identity=checks.get("identity") or {},
+            outfit={"outfit_id": cand.get("outfit_id"),
+                    "reservation": (checks.get("outfit") or {}).get("status"),
+                    "consistency": (checks.get("outfit_consistency") or {}).get("status"),
+                    "distinctness": (checks.get("outfit_distinctness") or {}).get("status")})
+    except Exception as exc:  # noqa: BLE001 - unrecorded is UNKNOWN, never PASS
+        return _c(UNKNOWN, f"identity evaluation not recorded ({type(exc).__name__})")
+    return _c(PASS, f"identity evaluation recorded (#{out.get('id')}, verdict "
+                    f"{out.get('verdict')})", record_id=out.get("id"),
+              identity_verdict=out.get("verdict"))
 
 
 def technical_of(checks: dict) -> str:
@@ -593,6 +627,10 @@ def gate_status(check: dict | None) -> str:
     reads it as UNKNOWN. A fixture FAIL stays FAIL."""
     st = (check or {}).get("status", UNKNOWN)
     if st == PASS and (check or {}).get("fixture_only"):
+        return UNKNOWN
+    # ENG-VIS-IDENTITY: an identity reading that carries a consumer verdict counts as PASS
+    # only when that verdict is PASS (a production-qualified method and agreeing judges).
+    if st == PASS and "verdict" in (check or {}) and check.get("verdict") != PASS:
         return UNKNOWN
     return st
 

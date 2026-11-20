@@ -41,6 +41,8 @@ FAVOURS: frozenset[str] = frozenset({"construction_preference", "cultural_territ
                                      # commercial_lessons) raises the concepts it names.
                                      "commercial_demand"})
 DISFAVOURS: frozenset[str] = frozenset({"creative_rejection", "defect",
+                                        # ENG-LEARN: a measured failing engineering region.
+                                        "engineering_risk",
                                         # OPUS2-P0: measured own-listing underperformance.
                                         "commercial_underperformance"})
 
