@@ -139,6 +139,7 @@ def test_no_placeholder_bracket_or_template_marker_reaches_the_document():
         text = _flat(_doc(key))
         assert "MASTER LAYOUT" not in text and "REQUIRES CERTIFIED PRODUCT DATA" not in text
         assert "ILLUSTRATIVE SLOT" not in text
+        assert T.template_placeholders()
         for ph in T.template_placeholders():
             assert ph not in text, ph
         # the only brackets printed are crochet repeat notation: "[...] x N"

@@ -1789,7 +1789,7 @@ def _campaign_block(doc: "_Doc", photo: dict, head: str, *, slot: str, height: f
     top = doc.y
     _campaign_photo(doc, photo, MARGIN, top, usable, height, slot=slot)
     doc.y = top - height - 3 * mm
-    doc.para(photo.get("caption") or "", size=8.5, color=MUTED, font=FONT_BODY_ITALIC)
+    doc.para(photo.get("caption") or "", size=9, color=MUTED, font=FONT_BODY_ITALIC)
     doc.space(2 * mm)
 
 
@@ -2950,7 +2950,7 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                 x = MARGIN + j * (cw + 5 * mm)
                 _campaign_photo(doc, photo, x, top, cw, ch_, slot="gallery")
             doc.y = top - ch_ - 4 * mm
-            doc.para(_pp.CAPTION, size=8.5, color=MUTED, font=FONT_BODY_ITALIC)
+            doc.para(_pp.CAPTION, size=9, color=MUTED, font=FONT_BODY_ITALIC)
             doc.space(2 * mm)
         gallery = []
     if gallery or sample_photo_placeholders:
