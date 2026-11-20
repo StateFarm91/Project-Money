@@ -276,10 +276,13 @@ def test_a_competitor_title_is_refused_as_a_copy():
 
 
 def test_an_unsupported_construction_is_refused_with_its_reason():
+    """ENG-FAMILIES: a basket worked in the round now routes to the verified vessel engine
+    (tests/test_eng_families.py certifies one end to end); a basket in a category whose
+    template drafts a flat panel (B-059) and a cable runner are still held, by name."""
     db = _db()
     tid, _ = _answered_task(db)
     intake.attach_proposal(db, tid, _proposal(
-        slug="driftwood-rope-basket", title="Driftwood Rope Basket", category="basket",
+        slug="driftwood-rope-basket", title="Driftwood Rope Basket", category="placemat",
         concept={"form": "basket", "construction": "in_the_round", "pod": "home_decor",
                  "function": "holds rolled towels by the bath"}))
     intake.attach_proposal(db, tid, _proposal(
@@ -288,9 +291,10 @@ def test_an_unsupported_construction_is_refused_with_its_reason():
     out = _run(db, "radar.concept_intake", {})
     assert not out["approved"]
     reasons = {r["slug"]: " ".join(r["reasons"]) for r in out["refused"]}
-    assert "unsupported construction 'in_the_round'" in reasons["driftwood-rope-basket"]
-    assert "B-059" in reasons["driftwood-rope-basket"]
-    assert "unsupported construction 'cable_panel'" in reasons["tide-line-cable-runner"]
+    assert reasons["driftwood-rope-basket"].startswith("construction_unsupported:vessel")
+    assert "drafting it would mislabel the product" in reasons["driftwood-rope-basket"]
+    assert reasons["tide-line-cable-runner"].startswith("construction_unsupported:cable")
+    assert "B-080" in reasons["tide-line-cable-runner"]
     assert not _jobs(db, "radar.score")
     # Every supported category has a real template row, so the draft is not the default.
     assert set(intake.SUPPORTED_FORMS) <= set(pipeline._GEOMETRY)
