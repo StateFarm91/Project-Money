@@ -202,14 +202,14 @@ def test_roles_generated_never_satisfies_photo_only_or_hero():
         assert CG.role(r)["status"] == "PASS", r
 
 
-def test_unknown_never_pass_and_publication_blocked_by_f852_and_etsy_policy():
+def test_unknown_never_pass_and_publication_blocked_by_f852():
     from brambleloop.visual import candidate_gates as CG
 
     db = make_db()
     v = CG.evaluate(db, cand(role="detail"))     # real judges: fidelity/realism unread
     assert v["technical_status"] == "UNKNOWN" and not v["publishable"]
     joined = " ".join(v["publication"]["blockers"])
-    assert "F-852" in joined and "Etsy" in joined
+    assert "F-852" in joined and "Etsy" not in joined   # D-OWNER-FLUX-GALLERY
     # Even with every judge stubbed PASS, publication stays blocked (gate not lowered).
     v2 = CG.evaluate(db, cand(role="detail"), judges=StubJudges())
     assert v2["technical_status"] == "PASS" and v2["publishable"] is False

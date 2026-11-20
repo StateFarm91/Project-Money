@@ -166,18 +166,28 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def run_key(slug: str, version: str, release: str, ns: str = "") -> str:
+ROUTE_SUFFIX = "~gallery"   # D-OWNER-FLUX-GALLERY: the generated-gallery run of a release
+
+
+def run_key(slug: str, version: str, release: str, ns: str = "", route: str = "") -> str:
     """The run's identity. `ns` (W-VISNEXT2) separates a controlled-experiment run of a
-    certified release from the release's ordinary production run, which it never touches."""
-    return f"imgprod:{slug}@{version}@{release}" + (f"#{ns}" if ns else "")
+    certified release from the release's ordinary production run, which it never touches.
+    `route` (D-OWNER-FLUX-GALLERY) gives the seven-frame FLUX campaign its own run, beside the
+    release's campaign run, with its own attempts, calls and spend."""
+    return (f"imgprod:{slug}@{version}@{release}" + (ROUTE_SUFFIX if route else "")
+            + (f"#{ns}" if ns else ""))
+
+
+def route_of_key(key: str) -> str:
+    return SP.FLUX_ROUTE if ROUTE_SUFFIX in str(key or "").split("#")[0] else ""
 
 
 def stage_key(slug: str, version: str, release: str, stage: str, round_: int = 0,
-              epoch: int = 0, ns: str = "") -> str:
+              epoch: int = 0, ns: str = "", route: str = "") -> str:
     """A stage job's idempotency key. `epoch` > 0 only after a restart (W-VISNEXT), so a
     restarted run's jobs never collide with the ones its first pass already ran."""
-    return (run_key(slug, version, release, ns) + f":{stage}" + (f":{round_}" if round_ else "")
-            + (f":e{epoch}" if epoch else ""))
+    return (run_key(slug, version, release, ns, route) + f":{stage}"
+            + (f":{round_}" if round_ else "") + (f":e{epoch}" if epoch else ""))
 
 
 def prompt_version(db) -> str:
@@ -196,7 +206,7 @@ def prompt_version(db) -> str:
 # ---- trigger -----------------------------------------------------------------------------
 
 def trigger(enqueue, *, slug: str, version: str, release: str, ns: str = "",
-            controlled_run_id: int | None = None) -> dict:
+            controlled_run_id: int | None = None, route: str = "") -> dict:
     """Enqueue the workflow once per slug@version@release. `enqueue(inputs, key)` returns
     None on a duplicate key (JobContext.enqueue semantics). `ns` and `controlled_run_id`
     (W-VISNEXT2) start an owner-authorised controlled-experiment run of a certified release:
@@ -210,8 +220,13 @@ def trigger(enqueue, *, slug: str, version: str, release: str, ns: str = "",
               "stage": STAGES[0][0], "round": 0}
     if ns:
         inputs.update(ns=ns, controlled_run_id=int(controlled_run_id))
-    job = enqueue(inputs, stage_key(slug, version, release, STAGES[0][0], ns=ns))
-    return {"enqueued": job is not None, "run_key": run_key(slug, version, release, ns)}
+    if route:
+        # D-OWNER-FLUX-GALLERY: the seven-frame FLUX campaign (shot_plans.flux_campaign_plan)
+        if route != SP.FLUX_ROUTE:
+            return {"enqueued": False, "why": f"unknown gallery route {route!r}"}
+        inputs["route"] = route
+    job = enqueue(inputs, stage_key(slug, version, release, STAGES[0][0], ns=ns, route=route))
+    return {"enqueued": job is not None, "run_key": run_key(slug, version, release, ns, route)}
 
 
 # ---- run row -----------------------------------------------------------------------------
@@ -233,11 +248,11 @@ def _run_locked(s, key: str):
         ImageProductionRun.run_key == key).with_for_update())
 
 
-def _ensure_run(db, slug, version, release, ns: str = ""):
+def _ensure_run(db, slug, version, release, ns: str = "", route: str = ""):
     from .image_records import ImageProductionRun, ensure_tables
 
     ensure_tables(db)
-    key = run_key(slug, version, release, ns)
+    key = run_key(slug, version, release, ns, route)
     with db.session() as s:
         existing = _run(s, key)
         if existing is None:
@@ -340,6 +355,9 @@ def record_candidate(db, cand: dict, verdict: dict, *, method: str, run: str = "
             latency_s=cand.get("latency_s"), width=q.get("width"), height=q.get("height"),
             binding={k: v for k, v in verdict["checks"]["binding"].items()},
             checks={**verdict["checks"], "_publication": verdict.get("publication") or {},
+                    # D-OWNER-FLUX-GALLERY: the route the candidate was generated and judged
+                    # under, so a re-verification and the listing set judge it the same way
+                    **({"_route": {"route": str(cand["route"])}} if cand.get("route") else {}),
                     **({"_paid_call": {"token": cand["_paid_call_token"]}}
                        if cand.get("_paid_call_token") else {}),
                     **({"_generation_operation": {"key": cand["_generation_operation"],
@@ -516,13 +534,21 @@ class CapabilityBlocked(RuntimeError):
     """A missing capability (a closed gate), not a failed attempt: shown, not notified."""
 
 
-def _spend_plan() -> dict:
-    from . import spend_plan
+# D-OWNER-FLUX-GALLERY: a seven-frame FLUX gallery is two anchors and six frames, plus at most
+# MAX_REPAIR_ROUNDS repair rounds of six. The money cap is unchanged (and owner-lowerable).
+FLUX_MAX_GENERATION_CALLS = 2 + 6 * (1 + MAX_REPAIR_ROUNDS)
 
+
+def _spend_plan(key: str = "", db=None) -> dict:
+    from . import gallery_budget, spend_plan
+
+    calls = FLUX_MAX_GENERATION_CALLS if route_of_key(key) else MAX_GENERATION_CALLS
     return spend_plan.build(
         hypothesis="one truthful gallery per certified release",
-        provider_model="registered generator", call_count=MAX_GENERATION_CALLS,
-        max_spend_cad=MAX_SPEND_CAD_PER_GALLERY,
+        provider_model="registered generator", call_count=calls,
+        # the lower of the code maximum and the owner's per-gallery cap
+        max_spend_cad=gallery_budget.effective_cap(db) if db is not None
+        else MAX_SPEND_CAD_PER_GALLERY,
         pass_criteria=["every generated role technical PASS under candidate_gates"],
         fail_criteria=["attempt cap reached", "any spend past the plan"])
 
@@ -542,7 +568,7 @@ def _begin_generation(db, key, *, stage, paid, next_cost):
         if "_pending_paid_call" in stages or "_unresolved_free_cost" in stages:
             raise BudgetStop("prior paid image call has an unresolved cost; review required")
         try:
-            spend_plan.guard(_spend_plan(), spent_cad=row.spent_cad,
+            spend_plan.guard(_spend_plan(key, db), spent_cad=row.spent_cad,
                              calls_made=row.generation_calls, next_cost_cad=next_cost)
         except spend_plan.PlanRefused as exc:
             raise BudgetStop(str(exc)) from None
@@ -686,7 +712,8 @@ def _recover_generation(db, key, *, operation, stage, role, slug, version, relea
 
 def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, refs, outfit,
               laura: bool, judges, plan_attempt: int, evaluate: bool = True,
-              repair: dict | None = None, exp=None, operation: str = "") -> dict:
+              repair: dict | None = None, exp=None, operation: str = "",
+              route: str = "") -> dict:
     from . import spend_plan
     from .gallery import gates_now
 
@@ -701,7 +728,7 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
     paid = getattr(gen, "paid", True) is not False
     next_cost = getattr(gen, "max_cost_cad_per_call", 0.0)
     try:
-        spend_plan.guard(_spend_plan(), spent_cad=spent, calls_made=calls,
+        spend_plan.guard(_spend_plan(key, db), spent_cad=spent, calls_made=calls,
                          next_cost_cad=next_cost)
     except spend_plan.PlanRefused as exc:
         raise BudgetStop(str(exc)) from None
@@ -737,6 +764,8 @@ def _generate(db, key: str, gen, *, slug, version, release, role, stage, brief, 
     base = {"slug": slug, "version": version, "release": release, "run_key": key, "role": role,
             "laura_present": laura, "outfit_id": (outfit or {}).get("outfit_id"),
             "listing": outfits.listing_of(slug), "prompt_version": prompt_version(db)}
+    if route:
+        base["route"] = route
     if exp is not None:
         base["experiment"] = True
     if hasattr(type(gen), "current_run_key"):
@@ -905,7 +934,10 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
 
         CX.require_pipeline_run(db, controlled, ns=ns, slug=slug, version=version,
                                 release=release)
-    key = _ensure_run(db, slug, version, release, ns)
+    route = str(inputs.get("route") or "")
+    if route and route != SP.FLUX_ROUTE:
+        raise ValueError(f"unknown gallery route {route!r}")
+    key = _ensure_run(db, slug, version, release, ns, route)
     if controlled:
         from sqlalchemy.orm.attributes import flag_modified
 
@@ -933,6 +965,8 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
         gen = resolve_generator(db)
     if exp is not None:
         plan = exp.plan
+    elif route == SP.FLUX_ROUTE:
+        plan = SP.flux_campaign_plan(run["listing"]) if _is_launch(run["listing"]) else None
     else:
         plan = SP.campaign_plan(run["listing"]) if _is_launch(run["listing"]) else None
     max_att = exp.max_attempts_per_role if exp is not None else MAX_ATTEMPTS_PER_ROLE
@@ -953,11 +987,13 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                "round": rnd}
         if exp is not None:
             nxt["experiment"] = True
+        if route:
+            nxt["route"] = route
         if epoch:
             nxt["epoch"] = epoch
         if ns:
             nxt.update(ns=ns, controlled_run_id=controlled)
-        follow(nxt, stage_key(slug, version, release, next_stage, rnd, epoch, ns))
+        follow(nxt, stage_key(slug, version, release, next_stage, rnd, epoch, ns, route))
         return next_stage
 
     def block(why: str, *, exhausted: bool = False, record: dict | None = None):
@@ -983,7 +1019,8 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
         if plan is None:
             return block(f"{run['listing']} has no shot plan (not a Launch-0 listing)")
         rec = {"inputs": dict(inputs), "evidence": bind,
-               "outputs": {"plan_roles": [r["role"] for r in plan["roles"]]}}
+               "outputs": {"plan_roles": [r["role"] for r in plan["roles"]],
+                           "route": route or "campaign", "family": plan.get("family")}}
         if exp is not None:
             rec = {**rec, "experiment": True, "label": exp.label,
                    "certification": exp.reg["certification"]}
@@ -1215,6 +1252,7 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
                             refs_ = refs_ + [base_]
                 outs.append(_generate(db, key, gen, slug=slug, version=version,
                                       release=release, role=r["role"], stage=rnd_stage,
+                                      route=str(r.get("route") or ""),
                                       laura=r["laura"], judges=judges, brief=r["brief"] or
                                       f"{r['job']}: the finished piece", refs=refs_,
                                       outfit=outfit if r["laura"] else None,
@@ -1318,7 +1356,7 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
 
     if stage == "gallery_assembly":
         view = readiness(db, run["listing"], run_key_=key,
-                         plan=plan if exp is not None else None)
+                         plan=plan if (exp is not None or route) else None)
         if exp is not None:
             view = {**view, "experiment": True, "label": exp.label}
             if exp.gallery_builder is not None:
@@ -1328,12 +1366,12 @@ def _run_stage(db, inputs: dict, *, follow, generator=None, judges=None) -> dict
 
     if stage == "owner_card":
         view = (data.get("gallery_assembly") or {}).get("outputs") or readiness(
-            db, run["listing"], run_key_=key, plan=plan if exp is not None else None)
+            db, run["listing"], run_key_=key, plan=plan if (exp is not None or route) else None)
         gen_roles_ = [r for r in view["roles"] if r["source"] == "generated"]
         not_ready = [r for r in gen_roles_ if (r.get("candidate") or {}).get(
             "technical_status") != "PASS"]
         card = {"listing": run["listing"], "slug": slug, "version": version,
-                "release": release, "roles": view["roles"],
+                "release": release, "roles": view["roles"], "route": route or "campaign",
                 "set_check": view["set_check"],
                 "publication_blockers": view["publication_blockers"],
                 "spent_cad": get_run(db, key)["spent_cad"],
@@ -1419,7 +1457,11 @@ def reverify(db, candidate_id: int, *, judges, exp=None) -> dict:
                 "prompt": row.prompt, "references": list(row.references or []),
                 "laura_present": row.laura_present, "outfit_id": row.outfit_id or None,
                 "listing": row.listing, "provenance_kind": row.provenance_kind,
-                "identity_evidence": (row.checks or {}).get("_identity_evidence") or {}}
+                "identity_evidence": (row.checks or {}).get("_identity_evidence") or {},
+                "prompt_version": row.prompt_version,
+                "route": ((row.checks or {}).get("_route") or {}).get("route") or ""}
+        kept = {k: v for k, v in (row.checks or {}).items()
+                if k in ("_route", "_paid_call", "_generation_operation")}
         prev = {"technical_status": row.technical_status,
                 "failure_categories": list(row.failure_categories or []),
                 "unknown": sorted(k for k, c in (row.checks or {}).items()
@@ -1454,7 +1496,7 @@ def reverify(db, candidate_id: int, *, judges, exp=None) -> dict:
     with db.session() as s:
         row = s.get(ImageCandidate, candidate_id)
         row.checks = {**verdict["checks"], "_publication": verdict.get("publication") or {},
-                      "_identity_evidence": cand["identity_evidence"],
+                      **kept, "_identity_evidence": cand["identity_evidence"],
                       "_reverified": {"history": prev["history"] + [{
                           "at": _now().isoformat(), "previous_status": prev["technical_status"],
                           "previous_failure_categories": prev["failure_categories"],
@@ -1579,10 +1621,13 @@ def restart(db, key: str, *, follow, by: str, reason: str = "") -> dict:
         r.updated_at = _now()
         inputs = {"slug": run["slug"], "version": run["version"], "release": run["release"],
                   "stage": can["resume_at"], "round": 0, "epoch": epoch}
+        route = route_of_key(key)
+        if route:
+            inputs["route"] = route
         if can["reverify"]:
             inputs["reverify"] = True
         job = follow(inputs, stage_key(run["slug"], run["version"], run["release"],
-                                       can["resume_at"], 0, epoch), session=s)
+                                       can["resume_at"], 0, epoch, route=route), session=s)
         if job is None:
             raise RuntimeError("restart job was not durably enqueued")
     return {"restarted": True, "epoch": epoch, "resume_at": can["resume_at"],
@@ -1695,7 +1740,7 @@ def _accepted_lifestyle(db, key: str, listing: str, plan: dict, *, slug: str,
 
     canonical = run_key(slug, version, release)
     if not same_release(release, release) or not (
-            key == canonical or key.startswith(canonical + "#")):
+            key in (canonical, canonical + ROUTE_SUFFIX) or key.startswith(canonical + "#")):
         return None
     roles = [r["role"] for r in SP.generated_roles(plan) if r["job"] == "LIFESTYLE"]
     for role in roles:
@@ -1949,7 +1994,8 @@ def _dashboard_identity(db, listing: str) -> tuple[dict | None, bool]:
     for slug, version, release, key, method in rows:
         if (not isinstance(slug, str) or not slug or not isinstance(version, str) or not version
                 or not same_release(release, release)
-                or (key and key != run_key(slug, version, release))
+                or (key and key not in (run_key(slug, version, release),
+                                        run_key(slug, version, release, route=SP.FLUX_ROUTE)))
                 or (not key and method != "owner_submitted")):
             return None, True
         identities.add((slug, version, release.lower()))
@@ -1973,7 +2019,8 @@ def readiness(db, listing: str, *, run_key_: str | None = None, plan: dict | Non
         release = run.get("release") or ""
         canonical = run_key(run.get("slug", ""), run.get("version", ""), release)
         if (isinstance(run_key_, str) and same_release(release, release) and
-                (run_key_ == canonical or run_key_.startswith(canonical + "#"))):
+                (run_key_ in (canonical, canonical + ROUTE_SUFFIX)
+                 or run_key_.startswith(canonical + "#"))):
             identity = {"slug": run["slug"], "version": run["version"], "release": release}
     if not run_key_:
         identity, ambiguous = _dashboard_identity(db, listing)

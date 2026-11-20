@@ -743,6 +743,10 @@ def certified_images(db, slug: str, version: str, *, release: str = "",
                                 f"export: {verdict['problems']}"[:400])
                 continue
             alt = frame["alt_text"]
+        if frame.get("kind") == "generated_render":
+            # D-OWNER-FLUX-GALLERY: a generated-gallery frame keeps the alt text it was
+            # certified with, which names it as an AI-assisted render (never a photograph).
+            alt = str(frame.get("alt_text") or "")
         if frame.get("kind") == "physical_photo_lead":
             # P0-GALLERY-ASSEMBLY (OPUS2-P0): the leading sample photograph keeps the alt text
             # it was certified with (a photograph of the made sample; never render wording).
@@ -754,7 +758,7 @@ def certified_images(db, slug: str, version: str, *, release: str = "",
                       "honesty_label": frame.get("honesty_label", "")}
                      | ({"kind": frame.get("kind"), "alt_text": alt}
                         if frame.get("kind") in ("disclosed_render", "disclosed_gallery_frame",
-                                                 "physical_photo_lead")
+                                                 "physical_photo_lead", "generated_render")
                         else {}))
     return {"images": images if not problems else [], "order": order,
             "record_id": cert["record_id"], "problems": problems}

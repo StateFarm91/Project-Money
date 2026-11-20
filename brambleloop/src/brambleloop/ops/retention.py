@@ -113,6 +113,17 @@ NEVER_PRUNED_TABLES = ("oauth_credentials",)
 # The point is not this list's current contents; it is that the next lifetime aggregate
 # somebody writes has to come here and make a decision.
 KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
+    # ENG-VIS-GALLERY (D-OWNER-FLUX-GALLERY): the selected generated gallery of a release is
+    # read per release (newest row for slug@version) for as long as the listing lives; the
+    # newest rows of the action overall would not keep an older release's, so it is protected.
+    "images.generated_gallery_selected": ("lifetime_total",
+        "publish.release_gates.generated_selection: the newest row per slug@version, for "
+        "the life of the listing (protected so an older release's selection is never pruned)"),
+    "images.generated_gallery_certify": ("lifetime_total",
+        "ops.production_evidence.visual_pipeline counts certified and blocked generated "
+        "galleries over all rows"),
+    "owner.gallery_spend_cap_set": ("latest",
+        "visual.gallery_budget.owner_cap reads the newest row (the owner's current cap)"),
     # ENG-RECOVERY: the thrash-breaker re-arm reads the boot rows of the RUNNING commit (the
     # newest 500) for when this release first booted. A release is weeks old at most, far
     # inside the horizon; were its first boot row pruned, a later boot of the same release

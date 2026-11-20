@@ -274,5 +274,7 @@ tests/test_motif_reservation.py
 tests/test_research_flow.py
 tests/test_eng_families.py
 tests/test_visual_factory_e2e.py
+tests/test_vis_gallery_gates.py
+tests/test_vis_gallery_e2e.py
 tests/test_product_run.py
 tests/test_first_listing_doors.py
