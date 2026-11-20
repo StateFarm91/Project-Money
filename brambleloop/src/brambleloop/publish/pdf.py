@@ -851,6 +851,12 @@ def fibres_named(cir: CIR) -> tuple[tuple[str, ...], str]:
     for material in cir.materials:
         name = (material.name or "").lower()
         words = set(re.findall(r"[a-z]+", name))
+        # ENG-PLUSH: a stuffing is not a yarn the pattern is written for. A material with no
+        # yarn weight whose name says it is stuffing is skipped (never read as "polyester
+        # yarn"); any other weightless material still has to name its fibre or block.
+        if not getattr(material, "yarn_weight", None) and re.search(
+                r"\b(?:fibrefill|fiberfill|stuffing|polyfill|filling)\b", name):
+            continue
         hits = [fibre for fibre in known if fibre in words]
         if not hits:
             silent.append(material.name or "(unnamed)")
@@ -886,13 +892,19 @@ def childrens_facts(cir: CIR, twin: TwinModel, audience: str) -> ch.StatementFac
     fibres, read_from = fibres_named(cir)
     size = ((twin.width_cm, twin.height_cm)
             if twin.width_cm and twin.height_cm else None)
+    size_text = (size_statement(twin) or "") if twin.shape is not None else ""
+    if size is None and twin.size_refusal and twin.circumference_cm:
+        # ENG-PLUSH: a closed stuffed piece has no computable height (the twin refuses it),
+        # so the size it can honestly state is its circumference, said as such.
+        size_text = (f"about {twin.circumference_cm:.0f} cm around its widest round (its "
+                     f"height is set by the stuffing and is measured on a sample)")
     return ch.StatementFacts(
         audience=audience,
         finished_size_cm=size,
         colours=tuple(sorted(c for c in (cir.colors or {}) if c)),
         fibres=fibres,
         fibre_read_from=read_from,
-        size_text=(size_statement(twin) or "") if twin.shape is not None else "",
+        size_text=size_text,
     )
 
 
@@ -1088,6 +1100,8 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
     pdf_bytes = doc.finish()
     if childrens is not None:
         _refuse_an_incomplete_childrens_document(cir, twin, pdf_bytes, childrens, terminology)
+    _refuse_a_child_safety_content_failure(cir, result, pdf_bytes, childrens, terminology,
+                                           instructions=text)
 
     return PatternDocument(
         pdf_bytes=pdf_bytes,
@@ -1138,6 +1152,29 @@ def extracted_text(pdf_bytes: bytes) -> str:
 
 
 _EXTRACTED: dict[str, str] = {}
+
+
+def _refuse_a_child_safety_content_failure(cir: CIR, result, pdf_bytes: bytes, childrens,
+                                           terminology: str, *,
+                                           instructions: str | None = None) -> None:
+    """ENG-PLUSH: the finished document is read back and the child-safety gate run on it.
+
+    A FAIL (a missing statement or citation, a certification claim, a hard part in the
+    instructions, a construction defect) refuses the document. HELD -- physical evidence
+    nothing can bind yet -- does not refuse a document; it refuses certification, and so
+    publication, in `gates.certificate`."""
+    from ..gates import child_safety as _child_safety
+
+    if not _child_safety.applies(cir, childrens):
+        return
+    verdict = _child_safety.evaluate(cir, result, text=extracted_text(pdf_bytes),
+                                     instructions=instructions, childrens=childrens)
+    failing = verdict.failing()
+    if failing:
+        raise ValueError(
+            f"refusing to render a {terminology.upper()}-terms PDF for {cir.slug}: the "
+            f"child-safety content gate fails: "
+            + " | ".join(f"{c.code}: {c.detail}" for c in failing))
 
 
 def childrens_statements_in(pdf_bytes: bytes, assignment: tuple[str, str]) -> dict:
@@ -1739,6 +1776,7 @@ def _disclosed_views(cir: CIR) -> dict:
 _STEP = re.compile(r"^(?P<label>(?:Rnds?|Rows?|Rounds?)\s+\d[^:]*:)\s*(?P<body>.*)$")
 _COUNT = re.compile(r"(?P<count>\(\d+ sts?\))\s*$")
 _STEP_NUMBER = re.compile(r"^(?:Rnds?|Rows?|Rounds?)\s+(\d+)")
+_IN_ORDER = re.compile(r"^(?:Stuff|Close) after (?:Rnd|Round) \d+:")
 
 
 def _rich_lines(c, segments: list[tuple[str, str, object]], width: float,
@@ -2560,8 +2598,11 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             continue
         shown = title[:1].upper() + title[1:]
         doc.heading(shown, size=12)
-        steps = [ln for ln in lines if _STEP.match(ln)]
-        notes_ = [ln for ln in lines if ln.strip() and not _STEP.match(ln)]
+        # ENG-PLUSH: a stuffing point and a closure are steps in their place among the
+        # rounds, not notes lifted to the top of the piece.
+        steps = [ln for ln in lines if _STEP.match(ln) or _IN_ORDER.match(ln)]
+        notes_ = [ln for ln in lines
+                  if ln.strip() and not _STEP.match(ln) and not _IN_ORDER.match(ln)]
         for ln in notes_:
             doc.need(10 * mm)
             doc.para(ln, size=10, color=FOREST, font=FONT_BODY_ITALIC)
@@ -2580,6 +2621,21 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                 for ln in group:
                     _step_line(doc, ln, yarn_rgb, MARGIN, usable, head)
         doc.space(3 * mm)
+
+    # ENG-PLUSH: the part diagram, every piece at one scale and every join at its round.
+    from . import part_diagram as _part_diagram
+
+    part_png = _part_diagram.render(cir, result)
+    if part_png is not None:
+        from PIL import Image as _PILImage
+
+        doc.heading("Parts and joins", size=12)
+        doc.image(_PILImage.open(io.BytesIO(part_png)), head, max_height=90 * mm,
+                  figure={"kind": "part_diagram", "source": "publish.part_diagram.render"})
+        doc.para(_part_diagram.CAPTION, size=9, color=MUTED, font=FONT_BODY_ITALIC)
+        for j in _part_diagram.joins(cir):
+            doc.para(f"{j['from']} to {j['to']}: {j['method']}, {j['where']}.", size=9.5,
+                     running_head=head)
 
     if finishing:
         doc.need(60 * mm)
@@ -2804,6 +2860,26 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                 f"PDF_CHILDRENS_STATEMENT_UNRENDERABLE: {statement_key} is required for a "
                 f"{childrens[0]} product stated for {childrens[1]} and this document cannot "
                 f"state it: {why}")
+
+    # ---------------------------------------------------------------- 11b. child safety -----
+    # ENG-PLUSH (D-OWNER-CORE-FAMILIES s.3): a stuffed toy, lovey or child's item carries the
+    # child-safety section `gates.child_safety` requires, with every source cited and its
+    # access date; `build_pattern_pdf` reads it back from the finished bytes.
+    from ..gates import child_safety as _child_safety
+
+    if _child_safety.applies(cir, childrens):
+        profile = _child_safety.profile_for(cir, childrens)
+        doc.new_page(head)
+        doc.heading(_child_safety.SECTION_HEADING, kicker="Child safety")
+        # Review M4: the age statement claims the small-parts geometry only when it is shown.
+        from ..gates import small_parts as _small_parts
+
+        clear = not _small_parts.blocking(cir)
+        for heading_, text_ in _child_safety.section_lines(profile, small_parts_clear=clear):
+            if heading_:
+                doc.heading(heading_, size=12)
+            doc.para(text_, size=9.5 if heading_ != "Sources" else 9,
+                     color=INK if heading_ != "Sources" else MUTED, running_head=head)
 
     # Approved contextual links supplied by assets.build, bound to lesson revisions.
     if lesson_links:
