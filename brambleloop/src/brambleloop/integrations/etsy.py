@@ -662,6 +662,9 @@ class PublishOutcome:
     state: str = "draft"
     problems: list[str] = field(default_factory=list)
     images_uploaded: int = 0
+    #: Review b17-d A1: rank -> SHA-256 of the image bytes this call actually uploaded. The
+    #: read-back hashes only these, never the bytes a job merely intended to send.
+    image_sha256_by_rank: dict = field(default_factory=dict)
 
     @property
     def needs_completion(self) -> bool:
@@ -1695,6 +1698,7 @@ class EtsyClient:
 
         problems = [] if uploaded else [f"listing {listing_id} exists with no file attached"]
         images_uploaded = 0
+        uploaded_by_rank: dict[int, str] = {}
         for rank, entry in enumerate(images or [], start=1):
             # (name, bytes), (name, bytes, alt_text), or a certified 2-tuple carrying
             # `.alt_text` (runtime.etsy_ops.CertifiedImage): a disclosed render (D-FB-7)
@@ -1705,6 +1709,9 @@ class EtsyClient:
                 self._upload_image(listing_id, filename=image_name, data=image_bytes,
                                    rank=rank, alt_text=image_alt)
                 images_uploaded += 1
+                import hashlib
+
+                uploaded_by_rank[rank] = hashlib.sha256(image_bytes).hexdigest()
             except (TransientError, EtsyRejected) as e:
                 problems.append(f"image {rank} ({image_name}) was not uploaded: {e}")
         if not images:
@@ -1715,4 +1722,5 @@ class EtsyClient:
 
         return PublishOutcome(published=uploaded, listing_id=listing_id,
                               file_uploaded=uploaded, images_uploaded=images_uploaded,
+                              image_sha256_by_rank=uploaded_by_rank,
                               problems=problems)

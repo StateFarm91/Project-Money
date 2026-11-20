@@ -779,7 +779,87 @@ def file_expectations(docs_by_name: dict[str, bytes],
             for name, data in sorted(docs_by_name.items())]
 
 
-def images_read_back(client, listing_id: str, expected_alt_texts: list[str]) -> dict:
+def _dimensions(data: bytes) -> tuple[int, int] | None:
+    try:
+        import io
+
+        from PIL import Image
+
+        with Image.open(io.BytesIO(data)) as im:
+            return int(im.size[0]), int(im.size[1])
+    except Exception:  # noqa: BLE001 - unreadable dimensions are not compared
+        return None
+
+
+def image_hash_checks(sent_images: dict | None, remote: list[dict],
+                      uploaded: dict | None = None) -> tuple[list[dict], list[str]]:
+    """ENG-ETSY-PUBLISH slice 2: per rank, the SHA-256 of the bytes uploaded *in this job*
+    against the hash the listing-set certificate recorded, and Etsy's reported full-size
+    dimensions against the dimensions of the certified bytes.
+
+    What Etsy can and cannot prove: getListingImages returns no hash, and the image Etsy
+    serves is its own re-encode, so the bytes Etsy holds cannot be hashed from here. The
+    hash check is therefore of the bytes at the moment they leave (they must be the
+    certified bytes), and Etsy's side is checked by rank, alt text and pixel dimensions.
+
+    Review b17-d A1: `uploaded` maps rank -> SHA-256 of the payload actually sent in this job
+    (the client's own record, `PublishOutcome.image_sha256_by_rank` and `_complete_draft`'s
+    `sent_ranks`). A rank that was not uploaded in this job proves nothing about the bytes
+    Etsy holds (an adopted draft could carry anything), so it is a problem, never a pass.
+    A missing Etsy dimension is a problem too: an unread comparison is not a match. (The
+    rank's hash, not its dimensions, is what proves the certified bytes were sent.)
+    """
+    rows, problems = [], []
+    if not sent_images:
+        return rows, problems
+    uploaded = {int(k): str(v) for k, v in (uploaded or {}).items()}
+    images = list(sent_images.get("images") or [])
+    order = list(sent_images.get("order") or [])
+    ordered = sorted(remote or [], key=lambda r: int(r.get("rank") or 0))
+    for rank, entry in enumerate(images, start=1):
+        data = entry[1]
+        sent = uploaded.get(rank, "")
+        entry_order = order[rank - 1] if rank - 1 < len(order) else {}
+        # No recorded certificate hash for a rank is a mismatch, never a pass.
+        certified = str((entry_order.get("sha256") if isinstance(entry_order, dict)
+                         else "") or "")
+        dims = _dimensions(data)
+        held = ordered[rank - 1] if rank - 1 < len(ordered) else {}
+        on_etsy = ((int(held["full_width"]), int(held["full_height"]))
+                   if held.get("full_width") and held.get("full_height") else None)
+        row = {"rank": rank, "uploaded_in_this_job": bool(sent), "sent_sha256": sent or None,
+               "certified_sha256": certified,
+               "hash_matches_certificate": bool(certified) and bool(sent) and sent == certified,
+               "dimensions_sent": list(dims) if dims else None,
+               "dimensions_on_etsy": list(on_etsy) if on_etsy else None}
+        if not sent:
+            problems.append(f"image rank {rank}: no bytes were uploaded at this rank in this "
+                            "job, so the image Etsy holds is unproven against the certificate")
+        elif not row["hash_matches_certificate"]:
+            problems.append(f"image rank {rank}: sent bytes hash to {sent[:12]}, the "
+                            f"certificate records {certified[:12] or 'nothing'}")
+        if on_etsy is None:
+            problems.append(f"image rank {rank}: Etsy reported no full-size dimensions, so "
+                            "the image it holds is unchecked")
+        elif dims and dims != on_etsy:
+            problems.append(f"image rank {rank}: sent {dims[0]}x{dims[1]}, Etsy holds "
+                            f"{on_etsy[0]}x{on_etsy[1]}")
+        rows.append(row)
+    return rows, problems
+
+
+def completable(readback: dict) -> bool:
+    """Whether completing the draft in place could change the read-back: a file or image is
+    missing or differs. A field mismatch or an unreadable listing is not completable."""
+    if readback.get("verified") or readback.get("read_error"):
+        return False
+    files = readback.get("files") or {}
+    images = readback.get("images") or {}
+    return bool(files.get("problems")) or (bool(images) and not images.get("verified"))
+
+
+def images_read_back(client, listing_id: str, expected_alt_texts: list[str],
+                     sent_images: dict | None = None, uploaded: dict | None = None) -> dict:
     """PT-12: the listing's images as Etsy holds them, rank by rank, against the alt text sent.
 
     The disclosure lives in each disclosed frame's alt text (D-FB-9), and the upload response
@@ -804,11 +884,15 @@ def images_read_back(client, listing_id: str, expected_alt_texts: list[str]) -> 
         if (sent_alt or "") != got:
             problems.append(f"image rank {rank} alt_text: sent {sent_alt!r}, Etsy holds "
                             f"{got!r}")
-    return {"verified": not problems, "problems": problems, "alt_texts_on_etsy": held}
+    hashes, hash_problems = image_hash_checks(sent_images, ordered, uploaded)
+    problems.extend(hash_problems)
+    return {"verified": not problems, "problems": problems, "alt_texts_on_etsy": held,
+            "by_rank": hashes}
 
 
 def read_back(client, listing_id: str, *, sent: dict, expected_files: list[dict],
-              expected_images: int, expected_alt_texts: list[str] | None = None) -> dict:
+              expected_images: int, expected_alt_texts: list[str] | None = None,
+              sent_images: dict | None = None, uploaded_images: dict | None = None) -> dict:
     """F-542 / F-559: getListing and getAllListingFiles after the writes, judged.
 
     A read that fails is reported as unverified with the reason, never as verified.
@@ -840,7 +924,8 @@ def read_back(client, listing_id: str, *, sent: dict, expected_files: list[dict]
     fields = etsy_verify.verify(sent, remote, listing_id=listing_id, expect_state="draft",
                                 expect_images=expected_images)
     files = etsy_verify.verify_files(expected_files, remote_files, listing_id=listing_id)
-    images = (images_read_back(client, listing_id, list(expected_alt_texts))
+    images = (images_read_back(client, listing_id, list(expected_alt_texts),
+                               sent_images=sent_images, uploaded=uploaded_images)
               if expected_alt_texts is not None else None)
     verified = fields.verified and files.verified and (images is None or images["verified"])
     return {"verified": verified, "fields": fields.summary(), "files": files.summary(),
@@ -1515,9 +1600,25 @@ def handle_store_draft_reconcile(ctx: JobContext) -> dict:
     out = draft_resolver.run(ctx.db, audit=ctx.audit)
     outcomes = [i.get("outcome") for i in out.get("intents", [])]
     ctx.audit("store.draft_reconcile", detail={**out, "writes_performed": 0})
+    # ENG-ETSY-PUBLISH: certified packages flow into drafts under the owner's existing grants
+    # only (`publish.publication_scheduler`: no grant, nothing queued; it never grants).
+    try:
+        from ..publish import publication_scheduler
+
+        scheduled = publication_scheduler.tick(ctx.db)
+    except Exception as exc:  # noqa: BLE001 - the scheduler never fails the reconcile
+        scheduled = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+    ctx.audit(publication_scheduler_action(), detail=scheduled)
     return {"read": out.get("read"), "why": out.get("why"),
             "resolved": sum(1 for o in outcomes if o in ("adopted", "released")),
-            "escalated": outcomes.count("escalated"), "intents": out.get("intents", [])}
+            "escalated": outcomes.count("escalated"), "intents": out.get("intents", []),
+            "publication_scheduler": scheduled}
+
+
+def publication_scheduler_action() -> str:
+    from ..publish.publication_scheduler import TICK_ACTION
+
+    return TICK_ACTION
 
 
 @handlers.register("store.live_drift")

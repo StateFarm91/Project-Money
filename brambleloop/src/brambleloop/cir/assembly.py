@@ -243,6 +243,54 @@ def first_round_cm(twin, gauge) -> float | None:
     return twin.row_widths[min(twin.row_widths)] * 10.0 / gauge.stitches_per_10cm
 
 
+def _counted_round(cir, comp, twin) -> bool:
+    """A round piece with no finished size whose every join can be counted (OPUS2P-2)."""
+    if comp.construction == "flat_rows" or not twin.row_widths:
+        return False
+    joins = [s for s in cir.assembly if comp.name in (s.piece_a, s.piece_b)]
+    return bool(joins)
+
+
+def _round_count(twin, edge: str | None, at_round: int | None = None) -> int | None:
+    widths = twin.row_widths or {}
+    if not widths:
+        return None
+    if at_round is not None:
+        return widths.get(at_round)
+    return widths[max(widths)] if edge == "top" else widths[min(widths)] if edge == "bottom" \
+        else None
+
+
+def _count_join(cir, seam, twins) -> tuple[float, float] | None:
+    """(edge a, edge b) in cm, measured by stitch count, or None when it cannot be.
+
+    Edge a is the joining piece's last ("top") or first ("bottom") round. Edge b is the round
+    of piece b the seam is placed on (`at_round`), or the span it is sewn across
+    (`2 x stitches_from_centre`). A round edge sewn across a span lies flattened, both layers
+    together, so it is half its round's count."""
+    comps = {c.name: c for c in cir.components}
+    a, b = comps.get(seam.piece_a), comps.get(seam.piece_b)
+    if a is None or b is None or a.construction == "flat_rows" or not cir.gauge:
+        return None
+    ta, tb = twins.get(seam.piece_a), twins.get(seam.piece_b)
+    if ta is None or tb is None:
+        return None
+    na = _round_count(ta, seam.edge_a)
+    if na is None:
+        return None
+    if seam.stitches_from_centre is not None:
+        nb = 2 * seam.stitches_from_centre
+        na = na / 2.0
+    elif seam.at_round is not None and b.construction != "flat_rows":
+        nb = _round_count(tb, None, seam.at_round)
+    else:
+        return None
+    if nb is None:
+        return None
+    per = 10.0 / cir.gauge.stitches_per_10cm
+    return na * per, nb * per
+
+
 def _picked_up_only(cir, comp) -> bool:
     """A round piece begun inside another (foundation 'none') and joined only by pick-up: its
     finished shape may be refused (a closed tip is shaped by tension), but its first round is
@@ -267,6 +315,8 @@ def assemble(cir, twins: dict) -> ObjectGeometry:
         except ValueError as exc:
             if _picked_up_only(cir, comp) and first_round_cm(t, cir.gauge):
                 continue        # measured by its first round in the join below
+            if _counted_round(cir, comp, t):
+                continue        # OPUS2P-2: a shaped round piece is measured by stitch count
             geo.verdict, geo.why = "unmeasurable", str(exc)
             return geo
 
@@ -280,6 +330,8 @@ def assemble(cir, twins: dict) -> ObjectGeometry:
             join.verdict, join.why = "sound", "self-seam: one piece folded and closed"
         elif seam.method == "thread":
             _thread_join(cir, seam, join, fa, fb, twins)
+        elif seam.edge_b == "surface":
+            _surface_join(cir, seam, join, fa, fb, twins)
         elif not seam.names_its_edges:
             join.why = ("this join does not say which edges meet, so no length can be "
                         "compared and the pieces cannot be placed relative to each other")
@@ -290,6 +342,11 @@ def assemble(cir, twins: dict) -> ObjectGeometry:
             # length that meets it, whatever the finished piece's own span.
             _measure(cir, seam, join, first_round_cm(twins[seam.piece_a], cir.gauge),
                      fb.edge_cm(seam.edge_b))
+        elif (fa is None or fb is None) and _count_join(cir, seam, twins) is not None:
+            # OPUS2P-2: a stuffed, shaped piece has no finished size, but its rounds have
+            # counts: the joining edge is compared stitch for stitch with what it is sewn to.
+            la, lb = _count_join(cir, seam, twins)
+            _measure(cir, seam, join, la, lb)
         elif fa is None or fb is None:
             join.why = "one of the pieces has no measured footprint"
         else:
@@ -369,6 +426,59 @@ def _measure(cir, seam, join: Join, la: float | None, lb: float | None) -> None:
         join.why = (f"{seam.piece_a}.{seam.edge_a} is {la:.1f}cm and {seam.piece_b}."
                     f"{seam.edge_b} is {lb:.1f}cm, a {drift:.1%} difference: these do not "
                     f"join")
+
+
+SURFACE_MARGIN_STS = 1          # a placed piece keeps at least a stitch clear of every edge
+
+
+def _surface_join(cir, seam, join: Join, fa, fb, twins) -> None:
+    """ENG-PLUSH: piece_a laid ON piece_b (an appliqué, a lovey's head) at a stated place.
+
+    Sound when piece_a's extent, centred on row `at_round` and `stitches_from_centre` stitches
+    from piece_b's vertical centre line (and, mirrored, at the same offset the other side),
+    lies inside piece_b with SURFACE_MARGIN_STS clear of every edge, and a mirrored pair does
+    not overlap itself. A closed shaped piece with no flat footprint is measured by its widest
+    round's diameter. Anything that cannot be measured is left unchecked (never sound)."""
+    if fb is None or fb.row_cm is None or not cir.gauge or seam.at_round is None \
+            or seam.stitches_from_centre is None:
+        join.why = ("a surface placement needs a flat piece to lie on, a gauge, a row and an "
+                    "offset from the centre line")
+        return
+    if fa is not None:
+        across, up = fa.across_cm, fa.up_cm
+    else:
+        t = twins.get(seam.piece_a)
+        rev = getattr(t, "geometry", None)
+        if rev is None or not rev.rings:
+            join.why = f"{seam.piece_a} has no measurable extent to place"
+            return
+        across = up = rev.max_diameter_cm
+    st = 10.0 / cir.gauge.stitches_per_10cm
+    margin = SURFACE_MARGIN_STS * st
+    cx = fb.across_cm / 2.0 + seam.stitches_from_centre * st
+    cy = (seam.at_round - 0.5) * fb.row_cm
+    left, right = cx - across / 2.0, cx + across / 2.0
+    if seam.mirrored:
+        left = min(left, fb.across_cm - right)
+    bottom, top = cy - up / 2.0, cy + up / 2.0
+    join.length_a_cm, join.length_b_cm = round(across, 1), round(fb.across_cm, 1)
+    problems = []
+    if left < margin or right > fb.across_cm - margin:
+        problems.append(f"it runs from {left:.1f} to {right:.1f} cm across a "
+                        f"{fb.across_cm:.1f} cm piece")
+    if bottom < margin or top > fb.up_cm - margin:
+        problems.append(f"it runs from {bottom:.1f} to {top:.1f} cm up a {fb.up_cm:.1f} cm piece")
+    if seam.mirrored and seam.stitches_from_centre * st < across / 2.0:
+        problems.append("the mirrored pair overlaps itself across the centre line")
+    if problems:
+        join.verdict = "mismatched"
+        join.why = (f"{seam.piece_a} placed on {seam.piece_b} at row {seam.at_round}, "
+                    f"{seam.stitches_from_centre} sts from centre, does not fit: "
+                    + "; ".join(problems))
+    else:
+        join.verdict = "sound"
+        join.why = (f"{seam.piece_a} lies inside {seam.piece_b} at row {seam.at_round}, "
+                    f"{seam.stitches_from_centre} sts from centre")
 
 
 def _thread_join(cir, seam, join: Join, fa, fb, twins) -> None:

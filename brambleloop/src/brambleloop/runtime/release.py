@@ -8387,6 +8387,20 @@ def handle_thrash_sweep(ctx: JobContext) -> dict:
     return out
 
 
+@handlers.register("ops.daily_ledger")
+def handle_daily_ledger(ctx: JobContext) -> dict:
+    """ENG-DAILY: record the per-UTC-day production ledger and diagnose every zero stage.
+
+    Six-hourly. Counts from persisted rows only; a zero stage gets a diagnosis row, a safe
+    free action (re-arm through `rearm_probe`, re-offer supply) or an engineering change
+    request. It changes no gate, ceiling or owner exception."""
+    from ..ops import daily_ledger
+
+    out = daily_ledger.run(ctx)
+    ctx.audit("ops.daily_ledger", detail=out)
+    return out
+
+
 @handlers.register("seasonal.engine")
 def handle_seasonal_engine(ctx: JobContext) -> dict:
     """The 365-day seasonal engine, daily (#33, #38, #131, #267, #286, #287, #289, #290,

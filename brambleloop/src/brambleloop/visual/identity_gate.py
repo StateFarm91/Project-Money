@@ -265,6 +265,12 @@ def production_calibration_refusals(cal: dict) -> list[str]:
             out.append(f"production calibration {k} {v!r} is unmeasured or above {cap}")
     if cal.get("production_ready") is not True:
         out.append("the calibration evidence did not declare itself production_ready")
+    # F2: the rates (and the counts the floors apply to) must come from a held-out subset
+    # disjoint from the one that set the thresholds; in-sample FAR is 0 by construction.
+    if cal.get("evaluation") != C.HELD_OUT or cal.get("calibration_version") != \
+            C.CALIBRATION_VERSION or cal.get("split_method") != C.SPLIT_METHOD:
+        out.append("production calibration must measure FAR/FRR on a held-out subset "
+                   f"({C.CALIBRATION_VERSION}, {C.SPLIT_METHOD}); in-sample evidence refused")
     return out
 
 

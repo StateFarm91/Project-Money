@@ -606,14 +606,14 @@ def graded_childrens_assignment(cir: CIR) -> tuple[str, str] | None:
     the age band; sizes 14 and 16 are over 12 and outside CPSC's children's-product
     definition (`intel.childrens.OVER_TWELVE`), so they carry no children's block.
     """
-    from ..cir.graded import CHILD
+    from ..cir.graded import BABY, CHILD, months_of
 
     g = cir.grading
-    if g is None or g.table != CHILD.name:
+    if g is None or g.table not in (CHILD.name, BABY.name):
         return None
-    try:
-        months = int(float(g.size)) * 12
-    except ValueError:
+    # ENG-GARMENT: the CYC baby table names its sizes in months ("3m" .. "24m").
+    months = months_of(g.table, g.size)
+    if months is None:
         return None
     band = ch.age_band_for_months(months)
     if band == ch.OVER_TWELVE:
@@ -854,6 +854,12 @@ def fibres_named(cir: CIR) -> tuple[tuple[str, ...], str]:
     for material in cir.materials:
         name = (material.name or "").lower()
         words = set(re.findall(r"[a-z]+", name))
+        # ENG-PLUSH: a stuffing is not a yarn the pattern is written for. A material with no
+        # yarn weight whose name says it is stuffing is skipped (never read as "polyester
+        # yarn"); any other weightless material still has to name its fibre or block.
+        if not getattr(material, "yarn_weight", None) and re.search(
+                r"\b(?:fibrefill|fiberfill|stuffing|polyfill|filling)\b", name):
+            continue
         hits = [fibre for fibre in known if fibre in words]
         if not hits:
             silent.append(material.name or "(unnamed)")
@@ -889,13 +895,19 @@ def childrens_facts(cir: CIR, twin: TwinModel, audience: str) -> ch.StatementFac
     fibres, read_from = fibres_named(cir)
     size = ((twin.width_cm, twin.height_cm)
             if twin.width_cm and twin.height_cm else None)
+    size_text = (size_statement(twin) or "") if twin.shape is not None else ""
+    if size is None and twin.size_refusal and twin.circumference_cm:
+        # ENG-PLUSH: a closed stuffed piece has no computable height (the twin refuses it),
+        # so the size it can honestly state is its circumference, said as such.
+        size_text = (f"about {twin.circumference_cm:.0f} cm around its widest round (its "
+                     f"height is set by the stuffing and is measured on a sample)")
     return ch.StatementFacts(
         audience=audience,
         finished_size_cm=size,
         colours=tuple(sorted(c for c in (cir.colors or {}) if c)),
         fibres=fibres,
         fibre_read_from=read_from,
-        size_text=(size_statement(twin) or "") if twin.shape is not None else "",
+        size_text=size_text,
     )
 
 
@@ -1106,6 +1118,8 @@ def build_pattern_pdf(cir: CIR, *, terminology: str = "US",
     pdf_bytes = doc.finish()
     if childrens is not None:
         _refuse_an_incomplete_childrens_document(cir, twin, pdf_bytes, childrens, terminology)
+    _refuse_a_child_safety_content_failure(cir, result, pdf_bytes, childrens, terminology,
+                                           instructions=text)
     # ENG-PDF-PREMIUM: the family's premium standard, audited on the finished bytes. A PDF
     # missing what its family needs is refused here, not shipped and found by a buyer.
     standard = premium_audit(pdf_bytes, cir, twin=twin, result=result,
@@ -1179,6 +1193,29 @@ def extracted_text(pdf_bytes: bytes) -> str:
 
 
 _EXTRACTED: dict[str, str] = {}
+
+
+def _refuse_a_child_safety_content_failure(cir: CIR, result, pdf_bytes: bytes, childrens,
+                                           terminology: str, *,
+                                           instructions: str | None = None) -> None:
+    """ENG-PLUSH: the finished document is read back and the child-safety gate run on it.
+
+    A FAIL (a missing statement or citation, a certification claim, a hard part in the
+    instructions, a construction defect) refuses the document. HELD -- physical evidence
+    nothing can bind yet -- does not refuse a document; it refuses certification, and so
+    publication, in `gates.certificate`."""
+    from ..gates import child_safety as _child_safety
+
+    if not _child_safety.applies(cir, childrens):
+        return
+    verdict = _child_safety.evaluate(cir, result, text=extracted_text(pdf_bytes),
+                                     instructions=instructions, childrens=childrens)
+    failing = verdict.failing()
+    if failing:
+        raise ValueError(
+            f"refusing to render a {terminology.upper()}-terms PDF for {cir.slug}: the "
+            f"child-safety content gate fails: "
+            + " | ".join(f"{c.code}: {c.detail}" for c in failing))
 
 
 def childrens_statements_in(pdf_bytes: bytes, assignment: tuple[str, str]) -> dict:
@@ -1592,7 +1629,17 @@ def overview_paragraphs(cir: CIR, result, twin: TwinModel, text: str,
         totals: dict[str, int] = {}
         for c in twin.cells:
             totals[c.color] = totals.get(c.color, 0) + 1
-        if len(totals) > 1:
+        chart = getattr(comp, "chart", None)
+        if chart is not None and len(totals) > 1:
+            # ENG-COLOURWORK: a charted piece changes colour inside its rows, so the colour of
+            # a row's first stitch says nothing about it. Say what the chart is.
+            yarns = sorted(set(chart.key.values()))
+            main = comp.rows[0].color if comp.rows and comp.rows[0].color else yarns[0]
+            out.append(f"The main colour is {main}. {unit.capitalize()}s "
+                       f"{_span_words(chart.first_row, chart.last_row)} are {chart.technique} "
+                       f"colourwork in {' and '.join(yarns)}, worked from the chart; every "
+                       f"other {unit} is {main} only.")
+        elif len(totals) > 1:
             main = max(sorted(totals), key=lambda k: totals[k])
             others = []
             for colour in sorted(k for k in totals if k != main):
@@ -1862,6 +1909,7 @@ def _disclosed_views(cir: CIR) -> dict:
 _STEP = re.compile(r"^(?P<label>(?:Rnds?|Rows?|Rounds?)\s+\d[^:]*:)\s*(?P<body>.*)$")
 _COUNT = re.compile(r"(?P<count>\(\d+ sts?\))\s*$")
 _STEP_NUMBER = re.compile(r"^(?:Rnds?|Rows?|Rounds?)\s+(\d+)")
+_IN_ORDER = re.compile(r"^(?:Stuff|Close) after (?:Rnd|Round) \d+:")
 
 
 COVER_SCHEMATIC_CAPTION = ("Schematic drawing of the pieces, generated from this pattern's "
@@ -2789,9 +2837,12 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
             continue
         shown = title[:1].upper() + title[1:]
         doc.heading(shown, size=12)
+        # ENG-PLUSH: a stuffing point and a closure are steps in their place among the
+        # rounds, not notes lifted to the top of the piece. ENG-PDF-PREMIUM: RS/WS sides.
         sided = _sides_for(cir, title)
-        steps = [_with_side(ln, sided) for ln in lines if _STEP.match(ln)]
-        notes_ = [ln for ln in lines if ln.strip() and not _STEP.match(ln)]
+        steps = [_with_side(ln, sided) for ln in lines if _STEP.match(ln) or _IN_ORDER.match(ln)]
+        notes_ = [ln for ln in lines
+                  if ln.strip() and not _STEP.match(ln) and not _IN_ORDER.match(ln)]
         if sided:
             notes_.append(RS_NOTE)
         for ln in notes_:
@@ -2812,6 +2863,21 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                 for ln in group:
                     _step_line(doc, ln, yarn_rgb, MARGIN, usable, head)
         doc.space(3 * mm)
+
+    # ENG-PLUSH: the part diagram, every piece at one scale and every join at its round.
+    from . import part_diagram as _part_diagram
+
+    part_png = _part_diagram.render(cir, result)
+    if part_png is not None:
+        from PIL import Image as _PILImage
+
+        doc.heading("Parts and joins", size=12)
+        doc.image(_PILImage.open(io.BytesIO(part_png)), head, max_height=90 * mm,
+                  figure={"kind": "part_diagram", "source": "publish.part_diagram.render"})
+        doc.para(_part_diagram.CAPTION, size=9, color=MUTED, font=FONT_BODY_ITALIC)
+        for j in _part_diagram.joins(cir):
+            doc.para(f"{j['from']} to {j['to']}: {j['method']}, {j['where']}.", size=9.5,
+                     running_head=head)
 
     if finishing:
         doc.need(60 * mm)
@@ -2928,6 +2994,23 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                  "row and round in the pattern.", size=9.5, color=MUTED)
         for name in colours:
             doc.kv(name, cir.colors.get(name, ""), upper=False)
+
+    wall = art.get("wall")
+    if wall:
+        # ENG-COLOURWORK: the colourwork band of a piece worked in rounds, on its own page.
+        doc.new_page(head)
+        doc.heading("Colourwork chart", kicker="Chart and keys")
+        doc.para(wall["caption"], size=9.5, color=MUTED, keep=True)
+        doc.space(1 * mm)
+        doc.image(wall["chart"], running_head=head, max_height=CHART_TILE_HEIGHT,
+                  figure={"kind": "chart", "source": "publish.charts (twin cell grid)",
+                          "label": "Colourwork chart"})
+        problems.extend(wall.get("problems", ()))
+        if wall.get("cues"):
+            doc.heading("Colour key", size=12)
+            doc.para(COLOUR_CUE_NOTE_FLAT, size=9.5, color=MUTED)
+            for name, cue in sorted(wall["cues"].items(), key=lambda kv: kv[1]):
+                doc.kv(cue, f"{name}  {cir.colors.get(name, '')}".strip(), upper=False)
 
     # ---------------------------------------------------------------- 10. gallery ----------
     gallery = [(v, views[v]) for v in ("hero", "angle", "detail") if v in views]
@@ -3058,6 +3141,22 @@ def _render(cir: CIR, twin: TwinModel, result, *, text: str, art: dict,
                 f"PDF_CHILDRENS_STATEMENT_UNRENDERABLE: {statement_key} is required for a "
                 f"{childrens[0]} product stated for {childrens[1]} and this document cannot "
                 f"state it: {why}")
+
+    # ---------------------------------------------------------------- 11b. child safety -----
+    # ENG-PLUSH (D-OWNER-CORE-FAMILIES s.3): a stuffed toy, lovey or child's item carries the
+    # child-safety section `gates.child_safety` requires, with every source cited and its
+    # access date; `build_pattern_pdf` reads it back from the finished bytes.
+    from ..gates import child_safety as _child_safety
+
+    if _child_safety.applies(cir, childrens):
+        profile = _child_safety.profile_for(cir, childrens)
+        doc.new_page(head)
+        doc.heading(_child_safety.SECTION_HEADING, kicker="Child safety")
+        for heading_, text_ in _child_safety.section_lines(profile):
+            if heading_:
+                doc.heading(heading_, size=12)
+            doc.para(text_, size=9.5 if heading_ != "Sources" else 9,
+                     color=INK if heading_ != "Sources" else MUTED, running_head=head)
 
     # Approved contextual links supplied by assets.build, bound to lesson revisions.
     if lesson_links:
@@ -3431,8 +3530,11 @@ def _straight_tail_sentence(block: RoundBlock) -> str:
         by_colour: dict[str, list[str]] = {}
         for name, a, b in block.tail_other_colors:
             by_colour.setdefault(name, []).append(_round_span(a, b, dash=True))
-        runs = "; ".join(f"rounds {' and '.join(spans)} in {name}"
-                         for name, spans in by_colour.items())
+        runs = "; ".join(
+            f"rounds {' and '.join(spans)} in "
+            + (name or "tapestry colourwork, two yarns in the round (see the colourwork "
+                       "chart)")
+            for name, spans in by_colour.items())
         out += (f" They are worked in {block.tail_color} except {runs}, and the written "
                 f"instructions give the colour of every round.")
     else:
@@ -3573,7 +3675,9 @@ def _chart_art(cir: CIR, twin: TwinModel) -> dict:
     if is_round(cir, twin):
         # A ragged grid is not a chart of a disc, and "read odd rows right to left" is
         # flat-fabric advice: every round is worked in the same direction.
-        return _round_chart_art(cir, twin)
+        art = _round_chart_art(cir, twin)
+        wall = _wall_chart_art(cir, twin)
+        return dict(art, wall=wall) if wall is not None else art
 
     grid, colour_grid = twin.chart_grid(), twin.color_grid()
     full_cols = max((len(r) for r in grid), default=0)
@@ -3672,6 +3776,49 @@ def _chart_art(cir: CIR, twin: TwinModel) -> dict:
 
 # Reserve the measured area for heading, explanatory caption and tile range.
 CHART_TILE_HEIGHT = PAGE_H - 2 * MARGIN - 55 * mm
+
+
+def _wall_chart_art(cir: CIR, twin: TwinModel) -> dict | None:
+    """ENG-COLOURWORK: the colourwork chart of a piece worked in rounds.
+
+    The round chart draws the rounds that shape the piece; a tapestry wall is straight, so
+    it is left out there, and without this page the band the maker buys the pattern for would
+    have no chart at all. One repeat of the band, drawn from the twin's own cells (the twin is
+    proven equal to the declared chart), every round read right to left from stitch 1."""
+    comp = next((c for c in cir.components
+                 if c.name == twin.component and getattr(c, "chart", None) is not None), None)
+    if comp is None:
+        return None
+    chart = comp.chart
+    width = len(chart.rows[0])
+    period = next(p for p in range(1, width + 1)
+                  if width % p == 0 and all(r == r[:p] * (width // p) for r in chart.rows))
+    by_row: dict[int, list] = {}
+    for cell in twin.cells:
+        by_row.setdefault(cell.row, []).append(cell)
+    stitches_g, colours_g = [], []
+    for index in range(chart.first_row, chart.last_row + 1):
+        cells = sorted(by_row.get(index, []), key=lambda c: c.fabric_position)[:period]
+        stitches_g.append([c.stitch for c in cells])
+        colours_g.append([c.color for c in cells])
+    spec = ChartSpec(cell_px=32, margin_px=64)
+    image = render_chart(cir, twin, spec, grids=(stitches_g, colours_g),
+                         caption="Colourwork chart", row_offset=chart.first_row - 1,
+                         show_columns=True, rounds=True)
+    scale = min(1.0, (PAGE_W - 2 * MARGIN) / image.width, CHART_TILE_HEIGHT / image.height)
+    cell_mm = spec.cell_px * scale / mm
+    main = comp.rows[0].color if comp.rows and comp.rows[0].color else ""
+    problems = ([] if cell_mm >= CHART_MIN_CELL_MM else
+                [f"PDF_CHART_CELL_BELOW_BRAND_MINIMUM: the colourwork chart's cells render at "
+                 f"{cell_mm:.1f} mm"])
+    caption = (f"Colourwork chart: rounds {chart.first_row} to {chart.last_row}, one "
+               f"{period}-stitch repeat. Work the repeat {_times(width // period)} around "
+               f"each round ({width} stitches), reading every round from right to left, "
+               f"starting at the stitch numbered 1. Every other round is worked in {main} "
+               f"only. The chart is drawn from the same verified data as the written "
+               f"instructions, so the two cannot disagree.")
+    return {"chart": image, "caption": caption, "cell_mm": cell_mm, "problems": problems,
+            "cues": chart_mod.flat_cue_letters(cir, colours_g, spec.cell_px)}
 
 
 def _tiled_chart_art(cir, twin, grid, colors):

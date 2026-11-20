@@ -242,14 +242,19 @@ def test_production_configuration_stays_unknown():
         if saved is not None:
             os.environ["OPENAI_API_KEY"] = saved
     prod = CG.RealJudges(None, vision=StubJudge("vision-a", "stub-model-a"))
-    assert prod.second_vision is None and prod.embedder is None and not prod.allow_fixture
+    # F1 (ENG-VIS-IDENTITY slice 2): the embedder may be LOADED -- the image installs the
+    # sha-pinned models and BRAMBLELOOP_FACE_MODEL_DIR may point at them -- but nothing on the
+    # production register qualifies it, so the floor is UNMEASURED and the verdict HOLD.
+    assert prod.second_vision is None and prod.qualification is None and not prod.allow_fixture
     got = prod.identity(cand(MATCH_FRAME))
     assert got["status"] == "UNKNOWN" and got["biometric"]["status"] == IG.UNMEASURED, got
+    assert got["verdict"] == "HOLD", got
     # even with two judges, production (no embedder) never passes
     two = CG.RealJudges(None, vision=StubJudge("vision-a", "stub-model-a"),
                         second_vision=StubJudge("vision-b", "stub-model-b"))
     got = two.identity(cand(MATCH_FRAME))
     assert got["status"] == "UNKNOWN" and got["band"] == IG.BAND_REVIEW, got
+    assert got["verdict"] == "HOLD" and got["biometric"]["status"] == IG.UNMEASURED, got
 
 
 def test_unqualified_embedder_is_unknown():

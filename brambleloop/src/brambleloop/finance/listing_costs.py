@@ -78,9 +78,24 @@ def opening_budget_refusal(db, listing_id, amount) -> str | None:
     return _budget_refusal(used, amount)
 
 
+#: ENG-ETSY-PUBLISH: Etsy's listing fee is US$0.20 per listing. A single reservation above
+#: that figure at the assumed rate (plus one cent of rounding) is refused, so a changed fee
+#: schedule or a wrong amount can never spend the opening budget faster than one fee per
+#: listing. At the assumed rate this caps the CA$6 budget at about 21 listings.
+PER_LISTING_FEE_USD = 0.20
+
+
+def per_listing_cap_cad() -> float:
+    return round(PER_LISTING_FEE_USD / _fx.ASSUMED_USD_PER_CAD + 0.01, 4)
+
+
 def _budget_refusal(used: float, amount: float) -> str | None:
     if float(amount) < 0:
         return 'a negative listing fee is not a reservation'
+    if float(amount) > per_listing_cap_cad() + _EPS:
+        return (f'a listing fee of CA${float(amount):.2f} is above the per-listing cap of '
+                f'CA${per_listing_cap_cad():.2f} (US${PER_LISTING_FEE_USD:.2f} at the assumed '
+                f'rate): refused rather than spending the opening budget faster')
     if used + float(amount) > OPENING_CATALOGUE_FEE_BUDGET_CAD + _EPS:
         return (f'the opening-catalogue listing-fee budget is CA$'
                 f'{OPENING_CATALOGUE_FEE_BUDGET_CAD:.2f} in total (D-OWNER-STANDING-INTERNAL): '

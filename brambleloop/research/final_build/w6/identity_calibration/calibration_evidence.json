@@ -1,38 +1,43 @@
 {
  "evidence": {
+  "calibration_genuine": 2,
+  "calibration_genuine_min": 0.69597,
+  "calibration_impostor": 4,
+  "calibration_impostor_max": 0.433379,
   "canonical_references": {
    "full_length_standing": "f32bac686cba46c75e3ac193e72f2bcea4ba7ebc80355a102a4bed4bca3931e0",
    "neutral_portrait": "a42aeac72ba5733e42f55f9eb527218242c50610531ec9263ffb6f3e82519bc9",
    "torso_fit_reference": "afe6191fb4c68d0a9c61229fe822a1032ee7c54150597210888db25b0f9ef0db"
   },
   "derived_frr": 0.0,
-  "derived_genuine": 60,
+  "derived_genuine": 50,
   "embedder": "sface-yunet-onnx",
   "embedder_version": "sface_2021dec+yunet_2023mar/1",
-  "evidence_sha256": "6884612e649a8afcd05b1397d62826dc70b71a0529814f07e45ed45f9f5cee91",
-  "false_accepts": 0,
+  "evaluation": "held_out",
+  "evidence_sha256": "1854ae98e551abcf818930136878b4a5a29c5b2f1892acf2567e4b2632882044",
+  "false_accepts": 2,
   "false_rejects": 0,
-  "far": 0.0,
-  "far_upper_95": 0.258866,
+  "far": 0.333333,
+  "far_upper_95": 0.728662,
   "frr": 0.0,
-  "frr_upper_95": 0.220922,
+  "frr_upper_95": 0.258866,
   "genuine_median": 0.767867,
-  "genuine_min": 0.69597,
-  "genuine_pairs": 12,
+  "genuine_min": 0.730807,
+  "genuine_pairs": 10,
   "identity_id": "laura-r2-a42aeac7",
   "impostor_max": 0.581971,
   "impostor_median": 0.379489,
-  "impostor_pairs": 10,
+  "impostor_pairs": 6,
   "margins": {
    "accept": 0.05,
    "refuse": 0.15
   },
-  "match_at": 0.64,
-  "measured_at": "2026-11-20T02:47:00+00:00",
+  "match_at": 0.49,
+  "measured_at": "2026-11-20T04:03:12+00:00",
   "not_ready_reasons": [
-   "12 independent genuine samples; production needs >= 30",
-   "10 impostor faces; production needs >= 300 (0 false accepts in 10 bounds FAR only at 25.9%)",
-   "FAR upper bound 25.89% > 1%"
+   "10 held-out genuine samples; production needs >= 30",
+   "6 held-out impostor faces; production needs >= 300 (2 false accepts in 6 bounds FAR only at 72.9%)",
+   "held-out FAR upper bound 72.87% > 1%"
   ],
   "production_ready": false,
   "reference_frames": [
@@ -40,7 +45,7 @@
    "neutral_portrait",
    "torso_fit_reference"
   ],
-  "refuse_below": 0.54,
+  "refuse_below": 0.44,
   "rows": [
    {
     "derived": false,
@@ -54,7 +59,8 @@
     },
     "score": 0.74057,
     "sha256": "728022d6f711b130d0aa2894cd67fce06b9e44fd48c5b71700ee4a9be33fd361",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -67,7 +73,8 @@
     },
     "score": 0.740924,
     "sha256": "728022d6f711b130d0aa2894cd67fce06b9e44fd48c5b71700ee4a9be33fd361",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -80,7 +87,8 @@
     },
     "score": 0.712363,
     "sha256": "728022d6f711b130d0aa2894cd67fce06b9e44fd48c5b71700ee4a9be33fd361",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -93,7 +101,8 @@
     },
     "score": 0.736198,
     "sha256": "728022d6f711b130d0aa2894cd67fce06b9e44fd48c5b71700ee4a9be33fd361",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -106,7 +115,8 @@
     },
     "score": 0.730502,
     "sha256": "728022d6f711b130d0aa2894cd67fce06b9e44fd48c5b71700ee4a9be33fd361",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -119,7 +129,8 @@
     },
     "score": 0.716622,
     "sha256": "728022d6f711b130d0aa2894cd67fce06b9e44fd48c5b71700ee4a9be33fd361",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": false,
@@ -133,7 +144,8 @@
     },
     "score": 0.8021,
     "sha256": "f339290676a9ec70859bb9020534ba4bd21875acbebfbf39ece69d17e9a365da",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -146,7 +158,8 @@
     },
     "score": 0.842094,
     "sha256": "f339290676a9ec70859bb9020534ba4bd21875acbebfbf39ece69d17e9a365da",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -159,7 +172,8 @@
     },
     "score": 0.792326,
     "sha256": "f339290676a9ec70859bb9020534ba4bd21875acbebfbf39ece69d17e9a365da",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -172,7 +186,8 @@
     },
     "score": 0.827332,
     "sha256": "f339290676a9ec70859bb9020534ba4bd21875acbebfbf39ece69d17e9a365da",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -185,7 +200,8 @@
     },
     "score": 0.819499,
     "sha256": "f339290676a9ec70859bb9020534ba4bd21875acbebfbf39ece69d17e9a365da",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -198,7 +214,8 @@
     },
     "score": 0.806712,
     "sha256": "f339290676a9ec70859bb9020534ba4bd21875acbebfbf39ece69d17e9a365da",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": false,
@@ -212,7 +229,8 @@
     },
     "score": 0.748118,
     "sha256": "e0e391257025352fd25996911436425198511d1e5a4a592fa9eddbd6f185d68d",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -225,7 +243,8 @@
     },
     "score": 0.689774,
     "sha256": "e0e391257025352fd25996911436425198511d1e5a4a592fa9eddbd6f185d68d",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -238,7 +257,8 @@
     },
     "score": 0.739131,
     "sha256": "e0e391257025352fd25996911436425198511d1e5a4a592fa9eddbd6f185d68d",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -251,7 +271,8 @@
     },
     "score": 0.723329,
     "sha256": "e0e391257025352fd25996911436425198511d1e5a4a592fa9eddbd6f185d68d",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -264,7 +285,8 @@
     },
     "score": 0.760284,
     "sha256": "e0e391257025352fd25996911436425198511d1e5a4a592fa9eddbd6f185d68d",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -277,7 +299,8 @@
     },
     "score": 0.712798,
     "sha256": "e0e391257025352fd25996911436425198511d1e5a4a592fa9eddbd6f185d68d",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": false,
@@ -291,7 +314,8 @@
     },
     "score": 0.833507,
     "sha256": "b71a20dcc0d38121b816c5ab6d03462c0ee36ca4c04ab079fcdfa6e875a07670",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -304,7 +328,8 @@
     },
     "score": 0.836645,
     "sha256": "b71a20dcc0d38121b816c5ab6d03462c0ee36ca4c04ab079fcdfa6e875a07670",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -317,7 +342,8 @@
     },
     "score": 0.814703,
     "sha256": "b71a20dcc0d38121b816c5ab6d03462c0ee36ca4c04ab079fcdfa6e875a07670",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -330,7 +356,8 @@
     },
     "score": 0.826795,
     "sha256": "b71a20dcc0d38121b816c5ab6d03462c0ee36ca4c04ab079fcdfa6e875a07670",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -343,7 +370,8 @@
     },
     "score": 0.82607,
     "sha256": "b71a20dcc0d38121b816c5ab6d03462c0ee36ca4c04ab079fcdfa6e875a07670",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -356,7 +384,8 @@
     },
     "score": 0.82369,
     "sha256": "b71a20dcc0d38121b816c5ab6d03462c0ee36ca4c04ab079fcdfa6e875a07670",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": false,
@@ -370,7 +399,8 @@
     },
     "score": 0.730807,
     "sha256": "fdf3b03ef9561d5ca75640dd041f8a986001ec02ab5cb791a357c2a467c04316",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -383,7 +413,8 @@
     },
     "score": 0.746576,
     "sha256": "fdf3b03ef9561d5ca75640dd041f8a986001ec02ab5cb791a357c2a467c04316",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -396,7 +427,8 @@
     },
     "score": 0.737835,
     "sha256": "fdf3b03ef9561d5ca75640dd041f8a986001ec02ab5cb791a357c2a467c04316",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -409,7 +441,8 @@
     },
     "score": 0.740203,
     "sha256": "fdf3b03ef9561d5ca75640dd041f8a986001ec02ab5cb791a357c2a467c04316",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -422,7 +455,8 @@
     },
     "score": 0.728314,
     "sha256": "fdf3b03ef9561d5ca75640dd041f8a986001ec02ab5cb791a357c2a467c04316",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -435,7 +469,8 @@
     },
     "score": 0.740705,
     "sha256": "fdf3b03ef9561d5ca75640dd041f8a986001ec02ab5cb791a357c2a467c04316",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": false,
@@ -449,7 +484,8 @@
     },
     "score": 0.749073,
     "sha256": "901dbc17a3fb4d5d1f0b0ff356f8a2b71db9e5134d2de94eb80a0aec823b87e7",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -462,7 +498,8 @@
     },
     "score": 0.822008,
     "sha256": "901dbc17a3fb4d5d1f0b0ff356f8a2b71db9e5134d2de94eb80a0aec823b87e7",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -475,7 +512,8 @@
     },
     "score": 0.774625,
     "sha256": "901dbc17a3fb4d5d1f0b0ff356f8a2b71db9e5134d2de94eb80a0aec823b87e7",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -488,7 +526,8 @@
     },
     "score": 0.730593,
     "sha256": "901dbc17a3fb4d5d1f0b0ff356f8a2b71db9e5134d2de94eb80a0aec823b87e7",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -501,7 +540,8 @@
     },
     "score": 0.748416,
     "sha256": "901dbc17a3fb4d5d1f0b0ff356f8a2b71db9e5134d2de94eb80a0aec823b87e7",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -514,7 +554,8 @@
     },
     "score": 0.741932,
     "sha256": "901dbc17a3fb4d5d1f0b0ff356f8a2b71db9e5134d2de94eb80a0aec823b87e7",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": false,
@@ -528,7 +569,8 @@
     },
     "score": 0.857444,
     "sha256": "4389212ef0ab4446c9e0e3099622fcbf3d1d51bf704afe7ee8d51cc2f31a8cac",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -541,7 +583,8 @@
     },
     "score": 0.864106,
     "sha256": "4389212ef0ab4446c9e0e3099622fcbf3d1d51bf704afe7ee8d51cc2f31a8cac",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -554,7 +597,8 @@
     },
     "score": 0.850451,
     "sha256": "4389212ef0ab4446c9e0e3099622fcbf3d1d51bf704afe7ee8d51cc2f31a8cac",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -567,7 +611,8 @@
     },
     "score": 0.846316,
     "sha256": "4389212ef0ab4446c9e0e3099622fcbf3d1d51bf704afe7ee8d51cc2f31a8cac",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -580,7 +625,8 @@
     },
     "score": 0.857257,
     "sha256": "4389212ef0ab4446c9e0e3099622fcbf3d1d51bf704afe7ee8d51cc2f31a8cac",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -593,7 +639,8 @@
     },
     "score": 0.852751,
     "sha256": "4389212ef0ab4446c9e0e3099622fcbf3d1d51bf704afe7ee8d51cc2f31a8cac",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": false,
@@ -607,7 +654,8 @@
     },
     "score": 0.69597,
     "sha256": "c6f97b419ea877ed8257fee2e2a54a42c3f39bf3f71c4f75cb60e7314bf705ce",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "calibration"
    },
    {
     "derived": true,
@@ -620,7 +668,8 @@
     },
     "score": 0.71169,
     "sha256": "c6f97b419ea877ed8257fee2e2a54a42c3f39bf3f71c4f75cb60e7314bf705ce",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "calibration"
    },
    {
     "derived": true,
@@ -633,7 +682,8 @@
     },
     "score": 0.692661,
     "sha256": "c6f97b419ea877ed8257fee2e2a54a42c3f39bf3f71c4f75cb60e7314bf705ce",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "calibration"
    },
    {
     "derived": true,
@@ -646,7 +696,8 @@
     },
     "score": 0.68026,
     "sha256": "c6f97b419ea877ed8257fee2e2a54a42c3f39bf3f71c4f75cb60e7314bf705ce",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "calibration"
    },
    {
     "derived": true,
@@ -659,7 +710,8 @@
     },
     "score": 0.654682,
     "sha256": "c6f97b419ea877ed8257fee2e2a54a42c3f39bf3f71c4f75cb60e7314bf705ce",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "calibration"
    },
    {
     "derived": true,
@@ -672,7 +724,8 @@
     },
     "score": 0.702338,
     "sha256": "c6f97b419ea877ed8257fee2e2a54a42c3f39bf3f71c4f75cb60e7314bf705ce",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "calibration"
    },
    {
     "derived": false,
@@ -686,7 +739,8 @@
     },
     "score": 0.814393,
     "sha256": "11de2b45eddfb5c5e3869f9e7b42b3622d478d98af3392a8c32c888f60ed27b3",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "calibration"
    },
    {
     "derived": true,
@@ -699,7 +753,8 @@
     },
     "score": 0.837839,
     "sha256": "11de2b45eddfb5c5e3869f9e7b42b3622d478d98af3392a8c32c888f60ed27b3",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "calibration"
    },
    {
     "derived": true,
@@ -712,7 +767,8 @@
     },
     "score": 0.844016,
     "sha256": "11de2b45eddfb5c5e3869f9e7b42b3622d478d98af3392a8c32c888f60ed27b3",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "calibration"
    },
    {
     "derived": true,
@@ -725,7 +781,8 @@
     },
     "score": 0.842189,
     "sha256": "11de2b45eddfb5c5e3869f9e7b42b3622d478d98af3392a8c32c888f60ed27b3",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "calibration"
    },
    {
     "derived": true,
@@ -738,7 +795,8 @@
     },
     "score": 0.809175,
     "sha256": "11de2b45eddfb5c5e3869f9e7b42b3622d478d98af3392a8c32c888f60ed27b3",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "calibration"
    },
    {
     "derived": true,
@@ -751,7 +809,8 @@
     },
     "score": 0.851546,
     "sha256": "11de2b45eddfb5c5e3869f9e7b42b3622d478d98af3392a8c32c888f60ed27b3",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "calibration"
    },
    {
     "derived": false,
@@ -765,7 +824,8 @@
     },
     "score": 0.76363,
     "sha256": "fa3adce1e41f65e9c45aef13b6a3d88f3d32ffa582f49a3b8ec5319730cb77cd",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -778,7 +838,8 @@
     },
     "score": 0.739016,
     "sha256": "fa3adce1e41f65e9c45aef13b6a3d88f3d32ffa582f49a3b8ec5319730cb77cd",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -791,7 +852,8 @@
     },
     "score": 0.774164,
     "sha256": "fa3adce1e41f65e9c45aef13b6a3d88f3d32ffa582f49a3b8ec5319730cb77cd",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -804,7 +866,8 @@
     },
     "score": 0.75768,
     "sha256": "fa3adce1e41f65e9c45aef13b6a3d88f3d32ffa582f49a3b8ec5319730cb77cd",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -817,7 +880,8 @@
     },
     "score": 0.77746,
     "sha256": "fa3adce1e41f65e9c45aef13b6a3d88f3d32ffa582f49a3b8ec5319730cb77cd",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -830,7 +894,8 @@
     },
     "score": 0.75844,
     "sha256": "fa3adce1e41f65e9c45aef13b6a3d88f3d32ffa582f49a3b8ec5319730cb77cd",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": false,
@@ -844,7 +909,8 @@
     },
     "score": 0.812591,
     "sha256": "6318f78983b04692570a1ff7da16c35461e4720187c4220b8abaf7f2d7679342",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -857,7 +923,8 @@
     },
     "score": 0.784171,
     "sha256": "6318f78983b04692570a1ff7da16c35461e4720187c4220b8abaf7f2d7679342",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -870,7 +937,8 @@
     },
     "score": 0.797424,
     "sha256": "6318f78983b04692570a1ff7da16c35461e4720187c4220b8abaf7f2d7679342",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -883,7 +951,8 @@
     },
     "score": 0.829448,
     "sha256": "6318f78983b04692570a1ff7da16c35461e4720187c4220b8abaf7f2d7679342",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -896,7 +965,8 @@
     },
     "score": 0.812794,
     "sha256": "6318f78983b04692570a1ff7da16c35461e4720187c4220b8abaf7f2d7679342",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -909,7 +979,8 @@
     },
     "score": 0.842588,
     "sha256": "6318f78983b04692570a1ff7da16c35461e4720187c4220b8abaf7f2d7679342",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": false,
@@ -923,7 +994,8 @@
     },
     "score": 0.767867,
     "sha256": "5e66882874b0b119ce3630de2e961e4eca88b2c9be3d9fd1240e25c741e83abd",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -936,7 +1008,8 @@
     },
     "score": 0.754657,
     "sha256": "5e66882874b0b119ce3630de2e961e4eca88b2c9be3d9fd1240e25c741e83abd",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -949,7 +1022,8 @@
     },
     "score": 0.780289,
     "sha256": "5e66882874b0b119ce3630de2e961e4eca88b2c9be3d9fd1240e25c741e83abd",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -962,7 +1036,8 @@
     },
     "score": 0.777396,
     "sha256": "5e66882874b0b119ce3630de2e961e4eca88b2c9be3d9fd1240e25c741e83abd",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -975,7 +1050,8 @@
     },
     "score": 0.786199,
     "sha256": "5e66882874b0b119ce3630de2e961e4eca88b2c9be3d9fd1240e25c741e83abd",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": true,
@@ -988,7 +1064,8 @@
     },
     "score": 0.740679,
     "sha256": "5e66882874b0b119ce3630de2e961e4eca88b2c9be3d9fd1240e25c741e83abd",
-    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5"
+    "source": "generated on Laura's approved face a42aeac7 (owner-viewed pack frames, canonical MANIFEST library); body pre-revision where v5",
+    "split": "held_out"
    },
    {
     "derived": false,
@@ -1002,7 +1079,8 @@
     },
     "score": 0.401994,
     "sha256": "7641a767824f42c153defd37f45b77975d5007d67ebf0ed999ad90b8310e313c",
-    "source": "owner-supplied generated concept sheet (MANIFEST role owner_concept: 'not the model'); each detected face is one impostor; the deliberate look-alike class"
+    "source": "owner-supplied generated concept sheet (MANIFEST role owner_concept: 'not the model'); each detected face is one impostor; the deliberate look-alike class",
+    "split": "calibration"
    },
    {
     "derived": false,
@@ -1016,7 +1094,8 @@
     },
     "score": 0.294926,
     "sha256": "7641a767824f42c153defd37f45b77975d5007d67ebf0ed999ad90b8310e313c",
-    "source": "owner-supplied generated concept sheet (MANIFEST role owner_concept: 'not the model'); each detected face is one impostor; the deliberate look-alike class"
+    "source": "owner-supplied generated concept sheet (MANIFEST role owner_concept: 'not the model'); each detected face is one impostor; the deliberate look-alike class",
+    "split": "calibration"
    },
    {
     "derived": false,
@@ -1030,7 +1109,8 @@
     },
     "score": 0.500567,
     "sha256": "7641a767824f42c153defd37f45b77975d5007d67ebf0ed999ad90b8310e313c",
-    "source": "owner-supplied generated concept sheet (MANIFEST role owner_concept: 'not the model'); each detected face is one impostor; the deliberate look-alike class"
+    "source": "owner-supplied generated concept sheet (MANIFEST role owner_concept: 'not the model'); each detected face is one impostor; the deliberate look-alike class",
+    "split": "held_out"
    },
    {
     "derived": false,
@@ -1044,7 +1124,8 @@
     },
     "score": 0.361831,
     "sha256": "7641a767824f42c153defd37f45b77975d5007d67ebf0ed999ad90b8310e313c",
-    "source": "owner-supplied generated concept sheet (MANIFEST role owner_concept: 'not the model'); each detected face is one impostor; the deliberate look-alike class"
+    "source": "owner-supplied generated concept sheet (MANIFEST role owner_concept: 'not the model'); each detected face is one impostor; the deliberate look-alike class",
+    "split": "held_out"
    },
    {
     "derived": false,
@@ -1058,7 +1139,8 @@
     },
     "score": 0.581971,
     "sha256": "7641a767824f42c153defd37f45b77975d5007d67ebf0ed999ad90b8310e313c",
-    "source": "owner-supplied generated concept sheet (MANIFEST role owner_concept: 'not the model'); each detected face is one impostor; the deliberate look-alike class"
+    "source": "owner-supplied generated concept sheet (MANIFEST role owner_concept: 'not the model'); each detected face is one impostor; the deliberate look-alike class",
+    "split": "held_out"
    },
    {
     "derived": false,
@@ -1072,7 +1154,8 @@
     },
     "score": 0.379489,
     "sha256": "7641a767824f42c153defd37f45b77975d5007d67ebf0ed999ad90b8310e313c",
-    "source": "owner-supplied generated concept sheet (MANIFEST role owner_concept: 'not the model'); each detected face is one impostor; the deliberate look-alike class"
+    "source": "owner-supplied generated concept sheet (MANIFEST role owner_concept: 'not the model'); each detected face is one impostor; the deliberate look-alike class",
+    "split": "held_out"
    },
    {
     "derived": false,
@@ -1086,7 +1169,8 @@
     },
     "score": 0.433379,
     "sha256": "7641a767824f42c153defd37f45b77975d5007d67ebf0ed999ad90b8310e313c",
-    "source": "owner-supplied generated concept sheet (MANIFEST role owner_concept: 'not the model'); each detected face is one impostor; the deliberate look-alike class"
+    "source": "owner-supplied generated concept sheet (MANIFEST role owner_concept: 'not the model'); each detected face is one impostor; the deliberate look-alike class",
+    "split": "calibration"
    },
    {
     "derived": false,
@@ -1100,7 +1184,8 @@
     },
     "score": 0.294192,
     "sha256": "2e6264971459032576f649c294a0c88a851f873d930af4630a872c459378daff",
-    "source": "gpt-image-2 render with no Laura reference (research/e2/run_e2.py); the three e2 files show one unrelated generated woman"
+    "source": "gpt-image-2 render with no Laura reference (research/e2/run_e2.py); the three e2 files show one unrelated generated woman",
+    "split": "held_out"
    },
    {
     "derived": false,
@@ -1114,7 +1199,8 @@
     },
     "score": 0.293992,
     "sha256": "444574d6dd96f3ec029f8038dace45684c86a66bc0f1eab8e6c491c9923f915f",
-    "source": "gpt-image-2 render with no Laura reference (research/e2/run_e2.py); the three e2 files show one unrelated generated woman"
+    "source": "gpt-image-2 render with no Laura reference (research/e2/run_e2.py); the three e2 files show one unrelated generated woman",
+    "split": "held_out"
    },
    {
     "derived": false,
@@ -1128,18 +1214,55 @@
     },
     "score": 0.351096,
     "sha256": "e993505c3d04feeb887429f1da36142c64ad52bf5e93d4307f3290d8c5535131",
-    "source": "gpt-image-2 render with no Laura reference (research/e2/run_e2.py); the three e2 files show one unrelated generated woman"
+    "source": "gpt-image-2 render with no Laura reference (research/e2/run_e2.py); the three e2 files show one unrelated generated woman",
+    "split": "calibration"
    }
   ],
   "score_rule": "worst (minimum) cosine similarity over the three reference frames",
-  "separation": 0.113999,
+  "separation": 0.148836,
+  "split": {
+   "calibration_fraction": {
+    "laura": 0.16666666666666666,
+    "not_laura": 0.3333333333333333
+   },
+   "calibration_units": [
+    "e2_v2_on_model",
+    "owner_concept_sheet#face0",
+    "owner_concept_sheet#face1",
+    "owner_concept_sheet#face6",
+    "v6/loose_layered_garment.png",
+    "v6/non_garment_lifestyle.png"
+   ],
+   "held_out_units": [
+    "e2_gen_on_model",
+    "e2_v1_on_model",
+    "identity_full_length_v5.jpg",
+    "identity_torso_v5.jpg",
+    "owner_concept_sheet#face2",
+    "owner_concept_sheet#face3",
+    "owner_concept_sheet#face4",
+    "owner_concept_sheet#face5",
+    "v5/fitted_garment.png",
+    "v5/fitted_garment_close.png",
+    "v5/loose_layered_garment.png",
+    "v5/non_garment_lifestyle.png",
+    "v5/winter_seasonal.png",
+    "v6/fitted_garment.png",
+    "v6/fitted_garment_close.png",
+    "v6/winter_seasonal.png"
+   ],
+   "method": "held-out/1",
+   "salt": "brambleloop-identity-split-v1"
+  },
+  "total_genuine": 12,
+  "total_impostor": 10,
   "unmeasured": [],
-  "version": "identity-calibration/1",
+  "version": "identity-calibration/2",
   "weights_sha256": "dc9c4a320c0292d3d5ea560db38e224ef8dc50c9794a0d409ca2006ce45eb44d"
  },
  "performance": {
-  "model_load_seconds": 0.206,
-  "seconds_per_embedding": 0.1797
+  "model_load_seconds": 0.166,
+  "seconds_per_embedding": 0.1969
  },
  "unlabelled_probe": [
   {

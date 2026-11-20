@@ -422,7 +422,10 @@ def test_the_drift_check_sits_after_the_shadow_refusal_and_before_any_upload():
     # pinned through the call that now performs it.
     assert shadow < check < src.index("store.put(") < src.index("_publish_guarded(")
     helper = inspect.getsource(pipeline._publish_and_read_back)
-    assert helper.index("client.publish(") < helper.index("etsy_ops.read_back(")
+    # ENG-ETSY-PUBLISH: the read-back moved into `_read_back_and_record`, called after the
+    # create; the order is pinned through that call.
+    assert helper.index("client.publish(") < helper.rindex("_read_back_and_record(")
+    assert "etsy_ops.read_back(" in inspect.getsource(pipeline._read_back_and_record)
 
 
 if __name__ == "__main__":
