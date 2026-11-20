@@ -1415,6 +1415,17 @@ def daily_ledger(db, *, now: datetime) -> dict:
 SECTIONS["daily_ledger"] = daily_ledger
 
 
+def autocoder(db, *, now: datetime) -> dict:
+    """ENG-AUTOCODER: the coding job's switch, blockers and request counts by status. Counts
+    and booleans only, never an amount (`improve.autocoder.readback`)."""
+    from ..improve.autocoder import readback
+
+    return readback(db, now=now)
+
+
+SECTIONS["autocoder"] = autocoder
+
+
 def _section(name: str, db, now) -> dict:
     try:
         return SECTIONS[name](db, now=now)

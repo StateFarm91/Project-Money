@@ -941,6 +941,42 @@ def self_improvement_section(db) -> dict:
                     note=p["basis"])
 
 
+def autocoder_section(db) -> dict:
+    """ENG-AUTOCODER: change requests by coding status (open, coding, submitted, certified,
+    deployed, refused with reason), spend per request and the month's autocoder spend
+    against its sub-ceiling, the kill switch and any blocker. Read-only."""
+    from ...improve import autocoder
+
+    p = autocoder.panel(db)
+    c = p["counts"]
+    items = [{"title": "Autocoder", "status": {"OK": "OK", "OFF": "DEGRADED"}.get(
+                  p["status"], "BLOCKED"),
+              "detail": (f"{'ON' if p['enabled'] else 'OFF'} ({p['kill_switch']}); "
+                         f"blockers: {', '.join(p['blockers']) or 'none'}; "
+                         f"open {c['open']}, coding {c['coding']}, submitted {c['submitted']}, "
+                         f"certified {c['certified']}, deployed {c['deployed']}, refused "
+                         f"{c['refused']}; month spend CA${p['month_spend_cad']:.2f} of "
+                         f"CA${p['month_ceiling_cad']:.2f}"),
+              "source": "improve.autocoder.panel"}]
+    for e in p["ecrs"][:25]:
+        spent = e.get("spent_cad")
+        items.append({"title": f"ECR {e['id']}: {e['title']}",
+                      "status": {"refused": "DEGRADED", "open": "OK"}.get(e["autocoder"], "OK"),
+                      "detail": (f"{e['autocoder']} ({e['priority']}, state {e['state']}"
+                                 f"{', engine demand' if e['engine_demand'] else ''}); "
+                                 f"spent {'CA$%.4f' % spent if spent is not None else 'none'}"
+                                 f"{'; branch ' + e['branch'] if e.get('branch') else ''}"
+                                 f"{'; refused: ' + str(e['reason']) if e['autocoder'] == 'refused' else ''}"),
+                      "source": "engineering_change_requests"})
+    return envelope({"OK": "OK", "OFF": "DEGRADED"}.get(p["status"], "BLOCKED"), items,
+                    ["engineering_change_requests", "cost_entries", "audit_log"],
+                    basis="measured", provider="improve.autocoder", as_of=p["as_of"],
+                    reason=(None if p["status"] == "OK" else
+                            "kill switch OFF" if p["status"] == "OFF" else
+                            "blocked: " + "; ".join(p["blockers"])),
+                    note=p["note"])
+
+
 def autonomy(db) -> dict:
     from ...core.models import AuditLog
 
@@ -969,6 +1005,8 @@ def autonomy(db) -> dict:
                              # ENG-IMPROVE: the self-improvement team, per department.
                              "self_improvement": guard(
                                  "self_improvement", lambda: self_improvement_section(db)),
+                             # ENG-AUTOCODER: change requests -> reviewed auto/* branches.
+                             "autocoder": guard("autocoder", lambda: autocoder_section(db)),
                              "jobs_24h": jw,
                              "hours_since_owner_action": guard("owner_gap", owner_gap),
                              "improvements": readers.improvements(db),
