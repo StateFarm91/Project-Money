@@ -255,8 +255,10 @@ def profile_for(cir, childrens: tuple[str, str] | None = None) -> tuple[str, ...
     text = _fold(" ".join(_instruction_texts(cir)))
     if re.search(r"\bembroider", text) or re.search(r"\beyes?\b|\bnose\b|\bface\b", text):
         flags.add("face")
-    if any(s.piece_a != s.piece_b for s in cir.assembly):
+    if any(s.piece_a != s.piece_b and s.method != "pick_up" for s in cir.assembly):
         flags.add("sewn")
+    if garment_months(cir) is not None:
+        flags.add("garment")
     title = _fold(f"{cir.title} {cir.slug}")
     if (childrens and childrens[0] in SLEEP_SUBCATEGORIES) or _SLEEP_WORDS.search(title):
         flags.add("sleep")
@@ -269,6 +271,10 @@ def applies(cir, childrens: tuple[str, str] | None = None) -> bool:
 
     if childrens or launch0.child_words_in(cir.title, cir.slug) or launch0.stuffed_figure(cir):
         return True        # a stuffed figure is a toy whatever any decision says
+    # ENG-GARMENT: a garment graded on the baby table, or on the child table at 12 or under,
+    # is a child's garment whatever its title says.
+    if garment_months(cir) is not None:
+        return True
     # A stuffed closed piece in rounds (an amigurumi body, a ball) is toy-shaped whatever it
     # is called. A stuffed panel pair (a cushion) is not: whether it is for a child is the
     # owner's decision, which the A1-R gate (`publish.pdf`) already holds it for; once it is
@@ -322,7 +328,12 @@ def _features(cir, profile) -> Check:
 
 
 def _joins(cir, result) -> Check:
-    sewn = [s for s in cir.assembly if s.piece_a != s.piece_b]
+    sewn = [s for s in cir.assembly if s.piece_a != s.piece_b and s.method != "pick_up"]
+    picked = [s for s in cir.assembly if s.piece_a != s.piece_b and s.method == "pick_up"]
+    if not sewn and picked:
+        # ENG-GARMENT: a band picked up and worked into an edge is crocheted fabric, not a
+        # piece sewn on; it still has to meet its edge, measured like any join.
+        return _picked_up_joins(cir, result, picked)
     if not sewn:
         return Check("JOINS_VALIDATED", PASS, "no piece is sewn onto another")
     bad = [f"{s.piece_a}->{s.piece_b} by {s.method}" for s in sewn
@@ -363,6 +374,80 @@ def _joins(cir, result) -> Check:
                  f"{len(sewn)} sewn join(s), each placed and measured, sewn through both loops")
 
 
+def _picked_up_joins(cir, result, picked) -> Check:
+    if result is None or not result.ok:
+        return Check("JOINS_VALIDATED", UNKNOWN, "the pattern did not compile, so no "
+                                                 "picked-up edge is measured")
+    try:
+        from ..cir import assembly as _assembly
+        from ..cir.twin import build_twin
+
+        twins = {c.name: build_twin(cir, result, component=c.name) for c in cir.components}
+        geo = _assembly.assemble(cir, twins)
+    except Exception as exc:  # noqa: BLE001 - an unmeasurable join is UNKNOWN, never a pass
+        return Check("JOINS_VALIDATED", UNKNOWN, f"picked-up edges could not be measured "
+                                                 f"({exc})")
+    joins = [j for j in geo.joins if j.method == "pick_up"]
+    bad = [j for j in joins if j.verdict == "mismatched"]
+    if bad:
+        return Check("JOINS_VALIDATED", FAIL, "; ".join(j.why for j in bad))
+    unsure = [j for j in joins if j.verdict != "sound"]
+    if unsure:
+        return Check("JOINS_VALIDATED", UNKNOWN,
+                     f"picked-up edges not all measured: {[j.why for j in unsure]}")
+    return Check("JOINS_VALIDATED", PASS,
+                 f"no piece is sewn on; {len(joins)} band(s) picked up and worked into "
+                 f"their edges, each measured")
+
+
+def garment_months(cir) -> int | None:
+    """The age in months a graded child's or baby's garment size is for (12 years or under),
+    or None when the CIR is not such a garment."""
+    g = getattr(cir, "grading", None)
+    if g is None:
+        return None
+    from ..cir.graded import months_of
+
+    months = months_of(g.table, g.size)
+    return months if months is not None and months <= 144 else None
+
+
+UNDER_THREE_MONTHS = 36
+
+
+def _buttonholes(cir) -> int:
+    from ..cir.model import Op
+
+    n = 0
+    for c in cir.components:
+        for r in c.rows:
+            n += sum(1 for o in r.ops if isinstance(o, Op) and o.stitch == "ch"
+                     and getattr(o, "spans", 0) and getattr(c, "feature", None) == "button_band")
+    return n
+
+
+def _garment_closures(cir, profile) -> Check:
+    """ENG-GARMENT (owner brief): no loose ties or cords for under-3s, and secure buttons or
+    no buttons for babies. Buttons are hard parts (FEATURES_EMBROIDERED refuses the word);
+    this check reads the structure: a buttonhole is a bridged chain in a button band."""
+    if "garment" not in profile:
+        return Check("GARMENT_CLOSURES", PASS, "not a child's garment")
+    months = garment_months(cir)
+    holes = _buttonholes(cir)
+    if months is not None and months < UNDER_THREE_MONTHS:
+        if holes:
+            return Check("GARMENT_CLOSURES", FAIL,
+                         f"size for {months} months has {holes} buttonhole(s): a garment for "
+                         f"a child under 3 is made with no buttons")
+        return Check("GARMENT_CLOSURES", PASS,
+                     f"size for {months} months: no buttonholes, no ties, no cords")
+    if holes:
+        return Check("GARMENT_CLOSURES", UNKNOWN,
+                     f"{holes} buttonhole(s) on a child's garment: whether a sewn button is "
+                     f"secure is a physical pull test nothing can bind yet: held")
+    return Check("GARMENT_CLOSURES", PASS, "no buttonholes, no ties, no cords")
+
+
 def _cords(cir) -> Check:
     from ..cir.model import Op, Repeat
 
@@ -380,8 +465,15 @@ def _cords(cir) -> Check:
         if c.rows and all(all(isinstance(n, Op) and n.stitch == "ch" for n in r.ops)
                           for r in c.rows):
             return Check("NO_CORDS_OR_LOOPS", FAIL, f"{c.name!r} is a chain cord")
-        for r in c.rows:
+        for k, r in enumerate(c.rows):
             longest = max(chain_runs(r.ops), default=0)
+            # ENG-GARMENT: a chain the next row works into (sleeves chained on, a neck
+            # bridged) is the foundation of fabric, not a loop. A chain in the last row, or
+            # one the next row leaves unworked, is still a loop a finger can enter.
+            nxt = c.rows[k + 1] if k + 1 < len(c.rows) else None
+            if longest > MAX_CHAIN_RUN and nxt is not None and not nxt.skips \
+                    and nxt.into is None and not r.allow_remainder:
+                continue
             if longest > MAX_CHAIN_RUN:
                 return Check("NO_CORDS_OR_LOOPS", FAIL,
                              f"{c.name!r} round/row {r.index} works a {longest}-chain loop "
@@ -505,6 +597,8 @@ def evaluate(cir, result=None, *, text: str | None = None, instructions: str | N
     v.checks += [_features(cir, profile), _joins(cir, result), _cords(cir),
                  _stuffing(cir, result, profile), _small_parts(cir),
                  _physical(cir, profile, childrens)]
+    if "garment" in profile:
+        v.checks.append(_garment_closures(cir, profile))
     if text is not None:
         v.checks += _text_checks(text, profile, instructions)
     return v

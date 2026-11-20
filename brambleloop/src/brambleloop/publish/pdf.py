@@ -603,14 +603,14 @@ def graded_childrens_assignment(cir: CIR) -> tuple[str, str] | None:
     the age band; sizes 14 and 16 are over 12 and outside CPSC's children's-product
     definition (`intel.childrens.OVER_TWELVE`), so they carry no children's block.
     """
-    from ..cir.graded import CHILD
+    from ..cir.graded import BABY, CHILD, months_of
 
     g = cir.grading
-    if g is None or g.table != CHILD.name:
+    if g is None or g.table not in (CHILD.name, BABY.name):
         return None
-    try:
-        months = int(float(g.size)) * 12
-    except ValueError:
+    # ENG-GARMENT: the CYC baby table names its sizes in months ("3m" .. "24m").
+    months = months_of(g.table, g.size)
+    if months is None:
         return None
     band = ch.age_band_for_months(months)
     if band == ch.OVER_TWELVE:
