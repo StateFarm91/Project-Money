@@ -232,9 +232,18 @@ def _jobs(db, job_type):
         return [(j.inputs or {}) for j in s.scalars(select(Job).where(Job.job_type == job_type))]
 
 
-def _drain(db, limit=200):
+# ENG-SUPPLY (INTEG3): every job that ends a product chain enqueues a `supply.admit` refill,
+# which admits the NEXT Launch-0 / pool product (market-basket-small, hexagon-coaster-set, ...)
+# into the freed slot -- by design, and a different product each time. Draining that too
+# would run the whole catalogue's chains, minutes each, none of them the chain under test.
+# The drain is bounded to the release's own chain: every job type except supply admission.
+CHAIN_JOB_TYPES = [jt for jt in handlers.known() if jt != "supply.admit"]
+
+
+def _drain(db, limit=60):
     for i in range(limit):
-        if not Worker(db, f"drain-{i}", phase=Phase.SHADOW, lease_seconds=900).run_once():
+        if not Worker(db, f"drain-{i}", phase=Phase.SHADOW, job_types=CHAIN_JOB_TYPES,
+                      lease_seconds=900).run_once():
             return i
     raise AssertionError("the queue did not drain")
 
