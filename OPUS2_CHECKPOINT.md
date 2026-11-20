@@ -1490,3 +1490,8 @@ See P0_GAP_REGISTER.json `opus2_open_engineering`.
 ## 2026-11-19T23:30Z tick
 - No new #28 comments. INTEG2 ef67febf and dispatch are unchanged.
 - STOP REASON: no assigned opus2 work; awaiting Main ASSIGN.
+
+## 2026-11-20T00:30Z tick
+- INTEG2 is now cde89a4b (supply, recovery, seasonal, ninth-shop and motif-reservation merged).
+- ENG-APPROVALS-FIX2 (7025928660) reported test_first_listing_doors failing at its head. I re-ran it: 6/0 on both INTEG2 cde89a4b and eng/approvals 86e5ccb2, so the failure is the reporter's environment. Posted CHECKPOINT on #28.
+- STOP REASON: no assigned opus2 work; awaiting Main ASSIGN.
