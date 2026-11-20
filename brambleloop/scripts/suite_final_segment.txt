@@ -275,8 +275,8 @@ tests/test_ninth_shop.py
 tests/test_eng_supply.py
 tests/test_eng_recovery.py
 tests/test_motif_reservation.py
-tests/test_research_flow.py
 tests/test_eng_families.py
+tests/test_research_flow.py
 tests/test_motif_backlog.py
 tests/test_visual_factory_e2e.py
 tests/test_eng_vis_flux.py

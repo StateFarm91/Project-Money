@@ -56,6 +56,13 @@ fails if a family in that table is missing from this file.
 | `cosy` | `creative.fallback_constructions.cosy` | partial | none yet | one size (`EGG_AROUND_CM`) | one exploratory run was granted; no pinned test yet (slice two) |
 | `stocking` | `creative.fallback_constructions.stocking` | partial | none yet | one size (`STOCKING_SIZE_SOURCE`, design choice) | no research-derived concept pinned through certification |
 | `triangle` | `creative.fallback_constructions.triangle` | partial | none yet | one size (`SHAWL_WINGSPAN_CM`, design choice) | no research-derived concept pinned through certification |
+| `colourwork_tapestry` | `creative.colourwork.flat_piece` (blanket, placemat, cushion front) / `creative.colourwork.basket_wall` | verified (ENG-COLOURWORK, pair by pair) | `tests/test_eng_colourwork.py`: throw, placemat and basket wall certify with their charts; the cushion is physical-gated | `creative.size_truth` (CYC blanket sizes; placemat 30 x 45 cm; pillow forms); baskets `BASKET_SIZES` | tapestry only; six library motifs; bag, runner, wall hanging, scarf, dishcloth and baby held (`creative.colourwork.HELD_CATEGORY_WHY`) |
+| `colourwork_overlay_mosaic` | none | none | — | — | no reach-down primitive yet (slice 2) |
+| `colourwork_inset_mosaic` | none | none | — | — | no reach-down primitive yet (slice 2) |
+| `colourwork_c2c` | none | none | — | — | no diagonal tile primitive yet (slice 3) |
+| `intarsia` | none | none | — | — | colour blocks on bobbins, no carried strand; not modelled |
+| `fair_isle` | none | none | — | — | floated stranded technique; not modelled |
+| `amigurumi` | none | none | — | — | spiral rounds with sculpted shaping; no shaped-form engine on the radar path |
 | `amigurumi` | `creative.fallback_constructions.amigurumi` | physical_gate (ENG-PLUSH) | `tests/test_eng_plush.py::test_a_research_amigurumi_is_physical_gated_end_to_end` | one size, `AMI_BODY_STITCHES` at the drafted weight (design choice; circumference only) | ball-body bear or bunny only; embroidered features; held for the physical sample and the child-safety physical evidence (`gates.child_safety`) |
 | `envelope_cushion` | `creative.cushions.envelope_cover` | verified (ENG-PLUSH) | `tests/test_eng_plush.py::test_a_research_envelope_cushion_certifies_end_to_end` | `creative.cushions.FORMS_IN` (standard pillow-form sizes) | plain sc front, envelope back; no buttons, zip or ties |
 | `applique_cushion` | `creative.cushions.envelope_cover` (appliqué) | verified (ENG-PLUSH) | `tests/test_eng_plush.py::test_a_research_highland_cow_cushion_certifies_end_to_end` | `creative.cushions.FORMS_IN` | faces only from `creative.cushions.APPLIQUES` (original flat pieces); no modelled texture, so "shaggy"/"fluffy"/"fringe" are held |

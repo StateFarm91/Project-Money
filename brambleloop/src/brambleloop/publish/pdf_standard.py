@@ -358,9 +358,9 @@ def _special_stitches(text, ctx):
     return out
 
 
-# ENG-COMPOSER: "Stuff after Rnd 16:" and "Close after Rnd 18:" (cir.closed_forms steps the
-# writer prints) name a round; they are not one, so they carry no count of their own.
-_LABEL = re.compile(r"(?<!after )\b(Rows?|Rnds?)\s+(\d+)(?:\s*[-–]\s*\d+)?((?:\s*\([^()]*\))*)\s*:")
+# ENG-PLUSH x pdf-premium: "Stuff after Rnd 16:" / "Close after Rnd 18:" are steps between
+# rounds, not round labels; reading them as labels reported a round with "no stitch count".
+_LABEL = re.compile(r"(?<![Aa]fter )\b(Rows?|Rnds?)\s+(\d+)(?:\s*[-–]\s*\d+)?((?:\s*\([^()]*\))*)\s*:")
 _COUNT = re.compile(r"\((\d+) sts?\)")
 _INSTR_ENDS = ("IF SOMETHING LOOKS WRONG", "CHART AND KEYS", "ASSEMBLY AND FINISHING",
                "FINAL STEPS")
