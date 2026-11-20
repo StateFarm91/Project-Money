@@ -1187,7 +1187,10 @@ def test_the_greyscale_warning_names_the_colours_that_merge():
         assert reading["merging_pairs"], reading
         _, twin = _twin_for(merged)
         with _authorised_child_design(merged):
-            rendered = _flat(build_pattern_pdf(merged, twin=twin, released_on=RELEASED))
+            # All-grey colours leave no renderable hero; the premium standard refuses that
+            # document, and the property inspected here is the greyscale sentence alone.
+            rendered = _flat(build_pattern_pdf(merged, twin=twin, released_on=RELEASED,
+                                               enforce_standard=False))
         assert "two of these colours" not in rendered
         for pair in reading["merging_pairs"]:
             assert " / ".join(pair["between"]) in rendered, (pair, "the pair is not named")
@@ -1992,7 +1995,11 @@ def test_the_document_carries_an_outline_a_phone_reader_can_jump_with():
     original = pdf_mod._Doc.OUTLINE_HEADING_PT
     try:
         pdf_mod._Doc.OUTLINE_HEADING_PT = 999
-        bare = build_pattern_pdf(cir, twin=twin, released_on=RELEASED)
+        # The injected defect also drops the section kickers, which the premium standard
+        # refuses; the property inspected here is the outline alone.
+        bare = build_pattern_pdf(cir, twin=twin, released_on=RELEASED,
+                                 enforce_standard=False)
+        assert not bare.standard["ok"]
     finally:
         pdf_mod._Doc.OUTLINE_HEADING_PT = original
     assert pypdf.PdfReader(io.BytesIO(bare.pdf_bytes)).outline == []
