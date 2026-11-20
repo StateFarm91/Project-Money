@@ -96,8 +96,67 @@
 
 ## Mutation results
 
-The run used `scratchpad/mutate.py`, with each mutant applied alone and the suite run
-against it. The table is in the #28 comment.
+`research/final_build/w6/review_requests/etsy_ai_policy_mutate.py` applies one mutant at a
+time and runs `tests/test_w6_etsy_ai_policy.py` against it. The source is restored after
+each run. Result: **18 of 18 killed, 0 survivors.**
+
+| Mutant | Result |
+|---|---|
+| M1 `check_ai_disclosure` returns `[]` (review H3) | killed |
+| M2 an unclassified package owes nothing | killed |
+| M3 `check_authorship` returns `[]` | killed |
+| M4 `check_listing` skips the description guard | killed |
+| M5 `claims()` finds nothing | killed |
+| M6 no Unicode folding | killed |
+| M7 no joined form (`de-signed`) | killed |
+| M8 no spaced-letter collapse | killed |
+| M9 allowlist not removed | killed |
+| M10 allowlist removes everything | killed |
+| M11 status always PERMITTED | killed |
+| M12 anonymous reading accepted | killed |
+| M13 stale reading accepted | killed |
+| M14 unreadable db is PERMITTED | killed |
+| M15 `for_publish` ignores the AI status | killed |
+| M16 `hold_card` writes nothing | killed |
+| M17 owner-accepted copy unguarded | killed |
+| M18 PROHIBITED releases publication | killed |
+
+Not mutated: the `hold_card` call site in `runtime.release` (listing.seo). `hold_card` itself
+is tested; the call site is covered only by inspection.
+
+## Suites run (direct `python3 tests/<suite>.py`, 2026-11-20)
+
+`run_tests.sh` stalled after enrolling in its job registry in this container, so the suites
+were run directly.
+
+Pass:
+- test_w6_etsy_ai_policy (19/19), test_first_listing_doors, test_ws4_hold_cards (8/8),
+  test_s1_product_truth_3
+- test_eng_recovery, test_cert_commerce (14/14), test_certification, test_gates,
+  test_launch0_listing_truth, test_physfix (48/48)
+- test_w4_launchfix (32/32), test_w4_secreview_adopt_adversarial,
+  test_etsy_readback_observe (37/37), test_shadow_rehearsal, test_w6_fix_only_rebuild
+- The other 39 suites that name gates.policy / check_listing / for_publish / manual_adoption /
+  build_payload passed in the first targeted run.
+
+Fail, and the same on the base `93aabde0` (pre-existing, not caused by this branch):
+- test_w4_listready `test_f4_...`
+- test_w4_fmbatch1_drift (4 tests: `_profile` expects one search profile and finds six)
+
+Not finished: test_product_run, which timed out at 2400 s running alongside two other heavy
+suites.
+
+E2E: see the #28 comment.
+
+Test changes (fixtures, not weakened gates):
+- test_gates and test_launch0_listing_truth copy now carries the design disclosure. Both
+  are listing packages.
+- test_certification checks the concept-stage draft with `package=False`, as
+  `gates.certificate` does.
+- test_first_listing_doors records a FIXTURE AI-policy reading, labelled as test data.
+- test_w6_listing_chain_e2e adds the UNKNOWN hold to its observed blocker sets.
+- test_w4_launchfix adds `etsy_ai_policy.py` to the `sample_photo` users. It reads only
+  `disclosure_copy`.
 
 ## Known limits (honest)
 
