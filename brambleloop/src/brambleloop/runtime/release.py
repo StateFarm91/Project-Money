@@ -6871,6 +6871,7 @@ def handle_seasonal_cycle_proof(ctx: JobContext) -> dict:
     from ..gateway.anthropic import AnthropicProvider
     from ..gateway import failover
     from ..publish import listing_asset
+    from ..creative import prospecting
     from ..seasonal import cycle
 
     # The gateway is the difference between this job doing its job and this job reporting
@@ -6940,6 +6941,19 @@ def handle_seasonal_cycle_proof(ctx: JobContext) -> dict:
                             f"refused: {str(exc)[:200]}. Nothing about #300 is proved or "
                             f"disproved by this -- the proof did not run"),
                     "waiting_on": "model_provider_balance"}
+        except prospecting.ProspectingRefused as exc:
+            # Live 2026-11-20: eight dead letters `ProspectingRefused` -- the prospecting
+            # step declining (no proven arena with a form still makeable in time, a dead
+            # arena, an event outside the occasion vocabulary). That is the wheel working,
+            # not a broken worker: recorded as a refusal, never retried into the same answer,
+            # and visible in the audit trail rather than as a dead letter.
+            ctx.audit("seasonal.cycle_proof_refused",
+                      detail={"why": str(exc)[:400], "waiting_on": "prospecting"})
+            return {"ran": True, "complete": False, "refused": "prospecting",
+                    "why": (f"prospecting declined this cycle: {str(exc)[:200]}. Nothing "
+                            f"about #300 is proved or disproved by this -- the proof did "
+                            f"not run"),
+                    "waiting_on": "prospecting"}
 
     _checkpoint_step(ctx, "cycle_report", {"report": report})
     return _file_cycle_proof(ctx, report, resumed=False)
