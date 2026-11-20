@@ -1,4 +1,9 @@
 
+> **2026-11-20 — ENG-SALE-PIPELINE fix round for review b19-a Unit A (`eng/sale-pipeline`; NOT reviewed, NOT integrated, NOT deployed).**
+> - All 5 findings are fixed. Certificates are bound to the current checker, standard and gallery record, and any mismatch is UNKNOWN. The stall clock advances only on a forward move. There is a test where everything is PASS except one UNKNOWN. `test_search_hero_publish` runs its merits on the real 8-frame basket, and a separate test keeps the 6-frame blanket blocked. All 6 mutants are killed.
+> - `claude/batch19-approve-all` (13585c4f) is merged. There are 22 readback items, sw v44, and the map is 150/183/95.
+> - **New HIGH finding, open:** the gallery rule accepts >=7 frames but `slot:gallery7` requires exactly 7, so the disclosed 8-frame basket's premium PDFs FAIL and the release can never be READY. A product decision is needed. Details are in `research/final_build/w6/review_requests/FIX-SALE-PIPELINE.md`.
+
 > **2026-11-20 — ENG-SALE-PIPELINE slices 1-3 (`eng/sale-pipeline`, builder branch; NOT reviewed, NOT integrated, NOT deployed).**
 > D-OWNER-SALE-PIPELINE (hard rule), D-OWNER-SPEND-ORDER, D-OWNER-PDF-STANDARD, D-OWNER-PDF-LOGO, D-OWNER-PDF-TEMPLATE, D-OWNER-GALLERY-COMPLETE.
 > - **Chain (`publish/sale_pipeline.py`, job `sale.pipeline`):** admission (value order, per-listing cap, CA$100/month ceiling, reservation) -> certified 7-photo gallery -> US+UK premium PDFs built in the owner template (`publish/pdf_template.py`) with the same seven certified frames -> `publish/pdf_standard.py` certifies the bytes (layout, canonical logo on the cover, 7 gallery slots in order, template audit, licence, stitch counts) -> listing images attached -> READY. A stall is a named-blocker incident (board, Mission Control, readback row).
