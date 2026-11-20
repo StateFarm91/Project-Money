@@ -631,7 +631,8 @@ def test_e2e_a_completed_gallery_hands_a_stalled_release_on_to_listing_package()
     readers accept (its verified disclosed renders): the handoff alone carries it through
     pricing.position -> listing.seo -> launch.plan -> listing.package, and the package is
     assembled. In SHADOW with no physical sample it is BLOCKED on the owner's physical-sample,
-    Etsy and SAMPLE_PHOTO_REQUIRED gates -- and on no image or gallery gate."""
+    Etsy and SAMPLE_PHOTO_REQUIRED gates and on D-OWNER-GALLERY-COMPLETE (6 of 7 frames)
+    -- and on no other image or gallery gate."""
     db, cir, rh = _certified("e2e-package")
     _chain(db, cir, rh, stop_after_assets=True)
     assert not [j for j in _jobs(db, "listing.package")]
@@ -655,8 +656,16 @@ def test_e2e_a_completed_gallery_hands_a_stalled_release_on_to_listing_package()
         assert row is not None
         payload = dict(row.payload)
     assert payload["state"] in (LP.READY, LP.BLOCKED)
-    why = " ".join(b.get("why", "") for b in payload.get("blockers") or [])
-    for image_gate in ("POLICY_CLASSIFICATION", "GALLERY", "ASSET_", "listing images"):
+    # D-OWNER-GALLERY-COMPLETE (merged after this test was written): the disclosed render set
+    # certifies 6 of the 7 required listing photos, so the one gallery blocker allowed is that
+    # owner rule, named exactly. No other image or gallery gate may block.
+    blockers = payload.get("blockers") or []
+    incomplete = [b for b in blockers if str(b.get("why", "")).startswith("gallery incomplete")
+                  and "D-OWNER-GALLERY-COMPLETE" in str(b.get("why", ""))]
+    assert payload["state"] == LP.BLOCKED and len(incomplete) == 1, blockers
+    why = " ".join(b.get("why", "") for b in blockers if b not in incomplete)
+    for image_gate in ("POLICY_CLASSIFICATION", "GALLERY", "ASSET_", "listing images",
+                       "gallery incomplete"):
         assert image_gate not in why, (image_gate, why[:400])
     # A second handoff of the same gallery is the same job (idempotent).
     again = MB.gallery_handoff(enqueue, db, cir.slug, cir.version)

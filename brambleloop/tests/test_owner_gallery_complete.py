@@ -30,6 +30,7 @@ def test_seven_frame_standard_is_the_bar():
 
 
 def test_partial_gallery_is_not_complete():
+    assert CAMPAIGN_MIN_FRAMES > 0
     for n in range(0, CAMPAIGN_MIN_FRAMES):
         assert lifecycle._complete_gallery(_S(_Rec(n)), "x") is False, n
 
