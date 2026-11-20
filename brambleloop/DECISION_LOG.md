@@ -2914,3 +2914,31 @@ complete certified gallery (a partial one stays VISUAL). Unreadable is never com
 **Consequence:** today's three-frame disclosed render set (hero, scale, detail) no longer makes
 a listing ready on its own; the seven-image generated campaign (ENG-VIS-GALLERY) is on the
 critical path.
+
+## D-OWNER-PDF-STANDARD — 2026-11-20 (owner directive, permanent)
+
+**Decision:** "Listings aren't ready without beautiful PDFs like the one I shared. That's the
+standard. That's what people are buying. The PDF. The PDFs have images." A listing is not ready
+until BOTH editions (US and UK) of its PDF meet `research/benchmarks/PDF_STRUCTURE_STANDARD.md`
+for its family, verified deterministically from the built PDF bytes. The required parts:
+- a full-bleed cover hero photo;
+- an overview lifestyle photo;
+- construction progress photos;
+- CIR-generated schematics and inline mini-diagrams;
+- a 5–6 photo gallery page;
+- a stitch count on every row;
+- the licence page.
+
+The PDF's photos are the listing's certified gallery images, reused. Structure intelligence
+only: never copy benchmark text, numbers, art or layout. **Owner of the checker and gates:**
+ENG-READY-GATES. **Owner of the layout:** ENG-PDF-PREMIUM.
+
+## D-OWNER-SPEND-ORDER — 2026-11-20 (owner directive, permanent)
+
+**Decision:** "Don't waste money on pictures for products we aren't listing for sale. But we
+will be listing hundreds." Paid image generation starts for a release only when it is certified
+and every non-image listing gate already passes. A run that is not yet eligible waits in a
+non-spending state. Admission is ordered by expected value (core families first) and bounded
+in code by a per-listing image cost cap and the CA$100/month ceiling. Reservations are
+released for any product that is rejected or parked. One gallery spend serves both the
+listing and its PDF.
