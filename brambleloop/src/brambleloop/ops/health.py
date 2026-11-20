@@ -689,6 +689,8 @@ TEMP_PREFIXES: tuple[str, ...] = (
     # C-80: the #81 rung render's work directory and the moat's blind hero-frame check; both
     # are scoped to the call and removed with it, so one left behind is a died call.
     "owned-rung-", "moat-hero-",
+    # ENG-AUTOCODER: the coding job's workspace snapshot; removed when the run ends.
+    "autocoder-",
     # ENG-MOTIF: the owned handler's motif re-ask on a kept render; scoped to the call.
     "owned-rejudge-",
     # ENG-VIS-GALLERY: the generated-gallery motif check writes the frame for the judge;

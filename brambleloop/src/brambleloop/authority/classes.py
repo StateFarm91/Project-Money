@@ -105,6 +105,9 @@ JOB_CLASS: dict[str, ActionClass] = {
     "collection.assemble": _B, "listing.package": _B, "creative.candidates_file": _B, "creative.model_freeze": _B, "growth.steer": _B,
     "improve.nightly": _B, "improve.role_work": _B, "improve.weekly": _B,
     "improve.self_tune": _B,   # ENG-IMPROVE: tunable champions + change-request rows only
+    # ENG-AUTOCODER: edits code in a temp workspace and pushes only an auto/* branch; never
+    # deploys (DEPLOY stays the certify-and-promote pipeline's and the owner's).
+    "improve.code": _B,
     "laura.executive_tick": _B, "ops.offsite_archive": _B, "ops.retention": _B,
     "ops.owner_queue_consolidate": _B,   # ENG-APPROVALS: owner-queue lifecycle moves only
     "plan.cycle": _B, "seasonal.cycle_proof": _B, "seasonal.engine": _B,
@@ -181,7 +184,8 @@ def class_value(job_type: str) -> str:
 # deploy is the owner's `production_deploy` gate.
 BUILD_PLANE_JOB_TYPES: frozenset[str] = frozenset({
     "build.tick", "improve.sandbox", "improve.nightly", "improve.weekly",
-    "improve.role_work", "improve.league", "improve.replay", "teardown.enforce"})
+    "improve.role_work", "improve.league", "improve.replay", "teardown.enforce",
+    "improve.code"})
 
 
 def plane_of(job_type: str) -> str:

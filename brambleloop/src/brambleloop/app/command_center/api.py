@@ -274,6 +274,14 @@ def make_router(db) -> APIRouter:
     def learn(request: Request):
         return ok(tabs.autonomy(db))
 
+    # ENG-AUTOCODER: the coding team's panel (read-only, owner session; the same /api/cc/*
+    # default-deny gate as every route here).
+    @router.get("/autocoder")
+    def autocoder_panel(request: Request):
+        from ...improve import autocoder as autocoder_mod
+
+        return ok(autocoder_mod.panel(db))
+
     # W4-CC: the company overview and the completion-effort board (read-only, owner session).
     @router.get("/company")
     def company_view(request: Request):

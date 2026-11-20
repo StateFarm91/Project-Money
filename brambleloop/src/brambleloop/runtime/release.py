@@ -7706,6 +7706,29 @@ def handle_self_tune(ctx: JobContext) -> dict:
     return out
 
 
+@handlers.register("improve.code")
+def handle_improve_code(ctx: JobContext) -> dict:
+    """ENG-AUTOCODER (D-OWNER-AUTOCODER): one engineering change request, from pick to a
+    reviewed `auto/ecr-<id>` branch or a recorded refusal (`improve.autocoder.run`).
+
+    BUILD class, build plane. Every model call goes through `failover.job_gateway` with this
+    job's id (reserved, ceiling-checked, billed per job) under hard per-request and monthly
+    autocoder budgets. Deterministic rails gate the diff; an independent reviewer must SHIP
+    it; only an `auto/*` ref may be pushed. Executes nothing the model wrote (B19 A1): the
+    targeted + mandatory suites run in the `autocoder-ci` GitHub Actions sandbox, and only a
+    green status read back makes a request `code_certified`. Never deploys:
+    promotion is the certify-and-promote pipeline's. OFF unless BRAMBLELOOP_AUTOCODER_ENABLED
+    is 1; enabled without BRAMBLELOOP_GITHUB_TOKEN it reports UNKNOWN with the blocker named
+    and spends nothing.
+    """
+    from ..improve import autocoder
+
+    out = autocoder.run(ctx.db, registry=ctx.registry, job_id=ctx.job.id)
+    ctx.audit("improve.code.run", detail={k: out.get(k) for k in (
+        "status", "ecr", "reason", "branch", "sha", "spent_cad", "work_done")})
+    return out
+
+
 @handlers.register("improve.sandbox")
 def handle_improve_sandbox(ctx: JobContext) -> dict:
     """Take eligible proposals through a sandbox trial, test, judge, and promote or route (#92).

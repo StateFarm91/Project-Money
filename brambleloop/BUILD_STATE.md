@@ -209,6 +209,34 @@
 >   - `market_fit` is not a REQUIRED certificate check, so legacy profiles are not refused on its account.
 >   - There are no separate bundle-vs-single bands.
 >   - No cadence runs `market_fit.learn`.
+> **2026-11-20 — B19-FIX on `eng/autocoder` (security review review-results/b19-b, findings A1–A5; NOT merged,
+> NOT deployed).** Model-written code no longer runs in the production worker: rails -> reviewer SHIP -> push
+> `auto/ecr-<id>`; tests run in the new `autocoder-ci` GitHub Actions sandbox (no secrets, contents: read) and
+> the worker reads the commit status back -- only green CI makes a request `code_certified`. Path denylist
+> extended (child safety, auth/session/OAuth, spend ceilings, authority, test helpers) plus a by-name rule
+> over every module. Test-weakening and source-deletion gaps closed; per-ECR spend from the ledger. Merged
+> production (eng/colourwork). The CI workflow has **never run** on GitHub yet. Fix record:
+> `w6/review_requests/FIX-SECURITY-B19.md`.
+> **2026-11-20 — ENG-AUTOCODER (`eng/autocoder` from claude/w6-INTEG7-wip c6d4400; NOT reviewed, NOT merged, NOT
+> deployed; production unchanged; kill switch OFF by default).** D-OWNER-AUTOCODER: the in-production coding team.
+> - **Job.** `improve.code` (agent `autocoder`, CA$8/day, 6-hourly, BUILD class, build plane) takes one engineering
+>   change request (priority, engine demand one level up) through plan -> edit -> test with Claude via
+>   `failover.job_gateway` (tasks `autocoder.step` standard / `autocoder.review` deep; prompts `autocoder.*@1`).
+>   Every call is reserved, ceiling-checked and billed per job.
+> - **Hard budgets in code (env may only lower):** CA$3.50 / 400k tokens / 40 min / 12 iterations per request; CA$40
+>   monthly autocoder sub-ceiling inside the CA$100 model ceiling.
+> - **Gate:** deterministic rails (`improve/autocoder_safety.py`: auto/* refspec allowlist, protected-path denylist,
+>   test-weakening, secrets, new spend/network/exec/env paths, size; checked before any model-written test runs too)
+>   -> targeted suites + `test_vacuity` + `test_w4_resume_runner` in a scrubbed-env workspace -> an independent
+>   reviewer must SHIP exactly that diff -> push `auto/ecr-<id>` (GitHub Git Data API) -> ECR `code_submitted` + SHA.
+>   Never pushes the production branch or main; never deploys (certify-and-promote's job).
+> - **Mission Control:** Autonomy tab "autocoder" section and `GET /api/cc/autocoder` (open/coding/submitted/
+>   certified/deployed/refused with reason, spend per ECR, month spend); advisory readback row `autocoder`.
+> - **Image:** `git=1:2.47.3-0+deb13u1` added to the Dockerfile (the resume-runner gate needs it).
+> - **Blocked on the owner:** `BRAMBLELOOP_GITHUB_TOKEN` (fine-grained, contents:write, this repo) and the switch
+>   `BRAMBLELOOP_AUTOCODER_ENABLED=1` -- OWNER_ACTIONS_AUTOCODER.md. Without the token: UNKNOWN with the named
+>   blocker, CA$0. **No live run has happened; no auto/* branch exists; the GitHub API path is tested only against
+>   a fake API.** Review request: `w6/review_requests/ENG-AUTOCODER.md`.
 > **2026-11-20 — ENG-DAILY-FIX (`eng/daily`, NOT merged, NOT deployed; production unchanged).** Fixes every Unit B
 > finding of the independent review of a795be17 (BLOCK). Merged `origin/claude/w6-INTEG4` (259e47c4) first, so
 > learn and improve with `improve.ecr` are present; change requests now go through `ecr.file`. (1) BLOCKER: a

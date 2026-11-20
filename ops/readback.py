@@ -365,6 +365,9 @@ EVIDENCE_ITEMS = (
     # ENG-DEMAND-SUPPLY: the engines held concepts wait for, ranked by demand. Advisory: a
     # concept waiting for an engine WARNs with the top of the list; never a deploy FAIL.
     ("engine demand (build this engine next)", "engine_demand", None),
+    # ENG-AUTOCODER: the in-production coding team. Advisory: OFF (the default) or blocked on
+    # the owner's GitHub token WARNs and never fails a deploy; unreadable is UNKNOWN.
+    ("autocoder (change requests -> reviewed auto/* branches)", "autocoder", None),
 )
 
 
@@ -430,6 +433,8 @@ def _judge_section(name: str, section, judged) -> tuple[str, str]:
             return WARN, "engine count unreadable"
         return ((WARN if n else PASS),
                 (f"{n} engine(s) needed: {top}" if n else "no concept waits for an engine"))
+    if name == "autocoder":
+        return _judge_autocoder(section)
     if name == "competitor_scans" and (not isinstance(section, dict)
                                        or section.get("readable") is not True):
         # WS2 R1: advisory -- a build without the section, or one that cannot read it, warns.
@@ -536,6 +541,25 @@ def _judge_daily(section) -> tuple[str, str]:
     due = sorted(k for k, v in status.items() if v == "not_yet_due")
     return PASS, (f"{len(status)} stages read; not yet due: {due}" if due
                   else f"{len(status)} stages producing")
+
+
+def _judge_autocoder(section) -> tuple[str, str]:
+    """ENG-AUTOCODER: advisory. PASS only when enabled and unblocked; OFF or blocked WARNs
+    with the counts; missing or unreadable is UNKNOWN, never a PASS."""
+    if not isinstance(section, dict):
+        return UNKNOWN, "section missing"
+    if section.get("readable") is not True:
+        return UNKNOWN, f"unreadable ({section.get('error_class') or 'no reason given'})"
+    counts = section.get("counts") or {}
+    summary = ", ".join(f"{k} {counts.get(k)}" for k in (
+        "open", "coding", "submitted", "certified", "deployed", "refused"))
+    if section.get("enabled") is not True:
+        return WARN, f"kill switch OFF; {summary}"
+    if section.get("blocked") is not False:
+        return WARN, f"enabled but blocked ({section.get('blockers')} blockers); {summary}"
+    if section.get("within_month_ceiling") is False:
+        return WARN, f"monthly sub-ceiling reached; {summary}"
+    return PASS, f"enabled; {summary}; last run {section.get('last_run_outcome')}"
 
 
 def _vp_n(part, key):

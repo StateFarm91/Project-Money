@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-20T22:27:06.032430+00:00",
+ "generated_at": "2026-11-20T22:27:50.531279+00:00",
  "generated_by": "brambleloop.autonomy.map",
  "live_roots": [
   "runtime.worker.CADENCES",
@@ -10,9 +10,9 @@
  ],
  "counts": {
   "departments": 11,
-  "cadences": 149,
-  "handlers": 181,
-  "agents": 34,
+  "cadences": 150,
+  "handlers": 182,
+  "agents": 35,
   "follow_on_edges": 98
  },
  "departments": [
@@ -2147,6 +2147,7 @@
    "mission": "Mine failures and outcomes into routed lessons, propose challengers, and promote only measured improvements with rollback.",
    "agents": [
     "analyst",
+    "autocoder",
     "cost_optimiser",
     "creative_critic",
     "evaluator",
@@ -2266,6 +2267,12 @@
       "agent": "orchestrator",
       "job_type": "improve.self_tune",
       "period_seconds": 86400
+     },
+     {
+      "name": "autocoder",
+      "agent": "autocoder",
+      "job_type": "improve.code",
+      "period_seconds": 21600
      },
      {
       "name": "improve_sandbox",
@@ -2397,6 +2404,7 @@
      "brambleloop.runtime.release"
     ],
     "executable_job_types": [
+     "improve.code",
      "improve.commercial_lessons",
      "improve.league",
      "improve.measure",

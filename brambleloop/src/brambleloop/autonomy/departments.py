@@ -35,6 +35,7 @@ WORK_CLASS: dict[str, str] = {
     "improve.mine": IMPROVE, "improve.retrospective": IMPROVE, "improve.measure": IMPROVE,
     "improve.sandbox": IMPROVE, "improve.monitor": IMPROVE, "learn.scan": IMPROVE,
     "improve.self_tune": IMPROVE,
+    "improve.code": IMPROVE,   # ENG-AUTOCODER: change requests -> reviewed auto/* branches
     "physical.upgrade_impact": IMPROVE,
     # RUN: keeps the business operating.
     "autonomy.morning_handoff": RUN, "seasonal.sentinel": RUN, "ops.sentinel": RUN,

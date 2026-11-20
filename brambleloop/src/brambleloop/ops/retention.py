@@ -636,6 +636,11 @@ KNOWN_READ_ACTIONS: dict[str, tuple[str, str]] = {
                                  "creative.tournament seeds the last run's derived seasonal "
                                  "transformations of the catalogue into its field (#279)"),
     # #194: the weekly cycle reads its own last two rows' unmeasured cells for the streak.
+    # ENG-AUTOCODER: the Mission Control panel reads the newest `improve.code` row only
+    # (last run's outcome); per-request state lives on the change request itself.
+    "improve.code": ("latest",
+                     "improve.autocoder.panel reads the newest row's outcome; request state "
+                     "and spend are on engineering_change_requests and cost_entries"),
     "improve.weekly": ("windowed",
                        "improve.evolution.metric_revisions reads the last two weekly rows' "
                        "cells_unmeasured (a three-week streak) inside the horizon"),

@@ -3891,6 +3891,11 @@ WORK_KEYS: dict[str, tuple[str, ...]] = {
     # (rows recorded, checks run, jobs queued), which `did_no_work` reads first; declared
     # here so the useful-work judge knows the key rather than falling back to the counters.
     "creative.capability_scorecard": ("work_done",),
+    # ENG-AUTOCODER: 1 when an auto/* branch was submitted for a change request.
+    "improve.code": ("work_done",),
+    # Pre-existing gap on the w6-INTEG7 base (test_r2_autonomy_useful_work): ENG-IMPROVE's
+    # daily pass reports a measured `work_done` and was never declared.
+    "improve.self_tune": ("work_done",),
     "creative.family_engine": ("work_done",),
     "creative.photo_principles": ("work_done",),
     "creative.salvage_review": ("work_done",),

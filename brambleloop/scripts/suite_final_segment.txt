@@ -288,3 +288,4 @@ tests/test_eng_improve.py
 tests/test_eng_plush.py
 tests/test_eng_vis_identity.py
 tests/test_eng_demand_supply.py
+tests/test_eng_autocoder.py

@@ -1371,6 +1371,11 @@ JOB_BANDS: dict[str, str] = {
     "seasonal.cycle_proof": "exploration",
     "improve.nightly": "exploration",
     "improve.weekly": "exploration",
+    # ENG-AUTOCODER: model-paid coding against a change request; capped by its own month.
+    "improve.code": "exploration",
+    # Pre-existing gap on the w6-INTEG7 base (test_swarm_runtime): ENG-IMPROVE's daily pass was
+    # never banded. Reads rows and files change requests, like its improve.* siblings.
+    "improve.self_tune": "exploration",
     "improve.retrospective": "exploration",
     "intel.pod_learning": "exploration",
     "improve.role_work": "exploration",

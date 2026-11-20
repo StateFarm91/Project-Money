@@ -3559,3 +3559,79 @@ the plausibility gate re-checks.
 table exists. The CYC head chart, re-read on 2026-11-20, publishes circumference only.
 Reversible by decision. Adding a primitive means adding a builder and its test; nothing else
 changes.
+## D-OWNER-AUTOCODER — the in-production coding team (owner directive, 2026-11-20)
+**Directive (verbatim, as relayed in the ENG-AUTOCODER task brief):** "We also have a 100
+Anthropic API every month that can be used for new code and the improvement agents are supposed
+to use that to make changes. Learning agents are useless without a team making changes and
+coding." Provenance: it reached this builder session through the dispatched ENG-AUTOCODER brief,
+not as a message typed in this session. It is recorded as given.
+**What was built (ENG-AUTOCODER, `eng/autocoder`).**
+- **The job.** `improve.code` runs every 6 hours on agent `autocoder` (daily ceiling CA$8). It takes
+  one engineering change request (priority first, with engine demand counted one level up) from pick
+  to a reviewed `auto/ecr-<id>` branch, or to a refusal with the reason recorded.
+- **Spend path.** Model calls go only through `failover.job_gateway`, tasks `autocoder.step` (standard
+  tier) and `autocoder.review` (deep tier). Every call is reserved, checked against the ceiling and
+  billed per job.
+- **Hard budgets in code.** Environment may lower them, never raise them:
+  - CA$3.50, 400k tokens, 40 min and 12 iterations per request;
+  - a CA$40 monthly autocoder sub-ceiling inside the CA$100 model ceiling.
+- **The gate.** Deterministic rails (`improve/autocoder_safety.py`):
+  - an `auto/*`-only refspec allowlist;
+  - a path denylist covering the deploy/boot guard, release records, spend, gates and child safety,
+    auth, authority/approvals, the agent registry, the worker and the autocoder itself;
+  - test-weakening detection;
+  - a secret scan;
+  - refusal of any new spend, network, exec or env path.
+  Then the targeted suites + `test_vacuity` + `test_w4_resume_runner` must pass in the workspace.
+  Then an independent reviewer call must SHIP exactly that diff.
+- **Promotion is never this job's.** It stays with the certify-and-promote pipeline (ENG-AUTOPROMOTE).
+**Decision: the kill switch defaults OFF** (`BRAMBLELOOP_AUTOCODER_ENABLED` unset = OFF). The brief
+said the directive authorises default ON. OFF was chosen for four reasons:
+- the directive's provenance could not be confirmed inside this session;
+- the job is blocked on the owner's GitHub token anyway;
+- turning it on is one variable and one minute;
+- the first live runs should be watched.
+Reversible by the owner at any time (OWNER_ACTIONS_AUTOCODER.md).
+**Decision: the worker image gains `git` (pinned 1:2.47.3-0+deb13u1).** `test_w4_resume_runner` is a
+mandatory gate and builds throwaway git repositories. Without git the job reports UNKNOWN, naming
+that blocker. The image has no git credentials; pushes use the GitHub API token.
+**Named limits.**
+- Model-written code runs inside the worker during the loop. It is contained by:
+  - a scrubbed environment (no secrets or DATABASE_URL);
+  - static rails checked before every test run.
+  It is not contained by an OS sandbox: a determined obfuscation could evade a regex rail. The
+  independent review and the full-suite certification are the later layers.
+- The reviewer is a different model from the author, from the same vendor by default. It can be
+  routed to OpenAI with `BRAMBLELOOP_MODEL_ROUTES=autocoder.review=openai` once that route is
+  owner-activated.
+## 2026-11-20 — B19-FIX: autocoder security review findings A1–A5 (review-results/b19-b)
+**Decision (supersedes "the worker image gains git" and the "Named limits" first bullet above):
+model-written code never executes in the production worker.** The `improve.code` job now only
+plans and writes the diff. Order: deterministic rails (refspec allowlist, path denylist,
+test-weakening detector, secret scanner, spend/exec paths, source-weakening, size) -> reviewer
+SHIP -> push `auto/ecr-<id>` with an `Autocoder-Suites:` trailer. The `test` action is answered,
+never run; `run_suite`, `_clean_env` and the `runner` hook are deleted; `autocoder.py` names no
+process, exec or import machinery, and a test traps every spawn and import during a full run.
+Tests run in `.github/workflows/autocoder-ci.yml` (push to `auto/**` only, no secrets,
+`contents: read`, `persist-credentials: false`); a separate job with no checkout and only
+`statuses: write` posts `brambleloop/autocoder-ci`. `ci_readback` reads it back for the exact
+pushed SHA, and only `success` from `github-actions[bot]` makes the request `code_certified`
+(ECR -> REVIEWED); red refuses it (`ci_failed`); no result in 24 h refuses it
+(`ci_no_result`). The worker image no longer needs git, so the Dockerfile change is reverted.
+Why: the reviewer showed the regex rails are bypassable and the worker holds every credential;
+running untrusted code there makes every in-process guarantee advisory.
+**Decision (A2): protected by name as well as by list.** `SENSITIVE_NAME` refuses any path whose
+directory or file stem says child/minor/auth/oauth/secret/credential/token/session/totp/
+password/security/spend/ceiling/budget/reserv/authority/approv/guard/gate/boot/release_/deploy/
+safety/consent/workflow, plus the explicit list (intel/childrens, creative/children, publish/pdf,
+core/opsauth, readbackauth, oauth_store, etsy_oauth/authorise, visual/spend_plan,
+product_authority, command_center/api + private_context, and all `tests/_*.py` helpers). A test
+walks every module in the tree. Over-protection only narrows what the autocoder may touch.
+**Decision (A3/A4/A5).** Source changes may not delete a `raise`/`assert`/refusal line or change
+a module-level constant. Test functions are keyed by qualified name; a return reachable before
+the first assertion at any depth is refused; an existing assertion may not be rewritten (only
+added to). Per-request spend is the max of the note and the ledger (`CostEntry.job_id` over the
+request's recorded job ids, written before any spend), so a crashed run still counts.
+**Still owner-side (OWNER_ACTIONS_AUTOCODER.md):** the server-side ruleset on the production
+branch, `main` and `claude/w6-release-*` is now marked mandatory before the switch is turned on;
+the token needs "Commit statuses: read". The rails are documented as lint, not a boundary.
