@@ -2,13 +2,26 @@
 
 - Branch `eng/autocoder` from `claude/w6-INTEG7-wip` @ `c6d4400`. No PR, by instruction.
 - The final SHA is the commit that adds this file (the head of `eng/autocoder`). The
-  implementation head before this file was __IMPL_SHA__.
+  implementation head before this file was `a2db291`.
 - Not reviewed, not merged, not deployed. Nothing was read from or written to Railway, and no
   variable values were read. No real model call was made and nothing was spent. No `auto/*`
   branch exists.
 - Decision record: `D-OWNER-AUTOCODER` in `brambleloop/DECISION_LOG.md`.
 - Owner actions: `OWNER_ACTIONS_AUTOCODER.md`. The GitHub token is needed. **The kill switch is
   OFF by default.**
+
+> **Superseded in part by `FIX-SECURITY-B19` (`f5b3ecd`, same branch). Read
+> `w6/review_requests/FIX-SECURITY-B19.md` first.** Since that fix:
+> - the worker never runs model-written code: no `run_suite` and no scrubbed-env subprocess, and
+>   the `test` action is answered and never executed;
+> - the targeted and mandatory suites run in `.github/workflows/autocoder-ci.yml` on the
+>   `auto/**` push;
+> - production certifies only on a `github-actions[bot]` success status for the exact SHA;
+> - prompts are `@2`;
+> - the Dockerfile `git` line is reverted.
+>
+> The sections below about in-worker tests, the image and `gate` running suites describe
+> `a2db291` as built, and the regression table was measured on `a2db291`.
 
 ## What it is
 - **`improve.code`** is a new handler in `runtime/release.py`, delegating to
@@ -132,8 +145,39 @@ reports a failure, then that everything is clean again once restored:
 job's scrubbed environment (10.6 s and 92.8 s). In the toy e2e their results are a recorded
 stand-in, because they need the whole repository. Production runs them for real.
 
-## Regression runs (Python 3.11 venv from the locks; NOT a full-suite record)
-__REGRESSION__
+## Regression runs on `a2db291`, before B19 (Python 3.11 venv from the locks; NOT a full-suite record)
+Two batches covered 212 suite files, every `tests/test_*.py` I could run in the session.
+Each file ran once with a 25-minute timeout, 5 in parallel. **`test_eng_autocoder.py`: 32/32.**
+
+- **Batch 1 (108 files): 100 exit 0 at first.** All 8 failures are accounted for:
+  - Caused by this change and fixed:
+    - `test_cost_governance_wave2` (temp-prefix and retention-action wiring);
+    - `test_gateway` (prompt wording, B-024);
+    - `test_w4_readback_evidence` (21st advisory row);
+    - `test_w4_resume_runner` (F7 final-segment declaration).
+
+    Each now exits 0.
+  - Pre-existing on the base and fixed here: `test_swarm_runtime` and
+    `test_r2_autonomy_useful_work`, both now exit 0.
+  - Pre-existing and left alone: `test_v11_cc_views` and `test_w3_tmp_hygiene`.
+- **Batch 2 (104 files): 95 exit 0.** I re-ran the 9 failures, plus the base `c6d4400` in a
+  worktree, one suite at a time, 3 in parallel:
+  - `test_cert_orders`: "source changed during analysis" because I was editing during the run.
+    Re-run exit 0.
+  - `test_deploy`: a timeout under load. Exit 0 on both the base and this branch.
+  - **Identical failure on the base and on this branch** (same tests, same assertion text), so
+    pre-existing:
+    - `test_physfix` (47/48, `basket_small` not byte-identical);
+    - `test_r5_research_2` (7 passed, 3 failed);
+    - `test_r5_research_3` (3 passed, 4 failed; the coaster route is refused by `flat_panel`);
+    - `test_w6_listing_chain_e2e` (3/6, `store.publish` dead in shadow);
+    - `test_w5_a9_package_event` (5 failed);
+    - `test_platform` (`ops.continuity`: no table `radar_concepts`).
+  - `test_cert_wiring`: __CERTWIRING__
+
+Not run: no full `run_tests.sh` record. The numbers above are per-file exit codes in this session's
+venv (Python 3.11, from `requirements.lock` + `requirements-test.lock`). They are not a
+certification run.
 
 ## Calibration: the rails against 45 recent human commits
 24 of 45 would pass. The refusals are mostly:
