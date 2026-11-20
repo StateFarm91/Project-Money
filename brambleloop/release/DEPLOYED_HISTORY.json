@@ -91,6 +91,11 @@
    "sha": "6289e493bbf13c91c54f66489d91ba4d8d83f9c4",
    "observed": "2026-11-20T12:47Z",
    "evidence": "owner exact-SHA override D-OWNER-DEPLOY-OVERRIDE (2026-11-20: 'Deploy dde3ea62 now', then 'Yes, push it to production now'). Batch 16 code dde3ea62 + release records only. NO full-suite record (boot guard reports ok=false until a certification of dde3ea62 passes and its record-only commit is deployed). Pre-deploy backup BK RESULT OK 20261120T121953Z. Rollback rehearsal to 5496bc4a ALLOW. verify_deploy DEPLOYED in 47 s; worker alive."
+  },
+  {
+   "sha": "09be42d6929fde45fad6ce853ecf0174914d92da",
+   "observed": "2026-11-20T15:47Z",
+   "evidence": "owner exact-SHA OK ('Yes, push Batch 17 now', 2026-11-20). Batch 17 code b098fcce + release records. Overlap suites 576/0. Rollback rehearsal to 6289e493 ALLOW. verify_deploy DEPLOYED in 80 s; worker alive. Boot guard ok=false until cert-results/b098fcce passes and its record-only commit is deployed. Readback --evidence PASS 11 FAIL 5 (stale rebuilding + weekly jobs now PASS)."
   }
  ]
 }
