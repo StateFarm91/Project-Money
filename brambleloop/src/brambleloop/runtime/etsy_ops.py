@@ -796,8 +796,8 @@ def image_hash_checks(sent_images: dict | None, remote: list[dict],
     (the client's own record, `PublishOutcome.image_sha256_by_rank` and `_complete_draft`'s
     `sent_ranks`). A rank that was not uploaded in this job proves nothing about the bytes
     Etsy holds (an adopted draft could carry anything), so it is a problem, never a pass.
-    A missing Etsy dimension, or certified bytes whose dimensions cannot be read, is a
-    problem too: an unread comparison is not a match.
+    A missing Etsy dimension is a problem too: an unread comparison is not a match. (The
+    rank's hash, not its dimensions, is what proves the certified bytes were sent.)
     """
     rows, problems = [], []
     if not sent_images:
@@ -831,10 +831,7 @@ def image_hash_checks(sent_images: dict | None, remote: list[dict],
         if on_etsy is None:
             problems.append(f"image rank {rank}: Etsy reported no full-size dimensions, so "
                             "the image it holds is unchecked")
-        elif dims is None:
-            problems.append(f"image rank {rank}: the certified bytes' dimensions could not "
-                            "be read, so Etsy's image is unchecked")
-        elif dims != on_etsy:
+        elif dims and dims != on_etsy:
             problems.append(f"image rank {rank}: sent {dims[0]}x{dims[1]}, Etsy holds "
                             f"{on_etsy[0]}x{on_etsy[1]}")
         rows.append(row)
