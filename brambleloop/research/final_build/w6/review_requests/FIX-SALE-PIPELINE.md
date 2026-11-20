@@ -152,7 +152,9 @@ These are the eight conflicts the reviewer predicted:
   etsy_readback_observe, launch0_listing_truth, motif_backlog, opus2_photo_asset_review,
   visual_factory_e2e, w4_disclosedqa, w4_ownerimg, w4_readback_evidence.
 
-Result: SEE_RESULT
+Result: **TOTAL PASSING: 411; suites failing: 0** (rc=0). Run `20261120T224943Z-1739` was
+made at GIT SHA 62fdd1af with a clean tree at the start. The only later commit is this
+document and BUILD_STATE, with no code changes.
 
 ## New finding, not fixed here: HIGH, please triage
 
