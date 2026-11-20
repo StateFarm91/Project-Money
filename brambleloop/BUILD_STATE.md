@@ -1,3 +1,13 @@
+> **2026-11-20 — FIX-CYCLE-PROOF-BILLING on `eng/fix-cycle-proof-billing` (from `claude/w6-INTEG8-wip`; NOT deployed;
+> production unchanged; fix 264def0).** Production a4952711 failed `paid_call_dedupe` (cycle_proof request billed 6x
+> across 4 jobs; model.probe 2x) and dead-lettered cycle_proof `unclassified` x7. Cause: paid-call replay was per job,
+> so every redriven or re-enqueued proof re-paid. The `unclassified` rows are the reclaim path's classless
+> " | lease expired" text after a redrive. Now: cross-job replay for cycle_proof (7 d, CA$0), every paid step
+> checkpointed, `LeaseExpired` named, paid-call refusals audited, spending dead letters without a replayable
+> checkpoint not redriven, probe not re-billed by another job's 429/timeout. New suite 16 OK / 0 FAIL (SQLite + Postgres).
+> The production trigger is inferred from code and error text; production rows were not read. Review request:
+> `research/final_build/w6/review_requests/FIX-CYCLE-PROOF-BILLING.md`.
+
 > **2026-11-20 — FIX-DEMAND-STALL on `claude/w6-INTEG8-wip` (Batch 18 integration; NOT deployed; production
 > unchanged).** A promoted concept waiting in the supply queue for an uncertified engine (on the production pool:
 > `cottage-wall-hanging`, flat_panel refusal) was counted as `promotable_undrafted`/`supply_selected` on every scan
