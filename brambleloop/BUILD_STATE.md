@@ -1,3 +1,13 @@
+> **2026-11-20 — CERTFIX-3 on `certfix/3` (cut from `claude/w6-INTEG8-wip` 511a8c6; NOT merged, NOT deployed;
+> production unchanged).** Real fixes for nine Batch 18 certification failures; no gate, assertion or child-safety
+> rule weakened. Teen garments grade at CYC 14/16 only (a teen drop-shoulder was drafted at size 2 and held by the
+> unchanged child-safety gate); drop-shoulder sewn joins state both loops + buried tails; a graded PDF names "size X
+> of N" instead of promising "N sizes"; a bare wall-decor "tapestry" is the S1 object, explicit colourwork claims
+> stay held (no wall_decor colourwork proof added); a lovey naming no head is refused; both tester kits rebuilt;
+> a non-Mode-T deployment no longer reads as a stopped policy (it would have allowed automatic withdrawals). The
+> provenance and shadow single-product harnesses leave the ENG-SUPPLY admission pass queued. Decisions
+> D-CERTFIX3-*. Report: `research/final_build/w6/review_requests/CERTFIX-3.md`.
+
 > **2026-11-20 — FIX-DEMAND-STALL on `claude/w6-INTEG8-wip` (Batch 18 integration; NOT deployed; production
 > unchanged).** A promoted concept waiting in the supply queue for an uncertified engine (on the production pool:
 > `cottage-wall-hanging`, flat_panel refusal) was counted as `promotable_undrafted`/`supply_selected` on every scan
