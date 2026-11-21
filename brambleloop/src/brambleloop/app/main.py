@@ -444,6 +444,9 @@ def _startup() -> None:
                                ("health_sweep", "orchestrator", "ops.health"),
                                # supply: the six-hourly pool pass and intake, once per deploy,
                                # so a supply fix does not wait up to six hours (CA$0, no model)
+                               # ENG-SUPPLY-RESEARCH: the comparison first -- it opens and
+                               # answers each pod's research, which the pool's admission needs
+                               ("watchlist_compare", "market_radar", "intel.watchlist_compare"),
                                ("concept_pool", "market_radar", "radar.concept_pool"),
                                ("concept_intake", "market_radar", "radar.concept_intake")):
         try:
