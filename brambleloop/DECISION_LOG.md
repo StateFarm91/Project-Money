@@ -3967,3 +3967,7 @@ it. No gate, binding rule, attempt cap or halt rule changed. Branch `eng/halt-38
 ## D-OWNER-DEPLOY-19h — 2026-11-21T04:19:09Z
 
 Batch 19h (code 384399c64) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 7b250d6164e4509617edd157048cc42db9a6b9bb was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-DEPLOY-19h1 — 2026-11-21T04:25:50Z
+
+Batch 19h1 (code c391386fd) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to b17649901845b9a20fcfe596d108a18c75578b1a was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
