@@ -2316,7 +2316,61 @@ def supply_visibility(db, *, now: datetime) -> dict:
         out.update(_pool_admission(db, CP))
     except Exception as exc:  # noqa: BLE001
         out["admission"] = _unreadable(exc)
+    try:
+        out["after_admission_24h"] = after_admission(db, now=now)
+    except Exception as exc:  # noqa: BLE001
+        out["after_admission_24h"] = _unreadable(exc)
     return out
+
+
+# ENG-ADMIT-TO-BUILD: the actions between a pool admission and `cir.draft`, in order.
+AFTER_ADMISSION_STEPS = (
+    ("intake_approved", "concept.intake_approved"),
+    ("intake_refused", "concept.intake_refused"),
+    ("intake_withdrawn", "concept.intake_withdrawn"),
+    ("score_handoff", "concept.intake_handoff"),
+    ("gate_passed", "concept.gate_passed"),
+    ("gate_waiting", "concept.gate_waiting"),
+    ("gate_refused", "concept.gate_refused"),
+    ("offered", "supply.offered"),
+    ("admitted_to_engineering", "supply.admitted"),
+)
+
+
+def after_admission(db, *, now: datetime) -> dict:
+    """ENG-ADMIT-TO-BUILD: where admitted concepts stop on the way to `cir.draft`, last 24 h.
+
+    Counts of each step's audit rows (`AFTER_ADMISSION_STEPS`), the `radar.scored` verdicts
+    by `promoted`, the `cir.draft` jobs enqueued, and the capabilities the pre-engineering
+    gate waited on (`gate_waiting_on`: keys of `build2.executor.GATE_BY_KEY`, anything else
+    `unrecognised`). Counts and fixed vocabulary only; no slug, title or reason text."""
+    from collections import Counter
+
+    from sqlalchemy import func, select
+
+    from ..build2 import executor
+    from ..core.models import AuditLog, Job
+
+    since = now - timedelta(hours=24)
+    actions = [a for _k, a in AFTER_ADMISSION_STEPS]
+    with db.session() as s:
+        counts = dict(s.execute(select(AuditLog.action, func.count()).where(
+            AuditLog.action.in_(actions), AuditLog.at >= since).group_by(AuditLog.action)).all())
+        scored: Counter = Counter()
+        for (d,) in s.execute(select(AuditLog.detail).where(
+                AuditLog.action == "radar.scored", AuditLog.at >= since)):
+            scored["promoted" if (d or {}).get("promoted") is True else "not_promoted"] += 1
+        needs: Counter = Counter()
+        for (d,) in s.execute(select(AuditLog.detail).where(
+                AuditLog.action == "concept.gate_waiting", AuditLog.at >= since)):
+            for n in (d or {}).get("waiting_on") or []:
+                needs[n if n in executor.GATE_BY_KEY else "unrecognised"] += 1
+        drafts = int(s.scalar(select(func.count()).select_from(Job).where(
+            Job.job_type == "cir.draft", Job.created_at >= since)) or 0)
+    return {**{k: int(counts.get(a, 0)) for k, a in AFTER_ADMISSION_STEPS},
+            "scored": {"promoted": scored["promoted"], "not_promoted": scored["not_promoted"]},
+            "gate_waiting_on": dict(sorted(needs.items())),
+            "drafts_enqueued": drafts}
 
 
 def _pool_admission(db, CP) -> dict:
