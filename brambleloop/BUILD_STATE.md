@@ -8,7 +8,11 @@
 > D: `PDF_LAYOUT="template"`; the template document is used only with a certified gallery and a PASS from
 > PremiumStandard + the sale checker, else the engine PDF is `engine_interim`. A certified gallery enqueues
 > `assets.build{illustrate}` (PDFs only), bound to the certificate's frames. READY now requires the illustrated
-> PDFs (`PDF_NOT_ILLUSTRATED` / `PDF_GALLERY_STALE`, image-tagged); before, any certified PDF counted. Open:
+> PDFs (`PDF_NOT_ILLUSTRATED` / `PDF_GALLERY_STALE`, image-tagged); before, any certified PDF counted.
+> **OPEN (finding G): the rebuild is built, bound and checked but REFUSED before storing** -- the gallery's
+> CONTENTS frame previews the interim PDF, so storing the illustrated PDF would break the gallery's export and
+> the publish re-render (hash drift). Until CONTENTS is re-made from the illustrated PDF and the gallery
+> re-certified, no release reaches READY and D-OWNER-SALE-PIPELINE step 2 is still unmet end to end. Also open:
 > inventory `premium_pdf_completed` still counts an interim PDF; findings B, C, F unchanged. Decision D-IMAGE-AD.
 > Report: `research/final_build/w6/review_requests/IMAGE-AD.md` (results there).
 > **2026-11-21 — NEW-PRODUCT-FLOW on `eng/new-product-flow` (from `claude/batch19-fixers` 8204c93; NOT merged, NOT

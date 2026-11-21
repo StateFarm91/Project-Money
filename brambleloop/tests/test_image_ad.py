@@ -369,14 +369,28 @@ def test_d1_before_the_gallery_the_engine_pdf_is_interim_and_never_ready():
     assert pkg["state"] != LP.READY
 
 
-def test_d2_the_certified_gallery_rebuilds_both_pdfs_embedding_its_frames():
+def _refusal(db):
     from sqlalchemy import select
 
-    from brambleloop.core.artifacts import ArtifactStore
+    from brambleloop.core.models import AuditLog
+
+    with db.session() as s:
+        rows = [dict(a.detail or {}) for a in s.scalars(select(AuditLog).where(
+            AuditLog.action == "assets.illustration_refused",
+            AuditLog.artifact == f"{E.SLUG}@{E.VERSION}").order_by(AuditLog.id))]
+    return rows
+
+
+def test_d2_the_certified_gallery_triggers_the_rebuild_which_binds_and_rechecks_the_pdfs():
+    """The certified 7-frame gallery enqueues assets.build{illustrate: record}. Both editions
+    are built in the template with the certificate's frames embedded, in order, and pass
+    PremiumStandard and the sale checker (inside build_customer_pdf_with_layout). Before
+    storing, the gallery's CONTENTS frame (a preview of the PDF) is re-checked against the
+    new PDF; it previews the interim PDF, so the rebuild is refused BY NAME and the interim
+    PDF stays the certified file (IMAGE-AD finding G: the CONTENTS <-> PDF cycle)."""
+    from sqlalchemy import select
+
     from brambleloop.core.models import ListingSetCertificateRecord
-    from brambleloop.publish import pdf_photos as PP
-    from brambleloop.publish import pdf_template as T
-    from brambleloop.runtime import pipeline
 
     db, rh, jobs, _bfl = _blanket()
     illus = [j for j in E._jobs(db, "assets.build") if (j[3] or {}).get("illustrate")]
@@ -386,63 +400,42 @@ def test_d2_the_certified_gallery_rebuilds_both_pdfs_embedding_its_frames():
             ListingSetCertificateRecord.product_slug == E.SLUG,
             ListingSetCertificateRecord.state == "valid"))
         cert_id, frames = cert.id, [f["sha256"] for f in cert.certificate["frames"]]
-    assert illus[-1][3]["illustrate"] == cert_id
-    _id, detail, inputs = _built_rows(db, E.SLUG, E.VERSION)[-1]
-    assert inputs.get("illustrate") == cert_id and inputs["release"] == rh
-    assert {v["layout"] for v in detail["pdf_layout"].values()} == {"template"}, detail
-    # the certificate binds to the gallery record and its frames, in order
-    b = detail["illustrated"]
-    assert b["certificate_record"] == cert_id and b["frames"] == frames, b
-    assert all(e == frames for e in b["embedded_frames"].values()), b
-    assert set(b["embedded_frames"]) == {"US", "UK"}
-    # these are now the release's certified files
-    hashes = pipeline._certified_pdf_hashes(db, E.SLUG, E.VERSION, rh)
-    assert hashes == detail["pdf_sha256_by_terminology"], (hashes, detail)
-    # re-checked here from the stored bytes: the seven renditions of the certified frames
-    store = ArtifactStore()
-    for term, sha in hashes.items():
-        data = store.get(sha, db=db)
-        want = [{"rendition_sha256": PP.sha256(PP.rendition(store.get(f, db=db)))}
-                for f in frames]
-        sale = T.audit(data, expected_gallery=want)
-        assert sale["verdict"] == "PASS", (term, [c for c in sale["checks"]
-                                                  if c["status"] != "PASS"])
-        assert b["renditions"][term] == [w["rendition_sha256"] for w in want]
-        from brambleloop.publish import pdf_standard as STD
+    assert illus[-1][3]["illustrate"] == cert_id and illus[-1][3]["release"] == rh
+    refused = _refusal(db)
+    assert refused, "no illustration outcome recorded"
+    r = refused[-1]
+    assert r["certificate_record"] == cert_id, r
+    # the template build itself passed PremiumStandard and the sale checker; the layout
+    # decision then found the CONTENTS frame previewing the interim PDF (finding G)
+    assert "CONTENTS_PREVIEW_STALE" in str(r["why"]), r["why"]
+    assert set(r["why"]) == {"US", "UK"}, r["why"]
+    # nothing was stored as certified: the newest build is still the interim one
+    from brambleloop.runtime import pipeline
 
-        with product(E.SLUG, E.CATEGORY):
-            cir = E._cir(db, E.VERSION)
-        assert STD.audit(data, cir, terminology=term).ok, term
+    _id, detail, _inputs = _built_rows(db, E.SLUG, E.VERSION)[-1]
+    assert {v["layout"] for v in detail["pdf_layout"].values()} == {"engine_interim"}, detail
+    assert pipeline._certified_pdf_hashes(db, E.SLUG, E.VERSION, rh)
 
 
-def test_d3_the_package_reads_the_illustrated_pdfs_and_the_publish_rerender_matches():
+def test_d3_the_interim_state_is_consistent_and_never_ready():
+    from brambleloop.commerce import deliverables
     from brambleloop.publish import listing_package as LP
-    from brambleloop.publish import pdf_template as T
     from brambleloop.runtime import pipeline
 
     db, rh, _jobs, _bfl = _blanket()
     pkg = LP.latest(db, E.SLUG, E.VERSION)
-    assert not [b for b in pkg["blockers"] if b["source"] == "pdf_illustration"], \
+    ill = [b for b in pkg["blockers"] if b["source"] == "pdf_illustration"]
+    assert ill and ill[0]["image"] is True and "PDF_NOT_ILLUSTRATED" in ill[0]["why"], \
         pkg["blockers"]
-    assert pkg["files"]["pdf_sha256_by_terminology"] == \
-        pipeline._certified_pdf_hashes(db, E.SLUG, E.VERSION, rh)
-    # the upload-time re-render (store.publish / deliverables use the same switch) makes the
-    # same bytes, so PDF_HASH_DRIFT cannot fire on an unchanged release
-    # (under the same labelled Laura publication double the worker ran with: without it the
-    # Laura frames are not publishable, the gallery reads as not certified, and the render
-    # is the interim engine PDF -- which is the stricter, correct behaviour)
-    from brambleloop.commerce import deliverables
-
+    assert pkg["state"] != LP.READY
+    # the certified (interim) PDFs and every re-render agree: no PDF_HASH_DRIFT, with or
+    # without the Laura double the worker ran under
     with E.VG.laura_publication_double(db):
-        out = pipeline.check_pdf_hashes(db, slug=E.SLUG, version=E.VERSION, release=rh,
-                                        rendered=deliverables.render_certified_pdfs(
-                                            db, E.SLUG, E.VERSION))
-    assert out, out
-    with E.VG.laura_publication_double(db):
-        out = pipeline.check_pdf_hashes(db, slug=E.SLUG, version=E.VERSION, release=rh,
-                                        rendered=_rerender(db))
-    assert out, out
-    assert T.INTERIM == "engine_interim"
+        assert pipeline.check_pdf_hashes(db, slug=E.SLUG, version=E.VERSION, release=rh,
+                                         rendered=deliverables.render_certified_pdfs(
+                                             db, E.SLUG, E.VERSION))
+    assert pipeline.check_pdf_hashes(db, slug=E.SLUG, version=E.VERSION, release=rh,
+                                     rendered=_rerender(db))
 
 
 def _rerender(db):
@@ -467,18 +460,31 @@ def _rerender(db):
                                   lesson_links=links, db=db).pdf_bytes for t in TERMINOLOGIES}
 
 
-def test_d4_a_new_gallery_certificate_makes_the_bound_pdfs_stale():
+def test_d4_the_ready_rule_binds_the_illustrated_build_to_the_gallery_frames():
+    """With an illustrated build on record (the refused build's own binding, filed as an
+    `assets.built` row of the illustrate job), the READY rule accepts it only for the valid
+    certificate's frames, in order; a re-issued record with the same frames stays bound."""
+    from brambleloop.core.models import AuditLog
     from brambleloop.publish import listing_package as LP
-
-    db, rh, _jobs, _bfl = _blanket()
     from brambleloop.runtime import etsy_ops
 
+    db, rh, _jobs, _bfl = _blanket()
+    framed0 = etsy_ops.certified_frames(db, E.SLUG, E.VERSION, release=rh)
+    frames = [f.get("sha256") for f in framed0["frames"]]
+    r = {"binding": {"certificate_record": framed0["record_id"], "frames": frames,
+                     "embedded_frames": {"US": frames, "UK": frames}},
+         "built_sha256_by_terminology": {"US": "0" * 64, "UK": "1" * 64}}
+    illus = [j for j in E._jobs(db, "assets.build") if (j[3] or {}).get("illustrate")][-1]
+    with db.session() as s:
+        s.add(AuditLog(actor="test", action="assets.built", job_id=illus[0],
+                       artifact=f"{E.SLUG}@{E.VERSION}",
+                       detail={"pdf_layout": {t: {"layout": "template"} for t in ("US", "UK")},
+                               "illustrated": r["binding"],
+                               "pdf_sha256_by_terminology": r["built_sha256_by_terminology"]}))
     framed = etsy_ops.certified_frames(db, E.SLUG, E.VERSION, release=rh)
     assert LP.pdf_illustration_blockers(db, E.SLUG, E.VERSION, rh, framed) == []
-    # a certificate re-issued for exactly the same frames changes no embedded byte
     moved = {**framed, "record_id": framed["record_id"] + 1000}
     assert LP.pdf_illustration_blockers(db, E.SLUG, E.VERSION, rh, moved) == []
-    # different frames (here: the same ones in another order) make the PDFs stale
     reordered = {**framed, "frames": list(reversed(framed["frames"]))}
     stale = LP.pdf_illustration_blockers(db, E.SLUG, E.VERSION, rh, reordered)
     assert stale and "PDF_GALLERY_STALE" in stale[0], stale

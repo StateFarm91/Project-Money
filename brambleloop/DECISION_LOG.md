@@ -3899,5 +3899,10 @@ M2/L4). No existing check was relaxed; four rules were added to `publish.pdf_sta
 - The binding compares frames, not record ids. A certificate re-issued for identical frames
   changes no embedded byte.
 
+**Refusal before storing:** the illustrated PDFs are not stored when the gallery's CONTENTS
+frame is not their preview (`CONTENTS_PREVIEW_STALE`). Today that is every gallery, because
+CONTENTS previews the interim PDF. Storing them would break the gallery's export and the
+publish re-render. Open: re-make CONTENTS from the illustrated PDF, re-certify, re-illustrate.
+
 **Not changed:** the inventory stage `premium_pdf_completed` is still reached by any
 certified PDF; the run cap `FLUX_MAX_GENERATION_CALLS`; and Laura.

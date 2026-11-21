@@ -413,6 +413,23 @@ def _illustrate(ctx: JobContext, slug: str, version: str) -> dict:
         return {"slug": slug, "version": version, "release": release,
                 "illustrated": False, "why": why}
     docs = {t: d for t, (d, _i) in built.items()}
+    # The gallery's CONTENTS frame is a preview of the certified PDF, and the PDF embeds the
+    # gallery. Storing PDFs whose preview is not the certified CONTENTS frame would leave a
+    # gallery that no longer exports (`launch_imagery._check_contents`), a publish re-render
+    # that falls back to the interim PDF (PDF_HASH_DRIFT) and a listing image that shows a
+    # document the buyer does not get. So that is refused here, by name, and the interim PDF
+    # stays the certified one until the CONTENTS frame is re-made from the illustrated PDF
+    # and the gallery re-certified (open: IMAGE-AD finding G).
+    contents_why = _contents_preview_mismatch(slug, framed, docs)
+    if contents_why:
+        ctx.audit("assets.illustration_refused", artifact=f"{slug}@{version}",
+                  detail={"release": release, "certificate_record": record,
+                          "why": contents_why, "binding": binding,
+                          "built_sha256_by_terminology": {
+                              t: hashlib.sha256(d.pdf_bytes).hexdigest()
+                              for t, d in sorted(docs.items())}})
+        return {"slug": slug, "version": version, "release": release,
+                "illustrated": False, "why": contents_why}
     with ctx.db.session() as s:
         design = provenance.design_inputs(s, slug, version)
     lineage = _lineage(ctx)
@@ -451,6 +468,45 @@ def _illustrate(ctx: JobContext, slug: str, version: str) -> dict:
             "calibrated": doc.calibrated,
             "illustrated_pdf_sha256_by_terminology": {t: stored.sha256
                                                       for t, stored in sorted(pdfs.items())}}
+
+
+def _contents_preview_mismatch(slug: str, framed: dict, docs: dict) -> str | None:
+    """Why the certified CONTENTS frame is not the preview of these PDFs, or None."""
+    from ..visual import contents_frame as CF
+
+    return contents_preview_mismatch(slug, framed, docs[CF.TERMINOLOGY].pdf_bytes,
+                                     sorted(docs))
+
+
+def contents_preview_mismatch(slug: str, framed: dict | None, pdf_bytes: bytes,
+                              editions) -> str | None:
+    """Why the certified CONTENTS frame is not the preview of `pdf_bytes` (the previewed
+    edition), or None. Used by the layout decision itself
+    (`pdf_template.build_customer_pdf_with_layout`), so every build and re-render site makes
+    the same choice."""
+    from ..visual import contents_frame as CF
+    from ..visual import launch_imagery
+
+    contents = [f for f in (framed or {}).get("frames") or []
+                if f.get("job") == "CONTENTS" or f.get("role") == "whats_included"]
+    if not contents:
+        return None
+    found = launch_imagery._primary_for(slug)
+    if found is None:
+        return "CONTENTS frame cannot be re-checked: no primary CIR for this listing"
+    primary = found[2]
+    try:
+        fr = CF.render(pdf_bytes, slug=primary.slug,
+                       version=primary.version, title=primary.title or primary.slug,
+                       editions=list(editions))
+    except Exception as exc:  # noqa: BLE001 - an unrenderable preview is a refusal
+        return f"CONTENTS preview of the illustrated PDF failed: {type(exc).__name__}"
+    if fr.manifest["image_sha256"] != contents[0].get("sha256"):
+        return ("CONTENTS_PREVIEW_STALE: the certified gallery's CONTENTS frame "
+                f"({str(contents[0].get('sha256'))[:12]}) previews the interim PDF, not the "
+                f"illustrated one ({fr.manifest['image_sha256'][:12]}); the CONTENTS frame "
+                "must be re-made from the illustrated PDF and the gallery re-certified first")
+    return None
 
 
 def _prior_built_detail(db, slug: str, version: str) -> dict:

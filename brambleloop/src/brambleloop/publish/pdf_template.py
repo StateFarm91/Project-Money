@@ -2473,6 +2473,27 @@ def build_customer_pdf(cir: CIR, *, layout: str | None = None, db=None, **kw):
 INTERIM = "engine_interim"      # the engine PDF standing in until the gallery is certified
 
 
+def _contents_cycle(cir: CIR, doc, db, kw) -> str | None:
+    """IMAGE-AD finding G: the certified gallery's CONTENTS frame is a preview of the
+    certified PDF, and the template embeds the gallery. A template document whose own preview
+    is not the certified CONTENTS frame cannot be the customer's file (the gallery would no
+    longer export, the listing image would show another document), so the release stays on
+    the interim PDF. The previewed edition is `contents_frame.TERMINOLOGY`."""
+    from ..runtime import etsy_ops
+    from ..runtime.release import contents_preview_mismatch
+    from ..visual import contents_frame as CF
+
+    framed = etsy_ops.certified_frames(db, cir.slug, cir.version)
+    if framed.get("problems"):
+        return None
+    preview = doc
+    if doc.terminology != CF.TERMINOLOGY:
+        allowed = {"twin", "released_on", "gallery", "designer", "childrens", "family"}
+        preview = build_template_pdf(cir, terminology=CF.TERMINOLOGY,
+                                     **{k: v for k, v in kw.items() if k in allowed})
+    return contents_preview_mismatch(cir.slug, framed, preview.pdf_bytes, P.TERMINOLOGIES)
+
+
 def build_customer_pdf_with_layout(cir: CIR, *, layout: str | None = None, db=None,
                                    **kw) -> tuple:
     """`(document, info)`. `info["layout"]` is "template" (the customer-ready illustrated
@@ -2524,7 +2545,10 @@ def build_customer_pdf_with_layout(cir: CIR, *, layout: str | None = None, db=No
                     why = (f"sale checker {sale['verdict']}: "
                            + "; ".join(c["check"] + ": " + str(c.get("why", ""))[:120]
                                        for c in sale["checks"] if c["status"] != "PASS")[:400])
-                else:
+                elif db is not None:
+                    why = _contents_cycle(cir, doc, db, {**kw, "gallery": gallery})
+                if why is None and sale["verdict"] == "PASS" \
+                        and doc.status == "customer_ready":
                     return doc, {"layout": "template", "status": doc.status,
                                  "sale_check": {"verdict": sale["verdict"],
                                                 "pages": sale.get("pages")},

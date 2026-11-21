@@ -88,6 +88,19 @@ one job per record (`chain_key("assets", …, "illustrate:<id>")`). That path (`
   they become the release's certified files;
 - re-enqueues `listing.package`.
 
+**The CONTENTS frame is part of the layout decision (`pdf_template._contents_cycle`).**
+- The gallery's 7th frame (CONTENTS, "what's included") is a deterministic preview of the
+  certified PDF (`launch_imagery._check_contents`), and the template's gallery slot 7 embeds
+  that frame.
+- A template document whose own preview of the US edition is not the certified CONTENTS
+  frame is not accepted. The edition then stays `engine_interim`, with
+  `CONTENTS_PREVIEW_STALE` as the reason. Every build and re-render site therefore makes the
+  same choice.
+- `_illustrate` then records `assets.illustration_refused`, naming the certificate record
+  and each edition's reason, and stores nothing. A second check, `_contents_preview_mismatch`
+  before storing, is kept as a backstop.
+- **This is what happens today for every gallery: see finding G below.**
+
 It does not touch the listing frames, the disclosed set or the price chain. A full rebuild
 re-files the disclosed set and re-issues certificates, which would disturb the gallery the
 PDFs embed. `assets.build`'s `WORK_KEYS` gain `illustrated`. Its outputs carry no
@@ -145,20 +158,75 @@ The tests:
 - **d1.** Before the gallery is certified, the engine PDF is `engine_interim` ("awaiting
   gallery"), `illustrated` is None, and the package carries an image-tagged
   `PDF_NOT_ILLUSTRATED` and is not READY.
-- **d2.** The certified 7-frame blanket gallery triggers `assets.build{illustrate}`:
-  - both editions are rebuilt as the template;
-  - the binding names the certificate record and its frames in order;
-  - the new hashes are the certified ones;
-  - re-checked from the stored bytes: the sale checker PASSes with the seven renditions,
-    and PremiumStandard is ok.
-- **d3.** The package carries no illustration blocker. The upload-time re-render matches
-  the certified hashes, so no PDF_HASH_DRIFT.
-- **d4.** The same frames under a new record stay bound. Different frames, or no gallery,
-  are stale.
+- **d2.** The certified 7-frame blanket gallery triggers `assets.build{illustrate: record}`,
+  one job, on the valid certificate record and release. The template build passes
+  PremiumStandard and the sale checker. The layout decision then refuses both editions by
+  name (`CONTENTS_PREVIEW_STALE`, finding G). The refusal names the certificate record, and
+  the newest certified build is still the interim one.
+- **d3.** The package is not READY and carries an image-tagged `PDF_NOT_ILLUSTRATED`. The
+  certified PDFs and every re-render agree (no PDF_HASH_DRIFT): `deliverables` and the
+  `store.publish`-style re-render, with and without the Laura double.
+- **d4.** The READY rule, given an illustrated build on record (the refused build's binding
+  filed as that job's `assets.built`), accepts it for the certificate's frames in order,
+  including a re-issued record with the same frames. It rejects different frames and a
+  missing gallery as stale.
 
 The `test_image_e2e_worker` helper gains `seed=False`, used by the basket sweep.
 
-Results: see "Results" below.
+## Results
+- **Targeted runner** (run `20261121T025359Z-3957`, dirty tree on 451a2a0's parent work,
+  JOBS=3, SUITE_REGISTRY=0), 11 suites, **194 passing, 0 failing**:
+  - test_pdf_template, test_pdf_standard, test_pdf_diagrams;
+  - test_owner_gallery_complete, test_w5_v0_paid_provider_gate;
+  - test_compiler, test_vacuity;
+  - test_opus2_listing_package, test_w5_a9_package_event;
+  - test_v2_vessel_fidelity, test_w4_flux3generator.
+- **Direct runs** (`.venv` py3.13 from the lock files):
+  - test_image_ad: a1–a6 OK and d1–d4 OK, in separate invocations. The d tests and
+    test_pdf_template (31 OK) ran on the final code. The a tests ran before the CONTENTS
+    change, which does not touch the anchor path.
+  - test_w3_decision_index: OK after regenerating the index for D-IMAGE-AD.
+- **test_image_e2e_worker:** 7/7 OK directly before the readmit fix. It was re-run through
+  the runner and directly on the final code; those results are added below if they finish
+  before the push.
+- **Not run:** the full suite. A single runner invocation covering test_image_e2e_worker and
+  test_image_ad was not completed by the deadline: they take about 25 and about 45 minutes.
+- **Mutation check:** not run as separate mutants. Each fix was found by a test failing
+  first:
+  - the basket blocked at `vessel_views`;
+  - the readmission key collided;
+  - `PDF_GALLERY_STALE` was raised on a re-issued record;
+  - PDF_HASH_DRIFT appeared after the illustrated store (finding G).
+
+## G (new, OPEN): the CONTENTS frame and the illustrated PDF form a cycle
+
+This was found by test d3. A first version of `_illustrate` stored the illustrated PDFs. The
+publish-time re-render then came out as the interim engine PDF, which raised
+`PDF_HASH_DRIFT`. The cause is the CONTENTS frame:
+- the certified gallery's CONTENTS frame previews the interim PDF;
+- once the illustrated PDF is the certified file, that frame no longer exports
+  ("bytes are not the preview of the certified PDF");
+- `gallery_from_release` then raises GalleryAwaiting, so every re-render falls back to
+  the engine PDF.
+
+Storing the PDFs would have left the release in this state:
+- a gallery that cannot be exported;
+- `store.publish` refusing on hash drift;
+- a listing image showing a document the buyer does not get.
+
+So `_illustrate` now refuses before storing (fail closed, consistent). The interim PDF stays
+certified, and the package stays not READY with `PDF_NOT_ILLUSTRATED`.
+
+The way out needs the image pipeline and was not built here:
+1. after the illustrated build, re-make the CONTENTS frame from the illustrated PDF
+   (deterministic, CA$0);
+2. re-certify the gallery with it;
+3. illustrate again.
+
+The template's previewed pages must not show gallery slot 7. Then the second iteration's
+preview equals the first's, and the cycle closes in two steps. Until then **no release
+reaches READY**. That is the correct reading of D-OWNER-PDF-STANDARD, but it means
+D-OWNER-SALE-PIPELINE step 2 is still not met end to end.
 
 ## Not done / open
 - IMAGE-E2E findings B (Laura publication approval: an owner decision), C (coaster stub
