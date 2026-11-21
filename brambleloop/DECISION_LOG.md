@@ -4180,3 +4180,7 @@ Rejected:
 - reordering the rebuild into two phases (the real chain already orders it);
 - any change to binding, RETRY_AFTER, attempts, systemic thresholds or parking.
 Report: `w6/review_requests/HALT-380-MARKETING.md`.
+
+## D-OWNER-DEPLOY-19h9 — 2026-11-21T14:32:10Z
+
+Batch 19h9 (code d136042a9) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 94daf054e693dd8fc7b402eba7332cb286a35f81 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
