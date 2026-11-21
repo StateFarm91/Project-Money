@@ -620,7 +620,12 @@ def check(db, *, current: dict[str, str],
     by_version = getattr(current, "by_version", None) or {}
     retired_slugs = _retired_slugs()
     vanished = _vanished_lookup(db)
-    for row in db.scalars(select(ArtefactProvenance)):
+    # eng/evidence-perf: the four columns judged here, not whole rows (their evidence,
+    # parents and lineage JSON were loaded for every artefact and never read).
+    for row in db.execute(select(ArtefactProvenance.artefact_class,
+                                 ArtefactProvenance.artefact_key,
+                                 ArtefactProvenance.product_slug, ArtefactProvenance.inputs)
+                          .order_by(ArtefactProvenance.id)):
         seen.add((row.artefact_class, row.artefact_key))
         # eng/publish-unhalt U2: a retired legacy-duplicate concept slug is never rebuilt
         # (`creative.preengineering` refuses it; its design lives on under the slug that
@@ -1099,13 +1104,23 @@ def current_from_db(db) -> dict[str, str]:
     from ..runtime.release import CHAIN_VERSION
 
     current = Fingerprints({"chain:release": fingerprint(CHAIN_VERSION)})
-    for product in db.scalars(select(Product)):
-        rows = list(db.scalars(select(PatternVersion)
-                               .where(PatternVersion.product_id == product.id)))
+    # eng/evidence-perf: one query for every product's releases, the five columns read here
+    # only (whole rows also carried each release's certificate JSON, loaded and dropped),
+    # instead of one whole-row query per product. Same rows, same order within a product.
+    by_product: dict[int, list] = {}
+    for row in db.execute(select(PatternVersion.product_id, PatternVersion.id,
+                                 PatternVersion.version, PatternVersion.cir_json,
+                                 PatternVersion.release_hash, PatternVersion.certified)
+                          .order_by(PatternVersion.id)):
+        by_product.setdefault(row.product_id, []).append(row)
+    for product in db.execute(select(Product.id, Product.slug)):
+        rows = by_product.get(product.id, [])
+        cir_fp: dict[int, str] = {}   # each release's CIR fingerprinted once, by row id
         for version in rows:
             # R1: every release's own fingerprints, so an artefact is judged against the
             # release it was built from (the same values `design_inputs` records).
-            own = {f"cir:{product.slug}": fingerprint(version.cir_json)}
+            cir_fp[version.id] = fingerprint(version.cir_json)
+            own = {f"cir:{product.slug}": cir_fp[version.id]}
             if version.release_hash:
                 own[f"release:{product.slug}"] = version.release_hash[:16]
             current.by_version.setdefault(product.slug, {})[version.version] = own
@@ -1121,7 +1136,7 @@ def current_from_db(db) -> dict[str, str]:
             current.latest_version[product.slug] = newest
         else:
             latest = max(rows, key=lambda r: r.id)
-        current[f"cir:{product.slug}"] = fingerprint(latest.cir_json)
+        current[f"cir:{product.slug}"] = cir_fp[latest.id]
         if latest.release_hash:
             current[f"release:{product.slug}"] = latest.release_hash[:16]
     # L0 review HIGH-1: gallery frames are recorded from the stored image they show

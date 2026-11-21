@@ -168,6 +168,12 @@ def _token_url_ok(url: str) -> bool:
                                        and parts.hostname in ("localhost", "127.0.0.1"))
 
 
+# eng/evidence-perf: GET /api/readback/evidence took 45-91 s in production and this client
+# gave up at 60 s, so the readback read the evidence as UNKNOWN. The server is now bounded
+# well under that; the client allows 120 s so a slow, cold or busy deploy is still read.
+HTTP_TIMEOUT_S = 120
+
+
 def _fetch(url: str, token: str | None = None) -> tuple[int | None, object]:
     headers = {"Accept": "application/json"}
     opener = urllib.request.build_opener()
@@ -178,7 +184,7 @@ def _fetch(url: str, token: str | None = None) -> tuple[int | None, object]:
         opener = urllib.request.build_opener(_NoRedirect)
     req = urllib.request.Request(url, headers=headers)
     try:
-        with opener.open(req, timeout=60) as r:  # noqa: S310 - https enforced when a token rides
+        with opener.open(req, timeout=HTTP_TIMEOUT_S) as r:  # noqa: S310 - https enforced when a token rides
             code, raw = r.status, r.read()
     except urllib.error.HTTPError as e:
         code, raw = e.code, e.read()

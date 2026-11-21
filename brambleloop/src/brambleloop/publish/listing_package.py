@@ -723,6 +723,15 @@ def for_release(db, slug: str, version: str, *, expected_release: str = "") -> d
 
 
 def latest(db, slug: str, version: str) -> dict | None:
+    """The recorded package of `slug@version`, or None. eng/evidence-perf: read once per
+    release inside `core.request_memo.scope`; a live read everywhere else."""
+    from ..core import request_memo
+
+    return request_memo.memo(("listing_package.latest", id(db), slug, version),
+                             lambda: _latest(db, slug, version))
+
+
+def _latest(db, slug: str, version: str) -> dict | None:
     from sqlalchemy import select
 
     from ..core.models import OperatingReading
