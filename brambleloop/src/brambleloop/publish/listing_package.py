@@ -152,6 +152,60 @@ def _files(db, slug: str, version: str, release: str) -> dict | None:
     return {"pdf_sha256_by_terminology": dict(hashes), **meta}
 
 
+def pdf_illustration_blockers(db, slug: str, version: str, release: str,
+                              framed: dict | None) -> list[str]:
+    """Why the release's certified PDFs are not the illustrated premium documents bound to
+    its current certified gallery, or [] when they are.
+
+    Read from the newest `assets.built` row for exactly this release (the one whose hashes
+    `pipeline._certified_pdf_hashes` returns): every edition must be the template layout
+    (`pdf_layout`), and its `illustrated` binding must name the valid listing-set
+    certificate record and its frames, in order. Anything unreadable is a blocker."""
+    from sqlalchemy import desc, select
+
+    from ..core.models import AuditLog, Job
+
+    detail = None
+    with db.session() as s:
+        for row in s.scalars(select(AuditLog).where(
+                AuditLog.action == "assets.built", AuditLog.artifact == f"{slug}@{version}")
+                .order_by(desc(AuditLog.id))):
+            job = s.get(Job, row.job_id) if row.job_id else None
+            i, o = ((job.inputs or {}), (job.outputs or {})) if job is not None else ({}, {})
+            if release and (i.get("release") or o.get("release") or "") != release:
+                continue
+            detail = dict(row.detail or {})
+            break
+    if detail is None:
+        return ["PDF_NOT_ILLUSTRATED: no PDF build is on record for this release"]
+    layouts = detail.get("pdf_layout") or {}
+    interim = sorted(t for t, v in layouts.items() if (v or {}).get("layout") != "template")
+    if not layouts or interim:
+        gallery_now = bool(framed and not framed.get("problems") and framed.get("record_id"))
+        # once a gallery is certified, the build-time reason ("awaiting gallery: ...") is
+        # stale; the illustrated rebuild's own outcome is `assets.illustration_refused`
+        whys = ("a certified gallery exists; its illustrated rebuild is not certified (see "
+                "assets.illustration_refused)" if gallery_now and layouts else
+                "; ".join(f"{t}: {(layouts.get(t) or {}).get('why') or 'engine layout'}"
+                          for t in interim) or "the build records no layout")
+        return [f"PDF_NOT_ILLUSTRATED: the certified PDFs are the interim engine documents, "
+                f"not the premium template with the certified gallery embedded ({whys})"]
+    binding = detail.get("illustrated") or {}
+    if not framed or framed.get("problems") or not framed.get("record_id"):
+        return ["PDF_NOT_ILLUSTRATED: no valid certified gallery to bind the PDFs to"]
+    want = [f.get("sha256") for f in framed.get("frames") or []]
+    # Bound to the certificate's frames, in order. A certificate re-issued for exactly the
+    # same frames (a rebuild re-files the same disclosed set) changes no embedded byte.
+    if binding.get("frames") != want:
+        return [f"PDF_GALLERY_STALE: the PDFs embed gallery certificate "
+                f"{binding.get('certificate_record')}, not the valid "
+                f"{framed['record_id']}; they are rebuilt from the current gallery"]
+    if any(e != want for e in (binding.get("embedded_frames") or {}).values()) or \
+            set((binding.get("embedded_frames") or {})) != set(layouts):
+        return ["PDF_GALLERY_STALE: an edition does not embed the certified frames in order"]
+    return []
+
+
 def listing_copy_digest(copy) -> str | None:
     """Bind the precise listing text and tag order, or return None when uncheckable."""
     if not isinstance(copy, dict):
@@ -252,6 +306,7 @@ def assemble(db, slug: str, version: str) -> dict | None:
             blockers.append({"source": "certified_payload", "why": ferr})
 
     framed, err = _try(etsy_ops.certified_frames, db, slug, version, release=release)
+    framed_read = framed if err is None else None
     frames = []
     if err is not None:
         blockers.append({"source": "certified_frames", "why": err, "image": True})
@@ -285,6 +340,13 @@ def assemble(db, slug: str, version: str) -> dict | None:
             t: {"pdf_sha256": e["pdf_sha256"], "verdict": e["verdict"],
                 "certificate_id": e["certificate_id"]}
             for t, e in sorted(certs["editions"].items())}}
+    # IMAGE-AD (D-OWNER-PDF-STANDARD, D-OWNER-SALE-PIPELINE "Ready for sale = ... both
+    # premium illustrated PDFs certified for this release"): the interim engine PDF never
+    # makes a package READY. Tagged `image`: it is the gallery that is missing from the
+    # documents, so it does not stop the release being admitted for its images.
+    if files is not None and files.get("pdf_sha256_by_terminology"):
+        for why in pdf_illustration_blockers(db, slug, version, release, framed_read):
+            blockers.append({"source": "pdf_illustration", "why": why[:300], "image": True})
     # Review OPUS2F A-4: the copy must belong to this release. (One row per slug@version is
     # already a database constraint, `listings (product_slug, version)` unique, so the row this
     # reads is the row `certified_payload` reads.)

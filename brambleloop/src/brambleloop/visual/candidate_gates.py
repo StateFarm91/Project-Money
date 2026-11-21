@@ -754,8 +754,10 @@ def publication_verdict(cand: dict, checks: dict, job: str | None, laura: bool) 
     other: list[str] = []
     if laura:
         from . import canonical
+        from . import laura_approval
 
-        status = canonical.asset_status(cand.get("sha256", ""))
+        status = laura_approval.publication_status(cand.get("_db"), cand.get("sha256", ""),
+                                                   cand.get("run_key"))
         if status != canonical.PUBLICATION_APPROVED_STATUS:
             other.append(f"Laura publication gate: these bytes are '{status}', not "
                          f"publication_approved")

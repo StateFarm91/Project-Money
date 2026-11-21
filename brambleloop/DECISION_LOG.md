@@ -4086,8 +4086,95 @@ read-back of a PRIVATE DRAFT.
 - **Tests.** `test_vis_gallery_e2e` tests 3 and 7 assert the draft upload and its byte-for-byte
   read-back. Test 7a shows publication refused without the photo. Test 7b kills a mutant of
   `for_publish` that has the activation-stage photo gate removed.
+## D-PRODUCT-RUN-PERF — test_product_run.py made completable without weakening it (eng/product-run-perf, 2026-11-21; routine engineering)
+- **Decision.** Answer repeated deterministic renders from a content-addressed, test-process-only memo
+  (`tests/render_memo.py`), and build the full unattended cycle once, shared as an immutable SQLite backup copy, instead
+  of re-running it from empty in two tests.
+- **Why.** Profiling showed the cost was repetition of identical work, not the work itself:
+  - `build_pattern_pdf` was 59% of the cycle (68 calls, 40 of them `first_customer` re-rendering documents it had
+    already rendered);
+  - `disclosed_render.render` was 24% (335 calls, 43 unique);
+  - two tests each rebuilt the same cycle, at 1609 s for one of them.
+  The rejected alternatives were narrowing the scenario (fewer products, smaller renders, lower drain budgets), which
+  violates "slow and representative beats fast and unrepresentative" (run_tests.sh), and caching in production code,
+  which is out of scope and would hide renderer regressions from other suites.
+- **Guards.**
+  - Every input each function reads is in the key: the full CIR dict, the twin, the printed date, the lesson effects,
+    pixel bytes.
+  - The first call always runs the real code, and exceptions are never cached.
+  - Hits are deep copies; the lesson notes and the layout out-parameters are replayed.
+  - The PDF determinism test runs inside `bypassed()`.
+  - Scope is one process, because run_tests.sh runs each file separately.
+- **Result.** 36 passed / 0 failed, 1544 s. Report: `w6/review_requests/PRODUCT-RUN-PERF.md`.
+## D-IMAGE-BF-LAURA — the owner's production path to approve Laura in a generated gallery (IMAGE-BF, 2026-11-21; implements the owner brief for IMAGE-E2E findings B and F)
+**Problem.** `canonical.PUBLICATION_APPROVED` is an empty code constant and was the only source of
+Laura publication approval, so every Laura frame read `laura_publication` UNMEASURED and no gallery
+with Laura could be certified in production (IMAGE-E2E finding B).
+**Rule (`visual/laura_approval.py`).**
+- **One card per gallery.** When `_certify_route` finds a generated gallery that passes every frame
+  gate and set check except Laura's publication (judged by re-reading the gallery with a
+  review-only "as if approved" flag that is never certified or written), it raises ONE OwnerAction,
+  `laura_gallery_review:<run hash>:<frame-set digest>`, listing every Laura frame (position, role,
+  candidate, sha256, the Command Center image URL). A card ever raised for that key, open or
+  answered, is never raised again; different bytes are a different gallery.
+- **Decided only with the existing step-up.** `POST /api/cc/laura-gallery/decide` (owner session,
+  CSRF + nonce, fresh passphrase + TOTP step-up, action `laura_gallery.decide`), or "Approve all
+  eligible", which the owner directed may include these cards because its preview shows the frames
+  on screen and its press needs the same fresh step-up. `approve_all.judge` marks the prefix
+  eligible explicitly (before the classifier and the key guard); the approval goes through
+  `laura_approval`, never a bare close. `decide` also refuses a non-owner actor, a call that does
+  not assert the step-up, an answered card, and a gallery whose Laura frames changed since the card.
+- **Recorded per gallery and frame hash** (`laura_gallery_approvals`). `laura_publication` (and the
+  same check in `candidate_gates.publication_verdict` and `release_gates.generated_frame_verdict`)
+  reads PASS when the canonical registry approves the bytes, or the latest decision for exactly
+  that (run, sha256) is an owner `approved` with step-up; anything else stays UNMEASURED. A
+  rejection is recorded and leaves the frames UNMEASURED.
+- **Audited:** `laura_gallery.card_raised`, `laura_gallery.decision`, the OwnerAction lifecycle row,
+  the route's action record (and approve-all's per-row and batch rows).
+- An approval re-judges the gallery for its certificate at once and enqueues `listing.package`.
+**Not changed.** `canonical.PUBLICATION_APPROVED` stays empty; Laura (laura-r2-a42aeac7) is locked
+and nothing modifies, regenerates or substitutes her; no approval is inferred or swept.
+## D-IMAGE-BF-IMAGERY — first-customer `imagery` judges a certified generated gallery as that gallery (IMAGE-BF, 2026-11-21; finding F)
+`gates.first_customer.disclosed_imagery` first asks `generated_gallery_imagery`: when the release's
+current valid listing-set certificate carries generated frames, the area is PASS only if the
+certificate is bound to the release's certified hash, names at least `CAMPAIGN_MIN_FRAMES` frames,
+each generated frame is the selected gallery frame on file and re-judges now through
+`release_gates.generated_frame_verdict` as exportable (truth, identity, Laura approval, provenance,
+the route's exception), each carries its certified AI-concept honesty label and alt text, and the
+one other frame is the CONTENTS preview re-verified on its bytes. Otherwise the disclosed-set path
+runs unchanged.
+## D-IMAGE-AD — 2026-11-21 (IMAGE-E2E findings A and D; eng/image-ad)
+**Decision:**
+- **A.** A vessel's FLUX anchor is a pair. A side view (`product_anchor_side`, from
+  `image_stages.product_only(view="side")`) is rendered as its own paid call, counted in the
+  run cap and in the paid-provider gate's per-gallery and daily caps. It has its own replay
+  key, so a redrive never buys it twice. It is judged with the top-down anchor by
+  `fidelity.verify_anchor(side=...)` and kept through recovery and reverify (`_anchor_side`).
+- **D.** `PDF_LAYOUT = "template"`. The release default builds the template document only
+  when three things hold: the gallery is certified, the document is customer_ready, and it
+  PASSes PremiumStandard and the sale checker (`pdf_template.audit(expected_gallery=...)`).
+  Otherwise the engine PDF is the `engine_interim` deliverable.
+- **Rebuild on certification.** A certified gallery enqueues `assets.build{illustrate:
+  <record>}`, one job per certificate record. It rebuilds and re-certifies only the two PDFs,
+  then binds the build to the certificate's frames, in order.
+- **READY rule.** A listing package is READY only when the newest build for the release is
+  the template in both editions and its binding matches the valid certificate's frames.
+  Otherwise it carries `PDF_NOT_ILLUSTRATED` or `PDF_GALLERY_STALE`. Both are image-tagged,
+  so they do not block admission for images.
+- **Stall fix.** A run readmitted for sale that parks again is a new wait: the
+  `#admitted<n>` key moves, so the run can be readmitted again.
+**Why:**
+- D-OWNER-SALE-PIPELINE step 2, and D-OWNER-PDF-STANDARD ("The PDFs have images").
+- Before this, any certified PDF, including the engine one, could make a package READY.
+- The binding compares frames, not record ids. A certificate re-issued for identical frames
+  changes no embedded byte.
+**Refusal before storing:** the illustrated PDFs are not stored when the gallery's CONTENTS
+frame is not their preview (`CONTENTS_PREVIEW_STALE`). Today that is every gallery, because
+CONTENTS previews the interim PDF. Storing them would break the gallery's export and the
+publish re-render. Open: re-make CONTENTS from the illustrated PDF, re-certify, re-illustrate.
+**Not changed:** the inventory stage `premium_pdf_completed` is still reached by any
+certified PDF; the run cap `FLUX_MAX_GENERATION_CALLS`; and Laura.
 ## D-HALT-380 — 2026-11-21
-
 Systemic halt #380 (production 7b250d61: 12 products stale and rebuild-incomplete, a fresh pending
 rebuild every hour, no verified rebuild since the chain moved to 9). Hypothesis "every deploy
 re-stales" rejected: freshness keys only on `chain:release` = fingerprint(CHAIN_VERSION), a manual
@@ -4100,11 +4187,7 @@ existing attempt at the product's own change owns the key; (2) the stage token i
 recorded fresh budget, with one targeted rebuild; the row stays open until verified evidence closes
 it. No gate, binding rule, attempt cap or halt rule changed. Branch `eng/halt-380`; report
 `w6/review_requests/HALT-380.md`. Not deployed.
-
 ## D-OWNER-DEPLOY-19h — 2026-11-21T04:19:09Z
-
 Batch 19h (code 384399c64) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 7b250d6164e4509617edd157048cc42db9a6b9bb was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
-
 ## D-OWNER-DEPLOY-19h1 — 2026-11-21T04:25:50Z
-
 Batch 19h1 (code c391386fd) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to b17649901845b9a20fcfe596d108a18c75578b1a was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
