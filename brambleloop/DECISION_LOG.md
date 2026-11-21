@@ -3925,3 +3925,7 @@ Batch 19c1 (code 996525ed2) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the ow
 ## D-OWNER-DEPLOY-19c2 — 2026-11-21T02:53:31Z
 
 Batch 19c2 (code 952474c12) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to a24f8d83ca778b083d6e60054184f65e1e55ef03 was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
+
+## D-OWNER-DEPLOY-19c3 — 2026-11-21T03:06:07Z
+
+Batch 19c3 (code 072a9b17b) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to bcbf5f2d216d96b2c78f3bfc2676a87fe60c406b was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
