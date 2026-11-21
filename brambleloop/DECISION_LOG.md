@@ -3963,3 +3963,7 @@ existing attempt at the product's own change owns the key; (2) the stage token i
 recorded fresh budget, with one targeted rebuild; the row stays open until verified evidence closes
 it. No gate, binding rule, attempt cap or halt rule changed. Branch `eng/halt-380`; report
 `w6/review_requests/HALT-380.md`. Not deployed.
+
+## D-OWNER-DEPLOY-19h — 2026-11-21T04:19:09Z
+
+Batch 19h (code 384399c64) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the owner's standing authorization until 05:00Z. Its changed and overlap suites pass. A rollback to 7b250d6164e4509617edd157048cc42db9a6b9bb was rehearsed (ALLOW). There is no full-suite certification yet: the boot guard still requires a full-suite record, and this entry does not satisfy it.
