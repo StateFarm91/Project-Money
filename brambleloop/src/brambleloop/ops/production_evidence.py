@@ -1794,15 +1794,32 @@ def deploy_readback(handlers: dict) -> dict:
 
 def evidence(db, *, now: datetime | None = None, deploy_handlers: dict | None = None) -> dict:
     """The body of GET /api/readback/evidence (read-only token)."""
+    import time as _time
+
     now = _aware(now) or datetime.now(timezone.utc)
-    sections = {name: _section(name, db, now) for name in SECTIONS}
+    # eng/halt-380-verify: the endpoint took ~45 s in production with nothing saying where.
+    # Each section's wall time (whole milliseconds, a number per fixed section name -- no
+    # text) is returned beside it, so the next readback names the slow part instead of
+    # leaving it to a guess.
+    timing: dict[str, int] = {}
+
+    def _timed(name, fn):
+        t0 = _time.perf_counter()
+        try:
+            return fn()
+        finally:
+            timing[name] = int((_time.perf_counter() - t0) * 1000)
+
+    sections = {name: _timed(name, lambda n=name: _section(n, db, now)) for name in SECTIONS}
     try:  # not a judged section: visibility only (no readback row, no verdict)
-        sections["factory_visibility"] = factory_visibility(db, now=now)
+        sections["factory_visibility"] = _timed(
+            "factory_visibility", lambda: factory_visibility(db, now=now))
     except Exception as exc:  # noqa: BLE001
         sections["factory_visibility"] = _unreadable(exc)
     if deploy_handlers is not None:
         try:
-            sections["deploy_readback"] = deploy_readback(deploy_handlers)
+            sections["deploy_readback"] = _timed(
+                "deploy_readback", lambda: deploy_readback(deploy_handlers))
         except Exception as exc:  # noqa: BLE001
             sections["deploy_readback"] = _unreadable(exc)
     judged = {
@@ -1822,7 +1839,8 @@ def evidence(db, *, now: datetime | None = None, deploy_handlers: dict | None = 
             "never_included": ["job inputs/outputs", "error text", "incident text",
                                "paid-call payloads", "conversations", "owner data",
                                "customer data", "secrets"],
-            "server_judgement": judged, **sections}
+            "server_judgement": judged, **sections,
+            "timing_ms": dict(sorted(timing.items(), key=lambda kv: -kv[1]))}
 
 
 # ---- factory visibility (read-only; counts and fixed vocabulary only) --------------------
@@ -1861,22 +1879,80 @@ def factory_visibility(db, *, now: datetime) -> dict:
 
         ensure_tables(db)
         with db.session() as s:
-            states = Counter(str(r.status) for r in s.scalars(select(ImageProductionRun)))
+            states = Counter(str(st) for st in s.scalars(select(ImageProductionRun.status)))
         out["image_runs_by_state"] = dict(sorted(states.items()))
     except Exception as exc:  # noqa: BLE001
         out["image_runs_by_state"] = _unreadable(exc)
+    try:  # what the open stale-artefact incidents are: class, release relation, moved upstreams
+        import re as _re
+
+        from ..core.models import Incident, Product
+        from . import artefacts as provenance
+
+        _re_vocab = _re.compile(r"[a-z][a-z0-9_]{0,30}")
+
+        with db.session() as s:
+            sigs = [r for (r,) in s.execute(select(Incident.signature).where(
+                Incident.resolved.is_(False),
+                Incident.signature.like(f"{provenance.SENTINEL_SIGNATURE}:%")))]
+            newest = {}
+            for p in s.scalars(select(Product)):
+                pv = provenance.newest_release(s, p.id)
+                if pv is not None:
+                    newest[p.slug] = pv.version
+            current = provenance.current_from_db(s)
+            verdicts = {f"{v.artefact_class}:{v.artefact_key}": v
+                        for v in provenance.check(s, current=current)}
+        by_class, by_release, by_state, moved = Counter(), Counter(), Counter(), Counter()
+        for sig in sigs:
+            node = sig.split(":", 1)[1] if ":" in sig else sig
+            cls, _, key = node.partition(":")
+            # fixed vocabulary only: an unknown class (or a signature of another shape) is
+            # counted, never echoed
+            by_class[cls if cls in provenance.ARTEFACT_CLASSES else "unrecognised"] += 1
+            m = provenance._VERSIONED_KEY.match(key)
+            if m is None:
+                by_release["unversioned"] += 1
+            else:
+                nv = newest.get(m.group("slug"))
+                by_release["no_release" if nv is None else
+                           ("current" if m.group("version") == nv else "old")] += 1
+            v = verdicts.get(node)
+            by_state["no_row" if v is None else str(v.state)] += 1
+            for ref in (v.moved if v is not None else ()):
+                head = str(ref).split(":", 1)[0]
+                moved[head if _re_vocab.fullmatch(head) else "other"] += 1
+        out["stale_incidents"] = {"open": len(sigs), "by_class": dict(by_class),
+                                  "by_release": dict(by_release), "by_state": dict(by_state),
+                                  "moved_upstreams": dict(moved.most_common(12))}
+    except Exception as exc:  # noqa: BLE001
+        out["stale_incidents"] = _unreadable(exc)
     try:  # why each parked run is not admitted: blocker sources and leading codes only
         import re as _re
 
         from ..visual import image_production as IP
         from ..visual.image_records import ImageProductionRun
 
+        import time as _time
+
+        t0 = _time.perf_counter()
+        # eng/halt-380-verify: three columns, not whole rows (their stage, card and decision
+        # JSON was loaded and dropped), and each release's admission read ONCE however many
+        # parked runs share it. The report is unchanged: one entry per parked run, the same
+        # first 12, the same fields.
         with db.session() as s:
-            parked = [(r.slug, r.version, r.release) for r in s.scalars(
-                select(ImageProductionRun).where(ImageProductionRun.status == IP.SALE_WAITING))]
+            parked = [tuple(r) for r in s.execute(
+                select(ImageProductionRun.slug, ImageProductionRun.version,
+                       ImageProductionRun.release)
+                .where(ImageProductionRun.status == IP.SALE_WAITING)
+                .order_by(ImageProductionRun.id))]
         why = []
+        admissions: dict[tuple, dict] = {}
         for slug, version, release in parked[:12]:
-            adm = IP.sale_admission(db, slug, version, release)
+            key = (slug, version, release)
+            if key not in admissions:
+                admissions[key] = IP.sale_admission(db, slug, version, release)
+            adm = admissions[key]
             codes = []
             for b in adm.get("non_image_blockers") or []:
                 if not isinstance(b, dict):
@@ -1888,6 +1964,8 @@ def factory_visibility(db, *, now: datetime) -> dict:
                                                   [_re.sub(r"[^a-z_ ]", "", str(
                                                       adm.get("why") or "")[:60].lower())])})
         out["parked_admission"] = why
+        out["parked_runs"] = len(parked)
+        out["parked_admission_ms"] = int((_time.perf_counter() - t0) * 1000)
     except Exception as exc:  # noqa: BLE001
         out["parked_admission"] = _unreadable(exc)
     try:

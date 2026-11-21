@@ -4206,3 +4206,47 @@ Batch 19h1 (code c391386fd) is deployed under D-OWNER-AUTODEPLOY-TONIGHT, the ow
 - The listing's AI-disclosure copy and fields.
 - Child safety, the kill switch, fees and budgets.
 - The signed publication grant and the owner's separate publishing approval.
+## D-HALT-380-VERIFY — 2026-11-21
+Production 1bb7c4f5: chain.rebuild done 199 and unfinished 0, but no artefact completed since
+2026-11-20T13:12Z. Reproduced on the real chain: a provenance row whose artefact no longer exists
+reads STALE for good. This covers a `visual_truth` row of a gallery frame `_persist_frames` deleted,
+and a `marketing_asset` row of a draft the current content plan dropped. No stage can rewrite such a
+row. A non-marketing orphan also made `marketing.schedule` refuse the product's real marketing
+rebuild on "#172 rebuild outstanding". So the first attempt verified 15 artefacts and every later
+attempt verified 0. Decided:
+(1) `artefacts.check` reads such a row RETIRED. This applies only to the exact key shapes, only when
+the frame row is gone or the draft is `superseded`, and only for a row that would otherwise read
+STALE. Everything else fails closed: a missing content piece proves nothing, because pieces are
+never deleted.
+(2) `marketing.schedule` supersedes drafts its plan no longer contains (drafts only, nothing deleted).
+(3) The verify pass, the sentinel's rebuild-incomplete judgement and `publication_gate` set retired
+names aside. Retired names alone close nothing.
+(4) A rebuild refused by a real gate of its own chain parks the product with the gate's reason. The
+product stays halted, but is not counted toward the systemic staleness families. Its own
+#173/#172 staleness is never a gate.
+Rejected: closing rows on absence alone; waiving gate.certify's incident halt (left open, a gate).
+GET /api/readback/evidence: parked_admission measured at about 40 ms locally, so it is not shown to be
+the 45 s. It was made cheaper anyway (one admission read per release, column selects), and the body
+now carries `timing_ms` per section. Report: `w6/review_requests/HALT-380-VERIFY.md`.
+## D-MAIN-HALT-380-VERIFY-RELEASE — 2026-11-21T09:32Z
+Release of eng/halt-380-verify on top of 19h1 (1bb7c4f5).
+**Cause.** Provenance rows for artefacts that no longer exist read STALE forever, and no stage can ever rewrite them. They are:
+- `visual_truth` rows for deleted gallery frames;
+- `marketing_asset` rows for superseded drafts.
+They also made `marketing.schedule` refuse each product's real marketing rebuild. That kept 12 products and systemic halt 380 open. eng/halt-380-h5 reached the same orphan-frame cause independently.
+**Fix.** Narrow and fail-closed: only those two vanished or superseded cases read RETIRED. Real-gate refusals park the product: it stays halted itself but no longer counts toward the systemic halt. No gate was weakened.
+**Tests.** 17 suites, no failures (vis_gallery completes before release). The release needs the owner's per-SHA approval; the auto-deploy window closed at 05:00Z.
+## D-OWNER-EXTENSION-24H — 2026-11-21T10:40Z (owner, via AskUserQuestion)
+The owner extended the P0 deadline by 24 hours, to **2026-11-22T05:00Z**, with standing auto-deploy approval for that window ("Yes + auto-deploy"). The conditions are those of D-OWNER-AUTODEPLOY-TONIGHT:
+- the changed and overlap suites pass;
+- the rollback is rehearsed (ALLOW);
+- the push is a fast-forward;
+- the deploy is verified and read back;
+- a failure rolls back.
+## D-OWNER-NO-SAMPLE — 2026-11-21T10:40Z (owner)
+**Owner, verbatim:** "I dont plan to crochet anything. I said this from the very start. Thats why I offered to buy multiple patterns from Etsy to learn from."
+Consequence:
+- Etsy's pattern-listing rule (Help 44297885802647: at least one real, unedited photo of something made from the pattern) cannot be met by the owner.
+- A render is never presented as a sample photo (Product Truth, no fake evidence). `SAMPLE_PHOTO_REQUIRED` stays a publication gate.
+- Private drafts remain allowed (D-OWNER-PRIVATE-DRAFT-BEFORE-SAMPLE).
+- The compliant routes are put to the owner: a paid independent tester through the existing tester-kit programme (consequential spend, so the owner decides), or a sales channel without that rule.

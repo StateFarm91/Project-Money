@@ -619,6 +619,7 @@ def check(db, *, current: dict[str, str],
     latest_version = getattr(current, "latest_version", None) or {}
     by_version = getattr(current, "by_version", None) or {}
     retired_slugs = _retired_slugs()
+    vanished = _vanished_lookup(db)
     for row in db.scalars(select(ArtefactProvenance)):
         seen.add((row.artefact_class, row.artefact_key))
         # eng/publish-unhalt U2: a retired legacy-duplicate concept slug is never rebuilt
@@ -655,6 +656,12 @@ def check(db, *, current: dict[str, str],
                  + ("its own release has moved since: " + str(moved or unknown)
                     if (moved or unknown) else "it matches its own release")
                  + ". Never current; publication refuses a superseded release")))
+            continue
+        if (moved or unknown) and (gone := vanished(row.artefact_class, row.artefact_key,
+                                                    row.product_slug)):
+            verdicts.append(Verdict(row.artefact_class, row.artefact_key, row.product_slug,
+                                    UNPROVEN, tuple(moved), tuple(unknown), why=gone,
+                                    retired=gone))
             continue
         if moved or unknown:
             why = []
@@ -718,6 +725,62 @@ def _retired_slugs() -> set[str]:
         return set(LEGACY_DUPLICATES)
     except Exception:  # noqa: BLE001 - without the list, nothing is retired by slug
         return set()
+
+
+# eng/halt-380-verify: a recorded row whose artefact no longer exists. Two writers remove the
+# thing a provenance row describes without removing the row: `_persist_frames` deletes the
+# gallery rows a rebuild did not place (review 6817652112 N2), and `marketing.schedule`
+# supersedes drafts its current content plan no longer contains. Such a row read STALE for
+# good -- no stage rewrites an artefact that is not there -- so every verify pass named it
+# outstanding, the product's `rebuild-incomplete` row could never close, and (because it is
+# not marketing content) `marketing.schedule` refused the product's REAL marketing rebuild
+# on it every attempt. Each key shape below is the exact one its writer uses; anything else
+# is never vanished (fail closed).
+_VISUAL_KEY = re.compile(r"^(?P<slug>[^@:#]+)@(?P<version>[^#]+)#(?P<id>\d+)$")
+_MARKETING_KEY = re.compile(r"^(?P<slug>[^@:#]+):(?P<channel>[a-z_]+):(?P<digest>[0-9a-f]{16})$")
+CONTENT_SUPERSEDED = "superseded"
+
+
+def _vanished_lookup(db):
+    """A function (cls, key, slug) -> reason when a recorded row's artefact no longer exists,
+    else None. Unreadable tables vanish nothing."""
+    from sqlalchemy import select
+
+    from ..core.models import ContentPiece, ListingAsset
+
+    try:
+        frames = {(s, v, int(i)) for i, s, v in db.execute(
+            select(ListingAsset.id, ListingAsset.product_slug, ListingAsset.version))}
+        live, superseded = set(), set()
+        for s, ch, title, state in db.execute(select(
+                ContentPiece.product_slug, ContentPiece.channel, ContentPiece.title,
+                ContentPiece.state)):
+            (superseded if state == CONTENT_SUPERSEDED else live).add(
+                marketing_key(s, ch, title))
+    except Exception:  # noqa: BLE001 - unreadable is never evidence of absence
+        return lambda *_a: None
+
+    def why(cls: str, key: str, slug: str) -> str | None:
+        if cls == "visual_truth":
+            m = _VISUAL_KEY.match(key or "")
+            if m is None or m.group("slug") != slug:
+                return None
+            if (slug, m.group("version"), int(m.group("id"))) in frames:
+                return None
+            return (f"listing frame #{m.group('id')} of {slug}@{m.group('version')} no longer "
+                    f"exists (a gallery rebuild dropped it): nothing serves or rebuilds it")
+        if cls == "marketing_asset":
+            # Only a draft the current plan SUPERSEDED (marketing.schedule): content pieces
+            # are never deleted, so a key with no piece at all proves nothing and stays as it
+            # reads (fail closed), as does any title some live piece still carries.
+            m = _MARKETING_KEY.match(key or "")
+            if (m is None or m.group("slug") != slug or key in live
+                    or key not in superseded):
+                return None
+            return ("the draft this row recorded was superseded by the current content plan: "
+                    "nothing serves or rebuilds it")
+        return None
+    return why
 
 
 def _superseded_lookup(db):

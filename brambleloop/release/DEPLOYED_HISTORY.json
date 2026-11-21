@@ -201,6 +201,25 @@
    "override": "D-OWNER-DEPLOY-19h1",
    "authorization": "D-OWNER-AUTODEPLOY-TONIGHT",
    "rollback_to": "b17649901845b9a20fcfe596d108a18c75578b1a"
+  },
+  {
+   "sha": "88fc059a3ae808982451a103da357ae552b4cfcf",
+   "batch": "19h2",
+   "code": "halt-380-verify",
+   "at": "2026-11-21T10:21:19Z",
+   "verify_deploy": "DEPLOYED",
+   "override": "D-MAIN-HALT-380-VERIFY-RELEASE",
+   "authorization": "owner per-SHA AskUserQuestion 2026-11-21",
+   "rollback_to": "1bb7c4f510de6c3ce328f103d4813ad60048f812"
+  },
+  {
+   "sha": "dc10a48d5709d99924723a21e10653a49d35df18",
+   "batch": "19h3",
+   "code": "factory_visibility stale_incidents",
+   "at": "2026-11-21T10:35:47Z",
+   "verify_deploy": "DEPLOYED",
+   "authorization": "owner per-SHA AskUserQuestion 2026-11-21",
+   "rollback_to": "88fc059a3ae808982451a103da357ae552b4cfcf"
   }
  ]
 }

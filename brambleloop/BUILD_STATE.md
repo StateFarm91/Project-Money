@@ -83,6 +83,19 @@
 > re-certified, no release reaches READY and D-OWNER-SALE-PIPELINE step 2 is still unmet end to end. Also open:
 > inventory `premium_pdf_completed` still counts an interim PDF; findings B, C, F unchanged. Decision D-IMAGE-AD.
 > Report: `research/final_build/w6/review_requests/IMAGE-AD.md` (results there).
+> **2026-11-21 — HALT-380-VERIFY on `eng/halt-380-verify` (from `claude/w6-release-19h1` 90403e5 = deployed 1bb7c4f5;
+> NOT merged, NOT deployed; production unchanged, no production row read).** Readback 08:20Z: done 199, unfinished 0,
+> no artefact completed since 2026-11-20T13:12Z, 14 retry-waiting, 12 rebuild-incomplete. Clean-slate rebuilds verify
+> (spooky, valentine, nordic-star, harvest). Cause, reproduced on the real chain: a provenance row whose artefact no
+> longer exists reads STALE for good. Examples: a `visual_truth` row of a frame `_persist_frames` dropped, and a
+> `marketing_asset` row of an earlier-plan draft. A non-marketing orphan also refused the real marketing rebuild
+> (#172). On base: check 1 completes 15 and leaves 10 outstanding; every later check and retry completes 0. Fix:
+> `artefacts.check` retires exactly those (fail closed); marketing.schedule supersedes dropped drafts; verify, the
+> sentinel and `publication_gate` set retired names aside. A real-gate refusal of the attempt's own chain now parks
+> the product with its reason: it stays halted and is excluded from the systemic staleness families. Evidence
+> endpoint: parked_admission is about 40 ms locally (NOT shown to be the 45 s); it was made cheaper, and `timing_ms`
+> was added. New suite `tests/test_halt_380_verify.py` 4/4; 3 fail on base. UNVERIFIED in production until deployed.
+> Decision D-HALT-380-VERIFY. Report: `w6/review_requests/HALT-380-VERIFY.md`.
 > **2026-11-21 — HALT-380 on `eng/halt-380` (from `claude/w6-release-19d1` 9216d33 = deployed 7b250d61; NOT merged,
 > NOT deployed; production unchanged, no production row read).** Readback 03:29Z: systemic halt #380 open, 12 products
 > stale + rebuild-incomplete, 12 rebuilds pending with the oldest 0.13 h, no verified rebuild since 2026-11-20T13:12Z.

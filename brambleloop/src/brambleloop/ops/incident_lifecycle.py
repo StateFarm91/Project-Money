@@ -451,13 +451,30 @@ def systemic_evidence(session) -> dict:
     tamper = [r.signature for r in open_rows
               if kind_of(r.signature) in INTEGRITY_FAMILIES]
     products = len(list(session.scalars(select(Product.id))))
-    by_family: dict[str, set[str]] = {}
-    for r in open_rows:
+
+    def _slug(r) -> str | None:
         # review M-A of 4b683993: a legacy rebuild-incomplete row names its product only in
         # its signature; it is still that product's halt.
-        slug = r.product_slug or (str(r.signature).split(":", 1)[1]
+        return r.product_slug or (str(r.signature).split(":", 1)[1]
                                   if str(r.signature or "").startswith("rebuild-incomplete:")
                                   else None)
+
+    # eng/halt-380-verify: a product whose own rebuild was refused by a real gate of its
+    # chain (certification, a withheld release, the image or listing gates, pricing, a
+    # missed launch window, a child-safety decision) is PARKED on that gate, with its reason
+    # on its `rebuild-incomplete` row. It stays halted -- its rows keep halting it -- but a
+    # gate's verdict is not corruption, so it is not counted toward the company-wide
+    # STALENESS families. Integrity failures and every other family count as before.
+    parked = {s_: (r.detail or {})["parked"].get("gate") for r in open_rows
+              if kind_of(r.signature) == "rebuild-incomplete"
+              and isinstance((r.detail or {}).get("parked"), dict)
+              and (s_ := _slug(r))}
+    by_family: dict[str, set[str]] = {}
+    for r in open_rows:
+        slug = _slug(r)
+        if (slug in parked
+                and kind_of(r.signature) in ("stale-artefact", "rebuild-incomplete")):
+            continue
         if r.halts_publication and slug:
             by_family.setdefault(kind_of(r.signature), set()).add(slug)
     widespread = {fam: sorted(slugs) for fam, slugs in by_family.items()
@@ -465,6 +482,7 @@ def systemic_evidence(session) -> dict:
                   and len(slugs) / products >= SYSTEMIC_SHARE}
     return {"systemic": bool(tamper or widespread), "integrity_failures": tamper,
             "widespread_families": widespread, "products": products,
+            "parked_on_a_gate": dict(sorted(parked.items())),
             "rule": (f"one failure family halting >= {SYSTEMIC_MIN_SLUGS} products and >= "
                      f"{int(SYSTEMIC_SHARE * 100)}% of the catalogue, or any open "
                      f"integrity failure ({', '.join(INTEGRITY_FAMILIES)}), escalates to a "
