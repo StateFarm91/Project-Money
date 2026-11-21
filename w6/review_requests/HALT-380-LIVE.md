@@ -108,7 +108,33 @@ real chain reads today):
 
   On base, the third sentinel retries nothing.
 
-RESULTS_PLACEHOLDER
+**On base** (`eng/rebuild-outcomes`, fix absent, same test): the third sentinel returned
+`rebuild_retried` [] and `rebuild_retry_waiting` = all 14 planned products (the twelve plus
+two other catalogue products). That is production's 15:01Z reading, enqueued 0 and waiting
+18, in this estate's size. **With the fix: 2/2 pass.**
+
+Before judging the systemic halt, the production-shape test runs one more hourly sweep, as
+production does. That sweep closes the superseded earlier-plan rows "retired, not stale".
+Without it, the halt reads systemic only because those rows are still open (observed in an
+earlier run of this test).
+
+**Suites on the final tree** (SQLite, each run directly; dirty-tree runs, so not a
+release-eligible record):
+- New: `test_halt_380_live` (2/2) and `test_rebuild_outcomes` (3/3).
+- Named in the brief: `test_halt_380_marketing` (4/4), `test_halt_380_verify` (4/4),
+  `test_halt_380_h3` (6), `test_eng_halt_380` (0 failures), `test_retry_on_deploy`,
+  `test_publish_unhalt`, `test_eng_stale_rebuild_loop`, `test_cert_rebuild_chain`,
+  `test_factory_visibility` (2/2), `test_w4_readback_evidence` (23/23) and `test_vacuity`.
+  All pass.
+- Also passing: `test_rebuild_graph`, `test_evidence_perf` (7/7), `test_compiler`,
+  `test_reverse` and `test_twin`.
+- `test_w4_resume_runner`: one failure, `test_p09_a_finalize_failure_fails_the_run_and_never_fails_open`,
+  in a run that shared the CPU with the real-chain suites. Run alone, it passes on this branch
+  and on base. It exercises the suite runner, which this branch does not touch.
+- Mutation note: during development a shadowed `stamp` variable in `enqueue` changed every
+  product key. `test_eng_halt_380` caught it (CHURN held on the systemic halt), and it was
+  fixed before commit.
+- Not run here: the PostgreSQL halves (no local toolchain).
 
 ## Post-deploy readback check (inferred vs observed)
 
